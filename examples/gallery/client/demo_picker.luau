@@ -507,8 +507,8 @@ demo_picker.DEMOS = {
 	},
 	{
 		id = "ex06",
-		title = "Tile game",
-		blurb = "Grid layout and drag interaction",
+		title = "Crossword",
+		blurb = "Crossword rules, nine named refusals, four inputs",
 		kind = "example",
 		module = "06_tile_game",
 	},

@@ -635,26 +635,19 @@ theme_ledger.ROWS = {
 		packages = "fantasy-ornate,fantasy-parchment,glossy-touch,pixel-quest",
 		kind = "theme-inset-yield",
 	},
-	{
-		surface = "06_tile_game",
-		variant = "-",
-		node = "/TileGame/Page/board/cell*",
-		sig = "the 'X' chrome contentInsets could not be",
-		px = 56,
-		since = 0,
-		packages = "compact-pointer,pixel-quest",
-		kind = "theme-inset-yield",
-	},
-	{
-		surface = "06_tile_game",
-		variant = "-",
-		node = "/TileGame/Page/rack/rt*",
-		sig = "the 'X' chrome contentInsets could not be",
-		px = 56,
-		since = 0,
-		packages = "compact-pointer,pixel-quest",
-		kind = "theme-inset-yield",
-	},
+	-- THE TWO 06_tile_game `theme-inset-yield` ROWS ARE GONE (2026-08-29, the
+	-- crossword rewrite), and they were deleted rather than re-recorded because
+	-- the defect they described is fixed rather than moved.
+	--
+	-- Both were one cause: a `{ type = "fixed", px = "controlSizes.large.height" }`
+	-- square. A fixed box cannot afford a package's chrome inset, so Compact
+	-- Pointer and Pixel Quest each yielded theirs on all 25 board cells and all 7
+	-- rack tiles. The rewrite sizes both from
+	-- `{ type = "minMax", min = "targetSizes.minimum" }` — a FLOOR the square can
+	-- grow past, which is the answer docs/lessons/facet-fixed-px-heights.md names
+	-- — so the inset is affordable and nothing yields. The board cell is also no
+	-- longer a Button at all (it is a plate plus a `plain` hit layer), so it
+	-- classifies into no chrome slot to begin with.
 	{
 		surface = "p2_cartwheel",
 		variant = "-",

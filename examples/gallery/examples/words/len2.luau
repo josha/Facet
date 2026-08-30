@@ -11,15 +11,15 @@
 -- Licence and required notices: examples/gallery/examples/words/PROVENANCE.md
 --
 -- The words are stored as one fixed-width run rather than a table because the
--- lookup is a binary search over character offsets: 93 entries cost no
+-- lookup is a binary search over character offsets: 94 entries cost no
 -- table allocation at load and about 7 string comparisons per query.
 
 local CHUNKS = {
-	"adahaiamanasataxbebibycsdedoehemeneresetexfagogshahehihoidifinisitjajokakbkikslalmlnlolslxmambmemfmimsmumynenonuodofohoiomonooorowoxpapepipsqirersshsisosstatitotsuhumupusutwewoxixuyayeyo",
+	"adahaiamanasataxaybebibycsdedoehemeneresetexfagogshahehihoidifinisitjajokakbkikslalmlnlolslxmambmemfmimsmumynenonuodofohoiomonooorowoxpapepipsqirersshsisosstatitotsuhumupusutwewoxixuyayeyo",
 }
 
 return table.freeze({
 	length = 2,
-	count = 93,
+	count = 94,
 	packed = table.concat(CHUNKS),
 })

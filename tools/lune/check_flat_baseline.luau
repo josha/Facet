@@ -167,7 +167,13 @@ local ALLOWED_RECT_DRIFT: { { fixture: string, viewport: string?, prefix: string
 			.. "nodes in a column that fills, no sibling reads their width, height is 29 everywhere before "
 			.. "and after, and every other node in all three fixtures is byte-identical. IT IS PINNED AS AN "
 			.. "EXACT PATH, not a prefix, so the boards and racks under these pages keep their rect "
-			.. "coverage. The paired ALLOWED_PROP_DRIFT entry forgives the `text` token itself.",
+			.. "coverage. The paired ALLOWED_PROP_DRIFT entry forgives the `text` token itself. "
+			.. "AND IT MOVED AGAIN (2026-08-29): `Facet Tiles` -> `Facet Crossword`, because the example under "
+			.. "it is a crossword now and a title that named the old loop would be the one line on the screen "
+			.. "still describing it. The box widens rather than narrows this time; the argument is unchanged "
+			.. "and the entry is left standing rather than re-pinned, because what it forgives — this node's "
+			.. "own width following its own text — is the same fact either way. See the crossword block "
+			.. "further down this file for the rewrite itself.",
 	},
 	{
 		fixture = "05_word_game",
@@ -464,10 +470,12 @@ local ALLOWED_CLASS_DRIFT: { { fixture: string, path: string, from: string, to: 
 local ALLOWED_PROP_DRIFT: { { path: string, viewport: string?, why: string } } = {
 	{
 		path = "/TileGame/Page/Title",
-		why = "`text` only: `LuauUI Tiles` -> `Facet Tiles` (2026-08-17, the framework rename). The title "
-			.. "names the product on screen. Every other prop on the node — textFont, textSize, role — is "
-			.. "byte-identical, which is why this is a path entry and not a waived prefix; the rect it "
-			.. "consequently narrows by is characterized in ALLOWED_RECT_DRIFT under the same path.",
+		why = "`text` only: `LuauUI Tiles` -> `Facet Tiles` (2026-08-17, the framework rename), and then "
+			.. "`Facet Tiles` -> `Facet Crossword` (2026-08-29, the crossword rewrite — the example is no "
+			.. "longer a tile game and its title should not say it is). The title names the product on "
+			.. "screen. Every other prop on the node — textFont, textSize, role — is byte-identical across "
+			.. "both moves, which is why this is a path entry and not a waived prefix; the rect it "
+			.. "consequently resizes by is characterized in ALLOWED_RECT_DRIFT under the same path.",
 	},
 	{
 		path = "/Wordle/page/col/Title",
@@ -631,6 +639,184 @@ local ALLOWED_NEW_NODES: { { path: string, why: string } } = {
 			.. "is pinned as a uniform shift in ALLOWED_Y_SHIFT rather than waived as free rect drift.",
 	},
 }
+
+--[[ THE CROSSWORD REWRITE OF `06_tile_game` (2026-08-29, stage
+	example-games-and-standalones).
+
+	ONE DECISION PER PARAGRAPH, 245 NODES, so it is written once and applied to
+	the exact paths it covers rather than copied 245 times. The enumeration is
+	still EXACT — `cell1_1`..`cell7_7`, their three children each, and four named
+	siblings, and nothing else — so a fifth child under a cell, or a change one
+	node outside this fixture, still fails here.
+
+	WHAT THE EXAMPLE WAS: a 5x5 grid whose whole loop was "drop any rack tile
+	into any empty box" — no dictionary, no adjacency, no word formed, and a win
+	condition that was simply an empty rack. WHAT IT IS NOW: the crossword
+	`docs/plans/example-games-and-standalones.md` asks for, on the 7x7 board its
+	rules need. Almost none of the old file survived; the deltas below are that
+	rewrite arriving in the flat render.
+
+	1. THE BOARD IS 7x7, NOT 5x5 — 24 new cells — and a square is now
+	`{ type = "minMax", min = "targetSizes.minimum" }` where it was
+	`{ type = "fixed", px = "controlSizes.large.height" }`: 44x44 instead of
+	56x56, hugging to 7 x 44 + 6 x 4 = 332 where there is room and DIVIDING the
+	offer where there is not. Seven fixed 56px squares plus their gaps need 416px
+	and the narrowest supported page is 288, so a fixed square would simply have
+	painted off the right of a 320px phone. It was also the cause of the two
+	`theme-inset-yield` rows deleted from `tests/lib/theme_sweep_ledger.luau` in
+	the same change: a fixed box cannot afford a package's chrome inset, and a
+	floor can. So every pre-existing cell moves and resizes, `/board` goes 296 ->
+	332, and `Hint`, `RackLabel`, the rack tiles and `Reset` move down the page.
+
+	2. A CELL IS A PLATE PLUS A HIT LAYER, NOT A BUTTON — 147 new child nodes, 25
+	class substitutions, and 25 prop strings that empty. A `UI.Button` has no
+	`tint` channel, and a board whose empty squares paint nothing is exactly
+	`docs/lessons/a-default-valued-write-never-claims.md`: forty-nine rectangles
+	present in the tree, correct in every property probe, and absent from the
+	screen. So a cell is a `UI.ZStack` holding `plate` (a `UI.Box` carrying the
+	measured tint plus the theme's own `chip`/`raised` chrome), `mark` (a
+	`UI.Text` saying the same fact in ASCII), and `tap` (a `plain` `UI.Button`
+	that carries the letter and takes the gesture — `plain` because an undeclared
+	Button falls through to every theme's `control` slot and would paint over the
+	plate). The ZStack itself declares no props, which is the whole of the
+	`props changed '...' -> ''` on those 25 nodes.
+
+	3. THREE NAMED SIBLINGS the old loop had no need of: `/Word` is the live
+	verdict line the nine refusals reach ("Making BRAIN — 7 points", or the exact
+	sentence explaining why the turn cannot be submitted), and `/Actions` holds
+	`Submit` and `Undo`, the two turn verbs.
+
+	4. THE TEXT CHANGES. The rack is DEALT from a seeded bag now rather than
+	being the literal C-A-T-E-R-S-D, so `rt1`..`rt7` carry different letters; the
+	title is `Facet Crossword`; and the two readouts count points against a goal
+	and turns against a budget ("0 of 60 points", "6 turns left") instead of
+	tiles against a rack.
+
+	NOTHING OUTSIDE `/TileGame/` MOVES. The other seven fixtures in this dump are
+	byte-identical across this change, which is what makes it a rewrite of one
+	example rather than a change to the framework — and `/TileGame/Page/Title`,
+	`/TileGame/Page/Stats` and `/TileGame/Page/rack` keep the entries they already
+	had, so this block adds no waiver those three did not already carry. ]]
+local CROSSWORD_CELL = "the crossword's board square: a 7x7 grid of `minMax` plates where there was a 5x5 grid of "
+	.. "fixed-px Buttons. See the block comment above this loop for both decisions and their measurements."
+for row = 1, 7 do
+	for column = 1, 7 do
+		local cell = `/TileGame/Page/board/cell{row}_{column}`
+		-- the three children every square gained
+		table.insert(ALLOWED_NEW_NODES, {
+			path = `{cell}/plate`,
+			why = "the crossword cell's measured plate: a `UI.Box` carrying the state tint and the theme's own "
+				.. "chip/raised chrome. A Button has no tint channel, which is why the square stopped being one.",
+		})
+		table.insert(ALLOWED_NEW_NODES, {
+			path = `{cell}/mark`,
+			why = "the crossword cell's ASCII mark — `*` the starred centre, `+` a legal next square, `~` a "
+				.. "letter still yours to move — so the board's states survive a screen with no colour.",
+		})
+		table.insert(ALLOWED_NEW_NODES, {
+			path = `{cell}/tap`,
+			why = "the crossword cell's hit layer: a `plain` Button carrying the letter and the onActivate. It "
+				.. "is the focusable, so the Grid's derived row groups still cross the board with a D-pad.",
+		})
+		if row > 5 or column > 5 then
+			-- ...and the 24 squares a 7x7 board has that a 5x5 board did not
+			table.insert(ALLOWED_NEW_NODES, { path = cell, why = CROSSWORD_CELL })
+		else
+			table.insert(ALLOWED_CLASS_DRIFT, {
+				fixture = "06_tile_game",
+				path = cell,
+				from = "Button",
+				to = "ZStack",
+				why = CROSSWORD_CELL,
+			})
+			table.insert(ALLOWED_RECT_DRIFT, { fixture = "06_tile_game", path = cell, why = CROSSWORD_CELL })
+			table.insert(ALLOWED_PROP_DRIFT, {
+				path = cell,
+				why = CROSSWORD_CELL
+					.. " The ZStack declares no props of its own, so the string empties: the "
+					.. "label, the surface and the resolved control typography all moved down to `tap`.",
+			})
+		end
+	end
+end
+-- the container, and everything the taller board pushed down the page
+for _, path in
+	{
+		"/TileGame/Page/board",
+		"/TileGame/Page/Hint",
+		"/TileGame/Page/RackLabel",
+		"/TileGame/Page/Reset",
+	}
+do
+	table.insert(ALLOWED_RECT_DRIFT, {
+		fixture = "06_tile_game",
+		path = path,
+		why = CROSSWORD_CELL
+			.. " This node is the board container itself or a sibling below it, so it moves by "
+			.. "the board's own growth plus the one line `/Word` inserted above it. It is NOT an ALLOWED_Y_SHIFT "
+			.. "entry because the board's WIDTH and HEIGHT both changed too, and that waiver forgives a pure "
+			.. "vertical translation only.",
+	})
+end
+for slot = 1, 7 do
+	table.insert(ALLOWED_RECT_DRIFT, {
+		fixture = "06_tile_game",
+		path = `/TileGame/Page/rack/rt{slot}`,
+		why = 'the rack tile takes the same `{ type = "minMax", min = "targetSizes.minimum" }` square as the '
+			.. "board's — 56x56 -> 44x46, a FLOOR the letter can grow past rather than a fixed box it can "
+			.. "overflow (docs/lessons/facet-fixed-px-heights.md) — and the whole rack sits lower because the "
+			.. "board above it is 36px taller. Its 46px height is the floor plus the theme's own control inset.",
+	})
+	table.insert(ALLOWED_PROP_DRIFT, {
+		path = `/TileGame/Page/rack/rt{slot}`,
+		why = "`label` only: the rack is DEALT from a seeded 98-tile bag now rather than being the hand-written "
+			.. "literal C-A-T-E-R-S-D, so seed 20260829 puts E-D-A-I-R-E-E in these seven slots. `enabled`, "
+			.. "`selected`, `padding` and the resolved typography are all byte-identical.",
+	})
+end
+table.insert(ALLOWED_PROP_DRIFT, {
+	path = "/TileGame/Page/Stats/Score",
+	why = "`text` only: `Score 0` -> `0 of 60 points`. The crossword has a GOAL, and a score with no goal beside "
+		.. "it is a number the player cannot act on. Same node, same path, same typography role.",
+})
+table.insert(ALLOWED_PROP_DRIFT, {
+	path = "/TileGame/Page/Stats/Progress",
+	why = "`text` only: `0 of 7 tiles placed` -> `6 turns left`. The crossword is bounded by TURNS rather than by "
+		.. "rack size, so this is the same readout counting the thing that now runs out.",
+})
+table.insert(ALLOWED_PROP_DRIFT, {
+	path = "/TileGame/Page/Hint",
+	why = "`text` only: the instruction line's opening sentence is `Cover the starred square with a word to "
+		.. "begin.` rather than `Pick a letter from your rack, then tap an empty square to place it.` — the "
+		.. "crossword's first task is not the old game's. Role and typography are byte-identical.",
+})
+for _, entry in
+	{
+		{
+			"/TileGame/Page/Word",
+			"the live verdict line: the current word and what it scores, or the exact "
+				.. "sentence explaining why the turn cannot be submitted. It is the only channel the nine refusals "
+				.. "reach, which is why tests/example_readouts.spec.luau now pins it.",
+		},
+		{
+			"/TileGame/Page/Actions",
+			'the actions row: a `minColumnWidth = "intrinsic"` Grid, so the two turn '
+				.. "verbs ride side by side where they fit and stack on a 320px phone where they do not — the same "
+				.. "answer the Stats line above it takes.",
+		},
+		{
+			"/TileGame/Page/Actions/Submit",
+			"`Submit word` — the button that validates the turn, commits it, "
+				.. "scores it and refills the rack. The old loop had no turn to commit.",
+		},
+		{
+			"/TileGame/Page/Actions/Undo",
+			"`Undo turn` — returns every uncommitted tile to the slot it came from " .. "and unlocks the axis.",
+		},
+	}
+do
+	table.insert(ALLOWED_NEW_NODES, { path = entry[1], why = entry[2] })
+end
 
 -- A SUBTREE THAT WAS DELIBERATELY RE-SHAPED. The two lists above are per-NODE,
 -- which is right when a decision moves a node; it is the wrong instrument when a

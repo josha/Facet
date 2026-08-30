@@ -365,6 +365,12 @@ require("./example_word_game.spec")
 -- measured lookup cost. The words the old thirty-four-entry list refused are a
 -- case of their own, because they were the reason for the replacement
 require("./example_word_data.spec")
+-- ...and the CROSSWORD's own rules and machine (stage example-games-and-standalones):
+-- the bag, the seeded deal and its guaranteed opening, the axis, the unbroken run,
+-- the centre and the connection, every word a turn creates and what it scores, the
+-- nine refusals as nine exact sentences on screen, both endings, a seeded replay,
+-- and the forty-nine board plates measured against the page in every shipped theme
+require("./example_tile_game.spec")
 
 require("./popup_button.spec")
 require("./text_input.spec")

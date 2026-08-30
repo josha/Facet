@@ -24,25 +24,33 @@ SCOWL grades every word by how widely it is known: size 10 is roughly the
 thousand commonest English words, size 95 is everything including the obscure.
 Two jobs want two different cuts.
 
-**Accepted guesses** use sizes 10 through 70, from the
-`english-words` and `american-words` classes only — which is what excludes proper
-names, abbreviations and contractions without a second guess-filter. Lengths
-2 through 7 are kept, because the crossword needs
+**Accepted guesses** use sizes 10 through 70 across **every dialect
+SCOWL ships** — `english`, `american`, `british`, `british_z`, `canadian`, `australian`, `variant_1`, `variant_2`, `variant_3` — restricted to the `-words` classes, which is what
+excludes proper names, abbreviations and contractions without a second guess-filter.
+Lengths 2 through 7 are kept, because the crossword needs
 short words and the word game needs five-letter ones.
 
-| 2 letters | 93 |
-| 3 letters | 792 |
-| 4 letters | 3,168 |
-| 5 letters | 6,421 |
-| 6 letters | 10,742 |
-| 7 letters | 15,385 |
+*Every* dialect, and that is deliberate. With American and pan-English alone, `axe`,
+`grey`, `colour`, `theatre`, `centre`, `favour`, `litre`, `cheque`, `kerb`, `tyre` and
+`pyjamas` were all refused — SCOWL files those under `british-words` and the
+`variant_*` classes. A player who types `grey` and is told it is not a word blames the
+game, and is right to.
+
+| 2 letters | 94 |
+| 3 letters | 808 |
+| 4 letters | 3,284 |
+| 5 letters | 6,727 |
+| 6 letters | 11,249 |
+| 7 letters | 16,018 |
 
 Accepting a guess is deliberately generous: a player who types a real word and is
 told it is not one blames the game, and is right to.
 
-**Answers** use sizes 10 through 35 at five letters, minus
-simple plurals (a word ending in *s* whose four-letter stem is also a word) and
-simple past tenses. That leaves **2,096** familiar words. Choosing an
+**Answers** use sizes 10 through 35 at five letters, from
+`english`, `american` only, minus simple plurals (a word ending in *s* whose four-letter
+stem is also a word) and simple past tenses. The answer set stays on one spelling
+convention on purpose: a puzzle whose answer is `colour` is unfair to half its players
+and `color` to the other half, so guesses accept both and answers pick one. That leaves **2,095** familiar words. Choosing an
 answer is deliberately conservative: an answer nobody knows is not a puzzle, and
 *asked* and *cakes* are real words but poor ones.
 
@@ -52,8 +60,9 @@ cannot be won and neither list can see the problem on its own.
 
 ## Transformations applied
 
-1. Read `final/english-words.N` and `final/american-words.N` for each size N in
-   the chosen range, decoding as ISO-8859-1 (SCOWL's own encoding).
+1. Read `final/<dialect>-words.N` for each size N in the chosen range and each
+   dialect listed above, decoding as ISO-8859-1 (SCOWL's own encoding). The answer
+   set keeps only the American and pan-English half of what that reads.
 2. Keep only entries matching `^[a-z]+$` — this drops accented forms and anything
    with an apostrophe, and it is why no capitalisation rule is needed.
 3. Keep the length range named above.

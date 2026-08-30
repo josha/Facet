@@ -184,6 +184,32 @@ describe("example word data: it accepts what a player would type", function()
 		end
 	end)
 
+	it("accepts a guess in any dialect, while an answer keeps one spelling", function()
+		--[[ FOUND BY THE CROSSWORD GAME, writing a test: `axe` was refused. SCOWL
+			files it under `british-words`, and an American-only filter therefore
+			refused `grey`, `colour`, `theatre`, `centre`, `favour`, `litre`,
+			`cheque`, `kerb`, `tyre` and `pyjamas` too — the exact failure this data
+			replaced, reappearing one dialect over.
+
+			The two sets diverge on purpose: a puzzle whose ANSWER is `colour` is
+			unfair to half its players and `color` to the other half, so answers keep
+			one convention while guesses accept both. ]]
+		local refused = {}
+		for _, word in { "axe", "grey", "colour", "theatre", "centre", "favour", "litre", "cheque", "kerb", "tyre" } do
+			if not words.isWord(word) then
+				table.insert(refused, word)
+			end
+		end
+		if #refused > 0 then
+			error(`a dialect spelling is still refused: {table.concat(refused, ", ")}`, 2)
+		end
+		-- ...and the answer set did NOT widen with it
+		expect(words.isSolution("color")).toBe(true)
+		expect(words.isSolution("colour")).toBe(false)
+		expect(words.provenance.policy.solutionDialects ~= nil).toBe(true)
+		expect(#words.provenance.policy.acceptDialects > #words.provenance.policy.solutionDialects).toBe(true)
+	end)
+
 	it("accepts the words the old hand-written list rejected", function()
 		--[[ The point of the whole replacement, stated as its own case. Every one
 			of these is a word a player would reasonably try; the previous

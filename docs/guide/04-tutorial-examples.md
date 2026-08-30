@@ -42,7 +42,7 @@ The file order:
 | 4 | `03_settings_sync.luau` | optimistic mutation and server reconciliation |
 | 5 | `04_confirm_dialog.luau` | modals, focus trapping, cancel routing |
 | 6 | `05_word_game.luau` | a keyed `UI.Grid`, state as theme roles, a hardware-key context |
-| 7 | `06_tile_game.luau` | selection state and derived score at board scale |
+| 7 | `06_tile_game.luau` | a pure rules table, nine named refusals, and a board that paints |
 | 8 | `07_match3.luau` | adaptive layout, async images, deterministic churn |
 
 ---
@@ -888,73 +888,102 @@ reach the same game commands.
 
 ---
 
-## 4.6 Tile game
+## 4.6 Crossword tile game
 
-**New concepts over example 6: selection state and a derived score across a whole
-board.**
+**New concepts over example 6: a pure rules table the tests can play without a
+screen, and a board where every empty square still paints something.**
 
-A Scrabble-style board: a rack of lettered tiles and a five-by-five grid. The
-interaction is *select-then-place* — tap a rack tile to select it, then tap a
-board cell to place it. (This is deliberately not drag-and-drop; pick-up-by-drag
-is a later expansion, and select-then-place needs nothing new.)
+Seven letter tiles, six turns, a seven-by-seven board with a starred centre, and
+sixty points to reach. Pick a rack tile, tap a square, repeat, then **Submit
+word**. The first turn has to cover the star; every turn after it has to touch a
+letter already on the board; and every word the turn creates — the run along its
+own axis *and* every crossing word a placed tile now sits inside — has to be in
+the shared dictionary (`examples/gallery/examples/words`, the same data the word
+game runs on).
 
-The entire interaction is expressed as three signals plus memos over them:
+The interaction is *select-then-place* — activate a rack tile to select it, then
+activate a board square to place it, and activate the held tile again to put it
+down. It is deliberately not drag-and-drop: select-then-place needs nothing new
+and is identical on a mouse, a fingertip, an arrow key and a D-pad.
+
+**The rules are a pure table.** `example.rules` takes a board and a placement and
+returns a verdict. No signal, no presenter, no engine:
 
 ```lua
-local selected    = reg(core:signal(nil :: number?))          -- selected rack slot
-local placedSlots = reg(core:signal({} :: { [number]: boolean }))  -- which rack tiles are spent
-local placements  = reg(core:signal({} :: { [string]: any }))      -- board cell -> { letter, value }
+local verdict = rules.validate(board, placed, turn)
+-- { ok = true,  made = { { word = "ONE", axis = "row", score = 3 }, ... },
+--   score = 10, bonus = 0, tiles = 3, message = "Making ONE — 10 points" }
+-- { ok = false, code = "connect",
+--   message = "After the first turn, a word has to touch a letter already on the board." }
 ```
 
-Every visible property is a pure binding over those. A board cell's label is the
-placed letter or empty; a rack tile's `label`, its `enabled` flag, and its
-`selected` flag are each a memo:
+That shape is why `tests/example_tile_game.spec.luau` can play every rule and
+every refusal headlessly, and it is why *no crossword logic is in Facet*. A
+user-interface library has no opinion about English; if a board needed something
+the framework could not express, that would be a framework gap to fix behind a
+public API rather than something to work around here.
+
+**Refusal is feedback, with the exact problem named.** There are nine refusals and
+nine sentences, and a refused submit **changes nothing** — every placed tile stays
+where the player put it, so they move one tile instead of rebuilding a five-tile
+word from an empty rack. The same `rules.validate` also runs as a memo over the
+board, so the verdict line reads *before* the press:
 
 ```lua
-local enabled    = reg(core:memo(function(use) return not use(placedSlots)[slot] end))
-local isSelected = reg(core:memo(function(use) return use(selected) == slot end))
-UI.Button({ id = "rt" .. i, label = label, enabled = enabled, selected = isSelected, ... })
-```
-
-This is the first example to drive the `enabled` and `selected` props of a button
-reactively — a spent tile blanks and disables itself; the chosen tile shows its
-selected state — with no imperative toggling.
-
-The **score** shows why deriving state matters: it is a memo that sums the value
-of every placed tile, so it *cannot* drift out of sync with the board no matter
-how placements change:
-
-```lua
-local score = reg(core:memo(function(use)
-    local total = 0
-    for _, p in use(placements) do total += p.value end
-    return total
+local verdictSig = reg(core:memo(function(use)
+    local pending = use(pendingSig)
+    if next(pending) == nil then return nil end
+    return rules.validate(use(boardSig), pending, use(turnSig))
 end))
 ```
 
-Activation lives on each node: a rack tile's `onActivate` selects its slot, a
-board cell's `onActivate` places the selection — and each command updates the
-signals, which repaints exactly the affected tiles. The board and the rack are
-each one `UI.Grid`, and the presenter derives 2D navigation from a Grid for free
-(per-row groups linked by up/down exits), so a D-pad or the arrow keys cross the
-whole board and rack and Activate select-then-places — the example passes no
-`present()` opts.
+**Every square paints something, and the cue is never colour alone.** A board of
+forty-nine rectangles that is present in the tree and invisible on the screen is a
+real failure this repository has shipped
+(`docs/lessons/a-default-valued-write-never-claims.md`): the obvious plate role,
+`surfaceStrong`, is the *panel* colour, which every theme keeps within a few
+percent of the page — 1.036:1 under Sci-Fi HUD. So a square is a `UI.ZStack`
+holding three nodes rather than a single `UI.Button`:
 
-**Refusal is feedback.** The quality pass played this example and found that every
-move the rules rejected did *nothing at all*: tapping a square with nothing picked
-up, tapping an occupied square, and tapping a spent rack slot were all completely
-silent, and the second of them left the tile still highlighted with no reason
-given. A rule that silently does nothing is indistinguishable from a broken
-button. Each refusal now names itself in the instruction line — "Pick a letter
-from your rack first", "Row 2, column 3 already has a letter" — and a successful
-move clears the message, so the line always describes the state it sits above. A
-spent rack slot is `enabled = false` with a spent marker, which answers the
-question *before* the tap rather than after it.
+```lua
+UI.Box({ id = "plate", tint = tint, surface = surface, width = FILL, height = FILL })
+UI.Text({ id = "mark", text = mark, textSize = "caption", role = "secondary" })
+UI.Button({ id = "tap", label = label, surface = "plain", padding = 0, onActivate = ... })
+```
 
-The example also gained what a player needs to finish: a score and a `3 of 7 tiles
-placed` progress readout, a completion message, and **Start over**, which returns
-every observable — including the selection and the message — to its starting
-value.
+`plate` carries the colour (a `tint`, which is the one paint channel a `Box` has
+and a `Button` has none of) *and* the structure: the theme's own solid `raised`
+plate for a committed letter, its outlined `chip` for an uncommitted one. `mark`
+says the same fact a third time in ASCII — `*` the starred centre, `+` a legal
+next square, `~` a letter still yours to move. `tap` is `surface = "plain"`,
+which is the explicit declaration that it paints no plate of its own; without it
+every theme falls a Button through to its `control` slot and paints one anyway.
+`tests/example_tile_game.spec.luau` measures all forty-nine plates against the
+page behind them in all fifteen shipped themes and holds them to a 1.25:1 floor.
+
+**A square is a floor, not a fixed box.** Both the board cells and the rack tiles
+are `{ type = "minMax", min = "targetSizes.minimum" }`. Seven fixed 56px squares
+plus their gaps need 416px and the narrowest supported page is 288, so a fixed
+square would have painted straight off the right of a 320px phone; a `minMax`
+floor lets `itemSizing = "uniform"` hug seven squares where there is room and
+divide the offer where there is not, and lets the letter grow at a raised text
+preference instead of being clipped
+(`docs/lessons/facet-fixed-px-heights.md`).
+
+The board and the rack are each one `UI.Grid`, and the presenter derives 2D
+navigation from a Grid for free (per-row groups linked by up/down exits), so a
+D-pad or the arrow keys cross the whole board, the rack and the actions row with
+no navigation map in the example — it passes no `present()` opts. A typed letter
+with a board square focused places that letter, but it is a *convenience on top
+of* select-then-place and never the only route in.
+
+**A deterministic deal with a guaranteed opening.** The bag is the familiar
+98-tile English multiset, shuffled from a seeded generator, so a seed always deals
+the same game and a replay test can assert an exact final board. After the deal
+the game checks that some subset of the rack spells a word it can lay across the
+centre and reshuffles from the same stream if not, bounded at sixty-four attempts
+— the same guarantee `07_match3`'s `deal()` makes for its opening legal move, for
+the same reason: a hand that cannot start is a dead end the player cannot see.
 
 ---
 

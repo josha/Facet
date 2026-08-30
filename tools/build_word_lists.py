@@ -76,9 +76,35 @@ SOURCE_HOME = "http://wordlist.aspell.net/"
 # ── The policy ──────────────────────────────────────────────────────────────
 # SCOWL "size" tiers, smallest (most common) first.
 TIERS = [10, 20, 35, 40, 50, 55, 60, 70, 80, 95]
-# Only the `-words` classes: that already excludes proper names, abbreviations
-# and contractions, so no second filter has to guess at them.
-DIALECTS = ["english", "american"]
+# TWO DIALECT SETS, BECAUSE THE TWO JOBS WANT DIFFERENT ANSWERS.
+#
+# Only the `-words` classes in either case: that already excludes proper names,
+# abbreviations and contractions, so no second filter has to guess at them.
+#
+# ACCEPTING A GUESS TAKES EVERY DIALECT. Measured 2026-08-29, after the crossword
+# game hit it writing a test: with American and pan-English only, `axe`, `grey`,
+# `colour`, `theatre`, `centre`, `favour`, `litre`, `cheque`, `kerb`, `tyre` and
+# `pyjamas` were all REFUSED — SCOWL files those under `british-words` and the
+# `variant_*` classes. A player who types `grey` and is told it is not a word
+# blames the game, and is right to; that is the exact failure this data replaced,
+# reappearing one dialect over. Widening costs 1,579 words (36,601 -> 38,180 at
+# lengths two to seven).
+#
+# CHOOSING AN ANSWER STAYS AMERICAN. A puzzle whose answer is `colour` is unfair
+# to half its players and `color` to the other half, so the answer set keeps one
+# spelling convention while the guess set accepts both.
+ACCEPT_DIALECTS = [
+    "english",
+    "american",
+    "british",
+    "british_z",
+    "canadian",
+    "australian",
+    "variant_1",
+    "variant_2",
+    "variant_3",
+]
+SOLUTION_DIALECTS = ["english", "american"]
 
 ACCEPT_MAX_TIER = 70
 ACCEPT_MIN_LEN = 2
@@ -151,8 +177,13 @@ def fetch_source(offline: bool) -> str:
 
 
 def read_source(archive: str):
-    """Return (words_by_tier, copyright_text, readme_version)."""
+    """Return (words_by_tier, solution_words_by_tier, copyright_text, version).
+
+    Two tier maps, not one: the guess set takes every dialect and the answer set
+    stays American, so the loader keeps them apart rather than filtering later.
+    """
     by_tier = {t: set() for t in TIERS}
+    solution_by_tier = {t: set() for t in TIERS}
     copyright_text = None
     version = None
     with tarfile.open(archive, "r:gz") as tf:
@@ -170,16 +201,18 @@ def read_source(archive: str):
             if not m:
                 continue
             dialect, tier = m.group(1), int(m.group(2))
-            if dialect not in DIALECTS or tier not in by_tier:
+            if dialect not in ACCEPT_DIALECTS or tier not in by_tier:
                 continue
             text = tf.extractfile(member).read().decode("iso-8859-1")
             for line in text.splitlines():
                 w = line.strip()
                 if WORD_RE.match(w):
                     by_tier[tier].add(w)
+                    if dialect in SOLUTION_DIALECTS:
+                        solution_by_tier[tier].add(w)
     if copyright_text is None:
         raise SystemExit("build_word_lists: the archive carries no Copyright file — refusing to ship its output")
-    return by_tier, copyright_text, version
+    return by_tier, solution_by_tier, copyright_text, version
 
 
 def cumulative(by_tier, max_tier: int) -> set:
@@ -191,7 +224,7 @@ def cumulative(by_tier, max_tier: int) -> set:
     return out
 
 
-def build_sets(by_tier):
+def build_sets(by_tier, solution_by_tier):
     broad = cumulative(by_tier, ACCEPT_MAX_TIER)
     accepted = {w for w in broad if ACCEPT_MIN_LEN <= len(w) <= ACCEPT_MAX_LEN}
     by_len = {}
@@ -207,7 +240,7 @@ def build_sets(by_tier):
     def is_simple_past(w: str) -> bool:
         return w.endswith("ed") and (w[:-1] in four or w[:-2] in three)
 
-    familiar = cumulative(by_tier, SOLUTION_MAX_TIER)
+    familiar = cumulative(solution_by_tier, SOLUTION_MAX_TIER)
     solutions = {
         w
         for w in familiar
@@ -309,8 +342,8 @@ def write_if_changed(path: str, text: str) -> bool:
 
 def generate(offline: bool) -> int:
     archive = fetch_source(offline)
-    by_tier, copyright_text, version = read_source(archive)
-    by_len, solutions = build_sets(by_tier)
+    by_tier, solution_by_tier, copyright_text, version = read_source(archive)
+    by_len, solutions = build_sets(by_tier, solution_by_tier)
     check_sets(by_len, solutions)
 
     os.makedirs(OUT_DIR, exist_ok=True)
@@ -355,7 +388,8 @@ def generate(offline: bool) -> int:
             "acceptedLengths": [ACCEPT_MIN_LEN, ACCEPT_MAX_LEN],
             "solutionMaxTier": SOLUTION_MAX_TIER,
             "solutionLength": SOLUTION_LEN,
-            "dialects": DIALECTS,
+            "acceptDialects": ACCEPT_DIALECTS,
+            "solutionDialects": SOLUTION_DIALECTS,
             "droppedFromSolutions": ["simple plurals", "simple past tenses"],
         },
         "counts": {str(k): len(v) for k, v in sorted(by_len.items())},
@@ -412,6 +446,8 @@ def manifest_module(manifest: dict) -> str:
 
 
 def provenance_markdown(copyright_text: str, version, by_len, solutions) -> str:
+    accept_dialects = ", ".join(f"`{d}`" for d in ACCEPT_DIALECTS)
+    solution_dialects = ", ".join(f"`{d}`" for d in SOLUTION_DIALECTS)
     counts = "\n".join(
         f"| {k} letters | {len(v):,} |" for k, v in sorted(by_len.items())
     )
@@ -441,20 +477,28 @@ SCOWL grades every word by how widely it is known: size 10 is roughly the
 thousand commonest English words, size 95 is everything including the obscure.
 Two jobs want two different cuts.
 
-**Accepted guesses** use sizes 10 through {ACCEPT_MAX_TIER}, from the
-`english-words` and `american-words` classes only — which is what excludes proper
-names, abbreviations and contractions without a second guess-filter. Lengths
-{ACCEPT_MIN_LEN} through {ACCEPT_MAX_LEN} are kept, because the crossword needs
+**Accepted guesses** use sizes 10 through {ACCEPT_MAX_TIER} across **every dialect
+SCOWL ships** — {accept_dialects} — restricted to the `-words` classes, which is what
+excludes proper names, abbreviations and contractions without a second guess-filter.
+Lengths {ACCEPT_MIN_LEN} through {ACCEPT_MAX_LEN} are kept, because the crossword needs
 short words and the word game needs five-letter ones.
+
+*Every* dialect, and that is deliberate. With American and pan-English alone, `axe`,
+`grey`, `colour`, `theatre`, `centre`, `favour`, `litre`, `cheque`, `kerb`, `tyre` and
+`pyjamas` were all refused — SCOWL files those under `british-words` and the
+`variant_*` classes. A player who types `grey` and is told it is not a word blames the
+game, and is right to.
 
 {counts}
 
 Accepting a guess is deliberately generous: a player who types a real word and is
 told it is not one blames the game, and is right to.
 
-**Answers** use sizes 10 through {SOLUTION_MAX_TIER} at five letters, minus
-simple plurals (a word ending in *s* whose four-letter stem is also a word) and
-simple past tenses. That leaves **{len(solutions):,}** familiar words. Choosing an
+**Answers** use sizes 10 through {SOLUTION_MAX_TIER} at five letters, from
+{solution_dialects} only, minus simple plurals (a word ending in *s* whose four-letter
+stem is also a word) and simple past tenses. The answer set stays on one spelling
+convention on purpose: a puzzle whose answer is `colour` is unfair to half its players
+and `color` to the other half, so guesses accept both and answers pick one. That leaves **{len(solutions):,}** familiar words. Choosing an
 answer is deliberately conservative: an answer nobody knows is not a puzzle, and
 *asked* and *cakes* are real words but poor ones.
 
@@ -464,8 +508,9 @@ cannot be won and neither list can see the problem on its own.
 
 ## Transformations applied
 
-1. Read `final/english-words.N` and `final/american-words.N` for each size N in
-   the chosen range, decoding as ISO-8859-1 (SCOWL's own encoding).
+1. Read `final/<dialect>-words.N` for each size N in the chosen range and each
+   dialect listed above, decoding as ISO-8859-1 (SCOWL's own encoding). The answer
+   set keeps only the American and pan-English half of what that reads.
 2. Keep only entries matching `^[a-z]+$` — this drops accented forms and anything
    with an apostrophe, and it is why no capitalisation rule is needed.
 3. Keep the length range named above.

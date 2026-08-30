@@ -205,7 +205,21 @@ describe("examples/05 word game (Wordle-style)", function()
 end)
 
 -- =====================================================================
--- 07 — Scrabble-style tile game
+-- 06 — the crossword tile game
+--
+-- THE "07" IN THE describe NAME BELOW IS A STALE LABEL that predates the
+-- gallery renumbering; the file is `06_tile_game.luau` and the four-input
+-- cases inside it are the `ex06` rows the gate greps. It is left standing
+-- rather than corrected because those two facts are worth one comment and
+-- a rename would move a pinned line for nothing.
+--
+-- WHAT LIVES HERE, AND WHAT DOES NOT. This block owns the MOUNTED input
+-- proofs: every action the game has, reached through a real device path,
+-- with no per-device branch in the example. The rules, the nine refusals,
+-- the turn loop, the endings, the determinism and the paint are
+-- tests/example_tile_game.spec.luau — a rules table that takes a board and
+-- a placement and returns a verdict does not need a screen to be tested,
+-- and that is the whole reason it is a rules table.
 -- =====================================================================
 describe("examples/07 tile game (Scrabble-style)", function()
 	it("mounts and renders headlessly with no runtime error", function()
@@ -213,28 +227,35 @@ describe("examples/07 tile game (Scrabble-style)", function()
 		local game = tileGame.build(Facet, core, deps)
 		expect(core:lastError()).toBeNil()
 		expect(adapter.node("/TileGame") == nil).toBeFalsy()
+		-- all forty-nine squares, both plates deep, and the seven rack slots
 		expect(adapter.node(game.cellPath(1, 1)) == nil).toBeFalsy()
+		expect(adapter.node(game.cellPath(7, 7)) == nil).toBeFalsy()
+		expect(adapter.node(game.platePath(4, 4)) == nil).toBeFalsy()
 		expect(adapter.node(game.rackPath(1)) == nil).toBeFalsy()
+		expect(adapter.node(game.rackPath(7)) == nil).toBeFalsy()
+		expect(adapter.node(game.submitPath) == nil).toBeFalsy()
+		expect(adapter.node(game.undoPath) == nil).toBeFalsy()
 		game.dispose()
 	end)
 
-	it("select-then-place moves a rack tile onto a cell and scores it", function()
+	it("select-then-place moves a rack tile onto a board square", function()
 		local core, deps, adapter = makeWorld()
 		local game = tileGame.build(Facet, core, deps)
-		expect(game.score()).toBe(0)
-		local rackBefore = game.rackCount()
-		local letter, value = game.rackTile(1)
-		-- tap the first rack tile (select), then tap a board cell (place)
+		local letter = game.rackLetter(1)
+		-- tap the first rack tile (select), then tap a board square (place)
 		adapter.tap(game.rackPath(1))
-		adapter.tap(game.cellPath(2, 3))
-		expect(game.placedAt(2, 3)).toBe(letter)
-		expect(game.score()).toBe(value)
-		expect(game.rackCount()).toBe(rackBefore - 1)
-		-- placing a second tile adds its value to the running score
-		local _, value2 = game.rackTile(1)
-		adapter.tap(game.rackPath(1))
-		adapter.tap(game.cellPath(2, 4))
-		expect(game.score()).toBe(value + value2)
+		expect(game.selected()).toBe(1)
+		adapter.tap(game.cellPath(4, 4))
+		expect(game.letterAt(4, 4)).toBe(letter)
+		expect(game.rackLetter(1)).toBeNil()
+		expect(game.selected()).toBeNil()
+		-- ...and the whole turn commits and scores through the two action buttons
+		adapter.tap(game.rackPath(3))
+		adapter.tap(game.cellPath(4, 5))
+		adapter.tap(game.undoPath)
+		expect(game.rackCount()).toBe(7)
+		expect(game.letterAt(4, 4)).toBeNil()
+		expect(core:lastError()).toBeNil()
 		game.dispose()
 	end)
 
@@ -243,7 +264,8 @@ describe("examples/07 tile game (Scrabble-style)", function()
 		local baseline = core:counters()
 		local game = tileGame.build(Facet, core, deps)
 		adapter.tap(game.rackPath(1))
-		adapter.tap(game.cellPath(1, 1))
+		adapter.tap(game.cellPath(4, 4))
+		adapter.tap(game.submitPath)
 		game.dispose()
 		local after = core:counters()
 		for key, value in baseline :: { [string]: number } do
@@ -251,19 +273,32 @@ describe("examples/07 tile game (Scrabble-style)", function()
 		end
 	end)
 
-	-- Per-input proofs (ADR-0013): the example now carries NO activation router
-	-- (each cell/tile has a node onActivate) and gains 2D grid navigation from
-	-- the board's + rack's HStack rows (layout-derived groups). Pointer was the
-	-- only PROVEN class; these close touch/keyboard/gamepad — including the grid
-	-- nav that was STRUCTURALLY ABSENT (flat ring) in the audit.
+	-- Per-input proofs (ADR-0013): the example carries NO activation router
+	-- (each square, rack tile and action has a node onActivate) and gains 2D
+	-- grid navigation from the board's and the rack's Grids (layout-derived
+	-- groups). Every case below drives the SAME select-then-place path — the
+	-- one the design requires to be complete on its own — through a different
+	-- device, and then reaches Submit and Undo, which are new this round.
 	it("✓ ex06 touch: touch taps select a rack tile and place it on a board cell", function()
 		local core, deps, adapter = makeWorld()
 		local game = tileGame.build(Facet, core, deps)
-		local letter, value = game.rackTile(1)
+		local first = game.rackLetter(1)
+		local second = game.rackLetter(3)
 		adapter.tap(game.rackPath(1), { pointer = "touch" })
-		adapter.tap(game.cellPath(1, 1), { pointer = "touch" })
-		expect(game.placedAt(1, 1)).toBe(letter)
-		expect(game.score()).toBe(value)
+		adapter.tap(game.cellPath(4, 4), { pointer = "touch" })
+		expect(game.letterAt(4, 4)).toBe(first)
+		-- ...and the two turn verbs are reachable by fingertip too: place a
+		-- second tile, take the whole turn back, and prove the rack is whole
+		adapter.tap(game.rackPath(3), { pointer = "touch" })
+		adapter.tap(game.cellPath(4, 5), { pointer = "touch" })
+		expect(game.letterAt(4, 5)).toBe(second)
+		adapter.tap(game.undoPath, { pointer = "touch" })
+		expect(game.rackCount()).toBe(7)
+		expect(game.letterAt(4, 4)).toBeNil()
+		-- ...and a touch submit with nothing placed still answers
+		adapter.tap(game.submitPath, { pointer = "touch" })
+		deps.presenter.refresh()
+		expect(adapter.node(game.wordPath).props.text).toBe("Place at least one tile before you submit.")
 		expect(core:lastError()).toBeNil()
 		game.dispose()
 	end)
@@ -272,13 +307,29 @@ describe("examples/07 tile game (Scrabble-style)", function()
 	-- the rack", which is a fact about how many rows the board happened to have
 	-- and reddens on any layout change that is not a defect. What the row is
 	-- actually for is: from the initial focus, the D-pad/arrow keys can REACH the
-	-- rack, and Activate there picks a tile up.
+	-- rack and the actions, and Activate there does the thing.
 	local function pressUntil(sys: any, focus: any, key: string, wanted: string): boolean
-		for _ = 1, 12 do
+		for _ = 1, 16 do
 			if focus.focused:get() == wanted then
 				return true
 			end
 			press(sys, key)
+		end
+		return focus.focused:get() == wanted
+	end
+
+	-- Reaching ONE of the two actions is two moves, not one: down from the rack
+	-- lands on whichever action shares the rack tile's column, and the row is then
+	-- stepped along. Written this way the case stays a REACHABILITY claim — "the
+	-- D-pad can get there" — rather than a press count that reddens on any layout
+	-- change that is not a defect.
+	local function reachAction(sys: any, focus: any, down: string, side: string, wanted: string, other: string): boolean
+		for _ = 1, 16 do
+			local at = focus.focused:get()
+			if at == wanted then
+				return true
+			end
+			press(sys, if at == other then side else down)
 		end
 		return focus.focused:get() == wanted
 	end
@@ -288,14 +339,30 @@ describe("examples/07 tile game (Scrabble-style)", function()
 		local game = tileGame.build(Facet, core, deps)
 		local sys = deps.actionSystem
 		local focus = deps.presenter.focus
-		local letter, value = game.rackTile(1)
+		local letter = game.rackLetter(1)
 		expect(focus.focused:get()).toBe(game.cellPath(1, 1))
 		expect(pressUntil(sys, focus, "Down", game.rackPath(1))).toBe(true)
 		press(sys, "Return") -- select the rack tile
-		expect(pressUntil(sys, focus, "Up", game.cellPath(5, 1))).toBe(true)
+		expect(game.selected()).toBe(1)
+		expect(pressUntil(sys, focus, "Up", game.cellPath(7, 1))).toBe(true)
 		press(sys, "Return") -- place it
-		expect(game.placedAt(5, 1)).toBe(letter)
-		expect(game.score()).toBe(value)
+		expect(game.letterAt(7, 1)).toBe(letter)
+		-- ...and Undo is reachable and works from the keyboard alone
+		expect(reachAction(sys, focus, "Down", "Right", game.undoPath, game.submitPath)).toBe(true)
+		press(sys, "Return")
+		expect(game.letterAt(7, 1)).toBeNil()
+		expect(game.rackCount()).toBe(7)
+		-- THE TYPED-LETTER SHORTCUT, which is a convenience ON TOP of the path
+		-- above and never the only way in: with a board square focused, a
+		-- hardware letter that is on the rack lands there.
+		for _ = 1, 12 do
+			press(sys, "Up")
+		end
+		local at = focus.focused:get()
+		local row, column = string.match(at, "cell(%d+)_(%d+)/tap$")
+		expect(row ~= nil).toBe(true)
+		game.press(letter :: string)
+		expect(game.letterAt(tonumber(row) :: number, tonumber(column) :: number)).toBe(letter)
 		expect(core:lastError()).toBeNil()
 		game.dispose()
 	end)
@@ -305,166 +372,85 @@ describe("examples/07 tile game (Scrabble-style)", function()
 		local game = tileGame.build(Facet, core, deps)
 		local sys = deps.actionSystem
 		local focus = deps.presenter.focus
-		local letter, value = game.rackTile(1)
+		local letter = game.rackLetter(1)
 		expect(focus.focused:get()).toBe(game.cellPath(1, 1))
 		expect(pressUntil(sys, focus, "DPadDown", game.rackPath(1))).toBe(true)
 		press(sys, "ButtonA") -- select the rack tile
-		expect(pressUntil(sys, focus, "DPadUp", game.cellPath(5, 1))).toBe(true)
+		expect(pressUntil(sys, focus, "DPadUp", game.cellPath(7, 1))).toBe(true)
 		press(sys, "ButtonA") -- place it
-		expect(game.placedAt(5, 1)).toBe(letter)
-		expect(game.score()).toBe(value)
+		expect(game.letterAt(7, 1)).toBe(letter)
+		-- ...and the D-pad crosses the board a square at a time, which is what
+		-- the Grid's derived row groups are for
+		press(sys, "DPadRight")
+		expect(focus.focused:get()).toBe(game.cellPath(7, 2))
+		-- ...and Submit answers a gamepad A like anything else
+		expect(reachAction(sys, focus, "DPadDown", "DPadLeft", game.submitPath, game.undoPath)).toBe(true)
+		press(sys, "ButtonA")
+		expect(game.turn()).toBe(1) -- refused: a lone tile in row 7 is no word
+		expect(game.letterAt(7, 1)).toBe(letter) -- ...and the refusal kept it
 		expect(core:lastError()).toBeNil()
 		game.dispose()
 	end)
 
 	-- ========================================================================
 	-- WHAT THE PLAY AUDIT FOUND (example-quality-pass, 2026-08-06). Driven live
-	-- in Studio, the game placed tiles correctly and explained NOTHING: tapping a
-	-- square with nothing picked up, tapping an occupied square, and tapping an
-	-- already-played rack slot were all completely silent, and the second of them
-	-- left the rack tile still highlighted with no reason given. There was also no
-	-- progress, no completion and no way to start over.
-	--
-	-- One case per refusal, plus the reset, because "the rule fired" and "the
-	-- player was told" are different claims and only the second one is the lesson.
+	-- in Studio, the game placed tiles correctly and explained NOTHING: tapping
+	-- a square with nothing picked up, tapping an occupied square, and tapping
+	-- an already-played rack slot were all completely silent. The nine refusals
+	-- the crossword rules now produce are each a case in
+	-- tests/example_tile_game.spec.luau; these two stay here because they are
+	-- about the MOUNTED tree — the sentence has to reach a node.
 	-- ========================================================================
 	it("placing with nothing picked up says so instead of doing nothing", function()
 		local core, deps, adapter = makeWorld()
 		local game = tileGame.build(Facet, core, deps)
-		local before = game.hintText()
+		local before = game.wordText()
 		adapter.tap(game.cellPath(1, 1))
-		expect(game.placedAt(1, 1)).toBeNil()
-		expect(game.hintText() ~= before).toBe(true)
-		expect(string.find(game.hintText(), "Pick a letter", 1, true) ~= nil).toBe(true)
-		expect(string.find(game.hintText(), "first", 1, true) ~= nil).toBe(true)
+		expect(game.letterAt(1, 1)).toBeNil()
+		expect(game.wordText() ~= before).toBe(true)
+		expect(string.find(game.wordText(), "Pick a letter", 1, true) ~= nil).toBe(true)
+		expect(string.find(game.wordText(), "first", 1, true) ~= nil).toBe(true)
 		-- and the visible node really carries it, not just the model
 		deps.presenter.refresh()
-		expect(adapter.node(game.hintPath).props.text).toBe(game.hintText())
+		expect(adapter.node(game.wordPath).props.text).toBe(game.wordText())
 		game.dispose()
 	end)
 
-	it("placing on an occupied square names the square, and does not silently keep the tile held", function()
-		local core, deps, adapter = makeWorld()
-		local game = tileGame.build(Facet, core, deps)
-		adapter.tap(game.rackPath(1))
-		adapter.tap(game.cellPath(2, 3))
-		local scoreAfterFirst = game.score()
-		adapter.tap(game.rackPath(1)) -- the next available tile
-		adapter.tap(game.cellPath(2, 3)) -- ...onto the square that is already taken
-		expect(game.score()).toBe(scoreAfterFirst)
-		expect(string.find(game.hintText(), "already has a letter", 1, true) ~= nil).toBe(true)
-		expect(string.find(game.hintText(), "column 3", 1, true) ~= nil).toBe(true)
-		game.dispose()
-	end)
-
-	it("a spent rack slot is visibly DISABLED, not a live-looking blank button", function()
-		-- the audit's complaint: a played slot "still renders as a normal-looking
-		-- empty button; clicking it does nothing and says nothing". A disabled
-		-- control that carries a spent marker answers that before the tap, which is
-		-- better than answering after it.
+	it("progress and the goal are visible, and the readouts are ARRANGED to something", function()
 		local core, deps, adapter = makeWorld()
 		local game = tileGame.build(Facet, core, deps)
 		deps.presenter.refresh()
-		expect(adapter.node("/TileGame/Page/rack/rt1").props.enabled).toBe(true)
-		adapter.tap(game.rackPath(1))
-		adapter.tap(game.cellPath(1, 1))
-		deps.presenter.refresh()
-		local spent = adapter.node("/TileGame/Page/rack/rt1")
-		expect(spent.props.enabled).toBe(false)
-		expect(spent.props.label).toBe("·")
-		-- and it really is inert: tapping it changes nothing at all
-		local hintBefore = game.hintText()
-		adapter.tap("/TileGame/Page/rack/rt1")
-		expect(game.hintText()).toBe(hintBefore)
-		expect(game.rackCount()).toBe(6)
-		expect(core:lastError()).toBeNil()
-		game.dispose()
-	end)
-
-	it("a successful move CLEARS the previous refusal", function()
-		-- a stale complaint under a board the player has since changed is its own
-		-- defect: the line has to describe the state it sits above
-		local core, deps, adapter = makeWorld()
-		local game = tileGame.build(Facet, core, deps)
-		adapter.tap(game.cellPath(1, 1)) -- refused, message set
-		expect(string.find(game.hintText(), "Pick a letter", 1, true) ~= nil).toBe(true)
-		adapter.tap(game.rackPath(1))
-		expect(string.find(game.hintText(), "Holding", 1, true) ~= nil).toBe(true)
-		game.dispose()
-	end)
-
-	it("progress and completion are visible, and the rack really does run out", function()
-		local core, deps, adapter = makeWorld()
-		local game = tileGame.build(Facet, core, deps)
-		deps.presenter.refresh()
-		expect(adapter.node("/TileGame/Page/Stats/Progress").props.text).toBe("0 of 7 tiles placed")
-		-- ...AND THAT IT IS ARRANGED TO SOMETHING. This test was called "visible"
-		-- while proving only that a node with that path carried that text, and both
-		-- are equally true of a node the solver arranged to a zero rect — which is
-		-- exactly what a losing `ViewThatFits` candidate is, and how these two
-		-- readouts spent a mission off their published paths under a green suite
-		-- (2026-08-13). The sweep across every viewport lives in
-		-- tests/example_readouts.spec.luau; this is the same claim at the size this
-		-- example's own tests use.
-		for _, path in { "/TileGame/Page/Stats/Score", "/TileGame/Page/Stats/Progress" } do
+		expect(adapter.node("/TileGame/Page/Stats/Score").props.text).toBe("0 of 60 points")
+		expect(adapter.node("/TileGame/Page/Stats/Progress").props.text).toBe("6 turns left")
+		-- ...AND THAT THEY ARE ARRANGED TO SOMETHING. This test was once called
+		-- "visible" while proving only that a node with that path carried that
+		-- text, and both are equally true of a node the solver arranged to a zero
+		-- rect — which is exactly what a losing `ViewThatFits` candidate is, and
+		-- how these two readouts spent a mission off their published paths under
+		-- a green suite (2026-08-13). The sweep across every viewport lives in
+		-- tests/example_readouts.spec.luau; this is the same claim at the size
+		-- this example's own tests use.
+		for _, path in
+			{
+				"/TileGame/Page/Stats/Score",
+				"/TileGame/Page/Stats/Progress",
+				"/TileGame/Page/Word",
+				"/TileGame/Page/Actions/Submit",
+				"/TileGame/Page/Actions/Undo",
+			}
+		do
 			local rect = adapter.node(path).rect
 			expect(rect.w > 0 and rect.h > 0).toBe(true)
 		end
-		expect(game.finished()).toBe(false)
-		local placed = 0
-		for r = 1, 5 do
-			for c = 1, 5 do
-				if game.rackCount() > 0 then
-					adapter.tap(game.rackPath(1))
-					adapter.tap(game.cellPath(r, c))
-					placed += 1
-				end
-			end
-		end
-		expect(placed).toBe(7)
-		expect(game.finished()).toBe(true)
+		-- ...and a committed turn moves both readouts
+		adapter.tap(game.rackPath(1))
+		adapter.tap(game.cellPath(4, 4))
+		adapter.tap(game.rackPath(5))
+		adapter.tap(game.cellPath(4, 5))
+		adapter.tap(game.submitPath)
 		deps.presenter.refresh()
-		expect(adapter.node("/TileGame/Page/Stats/Progress").props.text).toBe("7 of 7 tiles placed")
-		expect(string.find(game.hintText(), "Start over", 1, true) ~= nil).toBe(true)
-		game.dispose()
-	end)
-
-	it("reset returns every observable to its starting value, selection and message included", function()
-		local core, deps, adapter = makeWorld()
-		local game = tileGame.build(Facet, core, deps)
-		local startHint = game.hintText()
-		adapter.tap(game.rackPath(1))
-		adapter.tap(game.cellPath(3, 3))
-		adapter.tap(game.rackPath(1)) -- leave a tile HELD
-		adapter.tap(game.cellPath(3, 3)) -- ...and a refusal on screen
-		expect(game.score() > 0).toBe(true)
-		adapter.tap(game.resetPath)
-		expect(game.score()).toBe(0)
-		expect(game.placedAt(3, 3)).toBeNil()
-		expect(game.rackCount()).toBe(7)
-		expect(game.finished()).toBe(false)
-		expect(game.hintText()).toBe(startHint)
-		-- ...and the board is genuinely playable again, from the same first move
-		local letter = game.rackTile(1)
-		adapter.tap(game.rackPath(1))
-		adapter.tap(game.cellPath(1, 1))
-		expect(game.placedAt(1, 1)).toBe(letter)
-		expect(core:lastError()).toBeNil()
-		game.dispose()
-	end)
-
-	it("rapid alternating input leaves no stale selection or held tile", function()
-		local core, deps, adapter = makeWorld()
-		local game = tileGame.build(Facet, core, deps)
-		for _ = 1, 20 do
-			adapter.tap(game.rackPath(1))
-			adapter.tap(game.cellPath(1, 1))
-			adapter.tap(game.cellPath(1, 1))
-			adapter.tap(game.resetPath)
-		end
-		expect(game.score()).toBe(0)
-		expect(game.rackCount()).toBe(7)
-		expect(game.finished()).toBe(false)
+		expect(adapter.node("/TileGame/Page/Stats/Score").props.text).toBe("2 of 60 points")
+		expect(adapter.node("/TileGame/Page/Stats/Progress").props.text).toBe("5 turns left")
 		expect(core:lastError()).toBeNil()
 		game.dispose()
 	end)

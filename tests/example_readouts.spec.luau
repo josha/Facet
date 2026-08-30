@@ -155,15 +155,41 @@ local READOUTS: { { example: string, paths: { string } } } = {
 	},
 	{
 		example = "06_tile_game",
-		-- THE FINDING THIS FILE WAS WRITTEN FOR. Score and Progress are the two
-		-- readouts that spent a mission inside a ViewThatFits candidate ladder,
-		-- present in the tree and absent from these paths.
+		--[[ THE FINDING THIS FILE WAS WRITTEN FOR. Score and Progress are the two
+			readouts that spent a mission inside a ViewThatFits candidate ladder,
+			present in the tree and absent from these paths. They are still here,
+			at the same two paths, now carrying "0 of 60 points" and "6 turns left"
+			— the goal-and-budget line the crossword's design asks for.
+
+			FOUR PATHS WERE ADDED when the example became a crossword (the
+			example-games-and-standalones stage), and each is here for the reason
+			this list exists: it is something the player reads or presses, so a
+			re-parenting or a collapsed hug that removed it would otherwise be
+			invisible to the suite.
+			  * `Word` is the LIVE VERDICT line — "Making BRAIN — 7 points", or the
+			    exact sentence explaining why the turn cannot be submitted. It is
+			    the only channel the nine refusals reach, so a Word node with no
+			    rect is a game that has stopped explaining itself.
+			  * `Actions/Submit` and `Actions/Undo` are the two turn verbs. They
+			    live inside a `minColumnWidth = "intrinsic"` Grid that stacks them
+			    on a narrow phone, which is exactly the adaptive shape that hid the
+			    readouts last time.
+			  * `board/cell4_4/plate` is ONE board square's plate — the starred
+			    centre, which the first turn has to cover. The board is generated,
+			    so one cell is enough to prove the 49-square grid arrived AND that
+			    a cell's plate is a real rect rather than a zero-height nothing;
+			    the per-theme contrast of all 49 is tests/example_tile_game.spec.
+			`Hint` keeps its path and is now the instruction line only. ]]
 		paths = {
 			"/TileGame/Page/Title",
-			"/TileGame/Page/Hint",
 			"/TileGame/Page/Stats/Score",
 			"/TileGame/Page/Stats/Progress",
+			"/TileGame/Page/Hint",
+			"/TileGame/Page/Word",
+			"/TileGame/Page/board/cell4_4/plate",
 			"/TileGame/Page/RackLabel",
+			"/TileGame/Page/Actions/Submit",
+			"/TileGame/Page/Actions/Undo",
 			"/TileGame/Page/Reset",
 		},
 	},
