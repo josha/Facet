@@ -49,8 +49,9 @@ rules your addition must follow.
   screen-specific branches. `themes.define` rejects a function found anywhere in
   the definition, and that rejection is the feature.
 - Test-first is not optional. Never mark done while `./run-tests.sh` is red.
-- Never edit the verification graph's own rows for a theme; the existing checks
-  pick your work up through the suite and the checkers.
+- Never edit the verification graph's own rows, or the stage's own
+  `acceptance-ledger.md`, for a theme; the existing checks pick your work up
+  through the suite and the checkers.
 
 ## 1. Property authority and the theme linter
 
@@ -437,8 +438,9 @@ it prints the exact document, the missing obligation, and the command or manual
 action that fixes it. There are no generated blocks in this document set, so
 `--write` has nothing to regenerate and says so.
 
-The verification graph already carries the acceptance rows for theme work and the
-checks that answer them. **Name them in your report; never edit them.** The gate's pass rule counts human-signoff placeholders (`PENDING`
+The verification graph and the stage's `acceptance-ledger.md` already carry the
+acceptance rows for theme work and the checks that answer them. **Name them in
+your report; never edit them.** The gate's pass rule counts human-signoff placeholders (`PENDING`
 with no run command) as failures by design, so the gate command may exit nonzero
 even when your work is perfect. Your bar: every check that was PASS before your
 change is still PASS, and none moved to FAIL_RECOVERABLE. Never flip a PENDING

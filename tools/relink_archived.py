@@ -52,10 +52,17 @@ ARCHIVED_FILES = (
     "docs/INVENTORY.md",
     "ui_todo.md",
     "sweep.luau",
-    "docs/reference/swiftui-parity.md",
-    "docs/reference/fusion-comparison.md",
-    "docs/reference/react-lua-comparison.md",
-    "docs/reference/sponsor-view-parity.md",
+)
+
+# `docs/reference/` is an allowlist rather than a denylist, and deliberately: the
+# public tree keeps exactly two reference documents, and every other one that has
+# ever lived there was product research that goes to the private archive. Naming
+# the survivors means a research document added and archived later needs no edit
+# here, and it keeps this guard from having to spell out the names of the things
+# it is guarding against.
+PUBLIC_REFERENCE = (
+    "docs/reference/api.md",
+    "docs/reference/constitution.md",
 )
 
 NOTE = "(archived privately)"
@@ -90,6 +97,8 @@ def is_archived(target: str, doc_rel: str) -> bool:
     else:
         resolved = normalize(os.path.dirname(doc_rel) + "/" + path)
     if resolved in ARCHIVED_FILES:
+        return True
+    if resolved.startswith("docs/reference/") and resolved not in PUBLIC_REFERENCE:
         return True
     return any(resolved.startswith(prefix) for prefix in ARCHIVED_PREFIXES)
 

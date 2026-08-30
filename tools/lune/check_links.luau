@@ -78,10 +78,17 @@ local ARCHIVED_FILES: { [string]: boolean } = {
 	["docs/INVENTORY.md"] = true,
 	["ui_todo.md"] = true,
 	["sweep.luau"] = true,
-	["docs/reference/swiftui-parity.md"] = true,
-	["docs/reference/fusion-comparison.md"] = true,
-	["docs/reference/react-lua-comparison.md"] = true,
-	["docs/reference/sponsor-view-parity.md"] = true,
+}
+
+--[[ `docs/reference/` is an ALLOWLIST rather than a denylist, and deliberately:
+	the public tree keeps exactly two reference documents, and every other one
+	that has ever lived there was product research that goes to the private
+	archive. Naming the survivors means a research document added and archived
+	later needs no edit here, and it keeps this guard from having to spell out the
+	names of the things it guards against. ]]
+local PUBLIC_REFERENCE: { [string]: boolean } = {
+	["docs/reference/api.md"] = true,
+	["docs/reference/constitution.md"] = true,
 }
 
 export type Opts = {
@@ -114,6 +121,9 @@ end
 
 local function isArchived(repoPath: string): boolean
 	if ARCHIVED_FILES[repoPath] then
+		return true
+	end
+	if string.sub(repoPath, 1, 15) == "docs/reference/" and not PUBLIC_REFERENCE[repoPath] then
 		return true
 	end
 	for _, prefix in ARCHIVED_PREFIXES do
