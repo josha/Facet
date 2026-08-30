@@ -187,10 +187,18 @@ def bre_to_python(pattern: str) -> str:
 # the binding plan says to default to rerun when dependency ownership is
 # uncertain, a scanner costs between 0.03 s and 6 s, and a missed invalidation
 # costs a wrong green.
+# `examples/places/**` is absent for the reason SUITE_INPUTS states: those .rbxl
+# files are BUILD OUTPUT, rewritten by producers in this same graph, and an input
+# a producer in the same run rewrites is a clock rather than an input.
 SOURCE_INPUTS = [
     "src/**",
     "tests/**",
-    "examples/**",
+    "examples/gallery/**",
+    "examples/reference/**",
+    "examples/themes/**",
+    "examples/consumer/**",
+    "examples/performance/**",
+    "examples/table_phaseb/**",
     "docs/**",
     "tools/**",
     "bench/**",

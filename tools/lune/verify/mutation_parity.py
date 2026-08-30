@@ -210,10 +210,12 @@ def build_corpus():
     # ---- M8: a brand-drift word is planted --------------------------------
     def m8_apply():
         state["m8"] = _save([DOC])
-        _append(DOC, "\nThis paragraph names a platform the product-language guard forbids: iPhone.\n")
+        # The planted word is BUILT rather than written, so this file carries no
+        # match of its own for the guard it is exercising.
+        _append(DOC, "\nThis paragraph names the retired product: " + "luau" + "ui" + ".\n")
 
     muts.append(Mutation(
-        "M8", "a forbidden platform name is planted in a public guide", "release-candidate-review", "parity",
+        "M8", "a retired product name is planted in a public guide", "release-candidate-review", "parity",
         m8_apply, lambda: _restore(state["m8"]),
         "a scanner producer that fails must redden every row that asserts its exit 0",
     ))

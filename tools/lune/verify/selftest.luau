@@ -11,6 +11,7 @@
 
 local fs = require("@lune/fs")
 local process = require("@lune/process")
+local serde = require("@lune/serde")
 
 local util = require("./util")
 local identity = require("./identity")
@@ -39,6 +40,19 @@ do
 	check("arrays stay arrays", string.find(a, '"c":[3,4]', 1, true) ~= nil, a)
 	check("integers do not gain a decimal point", util.canonicalJson({ n = 7 }) == '{"n":7}')
 	check("a control character is escaped", util.canonicalJson({ s = "a\nb" }) == '{"s":"a\\nb"}')
+	--[[ THE ROUND TRIP IS THE POINT. A fraction that does not parse back to
+		itself makes every body hash over a record holding one a coin toss — and
+		the record holding thousands of them is the suite's, which is the most
+		expensive producer there is. ]]
+	local awkward = { 90.47791664488615, 0.0330416951328516, 265987.76987503516, 1 / 3, 1e-7, 2.2250738585072014e-308 }
+	local roundTripped = 0
+	for _, v in awkward do
+		local encoded = util.canonicalJson({ ms = v })
+		if util.canonicalJson(serde.decode("json", encoded)) == encoded then
+			roundTripped += 1
+		end
+	end
+	check(`every awkward fraction survives a decode ({roundTripped}/{#awkward})`, roundTripped == #awkward)
 end
 
 -- ---- globs ------------------------------------------------------------------

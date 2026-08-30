@@ -215,7 +215,11 @@ function testkit.run(options: RunOptions?): boolean
 		for _, case in suite.cases do
 			local caseStart = os.clock()
 			local ok, err = pcall(case.fn)
-			local ms = (os.clock() - caseStart) * 1000
+			-- ROUNDED, because a raw double here is a hash's problem later: the
+			-- structured result is hashed, and a value whose shortest decimal
+			-- form does not parse back to the same double makes that hash a coin
+			-- toss. Microseconds are more precision than a case timing has.
+			local ms = math.floor((os.clock() - caseStart) * 1000000 + 0.5) / 1000
 			local record = {
 				id = case.id or `{suite.spec}::{suite.name}::{case.name}`,
 				suite = suite.name,
@@ -260,7 +264,7 @@ function testkit.run(options: RunOptions?): boolean
 				schema = "facet-suite-results/1",
 				tier = opts.tier or "full",
 				startedAt = startedAt,
-				durationMs = (os.clock() - runStart) * 1000,
+				durationMs = math.floor((os.clock() - runStart) * 1000000 + 0.5) / 1000,
 				registeredSpecs = opts.registeredSpecs or 0,
 				reportedSpecs = reported,
 				suites = #suites,

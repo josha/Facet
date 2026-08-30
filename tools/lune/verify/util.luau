@@ -94,7 +94,17 @@ encodeValue = function(value: any): string
 		if value == math.floor(value) and math.abs(value) < 2 ^ 53 then
 			return string.format("%d", value)
 		end
-		return string.format("%.17g", value)
+		--[[ A FRACTION MUST PARSE BACK TO ITSELF, or this encoder is not
+			canonical and every body hash over a record holding one is a coin
+			toss. `%.17g` is enough digits — but `%g` STRIPS TRAILING ZEROS, so a
+			double whose 17-digit form ends in 0 prints as 16 digits, and 16 is
+			not always enough to name a double uniquely. Measured 2026-08-30 on a
+			per-case timing of 90.477916644886150: it printed 90.47791664488615,
+			parsed back as a DIFFERENT double, re-encoded as 90.477916644886164,
+			and the suite's stored result — the single most expensive producer in
+			the graph — was refused on every run as "edited after it was
+			written". Widen until it round-trips. ]]
+		return string.format("%.18g", value)
 	elseif t == "string" then
 		return encodeString(value)
 	elseif t == "table" then

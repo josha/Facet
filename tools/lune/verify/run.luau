@@ -76,7 +76,24 @@ local function withTimeout(command: string, timeoutS: number): string
 	}, "\n")
 end
 
+--[[ Seeded ONCE, before anything runs, from whatever the file already holds, so
+	the trace accumulates across runs without any writer ever having to read it
+	back mid-flight. ]]
 local traceLines: { string } = {}
+local traceSeeded = false
+
+local function seedTrace()
+	if traceSeeded then
+		return
+	end
+	traceSeeded = true
+	if not fs.isFile(runner.TRACE) then
+		return
+	end
+	for line in string.gmatch(fs.readFile(runner.TRACE), "[^\n]+") do
+		table.insert(traceLines, line)
+	end
+end
 
 local function trace(runId: string, producer: identity.Producer, id: string, action: string)
 	local line = util.canonicalJson({
@@ -87,10 +104,18 @@ local function trace(runId: string, producer: identity.Producer, id: string, act
 		environmentClass = producer.environmentClass,
 		action = action,
 	})
+	seedTrace()
 	table.insert(traceLines, line)
-	-- appended as it happens, so a killed run still leaves its trace behind
-	local existing = if fs.isFile(runner.TRACE) then fs.readFile(runner.TRACE) else ""
-	fs.writeFile(runner.TRACE, existing .. line .. "\n")
+	--[[ Written as it happens, so a killed run still leaves its trace behind —
+		but as a WHOLE FILE by atomic rename, never read-modify-write. The first
+		version read the file and appended to what it read, and Lune's file I/O
+		yields: three parallel producers tracing at once interleaved a read
+		against another's write and left a truncated line in the middle of the
+		file. Found by a JSON decoder, on the file whose whole job is to be the
+		record nobody has to trust. ]]
+	local staging = `{runner.TRACE}.{math.random(1, 1e9)}.tmp`
+	fs.writeFile(staging, table.concat(traceLines, "\n") .. "\n")
+	fs.move(staging, runner.TRACE, { overwrite = true })
 end
 
 export type Context = {
