@@ -46,10 +46,9 @@ directory. Step 13 renames the complete framework and every current consumer to
    resolves public names, re-profiles and optimizes the current performance lab,
    rewrites source comments in plain human language, and removes vendor-framework
    language outside the two explicit comparison areas;
-16. the three tutorial games become clear, complete play loops; Facet gains a proved
-   world-surface render target and walk-up terminal; and a curated set of showcase
-   concepts ships as reusable, themeable, reduced-motion-aware standalone places with
-   obsolete examples removed safely;
+16. the tutorial games, Sipworks, and Glade become clear, complete play loops; Wardrobe
+   retires from player examples; Facet gains a proved world-surface target and walk-up
+   terminal; and curated concepts ship as adaptable shared-source standalones;
 17. the existing repository is renamed `josha/Facet` and becomes an MIT-licensed,
     public-ready source distribution with a clean branch tip, audited history, tested
     human/agent onboarding, one stable Roblox Package asset, and a requirement-complete
@@ -213,7 +212,7 @@ Key corrections to the earlier roadmap:
 | 11 | Production-scale reference validation | Three clean-room proof experiences run; all official-sample features are honestly classified |
 | 12 | Declarative 3D architecture decision | A sibling-versus-extension decision is proved by an isolated topology/lifecycle spike |
 | 13 | Facet rename, release-candidate, and maintainability review | Facet is canonical everywhere; findings resolve; control authoring/naming, sensory haptics, profiling, reuse, IAS, comments, and agent maintenance pass |
-| 13.5 | Facet game, world-surface, and standalone polish | Three game loops and the walk-up terminal pass; curated standalones share source, theme/motion controls, builds, and Studio proof |
+| 13.5 | Facet game, world-surface, and standalone polish | Games, Sipworks, Glade, sensory feedback, and the walk-up terminal pass; Wardrobe retires; standalones share source and proof |
 | 14 | Facet public repo, Package, tests, and agent onboarding | Existing repo is renamed and release-ready; each unique check runs once; Package, fresh clone/agents, history, and release surfaces pass |
 
 ### Milestone 1 — parity round 2 (in flight; NOT a numbered step)
@@ -1540,11 +1539,9 @@ feature/package; do not publish/package or rename the remote.
 
 ## Step 13.5 — Polish Facet game tutorials and curated standalone examples
 
-This bounded Opus pass turns the three tutorial games into understandable play loops,
-makes the sensory demo useful when it opens, ships one real walk-up `SurfaceGui`
-terminal, and promotes a small set of showcase concepts into publishable standalone
-places. It shares source and chrome with the showcase instead of creating example
-forks.
+This bounded Opus pass completes the tutorial games, Sipworks, Glade, and the sensory
+demo; retires Wardrobe from player examples; ships one walk-up `SurfaceGui` terminal;
+and promotes curated concepts into shared-source publishable standalones.
 
 ### Opus 5 goal prompt
 
@@ -1553,59 +1550,59 @@ forks.
 ship shared-source, adaptable standalones.
 
 Run Claude Opus 5 (`claude-opus-5`) at `xhigh`. Read repo instructions and the binding
-`docs/plans/example-games-and-standalones.md` plus its links. Register the gate, freeze
-build identity, create its ledgers, and preserve Step 13 guards. Examples own rules/
-content; Facet owns reusable behavior/targets. Use public API, not substitutes. Every
-framework change synchronizes RascalRally and affected Step 13 evidence.
+example/standalone plan with its links. Follow its registration/baseline/ledger rules
+and preserve Step 13. Examples own content; Facet owns reusable behavior. Use public
+API; sync framework changes to RascalRally and Step 13 proof.
 
-Word game: use a local, redistribution-compatible five-letter English dictionary with
-thousands of guesses and familiar solutions. Record provenance/license/build; no
-proprietary list/network. Prove acceptance, rejection, size, and cost. Keep
-all 30 cells plus empty/active/next cues visible under every theme/text size. Preserve
-the full accessible multi-input loop and restart; remove “tutorial word list.”
+Word game: use a licensed local five-letter English dictionary with thousands of
+guesses/familiar solutions; record provenance/build, use no proprietary/network data,
+and prove acceptance/rejection/size/cost. Keep all cells/cues visible across themes/
+text sizes. Preserve the accessible loop/reset.
 
-Tile game: build the plan's finite crossword loop: center-crossing first word,
-contiguous connected turns, dictionary Submit, score/refill, Undo, precise refusals,
-goal/turn limit, endings, and reset. Show decision state; play all major paths/inputs.
+Tile game: build the plan's finite crossword loop: center first word, contiguous
+connected turns, dictionary Submit, score/refill, Undo, precise refusals, bounded goal,
+endings, and reset. Show decisions; play major paths/inputs.
 
-Match-3: give tiles stable identities. Use public `presenter.withAnimation` for keyed
-movement and structural transitions for removal/entry. Sequence swap, invalid return,
-removal, gravity, refill, cascades, then unlock. Prove in-flight identity, reset,
-teardown, and Full/Reduced result parity; create no example animation system.
+Match-3: use stable identities, public `presenter.withAnimation` for keyed movement,
+and structural removal/entry. Sequence swap, invalid return, removal, gravity, refill,
+cascades, then unlock. Prove identity/reset/teardown and Full/Reduced result parity;
+create no example animation system.
 
 Sensory demo: fresh mount starts demo haptics on; toggle/status follow the intro and fit
 without scrolling across the size/Largest-text matrix. Through Step 13 public paths,
-label and play built-in press, release, and selection plus one distinct custom override;
-do not recreate defaults locally. A bounded visible log proves phase/order/cancel/no-op
-without claiming the motor fired. Across all inputs, prove default/custom identities,
-no duplicate pulse, install, off/on, remount, honest capability, and cleanup in tests/
-Studio. Facet remains game-opt-in.
+play built-in press/release/selection plus one public custom override; do not recreate
+defaults. A visible bounded log proves phase/order/cancel/no-op without claiming motor
+output. Across inputs, prove identities, no duplicates, install, off/on, remount,
+capability, and cleanup in tests/Studio. Facet remains game-opt-in.
+
+Retire Wardrobe from all player examples/publishable builds; move only still-required
+regression proof outside `examples`. Make shared-source Sipworks and Glade required
+standalones. PLAY their plan-defined, self-explaining goals through next action,
+progress, failure/recovery, success, and reset on all inputs; remove proof jargon.
 
 World terminal: add the plan's Outpost Power Terminal to showcase and standalone from
-one module. It is 2D Facet on `SurfaceGui`, not 3D/VR. Run the named Studio spike; add
-one public `surface_target` through the existing seam. Prove canvas mapping,
-client-owned `PlayerGui + Adornee + CanQuery`, world presentation, style, clipping,
-legibility, occlusion, lifecycle, cost, and honest capabilities. Update contracts/docs.
+one module. It is 2D Facet on `SurfaceGui`, not 3D/VR. Run the Studio spike; add one
+public `surface_target` through the existing seam. Prove canvas, client-owned
+`PlayerGui + Adornee + CanQuery`, world presentation, style, clipping, legibility,
+occlusion, lifecycle, cost, and honest capabilities. Update contracts/docs.
 
 Use native `ProximityPrompt` and one Facet responder. Support direct pointer/touch and
 IAS keyboard/gamepad focus. Cancel, Exit, range departure, death, removal, and teardown
 restore gameplay without leaks/stuck input. No CAS/UIS bindings. Keep UI client-side;
 server-validate shared-world intent, authority, rate, values, and distance.
 
-Keep seven tutorial places. Select five-to-seven existing showcase standalones plus
-the terminal (six-to-eight total) covering the plan. Each needs a task, first action,
-feedback, reset, and optional lesson. One manifest drives showcase, fixtures, projects,
-builds, docs, and drift. No parallel lists. Share theme and applicable Full/Reduced
-controls. Emit self-contained `.rbxl`; do not publish.
+Keep seven tutorials. Select five-to-seven showcase standalones plus the terminal as
+the plan directs. Each needs task, first action, feedback, reset, and optional lesson.
+One manifest drives showcase/fixtures/projects/builds/docs/drift; no parallel lists.
+Share theme and applicable Full/Reduced controls. Emit `.rbxl`; never publish.
 
 Delete only inventory-proved unused items; retire plain settings only after its
-replacement. PLAY all changed games, the sensory default/off/on flow, every standalone,
-and terminal walk-up/use/exit in Studio. Run the plan matrix, target negatives, suites,
-prior gates/builds, Step 13 guards, and RascalRally checks. Give fresh architecture,
-platform, and phase reviewers evidence; resolve findings.
+replacement. PLAY changed games, sensory default/off/on, every standalone, and terminal
+walk-up/use/exit in Studio. Run the plan matrix, negatives, suites, prior gates/builds,
+Step 13, and RascalRally checks. Give fresh reviewers evidence; resolve findings.
 
-Complete only with gate exit 0/artifact; complete games; sensory/world proof;
-manifest-built standalones; accurate docs/inventory; no workaround/dead item; and
+Complete only with gate exit 0/artifact; complete games and named examples; sensory/
+world proof; manifest builds; accurate docs/inventory; no workaround/dead item; and
 exact physical pendings. Report evidence/deletions. Do not publish/package.
 ```
 
@@ -1749,6 +1746,12 @@ The roadmap has achieved its goals only when all of these are true:
   visibly demonstrable across inputs; off/on, remount, honest capability reporting,
   phase timing, no duplicates, and teardown are proven without changing Facet's
   library-level game-opt-in contract;
+- Wardrobe is absent from the showcase, standalones, public example catalog, and
+  publishable builds; any retained regression fixture has moved outside `examples/`
+  with a proved owner and removal trigger;
+- Sipworks completes paid order → final stamp → free pour → success → reset, and Glade
+  completes dew + preferred nectar → wisp success → reset; both make goal, first/next
+  action, progress, failure recovery, result, and Facet lesson clear in play;
 - one checked-in manifest drives the showcase and six-to-eight curated standalone
   places, including the same walk-up world terminal in both; all share source and
   theme/motion chrome, rebuild self-contained, and have no obsolete or orphaned

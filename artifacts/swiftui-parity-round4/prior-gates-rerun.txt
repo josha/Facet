@@ -33,4 +33,14 @@ PASS desktop-keyboard-navigation
 PASS traversal-document-order
 PASS large-text-accessibility
 PASS performance-stress-places
+FAIL example-quality-pass (exit 1) [load at start: 2.52]
+      FAIL_RECOVERABLE  large-text-overflow
+      FAIL_RECOVERABLE  rascalrally-consumer
+      PENDING  physical-and-human-rows
+PASS reference-app-validation
+PASS row-actions
+PASS swiftui-parity-round2
+PASS declarative-3d-architecture
+PASS swiftui-parity-round3
+      FAIL_ENVIRONMENT  studio-device-canary
 DONE

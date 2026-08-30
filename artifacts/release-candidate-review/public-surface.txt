@@ -201,6 +201,7 @@ themes : table
   themes.metricScale : function
   themes.neutral : function
   themes.neutralPackage : function
+  themes.paintForDisplay : function
   themes.resolve : function
 tokens : table
   tokens.compile : function

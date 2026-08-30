@@ -1,4 +1,24 @@
-VERSION 0.9.0
+VERSION 0.10.0
+Controls : table(frozen)
+  Controls.AsyncImage : function
+  Controls.Callout : function
+  Controls.Chip : function
+  Controls.DisclosureGroup : function
+  Controls.Label : function
+  Controls.LevelPicker : function
+  Controls.Menu : function
+  Controls.Picker : function
+  Controls.PopupButton : function
+  Controls.ProgressView : function
+  Controls.Rating : function
+  Controls.RowActions : function
+  Controls.Slider : function
+  Controls.Stepper : function
+  Controls.TabView : function
+  Controls.Table : function
+  Controls.TextInput : function
+  Controls.VirtualGrid : function
+  Controls.VirtualList : function
 UI : table
   UI.AdaptiveStack : function
   UI.Anchor : function
@@ -54,12 +74,18 @@ UI : table
 VERSION : string
 adaptive : table
   adaptive.BREAKPOINTS : table(frozen)
+  adaptive.CARD_MIN_WIDTH : number
+  adaptive.CARD_PEEK : table(frozen)
   adaptive.DEFAULT_STACK_ABOVE : number
   adaptive.HEIGHT_BREAKPOINTS : table(frozen)
+  adaptive.LANE_MEASURE : number
   adaptive.axisFor : function
+  adaptive.cardPeek : function
+  adaptive.cardsPerView : function
   adaptive.columnsFor : function
   adaptive.conditions : function
   adaptive.heightClass : function
+  adaptive.laneMeasureFor : function
   adaptive.navPlacement : function
   adaptive.orientationFor : function
   adaptive.sizeClass : function
@@ -134,6 +160,7 @@ pathShapes : table
   pathShapes.arc : function
   pathShapes.needle : function
   pathShapes.ring : function
+preload : function
 renderer : table
   renderer.BINDING_PROPS : table
   renderer.DIRECT_PROPS : table(frozen)
@@ -154,6 +181,9 @@ spatial : table
   spatial.isFlat : function
   spatial.normalize : function
   spatial.of : function
+specGuard : table(frozen)
+  specGuard.assertKnownKeys : function
+  specGuard.keySet : function
 text : table
   text.facts : function
   text.fit : function
@@ -162,11 +192,16 @@ text : table
   text.size : function
 themes : table
   themes.SCHEMA : string
+  themes.baseOf : function
   themes.checkCoverage : function
   themes.define : function
+  themes.densityClassOf : function
+  themes.forDisplay : function
   themes.lintProperty : function
+  themes.metricScale : function
   themes.neutral : function
   themes.neutralPackage : function
+  themes.paintForDisplay : function
   themes.resolve : function
 tokens : table
   tokens.compile : function
@@ -182,7 +217,26 @@ DEPRECATIONS:
   UI.Text.color | since=0.5.0 | removeNoEarlierThan=0.6.0 | replacement=UI.Text{ role = … } | note=Text.color was declared and documented but no render target ever consumed it: a reactive color scheduled paint work the adapter dropped. Text color is style authority (native StyleSheet / style role), never an authored literal.
   UI.Text.font | since=0.5.0 | removeNoEarlierThan=0.6.0 | replacement=UI.Text{ role = … } (fonts are style authority) | note=Text.font reached the text-metrics measure seam but no paint seam, so an authored font silently made measured and painted bounds disagree. FontFace is owned by the style sheet (authority.nativeSheetOwned).
   adaptive.conditions().contentWidth | since=0.8.0 | removeNoEarlierThan=0.9.0 | replacement=viewportWidth | note=alias; the value never subtracted insets
+  newAsyncImage | since=0.10.0 | removeNoEarlierThan=0.12.0 | replacement=Facet.Controls.AsyncImage(core, spec) | note=same builder, same spec table; the namespace closes over the library so the redundant first argument disappears
+  newCallout | since=0.10.0 | removeNoEarlierThan=0.12.0 | replacement=Facet.Controls.Callout(core, spec) | note=same builder, same spec table; the namespace closes over the library so the redundant first argument disappears
+  newChip | since=0.10.0 | removeNoEarlierThan=0.12.0 | replacement=Facet.Controls.Chip(core, spec) | note=same builder, same spec table; the namespace closes over the library so the redundant first argument disappears
+  newDisclosureGroup | since=0.10.0 | removeNoEarlierThan=0.12.0 | replacement=Facet.Controls.DisclosureGroup(core, spec) | note=same builder, same spec table; the namespace closes over the library so the redundant first argument disappears
+  newLabel | since=0.10.0 | removeNoEarlierThan=0.12.0 | replacement=Facet.Controls.Label(core, spec) | note=same builder, same spec table; the namespace closes over the library so the redundant first argument disappears
+  newLevelPicker | since=0.10.0 | removeNoEarlierThan=0.12.0 | replacement=Facet.Controls.LevelPicker(core, spec) | note=same builder, same spec table; the namespace closes over the library so the redundant first argument disappears
+  newMenu | since=0.10.0 | removeNoEarlierThan=0.12.0 | replacement=Facet.Controls.Menu(core, spec) | note=same builder, same spec table; the namespace closes over the library so the redundant first argument disappears
+  newPicker | since=0.10.0 | removeNoEarlierThan=0.12.0 | replacement=Facet.Controls.Picker(core, spec) | note=same builder, same spec table; the namespace closes over the library so the redundant first argument disappears
+  newPopupButton | since=0.10.0 | removeNoEarlierThan=0.12.0 | replacement=Facet.Controls.PopupButton(core, spec) | note=same builder, same spec table; the namespace closes over the library so the redundant first argument disappears
+  newProgressView | since=0.10.0 | removeNoEarlierThan=0.12.0 | replacement=Facet.Controls.ProgressView(core, spec) | note=same builder, same spec table; the namespace closes over the library so the redundant first argument disappears
+  newRating | since=0.10.0 | removeNoEarlierThan=0.12.0 | replacement=Facet.Controls.Rating(core, spec) | note=same builder, same spec table; the namespace closes over the library so the redundant first argument disappears
   newResourceProvider(opts.retryAttempts) | since=0.8.0 | removeNoEarlierThan=0.9.0 | replacement=opts.retry = { count, delaySeconds?, giveUp? } | note=legacy immediate-retry semantics preserved until removal
+  newRowActions | since=0.10.0 | removeNoEarlierThan=0.12.0 | replacement=Facet.Controls.RowActions(core, spec) | note=same builder, same spec table; the namespace closes over the library so the redundant first argument disappears
+  newSlider | since=0.10.0 | removeNoEarlierThan=0.12.0 | replacement=Facet.Controls.Slider(core, spec) | note=same builder, same spec table; the namespace closes over the library so the redundant first argument disappears
+  newStepper | since=0.10.0 | removeNoEarlierThan=0.12.0 | replacement=Facet.Controls.Stepper(core, spec) | note=same builder, same spec table; the namespace closes over the library so the redundant first argument disappears
+  newTabView | since=0.10.0 | removeNoEarlierThan=0.12.0 | replacement=Facet.Controls.TabView(core, spec) | note=same builder, same spec table; the namespace closes over the library so the redundant first argument disappears
+  newTable | since=0.10.0 | removeNoEarlierThan=0.12.0 | replacement=Facet.Controls.Table(core, spec) | note=same builder, same spec table; the namespace closes over the library so the redundant first argument disappears
+  newTextInput | since=0.10.0 | removeNoEarlierThan=0.12.0 | replacement=Facet.Controls.TextInput(core, spec) | note=same builder, same spec table; the namespace closes over the library so the redundant first argument disappears
+  newVirtualGrid | since=0.10.0 | removeNoEarlierThan=0.12.0 | replacement=Facet.Controls.VirtualGrid(core, spec) | note=same builder, same spec table; the namespace closes over the library so the redundant first argument disappears
+  newVirtualList | since=0.10.0 | removeNoEarlierThan=0.12.0 | replacement=Facet.Controls.VirtualList(core, spec) | note=same builder, same spec table; the namespace closes over the library so the redundant first argument disappears
   newVirtualList(spec.rowHeight) | since=0.9.0 | removeNoEarlierThan=0.10.0 | replacement=itemExtent | note=axis-neutral rename; alias still accepted and identical on axis = "y"
   newVirtualList(spec.viewportHeight) | since=0.9.0 | removeNoEarlierThan=0.10.0 | replacement=viewportExtent | note=axis-neutral rename; alias still accepted and identical on axis = "y"
   screen_target.new(opts.isReducedMotion) | since=0.9.0 | removeNoEarlierThan=0.10.0 | replacement=adapter.setReducedMotion, pushed by the renderer from the environment | note=still accepted, and now OR-ed with the pushed fact: it can force reduced motion on, never off. `billboard_target.new(opts.isReducedMotion)` forwards it and retires with it

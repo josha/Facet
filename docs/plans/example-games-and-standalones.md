@@ -237,6 +237,66 @@ world-state server validation, canvas/theme choices, teardown, supported inputs,
 the exact limits (flat world-fixed UI, not declarative Parts or VR). Link the public
 adapter API and this example; do not make readers reconstruct the recipe from an ADR.
 
+## Retire Wardrobe; complete Sipworks and Glade
+
+Wardrobe is no longer a player example. Remove it from the tutorial gallery, showcase
+picker, curated standalone manifest, public example catalog, screenshots, publishable
+places, and player-facing build. Do not select it as a replacement for another example.
+First inventory the framework behaviors and tests it covers. Preserve useful Facet
+coverage with smaller focused fixtures or another selected experience. If the old app
+is still required by the Step 11 reference-validation record, move it out of the public
+`examples/` surface into clearly owned test evidence and explain why it remains. Delete
+it when nothing still requires it. Do not let historical proof keep Wardrobe presented
+as a current example.
+
+Sipworks and Glade are required showcase scenarios and curated standalone places. Each
+standalone imports the same source as its showcase scenario and reference validation;
+do not make a simplified fork. Remove player-facing labels such as “reference proof,”
+stage IDs, gate language, or capability-ledger codes. Put a short optional **What this
+shows** explanation after the play task, not in place of it.
+
+### Sipworks: serve a customer and earn a reward
+
+The opening screen must explain the tea-house loop in one sentence and show a compact
+**Today's order** task with progress. Use the existing catalog, order, Steam Stamp,
+reward, and recipe systems to make this deterministic loop:
+
+1. Choose a blend and place a successful order.
+2. Show the prepared drink and award the final stamp needed for a free pour. Seed this
+   standalone one stamp short so the lesson does not require ten repetitive orders.
+3. Choose another blend and redeem the free pour.
+4. Show an unmistakable completion state, what the player accomplished, and **Serve
+   another customer** reset.
+
+The current broader catalog, search, favorites, Blend Book, localization, async
+accept/reject states, compact-link entry, and adaptive navigation can remain useful
+secondary exploration. The primary task must stay visible or quickly recoverable and
+must say the next action. A rejection must explain what happened and how to retry
+without losing progress. The stamp animation, order presentation, and Full/Reduced
+outcomes must support the task instead of interrupting it. Test and play the complete
+paid-order → final-stamp → free-pour → success → reset loop, plus rejection/retry, on
+pointer/touch proxy, keyboard, and gamepad across the device/text/theme matrix.
+
+### Glade: prepare a home for a visiting wisp
+
+The opening screen must explain that wisps visit glades with fresh dew and suitable
+nectar. Show one deterministic **Prepare this glade** task for a named glade and its
+named incoming or present wisp. The task shows two plain progress rows and a clear first
+action:
+
+1. Open the named glade and refill its dew.
+2. Choose the wisp's preferred nectar.
+3. When both conditions are true, show the wisp arrive or brighten visibly, mark both
+   rows complete, and present an unmistakable success state with **Prepare again**.
+
+Keep browsing, search, favorites, other glades, visitor history, flora, commerce-shaped
+fixtures, and Keeper settings as secondary exploration. They cannot hide the task or
+be required to understand the core loop. If time advances or supplies drain, the task
+must explain the changed condition and let the player recover. Test and play first
+action → dew → nectar → arrival/success → reset, plus a depleted/recovery path, on all
+inputs and the device/text/theme/motion matrix. The player must understand the goal,
+current progress, next action, result, and what Facet adapted without reading source.
+
 ## Curated standalone places
 
 Keep the seven tutorial places because the guide teaches them. Remove the superseded
@@ -319,6 +379,11 @@ The gate passes only when:
 - the same Outpost Power Terminal content works through the real client-owned
   `SurfaceGui` target in the showcase and standalone, all target-checklist rows have
   evidence, and gameplay control is restored on every exit/lifecycle path;
+- Wardrobe is absent from every player example and publishable build; any retained
+  reference fixture has moved outside the public example surface with a proved owner;
+- Sipworks visibly completes paid order → final stamp → free pour → success → reset,
+  and Glade visibly completes dew + preferred nectar → wisp success → reset; both
+  explain the goal, next action, progress, failure recovery, and Facet lesson in play;
 - every declared standalone rebuilds and opens from the one manifest with shared
   theme/motion controls;
 - the dead-example audit has no unexplained item;
