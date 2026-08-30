@@ -147,3 +147,38 @@ scratch directory and requires each one to be reported, so the check has been
 watched failing before it is trusted. The same checker runs inside the suite as
 [`tests/maintainer_map.spec.luau`](../tests/maintainer_map.spec.luau), so drift
 fails the suite and not only a command someone remembered to type.
+
+## 5. Which verification tier proves it
+
+The **Tests** column above names where a change is covered. This section names
+what to run, and it is the same four tiers a contributor uses
+([`../CONTRIBUTING.md`](../CONTRIBUTING.md)):
+
+```sh
+tools/verify.sh affected     # the smallest safe set for the files you changed
+tools/verify.sh fast         # the inner-loop tier
+tools/verify.sh full         # every deterministic check, exactly once
+tools/verify.sh release      # full, plus the build, package and evidence producers
+```
+
+Three rules decide which one a piece of work owes.
+
+**Work in affected or fast; propose on full.** The two working tiers exist to be
+fast, and their output says so. A result from either is not evidence that a
+change is ready, and the tool refuses to let one read as the other.
+
+**Release belongs to a release.** That tier runs the producers that build
+artifacts, verify the distributable package, and gather recorded evidence. It is
+run by the person cutting a release, at an exact commit, and not on an ordinary
+change.
+
+**The tier is not the whole bar for anything a player can see.** A headless run
+cannot see engine frame work, paint, or a real device.
+[`guide/11-device-verification.md`](guide/11-device-verification.md) names which
+instrument can close which kind of claim, and each extension playbook's §6 names
+the live Roblox check its area owes.
+
+Two loops sit underneath the tiers and are worth keeping in the fingers:
+`lune run tests/run_one <spec-name>` runs one spec file and is how a new check is
+watched failing before it is trusted, and `./run-tests.sh` still runs the
+complete suite exactly as it always has.
