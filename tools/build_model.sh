@@ -65,11 +65,20 @@ rojo build "$project" -o "$out"
 # scripts as text — not the purity check, not the manifest walk, not the packaged
 # consumer canary. When the caller already asked for XML this is the same file
 # and the second build is skipped.
-twin="${out%.*}.rbxmx"
+#
+# The base strips only a KNOWN model extension. `${out%.*}` would cut at the last
+# dot anywhere in the path, so an output under a directory with a dot in its name
+# would put the twin and the manifest somewhere neither belongs.
+case "$out" in
+*.rbxmx) base="${out%.rbxmx}" ;;
+*.rbxm) base="${out%.rbxm}" ;;
+*) base="$out" ;;
+esac
+twin="$base.rbxmx"
 if [ "$twin" != "$out" ]; then
 	rojo build "$project" -o "$twin"
 fi
-python3 tools/package.py manifest --model "$twin" --artifact "$out" --out "${out%.*}.manifest.json"
+python3 tools/package.py manifest --model "$twin" --artifact "$out" --out "$base.manifest.json"
 
 # THE CANONICAL PUBLISHER PLACE (opt-in). The studio publish route needs one
 # place, built from the artifact this script just produced, whose only content is
