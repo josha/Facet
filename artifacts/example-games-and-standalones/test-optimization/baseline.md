@@ -301,3 +301,41 @@ about two minutes and would buy a permanent new way for a stale result to be ser
 - The six further weak tables in `src/themes/snapshot.luau` and the one in
   `src/client/theme_controller.luau`, un-measured. Not material at a 12 MB live set,
   but the same shape.
+
+## Every loop, before and after
+
+| Loop | Before | After | | Peak RSS before → after |
+|---|---:|---:|---:|---|
+| Facet full suite | 1587.03 s | **260.28 s** | −83.6 % | 14.25 GB → 0.68 GB |
+| Facet fast tier | 273.22 s | **46.91 s** | −82.8 % | 7.38 GB → 0.40 GB |
+| Rascal Rally full suite | 152.73 s | **42.82 s** | −72.0 % | 1.07 GB → 0.47 GB |
+
+Case counts: Facet 7678 → **7709** (this stage's own additions), fast 6988 → 7019,
+Rascal Rally **3538 → 3538**, unchanged. Zero failures anywhere.
+
+**Rascal Rally was fixed by the same one line**, with no edit in that repository at all.
+Its suite mounts far fewer screens than Facet's, which is why the same retention bought
+a gigabyte there and fourteen here — and its 3.6× improvement is the corroboration that
+this was a framework leak reaching a consumer, not an artefact of Facet's own tests.
+
+### TEST-6, and a decision the measurement makes for us
+
+The plan asks for a trustworthy **affected** and **fast** loop in both repositories.
+After the fix:
+
+- **Facet** keeps `./run-tests.sh --fast` at **47 s**, printing the `FACET-FAST-TIER`
+  marker that `tools/test.sh` refuses by a bash match (never a pipeline — `printf |
+  grep -q` returns 141 under `pipefail` *when it matches*, and that exact mistake passed
+  a fast-tier transcript straight through once already). `lune run tests/run_one <spec>`
+  is the affected loop, and its own header states it can never produce a suite verdict.
+- **Rascal Rally needs no fast tier.** Its full suite is **43 s** — that *is* an inner
+  loop. Adding a tier mechanism, a second exclusion list and a marker its transcript
+  front door would have to refuse would be machinery bought for nothing, against a plan
+  whose instruction is "apply the smallest safe changes that materially reduce wall
+  time". Its `tests/run_one` remains the single-spec loop, and its
+  `tools/suite_transcript.sh` comment — "this repo's run-tests.sh has no `--fast` tier,
+  so there is no partial-run marker to refuse" — stays true by construction rather than
+  by accident.
+
+Recorded as a decision with its number attached, so a later reader can see it was
+measured rather than skipped.
