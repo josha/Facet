@@ -158,6 +158,23 @@ local function producerScriptExists(producer: identity.Producer): boolean
 	return fs.isFile(script) or fs.isDir(script)
 end
 
+function runner.settle()
+	local maxWait = tonumber(process.env.FACET_VERIFY_SETTLE_MAX or "") or 45
+	local threshold = tonumber(process.env.FACET_VERIFY_SETTLE_LOAD or "") or 2
+	local waited = 0
+	while waited < maxWait do
+		local probe =
+			process.exec("bash", { "-c", "uptime | sed 's/.*load averages*: *//' | awk '{print $1}' | tr -d ','" })
+		local load = tonumber(string.match(probe.stdout or "", "[%d%.]+") or "") or 0
+		if load < threshold then
+			return
+		end
+		task.wait(3)
+		waited += 3
+	end
+	print(`  verify: load did not settle within {maxWait}s — measuring anyway (recorded)`)
+end
+
 function runner.execute(producer: identity.Producer, ctx: Context): Outcome
 	local computed = identity.compute(producer, ctx.toolchain)
 	local id = computed.hash
@@ -197,6 +214,15 @@ function runner.execute(producer: identity.Producer, ctx: Context): Outcome
 		base.reason = reason or "no stored result"
 	else
 		base.reason = "--rerun was asked for this producer"
+	end
+
+	--[[ THE SETTLE IS PAID ONLY BY A PRODUCER THAT IS ABOUT TO RUN. Waiting for
+		a quiet machine in front of a REUSED perf result costs forty-five seconds
+		and buys nothing: measured 502 s for a warm release run whose producers
+		did 62 s of work between them. It belongs after the reuse decision, not
+		before it. ]]
+	if producer.environmentClass == "perf" then
+		runner.settle()
 	end
 
 	local tmp = `{runner.TMP_ROOT}/{producer.id}`
@@ -392,9 +418,6 @@ function runner.executeAll(producers: { identity.Producer }, ctx: Context, jobs:
 	end
 
 	for _, p in ordered do
-		if p.environmentClass == "perf" then
-			runner.settle()
-		end
 		outcomes[p.id] = runner.execute(p, ctx)
 	end
 	return outcomes
@@ -405,22 +428,6 @@ end
 	and passed standalone 2/2 with nothing in the tree changed, because
 	tools/bench.sh was measuring the previous gate's tail. It is a mitigation,
 	not a fix, and it is now paid ONLY before a perf-class producer. ]]
-function runner.settle()
-	local maxWait = tonumber(process.env.FACET_VERIFY_SETTLE_MAX or "") or 45
-	local threshold = tonumber(process.env.FACET_VERIFY_SETTLE_LOAD or "") or 2
-	local waited = 0
-	while waited < maxWait do
-		local probe =
-			process.exec("bash", { "-c", "uptime | sed 's/.*load averages*: *//' | awk '{print $1}' | tr -d ','" })
-		local load = tonumber(string.match(probe.stdout or "", "[%d%.]+") or "") or 0
-		if load < threshold then
-			return
-		end
-		task.wait(3)
-		waited += 3
-	end
-	print(`  verify: load did not settle within {maxWait}s — measuring anyway (recorded)`)
-end
 
 function runner.traceLines(): { string }
 	return traceLines
