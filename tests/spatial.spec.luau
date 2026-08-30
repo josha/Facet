@@ -181,19 +181,62 @@ describe("normalized spatial event data (XP-D2)", function()
 	end)
 end)
 
-describe("the future world render target is declared, not implemented (XP-D3)", function()
-	it("declares SurfaceGui with its unanswered questions and no adapter", function()
+--[[ XP-D3 WAS "declared, not implemented". IT SHIPPED (ADR-0061, 2026-08-29).
+
+	The block it guards is the same block, and it stays where it was on purpose:
+	the questions were the deliverable, and where the next implementer looks for
+	them is where the ANSWERS belong. What these cases hold now is that the
+	declaration keeps telling the truth in both directions — the answered half
+	names what the spike settled, and the open half is still honestly open and
+	still matched by a capability the adapter withholds. ]]
+describe("the world render target is declared AND shipped (XP-D3)", function()
+	it("declares SurfaceGui, names its adapter, and still carries both halves", function()
 		local surface = target_contract.FUTURE.surface
 		expect(surface.instance).toBe("SurfaceGui")
-		expect(string.find(surface.status, "not implemented", 1, true) ~= nil).toBe(true)
-		expect(#surface.openQuestions >= 8).toBe(true)
-		-- the shipped targets are the only ones the contract checker knows about
+		expect(string.find(surface.status, "SHIPPED", 1, true) ~= nil).toBe(true)
+		expect(string.find(surface.status, "surface_target.luau", 1, true) ~= nil).toBe(true)
+		-- both halves are populated: a declaration that answered everything and a
+		-- declaration that answered nothing are equally useless to the next reader
+		expect(#surface.answered >= 6).toBe(true)
+		expect(#surface.openQuestions >= 5).toBe(true)
 		expect((target_contract :: any).FUTURE.surface.presentationSpace).toBe("world")
 	end)
 
-	it("no world/surface adapter is exported", function()
+	it("the adapter exists and is required directly, never exported from the table", function()
+		-- the blessed client modules are REQUIRED, not reached through `Facet` —
+		-- the same rule screen_target and billboard_target live under
 		expect((Facet :: any).newSurfaceTarget).toBe(nil)
-		expect(fs.isFile("src/client/surface_target.luau")).toBe(false)
+		expect(fs.isFile("src/client/surface_target.luau")).toBe(true)
+	end)
+
+	it("every still-open question has a capability the adapter withholds", function()
+		--[[ THE HALF THAT IS EASY TO LET ROT. An open question with the matching
+			capability quietly shipped anyway is worse than no declaration at all:
+			it reads as caution while the unproven path is live. So the adapter's
+			source is read for the deletions that correspond to the open rows. ]]
+		local source = fs.readFile("src/client/surface_target.luau")
+		for _, withheld in
+			{
+				"adapter.setPointerHandlers = nil",
+				"adapter.setTouchGestureHandlers = nil",
+				"adapter.stageHost = nil",
+				"adapter.foreignHost = nil",
+			}
+		do
+			expect(string.find(source, withheld, 1, true) ~= nil).toBe(true)
+		end
+		-- ...and the two conservative flags the open rows name
+		expect(string.find(source, "nativeStyle = false", 1, true) ~= nil).toBe(true)
+		expect(string.find(source, "forceScrollFallback = true", 1, true) ~= nil).toBe(true)
+	end)
+
+	it("AlwaysOnTop is pinned false and is not an option", function()
+		--[[ MEASURED: with a wall between the camera and the console, activation
+			read 0 with AlwaysOnTop false and 1 with it true. A terminal a player can
+			operate through geometry is not a terminal, so this is not a flag. ]]
+		local source = fs.readFile("src/client/surface_target.luau")
+		expect(string.find(source, "gui.AlwaysOnTop = false", 1, true) ~= nil).toBe(true)
+		expect(string.find(source, "alwaysOnTop", 1, true)).toBeNil()
 	end)
 end)
 

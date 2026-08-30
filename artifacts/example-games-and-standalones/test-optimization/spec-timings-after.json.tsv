@@ -1,0 +1,647 @@
+rank	spec	total_ms	load_ms	cases_ms	cases
+1	perf_lab.spec	76787.5	43.5	76744.0	104
+2	theme_drift.spec	47673.5	4.2	47669.4	25
+3	overflow_sweep.spec	41315.5	250.9	41064.6	96
+4	reference/sipworks_spec	9646.2	8.9	9637.4	75
+5	extension_checker.spec	7380.9	6.5	7374.4	34
+6	reference/glade_spec	5994.3	12.4	5981.9	90
+7	reference/cartwheel_spec	5903.1	12.3	5890.8	71
+8	examples_gallery.spec	5121.5	37.3	5084.2	136
+9	example_drift.spec	4971.9	2.0	4969.9	15
+10	virtual_list_row_actions.spec	3565.5	15.7	3549.8	77
+11	gallery_chrome.spec	3214.3	13.7	3200.6	76
+12	row_actions_scenario.spec	2861.7	5.9	2855.9	39
+13	reference/foyer_spec	2779.8	13.3	2766.5	32
+14	mount_unmount_soak.spec	2052.7	1.5	2051.2	3
+15	table_input.spec	1750.4	21.4	1729.0	91
+16	gallery_theme_picker.spec	1605.9	13.7	1592.2	42
+17	sponsor_scenarios.spec	1581.2	9.3	1571.9	83
+18	hud_chrome_rotation.spec	1286.0	17.1	1268.9	36
+19	table.spec	1285.0	23.7	1261.2	135
+20	reference/wardrobe_spec	1277.5	4.2	1273.2	22
+21	hud_paint_probe.spec	1266.6	7.9	1258.7	48
+22	instance_recycling.spec	1222.4	2.8	1219.5	10
+23	adaptation_reversibility.spec	1194.0	2.4	1191.6	6
+24	row_capabilities_scenario.spec	961.8	2.0	959.8	10
+25	theme_docs.spec	906.3	8.4	897.8	41
+26	table_themed_header.spec	876.8	2.8	874.1	9
+27	playlist_columns.spec	862.9	9.1	853.7	39
+28	gallery_demo_picker.spec	845.0	5.6	839.4	41
+29	theme_matrix_audit.spec	822.2	818.4	3.8	14
+30	prefix_tests.spec	761.1	1.2	759.8	4
+31	themed_containment.spec	709.9	12.0	697.9	25
+32	authoring.spec	695.1	8.0	687.2	67
+33	example_readouts.spec	622.0	1.2	620.8	7
+34	row_actions_input.spec	600.2	20.6	579.6	93
+35	row_capability_optouts.spec	593.4	4.6	588.8	24
+36	ten_foot_metrics.spec	592.2	11.0	581.2	48
+37	maintainer_map.spec	580.8	3.3	577.5	20
+38	theme_authoring_scenario.spec	578.4	4.6	573.8	22
+39	text_line_box.spec	472.0	13.3	458.7	20
+40	example_word_game.spec	445.2	42.3	402.9	54
+41	control_feedback.spec	432.5	11.0	421.4	63
+42	composition.spec	393.5	15.7	377.8	107
+43	adaptive_defaults.spec	392.5	4.8	387.7	26
+44	theme_chrome.spec	369.3	13.9	355.3	111
+45	theme_reference_packages.spec	353.1	8.0	345.2	83
+46	commit_walks_seam.spec	332.1	2.2	329.9	17
+47	examples_games.spec	331.0	23.9	307.1	44
+48	theme_controller.spec	290.5	19.4	271.1	60
+49	incremental_layout.spec	288.0	1.9	286.2	6
+50	native_scroll_autobind.spec	276.9	8.2	268.7	12
+51	flow_wrap.spec	276.5	5.1	271.4	40
+52	fine_grained_reactivity.spec	265.4	2.0	263.5	8
+53	virtual_list_row_actions_identity.spec	263.0	2.2	260.8	4
+54	paradigm_table.spec	259.1	6.8	252.3	30
+55	large_text_layout.spec	250.4	3.7	246.8	14
+56	collection_self_measure.spec	250.2	3.7	246.4	16
+57	tab_view_scenario.spec	245.0	2.8	242.1	14
+58	menu_scenario.spec	238.1	3.8	234.3	17
+59	smoke.spec	227.8	227.5	0.3	2
+60	rating.spec	226.3	5.4	220.9	33
+61	large_text_matrix.spec	224.2	6.9	217.4	59
+62	hud_composition.spec	224.1	7.0	217.1	32
+63	elision_recovery.spec	222.2	5.5	216.7	33
+64	toast_presentation.spec	217.1	2.6	214.4	17
+65	gallery_demo_host.spec	199.0	1.5	197.4	6
+66	row_actions_motion.spec	197.1	4.0	193.1	13
+67	table_virtualized.spec	186.0	3.9	182.1	23
+68	row_actions.spec	178.8	12.6	166.2	62
+69	scenario_require_paths.spec	177.6	1.3	176.3	5
+70	virtual_grid_input.spec	163.8	2.8	160.9	14
+71	sheet_model.spec	160.4	6.5	153.9	45
+72	text_reveal.spec	154.1	2.7	151.4	14
+73	app_metrics.spec	152.7	4.3	148.4	29
+74	theme_layers.spec	152.6	9.2	143.4	47
+75	region_expand.spec	144.5	17.9	126.7	78
+76	level_picker.spec	137.6	5.9	131.7	40
+77	virtual_hgrid.spec	130.4	3.7	126.7	17
+78	tab_view.spec	127.5	10.1	117.4	63
+79	instance_recycling_themed.spec	127.0	2.0	124.9	12
+80	collection_list.spec	116.3	6.7	109.7	40
+81	theme_value_displays.spec	114.7	9.7	105.0	65
+82	perf_principles.spec	110.8	2.0	108.8	8
+83	menu.spec	110.0	9.6	100.4	61
+84	progress_circular.spec	101.9	3.7	98.2	24
+85	chrome_inset_yield.spec	100.5	1.8	98.6	16
+86	measure_publish_settle.spec	97.7	3.1	94.6	13
+87	backdrop_fade.spec	90.9	2.9	88.0	16
+88	example_word_data.spec	87.0	1.6	85.4	18
+89	nested_compositing_scenario.spec	85.8	6.1	79.6	11
+90	world_substrate.spec	85.7	1.1	84.6	8
+91	selection_indicator.spec	83.8	7.3	76.5	42
+92	scroll_bar_measure.spec	82.1	4.2	77.9	20
+93	faults.spec	79.3	4.3	75.0	9
+94	anchored_surface.spec	74.3	7.5	66.8	45
+95	icon_box.spec	72.5	1.5	71.0	10
+96	src_tree.spec	71.1	0.7	70.4	5
+97	surface_lifecycle_seam.spec	69.7	2.7	67.0	20
+98	transient_over_live.spec	66.9	2.5	64.4	7
+99	measure_facts_seam.spec	65.0	1.7	63.4	15
+100	theme_layer_application.spec	64.9	7.6	57.3	58
+101	picker_segments.spec	62.9	7.3	55.6	48
+102	compact_label.spec	60.8	4.4	56.4	33
+103	callout_scenario.spec	60.7	2.2	58.5	7
+104	renderer.spec	59.6	17.5	42.1	43
+105	display_controls.spec	59.2	11.4	47.8	69
+106	haptics.spec	58.2	12.6	45.7	110
+107	virtual_list_input.spec	58.2	4.3	53.9	23
+108	virtual_grid.spec	58.0	4.2	53.8	24
+109	composition_resolve_seam.spec	55.4	1.9	53.5	13
+110	virtual_list_axis.spec	51.2	7.1	44.2	35
+111	text_input.spec	50.0	7.2	42.9	56
+112	value_controls.spec	48.8	7.4	41.4	58
+113	callout.spec	47.7	5.1	42.6	31
+114	large_text_hot_swap.spec	47.0	2.1	44.9	9
+115	tab_view_accessories.spec	46.9	5.6	41.4	25
+116	button_shape.spec	45.1	7.8	37.3	56
+117	scroll_snap.spec	44.7	3.3	41.5	32
+118	virtual_list_measured_extents.spec	43.9	4.2	39.7	20
+119	hit_expander_overhang.spec	42.3	4.3	38.1	6
+120	popup_catcher_paint.spec	42.3	3.1	39.2	10
+121	geometry_solve_coalescing.spec	41.2	2.9	38.4	14
+122	theme_variants.spec	40.8	3.7	37.1	22
+123	table_rows_seam.spec	40.0	1.4	38.7	10
+124	node_facts.spec	39.7	37.3	2.4	13
+125	keyboard_navigation.spec	39.0	9.5	29.5	71
+126	instance_hosts.spec	37.4	3.3	34.1	16
+127	content_terms_height.spec	36.3	3.9	32.4	38
+128	adaptive.spec	36.1	15.1	21.1	95
+129	render_target_contract.spec	35.6	3.2	32.4	17
+130	authored_presentation.spec	35.5	5.1	30.4	40
+131	virtual_list_focus_policy.spec	35.3	3.1	32.2	18
+132	theme_pixel_content.spec	33.7	2.3	31.4	14
+133	theme_asset_judgement.spec	33.3	2.4	30.9	15
+134	api_surface.spec	32.7	2.0	30.7	11
+135	drag_public.spec	32.2	9.9	22.4	58
+136	virtual_list_slot_guard.spec	32.2	2.4	29.8	13
+137	theme_icons_applied.spec	31.4	3.9	27.5	28
+138	theme_package.spec	29.7	4.4	25.3	43
+139	virtual_list_variable_extents.spec	28.5	3.7	24.8	18
+140	layout_defaults.spec	28.2	4.9	23.4	31
+141	theme_pixel.spec	27.2	2.2	25.0	16
+142	paradigm_cards.spec	26.8	2.6	24.3	15
+143	fuzz_layout.spec	26.8	2.3	24.5	3
+144	virtualization.spec	25.9	2.6	23.3	12
+145	auto_input.spec	25.5	3.3	22.2	18
+146	theme_roles.spec	23.8	6.3	17.6	32
+147	with_animation.spec	23.2	4.7	18.5	35
+148	native_style_scenario.spec	22.3	9.5	12.8	30
+149	layout_vocabulary.spec	22.2	9.7	12.5	64
+150	screen_props_seam.spec	22.1	1.0	21.1	9
+151	composition_exclusions.spec	20.9	4.3	16.6	20
+152	spatial.spec	20.7	2.0	18.7	15
+153	help.spec	20.6	3.4	17.2	28
+154	virtual_list_hosted_seam.spec	20.5	1.7	18.8	15
+155	focus_grid_axis.spec	20.0	3.2	16.9	25
+156	traversal_order.spec	19.8	3.8	16.0	34
+157	motion_clock.spec	19.7	5.1	14.7	40
+158	theme_selectby.spec	19.0	7.1	11.9	23
+159	grid_measure_arrange.spec	18.5	3.9	14.6	21
+160	native_scroll.spec	18.3	4.2	14.1	31
+161	auto_input_screens.spec	18.0	3.8	14.2	20
+162	text_padding_paint.spec	17.6	1.7	15.9	7
+163	text_disclosure.spec	17.2	4.0	13.2	30
+164	hit_floor_region_clamp.spec	17.2	3.5	13.6	14
+165	preferred_transparency.spec	16.9	1.7	15.2	15
+166	theme_paint_repaint.spec	16.4	2.3	14.1	8
+167	presenter.spec	16.1	2.2	13.9	18
+168	primitive_registration.spec	16.0	2.0	14.0	7
+169	presenter_drag_integration.spec	15.7	5.0	10.7	16
+170	theme_icons.spec	15.7	2.1	13.6	16
+171	button_complete.spec	15.4	5.3	10.1	32
+172	row_actions_hosted.spec	15.2	5.1	10.2	25
+173	focus_chrome.spec	15.1	2.2	12.9	18
+174	transitions.spec	15.1	5.7	9.4	27
+175	presentation_channel.spec	15.0	4.0	11.0	29
+176	foreign.spec	15.0	4.9	10.1	30
+177	spec_guard_sweep.spec	14.8	2.5	12.3	72
+178	placement_audit.spec	14.7	5.2	9.5	28
+179	fusion_vendor.spec	14.3	14.2	0.1	2
+180	modal_dismissal.spec	14.1	2.7	11.4	19
+181	paradigm_popup.spec	14.0	2.3	11.7	13
+182	popup_button.spec	13.7	2.6	11.1	17
+183	paint_extensions.spec	13.4	7.0	6.4	50
+184	fuzz_scheduler.spec	13.0	2.5	10.6	3
+185	typography_weight_roles.spec	12.7	3.3	9.5	21
+186	theme_assets.spec	12.7	1.9	10.8	14
+187	responder.spec	12.7	2.4	10.2	12
+188	stack_distribution.spec	12.5	7.9	4.7	57
+189	theme_snapshot.spec	11.7	2.9	8.8	21
+190	scroll_window_clip.spec	11.6	1.3	10.4	8
+191	surface_overlap.spec	11.5	3.5	8.0	33
+192	styling.spec	10.8	5.3	5.4	30
+193	layout.spec	10.3	8.3	2.0	59
+194	conformance/conformance.spec	9.8	7.4	2.5	46
+195	grid_column_flow.spec	9.8	2.8	7.0	12
+196	overflow_guard.spec	9.6	3.0	6.6	18
+197	late_contributions.spec	9.0	1.6	7.5	9
+198	hidden_roots_owner.spec	8.8	1.3	7.5	5
+199	stage.spec	8.7	4.3	4.4	22
+200	dpad_repeat.spec	8.7	2.5	6.2	15
+201	paradigm_tenfoot.spec	8.7	3.5	5.2	25
+202	edge_floor.spec	8.6	4.5	4.1	12
+203	animation_precedence.spec	8.4	1.9	6.5	5
+204	scroll_indicators.spec	8.3	2.2	6.2	12
+205	lifecycle_hooks.spec	8.3	4.4	3.9	20
+206	native_style_default.spec	8.2	1.9	6.3	24
+207	theme_package_enumeration.spec	8.0	1.8	6.2	12
+208	platform_env_binding.spec	8.0	7.0	1.0	21
+209	virtual_list_row_gap.spec	7.8	2.1	5.8	9
+210	measure_memo.spec	7.7	3.7	4.0	12
+211	band_policy.spec	7.4	2.8	4.6	12
+212	text_premeasure.spec	7.2	3.9	3.3	27
+213	tier.spec	6.9	0.9	6.0	7
+214	motion_tween.spec	6.8	4.1	2.6	29
+215	fuzz_replication.spec	6.8	1.8	5.0	2
+216	chip.spec	6.7	2.7	4.0	14
+217	nested_tree_pins.spec	6.5	3.1	3.5	15
+218	virtual_extents.spec	6.5	1.7	4.8	17
+219	reduced_motion_seam.spec	6.0	1.5	4.5	9
+220	container_relative_frame.spec	6.0	3.5	2.5	19
+221	paradigm_input_axis.spec	5.9	2.4	3.5	15
+222	pointer_seam_ownership.spec	5.9	4.0	1.9	13
+223	grid_row.spec	5.7	3.3	2.5	18
+224	platform_adapters_recovery.spec	5.7	3.9	1.8	20
+225	perf_runner.spec	5.6	4.4	1.2	5
+226	path.spec	5.5	2.8	2.7	12
+227	navigation_groups.spec	5.2	2.6	2.5	15
+228	pointer.spec	5.1	3.0	2.2	11
+229	text_size_fit.spec	5.1	2.6	2.4	18
+230	container_relative_incremental.spec	5.0	2.1	2.9	5
+231	controls_namespace.spec	5.0	1.8	3.2	4
+232	text_degrade_cascade.spec	4.9	3.3	1.6	25
+233	text_audit.spec	4.9	3.6	1.2	35
+234	async_completeness.spec	4.7	3.9	0.8	23
+235	profile_scopes.spec	4.6	2.0	2.6	15
+236	client_host.spec	4.5	2.5	1.9	14
+237	paradigm_textinput.spec	4.4	1.5	2.9	5
+238	feedback.spec	4.2	2.0	2.2	12
+239	zstack_shape.spec	4.2	2.2	2.0	16
+240	fractional_offsets.spec	4.1	2.7	1.4	12
+241	motion_chase.spec	4.1	2.3	1.8	10
+242	row_actions_dump_seam.spec	4.1	1.2	2.9	9
+243	space_tight_step.spec	3.9	1.4	2.5	8
+244	reactive_recovery.spec	3.9	3.0	0.8	24
+245	fits_ideal_size.spec	3.9	2.0	1.8	15
+246	perf_evidence.spec	3.8	3.6	0.3	29
+247	replication.spec	3.7	3.4	0.3	16
+248	mount.spec	3.7	2.2	1.5	13
+249	matrix_rows.spec	3.5	3.2	0.3	16
+250	hit_expander_z_band.spec	3.5	1.0	2.5	4
+251	diagnostic_replay.spec	3.5	1.3	2.2	3
+252	sensory_profile.spec	3.1	2.4	0.7	27
+253	autoscroll.spec	3.1	2.7	0.4	25
+254	toast_schedule.spec	3.1	2.5	0.6	17
+255	conn_reconnect_sweep.spec	3.1	1.4	1.6	51
+256	motion_timeline.spec	3.0	2.0	1.0	14
+257	layout_v1.spec	3.0	2.3	0.8	9
+258	touch_gestures.spec	3.0	1.9	1.1	21
+259	motion_spring.spec	2.9	2.0	0.8	16
+260	error_boundary.spec	2.8	2.1	0.8	9
+261	runtime_quarantine.spec	2.8	2.1	0.8	10
+262	leaf_helpers.spec	2.8	2.0	0.8	14
+263	sensory_feedback.spec	2.8	2.2	0.6	14
+264	text_fit.spec	2.8	2.1	0.7	16
+265	async_image.spec	2.8	1.1	1.7	4
+266	input.spec	2.7	2.4	0.3	18
+267	preferred_text_seam.spec	2.6	1.5	1.1	12
+268	collection_gap_tokens.spec	2.6	1.6	1.0	11
+269	controls_conformance.spec	2.6	1.6	1.0	28
+270	preview.spec	2.5	1.8	0.8	5
+271	gallery_boot_mode.spec	2.5	1.7	0.8	18
+272	focus_skip.spec	2.5	2.2	0.3	20
+273	sorted_entries.spec	2.4	1.9	0.5	15
+274	tag_sync.spec	2.4	1.3	1.1	7
+275	interaction_tokens.spec	2.1	1.6	0.5	18
+276	paradigm_carry.spec	2.1	0.7	1.4	2
+277	selection_bridge.spec	2.1	0.7	1.4	4
+278	gamepad_contention.spec	1.9	1.3	0.7	14
+279	text_distance.spec	1.9	1.4	0.5	13
+280	zstack_fill_diagnostic.spec	1.8	0.9	1.0	3
+281	slice_mutation.spec	1.8	1.1	0.7	3
+282	containment_diagnostic.spec	1.7	1.5	0.2	8
+283	focus.spec	1.7	1.6	0.2	9
+284	process_globals.spec	1.7	1.0	0.7	6
+285	paradigm_hover.spec	1.7	1.1	0.6	5
+286	session_lifetime.spec	1.6	1.0	0.6	5
+287	drag_session.spec	1.6	1.5	0.1	11
+288	host_move_write_cost.spec	1.6	1.3	0.2	6
+289	hint_no_remount.spec	1.5	1.0	0.5	5
+290	nav_bar.spec	1.4	1.1	0.3	12
+291	focus_ring_float_geometry.spec	1.3	0.7	0.6	10
+292	focus_structural.spec	1.3	0.8	0.5	2
+293	value_reveal.spec	1.3	1.2	0.1	10
+294	text_calibration.spec	1.0	0.9	0.1	9
+295	row_actions_state.spec	0.9	0.9	0.1	13
+296	chrome_padding_refit.spec	0.9	0.7	0.1	6
+297	instance_park_corpse.spec	0.8	0.4	0.3	3
+298	measure_entry_point.spec	0.7	0.6	0.1	6
+299	transform_footprint.spec	0.5	0.4	0.0	6
+300	icon_ns_glyph.spec	0.4	0.4	0.0	5
+301	activate_handler_reconnect.spec	0.4	0.3	0.0	3
+--	TOTAL attributed	257850.0	2764.7	255085.3	7709
+--	unattributed (print/GC/startup)	115.9			
+--	harness wall	257965.9			
+
+rank	case_ms	spec	case
+1	21276.1	perf_lab.spec	Run all sweeps every workload and ONE failure does not end the sweep
+2	20476.5	perf_lab.spec	Run all ends by saying how to take the dump
+3	18047.0	perf_lab.spec	the identity workload walks its whole collection cleanly at every phone width
+4	6550.6	theme_drift.spec	catches a spacing literal a space step already names
+5	5326.2	theme_drift.spec	a value no name resolves to is NOT reported — there is nothing to rewrite it to
+6	5260.8	theme_drift.spec	catches a hardcoded text size, gap, padding and named metric constant
+7	3978.4	theme_drift.spec	a THEME-OPT-OUT marker with a reason keeps the literal; one without does not
+8	3936.4	theme_drift.spec	a metric assignment inside a LONG comment is not a violation
+9	3636.3	overflow_sweep.spec	proof 'p5_wardrobe': the solver reports NOTHING at any swept viewport, at any text size
+10	3166.2	overflow_sweep.spec	proof 'p4_foyer': the solver reports NOTHING at any swept viewport, at any text size
+11	2662.7	theme_drift.spec	a PROBE-EXEMPT region excuses what is inside it, and an unclosed one is itself a violation
+12	2633.8	theme_drift.spec	a marker in the comment ABOVE excuses the next literal, and only that one
+13	2616.4	theme_drift.spec	catches drift in the renderer and the presenter too, not only in controls
+14	2456.1	perf_lab.spec	every declared workload names only passes the scenario implements
+15	2324.2	overflow_sweep.spec	proof 'p1_glade': the solver reports NOTHING at any swept viewport, at any text size
+16	2280.2	overflow_sweep.spec	scenario 'row_actions': the solver reports NOTHING at any swept viewport, at any text size
+17	2261.3	overflow_sweep.spec	proof 'p3_sipworks': the solver reports NOTHING at any swept viewport, at any text size
+18	2005.6	gallery_chrome.spec	no overflow on either axis, at any swept viewport, under any shipped theme
+19	1768.7	perf_lab.spec	ONE LAP FITS A 60-FRAME WINDOW, and every rep yields a frame
+20	1569.6	overflow_sweep.spec	scenario 'hud': the solver reports NOTHING at any swept viewport, at any text size
+21	1396.8	overflow_sweep.spec	scenario 'adaptive_controls': the solver reports NOTHING at any swept viewport, at any text size
+22	1392.3	overflow_sweep.spec	scenario 'theme_authoring': the solver reports NOTHING at any swept viewport, at any text size
+23	1329.5	overflow_sweep.spec	scenario 'table_virtualized': the solver reports NOTHING at any swept viewport, at any text size
+24	1327.3	theme_drift.spec	a prop the theme system does not own is not this scope's business
+25	1325.0	theme_drift.spec	zero is not a metric: 'this container adds no spacing' stays legal
+26	1323.4	theme_drift.spec	a PROBE_EXEMPT_FILES listing silences the file — and is refused when its header does not say so
+27	1319.6	theme_drift.spec	catches a hardcoded dimension in a control
+28	1318.4	theme_drift.spec	a finding in a file that predicts geometry from raw constants says so, and names them
+29	1317.7	theme_drift.spec	zero stays legal in the corpus too: 'this container adds no spacing'
+30	1317.0	theme_drift.spec	catches a text size a typography role already names, and names the role
+
+case_index	elapsed_ms	heap_kb	ms_per_case	spec_at_sample
+25	2767	36811	110.7	conformance/conformance.spec
+50	2768	37853	0.1	conformance/conformance.spec
+75	2769	38327	0.0	layout.spec
+100	2770	38849	0.1	layout.spec
+125	2771	39387	0.0	layout.spec
+150	2771	40022	0.0	mount.spec
+175	2775	42385	0.1	profile_scopes.spec
+200	6065	93601	131.6	perf_lab.spec
+225	29889	322904	953.0	perf_lab.spec
+250	73168	57820	1731.2	perf_lab.spec
+275	79224	106642	242.2	perf_lab.spec
+300	79532	73917	12.3	content_terms_height.spec
+325	79552	79928	0.8	content_terms_height.spec
+350	79620	36214	2.7	measure_facts_seam.spec
+375	79765	44531	5.8	surface_lifecycle_seam.spec
+400	80084	45413	12.7	reactive_recovery.spec
+425	80085	46269	0.0	platform_env_binding.spec
+450	80087	48170	0.1	pointer_seam_ownership.spec
+475	80092	51636	0.2	primitive_registration.spec
+500	80869	48899	31.1	theme_package_enumeration.spec
+525	84265	146568	135.8	instance_recycling_themed.spec
+550	84620	59475	14.2	perf_principles.spec
+575	84671	78912	2.0	renderer.spec
+600	84709	34796	1.5	renderer.spec
+625	84760	54926	2.0	commit_walks_seam.spec
+650	85052	45372	11.7	native_scroll.spec
+675	85156	43550	4.2	native_scroll_autobind.spec
+700	85335	51732	7.1	keyboard_navigation.spec
+725	85348	39352	0.5	keyboard_navigation.spec
+750	85359	46269	0.4	traversal_order.spec
+775	85371	53323	0.5	traversal_order.spec
+800	85386	61034	0.6	focus_chrome.spec
+825	85392	63862	0.2	stage.spec
+850	85398	56923	0.2	foreign.spec
+875	85408	35238	0.4	text_calibration.spec
+900	85409	35896	0.1	text_degrade_cascade.spec
+925	85410	36293	0.1	measure_entry_point.spec
+950	85413	38422	0.1	text_line_box.spec
+975	85872	55972	18.3	value_reveal.spec
+1000	85875	58137	0.1	text_premeasure.spec
+1025	85876	59363	0.1	text_audit.spec
+1050	85881	62651	0.2	text_disclosure.spec
+1075	85890	68734	0.4	anchored_surface.spec
+1100	85919	75053	1.1	anchored_surface.spec
+1125	86091	69467	6.9	text_reveal.spec
+1150	86149	46202	2.3	large_text_matrix.spec
+1175	86264	52429	4.6	large_text_matrix.spec
+1200	86361	72317	3.9	large_text_layout.spec
+1225	86620	45756	10.4	drag_session.spec
+1250	86621	45926	0.0	touch_gestures.spec
+1275	86623	47401	0.1	presenter.spec
+1300	86636	55297	0.5	nav_bar.spec
+1325	86637	55863	0.0	controls_conformance.spec
+1350	86709	64301	2.9	chrome_inset_yield.spec
+1375	86834	48460	5.0	table.spec
+1400	86885	64385	2.1	table.spec
+1425	86944	44073	2.4	table.spec
+1450	87183	60929	9.5	table.spec
+1475	87316	55163	5.3	table.spec
+1500	88071	71630	30.2	table.spec
+1525	88254	41476	7.3	table_rows_seam.spec
+1550	88630	74320	15.0	playlist_columns.spec
+1575	89175	69597	21.8	hit_expander_overhang.spec
+1600	90062	41002	35.5	preview.spec
+1625	90097	46114	1.4	presentation_channel.spec
+1650	90107	50024	0.4	presentation_channel.spec
+1675	90142	53439	1.4	nested_tree_pins.spec
+1700	90225	40775	3.3	paint_extensions.spec
+1725	90227	42243	0.1	paint_extensions.spec
+1750	90232	44225	0.2	fractional_offsets.spec
+1775	90243	51945	0.5	presenter_drag_integration.spec
+1800	90289	66780	1.8	faults.spec
+1825	90383	62118	3.8	virtual_extents.spec
+1850	90413	39253	1.2	virtual_list_variable_extents.spec
+1875	90453	56224	1.6	virtual_list_row_gap.spec
+1900	90693	72813	9.6	collection_self_measure.spec
+1925	90722	36607	1.2	virtual_list_axis.spec
+1950	90767	54995	1.8	virtual_list_focus_policy.spec
+1975	90813	71200	1.8	virtual_grid.spec
+2000	90911	60344	3.9	virtual_grid_input.spec
+2025	91135	41033	9.0	virtual_hgrid.spec
+2050	91158	49382	0.9	focus_grid_axis.spec
+2075	91176	58737	0.7	perf_evidence.spec
+2100	91176	58993	0.0	perf_evidence.spec
+2125	91195	61497	0.8	matrix_rows.spec
+2150	91197	62005	0.0	sorted_entries.spec
+2175	91201	64171	0.2	styling.spec
+2200	91221	66544	0.8	sheet_model.spec
+2225	91325	73770	4.2	sheet_model.spec
+2250	91368	35647	1.7	native_style_scenario.spec
+2275	91376	35914	0.3	native_style_default.spec
+2300	92821	47610	57.8	extension_checker.spec
+2325	98775	55266	238.2	extension_checker.spec
+2350	99303	77965	21.1	examples_gallery.spec
+2375	102861	57925	142.3	examples_gallery.spec
+2400	102925	35437	2.6	examples_gallery.spec
+2425	103301	54116	15.0	examples_gallery.spec
+2450	103742	68686	17.6	examples_gallery.spec
+2475	103911	64483	6.8	gallery_theme_picker.spec
+2500	105337	51493	57.1	gallery_theme_picker.spec
+2525	105555	39525	8.7	gallery_demo_picker.spec
+2550	106334	41405	31.2	gallery_demo_host.spec
+2575	106738	51142	16.2	gallery_chrome.spec
+2600	109162	74139	96.9	gallery_chrome.spec
+2625	109661	75635	20.0	gallery_chrome.spec
+2650	109793	53146	5.3	gallery_boot_mode.spec
+2675	109905	49965	4.5	examples_games.spec
+2700	110101	68851	7.8	examples_games.spec
+2725	110133	40896	1.3	example_word_game.spec
+2750	110417	54410	11.4	example_word_game.spec
+2775	110592	45031	7.0	popup_button.spec
+2800	110605	52577	0.5	text_input.spec
+2825	110616	59503	0.4	text_input.spec
+2850	110647	60210	1.2	auto_input.spec
+2875	110708	51732	2.4	table_input.spec
+2900	110931	59723	8.9	table_input.spec
+2925	111644	35973	28.5	table_input.spec
+2950	111767	69755	4.9	table_input.spec
+2975	112453	65525	27.4	virtual_list_input.spec
+3000	112927	41048	19.0	virtual_list_row_actions.spec
+3025	114428	62916	60.1	virtual_list_row_actions.spec
+3050	115935	42735	60.3	virtual_list_row_actions.spec
+3075	116288	64888	14.1	auto_input_screens.spec
+3100	116307	39746	0.7	late_contributions.spec
+3125	116318	40306	0.5	responder.spec
+3150	116333	50910	0.6	paradigm_popup.spec
+3175	116382	64850	1.9	paradigm_input_axis.spec
+3200	116391	69734	0.4	dpad_repeat.spec
+3225	116639	53056	9.9	paradigm_table.spec
+3250	116647	58801	0.3	paradigm_tenfoot.spec
+3275	116657	63918	0.4	chip.spec
+3300	116660	65473	0.1	authoring.spec
+3325	117344	47717	27.3	authoring.spec
+3350	117346	49090	0.1	layout_vocabulary.spec
+3375	117348	50625	0.1	layout_vocabulary.spec
+3400	117353	52776	0.2	layout_vocabulary.spec
+3425	117359	54895	0.3	stack_distribution.spec
+3450	117361	55551	0.1	stack_distribution.spec
+3475	117364	56506	0.1	grid_row.spec
+3500	117373	60575	0.4	flow_wrap.spec
+3525	117375	61405	0.1	flow_wrap.spec
+3550	117681	57357	12.3	geometry_solve_coalescing.spec
+3575	117779	63703	3.9	lifecycle_hooks.spec
+3600	117786	67482	0.3	placement_audit.spec
+3625	117792	69869	0.2	container_relative_frame.spec
+3650	117808	76350	0.6	grid_measure_arrange.spec
+3675	117887	55942	3.2	scroll_indicators.spec
+3700	119180	59979	51.7	overflow_sweep.spec
+3725	131825	52567	505.8	overflow_sweep.spec
+3750	148211	54791	655.5	overflow_sweep.spec
+3775	158621	59948	416.4	overflow_sweep.spec
+3800	159601	70003	39.2	scroll_window_clip.spec
+3825	159612	74460	0.4	adaptive.spec
+3850	159624	35927	0.5	adaptive.spec
+3875	159631	41619	0.3	adaptive.spec
+3900	159632	42966	0.1	adaptive.spec
+3925	159635	44945	0.1	button_complete.spec
+3950	159644	47735	0.3	button_complete.spec
+3975	159647	48663	0.1	button_shape.spec
+4000	159678	51662	1.2	button_shape.spec
+4025	159684	53967	0.3	zstack_shape.spec
+4050	159688	56777	0.1	compact_label.spec
+4075	159744	68581	2.2	value_controls.spec
+4100	159771	37361	1.1	value_controls.spec
+4125	159787	46474	0.6	rating.spec
+4150	160004	54346	8.7	rating.spec
+4175	160017	60190	0.5	display_controls.spec
+4200	160047	35838	1.2	display_controls.spec
+4225	160055	40925	0.3	progress_circular.spec
+4250	160156	70430	4.1	theme_package.spec
+4275	160168	71493	0.5	theme_package.spec
+4300	160181	73039	0.5	theme_snapshot.spec
+4325	160195	75580	0.5	theme_roles.spec
+4350	181271	80097	843.1	theme_drift.spec
+4375	210942	77640	1186.8	example_drift.spec
+4400	213080	81448	85.5	theme_controller.spec
+4425	213190	41555	4.4	theme_controller.spec
+4450	213304	56242	4.6	theme_paint_repaint.spec
+4475	213378	61878	2.9	theme_chrome.spec
+4500	213479	79581	4.1	theme_chrome.spec
+4525	213550	84682	2.8	theme_chrome.spec
+4550	213647	92119	3.9	theme_chrome.spec
+4575	213682	94576	1.4	screen_props_seam.spec
+4600	213754	41934	2.9	theme_layers.spec
+4625	213827	50989	2.9	theme_layers.spec
+4650	213869	53932	1.7	theme_icons.spec
+4675	213887	58080	0.7	theme_pixel.spec
+4700	213928	61500	1.7	theme_layer_application.spec
+4725	213939	62490	0.4	theme_layer_application.spec
+4750	213971	65914	1.3	theme_layer_application.spec
+4775	213972	66251	0.0	conn_reconnect_sweep.spec
+4800	213973	66295	0.0	conn_reconnect_sweep.spec
+4825	213978	66794	0.2	theme_value_displays.spec
+4850	214065	41849	3.5	theme_value_displays.spec
+4875	214076	42882	0.4	theme_value_displays.spec
+4900	214101	46140	1.0	theme_icons_applied.spec
+4925	214115	50143	0.6	theme_selectby.spec
+4950	214165	56102	2.0	theme_reference_packages.spec
+4975	214296	66717	5.2	theme_reference_packages.spec
+5000	214344	70926	1.9	theme_reference_packages.spec
+5025	214471	80683	5.1	theme_reference_packages.spec
+5050	215070	49204	23.9	theme_authoring_scenario.spec
+5075	215086	51169	0.6	theme_asset_judgement.spec
+5100	215633	74570	21.9	theme_docs.spec
+5125	216126	48464	19.7	maintainer_map.spec
+5150	216582	72330	18.2	motion_spring.spec
+5175	216584	73376	0.1	motion_clock.spec
+5200	216597	78236	0.5	motion_chase.spec
+5225	216600	79222	0.1	motion_tween.spec
+5250	216603	48661	0.1	reduced_motion_seam.spec
+5275	216612	41125	0.4	transitions.spec
+5300	216656	51442	1.8	backdrop_fade.spec
+5325	216712	64306	2.3	toast_presentation.spec
+5350	216922	67851	8.4	sensory_feedback.spec
+5375	216923	68519	0.0	sensory_profile.spec
+5400	216924	68988	0.0	haptics.spec
+5425	216925	69433	0.0	haptics.spec
+5450	216926	70067	0.0	haptics.spec
+5475	216927	70672	0.0	haptics.spec
+5500	216970	73955	1.7	control_feedback.spec
+5525	216974	76140	0.2	control_feedback.spec
+5550	217356	76652	15.3	control_feedback.spec
+5575	217392	85921	1.5	async_completeness.spec
+5600	217393	86235	0.0	interaction_tokens.spec
+5625	217393	86477	0.0	autoscroll.spec
+5650	217418	42092	1.0	scroll_snap.spec
+5675	217460	58118	1.7	drag_public.spec
+5700	217472	66071	0.5	drag_public.spec
+5725	217482	71930	0.4	drag_public.spec
+5750	217483	72114	0.0	row_actions.spec
+5775	217535	45832	2.1	row_actions.spec
+5800	217590	67533	2.2	row_actions.spec
+5825	217663	53631	2.9	row_capability_optouts.spec
+5850	219201	63403	61.5	row_capabilities_scenario.spec
+5875	219518	72676	12.7	row_actions_input.spec
+5900	219605	61926	3.5	row_actions_input.spec
+5925	219672	40958	2.7	row_actions_input.spec
+5950	219786	77093	4.6	row_actions_hosted.spec
+5975	220245	44414	18.3	row_actions_scenario.spec
+6000	222561	79339	92.6	row_actions_scenario.spec
+6025	222843	66201	11.3	focus_skip.spec
+6050	222866	74210	0.9	collection_list.spec
+6075	222943	53889	3.1	collection_list.spec
+6100	223665	42753	28.9	sponsor_scenarios.spec
+6125	224025	76803	14.4	sponsor_scenarios.spec
+6150	224406	77493	15.2	sponsor_scenarios.spec
+6175	224531	73875	5.0	band_policy.spec
+6200	224544	77491	0.5	composition.spec
+6225	224555	80749	0.4	composition.spec
+6250	224566	84769	0.4	composition.spec
+6275	224905	55989	13.6	composition.spec
+6300	224925	46762	0.8	composition_exclusions.spec
+6325	224927	47850	0.1	region_expand.spec
+6350	224935	51952	0.3	region_expand.spec
+6375	224994	74521	2.4	region_expand.spec
+6400	225062	68815	2.7	hud_composition.spec
+6425	225274	59285	8.5	spec_guard_sweep.spec
+6450	225277	60759	0.1	spec_guard_sweep.spec
+6475	225280	62090	0.1	spec_guard_sweep.spec
+6500	225290	64435	0.4	typography_weight_roles.spec
+6525	225302	70359	0.5	with_animation.spec
+6550	225319	77745	0.7	authored_presentation.spec
+6575	225331	82837	0.5	authored_presentation.spec
+6600	225364	40481	1.3	preferred_transparency.spec
+6625	225370	44474	0.2	surface_overlap.spec
+6650	225649	74309	11.2	hud_chrome_rotation.spec
+6675	226642	58296	39.7	elision_recovery.spec
+6700	226835	64108	7.7	elision_recovery.spec
+6725	228891	63083	82.3	reference/glade_spec
+6750	229999	43880	44.3	reference/glade_spec
+6775	232685	61584	107.4	reference/glade_spec
+6800	234058	63995	54.9	reference/cartwheel_spec
+6825	235782	93742	69.0	reference/cartwheel_spec
+6850	236945	90005	46.5	reference/cartwheel_spec
+6875	240104	76133	126.4	reference/sipworks_spec
+6900	241934	44608	73.2	reference/sipworks_spec
+6925	247493	67889	222.3	reference/sipworks_spec
+6950	250249	55333	110.2	reference/foyer_spec
+6975	252280	69532	81.3	reference/foyer_spec
+7000	253618	56752	53.5	tier.spec
+7025	253650	70142	1.3	selection_indicator.spec
+7050	253698	87746	1.9	picker_segments.spec
+7075	253738	50638	1.6	picker_segments.spec
+7100	253752	58136	0.6	menu.spec
+7125	253778	71847	1.0	menu.spec
+7150	253829	43643	2.0	menu.spec
+7175	254100	64377	10.8	tab_view_scenario.spec
+7200	254342	77957	9.7	help.spec
+7225	254358	84164	0.6	callout.spec
+7250	254422	57324	2.6	callout_scenario.spec
+7275	255416	77841	39.7	hud_paint_probe.spec
+7300	255699	50177	11.3	hud_paint_probe.spec
+7325	255733	63601	1.4	tab_view.spec
+7350	255802	41249	2.8	tab_view.spec
+7375	255835	55431	1.3	tab_view.spec
+7400	255877	71974	1.7	tab_view_accessories.spec
+7425	255896	80682	0.8	level_picker.spec
+7450	256019	69264	4.9	controls_namespace.spec
+7475	256020	70089	0.1	text_distance.spec
+7500	256107	79807	3.5	world_substrate.spec
+7525	256201	70617	3.8	adaptive_defaults.spec
+7550	256669	54547	18.7	ten_foot_metrics.spec
+7575	256838	59722	6.7	ten_foot_metrics.spec
+7600	257118	91419	11.2	app_metrics.spec
+7625	257228	57489	4.4	app_metrics.spec
+7650	257255	70174	1.1	layout_defaults.spec
+7675	257797	87377	21.7	themed_containment.spec
+7700	257963	70684	6.6	overflow_guard.spec

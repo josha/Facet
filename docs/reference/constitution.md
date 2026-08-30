@@ -228,7 +228,7 @@ Rules:
   Facet table — are exactly: `host`, `screen_target`, `billboard_target`,
   `roblox_env`, `roblox_input`, `roblox_resources`, `theme_controller`,
   `edit_preview`, `motion_driver`, `haptics`, `gamepad_contention`,
-  `responder_effects`. That is **twelve**. `tools/lune/check_boundary.luau` holds
+  `responder_effects`, `surface_target`. That is **thirteen**. `tools/lune/check_boundary.luau` holds
   the same list in code and is the authority; api.md §Client entry points
   documents each one. Everything else under `src/` is internal to consumers.
   (`haptics` was blessed with the round-2 feedback bus; `gamepad_contention` and

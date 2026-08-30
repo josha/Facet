@@ -255,7 +255,7 @@ strong reference to its own weak key. One surface whose `controller.dispose()` w
 skipped pinned its adapter, renderer, whole mounted tree and core for the process.
 
 Fix: the bucket is weak-keyed too, so the whole cycle collects as a unit.
-`docs/lessons/luau-weak-tables-are-not-ephemerons.md` records the class and the
+`docs/lessons/weak-tables-are-not-ephemerons.md` records the class and the
 instruments.
 
 **2. `tests/lib/fake_target.luau` — test adapter, independently necessary.**
@@ -339,3 +339,58 @@ After the fix:
 
 Recorded as a decision with its number attached, so a later reader can see it was
 measured rather than skipped.
+
+## The heap curve, before and after
+
+`tools/lune/time_specs` gained a progress curve for this stage — case index, elapsed,
+heap, and the ms-per-case over the preceding twenty-five cases. A per-file ranking
+cannot tell one dear spec apart from a heap that grows all run and makes the collector
+charge whoever runs last, and that distinction was the whole question.
+
+After the fix, sampled across the run (`spec-timings-after.json.tsv`):
+
+```
+case_index  elapsed_ms  heap_kb  ms_per_case  spec_at_sample
+        25        2767    36811        110.7  conformance/conformance.spec
+      1150       86149    46202          2.3  large_text_matrix.spec
+      2275       91376    35914          0.3  native_style_default.spec
+      3400      117353    52776          0.2  layout_vocabulary.spec
+      4525      213550    84682          2.8  theme_chrome.spec
+      5650      217418    42092          1.0  scroll_snap.spec
+      6775      232685    61584        107.4  reference/glade_spec
+```
+
+**The heap oscillates between 35 and 85 MB for the whole run.** It does not climb. That
+is the retention being gone, stated as a shape rather than as a total.
+
+## The slowest survivors, and a second optimization deliberately NOT taken
+
+In-process attribution after the fix (which still charges collector work to whoever
+allocates next, so these run above their isolated costs):
+
+| Spec | in-process | cases |
+|---|---:|---:|
+| `perf_lab.spec` | 76.8 s | 104 |
+| `theme_drift.spec` | 47.7 s | 25 |
+| `overflow_sweep.spec` | 41.3 s | 96 |
+| `reference/sipworks_spec` | 9.6 s | 75 |
+| `extension_checker.spec` | 7.4 s | 34 |
+
+Three specs are 64 % of the suite.
+
+`perf_lab` is a workload by design — 2,000- and 20,000-row mounts and a nine-workload
+sweep — and its cost is the thing it exists to measure.
+
+`theme_drift`, `example_drift` and `extension_checker` are the shape the binding plan
+names by hand: **a whole-tree source scan re-run once per case**. `theme_drift` calls
+`drift.check()` in every one of its twenty-five cases at ~1.9 s each. Batching the
+non-mutating cases onto one shared scan — the mutation cases genuinely need their own,
+since planting a line and re-scanning is the point of them — would recover perhaps
+twenty to thirty seconds.
+
+**It is not done, and that is a decision rather than an oversight.** The budget is met
+with roughly ten minutes of headroom; the plan's instruction is "apply the smallest safe
+changes that materially reduce wall time"; and sharing a scan across cases is precisely
+the kind of change that makes a mutation case quietly stop planting into the tree it
+asserts against. Recorded here with its number so a later pass can take it deliberately
+if the budget ever tightens, rather than rediscovering it.

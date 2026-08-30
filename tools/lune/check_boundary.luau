@@ -143,6 +143,10 @@ local BLESSED_CLIENT_MODULES: { [string]: boolean } = {
 	roblox_input = true,
 	roblox_resources = true,
 	billboard_target = true,
+	-- the world surface (ADR-0063, 2026-08-29): flat Facet on a SurfaceGui a
+	-- player walks up to. Blessed for the same reason its two siblings are — a
+	-- render target is required directly and never exported from the Facet table.
+	surface_target = true,
 	theme_controller = true,
 	edit_preview = true,
 	motion_driver = true,

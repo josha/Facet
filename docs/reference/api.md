@@ -8559,16 +8559,23 @@ agree on what a value may be: `spatial.PHASES` is
 event still normalizes to a well-formed value rather than a nil every consumer
 has to guard.
 
-The matching render-target half is `target_contract.FUTURE.surface`: a
-`SurfaceGui` world target, **declared with its eleven unanswered questions and
-not implemented**. See [`../extending/new-platform-mode.md`](../extending/new-platform-mode.md)
-for the physical gate a support claim would have to pass first.
+The matching render-target half is `client.surface_target`, and it **shipped**
+on 2026-08-29 (ADR-0063): flat, two-dimensional Facet on a `SurfaceGui`, on a
+part a player can walk up to and use. It is not the declarative Part/Model layout
+Step 12 considered and it is not VR, ray, hand, or gaze support — see
+[`../extending/new-platform-mode.md`](../extending/new-platform-mode.md) for the
+physical gate a spatial claim would still have to pass.
+
+`target_contract.FUTURE.surface` keeps the questions that spike had to answer,
+now split into `answered` and `openQuestions`, because where the next implementer
+looks for the questions is where the answers belong. Two of them corrected the
+declaration's own premises.
 
 ---
 
 ## Client entry points
 
-Everything above hangs off the `Facet` table. These twelve modules do not: they
+Everything above hangs off the `Facet` table. These thirteen modules do not: they
 are the code that touches Roblox `Instance`s, real input and real device facts,
 so exporting them would put engine requires in the shared/server graph. A client
 script requires each **directly**:
@@ -8577,7 +8584,7 @@ script requires each **directly**:
 local host = require(ReplicatedStorage.Facet.client.host)
 ```
 
-**This list is the contract** (ADR-0011, constitution §12). These twelve are
+**This list is the contract** (ADR-0011, constitution §12). These thirteen are
 public surface with the same compatibility promise as anything above; everything
 else under `src/` is library-internal, and a consumer requiring one of those is
 outside the boundary rule. `tools/lune/check_boundary.luau` holds the same list
@@ -8663,6 +8670,46 @@ environment. It deliberately **removes** two optional adapter methods
 (`setPointerHandlers`, `setTouchGestureHandlers`), which is the target contract's
 own degrade mechanism — a billboard says honestly what it cannot do. One adapter
 per billboard, same rule as above.
+
+#### `client.surface_target`
+
+`surface_target.new(opts) -> RenderTargetAdapter` — the same adapter with a
+`SurfaceGui` root, for flat Facet **on a part a player can walk up to and use**.
+`opts` is `{ parent, adornee, face, canvas = { w, h } }` — all four required and
+asserted — plus `maxDistance?`, `onAdorneeLost?`, `style?`, `displaySize?`,
+`isReducedMotion?`. `surface_target.canvasRect(canvas)` is the matching viewport
+rect to feed the environment, and the consumer sets
+`env:set("presentationSpace", "world")`, which this target is the first thing in
+the library to make true.
+
+Four of its choices are unusual enough to state, and each was measured rather
+than assumed (the record is
+`artifacts/example-games-and-standalones/spike/world-surface.md`):
+
+- **`face` has no default.** For an unrotated part `Enum.NormalId.Front` is the
+  *−Z* face, so a camera looking along −Z sees `Back`. A surface on the wrong
+  face renders perfectly, measures perfectly, and can never be clicked — which is
+  indistinguishable from an engine that does not support this at all.
+- **`parent` must be this client's `PlayerGui`, and the reason is ownership.** A
+  `SurfaceGui` parented into a Workspace part *does* take input, contrary to what
+  the contract used to say; what it also does is replicate to every player. Facet
+  does not build shared UI.
+- **The adornee must have `CanQuery = true`**, asserted at construction. With it
+  false the surface renders at full size and receives nothing, silently.
+- **`AlwaysOnTop` is pinned `false` and is not an option.** With it true a player
+  operates the terminal through a wall — measured, not inferred.
+
+It **removes** four optional adapter methods — `setPointerHandlers`,
+`setTouchGestureHandlers`, `stageHost`, `foreignHost` — and passes
+`nativeStyle = false` and `forceScrollFallback = true`. That is the contract's own
+degrade mechanism, and each withholding matches a question
+`target_contract.FUTURE.surface` still lists as open. One adapter per surface,
+same rule as above.
+
+`onAdorneeLost` exists because **a destroyed part is invisible through
+`.Adornee`** — the property still names it, with the canvas size unchanged. The
+adapter watches the instance's own lifetime and calls you once; resigning the
+surface is your decision.
 
 #### `client.roblox_env`
 

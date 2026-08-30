@@ -232,6 +232,12 @@ require("./table_themed_header.spec")
 require("./pointer.spec")
 require("./preview.spec")
 require("./render_target_contract.spec")
+--[[ the WORLD SURFACE target's pure half (ADR-0063): the canvas rect the solver
+	is handed, every argument it refuses and whether the refusal says WHY, and that
+	each capability it deletes is one the contract actually declares. It has a spec
+	at all because it resolves `screen_target` inside `new` rather than at module
+	scope — `billboard_target` does not, and therefore cannot be loaded headlessly ]]
+require("./surface_target.spec")
 -- the per-node presentation channel + the SF-M9 live-adapter fix (ADR-0022 D2)
 require("./presentation_channel.spec")
 -- ...and the REAL-PARENT REGISTRY it composes against (ADR-0032 step 1): one

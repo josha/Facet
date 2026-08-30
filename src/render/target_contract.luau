@@ -279,38 +279,53 @@ target_contract.THEME = {
 target_contract.THEME_GROWTH = table.freeze({ setThemeStyle = true })
 
 -- ---------------------------------------------------------------------------
--- FUTURE TARGETS (roadmap Step 4, ADR-0021). DECLARED, NOT IMPLEMENTED.
+-- THE WORLD SURFACE: the questions, and which of them are now answered.
 --
--- A render target is where the solved tree materializes. Two exist:
--- `screen_target` (ScreenGui) and `billboard_target` (BillboardGui). A world
--- surface is the third, and it is written down here — with its unanswered
--- questions attached — for one reason: so that adding it later is a new adapter
--- rather than a change to every control. Nothing below is shipped, and
--- `target_contract.check` does not know about it.
+-- A render target is where the solved tree materializes. THREE exist:
+-- `screen_target` (ScreenGui), `billboard_target` (BillboardGui) and — since
+-- 2026-08-29, ADR-0063 — `surface_target` (SurfaceGui).
 --
--- The questions are the deliverable. Each is something a Studio and physical
--- spike must answer BEFORE an adapter is written, because guessing at any of
--- them produces an adapter that looks correct and is not.
+-- This block was written when the third was future, and it stays here rather
+-- than being deleted, because the questions were the deliverable and where the
+-- next implementer looks for them is exactly where the ANSWERS belong. Each was
+-- something a Studio spike had to settle BEFORE an adapter was written, on the
+-- grounds that guessing at any of them produces an adapter that looks correct
+-- and is not. Two of them turned out to be wrong in this file, which is the best
+-- possible argument for having written them down.
+--
+-- The spike record is
+-- artifacts/example-games-and-standalones/spike/world-surface.md; the adapter
+-- carries each answer beside the option it decides.
 target_contract.FUTURE = table.freeze({
 	surface = table.freeze({
 		instance = "SurfaceGui",
-		status = "not implemented; no adapter, no capability claim",
+		status = "SHIPPED 2026-08-29 (ADR-0063) — src/client/surface_target.luau",
 		presentationSpace = "world",
 		playbook = "docs/extending/new-render-target.md + docs/extending/new-platform-mode.md",
-		-- ADR-0003 deferred the world target and listed the checklist; these are
-		-- the same questions, restated as the spike a future implementer runs
+		--[[ ANSWERED BY THE SPIKE. Two of these corrected this file's own premises,
+			and both corrections matter to anyone reading it next. ]]
+		answered = table.freeze({
+			"canvas mapping: SizingMode = FixedSize gives a canvas INVARIANT to the part — 8x5, 4x2.5, 16x10 and 8x2 studs all reported the same 400x250 — and descendants read in canvas pixels, so the solver is handed one exact rect and a part resize costs no re-solve",
+			"interactivity precondition: WRONG AS ORIGINALLY WRITTEN. A SurfaceGui parented INTO the part is NOT display-only on Studio 0.736 — both topologies took input (activated=1, inputBegan=2 each). PlayerGui + Adornee is still required, on OWNERSHIP grounds: a SurfaceGui inside a Workspace part replicates to every player, and shared UI is what Facet must never build",
+			"local ownership: unchanged and now load-bearing — it is the whole reason for the topology above",
+			"the queryable precondition (not originally listed): CanQuery = false renders the surface at full size and receives nothing, with no error — activation went 1 -> 0 -> 1 as the flag was cleared and restored",
+			"occlusion: geometry in front blocks input with AlwaysOnTop = false, and DOES NOT with it true — a player would operate the terminal through a wall, which is why the adapter pins it false and does not offer the option",
+			"a live surface SINKS the world input under it: a ClickDetector on the same part fired while the surfaces were inert and zero times once they were live",
+			"adornee lifetime: a destroyed part is INVISIBLE through .Adornee, which still names it with the canvas size unchanged — the adapter watches the instance's own lifetime and reports through onAdorneeLost",
+			"clipping: a child overflowing the canvas still reports its full AbsoluteSize, so clipping is a paint fact and the solver's overflow diagnostics keep meaning what they mean, exactly as on a ScreenGui",
+			"text measurement: TextService takes no target, so there is no per-target text question — GetTextBoundsAsync answered identically",
+		}),
+		--[[ STILL OPEN. Each is here because nothing has measured it, not because
+			nobody thought of it; the adapter withholds the matching capability by
+			name rather than shipping an unproven one. ]]
 		openQuestions = table.freeze({
-			"canvas mapping: pixels-per-stud policy, and whether solved rects map linearly at every part size",
-			"adornee lifetime: what the adapter does when the part streams out, is destroyed, or is re-parented mid-interaction",
-			"local ownership: the SurfaceGui must be client-owned like every other Facet target, never replicated UI",
-			"clipping: whether ClipsDescendants and the scroll host behave as they do on a ScreenGui",
-			"stylesheets: whether a StyleLink under a SurfaceGui resolves the same rules with the same cascade",
-			"pointer coordinates: mouse/touch hit points arrive in surface space, and a spatial ray arrives as world geometry — both must reach the same solver rects",
-			"interactivity precondition: a SurfaceGui's GuiObjects are input-active only when the SurfaceGui lives under PlayerGui with Adornee set to the part; parented INTO the part it is display-only. A spike that parents it the wrong way measures a surface that can never be clicked.",
+			"stylesheets: whether a StyleLink under a SurfaceGui resolves the same rules with the same cascade — the spike could not close this, because its hand-built StyleRule failed to apply on the SCREEN control too and a shared null proves nothing. It closes with native_style itself driven on a surface; until then the adapter passes nativeStyle = false",
+			"pointer coordinates: activation reaches a surface control, but what coordinates a CAPTURE carries is unmeasured — and on a SurfaceGui the ScreenGui inset correction is not merely wrong, it is the wrong KIND of correction. setPointerHandlers and setTouchGestureHandlers are withheld until a mapping is measured",
+			"the native scroll host: a scripted CanvasPosition write took, but a wheel, a drag and a touch flick are what a consumer gets and none has been driven. forceScrollFallback stays true",
 			"focus visuals: whether a focus ring is legible at the distances and angles a world surface is viewed from",
-			"occlusion: what a control does when the surface is behind geometry, edge-on, or off-screen",
-			"teardown: that destroyRoot releases every instance and connection, as the contract already requires",
-			"performance: a world surface renders every frame the part is visible; the cost has to be measured, not assumed",
+			"engine content: a ViewportFrame (UI.Stage) or a caller's own GuiObject (UI.Foreign) inside a canvas that is itself a world surface is a composition nobody has looked at. Both hosts are withheld",
+			"performance: a world surface renders every frame the part is visible; the cost has to be measured against the same scene at idle, not assumed",
+			"retail client: every answer above is Studio Play with an injected pointer. The real client remains a named device row",
 		}),
 	}),
 })

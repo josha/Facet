@@ -73,15 +73,29 @@ Three deliberate restrictions:
 
 ### 4. The world render target is declared with its unanswered questions
 
-`target_contract.FUTURE.surface` names `SurfaceGui`, states `not implemented`, and
-carries the ten questions a Studio and physical spike must answer before an adapter is
-written: canvas mapping, adornee lifetime, local ownership, clipping, stylesheet
-resolution, pointer/ray coordinates, focus legibility, occlusion, teardown, and
-per-frame cost. The contract checker does not know about it, no adapter file exists,
-and `Facet.newSurfaceTarget` is absent — all three asserted.
+`target_contract.FUTURE.surface` names `SurfaceGui` and carries the questions a Studio
+and physical spike must answer before an adapter is written: canvas mapping, adornee
+lifetime, local ownership, clipping, stylesheet resolution, pointer/ray coordinates,
+focus legibility, occlusion, teardown, and per-frame cost.
 
 The questions are the deliverable. Guessing at any of them produces an adapter that
 looks correct and is not.
+
+**Amended 2026-08-29 (ADR-0063).** The spike was run and the adapter shipped:
+`src/client/surface_target.luau`. The declaration stays exactly where it is, now split
+into `answered` and `openQuestions`, because where the next implementer looks for the
+questions is where the answers belong — and **two of the questions turned out to be
+wrong as this ADR wrote them**, which is the best available argument for having written
+them down at all. A `SurfaceGui` parented into the part is *not* display-only (both
+topologies take input; the PlayerGui rule stands on ownership instead), and
+`AlwaysOnTop = true` lets a player operate a surface through a wall. The stylesheet
+cascade, capture coordinates, user-driven scroll, focus legibility at distance, engine
+content, per-frame cost and retail-client input remain open, and each is matched by a
+capability the adapter withholds by name.
+
+**This changes nothing about §1-§3 and creates no spatial claim.** A flat world surface
+driven by an ordinary pointer answers none of the gate rows in
+`docs/extending/new-platform-mode.md`; every one of them stays `PENDING_PHYSICAL`.
 
 ### 5. A support claim has a named, unmet gate
 
