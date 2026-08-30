@@ -7,7 +7,7 @@
    "sha256": "d7f196e6127d4040b09e21c3665d6847b56c07a52a88635c25e9323a08acdae5"
   }
  ],
- "recordedAt": "2026-08-30T20:47:31Z",
+ "recordedAt": "2026-08-30T21:20:44Z",
  "row": "release-candidate-review::clear-writing-checked",
  "schema": "facet-evidence-receipt/1",
  "summary": "clear-writing-checked: 1 recorded file(s), pinned by content hash."

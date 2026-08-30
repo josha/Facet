@@ -12,7 +12,7 @@
    "sha256": "1cf8cafe9acc179912434ecc88456d9e553b8de4a57594d5d824f3ca87220117"
   }
  ],
- "recordedAt": "2026-08-30T20:47:30Z",
+ "recordedAt": "2026-08-30T21:20:43Z",
  "row": "performance-stress-places::physical-rows",
  "schema": "facet-evidence-receipt/1",
  "summary": "physical-rows: 2 recorded file(s), pinned by content hash."

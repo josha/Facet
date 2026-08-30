@@ -18,7 +18,7 @@
    "sha256": "c31c671be7f1b402dd461ce6e641c40ba3abab9a59a1b6a6e05d136cc2eaecb0"
   }
  ],
- "recordedAt": "2026-08-30T20:47:30Z",
+ "recordedAt": "2026-08-30T21:20:43Z",
  "row": "reference-app-validation::source-inspection-and-ip-boundary",
  "schema": "facet-evidence-receipt/1",
  "summary": "source-inspection-and-ip-boundary: 4 recorded file(s), pinned by content hash."

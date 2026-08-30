@@ -7,7 +7,7 @@
    "sha256": "4ece4f4209558eb87b515aad6201a5e70265d58b79acee5b91b6f570148bd3bd"
   }
  ],
- "recordedAt": "2026-08-30T20:47:30Z",
+ "recordedAt": "2026-08-30T21:20:43Z",
  "row": "example-quality-pass::rascalrally-consumer",
  "schema": "facet-evidence-receipt/1",
  "summary": "rascalrally-consumer: 1 recorded file(s), pinned by content hash."

@@ -7,7 +7,7 @@
    "sha256": "259338c73bb2c38c32746be6bb855dc8331ab215ac92a6c58f8471f03b90eb1c"
   }
  ],
- "recordedAt": "2026-08-30T20:47:31Z",
+ "recordedAt": "2026-08-30T21:20:44Z",
  "row": "release-candidate-review::maintainer-map-current",
  "schema": "facet-evidence-receipt/1",
  "summary": "maintainer-map-current: 1 recorded file(s), pinned by content hash."

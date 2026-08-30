@@ -12,7 +12,7 @@
    "sha256": "77bbd0105c6700585a18a86054464d2d89e137fce07a186a3905eebe2006fba3"
   }
  ],
- "recordedAt": "2026-08-30T20:47:29Z",
+ "recordedAt": "2026-08-30T21:20:42Z",
  "row": "rich-skinning-v2::tile-decision-honest",
  "schema": "facet-evidence-receipt/1",
  "summary": "tile-decision-honest: 2 recorded file(s), pinned by content hash."

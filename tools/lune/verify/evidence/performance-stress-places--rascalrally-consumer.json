@@ -7,7 +7,7 @@
    "sha256": "745ec2b840387ab7948918453501e0ca318de91b8128349428d313549b6390ac"
   }
  ],
- "recordedAt": "2026-08-30T20:47:30Z",
+ "recordedAt": "2026-08-30T21:20:43Z",
  "row": "performance-stress-places::rascalrally-consumer",
  "schema": "facet-evidence-receipt/1",
  "summary": "rascalrally-consumer: 1 recorded file(s), pinned by content hash."

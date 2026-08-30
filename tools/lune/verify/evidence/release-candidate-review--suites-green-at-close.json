@@ -7,7 +7,7 @@
    "sha256": "ed687c3a7af9646f7d149d5b45a6d555b1c61f5b17f530670aeeb69c6dc2e645"
   }
  ],
- "recordedAt": "2026-08-30T20:47:31Z",
+ "recordedAt": "2026-08-30T21:20:44Z",
  "row": "release-candidate-review::suites-green-at-close",
  "schema": "facet-evidence-receipt/1",
  "summary": "suites-green-at-close: 1 recorded file(s), pinned by content hash."

@@ -32,7 +32,7 @@
    "sha256": "bcdf07f8a59dd6d5f8b0b172890a8edf334fd3a966d37f1f2076d25c19886358"
   }
  ],
- "recordedAt": "2026-08-30T20:47:29Z",
+ "recordedAt": "2026-08-30T21:20:42Z",
  "row": "api-architecture-consistency::surface-ledger-complete",
  "schema": "facet-evidence-receipt/1",
  "summary": "surface-ledger-complete: 6 recorded file(s), pinned by content hash."

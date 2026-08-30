@@ -7,7 +7,7 @@
    "sha256": "3bdb6d420e66c07fbf335c30c260b6cb6941d17a935664e7a5e7b8bc1ee8bdf4"
   }
  ],
- "recordedAt": "2026-08-30T20:47:31Z",
+ "recordedAt": "2026-08-30T21:20:44Z",
  "row": "release-candidate-review::haptics-defaults",
  "schema": "facet-evidence-receipt/1",
  "summary": "haptics-defaults: 1 recorded file(s), pinned by content hash."
