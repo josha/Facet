@@ -145,8 +145,8 @@ end)
 
 presenter.present(Facet.UI.Screen({
     id = "Counter",
-    padding = 16,
-    gap = 8,
+    padding = "m",
+    gap = "s",
     children = {
         Facet.UI.Text({ id = "Label", text = label }),
         Facet.UI.Button({
@@ -196,8 +196,7 @@ screen and proves it works.
 | [`docs/reference/constitution.md`](docs/reference/constitution.md) | The rules anything added to this repository has to follow. |
 | [`docs/MAINTAINERS.md`](docs/MAINTAINERS.md) | Where a change goes, and what proves it. |
 | [`docs/extending/`](docs/extending/) | One playbook per kind of addition: a control, a primitive, a theme, a skinned control, an engine feature, a render target, a platform mode. |
-| [`docs/adr/`](docs/adr/) | The decision records: what was chosen, what was rejected, and why. |
-| [`docs/lessons/`](docs/lessons/) | Defects that cost real time, written up so the next person recognises the shape. |
+| [`CHANGELOG.md`](CHANGELOG.md) | What changed in each version, and every behavior change riding the unreleased one. |
 | [`AGENTS.md`](AGENTS.md) | The routing table for an automated coding agent working with Facet. |
 
 ## Development
@@ -238,7 +237,7 @@ the reference.
 ## Versioning and compatibility
 
 Facet follows semantic versioning, and the policy is
-[ADR-0011](docs/adr/ADR-0011-semver-and-deprecation.md). The version lives in one
+[`CONTRIBUTING.md` §6](CONTRIBUTING.md#6-versioning-and-deprecation). The version lives in one
 place, `src/init.luau`, and is readable as `Facet.VERSION` — currently `0.10.0`.
 
 While Facet is pre-1.0, a minor version may change public behavior. Nothing public

@@ -222,7 +222,7 @@ local label = core:memo(function(use) return `Clicked {use(count)} times` end)
 presenter.present(
     Facet.UI.Screen({
         id = "Counter",
-        padding = 16, gap = 8,
+        padding = "m", gap = "s",
         children = {
             Facet.UI.Text({ id = "Label", text = label }),
             Facet.UI.Button({
@@ -279,7 +279,8 @@ devices — is in the model you dragged in. There is no Rojo-only code path.
 - **File-based version control of the library.** The tree lives in your `.rbxl`.
   Pin a version by recording `Facet.VERSION` (currently `0.10.0`) somewhere you
   will see it, and check `Facet.DEPRECATIONS` after an upgrade — see
-  [ADR-0011](../adr/ADR-0011-semver-and-deprecation.md). On the package route the
+  [`CONTRIBUTING.md` §6](../../CONTRIBUTING.md#6-versioning-and-deprecation). On
+  the package route the
   `Distribution` folder's `Version`, `SourceCommit` and `SourceHash` attributes
   answer the same question without a checkout.
 - **The headless test suite.** `./run-tests.sh` runs the whole suite under Lune

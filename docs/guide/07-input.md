@@ -5,7 +5,7 @@
 > Facet's input layer is built on Roblox's **Input Action System** (IAS)
 > — `InputContext`, `InputAction` and `InputBinding` — and nothing else. It never
 > reaches into `ContextActionService`. That is a deliberate architecture choice
-> ([`ADR-0004`](../adr/ADR-0004-input-verification-scope.md)) — arbitration is the engine's
+> — arbitration is the engine's
 > job, and a UI framework that quietly outbid a game's own bindings would be
 > worse than the symptom it fixed.
 >
@@ -50,7 +50,7 @@
 > And there is **no priority number that fixes either one**: a sinking CAS
 > binding consumes a key before any `InputContext` is offered it, at any
 > priority — measured, a CAS sink at priority **100** beat an `InputContext` at
-> **10000** ([`the-camera-still-owns-the-arrow-keys`](../lessons/the-camera-still-owns-the-arrow-keys.md)).
+> **10000** (`the-camera-still-owns-the-arrow-keys`).
 > CAS priority and `InputContext.Priority` are not one arbitration space. The
 > property is the fix, because it is what moves those bindings *into* the space
 > where priority means something. With the flag on, player input joins the same
@@ -96,8 +96,7 @@ composite control (Table, VirtualList, TextInput, PopupButton, and anything you
 build with the [new-control playbook](../extending/new-control.md)) attaches an
 *input contribution* — its focus groups, its activate handling, its
 gesture idioms — to the tree it mounts. When you present a screen, the presenter
-discovers those contributions and wires them together automatically
-([`ADR-0013`](../adr/ADR-0013-input-auto-wiring.md)). That is why the playlist
+discovers those contributions and wires them together automatically. That is why the playlist
 example mounts a filter field and a table and gets field↔rows D-pad navigation,
 row selection on A, and drag-reorder grab mode with **zero** input options
 passed. If you do pass a `present()` option (`onActivate`, `navigationGroups`,
@@ -235,7 +234,7 @@ proofs.
 **Affordances read the live class set, never one preferred value.** Real
 devices are multi-modal: a handheld is touch *and* gamepad at once; a desktop
 with a pad connected is a pointer machine *and* a gamepad machine. The
-environment exposes `interactionClasses` (ADR-0015) — the **live set**
+environment exposes `interactionClasses` — the **live set**
 `{ pointer, touch, gamepad, keyboard }` plus a single `primary`. A class is
 *live* when its capability is present; `primary` (the `preferredInput` name) is
 forced into the set so it is always live. Controls choose their structural
@@ -286,7 +285,7 @@ TV still earns it). `effectiveDisplaySize` is `displaySize` — the engine's own
 `GuiService.ViewportDisplaySize` — corrected for one case the raw fact gets
 wrong: a touch-capable device the engine still reports as `"Large"` (a PC
 handheld's misdetection, not a television) reads `"Medium"` instead, because a
-real ten-foot session never has a touchscreen (ADR-0058). Every other device,
+real ten-foot session never has a touchscreen. Every other device,
 touch or not, sees no difference between the two facts. Four things change,
 and they compose rather than multiply:
 
@@ -327,7 +326,7 @@ the number the paint will be.
 concern; it reuses this same ten-foot profile and is never a fifth device class.)
 
 **How a control declares its paradigm behavior.** All of the above rides the same
-input-contribution bundle a composite attaches to its root (ADR-0013). Alongside
+input-contribution bundle a composite attaches to its root. Alongside
 `focusGroups`/`handleActivate`/`syncGeometry`/`keepVisibleOffset`, the bundle
 carries the paradigm seams this round added — all optional, each the *uniform*
 way to express one idiom:
@@ -390,8 +389,7 @@ four input classes, so a mouse-only control cannot land.
 ## 7.3 The responder chain: UI in a game with an avatar
 
 In a real game the avatar owns the controls by default, and UI must *take* them
-politely and *give them back*. Facet calls this the responder chain
-([`ADR-0014`](../adr/ADR-0014-first-responder.md)). With the IAS flag on (the
+politely and *give them back*. Facet calls this the responder chain. With the IAS flag on (the
 warning at the top), avatar input and UI input arbitrate in the same system, by
 `InputContext` priority + Sink, and the presenter manages that for you through
 three surface modes:
@@ -635,7 +633,7 @@ navigation and a Table's selected-column resize never see a keypress. Fix: the
 same declaration of `Workspace.PlayerScriptsUseInputActionSystem`. There is no
 alternative involving a bigger priority number — see the warning at the top of
 this chapter for the measurement, and
-[`the-camera-still-owns-the-arrow-keys`](../lessons/the-camera-still-owns-the-arrow-keys.md)
+`the-camera-still-owns-the-arrow-keys`
 for the full session.
 
 The probe for this one is separate from the gamepad probe, and it has to be —
@@ -675,8 +673,6 @@ a bounded `PlayerModule` wait discovering the same thing. `"disabled"`,
 `"unbound"` and `"unavailable"` are the three legacy-stack outcomes. A boolean
 alone could not tell "I disabled the control module" from "there was nothing to
 disable", which is how a place could carry both remedies with neither one live.
-Full details:
-[`docs/lessons/gamepad-contention-truths.md`](../lessons/gamepad-contention-truths.md).
 
 **Do not script `GuiService.CoreGuiNavigationEnabled`.** The CoreScripts
 re-enable it, and it was never the cause of dead A-presses anyway.
@@ -718,8 +714,8 @@ and neither disables the other.
 
 **`Escape` is engine-reserved.** It is permanently bound to the Roblox menu and
 cannot be rebound, so there is no keyboard Cancel key; the sanctioned keyboard
-path out of a modal is its focusable Close button (§7.2). Recorded as a
-justified exception in `ADR-0013`.
+path out of a modal is its focusable Close button (§7.2). It is a justified
+exception to the four-input rule, recorded as one.
 
 **A physical gamepad button cannot be proven headlessly.** The suite and
 Studio's virtual input prove the handshake around `ButtonA`, but cannot press a

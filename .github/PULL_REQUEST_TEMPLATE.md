@@ -20,7 +20,7 @@
 
 - [ ] New or changed public properties are in `docs/reference/api.md`
 - [ ] A new capability is in the catalog in `docs/guide/README.md`
-- [ ] A change to what the library promises has a record under `docs/adr/`
+- [ ] A change to what the library promises has a `CHANGELOG.md` entry saying what was chosen and what was rejected
 - [ ] Not applicable
 
 ## Consumer impact

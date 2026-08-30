@@ -86,8 +86,8 @@ end)
 
 local screen = Facet.UI.Screen({
     id = "Counter",
-    padding = 16,
-    gap = 8,
+    padding = "m",
+    gap = "s",
     children = {
         Facet.UI.Text({ id = "Label", text = label }),  -- a signal/memo as a prop = reactive
         Facet.UI.Button({
@@ -215,7 +215,7 @@ local label = core:memo(function(use) return `Clicked {use(count)} times` end)
 
 local screen = Facet.UI.Screen({
     id = "Counter",
-    padding = 16, gap = 8,
+    padding = "m", gap = "s",
     children = {
         Facet.UI.Text({ id = "Label", text = label }),
         Facet.UI.Button({

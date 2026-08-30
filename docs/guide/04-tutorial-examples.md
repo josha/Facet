@@ -599,7 +599,7 @@ optimistic presentation back on the way out.
 The page scrolls, so every control stays reachable on a phone and at the largest
 preferred-text setting. Touch, mouse, the arrow keys plus Return, and a gamepad
 D-pad plus A all drive the same controls — the example wires none of that; the
-presenter derives it from the layout (ADR-0013). The full replication contract is
+presenter derives it from the layout. The full replication contract is
 covered in [chapter 6](06-client-server.md).
 
 ---
@@ -748,7 +748,7 @@ is a memo over the state signals, so the view is a pure function of the state.
 
 The metric is a `minMax` **floor**, not a `fixed` cap, and that word is load-bearing:
 the letter inside a tile grows with the player's text-size preference, so a fixed
-box is the defect `docs/lessons/facet-fixed-px-heights.md` names — under a theme
+box is the defect class a fixed px height names — under a theme
 with a taller type ramp the glyph measured 49 px in a 44 px box at the largest
 preference. A floor lets the whole board grow, and `itemSizing = "uniform"` keeps
 every cell the same size while it does.
@@ -939,8 +939,7 @@ end))
 
 **Every square paints something, and the cue is never colour alone.** A board of
 forty-nine rectangles that is present in the tree and invisible on the screen is a
-real failure this repository has shipped
-(`docs/lessons/a-default-valued-write-never-claims.md`): the obvious plate role,
+real failure this repository has shipped: the obvious plate role,
 `surfaceStrong`, is the *panel* colour, which every theme keeps within a few
 percent of the page — 1.036:1 under Sci-Fi HUD. So a square is a `UI.ZStack`
 holding three nodes rather than a single `UI.Button`:
@@ -967,8 +966,7 @@ plus their gaps need 416px and the narrowest supported page is 288, so a fixed
 square would have painted straight off the right of a 320px phone; a `minMax`
 floor lets `itemSizing = "uniform"` hug seven squares where there is room and
 divide the offer where there is not, and lets the letter grow at a raised text
-preference instead of being clipped
-(`docs/lessons/facet-fixed-px-heights.md`).
+preference instead of being clipped.
 
 The board and the rack are each one `UI.Grid`, and the presenter derives 2D
 navigation from a Grid for free (per-row groups linked by up/down exits), so a

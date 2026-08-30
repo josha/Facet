@@ -26,14 +26,19 @@ called **blueprints** in the code (`src/blueprint.luau`).
 local UI = Facet.UI
 local screen = UI.Screen({
     id = "Menu",
-    padding = 16,
-    gap = 8,
+    padding = "m",
+    gap = "s",
     children = {
         UI.Text({ id = "Title", text = "Main Menu", textSize = 24 }),
         UI.Button({ id = "Play", label = "Play" }),
     },
 })
 ```
+
+`padding` and `gap` take a theme spacing token — `"xs"`, `"s"`, `"m"`, `"l"`,
+`"xl"`, which resolve to 4, 8, 16, 24 and 40 pixels under the default theme.
+A plain number is legal and stays exactly that number: it will not follow a
+theme swap or grow on a television.
 
 That `screen` value is inert data. Turning it into something live is a separate
 step (mounting — see [chapter 3](03-getting-started.md)).

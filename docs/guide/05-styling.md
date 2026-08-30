@@ -7,9 +7,9 @@ principle that styling is *data* until the very last moment.
 > **Current-version note.** §5.1–5.6 describe the token and adapter styling every
 > screen gets by default. Two later stages sit on top of it and have **shipped**:
 > §5.7 moves runtime paint, native interaction states, Dark/Light themes and
-> optional transitions to Roblox StyleSheets (ADR-0018), and §5.8 adds versioned
+> optional transitions to Roblox StyleSheets, and §5.8 adds versioned
 > theme packages that own typography, metrics, insets and nine-slice chrome as
-> well (ADR-0019). The full walkthrough for building one is
+> well. The full walkthrough for building one is
 > [chapter 9](09-custom-themes.md).
 
 ## 5.1 Tokens
@@ -229,12 +229,12 @@ Next: [chapter 6](06-client-server.md) covers talking to the server.
 
 ## 5.7 Native stylesheets (the default): the Style Editor is the paint authority
 
-Since the native-stylesheets stage (ADR-0018) a target can hand its paint to a
+Since the native-stylesheets stage a target can hand its paint to a
 Roblox `StyleSheet` living in the DataModel, and **since 2026-08-21 that is what
 it does unless you say otherwise** (`native_style.DEFAULT_ENABLED = true`, the
 game director's ruling; the change is recorded in
-[ADR-0040](../adr/ADR-0040-unreleased-breaking-changes.md) with the rest of the
-unreleased behaviour changes):
+[`CHANGELOG.md`](../../CHANGELOG.md) with the rest of the unreleased behaviour
+changes):
 
 ```lua
 local adapter = screen_target.new({})           -- sheet paint, the default
@@ -294,13 +294,13 @@ authority, and the player's Roblox text-size preference is applied exactly once
 by the engine), data bindings, the logical focus ring and ten-foot lift,
 value-driven motion (the Toggle knob-track), pointer capture and cursor hints,
 and `UIShadow` (still adapter-materialized behind its capability probe).
-`docs/adr/ADR-0018-native-stylesheets.md` records the full split and the
-engine truths behind it.
+The split is between what a `StyleSheet` rule can express and what only the
+adapter can write, and each side of it is measured.
 
 ## 5.8 Theme packages: a theme that owns metrics, not just colour
 
 §5.7's Dark/Light themes are **palette** themes — they repaint, and that is all.
-Since ADR-0019 a theme can also own its typography, spacing, control heights,
+A theme can also own its typography, spacing, control heights,
 radii, strokes, solver-visible content insets and asset-backed chrome, and a swap
 re-solves the mounted screen instead of merely recolouring it.
 
@@ -335,8 +335,8 @@ The four moving parts:
 - **Bounded chrome.** A closed list of decoration slots, each either native paint
   (zero instances, gradients included) or adapter-created non-interactive
   `ImageLabel`s painted entirely by package rules, with declared content insets
-  the solver honours and a tag-driven native fallback when the art fails. Since
-  ADR-0020 a slot may also carry a bounded STACK of layers and per-state art
+  the solver honours and a tag-driven native fallback when the art fails. A slot
+  may also carry a bounded STACK of layers and per-state art
   rather than a single picture — see §5.8a.
 
 A swap is one transaction — `SetDerives` plus the snapshot commit in a single
@@ -379,7 +379,7 @@ itself use [`../extending/new-theme.md`](../extending/new-theme.md).
 
 ## 5.8a Rich skinning: when the art IS the interface
 
-ADR-0020 adds the authoring style where nothing on screen is a painted rectangle.
+Rich skinning adds the authoring style where nothing on screen is a painted rectangle.
 It is additive — a package written against §5.8 compiles and paints unchanged —
 and it is entirely package data:
 

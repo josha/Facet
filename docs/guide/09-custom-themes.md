@@ -728,8 +728,7 @@ and the recovery is tag-driven:
 
 1. the provider reports the asset failed (or the target's own grace deadline
    infers it from silence, which it may only do for art the engine was actually
-   asked to decode — see
-   [`docs/lessons/engine-never-decodes-invisible-images.md`](../lessons/engine-never-decodes-invisible-images.md));
+   asked to decode: the engine never decodes an image it is not showing);
 2. the adapter adds `facet-chrome-fallback` to that slot's art, and
    `facet-chrome-mute` to every art instance of it EXCEPT the condemned asset's own
    undecoded picture;
@@ -1106,7 +1105,6 @@ They are capability references, not replicas of any operating system or game.
 Next: [chapter 10, Rich skinning](10-rich-skinning.md), when you want the art to
 BE the interface — or the contributor-side playbook,
 [`../extending/new-theme.md`](../extending/new-theme.md), when you are changing
-the theme system itself. The architecture decisions and the engine truths behind
-them are in
-[`../adr/ADR-0019-theme-packages.md`](../adr/ADR-0019-theme-packages.md) and
-[`../adr/ADR-0020-rich-skinning-v2.md`](../adr/ADR-0020-rich-skinning-v2.md).
+the theme system itself. The rules it holds a package to, and the engine
+measurements each one stands on, are in
+[`../extending/new-theme.md`](../extending/new-theme.md).

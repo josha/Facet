@@ -64,8 +64,7 @@ every approved exception, is [`the constitution`](../reference/constitution.md).
   are named one way (`onChange` while a value moves, `onCommit` when it lands).
   Teardown works one way. Where something deliberately breaks the pattern, the
   constitution names it and says why.
-- **Retirement runs on a schedule.** The version number means something
-  (ADR-0011). Nothing public disappears without a ledger entry, a replacement,
+- **Retirement runs on a schedule.** The version number means something. Nothing public disappears without a ledger entry, a replacement,
   and at least one minor version of notice.
 
 ## Reading order

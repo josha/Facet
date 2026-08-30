@@ -808,9 +808,9 @@ stretched at all.
   [`../extending/new-theme.md`](../extending/new-theme.md).
 - The rung-3 playbook, step by step, is
   [`../extending/skinned-control.md`](../extending/skinned-control.md).
-- The decisions behind everything above, and the engine measurements each one
-  stands on, are in
-  [`../adr/ADR-0020-rich-skinning-v2.md`](../adr/ADR-0020-rich-skinning-v2.md).
+- The rules behind everything above, and the engine measurements each one stands
+  on, are in [`../extending/new-theme.md`](../extending/new-theme.md) and
+  [`../extending/skinned-control.md`](../extending/skinned-control.md).
 - The scenario that drives all of it live is
   [`../../examples/gallery/scenarios/theme_authoring.luau`](../../examples/gallery/scenarios/theme_authoring.luau);
   the steps this chapter's features add are `installLayered`, `layerCensus`,

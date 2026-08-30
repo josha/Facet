@@ -33,9 +33,9 @@ anything below, because they decide how a call is written:
 ### `VERSION`
 
 `Facet.VERSION: string` — the semantic version (`MAJOR.MINOR.PATCH`),
-currently `0.10.0`. Governed by `docs/adr/ADR-0011-semver-and-deprecation.md`:
-pre-1.0, a minor bump may change behavior with notice; a patch bump never
-does. The version lives only here; docs and tests read it from the source.
+currently `0.10.0`. Governed by the versioning and deprecation policy in
+[`CONTRIBUTING.md` §6](../../CONTRIBUTING.md#6-versioning-and-deprecation):
+pre-1.0, a minor bump may change behavior with notice; a patch bump never does. The version lives only here; docs and tests read it from the source.
 
 ### `EXIT_CAP_SECONDS`
 
@@ -66,7 +66,7 @@ and `adaptive.conditions().contentWidth` (since 0.8.0);
 `newVirtualList(spec.rowHeight)`, `newVirtualList(spec.viewportHeight)` and
 `screen_target.new(opts.isReducedMotion)` (since 0.9.0, removed no earlier than
 0.10.0); and the nineteen old-form composite builders `newTable` … `newAsyncImage`
-(since 0.10.0, removed no earlier than 0.12.0 — ADR-0037), each naming
+(since 0.10.0, removed no earlier than 0.12.0), each naming
 `Facet.Controls.<Name>(core, spec)`. Each is marked deprecated where it is
 documented below.
 
@@ -259,7 +259,8 @@ for that parent — a property that is accepted must do something.
 #### Tooling surface: `UI.schema`, `UI.isReadable`, `UI.PROP_DIRTY`
 
 Three exports exist for tooling, tests and extension authors rather than for
-authoring a screen. They are public and covered by ADR-0011 like anything else.
+authoring a screen. They are public and covered by the versioning policy like
+anything else.
 
 `Facet.UI.schema` is the property schema itself — fifteen members:
 
@@ -349,15 +350,15 @@ Three groups recur in the column below and are worth naming once:
 | `shadow`, `gradient`, `corners`, `stroke` | every rendered class, **and `GridRow`** | normalized style-modifier data — produce them with `UI.shadow` / `UI.gradient` / `UI.corners` / `UI.stroke`, never by hand |
 | `zIndex` | every rendered class, **and `GridRow`** | paint-order override **within the parent's stacking scope**: siblings paint in `(zIndex or 0, declaration order)` order and a node's whole subtree travels with it. A child is always above its own parent, whatever its `zIndex`, so lifting across surfaces stays structural (`presentModal`'s display order). Read once at mount — a lift is what a node *is* (a drag ghost, a toast), not a state it passes through |
 | `hidden` | every rendered class | `true` keeps the node's **layout box** and stops painting it — and takes its whole subtree out of focus order and off the tap path with it. It is the one thing neither of the other two answers gives you: `UI.When` *removes* the node so the siblings close up, and Roblox's own `Visible = false` frees the layout slot inside a `UIListLayout` (Facet arranges absolutely and materializes none of those, which is why one prop is enough). Reactive — bind it to a signal to reserve a slot until the value arrives. Reach for `UI.When` instead whenever the space *should* close up |
-| `opacity` | `Box`, `ZStack` | fade this node **and its whole subtree**: `1` is opaque (the default), `0` is invisible while still laid out, focusable and tappable — reach for `hidden` when you want all three gone. Declaring it **makes the node a fade group** (you never write `canvasGroup = true` beside it), because a fade in this framework is one `CanvasGroup.GroupTransparency` write and that is the one alpha property no style rule owns — a per-node transparency write would permanently defeat the theme's own rules, which is why a leaf like `Text` refuses it. The spelling for a leaf is one wrap: `UI.ZStack { opacity = 0.4, children = { theText } }`, and reaching for it on any other class is a **construction error that says so and spells the wrap out** — `opacity` and `canvasGroup` are refused by name, never silently missing. The refusal is measured rather than argued ([ADR-0029](../adr/ADR-0029-leaf-opacity-refusal.md)): a composition needs a base term, and `GetStyled` — the only way to read the sheet's value — returns **your own write** from the first write onward, so the base stops existing. A leaf fade built anyway on `GetStyledPropertyChangedSignal` multiplies its own output back in on every state change and reaches invisible after four disable/enable cycles. It **multiplies** with any fade the framework is running on the same node (a transition, a toast retiring), by design, so an authored `0.5` inside a transition at half-way paints `0.25`. Reactive, and animatable through `presenter.withAnimation` |
-| `scale` | every rendered class | paint-only uniform scale about the node's centre; `1` is unscaled. **It changes nothing the solver sees** — the layout box, the tap target and the focus order are all the unscaled ones — because a paint term never moves a measured box; to change a box, change `width`/`height`. It **multiplies** with any scale the framework is applying (a motion pop, an enter transition). Reactive and animatable. It **survives a press**: a `Button`'s dip shares the engine's single `UIScale` per object, so the dip is relative — it goes down to `resting x pressedScale` and comes back to `resting`, never to an absolute `1`. **Why this is on 21 classes and `opacity` on two** (ADR-0029): a term is offerable where ONE engine property that no style rule owns expresses it for the class's whole painted output. `UIScale.Scale` is that property on every `GuiObject`, and it carries the node's descendants and its rule-created phantom modifiers with it; alpha's only such property is `CanvasGroup.GroupTransparency`, and only `Box`/`ZStack` can BE a `CanvasGroup`. **And unlike `opacity`, that reach costs nothing to switch on** ([ADR-0032](../adr/ADR-0032-nested-instance-tree.md) Decision 4): authoring `scale` (or `rotation`) on a container that actually has children makes that container a real engine parent for them — a plain `Frame`, never a `CanvasGroup`, because `UIScale.Scale` is not the alpha property and needs no buffer. Measured through the real framework: a `UI.ZStack{ scale = 1.5, rotation = 30 }` around an 80×40 `UI.Box` re-parents the box inside it, and the box comes out **120×60 at `AbsoluteRotation = 30`** — exactly 1.5× — while its own `Rotation` stays `0.0` and it grows **no `UIScale` of its own**: the engine composed both terms, no framework code did. Before this, the same container left its contents at `80×40, Rotation = 0` — a rotated plate with its contents sitting bolt upright beside it, which is why this shipped before 1.0 rather than after. A childless container or a rotated leaf earns no parent and no extra instance; declaring the prop is what registers the host, so an ordinary container with neither prop is untouched and stays elidable exactly as before. **SO RESERVE THE SPACE YOURSELF, and note that the amount grew.** Because the solver sees the unscaled box, a scaled node paints OUTSIDE its own slot and the parent has to leave room — and since Decision 4 the thing that paints outside is the whole SUBTREE, not just the one node. Found on a device (2026-08-17) on this framework's own showcase: a `100x70` container at `scale = 1.5, rotation = 30` draws a **182.40 x 165.93** footprint, and the demo had reserved `100x70` for it — so the pair spilled over the caption above it and past the panel's edge. The fix is a plain sibling box of the drawn size with the transformed node centred inside it; it must be OUTSIDE the node that scales, because a wrapper that scales with its contents reserves nothing. The footprint of a `w x h` box at scale `s` and angle `d` is `(w*s*|cos d| + h*s*|sin d|)` by `(w*s*|sin d| + h*s*|cos d|)` — compute it from the same constants that produce it rather than pinning a number, and round UP: the exact height above is `165.93`, and centring that inside a `166` reservation leaves 0.03px a side. **`Facet.layout.transformFootprint(w, h, scale, deg) -> width, height`** (gap 33, framework-gaps-phase2) is that exact formula, published, so a consumer computes the reservation instead of hand-transcribing the trigonometry |
-| `rotation` | every rendered class | paint-only rotation in **degrees** about the node's centre; `0` is upright, positive is clockwise. Like `scale` it moves no layout and no hit geometry — a rotated button's tap target is its unrotated box — and it **adds** to any rotation the framework is applying. It is on every rendered class for the same reason `scale` is (above): `GuiObject.Rotation` is one property no generated rule writes. Reactive and animatable. **Reaches a container's children the same way `scale` does** — see the `scale` row above and [ADR-0032](../adr/ADR-0032-nested-instance-tree.md) Decision 4; the two terms are registered by the same rule and compose together on the same host |
-| `offset` | every rendered class | paint-only translation in px from the node's SOLVED position (`{x=,y=}`; `0,0` = unmoved; gap 16, framework-gaps-phase2, [ADR-0026 amendment](../adr/ADR-0026-authored-presentation-composition.md#amendment-2026-08-23--offset-a-fourth-authored-term-framework-gaps-phase2-gap-16)). It changes nothing the solver sees — the box, the hit target and the focus order stay at the solved position; to change WHERE a node is, change its layout (`margin`, `Anchor` offsets, position in the tree) — and it **adds** to any offset the framework is applying (a slide transition, a keyboard shift), the same composition rule `rotation` uses. Reactive and animatable through `presenter.withAnimation`'s steady state (it does not itself participate in a flight's interpolation — see the ADR amendment) |
+| `opacity` | `Box`, `ZStack` | fade this node **and its whole subtree**: `1` is opaque (the default), `0` is invisible while still laid out, focusable and tappable — reach for `hidden` when you want all three gone. Declaring it **makes the node a fade group** (you never write `canvasGroup = true` beside it), because a fade in this framework is one `CanvasGroup.GroupTransparency` write and that is the one alpha property no style rule owns — a per-node transparency write would permanently defeat the theme's own rules, which is why a leaf like `Text` refuses it. The spelling for a leaf is one wrap: `UI.ZStack { opacity = 0.4, children = { theText } }`, and reaching for it on any other class is a **construction error that says so and spells the wrap out** — `opacity` and `canvasGroup` are refused by name, never silently missing. The refusal is measured rather than argued: a composition needs a base term, and `GetStyled` — the only way to read the sheet's value — returns **your own write** from the first write onward, so the base stops existing. A leaf fade built anyway on `GetStyledPropertyChangedSignal` multiplies its own output back in on every state change and reaches invisible after four disable/enable cycles. It **multiplies** with any fade the framework is running on the same node (a transition, a toast retiring), by design, so an authored `0.5` inside a transition at half-way paints `0.25`. Reactive, and animatable through `presenter.withAnimation` |
+| `scale` | every rendered class | paint-only uniform scale about the node's centre; `1` is unscaled. **It changes nothing the solver sees** — the layout box, the tap target and the focus order are all the unscaled ones — because a paint term never moves a measured box; to change a box, change `width`/`height`. It **multiplies** with any scale the framework is applying (a motion pop, an enter transition). Reactive and animatable. It **survives a press**: a `Button`'s dip shares the engine's single `UIScale` per object, so the dip is relative — it goes down to `resting x pressedScale` and comes back to `resting`, never to an absolute `1`. **Why this is on 21 classes and `opacity` on two**: a term is offerable where ONE engine property that no style rule owns expresses it for the class's whole painted output. `UIScale.Scale` is that property on every `GuiObject`, and it carries the node's descendants and its rule-created phantom modifiers with it; alpha's only such property is `CanvasGroup.GroupTransparency`, and only `Box`/`ZStack` can BE a `CanvasGroup`. **And unlike `opacity`, that reach costs nothing to switch on**: authoring `scale` (or `rotation`) on a container that actually has children makes that container a real engine parent for them — a plain `Frame`, never a `CanvasGroup`, because `UIScale.Scale` is not the alpha property and needs no buffer. Measured through the real framework: a `UI.ZStack{ scale = 1.5, rotation = 30 }` around an 80×40 `UI.Box` re-parents the box inside it, and the box comes out **120×60 at `AbsoluteRotation = 30`** — exactly 1.5× — while its own `Rotation` stays `0.0` and it grows **no `UIScale` of its own**: the engine composed both terms, no framework code did. Before this, the same container left its contents at `80×40, Rotation = 0` — a rotated plate with its contents sitting bolt upright beside it, which is why this shipped before 1.0 rather than after. A childless container or a rotated leaf earns no parent and no extra instance; declaring the prop is what registers the host, so an ordinary container with neither prop is untouched and stays elidable exactly as before. **SO RESERVE THE SPACE YOURSELF, and note that the amount grew.** Because the solver sees the unscaled box, a scaled node paints OUTSIDE its own slot and the parent has to leave room — and since Decision 4 the thing that paints outside is the whole SUBTREE, not just the one node. Found on a device (2026-08-17) on this framework's own showcase: a `100x70` container at `scale = 1.5, rotation = 30` draws a **182.40 x 165.93** footprint, and the demo had reserved `100x70` for it — so the pair spilled over the caption above it and past the panel's edge. The fix is a plain sibling box of the drawn size with the transformed node centred inside it; it must be OUTSIDE the node that scales, because a wrapper that scales with its contents reserves nothing. The footprint of a `w x h` box at scale `s` and angle `d` is `(w*s*|cos d| + h*s*|sin d|)` by `(w*s*|sin d| + h*s*|cos d|)` — compute it from the same constants that produce it rather than pinning a number, and round UP: the exact height above is `165.93`, and centring that inside a `166` reservation leaves 0.03px a side. **`Facet.layout.transformFootprint(w, h, scale, deg) -> width, height`** (gap 33, framework-gaps-phase2) is that exact formula, published, so a consumer computes the reservation instead of hand-transcribing the trigonometry |
+| `rotation` | every rendered class | paint-only rotation in **degrees** about the node's centre; `0` is upright, positive is clockwise. Like `scale` it moves no layout and no hit geometry — a rotated button's tap target is its unrotated box — and it **adds** to any rotation the framework is applying. It is on every rendered class for the same reason `scale` is (above): `GuiObject.Rotation` is one property no generated rule writes. Reactive and animatable. **Reaches a container's children the same way `scale` does** — see the `scale` row above; the two terms are registered by the same rule and compose together on the same host |
+| `offset` | every rendered class | paint-only translation in px from the node's SOLVED position (`{x=,y=}`; `0,0` = unmoved; gap 16, framework-gaps-phase2). It changes nothing the solver sees — the box, the hit target and the focus order stay at the solved position; to change WHERE a node is, change its layout (`margin`, `Anchor` offsets, position in the tree) — and it **adds** to any offset the framework is applying (a slide transition, a keyboard shift), the same composition rule `rotation` uses. Reactive and animatable through `presenter.withAnimation`'s steady state (it does not itself participate in a flight's interpolation — see the ADR amendment) |
 | `onAppear`, `onDisappear` | every rendered class | view-lifetime hooks, both called with the node's path. `onAppear(path)` runs **once**, on the frame the node is first rendered and **after that frame's layout solve**, so it can read its own rect (`controller.rectOf`) and nothing has reached the screen yet. `onDisappear(path)` runs **once**, **after** the node's render instance has been released — the path is already unmounted, so `rectOf` on it is `nil` — and it also runs for everything still mounted when the surface is torn down, so a cleanup is never silently dropped. The lifetime measured is the *rendered* one: a virtualized row that scrolls out of the window disappears, and a subtree still playing its exit transition has not disappeared yet. Not reactive (a lifetime is not a value that changes), and an error thrown inside a hook is loud rather than swallowed |
 | `textSize` | `Text`, `Button`, `Toggle`, `TextField` | an explicit px number, a typography role name (`"caption"` \| `"label"` \| `"body"` \| `"heading"` \| `"title"` \| `"control"` \| `"strong"` \| `"numeral"`) resolved from the active theme, or **`"fit"`** — the largest size that fits the box this node lands in, chosen by the SOLVER (option form `{ fit = { cap = <role or px>, floor = <role or px> } }`; see below). A role supplies the **font descriptor and line height** as well as the size, and both travel to the measure seam AND the paint seam — so `"strong"` (emphasis at reading size) and `"numeral"` (a rank or score figure) are how a node asks for **weight**; there is no `weight` prop, because a face that reached only one seam is what `Text.font` was deprecated for. A px or role size is scaled at both seams; a `"fit"` size is already the painted one |
 
 **`{ type = "content", lines = n }` / `{ type = "content", rows = n, of = metric }`**
-(ADR-0049) is how a box declares its extent in CONTENT TERMS — "about N lines/rows",
+ is how a box declares its extent in CONTENT TERMS — "about N lines/rows",
 never measured from an actual child — which is what a scroller or panel viewport
 needs when it must show *less* than all of its own content: a bare `{ type =
 "content" }` measures everything and cannot express that, and a `{ type = "fixed",
@@ -441,7 +442,7 @@ a box, and a screen that should grow its box for a larger preference wants the s
 | `textAlign` | `Text` | horizontal alignment of the node's own text in its box (`start` \| `center` \| `end`); default `start`. Vertical alignment stays adapter-owned and is always centred, because the headless measurer over-reserves and centring splits that error evenly |
 | `focusable` | `Button`, `Toggle`, `TextField` (opt **out**), `Grip` (opt **in**) | membership in focus order |
 | `traversalPriority` | `Button`, `Toggle`, `TextField`, `Grip` | linear-traversal (Tab/Shift+Tab) sort **tier**, default `0`. The sort key is `(traversalPriority, document position)`, so a negative value traverses earlier and a positive one later, and **within a tier document order always wins** — the `tabindex` model. Affects Tab only; the directional arrows never read it. Construction-only: a traversal position is what a node *is*, so binding a Readable here is refused with the rebuild idiom |
-| `onActivate` | `Button`, `Toggle` | `onActivate(path, meta)` — the presenter auto-dispatches tap / Return / ButtonA to it (ADR-0013) |
+| `onActivate` | `Button`, `Toggle` | `onActivate(path, meta)` — the presenter auto-dispatches tap / Return / ButtonA to it |
 
 **Theme metric names.** Anywhere the table above accepts a theme-owned number
 it also accepts a NAME for it, resolved from the active `ThemeSnapshot` on every
@@ -482,7 +483,7 @@ selector cannot express. Two value forms:
 
 | Form | Meaning |
 |---|---|
-| `{ role = "accent", blend = 0..1, from? }` | **themable, preferred.** Blends from `from` to `role` — both names from the closed palette vocabulary (`surface`, `surfaceStrong`, `content`, `contentStrong`, `contentSecondary`, `accent`, `control`, `controlSelected`, `danger`, `hairline`), resolved against the **active theme**. `from` defaults to the class's identity paint: the page colour for a `Box`, `content` for `Text`/`Path`, white (the picture as authored) for an `Image` — and white for a `Stage` too, for the same reason: white multiplies to the scene the engine already drew. `blend = 0` is the base, `1` is the role. **A theme commit re-resolves it**, so a tint that nothing ever re-writes still follows a runtime package swap (fixed 2026-08-14; [`docs/lessons/a-re-solve-does-not-repaint.md`](../lessons/a-re-solve-does-not-repaint.md)). |
+| `{ role = "accent", blend = 0..1, from? }` | **themable, preferred.** Blends from `from` to `role` — both names from the closed palette vocabulary (`surface`, `surfaceStrong`, `content`, `contentStrong`, `contentSecondary`, `accent`, `control`, `controlSelected`, `danger`, `hairline`), resolved against the **active theme**. `from` defaults to the class's identity paint: the page colour for a `Box`, `content` for `Text`/`Path`, white (the picture as authored) for an `Image` — and white for a `Stage` too, for the same reason: white multiplies to the scene the engine already drew. `blend = 0` is the base, `1` is the role. **A theme commit re-resolves it**, so a tint that nothing ever re-writes still follows a runtime package swap (fixed 2026-08-14). |
 | `{ direct = { r, g, b } \| "#rrggbb" }` | a **declared theming-exempt** identity hue — the loud word is in the value, so every use greps. Use it when the colour IS game data (a racer's hue), never for a state. |
 
 **`transparency` (0..1, either form, default `0` = opaque).** The tint's own
@@ -502,7 +503,7 @@ the error names the working idiom (fade the path's container).
 
 **A value from a closed set is a state, not a tint.** Hover, selected, disabled,
 verdict, phase — those stay `surface`/`role`/`selected` + tags + native-sheet
-rules (ADR-0018), which is what keeps them themable and contrast-checkable.
+rules, which is what keeps them themable and contrast-checkable.
 Reaching for the continuous channel to express one is a defect, and the schema
 cannot catch it for you.
 
@@ -533,7 +534,7 @@ is `Frame.BackgroundTransparency`'s class default**, so that write claimed
 nothing at all: the rule kept ownership and every tinted Box with no `surface`
 and no declared `tint.transparency` painted *nothing*. Measured live —
 raw `0` / `GetStyled` `1`; write `0.001` → `GetStyled` `0.001`; write `0` again →
-`GetStyled` `1` back (`docs/lessons/a-default-valued-write-never-claims.md`). So
+`GetStyled` `1` back. So
 the fill now rides the `facet-tint-fill` tag and one `Tint fill` rule, emitted by
 both sheet builders in the `base` group — **above** the class defaults it exists
 to beat and **below** every surface, value slot and scrim, whose own alphas still
@@ -627,7 +628,7 @@ layered container; children align independently (`alignH`/`alignV`), `fill`
 children stretch to the stack (scrims, backdrops).
 
 **`shape = "circle"`** — the circle Button's guarantee (below), generalized to
-this class (ADR-0062): a true 1:1 box, the missing axis derived by the solver,
+this class: a true 1:1 box, the missing axis derived by the solver,
 authoring both refused at construction. Not reactive, for the same reason it
 isn't on a Button. Use it for a ring/disc **composite** you build yourself out
 of `UI.Path`/`UI.Box` layers (a progress ring's track + sweep + a centered
@@ -664,8 +665,9 @@ buffer, so declare it only where a group fade is wanted. It is not the only way
 to become a subtree's real instance parent any more: an authored `scale` or
 `rotation` on children this stack actually has does the same thing for those two
 terms, at the cost of a plain `Frame` rather than a buffer — see the `scale`/
-`rotation` rows in the shared-property table above and
-[ADR-0032](../adr/ADR-0032-nested-instance-tree.md) Decision 4.
+`rotation` rows in the shared-property table above: a container that authors
+either term becomes a real engine parent, so the engine carries both down its
+whole subtree.
 
 **`opacity`** is the AUTHORED half of the same thing, and declaring it implies
 `canvasGroup` — see the shared-property table above. `UI.ZStack{ opacity = 0.4 }`
@@ -869,11 +871,9 @@ measures when nothing is proposed to it — so shrink terms are invisible to the
 choice. Facet's members of that family are `shrinkWeight` **and `hug`**: a
 candidate that only fits *after* being squeezed does not fit. Once a candidate has
 won it is laid out against the real offer and shrinks normally. Picking is
-unshrunk; showing is not. (`docs/lessons/a-candidate-is-judged-at-its-ideal-size.md`
-carries the measurement, the citations, and the one place Facet still differs on
-purpose.)
+unshrunk; showing is not: a candidate is judged at its ideal size.
 
-**`hug` on a candidate is legal and honest** (2026-08-22, **ADR-0040 B-23**). `hug`
+**`hug` on a candidate is legal and honest** (2026-08-22). `hug`
 means "the content size, capped at the offer", and that cap is a squeezing term
 like any other: it made a hug candidate's measured width equal the offer at every
 width, so `w <= availW` was always true, the first rung won forever, and the labels
@@ -954,15 +954,14 @@ UI.Composition{
   reservation is the lane's own starting edge, not a region the ladder can drop —
   so a settled tree equals a fresh mount by construction. Declaring none is
   byte-identical to a composition that never heard of them.
-  ([ADR-0046](../adr/ADR-0046-band-safe-content-and-lane-exclusions.md))
+
   A lane that gives way is **shorter by exactly what it gave, at both ends**, and
   the precise statement is that it **places its groups exactly as an unshortened
   lane of the same height would** — every `place`, every `sizing`, offset by where
   the lane starts and by nothing else. So the last `place = "end"` group in a lane
   (`bottomLeft` · `bottom` · `bottomRight`) sits against the **shortened** lane's
   bottom edge, a `sizing = "fill"` group divides the **shortened** lane's height,
-  and the composition's partition still holds with a chrome row declared
-  ([ADR-0056](../adr/ADR-0056-lane-give-way-both-ends.md)).
+  and the composition's partition still holds with a chrome row declared.
 
 - **`arrangements`** — ordered candidates, richest first. A preset name
   (`"threeLane"` · `"twoLane"` · `"column"`) or a table
@@ -987,7 +986,7 @@ UI.Composition{
   takes centres the band rather than being spent on width.
   **It defaults at ten-foot**, and the default is derived rather than chosen:
   `adaptive.LANE_MEASURE x metricScale` = **600 x 1.5 = 900**, the regular-touch
-  tablet measure times ADR-0039's one distance factor. Before it, a television
+  tablet measure times the ten-foot ladder's one distance factor. Before it, a television
   resolved the DESKTOP answer with more pixels — the same arrangement with the
   content lane simply wider (1316px measured), which at three metres is a reading
   line nobody can track back to its own start (B-6e, controller ruling R14).
@@ -1119,8 +1118,7 @@ described below, whose accessibility name stays the word "Close"), and gamepad B
 and the plate closes itself when the rect it was opened against moves, resizes or goes
 (a rotation, a viewport change, a theme-metric change, or a re-solve that put the region
 back on its richest form). **Escape is not one of the routes and cannot be**: it is
-permanently bound to the Roblox CoreGui menu and the engine refuses the binding
-(ADR-0013 §Justified exceptions), which is exactly why the framework puts a Close control
+permanently bound to the Roblox CoreGui menu and the engine refuses the binding, which is exactly why the framework puts a Close control
 in the panel — the plate is a modal, so its own ring is the whole keyboard story. It is a
 **circular icon button CENTRED ON the plate's top-right corner, half on and half off it**.
 The plate's padding is uniform — one spacing token on all four sides, so your content sits
@@ -1604,7 +1602,7 @@ floating round "…" action. It is **not reactive**: a shape is what the control
 - **Skinning needs no new slot.** A circle Button classifies to the ordinary
   `control` decoration slot, so a package dresses it with the same recipe it
   already writes — whole-image round art works exactly like the ornate stepper
-  plate. Once art covers the node the image *is* the silhouette (ADR-0020 R9): the
+  plate. Once art covers the node the image *is* the silhouette: the
   node's own circle and rim are suppressed, so a package whose `control` art is a
   rectangle draws a rectangle. Ship round art if you want a round skinned disc.
 - **Under a skin, prefer the icon.** A rectangle *grows* to absorb its skin's
@@ -1632,7 +1630,7 @@ the floor is measured against the square, not the inscribed circle.
 Other behaviour: participates in focus order; taps and the
 semantic Activate action share one code path. `onActivate(path, meta)` is an
 optional per-node effect: when set, the presenter auto-dispatches Activate (tap /
-Return / ButtonA) to it with NO consumer `present()` wiring (ADR-0013). An
+Return / ButtonA) to it with NO consumer `present()` wiring. An
 explicit `opts.onActivate` on `present()` overrides it.
 
 #### Hit-target floor
@@ -1660,7 +1658,7 @@ one.
 `UI.Toggle{ id?, label (required), value?, enabled?, disclose?, help?, onActivate? }` —
 boolean control. When `value` is a settable Signal the presenter AUTO-FLIPS it on
 Activate (tap / Return / ButtonA) with no consumer wiring (contract "Activate
-flips value"; ADR-0013). Supply `onActivate(path, meta)` to take over the effect,
+flips value"). Supply `onActivate(path, meta)` to take over the effect,
 or an explicit `opts.onActivate` on `present()` to override the whole auto path.
 The label draws ONE line with an end ellipsis by measured design (a wrapped label
 plus the press-scale affordance produced mid-word breaks — director finding 13),
@@ -1721,9 +1719,8 @@ paint-only prop write (never a re-solve), and the adapter re-scales the same
 normalized points when the solved rect changes. `role` picks the stroke color
 from the **active theme's** palette (`"accent"`, `"secondary"`, default content)
 — never a raw color, and re-resolved on every theme commit, since a `Path2D` is
-not a `GuiObject` and no stylesheet rule can reach one (fixed 2026-08-14;
-[`docs/lessons/a-re-solve-does-not-repaint.md`](../lessons/a-re-solve-does-not-repaint.md))
-— or, for a value no role can name, `tint` (see
+not a `GuiObject` and no stylesheet rule can reach one (fixed 2026-08-14: a
+re-solve does not repaint) — or, for a value no role can name, `tint` (see
 [above](#continuous-colour-tint)), which writes the same stroke colour from the
 continuous channel and needs no claim (nothing can style a `Path2D`).
 `thickness` takes a px number **or a theme metric name**, resolved against the
@@ -1832,8 +1829,7 @@ by name rather than shipping an unmeasured render.
 a leaf that reserves a rectangle for a Roblox `GuiObject` **Facet does not wrap**.
 A `VideoFrame`, an `EditableImage` surface, a vendored widget, a first-party class
 Roblox ships next month. It is `UI.Stage`'s 2-D sibling — same "the framework owns
-the box, somebody else owns the content" shape — and it is decided by
-[ADR-0034](../adr/ADR-0034-foreign-instance-seam.md).
+the box, somebody else owns the content" shape.
 
 **It takes no engine properties, and that is the whole design.** There is no
 `class`, no `props`, no `instance` — typing one is refused at construction with the
@@ -1936,8 +1932,8 @@ its plate over your content); a theme still reaches its *edge* through the autho
 
 **Refusals name the alternative.** `adopt` refuses nothing-passed, a
 `LayerCollector` (a `ScreenGui` cannot be a child of a `GuiObject`), a
-non-`GuiObject` — for a `Part`/`Model`/`Beam`, the message points at `UI.Stage` and
-[ADR-0024](../adr/ADR-0024-declarative-3d.md), which is the 3-D case — and an
+non-`GuiObject` — for a `Part`/`Model`/`Beam`, the message points at `UI.Stage`,
+which is the 3-D case — and an
 instance the engine has already destroyed.
 
 **The fallback contract.** `foreignHost` is an OPTIONAL render-target method
@@ -2067,7 +2063,7 @@ UI.ForEach({ items = rows, key = function(e) return e.key end, row = function(e)
 #### Structural transitions
 
 `transition = { enter, exit?, class?, fade?, distance? }` on `UI.When`,
-`UI.ForEach`, a `presentToast` and `PresentOpts` (ADR-0022 Decision 3).
+`UI.ForEach`, a `presentToast` and `PresentOpts`.
 
 - **Forms:** `"fade"`, `"slide-up"`, `"slide-down"`, `"slide-left"`,
   `"slide-right"`, `"materialize"` (scale 0.96 → 1 with a fade), `"instant"`.
@@ -2090,7 +2086,7 @@ UI.ForEach({ items = rows, key = function(e) return e.key end, row = function(e)
   `fade = true` drive transparency, so the region's child must EITHER be
   declared `UI.ZStack{ canvasGroup = true }` (or `UI.Box{ canvasGroup = true }`
   for a single plate) itself, OR contain exactly ONE such node in its own
-  subtree (ADR-0060, task POP). The second shape is how a backdrop plate stays
+  subtree (task POP). The second shape is how a backdrop plate stays
   OUTSIDE the fade: give the region's child an opaque background — a
   `surface` role, OR a `UI.Box`'s own `tint` (the same `BackgroundColor3`
   channel; a `tint` on any OTHER class colours a glyph/picture/stroke, never a
@@ -2218,7 +2214,7 @@ strokes a text node's *glyphs* instead of its box.
 
 **It is additive, not a replacement.** A theme's own chrome stroke is a phantom
 `::UIStroke` **rule**, and the engine renders a real `UIStroke` child alongside it
-(ADR-0020 R8, measured live) — so an authored stroke composes with a panel's
+(measured live) — so an authored stroke composes with a panel's
 hairline rather than suppressing it. A node that must show exactly one border
 should name a surface that carries none (`plain`).
 
@@ -2282,7 +2278,7 @@ is no blueprint here to judge; the wall still applies wherever the data is bound
 
 `UI.draggable(blueprint, spec) -> Blueprint` and
 `UI.dropTarget(blueprint, spec) -> Blueprint` — the public drag/drop contract
-(ADR-0022 Decision 5, rows SF-D1/SF-D5). They are **declarations**, not wiring:
+(rows SF-D1/SF-D5). They are **declarations**, not wiring:
 each returns a new frozen blueprint carrying a validated declaration on the
 metadata channel, and the renderer builds the acquisition when the node mounts.
 The same declaration therefore works on a node an author wrote and a row a
@@ -2532,7 +2528,7 @@ height?, failureLabel?, retry?, dimmed? }`. Shows a placeholder surface while
 `failed`.
 
 The two-argument spelling `Facet.newAsyncImage(Facet, core, spec)` is **deprecated** since
-0.10.0 (removal no earlier than 0.12.0 — ADR-0037): it still builds the identical
+0.10.0 (removal no earlier than 0.12.0): it still builds the identical
 control, and `Facet.Controls.AsyncImage` is a closure over the library, not a second
 implementation.
 
@@ -2698,8 +2694,7 @@ and the right response is to go and fix it.
 One class of entry is not about this surface's own tree at all: **two surfaces
 covering each other**. Two independently mounted surfaces — a HUD and a debug
 overlay, a screen and a modal that never dismissed — that overlap while *neither*
-declared it means to cover the other are reported on both of them
-(ADR-0028). It is a defect like any other, and the three ways to say you meant it
+declared it means to cover the other are reported on both of them. It is a defect like any other, and the three ways to say you meant it
 are the three the framework already had: put one in a display band above the
 other (`setDisplayOrder`, `presenter.SURFACE_LAYER`), present it
 `rootPolicy = "edgeToEdge"` if it is a decoration layer, or stop it covering
@@ -2777,8 +2772,7 @@ Two controller methods are the framework's entire **motion write surface**, on t
 is now this channel's first consumer rather than its own special case. **On the
 real client the instance tree is flat by default** — every node parents under the
 ScreenGui unless a real parent claimed it (a `ScrollView`, `clipChildren`, a fade
-group, or an authored `scale`/`rotation` container — [ADR-0032](../adr/ADR-0032-nested-instance-tree.md))
-— so an offset accumulates down the subtree: a node
+group, or an authored `scale`/`rotation` container) — so an offset accumulates down the subtree: a node
 pays its own transform plus every ancestor's, stopping at its real parent, whose
 own move already carries it. That is what makes a transform on the root move the
 whole surface instead of one transparent frame, which is exactly how SF-M9 hid: the
@@ -2792,8 +2786,7 @@ under it) — to scale a subtree with this channel, put the transform on a node 
 is already a real parent. A `canvasGroup` still works and is required if you also
 want `setPresentationTransparency` on the same node, but it is no longer the only
 door: a `ScrollView`, a `clipChildren` container, or a container that authored its
-own `scale`/`rotation` blueprint prop on children it has ([ADR-0032](../adr/ADR-0032-nested-instance-tree.md)
-Decision 4) is a real parent too, at the cost of a plain `Frame` rather than a
+own `scale`/`rotation` blueprint prop on children it has is a real parent too, at the cost of a plain `Frame` rather than a
 render buffer.
 
 **Two rect reads, and which one a pointer question takes.** `controller.rectOf(path)`
@@ -2879,14 +2872,13 @@ scopes that own the records, and `refresh` itself.
   property a presentation channel could otherwise animate (opacity, rotation,
   scale, colour) is an *authored paint* value, and Facet has no authored prop in
   the presentation channel for one to be diffed from. Paint authority has to be
-  decided first — see [ADR-0026](../adr/ADR-0026-authored-presentation-composition.md).
+  decided first.
 - **A size delta does NOT reach into the subtree**, and this is the one rule to
   carry away. A position offset accumulates downward: Facet's instance tree is
   flat by default, so an ordinary container's move carries nothing inside it and
   every descendant re-adds its ancestors' offsets, stopping only at the nearest
   node that is a real engine parent — a `ScrollView`, a `clipChildren` host, a
-  fade group, or (since [ADR-0032](../adr/ADR-0032-nested-instance-tree.md)
-  Decision 4) a container with its own authored `scale`/`rotation`. Every host
+  fade group, or a container with its own authored `scale`/`rotation`. Every host
   registered shortens that walk, because that host's own move already carries
   its children; a size delta is the node's own regardless and stops
   there. A label pinned to the top of a growing card stays exactly where it is
@@ -2987,8 +2979,8 @@ before *any* `InputContext` is offered it, at any priority — a CAS sink at
 priority **100** beat a Facet `InputContext` at **10000** with `Sink = true`. CAS
 priority and `InputContext.Priority` are not one arbitration space, so a claim
 built at 10000 was measured inert and removed rather than shipped
-([`the-camera-still-owns-the-arrow-keys`](../lessons/the-camera-still-owns-the-arrow-keys.md)).
-Facet does not reach into `ContextActionService` at all (`ADR-0004`), and
+(`the-camera-still-owns-the-arrow-keys`).
+Facet does not reach into `ContextActionService` at all, and
 silently unbinding a consumer's camera would be worse than the symptom. Note that
 disabling the PlayerModule's **controls** module does *not* free the key either —
 the camera module is a separate binding, and measured live 2026-08-15 the arrows
@@ -2998,7 +2990,7 @@ Until the property is on, a place that keeps the default camera should not rely 
 Left/Right for UI; `client.gamepad_contention.cameraKeysContended()` answers
 whether any CAS binding is holding an arrow on this client right now.
 
-**Holding a gamepad direction repeats (ADR-0057).** `Navigate`/`NavigateH` used
+**Holding a gamepad direction repeats.** `Navigate`/`NavigateH` used
 to deliver exactly one focus move per press, however long the direction was
 held — the engine's own Input Action System documents no repeat behavior
 (`Pressed`/`Released`/`StateChanged` state transitions only) and there is no
@@ -3082,8 +3074,7 @@ Methods:
   handle that is not currently presented (`nil`, or already dismissed) — a
   defensive caller must not be punished for raising a surface that already
   closed. See `examples/gallery/client/showcase_chrome.luau`'s `raisePanel`
-  for the shape a real consumer takes (framework-gaps-phase2 item 23; W3-D,
-  ADR-0053).
+  for the shape a real consumer takes (framework-gaps-phase2 item 23, task W3-D).
 - `presenter.refresh()` — re-renders all presented screens, **re-discovers each
   surface's input contributions from its live mounted tree**, and re-derives
   focus rings from those trees. The contribution walk matters as much as the
@@ -3164,11 +3155,11 @@ Methods:
   (`topModalPriority() + 500` per depth) the way a hand-picked literal would.
   See `examples/gallery/client/showcase_chrome.luau`'s toggle context for the
   real consumer this replaced a hand-picked `3500` in (framework-gaps-phase2
-  item 24; W3-D, ADR-0053).
+  item 24; W3-D).
 - `presenter.exclusiveSurfaceActive` — a `Readable<boolean>`, true while any
   presented surface is EXCLUSIVE (a modal, or an engaged-from-passive HUD — both
   sink, becoming first responder over gameplay). A client adapter observes this
-  to hide the mobile touch controls (`src/client/responder_effects`; ADR-0014).
+  to hide the mobile touch controls (`src/client/responder_effects`).
 - `presenter.disclosure() -> { schema, present, path?, labelPath?, sourcePath?,
   source?, text? }` — the live **full-value disclosure** plate (below), frozen
   and deterministic; `present = false` when none is up. `presenter._discloseHover(path?)`
@@ -3276,7 +3267,7 @@ apply.
 
 ### `navBar`
 
-`Facet.navBar(spec) -> Blueprint` (W3-D, ADR-0053) — the presenter-side
+`Facet.navBar(spec) -> Blueprint` (W3-D) — the presenter-side
 surface-chrome seam (framework-gaps-phase2 item 13): a `UI.HStack` factory for the
 back+title+trailing-actions bar a presented or compact-open detail surface
 draws at its own top. **Pure**: no core, no scope, no presenter reference of
@@ -3327,7 +3318,7 @@ own transients owes the same rule, and two mechanics decide whether it keeps it:
   ends up reading a panel that is now underneath the screen they opened it
   over. An app whose live screen re-presents under a live transient calls
   **`presenter.raise(transientHandle)`** afterwards to put it back on top —
-  see `presenter.raise` above (framework-gaps-phase2 item 23; W3-D, ADR-0053)
+  see `presenter.raise` above (framework-gaps-phase2 item 23; W3-D)
   — and can tell whether it needs to by comparing the two handles'
   `.displayOrder`. `raise` never dismisses or remounts the transient, so its
   scroll position, focus ring and any live animation survive the re-band
@@ -3361,7 +3352,7 @@ and deterministic — two calls with nothing changed in between return equal dat
   navigation = {           -- the DIRECTIONAL (arrow) reading
     { name = "auto-v-1", axis = "vertical", order = { "/S/Name" } },
     { name = "auto-grips", axis = "vertical", order = { "/S/Volume/TrackHost/Track" } },
-    -- a TWO-DIMENSIONAL group carries its lane count as well (ADR-0030)
+    -- a TWO-DIMENSIONAL group carries its lane count as well
     { name = "VirtualGridCells-VG", axis = "horizontal", columns = 4, order = { --[[ 16 cells ]] } },
   },
 }
@@ -3447,14 +3438,13 @@ must be cleared"; it does not answer "may content touch the glass", and on a
 device whose engine pre-excludes the notch from the camera the lateral inset is
 zero. Its TOP is exempt, because a gutter there would stop a topbar row sitting
 level with the engine's own buttons. `coreSafeContent` and `deviceSafeContent`
-are unchanged — widening the floor to them is deferred with its measurement, see
-[ADR-0046](../adr/ADR-0046-band-safe-content-and-lane-exclusions.md) §2.
+are unchanged — widening the floor to them is deferred with its measurement.
 
 **`edgeFloor`** is the opt-in version of that same floor, for a consumer who
 wants one on `coreSafeContent`/`deviceSafeContent`/`bandSafeContent` without
 waiting on the default (director ruling, 2026-08-23: *"if the user truly
 specifies edge-to-edge we should do so with no padding. Ensure the user can
-specify padding"* — [ADR-0055](../adr/ADR-0055-edge-floor.md)). A number (a
+specify padding"*). A number (a
 literal pixel count, every distance) or a theme metric name (`"l"`,
 `"space.xl"` — resolved the same way `Table.cellPadding`/`anchor.gap` already
 resolve theirs, so it rides the ten-foot ladder for free: a literal number
@@ -3465,8 +3455,7 @@ a second addition. **Illegal together with `rootPolicy = "edgeToEdge"`**:
 rather than picking a winner, because edge-to-edge means zero padding by
 definition. Omitted = today's behavior on every policy, unchanged; whether the
 default ever floors `coreSafeContent`/`deviceSafeContent` the way `edgeFloor`
-lets a caller ask for by hand is a separate, unshipped call — see ADR-0055's
-own "What is deferred".
+lets a caller ask for by hand is a separate, unshipped call.
 
 ```lua
 presenter.present(screen, { edgeFloor = "l" }) -- a consumer-declared floor
@@ -3529,7 +3518,7 @@ one rect — measured on the live engine 2026-08-14 at 735x413, `TopbarInset` re
 `(164,0)+571x58` and the topbar-safe area reads x 164..735 / y 0..58 — and
 `platformChrome` intersects them. (An earlier version of this page said to add
 them; that was wrong, and adding them pushes content a cluster-width too far
-right. See ADR-0027.)
+right.)
 
 Anything a player can *act* on still belongs in the content rect — the band is
 narrow, the platform owns most of it, and a control there competes with the
@@ -3547,7 +3536,7 @@ A fading form needs a fade group and a `Screen` is not one, so the transition
 targets the root's single declared `canvasGroup` child when it has one
 (`UI.ZStack{ canvasGroup = true }` around the screen's content is the shape) and
 the root itself otherwise. **Position/scale always ride that target as
-declared; alpha alone may resolve one level further in** (ADR-0060, task
+declared; alpha alone may resolve one level further in** (task
 POP) — when the target is not itself a `canvasGroup`, the transparency write
 looks for the ONE such descendant in its subtree instead, so an opaque plate
 can sit OUTSIDE the fade (a direct, non-`canvasGroup` child of the target)
@@ -3845,7 +3834,7 @@ measures correctly on its first read and has nothing to pop from. Reach for the
 flag when a screen appears with text the session has never measured and the jump
 would be noticeable.
 
-**Modal outside-tap dismissal (two-zone spec, ADR-0014 §Drive-F1).** While a
+**Modal outside-tap dismissal (two-zone spec).** While a
 modal is up the presenter synthesizes a full-viewport **scrim/catcher** beneath
 it, so every tap hits something. **Zone A** (the modal's *painted* panel ⊕ a 24 px
 forgiveness ring ∪ each focusable's 44 px hit rect) never dismisses; **Zone B**
@@ -3873,7 +3862,7 @@ non-destructive outcome.
   `"none"` (transparent but still catching — a popover, or the default for an
   engaged HUD). Gamepad/keyboard are untouched; the scrim is never focusable.
 
-**First responder (ADR-0014).** `present()` default is today's engaged-open
+**First responder.** `present()` default is today's engaged-open
 surface (context enabled, non-sinking — correct for a UI-only place). `present()`
 gains two options for real avatar games running the IAS player-script stack:
 
@@ -3972,7 +3961,7 @@ passive HUD that engages.
 
 `presentModal` is always engaged-exclusive (`responder` has no effect on it).
 
-**Input auto-wiring (ADR-0013).** Composite controls attach an input-contribution
+**Input auto-wiring.** Composite controls attach an input-contribution
 bundle to their root node; the presenter walks the mounted tree, discovers the
 bundles, and AUTO-COMPOSES each screen's four-input story — navigation groups,
 Activate dispatch, grab-mode intercept, focus-move reporting, geometry feed,
@@ -4144,14 +4133,14 @@ Derived policy (memoized, read-only):
 | `typographyScale` | the MEASURE-seam text scale: `preferredTextSize` clamped to 0.5–3, times 1.5 at ten-foot (`effectiveDisplaySize == "Large"`) |
 | `typographyPaintScale` | the PAINT-seam scale: the ten-foot factor only (1.5 at ten-foot, else 1). The engine applies the player's preference itself, so paint must not multiply it in again |
 | `themeMetrics` (derived half) | the metric authority as PRESENTED at this display class — `themes.forDisplay(<the committed snapshot>, effectiveDisplaySize)`. Listed under the facts above because it is the same key; listed here because reading it is a derived read. It is the ONE place the ten-foot metric ladder is applied |
-| `effectiveTransparency` | `preferredTransparency` clamped to 0–1 — the player's **Background Transparency** setting. The framework paints with it: the one see-through background it owns (the `scrim` surface, which is the modal backdrop and anything a consumer declares `surface = "scrim"`) is composed `themeDim × effectiveTransparency`, in both paint modes. An authored `opacity`, the disabled dim, hairlines and shadows are deliberately untouched — [ADR-0035](../adr/ADR-0035-preferred-transparency.md) |
+| `effectiveTransparency` | `preferredTransparency` clamped to 0–1 — the player's **Background Transparency** setting. The framework paints with it: the one see-through background it owns (the `scrim` surface, which is the modal backdrop and anything a consumer declares `surface = "scrim"`) is composed `themeDim × effectiveTransparency`, in both paint modes. An authored `opacity`, the disabled dim, hairlines and shadows are deliberately untouched |
 | `sizeClass` | `"compact" \| "regular" \| "wide"` from `viewportRect.w`, capped at `regular` at ten-foot (`effectiveDisplaySize == "Large"`) |
 | `motionPolicy` | `"reduced"` when `reducedMotion` is true, else `"full"` |
 | `distanceProfile` | `"ten-foot"` when `effectiveDisplaySize == "Large"`, else `"near"` |
 | `effectiveOverscanInsets` | authored `overscanInsets` when any edge is non-zero; `"none"` means all zero; otherwise the console defaults (60 top/bottom, 90 left/right) at ten-foot and zeros elsewhere |
-| `platformChrome` | WHERE THE PLATFORM'S OWN CONTROLS ARE (ADR-0027): `{ band, rects, insets, bandInsets }`. `band` is the free topbar strip in window space or `nil`; `rects` is what the engine's own controls occupy (a list — the top band minus a free strip is an L); `insets` clears everything (what `deviceSafeContent` applies); `bandInsets` clears everything except the free band |
+| `platformChrome` | WHERE THE PLATFORM'S OWN CONTROLS ARE: `{ band, rects, insets, bandInsets }`. `band` is the free topbar strip in window space or `nil`; `rects` is what the engine's own controls occupy (a list — the top band minus a free strip is an L); `insets` clears everything (what `deviceSafeContent` applies); `bandInsets` clears everything except the free band |
 | `presentationProfile` | `{ space, flat, world }`; an unrecognised `presentationSpace` resolves to `"screen"` |
-| `interactionClasses` | the LIVE set of input idioms plus `primary` (ADR-0015): capabilities and preference together, never the preference alone |
+| `interactionClasses` | the LIVE set of input idioms plus `primary`: capabilities and preference together, never the preference alone |
 | `effectiveInput` | `interactionClasses.primary` in the platform fact's own vocabulary |
 | `effectiveDisplaySize` | `displaySize`, corrected: `"Large"` downgrades to `"Medium"` when `capabilities.touch` is also true, else passes through unchanged. Read by every ten-foot-sensitive derivation above (`typographyScale`, `typographyPaintScale`, `themeMetrics`, `sizeClass`, `distanceProfile`, `effectiveOverscanInsets`, `platformChrome`) instead of the raw fact — see below |
 
@@ -4180,7 +4169,7 @@ height and reflowed the whole page — canvas and scrollbar with it — on the
 player's first touch.
 
 **`displaySize` is a REPORT, `effectiveDisplaySize` is the ANSWER (director item
-5, ADR-0058).** `GuiService.ViewportDisplaySize` is the engine's own attempt at
+5).** `GuiService.ViewportDisplaySize` is the engine's own attempt at
 physical screen size, and it is not reliable enough on its own to gate the
 ten-foot 1.5x swing: measured directly in Roblox Studio Play, an ordinary
 windowed desktop viewport reported `"Large"` — the same bucket a real console
@@ -4204,7 +4193,7 @@ device-matrix harness, an explicit preview override).
 adapter (`src/client/roblox_input.luau`) drives `InputContext` / `InputAction` /
 `InputBinding` and deliberately never touches `ContextActionService` — arbitration
 is the engine's job, and a UI framework that outbid a consumer's own bindings
-would be a worse problem than the one it solved (`ADR-0004`).
+would be a worse problem than the one it solved.
 
 **An experience embedding Facet must therefore enable
 `Workspace.PlayerScriptsUseInputActionSystem`.** Roblox documents it as
@@ -4226,7 +4215,7 @@ CAS binding consumes the key before any `InputContext` is offered it, at any
 priority. Measured live 2026-08-14, four readings in one session — a CAS sink at
 priority **100** beat a Facet `InputContext` at **10000** with `Sink = true`; a
 claim built at 10000 was measured inert and removed rather than shipped
-([`the-camera-still-owns-the-arrow-keys`](../lessons/the-camera-still-owns-the-arrow-keys.md)).
+(`the-camera-still-owns-the-arrow-keys`).
 Enabling the property is what moves those bindings *into* the space where priority
 means something.
 
@@ -4352,14 +4341,14 @@ means exactly that (constitution §2): they are how an alternate action-system
 adapter — `src/client/roblox_input.luau` is the first-party one — delivers
 state into the headless model. They are not private, and they are not for
 consumer code: a control or a screen drives an action through
-`bind`/`deviceKey`, never through these. `sourceGamepad` (ADR-0057, d-pad
+`bind`/`deviceKey`, never through these. `sourceGamepad` (d-pad
 auto-repeat) records whether the BINDING that produced this value is
 gamepad-classed — every `ButtonX`/`DPad*` keyCode and every axis binding
 (`Thumbstick*` is gamepad-exclusive in this vocabulary) is; a keyboard keyCode
 or a scriptable binding is not. Read back as `action.lastGamepad`, a plain
 (non-reactive) field correct exactly at the moment a real change fires — a
 deduped re-delivery of the same value never reaches the line that would update
-it. `sourceBinding` (director item 4 review, ADR-0057 addendum) is that same
+it. `sourceBinding` (director item 4 review) is that same
 binding object, read back as `action.lastBinding` for `system.wouldWinArbitration`
 below.
 
@@ -4393,7 +4382,7 @@ auto-repeat finding that surfaced it.
 ### `inputHint`
 
 `Facet.inputHint(core, env, action, opts?) -> Readable<string>` — a reactive
-input-affordance label for an action (ADR-0013). It tracks the environment's
+input-affordance label for an action. It tracks the environment's
 `effectiveInput` fact and resolves the action's `preferredBinding(...)`,
 returning that binding's `displayName` (falling back to its `keyCode` /
 `uiButton`), or `""` when no binding matches the current input class
@@ -4449,12 +4438,12 @@ headlessly testable):
 | `adaptive.CARD_MIN_WIDTH` | `200` — the narrowest a card may be squeezed to before a rail drops a lane, as data |
 | `adaptive.CARD_PEEK` | `{ fraction = 0.1, min = 24, max = 56 }` as data. Proportional so the peek scales with the rail, floored so a thumb reads it as a card edge rather than a border, capped before it looks like a second column that got cut off. These are **arrangement** facts and deliberately not theme metrics: a package decides how a card is painted, never how many of them a phone shows |
 | `adaptive.LANE_MEASURE` | `600` — the reading width of a `UI.Composition`'s content lane at regular-touch distance, as data. It is the tablet measure the layout paradigm matrix verified RIGHT (cell B-6c, 1024x768), and it is the BASE the ten-foot cap is derived from rather than a second number beside it |
-| `adaptive.laneMeasureFor(metricScale)` | the measure cap a display class asks for, or **nil** where distance asks for none. `metricScale` is `themes.snapshot.metricScale(displaySize)` — 1 near, 1.5 at ten-foot (ADR-0039's one `tenFootFloor`), so the ruled ten-foot measure is `600 x 1.5 = 900` with neither number written twice. `UI.Composition` defaults every `fill` group's `maxWidth` from it, and a group that declares its own — or a composition that declares `maxMeasure` — wins outright. Nil at near distance is the whole reason a 1600px desktop keeps the measure it had: this is a DISTANCE rule, and a cap that also fired on a wide desktop would be a width rule wearing a distance rule's name (B-6e, controller ruling R14) |
+| `adaptive.laneMeasureFor(metricScale)` | the measure cap a display class asks for, or **nil** where distance asks for none. `metricScale` is `themes.snapshot.metricScale(displaySize)` — 1 near, 1.5 at ten-foot (the one `tenFootFloor`), so the ruled ten-foot measure is `600 x 1.5 = 900` with neither number written twice. `UI.Composition` defaults every `fill` group's `maxWidth` from it, and a group that declares its own — or a composition that declares `maxMeasure` — wins outright. Nil at near distance is the whole reason a 1600px desktop keeps the measure it had: this is a DISTANCE rule, and a cap that also fired on a wide desktop would be a width rule wearing a distance rule's name (B-6e, controller ruling R14) |
 | `adaptive.BREAKPOINTS` | `{ regular = 600, wide = 1000 }` as data |
 | `adaptive.DEFAULT_STACK_ABOVE` | `600` — the default `axisFor` threshold, as data. It is the compact/regular boundary on purpose, so a screen that adapts its stack and a screen that adapts its density flip at the same width |
 | `adaptive.HEIGHT_BREAKPOINTS` | **the same table**. The question is identical on both axes ("how much content fits along this one"), and a second set of literals would be a second thing to justify and a second thing to drift. A rotation therefore maps a class pair onto its mirror: 733×313 is `regular`×`short`, 313×733 is `compact`×`medium` |
 | `adaptive.sizeClassAtLeast(value, target)` | `boolean` — ranks `compact < regular < wide` and answers whether `value` is at least `target`'s rank. The general pure form `conditions.atLeast`/`isRegularOrWider` bind (framework-gaps-phase2 gap 7b): `isRegular` names the MIDDLE class only, so it reads "at least regular" and behaves "regular and nothing else" — false on `wide`, the widest screen there is. `sizeClassAtLeast(sizeClass, "regular")` is the question a caller actually means by "not compact" |
-| `adaptive.effectiveDisplaySize(displaySize, touchCapable)` | director item 5, [ADR-0058](../adr/ADR-0058-physical-size-aware-ten-foot.md) — the physical-size-aware ten-foot gate. `displaySize == "Large"` downgrades to `"Medium"` only when `touchCapable` is also true (a real ten-foot session never has a touchscreen; a PC handheld the engine misreports as `"Large"` does), else passes every value through unchanged. This is the pure half `env:get("effectiveDisplaySize")` (above, under "Derived policy") wraps with the live `capabilities.touch` fact — read that key for anything reactive; call this directly only outside the environment (tooling, a solver-side caller with no `env`) |
+| `adaptive.effectiveDisplaySize(displaySize, touchCapable)` | director item 5 — the physical-size-aware ten-foot gate. `displaySize == "Large"` downgrades to `"Medium"` only when `touchCapable` is also true (a real ten-foot session never has a touchscreen; a PC handheld the engine misreports as `"Large"` does), else passes every value through unchanged. This is the pure half `env:get("effectiveDisplaySize")` (above, under "Derived policy") wraps with the live `capabilities.touch` fact — read that key for anything reactive; call this directly only outside the environment (tooling, a solver-side caller with no `env`) |
 
 **Reactive conditions:** `adaptive.conditions(core, env, opts?)` returns Readables
 the caller owns — `sizeClass`, `isCompact`, `isRegular`, `isWide`, `isTenFoot`,
@@ -4556,8 +4545,7 @@ with at least one minor of notice — but new code reads `viewportWidth`.
 
 ### `composition`
 
-`Facet.composition` — the **pure** half of declared-content adaptive composition
-(ADR-0023). `UI.Composition` / `UI.Region` are the declaration face; this is the
+`Facet.composition` — the **pure** half of declared-content adaptive composition. `UI.Composition` / `UI.Region` are the declaration face; this is the
 decision itself, callable with **no mount, no engine and no theme**, which is what
 makes a whole device matrix a headless sweep rather than a screenshot review.
 
@@ -4569,9 +4557,9 @@ makes a whole device matrix a headless sweep rather than a screenshot review.
 | `composition.floorPx(floor, metrics)` | a CONTENT floor (`{ lines = n, role? }`, `{ targets = n }`) resolved to pixels against a theme snapshot; `nil` when nothing was declared |
 | `composition.arrangementOf(value)` | a preset name or a custom table, validated to `{ name, lanes }` |
 | `composition.ARRANGEMENTS` | the four presets as data: `column` = one lane holding every affinity, `twoLane` = `{ main } { lead, trail }`, `leadFirst` = `{ lead } { main, trail }` — the mirror of `twoLane`, for an app shell whose nav sits on the `lead` side (framework-gaps-phase2 item 12) — `threeLane` = `{ lead } { main } { trail }` |
-| `composition.HUD` | the **screen-anchored HUD** arrangement as data (ADR-0025): three lanes, `{ left } { center } { right }` — the three screen columns |
-| `composition.HUD_GROUPS` | the thirteen groups that go with it: one `fill` **column** group per lane (it holds the lane's third of the band, and `holdsLane` keeps that third on a round where the column is empty), the nine **zone** groups `topLeft … bottomRight`, and the `topbar` **span** row (ADR-0027) |
-| `composition.ZONES` | the ten zone ids in that table, in order. Nine are the same nine words the `anchor` box prop uses; the tenth, `topbar`, is not an anchor at all — it is the `span = "above"` row LEVEL WITH the platform's own controls, so the lanes start below it. It is inert until a region declares it: a HUD that never mentions `topbar` resolves and dumps byte-identically. Its geometry comes from the `platformChrome` env fact and the SOLVER applies it under `rootPolicy = "bandSafeContent"`: the row is laid into the free strip's own x and width rather than across the composition, and a `sizing = "fill"` region in it takes the strip so its content centres there. Under any other policy it is an ordinary full-width span row, as it always was — see **Placing a surface in the platform's TOPBAR band** and [ADR-0046](../adr/ADR-0046-band-safe-content-and-lane-exclusions.md) |
+| `composition.HUD` | the **screen-anchored HUD** arrangement as data: three lanes, `{ left } { center } { right }` — the three screen columns |
+| `composition.HUD_GROUPS` | the thirteen groups that go with it: one `fill` **column** group per lane (it holds the lane's third of the band, and `holdsLane` keeps that third on a round where the column is empty), the nine **zone** groups `topLeft … bottomRight`, and the `topbar` **span** row |
+| `composition.ZONES` | the ten zone ids in that table, in order. Nine are the same nine words the `anchor` box prop uses; the tenth, `topbar`, is not an anchor at all — it is the `span = "above"` row LEVEL WITH the platform's own controls, so the lanes start below it. It is inert until a region declares it: a HUD that never mentions `topbar` resolves and dumps byte-identically. Its geometry comes from the `platformChrome` env fact and the SOLVER applies it under `rootPolicy = "bandSafeContent"`: the row is laid into the free strip's own x and width rather than across the composition, and a `sizing = "fill"` region in it takes the strip so its content centres there. Under any other policy it is an ordinary full-width span row, as it always was — see **Placing a surface in the platform's TOPBAR band** |
 
 A declaration is `{ id?, groups, regions, arrangements, laneGap?, groupGap?, maxMeasure? }`,
 where each region carries `{ id, group, rank, forms = <count>, recover, sizing?, weight?, floor?, mayScroll?, mayDrop?, reserved? }`.
@@ -4664,7 +4652,7 @@ shape as `adaptive`/`composition` above.
 
 ### `contribution`
 
-`Facet.contribution` — the input-contribution seam (ADR-0013). A composite
+`Facet.contribution` — the input-contribution seam. A composite
 control advertises its whole four-input story by attaching one bundle to its
 blueprint root; the presenter discovers it on mount and composes navigation
 groups, Activate dispatch, grab intercept, focus reporting, geometry feed,
@@ -4786,7 +4774,7 @@ phrase it changes nothing — a wrapped line is bounded by the width it wrapped
 into — except for the one case where it should not be, a phrase whose longest
 word is wider than the box, which the engine breaks mid-word and paints outside
 the column. It is the same rule the solver's `ViewThatFits` candidate test had to
-be given, one seam over (**ADR-0040 B-22**).
+be given, one seam over.
 
 **`text.size(spec) -> number`** is `fit(spec).size` — the convenience, for the
 common case where the box is known to be big enough.
@@ -4951,7 +4939,7 @@ modal scopes trap and restore the previous focus on pop.
   `graph.remove(id)` — structural updates keep focus when it survives, else
   the nearest surviving neighbor (preferring the following item).
 
-**A group can be a RECTANGLE: `columns`** (ADR-0030). An integer ≥ 1 declaring
+**A group can be a RECTANGLE: `columns`**. An integer ≥ 1 declaring
 that this group's `order` is **LINES of `columns` LANES**, row-major, in document
 order — which is exactly what a lazy grid's mounted band is. `axis` then names the
 **lane** direction (a vertical grid's lanes run across, so it declares
@@ -4984,7 +4972,7 @@ is ignored and the group stays one-dimensional.
   `presenter.dismiss` so dismissing a covered screen removes ITS scope, not
   the top one), `graph.activeScopeName()`, `graph.focused` (Readable).
 
-**Focus-skip by live predicate** (ADR-0022 Decision 5, row SF-L3). Any order
+**Focus-skip by live predicate** (row SF-L3). Any order
 entry — flat scope or group — may be written as `{ id = path, focusable = () ->
 boolean }` instead of a bare path string. The predicate is evaluated **at
 navigation time**, never cached, so a row that becomes ineligible while a card is
@@ -5017,8 +5005,7 @@ unchanged.
 
 ### `Controls`
 
-`Facet.Controls` is the namespace every composite control is created through
-(ADR-0037):
+`Facet.Controls` is the namespace every composite control is created through:
 
 ```luau
 local tbl = Facet.Controls.Table(core, {
@@ -5058,7 +5045,7 @@ pointer-drag row reordering with ghost + drop indicator). See
 `src/controls/table.luau` for the full spec shape.
 
 The two-argument spelling `Facet.newTable(Facet, core, spec)` is **deprecated** since
-0.10.0 (removal no earlier than 0.12.0 — ADR-0037): it still builds the identical
+0.10.0 (removal no earlier than 0.12.0): it still builds the identical
 control, and `Facet.Controls.Table` is a closure over the library, not a second
 implementation.
 
@@ -5283,7 +5270,7 @@ so a selection made in edit mode survives every row you open afterwards;
 `api.clearSelection()` remains exact.
 
 **Input is auto-composed** by the presenter
-with no `present()` opts (ui_todo §0; ADR-0013): row select, sort, focus-nav
+with no `present()` opts (ui_todo §0): row select, sort, focus-nav
 and grab-mode reorder wire themselves from the mounted control. Every
 interactive surface has a focus + Activate story on all four inputs — sortable
 column headers form a leading horizontal navigation group (focus + Return /
@@ -5336,10 +5323,10 @@ the same header now ships on the `02_playlist_table` tutorial):
   property puts the camera on IAS and the arrows resolve by ordinary priority —
   it is a stated requirement, see [Input](#input); no priority number is an
   alternative. See
-  [`the-camera-still-owns-the-arrow-keys`](../lessons/the-camera-still-owns-the-arrow-keys.md);
+  `the-camera-still-owns-the-arrow-keys`;
 - the divider's 44px hit floor lands **on top of** its own header button and
   creates a 26px dead band down the trailing edge of every resizable header cell —
-  [`a-forty-four-pixel-floor-under-an-eight-pixel-divider`](../lessons/a-forty-four-pixel-floor-under-an-eight-pixel-divider.md).
+  `a-forty-four-pixel-floor-under-an-eight-pixel-divider`.
   On touch there is no working resize route at all.
 
 **`rowHeight` is OPTIONAL, and leaving it out is the recommended shape.** Given
@@ -5460,7 +5447,7 @@ neither, because it already has them. Item state lives in the item scope and die
 leaves the window — durable state belongs in your data model.
 
 The two-argument spelling `Facet.newVirtualList(Facet, core, spec)` is **deprecated** since
-0.10.0 (removal no earlier than 0.12.0 — ADR-0037): it still builds the identical
+0.10.0 (removal no earlier than 0.12.0): it still builds the identical
 control, and `Facet.Controls.VirtualList` is a closure over the library, not a second
 implementation.
 
@@ -5707,8 +5694,8 @@ to widen the slot into a `minMax`, which a fixed-pitch window cannot use.
 
 Cells own async
 resources through `ctx.scope`, so window exit cancels them. **Input is
-auto-composed** by the presenter with no `present()` opts (ui_todo §0;
-ADR-0013): mouse wheel and one-finger touch pan scroll the window; each row is
+auto-composed** by the presenter with no `present()` opts (ui_todo §0):
+mouse wheel and one-finger touch pan scroll the window; each row is
 a focusable hit whose tap / Return / ButtonA activation calls `onActivate(item,
 meta)`; Up/Down and D-pad step the windowed rows, scrolling a row into view
 when focus crosses the window edge. The viewport is a real engine clip host so
@@ -5755,7 +5742,7 @@ mirrors nothing and still binds the row-actions tray-close to the real scrolling
 ancestor. A `newVirtualList`/`newVirtualGrid` always mounts its own `ScrollView`
 and has no such state to be in.
 
-**The unified collection** (ADR-0022 Decision 5, rows SF-L1/L2/L3). One
+**The unified collection** (rows SF-L1/L2/L3). One
 construct windows, **selects**, **reorders** and **accepts drops** at the same
 time, because the racer-list shape needs all four at once and a second list
 construct would have to re-derive windowing, keyed identity and keep-visible to
@@ -5910,7 +5897,7 @@ pointer-handler funnel this feature rides is its own future task.
 `Facet.Controls.VirtualGrid(core, spec) -> { blueprint, focusGroupName, scrollTop, pathOf, focusKey, revealItem, bindNativeScroll, scrollTo, scrollPath, debugWindow, dump, dispose }`
 
 The two-argument spelling `Facet.newVirtualGrid(Facet, core, spec)` is **deprecated** since
-0.10.0 (removal no earlier than 0.12.0 — ADR-0037): it still builds the identical
+0.10.0 (removal no earlier than 0.12.0): it still builds the identical
 control, and `Facet.Controls.VirtualGrid` is a closure over the library, not a second
 implementation.
 
@@ -6236,7 +6223,7 @@ caveat, ~100 on-screen shadow budget) in `src/render/style_lint.luau`.
 
 ### `themes`
 
-`Facet.themes` — theme packages and the effective metric snapshot (ADR-0019).
+`Facet.themes` — theme packages and the effective metric snapshot.
 Engine-free: this is the pure half of the theme system, safe in a shared or
 server require graph.
 
@@ -6264,7 +6251,7 @@ sizes under the 44px accessibility floor, nine-slice recipes without a declared
 fallback or naming an undeclared asset, incompatible schema versions, and any
 function anywhere in the definition — a theme is inspectable data, never code.
 
-**The rich-skinning fields (ADR-0020).** Additive to everything above, and all
+**The rich-skinning fields.** Additive to everything above, and all
 of them are package data:
 
 | Field | Where | What it is |
@@ -6564,7 +6551,7 @@ local controller = theme_controller.install(adapter, package, {
     rootGui = rootHandle.gui, -- the target's root; per-target isolation is one
                               -- sheet + one StyleLink at this root
     theme = "Daylight",       -- optional; defaults to style.defaultTheme
-    -- profile-conditional selection (ADR-0020 R7): map the input paradigm to a
+    -- profile-conditional selection: map the input paradigm to a
     -- package and the controller installs the right one and swaps live on a
     -- SETTLED profile change (0.25s debounce). An unmapped class falls back to
     -- the package passed positionally; a manual swapPackage wins until the next
@@ -6628,7 +6615,7 @@ buttons, so keyboard/gamepad users navigate them with the normal focus ring
 (Down/Up) and select with Activate; closed, only the trigger is focusable.
 
 The two-argument spelling `Facet.newPopupButton(Facet, core, spec)` is **deprecated** since
-0.10.0 (removal no earlier than 0.12.0 — ADR-0037): it still builds the identical
+0.10.0 (removal no earlier than 0.12.0): it still builds the identical
 control, and `Facet.Controls.PopupButton` is a closure over the library, not a second
 implementation.
 
@@ -6698,7 +6685,7 @@ whose `value` is a `Signal<string>` a verb list cannot fill. It is the control
 a right-click, a long press or the context key opens.
 
 The two-argument spelling `Facet.newMenu(Facet, core, spec)` is **deprecated** since
-0.10.0 (removal no earlier than 0.12.0 — ADR-0037): it still builds the identical
+0.10.0 (removal no earlier than 0.12.0): it still builds the identical
 control, and `Facet.Controls.Menu` is a closure over the library, not a second
 implementation.
 
@@ -6718,7 +6705,7 @@ from the surface's environment when you pass neither, and an automatic menu with
 environment anywhere refuses to construct (ADAPT-1); `dump().factsFrom` says which
 happened.
 
-**`backLabel` (ADR-0061 fix round 1) is the word on the `sheet` idiom's Back
+**`backLabel` (compact-boundary fix round 1) is the word on the `sheet` idiom's Back
 row.** Same shape as `present/nav_bar.luau`'s `NavBarSpec.backLabel` and the
 same reason it exists there: *"a Button always needs a label (a11y)... this
 construct has no i18n system of its own to invent one from."* Unlike
@@ -6727,7 +6714,7 @@ means an icon-only button — `newMenu` invents its OWN Back row, so omitting
 `backLabel` here falls back to the literal English word "Back" rather than
 going blank. **That fallback is an i18n gap, not a feature**: since
 `sizeClass == "compact"` is now the framework's own default for every
-automatic menu (ADR-0061), any submenu-bearing `newMenu` shipped to a
+automatic menu, any submenu-bearing `newMenu` shipped to a
 localized audience should set `backLabel` before it reaches a compact
 session. The row degrades to the chevron icon alone under an over-length
 label (the same `compactLabel` ladder every other row in the panel already
@@ -6772,7 +6759,7 @@ reports the depth as advice rather than refusing; it also
 reports a group of more than about five items and a destructive item that is not
 last. Under the `menu` presentation each level is its own panel anchored to its
 parent **row** (preferred edge trailing, flipping to leading at the screen edge).
-Under `sheet` — the touch idiom, and (ADR-0061) **the automatic idiom at any
+Under `sheet` — the touch idiom, and **the automatic idiom at any
 `sizeClass == "compact"` surface, regardless of which pointer is live** — a
 submenu **replaces** the sheet's contents and grows a Back row instead of
 floating a second panel over the first; medium/large keep the side-by-side
@@ -6829,7 +6816,7 @@ application raises from its own rules, pointing at the control it is about. It
 is a coach mark, not a tooltip.
 
 The two-argument spelling `Facet.newCallout(Facet, core, spec)` is **deprecated** since
-0.10.0 (removal no earlier than 0.12.0 — ADR-0037): it still builds the identical
+0.10.0 (removal no earlier than 0.12.0): it still builds the identical
 control, and `Facet.Controls.Callout` is a closure over the library, not a second
 implementation.
 
@@ -6935,7 +6922,7 @@ end
 shipped primitives over the shared value model.
 
 The two-argument spelling `Facet.newStepper(Facet, core, spec)` is **deprecated** since
-0.10.0 (removal no earlier than 0.12.0 — ADR-0037): it still builds the identical
+0.10.0 (removal no earlier than 0.12.0): it still builds the identical
 control, and `Facet.Controls.Stepper` is a closure over the library, not a second
 implementation.
 
@@ -6970,7 +6957,7 @@ label?, value? (number | Readable), min? = 0, max? = 1, format?, showValue?,
 height?, presentation? ("bar" | "circular" | "spinner"), motionClock?, scope? }`.
 
 The two-argument spelling `Facet.newProgressView(Facet, core, spec)` is **deprecated** since
-0.10.0 (removal no earlier than 0.12.0 — ADR-0037): it still builds the identical
+0.10.0 (removal no earlier than 0.12.0): it still builds the identical
 control, and `Facet.Controls.ProgressView` is a closure over the library, not a second
 implementation.
 
@@ -7152,7 +7139,7 @@ Retheming those slots — or shipping art for them — restyles every progress b
 It does **not** borrow the `control` and `accent` surfaces any more, and that is
 the point: those are treatments meant for buttons and panels, so an ornate
 package stretched a button plate across the track and a panel gradient's alpha
-made the fill see-through (ADR-0020 R3). A theme customizes a bar through
+made the fill see-through. A theme customizes a bar through
 `chrome.barTrack` / `chrome.barFill`, never through the button rules.
 Out-of-range values clamp through the shared value model rather than overflowing, and
 `semanticText` states the value in its range; an indeterminate view's `semanticText`
@@ -7174,7 +7161,7 @@ and `animating`.
 ("titleAndIcon" | "titleOnly" | "iconOnly"), iconSize?, textSize?, gap? }`.
 
 The two-argument spelling `Facet.newLabel(Facet, core, spec)` is **deprecated** since
-0.10.0 (removal no earlier than 0.12.0 — ADR-0037): it still builds the identical
+0.10.0 (removal no earlier than 0.12.0): it still builds the identical
 control, and `Facet.Controls.Label` is a closure over the library, not a second
 implementation.
 
@@ -7214,7 +7201,7 @@ and never a read, so `onChange` still sees the value it was handed.
 > observer or a task pick it up.
 
 The two-argument spelling `Facet.newPicker(Facet, core, spec)` is **deprecated** since
-0.10.0 (removal no earlier than 0.12.0 — ADR-0037): it still builds the identical
+0.10.0 (removal no earlier than 0.12.0): it still builds the identical
 control, and `Facet.Controls.Picker` is a closure over the library, not a second
 implementation.
 
@@ -7384,7 +7371,7 @@ head?, foot?, trailing?, aboveBar? }), railWidth? (dim), textSize?, transition?,
 conditions?, env?, enabled?, onChange? }`.
 
 The two-argument spelling `Facet.newTabView(Facet, core, spec)` is **deprecated** since
-0.10.0 (removal no earlier than 0.12.0 — ADR-0037): it still builds the identical
+0.10.0 (removal no earlier than 0.12.0): it still builds the identical
 control, and `Facet.Controls.TabView` is a closure over the library, not a second
 implementation.
 
@@ -7464,7 +7451,7 @@ rather than wrapping; they are bound only while focus sits on a tab, so a screen
 a TabView never shadows gameplay bumpers. An icon-only tab still carries `label` as its
 semantic name.
 
-**Accessories: the chrome beside the tabs, homed by the placement** (ADR-0045). A nav
+**Accessories: the chrome beside the tabs, homed by the placement**. A nav
 bar is rarely only tabs — a wordmark at a rail's head, a search field on a top band's
 trailing edge or above the thumb-zone dock. Each slot is a **factory**
 `(placement, scope) -> Blueprint?`, invoked only by the homes that host it, inside that
@@ -7541,7 +7528,7 @@ owns whatever that tab's factory put on it. `selection` is yours.
 (required), expanded (Signal<boolean>), content (() -> Blueprint), enabled?, onToggle? }`.
 
 The two-argument spelling `Facet.newDisclosureGroup(Facet, core, spec)` is **deprecated** since
-0.10.0 (removal no earlier than 0.12.0 — ADR-0037): it still builds the identical
+0.10.0 (removal no earlier than 0.12.0): it still builds the identical
 control, and `Facet.Controls.DisclosureGroup` is a closure over the library, not a second
 implementation.
 
@@ -7565,7 +7552,7 @@ open across a remount.
 `newStepper`.
 
 The two-argument spelling `Facet.newSlider(Facet, core, spec)` is **deprecated** since
-0.10.0 (removal no earlier than 0.12.0 — ADR-0037): it still builds the identical
+0.10.0 (removal no earlier than 0.12.0): it still builds the identical
 control, and `Facet.Controls.Slider` is a closure over the library, not a second
 implementation.
 
@@ -7593,8 +7580,8 @@ control — its sizes, its palette, its layout — stays on the theme. The image
 whole (a bare URI carries no nine-slice geometry), and `dump().skinRung` reports which
 rung is live.
 
-**Both props take the same per-state grammar a recipe's `asset` does** (ADR-0020
-R2), normalized by the same function, so the two rungs can never drift into
+**Both props take the same per-state grammar a recipe's `asset` does**,
+normalized by the same function, so the two rungs can never drift into
 different vocabularies:
 
 ```lua
@@ -7633,7 +7620,7 @@ parent would resolve to zero and leave nothing to drag along.
 preset, a difficulty dial, a capacity meter, a rating. Zero is a real state.
 
 The two-argument spelling `Facet.newLevelPicker(Facet, core, spec)` is **deprecated** since
-0.10.0 (removal no earlier than 0.12.0 — ADR-0037): it still builds the identical
+0.10.0 (removal no earlier than 0.12.0): it still builds the identical
 control, and `Facet.Controls.LevelPicker` is a closure over the library, not a second
 implementation.
 
@@ -7742,7 +7729,7 @@ picker's `segmentSize` — so nothing that calls it needs to change. Reach for
 glyphs, or a colour per half.
 
 The two-argument spelling `Facet.newRating(Facet, core, spec)` is **deprecated** since
-0.10.0 (removal no earlier than 0.12.0 — ADR-0037): it still builds the identical
+0.10.0 (removal no earlier than 0.12.0): it still builds the identical
 control, and `Facet.Controls.Rating` is a closure over the library, not a second
 implementation.
 
@@ -7851,7 +7838,7 @@ construction: pointer, touch, keyboard, and gamepad each drive the same value
 model.
 
 The two-argument spelling `Facet.newTextInput(Facet, core, spec)` is **deprecated** since
-0.10.0 (removal no earlier than 0.12.0 — ADR-0037): it still builds the identical
+0.10.0 (removal no earlier than 0.12.0): it still builds the identical
 control, and `Facet.Controls.TextInput` is a closure over the library, not a second
 implementation.
 
@@ -8003,7 +7990,7 @@ multi-select tags, and any place a compact on/off chip reads better than a
 full-width toggle row.
 
 The two-argument spelling `Facet.newChip(Facet, core, spec)` is **deprecated** since
-0.10.0 (removal no earlier than 0.12.0 — ADR-0037): it still builds the identical
+0.10.0 (removal no earlier than 0.12.0): it still builds the identical
 control, and `Facet.Controls.Chip` is a closure over the library, not a second
 implementation.
 
@@ -8069,7 +8056,7 @@ the edit-mode minus, Task 9) can drive directly, animated exactly like a live
 gesture's release.
 
 The two-argument spelling `Facet.newRowActions(Facet, core, spec)` is **deprecated** since
-0.10.0 (removal no earlier than 0.12.0 — ADR-0037): it still builds the identical
+0.10.0 (removal no earlier than 0.12.0): it still builds the identical
 control, and `Facet.Controls.RowActions` is a closure over the library, not a second
 implementation.
 
@@ -8301,7 +8288,7 @@ state (drop/cancel) makes the session inert.
 ### `interactionTokens`
 
 `Facet.interactionTokens` — the shared per-input-class interaction thresholds
-(ADR-0022 Decision 5, row SF-D3). **One** place decides whether a press became a
+(row SF-D3). **One** place decides whether a press became a
 drag, because a promotion threshold is a device fact, not a control fact: a
 finger's resting jitter is ~10 px and a mouse's is ~1 px, so no single number
 serves both, and a copy per consumer means a device round that retunes touch has
@@ -8328,7 +8315,7 @@ to find every copy.
   the **magnitude** test. A 5 px diagonal on a mouse is 7 px of travel and reads
   as a drag to the player; two independent axis tests would still call it a tap.
 - `interactionTokens.contextPriority` — `{ baseScreen = 1500, engagedBase =
-  3000, modalStep = 500 }` (framework-gaps-phase2 item 41; ADR-0014). The
+  3000, modalStep = 500 }` (framework-gaps-phase2 item 41). The
   **responder priority bands** every presented Facet surface arbitrates at
   (`src/present/presenter.luau`'s own live authority), published so a
   consumer arbitrating its OWN input contexts against a Facet-presented
@@ -8520,7 +8507,7 @@ ignored.
 ### `spatial`
 
 `Facet.spatial` — the **contract** for spatial data a normalized pointer event
-may one day carry (ADR-0021). This is a seam, not a feature: no adapter produces
+may one day carry. This is a seam, not a feature: no adapter produces
 this data today, every event Facet currently delivers is flat, and the framework
 makes no claim about headsets or world-space input. It exists so that adding
 spatial input later is an adapter change rather than a change to every control.
@@ -8565,7 +8552,7 @@ event still normalizes to a well-formed value rather than a nil every consumer
 has to guard.
 
 The matching render-target half is `client.surface_target`, and it **shipped**
-on 2026-08-29 (ADR-0063): flat, two-dimensional Facet on a `SurfaceGui`, on a
+on 2026-08-29: flat, two-dimensional Facet on a `SurfaceGui`, on a
 part a player can walk up to and use. It is not the declarative Part/Model layout
 Step 12 considered and it is not VR, ray, hand, or gaze support — see
 [`../extending/new-platform-mode.md`](../extending/new-platform-mode.md) for the
@@ -8589,7 +8576,7 @@ script requires each **directly**:
 local host = require(ReplicatedStorage.Facet.client.host)
 ```
 
-**This list is the contract** (ADR-0011, constitution §12). These thirteen are
+**This list is the contract** (constitution §12). These thirteen are
 public surface with the same compatibility promise as anything above; everything
 else under `src/` is library-internal, and a consumer requiring one of those is
 outside the boundary rule. `tools/lune/check_boundary.luau` holds the same list
@@ -8648,7 +8635,7 @@ unwinds everything that had already succeeded before re-raising.
 
 `screen_target.new(opts?) -> RenderTargetAdapter` — the production `ScreenGui`
 target. **One adapter per root**: its instance map and capture/cursor state are
-adapter-scoped, so an adapter must never host two roots (ADR-0009). `destroyRoot`
+adapter-scoped, so an adapter must never host two roots. `destroyRoot`
 releases the tree.
 
 | Opt | Meaning |
@@ -8659,7 +8646,7 @@ releases the tree.
 | `rootFactory` | `(screenId) -> { gui }` — swap only the ROOT container; everything below is target-agnostic flat rendering (this is how `billboard_target` is built) |
 | `forceScrollFallback` | render `ScrollView` nodes as plain clip hosts with no engine scrolling — the A/B switch that exercises the fallback path deliberately |
 | `forceDragFallback` | make `setDragDetector` answer nil so the raw pointer-capture path runs instead |
-| `nativeStyle` | the paint path. **Absent is native StyleSheet paint** — the library default since 2026-08-21 (`native_style.DEFAULT_ENABLED`, ADR-0040 B-15). `true` says the same thing explicitly; `{ model?, handle?, host?, theme?, transitions? }` configures it (`transitions` is still opt-in). **`false` is the opt-out**, per target, and wins over everything: it takes the explicit-write path, which is also where an engine without StyleSheets lands |
+| `nativeStyle` | the paint path. **Absent is native StyleSheet paint** — the library default since 2026-08-21 (`native_style.DEFAULT_ENABLED`). `true` says the same thing explicitly; `{ model?, handle?, host?, theme?, transitions? }` configures it (`transitions` is still opt-in). **`false` is the opt-out**, per target, and wins over everything: it takes the explicit-write path, which is also where an engine without StyleSheets lands |
 | `themePackage` | the installed `ThemePackage` whose chrome recipes decide decoration slots; the theme controller swaps it at runtime |
 | `displayOrder` | the `DisplayOrder` every root this target creates gets — where the whole target sits against the game's own `ScreenGui`s. Absent means 0 (the engine's default), which is why a game's hand-made surfaces float above Facet's unless someone says otherwise. The presenter still layers its own surfaces above one another from this floor |
 
@@ -8758,13 +8745,13 @@ environment untouched.
 | `env` | **required** — the resolved snapshot rides it as the `themeMetrics` fact |
 | `core` | **required whenever `selectBy` is given**: the paradigm subscription needs a scope. Optional otherwise |
 | `theme` | initial theme name; default `package.style.defaultTheme` |
-| `selectBy` | `{ touch = pkg, pointer = pkg, gamepad = pkg }` — profile-conditional package selection (ADR-0020 R7); the positional `package` is the default for any unmapped class |
+| `selectBy` | `{ touch = pkg, pointer = pkg, gamepad = pkg }` — profile-conditional package selection; the positional `package` is the default for any unmapped class |
 | `selectBySettleSeconds` | how long a profile must hold before it counts as settled (default 0.25 s) |
 | `selectBySettle` | the settle-timer seam, for tests |
 | `facts` | explicit resolve facts; default is to read them from the environment |
 | `overrides` | dotted metric paths, recorded as deliberate theme-independence |
 | `rootGui` | the target's root, for an adapter that cannot report one |
-| `host` | explicit sheet host (else ADR-0018's host policy) |
+| `host` | explicit sheet host (else the default host policy) |
 | `sheetModel` | a prebuilt sheet model (else one is derived from the package) |
 | `nativeStyle` | the materializer seam (tests and tools inject it) |
 | `forceFallback` | exercise the fallback paint path deliberately |
@@ -9176,7 +9163,7 @@ the headless suite drives; production never passes them.
 
 ### `motion`
 
-`Facet.motion` — the motion authority (ADR-0022 Decision 1): all value motion in
+`Facet.motion` — the motion authority: all value motion in
 one pure, engine-free place, stepped by an injectable clock. It contains no
 `RunService`, no `os.clock` inside the solver, and no engine globals at all, which
 is what makes every motion contract below assertable frame by frame in the
@@ -9186,7 +9173,7 @@ adapter edge; tests and benches script a clock.
 **Authority.** Motion drives **signals** only. It never writes solver-owned
 geometry (no `Size`, no per-frame re-solve) and never writes a native-sheet-owned
 paint property. Downstream, a motion value reaches the screen through the
-renderer's **presentation** channel (transform/transparency, ADR-0022 Decision 2)
+renderer's **presentation** channel (transform/transparency)
 or through any ordinary reactive binding — the authority audit must stay clean
 while motion runs.
 
@@ -9254,7 +9241,7 @@ round out the registry.
 
 #### `motion.registerCurve(name, spec)` and the curve vocabulary
 
-The **other** motion vocabulary, and the one a design handoff arrives in (ADR-0033).
+The **other** motion vocabulary, and the one a design handoff arrives in.
 A **motion curve** is a named `{ duration, style, direction? }` — a duration in
 seconds and an easing shape — where a class is physics with no authorable
 duration. Reach for a curve when the duration *is* the requirement: a spec in
@@ -9295,7 +9282,7 @@ proxy instance per animated value and a flight `clock:step(dt)` could not advanc
 which would put the shipped path outside the headless suite. Lune has no
 `TweenService`, so `src/motion/curves.luau` carries a pure twin for the suite,
 pinned to the engine by a differential oracle over 33,033 samples (max
-|twin − engine| = 4.73e-7). See `clock:setEasing` and ADR-0033.
+|twin − engine| = 4.73e-7). See `clock:setEasing`.
 
 `motion.resolveCurve(name)`, `motion.curveNames()`,
 `motion.isRegisteredCurve(name)` and `motion.resetCurves()` round out the

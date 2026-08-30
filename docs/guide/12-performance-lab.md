@@ -141,7 +141,7 @@ print(HttpService:JSONEncode(step("export:1")))
 **The three before the soak are the NAMED LEVERS** (`levers.luau`), each aimed at
 a cost a device capture ranked and no workload reached: `arrange` itself was the
 top cost in all four captures of 2026-08-15, incremental layout had only ever
-been measured on a resize, and ADR-0032's write collapse had never been priced as
+been measured on a resize, and the nested tree's write collapse had never been priced as
 frame time. One lap is one ARM, so a 60-frame dump can hold the comparison it was
 taken for — `pass:flat=60`, then `pass:fill=60`.
 
@@ -433,8 +433,7 @@ frame wait is **not** framework cost — the passes stamp `frameWaitExcluded = t
 
 ## 12.7 If you are building a fixture like this one
 
-Read [`docs/lessons/the-solver-already-told-you.md`](../lessons/the-solver-already-told-you.md)
-first. The short version, because it cost this stage a shipped defect:
+Start from the standing lesson, because it cost this stage a shipped defect:
 
 - **Call `handle.controller.diagnostics()` in your fixture and fail on a non-empty
   result.** The solver reports overlap, main-axis overflow, collapsed content boxes and
@@ -477,5 +476,5 @@ The residue is the lab's own overlay model and dataset signal, not the workload.
 with Instances, signals, memos, scopes and connections byte-identical throughout.
 
 If a number climbs across cycles, that is the finding — start with
-`docs/lessons/` and the ownership shapes: a control that builds its own scope and
+the ownership shapes: a control that builds its own scope and
 returns a `dispose` leaks once per materialized row if the caller does not own it.

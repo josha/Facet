@@ -31,8 +31,7 @@ conversation history, or any repository other than this one.
 | where a change goes and what proves it | [`docs/MAINTAINERS.md`](docs/MAINTAINERS.md) |
 | how to add a control, primitive, theme, target, or mode | [`docs/extending/`](docs/extending/) |
 | the rules anything added here follows | [`docs/reference/constitution.md`](docs/reference/constitution.md) |
-| what was decided and what was rejected | [`docs/adr/`](docs/adr/) |
-| defects that cost real time, written up | [`docs/lessons/`](docs/lessons/) |
+| what changed in each version | [`CHANGELOG.md`](CHANGELOG.md) |
 | the contributor workflow | [`CONTRIBUTING.md`](CONTRIBUTING.md) |
 | the maintainer's package interface | [`package/README.md`](package/README.md) |
 
@@ -79,8 +78,7 @@ Facet materializes a solved screen through one render target. Three exist:
 - **A world-fixed surface.** `client.surface_target` — the same flat,
   two-dimensional screen on a `SurfaceGui` attached to a part, which a player
   walks up to and uses. The worked recipe is the outpost terminal in
-  `examples/gallery/examples/outpost_terminal/`, and
-  [ADR-0063](docs/adr/ADR-0063-surface-render-target.md) is its decision record.
+  `examples/gallery/examples/outpost_terminal/`.
 
 **Say what this is and nothing more.** A world-fixed surface is a flat
 two-dimensional screen placed in the world. Facet has no declarative
@@ -170,5 +168,5 @@ Each of these looks like a shortcut and is a defect:
   third-party user-interface or reactivity library at runtime.
 - **`Facet.VERSION` is the version, and it lives in one place**, `src/init.luau`.
   The compatibility policy is
-  [ADR-0011](docs/adr/ADR-0011-semver-and-deprecation.md); the retiring-surface
-  ledger is `Facet.DEPRECATIONS`.
+  [`CONTRIBUTING.md` §6](CONTRIBUTING.md#6-versioning-and-deprecation); the
+  retiring-surface ledger is `Facet.DEPRECATIONS`.
