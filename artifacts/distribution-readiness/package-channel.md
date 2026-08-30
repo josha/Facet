@@ -64,8 +64,8 @@ Measured on Rojo 7.7.0 (rokit-pinned), Lune 0.10.4, macOS.
 
 | Measurement | Result |
 |---|---|
-| Three consecutive builds of one tree, `.rbxm` | identical sha256 (`7a248fd1…` ×3) |
-| Two consecutive builds, `.rbxmx` | identical sha256, and `cmp` reports no difference |
+| Three consecutive builds of one tree, `.rbxm` | identical sha256 (`7a248fd1…` ×3 at `558470b0`; re-measured at final HEAD `5d55cfb`, `ae7b54e9…` ×3) |
+| Three consecutive builds, `.rbxmx` | identical sha256 (`73a91470…` ×3), and `cmp` reports no difference |
 | Manifest `bodyHash` across builds | identical |
 | Same measurement **before** the `Distribution` child existed | also identical — the staging directory did not introduce nondeterminism |
 
@@ -141,10 +141,15 @@ passes because they are gone, which is the correct reading of the same check.
 ## 4. Commands run, with their result lines
 
 All at HEAD `f092312` (working tree dirty — several workstreams are active in it).
+The whole battery was re-run at the final HEAD `5d55cfb` with identical verdicts:
+selftest PASS, build 189/171, verify PASS on all five rows, create 6 refusals,
+publish 7 refusals, `stylua --check tools` clean.
 
 | Command | Result |
 |---|---|
 | `python3 tools/package.py --selftest` | **PASS**, exit 0 — 21 mutation cases over 18 refusal codes, every one biting exactly its own refusal and nothing else; 0 wrong; both all-good fact sets clean |
+| `tools/package.sh stamp` | exit 0 — wrote `studio_verification` `{status: verified, by, date, notes}` onto a temp receipt; exit 1 without `--studio-verified` |
+| `tools/package.sh identity` | exit 0 — the sha256 the gate-evidence guard compares against |
 | `tools/package.sh build` | exit 0 — 189 instances, 171 modules, body `e6729c0e414f…`, artifact `3b1f9323…` |
 | `tools/package.sh verify` | **PASS**, exit 0 — build ok, tree inspection ok, notices ok, purity ok, canary ok |
 | `tools/package.sh status` | exit 0 — version 0.10.0, commit `f092312…-dirty`, assetId unset, tree DIRTY, no receipts, CHANGELOG.md mentions 0.10.0, gate evidence absent |
