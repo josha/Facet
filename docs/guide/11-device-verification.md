@@ -55,9 +55,10 @@ lune run tools/lune/prove_perf_gate                      # does both, and record
 
 ## The five-view device matrix
 
-`docs/plans/studio-device-verification.md` defines five view rows that cover the
-useful layout extremes: compact phone portrait, the same phone landscape, tablet
-landscape, desktop at the standard development viewport, and console/ten-foot.
+Five view rows cover the useful layout extremes: compact phone portrait, the same
+phone landscape, tablet landscape, desktop at the standard development viewport,
+and console/ten-foot. The rows themselves are code, not prose —
+`src/preview/matrix_rows.luau` is where they live, and it is the only definition.
 
 Roles, not device names. `src/preview/matrix_rows.luau` holds the pure selection
 policy: it takes the **live** device catalog and ranks it, so no catalog ID is
@@ -144,8 +145,9 @@ leaves the button down makes the next press a silent no-op.
 > throw as a security refusal. The probe is tri-state now (`present` / `absent` /
 > `blocked` / `error`) and keeps the raw error text, which is what makes the
 > difference checkable rather than assumed. The same mistake had produced a
-> second false claim about the device simulator; both are recorded in
-> `artifacts/cross-platform-proof/rows/xp-b3-virtualinput.json`.
+> second false claim about the device simulator. Both are recorded in the run's own
+> evidence row, which is what makes the correction checkable rather than a
+> remembered story.
 
 One open limitation, stated because it is unresolved rather than because it is
 comfortable: in this session VirtualInput's calls **succeeded but delivered no

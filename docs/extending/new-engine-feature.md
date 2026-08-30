@@ -8,17 +8,15 @@ UIShadow + per-corner UICorner adoption — read these as you go:
 `src/tokens/styling.luau`, `src/render/authority.luau`,
 `src/render/renderer.luau` (style-prop write list),
 `src/client/screen_target.luau` (`applyShadow`/`applyCorners` + capability
-detection), `src/render/style_lint.luau`,
-`docs/research/2026-07-20-uishadow-percorner-engine-facts.md`.
+detection), `src/render/style_lint.luau`.
 
 Read [`../reference/constitution.md`](../reference/constitution.md) first — the
 rules your addition must follow.
 
-Also follow
-[`../plans/agent-execution-contract.md`](../plans/agent-execution-contract.md).
-Engine adoption requires both a live property/event probe and an integrated visible
-Studio slice; successful Instance construction or a headless adapter write alone is
-not completion evidence.
+Read [`../guide/11-device-verification.md`](../guide/11-device-verification.md)
+for the evidence ladder. Engine adoption requires both a live property or event
+probe and an integrated, visible Studio slice; a successful `Instance`
+construction, or a headless adapter write alone, is not completion evidence.
 
 Engine features enter ONLY through the render-authority/adapter layer with
 capability detection and a headless fallback. If your plan touches the
@@ -32,7 +30,9 @@ where possible: exact property names and TYPES (UDim vs UDim2 vs number —
 the UIShadow adoption caught two type errors in the design's own prose),
 value ranges and clamps, which instances it applies to, interaction hazards
 (for example, alias-versus-individual-property mixing), performance guidance,
-and whether the feature is released or still in beta. Record it as `docs/research/<date>-<feature>-engine-facts.md`.
+and whether the feature is released or still in beta. Record what you found in the
+decision record for the adoption, under `docs/adr/`, with the source links and the
+date you read them.
 Run a Studio probe that round-trips every property and record the artifact under
 `artifacts/studio/`. If Studio is unavailable or its viewport/capture/input preflight
 fails, record `FAIL_ENVIRONMENT` and leave the engine-evidence row pending rather than

@@ -148,10 +148,9 @@ taken for — `pass:flat=60`, then `pass:fill=60`.
 `variable-extents` and `table-unified` mount their own surfaces
 (`implementation = "none"`), so neither re-bases any number above them. Both take a `frames/reps` payload —
 `pass:tableUnified=30/40` — because their headline quantities are p50s and an
-operator who cannot raise n cannot get out of a wide control band. Their control
-bands, deltas and the MicroProfiler pass over them are
-`artifacts/performance-stress-places/optimization-log.md`; the device
-recipe is `docs/handoff/2026-08-14-device-capture-collections.md`.
+operator who cannot raise n cannot get out of a wide control band. Their control bands, deltas, and the MicroProfiler pass over them are recorded in
+the run's own artifacts, written where §12.4 says the rows land. Capturing on a
+real device is §12.7.
 
 ### One button: Run all
 
@@ -250,8 +249,8 @@ with row count.
 <kbd>F6</kbd> where the keyboard has a Command key) to open the MicroProfiler, then pause it (<kbd>Ctrl</kbd>+
 <kbd>P</kbd>) on an interesting frame. The `Facet/*` bars sit under the script scope.
 
-**Programmatically**, through the Studio MCP or the command bar — this is how the
-numbers in `artifacts/performance-stress-places/studio/perf-lab.json` were produced:
+**Programmatically**, through the Studio MCP connection or the
+command bar — this is how the checked-in lab numbers were produced:
 
 **Arm the recording first, or everything below lies to you.** `Control` is inert until
 the MicroProfiler is actually recording: `SetFrameLimit`/`EnableProfiler`/`EnableCapture`
@@ -398,8 +397,8 @@ start index has not moved, so the two distributions are not quite the same amoun
 work. The reference also has no focus graph, no theme authority, no async resource
 lifecycle, no preferred-text reflow or disclosure, no adaptive composition and no
 hit-target floor. Some of that 4× is buying those; how much is the open question, and
-it is escalated with numbers in
-`artifacts/performance-stress-places/decisions.md` rather than guessed at.
+it is escalated with numbers rather than
+guessed at.
 
 ## 12.6 Compare two captures
 

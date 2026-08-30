@@ -271,8 +271,7 @@ geometry, the resolved values, the `isLoaded` state of each picture and the moun
 identity across a swap. The scenario returns all of them in one object.
 
 Keep physical-device, human-judgment and low-end-performance rows explicitly
-pending; they are tracked in
-`artifacts/rich-skinning-v2/review-packet.md`, not closed by a Studio run.
+pending. A Studio run closes none of them.
 
 ## 8. Gate obligations
 

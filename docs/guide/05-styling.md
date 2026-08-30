@@ -413,7 +413,6 @@ per-view override, and a custom control that ships its own art
 ([`../extending/skinned-control.md`](../extending/skinned-control.md)).
 
 Still honestly open at this stage: the human Style-Editor walkthrough, the
-physical-phone pass over ornate chrome, and low-end-device cost. Those rows are
-tracked in `artifacts/theme-packages-and-skinning/review-packet.md` and
-`artifacts/rich-skinning-v2/review-packet.md`, and are not closed by a Studio
-run.
+physical-phone pass over ornate chrome, and low-end-device cost. Those rows are open, and a Studio
+run does not close any of them. [Chapter 11](11-device-verification.md) explains
+which instrument can close which class of claim.

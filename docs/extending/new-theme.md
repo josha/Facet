@@ -49,9 +49,8 @@ rules your addition must follow.
   screen-specific branches. `themes.define` rejects a function found anywhere in
   the definition, and that rejection is the feature.
 - Test-first is not optional. Never mark done while `./run-tests.sh` is red.
-- Never edit `tools/lune/gate_manifest.luau`, `phases.json`, or
-  `artifacts/theme-packages-and-skinning/acceptance-ledger.md` for a theme; the
-  existing gate checks pick your work up through the suite and the checkers.
+- Never edit the verification graph's own rows for a theme; the existing checks
+  pick your work up through the suite and the checkers.
 
 ## 1. Property authority and the theme linter
 
@@ -261,8 +260,7 @@ closed vocabulary:
   instances, rearrange content, or carry code.
 - **Pseudo selectors**: the allowlist is `::UICorner`, `::UIStroke`,
   `::UIGradient`. `::UIShadow` is **rejected at compile time** — on 0.731 it is
-  accepted by `SetProperties`, reports no `SelectorError`, and paints *nothing*
-  (`artifacts/theme-packages-and-skinning/feasibility/m7-gradient-shadow-phantoms.json`).
+  accepted by `SetProperties`, reports no `SelectorError`, and paints *nothing*.
   A silently inert pseudo selector is a real hazard class; theme shadows stay on
   the bespoke `UIShadow` materialization behind its capability probe — that is
   what a recipe's `shadow` field materializes, so it is ADAPTER-owned paint on a
@@ -302,7 +300,7 @@ closed vocabulary:
   may name any font and the characters a font is MISSING are what produce tofu.
   A live probe measured the old `U+25B8`/`U+25BE` carets at the tofu
   placeholder's advance in Michroma while the ASCII characters rendered
-  normally (`artifacts/rich-skinning-v2/rs-a7-semantic-icons.json`).
+  normally.
 - **Pixel mode** is `identity.rendering = "pixel"` + `identity.pixelUnit`
   (integer ≥ 1): `ResampleMode = Pixelated` on every image rule the package
   emits (censused, so `pixelatedRules == imageRules` is assertable), an integer
@@ -391,8 +389,9 @@ Roblox painted, sliced, measured, or hit-tested anything.
 1. Drive `examples/gallery/scenarios/theme_authoring.luau` — it mounts the whole
    control gallery and restyles it from the outside, so a theme is never proven
    against a theme-shaped fixture built to flatter it.
-2. Run the canonical five view rows
-   ([`../plans/studio-device-verification.md`](../plans/studio-device-verification.md)):
+2. Run the canonical five view rows, defined in
+   `src/preview/matrix_rows.luau` and explained in
+   [`../guide/11-device-verification.md`](../guide/11-device-verification.md):
    `compact-phone-portrait`, `compact-phone-landscape`, `tablet-landscape`,
    `desktop-standard`, `console-ten-foot`. Locale, preferred text, reduced motion
    and failure fixtures are **axes**, run pairwise on the smallest covering
@@ -403,11 +402,10 @@ Roblox painted, sliced, measured, or hit-tested anything.
    state identity, and the mount identity — the scenario's `report()` returns all
    of them in one object. Note that `GetStyled` **errors** on a property the
    class does not have, so every probe is pcall-guarded.
-4. Follow [`../plans/agent-execution-contract.md`](../plans/agent-execution-contract.md)
-   for the evidence ladder, and keep physical-touch, true-gamepad, human-judgment
-   and low-end-performance rows explicitly **pending** — they are tracked in
-   `artifacts/theme-packages-and-skinning/review-packet.md`, and a Studio run
-   does not close them.
+4. Follow the evidence ladder in
+   [`../guide/11-device-verification.md`](../guide/11-device-verification.md), and
+   keep physical-touch, true-gamepad, human-judgment and low-end-performance rows
+   explicitly **pending**. A Studio run does not close any of them.
 
 ## 8. Registration and gate obligations
 
@@ -439,11 +437,8 @@ it prints the exact document, the missing obligation, and the command or manual
 action that fixes it. There are no generated blocks in this document set, so
 `--write` has nothing to regenerate and says so.
 
-The acceptance ledger
-(`artifacts/theme-packages-and-skinning/acceptance-ledger.md`) and the gate
-manifest (`tools/lune/gate_manifest.luau`) already carry this stage's acceptance
-rows and the matching gate checks. **Name them in your report; never
-edit them.** The gate's pass rule counts human-signoff placeholders (`PENDING`
+The verification graph already carries the acceptance rows for theme work and the
+checks that answer them. **Name them in your report; never edit them.** The gate's pass rule counts human-signoff placeholders (`PENDING`
 with no run command) as failures by design, so the gate command may exit nonzero
 even when your work is perfect. Your bar: every check that was PASS before your
 change is still PASS, and none moved to FAIL_RECOVERABLE. Never flip a PENDING

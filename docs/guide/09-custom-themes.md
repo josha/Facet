@@ -19,8 +19,7 @@ chapter — it is one file, and it is the whole answer.
 > **What is proven, and what is not.** Everything below is covered by the
 > headless suite and by the `theme_authoring` Studio scenario. The physical
 > phone pass, the human Style-Editor walkthrough, and low-end-device cost
-> remain open rows in
-> `artifacts/theme-packages-and-skinning/review-packet.md`. Do not quote
+> remain open rows. Do not quote
 > theme-swap cost as device truth.
 
 **The canonical documentation check for this chapter:**
@@ -639,8 +638,8 @@ a measurement.
 The decoration child is `Active = false` and can never report an interaction
 state of its own, so every state rule reads the **parent's** state and reaches
 the child through a child combinator
-(`.facet-interactive:Hover > .facet-chrome-control`). All four such selectors are
-engine-verified (`artifacts/theme-packages-and-skinning/feasibility/m8-render-order-combinators.json`).
+(`.facet-interactive:Hover > .facet-chrome-control`). All four such selectors were verified
+against a running engine.
 
 ### Two consequences you must design around
 
@@ -794,10 +793,11 @@ under), then drive it through `workspace.FacetScenarioAPI.step`:
 | `customControl` | a namespaced control's needs, checked both ways |
 | `inspect` | package identity, chrome recipes, preload lists, census, controller state |
 
-Run it across the canonical five view rows from
-[`../plans/studio-device-verification.md`](../plans/studio-device-verification.md):
-`compact-phone-portrait`, `compact-phone-landscape`, `tablet-landscape`,
-`desktop-standard`, `console-ten-foot`. Locale/long text, preferred text and
+Run it across the canonical five view rows, which are defined in
+`src/preview/matrix_rows.luau` and explained in
+[chapter 11](11-device-verification.md): `compact-phone-portrait`,
+`compact-phone-landscape`, `tablet-landscape`, `desktop-standard`,
+`console-ten-foot`. Locale/long text, preferred text and
 reduced motion are *fixture axes* — run them on the smallest subset that covers
 their failure mode, not as a full product with every view.
 

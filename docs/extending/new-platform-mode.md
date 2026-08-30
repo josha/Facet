@@ -11,9 +11,8 @@ support claim would first have to pass, and none of it has been run.
 Read [`../reference/constitution.md`](../reference/constitution.md) first — the
 rules your addition must follow.
 
-Read
-[`../plans/parity-next.md`](../plans/parity-next.md) before using this
-playbook. Its cross-platform proof and future-platform milestone governs this work.
+The gate table below governs this work. No platform-support claim is made without
+the physical run its row names.
 
 ## The spatial gate — what exists, and what a support claim would cost
 

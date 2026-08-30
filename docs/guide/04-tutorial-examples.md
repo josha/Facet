@@ -213,8 +213,8 @@ filter together.
 **A known limit at Largest text.** On a compact phone with the player's text size
 at Largest, `UI.Table`'s touch Edit toggle overlaps the rating column's header
 title. It is a framework defect in the Table's toolbar/header spacing — this
-example authors no toolbar or header geometry — and it is recorded, unclosed, in
-`artifacts/example-quality-pass/studio/large-text.json` as `LT-F3`.
+example authors no toolbar or header geometry — and it is recorded as an open defect in the
+large-text evidence row for this example.
 
 ### The data
 

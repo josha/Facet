@@ -7,7 +7,7 @@ or asks whether it is running. Rojo does exactly one job — it turns a folder o
 Studio, you need that tree once, by another route, and then you never think about
 it again.
 
-This chapter is the no-Rojo route: the one structural rule, four ways to install,
+This chapter is the no-Rojo route: the one structural rule, five ways to install,
 the client script you write by hand, and what you do and do not give up.
 
 ## 8.1 The one rule: the instance tree must mirror the file tree
@@ -43,7 +43,75 @@ Put the tree in **`ReplicatedStorage`**. That is what lets a client script reach
 it, and what keeps the main table safe to require from shared or server code
 (see [chapter 2](02-architecture.md)).
 
-## 8.2 Option A — drag in the prebuilt model *(recommended)*
+## 8.2 Option A — the official Roblox Package *(recommended)*
+
+Facet is published as one Roblox Package. A package is an ordinary model asset
+that keeps a link back to the asset it came from, so every copy knows which
+version it is and can be told to take a newer one. That is the closest thing to a
+package manager Roblox offers without an external toolchain, and it is the reason
+this is the recommended route: with the other options, upgrading means finding
+every copy and re-importing it by hand.
+
+**The asset id is pending.** The Facet package asset has not been created yet.
+When it exists, its id and its creator are recorded in
+`package/facet-package.json`, which is the one place that holds them. The id is
+deliberately not part of Facet's Luau interface — no code you write should name
+it.
+
+### Installing it
+
+1. In Studio, open the **Toolbox** and go to the **Inventory** tab.
+2. Find Facet under **My Packages** and insert it.
+3. Move the inserted `Facet` node to `ReplicatedStorage` if it landed elsewhere.
+4. Verify `ReplicatedStorage.Facet` is a **ModuleScript**, exactly as in §8.3.
+
+A package copy carries a `PackageLink` child and shows a chain-link symbol in the
+Explorer. **Do not delete or move the `PackageLink`.** Doing so turns that copy
+back into an ordinary model and it stops being a package.
+
+### Knowing which version you have
+
+Two answers, and they agree:
+
+```lua
+print(Facet.VERSION) -- "0.10.0"
+```
+
+...and the `Distribution` folder inside the package, whose attributes name the
+exact source the artifact was built from: `Version`, `SourceCommit`, and
+`SourceHash`. The folder also carries the licence and third-party notice text as
+plain values, so the terms travel with the copy. Nothing in it is executable and
+nothing in it is part of the runtime interface.
+
+### Taking a new version
+
+A copy that is behind gets a download symbol in the Explorer. Right-click it and
+choose **Get Latest Package**. With several copies selected, **Get Latest For
+Selected Packages** does them together.
+
+The package's version history is in Package Options → Package Details →
+**Versions**, where you can compare versions and restore an older one.
+
+### AutoUpdate is opt-in, and it steps aside for a modified copy
+
+Every copy has its own `PackageLink` with an `AutoUpdate` property, and it is
+**false** when a package is created. Turn it on for a copy and the game
+periodically checks for a new version while the place is open and takes it.
+
+The moment you edit a copy, `AutoUpdate` on that copy is **disabled and ignored**,
+and the copy gets a "modified" icon in the Explorer. A mass update skips modified
+copies and reports how many it skipped. So a copy you changed is never silently
+overwritten — it is simply left out. (Renaming the root node, moving a root
+`GuiObject`, and toggling a root `LayerCollector.Enabled` do not count as
+modifications.)
+
+**In a production game, leave `AutoUpdate` off.** Take new versions deliberately
+with *Get Latest Package*, read [`CHANGELOG.md`](../../CHANGELOG.md) and
+`Facet.DEPRECATIONS`, and test the place before you publish it. Turn `AutoUpdate`
+on only where accepting the newest compatible version without looking at it is
+genuinely what you want — a prototype, or a place you open and check often.
+
+## 8.3 Option B — drag in the prebuilt model
 
 The repository ships the library as a single model file: **`build/Facet.rbxm`**.
 Its root is the `Facet` ModuleScript with the whole tree beneath it.
@@ -77,7 +145,7 @@ built by `tools/build_themes.sh` — and installs the same way: drag it into
 [13 — The theme catalog](13-theme-catalog.md) for what each one looks like, one
 install call, and what it costs.
 
-## 8.3 Option B — lift the library out of a shipped example place
+## 8.4 Option C — lift the library out of a shipped example place
 
 Every file in `examples/places/*.rbxl` — and `build/Facet-Gallery.rbxl` — already
 contains the same `ReplicatedStorage.Facet` tree, because they are built from the
@@ -93,26 +161,25 @@ tutorial modules in `ReplicatedStorage.FacetExamples`, all of which you can read
 run, and copy from. See [chapter 4](04-tutorial-examples.md) for what each place
 demonstrates.
 
-## 8.4 Option C — publish it once, reuse it everywhere
+## 8.5 Option D — publish a copy of your own
 
-If you maintain several places, upload the library to your own inventory instead
-of re-importing a file each time.
+Option A already gives you a package, so reach for this one only when you need a
+copy under your own account: a fork you have patched, or a version pinned for a
+team that cannot take upstream updates.
 
 - **As a model.** Right-click `ReplicatedStorage.Facet` → **Save to Roblox…** and
   publish it (private is fine). In any other place, insert it from the Toolbox's
   Inventory tab — it lands in `Workspace`, so move it to `ReplicatedStorage`.
   Upgrading means inserting the new copy and deleting the old one.
-- **As a Package.** Right-click → **Convert to Package…**. A package remembers
-  where its copies live, so when you publish a new version of the library you can
-  pull it into each place with *Get Latest Package* instead of a manual
-  re-import. This is the closest thing to a package manager available without an
-  external toolchain, and it is the better choice if more than one place depends
-  on Facet.
+- **As your own package.** Right-click → **Convert to Package…**, which gives your
+  copy the same *Get Latest Package* flow §8.2 describes, published by you.
+  Ownership of a package cannot be transferred afterwards, so choose the account
+  or group deliberately at that moment.
 
 Either way, your own UI code stays outside the `Facet` node, so replacing the
 library never touches it.
 
-## 8.5 Option D — rebuild the tree by hand *(last resort)*
+## 8.6 Option E — rebuild the tree by hand *(last resort)*
 
 40 ModuleScripts across 13 folders. Only worth it if you genuinely cannot move a
 file into Studio. Follow §8.1 exactly: create the folders, create a ModuleScript
@@ -122,7 +189,7 @@ contents the body of the `Facet` ModuleScript itself rather than a child named
 could not resolve — check that node's name and its parent's class before
 suspecting anything else.
 
-## 8.6 The client script, written in Studio
+## 8.7 The client script, written in Studio
 
 Nothing about the client script is Rojo-specific — this is the same script as
 [§3.4](03-getting-started.md#34-wiring-inside-roblox-studio), typed into the
@@ -182,7 +249,7 @@ that starts requiring before the DataModel has finished loading can fail on a
 child that simply has not arrived yet. `WaitForChild("Facet")` covers only the
 top node — the guard covers the rest of the tree.
 
-## 8.7 The one manual step that has nothing to do with Rojo
+## 8.8 The one manual step that has nothing to do with Rojo
 
 Tick **`Workspace.PlayerScriptsUseInputActionSystem`** in the Properties panel.
 Facet's input layer is built on the Input Action System, the flag is not
@@ -201,7 +268,7 @@ that has an avatar. Full story — including why, and how to tell — in
 > scripts* in a game that has an avatar — which is where a dead gamepad A comes
 > from. Check for it again before shipping anything gamepad-facing.
 
-## 8.8 What you give up, and what you don't
+## 8.9 What you give up, and what you don't
 
 **You give up nothing at runtime.** Every feature in this guide — reactivity,
 layout, focus and navigation, styling, replication adapters, all four input
@@ -212,7 +279,9 @@ devices — is in the model you dragged in. There is no Rojo-only code path.
 - **File-based version control of the library.** The tree lives in your `.rbxl`.
   Pin a version by recording `Facet.VERSION` (currently `0.10.0`) somewhere you
   will see it, and check `Facet.DEPRECATIONS` after an upgrade — see
-  [ADR-0011](../adr/ADR-0011-semver-and-deprecation.md).
+  [ADR-0011](../adr/ADR-0011-semver-and-deprecation.md). On the package route the
+  `Distribution` folder's `Version`, `SourceCommit` and `SourceHash` attributes
+  answer the same question without a checkout.
 - **The headless test suite.** `./run-tests.sh` runs the whole suite under Lune
   with no Roblox process, but it needs the source files. You can clone the
   repository purely to run tests and read source without ever wiring Rojo into
@@ -221,18 +290,19 @@ devices — is in the model you dragged in. There is no Rojo-only code path.
   type-check Luau, so `--!strict` still earns its keep — but the diff, review, and
   branch workflow is on you.
 
-**Upgrading** is: delete `ReplicatedStorage.Facet`, insert the new one (or *Get
-Latest Package*), press Play. Your UI code is outside the node and is untouched.
+**Upgrading** is one of two things. On the package route (§8.2) it is *Get Latest
+Package*, then press Play. On any other route it is: delete
+`ReplicatedStorage.Facet`, insert the new one, press Play. Your UI code sits
+outside the node either way and is untouched.
 
-## 8.9 Troubleshooting
+## 8.10 Troubleshooting
 
 | Symptom | Cause | Fix |
 |---|---|---|
 | Require error naming a module or "could not resolve" a component | The instance tree does not mirror the file tree (§8.1) | Re-insert from `build/Facet.rbxm`; do not rename or flatten nodes |
-| `Facet` is a **Folder**, not a ModuleScript | You copied the `src` folder rather than the built model — `init.luau` must *be* the `Facet` node | Use option A or B |
-| Requires fail only sometimes, usually on join | Missing the `game.Loaded:Wait()` guard (§8.6) | Add the guard at the top of the client script |
+| `Facet` is a **Folder**, not a ModuleScript | You copied the `src` folder rather than the built model — `init.luau` must *be* the `Facet` node | Use option B or C |
+| Requires fail only sometimes, usually on join | Missing the `game.Loaded:Wait()` guard (§8.7) | Add the guard at the top of the client script |
 | `attempt to index nil with 'client'` from a server or shared script | `client/*` is client-only by design and never on the public table | Require the adapters from a LocalScript only ([chapter 2](02-architecture.md)) |
-| `core.fusion_adapter` fails to require | It is a Phase-0 bake-off artifact that reaches outside `src/` for `vendor/Fusion`, which the model does not ship | Don't require it — `Facet.newCore()` is the supported core |
-| Gamepad A does nothing | `Workspace.PlayerScriptsUseInputActionSystem` is off | §8.7, then [chapter 7](07-input.md) |
-| Nothing renders, no errors | nothing is driving the frame | Stand the surface up with `client.host` (§8.6), which connects one `PreRender` and drives `tick(dt)` then `refresh()` |
+| Gamepad A does nothing | `Workspace.PlayerScriptsUseInputActionSystem` is off | §8.8, then [chapter 7](07-input.md) |
+| Nothing renders, no errors | nothing is driving the frame | Stand the surface up with `client.host` (§8.7), which connects one `PreRender` and drives `tick(dt)` then `refresh()` |
 | It renders but nothing ever animates — a toast never expires, a transition never completes | the motion clock is not advancing: something is calling `presenter.refresh()` without `presenter.tick(dt)` | Same fix. `refresh` re-solves what the frame dirtied; `tick` is what moves the clock every transition, spring and timer rides, and a frozen clock looks exactly like a settled one in a dump |

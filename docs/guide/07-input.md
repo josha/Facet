@@ -196,8 +196,8 @@ sentence describes the framework, not the observed result.** While a `TextBox`
 holds keyboard focus the engine marks keyboard input `gameProcessed` and fires no
 developer Input Action binding at all, so Tab inside a focused field currently does
 *nothing*: it does not type a tab character, does not bypass validation, and does
-not advance — measured live, recorded in
-`artifacts/desktop-keyboard-navigation/decisions.md`. Commit with `Return`
+not advance — measured live, and recorded with the decision that
+followed it. Commit with `Return`
 and then Tab. The commit-then-advance behavior engages with no code change the day
 the engine delivers the key.
 
@@ -212,8 +212,8 @@ One honest caveat about *when* the fact changes: it is fed by
 `UserInputService.KeyboardEnabled`, which describes the device class rather than a
 plug event, and Roblox publishes no keyboard-connected signal to observe. The
 framework's response to the fact changing is proven; whether a mid-session USB
-plug on a real client moves that fact at all is a physical row
-(`artifacts/desktop-keyboard-navigation/review-packet.md`).
+plug on a real client moves that fact at all is a physical-device row, and it is
+still open.
 
 ### The paradigm axis: not just *reachable*, but the right *shape*
 

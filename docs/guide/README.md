@@ -85,6 +85,20 @@ every approved exception, is [`the constitution`](../reference/constitution.md).
 | [`11-device-verification.md`](11-device-verification.md) | Reading numbers honestly: the five evidence classes, the two budgets, the five-view Studio device matrix, and the rows no emulator can close. |
 | [`12-performance-lab.md`](12-performance-lab.md) | The performance-lab place: its nine workloads, its nine profiler scopes, capturing on a low-end Android device, and when two captures are comparable. |
 | [`13-theme-catalog.md`](13-theme-catalog.md) | The shelf of ready-made looks: what each of the eight packages does to spacing, rows, and type, the two install routes, and an honest cost line. |
+| [`14-choosing-a-ui-library.md`](14-choosing-a-ui-library.md) | Optional, and the one chapter that is not about Facet alone: how Facet compares with the other Roblox user-interface libraries, what each one is good at, and how to decide. Read it if you have not chosen yet. |
+
+Two things worth knowing before you start, neither of which is a chapter:
+
+- **A runnable starting point.** [`examples/consumer/`](../../examples/consumer/)
+  is chapter 3's screen as a complete, standalone Rojo project — a project file, a
+  client script, and the screen itself as one module. Build it, press Play, then
+  edit it. `tests/consumer_standalone.spec.luau` mounts that same screen headlessly
+  and proves it, so the example cannot rot quietly.
+- **The install that needs no toolchain.** Facet is published as one Roblox
+  Package, which is the recommended route if you build in Studio without a file
+  sync. [Chapter 8](08-without-rojo.md) covers it: how to insert it, how to take a
+  new version with *Get Latest Package*, how to check which version you have, and
+  why automatic updating is worth leaving off in a production game.
 
 ## The capability catalog
 
@@ -280,34 +294,45 @@ The same honesty applies to input. Registered controls have strong headless and
 Studio evidence across pointer, touch, keyboard, gamepad, and hybrid changes.
 The standing physical-device confirmation gate is still open.
 
-Agents doing roadmap or extension work must follow the
-[`Facet execution contract`](../plans/agent-execution-contract.md). It defines
-which claims need headless, live Studio, physical-device, or human evidence, and
-it stops "the suite is green" from standing in for a running Roblox UI check.
+The rule behind both paragraphs is that a claim names the instrument that
+produced it. A headless number is not a device number, and "the suite is green"
+is not a substitute for watching a screen run in Roblox.
 
-**A small fix is not a stage, and does not owe a stage's evidence.** That
-contract is written for roadmap stages: its acceptance ledger, its evidence
-bundle, and its consumer-lockstep section all assume one, and reading it before
-a one-line repair leaves you with no row that says "this is the whole bar". So
-here is the whole bar for a small fix. **The covering spec first**, written to
-fail, and seen to fail for the reason you expect — `lune run tests/run_one` is
-that loop. **Then the full suite**, green, with a total no smaller than before.
+**A small fix does not owe a large change's evidence.** Here is the whole bar for
+one. **The covering spec first**, written to fail, and seen to fail for the reason
+you expect — `lune run tests/run_one` is that loop. **Then a full verification
+run**, green, with a case total no smaller than before: `tools/verify.sh full`.
 **Then `stylua --check src tests tools bench examples`.** **Then the checks that
 name your area**: `tools/doctor.sh`, plus the `tools/check_*` script that owns
 the file you touched, plus `python3 tools/check_source_size.py` for any source
 edit. That is four things, and it is enough.
+[`../../CONTRIBUTING.md`](../../CONTRIBUTING.md) says which verification tier to
+run when.
 
 What is owed BEYOND that is decided by what your change can be SEEN to do, never
 by how many lines it is. A change a player can look at or press owes the live
-Roblox gate in the relevant playbook's §6, however small it is. A change to
+Roblox check in the relevant playbook's §6, however small it is. A change to
 arithmetic that no pixel depends on owes none of it, however large.
 
 ## Verifying the library works
 
-The full test suite is pure Luau and runs headless:
+Verification runs in four named tiers through one command. **affected** is the
+smallest safe set for the files you changed, **fast** is the inner-loop tier,
+**full** runs every deterministic check exactly once, and **release** adds the
+build, package, and evidence producers a release needs:
 
 ```sh
-./run-tests.sh                        # THE SUITE — every spec file. The gate default.
+tools/verify.sh affected               # while you work
+tools/verify.sh fast                   # the inner loop
+tools/verify.sh full                   # before you propose a change
+tools/verify.sh release                # the maintainer's release run
+```
+
+Underneath them, the suite runs the way it always has, and one spec file is the
+loop to work in:
+
+```sh
+./run-tests.sh                        # THE SUITE — every spec file.
 ./run-tests.sh --fast                 # inner loop: the same list minus the eleven
                                       # measured-slowest files.
 lune run tests/run_one <spec-name>    # ONE spec file, for the edit-and-run loop.

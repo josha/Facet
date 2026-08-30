@@ -38,8 +38,8 @@ examples are real files you can read beside this page:
 > **What is proven, and what is not.** Everything in this chapter is covered by
 > the headless suite and by the `theme_authoring` Studio scenario, and every
 > visual claim was read back off a running session. The physical phone pass and
-> the director's readability review remain open rows
-> in `artifacts/rich-skinning-v2/review-packet.md`. Cost numbers are
+> the director's readability review remain open rows.
+> Cost numbers are
 > Studio-derated. Do not quote them as device truth.
 
 **The canonical documentation check for this chapter:**
@@ -167,8 +167,7 @@ one width.
 height, at every width, so it follows a stretched track instead of a fixed
 radius. It is legal on the same three full-bleed kinds and a compile error on the
 others. **`"pill"` is the only value** — the framework materializes a real
-`CanvasGroup` per masked layer and only that shape has been measured
-(`artifacts/rich-skinning-v2/feasibility/rs-m9-canvasgroup-mask.json`).
+`CanvasGroup` per masked layer and only that shape has been measured.
 
 **They compose, and they answer different questions.** The mask decides the
 silhouette; the inset decides how far the content is held off the rim. The
@@ -198,8 +197,8 @@ compile error). But a layer is not an instance:
 The panel above is 6 declarations and **11 instances per decorated node**. The
 census measures the real number, and it is the number to design against: Fantasy
 Ornate's live census reads 60 declared layers against **139 actual layer
-instances** across the gallery — roughly a 2.3× multiplier
-(`artifacts/rich-skinning-v2/rs-a17-cost.json`). `adapter.chromeCensus()` breaks
+instances** across the gallery — roughly a 2.3× multiplier.
+`adapter.chromeCensus()` breaks
 it down per kind so "the ornate skin costs this much" is a measurement rather
 than an impression, and a flat theme still creates exactly zero.
 
@@ -474,8 +473,7 @@ icons = {
   GEOMETRIC-SHAPES characters that **Michroma does not contain**. A live glyph
   probe in the running client, drawing them in that package's own resolved face,
   measured both at the tofu placeholder's fixed 30x48 advance while the ASCII
-  characters rendered as themselves
-  (`artifacts/rich-skinning-v2/rs-a7-semantic-icons.json`). The failure was a
+  characters rendered as themselves. The failure was a
   present-in-some-faces character, not a private-use codepoint — and a
   package may name any font, so ASCII is the rule and `themes.isSafeGlyph` is
   falsifiable.

@@ -128,17 +128,17 @@ end to end.
 > ### ⚠️ One checkbox first: Facet requires the Input Action System
 >
 > Before any of the code below, open the **Workspace** in Studio's Explorer and
+> tick **`PlayerScriptsUseInputActionSystem`** in the Properties panel (category
+> *Behavior*). Roblox describes it as controlling "whether the built-in player
+> scripts are updated to use the Input Action System"
+> ([`Workspace` API reference](https://create.roblox.com/docs/reference/engine/classes/Workspace)).
+>
 > **The shipped example places already carry it** — it is declared in every
 > `examples/*.project.json`, so a `rojo build` bakes it in and a rebuild cannot
 > silently undo it. That needs Rojo **7.7.0 or newer**: 7.7.0-rc.1's reflection
 > database does not know the property and fails the build with *"Unknown
 > property"*. `rokit.toml` pins it; run `rojo` through rokit rather than a
 > `/usr/local/bin` copy.
->
-> tick **`PlayerScriptsUseInputActionSystem`** in the Properties panel (category
-> *Behavior*). Roblox describes it as controlling "whether the built-in player
-> scripts are updated to use the Input Action System"
-> ([`Workspace` API reference](https://create.roblox.com/docs/reference/engine/classes/Workspace)).
 >
 > Facet's input layer is built entirely on the Input Action System and never
 > reaches into `ContextActionService`. Roblox's *own* scripts do, and with this
@@ -162,8 +162,9 @@ reference is `examples/gallery/client/init.client.luau`; here is its shape.
 
 > **Not using Rojo?** Rojo is not a dependency — it only turns the source folder
 > into an `Instance` tree. [Chapter 8](08-without-rojo.md) covers the same setup
-> with no external toolchain: drag in the prebuilt `build/Facet.rbxm` (or lift
-> the library out of an example place) and skip to
+> with no external toolchain: insert the official Roblox Package (the recommended
+> route, and the one that can take a new version with *Get Latest Package*), or
+> drag in the prebuilt `build/Facet.rbxm`, then skip to
 > [§3.4 The client script](#the-client-script), which is identical either way.
 
 Facet is placed under `ReplicatedStorage` and the client script under
@@ -276,6 +277,24 @@ hold it in a bare signal; you hold it in a **replication adapter** whose signal
 you read the same way. That is the subject of [chapter 6](06-client-server.md).
 The blueprint and its control-local `onActivate` behavior do not change — only where the signal's
 value originates.
+
+## 3.6 The same screen, as a project you can run
+
+Everything above is in [`examples/consumer/`](../../examples/consumer/) as a
+complete standalone project: a Rojo project file that maps the library and sets
+the workspace property from §3.4, a client script, and the screen itself as one
+module. Build it, press Play, then change it.
+
+```sh
+rojo build examples/consumer/default.project.json -o build/Facet-Consumer.rbxl
+```
+
+That same screen module is mounted headlessly by
+`tests/consumer_standalone.spec.luau`, which proves it mounts, wears a theme,
+answers a button press, repaints when a signal changes, re-solves when the
+viewport or the preferred text size changes, and leaves nothing behind when it is
+disposed. So the example cannot drift away from the library without a test going
+red.
 
 Next: [chapter 4](04-tutorial-examples.md) walks the eight example programs. If
 you build directly in Studio without a file sync, read

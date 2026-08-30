@@ -17,8 +17,9 @@ rules your addition must follow.
   wrong cwd are the #1 recorded time sink, `docs/lessons/absolute-paths-in-shell-commands.md`).
 - The scaffold and deterministic conformance toolchain run in Lune
   (`lune run …`). A player-visible control is not production-proven by Lune alone:
-  follow the required Studio and evidence loop in
-  [`../plans/agent-execution-contract.md`](../plans/agent-execution-contract.md).
+  follow §6 below, and read
+  [`../guide/11-device-verification.md`](../guide/11-device-verification.md) for
+  which instrument can close which kind of claim.
 - Test-first is not optional: the scaffold stamps a FAILING spec on purpose.
   Never mark done while `./run-tests.sh` is red.
 - **The fast loop is `lune run tests/run_one <spec-name>`** — one spec file,
@@ -125,8 +126,8 @@ expects):
    blueprint mounts and renders headlessly (mount → `renderer.attach` over
    `tests/lib/fake_target` → `initialRender`), `core:lastError()` stays nil.
 2. **Every input class**, end to end through the REAL paths — this is the
-   review bar (`ui_todo.md` §0: *a control that only works with a mouse is an
-   unfinished control*). A control must prove ALL FOUR of pointer, touch,
+   review bar: *a control that only works with a mouse is an unfinished control*
+   ([ADR-0013](../adr/ADR-0013-input-auto-wiring.md)). A control must prove ALL FOUR of pointer, touch,
    keyboard, and gamepad: pointer/touch via `adapter.tap(path)` /
    `adapter.pointerDown(..., "touch")` / pointer handlers, keyboard/gamepad via
    a presenter + `system.deviceKey("Return"/"ButtonA"/...)` — never by calling
@@ -156,8 +157,7 @@ expects):
    drops the number the player needs has moved a defect behind a tap.
    The painted half of this is mechanical (`text_audit`'s value sweep refuses a
    truncated VALUE at any size); the authoring half is yours.
-4. **The paradigm axis** (UI-PARADIGM-001/002; the affordance matrix,
-   `artifacts/input-paradigms/affordance-matrix.md`). Reachability (item 2) is
+4. **The paradigm axis** — the affordance matrix. Reachability (item 2) is
    not enough — a control can be reachable on every class and still feel wrong.
    Prove the STRUCTURAL IDIOM each live class expects, as a *distinct* set of
    cases from the reachability ones. The scaffold stamps four failing
@@ -270,7 +270,7 @@ Rules the reviewers will hold you to:
 - Focus: reachable ids via focusable primitives; if the control has inner
   navigation semantics, use `NavigationGroup`s (see
   `src/focus/focus_graph.luau`).
-- **Attach your input contribution** (ui_todo §0; ADR-0013). Wrap the returned
+- **Attach your input contribution** ([ADR-0013](../adr/ADR-0013-input-auto-wiring.md)). Wrap the returned
   root with `Facet.contribution.attach(blueprint, bundle)` — a PUBLIC export,
   so a control built outside this repository uses the same seam (the scaffold
   stamps `local contribution = Facet.contribution` and a commented bundle
@@ -412,8 +412,8 @@ PASS before your change is still PASS, and no check moved to
 FAIL_RECOVERABLE. Never flip a PENDING state yourself.
 
 Evidence to hand back: the green suite tail (`N passed`), the checker PASS
-line, the gate output showing no regressed check + `artifacts/phase-4/gate.json`,
-and the list of files you created/edited.
+line, the `tools/verify.sh full` result showing no check that used to pass now
+failing, and the list of files you created or edited.
 
 ## 6. Live Roblox gate
 
