@@ -4266,6 +4266,218 @@ local manifest: { [string]: { Check } } = {
 			note = "GATE-1, GATE-2, GATE-4. Both suites serve green cached transcripts for the final tree, the affected prior gates rerun green, the representative Studio scenarios preserve their baselines, and every remaining physical or human row is named with one exact closing procedure. Earns a run string only when the close-out artifact exists.",
 		},
 	},
+	["distribution-readiness"] = {
+		-- Roadmap Step 14 (docs/plans/distribution-readiness.md + the owner's Fusion
+		-- correction, artifacts/distribution-readiness/execution-plan.md §0). Registered at
+		-- stage open with every row an honest PENDING; a row earns a `run` string only
+		-- once its implementation AND its evidence exist. This block is itself the last
+		-- one written in this manifest: the stage retires the manifest in favour of the
+		-- verification graph, and these rows migrate with every other phase.
+		{
+			name = "registered-before-work",
+			requirements = { "UI-AGENT-001" },
+			state = "PENDING",
+			note = "DR-1. This block landed at stage open (27c0afd) with every row PENDING, in its own commit, before any implementation edit; the registration commit precedes the first workstream commit in history.",
+		},
+		{
+			name = "state-frozen-at-open",
+			requirements = { "UI-AGENT-001" },
+			state = "PENDING",
+			note = "DR-2. artifacts/distribution-readiness/freeze/ records remote URL/visibility/default branch/refs/releases/Actions/issues/wiki/Pages, HEAD, status, the owner's uncommitted plan edits as a patch, and the full tracked inventory with blob hashes.",
+		},
+		{
+			name = "history-audit-no-must-purge",
+			requirements = { "UI-AGENT-001" },
+			state = "PENDING",
+			note = "DR-3. The full-history and remote-surface audit exists with a four-way classification and reports MUST-PURGE ITEMS: 0, or a tested clean-history candidate plus owner migration/rollback packet exists and public release is recorded as blocked.",
+		},
+		{
+			name = "provenance-and-third-party-notices",
+			requirements = { "UI-AGENT-001" },
+			state = "PENDING",
+			note = "DR-4. Every non-Facet-authored item (Fusion's MIT text if any Fusion file survives, icon/theme provenance, SCOWL word data) is in a provenance ledger and THIRD_PARTY_NOTICES.md carries the exact required notices; incompatible material was replaced or the release is blocked with evidence.",
+		},
+		{
+			name = "mit-license-root-files",
+			requirements = { "UI-AGENT-001" },
+			state = "PENDING",
+			note = "DR-5. LICENSE (standard MIT text), THIRD_PARTY_NOTICES.md, CHANGELOG.md, CONTRIBUTING.md, SECURITY.md and AGENTS.md exist at the root; the copyright-holder line is the owner-approved one (PENDING until the checkpoint confirms it).",
+		},
+		{
+			name = "public-allowlist-and-private-archive",
+			requirements = { "UI-AGENT-001" },
+			state = "PENDING",
+			note = "DR-6. tools/check_public_allowlist.py passes on the tip, its selftest catches a planted stray file, and every removed path exists in the private archive outside Git with a manifest and SHA-256 checksums that verify.",
+		},
+		{
+			name = "no-fusion-anywhere",
+			requirements = { "UI-AGENT-001" },
+			state = "PENDING",
+			note = "DR-7. tools/check_no_fusion.py passes over src/, examples/, skills/, tests/, bench/, the built .rbxmx scripts and Rascal Rally, its selftest reddens on a planted require and a planted identifier, vendor/ and src/core/fusion_adapter.luau are gone from the tip, and the Package inspection lists no Fusion-only artifact.",
+		},
+		{
+			name = "swiftui-report-private-links-removed",
+			requirements = { "UI-AGENT-001" },
+			state = "PENDING",
+			note = "DR-8. The refreshed SwiftUI capability report exists only in the private archive (checksummed); docs/reference/swiftui-parity.md is deleted from the tip; no maintained file links to it; every living requirement it carried is named in a neutral public source and the gates verify those sources.",
+		},
+		{
+			name = "framework-choice-guide-fair",
+			requirements = { "UI-AGENT-001" },
+			state = "PENDING",
+			note = "DR-9. docs/guide/14-choosing-a-ui-library.md exists, is linked from README and the guide index, pins versions/dates and primary sources, labels FACT/MEASURED/INFERENCE, states Facet has its own fine-grained reactive core, explains React Bindings, makes no status or unmeasured speed claim, and passes the brand-drift allowlist as the only comparison file.",
+		},
+		{
+			name = "public-docs-refreshed-no-stale-links",
+			requirements = { "UI-AGENT-001" },
+			state = "PENDING",
+			note = "DR-10. README, guide index/catalog, API reference, install/upgrade/Package pages, examples, theme catalog, extension guides, contributor workflow and test tiers are refreshed; the link checker finds no link into archived or missing paths and no internal-plan dependency.",
+		},
+		{
+			name = "agents-md-and-skill-route",
+			requirements = { "UI-AGENT-001" },
+			state = "PENDING",
+			note = "DR-11. Root AGENTS.md and skills/use-facet/SKILL.md (frontmatter name + description only) route to public guides without duplicating them; AGENTS.md works alone; agent-link drift check passes.",
+		},
+		{
+			name = "standalone-consumer-proof",
+			requirements = { "UI-AGENT-001" },
+			state = "PENDING",
+			note = "DR-12. examples/consumer/ mounts, themes, takes input, adapts layout, honors preferred text and tears down through public API only, with no Rascal Rally or parent-workspace import (check_boundary), from a fresh clone.",
+		},
+		{
+			name = "package-metadata-and-manifest",
+			requirements = { "UI-AGENT-001" },
+			state = "PENDING",
+			note = "DR-13. tools/build_model.sh (extended, one Rojo mapping) emits build/Facet.rbxm with a Distribution child carrying Version/SourceCommit/SourceHash/BuildSchema plus LICENSE and THIRD_PARTY_NOTICES values, and build/Facet.manifest.json is a semantic instance/source manifest; every runtime child is present and no test/example/vendor/private/dev file entered.",
+		},
+		{
+			name = "package-interface-refusals",
+			requirements = { "UI-AGENT-001" },
+			state = "PENDING",
+			note = "DR-14. tools/package.sh build/status/verify run offline by default; create/publish are dry-run without --confirm and refuse stale source, wrong asset id, wrong owner, dirty tree, missing secret, version/hash mismatch, red gates, in-flight operation and newer cloud revision — each refusal proven by a test before any network call.",
+		},
+		{
+			name = "protected-manual-release",
+			requirements = { "UI-AGENT-001" },
+			state = "PENDING",
+			note = "DR-15. tools/release.sh checks out the exact commit, reruns the release tier, publishes only the configured asset id, polls, reads back and writes a receipt; it never publishes on ordinary commits or from forks; the workflow file mirrors the same guards.",
+		},
+		{
+			name = "structured-results-replace-greps",
+			requirements = { "UI-AGENT-001" },
+			state = "PENDING",
+			note = "DR-16. The suite emits per-case structured results with stable ids; no gate row greps a transcript; a missing result id fails loudly (check_manifest_integrity retired or repointed).",
+		},
+		{
+			name = "single-execution-per-identity",
+			requirements = { "UI-AGENT-001" },
+			state = "PENDING",
+			note = "DR-17. One release run executes each unique producer at most once per exact identity, measured from the invocation trace, including the Rascal Rally suite and each package/Studio canary.",
+		},
+		{
+			name = "invalidation-rejects-bad-evidence",
+			requirements = { "UI-AGENT-001" },
+			state = "PENDING",
+			note = "DR-18. Stale identity, truncated or partial, failed, manually edited, wrong-toolchain and wrong-environment results are refused for reuse; perf/Studio/device/network classes are never upgraded by a headless cache — each proven by a mutation.",
+		},
+		{
+			name = "tiers-and-explain",
+			requirements = { "UI-AGENT-001" },
+			state = "PENDING",
+			note = "DR-19. affected/fast/full/release exist; the run reports tier, producer selection reasons, reused results, invalidation reasons, slowest work and the smallest rerun command; affected/fast output cannot pass as full/release evidence.",
+		},
+		{
+			name = "coverage-map-no-silent-loss",
+			requirements = { "UI-AGENT-001" },
+			state = "PENDING",
+			note = "DR-20. Every deleted or merged check maps requirement, failure direction, fixture and negative control to one surviving producer in the coverage map; no requirement in requirements.json is left without a current producer.",
+		},
+		{
+			name = "mutation-parity-old-vs-new",
+			requirements = { "UI-AGENT-001" },
+			state = "PENDING",
+			note = "DR-21. A frozen corpus of at least twelve mutations reddens both the old manifest path and the new coordinator; recorded with commands and verdicts before the old path is archived.",
+		},
+		{
+			name = "timings-and-budget",
+			requirements = { "UI-AGENT-001" },
+			state = "PENDING",
+			note = "DR-22. Cold and warm release-tier timings are recorded with percentage reduction; headless work is within twenty minutes on the documented machine or every irreducible producer is owned with class, cost and trigger; Studio/device/external time is reported separately.",
+		},
+		{
+			name = "prior-gates-reevaluated-not-replayed",
+			requirements = { "UI-AGENT-001" },
+			state = "PENDING",
+			note = "DR-23. Every earlier phase's rows are evaluated from the same current run; prior_gates.sh replay is retired; a checked-in old PASS is never evidence.",
+		},
+		{
+			name = "rascalrally-synchronized",
+			requirements = { "UI-AGENT-001" },
+			state = "PENDING",
+			note = "DR-24. The consumer-impact ledger exists; the Rascal Rally suite ran once at the final identity and is green; the game-side contract tests cover any Facet contract change from this stage (or record no-caller-change).",
+		},
+		{
+			name = "public-tree-reproducible",
+			requirements = { "UI-AGENT-001" },
+			state = "PENDING",
+			note = "DR-25. The public candidate tree and its build outputs were produced twice and their manifests/checksums match except documented nondeterminism.",
+		},
+		{
+			name = "fresh-clone-works",
+			requirements = { "UI-AGENT-001" },
+			state = "PENDING",
+			note = "DR-26. A fresh local clone of the candidate runs the quick start, the standalone consumer, the full suite, the docs link check and the boundary check with no parent-workspace import.",
+		},
+		{
+			name = "example-places-rebuild-from-clone",
+			requirements = { "UI-AGENT-001" },
+			state = "PENDING",
+			note = "DR-27. Every declared tutorial and curated standalone place rebuilds from the clone; the manifest, theme/motion controls, dictionary provenance, world-terminal fixture and generated-output policy survived cleanup; no retired output ships.",
+		},
+		{
+			name = "package-from-clone-matches",
+			requirements = { "UI-AGENT-001" },
+			state = "PENDING",
+			note = "DR-28. The Package built from the clone matches the clone's source hash, the semantic manifest, the standalone consumer's tree, and (after the checkpoint) the private cloud copy.",
+		},
+		{
+			name = "fresh-agent-builds-screen",
+			requirements = { "UI-AGENT-001" },
+			state = "PENDING",
+			note = "DR-29. A fresh agent given only the candidate repository builds a small adaptive, themed, stateful screen with public APIs; structural/instruction failures fixed.",
+		},
+		{
+			name = "fresh-agent-extends-behavior",
+			requirements = { "UI-AGENT-001" },
+			state = "PENDING",
+			note = "DR-30. A fresh agent given only the candidate repository diagnoses or extends a bounded behavior through the documented workflow without private context.",
+		},
+		{
+			name = "fresh-reviewer-chooses-from-guide",
+			requirements = { "UI-AGENT-001" },
+			state = "PENDING",
+			note = "DR-31. A fresh reviewer picks a library for several stated projects from the guide alone; fails if it needs private context, mistakes React Bindings, says Facet ships on Fusion, uses social-status comparisons, or treats inference as benchmark evidence.",
+		},
+		{
+			name = "owner-packet-complete",
+			requirements = { "UI-AGENT-001" },
+			state = "PENDING",
+			note = "DR-32. The packet holds candidate commit/manifest/checksums/size, gate + license + provenance results, verification counts/timings/parity, audited remote state, the copyright line, repository settings to apply, the ordered rename/publish/rollback checklist, and the SwiftUI archive path/checksum + history decision.",
+		},
+		{
+			name = "private-package-id-and-update-proof",
+			requirements = { "UI-AGENT-001" },
+			state = "PENDING",
+			note = "DR-33. After the owner checkpoint: one private Package asset with a recorded stable id/creator; inserted by id into a clean place it shows PackageLink, matching version/tree/hash, runtime mount/theme/input/update/teardown; a same-id update reaches an unmodified opted-in copy and a modified copy is reported, not overwritten.",
+		},
+		{
+			name = "repository-renamed-and-verified",
+			requirements = { "UI-AGENT-001" },
+			state = "PENDING",
+			note = "DR-34. After the owner checkpoint: the existing repository is josha/Facet with the same repository id, redirect verified from the old URL, local origin and every current link updated, before/after state and rollback recorded; nothing pushed, visibility unchanged.",
+		},
+	},
 }
 
 return manifest
