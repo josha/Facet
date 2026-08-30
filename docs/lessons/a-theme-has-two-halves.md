@@ -1,7 +1,7 @@
 # A theme has two halves, and installing one is invisible
 
 **Found:** 2026-08-05, chasing the 4px residual left by
-[the ornate geometry fix](../../artifacts/performance-stress-places/optimization-log.md)
+the ornate geometry fix `artifacts/performance-stress-places/optimization-log.md` (archived privately)
 (L-25 → L-26).
 
 **Cost:** every lifted label in the perf lab 4px short under `fantasy_ornate`; one

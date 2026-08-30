@@ -355,7 +355,7 @@ sites across the framework, the game and the examples. The loudest was
 being placed at the origin — silently, with `diagnostics()` empty, through a green
 suite. Four more were an alignment an author asked for and never got. Every one is
 written up in
-[`docs/plans/unfulfilled-placement-intents.md`](../plans/unfulfilled-placement-intents.md).
+`docs/plans/unfulfilled-placement-intents.md` (archived privately).
 
 **The rule, same as §13's:** a fixture must FAIL on it, or the list is a log nobody
 reads. Three suites already assert an *empty* `diagnostics()` for their screens

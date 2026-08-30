@@ -1,6 +1,6 @@
 # ADR-0014 — First responder: a Facet surface engages over avatar input via focus, never by disabling player control
 
-Date: 2026-07-21 · Status: **ACCEPTED** · Spec: ui_todo.md §0/§3, design §9.1/§12.1 · Research: [`docs/research/2026-07-21-first-responder-platform-research.md`](../research/2026-07-21-first-responder-platform-research.md)
+Date: 2026-07-21 · Status: **ACCEPTED** · Spec: ui_todo.md §0/§3, design §9.1/§12.1 · Research: `docs/research/2026-07-21-first-responder-platform-research.md` (archived privately)
 
 ## Context
 
@@ -240,7 +240,7 @@ delivery. Full reports: `artifacts/input-adaptation-audit/platform-verification.
 ### Drive-F1 RESOLUTION (2026-07-21, director-commissioned; the two-zone model)
 
 The director commissioned a best-practice survey and presenter spec
-([`docs/research/2026-07-21-modal-dismissal-spec.md`](../research/2026-07-21-modal-dismissal-spec.md),
+(`docs/research/2026-07-21-modal-dismissal-spec.md` (archived privately),
 UI-Designer authored) which **validated** the director's two-region model and closed
 Drive-F1. Built test-first (`tests/modal_dismissal.spec.luau`).
 

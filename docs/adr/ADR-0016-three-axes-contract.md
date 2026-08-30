@@ -1,6 +1,6 @@
 # ADR-0016 — The three-axes contract: paradigm adaptation is a per-control conformance obligation, not a Table-only pattern
 
-Date: 2026-07-21 · Status: **Accepted** · Spec: input-paradigms expansion (prompt.md "Expansion: input paradigms"), design §8/§9 · Design authority: [`artifacts/input-paradigms/affordance-matrix.md`](../../artifacts/input-paradigms/affordance-matrix.md) (incl. its build-round Amendments) · Builds on: [`ADR-0013`](ADR-0013-input-auto-wiring.md) (contribution seam), [`ADR-0014`](ADR-0014-first-responder.md) (first responder), [`ADR-0015`](ADR-0015-interaction-classes.md) (interaction classes)
+Date: 2026-07-21 · Status: **Accepted** · Spec: input-paradigms expansion (prompt.md "Expansion: input paradigms"), design §8/§9 · Design authority: `artifacts/input-paradigms/affordance-matrix.md` (archived privately) (incl. its build-round Amendments) · Builds on: [`ADR-0013`](ADR-0013-input-auto-wiring.md) (contribution seam), [`ADR-0014`](ADR-0014-first-responder.md) (first responder), [`ADR-0015`](ADR-0015-interaction-classes.md) (interaction classes)
 
 ## Context
 
