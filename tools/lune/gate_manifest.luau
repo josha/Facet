@@ -4087,7 +4087,8 @@ local manifest: { [string]: { Check } } = {
 		{
 			name = "verification-baseline-measured",
 			requirements = { "UI-AGENT-001" },
-			state = "PENDING",
+			run = 'd=artifacts/example-games-and-standalones/test-optimization && test -f $d/baseline.md && test -f $d/producers.md && test -f $d/perspec-head.tsv && test -f $d/perspec-rascalrally.tsv && grep -qF "1587.03" $d/baseline.md && grep -qF "260.28" $d/baseline.md && grep -qF "14.25 GB" $d/baseline.md && grep -qF "152.73" $d/baseline.md && grep -qF "42.82" $d/baseline.md && test "$(awk -F"\t" \'NR>1 && $2 ~ /^[0-9.]+$/\' $d/perspec-head.tsv | wc -l | tr -d " ")" -ge 290 && test "$(awk -F"\t" \'NR>1 && $2 ~ /^[0-9.]+$/\' $d/perspec-rascalrally.tsv | wc -l | tr -d " ")" -ge 210',
+			evidence = "artifacts/example-games-and-standalones/test-optimization/baseline.md",
 			note = "TEST-1. Cold and warm wall/CPU time, process and producer counts, cache hits/misses with their invalidation reasons, test-case counts, artifact writes, and the slowest work — for the Facet fast and full suites, Rascal Rally's affected and full suites, every unique deterministic producer this stage invokes, one attempt at this stage's own gate, and its prior-requirement verification path. Measured against the CURRENT post-cache harness, not the 2026-08-16 planning baseline, because tools/test.sh's transcript cache landed after that baseline was written and every percentage taken against the older numbers would flatter the result.",
 		},
 		{
@@ -4117,7 +4118,8 @@ local manifest: { [string]: { Check } } = {
 		{
 			name = "affected-and-fast-loops-trustworthy",
 			requirements = { "UI-AGENT-001" },
-			state = "PENDING",
+			run = 'd=artifacts/example-games-and-standalones/test-optimization && grep -qF "46.91" $d/baseline.md && grep -qF "Rascal Rally needs no fast tier" $d/baseline.md && grep -q "FACET-FAST-TIER" run-tests.sh && grep -q "FACET-FAST-TIER" tools/test.sh && grep -q "A BASH MATCH, NOT A PIPELINE" tools/test.sh && test -f ../../../games/RascalRally/code/tests/run_one.luau && grep -qF "tier, so there is no partial-run" ../../../games/RascalRally/code/tools/suite_transcript.sh',
+			evidence = "artifacts/example-games-and-standalones/test-optimization/baseline.md",
 			note = "TEST-6. Both repositories give an agent an affected loop and a fast loop, and neither transcript can be mistaken for a suite or release verdict. Facet already refuses a fast-tier transcript by a bash match rather than a pipeline, because `printf | grep -q` returns 141 under pipefail when it MATCHES and passed a fast-tier transcript straight through once already; anything added on the Rascal Rally side is held to that same shape.",
 		},
 		{
@@ -4129,13 +4131,15 @@ local manifest: { [string]: { Check } } = {
 		{
 			name = "word-game-dictionary",
 			requirements = { "UI-AGENT-001" },
-			state = "PENDING",
+			run = 'python3 tools/build_word_lists.py --selftest && python3 tools/build_word_lists.py --check && grep -qF "Kevin Atkinson" examples/gallery/examples/words/PROVENANCE.md && grep -qF "Permission to use, copy, modify, distribute" examples/gallery/examples/words/PROVENANCE.md && grep -qE "[0-9a-f]{64}" examples/gallery/examples/words/manifest.luau && ! grep -rqF "tutorial word list" examples/ docs/guide/ docs/reference/ && out="$(tools/suite_transcript.sh)" && echo "$out" | grep -q "✓.*names a specific licensed archive, not just" && echo "$out" | grep -q "✓.*carries the licence notices the source requires" && echo "$out" | grep -q "✓.*every generated file still hashes to what the manifest recorded" && echo "$out" | grep -q "✓.*every bank is strictly ascending and exactly divisible by its width" && echo "$out" | grep -q "✓.*the solution bank is ascending too, and every answer is an accepted guess" && echo "$out" | grep -q "✓.*a hit and a miss both cost a bisection, not a scan"',
+			evidence = "examples/gallery/examples/words/PROVENANCE.md",
 			note = "WORD-1..WORD-4. A real local English dictionary with its source URL, version or content hash, license, transformations and generating command recorded; a broad accepted-guess set of thousands of normalized five-letter words beside a smaller reviewed solution set; normalization done once at build time with measured size and lookup cost; and a drift test that fails when the generated data stops matching its recorded provenance. No proprietary game's word list, and no network request at runtime.",
 		},
 		{
 			name = "word-game-board-visible",
 			requirements = { "UI-AGENT-001" },
-			state = "PENDING",
+			run = 'out="$(tools/suite_transcript.sh)" && echo "$out" | grep -q "✓.*accepts the words the old hand-written list rejected" && echo "$out" | grep -q "✓.*accepts an ordinary word starting with every letter of the alphabet" && echo "$out" | grep -q "✓.*refuses obvious nonwords, wrong lengths, and anything that is not plain letters" && echo "$out" | grep -q "✓.*every one of the thirty cells is present AND painted at startup, under every theme" && echo "$out" | grep -q "✓.*and the floor BITES: the plate this example used to paint cannot clear it anywhere" && echo "$out" | grep -q "✓.*the caret.s PAINT is the empty cell.s paint — so colour cannot be the cue" && grep -qE "empty = [{] role = .contentSecondary." examples/gallery/examples/05_word_game.luau && ! grep -qF "EXTRA_WORDS" examples/gallery/examples/05_word_game.luau && ! grep -qF "local SOLUTIONS" examples/gallery/examples/05_word_game.luau && grep -qF "words.isWord" examples/gallery/examples/05_word_game.luau',
+			evidence = "examples/gallery/examples/05_word_game.luau",
 			note = "WORD-5..WORD-9. All thirty cells visibly present at startup under every shipped theme, with persistent chrome or a placeholder in each empty cell and a cue for the active row and next letter position that is not colour alone; letters readable at every preferred text size; two-pass duplicate scoring, keyboard evidence, win/loss, deterministic restart and every input path preserved; the phrase 'tutorial word list' gone; and common guesses the old hand-picked list rejected now playing. A default-valued write claims nothing, so 'present in the tree' is not evidence of a visible cell — this row wants paint.",
 		},
 		{
@@ -4165,13 +4169,15 @@ local manifest: { [string]: { Check } } = {
 		{
 			name = "surface-target-spike",
 			requirements = { "UI-AGENT-001", "UI-WORLD-001" },
-			state = "PENDING",
+			run = 'f=artifacts/example-games-and-standalones/spike/world-surface.md && test -f "$f" && grep -qF "0.736.0.7361346" "$f" && grep -qF "Instrument proved before any null result was trusted" "$f" && grep -qF "Both are input-active" "$f" && grep -qF "through a wall" "$f" && grep -qF "NOT ANSWERED" "$f"',
+			evidence = "artifacts/example-games-and-standalones/spike/world-surface.md",
 			note = "WORLD-1. The Studio spike answers target_contract.FUTURE.surface's open questions BEFORE an adapter is published. The interactivity precondition is the one that decides whether the spike measured anything: a SurfaceGui's GuiObjects are input-active only when the SurfaceGui lives under PlayerGui with its Adornee set to the part — parented INTO the part it is display-only, and a spike that parents it the wrong way measures a surface that can never be clicked.",
 		},
 		{
 			name = "surface-target-public-adapter",
 			requirements = { "UI-AGENT-001", "UI-WORLD-001" },
-			state = "PENDING",
+			run = 'test -f src/client/surface_target.luau && test -f docs/adr/ADR-0063-surface-render-target.md && grep -qF "surface_target = true" tools/lune/check_boundary.luau && grep -qF "thirteen" docs/reference/constitution.md && grep -qF "client.surface_target" docs/reference/api.md && grep -qF "SHIPPED 2026-08-29" src/render/target_contract.luau && ! grep -qF "not implemented; no adapter" src/render/target_contract.luau && lune run tools/lune/check_boundary >/dev/null && lune run tools/lune/check_registration_cli >/dev/null && lune run tools/lune/check_docs_cli >/dev/null && out="$(tools/suite_transcript.sh)" && echo "$out" | grep -q "✓.*canvasRect is the canvas, at the origin, and is pure" && echo "$out" | grep -q "✓.*face is required, and the refusal explains the trap rather than just refusing" && echo "$out" | grep -q "✓.*the queryable precondition is refused BEFORE any Instance exists" && echo "$out" | grep -q "✓.*every capability it deletes is one the contract actually declares" && echo "$out" | grep -q "✓.*every still-open question has a capability the adapter withholds" && echo "$out" | grep -q "✓.*AlwaysOnTop is pinned false and is not an option"',
+			evidence = "src/client/surface_target.luau",
 			note = "WORLD-2..WORLD-5. One public client-side surface_target built on the existing target and root-factory seam, with no second renderer and no SurfaceGui branch inside a control; the 'not implemented' declaration replaced together with the ADR, api.md, constitution, guide, extension playbook, registration, boundary, property-parity, conformance and performance truth that currently assert its absence; a fixed virtual-pixel canvas with explicit face, resolution, maximum distance and AlwaysOnTop = false unless evidence requires otherwise; the SurfaceGui client-owned under PlayerGui with its Adornee on the replicated console part, that part required to stay queryable, presentationSpace = \"world\", and the solver fed the exact canvas rectangle. Every optional capability is implemented correctly or removed with its named degradation — deleting the method is the sanctioned move, and a screen-space capability that appears to work while its coordinate space is wrong is the failure this row exists to refuse.",
 		},
 		{
