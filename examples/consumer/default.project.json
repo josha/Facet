@@ -1,0 +1,54 @@
+{
+  "name": "Facet-Consumer",
+  "globIgnorePaths": [
+    "**/*.spec.luau"
+  ],
+  "tree": {
+    "$className": "DataModel",
+    "Workspace": {
+      "$properties": {
+        "FilteringEnabled": true,
+        "PlayerScriptsUseInputActionSystem": "Enabled"
+      },
+      "Baseplate": {
+        "$className": "Part",
+        "$properties": {
+          "Anchored": true,
+          "Locked": true,
+          "Size": [
+            512,
+            20,
+            512
+          ],
+          "Position": [
+            0,
+            -10,
+            0
+          ],
+          "TopSurface": "Smooth",
+          "BottomSurface": "Smooth"
+        }
+      }
+    },
+    "Players": {
+      "$properties": {
+        "CharacterAutoLoads": false
+      }
+    },
+    "ReplicatedStorage": {
+      "Facet": {
+        "$path": "../../src"
+      },
+      "FacetConsumerScreen": {
+        "$path": "src/screen.luau"
+      }
+    },
+    "StarterPlayer": {
+      "StarterPlayerScripts": {
+        "FacetConsumer": {
+          "$path": "src/main.client.luau"
+        }
+      }
+    }
+  }
+}

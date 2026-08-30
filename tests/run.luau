@@ -894,6 +894,14 @@ require("./containment_diagnostic.spec")
 	does — those read process-wide waiver counts — and below the diagnostic because
 	it is the applied floor rather than the rule. ]]
 require("./themed_containment.spec")
+--[[ THE STANDALONE CONSUMER (distribution-readiness D2/D4): `examples/consumer/`
+	is the smallest complete Facet project, and this mounts ITS OWN screen module
+	— the same file the client script requires through the instance tree — against
+	the fake target. Mount, theme, a press through the public input path, a signal
+	repaint, a viewport and preferred-text re-solve, and registries back to
+	baseline after teardown. It sits ABOVE the overflow guard for the reason the
+	next block gives: that one has to be last. ]]
+require("./consumer_standalone.spec")
 --[[ THE CONTAINMENT INVARIANT'S OWN PROOFS, and it is REQUIRED LAST ON PURPOSE.
 	`tests/lib/overflow_guard.luau` runs after every settle in every fixture world
 	above, and its waiver registry may not rot — "every waiver still fires" is a
