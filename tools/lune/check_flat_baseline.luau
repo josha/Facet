@@ -566,6 +566,48 @@ local ALLOWED_PROP_DRIFT: { { path: string, viewport: string?, why: string } } =
 	},
 }
 
+--[[ THE THIRTY BOARD PLATES OF 05_word_game (2026-08-29, the word-data round).
+
+	One decision, thirty nodes, so it is written once and applied to the paths it
+	covers rather than copied thirty times — the enumeration is still exact
+	(`tile1_1`..`tile6_5`, nothing else), and the count still reaches the PASS
+	line.
+
+	WHAT CHANGED ON EACH PLATE, and why each half is deliberate:
+
+	  * `tint` `{ role = "surfaceStrong", blend = 0.6 }` -> `{ role =
+	    "contentSecondary", blend = 0.2 }`. `surfaceStrong` is the PANEL colour
+	    and every shipped theme deliberately keeps it within a few percent of the
+	    page, so the old empty plate measured 1.036:1 against the screen behind it
+	    under Sci-Fi HUD and never better than 1.223:1 in any of the fifteen
+	    themes in `examples/themes` — thirty rectangles present in the tree and
+	    absent from the screen, the failure class
+	    `docs/lessons/a-default-valued-write-never-claims.md` records.
+	    `contentSecondary` is contrast-gated against `surface` by the palette
+	    contract. Measured per theme and pinned with a floor in
+	    `tests/example_word_game.spec.luau`.
+
+	  * `surface` ADDED, `chip` on the active row and `plain` everywhere else.
+	    "Which row is taking my letters" used to be blend 1 against blend 0.6 of
+	    one role — a colour-only cue. `chip` is the theme's own outlined plate, so
+	    the cue is now a BORDER the idle rows do not have, drawn by the theme's
+	    chrome rules rather than by this example.
+
+	`plain` is the explicit spelling of the surface these plates always had (none),
+	so the idle twenty-five gain a token and no paint; `chip` on row 1 is the real
+	visual change. Class, rect and hit are byte-identical on all thirty at every
+	viewport — the tile's own box is unchanged at the default text preference. ]]
+for row = 1, 6 do
+	for column = 1, 5 do
+		table.insert(ALLOWED_PROP_DRIFT, {
+			path = `/Wordle/page/col/board/tile{row}_{column}/fill`,
+			why = "the word game's board plate: `tint` moved off the panel role it was invisible on, and "
+				.. "`surface` was added so the active row's cue is an outline rather than a shade. See the "
+				.. "block comment above this loop for the measurement and both reasons.",
+		})
+	end
+end
+
 -- Nodes the current tree has and the 3.5 baseline does not. Additions are as
 -- much of a compatibility statement as changes, so they are enumerated too.
 local ALLOWED_NEW_NODES: { { path: string, why: string } } = {

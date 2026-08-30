@@ -44,13 +44,37 @@ local function press(system: any, key: string)
 	system.deviceKey(key, false)
 end
 
+--[[ THE WORD GAME'S WORKED PUZZLE.
+
+	05's answers come from the shared generated word data (2,096 of them), and
+	its seed is MIXED rather than indexed, so seed 1 is not REACT and no seed is
+	REACT by construction. The cases below are written against REACT because its
+	scoring against RULES is the tutorial's own worked example, so they ASK which
+	seed plays it and restart onto that seed — the same public door the "New game"
+	button uses. Searching, rather than pinning a number, is what keeps this
+	honest the day the data is regenerated. ]]
+local WORD_SEED = (function(): number
+	for seed = 1, 100000 do
+		if (wordGame :: any).rules.solutionForSeed(seed) == "REACT" then
+			return seed
+		end
+	end
+	error("examples_games.spec: no seed in 1..100000 plays REACT — the answer set no longer holds it", 0)
+end)()
+
+local function buildWordGame(core: any, deps: any): any
+	local game = wordGame.build(Facet, core, deps)
+	game.restart(WORD_SEED)
+	return game
+end
+
 -- =====================================================================
 -- 05 — Wordle-style word game
 -- =====================================================================
 describe("examples/05 word game (Wordle-style)", function()
 	it("mounts and renders headlessly with no runtime error", function()
 		local core, deps, adapter = makeWorld()
-		local game = wordGame.build(Facet, core, deps)
+		local game = buildWordGame(core, deps)
 		expect(core:lastError()).toBeNil()
 		-- the screen and a first-row tile both reached the adapter
 		expect(adapter.node("/Wordle") == nil).toBeFalsy()
@@ -60,7 +84,7 @@ describe("examples/05 word game (Wordle-style)", function()
 
 	it("hardware keys fill the row and a wrong guess colors the tiles", function()
 		local core, deps = makeWorld()
-		local game = wordGame.build(Facet, core, deps)
+		local game = buildWordGame(core, deps)
 		-- solution is REACT; guess RULES: R is correct, E is present (wrong
 		-- spot), U/L/S absent
 		for _, ch in { "R", "U", "L", "E", "S" } do
@@ -78,7 +102,7 @@ describe("examples/05 word game (Wordle-style)", function()
 
 	it("backspace deletes, and the winning word opens the results modal", function()
 		local core, deps = makeWorld()
-		local game = wordGame.build(Facet, core, deps)
+		local game = buildWordGame(core, deps)
 		game.press("R")
 		game.press("X")
 		game.press("Backspace") -- undo the X
@@ -97,7 +121,7 @@ describe("examples/05 word game (Wordle-style)", function()
 
 	it("the on-screen keyboard is three navigation-group rows a gamepad can cross", function()
 		local core, deps = makeWorld()
-		local game = wordGame.build(Facet, core, deps)
+		local game = buildWordGame(core, deps)
 		local focus = deps.presenter.focus
 		-- focus enters the first key of the top row
 		expect(focus.focused:get()).toBe(game.keyPath("Q"))
@@ -112,7 +136,7 @@ describe("examples/05 word game (Wordle-style)", function()
 	it("tears down to a registry baseline after dispose", function()
 		local core, deps = makeWorld()
 		local baseline = core:counters()
-		local game = wordGame.build(Facet, core, deps)
+		local game = buildWordGame(core, deps)
 		for _, ch in { "R", "E", "A", "C", "T", "Return" } do
 			game.press(ch)
 		end
@@ -132,7 +156,7 @@ describe("examples/05 word game (Wordle-style)", function()
 	-- device DPad + ButtonA.
 	it("✓ ex05 pointer: tapping on-screen keys fills the row and Enter submits", function()
 		local core, deps, adapter = makeWorld()
-		local game = wordGame.build(Facet, core, deps)
+		local game = buildWordGame(core, deps)
 		for _, ch in { "R", "E", "A", "C", "T" } do
 			adapter.tap(game.keyPath(ch)) -- mouse click on the on-screen key
 		end
@@ -145,7 +169,7 @@ describe("examples/05 word game (Wordle-style)", function()
 
 	it("✓ ex05 touch: a touch tap on an on-screen key types its letter", function()
 		local core, deps, adapter = makeWorld()
-		local game = wordGame.build(Facet, core, deps)
+		local game = buildWordGame(core, deps)
 		adapter.tap(game.keyPath("R"), { pointer = "touch" })
 		expect(game.row(1)).toBe("R")
 		expect(core:lastError()).toBeNil()
@@ -154,7 +178,7 @@ describe("examples/05 word game (Wordle-style)", function()
 
 	it("✓ ex05 keyboard: arrow keys navigate the on-screen keyboard grid (device path)", function()
 		local core, deps = makeWorld()
-		local game = wordGame.build(Facet, core, deps)
+		local game = buildWordGame(core, deps)
 		local sys = deps.actionSystem
 		local focus = deps.presenter.focus
 		expect(focus.focused:get()).toBe(game.keyPath("Q"))
@@ -167,7 +191,7 @@ describe("examples/05 word game (Wordle-style)", function()
 
 	it("✓ ex05 gamepad: DPad navigates the keyboard and ButtonA types the focused key", function()
 		local core, deps = makeWorld()
-		local game = wordGame.build(Facet, core, deps)
+		local game = buildWordGame(core, deps)
 		local sys = deps.actionSystem
 		local focus = deps.presenter.focus
 		expect(focus.focused:get()).toBe(game.keyPath("Q"))

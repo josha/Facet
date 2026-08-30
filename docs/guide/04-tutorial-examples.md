@@ -678,12 +678,29 @@ cell the next letter lands in, a legend, a three-row on-screen keyboard, and a
 "New game" button.
 
 The loop: type five letters, press Enter, read the row. A guess shorter than five
-letters, or one that is not in the example's word list, is **refused with a
-message and does not consume a row**. Six accepted wrong guesses lose and reveal
-the word; solving wins. Either ending opens a results card and disables the
-keyboard — only "New game" and the card's own buttons still respond. "New game"
-is deterministic: the solution comes from a seed, so the same seed always gives
-the same word.
+letters, or one the game does not recognise, is **refused with a message and does
+not consume a row**. Six accepted wrong guesses lose and reveal the word; solving
+wins. Either ending opens a results card and disables the keyboard — only "New
+game" and the card's own buttons still respond. "New game" is deterministic: the
+solution comes from a seed, so the same seed always gives the same word.
+
+### The vocabulary is generated data, not a fixture in the source
+
+The example requires `./words`, the shared English word data both word games run
+on: **6,421 accepted five-letter guesses** and a smaller, more conservative
+**2,096 answers**, generated from a pinned, hash-verified SCOWL release. Nothing
+is typed by hand and nothing is fetched at runtime; the archive, its digest, the
+exact filters and the licence notices are all in
+`examples/gallery/examples/words/PROVENANCE.md`.
+
+Keeping the two sets apart is the mechanic: a player may guess anything the game
+accepts, but the answer is only ever drawn from the familiar half, so the game is
+never lost to a word nobody has heard of. Everything the module returns is
+lowercase and the game plays in uppercase, so the case flip happens once, at the
+boundary, in `rules.solutionForSeed`.
+
+It is *example content*, not framework code — a user-interface library has no
+opinion about English, so nothing in `src/` knows it exists.
 
 ### The rules are a pure table, and they are not framework code
 
@@ -729,17 +746,34 @@ Each tile is a `UI.ZStack` sized from a **theme metric** (`targetSizes.minimum`)
 never a device pixel, holding a plate, a letter and a mark. Every visible property
 is a memo over the state signals, so the view is a pure function of the state.
 
+The metric is a `minMax` **floor**, not a `fixed` cap, and that word is load-bearing:
+the letter inside a tile grows with the player's text-size preference, so a fixed
+box is the defect `docs/lessons/facet-fixed-px-heights.md` names — under a theme
+with a taller type ramp the glyph measured 49 px in a 44 px box at the largest
+preference. A floor lets the whole board grow, and `itemSizing = "uniform"` keeps
+every cell the same size while it does.
+
 ### State is a theme role, never a colour and never an invented token
 
 This is the part of the example most worth copying. A tile is a `UI.Box`, and a
 Box's one paint channel is `tint`, so tile state is a **blend along a theme
-role** — and the blend *is* the strength of the evidence:
+role** — and the blend *is* how much has been decided about the cell:
 
 ```lua
-absent  = { role = "contentSecondary", blend = 0.3  }   -- receded
+empty   = { role = "contentSecondary", blend = 0.2  }   -- nothing yet
+absent  = { role = "contentSecondary", blend = 0.55 }   -- judged: nowhere
 present = { role = "accent",           blend = 0.55 }   -- partial
 correct = { role = "accent",           blend = 1    }   -- full
 ```
+
+**Pick the role for the contrast you need, not for the word that sounds right.**
+The empty plate above used to be `surfaceStrong`, which reads like "the quiet
+panel colour" and is exactly that — every theme deliberately keeps a panel within
+a few percent of the page it sits on, so all thirty empty cells measured as low
+as 1.036:1 against the screen behind them and simply were not there. Present in
+the tree, correct in a property probe, invisible.
+`contentSecondary` is contrast-gated against `surface` by the palette contract,
+so a small blend along it is a plate you can actually see in every theme.
 
 An on-screen key is a `UI.Button`, which paints from its `surface` role and its
 own interaction states, so a key's state rides `surface` (`base` for an
@@ -749,6 +783,13 @@ rather than a tint that would fight the control's own affordance.
 Both also carry a plain-ASCII **mark** — `v` correct, `~` present, `x` absent,
 `_` "type here" — because colour alone is not a cue, and ASCII is the only range
 every Roblox font is guaranteed to draw. The board is readable in greyscale.
+
+The same rule catches the **active row**. "Where am I typing" was a blend of 1
+against a blend of 0.6 of one role, which is a difference in colour and nothing
+else. It is now the `surface` channel: the active row's plates take the theme's
+outlined `chip`, the rest take `plain`, so the cue is a *border* that survives a
+greyscale screen and any palette. Two channels, two questions — `tint` says what
+is known about a cell, `surface` says whether its row is taking letters.
 
 Reaching for a made-up token here is the classic version of this mistake. An
 earlier build of this example bound `surface` to `"tileCorrect"`, which is not a

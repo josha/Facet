@@ -13,8 +13,8 @@
 --   moving focus to one with the arrows/D-pad and activating it. Letters only
 --   ever land in the ACTIVE row. Enter scores the guess; the scored row keeps
 --   its colours while the next row becomes active. A guess shorter than five
---   letters, or one that is not in this tutorial's word list, is REFUSED with a
---   message on the status line and does NOT consume a row. Solve the word to
+--   letters, or one the game does not recognise, is REFUSED with a message on
+--   the status line and does NOT consume a row. Solve the word to
 --   win; six accepted wrong guesses lose and reveal the word. Either ending
 --   opens a results card and disables the keyboard — only "New game" and the
 --   card's own buttons still respond. "New game" is deterministic: the solution
@@ -22,20 +22,23 @@
 --
 -- WHAT THIS EXAMPLE TEACHES
 --   * DOMAIN RULES BELONG TO THE EXAMPLE. `example.rules` below is a pure
---     table — scoring, the key ladder, the two word lists, the seed — with no
---     UI in it at all, so tests/example_word_game.spec.luau exercises the whole
---     game without mounting anything.
+--     table — scoring, the key ladder, the seed, and the two questions it asks
+--     the shared word data — with no UI in it at all, so
+--     tests/example_word_game.spec.luau exercises the whole game without
+--     mounting anything.
 --   * A KEYED GRID. `UI.Grid({ columns = 5 })` lays the board out; the example
 --     never positions a tile. Every tile's letter, colour and mark is a memo
 --     over the state signals, so the view is a pure function of the state.
 --   * STATE AS THEME ROLES, NEVER RAW COLOUR — and never an invented token.
 --     A tile is a `UI.Box`, whose one paint channel is `tint`, so tile state is
---     a BLEND ALONG A THEME ROLE and the blend IS the strength of the evidence:
---     absent (a faint contentSecondary wash) -> present (a mid accent wash) ->
---     correct (full accent). A key is a `UI.Button`, which paints from its
---     `surface` role and its own interaction states, so a key's state rides
---     `surface`. Both also carry an ASCII MARK, because colour alone is not a
---     cue: `v` correct, `~` present, `x` absent, `_` "type here".
+--     a BLEND ALONG A THEME ROLE and the blend IS how much has been decided
+--     about the cell: empty (a faint contentSecondary wash) -> filled -> absent
+--     -> present (a mid accent wash) -> correct (full accent). A key is a
+--     `UI.Button`, which paints from its `surface` role and its own interaction
+--     states, so a key's state rides `surface`. Both also carry an ASCII MARK,
+--     because colour alone is not a cue: `v` correct, `~` present, `x` absent,
+--     `_` "type here" — and the ACTIVE ROW wears the theme's outlined `chip`
+--     plate, so "where am I typing" is a border, not a shade.
 --   * MULTI-INPUT. One command, three arrival paths: a hardware key through the
 --     arbitrated action system, a tap on an on-screen key, or focus + Activate
 --     from a keyboard/gamepad. The three `UI.HStack` keyboard rows ARE the
@@ -50,6 +53,13 @@
 --
 -- deps used: presenter (opens the game and the results card), actionSystem (the
 -- hardware-key context). See 01's header for the shared module shape.
+--
+-- data used: `./words`, the shared generated English word data both word games
+-- run on. It is EXAMPLE CONTENT, not framework code — `src/` does not know it
+-- exists — and its two sets, the licence it ships under and the command that
+-- regenerates it are all written down in `words/PROVENANCE.md`.
+
+local words = require("./words")
 
 local example = {}
 example.title = "Word Game (Wordle-style)"
@@ -62,61 +72,43 @@ example.title = "Word Game (Wordle-style)"
 local ROWS = 6
 local COLS = 5
 
--- THE COMMON-SOLUTION LIST: the words the game may pick as the answer. Short
--- and ordinary on purpose — a solution list is the *easy* half of the
--- vocabulary.
-local SOLUTIONS = { "REACT", "CRANE", "STACK", "LIGHT", "PLANT", "SHINE" }
-
--- THE ACCEPTED-GUESS DICTIONARY is a SEPARATE, WIDER list. Keeping the two
--- apart is the whole point of the mechanic: a player may guess any word the
--- game accepts, but the answer is only ever drawn from the common list, so the
--- game is never won by luck on an obscure word. (A shipping game would load
--- thousands of words; a tutorial needs exactly enough to be honest.)
-local EXTRA_WORDS = {
-	"ABBEY",
-	"ARRAY",
-	"AWARE",
-	"CHAIR",
-	"CLICK",
-	"EERIE",
-	"ERROR",
-	"FOCUS",
-	"GLYPH",
-	"GRASP",
-	"HOBBY",
-	"INPUT",
-	"LEVEL",
-	"LLAMA",
-	"MOUSE",
-	"PAINT",
-	"PIXEL",
-	"ROBOT",
-	"RULES",
-	"SCOPE",
-	"SNAKE",
-	"SOLVE",
-	"SPEED",
-	"STONE",
-	"THEME",
-	"TILES",
-	"TOUCH",
-	"TRAIN",
-}
-
+-- THE TWO SETS, AND WHY THERE ARE TWO. Both are GENERATED from one pinned,
+-- hash-verified SCOWL release by `tools/build_word_lists.py` — nothing here is
+-- typed by hand and nothing is fetched at runtime (`words/PROVENANCE.md` has
+-- the archive, its digest, the exact filters and the licence notices).
+--
+--   * ACCEPTED GUESSES — 6,421 five-letter words, deliberately generous.
+--     A player who types an ordinary English word and is told it is not one
+--     blames the game, and is right to.
+--   * ANSWERS — 2,096 familiar five-letter words, a much smaller and more
+--     conservative cut, minus simple plurals and past tenses. An answer nobody
+--     knows is not a puzzle.
+--
+-- Keeping them apart is the whole mechanic: a player may guess anything the
+-- game accepts, but the answer is only ever drawn from the familiar set, so the
+-- game is never lost to a word nobody has heard of. Every answer is also an
+-- accepted guess — the generator refuses to write the files when that is untrue.
+--
+-- Everything `words` returns is LOWERCASE; this game works in uppercase, so the
+-- case flip happens once, at the boundary, in `solutionForSeed` below.
 local rules = {}
 rules.ROWS = ROWS
 rules.COLS = COLS
-rules.SOLUTIONS = table.freeze(SOLUTIONS)
 
--- every solution is also an accepted guess, plus the wider list
-local ACCEPTED: { [string]: boolean } = {}
-for _, word in SOLUTIONS do
-	ACCEPTED[word] = true
+-- The two sets, as the counts and the membership predicates a caller can
+-- actually use. A 2,096-entry frozen array and a 6,421-entry set would be the
+-- data itself smuggled through the rules table; these are the questions the
+-- game asks it.
+rules.solutionCount = words.solutionCount
+rules.acceptedCount = words.bankCount(COLS)
+
+function rules.isWord(guess: string): boolean
+	return #guess == COLS and words.isWord(guess)
 end
-for _, word in EXTRA_WORDS do
-	ACCEPTED[word] = true
+
+function rules.isSolution(word: string): boolean
+	return words.isSolution(word)
 end
-rules.ACCEPTED = table.freeze(ACCEPTED)
 
 -- validate(guess) -> "ok" | "short" | "unknown". The two refusals are DIFFERENT
 -- messages on screen, and neither consumes a row.
@@ -124,7 +116,7 @@ function rules.validate(guess: string): string
 	if #guess < COLS then
 		return "short"
 	end
-	if not ACCEPTED[guess] then
+	if not rules.isWord(guess) then
 		return "unknown"
 	end
 	return "ok"
@@ -206,9 +198,11 @@ end
 
 -- THE DETERMINISTIC SEED. No randomness anywhere: seed N always yields the same
 -- word, so "New game" is reproducible and a test can restart to a known answer.
+-- The choice itself belongs to the shared data (which MIXES the seed rather than
+-- indexing it, so two restarts do not hand out two neighbours in an alphabetical
+-- list); the only thing this game adds is the case it plays in.
 function rules.solutionForSeed(seed: number): string
-	local n = math.max(1, math.floor(seed))
-	return SOLUTIONS[((n - 1) % #SOLUTIONS) + 1]
+	return string.upper(words.solutionForSeed(math.max(1, math.floor(seed))))
 end
 
 example.rules = rules
@@ -218,22 +212,46 @@ example.rules = rules
 -- metric. There is not a raw colour or a device pixel in this file.
 -- ===========================================================================
 
--- A tile is `targetSizes.minimum` square: the theme's own smallest comfortable
--- target, which is also the smallest square a five-column board can use and
--- still be readable on a phone. It moves with the theme, unlike a literal 48.
-local TILE = { type = "fixed", px = "targetSizes.minimum" }
+-- A tile is `targetSizes.minimum` square AT THE DEFAULT TEXT SIZE: the theme's
+-- own smallest comfortable target, which is also the smallest square a
+-- five-column board can use and still be readable on a phone. It moves with the
+-- theme, unlike a literal 48.
+--
+-- A FLOOR, NOT A CAP, and that word is the whole point. A `fixed` px height
+-- against content that is not fixed is the defect class
+-- `docs/lessons/facet-fixed-px-heights.md` names: the letter inside a tile grows
+-- with the player's text-size preference, and at the largest preference under a
+-- theme with a taller type ramp the glyph was 5px out of a 44px box — the
+-- solver said so, on a screen nobody had asked it about. `minMax` with a `min`
+-- lets the whole board grow instead, and `itemSizing = "uniform"` keeps every
+-- cell the same size as it does.
+local TILE = { type = "minMax", min = "targetSizes.minimum" }
 local KEY_HEIGHT = { type = "fixed", px = "targetSizes.minimum" }
 local FILL = { type = "fill", weight = 1 }
 local WIDE_KEY = { type = "fill", weight = 1.5 }
 
 -- TILE STATE -> the continuous colour channel, as a blend along a theme role.
--- `blend` is the strength of the evidence, which is exactly the kind of value a
--- closed surface enum cannot express — and the reason `tint` exists.
+-- `blend` is how much has been decided about the cell, which is exactly the kind
+-- of value a closed surface enum cannot express — and the reason `tint` exists.
+--
+-- WHY THE EMPTY PLATE IS NOT `surfaceStrong`, WHICH IS WHAT IT USED TO BE.
+-- `surfaceStrong` is the PANEL colour: every shipped theme deliberately keeps it
+-- within a few percent of `surface`, because a panel is meant to sit quietly on
+-- the page. Measured across all fifteen themes in `examples/themes`, the old
+-- `{ role = "surfaceStrong", blend = 0.6 }` reached a contrast ratio of 1.036:1
+-- against the page it sits on under Sci-Fi HUD — thirty rectangles that are
+-- perfectly present in the tree and invisible on the screen, which is the
+-- failure `docs/lessons/a-default-valued-write-never-claims.md` is about.
+-- `contentSecondary` is contrast-gated against `surface` by the palette
+-- contract, so a small blend along it is a plate a player can actually see in
+-- every theme; `tests/example_word_game.spec.luau` pins the floor.
 local TILE_TINT: { [string]: any } = {
-	empty = { role = "surfaceStrong", blend = 0.6 },
-	caret = { role = "surfaceStrong", blend = 1 },
-	filled = { role = "control", blend = 1 },
-	absent = { role = "contentSecondary", blend = 0.3 },
+	empty = { role = "contentSecondary", blend = 0.2 },
+	-- the caret's plate is the EMPTY plate: its cue is structural (see
+	-- TILE_SURFACE below) and typographic (`_`), never a shade of the same colour
+	caret = { role = "contentSecondary", blend = 0.2 },
+	filled = { role = "contentSecondary", blend = 0.35 },
+	absent = { role = "contentSecondary", blend = 0.55 },
 	present = { role = "accent", blend = 0.55 },
 	correct = { role = "accent", blend = 1 },
 }
@@ -249,6 +267,23 @@ local TILE_MARK: { [string]: string } = {
 	present = "~",
 	correct = "v",
 }
+
+-- THE ACTIVE ROW'S CUE, AND WHY IT IS A SURFACE. "Which row am I typing into"
+-- used to be a blend difference — 1.0 against 0.6 of the same role — and a blend
+-- difference IS a colour-only difference, which is the one cue a player who
+-- cannot separate those two colours never receives. `chip` is the theme's own
+-- small outlined plate: it carries a BORDER the idle rows do not have, drawn by
+-- the theme's own chrome rules, so the cue survives a greyscale screen, a
+-- repainted palette, and a `tint` nobody can tell apart.
+--
+-- WRITTEN AS TWO `surface = …` DECLARATIONS, which is not an accident: an enum
+-- prop accepts any string and silently paints nothing when it is not a member
+-- (docs/lessons/enum-props-accept-any-string.md — the earlier draft of this very
+-- example bound `surface = "tileCorrect"` and rendered thirty transparent
+-- tiles). Spelled this way, `tools/lune/check_example_drift` checks both names
+-- against the Box surface enum the renderer actually resolves.
+local ACTIVE_ROW_PLATE = { surface = "chip" }
+local IDLE_ROW_PLATE = { surface = "plain" }
 
 -- KEY STATE -> a surface ROLE. A Button paints from its role and its own
 -- interaction states, so it takes the semantic surface rather than a tint: an
@@ -481,7 +516,12 @@ function example.build(Facet: any, core: any, deps: any)
 			noticeSig:set(`Not enough letters — {#guess} of {COLS}. This row is still yours.`)
 			return
 		elseif verdict == "unknown" then
-			noticeSig:set(`"{guess}" is not in this tutorial's word list. Try another.`)
+			-- A REFUSAL IS A FACT ABOUT THIS GAME, NOT ABOUT ENGLISH. The accepted
+			-- set is 6,421 five-letter words and still finite, so "that is not a
+			-- word" is a claim the game cannot make — and "it is not in the list"
+			-- asks the player to care about a data structure. What is true, and
+			-- what a player can act on, is that this game did not recognise it.
+			noticeSig:set(`{guess} — this game doesn't know that word. Try another.`)
 			return
 		end
 
@@ -512,6 +552,7 @@ function example.build(Facet: any, core: any, deps: any)
 	-- ---- the board: one UI.Grid, thirty bound tiles -------------------------
 	local tiles = {}
 	local tileStateOf: { [string]: any } = {}
+	local tileSurfaceOf: { [string]: any } = {}
 	for r = 1, ROWS do
 		for c = 1, COLS do
 			local rr, cc = r, c
@@ -527,7 +568,18 @@ function example.build(Facet: any, core: any, deps: any)
 			local mark = reg(core:memo(function(use)
 				return TILE_MARK[use(state)]
 			end))
+			-- ...and the row cue. Its own memo rather than a branch inside `tint`
+			-- because it is a different channel answering a different question:
+			-- `tint` says what is known about this cell, `surface` says whether
+			-- this row is the one TAKING LETTERS. Which is why it reads the phase
+			-- as well as the row — a finished game is taking nothing, so the board
+			-- must not go on pointing at a row the keyboard can no longer fill.
+			local surface = reg(core:memo(function(use)
+				local taking = use(playingSig) and use(activeSig) == rr
+				return if taking then ACTIVE_ROW_PLATE.surface else IDLE_ROW_PLATE.surface
+			end))
 			tileStateOf[`{rr}:{cc}`] = state
+			tileSurfaceOf[`{rr}:{cc}`] = surface
 			table.insert(
 				tiles,
 				UI.ZStack({
@@ -538,8 +590,11 @@ function example.build(Facet: any, core: any, deps: any)
 					alignV = "center",
 					children = {
 						-- the plate. A Box's one paint channel is `tint`, so this is
-						-- where the state colour lives.
-						UI.Box({ id = "fill", width = FILL, height = FILL, tint = tint }),
+						-- where the state colour lives; `surface` beside it is the
+						-- theme's own chrome, and the two do not fight — the tint is an
+						-- explicit per-node claim on the fill, the surface is a tag the
+						-- theme's border and corner rules hang off.
+						UI.Box({ id = "fill", width = FILL, height = FILL, tint = tint, surface = surface }),
 						UI.Text({ id = "ch", text = letter, textSize = "heading" }),
 						-- ...and the same fact again, without colour.
 						UI.Text({
@@ -750,6 +805,10 @@ function example.build(Facet: any, core: any, deps: any)
 		end,
 		mark = function(r: number, c: number): string
 			return TILE_MARK[tileStateOf[`{r}:{c}`]:get()]
+		end,
+		-- the row cue, read from the same memo the Box is bound to
+		tileSurface = function(r: number, c: number): string
+			return tileSurfaceOf[`{r}:{c}`]:get()
 		end,
 		keyState = function(letter: string): string?
 			return keysSig:get()[letter]
