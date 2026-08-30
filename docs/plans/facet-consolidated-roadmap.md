@@ -1541,6 +1541,8 @@ feature/package; do not publish/package or rename the remote.
 
 ## Step 13.5 — Polish Facet game tutorials and curated standalone examples
 
+DONE
+
 This bounded Opus pass first makes Facet and Rascal Rally verification practical. It
 then completes the tutorial games, Sipworks, Glade, and sensory demo; retires Wardrobe;
 ships a walk-up `SurfaceGui` terminal; and builds shared-source standalones.
