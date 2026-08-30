@@ -472,6 +472,570 @@ function Runner.start(deps: { [string]: any })
 				end
 				return api
 			end)(),
+			--[[ ── THE WORLD SURFACE (ADR-0063; design §4, §5, §10) ──────────────────
+
+				A CONSOLE A PLAYER WALKS UP TO AND USES, and everything about it that
+				touches an Instance is here rather than in the scenario, exactly as
+				`ctx.billboard` above is: the scenario declares the terminal and drives
+				the steps, and this is the only place that reaches the engine on its
+				behalf. On a host with no engine the seam is simply absent and every
+				scenario step says so instead of pretending it ran.
+
+				WHAT THIS ONE OWNS THAT THE BILLBOARD DOES NOT. A billboard is
+				display-only, so it can live on a raw `renderer.attach`. This surface is
+				OPERATED, so it needs a whole second Facet host — its own core, env,
+				render target, input system and presenter — and the reason it needs its
+				OWN CORE rather than sharing `deps.core` is not style: `environment.new`
+				publishes onto the core it is built on, and two live environments on one
+				core make `surface_env.find` answer "ambiguous", at which point every
+				adaptive control REFUSES TO CONSTRUCT. `client.host` assembles all six
+				pieces and disposes them in the right order, so this seam uses it rather
+				than re-deriving the sequence.
+
+				THE FIXTURE ITSELF IS THE SERVER'S (design §10). A console this client
+				built would be a console only this client can see and a door only this
+				client can open, so `examples/gallery/server` builds the outpost, owns
+				the allocation, and is asked for a character — `CharacterAutoLoads` is
+				false in the showcase and only a server can load one anyway.
+			]]
+			surface = (function()
+				local state: any = nil
+				local api: any = {}
+				local pending: { any } = {}
+				local exitLog: { any } = {}
+
+				--[[ MEASURED, so nobody has to re-derive it: for an unrotated part
+					`Front` is the -Z face, which is why a camera looking along -Z sees
+					`Back`. A surface on the wrong face renders perfectly, measures
+					perfectly, and can never be clicked — indistinguishable from an
+					engine that does not support this at all. ]]
+				local FACE_NORMALS: { [string]: Vector3 } = {
+					Front = Vector3.new(0, 0, -1),
+					Back = Vector3.new(0, 0, 1),
+					Left = Vector3.new(-1, 0, 0),
+					Right = Vector3.new(1, 0, 0),
+					Top = Vector3.new(0, 1, 0),
+					Bottom = Vector3.new(0, -1, 0),
+				}
+
+				-- the device facts the world surface mirrors from the SCREEN host's
+				-- environment. Not the viewport and not the insets: the solver's world
+				-- IS the canvas, and a console has no notch.
+				local MIRRORED_FACTS =
+					{ "preferredInput", "capabilities", "reducedMotion", "preferredTextSize", "displaySize" }
+
+				function api.available(): boolean
+					return true
+				end
+
+				local function note(kind: string, info: any?)
+					table.insert(exitLog, { kind = kind, at = os.clock(), info = serializeValue(info) })
+				end
+
+				local function remote(): any
+					return game:GetService("ReplicatedStorage"):FindFirstChild("Facet_Outpost")
+				end
+
+				function api.command(kind: string, payload: any?): any
+					local ev = remote()
+					if ev == nil then
+						return { sent = false, reason = "no Facet_Outpost RemoteEvent (is the server side mapped?)" }
+					end
+					local body = if payload ~= nil then table.clone(payload) else {}
+					body.kind = kind
+					if state ~= nil and body.token == nil then
+						body.token = state.token
+					end
+					ev:FireServer(body)
+					return { sent = true, kind = kind }
+				end
+
+				local function characterDistance(): number?
+					if state == nil or state.console == nil or state.console.Parent == nil then
+						return nil
+					end
+					local character = Players.LocalPlayer.Character
+					local root = if character ~= nil then character:FindFirstChild("HumanoidRootPart") else nil
+					if root == nil or not root:IsA("BasePart") then
+						return nil
+					end
+					return (root.Position - state.console.Position).Magnitude
+				end
+
+				--[[ THE FACE ASSERTION, run before anything is measured. The spike lost
+					two rounds to a face error, so the fixture states which way its chosen
+					face actually points and the report carries the number. ]]
+				function api.faceCheck(): any
+					if state == nil or state.console == nil or state.console.Parent == nil then
+						return { checked = false, reason = "no console" }
+					end
+					local console = state.console
+					local normal = console.CFrame:VectorToWorldSpace(FACE_NORMALS[state.faceName])
+					local character = Players.LocalPlayer.Character
+					local root = if character ~= nil then character:FindFirstChild("HumanoidRootPart") else nil
+					local from = if root ~= nil and root:IsA("BasePart")
+						then root.Position
+						else workspace.CurrentCamera.CFrame.Position
+					local toViewer = (from - console.Position)
+					local dot = if toViewer.Magnitude > 0 then normal:Dot(toViewer.Unit) else 0
+					return {
+						checked = true,
+						face = state.faceName,
+						worldNormal = serializeValue(normal),
+						viewer = if root ~= nil then "character" else "camera",
+						dot = dot,
+						-- the whole point: a face whose normal points AWAY from where a
+						-- player stands is the silent failure this check exists to catch
+						pointsAtViewer = dot > 0,
+					}
+				end
+
+				local function mirrorFacts(target: any)
+					for _, fact in MIRRORED_FACTS do
+						local ok, value = pcall(function()
+							return deps.env:get(fact):get()
+						end)
+						if ok then
+							target:set(fact, value)
+						end
+					end
+				end
+
+				--[[ EVERY EXIT LANDS HERE. Cancel, the Exit control, walking out of
+					range, losing line of sight, a removed character, a destroyed or
+					streamed-out adornee, a scenario switch and teardown: eight ways in,
+					one way out. Each resigns the responder, cancels in-flight input, and
+					tells the scenario which one it was. ]]
+				function api.release(reason: string): any
+					if state == nil then
+						return { released = false, reason = "not open" }
+					end
+					if not state.engaged then
+						return { released = false, reason = "not engaged", last = state.lastExit }
+					end
+					state.engaged = false
+					state.lastExit = reason
+					-- 1. the framework's own resign: context disabled, sink dropped,
+					--    focus scope no longer the one receiving Navigate/Activate
+					if state.handle ~= nil and state.handle.responder:get() == "engaged" then
+						pcall(function()
+							state.handle.resign()
+						end)
+					end
+					-- 2. any armed press on the surface is cancelled rather than left
+					--    holding the pointer
+					if state.handle ~= nil and state.handle.controller ~= nil then
+						pcall(function()
+							state.handle.controller.cancelArmed("surface-exit")
+						end)
+					end
+					-- 3. the terminal's own state machine, which also resets a request
+					--    the server may never answer
+					if state.built ~= nil and state.built.onExit ~= nil then
+						pcall(state.built.onExit, reason)
+					end
+					-- 4. and the server stops believing this client holds the console
+					api.command("release")
+					note("release", { reason = reason })
+					if state.spec.onRelease ~= nil then
+						pcall(state.spec.onRelease, reason)
+					end
+					return { released = true, reason = reason }
+				end
+
+				function api.engage(source: string?): any
+					if state == nil then
+						return { engaged = false, reason = "not open" }
+					end
+					if state.engaged then
+						return { engaged = true, already = true }
+					end
+					state.engaged = true
+					state.lastExit = nil
+					if state.handle ~= nil then
+						pcall(function()
+							state.handle.engage()
+						end)
+					end
+					if state.built ~= nil and state.built.onEngage ~= nil then
+						pcall(state.built.onEngage, state.allocation)
+					end
+					note("engage", { source = source or "step" })
+					if state.spec.onEngage ~= nil then
+						pcall(state.spec.onEngage, source)
+					end
+					return { engaged = true, source = source or "step" }
+				end
+
+				local function handleReply(payload: any)
+					if state == nil or type(payload) ~= "table" then
+						return
+					end
+					table.insert(pending, serializeValue(payload))
+					if payload.kind == "session" then
+						state.token = payload.token
+						state.allocation = payload.allocation
+						api.engage("prompt")
+					elseif payload.kind == "state" then
+						state.allocation = payload.allocation
+						if state.built ~= nil and state.built.onState ~= nil then
+							pcall(state.built.onState, payload)
+						end
+					elseif payload.kind == "verdict" then
+						if state.built ~= nil and state.built.onVerdict ~= nil then
+							pcall(state.built.onVerdict, payload)
+						end
+						if payload.allocation ~= nil then
+							state.allocation = payload.allocation
+						end
+					elseif payload.kind == "closed" then
+						api.release(payload.reason or "closed")
+					elseif payload.kind == "character" then
+						state.character = payload.loaded == true
+					end
+				end
+
+				local function wireConsole(spec: any)
+					local outpost = workspace:FindFirstChild("Outpost")
+					local console = if outpost ~= nil then outpost:FindFirstChild("Console") else nil
+					if console == nil or not console:IsA("BasePart") then
+						return nil
+					end
+					state.console = console
+					local attachment = console:FindFirstChild("PromptAttachment")
+					local prompt = if attachment ~= nil then attachment:FindFirstChild("UsePrompt") else nil
+					state.prompt = prompt
+					if prompt ~= nil and prompt:IsA("ProximityPrompt") then
+						--[[ THE WALK-UP, AND NOTHING IS BOUND FOR IT. `Triggered` is the
+							platform's own cross-input invitation — keyboard, gamepad and
+							touch, with no branch written here — and the client's copy fires
+							only for the player who triggered it. Facet does not wrap it, and
+							this example binds nothing through ContextActionService or
+							UserInputService. ]]
+						table.insert(
+							state.connections,
+							prompt.Triggered:Connect(function(player: Player)
+								if player ~= Players.LocalPlayer then
+									return
+								end
+								--[[ THE LOCAL ECHO IS A NOTE, NOT THE ENGAGEMENT. The same
+									event reached the SERVER with the same player, and the server
+									answers with a session token — engaging on that token rather
+									than on this event is what makes "who is at this console" the
+									server's fact instead of this client's claim. ]]
+								note("prompt:triggered", { player = player.Name })
+							end)
+						)
+						--[[ TWO EXITS OUT OF ONE NATIVE SIGNAL, told apart by the thing
+							that distinguishes them. `PromptHidden` fires for both walking out
+							of `MaxActivationDistance` and for losing line of sight, so the
+							distance is measured at the moment it hides: past the range is
+							"out of range", inside it is "line of sight". ]]
+						table.insert(
+							state.connections,
+							prompt.PromptHidden:Connect(function()
+								if state == nil or not state.engaged then
+									return
+								end
+								local distance = characterDistance()
+								local out = distance == nil or distance > (spec.range or 10)
+								api.release(if out then "out-of-range" else "line-of-sight")
+							end)
+						)
+					end
+					return console
+				end
+
+				--[[ `open(spec)` — ask the server for the outpost, build the second
+					Facet host on the console's face, mount the terminal, and wire the
+					walk-up. Everything after this is engage/resign on a surface that
+					stays mounted, which is what makes repeated trigger-then-cancel cheap
+					and safe. ]]
+				function api.open(spec: any): any
+					if state ~= nil then
+						return api.dump()
+					end
+					local ok, built = pcall(function()
+						local ReplicatedStorage = game:GetService("ReplicatedStorage")
+						local clientHost = require(ReplicatedStorage.Facet.client.host) :: any
+						local surfaceTarget = require(ReplicatedStorage.Facet.client.surface_target) :: any
+						local canvas = spec.canvas or { w = 640, h = 480 }
+						local faceName = spec.face or "Back"
+						assert(FACE_NORMALS[faceName] ~= nil, `surface: unknown face '{tostring(faceName)}'`)
+
+						state = {
+							spec = spec,
+							canvas = canvas,
+							faceName = faceName,
+							connections = {},
+							engaged = false,
+							token = nil,
+							allocation = nil,
+							character = false,
+							lastExit = nil,
+						}
+						--[[ WAITED FOR, NOT RACED. The fixture is the SERVER's — see the
+							seam header — so every one of these arrives by replication a frame
+							or more after it is asked for, and a `FindFirstChild` on the frame
+							the scenario mounts would find nothing and report "no server". Each
+							wait is bounded, so a place genuinely missing the server side fails
+							with a sentence instead of hanging. ]]
+						local transport = ReplicatedStorage:WaitForChild("Facet_Outpost", 10)
+						assert(
+							transport ~= nil,
+							"surface: ReplicatedStorage.Facet_Outpost is not here — this place has no server side "
+								.. "(examples/gallery.project.json maps examples/gallery/server to ServerScriptService)"
+						)
+						table.insert(
+							state.connections,
+							(transport :: any).OnClientEvent:Connect(function(payload: any)
+								handleReply(payload)
+							end)
+						)
+						api.command("open")
+						api.command("character", { action = "load" })
+						local outpost = workspace:WaitForChild("Outpost", 10)
+						assert(outpost ~= nil, "surface: Workspace.Outpost never replicated after the open command")
+						assert(
+							outpost:WaitForChild("Console", 10) ~= nil,
+							"surface: Workspace.Outpost.Console never replicated"
+						)
+						local console = wireConsole(spec)
+						assert(console ~= nil, "surface: Workspace.Outpost.Console is not a BasePart")
+
+						local hostHandle = clientHost.new({
+							newAdapter = function(): any
+								return surfaceTarget.new({
+									parent = Players.LocalPlayer:WaitForChild("PlayerGui"),
+									adornee = console,
+									face = (Enum.NormalId :: any)[faceName],
+									canvas = canvas,
+									maxDistance = spec.maxDistance,
+									--[[ `.Adornee` STILL NAMES A DESTROYED PART (measured), so
+										the reference outlives the instance and polling it can
+										never notice. This is the adapter telling us; resigning
+										is ours to do. ]]
+									onAdorneeLost = function()
+										api.release("adornee-lost")
+									end,
+								})
+							end,
+							--[[ NOT `roblox_env.bind`, and this is the load-bearing line of
+								the whole seam. That binder republishes `viewportRect` from
+								`Camera.ViewportSize` on every viewport and topbar change, which
+								would overwrite the canvas rect with the player's screen and
+								re-solve the terminal against a rectangle it does not live in.
+								The solver's world IS the canvas here. The DEVICE facts are
+								still real — mirrored below, every frame, so a hot switch from
+								keyboard to gamepad moves this surface exactly as it moves a
+								screen. ]]
+							bindEnv = function(env: any): () -> ()
+								env:set("viewportRect", surfaceTarget.canvasRect(canvas))
+								env:set("presentationSpace", "world")
+								mirrorFacts(env)
+								return function() end
+							end,
+						})
+						state.host = hostHandle
+
+						local surfaceCtx = {
+							Facet = Facet,
+							core = hostHandle.core,
+							env = hostHandle.env,
+							adapter = hostHandle.adapter,
+							presenter = hostHandle.presenter,
+							actionSystem = hostHandle.inputSystem,
+							canvas = canvas,
+							-- the wire, and the only one the terminal ever sees
+							send = function(envelope: any)
+								api.command("apply", {
+									requestId = envelope.requestId,
+									allocation = envelope.payload.allocation,
+									expectedRevision = envelope.expectedRevision,
+								})
+							end,
+							exit = function(reason: string?)
+								api.release(reason or "exit-control")
+							end,
+						}
+						local terminal = spec.build(surfaceCtx)
+						state.built = terminal
+						state.handle = hostHandle.presenter.present(terminal.screen, terminal.present)
+
+						--[[ THE RESPONDER IS WATCHED, NOT ASSUMED. Cancel and the platform
+							back action resign an engaged-from-passive surface inside the
+							presenter, so the only honest way to learn the session ended that
+							way is to observe the handle's own signal. ]]
+						table.insert(
+							state.connections,
+							{
+								Disconnect = hostHandle.core:observe(state.handle.responder, function(value: string)
+									if value ~= "engaged" and state ~= nil and state.engaged then
+										api.release("cancel")
+									end
+								end),
+							} :: any
+						)
+						-- the device facts, kept live on the surface's own frame
+						hostHandle.presenter.onTick(function()
+							if state ~= nil then
+								mirrorFacts(hostHandle.env)
+							end
+						end)
+						--[[ CHARACTER REMOVAL IS A REAL EXIT PATH HERE, not a hypothetical
+							one: the scenario's own teardown removes the character, so the
+							control that switches demos exercises it. ]]
+						table.insert(
+							state.connections,
+							Players.LocalPlayer.CharacterRemoving:Connect(function()
+								api.release("character-removed")
+							end)
+						)
+						return true
+					end)
+					if not ok then
+						local message = tostring(built)
+						api.teardown()
+						return { open = false, error = message }
+					end
+					return api.dump()
+				end
+
+				--[[ THE LIFECYCLE READ every teardown row needs: how many surfaces this
+					client actually carries, whether the adornee is still in the world, and
+					whether anything is still holding the responder. ]]
+				function api.dump(): any
+					local surfaceGuis, descendants = 0, 0
+					local playerGui = Players.LocalPlayer:FindFirstChild("PlayerGui")
+					if playerGui ~= nil then
+						for _, gui in playerGui:GetChildren() do
+							if gui:IsA("SurfaceGui") then
+								surfaceGuis += 1
+								descendants += #gui:GetDescendants()
+							end
+						end
+					end
+					local outposts = 0
+					for _, inst in workspace:GetChildren() do
+						if inst.Name == "Outpost" then
+							outposts += 1
+						end
+					end
+					if state == nil then
+						return {
+							open = false,
+							surfaceGuis = surfaceGuis,
+							outposts = outposts,
+							connections = 0,
+							character = Players.LocalPlayer.Character ~= nil,
+						}
+					end
+					return {
+						open = true,
+						canvas = state.canvas,
+						face = state.faceName,
+						faceCheck = api.faceCheck(),
+						engaged = state.engaged,
+						responder = if state.handle ~= nil then state.handle.responder:get() else nil,
+						lastExit = state.lastExit,
+						token = state.token,
+						allocation = state.allocation,
+						adorneePresent = state.console ~= nil and state.console.Parent ~= nil,
+						promptEnabled = if state.prompt ~= nil then state.prompt.Enabled else nil,
+						distance = characterDistance(),
+						surfaceGuis = surfaceGuis,
+						surfaceDescendants = descendants,
+						outposts = outposts,
+						connections = #state.connections,
+						character = Players.LocalPlayer.Character ~= nil,
+						replies = #pending,
+						exits = exitLog,
+						terminal = if state.built ~= nil and state.built.report ~= nil
+							then serializeValue(state.built.report())
+							else nil,
+					}
+				end
+
+				function api.replies(): any
+					return pending
+				end
+
+				--[[ THE TERMINAL'S OWN DRIVE SURFACE, reached through the seam. The
+					content module lives on the SURFACE host's core, which the scenario
+					has no handle on — this is the one door, and it answers a table rather
+					than throwing when there is nothing behind it. ]]
+				function api.terminalStep(name: string, a: any?, b: any?): any
+					if state == nil or state.built == nil or state.built.steps == nil then
+						return { ok = false, reason = "no terminal mounted" }
+					end
+					local fn = state.built.steps[name]
+					if fn == nil then
+						return { ok = false, reason = `the terminal has no step '{name}'` }
+					end
+					local ok, result = pcall(fn, a, b)
+					return { ok = ok, result = if ok then serializeValue(result) else tostring(result) }
+				end
+
+				--[[ WALK AWAY, ON PURPOSE. The design's third refusal drive is "a player
+					who walked away between pressing and arriving", and the only honest way
+					to produce it is to actually move the character — the server measures
+					the distance itself, from the character it can see, so a faked number
+					would prove nothing about the check. Answers the distance it achieved
+					rather than the one it was asked for. ]]
+				function api.placeCharacter(studs: number): any
+					if state == nil or state.console == nil then
+						return { moved = false, reason = "not open" }
+					end
+					local character = Players.LocalPlayer.Character
+					if character == nil then
+						return { moved = false, reason = "no character" }
+					end
+					local target = (state.console :: BasePart).CFrame * CFrame.new(0, -2, studs);
+					(character :: Model):PivotTo(target)
+					return { moved = true, requested = studs, distance = characterDistance() }
+				end
+
+				--[[ TEARDOWN, IN THE ORDER THAT LEAVES NOTHING. Resign first (so the
+					responder is not holding input while its tree is being taken apart),
+					then dismiss the surface, then dispose the host — which releases the
+					frame connection, the input system's contexts, the render target and
+					the environment binding — then hand the outpost and the character back
+					to the server. ]]
+				function api.teardown(): any
+					if state == nil then
+						return { torn = false, after = api.dump() }
+					end
+					api.release("teardown")
+					local dying = state
+					state = nil
+					for _, connection in dying.connections do
+						pcall(function()
+							connection:Disconnect()
+						end)
+					end
+					if dying.built ~= nil and dying.built.dispose ~= nil then
+						pcall(dying.built.dispose)
+					end
+					if dying.host ~= nil and dying.handle ~= nil then
+						pcall(function()
+							dying.host.presenter.dismiss(dying.handle)
+						end)
+					end
+					if dying.host ~= nil then
+						pcall(function()
+							dying.host.dispose()
+						end)
+					end
+					local ev = remote()
+					if ev ~= nil then
+						ev:FireServer({ kind = "character", action = "remove" })
+						ev:FireServer({ kind = "close" })
+					end
+					return { torn = true, after = api.dump() }
+				end
+
+				return api
+			end)(),
 			-- test-run flags (engine attribute reads stay runner-owned)
 			flags = {
 				forceDragFallback = workspace:GetAttribute("Facet_ForceDragFallback") == true,

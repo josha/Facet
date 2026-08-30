@@ -465,6 +465,12 @@ local SCENARIOS = {
 	-- swept cross product is the direct test of whether that packaging holds at
 	-- every viewport, at every preference, mid-turn as well as at rest
 	"nested_compositing",
+	-- ...and ADR-0063's world surface. Its SCREEN half is what is swept here — the
+	-- lab around the terminal, a `fill` ScrollView of readouts over a control grid
+	-- — because the terminal itself is painted on a `SurfaceGui` this file has no
+	-- engine to build. The lab is swept for the same reason every other fixture is:
+	-- a surface with no case is indistinguishable from a passing one.
+	"outpost_terminal",
 	-- scaffold: new control scenarios are appended above this line
 }
 

@@ -159,6 +159,17 @@ local REACHAROUND_RULES: { { pattern: string, what: string } } = {
 -- substring of the offending source line, so the reason lives in one reviewable
 -- place instead of being scattered through the examples as suppression comments.
 local ALLOWLIST: { { file: string, match: string, why: string } } = {
+	--[[ ── the world terminal ────────────────────────────────────────
+		R1 reads `min = <number>` as a dimension the theme should own, which it
+		almost always is. Here it is the floor of a Stepper's VALUE — zero units of
+		power — and a theme has no opinion about how little electricity a blast door
+		may be given. The other end (`max = consumer.capacity`) is already a domain
+		constant and never reaches the lint. ]]
+	{
+		file = "examples/gallery/examples/outpost_terminal/init.luau",
+		match = "min = 0,",
+		why = "a Stepper's minimum VALUE — zero units of power, a game rule — not a dimension; its max is `consumer.capacity` from the rules module",
+	},
 	-- ── reference-app-validation proofs ────────────────────────────
 	-- The specs proposed proof theme metrics (metrics.foyer.*, metrics.wardrobe.*);
 	-- the stage ruling (package-briefs.md) is NO new theme tokens, so these are
@@ -282,13 +293,6 @@ function checker.check(opts: Options?)
 	local options = opts or {}
 	local violations: { Violation } = {}
 	local files: { string } = {}
-	local entries = fs.readDir(SCANNED_DIR)
-	table.sort(entries)
-	for _, entry in entries do
-		if string.match(entry, "%.luau$") ~= nil then
-			table.insert(files, `{SCANNED_DIR}/{entry}`)
-		end
-	end
 	local function addDir(dir: string)
 		local names = fs.readDir(dir)
 		table.sort(names)
@@ -301,8 +305,34 @@ function checker.check(opts: Options?)
 			end
 		end
 	end
+	--[[ THE TUTORIAL TREE IS SCANNED RECURSIVELY TOO (2026-08-29).
+
+		It used to read only the top level, while the reference tree recursed — so
+		the moment a tutorial example grew a subdirectory, that subdirectory left
+		the lint entirely and nothing said so. Two had:
+		`examples/gallery/examples/words/` (the generated dictionary, 9 files) and
+		`examples/gallery/examples/outpost_terminal/` (the world terminal's rules
+		and content, 2 files). Both were invisible to R1-R4 the day they landed,
+		which is the shape this file exists to refuse one level up: a check that
+		silently covers less than its name says.
+
+		Found by the agent building the terminal, who noticed its own new directory
+		was not being linted and said so instead of enjoying the quiet. ]]
+	addDir(SCANNED_DIR)
 	if fs.isDir(REFERENCE_DIR) then
 		addDir(REFERENCE_DIR)
+	end
+
+	--[[ A FLOOR, because finding nothing must be a failure and not a pass. If a
+		future refactor moves either tree, this reports zero files, scans nothing,
+		and prints "clean" — the exact shape `check_manifest_integrity` grew its own
+		MIN_EXPECTED_GREPS to stop. ]]
+	if #files < 40 then
+		error(
+			`check_example_drift: only {#files} example file(s) found under {SCANNED_DIR} and {REFERENCE_DIR}. `
+				.. `Finding almost nothing is a failure here, not a pass — the trees have moved.`,
+			0
+		)
 	end
 
 	local allowed = 0

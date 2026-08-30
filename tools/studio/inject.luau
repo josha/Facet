@@ -76,7 +76,12 @@ for idx, entry in ipairs(manifest.files) do
 		inst.Parent = parent
 		created += 1
 	end
-	if entry.file ~= "" and (wantClass == "ModuleScript" or wantClass == "LocalScript") then
+	--[[ `Script` JOINED THE LIST with the showcase's first server side
+		(`examples/gallery/server`, ADR-0063). Without it the manifest would create
+		the instance and never write its Source, so the injected place would carry
+		an EMPTY authority script — which looks exactly like a server that decided
+		to refuse everything. ]]
+	if entry.file ~= "" and (wantClass == "ModuleScript" or wantClass == "LocalScript" or wantClass == "Script") then
 		local src = HttpService:GetAsync(BASE .. "/file/" .. tostring(idx))
 		local live = (inst :: any).Source
 		if live == src then

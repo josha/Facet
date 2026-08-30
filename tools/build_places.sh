@@ -186,6 +186,9 @@ cat >"$project" <<'JSON'
       "StarterPlayerScripts": {
         "Gallery": { "$path": "gallery/client" }
       }
+    },
+    "ServerScriptService": {
+      "Outpost": { "$path": "gallery/server" }
     }
   }
 }

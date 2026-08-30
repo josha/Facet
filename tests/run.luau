@@ -238,6 +238,12 @@ require("./render_target_contract.spec")
 	at all because it resolves `screen_target` inside `new` rather than at module
 	scope — `billboard_target` does not, and therefore cannot be loaded headlessly ]]
 require("./surface_target.spec")
+--[[ ...and the SURFACE the target exists for (ADR-0063): the outpost power
+	terminal's pure half — every range walked over the whole 4x3x5 product, every
+	refusal sentence, the server's five checks through `rules.authorize`, and the
+	engage -> adjust -> apply -> success -> reset -> exit machine. The engine half
+	(console, prompt, second host, responder handoff) is Studio evidence ]]
+require("./outpost_terminal.spec")
 -- the per-node presentation channel + the SF-M9 live-adapter fix (ADR-0022 D2)
 require("./presentation_channel.spec")
 -- ...and the REAL-PARENT REGISTRY it composes against (ADR-0032 step 1): one

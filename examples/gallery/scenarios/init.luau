@@ -267,6 +267,17 @@ local ORDER = {
 	-- from its own plate — the pre-ADR-0032 defect, reproduced on purpose as the
 	-- control). Also in `demo_picker.DEMOS`.
 	"nested_compositing",
+	--[[ ADR-0063: FLAT FACET ON A WORLD SURFACE — the outpost power terminal. The
+		one fixture in this list whose screen is not on a screen: it is painted on a
+		`SurfaceGui` over a console part, a player walks up to it through the
+		platform's own `ProximityPrompt`, and applying power sends a domain intent
+		to the showcase's FIRST server side (`examples/gallery/server`) rather than
+		changing the world from here. Its ScreenGui half is the LAB around that —
+		the eight exit paths, the face-versus-player assertion, and the five server
+		refusals, each driveable once. Deliberately NOT in `demo_picker.DEMOS`, for
+		the same reason `sponsor_billboard` is not: a fixture whose demo needs an
+		engine fixture built for it is not something the chip strip can mount. ]]
+	"outpost_terminal",
 	-- scaffold: new control scenarios are appended above this line
 }
 

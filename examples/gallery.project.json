@@ -69,6 +69,11 @@
         }
       }
     },
+    "ServerScriptService": {
+      "Outpost": {
+        "$path": "gallery/server"
+      }
+    },
     "Lighting": {
       "$properties": {
         "Technology": "Unified",
