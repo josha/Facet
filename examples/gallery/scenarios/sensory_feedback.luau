@@ -1,181 +1,203 @@
 --!strict
 --[[ Scenario 'sensory_feedback' — WHAT DOES PRESSING THIS FEEL LIKE?
 
-	The per-control sensory hook shipped in parity round 3 from a direct
-	director request: *"should we have sensory feedback per control so that when
-	you press a button, for example, you get haptic feedback?"* Every gap closure
-	ships its showcase fixture, and this is that fixture.
+	THE SWITCH THAT DECIDES EVERYTHING IS FIRST, AND IT IS ON. The surface used to
+	end with it: five verbs, one cascade, a table of what an adapter *would* play,
+	and only then — seventh of eight panels — the toggle that made any of it reach
+	the device, starting OFF. That is a good story and a bad demo, so the panel now
+	sits directly under the title and one sentence, above every control it affects,
+	and it opens ON. Everything above the four comparisons fits the first viewport
+	on compact portrait, short landscape, desktop and ten-foot INCLUDING at the
+	Largest text preference, and that is proved from solved geometry in
+	tests/control_feedback.spec.luau — never from the order of this file.
 
-	WHAT A STILL SCREENSHOT CANNOT SHOW, and therefore what this surface is FOR:
+	ON BY DEFAULT IS THE DEMO'S DECISION, NOT THE LIBRARY'S, and the two are
+	different sentences. Facet's contract is unchanged: `src/present/feedback.luau`
+	says what happened and plays nothing, and `src/client/haptics.luau` is an opt-in
+	client adapter a GAME constructs (pinned by tests/haptics.spec.luau's
+	"default OFF means the engine is never touched"). THIS EXAMPLE IS A GAME, and
+	it opts in — it requests and installs the adapter at mount so that pressing a
+	sample control demonstrates the feature immediately instead of after four
+	panels of reading.
 
-	  · FIVE BUTTONS THAT LOOK IDENTICAL AND FEEL DIFFERENT. `Buy` is a `commit`,
-	    `Delete` is a `reject`, `Pick` is a `select`, `Mute` is `none` — declared
-	    with `UI.sensoryFeedback(bp, { activation = … })` — and `Plain` declares
-	    nothing. Nothing about their PAINT differs; the whole capability is the
-	    difference in what each one says happened, which is why the log below is
-	    not decoration but the demo itself.
-	  · THE CASCADE. The second panel declares ONE verb, on the panel, and all
-	    three buttons inside it inherit — including the two nested a level deeper.
-	    That is the point of the mechanism: a Chip, a Stepper, a Table row and a
-	    PopupButton each build their own inner Button, so a per-control PROP would
-	    reach none of them without ten pieces of plumbing. Press any of the three
-	    and watch the same verb appear under three different paths.
-	  · `none` IS NOT `activate`. Pressing `Mute` writes NOTHING to the log — the
-	    control still activates, it simply reports no sensation. An absence is
-	    invisible until something says it was deliberate, so the log's counter
-	    keeps climbing for every OTHER press while Mute's line never appears.
+	THE STATUS REPORTS WHAT ACTUALLY HAPPENED, IN THREE STATES, and never that a
+	player felt anything — Roblox exposes no motor confirmation, so a claim of
+	sensation is a claim nothing can support
+	(docs/lessons/capability-probes-must-be-tri-state.md):
 
-	  · WHETHER THIS DEVICE CAN FEEL ANY OF IT — three answers, never two. The
-	    switch at the bottom installs the real adapter, and the line under it says
-	    REQUESTED, or THIS PLATFORM SAYS NO, or COULD NOT DETERMINE. See below.
+	  INSTALLED      the adapter is up and holding Facet's own waveforms.
+	  HOST DECLINED  a connected pad answers `false`, or this client cannot build
+	                 a `HapticEffect` at all. The request STAYS ON.
+	  UNDETERMINED   everything else — and it is not a failure. Touch has no probe
+	                 on the platform at all, and an absent gamepad answers exactly
+	                 as a motorless one does. The request STAYS ON.
 
-	WHAT Facet ITSELF STILL DOES NOT DO: play anything.
-	`src/present/feedback.luau:4-5` — Facet says what happened and plays nothing.
-	Playback is one opt-in, DEFAULT-OFF client adapter (`src/client/haptics.luau`)
-	that the GAME constructs. The sensation column below is that adapter's
-	published map, shown so a reader can see what each verb would be felt as; the
-	headless suite pins the column against `haptics.MAP` so it cannot drift into
-	fiction.
+	The five-value lattice, the decorated count and the engine's own words ride a
+	separate evidence line under the panel, so a reviewer can argue with the
+	conclusion rather than only with the word — and so the sentence a player reads
+	stays one short line.
 
-	AND SINCE 2026-08-16 THE SURFACE CAN INSTALL THAT ADAPTER ITSELF (NM-G3), from
-	a physical pass in which the director reported "none of the haptics in sensory
-	feedback work". They were right, and the cause was not the engine choice — the
-	adapter has always used `HapticEffect` rather than the superseded
-	`HapticService:SetMotor`. THIS FIXTURE SIMPLY NEVER CONSTRUCTED IT. It printed
-	the map and captioned it "what an opt-in adapter WOULD play", which is a
-	sentence a reader can reasonably mistake for a demonstration.
+	FOUR PLAYABLE COMPARISONS, each a labelled row with a live control, a live
+	readout, and a note saying whether it uses a BUILT-IN DEFAULT or THIS EXAMPLE'S
+	OWN OVERRIDE:
 
-	THE SWITCH IS THE DEMO'S DECISION, NOT THE LIBRARY'S, and the screen says so:
-	default-off is the framework's correct posture and does not move. `PlayHaptics`
-	constructs `haptics.new({ enabled = true })` and hands it the two seams a game
-	hands it — `bind(presenter)` and `attachButtons(root)`. BOTH MATTER NOW: since
-	the phase model (task 11) a control activation has TWO felt moments with two
-	owners — the DOWN edge, which belongs to the ENGINE through
-	`GuiButton.PressHapticEffect` and arrives through `attachButtons`, and the
-	COMPLETED edge, which arrives on the bus through `bind`. Before that, every
-	event this surface produced carried `reason = "activation"` and the adapter
-	dropped all of them, so a `bind` alone felt like nothing at all — which is
-	exactly what "wire up the haptics" would have produced.
+	  PRESS      an ordinary control, no local declaration. The DOWN edge is the
+	             ENGINE's, through `GuiButton.PressHapticEffect`, and what it holds
+	             is Facet's own `contact` waveform. Nothing in this file asked for
+	             it; it is what the library does.
+	  RELEASE    the other end of the same interaction: a COMPLETED press asks for
+	             `settle`, which is a different waveform from the press. The row
+	             also carries the CANCEL — press, slide off, let go — which is
+	             structurally silent (`GuiButton.Activated` never fires for a press
+	             that was dragged away from), and the history says "(no request)"
+	             rather than pretending the activation succeeded.
+	  SELECTION  a real discrete choice. `tick` is asked for when the VALUE CHANGES
+	             and at no other moment: re-picking what is already picked is a
+	             visible "(no request)", and hover has no cause in Facet's taxonomy
+	             at all, so there is nothing for it to fire.
+	  CUSTOM     one control whose feel this example supplies, through the
+	             documented public seam and nothing else: a PARTIAL PROFILE handed
+	             to `haptics.new({ profile = … })` and resolved against the shipped
+	             defaults (docs/guide/07-input.md). No `HapticEffect` is constructed
+	             here and no adapter internal is reached.
 
-	AND THE CALIBRATION PANEL IS WHERE THE THREE PHASES ARE JUDGED ONE AT A TIME.
-	Press / release / select fire at three different moments, and two of them can
-	be driven in isolation from a control that reports nothing of its own; the
-	third cannot be driven at all, because it is the engine's. The panel says which
-	is which, counts the pulses this adapter played, and stays honest about the one
-	it cannot count.
+	WHY THE CUSTOM ROW HAS ITS OWN ADAPTER, stated plainly because it is the one
+	structural surprise on this surface. A profile is ADAPTER-WIDE by design — one
+	declaration, no control touched — and Facet has exactly three phases. Rows 1-3
+	spend all three on the shipped defaults, so there is no fourth phase left for a
+	custom waveform to occupy: an override on the ONE installed adapter would move
+	the very waveform the row beside it is there to demonstrate. So:
 
-	AND IT REPORTS A TRI-STATE, which is the part that matters most
-	(docs/lessons/capability-probes-must-be-tri-state.md). "Nothing happened" must
-	never be indistinguishable from "this device cannot":
+	  THE INSTALLED ADAPTER  is the only one bound to the presenter and the only one
+	                         attached to the interface root. It carries Facet's
+	                         defaults and serves the Press, Release and Selection
+	                         rows. Exactly one of these exists, ever.
+	  THE OVERRIDE ADAPTER   is never bound to the presenter and never attached to
+	                         any root, so no control on this page — or anywhere else
+	                         in the showcase — can reach it. The Custom row hands it
+	                         ONE cause through `bind`'s documented shape
+	                         ("something with an `onFeedback(fn) -> unsubscribe`"),
+	                         which is why the two can never both answer one gesture.
 
-	  REQUESTED           a pad is connected, it reports vibration support, and N
-	                      buttons are holding a press effect. NOT "played" — whether
-	                      a motor fired is unreadable from game code, so a human
-	                      has to close that gap.
-	  PLATFORM SAYS NO    a connected pad answers `false`, or this client cannot
-	                      construct `HapticEffect` at all. The engine's own words
-	                      are kept in the line.
-	  COULD NOT DETERMINE everything else, and it is NOT a failure: a phone has no
-	                      probe on the platform at all, and an absent gamepad
-	                      answers the same `false` as a motorless one. The line
-	                      still says whether the effects went out.
+	That is the whole reason a duplicate pulse is impossible here rather than
+	merely unobserved, and tests/control_feedback.spec.luau censuses the history
+	per input path — pointer/touch, keyboard, gamepad — rather than watching it.
 
-	`support()` is printed verbatim beside the headline — all five lattice values,
-	so a reviewer can argue with the conclusion rather than only with the word.
+	THE HISTORY IS THE DEMO. The last `HISTORY_LINES` requests, newest first: the
+	phase, the waveform's own name, what caused it, and whether the profile was a
+	built-in default or this example's override. It shows what was REQUESTED and
+	never that a motor moved. Bounded for the reason `lifecycle_hidden` bounds its
+	own: an unbounded log in a demo four input paths can hammer is a leak with a
+	nice name.
 
-	THE LOG IS BOUNDED TO `LOG_LINES` for the reason `lifecycle_hidden` bounds
-	its own: an unbounded event log is a Text that grows on every press, which is
-	the fixed-px-height defect wearing a different hat.
+	WHAT IS KEPT FROM THE OLD SURFACE, because it teaches a different thing: the
+	five identical-looking buttons that report four different verbs (and `Mute`,
+	which reports nothing and whose line therefore never appears), and the cascade
+	where ONE declaration on a panel reaches three controls including a nested pair.
+	WHAT IS GONE: the "Sensations" table of what an adapter *would* play, and the
+	calibration panel's phase table — both were maps of a thing the four rows now
+	actually do, and both were written-out copies that could drift. Every identity
+	on this page is now READ FROM THE INSTALLED ADAPTER, so there is nothing left to
+	drift.
 
 	NOTHING HERE IS FIXED AGAINST AN UNFIXED VIEWPORT: no panel declares a height,
 	the button rows WRAP rather than running off the edge, and the page scrolls.
 
 	TWO HOSTS MOUNT THIS FILE and only one of them runs steps (the pair
 	`lifecycle_hidden.luau` documents): the scenario runner drives `steps` by name,
-	and the showcase demo picker mounts it with a minimal ctx and no step ever
-	runs. Every button here is an ordinary control pressed by an ordinary press.
+	and the showcase demo picker mounts it with a minimal ctx and no step ever runs.
 ]]
 
--- how many press lines the log keeps. See the header.
-local LOG_LINES = 5
+-- how many request lines the history keeps. See the header.
+local HISTORY_LINES = 10
 
 --[[ EVERY PLAYER-VISIBLE STRING, in one table, EXPORTED as `copy` — the contract
 	`flow_wrap.luau` and `lifecycle_hidden.luau` carry, so the localization case in
 	tests/examples_gallery.spec.luau can re-run the whole fixture through a ~1.4x
 	pseudo-localizing expansion. Flat keys only: the pseudo-localizer walks values
-	and would throw on a nested table. ]]
+	and would throw on a nested table. Every branch is a WHOLE SENTENCE rather than
+	a fragment assembled at a call site, because a sentence stitched from three of
+	them expands in three places at once. ]]
 local COPY = {
-	title = "Sensory feedback, per control",
-	intro = "Five identical-looking buttons. Press them and watch what each one says happened.",
+	title = "Sensory feedback",
+	intro = "Facet reports what an interaction MEANT. A game decides what that feels like.",
+
+	-- ===== the panel that decides everything, and it is FIRST ==============
+	playToggle = "Haptics on this device",
+	playNote = "This demo turns haptics on for you.",
+	playLibrary = "Facet ships them off until a game asks.",
+	stateOffHeadline = "Off",
+	stateOff = "Nothing installed or claimed.",
+	stateRequestedHeadline = "On · installed",
+	requestedDetail = "Facet's own waveforms are in place.",
+	stateRefusedHeadline = "On · host declined",
+	refusedDetail = "The controls below still report what they meant.",
+	stateUnknownHeadline = "On · support unknown",
+	unknownDetail = "Roblox cannot tell whether this device has a motor.",
+	-- the evidence line: the lattice verbatim, so the conclusion can be argued with
+	supportPrefix = "support()",
+	decoratedSuffix = "buttons holding a press effect",
+	evidenceOff = "Nothing is installed, and nothing is claimed about this device.",
+	refusedNoMotor = "a gamepad IS connected and reports no vibration motor.",
+	refusedAbsent = "this client cannot construct a HapticEffect at all, so no route to a motor exists.",
+	unknownBlocked = "the engine refused for a reason that is not a missing motor, and this surface will not guess which.",
+	unknownNoProbe = "the effects went out and the engine is holding them; nothing on this platform can be asked whether they will be felt.",
+	unknownNoRoot = "no interface root could be reached, so no button was handed a press effect.",
+	unknownNothingDecorated = "a root was reached but no button under it took a press effect.",
+	unknownNoModule = "the haptics adapter could not be loaded on this host, so nothing was requested.",
+
+	-- ===== the four comparisons ===========================================
+	sourceBuiltIn = "built-in default",
+	sourceOverride = "custom (this example's override)",
+	pressTitle = "1 · Press",
+	pressLabel = "Press sample",
+	pressNote = "An ordinary control that declares nothing. The DOWN edge belongs to the engine, through the button's own press property, and what Facet hands it is the waveform below.",
+	statePressed = "pressed",
+	stateIdle = "not pressed",
+	releaseTitle = "2 · Release",
+	releaseLabel = "Release sample",
+	releaseNote = "The other end of the same interaction. Let go ON the control for the completed edge; press it, slide off and let go for the cancel — a press that was dragged away from never completes, so it is silent by construction.",
+	stateReleased = "released",
+	stateCancelled = "cancelled — the press never completed",
+	stateWaiting = "waiting for a press",
+	selectTitle = "3 · Selection",
+	selectLabel = "Picker",
+	selectNote = "A choice moves when the VALUE changes, which is the only moment the tick is asked for. Pick what is already picked and the history says so; hover has no cause in Facet's taxonomy at all, so there is nothing for it to fire.",
+	selectLow = "Soft",
+	selectMedium = "Medium",
+	selectStrong = "Strong",
+	customTitle = "4 · Custom",
+	customLabel = "Custom sample",
+	customNote = "This example hands the adapter a PARTIAL profile — one phase named, the other two left as Facet shipped them — through the same public seam a game uses. Nothing here builds an effect or reaches inside the adapter.",
+	customLonger = "Deliberately longer than anything Facet ships: the >= 0.3 peak and <= 34 ms budget are constraints on FACET'S defaults, not on a game's taste.",
+	phasePrefix = "asks for",
+
+	-- ===== the history ====================================================
+	historyTitle = "What was requested",
+	historyEmpty = "Nothing yet — press a control above.",
+	historyNote = "The last ten requests, newest first. A REQUEST, never a claim that a motor moved: whether a HapticEffect actually fired is not readable from game code.",
+	noRequest = "(no request)",
+	whyCancelled = "press did not complete",
+	whyUnchanged = "value unchanged",
+	whyOff = "haptics off",
+	requestsPrefix = "Requests",
+	causeCancelled = "cancelled",
+	causeAgain = "again",
+
+	-- ===== what is kept: the declaration forms and the cascade ============
 	declaredTitle = "Declared one by one",
 	buy = "Buy",
 	delete = "Delete",
 	pick = "Pick",
 	mute = "Mute",
 	plain = "Plain",
+	muteNote = "Mute declares `none`: it activates, and reports nothing. Its line never appears.",
 	cascadeTitle = "Declared once, on the panel",
 	cascadeNote = "One declaration on this panel. All three buttons inherit it — including the nested pair.",
 	first = "First",
 	second = "Second",
 	third = "Third",
-	logTitle = "What reached the feedback bus",
-	logEmpty = "Nothing yet — press a button.",
-	pressesPrefix = "Presses that reported something",
-	muteNote = "Mute declares `none`: it activates, and reports nothing. Its line never appears.",
-	sensationTitle = "What an opt-in haptics adapter would play",
-	playsNothing = "Facet itself plays nothing. Playback is one opt-in, default-OFF client adapter — the switch below installs it.",
-	silent = "(silent, on purpose)",
-	-- THE OPT-IN AND ITS REPORT (NM-G3). Every branch below is a whole sentence
-	-- rather than a fragment assembled at the call site, because the pseudo-
-	-- localizing pass in tests/examples_gallery.spec.luau walks these values and a
-	-- sentence stitched from three of them expands in three places at once.
-	playTitle = "Feel it on this device",
-	playToggle = "Play haptics on this device",
-	playNote = "Facet stays default-OFF, and this switch does not change that: it is the DEMO opting in, which is a different decision from the library opting in. It constructs the client adapter and hands it the same two seams a game does.",
-	stateOffHeadline = "Off",
-	stateOff = "Nothing is installed, and nothing is claimed about this device.",
-	stateRequestedHeadline = "Requested",
-	stateRefusedHeadline = "This platform says no",
-	stateUnknownHeadline = "Could not determine",
-	requestedDetail = "the press effects are with the engine, and a connected pad reports vibration support. Whether a motor actually fired is not readable from game code, so a human has to feel it and say.",
-	refusedNoMotor = "a gamepad IS connected and reports no vibration motor. Nothing will be felt here, and that is an answer rather than a fault.",
-	refusedAbsent = "this client cannot construct a HapticEffect at all, so no route to a motor exists.",
-	unknownBlocked = "the engine refused for some reason that is not a missing motor, and this surface will not guess which.",
-	unknownNoProbe = "the effects went out and the engine is holding them, but nothing on this platform can be asked whether they will be felt: touch has no probe at all, and a gamepad that is not connected answers exactly as a motorless one does. Press a button and judge with your hand.",
-	unknownNoRoot = "no interface root could be reached, so no button was handed a press effect and nothing was requested.",
-	unknownNothingDecorated = "a root was reached but no button under it took a press effect, so nothing was requested.",
-	unknownNoModule = "the haptics adapter could not be loaded on this host, so nothing was requested.",
-	supportPrefix = "support()",
-	decoratedSuffix = "buttons holding a press effect",
-	-- ===== the calibration panel (task 11) =================================
-	-- One row per PHASE, because the three fire at three different moments and a
-	-- device session has to be able to judge them one at a time. Every note is a
-	-- whole sentence for the pseudo-localization reason the header gives.
-	calibrationTitle = "Calibrate the three phases",
-	calibrationNote = "Turn the switch above on, then press each row and judge with your hand. Nothing here plays anything while it is off.",
-	calPress = "Press",
-	calPressNote = "The engine plays this one on the way DOWN, from the reference Facet handed the button — no game code fires it. The same press answers with the release waveform on the way UP, so hold it, drag off the button and let go to feel the down edge alone. That drag is also the cancellation proof: no completed activation, no sound.",
-	calRelease = "Release",
-	calReleaseNote = "A control that reports nothing of its own, driving one completed activation onto the bus: the release waveform, alone.",
-	calSelect = "Select",
-	calSelectNote = "One changed choice onto the bus: the select waveform, alone. Tap it fast — pulses closer together than the floor are DROPPED, never queued behind each other.",
-	-- THE HONEST LABEL (review F6). The Release and Select rows put a cause on the
-	-- bus DIRECTLY so each waveform can be judged with nothing else in the way;
-	-- that isolation is bought by skipping the real cause. The Press row is a plain
-	-- control taking the real path end to end, so it is the row that proves the
-	-- wiring rather than the waveform — and the count beside it is read off the
-	-- BUS, not off the button's handler, or it would only prove the button works.
-	calSynthNote = "Release and Select put their cause on the bus directly, so each waveform can be judged with nothing else in the way. Press is the row that proves the wiring: it is an ordinary control, and the count below is what actually reached the bus.",
-	heardPrefix = "Completed presses heard on the bus",
-	profileTitle = "Which profile is installed",
-	profileDefaults = "Facet defaults",
-	profileFallback = "Preset fallback",
-	profileSilent = "Silent",
-	profileNote = "The same three phases, three ways: Facet's own waveforms, the platform presets a client that cannot build a custom waveform falls back to, or nothing at all. Switching re-installs the adapter.",
-	profileCurrentPrefix = "Installed",
-	pulsePrefix = "Pulses this adapter played",
-	pulsePressNote = "press: the engine's, and no game code can read whether it fired",
-	phasesTitle = "The three phases and their waveforms",
+
 	unknowableTitle = "What no game code can read",
 	unknowable = "Whether a HapticEffect actually fired, and the player's own haptics strength — UserGameSettings.HapticStrength is RobloxScriptSecurity on read. Neither is a thing this screen can honestly claim, in either direction.",
 }
@@ -190,50 +212,60 @@ local DECLARED: { { id: string, copyKey: string, activation: string? } } = {
 	{ id = "Plain", copyKey = "plain", activation = nil },
 }
 
--- the verbs this surface can produce, and what a button declaring each one hands
--- the ENGINE for its press. WRITTEN OUT rather than derived, because a gallery
--- fixture may not require a client module — and pinned against
--- `haptics.pressSpecFor` by the headless suite, which is what keeps a written-out
--- table honest. `activate` (and an undeclared control) is the PRESS PHASE, which
--- is Facet's own `contact` waveform rather than a platform preset.
---
--- `select` HAS NO DOWN EDGE, and the `note` says why rather than letting an empty
--- cell read as an oversight: a choice moves when the VALUE changes, so the tick
--- belongs to the change and the press itself is answered by `settle` like any
--- other completed press.
-local SENSATION: { { verb: string, effect: string?, note: string? } } = {
-	{ verb = "commit", effect = "UIClick" },
-	{ verb = "reject", effect = "UINotification" },
-	{ verb = "select", effect = nil, note = "no down edge — the tick fires when the value changes" },
-	{ verb = "activate", effect = "contact" },
-}
+--[[ THIS EXAMPLE'S OWN WAVEFORM, and the whole of its reach into the framework:
+	a PARTIAL profile, handed to `haptics.new({ profile = … })` and resolved
+	against `sensory_profile.DEFAULTS`. One phase is named; `press` and `select`
+	are not, so they keep Facet's shipped waveforms — which is what a partial
+	profile is FOR, and is asserted rather than described
+	(tests/control_feedback.spec.luau).
 
--- THE THREE PHASES AND THEIR SHIPPED WAVEFORMS (`src/client/sensory_profile.luau`).
--- Written out for the same reason and pinned the same way. `owner` is the half a
--- reader cannot infer from the name: WHO decides the moment it fires.
-local PHASES: { { phase: string, effect: string, owner: string } } = {
-	{ phase = "press", effect = "contact", owner = "the engine, on the way down" },
-	{ phase = "release", effect = "settle", owner = "the bus, when the press completes" },
-	{ phase = "select", effect = "tick", owner = "the bus, when a choice changes" },
-}
+	OBVIOUSLY DISTINCT ON PURPOSE. Twice the length of `settle`, a two-stage rise
+	instead of one, and a peak between `contact`'s and `tick`'s: a hand can tell it
+	from the built-ins with no instruments. It is BOUNDED — 60 ms, written out —
+	and it deliberately runs past the <= 34 ms budget Facet holds its OWN defaults
+	to, because `sensory_profile.resolve` says in as many words that the budget
+	governs Facet's taste and not a game's. ]]
+local CUSTOM_WAVEFORM_NAME = "swell"
+local CUSTOM_PROFILE = table.freeze({
+	release = table.freeze({
+		kind = "custom",
+		name = CUSTOM_WAVEFORM_NAME,
+		keys = table.freeze({
+			table.freeze({ timeMs = 0, intensity = 0, mode = "Linear" }),
+			table.freeze({ timeMs = 14, intensity = 0.45, mode = "Linear" }),
+			table.freeze({ timeMs = 30, intensity = 0.85, mode = "Cubic" }),
+			table.freeze({ timeMs = 60, intensity = 0, mode = "Linear" }),
+		}),
+	}),
+})
 
--- ===== the opt-in's plumbing (NM-G3) =======================================
+-- ===== the opt-in's plumbing ===============================================
 -- THE THREE ANSWERS, as three values rather than one boolean. The lesson this
 -- shape comes from — docs/lessons/capability-probes-must-be-tri-state.md — was
--- written after a boolean probe published two false platform facts, and this
--- repository has since shipped a second collapsed instrument. So `refused` and
--- `undetermined` are separate states carrying separate sentences, and they are
--- named here so a caller cannot spell one of them differently.
+-- written after a boolean probe published two false platform facts, so `refused`
+-- and `undetermined` are separate states carrying separate sentences, and they
+-- are named here so a caller cannot spell one of them differently.
 local STATE_OFF = "off"
 local STATE_REQUESTED = "requested"
 local STATE_REFUSED = "refused"
 local STATE_UNDETERMINED = "undetermined"
 
--- the three profiles the calibration panel can install, named so a caller cannot
--- spell one of them differently
-local PROFILE_DEFAULTS = "defaults"
-local PROFILE_FALLBACK = "fallback"
-local PROFILE_SILENT = "silent"
+-- the three choices the Selection row offers, and the one it opens on
+local CHOICES: { { id: string, copyKey: string } } = {
+	{ id = "ChoiceSoft", copyKey = "selectLow" },
+	{ id = "ChoiceMedium", copyKey = "selectMedium" },
+	{ id = "ChoiceStrong", copyKey = "selectStrong" },
+}
+local FIRST_CHOICE = CHOICES[1].id
+-- id -> the COPY key that names it, so a history line and a readout print the
+-- LOCALIZED word rather than the node id the pseudo-localizing pass never sees
+local CHOICE_KEY: { [string]: string } = {}
+for _, option in CHOICES do
+	CHOICE_KEY[option.id] = option.copyKey
+end
+
+-- what a readout prints for a phase nothing is currently serving
+local NO_EFFECT = "—"
 
 export type Facts = {
 	-- did the adapter MODULE load at all? A host where it did not is a fact about
@@ -259,8 +291,8 @@ export type Facts = {
 	instead of turning into a claim about hardware.
 
 	It is deliberately NOT at module scope: a fixture that fails to require is a
-	demo the picker cannot mount at all, and this one has plenty to show with the
-	switch off. ]]
+	demo the picker cannot mount at all, and this one still has plenty to show when
+	the adapter cannot be reached. ]]
 local function resolveAdapterModule(): (any?, string?)
 	local reasons: { string } = {}
 	local engineOk, engineResult = pcall(function(): any
@@ -283,13 +315,13 @@ end
 --[[ ...and the root the press effects are handed to. `attachButtons` needs a real
 	Instance — that is the whole mechanism, since `GuiButton.PressHapticEffect` is
 	an assignable reference the ENGINE fires — and a scenario has no handle on the
-	ScreenGui the host presented it into. `PlayerGui` is the container that holds
-	it either way, and the same reach a sibling fixture already makes
+	ScreenGui the host presented it into. `PlayerGui` is the container that holds it
+	either way, and the same reach a sibling fixture already makes
 	(`theme_authoring.luau` walks it for the installed StyleSheet).
 
 	THE BREADTH IS DISCLOSED RATHER THAN NARROWED: while the switch is on, every
 	button on this client carries its declared press effect, chrome included. That
-	is what a device pass wants — press anything, feel whether this hardware does
+	is what a device pass wants — press anything, judge whether this hardware does
 	haptics at all — and `attachButtons` records per root, so switching off or
 	leaving the demo clears every one of them. ]]
 local function resolveUiRoot(): (any?, string?)
@@ -310,53 +342,59 @@ local function resolveUiRoot(): (any?, string?)
 	return nil, tostring(result)
 end
 
---[[ classify(facts) -> { state, headline, detail } — PURE, and the whole testable
-	part of this feature. A headless target cannot fire a motor and cannot read
-	whether one fired, so what is provable is the DECISION and the REPORTED STATE.
+--[[ classify(facts) -> { state, headline, detail, evidence } — PURE, and the whole
+	testable part of the report. A headless target cannot fire a motor and cannot
+	read whether one fired, so what is provable is the DECISION and the REPORTED
+	STATE.
 
 	THE ORDER OF THE BRANCHES IS THE ARGUMENT. A construction verdict outranks a
 	device one (the adapter's own rule: if the class cannot be built, what the pads
-	say is irrelevant), `blocked` is could-not-tell rather than no, and the two
-	"we never even asked" cases are separated from both so that a missing root
-	never reads as a hardware refusal. Every branch ends with `support()` printed
-	verbatim and the decorated count beside it, so the conclusion can be argued
-	with rather than only believed. ]]
-local function classify(facts: Facts): { state: string, headline: string, detail: string }
+	say is irrelevant), `blocked` is could-not-tell rather than no, and the two "we
+	never even asked" cases are separated from both so that a missing root never
+	reads as a hardware refusal.
+
+	`detail` IS THE PLAYER'S SENTENCE AND `evidence` IS THE REVIEWER'S. The detail
+	is one short line and sits inside the first viewport at every profile and text
+	preference; the evidence carries `support()` verbatim, the decorated count and
+	the engine's own words, and is allowed to be long and to sit below the fold. A
+	single field would have had to be one or the other. ]]
+local function classify(facts: Facts): { state: string, headline: string, detail: string, evidence: string }
 	local support = facts.support
 	local decorated = facts.decorated or 0
-	local function record(state: string, headline: string, sentence: string, raw: string?): any
+	local function record(state: string, headline: string, detail: string, why: string, raw: string?): any
 		local parts = {
-			sentence,
+			why,
 			`{COPY.supportPrefix} = {tostring(support or "—")}`,
 			`{decorated} {COPY.decoratedSuffix}`,
 		}
 		if raw ~= nil and raw ~= "" then
 			table.insert(parts, raw)
 		end
-		return { state = state, headline = headline, detail = table.concat(parts, " · ") }
+		return { state = state, headline = headline, detail = detail, evidence = table.concat(parts, " · ") }
 	end
+	local unknown = COPY.stateUnknownHeadline
 	if not facts.adapterLoaded then
-		return record(STATE_UNDETERMINED, COPY.stateUnknownHeadline, COPY.unknownNoModule, facts.moduleError)
+		return record(STATE_UNDETERMINED, unknown, COPY.unknownDetail, COPY.unknownNoModule, facts.moduleError)
 	end
 	if support == "absent" then
-		return record(STATE_REFUSED, COPY.stateRefusedHeadline, COPY.refusedAbsent, facts.lastError)
+		return record(STATE_REFUSED, COPY.stateRefusedHeadline, COPY.refusedDetail, COPY.refusedAbsent, facts.lastError)
 	end
 	if support == "unsupported" then
-		return record(STATE_REFUSED, COPY.stateRefusedHeadline, COPY.refusedNoMotor, nil)
+		return record(STATE_REFUSED, COPY.stateRefusedHeadline, COPY.refusedDetail, COPY.refusedNoMotor, nil)
 	end
 	if support == "blocked" then
-		return record(STATE_UNDETERMINED, COPY.stateUnknownHeadline, COPY.unknownBlocked, facts.lastError)
+		return record(STATE_UNDETERMINED, unknown, COPY.unknownDetail, COPY.unknownBlocked, facts.lastError)
 	end
 	if facts.rootError ~= nil then
-		return record(STATE_UNDETERMINED, COPY.stateUnknownHeadline, COPY.unknownNoRoot, facts.rootError)
+		return record(STATE_UNDETERMINED, unknown, COPY.unknownDetail, COPY.unknownNoRoot, facts.rootError)
 	end
 	if decorated == 0 then
-		return record(STATE_UNDETERMINED, COPY.stateUnknownHeadline, COPY.unknownNothingDecorated, facts.lastError)
+		return record(STATE_UNDETERMINED, unknown, COPY.unknownDetail, COPY.unknownNothingDecorated, facts.lastError)
 	end
 	if support == "supported" then
-		return record(STATE_REQUESTED, COPY.stateRequestedHeadline, COPY.requestedDetail, nil)
+		return record(STATE_REQUESTED, COPY.stateRequestedHeadline, COPY.requestedDetail, COPY.unknownNoProbe, nil)
 	end
-	return record(STATE_UNDETERMINED, COPY.stateUnknownHeadline, COPY.unknownNoProbe, nil)
+	return record(STATE_UNDETERMINED, unknown, COPY.unknownDetail, COPY.unknownNoProbe, nil)
 end
 
 return {
@@ -370,84 +408,141 @@ return {
 		refused = STATE_REFUSED,
 		undetermined = STATE_UNDETERMINED,
 	}),
-	logLines = LOG_LINES,
+	historyLines = HISTORY_LINES,
 	declared = DECLARED,
-	sensation = SENSATION,
-	phases = PHASES,
-	profiles = table.freeze({
-		defaults = PROFILE_DEFAULTS,
-		fallback = PROFILE_FALLBACK,
-		silent = PROFILE_SILENT,
-	}),
+	choices = CHOICES,
+	-- the example's override, exported so a test can pin the identity it produces
+	-- against the one it declared rather than believing the screen
+	customProfile = CUSTOM_PROFILE,
+	customWaveform = CUSTOM_WAVEFORM_NAME,
+
 	build = function(ctx: any)
 		local Facet = ctx.Facet
 		local UI = Facet.UI
 		local core = ctx.core
 		local scope = core:scope("sensory-feedback")
 
-		local logText = scope:own(core:signal(COPY.logEmpty))
-		local reported = scope:own(core:signal(0))
-		local lines: { string } = {}
-
-		-- ===== the opt-in (NM-G3) ==========================================
-		-- DEFAULT FALSE, exactly like the adapter it installs.
-		local playHaptics = scope:own(core:signal(false))
+		-- ===== the report the panel at the top publishes ===================
+		-- DEFAULT TRUE. This is the DEMO opting in — see the header — and it is the
+		-- one line of this file that a reader must not confuse with the library's
+		-- own posture.
+		local playHaptics = scope:own(core:signal(true))
 		local hapticsState = scope:own(core:signal(STATE_OFF))
 		local hapticsHeadline = scope:own(core:signal(COPY.stateOffHeadline))
 		local hapticsDetail = scope:own(core:signal(COPY.stateOff))
+		local hapticsEvidence = scope:own(core:signal(COPY.evidenceOff))
 
-		-- ===== the calibration panel (task 11) =============================
-		-- WHICH PROFILE, and what the adapter has actually played. Both are signals
-		-- the panel reads and the steps below publish, so a Studio session, a device
-		-- session and the headless suite all read the same numbers.
-		local profileChoice = scope:own(core:signal(PROFILE_DEFAULTS))
-		local pulseLine = scope:own(core:signal(`{COPY.pulsePrefix}: 0`))
+		-- ===== the four rows' live readouts ================================
+		local historyText = scope:own(core:signal(COPY.historyEmpty))
+		local requests = scope:own(core:signal(0))
+		local heldPath = scope:own(core:signal(""))
+		local releaseOutcome = scope:own(core:signal(COPY.stateWaiting))
+		local choice = scope:own(core:signal(FIRST_CHOICE))
+		-- the waveform each phase is CURRENTLY serving, read off the installed
+		-- adapters rather than written out here. A written-out table is the shape
+		-- that drifts into fiction; there is nothing left on this page to drift.
+		local pressEffect = scope:own(core:signal(NO_EFFECT))
+		local releaseEffect = scope:own(core:signal(NO_EFFECT))
+		local selectEffect = scope:own(core:signal(NO_EFFECT))
+		local customEffect = scope:own(core:signal(NO_EFFECT))
 
-		-- the live adapter, and the two releases it handed back
+		local history: { string } = {}
+
+		-- the two adapters, and the releases they handed back. See the header for
+		-- why there are two and why only one of them can hear a control.
 		local hap: any = nil
+		local customHap: any = nil
 		local unbindHaptics: (() -> ())? = nil
+		local unbindCustom: (() -> ())? = nil
 		local detachHaptics: (() -> ())? = nil
+		local adapterModule: any = nil
 		local rootError: string? = nil
 		local moduleError: string? = nil
 		local installed = false
 		local teardown = false
 		--[[ THE ONE SEAM, and its DEFAULT is what both shipped hosts run. A test
-			hands in a scripted engine (a module, a root, and the adapter's own four
+			hands in a scripted engine (a module, a root, and the adapter's own
 			injection options) so all three states can be driven with no hardware;
 			with nothing handed in, `install` takes the real routes — which is what
-			makes "with NOTHING injected it still installs" a test of the shipped
-			path rather than of the rig. Named `scriptedEngine` and not `deps`
-			because that is all it may ever be: it never changes the DECISION, only
-			where the facts come from. ]]
+			makes "with NOTHING injected it still installs" a test of the shipped path
+			rather than of the rig. Named `scriptedEngine` and not `deps` because that
+			is all it may ever be: it never changes the DECISION, only where the facts
+			come from. ]]
 		local scriptedEngine: any = nil
 
-		--[[ WHAT THE ADAPTER HAS PLAYED, per phase, read off its own diagnostics.
+		--[[ THE OVERRIDE ADAPTER'S ONLY WAY IN, and the reason a duplicate pulse is
+			impossible rather than merely unobserved. `bind` documents what it takes:
+			"something with an `onFeedback(fn) -> unsubscribe` — a presenter, or a
+			presented handle for one surface only". This is that shape and nothing
+			more: one list, one push, no engine, no framework internal. Nothing on the
+			presenter's bus can reach it, so the Custom row's cause is the ONLY cause
+			the override adapter will ever answer. ]]
+		local customSinks: { (any) -> () } = {}
+		local customBus = {
+			onFeedback = function(fn: (any) -> ()): () -> ()
+				table.insert(customSinks, fn)
+				return function()
+					local index = table.find(customSinks, fn)
+					if index ~= nil then
+						table.remove(customSinks, index)
+					end
+				end
+			end,
+		}
 
-			THE PRESS ROW IS DELIBERATELY NOT A NUMBER. Facet hands the button a
-			reference and the ENGINE fires it, so nothing in game code can count that
-			pulse or even know it happened — printing a 0 there would read as "the
-			press never fired" when what it means is "nobody can see". The sentence is
-			the honest instrument. ]]
-		local function publishPulses()
+		-- ===== the history =================================================
+		local function pushLine(line: string)
 			if teardown then
 				return
 			end
-			if hap == nil then
-				pulseLine:set(`{COPY.pulsePrefix}: 0 · {COPY.pulsePressNote}`)
+			-- NEWEST FIRST, and BOUNDED: four input paths can hammer this surface,
+			-- and an unbounded log is a Text that grows on every press.
+			table.insert(history, 1, line)
+			while #history > HISTORY_LINES do
+				table.remove(history)
+			end
+			historyText:set(table.concat(history, "\n"))
+		end
+
+		local function noteRequest(phase: string, effect: string?, cause: string, source: string)
+			if effect == nil or effect == NO_EFFECT then
+				-- nothing is installed, or this game silenced the phase: an absence is
+				-- invisible until something says it was deliberate
+				pushLine(`{COPY.noRequest} · {cause} · {COPY.whyOff}`)
 				return
 			end
-			local ok, diagnostics = pcall(hap.diagnostics)
+			pushLine(`{phase} {effect} · {cause} · {source}`)
+			requests:set(requests:get() + 1)
+		end
+
+		local function noteNothing(cause: string, why: string)
+			pushLine(`{COPY.noRequest} · {cause} · {why}`)
+		end
+
+		-- ===== what the adapters are currently serving =====================
+		local function phaseOf(handle: any, phase: string): string?
+			if handle == nil then
+				return nil
+			end
+			local ok, diagnostics = pcall(handle.diagnostics)
 			if not ok or diagnostics == nil then
-				pulseLine:set(`{COPY.pulsePrefix}: 0 · {COPY.pulsePressNote}`)
+				return nil
+			end
+			local phases: any = diagnostics.phases
+			if phases == nil or phases[phase] == nil then
+				return nil
+			end
+			return phases[phase].effect
+		end
+
+		local function publishPhases()
+			if teardown then
 				return
 			end
-			local phases: any = diagnostics.phases or {}
-			local release = if phases.release ~= nil then phases.release.plays else 0
-			local select_ = if phases.select ~= nil then phases.select.plays else 0
-			pulseLine:set(
-				`{COPY.pulsePrefix}: {diagnostics.plays} · release {release} · select {select_} · `
-					.. `{COPY.heardPrefix}: {reported:get()} · {COPY.pulsePressNote}`
-			)
+			pressEffect:set(phaseOf(hap, "press") or NO_EFFECT)
+			releaseEffect:set(phaseOf(hap, "release") or NO_EFFECT)
+			selectEffect:set(phaseOf(hap, "select") or NO_EFFECT)
+			customEffect:set(phaseOf(customHap, "release") or NO_EFFECT)
 		end
 
 		local function publish()
@@ -458,6 +553,7 @@ return {
 				hapticsState:set(STATE_OFF)
 				hapticsHeadline:set(COPY.stateOffHeadline)
 				hapticsDetail:set(COPY.stateOff)
+				hapticsEvidence:set(COPY.evidenceOff)
 				return
 			end
 			local facts: Facts
@@ -477,91 +573,72 @@ return {
 			hapticsState:set(verdict.state)
 			hapticsHeadline:set(verdict.headline)
 			hapticsDetail:set(verdict.detail)
+			hapticsEvidence:set(verdict.evidence)
 		end
 
 		-- PUTTING IT AWAY IS THE PATH THAT HAS TO BE AIRTIGHT (the adapter's own
 		-- header says so): `dispose` stops every effect, destroys it, and clears
 		-- every `PressHapticEffect` this adapter assigned. Dropping the reference
-		-- would end none of that.
+		-- would end none of that — and there are TWO adapters here, so both go.
 		local function release()
-			if unbindHaptics ~= nil then
-				pcall(unbindHaptics)
-				unbindHaptics = nil
+			for _, undo in { unbindHaptics, unbindCustom, detachHaptics } do
+				if undo ~= nil then
+					pcall(undo)
+				end
 			end
-			if detachHaptics ~= nil then
-				pcall(detachHaptics)
-				detachHaptics = nil
+			unbindHaptics, unbindCustom, detachHaptics = nil, nil, nil
+			for _, handle in { hap, customHap } do
+				if handle ~= nil then
+					pcall(handle.dispose)
+				end
 			end
-			if hap ~= nil then
-				pcall(hap.dispose)
-				hap = nil
-			end
+			hap, customHap = nil, nil
+			adapterModule = nil
 			rootError = nil
 			moduleError = nil
 			installed = false
 			publish()
-			publishPulses()
-		end
-
-		--[[ THE THREE PROFILES, built from the adapter module's OWN
-			`sensory_profile` rather than from a copy of its numbers here. The fallback
-			arm names the presets `sensory_profile.FALLBACK` names — so if that
-			limitation ever changes, this panel changes with it instead of quietly
-			demonstrating the old one. ]]
-		local function profileOption(adapterModule: any): any?
-			local choice = profileChoice:get()
-			if choice == PROFILE_DEFAULTS then
-				return nil
-			end
-			local sp = adapterModule ~= nil and adapterModule.sensoryProfile or nil
-			if sp == nil then
-				return nil
-			end
-			if choice == PROFILE_SILENT then
-				return {
-					press = { kind = "silent" },
-					release = { kind = "silent" },
-					select = { kind = "silent" },
-				}
-			end
-			return {
-				press = { kind = "preset", effect = sp.FALLBACK.press },
-				release = { kind = "preset", effect = sp.FALLBACK.release },
-				select = { kind = "preset", effect = sp.FALLBACK.select },
-			}
+			publishPhases()
 		end
 
 		local function install()
+			-- IDEMPOTENT BY CONSTRUCTION: every path in releases first, so a third
+			-- toggle cannot leave a second adapter behind. A second adapter is
+			-- invisible until something fires twice, and by then the cause is several
+			-- interactions in the past.
 			release()
 			installed = true
 			local given: any = scriptedEngine or {}
-			local adapterModule: any = given.module
+			local module: any = given.module
 			moduleError = given.moduleError
-			if adapterModule == nil and moduleError == nil then
-				adapterModule, moduleError = resolveAdapterModule()
+			if module == nil and moduleError == nil then
+				module, moduleError = resolveAdapterModule()
 			end
-			if adapterModule == nil then
+			if module == nil then
 				publish()
+				publishPhases()
 				return
 			end
+			adapterModule = module
+
+			-- THE INSTALLED ADAPTER: Facet's own defaults, no profile argument at all.
 			local options: any = table.clone(given.options or {})
 			options.enabled = true
-			if options.profile == nil then
-				options.profile = profileOption(adapterModule)
-			end
-			local madeOk, made = pcall(adapterModule.new, options)
+			options.profile = nil
+			local madeOk, made = pcall(module.new, options)
 			if not madeOk or made == nil then
 				-- a module that exists and will not construct is still a fact about
 				-- this HOST, never about the hardware
 				moduleError = `haptics.new refused this host: {tostring(made)}`
+				adapterModule = nil
 				publish()
+				publishPhases()
 				return
 			end
 			hap = made
-			-- THE BUS SEAM, wired because a game wires it. Since task 11 it is no
-			-- longer inert for this surface: an activation's DOWN edge still belongs
-			-- to the button's own press property, but its COMPLETED edge is the
-			-- release phase and arrives here.
+			-- THE BUS SEAM, wired because a game wires it: a control's DOWN edge
+			-- belongs to the button's own press property, and its COMPLETED edge is
+			-- the release phase and arrives here.
 			local presenter = ctx.presenter
 			if presenter ~= nil and type(presenter.onFeedback) == "function" then
 				unbindHaptics = hap.bind(presenter)
@@ -574,8 +651,21 @@ return {
 			if root ~= nil then
 				detachHaptics = hap.attachButtons(root)
 			end
+
+			-- THE OVERRIDE ADAPTER: the same module, the same host, one PARTIAL
+			-- profile, and neither of the two seams a control can reach. See the
+			-- header for why it exists and why it cannot double-pulse.
+			local customOptions: any = table.clone(given.options or {})
+			customOptions.enabled = true
+			customOptions.profile = CUSTOM_PROFILE
+			local customOk, customMade = pcall(module.new, customOptions)
+			if customOk and customMade ~= nil then
+				customHap = customMade
+				unbindCustom = customHap.bind(customBus)
+			end
+
 			publish()
-			publishPulses()
+			publishPhases()
 		end
 
 		scope:own(core:observe(playHaptics, function(on: any)
@@ -589,121 +679,255 @@ return {
 		scope:own(function()
 			teardown = true
 			release()
+			table.clear(customSinks)
 		end)
+		-- ...AND THE FIRST INSTALL IS EXPLICIT. `core:observe` baselines on the
+		-- signal's CURRENT value and fires only for changes, so a default of `true`
+		-- would otherwise be a switch that reads on and installed nothing — the
+		-- exact "it says it is on and does nothing" defect this rework exists to end.
+		install()
 
-		-- THE BUS IS THE DEMO. Subscribing here — at build, on the presenter the
-		-- host handed us — is the same one line a game writes, and it is the only
-		-- place this fixture learns anything: no control calls back into it.
+		--[[ WHICH CONTROL A PATH IS, in the player's own words. The whole path is the
+			truth, but a phone's history column is 40 characters wide, so the line
+			carries the LAST segment mapped back through `COPY` — which keeps it
+			localized under the pseudo-localizing pass instead of printing an id. ]]
+		local LABELS: { [string]: string } = {
+			PressSample = COPY.pressLabel,
+			ReleaseSample = COPY.releaseLabel,
+			CustomSample = COPY.customLabel,
+			Choice = COPY.selectLabel,
+		}
+		for _, entry in DECLARED do
+			LABELS[entry.id] = COPY[entry.copyKey]
+		end
+		local function causeOf(path: string): string
+			local leaf = string.match(path, "([^/]+)$") or path
+			return LABELS[leaf] or leaf
+		end
+
+		--[[ IS THIS VERB FELT AT ALL — asked of the adapter module rather than
+			answered here. `none` and the four verbs the map deliberately silences are
+			unfelt on BOTH edges, and a fixture that re-implemented that rule would be
+			demonstrating its own copy of it. With no module reachable the question is
+			moot: nothing is installed, so nothing is requested either way. ]]
+		local function activationIsFelt(verb: string): boolean
+			if adapterModule == nil or type(adapterModule.activationIsFelt) ~= "function" then
+				return true
+			end
+			local ok, felt = pcall(adapterModule.activationIsFelt, verb)
+			return not ok or felt == true
+		end
+
+		-- THE BUS IS THE DEMO. Subscribing here — at build, on the presenter the host
+		-- handed us — is the same one line a game writes, and it is the only place
+		-- this fixture learns what a control did: no control calls back into it.
 		local presenter = ctx.presenter
 		if presenter ~= nil and type(presenter.onFeedback) == "function" then
 			scope:own(presenter.onFeedback(function(event: any)
-				-- only this surface's own presses. `reason` is what the presenter
-				-- stamps on a control activation, so a toast retiring somewhere else
-				-- in the showcase cannot write a line here.
-				if event.reason ~= "activation" then
-					return
-				end
 				local path = tostring(event.path)
+				-- only THIS surface's own controls. The showcase presents its chrome
+				-- and its demo on one presenter, so every chip-strip press is an
+				-- activation this subscriber would otherwise write a line for.
 				if string.find(path, "/SensoryFeedback", 1, true) ~= 1 then
 					return
 				end
-				-- the LAST path segment: the whole path is the truth but a phone's
-				-- log column is 40 characters wide
-				local leaf = string.match(path, "([^/]+)$") or path
-				table.insert(lines, `{event.type}  ←  {leaf}`)
-				while #lines > LOG_LINES do
-					table.remove(lines, 1)
+				local verb = tostring(event.type)
+				local cause = causeOf(path)
+				if event.reason == "activation" then
+					-- A COMPLETED ACTIVATION IS THE RELEASE PHASE'S, whatever verb it
+					-- names — and the verb is kept in the line because the five leaves
+					-- below exist to show that four of them report four different
+					-- things through one identical-looking press.
+					if not activationIsFelt(verb) then
+						return
+					end
+					noteRequest("release", releaseEffect:get(), `{cause} → {verb}`, COPY.sourceBuiltIn)
+				elseif verb == "select" or verb == "adjust" then
+					local picked = choice:get()
+					local named = COPY[CHOICE_KEY[picked] or ""] or picked
+					noteRequest("select", selectEffect:get(), `{cause} → {named}`, COPY.sourceBuiltIn)
 				end
-				logText:set(table.concat(lines, "\n"))
-				reported:set(reported:get() + 1)
 				-- ...AND RE-READ THE ADAPTER. `support()` is not a boot fact: it is
 				-- re-probed on every gamepad connect/disconnect, so a pad plugged in
-				-- after the switch went on changes the answer while this surface
-				-- would still be showing the old one. A press is the moment the
-				-- reader is looking, which makes it the moment to re-read; it costs
-				-- one early return while nothing is installed.
+				-- after the switch went on changes the answer while this surface would
+				-- still be showing the old one. A press is the moment the reader is
+				-- looking, which makes it the moment to re-read.
 				publish()
-				publishPulses()
+				publishPhases()
 			end))
 		end
 
-		local counts = scope:own(core:memo(function(use)
-			return `{COPY.pressesPrefix}: {use(reported)}`
-		end))
+		-- ===== the four rows' drivers ======================================
+		--[[ THE DOWN EDGE, WATCHED WHERE IT ACTUALLY HAPPENS. The press phase is the
+			ENGINE's — Facet hands the button a reference and never calls Play on it —
+			so nothing in game code can COUNT that pulse. What game code can see is the
+			moment the engine plays it, which is the pointer going down on the control,
+			and that is what the line records: a REQUEST, at the instant it is made.
 
-		--[[ ===== the calibration panel's three drivers ======================
-			The RELEASE and SELECT phases are the BUS's, so a control that reports
-			nothing of its own can put exactly one of their causes onto the bus and
-			nothing else — which is how each is judged alone. The PRESS phase has no
-			driver here and cannot have one: Facet hands the engine a reference and the
-			engine decides the moment. Pressing the row IS the driver. ]]
-		local function emit(event: any)
-			local presenter = ctx.presenter
-			if presenter == nil or type(presenter.emitFeedback) ~= "function" then
+			A KEY OR A PAD HAS NO SEPARATE DOWN MOMENT. The IAS `Activate` action
+			resolves on the way down, so the completion arrives in the same instant the
+			engine would play the press — which is why the adapter collapses the pair
+			(`SAME_INSTANT_SECONDS`) and why this row writes no press line for them.
+			Claiming two requests where the platform may have made one would be the
+			duplicate this whole surface is built to rule out. ]]
+		local function samplePointerDown(path: string): any
+			heldPath:set(path)
+			releaseOutcome:set(COPY.statePressed)
+			noteRequest("press", pressEffect:get(), causeOf(path), COPY.sourceBuiltIn)
+			return nil
+		end
+
+		local function inside(rect: any, pos: any): boolean
+			if rect == nil or pos == nil then
+				return false
+			end
+			return pos.x >= rect.x and pos.x <= rect.x + rect.w and pos.y >= rect.y and pos.y <= rect.y + rect.h
+		end
+
+		--[[ THE CANCEL, AND IT IS DECIDED AT THE RELEASE POINT rather than inferred
+			from a silence. The rect is re-read through the `rectOf` the renderer hands
+			every pointer handler — never a rect captured when the press began — for
+			the reason this repository wrote down once already: a page that scrolls
+			under a live gesture moves the control, and a stale rect answers about
+			where it used to be. ]]
+		local function samplePointerUp(path: string, pos: any, rectOf: (string) -> any)
+			heldPath:set("")
+			if inside(rectOf(path), pos) then
+				-- a completed press: the activation is about to arrive on the bus, and
+				-- IT is what writes the release line
+				releaseOutcome:set(COPY.stateReleased)
 				return
 			end
-			pcall(presenter.emitFeedback, event)
-			publishPulses()
+			releaseOutcome:set(COPY.stateCancelled)
+			noteNothing(`{causeOf(path)}, {COPY.causeCancelled}`, COPY.whyCancelled)
 		end
 
-		local function fireRelease()
-			emit({ type = "activate", path = "/SensoryFeedback/Page/Calibration/CalRelease", reason = "activation" })
+		local function samplePointerCancel(path: string): any
+			heldPath:set("")
+			releaseOutcome:set(COPY.stateCancelled)
+			noteNothing(`{causeOf(path)}, {COPY.causeCancelled}`, COPY.whyCancelled)
+			return nil
 		end
 
-		local function fireSelect()
-			emit({ type = "select", path = "/SensoryFeedback/Page/Calibration/CalSelect" })
-		end
-
-		local function chooseProfile(choice: string)
-			if profileChoice:get() == choice then
+		--[[ A CHOICE MOVES WHEN THE VALUE CHANGES, and this is the only place that
+			decides it. Writing the value that is already there would be a no-op the
+			player cannot see, so the no-op is written down instead: the absence
+			becomes evidence rather than an unexplained silence. ]]
+		local function choose(id: string)
+			if choice:get() == id then
+				local named = COPY[CHOICE_KEY[id] or ""] or id
+				noteNothing(`{COPY.selectLabel} → {named} {COPY.causeAgain}`, COPY.whyUnchanged)
 				return
 			end
-			profileChoice:set(choice)
-			-- take effect NOW rather than at the next toggle: a selector that needs a
-			-- second gesture to mean anything is a selector a device pass mistrusts
-			if installed then
-				install()
-			end
-			publishPulses()
+			choice:set(id)
 		end
 
-		local profileLine = scope:own(core:memo(function(use)
-			local choice = use(profileChoice)
-			local label = COPY.profileDefaults
-			if choice == PROFILE_FALLBACK then
-				label = COPY.profileFallback
-			elseif choice == PROFILE_SILENT then
-				label = COPY.profileSilent
+		--[[ THE CUSTOM ROW'S ONE CAUSE. It goes to the override adapter's private bus
+			and nowhere else — the control itself declares `activation = "none"`, so
+			the presenter emits nothing for it and the INSTALLED adapter never hears
+			the press at all. One gesture, one request, and no arithmetic needed to
+			believe it. ]]
+		local function playCustom()
+			local effect = customEffect:get()
+			if customHap == nil or effect == NO_EFFECT then
+				noteNothing(COPY.customLabel, COPY.whyOff)
+				return
 			end
-			return `{COPY.profileCurrentPrefix}: {label}`
-		end))
+			for _, sink in table.clone(customSinks) do
+				pcall(sink, {
+					type = "activate",
+					path = "/SensoryFeedback/Page/CustomRow/CustomSample",
+					reason = "activation",
+				})
+			end
+			noteRequest("release", effect, COPY.customLabel, COPY.sourceOverride)
+		end
 
-		local function profileButton(id: string, copyKey: string, choice: string): any
+		-- ===== the tree ====================================================
+		local function caption(id: string, text: any, secondary: boolean?): any
+			return UI.Text({
+				id = id,
+				text = text,
+				textSize = "caption",
+				role = if secondary == true then "secondary" else nil,
+			})
+		end
+
+		local function sampleButton(id: string, label: string): any
 			return UI.Button({
 				id = id,
-				label = COPY[copyKey],
+				label = label,
 				surface = "chip",
-				onActivate = function()
-					chooseProfile(choice)
+				onPointerDown = function(path: string): any
+					return samplePointerDown(path)
+				end,
+				onPointerUp = samplePointerUp,
+				onPointerCancel = function(path: string): any
+					return samplePointerCancel(path)
 				end,
 			})
 		end
 
-		local phaseRows: { any } = {}
-		for i, row in PHASES do
+		local pressLine = scope:own(core:memo(function(use)
+			return `{COPY.phasePrefix} press → {use(pressEffect)} · {COPY.sourceBuiltIn}`
+		end))
+		local releaseLine = scope:own(core:memo(function(use)
+			return `{COPY.phasePrefix} release → {use(releaseEffect)} · {COPY.sourceBuiltIn}`
+		end))
+		local selectLine = scope:own(core:memo(function(use)
+			return `{COPY.phasePrefix} select → {use(selectEffect)} · {COPY.sourceBuiltIn}`
+		end))
+		local customLine = scope:own(core:memo(function(use)
+			return `{COPY.phasePrefix} release → {use(customEffect)} · {COPY.sourceOverride}`
+		end))
+		local pressState = scope:own(core:memo(function(use)
+			return if use(heldPath) ~= "" then COPY.statePressed else COPY.stateIdle
+		end))
+		local statusLine = scope:own(core:memo(function(use)
+			return `{use(hapticsHeadline)} · {use(hapticsDetail)}`
+		end))
+		local requestLine = scope:own(core:memo(function(use)
+			return `{COPY.requestsPrefix}: {use(requests)}`
+		end))
+		local choiceLine = scope:own(core:memo(function(use)
+			local id = use(choice)
+			return `{COPY.selectLabel}: {COPY[CHOICE_KEY[id] or ""] or id}`
+		end))
+
+		local optionButtons: { any } = {}
+		for _, option in CHOICES do
+			local id = option.id
 			table.insert(
-				phaseRows,
-				UI.Text({
-					id = `Phase{i}`,
-					text = `{row.phase} → {row.effect} — {row.owner}`,
-					textSize = "caption",
-					role = "secondary",
+				optionButtons,
+				UI.Button({
+					id = id,
+					label = COPY[option.copyKey],
+					surface = "chip",
+					selected = scope:own(core:memo(function(use)
+						return use(choice) == id
+					end)),
+					onActivate = function()
+						choose(id)
+					end,
 				})
 			)
 		end
 
-		-- one button, declared or not. The ONLY difference between these five is
-		-- the modifier — same class, same surface, same label treatment.
+		--[[ BOTH FORMS OF ONE MODIFIER, ON ONE NODE, and they compose because they
+			describe two different causes. The CHANGE form fires when the value moves,
+			which is the tick; `activation = "none"` silences each option's OWN press,
+			so the row's only sensation is the choice moving — which is what makes it a
+			comparison rather than a pile. ]]
+		local choiceGroup = UI.sensoryFeedback(
+			UI.sensoryFeedback(
+				UI.HStack({ id = "Choice", wrap = true, gap = "tight", children = optionButtons }),
+				{ trigger = choice, event = "select" }
+			),
+			{ activation = "none" }
+		)
+
+		-- one button, declared or not. The ONLY difference between these five is the
+		-- modifier — same class, same surface, same label treatment.
 		local function declaredButton(entry: { id: string, copyKey: string, activation: string? }): any
 			local button = UI.Button({ id = entry.id, label = COPY[entry.copyKey], surface = "chip" })
 			if entry.activation == nil then
@@ -717,17 +941,15 @@ return {
 			table.insert(leafButtons, declaredButton(entry))
 		end
 
-		local sensationRows: { any } = {}
-		for i, row in SENSATION do
-			table.insert(
-				sensationRows,
-				UI.Text({
-					id = `Sensation{i}`,
-					text = `{row.verb} → {row.effect or row.note or COPY.silent}`,
-					textSize = "caption",
-					role = "secondary",
-				})
-			)
+		local function panel(id: string, children: { any }): any
+			return UI.VStack({
+				id = id,
+				surface = "control",
+				padding = "s",
+				gap = "tight",
+				width = UI.fill(),
+				children = children,
+			})
 		end
 
 		local screen = UI.Screen({
@@ -735,11 +957,13 @@ return {
 			padding = 12,
 			gap = "s",
 			children = {
-				-- THE PAGE SCROLLS, for the reason every fixture here does: two
-				-- panels, a log and a table do not fit the ~200px a 640x320 landscape
-				-- phone has left once the showcase reserves its chip strip, and content
-				-- that overflows with nothing to scroll it is this repo's named
-				-- recurring defect.
+				-- THE PAGE SCROLLS, for the reason every fixture here does: four
+				-- comparison panels, a history and two kept panels do not fit the
+				-- ~200px a 640x320 landscape phone has left once the showcase reserves
+				-- its chip strip, and content that overflows with nothing to scroll it
+				-- is this repo's named recurring defect. What must fit WITHOUT
+				-- scrolling is the title, the sentence and the haptics panel — proved
+				-- from solved rects, per profile, at Largest text.
 				UI.ScrollView({
 					id = "Page",
 					axis = "y",
@@ -748,234 +972,121 @@ return {
 					height = UI.fill(),
 					children = {
 						UI.Text({ id = "Title", text = COPY.title, textSize = "control" }),
-						UI.Text({ id = "Intro", text = COPY.intro, textSize = "caption", role = "secondary" }),
-						UI.VStack({
-							id = "Leaves",
-							surface = "control",
-							padding = "s",
-							gap = "tight",
-							width = UI.fill(),
-							children = {
-								UI.Text({ id = "LeavesTitle", text = COPY.declaredTitle, textSize = "caption" }),
-								-- WRAPS. Five chips at the Largest text preference, pseudo-
-								-- localized, do not fit one line on a 320px phone, and a row
-								-- that cannot wrap walks off the right edge of its own box.
-								UI.HStack({ id = "LeafRow", wrap = true, gap = "tight", children = leafButtons }),
-								UI.Text({
-									id = "MuteNote",
-									text = COPY.muteNote,
-									textSize = "caption",
-									role = "secondary",
-								}),
-							},
+						caption("Intro", COPY.intro, true),
+						--[[ FIRST, AND ON. The toggle, the one-line status and the
+							short explanation are the three things the first viewport has
+							to hold; the evidence line under them may fall below the fold
+							and is allowed to grow, because the engine's own error text is
+							appended to it and a refusal in a pseudo-localized package is
+							longer than any budget worth declaring. ]]
+						panel("Haptics", {
+							UI.Toggle({ id = "PlayHaptics", label = COPY.playToggle, value = playHaptics }),
+							caption("PlayState", statusLine),
+							caption("PlayNote", COPY.playNote, true),
+							caption("PlayLibrary", COPY.playLibrary, true),
+							caption("PlayEvidence", hapticsEvidence, true),
+						}),
+						panel("PressRow", {
+							caption("PressTitle", COPY.pressTitle),
+							UI.HStack({
+								id = "PressControls",
+								wrap = true,
+								gap = "tight",
+								children = { sampleButton("PressSample", COPY.pressLabel) },
+							}),
+							caption("PressState", pressState),
+							caption("PressPhase", pressLine),
+							caption("PressNote", COPY.pressNote, true),
+						}),
+						panel("ReleaseRow", {
+							caption("ReleaseTitle", COPY.releaseTitle),
+							UI.HStack({
+								id = "ReleaseControls",
+								wrap = true,
+								gap = "tight",
+								children = { sampleButton("ReleaseSample", COPY.releaseLabel) },
+							}),
+							caption("ReleaseState", releaseOutcome),
+							caption("ReleasePhase", releaseLine),
+							caption("ReleaseNote", COPY.releaseNote, true),
+						}),
+						panel("SelectRow", {
+							caption("SelectTitle", COPY.selectTitle),
+							choiceGroup,
+							caption("SelectState", choiceLine),
+							caption("SelectPhase", selectLine),
+							caption("SelectNote", COPY.selectNote, true),
+						}),
+						panel("CustomRow", {
+							caption("CustomTitle", COPY.customTitle),
+							UI.HStack({
+								id = "CustomControls",
+								wrap = true,
+								gap = "tight",
+								children = {
+									-- `none` on the control itself: the presenter emits
+									-- nothing for it, so the INSTALLED adapter never hears
+									-- this press and the override adapter is the only thing
+									-- that answers it
+									UI.sensoryFeedback(
+										UI.Button({
+											id = "CustomSample",
+											label = COPY.customLabel,
+											surface = "chip",
+											onActivate = playCustom,
+										}),
+										{ activation = "none" }
+									),
+								},
+							}),
+							caption("CustomPhase", customLine),
+							caption("CustomNote", COPY.customNote, true),
+							caption("CustomLonger", COPY.customLonger, true),
+						}),
+						panel("History", {
+							caption("HistoryTitle", COPY.historyTitle),
+							caption("HistoryLog", historyText, true),
+							caption("HistoryCount", requestLine),
+							caption("HistoryNote", COPY.historyNote, true),
+						}),
+						-- ===== KEPT: the two lessons the four rows do not teach =====
+						panel("Leaves", {
+							caption("LeavesTitle", COPY.declaredTitle),
+							-- WRAPS. Five chips at the Largest text preference,
+							-- pseudo-localized, do not fit one line on a 320px phone, and a
+							-- row that cannot wrap walks off the right edge of its own box.
+							UI.HStack({ id = "LeafRow", wrap = true, gap = "tight", children = leafButtons }),
+							caption("MuteNote", COPY.muteNote, true),
 						}),
 						-- ONE DECLARATION, THREE CONTROLS, and the nesting is the point:
 						-- `Third` sits a level deeper than the other two, so a mechanism
 						-- that only reached direct children would be visibly wrong here.
 						UI.sensoryFeedback(
-							UI.VStack({
-								id = "Cascade",
-								surface = "control",
-								padding = "s",
-								gap = "tight",
-								width = UI.fill(),
-								children = {
-									UI.Text({ id = "CascadeTitle", text = COPY.cascadeTitle, textSize = "caption" }),
-									UI.HStack({
-										id = "CascadeRow",
-										wrap = true,
-										gap = "tight",
-										children = {
-											UI.Button({ id = "First", label = COPY.first, surface = "chip" }),
-											UI.VStack({
-												id = "Nested",
-												gap = "tight",
-												children = {
-													UI.Button({ id = "Second", label = COPY.second, surface = "chip" }),
-													UI.Button({ id = "Third", label = COPY.third, surface = "chip" }),
-												},
-											}),
-										},
-									}),
-									UI.Text({
-										id = "CascadeNote",
-										text = COPY.cascadeNote,
-										textSize = "caption",
-										role = "secondary",
-									}),
-								},
+							panel("Cascade", {
+								caption("CascadeTitle", COPY.cascadeTitle),
+								UI.HStack({
+									id = "CascadeRow",
+									wrap = true,
+									gap = "tight",
+									children = {
+										UI.Button({ id = "First", label = COPY.first, surface = "chip" }),
+										UI.VStack({
+											id = "Nested",
+											gap = "tight",
+											children = {
+												UI.Button({ id = "Second", label = COPY.second, surface = "chip" }),
+												UI.Button({ id = "Third", label = COPY.third, surface = "chip" }),
+											},
+										}),
+									},
+								}),
+								caption("CascadeNote", COPY.cascadeNote, true),
 							}),
 							{ activation = "pickup" }
 						),
-						UI.Text({ id = "LogTitle", text = COPY.logTitle, textSize = "caption" }),
-						UI.Text({ id = "Log", text = logText, textSize = "caption", role = "secondary" }),
-						UI.Text({ id = "Counts", text = counts, textSize = "caption", role = "secondary" }),
-						UI.VStack({
-							id = "Sensations",
-							surface = "control",
-							padding = "s",
-							gap = "tight",
-							width = UI.fill(),
-							children = (function(): { any }
-								local kids: { any } = {
-									UI.Text({ id = "SensationTitle", text = COPY.sensationTitle, textSize = "caption" }),
-								}
-								for _, row in sensationRows do
-									table.insert(kids, row)
-								end
-								table.insert(
-									kids,
-									UI.Text({
-										id = "PlaysNothing",
-										text = COPY.playsNothing,
-										textSize = "caption",
-										role = "secondary",
-									})
-								)
-								return kids
-							end)(),
-						}),
-						--[[ THE SWITCH, AND THE ANSWER (NM-G3). Last on the page because
-							it is the last step of the story: five verbs, then one cascade,
-							then what an adapter maps them to — and only then, whether they
-							reach this particular hardware.
-
-							NOTHING HERE IS FIXED AGAINST AN UNFIXED VIEWPORT, for the reason
-							the header gives: the detail line is a whole sentence that GROWS
-							when the engine's own error text is appended to it, so it wraps
-							and the page scrolls rather than declaring a height a pseudo-
-							localized refusal would overflow. ]]
-						UI.VStack({
-							id = "Play",
-							surface = "control",
-							padding = "s",
-							gap = "tight",
-							width = UI.fill(),
-							children = {
-								UI.Text({ id = "PlayTitle", text = COPY.playTitle, textSize = "caption" }),
-								UI.Toggle({ id = "PlayHaptics", label = COPY.playToggle, value = playHaptics }),
-								UI.Text({
-									id = "PlayNote",
-									text = COPY.playNote,
-									textSize = "caption",
-									role = "secondary",
-								}),
-								UI.Text({ id = "PlayState", text = hapticsHeadline, textSize = "caption" }),
-								UI.Text({
-									id = "PlayDetail",
-									text = hapticsDetail,
-									textSize = "caption",
-									role = "secondary",
-								}),
-								UI.Text({ id = "UnknowableTitle", text = COPY.unknowableTitle, textSize = "caption" }),
-								UI.Text({
-									id = "Unknowable",
-									text = COPY.unknowable,
-									textSize = "caption",
-									role = "secondary",
-								}),
-							},
-						}),
-						--[[ THE CALIBRATION PANEL (task 11). Three phases, judged one at
-							a time, plus the profile they are judged under and a count of
-							what actually went out.
-
-							THE ROWS WRAP AND THE NOTES ARE WHOLE SENTENCES, for the two
-							reasons the header gives: three chips at the Largest text
-							preference do not fit one line on a 320px phone, and a note
-							stitched from fragments expands in three places at once under
-							the pseudo-localizing pass. ]]
-						UI.VStack({
-							id = "Calibration",
-							surface = "control",
-							padding = "s",
-							gap = "tight",
-							width = UI.fill(),
-							children = {
-								UI.Text({ id = "CalTitle", text = COPY.calibrationTitle, textSize = "caption" }),
-								UI.Text({
-									id = "CalNote",
-									text = COPY.calibrationNote,
-									textSize = "caption",
-									role = "secondary",
-								}),
-								UI.Text({ id = "PhasesTitle", text = COPY.phasesTitle, textSize = "caption" }),
-								UI.VStack({ id = "PhaseRows", gap = 2, children = phaseRows }),
-								-- PRESS has no handler and cannot have one: pressing it IS
-								-- the phase, because the engine owns the moment.
-								UI.HStack({
-									id = "CalRow",
-									wrap = true,
-									gap = "tight",
-									children = {
-										UI.Button({ id = "CalPress", label = COPY.calPress, surface = "chip" }),
-										-- the two bus phases are driven from controls that
-										-- report NOTHING of their own, so each row puts exactly
-										-- one cause on the bus and nothing else
-										UI.sensoryFeedback(
-											UI.Button({
-												id = "CalRelease",
-												label = COPY.calRelease,
-												surface = "chip",
-												onActivate = fireRelease,
-											}),
-											{ activation = "none" }
-										),
-										UI.sensoryFeedback(
-											UI.Button({
-												id = "CalSelect",
-												label = COPY.calSelect,
-												surface = "chip",
-												onActivate = fireSelect,
-											}),
-											{ activation = "none" }
-										),
-									},
-								}),
-								UI.Text({
-									id = "CalPressNote",
-									text = COPY.calPressNote,
-									textSize = "caption",
-									role = "secondary",
-								}),
-								UI.Text({
-									id = "CalReleaseNote",
-									text = COPY.calReleaseNote,
-									textSize = "caption",
-									role = "secondary",
-								}),
-								UI.Text({
-									id = "CalSelectNote",
-									text = COPY.calSelectNote,
-									textSize = "caption",
-									role = "secondary",
-								}),
-								UI.Text({
-									id = "CalSynthNote",
-									text = COPY.calSynthNote,
-									textSize = "caption",
-									role = "secondary",
-								}),
-								UI.Text({ id = "ProfileTitle", text = COPY.profileTitle, textSize = "caption" }),
-								UI.HStack({
-									id = "ProfileRow",
-									wrap = true,
-									gap = "tight",
-									children = {
-										profileButton("ProfileDefaults", "profileDefaults", PROFILE_DEFAULTS),
-										profileButton("ProfileFallback", "profileFallback", PROFILE_FALLBACK),
-										profileButton("ProfileSilent", "profileSilent", PROFILE_SILENT),
-									},
-								}),
-								UI.Text({ id = "ProfileCurrent", text = profileLine, textSize = "caption" }),
-								UI.Text({
-									id = "ProfileNote",
-									text = COPY.profileNote,
-									textSize = "caption",
-									role = "secondary",
-								}),
-								UI.Text({ id = "PulseCount", text = pulseLine, textSize = "caption" }),
-							},
+						panel("Unknowable", {
+							caption("UnknowableTitle", COPY.unknowableTitle),
+							caption("UnknowableNote", COPY.unknowable, true),
 						}),
 					},
 				}),
@@ -985,38 +1096,42 @@ return {
 		return {
 			screen = screen,
 			present = {},
-			-- published for the headless suite: the signals a test reads, rather
-			-- than a re-implementation of them
-			logText = logText,
-			reported = reported,
+			-- published for the headless suite: the signals a test reads, rather than
+			-- a re-implementation of them
+			historyText = historyText,
+			requests = requests,
 			playHaptics = playHaptics,
 			hapticsState = hapticsState,
 			hapticsHeadline = hapticsHeadline,
 			hapticsDetail = hapticsDetail,
-			profileChoice = profileChoice,
-			pulseLine = pulseLine,
-			-- the live adapter, or nil. A test counts INSTANCES through it rather
+			hapticsEvidence = hapticsEvidence,
+			choice = choice,
+			releaseOutcome = releaseOutcome,
+			-- the live adapters, or nil. A test counts INSTANCES through them rather
 			-- than believing this fixture's own account of them.
 			hapticsAdapter = function(): any
 				return hap
 			end,
-			-- the seam's only setter. Takes effect at the NEXT install, so the
-			-- switch stays the one and only path in.
+			overrideAdapter = function(): any
+				return customHap
+			end,
+			-- the seam's only setter. Re-installs immediately when the switch is
+			-- already on, so a test drives the SAME install path a toggle drives
+			-- rather than a second one that only exists for tests.
 			useScriptedEngine = function(engine: any)
 				scriptedEngine = engine
+				if installed then
+					install()
+				end
 			end,
 
 			steps = {
-				-- the log, as the runner reads it after driving real presses through
-				-- the adapter's activate path
-				readLog = function()
-					return { log = logText:get(), reported = reported:get() }
-				end,
-				-- the opt-in, driven by name. `on` flips the same signal the Toggle
-				-- writes, so a scripted device sweep and a finger take one path.
 				-- (_session, payload): the runner's one true call shape — api.step
 				-- invokes `fn(session.built, payload)`, and a step that declared a
-				-- single parameter read the SESSION as its value (live find, 2026-08-21)
+				-- single parameter read the SESSION as its value (live find 2026-08-21)
+				readHistory = function()
+					return { history = historyText:get(), requests = requests:get() }
+				end,
 				setPlayHaptics = function(_session, on: any)
 					playHaptics:set(on == true or on == "true")
 					return {
@@ -1027,53 +1142,46 @@ return {
 				end,
 				readHaptics = function()
 					publish()
+					publishPhases()
 					return {
 						state = hapticsState:get(),
 						headline = hapticsHeadline:get(),
 						detail = hapticsDetail:get(),
+						evidence = hapticsEvidence:get(),
 						support = if hap ~= nil then hap.support() else nil,
 						decorated = if hap ~= nil then hap.diagnostics().decorated else 0,
 					}
 				end,
-				-- the calibration panel, driven BY NAME through the same functions the
-				-- three chips call — so a scripted sweep and a finger take one path
-				setProfile = function(_session, choice: string)
-					chooseProfile(tostring(choice))
-					return { profile = profileChoice:get(), pulses = pulseLine:get() }
-				end,
-				firePhase = function(_session, phase: string)
-					if phase == "release" then
-						fireRelease()
-					elseif phase == "select" then
-						fireSelect()
-					end
-					-- "press" is deliberately undrivable: it is the ENGINE's moment,
-					-- and a fixture that faked it would be demonstrating itself
-					return { phase = phase, pulses = pulseLine:get() }
-				end,
-				readPulses = function()
-					publishPulses()
-					local phases = if hap ~= nil then hap.diagnostics().phases else nil
+				-- the four rows, driven BY NAME through the same functions the controls
+				-- call — so a scripted sweep and a finger take one path
+				readRows = function()
 					return {
-						line = pulseLine:get(),
-						profile = profileChoice:get(),
-						plays = if hap ~= nil then hap.diagnostics().plays else 0,
-						release = if phases ~= nil then phases.release.plays else 0,
-						select = if phases ~= nil then phases.select.plays else 0,
-						-- what actually reached the bus, so a device session can tell a
-						-- felt press from a wired one (review F6)
-						heard = reported:get(),
-						pressEffect = if phases ~= nil then phases.press.effect else nil,
-						releaseEffect = if phases ~= nil then phases.release.effect else nil,
-						selectEffect = if phases ~= nil then phases.select.effect else nil,
+						press = pressEffect:get(),
+						release = releaseEffect:get(),
+						select = selectEffect:get(),
+						custom = customEffect:get(),
+						choice = choice:get(),
+						held = heldPath:get(),
+						outcome = releaseOutcome:get(),
+						releasePlays = if hap ~= nil then hap.diagnostics().phases.release.plays else 0,
+						selectPlays = if hap ~= nil then hap.diagnostics().phases.select.plays else 0,
+						customPlays = if customHap ~= nil then customHap.diagnostics().phases.release.plays else 0,
 					}
+				end,
+				choose = function(_session, id: any)
+					choose(tostring(id))
+					return { choice = choice:get(), history = historyText:get() }
+				end,
+				playCustom = function()
+					playCustom()
+					return { history = historyText:get() }
 				end,
 			},
 
 			report = function()
 				return {
-					log = logText:get(),
-					reported = reported:get(),
+					history = historyText:get(),
+					requests = requests:get(),
 					haptics = hapticsState:get(),
 					hapticsDetail = hapticsDetail:get(),
 				}

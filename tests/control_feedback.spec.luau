@@ -47,6 +47,8 @@ local actionsLib = require("../src/input/actions")
 local presenterLib = require("../src/present/presenter")
 local fake_target = require("./lib/fake_target")
 local adapter_source = require("./lib/adapter_source")
+local device_views = require("./lib/device_views")
+local large_text = require("./lib/large_text")
 
 local UI = Facet.UI
 
@@ -969,30 +971,47 @@ describe("the showcase fixture drives the real thing", function()
 		return { adapter = adapter, core = core, pres = pres }, built
 	end
 
-	it("the sensation column is the SHIPPED map, not a story about it", function()
-		-- the fixture may not require a client module, so its table is written out
-		-- — which is exactly the shape that drifts into fiction. This is the pin.
-		for _, row in scenario.sensation do
-			local expected = sensoryProfile.label(hapticsLib.pressSpecFor(row.verb))
-			expect(`{row.verb}:{tostring(row.effect)}`).toBe(`{row.verb}:{tostring(expected)}`)
+	it("every phase identity on the page is READ off the adapter, and it is the SHIPPED default", function()
+		--[[ THE PIN MOVED, AND IT GOT STRONGER. The old surface printed a WRITTEN-OUT
+			table of what an adapter *would* play, and this case existed to stop that
+			copy drifting into fiction. There is no copy any more: each row reads its
+			own phase from `diagnostics()`, so what is pinned now is the rendered text
+			against `sensory_profile` itself — a check the old shape could not make,
+			because the old shape never asked the adapter anything. ]]
+		local w, built = mountUnder(nil, { w = 390, h = 844 })
+		local ROWS = {
+			{ path = "/SensoryFeedback/Page/PressRow/PressPhase", phase = "press", name = "contact" },
+			{ path = "/SensoryFeedback/Page/ReleaseRow/ReleasePhase", phase = "release", name = "settle" },
+			{ path = "/SensoryFeedback/Page/SelectRow/SelectPhase", phase = "select", name = "tick" },
+		}
+		for _, row in ROWS do
+			local shipped = sensoryProfile.label((sensoryProfile.DEFAULTS :: any)[row.phase])
+			expect(`{row.phase} ships:{tostring(shipped)}`).toBe(`{row.phase} ships:{row.name}`)
+			local text = tostring(w.adapter.node(row.path).props.text)
+			expect(`{row.phase} on screen:{string.find(text, row.name, 1, true) ~= nil}`).toBe(
+				`{row.phase} on screen:true`
+			)
+			-- ...and each row says WHOSE profile it is
+			expect(`{row.phase} sourced:{string.find(text, scenario.copy.sourceBuiltIn, 1, true) ~= nil}`).toBe(
+				`{row.phase} sourced:true`
+			)
 		end
-		-- ...and the PHASE column too: three phases, three shipped waveform names
-		for _, row in scenario.phases do
-			local spec = (sensoryProfile.DEFAULTS :: any)[row.phase]
-			expect(`{row.phase}:{tostring(row.effect)}`).toBe(`{row.phase}:{tostring(sensoryProfile.label(spec))}`)
-		end
-		-- ...and it covers every verb the fixture can actually produce
+		-- ...and the CUSTOM row is the one that says otherwise
+		local custom = tostring(w.adapter.node("/SensoryFeedback/Page/CustomRow/CustomPhase").props.text)
+		expect(`custom names its waveform:{string.find(custom, scenario.customWaveform, 1, true) ~= nil}`).toBe(
+			"custom names its waveform:true"
+		)
+		expect(`custom is the override:{string.find(custom, scenario.copy.sourceOverride, 1, true) ~= nil}`).toBe(
+			"custom is the override:true"
+		)
+		-- ...and every verb the five leaves can produce is still one the adapter maps
 		for _, entry in scenario.declared do
 			if entry.activation ~= nil and entry.activation ~= feedbackLib.ACTIVATION_SILENT then
-				local found = false
-				for _, row in scenario.sensation do
-					if row.verb == entry.activation then
-						found = true
-					end
-				end
-				expect(`{entry.activation} is explained:{found}`).toBe(`{entry.activation} is explained:true`)
+				local felt = hapticsLib.activationIsFelt(entry.activation)
+				expect(`{entry.activation} is felt:{felt}`).toBe(`{entry.activation} is felt:true`)
 			end
 		end
+		built.dispose()
 	end)
 
 	it("pressing the five leaves writes four lines and Mute writes none", function()
@@ -1000,8 +1019,8 @@ describe("the showcase fixture drives the real thing", function()
 		for _, entry in scenario.declared do
 			w.adapter.tap(`/SensoryFeedback/Page/Leaves/LeafRow/{entry.id}`)
 		end
-		local log = built.logText:get()
-		expect(built.reported:get()).toBe(4)
+		local log = built.historyText:get()
+		expect(built.requests:get()).toBe(4)
 		for _, verb in { "commit", "reject", "select", "activate" } do
 			expect(`{verb} logged:{string.find(log, verb, 1, true) ~= nil}`).toBe(`{verb} logged:true`)
 		end
@@ -1015,8 +1034,8 @@ describe("the showcase fixture drives the real thing", function()
 		for _, path in { `{base}/First`, `{base}/Nested/Second`, `{base}/Nested/Third` } do
 			w.adapter.tap(path)
 		end
-		expect(built.reported:get()).toBe(3)
-		local _, count = string.gsub(built.logText:get(), "pickup", "")
+		expect(built.requests:get()).toBe(3)
+		local _, count = string.gsub(built.historyText:get(), "pickup", "")
 		expect(count).toBe(3)
 		built.dispose()
 	end)
@@ -1029,11 +1048,11 @@ describe("the showcase fixture drives the real thing", function()
 		-- point, which is the seam a game's session code uses.
 		local w, built = mountUnder(nil, { w = 390, h = 844 })
 		w.pres.emitFeedback({ type = "commit", path = "/SensoryFeedback/Page/Leaves/LeafRow/Buy" })
-		expect(built.reported:get()).toBe(0)
-		expect(built.logText:get()).toBe(scenario.copy.logEmpty)
+		expect(built.requests:get()).toBe(0)
+		expect(built.historyText:get()).toBe(scenario.copy.historyEmpty)
 		-- ...and a real press on the same path still does
 		w.adapter.tap("/SensoryFeedback/Page/Leaves/LeafRow/Buy")
-		expect(built.reported:get()).toBe(1)
+		expect(built.requests:get()).toBe(1)
 		built.dispose()
 	end)
 
@@ -1045,9 +1064,9 @@ describe("the showcase fixture drives the real thing", function()
 		local w, built = mountUnder(nil, { w = 390, h = 844 })
 		w.pres.present(UI.Screen({ id = "Chrome", children = { UI.Button({ id = "Pick", label = "p" }) } }))
 		w.adapter.tap("/Chrome/Pick")
-		expect(built.reported:get()).toBe(0)
+		expect(built.requests:get()).toBe(0)
 		w.adapter.tap("/SensoryFeedback/Page/Leaves/LeafRow/Buy")
-		expect(built.reported:get()).toBe(1)
+		expect(built.requests:get()).toBe(1)
 		built.dispose()
 	end)
 
@@ -1155,6 +1174,13 @@ describe("the sensory-feedback demo installs the real adapter and reports a TRI-
 				end,
 			}
 		end
+		-- HOW MANY THINGS ARE LISTENING, which is how "exactly one adapter is
+		-- attached to the root" is counted off the ROOT rather than off the
+		-- fixture's own account of itself (the `pooled = 0` while fifteen effects
+		-- sat in Workspace lesson: this module's counters are never the evidence).
+		function signal:count(): number
+			return #subs
+		end
 		return signal
 	end
 
@@ -1232,10 +1258,36 @@ describe("the sensory-feedback demo installs the real adapter and reports a TRI-
 			table.insert(made, effect)
 			return effect
 		end
+		--[[ A CONTROLLED CLOCK, injected through the adapter's own `now` seam. Two
+			reasons, both of which turn a flake into a proof: the select phase's
+			leading-edge limiter DROPS a second pulse inside 60 ms, and the
+			same-instant collapse drops a second bus cause for one control inside a
+			frame — so a census that fires four input paths as fast as Lune can
+			would be measuring the limiters rather than the wiring. ]]
+		local clock = 0
+		-- ...and HOW MANY ADAPTERS WERE EVER CONSTRUCTED, counted at the seam a
+		-- game calls. `__index` keeps every other member of the real module, so
+		-- this is the shipped adapter with a tally beside its constructor.
+		local news = 0
+		local countingModule = setmetatable({
+			new = function(o: any): any
+				news += 1
+				return hapticsLib.new(o)
+			end,
+		}, { __index = hapticsLib })
 		return {
 			root = root,
 			buttons = rootChildren,
 			effects = made,
+			advance = function(dt: number)
+				clock += dt
+			end,
+			news = function(): number
+				return news
+			end,
+			attached = function(): number
+				return root.DescendantAdded:count()
+			end,
 			live = function(): number
 				local n = 0
 				for _, e in made do
@@ -1246,9 +1298,12 @@ describe("the sensory-feedback demo installs the real adapter and reports a TRI-
 				return n
 			end,
 			overrides = {
-				module = hapticsLib,
+				module = countingModule,
 				root = root,
 				options = {
+					now = function(): number
+						return clock
+					end,
 					instanceNew = instanceNew,
 					floatCurveKey = function(timeMs: number, intensity: number, mode: any): any
 						return { timeMs = timeMs, intensity = intensity, mode = mode }
@@ -1266,204 +1321,749 @@ describe("the sensory-feedback demo installs the real adapter and reports a TRI-
 		}
 	end
 
-	local function mountDemo(): (any, any)
+	local function mountDemo(viewport: any?): (any, any)
 		local core = Facet.newCore()
 		local env = Facet.newEnvironment(core)
-		env:set("viewportRect", { x = 0, y = 0, w = 390, h = 844 })
+		env:set("viewportRect", viewport or { x = 0, y = 0, w = 390, h = 844 })
 		local system = Facet.newActionSystem(core)
 		local adapter = fake_target.new()
 		local pres = Facet.newPresenter(core, env, adapter, system)
+		--[[ THE BUS CENSUS, taken at the seam rather than from the fixture. Every
+			`bind(presenter)` is one `onFeedback` subscription and every unbind
+			releases one, so the LIVE count answers "how many adapters are listening
+			to this presenter" — which is the question "never a second adapter" is
+			actually asking. Wrapped BEFORE `build`, because the fixture captures
+			`ctx.presenter` and subscribes during it. ]]
+		local liveSubs = 0
+		local realOnFeedback = pres.onFeedback
+		pres.onFeedback = function(fn: any): any
+			liveSubs += 1
+			local unsubscribe = realOnFeedback(fn)
+			return function()
+				liveSubs -= 1
+				unsubscribe()
+			end
+		end
 		local built = scenario.build({ Facet = Facet, core = core, env = env, actionSystem = system, presenter = pres })
 		built.handle = pres.present(built.screen, built.present)
 		for _ = 1, 3 do
 			pres.refresh()
 		end
-		return { adapter = adapter, core = core, pres = pres }, built
+		return {
+			adapter = adapter,
+			core = core,
+			pres = pres,
+			system = system,
+			env = env,
+			-- the fixture's own history subscriber is one of these; the installed
+			-- adapter is the other. Three would be a second adapter.
+			busSubscribers = function(): number
+				return liveSubs
+			end,
+		},
+			built
 	end
 
-	-- ---- the switch is the demo's decision, and it starts OFF -------------
-	it("DEFAULT OFF: the demo constructs no adapter and claims nothing about the device", function()
+	local PRESS = "/SensoryFeedback/Page/PressRow/PressControls/PressSample"
+	local RELEASE = "/SensoryFeedback/Page/ReleaseRow/ReleaseControls/ReleaseSample"
+	local CUSTOM = "/SensoryFeedback/Page/CustomRow/CustomControls/CustomSample"
+	local CHOICE = "/SensoryFeedback/Page/SelectRow/Choice"
+
+	local function lines(built: any): { string }
+		local out: { string } = {}
+		local text = built.historyText:get()
+		if text == scenario.copy.historyEmpty then
+			return out
+		end
+		for line in string.gmatch(text, "[^\n]+") do
+			table.insert(out, line)
+		end
+		return out
+	end
+
+	-- ---- the switch is the demo's decision, and it starts ON --------------
+	--[[ THE ONE ASSERTION IN THIS FILE THAT DELIBERATELY CHANGED SIDES, and it is
+		worth being explicit about which claim moved. It used to read "DEFAULT OFF:
+		the demo constructs no adapter and claims nothing about the device". The
+		LIBRARY'S default-off contract is a different claim, it is unchanged, and
+		three cases still hold it: `DEFAULT OFF: a disabled adapter decorates nothing
+		and builds nothing` above, and tests/haptics.spec.luau's `default OFF means
+		the engine is never touched` and `the framework cannot reach it`. What moved
+		is the EXAMPLE's own choice: a game may opt in, this example is a game, and
+		it opts in so that a control does something the moment the page opens. ]]
+	it("opens ON, installs exactly one bus adapter, and never claims a sensation", function()
+		local engine = fakeEngine({ pads = { "Gamepad1" }, vibration = true })
 		local w, built = mountDemo()
-		expect(built.playHaptics:get()).toBe(false)
-		expect(built.hapticsAdapter()).toBeNil()
+		built.useScriptedEngine(engine.overrides)
+		expect(built.playHaptics:get()).toBe(true)
+		expect(built.hapticsAdapter() ~= nil).toBe(true)
+		expect(built.hapticsState:get()).toBe("requested")
+		-- EXACTLY ONE adapter is listening to the presenter (the other subscriber
+		-- is the fixture's own history), and exactly one is attached to the root
+		expect(`bus subscribers:{w.busSubscribers()}`).toBe("bus subscribers:2")
+		expect(`roots attached:{engine.attached()}`).toBe("roots attached:1")
+		-- ...and the toggle really is the control on screen, reading ON
+		local node = w.adapter.node("/SensoryFeedback/Page/Haptics/PlayHaptics")
+		expect(node ~= nil).toBe(true)
+		expect(node.class).toBe("Toggle")
+		expect(node.props.value).toBe(true)
+		-- the screen says whose decision this is: the demo's, not the library's
+		local note = tostring(w.adapter.node("/SensoryFeedback/Page/Haptics/PlayNote").props.text)
+		local library = tostring(w.adapter.node("/SensoryFeedback/Page/Haptics/PlayLibrary").props.text)
+		expect(`the demo says it turned them on:{string.find(note, "demo", 1, true) ~= nil}`).toBe(
+			"the demo says it turned them on:true"
+		)
+		expect(`...and that Facet does not:{string.find(library, "Facet", 1, true) ~= nil}`).toBe(
+			"...and that Facet does not:true"
+		)
+		expect(w.core:lastError()).toBeNil()
+		built.dispose()
+	end)
+
+	it("says nothing, anywhere, about the player FEELING anything", function()
+		--[[ Roblox exposes no motor confirmation — `HapticEffect` has no "did it
+			play", and `UserGameSettings.HapticStrength` is RobloxScriptSecurity on
+			read — so a sentence claiming a sensation is a sentence nothing can
+			support. This walks every rendered string on the surface in all four
+			states rather than the three the panel happens to show. ]]
+		local engine = fakeEngine({ pads = { "Gamepad1" }, vibration = true })
+		local w, built = mountDemo()
+		built.useScriptedEngine(engine.overrides)
+		local FORBIDDEN = { "you felt", "you will feel", "was played", "the motor fired", "vibrated" }
+		for _, state in { true, false } do
+			built.playHaptics:set(state)
+			w.pres.refresh()
+			for _, path in w.adapter.paths() do
+				local node = w.adapter.node(path)
+				local text = if node.props ~= nil then node.props.text else nil
+				if type(text) ~= "string" then
+					continue
+				end
+				local lowered = string.lower(text)
+				for _, claim in FORBIDDEN do
+					expect(`{path} claims '{claim}':{string.find(lowered, claim, 1, true) ~= nil}`).toBe(
+						`{path} claims '{claim}':false`
+					)
+				end
+			end
+		end
+		built.dispose()
+	end)
+
+	-- ---- the panel is FIRST, and it is proved from geometry ---------------
+	it("the haptics panel is above every control it affects, in RENDERED order", function()
+		--[[ SOURCE ORDER PROVES NOTHING — a panel declared first can still solve
+			below a sibling under a wrap, a reversed stack or an adaptive flip. So the
+			claim is made against SOLVED RECTS: the panel's bottom edge is above the
+			top edge of all four comparison rows and of the history. ]]
+		local w, built = mountDemo()
+		local panel = w.adapter.node("/SensoryFeedback/Page/Haptics").rect
+		local BELOW = {
+			"/SensoryFeedback/Page/PressRow",
+			"/SensoryFeedback/Page/ReleaseRow",
+			"/SensoryFeedback/Page/SelectRow",
+			"/SensoryFeedback/Page/CustomRow",
+			"/SensoryFeedback/Page/History",
+			"/SensoryFeedback/Page/Leaves",
+			"/SensoryFeedback/Page/Cascade",
+		}
+		for _, path in BELOW do
+			local other = w.adapter.node(path)
+			if other == nil or other.rect == nil then
+				error(`{path} was never placed`, 0)
+			end
+			if panel.y + panel.h > other.rect.y then
+				error(
+					`the haptics panel solves to {panel.y}..{panel.y + panel.h} and {path} starts at `
+						.. `{other.rect.y} — the switch is not above the controls it affects`,
+					0
+				)
+			end
+		end
+		built.dispose()
+	end)
+
+	it("the toggle, its status and its explanation are inside the FIRST VIEWPORT, Largest text included", function()
+		--[[ FOUR PROFILES x TWO TEXT PREFERENCES x FOUR REPORTED STATES. The status
+			line is a BINDING, so the cell that overflows is whichever state happens
+			to be longest — which is not knowable from one mount, and is exactly how a
+			first-viewport claim rots. Every state is therefore driven. The evidence
+			line under the panel is deliberately NOT in this set: it carries the
+			engine's own error text and a pseudo-localized refusal is longer than any
+			budget worth declaring, so it is allowed to grow below the fold. ]]
+		local PROFILES = { "compact-phone-portrait", "compact-phone-landscape", "desktop-standard", "console-ten-foot" }
+		local FOLD = {
+			"/SensoryFeedback/Page/Title",
+			"/SensoryFeedback/Page/Intro",
+			"/SensoryFeedback/Page/Haptics/PlayHaptics",
+			"/SensoryFeedback/Page/Haptics/PlayState",
+			"/SensoryFeedback/Page/Haptics/PlayNote",
+		}
+		local STATES = {
+			{ id = "off", headline = scenario.copy.stateOffHeadline, detail = scenario.copy.stateOff },
+			{
+				id = "installed",
+				headline = scenario.copy.stateRequestedHeadline,
+				detail = scenario.copy.requestedDetail,
+			},
+			{ id = "declined", headline = scenario.copy.stateRefusedHeadline, detail = scenario.copy.refusedDetail },
+			{ id = "unknown", headline = scenario.copy.stateUnknownHeadline, detail = scenario.copy.unknownDetail },
+		}
+		local problems: { string } = {}
+		local worst = -math.huge
+		for _, view in device_views.VIEWS do
+			if table.find(PROFILES, view.id) == nil then
+				continue
+			end
+			for _, offset in { 0, large_text.LARGEST } do
+				for _, state in STATES do
+					local core = Facet.newCore()
+					local env = Facet.newEnvironment(core)
+					env:set("viewportRect", { x = 0, y = 0, w = view.w, h = view.h })
+					env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
+					env:set("preferredTextOffset", offset)
+					env:set("displaySize", view.displaySize)
+					env:set("preferredInput", view.input)
+					env:set("capabilities", device_views.CAPABILITIES[view.input])
+					local system = Facet.newActionSystem(core)
+					local adapter = fake_target.new()
+					local pres = Facet.newPresenter(core, env, adapter, system)
+					local built = scenario.build({
+						Facet = Facet,
+						core = core,
+						env = env,
+						actionSystem = system,
+						presenter = pres,
+					})
+					built.handle = pres.present(built.screen, built.present)
+					built.hapticsHeadline:set(state.headline)
+					built.hapticsDetail:set(state.detail)
+					for _ = 1, 3 do
+						pres.refresh()
+					end
+					-- the window is what the player can SEE without scrolling: the
+					-- scroll host's rect minus whatever the indicator policy reserves
+					local window = adapter.windowRectOf("/SensoryFeedback/Page")
+					local bottom = window.y + window.h
+					for _, path in FOLD do
+						local node = adapter.node(path)
+						if node == nil or node.rect == nil then
+							table.insert(problems, `{view.id}/{offset}/{state.id}: {path} was never placed`)
+							continue
+						end
+						local overrun = (node.rect.y + node.rect.h) - bottom
+						worst = math.max(worst, overrun)
+						if overrun > 0 then
+							table.insert(
+								problems,
+								`{view.id} {view.w}x{view.h} text+{offset} state '{state.id}': {path} solves to `
+									.. `{node.rect.y}..{node.rect.y + node.rect.h}, {overrun}px past the {bottom}px fold`
+							)
+						end
+					end
+					built.dispose()
+				end
+			end
+		end
+		if #problems > 0 then
+			error(`the first viewport does not hold the switch:\n  ` .. table.concat(problems, "\n  "), 0)
+		end
+		-- ...and the tightest cell still has a whole line of type to spare, so the
+		-- next copy edit does not silently spend the last pixel
+		expect(`tightest slack over a line:{worst <= -31}`).toBe("tightest slack over a line:true")
+	end)
+
+	-- ---- the three answers, and the request stays on for two of them ------
+	it("a connected pad that answers NO is a platform refusal, and the request STAYS ON", function()
+		local engine = fakeEngine({ pads = { "Gamepad1" }, vibration = false })
+		local _, built = mountDemo()
+		built.useScriptedEngine(engine.overrides)
+		expect(built.hapticsState:get()).toBe("refused")
+		expect(built.hapticsHeadline:get()).toBe(scenario.copy.stateRefusedHeadline)
+		-- THE REQUESTED TOGGLE DOES NOT MOVE. A demo that switched itself off on a
+		-- refusal would be reporting a device fact by changing a player's setting.
+		expect(built.playHaptics:get()).toBe(true)
+		expect(string.find(built.hapticsEvidence:get(), "unsupported", 1, true) ~= nil).toBe(true)
+		built.dispose()
+	end)
+
+	it("NO PAD is NOT a refusal — it is could-not-determine, and the request STAYS ON", function()
+		local engine = fakeEngine({ pads = {}, vibration = true })
+		local _, built = mountDemo()
+		built.useScriptedEngine(engine.overrides)
+		expect(built.hapticsState:get()).toBe("undetermined")
+		expect(built.playHaptics:get()).toBe(true)
+		-- the press effects DID go out, which is why "nothing happened" and "this
+		-- device cannot" are not the same sentence
+		expect(built.hapticsAdapter().diagnostics().decorated > 0).toBe(true)
+		expect(string.find(built.hapticsEvidence:get(), "unknown", 1, true) ~= nil).toBe(true)
+		built.dispose()
+	end)
+
+	it("a supported pad with press effects out says INSTALLED, never PLAYED", function()
+		local engine = fakeEngine({ pads = { "Gamepad1" }, vibration = true })
+		local _, built = mountDemo()
+		built.useScriptedEngine(engine.overrides)
+		expect(built.hapticsState:get()).toBe("requested")
+		local line = string.lower(built.hapticsHeadline:get() .. " " .. built.hapticsDetail:get())
+		expect(`says installed:{string.find(line, "installed", 1, true) ~= nil}`).toBe("says installed:true")
+		expect(`claims played:{string.find(line, "played", 1, true) ~= nil}`).toBe("claims played:false")
+		built.dispose()
+	end)
+
+	it("the OFF line claims nothing whatever about the platform", function()
+		local engine = fakeEngine({ pads = { "Gamepad1" }, vibration = true })
+		local _, built = mountDemo()
+		built.useScriptedEngine(engine.overrides)
+		built.playHaptics:set(false)
 		expect(built.hapticsState:get()).toBe("off")
-		-- the on-screen line says OFF, and says nothing whatever about the platform
+		expect(built.hapticsAdapter()).toBeNil()
 		local line = built.hapticsHeadline:get() .. " " .. built.hapticsDetail:get()
 		for _, forbidden in { "cannot", "supported", "refus" } do
 			expect(`off line mentions '{forbidden}':{string.find(string.lower(line), forbidden, 1, true) ~= nil}`).toBe(
 				`off line mentions '{forbidden}':false`
 			)
 		end
-		expect(w.core:lastError()).toBeNil()
 		built.dispose()
 	end)
 
-	it("the switch is reachable as a control, and the demo says the LIBRARY is still default-off", function()
+	-- ---- the four comparisons ---------------------------------------------
+	it("the three shipped waveforms are the Step 13 defaults, key for key", function()
+		--[[ THE IDENTITIES, PINNED WHERE THEY LIVE. The demo reads them off the
+			adapter, so nothing on the page can drift — but the DEFAULTS themselves
+			are a product decision, and a silent edit to one of them would change what
+			this demo demonstrates while every case above stayed green. ]]
+		local EXPECTED = {
+			press = {
+				name = "contact",
+				fallback = "UIClick",
+				keys = { { 0, 0, "Linear" }, { 6, 0.9, "Cubic" }, { 30, 0, "Linear" } },
+			},
+			release = {
+				name = "settle",
+				fallback = "UIHover",
+				keys = { { 0, 0, "Linear" }, { 10, 0.5, "Cubic" }, { 34, 0, "Linear" } },
+			},
+			select = {
+				name = "tick",
+				fallback = "UIHover",
+				keys = { { 0, 0, "Linear" }, { 4, 0.35, "Linear" }, { 16, 0, "Linear" } },
+			},
+		}
+		for _, phase in sensoryProfile.PHASES do
+			local spec: any = (sensoryProfile.DEFAULTS :: any)[phase]
+			local want = EXPECTED[phase]
+			expect(`{phase} kind:{spec.kind} name:{spec.name}`).toBe(`{phase} kind:custom name:{want.name}`)
+			expect(`{phase} fallback:{(sensoryProfile.FALLBACK :: any)[phase]}`).toBe(
+				`{phase} fallback:{want.fallback}`
+			)
+			local rendered: { string } = {}
+			for _, key in spec.keys do
+				table.insert(rendered, `{key.timeMs}/{key.intensity}/{key.mode}`)
+			end
+			local wanted: { string } = {}
+			for _, key in want.keys do
+				table.insert(wanted, `{key[1]}/{key[2]}/{key[3]}`)
+			end
+			expect(`{phase}: {table.concat(rendered, " ")}`).toBe(`{phase}: {table.concat(wanted, " ")}`)
+		end
+		expect(`peak floor {sensoryProfile.MIN_PEAK} budget {sensoryProfile.MAX_DURATION_MS}`).toBe(
+			"peak floor 0.3 budget 34"
+		)
+	end)
+
+	it("a pointer press asks for PRESS then RELEASE, once each and in that order", function()
+		local engine = fakeEngine({ pads = { "Gamepad1" }, vibration = true })
 		local w, built = mountDemo()
-		local node = w.adapter.node("/SensoryFeedback/Page/Play/PlayHaptics")
-		expect(node ~= nil).toBe(true)
-		expect(node.class).toBe("Toggle")
-		-- the note is on screen, not only in a comment: the demo opting in is a
-		-- different decision from the library opting in
-		local note = w.adapter.node("/SensoryFeedback/Page/Play/PlayNote")
-		expect(note ~= nil).toBe(true)
-		expect(string.find(string.lower(tostring(note.props.text)), "default", 1, true) ~= nil).toBe(true)
-		built.dispose()
-	end)
-
-	-- ---- the three answers -------------------------------------------------
-	it("a connected pad that answers NO is a platform refusal", function()
-		local engine = fakeEngine({ pads = { "Gamepad1" }, vibration = false })
-		local _, built = mountDemo()
 		built.useScriptedEngine(engine.overrides)
-		built.playHaptics:set(true)
-		expect(built.hapticsState:get()).toBe("refused")
-		expect(built.hapticsDetail:get()).toBe(built.hapticsDetail:get())
-		expect(string.find(built.hapticsDetail:get(), "unsupported", 1, true) ~= nil).toBe(true)
+		local before = built.steps.readRows()
+		expect(`release plays before:{before.releasePlays}`).toBe("release plays before:0")
+		w.adapter.touchTap(PRESS)
+		local got = lines(built)
+		-- NEWEST FIRST, so the release is line 1 and the press it answered is line 2
+		expect(#got).toBe(2)
+		expect(`1:{got[1]}`).toBe(
+			`1:release settle · {scenario.copy.pressLabel} → activate · {scenario.copy.sourceBuiltIn}`
+		)
+		expect(`2:{got[2]}`).toBe(`2:press contact · {scenario.copy.pressLabel} · {scenario.copy.sourceBuiltIn}`)
+		local after = built.steps.readRows()
+		expect(`release={after.releasePlays} select={after.selectPlays} custom={after.customPlays}`).toBe(
+			"release=1 select=0 custom=0"
+		)
+		--[[ ...AND NO PRESS *COUNT*, ANYWHERE. `phases.press.plays` is structurally
+			always 0 — the adapter hands the button a reference and the ENGINE fires
+			it — so a number printed there reads as "the press never fired" when what
+			it means is "nobody can see". The retired calibration panel held this claim
+			with a sentence; the surface now holds it by publishing no such number at
+			all, and the press LINE above is written at the down edge instead (which is
+			why the touch path shows two lines and the mouse path one). ]]
+		expect(`press count published:{(after :: any).pressPlays ~= nil}`).toBe("press count published:false")
 		built.dispose()
 	end)
 
-	it("NO PAD is NOT a refusal — it is could-not-determine, and it says the effects are installed", function()
-		local engine = fakeEngine({ pads = {}, vibration = true })
-		local _, built = mountDemo()
+	it("a CANCELLED press is a visible '(no request)', and nothing is asked for", function()
+		--[[ `GuiButton.Activated` does not fire for a press that was dragged away
+			from, so the release phase is silent BY CONSTRUCTION — there is no
+			cancellation branch in the adapter and there must not be one. A demo that
+			fired a release here would teach the opposite of what the framework does,
+			so the absence is written down instead. ]]
+		local engine = fakeEngine({ pads = { "Gamepad1" }, vibration = true })
+		local w, built = mountDemo()
 		built.useScriptedEngine(engine.overrides)
-		built.playHaptics:set(true)
-		expect(built.hapticsState:get()).toBe("undetermined")
-		-- the press effects DID go out, which is why "nothing happened" and "this
-		-- device cannot" are not the same sentence
-		expect(built.hapticsAdapter().diagnostics().decorated > 0).toBe(true)
-		expect(string.find(built.hapticsDetail:get(), "unknown", 1, true) ~= nil).toBe(true)
+		local rect = w.adapter.node(RELEASE).rect
+		w.adapter.pointerDown(RELEASE, rect.x + rect.w / 2, rect.y + rect.h / 2, "touch")
+		w.adapter.pointerMove(rect.x + rect.w + 400, rect.y + rect.h + 400)
+		w.adapter.pointerUp(rect.x + rect.w + 400, rect.y + rect.h + 400)
+		local got = lines(built)
+		expect(#got).toBe(2)
+		expect(`1:{got[1]}`).toBe(
+			`1:{scenario.copy.noRequest} · {scenario.copy.releaseLabel}, {scenario.copy.causeCancelled} · `
+				.. scenario.copy.whyCancelled
+		)
+		expect(`2 is the down edge:{string.find(got[2], "press contact", 1, true) == 1}`).toBe(
+			"2 is the down edge:true"
+		)
+		-- ...and the row says so where a device session can read it
+		expect(built.releaseOutcome:get()).toBe(scenario.copy.stateCancelled)
+		local after = built.steps.readRows()
+		expect(`release plays:{after.releasePlays}`).toBe("release plays:0")
+		-- a "(no request)" line is not a request, and the counter agrees
+		expect(built.requests:get()).toBe(1)
 		built.dispose()
 	end)
 
-	it("a supported pad with press effects out says REQUESTED, never PLAYED", function()
+	it("the selection tick fires only when the VALUE CHANGES — a re-pick and a hover ask for nothing", function()
+		local engine = fakeEngine({ pads = { "Gamepad1" }, vibration = true })
+		local w, built = mountDemo()
+		built.useScriptedEngine(engine.overrides)
+		local SOFT = `{CHOICE}/ChoiceSoft`
+		local MEDIUM = `{CHOICE}/ChoiceMedium`
+		-- HOVER FIRST: Facet has no hover cause in its taxonomy at all, so there is
+		-- nothing for a hover to fire and nothing reaches the bus
+		w.adapter.hover(MEDIUM)
+		w.adapter.unhover(MEDIUM)
+		expect(#lines(built)).toBe(0)
+		expect(built.steps.readRows().selectPlays).toBe(0)
+		-- A CHANGE: one tick, named, and the option's own press stays silent
+		engine.advance(1)
+		w.adapter.tap(MEDIUM)
+		local afterChange = lines(built)
+		expect(#afterChange).toBe(1)
+		expect(`1:{afterChange[1]}`).toBe(
+			`1:select tick · {scenario.copy.selectLabel} → {scenario.copy.selectMedium} · `
+				.. scenario.copy.sourceBuiltIn
+		)
+		expect(built.steps.readRows().selectPlays).toBe(1)
+		-- A NO-OP: the same value again. Visible as an absence rather than a silence.
+		engine.advance(1)
+		w.adapter.tap(MEDIUM)
+		local afterRepick = lines(built)
+		expect(#afterRepick).toBe(2)
+		expect(`1:{afterRepick[1]}`).toBe(
+			`1:{scenario.copy.noRequest} · {scenario.copy.selectLabel} → {scenario.copy.selectMedium} `
+				.. `{scenario.copy.causeAgain} · {scenario.copy.whyUnchanged}`
+		)
+		expect(built.steps.readRows().selectPlays).toBe(1)
+		-- ...and a real change still moves it
+		engine.advance(1)
+		w.adapter.tap(SOFT)
+		expect(built.steps.readRows().selectPlays).toBe(2)
+		expect(built.choice:get()).toBe("ChoiceSoft")
+		built.dispose()
+	end)
+
+	it("the CUSTOM row goes through the public profile seam, and resolves against the shipped defaults", function()
+		--[[ THE SEAM IS `haptics.new({ profile = … })`, resolved by
+			`sensory_profile.resolve` — the one documented in docs/guide/07-input.md.
+			The example constructs no `HapticEffect` and reaches into no adapter
+			internal; what it hands over is plain data, and this case proves both
+			halves of what `resolve` promises: the named phase is replaced, and the
+			phases it did NOT name keep Facet's own waveforms. ]]
+		local engine = fakeEngine({ pads = { "Gamepad1" }, vibration = true })
+		local w, built = mountDemo()
+		built.useScriptedEngine(engine.overrides)
+		local override = built.overrideAdapter()
+		expect(override ~= nil).toBe(true)
+		local phases = override.diagnostics().phases
+		expect(`release:{phases.release.kind}/{phases.release.effect}`).toBe(`release:custom/{scenario.customWaveform}`)
+		-- ...and the two phases the partial did not name are Facet's, untouched
+		expect(`press:{phases.press.effect} select:{phases.select.effect}`).toBe("press:contact select:tick")
+		-- IT IS OBVIOUSLY DISTINCT: a different name, a different shape, and longer
+		-- than every waveform Facet ships
+		local defaultRelease: any = (sensoryProfile.DEFAULTS :: any).release
+		expect(`same name as settle:{scenario.customWaveform == defaultRelease.name}`).toBe("same name as settle:false")
+		local longest = 0
+		for _, phase in sensoryProfile.PHASES do
+			local spec: any = (sensoryProfile.DEFAULTS :: any)[phase]
+			longest = math.max(longest, spec.keys[#spec.keys].timeMs)
+		end
+		local custom: any = (scenario.customProfile :: any).release
+		expect(`custom outlasts every default:{custom.keys[#custom.keys].timeMs > longest}`).toBe(
+			"custom outlasts every default:true"
+		)
+		-- ...and it is BOUNDED and legal: the module would have refused it otherwise
+		local resolved: any = sensoryProfile.resolve(scenario.customProfile)
+		expect(`resolved:{resolved.release.name}`).toBe(`resolved:{scenario.customWaveform}`)
+		for _, key in custom.keys do
+			expect(`intensity {key.intensity} in range:{key.intensity >= 0 and key.intensity <= 1}`).toBe(
+				`intensity {key.intensity} in range:true`
+			)
+		end
+		-- PRESSING IT plays the override and nothing else
+		engine.advance(1)
+		w.adapter.tap(CUSTOM)
+		local after = built.steps.readRows()
+		expect(`custom={after.customPlays} release={after.releasePlays} select={after.selectPlays}`).toBe(
+			"custom=1 release=0 select=0"
+		)
+		local got = lines(built)
+		expect(#got).toBe(1)
+		expect(`1:{got[1]}`).toBe(
+			`1:release {scenario.customWaveform} · {scenario.copy.customLabel} · {scenario.copy.sourceOverride}`
+		)
+		built.dispose()
+	end)
+
+	it("the override adapter hears NO control on the presenter's bus — no gesture can pulse twice", function()
+		--[[ THE STRUCTURAL HALF of "no duplicate pulses". The override adapter is
+			never bound to the presenter and never attached to a root, so there is no
+			cause on this page it CAN answer except the Custom row's own — which is
+			why the two adapters can never both fire for one gesture, rather than
+			merely not having been observed doing so. ]]
+		local engine = fakeEngine({ pads = { "Gamepad1" }, vibration = true })
+		local w, built = mountDemo()
+		built.useScriptedEngine(engine.overrides)
+		expect(built.overrideAdapter().diagnostics().decorated).toBe(0)
+		-- exactly one root attachment, and it belongs to the installed adapter
+		expect(`roots attached:{engine.attached()}`).toBe("roots attached:1")
+		for _, path in { PRESS, RELEASE, `{CHOICE}/ChoiceMedium`, "/SensoryFeedback/Page/Leaves/LeafRow/Buy" } do
+			engine.advance(1)
+			w.adapter.tap(path)
+		end
+		expect(built.overrideAdapter().diagnostics().plays).toBe(0)
+		-- ...and the reverse: the Custom row never reaches the installed adapter
+		local before = built.steps.readRows().releasePlays
+		engine.advance(1)
+		w.adapter.tap(CUSTOM)
+		expect(built.steps.readRows().releasePlays).toBe(before)
+		built.dispose()
+	end)
+
+	it("every input path asks for exactly ONE release per activation — pointer, touch, keyboard, gamepad", function()
+		--[[ THE CENSUS, not an observation. A duplicate pulse is the classic defect
+			here — one activation path firing both a synthesized and a native event —
+			and it is invisible unless the history is COUNTED per path. The controlled
+			clock matters: the adapter drops a second bus cause for one control inside
+			a frame, so an uncounted sweep at Lune speed would measure the collapse
+			rather than the wiring. ]]
+		local engine = fakeEngine({ pads = { "Gamepad1" }, vibration = true })
+		local w, built = mountDemo()
+		built.useScriptedEngine(engine.overrides)
+		local controller = built.handle.controller
+		local PATHS = {
+			{
+				id = "touch",
+				drive = function()
+					w.adapter.touchTap(PRESS)
+				end,
+				-- a real finger is three events: down, up, then Activated — so the
+				-- down edge IS visible and is one of the two lines
+				expected = 2,
+			},
+			{
+				id = "mouse",
+				drive = function()
+					w.adapter.tap(PRESS, { source = "pointer", pointer = "mouse" })
+				end,
+				expected = 1,
+			},
+			{
+				id = "keyboard",
+				drive = function()
+					controller.setFocusPath(PRESS)
+					w.system.deviceKey("Return", true)
+					w.system.deviceKey("Return", false)
+				end,
+				expected = 1,
+			},
+			{
+				id = "gamepad",
+				drive = function()
+					controller.setFocusPath(PRESS)
+					w.system.deviceKey("ButtonA", true)
+					w.system.deviceKey("ButtonA", false)
+				end,
+				expected = 1,
+			},
+		}
+		local census: { string } = {}
+		for _, path in PATHS do
+			engine.advance(1)
+			local beforeLines = #lines(built)
+			local beforePlays = built.steps.readRows().releasePlays
+			path.drive()
+			local addedLines = #lines(built) - beforeLines
+			local addedPlays = built.steps.readRows().releasePlays - beforePlays
+			table.insert(census, `{path.id}: {addedLines} line(s), {addedPlays} release`)
+			expect(`{path.id} lines:{addedLines}`).toBe(`{path.id} lines:{path.expected}`)
+		end
+		-- ONE release per activation on every path. Two would be the duplicate.
+		expect(table.concat(census, " | ")).toBe(
+			"touch: 2 line(s), 1 release | mouse: 1 line(s), 1 release | "
+				.. "keyboard: 1 line(s), 1 release | gamepad: 1 line(s), 1 release"
+		)
+		built.dispose()
+	end)
+
+	-- ---- lifecycle: one adapter, never two, and nothing left behind -------
+	it("off / on / off / on installs exactly one bus adapter each time, never a second", function()
+		--[[ THE CLAUSE WORTH TESTING HARD. A second adapter installed on the third
+			toggle is invisible until something fires twice, and by then the cause is
+			several interactions in the past. Three instruments, none of them the
+			fixture's own account of itself: how many things are listening to the
+			presenter, how many things are attached to the root, and how many effect
+			Instances are alive. ]]
+		local engine = fakeEngine({ pads = { "Gamepad1" }, vibration = true })
+		local w, built = mountDemo()
+		built.useScriptedEngine(engine.overrides)
+		local seen: { string } = {}
+		for cycle = 1, 3 do
+			built.playHaptics:set(false)
+			table.insert(seen, `off{cycle}: subs {w.busSubscribers()} roots {engine.attached()} live {engine.live()}`)
+			built.playHaptics:set(true)
+			table.insert(seen, `on{cycle}: subs {w.busSubscribers()} roots {engine.attached()} live {engine.live()}`)
+			engine.advance(1)
+			w.adapter.tap(PRESS)
+			-- ...and ONE release for the one press, however many cycles have run
+			expect(`cycle {cycle} release plays:{built.steps.readRows().releasePlays}`).toBe(
+				`cycle {cycle} release plays:1`
+			)
+			built.playHaptics:set(false)
+			built.playHaptics:set(true)
+		end
+		expect(table.concat(seen, " | ")).toBe(
+			"off1: subs 1 roots 0 live 0 | on1: subs 2 roots 1 live 1 | "
+				.. "off2: subs 1 roots 0 live 0 | on2: subs 2 roots 1 live 1 | "
+				.. "off3: subs 1 roots 0 live 0 | on3: subs 2 roots 1 live 1"
+		)
+		-- ...and the constructor was called exactly twice per install (the bus
+		-- adapter and the override), never three times
+		expect(`adapters constructed:{engine.news()}`).toBe("adapters constructed:14")
+		built.dispose()
+		expect(engine.live()).toBe(0)
+	end)
+
+	it("switching it off destroys every effect and takes the claim back", function()
 		local engine = fakeEngine({ pads = { "Gamepad1" }, vibration = true })
 		local _, built = mountDemo()
 		built.useScriptedEngine(engine.overrides)
-		built.playHaptics:set(true)
-		expect(built.hapticsState:get()).toBe("requested")
-		local line = string.lower(built.hapticsHeadline:get() .. " " .. built.hapticsDetail:get())
-		expect(`says requested:{string.find(line, "requested", 1, true) ~= nil}`).toBe("says requested:true")
-		expect(`claims played:{string.find(line, "played", 1, true) ~= nil}`).toBe("claims played:false")
-		-- ...and it says who has to close the gap
-		expect(`asks for a human:{string.find(line, "human", 1, true) ~= nil}`).toBe("asks for a human:true")
+		expect(engine.live() > 0).toBe(true)
+		for _, button in engine.buttons do
+			expect(`{button.Name} carries an effect:{button.PressHapticEffect ~= nil}`).toBe(
+				`{button.Name} carries an effect:true`
+			)
+		end
+		built.playHaptics:set(false)
+		expect(engine.live()).toBe(0)
+		expect(built.hapticsState:get()).toBe("off")
+		expect(built.hapticsAdapter()).toBeNil()
+		expect(built.overrideAdapter()).toBeNil()
+		for _, button in engine.buttons do
+			expect(`{button.Name} still carries one:{button.PressHapticEffect ~= nil}`).toBe(
+				`{button.Name} still carries one:false`
+			)
+		end
 		built.dispose()
 	end)
 
-	--[[ ---- the calibration panel (task 11) ------------------------------------
-		Three phases fire at three different moments, so a device session has to be
-		able to judge them one at a time. Two of the three can be driven from a
-		control that reports nothing of its own; the third CANNOT be driven at all,
-		because the engine owns its moment — and a fixture that faked it would be
-		demonstrating itself rather than the framework. These cases hold both halves.
-	]]
-	it("every calibration step survives the RUNNER'S call shape — session first, payload second", function()
+	it("a REMOUNT restores the ON default and installs again", function()
+		local first = fakeEngine({ pads = { "Gamepad1" }, vibration = true })
+		local w1, one = mountDemo()
+		one.useScriptedEngine(first.overrides)
+		one.playHaptics:set(false)
+		expect(one.hapticsAdapter()).toBeNil()
+		one.dispose()
+		expect(`first mount left effects:{first.live()}`).toBe("first mount left effects:0")
+		expect(`first mount left roots:{first.attached()}`).toBe("first mount left roots:0")
+		expect(`first mount left subscribers:{w1.busSubscribers()}`).toBe("first mount left subscribers:0")
+		-- the ON default is a property of the BUILD, so reopening the demo restores
+		-- it however the player left the switch
+		local second = fakeEngine({ pads = { "Gamepad1" }, vibration = true })
+		local _, two = mountDemo()
+		two.useScriptedEngine(second.overrides)
+		expect(two.playHaptics:get()).toBe(true)
+		expect(two.hapticsAdapter() ~= nil).toBe(true)
+		expect(two.hapticsState:get()).toBe("requested")
+		two.dispose()
+	end)
+
+	it("teardown with the switch ON leaves no adapter, no effect and no connection", function()
+		local engine = fakeEngine({ pads = { "Gamepad1" }, vibration = true })
+		local w, built = mountDemo()
+		built.useScriptedEngine(engine.overrides)
+		engine.advance(1)
+		w.adapter.tap(PRESS)
+		engine.advance(1)
+		w.adapter.tap(CUSTOM)
+		expect(engine.live() > 0).toBe(true)
+		built.dispose()
+		expect(`effects alive:{engine.live()}`).toBe("effects alive:0")
+		expect(`roots attached:{engine.attached()}`).toBe("roots attached:0")
+		expect(`bus subscribers:{w.busSubscribers()}`).toBe("bus subscribers:0")
+		expect(built.hapticsAdapter()).toBeNil()
+		expect(built.overrideAdapter()).toBeNil()
+		for _, button in engine.buttons do
+			expect(`{button.Name} still carries one:{button.PressHapticEffect ~= nil}`).toBe(
+				`{button.Name} still carries one:false`
+			)
+		end
+	end)
+
+	it("the history is BOUNDED to ten lines, newest first", function()
+		--[[ An unbounded log in a demo four input paths can hammer is a leak with a
+			nice name — the same reason `lifecycle_hidden` bounds its own. ]]
+		local engine = fakeEngine({ pads = { "Gamepad1" }, vibration = true })
+		local w, built = mountDemo()
+		built.useScriptedEngine(engine.overrides)
+		for _ = 1, 20 do
+			engine.advance(1)
+			w.adapter.tap(PRESS)
+		end
+		local got = lines(built)
+		expect(`history lines:{#got}`).toBe(`history lines:{scenario.historyLines}`)
+		expect(scenario.historyLines).toBe(10)
+		-- and the newest is first: press the OTHER sample and it takes line one
+		engine.advance(1)
+		w.adapter.tap(RELEASE)
+		expect(`newest first:{string.find(lines(built)[1], scenario.copy.releaseLabel, 1, true) ~= nil}`).toBe(
+			"newest first:true"
+		)
+		built.dispose()
+	end)
+
+	-- ---- the report's remaining branches -----------------------------------
+	it("every step survives the RUNNER'S call shape — session first, payload second", function()
 		--[[ The live bridge invokes every step as `fn(session.built, payload)`
 			(runner.luau api.step), while this file used to call them payload-first —
 			two call shapes for one seam, and the green suite proved the shape the
 			bridge never uses. Found live 2026-08-21: `setPlayHaptics:true` left the
-			adapter OFF (the session table is not `true`), and `setProfile:crisp`
-			poisoned the profile signal with the session table, which the runner's
-			cycle-blind serializer then chased into a stack overflow. ]]
+			adapter OFF (the session table is not `true`), and a payload-first step
+			poisoned a signal with the session table, which the runner's cycle-blind
+			serializer then chased into a stack overflow. ]]
 		local engine = fakeEngine({ pads = { "Gamepad1" }, vibration = true })
 		local _, built = mountDemo()
 		built.useScriptedEngine(engine.overrides)
-		local opt = built.steps.setPlayHaptics(built, "true")
-		expect(`scripted opt-in engaged: {opt.state ~= "off"} ({opt.state})`).toBe(
-			"scripted opt-in engaged: true (requested)"
-		)
-		local chosen = built.steps.setProfile(built, scenario.profiles.fallback)
-		expect(chosen.profile).toBe(scenario.profiles.fallback)
-		built.steps.firePhase(built, "release")
-		expect(built.steps.readPulses(built).release).toBe(1)
-		built.dispose()
-	end)
-
-	it("the calibration rows drive the release and select phases ONE AT A TIME", function()
-		local engine = fakeEngine({ pads = { "Gamepad1" }, vibration = true })
-		local _, built = mountDemo()
-		built.useScriptedEngine(engine.overrides)
-		built.playHaptics:set(true)
-		local before = built.steps.readPulses()
-		expect(before.release).toBe(0)
-		expect(before.select).toBe(0)
-		built.steps.firePhase(nil, "release")
-		local afterRelease = built.steps.readPulses()
-		expect(`release={afterRelease.release} select={afterRelease.select}`).toBe("release=1 select=0")
-		built.steps.firePhase(nil, "select")
-		local afterSelect = built.steps.readPulses()
-		expect(`release={afterSelect.release} select={afterSelect.select}`).toBe("release=1 select=1")
-		built.dispose()
-	end)
-
-	it("`press` has no driver, and the counter says so instead of printing a zero", function()
-		-- THE HONESTY ROW. `phases.press.plays` is structurally always 0 — this
-		-- module never plays a button's own effect — so a panel that printed it as a
-		-- number would read as "the press never fired" when it means "nobody can
-		-- see". The line has to carry the sentence.
-		local engine = fakeEngine({ pads = { "Gamepad1" }, vibration = true })
-		local _, built = mountDemo()
-		built.useScriptedEngine(engine.overrides)
-		built.playHaptics:set(true)
-		local before = built.steps.readPulses().line
-		built.steps.firePhase(nil, "press")
-		local after = built.steps.readPulses()
-		expect(after.line).toBe(before) -- nothing was faked
-		expect(`says who owns it:{string.find(after.line, "engine", 1, true) ~= nil}`).toBe("says who owns it:true")
-		built.dispose()
-	end)
-
-	it("a REAL press on the Press row proves the cause -> edge wiring, not just the waveform", function()
-		--[[ REVIEW F6. The Release and Select rows put their cause on the bus
-			directly, which is how each waveform gets judged with nothing else in the
-			way — but it means those two rows cannot say anything about whether a
-			genuine completed activation reaches the release phase. The Press row is an
-			ordinary control, so it can, and the panel now counts what reached the BUS
-			rather than what the button's own handler saw. ]]
-		local engine = fakeEngine({ pads = { "Gamepad1" }, vibration = true })
-		local w, built = mountDemo()
-		built.useScriptedEngine(engine.overrides)
-		built.playHaptics:set(true)
-		local before = built.steps.readPulses()
-		expect(`heard={before.heard} release={before.release}`).toBe("heard=0 release=0")
-		w.adapter.tap("/SensoryFeedback/Page/Calibration/CalRow/CalPress")
-		local after = built.steps.readPulses()
-		-- ONE completed activation reached the bus, and ONE settle answered it
-		expect(`heard={after.heard} release={after.release} select={after.select}`).toBe("heard=1 release=1 select=0")
-		-- ...and the panel says so on screen, where a device session can read it
-		expect(`line names the count:{string.find(after.line, "bus: 1", 1, true) ~= nil}`).toBe(
-			"line names the count:true"
-		)
-		built.dispose()
-	end)
-
-	it("the profile selector really re-installs, and SILENT plays nothing at all", function()
-		local engine = fakeEngine({ pads = { "Gamepad1" }, vibration = true })
-		local _, built = mountDemo()
-		built.useScriptedEngine(engine.overrides)
-		built.playHaptics:set(true)
-		-- FALLBACK: the two quiet phases share UIHover, which is the documented
-		-- limitation rather than a coincidence
-		built.steps.setProfile(nil, scenario.profiles.fallback)
-		local fallback = built.steps.readPulses()
-		expect(`press={fallback.pressEffect} release={fallback.releaseEffect} select={fallback.selectEffect}`).toBe(
-			"press=UIClick release=UIHover select=UIHover"
-		)
-		built.steps.firePhase(nil, "release")
-		expect(built.steps.readPulses().release).toBe(1)
-		-- SILENT: still installed, still reporting, and playing nothing
-		built.steps.setProfile(nil, scenario.profiles.silent)
-		built.steps.firePhase(nil, "release")
-		built.steps.firePhase(nil, "select")
-		local silent = built.steps.readPulses()
-		expect(`plays={silent.plays} press={tostring(silent.pressEffect)}`).toBe("plays=0 press=nil")
-		expect(built.hapticsAdapter() ~= nil).toBe(true)
-		-- ...and back to the Facet defaults, by name
-		built.steps.setProfile(nil, scenario.profiles.defaults)
-		local defaults = built.steps.readPulses()
-		expect(`press={defaults.pressEffect} release={defaults.releaseEffect} select={defaults.selectEffect}`).toBe(
-			"press=contact release=settle select=tick"
-		)
+		local off = built.steps.setPlayHaptics(built, "false")
+		expect(`scripted opt-out engaged: {off.state}`).toBe("scripted opt-out engaged: off")
+		local on = built.steps.setPlayHaptics(built, "true")
+		expect(`scripted opt-in engaged: {on.state}`).toBe("scripted opt-in engaged: requested")
+		local chosen = built.steps.choose(built, "ChoiceStrong")
+		expect(chosen.choice).toBe("ChoiceStrong")
+		built.steps.playCustom(built)
+		expect(built.steps.readRows().customPlays).toBe(1)
+		local report = built.steps.readHaptics(built)
+		expect(report.state).toBe("requested")
+		expect(report.decorated > 0).toBe(true)
 		built.dispose()
 	end)
 
@@ -1475,10 +2075,9 @@ describe("the sensory-feedback demo installs the real adapter and reports a TRI-
 		})
 		local _, built = mountDemo()
 		built.useScriptedEngine(engine.overrides)
-		built.playHaptics:set(true)
 		expect(built.hapticsState:get()).toBe("refused")
-		expect(string.find(built.hapticsDetail:get(), "absent", 1, true) ~= nil).toBe(true)
-		expect(string.find(built.hapticsDetail:get(), "Unable to create", 1, true) ~= nil).toBe(true)
+		expect(string.find(built.hapticsEvidence:get(), "absent", 1, true) ~= nil).toBe(true)
+		expect(string.find(built.hapticsEvidence:get(), "Unable to create", 1, true) ~= nil).toBe(true)
 		built.dispose()
 	end)
 
@@ -1490,18 +2089,19 @@ describe("the sensory-feedback demo installs the real adapter and reports a TRI-
 		})
 		local _, built = mountDemo()
 		built.useScriptedEngine(engine.overrides)
-		built.playHaptics:set(true)
 		expect(built.hapticsState:get()).toBe("undetermined")
-		expect(string.find(built.hapticsDetail:get(), "blocked", 1, true) ~= nil).toBe(true)
+		expect(string.find(built.hapticsEvidence:get(), "blocked", 1, true) ~= nil).toBe(true)
 		built.dispose()
 	end)
 
 	it("an adapter that could not be LOADED is undetermined, not a platform claim", function()
 		local _, built = mountDemo()
 		built.useScriptedEngine({ moduleError = "Facet.client.haptics is not replicated here" })
-		built.playHaptics:set(true)
 		expect(built.hapticsState:get()).toBe("undetermined")
-		expect(string.find(built.hapticsDetail:get(), "not replicated", 1, true) ~= nil).toBe(true)
+		expect(string.find(built.hapticsEvidence:get(), "not replicated", 1, true) ~= nil).toBe(true)
+		expect(built.hapticsAdapter()).toBeNil()
+		-- ...and the request is still on: a build fact is not a device fact
+		expect(built.playHaptics:get()).toBe(true)
 		built.dispose()
 	end)
 
@@ -1526,7 +2126,6 @@ describe("the sensory-feedback demo installs the real adapter and reports a TRI-
 		for _, input in INPUTS do
 			local verdict = scenario.classify(input.facts)
 			states[verdict.state] = true
-			local prior = seen[verdict.headline]
 			-- headlines may repeat WITHIN a state (two ways to be refused read the
 			-- same); they may never be shared ACROSS states
 			for otherHeadline, otherState in seen do
@@ -1538,56 +2137,24 @@ describe("the sensory-feedback demo installs the real adapter and reports a TRI-
 			end
 			seen[verdict.headline] = verdict.state
 			expect(`{input.name} detail is empty:{verdict.detail == ""}`).toBe(`{input.name} detail is empty:false`)
-			local _ = prior
+			expect(`{input.name} evidence is empty:{verdict.evidence == ""}`).toBe(
+				`{input.name} evidence is empty:false`
+			)
 		end
 		expect(
 			`three states reachable:{states.requested == true and states.refused == true and states.undetermined == true}`
 		).toBe("three states reachable:true")
 	end)
 
-	-- ---- the switch is reversible, and it takes its instances with it ------
-	it("switching it off destroys every effect and takes the claim back", function()
-		local engine = fakeEngine({ pads = { "Gamepad1" }, vibration = true })
-		local _, built = mountDemo()
-		built.useScriptedEngine(engine.overrides)
-		built.playHaptics:set(true)
-		expect(engine.live() > 0).toBe(true)
-		for _, button in engine.buttons do
-			expect(`{button.Name} carries an effect:{button.PressHapticEffect ~= nil}`).toBe(
-				`{button.Name} carries an effect:true`
-			)
-		end
-		built.playHaptics:set(false)
-		expect(engine.live()).toBe(0)
-		expect(built.hapticsState:get()).toBe("off")
-		expect(built.hapticsAdapter()).toBeNil()
-		for _, button in engine.buttons do
-			expect(`{button.Name} still carries one:{button.PressHapticEffect ~= nil}`).toBe(
-				`{button.Name} still carries one:false`
-			)
-		end
-		built.dispose()
-	end)
-
-	it("disposing the fixture with the switch ON leaves no effect behind", function()
-		local engine = fakeEngine({ pads = { "Gamepad1" }, vibration = true })
-		local _, built = mountDemo()
-		built.useScriptedEngine(engine.overrides)
-		built.playHaptics:set(true)
-		expect(engine.live() > 0).toBe(true)
-		built.dispose()
-		expect(engine.live()).toBe(0)
-	end)
-
 	-- ---- and the SHIPPED default path, with nothing injected ---------------
 	-- The seam's default is what both hosts run, so it is the path that has to be
 	-- exercised rather than described. Under Lune the adapter module really does
-	-- resolve; the UI root really does not (there is no engine), and the demo
-	-- says exactly that instead of reporting a platform verdict it cannot have.
+	-- resolve; the UI root really does not (there is no engine), and the demo says
+	-- exactly that instead of reporting a platform verdict it cannot have.
 	it("with NOTHING injected it still installs, and names what it could not reach", function()
 		local w, built = mountDemo()
-		built.playHaptics:set(true)
 		expect(built.hapticsAdapter() ~= nil).toBe(true)
+		expect(built.overrideAdapter() ~= nil).toBe(true)
 		expect(built.hapticsState:get()).toBe("undetermined")
 		expect(built.hapticsAdapter().diagnostics().decorated).toBe(0)
 		expect(w.core:lastError()).toBeNil()

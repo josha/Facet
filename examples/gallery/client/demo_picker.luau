@@ -306,14 +306,15 @@ demo_picker.DEMOS = {
 		module = "virtual_hgrid",
 	},
 	-- the tenth fixture, and the reason is the one every fixture above it gives:
-	-- what it demonstrates is INVISIBLE in a picture. Five buttons painted
-	-- identically report four different verbs and one nothing at all, and one
-	-- declaration on a panel reaches three controls inside it — so the capability
-	-- only exists in the log beside them.
+	-- what it demonstrates is INVISIBLE in a picture. Four labelled rows ask for
+	-- four different sensations — press, release, a changed choice, and one
+	-- waveform the example supplies itself — and the only way to see which is the
+	-- history beside them. The switch that decides whether any of it reaches this
+	-- device is the first panel on the page, and it opens ON.
 	{
 		id = "sensory-feedback",
 		title = "Sensory feedback",
-		blurb = "Five identical buttons that mean different things — one panel speaks for three",
+		blurb = "Press, release, selection, custom — four comparisons, and the switch is on",
 		kind = "fixture",
 		module = "sensory_feedback",
 	},

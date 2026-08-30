@@ -55,6 +55,18 @@ policy in disguise.
 |---|---|---|---|---|---|
 | FW-1 | Two-dimensional Facet UI must materialize on a world part players can walk up to and use. | **Change Facet.** `target_contract.FUTURE.surface` already declares this target and its open questions; the plan authorizes shipping it. | `src/client/surface_target.luau` — a thirteenth blessed client entry point, built on the existing root-factory seam the billboard target already uses. No second renderer, no `SurfaceGui` branch in any control. | None expected: the game mounts no world surface. The deliverable is an audited consumer-impact ledger plus game-side compatibility evidence, not a manufactured edit. | To be recorded: the Studio spike, the adapter spec, the capability ledger. |
 
+| FW-2 | One control should be able to carry a different haptic waveform from its siblings — the plan asks the sensory demo for exactly that ("one control uses Facet's documented public override/profile seam"). | **Recorded, not fixed.** The override seam is real and public, but it is **adapter-wide**: `haptics.new({ profile })` resolves a partial profile over the defaults for all three phases at once, and there is no per-control route. So a demo that overrides on the installed adapter would move the very waveform the row beside it demonstrates. | None. The example composes around it with a **second adapter**, built through the same public `haptics.new({ profile })` and fed through `bind`'s own documented input shape — "something with an `onFeedback(fn) -> unsubscribe`". It is never bound to the presenter and never attached to a root, so nothing on the real bus can reach it and a duplicate pulse is impossible by construction rather than merely unobserved. The custom control declares `activation = "none"`, the documented silence. | None. | `tests/control_feedback.spec.luau` — the override adapter is proved unreachable from the presenter's bus, and the per-input-path pulse census shows exactly one release on each of pointer/touch/keyboard/gamepad. |
+
+**Why FW-2 is recorded rather than fixed.** Two public calls to a public constructor
+is composition, not a workaround: nothing reaches an adapter internal, nothing
+re-implements a waveform, and on a device the override adapter genuinely plays — `bind`
+is its documented input and the demo pushes a real cause onto it. What the example
+cannot do is give one *button* a different feel through the property route, because
+`attachButtons(root)` decorates every `GuiButton` under one Instance and an example is
+given no Instance handle for a single control's subtree. That is the gap. It is worth a
+per-control profile seam when a consumer needs one; the demo did not need the seam to
+be honest, and this stage's instruction is to prefer example-only changes.
+
 *(Further rows are appended as the work finds them. A row is added the moment a need
 is identified, not after the fix is written, so a workaround cannot quietly become the
 answer.)*
