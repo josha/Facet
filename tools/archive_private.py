@@ -30,9 +30,12 @@ live, and a decision record can cite `Facet-private-archive/<its old path>`.
 rather than appending a second one. A directory is archived file by file, so the
 manifest never has an entry that is not a checksummable file.
 
-`verify` recomputes every checksum and exits non-zero on the first missing file,
-the first size or digest mismatch, and on any disagreement between MANIFEST.json
-and SHA256SUMS. An archive nobody can verify is a copy, not an archive.
+`verify` recomputes every checksum and exits non-zero on any missing file, any
+size or digest mismatch, and any disagreement between MANIFEST.json and
+SHA256SUMS. An archive nobody can verify is a copy, not an archive. A file in the
+archive root that this manifest does not record is COUNTED, not failed: the root
+is shared with other workstreams that write into it by other means, and verify
+can only speak for what it recorded.
 
 `--selftest` builds a throwaway source tree and a throwaway archive root, proves
 a clean archive verifies, then plants a one-byte corruption and a deletion and
@@ -195,15 +198,21 @@ def verify(root=DEFAULT_ROOT, quiet=False):
             if expected.get(name) != sums.get(name):
                 problems.append(f"SUMS      {name}: MANIFEST.json and {SUMS_NAME} disagree")
 
-    # a file present in the archive but in neither record is an unrecorded copy
+    #[[ A FILE THIS MANIFEST DOES NOT RECORD IS REPORTED, NEVER FAILED, and the
+    #   distinction is a measurement rather than a preference. The first shape of
+    #   this rule failed the run on any unrecorded file, and it went red on 5671
+    #   of them within the hour: the archive ROOT is shared, and a second
+    #   workstream had written a whole history-rewrite candidate into it by other
+    #   means. `verify`'s job is that what THIS manifest records is intact and
+    #   unaltered — a claim about someone else's files it cannot make. ]]
     recorded = {entry["path"] for entry in data["files"]}
+    unrecorded = 0
     for base, dirs, names in os.walk(root):
         dirs[:] = sorted(dirs)
         for name in sorted(names):
             rel = os.path.relpath(os.path.join(base, name), root).replace(os.sep, "/")
-            if rel in BOOKKEEPING or rel in recorded:
-                continue
-            problems.append(f"UNRECORDED {rel}: present in the archive, absent from MANIFEST.json")
+            if rel not in BOOKKEEPING and rel not in recorded:
+                unrecorded += 1
 
     if problems:
         print(f"archive_private: verify FAILED — {len(problems)} problem(s) in {root}")
@@ -213,6 +222,8 @@ def verify(root=DEFAULT_ROOT, quiet=False):
     if not quiet:
         total = sum(entry["bytes"] for entry in data["files"])
         print(f"archive_private: verify OK — {len(data['files'])} file(s), {total} bytes, {root}")
+        if unrecorded:
+            print(f"  note: {unrecorded} other file(s) in this archive root are not in this manifest")
     return 0
 
 
