@@ -902,7 +902,17 @@ require("./themed_containment.spec")
 	the last one to run. testkit executes suites in registration order, which makes
 	the last require and the last case the same thing. ]]
 require("./overflow_guard.spec")
-local ok = testkit.run()
+--[[ STRUCTURED RESULTS, WHEN ASKED FOR (distribution-readiness D7).
+	`FACET_SUITE_JSON=<path> ./run-tests.sh` additionally writes every case as
+	`{id, suite, name, status, ms, error}` for tools/verify.sh to query by id.
+	Unset, this is exactly the run it always was. `registeredSpecs` is counted
+	from THIS file's require list — a spec that registers nothing is then a
+	number that disagrees with itself rather than a silent zero. ]]
+local ok = testkit.run({
+	jsonOut = process.env.FACET_SUITE_JSON,
+	tier = "full",
+	registeredSpecs = testkit.registeredSpecCount("tests/run.luau"),
+})
 if not ok then
 	process.exit(1)
 end

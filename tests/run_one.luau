@@ -14,6 +14,13 @@ local testkit = require("./lib/testkit")
 local name = process.args[1]
 assert(name ~= nil and name ~= "", "usage: lune run tests/run_one <spec-name>  (without the .spec suffix)")
 require("./" .. name .. ".spec")
-if not testkit.run() then
+-- tier = "one": one spec is never a suite verdict, and the structured result
+-- says so in a field rather than only in this comment, so the affected tier can
+-- write a result the full/release reader refuses (D7).
+if not testkit.run({
+	jsonOut = process.env.FACET_SUITE_JSON,
+	tier = "one",
+	registeredSpecs = 1,
+}) then
 	process.exit(1)
 end

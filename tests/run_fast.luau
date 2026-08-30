@@ -42,7 +42,14 @@ for _, rel in order do
 	require("./" .. rel)
 end
 
-local ok = testkit.run()
+-- tier = "fast" in the structured result, which is what makes tools/verify.sh's
+-- full/release reader REFUSE this run as suite evidence (D7): the banner is for
+-- a human, the tier field is for the graph.
+local ok = testkit.run({
+	jsonOut = process.env.FACET_SUITE_JSON,
+	tier = "fast",
+	registeredSpecs = #order,
+})
 local elapsed = os.clock() - t0
 local share = elapsed / FULL_SUITE_SECONDS
 
