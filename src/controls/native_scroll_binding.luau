@@ -7,10 +7,12 @@
 	that mirror only existed if the CONSUMER called `bindNativeScroll(controller)`
 	after `present`, and a consumer who forgot got a control that mounted, painted,
 	took taps, and windowed its FIRST LINES FOREVER — measured live in Studio, an
-	engine scroll to y=2000 leaving a grid's window at `c1..c16`. The census in
-	`artifacts/swiftui-parity-round3/o30-showcase-demos.md` found five of nine
-	callers outside the tests omitting it, so the framework binds it itself now and
-	the public call is an override rather than an obligation.
+	engine scroll to y=2000 leaving a grid's window at `c1..c16`. A census of the
+	showcase demos on the same day found five of nine callers outside the tests
+	omitting it, so the framework binds it itself now and the public call is an
+	override rather than an obligation. The auto-bind contract is pinned by
+	`tests/native_scroll_autobind.spec.luau` and documented in
+	`docs/reference/api.md` (`bindNativeScroll`).
 
 	WHY THE ARBITRATION IS ITS OWN MODULE AND NOT THREE COPIES. `virtual_list`,
 	`virtual_grid` (both axes) and `table` each install a DIFFERENT mirror — the

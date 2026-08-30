@@ -471,8 +471,10 @@ describe("ProgressView circular: the stroke fits inside its own box, in every sh
 	end)
 
 	--[[ WHY THIS INVARIANT IS NOW LOAD-BEARING RATHER THAN TIDY (Studio canary
-		2026-08-14, artifacts/swiftui-parity-round3/studio/canary-2026-08-14.md
-		item D2a): **`ClipsDescendants` does not crop a `Path2D` at all.** The same
+		2026-08-14, item D2a; the rule it produced is stated in
+		docs/reference/api.md under `newProgressView`'s circular presentation, and
+		src/controls/progress_view.luau carries the reading in full):
+		**`ClipsDescendants` does not crop a `Path2D` at all.** The same
 		octagon drawn in a clipping and a non-clipping 200x200 panel painted
 		identically past the edge, and `GetBoundingRect` answered 147x147 for both
 		— so nothing that reads a rect, this suite included, can see a stroke leave

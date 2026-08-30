@@ -106,9 +106,10 @@
 --
 -- The two findings that round turned up — a red check cannot report the next
 -- defect, and a count that does not decompose IS one — are in
--- docs/lessons/a-red-check-cannot-report-the-next-defect.md; the full
--- decomposition and the mutation transcripts are in
--- artifacts/swiftui-parity-round3/flat-baseline-characterization.md.
+-- docs/lessons/a-red-check-cannot-report-the-next-defect.md, which is the
+-- public home for both, and carries the decomposition rule this checker's
+-- reporting now follows. The mutation transcripts behind it are archived with
+-- that stage's gate evidence.
 --
 -- DISAPPEARANCE IS STILL THE ONE THING WITH NO WAIVER AT ALL (outside a declared
 -- RESHAPED_SUBTREES), and it earned that this round: it was the only instrument in

@@ -404,9 +404,9 @@ end)
 --[[ ── O-20 / L-29 RESIDUAL 2: A GEOMETRY CHANGE THAT ALSO MOVES A BOUND
 	LAYOUT PROP IS STILL ONE SOLVE ─────────────────────────────────────────────
 
-	MEASURED, not theorised (2026-08-15, tools/lune/_probe_modal_solves and the
-	game-side probe recorded in artifacts/swiftui-parity-round3/o20-modal-solve
-	-residual.md). The optimization log booked this as "a second solve site on
+	MEASURED, not theorised (2026-08-15, `lune run tools/lune/_probe_modal_solves`,
+	corroborated by a game-side probe on the same day; re-run the probe to
+	reproduce every number below). The optimization log booked this as "a second solve site on
 	the MODAL PRESENTATION PATH". It is not: `presenter.present` of the same
 	blueprint costs exactly what `presenter.presentModal` costs, and a bare modal
 	over a plain tree costs 1. What costs 3 is a surface that has a LAYOUT prop

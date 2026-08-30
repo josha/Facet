@@ -6,11 +6,14 @@
 	and `scrollTop` was written only by the engine mirror `bindNativeScroll`
 	installs. That call is a POST-`present` obligation, so a consumer who never
 	made it got a control that mounted, painted, took taps, and windowed its FIRST
-	LINES FOREVER. Measured live in Studio 2026-08-15 (`artifacts/swiftui-parity-
-	round3/o30-showcase-demos.md`): an engine scroll to `CanvasPosition.Y = 2000`
+	LINES FOREVER. Measured live in Studio 2026-08-15: an engine scroll to
+	`CanvasPosition.Y = 2000`
 	left a `virtual_grid`'s mounted window at `c1..c16`; with the bind restored the
-	same scroll moved it to `c69..c92`. The census in that artifact found five of
-	nine callers outside the tests omitting it — an API footgun, not one slip.
+	same scroll moved it to `c69..c92`. A census of the showcase demos the same day
+	found five of nine callers outside the tests omitting it — an API footgun, not
+	one slip. The contract this file pins is public: `docs/reference/api.md`
+	(`bindNativeScroll`) states that the framework installs the mirror itself and
+	that the public call is an override.
 
 	THE SEAM, AND WHY IT IS NOT THE ONE THE LEDGER PROPOSED. O-31 proposed
 	delivering the controller through `buildFocusGroups(rootNode)`, on the ground

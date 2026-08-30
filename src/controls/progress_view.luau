@@ -43,8 +43,10 @@
 -- ClipsDescendants incompatibility outright.
 --
 -- ===== A `Path2D` IS NOT CLIPPED BY ANYTHING, AND THAT IS LIVE-ONLY ==========
--- Measured in Studio 2026-08-14 (canary D2a,
--- artifacts/swiftui-parity-round3/studio/canary-2026-08-14.md): the same octagon
+-- Measured in Studio 2026-08-14; the invariant it forced is asserted by
+-- `tests/progress_circular.spec.luau` and the rule it produced is stated in
+-- `docs/reference/api.md` (`newProgressView`, the circular presentation): the
+-- same octagon
 -- drawn in a clipping and a non-clipping panel painted IDENTICALLY past the
 -- edge, and `GetBoundingRect` answered 147x147 for both. Corroborated from the
 -- other end by a probe of the class itself the same day: a `Path2D`'s entire

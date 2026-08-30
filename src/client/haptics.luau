@@ -82,8 +82,10 @@
 --      `diagnostics().phases[phase].fallbackActive` says so.
 --      Confirmed live in Studio 2026-08-13: `Enum.HapticEffectType["UISelection"]`
 --      THROWS on index rather than answering nil, so the lookup must sit inside a
---      pcall or a typo is a crash (artifacts/swiftui-parity-round2/
---      phase-3-haptics-evidence.md). The same canary read
+--      pcall or a typo is a crash. The engine facts this module rests on are
+--      recorded with their Roblox sources in
+--      `docs/research/2026-08-12-haptics-engine-facts.md`, and the defensive
+--      resolution is pinned by `tests/haptics.spec.luau`. The same canary read
 --      `HapticService:IsVibrationSupported(Gamepad1) == false` on a machine with
 --      ZERO gamepads attached — the boolean lying exactly as fact 3 predicts.
 --

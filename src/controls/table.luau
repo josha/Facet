@@ -721,9 +721,11 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 		WHY IT IS THE SHARED ONE AND NOT THREE LOCAL LOOPS. It was three: a
 		key->cumulative-top memo, a `contentHeight()` that re-summed the same
 		numbers, and an `insertSlotAt` that re-walked them a third time with its own
-		midpoint rule. Three copies of one prefix sum is the "gesture machinery in
-		four implementations" defect (`swiftui-parity.md` §13) being re-committed at
-		a smaller scale, and it is what made `newTable` virtualization impossible to
+		midpoint rule. Three copies of one prefix sum is the same defect class this
+		codebase already carries at a larger scale in its gesture machinery — four
+		implementations that duplicate state and math, and no file imports more than
+		one of them — being re-committed small, and it is what made `newTable`
+		virtualization impossible to
 		land honestly: windowing has to agree with painting to the pixel, and it
 		cannot agree with three answers.
 

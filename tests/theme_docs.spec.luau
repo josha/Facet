@@ -305,180 +305,126 @@ describe("documentation gate: the rich-skinning surface and its docs agree", fun
 end)
 
 -- ---------------------------------------------------------------------------
--- THE COMPARISON DOCUMENT'S CITATION GATE
+-- A COMPARISON DOCUMENT'S SOURCING GATE
 --
--- One document compares Facet with another user-interface framework, and it is
--- the only file in this repository allowed to name that framework. Claims about
--- OUR side are reconciled against the build by three checkers. Claims about the
--- other framework rested on memory until this gate, and a citation pass found
--- ten of them wrong, including a symbol that does not exist. Every wrong claim
--- had stood uncited. So the rule is mechanical: a verdict row naming that
--- framework carries a citation id, and an id resolves to a §16 row with a page,
--- a verbatim quote and a date. The vendor words in the fixtures below are match
--- data for that one document.
+-- Facet explains itself in Facet and Roblox terms. One kind of document is
+-- exempt: a comparison written for a reader who already knows another library.
+-- Claims about OUR side are reconciled against the build by three checkers.
+-- Claims about the other libraries rested on memory until this gate, and a
+-- citation pass over the comparison this repository used to carry found TEN of
+-- them wrong, including a symbol that does not exist. Every wrong claim had
+-- stood with nothing for a reader to open.
 --
--- The rule cannot check that a quote is TRUE. That is the point of the shape of
--- these tests: each one proves the checker refuses a *missing* citation, never
--- that it can judge a real one.
+-- THE PATH IS NOT THE CONTRACT (2026-08-30). That document was product research
+-- and has been archived out of this repository (docs/plans/distribution-
+-- readiness.md, "Private research and public framework choice"). The rule
+-- outlived it: `COMPARISON_DOCS` in tools/lune/check_docs.luau is the list, and
+-- the four rules below are what a listed document that EXISTS is held to.
+--
+-- These cases drive the checker through `fileOverrides` rather than against
+-- whatever is on disk, so the machinery is proven to bite on its own terms —
+-- on this tree and on a tree where no comparison document has landed yet.
+--
+-- The rule cannot check that a source SAYS what the document claims. That is
+-- the point of the shape of these tests: each proves the checker refuses a
+-- *missing* source, a *missing* date, a *missing* pin or a *missing* label,
+-- never that it can judge a real one.
 -- ---------------------------------------------------------------------------
 
-local PARITY = "docs/reference/swiftui-parity.md"
+local COMPARISON = "docs/guide/14-choosing-a-ui-library.md"
 
-local GOOD_ROW = "| `zIndex` — SwiftUI controls the display order of overlapping views ([SW-01]) "
-	.. "| **Covered** | a shared box prop | — |"
-local GOOD_CITATION = "| **SW-01** | [`zIndex(_:)`](https://developer.apple.com/documentation/swiftui/view/zindex(_:)) "
-	.. "| \u{201C}Controls the display order of overlapping views.\u{201D} | iOS 13+ | 2026-08-13 |"
-
--- A minimal parity document with the shape the checker reads: one verdict table
--- of claims, the two rows a concurrently-running task owns (which CITATION_EXEMPT
--- excuses, and which must therefore be present or the exemptions are stale), and
--- a §16 citation table.
-local function parityFixture(claimRows: string, citationRows: string): string
+-- The shape all four rules read: a table of claims, a sources table pinning
+-- each project with a URL, a research date, and the inference label.
+local function comparisonFixture(overrides: { [string]: string }?): string
+	local o = overrides or {}
+	local date = o.date or "Fetched 2026-08-30."
+	local pin = o.pin or "Each project is pinned to the version, tag or commit current on that date."
+	local label = o.label or "`[INFERENCE]` — a conclusion drawn from those facts."
+	local vide = o.vide or "| Vide | release `0.4.1` | <https://centau.github.io/vide/> |"
 	return table.concat({
 		"# fixture",
 		"",
-		"| SwiftUI capability | Verdict | What Facet has | Evidence |",
-		"|---|---|---|---|",
-		claimRows,
+		label,
 		"",
-		"| SwiftUI item | Verdict | What Facet has | Evidence |",
-		"|---|---|---|---|",
-		"| `Table.onPrimaryAction` (SwiftUI: the item-based context menu) | **Covered** | owned elsewhere | — |",
-		"| Per-row capability opt-outs — SwiftUI's `selectionDisabled(_:)` | **Missing** | owned elsewhere | — |",
-		"",
-		"## 16. Citations — fixture",
-		"",
-		"Where a page says nothing, the row says Apple documents no behaviour here.",
-		"",
-		"| Id | Apple's page | The sentence the claim rests on | Availability | Checked |",
+		"| | Facet | React | Fusion | Vide |",
 		"|---|---|---|---|---|",
-		citationRows,
+		"| **Cleanup** | scopes | `useEffect` returns a cleanup | `doCleanup()` | `root()` returns a destructor |",
+		"",
+		"## Sources",
+		"",
+		date,
+		pin,
+		"",
+		"| Project | Pinned to | Source |",
+		"|---|---|---|",
+		"| React | tag `v17.1.3` | <https://github.com/Roblox/react-luau> |",
+		"| Fusion | release `v0.3-beta` | <https://elttob.uk/Fusion/0.3/> |",
+		vide,
 		"",
 	}, "\n")
 end
 
-describe("documentation gate: every claim about the compared framework is cited", function()
-	it("the live comparison document passes, and cites a substantial body of pages", function()
+describe("documentation gate: a comparison document sources what it compares against", function()
+	it("the live tree's comparison document passes, and an absent one is not an error", function()
 		local result = checker.check()
-		if not result.ok then
-			error("check_docs problems:\n  " .. table.concat(result.problems, "\n  "))
+		-- Scoped to THIS gate on purpose: this spec proves the sourcing rules,
+		-- and an unrelated red elsewhere in check_docs must not be reported here
+		-- as if the comparison document caused it.
+		if problemsMentioning(result, COMPARISON) ~= 0 then
+			error("comparison document problems:\n  " .. table.concat(result.problems, "\n  "))
 		end
-		-- a floor, so a gutted §16 cannot pass by citing nothing
-		expect(result.counts.citations).toBeGreaterThanOrEqual(100)
+		-- the count is reported, so a section that read nothing is visible
+		-- rather than indistinguishable from a section that passed
+		expect(typeof(result.counts.comparisonDocs)).toBe("number")
 	end)
 
-	it("passes on a minimal well-formed document (the fixture is not accidentally red)", function()
-		local result = checker.check({
-			fileOverrides = { [PARITY] = parityFixture(GOOD_ROW, GOOD_CITATION) },
-		})
-		if not result.ok then
+	it("passes on a minimal well-formed document, and reports that it read it", function()
+		local result = checker.check({ fileOverrides = { [COMPARISON] = comparisonFixture() } })
+		if problemsMentioning(result, COMPARISON) ~= 0 then
 			error("fixture should be clean:\n  " .. table.concat(result.problems, "\n  "))
 		end
-		expect(result.counts.citations).toBe(1)
+		expect(result.counts.comparisonDocs).toBe(1)
+		-- one per framework the fixture names and sources
+		expect(result.counts.citations).toBe(3)
 	end)
 
-	it("fails when a verdict row asserts something uncited about the compared framework", function()
-		local uncited = "| `Grid` — SwiftUI sizes a column to its widest cell | **Covered** | ours | — |"
-		local result = checker.check({
-			fileOverrides = { [PARITY] = parityFixture(GOOD_ROW .. "\n" .. uncited, GOOD_CITATION) },
+	it("fails when a framework it compares against carries no source URL", function()
+		local unsourced = comparisonFixture({ vide = "| Vide | release `0.4.1` | the website |" })
+		local result = checker.check({ fileOverrides = { [COMPARISON] = unsourced } })
+		expect(result.ok).toBe(false)
+		expect(problemsMentioning(result, "compares against 'Vide' but no line naming it carries a source URL")).toBe(1)
+	end)
+
+	it("fails when the comparison carries no ISO research date", function()
+		local undated = comparisonFixture({ date = "Fetched recently." })
+		local result = checker.check({ fileOverrides = { [COMPARISON] = undated } })
+		expect(result.ok).toBe(false)
+		expect(problemsMentioning(result, "carries no ISO research date")).toBe(1)
+	end)
+
+	it("fails when the comparison pins no version, tag or commit", function()
+		local unpinned = comparisonFixture({
+			pin = "Each project is pinned to whatever was current on that date.",
+			vide = "| Vide | the current one | <https://centau.github.io/vide/> |",
 		})
+		-- the other two rows still carry pin words, so strip them too
+		unpinned = string.gsub(unpinned, "tag `v17%.1%.3`", "the newest one")
+		unpinned = string.gsub(unpinned, "release `v0%.3%-beta`", "the newest one")
+		local result = checker.check({ fileOverrides = { [COMPARISON] = unpinned } })
 		expect(result.ok).toBe(false)
-		expect(problemsMentioning(result, "asserts something about the compared framework with no citation")).toBe(1)
+		expect(problemsMentioning(result, "pins no version, tag or commit")).toBe(1)
 	end)
 
-	it("fails when a cited id has no §16 row to resolve against", function()
-		local dangling =
-			"| `Layout` — SwiftUI's layout protocol defines geometry ([SW-42]) | **Missing** | — | — |"
-		local result = checker.check({
-			fileOverrides = { [PARITY] = parityFixture(GOOD_ROW .. "\n" .. dangling, GOOD_CITATION) },
-		})
+	it("fails when the comparison never marks a claim as an inference", function()
+		local unlabelled = comparisonFixture({ label = "Every claim below is stated by a pinned source." })
+		local result = checker.check({ fileOverrides = { [COMPARISON] = unlabelled } })
 		expect(result.ok).toBe(false)
-		expect(problemsMentioning(result, "SW-42 is cited but §16 does not define it")).toBe(1)
+		expect(problemsMentioning(result, "never marks a claim as 'inference'")).toBe(1)
 	end)
 
-	it("fails when a §16 row is defined but nothing cites it", function()
-		local orphan = GOOD_CITATION
-			.. "\n| **SW-77** | [`tint(_:)`](https://developer.apple.com/documentation/swiftui/view/tint(_:)) "
-			.. "| \u{201C}Sets the tint color within this view.\u{201D} | iOS 15+ | 2026-08-13 |"
-		local result = checker.check({ fileOverrides = { [PARITY] = parityFixture(GOOD_ROW, orphan) } })
-		expect(result.ok).toBe(false)
-		expect(problemsMentioning(result, "SW-77 is defined in §16 but nothing cites it")).toBe(1)
-	end)
-
-	it("fails when a citation carries no vendor URL, no quote, or no date", function()
-		local cases = {
-			{
-				citation = "| **SW-01** | `zIndex(_:)` | \u{201C}Controls the display order of overlapping views.\u{201D} "
-					.. "| iOS 13+ | 2026-08-13 |",
-				problem = "SW-01 has no developer.apple.com URL",
-			},
-			{
-				citation = "| **SW-01** | [`zIndex(_:)`](https://developer.apple.com/documentation/swiftui/view/zindex(_:)) "
-					.. "| it says roughly that overlapping views are ordered | iOS 13+ | 2026-08-13 |",
-				problem = "SW-01 quotes nothing",
-			},
-			{
-				citation = "| **SW-01** | [`zIndex(_:)`](https://developer.apple.com/documentation/swiftui/view/zindex(_:)) "
-					.. "| \u{201C}Controls the display order of overlapping views.\u{201D} | iOS 13+ | recently |",
-				problem = "SW-01 carries no ISO date",
-			},
-		}
-		for _, case in cases do
-			-- the anchor list still needs the convention date somewhere in the file
-			local doc = parityFixture(GOOD_ROW, case.citation) .. "\nConvention: dates are ISO, e.g. 2026-08-13.\n"
-			local result = checker.check({ fileOverrides = { [PARITY] = doc } })
-			expect(result.ok).toBe(false)
-			expect(problemsMentioning(result, case.problem)).toBe(1)
-		end
-	end)
-
-	it("fails when an exemption stops matching, or when the row it excused gets cited", function()
-		-- the row went away: the exemption is stale and must be deleted
-		local noExemptRows = table.concat({
-			"# fixture",
-			"",
-			"| SwiftUI capability | Verdict | What Facet has | Evidence |",
-			"|---|---|---|---|",
-			GOOD_ROW,
-			"",
-			"## 16. Citations — fixture",
-			"",
-			"Apple documents no behaviour here, where a page is silent.",
-			"",
-			"| Id | Apple's page | The sentence | Availability | Checked |",
-			"|---|---|---|---|---|",
-			GOOD_CITATION,
-			"",
-		}, "\n")
-		local gone = checker.check({ fileOverrides = { [PARITY] = noExemptRows } })
-		expect(gone.ok).toBe(false)
-		expect(problemsMentioning(gone, "matches no row")).toBe(2)
-
-		-- the debt was paid: the exempt row now carries a citation, so the
-		-- exemption is the thing that is now wrong
-		local cited = string.gsub(
-			parityFixture(GOOD_ROW, GOOD_CITATION),
-			"| `Table.onPrimaryAction` %(SwiftUI: the item%-based context menu%)",
-			"| `Table.onPrimaryAction` (SwiftUI: the item-based context menu, [SW-01])",
-			1
-		)
-		local paid = checker.check({ fileOverrides = { [PARITY] = cited } })
-		expect(paid.ok).toBe(false)
-		expect(problemsMentioning(paid, "now carries a citation")).toBe(1)
-	end)
-
-	it("fails when the parity document loses the citation convention itself", function()
-		local result = checker.check({
-			fileOverrides = { [PARITY] = "# parity\n\nNo citations, no §16, no dates.\n" },
-		})
-		expect(result.ok).toBe(false)
-		expect(problemsMentioning(result, "## 16. Citations")).toBeGreaterThanOrEqual(1)
-		expect(problemsMentioning(result, "Apple documents no behaviour here")).toBeGreaterThanOrEqual(1)
-	end)
-
-	it("names the citation obligations in the CLI's --list output", function()
+	it("names the sourcing obligations in the CLI's --list output", function()
 		local joined = table.concat(checker.OBLIGATIONS, "\n")
-		for _, needle in { "[SW-nn]", "comparison document", "fixed words for a silent page", "CITATION_EXEMPT" } do
+		for _, needle in { "comparison document", "source URL", "ISO research date", "version, tag or commit" } do
 			expect(string.find(joined, needle, 1, true) ~= nil).toBe(true)
 		end
 	end)

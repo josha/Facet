@@ -84,5 +84,6 @@ The instinct that found the real problem also produced a scarier story than the
 facts supported, and the story was checked before it was written down.
 
 See also: `tools/lune/check_flat_baseline.luau`'s header (the two instruments,
-and why only one of them is a frozen dump) and
-`artifacts/swiftui-parity-round3/flat-baseline-characterization.md`.
+and why only one of them is a frozen dump). The full decomposition and the
+mutation transcripts that produced this lesson are archived with that stage's
+gate evidence rather than carried in the maintained tree.

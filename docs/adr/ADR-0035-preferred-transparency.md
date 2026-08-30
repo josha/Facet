@@ -11,7 +11,9 @@ whose Decision 2 rule is the instrument used below), [ADR-0026](ADR-0026-authore
 [ADR-0018](ADR-0018-native-stylesheets.md) / [ADR-0019](ADR-0019-theme-packages.md) §4
 (native stylesheet ownership), `docs/lessons/the-base-term-is-destroyed-by-composing.md`,
 `artifacts/adr-0035-preferred-transparency/live-probes.md` (every number below).
-**Closes:** owed row **O-26** (`artifacts/swiftui-parity-round3/owed.md`).
+**Closes:** owed row **O-26** of that stage's owed ledger, which is archived
+with its gate evidence rather than carried in the maintained tree. What the row
+asked for is stated in full below, so this record stands without it.
 
 ## Context — a first-class signal with no reader
 

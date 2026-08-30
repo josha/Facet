@@ -57,7 +57,7 @@ application:
 | `reference-app-validation` / `proof-avatar-editor-loop` | seven suite greps for `wardrobe_spec` case names — the spec mounts this module |
 | `reference-app-validation` / `device-matrix` | the five-view + keyboard Studio matrix recorded for `wardrobe` in `artifacts/swiftui-reference-app-validation/studio/` |
 | `reference-app-validation` / `fixture-axes` | the theme/text/motion/locale axes recorded for `wardrobe` in the same artifact tree |
-| `swiftui-parity-round3` / `reference-apps-reproved` | two suite greps for the worn-chips flow-wrap cases, which only this app's pane produces |
+| the layout-parity round-3 stage / `reference-apps-reproved` | two suite greps for the worn-chips flow-wrap cases, which only this app's pane produces. The stage id is whatever `tools/lune/gate_manifest.luau` registers for that row — read it there rather than from this table |
 
 `tests/reference/wardrobe_spec.luau` (22 cases) still runs on every suite pass,
 registered in `tests/run.luau`, and now requires

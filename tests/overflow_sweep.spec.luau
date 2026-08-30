@@ -127,8 +127,10 @@
 -- WHAT A THEME COSTS, AND WHAT THE TIER IS. Naively this is a 9x multiplier on an
 -- always-on check (33.5s, +30s on a 62s suite), so the shape was measured over the
 -- WHOLE cross product first (43 surfaces x 12 themes x 8 viewports x 4
--- preferences, artifacts/swiftui-parity-round3/theme-sweep-tier.md) and the tier
--- chosen from that data:
+-- preferences, 2026-08-15) and the tier chosen from that data. The tier that
+-- shipped is not a claim to be trusted on this comment: `themeCoverage` at the
+-- bottom of this file fails when the list below and the code disagree, and
+-- `tests/lib/theme_sweep_ledger.luau` holds the per-surface ceilings.
 --
 --   1. A PACKAGE IS THE GEOMETRY AXIS; A THEME IS ITS PALETTE. `classic-desktop`
 --      Day vs Night, `fantasy-ornate` Crypt vs Grand Hall and `fantasy-parchment`
@@ -163,7 +165,7 @@
 -- (see `themeCoverage` at the bottom of this file, which fails if this list and
 -- the code disagree):
 --   * the six WIDE viewports at any preference above the default — 16 measured
---     findings, listed in artifacts/swiftui-parity-round3/theme-sweep-tier.md;
+--     findings, enumerated in the 2026-08-15 cross-product measurement;
 --   * the two narrow viewports at +4 and +10 under a package — 3 measured
 --     findings, and the preference axis is NOT monotone (this file's own header
 --     proves that on the neutral pass), so this is a known hole and not a claim
@@ -640,7 +642,7 @@ end
 	and this list only ever recorded the first. The instrument is
 	`tools/lune/triage_overflow_waivers` (run it; it names its three verdicts and
 	what it refuses to count), and its output is
-	`artifacts/swiftui-parity-round3/waiver-readability.txt`.
+	`artifacts/overflow-waivers/waiver-readability.txt`.
 
 	THE LIST WENT 42 -> 31 -> 13, IN TWO ROUNDS OF THE SAME RULING. Round one fixed
 	ten and measured fifteen cosmetic, leaving sixteen that still hid copy or a

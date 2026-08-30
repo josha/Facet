@@ -19,11 +19,10 @@
 --   7. stale language: the styling guide may not still call the package
 --      contract unshipped;
 --   8. every scenario step the guide teaches still exists in the scenario;
---   9. the comparison document (the one file allowed to name another
---      framework) backs every claim about that framework: each verdict row
---      carries a citation id, and every id resolves to a §16 row with the
---      vendor's page URL, a verbatim quote (or the document's own words for a
---      page that says nothing) and the date it was read;
+--   9. a comparison document -- one written for a reader who already knows
+--      another library -- sources every framework it compares against, carries
+--      an ISO research date, pins the version/tag/commit it read, and marks
+--      what it concluded apart from what it read;
 --  10. the guide index catalogs the live public surface: it names every member
 --      of the UI and Controls namespaces and every non-retired export, names
 --      nothing that has stopped existing, links only api.md headings that
@@ -253,11 +252,6 @@ local FORBIDDEN: { { file: string, phrase: string, why: string } } = {
 		phrase = "Current theme limit and the planned package contract",
 		why = "the old §5.8 heading; the section now documents the shipped contract",
 	},
-	{
-		file = "docs/reference/swiftui-parity.md",
-		phrase = "there is no public\nreusable theme-package API",
-		why = "Facet.themes is public surface",
-	},
 	-- rich skinning v2: statements that were TRUE before ADR-0020 and are now
 	-- wrong. Each one would send a package author looking for a capability the
 	-- build has, and find nothing.
@@ -299,52 +293,50 @@ local FORBIDDEN: { { file: string, phrase: string, why: string } } = {
 	},
 }
 
--- ---- THE COMPARISON DOCUMENT'S CITATION GATE ------------------------------
+-- ---- A COMPARISON DOCUMENT'S CITATION GATE --------------------------------
 --
--- One document in this repository compares Facet with another user-interface
--- framework, and it is the only one allowed to name it. Its whole value is that
--- comparison, and half of it used to be unguarded: claims about Facet are
--- reconciled against the build by this checker, check_prop_parity and
--- check_registration, while claims about the OTHER framework rested on memory.
--- A citation pass found ten of them wrong, including a symbol that does not
--- exist and a sizing rule attributed to a page that never states it. Every one
--- had stood uncited, which is why nobody had opened the page.
+-- Facet explains itself in Facet and Roblox terms. One kind of document is
+-- exempt: a comparison written for a reader who already knows another
+-- user-interface framework. Its whole value is that comparison, and half of it
+-- used to be unguarded -- claims about Facet are reconciled against the build
+-- by this checker, check_prop_parity and check_registration, while claims about
+-- the OTHER framework rested on memory. A citation pass over the comparison
+-- this repository used to carry found TEN of them wrong, including a symbol
+-- that does not exist and a sizing rule attributed to a page that never states
+-- it. Every one had stood uncited, which is why nobody had opened the page.
 --
--- So: a row in a VERDICT table that asserts something about that framework must
--- carry a citation id, and every id must resolve to a §16 row carrying the
--- vendor's own documentation URL, a quoted sentence (or the document's fixed
--- words for a page that states nothing) and an ISO date. This cannot check that
--- a quote is TRUE -- only a human opening the URL does that -- but it stops a
--- new uncited assertion landing, which is the failure mode that produced all
--- ten.
---
--- The vendor words below are match data for that one document, the same way the
--- patterns in tools/check_brand_drift.py are match data for the rule that keeps
--- them out of every other file.
+-- So: a row in a VERDICT table that asserts something about another framework
+-- must carry a citation id, and every id must resolve to a citation row
+-- carrying a source URL, a quoted sentence (or the document's fixed words for a
+-- source that states nothing) and an ISO date. This cannot check that a quote is
+-- TRUE -- only a human opening the URL does that -- but it stops a new uncited
+-- assertion landing, which is the failure mode that produced all ten.
 --
 -- Deliberately narrow, because a noisy checker gets disabled: it fires only on a
 -- table row, only in a table whose header says "Verdict", and only when the row
--- names the compared framework. Prose is not covered.
-local PARITY = "docs/reference/swiftui-parity.md"
-local CITE_DATE = "2026%-08%-13"
-local NO_BEHAVIOUR = "Apple documents no behaviour here"
+-- names a compared framework. Prose is not covered.
+--
+-- THE PATH IS NOT THE CONTRACT (2026-08-30). The one dedicated comparison
+-- document this gate was written for was product research, and it was archived
+-- out of this repository under docs/plans/distribution-readiness.md, "Private
+-- research and public framework choice". The RULE outlived it: the public
+-- comparison guide is the subject now, and the list below is what this section
+-- reads. A listed document that is absent is not this checker's to create; a
+-- listed document that EXISTS is held to every rule, unchanged in direction.
+-- Nothing here names a vendor, a host or a product any more -- a citation needs
+-- an https:// URL, not a particular one -- which is the point of moving the
+-- contract into a neutral home.
+local COMPARISON_DOCS = { "docs/guide/14-choosing-a-ui-library.md" }
 
--- Rows that assert something about the compared framework and carry no
--- citation, with the
--- reason. An exemption is a debt, not a permission: the checker fails when one
--- stops matching (the row went away) AND when the exempt row starts carrying a
--- citation (the debt was paid), so neither entry can rot here unnoticed.
-local CITATION_EXEMPT: { { match: string, why: string } } = {
-	{
-		match = "`Table.onPrimaryAction`",
-		why = "owned by a concurrent Table task on 2026-08-13; the row quotes the vendor's context-menu "
-			.. "discussion inline but does not link it",
-	},
-	{
-		match = "Per-row capability opt-outs",
-		why = "same task, same day: the §13 pointer row for the selectionDisabled/deleteDisabled/moveDisabled family",
-	},
-}
+-- The frameworks a comparison document may be comparing against. Match data,
+-- not documentation: a verdict row that names one of these is making a claim
+-- about it and owes a citation. The list is the plan's own set.
+local COMPARED_FRAMEWORKS = { "React", "Fusion", "Vide" }
+
+-- The word a comparison document uses for a claim it REASONED to rather than
+-- read. Matched case-insensitively; the document says what its labels mean, and
+-- this checker only insists that the distinction is drawn at all.
+local INFERENCE_LABEL = "inference"
 
 -- The scenario steps the guide teaches. Each must exist in BOTH the guide (so
 -- the chapter still teaches it) and the scenario (so it still exists to teach).
@@ -493,6 +485,7 @@ function check_docs.check(opts: Opts?)
 	local anchorsChecked = 0
 	local linksChecked = 0
 	local citationsChecked = 0
+	local comparisonDocs = 0
 
 	local function problem(file: string, what: string, fix: string)
 		table.insert(problems, `{file}: {what}\n      fix: {fix}`)
@@ -927,144 +920,99 @@ function check_docs.check(opts: Opts?)
 		end
 	end
 
-	-- ---- 9. every claim about the compared framework carries a citation -----
-	local parity = read(PARITY)
-	if parity == nil then
-		problem(PARITY, "the comparison document is missing", "restore it, or drop section 9 of this checker with it")
-	else
+	-- ---- 9. a comparison document sources every framework it compares ------
+	--
+	-- Facet explains itself in Facet and Roblox terms. One kind of document is
+	-- exempt: a comparison written for a reader who already knows another
+	-- library. Claims about OUR side are reconciled against the build by this
+	-- checker, check_prop_parity and check_registration; claims about the OTHER
+	-- side rest on the author's memory unless something forces a source.
+	--
+	-- COMPARISON_DOCS is a LIST because the path was never the contract. A
+	-- listed document that is absent is not this checker's to create; a listed
+	-- document that EXISTS is held to all four rules.
+	for _, doc in COMPARISON_DOCS do
+		local source = read(doc)
+		if source == nil then
+			continue
+		end
+		comparisonDocs += 1
 		local lines: { string } = {}
-		for line in string.gmatch(parity :: string .. "\n", "([^\n]*)\n") do
+		for line in string.gmatch(source :: string .. "\n", "([^\n]*)\n") do
 			table.insert(lines, line)
 		end
 
-		-- 9a. §16 rows: `| **SW-nn** | page | quote | availability | date |`
-		local defined: { [string]: boolean } = {}
-		for _, line in lines do
-			local id = string.match(line, "^| %*%*(SW%-%d+)%*%* |")
-			if id == nil then
+		-- 9a. EVERY FRAMEWORK IT NAMES IS SOURCED. Naming a library and never
+		-- linking anything about it is exactly the shape of the ten wrong claims
+		-- a citation pass found in the comparison this repository used to carry:
+		-- every one of them had stood with nothing to open.
+		for _, framework in COMPARED_FRAMEWORKS do
+			if not contains(source :: string, framework) then
 				continue
 			end
 			citationsChecked += 1
-			if defined[id] then
-				problem(PARITY, `citation {id} is defined twice in §16`, "give the second one its own id")
-			end
-			defined[id] = true
-			if not contains(line, "https://developer.apple.com/") then
-				problem(
-					PARITY,
-					`citation {id} has no developer.apple.com URL`,
-					"cite the page a reader should open, or delete the citation and the claim that leans on it"
-				)
-			end
-			if string.match(line, "%d%d%d%d%-%d%d%-%d%d") == nil then
-				problem(
-					PARITY,
-					`citation {id} carries no ISO date`,
-					"append the YYYY-MM-DD you read the page on — an undated citation rots invisibly"
-				)
-			end
-			if not (contains(line, "\u{201C}") or contains(line, NO_BEHAVIOUR)) then
-				problem(
-					PARITY,
-					`citation {id} quotes nothing`,
-					`quote the sentence the claim rests on, or say "{NO_BEHAVIOUR}" — an unsupported `
-						.. "citation is worse than none, because it looks checked"
-				)
-			end
-		end
-
-		-- 9b. references resolve, and nothing is defined that nobody cites
-		local referenced: { [string]: boolean } = {}
-		for _, line in lines do
-			for id in string.gmatch(line, "%[(SW%-%d+)%]") do
-				referenced[id] = true
-				if not defined[id] then
-					problem(
-						PARITY,
-						`{id} is cited but §16 does not define it`,
-						`add the {id} row to §16 (page, verbatim quote, availability, date read)`
-					)
-				end
-			end
-		end
-		for id in defined do
-			if not referenced[id] then
-				problem(
-					PARITY,
-					`citation {id} is defined in §16 but nothing cites it`,
-					"cite it, or delete it — an unused citation is a claim that was removed without its evidence"
-				)
-			end
-		end
-
-		-- 9c. a verdict row naming the compared framework carries a citation
-		local exemptSeen: { [number]: boolean } = {}
-		local inVerdictTable = false
-		for index, line in lines do
-			if string.sub(line, 1, 1) ~= "|" then
-				inVerdictTable = false
-				continue
-			end
-			if string.match(line, "^|[%s%-:|]+|$") ~= nil then
-				local header = lines[index - 1]
-				inVerdictTable = header ~= nil and contains(header, "Verdict")
-				continue
-			end
-			if not inVerdictTable or not contains(line, "SwiftUI") then
-				continue
-			end
-			local cited = contains(line, "[SW-")
-			local exempt = nil
-			for slot, entry in CITATION_EXEMPT do
-				if contains(line, entry.match) then
-					exempt = slot
-					exemptSeen[slot] = true
+			local sourced = false
+			for _, line in lines do
+				if contains(line, framework) and contains(line, "https://") then
+					sourced = true
 					break
 				end
 			end
-			if exempt ~= nil then
-				if cited then
-					problem(
-						PARITY,
-						`the exempt row '{CITATION_EXEMPT[exempt].match}' now carries a citation`,
-						"delete its entry from CITATION_EXEMPT in tools/lune/check_docs.luau — the debt is paid"
-					)
-				end
-			elseif not cited then
+			if not sourced then
 				problem(
-					PARITY,
-					`line {index} asserts something about the compared framework with no citation`,
-					"add a [SW-nn] id and its §16 row (the vendor's page, the sentence quoted verbatim, the "
-						.. "date read), or reword the row so it stops making that claim"
-				)
-			end
-		end
-		for slot, entry in CITATION_EXEMPT do
-			if not exemptSeen[slot] then
-				problem(
-					PARITY,
-					`the citation exemption for '{entry.match}' matches no row`,
-					"remove it from CITATION_EXEMPT in tools/lune/check_docs.luau — the row it excused is gone"
+					doc,
+					`compares against '{framework}' but no line naming it carries a source URL`,
+					`add '{framework}' to the sources table with the page a reader should open, or stop `
+						.. "making claims about it — an unsourced comparison is the failure this gate exists for"
 				)
 			end
 		end
 
-		-- 9d. the convention itself is stated where a reader will meet it
-		for _, anchor in
-			{
-				{ term = "## 16. Citations", why = "the citation table §§3-11 resolve their ids against" },
-				{ term = CITE_DATE:gsub("%%", ""), why = "the date every citation in this pass was read on" },
-				{ term = NO_BEHAVIOUR, why = "the words this document uses for a page that states nothing" },
-			}
-		do
-			anchorsChecked += 1
-			if not contains(parity :: string, anchor.term) then
-				problem(
-					PARITY,
-					`no longer contains '{anchor.term}' ({anchor.why})`,
-					"restore it, or update the anchor list in tools/lune/check_docs.luau if the convention changed"
-				)
+		-- 9b. IT IS DATED. Documentation for a moving project rots, and an
+		-- undated comparison rots invisibly: a reader cannot tell whether it was
+		-- true last week or last year.
+		local dated = false
+		for _, line in lines do
+			if string.match(line, "%d%d%d%d%-%d%d%-%d%d") ~= nil then
+				dated = true
+				break
 			end
+		end
+		if not dated then
+			problem(
+				doc,
+				"carries no ISO research date",
+				"state the YYYY-MM-DD the sources were read on — an undated comparison rots invisibly"
+			)
+		end
+
+		-- 9c. IT PINS WHAT IT COMPARED AGAINST. "Fusion does X" is not checkable
+		-- unless the reader knows which Fusion.
+		local pinned = false
+		for _, word in { "commit", "version", "tag", "release" } do
+			if contains(source :: string, word) then
+				pinned = true
+				break
+			end
+		end
+		if not pinned then
+			problem(
+				doc,
+				"pins no version, tag or commit for what it compared against",
+				"pin each project to the version, tag or commit that was current on the research date"
+			)
+		end
+
+		-- 9d. IT SEPARATES WHAT IT READ FROM WHAT IT CONCLUDED. A comparison
+		-- whose reasoning is indistinguishable from its sources is the document
+		-- that got ten claims wrong, restated.
+		if not contains(string.lower(source :: string), INFERENCE_LABEL) then
+			problem(
+				doc,
+				`never marks a claim as '{INFERENCE_LABEL}'`,
+				"label facts and inferences separately, and say in the document what the labels mean — a "
+					.. "conclusion presented as a reading is the failure mode this rule exists for"
+			)
 		end
 	end
 
@@ -1241,6 +1189,7 @@ function check_docs.check(opts: Opts?)
 			catalogEntries = catalogEntries,
 			anchors = anchorsChecked,
 			citations = citationsChecked,
+			comparisonDocs = comparisonDocs,
 			links = linksChecked,
 			themeExports = exportsDocumented,
 			scenarioSteps = #SCENARIO_STEPS + #RICH_SCENARIO_STEPS,
@@ -1278,17 +1227,16 @@ check_docs.OBLIGATIONS = table.freeze({
 	"every local markdown link in the two new documents resolves to a real path",
 	'docs/guide/05-styling.md no longer claims the package contract is unshipped ("The planned Step 3.5 adds", '
 		.. '"The current native Dark/Light themes are palette themes.", "remain reference-only in this version", '
-		.. '"Current theme limit and the planned package contract"), and the comparison document no longer says '
-		.. "there is no public reusable theme-package API",
+		.. '"Current theme limit and the planned package contract")',
 	"every theme_authoring scenario step the guide teaches exists in the scenario, and every step in the checker's "
 		.. "list is taught by the guide",
-	-- ---- the comparison document's citation gate ---------------------------
-	"every VERDICT-table row of the comparison document that asserts something about the compared framework "
-		.. "carries a [SW-nn] citation id (or is one of the named, self-expiring exemptions in CITATION_EXEMPT)",
-	"every [SW-nn] id cited in the comparison document resolves to a §16 row, every §16 row is cited by "
-		.. "something, and each one carries the vendor's documentation URL, a quoted sentence (or the document's "
-		.. "fixed words for a silent page) and an ISO date — the citation cannot be checked for truth, only for "
-		.. "existence",
+	-- ---- a comparison document's sourcing gate -----------------------------
+	"a comparison document sources every framework it compares against: each one it names appears on a line "
+		.. "that also carries a source URL, so a reader can open the page a claim rests on",
+	"a comparison document carries an ISO research date, and pins each project to the version, tag or commit "
+		.. "it compared against — the source cannot be checked for truth, only for existence and currency",
+	"a comparison document marks what it CONCLUDED apart from what it READ, so a reasoned claim is never "
+		.. "presented as a reading",
 	-- ---- the theme catalog (wave THEME-UNBUNDLE) ---------------------------
 	"docs/guide/README.md links 13-theme-catalog.md and that catalog exists",
 	"docs/guide/13-theme-catalog.md names every SHIPPABLE package's build/themes/<Name>.rbxm and no artifact "

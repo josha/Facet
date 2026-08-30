@@ -18,10 +18,19 @@ framework repo only — the rule is about how FACET explains itself, and Rascal
 Rally is a separate product with its own editorial policy. Two content
 exceptions exist and no more:
 
-  1. docs/reference/swiftui-parity.md, the one dedicated comparison document;
-  2. a short comparison block inside docs/guide/**, delimited by the markers
+  1. a short comparison block inside docs/guide/**, delimited by the markers
      `<!-- comparison:begin -->` / `<!-- comparison:end -->`, capped at
-     COMPARISON_MAX_LINES so it stays an aside rather than a contract.
+     COMPARISON_MAX_LINES so it stays an aside rather than a contract;
+  2. the one public guide chapter that compares Facet with the other Roblox
+     user-interface libraries a creator is choosing between, named file by file
+     in VENDOR_ALLOWLIST.
+
+A third exception used to exist — one dedicated comparison document under
+docs/reference/. It was product research rather than product documentation, and
+it was archived out of this repository on 2026-08-30
+(docs/plans/distribution-readiness.md, "Private research and public framework
+choice"). Its allowlist entry is gone with it, so this guard now refuses that
+path like any other.
 
 Dated records are not scanned for rule 2 (VENDOR_HISTORY): accepted ADRs and
 consumed wave plans are the evidence of a decision, and rewriting one falsifies
@@ -151,14 +160,17 @@ VENDOR_PROFILE = (VENDOR, VENDOR_TYPES)
 
 # The earned gate ids that carry a retired stage name. Each is also a directory
 # under artifacts/, which is frozen evidence and never rewritten.
-GATE_IDS = re.compile(r"swiftui-parity-round\d|swiftui-reference-app-validation")
+#
+# MATCHED BY SHAPE, NOT BY THE RETIRED NAME (2026-08-30). This used to spell the
+# stage names out, which put the retired brand back into the guard's own source
+# — the thing rule 2 exists to keep out of every other file. The shape is what
+# the exception is actually about: a stage id ending in `-parity-round<n>` or
+# `-reference-app-validation`, whatever prefix earned it. A rename of the stage
+# therefore needs no edit here, and no vendor name lives in this file for it.
+GATE_IDS = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*-parity-round\d"
+                      r"|[a-z0-9]+(?:-[a-z0-9]+)*-reference-app-validation")
 
-# The one dedicated comparison document (content exception 1). Its PATH names
-# the compared framework too, which is the point: it is the only file allowed
-# to, and no other current document may link to it or name it.
-PARITY_DOC = "docs/reference/swiftui-parity.md"
-
-# Content exception 2: a short, clearly labelled comparison for readers who
+# Content exception 1: a short, clearly labelled comparison for readers who
 # already know another framework, allowed only inside docs/guide/** and only
 # between these markers. The cap keeps it an aside: a comparison long enough to
 # read as the contract is the failure the exception exists to prevent.
@@ -291,8 +303,6 @@ def reachable_documents():
     for _ in range(REACHABLE_DEPTH):
         nxt = []
         for rel in frontier:
-            if rel == PARITY_DOC:
-                continue
             for target in _references(rel, adrs):
                 if not target.endswith(".md") or target.startswith("artifacts/"):
                     continue
@@ -308,9 +318,6 @@ def reachable_documents():
 # (path-prefix-or-exact, pattern-that-may-match, reason, removal rule) — same
 # shape as ALLOWLIST, applied only to the vendor profile.
 VENDOR_ALLOWLIST = [
-    (PARITY_DOC, VENDOR,
-     "content exception 1: the one dedicated comparison document, path and body",
-     "never (it IS the exception)"),
     ("tools/check_brand_drift.py", VENDOR,
      "the guard's own match data and its planted selftest words",
      "never (it IS the guard)"),
@@ -348,14 +355,14 @@ VENDOR_ALLOWLIST = [
     #   evidence every row of that gate proves, and artifacts/ is never
     #   rewritten. The registries that hold those ids are listed one by one so
     #   the exemption cannot spread. ]]
-    #[[ THE GATE MANIFEST RUNS SHELL. Several rows grep the comparison document
-    #   by its real path, because that is the file the command has to open. A
-    #   command is not a document, and the pattern below excuses only the path
-    #   itself, so vendor PROSE anywhere in a note is still caught. ]]
-    ("tools/lune/gate_manifest.luau",
-     re.compile(r"docs/reference/swiftui-parity\.md"),
-     "run/evidence strings open the comparison document by the path it really has",
-     "when the comparison document retires"),
+    #[[ REMOVED 2026-08-30: the entry that excused gate-manifest run strings for
+    #   opening the dedicated comparison document by its real path. Its own
+    #   removal rule was "when the comparison document retires", and it has —
+    #   the document was archived out of this repository and the tracked copy
+    #   deleted. Any run string still naming that path is opening a file that no
+    #   longer exists, so it is a broken gate row and not an exception to grant.
+    #   The gate rows that did so are listed for their owner in
+    #   artifacts/distribution-readiness/swiftui-migration.md. ]]
     ("tools/lune/gate_manifest.luau", GATE_IDS,
      "an earned gate id, which is also the name of its frozen artifacts/ directory",
      "Step 14 gate/evidence archive"),
@@ -378,22 +385,14 @@ VENDOR_ALLOWLIST = [
     ("docs/plans/facet-consolidated-roadmap.md", GATE_IDS,
      "an earned gate id, which is also the name of its frozen artifacts/ directory",
      "Step 14 gate/evidence archive"),
-    #[[ THE MACHINERY OF CONTENT EXCEPTION 1. The comparison document has a
-    #   citation gate and a spec for that gate, and neither can do its job
-    #   without holding the document's path, the vendor's documentation host,
-    #   and the exact words the document uses. Same class of fact as this
-    #   guard's own match list: the pattern below excuses a vendor word only
-    #   when it sits INSIDE a Luau string literal, so an ordinary comment in
-    #   either file is still caught. ]]
-    ("tools/lune/check_docs.luau",
-     re.compile(r"""["`'][^"`']*(?:swiftui|apple|ios)[^"`']*["`']""", re.I),
-     "the comparison document's citation gate holds that document's path, citation host and fixed wording "
-     "as literal match data",
-     "when the comparison document retires"),
-    ("tests/theme_docs.spec.luau",
-     re.compile(r"""["`'][^"`']*(?:swiftui|apple|ios)[^"`']*["`']""", re.I),
-     "the citation gate's own spec: its fixtures must be shaped like the document the gate reads",
-     "same"),
+    #[[ REMOVED 2026-08-30, same removal rule and same trigger. The citation
+    #   gate in tools/lune/check_docs.luau and its spec in
+    #   tests/theme_docs.spec.luau used to hold the retired document's path, its
+    #   vendor documentation host and its fixed wording as literal match data.
+    #   The gate now reads whatever comparison document the public tree carries,
+    #   asks for an https:// URL rather than one particular host, and its
+    #   fixtures name only Roblox libraries — so neither file contains a vendor
+    #   word any more and neither needs an exception. ]]
     #[[ THE HOST CAPTURE HELPER. Two files of a compiled host language, used by
     #   the maintainer's screenshot tool. The language is not a Facet feature,
     #   a Facet concept, or a reason for anything Facet does — it is what the

@@ -25,8 +25,11 @@
 --     sensation through `GuiButton.PressHapticEffect`. Facet still plays
 --     nothing — it publishes a fact and hands over a reference.
 --
--- Mutation evidence for every check in this file:
--- artifacts/swiftui-parity-round3/control-feedback-mutations.md
+-- Every check in this file was mutation-tested when it landed: each assertion
+-- was confirmed to redden against a deliberate break of the behaviour it names,
+-- so none of them is a check that proves nothing. The contract they hold is
+-- public — `docs/reference/api.md` (`UI.sensoryFeedback`, and the twelve-verb
+-- taxonomy) is where the behaviour is specified.
 
 local fs = require("@lune/fs")
 

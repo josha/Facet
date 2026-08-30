@@ -55,8 +55,9 @@ export type Exclusion = { spec: string, ms: number, why: string }
 tiers.THRESHOLD_MS = 1200
 
 -- ms = median total (load + cases) of THREE timed runs on 2026-08-15, at 5561
--- cases / 213 spec files, wall 78.9-79.9 s (`lune run tools/lune/time_specs`,
--- artifacts/swiftui-parity-round3/tier-costs-2026-08-15.md). The previous set was
+-- cases / 213 spec files, wall 78.9-79.9 s. Reproduce with
+-- `lune run tools/lune/time_specs`, which is the instrument these numbers came
+-- from and the one `tools/lune/check_tier_costs` re-reads. The previous set was
 -- taken at f476b63 / 4562 cases and every number in it had drifted — this file is
 -- STALE BY CONSTRUCTION, which is why `tools/lune/check_tier_costs` now exists to
 -- catch the next drift rather than the next reader.

@@ -3,7 +3,7 @@
 	ruling of 2026-08-15, "fix the ones that hide text; waive the rest".
 
 	  lune run tools/lune/triage_overflow_waivers
-	  -> artifacts/swiftui-parity-round3/waiver-readability.txt
+	  -> artifacts/overflow-waivers/waiver-readability.txt
 
 	WHY IT EXISTS. `tests/overflow_sweep.spec.luau` answers "does anything paint
 	outside its box". That is not the same question as "can a player still READ
@@ -624,5 +624,10 @@ for _, key in keys do
 		table.insert(lines, `     [{kind}] {row.samples[kind]}`)
 	end
 end
-fs.writeFile("artifacts/swiftui-parity-round3/waiver-readability.txt", table.concat(lines, "\n"))
+-- the instrument owns its own output directory: this runs by hand, on a tree
+-- that may never have run it before, and `writeFile` does not create parents.
+if not fs.isDir("artifacts/overflow-waivers") then
+	fs.writeDir("artifacts/overflow-waivers")
+end
+fs.writeFile("artifacts/overflow-waivers/waiver-readability.txt", table.concat(lines, "\n"))
 print(`wrote {#keys} finding keys`)
