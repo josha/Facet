@@ -125,17 +125,22 @@ def build_corpus():
     muts = []
     state = {}
 
-    # ---- M1: a focus case's expectation is broken -------------------------
     FOCUS = "tests/focus.spec.luau"
+    RUN = "tests/run.luau"
+    SMOKE = "tests/smoke.spec.luau"
+    GRAPH = "tools/lune/verify/graph.json"
+    DOC = "docs/guide/01-your-first-screen.md"
+    SRC = "src/init.luau"
 
+    def result_file(producer="check_boundary"):
+        root = os.path.join(SCRATCH, "artifacts/verify/results", producer)
+        files = [os.path.join(root, f) for f in os.listdir(root) if f.endswith(".json")]
+        return files[0]
+
+    # ---- M1: a focus case's expectation is broken -------------------------
     def m1_apply():
         state["m1"] = _save([FOCUS])
-        with open(os.path.join(SCRATCH, FOCUS)) as fh:
-            text = fh.read()
-        # first toBe in the file, negated
-        i = text.index(".toBe(")
-        j = text.index(")", i)
-        _edit(FOCUS, text[i : j + 1], ".toBe(\"a value nothing in this suite equals\")")
+        _edit(FOCUS, ".toBeTruthy()", ".toBeFalsy()")
 
     muts.append(Mutation(
         "M1", "a focus case's expectation is broken", "phase-0-foundation", "parity",
@@ -144,8 +149,6 @@ def build_corpus():
     ))
 
     # ---- M2: a spec's require is deleted (the silent zero) ----------------
-    RUN = "tests/run.luau"
-
     def m2_apply():
         state["m2"] = _save([RUN])
         _edit(RUN, 'require("./focus.spec")\n', "")
@@ -153,71 +156,42 @@ def build_corpus():
     muts.append(Mutation(
         "M2", "a spec's require is deleted from tests/run.luau", "api-architecture-consistency", "parity",
         m2_apply, lambda: _restore(state["m2"]),
-        "an unregistered spec is a SILENT ZERO: the suite still exits 0 with a smaller number",
+        "an unregistered spec is a SILENT ZERO: the suite still exits 0, with a smaller number",
     ))
 
     # ---- M3: the suite is truncated by a main-thread yield -----------------
-    SMOKE = "tests/smoke.spec.luau"
-
     def m3_apply():
         state["m3"] = _save([SMOKE])
-        _append(SMOKE, '\nlocal __task = require("@lune/task")\n__task.wait(0.01)\n')
+        _append(SMOKE, '\nlocal __t = require("@lune/task")\n__t.wait(0.01)\n')
 
     muts.append(Mutation(
         "M3", "the suite is truncated by a main-thread yield", "phase-0-foundation", "parity",
         m3_apply, lambda: _restore(state["m3"]),
-        "docs/lessons/lune-main-thread-yield-truncates-suite.md: the suite ends EARLY WITH EXIT 0",
+        "a main-thread yield ends the suite EARLY AND WITH EXIT 0, so the exit code proves nothing",
     ))
 
-    # ---- M4: a case an old grep and a new id both name is renamed ----------
+    # ---- M4: a case a gate row names is renamed ----------------------------
     def m4_apply():
         state["m4"] = _save([FOCUS])
-        with open(os.path.join(SCRATCH, FOCUS)) as fh:
-            text = fh.read()
-        i = text.index('it("')
-        j = text.index('"', i + 4)
-        _edit(FOCUS, text[i : j + 1], 'it("a name no gate row has ever heard of"')
+        with open(os.path.join(SCRATCH, GRAPH)) as fh:
+            graph = json.load(fh)
+        cited = set()
+        for row in graph["rows"]:
+            for cid in (row.get("check") or {}).get("resultIds", []):
+                if cid.startswith("focus::"):
+                    cited.add(cid.rsplit("::", 1)[1])
+        text = open(os.path.join(SCRATCH, FOCUS)).read()
+        for name in sorted(cited):
+            if f'it("{name}"' in text:
+                _edit(FOCUS, f'it("{name}"', 'it("a name no gate row has ever heard of"')
+                state["m4_name"] = name
+                return
+        raise AssertionError("no cited focus case found to rename")
 
     muts.append(Mutation(
         "M4", "an it() a gate row names is renamed", "phase-0-foundation", "parity",
         m4_apply, lambda: _restore(state["m4"]),
         "the changed-test-ID mutation: a missing id is a loud FAIL, never a satisfied lookup",
-    ))
-
-    # ---- M5: a stored result's payload is edited without its bodyHash ------
-    def result_files():
-        root = os.path.join(SCRATCH, "artifacts/verify/results/check_boundary")
-        return [os.path.join(root, f) for f in os.listdir(root) if f.endswith(".json")]
-
-    def m5_apply():
-        f = result_files()[0]
-        state["m5"] = {f: open(f, "rb").read()}
-        d = json.load(open(f))
-        d["payload"]["stdoutTail"] = "a line nobody printed"
-        with open(f, "w") as fh:
-            json.dump(d, fh)
-
-    muts.append(Mutation(
-        "M5", "a stored result is edited after it was written", "phase-0-foundation", "new-only",
-        m5_apply, lambda: _restore_abs(state["m5"]),
-        "bodyHash: a hand-edited result must be refused, not served",
-    ))
-
-    # ---- M6: the toolchain recorded in a result is changed -----------------
-    def m6_apply():
-        f = result_files()[0]
-        state["m6"] = {f: open(f, "rb").read()}
-        d = json.load(open(f))
-        d["payload"]["toolchain"] = "rokit=x;lune=lune 0.0.0;stylua=x;python=x"
-        # rehash so ONLY the toolchain rule can fire
-        _rehash(d)
-        with open(f, "w") as fh:
-            json.dump(d, fh)
-
-    muts.append(Mutation(
-        "M6", "a result claims a different toolchain", "phase-0-foundation", "new-only",
-        m6_apply, lambda: _restore_abs(state["m6"]),
-        "re-hashed on purpose, so the toolchain rule is the only one that can fire",
     ))
 
     # ---- M7: an evidence file a row pins is deleted ------------------------
@@ -234,68 +208,105 @@ def build_corpus():
     ))
 
     # ---- M8: a brand-drift word is planted --------------------------------
-    DOC = "docs/guide/01-your-first-screen.md"
-
     def m8_apply():
         state["m8"] = _save([DOC])
-        _append(DOC, "\nThis paragraph mentions SwiftUI, which the brand scan forbids here.\n")
+        _append(DOC, "\nThis paragraph names a platform the product-language guard forbids: iPhone.\n")
 
     muts.append(Mutation(
-        "M8", "a brand-drift word is planted in a public guide", "release-candidate-review", "parity",
+        "M8", "a forbidden platform name is planted in a public guide", "release-candidate-review", "parity",
         m8_apply, lambda: _restore(state["m8"]),
         "a scanner producer that fails must redden every row that asserts its exit 0",
     ))
 
     # ---- M9: a Fusion require is planted -----------------------------------
-    SRC = "src/init.luau"
-
     def m9_apply():
         state["m9"] = _save([SRC])
-        _append(SRC, '\n-- local Fusion = require("@Packages/Fusion")\nlocal _fusion = require("Fusion")\n')
+        _append(SRC, '\nlocal _bakeoff = require("Fusion")\n')
 
     muts.append(Mutation(
-        "M9", "a Fusion require is planted in src/", "distribution-readiness", "parity",
+        "M9", "a require of the excised third-party core is planted in src/", "distribution-readiness", "parity",
         m9_apply, lambda: _restore(state["m9"]),
-        "workstream K's hard no-Fusion check, exercised as a producer",
+        "the hard no-third-party-core check, exercised as a producer",
     ))
 
-    # ---- M10: a cache hit is attempted with a changed input ----------------
-    muts.append(Mutation(
-        "M10", "a stored result is offered for a changed input", "phase-0-foundation", "new-only",
-        lambda: None, lambda: None,
-        "identity: measured directly rather than through a gate (see the transcript)",
-    ))
-
-    # ---- M11: a partial suite result (fewer cases than registered) ---------
-    muts.append(Mutation(
-        "M11", "a partial suite result is offered", "phase-0-foundation", "new-only",
-        lambda: None, lambda: None,
-        "truncation: passed < registeredSpecs must be refused",
-    ))
-
-    # ---- M12: a perf-class result offered to a deterministic row ----------
-    muts.append(Mutation(
-        "M12", "a perf-class result is offered to a deterministic row", "phase-0-foundation", "new-only",
-        lambda: None, lambda: None,
-        "evidence classes are never upgraded by a headless cache",
-    ))
-
-    # ---- M13: an unregistered PENDING row is flipped to PASS ---------------
-    GRAPH = "tools/lune/verify/graph.json"
-
+    # ---- M13: a PENDING row is flipped to PASS -----------------------------
     def m13_apply():
         state["m13"] = _save([GRAPH])
         d = json.load(open(os.path.join(SCRATCH, GRAPH)))
         for row in d["rows"]:
             if row["phase"] == "distribution-readiness" and row.get("state") == "PENDING":
                 row["state"] = "PASS"
+                row["check"] = {}
         with open(os.path.join(SCRATCH, GRAPH), "w") as fh:
             json.dump(d, fh)
 
     muts.append(Mutation(
-        "M13", "a PENDING distribution-readiness row is flipped to PASS", "distribution-readiness", "new-only",
+        "M13", "a PENDING row is flipped to PASS with nothing behind it", "distribution-readiness", "parity",
         m13_apply, lambda: _restore(state["m13"]),
-        "a row may not claim PASS without a producer, an id, or an evidence pin behind it",
+        "the cheapest way to fake a gate; only the new path has a graph to fake",
+    ))
+
+    # ---- store-level mutations (the new path is the only one with a store) --
+    def store_mutation(mid, title, why, mutate):
+        def apply_fn():
+            f = result_file()
+            state[mid] = {f: open(f, "rb").read()}
+            d = json.load(open(f))
+            mutate(d)
+            with open(f, "w") as fh:
+                json.dump(d, fh)
+        return Mutation(mid, title, "phase-0-foundation", "new-only", apply_fn,
+                        lambda: _restore_abs(state[mid]), why)
+
+    def edit_payload(d):
+        d["payload"]["stdoutTail"] = "a line nobody printed"
+
+    def stale_toolchain(d):
+        d["payload"]["toolchain"] = "rokit=x;lune=lune 0.0.0;stylua=x;python=x"
+        _rehash(d)
+
+    def wrong_class(d):
+        d["environmentClass"] = "perf"
+        _rehash(d)
+
+    muts.append(store_mutation("M5", "a stored result is edited after it was written",
+                               "bodyHash: a hand-edited result must be refused, not served", edit_payload))
+    muts.append(store_mutation("M6", "a result claims a different toolchain",
+                               "re-hashed on purpose, so the toolchain rule is the only one that can fire",
+                               stale_toolchain))
+    muts.append(store_mutation("M12", "a perf-class result is offered to a deterministic row",
+                               "re-hashed on purpose; evidence classes are never upgraded by a headless cache",
+                               wrong_class))
+
+    # ---- M10: a cache hit attempted with a changed input -------------------
+    def m10_apply():
+        target = "src/init.luau"
+        state["m10"] = _save([target])
+        _append(target, "\n-- a comment that changes nothing but the content hash\n")
+
+    muts.append(Mutation(
+        "M10", "a stored result is offered for a changed input", "phase-0-foundation", "reuse",
+        m10_apply, lambda: _restore(state["m10"]),
+        "identity: the suite's stored result must NOT be reused after a source edit",
+    ))
+
+    # ---- M11: a partial suite result --------------------------------------
+    def m11_apply():
+        f = result_file("suite")
+        state["M11"] = {f: open(f, "rb").read()}
+        d = json.load(open(f))
+        cases = d["payload"]["results"]["cases"]
+        d["payload"]["results"]["cases"] = cases[: len(cases) // 4]
+        d["payload"]["results"]["passed"] = len(d["payload"]["results"]["cases"])
+        d["payload"]["results"]["reportedSpecs"] = 3
+        _rehash(d)
+        with open(f, "w") as fh:
+            json.dump(d, fh)
+
+    muts.append(Mutation(
+        "M11", "a partial suite result is offered", "phase-0-foundation", "new-only",
+        m11_apply, lambda: _restore_abs(state["M11"]),
+        "truncation: fewer specs reported than registered must be refused",
     ))
 
     return muts
@@ -354,7 +365,7 @@ def _canonical(value):
 
 
 OLD = "lune run tools/lune/gate_legacy {phase}"
-NEW = "tools/verify.sh full --gate {phase}"
+NEW = "tools/verify.sh full --gate {phase} --explain"
 
 
 def run_mutation(m, results):
@@ -379,10 +390,47 @@ def run_mutation(m, results):
             else "REVIEW"
         )
         print(f"  mutated : old={old_after} new={new_after}  -> {row['verdict']} ({secs:.0f}s)")
+    elif m.kind == "reuse":
+        # The question is not "does it go red" but "does it REFUSE TO REUSE".
+        m.apply()
+        try:
+            code, out, secs = sh("tools/verify.sh full --gate " + m.phase + " --explain")
+            record = json.load(open(os.path.join(SCRATCH, "artifacts/verify/latest-full.json")))
+            suite = next((p for p in record["producers"] if p["id"] == "suite"), None)
+            row["reused"] = bool(suite and suite["reused"])
+            row["reason"] = (suite or {}).get("reason", "")
+            row["verdict"] = "REFUSED-REUSE" if not row["reused"] else "REVIEW"
+            print(f"  suite reused={row['reused']} reason={row['reason'][:80]} ({secs:.0f}s)")
+        finally:
+            m.restore()
     else:
-        row["verdict"] = "NEW-ONLY"
+        # A store-level defect: run the new path and require it to notice.
+        before, _, _ = sh(NEW.format(phase=m.phase))
+        row["newBefore"] = before
+        m.apply()
+        try:
+            after, out, _ = sh(NEW.format(phase=m.phase))
+            row["newAfter"] = after
+            row["newDetail"] = _first_failure(out)
+            row["reason"] = _reuse_reason(out)
+        finally:
+            m.restore()
+        # A refused result is REPORTED and the producer re-runs, so the run may
+        # still end green — what must be true is that it was NOT SERVED.
+        row["verdict"] = "REFUSED" if row.get("reason") else "REVIEW"
+        print(f"  new: before={before} after={row['newAfter']} refusal={row.get('reason', '')[:80]}")
     results.append(row)
     return row
+
+
+def _reuse_reason(out):
+    for line in out.splitlines():
+        stripped = _strip_ansi(line).strip()
+        if stripped.startswith("invalidation:") and "no stored result" not in stripped:
+            return stripped
+        if "body hash mismatch" in stripped or "different toolchain" in stripped or "evidence classes are never upgraded" in stripped or "silent zero" in stripped or "partial run" in stripped:
+            return stripped
+    return ""
 
 
 def _first_failure(out):

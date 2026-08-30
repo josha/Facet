@@ -12,7 +12,7 @@
    "sha256": "1e1c43e6513ce9f7cd8f1869fd5807cff26cd605312e815238624a03fa1342d9"
   }
  ],
- "recordedAt": "2026-08-30T19:14:37Z",
+ "recordedAt": "2026-08-30T19:27:57Z",
  "row": "code-simplicity-cleanup::performance-unregressed",
  "schema": "facet-evidence-receipt/1",
  "summary": "performance-unregressed: 2 recorded file(s), pinned by content hash."

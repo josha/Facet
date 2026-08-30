@@ -26,9 +26,9 @@
 	  * for the suite: the tier is not `full`, `failed` is not zero, there is no
 	    summary, `reportedSpecs` is short of `registeredSpecs`, or `passed` is
 	    below the registered-spec floor. That last set is the truncated-suite
-	    family — `docs/lessons/lune-main-thread-yield-truncates-suite.md` records
-	    a main-thread yield ending the suite EARLY WITH EXIT 0, so "it exited
-	    zero" has never been sufficient here and is not sufficient now. ]]
+	    family. A main-thread yield ends the Lune suite EARLY AND WITH EXIT 0,
+	    which is why "it exited zero" has never been sufficient here and is not
+	    sufficient now. ]]
 
 local fs = require("@lune/fs")
 local serde = require("@lune/serde")

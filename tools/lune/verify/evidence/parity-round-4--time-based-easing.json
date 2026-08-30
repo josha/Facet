@@ -7,7 +7,7 @@
    "sha256": "f53213853bcd84e07b08c62ee2300a55155a31505e978b9c9e1a4b8202d9707d"
   }
  ],
- "recordedAt": "2026-08-30T19:14:38Z",
+ "recordedAt": "2026-08-30T19:27:58Z",
  "row": "parity-round-4::time-based-easing",
  "schema": "facet-evidence-receipt/1",
  "summary": "time-based-easing: 1 recorded file(s), pinned by content hash."

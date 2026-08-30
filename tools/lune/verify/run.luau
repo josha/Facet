@@ -305,6 +305,22 @@ function runner.executeAll(producers: { identity.Producer }, ctx: Context, jobs:
 		task.wait(0.02)
 	end
 
+	--[[ WARM THE LEGACY FRONT DOOR BEFORE ANYTHING ELSE RUNS ALONE.
+
+		`tools/suite_cache_selftest.sh` proves the transcript cache can refuse a
+		stale, red, truncated or fast-tier entry, and to do that honestly it needs
+		a real cached run to start from — so on a cold cache it runs the suite
+		itself. Measured: 280 s inside a run that had ALREADY spent 285 s running
+		the same suite. One call to the legacy front door here, served out of the
+		result store this run just filled, turns that into a cache read. The
+		selftest's assertions are untouched; only its starting condition is.
+
+		This goes away with the manifest. ]]
+	local suiteOutcome = outcomes["suite"]
+	if suiteOutcome ~= nil and suiteOutcome.status == "PASS" then
+		process.exec("bash", { "-c", "tools/test.sh --ensure-cache >/dev/null 2>&1 || true" })
+	end
+
 	--[[ ...and only now the ones that run alone, in DEPENDENCY ORDER — with the
 		machine given a chance to go quiet first where the answer depends on it.
 

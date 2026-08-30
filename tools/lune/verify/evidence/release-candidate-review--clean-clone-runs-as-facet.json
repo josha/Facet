@@ -7,7 +7,7 @@
    "sha256": "3196933b128fdb432eed10fabfd70f48e56127f9218d4c9e7226d00b9397625f"
   }
  ],
- "recordedAt": "2026-08-30T19:14:39Z",
+ "recordedAt": "2026-08-30T19:27:59Z",
  "row": "release-candidate-review::clean-clone-runs-as-facet",
  "schema": "facet-evidence-receipt/1",
  "summary": "clean-clone-runs-as-facet: 1 recorded file(s), pinned by content hash."

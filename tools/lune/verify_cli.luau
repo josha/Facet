@@ -393,8 +393,28 @@ local function shellEnv(): { [string]: string }
 	return env
 end
 
+local function isEmptyCheck(check: graphMod.Check): boolean
+	return check.producers == nil
+		and check.resultIds == nil
+		and check.stdoutPins == nil
+		and check.shell == nil
+		and (check :: any).receipt == nil
+		and check.priorPhases ~= true
+end
+
 local function evaluate(row: graphMod.Row): (string, string)
 	if row.state ~= nil then
+		--[[ A DECLARED STATE MAY NOT BE `PASS`. A literal state in the graph is
+			for work that has not landed (PENDING), for a capability that is gone
+			(FAIL_OPTIONAL), for something externally blocked (FAIL_ENVIRONMENT)
+			or for a row whose subject left the tree (RETIRED). A row that simply
+			SAYS it passes, with no producer, no case id, no receipt and no
+			assertion behind it, is the purest form of a check that cannot fail —
+			and flipping one is the cheapest way to fake a gate. ]]
+		if row.state == "PASS" and isEmptyCheck(row.check) then
+			return "FAIL_RECOVERABLE",
+				"this row declares PASS with no producer, case id, receipt or assertion behind it"
+		end
 		return row.state, if row.class == "retired" then (row.retiredReason or "retired") else row.note
 	end
 	if row.check.priorPhases then

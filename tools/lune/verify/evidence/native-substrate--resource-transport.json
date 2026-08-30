@@ -12,7 +12,7 @@
    "sha256": "b0f0424ee712524c098ee385dc479ea794aef0b590acbcf47b58d90e55823f92"
   }
  ],
- "recordedAt": "2026-08-30T19:14:37Z",
+ "recordedAt": "2026-08-30T19:27:57Z",
  "row": "native-substrate::resource-transport",
  "schema": "facet-evidence-receipt/1",
  "summary": "resource-transport: 2 recorded file(s), pinned by content hash."

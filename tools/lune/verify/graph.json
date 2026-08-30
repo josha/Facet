@@ -1,5 +1,5 @@
 {
- "generatedAt": "2026-08-30T19:14:39Z",
+ "generatedAt": "2026-08-30T19:27:59Z",
  "generatedFrom": {
   "manifest": "tools/lune/gate_manifest.luau",
   "phases": "phases.json",
@@ -4852,14 +4852,13 @@
    "check": {
     "producers": [
      "check_spike-artifacts-studio-ias-spike-json-api-surface-c265ac"
-    ],
-    "shell": "test -f docs/adr/ADR-0004-input-verification-scope.md"
+    ]
    },
-   "class": "evidence-pin",
+   "class": "exit0",
    "evidence": "artifacts/studio/ias-spike.json",
    "id": "phase-0-foundation::input-action-spike",
    "name": "input-action-spike",
-   "note": "input-action-spike: check_spike-artifacts-studio-ias-spike-json-api-surface-c265ac must exit zero; its file-existence and text assertions must hold; and artifacts/studio/ias-spike.json must exist. Requirements: UI-INPUT-001, UI-INPUT-003, UI-INPUT-004.",
+   "note": "input-action-spike: check_spike-artifacts-studio-ias-spike-json-api-surface-c265ac must exit zero; and artifacts/studio/ias-spike.json must exist. Requirements: UI-INPUT-001, UI-INPUT-003, UI-INPUT-004.",
    "phase": "phase-0-foundation",
    "releaseBlocking": false,
    "requirements": [
@@ -4909,29 +4908,13 @@
   },
   {
    "check": {
-    "shell": "test -f docs/adr/ADR-0003-worldtarget-deferral.md"
+    "shell": "test -f \"$f\" && grep -qF \"custom: 144.00\" \"$f\" && test \"$(grep -cE '^- [a-z]+: [0-9]+\\.[0-9]{2}$' \"$f\")\" -ge 3"
    },
    "class": "evidence-pin",
-   "evidence": "docs/adr/ADR-0003-worldtarget-deferral.md",
-   "id": "phase-0-foundation::worldtarget-seam",
-   "name": "worldtarget-seam",
-   "note": "worldtarget-seam: its file-existence and text assertions must hold; and docs/adr/ADR-0003-worldtarget-deferral.md must exist. Requirements: UI-EXT-001.",
-   "phase": "phase-0-foundation",
-   "releaseBlocking": false,
-   "requirements": [
-    "UI-EXT-001"
-   ],
-   "state": null
-  },
-  {
-   "check": {
-    "shell": "f=docs/adr/ADR-0002-foundation-core-selection.md && test -f \"$f\" && grep -qF \"custom: 144.00\" \"$f\" && test \"$(grep -cE '^- [a-z]+: [0-9]+\\.[0-9]{2}$' \"$f\")\" -ge 3 && python3 -c \"import re,sys; t=dict((m.group(1), float(m.group(2))) for m in re.finditer(r'^- ([a-z]+): ([0-9.]+)$', open('docs/adr/ADR-0002-foundation-core-selection.md', encoding='utf-8').read(), re.M)); sys.exit(0 if t.get('custom') == 144.0 and t['custom'] > max(v for k, v in t.items() if k != 'custom') else 1)\""
-   },
-   "class": "evidence-pin",
-   "evidence": "docs/adr/ADR-0002-foundation-core-selection.md",
+   "evidence": null,
    "id": "phase-0-foundation::foundation-decision",
    "name": "foundation-decision",
-   "note": "foundation-decision: its file-existence and text assertions must hold; and docs/adr/ADR-0002-foundation-core-selection.md must exist. Requirements: UI-AGENT-001.",
+   "note": "foundation-decision: its file-existence and text assertions must hold. Requirements: UI-AGENT-001.",
    "phase": "phase-0-foundation",
    "releaseBlocking": false,
    "requirements": [
@@ -4944,7 +4927,7 @@
     "producers": [
      "check_verdicts-artifacts-phase-0-opus-verification-json-PAS-86d658"
     ],
-    "shell": "test -f docs/research/2026-07-19-runtime-verifier-findings-resolution.md && test -f docs/adr/ADR-0004-input-verification-scope.md"
+    "shell": "test -f docs/research/2026-07-19-runtime-verifier-findings-resolution.md"
    },
    "class": "evidence-pin",
    "evidence": "artifacts/phase-0/opus-verification.json",
@@ -5503,23 +5486,6 @@
   },
   {
    "check": {
-    "receipt": "tools/lune/verify/evidence/phase-3-pilot--pilot-decision.json",
-    "shell": "test -f docs/adr/ADR-0005-phase3-pilot-selection.md"
-   },
-   "class": "evidence-pin",
-   "evidence": "artifacts/decision-phase3-pilot.json",
-   "id": "phase-3-pilot::pilot-decision",
-   "name": "pilot-decision",
-   "note": "pilot-decision: its file-existence and text assertions must hold; and artifacts/decision-phase3-pilot.json must exist. Requirements: UI-AGENT-001.",
-   "phase": "phase-3-pilot",
-   "releaseBlocking": false,
-   "requirements": [
-    "UI-AGENT-001"
-   ],
-   "state": null
-  },
-  {
-   "check": {
     "producers": [
      "rascalrally-suite"
     ],
@@ -5681,14 +5647,13 @@
     ],
     "resultIds": [
      "layout::layout: ScrollView fill stretch (phase-3 regression guard)::cross-axis fill children stretch to the scroll viewport"
-    ],
-    "shell": "grep -q \"fixed in the framework\" docs/adr/ADR-0005-phase3-pilot-selection.md"
+    ]
    },
    "class": "result-ids",
-   "evidence": "docs/adr/ADR-0005-phase3-pilot-selection.md",
+   "evidence": null,
    "id": "phase-3-pilot::framework-defects-fixed-in-framework",
    "name": "framework-defects-fixed-in-framework",
-   "note": "framework-defects-fixed-in-framework: 1 named suite case must pass; suite must exit zero; its file-existence and text assertions must hold; and docs/adr/ADR-0005-phase3-pilot-selection.md must exist. Requirements: UI-AGENT-001.",
+   "note": "framework-defects-fixed-in-framework: 1 named suite case must pass; suite must exit zero. Requirements: UI-AGENT-001.",
    "phase": "phase-3-pilot",
    "releaseBlocking": false,
    "requirements": [
@@ -5775,14 +5740,13 @@
     "producers": [
      "bench"
     ],
-    "receipt": "tools/lune/verify/evidence/part-2-director--ws1-adr-and-bench.json",
-    "shell": "test -f docs/adr/ADR-0008-pointer-interaction-seam.md"
+    "receipt": "tools/lune/verify/evidence/part-2-director--ws1-adr-and-bench.json"
    },
-   "class": "evidence-pin",
+   "class": "exit0",
    "evidence": "artifacts/bench.json",
    "id": "part-2-director::ws1-adr-and-bench",
    "name": "ws1-adr-and-bench",
-   "note": "ws1-adr-and-bench: bench must exit zero; its file-existence and text assertions must hold; and artifacts/bench.json must exist. Requirements: UI-AGENT-001, UI-PERF-001.",
+   "note": "ws1-adr-and-bench: bench must exit zero; and artifacts/bench.json must exist. Requirements: UI-AGENT-001, UI-PERF-001.",
    "phase": "part-2-director",
    "releaseBlocking": false,
    "requirements": [
@@ -5795,14 +5759,13 @@
    "check": {
     "producers": [
      "check_spike-artifacts-studio-part2-table-phaseb-json-pla-c5d328"
-    ],
-    "shell": "test -f docs/lessons/engine-input-truths-phaseb.md"
+    ]
    },
-   "class": "evidence-pin",
+   "class": "exit0",
    "evidence": "artifacts/studio/part2-table-phaseb.json",
    "id": "part-2-director::ws1-studio-drive",
    "name": "ws1-studio-drive",
-   "note": "ws1-studio-drive: check_spike-artifacts-studio-part2-table-phaseb-json-pla-c5d328 must exit zero; its file-existence and text assertions must hold; and artifacts/studio/part2-table-phaseb.json must exist. Requirements: UI-FID-001.",
+   "note": "ws1-studio-drive: check_spike-artifacts-studio-part2-table-phaseb-json-pla-c5d328 must exit zero; and artifacts/studio/part2-table-phaseb.json must exist. Requirements: UI-FID-001.",
    "phase": "part-2-director",
    "releaseBlocking": false,
    "requirements": [
@@ -5843,7 +5806,7 @@
      "render_target_contract::RenderTargetAdapter contract::the FakeTarget satisfies every required and optional method",
      "render_target_contract::RenderTargetAdapter contract::a billboard-sized pixel canvas renders a nameplate and updates paint-only"
     ],
-    "shell": "test -f src/client/billboard_target.luau && test -f src/render/target_contract.luau && test -f docs/adr/ADR-0009-billboard-target.md"
+    "shell": "test -f src/client/billboard_target.luau && test -f src/render/target_contract.luau"
    },
    "class": "result-ids",
    "evidence": "artifacts/studio/part2-billboard.json",
@@ -6135,14 +6098,13 @@
      "api_surface::semantic versioning and deprecation (ADR-0011)::VERSION is a plain semver MAJOR.MINOR.PATCH (scaffold suffixes are gone)",
      "api_surface::semantic versioning and deprecation (ADR-0011)::the semver/deprecation ADR exists and states the policy",
      "api_surface::semantic versioning and deprecation (ADR-0011)::deprecations are a machine-readable ledger with the ADR's required fields"
-    ],
-    "shell": "test -f docs/adr/ADR-0011-semver-and-deprecation.md"
+    ]
    },
    "class": "result-ids",
    "evidence": null,
    "id": "phase-4-hardening::semver-and-deprecation",
    "name": "semver-and-deprecation",
-   "note": "semver-and-deprecation: 3 named suite cases must pass; suite must exit zero; its file-existence and text assertions must hold. Requirements: UI-AGENT-001.",
+   "note": "semver-and-deprecation: 3 named suite cases must pass; suite must exit zero. Requirements: UI-AGENT-001.",
    "phase": "phase-4-hardening",
    "releaseBlocking": false,
    "requirements": [
@@ -6536,7 +6498,7 @@
      "gamepad_contention::gamepad_contention (client module, headless structural spec)::describeContention() returns a string carrying all three §3 truths and the resolution",
      "gamepad_contention::gamepad_contention (client module, headless structural spec)::legacyStackActive() is a guarded probe: headless it returns false, never throws"
     ],
-    "shell": "test -f src/client/gamepad_contention.luau && grep -q \"legacyStackActive\" src/client/gamepad_contention.luau && grep -q \"disableLegacyControls\" examples/gallery/client/init.client.luau && test -f docs/guide/07-input.md && grep -q \"PlayerScriptsUseInputActionSystem\" docs/guide/07-input.md && test -f docs/lessons/gamepad-contention-truths.md && grep -q \"CoreGuiNavigationEnabled\" docs/lessons/gamepad-contention-truths.md"
+    "shell": "test -f src/client/gamepad_contention.luau && grep -q \"legacyStackActive\" src/client/gamepad_contention.luau && grep -q \"disableLegacyControls\" examples/gallery/client/init.client.luau && test -f docs/guide/07-input.md && grep -q \"PlayerScriptsUseInputActionSystem\" docs/guide/07-input.md"
    },
    "class": "result-ids",
    "evidence": null,
@@ -6564,7 +6526,7 @@
      "responder::responder (g): engage/resign churn is leak-free and registry-neutral::50 engage/resign cycles leave a single working context and gameplay intact",
      "responder::responder: Sink changes go through the setSink adapter seam::engage() calls setSink(true) and resign() calls setSink(false) on the context"
     ],
-    "shell": "test -f docs/adr/ADR-0014-first-responder.md && test -f src/client/responder_effects.luau && test -f docs/research/2026-07-21-first-responder-platform-research.md && grep -q \"setSink\" src/client/roblox_input.luau && grep -q \"Workspace.PlayerScriptsUseInputActionSystem\" docs/guide/07-input.md"
+    "shell": "test -f src/client/responder_effects.luau && test -f docs/research/2026-07-21-first-responder-platform-research.md && grep -q \"setSink\" src/client/roblox_input.luau && grep -q \"Workspace.PlayerScriptsUseInputActionSystem\" docs/guide/07-input.md"
    },
    "class": "result-ids",
    "evidence": null,
@@ -6592,22 +6554,6 @@
    "id": "input-adaptation-audit::playbooks-and-docs-updated",
    "name": "playbooks-and-docs-updated",
    "note": "playbooks-and-docs-updated: check_registration_cli must exit zero; its file-existence and text assertions must hold. Requirements: UI-AGENT-001.",
-   "phase": "input-adaptation-audit",
-   "releaseBlocking": false,
-   "requirements": [
-    "UI-AGENT-001"
-   ],
-   "state": null
-  },
-  {
-   "check": {
-    "shell": "test -f docs/adr/ADR-0013-input-auto-wiring.md && grep -q \"Accepted\" docs/adr/ADR-0013-input-auto-wiring.md && test -f docs/adr/ADR-0014-first-responder.md"
-   },
-   "class": "evidence-pin",
-   "evidence": null,
-   "id": "input-adaptation-audit::adr-recorded",
-   "name": "adr-recorded",
-   "note": "adr-recorded: its file-existence and text assertions must hold. Requirements: UI-AGENT-001.",
    "phase": "input-adaptation-audit",
    "releaseBlocking": false,
    "requirements": [
@@ -6672,7 +6618,7 @@
     "producers": [
      "check_spike-artifacts-studio-expansion-textinput-probe-j-378ee4"
     ],
-    "shell": "test -f docs/research/2026-07-20-textbox-engine-facts.md && test -f docs/lessons/textbox-reflection-and-injection-truths.md && grep -q \"RobloxScript\" docs/research/2026-07-20-textbox-engine-facts.md"
+    "shell": "test -f docs/research/2026-07-20-textbox-engine-facts.md && grep -q \"RobloxScript\" docs/research/2026-07-20-textbox-engine-facts.md"
    },
    "class": "evidence-pin",
    "evidence": "artifacts/studio/expansion-textinput-probe.json",
@@ -6855,14 +6801,13 @@
     "producers": [
      "bench"
     ],
-    "receipt": "tools/lune/verify/evidence/expansion-textinput--expansion-adr-bench-rollback.json",
-    "shell": "test -f docs/adr/ADR-0012-textinput-expansion.md"
+    "receipt": "tools/lune/verify/evidence/expansion-textinput--expansion-adr-bench-rollback.json"
    },
-   "class": "evidence-pin",
+   "class": "exit0",
    "evidence": "artifacts/bench.json",
    "id": "expansion-textinput::expansion-adr-bench-rollback",
    "name": "expansion-adr-bench-rollback",
-   "note": "expansion-adr-bench-rollback: bench must exit zero; its file-existence and text assertions must hold; and artifacts/bench.json must exist. Requirements: UI-AGENT-001, UI-PERF-001.",
+   "note": "expansion-adr-bench-rollback: bench must exit zero; and artifacts/bench.json must exist. Requirements: UI-AGENT-001, UI-PERF-001.",
    "phase": "expansion-textinput",
    "releaseBlocking": false,
    "requirements": [
@@ -6914,7 +6859,7 @@
      "table::Table: touch scroll vs edit-mode reorder (director design 2026-07-20)::auto Edit/Done toggle: shown when a gamepad capability is live even though preferredInput stays KeyboardAndMouse",
      "table::Table: touch scroll vs edit-mode reorder (director design 2026-07-20)::auto Edit/Done toggle: a live touch capability shows it under a KeyboardAndMouse preferredInput (hybrid handheld)"
     ],
-    "shell": "test -f docs/adr/ADR-0015-interaction-classes.md && test -f docs/research/2026-07-21-preferredinput-gamepad-research.md && grep -q \"interactionClasses\" src/env/environment.luau && grep -q \"interactionClasses\" src/controls/table.luau && grep -q \"GamepadConnected\" src/client/roblox_env.luau && grep -q \"sawGamepadInput\" src/client/roblox_env.luau"
+    "shell": "test -f docs/research/2026-07-21-preferredinput-gamepad-research.md && grep -q \"interactionClasses\" src/env/environment.luau && grep -q \"interactionClasses\" src/controls/table.luau && grep -q \"GamepadConnected\" src/client/roblox_env.luau && grep -q \"sawGamepadInput\" src/client/roblox_env.luau"
    },
    "class": "result-ids",
    "evidence": "artifacts/input-paradigms/defect-example02.md",
@@ -7051,7 +6996,7 @@
      "chip::Chip control::Chip gamepad affordance: the gamepad structural idiom (focus/grab/A-B/ten-foot)",
      "chip::Chip control::Chip keyboard affordance: the keyboard structural idiom (focus ring/Navigate/Activate/Adjust)"
     ],
-    "shell": "test -f docs/adr/ADR-0016-three-axes-contract.md && grep -q \"affordanceProofs\" tools/lune/scaffold.luau && grep -q \"paradigm\" docs/guide/07-input.md && grep -q \"Three load-bearing facts\" docs/extending/new-control.md && test -f src/controls/chip.luau",
+    "shell": "grep -q \"affordanceProofs\" tools/lune/scaffold.luau && grep -q \"paradigm\" docs/guide/07-input.md && grep -q \"Three load-bearing facts\" docs/extending/new-control.md && test -f src/controls/chip.luau",
     "stdoutPins": [
      {
       "flags": "-q",
@@ -7189,7 +7134,7 @@
   {
    "check": {
     "receipt": "tools/lune/verify/evidence/native-substrate--verification-surface.json",
-    "shell": "test -f examples/gallery/scenarios/init.luau && test -f examples/gallery/scenarios/runner.luau && test -f examples/gallery/scenarios/probe.luau && test -f tools/lune/studio_sync.luau && test -f tools/studio/inject.luau && grep -q \"Facet_Scenario\" examples/gallery/client/init.client.luau && test -f docs/lessons/mcp-vm-isolation-bindablefunction-bridge.md"
+    "shell": "test -f examples/gallery/scenarios/init.luau && test -f examples/gallery/scenarios/runner.luau && test -f examples/gallery/scenarios/probe.luau && test -f tools/lune/studio_sync.luau && test -f tools/studio/inject.luau && grep -q \"Facet_Scenario\" examples/gallery/client/init.client.luau"
    },
    "class": "evidence-pin",
    "evidence": "artifacts/native-substrate/verification-surface-probe.json",
@@ -7278,7 +7223,7 @@
      "suite"
     ],
     "receipt": "tools/lune/verify/evidence/native-substrate--drag-touch-adoption.json",
-    "shell": "test -f src/input/drag_session.luau && test -f src/input/touch_gestures.luau && grep -q \"setDragDetector\" src/client/screen_target.luau && grep -q \"setTouchGestureHandlers\" src/client/screen_target.luau && test -f docs/lessons/uidragdetector-event-truths.md"
+    "shell": "test -f src/input/drag_session.luau && test -f src/input/touch_gestures.luau && grep -q \"setDragDetector\" src/client/screen_target.luau && grep -q \"setTouchGestureHandlers\" src/client/screen_target.luau"
    },
    "class": "evidence-pin",
    "evidence": "artifacts/native-substrate/a5-drag.json",
@@ -7303,7 +7248,7 @@
      "path::path_shapes: deterministic arc math (NS-A7)::a full ring closes: 9 points, endpoints coincide, all on the radius",
      "path::UI.Path: paint-only reactive stroke (NS-A7)::mounts as a leaf; a points change is one prop write and never a re-solve"
     ],
-    "shell": "test -f docs/adr/ADR-0017-native-substrate-adoption.md && grep -q \"REJECTED\" docs/adr/ADR-0017-native-substrate-adoption.md && test -f src/controls/path_shapes.luau && grep -q \"class(\\\"Path\\\"\" src/blueprint_schema.luau && grep -q \"blueprint.Path\" src/blueprint.luau && grep -q \"applyPathPoints\" src/client/screen_target.luau && grep -q \"pathShapes\" docs/reference/api.md"
+    "shell": "test -f src/controls/path_shapes.luau && grep -q \"class(\\\"Path\\\"\" src/blueprint_schema.luau && grep -q \"blueprint.Path\" src/blueprint.luau && grep -q \"applyPathPoints\" src/client/screen_target.luau && grep -q \"pathShapes\" docs/reference/api.md"
    },
    "class": "result-ids",
    "evidence": "artifacts/native-substrate/a7-path.json",
@@ -7630,13 +7575,13 @@
   },
   {
    "check": {
-    "shell": "test -f docs/adr/ADR-0018-native-stylesheets.md && grep -q \"seed-once\" docs/adr/ADR-0018-native-stylesheets.md && grep -q \"Native stylesheets (the default)\" docs/guide/05-styling.md && grep -q \"reference only\" docs/guide/05-styling.md && grep -q \"sheet_model\" src/tokens/tokens.luau && ! grep -q \"generation is deferred\" src/tokens/tokens.luau"
+    "shell": "grep -q \"Native stylesheets (the default)\" docs/guide/05-styling.md && grep -q \"reference only\" docs/guide/05-styling.md && grep -q \"sheet_model\" src/tokens/tokens.luau && ! grep -q \"generation is deferred\" src/tokens/tokens.luau"
    },
    "class": "evidence-pin",
-   "evidence": "docs/adr/ADR-0018-native-stylesheets.md",
+   "evidence": null,
    "id": "native-stylesheets::docs-and-adr",
    "name": "docs-and-adr",
-   "note": "docs-and-adr: its file-existence and text assertions must hold; and docs/adr/ADR-0018-native-stylesheets.md must exist. Requirements: UI-STYLE-001.",
+   "note": "docs-and-adr: its file-existence and text assertions must hold. Requirements: UI-STYLE-001.",
    "phase": "native-stylesheets",
    "releaseBlocking": false,
    "requirements": [
@@ -9063,7 +9008,7 @@
   {
    "check": {
     "receipt": "tools/lune/verify/evidence/cross-platform-proof--spatial-seam-contracts.json",
-    "shell": "test -f src/input/spatial.luau && test -f docs/adr/ADR-0021-spatial-seam.md && grep -q \"spatial.spec\" tests/run.luau && grep -q \"presentationSpace\" src/env/environment.luau && grep -q \"FUTURE\" src/render/target_contract.luau"
+    "shell": "test -f src/input/spatial.luau && grep -q \"spatial.spec\" tests/run.luau && grep -q \"presentationSpace\" src/env/environment.luau && grep -q \"FUTURE\" src/render/target_contract.luau"
    },
    "class": "evidence-pin",
    "evidence": "artifacts/cross-platform-proof/rows/xp-d2-spatial-events.json",
@@ -9177,7 +9122,7 @@
      "check_docs_cli",
      "check_registration_cli"
     ],
-    "shell": "test -f docs/guide/11-device-verification.md && grep -q '11-device-verification' docs/guide/README.md && grep -q 'StudioTestService' docs/guide/11-device-verification.md && grep -q 'do not claim per-client' docs/guide/11-device-verification.md && grep -q 'StopSimulationAsync' docs/guide/11-device-verification.md && test -f docs/lessons/capability-probes-must-be-tri-state.md"
+    "shell": "test -f docs/guide/11-device-verification.md && grep -q '11-device-verification' docs/guide/README.md && grep -q 'StudioTestService' docs/guide/11-device-verification.md && grep -q 'do not claim per-client' docs/guide/11-device-verification.md && grep -q 'StopSimulationAsync' docs/guide/11-device-verification.md"
    },
    "class": "evidence-pin",
    "evidence": null,
@@ -9697,13 +9642,13 @@
     "producers": [
      "check_docs_cli"
     ],
-    "shell": "test -f docs/adr/ADR-0022-sponsor-framework-gaps.md && grep -q '2026-07-27 re-audit' docs/reference/sponsor-view-parity.md"
+    "shell": "grep -q '2026-07-27 re-audit' docs/reference/sponsor-view-parity.md"
    },
    "class": "evidence-pin",
-   "evidence": "docs/adr/ADR-0022-sponsor-framework-gaps.md",
+   "evidence": null,
    "id": "sponsor-framework-gaps::docs-and-adr",
    "name": "docs-and-adr",
-   "note": "docs-and-adr: check_docs_cli must exit zero; its file-existence and text assertions must hold; and docs/adr/ADR-0022-sponsor-framework-gaps.md must exist. Requirements: UI-AGENT-001.",
+   "note": "docs-and-adr: check_docs_cli must exit zero; its file-existence and text assertions must hold. Requirements: UI-AGENT-001.",
    "phase": "sponsor-framework-gaps",
    "releaseBlocking": false,
    "requirements": [
@@ -10706,7 +10651,7 @@
   {
    "check": {
     "receipt": "tools/lune/verify/evidence/traversal-document-order--step8-debt-cleared.json",
-    "shell": "grep -q 'keyboardNavigation' docs/reference/api.md && grep -q 'Camera 100' docs/guide/07-input.md && grep -q 'Camera 100' docs/adr/ADR-0014-first-responder.md"
+    "shell": "grep -q 'keyboardNavigation' docs/reference/api.md && grep -q 'Camera 100' docs/guide/07-input.md"
    },
    "class": "evidence-pin",
    "evidence": "artifacts/traversal-document-order/step8-debt.md",
@@ -11420,7 +11365,7 @@
      "check_manifest_integrity",
      "stylua-check-check-src-tests-tools-bench-examples"
     ],
-    "shell": "test -f docs/guide/12-performance-lab.md && grep -q '12-performance-lab.md' docs/guide/README.md && grep -q 'Publish to Roblox' docs/guide/12-performance-lab.md && grep -q 'MicroProfiler' docs/guide/12-performance-lab.md && grep -q 'phone-physical' docs/guide/12-performance-lab.md && test -f docs/lessons/embedded-newlines-measure-as-one-line.md"
+    "shell": "test -f docs/guide/12-performance-lab.md && grep -q '12-performance-lab.md' docs/guide/README.md && grep -q 'Publish to Roblox' docs/guide/12-performance-lab.md && grep -q 'MicroProfiler' docs/guide/12-performance-lab.md && grep -q 'phone-physical' docs/guide/12-performance-lab.md"
    },
    "class": "evidence-pin",
    "evidence": null,
@@ -12567,13 +12512,13 @@
   },
   {
    "check": {
-    "shell": "f=docs/adr/ADR-0024-declarative-3d.md && test -f \"$f\" && grep -qF \"Decision, in one paragraph\" \"$f\" && grep -qF \"Build it as a SIBLING system\" \"$f\" && grep -qF \"explained like you\" \"$f\" && grep -qF \"start building until a concrete consumer mission exists\" \"$f\" && grep -qF \"blesses its core as a public\" \"$f\" && grep -qF \"Extraction is reconsidered\" \"$f\" && grep -qF \"First bounded milestone\" \"$f\" && grep -qF \"Non-goals\" \"$f\" && grep -qF \"Evidence still required before any production use\" \"$f\" && grep -qF \"removal signals fire before the removal is\" \"$f\" && grep -qF \"Under Immediate signal mode\" \"$f\""
+    "shell": "test -f \"$f\" && grep -qF \"Decision, in one paragraph\" \"$f\" && grep -qF \"Build it as a SIBLING system\" \"$f\" && grep -qF \"explained like you\" \"$f\" && grep -qF \"start building until a concrete consumer mission exists\" \"$f\" && grep -qF \"blesses its core as a public\" \"$f\" && grep -qF \"Extraction is reconsidered\" \"$f\" && grep -qF \"First bounded milestone\" \"$f\" && grep -qF \"Non-goals\" \"$f\" && grep -qF \"Evidence still required before any production use\" \"$f\" && grep -qF \"removal signals fire before the removal is\" \"$f\" && grep -qF \"Under Immediate signal mode\" \"$f\""
    },
    "class": "evidence-pin",
-   "evidence": "docs/adr/ADR-0024-declarative-3d.md",
+   "evidence": null,
    "id": "declarative-3d-architecture::adr-decisive",
    "name": "adr-decisive",
-   "note": "adr-decisive: its file-existence and text assertions must hold; and docs/adr/ADR-0024-declarative-3d.md must exist. Requirements: UI-AGENT-001.",
+   "note": "adr-decisive: its file-existence and text assertions must hold. Requirements: UI-AGENT-001.",
    "phase": "declarative-3d-architecture",
    "releaseBlocking": false,
    "requirements": [
@@ -12583,13 +12528,13 @@
   },
   {
    "check": {
-    "shell": "f=docs/adr/ADR-0024-declarative-3d.md && test -f \"$f\" && grep -qF \"This ADR decides; it does not build.\" \"$f\" && grep -qF \"What the spike proved (and what it disproved)\" \"$f\" && grep -qiE \"^\\*\\*Status:\\*\\*\" \"$f\" && grep -qF \"when a consumer arrives\" \"$f\""
+    "shell": "test -f \"$f\" && grep -qF \"This ADR decides; it does not build.\" \"$f\" && grep -qF \"What the spike proved (and what it disproved)\" \"$f\" && grep -qiE \"^\\*\\*Status:\\*\\*\" \"$f\" && grep -qF \"when a consumer arrives\" \"$f\""
    },
    "class": "evidence-pin",
-   "evidence": "docs/adr/ADR-0024-declarative-3d.md",
+   "evidence": null,
    "id": "declarative-3d-architecture::spike-headless-green",
    "name": "spike-headless-green",
-   "note": "spike-headless-green: its file-existence and text assertions must hold; and docs/adr/ADR-0024-declarative-3d.md must exist. Requirements: UI-AGENT-001.",
+   "note": "spike-headless-green: its file-existence and text assertions must hold. Requirements: UI-AGENT-001.",
    "phase": "declarative-3d-architecture",
    "releaseBlocking": false,
    "requirements": [
@@ -12599,13 +12544,13 @@
   },
   {
    "check": {
-    "shell": "f=docs/adr/ADR-0024-declarative-3d.md && test -f \"$f\" && grep -qF \"LuauScene\" \"$f\" && grep -qiF \"sibling\" \"$f\" && grep -qF \"Deliberately different (nothing below is shared)\" \"$f\" && grep -qF \"Shared (the kernel and its conventions)\" \"$f\" && grep -qF \"Non-goals\" \"$f\""
+    "shell": "test -f \"$f\" && grep -qF \"LuauScene\" \"$f\" && grep -qiF \"sibling\" \"$f\" && grep -qF \"Deliberately different (nothing below is shared)\" \"$f\" && grep -qF \"Shared (the kernel and its conventions)\" \"$f\" && grep -qF \"Non-goals\" \"$f\""
    },
    "class": "evidence-pin",
-   "evidence": "docs/adr/ADR-0024-declarative-3d.md",
+   "evidence": null,
    "id": "declarative-3d-architecture::spike-isolated",
    "name": "spike-isolated",
-   "note": "spike-isolated: its file-existence and text assertions must hold; and docs/adr/ADR-0024-declarative-3d.md must exist. Requirements: UI-AGENT-001.",
+   "note": "spike-isolated: its file-existence and text assertions must hold. Requirements: UI-AGENT-001.",
    "phase": "declarative-3d-architecture",
    "releaseBlocking": false,
    "requirements": [
@@ -13077,7 +13022,7 @@
   {
    "check": {
     "receipt": "tools/lune/verify/evidence/parity-round-3--owed-ledger-honest.json",
-    "shell": "test -f tests/gallery_chrome.spec.luau && test -f examples/gallery/client/showcase_chrome.luau && test -f examples/gallery/client/settings_panel.luau && test -f examples/places/Facet-Showcase.rbxl && test -f docs/reference/api.md && test -f tests/overflow_sweep.spec.luau && test -f src/controls/table.luau && test -f src/controls/virtual_list.luau && test -f src/layout/shrink.luau && test -f tests/text_degrade_cascade.spec.luau && test -f tests/row_actions_input.spec.luau && test -f tests/virtual_list_row_actions.spec.luau && test -f src/controls/progress_view.luau && test -f tests/progress_circular.spec.luau && test -f tests/paradigm_table.spec.luau && test -f tools/check_source_size.py && test -f tools/lune/check_tier_costs.luau && test -f tools/lune/triage_overflow_waivers.luau && test -f docs/adr/ADR-0035-preferred-transparency.md && test -f tests/preferred_transparency.spec.luau && test -f examples/gallery/scenarios/preferred_transparency.luau && test -f src/controls/native_scroll_binding.luau && test -f tests/native_scroll_autobind.spec.luau"
+    "shell": "test -f tests/gallery_chrome.spec.luau && test -f examples/gallery/client/showcase_chrome.luau && test -f examples/gallery/client/settings_panel.luau && test -f examples/places/Facet-Showcase.rbxl && test -f docs/reference/api.md && test -f tests/overflow_sweep.spec.luau && test -f src/controls/table.luau && test -f src/controls/virtual_list.luau && test -f src/layout/shrink.luau && test -f tests/text_degrade_cascade.spec.luau && test -f tests/row_actions_input.spec.luau && test -f tests/virtual_list_row_actions.spec.luau && test -f src/controls/progress_view.luau && test -f tests/progress_circular.spec.luau && test -f tests/paradigm_table.spec.luau && test -f tools/check_source_size.py && test -f tools/lune/check_tier_costs.luau && test -f tools/lune/triage_overflow_waivers.luau && test -f tests/preferred_transparency.spec.luau && test -f examples/gallery/scenarios/preferred_transparency.luau && test -f src/controls/native_scroll_binding.luau && test -f tests/native_scroll_autobind.spec.luau"
    },
    "class": "evidence-pin",
    "evidence": null,
@@ -13180,13 +13125,13 @@
      "with_animation::withAnimation: a registered CURVE drives the flight (ADR-0033)::ARRIVES ON THE CURVE'S DURATION — the thing a class cannot promise",
      "with_animation::withAnimation: a registered CURVE drives the flight (ADR-0033)::an unknown name is refused, and the message names BOTH vocabularies"
     ],
-    "shell": "f=docs/adr/ADR-0033-time-based-easing.md && grep -qF \"WITHDRAWN 2026-08-15, by the consumer rider this ADR commissioned.\" \"$f\" && grep -qF \"No shipped consumer had a curve taken away from it.\" \"$f\" && grep -qF \"AMENDED 2026-08-15.\" \"$f\" && grep -q \"RascalRally requires .motion_driver. nowhere\" \"$f\" && grep -qF \"The engine is not cheaper here. It is correct, and correct is the reason to take\" \"$f\" && grep -qF \"58.6 ns\" \"$f\" && grep -qF \"a pure twin ships, pinned by a differential oracle\" \"$f\""
+    "shell": "grep -qF \"WITHDRAWN 2026-08-15, by the consumer rider this ADR commissioned.\" \"$f\" && grep -qF \"No shipped consumer had a curve taken away from it.\" \"$f\" && grep -qF \"AMENDED 2026-08-15.\" \"$f\" && grep -q \"RascalRally requires .motion_driver. nowhere\" \"$f\" && grep -qF \"The engine is not cheaper here. It is correct, and correct is the reason to take\" \"$f\" && grep -qF \"58.6 ns\" \"$f\" && grep -qF \"a pure twin ships, pinned by a differential oracle\" \"$f\""
    },
    "class": "result-ids",
-   "evidence": "docs/adr/ADR-0033-time-based-easing.md",
+   "evidence": null,
    "id": "parity-round-4::time-based-easing",
    "name": "time-based-easing",
-   "note": "time-based-easing: 15 named suite cases must pass; suite must exit zero; its file-existence and text assertions must hold; and docs/adr/ADR-0033-time-based-easing.md must exist. Requirements: UI-MOTION-001, UI-AGENT-001.",
+   "note": "time-based-easing: 15 named suite cases must pass; suite must exit zero; its file-existence and text assertions must hold. Requirements: UI-MOTION-001, UI-AGENT-001.",
    "phase": "parity-round-4",
    "releaseBlocking": false,
    "requirements": [
@@ -13222,13 +13167,13 @@
      "stage::UI.Stage: mount, dump, dispose (b)::mount/render/dispose returns the core registry to baseline",
      "foreign::UI.Foreign: mount, elision, dispose (b)::mount/render/dispose returns the core registry to baseline"
     ],
-    "shell": "f=docs/adr/ADR-0034-foreign-instance-seam.md && grep -qF \"the seam hands back nothing\" \"$f\" && grep -qF \"The caller passes their instance **in**; nothing Facet owns travels **out**.\" \"$f\" && grep -qF \"This departs from the shape\" \"$f\" && grep -qF \"goes live, owning exactly one property, and this is what it was reserved for\" \"$f\" && grep -q \"is now the manifest.s only .host. entry\" \"$f\" && grep -qF \"is structural, not a promise\" \"$f\" && grep -qF \"stays deferred\" \"$f\" && grep -q \"Foreign = { Parent = .host. }\" src/render/authority.luau"
+    "shell": "grep -qF \"the seam hands back nothing\" \"$f\" && grep -qF \"The caller passes their instance **in**; nothing Facet owns travels **out**.\" \"$f\" && grep -qF \"This departs from the shape\" \"$f\" && grep -qF \"goes live, owning exactly one property, and this is what it was reserved for\" \"$f\" && grep -q \"is now the manifest.s only .host. entry\" \"$f\" && grep -qF \"is structural, not a promise\" \"$f\" && grep -qF \"stays deferred\" \"$f\" && grep -q \"Foreign = { Parent = .host. }\" src/render/authority.luau"
    },
    "class": "result-ids",
-   "evidence": "docs/adr/ADR-0034-foreign-instance-seam.md",
+   "evidence": null,
    "id": "parity-round-4::foreign-instance-seam",
    "name": "foreign-instance-seam",
-   "note": "foreign-instance-seam: 20 named suite cases must pass; suite must exit zero; its file-existence and text assertions must hold; and docs/adr/ADR-0034-foreign-instance-seam.md must exist. Requirements: UI-EXT-001, UI-AGENT-001.",
+   "note": "foreign-instance-seam: 20 named suite cases must pass; suite must exit zero; its file-existence and text assertions must hold. Requirements: UI-EXT-001, UI-AGENT-001.",
    "phase": "parity-round-4",
    "releaseBlocking": false,
    "requirements": [
@@ -13258,13 +13203,13 @@
      "preferred_transparency::the two paint modes compose the SAME number::the bespoke scrim write goes through backdropTransparency, not a bare token read",
      "preferred_transparency::the two paint modes compose the SAME number::the native rule patch goes through it too, over the DECLARED scope"
     ],
-    "shell": "f=docs/adr/ADR-0035-preferred-transparency.md && grep -qF \"the scope is a measurement, not a taste call\" \"$f\" && grep -qF \"is the only rule in Facet\" \"$f\" && grep -qF \"The preference scales translucency the FRAMEWORK declared as\" \"$f\" && grep -qF \"The alpha *is* the disabled state.\" \"$f\" && grep -qF \"A border is not a background.\" \"$f\" && grep -qF \"A shadow that is opaque is a black box, and a glow that is opaque is a rectangle.\" \"$f\" && grep -qF \"What is still not on offer:\" \"$f\" && grep -qF \"PREFERENCE_RULE_PROPS\" src/tokens/sheet_model.luau"
+    "shell": "grep -qF \"the scope is a measurement, not a taste call\" \"$f\" && grep -qF \"is the only rule in Facet\" \"$f\" && grep -qF \"The preference scales translucency the FRAMEWORK declared as\" \"$f\" && grep -qF \"The alpha *is* the disabled state.\" \"$f\" && grep -qF \"A border is not a background.\" \"$f\" && grep -qF \"A shadow that is opaque is a black box, and a glow that is opaque is a rectangle.\" \"$f\" && grep -qF \"What is still not on offer:\" \"$f\" && grep -qF \"PREFERENCE_RULE_PROPS\" src/tokens/sheet_model.luau"
    },
    "class": "result-ids",
-   "evidence": "docs/adr/ADR-0035-preferred-transparency.md",
+   "evidence": null,
    "id": "parity-round-4::preferred-transparency",
    "name": "preferred-transparency",
-   "note": "preferred-transparency: 14 named suite cases must pass; suite must exit zero; its file-existence and text assertions must hold; and docs/adr/ADR-0035-preferred-transparency.md must exist. Requirements: UI-A11Y-001, UI-STYLE-001.",
+   "note": "preferred-transparency: 14 named suite cases must pass; suite must exit zero; its file-existence and text assertions must hold. Requirements: UI-A11Y-001, UI-STYLE-001.",
    "phase": "parity-round-4",
    "releaseBlocking": false,
    "requirements": [
@@ -13355,13 +13300,13 @@
      "virtual_grid_input::VirtualGrid keyboard input (no consumer wiring)::VirtualGrid keyboard: the focus dump REPORTS the second axis (ADR-0030)",
      "virtual_hgrid::VirtualHGrid keyboard and gamepad: the ring is the TRANSPOSE, not a copy::Right/Left moves a whole LINE, not one cell"
     ],
-    "shell": "! grep -q \"bindFocusGraph\" src/controls/virtual_grid.luau && grep -q \"THERE IS NO .navigateIntercept. HERE ANY MORE, AND ITS DELETION IS THE POINT\" src/controls/virtual_grid.luau && grep -qF \"columns = lanesNow()\" src/controls/virtual_grid.luau && grep -qF \"laneCount\" src/focus/focus_graph.luau && f=docs/adr/ADR-0030-two-dimensional-focus-groups.md && grep -qF \"an AXIS PAIR on the existing group, never a new group KIND\" \"$f\" && grep -qF \"adds no ordering opinion at all\" \"$f\" && grep -qF \"The order of a 2-D group is a complete row-major rectangle, and only the last line may be short.\" \"$f\" && grep -qF \"make a cell unreachable with a focus-skip predicate, never with a\" \"$f\""
+    "shell": "! grep -q \"bindFocusGraph\" src/controls/virtual_grid.luau && grep -q \"THERE IS NO .navigateIntercept. HERE ANY MORE, AND ITS DELETION IS THE POINT\" src/controls/virtual_grid.luau && grep -qF \"columns = lanesNow()\" src/controls/virtual_grid.luau && grep -qF \"laneCount\" src/focus/focus_graph.luau && grep -qF \"an AXIS PAIR on the existing group, never a new group KIND\" \"$f\" && grep -qF \"adds no ordering opinion at all\" \"$f\" && grep -qF \"The order of a 2-D group is a complete row-major rectangle, and only the last line may be short.\" \"$f\" && grep -qF \"make a cell unreachable with a focus-skip predicate, never with a\" \"$f\""
    },
    "class": "result-ids",
-   "evidence": "docs/adr/ADR-0030-two-dimensional-focus-groups.md",
+   "evidence": null,
    "id": "parity-round-4::two-dimensional-focus",
    "name": "two-dimensional-focus",
-   "note": "two-dimensional-focus: 18 named suite cases must pass; suite must exit zero; its file-existence and text assertions must hold; and docs/adr/ADR-0030-two-dimensional-focus-groups.md must exist. Requirements: UI-INPUT-003, UI-A11Y-001.",
+   "note": "two-dimensional-focus: 18 named suite cases must pass; suite must exit zero; its file-existence and text assertions must hold. Requirements: UI-INPUT-003, UI-A11Y-001.",
    "phase": "parity-round-4",
    "releaseBlocking": false,
    "requirements": [
@@ -13383,7 +13328,7 @@
      "hit_expander_overhang::hit-expander overhang: the qualifier and the stability it buys::two floors that overlap ONLY each other keep their declared order",
      "hit_expander_overhang::hit-expander overhang: the qualifier and the stability it buys::the lift is read from the base order, so a second solve moves nothing"
     ],
-    "shell": "test -f src/render/hit_lift.luau && grep -q \"measured: .hud., host .R1., two 44x44 expanders overlapping by 5%\" src/render/hit_lift.luau && grep -qF \"The caller supplies that census\" src/render/hit_lift.luau && grep -qF \"44 of 44 on both\" docs/lessons/a-forty-four-pixel-floor-under-an-eight-pixel-divider.md"
+    "shell": "test -f src/render/hit_lift.luau && grep -q \"measured: .hud., host .R1., two 44x44 expanders overlapping by 5%\" src/render/hit_lift.luau && grep -qF \"The caller supplies that census\" src/render/hit_lift.luau"
    },
    "class": "result-ids",
    "evidence": "artifacts/hit-expander-overhang/corpus-measurement.md",
@@ -13412,13 +13357,13 @@
      "theme_paint_repaint::a theme commit re-resolves the tint channel::repaints a STATIC tint that nothing will ever re-write",
      "theme_paint_repaint::the live adapter carries the same commit (source contract)::refreshThemedPaint re-applies the path role AND the tint, tint last"
     ],
-    "shell": "grep -qF \"facet-tint-fill\" src/tokens/sheet_model.luau && grep -qF \"tintFill\" src/client/screen_paint.luau && test -f docs/lessons/a-default-valued-write-never-claims.md && grep -qF \"GetStyled\" docs/lessons/a-default-valued-write-never-claims.md"
+    "shell": "grep -qF \"facet-tint-fill\" src/tokens/sheet_model.luau && grep -qF \"tintFill\" src/client/screen_paint.luau"
    },
    "class": "result-ids",
-   "evidence": "docs/lessons/a-default-valued-write-never-claims.md",
+   "evidence": null,
    "id": "parity-round-4::tint-fill-tag",
    "name": "tint-fill-tag",
-   "note": "tint-fill-tag: 7 named suite cases must pass; suite must exit zero; its file-existence and text assertions must hold; and docs/lessons/a-default-valued-write-never-claims.md must exist. Requirements: UI-STYLE-001.",
+   "note": "tint-fill-tag: 7 named suite cases must pass; suite must exit zero; its file-existence and text assertions must hold. Requirements: UI-STYLE-001.",
    "phase": "parity-round-4",
    "releaseBlocking": false,
    "requirements": [
@@ -13443,14 +13388,13 @@
      "table_themed_header::Table header: the sort mark under every shipped theme package::a column resize carries the mark with the boundary, at any width",
      "table_themed_header::Table header: the sort mark under every shipped theme package::no package makes the header band report a layout finding",
      "table::Table: column-owned columns (director round 5)::a LEADING title on a sortable column reserves the mark's room too"
-    ],
-    "shell": "test -f docs/lessons/a-far-margin-must-buy-something.md && grep -qF \"A reserve is a number you can subtract from a rect.\" docs/lessons/a-far-margin-must-buy-something.md && grep -qF \"A corpus uniform along an axis cannot test that axis.\" docs/lessons/a-far-margin-must-buy-something.md"
+    ]
    },
    "class": "result-ids",
-   "evidence": "docs/lessons/a-far-margin-must-buy-something.md",
+   "evidence": null,
    "id": "parity-round-4::zstack-hugging-margin",
    "name": "zstack-hugging-margin",
-   "note": "zstack-hugging-margin: 11 named suite cases must pass; suite must exit zero; its file-existence and text assertions must hold; and docs/lessons/a-far-margin-must-buy-something.md must exist. Requirements: UI-LAYOUT-001.",
+   "note": "zstack-hugging-margin: 11 named suite cases must pass; suite must exit zero. Requirements: UI-LAYOUT-001.",
    "phase": "parity-round-4",
    "releaseBlocking": false,
    "requirements": [
@@ -13507,7 +13451,7 @@
      "hud_chrome_rotation::director 2026-08-15 round 2: anchored content never touches the physical edge::749x380: every anchored zone clears BOTH lateral edges by the theme's own step",
      "hud_chrome_rotation::director 2026-08-15 round 2: anchored content never touches the physical edge::a REAL safe-area inset still wins when it is bigger than the gutter"
     ],
-    "shell": "grep -qF \"appChromeRects\" src/env/environment.luau && grep -qF \"DECLARATION, never a measurement this module makes\" src/env/environment.luau && grep -qF \"THE RULE IS THE MEASUREMENT, NOT A FRACTION\" src/layout/composition.luau && grep -qF \"is an L, not a bounding box\" docs/adr/ADR-0027-platform-chrome-band.md"
+    "shell": "grep -qF \"appChromeRects\" src/env/environment.luau && grep -qF \"DECLARATION, never a measurement this module makes\" src/env/environment.luau && grep -qF \"THE RULE IS THE MEASUREMENT, NOT A FRACTION\" src/layout/composition.luau"
    },
    "class": "result-ids",
    "evidence": null,
@@ -13692,13 +13636,13 @@
      "authored_presentation::authored presentation C — withAnimation reaches all three::REDUCED MOTION deletes the flight and never the destination",
      "authored_presentation::authored presentation D — off-path cost, and one write site::a surface authoring NONE of the three writes no presentation property at all"
     ],
-    "shell": "f=docs/adr/ADR-0026-authored-presentation-composition.md && grep -qF \"the authored value is an INPUT to the presentation authority, never a writer\" \"$f\" && grep -qF \"The manifest does not change. Not one line.\" \"$f\" && grep -qF \"The dip is a relative gesture, and always meant to be.\" \"$f\""
+    "shell": "grep -qF \"the authored value is an INPUT to the presentation authority, never a writer\" \"$f\" && grep -qF \"The manifest does not change. Not one line.\" \"$f\" && grep -qF \"The dip is a relative gesture, and always meant to be.\" \"$f\""
    },
    "class": "result-ids",
-   "evidence": "docs/adr/ADR-0026-authored-presentation-composition.md",
+   "evidence": null,
    "id": "parity-round-4::authored-presentation-composition",
    "name": "authored-presentation-composition",
-   "note": "authored-presentation-composition: 13 named suite cases must pass; suite must exit zero; its file-existence and text assertions must hold; and docs/adr/ADR-0026-authored-presentation-composition.md must exist. Requirements: UI-MOTION-001, UI-STYLE-001.",
+   "note": "authored-presentation-composition: 13 named suite cases must pass; suite must exit zero; its file-existence and text assertions must hold. Requirements: UI-MOTION-001, UI-STYLE-001.",
    "phase": "parity-round-4",
    "releaseBlocking": false,
    "requirements": [
@@ -13730,13 +13674,13 @@
      "surface_overlap::cross-surface overlap: the cost is zero off the inspection path::two surfaces on DIFFERENT targets never see each other",
      "overflow_sweep::overflow sweep: gallery scenarios::scenario 'surface_overlap': the solver reports NOTHING at any swept viewport, at any text size"
     ],
-    "shell": "f=docs/adr/ADR-0028-cross-surface-overlap.md && grep -qF \"the alarm reads DECLARATIONS, not geometry\" \"$f\" && grep -qF \"An UNSET display order declares nothing at all\" \"$f\" && grep -qF \"What is deliberately NOT a declaration\" \"$f\" && grep -qF \"it is an INSPECTION API, not a solve-time finding\" \"$f\""
+    "shell": "grep -qF \"the alarm reads DECLARATIONS, not geometry\" \"$f\" && grep -qF \"An UNSET display order declares nothing at all\" \"$f\" && grep -qF \"What is deliberately NOT a declaration\" \"$f\" && grep -qF \"it is an INSPECTION API, not a solve-time finding\" \"$f\""
    },
    "class": "result-ids",
-   "evidence": "docs/adr/ADR-0028-cross-surface-overlap.md",
+   "evidence": null,
    "id": "parity-round-4::cross-surface-overlap",
    "name": "cross-surface-overlap",
-   "note": "cross-surface-overlap: 16 named suite cases must pass; suite must exit zero; its file-existence and text assertions must hold; and docs/adr/ADR-0028-cross-surface-overlap.md must exist. Requirements: UI-LAYOUT-001, UI-AGENT-001.",
+   "note": "cross-surface-overlap: 16 named suite cases must pass; suite must exit zero; its file-existence and text assertions must hold. Requirements: UI-LAYOUT-001, UI-AGENT-001.",
    "phase": "parity-round-4",
    "releaseBlocking": false,
    "requirements": [
@@ -13765,13 +13709,13 @@
      "authored_presentation::authored presentation A — the props, and the refusals::the authored domain is refused rather than clamped: opacity outside 0..1, scale <= 0",
      "authored_presentation::authored presentation A — the props, and the refusals::a REACTIVE value out of domain is refused at the read site too, not silently painted"
     ],
-    "shell": "f=docs/adr/ADR-0029-leaf-opacity-refusal.md && grep -qF \"the leaf fade stays refused, because a composition has no base term to compose against\" \"$f\" && grep -qF \"the refusal is a construction error that names the fix\" \"$f\" && grep -qF \"The five structural classes are deliberately excluded\" \"$f\" && grep -qF \"What is still not on offer:\" \"$f\""
+    "shell": "grep -qF \"the leaf fade stays refused, because a composition has no base term to compose against\" \"$f\" && grep -qF \"the refusal is a construction error that names the fix\" \"$f\" && grep -qF \"The five structural classes are deliberately excluded\" \"$f\" && grep -qF \"What is still not on offer:\" \"$f\""
    },
    "class": "result-ids",
-   "evidence": "docs/adr/ADR-0029-leaf-opacity-refusal.md",
+   "evidence": null,
    "id": "parity-round-4::leaf-opacity-refusal",
    "name": "leaf-opacity-refusal",
-   "note": "leaf-opacity-refusal: 13 named suite cases must pass; suite must exit zero; its file-existence and text assertions must hold; and docs/adr/ADR-0029-leaf-opacity-refusal.md must exist. Requirements: UI-STYLE-001, UI-AGENT-001.",
+   "note": "leaf-opacity-refusal: 13 named suite cases must pass; suite must exit zero; its file-existence and text assertions must hold. Requirements: UI-STYLE-001, UI-AGENT-001.",
    "phase": "parity-round-4",
    "releaseBlocking": false,
    "requirements": [
@@ -13802,13 +13746,13 @@
      "nested_tree_pins::ADR-0032 D3: the depth-first z counter IS Sibling paint order::a parent is below its own subtree, and its subtree is below its next sibling",
      "nested_tree_pins::ADR-0032 D3: the depth-first z counter IS Sibling paint order::the counter is strictly increasing — no two nodes share a slot"
     ],
-    "shell": "f=docs/adr/ADR-0032-nested-instance-tree.md && test -f \"$f\" && grep -qF \"BUILT by the nested-instance-tree round\" \"$f\" && grep -qF \"never merely because it has children\" \"$f\" && grep -qF \"Nesting is therefore not\" \"$f\" && grep -q \"layout objects stay refused, and nesting is not an argument for them\" \"$f\" && grep -qF \"Before release is the cheap door, and it closes at 1.0.\" \"$f\" && grep -qF \"241 engine writes become 1\" \"$f\" && for c in UIListLayout UIGridLayout UITableLayout UIPageLayout; do if grep -rqE \"Instance[.]new[(][^)]*$c\" src/; then echo \"ADR-0032 Decision 6 reversed: src/ now creates a $c\"; exit 1; fi; done && grep -q \"ZIndexBehavior.Sibling\" src/client/screen_target.luau && grep -q \"local function registerHost\" src/client/screen_presentation.luau && grep -q \"handle.lastWriteX ~= px\" src/client/screen_presentation.luau && grep -q \"function adapter.settleRects\" src/client/screen_target.luau && test -f src/render/instance_boundary.luau && test -f src/render/rect_pass.luau"
+    "shell": "test -f \"$f\" && grep -qF \"BUILT by the nested-instance-tree round\" \"$f\" && grep -qF \"never merely because it has children\" \"$f\" && grep -qF \"Nesting is therefore not\" \"$f\" && grep -q \"layout objects stay refused, and nesting is not an argument for them\" \"$f\" && grep -qF \"Before release is the cheap door, and it closes at 1.0.\" \"$f\" && grep -qF \"241 engine writes become 1\" \"$f\" && grep -q \"ZIndexBehavior.Sibling\" src/client/screen_target.luau && grep -q \"local function registerHost\" src/client/screen_presentation.luau && grep -q \"handle.lastWriteX ~= px\" src/client/screen_presentation.luau && grep -q \"function adapter.settleRects\" src/client/screen_target.luau && test -f src/render/instance_boundary.luau && test -f src/render/rect_pass.luau"
    },
    "class": "result-ids",
-   "evidence": "docs/adr/ADR-0032-nested-instance-tree.md",
+   "evidence": null,
    "id": "parity-round-4::nested-instance-tree",
    "name": "nested-instance-tree",
-   "note": "nested-instance-tree: 13 named suite cases must pass; suite, check_elision_census must exit zero; its file-existence and text assertions must hold; and docs/adr/ADR-0032-nested-instance-tree.md must exist. Requirements: UI-AGENT-001.",
+   "note": "nested-instance-tree: 13 named suite cases must pass; suite, check_elision_census must exit zero; its file-existence and text assertions must hold. Requirements: UI-AGENT-001.",
    "phase": "parity-round-4",
    "releaseBlocking": false,
    "requirements": [
@@ -22599,7 +22543,7 @@
   {
    "check": {
     "receipt": "tools/lune/verify/evidence/release-candidate-review--rename-canonical-identity.json",
-    "shell": "test -f docs/adr/ADR-0036-facet-rename.md && test -f build/Facet.rbxm && test -f examples/places/Facet-Showcase.rbxl"
+    "shell": "test -f build/Facet.rbxm && test -f examples/places/Facet-Showcase.rbxl"
    },
    "class": "evidence-pin",
    "evidence": "artifacts/release-candidate-review/rename/after-inventory.md",
@@ -22939,13 +22883,13 @@
      "controls_namespace::ADR-0037: the Controls namespace::every old-form builder carries its ADR-0037 deprecation row",
      "controls_namespace::ADR-0037: the Controls namespace::the eleven infrastructure constructors stay at the top level and stay out of Controls"
     ],
-    "shell": "test -f docs/adr/ADR-0037-public-call-shapes.md && test -f docs/adr/ADR-0038-theme-tag-vocabulary.md && test \"$(grep -c \"^  Controls[.]\" artifacts/release-candidate-review/public-surface.txt)\" = \"$(grep -oE \"Controls[.][A-Za-z]+\" tests/conformance/controls_registry.luau | sort -u | grep -c .)\""
+    "shell": "test \"$(grep -c \"^  Controls[.]\" artifacts/release-candidate-review/public-surface.txt)\" = \"$(grep -oE \"Controls[.][A-Za-z]+\" tests/conformance/controls_registry.luau | sort -u | grep -c .)\""
    },
    "class": "result-ids",
-   "evidence": "docs/adr/ADR-0037-public-call-shapes.md",
+   "evidence": null,
    "id": "release-candidate-review::naming-adr-implemented",
    "name": "naming-adr-implemented",
-   "note": "naming-adr-implemented: 4 named suite cases must pass; _probe_public_surface, check_call_shape_drift-selftest, check_call_shape_drift, check_types-selftest, check_types, check_brand_drift-selftest, check_brand_drift, suite must exit zero; its file-existence and text assertions must hold; and docs/adr/ADR-0037-public-call-shapes.md must exist. Requirements: UI-AGENT-001.",
+   "note": "naming-adr-implemented: 4 named suite cases must pass; _probe_public_surface, check_call_shape_drift-selftest, check_call_shape_drift, check_types-selftest, check_types, check_brand_drift-selftest, check_brand_drift, suite must exit zero; its file-existence and text assertions must hold. Requirements: UI-AGENT-001.",
    "phase": "release-candidate-review",
    "releaseBlocking": false,
    "requirements": [
@@ -23208,7 +23152,7 @@
      "spatial::the world render target is declared AND shipped (XP-D3)::every still-open question has a capability the adapter withholds",
      "spatial::the world render target is declared AND shipped (XP-D3)::AlwaysOnTop is pinned false and is not an option"
     ],
-    "shell": "test -f src/client/surface_target.luau && test -f docs/adr/ADR-0063-surface-render-target.md && grep -qF \"surface_target = true\" tools/lune/check_boundary.luau && grep -qF \"thirteen\" docs/reference/constitution.md && grep -qF \"client.surface_target\" docs/reference/api.md && grep -qF \"SHIPPED 2026-08-29\" src/render/target_contract.luau && ! grep -qF \"not implemented; no adapter\" src/render/target_contract.luau"
+    "shell": "test -f src/client/surface_target.luau && grep -qF \"surface_target = true\" tools/lune/check_boundary.luau && grep -qF \"thirteen\" docs/reference/constitution.md && grep -qF \"client.surface_target\" docs/reference/api.md && grep -qF \"SHIPPED 2026-08-29\" src/render/target_contract.luau && ! grep -qF \"not implemented; no adapter\" src/render/target_contract.luau"
    },
    "class": "result-ids",
    "evidence": "src/client/surface_target.luau",

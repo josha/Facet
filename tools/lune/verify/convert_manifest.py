@@ -628,6 +628,16 @@ def is_publishable(text: str) -> bool:
     return not any(p.search(text) for p in _PUBLICATION_PATTERNS)
 
 ARTIFACT_PATH = re.compile(r"artifacts/[A-Za-z0-9._/-]+")
+
+#[[ DECISION RECORDS AND LESSONS ARE INTERNAL (owner ruling 2026-08-30, D2).
+#   They leave the public tip with the plans and the stage artifacts, and no
+#   public file may cite them — not by path and not by id. A clause that pins one
+#   is therefore pinning a document the public tree will not contain: it is
+#   dropped, and every one is listed in the coverage map so the contract it
+#   carried can be given a public home (the constitution, the API catalogue, or a
+#   spec) by the workstream doing that sweep. A row left with nothing else is a
+#   record of a past decision and is archived with the rest. ]]
+INTERNAL_DOC = re.compile(r"docs/(?:adr|lessons)/|\bADR-\d{4}\b")
 SOURCE_PATH = re.compile(r"(?<![\w/])(?:src|tests|examples|docs|tools|bench|package|skills)/")
 
 
@@ -715,6 +725,7 @@ def main() -> int:
             os.remove(os.path.join(receipts_dir, stale))
     receipts_written = 0
     historical = []
+    internal_clauses = []
 
     producers = Producers()
     producers.declare(
@@ -780,7 +791,13 @@ def main() -> int:
                 "phase": public_phase,
                 "name": name,
                 "requirements": entry.get("requirements") or [],
-                "evidence": (entry.get("evidence") if entry.get("evidence") and is_publishable(entry["evidence"]) else None),
+                "evidence": (
+                    entry.get("evidence")
+                    if entry.get("evidence")
+                    and is_publishable(entry["evidence"])
+                    and not INTERNAL_DOC.search(entry["evidence"])
+                    else None
+                ),
                 "releaseBlocking": bool(entry.get("releaseBlocking")),
                 # `note` is generated below from the converted check; the
                 # manifest's own prose is history and stays there.
@@ -945,6 +962,7 @@ def main() -> int:
             #   of them is recorded machine evidence — a Studio drive, a device
             #   or performance capture, an engine-feasibility probe, a measured
             #   row — the row stays, as a receipt of that class. ]]
+            internal_dropped: list[str] = []
             artifact_vars: set[str] = set()
             moved_assigns: set[str] = set()
             kept: list[str] = []
@@ -953,6 +971,11 @@ def main() -> int:
             for clause in residual:
                 c = clause.strip()
                 if c == "true":
+                    continue
+                if INTERNAL_DOC.search(c):
+                    internal_dropped.append(c)
+                    internal_clauses.append({"row": row_id, "phase": public_phase, "name": name,
+                                             "requirements": base["requirements"], "clause": c})
                     continue
                 paths = ARTIFACT_PATH.findall(c)
                 touches_source = bool(SOURCE_PATH.search(c))
@@ -1015,6 +1038,20 @@ def main() -> int:
                     add_producer("rascalrally-suite")
                 if re.search(r"(?<!/)tools/(suite_transcript|test)\.sh", shell):
                     add_producer("suite")
+
+            if (
+                internal_dropped
+                and not shell
+                and not artifact_paths
+                and not row_producers
+                and not row_ids
+                and not stdout_pins
+            ):
+                historical.append({"row": row_id, "phase": public_phase, "name": name,
+                                   "requirements": base["requirements"],
+                                   "paths": ["a decision record or lesson, now internal"]})
+                census["historical"] += 1
+                continue
 
             receipt_path = None
             if artifact_paths:
@@ -1111,7 +1148,12 @@ def main() -> int:
     graph["unresolvedPatterns"] = unresolved
     write_census(args.census, graph, census, resolved_patterns, resolved_ids, migration_ready,
                  renamed, historical, receipts_written)
-    write_coverage(args.coverage, graph, historical, receipts_written)
+    manifest_reqs: set[str] = set()
+    for phase in phases:
+        for entry in manifest.get(phase, []):
+            if entry.get("run") is not None:
+                manifest_reqs.update(entry.get("requirements") or [])
+    write_coverage(args.coverage, graph, historical, receipts_written, manifest_reqs, internal_clauses)
     print(f"convert_manifest: {len(rows)} rows, {len(graph['producers'])} producers -> {args.out}")
     for k, v in sorted(census.items()):
         print(f"    {k:18s} {v}")
@@ -1277,7 +1319,8 @@ def write_census(path: str, graph: dict, census: dict, patterns: int, ids: int,
 
 
 
-def write_coverage(path: str, graph: dict, historical: list, receipts: int) -> None:
+def write_coverage(path: str, graph: dict, historical: list, receipts: int, manifest_reqs: set,
+                   internal_clauses: list) -> None:
     """Every execution the conversion removed or merged, and what still proves it."""
     os.makedirs(os.path.dirname(path), exist_ok=True)
     rows = graph["rows"]
@@ -1341,12 +1384,39 @@ def write_coverage(path: str, graph: dict, historical: list, receipts: int) -> N
         "",
     ]
     if orphans:
-        L += ["| Requirement | Title | First gate |", "|---|---|---|"]
+        L += [
+            "A requirement is listed here when NO row that still executes names it. The last",
+            "column is the one that matters: `pre-existing` means the manifest did not carry a",
+            "living row for it before this conversion either, so the gap is older than the graph.",
+            "",
+            "| Requirement | Title | First gate | Introduced by the conversion? |",
+            "|---|---|---|---|",
+        ]
         for q in orphans:
-            L.append(f"| `{q['id']}` | {q['title'][:110]} | `{q.get('firstGate', '—')}` |")
+            cause = "**yes — investigate**" if q["id"] in manifest_reqs else "no (pre-existing)"
+            L.append(f"| `{q['id']}` | {q['title'][:110]} | `{q.get('firstGate', '—')}` | {cause} |")
     else:
         L.append("None: every requirement in `requirements.json` is carried by at least one row that")
         L.append("still executes.")
+    if internal_clauses:
+        L += [
+            "",
+            f"## 5b. Clauses that pinned an internal document ({len(internal_clauses)})",
+            "",
+            "Decision records and lessons are internal: they leave the public tip and no public",
+            "file may cite them, by path or by id. Each clause below pinned one, so it is dropped",
+            "from the public graph. Where the clause carried a LIVING behavioural contract rather",
+            "than a record of a decision, that contract needs a public home — the constitution,",
+            "the API catalogue, or a spec — and is listed here for the sweep that creates it.",
+            "",
+            "| Phase | Row | Requirement | The clause |",
+            "|---|---|---|---|",
+        ]
+        for c in internal_clauses:
+            clause = c["clause"].replace("|", "\\|")[:150]
+            L.append(f"| `{c['phase']}` | `{c['name']}` | {', '.join(c['requirements']) or '—'} | `{clause}` |")
+        L.append("")
+
     L += [
         "",
         "## 6. Retired rows",

@@ -181,8 +181,8 @@ end
 	tests/run.luau is the single source of truth for which specs exist (see
 	tests/lib/tiers.luau), and the structured result records the count so a
 	reader can refuse a run that reported fewer specs than were registered —
-	the truncated-suite shape from
-	docs/lessons/lune-main-thread-yield-truncates-suite.md, which exits 0.
+	the truncated-suite shape, where a main-thread yield ends the run early AND
+	STILL EXITS 0.
 
 	Parsed here rather than in the runner so that tests/run.luau's require list
 	stays exactly one list of require lines and nothing else. ]]

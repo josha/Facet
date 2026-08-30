@@ -127,6 +127,28 @@ FORM_B = re.compile(SUITE_CMD + r' \| grep (-[^\s]+) (["\'])(.*?)\2')
 MARKER = "✓"
 
 
+
+# `grep` without -E is BRE: + ? { } ( ) | are LITERAL unless backslashed. The
+# same translation the graph converter uses, restated here so this file stays
+# runnable on its own.
+_BRE_LITERAL = set("+?{}()|")
+
+
+def bre_to_python_pattern(pattern):
+    out = []
+    i, n = 0, len(pattern)
+    while i < n:
+        c = pattern[i]
+        if c == "\\" and i + 1 < n:
+            nxt = pattern[i + 1]
+            out.append(nxt if nxt in _BRE_LITERAL else "\\" + nxt)
+            i += 2
+            continue
+        out.append("\\" + c if c in _BRE_LITERAL else c)
+        i += 1
+    return "".join(out)
+
+
 def load_checks():
     """Read run strings from the PARSED manifest, never by regexing the Lua source.
 
@@ -296,6 +318,10 @@ def graph_problems(graph, case_ids, regenerable=None):
                 problems.append(
                     f"[{rid}] pins evidence {evidence!r}, which is checked in and is GONE"
                 )
+        if row.get("state") == "PASS" and not any(
+            check.get(k) for k in ("producers", "resultIds", "stdoutPins", "shell", "receipt", "priorPhases")
+        ):
+            problems.append(f"[{rid}] declares PASS with nothing behind it — no producer, case id, receipt or assertion")
         shell = check.get("shell")
         if shell:
             if "prior_gates.sh" in shell:
@@ -418,6 +444,13 @@ def graph_selftest():
             "state": None, "check": {"shell": 'out="$(tools/suite_transcript.sh)" && test -n "$out"'},
         })
 
+    def pass_without_evidence(g):
+        for row in g["rows"]:
+            if row.get("state") == "PENDING":
+                row["state"] = "PASS"
+                row["check"] = {}
+                break
+
     def replayed_priors(g):
         g["rows"].append({
             "id": "selftest::replay", "phase": "phase-0-foundation", "name": "replay",
@@ -431,6 +464,7 @@ def graph_selftest():
     expect_caught("a row pinning a tracked evidence file that is gone", missing_evidence)
     expect_caught("a row invoking the retired suite front door", retired_front_door)
     expect_caught("a row replaying prior gates", replayed_priors)
+    expect_caught("a PENDING row flipped to PASS with nothing behind it", pass_without_evidence)
 
     # ...and the state of the real graph, reported either way. A dirty baseline no
     # longer invalidates the plants above (each is credited only for a NEW
@@ -539,20 +573,61 @@ def main():
             fh.write(text)
         files[repo] = path
 
-    stale = []
-    negated = 0
-    matched = 0
-    for gate, name, flags, pattern, repo in entries:
-        # Trap 3: a negated grep asserts the ABSENCE of a line. Zero matches is correct.
-        if "v" in flags.lstrip("-"):
-            negated += 1
-            continue
-        # Trap 1: BRE. `grep`, never `grep -E`. -F is honoured because the manifest uses it.
+    #[[ MATCHED IN THIS PROCESS, NOT BY 1,400 `grep` PROCESSES (2026-08-30).
+    #
+    #   One `grep` per pattern over a 780 KB transcript is 1,400 process spawns
+    #   and 1,400 full reads of the same two files: measured 351 s, in a run that
+    #   had already spent 285 s producing the transcript. The transcripts are read
+    #   ONCE and each pattern is matched in Python.
+    #
+    #   THE TRANSLATION IS THE RISK, AND IT IS CHECKED. `grep` without -E is BRE,
+    #   where + ? { } ( ) | are LITERAL — trap 1 in this file's header, which
+    #   inflated a count from 13 to 95 the first time it was got wrong. So the
+    #   Python translation is verified against real `grep` on a sample of the
+    #   patterns before the fast path is trusted, and any disagreement falls the
+    #   whole run back to `grep`. ]]
+    def to_python(pattern, flags):
+        letters = flags.lstrip("-")
+        if "F" in letters:
+            return re.compile(re.escape(pattern))
+        if "E" in letters:
+            return re.compile(pattern)
+        return re.compile(bre_to_python_pattern(pattern))
+
+    def grep_says(pattern, flags, path):
         cmd = ["grep", "-q"]
         if "F" in flags.lstrip("-"):
             cmd.append("-F")
-        cmd += ["-e", pattern, files[repo]]
-        if subprocess.run(cmd, capture_output=True).returncode == 0:
+        cmd += ["-e", pattern, path]
+        return subprocess.run(cmd, capture_output=True).returncode == 0
+
+    text = {repo: open(files[repo]).read() for repo in files}
+    live = [(g, n, f, p, r) for g, n, f, p, r in entries if "v" not in f.lstrip("-")]
+    negated = len(entries) - len(live)
+
+    sample = live[:: max(1, len(live) // 40)][:40]
+    trusted = True
+    for gate, name, flags, pattern, repo in sample:
+        try:
+            mine = bool(to_python(pattern, flags).search(text[repo]))
+        except re.error:
+            trusted = False
+            break
+        if mine != grep_says(pattern, flags, files[repo]):
+            trusted = False
+            break
+
+    stale = []
+    matched = 0
+    for gate, name, flags, pattern, repo in live:
+        if trusted:
+            try:
+                hit = bool(to_python(pattern, flags).search(text[repo]))
+            except re.error:
+                hit = grep_says(pattern, flags, files[repo])
+        else:
+            hit = grep_says(pattern, flags, files[repo])
+        if hit:
             matched += 1
         else:
             stale.append((gate, name, repo, pattern))

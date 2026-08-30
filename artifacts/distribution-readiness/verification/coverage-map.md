@@ -17,13 +17,16 @@ producer or case id that proves the same thing now.
 |---|---|---|---|---|
 | 16 `prior-gates-unregressed` rows, each running `tools/prior_gates.sh`, which re-ran every earlier gate, each of which re-ran ITS priors | one lookup: every row of every earlier phase, evaluated from this same run | UI-AGENT-001 (unchanged) | a regressed earlier row reddens the later phase, as before — and now names the row rather than a roll-up line | mutation M7 in `mutation-parity.md` deletes an evidence file an earlier phase pins and requires the later phase's prior-phases row to go red |
 
-## 3. Rows archived as records of a past decision (50)
+## 3. Rows archived as records of a past decision (53)
 
 Each pinned only that a checked-in ledger or verdict of a CLOSED stage still says what it
 said. The requirement each carried is listed with the living row that proves it today.
 
 | Phase | Row | Requirement | Still proved by |
 |---|---|---|---|
+| `phase-0-foundation` | `worldtarget-seam` | UI-EXT-001 | `part-2-director::ws3-billboard-target`, `parity-round-4::foreign-instance-seam` |
+| `phase-3-pilot` | `pilot-decision` | UI-AGENT-001 | `phase-3-pilot::game-suite-green`, `phase-3-pilot::library-suite-green`, `phase-3-pilot::framework-defects-fixed-in-framework` |
+| `input-adaptation-audit` | `adr-recorded` | UI-AGENT-001 | `input-adaptation-audit::library-suite-green`, `input-adaptation-audit::game-suite-green`, `input-adaptation-audit::examples-all-input-headless` |
 | `input-adaptation-audit` | `opus-verification` | UI-AGENT-001 | `input-adaptation-audit::library-suite-green`, `input-adaptation-audit::game-suite-green`, `input-adaptation-audit::examples-all-input-headless` |
 | `input-paradigms` | `opus-verification` | UI-AGENT-001 | `input-paradigms::axes-future-proofing`, `input-paradigms::library-suite-green`, `input-paradigms::game-suite-green` |
 | `native-stylesheets` | `live-acceptance-rows` | UI-STYLE-001 | `native-stylesheets::spike-matrix`, `native-stylesheets::sheet-model-headless`, `native-stylesheets::seed-once-materializer` |
@@ -76,7 +79,7 @@ said. The requirement each carried is listed with the living row that proves it 
 | `example-games-and-standalones` | `surface-target-spike` | UI-AGENT-001 | `example-games-and-standalones::verification-mutations-bite`, `example-games-and-standalones::verification-verdict-parity`, `example-games-and-standalones::producer-runs-once-per-identity` |
 | `example-games-and-standalones` | `surface-target-spike` | UI-WORLD-001 | `example-games-and-standalones::surface-target-public-adapter`, `example-games-and-standalones::world-terminal-plays` |
 
-## 4. Rows whose artifact pins became receipts (150)
+## 4. Rows whose artifact pins became receipts (149)
 
 A `test -f <path>` or a `grep -qF "<string>" <path>` over recorded evidence became a
 sha256 of the same file in `tools/lune/verify/evidence/`. Strictly stronger: the grep
@@ -87,9 +90,81 @@ separately as declared evidence, which is the class those rows always had.
 
 ## 5. Requirements with no living row
 
-| Requirement | Title | First gate |
-|---|---|---|
-| `UI-LAYOUT-003` | Text premeasurement: non-yielding provider with ready/pending/failed, engine queue, conservative fallback, cac | `phase-1-minimal-screen` |
+A requirement is listed here when NO row that still executes names it. The last
+column is the one that matters: `pre-existing` means the manifest did not carry a
+living row for it before this conversion either, so the gap is older than the graph.
+
+| Requirement | Title | First gate | Introduced by the conversion? |
+|---|---|---|---|
+| `UI-LAYOUT-003` | Text premeasurement: non-yielding provider with ready/pending/failed, engine queue, conservative fallback, cac | `phase-1-minimal-screen` | no (pre-existing) |
+
+## 5b. Clauses that pinned an internal document (56)
+
+Decision records and lessons are internal: they leave the public tip and no public
+file may cite them, by path or by id. Each clause below pinned one, so it is dropped
+from the public graph. Where the clause carried a LIVING behavioural contract rather
+than a record of a decision, that contract needs a public home — the constitution,
+the API catalogue, or a spec — and is listed here for the sweep that creates it.
+
+| Phase | Row | Requirement | The clause |
+|---|---|---|---|
+| `phase-0-foundation` | `input-action-spike` | UI-INPUT-001, UI-INPUT-003, UI-INPUT-004 | `test -f docs/adr/ADR-0004-input-verification-scope.md` |
+| `phase-0-foundation` | `worldtarget-seam` | UI-EXT-001 | `test -f docs/adr/ADR-0003-worldtarget-deferral.md` |
+| `phase-0-foundation` | `foundation-decision` | UI-AGENT-001 | `f=docs/adr/ADR-0002-foundation-core-selection.md` |
+| `phase-0-foundation` | `foundation-decision` | UI-AGENT-001 | `python3 -c "import re,sys; t=dict((m.group(1), float(m.group(2))) for m in re.finditer(r'^- ([a-z]+): ([0-9.]+)$', open('docs/adr/ADR-0002-foundation-` |
+| `phase-0-foundation` | `opus-verification` | UI-AGENT-001 | `test -f docs/adr/ADR-0004-input-verification-scope.md` |
+| `phase-3-pilot` | `pilot-decision` | UI-AGENT-001 | `test -f docs/adr/ADR-0005-phase3-pilot-selection.md` |
+| `phase-3-pilot` | `framework-defects-fixed-in-framework` | UI-AGENT-001 | `grep -q "fixed in the framework" docs/adr/ADR-0005-phase3-pilot-selection.md` |
+| `part-2-director` | `ws1-adr-and-bench` | UI-AGENT-001, UI-PERF-001 | `test -f docs/adr/ADR-0008-pointer-interaction-seam.md` |
+| `part-2-director` | `ws1-studio-drive` | UI-FID-001 | `test -f docs/lessons/engine-input-truths-phaseb.md` |
+| `part-2-director` | `ws3-billboard-target` | UI-EXT-001 | `test -f docs/adr/ADR-0009-billboard-target.md` |
+| `phase-4-hardening` | `semver-and-deprecation` | UI-AGENT-001 | `test -f docs/adr/ADR-0011-semver-and-deprecation.md` |
+| `input-adaptation-audit` | `engine-truths-encoded` | UI-FID-001, UI-AGENT-001 | `test -f docs/lessons/gamepad-contention-truths.md` |
+| `input-adaptation-audit` | `engine-truths-encoded` | UI-FID-001, UI-AGENT-001 | `grep -q "CoreGuiNavigationEnabled" docs/lessons/gamepad-contention-truths.md` |
+| `input-adaptation-audit` | `first-responder-model` | UI-INPUT-003, UI-INPUT-004, UI-FID-001 | `test -f docs/adr/ADR-0014-first-responder.md` |
+| `input-adaptation-audit` | `adr-recorded` | UI-AGENT-001 | `test -f docs/adr/ADR-0013-input-auto-wiring.md` |
+| `input-adaptation-audit` | `adr-recorded` | UI-AGENT-001 | `grep -q "Accepted" docs/adr/ADR-0013-input-auto-wiring.md` |
+| `input-adaptation-audit` | `adr-recorded` | UI-AGENT-001 | `test -f docs/adr/ADR-0014-first-responder.md` |
+| `expansion-textinput` | `engine-facts-probed` | UI-FID-001 | `test -f docs/lessons/textbox-reflection-and-injection-truths.md` |
+| `expansion-textinput` | `expansion-adr-bench-rollback` | UI-AGENT-001, UI-PERF-001 | `test -f docs/adr/ADR-0012-textinput-expansion.md` |
+| `input-paradigms` | `defect-example02-fix` | UI-INPUT-002, UI-ENV-001 | `test -f docs/adr/ADR-0015-interaction-classes.md` |
+| `input-paradigms` | `axes-future-proofing` | UI-AGENT-001, UI-PARADIGM-001 | `test -f docs/adr/ADR-0016-three-axes-contract.md` |
+| `native-substrate` | `verification-surface` | UI-AGENT-001 | `test -f docs/lessons/mcp-vm-isolation-bindablefunction-bridge.md` |
+| `native-substrate` | `drag-touch-adoption` | UI-NATIVE-002, UI-NATIVE-003 | `test -f docs/lessons/uidragdetector-event-truths.md` |
+| `native-substrate` | `path2d-pagelayout` | UI-NATIVE-004 | `test -f docs/adr/ADR-0017-native-substrate-adoption.md` |
+| `native-substrate` | `path2d-pagelayout` | UI-NATIVE-004 | `grep -q "REJECTED" docs/adr/ADR-0017-native-substrate-adoption.md` |
+| `native-stylesheets` | `docs-and-adr` | UI-STYLE-001 | `test -f docs/adr/ADR-0018-native-stylesheets.md` |
+| `native-stylesheets` | `docs-and-adr` | UI-STYLE-001 | `grep -q "seed-once" docs/adr/ADR-0018-native-stylesheets.md` |
+| `cross-platform-proof` | `spatial-seam-contracts` | UI-SPATIAL-001 | `test -f docs/adr/ADR-0021-spatial-seam.md` |
+| `cross-platform-proof` | `docs-and-registration` | UI-AGENT-001 | `test -f docs/lessons/capability-probes-must-be-tri-state.md` |
+| `sponsor-framework-gaps` | `docs-and-adr` | UI-AGENT-001 | `test -f docs/adr/ADR-0022-sponsor-framework-gaps.md` |
+| `traversal-document-order` | `step8-debt-cleared` | UI-AGENT-001 | `grep -q 'Camera 100' docs/adr/ADR-0014-first-responder.md` |
+| `performance-stress-places` | `registration-and-docs` | UI-AGENT-001 | `test -f docs/lessons/embedded-newlines-measure-as-one-line.md` |
+| `declarative-3d-architecture` | `adr-decisive` | UI-AGENT-001 | `f=docs/adr/ADR-0024-declarative-3d.md` |
+| `declarative-3d-architecture` | `spike-headless-green` | UI-AGENT-001 | `f=docs/adr/ADR-0024-declarative-3d.md` |
+| `declarative-3d-architecture` | `spike-isolated` | UI-AGENT-001 | `f=docs/adr/ADR-0024-declarative-3d.md` |
+| `parity-round-3` | `owed-ledger-honest` | UI-AGENT-001 | `test -f docs/adr/ADR-0035-preferred-transparency.md` |
+| `parity-round-4` | `time-based-easing` | UI-MOTION-001, UI-AGENT-001 | `f=docs/adr/ADR-0033-time-based-easing.md` |
+| `parity-round-4` | `foreign-instance-seam` | UI-EXT-001, UI-AGENT-001 | `f=docs/adr/ADR-0034-foreign-instance-seam.md` |
+| `parity-round-4` | `preferred-transparency` | UI-A11Y-001, UI-STYLE-001 | `f=docs/adr/ADR-0035-preferred-transparency.md` |
+| `parity-round-4` | `two-dimensional-focus` | UI-INPUT-003, UI-A11Y-001 | `f=docs/adr/ADR-0030-two-dimensional-focus-groups.md` |
+| `parity-round-4` | `hit-expander-z-order` | UI-INPUT-003, UI-PARADIGM-001 | `grep -qF "44 of 44 on both" docs/lessons/a-forty-four-pixel-floor-under-an-eight-pixel-divider.md` |
+| `parity-round-4` | `tint-fill-tag` | UI-STYLE-001 | `test -f docs/lessons/a-default-valued-write-never-claims.md` |
+| `parity-round-4` | `tint-fill-tag` | UI-STYLE-001 | `grep -qF "GetStyled" docs/lessons/a-default-valued-write-never-claims.md` |
+| `parity-round-4` | `zstack-hugging-margin` | UI-LAYOUT-001 | `test -f docs/lessons/a-far-margin-must-buy-something.md` |
+| `parity-round-4` | `zstack-hugging-margin` | UI-LAYOUT-001 | `grep -qF "A reserve is a number you can subtract from a rect." docs/lessons/a-far-margin-must-buy-something.md` |
+| `parity-round-4` | `zstack-hugging-margin` | UI-LAYOUT-001 | `grep -qF "A corpus uniform along an axis cannot test that axis." docs/lessons/a-far-margin-must-buy-something.md` |
+| `parity-round-4` | `app-chrome-and-screen-gutter` | UI-LAYOUT-001, UI-PARADIGM-001 | `grep -qF "is an L, not a bounding box" docs/adr/ADR-0027-platform-chrome-band.md` |
+| `parity-round-4` | `authored-presentation-composition` | UI-MOTION-001, UI-STYLE-001 | `f=docs/adr/ADR-0026-authored-presentation-composition.md` |
+| `parity-round-4` | `cross-surface-overlap` | UI-LAYOUT-001, UI-AGENT-001 | `f=docs/adr/ADR-0028-cross-surface-overlap.md` |
+| `parity-round-4` | `leaf-opacity-refusal` | UI-STYLE-001, UI-AGENT-001 | `f=docs/adr/ADR-0029-leaf-opacity-refusal.md` |
+| `parity-round-4` | `nested-instance-tree` | UI-AGENT-001 | `f=docs/adr/ADR-0032-nested-instance-tree.md` |
+| `parity-round-4` | `nested-instance-tree` | UI-AGENT-001 | `for c in UIListLayout UIGridLayout UITableLayout UIPageLayout; do if grep -rqE "Instance[.]new[(][^)]*$c" src/; then echo "ADR-0032 Decision 6 reverse` |
+| `release-candidate-review` | `rename-canonical-identity` | UI-AGENT-001 | `test -f docs/adr/ADR-0036-facet-rename.md` |
+| `release-candidate-review` | `naming-adr-implemented` | UI-AGENT-001 | `test -f docs/adr/ADR-0037-public-call-shapes.md` |
+| `release-candidate-review` | `naming-adr-implemented` | UI-AGENT-001 | `test -f docs/adr/ADR-0038-theme-tag-vocabulary.md` |
+| `example-games-and-standalones` | `surface-target-public-adapter` | UI-AGENT-001, UI-WORLD-001 | `test -f docs/adr/ADR-0063-surface-render-target.md` |
+
 
 ## 6. Retired rows
 

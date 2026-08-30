@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Facet test: runs the deterministic Lune suite ONCE PER TREE STATE and REFUSES
-# a green verdict if the summary line is missing (a main-thread yield truncates
-# the suite with exit 0 — docs/lessons/lune-main-thread-yield-truncates-suite.md).
+# a green verdict if the summary line is missing: a main-thread yield truncates
+# the suite AND STILL EXITS 0, so the exit code alone proves nothing.
 # Writes artifacts/test.json.
 #
 # Usage:
