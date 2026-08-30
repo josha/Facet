@@ -761,23 +761,134 @@ return {
 		-- than hug one: the pseudo URL bar is as tall as the height it is taking,
 		-- and a hugging stack is capped by what the parent had left over — which
 		-- drew a 171px bar for a 200px loss (measured 2026-08-15).
-		local function glass(id: string, radius: string, content: any, width: any?, height: any?): any
+		--[[ ...AND `padding`, WHICH IS THE ONE THING A CALLER MAY NOT KEEP FOR ITSELF
+			(director report 2026-08-29: "the 'win a round' text, '84' text, '12' at
+			the top, and the circular progress bar ... all overlap the chrome. we
+			should not allow this overlap").
+
+			Every plate here is `ZStack{ Plate, content }` — the plate carries the
+			surface and the content is its SIBLING — so `render/layout_node`'s chrome
+			block lands the installed package's carved border on a node with NO
+			CHILDREN and the content clears nothing. That is ADR-0059 Decision 2's
+			ledgered backlog (`tests/themed_containment.spec.luau`'s HUD plate
+			ledger), and it is closed here rather than one plate at a time: the
+			construction that CREATED the defect is the construction that pays for it,
+			so a plate added tomorrow cannot re-open it.
+
+			The caller therefore hands its gutter to `glass` instead of writing it on
+			the content, and `plateInsets` floors it against the package's carve for
+			the slot this plate actually classifies into. `math.max`, never `+`: the
+			gutter is the HUD's own breathing room and the frame is a floor under it,
+			so a flat package spends exactly what it spent before. ]]
+		--[[ WHICH SLOT A SMALL PLATE IS — the THEME question ADR-0059 Decision 2
+			deferred, and the answer is that A PLATE THIS SMALL IS NOT A WINDOW.
+
+			Reserving a window's frame on a chip is the repair that ADR measured and
+			rejected (Fantasy Ornate's `panel` recipe is a 30px border; it turned the
+			116x41 objective chip into a 92x85 blob), and what is wrong with it is not
+			the arithmetic — it is that a 21x28 score pill should never have worn a
+			window's SKIN in the first place. `surface = "raised"` is the only thing
+			that put it there: `chrome_slots.classify` maps it to `panel`
+			unconditionally. So a chip declares `surface = "chip"` instead, which
+			classifies into the `control` slot — Pixel Quest 8px, read off
+			`pixel_plate_default` — and the frame it then has to clear is one a chip
+			can afford.
+
+			`radius` decides it, because it is the declaration this construction
+			ALREADY made about what each plate is, and `opts.plate` overrides that for
+			the one pod whose corner and whose frame disagree: `TasksOne` is a single
+			row wearing a panel's CORNER, and reserving a window's border for it made
+			the Tasks region step down a rung on a landscape phone rather than
+			overlap — the same defect, paid in content instead of in pixels.
+
+			NO FLAT PACKAGE MOVES BY A PIXEL, and that is checkable rather than hoped
+			for: `raised` and `chip` differ in exactly two rules — the fill role
+			(`$SurfaceStrong` vs `$Control`) and the corner (`radii.panel` vs
+			`radii.control`) — and this construction overrides BOTH per node, the fill
+			with its `tint` (blend 1) and the corner with the `UI.corners` above it.
+			The hairline rules are byte-identical. See `src/tokens/sheet_model.luau`
+			"Raised panel"/"Chip". ]]
+		local WINDOW_SURFACE, WINDOW_SLOT = "raised", "panel"
+		local CHIP_SURFACE, CHIP_SLOT = "chip", "control"
+		-- one side of the authored gutter, as a number: a token ("s") resolves
+		-- against the LIVE snapshot's own space scale, so this never learns a px
+		local function gutterPx(metrics: any, value: any): number
+			if type(value) == "number" then
+				return value
+			end
+			if type(value) == "string" then
+				local space = if type(metrics) == "table" then (metrics :: any).space else nil
+				local px = if type(space) == "table" then (space :: any)[value] else nil
+				return if type(px) == "number" then px else 0
+			end
+			return 0
+		end
+		--[[ ONE MEMO PER DISTINCT (slot, gutter), NOT ONE PER `glass` CALL.
+
+			Five of this fixture's plates are built inside a `thenView` closure — the
+			objective chip, the URL bar and its field, the paint probe, the recovery
+			panel — so `glass` runs again every time that branch re-evaluates. A memo
+			minted per call would be owned by the HUD's own scope (the closure captures
+			it lexically) and therefore live until the whole surface disposes, which
+			makes flipping the topbar-strip switch a leak that grows without bound.
+
+			The answer is the one every hoisted blueprint in this file already uses:
+			the value is a pure function of (slot, gutter), so it is built once per
+			DISTINCT pair and handed back. Nine constructions collapse to a handful of
+			memos, and a plate rebuilt a thousand times mints none. ]]
+		local plateInsetMemos: { [string]: any } = {}
+		local function plateInsets(slot: string, authored: any): any
+			local key = slot
+			if type(authored) == "table" then
+				key = `{slot}|{tostring(authored.top)}|{tostring(authored.right)}|`
+					.. `{tostring(authored.bottom)}|{tostring(authored.left)}`
+			else
+				key = `{slot}|{tostring(authored)}`
+			end
+			local cached = plateInsetMemos[key]
+			if cached ~= nil then
+				return cached
+			end
+			local memo = scope:own(core:memo(function(use)
+				local metrics = use(env:get("themeMetrics"))
+				local insets = if type(metrics) == "table" then (metrics :: any).chromeInsets else nil
+				local carve = if type(insets) == "table" then (insets :: any)[slot] else nil
+				local function side(name: string): number
+					local declared = if type(authored) == "table" and authored[name] ~= nil
+						then (authored :: any)[name]
+						else authored
+					local px = if type(carve) == "table" then (carve :: any)[name] else nil
+					return math.max(gutterPx(metrics, declared), if type(px) == "number" then px else 0)
+				end
+				return { top = side("top"), right = side("right"), bottom = side("bottom"), left = side("left") }
+			end))
+			plateInsetMemos[key] = memo
+			return memo
+		end
+		local function glass(
+			id: string,
+			radius: string,
+			content: any,
+			padding: any,
+			opts: { width: any?, height: any?, plate: string? }?
+		): any
+			local isWindow = if opts ~= nil and opts.plate ~= nil then opts.plate == "window" else radius == "panel"
 			return UI.ZStack({
 				id = id,
-				width = width,
-				height = height,
+				width = if opts ~= nil then opts.width else nil,
+				height = if opts ~= nil then opts.height else nil,
 				children = {
 					UI.corners(
 						UI.Box({
 							id = "Plate",
 							width = UI.fill(),
 							height = UI.fill(),
-							surface = "raised",
+							surface = if isWindow then WINDOW_SURFACE else CHIP_SURFACE,
 							tint = { role = "surface", blend = 1, transparency = GLASS },
 						}),
 						radius
 					),
-					content,
+					UI.padding(content, plateInsets(if isWindow then WINDOW_SLOT else CHIP_SLOT, padding)),
 				},
 			})
 		end
@@ -791,17 +902,21 @@ return {
 				"pill",
 				UI.HStack({
 					id = id .. "Row",
-					--[[ FOUR, NOT TEN (device round follow-up, 2026-08-21). A HUD pill's
-						gutter yields before its VALUE does: the expand mark now stands beside
-						these pills inside the same third of the screen, and at the largest
-						text preference on a 320px phone those six px per side were the
-						difference between `84` fitting and `84` being cut. R9 decides the
-						order — a value reformats, and when there is nothing left to reformat,
-						the box around it gives way before the number does. ]]
-					padding = { top = 4, right = 4, bottom = 4, left = 4 },
 					align = "center",
 					children = { UI.Text({ id = id .. "T", text = text, textSize = size }) },
-				})
+				}),
+				--[[ FOUR, NOT TEN (device round follow-up, 2026-08-21). A HUD pill's
+					gutter yields before its VALUE does: the expand mark now stands beside
+					these pills inside the same third of the screen, and at the largest
+					text preference on a 320px phone those six px per side were the
+					difference between `84` fitting and `84` being cut. R9 decides the
+					order — a value reformats, and when there is nothing left to reformat,
+					the box around it gives way before the number does.
+
+					It is `glass`'s argument now rather than the row's own prop, because
+					four is a FLOOR and a carving package's frame is the other one — see
+					`plateInsets`. ]]
+				{ top = 4, right = 4, bottom = 4, left = 4 }
 			)
 		end
 
@@ -949,7 +1064,6 @@ return {
 					id = id .. "Row",
 					gap = "s",
 					align = "center",
-					padding = { top = 4, right = 8, bottom = 4, left = 8 },
 					children = {
 						UI.Text({ id = id .. "Name", text = name, textSize = "caption", shrinkWeight = 1 }),
 						UI.Text({
@@ -960,7 +1074,8 @@ return {
 							padding = { top = 1, right = 5, bottom = 1, left = 5 },
 						}),
 					},
-				})
+				}),
+				{ top = 4, right = 8, bottom = 4, left = 8 }
 			)
 		end
 
@@ -999,7 +1114,6 @@ return {
 						id = "TimerRow",
 						gap = "tight",
 						align = "center",
-						padding = { top = 4, right = 12, bottom = 4, left = 12 },
 						children = {
 							-- THE RING NEEDS A BOX, for the reason the health bar does one
 							-- zone over: `newProgressView`'s row is `fill` on purpose, so
@@ -1015,7 +1129,8 @@ return {
 							}),
 							UI.Text({ id = "TimerText", text = COPY.timer, textSize = "numeral" }),
 						},
-					})
+					}),
+					{ top = 4, right = 12, bottom = 4, left = 12 }
 				),
 				pill("ScoreAway", COPY.scoreAway, "numeral"),
 			},
@@ -1027,7 +1142,6 @@ return {
 				id = "HealthRow",
 				gap = "s",
 				align = "center",
-				padding = { top = 4, right = 12, bottom = 4, left = 12 },
 				children = {
 					UI.Text({ id = "HealthNum", text = COPY.health, textSize = "numeral" }),
 					--[[ THE BAR NEEDS A BOX, and this pod HUGS.
@@ -1051,7 +1165,8 @@ return {
 						children = { healthBar.blueprint },
 					}),
 				},
-			})
+			}),
+			{ top = 4, right = 12, bottom = 4, left = 12 }
 		)
 		local railTall = UI.VStack({
 			id = "RailTall",
@@ -1315,16 +1430,16 @@ return {
 					"panel",
 					UI.VStack({
 						id = "OverflowBody",
-						padding = 12,
 						gap = "tight",
 						width = UI.fill(),
 						children = rows,
 					}),
+					12,
 					-- a fixed panel width is an APP-level decision (a plate a thumb can
 					-- read without covering the screen), which is the kind of literal an
 					-- app is allowed and a framework control is not — and it is what gives
 					-- every line above something to wrap inside
-					{ type = "fixed", px = 240 }
+					{ width = { type = "fixed", px = 240 } }
 				),
 				{
 					outsideDismiss = {
@@ -2089,7 +2204,6 @@ return {
 										"panel",
 										UI.VStack({
 											id = "ProbeBody",
-											padding = "s",
 											gap = 2,
 											width = UI.fill(),
 											children = {
@@ -2138,6 +2252,7 @@ return {
 												}),
 											},
 										}),
+										"s",
 										--[[ a plate a thumb can read without covering the screen it is
 											describing.
 
@@ -2157,7 +2272,7 @@ return {
 											it. `tests/hud_paint_probe.spec` holds the PROPERTY in both
 											orientations rather than either number, so the pair may be
 											re-measured without this comment going stale a second time. ]]
-										{ type = "fixed", px = 164 }
+										{ width = { type = "fixed", px = 164 } }
 									),
 								},
 							}),
@@ -2380,39 +2495,6 @@ return {
 							"panel",
 							UI.VStack({
 								id = "TasksFullBody",
-								--[[ THE PLANK FRAME IS PART OF THIS PANEL'S INSET (director item
-									7, IMG_3786: the `+50`/`+120`/`+300` reward chips painting over
-									the plank's right border under Pixel Quest).
-
-									`glass()` is `ZStack{ Plate, content }` — the plate carries the
-									surface and the content is its SIBLING — so the framework's
-									chrome reservation lands on a childless node and this body clears
-									nothing (ADR-0059 Decision 2 says why the framework cannot spend
-									it for us: on a small pill the same reservation is a window's
-									border). A panel that is 288px wide can afford its own frame, and
-									this is the one plate in the HUD that IS a panel.
-
-									`math.max`, not `+`: 10px is this body's own breathing room and
-									the frame is a floor under it, so Studio Neutral and every other
-									flat package are byte-identical (max(10, 0) = 10) and Pixel Quest
-									spends its 24. ]]
-								padding = scope:own(core:memo(function(use)
-									local metrics = use(env:get("themeMetrics"))
-									local insets = if type(metrics) == "table"
-										then (metrics :: any).chromeInsets
-										else nil
-									local panel = if type(insets) == "table" then (insets :: any).panel else nil
-									local function side(name: string): number
-										local px = if type(panel) == "table" then (panel :: any)[name] else nil
-										return math.max(10, if type(px) == "number" then px else 0)
-									end
-									return {
-										top = side("top"),
-										right = side("right"),
-										bottom = side("bottom"),
-										left = side("left"),
-									}
-								end)),
 								gap = "tight",
 								width = UI.fill(),
 								children = {
@@ -2421,7 +2503,20 @@ return {
 									taskRows[2],
 									taskRows[3],
 								},
-							})
+							}),
+							--[[ THE PLANK FRAME IS PART OF THIS PANEL'S INSET (director item
+								7, IMG_3786: the `+50`/`+120`/`+300` reward chips painting over
+								the plank's right border under Pixel Quest).
+
+								10px is this body's own breathing room; `plateInsets` floors it
+								against the installed package's `panel` carve, so Studio Neutral and
+								every other flat package are byte-identical (max(10, 0) = 10) and
+								Pixel Quest spends its 24. It read that memo inline until
+								2026-08-29, when the director reported the SAME defect on the plates
+								this one was the exception to and `glass` took the whole job — one
+								authority for "a plate's content clears its frame" instead of one
+								panel that remembered and nine chips that did not. ]]
+							10
 						),
 						--[[ ONE TASK, AND NOTHING AROUND IT. Two measurements chose this
 							form, in order:
@@ -2463,7 +2558,6 @@ return {
 								pseudo-localized at 320x640). The children go straight on the row. ]]
 							UI.HStack({
 								id = "TasksOneBody",
-								padding = "s",
 								gap = "s",
 								align = "center",
 								width = UI.fill(),
@@ -2482,7 +2576,12 @@ return {
 									}),
 									taskBars[1].blueprint,
 								},
-							})
+							}),
+							"s",
+							-- ONE ROW IS NOT A WINDOW. The corner is a panel's; the FRAME
+							-- this has to clear is a chip's — see `glass` for why the two are
+							-- allowed to disagree on exactly this pod.
+							{ plate = "chip" }
 						),
 						--[[ THE TERMINAL FORM, AND IT IS A PILL AGAIN (wave REVEAL). It was a
 							`pill(...)`; D7.2 turned it into a Button because a `self` route needs
@@ -2569,8 +2668,6 @@ return {
 								id = "TimerOnlyRow",
 								gap = "tight",
 								align = "center",
-								-- the same ruling as `pill`'s gutter above, for the same reason
-								padding = { top = 4, right = 4, bottom = 4, left = 4 },
 								children = {
 									--[[ THE VALUE REFORMATS RATHER THAN CUTTING (R9). See
 										`COPY.timerShort` for why a timer is not allowed the
@@ -2609,7 +2706,9 @@ return {
 										},
 									}),
 								},
-							})
+							}),
+							-- the same ruling as `pill`'s gutter above, for the same reason
+							{ top = 4, right = 4, bottom = 4, left = 4 }
 						),
 					},
 				}),
@@ -2799,7 +2898,6 @@ return {
 								id = "UrlBarBody",
 								width = UI.fill(),
 								height = UI.fill(),
-								padding = { top = 4, right = 10, bottom = 4, left = 10 },
 								align = "center",
 								children = {
 									glass(
@@ -2809,7 +2907,6 @@ return {
 											id = "UrlBarFieldRow",
 											width = UI.fill(),
 											height = UI.fill(),
-											padding = { top = 2, right = 8, bottom = 2, left = 8 },
 											align = "center",
 											children = {
 												UI.Text({
@@ -2822,13 +2919,16 @@ return {
 												}),
 											},
 										}),
-										UI.fill(),
-										{ type = "fixed", px = "controlSizes.compact.height" }
+										{ top = 2, right = 8, bottom = 2, left = 8 },
+										{
+											width = UI.fill(),
+											height = { type = "fixed", px = "controlSizes.compact.height" },
+										}
 									),
 								},
 							}),
-							UI.fill(),
-							barHeight
+							{ top = 4, right = 10, bottom = 4, left = 10 },
+							{ width = UI.fill(), height = barHeight }
 						)
 					end,
 				}),

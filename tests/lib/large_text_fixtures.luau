@@ -990,6 +990,15 @@ local UNSWEEPABLE: { [string]: string } = {
 		.. "mounts, so it is swept there — at every preference, in both reference themes — rather than twice",
 	RowActionsRoot = "the NODE half of RowActions: it returns the row blueprint the RowActions fixture itself "
 		.. "mounts, so it is swept there — at every preference, in both reference themes — rather than twice",
+	-- the DIAGNOSTICS half, lifted out on 2026-08-29 (task EXTRACT2) for the same
+	-- cap as the six rows above it. This case is what caught the omission: the
+	-- registry row landed without a fixture and without a reason, which is exactly
+	-- the state LT8-COVER exists to refuse.
+	RowActionsDump = "the DIAGNOSTICS half of RowActions: `build(p)` takes today's "
+		.. "committed/offset/openEdge/menuOpen/menuHeightPx BY VALUE and returns the snapshot TABLE that "
+		.. "`api.dump()` hands back — a schema, not a blueprint, so there is nothing to mount, nothing to "
+		.. "measure, and no text for a preference sweep to overlap, clip or push under a hit floor. The rows "
+		.. "whose state it reports are swept through the RowActions fixture, at every preference",
 	-- the reorder/drop/autoscroll half of src/controls/virtual_list.luau, lifted
 	-- out on 2026-08-15 so that file could get back under the same cap. Not a
 	-- control; the VirtualList row itself is swept and is the thing that mounts it.

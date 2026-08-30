@@ -161,6 +161,45 @@ padding: flat packages are byte-identical (`max(10, 0)`) and Pixel Quest spends 
 each with the largest overhang measured, and a row that stops firing fails the
 suite so the list can only shrink.
 
+**CLOSED (2026-08-29, [ADR-0040](ADR-0040-unreleased-breaking-changes.md) row
+B-38): the director reported the remaining ledger live and ordered it fixed** —
+*"the 'win a round' text, '84' text, '12' at the top, and the circular progress
+bar in the top middle next to 2:14 all overlap the chrome. we should not allow
+this overlap."* All eleven rows are deleted and the ledger is empty.
+
+**The repair was not the one measured above, and the difference is the whole
+point.** Nothing is handed a window's border. This paragraph's own last sentence
+named the real question — "deciding that a `raised` chip is not a window is a
+THEME question ... and belongs to a round that can re-spec the packages" — and the
+answer is that a 21x28 score pill is not a window and should never have worn a
+window's SKIN. `surface = "raised"` was the only thing that put it there:
+`chrome_slots.classify` maps it to `panel` unconditionally. `glass()` now declares
+`surface = "chip"` for every plate that is not a panel, which classifies into the
+`control` slot, and one shared `plateInsets` memo floors each caller's own gutter
+against THAT carve. Pixel Quest spends 8 (`pixel_plate_default`, the number
+Decision 5 corrected) where it used to be handed 24.
+
+Two structural consequences worth stating, because they are what stops the ledger
+re-opening. The gutter moved from the CONTENT's own `padding` prop to an argument
+of `glass`, so the construction that created the defect is the construction that
+pays for it and a plate added tomorrow cannot skip it. And the panel exception
+above is gone: `TasksFull` no longer carries its own inline memo, it passes `10`
+to the same helper — one authority for "a plate's content clears its frame"
+instead of one panel that remembered and nine chips that did not.
+
+Measured under Pixel Quest at 750x381 landscape (iPhone 16 Pro, Studio device
+emulator): the score pill 21x28 → 29x36 with its numeral clearing on every side by
+8 where it overlapped by 20, the timer pod 90x48 → 90x56, the health pod 145x52 →
+145x60, `TasksOne` unmoved at 79x60. Flat packages are byte-identical, and that is
+checkable rather than hoped for: `raised` and `chip` differ in exactly two rules —
+the fill role and the corner radius — and this construction overrides both per
+node, the fill with its `tint` (blend 1) and the corner with its `UI.corners`.
+`tests/overflow_sweep.spec.luau`'s R23 route census re-reads 414 → 426: under a
+CARVING package those plates are a frame larger, so twelve more cells of that
+sweep leave a region in a stepped-down form with a live expand affordance. Both of
+that case's pinned-EMPTY sub-floor lists are still empty, which is the half a
+count cannot say.
+
 **3. The selection indicator's pill gives its own inset to the frame first.**
 `inset` is decoration — "stand this chip off the segment edge" — and a package's
 carved border is not. `skinOpts.inset` is now `max(0, declared − carved)`, where

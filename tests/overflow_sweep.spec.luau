@@ -3346,8 +3346,23 @@ describe("overflow sweep: the HUD under the showcase's OWN chrome", function()
 			boxes measure at a size this census counts, and none of them is a route that
 			LOST its floor: both pinned-EMPTY lists below are still empty, which is the
 			half a count cannot say. RE-READ RATHER THAN BUMPED, as the two entries
-			above were. ]]
-		expect(`routes swept: {routeCensus.swept}`).toBe("routes swept: 414")
+			above were.
+
+			414 -> 426 (2026-08-29, the HUD plate round). `glass()` in the HUD fixture
+			stopped painting a `raised` plate BEHIND content that cleared nothing: a
+			plate that is not a panel now declares `surface = "chip"` and its content
+			is inset by the installed package's `control` carve (director report: "the
+			'win a round' text, '84' text, '12' at the top, and the circular progress
+			bar ... all overlap the chrome"). Under a CARVING package those plates are
+			therefore a frame wider and taller than they were, so twelve more cells of
+			this sweep's viewport x package x preference matrix leave a region in a
+			stepped-down form with a live expand affordance — and an armed expand route
+			is exactly what this census counts. Flat packages carve nothing and cannot
+			contribute a cell. TWELVE MORE boxes measure at a size this census counts,
+			and none of them is a route that LOST its floor: both pinned-EMPTY lists
+			above are still empty, which is the half a count cannot say. RE-READ RATHER
+			THAN BUMPED, as the three entries above were. ]]
+		expect(`routes swept: {routeCensus.swept}`).toBe("routes swept: 426")
 		--[[ ...and the ATTRIBUTION BRANCH IS ENTERED. With no sub-floor route at all
 			the two lists above are empty for the wrong reason: the per-side oracle
 			would never run. This is the case's own positive control. ]]

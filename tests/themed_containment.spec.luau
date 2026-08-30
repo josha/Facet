@@ -201,47 +201,40 @@ local function mountExample(w: any, name: string): any
 	return built
 end
 
---[[ THE HUD'S PLATE LEDGER, and it is a to-do list with a measurement on every
-	line rather than a list of things that are allowed.
+--[[ THE HUD'S PLATE LEDGER — AND IT IS EMPTY NOW, WHICH IS WHAT IT WAS FOR.
 
-	Every row here is the SAME defect — `glass()` in `examples/gallery/scenarios/hud.luau`
-	is `ZStack{ Box(surface = "raised", fill x fill), content }`, so the plate is the
-	content's SIBLING and the package's carved border is reserved on a node with no
-	children (ADR-0059 Decision 2 says at length why the framework declines to spend
-	it for them: on a HUD pill, Fantasy Ornate's `panel` recipe is a 30px window
-	border, and handing it over turns a 116x41 objective chip into a 92x85 blob —
-	measured). The task PANEL, which is the one plate here big enough to wear its own
-	frame and the one the director photographed, is fixed at its declaration and is
-	deliberately absent from this list.
+	It held eleven rows, every one the SAME defect: `glass()` in
+	`examples/gallery/scenarios/hud.luau` was `ZStack{ Box(surface = "raised",
+	fill x fill), content }`, so the plate was the content's SIBLING and the
+	package's carved border was reserved on a node with no children. ADR-0059
+	Decision 2 declined the obvious repair (handing a WINDOW's frame to a chip
+	turns a 116x41 objective chip into a 92x85 blob under Fantasy Ornate —
+	measured) and booked the real question for a round that could re-spec: which
+	slot a small plate should classify into.
 
-	THE RULES, the same four the overflow sweep's own waiver list is under:
-	  * `px` is the largest overhang measured on 2026-08-27 across this file's
-	    packages x viewports. A finding above it FAILS — the defect got worse.
-	  * a row that never fires FAILS too (the case below counts them), so this list
-	    can only shrink and the number means something.
+	CLOSED 2026-08-29 on a director report ("the 'win a round' text, '84' text,
+	'12' at the top, and the circular progress bar ... all overlap the chrome. we
+	should not allow this overlap"). The answer was not to reserve the window —
+	it was that a 21x28 score pill is not a window: `glass` now declares
+	`surface = "chip"` for everything that is not a panel, which classifies into
+	the `control` slot, and pays THAT carve out of one shared `plateInsets` memo.
+	Pixel Quest spends 8 where it used to be handed 24, and no flat package moves
+	a pixel (the fill is the plate's own `tint`, the corner its own `UI.corners`).
+
+	THE RULES THE LIST WAS UNDER, kept because the type and the machinery below
+	are still the honest way to book the NEXT one:
+	  * `px` is the largest overhang measured across this file's packages x
+	    viewports. A finding above it FAILS — the defect got worse.
+	  * a row that never fires FAILS too (the case below counts them), so the list
+	    can only shrink and the number means something. That rule is what makes
+	    this emptying checkable rather than asserted: with the rows deleted, any
+	    surviving overhang is now an ordinary failure of the group above.
 	  * a row is a NODE PATTERN, because one wrong construction is one defect and
-	    not eleven: the three rail slots and the three probe lines are one plate
-	    idiom each.
+	    not eleven.
 	  * nothing here is a `zero-box`. There is no design in which a string the
 	    player is meant to read solves to nothing, and no row may pardon one. ]]
 type PlateRow = { node: string, px: number, why: string }
-local HUD_PLATE_LEDGER: { PlateRow } = {
-	{ node = "/Clock/ClockStack/ScoreAway/", px = 20, why = "a score pill's numeral on the plank frame" },
-	{ node = "/Clock/ClockStack/ScoreHome/", px = 20, why = "its twin at the other end of the clock" },
-	{ node = "/Clock/ClockStack/TimerPod/", px = 20, why = "the timer's ring and its figure, same pill" },
-	{ node = "/Clock/TimerOnlyPod/", px = 20, why = "the narrow-viewport rung of the same pill" },
-	{ node = "/Health/HealthPod/", px = 20, why = "the health pill's numeral" },
-	{ node = "/Health/HealthOnly/", px = 20, why = "the narrow-viewport rung of the health pill" },
-	{ node = "/Rail/RailTall/", px = 20, why = "the weapon rail's three slots, one construction" },
-	{ node = "/Rail/W1c/", px = 20, why = "the rail's compact rung" },
-	{ node = "/Strip/StripChip/", px = 20, why = "the objective chip" },
-	{ node = "/Tasks/TasksChip/", px = 20, why = "the task zone's stepped-down chip" },
-	{
-		node = "/PaintProbe/",
-		px = 16,
-		why = "the fixture's OWN readout plate — an instrument, not a HUD surface, and it wears the same idiom",
-	},
-}
+local HUD_PLATE_LEDGER: { PlateRow } = {}
 local PLATE_HITS: { [string]: number } = {}
 for _, row in HUD_PLATE_LEDGER do
 	PLATE_HITS[row.node] = 0

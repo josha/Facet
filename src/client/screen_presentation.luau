@@ -55,26 +55,47 @@ local screen_presentation = {}
 -- points (unit box, tangents relative to the point) scale into the CURRENT
 -- solved rect. Engine truths: max 100 control points; no Transparency
 -- property; left tangent = incoming handle, right = outgoing.
+--
+--[[ THE POINTS RIDE `Scale`, NOT `Offset` (2026-08-29, the director's Pixel Quest
+	HUD: "the circular progress bar is also not circular ... the green does not
+	totally cover the yellow part").
+
+	`UDim.Offset` IS AN INT32 — measured live in this session on a Path2D round
+	trip: `UDim2.new(0, 25.05, 0, 6.95)` reads back as `(25, 6)`, and the same
+	pair written as `Scale` survives to six decimal places. So the previous form,
+	`UDim2.fromOffset(p.x * w, p.y * h)`, TRUNCATED every control point to a whole
+	pixel, and a circle is the shape that reports it loudest:
+
+	  * the truncation is ASYMMETRIC — on the shipped 32px ring (radius 0.8 of the
+	    half-extent = 12.8px) the 3 o'clock and 6 o'clock extremes lost 0.8px while
+	    12 o'clock and 9 o'clock lost 0.2, so a circle came out an off-centre egg;
+	  * a CLOSED ring's last point is its first — `arc(0, 360)` — and
+	    `sin(2*pi)` is a hair BELOW zero, so `16 - 1e-15` floored to **15** while
+	    the identical first point floored to 16. The track therefore closed one
+	    pixel left of where it opened and painted a notch of bare track past the
+	    arc's own start: the "green does not cover the yellow" seam, at the exact
+	    12 o'clock the fixture's ring starts from.
+
+	`Scale` needs no `w`/`h` at all, because the points are ALREADY normalized to
+	the unit box and the engine resolves scale against the parent's own size. That
+	parent is this handle's instance, whose `Size` `applyRect` writes as exactly
+	the painted box (`rect + presentationSize`) — so the "re-scales with a box that
+	is travelling" promise below is now kept by the engine rather than re-derived
+	here, and a shape can no longer be a frame behind its own node. ]]
 local function applyPathPoints(handle: any)
 	local path2d = handle.path2d
-	local rect = handle.windowRect
 	local points = handle.normPoints
-	if path2d == nil or rect == nil or points == nil then
+	if path2d == nil or points == nil then
 		return
 	end
-	-- normalized against the PAINTED box, so a shape inside a node whose size is
-	-- travelling re-scales with it instead of sitting at its destination size
-	-- inside a smaller box (withAnimation size, 2026-08-14)
-	local w = math.max(rect.w + (handle.presentationSizeW or 0), 1)
-	local h = math.max(rect.h + (handle.presentationSizeH or 0), 1)
 	local cps = table.create(#points)
 	for _, p in points do
 		table.insert(
 			cps,
 			Path2DControlPoint.new(
-				UDim2.fromOffset(p.x * w, p.y * h),
-				UDim2.fromOffset(p.inX * w, p.inY * h),
-				UDim2.fromOffset(p.outX * w, p.outY * h)
+				UDim2.fromScale(p.x, p.y),
+				UDim2.fromScale(p.inX, p.inY),
+				UDim2.fromScale(p.outX, p.outY)
 			)
 		)
 	end
@@ -404,7 +425,10 @@ function screen_presentation.new(ctx: any)
 		-- 2026-07-28). No-op for every node carrying no icon art.
 		refitIconArt(handle)
 		if handle.path2d ~= nil then
-			-- normalized control points re-scale with the solved rect
+			-- The points are `Scale` now, so the ENGINE re-scales them with the box
+			-- this function just wrote and these are the same numbers every time.
+			-- Kept as the belt: `normPoints` is applied by its own prop setter, and
+			-- this is the only other place that knows a path node has a box at all.
 			applyPathPoints(handle)
 		end
 	end
