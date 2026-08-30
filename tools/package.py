@@ -189,6 +189,13 @@ def source_commit_stamp():
     return commit + "-dirty" if porcelain(["src"]) else commit
 
 
+def shown(path):
+    """Repo-relative when the path is inside the repository, absolute otherwise.
+    A bare `os.path.relpath` turns a temp directory into a wall of `../`."""
+    absolute = os.path.abspath(path)
+    return os.path.relpath(absolute, REPO) if absolute.startswith(REPO + os.sep) else absolute
+
+
 def read_bytes(path):
     with open(path, "rb") as handle:
         return handle.read()
@@ -317,7 +324,7 @@ def write_manifest(xml_path, artifact_path, out_path):
         "version": read_version(),
         "sourceCommit": source_commit_stamp(),
         "sourceHash": source_hash(),
-        "artifact": os.path.relpath(artifact_path, REPO),
+        "artifact": shown(artifact_path),
         "artifactSha256": file_sha256(artifact_path),
         "instanceCount": len(instances),
         "moduleCount": sum(1 for entry in instances if entry["className"] == "ModuleScript"),
@@ -562,7 +569,7 @@ def decide(facts):
     if not gate:
         refuse(
             "gate-evidence-missing",
-            f"no release-gate evidence at {os.path.relpath(GATE_EVIDENCE, REPO)}; the release tier must run first",
+            f"no release-gate evidence at {shown(GATE_EVIDENCE)}; the release tier must run first",
         )
     elif gate.get("status") != "PASS":
         refuse("gate-evidence-failed", f"release-gate evidence status is {gate.get('status')!r}, not PASS")
@@ -809,13 +816,20 @@ def describe_request(method, path, request_json, file_path):
     print(f"    part 'request'     (application/json): {json.dumps(request_json)}")
     if file_path:
         print(
-            f"    part 'fileContent' ({RBXM_CONTENT_TYPE}): {os.path.relpath(file_path, REPO)} "
+            f"    part 'fileContent' ({RBXM_CONTENT_TYPE}): {shown(file_path)} "
             f"({os.path.getsize(file_path)} bytes, sha256 {file_sha256(file_path)}) — contents not shown"
         )
 
 
 def creation_context(config):
+    """`userId` for an individual, `groupId` for a group — and a legible
+    placeholder while the owner checkpoint has not chosen. Ownership cannot be
+    transferred afterwards (Packages doc: "Ownership transfers are not supported
+    by the asset system"), so this field is a one-way decision and a dry run must
+    show plainly that it has not been made."""
     creator = config.get("creator") or {}
+    if not creator.get("type") or not creator.get("id"):
+        return {"creator": {"<userId or groupId>": "<unset — owner checkpoint>"}}
     key = "userId" if creator.get("type") == "user" else "groupId"
     return {"creator": {key: str(creator.get("id"))}}
 
@@ -862,14 +876,14 @@ def api_key_from_env():
 def cmd_stage(args):
     result = stage(args.out or STAGE_ROOT, quiet=args.quiet)
     if not args.quiet:
-        print(f"staged {os.path.relpath(result['path'], REPO)}")
+        print(f"staged {shown(result["path"])}")
     return 0
 
 
 def cmd_manifest(args):
     manifest = write_manifest(args.model, args.artifact, args.out)
     print(
-        f"manifest {os.path.relpath(args.out, REPO)}: {manifest['instanceCount']} instances "
+        f"manifest {shown(args.out)}: {manifest['instanceCount']} instances "
         f"({manifest['moduleCount']} modules), body {manifest['bodyHash'][:12]}"
     )
     return 0
@@ -909,7 +923,7 @@ def cmd_status(args):
     print(f"  working tree     {'DIRTY' if dirty else 'clean'}")
     if dirty:
         for line in dirty.splitlines()[:10]:
-            print(f"                   {line}")
+            print(f"                   {line.strip()}")
 
     if receipt is None:
         print("  last receipt     (none — nothing has ever been published)")
@@ -945,7 +959,7 @@ def cmd_status(args):
     identity = gate_identity(manifest["version"], head_commit(), manifest["sourceHash"])
     print(f"  release identity {identity}")
     if gate is None:
-        print(f"  gate evidence    absent ({os.path.relpath(GATE_EVIDENCE, REPO)})")
+        print(f"  gate evidence    absent ({shown(GATE_EVIDENCE)})")
     else:
         match = "matches" if gate.get("identity") == identity else "IS FOR A DIFFERENT IDENTITY"
         print(f"  gate evidence    status {gate.get('status')}, identity {match}")
@@ -1026,7 +1040,7 @@ def studio_publisher_steps(config, verb):
     build_model(publisher=True, quiet=True)
     print("")
     print("STUDIO ROUTE — do these steps by hand, then come back")
-    print(f"  1. Open {os.path.relpath(PUBLISHER_PLACE, REPO)} in Roblox Studio.")
+    print(f"  1. Open {shown(PUBLISHER_PLACE)} in Roblox Studio.")
     print("  2. In Explorer, select ReplicatedStorage > Facet.")
     if verb == "create":
         print("  3. Right-click it and choose 'Convert to Package'.")
@@ -1094,7 +1108,7 @@ def cmd_create(args, transport=None, decider=decide):
             return 1
         config["assetId"] = int(args.asset_id)
         save_config(args.config, config)
-        print(f"  recorded assetId {args.asset_id} in {os.path.relpath(args.config, REPO)}")
+        print(f"  recorded assetId {args.asset_id} in {shown(args.config)}")
         return 0
 
     body, content_type = multipart(
@@ -1127,7 +1141,7 @@ def cmd_create(args, transport=None, decider=decide):
         actor=args.actor or os.environ.get("USER"),
         gate=facts.get("gate"),
     )
-    print(f"  receipt {os.path.relpath(path, REPO)}")
+    print(f"  receipt {shown(path)}")
     return 0
 
 
@@ -1136,7 +1150,7 @@ def cmd_publish(args, transport=None, decider=decide):
     config, route, api_key, facts, refusals = _release_preamble("publish", args, transport, decider)
     print_verdicts(facts, refusals)
 
-    asset_id = config.get("assetId")
+    asset_id = config.get("assetId") or "<assetId — unset until create>"
     request_json = {
         "assetId": str(asset_id),
         "assetType": ASSET_TYPE,
@@ -1201,7 +1215,7 @@ def cmd_publish(args, transport=None, decider=decide):
             actor=args.actor or os.environ.get("USER"),
             gate=facts.get("gate"),
         )
-        print(f"  receipt {os.path.relpath(path, REPO)}")
+        print(f"  receipt {shown(path)}")
         return 0
 
     body, content_type = multipart(
@@ -1235,7 +1249,7 @@ def cmd_publish(args, transport=None, decider=decide):
         actor=args.actor or os.environ.get("USER"),
         gate=facts.get("gate"),
     )
-    print(f"  receipt {os.path.relpath(path, REPO)}")
+    print(f"  receipt {shown(path)}")
     return 0
 
 
@@ -1289,7 +1303,7 @@ def cmd_stamp(args):
     with open(args.receipt, "w") as handle:
         json.dump(receipt, handle, indent=2)
         handle.write("\n")
-    print(f"stamped {os.path.relpath(args.receipt, REPO)}: verified by {args.by}")
+    print(f"stamped {shown(args.receipt)}: verified by {args.by}")
     return 0
 
 
@@ -1555,6 +1569,7 @@ def _selftest_transport():
             print(f"  [WRONG] create --confirm exit {code} with calls {silent.calls}")
 
         # ── pass B: the request/poll/record path ─────────────────────────────
+        print("  ---- pass B: guards stubbed out (proven above); driving the request path ----")
         create_config = os.path.join(work, "create.json")
         create_receipts = os.path.join(work, "create-receipts")
         save_config(create_config, base_config(None))
