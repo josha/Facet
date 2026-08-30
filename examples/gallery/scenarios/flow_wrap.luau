@@ -47,8 +47,8 @@
 -- The lower panel's box. It exists to have SLACK: `align` can only be seen when
 -- the lines do not fill their container.
 --
--- THIS NUMBER WAS MEASURED, NOT GUESSED (docs/lessons/facet-fixed-px-heights:
--- a px height fixed against unfixed content). Its history, kept because the
+-- THIS NUMBER WAS MEASURED, NOT GUESSED (a px height fixed against unfixed
+-- content is a defect class). Its history, kept because the
 -- reasoning is still the margin: 200 was reasoned from Studio Neutral's
 -- ~36px chip, then the nine-package sweep in `tests/flow_wrap.spec.luau`
 -- found four packages overflowing it on the cross axis at 320px wide
@@ -67,7 +67,7 @@
 -- "how many lines the WORST SHIPPED PACKAGE's chips need, plus headroom" —
 -- and a formula that reproduces a margin exactly reproduces its shape too.
 -- What DOES change: `controlSizes.compact.height` is a THEME METRIC, so
--- under the ten-foot ladder (`metricScale`, ADR-0040 B-7) this box now grows
+-- under the ten-foot ladder (`metricScale`) this box now grows
 -- with it — 36 -> 54 at Large, box -> 540 — where the frozen 360 never did.
 -- The cross-package worst-case margin the sweep measures (still 82px short
 -- under four packages per `tests/lib/theme_sweep_ledger.luau`'s own waiver)

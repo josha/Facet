@@ -1,5 +1,5 @@
 --!strict
--- "FANTASY PARCHMENT" — the stage's primary proof theme (ADR-0019 §6) and the
+-- "FANTASY PARCHMENT" — the stage's primary proof theme and the
 -- worked example `docs/guide/09-custom-themes.md` walks through line by line.
 --
 -- Written as a CLEAN CONSUMER: everything here goes through the public
@@ -20,7 +20,7 @@
 -- clears the 4.5:1 contrast gate (checked at define time; verified 2026-07-25:
 -- weakest pair is Candlelight accent at 6.48:1).
 --
--- TWO HALVES, ONE OWNER EACH (ADR-0019 §3). The METRICS section below sits in a
+-- TWO HALVES, ONE OWNER EACH. The METRICS section below sits in a
 -- marker region and is GENERATOR-OWNED: the DataModel theme sheet is where a
 -- designer retunes spacing, type and control sizes, and `theme_sync` writes
 -- those edits back here. Never hand-edit inside the markers — the freshness gate
@@ -213,7 +213,7 @@ local GENERATED: any = {
 				-- field is validated isFiniteNumber-only (package.luau's
 				-- CONTROL_FAMILIES check) — it cannot take a theme-metric NAME
 				-- string like "tight", the same reason default_style.luau's own
-				-- controls.label.gap stays a raw literal (ADR-0047)
+				-- controls.label.gap stays a raw literal
 				gap = 6,
 			},
 			popup = {

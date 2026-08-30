@@ -614,8 +614,8 @@ function Foyer.build(Facet: any, core: any, deps: any): any
 	-- ring separates it from whatever it overlaps, and it sits ON the host's
 	-- top-right corner. One builder, used at every badge site.
 	--
-	-- BADGE_CORNER_INSET (task FOYER, director order "fix foyer": ADR-0059
-	-- recorded this builder as a third, deliberately-unfixed occurrence of the
+	-- BADGE_CORNER_INSET (task FOYER, director order "fix foyer": the
+	-- themed-chrome round recorded this builder as a third, deliberately-unfixed occurrence of the
 	-- badge-corner-offset class closed this campaign in `src/controls/picker.
 	-- luau`'s count seal and `examples/gallery/scenarios/adaptive_controls.
 	-- luau`'s HUD-tile badge — the file's own name for this shape,

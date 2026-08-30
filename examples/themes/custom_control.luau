@@ -1,5 +1,5 @@
 --!strict
--- NAMESPACED CUSTOM-CONTROL CONFORMANCE FIXTURE (ADR-0019 §1, "custom controls
+-- NAMESPACED CUSTOM-CONTROL CONFORMANCE FIXTURE ("custom controls
 -- register namespaced roles (`ns:role`) through the public contribution
 -- contract with declared types, fallbacks, authority and capabilities;
 -- validation reports uncovered controls before play").
@@ -32,7 +32,7 @@ custom_control.namespace = "demo"
 custom_control.control = "Gauge"
 
 -- The declaration: type, fallback, authority and required capability per need,
--- exactly as ADR-0019 §1 asks a contributed control to declare them.
+-- exactly as the theme contract asks a contributed control to declare them.
 custom_control.needs = table.freeze({
 	table.freeze({
 		name = "demo:gauge",
@@ -154,7 +154,7 @@ end
 -- blueprint(UI, resolved) -> the control itself: a labelled track whose height
 -- and fill come from the roles resolved AT BUILD TIME against the snapshot the
 -- caller passed: a later theme swap does NOT move this control without a
--- rebuild (v1 limit, ADR-0019 review-round rulings — namespaced metrics have
+-- rebuild (a recorded v1 limit — namespaced metrics have
 -- no reactive public resolution surface yet).
 function custom_control.blueprint(UI: any, resolved: any, id: string?): any
 	local name = id or "Gauge"

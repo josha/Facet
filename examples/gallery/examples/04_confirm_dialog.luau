@@ -55,7 +55,7 @@ function example.build(Facet: any, core: any, deps: any)
 	-- The modal blueprint: a prompt and two buttons. It is presented lazily, only
 	-- when the user asks to delete. Each button carries its APP SEMANTICS on its
 	-- node onActivate: the presenter dispatches Activate (tap, or Return/A on the
-	-- focused button) here with no consumer routing (ADR-0013). The gamepad B
+	-- focused button) here with no consumer routing. The gamepad B
 	-- button / Cancel routing dismisses WITHOUT reaching these — the presenter
 	-- handles that and restores focus on its own.
 	--

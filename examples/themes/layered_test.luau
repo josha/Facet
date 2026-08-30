@@ -117,7 +117,7 @@ local ASSETS = {
 		preload = "install",
 		fallback = "native",
 	},
-	-- ===== IMAGE VALUE DISPLAYS (ADR-0020 R3, package P3) ==================
+	-- ===== IMAGE VALUE DISPLAYS (package P3) ==================
 	-- The track and the fill STRETCH, so both are nine-sliced; the caps, the
 	-- crown, the knob and the plates are fixed-size tokens painted whole (a slice
 	-- centre on a 28px jewel smears its one centre pixel across the middle).
@@ -225,7 +225,7 @@ local PANEL_LAYERS = {
 		bottomRight = "ornate_corner_br",
 	},
 	-- the NAMEPLATE. `text = true` moves the decorated node's own label onto the
-	-- plaque (ADR-0020 R1's sub-slot), and `textInsets` keeps the carved border
+	-- plaque (the layer stack's sub-slot), and `textInsets` keeps the carved border
 	-- off it: the plate is 176x40 with a ~14px scrolled edge left and right and a
 	-- little more headroom above the baseline than below.
 	{
@@ -395,7 +395,7 @@ function layered_test.definition(themes: any): any
 				fallback = "native",
 			},
 			-- THE STEPPER PLATE, per state. The glyph itself stays TEXT: semantic
-			-- icons are ADR-0020 R4 and build package P4.
+			-- icons are the semantic-icon surface and build package P4.
 			stepperPlate = {
 				kind = "nineSlice",
 				asset = { default = "ornate_stepper_plate_default", pressed = "ornate_stepper_plate_pressed" },

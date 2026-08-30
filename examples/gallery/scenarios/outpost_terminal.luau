@@ -1,6 +1,6 @@
 --!strict
 --[[ Scenario 'outpost_terminal': FLAT FACET ON A WORLD SURFACE — a console the
-	player walks up to and uses (ADR-0063; design
+	player walks up to and uses (design
 	artifacts/example-games-and-standalones/design/outpost-power-terminal.md).
 
 	TWO HALVES, THE SAME SPLIT EVERY WORLD FIXTURE IN THIS FOLDER USES. The

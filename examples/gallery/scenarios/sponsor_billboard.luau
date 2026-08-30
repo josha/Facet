@@ -70,7 +70,7 @@ return {
 		end))
 
 		-- ===== the billboard blueprint ======================================
-		-- display-only: no focusables, no pointer capture (ADR-0009's riders stay
+		-- display-only: no focusables, no pointer capture (the billboard riders stay
 		-- out of scope), so nothing here is a Button and nothing is `focusable`
 		local RING: any = { type = "fixed", px = 160 }
 		local billboardBlueprint = UI.ZStack({

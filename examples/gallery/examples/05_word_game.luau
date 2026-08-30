@@ -219,7 +219,7 @@ example.rules = rules
 --
 -- A FLOOR, NOT A CAP, and that word is the whole point. A `fixed` px height
 -- against content that is not fixed is the defect class
--- `docs/lessons/facet-fixed-px-heights.md` names: the letter inside a tile grows
+-- of a px height fixed against unfixed content: the letter inside a tile grows
 -- with the player's text-size preference, and at the largest preference under a
 -- theme with a taller type ramp the glyph was 5px out of a 44px box — the
 -- solver said so, on a screen nobody had asked it about. `minMax` with a `min`
@@ -241,7 +241,7 @@ local WIDE_KEY = { type = "fill", weight = 1.5 }
 -- `{ role = "surfaceStrong", blend = 0.6 }` reached a contrast ratio of 1.036:1
 -- against the page it sits on under Sci-Fi HUD — thirty rectangles that are
 -- perfectly present in the tree and invisible on the screen, which is the
--- failure `docs/lessons/a-default-valued-write-never-claims.md` is about.
+-- failure a default-valued write produces: it claims nothing.
 -- `contentSecondary` is contrast-gated against `surface` by the palette
 -- contract, so a small blend along it is a plate a player can actually see in
 -- every theme; `tests/example_word_game.spec.luau` pins the floor.
@@ -278,7 +278,7 @@ local TILE_MARK: { [string]: string } = {
 --
 -- WRITTEN AS TWO `surface = …` DECLARATIONS, which is not an accident: an enum
 -- prop accepts any string and silently paints nothing when it is not a member
--- (docs/lessons/enum-props-accept-any-string.md — the earlier draft of this very
+-- (an enum prop accepts any string — the earlier draft of this very
 -- example bound `surface = "tileCorrect"` and rendered thirty transparent
 -- tiles). Spelled this way, `tools/lune/check_example_drift` checks both names
 -- against the Box surface enum the renderer actually resolves.
@@ -624,8 +624,8 @@ function example.build(Facet: any, core: any, deps: any)
 	-- Each key carries its APP SEMANTICS on its own node `onActivate`: a tap, or
 	-- Return/A on the focused key, runs that key's command. The presenter
 	-- dispatches Activate here with no consumer routing, and derives the two-
-	-- dimensional navigation directly from these HStack rows (ADR-0013
-	-- layout-derived groups): Left/Right within a row, Up/Down between rows
+	-- dimensional navigation directly from these HStack rows
+	-- (layout-derived groups): Left/Right within a row, Up/Down between rows
 	-- landing on the nearest key in the same column. No navigation map here.
 	local keyPathByLetter: { [string]: string } = {}
 	local keyboardRows = {}

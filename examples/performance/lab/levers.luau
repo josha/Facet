@@ -25,8 +25,7 @@
 --
 -- WHY THIS IS ITS OWN FILE AND NOT MORE OF `perf_lab.luau`. `perf_lab` is 172,876
 -- characters against the 200,000-character `Script.Source` WRITE cap
--- (`tools/check_source_size.py`, `docs/lessons/the-200k-source-cap-is-on-writing-
--- not-loading.md`). A module that crosses it stops live-syncing into an open Studio
+-- (`tools/check_source_size.py`). A module that crosses it stops live-syncing into an open Studio
 -- session SILENTLY, which manufactures false evidence — an agent runs a live check
 -- against code the session never loaded. Two workloads at this file's comment
 -- density is ~20k characters, which spends three quarters of the remaining headroom
@@ -157,17 +156,17 @@ local EDIT_ARMS = {
 	Studio with `GetPropertyChangedSignal("Position")` on all 120 descendants of a
 	`ScrollView` plus the ScrollView itself: a 20-row list (6 fixed-height `UI.Box`
 	cells per row) with a header above it whose height goes 20 -> 60 cost **240
-	descendant `Position` changes, 120 of them wrong** before ADR-0032's ordering +
+	descendant `Position` changes, 120 of them wrong** before the ordering and
 	deferred-rebase fix, and **1** after — the `ScrollView`'s own write, nothing
 	else, because a hosted child's `Position` is parent-relative and does not need
-	to move when only its host does. ADR-0032 ("What the build found") calls the win
+	to move when only its host does. The build found the win
 	real and calls the frame-time question OPEN: *"the engine still recomputes every
 	descendant's `AbsolutePosition` in the nested arm — that work moves from Luau
 	into C++, it does not vanish... A Performance Lab run and a device pass are
 	owed."* These arms are that press.
 
 	HOSTED reproduces the probe's shape inside a `ScrollView` — a clip host BY
-	CONSTRUCTION (ADR-0032 Decision 1's first trigger, no `clipChildren` / `opacity`
+	CONSTRUCTION (a clip host is the first trigger, no `clipChildren` / `opacity`
 	/ `scale` needed). UNHOSTED is the identical row content with no `ScrollView`
 	above it, so every leaf stays flat under the screen root and the framework must
 	recompute an absolute position for each one. Neither arm alone answers anything:
@@ -767,7 +766,7 @@ function levers.install(deps: any)
 			children = buildRows(),
 		})
 		-- HOSTED wraps the SAME list in a `ScrollView` — a clip host BY CONSTRUCTION
-		-- (ADR-0032 Decision 1's first trigger), no `clipChildren` / `opacity` /
+		-- (the first host trigger), no `clipChildren` / `opacity` /
 		-- `scale` needed. UNHOSTED presents `list` directly: same rows, same cells,
 		-- no host anywhere above them.
 		local body = if hosted

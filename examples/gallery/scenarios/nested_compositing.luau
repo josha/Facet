@@ -1,17 +1,16 @@
 --!strict
---[[ Scenario 'nested_compositing' — TWO THINGS A REAL PARENT BUYS (ADR-0032).
+--[[ Scenario 'nested_compositing' — TWO THINGS A REAL PARENT BUYS.
 
-	ADR-0032 switches Facet from a flat instance tree to a nested one: a
+	The nested instance tree switches Facet from a flat instance tree to a nested one: a
 	container registered as a real engine parent (a "host") lets the ENGINE
 	compose a presentation term for its whole subtree instead of the framework
-	computing it per descendant. Two terms already prove that live this round —
-	`docs/adr/ADR-0032-nested-instance-tree.md` Decision 4 and
-	`artifacts/nested-instance-tree/live-probes.md` §1/§3 — and this fixture is
+	computing it per descendant. Two terms already prove that live this round, and
+	this fixture is
 	the first surface a player can select that puts BOTH on screen at once:
 
 	  (a) GROUP OPACITY. `canvasGroup`/`opacity` were already the flat tree's one
-	      documented exception (ADR-0022 D2) — `canvas_group.luau` is the
-	      existing picker entry for it. After ADR-0032 the exception becomes the
+	      documented exception — `canvas_group.luau` is the
+	      existing picker entry for it. With nesting the exception becomes the
 	      rule, so this fixture restates the same tell on a SMALLER, differently
 	      shaped pair (two plates offset on top of each other rather than three
 	      concentric ones), to keep it legible next to the capability that is new
@@ -41,7 +40,7 @@
 	the double-darken patch sweep through its worst case rather than jumping
 	between a few stops); a `UI.Button` toggle turns the carry pair, because a
 	discrete on/off reads the "before/after" contrast (0°/1x vs 30°/1.5x, the
-	exact pair ADR-0032's own live probe measured) more legibly than a continuum
+	exact pair the live probe measured) more legibly than a continuum
 	would for a two-element shape.
 
 	NOTHING HERE IS FIXED AGAINST AN UNFIXED VIEWPORT, same discipline as
@@ -68,9 +67,9 @@
 -- `canvas_group.luau`'s STOPS[3] = 0.4 documents for its own resting value)
 local FADE_DEFAULT = 40
 
--- the "turned" pose, verbatim the pair ADR-0032's own live probe measured
--- (`live-probes.md` §1: "carry `Rotation = 30` and a `UIScale` of `1.5`"),
--- so this fixture's default state is the exact case the ADR's numbers describe
+-- the "turned" pose, verbatim the pair the live probe measured ("carry
+-- `Rotation = 30` and a `UIScale` of `1.5`"), so this fixture's default state
+-- is the exact case those numbers describe
 local TURN_ROTATION = 30
 local TURN_SCALE = 1.5
 
@@ -145,7 +144,7 @@ local MARKER = 20
 	cannot reach the strings cannot make that claim. ]]
 local COPY = {
 	title = "Two things a real parent buys",
-	intro = "ADR-0032: a container registered as a real engine parent lets the engine compose a term for its "
+	intro = "A container registered as a real engine parent lets the engine compose a term for its "
 		.. "whole subtree — group opacity, and rotation with scale.",
 	opacityTitle = "Group opacity, composited once",
 	opacityIntro = "Both panels hold the same two plates and the same fade. At 100% they are identical.",
@@ -159,7 +158,7 @@ local COPY = {
 	carryIntro = "Turn the switch. The left pair rotates and scales as one rigid group. The right marker is a "
 		.. "leaf with no contents to carry, so it spins alone while its own plate never moves.",
 	carriesTitle = "Carries — the container turns",
-	carriesNote = "scale and rotation on the ZStack: the engine composes both for its subtree (ADR-0032 D4).",
+	carriesNote = "scale and rotation on the ZStack: the engine composes both for its subtree.",
 	aloneTitle = "Alone — a leaf rotates on its own",
 	aloneNote = "The marker carries its own rotation and scale; the plate beside it is untouched.",
 	turnLabelOff = "Turn",
@@ -169,7 +168,7 @@ local COPY = {
 }
 
 return {
-	title = "Nested containers: a shared fade, and a container that carries its contents (ADR-0032)",
+	title = "Nested containers: a shared fade, and a container that carries its contents",
 	ledgerRows = {},
 	copy = COPY,
 	build = function(ctx: any)
@@ -245,7 +244,7 @@ return {
 
 		-- TWO fade groups over one plate each: the same value, one wrap lower —
 		-- the shape an author gets reaching for "fade the plate" instead of "fade
-		-- the picture" (ADR-0029: `opacity` lives on Box and ZStack, so a leaf can
+		-- the picture" (`opacity` lives on Box and ZStack, so a leaf can
 		-- declare its own without a wrap, and every leaf that does becomes its own
 		-- tiny CanvasGroup).
 		local twoGroups = UI.ZStack({
@@ -257,7 +256,7 @@ return {
 
 		-- ── (b) a container that carries its contents, or does not ──────────
 		-- ONE builder for both panels: `plateTransform` authored on the ZSTACK
-		-- ITSELF is what registers it as an instance host (ADR-0032 Decision 4 —
+		-- ITSELF is what registers it as an instance host (
 		-- `src/render/instance_boundary.luau`'s `(scale or rotation) and children`
 		-- rule); `markerTransform` authored on the LEAF is the case that rule
 		-- explicitly excludes (a leaf has no subtree to carry anything down), so
@@ -301,14 +300,14 @@ return {
 		end
 
 		-- CARRIES: the container itself is authored `rotation`/`scale`, so it is
-		-- a real instance host (ADR-0032 D4) and the engine composes both terms
+		-- a real instance host and the engine composes both terms
 		-- for the whole pair — the marker rides the plate's corner as it turns.
 		local carried = cluster("Carried", { rotation = carryRotation, scale = carryScale }, nil)
 		-- ALONE: the container declares NEITHER prop (stays flat and elidable —
-		-- ADR-0032 D2), so it earns no host; the SAME rotation/scale is authored
+		-- stays unregistered), so it earns no host; the SAME rotation/scale is authored
 		-- on the marker leaf instead, which always rotates correctly on its own
 		-- and therefore spins in place, detached from the plate beside it — the
-		-- pre-ADR-0032 defect, reproduced on purpose as the control.
+		-- pre-nesting defect, reproduced on purpose as the control.
 		local alone = cluster("Static", nil, { rotation = carryRotation, scale = carryScale })
 
 		local turnToggle = UI.Button({

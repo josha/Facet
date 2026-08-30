@@ -1,6 +1,6 @@
 --!strict
 -- "FANTASY ORNATE" — the rich-skinning-v2 centerpiece reference package
--- (ADR-0020, ledger row RS-A12). The claim it exists to make falsifiable:
+-- (ledger row RS-A12). The claim it exists to make falsifiable:
 --
 --   a heavily stylized game can make EVERY visible part of its UI artwork
 --   through the public `Facet.themes` surface alone.
@@ -48,7 +48,7 @@
 -- No third-party imagery and no trade dress. Another project uploads the same
 -- PNGs under its own account and substitutes its own IDs.
 --
--- TWO THEMES, one art set (ADR-0019: art is package data, palette is per theme).
+-- TWO THEMES, one art set (art is package data, palette is per theme).
 -- "Grand Hall" is the torch-lit great room; "Crypt" is the same architecture
 -- underground — colder, dimmer, blue-lit. Both clear the 4.5:1 gate `define`
 -- enforces, and each names its own `focusGlow`, because a halo has to out-value
@@ -114,7 +114,7 @@ local GRAND_HALL = {
 		-- FOCUS GLOW, per theme. A ring is a UI element; this skin is carved and
 		-- painted, so focus is a halo of the same light the room is lit with.
 		focusGlow = rgb(248, 206, 108),
-		-- A CONTRIBUTED CONTROL'S ROLE (ADR-0020 R8, rung 3). `examples/themes/
+		-- A CONTRIBUTED CONTROL'S ROLE (rung 3). `examples/themes/
 		-- ornate_gauge.luau` is not a framework control, so it asks for its paint
 		-- by a NAMESPACED name and this package answers. Torchlight amber here.
 		["gauge:needle"] = rgb(255, 214, 128),
@@ -352,7 +352,7 @@ local PANEL_LAYERS = {
 		bottomRight = "ornate_corner_br",
 	},
 	-- the NAMEPLATE. `text = true` moves the decorated node's own label onto the
-	-- plaque (ADR-0020 R1's sub-slot), and `textInsets` keeps the carved border
+	-- plaque (the layer stack's sub-slot), and `textInsets` keeps the carved border
 	-- off it: the plate is 176x40 with a ~14px scrolled edge left and right and a
 	-- little more headroom above the baseline than below.
 	{
@@ -515,7 +515,7 @@ function fantasy_ornate.definition(themes: any): any
 					},
 				},
 			},
-			-- FOCUS IS A GLOW on this skin (ADR-0019). `$FocusGlow` resolves per
+			-- FOCUS IS A GLOW on this skin. `$FocusGlow` resolves per
 			-- theme, so Grand Hall gets torchlight and Crypt gets witch-light; the
 			-- ten-foot profile derives its own stronger variant from these numbers.
 			focus = {

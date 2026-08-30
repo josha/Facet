@@ -25,7 +25,7 @@
 -- the chrome for switching demos — so this is one button until you press it,
 -- and it closes again on selection.
 --
--- FOCUS. Presented `responder = "passive"` (ADR-0014), like the theme picker:
+-- FOCUS. Presented `responder = "passive"`, like the theme picker:
 -- it binds nothing gameplay-contended and does not steal the demo's focus.
 
 local demo_picker = {}
@@ -174,8 +174,7 @@ demo_picker.DEMOS = {
 		kind = "fixture",
 		module = "with_animation",
 	},
-	-- ...and the accessibility preference that had to wait for a paint path
-	-- (ADR-0035). It sits here, beside the motion demo, because the two are the
+	-- ...and the accessibility preference that had to wait for a paint path. It sits here, beside the motion demo, because the two are the
 	-- same kind of thing: a still screenshot of a backdrop is a dim rectangle, and
 	-- the capability is the DIFFERENCE between two settings.
 	{
@@ -359,7 +358,7 @@ demo_picker.DEMOS = {
 		kind = "fixture",
 		module = "sorted_entries",
 	},
-	-- ...and the time-curve fixture (ADR-0033), here for the reason every fixture
+	-- ...and the time-curve fixture, here for the reason every fixture
 	-- above it is: the difference between a duration and a spring's asymptote is
 	-- not in any single frame. It is a stopwatch reading 0.52 against 1.05, four
 	-- pucks that land together by different routes, and a reduced-motion pass
@@ -372,7 +371,7 @@ demo_picker.DEMOS = {
 		kind = "fixture",
 		module = "time_curves",
 	},
-	-- ...and the one demo whose content Facet does not draw at all (ADR-0034):
+	-- ...and the one demo whose content Facet does not draw at all:
 	-- RichText spans, an engine-measured list, and a 2x-oversize frame the box
 	-- crops — three capabilities the framework declines by design, plus a button
 	-- that adopts a `Part` and shows the refusal verbatim.
@@ -446,7 +445,7 @@ demo_picker.DEMOS = {
 		kind = "fixture",
 		module = "tab_view",
 	},
-	-- ...and the nested-instance-tree showcase (ADR-0032). Every fixture above it
+	-- ...and the nested-instance-tree showcase. Every fixture above it
 	-- reaches PUBLIC API; this one reaches an ENGINE FACT nothing else in the
 	-- catalogue demonstrates — a registered host lets the engine compose a
 	-- presentation term for its whole subtree, which a still frame CAN hold (the
@@ -617,7 +616,7 @@ function demo_picker.mount(opts: MountOpts): any
 	-- FORWARD-DECLARED. `show` calls `raise`, and `raise` needs the screen, which
 	-- needs the rows, which need `show`. A local declared later is not an upvalue
 	-- of a function defined earlier — it compiles as a global read and is nil at
-	-- call time (docs/lessons/later-locals-are-not-upvalues.md; this file was the
+	-- call time (this file was the
 	-- lesson's next victim).
 	local raise: () -> ()
 	-- everyone who has to go back on top after a demo mounts, in registration

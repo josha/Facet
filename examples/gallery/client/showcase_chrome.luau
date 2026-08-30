@@ -71,8 +71,7 @@
 	The chips step down through a `UI.ViewThatFits` ladder to ICON-ONLY rather
 	than clipping labels by character count. `p4_foyer`'s nav bar is the reference.
 
-	IT USED TO CARRY A TRAP AND NO LONGER DOES (Facet ADR-0044 / ADR-0040 B-23,
-	2026-08-22): `hug` CAPPED at the offer, so a hug candidate could never tell a
+	IT USED TO CARRY A TRAP AND NO LONGER DOES (2026-08-22): `hug` CAPPED at the offer, so a hug candidate could never tell a
 	`ViewThatFits` that it did not fit, the ladder silently pinned its first rung
 	and the labels truncated anyway. The framework fixed it at the seam — the fit
 	probe resolves `hug` as `content`, because a cap-at-the-offer is a squeezing
@@ -102,14 +101,14 @@
 	    shoulders match them by POSITION — left opens the demo list, right opens
 	    settings). See `SECTION_GAMEPAD` below. Every face button is spoken for:
 	    `ButtonA` is Activate and is eaten unconditionally by the legacy
-	    `jumpAction` (docs/lessons/gamepad-contention-truths.md truth 1); `ButtonB`
+	    `jumpAction` (gamepad-contention truth 1); `ButtonB`
 	    is Cancel; `ButtonX` is the row-actions menu; `ButtonY` is the FRAMEWORK's
 	    menu verb (§5); `ButtonStart`/`ButtonSelect` are the platform's own menu
 	    buttons and are exactly the trade the gamepad-contention lesson refuses to
 	    make.
 
 	The context sits at `presenter.APP_CHROME_PRIORITY` — the framework's own
-	app-level global chrome band (registry item 24; W3-D, ADR-0053), strictly
+	app-level global chrome band (registry item 24; W3-D), strictly
 	above the engaged band (3000) and above every live modal depth this
 	codebase exercises — so the toggle key can still be pressed while the
 	panel it opened is engaged and sinking. See "THE TIE, CLOSED" below for why
@@ -176,7 +175,7 @@
 	gamepad toggle key, and `TOGGLE_GAMEPAD` is gone rather than left naming a
 	binding that no longer exists.
 
-	THE TIE, CLOSED (W3-D, ADR-0053, 2026-08-23). `presenter.luau`'s first modal
+	THE TIE, CLOSED (task W3-D, 2026-08-23). `presenter.luau`'s first modal
 	used to sit at `topModalPriority() + 500` = 3500 — the same number this
 	context hand-picked — and the engine's own rule is "contexts with the same
 	priority will receive the input" (artifacts/release-candidate-review/input/
@@ -337,7 +336,7 @@ function showcase_chrome.mount(opts: MountOpts): any
 	-- on the rest of `mount` having run.
 	local toggleContext = opts.actionSystem.createContext({
 		name = "ShowcaseChromeToggle",
-		-- registry item 24 (W3-D, ADR-0053): was `showcase_chrome.TOGGLE_PRIORITY
+		-- registry item 24 (W3-D): was `showcase_chrome.TOGGLE_PRIORITY
 		-- = 3500`, a literal that tied `presenter.luau`'s own first-modal number
 		-- exactly — see "THE TIE, CLOSED" in this module's header. Session-lifetime
 		-- app chrome now reads the framework's own reserved band instead of
@@ -488,7 +487,7 @@ function showcase_chrome.mount(opts: MountOpts): any
 	-- because the alternative was broken: `hug` capped at the offer, so a hug row
 	-- could never report that it did not fit and the ladder pinned its first
 	-- candidate forever ("the p4_foyer trap"). Facet closed it at the seam in
-	-- ADR-0044 — the fit probe judges a candidate at its ideal size, `hug`'s cap
+	-- at the seam — the fit probe judges a candidate at its ideal size, `hug`'s cap
 	-- included — so the two spellings agree at every width. These rungs want the
 	-- UNCAPPED natural width either way.
 	local NATURAL = { type = "content" }
@@ -648,7 +647,7 @@ function showcase_chrome.mount(opts: MountOpts): any
 	local closing = false
 
 	local barOpts = {
-		-- PASSIVE (ADR-0014): the strip binds nothing gameplay-contended, and it
+		-- PASSIVE: the strip binds nothing gameplay-contended, and it
 		-- never engages — every route into the chrome goes through the panel.
 		responder = "passive",
 		--[[ ...AND ADOPTED AS THE APP'S FRAME (device review 2026-08-16, F1: "the
@@ -716,8 +715,8 @@ function showcase_chrome.mount(opts: MountOpts): any
 		-- chips the last time this was routed by path matching.
 	}
 
-	--[[ THE RING'S LAST KNOWN ROW INSIDE THE PANEL (registry item 23; W3-D,
-		ADR-0053), so a raise can hand it straight back to `presenter.focus
+	--[[ THE RING'S LAST KNOWN ROW INSIDE THE PANEL (registry item 23, task
+		W3-D), so a raise can hand it straight back to `presenter.focus
 		.focusOn`. `presenter.raise` re-tops the panel's OWN focus scope — the
 		fix for the OTHER half of this problem, that a freshly re-presented
 		demo's scope steals the graph's "active scope" out from under a raised
@@ -803,7 +802,7 @@ function showcase_chrome.mount(opts: MountOpts): any
 
 	--[[ AN OPEN PANEL GOES BACK ON TOP WHEN THE DEMO UNDER IT CHANGES (director
 		round 3, 2026-08-21; MIGRATED TO `presenter.raise` 2026-08-23 — registry
-		item 23, W3-D, ADR-0053).
+		item 23, W3-D).
 
 		THE RULE IT SERVES: a transient opened from a control appears OVER the live
 		screen, and the live screen stays visible behind it. THE MECHANISM IT

@@ -1,5 +1,5 @@
 --!strict
--- ORNATE GAUGE — the worked RUNG-3 example (ADR-0020 R8, rich-skinning-v2 P6).
+-- ORNATE GAUGE — the worked RUNG-3 example (rich-skinning-v2 P6).
 --
 -- Rung 1 is a theme package. Rung 2 is a per-view override. Rung 3 is THIS: the
 -- look is not a variation of anything the framework ships, so the answer is a
@@ -57,7 +57,7 @@ ornate_gauge.CAP_PX = 28
 ornate_gauge.NEEDLE_PX = 24
 
 -- The declaration: type, section, authority, capability and a fallback per need,
--- exactly as ADR-0019 §1 asks a contributed control to declare them. The
+-- exactly as the theme contract asks a contributed control to declare them. The
 -- SECTIONS are the two places `themes.define` deliberately passes a namespaced
 -- key through unvalidated, plus `metrics.radii` for the plain number — a
 -- package that FORGETS this control is otherwise indistinguishable, at compile

@@ -22,7 +22,7 @@ local ORDER = {
 	"async_images",
 	"selection_bridge",
 	"preferred_text",
-	-- ...and its SIBLING GuiService preference (ADR-0035 / owed row O-26): the
+	-- ...and its SIBLING GuiService preference (owed row O-26): the
 	-- player's BACKGROUND TRANSPARENCY setting, answered by Facet's own painting.
 	-- Filed here rather than at the tail because the two are one story — one
 	-- accessibility fact each, both pushed from `roblox_env`, neither driveable
@@ -52,7 +52,7 @@ local ORDER = {
 	"sponsor_avatars",
 	"sponsor_markers",
 	"sponsor_billboard",
-	-- ADR-0023: declared-content adaptive composition. ONE declaration of twelve
+	-- declared-content adaptive composition. ONE declaration of twelve
 	-- ranked regions driven through the five device offers plus a live axis flip
 	"composition",
 	-- roadmap Step 8: the desktop keyboard focus chain (form + scrollable list +
@@ -160,7 +160,7 @@ local ORDER = {
 	-- which a still screenshot flattens to five chips. Also in
 	-- `demo_picker.DEMOS`.
 	"sensory_feedback",
-	-- ...and ADR-0025: the SCREEN-ANCHORED HUD. Corner clusters, a task panel and
+	-- ...and the SCREEN-ANCHORED HUD. Corner clusters, a task panel and
 	-- a weapon rail on `composition.HUD`, plus the one switch that takes 200px of
 	-- HEIGHT off the box the way a browser URL bar does — so the commissioning
 	-- screenshot's exact event can be watched degrading instead of colliding. Also
@@ -180,7 +180,7 @@ local ORDER = {
 	-- and Right steps a whole line — the exact transpose, and the OPPOSITE
 	-- transposition from a virtual list's. Also in `demo_picker.DEMOS`.
 	"virtual_hgrid",
-	-- ...and ADR-0028: the CROSS-SURFACE overlap alarm. One probe surface over
+	-- ...and the CROSS-SURFACE overlap alarm. One probe surface over
 	-- one screen, four declarations, and the framework's own sentence about each
 	-- — the difference the fixture exists to show is invisible in a screenshot,
 	-- because all four states paint identical pixels. Also in
@@ -198,7 +198,7 @@ local ORDER = {
 	-- leaderboard cannot show a bug that only exists BETWEEN two frames. Also in
 	-- `demo_picker.DEMOS`.
 	"sorted_entries",
-	-- ...and ADR-0033: TIME-BASED EASING. The only surface where the thing a
+	-- ...and TIME-BASED EASING. The only surface where the thing a
 	-- spring cannot do is on screen next to a spring doing it — an informational
 	-- `clock:tween` and a `clock:spring` given the same half-second number, racing
 	-- with a stopwatch stamping each arrival (the tween at 0.52 s, the spring at
@@ -208,7 +208,7 @@ local ORDER = {
 	-- fixture registers its own six curves defensively at build. Also in
 	-- `demo_picker.DEMOS`.
 	"time_curves",
-	-- ...and api.md §Foreign / ADR-0034: UI.FOREIGN. The one
+	-- ...and api.md §Foreign: UI.FOREIGN. The one
 	-- fixture in this list whose panes are NOT drawn by Facet — RichText spans in
 	-- one label, an engine-measured UIListLayout with AutomaticCanvasSize, and a
 	-- deliberately 2x-oversize Frame that proves the box clips. Each is a
@@ -217,7 +217,7 @@ local ORDER = {
 	-- nothing. A fourth button adopts a `Part` and puts the framework's own
 	-- refusal on screen verbatim. Also in `demo_picker.DEMOS`.
 	"foreign_content",
-	-- ...and the FADE GROUP (ADR-0026/ADR-0029, round-3 O-30). `canvasGroup` and
+	-- ...and the FADE GROUP (round-3 O-30). `canvasGroup` and
 	-- its reactive twin `opacity` were exercised by six `sponsor_*` fixtures and
 	-- `p2_cartwheel` and demonstrated by none of them — nothing in the picker
 	-- reached the prop at all, so in the shipped place the capability existed only
@@ -265,16 +265,16 @@ local ORDER = {
 	-- of the documented escape hatch. The page bar overflows on purpose so the
 	-- selection can be scrolled into view. Also in `demo_picker.DEMOS`.
 	"tab_view",
-	-- ADR-0032 (the nested instance tree): the compositing showcase. A registered
+	-- the nested instance tree: the compositing showcase. A registered
 	-- host lets the engine compose a term for its WHOLE subtree instead of the
 	-- framework computing it per descendant — two plates fading as one group
 	-- rather than doubling their overlap, and a container whose authored
 	-- rotation/scale carries a plate-plus-marker pair as a rigid unit, beside the
 	-- same marker rotated as a bare leaf (no contents to carry, so it detaches
-	-- from its own plate — the pre-ADR-0032 defect, reproduced on purpose as the
+	-- from its own plate — the pre-nesting defect, reproduced on purpose as the
 	-- control). Also in `demo_picker.DEMOS`.
 	"nested_compositing",
-	--[[ ADR-0063: FLAT FACET ON A WORLD SURFACE — the outpost power terminal. The
+	--[[ FLAT FACET ON A WORLD SURFACE — the outpost power terminal. The
 		one fixture in this list whose screen is not on a screen: it is painted on a
 		`SurfaceGui` over a console part, a player walks up to it through the
 		platform's own `ProximityPrompt`, and applying power sends a domain intent
@@ -298,7 +298,7 @@ return {
 	modules = scenarios,
 	runner = script:WaitForChild("runner"),
 	-- the ENGINE-SIDE sibling `runner` and the shipped showcase host BOTH need
-	-- (UI.Foreign, ADR-0034): one materializer for `built.foreignContent`, so the
+	-- (UI.Foreign): one materializer for `built.foreignContent`, so the
 	-- test rig cannot end up more capable than the surface a player opens
 	foreignInstances = script:WaitForChild("foreign_instances"),
 }

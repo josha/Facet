@@ -70,7 +70,7 @@ local pres = Facet.newPresenter(core, env, adapter, system, { keyboardNavigation
 local motion_driver = require(ReplicatedStorage.Facet.client.motion_driver) :: any
 motion_driver.bind(pres)
 
--- First-responder engine seam (ADR-0014): while an EXCLUSIVE (sinking) surface
+-- First-responder engine seam: while an EXCLUSIVE (sinking) surface
 -- is up — a modal, or an engaged-from-passive HUD — hide the mobile touch
 -- controls. This gallery is a UI-only place whose default screen presents no
 -- modal, so the effect is inert here; the call proves the one-line wiring shape
@@ -348,7 +348,7 @@ if bootDecision.mode == "showcase" then
 	reserveBar()
 	local examplesFolder = ReplicatedStorage:WaitForChild("FacetExamples", 10)
 	local scenariosFolder = ReplicatedStorage:FindFirstChild("FacetScenarios")
-	-- the engine-side materializer BOTH hosts share (ADR-0034). Required here and
+	-- the engine-side materializer BOTH hosts share. Required here and
 	-- not inside `mountDemo` so a missing module is a loud boot failure rather than
 	-- a demo that silently mounts empty panes.
 	local foreignInstances = if scenariosFolder ~= nil
@@ -382,7 +382,7 @@ if bootDecision.mode == "showcase" then
 			-- waits for a mounted scroll path). `actionSystem` rides along for
 			-- the same reason it does in the runner — a fixture's steps never
 			-- run here, but nothing a fixture reads at BUILD may be absent.
-			--[[ THE `foreign` SEAM RIDES ALONG (UI.Foreign, ADR-0034), for exactly
+			--[[ THE `foreign` SEAM RIDES ALONG (UI.Foreign), for exactly
 				the reason the `present`-opts comment below records. A fixture whose
 				panes hold caller-owned instances declares them as DATA and adopts
 				them through `ctx.foreign.adopt` — a seam only the scenario RUNNER
@@ -505,8 +505,8 @@ if bootDecision.mode == "showcase" then
 				runner passes it (`scenarios/runner.luau`), the overflow sweep passes
 				it (`tests/overflow_sweep.spec.luau`), and the tutorial branch eleven
 				lines below passes it — the test rigs were more correct than the
-				shipped host, which is the failure mode
-				docs/lessons/the-solver-already-told-you.md is named after.
+				shipped host, which is the failure mode the standing lesson is named
+				after.
 
 				It was load-bearing the day it was found: `scenarios/row_actions.luau`
 				derives its hosted VirtualList's window from its own solved pane
@@ -558,7 +558,7 @@ if bootDecision.mode == "showcase" then
 				end
 			end
 			-- ...and the DECLARED half, the exact parallel of the runner's
-			-- post-present pass (ADR-0034): whatever `built.foreignContent` names is
+			-- post-present pass: whatever `built.foreignContent` names is
 			-- adopted now, and the per-node status is kept so a fixture can report it
 			if built.foreignContent ~= nil then
 				built.foreignApplied = foreignInstances.applyAll(built.handle.controller, built.foreignContent)
@@ -1032,7 +1032,7 @@ local mutation = Facet.replication.mutation(core, {
 })
 
 -- hint text derives from the environment's preferred input (no remount:
--- it is a plain binding on an existing Text node — ADR-0004's phase-1 proof)
+-- it is a plain binding on an existing Text node — the phase-1 proof)
 local hint = core:memo(function(use)
 	local preferred = use(env:get("effectiveInput"))
 	return if preferred == "Touch"

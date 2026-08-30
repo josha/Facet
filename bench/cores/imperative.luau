@@ -1,6 +1,6 @@
 --!strict
--- Retained imperative baseline: the losing arm of the ADR-0002 foundation
--- bake-off, kept as a DEVELOPMENT FIXTURE. Models the pattern the games use
+-- Retained imperative baseline: the losing arm of the foundation bake-off,
+-- kept as a DEVELOPMENT FIXTURE. Models the pattern the games use
 -- today (pure model recompute + diffed apply): signals with observer lists, and
 -- "memos" recomputed IN CREATION ORDER on every commit (recompute-the-model),
 -- with eq suppression for unchanged values. No dependency tracking, no

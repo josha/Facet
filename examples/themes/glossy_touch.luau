@@ -1,5 +1,5 @@
 --!strict
--- "GLOSSY TOUCH" — the TOUCH half of the platform pair (ADR-0020 R7, ledger row
+-- "GLOSSY TOUCH" — the TOUCH half of the platform pair (ledger row
 -- RS-A14). Its sibling is `compact_pointer.luau`, and the pair only means
 -- anything together:
 --

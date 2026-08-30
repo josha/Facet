@@ -130,8 +130,7 @@ return {
 						guessing — the first cut wrapped, and the sweep filed the same
 						finding on all five rows at every viewport: a `fill` child on a
 						wrapping stack's MAIN axis takes a whole line to itself, so the
-						wrap could never do anything except cost a line
-						(docs/lessons/the-solver-already-told-you.md). ]]
+						wrap could never do anything except cost a line. ]]
 					UI.HStack({
 						id = "Pair",
 						-- THEME-OPT-OUT: this row is pinned between a `fill` picker and a stepper that

@@ -1,6 +1,6 @@
 --!strict
--- "PIXEL QUEST" — the rich-skinning-v2 pixel-art reference package (ADR-0020
--- R5, ledger row RS-A13). P4 built this file as a throwaway test fixture for
+-- "PIXEL QUEST" — the rich-skinning-v2 pixel-art reference package (ledger
+-- row RS-A13). P4 built this file as a throwaway test fixture for
 -- the three pixel generation rules; P5 PROMOTED it in place rather than
 -- shipping a near-copy beside it, because two pixel packages differing in a
 -- selection recipe would be one package and one liability.
@@ -58,7 +58,7 @@ local GRN = rgb(79, 168, 63)
 
 -- PIXEL UNIT 4. Art is authored in design pixels and saved at 4 image px per
 -- design px, so every length below is a multiple of 4 — and the snapshot snaps
--- anything that is not (ADR-0020 R5 generation rule 3).
+-- anything that is not (pixel generation rule 3).
 local UNIT = 4
 local FAMILY = "rbxasset://fonts/families/BuilderSans.json"
 local SIZES = { caption = 12, label = 12, body = 16, control = 16, heading = 20, title = 28 }
@@ -198,7 +198,7 @@ local QUEST = {
 		hairlineOpacity = 0.2,
 		scrimOpacity = 0.5,
 		disabledContentOpacity = 0.45,
-		-- A CONTRIBUTED CONTROL'S ROLE (ADR-0020 R8, rung 3): the second package
+		-- A CONTRIBUTED CONTROL'S ROLE (rung 3): the second package
 		-- that covers `examples/themes/ornate_gauge.luau`, so the rung-3 example
 		-- can be re-themed between two packages rather than shown under one.
 		-- Poison-green, from this palette rather than the gauge's own brass.
@@ -241,7 +241,7 @@ function pixel_quest.definition(themes: any): any
 				-- alone — a contributed metric is on the grid like every other.
 				["gauge:dial"] = { height = 48, paddingX = 12, iconSize = 20 },
 			},
-			-- ICON SIZES (ADR-0020 R4). 32px is the art's native size — 8 design
+			-- ICON SIZES. 32px is the art's native size — 8 design
 			-- pixels at 4x — so a stepper glyph draws 1:1 and stays on the grid.
 			-- These ride the SNAPSHOT, which is what makes them a metric a package
 			-- can move rather than a constant a control holds.
@@ -312,7 +312,7 @@ function pixel_quest.definition(themes: any): any
 				contentInsets = { top = 24, right = 24, bottom = 24, left = 24 },
 			},
 			--[[ CONTENT INSETS ARE THE CARVED FRAME, NOT THE SLICE BORDER (task
-				THEME, 2026-08-27, ADR-0059 Decision 5, and it is the one number this
+				THEME, 2026-08-27, and it is the one number this
 				package had wrong).
 
 				Every inset here was written equal to its art's NINE-SLICE BORDER,
@@ -334,7 +334,7 @@ function pixel_quest.definition(themes: any): any
 				centre row decodes as INK | CREAM | CREAM | TAN TAN TAN | WOOD | CREAM |
 				INK: a DOUBLE cream ring, so the gilt face starts at design pixel 3 on
 				the top/left and 2 on the bottom/right, and the ruby studs sit at design
-				pixel 2 — exactly on this 8px boundary. ADR-0020 R2 forces both
+				pixel 2 — exactly on this 8px boundary. The per-state grammar forces both
 				selection states to declare ONE reservation ("a variant may change its
 				art, never its reservation" — the row must not move when it is chosen)
 				and the DEFAULT plate genuinely carves two, so 8 is the number both can

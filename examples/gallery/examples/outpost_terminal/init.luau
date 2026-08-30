@@ -538,7 +538,7 @@ function terminal.build(Facet: any, core: any, opts: Opts?)
 
 		CANCEL IS DELIBERATELY LEFT AT ITS DEFAULT, which on a passive surface is
 		not "dismiss" at all: the presenter RESIGNS an engaged-from-passive surface
-		back to passive and disables its context (ADR-0014). That is precisely the
+		back to passive and disables its context. That is precisely the
 		Cancel exit this terminal wants — the mounted surface survives, so the
 		player can walk up and press the prompt again — and it means the platform
 		back action, the gamepad B button and the terminal's own Exit control all

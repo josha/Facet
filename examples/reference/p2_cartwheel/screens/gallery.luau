@@ -300,7 +300,7 @@ function gallery.new(app: any): any
 		theme metric, so on a Large display the mark grew to 72px and the button's
 		padding to 18 a side — 108px of content asking for a 96px minimum — while the
 		column minimum stayed exactly where a phone left it. That is
-		`docs/lessons/facet-fixed-px-heights.md`'s class read across the distance
+		the fixed-px-height class read across the distance
 		axis: a fixed px number holding content that is not fixed.
 
 		It went unreported until the framework capped the ten-foot content lane
@@ -314,7 +314,7 @@ function gallery.new(app: any): any
 		remember to climb — and three of its four neighbours (`chartH`, `heroH`,
 		`previewMin`) never got the same treatment, so a television measured a 144px
 		tile minimum inside a 160px chart band. The number is a declared app metric
-		now (ADR-0042), so the framework applies the factor once, to all seven, in
+		now, so the framework applies the factor once, to all seven, in
 		the place that owns the ladder.
 
 		THE MEMO SURVIVES, DOING SOMETHING ELSE. `Grid.minColumnWidth` takes a px

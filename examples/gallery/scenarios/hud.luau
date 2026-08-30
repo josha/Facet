@@ -1,5 +1,5 @@
 --!strict
--- Scenario 'hud' (ADR-0025): THE SCREEN-ANCHORED HUD, and the thing it refuses
+-- Scenario 'hud': THE SCREEN-ANCHORED HUD, and the thing it refuses
 -- to do.
 --
 -- The commissioning case is two screenshots of a shipped mobile FPS. Fullscreen
@@ -47,7 +47,7 @@
 -- theme's own `surface`, so this HUD is smoked glass under Studio Neutral and
 -- waxed paper under Parchment, which is what "themeable" has to mean.
 --
--- AND THE PLATFORM'S OWN ROW (ADR-0027, director 2026-08-14: *"we should be able
+-- AND THE PLATFORM'S OWN ROW (director 2026-08-14: *"we should be able
 -- to have things at top that are aligned with the controls but don't overlap"*).
 -- Roblox's chrome does NOT own the whole top band — measured live at 735x413 it
 -- occupies x 0..164 of a 58px band and the rest of that band is the developer's
@@ -520,7 +520,7 @@ local VALUE_TEXT = table.freeze({
 })
 
 return {
-	title = "Screen-anchored HUD (ADR-0025)",
+	title = "Screen-anchored HUD",
 	ledgerRows = {},
 	copy = COPY,
 	--[[ the R9 classification, exported for `tests/overflow_sweep.spec.luau`'s
@@ -769,7 +769,7 @@ return {
 			Every plate here is `ZStack{ Plate, content }` — the plate carries the
 			surface and the content is its SIBLING — so `render/layout_node`'s chrome
 			block lands the installed package's carved border on a node with NO
-			CHILDREN and the content clears nothing. That is ADR-0059 Decision 2's
+			CHILDREN and the content clears nothing. That is the themed-chrome round's
 			ledgered backlog (`tests/themed_containment.spec.luau`'s HUD plate
 			ledger), and it is closed here rather than one plate at a time: the
 			construction that CREATED the defect is the construction that pays for it,
@@ -780,7 +780,7 @@ return {
 			the slot this plate actually classifies into. `math.max`, never `+`: the
 			gutter is the HUD's own breathing room and the frame is a floor under it,
 			so a flat package spends exactly what it spent before. ]]
-		--[[ WHICH SLOT A SMALL PLATE IS — the THEME question ADR-0059 Decision 2
+		--[[ WHICH SLOT A SMALL PLATE IS — the THEME question that round
 			deferred, and the answer is that A PLATE THIS SMALL IS NOT A WINDOW.
 
 			Reserving a window's frame on a chip is the repair that ADR measured and
@@ -985,8 +985,8 @@ return {
 							whole chrome recipe, and a themed package's `control` insets are
 							16-28px of border — on a dot the theme itself sized at 5-12px.
 							Every package with a skinned control reported it ("this control
-							is smaller than its theme expects",
-							docs/lessons/a-fixed-box-cannot-hold-a-themes-frame.md). A mark
+							is smaller than its theme expects" — a fixed box cannot hold a
+							theme's frame). A mark
 							is a COLOUR, so it takes the one continuous channel and no
 							recipe at all: `tint` at full blend to the accent role, which
 							re-themes exactly as far as it should and no further.
@@ -1510,7 +1510,7 @@ return {
 			controller, its own solve and its own visibility walk, none of which the
 			HUD's walk can reach; `setDisplayOrder(SURFACE_LAYER.toast + 100)` puts it in
 			a declared band above, which is also what keeps the cross-surface overlap
-			alarm quiet about a pair that is deliberately layered (ADR-0028). The
+			alarm quiet about a pair that is deliberately layered. The
 			photograph is the corroboration: the showcase chrome, a different surface,
 			painted perfectly while this HUD did not.
 
@@ -1678,8 +1678,8 @@ return {
 
 				IT IS TRI-STATE, AND THE FIRST CUT OF THIS PROBE WAS NOT. With no seam it
 				used to answer `true` for every path: "could not measure" published as
-				"measured yes", which is precisely the collapse
-				docs/lessons/capability-probes-must-be-tri-state.md exists for — and it
+				"measured yes", which is precisely the collapse a tri-state capability
+				probe exists to prevent — and it
 				is what let a plate read `13 of 13 painting` on a phone that was missing
 				six things. There is no engine verdict at all below; there is a verdict
 				for the paths that were READ, and a separate `unmeasured` state for the
@@ -1974,8 +1974,7 @@ return {
 				above.
 
 				`controller.diagnostics()` is the framework's own answer to that, and it
-				has been sitting there the whole time
-				(docs/lessons/the-solver-already-told-you.md). It goes on the plate, in
+				has been sitting there the whole time. It goes on the plate, in
 				the CLOSED set, because a reader who is told "14 of 14 painting" and
 				nothing else has been told the wrong thing. ]]
 			local findings = if ctrl.diagnostics ~= nil then ctrl.diagnostics() else {}
@@ -2353,7 +2352,7 @@ return {
 				to know nothing about where its composition landed. ]]
 			exclusions = appChromeFact,
 			children = {
-				-- THE PLATFORM'S OWN ROW (ADR-0027). A `span = "above"` group, so it
+				-- THE PLATFORM'S OWN ROW. A `span = "above"` group, so it
 				-- is one full-width row above every lane in every arrangement — which
 				-- is what makes the nine anchored zones start BELOW the platform's
 				-- band instead of being told to avoid it. Its content is inset to the
@@ -2956,7 +2955,7 @@ return {
 
 		result = {
 			screen = screen,
-			--[[ BAND-SAFE CONTENT (§9, ADR-0046). This surface used to present
+			--[[ BAND-SAFE CONTENT (§9). This surface used to present
 				`edgeToEdge` — the DECORATION policy, which drops all four insets — and
 				re-spend every one of them by hand, because `bandInsets` was a published
 				fact no policy applied. It asks for the fact by name now: the top comes

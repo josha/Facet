@@ -189,7 +189,7 @@ table.insert(scenarios, {
 	end,
 })
 
--- Table (ADR-0007): row churn + committed resize on the composite control
+-- Table: row churn + committed resize on the composite control
 local table_control = require("../src/controls/table")
 table.insert(scenarios, {
 	name = "table-mutation",
@@ -239,7 +239,7 @@ table.insert(scenarios, {
 	end,
 })
 
--- Table Phase B (ADR-0008): a full grip drag gesture — pointer down, eight
+-- Table Phase B: a full grip drag gesture — pointer down, eight
 -- preview moves (arrange-only re-solves of the guide line), release commit
 table.insert(scenarios, {
 	name = "table-resize-drag",
@@ -297,7 +297,7 @@ table.insert(scenarios, {
 	end,
 })
 
--- BillboardTarget canvas (ADR-0009): a nameplate on a 300x96 pixel canvas —
+-- BillboardTarget canvas: a nameplate on a 300x96 pixel canvas —
 -- the world-UI hot path is many small canvases taking frequent text updates
 table.insert(scenarios, {
 	name = "billboard-nameplate-storm",

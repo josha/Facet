@@ -46,7 +46,7 @@ return {
 	lab = lab,
 	runner = script:WaitForChild("runner"),
 	-- THE SHARED RUNNER READS THIS UNCONDITIONALLY, so the lab has to supply it
-	-- even though no lab workload uses `UI.Foreign` (ADR-0034). `runner.luau` is
+	-- even though no lab workload uses `UI.Foreign`. `runner.luau` is
 	-- GRAFTED into this folder by `examples/performance.project.json` — one runner
 	-- for the gallery and the lab, deliberately, so the test rig cannot end up more
 	-- capable than the surface a player opens — and it requires

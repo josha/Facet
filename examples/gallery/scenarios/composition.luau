@@ -1,5 +1,5 @@
 --!strict
--- Scenario 'composition' (ADR-0023; ledger row OWN-D45): DECLARED-CONTENT
+-- Scenario 'composition' (ledger row OWN-D45): DECLARED-CONTENT
 -- ADAPTIVE COMPOSITION, on screen.
 --
 -- ONE declaration of thirteen ranked regions, each with a richest and a
@@ -39,7 +39,7 @@ local OFFERS: { [string]: { w: number, h: number } } = {
 }
 
 return {
-	title = "Declared-content adaptive composition (ADR-0023)",
+	title = "Declared-content adaptive composition",
 	ledgerRows = { "OWN-D45" },
 	build = function(ctx: any)
 		local Facet = ctx.Facet

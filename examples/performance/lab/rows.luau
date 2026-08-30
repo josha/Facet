@@ -204,8 +204,8 @@ end
 	row overflowed by 3px, and learned the theme after L-26 measured 19px under
 	fantasy-ornate. It never learned the ACCESSIBILITY TEXT PREFERENCE. A
 	VirtualList is a fixed-pitch window, so a slot measured without an input the
-	content actually has is simply wrong — `docs/lessons/facet-fixed-px-heights.md`
-	names the class: a px height fixed against unfixed content.
+	content actually has is simply wrong. The class is a px height fixed against
+	unfixed content.
 
 	`preferredTextOffset` adds its px to EVERY text line's font size, so the charge
 	is per line, not per row. Declared here rather than inlined for the reason
@@ -463,7 +463,7 @@ function rows.cell(Facet: any, core: any, item: any, ctx: CellCtx): any
 			-- coincidences, which is why the height constant looked correct for months.
 			--
 			-- This is `Text.lineLimit`'s whole reason for existing (see
-			-- docs/lessons/fixed-px-heights ...): the OWNER knows the box is fixed, so
+			-- a fixed px height against unfixed content): the OWNER knows the box is fixed, so
 			-- the owner caps the lines. `disclose` keeps the full name reachable once it
 			-- truncates, so nothing is hidden — the line count is bounded, not the value.
 			UI.Text({ id = "Name", text = item.name, textSize = 15, disclose = true, lineLimit = 1 }),

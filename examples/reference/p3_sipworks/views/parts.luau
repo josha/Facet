@@ -156,7 +156,7 @@ end
 -- form that terminates.
 -- ---------------------------------------------------------------------------
 
---[[ THE TWO §12 NUMBERS THAT ARE NOT DIMENSIONS (ADR-0042).
+--[[ THE TWO §12 NUMBERS THAT ARE NOT DIMENSIONS.
 
 	A wisp COUNT is a loop bound and a wisp TRAVEL is a spring target — Luau
 	numbers, not box dimensions, so neither can be spelled as a `px`. They are

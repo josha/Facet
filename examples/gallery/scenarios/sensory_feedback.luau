@@ -22,8 +22,7 @@
 
 	THE STATUS REPORTS WHAT ACTUALLY HAPPENED, IN THREE STATES, and never that a
 	player felt anything — Roblox exposes no motor confirmation, so a claim of
-	sensation is a claim nothing can support
-	(docs/lessons/capability-probes-must-be-tri-state.md):
+	sensation is a claim nothing can support:
 
 	  INSTALLED      the adapter is up and holding Facet's own waveforms.
 	  HOST DECLINED  a connected pad answers `false`, or this client cannot build
@@ -240,9 +239,9 @@ local CUSTOM_PROFILE = table.freeze({
 })
 
 -- ===== the opt-in's plumbing ===============================================
--- THE THREE ANSWERS, as three values rather than one boolean. The lesson this
--- shape comes from — docs/lessons/capability-probes-must-be-tri-state.md — was
--- written after a boolean probe published two false platform facts, so `refused`
+-- THE THREE ANSWERS, as three values rather than one boolean. A capability
+-- probe must be tri-state, and that rule was written after a boolean probe
+-- published two false platform facts, so `refused`
 -- and `undetermined` are separate states carrying separate sentences, and they
 -- are named here so a caller cannot spell one of them differently.
 local STATE_OFF = "off"

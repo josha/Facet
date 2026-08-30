@@ -42,7 +42,7 @@
 --     and the one the sibling word game shipped for a mission — is the PANEL
 --     colour, which every theme deliberately keeps within a few percent of the
 --     page: 1.036:1 under Sci-Fi HUD, thirty rectangles present in the tree and
---     absent from the screen (docs/lessons/a-default-valued-write-never-claims.md).
+--     absent from the screen.
 --   * COMMITTED VERSUS UNCOMMITTED IS NOT A COLOUR. A committed letter wears the
 --     theme's solid `raised` plate; an uncommitted one wears its outlined `chip`
 --     plate and carries a `~` mark. Both cues survive a greyscale screen.
@@ -661,7 +661,7 @@ example.rules = rules
 	`targetSizes.minimum` is the theme's own smallest comfortable target, and
 	`minMax` with it as the MIN lets the square grow with the player's text-size
 	preference instead of clipping the letter inside it (the defect class
-	docs/lessons/facet-fixed-px-heights.md names). `itemSizing = "uniform"` then
+	of a px height fixed against unfixed content). `itemSizing = "uniform"` then
 	makes the Grid hug seven of them where there is room — 7 x 44 + 6 gaps = 332
 	on a tablet, a desktop and a TV — and DIVIDE the offer where there is not:
 	the narrowest supported viewport (320x640) has 288px of page, so the lanes
@@ -680,7 +680,7 @@ local FILL: any = { type = "fill", weight = 1 }
 	under Sci-Fi HUD and never better than 1.223:1 anywhere. That is a board of
 	forty-nine rectangles that is perfectly present in the tree, correct in every
 	property probe, and not on the screen — the failure
-	docs/lessons/a-default-valued-write-never-claims.md records, and the one the
+	a default-valued write produces, and the one the
 	sibling word game shipped for a whole mission.
 
 	`contentSecondary` and `accent` are both contrast-gated against `surface` by
@@ -708,8 +708,7 @@ local CELL_TINT: { [string]: any } = {
 	one colour — the same ruling the word game's active row is under.
 
 	WRITTEN AS LITERAL `surface` VALUES, which is not an accident: an enum prop
-	accepts any string and silently paints nothing when it is not a member
-	(docs/lessons/enum-props-accept-any-string.md), and spelled this way
+	accepts any string and silently paints nothing when it is not a member, and spelled this way
 	`tools/lune/check_example_drift` checks every one of them against the Box
 	surface enum the renderer actually resolves. ]]
 local CELL_SURFACE: { [string]: string } = {
@@ -1018,7 +1017,7 @@ function example.build(Facet: any, core: any, deps: any)
 	-- `UI.Grid` with a fixed column count is the container for a board, and it
 	-- earns the 2D focus story with it: the focus map turns a Grid's focusables
 	-- into per-row horizontal groups linked by up/down exits, so a D-pad or the
-	-- arrow keys cross the board with no consumer navigation map (ADR-0013).
+	-- arrow keys cross the board with no consumer navigation map.
 	local cellStateOf: { [string]: any } = {}
 	local cells = {}
 	for r = 1, SIZE do
@@ -1092,8 +1091,7 @@ function example.build(Facet: any, core: any, deps: any)
 							textSize = "control",
 							-- APP SEMANTICS on the node: activating a square (tap, or
 							-- Return/A on the focused square) places the held tile. The
-							-- presenter dispatches Activate with no consumer routing
-							-- (ADR-0013); select-then-place is the app's own rule.
+							-- presenter dispatches Activate with no consumer routing; select-then-place is the app's own rule.
 							onActivate = function()
 								activateCell(rr, cc)
 							end,
@@ -1236,7 +1234,7 @@ function example.build(Facet: any, core: any, deps: any)
 
 	-- Presented with NO opts: each square, rack tile and action carries its own
 	-- Activate handler, and the presenter derives 2D grid navigation from the two
-	-- Grids automatically (ADR-0013 layout-derived groups) — so a D-pad crosses
+	-- Grids automatically (layout-derived groups) — so a D-pad crosses
 	-- the board and A places, with no consumer wiring.
 	local handle = pres.present(screen)
 

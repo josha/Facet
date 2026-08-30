@@ -1,5 +1,5 @@
 --!strict
--- Scenario 'theme_authoring' (stage theme-packages-and-skinning, ADR-0019).
+-- Scenario 'theme_authoring' (stage theme-packages-and-skinning).
 -- The theme fixture: ONE mounted screen, restyled from the outside.
 --
 -- The screen is `adaptive_controls`' fixture, REUSED rather than copied — the
@@ -66,7 +66,7 @@ return {
 		-- responsibility; this scenario only owns the theme.
 		local fixture = adaptiveControls.build(ctx)
 
-		-- ----- the RICH-SKINNING-v2 probe surface (ADR-0020, rows RS-A1..A4) ---
+		-- ----- the RICH-SKINNING-v2 probe surface (rows RS-A1..A4) ---
 		--
 		-- A SECOND screen, presented on demand, because two of the things the layer
 		-- rows have to observe are not in the adaptive fixture and do not belong
@@ -117,7 +117,7 @@ return {
 				min = 0,
 				max = 100,
 				-- ONE grammar, both rungs: the same per-state map shape a recipe's
-				-- `asset` accepts (ADR-0020 R2), normalized by the same function
+				-- `asset` accepts, normalized by the same function
 				thumbImage = probe.thumbVariants,
 			})
 			local field = Facet.Controls.TextInput(core, {
@@ -129,7 +129,7 @@ return {
 			-- Interactable poke: `field` is a layered slot, so this is the live proof
 			-- that `:NonInteractable > .<layerTag>` matches a LAYER. The test package
 			-- supplies no `disabled` ART, which is the point — the accessibility floor
-			-- still applies over `default` (ADR-0020 R2).
+			-- still applies over `default`.
 			local disabledField = Facet.Controls.TextInput(core, {
 				id = "DisabledField",
 				value = core:signal("disabled"),
@@ -268,7 +268,7 @@ return {
 					-- the DISABLED state, reached through the public prop rather than
 					-- a raw Interactable poke. The test package supplies no `disabled`
 					-- toggle art, which is the point: the accessibility floor still
-					-- applies over `default` (ADR-0020 R2).
+					-- applies over `default`.
 					Facet.UI.Toggle({ id = "SwitchOff", label = "Locked", value = values.switch, enabled = false }),
 					steps.blueprint,
 				},
@@ -406,7 +406,7 @@ return {
 			return pkg, report, nil
 		end
 
-		-- THE SWAP TRANSACTION (ADR-0019 §7). Snapshot and decoration commit
+		-- THE SWAP TRANSACTION. Snapshot and decoration commit
 		-- together, then the screen re-solves; nothing is rebuilt, so mount
 		-- identity, focus, selection, scroll and text entry survive untouched.
 		-- The native PAINT half is the controller's, and is skipped with a note
@@ -423,7 +423,7 @@ return {
 			local paint = "absent"
 			local snapshot
 			if tc ~= nil then
-				-- the controller owns the WHOLE transaction (ADR-0019 §7): sheet
+				-- the controller owns the WHOLE transaction: sheet
 				-- materialization + SetDerives + env:set("themeMetrics") land in
 				-- one invocation. Install once, then swap in place — a second
 				-- install would re-link and double-subscribe the token watchers.
@@ -507,7 +507,7 @@ return {
 			}
 		end
 
-		-- ----- the PIXEL ADJACENCY probe (row RS-A13, ADR-0020 R5 clause 3) ----
+		-- ----- the PIXEL ADJACENCY probe (row RS-A13, pixel rule 3) -----------
 		--
 		-- The open question P4 deferred with reasons: R5 says the solver's emitted
 		-- px "round to integers ... aimed at scale-derived fractions", and P4
@@ -974,7 +974,7 @@ return {
 			local expected: { [string]: any } = {}
 			for slot, recipe in installed.package.chrome do
 				if recipe.kind == "nineSlice" then
-					-- A RECIPE'S `asset` MAY BE A PER-STATE MAP (ADR-0020 R2), and
+					-- A RECIPE'S `asset` MAY BE A PER-STATE MAP, and
 					-- this probe reads the DEFAULT state. Live-found by P5: indexing
 					-- the asset table with the map itself returned nil and the whole
 					-- report threw, so a reference package with per-state art could
@@ -1089,7 +1089,7 @@ return {
 				installScifi = function()
 					return installNamed("scifi_hud")
 				end,
-				-- ---- live authoring (the ADR-0019 §3 loop, for real) ------
+				-- ---- live authoring (the Style Editor loop, for real) ------
 				-- The edit is a plain SetAttribute on the ACTIVE theme sheet —
 				-- the same object the Style Editor drives (m4). The controller's
 				-- token watcher re-resolves the snapshot and the screen
@@ -1569,7 +1569,7 @@ return {
 				end,
 				-- both stepper plates, whichever slot the installed package resolved
 				-- them to (a package with no `stepperPlate` keeps painting them
-				-- through its `control` recipe — ADR-0020 R3)
+				-- through its `control` recipe)
 				stepperProbe = function()
 					return {
 						dec = artReport(VALUE_PATHS.stepperDec),
@@ -1891,7 +1891,7 @@ return {
 						census = ctx.themeChrome.census(),
 					}
 				end,
-				-- ---- P5: PIXEL ADJACENCY (RS-A13, ADR-0020 R5 clause 3) ----
+				-- ---- P5: PIXEL ADJACENCY (RS-A13, pixel rule 3) ----
 				presentAdjacency = function()
 					return buildAdjacency()
 				end,

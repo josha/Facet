@@ -10,7 +10,7 @@
 -- phoneNotchLandscape device insets (left/right 47, bottom 21) → the SAME
 -- running screen re-solves with content inset from those edges too.
 -- The Studio emulator cannot produce real notch insets (its camera
--- pre-excludes the notch — docs/lessons/device-emulator-truths.md), so the
+-- pre-excludes the notch), so the
 -- synthetic step is the honest Studio-side driver; physical values are NS-P2.
 
 return {

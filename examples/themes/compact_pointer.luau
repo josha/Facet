@@ -1,6 +1,5 @@
 --!strict
--- "COMPACT POINTER" — the DESKTOP half of the platform pair (ADR-0020 R7,
--- ledger row RS-A14). Its sibling is `glossy_touch.luau`; see that file for the
+-- "COMPACT POINTER" — the DESKTOP half of the platform pair (ledger row RS-A14). Its sibling is `glossy_touch.luau`; see that file for the
 -- one-line `selectBy` authoring the pair exists to prove.
 --
 -- Written as a CLEAN CONSUMER: `themes.define` + `themes.neutralPackage()` and
@@ -201,7 +200,7 @@ function compact_pointer.definition(themes: any): any
 			strokes = { hairline = 1 },
 			-- the HIT floor is not the DRAW floor: a 22px button still has to be
 			-- hittable, and the framework clamps this UP to 44 no matter what a
-			-- package asks for (ADR-0019's accessibility floor)
+			-- package asks for (the accessibility floor)
 			targetSizes = { minimum = 44 },
 			motion = { fast = 0.1, normal = 0.16 },
 			controls = {

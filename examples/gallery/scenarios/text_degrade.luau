@@ -76,7 +76,7 @@
 -- and see nothing change, which is the opposite of what this surface is for.
 -- `width = nil` on the first stop means FILL: "roomy" is whatever room this screen
 -- actually has, never a literal wider than the narrowest supported viewport (that
--- literal is `docs/lessons/facet-fixed-px-heights` in its width spelling — a fixed
+-- literal is a fixed px height in its width spelling — a fixed
 -- box against an unfixed screen, which overflows the moment the chrome is real).
 local STOPS: { { value: string, width: number? } } = {
 	{ value = "roomy", width = nil },

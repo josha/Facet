@@ -1,5 +1,5 @@
 --!strict
--- Table Phase B demo (ADR-0007 B / ADR-0008): the live-verification screen for
+-- Table Phase B demo: the live-verification screen for
 -- grip column-resize (preview + commit), row drag-and-drop (drop indicator +
 -- reorder), modifier multi-select, and focus+Adjust gamepad resize.
 -- Studio verification reads workspace attributes Facet_TB_* each frame.
@@ -49,7 +49,7 @@ core:observe(sortOrder, function(order)
 	workspace:SetAttribute("Facet_TB_Sort", `{order.column}:{if order.ascending then "asc" else "desc"}`)
 end)
 
--- the PUBLIC export, not an instance-path reach into src/controls (ADR-0011:
+-- the PUBLIC export, not an instance-path reach into src/controls:
 -- a consumer goes through the Facet root plus the blessed client entry points;
 -- check_boundary now enforces it)
 local tbl = Facet.Controls.Table(core, {
@@ -87,7 +87,7 @@ local tbl = Facet.Controls.Table(core, {
 	dragLabel = function(item: any)
 		return item.name
 	end,
-	-- post-removal slot semantics (ADR-0008): keys arrive in document order;
+	-- post-removal slot semantics: keys arrive in document order;
 	-- remove them all, then insert the block at slot + 1 — no adjustment
 	onReorder = function(keys: { string }, toIndex: number)
 		local moving: { [string]: boolean } = {}

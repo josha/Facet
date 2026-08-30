@@ -50,8 +50,7 @@
 	    demonstration with a second demonstration's defect would be a bad trade.
 	  · THE GRID'S WINDOW IS THE PANE THE SOLVER GAVE IT, fed back through
 	    `present.onGeometry` — never `viewportHeight - <a reserve for chrome>`,
-	    which is the same class in its other spelling
-	    (`docs/lessons/facet-fixed-px-heights.md`). `GridPane` takes `fill`, so
+	    which is the same class in its other spelling. `GridPane` takes `fill`, so
 	    its height is the screen's decision and never the grid's, and the grid has
 	    no floor of its own: a pane that is genuinely 0px on a short landscape
 	    phone gets a 0px grid, because a grid that insists on one line in a 0px
@@ -88,7 +87,7 @@ local LABEL_SIZE = 12
 -- reason `virtual_hgrid` states at length: a held pixel does not scale at
 -- ten-foot and a name does. `newVirtualGrid` refused a string until this round.
 --
--- RESTORED TO "tight" (task G-SPACE, ADR-0047): the G4/G5 round wanted 6 here
+-- RESTORED TO "tight" (task G-SPACE): the G4/G5 round wanted 6 here
 -- and no space step named it, so both gutters were force-moved to "xs" (4) at
 -- neutral — a deliberate VALUE CHANGE recorded in that round's report because
 -- "no metric in any shipped package resolves to 6" at the time. `space.tight`

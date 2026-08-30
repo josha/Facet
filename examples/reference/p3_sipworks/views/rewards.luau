@@ -49,7 +49,7 @@ function rewardsView.card(app: any, opts: any): any
 			is the safe side. ]]
 		local facts = app.Facet.text.facts({ env = app.env, use = use })
 		-- the seal's own diameter is a declared app metric, read as a NUMBER here
-		-- because this composes it with the reader's reservation (ADR-0042)
+		-- because this composes it with the reader's reservation
 		local sealSize = app.metric(sealName, use)
 		return dims.fixed(math.ceil((sealSize + facts.offset) * facts.scale))
 	end))

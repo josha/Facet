@@ -1,5 +1,5 @@
 --!strict
--- Scenario 'foreign_content' (UI.Foreign, ADR-0034; api.md §Foreign):
+-- Scenario 'foreign_content' (UI.Foreign; api.md §Foreign):
 -- the BOUNDED ESCAPE HATCH, shown with instances Facet genuinely cannot draw.
 --
 -- WHY THESE THREE PANES AND NOT A COLOURED FRAME. A demo of an escape hatch that
@@ -21,8 +21,8 @@
 --
 -- ...and a fourth button that is not a pane: adopting a `Part` — the 3-D case
 -- arriving at the 2-D seam. The REFUSAL is put on screen verbatim, because a
--- refusal that names its alternative is a shipped feature here (ADR-0029's
--- pattern), not an error nobody reads.
+-- refusal that names its alternative is a shipped feature here, not an error
+-- nobody reads.
 --
 -- ENGINE-FREE, like every scenario: the instances arrive as DATA
 -- (`built.foreignContent`) and the engine-side sibling `foreign_instances.luau` is
@@ -34,7 +34,7 @@
 local PANES = "/ForeignContent/Page/Panes"
 
 return {
-	title = "UI.Foreign — a box for an instance Facet does not own (ADR-0034)",
+	title = "UI.Foreign — a box for an instance Facet does not own",
 	build = function(ctx: any)
 		local UI = ctx.Facet.UI
 		local core = ctx.core

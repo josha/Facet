@@ -400,7 +400,7 @@ local function ctaBand(app: any): any
 				-- and grows with whatever the installed package needs.
 				-- the cap is its own NAME rather than `3 *` the floor: the metric
 				-- vocabulary sums names and negates them, it does not multiply one,
-				-- and a cap a theme cannot move is not a theme number (ADR-0042)
+				-- and a cap a theme cannot move is not a theme number
 				height = dims.atLeast("app.sip.ctaBand", "app.sip.ctaBandMax"),
 				-- the "bar material" adaptation: a stated raised plate
 				surface = "raised",
@@ -430,7 +430,7 @@ end
 function detail.body(app: any, opts: any): any
 	local UI = app.UI
 	local options = opts or {}
-	-- registry item 13 (W3-D, ADR-0053): was a hand-built HStack (a circle
+	-- registry item 13 (W3-D): was a hand-built HStack (a circle
 	-- Button with a literal "<" glyph child); the shared bar draws the
 	-- framework's own chevron icon instead — see nav_bar.luau's header for
 	-- why that is a deliberate, disclosed visual change, not an oversight

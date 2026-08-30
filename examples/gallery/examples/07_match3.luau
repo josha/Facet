@@ -71,7 +71,7 @@ local DEFAULT_SEED = 20260720
 -- chunkier. THE EXAMPLE NAMES NO DEVICE.
 local CELL: any = { type = "fixed", px = "controlSizes.large.height" }
 -- ...and the board is exactly six of those across and six down. `content rows`
--- is the framework's own way to say "N rows of this metric" (ADR-0049), so the
+-- is the framework's own way to say "N rows of this metric", so the
 -- board tracks the same theme metric its tiles do with no arithmetic here.
 local BOARD_WIDTH: any = { type = "content", rows = COLS, of = "controlSizes.large.height" }
 local BOARD_HEIGHT: any = { type = "content", rows = ROWS, of = "controlSizes.large.height" }
@@ -547,7 +547,7 @@ local function build(Facet: any, core: any, deps: any)
 				-- is the fallback symbol while the picture is not there. Its
 				-- node onActivate carries the APP SEMANTICS (select / swap
 				-- adjacency) — the presenter dispatches Activate (tap, or A on
-				-- the focused tile) here with no consumer routing (ADR-0013).
+				-- the focused tile) here with no consumer routing.
 				-- IT IS A REAL CONTROL, not a marker: a marker layer is
 				-- display-only by contract and sits below the effective-target
 				-- floor, and these have to be pressable.
@@ -995,10 +995,10 @@ local function build(Facet: any, core: any, deps: any)
 	--[[ THE BOARD DECLARES ITS OWN 2D NAVIGATION.
 
 		A `UI.Grid` hands the presenter per-row navigation groups for free
-		(ADR-0013 layout-derived groups), but a `UI.Anchor` has no rows to read —
+		(layout-derived groups), but a `UI.Anchor` has no rows to read —
 		free placement is the whole point of it — so an anchored board is one of
 		the "hand-wired screens" `navigationGroups` exists for. The board is one
-		RECTANGLE group (`columns`, ADR-0030): left/right walk the lane, up/down
+		RECTANGLE group (`columns`): left/right walk the lane, up/down
 		move a whole line and keep the lane. The two groups below it are the
 		artwork row and the reset button, declared here because pinning explicit
 		groups replaces the derivation for the WHOLE surface — leaving them out

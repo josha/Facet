@@ -5,8 +5,8 @@
 -- EVERY NUMBER HERE IS A TOKEN. Sizes name theme metrics ("iconSizes.large",
 -- "controlSizes.regular.height"), type names a role, spacing names a step — so
 -- installing Fantasy Parchment moves the whole proof. The seven structural
--- numbers this proof owns are metric NAMES too now ("app.cartwheel.tileMin",
--- ADR-0042), declared once in `init.luau`, so the package has no layout literal
+-- numbers this proof owns are metric NAMES too now ("app.cartwheel.tileMin"),
+-- declared once in `init.luau`, so the package has no layout literal
 -- left at all.
 local data = require("../content/data")
 

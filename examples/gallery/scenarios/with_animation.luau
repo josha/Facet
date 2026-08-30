@@ -152,7 +152,7 @@ local COPY = {
 	effectsLabel = "The badge fades, shrinks and turns — same spring",
 	-- (5b) THE WRAP. A leaf cannot take an `opacity` — it would have to write a
 	-- transparency the theme's stylesheet owns, and one such write makes the
-	-- sheet's value unreadable for good (ADR-0029). The spelling that works is one
+	-- sheet's value unreadable for good. The spelling that works is one
 	-- fade group around the subtree, and this row is it, on the same spring.
 	-- Player-facing, so it wraps rather than truncates at ~1.4x.
 	wrapLabel = "A label cannot fade itself — wrap it, and the group fades",
@@ -370,7 +370,7 @@ return {
 						}),
 					},
 				}),
-				--[[ (5) THE PAINT — opacity, scale and rotation, authored (ADR-0026).
+				--[[ (5) THE PAINT — opacity, scale and rotation, authored.
 
 					These are the consequence the director asked for: *"should opacity,
 					transparency, and scale get owned/influenced by facet? it seems
@@ -411,8 +411,7 @@ return {
 					destination, exactly as the puck's travel does: the flight is
 					decorative, the end state carries every fact, and a scale is NOT
 					substituted by a cross-fade (deleting the zoom is strictly less
-					motion than replacing it with another animation — ADR-0026
-					Decision 8). ]]
+					motion than replacing it with another animation). ]]
 				UI.Text({
 					id = "EffectsCaption",
 					text = COPY.effectsLabel,
@@ -442,7 +441,7 @@ return {
 					},
 				}),
 				--[[ (5b) THE WRAP — the spelling for everything the badge is not
-					(ADR-0029, director round 2026-08-15).
+					(director round 2026-08-15).
 
 					`opacity` is offered on `Box` and `ZStack` and REFUSED by name
 					everywhere else, and the badge above is a Box, so it gets to
@@ -744,7 +743,7 @@ return {
 					chipOrder = table.clone(chipOrder:get() :: { string }),
 					-- the authored presentation triple this run is aimed at, so a
 					-- headless spec reads the DECLARED destination rather than
-					-- re-deriving it (ADR-0026)
+					-- re-deriving it
 					badgeOpacity = if laneRight:get() then 0.3 else 1,
 					badgeScale = if laneRight:get() then 0.6 else 1,
 					badgeRotation = if laneRight:get() then 45 else 0,

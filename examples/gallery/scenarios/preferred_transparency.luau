@@ -1,6 +1,6 @@
 --!strict
 --[[ Scenario 'preferred_transparency' — THE PLAYER'S BACKGROUND TRANSPARENCY
-	SETTING, ANSWERED BY FACET'S OWN PAINTING (ADR-0035, owed row O-26).
+	SETTING, ANSWERED BY FACET'S OWN PAINTING (owed row O-26).
 
 	WHY THIS FIXTURE EXISTS AT ALL. `GuiService.PreferredTransparency` reached the
 	environment four stages ago and nothing read it, so a player who turned the
@@ -79,7 +79,7 @@ local STOPS = {
 }
 
 return {
-	title = "Background Transparency preference (ADR-0035)",
+	title = "Background Transparency preference",
 	ledgerRows = {},
 	copy = COPY,
 	stops = STOPS,

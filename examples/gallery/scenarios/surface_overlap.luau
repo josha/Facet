@@ -1,5 +1,5 @@
 --!strict
---[[ Scenario 'surface_overlap' — TWO SURFACES, AND WHO SAID SO (ADR-0028).
+--[[ Scenario 'surface_overlap' — TWO SURFACES, AND WHO SAID SO.
 
 	The director, 2026-08-14, watching a leftover debug probe interleave with a
 	real fixture in his live Studio session, both starting at x=16: *"the
@@ -24,7 +24,7 @@
 	    BOTH surfaces, and the readout below is `controller.diagnostics()` read
 	    straight off the probe's controller with no interpretation in between.
 
-	AND THE FOURTH BUTTON IS THE POINT ADR-0026 HANDED OVER: an INVISIBLE probe.
+	AND THE FOURTH BUTTON IS THE POINT THE COMPOSITION HANDED OVER: an INVISIBLE probe.
 	It is still mounted, still solved, still occupying exactly the same box — and
 	it covers nothing a player can see, so the alarm is silent. A geometry-only
 	test would report a collision nobody could ever find.

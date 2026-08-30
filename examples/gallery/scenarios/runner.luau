@@ -32,7 +32,7 @@ local Players = game:GetService("Players")
 	creates `Facet_<screen id>` (`screen_target`; a billboard root is
 	`Facet_BB_<id>`, which this prefix also covers). Named once, and every test
 	for it reads its LENGTH off the literal — see the M3 census below for what a
-	hand-counted six cost when ADR-0038 shortened the literal to five. ]]
+	hand-counted six cost when the rename shortened the literal to five. ]]
 local FACET_ROOT_PREFIX = "Facet_"
 
 local ENV_FACT_KEYS = {
@@ -58,7 +58,7 @@ local ENV_DERIVED_KEYS = {
 	-- that recorded only the authored value would show 0,0,0,0 on a console and
 	-- read as if the margins never engaged.
 	"effectiveOverscanInsets",
-	-- flat vs world presentation (ADR-0021); "screen" on every row today, and
+	-- flat vs world presentation; "screen" on every row today, and
 	-- recorded so the day it is not, the rows say so
 	"presentationProfile",
 }
@@ -105,7 +105,7 @@ local STYLED_PROPS: { [string]: { string } } = {
 	TextButton = { "BackgroundColor3", "BackgroundTransparency", "TextColor3", "TextTransparency" },
 	TextLabel = { "BackgroundColor3", "BackgroundTransparency", "TextColor3" },
 	TextBox = { "BackgroundColor3", "BackgroundTransparency", "TextColor3", "TextTransparency" },
-	-- the IMAGE properties joined the list for rich-skinning-v2 (ADR-0020 R1/R2):
+	-- the IMAGE properties joined the list for rich-skinning-v2:
 	-- a layer's picture is RULE-owned, so a plain `.Image` read is blind and only
 	-- `GetStyled` reports the winner. The pair is the defeat-detection instrument
 	-- — `d.image` (plain) next to `d.styled.Image` (resolved).
@@ -157,7 +157,7 @@ local function dumpGuiInstance(inst: Instance): { [string]: any }?
 		if inst:GetAttribute("Facet_DeclaredOverride") == true then
 			d.declaredOverride = true
 		end
-		-- PAINT CLAIMS (ADR-0022 Decision 6): the engine properties this node took
+		-- PAINT CLAIMS: the engine properties this node took
 		-- from the sheet because no rule can carry their value (a `tint` blend, an
 		-- identity hue, an authored `scaleMode`). Dumped BESIDE `styled` on purpose —
 		-- a claimed property is EXPECTED to diverge from the sheet-resolved value, and
@@ -234,7 +234,7 @@ function Runner.start(deps: { [string]: any })
 	local registry = deps.registry
 	local name = deps.scenarioName :: string
 	local mod = registry.modules[name]
-	-- the shared foreign-content materializer (ADR-0034); see the note at
+	-- the shared foreign-content materializer; see the note at
 	-- `applyForeignContent` below for why it is not a local in this file
 	local foreign_instances = require(registry.foreignInstances) :: any
 	if mod == nil then
@@ -304,7 +304,7 @@ function Runner.start(deps: { [string]: any })
 		return "stub-root"
 	end
 
-	-- FOREIGN CONTENT (UI.Foreign, ADR-0034) is materialized by a SHARED sibling
+	-- FOREIGN CONTENT (UI.Foreign) is materialized by a SHARED sibling
 	-- module rather than by a local like `applyStageContent` above, because the
 	-- shipped showcase host needs the identical capability and a runner-only
 	-- version would make the test rig more correct than the thing a player opens
@@ -345,7 +345,7 @@ function Runner.start(deps: { [string]: any })
 				local transport = require(game:GetService("ReplicatedStorage").Facet.client.roblox_resources) :: any
 				return transport.bind(provider)
 			end,
-			-- WORLD-ANCHORED PRESENTATION (ADR-0009; row SF-W1). A BillboardGui, a
+			-- WORLD-ANCHORED PRESENTATION (row SF-W1). A BillboardGui, a
 			-- world Part and a second render target are all engine objects, so they
 			-- stay runner-owned exactly like the resource transport above: the
 			-- scenario declares the blueprint and drives the steps, and this is the
@@ -376,7 +376,7 @@ function Runner.start(deps: { [string]: any })
 						part.CFrame = workspace.CurrentCamera.CFrame * CFrame.new(0, 0, -18)
 						part.Parent = workspace
 						-- display-only, but PlayerGui-parented with an Adornee: that is the
-						-- documented topology (ADR-0009), and a fixture that used another
+						-- documented topology, and a fixture that used another
 						-- parent would be proving a path no consumer uses
 						local adapter = billboardTarget.new({
 							parent = Players.LocalPlayer:WaitForChild("PlayerGui"),
@@ -472,7 +472,7 @@ function Runner.start(deps: { [string]: any })
 				end
 				return api
 			end)(),
-			--[[ ── THE WORLD SURFACE (ADR-0063; design §4, §5, §10) ──────────────────
+			--[[ ── THE WORLD SURFACE (design §4, §5, §10) ──────────────────
 
 				A CONSOLE A PLAYER WALKS UP TO AND USES, and everything about it that
 				touches an Instance is here rather than in the scenario, exactly as
@@ -1081,7 +1081,7 @@ function Runner.start(deps: { [string]: any })
 					return applyStageContent((built.handle :: any).controller, nodePath, content)
 				end,
 			},
-			-- ...and the same live seam for a FOREIGN box (ADR-0034), so a scenario's
+			-- ...and the same live seam for a FOREIGN box, so a scenario's
 			-- own buttons can adopt (and be refused) while the surface is up
 			foreign = {
 				adopt = function(nodePath: string, content: any): string
@@ -1104,7 +1104,7 @@ function Runner.start(deps: { [string]: any })
 				end
 				return out
 			end)(),
-			-- The adapter's decoration-slot surface (ADR-0019 §5, package 3).
+			-- The adapter's decoration-slot surface.
 			themeChrome = {
 				setPackage = function(package: any?): boolean
 					local a = deps.adapter :: any
@@ -1135,7 +1135,7 @@ function Runner.start(deps: { [string]: any })
 					local a = deps.adapter :: any
 					return if a.themeAssetsToPreload ~= nil then a.themeAssetsToPreload(policy) else {}
 				end,
-				-- THE SIXTH VARIANT STATE (ADR-0020 R2). No control publishes an
+				-- THE SIXTH VARIANT STATE. No control publishes an
 				-- error state yet (P3's wiring), so the adapter exposes the seam and
 				-- the scenario drives it — which is what lets the `facet-state-error`
 				-- art rules be proven APPLIED rather than merely emitted.
@@ -1612,7 +1612,7 @@ function Runner.start(deps: { [string]: any })
 				end
 				return out
 			end,
-			-- the last solve's COMPOSITION RESOLUTION for a node (ADR-0023), so a
+			-- the last solve's COMPOSITION RESOLUTION for a node, so a
 			-- scenario's own report can say which arrangement won and why every
 			-- richer candidate lost — the one piece of an adaptive screen a
 			-- screenshot structurally cannot show. Same lazy-handle read the
@@ -1627,7 +1627,7 @@ function Runner.start(deps: { [string]: any })
 				return if ok then d else nil
 			end,
 			-- TODO(package-2 seam): src/client/theme_controller.luau —
-			-- install/swap/current/inspect/onChange (ADR-0019 §7). LATE-BOUND on
+			-- install/swap/current/inspect/onChange. LATE-BOUND on
 			-- purpose: this package must not import a module that may not exist
 			-- yet, and the scenario must degrade to "controller absent" rather
 			-- than failing to mount. Delete the pcall the day the module lands.
@@ -1793,7 +1793,7 @@ function Runner.start(deps: { [string]: any })
 			end
 			session.built.stageApplied = applied
 		end
-		-- FOREIGN CONTENT, same contract (ADR-0034): `built.foreignContent =
+		-- FOREIGN CONTENT, same contract: `built.foreignContent =
 		-- { [nodePath] = { kind, … } }`. A nil host is recorded as a status string,
 		-- never an error — the declared fallback there is the box's own plate.
 		if session.built.foreignContent ~= nil and session.built.handle ~= nil then

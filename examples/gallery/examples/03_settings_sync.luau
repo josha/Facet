@@ -152,7 +152,7 @@ function example.build(Facet: any, core: any, _deps: any)
 
 	-- APP SEMANTICS (settings mutation) as node handlers referenced below;
 	-- activating a control commits the change, dispatched by the presenter with
-	-- no consumer routing (ADR-0013). The toggle's flip rides commit's apply.
+	-- no consumer routing. The toggle's flip rides commit's apply.
 	local function toggleMusic()
 		local nextMusic = not draftMusic:get()
 		requestChange(nextMusic, draftVolume:get(), `music {if nextMusic then "on" else "off"}`)

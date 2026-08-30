@@ -279,7 +279,7 @@ return {
 		end
 
 		-- hug where there is room, a bounded scroller where there is not (see the
-		-- `Chrome` block below); `heightClass` is ADR-0023's own Readable for it
+		-- `Chrome` block below); `heightClass` is the Readable for it
 		local conditions = ctx.Facet.adaptive.conditions(core, ctx.env, { scope = scope })
 		local chromeHeight = scope:own(core:memo(function(use)
 			return if use(conditions.isShort) then UI.fill() else nil

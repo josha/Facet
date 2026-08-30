@@ -90,8 +90,8 @@ profile.setEnabled(true)
 local core = Facet.newCore()
 local env = Facet.newEnvironment(core)
 local unbindEnv = roblox_env.bind(env)
--- THE LAB OPTS OUT ON PURPOSE, and after the 2026-08-21 default flip (ADR-0040
--- B-15) that `false` is doing real work rather than restating the default. Every
+-- THE LAB OPTS OUT ON PURPOSE, and after the 2026-08-21 default flip that
+-- `false` is doing real work rather than restating the default. Every
 -- budget (bench/perf_budgets.json) and capture
 -- (artifacts/performance-stress-places/) was measured with the adapter as the
 -- only writer of every paint property; taking the sheet path here would move the

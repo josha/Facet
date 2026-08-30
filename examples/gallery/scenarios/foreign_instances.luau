@@ -4,7 +4,7 @@
 -- and raw geometry writes, and that is its SUBJECT: `foreign_content.luau` is
 -- the scenario a reader copies, and it declares these panes as data.
 --
--- THE FOREIGN-CONTENT MATERIALIZER (UI.Foreign, ADR-0034).
+-- THE FOREIGN-CONTENT MATERIALIZER (UI.Foreign).
 --
 -- An ENGINE-SIDE sibling of `runner.luau`, deliberately NOT a scenario: scenario
 -- modules are engine-free by contract, so a fixture that wants instances inside a
@@ -16,7 +16,7 @@
 -- THE RUNNER ITSELF RECORDS. `init.client.luau`'s fixture branch once dropped a
 -- fixture's `present` opts because only the test rigs passed them — "the test rigs
 -- were more correct than the shipped host, which is the failure mode
--- docs/lessons/the-solver-already-told-you.md is named after" (C2, 2026-08-12).
+-- the standing lesson is named after" (C2, 2026-08-12).
 -- `foreignContent` is exactly the same shape of fact, so both hosts materialize it
 -- through ONE function instead of the scenario runner having a capability the
 -- showcase a player actually opens does not.

@@ -1,7 +1,7 @@
 --!strict
 -- Sipworks' DIMENSION CONSTRUCTORS — one spelling for each shape a box takes.
 --
--- WHAT MOVED OUT OF HERE (ADR-0042). This file used to be `content/metrics.luau`
+-- WHAT MOVED OUT OF HERE. This file used to be `content/metrics.luau`
 -- and carried the proof's structural NUMBERS as well, under a comment saying
 -- what they wanted to be: *"The spec states these as dotted theme-metric names
 -- (`metrics.sip.rowArt`). They cannot be."* They can now — they are declared in

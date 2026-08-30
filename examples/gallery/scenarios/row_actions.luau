@@ -268,9 +268,9 @@ return {
 		-- the list.
 		--
 		-- `heightClass` is the framework's own signal for "the vertical room is
-		-- scarce" (`adaptive.HEIGHT_BREAKPOINTS`, ADR-0023) and it is a READABLE, so
+		-- scarce" (`adaptive.HEIGHT_BREAKPOINTS`) and it is a READABLE, so
 		-- it re-resolves on rotation instead of freezing whichever orientation
-		-- booted first (docs/lessons/the-solver-already-told-you.md §5). The heading
+		-- booted first. The heading
 		-- is what goes: the demo picker's own chip already names this demo on screen,
 		-- so on a short viewport it is the one piece of chrome that says nothing the
 		-- player cannot already see.
@@ -621,8 +621,7 @@ return {
 			-- measured once on a desktop: on a landscape phone the list painted
 			-- 227-245px past its own pane and over everything below it, and the solver
 			-- said so at every landscape viewport. A constant that does not adapt is a
-			-- constant that is wrong on some real device
-			-- (docs/lessons/the-solver-already-told-you.md).
+			-- constant that is wrong on some real device.
 			--
 			-- A Readable is what `newVirtualList` documents for exactly this ("a list
 			-- filling a container... hands in a Readable and BOTH consumers of the

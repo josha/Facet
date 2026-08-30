@@ -19,7 +19,7 @@
 --     arrangement" — so two orders would have been one order and a lie.
 --
 --  3. THE STAMPS POCKET NO LONGER SITS AT THE RAIL'S FOOT (§6, recorded in
---     ADR-0045). A spacer used to push it there, and a spacer inside the strip is
+--     the accessory-slot round). A spacer used to push it there, and a spacer inside the strip is
 --     not something an accessory slot can express: the pocket is a nav DESTINATION
 --     whose home moves, not chrome beside the tabs, and one picker object serves
 --     every placement by contract. It reads in its declared order instead. What it

@@ -75,7 +75,7 @@ local LINE_EXTENT = 72
 	back off the grid's own dump rather than keeping a copy, so this file
 	predicts nothing.
 
-	RESTORED TO "tight" (task G-SPACE, ADR-0047). No space step named 6 at the
+	RESTORED TO "tight" (task G-SPACE). No space step named 6 at the
 	time this round shipped, so both gutters were force-moved to `"xs"` (4) at
 	neutral — a deliberate VALUE CHANGE, recorded in the G4/G5 report as "no
 	metric in any shipped package resolves to 6". `space.tight` does now, and

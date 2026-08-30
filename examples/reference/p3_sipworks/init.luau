@@ -90,7 +90,7 @@ local function factOf(deps: any, key: string): any
 	return nil
 end
 
---[[ THE PROOF'S OWN STRUCTURAL NUMBERS (spec §4/§12, ADR-0042).
+--[[ THE PROOF'S OWN STRUCTURAL NUMBERS (spec §4/§12).
 
 	These lived in `content/metrics.luau` under a comment naming exactly what they
 	wanted to be: *"The spec states these as dotted theme-metric names

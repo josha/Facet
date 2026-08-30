@@ -1,6 +1,6 @@
 --!strict
 --[[ Scenario 'time_curves' — TIME-BASED EASING, AND THE ONE THING A SPRING
-	CANNOT DO (ADR-0033).
+	CANNOT DO.
 
 	`clock:spring` is the framework's default reach and stays that way: it is
 	interruptible, it inherits gesture velocity, and its two numbers are a FEEL
@@ -31,7 +31,7 @@
 	     where `linear` is half-way at 200 ms. Four springs could not be made to
 	     agree on a landing frame at all.
 	  3. THE PANEL. `presenter.withAnimation` handed a registered CURVE NAME
-	     rather than a motion class (ADR-0033: one dial, two vocabularies). The
+	     rather than a motion class (one dial, two vocabularies). The
 	     flight is a stated 450 ms of `quint · inOut`, which is a shape no
 	     critically damped spring has — a spring leaves fast and decays, this one
 	     starts slow. Everything else about the call is unchanged: the solver is

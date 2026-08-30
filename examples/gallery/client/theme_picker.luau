@@ -2,8 +2,7 @@
 -- GALLERY THEME PICKER — an EXAMPLE, deliberately not library code.
 --
 -- Director review 2026-07-25: "no idea how to swap themes". Every piece of the
--- swap machinery shipped (ADR-0019 §7: install / swap / swapPackage, atomic,
--- no remount) and none of it was reachable without editing a workspace
+-- swap machinery shipped (no remount) and none of it was reachable without editing a workspace
 -- attribute before pressing Play. This is the missing handle: a compact
 -- top-right overlay listing Studio Neutral plus every package the place
 -- replicated, with that package's themes underneath.
@@ -22,7 +21,7 @@
 --   2. `mount()` builds the overlay and drives the controller. Its proof is the
 --      live Studio pass, not a headless test.
 --
--- FOCUS. The overlay is presented `responder = "passive"` (ADR-0014): it binds
+-- FOCUS. The overlay is presented `responder = "passive"`: it binds
 -- nothing gameplay-contended, it does not move the fixture's focus when it
 -- appears, and it becomes first responder only once the player actually engages
 -- it. That is the whole reason it can sit over an arbitrary screen.
@@ -109,7 +108,7 @@ end
 --
 -- A duplicate package id keeps the FIRST module that claimed it: two modules
 -- compiling to one id would otherwise give two rows that fight over the same
--- sheet (they share one, by name — ADR-0019's documented limit).
+-- sheet (they share one, by name — the documented limit).
 function theme_picker.listing(packages: { [string]: any }, neutralPackage: any): { Entry }
 	local entries: { Entry } = {
 		{
@@ -362,7 +361,7 @@ function theme_picker.mount(opts: MountOpts): any
 	local scope = core:scope("gallery-theme-picker")
 	local selection = scope:own(core:signal(theme_picker.initialSelection(entries)))
 
-	-- ONE controller for this environment (ADR-0019: `themeMetrics` is a single
+	-- ONE controller for this environment (`themeMetrics` is a single
 	-- fact, so a second install is a capability error rather than a silent
 	-- clobber). Installed on NEUTRAL, which is what the gallery is already
 	-- showing — so mounting the picker changes nothing until it is used.
@@ -377,12 +376,12 @@ function theme_picker.mount(opts: MountOpts): any
 	-- SAY SO when the target cannot take native paint. On a fallback target a
 	-- package install commits the whole METRIC half live (sizes, spacing, type
 	-- all swap) while the palette applies from construction — the documented
-	-- ADR-0019 limit. Without this line the picker looks broken: rows resize and
+	-- documented limit. Without this line the picker looks broken: rows resize and
 	-- nothing changes colour, and there is nothing on screen explaining why.
 	if controller.inspect().fallback then
 		warnFn(
 			"[Facet Gallery] theme picker: this target paints through the explicit-write path, so a swap moves "
-				.. "METRICS live but not the palette (ADR-0019). Sheet paint is the library default, so something "
+				.. "METRICS live but not the palette. Sheet paint is the library default, so something "
 				.. "opted OUT: clear the workspace attribute Facet_ForceStyleFallback before Play to see the full "
 				.. "transaction."
 		)
@@ -769,7 +768,7 @@ function theme_picker.mount(opts: MountOpts): any
 			-- This slot used to read `dispatch = dispatch`, and `dispatch` had not
 			-- existed since behaviour moved onto the nodes — a deleted local whose
 			-- reference survived, which Luau reads as a nil GLOBAL rather than
-			-- failing (docs/lessons/later-locals-are-not-upvalues.md is the same
+			-- failing (later locals are not upvalues, the same
 			-- family). So the composed picker shipped `dispatch = nil`, and the
 			-- showcase's `FacetShowcaseAPI.pickTheme` errored with "attempt to call
 			-- a nil value" for every caller: there was NO working route to switch
@@ -815,7 +814,7 @@ function theme_picker.mount(opts: MountOpts): any
 	-- `dispatch` survives only as a scriptable entry point (the showcase's
 	-- pointer-free drive API calls it); nothing on screen depends on it.
 	local presentOpts = {
-		-- PASSIVE (ADR-0014): binds nothing gameplay-contended and never moves
+		-- PASSIVE: binds nothing gameplay-contended and never moves
 		-- the fixture's focus on appearance. It engages only when used.
 		responder = "passive",
 	}

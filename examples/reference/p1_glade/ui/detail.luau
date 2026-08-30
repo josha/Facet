@@ -285,7 +285,7 @@ function detail.body(ctx: any, spec: BodySpec): any
 		return ctx.Lnow("glade." .. gladeId)
 	end))
 
-	-- the shared back+title+trailing bar (registry item 13; W3-D, ADR-0053):
+	-- the shared back+title+trailing bar (registry item 13; W3-D):
 	-- `onBack` is nil outside compact, which is this site's OWN "nothing to go
 	-- back to" decision (the detail pane is beside the overview there, not a
 	-- pushed surface) — `Facet.navBar` never invents a verb it was not given

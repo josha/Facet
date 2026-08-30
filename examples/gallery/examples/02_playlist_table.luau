@@ -789,7 +789,7 @@ function example.build(Facet: any, core: any, deps: any)
 			in the same session — the identical two presses then stepped the column
 			437px → 469px. `,` / `.` are the Adjust keys the presenter binds
 			dynamically while a resizable header holds focus, and they are not
-			contended. See docs/lessons/the-camera-still-owns-the-arrow-keys.md. ]]
+			contended: the camera still owns the arrow keys. ]]
 		return `{label} has the keys: , and . resize it, ↑/↓ sorts`
 	end)
 
@@ -863,7 +863,7 @@ function example.build(Facet: any, core: any, deps: any)
 	-- PRESENTER WIRING -------------------------------------------------------
 	-- None. Both composites (the filter TextInput and the Table) attach input
 	-- contributions to their root nodes, so mounting them is enough: the
-	-- presenter auto-composes the whole screen's four-input story (ADR-0013).
+	-- presenter auto-composes the whole screen's four-input story.
 	-- In document order the filter field's group comes first (so it is the
 	-- initial focus), then the table's own row/toolbar/star groups — giving
 	-- D-pad Up/Down between filter, rows and toolbar and Left/Right across a

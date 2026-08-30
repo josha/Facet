@@ -1,7 +1,7 @@
 --!strict
 -- TEST FIXTURE THEME PACKAGE — "Content A/B" (rich-skinning-v2 package P4).
 --
--- NOT a reference package. It exists for exactly one proposition (ADR-0020 R6):
+-- NOT a reference package. It exists for exactly one proposition:
 -- `content` is the canonical asset field and `contentId` is a kept alias, and
 -- the two are ONE resolution path rather than two that happen to agree today.
 --

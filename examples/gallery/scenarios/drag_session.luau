@@ -158,11 +158,11 @@ return {
 					if detach ~= nil then
 						wired = "native-dragdetector"
 					else
-						-- fallback: raw pointer-capture seam (ADR-0008)
+						-- fallback: raw pointer-capture seam
 						wired = "pointer-fallback"
 						adapter.setPointerHandlers({ instance = cardInstance, path = "/DragLab/Board/Card" }, {
 							-- the raw seam passes ONE {x,y,pointerType} table
-							-- (window space; ADR-0008 capture contract)
+							-- (window space; the pointer-capture contract)
 							down = function(pos: any)
 								handlers.onStart({ x = pos.x, y = pos.y })
 								return true

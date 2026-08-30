@@ -318,7 +318,7 @@ function shell.new(app: any): any
 				id = "HeaderWhen",
 				condition = headerVisible,
 				thenView = function()
-					-- registry item 13 (W3-D, ADR-0053): was a hand-built HStack; the
+					-- registry item 13 (W3-D): was a hand-built HStack; the
 					-- shared bar takes the same Back verb and title
 					return app.Facet.navBar({
 						id = "Header",

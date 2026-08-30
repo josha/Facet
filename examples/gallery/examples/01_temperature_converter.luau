@@ -164,7 +164,7 @@ function example.build(Facet: any, core: any, deps: any)
 	-- PRESENTER WIRING -------------------------------------------------------
 	-- None. Mounting the TextInput is enough: the control attaches an input
 	-- contribution to its root node, and the presenter auto-composes the field's
-	-- whole four-input story from it (ADR-0013) — Activate routes into the field
+	-- whole four-input story from it — Activate routes into the field
 	-- (a tap, or Return/ButtonA on the focused field, enters edit mode), the
 	-- keyboard-occlusion geometry + keep-visible offset are fed automatically,
 	-- and the action system is bound so entering edit raises the field's own

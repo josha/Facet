@@ -42,7 +42,7 @@
 	out of `menu_recipe.resolvePresentation(count, sizeClass, touchLive)` — a pure
 	function of the item count, the space class and whether touch is a LIVE
 	interaction class — and then `newMenu`'s own automatic resolution (director
-	item 14, ADR-0061) forces `sheet` whenever the space class is COMPACT,
+	item 14) forces `sheet` whenever the space class is COMPACT,
 	regardless of which pointer is live: a floating per-level panel does not fit
 	a phone width no matter what moved it. So the Idiom picker below writes the
 	ONE input `resolvePresentation` reads, and both idioms are reachable in one

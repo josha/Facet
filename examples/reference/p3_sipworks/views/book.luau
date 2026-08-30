@@ -185,7 +185,7 @@ function book.recipeView(app: any, opts: any): any
 		return if blendId == nil then {} else { blendId }
 	end))
 
-	-- registry item 13 (W3-D, ADR-0053): was a hand-built HStack (a circle
+	-- registry item 13 (W3-D): was a hand-built HStack (a circle
 	-- Button with a literal "<" glyph child); the shared bar draws the
 	-- framework's own chevron icon instead — see nav_bar.luau's header for
 	-- why that is a deliberate, disclosed visual change, not an oversight.

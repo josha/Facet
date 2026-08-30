@@ -13,9 +13,8 @@
 -- (the label VStack's inter-line gap, the card's own padding AND its own
 -- margin) rather than a second, approximate copy of them — the overflow sweep
 -- caught the row 11px short on every mounted row because the old formula
--- counted the padding but not the gap or the margin (docs/lessons/
--- the-solver-already-told-you.md, "the arrangement and the height are ONE
--- decision").
+-- counted the padding but not the gap or the margin: the arrangement and the
+-- height are ONE decision, and the solver already said so.
 --
 -- THE SCREEN BODY SCROLLS. Title + controls + the (already viewport-sized)
 -- list + the inspect line can still sum taller than a short landscape phone

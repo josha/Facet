@@ -89,7 +89,7 @@ function overlay.build(Facet: any, core: any, model: Model): any
 	-- count computed from `viewportRect` at build time — and a blueprint is built
 	-- ONCE, so after a landscape-to-portrait rotation the panel still carried
 	-- landscape's five columns and clipped exactly as before. Same split brain as
-	-- the row height (docs/lessons/the-solver-already-told-you.md): a viewport
+	-- the row height: a viewport
 	-- number read once is a number that is wrong on the second screen.
 	--
 	-- `minColumnWidth = "intrinsic"` asks the solver for the width it already
@@ -103,8 +103,8 @@ function overlay.build(Facet: any, core: any, model: Model): any
 		children = actionButtons,
 	})
 
-	-- ONE TEXT NODE PER LINE, not one node holding newlines (found live 2026-08-04;
-	-- docs/lessons/embedded-newlines-measure-as-one-line.md). The first version
+	-- ONE TEXT NODE PER LINE, not one node holding newlines (found live
+	-- 2026-08-04: embedded newlines measure as one line). The first version
 	-- joined the counter lines with `\n` to keep a development overlay from
 	-- re-solving six nodes per update — and the solver measures an embedded newline
 	-- as ONE line, so the block reserved a 29px box, drew six lines into it, and

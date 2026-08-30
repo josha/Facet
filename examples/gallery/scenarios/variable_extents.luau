@@ -53,8 +53,7 @@ local POST_COUNT = 400
 	computes a post's height from these numbers and `cell` paints with the same
 	ones, so the declared extent and the painted row cannot disagree — which is
 	the whole authoring discipline the per-item form exists to make possible.
-	`docs/lessons/facet-fixed-px-heights.md` is the class this avoids: a px
-	height fixed against unfixed content. ]]
+	The class this avoids is a px height fixed against unfixed content. ]]
 -- THEME-OPT-OUT: every number in this table is ALSO ARITHMETIC. `rowExtent`
 -- above adds `METRICS.gap` to two `Facet.text.lineBox` results to declare the
 -- row's extent, and a metric NAME cannot be added to a number — the framework
@@ -197,8 +196,8 @@ return {
 			preference the control row and the status both grow, and the sweep measured
 			this page painting 77px past its own box at `preferredTextOffset` 14 and 49px
 			at 10, plus a further 19 findings under packages whose own metrics widen the
-			same chrome at the DEFAULT preference. `docs/lessons/facet-fixed-px-heights.md`
-			is the class, in its height spelling; a fixed reserve against unfixed chrome
+			same chrome at the DEFAULT preference. The class is a fixed px height, in
+			its height spelling; a fixed reserve against unfixed chrome
 			is the same bug as a fixed row height against unfixed text.
 
 			IT CANNOT CHASE ITS OWN TAIL: `ListPane` takes `fill`, so its height is
@@ -316,7 +315,7 @@ return {
 			WHY IT IS CONDITIONAL. On any viewport with the room, the chrome hugs and
 			the screen looks exactly as it always has — a `fill` here would reserve a
 			share of a tall screen for a band that needs ~150px of it and leave the
-			rest blank. `heightClass` (ADR-0023) is the framework's own Readable for
+			rest blank. `heightClass` is the framework's own Readable for
 			"the vertical room is scarce" and it re-resolves on rotation. ]]
 		local conditions = ctx.Facet.adaptive.conditions(core, ctx.env, { scope = scope })
 		local chromeHeight = scope:own(core:memo(function(use)

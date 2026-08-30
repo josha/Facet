@@ -245,7 +245,7 @@ local WORKLOADS = {
 		`artifacts/nested-instance-tree/live-probes.md` §4 measured this exact
 		shape in Studio — a 20-row list inside a `ScrollView` with a header above
 		it whose height goes 20 -> 60 — at 241 engine `Position` writes before
-		ADR-0032's ordering fix and 1 after. Nothing pressed it at scale or asked
+		the ordering fix and 1 after. Nothing pressed it at scale or asked
 		whether the collapse is a FRAME-TIME win; `hosted`/`unhosted` are the same
 		rows with and without the `ScrollView`, and `*Large` sweeps N 5x. SAME
 		RULING AS 2026-08-14/2026-08-15: adding a workload changes no existing
@@ -255,7 +255,7 @@ local WORKLOADS = {
 		implementation = "none",
 		question = "Does a container's engine writes collapse when it moves inside a real instance "
 			.. "host, and does that collapse show up as a frame-time difference on the device that "
-			.. "matters? ADR-0032's own standing risk: the engine's C++ descendant walk is unmeasured, "
+			.. "matters? The standing risk: the engine's C++ descendant walk is unmeasured, "
 			.. "so this may show nothing.",
 		passes = { "hosted", "hostedRepeat", "unhosted", "hostedLarge", "unhostedLarge" },
 		profilePass = "hosted",
@@ -1401,7 +1401,7 @@ return {
 				end
 				local order = core:signal(initial)
 				local tall = core:signal(false)
-				-- the AUTHORED PAINT triple (ADR-0026), one signal so arm D moves all
+				-- the AUTHORED PAINT triple, one signal so arm D moves all
 				-- three on every row at once and its record count matches B's and C's
 				local lit = core:signal(false)
 				local rowOpacity = core:memo(function(use: any)
@@ -1492,7 +1492,7 @@ return {
 					return out, seeded
 				end
 
-				--[[ THE OFF-PATH CONTROL (ADR-0026 Decision 9). "A surface that authors
+				--[[ THE OFF-PATH CONTROL. "A surface that authors
 					none of these must not pay" is a claim, and a claim measured against
 					nothing is a comment. This is the same tree with the three props
 					simply absent — plain VStack rows, no fade group, no composition —
@@ -1582,7 +1582,7 @@ return {
 						note = "arm B re-orders (position delta only); arm C resizes every row "
 							.. "(both halves on the same records). The C-minus-B difference is the "
 							.. "marginal cost of the size half; arm D moves the AUTHORED paint "
-							.. "triple (opacity/scale/rotation, ADR-0026) with every rect held "
+							.. "triple (opacity/scale/rotation) with every rect held "
 							.. "still. plainIdleMs is the same tree DECLARING none of the three, "
 							.. "so offPathDeltaMs is what a declaration costs at rest. Compare "
 							.. "every one of these against harnessSpreadMs before calling it a "
@@ -1768,7 +1768,7 @@ return {
 			THE ROW PAINTS EXACTLY WHAT IT DECLARES. `extentFor` is called by the row
 			blueprint and by `itemExtent`, so the declared slot and the painted content
 			cannot drift — the painted-at-a-size-nobody-measured family
-			(`docs/lessons/`) is the defect a lying `itemExtent` produces, and it would
+			is the defect a lying `itemExtent` produces, and it would
 			read here as a fast arm rather than as a broken one.
 
 			Tier discipline unchanged: Lune = regression signal only, this lab under
@@ -2899,7 +2899,7 @@ return {
 		-- every lifted label short by exactly 28 - 24 = 4px, at every control size
 		-- and every label length, because both terms are constants.
 		--
-		-- The two halves commit in ONE transaction (ADR-0019 §7), which is the
+		-- The two halves commit in ONE transaction, which is the
 		-- controller's whole job: sheet derives, decoration and `env:set` land
 		-- together or not at all, so there is no frame where paint and geometry
 		-- disagree. `themes.resolve` + `env:set` is the fallback for a target with

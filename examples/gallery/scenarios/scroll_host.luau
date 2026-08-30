@@ -21,7 +21,7 @@ return {
 		local UI = Facet.UI
 		local scope = ctx.core:scope("scroll-host")
 		-- "the vertical room is scarce", the framework's own Readable for it
-		-- (`adaptive.HEIGHT_BREAKPOINTS`, ADR-0023) — a Readable, so a rotation
+		-- (`adaptive.HEIGHT_BREAKPOINTS`) — a Readable, so a rotation
 		-- re-resolves it instead of freezing whichever orientation booted first
 		local conditions = Facet.adaptive.conditions(ctx.core, ctx.env, { scope = scope })
 		local showTitle = scope:own(ctx.core:memo(function(use)

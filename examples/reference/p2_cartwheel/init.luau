@@ -132,7 +132,7 @@ local STAGE_CONTENT = {
 	},
 }
 
---[[ THE PROOF'S OWN STRUCTURAL METRICS (ADR-0042).
+--[[ THE PROOF'S OWN STRUCTURAL METRICS.
 
 	These seven numbers used to live in `content/metrics.luau` as declared
 	literals, with a comment saying what they wanted to be: *"THE SPEC ASKS FOR

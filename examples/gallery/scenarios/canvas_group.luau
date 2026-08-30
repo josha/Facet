@@ -1,5 +1,5 @@
 --!strict
---[[ Scenario 'canvas_group' — ONE FADE, OR THREE (ADR-0026, ADR-0029).
+--[[ Scenario 'canvas_group' — ONE FADE, OR THREE.
 
 	`canvasGroup` and its reactive twin `opacity` are the framework's fade group:
 	the node is materialized as an engine `CanvasGroup`, so its whole subtree is
@@ -18,7 +18,7 @@
 	  · THREE GROUPS. The same fade written on each plate — which is what an
 	    author reaches for first — fades each one against WHAT IS BEHIND IT, so
 	    every overlap composes twice and the plates dissolve into each other.
-	    ADR-0026: an authored opacity MULTIPLIES with the fade under it.
+	    An authored opacity MULTIPLIES with the fade under it.
 
 	This is the one demonstration in this catalogue that a still screenshot CAN
 	hold — which is the point. The difference is a picture, and until now no
@@ -32,7 +32,7 @@
 
 	...AND THE REFUSAL, VERBATIM. `opacity` lives on `Box` and `ZStack` and
 	nowhere else, and every other class answers a reach for it by NAME rather than
-	through the unknown-property path (ADR-0029). The sentence on screen is
+	through the unknown-property path. The sentence on screen is
 	captured at BUILD from a real refused construction — the framework's own
 	words, not a paraphrase this file could let go stale.
 
@@ -83,7 +83,7 @@ local COPY = {
 }
 
 return {
-	title = "Canvas group: one fade, or three (ADR-0026)",
+	title = "Canvas group: one fade, or three",
 	ledgerRows = {},
 	copy = COPY,
 	stops = STOPS,
@@ -102,7 +102,7 @@ return {
 		local opacity = scope:own(core:signal(STOPS[3]))
 		local showFading = scope:own(core:signal(false))
 
-		--[[ THE REFUSAL, CAPTURED FROM THE FRAMEWORK AT BUILD (ADR-0029).
+		--[[ THE REFUSAL, CAPTURED FROM THE FRAMEWORK AT BUILD.
 
 			A construction is the whole check: `opacity` on any class other than Box
 			or ZStack throws BY NAME, at the point of use, before anything is
