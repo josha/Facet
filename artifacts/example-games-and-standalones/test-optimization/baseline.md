@@ -224,3 +224,80 @@ box"). Both are example-only fixes.
 **The finding underneath both:** a gate row that nobody runs between missions is a
 gate row that reports the state of the last mission that ran it. The optimization
 half of this stage exists so that running them is cheap enough to be routine.
+
+---
+
+# AFTER — the same measurements, one line later
+
+| Run | Wall | User CPU | Peak RSS | Result |
+|---|---:|---:|---:|---|
+| Full suite, cold — **before** | 1587.03 s | 1564.27 s | 14.25 GB | 7678 passed |
+| Full suite, cold — **after** | **260.28 s** | 254.98 s | **0.68 GB** | **7709 passed, 0 failed** |
+| | **−83.6 %** | | **−95.2 %** | +31 cases |
+
+The extra 31 cases are this stage's own additions (the word-data spec and the word
+game's new theme, cue and large-text cases). Nothing was deleted, skipped, merged or
+weakened to reach the number: the suite is the same argument-free `./run-tests.sh` over
+the same one list in `tests/run.luau`.
+
+And the sum of the isolated parts was 195 s. The one-process run is now 260 s against
+that floor — a 1.3× overhead for sharing a process, where it was 8.1×. The retention
+was the entire gap.
+
+## Both causes
+
+**1. `src/render/surface_overlap.luau` — framework.** Its `live` registry is
+weak-keyed on the paint target, and its docstring promised the weak keys were the
+backstop. The inner **bucket was strong**, and each `Entry.snapshot` calls
+`controller.coverRect()` — a controller closing over the very target the bucket is
+keyed by. Luau's weak tables are not ephemerons, so every registered surface was a
+strong reference to its own weak key. One surface whose `controller.dispose()` was
+skipped pinned its adapter, renderer, whole mounted tree and core for the process.
+
+Fix: the bucket is weak-keyed too, so the whole cycle collects as a unit.
+`docs/lessons/luau-weak-tables-are-not-ephemerons.md` records the class and the
+instruments.
+
+**2. `tests/lib/fake_target.luau` — test adapter, independently necessary.**
+`measureTextWidths` pushed `{requests, done}` into a list and returned nothing.
+`done` is `renderer.attach`'s own closure and it holds the root.
+`target_contract.luau:126-132` documents that an adapter *may* return a cancel the
+renderer calls on dispose; the renderer already collects and calls them, and
+`screen_target` already returns one. The fake did not, so one un-cancellable batch per
+screen held the whole tree.
+
+Attribution, on an 80-spec subset's live set: **neither fix 1284 MB · fake-target only
+1360 MB · overlap only 12.1 MB · both 12.5 MB.** On the isolated present/dismiss loop:
+overlap-only still leaks 3.4 → 46 MB; both flat. Each is necessary.
+
+**`presenter.dismiss(handle)` was always the complete documented teardown.** No public
+contract changed. This is not a documentation defect.
+
+## What this settles about the plan
+
+The 20-minute headless budget is no longer in doubt from the suite's side. Recomputing
+the sweep arithmetic in `producers.md` with the measured number:
+
+```
+suite                     260 s
+bench.sh x8                94 s
+check_boundary x14         86 s
+transcript reads x261      78 s
+stylua x11                 20 s
+the rest                  ~60 s
+                        -------
+                         ~598 s   ≈ 10 minutes
+```
+
+plus the settle waits, now charged to twelve gates instead of thirty-two. A producer
+result cache remains **not built**, for the reason `producers.md` gives: it would save
+about two minutes and would buy a permanent new way for a stale result to be served.
+
+## Still owed at this row
+
+- Rascal Rally cold/warm on a quiet machine, and its fast/affected tiers.
+- One timed attempt at this stage's own gate, with its prior-requirement path.
+- The frozen pass/fail corpus and the invalidation mutations (TEST-2, TEST-3).
+- The six further weak tables in `src/themes/snapshot.luau` and the one in
+  `src/client/theme_controller.luau`, un-measured. Not material at a 12 MB live set,
+  but the same shape.
