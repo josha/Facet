@@ -1,0 +1,89 @@
+# Facet — the protected manual Package release.
+#
+# THIS WORKFLOW NEVER RUNS ON A PUSH. It has one trigger, `workflow_dispatch`,
+# and a human supplies the version and the commit. It is the CI wrapper around
+# `tools/release.sh`, which is itself the wrapper around `tools/package.sh
+# publish --confirm` — every guard in `tools/package.py` still applies here, and
+# a guard that refuses stops the job.
+#
+# Three separate things stop an untrusted run: the `release` environment (whose
+# required reviewers and secret live in repository settings, not in this file),
+# the explicit fork/actor refusal below, and the guards in the tool.
+#
+# `ROBLOX_API_KEY` reaches the job as an environment variable from the `release`
+# environment's secrets and is read from the environment only. Nothing in this
+# workflow echoes it, and the receipt the job uploads never contains it.
+
+name: release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to publish (must equal Facet.VERSION at the commit)"
+        required: true
+        type: string
+      commit:
+        description: "Exact commit SHA to release"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: facet-release
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment: release
+    steps:
+      - name: Refuse forks and non-owner actors
+        env:
+          IS_FORK: ${{ github.event.repository.fork }}
+          OWNER: ${{ github.repository_owner }}
+          ACTOR: ${{ github.actor }}
+        run: |
+          set -euo pipefail
+          if [ "$IS_FORK" = "true" ]; then
+            echo "refused: a fork may not publish the Facet package" >&2
+            exit 1
+          fi
+          if [ "$ACTOR" != "$OWNER" ]; then
+            echo "refused: actor '$ACTOR' is not the repository owner '$OWNER'" >&2
+            exit 1
+          fi
+          echo "actor $ACTOR is the repository owner and this is not a fork"
+
+      - name: Check out the exact commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.commit }}
+          # release.sh makes its own worktree, so it needs the whole history
+          fetch-depth: 0
+
+      - name: Install the pinned toolchain (rokit)
+        uses: CompeyDev/setup-rokit@v0.1.2
+
+      - name: Record the toolchain
+        run: |
+          set -euo pipefail
+          rojo --version
+          lune --version
+          stylua --version
+          python3 --version
+
+      - name: Release
+        env:
+          ROBLOX_API_KEY: ${{ secrets.ROBLOX_API_KEY }}
+        run: tools/release.sh "${{ inputs.version }}" "${{ inputs.commit }}"
+
+      - name: Upload the receipt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: facet-package-receipt-${{ inputs.version }}
+          path: package/receipts/*.json
+          if-no-files-found: warn
