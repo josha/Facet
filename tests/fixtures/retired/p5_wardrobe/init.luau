@@ -1,4 +1,15 @@
 --!strict
+-- RETIRED FIXTURE — NOT A CURRENT EXAMPLE. Read the README beside this file
+-- first (tests/fixtures/retired/README.md). Wardrobe was retired as a player
+-- example on 2026-08-30 (docs/plans/example-games-and-standalones.md, "Retire
+-- Wardrobe; complete Sipworks and Glade"): it is gone from the scenario
+-- registry, the showcase picker, the curated standalone manifest, the public
+-- example catalog and every publishable place. It lives here — under tests/,
+-- reachable only from `tests/reference/wardrobe_spec.luau` — because the
+-- CLOSED, EARNED `reference-app-validation` gate still cites it by name, and
+-- deleting it would erase evidence to tidy a directory. It may be deleted when
+-- no gate row cites it. Do not re-present it as an example.
+--
 -- Reference proof "Wardrobe" (RA-P5, reference-app-validation).
 -- Clean-room avatar-editor surface built to specs/p5-wardrobe.md: one
 -- Composition (split ⇄ stacked by lane floor, never a device branch), a
