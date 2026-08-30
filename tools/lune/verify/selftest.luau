@@ -71,22 +71,32 @@ local producer: identity.Producer = {
 	tiers = { full = true },
 }
 do
+	--[[ THE CACHES ARE A PER-RUN SNAPSHOT. Inside one coordinator run every
+		producer is keyed against the same view of the tree on purpose, so a
+		sibling agent's edit landing mid-run cannot give two producers two
+		different ideas of what the source was. Each edit below is therefore
+		followed by `identity.resetCaches()` — it is asking a SECOND run's
+		question, which is the one that matters for invalidation. ]]
 	local first = identity.compute(producer, tc)
 	local again = identity.compute(producer, tc)
 	check("the same tree hashes the same twice", first.hash == again.hash)
 
 	fs.writeFile(`{scratch}/one.txt`, "beta\n")
+	identity.resetCaches()
 	local changed = identity.compute(producer, tc)
 	check("a changed input file changes the identity", changed.hash ~= first.hash)
 
 	fs.writeFile(`{scratch}/one.txt`, "alpha\n")
+	identity.resetCaches()
 	local restored = identity.compute(producer, tc)
 	check("restoring the file restores the identity", restored.hash == first.hash)
 
 	fs.writeFile(`{scratch}/one.txt`, "alpha\r\n")
+	identity.resetCaches()
 	local crlf = identity.compute(producer, tc)
 	check("a CRLF line ending is the same source", crlf.hash == first.hash)
 	fs.writeFile(`{scratch}/one.txt`, "alpha\n")
+	identity.resetCaches()
 
 	local other = table.clone(producer)
 	other.command = "true # different"
@@ -104,6 +114,7 @@ do
 	withFixture.fixtures = { `{scratch}/missing.json` }
 	local absent = identity.compute(withFixture, tc)
 	fs.writeFile(`{scratch}/missing.json`, "{}")
+	identity.resetCaches()
 	check("a fixture appearing changes the identity", identity.compute(withFixture, tc).hash ~= absent.hash)
 end
 

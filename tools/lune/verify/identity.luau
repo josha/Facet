@@ -87,8 +87,18 @@ end
 
 --[[ Every file a producer declares, with its content hash. Returned as a sorted
 	list of `path\0hash` so the caller can both hash it and, on a miss, say WHICH
-	file moved. ]]
+	file moved.
+
+	Memoised by the glob set: most producers declare the same generous source
+	globs, and re-walking the tree 133 times is minutes of nothing. ]]
+local digestCache: { [string]: { string } } = {}
+
 function identity.inputDigest(globs: { string }): { string }
+	local key = table.concat(globs, "\0")
+	local cached = digestCache[key]
+	if cached ~= nil then
+		return cached
+	end
 	local seen: { [string]: boolean } = {}
 	local files: { string } = {}
 	for _, root in util.globRoots(globs) do
@@ -102,22 +112,32 @@ function identity.inputDigest(globs: { string }): { string }
 	table.sort(files)
 	local out: { string } = {}
 	for _, rel in files do
-		local ok, text = pcall(util.readNormalized, rel)
-		-- A file listed by the walk and gone by the time it is read is a sibling
-		-- agent's temp file. Hash it as absent: the identity then differs from
-		-- the settled tree, which is a MISS and a rerun — slow, never wrong.
-		table.insert(out, `{rel}\0{if ok then util.sha256(text :: string) else "<vanished>"}`)
+		-- A file listed by the walk and gone by the time it is read hashes as
+		-- `<vanished>`: the identity then differs from the settled tree, which is
+		-- a MISS and a rerun — slow, never wrong. (A sibling agent's temp file
+		-- being listed and then removed mid-walk is a measured event here.)
+		table.insert(out, `{rel}\0{util.fileHash(rel)}`)
 	end
+	digestCache[key] = out
 	return out
 end
 
+--[[ Declared fixture inputs. A fixture may be a single file or a `**` glob over
+	a recorded-evidence directory; a MISSING one hashes as the literal
+	`<absent>`, which is a different identity from any content — so deleting an
+	evidence file invalidates rather than being silently ignored. ]]
 local function fixtureDigest(paths: { string }): { string }
 	local sorted = table.clone(paths)
 	table.sort(sorted)
 	local out: { string } = {}
 	for _, p in sorted do
-		local ok, text = pcall(util.readNormalized, p)
-		table.insert(out, `{p}\0{if ok then util.sha256(text :: string) else "<absent>"}`)
+		if string.find(p, "*", 1, true) then
+			for _, entry in identity.inputDigest({ p }) do
+				table.insert(out, entry)
+			end
+		else
+			table.insert(out, `{p}\0{if fs.isFile(p) then util.fileHash(p) else "<absent>"}`)
+		end
 	end
 	return out
 end
@@ -143,6 +163,12 @@ export type Identity = {
 
 local function part(label: string, value: string): string
 	return `{label}:{#value}:{value}\n`
+end
+
+-- See util.resetCaches: a fresh run's view of the tree, for the selftest.
+function identity.resetCaches()
+	table.clear(digestCache)
+	util.resetCaches()
 end
 
 function identity.compute(producer: Producer, tc: Toolchain): Identity

@@ -28,6 +28,30 @@ function util.readNormalized(path: string): string
 	return text
 end
 
+--[[ MEMOISED, BECAUSE THE TREE DOES NOT MOVE DURING A RUN.
+
+	133 producers, most of them declaring the same generous source globs, means
+	the same few thousand files are walked and hashed once per producer if
+	nothing caches. Measured on the first run of the coordinator: minutes of pure
+	Luau, with no child process alive to explain it.
+
+	Caching within one process is also what makes identities COHERENT: every
+	producer in a run is keyed against the same snapshot of the tree, so a
+	sibling agent's edit landing mid-run cannot give two producers two different
+	ideas of what the source was. ]]
+local hashCache: { [string]: string } = {}
+
+function util.fileHash(path: string): string
+	local cached = hashCache[path]
+	if cached ~= nil then
+		return cached
+	end
+	local ok, text = pcall(util.readNormalized, path)
+	local hash = if ok then util.sha256(text :: string) else "<vanished>"
+	hashCache[path] = hash
+	return hash
+end
+
 -- ---- canonical JSON ---------------------------------------------------------
 
 local encodeValue
@@ -107,7 +131,13 @@ local MAGIC = "[%^%$%(%)%%%.%[%]%*%+%-%?]"
 	segment; `?` matches one character that is not a separator. Translated to a
 	Lua pattern rather than matched by hand so the whole rule is one line of
 	code a reader can check. ]]
+local patternCache: { [string]: string } = {}
+
 function util.globToPattern(glob: string): string
+	local cached = patternCache[glob]
+	if cached ~= nil then
+		return cached
+	end
 	local out: { string } = { "^" }
 	local i = 1
 	while i <= #glob do
@@ -134,7 +164,9 @@ function util.globToPattern(glob: string): string
 		end
 	end
 	table.insert(out, "$")
-	return table.concat(out)
+	local pattern = table.concat(out)
+	patternCache[glob] = pattern
+	return pattern
 end
 
 function util.matchesAny(path: string, globs: { string }): boolean
@@ -175,23 +207,41 @@ local function walkInto(root: string, prefix: string, out: { string })
 	end
 end
 
+local walkCache: { [string]: { string } } = {}
+
 -- Every file under `root`, as paths relative to the repository root, sorted.
 function util.walk(root: string): { string }
+	local cached = walkCache[root]
+	if cached ~= nil then
+		return cached
+	end
 	local out: { string } = {}
 	if fs.isFile(root) then
 		table.insert(out, root)
+		walkCache[root] = out
 		return out
 	end
 	if not fs.isDir(root) then
+		walkCache[root] = out
 		return out
 	end
 	walkInto(root, root, out)
 	table.sort(out)
+	walkCache[root] = out
 	return out
 end
 
 -- The roots a set of globs could possibly touch, so a walk does not have to
 -- read the whole repository to answer a question about `docs/**`.
+--[[ Drop the per-run snapshot. A coordinator run never needs this — the point
+	of the caches is that every producer in one run is keyed against the same
+	tree — but the selftest edits a file and then asks a SECOND run's question,
+	and a test that could not do that could not prove the identity moves. ]]
+function util.resetCaches()
+	table.clear(hashCache)
+	table.clear(walkCache)
+end
+
 function util.globRoots(globs: { string }): { string }
 	local seen: { [string]: boolean } = {}
 	local roots: { string } = {}
