@@ -238,6 +238,9 @@ end
 -- clipped every label in the UI. This correction is what makes the exactness
 -- claim true rather than lucky.
 local STABILITY_PROBE = "Mg Wl 0123"
+-- deliberately large: the flip is a per-em metric change, so a big size turns a
+-- sub-pixel difference at UI sizes into whole pixels the probe cannot miss
+local STABILITY_PROBE_SIZE = 100
 local warmed: { [string]: boolean } = {}
 
 -- PreloadAsync on a TextLabel carrying the face is the documented way to
@@ -263,13 +266,42 @@ end
 -- starts this, so a game gets it by building its adapter early; the cost is a
 -- handful of bounds calls on a throwaway string.
 --
--- The test is "ask again and compare", because there is no readiness signal and
--- the wrong answer is stable while it is wrong. Two agreeing reads a settle
--- interval apart AND a minimum elapsed time, because two reads could in
--- principle both land inside a long enough window.
-text_premeasure.SETTLE_INTERVAL = 1.5
-text_premeasure.SETTLE_MIN_ELAPSED = 3
-text_premeasure.SETTLE_MAX_ATTEMPTS = 8
+--[[ SETTLE ON THE FLIP, NOT ON A FIXED WAIT (2026-08-30, measured live in the
+	showcase). The gate here used to be "two agreeing reads a SETTLE_INTERVAL
+	apart AND at least SETTLE_MIN_ELAPSED seconds", which by construction could
+	not settle before 3 s.
+
+	Live, the engine's metrics flip at t≈0.32 s. Polling the bounds API from the
+	client VM every 0.03 s, `Download`@14 read 54 up to t=0.321 and 51 from
+	there on, and `GetTextBoundsAsync`, a parented TextLabel's `TextBounds` and
+	the legacy `GetTextSize` all agree at both instants — the ENGINE changes its
+	answer, this module does not merely cache a stale one. Every one of the 71
+	corrections that session owed was knowable at 0.32 s. The old loop even SAW
+	the change at its 1.5 s read — `agrees` was false precisely BECAUSE the
+	width had moved — and threw that away to wait for a redundant confirmation,
+	so the showcase held a boot-window layout until t=3.08 s and then reflowed
+	the whole screen in one frame. That late reflow is the "pop".
+
+	A CHANGE is the positive signal the old gate lacked. "It stopped changing"
+	proves nothing on its own, because the wrong answer is stable while it is
+	wrong — but "it changed, and then held" proves the boot value is behind us.
+	So: poll on a geometric backoff (dense early, where the flip is; cheap
+	later), settle once a move has held quiet for SETTLE_CONFIRM_QUIET — a
+	single agreeing read is NOT enough, because two reads can straddle two
+	flips — and keep the elapsed floor as the fallback for a session that boots
+	already correct and therefore never moves, where there is nothing to correct
+	and no pop either way.
+
+	Live result: the settle lands at ~0.66 s instead of 3.08 s. The engine's own
+	glyph metrics still change at 0.32 s and nothing here can prevent that, but
+	the LAYOUT now follows it within a third of a second, while the screen is
+	still arriving, instead of reflowing three seconds into a settled view. ]]
+text_premeasure.SETTLE_INTERVAL = 1.5 -- poll backoff CAP
+text_premeasure.SETTLE_MIN_ELAPSED = 3 -- floor for a session that never moves
+text_premeasure.SETTLE_POLL_MIN = 0.05 -- first gap; the backoff grows from here
+text_premeasure.SETTLE_POLL_GROWTH = 1.5
+text_premeasure.SETTLE_CONFIRM_QUIET = 0.25 -- quiet a move must hold to close the gate
+text_premeasure.SETTLE_DEADLINE = 12 -- hard stop, the old ATTEMPTS * INTERVAL
 -- corrections made, kept for the evidence artifact: an exactness claim has to
 -- be able to show the correction that made it true
 text_premeasure.corrections = {} :: { { font: string, size: number, word: string, from: any, to: any } }
@@ -288,6 +320,34 @@ function text_premeasure.spawn(f: () -> ())
 	task.spawn(f)
 end
 
+--[[ ...and its two siblings, for the same reason one step further. The settle
+	is a POLICY OVER TIME — "settle when the answer MOVES, in about a third of a
+	second, not on a three-second timer" is a claim about WHEN, and a claim
+	about when that no test can drive is a comment. Faking `wait` and `now`
+	together lets the suite run a scripted flip in virtual time and assert the
+	instant the settle lands; faking `probeStability` is the scripted engine.
+	Defaults are exactly what they were. ]]
+function text_premeasure.wait(seconds: number)
+	task.wait(seconds)
+end
+
+function text_premeasure.now(): number
+	return os.clock()
+end
+
+function text_premeasure.probeStability(params: any, font: Font): number?
+	return boundsWidth(params, font, STABILITY_PROBE_SIZE, STABILITY_PROBE)
+end
+
+-- the suite's reset, `text_metrics.resetMeasured`'s sibling: `settled` is
+-- SESSION state by design, so a test that drives the settle has to be able to
+-- put the module back before the next one runs.
+function text_premeasure.resetSettle()
+	settled = false
+	warming = false
+	table.clear(text_premeasure.corrections)
+end
+
 -- idempotent; safe to call from anywhere, returns immediately
 function text_premeasure.warmUp()
 	if settled or warming then
@@ -301,25 +361,57 @@ function text_premeasure.warmUp()
 			return
 		end
 		warmFont("BuilderSans", font)
-		local started = os.clock()
-		local previous: number? = nil
+		local started = text_premeasure.now()
 		-- one params instance for the whole stability probe, like a batch
 		local params = text_premeasure.newBoundsParams()
-		for _ = 1, text_premeasure.SETTLE_MAX_ATTEMPTS do
-			local width = boundsWidth(params, font, 100, STABILITY_PROBE)
-			local agrees = width ~= nil and previous ~= nil and math.abs(width - previous) < 0.01
-			if agrees and (os.clock() - started) >= text_premeasure.SETTLE_MIN_ELAPSED then
+		local function finish()
+			if params ~= nil then
+				pcall(function()
+					params:Destroy()
+				end)
+			end
+			settled = true
+		end
+
+		local previous = text_premeasure.probeStability(params, font)
+		if previous == nil then
+			-- the engine has no answer at all (no params, no service): there is
+			-- nothing to stabilise against and nothing a later read could
+			-- correct, so do not hold every batch's final answer for 12 s
+			finish()
+			return
+		end
+
+		local movedAt: number? = nil
+		local interval = text_premeasure.SETTLE_POLL_MIN
+		while text_premeasure.now() - started < text_premeasure.SETTLE_DEADLINE do
+			text_premeasure.wait(interval)
+			interval = math.min(interval * text_premeasure.SETTLE_POLL_GROWTH, text_premeasure.SETTLE_INTERVAL)
+			local width = text_premeasure.probeStability(params, font)
+			local elapsed = text_premeasure.now() - started
+			if width == nil then
+				-- stopped answering mid-settle; the floor is the only bound left
+				if elapsed >= text_premeasure.SETTLE_MIN_ELAPSED then
+					break
+				end
+			elseif math.abs(width - previous) >= 0.01 then
+				-- IT MOVED. The boot answer is behind us — but a read taken
+				-- while the metrics are still arriving is not the answer
+				-- either, so a move ARMS the gate rather than closing it.
+				previous = width
+				movedAt = elapsed
+			elseif movedAt ~= nil then
+				-- quiet since the last move. Long enough quiet is the whole
+				-- claim: it is what separates "the flip is behind us" from
+				-- "we happened to read twice between two flips".
+				if elapsed - movedAt >= text_premeasure.SETTLE_CONFIRM_QUIET then
+					break
+				end
+			elseif elapsed >= text_premeasure.SETTLE_MIN_ELAPSED then
 				break
 			end
-			previous = width
-			task.wait(text_premeasure.SETTLE_INTERVAL)
 		end
-		if params ~= nil then
-			pcall(function()
-				params:Destroy()
-			end)
-		end
-		settled = true
+		finish()
 	end)
 end
 
@@ -329,8 +421,8 @@ local function awaitSettled(): boolean
 		return true
 	end
 	text_premeasure.warmUp()
-	local deadline = os.clock() + text_premeasure.SETTLE_INTERVAL * text_premeasure.SETTLE_MAX_ATTEMPTS
-	while not settled and os.clock() < deadline do
+	local deadline = text_premeasure.now() + text_premeasure.SETTLE_DEADLINE
+	while not settled and text_premeasure.now() < deadline do
 		task.wait()
 	end
 	return settled
@@ -374,7 +466,7 @@ end
 -- correction free to the caller.
 --
 -- RETURNS A CANCEL FUNCTION (2026-08-17). The second `done` of a
--- boot-window batch can arrive up to `SETTLE_INTERVAL * SETTLE_MAX_ATTEMPTS`
+-- boot-window batch can arrive up to `SETTLE_DEADLINE`
 -- later — ~12 s — and a renderer disposed in between was still called back,
 -- with an `env:set` and a `solveAndApply` on a controller that had torn its
 -- surface down. There is no cancelling an engine read that is already in

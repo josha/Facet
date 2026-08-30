@@ -569,6 +569,104 @@ describe("presenter: revealWhenTextExact", function()
 		expect(destroyed).toBe(1)
 	end)
 
+	--[[ THE SETTLE LANDS ON THE FLIP (2026-08-30). Measured live in the
+		showcase: the engine's metrics change at t≈0.32 s, and the old gate —
+		two agreeing reads a SETTLE_INTERVAL apart AND a SETTLE_MIN_ELAPSED
+		floor — could not settle before 3 s, so the whole screen reflowed at
+		t=3.08 s in one visible frame. These drive the settle in VIRTUAL time
+		through the `now`/`wait`/`probeStability` seams, so the assertion is the
+		INSTANT it lands, which is the thing the user actually sees. ]]
+	local function driveSettle(probeAt: (t: number) -> number?): (number, number)
+		local text_premeasure = require("../src/client/text_premeasure")
+		local originals = {
+			now = text_premeasure.now,
+			wait = text_premeasure.wait,
+			spawn = text_premeasure.spawn,
+			fontFor = text_premeasure.fontFor,
+			newBoundsParams = text_premeasure.newBoundsParams,
+			probeStability = text_premeasure.probeStability,
+		}
+		local clock = 0
+		local reads = 0
+		text_premeasure.resetSettle()
+		text_premeasure.now = function()
+			return clock
+		end
+		text_premeasure.wait = function(seconds: number)
+			clock += seconds
+		end
+		text_premeasure.spawn = function(f: () -> ())
+			f() -- inline, so `warmUp` returns only once the settle has landed
+		end
+		text_premeasure.fontFor = function(): any
+			return {} :: any -- a non-nil stand-in; only `probeStability` reads it
+		end
+		text_premeasure.newBoundsParams = function(): any
+			return nil
+		end
+		text_premeasure.probeStability = function(): number?
+			reads += 1
+			return probeAt(clock)
+		end
+		text_premeasure.warmUp()
+		for key, value in originals do
+			(text_premeasure :: any)[key] = value
+		end
+		text_premeasure.resetSettle()
+		return clock, reads
+	end
+
+	it("settles on the FLIP, not on the three-second floor", function()
+		-- the live showcase numbers: 54 for `Download`@14 until t=0.321, 51 after
+		local settledAt, reads = driveSettle(function(t)
+			return if t < 0.321 then 54 else 51
+		end)
+		local text_premeasure = require("../src/client/text_premeasure")
+		-- the old gate landed at 3.0 s BY CONSTRUCTION. This one lands as soon
+		-- as the flip has held quiet, so it cannot land before the flip plus
+		-- that quiet, and in practice lands inside a second — 4-5x earlier, and
+		-- while the screen is still arriving rather than three seconds into it.
+		expect(settledAt >= 0.321 + text_premeasure.SETTLE_CONFIRM_QUIET).toBe(true)
+		expect(settledAt < 1).toBe(true)
+		-- ...and it costs a handful of probes, not a poll-per-frame
+		expect(reads < 12).toBe(true)
+	end)
+
+	it("a move is CONFIRMED before it settles: a second move re-arms the gate", function()
+		-- moves twice — 54, then 51 at 0.3, then 49 at 0.6. Settling on the
+		-- first move would cache 51, which is still not the answer.
+		local settledAt = driveSettle(function(t)
+			if t < 0.3 then
+				return 54
+			elseif t < 0.6 then
+				return 51
+			end
+			return 49
+		end)
+		expect(settledAt > 0.6).toBe(true)
+		expect(settledAt < 1.2).toBe(true)
+	end)
+
+	it("a session that never moves still settles on the floor, not the deadline", function()
+		-- the warm-cache case: the boot answer IS the settled answer, so there
+		-- is nothing to correct and no pop either way
+		local settledAt, reads = driveSettle(function()
+			return 51
+		end)
+		local text_premeasure = require("../src/client/text_premeasure")
+		expect(settledAt >= text_premeasure.SETTLE_MIN_ELAPSED).toBe(true)
+		expect(settledAt < text_premeasure.SETTLE_DEADLINE).toBe(true)
+		expect(reads < 15).toBe(true)
+	end)
+
+	it("an engine that never answers settles at once rather than holding for the deadline", function()
+		local settledAt, reads = driveSettle(function()
+			return nil
+		end)
+		expect(settledAt).toBe(0)
+		expect(reads).toBe(1)
+	end)
+
 	it("reveals immediately on an adapter with no premeasurement seam", function()
 		text_metrics.resetMeasured()
 		local core = customFactory.new()
