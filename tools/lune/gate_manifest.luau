@@ -4316,10 +4316,10 @@ local manifest: { [string]: { Check } } = {
 			note = "DR-7. tools/check_no_fusion.py passes over src/, examples/, skills/, tests/, bench/, the built .rbxmx scripts and Rascal Rally, its selftest reddens on a planted require and a planted identifier, vendor/ and src/core/fusion_adapter.luau are gone from the tip, and the Package inspection lists no Fusion-only artifact.",
 		},
 		{
-			name = "swiftui-report-private-links-removed",
+			name = "private-comparison-archived-links-removed",
 			requirements = { "UI-AGENT-001" },
 			state = "PENDING",
-			note = "DR-8. The refreshed SwiftUI capability report exists only in the private archive (checksummed); docs/reference/swiftui-parity.md is deleted from the tip; no maintained file links to it; every living requirement it carried is named in a neutral public source and the gates verify those sources.",
+			note = "DR-8. The refreshed private capability comparison report exists only in the private archive (checksummed); docs/reference/swiftui-parity.md is deleted from the tip; no maintained file links to it; every living requirement it carried is named in a neutral public source and the gates verify those sources.",
 		},
 		{
 			name = "framework-choice-guide-fair",
@@ -4463,7 +4463,7 @@ local manifest: { [string]: { Check } } = {
 			name = "owner-packet-complete",
 			requirements = { "UI-AGENT-001" },
 			state = "PENDING",
-			note = "DR-32. The packet holds candidate commit/manifest/checksums/size, gate + license + provenance results, verification counts/timings/parity, audited remote state, the copyright line, repository settings to apply, the ordered rename/publish/rollback checklist, and the SwiftUI archive path/checksum + history decision.",
+			note = "DR-32. The packet holds candidate commit/manifest/checksums/size, gate + license + provenance results, verification counts/timings/parity, audited remote state, the copyright line, repository settings to apply, the ordered rename/publish/rollback checklist, and the private comparison's archive path/checksum + history decision.",
 		},
 		{
 			name = "private-package-id-and-update-proof",
