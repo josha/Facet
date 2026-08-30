@@ -276,8 +276,12 @@ One JSON file per publish, at `package/receipts/<version>-<sha7>.json`:
 
 `assetRevision` records whatever the API returned — `revisionId` is documented as
 equivalent to the version number; the studio route records the version path
-instead. Receipts are the only record of what was published, so they are
-committed.
+instead. Receipts are the record of what was published, so they are committed.
+
+Each publish also appends a one-line summary to `versions` in
+`facet-package.json` (`version`, `sourceCommit`, `assetRevision`, `publishedAt`),
+so a reader of the config sees the release history without opening a directory of
+receipts. The receipts remain the authority.
 
 ---
 

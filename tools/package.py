@@ -865,6 +865,21 @@ def write_receipt(receipts_dir, config, facts, *, operation_path, asset_revision
     return path, receipt
 
 
+def record_version(config_path, config, receipt):
+    """Append this publish to the config's `versions` list. The receipt is the
+    record of a release; this is the SUMMARY a reader of the public manifest sees
+    without opening a directory of receipts — version, commit, revision, when."""
+    config.setdefault("versions", []).append(
+        {
+            "version": receipt["version"],
+            "sourceCommit": receipt["sourceCommit"],
+            "assetRevision": (receipt.get("assetRevision") or {}).get("revisionId"),
+            "publishedAt": receipt["publishedAt"],
+        }
+    )
+    save_config(config_path, config)
+
+
 def api_key_from_env():
     key = os.environ.get("ROBLOX_API_KEY") or ""
     return key.strip() or None
@@ -1128,7 +1143,7 @@ def cmd_create(args, transport=None, decider=decide):
     config["assetId"] = int(asset.get("assetId"))
     save_config(args.config, config)
     print(f"  created assetId {config['assetId']} (revision {asset.get('revisionId')})")
-    path, _ = write_receipt(
+    path, receipt_body = write_receipt(
         args.receipts,
         config,
         facts,
@@ -1141,6 +1156,7 @@ def cmd_create(args, transport=None, decider=decide):
         actor=args.actor or os.environ.get("USER"),
         gate=facts.get("gate"),
     )
+    record_version(args.config, config, receipt_body)
     print(f"  receipt {shown(path)}")
     return 0
 
@@ -1205,7 +1221,7 @@ def cmd_publish(args, transport=None, decider=decide):
         number = str(found.get("path", "")).rsplit("/", 1)[-1]
         moderation = (found.get("moderationResult") or {}).get("moderationState")
         print(f"  observed version {number} (moderation {moderation})")
-        path, _ = write_receipt(
+        path, receipt_body = write_receipt(
             args.receipts,
             config,
             facts,
@@ -1215,6 +1231,7 @@ def cmd_publish(args, transport=None, decider=decide):
             actor=args.actor or os.environ.get("USER"),
             gate=facts.get("gate"),
         )
+        record_version(args.config, config, receipt_body)
         print(f"  receipt {shown(path)}")
         return 0
 
@@ -1236,7 +1253,7 @@ def cmd_publish(args, transport=None, decider=decide):
     print(f"  published revision {asset.get('revisionId')} (moderation {moderation})")
     if moderation is not None and moderation not in APPROVED_MODERATION:
         print(f"  WARNING: moderation is {moderation!r}; the receipt records it and `status` will keep saying so")
-    path, _ = write_receipt(
+    path, receipt_body = write_receipt(
         args.receipts,
         config,
         facts,
@@ -1249,6 +1266,7 @@ def cmd_publish(args, transport=None, decider=decide):
         actor=args.actor or os.environ.get("USER"),
         gate=facts.get("gate"),
     )
+    record_version(args.config, config, receipt_body)
     print(f"  receipt {shown(path)}")
     return 0
 
@@ -1589,11 +1607,19 @@ def _selftest_transport():
         else:
             ok = False
             print(f"  [WRONG] create against the fake: exit {code}, assetId {recorded}, {polls} operation polls")
-        if load_config(DEFAULT_CONFIG).get("assetId") is not None:
-            ok = False
-            print("  [WRONG] the selftest wrote an assetId into the real package/facet-package.json")
+        recorded_versions = load_config(create_config).get("versions") or []
+        if len(recorded_versions) == 1 and recorded_versions[0]["version"] == version:
+            print(f"  [ ok  ] the config's versions list gained one entry for {version}")
         else:
-            print("  [ ok  ] the real package/facet-package.json still records no assetId")
+            ok = False
+            print(f"  [WRONG] versions list reads {recorded_versions}")
+
+        real = load_config(DEFAULT_CONFIG)
+        if real.get("assetId") is not None or real.get("versions"):
+            ok = False
+            print("  [WRONG] the selftest wrote into the real package/facet-package.json")
+        else:
+            print("  [ ok  ] the real package/facet-package.json still records no assetId and no versions")
 
         publish_config = os.path.join(work, "publish.json")
         publish_receipts = os.path.join(work, "publish-receipts")
