@@ -3,7 +3,8 @@
 **This is the one authoritative rule set for how a Facet public surface is shaped.**
 Learn one control, service, or extension seam and the rules here tell you what the
 next one looks like. The [API reference](api.md) documents each item; this document
-governs the *patterns*; [ADR-0011](../adr/ADR-0011-semver-and-deprecation.md) governs
+governs the *patterns*;
+[`CONTRIBUTING.md` §6](../../CONTRIBUTING.md#6-versioning-and-deprecation) governs
 how any of it may change. Every current public item follows a named rule below or
 appears in [§16 Exceptions](#16-exceptions) with the reason uniformity would be worse.
 
@@ -48,6 +49,10 @@ over the `valueModel` decision module plus adapter seams).
   `onActivate`). Framework-internal seams an adapter drives carry a leading
   underscore (`action._deliver`) — underscore means *engine-adapter seam*, not
   "free to break", and each one is documented as such.
+- **No item repeats the product's name** (`Facet.FacetTable` says it twice), and no
+  stable identifier is renamed merely because another framework uses the same
+  generic word. A rename costs every consumer and buys nothing a namespace does
+  not already give.
 - One concept gets one public word. The shipped vocabulary: `dispose` (teardown),
   `release` (async handles), `destroy` (input contexts) and `binding.remove()` —
   both grandfathered, see PKT-2 — and an `unsubscribe` closure (event listeners).
@@ -58,7 +63,13 @@ over the `valueModel` decision module plus adapter seams).
 - Services: **`(core, …collaborators, opts?)`** — core first, options last
   (`mount(core, blueprint, opts?)`, `newPresenter(core, env, adapter, actionSystem, opts?)`).
 - Composite controls: **`build(Facet, core, spec)`** — the library table is
-  injected so an out-of-repo control uses the identical seam.
+  injected so an out-of-repo control uses the identical seam. The canonical
+  *public* call is **`Facet.Controls.<Name>(core, spec)`**: the namespace closes
+  over the library, so a caller never writes the library's name twice. Every
+  built-in composite whose builder takes `(library, core, spec)` has an entry
+  there; `Facet.new<X>` stays the vocabulary for infrastructure whose creation and
+  ownership is the important fact (`newCore`, `newPresenter`, `newDragSession`),
+  and those take no library argument.
 - Pure models: **`new(opts?)`** single table (`newAutoscroll`, `newDragVelocity`,
   `motion.newValueReveal`).
 - Modifiers: **`(blueprint, spec, style?)`** and always return a **new frozen**
@@ -266,17 +277,19 @@ foreign names, it resolves or falls back visibly.
 
 ## 14. Versioning, deprecation, documentation
 
-- ADR-0011 is binding: `VERSION` single-sourced in `src/init.luau`;
-  `Facet.DEPRECATIONS` is the machine-readable ledger (schema-generated property
-  entries plus declared entries), frozen; a deprecated surface keeps working for
-  ≥ one MINOR unless it never worked (diagnosed-not-preserved).
-- **Pre-release clause (ADR-0040, controller ruling R15).** While a version is
-  UNRELEASED, a breaking change may land in it directly — provided it is recorded
-  in `docs/adr/ADR-0040-unreleased-breaking-changes.md`. **After a version's first
-  publish, the full ADR-0011 window applies with no exception.** The ledger cannot
-  see two of these on its own — a prop flipping to `required`, and a documented
-  default changing value, both generate no schema row — so `api_surface.spec` pins
-  the required set and every documented default *by value*, and reddens when either
+- The versioning and deprecation policy
+  ([`CONTRIBUTING.md` §6](../../CONTRIBUTING.md#6-versioning-and-deprecation)) is
+  binding: `VERSION` single-sourced in `src/init.luau`; `Facet.DEPRECATIONS` is the
+  machine-readable ledger (schema-generated property entries plus declared
+  entries), frozen; a deprecated surface keeps working for ≥ one MINOR unless it
+  never worked (diagnosed-not-preserved).
+- **Pre-release clause.** While a version is UNRELEASED, a breaking change may land
+  in it directly — provided it is recorded, row by row, in that version's
+  [`CHANGELOG.md`](../../CHANGELOG.md) entry. **After a version's first publish, the
+  full deprecation window applies with no exception.** The ledger cannot see two of
+  these on its own — a prop flipping to `required`, and a documented default
+  changing value, both generate no schema row — so `api_surface.spec` pins the
+  required set and every documented default *by value*, and reddens when either
   moves without a record. A compatibility shim is not a substitute for the record,
   and where the old behaviour was itself the defect (a silent default the fix
   exists to remove) it is not an option at all.

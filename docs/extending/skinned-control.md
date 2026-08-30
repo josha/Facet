@@ -26,7 +26,8 @@ one module and it is the whole answer.
 ## 0. Ground rules
 
 - Work from the library root: `GameStudio/ui/Facet` (use absolute paths in shell
-  commands — `docs/lessons/absolute-paths-in-shell-commands.md`).
+  commands, because a relative path run against the wrong working directory is
+  the single most expensive mistake recorded here).
 - **Public API only.** A control written outside this repository gets
   `Facet.UI`, `Facet.themes`, the resolved snapshot, and the compiled package's
   own plain data. That is the whole seam. If your control needs

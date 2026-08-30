@@ -1,6 +1,6 @@
 --!strict
--- Documentation checker for the theme surface (ADR-0019 §"Documentation and one
--- canonical command"; stage theme-packages-and-skinning, row TP-A12). Fails when
+-- Documentation checker for the theme surface: the theme-package decision owes a
+-- beginner walkthrough and one canonical command. Fails when
 -- the shipped theme surface and the documents that describe it have drifted:
 --
 --   1. the guide index links the custom-theme chapter, and both new documents
@@ -61,7 +61,7 @@ local INIT = "src/init.luau"
 local ASSET_DIR = "assets/themes/fantasy-parchment"
 local MANIFEST = ASSET_DIR .. "/upload-manifest.json"
 
--- ---- rich skinning v2 (ADR-0020, stage rich-skinning-v2 row RS-A15) --------
+-- ---- rich skinning v2: the image-driven authoring surface ------------------
 -- The v2 surface has its own chapter and its own contributor playbook, and the
 -- rung-3 example ships ART, so it owes the same provenance obligations a theme
 -- package's art does. Same drift-alarm discipline: few anchors, each one
@@ -235,7 +235,7 @@ local FORBIDDEN: { { file: string, phrase: string, why: string } } = {
 	{
 		file = STYLING,
 		phrase = "The planned Step 3.5 adds",
-		why = "Step 3.5 shipped (ADR-0019); describe the package contract in the present tense",
+		why = "theme packages shipped; describe the package contract in the present tense",
 	},
 	{
 		file = STYLING,
@@ -252,9 +252,9 @@ local FORBIDDEN: { { file: string, phrase: string, why: string } } = {
 		phrase = "Current theme limit and the planned package contract",
 		why = "the old §5.8 heading; the section now documents the shipped contract",
 	},
-	-- rich skinning v2: statements that were TRUE before ADR-0020 and are now
-	-- wrong. Each one would send a package author looking for a capability the
-	-- build has, and find nothing.
+	-- rich skinning v2: statements that were TRUE before the image-driven surface
+	-- shipped and are now wrong. Each one would send a package author looking for a
+	-- capability the build has, and find nothing.
 	-- the WRONG root cause for the tofu caret (phase-gate verifier F6). It was a
 	-- measured fact — the live probe drew U+25B8/U+25BE in Michroma and got the
 	-- placeholder's advance — and stating a different cause sends the next author
@@ -279,7 +279,7 @@ local FORBIDDEN: { { file: string, phrase: string, why: string } } = {
 	{
 		file = GUIDE,
 		phrase = "### States are tints, not more art",
-		why = "per-state ASSET variants ship (ADR-0020 R2); the section now says states can be tints OR more art",
+		why = "per-state ASSET variants ship; the section now says states can be tints OR more art",
 	},
 	{
 		file = STYLING,
@@ -452,9 +452,9 @@ local VERSION_DOCS: { { file: string, pattern: string, why: string } } = {
 		why = "the guide index shows the constant's value in its API sketch",
 	},
 	{
-		file = "docs/adr/ADR-0011-semver-and-deprecation.md",
-		pattern = "Current version: %*%*([%d%.]+)%*%*",
-		why = "ADR-0011 is the version's home and api_surface.spec already pins it",
+		file = "CHANGELOG.md",
+		pattern = "## %[([%d%.]+)%]",
+		why = "the changelog's newest numbered entry is the version this tree ships",
 	},
 }
 
@@ -545,22 +545,22 @@ function check_docs.check(opts: Opts?)
 	local guide = requireFile(
 		GUIDE,
 		"the custom-theme guide is missing",
-		"restore docs/guide/09-custom-themes.md (the beginner walkthrough required by ADR-0019)"
+		"restore docs/guide/09-custom-themes.md (the beginner walkthrough a theme package owes)"
 	)
 	local playbook = requireFile(
 		PLAYBOOK,
 		"the theme playbook is missing",
-		"restore docs/extending/new-theme.md (the contributor playbook required by ADR-0019)"
+		"restore docs/extending/new-theme.md (the contributor playbook a theme package owes)"
 	)
 	local richGuide = requireFile(
 		RICH_GUIDE,
 		"the rich-skinning guide is missing",
-		"restore docs/guide/10-rich-skinning.md (the v2 walkthrough required by ADR-0020 R8)"
+		"restore docs/guide/10-rich-skinning.md (the walkthrough the image-driven surface owes)"
 	)
 	local rung3 = requireFile(
 		RUNG3_PLAYBOOK,
 		"the rung-3 (custom skinned control) playbook is missing",
-		"restore docs/extending/skinned-control.md (the contributor playbook required by ADR-0020 R8)"
+		"restore docs/extending/skinned-control.md (the playbook the image-driven surface owes)"
 	)
 	local catalog = requireFile(
 		CATALOG,
@@ -854,8 +854,8 @@ function check_docs.check(opts: Opts?)
 	-- this check they drifted silently: api.md and guide 08 still said 0.5.0 two
 	-- stages after 0.6.0 shipped. The version is the ONE fact a consumer pins a
 	-- build by, so a document that names a version nobody runs is worse than one
-	-- that names none. `tests/api_surface.spec.luau` already ties ADR-0011 to the
-	-- constant; this ties the guides to it too.
+	-- that names none. `tests/api_surface.spec.luau` already ties the published
+	-- policy to the constant; this ties the guides to it too.
 	do
 		local initForVersion = read(INIT)
 		local version = if initForVersion ~= nil then string.match(initForVersion, 'VERSION%s*=%s*"([%d%.]+)"') else nil
@@ -872,7 +872,7 @@ function check_docs.check(opts: Opts?)
 					problem(
 						entry.file,
 						`says the current version is '{tostring(named)}' but Facet.VERSION is '{version}'`,
-						`{entry.why} — update the sentence when you bump the constant (ADR-0011 says both move together)`
+						`{entry.why} — update the sentence when you bump the constant (the policy says both move together)`
 					)
 				end
 			end
@@ -1246,7 +1246,7 @@ check_docs.OBLIGATIONS = table.freeze({
 		.. "than inventing a "
 		.. "number",
 	"docs/reference/api.md cross-references the theme catalog from the theme-controller section",
-	-- ---- rich skinning v2 (ADR-0020 R8, ledger row RS-A15) -----------------
+	-- ---- rich skinning v2: the image-driven authoring surface --------------
 	"docs/guide/README.md links 10-rich-skinning.md and that guide exists",
 	"docs/extending/skinned-control.md (the rung-3 playbook) exists",
 	"docs/guide/10-rich-skinning.md still names the whole v2 surface it teaches (layered recipes and MAX_LAYERS, the "
@@ -1267,8 +1267,8 @@ check_docs.OBLIGATIONS = table.freeze({
 		.. "U+25B8/U+25BE absent from Michroma, not a private-use codepoint)",
 	"every rich-skinning scenario step the chapter teaches exists in the scenario, and every step in the checker's "
 		.. "list is taught by the chapter",
-	"every document that restates Facet.VERSION in prose (api.md, guide 08, guide README, ADR-0011) names the "
-		.. "version src/init.luau actually exports",
+	"every document that restates Facet.VERSION in prose (api.md, guide 08, guide README, CHANGELOG.md) names "
+		.. "the version src/init.luau actually exports",
 	-- ---- the capability catalog (wave T12) ---------------------------------
 	"docs/guide/README.md names every member of the UI and Controls namespaces and every non-retired export of "
 		.. "the live Facet table, read from the exported table itself rather than from a hand list",

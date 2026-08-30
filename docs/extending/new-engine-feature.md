@@ -31,8 +31,8 @@ the UIShadow adoption caught two type errors in the design's own prose),
 value ranges and clamps, which instances it applies to, interaction hazards
 (for example, alias-versus-individual-property mixing), performance guidance,
 and whether the feature is released or still in beta. Record what you found in the
-decision record for the adoption, under `docs/adr/`, with the source links and the
-date you read them.
+change itself, with the source links and the date you read them, so the next
+reader can tell a measurement from a memory.
 Run a Studio probe that round-trips every property and record the artifact under
 `artifacts/studio/`. If Studio is unavailable or its viewport/capture/input preflight
 fails, record `FAIL_ENVIRONMENT` and leave the engine-evidence row pending rather than
@@ -53,7 +53,7 @@ Add a spec (register it in `tests/run.luau` — see the silent-zero trap in
 ## 3. Implement along the one seam
 
 0. **Declare it in the schema** — `src/blueprint_schema.luau`. Since strict
-   authoring (0.5.0, ADR-0011), a public property that is not in the schema is
+   authoring (since 0.5.0), a public property that is not in the schema is
    REJECTED at construction with a "did you mean" diagnostic: every `UI.*` call
    using your new prop errors before any of the work below can run. Declare the
    property (its class, accepted types, enum values and default) first, or you

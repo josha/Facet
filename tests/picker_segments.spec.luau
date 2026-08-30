@@ -849,22 +849,25 @@ describe("§6 seam: a selection and its onChange are ONE transaction", function(
 		p.dispose()
 	end)
 
-	--[[ ...AND IT IS ON THE REGISTER (ADR-0040 B-20). The ordering change REPLACES
-		behaviour a caller could have observed rather than adding a refusal, which is
-		the B-3 precedent for owing a row; this case is the half that keeps the record
-		and the live behaviour from drifting apart, in the shape
-		`tests/api_surface.spec.luau` uses for the two schema-shaped rows. ]]
-	it("the register records it: ADR-0040 carries the one-turn row", function()
-		local record = fs.readFile("docs/adr/ADR-0040-unreleased-breaking-changes.md")
-		--[[ THE ID AND THE SUBJECT ARE ONE PATTERN, NOT TWO SUBSTRINGS (2026-08-22).
-			As three independent `find`s this asserted only that the file contains a row
-			labelled B-20 SOMEWHERE and a row about this control SOMEWHERE — which two
-			DIFFERENT rows satisfy just as well. Two concurrent lanes both minted a
-			`B-20` in the same week and this pin stayed green through the collision, so
-			the failure is measured rather than hypothetical: bind the id to its own
-			row's text or the pin cannot tell a renumber from a rename. ]]
-		expect(string.find(record, "| B%-20 | `newPicker`'s activation ORDER") ~= nil).toBe(true)
-		expect(string.find(record, "one transaction", 1, true) ~= nil).toBe(true)
+	--[[ ...AND IT IS ON THE REGISTER. The ordering change REPLACES behaviour a
+		caller could have observed rather than adding a refusal, which is what owes
+		it a row in the changelog's register of behaviour changes riding the
+		unreleased version; this case is the half that keeps the record and the live
+		behaviour from drifting apart, in the shape `tests/api_surface.spec.luau`
+		uses for the two schema-shaped rows. ]]
+	it("the register records it: the changelog carries the one-turn row", function()
+		local record = fs.readFile("CHANGELOG.md")
+		--[[ THE SUBJECT AND THE CLAIM ARE ONE PATTERN, NOT TWO SUBSTRINGS
+			(2026-08-22). As independent `find`s this asserted only that the file
+			contains a row about this control SOMEWHERE and the words "one transaction"
+			SOMEWHERE — which two DIFFERENT rows satisfy just as well, and a collision
+			of that kind was measured rather than hypothetical: two concurrent lanes
+			minted the same row label in one week and the pin stayed green through it.
+			Bind the subject to its own claim or the pin cannot tell a re-word from a
+			deletion. ]]
+		expect(string.find(record, "`newPicker`'s activation order is now **one transaction**", 1, true) ~= nil).toBe(
+			true
+		)
 	end)
 
 	it("...and a pick that STANDS still notifies exactly once", function()

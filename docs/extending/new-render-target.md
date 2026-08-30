@@ -6,9 +6,8 @@ surface on a part). The renderer is engine-free and talks only to the
 RenderTargetAdapter contract — a new target is a new adapter implementation,
 nothing more. Shipped examples: `tests/lib/fake_target.luau` (headless),
 `src/client/screen_target.luau` (production ScreenGui),
-`src/client/billboard_target.luau` (billboard; see also its decision record
-`docs/adr/ADR-0009-billboard-target.md` and the contract module
-`src/render/target_contract.luau`).
+`src/client/billboard_target.luau` (billboard; the contract every target
+implements is `src/render/target_contract.luau`).
 
 Read [`../reference/constitution.md`](../reference/constitution.md) first — the
 rules your addition must follow.

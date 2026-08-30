@@ -5,9 +5,9 @@
 	native-stylesheets stage: sheet paint was opt-in per target, and a
 	`screen_target.new({})` with no `nativeStyle` opt took the explicit-write
 	path. The game director ruled on 2026-08-21 that native StyleSheets become
-	Facet's DEFAULT, and the record is ADR-0040 row B-15 (a real product-behaviour
-	change riding an unreleased `0.10.0`, which is the only thing that makes it
-	legal).
+	Facet's DEFAULT, and the record is the changelog's row for the flip (a real
+	product-behaviour change riding an unreleased `0.10.0`, and recording it is the
+	only thing that makes it legal).
 
 	WHY THIS FILE EXISTS AT ALL, and it is the finding that motivated it: NOTHING
 	IN THE REPOSITORY PINNED THE DEFAULT. `DEFAULT_ENABLED` appeared in exactly two
@@ -39,8 +39,8 @@
 	     game passing `nativeStyle = false` both ride this one branch;
 	  3. the SCREEN TARGET really routes through the seam, so the pins above are
 	     about the shipped decision and not about a function nobody calls;
-	  4. the RECORD exists — ADR-0040 carries the row, because the record is what
-	     makes an unreleased breaking change legal (ADR-0040 Decision 1).
+	  4. the RECORD exists — the changelog carries the row, because recording it is
+	     what makes an unreleased breaking change legal.
 
 	AND THE GALLERY'S A/B DRIVER, whose precedence had to survive the flip: the
 	forced-fallback attribute still wins over everything, `Facet_NativeStyle = true`
@@ -55,10 +55,10 @@ local fs = require("@lune/fs")
 local native_style = require("../src/client/native_style")
 local paint_mode = require("../examples/gallery/client/paint_mode")
 
-local RECORD = "docs/adr/ADR-0040-unreleased-breaking-changes.md"
+local RECORD = "CHANGELOG.md"
 local TARGET = "src/client/screen_target.luau"
 
-describe("the library default paint path (ADR-0040 B-15)", function()
+describe("the library default paint path", function()
 	it("the default IS sheet paint — the flag itself, read off the module", function()
 		expect(native_style.DEFAULT_ENABLED).toBe(true)
 	end)
@@ -379,16 +379,16 @@ describe("the library default paint path (ADR-0040 B-15)", function()
 		end)
 	end)
 
-	it("the flip is RECORDED in ADR-0040, which is what makes it legal", function()
-		local adr = fs.readFile(RECORD)
+	it("the flip is RECORDED in the changelog, which is what makes it legal", function()
+		local record = fs.readFile(RECORD)
 		local missing: { string } = {}
-		if string.find(adr, "native_style.DEFAULT_ENABLED", 1, true) == nil then
-			table.insert(missing, "ADR-0040 does not record the `native_style.DEFAULT_ENABLED` flip")
+		if string.find(record, "native_style.DEFAULT_ENABLED", 1, true) == nil then
+			table.insert(missing, "the changelog does not record the `native_style.DEFAULT_ENABLED` flip")
 		end
 		-- ...and it records what the escape hatch is, because a breaking row that
 		-- does not name the way out is half a record
-		if string.find(adr, "`nativeStyle = false`", 1, true) == nil then
-			table.insert(missing, "ADR-0040's row does not name `nativeStyle = false` as the opt-out")
+		if string.find(record, "`nativeStyle = false`", 1, true) == nil then
+			table.insert(missing, "the changelog's row does not name `nativeStyle = false` as the opt-out")
 		end
 		expect(`unrecorded:{table.concat(missing, "; ")}`).toBe("unrecorded:")
 	end)

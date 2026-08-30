@@ -36,18 +36,52 @@ rules your addition must follow.
 ## 0. Ground rules
 
 - Work from the library root: `GameStudio/ui/Facet` (all commands below assume
-  it; use absolute paths in shell commands — relative paths against a wrong cwd
-  are the #1 recorded time sink, `docs/lessons/absolute-paths-in-shell-commands.md`).
-- Read [`../adr/ADR-0019-theme-packages.md`](../adr/ADR-0019-theme-packages.md)
-  first. It is the decision record, including the post-implementation
-  **Integration rulings** section, and it is not re-litigated by a package. Then
-  read [`../adr/ADR-0020-rich-skinning-v2.md`](../adr/ADR-0020-rich-skinning-v2.md),
-  which is additive to it: layers, per-state art, image value displays, semantic
-  icons, pixel mode and `selectBy`. Every ruling in it cites the engine
-  measurement it stands on.
+  it, and use absolute paths in shell commands — a relative path run against the
+  wrong working directory is the single most expensive mistake recorded here).
 - A theme package is **declarative data**. No callbacks, no component trees, no
   screen-specific branches. `themes.define` rejects a function found anywhere in
   the definition, and that rejection is the feature.
+- The image-driven half — layer stacks, per-state art, image value displays,
+  semantic icons, pixel mode and `selectBy` — is additive to everything here and
+  is taught in [`../guide/10-rich-skinning.md`](../guide/10-rich-skinning.md),
+  with [`skinned-control.md`](skinned-control.md) as its contributor playbook.
+
+**Six rules the theme system holds you to.** They are not re-litigated by a
+package, and each one is the reason some part of the pipeline is shaped the way
+it is.
+
+1. **A theme may draw a control smaller than the touch floor; it can never shrink
+   the touchable area below it.** `targetSizes.minimum` governs the effective
+   *hit* geometry, which the renderer expands to. Visual size is yours.
+2. **One live theme controller per environment.** The resolved metric snapshot
+   rides the environment as one fact, so a second install on the same environment
+   is a capability error rather than a silent clobber. Two render targets that
+   want two controllers already own separate environments.
+3. **The same package installed on two separately-environed targets shares one
+   sheet** (its name is `FacetTheme <id>`), so its *paint* theme state is shared
+   across them. Different packages on different targets are fully isolated.
+4. **Gradients are palette, not chrome-recipe fields.** A gradient is color, so it
+   must swap with the theme: it rides the theme's own extra chrome-gradient
+   entries and compiles to per-theme sequence tokens plus generated gradient
+   rules. The chrome recipe vocabulary stays `{ kind, asset, contentInsets,
+   fallback }`.
+5. **Metric-derived paint follows a live edit in the same commit.** Corner radii
+   and stroke thickness are baked into rules as literal numbers, because a number
+   attribute cannot carry a token reference. The compiler records which rules hold
+   them and the controller pushes fresh values onto those live rules, so paint
+   moves with the geometry rather than a frame later.
+6. **A contributed control's namespaced metrics resolve at build time.** A
+   contributed metric reaches the control through its own resolve against the
+   active snapshot; it does not yet re-resolve on a package swap without a
+   rebuild. The public property grammar validates against the core namespace
+   only. This is a recorded limit of the current version, not a design goal.
+
+**One more, for a target that has no StyleSheet path.** A fallback target takes
+its bespoke style at construction and exposes no runtime style setter, so a
+package install commits the whole metric half live — every layout-affecting value
+swaps — while the palette applies from construction. `controller.inspect().fallback`
+reports the degradation. Every shipping path is a native target and gets the full
+transaction.
 - Test-first is not optional. Never mark done while `./run-tests.sh` is red.
 - Never edit the verification graph's own rows, or the stage's own
   `acceptance-ledger.md`, for a theme; the existing checks pick your work up
@@ -167,7 +201,7 @@ which ships its own art and exercises all three kinds —
 [`skinned-control.md`](skinned-control.md) is its playbook.
 
 Pass condition: `tests/theme_package.spec.luau` →
-`"theme package: namespaced contribution coverage (ADR-0019 §1)"`, and
+`"theme package: namespaced contribution coverage"`, and
 `tests/theme_reference_packages.spec.luau` →
 `"namespaced custom-control conformance (ns:role)"`.
 
@@ -355,8 +389,9 @@ adding an asset:
    raw content ID leaves package data by any other route; a failed asset flips
    `facet-chrome-fallback` exactly once and unflips on recovery. The paired
    `facet-chrome-mute` carries the HIDE and skips the condemned asset's own
-   undecoded art, so a false failure can still recover
-   (`docs/lessons/engine-never-decodes-invisible-images.md`).
+   undecoded art, so a false failure can still recover — the engine never decodes
+   an image it is not showing, so hiding the condemned art is what lets a retry
+   succeed.
 
 ## 6. Required tests
 
@@ -450,9 +485,9 @@ state yourself.
 
 - **A require cycle through the compiler.** `src/tokens/sheet_model.luau`
   requires `src/themes/package.luau`. Nothing the compiler needs may live in
-  `sheet_model`; shared values go *down* into `tokens`
-  (`docs/lessons/lune-circular-require-hangs.md` — a Lune circular require
-  hangs rather than erroring).
+  `sheet_model`; shared values go *down* into `tokens`. A circular require under
+  Lune hangs rather than erroring, so the symptom is a test run that never
+  finishes.
 - **`GetStyled` on a class-inapplicable property errors.** Instruments must
   pcall-guard; a plain property read is *blind* to sheet paint and will happily
   report the engine default while the rule is working perfectly.

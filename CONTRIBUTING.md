@@ -134,22 +134,71 @@ is a silent zero, and the registration checker fails a run that has one.
   in [`docs/reference/api.md`](docs/reference/api.md) fails a checker, and a new
   capability that is not in the [guide index](docs/guide/README.md) catalog fails
   another.
-- **No new public surface without a decision record.** If a change alters what the
-  library promises, add an architecture decision record under
-  [`docs/adr/`](docs/adr/) that says what was chosen and what was rejected.
+- **No new public surface without a written decision.** If a change alters what the
+  library promises, say in the change itself what was chosen and what was rejected,
+  add the entry to [`CHANGELOG.md`](CHANGELOG.md), and update
+  [`docs/reference/api.md`](docs/reference/api.md) — and
+  [the constitution](docs/reference/constitution.md) when the rule set itself moves.
 - **Both consumer routes stay working.** Some people use Facet through Rojo from a
   Git checkout; others install the built model or the Roblox Package into Studio
   with no toolchain at all. A change that assumes a file sync breaks the second
   group. [Guide 8](docs/guide/08-without-rojo.md) is what that group reads.
 
-## 6. Reporting a problem
+## 6. Versioning and deprecation
+
+Facet uses semantic versioning, `MAJOR.MINOR.PATCH`, exposed at runtime as
+`Facet.VERSION`. The version string lives in exactly one place, `src/init.luau`;
+documents and tests read it from there, and the drift is checked mechanically.
+
+**While the library is pre-1.0**, the version is `0.MINOR.PATCH`. A minor bump may
+change public behavior or remove a surface that was already deprecated, but only
+with the notice below. A patch bump is fully compatible: fixes, documentation, and
+performance. Version 1.0.0 is cut when the success criteria hold and a second
+production game consumes the library; from then on a major bump is breaking, a
+minor is additive, and a patch is fixes.
+
+**The public surface** is what `src/init.luau` exports, plus the documented client
+entry points under `src/client/`. Everything else is internal and may change
+without notice. A game must not require a library-internal module.
+
+**Deprecations are declared, not implied.** Every retiring surface has an entry in
+`Facet.DEPRECATIONS`, a frozen machine-readable ledger beside the exports in
+`src/init.luau`. An entry carries `surface`, `since`, `removeNoEarlierThan`,
+`replacement`, and an optional `note`; property entries are generated from the
+property schema, so an entry cannot go missing when a property is retired.
+
+- A deprecated surface keeps working for **at least one minor version** after
+  `since`. `removeNoEarlierThan` names the earliest version that may delete it.
+- Every entry names its replacement, either an API or a migration note.
+- Removal happens only in a minor bump before 1.0 or a major bump after it.
+
+**One exception, and it is narrow: a surface that never worked.** The
+keeps-working promise protects behavior that a consumer could actually rely on. A
+property that never reached a render target has no working behavior to preserve,
+and accepting it for another minor version would preserve only the silent failure.
+Those entries stay in the ledger for the record and are diagnosed at construction,
+with the error naming the replacement.
+
+**Before a version's first publish**, a breaking change may land in that version
+directly, provided the change is recorded in that version's `CHANGELOG.md` entry,
+row by row, with the surface it moves and why the move breaks a caller. After a
+version's first publish, the full deprecation window above applies with no
+exception. A compatibility shim is not a substitute for the record, and where the
+old behavior was itself the defect — a silent default the fix exists to remove — a
+shim is not an option at all. The ledger cannot see two of these changes on its
+own: a property flipping to required, and a documented default changing value,
+both generate no ledger row. So `tests/api_surface.spec.luau` pins the required set
+and every documented default *by value*, and reddens when either moves without a
+changelog row.
+
+## 7. Reporting a problem
 
 Open an issue using the templates in `.github/ISSUE_TEMPLATE/`. A bug report needs
 the smallest reproduction you can get to, what you expected, what happened, the
 value of `Facet.VERSION`, and the device and input class you saw it on. A security
 problem is not an issue: follow [`SECURITY.md`](SECURITY.md).
 
-## 7. What is not a contributor's job
+## 8. What is not a contributor's job
 
 Facet has a production consumer game that the maintainer keeps in step with the
 library, release by release. Keeping that game current is the maintainer's work,
@@ -160,7 +209,7 @@ Publishing the Roblox Package, cutting a release, and anything that touches a
 Roblox account or an application key are likewise maintainer operations. They need
 credentials that are never in this repository.
 
-## 8. License
+## 9. License
 
 By contributing you agree that your contribution is licensed under the MIT
 License, the same terms as the rest of Facet. See [`LICENSE`](LICENSE).

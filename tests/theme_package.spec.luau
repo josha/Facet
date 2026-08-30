@@ -373,7 +373,7 @@ describe("theme package: danger contrast parity (integration find, 2026-07-25)",
 	end)
 end)
 
-describe("theme package: namespaced contribution coverage (ADR-0019 §1)", function()
+describe("theme package: namespaced contribution coverage", function()
 	local NEEDS = {
 		{
 			name = "demo:gauge",

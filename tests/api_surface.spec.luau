@@ -1,9 +1,9 @@
 --!strict
 -- Phase 4 versioning and public-surface contract (design §17 Phase 4;
--- UI-AGENT-001): the library carries a semantic version governed by
--- ADR-0011 (semver + deprecation policy), the version is a valid semver
--- string matching the documented one, deprecated surfaces are declared in a
--- machine-readable ledger with removal rules, and the public API table only
+-- UI-AGENT-001): the library carries a semantic version governed by the
+-- versioning and deprecation policy in CONTRIBUTING.md, the version is a valid
+-- semver string matching the documented one, deprecated surfaces are declared in
+-- a machine-readable ledger with removal rules, and the public API table only
 -- grows through the documented surface (drift between init.luau and the API
 -- reference is checked mechanically by tools/lune/check_docs).
 
@@ -15,7 +15,7 @@ local fs = require("@lune/fs")
 local Facet = require("../src") :: any
 local public_shape = require("./lib/public_shape")
 
-describe("semantic versioning and deprecation (ADR-0011)", function()
+describe("semantic versioning and deprecation", function()
 	it("VERSION is a plain semver MAJOR.MINOR.PATCH (scaffold suffixes are gone)", function()
 		local major, minor, patch = string.match(Facet.VERSION, "^(%d+)%.(%d+)%.(%d+)$")
 		expect(major ~= nil).toBeTruthy()
@@ -24,14 +24,17 @@ describe("semantic versioning and deprecation (ADR-0011)", function()
 		expect(patch ~= nil).toBeTruthy()
 	end)
 
-	it("the semver/deprecation ADR exists and states the policy", function()
-		local adr = fs.readFile("docs/adr/ADR-0011-semver-and-deprecation.md")
-		expect(string.find(adr, "MAJOR") ~= nil).toBeTruthy()
-		expect(string.find(adr, "deprecat") ~= nil).toBeTruthy()
-		expect(string.find(adr, Facet.VERSION, 1, true) ~= nil).toBeTruthy() -- ADR names the current version
+	it("the published policy exists and states the rules the ledger is built on", function()
+		local policy = fs.readFile("CONTRIBUTING.md")
+		expect(string.find(policy, "MAJOR") ~= nil).toBeTruthy()
+		expect(string.find(policy, "deprecat") ~= nil).toBeTruthy()
+		-- ...and the changelog's newest numbered entry is the version this tree
+		-- reports, so the two cannot drift apart
+		local changelog = fs.readFile("CHANGELOG.md")
+		expect(string.match(changelog, "## %[([%d%.]+)%]")).toBe(Facet.VERSION)
 	end)
 
-	it("deprecations are a machine-readable ledger with the ADR's required fields", function()
+	it("deprecations are a machine-readable ledger with the policy's required fields", function()
 		expect(type(Facet.DEPRECATIONS)).toBe("table")
 		-- every entry must carry the policy fields, whichever half it came from
 		for _, entry in Facet.DEPRECATIONS :: { any } do
@@ -47,7 +50,7 @@ describe("semantic versioning and deprecation (ADR-0011)", function()
 
 	-- F-34 / the DEP mechanism. The ledger used to be schema-generated only, so a
 	-- deprecated surface that is not a blueprint PROPERTY (an opts field, a
-	-- derived condition) could not be declared at all — ADR-0011's machinery
+	-- derived condition) could not be declared at all — the policy's machinery
 	-- simply did not know about it, and the init.luau comment still claimed
 	-- "Empty = nothing deprecated".
 	it("the ledger is the UNION of schema-generated and declared entries", function()
@@ -60,8 +63,8 @@ describe("semantic versioning and deprecation (ADR-0011)", function()
 			`screen_target.new(opts.isReducedMotion)`, which was deprecated in prose in
 			two places and declared in neither until the Milestone-1 review (C3) — a
 			deprecation with no `since` and no `removeNoEarlierThan` is invisible to
-			every upgrade check ADR-0011 defines. The other NINETEEN are ADR-0037's
-			old-form composite builders (`newTable` … `newAsyncImage`), each naming
+			every upgrade check the versioning policy defines. The other NINETEEN are
+			the old-form composite builders (`newTable` … `newAsyncImage`), each naming
 			`Facet.Controls.<Name>(core, spec)`; their content is owned by
 			tests/controls_namespace.spec.luau. ]]
 		expect(#ledger).toBe(#generated + 24)
@@ -102,7 +105,7 @@ describe("semantic versioning and deprecation (ADR-0011)", function()
 			local removeMajor, removeMinor = parse(entry.removeNoEarlierThan)
 			local sinceKey = sinceMajor * 1000 + sinceMinor
 			local removeKey = removeMajor * 1000 + removeMinor
-			expect(removeKey).toBeGreaterThan(sinceKey) -- ADR-0011: one minor of notice
+			expect(removeKey).toBeGreaterThan(sinceKey) -- the policy owes one minor of notice
 		end
 		-- the ledger is authority, not a scratch table a consumer can edit
 		expect(table.isfrozen(Facet.DEPRECATIONS)).toBe(true)
@@ -187,7 +190,7 @@ describe("public type re-exports (F-28)", function()
 	end)
 end)
 
---[[ ═══ THE TWO SHAPE CHANGES A DEPRECATION LEDGER CANNOT SEE (ADR-0040) ═══════
+--[[ ═══ THE TWO SHAPE CHANGES A DEPRECATION LEDGER CANNOT SEE ═════════════════
 
 	Wave LAYOUT-FIX made `UI.AdaptiveStack.axis` REQUIRED and changed `UI.Grid`'s
 	undeclared lane default, and every gate in this repository stayed green over
@@ -202,8 +205,8 @@ end)
 	These three cases close it. They pin the two facts that turn working consumer
 	code into broken consumer code with no deprecation machinery involved — the set
 	of REQUIRED props, and the VALUE every documented default names — and the third
-	asserts that everything ADR-0040 records as breaking is really in those sets, so
-	the record and the schema cannot drift apart in either direction.
+	asserts that everything the changelog's register records as breaking is really in
+	those sets, so the record and the schema cannot drift apart in either direction.
 
 	THE PIN IS A VALUE, NOT A DOC STRING, deliberately: `public_shape.defaultTokenOf`
 	lifts the value a doc names, so rewording a doc without changing its default
@@ -214,7 +217,7 @@ end)
 	`distribute` are the same declaration on every class, and eighty rows repeating
 	four facts is a pin nobody would read or maintain.
 ]]
-describe("the public SHAPE a breaking change moves (ADR-0040)", function()
+describe("the public SHAPE a breaking change moves", function()
 	-- every `Class.prop` carrying `required = true`, sorted. A prop joining or
 	-- leaving this list is a change to what a consumer must write.
 	local REQUIRED: { string } = {
@@ -272,7 +275,7 @@ describe("the public SHAPE a breaking change moves (ADR-0040)", function()
 		["ZStack.opacity"] = "prose: subtree: 1 = opaque (the default), 0 = invisible but",
 	}
 
-	local RECORD = "docs/adr/ADR-0040-unreleased-breaking-changes.md"
+	local RECORD = "CHANGELOG.md"
 
 	local function liveShape(): ({ string }, { [string]: string }, { [string]: string })
 		local all = (Facet.UI.schema.all :: any)()
@@ -376,22 +379,22 @@ describe("the public SHAPE a breaking change moves (ADR-0040)", function()
 		).toBe("every documented default is the pinned value")
 	end)
 
-	it("every surface ADR-0040 records as breaking is really in the pinned shape", function()
+	it("every surface the register records as breaking is really in the pinned shape", function()
 		--[[ THE HALF THAT MAKES THE OTHER TWO MORE THAN A SNAPSHOT. A pin agrees
 			with itself by construction; what it cannot say is whether the RECORD is
-			about the same surfaces. So the ADR's own two schema-shaped rows are read
-			back out of it and checked against the live schema — delete either from
-			the ADR and this reddens, which is the red-first this instrument was
-			asked for. ]]
-		local adr = fs.readFile(RECORD)
+			about the same surfaces. So the register's own two schema-shaped rows are
+			read back out of it and checked against the live schema — delete either
+			from the changelog and this reddens, which is the red-first this
+			instrument was asked for. ]]
+		local record = fs.readFile(RECORD)
 		local missing: { string } = {}
-		-- B-1: the prop that flipped to required
-		if string.find(adr, "UI.AdaptiveStack.axis", 1, true) == nil then
-			table.insert(missing, "ADR-0040 does not record `UI.AdaptiveStack.axis` becoming required")
+		-- the prop that flipped to required
+		if string.find(record, "`UI.AdaptiveStack.axis` was optional", 1, true) == nil then
+			table.insert(missing, "the changelog does not record `UI.AdaptiveStack.axis` becoming required")
 		end
-		-- B-2: the default that changed value
-		if string.find(adr, "`UI.Grid` with neither `columns` nor `minColumnWidth`", 1, true) == nil then
-			table.insert(missing, "ADR-0040 does not record `UI.Grid`'s changed lane default")
+		-- the default that changed value
+		if string.find(record, "`UI.Grid` given neither `columns` nor `minColumnWidth`", 1, true) == nil then
+			table.insert(missing, "the changelog does not record `UI.Grid`'s changed lane default")
 		end
 		-- ...and both must still be true of the SCHEMA, or the record is stale
 		local required, _, perClass = liveShape()
@@ -402,14 +405,19 @@ describe("the public SHAPE a breaking change moves (ADR-0040)", function()
 			end
 		end
 		if not axisRequired then
-			table.insert(missing, "ADR-0040 records `AdaptiveStack.axis` as required and the schema no longer says so")
+			table.insert(
+				missing,
+				"the changelog records `AdaptiveStack.axis` as required and the schema no longer says so"
+			)
 		end
 		if perClass["Grid.minColumnWidth"] == nil then
-			table.insert(missing, "ADR-0040 records `UI.Grid`'s lane default and the schema documents none")
+			table.insert(missing, "the changelog records `UI.Grid`'s lane default and the schema documents none")
 		end
-		-- ...and the ruling that authorises the policy is named
-		if string.find(adr, "may ride an unreleased version", 1, true) == nil then
-			table.insert(missing, "ADR-0040 no longer states the pre-release policy it is cited for")
+		-- ...and the policy that authorises an unreleased breaking change is stated
+		if
+			string.find(record, "what makes a breaking change legal before a version's first publish", 1, true) == nil
+		then
+			table.insert(missing, "the changelog no longer states the pre-release policy the register stands on")
 		end
 		expect(`unrecorded:{table.concat(missing, "; ")}`).toBe("unrecorded:")
 	end)

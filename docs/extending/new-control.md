@@ -13,8 +13,9 @@ rules your addition must follow.
 ## 0. Ground rules
 
 - Work from the library root: `GameStudio/ui/Facet` (all commands below
-  assume it; use absolute paths in shell commands — relative paths against a
-  wrong cwd are the #1 recorded time sink, `docs/lessons/absolute-paths-in-shell-commands.md`).
+  assume it, and use absolute paths in shell commands — a relative path run
+  against the wrong working directory is the single most expensive mistake
+  recorded here).
 - The scaffold and deterministic conformance toolchain run in Lune
   (`lune run …`). A player-visible control is not production-proven by Lune alone:
   follow §6 below, and read
@@ -92,12 +93,12 @@ check that names it if you forget:
 | a new public property on a primitive | `lune run tools/lune/check_prop_parity_cli`, which proves seven views of the property agree |
 | a guide paragraph, when the control introduces a new CONCEPT | a human reviewer. The catalog row is mandatory; a concept paragraph is a judgement |
 
-**The call shape (ADR-0037).** Your control is created as
+**The call shape.** Your control is created as
 `Facet.Controls.<Name>(core, spec)` and has exactly that one public spelling.
 `build(Facet, core, spec)` stays the module's internal seam — the namespace
 entry the scaffold writes into `src/init.luau` is what hands the library over,
 so a caller never writes it. The nineteen `Facet.new<Name>` builders that still
-exist are the pre-ADR set, kept working and declared in `Facet.DEPRECATIONS`;
+exist predate the namespace, kept working and declared in `Facet.DEPRECATIONS`;
 do **not** add a twentieth. `tools/check_call_shape_drift.py` refuses a new
 old-form call site anywhere in the maintained tree.
 
@@ -126,8 +127,8 @@ expects):
    blueprint mounts and renders headlessly (mount → `renderer.attach` over
    `tests/lib/fake_target` → `initialRender`), `core:lastError()` stays nil.
 2. **Every input class**, end to end through the REAL paths — this is the
-   review bar: *a control that only works with a mouse is an unfinished control*
-   ([ADR-0013](../adr/ADR-0013-input-auto-wiring.md)). A control must prove ALL FOUR of pointer, touch,
+   review bar: *a control that only works with a mouse is an unfinished control*.
+   A control must prove ALL FOUR of pointer, touch,
    keyboard, and gamepad: pointer/touch via `adapter.tap(path)` /
    `adapter.pointerDown(..., "touch")` / pointer handlers, keyboard/gamepad via
    a presenter + `system.deviceKey("Return"/"ButtonA"/...)` — never by calling
@@ -137,8 +138,8 @@ expects):
    control that leaves any class unproven. If a class genuinely has no
    device-true case (its path is identical to a proven sibling), record it as a
    NAMED gap in `tools/lune/check_registration`'s `PROOF_GAPS` — never leave it
-   silently empty. What mounting gives you for FREE (so you rarely hand-wire —
-   ADR-0013): the presenter auto-composes navigation groups, per-node Activate
+   silently empty. What mounting gives you for FREE, so you rarely hand-wire:
+   the presenter auto-composes navigation groups, per-node Activate
    dispatch, grab intercept, geometry feed, and keep-visible from the input
    contribution you attach in step 3 (below) — a composite attaches a
    contribution bundle to its root instead of asking consumers for `present()`
@@ -172,8 +173,8 @@ expects):
    - **gamepad** — focus + A/B; reorder = grab mode; Adjust = focus-then-
      directional; a strengthened focus state at ten-foot.
    Read affordances from the **live class set** (`env` `interactionClasses`),
-   never `preferredInput` alone (ADR-0015) — every live class gets its idiom at
-   once. **Hot-switch (UI-PARADIGM-002):** if your control owns IN-FLIGHT state
+   never `preferredInput` alone — an affordance derives from the live capability
+   set, so every live class gets its idiom at once. **Hot-switch (UI-PARADIGM-002):** if your control owns IN-FLIGHT state
    (a drag, a grab, an open edit), decide **CARRY** (survives a mid-gesture class
    flip; the new class's idiom becomes additionally available) or **CANCEL**
    (reverts to the pre-gesture snapshot — no data loss, never a wedge) and prove
@@ -270,7 +271,7 @@ Rules the reviewers will hold you to:
 - Focus: reachable ids via focusable primitives; if the control has inner
   navigation semantics, use `NavigationGroup`s (see
   `src/focus/focus_graph.luau`).
-- **Attach your input contribution** ([ADR-0013](../adr/ADR-0013-input-auto-wiring.md)). Wrap the returned
+- **Attach your input contribution.** Wrap the returned
   root with `Facet.contribution.attach(blueprint, bundle)` — a PUBLIC export,
   so a control built outside this repository uses the same seam (the scaffold
   stamps `local contribution = Facet.contribution` and a commented bundle
@@ -453,7 +454,7 @@ itself as live-input proof. If Studio finds a defect that Lune missed, add both 
 smallest deterministic regression and a durable Studio scenario for the engine-facing
 part.
 
-## Common traps (from docs/lessons/)
+## Common traps
 
 - **Suite "green" but truncated**: a main-thread yield truncates the Lune
   suite with exit 0 — `tools/test.sh` refuses a verdict without the
