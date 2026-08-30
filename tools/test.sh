@@ -157,10 +157,31 @@ if [ "$(cache_status "$fingerprint")" = "hit" ]; then
 	code="$(meta_get exit_code)"
 	cached=1
 else
-	out="$(./run-tests.sh 2>&1)"
-	code=$?
-	# Strip ANSI color codes before parsing.
-	plain="$(printf '%s' "$out" | sed $'s/\x1b\\[[0-9;]*m//g')"
+	# ONE SUITE RUN PER TREE STATE, ACROSS BOTH SYSTEMS (D7, 2026-08-30).
+	# tools/verify.sh runs the suite as a producer and records its transcript
+	# beside the structured result. During the parity period both paths are
+	# live — gate rows still in the old manifest come through
+	# tools/suite_transcript.sh, the graph comes through the result store — and
+	# without this seam one tree state costs two 260-second runs.
+	#
+	# THE STORE DOES THE JUDGING, NOT THIS FILE. The helper prints a path only
+	# for a stored result whose identity matches this source and which passed
+	# every refusal in tools/lune/verify/results.luau (stale, incomplete,
+	# failed, edited, wrong toolchain, wrong class, fast tier, truncated,
+	# partial). What it hands back is then re-derived below exactly like any
+	# other transcript, so the four guards in this file's header still apply to
+	# it — including the fast-tier bash match.
+	verified=""
+	verified="$(lune run tools/lune/verify/suite_transcript_path 2>/dev/null)"
+	if [ -n "$verified" ] && [ -f "$verified" ]; then
+		plain="$(cat "$verified")"
+		code=0
+	else
+		out="$(./run-tests.sh 2>&1)"
+		code=$?
+		# Strip ANSI color codes before parsing.
+		plain="$(printf '%s' "$out" | sed $'s/\x1b\\[[0-9;]*m//g')"
+	fi
 fi
 case "$code" in
 	'' | *[!0-9]*) code=1 ;;
