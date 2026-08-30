@@ -79,13 +79,13 @@ every approved exception, is [`the constitution`](../reference/constitution.md).
 | [`05-styling.md`](05-styling.md) | Colors, spacing, the built-in look, shadows, rounded corners, why styling is data, the native StyleSheet paint path, and what a theme package adds. |
 | [`06-client-server.md`](06-client-server.md) | Talking to the server: receiving replicated state, sending validated changes, and showing a change instantly while the answer travels. |
 | [`07-input.md`](07-input.md) | Semantic actions, control-declared input contributions, layout-derived navigation, per-class idioms, modal dismissal, hints, the responder chain, and the hard limits. |
-| [`08-without-rojo.md`](08-without-rojo.md) | Using Facet with no external toolchain: the instance-tree rule, four ways to get the library into a place, and what a no-Rojo workflow costs. |
+| [`08-without-rojo.md`](08-without-rojo.md) | Using Facet with no external toolchain: the instance-tree rule, the official Roblox Package, five ways to get the library into a place, and what a no-Rojo workflow costs. |
 | [`09-custom-themes.md`](09-custom-themes.md) | Building a theme package end to end: derive, edit tokens, design chrome, preview, validate, export, install, swap live, and profile the cost. |
 | [`10-rich-skinning.md`](10-rich-skinning.md) | When the art is the interface: layered decoration slots, per-state art, image bars and toggles, semantic icons, pixel-art mode, and the three-rung customization ladder. |
 | [`11-device-verification.md`](11-device-verification.md) | Reading numbers honestly: the five evidence classes, the two budgets, the five-view Studio device matrix, and the rows no emulator can close. |
 | [`12-performance-lab.md`](12-performance-lab.md) | The performance-lab place: its nine workloads, its nine profiler scopes, capturing on a low-end Android device, and when two captures are comparable. |
 | [`13-theme-catalog.md`](13-theme-catalog.md) | The shelf of ready-made looks: what each of the eight packages does to spacing, rows, and type, the two install routes, and an honest cost line. |
-| [`14-choosing-a-ui-library.md`](14-choosing-a-ui-library.md) | Optional, and the one chapter that is not about Facet alone: how Facet compares with the other Roblox user-interface libraries, what each one is good at, and how to decide. Read it if you have not chosen yet. |
+| [`14-choosing-a-ui-library.md`](14-choosing-a-ui-library.md) | Optional: how Facet compares with React Luau, Fusion and Vide, and how to choose between them. |
 
 Two things worth knowing before you start, neither of which is a chapter:
 

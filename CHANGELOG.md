@@ -19,7 +19,8 @@ runtime as `Facet.VERSION`.
   Package asset, which is the recommended install for creators who work in Studio
   without a file sync. The asset id does not exist yet; it is recorded in
   `package/facet-package.json` when the asset is created, and the maintainer
-  interface is `tools/package.sh` with `package/README.md` as its reference.
+  interface is `tools/package.sh` with [`package/README.md`](package/README.md) as
+  its reference.
   Installing, updating, and version checking are described in
   [guide 8](docs/guide/08-without-rojo.md).
 - **A standalone consumer project**, `examples/consumer/`, that builds the

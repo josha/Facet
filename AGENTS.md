@@ -34,7 +34,7 @@ conversation history, or any repository other than this one.
 | what was decided and what was rejected | [`docs/adr/`](docs/adr/) |
 | defects that cost real time, written up | [`docs/lessons/`](docs/lessons/) |
 | the contributor workflow | [`CONTRIBUTING.md`](CONTRIBUTING.md) |
-| the maintainer's package interface | `package/README.md` |
+| the maintainer's package interface | [`package/README.md`](package/README.md) |
 
 ## 2. How to build a screen
 
@@ -118,13 +118,12 @@ reviewer expects. Four rules matter to an agent:
 - **Choose the tier by what the change can be seen to do**, not by how many lines
   it is. Affected and fast are working tiers; full is the tier a proposal is
   judged on; release belongs to the maintainer.
-- **Understand the run's own report.** The tool prints which producers it selected
-  and why, which results it reused rather than recomputed, what invalidated a
-  reused result, and the slowest work in the run. Read that before rerunning
-  everything.
-- **Rerun the smallest trustworthy thing.** When a case fails, the report names the
-  exact command that reruns only that producer. Use it, then rerun the tier once
-  the fix is in.
+- **Understand the run's own report.** `--explain` prints which producers were
+  selected and why, and why a reused result was allowed to stand. Read that
+  before rerunning everything.
+- **Rerun the smallest trustworthy thing.** `--rerun <id>` ignores the stored
+  result for one producer and runs only that. Use it while you fix, then rerun
+  the tier once the fix is in.
 - **Documentation and Studio evidence are part of the change.** A new public
   property belongs in `docs/reference/api.md`; a new capability belongs in the
   guide index catalog; a change a player can look at or press owes the live Roblox
@@ -133,7 +132,7 @@ reviewer expects. Four rules matter to an agent:
 **Package and release.** A change to runtime source, required assets, versioning,
 or the model builder should rebuild and check the distributable package locally:
 `tools/package.sh build` and `tools/package.sh status`, documented in
-`package/README.md`. Both are offline. Publishing to the cloud happens only in an
+[`package/README.md`](package/README.md). Both are offline. Publishing to the cloud happens only in an
 approved release, run by the maintainer with credentials that are not in this
 repository. Never publish from a pull request.
 

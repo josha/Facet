@@ -304,7 +304,29 @@ and Australian word list.  It is under the following copyright:
   SUCH DAMAGE.
 ```
 
-## 3. Toolchain, used but not redistributed
+## 3. Fonts, referenced but not included
+
+**Applies to:** nothing distributed.
+
+Facet names fonts by their Roblox asset identifier —
+`rbxasset://fonts/families/Fondamento.json` and its siblings — which the Roblox
+client resolves. No font file is in this repository and none is in any Facet
+artifact, so no font license obligation attaches to Facet. The families are named
+here only so a reader auditing the repository can see that the question was asked
+and answered.
+
+## 4. Quoted documentation
+
+**Applies to:**
+[`docs/guide/14-choosing-a-ui-library.md`](docs/guide/14-choosing-a-ui-library.md).
+
+That chapter cites the documentation of other Roblox user-interface libraries in
+short, attributed quotations, each with a live link and the date it was read, for
+the purpose of comparing them with Facet. No third-party source code is
+reproduced. Every product named there is a trademark of its owner, and Facet is
+not affiliated with, endorsed by, or sponsored by any of them.
+
+## 5. Toolchain, used but not redistributed
 
 Facet's development toolchain is pinned in [`rokit.toml`](rokit.toml) and
 installed by each contributor. None of it is copied into this repository or into

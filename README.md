@@ -191,7 +191,7 @@ screen and proves it works.
 | Document | What it is |
 |---|---|
 | [`docs/guide/README.md`](docs/guide/README.md) | **Start here.** The guide, in reading order, written for a Roblox developer who has never seen this repository. It carries the capability catalog: every public capability, one line each, linked to its reference entry. |
-| [`docs/guide/14-choosing-a-ui-library.md`](docs/guide/14-choosing-a-ui-library.md) | Optional and non-authoritative: how Facet compares with the other Roblox user-interface libraries, and when each one fits. |
+| [`docs/guide/14-choosing-a-ui-library.md`](docs/guide/14-choosing-a-ui-library.md) | Optional: a comparison of Facet with React Luau, Fusion and Vide, for a creator choosing a UI library. |
 | [`docs/reference/api.md`](docs/reference/api.md) | The exhaustive reference — every property, default, callback, and return value. |
 | [`docs/reference/constitution.md`](docs/reference/constitution.md) | The rules anything added to this repository has to follow. |
 | [`docs/MAINTAINERS.md`](docs/MAINTAINERS.md) | Where a change goes, and what proves it. |
@@ -232,7 +232,8 @@ tools/doctor.sh                      # the toolchain and the library invariants
 
 `tools/package.sh build`, `status`, and `verify` are offline. Creating or
 publishing the asset requires an explicit confirmation flag and a credential that
-is never stored in this repository; `package/README.md` is the reference.
+is never stored in this repository; [`package/README.md`](package/README.md) is
+the reference.
 
 ## Versioning and compatibility
 

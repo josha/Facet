@@ -76,8 +76,14 @@ Which one to use:
 - **release** belongs to the maintainer cutting a release. It runs the producers
   that touch builds, packages, and recorded evidence.
 
-Affected and fast output is not full evidence, and the tool says so. Do not report
-a fast run as if it were a full one.
+Affected and fast output is not full evidence, and the tool says so: both print a
+banner, and the full and release readers refuse a fast tier's results. Do not
+report a fast run as if it were a full one.
+
+Two flags are worth knowing. `--explain` prints which producers were selected,
+why, and why a reused result was allowed to stand. `--rerun <id>` ignores the
+stored result for one producer and runs only that, which is the loop to use while
+you fix a failure.
 
 Two loops sit underneath the tiers and are worth knowing:
 
