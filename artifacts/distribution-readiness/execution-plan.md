@@ -71,10 +71,13 @@ D2. **Public allowlist (tip).** Keep: root docs (`README.md LICENSE
 THIRD_PARTY_NOTICES.md CHANGELOG.md CONTRIBUTING.md SECURITY.md AGENTS.md`),
 `.gitignore rokit.toml run-tests.sh requirements.json`, `src/`, `assets/`,
 `examples/` (+ new `examples/consumer/`), `docs/guide/`, `docs/reference/{api,constitution}.md`,
-`docs/adr/`, `docs/extending/`, `docs/MAINTAINERS.md`, `docs/lessons/`, `tests/`,
+`docs/extending/`, `docs/MAINTAINERS.md`, `tests/`,
 `bench/`, `tools/` (minus `_probe_*`, `_tmp`), `skills/`, `.github/`, `package/`
 (manifest + receipts), the verification graph. Archive (remove from tip, keep
-history): `docs/plans/`, `docs/handoff/`, `docs/research/`, `docs/INVENTORY.md`,
+history): `docs/adr/` and `docs/lessons/` (OWNER RULING 2026-08-30: every decision
+record and stage artifact is internal — kept in the archive, never public, and no
+public file may cite one; public docs and source comments must stand alone),
+`docs/plans/`, `docs/handoff/`, `docs/research/`, `docs/INVENTORY.md`,
 `docs/reference/{swiftui-parity,fusion-comparison,react-lua-comparison,sponsor-view-parity}.md`,
 `artifacts/` (except the frozen flat-render baseline any current producer still reads),
 `.superpowers/`, `ui_todo.md`, `sweep.luau`, `vendor/`, `src/core/fusion_adapter.luau`,

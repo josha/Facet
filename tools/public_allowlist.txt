@@ -21,10 +21,8 @@ examples/
 docs/guide/
 docs/reference/api.md
 docs/reference/constitution.md
-docs/adr/
 docs/extending/
 docs/MAINTAINERS.md
-docs/lessons/
 tests/
 bench/
 tools/
