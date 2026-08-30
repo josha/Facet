@@ -222,7 +222,7 @@ target_contract.OPTIONAL = {
 	-- `Parent`, gated by `authority.assertWrite("Foreign", "Parent", "host")`.
 	-- There is deliberately NO `contentRoot()` here, unlike `stageHost`: handing
 	-- back the container would hand back a framework-owned GuiObject, which is
-	-- exactly the writable-handle hole `fusion-comparison.md` §5's `Ref` defers.
+	-- exactly the writable-handle hole ADR-0034 refuses to open.
 	-- WITHOUT IT: `controller.foreignHost(path)` answers nil, so a Foreign is an
 	-- empty reserved box — authors gate on the nil and present a fallback plate.
 	-- `billboard_target` deliberately does not offer it (same unproven canvas

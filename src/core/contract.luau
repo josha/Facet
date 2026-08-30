@@ -1,7 +1,9 @@
 --!strict
 -- Facet core contract (design §6, §17 Phase 0): the reactive-foundation
--- interface every candidate core (custom / fusion-adapter / imperative
--- baseline) implements identically. The public Facet API depends only on this
+-- interface every candidate core implements identically — the shipped custom
+-- core (`src/core/custom.luau`, selected by ADR-0002) and the retained
+-- imperative baseline kept as a development fixture at
+-- `bench/cores/imperative.luau`. The public Facet API depends only on this
 -- contract, so the Phase 0 rubric can swap implementations without API change.
 -- Pure types; no code. Semantics the conformance suite enforces:
 --   * writes outside a transaction flush synchronously; inside, at close;

@@ -893,7 +893,7 @@ local function buildEngine(Facet: any, core: any, spec: any, hosted: HostedOpts?
 	-- cannot miss a write: the spring's every step, the drag's every sample and
 	-- the commit's slide-off all already come through here.
 	-- fix round 1, finding 4: change-gated, mirroring `offset`'s own signal
-	-- (`eq = defaultEq`, `src/core/imperative.luau`'s `node.set` — a write
+	-- (`eq = defaultEq`, `bench/cores/imperative.luau`'s `node.set` — a write
 	-- that does not change the value never marks the node dirty or fires its
 	-- observers). `offset:set(px)` below already no-ops internally on a
 	-- repeat value; `onSlide` used to fire anyway, EVERY call, because it sat

@@ -1,6 +1,6 @@
 --!strict
 --[[ Scenario 'time_curves' — TIME-BASED EASING, AND THE ONE THING A SPRING
-	CANNOT DO (ADR-0033; fusion-comparison.md §5 G-1).
+	CANNOT DO (ADR-0033).
 
 	`clock:spring` is the framework's default reach and stays that way: it is
 	interruptible, it inherits gesture velocity, and its two numbers are a FEEL

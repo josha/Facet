@@ -1,6 +1,6 @@
 --!strict
 --[[ Scenario 'branch_scope' — A PANEL THAT OWNS ITS OWN THINGS, and the one
-	that does not (react-lua-comparison.md §5 rank 2).
+	that does not (docs/reference/api.md §When).
 
 	`UI.When`'s `thenView` is handed the BRANCH's ownership scope, the twin of
 	`UI.ForEach`'s `row(item, itemScope)`. The scope opens with the panel and is

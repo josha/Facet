@@ -1,15 +1,28 @@
 --!strict
--- Retained imperative baseline: candidate C of the Phase 0 bake-off (design
--- §3, §17). Models the pattern the games use today (pure model recompute +
--- diffed apply): signals with observer lists, and "memos" recomputed IN
--- CREATION ORDER on every commit (recompute-the-model), with eq suppression
--- for unchanged values. No dependency tracking, no laziness, no cycle or
--- write-during-memo detection — deliberately, so the rubric measures what the
--- simple approach actually gives up (update cost, dynamic-dep skips,
--- diagnostics) and keeps (glitch-freedom via ordered recompute, batching).
+-- Retained imperative baseline: the losing arm of the ADR-0002 foundation
+-- bake-off, kept as a DEVELOPMENT FIXTURE. Models the pattern the games use
+-- today (pure model recompute + diffed apply): signals with observer lists, and
+-- "memos" recomputed IN CREATION ORDER on every commit (recompute-the-model),
+-- with eq suppression for unchanged values. No dependency tracking, no
+-- laziness, no cycle or write-during-memo detection — deliberately, so the
+-- rubric measures what the simple approach actually gives up (update cost,
+-- dynamic-dep skips, diagnostics) and keeps (glitch-freedom via ordered
+-- recompute, batching).
+--
+-- IT LIVES UNDER `bench/`, NOT `src/`, and that is the whole point of its
+-- address: `tools/build_model.sh` maps `src/` and nothing else, so the shipped
+-- Package contains RUNTIME ONLY. A second conforming core is worth keeping —
+-- `tests/conformance/cli` and `bench/scenarios` both run against it, and
+-- `tests/table.spec.luau` uses it to prove one disposal fix holds under a core
+-- that makes no self-healing promise — but none of that is a reason to hand it
+-- to a consumer. Moved out of `src/core/` on 2026-08-30.
+--
+-- It reaches back into `src/core/` for the two pieces it must share with the
+-- shipped core, and only those: the contract types it implements, and the scope
+-- implementation, so a scope means the same thing on both cores.
 
-local contract = require("./contract")
-local scope_impl = require("./scope_impl")
+local contract = require("../../src/core/contract")
+local scope_impl = require("../../src/core/scope_impl")
 
 type Use = contract.Use
 

@@ -203,7 +203,7 @@ function with_animation.new(ctx: any)
 		produce that:
 
 		  · an outer core TRANSACTION is open — `commit` is deferred to its close;
-		  · a core COMMIT is in flight — `src/core/imperative.luau`'s `commit`
+		  · a core COMMIT is in flight — `bench/cores/imperative.luau`'s `commit`
 		    opens `if committing then return end`, so a transaction opened from an
 		    observer, effect, memo settle or any handler dispatched DURING a commit
 		    never flushes either. Reproduced from a plain `core:observe` handler.

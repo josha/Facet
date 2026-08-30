@@ -106,7 +106,7 @@ describe("mount: When region", function()
 	end)
 end)
 
---[[ THE BRANCH SCOPE (react-lua-comparison.md §5 rank 2). `ForEach` hands each
+--[[ THE BRANCH SCOPE (docs/reference/api.md §When). `ForEach` hands each
 	row `(item, itemScope)`; `When.thenView` was handed NOTHING, even though
 	`mountWhen` builds a `branchScope` on the line above the factory call and
 	disposes it on branch exit. The consequence was not theoretical: a panel that

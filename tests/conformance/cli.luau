@@ -2,14 +2,18 @@
 -- Conformance CLI (design §17 Phase 0): runs the identical suite +
 -- micro-screens against one named core candidate and writes the scorecard to
 -- artifacts/conformance-<core>.json.
--- Usage: lune run tests/conformance/cli <custom|fusion|imperative> [--require-all-pass]
+-- Usage: lune run tests/conformance/cli <custom|imperative> [--require-all-pass]
 -- Exit 0 = run completed (and, with --require-all-pass, every check passed).
 -- A fresh core instance is constructed per check: no cross-check state.
+--
+-- TWO ARMS, AND ONLY ONE OF THEM SHIPS. `custom` is the core Facet ships
+-- (`Facet.newCore`, ADR-0002). `imperative` is the retained recompute-all
+-- baseline, a development fixture that lives under `bench/cores/` precisely so
+-- it stays out of the distributed Package — running the identical checks
+-- against it is what keeps `contract.luau` an interface rather than a
+-- description of one implementation.
 
 local process = require("@lune/process")
-
-local LuneExternal = require("../lib/fusion_lune_external")
-LuneExternal.setup() -- fusion candidate needs a provider before construction
 
 local artifact = require("../../tools/lune/artifact")
 local suite = require("./suite")
@@ -18,15 +22,14 @@ local a11yL10nCorpus = require("./a11y_l10n_corpus")
 
 local factories: { [string]: any } = {
 	custom = require("../../src/core/custom"),
-	fusion = require("../../src/core/fusion_adapter"),
-	imperative = require("../../src/core/imperative"),
+	imperative = require("../../bench/cores/imperative"),
 }
 
 local coreName = process.args[1]
 local requireAllPass = process.args[2] == "--require-all-pass"
 local factory = factories[coreName or ""]
 if factory == nil then
-	print("conformance: usage: lune run tests/conformance/cli <custom|fusion|imperative> [--require-all-pass]")
+	print("conformance: usage: lune run tests/conformance/cli <custom|imperative> [--require-all-pass]")
 	process.exit(2)
 end
 

@@ -54,15 +54,9 @@
 	`ReplicatedStorage.Facet`, since that is exactly what a gallery/scenario file
 	is reaching FOR). `ReplicatedStorage.Facet` (`src/`) is excluded from the
 	FILES SCANNED, not from the targets a require may land on: `src/`'s own
-	internal requires never cross a mount boundary (same tree throughout, so
-	Lune and Studio agree by construction) except one pre-existing, KNOWN,
-	deliberately-inert case — `src/core/fusion_adapter.luau`'s vendored-Fusion
-	reach — which is not on any live boot path (`src/init.luau` never requires
-	it; `vendor/Fusion` is not even mounted into the gallery place, per
-	`studio_tree`'s own "vendored Fusion is not needed by the gallery runtime
-	path; skip" note) and is out of THIS task's class (a live "All controls"
-	empty-mount defect), so it is left to whatever owns `src/`'s own package
-	hygiene rather than smuggled into this guard's verdict.
+	internal requires never cross a mount boundary — same tree throughout, so
+	Lune and Studio agree by construction, and `tools/lune/check_boundary`
+	refuses any require under `src/` that would leave it.
 ]]
 
 local fs = require("@lune/fs")
@@ -128,10 +122,9 @@ function checker.check(
 
 	for _, e in entries do
 		-- SCANNED (not targeted): skip `src/`'s own files (`ReplicatedStorage.
-		-- Facet` and its descendants) — see the module header for the one known,
-		-- inert, out-of-class exception this excludes (`fusion_adapter.luau`'s
-		-- vendored-Fusion reach). They still count as valid TARGETS via
-		-- `existing` above.
+		-- Facet` and its descendants) — their internal requires never cross a
+		-- mount boundary, and `check_boundary` owns that rule. They still count
+		-- as valid TARGETS via `existing` above.
 		local isSrc = e.path == "ReplicatedStorage.Facet" or string.match(e.path, "^ReplicatedStorage%.Facet%.") ~= nil
 		if e.file == "" or isSrc then
 			continue

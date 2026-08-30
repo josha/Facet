@@ -32,7 +32,6 @@ add_check() { # name status detail required
 LUNE_V="$(lune --version 2>/dev/null)" && add_check lune OK "$LUNE_V" true || add_check lune FAIL "lune not on PATH" true
 ROJO_V="$(rojo --version 2>/dev/null)" && add_check rojo OK "$ROJO_V" true || add_check rojo FAIL "rojo not on PATH" true
 [ -f tests/run.luau ] && add_check testkit OK "tests/run.luau present" true || add_check testkit FAIL "tests/run.luau missing" true
-[ -f vendor/Fusion/init.luau ] && add_check fusion-vendor OK "vendor/Fusion pinned 0.3 (VENDOR.md)" true || add_check fusion-vendor FAIL "vendor/Fusion missing" true
 [ -f requirements.json ] && add_check requirements OK "requirements.json present" true || add_check requirements FAIL "requirements.json missing" true
 [ -f phases.json ] && add_check phases OK "phases.json present" true || add_check phases FAIL "phases.json missing" true
 

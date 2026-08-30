@@ -1,7 +1,7 @@
 --!strict
 -- Registers the conformance suite + micro-screens against the CUSTOM core in
 -- the main test loop: the reference implementation must pass every check on
--- every ./run-tests.sh. Candidate scorecards (fusion/imperative) come from
+-- every ./run-tests.sh. The imperative baseline's scorecard comes from
 -- tests/conformance/cli.luau, which runs the same checks without asserting.
 
 local t = require("../lib/testkit")

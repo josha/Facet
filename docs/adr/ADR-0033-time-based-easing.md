@@ -3,7 +3,7 @@
 **Date:** 2026-08-15
 **Status:** Accepted
 **Amends:** ADR-0022 (motion authority) — adds a third driver behind the shared `MotionValue` handle and a second named registry beside `motion.registerClass`
-**Commissioned by:** the director, closing `docs/reference/fusion-comparison.md` §5 **G-1** (ranked BUILD NOW, the only row in §4 where a Fusion user moving to Facet loses a capability outright)
+**Commissioned by:** the director, closing the framework-comparison survey's **G-1** (ranked BUILD NOW, the only row in its §4 where a developer moving to Facet lost a capability outright). That survey was removed from this repository on 2026-08-30 and is archived privately at `Facet-private-archive/docs/reference/fusion-comparison.md`
 **Companions:** `docs/research/2026-08-15-roblox-easing-engine-facts.md`, `artifacts/time-based-easing/`
 
 ## Context

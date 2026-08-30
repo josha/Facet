@@ -1,6 +1,6 @@
 --!strict
---[[ `UI.sortedEntries` — DETERMINISTIC DICTIONARY ITERATION (fusion-comparison.md
-	§5 gap G-3).
+--[[ `UI.sortedEntries` — DETERMINISTIC DICTIONARY ITERATION
+	(docs/reference/api.md §sortedEntries).
 
 	`UI.ForEach` takes an ARRAY. A consumer holding a dictionary — a player-id →
 	score map, a settings table — has to flatten it first, and the obvious flatten

@@ -234,10 +234,11 @@ function table_rows.new(deps: Deps)
 		because `tbl.dispose()` always disposes the owning `row_actions` instance
 		(hence `editGutterPx`) before Table's own `scope` — but `core/contract.
 		luau`'s promise is that an observer is released ONLY through the disposer
-		`core:observe` returns, and `src/core/imperative.luau` (the other
-		conforming core this repo ships and runs the identical control suite
-		against) keeps exactly that promise with no self-heal, so there the
-		subscription is never released at all. `scope:own` fixes that under
+		`core:observe` returns, and `bench/cores/imperative.luau` (the other
+		conforming core this repo keeps as a development fixture and runs the
+		identical control suite against) keeps exactly that promise with no
+		self-heal, so there the subscription is never released at all.
+		`scope:own` fixes that under
 		EITHER core, the same way the other seven `core:observe` call sites in
 		this file's pair do; calling an already-disposed observer's unbind again
 		(the walk `scope:dispose()` performs on every prior row's now-stale

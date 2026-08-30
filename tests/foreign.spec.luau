@@ -1,6 +1,6 @@
 --!strict
 -- UI.Foreign — the bounded escape hatch to a Roblox GuiObject Facet does not
--- wrap (ADR-0034; docs/reference/react-lua-comparison.md §5 rank 1).
+-- wrap (ADR-0034; docs/reference/api.md §Foreign).
 --
 -- Six contracts, all deterministic and engine-free:
 --   (a) SCHEMA        strict authoring, and the UNBOUNDED form refused BY NAME:

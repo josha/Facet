@@ -344,7 +344,7 @@ end)
 
 --[[ RED-TEAM R2 (2026-08-13) — A CALL MADE DURING A CORE COMMIT.
 
-	`src/core/imperative.luau`'s `commit` opens `if committing then return end`, so
+	`bench/cores/imperative.luau`'s `commit` opens `if committing then return end`, so
 	a `core:transaction` opened from anything the commit itself dispatches — an
 	observer, an effect, a settle chain — never flushes. The nesting probe sees the
 	same silence an outer transaction produces and cannot separate them, so the

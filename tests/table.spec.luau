@@ -255,10 +255,11 @@ describe("Table: layout", function()
 		Table's own `scope` — so under `custom`, THIS SPECIFIC ordering-dependent
 		bug is invisible to `counts.observers` today, on every reachable path
 		through the public API, fix or no fix (proved by running this exact case
-		on `Facet.newCore()`: identical counters either way). `src/core/
-		imperative.luau` — the OTHER conforming core this repo ships and runs the
-		SAME control suite against (`tests/conformance/cli.luau <imperative>`) —
-		makes no such promise: an observer released only through the disposer
+		on `Facet.newCore()`: identical counters either way). `bench/cores/
+		imperative.luau` — the OTHER conforming core this repo keeps as a
+		development fixture and runs the SAME control suite against
+		(`tests/conformance/cli.luau <imperative>`) — makes no such promise: an
+		observer released only through the disposer
 		`core:observe` returned is the WHOLE contract (`core/contract.luau`), and
 		nothing else may stand in for it. `table_rows.luau`'s own idiom
 		(`scope:own(core:observe(...))`, all seven other call sites) is written to
@@ -280,7 +281,7 @@ describe("Table: layout", function()
 		present only on the unfixed source. The assertion below is exactly that
 		arithmetic: `CONTROL + 1` on the fix, `CONTROL + 2` on HEAD before it. ]]
 	it("disposing a table with a destructive rowActions entry frees the edit-gutter observer", function()
-		local imperativeCore = require("../src/core/imperative")
+		local imperativeCore = require("../bench/cores/imperative")
 		local ONE_RACER = { { id = "razz", name = "Razz Raccoon", laps = 3 } }
 
 		local controlCore = imperativeCore.new()

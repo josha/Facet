@@ -1,5 +1,5 @@
 --!strict
--- Motion CURVES (ADR-0033; fusion-comparison.md §5 G-1): the named
+-- Motion CURVES (ADR-0033): the named
 -- `{ duration, style, direction }` registry that gives the motion authority a
 -- duration that means what it says.
 --

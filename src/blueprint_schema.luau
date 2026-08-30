@@ -2541,7 +2541,7 @@ class("Stage", {
 	}),
 })
 
---[[ THE FOREIGN BOX (ADR-0034; docs/reference/react-lua-comparison.md §5 rank 1).
+--[[ THE FOREIGN BOX (ADR-0034; docs/reference/api.md §Foreign).
 
 	A box reserved for a `GuiObject` Facet does not wrap — a `VideoFrame`, an
 	`EditableImage` surface, a vendored widget, a class Roblox ships next month.

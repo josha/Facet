@@ -7,7 +7,6 @@ local testkit = require("./lib/testkit")
 
 -- Register all specs. Add new spec files here.
 require("./smoke.spec")
-require("./fusion_vendor.spec")
 require("./conformance/conformance.spec")
 require("./replication.spec")
 require("./layout.spec")
@@ -138,7 +137,7 @@ require("./path.spec")
 -- UI.Stage (ViewportFrame adoption, 2026-08-08): the engine-content leaf plus
 -- its renderer-mediated content seam (camera/lighting/content root)
 require("./stage.spec")
--- UI.Foreign (ADR-0034, react-lua-comparison §5 rank 1): the bounded escape
+-- UI.Foreign (ADR-0034; docs/reference/api.md §Foreign): the bounded escape
 -- hatch to a GuiObject class Facet does not wrap — one box, one claim
 -- (`Foreign.Parent`, on the reserved `host` authority), everything else the
 -- caller's
@@ -324,7 +323,7 @@ require("./spatial.spec")
 -- the five-view device-matrix selection policy, fed a recorded live catalog
 require("./matrix_rows.spec")
 require("./error_boundary.spec")
--- `UI.sortedEntries` (fusion-comparison.md §5 gap G-3): the deterministic
+-- `UI.sortedEntries` (docs/reference/api.md §sortedEntries): the deterministic
 -- dictionary flatten `UI.ForEach` needs, and the negative control that proves
 -- Luau's `pairs` order really does move with a table's construction history —
 -- twelve keys, because at six the constructions agree and prove nothing
@@ -599,7 +598,7 @@ require("./maintainer_map.spec")
 require("./motion_spring.spec")
 require("./motion_clock.spec")
 require("./motion_chase.spec")
--- ...and G-1, the one capability a Fusion user lost outright (ADR-0033): a
+-- ...and the one thing a spring structurally cannot promise (ADR-0033): a
 -- DURATION with a CURVE, evaluated by the engine's own `TweenService:GetValue`
 -- in production and by a pure twin — pinned to the engine by a differential
 -- oracle — under Lune

@@ -1,5 +1,5 @@
 --!strict
--- Scenario 'foreign_content' (UI.Foreign, ADR-0034; react-lua-comparison §5 rank 1):
+-- Scenario 'foreign_content' (UI.Foreign, ADR-0034; api.md §Foreign):
 -- the BOUNDED ESCAPE HATCH, shown with instances Facet genuinely cannot draw.
 --
 -- WHY THESE THREE PANES AND NOT A COLOURED FRAME. A demo of an escape hatch that

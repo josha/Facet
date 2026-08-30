@@ -186,13 +186,13 @@ local ORDER = {
 	-- because all four states paint identical pixels. Also in
 	-- `demo_picker.DEMOS`.
 	"surface_overlap",
-	-- ...and react-lua-comparison.md §5 rank 2: THE BRANCH SCOPE. `thenView` is
+	-- ...and api.md §When: THE BRANCH SCOPE. `thenView` is
 	-- handed the branch's own ownership scope, and a leak paints nothing — the
 	-- two panels here are the same panel written the two ways and are identical
 	-- while open, so the framework's own scope counter is the surface. Also in
 	-- `demo_picker.DEMOS`.
 	"branch_scope",
-	-- ...and fusion-comparison.md §5 gap G-3: `UI.sortedEntries`. The same twelve
+	-- ...and api.md §sortedEntries: `UI.sortedEntries`. The same twelve
 	-- scores built three ways, flattened both ways side by side — the raw column
 	-- deals itself a new order and the sorted one does not. One frame of a
 	-- leaderboard cannot show a bug that only exists BETWEEN two frames. Also in
@@ -208,7 +208,7 @@ local ORDER = {
 	-- fixture registers its own six curves defensively at build. Also in
 	-- `demo_picker.DEMOS`.
 	"time_curves",
-	-- ...and react-lua-comparison.md §5 rank 1 / ADR-0034: UI.FOREIGN. The one
+	-- ...and api.md §Foreign / ADR-0034: UI.FOREIGN. The one
 	-- fixture in this list whose panes are NOT drawn by Facet — RichText spans in
 	-- one label, an engine-measured UIListLayout with AutomaticCanvasSize, and a
 	-- deliberately 2x-oversize Frame that proves the box clips. Each is a

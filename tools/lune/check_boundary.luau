@@ -4,9 +4,18 @@
 --   (a) any module OUTSIDE src/client requires a module under src/client
 --       (the client renderer/platform layer must be unreachable from
 --       shared/server-visible code), or
---   (b) any module under src/core, src/replication, or src/shared requires
---       the engine-only areas of the vendored Fusion copy (RobloxExternal,
---       Instances) or the vendor root init (which pulls them in).
+--   (b) ANY module under src/ requires ANYTHING under a `vendor/` directory, or
+--       any module whose resolved path names a third-party framework this
+--       library does not build on. There is no vendored third-party source in
+--       this repository and there is not going to be one: the library's
+--       reactive core is its own, the model builder maps `src/` and nothing
+--       else, and a require that reached outside `src/` would ship a dangling
+--       reference into the Package. The rule used to name two engine-only
+--       subdirectories of one vendored copy as the only forbidden targets,
+--       which made "no vendored dependency" a property of what happened to be
+--       in the tree rather than a rule. It is now the rule
+--       (`tools/check_no_fusion.py` is its twin over sources, the built model
+--       and the consuming game).
 --
 -- ...and then walks the CONSUMER side (ENF-2). ADR-0011 tells a game to reach
 -- Facet through the root module plus a short list of client entry points, and
@@ -43,10 +52,6 @@ local function checkFile(filePath: string)
 	local dir = string.match(filePath, "^(.*)/[^/]+$") or ""
 	local isInit = string.match(filePath, "init%.luau$") ~= nil
 	local insideClient = string.match(filePath, "^src/client/") ~= nil
-	local engineFreeZone = string.match(filePath, "^src/core/") ~= nil
-		or string.match(filePath, "^src/replication/") ~= nil
-		or string.match(filePath, "^src/shared/") ~= nil
-		or string.match(filePath, "^src/preview/") ~= nil
 	for target in string.gmatch(fs.readFile(filePath), [[require%(%s*"([^"]+)"%s*%)]]) do
 		local resolvedBase: string
 		if string.sub(target, 1, 6) == "@self/" then
@@ -93,14 +98,21 @@ local function checkFile(filePath: string)
 		if not insideClient and string.match(resolved, "^src/client/") then
 			table.insert(violations, { file = filePath, target = resolved, rule = "non-client-requires-client" })
 		end
-		if
-			engineFreeZone
-			and (
-				string.match(resolved, "^vendor/Fusion/RobloxExternal")
-				or string.match(resolved, "^vendor/Fusion/Instances/")
-				or resolved == "vendor/Fusion"
-			)
-		then
+		--[[ (b) NO VENDORED THIRD-PARTY SOURCE, ANYWHERE UNDER src/ (2026-08-30).
+			A require that resolves under a `vendor/` directory, or whose path
+			names the third-party reactive framework this library was once
+			benchmarked against, is a violation from any file in `src/` — not
+			only from the modules that used to be called the engine-free zone.
+			`vendor/` no longer exists in this repository; the rule is what keeps
+			that a decision rather than an accident.
+
+			THE RULE ID IS OLDER THAN THE RULE and is kept deliberately: the
+			maintainer map (`docs/MAINTAINERS.md`, checked by
+			`tools/lune/check_maintainer_map`) cites boundary rule ids by name,
+			so renaming this one is a two-repository edit and not a boundary
+			decision. Read it as "src requires a vendored third party"; the zone
+			it once applied to is now every file under `src/`. ]]
+		if string.match(resolved, "^vendor/") or string.match(resolved, "Fusion") then
 			table.insert(
 				violations,
 				{ file = filePath, target = resolved, rule = "engine-free-zone-requires-engine-vendor" }

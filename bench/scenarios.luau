@@ -7,14 +7,17 @@
 -- (HUD binding storm, settings open/close churn, keyed collection mutation)
 -- on each core candidate. Numbers feed the rubric's update-cost/allocation
 -- axes (headless trend data; device authoritative per §14.3).
-
-local LuneExternal = require("../tests/lib/fusion_lune_external")
-LuneExternal.setup()
+--
+-- THE ARMS ARE `custom` (the core Facet ships) AND `imperative` (the retained
+-- recompute-all baseline, `bench/cores/imperative.luau`). The baseline lives
+-- beside this file rather than in `src/` because it is a development fixture:
+-- the model builder maps `src/`, so anything under it would ship. A comparison
+-- between two cores is only honest while both run the identical workload, which
+-- is why the loop below builds every scenario once per arm.
 
 local factories = {
 	custom = require("../src/core/custom"),
-	fusion = require("../src/core/fusion_adapter"),
-	imperative = require("../src/core/imperative"),
+	imperative = require("./cores/imperative"),
 }
 
 export type Scenario = {

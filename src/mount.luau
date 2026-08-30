@@ -125,7 +125,7 @@ function mountLib.mount(core: any, rootBlueprint: Blueprint, opts: MountOpts?)
 
 		THE BRANCH SCOPE IS HANDED TO THE FACTORY — `thenView(branchScope)`, the
 		symmetric twin of `ForEach`'s `row(item, itemScope)` below
-		(react-lua-comparison.md §5 rank 2, built 2026-08-15). The lifetime already
+		(docs/reference/api.md §When, built 2026-08-15). The lifetime already
 		existed and was simply not passed: `branchScope` is created one line above
 		each factory call and disposed on branch exit, so a panel that owns a
 		MotionValue, a timer or an async handle can own it HERE instead of hoisting

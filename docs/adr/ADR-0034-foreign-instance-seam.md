@@ -6,15 +6,16 @@
 `host` is "declared but unused" — closing carry-over **ARCH-F8**, which
 dispositioned that authority as dead in the Step 5.5 cleanup ledger, and
 satisfying requirement **UI-EXT-001** in a narrower form than it was written.
-**Commissioned by:** [`docs/reference/react-lua-comparison.md`](../reference/react-lua-comparison.md)
-§5 **rank 1 · BUILD NOW** — *"Facet has 26 classes and a seven-entry class map;
-anything else becomes a `Frame`."*
+**Commissioned by:** the React-Lua comparison survey, §5 **rank 1 · BUILD NOW** —
+*"Facet has 26 classes and a seven-entry class map; anything else becomes a
+`Frame`."* That survey was removed from this repository on 2026-08-30 and is
+archived privately at `Facet-private-archive/docs/reference/react-lua-comparison.md`.
 **Companions:** [ADR-0024](ADR-0024-declarative-3d.md) (the 3-D/world-instance
 case, decided separately and NOT this), [ADR-0029](ADR-0029-leaf-opacity-refusal.md)
 (the refusal-that-names-the-alternative pattern this follows),
 [ADR-0028](ADR-0028-cross-surface-overlap.md) (the cover-rect alarm this must not
-blind), `fusion-comparison.md` §5 **G-2** (`Ref` — **still deferred**, and this
-record does not overturn it), the `UI.Stage` seam
+blind), the archived framework-comparison survey's **G-2** (`Ref` — **still
+deferred**, and this record does not overturn it), the `UI.Stage` seam
 (`docs/research/2026-08-08-viewportframe-engine-facts.md`) which is the working
 precedent for every part of this.
 
@@ -78,8 +79,8 @@ The comparison says the seam should *"hand the caller a container"*, mirroring
 `stageHost`'s `contentRoot()`. Building it that way surfaced the problem: a
 container handed out is a **framework-owned `GuiObject`** that the renderer writes
 a rect, a plate and a visibility onto every solve — a writable handle to an
-instance Facet owns and continues to write, which is precisely the hole
-`fusion-comparison.md` §5 defers `Ref` for.
+instance Facet owns and continues to write, which is precisely the hole a
+writable-reference primitive would open, and the reason this record refuses one.
 
 So the seam inverts. `controller.foreignHost(path)` answers one verb:
 
@@ -273,8 +274,8 @@ instance, not less.
   `Stage` compare it replaced is now an index too); and one field test in the park
   eligibility chain. Measured in `artifacts/foreign-instance-seam/`.
 - **`Ref` stays deferred.** Nothing here hands out an instance Facet created —
-  Decision 2 exists specifically to keep that true — so `fusion-comparison.md`
-  §5 G-2's refusal is untouched and should not be read as relaxed.
+  Decision 2 exists specifically to keep that true — so the standing refusal of a
+  writable-reference primitive is untouched and should not be read as relaxed.
 - **A consumer can now shoot themselves.** A caller may adopt an instance that
   paints badly, animates every frame, or costs more than the surface it sits in.
   The framework's contract stops at the box, and `api.md` says so plainly. This is

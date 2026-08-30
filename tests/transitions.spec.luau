@@ -203,7 +203,7 @@ describe("mount retire model: When", function()
 	end)
 
 	it("the scope handed to thenView survives the RETIRE and dies at done, once", function()
-		--[[ react-lua-comparison.md §5 rank 2. The branch scope is now the factory's
+		--[[ docs/reference/api.md §When. The branch scope is now the factory's
 			second argument, so a panel's MotionValue lives on it — and a panel with a
 			motion value is precisely the panel that has an exit transition. The
 			retire path moves the scope onto `retiring` and disposes it at `done`, so

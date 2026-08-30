@@ -40,7 +40,6 @@ type FileEntry = studio_tree.FileEntry
 local mode = if process.args[1] == "perf" then "perf" else "gallery"
 
 local entries: { FileEntry } = studio_tree.entries(mode)
--- vendored Fusion is not needed by the gallery runtime path; skip.
 
 -- content stamp: order-stable concatenated sizes+paths hashed cheaply.
 --

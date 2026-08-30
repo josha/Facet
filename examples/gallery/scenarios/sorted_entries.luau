@@ -1,6 +1,6 @@
 --!strict
 --[[ Scenario 'sorted_entries' — THE SAME TWELVE SCORES, BUILT THREE WAYS
-	(fusion-comparison.md §5 gap G-3).
+	(docs/reference/api.md §sortedEntries).
 
 	`UI.ForEach` takes an array, so a dictionary has to be flattened first — and
 	the obvious flatten is wrong. Luau's `pairs` order is a function of the table's

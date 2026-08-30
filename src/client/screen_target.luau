@@ -1712,7 +1712,7 @@ function screen_target.new(opts: Opts?)
 		NO `contentRoot()`, unlike `stageHost` — and that difference is the design.
 		Handing back the container would hand back a framework-owned GuiObject that
 		the renderer writes a rect and a plate onto every solve, which is precisely
-		the writable-handle hole `fusion-comparison.md` §5 defers `Ref` for. Adopting
+		the writable-handle hole ADR-0034 refuses to open. Adopting
 		INTO the container hands back nothing at all.
 
 		Cached per node, and DEAD when the node is (`remove`/`destroyRoot` call

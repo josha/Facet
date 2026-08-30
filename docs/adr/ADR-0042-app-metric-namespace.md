@@ -283,9 +283,10 @@ an illegal write during a memo evaluation now gets a real diagnostic, not only a
 against the message it is about to replace so a persistently-failing memo warns
 once per DISTINCT failure rather than once per re-evaluation. One change, in the
 one place every quarantined-write shape the shipped (`custom`) core routes
-through (corrected 2026-08-27, task CONN Finding 5: was "in the framework" —
-`fusion_adapter.luau`/`imperative.luau` are two other, unreachable-in-production
-`CoreFactory`s with their own silent `fail()`) — this one, `newMenu`'s reactive
+through (corrected 2026-08-27, task CONN Finding 5: was "in the framework" — the
+bake-off arms were other, unreachable-in-production `CoreFactory`s with their own
+silent `fail()`; only the retained imperative baseline is still in the tree, at
+`bench/cores/imperative.luau`) — this one, `newMenu`'s reactive
 `presentation` refusal, an equality-callback throw, a scope's own
 double-disposal diagnostic, all of it.
 
