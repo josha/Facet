@@ -4,7 +4,7 @@
 -- sub-tables (`UI`, `themes`, `motion`, `tokens`, …) — plus the version and the
 -- full DEPRECATIONS ledger, in a stable sorted order.
 --
--- ADR-0011 freezes exports and deprecation timing for this stage, so the check
+-- The versioning policy freezes exports and deprecation timing for this stage, so the check
 -- is byte equality of this dump before and after the cleanup. It is a snapshot
 -- instrument, not a test: tests/api_surface.spec.luau owns the semver/ledger
 -- SHAPE rules, and tools/lune/check_docs owns api.md drift.

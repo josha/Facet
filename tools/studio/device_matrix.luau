@@ -643,7 +643,7 @@ local MAX_NODES = 400
 	    `src/tokens/sheet_model.surfacePrefix`). A transparent hit target has
 	    neither, which is the same rule the headless guard learned the hard way.
 	  * WHERE IT LIVES — the nearest ANCESTOR BY PATH NAME carrying a surface tag.
-	    The live instance tree is FLAT (ADR-0022: a container's move carries
+	    The live instance tree is FLAT (a container's move carries
 	    nothing inside it), so tree parentage is not the containment relation here;
 	    the instance NAME is the Facet path, and prefix is what ancestry means.
 	  * WHERE IT STOPS — a clipping node or a `ScrollingFrame`. Inside a clip the
@@ -802,7 +802,7 @@ local function judgeInstanceTrees(instanceTrees: { any }, textPolicies: any, vw:
 		to compare SIX characters against `"Facet"`, which is five, so it was
 		constant: every tree was skipped, `judgedTrees` was always 0, and the
 		anti-vacuity clause below turned the whole matrix row red rather than
-		letting it pass over an empty set. ADR-0038 renamed the roots
+		letting it pass over an empty set. The rename moved the roots
 		`LuauUI_<id>` -> `Facet_<id>` and the six-character `"LuauUI"` test kept
 		its six. `tests/prefix_tests.spec.luau` scans for the shape now. ]]
 	local ROOT_PREFIX = "Facet_"

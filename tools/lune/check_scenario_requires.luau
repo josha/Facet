@@ -1,7 +1,7 @@
 --!strict
 --[[ Headless-vs-instance-tree require guard (SHOWCASE2 task A: the "All controls"
 	empty-mount defect, the SECOND divergence of this shape this campaign — G7+G11's
-	Rojo mount-depth was the first, docs/adr/ADR-0048).
+	Rojo mount-depth was the first).
 
 	Lune resolves a relative `require("../../foo")` by FILE-SYSTEM path. Live Rojo/
 	Studio resolves the IDENTICAL string by INSTANCE-TREE depth. The two only agree

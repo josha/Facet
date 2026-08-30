@@ -13,8 +13,8 @@
 
 WHY THIS EXISTS
 ---------------
-`docs/lessons/staging-by-name-is-not-isolation.md` records four rounds of the
-same accident in one week: with N agents in one working tree, every git command
+Staging by name is not isolation, and four rounds of the same accident landed in
+one week: with N agents in one working tree, every git command
 that names a path (`add`, `commit -- <path>`, `diff --cached`) reports on a
 LOCATION, and location is not ownership. The rules that grew out of those rounds
 are a lock protocol implemented in etiquette, and the third occurrence proved

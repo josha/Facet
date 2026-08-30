@@ -103,22 +103,22 @@ local DEDICATED_PAINT_SEAMS: { [string]: string } = {
 	-- typographyScale/preferred-text seam: applyTextScale rewrites every scaled
 	-- size inside solveAndApply so measure and paint always agree.
 	textSize = "renderer applyTextScale (scaled-text seam)",
-	-- the AUTHORED PRESENTATION triple (ADR-0026): `refresh` collects the touched
+	-- the AUTHORED PRESENTATION triple: `refresh` collects the touched
 	-- paths, re-reads each off the live tree and recomposes through the ONE
 	-- presentation write site. Deliberately neither a binding nor a style prop —
 	-- neither reaches `adapter.setProp` under its own name at all, which is what
 	-- makes it a second TERM in the presentation channel rather than a second
 	-- WRITER of its engine properties. The `presentation` branch below pins both
 	-- halves of that claim.
-	opacity = "renderer readAuthoredPresentation + pushPresentationPaint (ADR-0026)",
-	scale = "renderer readAuthoredPresentation + pushPresentationPaint (ADR-0026)",
-	rotation = "renderer readAuthoredPresentation + pushPresentationPaint (ADR-0026)",
-	-- the FOURTH member of the same triple-turned-quad (ADR-0026 amendment,
-	-- 2026-08-23, gap 16 framework-gaps-phase2): identical seam, identical
+	opacity = "renderer readAuthoredPresentation + pushPresentationPaint",
+	scale = "renderer readAuthoredPresentation + pushPresentationPaint",
+	rotation = "renderer readAuthoredPresentation + pushPresentationPaint",
+	-- the FOURTH member of the same triple-turned-quad
+	-- (2026-08-23, gap 16 framework-gaps-phase2): identical seam, identical
 	-- reason — a paint-only authored translation composed into the same ONE
 	-- presentation write site, never a second writer of `transform` under its
 	-- own name.
-	offset = "renderer readAuthoredPresentation + pushPresentationPaint (ADR-0026 amendment)",
+	offset = "renderer readAuthoredPresentation + pushPresentationPaint",
 }
 
 -- Props consumed by the PRESENTER (focus graph / control contract) rather than
@@ -480,7 +480,7 @@ function checker.check(opts: Options?)
 				counts.deprecated += 1
 				local d = propSpec.deprecated
 				if d.since == "" or d.removeNoEarlierThan == "" or d.replacement == "" then
-					problem(`{where}: deprecation entry is missing a required ADR-0011 field`)
+					problem(`{where}: deprecation entry is missing a required ledger field`)
 				end
 				-- a diagnosed prop must NOT still be wired anywhere
 				if bindingProps[prop] and prop ~= "text" and prop ~= "label" then
@@ -555,7 +555,7 @@ function checker.check(opts: Options?)
 					problem(`{where} is a handler prop but the renderer never wires it to an adapter seam`)
 				end
 			elseif propSpec.channel == "presentation" then
-				-- ADR-0026: BOTH halves of "a second term, not a second writer".
+				-- BOTH halves of "a second term, not a second writer".
 				-- (a) the renderer must actually read it off the node...
 				if string.find(rendererSource, `props.{prop}`, 1, true) == nil then
 					problem(
@@ -571,7 +571,7 @@ function checker.check(opts: Options?)
 					problem(
 						`{where} is a presentation prop but {SRC_ADAPTER} handles it as its own `
 							.. `adapter prop — that is a SECOND WRITER for an engine property the `
-							.. `presentation authority owns (ADR-0026 Decision 1)`
+							.. `presentation authority owns`
 					)
 				end
 			elseif not PRESENTER_CHANNELS[propSpec.channel] then

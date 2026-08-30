@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """check_call_shape_drift — no NEW composite control is created the old way.
 
-ADR-0037 moved every composite control to `Facet.Controls.<Name>(core, spec)`.
+The `Controls` namespace moved every composite control to
+`Facet.Controls.<Name>(core, spec)`.
 The nineteen `Facet.new<Name>(Facet, core, spec)` builders still work and are
 declared in `Facet.DEPRECATIONS` with `removeNoEarlierThan = 0.12.0`, so nothing
 published breaks — but a compatible migration that leaves the old form
@@ -76,7 +77,7 @@ ALLOWLIST = [
      "the guard's own match data and selftest plants",
      "never (it IS the guard)"),
     ("tools/lune/_probe_t15_controls.luau",
-     "the ADR-0037 cost probe: it MEASURES the namespace form against the old "
+     "the call-shape cost probe: it MEASURES the namespace form against the old "
      "two-argument form it replaced, so it has to call both. Deleting the old-form "
      "arm would delete the comparison, which is the whole instrument (wave T15 "
      "item 2: the closure hop is +0.000004 ms, proved <= noise)",
@@ -150,11 +151,11 @@ def scan_file(abs_path, scope_path, hits):
         hits.append(f"{scope_path}:{line_of(m.start())}: old two-argument form "
                     f"`{m.group(1)}.new{m.group(2)}({m.group(1)}, …)` — "
                     f"write `{m.group(1)}.Controls.{m.group(2)}(core, spec)` "
-                    f"(ADR-0037)")
+                    f"")
     for m in COLON.finditer(source):
         hits.append(f"{scope_path}:{line_of(m.start())}: colon spelling "
                     f"`:new<Name>(` puts the library in `self` — write "
-                    f"`Facet.Controls.<Name>(core, spec)` (ADR-0037)")
+                    f"`Facet.Controls.<Name>(core, spec)`")
 
 
 def scan_repo(repo, prefix, hits):
@@ -243,7 +244,7 @@ def main():
             print(f"  … and {len(hits) - 60} more")
         sys.exit(1)
     print("check_call_shape_drift: PASS — every composite control is created as "
-          "Facet.Controls.<Name>(core, spec) (ADR-0037); the nineteen deprecated "
+          "Facet.Controls.<Name>(core, spec); the nineteen deprecated "
           "builders keep working and have no live call site outside the "
           "compatibility spec")
 

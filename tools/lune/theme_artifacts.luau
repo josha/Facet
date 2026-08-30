@@ -175,7 +175,7 @@ for _, name in shippable do
 		themeClasses = module.themeClasses,
 		assetCount = countKeys(pkg.assets),
 		chrome = chromeKinds,
-		-- wave TEN-FOOT / ADR-0039: a package MAY pin absolute ten-foot metrics;
+		-- wave TEN-FOOT: a package MAY pin absolute ten-foot metrics;
 		-- with none declared the ladder derives, and the manifest says which it is
 		tenFootOverrides = countKeys(pkg.metrics and (pkg.metrics :: any).tenFoot),
 	})

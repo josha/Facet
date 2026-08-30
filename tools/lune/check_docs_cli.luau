@@ -1,5 +1,5 @@
 --!strict
--- THE canonical documentation command for the theme surface (ADR-0019; stage
+-- THE canonical documentation command for the theme surface (stage
 -- theme-packages-and-skinning, acceptance row TP-A12):
 --
 --   lune run tools/lune/check_docs_cli            (from the library root)

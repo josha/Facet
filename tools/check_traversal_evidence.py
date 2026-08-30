@@ -21,7 +21,7 @@ the gate has been RED ever since, failing with:
 
 which is a sentence about traversal ORDER. It is not an order defect. It is
 stale evidence, and the check said the wrong thing about it — the exact inverse
-of the can't-ever-fail checks `docs/lessons/` already records: a check edited to
+of the can't-ever-fail check: a check edited to
 agree with the code while the recorded evidence stayed behind.
 
 WHAT THIS DOES ABOUT IT. The staleness question is asked FIRST, and it is asked

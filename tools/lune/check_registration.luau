@@ -282,11 +282,11 @@ function check_registration.check(opts: Opts?)
 			end
 		end
 		checkDumpSurface(entry)
-		--[[ RESOLVED ON THE LIVE TABLE, NOT SEARCHED FOR IN THE SOURCE (ADR-0037).
+		--[[ RESOLVED ON THE LIVE TABLE, NOT SEARCHED FOR IN THE SOURCE.
 			A substring find in `src/init.luau` says a control is exported when the
 			name merely appears anywhere in the file — a comment, a deprecation row, a
 			require. It also cannot express a namespaced export at all, and after
-			ADR-0037 the canonical route to every composite IS namespaced
+			the `Controls` namespace the canonical route to every composite IS namespaced
 			(`Controls.Table`). A dotted lookup on the required table answers the
 			question the field actually asks: is this reachable from `Facet`? ]]
 		local resolved: any = liveFacet
@@ -306,7 +306,7 @@ function check_registration.check(opts: Opts?)
 
 	-- ---- 2. API reference drift ---------------------------------------
 	local exports: { string } = {}
-	--[[ TOP-LEVEL KEYS FROM THE LIVE TABLE, NOT FROM THE SOURCE TEXT (ADR-0037).
+	--[[ TOP-LEVEL KEYS FROM THE LIVE TABLE, NOT FROM THE SOURCE TEXT.
 		This used to scrape `\n\t(%w+) = ` out of `src/init.luau`, which is every
 		one-tab `word = ` line in the file and not only the ones inside the `Facet`
 		literal. The moment `Facet.Controls` landed as a module-level table, its

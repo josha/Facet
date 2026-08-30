@@ -1,5 +1,5 @@
 --!strict
--- T15 probe (item 2): what does the ADR-0037 `Facet.Controls.<Name>` closure hop
+-- T15 probe (item 2): what does the `Facet.Controls.<Name>` closure hop
 -- cost? It is one Luau call frame between the author and `<control>.build`, at
 -- CONSTRUCTION only. Compared against the legacy spelling it replaced, which is
 -- the same builder called directly. Throwaway.

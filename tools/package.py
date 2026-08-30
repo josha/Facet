@@ -130,7 +130,7 @@ def run(args, **kwargs):
 
 
 def read_version():
-    """`Facet.VERSION`, from the one place it is declared (ADR-0011)."""
+    """`Facet.VERSION`, from the one place it is declared."""
     with open(os.path.join(SRC, "init.luau")) as handle:
         for line in handle:
             match = re.search(r'VERSION\s*=\s*"([^"]+)"', line)

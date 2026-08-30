@@ -17,7 +17,7 @@
 --       (`tools/check_no_fusion.py` is its twin over sources, the built model
 --       and the consuming game).
 --
--- ...and then walks the CONSUMER side (ENF-2). ADR-0011 tells a game to reach
+-- ...and then walks the CONSUMER side (ENF-2). The versioning policy tells a game to reach
 -- Facet through the root module plus a short list of client entry points, and
 -- nothing else — but nothing checked it, so the rule lived only in prose. Rule
 --   (c) a require in the game or in examples/ that names a Facet module by
@@ -141,7 +141,7 @@ walk("src")
 -- (c) CONSUMER SCAN (ENF-2). The blessed client entry points: everything else
 -- under the Facet tree is internal, and a consumer reaching it is a boundary
 -- violation whether or not it currently works. Pinned in api.md's client
--- entry-point section and in ADR-0011 — this is the same list, mechanically.
+-- entry-point section and in CONTRIBUTING.md — this is the same list, mechanically.
 local BLESSED_CLIENT_MODULES: { [string]: boolean } = {
 	--[[ BLESSED 0.10.0 (REUSE-109), and the first entry a consumer should reach
 		for: `host.new` composes `roblox_env` + `screen_target` + `roblox_input` +
@@ -155,7 +155,7 @@ local BLESSED_CLIENT_MODULES: { [string]: boolean } = {
 	roblox_input = true,
 	roblox_resources = true,
 	billboard_target = true,
-	-- the world surface (ADR-0063, 2026-08-29): flat Facet on a SurfaceGui a
+	-- the world surface (2026-08-29): flat Facet on a SurfaceGui a
 	-- player walks up to. Blessed for the same reason its two siblings are — a
 	-- render target is required directly and never exported from the Facet table.
 	surface_target = true,

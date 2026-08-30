@@ -86,8 +86,8 @@ BRAND = re.compile(r"luau[\s._-]?ui", re.IGNORECASE)
 #   lsp                              the Luau language server
 #   analyze                          the Luau analyser binary
 #   execution-session                a Roblox Open Cloud API scope name
-#   interpolated-strings-single-line docs/lessons/… (a Luau string-syntax trap)
-#   require-by-string-init-self      docs/lessons/… (a Luau require trap)
+#   interpolated-strings-single-line a Luau string-syntax trap, written up
+#   require-by-string-init-self      a Luau require trap, written up
 TAG = re.compile(r"\bluau-(?!lsp\b|analyze\b|execution-session\b"
                  r"|interpolated-strings-single-line"
                  r"|require-by-string-init-self)")
@@ -178,15 +178,12 @@ COMPARISON_BEGIN = "<!-- comparison:begin -->"
 COMPARISON_END = "<!-- comparison:end -->"
 COMPARISON_MAX_LINES = 15
 
-#[[ DATED RECORDS: not scanned for rule 2. An accepted ADR and a consumed wave
-#   plan are the EVIDENCE of a decision. Their cited sources are why the
-#   decision was made, so rewriting them to remove a name falsifies the record
-#   rather than cleaning the product. The maintained, current-facing documents
-#   inside those directories are carved back in below and ARE scanned. ]]
+#[[ DATED RECORDS: not scanned for rule 2. A consumed wave plan is the EVIDENCE
+#   of a decision. Its cited sources are why the decision was made, so rewriting
+#   them to remove a name falsifies the record rather than cleaning the product.
+#   The maintained, current-facing documents inside those directories are carved
+#   back in below and ARE scanned. ]]
 VENDOR_HISTORY = (
-    ("docs/adr/",
-     "accepted decision records are append-only; an ADR is superseded, never edited",
-     "never"),
     ("docs/plans/",
      "consumed wave plans record what a finished wave decided and measured",
      "Step 14 private-archive move"),
@@ -216,13 +213,12 @@ VENDOR_HISTORY_MAINTAINED = (
 #   A directory is a filing decision; what the rule is about is whether a
 #   READER is sent somewhere. A dated record nobody links is an archive. A
 #   dated record a shipped page links is that page's continuation, and the rule
-#   applies to it however it is filed — including an ADR, because "history" is
-#   not a licence for a linked document to teach a Facet concept in another
-#   vendor's terms.
+#   applies to it however it is filed, because "history" is not a licence for a
+#   linked document to teach a Facet concept in another vendor's terms.
 #
 #   THE SHIPPED SURFACE is the set of documents a Roblox developer is told to
-#   read. Anything it links, by markdown link, by written path, or by ADR
-#   number, is IN SCOPE at depth REACHABLE_DEPTH.
+#   read. Anything it links, by markdown link or by written path, is IN SCOPE at
+#   depth REACHABLE_DEPTH.
 #
 #   DEPTH IS 1, and that is a decision rather than a limitation. One click from
 #   a shipped page is still that page recommending a document. Several clicks
@@ -243,22 +239,10 @@ REACHABLE_DEPTH = 1
 
 _MD_LINK = re.compile(r"\]\(([^)\s#]+)")
 _WRITTEN_PATH = re.compile(r"(?:\.\./|docs/)[A-Za-z0-9_./-]+\.md")
-_ADR_REF = re.compile(r"\bADR-(\d{4})\b")
 _reachable_cache = None
 
 
-def _adr_files():
-    root = os.path.join(REPO, "docs", "adr")
-    found = {}
-    if os.path.isdir(root):
-        for name in os.listdir(root):
-            match = re.match(r"ADR-(\d{4}).*\.md$", name)
-            if match is not None:
-                found[match.group(1)] = f"docs/adr/{name}"
-    return found
-
-
-def _references(rel, adrs):
+def _references(rel):
     """Every document this one sends a reader to, however it spells the link."""
     try:
         with open(os.path.join(REPO, rel), encoding="utf-8", errors="replace") as fh:
@@ -274,9 +258,6 @@ def _references(rel, adrs):
     for match in _WRITTEN_PATH.finditer(text):
         target = match.group(0)
         out.add(os.path.normpath(os.path.join(here, target) if target.startswith("../") else target))
-    for match in _ADR_REF.finditer(text):
-        if match.group(1) in adrs:
-            out.add(adrs[match.group(1)])
     return {p.replace("\\", "/") for p in out}
 
 
@@ -285,7 +266,6 @@ def reachable_documents():
     global _reachable_cache
     if _reachable_cache is not None:
         return _reachable_cache
-    adrs = _adr_files()
     # walked from disk, not from git: a shipped chapter that is not committed
     # yet is still a page a reader is sent to, and the selftest depends on it
     frontier = []
@@ -303,7 +283,7 @@ def reachable_documents():
     for _ in range(REACHABLE_DEPTH):
         nxt = []
         for rel in frontier:
-            for target in _references(rel, adrs):
+            for target in _references(rel):
                 if not target.endswith(".md") or target.startswith("artifacts/"):
                     continue
                 if not os.path.isfile(os.path.join(REPO, target)):
@@ -502,21 +482,6 @@ ALLOWLIST = [
      "tool wears; both prefixes are decoded and the legacy one is announced",
      "when no capture predating the rename is still cited as evidence — i.e. after "
      "the device rows are re-taken on a Facet-named place"),
-    ("docs/adr/ADR-0036-facet-rename.md", BRAND,
-     "the rename ADR is the one document that names both brands",
-     "permanent (ADRs are history)"),
-    ("docs/adr/ADR-0036-facet-rename.md", TAG,
-     "…and it now records that the theme tags moved later, which means quoting them",
-     "permanent (ADRs are history)"),
-    ("docs/adr/ADR-0038-theme-tag-vocabulary.md", TAG,
-     "the tag-rename ADR is the one document that names both tag vocabularies",
-     "permanent (ADRs are history)"),
-    ("docs/adr/ADR-0040-unreleased-breaking-changes.md", BRAND,
-     "the unreleased-breaking-change ledger names the rename it records (row B-13)",
-     "permanent (ADRs are history)"),
-    ("docs/adr/ADR-0038-theme-tag-vocabulary.md", BRAND,
-     "it names the retired product once, explaining why BRAND could not see the tags",
-     "permanent (ADRs are history)"),
     ("tools/lune/gate_manifest.luau", re.compile(r"artifacts/", re.I),
      "run/note lines that quote files under artifacts/ quote frozen evidence",
      "when the quoted prior-gate rows are archived (Step 14 gate simplification)"),
@@ -530,7 +495,7 @@ ALLOWLIST = [
     #   retired vocabulary, so a tag anywhere else in the file is caught. ]]
     ("tools/lune/gate_manifest.luau",
      re.compile(r"renamed the public theme-authoring tags luau-\*/luau-slot-\* to facet-\*/facet-slot-\*"),
-     "the naming-adr-implemented note states WHICH tag family ADR-0038 retired; a gate note "
+     "the naming-adr-implemented note states WHICH tag family the rename retired; a gate note "
      "that cannot name the old vocabulary cannot record that it moved",
      "permanent (the note is the gate's own history, like the ADR it cites)"),
     ("tools/lune/gate_manifest.luau",
@@ -538,14 +503,14 @@ ALLOWLIST = [
      "the same note quotes this checker's own BRAND pattern to explain why 346 surviving "
      "tags were structurally invisible to it",
      "permanent (same reason)"),
-    #[[ THE RENAME ARROW (SCREEN-X, 2026-08-22). ADR-0038's two renames left three
+    #[[ THE RENAME ARROW (SCREEN-X, 2026-08-22). The two renames left three
     #   prefix tests comparing the wrong number of characters — `luau-` is five
     #   where `facet-` is six, and `LuauUI` is six where `Facet` is five — and the
     #   worst of them made the adapter's tag-REMOVAL loop dead code for four days.
     #   The fix, the module it lives in, its spec and its registration all have to
     #   say WHICH rename did it and in WHICH direction, and a comment that may not
     #   name the retired vocabulary cannot record that it moved: that is the same
-    #   judgement the ADR-0038 and gate_manifest entries above already make.
+    #   judgement the gate_manifest entry above already makes.
     #
     #   SCOPED TO THE ARROW, NOT TO THE FILE (the R5 review §2-1 lesson, which
     #   these two would otherwise repeat): the patterns match only a rename
@@ -554,7 +519,7 @@ ALLOWLIST = [
     #   Proved by planting one and watching the checker fail. ]]
     ("src/render/tag_sync.luau", RENAME_ARROW,
      "the ruling's header names the rename that broke it, in the direction it went",
-     "when ADR-0038 is old enough that the defect needs no explanation — i.e. never, "
+     "when the rename is old enough that the defect needs no explanation — i.e. never, "
      "while the module's job is to make that defect unrepeatable"),
     ("tests/prefix_tests.spec.luau", RENAME_ARROW,
      "the scanner's header states the defect class it exists for, with both renames",
@@ -564,7 +529,7 @@ ALLOWLIST = [
      "same"),
     ("tools/studio/device_matrix.luau", RENAME_ARROW,
      "the root filter's comment records that its six-character test outlived the "
-     "five-character literal ADR-0038 gave it",
+     "five-character literal the rename gave it",
      "same"),
     ("docs/handoff/SCREEN-X-OWED-LIVE-WORK.md", RENAME_ARROW,
      "the owed-work register has to say which rename broke what, in both directions",

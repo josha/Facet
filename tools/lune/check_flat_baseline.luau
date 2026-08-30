@@ -1,5 +1,5 @@
 --!strict
--- FLAT-THEME BYTE-COMPATIBILITY CHECK (ADR-0020 R9, "cmp-enforced at gate").
+-- FLAT-THEME BYTE-COMPATIBILITY CHECK ("cmp-enforced at gate").
 --
 -- WHY THIS EXISTS. R9 says "flat themes remain byte-identical to the 0.6.0
 -- baseline (cmp-enforced at gate)", and the gate's `layered-slots-and-posture`
@@ -78,7 +78,7 @@
 --   1. THE REPRODUCIBILITY PIN. `CURRENT` — the stored dump — must byte-equal a
 --      fresh regenerate. It carries NO claim about the framework and it has no
 --      allow-list: its only job is that the artifact a reader may CITE is current,
---      which is what ADR-0032's migration step 1 needs when it names "the flat
+--      which is what the nested-tree migration needs when it names "the flat
 --      baseline is unchanged" as its proof. It is SUPPOSED to go red on every
 --      legitimate change to the render, and its red is a chore ("refresh the
 --      artifact"), not an accusation. It is not a candidate for an invariant,
@@ -104,12 +104,11 @@
 -- What DID change is that a rule with no value was too weak: see the `value`
 -- paragraph on ALLOWED_ADDED_PROPS.
 --
--- The two findings that round turned up — a red check cannot report the next
--- defect, and a count that does not decompose IS one — are in
--- docs/lessons/a-red-check-cannot-report-the-next-defect.md, which is the
--- public home for both, and carries the decomposition rule this checker's
--- reporting now follows. The mutation transcripts behind it are archived with
--- that stage's gate evidence.
+-- The two findings that round turned up are stated here because this is the
+-- file they are about: a red check cannot report the next defect, and a count
+-- that does not decompose IS one. Both are why this checker reports each
+-- finding separately rather than as a total. The mutation transcripts behind
+-- them are archived with that stage's gate evidence.
 --
 -- DISAPPEARANCE IS STILL THE ONE THING WITH NO WAIVER AT ALL (outside a declared
 -- RESHAPED_SUBTREES), and it earned that this round: it was the only instrument in
@@ -530,17 +529,17 @@ local ALLOWED_PROP_DRIFT: { { path: string, viewport: string?, why: string } } =
 	},
 	{
 		path = "/Vocabulary/Volume/TrackHost/Groove/Rail",
-		why = 'surface=control -> "": the ADR-0019 fix round removed the public `surface` from the slider '
+		why = 'surface=control -> "": the theme fix round removed the public `surface` from the slider '
 			.. "rail so a theme's gradient could not make a value control see-through (src/controls/slider.luau: "
 			.. '"NO PUBLIC surface ON EITHER"). Predates this stage; the rail still paints, through facet-slot-*.',
 	},
 	{
 		path = "/Vocabulary/Volume/TrackHost/Groove/Thumb",
-		why = 'surface=raised -> "": the same ADR-0019 ruling, same file, same reason.',
+		why = 'surface=raised -> "": the same theme ruling, same file, same reason.',
 	},
 	{
 		path = "/Vocabulary/Load/Bar",
-		why = 'surface=control -> "": ADR-0020 R3 gave the bar family its OWN native paint through the '
+		why = 'surface=control -> "": the bar family gained its OWN native paint through the '
 			.. "`facet-slot-barTrack` rule, exactly as the slider's rail has. Borrowing a public surface would "
 			.. "have taken that surface's gradient (and its alpha) with it. SANCTIONED, this stage.",
 	},
@@ -590,8 +589,8 @@ local ALLOWED_PROP_DRIFT: { { path: string, viewport: string?, why: string } } =
 	    page, so the old empty plate measured 1.036:1 against the screen behind it
 	    under Sci-Fi HUD and never better than 1.223:1 in any of the fifteen
 	    themes in `examples/themes` — thirty rectangles present in the tree and
-	    absent from the screen, the failure class
-	    `docs/lessons/a-default-valued-write-never-claims.md` records.
+	    absent from the screen, the failure class a default-valued write
+	    produces: it claims nothing.
 	    `contentSecondary` is contrast-gated against `surface` by the palette
 	    contract. Measured per theme and pinned with a floor in
 	    `tests/example_word_game.spec.luau`.
@@ -672,7 +671,7 @@ local ALLOWED_NEW_NODES: { { path: string, why: string } } = {
 	2. A CELL IS A PLATE PLUS A HIT LAYER, NOT A BUTTON — 147 new child nodes, 25
 	class substitutions, and 25 prop strings that empty. A `UI.Button` has no
 	`tint` channel, and a board whose empty squares paint nothing is exactly
-	`docs/lessons/a-default-valued-write-never-claims.md`: forty-nine rectangles
+	a default-valued write claiming nothing: forty-nine rectangles
 	present in the tree, correct in every property probe, and absent from the
 	screen. So a cell is a `UI.ZStack` holding `plate` (a `UI.Box` carrying the
 	measured tint plus the theme's own `chip`/`raised` chrome), `mark` (a
@@ -765,7 +764,7 @@ for slot = 1, 7 do
 		path = `/TileGame/Page/rack/rt{slot}`,
 		why = 'the rack tile takes the same `{ type = "minMax", min = "targetSizes.minimum" }` square as the '
 			.. "board's — 56x56 -> 44x46, a FLOOR the letter can grow past rather than a fixed box it can "
-			.. "overflow (docs/lessons/facet-fixed-px-heights.md) — and the whole rack sits lower because the "
+			.. "overflow — and the whole rack sits lower because the "
 			.. "board above it is 36px taller. Its 46px height is the floor plus the theme's own control inset.",
 	})
 	table.insert(ALLOWED_PROP_DRIFT, {
@@ -1136,7 +1135,7 @@ local ALLOWED_ADDED_SUBKEYS: { { prop: string, subkey: string, why: string } } =
 		prop = "corners",
 		subkey = "tokens",
 		why = "the authored radius TOKEN survives normalization (`41e68298e`, 2026-08-21, the paint-family "
-			.. 'lockstep round\'s second door; ADR-0039 Decision 3a, ADR-0040 row B-17). `UI.corners(bp, "pill")` '
+			.. 'lockstep round\'s second door). `UI.corners(bp, "pill")` '
 			.. "used to resolve the name where it was WRITTEN — inside a control factory, with no style and no "
 			.. "display class — and freeze the near number into the blueprint, so a television painted a 999 "
 			.. "capsule while the sheet rule beside it carried the derived 18 (measured live, console row "

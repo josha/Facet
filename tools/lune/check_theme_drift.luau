@@ -1,5 +1,5 @@
 --!strict
--- Theme DRIFT lint (ADR-0019 §2: "a drift lint fails any reusable framework
+-- Theme DRIFT lint ("a drift lint fails any reusable framework
 -- control that hardcodes a theme-owned metric literal instead of a role").
 --
 -- Why it exists: the theme system only works if the framework's own controls
@@ -42,11 +42,11 @@
 --     USED TO be exempt for the same reason — no space step named it — and
 --     that was the pending finding this comment described: "the day the
 --     spacing scale grows a rung for 6, this lint starts failing all sixty of
---     those sites for free." RESOLVED (ADR-0047, task G-SPACE, 2026-08-23):
+--     those sites for free." RESOLVED (task G-SPACE, 2026-08-23):
 --     `space.tight` is that rung, and `gap = 6` is a violation now too — see
 --     `snapshot.luau`'s resolve-time derivation beside `space.gutter`. The
 --     framework's own `controls.label.gap = 6` stays a deliberate exception
---     (ADR-0047 explains why: it is a theme-package metric field, validated
+--     (it is a theme-package metric field, validated
 --     number-only, that cannot take a string name — not a second pending
 --     finding).
 --

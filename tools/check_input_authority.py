@@ -65,7 +65,7 @@ CONSUMER_TREE = "../../../games/RascalRally/code/src"
 
 # ── the two flagged classes ─────────────────────────────────────────────────
 PATTERNS = {
-    # Any direct reach into ContextActionService. Facet's own rule (ADR-0004) is
+    # Any direct reach into ContextActionService. Facet's own rule is
     # that it never re-implements or reaches into arbitration; the one module
     # that does is a DIAGNOSTIC, and it is allowlisted as such.
     "ContextActionService": re.compile(r"ContextActionService"),
@@ -331,7 +331,7 @@ def main() -> None:
 
 # --------------------------------------------------------------------------
 # THE SELFTEST. A drift check that cannot be shown to BITE is decoration, and
-# this repo has shipped that mistake before (`docs/lessons/`). Both planted
+# this repository has shipped that mistake before. Both planted
 # defects the row names are reproduced here against a scratch COPY of the real
 # tree — hermetic, so a concurrent reader of the working tree never sees a
 # planted file, and so a crash mid-selftest cannot leave one behind.

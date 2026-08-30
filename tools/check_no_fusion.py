@@ -4,7 +4,7 @@
 THE CLAIM. No Facet runtime, Roblox Package, example, skill, test, benchmark, or
 Rascal Rally file requires or depends on Fusion, and no vendored copy of it (or
 of anything else) is in the tree. Facet was once benchmarked against a thin
-adapter over a vendored Fusion 0.3 (ADR-0002 chose the custom core over it); the
+adapter over a vendored Fusion 0.3 (the bake-off chose the custom core over it); the
 adapter, the vendored copy and the comparison documents were removed on
 2026-08-30 and archived privately with checksums. This check is what keeps their
 absence a rule rather than a fact about one afternoon.

@@ -28,8 +28,8 @@
 
 	The render target is `tests/lib/fake_target.luau` — the same headless adapter
 	the suite uses. It reaches the repository's `src/` for the pure paint and
-	content resolvers it deliberately shares with the live adapter (ADR-0022
-	Decision 6), so this canary is a proof about the PACKAGED FRAMEWORK driving a
+	content resolvers it deliberately shares with the live adapter, so this canary
+	is a proof about the PACKAGED FRAMEWORK driving a
 	local adapter, not a proof that the artifact is hermetic against every file on
 	disk. The tree-hygiene assertions above are what covers that.
 

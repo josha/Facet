@@ -1,10 +1,10 @@
 --!strict
---[[ THE GuiObject CENSUS — what elision is still buying (ADR-0032 §4, step 6).
+--[[ THE GuiObject CENSUS — what elision is still buying.
 
 	    lune run tools/lune/check_elision_census
 	    lune run tools/lune/check_elision_census -- --report   (print, never fail)
 
-	WHY THIS TOOL EXISTS. ADR-0032's headline is that nesting saves writes; its
+	WHY THIS TOOL EXISTS. The nested tree's headline is that nesting saves writes; its
 	counter-headline is that nesting costs instances, because a container has to
 	MATERIALISE before it can be a real parent. On a 20-row list surface, elision
 	removes 61 of 142 GuiObjects — 43% — and materialising all of them costs
@@ -44,7 +44,7 @@ local environment = require("../../src/env/environment")
 local rendererLib = require("../../src/render/renderer")
 local fake_target = require("../../tests/lib/fake_target")
 
--- ADR-0032 §4's surface, verbatim: 20 rows of
+-- the measured surface, verbatim: 20 rows of
 -- `HStack[ Box, VStack[Box, Box], Spacer, Box ]` = 142 nodes.
 local function rows(rotation: number?): { any }
 	local out: { any } = {}
@@ -107,7 +107,7 @@ local SCROLLED = census(UI.Screen({
 	children = { UI.ScrollView({ id = "List", children = rows() }) },
 }))
 
--- ...and the same rows with an authored `rotation` on each one, which ADR-0032
+-- ...and the same rows with an authored `rotation` on each one, which nesting
 -- Decision 4 turns into a real instance parent so the engine carries the term
 -- down the subtree. THIS FIXTURE EXISTS TO CHARGE THE STEP FOR ITS INSTANCES.
 -- Registering a host means materialising it, so the 20 row containers leave the
@@ -120,7 +120,7 @@ local ROTATED = census(UI.Screen({
 	children = { UI.VStack({ id = "List", children = rows(30) }) },
 }))
 
--- ADR-0032 §4, live Studio probe. Exact, not a floor — see the header.
+-- the live Studio probe. Exact, not a floor — see the header.
 local EXPECT_FLAT = { creates = 142, elided = 61, guiObjects = 81 }
 -- Decision 4's price, pinned exactly for the same reason fixture A is: 20 row
 -- HStacks stop being elidable, so 61 - 20 = 41 and the surface carries 20 more
@@ -136,7 +136,7 @@ if FLAT.creates ~= EXPECT_FLAT.creates or FLAT.elided ~= EXPECT_FLAT.elided then
 	table.insert(
 		problems,
 		`flat 20-row list: expected {EXPECT_FLAT.creates} creates / {EXPECT_FLAT.elided} elided `
-			.. `({EXPECT_FLAT.guiObjects} GuiObjects, the ADR-0032 §4 live baseline), got `
+			.. `({EXPECT_FLAT.guiObjects} GuiObjects, the live baseline), got `
 			.. `{FLAT.creates} / {FLAT.elided} ({FLAT.guiObjects} GuiObjects). If a migration step `
 			.. "registered a host here, that is the instance cost arriving — record it in the ADR "
 			.. "and re-pin these numbers deliberately."
@@ -146,7 +146,7 @@ if ROTATED.creates ~= EXPECT_ROTATED.creates or ROTATED.elided ~= EXPECT_ROTATED
 	table.insert(
 		problems,
 		`rotated 20-row list: expected {EXPECT_ROTATED.creates} creates / {EXPECT_ROTATED.elided} elided `
-			.. `({EXPECT_ROTATED.guiObjects} GuiObjects — ADR-0032 Decision 4's priced cost, 20 row `
+			.. `({EXPECT_ROTATED.guiObjects} GuiObjects — the priced cost, 20 row `
 			.. `containers materialising to become real parents), got {ROTATED.creates} / {ROTATED.elided} `
 			.. `({ROTATED.guiObjects} GuiObjects). The boundary predicate moved: either more containers `
 			.. "are earning a host than the rule says, or fewer, and both are worth writing down."

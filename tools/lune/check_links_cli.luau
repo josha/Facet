@@ -47,5 +47,5 @@ for _, problem in result.problems do
 	print("  - " .. problem)
 end
 print("hint: a link into docs/plans, docs/handoff, docs/research, artifacts/ or a retired reference document")
-print("      must become plain text; `python3 tools/relink_archived.py --fix` does that for docs/adr and docs/lessons.")
+print("      must become plain text; `python3 tools/relink_archived.py --fix` is the mechanical repair.")
 process.exit(1)

@@ -16,10 +16,9 @@
 	     person who cannot see the problem. So a link into that set fails here
 	     whether or not the file exists today.
 
-	`tools/relink_archived.py` performs the mechanical repair for rule 2 inside
-	`docs/adr/` and `docs/lessons/`; the guide, the playbooks and the root files
-	are repaired by hand, because their sentences need rewriting rather than
-	annotating.
+	`tools/relink_archived.py` performs the mechanical repair for rule 2 over the
+	published document trees. A sentence that needs rewriting rather than
+	annotating is still repaired by hand.
 
 	ANCHORS use GitHub's slug rules: lowercase, drop everything that is not a
 	letter, digit, space, underscore or hyphen, then spaces become hyphens. A
@@ -58,8 +57,6 @@ local SCANNED_DIRS = {
 	"docs/guide",
 	"docs/reference",
 	"docs/extending",
-	"docs/adr",
-	"docs/lessons",
 }
 
 --[[ MATERIAL THAT DOES NOT GO PUBLIC. Kept in step with
@@ -67,6 +64,8 @@ local SCANNED_DIRS = {
 	checker must keep failing on a path even after that path is deleted, so it
 	cannot derive the set from what is on disk. ]]
 local ARCHIVED_PREFIXES = {
+	"docs/adr/",
+	"docs/lessons/",
 	"docs/plans/",
 	"docs/handoff/",
 	"docs/research/",

@@ -1,14 +1,12 @@
 #!/usr/bin/env python3
 """relink_archived — turn links into privately archived material into plain text.
 
-WHY THIS EXISTS. Facet's public tree keeps the decision records
-(`docs/adr/`) and the written-up defects (`docs/lessons/`), because both are
-useful to anyone reading the library. Some of them link to material that does
-NOT go public: the internal plans, the handoff notes, the raw research files,
-the stage evidence under `artifacts/`, and the tracked comparison documents that
-move into the private archive. A link whose target is not in the repository is
-worse than no link: a reader clicks it, gets a 404, and learns nothing about why
-the sentence is true.
+WHY THIS EXISTS. Some material does not go public: the decision records, the
+written-up defects, the internal plans, the handoff notes, the raw research
+files, the stage evidence, and the comparison documents that move into the
+private archive. A link whose target is not in the repository is worse than no
+link: a reader clicks it, gets a 404, and learns nothing about why the sentence
+is true.
 
 The repair is mechanical and deliberately minimal. A markdown link whose target
 is in the archived set becomes:
@@ -33,14 +31,16 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(HERE)
 
-# The trees this script repairs. Nothing else is touched: the guide, the
-# playbooks and the root files are edited by hand, because their sentences need
-# to be rewritten rather than annotated.
-SCANNED_DIRS = ("docs/adr", "docs/lessons")
+# The published document trees this script repairs. A sentence that needs
+# rewriting rather than annotating is still repaired by hand; this is the
+# mechanical floor under that.
+SCANNED_DIRS = ("docs/guide", "docs/extending", "docs/reference")
 
 # Everything that leaves the public branch tip. A prefix ends with "/"; an exact
 # file does not. Paths are repository-relative and already normalized.
 ARCHIVED_PREFIXES = (
+    "docs/adr/",
+    "docs/lessons/",
     "docs/plans/",
     "docs/handoff/",
     "docs/research/",
@@ -129,14 +129,24 @@ def replacement(label: str, target: str, doc_rel: str) -> str:
 
 
 def documents():
+    """Every published document this script repairs.
+
+    A file under `docs/reference/` that is not on the public list is archived
+    material itself, so it is not scanned: repairing links inside something that
+    is leaving would be work with no reader.
+    """
     found = []
     for rel in SCANNED_DIRS:
         root = os.path.join(REPO, rel)
         if not os.path.isdir(root):
             continue
         for name in sorted(os.listdir(root)):
-            if name.endswith(".md"):
-                found.append(rel + "/" + name)
+            if not name.endswith(".md"):
+                continue
+            doc = rel + "/" + name
+            if doc.startswith("docs/reference/") and doc not in PUBLIC_REFERENCE:
+                continue
+            found.append(doc)
     return found
 
 

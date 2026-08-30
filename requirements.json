@@ -74,11 +74,11 @@
    "title": "Hybrid-device behavior: PreferredInput changes hints/emphasis only; all available inputs keep working; no remount",
    "spec": "2.1.9, 9.1",
    "firstGate": "phase-1-minimal-screen",
-   "note": "deferred from phase-0 by ADR-0004 (no mounted renderer to prove no-remount against)"
+   "note": "deferred from phase-0 (no mounted renderer to prove no-remount against)"
   },
   {
    "id": "UI-INPUT-003",
-   "title": "Split test harness (ADR-0004): scriptable bindings validate the binding-to-action pipeline; cross-context priority/sinking validated with real or injected key events at engine gates; no direct callback bypass",
+   "title": "Split test harness: scriptable bindings validate the binding-to-action pipeline; cross-context priority/sinking validated with real or injected key events at engine gates; no direct callback bypass",
    "spec": "9.2",
    "firstGate": "phase-0-foundation"
   },
@@ -157,7 +157,7 @@
   {
    "id": "UI-PARADIGM-001",
    "title": "Structural affordances per live class: every interactive control exposes each live class's structural idiom (pointer direct-drag/hover/wheel; touch 44px/naked-pan-scroll/edit-grip; keyboard focus+Navigate/Activate/Adjust; gamepad focus+grab/A-B/Adjust), derived from interactionClasses' live set \u2014 never preferredInput alone \u2014 with zero consumer wiring",
-   "spec": "artifacts/input-paradigms/affordance-matrix.md \u00a7A/\u00a7E; ADR-0015",
+   "spec": "artifacts/input-paradigms/affordance-matrix.md \u00a7A/\u00a7E",
    "firstGate": "input-paradigms"
   },
   {
@@ -301,7 +301,7 @@
   {
    "id": "UI-WORLD-001",
    "title": "World-anchored display surface: the existing billboard target proven with a display-only fixture (live bindings, reduced motion, registry-neutral teardown, render-vs-record scoping); interactive billboard input remains explicitly out of contract",
-   "spec": "roadmap Step 5; ADR-0009 riders; sponsor-view-parity C1",
+   "spec": "roadmap Step 5; the billboard riders; sponsor-view-parity C1",
    "firstGate": "sponsor-framework-gaps"
   },
   {

@@ -12,22 +12,23 @@ five capitals, a hyphen, an optional letter, digits.
 
 WHAT IS NOT ONE AT ALL, and each exclusion is a fact rather than a preference:
 
-  * `ADR-nnnn`     a decision record that ships in docs/adr/ — a reader can open it;
   * `UI-XXX-nnn`   a requirement id that resolves in requirements.json, which ships;
-  * `SW-nnn`       a citation id in the comparison document, which ships;
   * `UTF-8`        a text encoding, not a ledger row;
   * ISO dates, hex and version numbers are not this shape at all.
 
-RESOLVABLE — the code has a referent a reader can reach, by one of four routes,
+RESOLVABLE — the code has a referent a reader can reach, by one of three routes,
 and the route is reported per site so the classification can be argued with:
 
   1. `requirements.json` names the code;
-  2. the same comment block cites an `ADR-nnnn` that exists as a file;
-  3. the same comment block names a `docs/**` file that exists;
-  4. the same comment block DEFINES the code in plain language, in the same
+  2. the same comment block names a `docs/**` file that exists;
+  3. the same comment block DEFINES the code in plain language, in the same
      breath — `ADAPT-18: a collapsed column's heading leaves paint…`.
 
-ORPHAN — none of the four. The code is the whole explanation and the explanation
+A DECISION RECORD IS NOT A ROUTE. The decision records are internal and do not
+ship, so a code whose only explanation was a record number resolves nowhere for
+a reader outside this repository, which is the whole point of the rule.
+
+ORPHAN — none of the three. The code is the whole explanation and the explanation
 is not in the repository. THE ORPHAN CEILING IS ZERO. There is no ratchet on
 orphans and no allowance: a comment that needs one is rewritten in plain
 language, or the missing referent is added where one genuinely exists.
@@ -92,7 +93,7 @@ EXTRACTION_LOCKED = (
 CODE = re.compile(r"\b([A-Z]{2,5})-([A-Z]?\d{1,3})\b")
 
 # Prefixes that resolve in something this repository ships.
-PUBLIC_PREFIX = ("ADR", "SW", "UI", "UTF")
+PUBLIC_PREFIX = ("UI", "UTF")
 
 # THE ORPHAN CEILING IS ZERO AND IS NOT A RATCHET. A code that resolves nowhere
 # is the thing the rule prohibits, so there is no allowance for one.
@@ -100,13 +101,12 @@ ORPHAN_CEILING = 0
 
 # THE TOTAL CEILING is measured, not chosen: the count on the commit that swept
 # the orphans. It was 531 before this checker existed, 122 when the checker
-# landed, and 25 once every orphan was rewritten. Lower it whenever a sweep
-# lands; never raise it.
-TOTAL_CEILING = 25
+# landed, 25 once every orphan was rewritten, and 23 once the decision records
+# stopped being a route. Lower it whenever a sweep lands; never raise it.
+TOTAL_CEILING = 23
 
-# A `docs/**` file named inside a comment block, and an ADR reference.
+# A `docs/**` file named inside a comment block.
 DOC_PATH = re.compile(r"docs/[A-Za-z0-9_./-]+\.(?:md|luau)")
-ADR_REF = re.compile(r"\bADR-(\d{4})\b")
 
 
 def tracked(paths):
@@ -176,15 +176,7 @@ def _requirements():
         return ""
 
 
-def _adr_numbers():
-    root = os.path.join(REPO, "docs", "adr")
-    if not os.path.isdir(root):
-        return set()
-    return {m.group(1) for m in
-            (re.match(r"ADR-(\d{4})", n) for n in os.listdir(root)) if m}
-
-
-def resolves(code, block, requirements, adrs):
+def resolves(code, block, requirements):
     """The route by which a reader can reach this code, or None.
 
     Reported rather than returned as a boolean, so a reviewer can disagree with
@@ -192,9 +184,6 @@ def resolves(code, block, requirements, adrs):
     """
     if code in requirements:
         return "requirements.json"
-    for number in ADR_REF.findall(block):
-        if number in adrs:
-            return f"ADR-{number}"
     for path in DOC_PATH.findall(block):
         if os.path.isfile(os.path.join(REPO, path)):
             return path
@@ -212,7 +201,6 @@ def scan():
     """Every code site, classified. Returns (live, locked); a site is
     (path, line, code, route_or_None, text)."""
     requirements = _requirements()
-    adrs = _adr_numbers()
     live, locked = [], []
     for rel in tracked(SCANNED):
         try:
@@ -228,7 +216,7 @@ def scan():
                         continue
                     code = match.group(0)
                     target.append((rel, start + offset, code,
-                                   resolves(code, block, requirements, adrs),
+                                   resolves(code, block, requirements),
                                    line.strip()[:110]))
     return live, locked
 
@@ -244,7 +232,6 @@ def selftest():
     a classifier nobody knows the shape of."""
     probe = os.path.join(REPO, "src", "comment_code_probe_tmp.luau")
     requirements = _requirements()
-    adrs = _adr_numbers()
 
     def classify(text):
         found = []
@@ -254,7 +241,7 @@ def selftest():
                     if is_public(line, match):
                         continue
                     code = match.group(0)
-                    found.append((code, resolves(code, block, requirements, adrs)))
+                    found.append((code, resolves(code, block, requirements)))
         return found
 
     try:
@@ -270,15 +257,15 @@ def selftest():
             print("check_comment_codes: SELFTEST FAIL — a code defined in its own "
                   f"block was not resolvable: {defined}")
             return 1
-        # 3. …and cited to a real ADR instead
-        cited = classify("-- planted TP-A12, and the reason is in ADR-0011.\n")
-        if cited != [("TP-A12", "ADR-0011")]:
-            print("check_comment_codes: SELFTEST FAIL — a code beside a real ADR "
-                  f"was not resolvable: {cited}")
+        # 3. …and named beside a real shipped document instead
+        cited = classify("-- planted TP-A12; docs/reference/api.md has the rule.\n")
+        if cited != [("TP-A12", "docs/reference/api.md")]:
+            print("check_comment_codes: SELFTEST FAIL — a code beside a real "
+                  f"shipped document was not resolvable: {cited}")
             return 1
         # 4. the public prefixes are still not codes at all, and a string is not
         #    a comment
-        public = classify("-- ADR-0011, UI-INPUT-001, SW-141, UTF-8\n"
+        public = classify("-- UI-INPUT-001, UTF-8\n"
                           'local s = "not a comment: XX-9"\n')
         if public:
             print("check_comment_codes: SELFTEST FAIL — a public id or a string "
@@ -301,9 +288,9 @@ def selftest():
               f"{len(orphans)} orphans, {len(live)}/{TOTAL_CEILING} total")
         return 1
     print("check_comment_codes: SELFTEST PASS — a planted `TP-A12` with no referent "
-          "is an ORPHAN, the same code defined in its own block or cited to a real "
-          "ADR is RESOLVABLE, the public prefixes and a string literal are neither, "
-          f"and the restored tree has {len(orphans)} orphans and "
+          "is an ORPHAN, the same code defined in its own block or named beside a "
+          "shipped document is RESOLVABLE, the public prefixes and a string literal "
+          f"are neither, and the restored tree has {len(orphans)} orphans and "
           f"{len(resolvable)}/{TOTAL_CEILING} resolvable")
     return 0
 
@@ -336,7 +323,7 @@ def main():
     if orphans:
         print(f"check_comment_codes: FAIL — {len(orphans)} private code(s) in "
               "maintained src/ comments resolve nowhere. Say what the code means, "
-              "cite an ADR by number, or name the document that holds it:")
+              "or name the shipped document that holds it:")
         for rel, n, code, _route, line in orphans[:40]:
             print(f"  {rel}:{n}: {code}  {line}")
         sys.exit(1)

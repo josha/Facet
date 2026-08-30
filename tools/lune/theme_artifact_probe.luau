@@ -33,8 +33,8 @@
 	     rather than always-true (an undeclared namespaced need is reported);
 	  4. `theme_controller.install` installs it on a bare adapter and one real
 	     control MOUNTS under it, once per theme the package declares;
-	  5. the same mount at a TEN-FOOT display class resolves the metric ladder
-	     (ADR-0039): every scalable metric moves by `themes.metricScale`, and a
+	  5. the same mount at a TEN-FOOT display class resolves the metric ladder:
+	     every scalable metric moves by `themes.metricScale`, and a
 	     package's own `metrics.tenFoot` pins, if it declares any, arrive in the
 	     artifact and beat the derivation.
 ]]
@@ -176,7 +176,7 @@ local function inspect(entry: any)
 		(controller :: any).uninstall()
 	end
 
-	--[[ (5) TEN FOOT (ADR-0039). The environment applies `forDisplay` at its
+	--[[ (5) TEN FOOT. The environment applies `forDisplay` at its
 		`themeMetrics` read, so this needs no theme opt-in beyond the install
 		above: a television and a desktop differ by ONE fact. The assertion is the
 		IDENTITY, never the number — `metricScale` is the published factor and the

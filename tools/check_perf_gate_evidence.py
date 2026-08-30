@@ -4,8 +4,8 @@
 WHY THIS IS A FILE AND NOT INLINE IN THE MANIFEST. The gate manifest's `run` strings
 are single-quoted Luau strings; an inline `python3 -c "..."` with real newlines in it
 collapses the string and silently corrupts the manifest (it did, once, while this
-stage was being built — the same trap `docs/lessons/luau-interpolated-strings-single-line.md`
-records for a neighbouring shape). Putting the assertions here keeps every check a
+stage was being built — the same trap a Luau interpolated string carrying a real
+newline sets for a neighbouring shape). Putting the assertions here keeps every check a
 one-liner, makes them readable, and lets them be mutation-tested directly.
 
 Each section is one gate check. A section that finds nothing to assert is a bug in

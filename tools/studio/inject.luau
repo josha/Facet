@@ -27,8 +27,8 @@
 -- before the cap was crossed and again after would see the same "it synced"
 -- shape while three of the largest modules silently stayed at whatever the
 -- built `.rbxl` carried. That is the false-evidence machine described in
--- `docs/lessons/the-200k-source-cap-is-on-writing-not-loading.md` and guarded on
--- disk by `tools/check_source_size.py`.
+-- by the source WRITE cap, and guarded on disk by
+-- `tools/check_source_size.py`.
 --
 -- So: every write is attempted under `pcall`, an over-cap module is REFUSED
 -- before the attempt, and the return carries `refused` (with each module's disk
@@ -77,7 +77,7 @@ for idx, entry in ipairs(manifest.files) do
 		created += 1
 	end
 	--[[ `Script` JOINED THE LIST with the showcase's first server side
-		(`examples/gallery/server`, ADR-0063). Without it the manifest would create
+		(`examples/gallery/server`). Without it the manifest would create
 		the instance and never write its Source, so the injected place would carry
 		an EMPTY authority script — which looks exactly like a server that decided
 		to refuse everything. ]]

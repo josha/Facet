@@ -26,7 +26,7 @@
       "deviceRow": "console-ten-foot",
       "theme": "neutral",
       "scenario": "hud",
-      "director": "ADR-0056 verify on glass: PS5 preset over the showcase HUD"
+      "director": "lane give-way: verify on glass, PS5 preset over the showcase HUD"
     },
     {
       "id": "pixelquest-hud-phone",
@@ -93,7 +93,7 @@
       "deviceRow": "compact-phone-portrait",
       "theme": "neutral",
       "scenario": "menu",
-      "director": "PANEL round Studio-owed #3 (ADR-0061): open a five-item root menu, enter Layering, confirm ONE panel with a working Back row, confirm focus returns to Layering after backing out",
+      "director": "PANEL round Studio-owed #3: open a five-item root menu, enter Layering, confirm ONE panel with a working Back row, confirm focus returns to Layering after backing out",
       "steps": ["open the root menu", "activate 'Layering'", "observe (single panel, no overlap)", "activate 'Back'", "observe (focus back on Layering)"],
       "status": "not reached this round"
     },
@@ -102,7 +102,7 @@
       "deviceRow": "compact-phone-portrait",
       "theme": "neutral",
       "scenario": "ref_glade",
-      "director": "PAINT round Studio-owed #1/#3 (ADR-0062): overview grid corner + glance-plate mini rings",
+      "director": "PAINT round Studio-owed #1/#3: overview grid corner + glance-plate mini rings",
       "status": "not reached this round"
     },
     {
@@ -110,7 +110,7 @@
       "deviceRow": "tablet-landscape",
       "theme": "neutral",
       "scenario": "ref_glade",
-      "director": "PAINT round Studio-owed #1 (ADR-0062): overview grid corner at tablet width",
+      "director": "PAINT round Studio-owed #1: overview grid corner at tablet width",
       "status": "not reached this round"
     },
     {
@@ -118,7 +118,7 @@
       "deviceRow": "compact-phone-portrait",
       "theme": "neutral",
       "scenario": "ref_glade",
-      "director": "PAINT round Studio-owed #2 (ADR-0062): detail screen supply rows, identity dot centred not pinned top-left",
+      "director": "PAINT round Studio-owed #2: detail screen supply rows, identity dot centred not pinned top-left",
       "steps": ["open a detail screen (nectar or dew)", "observe"],
       "status": "not reached this round"
     },

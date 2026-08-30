@@ -20,8 +20,9 @@ That is not a tidiness problem. It manufactures FALSE EVIDENCE: an agent runs a
 live check in Studio, gets a result, and reports it as proof about code the
 session has never loaded. On 2026-08-14 that happened repeatedly in one session —
 one live verification had to be re-run as a clean-room experiment, and one agent
-could not verify its fix at all (O-29). Full write-up:
-`docs/lessons/the-200k-source-cap-is-on-writing-not-loading.md`.
+could not verify its fix at all (O-29). The cap is on WRITING a source, not on
+loading one, which is why a built place keeps working while the edits stop
+arriving.
 
 WHAT THIS CHECKS, and what it deliberately does not. FIVE modules were over when
 this was written — the fifth, `solver.luau`, was found by this check on the day
@@ -112,7 +113,7 @@ MAIN-AXIS SHRINK PASS and its degrade cascade (`src/layout/shrink.luau`) is the
 more interesting one — it WROTE one of the four, and lifting it out is what
 makes that upvalue go away: `shrinkStack` was forward-declared near the top and
 assigned ~2,300 lines below because both passes call it, exactly the shape
-`docs/lessons/later-locals-are-not-upvalues.md` records. It is now a require,
+that binds a nil global instead of an upvalue. It is now a require,
 bound before anything can call it, and the solver is down to three. The three
 helpers it reads (`mainDimOf`, `sides`, `textTypography`) are immutable
 module-level functions, so they are threaded as an explicit `Deps` argument
@@ -269,7 +270,7 @@ branches and both arrange branches came too. The price is honest and visible: th
 arrange entries take `place` (the solver's recursive `arrange`) and `alignOffset`
 as ORDINARY ARGUMENTS rather than `Deps` fields, because both are declared below
 where `GRID_DEPS` is built and a forwarder written up there would resolve the nil
-GLOBAL (`docs/lessons/a-helper-declared-below-its-caller-is-a-global.md`).
+GLOBAL.
 Forward-declaring them to avoid that would have added a FOURTH mutable module
 local — the opposite of the property this whole ratchet is measured on.
 
@@ -328,7 +329,7 @@ five locals that something outside writes, and only TWO are real:
 registry are never reassigned, only mutated, so a table CAN go back to the host
 AS ITSELF and its reads stay byte-identical; `path`, `expander` and `live` were
 the false positives this header's fourth row warned about. (`presentationTransforms`
-still does. The registry stopped: ADR-0032 step 1 renamed it `instanceHosts` and
+still does. The registry stopped: the nested-tree migration renamed it `instanceHosts` and
 made it PRIVATE behind `registerHost`/`unregisterHost`/`hostAt`/`hostFor` — not
 because the extraction demanded it, but because "which paths get registered" is
 the one predicate the nested-tree migration changes, and a shared table has no
@@ -367,8 +368,8 @@ parenting and the skinning handoff all meet. Neither is a seam, and the file is
 now 142 locals with 19 reassigned, most of those forward declarations.
 
 BOTH SPLITS WERE PROVED WITH A LIVE A/B, not a boot check, because the fake target
-never runs this file and a green headless suite proves nothing about it
-(docs/lessons/later-locals-are-not-upvalues.md). Each pre-split source was pushed
+never runs this file and a green headless suite proves nothing about it. Each
+pre-split source was pushed
 to the open Showcase session by Rojo as a sibling module and loaded into a FRESH
 cloned library tree — require caches by Instance, so a Source write alone is
 invisible — then driven identically. Presentation: 51 rows, 0 differ, covering

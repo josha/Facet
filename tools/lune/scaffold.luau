@@ -145,9 +145,9 @@ function %NAME%.build(Facet: any, core: any, spec: Spec)
 	--        gamepad  → focus + select (A/B); reorder = grab mode; Adjust =
 	--                   focus-then-directional; STRONG focus at ten-foot.
 	-- Structural affordances read the LIVE class set (env interactionClasses),
-	-- never preferredInput alone (ADR-0015). Fill only your control's idioms.
+	-- never preferredInput alone. Fill only your control's idioms.
 	--
-	-- FOUR-INPUT STORY (ui_todo §0; ADR-0013). A composite advertises its
+	-- FOUR-INPUT STORY (ui_todo §0). A composite advertises its
 	-- behavior to the presenter by attaching an input-contribution bundle to its
 	-- ROOT blueprint — MOUNTING the control then yields the whole story with NO
 	-- consumer wiring (presenter auto-composes focus groups, Activate dispatch,
@@ -298,8 +298,8 @@ function %NAME%.new(opts: any?)
 		return { id = screenId }
 	end
 
-	-- `decorationHint` and `createOpts` are CREATION-TIME facts (ADR-0019 /
-	-- ADR-0022 Decision 2): the decoration slot this node is skinned as, and
+	-- `decorationHint` and `createOpts` are CREATION-TIME facts: the decoration
+	-- slot this node is skinned as, and
 	-- `{ canvasGroup = true }` when the node's engine CLASS must be a group so a
 	-- subtree can fade as one. Neither can arrive as a later prop write. An
 	-- adapter that neither skins nor groups ignores both — but it must still
@@ -483,8 +483,9 @@ return {
 local GUIDE_CATALOG_ROW_TEMPLATE =
 	[==[| `Controls.%DISPLAY%` | TODO: one sentence, in a Roblox developer's words, about what this control does. | [api](../reference/api.md#controls%LOWERDISPLAY%) |]==]
 
--- the Controls namespace allowlist. A post-ADR-0037 control has no old form and
--- no deprecation row, so it joins POST_ADR_NAMES rather than the migration set.
+-- the Controls namespace allowlist. A control created after the namespace
+-- landed has no old form and no deprecation row, so it joins POST_ADR_NAMES
+-- rather than the migration set.
 local NAMESPACE_NAME_TEMPLATE = [==[	"%DISPLAY%",]==]
 
 local SCENARIO_ORDER_TEMPLATE = [==[	-- scaffolded showcase surface for `Facet.Controls.%DISPLAY%`. Also in
@@ -551,9 +552,9 @@ TODO: one-paragraph description, the spec shape, invariants, and a short
 usage example (scaffolded stub — the registration checker requires this
 anchor; the docs-accuracy review requires it to be REAL).
 
-ADR-0037: a control created after 0.10.0 has ONE public spelling. There is no
-`Facet.new%DISPLAY%` — the nineteen that exist are the pre-ADR set, kept working
-and deprecated, and a new control is not born deprecated.]==]
+A control created after 0.10.0 has ONE public spelling. There is no
+`Facet.new%DISPLAY%` — the nineteen that exist predate the namespace, kept
+working and deprecated, and a new control is not born deprecated.]==]
 
 local function fill(template: string, name: string, display: string): string
 	local out = string.gsub(template, "%%NAME%%", name)
@@ -657,7 +658,7 @@ function scaffold.plan(kind: string, name: string): Plan
 				before = "scaffold: new control rows are appended above this line",
 				insert = fill(REGISTRY_ROW_TEMPLATE, name, display),
 			},
-			--[[ THE CANONICAL EXPORT (ADR-0037). Two edits, because the namespace
+			--[[ THE CANONICAL EXPORT. Two edits, because the namespace
 				entry names the module twice — once to call it and once for the spec
 				type it declares — so the module needs a local. There is deliberately no
 				`new{display}` line: the nineteen old-form builders are the pre-ADR set,
@@ -711,7 +712,7 @@ function scaffold.plan(kind: string, name: string): Plan
 				before = "| `valueModel` |",
 				insert = fill(GUIDE_CATALOG_ROW_TEMPLATE, name, display),
 			},
-			-- 2. the Controls namespace allowlist (ADR-0037). A post-ADR control has
+			-- 2. the Controls namespace allowlist. A post-ADR control has
 			-- no old form and no deprecation row, so it joins POST_ADR_NAMES rather
 			-- than the migration set the other three cases in that file are about.
 			{

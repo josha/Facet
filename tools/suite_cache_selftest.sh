@@ -5,7 +5,7 @@
 # greps of a cached transcript. A cache is exactly the shape that turns a real
 # check into one that cannot fail: serve a stale or red transcript and 241 gate
 # checks become decoration in a single commit. The gate-integrity sweep's
-# standing rule (docs/lessons/, ledger C-08) is that a check is worthless until
+# standing rule (ledger C-08) is that a check is worthless until
 # a mutation has been SEEN to fail it, so every guard below is asserted by
 # breaking it on purpose.
 #
@@ -135,7 +135,7 @@ fi
 # probe's fingerprint, misses, runs the suite and caches an entry under it — and
 # from then on this assertion is unpassable until that entry ages out. Observed
 # 2026-08-16 by the D5 lane, and it is the same "a test that damages its own
-# environment" family as docs/lessons/a-probe-file-under-src-can-kill-a-live-rojo.md.
+# environment" family as a probe file under src/ that kills a live Rojo.
 # Seeding a private cache with the ORIGINAL fingerprint also tests something
 # strictly stronger: a POPULATED but stale cache must miss, not merely an empty one.
 seeded="$TMP/seeded-previous-state"

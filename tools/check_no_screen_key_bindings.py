@@ -28,7 +28,7 @@ two lines as a control binding keys. The row has been RED since, and
 THE FIX IS THE PARSER, NOT THE ALLOWLIST. Widening the filter to excuse
 `table.luau`, or dropping the clause, would be a check edited to agree with the
 code that broke it — the failure mode `tools/check_traversal_evidence.py`'s
-header is written about, and the one `docs/lessons/` keeps a ledger of. The check
+header is written about. The check
 was RIGHT; it was reading a comment as code. So the comment stripper became a
 real (small) Luau lexer, and every clause of the row now runs over stripped
 source instead of raw text.

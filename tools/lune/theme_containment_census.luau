@@ -20,7 +20,7 @@
 	the tree (494 in a source comment, 494 and 253 in one ADR, 484 in the task
 	report) and a fresh-context reviewer rebuilding the collector faithfully got
 	none of them. A number nobody can reproduce is not a measurement; it is a
-	claim. This file IS the number now: every figure in ADR-0059, in
+	claim. This file IS the number now: every figure in
 	`render/layout_node.luau`'s sibling-plate comment and in the task report quotes
 	one run of it, with its dedup rule named.
 

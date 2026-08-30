@@ -1,5 +1,5 @@
 --!strict
--- theme_sync — the ONE export action of the Style Editor workflow (ADR-0019 §3).
+-- theme_sync — the ONE export action of the Style Editor workflow.
 --
 -- The DataModel theme sheet is the authoring surface: a designer edits supported
 -- paint, metric and font tokens there and the running preview re-solves live.

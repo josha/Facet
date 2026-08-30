@@ -39,7 +39,7 @@ local function addTree(entries: { FileEntry }, fsDir: string, robloxPath: string
 		className = "LocalScript"
 	elseif fs.isFile(fsDir .. "/init.server.luau") then
 		--[[ THE SERVER FOLD, added with the showcase's first server side
-			(`examples/gallery/server`, ADR-0063's outpost authority). Rojo maps
+			(`examples/gallery/server`, the outpost's server authority). Rojo maps
 			`init.server.luau` to a `Script` exactly as it maps `init.client.luau`
 			to a `LocalScript`; this walk knew only the client half, so a server
 			folder would have been served as a `Folder` with no source and the
@@ -84,7 +84,7 @@ function studio_tree.entries(mode: string?): { FileEntry }
 		addTree(entries, "examples/gallery/examples", "ReplicatedStorage.FacetExamples", "Folder")
 		addTree(entries, "examples/gallery/scenarios", "ReplicatedStorage.FacetScenarios", "ModuleScript")
 		addTree(entries, "examples/gallery/client", "StarterPlayer.StarterPlayerScripts.Gallery", "ModuleScript")
-		-- the showcase's server side (ADR-0063): the outpost's authority, and the
+		-- the showcase's server side: the outpost's authority, and the
 		-- only server-owned code in the repository
 		addTree(entries, "examples/gallery/server", "ServerScriptService.Outpost", "Script")
 		-- reference-app-validation: the five clean-room reference proofs,
