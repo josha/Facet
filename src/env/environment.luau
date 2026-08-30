@@ -749,7 +749,7 @@ function environment.new(core: any): Env
 			THE REFUSAL IS ALSO WHAT MAKES THE RECOVERY LOAD-BEARING. Before it, the
 			`baseOf` line was invisible to every test — `forDisplay` calls `baseOf`
 			itself at read time, so deleting the line changed nothing observable and
-			the ADR credited it with a guarantee nothing held. Now deleting it sends a
+			the record credited it with a guarantee nothing held. Now deleting it sends a
 			legitimate round trip into the refusal, and the round-trip case reddens. ]]
 		if key == "themeMetrics" then
 			value = themeSnapshot.baseOf(value)

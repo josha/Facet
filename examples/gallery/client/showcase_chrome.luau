@@ -82,7 +82,7 @@
 
 	=== 4. THE BINDINGS, AND WHY THESE THREE KEYS ===
 
-	The vocabulary is closed (`constitution.md` §9: "a new verb is an ADR, not a
+	The vocabulary is closed (`constitution.md` §9: "a new verb is a decision, not a
 	new binding at a call site"), so this binds no new verb: the chrome's own
 	context declares **`Activate`** — "activate the chrome" — and nothing else.
 	Everything after that press is the framework's: Navigate walks the panel,

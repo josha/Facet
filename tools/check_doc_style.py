@@ -65,7 +65,7 @@ COMMON = {
     "UI", "API", "ID", "IDS", "URL", "URI", "JSON", "XML", "HTML", "CSS",
     "CPU", "GPU", "RAM", "KB", "MB", "GB", "MS", "FPS", "DPI", "PPI", "RGB",
     "HTTP", "HTTPS", "IP", "USB", "TV", "VR", "AR", "OS", "PNG", "JPG", "SVG",
-    "ASCII", "UTF", "LZ", "CSV", "CLI", "SDK", "IDE", "HUD", "ADR", "TODO",
+    "ASCII", "UTF", "LZ", "CSV", "CLI", "SDK", "IDE", "HUD", "TODO",
     "FAQ", "WASD", "DPAD", "LED", "AI", "NPC",
 }
 
@@ -88,7 +88,6 @@ NEEDS_EXPANSION = {
 # Uppercase tokens that look like an internal row id but are a real technical
 # name, with the reason. An entry without a reason is a hole, not an allowlist.
 SHORTHAND_ALLOW = {
-    "ADR": "a decision record, and the guide cites them by number on purpose",
     "L1": "a gamepad shoulder button",
     "L2": "a gamepad trigger",
     "R1": "a gamepad shoulder button",
@@ -222,8 +221,8 @@ def check_document(path, text, fails, warns):
             if token.upper() in COMMON:
                 continue
             fails.append(f"{path}:{n}: '{token}' is internal shorthand (an artifact "
-                         "row, phase or finding code). Say what it means, or cite "
-                         "an ADR by number")
+                         "row, phase or finding code). Say what it means, or name "
+                         "the shipped document that holds it")
 
         # 1. instruction length
         step = re.match(r"^\s*\d+\.\s+(\S.*)$", prose)

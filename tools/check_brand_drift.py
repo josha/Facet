@@ -32,8 +32,8 @@ it was archived out of this repository on 2026-08-30
 choice"). Its allowlist entry is gone with it, so this guard now refuses that
 path like any other.
 
-Dated records are not scanned for rule 2 (VENDOR_HISTORY): accepted ADRs and
-consumed wave plans are the evidence of a decision, and rewriting one falsifies
+Dated records are not scanned for rule 2 (VENDOR_HISTORY): consumed wave plans
+are the evidence of a decision, and rewriting one falsifies
 the record it exists to keep. Each carries its reason and its removal rule.
 
 Every other permitted match lives in an allowlist with a reason and a removal
@@ -80,8 +80,8 @@ BRAND = re.compile(r"luau[\s._-]?ui", re.IGNORECASE)
 # repeated for every file that ever mentions the toolchain.
 # Every tag is lowercase, so the pattern is CASE-SENSITIVE: "Luau-side",
 # "Luau-authoritative" and "a Luau-call-count win" are prose about the LANGUAGE
-# and appear in a dozen ADRs. The four excluded stems are the Luau toolchain and
-# two lesson filenames about Luau syntax — not the retired brand, and legitimate
+# and appear in a dozen records. The four excluded stems are the Luau toolchain
+# and two written-up traps about Luau syntax — not the retired brand, and legitimate
 # in any file, which is why they are excluded structurally instead of by path:
 #   lsp                              the Luau language server
 #   analyze                          the Luau analyser binary
@@ -497,7 +497,7 @@ ALLOWLIST = [
      re.compile(r"renamed the public theme-authoring tags luau-\*/luau-slot-\* to facet-\*/facet-slot-\*"),
      "the naming-adr-implemented note states WHICH tag family the rename retired; a gate note "
      "that cannot name the old vocabulary cannot record that it moved",
-     "permanent (the note is the gate's own history, like the ADR it cites)"),
+     "permanent (the note is the gate's own history)"),
     ("tools/lune/gate_manifest.luau",
      re.compile(r"BRAND is luau\[\\\\s\._-\]\?ui and there is no ui after luau in a tag"),
      "the same note quotes this checker's own BRAND pattern to explain why 346 surviving "

@@ -349,7 +349,7 @@ def validate_row_shape(cell, row):
         if triage.get("kind") not in TRIAGE_KINDS:
             errors.append(f"{cell}: triage.kind {triage.get('kind')!r} not one of {sorted(TRIAGE_KINDS)}")
         if not triage.get("ref"):
-            errors.append(f"{cell}: triage has no 'ref' (cross-reference to the device-owed register or ADR)")
+            errors.append(f"{cell}: triage has no 'ref' (cross-reference to the device-owed register)")
         if row.get("ok") is True:
             # S5: `triage` exists to explain a RED cell (the schema comment:
             # "required on every `ok: false` row"). An `ok: true` row carrying

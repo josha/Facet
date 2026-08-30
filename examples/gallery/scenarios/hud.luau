@@ -783,7 +783,7 @@ return {
 		--[[ WHICH SLOT A SMALL PLATE IS — the THEME question that round
 			deferred, and the answer is that A PLATE THIS SMALL IS NOT A WINDOW.
 
-			Reserving a window's frame on a chip is the repair that ADR measured and
+			Reserving a window's frame on a chip is the repair that round measured and
 			rejected (Fantasy Ornate's `panel` recipe is a 30px border; it turned the
 			116x41 objective chip into a 92x85 blob), and what is wrong with it is not
 			the arithmetic — it is that a 21x28 score pill should never have worn a

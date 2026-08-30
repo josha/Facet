@@ -9,7 +9,7 @@
 --   StarterPlayer.StarterPlayerScripts.Gallery (client bootstrap)
 -- Idempotent: existing nodes are patched in place (module require cache means
 -- a PLAY session always sees fresh sources because play-mode copies re-require;
--- see docs/lessons re: cached module results in a single play session).
+-- a module result is cached for a whole play session).
 -- Stamps workspace attribute Facet_SourceStamp with the manifest stamp so a
 -- session can prove which source state it runs (contract §4 step 2).
 -- Returns a JSON summary string.

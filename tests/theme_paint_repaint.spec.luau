@@ -232,7 +232,7 @@ describe("the live adapter carries the same commit (source contract)", function(
 		-- whole-text search for the name matches the definition and passes however
 		-- the commit is mutated. That version of this check was written first, and
 		-- mutation testing is what caught it doing nothing
-		-- (docs/lessons — "the check that proves nothing").
+		-- ("the check that proves nothing").
 		local body = string.match(adapterSource, "\n\tfunction setActiveTheme%(.-%)\n(.-)\n\tend\n")
 		expect(body ~= nil).toBe(true)
 		expect(string.find(body :: string, "refreshFocusVisuals()", 1, true) ~= nil).toBe(true)

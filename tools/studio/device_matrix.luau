@@ -257,7 +257,7 @@ local function preflight(): any
 	local cam = workspace.CurrentCamera
 	out.viewport = if cam then { w = cam.ViewportSize.X, h = cam.ViewportSize.Y } else nil
 	if out.viewport == nil or out.viewport.w <= 1 or out.viewport.h <= 1 then
-		problem("CurrentCamera.ViewportSize is 1x1 or absent — the instrument is blind (see docs/lessons)")
+		problem("CurrentCamera.ViewportSize is 1x1 or absent — the instrument is blind")
 	end
 
 	-- 2. the running place carries the source state just built

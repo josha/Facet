@@ -178,7 +178,7 @@ Rules:
 
 - Controls never bind hardware key codes; they speak **semantic actions**
   (Activate, Cancel, Navigate, Adjust, Traverse) through contexts that own
-  priority/sink/lifetime. The vocabulary is closed: a new verb is an ADR, not a
+  priority/sink/lifetime. The vocabulary is closed: a new verb is a decision, not a
   new binding at a call site.
 - A composite advertises its whole four-input story by attaching **one
   contribution bundle** to its blueprint root (`contribution.attach`); the
@@ -348,4 +348,4 @@ dispose, module-vs-`.new` export policy, error-prefix grammar, and the rest.
 ---
 
 *Adopted 2026-08-02 (stage `api-architecture-consistency`, v0.8.0). Change this
-document by ADR, in the same commit as the rule-affecting change.*
+document, in the same commit as the rule-affecting change.*

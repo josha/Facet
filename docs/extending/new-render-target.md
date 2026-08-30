@@ -123,7 +123,7 @@ answer through `done`.
 
 ## 3. Target-specific policy
 
-Answer explicitly (in the module header + an ADR if the answers are
+Answer explicitly (in the module header, and in the changelog if the answers are
 non-obvious): who owns the container instance; what `Adornee`/placement
 semantics apply; pixels-per-stud or resolution policy; input routing (does
 the target receive pointer events? focus visuals?); clipping; and the

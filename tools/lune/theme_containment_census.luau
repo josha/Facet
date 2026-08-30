@@ -17,7 +17,7 @@
 	WHY IT IS COMMITTED. The round that taught `tests/lib/overflow_guard.luau` what
 	a themed edge is booked a backlog against a corpus number — and the probe that
 	produced it was never committed, so the number appeared three different ways in
-	the tree (494 in a source comment, 494 and 253 in one ADR, 484 in the task
+	the tree (494 in a source comment, 494 and 253 in one record, 484 in the task
 	report) and a fresh-context reviewer rebuilding the collector faithfully got
 	none of them. A number nobody can reproduce is not a measurement; it is a
 	claim. This file IS the number now: every figure in
@@ -50,12 +50,12 @@
 	instrument exists to make reproducible is the corpus-wide count of themed
 	containment escapes, not a superset of the sweep.
 
-	THE DEDUP RULES it prints, because "distinct" is a choice and the ADR has to
+	THE DEDUP RULES it prints, because "distinct" is a choice and a record has to
 	name which one it quotes:
 	  total                every (surface, view, package, node) hit
 	  by (surface, node)   ONE construction = one defect: the same leaf on the same
 	                       plate at nine viewports under five carving packages is
-	                       one thing to fix. THIS is the number the ADR books
+	                       one thing to fix. THIS is the number a record books
 	                       against.
 	  by (surface, pkg, node) / (surface, view, node)   printed so a reader can see
 	                       what the choice costs. ]]
@@ -352,7 +352,7 @@ if not NEUTRAL_ONLY then
 	print(`  packages that carve anything: {carvingPackages} of {#PACKAGES}`)
 end
 print(`  total violations                     {total}`)
-print(`  distinct by (surface, node)          {size(bySurfaceNode)}   <- the number the ADR books against`)
+print(`  distinct by (surface, node)          {size(bySurfaceNode)}   <- the number a record books against`)
 print(`  distinct by (surface, package, node) {size(bySurfacePkgNode)}`)
 print(`  distinct by (surface, view, node)    {size(bySurfaceViewNode)}`)
 local kinds: { string } = {}

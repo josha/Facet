@@ -225,7 +225,7 @@ If you change the metric vocabulary you owe all four of these:
    from the known token set, never parsed, so an attribute can never mis-split);
 3. re-run `theme_sync` over the committed reference packages and commit the
    regenerated metrics region;
-4. bump the schema **only** with a migration note in the ADR — a silent schema
+4. bump the schema **only** with a migration note in the changelog — a silent schema
    change turns every published package into an install error.
 
 Sheet-side, the rules are Step 2's and are consumed as-is: **seed once**, tokens

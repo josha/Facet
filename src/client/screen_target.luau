@@ -778,7 +778,7 @@ function screen_target.new(opts: Opts?)
 	-- this is the BESPOKE path — surfaces, radii, hairlines, strokes, shadows,
 	-- gradients, tints, the interactive-state wiring and the toggle visual. Moved
 	-- out for Studio's 200_000-character `Source` write cap, which a module over
-	-- the line stops live-syncing through (docs/lessons).
+	-- the line stops live-syncing through.
 	--
 	-- Constructed HERE, where the code it replaced stood, and BELOW `COLOR`,
 	-- `chrome` and the paint-claim ledger for the same reason the chrome block

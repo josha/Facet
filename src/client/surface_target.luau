@@ -46,7 +46,7 @@
 	   between the camera and the console did not stop a click: activation read 0
 	   with a wall and `false`, 1 with a wall and `true`, 1 with the wall removed.
 	   A player would not merely SEE the terminal through geometry, they would
-	   OPERATE it. If a consumer ever needs the other value it is an ADR with its
+	   OPERATE it. If a consumer ever needs the other value it is a decision with its
 	   own evidence, not a flag.
 
 	5. A LIVE SURFACE SINKS THE WORLD INPUT UNDER IT. A `ClickDetector` on the same

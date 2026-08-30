@@ -19,7 +19,7 @@ Rascal Rally consumer:
   2. `:new<UpperCamel>(`                  — the colon spelling, which would put
      the library in `self` and make the same mistake invisible to (1).
 
-WHY NOT `.md` TOO. The reference and the ADRs are REQUIRED to name the retiring
+WHY NOT `.md` TOO. The reference is REQUIRED to name the retiring
 spelling — `docs/reference/api.md` marks all nineteen "deprecated" beside their
 own name, and `tests/api_surface.spec.luau`'s ENF-3 rule fails the suite if that
 marking disappears. Prose is governed there; this guard governs code.

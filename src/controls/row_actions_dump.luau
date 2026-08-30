@@ -61,8 +61,8 @@ function row_actions_dump.build(p: Params): { [string]: any }
 		-- test can compare the number this file actually uses with the one the
 		-- solver paints. Without it the only available check compares the solver
 		-- against a second copy of the same arithmetic written in the test — a
-		-- check that cannot see this file being wrong, which is the class
-		-- docs/lessons and the simplicity gate both name.
+		-- check that cannot see this file being wrong, which is the class the
+		-- simplicity gate names.
 		menuHeightPx = p.menuHeightPx,
 	}
 end

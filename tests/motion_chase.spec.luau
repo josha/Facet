@@ -7,7 +7,7 @@
 -- implementation: the same flight, timed twice — once to the 4 px radius, once
 -- to settle. Radius arrival lands at frame 20 (0.333 s) and settle at frame 63
 -- (1.050 s), so a beat fired on settle would reach the player 0.717 s after they
--- saw the thing land — the ~0.7 s the ADR cites, reproduced here.
+-- saw the thing land — the ~0.7 s the design cites, reproduced here.
 
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect

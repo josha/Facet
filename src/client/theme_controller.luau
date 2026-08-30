@@ -1159,7 +1159,7 @@ function theme_controller.install(adapter: any, package: any, opts: Opts?): any
 	end
 	-- ===== INSTALL-POLICY PRELOAD ===========================
 	--
-	-- The ADR says a variant map's assets "join the package's existing
+	-- The contract says a variant map's assets "join the package's existing
 	-- install/lazy preload seam; PreloadAsync belt-and-braces by default". The
 	-- package half of that shipped — `chrome_slots.assetsToPreload` is real and
 	-- specced — but NOTHING ever asked for the list, so the shipped default was

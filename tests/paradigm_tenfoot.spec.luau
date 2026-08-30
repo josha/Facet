@@ -444,7 +444,7 @@ describe("director item 5: a ROG-Ally-shaped device does NOT get console/ten-foo
 			expect(env:get("effectiveOverscanInsets"):get()).toEqual({ top = 0, bottom = 0, left = 0, right = 0 })
 			-- the WIDTH-only breakpoint is untouched by this fix — it is a
 			-- separate axis (raw viewport pixels), deliberately out of this
-			-- round's scope; see the ADR's own scoping note
+			-- round's scope; see the scoping note above
 			expect(env:get("sizeClass"):get()).toBe("wide")
 		end
 	)
@@ -490,7 +490,7 @@ describe("director item 5: a ROG-Ally-shaped device does NOT get console/ten-foo
 	-- more specific tablet-vs-phone placement question this round does not
 	-- touch) means the Large-to-Medium correction does not cross the
 	-- boundary that would flip its outcome — recorded honestly rather than
-	-- claimed as a fix, and booked as a possible follow-up in the ADR.
+	-- claimed as a fix, and booked as a possible follow-up.
 	it("navPlacement's gamepad branch is unchanged by this fix (audited, not altered)", function()
 		local coreAlly, envAlly = envFor("Large", true, true)
 		local corePs5, envPs5 = envFor("Large", false, true)

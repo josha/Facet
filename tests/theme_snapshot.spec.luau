@@ -93,7 +93,7 @@ describe("themes.neutral: Studio Neutral reproduces the pre-theme literals", fun
 	end)
 end)
 
-describe("themes.resolve: composition happens exactly once, in ADR order", function()
+describe("themes.resolve: composition happens exactly once, in the declared order", function()
 	it("1. authored metrics are the base", function()
 		local snap = snapshot.resolve(derive({ space = { m = 20 } }), nil, {})
 		expect(snap.space.m).toBe(20)

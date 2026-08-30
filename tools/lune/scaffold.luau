@@ -661,7 +661,7 @@ function scaffold.plan(kind: string, name: string): Plan
 			--[[ THE CANONICAL EXPORT. Two edits, because the namespace
 				entry names the module twice — once to call it and once for the spec
 				type it declares — so the module needs a local. There is deliberately no
-				`new{display}` line: the nineteen old-form builders are the pre-ADR set,
+				`new{display}` line: the nineteen old-form builders predate the namespace,
 				deprecated in the ledger, and a control scaffolded today is not born
 				into a deprecated spelling. ]]
 			{
@@ -712,7 +712,7 @@ function scaffold.plan(kind: string, name: string): Plan
 				before = "| `valueModel` |",
 				insert = fill(GUIDE_CATALOG_ROW_TEMPLATE, name, display),
 			},
-			-- 2. the Controls namespace allowlist. A post-ADR control has
+			-- 2. the Controls namespace allowlist. A control created since has
 			-- no old form and no deprecation row, so it joins POST_ADR_NAMES rather
 			-- than the migration set the other three cases in that file are about.
 			{

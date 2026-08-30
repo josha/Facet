@@ -449,7 +449,7 @@ end)
 	Three hand-picked cases prove three hand-picked answers. The claim this
 	mechanism actually makes is arithmetic over a rectangle, so the check is a
 	MODEL written in the vocabulary of the claim — (line, lane) coordinates,
-	derived from the ADR's rules and not from the implementation — run against the
+	derived from the stated rules and not from the implementation — run against the
 	graph over a generated corpus of grids and walks.
 
 	The model and the mechanism are independent formulations on purpose: the graph

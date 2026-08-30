@@ -54,7 +54,7 @@ local NAMES = {
 	"AsyncImage",
 }
 
---[[ ...AND THE CONTROLS BORN AFTER THE ADR, which are a DIFFERENT list on
+--[[ ...AND THE CONTROLS BORN AFTER THE NAMESPACE, which are a DIFFERENT list on
 	purpose, and empty until the first one lands.
 
 	A control created after 0.10.0 has exactly ONE public spelling.
@@ -239,7 +239,7 @@ describe("the Controls namespace", function()
 			declared[name] = true
 			expect(`{name}: {type(Facet.Controls[name])}`).toBe(`{name}: function`)
 		end
-		-- ...plus the post-ADR additions, named just as explicitly. The claim is
+		-- ...plus the later additions, named just as explicitly. The claim is
 		-- "nothing is in this namespace that no list admits to", not "the namespace
 		-- never grows": a control added to `src/init.luau` and to neither list still
 		-- reddens this case, which is the mutation that matters.
@@ -248,8 +248,8 @@ describe("the Controls namespace", function()
 			expect(`{name}: {type(Facet.Controls[name])}`).toBe(`{name}: function`)
 		end
 		for key in Facet.Controls do
-			expect(`Controls.{key} is in the ADR's list: {declared[key] == true}`).toBe(
-				`Controls.{key} is in the ADR's list: true`
+			expect(`Controls.{key} is in the declared list: {declared[key] == true}`).toBe(
+				`Controls.{key} is in the declared list: true`
 			)
 		end
 		-- authority, not a scratch table a consumer can extend with a 20th control
@@ -305,7 +305,7 @@ describe("the Controls namespace", function()
 	end)
 
 	--[[ INFRASTRUCTURE DID NOT MOVE. `newCore`/`newPresenter`/`newActionSystem`/…
-		take no library argument and their creation IS the important fact, so the ADR
+		take no library argument and their creation IS the important fact, so the decision
 		leaves them where they are. A future editor tidying "all the `new*`s" into
 		the namespace would break every host in the repository. ]]
 	it("the eleven infrastructure constructors stay at the top level and stay out of Controls", function()

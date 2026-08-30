@@ -30,7 +30,7 @@ analyzer was pinned into `rokit.toml` (wave T15) nothing in this repository coul
 see a type. A change whose only claim is one no check can falsify is exactly what
 this file stops: if one of the fifteen ever silently degrades to `spec: any` —
 which is exactly what deferring its require would do — the authoring experience
-the naming ADR bought disappears with no other symptom at all: the suite stays
+the naming decision bought disappears with no other symptom at all: the suite stays
 green, the surface dump stays byte-identical, and autocomplete quietly stops
 checking arguments.
 

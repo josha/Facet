@@ -346,7 +346,7 @@ describe("§8: a lane that gave way is shorter at BOTH ends — the PS5/phone bo
 			committed by the round itself.
 
 			This is the guard that can reach it: every combination of lane count,
-			`place` and `sizing` this ADR moves, each resolved three ways — with no
+			`place` and `sizing` the give-way rule moves, each resolved three ways — with no
 			`exclusions` key at all, with a far-away 1x1 rect, and with a rect that
 			shares no x range with any content — and the three dumps compared BY VALUE.
 			Deterministic enumeration rather than a fuzzer: no seed, no clock, and the

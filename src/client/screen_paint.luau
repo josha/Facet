@@ -97,7 +97,7 @@ function screen_paint.new(ctx: any)
 	-- never disagree about which accent is live. DECLARED BELOW `COLOR` on
 	-- purpose: a local declared later is NOT an upvalue — placed above the
 	-- table, this function captured a nil GLOBAL `COLOR` and crashed the first
-	-- real boot (docs/lessons; the fake adapter never runs this file, so only a
+	-- real boot (the fake adapter never runs this file, so only a
 	-- Studio session can catch it).
 	local function focusColor(): Color3
 		return focusTreatment().color or COLOR.accent

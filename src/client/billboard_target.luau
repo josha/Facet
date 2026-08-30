@@ -106,7 +106,7 @@ function billboard_target.new(opts: Opts)
 	-- rects live in its own camera-projected CANVAS space — capture would be
 	-- silently wrong. Removing the optional method makes the renderer degrade
 	-- honestly (no grip/drag wiring); taps/Activated still work. Canvas-space
-	-- pointer mapping is a future ADR when a consumer needs draggable
+	-- pointer mapping is a future decision when a consumer needs draggable
 	-- billboard UI.
 	adapter.setPointerHandlers = nil
 	-- native touch-gesture positions share the same unproven canvas-space

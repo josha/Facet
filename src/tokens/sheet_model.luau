@@ -1818,7 +1818,7 @@ function sheet_model.buildPackage(package: any, opts: BuildPackageOpts?): Model
 	-- ----- per-state ART -------------------------------------
 	-- One state, one rule, carrying `Image` and nothing else. The per-state TINT
 	-- rules are separate rules on separate props, so they still apply on top —
-	-- which is exactly the ADR semantics: an unstated state falls back to the
+	-- which is exactly the declared semantics: an unstated state falls back to the
 	-- default art WITH its tint, and a supplied `disabled` art still gets the
 	-- disabled transparency treatment (the accessibility floor is not a variant's
 	-- to remove). The decoration is Active=false and reports no GuiState of its

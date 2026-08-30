@@ -179,7 +179,7 @@ local DECLARED_DEPRECATIONS: { Deprecation } = {
 		The eleven infrastructure constructors (`newCore`, `newPresenter`,
 		`newActionSystem`, …) are deliberately ABSENT from this list: they take no
 		library argument, their creation and ownership IS the important fact, and the
-		ADR leaves them where they are. ]]
+		the decision leaves them where they are. ]]
 	{
 		surface = "newTable",
 		since = "0.10.0",
@@ -443,7 +443,7 @@ local Controls = table.freeze({
 
 local Facet = {
 	-- semantic version: MAJOR.MINOR.PATCH; pre-1.0 the minor
-	-- tracks the completed design phase. Bump here AND in the ADR.
+	-- tracks the completed design phase. Bump here AND in the changelog.
 	VERSION = "0.10.0",
 
 	--[[ THE FLAT, NON-OVERRIDABLE EXIT CAP (framework-gaps-phase2 item 41; ui-designer

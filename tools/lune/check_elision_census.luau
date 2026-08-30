@@ -138,7 +138,7 @@ if FLAT.creates ~= EXPECT_FLAT.creates or FLAT.elided ~= EXPECT_FLAT.elided then
 		`flat 20-row list: expected {EXPECT_FLAT.creates} creates / {EXPECT_FLAT.elided} elided `
 			.. `({EXPECT_FLAT.guiObjects} GuiObjects, the live baseline), got `
 			.. `{FLAT.creates} / {FLAT.elided} ({FLAT.guiObjects} GuiObjects). If a migration step `
-			.. "registered a host here, that is the instance cost arriving — record it in the ADR "
+			.. "registered a host here, that is the instance cost arriving — record it "
 			.. "and re-pin these numbers deliberately."
 	)
 end

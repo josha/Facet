@@ -13,7 +13,7 @@
 	`luau-*` -> `facet-*` across 395 occurrences (`36d1883`, 2026-08-18). `"luau-"`
 	is five characters and `"facet-"` is six, so the sweep rewrote every literal
 	and left every length: `git log -S 'string.sub(tag, 1, 5)'` returns only the
-	initial commit. The same ADR renamed the roots `LuauUI_<id>` -> `Facet_<id>`
+	initial commit. The same rename moved the roots `LuauUI_<id>` -> `Facet_<id>`
 	— six characters to five — and left two more.
 
 	WHAT THE THREE OF THEM DID, each found by this file's own scan:
