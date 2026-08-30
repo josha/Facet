@@ -31,11 +31,11 @@
 --               (paint/style authority), "binding" (adapter data prop),
 --               "handler" (a function the renderer wires to an adapter seam),
 --               "structural" (mount-layer region control), "semantic"
---               (presenter focus/contract input), "presentation" (ADR-0026: the
+--               (presenter focus/contract input), "presentation" (the
 --               renderer folds it into the PRESENTATION authority's own write —
 --               it never reaches an `adapter.setProp` of its own, which is what
 --               makes it a second TERM rather than a second WRITER).
---   deprecated  ADR-0011 ledger entry. A deprecated prop still CONSTRUCTS for
+--   deprecated  a deprecation-ledger entry. A deprecated prop still CONSTRUCTS for
 --               its compatibility window but raises a diagnostic instead of
 --               silently doing nothing (see `blueprint.make`).
 --
@@ -95,7 +95,7 @@ export type PropSpec = {
 --            for the box that must show LESS than all of its content (a
 --            scroller's viewport) and so cannot be answered by measuring it.
 -- "sides"    padding/margin: a number or { top?, right?, bottom?, left? }.
--- "metric"   a THEME METRIC NAME (ADR-0019 §2): a space step ("xs".."xl") or a
+-- "metric"   a THEME METRIC NAME: a space step ("xs".."xl") or a
 --            dotted path into the snapshot ("controls.slider.thumbSize",
 --            "targetSizes.minimum"). It resolves to pixels on every solve, so a
 --            theme swap moves the geometry without rebuilding the blueprint.
@@ -154,7 +154,7 @@ local COMPACT_FORM_LIST = "text | icon | image"
 -- would wear icons and half would wear words.
 local COMPACT_MODIFIERS: { [string]: string } = { prefer = "boolean" }
 
--- THE STRUCTURAL-TRANSITION VOCABULARY (ADR-0022 Decision 3; ui-designer spec
+-- THE STRUCTURAL-TRANSITION VOCABULARY (ui-designer spec
 -- §2.1). Closed, like every other authored vocabulary here, and for the same
 -- reason: a form nothing validates is a transition that silently does nothing.
 --
@@ -245,7 +245,7 @@ end
 -- a metric name into a number at prop-normalization time.
 local DIM_METRIC_FIELDS = { "px", "min", "max", "preferred", "of" }
 
--- ===== the authored presentation domain (ADR-0026) =========================
+-- ===== the authored presentation domain =========================
 -- ONE ruling per property, read HERE for a static value and by the RENDERER for
 -- a reactive one at the moment it reads it — the same split `styling.checkTint`
 -- already uses, and for the same reason: a reactive value that skipped the check
@@ -286,7 +286,7 @@ function schema.checkDegrees(v: any): (boolean, string?)
 end
 
 --[[ THE FOURTH AUTHORED PRESENTATION TERM (gap 16, framework-gaps-phase2;
-	ADR-0026 amendment). `scale`/`rotation` already prove the boundary: a
+	authored-presentation amendment). `scale`/`rotation` already prove the boundary: a
 	paint-only perturbation the solver never sees, composed with whatever the
 	framework is doing to the same node. `offset` is that same class of thing
 	for TRANSLATION — it is NOT how a node's box gets positioned (that stays
@@ -585,7 +585,7 @@ local TYPE_CHECKS: { [string]: (any) -> (boolean, string?) } = {
 		end
 		return true
 	end,
-	-- A FRACTION OF THE PARENT (ADR-0022 Decision 6): an anchor offset
+	-- A FRACTION OF THE PARENT: an anchor offset
 	-- may be a share of the anchor's inner extent plus a pixel adjustment, which is
 	-- what a marker overlay needs — a minimap dot's u,v is a fraction, and it must
 	-- update in the ARRANGE pass without a re-measure or a remount.
@@ -920,7 +920,7 @@ local BOX: { [string]: PropSpec } = {
 		channel = "style",
 		doc = "normalized per-corner rounding — produced by UI.corners(bp, …)",
 	}),
-	-- the AUTHORED STROKE (ADR-0022 Decision 6). Same shape, same
+	-- the AUTHORED STROKE. Same shape, same
 	-- authority and same reactive story as the three modifiers above: bind the whole
 	-- prop to a memo of `UI.strokeData(…)` to pulse a thickness or an alpha.
 	stroke = p({
@@ -931,7 +931,7 @@ local BOX: { [string]: PropSpec } = {
 		channel = "style",
 		doc = "normalized UIStroke declaration — produced by UI.stroke(bp, …) / UI.strokeData(…)",
 	}),
-	-- PAINT ORDER WITHIN THE PARENT'S STACKING SCOPE (ADR-0022 Decision 6, row
+	-- PAINT ORDER WITHIN THE PARENT'S STACKING SCOPE (row
 	-- NOT reactive, exactly like `shape` and `compactLabel`: a lift is what
 	-- a node IS (a drag ghost, a toast), not a state it passes through — and a
 	-- reactive value would have to re-run the z walk, which only a structural sync
@@ -973,7 +973,7 @@ local BOX: { [string]: PropSpec } = {
 		doc = "true keeps this node's layout box and stops painting it — and it leaves focus order and stops "
 			.. "taking taps, with its whole subtree. Use UI.When instead when the space should close up",
 	}),
-	--[[ THE AUTHORED PRESENTATION PAIR (ADR-0026; the `scaleEffect` /
+	--[[ THE AUTHORED PRESENTATION PAIR (the `scaleEffect` /
 		`rotationEffect`). These are the FIRST authored props in the presentation
 		channel, and the channel name is the whole design: the renderer folds the
 		value into the presentation authority's own write. There is no
@@ -981,7 +981,7 @@ local BOX: { [string]: PropSpec } = {
 		writer for `UIScale.Scale` or `GuiObject.Rotation` is exactly what the
 		authority manifest exists to prevent.
 
-		COMPOSITION (ADR-0026 Decision 2): a scale MULTIPLIES with whatever the
+		COMPOSITION: a scale MULTIPLIES with whatever the
 		framework is scaling this node by (a press dip, a motion pop), a rotation
 		ADDS to whatever it is rotating it by. Each composes in its own group, which
 		is what makes nesting mean what it says.
@@ -1014,8 +1014,8 @@ local BOX: { [string]: PropSpec } = {
 			.. "It changes nothing the solver sees — the hit target stays the unrotated box — and it ADDS "
 			.. "to any rotation the framework is applying",
 	}),
-	--[[ THE THIRD MEMBER OF THE AUTHORED PRESENTATION FAMILY (ADR-0026
-		amendment, gap 16 framework-gaps-phase2): a paint-only TRANSLATION,
+	--[[ THE THIRD MEMBER OF THE AUTHORED PRESENTATION FAMILY (the
+		authored-presentation amendment, gap 16 framework-gaps-phase2): a paint-only TRANSLATION,
 		exactly parallel to `scale`/`rotation` above — same boundary (the solver
 		never sees it), same reason it exists (an author-declared perturbation
 		composed with whatever the framework is doing to the same node), same
@@ -1353,7 +1353,7 @@ local HELP: PropSpec = p({
 		.. "app-PUSHED coach mark that appears on every input class, see `newCallout`",
 })
 
--- THE FADE GROUP (ADR-0022 Decision 2). Presentation transparency is offered ONLY
+-- THE FADE GROUP. Presentation transparency is offered ONLY
 -- through a node that declared this, and the declaration is explicit because it
 -- has a real cost: the adapter materializes the node as a CanvasGroup, which
 -- renders its subtree into its own buffer and becomes that subtree's real instance
@@ -1377,11 +1377,11 @@ local CANVAS_GROUP: PropSpec = p({
 		.. "subtree's real parent — declare it only where a group fade is wanted",
 })
 
---[[ AUTHORED OPACITY (ADR-0026), and it lives on exactly
+--[[ AUTHORED OPACITY, and it lives on exactly
 	the two classes `canvasGroup` does — because DECLARING IT IS DECLARING ONE.
 
 	A fade in this framework is a `CanvasGroup.GroupTransparency` fact and always
-	was (ADR-0022 Decision 2): it is the one alpha property no style rule owns.
+	was: it is the one alpha property no style rule owns.
 	The alternative — writing `BackgroundTransparency` / `TextTransparency` on a
 	leaf — is in `NATIVE_SHEET_OWNED`, and an explicit write there does not win a
 	frame, it PERMANENTLY defeats the rule with no signal (spike 2026-07-19). The
@@ -1396,7 +1396,7 @@ local CANVAS_GROUP: PropSpec = p({
 	prop does. Unlike `canvasGroup` it IS reactive — a constant fade would be a
 	theme decision, and the whole point is that it moves and animates.
 
-	COMPOSITION (ADR-0026 Decision 2): applying opacity
+	COMPOSITION: applying opacity
 	to something already faded "multiplies the effect of the underlying opacity
 	transformation". So an authored 0.5 under a framework fade at 0.5 paints 0.25,
 	and a framework fade to nothing still reaches nothing. ]]
@@ -1427,8 +1427,7 @@ local OPACITY: PropSpec = p({
 	built from a ZStack (a `UI.Path` track + arc + a centered mark, e.g. this
 	round's Glade supply rings) gets the identical "author states a shape, the
 	solver derives the square, refuse-don't-guess if both axes are given"
-	guarantee a circle Button always had, with no new paint machinery. See
-	ADR-0062 (the circle doctrine). ]]
+	guarantee a circle Button always had, with no new paint machinery. ]]
 local SHAPE: PropSpec = p({
 	types = { "string" },
 	reactive = false,
@@ -1439,7 +1438,7 @@ local SHAPE: PropSpec = p({
 		.. "an authored width or height drives the other axis and neither means the metric",
 })
 
--- THE STRUCTURAL-TRANSITION DECLARATION (ADR-0022 Decision 3). A
+-- THE STRUCTURAL-TRANSITION DECLARATION. A
 -- structural region declares how its branch/rows come and go; the mount layer
 -- RETIRES a departing subtree (it stays mounted, turns non-interactive, and
 -- disposes when the exit completes) instead of disposing it on the spot.
@@ -1459,7 +1458,7 @@ local TRANSITION: PropSpec = p({
 		.. "Fading forms need the child to be a declared canvasGroup node",
 })
 
--- THE CONTINUOUS-COLOUR CHANNEL (ADR-0022 Decision 6). Offered
+-- THE CONTINUOUS-COLOUR CHANNEL. Offered
 -- on the four classes that HAVE one paint channel of their own — Box's fill,
 -- Text's glyphs, Image's multiply, Path's stroke — and nowhere else: a control
 -- paints from its role and its states, and a continuous colour on one would be a
@@ -1576,7 +1575,7 @@ class("ZStack", {
 			shape the promise holds for. It changes NO geometry: the solver reads it to
 			check the slot's content against the extent that was declared for it, and
 			says so naming both numbers when the content is taller (the defect class in
-			`docs/lessons/facet-fixed-px-heights.md`). Content SHORTER than its slot is
+			`px` height fixed against unfixed content). Content SHORTER than its slot is
 			legitimate over-reservation and stays silent, and a cell that scrolls or
 			clips its own overflow is skipped. ]]
 		virtualSlot = p({
@@ -1812,7 +1811,7 @@ class("ViewThatFits", {
 	}),
 })
 
--- DECLARED-CONTENT ADAPTIVE COMPOSITION (ADR-0023).
+-- DECLARED-CONTENT ADAPTIVE COMPOSITION.
 --
 -- The DECLARATION is not reactive, on purpose. `AdaptiveStack` binds an axis
 -- because the author decides the axis; a Composition decides FOR the author from
@@ -2037,7 +2036,7 @@ class("Box", {
 		surface = CONTAINER_LAYOUT.surface,
 		active = CONTAINER_LAYOUT.active,
 		tint = TINT,
-		-- THE FADE-ABLE SUBTREE (ADR-0022 Decision 2). Presentation transparency is
+		-- THE FADE-ABLE SUBTREE. Presentation transparency is
 		-- offered ONLY through a node that declared this, and the declaration is
 		-- explicit because it has a real cost: the adapter materializes the node as a
 		-- CanvasGroup, which renders its subtree into its own buffer and becomes that
@@ -2185,7 +2184,7 @@ class("Image", {
 		}),
 		surface = CONTAINER_LAYOUT.surface,
 		tint = TINT,
-		-- HOW THE PICTURE FILLS THE BOX THE SOLVER GAVE IT (ADR-0022 Decision 6, row
+		-- HOW THE PICTURE FILLS THE BOX THE SOLVER GAVE IT (row
 		-- `slice` is deliberately absent: nine-slice geometry is theme-owned
 		-- chrome (a recipe's sliceCenter/sliceScale), and an authored slice would be a
 		-- second authority over the same three engine properties.
@@ -2225,7 +2224,7 @@ class("Button", {
 		-- task PAINT) for the full doc; this class also refuses two authored axes
 		-- and validates the drawn content against it (`assertShape` below).
 		shape = SHAPE,
-		-- SEMANTIC ICON CONTENT (ADR-0020 R4) for the one shape whose content is a
+		-- SEMANTIC ICON CONTENT for the one shape whose content is a
 		-- single mark. A NAME, never an asset id: the framework draws its own
 		-- ASCII-safe glyph and a package that ships art for that name has the
 		-- adapter paint the picture over it. Circle-only on purpose — an icon
@@ -2306,13 +2305,13 @@ class("Button", {
 			reactive = false,
 			shared = true,
 			channel = "semantic",
-			doc = "onActivate(path, meta) — the PRESENTER auto-dispatches tap / Return / ButtonA here (ADR-0013)",
+			doc = "onActivate(path, meta) — the PRESENTER auto-dispatches tap / Return / ButtonA here",
 		}),
 		onPointerDown = p({
 			types = { "function" },
 			reactive = false,
 			channel = "handler",
-			doc = "onPointerDown(path, pos, rectOf) — capture-based pointer zone (ADR-0008)",
+			doc = "onPointerDown(path, pos, rectOf) — capture-based pointer zone",
 		}),
 		onPointerMove = p({
 			types = { "function" },
@@ -2541,7 +2540,7 @@ class("Stage", {
 	}),
 })
 
---[[ THE FOREIGN BOX (ADR-0034; docs/reference/api.md §Foreign).
+--[[ THE FOREIGN BOX (docs/reference/api.md §Foreign).
 
 	A box reserved for a `GuiObject` Facet does not wrap — a `VideoFrame`, an
 	`EditableImage` surface, a vendored widget, a class Roblox ships next month.
@@ -2759,7 +2758,7 @@ function schema.propDirty(): { [string]: { [string]: { string } } }
 	return out
 end
 
--- every deprecated prop, as ADR-0011 ledger rows
+-- every deprecated prop, as deprecation-ledger rows
 function schema.deprecations(): {
 	{
 		surface: string,
@@ -2802,7 +2801,7 @@ end
 -- where `spec_guard` and `themes/package` accept 2 case-sensitively.
 local distance = textDistance.distance
 
---[[ A REFUSED CAPABILITY SAYS SO AT THE POINT OF USE (ADR-0029, director round
+--[[ A REFUSED CAPABILITY SAYS SO AT THE POINT OF USE (director round
 	2026-08-15).
 
 	`opacity` and `canvasGroup` live on `Box` and `ZStack` and nowhere else, and
@@ -2838,14 +2837,14 @@ local REFUSED_FADE = "A fade in Facet is one engine property no style rule owns 
 	.. "`scale` and `rotation` need no wrap and are offered on every rendered class, because each of them "
 	.. "IS one engine property no rule owns (UIScale.Scale, GuiObject.Rotation) -- and on a CONTAINER they "
 	.. "now reach its contents too, because such a container becomes a real instance parent and the engine "
-	.. "composes both terms for the subtree (ADR-0032 Decision 4). See ADR-0029."
+	.. "composes both terms for the subtree."
 
 local REFUSED: { [string]: string } = {
 	opacity = REFUSED_FADE,
 	canvasGroup = REFUSED_FADE,
 }
 
---[[ THE UNBOUNDED ESCAPE HATCH, REFUSED WHERE IT IS REACHED FOR (ADR-0034).
+--[[ THE UNBOUNDED ESCAPE HATCH, REFUSED WHERE IT IS REACHED FOR.
 
 	`UI.Foreign{ class = "VideoFrame", props = { Video = "rbxassetid://…" } }` is
 	the shape every author arriving from React-Lua will type first, and it is the
@@ -2871,7 +2870,7 @@ local REFUSED_FOREIGN = "UI.Foreign takes NO engine properties — that is what 
 	.. "there is no second writer to arbitrate (on this engine a second writer is SILENT — an explicit "
 	.. "write defeats a style rule and fires no signal). Declare the BOX here, then fill it: "
 	.. "`local host = controller.foreignHost(path); if host then host.adopt(myVideoFrame) end`. "
-	.. "The instance, its properties and its lifetime stay yours. See ADR-0034."
+	.. "The instance, its properties and its lifetime stay yours."
 
 local REFUSED_BY_CLASS: { [string]: { [string]: string } } = {
 	Foreign = {
@@ -2887,7 +2886,7 @@ local REFUSED_BY_CLASS: { [string]: { [string]: string } } = {
 		tint = "UI.Foreign has no `tint`: a tint multiplies the node's own picture, and this node's picture "
 			.. "is the instance YOU adopted — painting it would be Facet writing the content it exists to "
 			.. "disclaim. `surface` paints the plate BEHIND the content, which the framework does own; "
-			.. "anything on the content itself is yours to set on your own instance. See ADR-0034.",
+			.. "anything on the content itself is yours to set on your own instance.",
 	},
 }
 

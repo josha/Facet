@@ -356,9 +356,8 @@ end
 
 --[[ ===== THE SETTLE-TIME CONTAINMENT FINDING (2026-08-21) ==================
 
-	`docs/lessons/the-solver-already-told-you.md` is the standing lesson, and its
-	one line is that the solver already knows — every overflow, every collapsed
-	content box, every inert prop — on a channel somebody has to ask. THIS IS THE
+	The standing lesson is that the solver already knows — every overflow, every
+	collapsed content box, every inert prop — on a channel somebody has to ask. THIS IS THE
 	ONE THING IT DID NOT KNOW HOW TO SAY. Every overflow finding in `solver.luau`
 	is derived from a MEASURE compared against an offer: "content overflows this
 	vstack by 44px", "this child overflows its zstack by 12x0px", "the wrapped
@@ -400,7 +399,7 @@ end
 	rather than a rule to add in the same breath", with the adapter-side
 	containment harness named as the right instrument.
 
-	IT WAS A DEFECT. `docs/adr/ADR-0056-lane-give-way-both-ends.md`: the 312 were
+	IT WAS A DEFECT, and the lane rule is why: the 312 were
 	all `fallback = true` and all correctly silent, but the set they were counted
 	from was not closed — `UI.Composition{ exclusions }` shortened a lane at the
 	top and shared out the UNSHORTENED lane's slack when placing, so a LEGAL

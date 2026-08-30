@@ -4,8 +4,7 @@
 	Extracted from `src/render/renderer.luau` on 2026-08-17 for the 200,000-char
 	`Source` WRITE cap: over that line a module silently stops live-syncing into
 	an open Studio session, so a live check against it tests the place file rather
-	than the edits on disk (docs/lessons/the-200k-source-cap-is-on-writing-not-
-	loading.md). The renderer was 350 chars from it and three release-candidate
+	than the edits on disk. The renderer was 350 chars from it and three release-candidate
 	fixes had to land inside it.
 
 	WHY THIS IS THE SEAM, and not a slice taken because it was the right size.
@@ -47,7 +46,7 @@ local BINDING_PROPS: { [string]: boolean } = {
 	points = true,
 	thickness = true,
 	closed = true,
-	-- THE CONTINUOUS-COLOUR CHANNEL (ADR-0022 Decision 6). Binding rather than
+	-- THE CONTINUOUS-COLOUR CHANNEL. Binding rather than
 	-- style because the VALUE is data — a blend along a signal, an identity hue —
 	-- which is exactly what a selector cannot express. It is applied LAST at
 	-- creation (see ensureTree) because it composes over whatever the style props
@@ -85,7 +84,7 @@ local STYLE_PROPS: { [string]: boolean } = {
 	-- fit. The DECLARATION is style (it selects a representation, and in its icon
 	-- form a theme-owned picture); the drawn string still rides the label seam.
 	compactLabel = true,
-	-- the authored border (ADR-0022 Decision 6): normalized UIStroke data, exactly
+	-- the authored border: normalized UIStroke data, exactly
 	-- the shape and lifecycle `gradient` has — ONE bespoke child, reused
 	stroke = true,
 	-- how an authored picture fills its box. Style for the same reason `shape` is:

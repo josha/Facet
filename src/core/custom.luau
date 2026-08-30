@@ -1,5 +1,5 @@
 --!strict
--- Minimal custom reactive core: the SELECTED foundation (ADR-0002) of the
+-- Minimal custom reactive core: the SELECTED foundation of the
 -- Phase 0 bake-off (design §3, §6, §17). Implements src/core/contract.luau:
 -- transactional writes, glitch-free pull-based memo recomputation, dynamic
 -- dependency swap, cycle + write-during-memo + feedback-cap diagnostics with

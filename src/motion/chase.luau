@@ -1,5 +1,5 @@
 --!strict
--- Perceptual arrival (ADR-0022 Decision 1; ui-designer spec §1.4): a 2-D flight
+-- Perceptual arrival (ui-designer spec §1.4): a 2-D flight
 -- is TWO scalar springs, and it ARRIVES when it enters a radius around the LIVE
 -- target — not when the solver's settle epsilon trips.
 --

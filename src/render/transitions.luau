@@ -1,5 +1,5 @@
 --!strict
--- The structural-transition COORDINATOR (ADR-0022 Decision 3; ui-designer spec
+-- The structural-transition COORDINATOR (ui-designer spec
 -- §2.1). It is the mount layer's `transitions` collaborator,
 -- implemented over exactly two things: the motion clock (P1) and the renderer's
 -- per-node presentation channel (P2).
@@ -71,9 +71,9 @@ export type Opts = {
 	core: any,
 	clock: any,
 	controller: any?,
-	-- the live metric authority (ADR-0019 §2); defaults to Studio Neutral
+	-- the live metric authority; defaults to Studio Neutral
 	metrics: (() -> any)?,
-	-- the semantic feedback sink (ADR-0022 Decision 7). An ENTER that reaches rest
+	-- the semantic feedback sink. An ENTER that reaches rest
 	-- is a motion arrival, so it emits `arrive` on that frame.
 	feedback: ((event: any) -> ())?,
 	surface: any?,

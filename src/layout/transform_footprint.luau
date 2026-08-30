@@ -2,7 +2,7 @@
 --[[ transform_footprint — the reserved-box formula for a scaled/rotated node
 	(framework-gaps-phase2 gap 33, audit-marked "teaches-wrong 12").
 
-	`scale`/`rotation` are PAINT-ONLY (ADR-0026): the solver reserves a node's
+	`scale`/`rotation` are PAINT-ONLY: the solver reserves a node's
 	UNSCALED box and the engine draws the transformed one, so a container
 	carrying an authored `scale`/`rotation` overflows its own slot and a parent
 	that wants to avoid a spillover has to reserve the PAINTED footprint itself

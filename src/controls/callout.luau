@@ -59,7 +59,7 @@ local PLATE_ID = "Plate"
 local DISMISS_ID = "Dismiss"
 local DUMP_SCHEMA = "facet-callout-dump/1"
 
--- THEME METRICS, never bare pixels (ADR-0019 §2). The dismiss row is a real
+-- THEME METRICS, never bare pixels. The dismiss row is a real
 -- target, so its floor is the theme's own minimum rather than a number written
 -- here — the same `targetSizes.minimum` the segmented rail's floor rides.
 local DISMISS_HEIGHT = table.freeze({ type = "minMax", min = "targetSizes.minimum" })

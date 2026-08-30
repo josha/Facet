@@ -66,7 +66,7 @@ local specGuard = require("../spec_guard")
 
 local rating = {}
 
--- THEME METRICS, NOT LITERALS (ADR-0019 §2, and `check_theme_drift` enforces
+-- THEME METRICS, NOT LITERALS (and `check_theme_drift` enforces
 -- it). A star is an icon, so it draws on the icon ladder and resizes with the
 -- package; the run's gap is the package's smallest step. Deliberately NO new
 -- `controls.rating.*` metric section: adding one to the neutral DEFINITION would

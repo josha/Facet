@@ -1,5 +1,5 @@
 --!strict
--- THE TOAST SCHEDULER (ADR-0022 Decision 4; ui-designer spec §3.2; acceptance row
+-- THE TOAST SCHEDULER (ui-designer spec §3.2; acceptance row
 -- A pure model: no blueprint, no adapter, no engine, no wall clock — the
 -- presenter is a thin driver over it, so every rule below is provable headlessly
 -- under an injected `now()` and stays provable when the presentation changes.

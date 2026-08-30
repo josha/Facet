@@ -1,5 +1,5 @@
 --!strict
--- The per-surface drag REGISTRY (ADR-0022 Decision 5).
+-- The per-surface drag REGISTRY.
 -- One object owns every live `UI.draggable` / `UI.dropTarget` on a surface and
 -- runs the single acquisition→session→terminal code path all four input classes
 -- share. The pure policy still lives in `drag_session` (legality, exactly-once
@@ -8,7 +8,7 @@
 -- semantic feedback seam.
 --
 -- ONE PROMOTION PATH, THREE ACQUISITIONS. `UIDragDetector` (when the adapter
--- has it), the ADR-0008 pointer capture (when it does not), and the non-pointer
+-- has it), the framework's own pointer capture (when it does not), and the non-pointer
 -- arm→navigate→commit verbs all funnel into `beginSession` / `updateAt` /
 -- `release`. There is deliberately no second legality path for gamepads: a
 -- "gamepad mode" that re-implemented `accepts` would drift from the pointer one
@@ -866,7 +866,7 @@ function drag_registry.new(opts: Opts)
 		end
 		if live ~= nil and live.mode == "pointer" then
 			registry.cancel(reason or "pointerCancel")
-			-- the origin node unmounting mid-drag must NOT kill the capture (ADR-0008)
+			-- the origin node unmounting mid-drag must NOT kill the capture
 			return true
 		end
 		return nil

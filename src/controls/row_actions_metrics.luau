@@ -11,8 +11,7 @@
 	`spec.env` — and every value it returns is created ONCE and never reassigned,
 	so `buildEngine` closes over each as a plain constant. It reads none of that
 	closure's ~60 mutable upvalues, which is exactly the test that licensed this
-	extraction (docs/lessons/the-200k-source-cap-is-on-writing-not-loading.md,
-	tools/check_source_size.py).
+	extraction (tools/check_source_size.py).
 
 	THE ONE INVARIANT THAT SPANS THE SEAM, restated because it is the whole
 	geometric contract of a swipe tray and it is now authored on this side of it:
@@ -46,7 +45,7 @@ type ActionSpec = rowActionsSpec.ActionSpec
 
 local row_actions_metrics = {}
 
--- THEME METRICS (Task 2; ADR-0019 §2). A tray button never sits narrower than
+-- THEME METRICS (Task 2). A tray button never sits narrower than
 -- `buttonMinWidth` — the localization floor — and `buttonPad` is its inner
 -- horizontal padding. Theme strings only; resolved by the solver exactly like
 -- `slider.luau`'s `THUMB_SIZE`/`RAIL_HEIGHT`.
@@ -95,7 +94,7 @@ row_actions_metrics.BUTTON_MIN_WIDTH = BUTTON_MIN_WIDTH
 row_actions_metrics.EDIT_AFFORDANCE = EDIT_AFFORDANCE
 
 --[[ THE ROOM THE ROW LEAVES FOR THE MINUS, WRITTEN ONCE (task THEME fix round,
-	2026-08-28; ADR-0059 Decision 6; review finding C1).
+	2026-08-28; review finding C1).
 
 	`editGutterPx` below resolves this list, and `row_actions_root` hands the SAME
 	list to `chrome_slots.attachHint` as the disc's `footprint`, so the space the

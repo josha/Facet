@@ -5,8 +5,7 @@
 	verbatim from src/present/presenter.luau for Studio's 200,000-character
 	`Source` WRITE cap — over it a module silently stops live-syncing into an
 	open session, so a live check against it tests the built place rather than
-	the edits on disk (docs/lessons/the-200k-source-cap-is-on-writing-not-loading.md,
-	and O-29, where exactly that cost this file a live verification).
+	the edits on disk (and O-29, where exactly that cost this file a live verification).
 
 	WHY THIS IS THE SEAM. The test that picks a safe extraction is not line
 	count, it is: does the block read or WRITE a mutable upvalue of the
@@ -39,7 +38,7 @@
 	                       reach `presenter.dismiss` (defined far below this
 	                       block in the original file — it was `self.dismiss`
 	                       there for the same late-binding reason)
-	  metricsNow()         the LIVE metric authority (ADR-0019 §2), read per use
+	  metricsNow()         the LIVE metric authority, read per use
 	                       so a theme commit moves the dismiss geometry in the
 	                       same frame it moves the rects
 
@@ -85,7 +84,7 @@ function catchers.new(ctx: any)
 			end
 			-- outsideTapCancel=false: swallow (barrier), no dismiss, no clickthrough
 		elseif engagedPassive then
-			candidate.resign() -- back to passive (ADR-0014), not disposal
+			candidate.resign() -- back to passive, not disposal
 		end
 	end
 
@@ -171,7 +170,7 @@ function catchers.new(ctx: any)
 		whole viewport and hides what it is guarding. Both suppressed values are
 		what `sheet_model.classifyTags` already treats as paint-free.
 
-		NOT A DECORATION SURFACE either (ADR-0020 R9 / chrome_slots.NO_SLOT).
+		NOT A DECORATION SURFACE either (chrome_slots.NO_SLOT).
 		Nothing generic can tell a catcher apart from a real button, so every
 		image-driven package materialized its button plate over the whole screen —
 		the same defect class the Slider's accent fill needed the hint for. This
@@ -214,11 +213,11 @@ function catchers.new(ctx: any)
 		regression. A region's EXPAND plate is the opposite: it is a modal that covers
 		content, and the dim is how a player is told the screen behind it is not live.
 		That one wears `scrim`, whose number the THEME owns and the player's
-		`PreferredTransparency` composes against (ADR-0035). Both answers are
+		`PreferredTransparency` composes against. Both answers are
 		deliberate; neither is a default nobody chose.
 
 		Full write-up, with the live same-adapter A/B that measured it:
-		docs/lessons/an-invisible-surface-declares-its-invisibility.md ]]
+		an invisible surface has to declare its own invisibility. ]]
 	local function catcherScreen(rootId: string, surface: string): any
 		local catcher: { [string]: any } = {
 			id = "catcher",
@@ -379,8 +378,8 @@ function catchers.new(ctx: any)
 		end
 	end
 
-	-- THE MINIMUM OVER THE LIVE STACK, factored out (registry item 23; W3-D,
-	-- ADR-0053) so `presenter.raise` re-banding a stack member IN PLACE gets
+	-- THE MINIMUM OVER THE LIVE STACK, factored out (registry item 23, task
+	-- W3-D) so `presenter.raise` re-banding a stack member IN PLACE gets
 	-- the identical floor a fresh mount would have computed — see the
 	-- invariant comment inside `mountPopupCatcher` below, unchanged, for why
 	-- this is "below everything live" and never just `owner.displayOrder - 50`.

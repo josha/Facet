@@ -1,5 +1,5 @@
 --!strict
--- Theme SNAPSHOT: the one effective metric authority (ADR-0019 §2).
+-- Theme SNAPSHOT: the one effective metric authority.
 -- PURE and engine-free. A snapshot is a deeply frozen plain-Luau table that the
 -- solver, renderer, presenter, headless suite and (later) the native
 -- materializer all read, so measurement can never disagree with paint about how
@@ -44,7 +44,7 @@ local styling = require("../tokens/styling")
 local snapshot = {}
 
 -- ===== font descriptors ====================================================
--- Measurement keys on the EFFECTIVE font, not a short family name (ADR-0019 §6),
+-- Measurement keys on the EFFECTIVE font, not a short family name,
 -- so two weights of one family can never share a cached width.
 
 local DEFAULT_WEIGHT = "Regular"
@@ -87,7 +87,7 @@ local function uniformInset(px: number): any
 	return { top = px, right = px, bottom = px, left = px }
 end
 
--- SEMANTIC ICON SIZES (ADR-0020 R4). The three roles a control may ask for, in
+-- SEMANTIC ICON SIZES. The three roles a control may ask for, in
 -- px, mirroring the `controlSizes` iconSize ladder below (16/20/24) because an
 -- icon inside a compact row and a compact row's icon are the same thing. They
 -- ride the snapshot for one reason: a metric package must be able to RESIZE
@@ -185,7 +185,7 @@ local function neutralDefinition(): any
 				},
 				stepper = { valueMinWidth = 32 }, -- stepper readout's stable width
 				-- label.luau icon->title gap. Kept as its own authored literal
-				-- (not re-pointed at the `space.tight` step ADR-0047 added, which
+				-- (not re-pointed at the `space.tight` step, which
 				-- resolves to the same 6 at neutral) because moving it into a
 				-- resolve-time derivation would REMOVE an authored key from this
 				-- definition and move Studio Neutral's own content stamp — the
@@ -232,7 +232,7 @@ local function neutralDefinition(): any
 			-- STAMP — moves for a section it never wrote (verified: adding it
 			-- to this definition moved Fantasy Parchment's stamp, which would
 			-- have invalidated the stored Step 3.5 captures).
-			-- decoration-slot content insets (ADR-0019 §5). Neutral is a FLAT theme:
+			-- decoration-slot content insets. Neutral is a FLAT theme:
 			-- every slot is native paint, so these describe the padding a slotted
 			-- surface reserves rather than any asset geometry.
 			insets = {
@@ -431,7 +431,7 @@ local function deepFreeze(t: any): any
 	return table.freeze(t)
 end
 
--- ===== the app namespace (ADR-0042) ========================================
+-- ===== the app namespace ========================================
 --[[ A RESERVED `app.*` SECTION AN APPLICATION DECLARES ONCE.
 
 	WHAT IT IS FOR. An app's own structural numbers — a tile minimum, a chart
@@ -544,7 +544,7 @@ local appGenerationSignals: any = setmetatable({}, { __mode = "k" })
 	diagnostic anywhere. The environment is safe because its signal lives exactly
 	as long as it does; a third party holding only the returned `unsubscribe`
 	(which captures the signal) is safe for the same reason. It is not exported on
-	`Facet.themes` and is not classified as public surface — see ADR-0042.
+	`Facet.themes` and is not classified as public surface.
 
 	`unsubscribe` is what lets a caller retire an observer deliberately rather
 	than by dropping a reference and hoping. ]]
@@ -980,7 +980,7 @@ function snapshot.densityClassOf(path: any): string?
 		end
 		return if CONTROL_BUDGET_KEYS[parts[#parts]] then "scaleDown" else "scale"
 	end
-	--[[ THE APP NAMESPACE TAKES `controls`' RULE, WORD FOR WORD (ADR-0042). Both
+	--[[ THE APP NAMESPACE TAKES `controls`' RULE, WORD FOR WORD. Both
 		sections are OPEN — an app authors `app.<anything>` the way a package
 		authors `controls.<family>.<anything>` — so the classification has to be a
 		default plus a vocabulary rather than a list nobody outside this repo could
@@ -1357,7 +1357,7 @@ end
 
 -- resolve(package, themeName, facts, overrides?) -> frozen ThemeSnapshot.
 --
--- Composition happens EXACTLY ONCE, in ADR-0019 §2 order:
+-- Composition happens EXACTLY ONCE, in role-resolution order:
 --   1. the package's authored metrics for the active theme;
 --   2. display/density policy;
 --   3. preferred-text reservation inputs;
@@ -1365,7 +1365,7 @@ end
 --   5. explicit local overrides.
 --
 -- Steps 2 and 3 deliberately do NOT scale anything here, and that is still true
--- after ADR-0039 gave the ten-foot ladder a METRIC half. The environment composes
+-- after the ten-foot ladder gained a METRIC half. The environment composes
 -- the ten-foot type floor into `typographyScale`/`typographyPaintScale`, the
 -- preferred-text offset into the renderer's measure seam, and the ten-foot METRIC
 -- factor into its own `themeMetrics` read (`snapshot.forDisplay`); applying any of
@@ -1401,7 +1401,7 @@ function snapshot.resolve(package: any, themeName: string?, facts: Facts?, overr
 		insets = {},
 		motion = {},
 	}
-	-- ICON SIZES (ADR-0020 R4). Authored roles win; every unauthored role falls
+	-- ICON SIZES. Authored roles win; every unauthored role falls
 	-- back to the neutral ladder, so a control that names `iconSizes.medium`
 	-- always resolves a number and a package that declares only `large` is not
 	-- half-broken.
@@ -1461,7 +1461,7 @@ function snapshot.resolve(package: any, themeName: string?, facts: Facts?, overr
 	for slot, entry in metrics.insets do
 		out.insets[slot] = { top = entry.top, right = entry.right, bottom = entry.bottom, left = entry.left }
 	end
-	--[[ 1b. THE APP NAMESPACE (ADR-0042). The APP owns the names — it declared
+	--[[ 1b. THE APP NAMESPACE. The APP owns the names — it declared
 		them once, before anything mounted — and every package publishes them, so a
 		proof that has to run under Studio Neutral and under Fantasy Parchment keeps
 		its geometry either way. A package may then MOVE any of them: `metrics.app`
@@ -1503,7 +1503,7 @@ function snapshot.resolve(package: any, themeName: string?, facts: Facts?, overr
 		end
 	end
 	-- every v1 slot always has an inset entry, even when the package declared
-	-- none: the optional-inset slots (ADR-0019 fix round) default to zero, and a
+	-- none: the optional-inset slots (theme fix round) default to zero, and a
 	-- missing table here would silently drop that slot's chrome reservation
 	-- below.
 	for _, slot in pkg.SLOTS do
@@ -1512,7 +1512,7 @@ function snapshot.resolve(package: any, themeName: string?, facts: Facts?, overr
 		end
 	end
 	-- chrome content insets are solver-visible: a nineSlice slot reserves them on
-	-- top of the slot's authored inset (ADR-0019 §5). Recorded so the solver and
+	-- top of the slot's authored inset. Recorded so the solver and
 	-- the chrome materializer read ONE number.
 	-- The CHROME-ONLY portion is recorded separately as well (package 3 seam):
 	-- the renderer adds exactly this to a slotted node's padding, and it must
@@ -1773,7 +1773,7 @@ function snapshot.resolve(package: any, themeName: string?, facts: Facts?, overr
 	out.chromeOutsets = {}
 
 	--[[ 2. display/density policy: recorded, never re-applied (see the note above).
-		WHAT "RE-APPLIED" NOW MEANS (ADR-0039). The director's ten-foot ruling gave
+		WHAT "RE-APPLIED" NOW MEANS. The director's ten-foot ruling gave
 		this fact a consequence — the whole metric ladder scales by 1.5 at a Large
 		display — and it is applied in `snapshot.forDisplay`, called from the
 		ENVIRONMENT's `themeMetrics` memo over the LIVE display fact, never here.
@@ -1856,7 +1856,7 @@ function snapshot.resolve(package: any, themeName: string?, facts: Facts?, overr
 		out.space.gutter = math.max(SCREEN_GUTTER_FLOOR, out.space.s)
 	end
 
-	--[[ 4a-ante-bis. THE MISSING SPACING STEP (task G-SPACE, ADR-0047, the
+	--[[ 4a-ante-bis. THE MISSING SPACING STEP (task G-SPACE, the
 		declarative-purity audit's `gap = 6` finding). `xs` and `s` are the
 		ladder's two smallest REQUIRED rungs and nothing named the value halfway
 		between them, so 61 sites across 25 files spent a raw `6` because there
@@ -2015,10 +2015,10 @@ function snapshot.resolve(package: any, themeName: string?, facts: Facts?, overr
 		out.controls.badge = { minimum = if type(authored) == "number" then authored else NEUTRAL_BADGE_MIN }
 	end
 
-	-- 4b. PIXEL SNAP (ADR-0020 R5, generation rule 3; probe rs-m5). A pixel
+	-- 4b. PIXEL SNAP (generation rule 3; probe rs-m5). A pixel
 	-- package declares an integer coordinate system, and every LENGTH the
 	-- snapshot publishes snaps UP to the next multiple of it. Up, never down, for
-	-- the ADR-0019 reason floors clamp up: rounding a 44px target floor down to 40
+	-- the reason floors clamp up: rounding a 44px target floor down to 40
 	-- would defeat an accessibility guarantee with a rendering flag.
 	--
 	-- WHY LENGTHS ONLY. `motion` is seconds and `lineHeight` is a ratio — snapping
@@ -2059,7 +2059,7 @@ function snapshot.resolve(package: any, themeName: string?, facts: Facts?, overr
 		for _, role in out.type do
 			role.size = snap(role.size)
 		end
-		--[[ …AND THE APP SECTION, BY CLASSIFICATION (ADR-0042). It is the one
+		--[[ …AND THE APP SECTION, BY CLASSIFICATION. It is the one
 			section here whose leaves are not all lengths — an app declares fractions,
 			counts and seconds beside its boxes — so this walk asks
 			`densityClassOf` rather than snapping everything it finds. Snapping a
@@ -2518,7 +2518,7 @@ end
 -- ===== the circle shape's two shared decisions ==============================
 --
 -- `UI.Button{ shape = "circle" }` (and, since task PAINT generalized the same
--- guarantee to `UI.ZStack` — ADR-0062 — a `UI.ZStack{ shape = "circle" }` ring/
+-- guarantee to `UI.ZStack` — a `UI.ZStack{ shape = "circle" }` ring/
 -- disc composite) is a TRUE 1:1 box whose diameter is a control metric, so a
 -- metric package resizes it and a pixel package snaps it without any call site
 -- doing arithmetic. Both facts below have MORE THAN ONE consumer — the

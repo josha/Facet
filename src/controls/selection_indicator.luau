@@ -153,7 +153,7 @@ export type Spec = {
 local SKINS: { [string]: boolean } = { underline = true, pill = true }
 local AXES: { [string]: boolean } = { x = true, y = true }
 
--- THEME METRICS (ADR-0019 §2; brief §3 "themed off existing tokens"). Both
+-- THEME METRICS. Both
 -- numbers are small distances the theme's own SPACING scale already owns, so
 -- neither needs a new control family — a package published before this module
 -- existed answers both, and a theme that retunes its spacing retunes the
@@ -373,7 +373,7 @@ function selection_indicator.build(Facet: any, core: any, spec: Spec)
 	local barSurfaceSlot = chrome_slots.classify({ class = "Box", surface = barSurface })
 
 	--[[ THE CARVED BORDER THE PILL'S OWN PLATE WEARS (task THEME, director item 8;
-		ADR-0059 Decision 3).
+		the themed-chrome round).
 		The paragraph beside `barSurface` below says a ~40px chip "has room for a
 		themed control chrome's borders and insets". Measured 2026-08-27 on the tab
 		strip it was written for: Pixel Quest's `control` recipe carves 16px per side,

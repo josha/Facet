@@ -1,5 +1,5 @@
 --!strict
--- Motion classes (ADR-0022 Decision 1; ui-designer spec §1.1): the named
+-- Motion classes (ui-designer spec §1.1): the named
 -- `{ dampingRatio, response }` registry that IS the motion vocabulary.
 --
 -- A feel-carrying call site cites a class NAME. A raw `{ dampingRatio = 1,

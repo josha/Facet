@@ -204,7 +204,7 @@ function table_disclosure.new(deps: Deps): any
 					gap = "xs",
 					children = hiddenColumnRows(),
 				}),
-				-- ESCAPE CANNOT BE BOUND ON THIS PLATFORM (ADR-0013), so a modal's own
+				-- ESCAPE CANNOT BE BOUND ON THIS PLATFORM, so a modal's own
 				-- close affordance IS the keyboard route out — the identical
 				-- affordance and the identical reasoning as `UI.Region`'s plate
 				UI.Button({

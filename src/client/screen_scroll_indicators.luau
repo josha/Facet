@@ -3,8 +3,8 @@
 -- scroll-indicator paint driver, extracted from src/client/screen_target.luau
 -- for Studio's 200_000-character `Source` write cap (a module over it silently
 -- stops live-syncing into an open session, so a live check against it tests the
--- built place rather than your edits —
--- docs/lessons/the-200k-source-cap-is-on-writing-not-loading.md). Strictly
+-- built place rather than your edits, once it is over the 200,000-char
+-- Source WRITE cap). Strictly
 -- one-way, exactly like src/client/screen_chrome: it never requires back.
 --
 -- `new(ctx)` returns the three adapter methods, which screen_target rebinds onto

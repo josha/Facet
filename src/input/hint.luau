@@ -1,5 +1,5 @@
 --!strict
--- Input hint helper (ADR-0013). A minimal, documented framework
+-- Input hint helper. A minimal, documented framework
 -- affordance so a consumer surfaces the CORRECT affordance label for an action
 -- ("Enter" on keyboard, "A" on gamepad, "Tap" on touch) with no hand-built memo.
 --

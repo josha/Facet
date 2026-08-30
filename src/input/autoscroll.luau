@@ -1,5 +1,5 @@
 --!strict
--- Drag-to-edge autoscroll (ADR-0022 Decision 5). A PURE model: it
+-- Drag-to-edge autoscroll. A PURE model: it
 -- owns the band/dwell/ramp/clamp policy and answers a scroll DELTA per frame.
 -- It never touches a scroll host, never reads a clock, and never re-solves
 -- anything — the host applies the delta through `controller.scrollTo` and then

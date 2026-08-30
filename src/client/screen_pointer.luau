@@ -5,7 +5,7 @@
 -- src/client/screen_target.luau for Studio's 200_000-character `Source` WRITE
 -- cap — over that cap a module silently stops live-syncing into an open Studio
 -- session, so every live check against it tests the built place rather than the
--- edits on disk (docs/lessons/the-200k-source-cap-is-on-writing-not-loading.md).
+-- edits on disk.
 -- Strictly one-way, like screen_chrome/screen_paint/screen_presentation/
 -- screen_scroll_indicators: it never requires back.
 --
@@ -69,7 +69,7 @@ function screen_pointer.new(ctx: any)
 	local GuiService = services.gui
 	local adapter = {}
 
-	-- semantic cursor requests (ADR-0008): the framework names an intent
+	-- semantic cursor requests: the framework names an intent
 	-- ("colResize"); this table maps it to uploaded cursor art. No first-party
 	-- cursor set exists — assets are a rider; an unmapped hint keeps the
 	-- default arrow but the seam (hover + capture persistence) is live.
@@ -109,12 +109,12 @@ function screen_pointer.new(ctx: any)
 
 	--[[ THE ONE ACTIVATE META, built in ONE place ─────────────────────────────
 		activate meta: pointer kind + held modifiers, so list semantics
-		(replace/toggle/range vs touch additive) resolve per device (ADR-0008).
+		(replace/toggle/range vs touch additive) resolve per device.
 
 		SHARED, since 2026-08-13, with the minimum-target hit expander below, and
-		sharing it IS the fix for a HIGH defect (redteam item 2; the lesson
-		`docs/lessons/a-synthesized-activate-must-carry-the-pointer-kind.md`, which
-		this closes). The expander is a second real `GuiButton` whose `Activated`
+		sharing it IS the fix for a HIGH defect (redteam item 2: a synthesized
+		Activate must carry the pointer kind, and this closes it). The expander
+		is a second real `GuiButton` whose `Activated`
 		carries its own `InputObject` — it always knew the pointer kind — but it
 		sent `{ source = "hitExpander" }` and nothing else. A meta that EXISTS but
 		is silent satisfies neither half of a control's `meta == nil or
@@ -204,7 +204,7 @@ function screen_pointer.new(ctx: any)
 		end)
 	end
 
-	-- pointer capture (ADR-0008): down on the zone captures; global move/up
+	-- pointer capture: down on the zone captures; global move/up
 	-- route to it until release, and the zone's cursor hint stays applied
 	local activeCapture: any = nil
 	local function endCapture(cancelReason: string?)
@@ -217,7 +217,7 @@ function screen_pointer.new(ctx: any)
 			if keep == true and cancelReason == "removed" then
 				-- a drag-owned LIFT unmounted its own origin row: the capture
 				-- (global UIS connections + closured handlers) stays alive so
-				-- the drag can finish (ADR-0008)
+				-- the drag can finish
 				return
 			end
 		end
@@ -338,8 +338,8 @@ function screen_pointer.new(ctx: any)
 	end
 
 	--[[ WHAT A PRESS ON A POINTER ZONE STARTS, IN ONE BODY, FOR BOTH SURFACES THAT
-		CAN RECEIVE IT (director ruling, 2026-08-14; the lesson
-		`docs/lessons/a-forty-four-pixel-floor-under-an-eight-pixel-divider.md`).
+		CAN RECEIVE IT (director ruling, 2026-08-14: a 44px touch floor under an
+		8px divider).
 
 		A control whose solved rect is under its contract's `minHitSize` gets a
 		second real `TextButton` from `setHitRect` — the `FacetHitExpander`, a
@@ -347,8 +347,7 @@ function screen_pointer.new(ctx: any)
 		ALONE, and `activate` is assigned for TAPPABLE classes only (Button, Toggle,
 		TextField). A `Grip` is a POINTER ZONE, not a tappable, so its expander was a
 		GuiButton that SANK `InputBegan` and forwarded nothing — and a GuiButton sinks
-		it for everything underneath too (`docs/lessons/a-button-eats-the-swipe-
-		underneath-it.md`).
+		it for everything underneath too — a button eats the swipe under it.
 
 		Measured live on the Table's 8x28 resize divider: a click in the 26px band the
 		expander covers did NOTHING, while the same click clear of it cycled the sort.

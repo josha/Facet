@@ -1,6 +1,6 @@
 --!strict
 -- ScreenTarget (design §13; CLIENT-ONLY — the only module that reaches engine
--- Instances for rendering, per ADR-0003's seam rule; check_boundary enforces
+-- Instances for rendering, per the client-seam rule; check_boundary enforces
 -- that non-client code never requires this). Implements the same
 -- RenderTargetAdapter interface as tests/lib/fake_target: createRoot/create/
 -- setRect/setProp/remove/destroyRoot (+ setActivateHandler/setFocusVisual/
@@ -16,7 +16,7 @@
 -- environment's `reducedMotion` fact at attach and on every change (C1,
 -- 2026-08-12) — no consumer wiring, and live for a mid-session flip. The legacy
 -- `opts.isReducedMotion` closure still forces reduced motion on if a caller
--- passes one (deprecated, never removed: ADR-0011), but nothing has to.
+-- passes one (deprecated, never removed), but nothing has to.
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -29,7 +29,7 @@ local defaultLightStyle = require("../tokens/default_light_style")
 local sheet_model = require("../tokens/sheet_model")
 local chrome_slots = require("../tokens/chrome_slots")
 -- the PURE package library: `resolveIcon` is the one icon-resolution ruling and
--- this file is its application site (ADR-0020 R4)
+-- this file is its application site
 local themePackage = require("../themes/package")
 local themeSnapshot = require("../themes/snapshot")
 local styling = require("../tokens/styling")
@@ -43,7 +43,7 @@ local screen_scroll_indicators = require("./screen_scroll_indicators")
 -- the bespoke (non-native) paint vocabulary — the sibling of screen_chrome,
 -- extracted for the same ceiling. Also strictly one-way.
 local screen_paint = require("./screen_paint")
--- the presentation channel (ADR-0022 Decision 2) and the clip-host record it
+-- the presentation channel and the clip-host record it
 -- composes against — see that module's header for why the seam is here
 local screen_presentation = require("./screen_presentation")
 -- the per-class PROPERTY-WRITE dispatch table (`adapter.setProp`'s chain),
@@ -61,13 +61,13 @@ local text_premeasure = require("./text_premeasure")
 local authority = require("../render/authority")
 -- ...and the classification-tag seam's PURE ruling: who owns a `facet-*` tag,
 -- and what one sync adds and removes. Shared with the headless twin, and — unlike
--- the dead removal loop ADR-0038 left here — loadable by a spec.
+-- the dead removal loop the tag rename left here — loadable by a spec.
 local tag_sync = require("../render/tag_sync")
 -- the PURE rulings the UI.Stage content seam is made of (camera/lighting shapes,
 -- the dead-handle refusal). Shared with the headless twin so the two adapters
 -- cannot disagree about what the seam accepts.
 local stage_content = require("../render/stage_content")
--- ...and the FOREIGN content seam's ruling ladder (UI.Foreign, ADR-0034), for
+-- ...and the FOREIGN content seam's ruling ladder (UI.Foreign), for
 -- exactly the same reason: one refusal ladder, both adapters
 local foreign_content = require("../render/foreign_content")
 
@@ -77,7 +77,7 @@ local foreign_content = require("../render/foreign_content")
 	cannot change THAT engine fact: the policy only fades the bar's IMAGE.
 
 	THE SOLVER RESERVE IS POLICY-AWARE AGAIN (director ruling 2026-08-28, task
-	SCROLL2, fa7233a, ADR-0040 row B-35; PARTIALLY RE-REVERSING 2026-08-12, which
+	SCROLL2, fa7233a; PARTIALLY RE-REVERSING 2026-08-12, which
 	itself reversed 2026-08-09): "always" reserves off the cross axis
 	unconditionally — this thickness until 2026-08-30, `SCROLL_BAR_RESERVE` (it
 	plus a one-pixel gutter) since; "auto" reserves ZERO, paired with
@@ -187,7 +187,7 @@ export type Opts = {
 		(since 0.9.0, remove no earlier than 0.10.0) — prose in two places and no
 		ledger row was the Milestone-1 review's C3.
 
-		Why it is deprecated rather than removed (ADR-0011): it is public, it is
+		Why it is deprecated rather than removed: it is public, it is
 		documented, `billboard_target` forwards it, and a harness that wants to
 		FORCE reduced motion regardless of the environment still has a use for it.
 		It is now an OR with the pushed fact — a closure returning true still wins,
@@ -197,7 +197,7 @@ export type Opts = {
 		so the setting reached nothing. ]]
 	isReducedMotion: (() -> boolean)?,
 	parent: Instance?,
-	-- root override (ADR-0009): everything below the root is target-agnostic
+	-- root override: everything below the root is target-agnostic
 	-- flat instance rendering, so BillboardTarget swaps ONLY the root — the
 	-- factory returns { gui = <the container all nodes parent under> }
 	rootFactory: ((screenId: string) -> { gui: Instance })?,
@@ -210,7 +210,7 @@ export type Opts = {
 	-- raw pointer-capture fallback is exercised separately (A/B evidence runs)
 	forceDragFallback: boolean?,
 	-- native-stylesheets stage (plan §7 Phase 2): native paint, and THE DEFAULT
-	-- since 2026-08-21 (ADR-0040 B-15). When the engine has StyleSheets, the
+	-- since 2026-08-21. When the engine has StyleSheets, the
 	-- adapter stops
 	-- explicit-writing every handed-off style property and instead CLASSIFIES
 	-- nodes (class + facet-* tags, sheet_model.classifyTags) under one
@@ -223,7 +223,7 @@ export type Opts = {
 	-- table form also takes `transitions = true` to opt into sheet transitions
 	-- (progressive enhancement; default OFF until the native stylesheets work publish rider clears)
 	nativeStyle: (boolean | { model: any?, handle: any?, host: Instance?, theme: string?, transitions: boolean? })?,
-	-- theme-packages stage (ADR-0019 §5): the installed ThemePackage whose
+	-- theme-packages stage: the installed ThemePackage whose
 	-- chrome recipes decide DECORATION SLOTS. A package whose slots are all
 	-- native — every reference package except an asset-backed one — creates
 	-- zero instances, so this is free to leave unset. The theme controller
@@ -245,7 +245,7 @@ export type Opts = {
 	-- THE DISPLAY CLASS THIS TARGET PAINTS FOR: at ten-foot the paint family
 	-- (radii, strokes) scales — see `themes/snapshot.paintForDisplay`. `host`
 	-- passes the environment's fact; absent is near, the identity. Taken at
-	-- construction, like the palette (ADR-0040 B-17).
+	-- construction, like the palette.
 	displaySize: string?,
 }
 
@@ -273,7 +273,7 @@ function screen_target.new(opts: Opts?)
 		at attach and again on every change (renderer.luau, beside
 		`setNativeTransitionsEnabled`), so the fact arrives with no consumer wiring
 		and stays live if the player flips the setting mid-session. The legacy
-		closure is OR'd in rather than dropped (ADR-0011 deprecate-not-break): a
+		closure is OR'd in rather than dropped (deprecate, do not break): a
 		caller that passes one can still force reduced motion on, and one that
 		returns false can no longer override the player. ]]
 	local reducedMotionPushed = false
@@ -309,7 +309,7 @@ function screen_target.new(opts: Opts?)
 	-- native paint: `paintPlan` IS the decision (the default, the capability gate,
 	-- the escape hatch, the transitions seed) and this closure OBEYS it rather
 	-- than re-deriving it — the only way a module nothing can require headlessly
-	-- gets a witness for any of it (ADR-0040 B-15). It reads the opt off `opts`
+	-- gets a witness for any of it. It reads the opt off `opts`
 	-- itself, so there is no value here to substitute for the one it decides.
 	local nativeHandle: any = nil
 	do
@@ -349,7 +349,7 @@ function screen_target.new(opts: Opts?)
 	end
 	local nativeMode = nativeHandle ~= nil
 
-	-- ===== PAINT CLAIMS (ADR-0022 Decision 6) =============================
+	-- ===== PAINT CLAIMS =============================
 	--
 	-- An authored continuous value — a `tint` blend, an identity hue, an Image's
 	-- `scaleMode` — is data, and no rule can see data. So the node CLAIMS that
@@ -360,7 +360,7 @@ function screen_target.new(opts: Opts?)
 	-- tell this apart from the accidental write it exists to catch.
 	--
 	-- THE CLAIM DOES NOT STRIP THE NODE'S TAGS, deliberately, and this is where
-	-- this implementation departs from ADR-0022's sketch ("strips the paint-family
+	-- this implementation departs from the paint-extension sketch ("strips the paint-family
 	-- tag for that property"). A surface tag does not carry one property: it carries
 	-- the fill AND the phantom ::UICorner radius AND the ::UIStroke hairline AND the
 	-- :Hover/:Press states. Removing it to hand over a colour would silently take
@@ -498,22 +498,22 @@ function screen_target.new(opts: Opts?)
 			-- control's chrome its own native paint instead of borrowing a
 			-- public surface's (and its gradient's alpha with it)
 			slotHint = if type(handle.decorationHint) == "table" then handle.decorationHint.slot else nil,
-			-- THE SIXTH VARIANT STATE (ADR-0020 R2). `error` has no engine
+			-- THE SIXTH VARIANT STATE. `error` has no engine
 			-- GuiState, so it is a tag — and it has to ride the desired set or
 			-- the next classification pass would strip it.
 			errorState = handle.errorState == true,
-			-- THE LAYERED EDITING YIELD (ADR-0020 R1, rs-m2). One tag on the
+			-- THE LAYERED EDITING YIELD (rs-m2). One tag on the
 			-- DECORATED NODE; the package's child-combinator rules blank every
 			-- layer. Same reason it lives here: syncTags owns every facet-* tag
 			-- on this instance and diffs the rest away.
 			chromeYield = handle.chromeYield == true,
-			-- THE SWITCH'S VALUE (ADR-0020 R3 cap 10). `on` is neither a GuiState
+			-- THE SWITCH'S VALUE. `on` is neither a GuiState
 			-- nor a selection binding, so the package's toggle art reads it from a
 			-- tag — and that tag has to ride the desired set or the next
 			-- classification pass would strip it, which is the Step 3.5 defect
 			-- class one control down.
 			toggleOn = handle.toggleOn == true,
-			-- SEMANTIC ICON ART (ADR-0020 R4). The glyph suppression is a tag
+			-- SEMANTIC ICON ART. The glyph suppression is a tag
 			-- because TextTransparency is sheet-owned in native mode — and it
 			-- rides the desired set here so a later classification pass cannot
 			-- strip it and bring a "+" back on top of the plate art.
@@ -549,7 +549,7 @@ function screen_target.new(opts: Opts?)
 			probe:Destroy()
 		end))
 	end)()
-	-- the fade group's engine class (ADR-0022 Decision 2), probed the same way: an
+	-- the fade group's engine class, probed the same way: an
 	-- engine without it renders the node as a Frame and the group does not fade,
 	-- which is a degraded visual and never a crash.
 	local hasCanvasGroup = (function(): boolean
@@ -584,7 +584,7 @@ function screen_target.new(opts: Opts?)
 	end)()
 	-- HOISTED above the decoration section on purpose: the slot-shadow
 	-- materializer below needs `hasUIShadow`, and a local declared later is not
-	-- an upvalue there (docs/lessons/ — this exact shape has bitten before).
+	-- an upvalue there — this exact shape has bitten before.
 
 	-- ===== DECORATION SLOTS / CHROME =====================================
 	-- The whole materializer — decoration slots, semantic icons, the chrome text
@@ -594,7 +594,7 @@ function screen_target.new(opts: Opts?)
 	-- Only the state the REST of this target also reads stays here.
 	local chromeState = chrome_slots.newState(opts and (opts :: any).themePackage)
 	local handlesByPath: { [string]: any } = {}
-	-- THE COMMITTED SNAPSHOT (ADR-0020 R4). The adapter needs metric values for
+	-- THE COMMITTED SNAPSHOT. The adapter needs metric values for
 	-- exactly one thing: the px an icon draws at, which rides `iconSizes` so a
 	-- metric package resizes icons. It arrives from the controller INSIDE the
 	-- swap transaction, beside the package, rather than being read back out of
@@ -656,7 +656,7 @@ function screen_target.new(opts: Opts?)
 	-- channel and a `UI.Path`'s stroke role (screen_paint.refreshThemedPaint).
 	-- Forward-declared for the same upvalue reason.
 	local refreshThemedPaint: (() -> ())? = nil
-	--[[ THE PLAYER'S BACKGROUND TRANSPARENCY PREFERENCE (ADR-0035, owed row O-26).
+	--[[ THE PLAYER'S BACKGROUND TRANSPARENCY PREFERENCE (owed row O-26).
 		`GuiService.PreferredTransparency`, already clamped to 0..1 by the env memo,
 		pushed here by the renderer at attach and on every change. 1 is the default —
 		paint exactly what the theme declared — so a target that is never pushed
@@ -803,7 +803,7 @@ function screen_target.new(opts: Opts?)
 		restorePaint = restorePaint,
 		assertBespokePaint = assertBespokePaint,
 		syncTags = syncTags,
-		-- the player's Background Transparency preference (ADR-0035). An accessor
+		-- the player's Background Transparency preference. An accessor
 		-- because the renderer pushes a fresh number mid-session
 		preferredTransparency = function(): number
 			return preferredTransparency
@@ -867,7 +867,7 @@ function screen_target.new(opts: Opts?)
 	local KEYBOARD_TYPE_ENGINE_NAME: { [string]: string } =
 		{ default = "Default", numeric = "Number", email = "Email", phone = "Phone" }
 
-	-- theme packages (ADR-0019 §7): the FIRST root is the target's identity for
+	-- theme packages: the FIRST root is the target's identity for
 	-- per-target theming — the controller links the package sheet there, and
 	-- every LATER root (modals, popups) inherits whatever sheet the base root
 	-- currently links, so a themed target never presents a Neutral-painted
@@ -891,7 +891,7 @@ function screen_target.new(opts: Opts?)
 		return installedThemeSheet or legacyThemeSheet()
 	end
 
-	--[[ THE BACKDROP DIM, COMPOSED WITH THE PLAYER'S PREFERENCE (ADR-0035).
+	--[[ THE BACKDROP DIM, COMPOSED WITH THE PLAYER'S PREFERENCE.
 
 		The `Scrim backdrop` rule is the single writer of `.facet-surface-scrim`'s
 		BackgroundTransparency and stays it; this moves the value that one writer
@@ -907,7 +907,7 @@ function screen_target.new(opts: Opts?)
 		THE BASE IS READ ONCE PER SHEET IDENTITY, before this target has written to
 		it. That is not fussiness: a composition that re-reads its own output
 		multiplies its own tail and converges to invisible in a handful of cycles
-		(ADR-0029 probe L4 measured exactly that failure). A newly linked sheet is
+		(probe L4 measured exactly that failure). A newly linked sheet is
 		freshly generated from its package, so its rule still holds the DESIGNER's
 		number — which is also why the base tracks a package swap for free, without
 		this file having to be told the new package's `scrimOpacity`.
@@ -948,7 +948,7 @@ function screen_target.new(opts: Opts?)
 		table.insert(themeRoots, gui)
 	end
 
-	-- the theme controller's whole-target relink seam (ADR-0019 §7). `nil` puts
+	-- the theme controller's whole-target relink seam. `nil` puts
 	-- every root back on the target's own sheet, which is what uninstall needs.
 	function adapter.relinkThemeSheet(sheet: StyleSheet?)
 		if not nativeMode then
@@ -1011,7 +1011,7 @@ function screen_target.new(opts: Opts?)
 		return { gui = gui, screenId = screenId }
 	end
 
-	-- the theme controller's install seam (ADR-0019 §7): per-target theming is
+	-- the theme controller's install seam: per-target theming is
 	-- one sheet + one StyleLink at the target's base root
 	function adapter.themeRootGui(): Instance?
 		return baseRootGui
@@ -1065,7 +1065,7 @@ function screen_target.new(opts: Opts?)
 		ensureScale = ensureScale,
 	})
 	local presentationTransforms = presentation.presentationTransforms
-	-- THE REGISTRATION SEAM (ADR-0032 Decision 1). The registry itself no longer
+	-- THE REGISTRATION SEAM. The registry itself no longer
 	-- comes back as a table: "which paths get registered" is the single predicate
 	-- the nested-tree migration changes, so it is reached through these four and
 	-- nothing else. `registerHost` is create-or-reuse, which is what the
@@ -1085,13 +1085,13 @@ function screen_target.new(opts: Opts?)
 	local dropPresentationRecords = presentation.dropPath
 	local invalidateSubtree = presentation.invalidateSubtree
 
-	-- `decorationHint` (optional 4th argument, ADR-0019 fix round): the pure
+	-- `decorationHint` (optional 4th argument, theme fix round): the pure
 	-- decoration hint the renderer read off the node's INTERNAL meta channel
 	-- (src/tokens/chrome_slots.readHint). It arrives HERE rather than through a
 	-- setter because create() skins the node as its last act — a hint delivered
 	-- afterwards would build one decoration and immediately churn it for another.
 	-- A target that does not skin simply ignores the argument.
-	-- `createOpts` (optional 5th argument, ADR-0022 Decision 2): creation-time facts
+	-- `createOpts` (optional 5th argument): creation-time facts
 	-- the adapter can only honour while it is choosing the engine object.
 	-- `canvasGroup` decides the node's engine CLASS, so it cannot arrive as a later
 	-- prop write — the instance would already exist.
@@ -1145,7 +1145,7 @@ function screen_target.new(opts: Opts?)
 			and decorationHint == nil
 			-- ANY creation option means the node needs a real engine object: a fade
 			-- group needs to BE a CanvasGroup, and a declared instance host needs to
-			-- exist before anything can parent under it (ADR-0032 Decision 4). This
+			-- exist before anything can parent under it. This
 			-- read `createOpts.canvasGroup ~= true` while a group was the only option
 			-- there was; the elided-host case would have registered a parent with no
 			-- instance to be one.
@@ -1173,7 +1173,7 @@ function screen_target.new(opts: Opts?)
 		createOpts: { canvasGroup: boolean?, instanceHost: boolean? }?
 	): any
 		local instanceClass = CLASS_TO_INSTANCE[class] or "Frame"
-		-- THE FADE GROUP (ADR-0022 Decision 2). A CanvasGroup renders its subtree
+		-- THE FADE GROUP. A CanvasGroup renders its subtree
 		-- into its own buffer, which is what makes `GroupTransparency` fade the GROUP
 		-- rather than one node's own paint — and it is why the declaration is explicit
 		-- and opt-in: the buffer is a real cost and the node becomes its subtree's
@@ -1244,7 +1244,7 @@ function screen_target.new(opts: Opts?)
 			instance.BackgroundTransparency = 1
 		end
 		if createOpts ~= nil and createOpts.instanceHost == true and instance:IsA("GuiObject") then
-			-- A DECLARED MOVE/COMPOSITE BOUNDARY (ADR-0032 Decision 2/4): a real
+			-- A DECLARED MOVE/COMPOSITE BOUNDARY: a real
 			-- instance parent so the engine carries `Rotation` and `UIScale` down the
 			-- subtree, and a PLAIN one — `crops = false`, no `ClipsDescendants`, no
 			-- CanvasGroup buffer. Those three costs are commonly attributed to
@@ -1294,7 +1294,7 @@ function screen_target.new(opts: Opts?)
 			handle.stageCamera = camera
 		end
 		if class == "Foreign" then
-			--[[ THE FOREIGN BOX (ADR-0034). No engine class of its own: the caller's
+			--[[ THE FOREIGN BOX. No engine class of its own: the caller's
 				instance IS the content, so the container is the plainest Frame this
 				adapter makes — which is exactly why it needs no capability probe and
 				no degrade path, unlike a Stage.
@@ -1304,7 +1304,7 @@ function screen_target.new(opts: Opts?)
 				CLIPSDESCENDANTS IS THE CONTRACT. "Facet owns the box, you own what is
 				in it" is a promise only while nothing in it can paint outside it. The
 				clip is what makes the solved rect the WHOLE truth about this node —
-				which is also what keeps the cross-surface cover-rect alarm (ADR-0028)
+				which is also what keeps the cross-surface cover-rect alarm
 				honest, since that alarm unions solved rects and would otherwise be
 				blind to a foreign instance spilling past its box. It is written ONCE,
 				here, and never again: `clipChildren` is a CONTAINER_LAYOUT prop and
@@ -1483,7 +1483,7 @@ function screen_target.new(opts: Opts?)
 		-- INSTANCE-HOST PARENTING: descendants of a registered host live INSIDE it,
 		-- so the engine can carry something down the subtree; everything else stays
 		-- flat under the root, which is still most of the tree. FOUR triggers
-		-- register one, and only the first is about cropping (ADR-0032): a
+		-- register one, and only the first is about cropping: a
 		-- ScrollView, an authored `clipChildren`, a fade group, and an authored
 		-- `scale`/`rotation` on a container that has children.
 		local host = hostFor(path)
@@ -1579,8 +1579,8 @@ function screen_target.new(opts: Opts?)
 		"nothing there" from "did nothing".
 
 		A META-LESS DRIVE IS THE TOUCH VERB (decided 2026-08-13, redteam item 10;
-		the reasoning is the codicil in `docs/lessons/a-synthesized-activate-must-
-		carry-the-pointer-kind.md`). Controls read `meta == nil` as "no input facts
+		and a synthesized Activate must carry the pointer kind). Controls read
+		`meta == nil` as "no input facts
 		at all", which is the touch branch — and since parity round 2 that branch
 		OPENS a Table row that declares `onPrimaryAction` rather than selecting it.
 		A real press always carries a full meta now (`pointerActivateMeta`, in
@@ -1691,7 +1691,7 @@ function screen_target.new(opts: Opts?)
 		return api
 	end
 
-	--[[ THE FOREIGN-CONTENT SEAM (UI.Foreign, ADR-0034).
+	--[[ THE FOREIGN-CONTENT SEAM (UI.Foreign).
 
 		Stage's 2-D sibling, and deliberately SMALLER than it. A `Foreign` reserves a
 		clipping box; what goes in it is one GuiObject the CALLER created, so the
@@ -1712,7 +1712,7 @@ function screen_target.new(opts: Opts?)
 		NO `contentRoot()`, unlike `stageHost` — and that difference is the design.
 		Handing back the container would hand back a framework-owned GuiObject that
 		the renderer writes a rect and a plate onto every solve, which is precisely
-		the writable-handle hole ADR-0034 refuses to open. Adopting
+		the writable-handle hole the foreign seam refuses to open. Adopting
 		INTO the container hands back nothing at all.
 
 		Cached per node, and DEAD when the node is (`remove`/`destroyRoot` call
@@ -1841,7 +1841,7 @@ function screen_target.new(opts: Opts?)
 		reducedMotionPushed = reduced == true
 	end
 
-	--[[ THE PLAYER'S BACKGROUND TRANSPARENCY PREFERENCE (ADR-0035, owed row O-26).
+	--[[ THE PLAYER'S BACKGROUND TRANSPARENCY PREFERENCE (owed row O-26).
 
 		A sibling of the two above and a deliberate DIFFERENCE from both: reduced
 		motion is a flag write because it changes how the NEXT transition plays, and
@@ -1855,7 +1855,7 @@ function screen_target.new(opts: Opts?)
 		  * NATIVE — the `Scrim backdrop` StyleRule is and stays the only writer of
 		    `.facet-surface-scrim`'s BackgroundTransparency. We move the RULE's value
 		    through the generator's own `setRuleProperty`, exactly as a designer's
-		    metric edit already does (`pushMetricRuleProps`). ADR-0029 refused rule
+		    metric edit already does (`pushMetricRuleProps`). The leaf-fade round refused rule
 		    mutation for a per-node FADE — 3 frames of latency and one generated rule
 		    per faded node — and neither objection survives here: a preference moves
 		    at human frequency, and it is per-selector by nature, because every
@@ -1866,7 +1866,7 @@ function screen_target.new(opts: Opts?)
 		The composed number comes from `sheet_model.backdropTransparency` in both
 		cases, so the modes cannot disagree, and it composes from the MODEL's own
 		recorded base rather than from the rule's current value — re-reading what we
-		last wrote is how a composition eats its own tail (ADR-0029 probe L4). ]]
+		last wrote is how a composition eats its own tail (probe L4). ]]
 	function adapter.setPreferredTransparency(effective: number)
 		if type(effective) ~= "number" or effective ~= effective then
 			return
@@ -1875,7 +1875,7 @@ function screen_target.new(opts: Opts?)
 		applyBackdropPreference()
 	end
 
-	-- ===== decoration-slot control surface (ADR-0019 §5) ==================
+	-- ===== decoration-slot control surface ==================
 	-- The theme controller drives these inside its swap transaction; the
 	-- scenario reads them for the census evidence.
 
@@ -1888,7 +1888,7 @@ function screen_target.new(opts: Opts?)
 	-- resolves per THEME — and the controller sets both inside one transaction,
 	-- so there is no frame where the two disagree. A caller that passes only the
 	-- package gets the package's own default theme.
-	-- `snapshot` (optional 3rd argument, ADR-0020 R4): the metrics the controller
+	-- `snapshot` (optional 3rd argument): the metrics the controller
 	-- committed in this same transaction. Icons size from `iconSizes`, so a
 	-- METRIC-only difference between two packages has to reach the adapter even
 	-- when `changed` is false — a package that swaps only its icon ladder still
@@ -1945,7 +1945,7 @@ function screen_target.new(opts: Opts?)
 		setChromeAssetLoaded(assetName, ok)
 	end
 
-	-- THE SIXTH VARIANT STATE (ADR-0020 R2). `default/hover/pressed/disabled` are
+	-- THE SIXTH VARIANT STATE. `default/hover/pressed/disabled` are
 	-- engine GuiState and `selected` is a binding the renderer already forwards;
 	-- `error` is neither — no control publishes one today, so this is the seam a
 	-- control's own error binding lands on (P3's wiring) and the seam the
@@ -2031,7 +2031,7 @@ function screen_target.new(opts: Opts?)
 		-- ancestor that clips is a fact a reader needs at census time rather than
 		-- a surprise on a phone.
 		census.overhang = overhang
-		-- SEMANTIC ICON PICTURES (ADR-0020 R4). Cost honesty for the icon path: a
+		-- SEMANTIC ICON PICTURES. Cost honesty for the icon path: a
 		-- flat theme, or a theme with no icon map, pays ZERO instances because
 		-- every request resolves to the glyph the control already drew. Counted
 		-- from the DataModel, and paired with the requests so "declared but never
@@ -3021,7 +3021,7 @@ function screen_target.new(opts: Opts?)
 				-- canvas because it lives in it; applyRect re-aims it when the
 				-- row itself moves. Unclipped nodes keep the outward ring.
 				local strokeParent: GuiObject = host
-				-- ...AND ONLY UNDER A HOST THAT CROPS (ADR-0032). The float exists
+				-- ...AND ONLY UNDER A HOST THAT CROPS. The float exists
 				-- because a ring drawn under a clipping or buffered parent gets cut;
 				-- a plain move-boundary host cuts nothing, so a node inside one keeps
 				-- the ordinary outward ring rather than growing a second instance to
@@ -3598,7 +3598,7 @@ function screen_target.new(opts: Opts?)
 		-- `instancesByPath[path .. "/FacetChromeText"]` retained a destroyed
 		-- label — a census that cannot fall cannot show a leak
 		destroyChromeText(handle)
-		-- ...and so is the managed ICON picture (ADR-0020 R4): its path entry and
+		-- ...and so is the managed ICON picture: its path entry and
 		-- its census have to fall with the node for exactly the same reason
 		destroyIconArt(handle)
 		if handle.chrome ~= nil then
@@ -3610,7 +3610,7 @@ function screen_target.new(opts: Opts?)
 		-- the LADDER is decoration too: its instances, its path entries and its
 		-- per-kind census all have to fall with the node
 		destroyChromeStack(handle)
-		-- ...and so are the VALUE DISPLAYS (ADR-0020 R3). The clip window holds an
+		-- ...and so are the VALUE DISPLAYS. The clip window holds an
 		-- AbsoluteSize connection on the track, which would otherwise outlive the
 		-- bar and keep resizing a destroyed label.
 		destroyBarFill(handle)
@@ -3646,7 +3646,7 @@ function screen_target.new(opts: Opts?)
 		-- the HANDLE going dead, or a consumer still holding it would go on aiming a
 		-- camera nothing renders and parenting content into a destroyed world.
 		markStageDisposed(handle)
-		-- ...and the FOREIGN seam, for exactly the same reason (ADR-0034)
+		-- ...and the FOREIGN seam, for exactly the same reason
 		markForeignDisposed(handle)
 		handle.instance:Destroy()
 	end

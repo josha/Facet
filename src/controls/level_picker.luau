@@ -533,7 +533,7 @@ function level_picker.compose(Facet: any, core: any, cfg: Config)
 	local rootPath: string? = nil
 
 	local built = contribution.attach(root, {
-		-- focus-gated Adjust (ADR-0013): the strip is the adjust target, so keyboard
+		-- focus-gated Adjust: the strip is the adjust target, so keyboard
 		-- Comma/Period and gamepad L1/R1 reach the same arithmetic while focus sits
 		-- on this control — and are UNBOUND otherwise. `rootNode` is THIS CONTROL's
 		-- mounted root: handed the screen root, "every Grip below here" claimed the

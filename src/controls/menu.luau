@@ -45,7 +45,7 @@
 	reads that rather than trusting the shape.
 
 	COMPACT DOES NOT NEST EITHER, AS A FRAMEWORK DEFAULT (director item 14,
-	framework-gaps-phase2-followups; ADR-0061). `resolvePresentation`'s own sheet
+	framework-gaps-phase2-followups). `resolvePresentation`'s own sheet
 	branch answers "is touch primary", which is a different question from "does
 	this fit" — a compact width with a pointer primary (a phone with a mouse, or
 	Roblox Studio's own compact preset, which cannot inject touch at all) used to
@@ -446,7 +446,7 @@ function menu.build(Facet: any, core: any, spec: Spec)
 		local resolved =
 			menuRecipe.resolvePresentation(menuRecipe.actionableCount(spec.items), liveSizeClass, touchLive)
 		--[[ COMPACT IS THE SINGLE-PANEL BOUNDARY, NOT TOUCH (director item 14,
-			framework-gaps-phase2-followups; shouldHaveSinglePanel.png; ADR-0061).
+			framework-gaps-phase2-followups; shouldHaveSinglePanel.png).
 			`resolvePresentation` (above) gates its own sheet branch on live TOUCH,
 			which answers a different question than the one this override asks: a
 			phone with a mouse attached, or Roblox Studio's own compact preset
@@ -460,7 +460,8 @@ function menu.build(Facet: any, core: any, spec: Spec)
 			compares against) is a fact this control was already handed, so COMPACT
 			alone now forces the single-surface idiom, independent of which
 			pointer is live. This only ever WIDENS which environments choose
-			`sheet` — touch still forces it at any width (ADAPT-9), and an
+			`sheet` — touch still forces it at any width (ADAPT-9 is the adaptation
+			audit row that fixed that), and an
 			author-forced `presentation` above this branch is untouched, so the
 			escape hatch stands. Medium/large (`regular`/`wide`) keep the
 			side-by-side expansion exactly as `resolvePresentation` already

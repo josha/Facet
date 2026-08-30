@@ -1,5 +1,5 @@
 --!strict
--- Shared interaction tokens (ADR-0022 Decision 5). ONE place where
+-- Shared interaction tokens. ONE place where
 -- the numbers that decide "was that a tap or a drag?" live, keyed by INPUT
 -- CLASS rather than by consumer.
 --
@@ -75,7 +75,7 @@ function interaction_tokens.promotionForPointerType(pointerType: string?, overri
 	return interaction_tokens.promotionPx(interaction_tokens.classForPointerType(pointerType), overrides)
 end
 
---[[ THE RESPONDER PRIORITY BANDS (framework-gaps-phase2 item 41; ADR-0014;
+--[[ THE RESPONDER PRIORITY BANDS (framework-gaps-phase2 item 41;
 	`src/present/presenter.luau`'s own responder-priority section is the live
 	authority these numbers mirror). A consumer arbitrating its OWN input
 	contexts against a Facet-presented surface's — the exact shape

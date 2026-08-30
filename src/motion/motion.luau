@@ -1,6 +1,6 @@
 --!strict
--- MotionValue — the public value API of the motion authority (ADR-0022
--- Decision 1). `clock:spring(0, "object")` hands back a value that IS a
+-- MotionValue — the public value API of the motion authority.
+-- `clock:spring(0, "object")` hands back a value that IS a
 -- `Readable<number>`: the returned table is the backing core signal itself,
 -- augmented with the motion verbs. So `core:observe(value, …)`, `use(value)`
 -- inside a memo, and a bound blueprint prop all work on it unchanged — motion
@@ -46,7 +46,7 @@
 --
 -- AUTHORITY: this module drives signals only. It never writes solver geometry
 -- and never writes a native-sheet-owned property — the renderer's presentation
--- channel is the only write site downstream (ADR-0022 Decision 2).
+-- channel is the only write site downstream.
 
 local springLib = require("./spring")
 local classes = require("./classes")
@@ -94,7 +94,7 @@ export type Internals = {
 	-- report a quarantined consumer-callback error onto the clock's lastError
 	-- channel (settle fan-out runs outside the step pcall on the placeNow path)
 	noteError: (message: string) -> (),
-	-- the EASING EVALUATOR, injected exactly the way `now` is (ADR-0033). On
+	-- the EASING EVALUATOR, injected exactly the way `now` is. On
 	-- Roblox this is `TweenService:GetValue`, installed by
 	-- `src/client/motion_driver.luau`; headless it is `curves.evaluate`, the pure
 	-- twin pinned to the engine by a differential oracle. Same signature either

@@ -4,7 +4,7 @@
 -- src/client/screen_target.luau for Studio's 200_000-character `Source` WRITE
 -- cap. Over that cap a module silently stops live-syncing into an open Studio
 -- session, so every live check against it tests the built place rather than the
--- edits on disk — docs/lessons/the-200k-source-cap-is-on-writing-not-loading.md.
+-- edits on disk, once it is over the 200,000-char Source WRITE cap.
 --
 -- WHY THIS IS THE SEAM. `docs/handoff/SOURCE_CAP_LEDGER.md`'s row for this file
 -- named it across six prior extractions: everything large inside
@@ -318,7 +318,7 @@ function screen_props.new(ctx: Ctx)
 				end
 			end
 		elseif prop == "icon" then
-			-- SEMANTIC ICON CONTENT (ADR-0020 R4) reached from a public prop. The
+			-- SEMANTIC ICON CONTENT reached from a public prop. The
 			-- control's own text is already the framework's ASCII glyph (the
 			-- renderer's drawnButtonText), so this is an UPGRADE, not a dependency:
 			-- it tells the chrome subsystem which semantic name to look for in the
@@ -398,7 +398,7 @@ function screen_props.new(ctx: Ctx)
 				end
 			end
 		elseif prop == "transform" then
-			-- THE PRESENTATION TRANSFORM (ADR-0022 Decision 2; fixes the headless-green/device-wrong class — this
+			-- THE PRESENTATION TRANSFORM (fixes the headless-green/device-wrong class — this
 			-- branch simply did not exist, so every keep-visible shift was a headless
 			-- green that never moved a device). The whole body is
 			-- `screen_presentation.setTransform`, because it is the one writer of that
@@ -448,7 +448,7 @@ function screen_props.new(ctx: Ctx)
 					handle.labelInstance.TextSize = value
 				end
 				-- THE TEXT-SIZE-ONLY DRIFT CASE (review finding I5, 2026-08-28;
-				-- ADR-0059 Decision 1b's amendment). `chrome_slots.liftGeometry`'s
+				-- the themed-chrome amendment). `chrome_slots.liftGeometry`'s
 				-- floor is the host's LIVE `TextSize`, re-read from two places: the
 				-- chrome reconcile, and `refitIconArt`, which the adapter otherwise
 				-- only drives from `applyRect`. `render/rect_pass.luau` skips

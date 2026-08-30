@@ -149,7 +149,7 @@
 -- `animating = false` in its dump — honest, and the same "degrade where the seam
 -- is absent" shape row_actions takes when no clock is bound.
 --
--- Paint is style-owned, and since ADR-0020 R3 it is owned through the BAR FAMILY
+-- Paint is style-owned, and it is owned through the BAR FAMILY
 -- rather than through borrowed public surfaces. The track used to declare
 -- `surface = "control"` and the fill `surface = "accent"`, which subscribed both
 -- to treatments meant for buttons and panels: an ornate package stretched a
@@ -169,7 +169,7 @@ local specGuard = require("../spec_guard")
 
 local progress_view = {}
 
--- theme metrics (ADR-0019 §2), resolved on every solve
+-- theme metrics, resolved on every solve
 local TRACK_HEIGHT = "controls.progress.trackHeight"
 -- even, so an even track centres exactly; see the note on the row below
 local ROW_MIN_HEIGHT = "controls.progress.rowMinHeight"
@@ -504,8 +504,8 @@ function progress_view.build(Facet: any, core: any, spec: Spec)
 		-- preference: 40px past under Glossy Mobile and Glossy Touch (dot 10, `s` 10
 		-- -> a 74px spinner beside a 210px label in 254px), 6px under Fantasy Ornate
 		-- and Parchment. Studio Neutral fit with 110px to spare, which is exactly why
-		-- nothing saw it — `docs/lessons/a-fixed-box-cannot-hold-a-themes-frame.md`
-		-- is the same family read from the other end: there a fixed box could not hold
+		-- nothing saw it. It is the same family read from the other end: elsewhere a
+		-- fixed box could not hold
 		-- a theme's frame, here a fixed indicator leaves a theme's type nowhere to go.
 		--
 		-- ONLY the label, deliberately, and that is the precedence rather than an
@@ -540,7 +540,7 @@ function progress_view.build(Facet: any, core: any, spec: Spec)
 		-- the solver said what it always says: "percent size on an unbounded axis
 		-- (inside scroll axis?)" — because a vertical ScrollView is exactly where a
 		-- loading indicator lives, and a fraction of an unbounded axis is not a
-		-- size (docs/lessons/the-solver-already-told-you.md). So the dots are FIXED
+		-- size. So the dots are FIXED
 		-- squares and the travelling bump rides the `tint` channel, which is
 		-- `dirty = { "paint" }`: the ring animates for zero re-solves, and it can be
 		-- dropped into any container without asking what its parent's axis is.
@@ -682,7 +682,7 @@ function progress_view.build(Facet: any, core: any, spec: Spec)
 				return { type = "percent", fraction = model.fraction(read(use)) }
 			end))
 			barChildren = {
-				-- THE FILL IS THE CLIP WINDOW (ADR-0020 R3, probe rs-m4). The solver
+				-- THE FILL IS THE CLIP WINDOW (probe rs-m4). The solver
 				-- keeps sizing this node to the percent — that is what a flat bar's
 				-- accent block IS — and a package that skins the bar has the adapter
 				-- parent a ClipsDescendants window over it holding a FULL-TRACK-size

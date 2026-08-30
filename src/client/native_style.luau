@@ -1,6 +1,6 @@
 --!strict
 -- Native StyleSheet materializer (native-stylesheets stage; CLIENT-ONLY, the
--- ADR-0003 seam rule applies — no non-client code may require this). Turns the
+-- client-seam rule applies — no non-client code may require this). Turns the
 -- PURE sheet model (src/tokens/sheet_model.luau) into DataModel instances:
 --
 --   <host>.Facet                (StyleSheet — rules as ordered children,
@@ -19,7 +19,7 @@
 -- setTransitionsEnabled(false) strips them via SetPropertyTransitions({}) —
 -- the proven instant-change path Facet's reducedMotion policy drives.
 --
--- THEME PACKAGES (ADR-0019 §3/§7, stage theme-packages-and-skinning): `ensure`
+-- THEME PACKAGES: `ensure`
 -- is parameterized so a theme PACKAGE materializes its own sheet
 -- ("FacetTheme <id>") beside — never on top of — the shared legacy sheet, with
 -- per-target isolation (feasibility m1). Two package-only additions:
@@ -42,7 +42,7 @@ local native_style = {}
 	this is the answer it gets.
 
 	FLIPPED TO `true` ON 2026-08-21 by the game director's ruling, recorded as
-	ADR-0040 row B-15 (the record is what makes a behaviour change legal on an
+	a changelog row (the record is what makes a behaviour change legal on an
 	unreleased version). It was `false` for the whole native-stylesheets stage,
 	where sheet paint was opt-in per target while the promotion rows closed
 	(artifacts/native-stylesheets/promotion-readiness.json).
@@ -179,7 +179,7 @@ end
 
 -- one Font builder for rule props AND typed attributes: a theme's typography
 -- token carries weight/style, and dropping them would paint Regular while the
--- solver measured SemiBold (ADR-0019 §6 keys measurement on the full descriptor)
+-- solver measured SemiBold
 local function toFont(v: any): Font
 	local family = tostring(v.family)
 	local file = text_premeasure.fontFileFor(family) or family
@@ -215,7 +215,7 @@ local function materializeProp(v: any): any
 	-- chrome kinds (rect / colorseq / numseq — package rules for nine-slice and
 	-- gradient chrome). materialize is engine-gated: on a client it returns the
 	-- real datatype; the nil-engine case cannot be reached here because this
-	-- module is client-only by the ADR-0003 seam rule.
+	-- module is client-only by the client-seam rule.
 	local handled, value = chrome_props.materialize(v)
 	if handled then
 		return value
@@ -327,7 +327,7 @@ export type Handle = {
 	setTheme: (name: string) -> (),
 	setTransitionsEnabled: (on: boolean) -> (),
 	resolveToken: (theme: string, name: string) -> Color3?,
-	-- theme packages (ADR-0019 §3): typed metric/font tokens on the ACTIVE theme
+	-- theme packages: typed metric/font tokens on the ACTIVE theme
 	-- sheet, and the live-authoring signal that observes designer edits to them
 	readTokens: (theme: string, wanted: { any }) -> { any },
 	watchTokens: (theme: string, fn: (attribute: string) -> ()) -> () -> (),
@@ -566,7 +566,7 @@ function native_style.ensure(model: any, opts: EnsureOpts?): Handle
 		end
 	end
 
-	-- typed metric/font tokens (ADR-0019 §3, feasibility m4). BACKFILL ONLY, on
+	-- typed metric/font tokens. BACKFILL ONLY, on
 	-- every apply: a token the designer has set is authored data and is never
 	-- overwritten (seed-once), while a token this build added to the vocabulary
 	-- appears immediately instead of reading back nil until the next stamp
@@ -641,7 +641,7 @@ function native_style.ensure(model: any, opts: EnsureOpts?): Handle
 		-- generator-side single-prop rule update: how a LIVE metric edit reaches
 		-- the rules that baked that metric as a literal (model.metricRuleProps).
 		-- THIS handle's own sheet; `native_style.setRuleProperty` below is the same
-		-- verb on any sheet, which is what a whole-target relink needs (ADR-0035).
+		-- verb on any sheet, which is what a whole-target relink needs.
 		setRuleProperty = function(ruleName: string, prop: string, value: any): boolean
 			return native_style.setRuleProperty(sheet, ruleName, prop, value)
 		end,
@@ -692,8 +692,7 @@ end
 
 	`handle.setRuleProperty` above is the same verb bound to the handle's own
 	sheet, and it is enough for the metric-edit path, where the editor and the
-	model are the same object. It is NOT enough for a live PLAYER PREFERENCE
-	(ADR-0035): a theme controller relinks the whole target onto a package sheet it
+	model are the same object. It is NOT enough for a live PLAYER PREFERENCE: a theme controller relinks the whole target onto a package sheet it
 	built itself, so the target's own handle points at a sheet nothing is wearing
 	any more, and a patch through it would land on a dead rule and change nothing
 	visible. The preference patches `activeSheetFor()` instead — whichever sheet is
@@ -701,8 +700,9 @@ end
 
 	`ruleProperty` is the READ half, and it exists so the composition never reads
 	back its own output: the base a preference composes against is taken from a
-	freshly-installed sheet, once, before anything has written to it (ADR-0029
-	probe L4 is what that rule is defending against). ]]
+	freshly-installed sheet, once, before anything has written to it (a
+	composition that reads back its own output is what that rule defends
+	against). ]]
 function native_style.ruleProperty(sheet: StyleSheet?, ruleName: string, prop: string): any?
 	if sheet == nil then
 		return nil
@@ -751,7 +751,7 @@ end
 -- sheets apply to the same tree and the cascade winner depends on load order.
 -- So an existing Facet link is REPOINTED at the package sheet and its previous
 -- sheet handed back, which is exactly what `uninstall` needs to put the target
--- back the way it found it (ADR-0019 §7 per-target isolation, feasibility m1).
+-- back the way it found it.
 function native_style.linkAt(rootGui: Instance, sheet: StyleSheet): (StyleLink, StyleSheet?, boolean)
 	for _, child in rootGui:GetChildren() do
 		if child:IsA("StyleLink") and child.Name == "FacetStyleLink" then

@@ -76,7 +76,7 @@ function edit_preview.start(Facet: any, opts: StartOpts)
 	-- down everything already parented and re-raises — start() never orphans
 	-- preview furniture (verifier F1)
 	--[[ THE PREVIEW OPTS OUT OF SHEET PAINT, EXPLICITLY, and after the 2026-08-21
-		default flip (`native_style.DEFAULT_ENABLED = true`, ADR-0040 row B-15) that
+		default flip (`native_style.DEFAULT_ENABLED = true`) that
 		`false` is load-bearing rather than a restatement. This harness runs in the
 		STUDIO EDIT DataModel, where `native_style.ensure` would seed a persistent
 		`FacetStyle` StyleSheet that the next place save commits — which is exactly
@@ -97,7 +97,7 @@ function edit_preview.start(Facet: any, opts: StartOpts)
 		A LIVE `setProfile` ACROSS THE NEAR/TEN-FOOT BOUNDARY still moves the
 		measure and not the paint: a target takes its class at construction, the way
 		it takes its palette. Restart the preview to change distance; the growth
-		seam that would make it live is booked in ADR-0039 Decision 3a. ]]
+		seam that would make it live is not built. ]]
 	local adapter = screen_target.new({
 		parent = opts.parent,
 		style = opts.style,

@@ -3,7 +3,7 @@
 -- strict frozen Luau tables + a contrast/completeness report. Engine-free.
 -- Native StyleSheet generation (formerly deferred while transitions were the
 -- open question) now SHIPS via src/tokens/sheet_model.luau + the client
--- materializer (ADR-0018, native-stylesheets stage): transitions stay opt-in
+-- materializer (native-stylesheets stage): transitions stay opt-in
 -- progressive enhancement with an instant-change path, so the "always a
 -- non-beta path" guarantee holds. Compiled Luau tokens remain the solver's
 -- source of truth; the sheet owns paint at opted-in targets.

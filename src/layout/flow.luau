@@ -79,7 +79,7 @@ local flow = {}
 -- `measure` arrives through a FORWARDER rather than by value, exactly as it does
 -- in `./grid`'s `Deps`: it is one of the solver's forward declarations, assigned
 -- ~1,500 lines below where the record is built, so a load-time record would
--- capture nil (docs/lessons/a-helper-declared-below-its-caller-is-a-global.md).
+-- capture nil.
 export type Deps = {
 	measure: (ctx: any, node: any, maxW: number, maxH: number) -> (number, number),
 	dim: (node: any, axis: string) -> any,

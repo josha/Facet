@@ -1,11 +1,11 @@
 --!strict
--- ScreenPresentation — THE PRESENTATION CHANNEL (ADR-0022 Decision 2) of the
+-- ScreenPresentation — THE PRESENTATION CHANNEL of the
 -- ScreenTarget adapter, plus the REAL-PARENT (instance host) record it composes
 -- against, extracted from src/client/screen_target.luau for Studio's
 -- 200_000-character `Source` WRITE cap. Over that cap a module silently stops
 -- live-syncing into an open Studio session, so every live check against it
--- tests the built place rather than the edits on disk —
--- docs/lessons/the-200k-source-cap-is-on-writing-not-loading.md. Strictly
+-- tests the built place rather than the edits on disk, once it is over the
+-- 200,000-char Source WRITE cap. Strictly
 -- one-way, like screen_chrome/screen_paint/screen_scroll_indicators: it never
 -- requires back.
 --
@@ -38,7 +38,7 @@
 -- SOME EXPORTS EXIST BECAUSE A NUMBER CANNOT BE SHARED BY REFERENCE.
 -- `presentationTransforms` is a table and goes back to the host as itself, so
 -- its reads are unchanged. (`instanceHosts` COULD have, and deliberately does
--- not — ADR-0032 step 1 made the registry private behind
+-- not — the nested-tree migration made the registry private behind
 -- `registerHost`/`unregisterHost`/`hostAt`/`hostFor`, because "which paths get
 -- registered" is the one predicate that whole migration changes and it needs one
 -- place to live.) `presentationCount` (the zero-cost
@@ -108,7 +108,7 @@ function screen_presentation.new(ctx: any)
 	local ensureScale = ctx.ensureScale
 
 	--[[ THE INSTANCE-HOST REGISTRY — THE ONE RECORD THAT MAKES A NODE A REAL PARENT.
-		(ADR-0032 Decision 1. Named `clipHosts` until then, after the first of its
+		(Named `clipHosts` until the nested-tree migration, after the first of its
 		three triggers.)
 
 		A registered node's descendants parent UNDER it in the engine hierarchy,
@@ -116,12 +116,12 @@ function screen_presentation.new(ctx: any)
 		Three declarations register one today — a `ScrollView` (by construction),
 		an authored `clipChildren`, and a fade group — and only the first of the
 		three is about clipping, which is why the name moved. `path` is on the
-		entry for the presentation channel (ADR-0022 Decision 2): an offset
+		entry for the presentation channel: an offset
 		accumulating down a subtree stops at the nearest REAL PARENT, whose own
 		move already carries its children, and this is how a child knows where
 		that is.
 
-		THE TABLE IS PRIVATE, AND THAT IS THE POINT OF THIS STEP. ADR-0032 is a
+		THE TABLE IS PRIVATE, AND THAT IS THE POINT OF THIS STEP. Nesting is a
 		REGISTRATION POLICY, not a renderer rewrite — "switching to nested is a
 		change to one predicate: which paths get registered". A policy needs one
 		place to live, so the record is born in `registerHost` and dies in
@@ -177,7 +177,7 @@ function screen_presentation.new(ctx: any)
 	-- WHY THAT DISTINCTION IS THE WHOLE STEP. The scan it replaces was
 	-- `for hostPath, entry in instanceHosts do` — every registered host examined
 	-- on every `create` and every `adopt`. At the three hosts a flat tree has,
-	-- free. ADR-0032's entire content is "register more hosts", so that loop
+	-- free. The nested-tree migration's entire content is "register more hosts", so that loop
 	-- becomes O(nodes x hosts) exactly as the migration proceeds: the cost would
 	-- have arrived with the feature and been blamed on nesting. Walking the
 	-- path's own separators from the deepest inward is bounded by the path's
@@ -210,14 +210,14 @@ function screen_presentation.new(ctx: any)
 	-- scenario `reset()`: an expander 74px below the button it belongs to. Placing it
 	-- here, in the one function that re-bases a node, is what makes the two unable to
 	-- disagree.
-	-- ===== THE PRESENTATION CHANNEL (ADR-0022 Decision 2) =================
+	-- ===== THE PRESENTATION CHANNEL =================
 	--
 	-- A presentation transform composes onto the solver's rect at the WRITE, so a
 	-- motion never touches solver geometry and a re-solve never loses the motion:
 	-- `applyRect` is the one place a Position is written, and it adds the offset
 	-- every time.
 	--
-	-- THE INSTANCE TREE IS FLAT (docs/lessons/screen-target-tree-is-flat.md), and
+	-- THE INSTANCE TREE IS FLAT, and
 	-- that is the load-bearing fact here. Every node parents under the root gui
 	-- unless a REAL PARENT claimed it (an instance host: a clip host, a scroll host, or a fade group), so
 	-- moving a container's own instance moves nothing but that container — the
@@ -362,14 +362,14 @@ function screen_presentation.new(ctx: any)
 			px += pw / 2
 			py += ph / 2
 		end
-		--[[ THE WRITE A HOST MAKES UNNECESSARY (ADR-0032, the arrange half).
+		--[[ THE WRITE A HOST MAKES UNNECESSARY (the arrange half).
 
 			A `GuiObject.Position` is PARENT-RELATIVE, and `ox, oy` above is exactly
 			the parent it is relative to. So when a HOST moves, every descendant's
 			`rect` and the host's origin change by the same delta and `px, py` come
 			out identical — measured on a 20-row list: the container moves, 120 of
 			120 absolute positions change, and 0 of 120 change relative to the host.
-			The shipped code wrote all 120 anyway. That is ADR-0032's 120-write bill,
+			The shipped code wrote all 120 anyway. That is the 120-write bill,
 			and every one of those writes stored the number already there.
 
 			SO THE MECHANISM IS NOT "WRITE LESS", IT IS "KNOW WHAT YOU WROTE". This
@@ -448,7 +448,7 @@ function screen_presentation.new(ctx: any)
 		end
 		local scale = if type(t) == "table" and type(t.scale) == "number" then t.scale else nil
 		local existing = handle.motionScale or handle.uiScale
-		-- THE PRESS DIP'S RESTING TARGET (ADR-0026 Consequences, fixed 2026-08-14).
+		-- THE PRESS DIP'S RESTING TARGET (fixed 2026-08-14).
 		-- The composed scale this authority is writing IS what a dip must come back
 		-- to, and this is the one moment it is known. Recorded even when the
 		-- instance is shared with the dip — especially then, since that sharing is
@@ -496,7 +496,7 @@ function screen_presentation.new(ctx: any)
 					rotates without scaling. Reproduced in Studio through the real
 					presenter — `Carried` at TURN2 read `Abs=100x70 AbsRot=30.0
 					UIScale=none`. It reaches any authored `scale` that is ever animated
-					to 1 and back, which after ADR-0032 D4 includes a container whose
+					to 1 and back, which since nesting includes a container whose
 					whole subtree rides the term.
 
 					Guarded on identity rather than cleared unconditionally: when the
@@ -520,7 +520,7 @@ function screen_presentation.new(ctx: any)
 		instance.Rotation = rotation
 	end
 
-	-- THE `transform` PROP, whole (ADR-0022 Decision 2; fixes the headless-green/device-wrong class — this branch
+	-- THE `transform` PROP, whole (fixes the headless-green/device-wrong class — this branch
 	-- simply did not exist, so every keep-visible shift was a headless green that
 	-- never moved a device). It lives here rather than in the host's setProp because
 	-- it is the ONE writer of `presentationCount`, which a number cannot share by
@@ -577,7 +577,7 @@ function screen_presentation.new(ctx: any)
 		-- `presentationTransforms` goes back BY REFERENCE — the host reads
 		-- `presentationTransforms[path]` directly. `instanceHosts` does NOT: it is
 		-- reached only through the four functions below, so the registration
-		-- policy ADR-0032 changes has exactly one place to live (see the
+		-- policy nesting changes has exactly one place to live (see the
 		-- registry's own header).
 		presentationTransforms = presentationTransforms,
 		registerHost = registerHost,

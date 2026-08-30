@@ -1,6 +1,5 @@
 --!strict
--- Timeline — choreographed sequences on the motion clock (ADR-0022 Decision 1;
--- ui-designer spec §1.6). A timeline is an ordered list of BEATS, each declaring
+-- Timeline — choreographed sequences on the motion clock (ui-designer spec §1.6). A timeline is an ordered list of BEATS, each declaring
 -- when it fires (`at`, seconds from the start), what it does (`run`), and the
 -- clean end state it is responsible for (`terminal`).
 --

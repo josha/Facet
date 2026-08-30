@@ -10,7 +10,7 @@
 	one went wrong for four days under 7,116 green cases precisely because
 	nothing headless could see it.
 
-	THE DEFECT THIS EXISTS TO MAKE UNREPEATABLE (ADR-0038). The tag rename
+	THE DEFECT THIS EXISTS TO MAKE UNREPEATABLE. The tag rename
 	`luau-*` -> `facet-*` (`36d1883`, 2026-08-18) rewrote 395 literals and left
 	every hand-counted LENGTH behind: the retired prefix is five characters and
 	the new one is six, so `string.sub(tag, 1, 5) == "facet-"` compares a

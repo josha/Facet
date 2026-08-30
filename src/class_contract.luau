@@ -91,13 +91,13 @@ local CONTROLS: { [string]: ControlContract } = {
 		accessibility = "screen-level container that resolves an ARRANGEMENT from ranked regions and "
 			.. "the box it received, on BOTH axes; regions that stepped out or dropped keep their mount "
 			.. "but are hidden and excluded from focus order, and focus order is the declaration's own "
-			.. "and therefore identical in every arrangement (ADR-0023)",
+			.. "and therefore identical in every arrangement",
 	},
 	Region = {
 		focusRole = "none",
 		actions = {},
 		accessibility = "one ranked thing a Composition has to say; its children are its forms, richest "
-			.. "first, and exactly one of them is shown — the others are hidden and unreachable (ADR-0023)",
+			.. "first, and exactly one of them is shown — the others are hidden and unreachable",
 	},
 	Divider = {
 		focusRole = "none",
@@ -121,7 +121,7 @@ local CONTROLS: { [string]: ControlContract } = {
 	Foreign = {
 		focusRole = "none",
 		actions = {},
-		accessibility = "a box for a GuiObject Facet does not wrap (ADR-0034): the framework reserves and "
+		accessibility = "a box for a GuiObject Facet does not wrap: the framework reserves and "
 			.. "CLIPS the rect, the caller adopts an instance into it through controller.foreignHost, and "
 			.. "Facet writes exactly one property on that instance (its Parent) and nothing else. It owns no "
 			.. "input and takes no focus stop — the content is outside the focus graph by construction, since "

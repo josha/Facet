@@ -97,7 +97,7 @@ function table_header.band(deps: Deps): any
 
 	--[[ A PRESS THE DIVIDER DID NOT TURN INTO A DRAG GOES TO THE HEADER UNDERNEATH
 		(director ruling 2026-08-14, option 1 of the four in
-		`docs/lessons/a-forty-four-pixel-floor-under-an-eight-pixel-divider.md`).
+		a 44px touch floor under an 8px divider).
 
 		THE MEASUREMENT: `contract.luau` gives `Grip` `minHitSize = 44`, so the
 		renderer asks the adapter for a 44x44 hit rect centred on this 8x28 divider

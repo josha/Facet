@@ -25,8 +25,7 @@
 	`Script.Source` WRITE cap, which is what Rojo live-sync, `execute_luau` and every
 	plugin path assign through — so the module silently stopped syncing into an open
 	Studio session and live checks against it were testing the built place instead of
-	the edit (`docs/lessons/the-200k-source-cap-is-on-writing-not-loading.md`,
-	`tools/check_source_size.py`). This is the first of the periphery extractions
+	the edit (`tools/check_source_size.py`). This is the first of the periphery extractions
 	that brings it back under. The ONE ENGINE (`buildEngine`) is deliberately NOT
 	split: its ~65 nested functions share ~60 mutable upvalues on purpose. ]]
 

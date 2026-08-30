@@ -1,5 +1,5 @@
 --!strict
--- THE SEMANTIC FEEDBACK SEAM (ADR-0022 Decision 7; ui-designer spec §7;
+-- THE SEMANTIC FEEDBACK SEAM (ui-designer spec §7;
 -- the semantic feedback bus). One per-presenter event bus, and one rule that matters
 -- more than the bus: Facet PLAYS NOTHING. It never triggers a sound, a haptic or
 -- a particle — it says what happened, on the frame it happened, with enough
@@ -26,9 +26,9 @@ local feedback = {}
 -- v1, closed. `arrive` is any chase/transition reaching its live target (a MOTION
 -- event); `land` is a drag/commit payload reaching its resolved drop (a SESSION
 -- event) — disposition F4 keeps them distinct so their causal frames cannot merge.
--- `celebrate` is ADR-0022 Decision 7's name for a choreographed reward beat; §7's
--- list omits it, so it is included here rather than left as the one verb the ADR
--- names and the framework refuses.
+-- `celebrate` is the semantic-feedback vocabulary's name for a choreographed
+-- reward beat; the shipped verb list omits it, so it is included here rather
+-- than left as the one verb the vocabulary names and the framework refuses.
 local TYPES: { string } = {
 	"activate",
 	"select",

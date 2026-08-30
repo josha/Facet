@@ -40,7 +40,7 @@ local adaptive = {}
 -- comment aspirational rather than true.)
 adaptive.BREAKPOINTS = table.freeze({ regular = 600, wide = 1000 })
 
--- THE HEIGHT CLASS (ADR-0023). `sizeClass` answers "how much room is there
+-- THE HEIGHT CLASS. `sizeClass` answers "how much room is there
 -- ACROSS", and for a decade that was the only question a responsive UI asked,
 -- because a web page scrolls forever. A game screen does not: a landscape phone
 -- offers 313 px of safe height, and a composition that stacks four content bands
@@ -67,13 +67,13 @@ adaptive.HEIGHT_BREAKPOINTS = adaptive.BREAKPOINTS
 adaptive.DEFAULT_STACK_ABOVE = 600
 
 --[[ effectiveDisplaySize(displaySize, touchCapable) -> "Small" | "Medium" |
-	"Large" | nil (director item 5, ADR-0058: physical-size-aware ten-foot
+	"Large" | nil (director item 5: physical-size-aware ten-foot
 	classing).
 
 	`displaySize` is the engine's own attempt at physical screen size
 	(`GuiService.ViewportDisplaySize`) and it is not reliable enough to trust
 	alone for "Large" specifically: measured directly in Roblox Studio Play
-	(ADR-0058 quotes the session), a plain windowed viewport on an ordinary
+	(the session is quoted below), a plain windowed viewport on an ordinary
 	desktop reported the SAME "Large" bucket this framework treats as
 	ten-foot/console — the identical failure class the director's ROG Ally
 	report describes, on hardware nobody would call a television.
@@ -363,7 +363,7 @@ adaptive.CARD_PEEK = table.freeze({ fraction = 0.1, min = 24, max = 56 })
 	THE BASE IS THE TABLET MEASURE, which the layout paradigm matrix verified RIGHT
 	at 600px (cell B-6c, regular touch, 1024x768). The ten-foot answer is that
 	measure times the DISTANCE FACTOR, which is `themes.snapshot.metricScale` —
-	`tenFootFloor`, the one constant ADR-0039 put behind every ten-foot number, and
+	`tenFootFloor`, the one constant behind every ten-foot number, and
 	it arrives as an argument rather than being restated here. So the ruled 900 is
 	600 x 1.5 with neither number written twice, and a re-ruled measure is ONE
 	EDIT: this constant, or the factor, and the sweep that names it goes red.
@@ -436,7 +436,7 @@ export type Conditions = {
 	viewportWidth: any, -- Readable<number> — the RAW viewport width
 	contentWidth: any, -- alias of viewportWidth, kept for callers; see the note below
 	axis: any, -- Readable<"y" | "x">, ready to bind to UI.AdaptiveStack
-	-- the height half (ADR-0023). ADDITIVE: every key above keeps its exact
+	-- the height half. ADDITIVE: every key above keeps its exact
 	-- meaning and its exact value, so no shipped consumer re-flows.
 	heightClass: any, -- Readable<"short" | "medium" | "tall">
 	isShort: any, -- Readable<boolean>
@@ -490,13 +490,13 @@ function adaptive.conditions(core: any, env: any, opts: ConditionsOpts?): Condit
 	local sizeClass = env:get("sizeClass")
 	local distanceProfile = env:get("distanceProfile")
 	local interactionClasses = env:get("interactionClasses")
-	-- the TREATMENT-corrected fact (director item 5, ADR-0058): `navPlacement`'s
+	-- the TREATMENT-corrected fact (director item 5): `navPlacement`'s
 	-- gamepad branch below asks "Medium or Large" to mean "not a near-distance
 	-- handheld", which the raw engine fact cannot answer safely alone — see
 	-- `adaptive.effectiveDisplaySize`'s own header
 	local displaySize = env:get("effectiveDisplaySize")
 
-	-- OWNERSHIP: this function creates EIGHTEEN memos (six until ADR-0023
+	-- OWNERSHIP: this function creates EIGHTEEN memos (six until declared-content
 	-- added the height half, twelve until navPlacement, eighteen since gap 7
 	-- added the four nav-home predicates plus `isRegularOrWider` —
 	-- `isCompactOnly` is an ALIAS of the existing `isCompact` memo, not a

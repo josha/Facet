@@ -1,5 +1,5 @@
 --!strict
--- RenderTargetAdapter contract (design §13, ADR-0003/ADR-0009): the seam every
+-- RenderTargetAdapter contract (design §13): the seam every
 -- render target implements. Three lists: REQUIRED (called unconditionally),
 -- OPTIONAL (feature-detected with `~= nil`; each absence is one named degrade)
 -- and THEME (the five `theme_controller` reaches for — without them a target
@@ -17,16 +17,14 @@ local target_contract = {}
 
 -- `create`'s optional arguments are CREATION-TIME facts an adapter can only honour
 -- while it is choosing the engine object: the decoration hint it classifies a
--- decoration slot from (ADR-0019), and `createOpts` — today `{ canvasGroup }`,
--- which decides the node's engine CLASS so a subtree can be faded as one group
--- (ADR-0022 Decision 2). Neither can arrive as a later prop write; an adapter that
+-- decoration slot from, and `createOpts` — today `{ canvasGroup }`,
+-- which decides the node's engine CLASS so a subtree can be faded as one group. Neither can arrive as a later prop write; an adapter that
 -- does not skin or group ignores them.
 --
 -- `setProp` DISPATCHES ON A NAME, and the set of names is part of this contract:
 -- `renderer.EMITTED_PROPS` declares every one the renderer can write and
 -- tests/render_target_contract.spec.luau pins it against both adapters' handler
--- lists. A target that silently ignores a written prop is the defect class that is green headless and dead on the device
--- (docs/lessons/fake-adapter-records-what-live-adapter-ignores.md).
+-- lists. A target that silently ignores a written prop is the defect class that is green headless and dead on the device.
 target_contract.REQUIRED = {
 	"createRoot", -- (screenId) -> rootHandle
 	"create", -- (rootHandle, path, class, decorationHint?, createOpts?) -> handle
@@ -66,7 +64,7 @@ target_contract.OPTIONAL = {
 	-- by name; the reserve is unaffected either way.
 	"setScrollIndicatorPolicy", -- (policy: "always"|"auto", reduced: boolean?)
 	"setZOrder", -- (handle, z)                      [deterministic paint order]
-	"setPointerHandlers", -- (handle, {down,move,up,cancel})  [ADR-0008 capture]
+	"setPointerHandlers", -- (handle, {down,move,up,cancel})  [pointer capture]
 	-- text-entry seam (§17 Phase 5, UI.TextInput): a TextField adapter wires
 	-- the engine TextBox to the control's handlers and reports edits/focus back
 	-- through them. handlers = { onTextChanged(text), onFocusGained(path),
@@ -98,7 +96,7 @@ target_contract.OPTIONAL = {
 	-- native drag acquisition: UIDragDetector in CustomOffset mode
 	-- (Position authority stays with the renderer). Returns a detach function,
 	-- or nil when the engine lacks the class / fallback is forced — consumers
-	-- then use setPointerHandlers (the raw capture seam, ADR-0008).
+	-- then use setPointerHandlers (the raw capture seam).
 	"setVisible", -- (handle, visible: boolean); hidden subtrees (losing ViewThatFits candidates) must not paint
 	"setDragDetector", -- (handle, {onStart,onContinue(pos, totalOffset),onEnd}) -> detach | nil; totalOffset = CUMULATIVE DragUDim2 since DragStart, never a per-frame delta (verifier F5)
 	-- native touch gestures: engine-recognized events normalized into
@@ -193,7 +191,7 @@ target_contract.OPTIONAL = {
 		mid-session.
 	]]
 	"setReducedMotion", -- (reduced: boolean)
-	--[[ THE PLAYER'S BACKGROUND TRANSPARENCY PREFERENCE (ADR-0035, owed row O-26).
+	--[[ THE PLAYER'S BACKGROUND TRANSPARENCY PREFERENCE (owed row O-26).
 		WITHOUT IT: a player who set Background Transparency to "opaque" still sees a
 		see-through modal backdrop, because the framework's one partial background is
 		painted by the target and only the target can move it. The value is
@@ -215,14 +213,14 @@ target_contract.OPTIONAL = {
 	-- plate. `billboard_target` deliberately does not offer it (its canvas story is
 	-- unproven), and neither does an engine without ViewportFrame/WorldModel.
 	"stageHost", -- (handle) -> { setCamera, setLighting, contentRoot } | nil
-	-- THE FOREIGN-CONTENT SEAM (UI.Foreign, ADR-0034). Answers a per-node handle
+	-- THE FOREIGN-CONTENT SEAM (UI.Foreign). Answers a per-node handle
 	-- for a mounted `Foreign` with ONE verb: `adopt(instance)`, which runs the pure
 	-- refusal ladder (`src/render/foreign_content.luau`) and then makes the single
 	-- claim the framework declares over content it does not own — the instance's
 	-- `Parent`, gated by `authority.assertWrite("Foreign", "Parent", "host")`.
 	-- There is deliberately NO `contentRoot()` here, unlike `stageHost`: handing
 	-- back the container would hand back a framework-owned GuiObject, which is
-	-- exactly the writable-handle hole ADR-0034 refuses to open.
+	-- exactly the writable-handle hole the foreign seam refuses to open.
 	-- WITHOUT IT: `controller.foreignHost(path)` answers nil, so a Foreign is an
 	-- empty reserved box — authors gate on the nil and present a fallback plate.
 	-- `billboard_target` deliberately does not offer it (same unproven canvas
@@ -234,7 +232,7 @@ target_contract.OPTIONAL = {
 	"setRootDisplayOrder", -- (rootHandle, n: number)
 }
 
--- THEME (ADR-0019 §7). Not "optional" in the OPTIONAL sense: these four are the
+-- THEME. Not "optional" in the OPTIONAL sense: these four are the
 -- surface `src/client/theme_controller.luau` reaches for, and a target that
 -- lacks them cannot be themed by a package at all —
 -- `theme_controller.install` degrades to fallback paint (nativeStyleInfo
@@ -261,14 +259,14 @@ target_contract.THEME = {
 	"relinkThemeSheet", -- (sheet: StyleSheet?)
 	-- WITHOUT IT: a FALLBACK-paint target never learns the new theme's token
 	-- style, so a runtime theme swap changes metrics and leaves every explicit
-	-- colour write on the outgoing palette (ADR-0019 §7; theme_controller feature-
+	-- colour write on the outgoing palette (theme_controller feature-
 	-- detects and calls it on every commit). ScreenTarget does not implement it —
 	-- that absence is the degrade this line names, not a defect.
 	"setThemeStyle", -- (style: CompiledStyle) -> ()
 }
 
 -- ...and exactly one THEME name is a GROWTH seam rather than a prerequisite
--- ADR-0019's integration ruling is explicit — the controller "calls
+-- The theme contract's integration ruling is explicit — the controller "calls
 -- `adapter.setThemeStyle(style)` on every commit for ANY TARGET THAT GROWS THE
 -- SEAM" — so a target without it is still fully themeable (ScreenTarget is, and
 -- is the shipping path); it simply takes its palette at construction. It is
@@ -283,7 +281,7 @@ target_contract.THEME_GROWTH = table.freeze({ setThemeStyle = true })
 --
 -- A render target is where the solved tree materializes. THREE exist:
 -- `screen_target` (ScreenGui), `billboard_target` (BillboardGui) and — since
--- 2026-08-29, ADR-0063 — `surface_target` (SurfaceGui).
+-- 2026-08-29 — `surface_target` (SurfaceGui).
 --
 -- This block was written when the third was future, and it stays here rather
 -- than being deleted, because the questions were the deliverable and where the
@@ -299,7 +297,7 @@ target_contract.THEME_GROWTH = table.freeze({ setThemeStyle = true })
 target_contract.FUTURE = table.freeze({
 	surface = table.freeze({
 		instance = "SurfaceGui",
-		status = "SHIPPED 2026-08-29 (ADR-0063) — src/client/surface_target.luau",
+		status = "SHIPPED 2026-08-29 — src/client/surface_target.luau",
 		presentationSpace = "world",
 		playbook = "docs/extending/new-render-target.md + docs/extending/new-platform-mode.md",
 		--[[ ANSWERED BY THE SPIKE. Two of these corrected this file's own premises,

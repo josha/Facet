@@ -1,5 +1,5 @@
 --!strict
--- DECLARED-CONTENT ADAPTIVE COMPOSITION (ADR-0023) — the pure half.
+-- DECLARED-CONTENT ADAPTIVE COMPOSITION — the pure half.
 --
 -- `AdaptiveStack` resolves an AXIS. `ViewThatFits` resolves ONE container's
 -- candidate. Neither can answer the screen-level question a results/summary/
@@ -130,13 +130,13 @@ export type GroupDecl = {
 	sizing: string?, -- "hug" (default) | "fill"
 	weight: number?, -- fill weight (default 1)
 	place: (string | number)?, -- "start" (default) | "center" | "end" | 0..1
-	-- ACROSS the lane, where `place` is DOWN it (ADR-0025 Decision 1). Absent, a
+	-- ACROSS the lane, where `place` is DOWN it. Absent, a
 	-- region takes the whole lane width, which is what it has always done and what
 	-- "a region is an allotment" means. Declared, the region takes its own measured
 	-- width and sits at that end of the lane — alignment of a full-width box would
 	-- mean nothing, so stating it is what asks for the content width.
 	align: string?, -- "start" | "center" | "end"
-	-- RULE 9'S DECLARED COUNTERPART (ADR-0025 Decision 2). Rule 9 releases a lane
+	-- RULE 9'S DECLARED COUNTERPART. Rule 9 releases a lane
 	-- whose every region resolves to nothing paintable and gives its width away.
 	-- That is right for a content flow and exactly wrong for a layout whose lane
 	-- POSITIONS are the coordinate system — a HUD's right-hand column must stay on
@@ -287,7 +287,7 @@ export type ResolveCtx = {
 		  `x` / `w`  where the FREE strip is — the part of the band the platform's
 		             own control cluster does not occupy. The `topbar` span row is
 		             laid out inside exactly this, so its content is level with the
-		             engine's buttons and cannot be on them (ADR-0027).
+		             engine's buttons and cannot be on them.
 		  `h`        the row's height: down to the band's own bottom edge.
 		  `reserve`  what the composition owes the platform's WHOLE top reservation
 		             when it declares no `topbar` region — which makes the policy
@@ -405,7 +405,7 @@ export type Resolution = {
 	-- until now absent from this type (F-29). Sorted region ids whose chosen form
 	-- measured the WHOLE offer inside a HUG lane; see the note at its assignment.
 	hugOverflow: { string },
-	-- WHO IS ON TOP OF WHOM (ADR-0025 Decision 3). Regions cannot overlap as
+	-- WHO IS ON TOP OF WHOM. Regions cannot overlap as
 	-- BOXES — lanes sit side by side and a lane stacks its groups down — but a
 	-- region whose chosen form measures bigger than the box it was allotted paints
 	-- outside it, and if a neighbour is there it is painting on that neighbour.
@@ -474,7 +474,7 @@ composition.ARRANGEMENTS = table.freeze({
 	}),
 }) :: { [string]: Arrangement }
 
--- ===== the screen-anchored HUD preset (ADR-0025) ===========================
+-- ===== the screen-anchored HUD preset ===========================
 -- DATA, exactly like `ARRANGEMENTS` above. A HUD is not a new vocabulary and not
 -- a sibling module: the three screen COLUMNS are three lanes (lanes sit side by
 -- side and never overlap — that IS the partition), the three vertical BANDS are
@@ -493,7 +493,7 @@ composition.ARRANGEMENTS = table.freeze({
 
 -- ...and a TENTH zone that is not one of the nine anchors, because it is not in
 -- the box the anchors partition: `topbar` is the row LEVEL WITH THE PLATFORM'S
--- OWN CONTROLS (ADR-0027, director 2026-08-14 — "things at top that are aligned
+-- OWN CONTROLS (director 2026-08-14 — "things at top that are aligned
 -- with the controls but don't overlap"). It is a `span = "above"` group, which is
 -- the vocabulary the composition already has for "its own full-width row above
 -- the band of lanes, in every arrangement", so the lanes start BELOW it and the
@@ -867,7 +867,7 @@ function composition.normalize(decl: any): Declaration
 						.. "affinity to absorb"
 				)
 			end
-			-- A SPAN ROW HAS NO LANE TO HOLD (ADR-0025 Decision 2). `holdsLane` is
+			-- A SPAN ROW HAS NO LANE TO HOLD. `holdsLane` is
 			-- rule 9's counterpart and rule 9 is a rule about LANES; a spanning row
 			-- is outside the lane vocabulary by construction, and its own
 			-- "empty ⇒ absent" is what it guarantees instead.
@@ -1287,7 +1287,7 @@ local function solveArrangement(
 	local laneGroups: { { string } } = {}
 	local laneAffinities: { { string } } = {}
 	local laneOfGroup: { [string]: number } = {}
-	-- ADR-0025 Decision 2: does any group in this lane pin it against rule 9?
+	-- does any group in this lane pin it against rule 9?
 	local laneHolds: { boolean } = {}
 	for i, lane in arr.lanes do
 		local ids: { string } = {}
@@ -1362,8 +1362,7 @@ local function solveArrangement(
 		band"). Every SHIPPED steady-state viewport reaches a real band once that
 		first push lands, which is what keeps a fixture's settled geometry
 		unmoved — but the sentinel rung this guards is a real, if transient, LIVE
-		one, not a fact this framework only sees under Lune. See B-27,
-		`docs/adr/ADR-0040-unreleased-breaking-changes.md`. ]]
+		one, not a fact this framework only sees under Lune. ]]
 	local hasRealBand = bandBox ~= nil and (bandBox :: any).w > 0
 	--[[ ...AND THE RECTS A LANE MAY NOT START INSIDE (§8), decided ONCE. `nil` until
 		the first pass has measured; from then on the same answer for every pass of
@@ -1402,7 +1401,7 @@ local function solveArrangement(
 		laneIntrinsic: { number },
 		laneNeed: { number },
 		laneOver: { number },
-		-- HOW FAR THE WIDEST REGION IN THIS LANE PAINTS PAST IT (ADR-0025). A HUG
+		-- HOW FAR THE WIDEST REGION IN THIS LANE PAINTS PAST IT. A HUG
 		-- lane is as wide as its content by construction, so this is only ever
 		-- non-zero in a FILL lane, where the lane's width is a share of the box
 		-- rather than a measure — and where, before this, a region too wide for its
@@ -1491,7 +1490,7 @@ local function solveArrangement(
 					fillWeight += g.weight or 1
 				end
 			end
-			-- RULE 9'S OPT-OUT (ADR-0025 Decision 2): a lane one of whose groups
+			-- RULE 9'S OPT-OUT: a lane one of whose groups
 			-- declares `holdsLane` is ACTIVE whether or not anything in it paints, so
 			-- it keeps its width, its gap and its x — and every lane after it keeps
 			-- the x it had. `anyActive` is deliberately NOT raised by a held lane: a
@@ -1538,8 +1537,7 @@ local function solveArrangement(
 
 			That is a corpus-wide geometry change with its own waiver-list edits, so
 			it is FLAGGED rather than smuggled into a HUD mission (ENGINEERING.md,
-			"Flag refactors; don't smuggle them"). Recorded in ADR-0025's
-			Consequences as stage-2 work. ]]
+			"Flag refactors; don't smuggle them") and left as stage-2 work. ]]
 		if slack < 0 then
 			widthFail = string.format(
 				"the hug lanes need %dpx plus %dpx of gaps but the composition was offered %dpx",
@@ -1742,7 +1740,8 @@ local function solveArrangement(
 
 			`reserve` is the whole top inset, and on a host with a persistent chrome
 			row of its own that inset is INFLATED by it — a bounding box, which is all
-			such a host has said. Reserving it in every lane is the defect ADR-0027
+			such a host has said. Reserving it in every lane is the defect the L-shaped
+			chrome band
 			exists to remove: it pushes a column the chrome does not cover down for
 			pixels nothing occupies, which is the director's *"things at top that are
 			aligned with the controls but don't overlap"* refused.
@@ -2343,7 +2342,7 @@ local function solveArrangement(
 			span row paints the composition's whole width by definition; this one
 			paints the part of the platform's top band the engine's own control
 			cluster leaves free, so its content sits LEVEL with the platform's buttons
-			and cannot be over them (ADR-0027) — which is the placement a consumer
+			and cannot be over them — which is the placement a consumer
 			previously reached with two hand-computed spacers and a fixed height.
 			Not under a band that is not REAL (see `hasRealBand`, resolved once for
 			both the measure and the arrange pass): that row places like any other
@@ -2443,7 +2442,7 @@ local function solveArrangement(
 		laneUsedH = math.max(laneUsedH, inset + p.laneNeed[i])
 
 		--[[ ...AND THE SLACK IS THE SHORTENED LANE'S, NOT THE ONE IT WOULD HAVE HAD
-			(ADR-0056, the director's PS5/phone bottom overlap).
+			(the director's PS5/phone bottom overlap).
 
 			This is `laneRect.h` and not `p.laneBudget` because the L an exclusion makes
 			of the band has BOTH a top edge and a bottom one. The rect above already
@@ -2529,7 +2528,7 @@ local function solveArrangement(
 				local res = byId[r.id]
 				res.mounted = true
 				res.lane = i
-				-- ACROSS the lane (ADR-0025 Decision 1). Absent `align`, a region takes
+				-- ACROSS the lane. Absent `align`, a region takes
 				-- the whole lane width — the allotment contract, unchanged. Declared, it
 				-- takes the width it MEASURED in this lane and sits at that end:
 				-- aligning a box that already fills its lane would mean nothing, so
@@ -2552,7 +2551,7 @@ local function solveArrangement(
 		end
 	end
 
-	--[[ ── WHO IS ON TOP OF WHOM (ADR-0025 Decision 3) ─────────────────────────
+	--[[ ── WHO IS ON TOP OF WHOM ─────────────────────────
 		Regions cannot overlap as BOXES: lanes sit side by side and a lane stacks
 		its groups down, which is the whole reason a HUD built on this mechanism
 		cannot produce the commissioning screenshot. What a partition cannot stop is
@@ -2927,7 +2926,7 @@ function composition.resolve(decl: any, offer: Offer, ctx: ResolveCtx): Resoluti
 		regionById = byId,
 		scroller = scroller,
 		rejected = rejected,
-		--[[ ADDITIVE (ADR-0025 Decision 3): every unordered pair of regions whose
+		--[[ ADDITIVE: every unordered pair of regions whose
 			PAINTED boxes intersect. Empty on every declaration that resolved cleanly
 			before this shipped, which is what makes it additive. ]]
 		collisions = attempt.collisions or {},
@@ -3075,7 +3074,7 @@ function composition.dump(resolution: Resolution): any
 		-- ADDITIVE (2026-08-02): the authoring diagnostic. Empty on a well-formed
 		-- declaration, so a reader that never heard of it reads what it always did.
 		hugOverflow = resolution.hugOverflow or {},
-		-- ADDITIVE (ADR-0025, 2026-08-14): who is painting on top of whom. Already
+		-- ADDITIVE (2026-08-14): who is painting on top of whom. Already
 		-- sorted by (a, b) on the resolution, so two calls are equal.
 		collisions = collisions,
 		--[[ ADDITIVE (D7.1, 2026-08-16): what this screen has stopped showing and

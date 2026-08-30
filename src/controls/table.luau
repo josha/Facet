@@ -1,5 +1,5 @@
 --!strict
--- Table control, Phase A (ADR-0007; NSTableView-informed). A COMPOSITE over
+-- Table control, Phase A (NSTableView-informed). A COMPOSITE over
 -- shipped primitives: every row is a ZStack [whole-row hit Button, HStack of
 -- cells]; cells in every row (and the optional header) share the same column
 -- dim specs, so the solver aligns columns without any new layout kind.
@@ -12,8 +12,8 @@
 -- activate meta the adapter fills in, wired to real keys in screen_target and
 -- covered in tests/table.spec.luau). This header said "Phase B" for both of
 -- them long after they landed, the implementation comment 1800 lines below said
--- otherwise, and the stale half reached a mission brief as fact — see
--- docs/lessons/a-header-comment-describes-the-path-it-was-written-for.md.
+-- otherwise, and the stale half reached a mission brief as fact: a header
+-- comment describes the path it was written for, and no other.
 -- Variable row heights via rowHeight(item). Headerless mode for
 -- borderless lists (director's racer-list case). Custom cells: cellFor
 -- returns any Blueprint — nested interactive controls stay live because cell
@@ -447,8 +447,8 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 	-- cell, at the DEFAULT text preference, on every viewport. Studio Neutral and
 	-- Classic Desktop reserve nothing, which is why it was invisible.
 	--
-	-- `docs/lessons/a-fixed-box-cannot-hold-a-themes-frame.md` names the class and
-	-- its own closing line is this defect exactly: *"reserving room is only half
+	-- A fixed box cannot hold a theme's frame, and the closing line of that
+	-- finding is this defect exactly: *"reserving room is only half
 	-- of it — something has to SPEND the reservation"*. The cells spend it; the
 	-- height was derived as though nobody would. The art therefore enters BOTH
 	-- halves of the answer — it is added to the height a row needs, and subtracted
@@ -659,8 +659,7 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 		takes it as a dep, and the `deletable` thunk it hands `row_actions.build`
 		closes over it. A local declared LATER
 		in the file is NOT an upvalue: it binds a nil GLOBAL and calls it
-		(`docs/lessons/later-locals-are-not-upvalues.md` — and the delete gate walked
-		straight into that lesson before this move). It depends only on `spec`,
+		(and the delete gate walked straight into that trap before this move). It depends only on `spec`,
 		already in scope, so it can sit as high as its first reader needs. ]]
 	local function itemForKey(rowKey: string): any?
 		for _, item in spec.rows:get() :: { any } do
@@ -960,7 +959,7 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 		business).
 
 		`showAutoToggle` then gates the whole thing on INPUT. Keyed off the LIVE
-		interaction-class set (ADR-0015), never preferredInput alone: any session
+		interaction-class set, never preferredInput alone: any session
 		where touch or gamepad is live needs the edit affordance, even while the
 		engine still reports a KeyboardAndMouse preference (director repro
 		2026-07-21: physical pad, stale preference). A mouse user reaches both
@@ -1149,8 +1148,7 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 		`docs/handoff/SOURCE_CAP_LEDGER.md`). These were two plain upvalues —
 		`rowGesture.drag` and `rowGesture.suppressActivate` — and they are precisely what made
 		`rowBlueprint`/`rowPointerHandlers` fail the checker's mutable-upvalue test
-		for years: a moved closure READING one would have bound a nil global
-		(`docs/lessons/later-locals-are-not-upvalues.md`), and one WRITING it could
+		for years: a moved closure READING one would have bound a nil global, and one WRITING it could
 		not have reached this file's copy at all. Both halves write both fields —
 		`table_rows` arms them from the gestures that create them, `cancelDrag`,
 		`api.handleActivate` and the capability-loss observer below clear them — so
@@ -1355,7 +1353,7 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 			not string.find(column.id, "/", 1, true),
 			`Table '{tableId}': column id '{column.id}' must be path-safe (no "/")`
 		)
-		-- content is not optional: fail at BUILD (ADR-0010), not first render —
+		-- content is not optional: fail at BUILD, not first render —
 		-- an empty rows list must not mask a content-less column
 		assert(
 			column.cell ~= nil or column.value ~= nil or spec.cellFor ~= nil,
@@ -2209,7 +2207,7 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 								padding = { left = "s" },
 								surface = "chip",
 								--[[ THE LABEL CARRIES ITS OWN CENTERING, not this chip
-									(2026-08-15, `docs/lessons/one-word-two-subsystems.md`).
+									(2026-08-15).
 									`alignV` is BOTH a container prop ("center my children") and a
 									placement prop ("center ME in my parent"), and this chip was
 									using it for the first while the DragGhost stack above read it
@@ -3214,7 +3212,7 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 
 	--[[ THE ARROWS ARE NOT TAKEABLE FROM THE CAMERA, AND HERE IS THE MEASUREMENT
 		(director ruling 2026-08-14 attempted, then withdrawn on evidence;
-		`docs/lessons/the-camera-still-owns-the-arrow-keys.md`).
+		the camera still owns the arrow keys).
 
 		The ruling was: a column selected for resize claims Left/Right at a priority
 		ABOVE the camera's, scoped to the selection, released the instant it ends —
@@ -3563,7 +3561,7 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 	-- pre-gesture snapshot; CARRY simply lets the newly-live class ALSO gain its
 	-- idiom (grab keeps following Navigate; scroll offset survives; edit-mode
 	-- persists while touch or gamepad stays live). Keyed off the LIVE
-	-- interaction-class set (ADR-0015), never preferredInput alone.
+	-- interaction-class set, never preferredInput alone.
 	if surfaceEnvironment ~= nil then
 		scope:own(core:observe(surfaceEnvironment:get("interactionClasses"), function(classes)
 			if type(classes) ~= "table" then
@@ -3594,7 +3592,7 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 				grabbedKey:set(nil)
 			end
 			-- touch edit-mode CANCEL to pure pointer: the auto Edit/Done toggle
-			-- unmounts when neither touch nor gamepad is live (ADR-0015). A
+			-- unmounts when neither touch nor gamepad is live. A
 			-- CONTROL-OWNED editing signal must reset with it, or the ≡ grips linger
 			-- (or, for a selectable primary-action table, the row taps keep toggling
 			-- selection instead of opening) with no way to exit — a wedge. The
@@ -3612,7 +3610,7 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 		-- attach the input contribution so the presenter auto-wires the table's
 		-- keyboard/gamepad story (2D groups, row select, grab-mode reorder,
 		-- selection-follows-focus, grip-resize Adjust) with no consumer opts
-		-- (ADR-0013; matrix §B-Table UI-PARADIGM-001). shift-reorder
+		-- (matrix §B-Table UI-PARADIGM-001). shift-reorder
 		-- (handleReorderNav) stays opt-driven — it is outside this seam's shape.
 		blueprint = contribution.attach(blueprint, {
 			focusGroups = api.buildFocusGroups,

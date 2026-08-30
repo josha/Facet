@@ -1,10 +1,10 @@
 --!strict
--- The motion clock (ADR-0022 Decision 1): the one thing that advances time for
+-- The motion clock: the one thing that advances time for
 -- every motion in a surface, and the reason the whole authority is testable.
 --
 --   Facet.motion.newClock(core, { now?, motionPolicy? })   -- the motion clock
 --                                                           -- ("newMotionClock"
---                                                           -- in ADR-0022 prose)
+--                                                           -- in the design prose)
 --
 -- `clock:step(dt)` advances every ACTIVE motion and commits every output write
 -- inside ONE core transaction — one flush per frame, however many springs moved,
@@ -110,7 +110,7 @@ function clock.new(core: any, opts: Opts?): Clock
 	local lastStepError: string? = nil
 	local needsCompact = false
 	local disposed = false
-	-- THE EASING EVALUATOR (ADR-0033). Defaults to the pure twin so a clock is
+	-- THE EASING EVALUATOR. Defaults to the pure twin so a clock is
 	-- usable the moment it exists — including in Lune, which has no TweenService —
 	-- and `setEasing` swaps in the engine's own `TweenService:GetValue` at the one
 	-- bind every Roblox client already makes. It is read PER EVALUATION rather
@@ -315,7 +315,7 @@ function clock.new(core: any, opts: Opts?): Clock
 		return motionValues.newTween(internals, initial, curveName, valueOpts)
 	end
 
-	-- Install the easing evaluator. THE ENGINE OWNS THE CURVE (ADR-0033, director
+	-- Install the easing evaluator. THE ENGINE OWNS THE CURVE (director
 	-- ruling 2026-08-15): on Roblox `src/client/motion_driver.luau` passes
 	-- `TweenService:GetValue`, so a game gets the engine's own easing with no
 	-- wiring of its own. Until then the pure twin serves, which is what makes the

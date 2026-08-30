@@ -15,8 +15,7 @@
 	WHY IT LEFT AT ALL. Roblox refuses a `Script.Source` write at 200,000
 	characters, so a module past that line silently stops live-syncing into an
 	open Studio session and every live check against it tests the place file
-	instead of the edits on disk (`docs/lessons/the-200k-source-cap-is-on-writing-
-	not-loading.md`). `screen_target.luau` sat 205 characters from its ledger
+	instead of the edits on disk. `screen_target.luau` sat 205 characters from its ledger
 	trigger with this extraction recorded as OWED; the next change of any size to
 	that file had to be PRECEDED by it. This is that extraction. Its siblings are
 	`screen_chrome`, `screen_scroll_indicators`, `screen_paint`,
@@ -49,7 +48,7 @@ local TEXT_ALIGN_MAP: { [string]: Enum.TextXAlignment } = {
 --
 -- `text_premeasure.fontFor` is the SAME resolver the premeasure batch hands to
 -- `GetTextBoundsAsync`, keyed on the same canonical "family#weight#style"
--- descriptor (ADR-0019 §6). So the face the engine DRAWS and the face the engine
+-- descriptor. So the face the engine DRAWS and the face the engine
 -- was asked to MEASURE are one cached lookup, not two parallel mappings that can
 -- drift — which is the failure `Text.font` was deprecated for. An unresolvable
 -- family returns nil and the node keeps the face it already has.
@@ -60,7 +59,7 @@ local function fontFaceFor(descriptor: any): Font?
 	return text_premeasure.fontFor(descriptor.fontKey)
 end
 
--- authored `scaleMode` -> engine ScaleType (ADR-0022 Decision 6).
+-- authored `scaleMode` -> engine ScaleType.
 --
 -- `fill` and `crop` BOTH map to Crop, and that is deliberate rather than a
 -- collision: Roblox's `Crop` IS the cover behaviour every other UI vocabulary
@@ -130,7 +129,7 @@ local function markStageDisposed(handle: any)
 	handle.stageApi = nil
 end
 
--- ...and the same thing for a FOREIGN box (ADR-0034). There is nothing to tear
+-- ...and the same thing for a FOREIGN box. There is nothing to tear
 -- down — whatever the caller adopted is a child of the container and dies with
 -- it, exactly as they were told it would — so this is purely the HANDLE going
 -- dead, which is what turns a consumer's stale `adopt` from a write into a

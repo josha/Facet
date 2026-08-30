@@ -42,7 +42,7 @@
 	stays the semantic name every assistive reader and every contract wants, the
 	visible text becomes a fill `UI.Text`, and the chevron is its own node
 	carrying the semantic icon NAME beside its ASCII glyph so a theme package can
-	paint art over it (ADR-0020 R4). Leaf rows never take this form, so
+	paint art over it. Leaf rows never take this form, so
 	`row_actions` — which has no submenus — renders the identical tree it always
 	did.
 
@@ -56,7 +56,7 @@ local chrome_slots = require("../tokens/chrome_slots")
 
 local menu_recipe = {}
 
---[[ THEME METRICS (ADR-0019 §2), never bare pixels. The three row heights ARE
+--[[ THEME METRICS, never bare pixels. The three row heights ARE
 	the three control sizes — compact for the pointer menu, regular for the inline
 	list, large for the touch sheet — so a theme that retunes its control ladder
 	retunes every menu with it. A touch SHEET uses a visually larger row, not just
@@ -182,7 +182,7 @@ function menu_recipe.row(UI: any, row: Row): any
 		child so the chevron can sit after it, and `label` stays the semantic name.
 		The caret draws the framework's ASCII-safe glyph itself and carries the
 		semantic icon NAME beside it, so an installed theme package paints its art
-		over the character and a package that ships none still reads (ADR-0020 R4 —
+		over the character and a package that ships none still reads (the semantic-icon rule —
 		`disclosure_group`'s caret makes the identical argument). ]]
 	local glyph = themePackage.iconGlyph("chevron.trailing") or ">"
 	return UI.Button({

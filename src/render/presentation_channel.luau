@@ -8,7 +8,7 @@
 	native-sheet-owned property, which is what lets a 60 Hz motion run beside sheet
 	paint without contesting it.
 
-	Three contributors, ONE write site (ADR-0026 Decision 3): the imperative
+	Three contributors, ONE write site: the imperative
 	channel (`setPresentationTransform` / `setPresentationTransparency`), the
 	AUTHORED quad a blueprint declares (`opacity`/`scale`/`rotation`/`offset`), and the
 	`withAnimation` records that fly a commit's rect and paint deltas home on one
@@ -44,8 +44,7 @@
 	characters or more, and every LIVE path is a write — the Rojo plugin,
 	`execute_luau`, any plugin — so a module over the cap silently stops syncing
 	into an open Studio session and a live check against it then tests the code
-	baked into the place rather than the edits on disk
-	(docs/lessons/the-200k-source-cap-is-on-writing-not-loading.md). `renderer.luau`
+	baked into the place rather than the edits on disk. `renderer.luau`
 	was 242,943 characters; this seam was the one the last mission to raise it
 	proposed, and taking it is what puts the file back under the cap.
 
@@ -55,7 +54,7 @@
 ]]
 
 local authority = require("./authority")
--- the presentation channel's arithmetic (ADR-0026): the composition rules, the
+-- the presentation channel's arithmetic: the composition rules, the
 -- authored triple's domain checks, and the write memo's comparison. Pure.
 local presentation = require("./presentation")
 
@@ -81,7 +80,7 @@ function presentation_channel.new(deps: {
 
 	local channel = {}
 
-	-- the presentation transform currently pushed per path (ADR-0022 Decision 2).
+	-- the presentation transform currently pushed per path.
 	-- The renderer's `screenRectOf` reads it through `presentationShift` below,
 	-- because a rect compared against a POINTER has to answer where the node is
 	-- PAINTED, and while a presentation offset is live that is not where the solver
@@ -93,7 +92,7 @@ function presentation_channel.new(deps: {
 	-- surface with no motion running pays one integer compare per hit-test.
 	local lastTransform: { [string]: any } = {}
 	local presentationLive = 0
-	-- AUTHORED PRESENTATION (ADR-0026, and render/presentation.luau's header): the
+	-- AUTHORED PRESENTATION (and render/presentation.luau's header): the
 	-- blueprint's `opacity`/`scale`/`rotation`/`offset` are a second TERM in this channel,
 	-- never a second writer. `authoredN` is the off-path gate — zero means the
 	-- composition is skipped entirely.
@@ -126,16 +125,16 @@ function presentation_channel.new(deps: {
 	local animationSets: { any } = {}
 	local animationRecordN = 0
 	-- per-path `{ o, s, r }` deltas parked by an ARMED commit and consumed by the
-	-- walk below (ADR-0026 Decision 7) — the authored value is already at its
+	-- walk below — the authored value is already at its
 	-- destination by then, the same reason the rect half needs `lastRects`
 	local animationPaintDelta: { [string]: any } = {}
 	-- FORWARD-DECLARED, and they must stay that way: each is assigned below with
 	-- `function <name>(...)`, which without this line would define a GLOBAL, and
 	-- each is also called from a closure defined above its assignment
-	-- (docs/lessons/later-locals-are-not-upvalues.md)
+	--
 	local installAnimationRecords: (rects: any) -> ()
 	local animationClear: (path: string, write: boolean) -> ()
-	-- the ONE presentation write site (ADR-0026 Decision 3) and the authored-triple
+	-- the ONE presentation write site and the authored-triple
 	-- re-read, forward-declared: mount and the commit both reach them from above
 	local pushPresentationPaint: (path: string) -> ()
 	local readAuthoredPresentation: (node: any) -> boolean
@@ -188,7 +187,7 @@ function presentation_channel.new(deps: {
 	-- change, and that is the only place it can move.
 	local presentationNodes: { [string]: any } = {}
 
-	-- ===== THE PER-NODE PRESENTATION CHANNEL (ADR-0022 Decision 2) ==========
+	-- ===== THE PER-NODE PRESENTATION CHANNEL ==========
 	--
 	-- The authority manifest has declared `transform` and `transparency` as
 	-- PRESENTATION properties since §7.3; before this channel the only writer was
@@ -218,7 +217,7 @@ function presentation_channel.new(deps: {
 		return node
 	end
 
-	-- ===== THE ONE PRESENTATION WRITE SITE (ADR-0026 Decision 3) ==============
+	-- ===== THE ONE PRESENTATION WRITE SITE ==============
 	-- Every contributor routes through here and NOTHING else in this file calls
 	-- `adapter.setProp` for `transform` or `transparency` — which is what makes
 	-- "one authority per engine property" a fact in the code rather than a claim in
@@ -270,8 +269,7 @@ function presentation_channel.new(deps: {
 	end
 
 	--[[ A FADE IS A FADE-GROUP FACT, and the node must have said so — either
-		`canvasGroup = true`, or an authored `opacity`, which IS that declaration
-		(ADR-0026 Decision 4). The alternative — writing BackgroundTransparency /
+		`canvasGroup = true`, or an authored `opacity`, which IS that declaration. The alternative — writing BackgroundTransparency /
 		TextTransparency per node — is exactly the write that permanently defeats a
 		native sheet rule (spike m10), and it fades one node's own paint rather than
 		the group the caller means. So the refusal is loud and names the fix instead
@@ -339,7 +337,7 @@ function presentation_channel.new(deps: {
 		pushPresentationPaint(path)
 	end
 
-	-- THE AUTHORED TRIPLE, re-read off the LIVE tree (ADR-0026). The reading and
+	-- THE AUTHORED TRIPLE, re-read off the LIVE tree. The reading and
 	-- its domain checks are `presentation.readAuthored`; what is here is the
 	-- bookkeeping — the map, and `authoredN`, which is the off-path gate above.
 	-- Returns true when the stored triple moved, so a caller can skip a write.
@@ -393,7 +391,7 @@ function presentation_channel.new(deps: {
 			if rec ~= nil and rec.set == set then
 				-- one `p` for position AND size, which is what makes a panel's growth
 				-- and the displacement of everything below it arrive on the same frame
-				-- ...and, since ADR-0026, for opacity/scale/rotation too, which is what
+				-- ...and, since authored presentation, for opacity/scale/rotation too, which is what
 				-- makes a card that slides, grows and fades land on ONE frame.
 				if rec.moves then
 					channel.setPresentationTransform(
@@ -448,7 +446,7 @@ function presentation_channel.new(deps: {
 		-- `relX`/`relY` are RELATIVE to the ancestors' composed delta (the offset half
 		-- accumulates); `dw`/`dh` are the node's OWN absolute size delta, because the
 		-- size half does not accumulate. See the walk below.
-		-- `dOp`/`dSc`/`dRo` are the AUTHORED presentation deltas (ADR-0026 Decision 7):
+		-- `dOp`/`dSc`/`dRo` are the AUTHORED presentation deltas:
 		-- `old - new`, painted as `destination + delta x p` on the SAME spring as the
 		-- four rect numbers. Per-node like the size half, never accumulated: a fade
 		-- group's children are really inside its buffer and would fade twice.
@@ -463,7 +461,7 @@ function presentation_channel.new(deps: {
 			dRo: number
 		)
 			if set == nil then
-				-- `carriesVelocity = false` marks a CURVE-driven session (ADR-0033):
+				-- `carriesVelocity = false` marks a CURVE-driven session:
 				-- a curve's speed is its shape, so there is no velocity to seed and
 				-- the carry below must not try — `setVelocity` raises on a tween
 				-- value, and raising here would abort an armed commit mid-install.
@@ -605,7 +603,7 @@ function presentation_channel.new(deps: {
 					end
 				end
 				local relX, relY = dx - inhX, dy - inhY
-				-- THE AUTHORED PAINT DELTAS (ADR-0026), parked by the commit phase —
+				-- THE AUTHORED PAINT DELTAS, parked by the commit phase —
 				-- exactly the role `lastRects` plays for the rect numbers, and for the
 				-- same reason: `authored[path]` already holds the destination here.
 				local dOp, dSc, dRo = 0, 0, 0
@@ -695,12 +693,12 @@ function presentation_channel.new(deps: {
 
 	-- is an ARMED commit in flight? Two callers: the solve, which must install
 	-- records before `lastRects` is overwritten, and `refresh`, which forces a
-	-- solve for a commit that only dirtied paint (ADR-0026 Decision 7).
+	-- solve for a commit that only dirtied paint.
 	function channel.armed(): boolean
 		return animationSession ~= nil
 	end
 
-	-- THE AUTHORED TRIPLE, re-read from the live tree (ADR-0026) for the paths a
+	-- THE AUTHORED TRIPLE, re-read from the live tree for the paths a
 	-- commit dirtied. Called after the structural sync and before the solve —
 	-- because the read must see this frame's value, and because on an ARMED commit
 	-- the OLD value has to be captured before it is overwritten: that difference is
@@ -741,7 +739,7 @@ function presentation_channel.new(deps: {
 	-- there (the same verdict-inheritance defect the visible and hit-rect caches
 	-- were bitten by — verifier finding V10), a stale composed memo would answer
 	-- for a path a recycled instance adopts, and a leaked `authored` entry would
-	-- make an idle surface pay forever (ADR-0026).
+	-- make an idle surface pay forever.
 	function channel.forgetPath(path: string)
 		if lastTransform[path] ~= nil then
 			lastTransform[path] = nil
@@ -773,7 +771,7 @@ function presentation_channel.new(deps: {
 		presentationNodes = {}
 	end
 
-	-- what the cross-surface overlap alarm reads (ADR-0028): the COMPOSED alpha
+	-- what the cross-surface overlap alarm reads: the COMPOSED alpha
 	-- last written for a path, which is where an authored `opacity = 0` shows up
 	-- as `T = 1`. nil means nothing has been written.
 	function channel.composedAlpha(path: string): number?

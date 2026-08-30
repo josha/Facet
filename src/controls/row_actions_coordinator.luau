@@ -18,8 +18,7 @@
 	module's private body is the clearest seam there was, and `row_actions.luau`
 	had to shed periphery to get back under the 200,000-char `Script.Source`
 	WRITE cap that Rojo live-sync assigns through
-	(docs/lessons/the-200k-source-cap-is-on-writing-not-loading.md,
-	tools/check_source_size.py). ]]
+	(tools/check_source_size.py). ]]
 
 local row_actions_coordinator = {}
 

@@ -81,8 +81,8 @@ local PROFILES: { [string]: Profile } = {
 	},
 	phoneNotchLandscape = {
 		-- SYNTHETIC notched-landscape profile (the native substrate): the
-		-- Studio emulator's camera PRE-EXCLUDES the notch (measured
-		-- docs/lessons/device-emulator-truths.md), so this profile exists to
+		-- Studio emulator's camera PRE-EXCLUDES the notch (measured on the
+		-- emulator), so this profile exists to
 		-- exercise the deviceSafeContent solver path headlessly with REAL-shaped
 		-- device insets (phone landscape: notch side + home indicator). A physical
 		-- device confirms the live values.

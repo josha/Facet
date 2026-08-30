@@ -2,7 +2,7 @@
 -- Renderer (design §4.3 #4, §13): walks the mounted graph, solves layout, and
 -- drives a RenderTargetAdapter. Engine-free — ScreenTarget (client-only) and
 -- the FakeTarget (tests) implement the same adapter interface, which is what
--- proves the §13 seam after ADR-0003.
+-- proves the §13 seam.
 -- Adapter interface (all handles opaque to this module):
 --   adapter.createRoot(screenId: string) -> rootHandle
 --   adapter.create(rootHandle, path, class, decorationHint?) -> handle
@@ -23,11 +23,11 @@ local solver = require("../layout/solver")
 local profile = require("../core/profile")
 local text_metrics = require("../layout/text_metrics")
 local authority = require("./authority")
--- the per-node presentation channel (ADR-0022 D2 / ADR-0026): transform,
+-- the per-node presentation channel: transform,
 -- transparency, the authored triple and the `withAnimation` records, behind one
 -- write site. Constructed per surface in `attach` — see the pointer there.
 local presentation_channel = require("./presentation_channel")
--- the cross-surface overlap alarm (ADR-0028): a live registry of surfaces per
+-- the cross-surface overlap alarm: a live registry of surfaces per
 -- paint target, read only by `controller.diagnostics()` — nothing here runs in a
 -- solve, a commit or a frame
 local surface_overlap = require("./surface_overlap")
@@ -41,7 +41,7 @@ local instance_boundary = require("./instance_boundary")
 local rect_pass = require("./rect_pass")
 local commit_walks = require("./commit_walks")
 local chrome_slots = require("../tokens/chrome_slots")
--- public drag/drop (ADR-0022 D5): the declaration channel and the per-surface
+-- public drag/drop: the declaration channel and the per-surface
 -- registry that turns declarations into one acquisition→session→terminal path
 local dragContract = require("../input/drag_contract")
 local dragRegistryLib = require("../input/drag_registry")
@@ -94,7 +94,7 @@ renderer.DIRECT_PROPS = prop_channels.DIRECT_PROPS
 -- exactly where every caller already looks. WHY: Roblox refuses a `Script.Source`
 -- write at >= 200,000 chars, so an over-cap module stops live-syncing into an open
 -- Studio session and a live check against it tests the place file instead of the
--- edits (docs/lessons/the-200k-source-cap-is-on-writing-not-loading.md).
+-- edits.
 -- Rebound to locals of their original names, so no call site in this file moved.
 local toLayoutNode = layout_node.toLayoutNode
 local effectiveHitFloor = layout_node.effectiveHitFloor
@@ -126,19 +126,19 @@ local HOVERABLE: { [string]: boolean } = { Button = true, Toggle = true }
 export type RendererAttachOpts = {
 	-- "coreSafeContent" (default) | "deviceSafeContent" | "edgeToEdge"
 	rootPolicy: string?,
-	-- THE EDGE-FLOOR KNOB (director ruling, ADR-0055, 2026-08-23): "if the
+	-- THE EDGE-FLOOR KNOB (director ruling, 2026-08-23): "if the
 	-- user truly specifies edge-to-edge we should do so with no padding.
 	-- Ensure the user can specify padding" — a number (a literal px, never
 	-- scaled) or a theme metric name (`themeSnapshot.resolveNumber`'s own
 	-- grammar — the same one `Table.cellPadding`/`anchor.gap` already use),
 	-- which rides the ten-foot ladder for free because the metrics snapshot
 	-- resolveNumber reads from is already display-scaled. Floors bottom/left/
-	-- right (never top — ADR-0027's reason: the platform's own row owns that
+	-- right (never top — the platform's own row owns that
 	-- edge) at max(whatever the policy already reserves, this). NEVER legal
 	-- together with `rootPolicy = "edgeToEdge"`: attach() refuses the
 	-- combination rather than silently picking a winner (§ ROOT POLICY below).
 	-- Omitted = today's behavior, byte for byte, on every policy (no default
-	-- flip this round — see ADR-0055).
+	-- flip this round).
 	edgeFloor: (number | string)?,
 	-- a pointer tap on a mounted path. `meta` carries the tap's geometry
 	-- (`x`/`y`) for the outside-tap policy, and `via` for a detector-driven tap.
@@ -193,18 +193,17 @@ function renderer.attach(
 	-- scrim for months and read by nothing: it fell through to the default and
 	-- the scrim was quietly inset, with a comment above the call site describing
 	-- behaviour the code did not have. An unknown mode is now a failure at the
-	-- call site instead of a shrug at render time
-	-- (docs/lessons/decoration-paints-to-the-edges.md).
+	-- call site instead of a shrug at render time.
 	local ROOT_POLICIES = {
 		-- content, inset by the CoreGui reservation (the default)
 		coreSafeContent = true,
 		-- content, inset by the per-edge maximum of CoreGui and device insets
 		deviceSafeContent = true,
-		--[[ content that MEANS TO RIDE THE PLATFORM'S TOPBAR BAND (ADR-0046): the
+		--[[ content that MEANS TO RIDE THE PLATFORM'S TOPBAR BAND: the
 			same three edges `deviceSafeContent` clears, and a TOP brought up to where
 			the free strip starts — `platformChrome.bandInsets`, the fact api.md has
 			described as *"what a surface that means to ride the band applies instead"*
-			since ADR-0027 and which no policy applied. WHAT REACHES THE STRIP IS A
+			since the chrome band shipped and which no policy applied. WHAT REACHES THE STRIP IS A
 			DECLARATION, never the whole surface: a composition with no `topbar` region
 			reserves the platform's whole row and is byte-identical to
 			`deviceSafeContent`. ]]
@@ -222,7 +221,7 @@ function renderer.attach(
 		error(`Facet renderer: unknown rootPolicy '{tostring(rootPolicy)}'. Valid: {table.concat(names, ", ")}.`, 0)
 	end
 	local optEdgeFloor = opts and opts.edgeFloor
-	--[[ THE ONE COMBINATION THIS OPT REFUSES (director ruling, ADR-0055):
+	--[[ THE ONE COMBINATION THIS OPT REFUSES (director ruling):
 		explicit `edgeToEdge` means zero padding, guaranteed — a decoration
 		layer that asked to paint to the edge and a floor that pads it away
 		from the edge is a contradiction at the call site, not a race the
@@ -239,7 +238,7 @@ function renderer.attach(
 	local rootHandle = adapter.createRoot(root.node.id or "Screen")
 	local attachScope = core:scope("renderer-attach")
 	local initialized = false
-	-- THE TWO FACTS THE CROSS-SURFACE ALARM READS BACK (ADR-0028). `rootVisible`
+	-- THE TWO FACTS THE CROSS-SURFACE ALARM READS BACK. `rootVisible`
 	-- mirrors what the adapter accepted from `setRootVisible`, and
 	-- `declaredOrder` stays nil until something calls `setDisplayOrder` —
 	-- "nobody ordered this surface" and "this surface is at layer 0" are
@@ -259,7 +258,7 @@ function renderer.attach(
 	-- Declared with the regions because they are written and dropped together.
 	local scrollAutoscroll: { [string]: any } = {}
 	local autoscrollModels: { [string]: any } = {}
-	-- drag math reads solved rects through this lookup (ADR-0008)
+	-- drag math reads solved rects through this lookup
 	local function rectOf(path: string): any
 		return lastRects[path]
 	end
@@ -346,7 +345,7 @@ function renderer.attach(
 	-- IT SITS HERE, above its old home next to `refresh`, because the presentation
 	-- channel is constructed immediately below and takes it as a dependency: a
 	-- `local function` declared later is not an upvalue of anything above it, it is
-	-- a nil global (docs/lessons/later-locals-are-not-upvalues.md).
+	-- a nil global.
 	local function findNode(path: string): any
 		local function walk(node: any): any
 			if node.path == path then
@@ -371,7 +370,7 @@ function renderer.attach(
 	-- `render/presentation_channel.luau`. WHY: Roblox refuses a `Script.Source`
 	-- write at >= 200,000 chars, so an over-cap module stops live-syncing into an
 	-- open Studio session and a live check against it tests the place file instead
-	-- of the edits (docs/lessons/the-200k-source-cap-is-on-writing-not-loading.md).
+	-- of the edits.
 	--
 	-- WHAT MADE THE SEAM CHEAP: every upvalue the channel needs is shareable BY
 	-- REFERENCE. `handles` and `lastRects` are tables the renderer mutates in place
@@ -467,14 +466,15 @@ function renderer.attach(
 		end
 		return false
 	end
-	-- ===== public drag/drop (ADR-0022 Decision 5) ==========================
+	-- ===== public drag/drop ==========================
 	-- ONE registry per surface, built lazily: a screen with no `UI.draggable`
 	-- and no `UI.dropTarget` pays nothing for the feature existing. It is handed
 	-- the LIVE rect lookup and the paint-order walk (`lastZ`, declared below and
 	-- read through a closure) so a drop verdict is always about the geometry and
 	-- the stacking the player is actually looking at.
 	-- RETIRING SUBTREES ARE NOT DRAG SURFACES: the mount layer keeps a
-	-- retiring subtree in `children` so its exit can paint, but ADR-0022 D3 says
+	-- retiring subtree in `children` so its exit can paint, but the transition
+	-- contract says
 	-- it "turns non-interactive" — for drag that must mean RESOLUTION-time
 	-- exclusion rather than registration churn, so a re-entry mid-exit is
 	-- eligible again the same frame with no rewiring. Roots are collected once
@@ -703,7 +703,7 @@ function renderer.attach(
 	-- native drag acquisition, shared by the mount-time wiring below and the
 	-- public `controller.attachDragDetector`. Nilable by contract: an adapter or
 	-- an engine without `UIDragDetector` answers nil and the caller falls back
-	-- to the ADR-0008 pointer capture — the ONE thing that must never differ
+	-- to the framework's own pointer capture — the ONE thing that must never differ
 	-- between the two paths is the promotion rule, which lives in the registry.
 	local function attachDetector(path: string, handlers: any): (() -> ())?
 		if adapter.setDragDetector == nil then
@@ -767,7 +767,7 @@ function renderer.attach(
 		rectsEqual = rectsEqual,
 	})
 	local lastDiagnostics: { any } = {}
-	-- the last solve's composition resolutions, by node path (ADR-0023). A solve
+	-- the last solve's composition resolutions, by node path. A solve
 	-- OUTPUT, exposed exactly where the other two live (`diagnostics`,
 	-- `hiddenRoots`) — an adaptive screen whose only evidence is a screenshot is
 	-- an adaptive screen nobody can debug.
@@ -827,7 +827,7 @@ function renderer.attach(
 	local departedQueue: { { path: string, fn: (string) -> () } } = {}
 	-- the expanded hit rect currently pushed per path (nil = none needed)
 	local lastHitRects: { [string]: any } = {}
-	-- THE metric authority for this surface (ADR-0019 §2). Read fresh at every
+	-- THE metric authority for this surface. Read fresh at every
 	-- use rather than captured, because `themeMetrics` is a live fact: the swap
 	-- transaction sets it and re-solves in the same invocation, and a captured
 	-- snapshot would paint the old theme's geometry for one frame. A garbage
@@ -1105,7 +1105,7 @@ function renderer.attach(
 			-- another. Targets that do not skin ignore the argument.
 			-- 5th argument: the creation-time facts the adapter can only honour while
 			-- it is CHOOSING the engine object, so they cannot arrive as a later prop
-			-- write. WHICH nodes earn one, and of which kind, is ADR-0032 Decision 2's
+			-- write. WHICH nodes earn one, and of which kind, is the nested tree's
 			-- boundary predicate and lives in `render/instance_boundary` — the one
 			-- predicate the nested-tree migration changes, and the reason it has a
 			-- module rather than two branches in the busiest function here.
@@ -1119,8 +1119,7 @@ function renderer.attach(
 			-- ever cover the scene; a theme still reaches the pane through the
 			-- authored stroke/corners modifiers, which decorate the box's edge
 			-- rather than its face.
-			-- ...AND `UI.Foreign` JOINS IT FOR THE SAME REASON, ONE STEP STRONGER
-			-- (ADR-0034): a Foreign box's face IS somebody else's instance, so a
+			-- ...AND `UI.Foreign` JOINS IT FOR THE SAME REASON, ONE STEP STRONGER: a Foreign box's face IS somebody else's instance, so a
 			-- package recipe painting a `control` plate over it would cover content
 			-- the framework does not even know the shape of. A second member would
 			-- have made this a chain of string compares on the hot mount path, so it
@@ -1289,7 +1288,7 @@ function renderer.attach(
 					})
 				end
 			end
-			-- PUBLIC DRAG/DROP DECLARATIONS (ADR-0022 D5). Registration happens at
+			-- PUBLIC DRAG/DROP DECLARATIONS. Registration happens at
 			-- mount and unregistration at removal (structuralSync), so a
 			-- windowed row that scrolls out of the window stops being a drop
 			-- target the frame it stops existing — which is the honest answer:
@@ -1334,7 +1333,7 @@ function renderer.attach(
 				end
 				-- ACQUISITION, IN PREFERENCE ORDER: the engine's own detector when
 				-- the adapter has one (it owns cross-input drag motion), else the
-				-- ADR-0008 capture below. Either way the promotion test, the
+				-- pointer capture below. Either way the promotion test, the
 				-- session and every terminal are the registry's.
 				local handlers = registry.detectorHandlers(node.path)
 				local rawEnd = handlers.onEnd
@@ -1385,7 +1384,7 @@ function renderer.attach(
 					dragUnbind[node.path .. "\0det"] = detach
 				end
 			end
-			-- pointer zones (ADR-0008): nodes carrying pointer callbacks get
+			-- pointer zones: nodes carrying pointer callbacks get
 			-- capture-based down/move/up through the adapter; handlers receive
 			-- the node path and the renderer's rect lookup for drag math.
 			--
@@ -1451,7 +1450,7 @@ function renderer.attach(
 					end,
 					-- the zone died mid-drag; reason "removed" may be answered
 					-- with true = keep the capture alive (a drag-owned lift
-					-- unmounting its own origin row — ADR-0008)
+					-- unmounting its own origin row)
 					cancel = function(reason: string?)
 						local keep: boolean? = nil
 						if registry ~= nil then
@@ -1521,7 +1520,7 @@ function renderer.attach(
 					applyStyleProp(handles[node.path], node, styleProp)
 				end
 			end
-			-- ...and the CONTINUOUS COLOUR LAST (ADR-0022 Decision 6). It claims the
+			-- ...and the CONTINUOUS COLOUR LAST. It claims the
 			-- same engine property the surface above just painted, so it has to be the
 			-- final word — and because it is last, the adapter's blend resolves against
 			-- a node whose style paint is already settled. A reactive change later rides
@@ -1708,7 +1707,7 @@ function renderer.attach(
 		pushes a dirty entry — and that queue is drained by `controller.refresh()`,
 		on the host's NEXT frame. So the solve that produced the measurement laid the
 		tree out against the OLD prop and the correction arrived a frame later
-		(`docs/lessons/the-node-that-must-spend-it-lives-outside.md`: a Table's header
+		(the node that must spend a reservation lives outside it: a Table's header
 		pays the gutter its body spent, and `present`'s own solve paid it late).
 
 		THE MARK IS THE MECHANISM, and it is what keeps this from becoming "solve on
@@ -1797,8 +1796,7 @@ function renderer.attach(
 		-- insets)" — and no branch here matched it, so every scrim silently got
 		-- the ordinary content insets instead. A policy string nothing consumes
 		-- is indistinguishable from a policy that works until you look.
-		--[[ ...AND THE FOURTH CASE, which is the one `bandInsets` was published for
-			(ADR-0046 §1). `platformChrome` is the single authority that can say "the
+		--[[ ...AND THE FOURTH CASE, which is the one `bandInsets` was published for. `platformChrome` is the single authority that can say "the
 			top band is an L": `insets` clears everything (what `deviceSafeContent`
 			applies) and `bandInsets` is the same four edges with the top brought up to
 			where the platform's FREE strip starts. Reading the derived fact rather
@@ -1848,7 +1846,7 @@ function renderer.attach(
 		-- the display class is Large; a near display keeps the full canvas
 		-- NOT UNDER `bandSafeContent`: `platformChrome` composes the overscan into
 		-- both of its inset records itself, so a second addition here would spend a
-		-- television's margin twice (ADR-0046 §1)
+		-- television's margin twice
 		if rootPolicy ~= "bandSafeContent" and env:get("distanceProfile"):get() == "ten-foot" then
 			local overscan = env:get("effectiveOverscanInsets"):get()
 			if type(overscan) == "table" then
@@ -1880,7 +1878,7 @@ function renderer.attach(
 		-- landing mid-solve would measure one theme and paint another
 		local metrics = currentMetrics()
 		--[[ ...AND `bandSafeContent` FLOORS ITS OTHER THREE EDGES AT THE THEME'S
-			GUTTER (ADR-0046 §2). The platform's safe inset answers "what must be
+			GUTTER. The platform's safe inset answers "what must be
 			cleared"; it does not answer "may content touch the glass", and on a device
 			whose engine pre-excludes the notch from the camera the lateral inset is
 			ZERO — so every edge-anchored control laid out flush against the camera's
@@ -1897,8 +1895,7 @@ function renderer.attach(
 			Built the wider way, `tests/overflow_sweep.spec.luau` files 255 findings
 			across 51 of its 95 scenarios — content that no longer fits its own box, 249
 			of them at the two narrowest swept viewports. THE LINE THAT LANDS IT IS THIS
-			BRANCH'S CONDITION; the number and the trade are in ADR-0046 §2 and
-			`docs/handoff/G8G9-OWED-LIVE-WORK.md` §5. ]]
+			BRANCH'S CONDITION. ]]
 		if rootPolicy == "bandSafeContent" then
 			local space = (metrics :: any).space
 			local gutter = if type(space) == "table" and type(space.gutter) == "number"
@@ -1908,7 +1905,7 @@ function renderer.attach(
 				insets = {
 					-- the TOP is the platform's, untouched: a theme gutter there would
 					-- stop the topbar row sitting level with the engine's own buttons,
-					-- which is the one thing ADR-0027 exists to prevent
+					-- which is the one thing the chrome-band rule exists to prevent
 					top = insets.top,
 					bottom = math.max(insets.bottom, gutter),
 					left = math.max(insets.left, gutter),
@@ -1916,9 +1913,9 @@ function renderer.attach(
 				}
 			end
 		end
-		--[[ THE EDGE-FLOOR KNOB, APPLIED (director ruling, ADR-0055). Same
+		--[[ THE EDGE-FLOOR KNOB, APPLIED (director ruling). Same
 			three edges as `bandSafeContent`'s own gutter floor above and the
-			same reason (ADR-0027: the top is the platform's row, never a
+			same reason (the top is the platform's row, never a
 			theme value) — this is a SEPARATE, opt-in floor a consumer names
 			explicitly, so it composes with whatever the policy already
 			reserved (MAX, never a second addition) rather than replacing it.
@@ -2183,7 +2180,7 @@ function renderer.attach(
 					end
 				end
 			end
-			-- A REFLOW MOVES THE DROP TARGETS (ADR-0022 D5). Every rect the live
+			-- A REFLOW MOVES THE DROP TARGETS. Every rect the live
 			-- session hit-tests against was just rewritten, so the hover is
 			-- re-evaluated at the last pointer position on THIS frame — a verdict
 			-- that trailed the layout by a frame is a verdict about geometry the
@@ -2273,11 +2270,11 @@ function renderer.attach(
 
 	-- flat sibling rendering paints in z-order; instance creation order is NOT
 	-- deterministic across a structural sync, so z is assigned explicitly from
-	-- the tree walk (ADR-0008; live-found defect 2026-07-19). `lastZ` itself is
+	-- the tree walk (live-found defect 2026-07-19). `lastZ` itself is
 	-- declared up with `rectOf`, because the drag registry reads it as the
 	-- paint-order tie-break for overlapping drop targets.
-	-- AUTHORED PAINT ORDER, WITHIN THE PARENT'S STACKING SCOPE (ADR-0022 Decision
-	-- 6). Siblings are visited in `(zIndex or 0, declaration order)`
+	-- AUTHORED PAINT ORDER, WITHIN THE PARENT'S STACKING SCOPE.
+	-- Siblings are visited in `(zIndex or 0, declaration order)`
 	-- order, so a lifted node — a drag ghost, a toast — paints above the siblings it
 	-- was declared before, and its whole SUBTREE travels with it because the walk
 	-- is depth-first over one counter. Nothing crosses a scope: a child's counter is
@@ -2413,7 +2410,7 @@ function renderer.attach(
 		local _t3 = os.clock()
 		for path, handle in handles do
 			if not alive[path] then
-				-- drag/drop declarations die WITH their node (ADR-0022 D5): an
+				-- drag/drop declarations die WITH their node: an
 				-- unregistered target that was the live hover fires exactly one
 				-- `leave` and clears the verdict on its way out (finding F5), and
 				-- paths are reused across a remount, so a stale binding would make
@@ -2600,8 +2597,8 @@ function renderer.attach(
 	-- lived here and in `src/controls/selection_indicator.luau`, across a layer
 	-- boundary, with the indicator's copy carrying a comment naming this one.
 	local sameGeometryValue = rectLib.sameFlatValue
-	--[[ ...AND THE ONE NESTED FACT, compared exactly rather than refused (ADR-0046
-		§1). `platformChrome` is `{ band, rects, insets, bandInsets }` — three flat
+	--[[ ...AND THE ONE NESTED FACT, compared exactly rather than refused.
+		`platformChrome` is `{ band, rects, insets, bandInsets }` — three flat
 		records and a LIST of them — and it is a memo, so it hands back a brand-new
 		frozen table on every recompute; under identity OR `sameFlatValue` a
 		band-riding surface would re-solve on every flush. This walks exactly the four
@@ -2642,7 +2639,7 @@ function renderer.attach(
 		-- change re-scales text at measure AND paint
 		"typographyScale",
 		"preferredTextOffset",
-		-- a theme commit is geometry (ADR-0019 §2): new type sizes, spacing,
+		-- a theme commit is geometry: new type sizes, spacing,
 		-- control metrics and content insets all reach the solver, so the
 		-- surface RE-SOLVES — it is never rebuilt, so mount identity, focus,
 		-- selection, scroll and text entry survive a swap untouched
@@ -2672,8 +2669,7 @@ function renderer.attach(
 		end
 		GEOMETRY_KEYS = narrowed
 	end
-	--[[ ...AND `bandSafeContent` READS ONE FACT WHERE THE OTHERS READ THREE
-		(ADR-0046 §1). Its content rect comes from `platformChrome`, which is DERIVED
+	--[[ ...AND `bandSafeContent` READS ONE FACT WHERE THE OTHERS READ THREE. Its content rect comes from `platformChrome`, which is DERIVED
 		from the core and device insets, the two topbar facts, the declared app chrome
 		and the overscan — so subscribing to the raw three would be both incomplete (a
 		`TopbarInset` change would move the band and re-solve nothing) and redundant.
@@ -2825,8 +2821,7 @@ function renderer.attach(
 		-- resolved inline because the LIVE value has to be read off the tree, and the
 		-- tree read is worth doing once per path even when a signal fired twice.
 		local hiddenTouched: { string }? = nil
-		-- ...and the same collection for the authored presentation quad (ADR-0026,
-		-- `offset` added by amendment, gap 16 framework-gaps-phase2). One list,
+		-- ...and the same collection for the authored presentation quad (`offset` added by amendment, gap 16 framework-gaps-phase2). One list,
 		-- not four: they share one stored record and one re-read.
 		local presentationTouched: { string }? = nil
 		for _, entry in dirty do
@@ -2891,7 +2886,7 @@ function renderer.attach(
 					else nil
 			end
 		end
-		-- THE AUTHORED TRIPLE, re-read from the live tree (ADR-0026). Here — after the
+		-- THE AUTHORED TRIPLE, re-read from the live tree. Here — after the
 		-- structural sync, before the solve — because the read must see this frame's
 		-- value, and because on an ARMED commit the OLD value has to be captured
 		-- before it is overwritten: that difference is what `withAnimation` flies.
@@ -2937,7 +2932,7 @@ function renderer.attach(
 				end
 			end)
 		end
-		-- AN ARMED COMMIT ALWAYS SOLVES (ADR-0026 Decision 7): the record walk runs
+		-- AN ARMED COMMIT ALWAYS SOLVES: the record walk runs
 		-- inside the solve, and an authored opacity dirties `paint` alone, so a pure
 		-- fade would otherwise have no walk to record itself in. One armed commit per
 		-- `withAnimation` call, and incremental layout skips a solve nothing dirtied.
@@ -3167,7 +3162,7 @@ function renderer.attach(
 		end))
 	end
 
-	--[[ THE PLAYER'S BACKGROUND TRANSPARENCY PREFERENCE (ADR-0035, owed row O-26).
+	--[[ THE PLAYER'S BACKGROUND TRANSPARENCY PREFERENCE (owed row O-26).
 
 		The third accessibility fact to ride this seam, and it rides it for exactly
 		the reason the second one had to: `setReducedMotion` above exists because the
@@ -3238,7 +3233,7 @@ function renderer.attach(
 	end
 
 	controller.rectOf = rectOf
-	-- ...and the same rect in WINDOW space (ADR-0022 D5). `rectOf` answers the
+	-- ...and the same rect in WINDOW space. `rectOf` answers the
 	-- SOLVED rect, which inside a scroll host is canvas-space — the engine shifts
 	-- it by CanvasPosition — and which a live presentation transform has moved away
 	-- from on screen. Anything comparing a rect against a POINTER (drop hit-tests,
@@ -3365,7 +3360,7 @@ function renderer.attach(
 		end
 	end
 
-	-- THE SURFACE'S DRAG REGISTRY (ADR-0022 Decision 5). Every mounted
+	-- THE SURFACE'S DRAG REGISTRY. Every mounted
 	-- `UI.draggable` / `UI.dropTarget` on this surface lives here, and so does
 	-- the one session all four input classes drive. Consumers reach it for the
 	-- non-pointer verbs (`arm`/`armTo`/`commit`/`cancel`), the predicted
@@ -3483,7 +3478,7 @@ function renderer.attach(
 	--[[ HAND A PRESS TO WHAT IS UNDERNEATH IT (ruling 6, director 2026-08-13).
 
 		THE ENGINE FACT THIS EXISTS FOR, measured live in Studio 2026-08-13 and
-		written up in `docs/lessons/a-button-eats-the-swipe-underneath-it.md`: Roblox
+		measured directly: Roblox
 		delivers `InputBegan` to the TOPMOST interactive object only. A `GuiButton`
 		sinks it and an Active `Frame` behind it receives NOTHING. So a hit surface
 		painted BEHIND a row's content — which is how `row_actions` and `table`'s own
@@ -3508,7 +3503,7 @@ function renderer.attach(
 		/`Toggle`/`TextField` is activated through `setActivateHandler`, so a
 		forwarded press has to run that dispatch. But a `Rating`, a `Slider` and every
 		other control built on a POINTER ZONE (`onPointerDown`/`onPointerUp` props,
-		ADR-0008) is not `TAPPABLE` at all — it hears the raw press. Before this
+		) is not `TAPPABLE` at all — it hears the raw press. Before this
 		ruling those worked and the swipe did not, because they were painted on top;
 		forwarding only the tappable family would have inverted exactly that, on the
 		same surfaces. So a pointer zone gets its down/up pair replayed at the point,
@@ -3831,7 +3826,7 @@ function renderer.attach(
 	-- adapter method — headless/older targets that don't order roots ignore it.
 	function controller.setDisplayOrder(n: number)
 		-- recorded whatever the adapter does with it: the ORDER is the caller's
-		-- declaration about layering (ADR-0028), and a headless target that cannot
+		-- declaration about layering, and a headless target that cannot
 		-- order roots has not un-declared it
 		declaredOrder = n
 		if adapter.setRootDisplayOrder ~= nil then
@@ -3858,7 +3853,7 @@ function renderer.attach(
 		return adapter.stageHost(handle)
 	end
 
-	-- THE FOREIGN-CONTENT SEAM (UI.Foreign, ADR-0034). Stage's 2-D sibling and the
+	-- THE FOREIGN-CONTENT SEAM (UI.Foreign). Stage's 2-D sibling and the
 	-- same door in the same place: a `Foreign` reserves a box for a GuiObject class
 	-- Facet does not wrap, the caller creates that instance, and `adopt` is the one
 	-- verb that puts it in the box. Optional on BOTH sides for the same reasons —
@@ -3899,7 +3894,7 @@ function renderer.attach(
 			return false
 		end
 		adapter.setRootVisible(rootHandle, visible)
-		-- ...and a surface nobody can see covers nothing (ADR-0028). Recorded only
+		-- ...and a surface nobody can see covers nothing. Recorded only
 		-- where the write LANDED: on a target that cannot hide a root the surface
 		-- is still on screen, and the alarm must go on believing that.
 		rootVisible = visible
@@ -3927,7 +3922,7 @@ function renderer.attach(
 		return table.clone(stats)
 	end
 
-	--[[ coverRect() -> what this surface actually PAINTS, or nil (ADR-0028).
+	--[[ coverRect() -> what this surface actually PAINTS, or nil.
 
 		The union of every painted box below the root, with nothing that paints
 		nothing in it. The root's own rect is excluded by
@@ -3937,7 +3932,7 @@ function renderer.attach(
 		COVERS is what it puts in that box.
 
 		A node is skipped when it or any ancestor is hidden, paint-held, or faded
-		to nothing. That last one is ADR-0026's hand-off honoured by construction:
+		to nothing. That last one is the authored-presentation hand-off honoured by construction:
 		an authored `opacity = 0` composes to `T = 1` in `lastComposedAlpha`, and a
 		fade group is its subtree's real instance parent, so an ancestor at 1
 		hides everything under it. A surface with nothing left covers nothing, and
@@ -3988,7 +3983,7 @@ function renderer.attach(
 	local unregisterSurface = surface_overlap.register(adapter, surfaceEntry)
 
 	--[[ retireSurface() — this stops being a SURFACE now, whatever is still on
-		screen (ADR-0028).
+		screen.
 
 		`presenter.dismiss` takes a surface out of the stack immediately and
 		tears its tree down LATER, when the exit transition finishes or the
@@ -4011,7 +4006,7 @@ function renderer.attach(
 		local out = table.clone(lastDiagnostics) -- a copy, like `stats()` (F-30)
 		-- ...plus the findings no single solve can see: this surface covering, or
 		-- being covered by, another surface on the same target with neither having
-		-- declared it (ADR-0028). Costs one length check when this is the only
+		-- declared it. Costs one length check when this is the only
 		-- surface on the target, which is the overwhelming majority of reads.
 		for _, finding in surface_overlap.findingsFor(adapter, surfaceEntry, root.node.path) do
 			table.insert(out, finding)
@@ -4021,7 +4016,7 @@ function renderer.attach(
 
 	-- compositionAt(path) -> the last solve's `facet-composition-dump/1` for that
 	-- UI.Composition node, or nil. Omit the path for every one of them, keyed by
-	-- path (ADR-0023). This is the "why" surface: which arrangement won, which
+	-- path. This is the "why" surface: which arrangement won, which
 	-- form each region resolved to, and the rule every richer candidate broke.
 	function controller.compositionAt(path: string?): any
 		if path == nil then
@@ -4084,7 +4079,7 @@ function renderer.attach(
 		table.clear(textMeasureCancels)
 		-- ...and a disposed surface is no longer a surface: it leaves the
 		-- cross-surface registry before anything else, so a teardown that throws
-		-- later cannot leave a ghost overlapping the screen (ADR-0028)
+		-- later cannot leave a ghost overlapping the screen
 		unregisterSurface()
 		-- the selection bridge always clears on teardown: a dismissed
 		-- modal must never leave the engine pointing at a destroyed instance

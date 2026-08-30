@@ -1,5 +1,5 @@
 --!strict
--- DECORATION SLOTS (ADR-0019 §5, theme-packages-and-skinning package 3).
+-- DECORATION SLOTS.
 -- PURE and engine-free. Owns three things the adapter must not decide for
 -- itself, because each of them has to be assertable without an engine:
 --
@@ -73,18 +73,18 @@ chrome_slots.TAGS = table.freeze({
 	-- solid." A value control's chrome is not a panel and not a button; its
 	-- native paint is ITS OWN.
 	hintPrefix = "facet-slot-", -- + <slot>, on the HINTED NODE
-	-- ONE PARENT TAG HIDES THE WHOLE STACK (ADR-0020 R1, probe rs-m2). A layered
+	-- ONE PARENT TAG HIDES THE WHOLE STACK (probe rs-m2). A layered
 	-- slot's decoration is N siblings, so the single-decoration `editing` tag
 	-- above cannot express "yield" without the adapter touching every layer.
 	-- rs-m2 measured the alternative and it works: one tag on the DECORATED NODE
 	-- plus a child-combinator rule blanks the entire ladder.
 	stackYield = "facet-chrome-yield", -- on the DECORATED NODE
-	-- THE ERROR STATE (ADR-0020 R2). `default/hover/pressed/selected/disabled`
+	-- THE ERROR STATE. `default/hover/pressed/selected/disabled`
 	-- all ride an engine GuiState pseudo or a tag the renderer already emits;
 	-- `error` has no engine state at all, so the variant grammar's sixth state
 	-- needs a tag of its own. It rides the DECORATED NODE like `selected` does.
 	stateError = "facet-state-error",
-	-- SEMANTIC ICON ART (ADR-0020 R4). A control that requests an icon draws the
+	-- SEMANTIC ICON ART. A control that requests an icon draws the
 	-- framework's ASCII glyph as its OWN text, so a theme with no art is legible
 	-- by construction. When the installed package DOES declare art for that
 	-- name, the adapter parents a managed picture over the node — and the glyph
@@ -106,7 +106,7 @@ chrome_slots.TAGS = table.freeze({
 -- find its own instance again without bookkeeping.
 chrome_slots.DECORATION_NAME = "FacetChrome"
 chrome_slots.TEXT_LIFT_NAME = "FacetChromeText"
--- the managed semantic-icon picture (ADR-0020 R4), same naming discipline
+-- the managed semantic-icon picture, same naming discipline
 chrome_slots.ICON_NAME = "FacetIcon"
 -- Above every layer a stack may declare (R1 caps a stack at 8) and above the
 -- chrome text lift, which sits at `#layers + 1`. A picture that the plate it
@@ -227,7 +227,7 @@ chrome_slots.SLOTS = table.freeze({
 	"sliderThumb",
 	-- the counter seal behind a badge's number. Whole image for the same reason.
 	"badge",
-	-- ===== v2 value-display and toggle chrome (ADR-0020 R3) =================
+	-- ===== v2 value-display and toggle chrome =================
 	-- Registered here as VOCABULARY; the controls that publish these hints and
 	-- the adapter structure that clips a fill are P3's wiring. A package that
 	-- declares none of them costs exactly what it costs today.
@@ -243,7 +243,7 @@ chrome_slots.SLOTS = table.freeze({
 	"barCap",
 	"barCenter",
 	-- the plate behind a stepper's glyph (the glyph itself becomes an icon
-	-- request — ADR-0020 R4). Whole image: a plate is a fixed-size token.
+	-- request). Whole image: a plate is a fixed-size token.
 	"stepperPlate",
 	-- the classic sliding switch. The track stretches, the knob does not; the
 	-- Step 3.5 `togglePalette` contract stays the flat truth for both, so
@@ -271,7 +271,7 @@ end
 -- recipe may still say `sliced = false` (or `sliced = true`) explicitly; this
 -- table is only the DEFAULT for slots whose art is a fixed-size token rather
 -- than a stretchable frame, so an author does not have to remember the flag.
--- v2 (ADR-0020 R3) classifies the new slots the same way: a bar's caps and
+-- v2 classifies the new slots the same way: a bar's caps and
 -- centrepiece, a stepper plate and a toggle knob are fixed-size tokens; a bar
 -- track, a bar fill and a toggle track stretch and therefore slice.
 local WHOLE_IMAGE_SLOTS: { [string]: boolean } = {
@@ -289,7 +289,7 @@ function chrome_slots.isWholeImageSlot(slot: any): boolean
 end
 
 -- A SLOT THAT BORROWS ANOTHER SLOT'S RECIPE WHEN THE PACKAGE HAS NOTHING TO SAY
--- (ADR-0020 R3, P3). A stepper's +/- affordance is a Button, so every package
+-- (P3). A stepper's +/- affordance is a Button, so every package
 -- published before this stage skins it through the `control` recipe. Giving it
 -- its own slot unconditionally would UN-SKIN it under exactly those packages —
 -- a v2 slot that makes a v1 theme worse. So `stepperPlate` declares `control` as
@@ -329,7 +329,7 @@ function chrome_slots.tagFor(slot: string): string
 	return chrome_slots.TAGS.slotPrefix .. slot
 end
 
--- ===== the LAYER vocabulary (ADR-0020 R1) ==================================
+-- ===== the LAYER vocabulary ==================================
 --
 -- A layered recipe declares a bounded ARRAY of layers, each a fixed kind with a
 -- CLOSED geometry vocabulary. It is data, never an instance tree: an author can
@@ -344,7 +344,7 @@ end
 chrome_slots.MAX_LAYERS = 8
 chrome_slots.LAYER_KINDS = table.freeze({ "fill", "frame", "corners", "edges", "plaque", "tile" })
 
--- The per-kind geometry vocabulary, exactly the ADR-0020 R1 table. `kind` and
+-- The per-kind geometry vocabulary, exactly the layer-stack table. `kind` and
 -- `asset` are common to every layer; everything below is closed per kind, so a
 -- `margin` on a plaque or a `tileSize` on a corner is a compile error naming the
 -- kind and its legal fields rather than a field the adapter silently ignores.
@@ -477,14 +477,14 @@ end
 -- `Badge` rule, solid at transparency 0 — and a package that wants to wash it is
 -- making a choice rather than inheriting someone else's.
 --
--- v2 (ADR-0020 R9) extends the guarantee to the BAR family's two flat-existing
+-- v2 extends the guarantee to the BAR family's two flat-existing
 -- slots. `barTrack` and `barFill` are what a progress bar is made of when no
 -- package skins it, so they need solid paint for exactly the reason the rail and
 -- the thumb did. `barCap`/`barCenter` are deliberately ABSENT: they have no
 -- unskinned counterpart at all (a flat bar has no jewelled end-cap), so an
 -- own-paint rule for them could only paint a coloured block where the theme
 -- meant art. `toggleTrack`/`toggleKnob` are absent too — their colours are
--- VALUE-driven and `togglePalette` owns them (ADR-0020 R3 keeps that contract
+-- VALUE-driven and `togglePalette` owns them (the bar family keeps that contract
 -- untouched), so a solid rule here would fight the adapter's own writes.
 chrome_slots.OWN_PAINT_SLOTS = table.freeze({ "sliderTrack", "sliderThumb", "barTrack", "barFill", "spinner" })
 
@@ -537,7 +537,7 @@ end
 	     (sheet_model.TINT_IDENTITY.Box = "surface"; screen_paint.applyTint);
 	  2. once art covers a node, `emitSlotSuppression` writes
 	     `.facet-skinned-spinner { BackgroundTransparency = 1 }` — the image IS the
-	     element (ADR-0020 R9), so the plate the tint paints is invisible;
+	     element, so the plate the tint paints is invisible;
 	  3. the decoration's own ImageColor3 comes from the CHROME TINT LADDER
 	     (rest/hover/pressed), which is per-state and identical across the five
 	     dots.
@@ -659,7 +659,7 @@ end
 ---
 --- A CHROME INSET IS A REQUEST, NOT A RIGHT (director report 2026-07-28, defect
 --- 3). The skin's carved border is added to the node's padding so content clears
---- it (ADR-0019 §5), and on a node whose size was decided FOR it that sum can
+--- it, and on a node whose size was decided FOR it that sum can
 --- swallow the whole box. Measured live: a Glossy Touch Button costs 12+12 of
 --- button padding and 14+14 of `control` inset -- 52px -- and the scenario asked
 --- for a 52px button. The content box was exactly zero, so the lifted label solved
@@ -725,12 +725,12 @@ end
 	or 0 when there is none (no package installed, or the slot carves nothing).
 
 	THE ONE COMPUTATION EVERY "clear the theme's own frame" DECORATION NEEDS
-	(task THEME2; ADR-0059 Decision 3's `barSurfaceSlot` carve, generalized).
+	(task THEME2; the `barSurfaceSlot` carve, generalized).
 	`selection_indicator.luau`'s pill inset and `src/controls/picker.luau`'s
 	count-seal badge both needed "how far does this package's chrome carve into
 	the slot behind me", and both wrote the same four-line max-over-sides loop
 	by hand before this existed — which is exactly the shape of defect this
-	round closed twice (the pill's own inset, ADR-0059; the badge's corner
+	round closed twice (the pill's own inset; the badge's corner
 	offset, this task) and is due to become a THIRD hand-written copy the next
 	time an author reaches for the same idea. One function, so a future
 	decoration author has something to require instead of re-deriving it.
@@ -763,7 +763,7 @@ end
 
 	`carvedBorder` above collapses all four sides to their max, which is right
 	for a caller that adds ONE scalar clearance to an existing value via
-	`math.max` (`selection_indicator.luau`'s pill inset, ADR-0059 Decision 3 —
+	`math.max` (`selection_indicator.luau`'s pill inset —
 	the case the doc comment above was written for). It is WRONG for a caller
 	padding a CORNER on two independent axes: `src/controls/picker.luau`'s
 	count-seal badge and `examples/gallery/scenarios/adaptive_controls.luau`'s
@@ -803,9 +803,9 @@ function chrome_slots.iconBoxPx(wantPx: number, rectW: number?, rectH: number?, 
 end
 
 -- `imageVariants` is the rung-2 per-state map, already normalized by the
--- control through `themes.normalizeVariant` (ADR-0020 R2 — one grammar for both
+-- control through `themes.normalizeVariant` (one grammar for both
 -- rungs). It travels the same internal channel `image` does.
--- `icon` is the SEMANTIC ICON REQUEST (ADR-0020 R4): a meaning, never an asset
+-- `icon` is the SEMANTIC ICON REQUEST: a meaning, never an asset
 -- id. It travels the same internal channel because it is the same kind of fact —
 -- something the composite control knows about one of its own nodes and no
 -- generic classifier could infer. The control ALSO draws the framework's ASCII
@@ -820,7 +820,7 @@ export type Hint = {
 	-- "large"); the snapshot owns the px, so a metric package resizes icons
 	iconSize: string?,
 	--[[ THE ROOM THE HOST RESERVED FOR THIS NODE — a theme metric NAME or a px
-		number (task THEME fix round, 2026-08-28; ADR-0059 Decision 6).
+		number (task THEME fix round, 2026-08-28).
 
 		A SIZE FLOOR IS A REQUEST, NOT A RIGHT, which is the same sentence
 		`spendInset` is built on one screen up, at the other number in the same
@@ -960,7 +960,7 @@ end
 
 -- ===== 1. classification ===================================================
 --
--- THE MAPPING (ADR-0019 §5 slot vocabulary <- the renderer's existing surface/
+-- THE MAPPING (the slot vocabulary <- the renderer's existing surface/
 -- class hints). Read top to bottom; the FIRST match wins, and the order is the
 -- decision:
 --
@@ -1092,7 +1092,7 @@ export type Plan = {
 	sliced: boolean,
 	sliceCenter: chrome_props.Rect?,
 	sliceScale: number,
-	-- PER-STATE ART (ADR-0020 R2), nil when the recipe named a bare string —
+	-- PER-STATE ART, nil when the recipe named a bare string —
 	-- which means "same art in every state" and needs no extra rules at all.
 	-- Resolved from the compiled recipe's normalized `assetVariants`, so the
 	-- rule compiler and the adapter read ONE shape.
@@ -1110,7 +1110,7 @@ export type Plan = {
 -- a per-view override: the rung-2 rung of the customization ladder.
 --
 -- `imageVariants` is the SAME normalized shape `themes.normalizeVariant` writes
--- for a recipe (ADR-0020 R2: one grammar, one normalizer, both rungs) — the
+-- for a recipe (one grammar, one normalizer, both rungs) — the
 -- control normalizes its prop and hands the result over, so the prop schema
 -- cannot fork from the recipe schema. Rung 2 has no package asset table, so a
 -- normalized entry's `asset` IS the content URI.
@@ -1149,7 +1149,7 @@ end
 -- resting one at arm's length on a phone.
 chrome_slots.TINT = table.freeze({ rest = 0.90, hover = 1.0, pressed = 0.66 })
 
--- THE DISABLED ACCESSIBILITY FLOOR (ADR-0020 R2), in ONE place.
+-- THE DISABLED ACCESSIBILITY FLOOR, in ONE place.
 --
 -- Rung 1 dims a decoration through the emitted `:NonInteractable > .<tag>` rule,
 -- whose `ImageTransparency` is the style's `disabledContentOpacity` and whose
@@ -1278,7 +1278,7 @@ function chrome_slots.planFor(package: any, slot: string, override: Override?): 
 	if type(recipe) ~= "table" or recipe.kind ~= "nineSlice" then
 		return nil
 	end
-	-- a per-state map (ADR-0020 R2) resolves its RESTING art through the
+	-- a per-state map resolves its RESTING art through the
 	-- canonical `assetVariants` sibling `themes.define` wrote; a bare string is
 	-- itself, which is why nothing about a package published before this stage
 	-- moves at all
@@ -1319,7 +1319,7 @@ function chrome_slots.planFor(package: any, slot: string, override: Override?): 
 	}
 end
 
--- ===== the LAYERED stack plan (ADR-0020 R1) ================================
+-- ===== the LAYERED stack plan ================================
 --
 -- `planFor` above answers "what ONE decoration child does this slot need". A
 -- layered recipe needs N of them, ordered, each with its own tag and its own
@@ -1461,7 +1461,7 @@ function chrome_slots.layerPlanFor(package: any, slot: string): StackPlan?
 	}
 end
 
--- ===== the layer ANCHORING vocabulary, as data (ADR-0020 R1, probe rs-m3) ===
+-- ===== the layer ANCHORING vocabulary, as data (probe rs-m3) ===
 --
 -- rs-m3 measured the whole vocabulary in one idiom: AnchorPoint plus a
 -- scale-Position, with fixed px sizes. Corners pin at all three test sizes,
@@ -1735,7 +1735,7 @@ function chrome_slots.layerOutwardExtent(layer: any): { top: number, right: numb
 	return out
 end
 
--- THE PLAQUE TEXT SUB-SLOT (ADR-0020 R1; architecture verifier F2).
+-- THE PLAQUE TEXT SUB-SLOT (architecture verifier F2).
 --
 -- `plaque.text = true` promises a nameplate: the decorated node's own text reads
 -- ON the plaque rather than in its content rect. It shipped validated,
@@ -1841,7 +1841,7 @@ function chrome_slots.liftZIndexFor(stack: StackPlan?): number
 	return #stack.layers + 1
 end
 
--- ===== the BAR assembly (ADR-0020 R3, probe rs-m4) =========================
+-- ===== the BAR assembly (probe rs-m4) =========================
 --
 -- rs-m4 measured two ways to clip an image fill to a percent and REJECTED the
 -- ImageRect crop: `ImageRect` and `ScaleType = Slice` both address the texture,
@@ -1876,7 +1876,7 @@ chrome_slots.BAR_CAP_NAMES = table.freeze({ start = "FacetBarCapStart", finish =
 -- brackets is a field authors get wrong.
 chrome_slots.BAR_ENDS = table.freeze({ "start", "finish" })
 
--- The declared fill DIRECTION (ADR-0020 R3: "fill `direction` is declared data").
+-- The declared fill DIRECTION ("fill `direction` is declared data").
 -- It decides which axis the window reveals and which edge of the art is pinned
 -- to the window's origin — nothing else. `ltr` is the default because it is what
 -- a horizontal progress bar is.
@@ -2069,7 +2069,7 @@ function chrome_slots.barReservation(
 	return { top = cross, right = ends, bottom = cross, left = ends }
 end
 
--- ===== the TOGGLE assembly (ADR-0020 R3 cap 10) ============================
+-- ===== the TOGGLE assembly ================================================
 --
 -- The knob-and-track is ADAPTER-OWNED control chrome in every theme (it predates
 -- this stage and the `togglePalette` contract stays its flat truth), so the two
@@ -2117,7 +2117,7 @@ function chrome_slots.variantStateFor(flags: VariantFlags): string
 end
 
 -- variantContentFor(variants, flags) -> the content id to paint. Unstated states
--- fall back to `default` (ADR-0020 R2), which is what makes "supply exactly as
+-- fall back to `default`, which is what makes "supply exactly as
 -- much art as you have" true rather than a promise.
 function chrome_slots.variantContentFor(variants: any, flags: VariantFlags): string?
 	if type(variants) ~= "table" then
@@ -2179,7 +2179,7 @@ end
 -- piece of slot chrome the StyleSheet cannot own: `::UIShadow` rules are
 -- silently accepted and paint nothing on 0.731 (feasibility m7), so the shadow
 -- is deliberately ADAPTER-OWNED paint, materialized through the bespoke
--- `UIShadow` machinery behind its capability probe (ADR-0018). It is not dual
+-- `UIShadow` machinery behind its capability probe. It is not dual
 -- authority: no rule this compiler emits ever shadows the node.
 --
 -- Returns the raw declaration (a preset name or a parameter table); the adapter
@@ -2203,7 +2203,7 @@ end
 -- resource provider, which owns the generation/stale rules — nothing here
 -- caches a content ID or decides when a load is stale.
 --
--- v2 (ADR-0020 R2/R4) widens the walk to everything else a package can paint
+-- v2 widens the walk to everything else a package can paint
 -- with: every layer of a layered stack, every per-state VARIANT asset, and the
 -- semantic icon map. A variant that is only fetched when the pointer first
 -- enters a control is exactly the cold-decode flash rs-m6 could not measure in
@@ -2270,7 +2270,7 @@ end
 
 -- iconAssets(package): the { name, assetName } pairs the package's semantic icon
 -- map resolves to, variants included. Pure; the resolution ruling itself lives
--- in `themes.resolveIcon` (ADR-0020 R4) — this is only the inventory.
+-- in `themes.resolveIcon` — this is only the inventory.
 function chrome_slots.iconAssets(package: any): { { name: string, assetName: string } }
 	local out: { { name: string, assetName: string } } = {}
 	local icons = if type(package) == "table" and type(package.icons) == "table" then package.icons else nil
@@ -2541,7 +2541,7 @@ export type Census = {
 	-- package pays zero shadows" is a measurement rather than a claim
 	shadows: number,
 	shadowsPerSlot: { [string]: number },
-	-- LAYER COST (ADR-0020 R1, ledger rich-skinning v2). A layered slot creates N
+	-- LAYER COST (ledger rich-skinning v2). A layered slot creates N
 	-- decoration instances instead of one, so "an ornate package is expensive"
 	-- has to be a counted number per KIND rather than an impression. Flat and
 	-- nine-slice packages leave both empty.
@@ -2635,7 +2635,7 @@ function chrome_slots.newState(package: any?): State
 				local shadowKey = if shadow == nil then "-" elseif type(shadow) == "string" then shadow else "params"
 				-- a LAYERED slot's whole ladder rides the signature: two packages
 				-- that differ only in layer 3's art still have to re-materialize
-				-- THE VALUE-DISPLAY GEOMETRY IS CHROME TOO (ADR-0020 R3). Two
+				-- THE VALUE-DISPLAY GEOMETRY IS CHROME TOO. Two
 				-- packages that differ only in a bar's fill DIRECTION, an end-cap's
 				-- art or an ornament's px box build different instances, so the
 				-- signature has to see them or a swap would repaint the old shape.

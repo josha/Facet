@@ -1,5 +1,5 @@
 --!strict
---[[ SurfaceTarget (ADR-0063; CLIENT-ONLY): the RenderTargetAdapter for flat UI on
+--[[ SurfaceTarget (CLIENT-ONLY): the RenderTargetAdapter for flat UI on
 	a world surface — a console a player walks up to and uses.
 
 	A thin root swap over ScreenTarget, exactly as `billboard_target` is:
@@ -108,11 +108,11 @@ export type Opts = {
 	onAdorneeLost: (() -> ())?,
 	style: any?,
 	-- the display class, forwarded verbatim like `style` (paint-family lockstep,
-	-- ADR-0039 Decision 3a), for the same reason billboards forward it: a surface
+	-- the ten-foot ladder's paint half), for the same reason billboards forward it: a surface
 	-- that painted near while its own layout measured far would re-open the
 	-- measure/paint disagreement the ladder exists to close.
 	displaySize: string?,
-	-- DEPRECATED on both sides (ADR-0011); forwarded, never interpreted here.
+	-- DEPRECATED on both sides; forwarded, never interpreted here.
 	isReducedMotion: (() -> boolean)?,
 }
 
@@ -250,7 +250,7 @@ function surface_target.new(opts: Opts)
 	-- world surface is a composition nobody has measured, at any distance
 	adapter.stageHost = nil
 	-- ...and a caller's own GuiObject inside that canvas is the same unmeasured
-	-- question (ADR-0034). `controller.foreignHost` answers nil — the documented
+	-- question. `controller.foreignHost` answers nil — the documented
 	-- degrade, an empty reserved box or the author's own fallback plate.
 	adapter.foreignHost = nil
 

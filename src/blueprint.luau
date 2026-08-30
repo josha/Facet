@@ -15,10 +15,10 @@ local schema = require("./blueprint_schema")
 -- typo'd semantic name is an icon that silently never resolves, which is the
 -- accepted-and-ignored class the strict boundary exists to remove.
 local themePackage = require("./themes/package")
--- the public drag/drop declaration channel (ADR-0022 D5): validation and the
+-- the public drag/drop declaration channel: validation and the
 -- reserved metadata keys live there so this module stays a thin authoring face
 local dragContract = require("./input/drag_contract")
--- the declared-content composition normalizer (ADR-0023): ONE ruling on what a
+-- the declared-content composition normalizer: ONE ruling on what a
 -- composition declaration may say, read here for construction and by the solver
 -- on every solve, so the two can never disagree about what is legal
 local compositionLib = require("./layout/composition")
@@ -72,7 +72,7 @@ local coreContract = require("./core/contract")
 export type Readable<T> = coreContract.Readable<T>
 export type Bound<T> = T | Readable<T>
 
--- A THEME METRIC NAME (ADR-0019 §2): a spacing step ("xs".."xl") or a dotted
+-- A THEME METRIC NAME: a spacing step ("xs".."xl") or a dotted
 -- path into the active ThemeSnapshot ("controls.slider.thumbSize",
 -- "targetSizes.minimum"). Accepted anywhere a theme-owned number is, and
 -- resolved to pixels on every solve — a literal number opts that value OUT of
@@ -104,7 +104,7 @@ export type Dim = {
 export type SideValue = number | Metric
 export type Sides = SideValue | { top: SideValue?, right: SideValue?, bottom: SideValue?, left: SideValue? }
 
--- pointer-zone callbacks (ADR-0008). `rectOf(path)` returns the solved rect.
+-- pointer-zone callbacks. `rectOf(path)` returns the solved rect.
 export type PointerHandlers = {
 	onPointerDown: ((path: string, pos: { x: number, y: number }, rectOf: (string) -> any) -> boolean?)?,
 	onPointerMove: ((path: string, pos: { x: number, y: number }, rectOf: (string) -> any) -> ())?,
@@ -148,14 +148,14 @@ export type BoxProps = {
 	-- and stop taking taps — with the whole subtree. `UI.When` is the other answer
 	-- (it removes the node and the space closes up)
 	hidden: Bound<boolean>?,
-	-- AUTHORED PRESENTATION (ADR-0026), paint-only and animatable. Neither moves
+	-- AUTHORED PRESENTATION, paint-only and animatable. Neither moves
 	-- layout, hit geometry or focus — the solver never sees them. A `scale`
 	-- MULTIPLIES with any scale the framework is applying and a `rotation` (degrees,
 	-- positive = clockwise) ADDS to any rotation it is applying; the composition
 	-- happens at the one presentation write site, so neither is a second writer.
 	scale: Bound<number>?,
 	rotation: Bound<number>?,
-	-- the fourth authored presentation term (ADR-0026 amendment, gap 16
+	-- the fourth authored presentation term (gap 16
 	-- framework-gaps-phase2): a paint-only translation in px from the SOLVED
 	-- position, {x=,y=}. Same boundary as scale/rotation above — never how a
 	-- node's box gets positioned (that stays width/height/margin/Anchor) — and
@@ -205,13 +205,13 @@ export type VirtualSlot = {
 }
 export type ZStackSpec = BoxProps & ContainerProps & {
 	canvasGroup: boolean?,
-	-- authored subtree fade (ADR-0026): 1 = opaque, 0 = invisible-but-still-there.
+	-- authored subtree fade: 1 = opaque, 0 = invisible-but-still-there.
 	-- Declaring it IS declaring a fade group, so `canvasGroup` is implied
 	opacity: Bound<number>?,
 	virtualSlot: Bound<VirtualSlot>?,
 	-- THE CIRCLE SHAPE (task PAINT, generalized from the circle Button):
 	-- "rect" (default) | "circle" — a true 1:1 box, the missing axis derived by
-	-- the solver. See `blueprint_schema`'s shared SHAPE spec and ADR-0062.
+	-- the solver. See `blueprint_schema`'s shared SHAPE spec.
 	shape: string?,
 }
 export type AnchorSpec = BoxProps & ContainerProps
@@ -253,7 +253,7 @@ export type AdaptiveStackSpec = BoxProps & ContainerProps & {
 }
 export type ViewThatFitsSpec = BoxProps & { children: { Blueprint } }
 
--- DECLARED-CONTENT ADAPTIVE COMPOSITION (ADR-0023). A screen declares WHAT it
+-- DECLARED-CONTENT ADAPTIVE COMPOSITION. A screen declares WHAT it
 -- has to say, ranked, with a richest-to-minimum form list per region; the
 -- framework decides WHERE, from the box it actually received, on both axes.
 export type CompositionGroup = {
@@ -305,7 +305,7 @@ export type DividerSpec = BoxProps & {
 	axis: Bound<string>?,
 	-- a px number or a theme metric name ("strokes.hairline", "xs"), the same
 	-- vocabulary `gap`/`padding` already take — the schema has accepted both
-	-- since the metric-name grammar shipped (ADR-0051, and the blueprints ledger
+	-- since the metric-name grammar shipped (and the blueprints ledger
 	-- in artifacts/api-architecture-consistency/); this type used to
 	-- say only `number`
 	thickness: Bound<number | Metric>?,
@@ -319,7 +319,7 @@ export type BoxSpec = BoxProps & {
 	active: Bound<boolean>?,
 	tint: Bound<any>?,
 	canvasGroup: boolean?,
-	-- authored fade (ADR-0026): 1 = opaque, 0 = invisible-but-still-there.
+	-- authored fade: 1 = opaque, 0 = invisible-but-still-there.
 	-- Declaring it IS declaring a fade group, so `canvasGroup` is implied
 	opacity: Bound<number>?,
 }
@@ -445,7 +445,7 @@ export type StageSpec = BoxProps & {
 	tint: Bound<any>?,
 }
 
--- the FOREIGN box (ADR-0034): Stage's 2-D sibling. The authored surface is the
+-- the FOREIGN box: Stage's 2-D sibling. The authored surface is the
 -- box and the plate behind it and NOTHING else — no engine props, deliberately —
 -- and what goes in it rides `controller.foreignHost(path).adopt(instance)`, which
 -- is the only place a caller's Instance is ever mentioned.
@@ -456,7 +456,7 @@ export type ForeignSpec = BoxProps & {
 export type PathSpec = BoxProps & {
 	points: Bound<{ any }>,
 	-- same ruling as `DividerSpec.thickness` (gap 29, W3-B): the schema has
-	-- taken a theme metric name here since the metric-name grammar (ADR-0051; "same pattern one
+	-- taken a theme metric name here since the metric-name grammar ("same pattern one
 	-- construct over" as Divider's), and every real consumer that stamps a
 	-- theme-tracking stroke width — `p2_cartwheel/screens/{dashboard,ledger}.luau`,
 	-- `p1_glade/ui/scene.luau` — already spells one; this type used to say
@@ -467,7 +467,7 @@ export type PathSpec = BoxProps & {
 	tint: Bound<any>?,
 }
 
--- A structural region's enter/exit declaration (ADR-0022 Decision 3). `exit`
+-- A structural region's enter/exit declaration. `exit`
 -- defaults to the mirror of `enter`; `class` names a motion class (default
 -- "container"); `fade` pairs a slide with a transparency fade, which — like the
 -- fading forms themselves — needs the child to be a declared `canvasGroup` node.
@@ -658,7 +658,7 @@ end
 -- UI.* modifier passes its own name. A DIRECT constructor error passes nil and
 -- is byte-identical to what it always was.
 local function unknownPropError(class: string, key: string, modifier: string?): string
-	-- A REFUSED CAPABILITY, NAMED AS ONE (ADR-0029). `opacity`/`canvasGroup` are
+	-- A REFUSED CAPABILITY, NAMED AS ONE. `opacity`/`canvasGroup` are
 	-- absent from this class because the framework declined them, not because the
 	-- schema forgot: the suggester and the valid list are the wrong answer, and
 	-- the right one is a spelling. Everything else falls through unchanged.
@@ -998,9 +998,9 @@ end
 
 	AND BELOW IS WHERE THE GESTURE STILL ARRIVES, because of what "passive" means.
 	A cover is synthesized only when nothing above it is interactive, and a Facet
-	node that is not interactive is not an `Active` GuiObject — it sinks nothing
-	(docs/lessons/roblox-input-goes-to-the-topmost-only.md: it is the GuiButton that
-	sinks). The one class whose content cannot be inspected for that is `UI.Foreign`,
+	node that is not interactive is not an `Active` GuiObject — it sinks nothing,
+	because it is the GuiButton that sinks. The one class whose content cannot be
+	inspected for that is `UI.Foreign`,
 	and it is in `UNSEEN_CONTENT` below precisely so it never gets a cover.
 
 	`expandTarget.role` is a closed set of two again, and the solver already spends
@@ -1024,8 +1024,7 @@ end
 	(its Parent), and the content's OWN engine input still works — its class
 	contract says both in as many words. A registry read therefore calls it
 	passive, and a passive form gets a full-cover activation surface laid over it.
-	This repository has measured what that does: "a GuiButton SINKS input"
-	(docs/lessons/roblox-input-goes-to-the-topmost-only.md), so the adopted
+	This repository has measured what that does: "a GuiButton SINKS input", so the adopted
 	instance's own gestures would stop arriving. It is the one-gesture-two-meanings
 	collision the chevron exists to prevent, arriving through the one class that
 	cannot be inspected for it — and the principle for the treatment was already
@@ -1071,7 +1070,7 @@ local function formCarriesMeaning(node: Blueprint): boolean
 	return false
 end
 
--- Region (ADR-0023): ONE ranked thing a composition has to say. Its children are
+-- Region: ONE ranked thing a composition has to say. Its children are
 -- its FORMS, richest first, and the last one is its minimum-viable form — the
 -- smallest thing the author is willing to show. Declared in READING order; the
 -- `rank` is adaptation priority only, and the two are deliberately independent.
@@ -1170,16 +1169,16 @@ function blueprint.Region(spec: RegionSpec): Blueprint
 	local built: any = table.clone(spec :: any)
 	local engine: any = nil
 	if expandMode ~= "none" and declaredForms > 1 then
-		--[[ THE WAY OUT, AND IT IS THE FRAMEWORK'S OBLIGATION NOW (ADR-0013, fix
+		--[[ THE WAY OUT, AND IT IS THE FRAMEWORK'S OBLIGATION NOW (fix
 			round 1). The plate is presented MODAL — that is what stops it stranding
 			its own contents — and a modal traps the ring. On this platform the ring is
 			then the ONLY keyboard route out: Escape is permanently bound to the Roblox
-			CoreGui menu and the engine's VirtualInput refuses it outright (ADR-0013
-			§Justified exceptions, verified live 2026-07-19), so `cancel.bind` binds
+			CoreGui menu and the engine's VirtualInput refuses it outright (a justified
+			exception to the four-input rule, verified live 2026-07-19), so `cancel.bind` binds
 			ButtonB and nothing else. Reproduced by the wave's own reviewer: focus the
 			affordance, press Return, and the traversal ring inside the plate is EMPTY.
 
-			ADR-0013 already names the answer — "a focusable close affordance inside the
+			The framework already names the answer — "a focusable close affordance inside the
 			modal … screens that present a modal should always include a visible close
 			affordance for exactly this reason" — and until this wave that obligation
 			fell on the screen author. It does not any more: the FRAMEWORK is the thing
@@ -1577,7 +1576,7 @@ function blueprint.Region(spec: RegionSpec): Blueprint
 	end
 	return bp
 end
--- Composition (ADR-0023): the screen-level sibling of AdaptiveStack (one bound
+-- Composition: the screen-level sibling of AdaptiveStack (one bound
 -- axis) and ViewThatFits (one container's candidate). Every declaration error it
 -- can catch, it catches HERE — an unknown field, a second scroll region, a group
 -- with no home in some arrangement — because every one of those is a screen that
@@ -1867,7 +1866,7 @@ end
 -- Stage: the engine-content box. A leaf like Box (it measures 0x0 without dims);
 -- the adapter materializes it as a ViewportFrame and owns the WorldModel/Camera
 -- behind `controller.stageHost`.
--- Foreign: the box for a GuiObject Facet does not wrap (ADR-0034). A leaf like
+-- Foreign: the box for a GuiObject Facet does not wrap. A leaf like
 -- Box and Stage (it measures 0x0 without dims); the adapter materializes it as a
 -- CLIPPING Frame and makes exactly one claim on what the caller adopts into it —
 -- `Parent`, on the `host` authority — behind `controller.foreignHost`.
@@ -1932,12 +1931,12 @@ function blueprint.shadow(bp: Blueprint, spec: any, style: any?): Blueprint
 end
 
 -- UI.gradient(bp, { colors, rotation?, transparency?, enabled? }, style?) —
--- a UIGradient-backed per-view wash (charter cap 11; ADR-0020 R8 rung 2).
+-- a UIGradient-backed per-view wash (charter cap 11, the rung-2 modifier).
 --
 -- Two refusals live HERE rather than in the normalizer, because both are facts
 -- about the NODE and not about the ramp:
 --
---  1. A VALUE CONTROL'S OWN CHROME NEVER TAKES A WASH. This is the ADR-0019
+--  1. A VALUE CONTROL'S OWN CHROME NEVER TAKES A WASH. This is the
 --     ruling `themes.define` already enforces on the theme rung, and a rung-2
 --     modifier that walked around it would reopen a shipped decision: a wash's
 --     alpha makes the node see-through and whatever the control draws behind it
@@ -1996,7 +1995,7 @@ function blueprint.corners(bp: Blueprint, spec: any, style: any?): Blueprint
 end
 
 -- UI.stroke(bp, { thickness?, color?, transparency? }, style?) — a reactive
--- authored border (ADR-0022 Decision 6). Defaults are the theme's
+-- authored border. Defaults are the theme's
 -- hairline, so `UI.stroke(bp, {})` is the hairline the adapter already draws on a
 -- raised panel. The adapter materializes ONE bespoke `FacetStroke` child and
 -- reuses it, exactly as `UI.gradient` does — so no reactive update and no theme
@@ -2004,7 +2003,7 @@ end
 --
 -- ADDITIVE, not a replacement: a theme's own chrome stroke is a phantom
 -- `::UIStroke` RULE, and the engine renders a real UIStroke child alongside it
--- (ADR-0020 R8, measured live). A node that must show only one border should name
+-- (measured live). A node that must show only one border should name
 -- a surface that carries none.
 function blueprint.stroke(bp: Blueprint, spec: any, style: any?): Blueprint
 	return withProps(bp, { stroke = stylingLib.normalizeStroke(spec, style) }, "stroke")
@@ -2042,7 +2041,7 @@ function blueprint.cornersData(spec: any, style: any?): any
 	return stylingLib.normalizeCorners(spec, style)
 end
 
--- ===== drag and drop (ADR-0022 Decision 5) =====================
+-- ===== drag and drop =====================
 -- UI.draggable(bp, { payload, dragMotion?, proxy?, onCommitProxy?, grabAnchor?,
 -- declineTouch?, recycled?, promotionPx? }) and UI.dropTarget(bp, { accepts?, onDrop,
 -- onEnter?, onLeave? })

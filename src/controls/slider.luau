@@ -8,7 +8,7 @@
 -- `UIDragDetector`, reached through `controller.attachDragDetector`. The
 -- corrections also require a fallback for targets where the detector is not
 -- usable (billboard canvases until their coordinate mapping is proven), so the
--- track is a `UI.Grip` whose capture-based pointer handlers (ADR-0008) drive the
+-- track is a `UI.Grip` whose capture-based pointer handlers drive the
 -- SAME `setFromFraction`. Both routes converge on one mutation site; neither is a
 -- slider-specific recognizer.
 --
@@ -45,7 +45,7 @@ local rectLib = require("../rect")
 
 local slider = {}
 
--- THEME METRICS, not literals (ADR-0019 §2). The track is the effective-target
+-- THEME METRICS, not literals. The track is the effective-target
 -- floor (B-BTN3); the thumb, rail and readout width are the slider family's own
 -- metrics. Each resolves on every solve, so a theme swap re-sizes the control
 -- with no rebuild and no state loss.
@@ -91,11 +91,11 @@ export type Spec = {
 	-- leaves everything else (sizes, palette, the rest of the screen) on the
 	-- theme. Painted whole, because a bare URI carries no slice geometry.
 	--
-	-- v2 (ADR-0020 R2): the value may also be a PER-STATE map — `{ default =
+	-- v2: the value may also be a PER-STATE map — `{ default =
 	-- "...", hover = "...", disabled = "..." }` — over exactly the states a
 	-- recipe accepts. It is normalized by `themes.normalizeVariant`, the SAME
 	-- function the recipe schema uses, so the prop grammar cannot fork from the
-	-- theme grammar (ADR-0020 R2: one grammar, one normalizer, both rungs).
+	-- theme grammar (one grammar, one normalizer, both rungs).
 	-- Unstated states fall back to `default`.
 	thumbImage: (string | { [string]: any })?,
 	trackImage: (string | { [string]: any })?,
@@ -372,7 +372,7 @@ function slider.build(Facet: any, core: any, spec: Spec)
 						width = { type = "fill", weight = 1 },
 						height = { type = "fill", weight = 1 },
 						children = {
-							-- THE SLOT HINT (ADR-0019 fix round). Nothing generic can
+							-- THE SLOT HINT (theme fix round). Nothing generic can
 							-- infer "this Box is a slider rail" — `surface = "control"`
 							-- would have made it a plain control skin, i.e. a button
 							-- plate stretched into a groove. The control therefore

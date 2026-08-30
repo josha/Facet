@@ -1,5 +1,5 @@
 --!strict
--- Input contribution seam (ui_todo §0; ADR-0013). A COMPOSITE control advertises
+-- Input contribution seam (ui_todo §0). A COMPOSITE control advertises
 -- its four-input story to the presenter by attaching an input-contribution
 -- bundle to its blueprint ROOT node. The presenter walks the mounted tree,
 -- discovers the bundles, and auto-composes navigation groups, Activate dispatch,
@@ -37,7 +37,7 @@
 -- advertises the focusable paths that respond to the Adjust verb (grip resize,
 -- value steppers). The presenter binds the Adjust keys DYNAMICALLY — only while
 -- the focused path is one of these targets — so a bare screen never shadows
--- gameplay arrow/bumper keys while focus sits off-target (the ADR-0013 hazard).
+-- gameplay arrow/bumper keys while focus sits off-target (the auto-wiring hazard).
 -- direction is -1 (decrement) or +1 (increment). handleAdjust returns true when
 -- it consumed the adjust; longest-path-prefix wins, like handleActivate.
 -- opts.onAdjust still overrides both per-opt (back-compat).
@@ -61,7 +61,7 @@
 --     dismisses it (non-destructive), and the presenter synthesizes a transparent
 --     full-viewport catcher beneath the screen so a tap on EMPTY space also
 --     dismisses (Zone-A geometry over the contribution's solved rects, mirroring
---     the modal two-zone model, ADR-0014). A real modal above the screen
+--     the modal two-zone model). A real modal above the screen
 --     suppresses the catcher.
 --
 --     `consume` (default true / omitted) SWALLOWS the outside tap after
@@ -147,7 +147,7 @@ export type Bundle = {
 		nominate an untruncated label, and cannot skip the visibility rules. ]]
 	discloseScope: ((path: string) -> string?)?,
 	-- bindMotion (row-actions Task 4): hands the control the presenter's own
-	-- motion clock (`self.motionClock`, ADR-0022 Decision 1) — the one every
+	-- motion clock (`self.motionClock`) — the one every
 	-- surface transition, toast schedule, and drag flight already rides —
 	-- the same way bindActionSystem/bindController/bindFocusGraph hand over
 	-- what a composite cannot construct for itself. Called once per

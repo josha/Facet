@@ -39,7 +39,7 @@
 
 	The axis-neutral names are `itemExtent` and `viewportExtent`. `rowHeight`
 	and `viewportHeight` are DEPRECATED ALIASES of exactly those two and KEEP
-	WORKING unchanged (ADR-0011: at least one MINOR of notice; both spellings
+	WORKING unchanged (at least one MINOR of notice; both spellings
 	are in `Facet.DEPRECATIONS`). Passing a name and its alias together is
 	refused — it is one field, and two answers to it is an authoring mistake.
 	Nothing else was renamed: `rowGap` is still `rowGap` (a gap is a gap, and it
@@ -59,8 +59,8 @@
 	`index × pitch`", which was true until the day `itemExtent` gained its per-item
 	function form and every windowing number in this file moved onto
 	`src/virtual_extents.luau`. It survived the change that falsified it, which is
-	the `docs/lessons/a-header-comment-describes-the-path-it-was-written-for.md`
-	class, in the file that names that lesson.
+	the class where a header comment describes the path it was written for and no
+	other, in the file that names it.
 
 	WHAT IS TRUE NOW: the window comes from a running-offset INDEX, chosen once at
 	build. `uniform` is the old `index × pitch` formulas verbatim and every list
@@ -81,7 +81,7 @@
 	(`artifacts/variable-item-extents/perf.md`). A consumer who really can predict a
 	row's height should keep doing it. ]]
 --
--- THE UNIFIED COLLECTION (ADR-0022 Decision 5, its unified-collection rows). One
+-- THE UNIFIED COLLECTION (its unified-collection rows). One
 -- construct
 -- windows, selects, reorders and accepts drops at the same time, because the
 -- racer-list shape needs all four AT ONCE and a second list construct would have
@@ -100,7 +100,7 @@
 -- `axis = "y"` / offsetX = (index-1)*PITCH on `axis = "x"`. The solver sums the
 -- scroll axis, so contentSize == the Canvas's main-axis size == the full
 -- virtual extent; the renderer maps that to CanvasSize (the native-substrate
--- adoption, ADR-0017). Row offsets are CANVAS offsets, engine-independent (a scroll never
+-- adoption). Row offsets are CANVAS offsets, engine-independent (a scroll never
 -- re-arranges them — the ENGINE translates via CanvasPosition), so a
 -- same-window scroll delta is now ZERO framework writes (was rect-writes-only
 -- under the old Anchor+offsetY trick).
@@ -166,7 +166,7 @@
 -- that re-aimed a gesture mid-flight would fight the player's hand), and when
 -- the slot's new occupant fails `rowFocusable` (parking the ring on a dead row
 -- is worse than the jump it prevents, so focus falls through to the item).
--- FOUR-INPUT STORY (ui_todo §0; ADR-0013), auto-composed by the presenter:
+-- FOUR-INPUT STORY (ui_todo §0), auto-composed by the presenter:
 --   * pointer/touch: the engine ScrollingFrame owns wheel/pan/momentum scroll;
 --     each row is a focusable Button hit whose tap routes handleActivate -> the
 --     spec's item-level onActivate; the scroll host clips partial rows natively.
@@ -408,7 +408,7 @@ local VIRTUAL_LIST_KEYS = specGuard.keySet({
 	"id",
 	-- the canonical, axis-neutral extent names. `rowHeight` / `viewportHeight`
 	-- below are their DEPRECATED ALIASES and stay in this set because they stay
-	-- accepted (ADR-0011) — removing them from the set is what the removal
+	-- accepted — removing them from the set is what the removal
 	-- release does, not this one.
 	"itemExtent",
 	"key",
@@ -431,14 +431,14 @@ local VIRTUAL_LIST_KEYS = specGuard.keySet({
 	"rowMovable",
 	"rowSelectable",
 	"rowGap",
-	"rowHeight", -- deprecated alias of itemExtent (ADR-0011)
+	"rowHeight", -- deprecated alias of itemExtent
 	"rows",
 	"selection",
 	"selectionPaint",
 	-- where this list is allowed to come to REST: "none" (default) | "item"
 	"snap",
 	"viewportExtent",
-	"viewportHeight", -- deprecated alias of viewportExtent (ADR-0011)
+	"viewportHeight", -- deprecated alias of viewportExtent
 	"width",
 })
 
@@ -517,7 +517,7 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 			.. "native scroll state mid-gesture (constitution §16 E-6, the same rule ScrollView.axis follows)."
 	)
 	local isX = axis == "x"
-	--[[ ONE FIELD, TWO NAMES (ADR-0011). `itemExtent` / `viewportExtent` are the
+	--[[ ONE FIELD, TWO NAMES. `itemExtent` / `viewportExtent` are the
 		canonical, axis-neutral names; `rowHeight` / `viewportHeight` are their
 		DEPRECATED ALIASES and keep working unchanged for at least one MINOR —
 		both spellings are registered in `Facet.DEPRECATIONS`, and an existing
@@ -530,7 +530,7 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 		if canonical ~= nil and alias ~= nil then
 			error(
 				`newVirtualList: {canonicalName} and {aliasName} are the SAME field under two names `
-					.. `({aliasName} is the deprecated alias of {canonicalName}, ADR-0011) — pass exactly one`,
+					.. `({aliasName} is the deprecated alias of {canonicalName}) — pass exactly one`,
 				0
 			)
 		end
@@ -1178,7 +1178,7 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 	-- still moves the LOGICAL focus and simply has no ring to move with it.
 	local focusGraph: any = nil
 
-	-- ===== the drag registry seam (ADR-0022 D5) ==============================
+	-- ===== the drag registry seam ==============================
 	-- The registry belongs to the SURFACE, not to the list: a card dragged out of
 	-- a hand and onto a row is one session crossing two constructs, so the list
 	-- borrows the renderer's registry rather than owning one. Everything below
@@ -1395,9 +1395,8 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 		raised the accessibility text preference, a localization swapped in ~1.4x the
 		copy, the theme metrics moved — that same pixel lands on a different item and
 		the player is somewhere else in their list. This repo has a recorded jump
-		class of exactly that shape (`docs/lessons/`, the minimap jump), and the
-		parity doc calls the mitigation "partial" for the estimate-and-correct design
-		because it was never built.
+		class of exactly that shape (the minimap jump), and the mitigation for the
+		estimate-and-correct design is only partial, because it was never built.
 
 		THE ANCHOR IS THE ITEM UNDER THE VIEWPORT'S LEADING EDGE, AND THE OFFSET INTO
 		IT. Captured on every scroll the ENGINE reports (or a test writes), which is
@@ -1474,7 +1473,7 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 		end))
 	end
 
-	-- ===== native scroll seam (native-substrate adoption, ADR-0017) ===========
+	-- ===== native scroll seam (native-substrate adoption) ===========
 	-- scrollTop is written only by the engine mirror (bindNativeScroll) or a
 	-- test. The control can reach the renderer's controller only AFTER present,
 	-- so the consumer/presenter wires it: bindNativeScroll(controller) feeds
@@ -1913,9 +1912,8 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 			return true
 		end
 		--[[ THE DRAG/SWIPE ARTIFACT, SWALLOWED — and only a POINTER may spend it
-			(the red-team rule in
-			docs/lessons/an-arm-set-by-a-gesture-must-name-what-may-spend-it.md,
-			applied to this control too). A promoted drag,
+			(the red-team rule that an arm set by a gesture must name what may spend
+			it, applied to this control too). A promoted drag,
 			a hosted swipe and a tap on an open row are all POINTER gestures, and
 			the stray `Activated` each leaves behind is a pointer's
 			(`screen_target.luau`'s `pointerActivateMeta`: `source == "pointer"`).
@@ -2116,7 +2114,7 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 			if node.path ~= nil and string.match(node.path, hitPattern) ~= nil then
 				local rowPath = node.path
 				if spec.rowFocusable ~= nil then
-					-- FOCUS-SKIP BY LIVE PREDICATE (ADR-0022 Decision 5), evaluated at
+					-- FOCUS-SKIP BY LIVE PREDICATE, evaluated at
 					-- navigation
 					-- time — plus the ACTIVE-INTERACTION EXEMPTION: the row a live
 					-- session is aiming at never loses its focusability mid-gesture,
@@ -2761,7 +2759,7 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 		axis = axis,
 		padding = 0,
 		gap = 0,
-		-- native scroll + clip host (native-substrate adoption, ADR-0017): the adapter mounts a
+		-- native scroll + clip host (native-substrate adoption): the adapter mounts a
 		-- ScrollingFrame; descendants render inside it and partial rows crop. The
 		-- solver's scroll-axis content sum becomes CanvasSize; the ENGINE owns the
 		-- live offset (wheel/touch/momentum), reported back through observeScroll.
@@ -2782,7 +2780,7 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 	})
 
 	-- attach the input contribution so the presenter auto-composes VirtualList's
-	-- four-input story with ZERO consumer opts (ui_todo §0; ADR-0013):
+	-- four-input story with ZERO consumer opts (ui_todo §0):
 	-- focusGroups (windowed row hits, re-derived per refresh; also captures the
 	-- mounted scroll path), handleActivate (tap/Return/ButtonA -> item onActivate,
 	-- or arm/commit while reorderable), focusMoved (arrow/d-pad focus -> logical

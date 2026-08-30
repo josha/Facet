@@ -163,7 +163,7 @@ local function mainDimOf(child: any, isH: boolean): Dim
 end
 
 -- exported below as solver.sides (renderer scroll-region canvas math must use
--- the SAME padding semantics the arrange pass uses — ADR-0017's native-substrate rule)
+-- the SAME padding semantics the arrange pass uses — the native-substrate rule)
 local function sides(margin: any): (number, number, number, number) -- t, r, b, l
 	if margin == nil then
 		return 0, 0, 0, 0
@@ -186,7 +186,7 @@ local function textTypography(ctx: MeasureCtx, node: any): (string, number, numb
 	-- typography comes from the active snapshot: `body` is the default role, and a
 	-- string textSize NAMES a role (the renderer normally resolves it, but a direct
 	-- solver caller may hand one straight in). The measured font is the role's
-	-- canonical DESCRIPTOR ("family#weight#style", ADR-0019 §6), never a bare
+	-- canonical DESCRIPTOR ("family#weight#style"), never a bare
 	-- family: two weights of one family measure differently.
 	local roles = ctx.metrics.type
 	local role = if type(node.textSize) == "string" then roles[node.textSize] else nil

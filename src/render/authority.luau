@@ -23,7 +23,7 @@
 -- will not report. Nothing in `themes/` writes here, and nothing here knows
 -- `themes/` exists.
 --
--- `host` WENT LIVE WITH `UI.Foreign` (ADR-0034, 2026-08-15) and owns exactly one
+-- `host` WENT LIVE WITH `UI.Foreign` (2026-08-15) and owns exactly one
 -- entry: `Foreign.Parent`. It had been declared and unused for several
 -- milestones — the string appeared exactly once in the whole repository, as its
 -- own type-union member — reserved for the escape hatch that mounts raw
@@ -75,14 +75,14 @@ local MANIFEST: { [string]: { [string]: Authority } } = {
 		-- the per-view gradient modifier: normalized UIGradient data. The
 		-- adapter materializes ONE bespoke child; the theme's own gradients are
 		-- phantom ::UIGradient RULES, and a real child is what makes the view
-		-- win on this node (ADR-0020 R8 composition).
+		-- win on this node.
 		gradient = "style",
 		corners = "style",
-		-- the AUTHORED stroke modifier (ADR-0022 Decision 6): normalized UIStroke
+		-- the AUTHORED stroke modifier: normalized UIStroke
 		-- data, exactly the shape and authority `shadow`/`gradient`/`corners` carry.
 		-- The adapter materializes ONE bespoke child; a theme's own chrome stroke is
 		-- a phantom ::UIStroke RULE and the engine renders both, so the authored one
-		-- is additive rather than a replacement (ADR-0020 R8).
+		-- is additive rather than a replacement.
 		stroke = "style",
 		strokeColor = "style",
 		transparency = "presentation",
@@ -94,8 +94,7 @@ local MANIFEST: { [string]: { [string]: Authority } } = {
 		-- set it, which is what makes the guarantee universal.
 		dragHeld = "presentation",
 	},
-	-- Box is the one container-shaped leaf that can wear a continuous fill
-	-- (ADR-0022 Decision 6). `tint` is BINDING authority on purpose: the value is
+	-- Box is the one container-shaped leaf that can wear a continuous fill. `tint` is BINDING authority on purpose: the value is
 	-- data (a blend driven by a signal, an identity hue), which is exactly what the
 	-- style authority cannot express — a rule cannot see a value. In native mode the
 	-- write CLAIMS the engine property from the sheet; the claim is recorded and
@@ -187,7 +186,7 @@ local MANIFEST: { [string]: { [string]: Authority } } = {
 	-- LightDirection, CurrentCamera — are not authored at all and are declared in
 	-- SEAM_OWNED below.
 	Stage = { tint = "binding" },
-	--[[ THE FOREIGN BOX, AND THE ONE CLAIM THAT MAKES `host` LIVE (ADR-0034).
+	--[[ THE FOREIGN BOX, AND THE ONE CLAIM THAT MAKES `host` LIVE.
 
 		`Parent` is not an authored prop — no `UI.Foreign{ parent = … }` exists and
 		no consumer can ask for this. It is the ONE engine property Facet ever
@@ -298,11 +297,11 @@ local INSTANCE_NAMES = table.freeze({
 authority.INSTANCE_NAMES = INSTANCE_NAMES
 
 local BESPOKE_INSTANCES: { [string]: string } = {
-	[INSTANCE_NAMES.motionScale] = "the presentation channel's transient UIScale (ADR-0022 Decision 2): a motion "
+	[INSTANCE_NAMES.motionScale] = "the presentation channel's transient UIScale: a motion "
 		.. "scale is not paint and no rule can express one, and it exists only while a motion runs. On a node that "
 		.. "already owns a UIScale for its press dip the presentation write REUSES that instance — the engine honours "
 		.. "one UIScale per object, so two would make the winner unpredictable",
-	[INSTANCE_NAMES.stroke] = "the authored UI.stroke border (ADR-0022 Decision 6) — the same sanctioned-override "
+	[INSTANCE_NAMES.stroke] = "the authored UI.stroke border — the same sanctioned-override "
 		.. "standing UI.corners/UI.shadow have. A theme's own chrome stroke is a phantom ::UIStroke rule and the "
 		.. "engine renders both, so this one is additive and never suppresses the theme's",
 	FacetChrome = "the single-asset slot decoration (nineSlice recipes)",

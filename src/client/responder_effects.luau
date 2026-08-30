@@ -1,5 +1,5 @@
 --!strict
--- Responder engine effects (CLIENT-ONLY; ADR-0014). The presenter's first-
+-- Responder engine effects (CLIENT-ONLY). The presenter's first-
 -- responder model (passive vs engaged-exclusive surfaces) is engine-free and
 -- resolves purely through IAS InputContext priority + Sink. This module is the
 -- thin CLIENT-LOCAL seam that applies the one engine-level side effect the
@@ -10,7 +10,7 @@
 -- deprecated replacement for `UserInputService.ModalEnabled` — platform
 -- research 2026-07-21), restoring the prior value on release.
 --
--- DEFERRED IN v1 (ADR-0014, pending a live Studio probe): this module does NOT
+-- DEFERRED IN v1 (pending a live Studio probe): this module does NOT
 -- touch `GuiService.SelectedObject`. `SelectedObject` and IAS are parallel,
 -- undocumented-linkage systems (research Open risk 4); driving engine gamepad
 -- focus alongside Facet's own focus graph risks a double-drive, so it waits on

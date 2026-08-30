@@ -18,8 +18,8 @@
 	near the top of the solver, assigned ~2,300 lines later — because both passes
 	run it and the measure branch's PASS 1.5 calls it long before the arrange
 	helpers are defined. A forward-declared local assigned far from its
-	declaration is precisely the shape
-	`docs/lessons/later-locals-are-not-upvalues.md` records, and the solver had
+	declaration is precisely the shape that binds a nil global instead of an
+	upvalue, and the solver had
 	four of them. It now has three: this one is a require, bound before anything
 	can call it.
 
@@ -291,8 +291,7 @@ end
 -- where `priorityOrder` is nil when NOTHING opted in — which is what keeps the
 -- overflow diagnostic's historic wording byte-identical on the default path.
 --
--- TWO CALLERS, ONE ALGORITHM (say which path a comment describes —
--- docs/lessons/a-header-comment-describes-the-path-it-was-written-for.md):
+-- TWO CALLERS, ONE ALGORITHM (say which path a comment describes):
 --
 --   * MEASURE, at PASS 1.5 of the stack branch, when the offer this stack was
 --     handed is already too small for its children. It uses the answer to re-

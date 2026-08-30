@@ -14,7 +14,7 @@
 -- Structural changes keep focus when it survives, else the nearest surviving
 -- neighbor, preferring the following item.
 --
--- TWO-DIMENSIONAL GROUPS (ADR-0030). A group may also declare `columns`, which
+-- TWO-DIMENSIONAL GROUPS. A group may also declare `columns`, which
 -- makes it a RECTANGLE rather than a ring: its order is LINES of `columns`
 -- LANES in row-major document order, `axis` names the LANE direction, and the
 -- direction PERPENDICULAR to it moves a whole line (±columns) instead of
@@ -23,7 +23,7 @@
 -- byte-identically to a graph that never heard of the second axis
 -- (tests/focus_grid_axis.spec.luau, "NULL HYPOTHESIS").
 --
--- FOCUS-SKIP (ADR-0022 Decision 5). An order entry may be written as
+-- FOCUS-SKIP. An order entry may be written as
 -- `{ id = path, focusable = () -> boolean }` instead of a bare path string.
 -- The predicate is evaluated AT NAVIGATION TIME, never cached, so a row that
 -- becomes ineligible while something is armed drops out of the ring on the very
@@ -57,7 +57,7 @@ export type NavigationGroup = {
 	containment: boolean?,
 	entry: string?, -- "first" (default) | "restore" | "nearest"
 	exit: { [string]: string }?, -- direction -> target group name
-	--[[ THE SECOND AXIS (ADR-0030). An integer >= 1 declaring that this group's
+	--[[ THE SECOND AXIS. An integer >= 1 declaring that this group's
 		`order` is LINES of `columns` LANES, row-major, in document order — which is
 		exactly what a lazy grid's mounted band already is. `axis` then names the
 		LANE direction (a vertical grid's lanes run across, so it declares "horizontal";
@@ -660,7 +660,7 @@ function focus_graph.new(core: any)
 		return nil
 	end
 
-	--[[ THE PERPENDICULAR STEP OF A 2-D GROUP (ADR-0030): one whole LINE, keeping
+	--[[ THE PERPENDICULAR STEP OF A 2-D GROUP: one whole LINE, keeping
 		the lane. Returns whether it landed; `false` means the move leaves the
 		rectangle and the caller exits the group as it always did.
 
@@ -733,8 +733,7 @@ function focus_graph.new(core: any)
 		-- 3, which read as random. Perpendicular entry (a grid's up/down between
 		-- rows) keeps ordinal nearest, which is what preserves the column.
 		local axisDelta = if direction ~= nil then AXIS_DELTA[group.axis or "vertical"][direction :: string] else nil
-		--[[ PERPENDICULAR ENTRY INTO A RECTANGLE IS THE NEAR LINE, AT THE ORDINAL LANE
-			(ADR-0030). The near-end rule above and the ordinal-nearest rule below are
+		--[[ PERPENDICULAR ENTRY INTO A RECTANGLE IS THE NEAR LINE, AT THE ORDINAL LANE. The near-end rule above and the ordinal-nearest rule below are
 			the same rule read along and across an axis; a 2-D group is the one shape
 			that needs both at once. Entering downward means the FIRST line, entering
 			upward means the LAST — and within it, the incoming ordinal is the lane, so
@@ -951,8 +950,7 @@ function focus_graph.new(core: any)
 		local i = indexOf((group :: NavigationGroup).order, focused:get()) :: number
 		local axisDelta = AXIS_DELTA[(group :: NavigationGroup).axis or "vertical"][direction]
 		if axisDelta == nil then
-			-- orthogonal to the group's axis: a RECTANGLE answers it by a whole line
-			-- (ADR-0030); a ring has no answer and only an exit can move focus.
+			-- orthogonal to the group's axis: a RECTANGLE answers it by a whole line; a ring has no answer and only an exit can move focus.
 			local columns = laneCount(group)
 			if columns ~= nil and lineStep(scope, group :: NavigationGroup, i, columns, direction) then
 				return
@@ -1202,7 +1200,7 @@ function focus_graph.new(core: any)
 	-- come from the same derivation that produced it or the two drift and the
 	-- perpendicular arrow starts stepping a rectangle that no longer exists.
 	-- Omitting it clears the group's second axis rather than leaving a stale one
-	-- (ADR-0030, "the rectangle invariant") — a 1-D caller is therefore unchanged.
+	-- ("the rectangle invariant") — a 1-D caller is therefore unchanged.
 	function self.setGroupOrder(scopeName: string, groupName: string, order: { any }, columns: number?)
 		for i = #scopes, 1, -1 do
 			local scope = scopes[i]
@@ -1259,7 +1257,7 @@ function focus_graph.new(core: any)
 			-- shifts a lane, so the line arithmetic would be confidently wrong from
 			-- here on. The group falls back to its 1-D reading — merely old — until a
 			-- whole-order replacement re-declares the field, which is what every 2-D
-			-- emitter does on refresh (ADR-0030).
+			-- emitter does on refresh.
 			(group :: any).columns = nil
 			if (group :: any)._focusable ~= nil then
 				(group :: any)._focusable[id] = nil
@@ -1346,7 +1344,7 @@ function focus_graph.new(core: any)
 				axis = group.axis,
 				-- present only on a 2-D group, and it is the difference between "the
 				-- ring runs across" and "the ring runs across AND down" — the one thing
-				-- a reader of this dump cannot infer from the order alone (ADR-0030)
+				-- a reader of this dump cannot infer from the order alone
 				columns = laneCount(group),
 				order = order,
 			})

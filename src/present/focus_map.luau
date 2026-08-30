@@ -34,7 +34,7 @@ end
 -- grips (opt-in focusable pointer zones) sort AFTER the ordinary walk so list
 -- navigation lands on content first; they stay reachable past the end
 -- (gamepad resize affordance — the virtual cursor ignores MouseIcon)
--- A RETIRING SUBTREE IS NOT INTERACTIVE (ADR-0022 Decision 3). A node whose
+-- A RETIRING SUBTREE IS NOT INTERACTIVE. A node whose
 -- structural region declared an exit transition stays MOUNTED while it plays that
 -- exit — its layout slot holds, its instances stay put — and that is exactly the
 -- window in which it must stop being focusable and stop taking taps. Focus landing
@@ -70,7 +70,7 @@ end
 local isPathPrefix = paths.isPrefix
 
 -- An order entry is a bare path OR the live-predicate form `{ id = path,
--- focusable = () -> boolean }` (ADR-0022 Decision 5). Both have to be filterable,
+-- focusable = () -> boolean }`. Both have to be filterable,
 -- because the hidden rule is about the NODE, not about how it was declared.
 local function entryPath(entry: any): string?
 	if type(entry) == "string" then
@@ -131,7 +131,7 @@ local function filterGroupsHidden(groups: { any }, hidden: { [string]: boolean }
 				-- lane, so the perpendicular arrow would land confidently wrong.
 				-- `focus_graph.remove` drops the field for the same reason and this is
 				-- the same splice, one layer up — the group falls back to its 1-D
-				-- reading, which is merely old (ADR-0030, "the rectangle invariant").
+				-- reading, which is merely old ("the rectangle invariant").
 				copy.columns = nil
 				table.insert(out, copy)
 				continue
@@ -354,7 +354,7 @@ local function traversalRank(rootNode: any, order: { any }?, groups: { any }?): 
 	return rank
 end
 
--- ===== input auto-wiring seam (ADR-0013; ui_todo §0) =======================
+-- ===== input auto-wiring seam (ui_todo §0) =======================
 -- The presenter walks the MOUNTED tree, discovers each composite's attached
 -- input-contribution bundle, and auto-composes navigation groups + Activate
 -- dispatch + grab intercept + focus-move reporting + geometry + keep-visible +
@@ -748,7 +748,7 @@ local function autoGroups(rootNode: any): { any }
 	return groups
 end
 
--- ===== auto navigation groups from LAYOUT STRUCTURE (ADR-0013 WP-1) =========
+-- ===== auto navigation groups from LAYOUT STRUCTURE =========================
 -- A PLAIN screen (no input contributions) still deserves 2D navigation when its
 -- layout says so: an HStack row of focusables is a horizontal group; focusables
 -- under a Grid are per-row horizontal groups linked by up/down exits (grid 2D

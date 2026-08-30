@@ -19,7 +19,7 @@
 --                      gamepad: focus then Adjust (L1/R1) with a ten-foot focus
 --                      profile. The Adjust binding is DYNAMIC — bound only while
 --                      focus sits on this control — so a screen containing a
---                      Stepper never shadows gameplay bumper keys (ADR-0013).
+--                      Stepper never shadows gameplay bumper keys.
 --      hotSwitch     — a Stepper holds NO in-flight state (each press is atomic),
 --                      so there is nothing to CARRY or CANCEL on a live class flip.
 --
@@ -33,7 +33,7 @@ local themePackage = require("../themes/package")
 local value_model = require("./value_model")
 local specGuard = require("../spec_guard")
 
--- THE +/- GLYPHS (ADR-0020 R4). Requested by MEANING and drawn as the
+-- THE +/- GLYPHS. Requested by MEANING and drawn as the
 -- framework's ASCII-safe characters. The decrement used to be U+2212, the MINUS
 -- SIGN — the same class of hazard as the disclosure caret's geometric triangle,
 -- and one the framework has already been bitten by twice (text_input's U+2715
@@ -156,13 +156,13 @@ function stepper.build(Facet: any, core: any, spec: Spec)
 			-- SQUARE targets (director review 2026-07-24): the floor was on height
 			-- only, so a "-"/"+" sized itself 36 wide against a 44 tall box and read
 			-- as an oddly tall sliver. A touch target is a target on both axes.
-			-- THE GLYPH PLATE (ADR-0020 R3). A +/- affordance is a Button, so every
+			-- THE GLYPH PLATE. A +/- affordance is a Button, so every
 			-- package skins it through the `control` recipe today; a package that
 			-- wants a carved stepper plate instead declares `stepperPlate`, and
 			-- `chrome_slots.resolveSlot` falls this hint back to `control` for every
 			-- package that does not — a v2 slot must never UN-skin a v1 theme.
 			--
-			-- ...and the GLYPH is a SEMANTIC ICON REQUEST (ADR-0020 R4, landed in
+			-- ...and the GLYPH is a SEMANTIC ICON REQUEST (landed in
 			-- P4 on the seam P3 named). The button's own text is the framework's
 			-- ASCII character, so the affordance is legible under every theme; the
 			-- `icon` name beside it lets a package that ships +/- art have the
@@ -217,7 +217,7 @@ function stepper.build(Facet: any, core: any, spec: Spec)
 			end
 			return false
 		end,
-		-- focus-gated Adjust (ADR-0013): the whole row is an adjust target, so
+		-- focus-gated Adjust: the whole row is an adjust target, so
 		-- keyboard Comma/Period and gamepad L1/R1 reach the same arithmetic while
 		-- focus is anywhere inside this control — and are UNBOUND otherwise.
 		-- `rootNode` is THIS CONTROL's mounted root, so "every Button below here"

@@ -17,7 +17,7 @@
 -- the engine answers for exactly that triple, so two cores measuring the same
 -- word in the same font MUST get the same number or one of them is wrong.
 -- Scoping it per core would remove the sharing that makes a second surface free
--- and double the engine round trips `docs/lessons/roblox-text-bounds-boot-window.md`
+-- and double the engine round trips the boot-window text-bounds trap
 -- exists because of.
 --
 -- `calibration` IS A REAL CROSS-CONSUMER COUPLING, and calling it
@@ -42,7 +42,7 @@
 -- are single-consumer situations; a second Facet consumer in the same VM should
 -- not call them at all.
 --
--- FONT KEYS (ADR-0019 §6): every store here keys on the canonical descriptor
+-- FONT KEYS: every store here keys on the canonical descriptor
 -- "family#weight#style". The three short names the library shipped with remain
 -- aliases for their Regular/Normal descriptor, so `calibrate("BuilderSans", …)`
 -- and `calibrate("BuilderSans#Regular#Normal", …)` address ONE entry, and
@@ -65,7 +65,7 @@ local text_metrics = {}
 -- drift apart again.
 local AVG_GLYPH_FRACTION = 0.62
 text_metrics.AVG_GLYPH_FRACTION = AVG_GLYPH_FRACTION
--- default line-height factor; a typography role may carry its own (ADR-0019 §6)
+-- default line-height factor; a typography role may carry its own
 local LINE_HEIGHT_FACTOR = 1.2
 text_metrics.LINE_HEIGHT_FACTOR = LINE_HEIGHT_FACTOR
 
@@ -123,7 +123,7 @@ function text_metrics.lineBoxPx(fontSize: number, lines: number, lineHeight: num
 	return math.ceil(lines * fontSize * factor)
 end
 
--- ===== canonical font keys (ADR-0019 §6) ===================================
+-- ===== canonical font keys ===================================
 -- Every store in this module keys on the EFFECTIVE font descriptor
 -- "family#weight#style", never on a short family name: two weights of one
 -- family measure differently, and sharing one cache entry between them is a
@@ -498,7 +498,7 @@ local function wrap(
 	--
 	-- The gap's literal SPACE characters are counted. Only spaces: a gap made of a
 	-- newline still counts as one, so the embedded-newline behaviour
-	-- (docs/lessons/embedded-newlines-measure-as-one-line.md) is byte-identical, and
+	-- is byte-identical, and
 	-- so is every single-spaced string in the suite.
 	--
 	-- CAPTURED AS A POSITION, NOT AS A STRING (bench, 2026-08-06). The obvious
@@ -553,8 +553,7 @@ end
 
 -- measure(text, font, fontSize, maxWidth, lineHeight?, maxLines?) -> Metrics.
 -- Never yields.
--- `lineHeight` is the typography role's factor from the active ThemeSnapshot
--- (ADR-0019 §6); absent, the library's historic global 1.2 applies, which is
+-- `lineHeight` is the typography role's factor from the active ThemeSnapshot; absent, the library's historic global 1.2 applies, which is
 -- what every neutral role carries — so omitting it is byte-identical.
 --
 -- `maxLines` is the LINE CAP (solver `lineLimit`, blueprint `Text.lineLimit`).

@@ -9,7 +9,7 @@
 --   * a disabled/destroyed context never fires; firing an orphaned scriptable
 --     binding is a silent no-op (spike T6a).
 -- The Roblox adapter (client-only) maps this 1:1 onto InputContext/
--- InputAction/InputBinding; per ADR-0004 arbitration itself is re-verified
+-- InputAction/InputBinding; arbitration itself is re-verified
 -- with real injected input at engine gates.
 
 local actions = {}
@@ -318,7 +318,7 @@ function actions.newSystem(core: any)
 		return context
 	end
 
-	-- modifier state (Phase B, ADR-0008): shift and ctrl/cmd are tracked from
+	-- modifier state (Phase B): shift and ctrl/cmd are tracked from
 	-- the same device stream so Activate semantics can honor held modifiers
 	local MODIFIER_GROUP: { [string]: string } = {
 		LeftShift = "shift",

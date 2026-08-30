@@ -1,5 +1,5 @@
 --!strict
--- Theme PACKAGE compiler (ADR-0019 §1, stage theme-packages-and-skinning).
+-- Theme PACKAGE compiler.
 -- PURE and engine-free: `define(def) -> (package?, report)` validates a
 -- declarative theme description and returns a deeply frozen, content-stamped
 -- package, or nil plus a report naming every rejection.
@@ -7,7 +7,7 @@
 -- A package is INSPECTABLE DATA, never code. It is the versioned packaging and
 -- solver bridge around native StyleSheets — it adds validation, deterministic
 -- metrics, and bounded asset/chrome metadata; it is not a second style language
--- and it may not carry callbacks or component trees (ADR-0019 non-goals).
+-- and it may not carry callbacks or component trees.
 --
 -- Public interface
 --   package.SCHEMA                      the schema string this compiler speaks
@@ -28,17 +28,16 @@ local tokens = require("../tokens/tokens")
 local authority = require("../render/authority")
 -- the bespoke shadow contract a recipe's `shadow` field is validated against.
 -- PURE (styling -> default_style -> tokens); nothing in that chain reaches back
--- here, so this is not a cycle (docs/lessons/lune-circular-require-hangs.md).
+-- here, so this is not a cycle.
 local styling = require("../tokens/styling")
 -- the focus vocabulary + the per-theme colour-token resolver. PURE and DOWN the
 -- graph (chrome_slots -> chrome_props, and nothing there reaches back here), so
--- this is not the cycle ADR-0019's require-hazard ruling warns about.
+-- this is not the cycle the require-hazard ruling warns about.
 local chrome_slots = require("../tokens/chrome_slots")
 -- the framework's OWN icon art (compact-label stage): a leaf module of frozen
 -- data that requires nothing at all, so it cannot be the cycle above warns about.
 -- Required here rather than looked up lazily because `resolveIcon` is called on
--- every icon sync and a later `local` would be a nil global read
--- (docs/lessons/later-locals-are-not-upvalues.md).
+-- every icon sync and a later `local` would be a nil global read.
 local standard_icons = require("./standard_icons")
 local num = require("../num")
 local textDistance = require("../text_distance")
@@ -49,7 +48,7 @@ package.SCHEMA = "facet-theme/1"
 
 -- ===== the versioned core vocabulary =======================================
 -- v1 is a CLOSED set. A custom control's namespaced roles are a later
--- contribution contract (ADR-0019 §1); nothing here accepts an unknown name,
+-- contribution contract; nothing here accepts an unknown name,
 -- because an unknown name is the exact authoring mistake this compiler exists
 -- to catch before play.
 
@@ -137,7 +136,7 @@ package.REQUIRED_SPACE_STEPS = table.freeze({ "xs", "s", "m", "l", "xl" })
 	and a package that authors one of its own still wins.
 
 	`tight` is THE MISSING SPACING STEP (task G-SPACE, the declarative-purity
-	audit's `gap = 6` finding, ADR-0047). `xs` (4) and `s` (8) are the ladder's
+	audit's `gap = 6` finding). `xs` (4) and `s` (8) are the ladder's
 	two smallest required rungs and nothing named the value HALFWAY BETWEEN
 	them, so 61 sites across 25 files (and the framework's own
 	`controls.label.gap`) spent a raw `6` because there was nowhere else to
@@ -148,8 +147,7 @@ package.REQUIRED_SPACE_STEPS = table.freeze({ "xs", "s", "m", "l", "xl" })
 	every package's own ladder rather than a Studio-Neutral-only constant: it
 	answers 6 at neutral (4, 8) and moves with a package that re-ladders `xs`/`s`.
 
-	NAMING DOCTRINE (do not invent a new class — see ADR-0047 for the full
-	argument): the five REQUIRED steps are relative-size letters (xs/s/m/l/xl),
+	NAMING DOCTRINE (do not invent a new class): the five REQUIRED steps are relative-size letters (xs/s/m/l/xl),
 	a closed vocabulary with no room between two adjacent letters for a sixth.
 	Every step this framework has added to the ladder AFTER that initial five
 	shipped — `gutter` here, `strong`/`numeral` one ladder over in
@@ -282,7 +280,7 @@ package.VALUE_HOST_METRICS = table.freeze({
 })
 
 -- WCAG-derived accessibility floor. A theme may raise a target size; it can
--- never lower one below the platform-agnostic minimum (ADR-0019 §2 step 4).
+-- never lower one below the platform-agnostic minimum.
 package.MIN_TARGET_SIZE = 44
 
 -- RESOLVABLE FONT FAMILIES. A typography role's family (which is also the
@@ -296,8 +294,8 @@ package.MIN_TARGET_SIZE = 44
 -- through a raw Font.new — the exact measure/paint split this stage exists to
 -- prevent. So a family is either a content URL (the engine's own vocabulary) or
 -- one of the aliases the client materializer maps to a file. These names mirror
--- `src/client/text_premeasure.FONT_FILES`; that module is client-only (ADR-0003
--- seam) and cannot be required from here, so a spec asserts the two agree.
+-- `src/client/text_premeasure.FONT_FILES`; that module is client-only (the
+-- client seam) and cannot be required from here, so a spec asserts the two agree.
 package.FONT_FAMILY_ALIASES = table.freeze({ "BuilderSans", "GothamSSm", "SourceSans" })
 
 -- the readability ceiling on a gradient's `alpha` ramp (see the rejection in
@@ -332,7 +330,7 @@ local SECTIONS: { [string]: boolean } = {
 	chrome = true,
 	assets = true,
 	compatibility = true,
-	-- SEMANTIC ICONS (ADR-0020 R4): name -> asset reference. Controls request an
+	-- SEMANTIC ICONS: name -> asset reference. Controls request an
 	-- icon by MEANING; a raw asset id in control code stays forbidden.
 	icons = true,
 }
@@ -361,7 +359,7 @@ local METRIC_SECTIONS: { [string]: boolean } = {
 	targetSizes = true,
 	insets = true,
 	motion = true,
-	-- icon METRIC roles (ADR-0020 R4). Optional: a package that declares no
+	-- icon METRIC roles. Optional: a package that declares no
 	-- icons has no sizes to declare either, and every package published before
 	-- this stage has neither.
 	iconSizes = true,
@@ -378,7 +376,7 @@ local METRIC_SECTIONS: { [string]: boolean } = {
 		television says so here and owns it. The paths are validated against the
 		package's own resolved snapshot in `themes/snapshot.resolve`. ]]
 	tenFoot = true,
-	--[[ A THEME'S ANSWER FOR AN APP METRIC (ADR-0042). Optional, and empty for
+	--[[ A THEME'S ANSWER FOR AN APP METRIC. Optional, and empty for
 		every package shipped before this stage — so no package's authored metrics,
 		and therefore no package's content STAMP, moves for this section existing.
 
@@ -393,7 +391,7 @@ local METRIC_SECTIONS: { [string]: boolean } = {
 }
 local TYPOGRAPHY_FIELDS: { [string]: boolean } = { font = true, size = true, lineHeight = true }
 local FONT_FIELDS: { [string]: boolean } = { family = true, weight = true, style = true }
--- `content` is the CANONICAL asset field (ADR-0020 R6); `contentId` stays a
+-- `content` is the CANONICAL asset field; `contentId` stays a
 -- legal alias. Both normalize to one plain string at define time, so there is
 -- exactly one resolution path downstream and exports stay serializable —
 -- rs-m7 measured that even a rule authored with Content.fromUri round-trips as
@@ -436,7 +434,7 @@ local CHROME_FIELDS: { [string]: boolean } = {
 	asset = true,
 	contentInsets = true,
 	fallback = true,
-	-- `layers = { … }`: the bounded decoration STACK (ADR-0020 R1), legal only
+	-- `layers = { … }`: the bounded decoration STACK, legal only
 	-- on a `kind = "layered"` recipe
 	layers = true,
 	-- GENERATOR-WRITTEN (see normalizeVariant): the canonical per-state map a
@@ -452,7 +450,7 @@ local CHROME_FIELDS: { [string]: boolean } = {
 	-- (::UIShadow rules are inert, feasibility m7), validated here against the
 	-- same styling.normalizeShadow contract the adapter materializes.
 	shadow = true,
-	-- ===== the BAR family's declared geometry (ADR-0020 R3) ================
+	-- ===== the BAR family's declared geometry ================
 	-- `direction = "ltr" | "rtl" | "ttb" | "btt"` on `barFill`: which axis the
 	-- clip window reveals and which edge of the art is pinned to its origin.
 	direction = true,
@@ -515,7 +513,7 @@ local STYLE_FIELDS: { [string]: boolean } = { themes = true, defaultTheme = true
 -- nothing), and a nine-slice recipe has no use for rect/tile/resample anyway:
 -- the slice geometry IS SliceCenter + SliceScale.
 --
--- v2 (ADR-0020) adds exactly three, each measured in this stage's probes and
+-- v2 adds exactly three, each measured in this stage's probes and
 -- not one more: `ImageContent` (rs-m7 — rules COERCE a plain string onto it, so
 -- authored data never has to become a Content value), `ResampleMode` (rs-m5 —
 -- Pixelated composes with Slice in one rule) and `TileSize` (rs-m1 — fully
@@ -653,7 +651,7 @@ end
 -- merge `over` onto `base`: present keys win, absent keys inherit. Recurses
 -- into plain tables so a package overriding metrics.space.m keeps every other
 -- step. There is deliberately no delete: inheriting a role you did not think
--- about is the point of derivation (ADR-0019 §1).
+-- about is the point of derivation.
 local function inherit(base: any, over: any): any
 	if type(over) ~= "table" then
 		return if over == nil then base else over
@@ -715,7 +713,7 @@ end
 
 export type Error = { class: string, field: string, message: string, fix: string }
 
--- ===== per-state asset VARIANTS (ADR-0020 R2) ==============================
+-- ===== per-state asset VARIANTS ==============================
 --
 -- ONE GRAMMAR, ONE NORMALIZER. Everywhere an asset reference is legal — a
 -- recipe's `asset`, a layer's `asset`, a per-corner override, a rung-2 view prop
@@ -725,7 +723,7 @@ export type Error = { class: string, field: string, message: string, fix: string
 -- override ends up half-applying across states.
 --
 -- Focus is deliberately NOT a state: it stays the `selection` slot plus
--- `chrome.focus` (ADR-0019), which is a treatment over whatever has focus rather
+-- `chrome.focus`, which is a treatment over whatever has focus rather
 -- than a second appearance of the control.
 package.VARIANT_STATES = table.freeze({ "default", "hover", "pressed", "selected", "disabled", "error" })
 
@@ -934,7 +932,7 @@ function package.variantStates(variant: any): { string }
 	return out
 end
 
--- ===== semantic ICONS (ADR-0020 R4) ========================================
+-- ===== semantic ICONS ========================================
 --
 -- THE FALLBACK GLYPH TABLE. A theme with no icon for a requested name renders
 -- the glyph through the theme's own font, so a control never has to know an
@@ -1115,7 +1113,7 @@ end
 
 package.ICON_SIZE_ROLES = table.freeze({ "small", "medium", "large" })
 
--- ===== PIXEL-ART mode (ADR-0020 R5) ========================================
+-- ===== PIXEL-ART mode ========================================
 
 package.RENDERING_MODES = table.freeze({ "standard", "pixel" })
 
@@ -1134,7 +1132,7 @@ function package.pixelUnitOf(pkg: any): number?
 end
 
 -- snapToPixelUnit(value, unit): the snapshot-metric snap. UP to the next unit
--- multiple, never down — the ADR-0019 precedent that floors clamp up, so an
+-- multiple, never down — the precedent that floors clamp up, so an
 -- accessibility floor survives the snap instead of being rounded through.
 -- The epsilon exists because a metric that is ALREADY a multiple must not be
 -- bumped a whole unit by float noise (44/4 = 10.999999999999998 in the wrong
@@ -1275,7 +1273,7 @@ function package.define(def: any): (any, any)
 		need("identity.schemaVersion", nil, `set schemaVersion = "{package.SCHEMA}"`)
 	end
 
-	-- PIXEL-ART MODE (ADR-0020 R5). Three generation rules follow from these two
+	-- PIXEL-ART MODE. Three generation rules follow from these two
 	-- fields — Pixelated on every image rule, integer SliceScale, and metric
 	-- snapping to the unit — so both are checked here, before any of them runs.
 	local rendering = identity.rendering
@@ -1594,7 +1592,7 @@ function package.define(def: any): (any, any)
 		end
 	end
 
-	-- ICON METRIC ROLES (ADR-0020 R4). Optional as a section — a package with no
+	-- ICON METRIC ROLES. Optional as a section — a package with no
 	-- icons sizes nothing — but closed once declared: an unknown role is a size
 	-- no control will ever ask for.
 	if metrics.iconSizes ~= nil then
@@ -1666,7 +1664,7 @@ function package.define(def: any): (any, any)
 		end
 	end
 
-	--[[ THE APP SECTION'S SHAPE (ADR-0042). Nested to any depth, because the
+	--[[ THE APP SECTION'S SHAPE. Nested to any depth, because the
 		vocabulary is the app's and a flat one would force
 		`sponsorRowHeightLandscape` on a namespace whose whole point is that it
 		groups — and the ten-foot classification reads every SEGMENT, so the group
@@ -1784,7 +1782,7 @@ function package.define(def: any): (any, any)
 		end
 	end
 
-	-- (5) assets. CONTENT ADOPTION (ADR-0020 R6): `content` is canonical,
+	-- (5) assets. CONTENT ADOPTION: `content` is canonical,
 	-- `contentId` is the kept alias, and both land on ONE plain string in the
 	-- compiled package — `contentId`, because that is the field every existing
 	-- reader already resolves and forking the name would fork the resolution
@@ -1969,7 +1967,7 @@ function package.define(def: any): (any, any)
 		table.insert(uses, where)
 	end
 
-	-- ONE asset reference, through the ONE shared normalizer (ADR-0020 R2), plus
+	-- ONE asset reference, through the ONE shared normalizer, plus
 	-- the check the normalizer cannot make: that every state's name is an asset
 	-- this package actually declares. `class` is the rejection class for an
 	-- undeclared name, so the nineSlice path keeps reporting exactly what it
@@ -2008,8 +2006,8 @@ function package.define(def: any): (any, any)
 	-- the raw theme list, for the focus colour token. Read from the MERGED style
 	-- rather than from section (7)'s validated `themes`, because that runs after
 	-- this one and a later-declared local is not an upvalue here — the exact
-	-- shape docs/lessons/lune-circular-require-hangs.md and every review round
-	-- since keeps catching.
+	-- shape a circular require under Lune produces, and the one every review
+	-- round since keeps catching.
 	local function themesForFocus(): { any }
 		local style_ = merged.style
 		if type(style_) ~= "table" or type(style_.themes) ~= "table" then
@@ -2138,7 +2136,7 @@ function package.define(def: any): (any, any)
 			)
 		end
 	end
-	-- THE LAYER STACK (ADR-0020 R1). A bounded array of layers, ordered back to
+	-- THE LAYER STACK. A bounded array of layers, ordered back to
 	-- front, each a fixed kind with a CLOSED geometry vocabulary. Everything this
 	-- function refuses is a thing that would otherwise compile clean and paint
 	-- wrong: an unknown kind (no adapter branch builds it), a field from another
@@ -2158,7 +2156,7 @@ function package.define(def: any): (any, any)
 			)
 		end
 		if slot == "barFill" then
-			-- The fill is CLIPPED ART, not a layer host (rs-m4, ADR-0020 R3): its
+			-- The fill is CLIPPED ART, not a layer host (rs-m4): its
 			-- image lives inside the adapter's ClipsDescendants window at FULL
 			-- track size so a percent change is one window write. The adapter
 			-- therefore takes the value-display branch for this slot and returns
@@ -2573,7 +2571,7 @@ function package.define(def: any): (any, any)
 						.. "ScaleType=Slice both address the texture, so the nine-patch re-derives from the cropped "
 						.. "rect and the end cap is cut out of mid-texture",
 					"a percent fill is clipped by the adapter's ClipsDescendants window over a FULL-track-size fill "
-						.. '(ADR-0020 R3); declare direction = "ltr" and let the window do it'
+						.. '; declare direction = "ltr" and let the window do it'
 				)
 			elseif not CHROME_FIELDS[name] then
 				reject(
@@ -2659,7 +2657,7 @@ function package.define(def: any): (any, any)
 				"sliced = false paints the asset whole; omit it and the slot's own nature decides"
 			)
 		end
-		-- LAYERS BELONG TO A LAYERED RECIPE (ADR-0020 R1). Accepting them on a
+		-- LAYERS BELONG TO A LAYERED RECIPE. Accepting them on a
 		-- native or nineSlice recipe would compile a stack that never gets built:
 		-- `planFor` keys on the kind, so the layers would be inert data.
 		if recipe.layers ~= nil and recipe.kind ~= "layered" then
@@ -2691,7 +2689,7 @@ function package.define(def: any): (any, any)
 			end
 			-- the asset reference goes through the ONE variant normalizer, so a
 			-- nineSlice recipe takes a bare name (same art in every state) or a
-			-- per-state map (ADR-0020 R2) with identical validation either way
+			-- per-state map with identical validation either way
 			local variant = normalizeAssetRef(recipe.asset, `chrome.{tostring(slot)}.asset`, "nineSliceFallback")
 			local recipeOut: any = {}
 			for key, value in recipe do
@@ -2827,7 +2825,7 @@ function package.define(def: any): (any, any)
 		end
 	end
 
-	-- (6b) SEMANTIC ICONS (ADR-0020 R4). A map from MEANING to art, so a control
+	-- (6b) SEMANTIC ICONS. A map from MEANING to art, so a control
 	-- asks for `chevron.trailing` and never for an asset id. A name the framework
 	-- does not know (and that is not namespaced) is a typo, and a typo'd icon
 	-- name is an icon that silently never resolves.
@@ -2889,7 +2887,7 @@ function package.define(def: any): (any, any)
 		end
 	end
 
-	-- (6c) PIXEL MODE cross-checks (ADR-0020 R5, rs-m5). A FRACTIONAL SliceScale
+	-- (6c) PIXEL MODE cross-checks (rs-m5). A FRACTIONAL SliceScale
 	-- under Pixelated stays hard-edged but visibly UNEVEN — a thinner border on
 	-- one side, non-uniform cells — which is the worst failure mode of the three
 	-- because a capture still looks crisp at a glance. Locked at compile.
@@ -3134,7 +3132,7 @@ function package.define(def: any): (any, any)
 	return deepFreeze(compiled), report
 end
 
--- ===== namespaced contribution coverage (ADR-0019 §1) ======================
+-- ===== namespaced contribution coverage ======================
 -- The pre-play gate for contributed controls: a control DECLARES its
 -- namespaced theme needs (name "ns:role", kind, section, fields?, authority,
 -- capability, fallback) and asks whether a package covers them. `define`

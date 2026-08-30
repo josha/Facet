@@ -6,7 +6,7 @@
 --   * scriptable bindings need Type=Scriptable and Fire() drives the action
 --     directly (bypasses arbitration) — same as the headless model;
 --   * arbitration (priority/Sink) is the ENGINE's job here — this adapter
---     never re-implements it (ADR-0004 split harness);
+--     never re-implements it (the split harness);
 --   * InputAction:Fire() is deprecated, so this adapter never calls it.
 --     `GetState()` is NOT deprecated — an earlier version of this comment said
 --     both were, which was wrong; the engine reference was re-read 2026-08-17.
@@ -306,8 +306,8 @@ function roblox_input.newSystem(core: any)
 			-- the same discrete presses the composite D-pad path produces.
 			--   STUDIO-DRIVE / PHYSICAL RIDER: real analog delivery (and the
 			--   DevForum-reported IAS Thumbstick1 binding bug) are UNVERIFIABLE
-			--   headlessly/synthetically in Studio (docs/lessons/synthetic-
-			--   gamepad-unreachable.md). Confirm on a real console/detected pad.
+			--   headlessly/synthetically in Studio — a synthetic gamepad is
+			--   unreachable there. Confirm on a real console/detected pad.
 			function action.bindAxis(spec2: {
 				axis: string,
 				component: ("x" | "y")?,
@@ -419,8 +419,7 @@ function roblox_input.newSystem(core: any)
 		end
 
 		-- setSink: runtime Sink changes MUST reach the engine instance — the
-		-- responder model raises Sink on engage() and lowers it on resign()
-		-- (ADR-0014); a bare context.sink field write never reaches
+		-- responder model raises Sink on engage() and lowers it on resign(); a bare context.sink field write never reaches
 		-- InputContext.Sink (platform verifier P1, 2026-07-21)
 		function context.setSink(on: boolean)
 			context.sink = on

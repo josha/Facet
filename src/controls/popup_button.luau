@@ -1,5 +1,5 @@
 --!strict
--- PopupButton control (ADR-0007 composite; the menu-picker
+-- PopupButton control (a composite; the menu-picker
 -- informed). A COMPOSITE over shipped primitives: a single focusable Button
 -- (the "trigger") shows the currently-selected option's label; activating it
 -- opens a popup — a floating panel of activatable option rows plus a Cancel
@@ -65,7 +65,7 @@ export type Spec = {
 	env: any?,
 }
 
--- THEME METRICS (ADR-0019 §2). This control's own trigger keeps its own metric;
+-- THEME METRICS. This control's own trigger keeps its own metric;
 -- the three ROW heights are `menu_recipe`'s, because they are the same three
 -- heights the freestanding Menu and the row-action menu use and a theme that
 -- retunes its control ladder must retune all three menus together.
@@ -116,7 +116,7 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 	end
 
 	-- option ids become `Opt-<id>` path segments; a "/" would corrupt routing
-	-- everywhere downstream — fail at BUILD (ADR-0010), not first render.
+	-- everywhere downstream — fail at BUILD, not first render.
 	-- A DIVIDER is skipped by all of it: no id, no route, no selection.
 	local optionsById: { [string]: Option } = {}
 	local selectableCount = 0
@@ -389,7 +389,7 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 
 	return {
 		-- attach the input contribution: the presenter auto-routes open/select/
-		-- cancel Activate to handleActivate with no consumer opts (ADR-0013).
+		-- cancel Activate to handleActivate with no consumer opts.
 		-- The open option rows are ordinary focusables the flat ring picks up, so
 		-- no focusGroups are contributed. The three transient-popup fields close the
 		-- matrix §B PopupButton parity GAPs while the popup is a non-modal UI.When:

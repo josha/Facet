@@ -5,8 +5,7 @@
 	LINES OF CELLS the viewport touches. `UI.Grid` is the eager half and stays
 	exactly what it is: it measures and arranges every cell it is given. An eager
 	grid renders all of its children immediately; a lazy grid creates items only
-	as needed, and until this module nothing in Facet did. The comparison document
-	carries the citations ([SW-16], [SW-21]).
+	as needed, and until this module nothing in Facet did.
 
 	build(Facet, core, spec) -> {
 	  blueprint, focusGroupName (the contributed group's name),
@@ -42,7 +41,7 @@
 	the next line, so ±1 is always a step ACROSS a line: on `axis = "y"` the group
 	is `horizontal` (row-major: the cell left or right), on `axis = "x"` it is
 	`vertical` (column-major: the cell above or below). **THE PERPENDICULAR STEP IS
-	NOT ±1, IT IS ±lanes** — a whole line — and since ADR-0030 the focus graph
+	NOT ±1, IT IS ±lanes** — a whole line — and the focus graph
 	expresses that directly: `NavigationGroup.columns` tells it the order is LINES
 	of `lanes` LANES, and `focus_graph.navigateDirection` answers the perpendicular
 	direction itself. Emitting the other axis instead would have been REACHABLE and
@@ -147,7 +146,7 @@
 	THE LAST TWO ROWS ARE THE PART THAT IS NOT A MECHANICAL TRANSPOSE, and it is
 	worth stating rather than deriving twice. A grid's ring is two-dimensional, and
 	the group says so: it declares its LANE AXIS and its LANE COUNT, and the graph
-	derives the perpendicular from the pair (ADR-0030). Which axis is which follows
+	derives the perpendicular from the pair. Which axis is which follows
 	one rule: THE GROUP'S AXIS IS THE LANE AXIS, ALWAYS PERPENDICULAR TO THE SCROLL
 	— because document order walks a line's lanes before it moves to the next line.
 	So a vertical grid declares `horizontal` and a horizontal grid declares
@@ -1076,7 +1075,7 @@ function virtual_grid.build(Facet: any, core: any, spec: any)
 		first — so ±1 in that order is always the neighbouring cell ACROSS the line,
 		and the keys along the lane axis read correctly straight off it. The
 		perpendicular key is NOT ±1: it is ±`lanes`, and the group says so by
-		declaring `columns` (ADR-0030). The graph does the line arithmetic; this
+		declaring `columns`. The graph does the line arithmetic; this
 		control does none.
 
 		WHICH AXIS IS WHICH FLIPS WITH THE SCROLL, and it flips the OPPOSITE way from
@@ -1163,8 +1162,7 @@ function virtual_grid.build(Facet: any, core: any, spec: any)
 				-- the LANE axis, always perpendicular to the scroll: document order
 				-- walks a line's lanes before it moves to the next line
 				axis = if isX then "vertical" else "horizontal",
-				--[[ ...AND THE LANE COUNT, WHICH IS THE OTHER HALF OF THE SAME SENTENCE
-					(ADR-0030). With `columns` declared, the graph reads this order as LINES
+				--[[ ...AND THE LANE COUNT, WHICH IS THE OTHER HALF OF THE SAME SENTENCE. With `columns` declared, the graph reads this order as LINES
 					of `lanes` LANES and answers the perpendicular direction itself, by a
 					whole line. That is what a `navigateIntercept` used to do here by hand.
 
@@ -1182,8 +1180,7 @@ function virtual_grid.build(Facet: any, core: any, spec: any)
 		}
 	end
 
-	--[[ THERE IS NO `navigateIntercept` HERE ANY MORE, AND ITS DELETION IS THE POINT
-		(ADR-0030). Both grids used to declare a 1-D group along the lanes and then
+	--[[ THERE IS NO `navigateIntercept` HERE ANY MORE, AND ITS DELETION IS THE POINT. Both grids used to declare a 1-D group along the lanes and then
 		catch the perpendicular key — Up/Down on `axis = "y"`, Left/Right on
 		`axis = "x"` — converting it to ±`lanes` and calling `focusGraph.focusOn`.
 		Two intercepts differing only in a direction pair is the shape a general

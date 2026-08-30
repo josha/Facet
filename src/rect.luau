@@ -17,10 +17,10 @@
 	drop test. Exporting one `contains` would silently pick a winner for six call
 	sites that never discussed it, so both ship with names that say what they do.
 
-	`src/render/surface_overlap.luau` says of its own loop: "This is ADR-0025's
+	`src/render/surface_overlap.luau` says of its own loop: "This is the composition
 	collision loop with regions swapped for surfaces — same arithmetic, same
 	`{ a, b, dx, dy }` row, same 'touching is not overlapping' epsilon of zero".
-	ADR-0025's loop is `composition.luau`, which uses an epsilon of 0.5. Both are
+	That collision loop is `composition.luau`'s, which uses an epsilon of 0.5. Both are
 	defensible; what was not defensible is that neither could see the other.
 
 	NO REQUIRES, ON PURPOSE — the `src/spec_guard.luau` rule. `render/` may reach

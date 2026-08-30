@@ -9,9 +9,9 @@ Facet's reactive core is its own. It is not built on, wrapped around, or derived
 from another framework, and nothing under `src/` requires anything outside
 `src/`.
 
-## The losing arms of the ADR-0002 bake-off are not here
+## The losing arms of the foundation bake-off are not here
 
-ADR-0002 chose this core over two other arms on measured numbers. Neither arm is
+The bake-off chose this core over two other arms on measured numbers. Neither arm is
 in the product tree:
 
 - the retained imperative baseline lives at **`bench/cores/imperative.luau`**. It
@@ -23,8 +23,7 @@ in the product tree:
   Package contains runtime only;
 - the third arm and its vendored third-party sources were removed from this
   repository on 2026-08-30 and archived privately, with checksums, alongside the
-  benchmark and conformance JSON that decided the rubric. ADR-0002 records the
-  decision and points at the archive.
+  benchmark and conformance JSON that decided the rubric.
 
 ## This directory is not an entry point, and the boundary checker enforces it
 

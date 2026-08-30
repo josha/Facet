@@ -10,7 +10,7 @@
 	src/present/presenter.luau for Studio's 200,000-character
 	`Source` WRITE cap — over it a module silently stops live-syncing into an
 	open session, so a live check against it tests the built place rather than
-	the edits on disk (docs/lessons/the-200k-source-cap-is-on-writing-not-loading.md).
+	the edits on disk.
 
 	WHY THESE THREE TOGETHER. They are the same subject read three times: the
 	live `stack` and what each handle owes it. `refresh` calls the focus-visual
@@ -33,7 +33,7 @@
 	live sources.
 
 	`new(ctx)` returns the five names `presenter.new` bound before the move
-	(four original, plus `raise` — registry item 23, W3-D, ADR-0053, added
+	(four original, plus `raise` — registry item 23, task W3-D, added
 	2026-08-23 once this file's own row cleared the extraction-locked band),
 	under those exact names, so not one call site changed:
 	  syncFocusVisuals(path)   the one shared observer body: ring ownership,
@@ -67,7 +67,7 @@
 	  syncTextReveal, retireRevealFor
 	                           the no-pop text gate and the marquee strip's
 	                           owner-scoped retirement
-	  emitFeedback             the semantic feedback seam (ADR-0022 Decision 7)
+	  emitFeedback             the semantic feedback seam
 	  refreshExclusive, syncScrim
 	                           the exclusivity flag and the synthesized scrim,
 	                           both of which a dismissal (and now `raise`) moves
@@ -158,7 +158,7 @@ function surfaceLifecycle.new(ctx: any)
 			-- context that delivers nothing — which is luck, not design: the whole
 			-- point of the dynamic binding is that a surface shadows no gameplay key
 			-- it is not using, and "bound but currently undeliverable" is exactly the
-			-- stuck-sink shape ADR-0014 forbids.
+			-- stuck-sink shape the first-responder model forbids.
 			if handle.syncAdjustBindings ~= nil then
 				handle.syncAdjustBindings(if owns and ownsInput then path else nil)
 			end
@@ -303,8 +303,7 @@ function surfaceLifecycle.new(ctx: any)
 			The input half was already right. This makes the paint tell the same
 			story. ]]
 		handle.controller.setFocusPath(nil)
-		-- ...and it stops being a SURFACE at the same moment, for the same reason
-		-- (ADR-0028). With an exit transition the tree stays mounted and fully
+		-- ...and it stops being a SURFACE at the same moment, for the same reason. With an exit transition the tree stays mounted and fully
 		-- painted for the whole animation, and a departing screen covering its
 		-- replacement is the transition rather than a defect — so the
 		-- cross-surface overlap alarm's set of live surfaces is exactly this
@@ -326,7 +325,7 @@ function surfaceLifecycle.new(ctx: any)
 		-- strip that waited for one would leak its overlay and the held paint
 		retireRevealFor(handle)
 		-- the dismissal is a fact the moment it is decided, not when the pixels
-		-- finish moving (the semantic feedback seam's causal frame, ADR-0022
+		-- finish moving (the semantic feedback seam's causal frame)
 		-- Decision 7)
 		emitFeedback({ type = "dismiss", path = "/" .. (handle.blueprint.id or handle.kind), surface = handle })
 		local function teardown()
@@ -437,7 +436,7 @@ function surfaceLifecycle.new(ctx: any)
 	end
 
 	--[[ RAISE — RE-BAND A LIVE SURFACE WITHOUT DISMISS+RE-PRESENT (registry
-		item 23; t16-triage.md:27; W3-D, ADR-0053). Before
+		item 23; t16-triage.md:27; W3-D). Before
 		this, the only way to move a PRESENTED surface back above something
 		freshly presented over it was to dismiss and re-present it —
 		`examples/gallery/client/showcase_chrome.luau`'s `raisePanel` did

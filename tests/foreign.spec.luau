@@ -378,7 +378,7 @@ describe("UI.Foreign: the foreignHost content seam (c)", function()
 		end)
 		expect(contains(part, "not a GuiObject")).toBe(true)
 		expect(contains(part, "UI.Stage")).toBe(true)
-		expect(contains(part, "ADR-0024")).toBe(true)
+		expect(contains(part, "contentRoot")).toBe(true)
 
 		local dead = fails(function()
 			host.adopt(stub("VideoFrame", { alive = false }))

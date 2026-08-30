@@ -1,5 +1,5 @@
 --!strict
--- BillboardTarget (ADR-0009; CLIENT-ONLY): the RenderTargetAdapter for
+-- BillboardTarget (CLIENT-ONLY): the RenderTargetAdapter for
 -- world-anchored UI. A thin root swap over ScreenTarget — everything below
 -- the root (style, bindings, states, z-order, pointer capture) is the same
 -- flat instance renderer, so the two targets cannot drift.
@@ -29,7 +29,7 @@ export type Opts = {
 	maxDistance: number?,
 	style: any?,
 	--[[ THE DISPLAY CLASS, FORWARDED VERBATIM like `style` (paint-family lockstep,
-		ADR-0039 Decision 3a). A billboard is a WORLD surface and the viewer's
+		the ten-foot ladder's paint half). A billboard is a WORLD surface and the viewer's
 		distance to it is a world distance, not a screen class — but its solver
 		reads the same environment-wide `themeMetrics` every other surface on this
 		client reads, so a billboard that painted near while its own layout measured
@@ -52,7 +52,7 @@ function billboard_target.new(opts: Opts)
 		parent = opts.parent,
 		style = opts.style,
 		displaySize = opts.displaySize,
-		-- deprecated on both sides (ADR-0011); forwarded, never interpreted here
+		-- deprecated on both sides; forwarded, never interpreted here
 		isReducedMotion = opts.isReducedMotion,
 		-- native ScrollingFrame hosts stay OFF billboards until their canvas
 		-- coordinate mapping and input are proven on a live billboard drive
@@ -121,7 +121,7 @@ function billboard_target.new(opts: Opts)
 	-- box, or the author's own fallback plate) — instead of shipping an unproven
 	-- render. A billboard drive is what would promote it.
 	adapter.stageHost = nil
-	-- ...and the FOREIGN-content seam (UI.Foreign, ADR-0034) is withheld for the
+	-- ...and the FOREIGN-content seam (UI.Foreign) is withheld for the
 	-- same unmeasured reason: a caller's own GuiObject inside a camera-projected
 	-- canvas is a composition nobody has looked at, and a `SurfaceGui` has its own
 	-- pixel-space rules. `controller.foreignHost` answers nil — the documented

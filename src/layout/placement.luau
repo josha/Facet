@@ -51,7 +51,7 @@ placement.ANCHOR_FACTORS = {
 
 -- offsetPx(value, extent): an offset in pixels. A number passes through; the
 -- `{ scale, offset }` form is a FRACTION OF THE PARENT'S INNER EXTENT plus a px
--- adjustment (ADR-0022 Decision 6) — the shape a marker overlay needs,
+-- adjustment — the shape a marker overlay needs,
 -- because a minimap dot's position is a share of the map and not a pixel count.
 -- Rounded, because every other placement in the solver is: a marker on a
 -- half-pixel is a marker the engine antialiases into a smudge.

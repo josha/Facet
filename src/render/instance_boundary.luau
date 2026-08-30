@@ -1,8 +1,8 @@
 --!strict
---[[ WHICH NODES EARN A REAL ENGINE OBJECT, AND OF WHAT KIND (ADR-0032 Decision 2).
+--[[ WHICH NODES EARN A REAL ENGINE OBJECT, AND OF WHAT KIND.
 
 	This is the one predicate the nested-instance-tree migration changes.
-	ADR-0032's thesis is that switching Facet from a flat instance tree to a
+	Its thesis is that switching Facet from a flat instance tree to a
 	nested one "is not a rewrite of the renderer... it is a change to one
 	predicate: which paths get registered". A predicate that is the whole content
 	of a migration needs somewhere to live, and it was two inline branches in
@@ -13,15 +13,14 @@
 	`Script.Source` WRITE cap — 1,269 characters of headroom, which is not enough
 	to explain a decision in. Over that cap a module silently stops live-syncing
 	into an open Studio session, so every live check against it tests the place
-	file rather than the edits on disk
-	(docs/lessons/the-200k-source-cap-is-on-writing-not-loading.md). ADR-0032
-	specifically records that the cap "no longer applies" and that "every step of
-	this migration can be canaried live" — which was true when it was written at
+	file rather than the edits on disk. The migration's own record says the cap
+	"no longer applies" and that "every step of this migration can be canaried
+	live" — which was true when it was written at
 	185,633 characters and had quietly stopped being true. Moving the predicate out
 	buys the renderer back its headroom and puts the rule where a reader looking
 	for it would go.
 
-	THE RULE, from ADR-0032 Decision 2, stated once:
+	THE RULE, stated once:
 
 	    Register a container as a real instance parent when the engine can carry
 	    something down its subtree that the framework would otherwise compute per
@@ -43,7 +42,7 @@
 	    buffer its own size, which is what makes `GroupTransparency` fade a group
 	    rather than each node's own paint. Declared by `canvasGroup = true`, and
 	    implied by an authored `opacity`, because a fade IS a GroupTransparency
-	    fact (ADR-0026 Decision 4) and the node carrying one has to BE the group.
+	    fact and the node carrying one has to BE the group.
 	    The buffer is a real cost, so nothing gets one it did not ask for.
 
 	  `host` — a plain `Frame` that happens to be a real parent. No buffer, no
@@ -79,7 +78,7 @@ function instance_boundary.createOptsFor(node: any): CreateOpts?
 		return { canvasGroup = true }
 	end
 	--[[ AN AUTHORED `scale`/`rotation` ON A CONTAINER IS A REAL-PARENT DECLARATION
-		TOO (ADR-0032 Decision 4), and until this landed it was the one presentation
+		TOO, and until this landed it was the one presentation
 		term the flat tree got visibly WRONG rather than merely incomplete.
 
 		Measured live through this framework: two identical `UI.ZStack`s at
@@ -89,7 +88,7 @@ function instance_boundary.createOptsFor(node: any): CreateOpts?
 		the parent's pivot, and no framework code does that; the engine composes
 		both terms for a subtree it can see.
 
-		So this needs no new mechanism, which is ADR-0032's whole thesis: the
+		So this needs no new mechanism, which is the migration's whole thesis: the
 		adapter already writes `Rotation` and a `UIScale` on the node's own
 		instance. The only thing missing was that the subtree was not inside it.
 

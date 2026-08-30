@@ -1,5 +1,5 @@
 --!strict
--- Motion CURVES (ADR-0033): the named
+-- Motion CURVES: the named
 -- `{ duration, style, direction }` registry that gives the motion authority a
 -- duration that means what it says.
 --
@@ -31,7 +31,7 @@
 --
 -- ...AND WHY A PURE FALLBACK STILL SHIPS. Lune has no `TweenService`, and
 -- `clock:step(dt)` under a scripted clock is the entire reason the motion
--- authority is testable (ADR-0022 Decision 1: engine-free, no globals). So the
+-- authority is testable (engine-free, no globals). So the
 -- evaluator is INJECTED exactly the way `now` is, and this module carries a pure
 -- twin for the headless suite. The twin is not a second opinion: it is pinned to
 -- the engine by a differential oracle over a dense generated corpus — a LIVE

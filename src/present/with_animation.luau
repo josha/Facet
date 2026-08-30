@@ -3,8 +3,7 @@
 	diagnostics. Extracted verbatim from src/present/presenter.luau for Studio's
 	200,000-character `Source` WRITE cap: over it a module silently stops
 	live-syncing into an open session, so a live check against it tests the built
-	place rather than the edits on disk
-	(docs/lessons/the-200k-source-cap-is-on-writing-not-loading.md).
+	place rather than the edits on disk.
 
 	THE CAP WAS 519 CHARACTERS AWAY WHEN THIS MOVED. `presenter.luau` stood at
 	199,481, having been deliberately left at 179,055 by the 2026-08-14 split with
@@ -111,7 +110,7 @@ function with_animation.new(ctx: any)
 				0
 			)
 		end
-		--[[ ONE DIAL, TWO VOCABULARIES (ADR-0033). An unknown name AND an inline
+		--[[ ONE DIAL, TWO VOCABULARIES. An unknown name AND an inline
 		params table are both refused by the registries, with their did-you-mean and
 		their registered lists. A motion class is a NAME here exactly as it is
 		everywhere else in the framework — and so is a motion CURVE.

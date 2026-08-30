@@ -15,7 +15,7 @@
 --     at boot).
 -- Yields (GetTextBoundsAsync); call from a task, not the render path.
 --
--- FONT DESCRIPTORS (ADR-0019 §6): a name here may be a short family
+-- FONT DESCRIPTORS: a name here may be a short family
 -- ("BuilderSans", which means Regular/Normal) or the canonical descriptor
 -- "family#weight#style" a theme package declares. Both address ONE calibration
 -- entry through text_metrics' canonical keys, and the descriptor form is what

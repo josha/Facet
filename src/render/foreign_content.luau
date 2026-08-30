@@ -1,5 +1,5 @@
 --!strict
--- THE FOREIGN-CONTENT SEAM'S RULINGS (UI.Foreign; ADR-0034).
+-- THE FOREIGN-CONTENT SEAM'S RULINGS (UI.Foreign).
 --
 -- PURE and engine-free, so BOTH adapters go through it: the live ScreenTarget
 -- (which builds the description below from a real Instance and then makes the
@@ -18,9 +18,10 @@
 -- description and the fake target states one directly, and the ladder they run
 -- is one function with one set of words.
 --
--- THE REFUSALS NAME THE ALTERNATIVE (constitution §4; the ADR-0029 pattern). A
+-- THE REFUSALS NAME THE ALTERNATIVE (constitution §4, and the same pattern the
+-- leaf-fade refusal set). A
 -- caller who reaches `UI.Foreign` with a `Part` has not made a typo — they have
--- the 3-D case, which is a different record's question (ADR-0024), and the
+-- the 3-D case, which is a different record's question, and the
 -- error says so rather than reporting a type mismatch.
 
 local foreign_content = {}
@@ -81,7 +82,7 @@ function foreign_content.assertAdmissible(path: string, candidate: Candidate)
 		error(
 			`Facet foreignHost.adopt on '{path}': a {candidate.className} is not a GuiObject, so this box — `
 				.. "which is 2-D layout — can never draw it. For a Part/Model/Beam (the 3-D case) use "
-				.. "UI.Stage and controller.stageHost(path).contentRoot(); see ADR-0024.",
+				.. "UI.Stage and controller.stageHost(path).contentRoot().",
 			0
 		)
 	end

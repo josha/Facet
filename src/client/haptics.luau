@@ -68,8 +68,8 @@
 --      UserInputService. The only probe on the platform belongs to the
 --      superseded service, is boolean, and returns false both for "this device
 --      has no motor" and for "no gamepad connected YET". That is precisely the
---      shape docs/lessons/capability-probes-must-be-tri-state.md was written
---      about, so `support()` is a five-state lattice and re-probes on device
+--      case a two-state capability probe cannot answer honestly, so `support()`
+--      is a five-state lattice and re-probes on device
 --      change instead of caching at boot.
 --   4. `Custom` used as a FALLBACK is a GUARANTEED SILENT NO-OP (a Custom effect
 --      with no SetWaveformKeys plays nothing), and `UISelection` — the name the

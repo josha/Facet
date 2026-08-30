@@ -1,5 +1,5 @@
 --!strict
--- Release-velocity tracker (ADR-0022 Decision 5). A rolling,
+-- Release-velocity tracker. A rolling,
 -- TIME-WINDOWED sample buffer whose estimate is first-vs-last across the
 -- retained window.
 --

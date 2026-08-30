@@ -3,8 +3,8 @@
 -- adapter, extracted from src/client/screen_target.luau for Studio's
 -- 200_000-character `Source` WRITE cap. Over that cap a module silently stops
 -- live-syncing into an open Studio session, so every live check against it
--- tests the built place rather than the edits on disk —
--- docs/lessons/the-200k-source-cap-is-on-writing-not-loading.md.
+-- tests the built place rather than the edits on disk, once it is over the
+-- 200,000-char Source WRITE cap.
 --
 -- THE NATURAL SIBLING OF src/client/screen_chrome. Chrome is the PACKAGE-ART
 -- path (slots, decorations, layers); this is the BESPOKE path (surfaces, radii,
@@ -41,8 +41,7 @@
 --
 -- `refreshToggleVisuals` and `refreshThemedPaint` are exported rather than
 -- bound: screen_target forward-declares both above `setActiveTheme` (which calls
--- them) and assigns them from here — a local declared later is not an upvalue
--- (docs/lessons/later-locals-are-not-upvalues.md).
+-- them) and assigns them from here — a local declared later is not an upvalue.
 --
 -- THE THREE THINGS A THEME COMMIT REPAINTS, all of them adapter-owned because no
 -- StyleSheet rule can express them: `refreshFocusVisuals` (the host's, the ring's
@@ -73,7 +72,7 @@ function screen_paint.new(ctx: any)
 	local handlesByPath = ctx.handlesByPath
 	local toColor3 = ctx.toColor3
 	local isReducedMotion = ctx.isReducedMotion
-	-- the player's Background Transparency preference (ADR-0035). An ACCESSOR,
+	-- the player's Background Transparency preference. An ACCESSOR,
 	-- not a value, for the same reason `focusTreatment`/`activeTheme` below are:
 	-- the renderer pushes a new number mid-session and a captured value would
 	-- freeze at construction, which is precisely the "published but unread"
@@ -140,13 +139,13 @@ function screen_paint.new(ctx: any)
 	end
 
 	-- forward-declared for `applyTint`'s bare-circle corner fix below (a local
-	-- declared later is not an upvalue, docs/lessons/later-locals-are-not-
-	-- upvalues.md); assigned at their ordinary position, unchanged, so every
+	-- declared later is not an upvalue but a nil global); assigned at their
+	-- ordinary position, unchanged, so every
 	-- other call site reads exactly as it did before this fix
 	local cornerRadiusFor: (any, number) -> UDim
 	local corner: (Instance, number, boolean?, any?) -> ()
 
-	-- THE CONTINUOUS-COLOUR WRITE (ADR-0022 Decision 6).
+	-- THE CONTINUOUS-COLOUR WRITE.
 	--
 	-- One engine property per class — the one paint channel that class owns — and
 	-- each is claimed before it is written (see claimPaint): the sheet cannot express
@@ -239,7 +238,7 @@ function screen_paint.new(ctx: any)
 				engine decides "explicit" BY VALUE, so that write marks nothing
 				explicit and the rule goes on winning. Measured live on the plate:
 				raw 0 / GetStyled 1; write 0.001 -> GetStyled 0.001; write 0 again ->
-				GetStyled 1 (docs/lessons/a-default-valued-write-never-claims.md).
+				GetStyled 1.
 
 				The COLOUR still has to be the claim above — a rule cannot carry
 				per-node data — so the two halves of one tint travel different roads
@@ -247,8 +246,7 @@ function screen_paint.new(ctx: any)
 				explicit write is the whole story, exactly as before. ]]
 			handle.tintFill = true
 			syncTags(handle)
-			--[[ A BARE `shape = "circle"` NODE NEVER REACHES `applySurface` (ADR-0062;
-				task EXTRACT, closing task PAINT's disclosed boundary). `applySurface`
+			--[[ A BARE `shape = "circle"` NODE NEVER REACHES `applySurface` (task EXTRACT, closing task PAINT's disclosed boundary). `applySurface`
 				is the only fallback-mode writer that materialises a real UICorner
 				(`corner()`, below); a node that never carries a `surface` prop at all
 				never calls it, so the fallback `shape` write (screen_props.luau) has
@@ -352,7 +350,7 @@ function screen_paint.new(ctx: any)
 
 	-- ===== EVERY ADAPTER-OWNED PAINT THAT READS THE PALETTE, RE-RESOLVED =====
 	--
-	-- A theme commit is a RE-SOLVE and never a rebuild (ADR-0019 §2) — which is
+	-- A theme commit is a RE-SOLVE and never a rebuild — which is
 	-- what keeps mount identity, focus and scroll alive across a swap, and is
 	-- exactly why a PAINT-only property could be missed. `themeMetrics` is one of
 	-- the renderer's coalesced GEOMETRY keys, so a swap re-derives everything the
@@ -382,7 +380,7 @@ function screen_paint.new(ctx: any)
 		end
 	end
 
-	--[[ THE BACKDROP REPAINT (ADR-0035). A theme commit is not the only thing that
+	--[[ THE BACKDROP REPAINT. A theme commit is not the only thing that
 		can stale an adapter-owned paint: so can a PREFERENCE. When the player moves
 		Background Transparency the modal in front of them is already on screen, so
 		the new number has to reach the backdrop that is painted, not only the next
@@ -391,7 +389,7 @@ function screen_paint.new(ctx: any)
 		BESPOKE ONLY, and the early return is load-bearing: in native mode the
 		`Scrim backdrop` rule is the single writer of this property, and an explicit
 		write here would not lose a frame — it would make the rule's value unreadable
-		for good (ADR-0029 Decision 1, measured). The native side moves the RULE
+		for good (measured). The native side moves the RULE
 		instead (`screen_target.setPreferredTransparency`). ]]
 	local function refreshBackdropPaint()
 		if nativeMode then
@@ -415,7 +413,7 @@ function screen_paint.new(ctx: any)
 	--
 	-- NO `assertBespokePaint`: an authored stroke is a DECLARED override, the same
 	-- standing UI.corners/UI.shadow have. It coexists with a theme's phantom
-	-- ::UIStroke rule — the engine renders both (ADR-0020 R8) — so it never
+	-- ::UIStroke rule — the engine renders both — so it never
 	-- suppresses theme chrome and never has to fight for it.
 	local function applyStroke(instance: Instance, stroke: any, handle: any)
 		if not instance:IsA("GuiObject") then
@@ -475,7 +473,7 @@ function screen_paint.new(ctx: any)
 		return scale
 	end
 
-	--[[ WHAT THE DIP MUST COME BACK TO (ADR-0026 Consequences, fixed 2026-08-14).
+	--[[ WHAT THE DIP MUST COME BACK TO (fixed 2026-08-14).
 
 		The engine honours ONE `UIScale` per object, so an authored `scale` and the
 		press dip write the same instance. The dip used to tween to
@@ -582,7 +580,7 @@ function screen_paint.new(ctx: any)
 	-- rule matches a CLASS of nodes, which is exactly right for a theme and
 	-- exactly wrong for "this one card". So the per-view modifier follows
 	-- `UI.shadow`'s architecture — a bespoke adapter-owned child — and the real
-	-- child is what makes the view win on this node (measured live, ADR-0020 R8).
+	-- child is what makes the view win on this node (measured live).
 	--
 	-- Named so it is identifiable in a live tree, and REUSED rather than
 	-- re-created, so a reactive gradient (or a theme swap that re-applies style
@@ -785,8 +783,7 @@ function screen_paint.new(ctx: any)
 			-- `BackgroundTransparency`, which this branch just forced to `1` and
 			-- nothing downstream reverts -- so the colour changes underneath an
 			-- invisible background, harmlessly. See `applySurfaceNative` above
-			-- for the identical split on the native path, and ADR-0062 §"the
-			-- corner-stroke fix's own fix" for the full account.
+			-- for the identical split on the native path.
 			instance.BackgroundTransparency = 1
 			local chrome = instance:FindFirstChild("Hairline")
 			if chrome then
@@ -825,7 +822,7 @@ function screen_paint.new(ctx: any)
 			--
 			-- ...and it is the ONE background in this whole vocabulary that is
 			-- neither 0 nor 1, which is why it is the one that reads the player's
-			-- Background Transparency preference (ADR-0035). The composition is
+			-- Background Transparency preference. The composition is
 			-- shared with the native sheet's own patch of the same value, so the
 			-- two paint modes cannot drift apart about what the player asked for.
 			instance.BackgroundTransparency =
@@ -1083,7 +1080,7 @@ function screen_paint.new(ctx: any)
 		end
 		label.Parent = button
 		handle.labelInstance = label
-		-- AN IMAGELABEL, NOT A FRAME (ADR-0020 R3 cap 10). With no `Image` it is a
+		-- AN IMAGELABEL, NOT A FRAME. With no `Image` it is a
 		-- Frame in every observable way — same background, same UICorner, same
 		-- UIStroke — and it is what lets a package's `toggleTrack` recipe paint the
 		-- switch as ART without the adapter creating a second instance to hold it.
@@ -1107,7 +1104,7 @@ function screen_paint.new(ctx: any)
 		track.BorderSizePixel = 0
 		corner(track, style.radii.pill, true)
 		hairline(track, true)
-		-- THE KNOB IS A SIBLING OF THE TRACK, not its child (ADR-0020 R3 cap 10).
+		-- THE KNOB IS A SIBLING OF THE TRACK, not its child.
 		-- Every per-state rule a package emits is a CHILD COMBINATOR off the
 		-- interactive node (`.facet-interactive:Press > .facet-chrome-toggleKnob`),
 		-- and a knob one level deeper could not be reached by one — so per-state
@@ -1173,7 +1170,7 @@ function screen_paint.new(ctx: any)
 		-- remembered so a live retheme can repaint the CURRENT state without the
 		-- caller having to know it (and without touching the value)
 		handle.toggleOn = on
-		-- ON/OFF IS A VALUE, AND ART READS IT AS A TAG (ADR-0020 R3 cap 10). No
+		-- ON/OFF IS A VALUE, AND ART READS IT AS A TAG. No
 		-- engine GuiState reports a value — which is exactly why `togglePalette`
 		-- stayed a bespoke colour write — so the package's `selected` variant rules
 		-- key on `facet-toggle-on`, flipped at the same site and from the same fact

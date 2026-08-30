@@ -1,5 +1,5 @@
 --!strict
--- The pure spring solver (ADR-0022 Decision 1): semi-implicit Euler,
+-- The pure spring solver: semi-implicit Euler,
 -- parameterized the way designers ship motion — TWO numbers, never
 -- mass/stiffness/damping:
 --

@@ -1,8 +1,8 @@
 --!strict
---[[ CROSS-SURFACE OVERLAP — two mounted surfaces covering each other (ADR-0028).
+--[[ CROSS-SURFACE OVERLAP — two mounted surfaces covering each other.
 
 	WHAT IT DOES. Answers, for one paint target, "which pairs of live surfaces
-	cover each other without either having said it means to". ADR-0025's
+	cover each other without either having said it means to". A composition's
 	`resolution.collisions` answers the same question one level down — which
 	REGIONS of a single `UI.Composition` paint into each other — and this file
 	deliberately reuses its shape and its vocabulary: a painted box per
@@ -38,7 +38,7 @@
 	    nothing about where it belongs, and that is precisely the case that
 	    commissioned this file.
 
-	AND A SURFACE THAT COVERS NOTHING IS IN NO PAIR (ADR-0026's hand-off). A
+	AND A SURFACE THAT COVERS NOTHING IS IN NO PAIR (the composition hand-off). A
 	surface at `opacity = 0` occupies its box and covers nothing visible; `hidden`
 	is the same shape, so is a framework fade to nothing, so is a root the
 	presenter has switched off while it waits for exact text. A geometry-only test
@@ -191,7 +191,7 @@ local contains = rectLib.contains
 --[[ scan(surfaces) -> { Overlap }
 
 	The pure half: every unordered pair, one intersection test each, sorted by id
-	so a report is the same on every run. This is ADR-0025's collision loop with
+	so a report is the same on every run. This is the composition's collision loop with
 	regions swapped for surfaces — same arithmetic, same `{ a, b, dx, dy }` row,
 	same "touching is not overlapping" epsilon of zero (an intersection has to
 	have area).
@@ -256,7 +256,7 @@ local REMEDY = "(put one in a display band above the other with setDisplayOrder,
 --[[ issue(overlap) -> the one sentence, identical on both surfaces of the pair.
 
 	It is one sentence per PAIR rather than one per victim because neither
-	surface is the offender: ADR-0025 could name the region painting outside its
+	surface is the offender: a composition can name the region painting outside its
 	own box, and here both surfaces are inside theirs — the defect is that nobody
 	said which is on top.
 ]]

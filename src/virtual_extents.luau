@@ -131,7 +131,7 @@ end
 	table whose extents are served through `__index` so it can COUNT the reads,
 	and a generic-for would iterate its (empty) array part and see nothing. A
 	measurement instrument that silently reads zero is exactly the trap
-	`docs/lessons/the-solver-already-told-you.md` is about. ]]
+	is: the solver already told you, and the instrument stopped asking. ]]
 function virtual_extents.variable(extents: { number }, gap: number): Index
 	local count = #extents
 	local starts = table.create(math.max(count, 1))

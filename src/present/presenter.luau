@@ -17,7 +17,7 @@ local blueprintLib = require("../blueprint")
 local renderer = require("../render/renderer")
 local focus_graph = require("../focus/focus_graph")
 -- structural transitions, the toast model and the semantic feedback seam
--- (ADR-0022 Decisions 3, 4, 7). Each is engine-free and driven from here.
+-- Each is engine-free and driven from here.
 local transitionsLib = require("../render/transitions")
 local toast_schedule = require("./toast_schedule")
 local feedbackLib = require("./feedback")
@@ -27,7 +27,7 @@ local motionClockLib = require("../motion/clock")
 local motionClasses = require("../motion/classes")
 local motionCurves = require("../motion/curves")
 local profile = require("../core/profile")
--- the metric authority (ADR-0019 §2). The modal-dismissal spec pins the
+-- the metric authority. The modal-dismissal spec pins the
 -- forgiveness ring to space.l and the target ring to the effective hit floor;
 -- both are now THEME values read from the live `themeMetrics` fact, so a theme
 -- with roomier spacing gets a proportionally roomier dismiss ring for free.
@@ -47,7 +47,7 @@ local presenter = {}
 -- presenter surface is typed, not `any`)
 export type PresentOpts = {
 	rootPolicy: string?,
-	-- the edge-floor knob (director ruling, ADR-0055, 2026-08-23): a
+	-- the edge-floor knob (director ruling, 2026-08-23): a
 	-- number (literal px) or a theme metric name, passed straight to
 	-- `renderer.attach`'s own opt of the same name — see its header for the
 	-- full grammar and the ten-foot-ladder note. Refused together with
@@ -59,7 +59,7 @@ export type PresentOpts = {
 	onFocusNav: ((path: string) -> ())?,
 	onReorderNav: ((path: string, direction: number) -> ())?,
 	sinkNavigation: boolean?,
-	-- responder mode (ADR-0014, present() only). Absent/nil = today's
+	-- responder mode (present() only). Absent/nil = today's
 	-- engaged-open semantics (context enabled, non-sinking — correct for a
 	-- UI-only place). "passive" = a HUD that binds nothing gameplay-contended:
 	-- its nav context is created DISABLED, so deviceKey navigation reaches lower
@@ -106,7 +106,7 @@ export type PresentOpts = {
 	-- surface simply reveals immediately rather than hiding forever.
 	revealWhenTextExact: boolean?,
 	revealTimeout: number?, -- default 2s
-	-- gameplay guard (ADR-0014): an engaged-exclusive context (modal, or a
+	-- gameplay guard: an engaged-exclusive context (modal, or a
 	-- passive surface once engaged) binds Space to a no-op GameplayGuard so the
 	-- keyboard jump is sunk while it is first responder (ButtonA is already sunk
 	-- via Activate, arrows/D-pad via Navigate). Default true; set false for a
@@ -121,10 +121,10 @@ export type PresentOpts = {
 	-- auto-derive: from mounted input contributions when any provides focusGroups,
 	-- else from the mounted LAYOUT structure when it has a horizontal container or
 	-- Grid with >=2 focusables (HStack row -> horizontal group; Grid -> per-row 2D
-	-- groups), else the flat ring (ADR-0013's automatic navigation groups). `false` = force the flat ring,
+	-- groups), else the flat ring (the automatic navigation groups). `false` = force the flat ring,
 	-- ignoring both (a legacy flat-list consumer opting out of auto-grouping).
 	navigationGroups: ({ focus_graph.NavigationGroup } | (rootNode: any) -> { focus_graph.NavigationGroup } | boolean)?,
-	-- presentModal only (ADR-0013's modal outside-tap rule): while this modal is on top, a pointer/
+	-- presentModal only (the modal outside-tap rule): while this modal is on top, a pointer/
 	-- touch tap whose path is NOT owned by the modal's blueprint dismisses the
 	-- modal (platform sheet outside-tap) and never routes to a lower screen.
 	-- Default true; set false to restore legacy clickthrough routing. A scrim or
@@ -133,7 +133,7 @@ export type PresentOpts = {
 	outsideTapCancel: boolean?,
 	-- what the CANCEL verb (gamepad ButtonB) does to this surface.
 	--   "dismiss" (default) — today's contract, unchanged: a modal dismisses, an
-	--                         engaged-from-passive surface resigns (ADR-0014).
+	--                         engaged-from-passive surface resigns.
 	--   "none"              — Cancel does nothing to THIS surface. For a
 	--                         MANDATORY surface: a modal whose choice has no
 	--                         legal "not now" (a role pick that parks the player
@@ -170,7 +170,7 @@ export type PresentOpts = {
 	-- presenter observes and applies as an upward transform on the screen root
 	-- (0 = none). A text field publishes its keyboard-occlusion offset here.
 	keepVisibleOffset: any?,
-	-- structural transition for the SURFACE itself (ADR-0022 Decision 3):
+	-- structural transition for the SURFACE itself:
 	-- { enter, exit?, class?, fade? }. The enter runs on the first painted frame;
 	-- `dismiss` then defers the teardown until the exit completes or the
 	-- coordinator's flat 500 ms cap fires — whichever comes first. The surface
@@ -186,7 +186,7 @@ export type PresentOpts = {
 	fallbackScreen: ((err: any) -> any)?,
 }
 
--- presentToast options (ADR-0022 Decision 4; ui-designer spec §3.1)
+-- presentToast options (ui-designer spec §3.1)
 export type ToastOpts = {
 	key: string?, -- same-key supersede ("subject" in the spec)
 	priority: number?, -- default 0; higher runs first in the queue
@@ -503,7 +503,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 	-- detector-echo guard draws the same line for the same reason.
 	local activateEcho: { [string]: { at: number, source: string } } = {}
 
-	-- ===== the semantic feedback seam (ADR-0022 Decision 7) ===================
+	-- ===== the semantic feedback seam ===================
 	-- ONE bus per presenter. `presenter.onFeedback` is the primary seam (every
 	-- surface, one subscription — a game maps events to sound/haptics in one
 	-- place); `handle.onFeedback` is the same bus filtered to that surface.
@@ -514,7 +514,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		bus.emit(event)
 	end
 
-	-- THE REGISTRATION POINT FOR SESSION EVENTS (ADR-0022 Decision 7). P4's drag
+	-- THE REGISTRATION POINT FOR SESSION EVENTS. P4's drag
 	-- session emits `commit` / `land` / `reject` / `cancel` / `pickup` through
 	-- exactly this call, so every semantic event a game hears — control, motion,
 	-- toast, session — arrives on one bus with one taxonomy.
@@ -529,7 +529,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 	-- subscribers to "a modal took the screen" (disposition F7; see presentModal)
 	local modalWatchers: { (handle: any) -> () } = {}
 
-	-- ===== the motion clock (ADR-0022 Decision 1) ============================
+	-- ===== the motion clock ============================
 	-- One clock for every surface transition and the toast schedule. A clock at
 	-- rest costs nothing, so building it eagerly costs a table; `self.tick(dt)`
 	-- steps it (the client binds that to RunService.PreRender).
@@ -552,7 +552,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 	-- constant bar and nothing else changes.
 	--
 	-- THE RESERVE MOVES AGAIN, BUT ONLY HALF OF IT (director ruling 2026-08-28,
-	-- task SCROLL2, fa7233a, ADR-0040 row B-35; PARTIALLY RE-REVERSING
+	-- task SCROLL2, fa7233a; PARTIALLY RE-REVERSING
 	-- 2026-08-12, which itself reversed 2026-08-09): "always" still charges the
 	-- window for the bar instance unconditionally; "auto" now publishes ZERO
 	-- again, paired with the adapter's own compensating frame-widen
@@ -593,7 +593,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 	-- probes) — run inside self.tick, after the motion step
 	local tickHooks: { (dt: number) -> () } = {}
 
-	-- the live metric authority (ADR-0019 §2). Read per use, never captured: a
+	-- the live metric authority. Read per use, never captured: a
 	-- theme commit must move the dismiss geometry in the same frame it moves the
 	-- solved rects those decisions are taken against.
 	local function metricsNow(): any
@@ -601,7 +601,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		return if type(m) == "table" and type(m.targetSizes) == "table" then m else themeSnapshot.neutral()
 	end
 
-	-- ===== responder priority bands (ADR-0014; research conclusion 3) ========
+	-- ===== responder priority bands (research conclusion 3) ========
 	-- Base screens stay at 1500 (above the ~1000 avatar default, below the
 	-- doc-sanctioned gameplay sink at 2000, so a passive/plain screen never
 	-- suppresses movement). The ENGAGED-EXCLUSIVE band starts at 3000 —
@@ -623,7 +623,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		return top
 	end
 
-	--[[ APP-LEVEL GLOBAL CHROME'S OWN BAND (registry item 24; W3-D, ADR-0053).
+	--[[ APP-LEVEL GLOBAL CHROME'S OWN BAND (registry item 24; W3-D).
 		Census: `Facet`'s own showcase example is the one measured, real
 		consumer this campaign found — RascalRally's HudZone/GearDock/settings
 		chrome only ever sets raw `DisplayOrder`/`ZIndex` (paint order, already
@@ -694,7 +694,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 	-- ===== synthesized scrim / popup catcher ==================================
 	-- The two full-viewport tap swallowers this presenter synthesizes moved into
 	-- src/present/catchers.luau for the 200,000-char Source WRITE cap (see that
-	-- header, and docs/lessons/the-200k-source-cap-is-on-writing-not-loading.md).
+	-- header): over that cap a module silently stops live-syncing.
 	-- They took the ONLY two mutable upvalues they touched with them (`scrim`,
 	-- `popupCatcher`) and read the rest of this closure by reference, so the move
 	-- was behaviour-preserving by construction. Bound back to the SAME local names
@@ -767,7 +767,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		right edge came out EXACTLY equal to the viewport width. Flush is the
 		defect, and it is the defect that no overflow check in this repository can
 		see — every one of them asks `x + w <= viewport`, which a flush rect
-		satisfies. `docs/lessons/device-emulator-truths.md` is why it survived: the
+		satisfies. The device emulator is why it survived: the
 		engine reports only the 58px CoreGui topbar and NOTHING lateral, so both
 		inset facts are structurally zero on the sides on every device, and a policy
 		that is nothing but `max(core, device)` therefore yields a zero gutter
@@ -1358,8 +1358,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 	-- ===== surface lifecycle ==================================================
 	-- The shared focus-visual sync, the per-frame refresh body and the dismissal
 	-- pair moved into src/present/surface_lifecycle.luau for the 200,000-char
-	-- Source WRITE cap (see that header, and
-	-- docs/lessons/the-200k-source-cap-is-on-writing-not-loading.md).
+	-- Source WRITE cap (see that header).
 	--
 	-- BUILT HERE rather than where any of the three used to stand, because this
 	-- is the first line at which every collaborator they read is a FINAL value:
@@ -1411,7 +1410,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		syncFocusVisuals(graph.focused:get())
 	end
 
-	-- ===== DRAG-PROXY HOST (ADR-0022 Decision 5; ui-designer §5.3/§6.3) ======
+	-- ===== DRAG-PROXY HOST (ui-designer §5.3/§6.3) ======
 	--
 	-- The ghost layer. PRESENTER-PRIVATE exactly like the toast layer: not in
 	-- `stack`, no focus scope, no input context, no tap handler — a surface with
@@ -1632,7 +1631,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 			end
 			return not isPassive or use(responderState) == "engaged"
 		end))
-		-- STRUCTURAL TRANSITIONS (ADR-0022 Decision 3). Every surface gets a
+		-- STRUCTURAL TRANSITIONS. Every surface gets a
 		-- coordinator: it costs a table, builds a spring only when a region actually
 		-- declares a transition, and it is the only thing that makes `UI.When
 		-- { transition = … }` mean anything on this screen. `surfaceRef` is filled in
@@ -1690,7 +1689,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 				-- a control inside a subtree that is playing its EXIT is not there any
 				-- more as far as interaction is concerned: it still paints, so it can
 				-- still be pressed, and a press on something on its way out is never
-				-- what the player meant (ADR-0022 Decision 3)
+				-- what the player meant
 				if pathIsRetiring(root.node, path) then
 					return
 				end
@@ -1704,7 +1703,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 				-- pressing something has stopped asking what it does
 				helpPlate.dismiss("tap")
 				-- outside-tap policy is owned by the topmost EXCLUSIVE surface: a
-				-- modal (ADR-0013's outside-tap rule) OR an engaged-from-passive surface (ADR-0014).
+				-- modal (the outside-tap rule) OR an engaged-from-passive surface.
 				-- A tap whose path is NOT owned by that surface dismisses/resigns it
 				-- (platform sheet dismiss) and never clicks through to a lower handle.
 				for i = #stack, 1, -1 do
@@ -1785,7 +1784,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		-- followed by a jump
 		coordinator.bindController(controller)
 
-		-- discover the mounted input contributions (ADR-0013) in document order;
+		-- discover the mounted input contributions in document order;
 		-- the presenter auto-composes each screen's four-input story from them,
 		-- with every consumer opt overriding its auto counterpart per-opt (below)
 		--
@@ -2010,7 +2009,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 				navigationGroups = autoGroups(root.node)
 			elseif hasHorizontalStructure(root.node) then
 				-- no contributions, but the LAYOUT has a horizontal container /
-				-- grid: derive 2D navigation from tree structure (ADR-0013's automatic groups)
+				-- grid: derive 2D navigation from tree structure (the automatic groups)
 				navigationGroupsFn = layoutGroups
 				navigationGroups = layoutGroups(root.node)
 			end
@@ -2146,7 +2145,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		-- STRICTLY lower priorities — two focus-driven base screens would
 		-- double-deliver on the shared focus graph (modals avoid this via
 		-- +500 stacking); present the second one as a modal instead.
-		-- Responder mode (ADR-0014). present() default = today's engaged-open
+		-- Responder mode. present() default = today's engaged-open
 		-- semantics (context enabled, non-sinking — correct for a UI-only place).
 		-- opts.responder = "passive" (present() only): the nav context is created
 		-- DISABLED so a passive HUD binds nothing gameplay-contended and deviceKey
@@ -2249,7 +2248,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 			adjust.bind({ keyCode = "ButtonR1", direction = 1 })
 		end
 
-		-- Dynamic Adjust auto-wiring (matrix §B-Table; UI-PARADIGM-001). ADR-0013
+		-- Dynamic Adjust auto-wiring (matrix §B-Table; UI-PARADIGM-001). Auto-wiring
 		-- kept Adjust consumer-opt-in so a non-modal screen never shadows gameplay
 		-- arrow/bumper keys. To close the GAP without reopening that hazard, a
 		-- control's contribution can declare `adjustTargets` + `handleAdjust`, and
@@ -2413,13 +2412,13 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		-- gear toggle); gamepad B is the bindable Cancel.
 		cancel.bind({ keyCode = "ButtonB" })
 
-		-- Gameplay guard (ADR-0014): an engaged-exclusive context (modal, or a
+		-- Gameplay guard: an engaged-exclusive context (modal, or a
 		-- passive surface once engaged) additionally sinks the avatar-contended
 		-- keys our other bindings do not already cover. ButtonA is sunk via
 		-- Activate and arrows/D-pad via Navigate; Space (keyboard jump) is not,
 		-- so bind it to a no-op GameplayGuard Bool action inside this sinking
 		-- context. Overridable: opts.gameplayGuard = false opts out (a word-game
-		-- modal that wants Space). WASD is deliberately NOT sunk in v1 (ADR-0014
+		-- modal that wants Space). WASD is deliberately NOT sunk in v1 (an
 		-- open decision, pending the live IAS move/jump binding-set probe). For a
 		-- passive surface the guard lives in a DISABLED context until engage(),
 		-- so Space reaches gameplay while passive.
@@ -2488,7 +2487,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		end
 
 		-- passive surfaces present with their nav context DISABLED: they bind
-		-- nothing gameplay-contended until engaged (ADR-0014). engage() enables +
+		-- nothing gameplay-contended until engaged. engage() enables +
 		-- sinks; resign() disables + un-sinks.
 		if isPassive then
 			context.setEnabled(false)
@@ -2566,7 +2565,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 			activateEcho = activateEcho,
 			now = nowFn,
 			contributions = contributions,
-			-- modal outside-tap dismiss (ADR-0013's outside-tap rule): default true; a modal
+			-- modal outside-tap dismiss (the outside-tap rule): default true; a modal
 			-- opts out with outsideTapCancel=false to keep legacy clickthrough
 			outsideTapCancel = not (opts and opts.outsideTapCancel == false),
 			-- what Cancel (ButtonB) does to this SURFACE once no contribution
@@ -2574,7 +2573,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 			-- resigns) or "none" (a mandatory surface: Cancel is a no-op)
 			cancelPolicy = cancelPolicy,
 			onActivate = (opts and opts.onActivate) or nil,
-			-- the surface's structural-transition machinery (ADR-0022 Decision 3)
+			-- the surface's structural-transition machinery
 			coordinator = coordinator,
 			transition = (opts and opts.transition) or nil,
 			emitFeedback = emitFeedback,
@@ -2590,7 +2589,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 			-- `refresh` calls it before it re-derives the focus map, so a region
 			-- that opened this frame is wired BEFORE its nodes join the ring
 			syncContributions = syncContributions,
-			-- responder mode (ADR-0014): passive surfaces engage/resign; every
+			-- responder mode: passive surfaces engage/resign; every
 			-- other surface reports "engaged" (a plain screen is engaged-open,
 			-- non-sinking; a modal is engaged-exclusive). Readable for consumers.
 			isPassive = isPassive,
@@ -2734,7 +2733,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 					table.freeze({
 						name = group.name,
 						axis = group.axis,
-						-- present only on a TWO-DIMENSIONAL group (ADR-0030), where it is
+						-- present only on a TWO-DIMENSIONAL group, where it is
 						-- the lane count: `axis` names the direction ±1 walks and `columns`
 						-- says where the lines break, so the perpendicular key moves a whole
 						-- line. Nothing in the order shows this — a 4-lane grid and a
@@ -3097,12 +3096,12 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 			end
 		end))
 
-		--[[ D-PAD AUTO-REPEAT (director item 4; ADR-0057). `Navigate`/`NavigateH`
+		--[[ D-PAD AUTO-REPEAT (director item 4). `Navigate`/`NavigateH`
 			only ever DELIVER on a value CHANGE — a press, then back to 0 on release —
 			so a HELD direction moved focus exactly once. Neither Roblox's Input
 			Action System (Pressed/Released/StateChanged only, no repeat property) nor
-			GuiService's own native selection navigator documents any repeat timing
-			(ADR-0057 cites both platform surfaces), so there is nothing to defer to:
+			GuiService's own native selection navigator documents any repeat timing,
+			so there is nothing to defer to:
 			the framework owns this, here, so every presented surface gets it free.
 
 			GAMEPAD-ONLY (`action.lastGamepad`, stamped by actions.luau from the
@@ -3156,7 +3155,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 			never turns the SAME staleness class into a periodic side effect. ]]
 		local DPAD_REPEAT_DELAY_S = 0.4 -- initial hold-before-repeat (console
 		-- convention; matches this file's own DISCLOSE_LONG_PRESS_S precedent
-		-- in screen_target.luau — see ADR-0057)
+		-- in screen_target.luau)
 		local DPAD_REPEAT_INTERVAL_S = 0.1 -- steady-state repeat cadence
 		-- an accumulator compared against a fractional-second threshold needs a
 		-- tolerance: `0.09 + 0.01` is not bit-identical to `0.1` in IEEE754 double
@@ -3380,12 +3379,12 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 				self.dismiss(handle)
 			elseif handle.isPassive and handle.responder:get() == "engaged" then
 				-- Cancel on an engaged-from-passive surface resigns it (back to
-				-- passive, context disabled) instead of doing nothing (ADR-0014)
+				-- passive, context disabled) instead of doing nothing
 				handle.resign()
 			end
 		end)
 
-		-- ROADMAP STEP 5 DRAG INTEGRATION (ADR-0022 Decision 5): every surface's registry
+		-- ROADMAP STEP 5 DRAG INTEGRATION: every surface's registry
 		-- receives the presentation collaborators the moment the surface exists,
 		-- so no fixture or game ever wires them — the feedback bus (drag events
 		-- carry this surface), the shared motion clock (pickup scale, flights),
@@ -3608,7 +3607,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 	-- module's header for why these are one seam and what the `displayLayer`
 	-- record costs. Bound HERE, where they have always been declared, so every
 	-- caller reads the same `self.dismiss` it always did. `raise` (registry
-	-- item 23; W3-D, ADR-0053) joined 2026-08-23, once this file's own row
+	-- item 23; W3-D) joined 2026-08-23, once this file's own row
 	-- cleared the extraction-locked band — see surface_lifecycle.luau's `raise`
 	-- for the seam itself.
 	self.dismiss = surfaceLifecycle.dismiss
@@ -3646,7 +3645,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 	self.animationRecordCount = withAnimation.animationRecordCount
 	self.commitCount = withAnimation.commitCount
 
-	-- ===== TOASTS (ADR-0022 Decision 4) =======================================
+	-- ===== TOASTS =======================================
 	--
 	-- A toast surface is PRESENTER-PRIVATE, exactly like the scrim and the popup
 	-- catcher: it is not in `stack`, pushes no focus scope, creates no input
@@ -3662,7 +3661,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 	-- The scheduler (`toast_schedule`) owns priority, the queue cap, read floors
 	-- and supersede; this driver owns pixels. Under reduced motion the transition
 	-- places instantly and the schedule is untouched: every toast that would have
-	-- been shown is still shown, for the same time (ADR-0022 Decision 4).
+	-- been shown is still shown, for the same time.
 	local toastTime = 0
 	local toastPosition = "top"
 	local toastTransition: any = nil

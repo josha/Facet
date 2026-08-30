@@ -31,7 +31,7 @@
 	failure the seam is for.
 ]]
 
--- the PURE declared-content composition decision (ADR-0023). This module supplies
+-- the PURE declared-content composition decision. This module supplies
 -- the measurements and consumes the rects; the ranking, the step-down/drop order
 -- and the arrangement choice live there, where a headless sweep can drive them
 -- with no tree at all.
@@ -124,7 +124,7 @@ export type SolveCtx = {
 	-- own chrome are resolved from it, so the NAME never crosses into the pure
 	-- composition module (read only)
 	metrics: any,
-	--[[ THE SURFACE'S OWN BOX AND THE PLATFORM BAND ABOVE IT (§9/§8, ADR-0046),
+	--[[ THE SURFACE'S OWN BOX AND THE PLATFORM BAND ABOVE IT (§9/§8),
 		all three read only. They are what turns a WINDOW-space rect — which is the
 		space `platformChrome` states its band and its rects in, and the space this
 		solver's own output is in — into the local box a PURE composition can reason
@@ -136,7 +136,7 @@ export type SolveCtx = {
 	rootBandFullTop: number?,
 }
 
--- THE COMPOSITION RESOLUTION, COMPUTED ONCE PER BOX (ADR-0023).
+-- THE COMPOSITION RESOLUTION, COMPUTED ONCE PER BOX.
 --
 -- Measure and arrange both need it, and they must never get different answers —
 -- reserving a box for `threeLane` and then arranging `column` inside it is the

@@ -161,9 +161,8 @@ function virtual_reorder.new(deps: Deps)
 	--[[ HOISTED (parity round 3): this used to sit ~110 lines further down, and
 		the per-row capability gates in `commitReorderAt` and `toggleGrab` need
 		it. A local declared LATER in the file is NOT an upvalue — it binds a nil
-		global and calls it, which is exactly
-		`docs/lessons/later-locals-are-not-upvalues.md`, a trap this repo has now
-		been bitten by five times. It depends only on `indexOfKey` and `spec`,
+		global and calls it. Later locals are not upvalues, and this repository has
+		now been bitten by that five times. It depends only on `indexOfKey` and `spec`,
 		both already in scope here. ]]
 	local function itemForKey(key: string): any?
 		local index = indexOfKey(key)

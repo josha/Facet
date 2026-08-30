@@ -29,7 +29,7 @@ local function nodeDump(node: solver.Node, rects: { [string]: any }): any
 		-- can run text_audit.hitFloor without the live rects table
 		hitFloor = entry and entry.hitFloor,
 		contentSize = entry and entry.contentSize,
-		-- the composition resolution (ADR-0023) rides the same channel as the
+		-- the composition resolution rides the same channel as the
 		-- rect it produced: WHICH arrangement, WHICH form per region, and WHY
 		-- every richer candidate lost. Nil on every node that is not one.
 		composition = entry and entry.composition,

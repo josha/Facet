@@ -9,8 +9,7 @@
 	PRECONDITION rather than a companion: "the next change of any size to this
 	file is PRECEDED by the extraction, not accompanied by it". The file was 805
 	characters from 193,000 and 7,805 from the 200,000-char Source WRITE cap,
-	past which a module stops live-syncing into an open Studio session, silently
-	(`docs/lessons/the-200k-source-cap-is-on-writing-not-loading.md`).
+	past which a module stops live-syncing into an open Studio session, silently.
 
 	WHAT MADE IT EXTRACTABLE, when the same ledger row recorded that it was NOT
 	one-way as written. The block read seven REASSIGNED host scalars — the six
@@ -96,9 +95,8 @@ local HOSTED_ROW_ACTIONS_KEYS = specGuard.keySet({ "leading", "trailing", "fullS
 	      * a tap on an OPEN hosted row means "close the tray" and nothing else —
 	        the swipe-tray convention this control follows, and the alternative is
 	        a swipe-then-tap opening whatever the row's `onActivate` opens.
-	    WHAT MAY SPEND IT is as much of the rule as where it is armed — the lesson
-	    is `docs/lessons/an-arm-set-by-a-gesture-must-name-what-may-spend-it.md`,
-	    written from this exact seam: all three producers are POINTER gestures
+	    WHAT MAY SPEND IT is as much of the rule as where it is armed: an arm set
+	    by a gesture must name what may spend it. Written from this exact seam: all three producers are POINTER gestures
 	    leaving a
 	    POINTER Activated behind, so a DEVICE Activate (`meta.source == "action"`,
 	    no pointer-down anywhere) is never it and never consumed by it. Cleared by
@@ -369,8 +367,7 @@ function virtual_list_hosted.new(deps: Deps)
 	local hostedSlideByKey: { [string]: number } = {}
 	-- FORWARD-DECLARED, and it has to be: `hostedApplySlide` below calls it, and a
 	-- `local function` declared after its caller is a GLOBAL lookup at call time —
-	-- nil, silently (docs/lessons/a-helper-declared-below-its-caller-is-a-global.md,
-	-- docs/lessons/later-locals-are-not-upvalues.md). It is defined a few lines
+	-- nil, silently. It is defined a few lines
 	-- down, beside the presentation-channel comment that explains what it writes.
 	local hostedWriteSlide: () -> ()
 	local function hostedApplySlide(key: string, px: number)
@@ -402,7 +399,7 @@ function virtual_list_hosted.new(deps: Deps)
 	end
 
 	--[[ THE SLIDE ITSELF — the PRESENTATION CHANNEL, not a layout prop (design §3;
-		ADR-0022's presentation authority, the same door the DropLine and the drag
+		the presentation authority, the same door the DropLine and the drag
 		ghost translate through). A disengaged row declares NO reactive offset prop
 		at all — that is the whole point, and it is what the floor experiment
 		measured: a per-row reactive `offsetX` cost +6.7-8.8% fling on rows nobody
@@ -603,7 +600,7 @@ function virtual_list_hosted.new(deps: Deps)
 		MEASURED ON THE ENGINE, not only on the model: two sinking `InputContext`s
 		on one key deliver to the higher priority alone, and the lower one receives
 		it as soon as the higher is disabled
-		(`docs/lessons/input-context-arbitration-measured.md`, Play mode
+		(Play mode
 		2026-08-13). The only prior citation was a headless spike.
 
 		ENABLED BY FOCUS, BUILT BY THE PRESS: the context is enabled only while the
@@ -728,8 +725,8 @@ function virtual_list_hosted.new(deps: Deps)
 				pointer Activate it exists for, cleared by the next down and by
 				`onPointerCancel` (which is where a scroll that steals the capture
 				arrives), and never eligible for a DEVICE Activate at all
-				(`meta.source == "action"`; docs/lessons/an-arm-set-by-a-gesture-
-				must-name-what-may-spend-it.md). ]]
+				(`meta.source == "action"`: an arm set by a gesture names what may
+				spend it). ]]
 			delivery.suppressActivate = pending.path
 			return
 		end
@@ -841,8 +838,7 @@ function virtual_list_hosted.new(deps: Deps)
 
 				The standing rule this cost us — an arm owes three answers where it is
 				set: where it is armed, what clears it, and what class of event may
-				spend it — is
-				`docs/lessons/an-arm-set-by-a-gesture-must-name-what-may-spend-it.md`. ]]
+				spend it — is the whole rule. ]]
 			delivery.suppressActivate = nil
 			local key = hostedKeyOfHit(path)
 			if key == nil then

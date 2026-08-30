@@ -37,7 +37,7 @@
 	document order assigning increasing z, so the `Tail` declared first paints
 	below the `Surface` declared second), and the half that protrudes is the
 	triangle. `rotation` is a shipped, paint-only prop on every rendered class
-	(ADR-0026) — it moves no layout, no hit geometry and no focus, which is
+ — it moves no layout, no hit geometry and no focus, which is
 	exactly right for a decoration. The alternative, an `UI.Image` nine-slice,
 	would need an uploaded asset per theme fill; this needs none.
 
@@ -114,7 +114,7 @@ local TAIL_SEAM_ID = "TailSeam"
 
 local DUMP_SCHEMA = "facet-anchored-dump/1"
 
--- THEME METRICS (ADR-0019 §2), never bare pixels. The gap is the small spacing
+-- THEME METRICS, never bare pixels. The gap is the small spacing
 -- step; the tail is one medium step square, which is 16px under Studio Neutral
 -- and therefore an 11.3px protrusion, which is the usual popover-arrow size.
 -- The corner keep-out is the panel radius, so a tail can never grow out of a
@@ -232,7 +232,7 @@ function anchored.new(ctx: any)
 		-- RESOLVED PER PLACEMENT, from the LIVE metric authority — never cached at
 		-- present time. The tail's box declares the same metric NAME, so a theme
 		-- commit retunes the wedge and the distance it stands off the source in the
-		-- same frame it retunes everything else (ADR-0019 §2).
+		-- same frame it retunes everything else.
 		local tailPx = if record.wantsTail then resolveMetric(record.tailMetric, 0) else 0
 		-- a 45° square protrudes half its DIAGONAL past its centre
 		local protrusion = tailPx * ROOT_TWO / 2

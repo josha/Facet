@@ -25,8 +25,7 @@
 	characters or more, and every LIVE path is a write — the Rojo plugin,
 	`execute_luau`, any plugin — so a module over the cap silently stops syncing
 	into an open Studio session and a live check against it then tests the code
-	baked into the place rather than the edits on disk
-	(docs/lessons/the-200k-source-cap-is-on-writing-not-loading.md). `renderer.luau`
+	baked into the place rather than the edits on disk. `renderer.luau`
 	was 242,943 characters; this is the first of two seams taken to get it under.
 
 	Depends on: layout/solver (the Node type), themes/snapshot (metric and
@@ -60,7 +59,7 @@ local layout_node = {}
 --
 -- With an `icon`, the drawn mark is the FRAMEWORK'S ASCII-safe glyph for that
 -- semantic name and `label` stays the semantic name only (exactly as it already
--- does for a content button). That order is ADR-0020 R4's tofu fix applied to a
+-- does for a content button). That order is the semantic-icon tofu fix applied to a
 -- public prop: the legible character is in the tree from the first frame and NO
 -- resolution has to succeed for it to render — a package that ships art for the
 -- name simply has the adapter paint the picture over it.
@@ -149,14 +148,14 @@ end
 -- parentAxis is the enclosing stack's main axis ("y" | "x" | nil). Only Divider
 -- reads it, to infer its orientation (A-LV3), so the same declaration is a
 -- horizontal hairline in a VStack and a vertical one in an HStack.
--- `metrics` is the active ThemeSnapshot (ADR-0019 §2): THE resolution point for
+-- `metrics` is the active ThemeSnapshot: THE resolution point for
 -- semantic metric names. A prop that names a role/step/metric path becomes a
 -- number here, on every solve, which is exactly why a theme swap moves geometry
 -- without touching the mounted graph. A literal number passes through untouched
 -- and is thereby explicitly theme-independent.
 -- a label with no whitespace: one word, and therefore nothing the engine may
 -- legally break. Numbers count as words. See the Button branch below.
--- AN OFFSET MAY BE A FRACTION OF THE PARENT (ADR-0022 Decision 6). A
+-- AN OFFSET MAY BE A FRACTION OF THE PARENT. A
 -- number or a metric name resolves to px here, exactly as it always did; the
 -- `{ scale, offset }` form CANNOT — the extent it is a fraction of is only known
 -- at arrange — so it passes through as data with its px part resolved, and the
@@ -207,7 +206,7 @@ end
 -- THE EFFECTIVE TARGET FLOOR for a class, or nil when it declares none. The
 -- CONTRACT (src/class_contract.luau) is the source of truth for WHETHER a
 -- class has a floor, so adding a focusable control gets it enforced; the THEME
--- owns the VALUE, and floors clamp UP only (ADR-0019 §2 step 4) — a package may
+-- owns the VALUE, and floors clamp UP only — a package may
 -- enlarge a touch target, never shrink one below what the control declared.
 --
 -- ONE reading, two readers: `toLayoutNode` carries it into the solve so the
@@ -384,7 +383,7 @@ local function toLayoutNode(
 	elseif class == "ViewThatFits" then
 		kind = "fits"
 	elseif class == "Composition" then
-		-- ADR-0023: a screen-level container whose children are ranked regions.
+		-- a screen-level container whose children are ranked regions.
 		-- ONE class, no reactive prop at all: the adaptation is driven entirely by
 		-- the box it receives, so an orientation change, a window resize, a
 		-- preferred-text change and a theme swap are all the same re-solve.
@@ -558,7 +557,7 @@ local function toLayoutNode(
 				and now the group's own `maxWidth`) sat unset on every shipped site.
 
 				THE NUMBER IS DERIVED, NOT CHOSEN: `adaptive.LANE_MEASURE` (the
-				tablet measure) times `metrics.metricScale` (ADR-0039's
+				tablet measure) times `metrics.metricScale` (the
 				`tenFootFloor`, the one factor behind every ten-foot number in this
 				framework). 600 x 1.5 = 900, with neither number written twice, so a
 				re-ruled measure is one edit in `adaptive.laneMeasureFor` and a named
@@ -597,7 +596,7 @@ local function toLayoutNode(
 
 				The ruled number is 900 and it is DERIVED rather than chosen:
 				`adaptive.LANE_MEASURE` (the tablet measure) times
-				`metrics.metricScale` (ADR-0039's `tenFootFloor`, the one factor
+				`metrics.metricScale` (the `tenFootFloor`, the one factor
 				behind every ten-foot number). Neither is written twice, so a
 				re-ruled measure is one edit in `adaptive.laneMeasureFor`.
 
@@ -664,8 +663,8 @@ local function toLayoutNode(
 		-- the fit BAND, when the author asked the solver to choose the size
 		layoutNode.textFit = fit
 		-- an explicit (deprecated) font prop still wins for measurement; otherwise
-		-- the role's canonical font DESCRIPTOR ("family#weight#style", ADR-0019
-		-- §6) and line height ride with its size, so a theme that changes weight
+		-- the role's canonical font DESCRIPTOR ("family#weight#style") and line
+		-- height ride with its size, so a theme that changes weight
 		-- measures as that weight instead of as the family's Regular
 		layoutNode.font = props.font or (if role ~= nil then role.fontKey else nil)
 		layoutNode.lineHeight = if role ~= nil then role.lineHeight else nil
@@ -827,7 +826,7 @@ local function toLayoutNode(
 			layoutNode.height = layoutNode.height or { type = "minMax", min = badgeMin }
 		end
 	end
-	-- DECORATION CONTENT INSETS (ADR-0019 §5). A nine-slice skin has a carved
+	-- DECORATION CONTENT INSETS. A nine-slice skin has a carved
 	-- border that content must clear, so the recipe's `contentInsets` are
 	-- SOLVER-VISIBLE: they are added to whatever padding the node already had,
 	-- after every class default, so a Button's theme padding and its skin's
@@ -1065,7 +1064,7 @@ local function toLayoutNode(
 	-- THE ICON'S BOX IS A SOLVER FACT (director report 2026-07-28, defects 1+2).
 	--
 	-- A semantic icon request is an UPGRADE over the ASCII character the control
-	-- draws itself (ADR-0020 R4), and that half was right. The half that was
+	-- draws itself, and that half was right. The half that was
 	-- missing: the picture is a FIXED px square from `iconSizes`, centred on the
 	-- node, and the node was measured as the CHARACTER. `">"` is 6px; Fantasy
 	-- Ornate's `medium` rung is 32. The disclosure caret therefore painted 13px
@@ -1134,7 +1133,7 @@ local function toLayoutNode(
 			if props.shape == "circle" then
 				local need = px + math.max(pl + pr, pt + pb)
 				--[[ ...AND A FLOOR IS A REQUEST, NOT A RIGHT (task THEME fix round,
-					2026-08-28; ADR-0059 Decision 6; review finding C1). Which is the same
+					2026-08-28; review finding C1). Which is the same
 					sentence the block a few dozen lines up is built on, at the other number
 					that block decides — and this one had no such bound at all.
 
@@ -1208,9 +1207,9 @@ local function toLayoutNode(
 			appendChild(child)
 		end
 		--[[ ── THE SIBLING PLATE'S CARVED BORDER, AND WHY THE FRAMEWORK DOES NOT
-			SPEND IT (task THEME, director items 7-8; ADR-0059 Decision 2) ──────────
+			SPEND IT (task THEME, director items 7-8) ──────────
 
-			ADR-0019 §5 promises that a nine-slice skin's `contentInsets` are
+			The theme contract promises that a nine-slice skin's `contentInsets` are
 			SOLVER-VISIBLE — "a carved border that content must clear". The block a few
 			hundred lines up keeps that promise by adding the inset to the SURFACED
 			NODE'S OWN padding, which is right whenever the plate is the content's

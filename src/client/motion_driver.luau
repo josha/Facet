@@ -30,7 +30,7 @@ local motion_driver = {}
 
 local bound: { [any]: RBXScriptConnection } = {}
 
---[[ THE ENGINE OWNS THE CURVE (ADR-0033; director ruling 2026-08-15, "use
+--[[ THE ENGINE OWNS THE CURVE (director ruling 2026-08-15, "use
 	Roblox's animation system wherever possible"). `TweenService:GetValue` is the
 	engine's easing evaluator and it is PURE — a number in, a number out, touching
 	no Instance — which is the property that lets it drive a value Facet owns.

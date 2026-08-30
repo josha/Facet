@@ -54,7 +54,7 @@ end
 -- the pure path-prefix test for the dismiss decision. Returns false when nothing
 -- is painted (a wholly-invisible surface has no Zone A, so every tap is Zone B).
 -- Scoped to any subtree so both a modal (whole root) and a transient popup (its
--- contribution subtree) share one geometry (ADR-0014 two-zone model).
+-- contribution subtree) share one geometry (the two-zone responder model).
 local function zoneAContains(rectOf: (string) -> any, subtreeRoot: any, x: number, y: number, metrics: any): boolean
 	local forgiveMargin: number = metrics.space.l
 	local hitFloor: number = metrics.targetSizes.minimum

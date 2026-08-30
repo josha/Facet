@@ -170,7 +170,7 @@ function roblox_env.bind(env: any, services: any?): () -> ()
 	-- sticky within the session: actual gamepad input is proof the class is
 	-- live even when detection lags or fails (GamepadEnabled=false with a
 	-- working pad is a documented engine failure class — Studio HID
-	-- forwarding, controller-emulator slot shift; ADR-0015)
+	-- forwarding, controller-emulator slot shift)
 	local sawGamepadInput = false
 
 	--[[ A PAD THAT IS MERELY THERE IS NOT THE PLAYER'S PAD (director round 5,
@@ -205,7 +205,7 @@ function roblox_env.bind(env: any, services: any?): () -> ()
 		    not break;
 		  * the CAPABILITY is untouched. `capabilities.gamepad` still reports the pad
 		    as live, because it is: this changes which class is PRIMARY (emphasis, and
-		    which idiom leads — ADR-0015 Decision 2), never which classes exist.
+		    which idiom leads), never which classes exist.
 
 		The correction lives HERE rather than in the memo because it is about an
 		ENGINE fact's known behaviour, which is this module's whole job — the same
@@ -391,7 +391,7 @@ function roblox_env.bind(env: any, services: any?): () -> ()
 		end
 	end
 	table.insert(connections, UserInputService:GetPropertyChangedSignal("PreferredInput"):Connect(pushInput))
-	-- capability facts move independently of the preference (ADR-0015): a
+	-- capability facts move independently of the preference: a
 	-- gamepad connecting mid-session, or a keyboard/mouse joining a docked
 	-- handheld, must reach env even when PreferredInput never flips
 	-- (director repro 2026-07-21). GamepadConnected/Disconnected are the

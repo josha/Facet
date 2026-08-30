@@ -233,7 +233,7 @@ local SIZINGS: { [string]: boolean } = { fill = true, hug = true }
 --         scroll. `content`, never `hug`-the-solver-word — and the REASON changed
 --         on 2026-08-22 while the choice did not. It used to be "a capped width
 --         can never report that it did not fit (the reference shells' own
---         ViewThatFits finding)"; ADR-0044 closed that at the seam, so a `hug`
+--         ViewThatFits finding)"; the fit declaration closed that at the seam, so a `hug`
 --         candidate reports its ideal size like any other. What stands is the
 --         plain one: this band must be able to be WIDER THAN ITS OFFER so the
 --         scroll host has something to scroll, and `hug` caps at the offer by
@@ -553,9 +553,9 @@ function picker.build(Facet: any, core: any, spec: Spec)
 		is painted under the corner to overlap) and wrong on any package that
 		carves a border into whatever surface actually paints behind this segment,
 		which is EXACTLY `selection_indicator.luau`'s own `barSurfaceSlot` finding
-		(ADR-0059 Decision 3, director item 8, "tab font has no padding, overlaps
+		(director item 8, "tab font has no padding, overlaps
 		edge") one seam over: a decoration that ignores the themed chrome inset
-		ADR-0059 made available collides with it.
+		the themed-chrome round made available collides with it.
 
 		WHICH SURFACE PAINTS UNDER THE BADGE is exactly what decides `surface`
 		on the option Button four lines below, so the same branch is read here:
@@ -569,7 +569,7 @@ function picker.build(Facet: any, core: any, spec: Spec)
 
 		Costs nothing unless a badge exists (`badgeCount` is counted above) and
 		moves no pixel on a flat package: `chromeInsets.control` is all-zero
-		there (ADR-0059's own "flat packages are byte-identical" guarantee), so
+		there (the themed-chrome round's own "flat packages are byte-identical" guarantee), so
 		`carved` stays 0 and `padding` stays the same `{}` it always solved to. ]]
 	local badgeClearSlot: string? = if indicator == "underline"
 		then nil

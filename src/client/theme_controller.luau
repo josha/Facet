@@ -1,5 +1,5 @@
 --!strict
--- THEME CONTROLLER (ADR-0019 §3/§6/§7; CLIENT-ONLY — the ADR-0003 seam rule
+-- THEME CONTROLLER (CLIENT-ONLY — the client-seam rule
 -- applies, and check_boundary enforces that no non-client module requires this).
 --
 -- One controller owns one render TARGET. `install` materializes the package's
@@ -28,7 +28,7 @@
 -- half-installs: every capability check runs before the first mutation, so a
 -- rejected install leaves both the target and the environment untouched.
 --
--- LIVE AUTHORING (ADR-0019 §3, feasibility m4). Metric and font tokens are typed
+-- LIVE AUTHORING. Metric and font tokens are typed
 -- attributes on the package's THEME sheets, which is where a runtime read of the
 -- ACTIVE theme can see them — a read of the base sheet does not see a derive's
 -- attributes. One `AttributeChanged` connection per install watches them; a
@@ -223,13 +223,13 @@ export type Opts = {
 	facts: any?, -- explicit resolve facts; default read from the environment
 	overrides: { [string]: any }?, -- deliberate per-screen metric opt-outs
 	rootGui: Instance?, -- the target's root, when the adapter cannot say
-	host: Instance?, -- explicit sheet host (else ADR-0018's host policy)
+	host: Instance?, -- explicit sheet host (else the default host policy)
 	sheetModel: any?, -- a prebuilt sheet model (else sheetModelFor)
 	nativeStyle: any?, -- the materializer seam (tests and tools inject it)
 	forceFallback: boolean?, -- exercise the fallback path deliberately
 	transitions: boolean?, -- opt into native paint transitions
-	-- PROFILE-CONDITIONAL SELECTION (ADR-0020 R7): { touch = pkg, pointer = pkg,
-	-- gamepad = pkg }, keyed on the interaction classes ADR-0015 publishes. The
+	-- PROFILE-CONDITIONAL SELECTION: { touch = pkg, pointer = pkg,
+	-- gamepad = pkg }, keyed on the interaction classes the environment publishes. The
 	-- positional `package` argument is the default for any unmapped profile.
 	selectBy: { [string]: any }?,
 	core: any?, -- REQUIRED with selectBy: the paradigm subscription needs a scope
@@ -241,9 +241,9 @@ export type Opts = {
 	warn: ((message: string) -> ())?,
 }
 
--- ===== profile-conditional selection (ADR-0020 R7) =========================
+-- ===== profile-conditional selection =========================
 --
--- The vocabulary IS the existing interaction-class set (ADR-0015). Nothing here
+-- The vocabulary IS the existing interaction-class set. Nothing here
 -- detects anything: the environment already decides, live and hybrid-aware,
 -- which class is primary; `selectBy` only says which package each class wants.
 theme_controller.SELECT_BY_CLASSES = table.freeze({ "touch", "pointer", "gamepad" })
@@ -339,9 +339,9 @@ function theme_controller.install(adapter: any, package: any, opts: Opts?): any
 	local warnFn: (string) -> () = o.warn or defaultWarn
 	local nativeStyle: any = o.nativeStyle or native_style_default
 
-	-- (0b) PROFILE-CONDITIONAL SELECTION (ADR-0020 R7). `selectBy` is a
+	-- (0b) PROFILE-CONDITIONAL SELECTION. `selectBy` is a
 	-- DECLARATION, not a new detector: its vocabulary is exactly the
-	-- interaction-class names ADR-0015 already publishes, and the initial resolve
+	-- interaction-class names the environment already publishes, and the initial resolve
 	-- happens HERE — before the mode, the root, the sheet or the snapshot are
 	-- touched — so the package this controller installs is the profile's package
 	-- from the first frame rather than the default package plus a swap.
@@ -455,7 +455,7 @@ function theme_controller.install(adapter: any, package: any, opts: Opts?): any
 		error(
 			`theme_controller.install: package '{package.identity.id}' needs the target's root Gui and this `
 				.. "target cannot expose one — pass opts.rootGui, or implement adapter.themeRootGui(). "
-				.. "Per-target theming is one StyleSheet plus one StyleLink at the root (ADR-0019 §7); "
+				.. "Per-target theming is one StyleSheet plus one StyleLink at the root; "
 				.. "nothing was installed and the environment is unchanged",
 			0
 		)
@@ -607,7 +607,7 @@ function theme_controller.install(adapter: any, package: any, opts: Opts?): any
 		and `materializeFor` runs above that function.
 
 		THE LIVE-ENVIRONMENT FALLBACK READS `effectiveDisplaySize`, NOT the raw
-		fact (director item 5, ADR-0058): a PC handheld's engine-reported "Large"
+		fact (director item 5): a PC handheld's engine-reported "Large"
 		must not paint console-scaled corners. `o.facts` is left exactly as a
 		caller states it — an explicit world (headless test, preview) is not the
 		engine's own uncorroborated guess and is never second-guessed here. ]]
@@ -742,7 +742,7 @@ function theme_controller.install(adapter: any, package: any, opts: Opts?): any
 			merged[path] = value
 		end
 		-- an explicit local override is the screen's deliberate opt-out and wins
-		-- over any authored value, sheet-edited or not (ADR-0019 §2 step 5)
+		-- over any authored value, sheet-edited or not
 		for path, value in o.overrides or {} do
 			merged[path] = value
 		end
@@ -852,7 +852,7 @@ function theme_controller.install(adapter: any, package: any, opts: Opts?): any
 		return if ok then ctor else nil
 	end)()
 
-	-- LIVE-EDIT REPAINT (ADR-0019 §3). Corner radii, stroke thickness and the
+	-- LIVE-EDIT REPAINT. Corner radii, stroke thickness and the
 	-- typography FONT are baked into rules as literals (a number attribute cannot
 	-- be a UDim `$Token`, and a Font is not a token type either), so a designer's
 	-- sheet edit would re-solve geometry while the paint kept the seeded value.
@@ -905,7 +905,7 @@ function theme_controller.install(adapter: any, package: any, opts: Opts?): any
 		end
 	end
 
-	-- THE SWAP TRANSACTION (ADR-0019 §7, feasibility m5). The snapshot is
+	-- THE SWAP TRANSACTION. The snapshot is
 	-- resolved FIRST so a bad theme name or a bad override throws before
 	-- anything is committed; then the derive swap and the metric commit happen
 	-- in ONE invocation with no yield between them, which is what makes new
@@ -942,7 +942,7 @@ function theme_controller.install(adapter: any, package: any, opts: Opts?): any
 			-- per-theme token ("$FocusGlow"), so the adapter needs both halves,
 			-- and it gets them inside this one transaction rather than from two
 			-- calls that could disagree for a frame
-			-- ...and the SNAPSHOT as the third argument (ADR-0020 R4): semantic
+			-- ...and the SNAPSHOT as the third argument: semantic
 			-- icons size from `iconSizes`, which is metric authority, and the
 			-- adapter must not have to read it back out of the environment a
 			-- moment later — a metric package that resizes icons would then paint
@@ -1157,7 +1157,7 @@ function theme_controller.install(adapter: any, package: any, opts: Opts?): any
 			link, preInstallLinkSheet, createdLink = made, previous, created
 		end
 	end
-	-- ===== INSTALL-POLICY PRELOAD (ADR-0020 R2) ===========================
+	-- ===== INSTALL-POLICY PRELOAD ===========================
 	--
 	-- The ADR says a variant map's assets "join the package's existing
 	-- install/lazy preload seam; PreloadAsync belt-and-braces by default". The
@@ -1386,7 +1386,7 @@ function theme_controller.install(adapter: any, package: any, opts: Opts?): any
 		swapPackageInternal(nextPackage, themeName, "manual")
 	end
 
-	-- ===== selectBy: the live half (ADR-0020 R7) ===========================
+	-- ===== selectBy: the live half ===========================
 	--
 	-- Everything above is unchanged machinery. This wraps it: one subscription to
 	-- the environment's interaction-class fact, one debounce, and the EXISTING
@@ -1628,7 +1628,7 @@ function theme_controller.install(adapter: any, package: any, opts: Opts?): any
 			-- supplied. It is deliberately not the length of a list nobody read.
 			preload = { driven = type(o.resources) == "table", requested = preloadCount },
 			-- present only when the rule was installed, so "no selectBy" and "a
-			-- selectBy that has done nothing" can never be confused (ADR-0020 R7)
+			-- selectBy that has done nothing" can never be confused
 			selectBy = if selectByState ~= nil then selectByState() else nil,
 		}
 	end

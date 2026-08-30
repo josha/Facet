@@ -1,5 +1,5 @@
 --!strict
--- CHROME PROP KINDS (ADR-0019 §5, theme-packages-and-skinning package 3).
+-- CHROME PROP KINDS.
 -- The rule-property value kinds the Step 2 vocabulary did not need, plus the
 -- ONE materialization ruling for them, so the pure model side and the client
 -- materializer can never disagree about what a value means.
@@ -117,7 +117,7 @@ function chrome_props.numSeq(stops: { NumStop }): NumSeq
 	return { kind = "numseq", stops = out }
 end
 
--- udim2(...): a `TileSize` (ADR-0020 R1's `tile` layer kind). rs-m1 measured
+-- udim2(...): a `TileSize` (the layer stack's `tile` kind). rs-m1 measured
 -- both components: OFFSET is pixels and SCALE is a fraction of the LABEL's size,
 -- not of the texture — so px offsets are the canonical authoring form and scale
 -- is the deliberate "N tiles across" idiom.

@@ -179,7 +179,7 @@ function styling.normalizeCorners(spec: any, style: any?): any
 	return table.freeze(out)
 end
 
--- ===== the per-view GRADIENT modifier (charter cap 11; ADR-0020 R8 rung 2) ==
+-- ===== the per-view GRADIENT modifier (charter cap 11, the rung-2 form) =====
 --
 -- A gradient at the THEME rung is palette data (`style.themes[].extra
 -- .chromeGradient.<slot>`) and compiles to a phantom `::UIGradient` rule with
@@ -203,7 +203,7 @@ end
 -- `themes.package.GRADIENT_ALPHA_MAX`: one number, two authoring paths, and a
 -- spec asserts they are equal (they cannot share a require — `themes/package`
 -- is above `tokens` in the graph and a cycle here hangs Lune rather than
--- erroring, docs/lessons/lune-circular-require-hangs.md).
+-- erroring).
 styling.GRADIENT_ALPHA_MAX = 0.9
 
 local GRADIENT_MIN_STOPS = 2
@@ -212,7 +212,7 @@ local GRADIENT_MAX_STOPS = 3
 local isFinite = num.isFinite
 
 -- "#rrggbb" -> rgb 0..1, or nil when the string is not a hex literal. A hex
--- colour is the DECLARED theming-exempt escape (ADR-0022 Decision 6): it says
+-- colour is the DECLARED theming-exempt escape: it says
 -- "this number is the value", which is exactly what an identity hue is and
 -- exactly what a role name must be used for instead when the value has meaning.
 local function hexRgb(value: any): { r: number, g: number, b: number }?
@@ -325,9 +325,9 @@ function styling.normalizeGradient(spec: any, style: any?): any
 	})
 end
 
--- ===== the CONTINUOUS-COLOUR channel: `tint` (ADR-0022 Decision 6) =========
+-- ===== the CONTINUOUS-COLOUR channel: `tint` =========
 --
--- Everything finite stays tokens + tags + native-sheet states (ADR-0018): a
+-- Everything finite stays tokens + tags + native-sheet states: a
 -- value drawn from a CLOSED SET (hover, selected, disabled, verdict, phase) is a
 -- STATE, and reaching for a continuous channel to express one is a defect the
 -- docs and this vocabulary both say so. `tint` exists for the two values a
@@ -349,8 +349,8 @@ end
 --
 -- The ROLE vocabulary is closed and shared with the chrome recipes' resting tint
 -- (sheet_model asserts the two sets are equal at load), because a role name
--- nothing validates is a tint that silently paints nothing —
--- docs/lessons/enum-props-accept-any-string.md.
+-- nothing validates is a tint that silently paints nothing, because an enum
+-- prop accepts any string.
 local TINT_ROLES: { string } = {
 	"surface",
 	"surfaceStrong",
@@ -453,13 +453,12 @@ function styling.checkTint(value: any): (boolean, string?)
 	return true
 end
 
--- ===== the authored STROKE modifier: UI.stroke (ADR-0022 Decision 6) =======
+-- ===== the authored STROKE modifier: UI.stroke =======
 --
 -- Same architecture as `UI.shadow`/`UI.gradient`/`UI.corners`: bounded
 -- normalized DATA under the STYLE authority, materialized by the adapter as ONE
 -- bespoke child instance. A theme's own chrome stroke is a phantom `::UIStroke`
--- RULE, and the engine renders a real UIStroke child ALONGSIDE it (ADR-0020 R8,
--- measured) — so an authored stroke is ADDITIVE, never a replacement, and the
+-- RULE, and the engine renders a real UIStroke child ALONGSIDE it (measured) — so an authored stroke is ADDITIVE, never a replacement, and the
 -- reference says so.
 --
 -- Defaults are the theme's hairline, so `UI.stroke(bp, {})` is exactly the

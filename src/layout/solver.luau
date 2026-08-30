@@ -43,7 +43,7 @@
 --       { type = "containerRelative", fraction } |
 --       { type = "containerRelative", count, span?, spacing? }
 -- solve(root, viewport, opts) -> { rects, diagnostics, contentRect }
--- opts.metrics is the active ThemeSnapshot (ADR-0019 §2); omitted, the solve
+-- opts.metrics is the active ThemeSnapshot; omitted, the solve
 -- runs on Studio Neutral, whose values are the framework's historic literals.
 
 local text_metrics = require("./text_metrics")
@@ -60,7 +60,7 @@ local themeSnapshot = require("../themes/snapshot")
 -- (`layout_node.luau`'s pre-solve conversion never has one; see the reserve's
 -- own comment in `arrange` below for why that is load-bearing).
 local chrome_slots = require("../tokens/chrome_slots")
--- the PURE declared-content composition decision (ADR-0023). The solver supplies
+-- the PURE declared-content composition decision. The solver supplies
 -- the measurements and consumes the rects; the ranking, the step-down/drop order
 -- and the arrangement choice live there, where a headless sweep can drive them
 -- with no tree at all.
@@ -181,7 +181,7 @@ export type Node = {
 	-- nodes.
 	containerRelativeInside: boolean?,
 	-- px, or a FRACTION of the parent's inner extent plus a px adjustment
-	-- ({ scale, offset } — ADR-0022 Decision 6, the marker-overlay shape). The
+	-- ({ scale, offset } — the marker-overlay shape). The
 	-- renderer resolves metric names before this; the fraction can only be spent
 	-- here, where the extent is known.
 	offsetX: (number | { scale: number?, offset: number? })?,
@@ -220,7 +220,7 @@ export type Node = {
 	text: string?,
 	font: string?,
 	-- a literal px size, or a typography ROLE name resolved from the active
-	-- ThemeSnapshot on this solve (ADR-0019 §2)
+	-- ThemeSnapshot on this solve
 	textSize: (number | string)?,
 	--[[ ...OR THE BAND THE SOLVER PICKS ONE FROM (`textSize = "fit"`, audit §10).
 		`cap`/`floor` are already through the typography scale and `offset` is the
@@ -289,7 +289,7 @@ export type Node = {
 	-- px that went unspent on that axis; absent = that axis was afforded.
 	chromeYield: { slot: string, x: number?, y: number? }?,
 	--[[ ...AND THE SIZE FLOOR THE RENDERER HAD TO REFUSE, for the same reason and
-		on the same terms (task THEME fix round, 2026-08-28; ADR-0059 Decision 6).
+		on the same terms (task THEME fix round, 2026-08-28).
 		`render/layout_node`'s `shape = "circle"` icon floor raises a disc to hold
 		its picture at full size; where the host declared what it RESERVED for that
 		node (`chrome_slots.Hint.footprint`) the floor stops there instead of
@@ -309,7 +309,7 @@ export type Node = {
 		against the rect it actually resolved. `nil`/`0` on every flat package
 		and on every non-outermost clipper, so neither moves. ]]
 	leadingBleed: number?,
-	-- DECLARED-CONTENT COMPOSITION (ADR-0023). `composition` marks a screen-level
+	-- DECLARED-CONTENT COMPOSITION. `composition` marks a screen-level
 	-- container: its children are all `region` nodes and their placement comes
 	-- from src/layout/composition.luau rather than from a stack rule. `region`
 	-- marks one ranked thing to say; its children are its FORMS, richest first.
@@ -397,7 +397,7 @@ type Ctx = {
 	textStates: { [string]: string },
 	-- nodes whose `compactText` won this solve. Recorded during measure and read
 	-- out during arrange, so the verdict the box was reserved for is exactly the
-	-- verdict the adapter paints (docs/lessons/one-word-two-subsystems.md).
+	-- verdict the adapter paints.
 	compact: { [string]: boolean },
 	-- PER-TEXT-NODE MEASUREMENT FACTS, recorded on the same channel and
 	-- under the same discipline as `compact`: assigned on EVERY measure of the
@@ -429,15 +429,15 @@ type Ctx = {
 		it instead of re-deriving a second, disagreeing rule. Monotonic within a
 		solve; `chosenCandidate` reads the DELTA across one candidate. ]]
 	fitCuts: number,
-	-- the active ThemeSnapshot (ADR-0019 §2). The ONE place the measure path
+	-- the active ThemeSnapshot. The ONE place the measure path
 	-- learns a typography role's size, font and line height, so a theme swap is
 	-- a re-solve with new numbers rather than a rebuild.
 	metrics: any,
-	-- ADR-0023: one composition resolution per node per box, so measure and
+	-- one composition resolution per node per box, so measure and
 	-- arrange can never disagree about which arrangement won — the same
 	-- discipline `ctx.compact` carries for the compact-label verdict.
 	compositions: { [string]: { key: string, resolution: any } },
-	--[[ THE SURFACE'S OWN BOX, AND THE PLATFORM BAND ABOVE IT (§9, ADR-0046).
+	--[[ THE SURFACE'S OWN BOX, AND THE PLATFORM BAND ABOVE IT (§9).
 		A `UI.Composition`'s exclusion rects and the topbar band both arrive in
 		WINDOW space — that is the space `platformChrome` states them in, and the
 		space the solver's own output rects are in — so turning either into a box a
@@ -559,8 +559,7 @@ local SHRINK_DEPS: shrinkLib.Deps = { mainDimOf = mainDimOf, sides = sides, text
 -- forwarder below reads the local at call time instead, which is the same read
 -- `contentSize` makes. `arrange` and `alignOffset` cannot even be forwarded from
 -- here — both are declared BELOW this line, so a closure naming them would resolve
--- the nil GLOBAL and die inside a protected boundary
--- (docs/lessons/a-helper-declared-below-its-caller-is-a-global.md). They are passed
+-- the nil GLOBAL and die inside a protected boundary. They are passed
 -- at the two arrange call sites, where they are genuinely in scope; forward-
 -- declaring them to avoid that would add a fourth mutable module local, which is
 -- the opposite of what this split is for.
@@ -635,9 +634,8 @@ end
 	  resolves it at prop-normalization time, the same pass that resolves
 	  `px`/`min`/`max`/`preferred`, so this is arithmetic on the `Dim` alone —
 	  it grows at the ten-foot ladder (theme metrics do) but NOT with the
-	  player's accessibility text-size preference (theme metrics never have —
-	  see `docs/adr/ADR-0049-content-terms-height.md` for why that split is the
-	  correct one and not a gap).
+	  player's accessibility text-size preference (theme metrics never have, and
+	  that split is the correct one rather than a gap).
 
 	WHY `lines` DOES NOT SIMPLY CALL `textFitLib.facts({ metrics = ctx.metrics
 	})` THE WAY `composition.floorPx` DOES (found while wiring this up, and
@@ -796,8 +794,7 @@ end
 
 	WHAT IT REPLACES: PASS 1.5 made a candidate REPORT its squeezed extent, so a
 	candidate that could not fit "fit" and won. Swept 150-420px that flipped the
-	winner at 10 of 28 widths (docs/lessons/a-candidate-is-judged-at-its-ideal-size.md,
-	which carries the SwiftUI citations this was decided on).
+	winner at 10 of 28 widths (which carries the SwiftUI citations this was decided on).
 
 	THE WINNER IS STILL SHRUNK — the flag is off again by the time the chosen
 	candidate is measured and arranged, which is SwiftUI's other half: the winner
@@ -981,7 +978,7 @@ end
 	header used to say THREE while two lines wrote the triple directly (the
 	Milestone-1 review, C4): the two scroll branches' unwind. They were safe, and a
 	header that calls a desync structurally impossible is exactly what would let the
-	next edit there make one (docs/lessons/a-header-comment-describes-the-path-it-was-written-for.md).
+	next edit there make one.
 ]]
 local function rebuildScopeKey(ctx: Ctx)
 	-- ...and the FIFTH writer's segment (ruling 2), appended only while a
@@ -1539,7 +1536,7 @@ local function contentSize(ctx: Ctx, node: Node, maxW: number, maxH: number): (n
 	-- doing it reserved the CROSS extent of a wrap that will not happen: a label
 	-- squeezed to its floor wrapped to eight lines inside a row that had reserved
 	-- one, and painted the other seven outside. That is the "painted at a size
-	-- nobody measured" family (docs/lessons/measure-the-requirement-not-the-render.md),
+	-- nobody measured" family,
 	-- and shipping a new layout feature with a known instance of it inside is
 	-- shipping the next one.
 	--
@@ -2109,8 +2106,8 @@ end
 	Every other overflow finding in this file is derived from a MEASURE against an
 	offer. This one is derived from the RECT the child was finally given, which is
 	the only instrument that can see a box placed outside its parent by ARITHMETIC
-	rather than by size — the class `docs/lessons/the-solver-already-told-you.md`
-	is about, and the property `tests/lib/overflow_guard.luau` now asserts from the
+	rather than by size — the class the solver already knew about, and the
+	property `tests/lib/overflow_guard.luau` now asserts from the
 	adapter side after every settle.
 
 	IT POLICES THE STACK'S CROSS AXIS AND NOTHING ELSE, and the scope was measured
@@ -2531,8 +2528,8 @@ local function arrange(ctx: Ctx, node: Node, rect: Rect, out: { [string]: any })
 			cannot re-derive for itself.
 
 			READ BY: `renderer.controller.scrollBarInsetOf` -> `newTable`'s header
-			padding. `docs/lessons/a-fixed-box-cannot-hold-a-themes-frame.md` closes
-			on the general rule this is the far end of: reserving room is only half
+			padding. A fixed box cannot hold a theme's frame, and the general rule
+			this is the far end of is: reserving room is only half
 			of it, something has to SPEND the reservation — and here the node that
 			must spend it lives outside the subtree that made it. ]]
 		out[node.id].barInset = if spentReserve > 0
@@ -2648,7 +2645,7 @@ local function arrange(ctx: Ctx, node: Node, rect: Rect, out: { [string]: any })
 				designed = true,
 			})
 		end
-		--[[ ...AND THE ONE BESIDE IT THAT IS NOT DESIGNED AT ALL (ADR-0025 Decision 3).
+		--[[ ...AND THE ONE BESIDE IT THAT IS NOT DESIGNED AT ALL.
 
 			A composition's regions PARTITION its box — lanes sit side by side, a lane
 			stacks its groups down — so two of them cannot overlap as boxes. What the
@@ -2846,8 +2843,8 @@ local function arrange(ctx: Ctx, node: Node, rect: Rect, out: { [string]: any })
 					width, then the type scale (+3px on the ten-foot row), then the theme
 					insets (+19px under fantasy-ornate), and never the accessibility text
 					preference — at `preferredTextOffset` 4/10/14 every row overflowed its
-					56px slot by 11/39/59px on a real device. `docs/lessons/facet-fixed-px-
-					heights.md` names the class: a px height fixed against unfixed content.
+					56px slot by 11/39/59px on a real device. The class is a px height
+					fixed against unfixed content.
 
 					IT IS NOT KNOWABLE AT CONSTRUCTION, which is why it is filed here and not
 					refused by `virtual_list.luau`'s spec guard: the row's true extent is a
@@ -2981,8 +2978,7 @@ local function arrange(ctx: Ctx, node: Node, rect: Rect, out: { [string]: any })
 				every package solved it flush against the column boundary, which under
 				a nine-slice header plate is the plate's carved border. See the
 				`layout: a HUGGING ZStack child pays for its own margin too` block in
-				`tests/layout.spec.luau` and `docs/lessons/a-far-margin-must-buy-
-				something.md`.
+				`tests/layout.spec.luau`: a far margin must buy something.
 
 				Children may inherit the stack's default alignment (a cell that centers
 				its content vertically without touching consumer nodes). ]]

@@ -19,7 +19,7 @@ local replication = require("@self/replication/adapters")
 local tokensLib = require("@self/tokens/tokens")
 local focusLib = require("@self/focus/focus_graph")
 local transitionsLib = require("@self/render/transitions") -- item 41: EXIT_CAP_SECONDS
---[[ THE NINETEEN COMPOSITE CONTROLS (ADR-0037). Named locals rather than inline
+--[[ THE NINETEEN COMPOSITE CONTROLS. Named locals rather than inline
 	`require(...)` expressions, because `Facet.Controls` below has to name each
 	module twice — once for the closure that calls it and once for the spec type
 	that closure declares — and a namespace whose entries are typed `any` would
@@ -47,7 +47,7 @@ local transitionsLib = require("@self/render/transitions") -- item 41: EXIT_CAP_
 	`local M = if false then require(x) else (nil :: any)` answer
 	`TypeError: Unknown type 'M.Spec'`. So for the fifteen entries that declare a
 	real `Spec`, deferring the require means widening the parameter to `any`,
-	which is precisely the argument checking ADR-0037 exists to have bought.
+	which is precisely the argument checking the `Controls` namespace exists to have bought.
 
 	The four below already take `spec: any` — `Chip`, `VirtualList`, `VirtualGrid`
 	and `AsyncImage` were never given a published spec type — so they need nothing
@@ -106,7 +106,7 @@ export type Deprecation = {
 	note: string?,
 }
 
--- DECLARED deprecations (ADR-0011): the half of the ledger that is not a
+-- DECLARED deprecations: the half of the ledger that is not a
 -- blueprint PROPERTY. `blueprint_schema.deprecations()` can only speak about
 -- props, so an opts field or a derived condition had nowhere to be declared and
 -- the machinery simply did not know about it. Both halves are the same record
@@ -147,13 +147,13 @@ local DECLARED_DEPRECATIONS: { Deprecation } = {
 		change — so nothing has to pass this closure any more, and no production
 		caller ever did, which is why the setting reached nothing at all.
 
-		It KEEPS WORKING and is deprecated rather than removed (ADR-0011): it is
+		It KEEPS WORKING and is deprecated rather than removed: it is
 		public, `billboard_target` forwards it, and a harness that wants to FORCE
 		reduced motion regardless of the environment still has a use for it. Its
 		meaning narrowed in that same change — it is an OR with the pushed fact, so
 		returning `false` no longer overrides a player who asked for less motion —
 		and a narrowing that is documented in prose but absent from the ledger is
-		invisible to every machine-readable upgrade check ADR-0011 exists for. ]]
+	invisible to every machine-readable upgrade check the deprecation ledger exists for. ]]
 	{
 		surface = "screen_target.new(opts.isReducedMotion)",
 		since = "0.9.0",
@@ -169,7 +169,7 @@ local DECLARED_DEPRECATIONS: { Deprecation } = {
 		replacement = "viewportExtent",
 		note = 'axis-neutral rename; alias still accepted and identical on axis = "y"',
 	},
-	--[[ THE NINETEEN OLD-FORM COMPOSITE BUILDERS (ADR-0037). Each still works and
+	--[[ THE NINETEEN OLD-FORM COMPOSITE BUILDERS. Each still works and
 		still dispatches to the same builder — `Facet.Controls.<Name>` is a closure
 		over this library, not a reimplementation — so a caller that never edits is
 		never broken. What these rows add is the NOTICE: the removal cannot come
@@ -349,7 +349,7 @@ local function buildDeprecations(): { Deprecation }
 	return table.freeze(ledger)
 end
 
---[[ COMPOSITE CONTROLS, WITHOUT THE LIBRARY'S NAME TWICE (ADR-0037).
+--[[ COMPOSITE CONTROLS, WITHOUT THE LIBRARY'S NAME TWICE.
 
 	`Facet.Controls.Table(core, spec)` made every author write `Facet` twice: the
 	first argument is the library handing itself to its own builder — boilerplate
@@ -442,7 +442,7 @@ local Controls = table.freeze({
 })
 
 local Facet = {
-	-- semantic version (ADR-0011): MAJOR.MINOR.PATCH; pre-1.0 the minor
+	-- semantic version: MAJOR.MINOR.PATCH; pre-1.0 the minor
 	-- tracks the completed design phase. Bump here AND in the ADR.
 	VERSION = "0.10.0",
 
@@ -458,7 +458,7 @@ local Facet = {
 		only by comment" shape the audit names. ]]
 	EXIT_CAP_SECONDS = transitionsLib.EXIT_CAP_SECONDS,
 
-	--[[ the composite-control namespace (ADR-0037). `Facet.Controls.Table(core,
+	--[[ the composite-control namespace. `Facet.Controls.Table(core,
 		spec)`; the nineteen `new<Control>` builders below keep working and are
 		declared in DEPRECATIONS with `Facet.Controls.<Name>` as the replacement. ]]
 	Controls = Controls,
@@ -487,14 +487,14 @@ local Facet = {
 		return 4
 	end,
 
-	-- deprecation ledger (ADR-0011): { surface, since, removeNoEarlierThan,
+	-- deprecation ledger: { surface, since, removeNoEarlierThan,
 	-- replacement, note? } per entry; a deprecated surface keeps working for
 	-- at least one minor version after `since`. Schema-generated property
 	-- deprecations plus the declared list above — complete, machine-readable,
 	-- and frozen.
 	DEPRECATIONS = buildDeprecations(),
 
-	-- reactive foundation (ADR-0002: custom core)
+	-- reactive foundation (the custom core)
 	newCore = customCore.new,
 
 	-- declarative blueprints (UI.Screen / VStack / Text / Button / ...)
@@ -505,8 +505,8 @@ local Facet = {
 	newEnvironment = environment.new,
 	renderer = rendererLib,
 	newPresenter = presenterLib.new,
-	-- the presenter-side surface-chrome seam (registry item 13; W3-D,
-	-- ADR-0053): a pure back+title+trailing bar factory, not a stateful
+	-- the presenter-side surface-chrome seam (registry item 13, task W3-D):
+	-- a pure back+title+trailing bar factory, not a stateful
 	-- control — `Facet.navBar({ onBack, title, trailing })` -> Blueprint.
 	-- See src/present/nav_bar.luau's header for why this lives beside the
 	-- presenter and not under `Facet.Controls`.
@@ -515,11 +515,11 @@ local Facet = {
 	-- input pipeline (headless model; the client swaps in roblox_input)
 	newActionSystem = actionsLib.newSystem,
 
-	-- reactive input-affordance hint (ADR-0013 WP-4): inputHint(core, env,
+	-- reactive input-affordance hint: inputHint(core, env,
 	-- action) -> Readable<string> tracking env preferredInput + preferredBinding
 	inputHint = require("@self/input/hint").inputHint,
 
-	-- input-contribution seam (ADR-0013; docs/extending/new-control.md step 3).
+	-- input-contribution seam (docs/extending/new-control.md step 3).
 	-- PUBLIC because the control playbook's recipe needs it: a composite
 	-- advertises its four-input story by attaching a bundle to its blueprint
 	-- root, and before Milestone 0 that recipe told extension authors to import
@@ -527,7 +527,7 @@ local Facet = {
 	-- forbids consumers from using.
 	contribution = require("@self/input/contribution"),
 
-	-- composite controls (ADR-0007; VirtualList §10.5 first release)
+	-- composite controls (VirtualList §10.5 first release)
 	newTable = tableControl.build,
 	newVirtualList = function(lib: any, core: any, spec: any)
 		return require("@self/controls/virtual_list").build(lib, core, spec)
@@ -599,7 +599,7 @@ local Facet = {
 	-- pure drag-session model + native touch-gesture normalization/arbitration
 	-- (corrections addendum §1/§2): framework policy over engine-owned motion
 	newDragSession = require("@self/input/drag_session").new,
-	-- PUBLIC DRAG/DROP (ADR-0022 Decision 5). The blueprint face is
+	-- PUBLIC DRAG/DROP. The blueprint face is
 	-- `UI.draggable` / `UI.dropTarget`; these are the pieces underneath, exported
 	-- because a control that builds its own rows needs them directly and because
 	-- each is independently testable:
@@ -618,7 +618,7 @@ local Facet = {
 	newAutoscroll = require("@self/input/autoscroll").new,
 	newDragRegistry = require("@self/input/drag_registry").new,
 	touchGestures = require("@self/input/touch_gestures"),
-	-- SPATIAL EVENT SEAM (ADR-0021) — contracts only, no VR support claim. The
+	-- SPATIAL EVENT SEAM — contracts only, no VR support claim. The
 	-- optional ray/hit/pose/handedness/phase/target a normalized pointer event
 	-- may one day carry, plus the readers a consumer uses to ask. Public because
 	-- the compatibility promise is a public one: `pos.x`/`pos.y` keep meaning
@@ -638,7 +638,7 @@ local Facet = {
 	-- async resources (§10.3): bounded, cancellable, generation-checked
 	newResourceProvider = asyncResources.newProvider,
 
-	-- MOTION AUTHORITY (ADR-0022 Decision 1): all value motion in one pure,
+	-- MOTION AUTHORITY: all value motion in one pure,
 	-- engine-free place, stepped by an injectable clock — the client binds
 	-- `clock:step()` to RunService.PreRender at the adapter edge, the headless
 	-- suite steps a scripted one. Feel-carrying call sites cite a motion CLASS
@@ -653,7 +653,7 @@ local Facet = {
 		classNames = motionClasses.names,
 		isRegisteredClass = motionClasses.isRegistered,
 		resetClasses = motionClasses.reset,
-		--[[ ...and the CURVE vocabulary (ADR-0033), the other half of the dial.
+		--[[ ...and the CURVE vocabulary, the other half of the dial.
 			A class is physics with no authorable duration; a curve is
 			`{ duration, style, direction? }` — the shape every design handoff arrives
 			in, and the only way to command "over exactly 400 ms" or to make a cooldown
@@ -721,7 +721,7 @@ local Facet = {
 		AVG_GLYPH_FRACTION = require("@self/layout/text_metrics").AVG_GLYPH_FRACTION,
 	},
 
-	-- DECLARED-CONTENT ADAPTIVE COMPOSITION (ADR-0023): the PURE half of the
+	-- DECLARED-CONTENT ADAPTIVE COMPOSITION: the PURE half of the
 	-- screen-level sibling of AdaptiveStack and ViewThatFits. `UI.Composition` /
 	-- `UI.Region` are the declaration face; this is the decision itself —
 	-- `resolve(decl, offer, { measure })` answers WHICH arrangement, WHICH form
@@ -747,7 +747,7 @@ local Facet = {
 		`newRowActions`' floating menu already share, published so a consumer can
 		DECLARE a placement — "above the source, centred, gapped by N" — instead
 		of hand-computing the point, the way RascalRally's `HandDock` staging
-		spot used to (`ADR-0054`). ]]
+		spot used to. ]]
 	layout = {
 		transformFootprint = require("@self/layout/transform_footprint").transformFootprint,
 		anchorPlacement = require("@self/layout/anchor_placement").solve,
@@ -758,7 +758,7 @@ local Facet = {
 	replication = replication,
 	tokens = tokensLib,
 
-	-- theme packages (ADR-0019): the PURE half of the theme system — compile a
+	-- theme packages: the PURE half of the theme system — compile a
 	-- declarative package, resolve it to the frozen metric snapshot the solver
 	-- and renderer read, and reach Studio Neutral as a derivation base. The
 	-- client-side controller (sheet materialization, per-target install, the
@@ -771,7 +771,7 @@ local Facet = {
 		-- the compiled Studio Neutral package: pass it as `base` to start from
 		-- the library's own theme and override only what you mean to change
 		neutralPackage = themesSnapshot.neutralPackage,
-		--[[ THE APP NAMESPACE (ADR-0042). One call at app boot reserves the `app.*`
+		--[[ THE APP NAMESPACE. One call at app boot reserves the `app.*`
 			names your own structural numbers live under — `declareApp{ tileMin = 96 }`
 			— and from then on `px = "app.tileMin"` is spellable everywhere
 			`px = "iconSizes.large"` is: validated at construction, resolved on every
@@ -802,7 +802,7 @@ local Facet = {
 		-- the §4 legal-property linter, exported so a materializer or an
 		-- authoring tool rules on a property exactly as compilation does
 		lintProperty = themesPackage.lintProperty,
-		-- the pre-play gate for contributed controls (ADR-0019 §1): a control
+		-- the pre-play gate for contributed controls: a control
 		-- declares its namespaced needs and asks whether a package covers them
 		-- — complete treatment or a useful error, never silence
 		checkCoverage = themesPackage.checkCoverage,
@@ -810,7 +810,7 @@ local Facet = {
 	},
 }
 
---[[ ADR-0037: the `Controls` closures were built above the literal (a closure
+--[[ the `Controls` closures were built above the literal (a closure
 	cannot capture a local declared after it), so the library they hand to each
 	builder is bound here — the same table `Facet.new<Control>(Facet, …)` passes. ]]
 library = Facet

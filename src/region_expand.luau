@@ -27,7 +27,7 @@
 	    focus returns to the affordance that opened it without this file holding a
 	    path or a restore of its own. ESCAPE IS NOT ON THAT LIST AND CANNOT BE: it
 	    is permanently bound to the Roblox CoreGui menu and the engine refuses the
-	    binding (ADR-0013 §Justified exceptions), so the KEYBOARD route out is the
+	    binding, so the KEYBOARD route out is the
 	    close affordance `blueprint.luau` puts in the panel — a modal traps the
 	    ring, which is what makes the ring the whole keyboard story;
 	  * the SIZE is the composition's (`plate.w`), and whether a plate is possible
@@ -207,8 +207,7 @@ function region_expand.new(config: Config)
 
 		AND THE PRODUCT ARGUMENT IS THE SAME ONE EITHER WAY: `scrim` carries the
 		theme's own `scrimOpacity` through `sheet_model.SCRIM_RULE`, it is the ONE
-		rule the player's `PreferredTransparency` composes against (ADR-0035,
-		`PREFERENCE_RULE_PROPS`), and a package that ships an opaque one is caught by
+		rule the player's `PreferredTransparency` composes against (`PREFERENCE_RULE_PROPS`), and a package that ships an opaque one is caught by
 		`transient_over_live.spec` across all eight.
 
 		It is also the right PRODUCT answer, which is why this is not merely a

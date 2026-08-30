@@ -73,7 +73,7 @@ local host = {}
 export type Opts = {
 	-- ===== render target (forwarded to `screen_target.new`) ================
 	-- the Roblox StyleSheet paint path. `nil` = the library default, which IS
-	-- sheet paint since 2026-08-21 (ADR-0040 B-15); `false` is the opt-OUT and
+	-- sheet paint since 2026-08-21; `false` is the opt-OUT and
 	-- wins over everything. Forwarded verbatim to `screen_target.new`.
 	nativeStyle: boolean?,
 	style: any?,
@@ -151,7 +151,7 @@ local function engineAdapter(opts: Opts, env: any): any
 			`ViewportDisplaySize` rather than the default. A target built by
 			`newAdapter` is the consumer's own and takes its own class.
 
-			`effectiveDisplaySize`, NOT the raw fact (director item 5, ADR-0058):
+			`effectiveDisplaySize`, NOT the raw fact (director item 5):
 			this is the LIVE client's real paint decision, so it must be the
 			touch-corrected class, the same one `typographyScale`/`metricScale`
 			already read — a PC handheld's engine-reported "Large" must not paint

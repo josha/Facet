@@ -53,8 +53,7 @@ local FACT_DEFAULTS: { [string]: any } = {
 
 		`platformChrome` already answers "what does the PLATFORM's own chrome
 		occupy, and what is left free" — as a LIST of rects, precisely because the
-		remainder of a band with a strip in it is an L rather than an inset
-		(ADR-0027). An APP with a persistent chrome row of its own — a showcase's
+		remainder of a band with a strip in it is an L rather than an inset. An APP with a persistent chrome row of its own — a showcase's
 		demo/settings chips, a game's own always-on top bar — occupies exactly the
 		same kind of space, and until now had no way to say so: the only vocabulary
 		available was inflating `coreSafeInsets.top`, which is a BOUNDING BOX and
@@ -114,7 +113,7 @@ local FACT_DEFAULTS: { [string]: any } = {
 	-- clip edges, so a ten-foot presentation insets content on all four sides.
 	displaySize = "Medium", -- Small | Medium | Large
 	overscanInsets = { top = 0, bottom = 0, left = 0, right = 0 },
-	-- PRESENTATION SPACE (roadmap Step 4, ADR-0021). WHERE this surface is
+	-- PRESENTATION SPACE (roadmap Step 4). WHERE this surface is
 	-- presented, as a fact rather than a device name: "screen" is the flat
 	-- ScreenGui every game UI uses today, "billboard" is the shipped
 	-- BillboardTarget, and "world" is the future SurfaceGui target that does not
@@ -126,7 +125,7 @@ local FACT_DEFAULTS: { [string]: any } = {
 	-- here so the policy that will consume it can be written and tested before
 	-- the adapter exists, per docs/extending/new-platform-mode.md §2.
 	presentationSpace = "screen", -- screen | billboard | world
-	-- THE metric authority (ADR-0019 §2): one frozen ThemeSnapshot the solver,
+	-- THE metric authority: one frozen ThemeSnapshot the solver,
 	-- renderer, presenter and headless suite all read, so a theme change is a
 	-- single atomic commit — one key, one signal, one downstream invalidation —
 	-- and every mounted screen RE-SOLVES rather than rebuilding. A plain per-key
@@ -135,7 +134,7 @@ local FACT_DEFAULTS: { [string]: any } = {
 	-- Neutral, whose values are byte-identical to the literals the framework
 	-- shipped before packages existed, so no screen has to opt in.
 	--
-	-- SEEDED PER ENVIRONMENT, not from this module-load table (ADR-0042): an app
+	-- SEEDED PER ENVIRONMENT, not from this module-load table: an app
 	-- may declare an `app.*` namespace, which produces a new neutral, and an
 	-- environment built afterwards must not be handed a snapshot resolved against
 	-- the vocabulary that preceded it. `environment.new` overwrites this key; the
@@ -170,7 +169,7 @@ function environment.new(core: any): Env
 	-- keys with nil defaults still need signals
 	signals.keyboardOcclusionRect = signals.keyboardOcclusionRect or core:signal(nil)
 
-	--[[ THE APP-DECLARATION EDGE (ADR-0042). NOT a fact — deliberately outside
+	--[[ THE APP-DECLARATION EDGE. NOT a fact — deliberately outside
 		`signals`, so the fact vocabulary `env:get`/`env:set` police is unchanged and
 		nothing can write it.
 
@@ -195,10 +194,10 @@ function environment.new(core: any): Env
 	-- Derived values CLAMP garbage platform facts into their legal domain —
 	-- a broken adapter fact must never leak a negative text scale or a
 	-- non-policy value downstream (phase-4 fault injection: accessibility).
-	--[[ THE PHYSICAL-SIZE-AWARE DISPLAY FACT (director item 5, ADR-0058).
+	--[[ THE PHYSICAL-SIZE-AWARE DISPLAY FACT (director item 5).
 		`displaySize` is the raw engine report (`GuiService.ViewportDisplaySize`)
 		and every TEN-FOOT TREATMENT decision below used to read it directly —
-		which is the bug: measured directly (ADR-0058), the engine's own physical-
+		which is the bug: measured directly, the engine's own physical-
 		size detection is not reliable enough on its own to gate a 1.5x swing in
 		type, metrics and margins. `adaptive.effectiveDisplaySize`'s own header has
 		the reasoning; this memo is the one seam every ten-foot-sensitive reader in
@@ -271,7 +270,7 @@ function environment.new(core: any): Env
 		local committed = use(signals.themeMetrics)
 		--[[ NOBODY HAS COMMITTED A THEME HERE, so the metric authority is the
 			framework's own default — read it LIVE rather than replaying the object
-			this environment happened to be seeded with (ADR-0042).
+			this environment happened to be seeded with.
 
 			An app declares its `app.*` namespace at boot, and `declareApp` drops the
 			neutral memo because the neutral snapshot is what `isMetricPath` spells
@@ -326,7 +325,7 @@ function environment.new(core: any): Env
 		local primary = if type(classes) == "table" then classes.primary else "pointer"
 		return if primary == "pointer" then "always" else "auto"
 	end)
-	-- interactionClasses (ADR-0015): the LIVE interaction-class set derived
+	-- interactionClasses: the LIVE interaction-class set derived
 	-- from capabilities + preferredInput — never preferredInput alone. A
 	-- single preferred value cannot describe a hybrid device (touch+gamepad
 	-- handheld, desktop with a pad connected), and the engine fact can lag
@@ -336,7 +335,7 @@ function environment.new(core: any): Env
 	-- ten-foot presentation keys off the display class, not the input class:
 	-- a console is Large + gamepad, and Large alone (any input) earns the
 	-- distance treatment (type floor, overscan margins, focus visibility) —
-	-- UNLESS touch is also live (director item 5, ADR-0058): a real ten-foot
+	-- UNLESS touch is also live (director item 5): a real ten-foot
 	-- session never has a touchscreen, so "Large" AND "touch capable" is two
 	-- contradictory physical facts, and `effectiveDisplaySize` is the one seam
 	-- that resolves them (a PC handheld's engine-reported "Large" is corrected
@@ -370,7 +369,7 @@ function environment.new(core: any): Env
 		return { top = 0, bottom = 0, left = 0, right = 0 }
 	end)
 	--[[ THE PLATFORM'S OWN CHROME, AS RECTS RATHER THAN AS A BOUNDING BOX
-		(ADR-0027; director 2026-08-14, "things at top that are aligned with the
+		(director 2026-08-14, "things at top that are aligned with the
 		controls but don't overlap").
 
 		`coreSafeInsets` says "the top 58px of this window belongs to the engine".
@@ -582,7 +581,7 @@ function environment.new(core: any): Env
 			bandInsets = table.freeze(bandInsets),
 		})
 	end)
-	-- presentationProfile (ADR-0021): the derived half of presentationSpace.
+	-- presentationProfile: the derived half of presentationSpace.
 	-- `flat` is what almost everything wants to know — a billboard is still a
 	-- flat pixel canvas, it just lives in the world — and `world` is the narrow
 	-- question only a future world target answers yes to. Unknown values clamp
@@ -608,7 +607,7 @@ function environment.new(core: any): Env
 			touch = caps.touch == true,
 			gamepad = caps.gamepad == true,
 			keyboard = caps.keyboard == true,
-			-- SPATIAL POINTING as a capability, not a mode (ADR-0021). A spatial
+			-- SPATIAL POINTING as a capability, not a mode. A spatial
 			-- session may have a controller ray, a tracked hand, a gaze and a
 			-- gamepad live at once, so "VR" could never be one replacement for
 			-- pointer/touch/keyboard/gamepad — it is one more thing that may be

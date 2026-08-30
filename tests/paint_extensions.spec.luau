@@ -367,7 +367,7 @@ describe("tint: the native-sheet claim mechanism (source contract)", function()
 	end)
 
 	it("the claim does NOT strip the node's tags, and the file says why", function()
-		local block = section(adapterSource, "===== PAINT CLAIMS (ADR-0022 Decision 6)", 2600)
+		local block = section(adapterSource, "===== PAINT CLAIMS ==", 2600)
 		expect(contains(block, "THE CLAIM DOES NOT STRIP THE NODE'S TAGS")).toBe(true)
 		-- the reason is CONCRETE: a surface tag carries more than one property, so
 		-- removing it to hand over a colour would take away unnamed chrome

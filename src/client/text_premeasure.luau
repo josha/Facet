@@ -53,7 +53,7 @@ text_premeasure.FONT_FILES = {
 	SourceSans = "rbxasset://fonts/families/SourceSansPro.json",
 } :: { [string]: string }
 
--- FONT DESCRIPTORS (ADR-0019 §6). Measurement keys on the EFFECTIVE font
+-- FONT DESCRIPTORS. Measurement keys on the EFFECTIVE font
 -- "family#weight#style", never a short family name — two weights of one family
 -- measure differently, and a theme is free to declare either. Everything below
 -- turns a descriptor (or a bare family, which means Regular/Normal) into the
@@ -432,8 +432,7 @@ local function measureBatch(requests: { any }): { any }
 	local results: { any } = {}
 	local params = text_premeasure.newBoundsParams()
 	for _, request in requests do
-		-- `request.font` is the canonical descriptor the solver measured with
-		-- (ADR-0019 §6), so the engine measures the same face the theme declared
+		-- `request.font` is the canonical descriptor the solver measured with, so the engine measures the same face the theme declared
 		-- rather than the family's Regular
 		local font = text_premeasure.fontFor(request.font)
 		local width: number? = nil

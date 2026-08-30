@@ -147,7 +147,7 @@
 --   sidebar   a RAIL down the screen: it has a head and a foot, and its foot is
 --             the BOTTOM OF THE RAIL (the strip's scroller spends the slack), not
 --             "under the last tab".
---   topBar    a CENTRED band (ADR-0040 B-12, the contract this file already
+--   topBar    a CENTRED band (the contract this file already
 --             carries). Its strip HUGS, so chrome at the trailing edge RESERVES
 --             its own width and the strip centres in what is left: an overlay
 --             keeps the cluster centred on the whole band and sits ON the last tab
@@ -173,7 +173,7 @@
 -- Steam Stamps pocket looks like a `foot` case and is not one: it is a nav
 -- DESTINATION pinned to the rail's foot, and moving a segment out of the strip is
 -- a strip concern (one picker object serves every home by contract). That case is
--- recorded in ADR-0045 rather than half-served here.
+-- recorded as a later decision rather than half-served here.
 
 local adaptive = require("../layout/adaptive")
 local contribution = require("../input/contribution")
@@ -1065,7 +1065,7 @@ function tab_view.build(Facet: any, core: any, spec: Spec)
 			keys — arrows, comma/period, DPad left/right and the gamepad SHOULDERS
 			(L1/R1) — DYNAMICALLY, only while the focused path is one of these, so
 			a screen carrying a TabView never shadows gameplay bumpers while focus
-			sits elsewhere (the ADR-0013 hazard the dynamic binding exists for).
+			sits elsewhere (the hazard the dynamic binding exists for).
 
 			IT DELIBERATELY DOES NOT CLAIM THE CONTENT'S FOCUSABLES. Paging from
 			anywhere inside the page would read well, but a tab's content contains

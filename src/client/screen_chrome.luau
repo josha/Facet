@@ -17,7 +17,7 @@
 -- `adapter.setFocusVisual` (defined further down the target) — arrive as
 -- callbacks.
 --
--- DEPENDENCY DIRECTION (docs/lessons/lune-circular-require-hangs.md):
+-- DEPENDENCY DIRECTION:
 -- `screen_target` requires `screen_chrome`, NEVER the reverse. Everything both
 -- sides need is either a lower dep-free module (`chrome_slots`, `styling`,
 -- `themes/package`) or a Context field.
@@ -26,7 +26,7 @@ local CollectionService = game:GetService("CollectionService")
 
 local chrome_slots = require("../tokens/chrome_slots")
 -- the PURE package library: `resolveIcon` is the one icon-resolution ruling and
--- this file is its application site (ADR-0020 R4)
+-- this file is its application site
 local themePackage = require("../themes/package")
 local styling = require("../tokens/styling")
 -- the recycle-safe reconnect helpers (task CONN, review-fix234 Finding 1): see
@@ -73,7 +73,7 @@ export type Context = {
 	setFocusVisual: (handle: any, on: boolean, profile: string?) -> (),
 }
 
--- ===== DECORATION SLOTS (ADR-0019 §5) ================================
+-- ===== DECORATION SLOTS ================================
 -- One non-interactive ImageLabel per slotted node, and only where the
 -- installed package's recipe for that slot is `nineSlice`. Everything
 -- decidable without an engine — which slot a node belongs to, what the
@@ -86,7 +86,8 @@ export type Context = {
 -- fallback mode the identical values are explicit-written from the SAME
 -- plan, so the two paths cannot drift.
 --
--- RENDER ORDER (measured, TP-M8 2026-07-25): under `Sibling` a descendant
+-- RENDER ORDER. TP-M8 is the theme feasibility probe that measured this on
+-- 2026-07-25: under `Sibling` a descendant
 -- renders above its ancestor at ANY ZIndex — an opaque decoration child
 -- covers a TextButton/TextBox's OWN engine-drawn text and caret. Slot
 -- parentage stays load-bearing (the per-state tint rules read GuiState from
@@ -141,7 +142,7 @@ function screen_chrome.new(ctx: Context)
 		sliderTrack = toColor3(style.extra.control),
 		sliderThumb = toColor3(style.colors.surfaceStrong),
 		badge = toColor3(style.colors.surfaceStrong),
-		-- v2 value displays (ADR-0020 R3), mirroring sheet_model's SLOT_FILL_TOKEN
+		-- v2 value displays, mirroring sheet_model's SLOT_FILL_TOKEN
 		-- so a flat bar looks the same on both paint paths
 		barTrack = toColor3(style.extra.control),
 		barFill = toColor3(style.colors.accent),
@@ -204,7 +205,7 @@ function screen_chrome.new(ctx: Context)
 			hint = if type(handle.decorationHint) == "table" then handle.decorationHint.slot else nil,
 		})
 		-- ...and a slot the INSTALLED PACKAGE has nothing to say about falls back
-		-- to the one it used to borrow (ADR-0020 R3): a stepper's +/- is a Button,
+		-- to the one it used to borrow: a stepper's +/- is a Button,
 		-- so a package published before `stepperPlate` existed must keep skinning
 		-- it through its `control` recipe rather than losing its art to a v2 slot.
 		return chrome_slots.resolveSlot(chromeState.package(), slot)
@@ -218,7 +219,7 @@ function screen_chrome.new(ctx: Context)
 		end
 		local hasImage = type(hint.image) == "string" and hint.image ~= ""
 		-- a per-state map with no bare string is still an override (its `default`
-		-- is the resting picture — ADR-0020 R2)
+		-- is the resting picture)
 		local hasVariants = type(hint.imageVariants) == "table"
 		if not hasImage and not hasVariants then
 			return nil
@@ -339,7 +340,7 @@ function screen_chrome.new(ctx: Context)
 		end
 	end
 
-	-- ===== SEMANTIC ICONS (ADR-0020 R4) ==================================
+	-- ===== SEMANTIC ICONS ==================================
 	--
 	-- A control requests an icon by MEANING and draws the framework's ASCII
 	-- fallback glyph as that node's own text. This function is the UPGRADE: when
@@ -552,7 +553,7 @@ function screen_chrome.new(ctx: Context)
 	-- headlessly against the same `contentInsets` the snapshot composes; this is
 	-- only the UDim2 materialization.
 	--
-	-- THE PLAQUE NAMEPLATE (ADR-0020 R1's `text` sub-slot; arch verifier F2).
+	-- THE PLAQUE NAMEPLATE (the layer stack's `text` sub-slot; arch verifier F2).
 	-- When the live stack declares a plaque that asks for text, the lift moves
 	-- onto the PLAQUE rect instead of the node's content rect — one geometry
 	-- substitution, so the mirror, the connections, the census and the teardown
@@ -579,7 +580,7 @@ function screen_chrome.new(ctx: Context)
 			hostW, hostH = rect.w, rect.h
 		end
 		--[[ THE LABEL'S OWN LINE BOX, which is the floor the recipe's inset may not
-			eat through (task THEME, 2026-08-27; ADR-0059 Decision 1b;
+			eat through (task THEME, 2026-08-27;
 			`chrome_slots.liftGeometry`). It is read off the LIVE instance rather than
 			plumbed here because the host IS the text node — `TextSize` is whatever the
 			last paint wrote — and a host with no text property contributes no floor at
@@ -649,7 +650,7 @@ function screen_chrome.new(ctx: Context)
 		return pos, size, if anchor ~= nil then Vector2.new(anchor.x, anchor.y) else Vector2.zero
 	end
 
-	-- the LAYERED editing yield (ADR-0020 R1). A stack has no single decoration
+	-- the LAYERED editing yield. A stack has no single decoration
 	-- to tag, so the yield rides the DECORATED NODE and the package's
 	-- child-combinator rules (`.facet-chrome-yield > .facet-chrome-field-N`) blank
 	-- the whole ladder in one flip. Routed through syncTags so the tag survives
@@ -666,7 +667,7 @@ function screen_chrome.new(ctx: Context)
 	-- yield/fallback writes below key off that. `liftZ` puts the label above the
 	-- whole ladder (rs-m2: a layer covers the parent's engine text at any ZIndex).
 	local function syncChromeText(handle: any, deco: ImageLabel?, plan: any, liftZ: number)
-		-- SEMANTIC ICON ART REPLACED THIS NODE'S GLYPH (ADR-0020 R4): the lift
+		-- SEMANTIC ICON ART REPLACED THIS NODE'S GLYPH: the lift
 		-- exists to raise the node's text above its decoration, and there is no
 		-- longer any text that should draw. Without this a skinned stepper showed
 		-- the ASCII "+" ON TOP of the plate art that replaced it.
@@ -1224,7 +1225,7 @@ function screen_chrome.new(ctx: Context)
 		}
 	end
 
-	-- SLOT SHADOWS (director fix round; ADR-0019 §5 + the m7 ruling).
+	-- SLOT SHADOWS (director fix round).
 	--
 	-- AUTHORITY NOTE, deliberately: this is adapter-owned paint on a node the
 	-- SHEET does not shadow. `::UIShadow` rules are silently accepted and paint
@@ -1297,7 +1298,7 @@ function screen_chrome.new(ctx: Context)
 		live.Parent = host
 	end
 
-	-- ===== LAYERED DECORATION STACKS (ADR-0020 R1, probes rs-m2 + rs-m3) =====
+	-- ===== LAYERED DECORATION STACKS (probes rs-m2 + rs-m3) =====
 	--
 	-- A layered recipe wants N ordered children instead of one. Everything
 	-- decidable without an engine is already decided in `chrome_slots`: which
@@ -1469,7 +1470,7 @@ function screen_chrome.new(ctx: Context)
 					local variants = layer.cornerVariants[spec.corner]
 					cornerContentId = if variants ~= nil then variants.default.contentId else nil
 				end
-				-- THE MASK WRAPPER (ADR-0020 R1 `mask`, probe rs-m9). A masked layer
+				-- THE MASK WRAPPER (the layer stack's `mask`, probe rs-m9). A masked layer
 				-- puts its BOX on an adapter-owned CanvasGroup and its art full-bleed
 				-- inside it, so UICorner clips the art along the silhouette. The
 				-- wrapper is a SHAPE, never paint: untagged (no rule can reach it),
@@ -1607,7 +1608,7 @@ function screen_chrome.new(ctx: Context)
 		end
 	end
 
-	-- ===== IMAGE VALUE DISPLAYS: THE BAR ASSEMBLY (ADR-0020 R3, probe rs-m4) ==
+	-- ===== IMAGE VALUE DISPLAYS: THE BAR ASSEMBLY (probe rs-m4) ==
 	--
 	-- rs-m4 measured two ways to clip an image fill to a percent and rejected the
 	-- ImageRect crop outright: `ImageRect` and `ScaleType = Slice` both address the
@@ -1954,7 +1955,7 @@ function screen_chrome.new(ctx: Context)
 		end
 	end
 
-	-- ===== TOGGLE IMAGE SLOTS (ADR-0020 R3 cap 10) =============
+	-- ===== TOGGLE IMAGE SLOTS =================================
 	--
 	-- The knob-and-track predates this stage and stays exactly where it was: the
 	-- `togglePalette` contract is the flat truth, the knob's TRAVEL is solver-free
@@ -2088,7 +2089,7 @@ function screen_chrome.new(ctx: Context)
 		return if #parts > 1 then table.concat(parts, "|") else ""
 	end
 
-	-- ===== rung-2 PER-STATE ART (ADR-0020 R2) ==================
+	-- ===== rung-2 PER-STATE ART ==================
 	--
 	-- Rung 1 swaps a slot's picture with RULES, because the decoration carries
 	-- the package's tag. A rung-2 override is untagged ON PURPOSE — that is the
@@ -2131,7 +2132,7 @@ function screen_chrome.new(ctx: Context)
 			-- is the documented opt-out rather than dual authority
 			deco.Image = contentId
 		end
-		-- THE ACCESSIBILITY FLOOR (ADR-0020 R2, arch verifier F3). Rung 1 dims a
+		-- THE ACCESSIBILITY FLOOR (arch verifier F3). Rung 1 dims a
 		-- disabled decoration through `:NonInteractable > .<tag>`; this decoration
 		-- is untagged by construction, so that rule can never reach it and the
 		-- adapter has to write the SAME number itself — otherwise a map that omits
@@ -2302,13 +2303,13 @@ function screen_chrome.new(ctx: Context)
 			-- decoration branch either, for exactly the same reason.
 			applySlotNativePaint(instance, slot, handle)
 		end
-		-- SEMANTIC ICONS (ADR-0020 R4), ahead of every early return below for the
+		-- SEMANTIC ICONS, ahead of every early return below for the
 		-- same reason the value displays are: a node may request an icon and have
 		-- no decoration recipe at all (a flat theme's stepper), and a picture whose
 		-- application depended on some other package feature being in use would
 		-- not be applied.
 		syncIconArt(handle)
-		-- ----- THE LAYER LADDER (ADR-0020 R1) ------------------------------
+		-- ----- THE LAYER LADDER ------------------------------
 		-- Rebuilt, never repainted in place, when the ladder's SHAPE changes:
 		-- the tags are what the rules key on and the boxes are what the geometry
 		-- keys on, so a different stack is a different set of children.
@@ -2323,7 +2324,7 @@ function screen_chrome.new(ctx: Context)
 				end
 			end
 		end
-		-- ----- IMAGE VALUE DISPLAYS (ADR-0020 R3) --------------------------
+		-- ----- IMAGE VALUE DISPLAYS --------------------------
 		-- Ahead of every early return below, because a value display's chrome is
 		-- not a decoration on THIS node: a bar's caps hang off the track whether or
 		-- not the track itself is skinned, and a toggle's art rides two instances
@@ -2493,7 +2494,7 @@ function screen_chrome.new(ctx: Context)
 		applySkinnedSuppression(instance, true)
 		syncChromeText(handle, deco :: ImageLabel, plan, 1)
 		syncChromeShadow(handle, slot, deco, chromeState.shadowFor(slot :: string))
-		-- rung-2 PER-STATE ART (ADR-0020 R2). An overridden
+		-- rung-2 PER-STATE ART. An overridden
 		-- decoration is deliberately untagged, so no rule can swap its picture:
 		-- the adapter watches the node's own states and writes the art itself.
 		syncOverrideVariants(handle, plan)

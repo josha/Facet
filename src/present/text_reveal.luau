@@ -5,7 +5,7 @@
 	Studio's 200,000-character `Source` WRITE cap — over it a module silently
 	stops live-syncing into an open session, so a live check against it tests
 	the built place rather than the edits on disk
-	(docs/lessons/the-200k-source-cap-is-on-writing-not-loading.md; O-29 is what
+	(O-29 is what
 	that cost this file).
 
 	WHY THIS IS A SAFE SEAM, by the same test that moved the catchers out: does

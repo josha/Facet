@@ -24,8 +24,7 @@
 	WHY IT IS A MODULE. Roblox refuses a `Script.Source` assignment at 200,000
 	characters, and every LIVE path is a write, so a module over the cap silently
 	stops syncing into an open Studio session and a live check then tests the code
-	baked into the place rather than the edits on disk
-	(`docs/lessons/the-200k-source-cap-is-on-writing-not-loading.md`).
+	baked into the place rather than the edits on disk.
 	`renderer.luau` reached 198,974 — 1,026 characters of headroom — and
 	`docs/handoff/SOURCE_CAP_LEDGER.md` had this extraction OWED BEFORE the next
 	change of any size. The prescription there was "rect_pass-shaped: lift the
@@ -59,8 +58,7 @@ local solver = require("../layout/solver")
 
 local commit_walks = {}
 
---[[ A TOUCH FLOOR THAT GROWS UNTIL IT MEETS SOMETHING PRESSABLE (DIR5 review H1,
-	ADR-0041).
+--[[ A TOUCH FLOOR THAT GROWS UNTIL IT MEETS SOMETHING PRESSABLE (DIR5 review H1).
 
 	`own` is the rect the node paints, `want` is the floor it would like, and
 	`blockers` are the rects the caller decided may stop it — for a cover, every
@@ -357,7 +355,7 @@ function commit_walks.new(ctx: CommitCtx)
 	-- wrapping"), and nothing painted it: the plate came out label+12 wide and the
 	-- glyphs were drawn from the box's leading edge, so every tile's label sat
 	-- against — and over — its own rounded corner. Measured at a size nobody
-	-- painted, which is `docs/lessons/measure-the-requirement-not-the-render.md`
+	-- painted, which is "measure the requirement, not the render"
 	-- read backwards. A container spends its padding in `arrange` (children are
 	-- placed at rect + padding) and a Button already had this write, so a text LEAF
 	-- was the one shape where the two passes could disagree.
@@ -534,7 +532,7 @@ function commit_walks.new(ctx: CommitCtx)
 		-- ROOT only) exactly as `pushVisible` carries it, and a hidden node takes
 		-- the SAME diff path with `want = nil`, so a node that BECOMES hidden has
 		-- its expander retracted rather than merely left un-refreshed.
-		--[[ ...AND THE ONE FLOOR THAT IS BOUNDED (DIR5 review H1, ADR-0041). A
+		--[[ ...AND THE ONE FLOOR THAT IS BOUNDED (DIR5 review H1). A
 			region's expand affordance in the "cover" role IS the region's whole box,
 			so inflating it to the touch floor necessarily leaves the region on the
 			axis it is short on — measured at 390x150 as 960 px2 of one neighbouring

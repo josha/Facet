@@ -1,5 +1,5 @@
 --!strict
---[[ HOW A SOLVE'S RECTS REACH THE ADAPTER, AND IN WHAT ORDER (ADR-0032).
+--[[ HOW A SOLVE'S RECTS REACH THE ADAPTER, AND IN WHAT ORDER.
 
 	The order is the whole content of this module, and it is load-bearing rather
 	than tidy.

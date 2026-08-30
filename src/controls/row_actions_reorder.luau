@@ -4,7 +4,7 @@
 	WHAT THIS IS. `row_actions.composeWithReorder`, whole: the deferred-down
 	arbiter Table needs when a row is BOTH `reorderable` and wrapped in
 	`rowActions`, so a swipe (horizontal) and a drag-to-reorder (vertical) can
-	share the one low-level capture the engine hands out (ADR-0008).
+	share the one low-level capture the engine hands out.
 
 	IT SHARES NOTHING WITH THE ENGINE. `compose` is a top-level factory over two
 	handler TABLES it is given; the only state it owns is one `pending` record per
@@ -24,8 +24,7 @@
 
 	WHY IT IS ITS OWN FILE (2026-08-14): `row_actions.luau` had to shed periphery
 	to get back under the 200,000-char `Script.Source` WRITE cap Rojo live-sync
-	assigns through (docs/lessons/the-200k-source-cap-is-on-writing-not-loading.md,
-	tools/check_source_size.py). ]]
+	assigns through (tools/check_source_size.py). ]]
 
 local row_actions_state = require("../input/row_actions_state")
 
@@ -36,7 +35,7 @@ local row_actions_reorder = {}
 -- true for a row, has two candidate owners for the SAME raw pointer capture:
 -- this composite's swipe gesture (horizontal) and Table's own drag-to-reorder
 -- (vertical). Both ride the identical low-level onPointerDown/Move/Up/Cancel
--- capture (ADR-0008) — the engine hands a SINGLE gesture to whichever side
+-- capture — the engine hands a SINGLE gesture to whichever side
 -- claims it, and neither gesture alone knows the other exists. Composed here,
 -- not in table.luau (the brief's own design), because the axis-lock rule —
 -- "ties go vertical" (`row_actions_state.AXIS_LOCK_PX`), the SAME constant

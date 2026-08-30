@@ -28,8 +28,7 @@
 	`pointerHandlers` table, and `firstDestructiveEntry` (a local function, for the
 	minus' accessible label). It touches none of that closure's ~60 mutable
 	upvalues, which is the test every extraction in this split had to pass
-	(docs/lessons/the-200k-source-cap-is-on-writing-not-loading.md,
-	tools/check_source_size.py).
+	(tools/check_source_size.py).
 
 	PUBLIC INTERFACE: `build(p) -> any` (the root blueprint) and
 	`buildEditAffordance(p) -> any` (the edit-mode minus `UI.When`, used by BOTH
@@ -41,7 +40,7 @@
 	first, then Content (which slides over them), then the Hit Grip INSIDE Content
 	and after `content` (2026-08-13: the engine delivers a press to the TOPMOST
 	interactive object only, so a Grip behind a Button never sees the swipe —
-	docs/lessons/a-button-eats-the-swipe-underneath-it.md), then the edit minus
+	a button eats the swipe under it), then the edit minus
 	last so a trailing swipe passes under it. Reorder these and a device breaks in
 	a way no headless test can see. ]]
 
@@ -162,7 +161,7 @@ function row_actions_root.buildEditAffordance(p: EditAffordanceParams): any
 		condition = editAffordanceShown,
 		thenView = function()
 			--[[ THE GUTTER AND THE DISC'S CEILING ARE ONE EXPRESSION (task THEME fix
-				round, 2026-08-28; ADR-0059 Decision 6; review finding C1).
+				round, 2026-08-28; review finding C1).
 				`EDIT_FOOTPRINT` is the list `row_actions_metrics.editGutterPx` resolves
 				to reserve this node's room, and it is what this hint declares as the
 				room this node was given — the SAME two theme metrics, summed by the
@@ -352,7 +351,7 @@ function row_actions_root.build(p: Params): any
 				same click over a button fired the button's
 				`InputBegan`/`Activated` and nothing on the Grip. Full evidence
 				and the two traps that experiment nearly fell into:
-				`docs/lessons/a-button-eats-the-swipe-underneath-it.md`.
+				a button eats the swipe under it.
 
 				So a row whose `content` held a Button could not be swiped
 				where that button covered it. On top, the gesture always
@@ -412,7 +411,7 @@ function row_actions_root.build(p: Params): any
 				`diagnostics()` DURING the collapse — the C8a cases above run
 				200 frames past the fire, by which point `resetToClosed` has
 				put the height back and the diagnostic is long gone
-				(docs/lessons/the-solver-already-told-you.md, again).
+				(again).
 
 				So take the solver's own suggestion, and take it ONLY while it
 				is true — and key it on `rowHeightOverride` rather than on

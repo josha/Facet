@@ -21,8 +21,7 @@
 	WHY IT IS ITS OWN FILE. `src/layout/solver.luau` was 194,222 characters, 5,778
 	from the 200,000-char `Script.Source` write cap that stops a module live-syncing
 	into an open Studio session — silently, so a live check against it then tests
-	the built place rather than the edits (`tools/check_source_size.py`,
-	`docs/lessons/the-200k-source-cap-is-on-writing-not-loading.md`). This seam was
+	the built place rather than the edits (`tools/check_source_size.py`). This seam was
 	NAMED BY THE MISSION THAT GREW THE FILE, in `02b9df1`: "the grid is now a
 	coherent ~9k unit (`gridFlowPlan`, `gridColumnPlan`, both measure and arrange
 	branches). The next grid change should extract it to `src/layout/grid.luau` the
@@ -66,9 +65,9 @@
 	`place` (the solver's recursive `arrange`) and `alignOffset` arrive as ORDINARY
 	ARGUMENTS at the two arrange call sites instead, and deliberately so: both are
 	declared BELOW the point where `Deps` is built, so a forwarder for them written
-	up there would resolve as a nil GLOBAL and die inside a protected boundary —
-	`docs/lessons/a-helper-declared-below-its-caller-is-a-global.md`, which cost a
-	mission an hour during the grid work itself. Forward-declaring them to fix that
+	up there would resolve as a nil GLOBAL and die inside a protected boundary. A
+	helper declared below its caller is a global, and that cost a mission an hour
+	during the grid work itself. Forward-declaring them to fix that
 	would ADD a mutable module local to the solver, which is the opposite of what
 	this split is for. Passed at the call site they are in genuine lexical scope,
 	and the compiler proves it.
@@ -466,7 +465,7 @@ end
 	A line with no `fill` cell does not grow at all — the same rule a stack
 	applies to a content-sized child sitting beside a `fill` one.
 
-	`docs/lessons/a-fill-of-nothing-is-nothing.md` carries the measurement, the
+	A fill of nothing is nothing. The measurement is recorded with the
 	HStack it was compared against, and why seventeen mutations of a DECLARATION
 	could not reach a defect in the other axis of a rect. ]]
 local function gridFlowStretch(deps: Deps, node: any, plan: any, innerFlow: number): { [number]: number }?

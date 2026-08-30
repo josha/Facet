@@ -58,7 +58,7 @@ export type Spec = {
 	-- public engine surface for it — TextBox.ReturnKeyType is [Hidden,
 	-- NotScriptable] (platform verifier correction 2026-07-21; robloxapi.github
 	-- .io/ref/class/TextBox.html) — so it is never applied to the engine (justified engine-absent
-	-- exception), carried as intent parity with keyboardType-as-data (ADR-0012).
+	-- exception), carried as intent parity with keyboardType-as-data.
 	submitLabel: ("default" | "done" | "go" | "next" | "search" | "send")?,
 	clearButton: boolean?, -- trailing × affordance; sugar for clearButtonMode = "always"
 	-- WHEN the trailing ✕ is offered, spelled the way the platform convention spells it
@@ -91,7 +91,7 @@ local CLEAR_MODES: { [string]: boolean } = {
 	always = true,
 }
 
--- theme metrics (ADR-0019 §2), resolved on every solve
+-- theme metrics, resolved on every solve
 local FIELD_HEIGHT = "controls.textInput.fieldHeight"
 local CLEAR_SIZE = "controls.textInput.clearSize"
 -- gap between the trailing clear × and the field's right edge; negative because
@@ -271,7 +271,7 @@ function text_input.build(Facet: any, core: any, spec: Spec)
 	-- ---- edit-mode sinking context (lazy; owned by the control scope) -------
 	-- the action system that raises the sink context: either injected via
 	-- spec.actionSystem (back-compat) OR bound by the presenter at present time
-	-- via api.bindActionSystem (auto-wiring seam, ADR-0013). First writer wins,
+	-- via api.bindActionSystem (auto-wiring seam). First writer wins,
 	-- so injection + auto-binding never double-create the context.
 	local actionSystemRef: any = spec.actionSystem
 	local editContext: any = nil
@@ -417,8 +417,7 @@ function text_input.build(Facet: any, core: any, spec: Spec)
 	-- hardware keyboard remains to supersede it. The engine may not report that as
 	-- a FocusLost, so end the edit through the EXISTING commit path: the sink
 	-- context comes down (endEditing), navigation resumes, and the value model
-	-- keeps the last accepted text (never dropped). Keyed off the LIVE class set
-	-- (ADR-0015), never preferredInput alone.
+	-- keeps the last accepted text (never dropped). Keyed off the LIVE class set, never preferredInput alone.
 	do
 		scope:own(core:observe(env:get("interactionClasses"), function(classes)
 			if type(classes) ~= "table" then
@@ -471,7 +470,7 @@ function text_input.build(Facet: any, core: any, spec: Spec)
 	api.editing = editing
 	api.keepVisibleOffset = keepVisibleOffset
 
-	-- presenter auto-wiring seam (ADR-0013): bind the action system that raises
+	-- presenter auto-wiring seam: bind the action system that raises
 	-- the edit-mode sink context. Idempotent + guarded so spec.actionSystem
 	-- injection and this never double-create the context (first writer wins).
 	function api.bindActionSystem(sys: any)
@@ -645,7 +644,7 @@ function text_input.build(Facet: any, core: any, spec: Spec)
 
 	return {
 		-- attach the input contribution to the root so the presenter auto-wires
-		-- the field's four-input story with no consumer opts (ADR-0013)
+		-- the field's four-input story with no consumer opts
 		blueprint = contribution.attach(blueprint, {
 			focusGroups = api.focusGroups,
 			handleActivate = api.handleActivate,

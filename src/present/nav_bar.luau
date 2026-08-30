@@ -37,8 +37,7 @@
 	circle-shaped Button with a literal `"<"` Text child. This construct
 	standardizes on the framework's own chevron icon (the semantic, themeable,
 	non-hand-typed vocabulary) for all four — a deliberate, disclosed visual
-	harmonization, not an oversight (see docs/adr/ADR-0053, and
-	task-w3d-report.md's per-item evidence). ]]
+	harmonization, not an oversight. ]]
 
 local blueprintLib = require("../blueprint")
 local specGuard = require("../spec_guard")

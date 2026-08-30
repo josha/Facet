@@ -66,8 +66,7 @@ sheet_model.TAGS = table.freeze({
 		never marks the property explicit, so the `Frame default` rule kept
 		ownership and every tinted Box with no `surface` painted nothing at all.
 		Measured on the live plate 2026-08-15 — raw 0 / GetStyled 1; write 0.001 ->
-		GetStyled 0.001; write 0 again -> GetStyled 1
-		(docs/lessons/a-default-valued-write-never-claims.md).
+		GetStyled 0.001; write 0 again -> GetStyled 1.
 
 		So "this node has a tinted fill" reaches paint as a TAG, which is what
 		`gripFocus` below already does for the identical reason. It is emitted in
@@ -77,13 +76,13 @@ sheet_model.TAGS = table.freeze({
 	tintFill = "facet-tint-fill",
 })
 
---[[ THE BACKDROP RULE, named once (ADR-0035). Both sheet builders emit it and the
+--[[ THE BACKDROP RULE, named once. Both sheet builders emit it and the
 	adapter patches it live when the player moves their Background Transparency
 	preference, so the string is a constant rather than three literals. ]]
 sheet_model.SCRIM_RULE = "Scrim backdrop"
 
 --[[ THE PLAYER'S BACKGROUND-TRANSPARENCY PREFERENCE, composed with a theme's own
-	backdrop dim (ADR-0035, owed row O-26).
+	backdrop dim (owed row O-26).
 
 	`GuiService.PreferredTransparency` is a 0..1 scalar the player moves in
 	Settings; 1 is "paint what the designer said" and 0 is "I want opaque
@@ -118,7 +117,7 @@ end
 	`setRuleProperty`.
 
 	IT IS A LIST WITH ONE ENTRY, AND THE LIST IS THE POINT. The audit that
-	commissioned ADR-0035 walked every rule both builders emit and found exactly one
+	commissioned the preference decision walked every rule both builders emit and found exactly one
 	`BackgroundTransparency` strictly between 0 and 1 — every other framework
 	background is already opaque (a surface) or already invisible (a class default),
 	and multiplying either is respectively a no-op or a defect that REVEALS hidden
@@ -165,10 +164,10 @@ export type Model = {
 	mirrors: { { name: string, value: number } },
 	motion: { fast: number, normal: number },
 	-- buildPackage only: rule props baked from metrics (corner radii, stroke
-	-- thickness) so a live metric edit can repaint them (ADR-0019 §3)
+	-- thickness) so a live metric edit can repaint them
 	metricRuleProps: { { path: string, rule: string, prop: string, form: string } }?,
 	-- buildPackage only: what this package's skin COSTS, counted at compile
-	-- (ADR-0020 process rulings; ledger rich-skinning v2). Zero in every field for a flat
+	-- (the skinning process rulings). Zero in every field for a flat
 	-- package, which is what makes "flat pays nothing" a measurement.
 	census: ModelCensus?,
 }
@@ -224,23 +223,23 @@ export type ClassifyInput = {
 	-- or not. Drives `facet-slot-<slot>`, which is what gives a value control's
 	-- chrome its own native paint instead of borrowing a public surface's.
 	slotHint: string?,
-	-- the sixth variant state (ADR-0020 R2). `default/hover/pressed/selected/
+	-- the sixth variant state. `default/hover/pressed/selected/
 	-- disabled` all ride an engine GuiState or a tag the renderer already emits;
 	-- `error` has no engine state, so a control that has one publishes it here.
 	errorState: boolean?,
-	-- ONE PARENT TAG HIDES THE WHOLE STACK (ADR-0020 R1, probe rs-m2). The
+	-- ONE PARENT TAG HIDES THE WHOLE STACK (probe rs-m2). The
 	-- single-decoration editing yield tags the DECORATION, which syncTags never
 	-- touches; a layered node's yield has to ride the DECORATED NODE, and every
 	-- `facet-*` tag on that node is diffed against this desired set. A yield tag
 	-- added anywhere else would survive exactly until the next classification
 	-- pass — the Step 3.5 fix round's defect class, one slot down.
 	chromeYield: boolean?,
-	-- A SWITCH'S VALUE (ADR-0020 R3 cap 10). `on` is neither an engine GuiState
+	-- A SWITCH'S VALUE. `on` is neither an engine GuiState
 	-- nor a selection binding — it is the control's value, and a rule cannot see
 	-- a value — so the package's toggle art keys on this tag, flipped from the
 	-- same fact `togglePalette` paints its colours from.
 	toggleOn: boolean?,
-	-- SEMANTIC ICON ART REPLACED THIS NODE'S GLYPH (ADR-0020 R4). A control that
+	-- SEMANTIC ICON ART REPLACED THIS NODE'S GLYPH. A control that
 	-- requests an icon draws the framework's ASCII glyph itself, so the node
 	-- always has legible text; when the installed package declares real art the
 	-- adapter parents a picture over it and this tag turns the glyph off. It is a
@@ -291,7 +290,7 @@ function sheet_model.classifyTags(input: ClassifyInput): { [string]: boolean }
 	if input.tinted == true then
 		tags[T.tintFill] = true
 	end
-	-- the ERROR state's tag (ADR-0020 R2). Emitted only when a control says so,
+	-- the ERROR state's tag. Emitted only when a control says so,
 	-- so nothing a package published before this stage renders can carry it.
 	if input.errorState == true then
 		tags[chrome_slots.TAGS.stateError] = true
@@ -404,7 +403,7 @@ local BLACK = { r = 0, g = 0, b = 0 }
 local STROKE_BORDER: RuleProp = { kind = "enum", enum = "ApplyStrokeMode", item = "Border" }
 sheet_model.STROKE_BORDER = STROKE_BORDER
 
--- THE SELECTED STATE'S CONTENT COLOUR (director round 8, ADR-0019 palette
+-- THE SELECTED STATE'S CONTENT COLOUR (director round 8, the palette
 -- contract; the 3.5 `togglePalette` ruling is the precedent).
 --
 -- A theme guarantees exactly two readable pairs: surface/content and
@@ -626,7 +625,7 @@ local SLOT_FILL_TOKEN: { [string]: string } = {
 	sliderTrack = "$Control",
 	sliderThumb = "$SurfaceStrong",
 	badge = "$SurfaceStrong",
-	-- v2 value displays (ADR-0020 R3). The track is a control surface and the
+	-- v2 value displays. The track is a control surface and the
 	-- fill is the accent, which is what a flat progress bar already looks like;
 	-- the caps and the centrepiece are ornaments with no unskinned counterpart,
 	-- so their fallback is the accent they decorate rather than a shape of their
@@ -758,7 +757,7 @@ end
 --
 -- THE ONE RULE THAT BEATS IT, ON PURPOSE. `Skinned — control corner` sits in the
 -- `chrome` group and zeroes the radius of a node whose art has taken over. That
--- is the image-is-the-element posture (ADR-0020 R9) and it is correct for a
+-- is the image-is-the-element posture and it is correct for a
 -- circle too: once a package dresses the button, the ART is the silhouette and
 -- the node's own plate is invisible underneath it, so its radius means nothing.
 local function emitShapeChrome(
@@ -1111,7 +1110,7 @@ function sheet_model.build(opts: BuildOpts): Model
 			selector = "TextBox:NonInteractable",
 			props = { TextTransparency = num(numbers.DisabledContentTransparency) },
 		},
-		-- SEMANTIC ICON ART (ADR-0020 R4). Last in the `disabled` group and so
+		-- SEMANTIC ICON ART. Last in the `disabled` group and so
 		-- last in the whole cascade: the node's glyph is a fallback the control
 		-- always draws, and when real art covers it the glyph must go — including
 		-- over the 0.45 disabled value, which would otherwise leave a ghost "+"
@@ -1209,7 +1208,7 @@ end
 
 -- ===========================================================================
 -- buildPackage: a compiled ThemePackage -> the ordered sheet model
--- (ADR-0019 §5, theme-packages-and-skinning package 3)
+--
 -- ===========================================================================
 --
 -- `build` above compiles ONE Facet token style and is the legacy path; it is
@@ -1289,7 +1288,7 @@ function sheet_model.checkSelector(selector: string, ruleName: string): string
 end
 
 -- checkContentValue(ruleName, prop, value): a rule that paints art carries a
--- plain STRING and nothing else (ADR-0020 R6, probe rs-m7).
+-- plain STRING and nothing else (probe rs-m7).
 --
 -- Strings coerce on `Image` and on `ImageContent` alike — even a rule authored
 -- with `Content.fromUri` round-trips as a string through `GetProperties`, which
@@ -1408,7 +1407,7 @@ local function effectiveExtra(theme: any): any
 	return x
 end
 
--- ===== THE CONTINUOUS-COLOUR CHANNEL (`tint`, ADR-0022 Decision 6) =========
+-- ===== THE CONTINUOUS-COLOUR CHANNEL (`tint`) =========
 --
 -- The tint is the SAME class of thing the toggle palette below is, and for the
 -- same stated reason: a rule cannot see a VALUE. A blend driven by an energy
@@ -1663,7 +1662,7 @@ function sheet_model.buildPackage(package: any, opts: BuildPackageOpts?): Model
 		if plan ~= nil then
 			ninePlans[slot] = plan
 		end
-		-- a LAYERED recipe (ADR-0020 R1) plans a whole ladder instead of one
+		-- a LAYERED recipe plans a whole ladder instead of one
 		-- decoration; `planFor` returns nil for it, which is what keeps every
 		-- existing caller and every flat package byte-identical
 		local stack = chrome_slots.layerPlanFor(package, slot)
@@ -1762,7 +1761,7 @@ function sheet_model.buildPackage(package: any, opts: BuildPackageOpts?): Model
 		return { kind = "font", family = entry.font.family, weight = entry.font.weight, style = entry.font.style }
 	end
 
-	-- ----- v2 census + the pixel stamp (ADR-0020 R1/R2/R5/R9) --------------
+	-- ----- v2 census + the pixel stamp -------------------------------------
 	-- rich-skinning v2 reads these: cost honesty is a counted number per kind, not an
 	-- impression. A flat package leaves every ART number at zero; the one number
 	-- it does not is `suppressionRules`, which carries the value family's
@@ -1797,7 +1796,7 @@ function sheet_model.buildPackage(package: any, opts: BuildPackageOpts?): Model
 		return props
 	end
 	-- distinct art a package reaches for across states, counted once per content
-	-- id (the preload seam's cost, ADR-0020 R2)
+	-- id (the preload seam's cost)
 	local variantSeen: { [string]: boolean } = {}
 	local function noteVariantAsset(contentId: string)
 		if not variantSeen[contentId] then
@@ -1816,7 +1815,7 @@ function sheet_model.buildPackage(package: any, opts: BuildPackageOpts?): Model
 		table.insert(groups[group], rule)
 	end
 
-	-- ----- per-state ART (ADR-0020 R2) -------------------------------------
+	-- ----- per-state ART -------------------------------------
 	-- One state, one rule, carrying `Image` and nothing else. The per-state TINT
 	-- rules are separate rules on separate props, so they still apply on top —
 	-- which is exactly the ADR semantics: an unstated state falls back to the
@@ -1839,7 +1838,7 @@ function sheet_model.buildPackage(package: any, opts: BuildPackageOpts?): Model
 		error = { group = "chrome", prefix = `.{chrome_slots.TAGS.stateError} > ` },
 	}
 
-	-- ON/OFF IS A VALUE, NOT A GuiState (ADR-0020 R3 cap 10). Every other variant
+	-- ON/OFF IS A VALUE, NOT A GuiState. Every other variant
 	-- state rides an engine pseudo or a tag the renderer already emits; a switch's
 	-- ON state is the control's VALUE, and no rule can see a value — which is
 	-- exactly why `togglePalette` stayed a bespoke colour write. The art therefore
@@ -1875,7 +1874,7 @@ function sheet_model.buildPackage(package: any, opts: BuildPackageOpts?): Model
 		end
 	end
 
-	-- THE IMAGE IS THE ELEMENT (ADR-0020 R9, extending the Step 3.5 machinery).
+	-- THE IMAGE IS THE ELEMENT (extending the Step 3.5 machinery).
 	-- Before art can BE the control, the control's native plate has to stop being
 	-- drawn under it: fill, ::UICorner radius and ::UIStroke hairline all go to
 	-- nothing on the DECORATED NODE. Emitted per skinned slot — nine-slice and
@@ -2206,8 +2205,8 @@ function sheet_model.buildPackage(package: any, opts: BuildPackageOpts?): Model
 			)
 			restingTint = token
 		end
-		-- THE IMAGE IS THE BUTTON (director fix round; ADR-0020 R9 generalizes it
-		-- to every image-bearing slot and to layer stacks). Sits in the chrome
+		-- THE IMAGE IS THE BUTTON (director fix round; generalized to every
+		-- image-bearing slot and to layer stacks). Sits in the chrome
 		-- group, i.e. AFTER every surface rule it has to beat and before the
 		-- interaction states (which only change colour, so an invisible plate
 		-- stays invisible through hover and press).
@@ -2236,7 +2235,7 @@ function sheet_model.buildPackage(package: any, opts: BuildPackageOpts?): Model
 			props = imageProps(restProps),
 		})
 		emitVariantArt(`Chrome — {slot}`, plan.tag, plan.variants, SLOT_SELECTED_TAG[slot])
-		-- PER-END CAP ART (ADR-0020 R3). One recipe paints both ends; an end that
+		-- PER-END CAP ART. One recipe paints both ends; an end that
 		-- named its own asset gets a second tag whose rule lands later in insertion
 		-- order and therefore wins on that one instance — the per-corner idiom.
 		if slot == "barCap" then
@@ -2260,7 +2259,7 @@ function sheet_model.buildPackage(package: any, opts: BuildPackageOpts?): Model
 			end
 		end
 		-- the declared native fallback: tag-driven, so a failed asset repaints
-		-- without touching hit geometry, focus or state (ADR-0019 §5)
+		-- without touching hit geometry, focus or state
 		emit("chrome", {
 			name = `Chrome — {slot} fallback`,
 			selector = `.{plan.tag}.{chrome_slots.TAGS.fallback}`,
@@ -2309,7 +2308,7 @@ function sheet_model.buildPackage(package: any, opts: BuildPackageOpts?): Model
 			fromMetric("strokes.hairline", `Chrome — {slot} fallback hairline`, "Thickness", "number")
 		end
 		-- SELECTED is a tint over the base image. A package that wants selection
-		-- to change the PICTURE declares a `selected` variant (ADR-0020 R2); the
+		-- to change the PICTURE declares a `selected` variant; the
 		-- tint then rides on top of that art, so both idioms compose.
 		emit("chrome", {
 			name = `Chrome — {slot} selected`,
@@ -2319,7 +2318,7 @@ function sheet_model.buildPackage(package: any, opts: BuildPackageOpts?): Model
 		})
 	end
 
-	-- ----- LAYER STACKS (ADR-0020 R1) --------------------------------------
+	-- ----- LAYER STACKS --------------------------------------
 	-- Z-order IS array order, and the adapter assigns ZIndex 1..N from it. Every
 	-- paint property here is RULE-owned from birth: rs-m2 measured that a value
 	-- written on the instance BEFORE it joins the styled tree survives and
@@ -2485,13 +2484,14 @@ function sheet_model.buildPackage(package: any, opts: BuildPackageOpts?): Model
 			transitions = { ImageColor3 = "fast" },
 		})
 	end
-	-- the chrome TEXT LIFT (ADR-0019 integration rulings): a text-bearing
+	-- the chrome TEXT LIFT (a theme integration ruling): a text-bearing
 	-- node under nine-slice chrome paints its label on a managed
 	-- `.facet-chrome-text` child ABOVE the decoration (under Sibling z-behavior a
 	-- child covers the parent's own engine-drawn text at any ZIndex). The lifted
 	-- label is a TextLabel, so "Text default" already gives it $Content + the
 	-- body font; these rules add the control-role font and the parent-tag
-	-- variants via child combinators (selector validity measured in TP-M8).
+	-- variants via child combinators. TP-M8 is the theme feasibility probe, and
+	-- selector validity was measured there.
 	-- Emitted only when a text-bearing slot is actually skinned — flat themes
 	-- carry none of this.
 	-- SELECTION counts: a selectable row is a TextButton, so a selection-only skin
@@ -2728,7 +2728,7 @@ function sheet_model.buildPackage(package: any, opts: BuildPackageOpts?): Model
 			-- group, and the disabled rule
 			-- immediately above rides the DISABLED group — and the cascade is
 			-- Priority first, then insertion order, with NO selector specificity
-			-- (ADR-0018; priority is pinned by this generator, so group order IS
+			-- (priority is pinned by this generator, so group order IS
 			-- the answer). So on a node that was BOTH disabled and in fallback the
 			-- 0.4 dim won on the same property and re-revealed exactly the broken
 			-- art the fallback existed to hide, at 60% opacity, over the native
@@ -2773,7 +2773,7 @@ function sheet_model.buildPackage(package: any, opts: BuildPackageOpts?): Model
 			props = { ImageColor3 = "$ChromeTintDangerPressed" },
 		})
 	end
-	-- ----- SEMANTIC ICON PAINT (ADR-0020 R4) -------------------------------
+	-- ----- SEMANTIC ICON PAINT -------------------------------
 	--
 	-- The authority split, stated once: the ADAPTER picks WHICH picture (a content
 	-- id per node is not something a rule can decide) and HOW BIG (from the
@@ -2857,7 +2857,7 @@ function sheet_model.buildPackage(package: any, opts: BuildPackageOpts?): Model
 		selector = "TextBox:NonInteractable",
 		props = { TextTransparency = num(baseExtra.disabledContentOpacity) },
 	})
-	-- SEMANTIC ICON ART (ADR-0020 R4), emitted by EVERY package — including a
+	-- SEMANTIC ICON ART, emitted by EVERY package — including a
 	-- package that declares no icons at all, because the tag only ever lands on a
 	-- node whose icon actually resolved to art. Emitting it unconditionally is
 	-- what keeps the suppression working across a swap: a package with icons and

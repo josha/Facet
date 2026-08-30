@@ -41,8 +41,7 @@ function chip.build(Facet: any, core: any, spec: any)
 	local id = spec.id or "Chip"
 	local scope = core:scope("chip-" .. tostring(id))
 	local selected = spec.selected -- owner-held Signal<boolean>
-	-- AUTHORING IS STRICT: fail at BUILD, not at first render (ADR-0010,
-	-- docs/extending/new-control.md §2). `selected` is required AND is the
+	-- AUTHORING IS STRICT: fail at BUILD, not at first render (docs/extending/new-control.md §2). `selected` is required AND is the
 	-- control's single mutation site, so a missing one used to surface as
 	-- "attempt to index nil" on the user's first tap and a read-only Memo as
 	-- "cannot set a memo" from deep inside core — both unattributable. Same
@@ -83,7 +82,7 @@ function chip.build(Facet: any, core: any, spec: any)
 		"pill"
 	)
 
-	-- FOUR-INPUT STORY (ui_todo §0; ADR-0013): the presenter discovers this
+	-- FOUR-INPUT STORY (ui_todo §0): the presenter discovers this
 	-- bundle on mount and composes the whole story with zero consumer opts. A
 	-- chip owns NO in-flight state (no drag/grab/open edit), so only
 	-- handleActivate is needed — Navigate/focus/geometry the presenter derives

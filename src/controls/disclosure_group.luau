@@ -92,7 +92,7 @@ function disclosure_group.build(Facet: any, core: any, spec: Spec)
 		return true
 	end
 
-	-- THE DISCLOSURE CARET (ADR-0020 R4, the proof defect).
+	-- THE DISCLOSURE CARET (the proof defect).
 	--
 	-- The header used to build one string from U+25BE and U+25B8 — the two
 	-- GEOMETRIC-SHAPE triangles. They are present in some faces and absent in

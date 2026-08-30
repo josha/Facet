@@ -42,8 +42,7 @@
 	take. Over it, the module silently stops syncing into an open Studio session
 	and a live check tests the built place instead of your edit. It was measured
 	happening: the running showcase held this file at 219,701 chars with none of
-	that day's markers. `docs/lessons/the-200k-source-cap-is-on-writing-not-loading.md`,
-	`tools/check_source_size.py`.
+	that day's markers. `tools/check_source_size.py` is the guard.
 
 	WHAT WAS NOT SPLIT, and must not be: `buildEngine`. Its ~65 nested functions
 	share ~60 mutable upvalues (`spring`, `controller`, `drag`, `committed`,
@@ -123,9 +122,8 @@
 -- as text + 2 * `buttonPad`, the flat-theme half of the sum, and every package
 -- that paints a frame reserved `chromeInsets.control` out of that same box at
 -- paint time; the label lost exactly the frame ("Mark Read" cut off under
--- Fantasy Parchment). See docs/lessons/measure-the-requirement-not-the-render.md
--- and a-fixed-box-cannot-hold-a-themes-frame.md — this is that lesson's width
--- form.
+-- Fantasy Parchment). Measure the requirement, not the render: a fixed box
+-- cannot hold a theme's frame, and this is that defect in its width form.
 --
 -- AND THE BAND HAS TO FIT THE ROW (same round, finding A1b). Nothing used to
 -- constrain the sum at all: four actions on a 160px row put the first plate at
@@ -186,7 +184,7 @@ local rowActionsDump = require("./row_actions_dump")
 
 -- ALIASED AT MODULE SCOPE, above every caller, deliberately — a local declared
 -- LATER is not an upvalue, it silently captures a nil global
--- (docs/lessons/later-locals-are-not-upvalues.md, bitten five times here).
+-- (bitten five times here).
 -- Aliasing rather than rewriting ~15 call sites keeps this extraction a move.
 local patternEscape = rowActionsSpec.patternEscape
 local isPathPrefix = rowActionsSpec.isPathPrefix
@@ -296,7 +294,7 @@ export type Spec = {
 	-- already carries its OWN full-fill Active pointer surface at the
 	-- identical rect this composite's Grip occupies — two independent Active
 	-- zones racing for the engine's one-at-a-time InputBegan capture
-	-- (ADR-0008) is exactly the "row hit won the race" class table.luau's own
+	-- is exactly the "row hit won the race" class table.luau's own
 	-- `rowPointerHandlers` header comment already names as unsafe to leave to
 	-- firing order. Table wins deterministically by construction instead:
 	-- this composite simply never enters the race.
@@ -467,7 +465,7 @@ local HOSTED_PATH_KEYS = specGuard.keySet({ "content", "trayLeading", "trayTrail
 -- ACTION_KEYS / FULL_SWIPE_KEYS live in `row_actions_spec.luau` beside the only
 -- two functions that read them (`buildActionSpec`, `normalizeFullSwipe`).
 
--- THE TRAY BUTTON'S OWN THEME METRICS (Task 2; ADR-0019 §2) live in
+-- THE TRAY BUTTON'S OWN THEME METRICS (Task 2) live in
 -- `row_actions_metrics.luau`, with the memos that resolve them.
 --[[ THE LEGIBILITY FLOOR — below this a revealing plate stops being drawable.
 
@@ -846,12 +844,11 @@ local function buildEngine(Facet: any, core: any, spec: any, hosted: HostedOpts?
 		`scope`, `spec.env` and the two validated ActionSpec lists, none of them
 		reading a single upvalue of this closure, which is why they could leave
 		when this file had to get back under the 200,000-char `Script.Source`
-		WRITE cap (docs/lessons/the-200k-source-cap-is-on-writing-not-loading.md).
+		WRITE cap.
 
 		DESTRUCTURED INTO THE SAME LOCAL NAMES the ~20 readers below already use,
 		at the same point in the file they were declared, so every call site is
-		unchanged and nothing moved above or below anything it depends on
-		(docs/lessons/later-locals-are-not-upvalues.md).
+		unchanged and nothing moved above or below anything it depends on.
 
 		The naturals are OWNED here and WRITTEN by `deriveNaturals` below, which
 		stays: the measurement needs `controller.textAt`'s live font/size facts and
@@ -1243,7 +1240,7 @@ local function buildEngine(Facet: any, core: any, spec: any, hosted: HostedOpts?
 		    BOTTOM at the trigger's top, i.e. FLIPPED above it.
 
 		The flipped form is a FRACTION of the anchor's inner height (`solver.luau`
-		`offsetPx`, ADR-0022) precisely so this file never has to know
+		`offsetPx`) precisely so this file never has to know
 		that height: a `bottomLeft` child lands at `(innerH - h) + oy`, so
 		`oy = trigger.y - innerH` puts its bottom edge exactly on the trigger's top
 		WITHOUT this file measuring the menu at all. Spelling it as a scale lets the
@@ -2357,7 +2354,7 @@ local function buildEngine(Facet: any, core: any, spec: any, hosted: HostedOpts?
 	-- One in-flight gesture at a time — the adapter's own capture model
 	-- already guarantees `onPointerDown` is never re-entered while a capture
 	-- is live (fake_target.luau `pointerDown`: "a live capture OWNS the
-	-- pointer... ignored, never a steal"; the real engine's ADR-0008 capture
+	-- pointer... ignored, never a steal"; the real engine's pointer capture
 	-- is the same shape — and this holds regardless of which class is asking:
 	-- a touch press arriving mid-mouse-drag, or a mouse press arriving
 	-- mid-touch-drag, is silently ignored by the adapter BEFORE this
@@ -2521,7 +2518,7 @@ local function buildEngine(Facet: any, core: any, spec: any, hosted: HostedOpts?
 		-- TENTATIVE ACCEPT (capture-semantics investigation — task-5-report.md
 		-- carries the full writeup): the axis is genuinely unknown at down
 		-- (dx = dy = 0 here, always), and this adapter's capture model —
-		-- mirroring the real engine's ADR-0008 capture — offers no way to
+		-- mirroring the real engine's pointer capture — offers no way to
 		-- hand the capture back once accepted: renderer.luau wires `move`/
 		-- `up` without ever reading a return value from either, only `down`
 		-- may decline. A "vertical" verdict is therefore honored by going
@@ -2578,8 +2575,7 @@ local function buildEngine(Facet: any, core: any, spec: any, hosted: HostedOpts?
 		director 2026-08-13 — option A, "the Grip goes ON TOP and forwards presses it
 		does not claim").
 
-		THE ENGINE FACT (measured live, `docs/lessons/a-button-eats-the-swipe-
-		underneath-it.md`): Roblox delivers `InputBegan` to the TOPMOST interactive
+		THE ENGINE FACT (measured live): Roblox delivers `InputBegan` to the TOPMOST interactive
 		object only. This file used to paint its hit Grip BEHIND `content` on a
 		comment claiming the engine delivered to every Active object under the point
 		"independently of paint order". It does not — a `GuiButton` in the content
@@ -2805,7 +2801,7 @@ local function buildEngine(Facet: any, core: any, spec: any, hosted: HostedOpts?
 		never reassigns — so the tray builder reads engine state without touching a
 		single one of the mutable upvalues that make `buildEngine` one closure. That
 		is what let this file get back under the 200,000-char `Script.Source` WRITE
-		cap (docs/lessons/the-200k-source-cap-is-on-writing-not-loading.md).
+		cap.
 
 		THE COUPLING THAT REMAINS IS THE REAL ONE, and it is stated at both ends:
 		`row_actions_metrics.bandWidth` decides how far the row TRAVELS, and every
@@ -3059,15 +3055,14 @@ local function buildEngine(Facet: any, core: any, spec: any, hosted: HostedOpts?
 			local pad = buttonPadPx:get()
 			local minWidth = buttonMinWidthPx:get()
 			-- A3 (device bug round 2026-08-12, "Mark Read" cut off under Fantasy
-			-- Parchment). MEASURE THE REQUIREMENT, NOT THE RENDER
-			-- (docs/lessons/measure-the-requirement-not-the-render.md): the room a
+			-- Parchment). MEASURE THE REQUIREMENT, NOT THE RENDER: the room a
 			-- tray plate needs is the drawn text PLUS the button's own inner
 			-- padding PLUS whatever the installed package's control frame reserves
 			-- out of that box. `buttonPad` alone was the flat-theme half of the
 			-- sum, so under every framed package the band was reserved (and the
 			-- row travelled) exactly one frame too narrow and the label lost the
-			-- difference — `docs/lessons/a-fixed-box-cannot-hold-a-themes-frame.md`
-			-- in its width form: the plate's `fixed` px is decided HERE, so this
+			-- difference — a fixed box cannot hold a theme's frame, here in its
+			-- width form: the plate's `fixed` px is decided HERE, so this
 			-- is the one place that can afford the frame for it. Zero on flat
 			-- packages, so nothing that already fit moves.
 			local chrome = buttonChromePx:get()

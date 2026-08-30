@@ -30,8 +30,7 @@
 	derives more memos from them, and returns blueprints — it writes none of that
 	closure's ~60 mutable upvalues, which is what licensed the extraction when
 	row_actions.luau had to get back under the 200,000-char `Script.Source` WRITE
-	cap (docs/lessons/the-200k-source-cap-is-on-writing-not-loading.md,
-	tools/check_source_size.py).
+	cap (tools/check_source_size.py).
 
 	THE INVARIANT THIS FILE EXISTS TO KEEP: the tray uncovered has to be the tray
 	DRAWN. `row_actions_metrics.bandWidth` decides how far the row TRAVELS; every

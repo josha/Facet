@@ -10,7 +10,7 @@
 -- Input Action System (`Workspace.PlayerScriptsUseInputActionSystem = "Enabled"`,
 -- declared in the place's Rojo project — ENGINE TRUTH 2) and lets UI-vs-gameplay
 -- contention resolve through InputContext priority + Sink — the focus-aware
--- first-responder model being designed under ADR-0014 (in progress). See the
+-- first-responder model (in progress). See the
 -- "Gamepad in real places" section of docs/guide/07-input.md. This module gives
 -- a real game only `legacyStackActive()` — a detector to WARN with, not a fix.
 --
@@ -76,14 +76,14 @@
 --
 -- THE RESOLUTION IS TRUTH 2, NOT A NUMBER (director's ruling 2026-08-15). Facet
 -- does not reach into ContextActionService — `src/client/roblox_input.luau`
--- deliberately never re-implements or reaches into arbitration (ADR-0004). The
+-- deliberately never re-implements or reaches into arbitration. The
 -- Input Action System is the whole story, and the property is what puts Roblox's
 -- own player scripts on it: with `Workspace.PlayerScriptsUseInputActionSystem`
 -- enabled the camera's keys are an `InputContext` like everyone else's, so
 -- ordinary priority arbitration decides them and truth 5 stops biting. Truth 5
 -- stays written down because it is exactly WHY the property is a requirement
 -- rather than a nicety: with the flag off there is no in-framework remedy at all.
--- Full story: docs/lessons/the-camera-still-owns-the-arrow-keys.md.
+-- With the flag off, the camera still owns the arrow keys.
 --
 -- ENGINE TRUTH 3 — CoreGuiNavigationEnabled fights back. `GuiService.
 -- CoreGuiNavigationEnabled` re-enables itself if scripted off (CoreScripts
@@ -95,7 +95,7 @@
 -- `require()`s cleanly under Lune and in Studio Edit. Every engine call lives
 -- inside a function and is `pcall`-guarded, so requiring or calling it off the
 -- live client (server, Edit, headless) never throws. See the full story in
--- docs/guide/07-input.md and docs/lessons/gamepad-contention-truths.md.
+-- docs/guide/07-input.md.
 
 local gamepad_contention = {}
 
@@ -110,7 +110,7 @@ local CONTENTION_DESCRIPTION = table.concat({
 		.. "(PlayerModule:GetControls():Disable(), fallback UnbindAction "
 		.. "'jumpAction'). A real game must NOT disable avatar input — it puts "
 		.. "avatar input on IAS (truth 2) and lets InputContext priority+Sink "
-		.. "arbitrate (focus-aware first-responder model, ADR-0014 in progress).",
+		.. "arbitrate (focus-aware first-responder model, in progress).",
 	"2. Workspace.PlayerScriptsUseInputActionSystem (which puts Roblox's own "
 		.. "player scripts — camera included — onto IAS so they join normal "
 		.. "priority arbitration) is REQUIRED by Facet. It is present in the "
@@ -139,7 +139,7 @@ local CONTENTION_DESCRIPTION = table.concat({
 		.. "BindActionAtPriority claim of our OWN action above 2000, unbound on "
 		.. "release, was also measured to work and to hand the key straight back — "
 		.. "but Facet does not reach into ContextActionService, so it is not the "
-		.. "route; roblox_input.luau never re-implements arbitration, ADR-0004.)",
+		.. "route; roblox_input.luau never re-implements arbitration.)",
 	"6. cameraKeysContended() reports whether ANY ContextActionService binding "
 		.. "currently holds an arrow key. Measured live 2026-08-15 in a default "
 		.. "place: RbxCameraKeypress holds Left/Right/I/O at priority 2000 while "

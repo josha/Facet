@@ -24,7 +24,7 @@ type Blueprint = blueprintLib.Blueprint
 
 local DIRTY_CLASSES = { "paint", "measure", "arrange", "structure", "navigation", "semantics" }
 
--- STRUCTURAL TRANSITIONS (ADR-0022 Decision 3). An optional
+-- STRUCTURAL TRANSITIONS. An optional
 -- collaborator — supplied by the render/presenter layer, scripted in headless
 -- tests — that turns a structural REMOVAL into a RETIREMENT: the subtree stays in
 -- `children`, is marked `retiring` (so the presenter's focus walk and the tap

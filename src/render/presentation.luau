@@ -1,5 +1,5 @@
 --!strict
---[[ presentation — the PRESENTATION CHANNEL'S ARITHMETIC (ADR-0026).
+--[[ presentation — the PRESENTATION CHANNEL'S ARITHMETIC.
 
 	WHAT THIS IS FOR (read this first if you have never met the channel). Facet
 	paints a node at its solved rect. Four things can then bend that paint without
@@ -35,7 +35,7 @@
 	  transformsEqual(a, b)            -> boolean
 	      the write memo's comparison, over every field a transform carries.
 
-	THE COMPOSITION RULE, which is the whole design (ADR-0026 Decision 2, offset
+	THE COMPOSITION RULE, which is the whole design (offset
 	added by amendment, gap 16 framework-gaps-phase2):
 
 	  | property | composes by | identity |
@@ -137,7 +137,7 @@ function presentation.sameAuthored(a: Authored?, b: Authored?): boolean
 		and a.offsetY == b.offsetY
 end
 
---[[ THE AUTHORED TRIPLE PLUS THIS FRAME'S FLIGHT (ADR-0026 Decision 7).
+--[[ THE AUTHORED TRIPLE PLUS THIS FRAME'S FLIGHT.
 
 	A `withAnimation` record carries `o`/`s`/`r` deltas beside its four rect
 	numbers, and the painted authored value is `destination + delta x p` for the one
@@ -190,13 +190,13 @@ end
 
 	Returns `t` BY IDENTITY when there is nothing authored — same table, no
 	allocation, and the caller's memo compare then short-circuits on the first
-	field. That identity return is the off-path guarantee ADR-0026 Decision 9
-	promises, so do not "tidy" it into an unconditional table build.
+	field. That identity return is the off-path guarantee authored presentation
+	makes, so do not "tidy" it into an unconditional table build.
 
 	`offsetX`/`offsetY` (gap 16) are the authored TRANSLATION term, composed
 	ADDITIVELY into `x`/`y` — the same rule `rotation` uses, and for the same
 	reason: an offset has no "unscaled" identity to multiply against, only a
-	zero to add against. This does not reopen ADR-0026's original refusal of an
+	zero to add against. This does not reopen the original refusal of an
 	authored `x`/`y` (`"the authored position and size of a node is the
 	solver's output, not a paint value"`): that ruling is about WHERE a node's
 	box IS, decided once by the solver every rendered class already has; this

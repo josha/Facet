@@ -30,7 +30,7 @@ type Request = {
 	dueAt: number?, -- a spaced retry waits here, out of the transport's sight
 }
 
--- BOUNDED RETRY (ADR-0022 Decision 8). `count` extra attempts after the
+-- BOUNDED RETRY. `count` extra attempts after the
 -- first failure, spaced by `delaySeconds` of INJECTED time — the provider is pure
 -- and non-yielding, so a delay is a due time the caller's `tick` crosses, never a
 -- `task.delay`. `giveUp` is what makes the retry BOUNDED: when the budget is spent

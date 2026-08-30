@@ -1,6 +1,6 @@
 --!strict
 -- SPATIAL EVENT SEAM (roadmap Step 4; docs/extending/new-platform-mode.md §4;
--- ADR-0021). Contracts only.
+-- contracts only).
 --
 -- READ THIS FIRST: **Facet does not support VR.** Nothing in this module is a
 -- spatial implementation, an adapter, or a capability claim. It is the shape a

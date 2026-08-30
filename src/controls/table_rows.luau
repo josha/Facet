@@ -8,8 +8,7 @@
 	SIZE MUST BE PRECEDED BY THE BUILDER EXTRACTION, not accompanied by it". The
 	file was 1,236 characters from the 200,000-char Source WRITE cap, past which
 	a module stops live-syncing into an open Studio session, silently, so a live
-	check against it tests the built place rather than the edit
-	(`docs/lessons/the-200k-source-cap-is-on-writing-not-loading.md`).
+	check against it tests the built place rather than the edit.
 
 	WHAT MADE IT EXTRACTABLE, when the same ledger row records that no one-way
 	seam existed. Every large block in `newTable` reads mutable instance
@@ -287,7 +286,7 @@ function table_rows.new(deps: Deps)
 		return (spec.cellFor :: any)(column.id, item)
 	end
 
-	-- press→drag promotion, from the SHARED token table (ADR-0022 D5) —
+	-- press→drag promotion, from the SHARED token table —
 	-- the value is the same 6 px this control has always used, sourced from the
 	-- one place a device round retunes it. The POINTER token is the right one
 	-- here even on a touch device: the row body declines the capture on touch
