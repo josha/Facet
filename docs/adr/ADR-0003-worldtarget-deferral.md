@@ -1,6 +1,0 @@
-# ADR-0003: WorldTarget seam — explicitly deferred from Phase 0
-
-- **Status:** Accepted (2026-07-19)
-- **Context:** Design §13 makes the renderer a `RenderTargetAdapter` seam with `ScreenTarget` as the only production v1 target, and §17 Phase 0 allows either a non-production WorldTarget spike **or** explicit deferral (listed automatic fallback: "defer WorldTarget"). Phase 0 selected the reactive core and proved layout/replication/focus contracts, but no renderer exists yet — Phase 1 builds the first `RenderTargetAdapter` (`ScreenTarget`). A WorldTarget spike against a not-yet-existing adapter interface would validate nothing real.
-- **Decision:** Defer WorldTarget. The adapter seam is instead proven in Phase 1 by building `ScreenTarget` strictly behind the `RenderTargetAdapter` interface (no direct Instance access from the mounted graph or solver), which is the load-bearing property §13 needs. WorldTarget remains a Phase 5 expansion gate (§17 Phase 5 item 6) requiring the §13 checklist (SurfaceGui ownership, Adornee, pixels-per-stud, legibility, input routing, clipping, performance, conformance).
-- **Consequences:** No world-rendered UI (in-world leaderboard/kiosk from §19) before a real game need passes the Phase 5 gate. The Phase 1 exit adds a check that `ScreenTarget` is the only module reaching engine Instances for rendering, keeping the seam honest.
