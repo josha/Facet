@@ -1,7 +1,19 @@
 --!strict
--- Facet canonical gate (design §16.1, §16.4). Runs the active phase's check
--- manifest, writes artifacts/<phaseDir>/gate.json, exits 0 only when the phase
--- passes. Usage: lune run tools/lune/gate [phase-gate-name]
+--[[ THE PRE-CONVERSION GATE, KEPT RUNNABLE FOR THE PARITY PROOF ONLY.
+
+	This was `tools/lune/gate.luau` until 2026-08-30. It runs a phase's rows out
+	of `tools/lune/gate_manifest.luau` as shell commands — which is what
+	`tools/verify.sh` replaced, and what D9 requires an OLD path for: a corpus
+	of deliberate mutations has to be seen to go red on both systems before the
+	old one is retired.
+
+	Do not add a row here, and do not fix a row here: the manifest is the
+	conversion SOURCE, and `tools/lune/verify/convert_manifest.py` regenerates
+	`tools/lune/verify/graph.json` from it.
+
+	Usage: lune run tools/lune/gate_legacy [phase-gate-name] ]]
+-- Runs the active phase's check manifest, writes artifacts/<phaseDir>/gate.json,
+-- exits 0 only when the phase passes.
 -- Pass rule: every check PASS, or FAIL_OPTIONAL (capability removed), or
 -- FAIL_ENVIRONMENT with releaseBlocking=false. PENDING or any failure fails.
 
@@ -172,7 +184,11 @@ local gateJson = {
 	next = if overallPass then phaseInfo.next else phaseName,
 }
 
+-- THE LEGACY PATH WRITES A LEGACY ARTIFACT. Pointing it at the same
+-- gate.json the coordinator writes would let a parity run silently overwrite
+-- the live verdict with the old system's opinion of it.
+local artifact = `{phaseInfo.artifactDir}/gate-legacy.json`
 fs.writeDir(phaseInfo.artifactDir)
-fs.writeFile(phaseInfo.gateArtifact, serde.encode("json", gateJson, true))
-print(`gate: {gateJson.status} -> {phaseInfo.gateArtifact}`)
+fs.writeFile(artifact, serde.encode("json", gateJson, true))
+print(`gate_legacy: {gateJson.status} -> {artifact}`)
 process.exit(if overallPass then 0 else 1)
