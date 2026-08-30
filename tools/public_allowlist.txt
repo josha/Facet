@@ -1,0 +1,42 @@
+# Facet public-tip allowlist — one pattern per line. A tracked path must match one
+# of these to be part of the public branch tip; anything else must be archived by
+# tools/archive_private.py (or explicitly deleted) before the tree is public.
+# Patterns: a trailing "/" allows the whole directory; otherwise an exact path or a
+# shell glob (fnmatch) against the repo-relative path. "!" negates a pattern that a
+# broader allow would otherwise admit (evaluated after allows).
+README.md
+LICENSE
+THIRD_PARTY_NOTICES.md
+CHANGELOG.md
+CONTRIBUTING.md
+SECURITY.md
+AGENTS.md
+.gitignore
+rokit.toml
+run-tests.sh
+requirements.json
+src/
+assets/
+examples/
+docs/guide/
+docs/reference/api.md
+docs/reference/constitution.md
+docs/adr/
+docs/extending/
+docs/MAINTAINERS.md
+docs/lessons/
+tests/
+bench/
+tools/
+skills/
+.github/
+package/
+artifacts/theme-packages-and-skinning/final-neutral-dump.json
+# --- never public, even inside an allowed directory ---
+!tools/lune/_probe_*.luau
+!tools/lune/_tmp/
+!tools/__pycache__/
+!examples/table_phaseb/
+!src/core/fusion_adapter.luau
+!tests/fusion_vendor.spec.luau
+!tests/lib/fusion_*.luau

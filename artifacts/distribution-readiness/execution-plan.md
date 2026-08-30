@@ -121,6 +121,14 @@ creator + asset id set (create refuses when an id exists; publish refuses when i
 not), a green `release` run at the same identity, no in-flight operation, and a cloud
 revision not newer than the last receipt. Receipts: `package/receipts/<version>-<sha7>.json`.
 `rollback` prints the Studio version-history procedure and never re-uploads.
+**Two routes (added 2026-08-30 after the platform research):** Roblox documents that
+Open Cloud `PATCH /v1/assets/{id}` updates asset *content* only for `.fbx`, and says
+nothing about a `PackageLink` resulting from an API upload. So `package/facet-package.json`
+carries `route: "studio" | "open-cloud"` (default `studio`): the Studio route builds a
+canonical publisher place from the built `.rbxm`, prints the exact Convert/Publish-to-
+Package steps, and then polls `GET /v1/assets/{id}/versions` to read back and write the
+receipt; the Open Cloud route is kept for the spike to prove or refute. Guards apply to
+both before any instruction prints. The post-checkpoint spike decides the route.
 `tools/release.sh <version> <commit>` is the protected manual release: worktree at the
 exact commit → `tools/verify.sh release` → `package.sh publish --confirm` → poll →
 read back → receipt (with `studio_verification: pending` until `stamp`). A
