@@ -4,10 +4,9 @@
 >
 > Facet's input layer is built on Roblox's **Input Action System** (IAS)
 > — `InputContext`, `InputAction` and `InputBinding` — and nothing else. It never
-> reaches into `ContextActionService`. That is a deliberate architecture choice
-> — arbitration is the engine's
-> job, and a UI framework that quietly outbid a game's own bindings would be
-> worse than the symptom it fixed.
+> reaches into `ContextActionService`. That is a deliberate architecture choice.
+> Arbitration is the engine's job. A UI framework that quietly outbid a game's
+> own bindings would be worse than the symptom it fixed.
 >
 > **So the experience has to put Roblox's own player scripts on IAS too:
 > `Workspace.PlayerScriptsUseInputActionSystem` must be `Enabled` in every
@@ -22,11 +21,11 @@
 > ```
 >
 > Every Facet place project does this, and so do both of Rascal Rally's. The
-> older wording here said the flag was "not Rojo-syncable"; that was wrong, and
-> it is why five shipped place projects went without the declaration for months
-> while a human re-ticked the property by hand after every rebuild. It needs the
-> rokit-pinned toolchain: a stale `rojo` fails the build with `Unknown property`
-> (see `tools/build_places.sh`).
+> older wording here said the flag was "not Rojo-syncable." That was wrong.
+> Because of that error, five shipped place projects went without the
+> declaration for months, and a human had to re-tick the property by hand after
+> every rebuild. It needs the rokit-pinned toolchain: a stale `rojo` fails the
+> build with `Unknown property` (see `tools/build_places.sh`).
 >
 > The flag is still **not scriptable**: no code (including Facet) can read it,
 > set it, or verify it for you, on any build. Every detector Facet ships is
@@ -47,15 +46,15 @@
 >   them. Any Facet surface that navigates or adjusts on the horizontal arrows
 >   simply does nothing.
 >
-> And there is **no priority number that fixes either one**: a sinking CAS
-> binding consumes a key before any `InputContext` is offered it, at any
-> priority — measured, a CAS sink at priority **100** beat an `InputContext` at
-> **10000** (`the-camera-still-owns-the-arrow-keys`).
+> **No priority number fixes either one.** A sinking CAS binding consumes a key
+> before any `InputContext` is offered it, at any priority. Measured: a CAS
+> sink at priority **100** beat an `InputContext` at **10000**
+> (`the-camera-still-owns-the-arrow-keys`).
 > CAS priority and `InputContext.Priority` are not one arbitration space. The
-> property is the fix, because it is what moves those bindings *into* the space
-> where priority means something. With the flag on, player input joins the same
-> arbitration as every Facet action and everything in this chapter simply
-> works. If A-presses or arrows ever feel dead, start at
+> property is the fix: it moves those bindings *into* the space where priority
+> means something. With the flag on, player input joins the same arbitration as
+> every Facet action, and everything in this chapter works. If A-presses or
+> arrows ever feel dead, start at
 > [§7.4 Troubleshooting](#74-troubleshooting-and-hard-limits).
 
 Roblox players arrive on four kinds of input: a **mouse**, a **touchscreen**, a
@@ -92,32 +91,43 @@ mouse, `Return` on keyboard, `ButtonA` on gamepad (PlayStation **Cross** maps to
 context or bind a key for a control.
 
 **Controls declare their input story; the presenter composes it.** Every
-composite control (Table, VirtualList, TextInput, PopupButton, and anything you
-build with the [new-control playbook](../extending/new-control.md)) attaches an
-*input contribution* — its focus groups, its activate handling, its
-gesture idioms — to the tree it mounts. When you present a screen, the presenter
-discovers those contributions and wires them together automatically. That is why the playlist
-example mounts a filter field and a table and gets field↔rows D-pad navigation,
-row selection on A, and drag-reorder grab mode with **zero** input options
-passed. If you do pass a `present()` option (`onActivate`, `navigationGroups`,
-…), your version wins for that one concern — consumer overrides are per-option.
+composite control — Table, VirtualList, TextInput, PopupButton, and anything
+you build with the [new-control playbook](../extending/new-control.md) —
+attaches an *input contribution* to the tree it mounts. An input contribution
+is its focus groups, its activate handling, and its gesture idioms. When you
+present a screen, the presenter discovers those contributions and wires them
+together automatically. That is why the playlist example mounts a filter field
+and a table and gets three things for free: field↔rows D-pad navigation, row
+selection on A, and drag-reorder grab mode. It passes **zero** input options.
+If you do pass a `present()` option (`onActivate`, `navigationGroups`, …), your
+version wins for that one concern — consumer overrides are per-option.
 
 **Focus and navigation derive from your layout.** The moving highlight a
 keyboard or gamepad drives walks an order the presenter derives from the mounted
-tree. An `HStack` row of buttons navigates horizontally; a `Grid` of tiles gets
-real 2-D navigation (left/right within a row, up/down across rows, column
-preserved); a plain column is a simple ring. Layout adaptation and input
-adaptation move together: when a screen's layout switches idioms per device, the
-navigation map is re-derived from what is actually mounted, every refresh.
+tree:
+
+- An `HStack` row of buttons navigates horizontally.
+- A `Grid` of tiles gets real 2-D navigation: left/right within a row, up/down
+  across rows, column preserved.
+- A plain column is a simple ring.
+
+Layout adaptation and input adaptation move together. When a screen's layout
+switches idioms per device, the presenter re-derives the navigation map from
+what is actually mounted, every refresh.
 
 **Input-appropriate idioms per class, chosen by the environment.** The
 environment tracks `preferredInput` and device capabilities, and controls adapt
-their affordances from it — the same table drag-reorders directly with a mouse,
-grows edit-mode ≡ handles on touch (pan scrolls, handles reorder), and offers
-grab mode on a gamepad (A grabs the focused row, D-pad moves it, A drops).
-Text fields raise a sinking text-entry context while editing so typing is never
-navigation, and publish a keep-visible offset when the on-screen keyboard would
-occlude them. You choose none of this per consumer; it ships with the control.
+their affordances from it. The same table, for example:
+
+- drag-reorders directly with a mouse.
+- grows edit-mode ≡ handles on touch (pan scrolls, handles reorder).
+- offers grab mode on a gamepad (A grabs the focused row, D-pad moves it, A
+  drops).
+
+Text fields raise a sinking text-entry context while editing, so typing is
+never navigation. They also publish a keep-visible offset for when the
+on-screen keyboard would occlude them. You choose none of this per consumer;
+it ships with the control.
 
 ### 7.2.1 The desktop keyboard conventions
 
@@ -126,15 +136,20 @@ occlude them. You choose none of this per consumer; it ships with the control.
 When a **keyboard is live** and one of your surfaces **owns UI input**, three
 conventions a desktop player already has in their fingers come with the surface:
 
-**Tab and Shift+Tab walk the focus chain.** Forward and back through everything
-focusable on the active surface, in the order it is mounted — the same order the
-arrows walk, read linearly instead of directionally. The difference matters in one
-place: a *contained* group (a `Grid` row, a `Table`'s header) exists so the arrows
-cannot wander out of it sideways, and Tab's whole job is to leave, so it does.
-Everything the arrows skip, Tab skips — a hidden node, a disabled control, a
-losing `ViewThatFits` candidate, a row that has just become ineligible — because
-it is one focus map, not two. A modal traps Tab and gives focus back on dismiss.
-A control that scrolls into view for the arrows scrolls into view for Tab.
+**Tab and Shift+Tab walk the focus chain.** They move forward and back through
+everything focusable on the active surface, in the order it is mounted. That is
+the same order the arrows walk, but read linearly instead of directionally.
+
+The difference matters in one place: a *contained* group (a `Grid` row, a
+`Table`'s header) stops the arrows from wandering out of it sideways. Tab's
+whole job is to leave, so it does.
+
+Tab skips everything the arrows skip: a hidden node, a disabled control, a
+losing `ViewThatFits` candidate, a row that has just become ineligible. That is
+because it is one focus map, not two.
+
+A modal traps Tab and gives focus back on dismiss. A control that scrolls into
+view for the arrows scrolls into view for Tab.
 
 Whether Tab **wraps** at the ends is the surface's call, not a control's:
 `present(screen, { traversalWrap = false })` makes the end of the chain feel like
@@ -164,27 +179,31 @@ Measured live against a real gameplay stack:
 > **The avatar does not sit at 2000.** 2000 is the priority Roblox *recommends a
 > game use for its own sink*. The shipped `PlayerModule`'s own measured contexts
 > are **Camera 100, Character 150, Vehicle 200, Transformer 300** —
-> an earlier version of this guide said 1000, which was simply wrong. Nothing in
-> Facet's behavior turns on it (a plain screen is 1500 and an engaged one 3000,
-> which clear all four regardless), but do not size a context against the old
-> number.
+> an earlier version of this guide said 1000, which was simply wrong. Facet's
+> behavior does not depend on that number: a plain screen is 1500 and an
+> engaged one is 3000, and both clear all four regardless. Even so, do not
+> size a context against the old number.
 
 So a plain screen only shares Space with things that were not claiming it firmly
 in the first place — exactly how its arrows have always behaved. If your screen
-sits over gameplay and you want a definite answer, present it `passive` (and
-engage it), or pass `sinkNavigation = true` to take the key, or declare
-`{ gameplayGuard = false }` to leave it alone — which binds neither Activate nor
-the guard. Rascal Rally's results screen does the last of those, because it binds
-Space itself for the celebration skip.
+sits over gameplay and you want a definite answer, choose one:
+
+- present it `passive` (and engage it),
+- pass `sinkNavigation = true` to take the key, or
+- declare `{ gameplayGuard = false }` to leave it alone, which binds neither
+  Activate nor the guard.
+
+Rascal Rally's results screen does the last of those, because it binds Space
+itself for the celebration skip.
 
 **The arrows adjust a focused value control.** Focus a `Slider`, a `Stepper` or a
 `Rating` and Left/Right move its value — on any screen, including a grouped one
 where Left/Right otherwise navigate. The control declares which axis is *its*
 (`adjustAxis`), so the other axis still navigates and focus can always leave.
 Comma/period and the shoulder buttons keep working as they did. A control that
-declares no axis — `Table`, whose resizable headers are navigation stops and
-adjust targets at once — keeps its own model (Activate selects the column, then
-the arrows resize it, Cancel releases).
+declares no axis keeps its own model. `Table` is the example: its resizable
+headers are navigation stops and adjust targets at once. Activate selects the
+column, the arrows resize it, and Cancel releases it.
 
 **Typing wins while a field is being edited.** Space types a space and the arrows
 move the caret — neither activates anything and neither moves the focus ring.
@@ -192,44 +211,47 @@ move the caret — neither activates anything and neither moves the focus ring.
 Tab means *"I'm done here"*: the field commits through its normal validation path
 first, and only then does focus move on. **On today's Roblox engine that last
 sentence describes the framework, not the observed result.** While a `TextBox`
-holds keyboard focus the engine marks keyboard input `gameProcessed` and fires no
-developer Input Action binding at all, so Tab inside a focused field currently does
-*nothing*: it does not type a tab character, does not bypass validation, and does
-not advance — measured live, and recorded with the decision that
-followed it. Commit with `Return`
+holds keyboard focus, the engine marks keyboard input `gameProcessed` and fires
+no developer Input Action binding at all. So Tab inside a focused field
+currently does *nothing*: it does not type a tab character, does not bypass
+validation, and does not advance. This was measured live, and recorded with
+the decision that followed it. Commit with `Return`
 and then Tab. The commit-then-advance behavior engages with no code change the day
 the engine delivers the key.
 
-None of this appears on a device with no keyboard, and all of it appears when one
-becomes available — the framework reads the live capability set
-(`interactionClasses.keyboard`), never a device name, so a tablet with a keyboard
-case behaves like a desktop while touch keeps working. The bindings are created
-and destroyed as that fact changes, so nothing is left sinking behind a keyboard
-that went away.
+None of this appears on a device with no keyboard. All of it appears the
+moment one becomes available. The framework reads the live capability set
+(`interactionClasses.keyboard`), never a device name, so a tablet with a
+keyboard case behaves like a desktop while touch keeps working. The bindings
+are created and destroyed as that fact changes, so nothing is left sinking
+behind a keyboard that went away.
 
-One honest caveat about *when* the fact changes: it is fed by
-`UserInputService.KeyboardEnabled`, which describes the device class rather than a
-plug event, and Roblox publishes no keyboard-connected signal to observe. The
-framework's response to the fact changing is proven; whether a mid-session USB
-plug on a real client moves that fact at all is a physical-device row, and it is
-still open.
+One honest caveat: `UserInputService.KeyboardEnabled` feeds the *when*. It
+describes the device class rather than a plug event, and Roblox publishes no
+keyboard-connected signal to observe. The framework's response to the fact
+changing is proven. Whether a mid-session USB plug on a real client moves that
+fact at all is a physical-device row, and it is still open.
 
 ### The paradigm axis: not just *reachable*, but the right *shape*
 
 *What you have to do: nothing. Read this to understand why the same control
 feels native on a mouse, a phone, a keyboard, and a TV at once.*
 
-A control adapts on three independent axes. **Layout** — how the tree arranges
-per size class. **Reachability** — that every verb (Activate, Cancel, Navigate,
-Adjust) fires on every device. And the **paradigm** axis: the *shape* each
-device expects — direct-drag versus grab-mode versus a grip handle; a hover
-preview versus a focus ring; a naked pan that scrolls versus a wheel. A control
-can be perfectly reachable (A, Return, and a tap all fire) and still feel wrong
-(a mouse-only reorder, no hover layer, a hairline focus ring across the room).
-Every registered interactive control is required to satisfy all three, and the
-conformance suite proves each axis separately. Structural primitives and new
-controls do not earn that claim until they are registered with the corresponding
-proofs.
+A control adapts on three independent axes:
+
+- **Layout** — how the tree arranges per size class.
+- **Reachability** — every verb (Activate, Cancel, Navigate, Adjust) fires on
+  every device.
+- **Paradigm** — the *shape* each device expects: direct-drag versus grab-mode
+  versus a grip handle, a hover preview versus a focus ring, a naked pan that
+  scrolls versus a wheel.
+
+A control can be perfectly reachable (A, Return, and a tap all fire) and still
+feel wrong: a mouse-only reorder, no hover layer, a hairline focus ring across
+the room. Every registered interactive control must satisfy all three axes,
+and the conformance suite proves each one separately. Structural primitives
+and new controls do not earn that claim until they are registered with the
+corresponding proofs.
 
 **Affordances read the live class set, never one preferred value.** Real
 devices are multi-modal: a handheld is touch *and* gamepad at once; a desktop
@@ -246,10 +268,10 @@ That is why nothing disappears when a player picks up a controller mid-session.
 
 **The per-class idioms, in one place:**
 
-- **pointer** (mouse/trackpad) — direct manipulation: a row or handle is
-  **directly draggable** (scroll is a separate channel: the wheel), a **hover**
-  layer previews without committing, and a pressed dip confirms. Nothing
-  essential lives only behind hover (it does not exist off pointer).
+- **pointer** (mouse/trackpad) — direct manipulation. A row or handle is
+  **directly draggable** (scroll is a separate channel: the wheel). A
+  **hover** layer previews without committing, and a pressed dip confirms.
+  Nothing essential lives only behind hover — it does not exist off pointer.
 - **touch** — fingers, no hover, a **44 px hit floor**. A bare one-finger pan
   **scrolls**, so any reorder/drag appears behind an **edit-mode ≡ grip** or a
   long-press — never a naked pan. Text focus summons the on-screen keyboard and
@@ -267,58 +289,64 @@ That is why nothing disappears when a player picks up a controller mid-session.
 
 **Hybrid and hot-switch: a device can arrive mid-gesture.** Because every live
 class gets its idiom at once, connecting a pad while dragging a row does not
-take anything away — the drag finishes on the mouse; grab mode is simply *also*
-available for the next reorder. Every in-flight interaction (a drag, a grab, an
-open edit, a scroll offset, a focus ring) has a defined outcome for a class flip
-(the affordance matrix §C): **CARRY** — the state survives and the newly-live
-class's idiom becomes additionally available; or **CANCEL** — the gesture reverts
-cleanly to its pre-gesture snapshot, never a wedge and never lost data. A mouse
-unplugged mid-drag reverts the row to origin (no stuck ghost); a field being
-edited when its on-screen keyboard docks ends through the normal commit-or-revert
-path (never silently dropping typed text). You never write any of this — it is
-the control's contract.
+take anything away. The drag finishes on the mouse; grab mode is simply *also*
+available for the next reorder.
+
+Every in-flight interaction — a drag, a grab, an open edit, a scroll offset, a
+focus ring — has a defined outcome for a class flip (the affordance matrix
+§C):
+
+- **CARRY** — the state survives, and the newly-live class's idiom becomes
+  additionally available.
+- **CANCEL** — the gesture reverts cleanly to its pre-gesture snapshot. Never
+  a wedge, never lost data.
+
+A mouse unplugged mid-drag reverts the row to origin (no stuck ghost). A field
+being edited when its on-screen keyboard docks ends through the normal
+commit-or-revert path — it never silently drops typed text. You never write
+any of this; it is the control's contract.
 
 **Ten-foot (a screen across the room).** When the display class is large the
 environment reports `distanceProfile == "ten-foot"` (keyed on
 `effectiveDisplaySize == "Large"`, *not* on the input device — a keyboard on a
 TV still earns it). `effectiveDisplaySize` is `displaySize` — the engine's own
 `GuiService.ViewportDisplaySize` — corrected for one case the raw fact gets
-wrong: a touch-capable device the engine still reports as `"Large"` (a PC
-handheld's misdetection, not a television) reads `"Medium"` instead, because a
-real ten-foot session never has a touchscreen. Every other device,
+wrong. A touch-capable device the engine still reports as `"Large"` (a PC
+handheld's misdetection, not a television) reads `"Medium"` instead. That is
+because a real ten-foot session never has a touchscreen. Every other device,
 touch or not, sees no difference between the two facts. Four things change,
 and they compose rather than multiply:
 
-- **The whole size ladder scales by 1.5.** Type first — body text must clear
-  roughly 29 pt at three metres — and, since the same factor drives both, control
-  heights, paddings and gaps, icon sizes, corner radii and the minimum
-  focus-target size along with it. The 44 px target floor is 66 px at distance.
-  The factor is deliberately one number for both ladders, so **every
+- **The whole size ladder scales by 1.5.** Type comes first: body text must
+  clear roughly 29 pt at three metres. The same factor also drives control
+  heights, paddings and gaps, icon sizes, corner radii, and the minimum
+  focus-target size. The 44 px target floor becomes 66 px at distance. The
+  factor is deliberately one number for both ladders. So **every
   text-to-control proportion at ten-foot equals its near proportion**: a 16 px
-  label in a 44 px control is a 24 px label in a 66 px control, and nothing
+  label in a 44 px control becomes a 24 px label in a 66 px control. Nothing
   outgrows the chrome around it.
 - **Overscan-safe margins** are inset on all four sides (a television clips its
   own edges). These are a *display* fact, not a size-ladder metric, so they are
   applied once and are **not** scaled by the factor above.
-- **Reduced density**: a wide viewport resolves to the `regular` arrangement and
-  a `minColumnWidth` grid takes its lane count against the `wide` breakpoint
-  rather than the raw extent — fewer, larger targets, never more of them than a
-  desktop gets.
+- **Reduced density.** A wide viewport resolves to the `regular` arrangement.
+  A `minColumnWidth` grid takes its lane count against the `wide` breakpoint
+  rather than the raw extent. The result is fewer, larger targets — never
+  more of them than a desktop gets.
 - **A strengthened focus state** (a thicker ring plus a slight scale, so focus
   reads across a room instead of as a hairline).
 
 None of this needs an opt-in. The display facts flow through the environment, so
 a surface presented with no theme package installed still measures capped lanes
 and scaled metrics. What the *player's* own text preference does is unchanged
-and independent: the engine applies it as an additive offset at draw time and the
-framework reserves for it at measure time, so the preference and the distance
-treatment are each applied exactly once.
+and independent. The engine applies it as an additive offset at draw time, and
+the framework reserves for it at measure time. So the preference and the
+distance treatment are each applied exactly once.
 
 **A theme may state its own ten-foot ladder.** The 1.5 is *derived* — it fills in
 wherever a package is silent. A package that means something specific about a
-television declares `metrics.tenFoot` (dotted metric paths to absolute pixel
-values at distance) and owns those numbers outright, exactly as an authored
-`space.gutter` beats the derived one. Art geometry is never scaled: a nine-slice
+television declares `metrics.tenFoot` — dotted metric paths to absolute pixel
+values at distance — and owns those numbers outright. This works exactly as an
+authored `space.gutter` beats the derived one. Art geometry is never scaled: a nine-slice
 border is painted at the size its recipe declares, so the reservation for it stays
 the number the paint will be.
 
@@ -337,36 +365,40 @@ way to express one idiom:
   a game's arrow/bumper bindings when focus is elsewhere. `direction` is −1 or
   +1; longest-path-prefix wins, like Activate.
 - **`handleCancel(focusedPath)`** — a transient surface (an open menu) is offered
-  gamepad Cancel *before* the modal-dismiss branches; it returns true to consume
-  (close) or false to fall through, so a modal that *contains* such a control
-  still dismisses on a second ButtonB.
+  gamepad Cancel *before* the modal-dismiss branches. It returns true to
+  consume (close) or false to fall through. A modal that *contains* such a
+  control still dismisses on a second ButtonB.
 - **`outsideDismiss = { active, dismiss }`** — while `active`, a tap outside the
-  control's subtree dismisses it, and the presenter synthesizes a transparent
-  full-viewport catcher so a tap on empty space closes it too (the modal
-  two-zone model, without making the control a modal).
+  control's subtree dismisses it. The presenter synthesizes a transparent
+  full-viewport catcher, so a tap on empty space closes it too — the modal
+  two-zone model, without making the control a modal.
 - **`transientScope = { active, rootPath? }`** — while `active`, focus is trapped
   within the subtree and restored to the trigger on deactivation.
 
-The **PopupButton** is the worked example: it is an ordinary control on a plain
-screen, yet outside-tap dismiss, gamepad ButtonB close, and focus trap-and-restore
-all work because it declares these three seams. **Hover** is likewise an optional
+The **PopupButton** is the worked example. It is an ordinary control on a plain
+screen. Yet outside-tap dismiss, gamepad ButtonB close, and focus
+trap-and-restore all work, because it declares these three seams. **Hover** is likewise an optional
 adapter seam, allocated only when the pointer class is live (a pure-touch device
 never pays for it).
 
 **Modals dismiss on every input — through two zones.** Think of the screen as
-two regions while a modal is up. **Zone A** is the modal's *painted* panel (plus
-a **24 px forgiveness ring** so a near-miss beside the edge does nothing, and
-every button's 44 px hit rect): a tap here activates a control or, on empty
-panel, does nothing — it **never** dismisses. **Zone B** is everywhere else: a
-tap dismisses. The presenter paints Zone B for you as a full-viewport
-**scrim/catcher** it synthesizes beneath the top modal, so a tap on empty black
-space closes the modal too (not just a tap that happens to land on a button
-behind it), the modal is a real barrier (lower surfaces can't be clicked
-through), and the dim is the visible "tap here to close" affordance.
+two regions while a modal is up.
 
-"Painted" is deliberate: an *invisible* fullscreen container contributes nothing
-to Zone A (so a transparent `fill` modal root can't silently swallow every tap),
-while a *visible* fullscreen takeover correctly has no outside. Outside-tap,
+- **Zone A** is the modal's *painted* panel, plus a **24 px forgiveness ring**
+  (so a near-miss beside the edge does nothing) and every button's 44 px hit
+  rect. A tap here activates a control, or does nothing on empty panel. It
+  **never** dismisses.
+- **Zone B** is everywhere else. A tap here dismisses.
+
+The presenter paints Zone B for you as a full-viewport **scrim/catcher** it
+synthesizes beneath the top modal. A tap on empty black space closes the modal
+too, not just a tap that lands on a button behind it. The modal becomes a real
+barrier: lower surfaces can't be clicked through. And the dim is the visible
+"tap here to close" affordance.
+
+"Painted" is deliberate. An *invisible* fullscreen container contributes
+nothing to Zone A, so a transparent `fill` modal root can't silently swallow
+every tap. A *visible* fullscreen takeover correctly has no outside. Outside-tap,
 gamepad `ButtonB` (PlayStation **Circle**), and a focusable Close/Cancel button
 (reachable by the focus ring, `Return`/`ButtonA`) **all resolve to the same
 non-destructive outcome** — the safety invariant. A modal where dismissing would
@@ -382,17 +414,17 @@ action) }` reads "Press A" on a gamepad and "Press Enter" on a keyboard, and
 re-labels the same node with no remount when the player switches input
 mid-session.
 
-All of the above is engine-independent and enforced: the conformance registry
+All of the above is engine-independent and enforced. The conformance registry
 requires every interactive control to cite passing device-true tests for all
 four input classes, so a mouse-only control cannot land.
 
 ## 7.3 The responder chain: UI in a game with an avatar
 
 In a real game the avatar owns the controls by default, and UI must *take* them
-politely and *give them back*. Facet calls this the responder chain. With the IAS flag on (the
-warning at the top), avatar input and UI input arbitrate in the same system, by
-`InputContext` priority + Sink, and the presenter manages that for you through
-three surface modes:
+politely and *give them back*. Facet calls this the responder chain. With the
+IAS flag on (the warning at the top), avatar input and UI input arbitrate in
+the same system. Arbitration runs on `InputContext` priority plus Sink, and
+the presenter manages that for you through three surface modes:
 
 **Passive (HUDs).** A speedometer or score readout — on screen, not being
 navigated — presents as:
@@ -406,16 +438,18 @@ surface binds no keyboard keys at all: `Tab`, `Space`, `ButtonA`, arrows,
 everything reaches the avatar untouched. Having the HUD on screen costs the
 player nothing.
 
-**Engaged (first responder).** When the player taps one of the HUD's focusables
-— or you call `hud.engage()` — the surface enables its context in the engaged
-band (priority 3000, strictly above the doc-sanctioned gameplay band at 2000)
-with Sink on. Now the UI answers first: arrows move its focus instead of the
-character, `Tab` walks the focus chain, and `ButtonA`/`Return`/`Space` activate
-instead of jumping — with a keyboard live `Space` *is* the Activate binding, so the
-same binding that fires the focused control sinks the jump; with no keyboard it
-falls back to the no-op guard that has always caught it. `hud.responder` reads
-`"engaged"`. The surface resigns — restoring avatar input exactly — on Cancel
-(`ButtonB`), an outside tap, or `hud.resign()`.
+**Engaged (first responder).** When the player taps one of the HUD's
+focusables, or you call `hud.engage()`, the surface enables its context. This
+puts it in the engaged band (priority 3000, strictly above the doc-sanctioned
+gameplay band at 2000) with Sink on.
+
+Now the UI answers first. Arrows move its focus instead of the character,
+`Tab` walks the focus chain, and `ButtonA`/`Return`/`Space` activate instead
+of jumping. With a keyboard live, `Space` *is* the Activate binding, so the
+same binding that fires the focused control also sinks the jump. With no
+keyboard, it falls back to the no-op guard that has always caught it.
+`hud.responder` reads `"engaged"`. The surface resigns — restoring avatar
+input exactly — on Cancel (`ButtonB`), an outside tap, or `hud.resign()`.
 
 **Exclusive (modals).** `presentModal` is engaged from the moment it opens
 (3500+, stacking +500 per depth) and restores avatar input on dismiss. A modal
@@ -454,10 +488,10 @@ UI.sensoryFeedback(UI.Button({ id = "Buy", label = "Buy" }), { activation = "com
 ```
 
 **In plain terms:** the framework emits `{ type, path }` on the presenter's
-feedback bus. The names are a **closed** taxonomy of twelve — `activate`,
+feedback bus. The names are a **closed** taxonomy of twelve: `activate`,
 `select`, `adjust`, `pickup`, `commit`, `reject`, `cancel`, `arrive`, `land`,
-`dismiss`, `supersede`, `celebrate` — so a typo is an authoring error that lists
-the vocabulary rather than a silent no-op. The press form takes one extra word,
+`dismiss`, `supersede`, `celebrate`. A typo is an authoring error that lists
+the vocabulary, not a silent no-op. The press form takes one extra word,
 `"none"`, for a control you want felt as nothing.
 
 **You almost never need to write it per button.** The press form cascades: put it
@@ -472,11 +506,11 @@ UI.sensoryFeedback(UI.HStack({ id = "Filters", children = chips }), { activation
 A control that declares nothing keeps the default it always had: pressing it
 emits `activate`.
 
-One thing to be clear about: **Facet plays nothing.** It publishes the verb; a
-game decides whether that becomes a haptic pulse, a sound, or nothing at all —
-`src/client/haptics.luau` is an opt-in, **default-off** adapter you bind to the
-bus. What "success" feels like is a game's identity, not a framework's — and
-whether a player wants to feel it at all is a setting your game owns, because
+One thing to be clear about: **Facet plays nothing.** It publishes the verb.
+A game decides whether that becomes a haptic pulse, a sound, or nothing at
+all. `src/client/haptics.luau` is an opt-in, **default-off** adapter you bind
+to the bus. What "success" feels like is a game's identity, not a framework's.
+Whether a player wants to feel it at all is a setting your game owns, because
 Roblox does not let game code read the player's own haptics preference.
 
 ### Turning verbs into something you can feel
@@ -500,10 +534,10 @@ hap.attachButtons(screenGui) -- what a press going DOWN feels like
 
 **The cause decides the phase, not the verb alone.** A verb says *what*
 happened; a completed press says *a control was pressed*. So a control that
-declares `activation = "select"` feels the **release** phase when you press it —
-a press completing is not a choice moving — and the **select** phase fires when
-its value actually changes. Such a control is handed no press effect at all: a
-choice has not moved yet when the finger lands.
+declares `activation = "select"` feels the **release** phase when you press
+it. A press completing is not a choice moving. The **select** phase fires
+only when its value actually changes. Such a control is handed no press
+effect at all: a choice has not moved yet when the finger lands.
 
 **A keyboard or gamepad press is one moment, not two.** The `Activate` action
 resolves on the key going *down*, so the completion arrives in the same instant
@@ -518,15 +552,16 @@ role each phase plays, and they live in `src/client/sensory_profile.luau` where
 you can read the exact numbers:
 
 * **`contact`** — one short, crisp tap when the action goes down.
-* **`settle`** — a lighter, rounder answer when the action completes. Deliberately
-  weaker and slower than `contact`: the down edge is the event the hand expects,
-  and an equal answer on the way up reads as a double tap rather than a reply.
+* **`settle`** — a lighter, rounder answer when the action completes.
+  Deliberately weaker and slower than `contact`. The down edge is the event
+  the hand expects; an equal answer on the way up would read as a double tap
+  rather than a reply.
 * **`tick`** — the smallest audible-to-the-hand step for a changed choice.
 
-Every peak stays at or above `0.3`, because Roblox records that intensities below
-`0.1` may not trigger anything at all on some clients — an authored subtlety
-under that floor is a silence that reports success. Every waveform is over inside
-34 ms, so rapid interaction cannot overlap two pulses perceptibly.
+Every peak stays at or above `0.3`. Roblox records that intensities below
+`0.1` may not trigger anything at all on some clients. An authored subtlety
+under that floor is a silence that reports success. Every waveform is over
+inside 34 ms, so rapid interaction cannot overlap two pulses perceptibly.
 
 **Change one phase without touching a control.** Pass a partial profile; anything
 you do not name keeps Facet's default:
@@ -549,10 +584,10 @@ haptics.new({
 })
 ```
 
-A phase is one of exactly three shapes — `custom`, `preset`, `silent` — and the
-profile is validated when you construct the adapter, so a misspelled phase or a
-`custom` with no keys is an error you read at the call site rather than a silence
-you discover on a phone. `{ kind = "preset", effect = "Custom" }` is refused
+A phase is one of exactly three shapes: `custom`, `preset`, `silent`. The
+profile is validated when you construct the adapter. So a misspelled phase,
+or a `custom` with no keys, is an error you read at the call site — not a
+silence you discover on a phone. `{ kind = "preset", effect = "Custom" }` is refused
 outright: a `Custom` effect with no waveform plays nothing while reporting
 success.
 
@@ -573,12 +608,14 @@ caused them. `hap.diagnostics().phases[phase].fallbackActive` tells you when a
 phase is in that state.
 
 **Declared controls are unchanged.** A button that declared its own verb still
-gets that verb's preset for its press — a Buy button and a Delete button still
-feel different — and a control declared `"none"` (or one whose verb the adapter
-deliberately silences) is unfelt on **both** edges. That includes the invisible
-44px activation band a control smaller than the touch floor gets: the band
-carries the same declared verb and the same disabled state as the face, so a
-control you silenced does not buzz two millimetres outside itself.
+gets that verb's preset for its press. A Buy button and a Delete button still
+feel different. A control declared `"none"` — or one whose verb the adapter
+deliberately silences — is unfelt on **both** edges.
+
+That includes the invisible 44px activation band a control smaller than the
+touch floor gets. The band carries the same declared verb and the same
+disabled state as the face, so a control you silenced does not buzz two
+millimetres outside itself.
 
 **If you declare both forms on one control, you get two sensations.** That is
 the honest answer, because two things happened:
@@ -596,24 +633,25 @@ sentence the vocabulary already has:
 UI.sensoryFeedback(UI.sensoryFeedback(row, { trigger = choice, event = "select" }), { activation = "none" })
 ```
 
-**How you find out whether any of it worked.** You do not, from code. Roblox has
-no capability API for haptics, `HapticEffect` cannot be asked whether it fired,
-and the player's own haptics strength is unreadable from game code. `hap.support()`
-answers with a five-state lattice — `supported` / `unsupported` / `unknown` /
-`blocked` / `absent` — where `unknown` means "attempt it, expect nothing, publish
-no platform claim", and a phone is permanently `unknown` because there is no
-probe for one. **Studio cannot feel anything either**: the effects run locally
-there and no motor is involved, so a silent Studio session is not evidence of a
-problem. The one honest test is a hand on a device — the showcase's
-`sensory_feedback` demo carries a calibration panel with one row per phase and a
-live pulse counter for exactly that pass.
+**How you find out whether any of it worked.** You do not, from code. Roblox
+has no capability API for haptics. `HapticEffect` cannot be asked whether it
+fired. And the player's own haptics strength is unreadable from game code.
+
+`hap.support()` answers with a five-state lattice: `supported` /
+`unsupported` / `unknown` / `blocked` / `absent`. `unknown` means "attempt it,
+expect nothing, publish no platform claim." A phone is permanently `unknown`,
+because there is no probe for one. **Studio cannot feel anything either.**
+The effects run locally there, and no motor is involved, so a silent Studio
+session is not evidence of a problem. The one honest test is a hand on a
+device. The showcase's `sensory_feedback` demo carries a calibration panel
+with one row per phase and a live pulse counter, built for exactly that pass.
 
 ## 7.4 Troubleshooting and hard limits
 
-**Gamepad A does nothing on my buttons.** The place is almost certainly running
-the *legacy* control scripts: they bind `ButtonA` to `jumpAction` outside IAS —
-even with no character — and consume it before IAS ever sees it (D-pad still
-works, which is why only A feels dead). Fix: declare
+**Gamepad A does nothing on my buttons.** The place is almost certainly
+running the *legacy* control scripts. They bind `ButtonA` to `jumpAction`
+outside IAS, even with no character, and consume it before IAS ever sees it.
+(D-pad still works, which is why only A feels dead.) Fix: declare
 `Workspace.PlayerScriptsUseInputActionSystem` (the warning at the top). The
 flag can't be READ from code, so Facet ships a behavioral probe you can log or
 surface in a doctor check:
@@ -655,9 +693,9 @@ now. `false` is narrower than it looks: CAS exposes no sink flag through
 "arrows are guaranteed to arrive".
 
 **Ask these probes; Facet does not announce them.** None of them is wired to a
-boot-time warning. In any place that has not declared the property they are all
-true — which today is every default Studio session — and a warning that fires
-always is noise that teaches people to skip it. They exist so that when
+boot-time warning. In any place that has not declared the property they are
+all true — which today is every default Studio session. A warning that
+always fires is noise that teaches people to skip it. They exist so that when
 something *is* dead you get an answer in one line instead of a session.
 
 **UI-only places (no avatar at all)** — a menu shell, a lobby, Facet's own
@@ -666,10 +704,10 @@ gallery — may instead just disable the legacy control scripts:
 disabling player input is acceptable; a real game keeps its avatar controls and
 uses the responder chain (§7.3).
 
-It returns `(uncontended, status)`, and the status is the part worth logging:
-where the flag is on there is no legacy stack to disable, so the call touches
-nothing and answers `true, "inert: IAS owns PlayerScripts"` rather than spending
-a bounded `PlayerModule` wait discovering the same thing. `"disabled"`,
+It returns `(uncontended, status)`, and the status is the part worth logging.
+Where the flag is on there is no legacy stack to disable. The call touches
+nothing and answers `true, "inert: IAS owns PlayerScripts"`, rather than
+spending a bounded `PlayerModule` wait discovering the same thing. `"disabled"`,
 `"unbound"` and `"unavailable"` are the three legacy-stack outcomes. A boolean
 alone could not tell "I disabled the control module" from "there was nothing to
 disable", which is how a place could carry both remedies with neither one live.
@@ -678,9 +716,9 @@ disable", which is how a place could carry both remedies with neither one live.
 re-enable it, and it was never the cause of dead A-presses anyway.
 
 **Tab is the players-list shortcut, and the players list wins.** Roblox's own
-documentation files `Tab` under inputs that are *"reserved unless you disable the
-respective feature"* — the feature being the CoreGui **players list** (the
-leaderboard) — and documents exactly one remedy:
+documentation files `Tab` under inputs that are *"reserved unless you disable
+the respective feature."* The feature is the CoreGui **players list** (the
+leaderboard). Roblox documents exactly one remedy:
 
 ```lua
 game:GetService("StarterGui"):SetCoreGuiEnabled(Enum.CoreGuiType.PlayerList, false)
@@ -689,9 +727,9 @@ game:GetService("StarterGui"):SetCoreGuiEnabled(Enum.CoreGuiType.PlayerList, fal
 No `InputContext` priority is documented to outrank CoreGui, so while the players
 list is enabled (the default) assume `Tab` does not reach Facet's traversal
 action. Tab is deliberately *not* in Roblox's hard-reserved set
-(`Esc`/`F9`/`F11`/`F12`/`PrintScreen`), which is why Facet binds it rather than
-refusing to — a UI-only place, a menu shell, or any game that has already turned
-its leaderboard off gets the desktop convention for free. Everything else in
+(`Esc`/`F9`/`F11`/`F12`/`PrintScreen`). That is why Facet binds it rather than
+refusing to. A UI-only place, a menu shell, or any game that has already
+turned its leaderboard off gets the desktop convention for free. Everything else in
 §7.2.1 — Space activation, the focused-value arrows, the scroll-into-view, the
 modal trap — is unaffected either way, because none of those keys are contended.
 
@@ -712,10 +750,10 @@ Roblox's own keyboard UI navigation is a separate, coexisting feature:
 activates. Facet's arrows and Return do the same job inside a Facet surface,
 and neither disables the other.
 
-**`Escape` is engine-reserved.** It is permanently bound to the Roblox menu and
-cannot be rebound, so there is no keyboard Cancel key; the sanctioned keyboard
-path out of a modal is its focusable Close button (§7.2). It is a justified
-exception to the four-input rule, recorded as one.
+**`Escape` is engine-reserved.** It is permanently bound to the Roblox menu
+and cannot be rebound. So there is no keyboard Cancel key. The sanctioned
+keyboard path out of a modal is its focusable Close button (§7.2). It is a
+justified exception to the four-input rule, recorded as one.
 
 **A physical gamepad button cannot be proven headlessly.** The suite and
 Studio's virtual input prove the handshake around `ButtonA`, but cannot press a
@@ -725,12 +763,14 @@ shipping a console-facing UI.
 
 ---
 
-That completes the core guide. To review: [chapter 1](01-concepts.md) for the
-ideas, [chapter 2](02-architecture.md) for how the modules fit and why, [chapter
-3](03-getting-started.md) for a working screen, [chapter
-4](04-tutorial-examples.md) for the guided examples, [chapter
-5](05-styling.md) for the look, and [chapter 6](06-client-server.md) for the
-server.
+That completes the core guide. To review:
+
+- [chapter 1](01-concepts.md) for the ideas.
+- [chapter 2](02-architecture.md) for how the modules fit, and why.
+- [chapter 3](03-getting-started.md) for a working screen.
+- [chapter 4](04-tutorial-examples.md) for the guided examples.
+- [chapter 5](05-styling.md) for the look.
+- [chapter 6](06-client-server.md) for the server.
 
 One appendix follows: [chapter 8](08-without-rojo.md), for installing and working
 with Facet when you build directly in Studio and do not use Rojo.
