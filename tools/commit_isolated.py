@@ -210,7 +210,9 @@ def selftest():
     sh("git", "add", "keep.txt", "gone.txt")
     sh("git", "-c", "user.name=selftest", "-c", "user.email=s@t", "commit", "-q", "-m", "two files")
     (pathlib.Path(work) / "gone.txt").unlink()
-    msg = pathlib.Path(work) / "msg.txt"
+    # the message file lives OUTSIDE the repo under test, or the porcelain
+    # check below reports the scaffolding instead of the subject
+    msg = pathlib.Path(tf.mkdtemp(prefix="commit_isolated_selftest_msg.")) / "msg.txt"
     msg.write_text("the deletion commits\n\nBody.\n")
     me = pathlib.Path(__file__).resolve()
     r = subprocess.run(
@@ -241,12 +243,12 @@ def main():
     ap.add_argument("-h", "--help", action="store_true")
     ap.add_argument("specs", nargs="*")
     a = ap.parse_args()
+    if a.selftest:
+        return selftest()
+
     if a.help or not a.specs:
         print(__doc__)
         return 0 if a.help else 2
-
-    if a.selftest:
-        return selftest()
 
     if a.repair:
         n = republish(a.specs, "HEAD")
