@@ -5,11 +5,6 @@
    "archivedPath": "artifacts/cross-platform-proof/rows/xp-a1-console-profile.json",
    "label": "evidence-1",
    "sha256": "0df390656bb2b04bb3880852e2ff15a331f57860cf27579cb14a658baa1c91c4"
-  },
-  {
-   "archivedPath": "artifacts/phase-4/perf.json",
-   "label": "evidence-2",
-   "sha256": "c6fc57c779dd5675b2b79fae36219972822134f4341adc11d468519e1642d1cb"
   }
  ],
  "recordedAt": "2026-08-31T01:29:16Z",

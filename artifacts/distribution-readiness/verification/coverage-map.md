@@ -642,3 +642,17 @@ again.
 |---|---|
 | `check_types` | it generates and deletes a probe file inside tests/ |
 | `check_types-selftest` | it rewrites src/init.luau and the type witness, then restores them |
+
+## Receipts deleted as empty (5)
+
+Each held nothing but run output. An empty receipt is refused, so leaving one in
+place reddens a row whose claim is intact; the producer that re-earns the claim
+every run carries it instead.
+
+| Receipt | File |
+|---|---|
+| `cross-platform-proof::regression-gate-falsified` | `tools/lune/verify/evidence/cross-platform-proof--regression-gate-falsified.json` |
+| `check_perf_metrics` | `tools/lune/verify/evidence/producer--check_perf_metrics.json` |
+| `check_perf_scenes-themes` | `tools/lune/verify/evidence/producer--check_perf_scenes-themes.json` |
+| `check_perf_scenes` | `tools/lune/verify/evidence/producer--check_perf_scenes.json` |
+| `prove_perf_gate` | `tools/lune/verify/evidence/producer--prove_perf_gate.json` |

@@ -420,6 +420,28 @@
    "(no path recorded)"
   ]
  ],
+ "emptyReceiptsDeleted": [
+  [
+   "cross-platform-proof::regression-gate-falsified",
+   "tools/lune/verify/evidence/cross-platform-proof--regression-gate-falsified.json"
+  ],
+  [
+   "check_perf_metrics",
+   "tools/lune/verify/evidence/producer--check_perf_metrics.json"
+  ],
+  [
+   "check_perf_scenes-themes",
+   "tools/lune/verify/evidence/producer--check_perf_scenes-themes.json"
+  ],
+  [
+   "check_perf_scenes",
+   "tools/lune/verify/evidence/producer--check_perf_scenes.json"
+  ],
+  [
+   "prove_perf_gate",
+   "tools/lune/verify/evidence/producer--prove_perf_gate.json"
+  ]
+ ],
  "expandedPins": [
   [
    "cross-platform-proof::spatial-seam-contracts",
@@ -943,5 +965,5 @@
    "artifacts/phase-4/perf.json"
   ]
  ],
- "updatedAt": "2026-08-31T03:01:18Z"
+ "updatedAt": "2026-08-31T03:06:08Z"
 }

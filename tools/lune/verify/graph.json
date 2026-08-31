@@ -5,7 +5,7 @@
   "phases": "phases.json",
   "suiteResults": "suite_real.json"
  },
- "maintainedAt": "2026-08-31T03:01:18Z",
+ "maintainedAt": "2026-08-31T03:06:08Z",
  "phases": [
   {
    "artifactDir": "artifacts/phase-0-foundation",
@@ -2436,7 +2436,7 @@
   },
   {
    "command": "python3 tools/check_perf_metrics.py",
-   "declaredEvidence": true,
+   "declaredEvidence": false,
    "dependsOn": [],
    "environmentClass": "device",
    "fixtures": [
@@ -2526,7 +2526,7 @@
   },
   {
    "command": "python3 tools/check_perf_scenes.py",
-   "declaredEvidence": true,
+   "declaredEvidence": false,
    "dependsOn": [],
    "environmentClass": "deterministic",
    "fixtures": [
@@ -2571,7 +2571,7 @@
   },
   {
    "command": "python3 tools/check_perf_scenes.py --themes",
-   "declaredEvidence": true,
+   "declaredEvidence": false,
    "dependsOn": [],
    "environmentClass": "deterministic",
    "fixtures": [
@@ -4724,7 +4724,7 @@
   },
   {
    "command": "lune run tools/lune/prove_perf_gate",
-   "declaredEvidence": true,
+   "declaredEvidence": false,
    "dependsOn": [],
    "environmentClass": "perf",
    "fixtures": [
@@ -9288,8 +9288,7 @@
    "check": {
     "producers": [
      "prove_perf_gate"
-    ],
-    "receipt": "tools/lune/verify/evidence/cross-platform-proof--regression-gate-falsified.json"
+    ]
    },
    "class": "exit0",
    "evidence": "artifacts/cross-platform-proof/rows/xp-a6-regression-proof.json",

@@ -56,8 +56,11 @@ COVERAGE = "artifacts/distribution-readiness/verification/coverage-map.md"
 #   section rendered from that run's deltas is an empty table where the record
 #   should be. The deltas accumulate here instead, and the document is rendered
 #   from the ledger, so running the repair again neither loses the history nor
-#   duplicates it. ]]
-LEDGER = "tools/lune/verify/data/post-archival-repair.json"
+#   duplicates it. It sits beside the document rather than under `tools/`
+#   because it is the same thing the document is -- a record of evidence, under
+#   the names that evidence was earned with, which is precisely why the drift
+#   check excludes `artifacts/` and scans `tools/`. ]]
+LEDGER = "artifacts/distribution-readiness/verification/post-archival-repair.json"
 
 # Recorded machine evidence: what a machine took and a headless run cannot
 # re-take. Everything else under artifacts/ is a record of a decision.
@@ -546,6 +549,42 @@ def main() -> int:
                 fh.write("\n")
     print(f"run-output entries stripped from receipts: {len(stripped)}")
 
+    #[[ A RECEIPT WITH NOTHING LEFT IN IT IS DELETED, NOT KEPT EMPTY.
+    #   Five receipts held nothing but run output. An empty one is refused by the
+    #   coordinator -- correctly, "lists no evidence" -- so leaving it in place
+    #   reddens a row whose claim is intact. What each of these rows actually
+    #   asserts is carried by a producer that re-earns it every run, which is
+    #   stronger than a hash of the last run, so the receipt clause goes and the
+    #   producer stays. A declared-evidence producer whose whole record was run
+    #   output was never declared evidence: it runs, and it did in the run that
+    #   found this. ]]
+    emptied = []
+    for name in sorted(os.listdir(RECEIPTS)):
+        if not name.endswith(".json"):
+            continue
+        path = os.path.join(RECEIPTS, name)
+        receipt = json.load(open(path))
+        if receipt.get("evidence"):
+            continue
+        who = receipt.get("row") or receipt.get("producer") or name
+        for row in kept:
+            check = row.get("check") or {}
+            if check.get("receipt") != path:
+                continue
+            rest = {k: v for k, v in check.items() if k != "receipt"}
+            if not has_work(rest):
+                continue
+            check.pop("receipt")
+        if name.startswith("producer--"):
+            pid = name[len("producer--"):-len(".json")]
+            for producer in graph["producers"]:
+                if producer["id"] == pid and producer.get("declaredEvidence"):
+                    producer["declaredEvidence"] = False
+        emptied.append([who, path])
+        if not args.dry_run:
+            os.unlink(path)
+    print(f"receipts deleted as empty                : {len(emptied)}")
+
     graph["rows"] = kept
     graph["maintainedAt"] = datetime.datetime.now(datetime.timezone.utc).strftime(
         "%Y-%m-%dT%H:%M:%SZ"
@@ -593,6 +632,7 @@ def main() -> int:
             "dropped": dropped_entries,
             "stripped": stripped,
             "serialized": serialized,
+            "emptied": emptied,
         },
     )
     return 0
@@ -639,6 +679,7 @@ def append_coverage(receipted, dropped_pins, archived_rows, retired_clauses, rep
         "droppedReceiptPins": receipts["dropped"],
         "strippedRunOutput": receipts["stripped"],
         "serializedProducers": receipts["serialized"],
+        "emptyReceiptsDeleted": receipts["emptied"],
     })
     receipted = ledger["receipted"]
     dropped_pins = ledger["droppedPins"]
@@ -651,6 +692,7 @@ def append_coverage(receipted, dropped_pins, archived_rows, retired_clauses, rep
         "dropped": ledger["droppedReceiptPins"],
         "stripped": ledger["strippedRunOutput"],
         "serialized": ledger["serializedProducers"],
+        "emptied": ledger["emptyReceiptsDeleted"],
     }
     """Everything this pass moved, named, in the document that promises that."""
     stamp = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d")
@@ -764,6 +806,20 @@ def append_coverage(receipted, dropped_pins, archived_rows, retired_clauses, rep
     ]
     for pid, why in sorted(SERIALIZED.items()):
         L.append(f"| `{pid}` | {why} |")
+
+    L += [
+        "",
+        f"## Receipts deleted as empty ({len(receipts['emptied'])})",
+        "",
+        "Each held nothing but run output. An empty receipt is refused, so leaving one in",
+        "place reddens a row whose claim is intact; the producer that re-earns the claim",
+        "every run carries it instead.",
+        "",
+        "| Receipt | File |",
+        "|---|---|",
+    ]
+    for who, path in receipts["emptied"]:
+        L.append(f"| `{who}` | `{path}` |")
 
     L.append("")
 

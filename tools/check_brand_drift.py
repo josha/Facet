@@ -539,6 +539,21 @@ ALLOWLIST = [
      "cites the PRE-RENAME capture by its real filename as the control to compare a "
      "re-capture against; a citation that renames its source cannot be followed",
      "when that capture is superseded by a Facet-named re-capture"),
+    #[[ A RECEIPT NAMES ITS SUBJECT, AND ITS SUBJECT HAS THE NAME IT WAS TAKEN
+    #   UNDER. The verification graph's evidence receipts pin recorded machine
+    #   evidence by path and sha256, and thirty-six of those captures were
+    #   recorded before the rename -- `pl9-row3-luauui-1.json` and its siblings
+    #   are the real filenames on disk. This is the same rule `artifacts/` is
+    #   excluded under one screen up ("gate evidence records the name it was
+    #   earned under"), narrowed to a pattern and a directory instead of a whole
+    #   tree: a pin that renamed its subject could not be verified against the
+    #   private archive's manifest, and a receipt nobody can verify is the thing
+    #   this stage exists to have removed. ]]
+    ("tools/lune/verify/evidence/", BRAND,
+     "a receipt pins a recorded capture by its real filename, and those captures "
+     "were taken before the rename; renaming one inside the pin would break the "
+     "hash chain to the archive manifest",
+     "when those captures are re-recorded under the current name"),
     ("tools/check_perf_gate_evidence.py", BRAND,
      "reads frozen capture artifacts whose schema strings predate the rename",
      "when those capture schemas are re-recorded under Facet"),

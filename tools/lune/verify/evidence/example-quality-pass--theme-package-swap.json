@@ -7,9 +7,94 @@
    "sha256": "3d7547752c72337e832e134938f4db3e905ef66228ffd66af8d3bc8df85b4339"
   },
   {
-   "archivedPath": "artifacts/example-quality-pass/captures/",
-   "label": "evidence-2",
-   "sha256": "absent"
+   "archivedPath": "artifacts/example-quality-pass/captures/eq6-header-largest-parchment-AFTER.png",
+   "label": "evidence-2.1",
+   "sha256": "4ac2ac6cf4e78fea106bccc33bf3bf71a93263678c001369925cd15273ca9a26"
+  },
+  {
+   "archivedPath": "artifacts/example-quality-pass/captures/ex01-neutral-desktop.png",
+   "label": "evidence-2.2",
+   "sha256": "25c5f71c48597c6a1ce22cdb62015a1e0387446018a51f7e3df7054f7fa379f2"
+  },
+  {
+   "archivedPath": "artifacts/example-quality-pass/captures/ex01-parchment-desktop.png",
+   "label": "evidence-2.3",
+   "sha256": "8f69cea85eb2617497de6ff45f51c19c63f273fd4263ec5012d8d813cc2f2150"
+  },
+  {
+   "archivedPath": "artifacts/example-quality-pass/captures/ex02-neutral-desktop.png",
+   "label": "evidence-2.4",
+   "sha256": "965abf45fe99012a5668824244db2dc18dbd167655674b66c0beb93a884cc23d"
+  },
+  {
+   "archivedPath": "artifacts/example-quality-pass/captures/ex02-parchment-desktop.png",
+   "label": "evidence-2.5",
+   "sha256": "bd0b25f34e459f03aef8effc12bb125c6d352247f6fcea237318078cd36939e8"
+  },
+  {
+   "archivedPath": "artifacts/example-quality-pass/captures/ex03-neutral-desktop.png",
+   "label": "evidence-2.6",
+   "sha256": "199ba59191685accd675252d39563e3c338e3a0dbc7bd5dee1c5299f60547e9a"
+  },
+  {
+   "archivedPath": "artifacts/example-quality-pass/captures/ex03-parchment-desktop.png",
+   "label": "evidence-2.7",
+   "sha256": "1fbceb8f2a757579e285906c6e0415aea83b4806690c551b5bf944addde33b5c"
+  },
+  {
+   "archivedPath": "artifacts/example-quality-pass/captures/ex04-neutral-desktop.png",
+   "label": "evidence-2.8",
+   "sha256": "1cd7d78055309db167a2e400257a3718b907ccb23b8e9acbaa8e7fcf9ed5c35b"
+  },
+  {
+   "archivedPath": "artifacts/example-quality-pass/captures/ex04-parchment-desktop.png",
+   "label": "evidence-2.9",
+   "sha256": "30e43a5b0e647a52a71bc7a466d995fc49577b50e2749079f6645fce5a08defc"
+  },
+  {
+   "archivedPath": "artifacts/example-quality-pass/captures/ex05-neutral-console-tenfoot.png",
+   "label": "evidence-2.10",
+   "sha256": "7e1cc95a6489ada6702bdffd8867a1391c06efb51a2bbfdfbc983ee95c16a1d3"
+  },
+  {
+   "archivedPath": "artifacts/example-quality-pass/captures/ex05-neutral-desktop.png",
+   "label": "evidence-2.11",
+   "sha256": "e9e97dcd258a3db1b86d7c860e3627339b3d36b735d20b4ce8c80feabb267375"
+  },
+  {
+   "archivedPath": "artifacts/example-quality-pass/captures/ex05-neutral-phone-portrait-text1.png",
+   "label": "evidence-2.12",
+   "sha256": "145b636f5dced65df397946c403d25c68beefcf4d6c09038d4869f015f8ba668"
+  },
+  {
+   "archivedPath": "artifacts/example-quality-pass/captures/ex05-neutral-phone-portrait-textLargest.png",
+   "label": "evidence-2.13",
+   "sha256": "251fbd02ba87852a01093dbb1f994505d4eb45d8e799169a2b65f6a09047a29c"
+  },
+  {
+   "archivedPath": "artifacts/example-quality-pass/captures/ex05-parchment-desktop.png",
+   "label": "evidence-2.14",
+   "sha256": "133dd49f362ef98c662845a632c984e3941f035249691257931b1be43f793fc9"
+  },
+  {
+   "archivedPath": "artifacts/example-quality-pass/captures/ex06-neutral-desktop.png",
+   "label": "evidence-2.15",
+   "sha256": "a88609971ede6eaa3ba468874040c8e33b022a464ccfe2eee87b6e8fd8d84a04"
+  },
+  {
+   "archivedPath": "artifacts/example-quality-pass/captures/ex06-parchment-desktop.png",
+   "label": "evidence-2.16",
+   "sha256": "b824c7845ccb409abb0181c20530e5e33e4ea1704dddea7f879bb31ad536d2e2"
+  },
+  {
+   "archivedPath": "artifacts/example-quality-pass/captures/ex07-neutral-desktop.png",
+   "label": "evidence-2.17",
+   "sha256": "b85fc86d0f72390f46d45610ed909da79d89d55efa3945054963e95e7917d53f"
+  },
+  {
+   "archivedPath": "artifacts/example-quality-pass/captures/ex07-parchment-desktop.png",
+   "label": "evidence-2.18",
+   "sha256": "946ecbafc0bd21c3edb0f8c07449f26024dbde8377667a4c94f3b4f2a7ffe712"
   }
  ],
  "recordedAt": "2026-08-31T01:29:17Z",
