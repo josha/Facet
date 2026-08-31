@@ -73,6 +73,27 @@ import urllib.request
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
 
+#[[ THE INTERPRETER FLOOR, AND WHY IT IS A COMMENT AS MUCH AS A CHECK.
+#
+#   `tools/build_model.sh` calls `python3`, and on a fresh clone that can resolve
+#   to the system interpreter — /usr/bin/python3 is 3.9.6 on current macOS — not
+#   to whatever a developer has on PATH. This file therefore has to PARSE on 3.9,
+#   and one line of it did not: a PEP-701 f-string (`f"{shown(result["path"])}"`,
+#   nested same quotes) is 3.12-only syntax and raised
+#   `SyntaxError: f-string: unmatched '['` at compile time, which surfaced as an
+#   unexplained model-build failure rather than as anything about Python.
+#
+#   A runtime guard cannot catch that class: a SyntaxError happens before the
+#   first statement runs. So the real protection is the STYLE RULE — no syntax
+#   newer than 3.8 in this file — and the check below is for the other half, an
+#   interpreter that parses the file but is too old to run it. Keep both.
+if sys.version_info < (3, 8):
+    sys.stderr.write(
+        "package: this tool needs Python 3.8 or newer; the interpreter running it is "
+        "{}.{}.{} at {}\n".format(sys.version_info[0], sys.version_info[1], sys.version_info[2], sys.executable)
+    )
+    raise SystemExit(2)
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(HERE)
 SRC = os.path.join(REPO, "src")
@@ -889,9 +910,9 @@ def api_key_from_env():
 
 
 def cmd_stage(args):
-    result = stage(args.out or STAGE_ROOT, quiet=args.quiet)
+    result = stage(args.out, quiet=args.quiet)
     if not args.quiet:
-        print(f"staged {shown(result["path"])}")
+        print(f"staged {shown(result['path'])}")
     return 0
 
 
