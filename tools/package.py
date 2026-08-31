@@ -98,7 +98,6 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(HERE)
 SRC = os.path.join(REPO, "src")
 BUILD = os.path.join(REPO, "build")
-STAGE_ROOT = os.path.join(BUILD, ".stage")
 BUILD_MODEL = os.path.join(HERE, "build_model.sh")
 PURITY = os.path.join(HERE, "check_library_purity.py")
 CANARY = "tools/lune/package_canary.luau"
@@ -222,6 +221,30 @@ def read_bytes(path):
         return handle.read()
 
 
+def write_atomic(path, text):
+    """Write through a unique temporary in the same directory, then rename.
+
+    Every path this program writes is a path some concurrent producer may be
+    READING — three of them run this build at once. `os.replace` is atomic within
+    a filesystem, so a reader sees the old complete file or the new complete file
+    and never the half-written one that made a concurrent build report "File
+    contains no JSON value"."""
+    directory = os.path.dirname(os.path.abspath(path)) or "."
+    os.makedirs(directory, exist_ok=True)
+    handle = tempfile.NamedTemporaryFile(
+        "w", dir=directory, prefix=os.path.basename(path) + ".tmp.", delete=False
+    )
+    try:
+        handle.write(text)
+        handle.close()
+        os.replace(handle.name, path)
+    except BaseException:
+        handle.close()
+        if os.path.exists(handle.name):
+            os.unlink(handle.name)
+        raise
+
+
 def file_sha256(path):
     digest = hashlib.sha256()
     with open(path, "rb") as handle:
@@ -250,14 +273,24 @@ def semver(text):
 # ── the staging directory the model builder mounts ───────────────────────────
 
 
-def stage(out_root=STAGE_ROOT, quiet=False):
-    """Generate `build/.stage/Distribution/` — regenerated on EVERY build, never
+def stage(out_root=None, quiet=False):
+    """Generate `<out_root>/Distribution/` — regenerated on EVERY build, never
     edited by hand, never committed (`build/` is gitignored).
+
+    THE STAGING DIRECTORY IS PER-INVOCATION, and `out_root` is required in
+    practice: `tools/build_model.sh` passes one named after its own process.
+    Sharing it is what made three concurrent builds fail — one process was
+    `shutil.rmtree`-ing the directory while another was writing into it, which
+    surfaces as `OSError: [Errno 66] Directory not empty` and says nothing at all
+    about concurrency. Calling this with no `out_root` is the single-build
+    convenience and uses a fresh temporary directory rather than a fixed one.
 
     It carries no build time. Reproducibility is the reason: two builds of the
     same commit must produce the same bytes, and a timestamp inside the artifact
     would make that impossible. The time of a release lives in its receipt, which
     is where a reader actually looks for it."""
+    if out_root is None:
+        out_root = tempfile.mkdtemp(prefix="facet-stage-")
     target = os.path.join(out_root, "Distribution")
     if os.path.isdir(target):
         shutil.rmtree(target)
@@ -273,9 +306,7 @@ def stage(out_root=STAGE_ROOT, quiet=False):
             "Repository": "https://github.com/josha/Facet",
         },
     }
-    with open(os.path.join(target, "init.meta.json"), "w") as handle:
-        json.dump(meta, handle, indent=2, sort_keys=True)
-        handle.write("\n")
+    write_atomic(os.path.join(target, "init.meta.json"), json.dumps(meta, indent=2, sort_keys=True) + "\n")
 
     notes = []
     for source_name, staged_name in (("LICENSE", "LICENSE.txt"), ("THIRD_PARTY_NOTICES.md", "THIRD_PARTY_NOTICES.txt")):
@@ -352,10 +383,7 @@ def write_manifest(xml_path, artifact_path, out_path):
         "bodyHash": manifest_body_hash(instances),
         "instances": instances,
     }
-    os.makedirs(os.path.dirname(out_path), exist_ok=True)
-    with open(out_path, "w") as handle:
-        json.dump(manifest, handle, indent=2)
-        handle.write("\n")
+    write_atomic(out_path, json.dumps(manifest, indent=2) + "\n")
     return manifest
 
 
@@ -466,9 +494,7 @@ def load_config(path):
 
 
 def save_config(path, config):
-    with open(path, "w") as handle:
-        json.dump(config, handle, indent=2)
-        handle.write("\n")
+    write_atomic(path, json.dumps(config, indent=2) + "\n")
 
 
 def receipts(directory):
@@ -880,9 +906,7 @@ def write_receipt(receipts_dir, config, facts, *, operation_path, asset_revision
         receipt.update(extra)
     os.makedirs(receipts_dir, exist_ok=True)
     path = os.path.join(receipts_dir, f"{version}-{commit[:7]}.json")
-    with open(path, "w") as handle:
-        json.dump(receipt, handle, indent=2)
-        handle.write("\n")
+    write_atomic(path, json.dumps(receipt, indent=2) + "\n")
     return path, receipt
 
 
@@ -1022,7 +1046,7 @@ def cmd_verify(args):
             f"nothing else"
         )
 
-    staged = stage(quiet=True)
+    staged = stage(quiet=True)  # a fresh temp dir: this only wants the placeholder report
     if staged["placeholders"]:
         print(f"  [warn] distribution notices: placeholder text for {', '.join(staged['placeholders'])}")
     else:
@@ -1703,7 +1727,9 @@ def main():
     sub = parser.add_subparsers(dest="command")
 
     stage_parser = sub.add_parser("stage", help="regenerate build/.stage/Distribution (called by build_model.sh)")
-    stage_parser.add_argument("--out", default=STAGE_ROOT)
+    stage_parser.add_argument(
+        "--out", default=None, help="staging directory (build_model.sh passes a per-invocation one)"
+    )
     stage_parser.add_argument("--quiet", action="store_true")
     stage_parser.set_defaults(func=cmd_stage)
 
