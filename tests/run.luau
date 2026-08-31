@@ -33,7 +33,7 @@ require("./measure_memo.spec")
 -- both `lines`/`rows` shapes, the nested-scroll-diagnostic regression fix,
 -- the four migrated adaptation-slice sites, and UI.fill/UI.hug (item 14)
 require("./content_terms_height.spec")
---[[ the measure helpers' SEAM (2026-08-21, SOURCE_CAP_LEDGER): what keeps
+--[[ the measure helpers' SEAM (2026-08-21, source-cap-ledger): what keeps
 	`layout/measure_facts.luau` one-way now that `solver.luau` has stopped being
 	one file. There is no parameter object to compare — everything arrives on the
 	solve's own `ctx` — so the three sets are the `ctx` fields the module READS,
@@ -48,7 +48,7 @@ require("./measure_facts_seam.spec")
 	consumer those rules exist to notice could have appeared in a dozen places and
 	still read "exactly one". ]]
 require("./src_tree.spec")
---[[ the surface-lifecycle SEAM (2026-08-22, SOURCE_CAP_LEDGER): what keeps
+--[[ the surface-lifecycle SEAM (2026-08-22, source-cap-ledger): what keeps
 	`present/surface_lifecycle.luau` one-way now that `presenter.luau` has stopped
 	carrying the focus-visual sync, the refresh body and the dismissal pair. This
 	seam DOES have a parameter object, so the three sets are the record's keys as
@@ -111,7 +111,7 @@ require("./perf_principles.spec")
 require("./layout_v1.spec")
 require("./renderer.spec")
 require("./edge_floor.spec")
---[[ the commit walks' SEAM (2026-08-21, SOURCE_CAP_LEDGER): what keeps
+--[[ the commit walks' SEAM (2026-08-21, source-cap-ledger): what keeps
 	`render/commit_walks.luau` one-way now that the six write loops that spend a
 	finished solve have left `renderer.luau`. This seam has a parameter object
 	with twenty-one fields in it, eight of them mutable records the renderer keeps
@@ -208,7 +208,7 @@ require("./slice_mutation.spec")
 require("./focus_structural.spec")
 require("./table.spec")
 require("./table_virtualized.spec")
---[[ the row/cell builder's SEAM (2026-08-18, SOURCE_CAP_LEDGER): the parameter
+--[[ the row/cell builder's SEAM (2026-08-18, source-cap-ledger): the parameter
 	object that made `controls/table_rows.luau` one-way, pinned as a set
 	comparison — every fact READ off `deps` is DECLARED and PASSED, the shared
 	write surface is exactly the two mutable containers, and the require does not
@@ -551,7 +551,7 @@ require("./theme_chrome.spec")
 -- border clipped away by the Table body, because its full-bleed was computed
 -- from the Button's CREATE-time padding and the authored one arrived after)
 require("./chrome_padding_refit.spec")
--- the setProp seam, mechanised (task EXTRACT, SOURCE_CAP_LEDGER):
+-- the setProp seam, mechanised (task EXTRACT, source-cap-ledger):
 -- READ == DECLARED == PASSED over src/client/screen_props.luau + screen_target.luau
 require("./screen_props_seam.spec")
 -- rich-skinning-v2 schema + model specs (P1)

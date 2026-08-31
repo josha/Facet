@@ -13,7 +13,7 @@
 	the same three `./grid` takes and for the same reason. It depends on nothing
 	else: no require of its own, no state, no module-level mutable local at all.
 
-	WHY IT IS ITS OWN FILE. `docs/handoff/SOURCE_CAP_LEDGER.md`'s solver row names
+	WHY IT IS ITS OWN FILE. `tools/lune/verify/data/source-cap-ledger.md`'s solver row names
 	this block by name as the next seam, and its trigger is a STATE rather than a
 	number: "the next round that opens this file takes `flowPartition` + `flowPlan`
 	FIRST". The one-way test that decides every split in this library is whether

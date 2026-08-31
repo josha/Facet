@@ -3,7 +3,7 @@
 	one-way, following `screen_props_seam.spec.luau`'s technique (the freshest
 	template this campaign has for the shape).
 
-	`docs/handoff/SOURCE_CAP_LEDGER.md`'s row_actions.luau row named this extraction
+	`tools/lune/verify/data/source-cap-ledger.md`'s row_actions.luau row named this extraction
 	across two prior recordings, on the theory that `dump()` reads state and writes
 	nothing so a `row_actions_dump.luau` taking the tray/edge/commit records as an
 	argument list cannot require back. Measured at the extraction commit (task

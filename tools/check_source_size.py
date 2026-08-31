@@ -405,7 +405,7 @@ CAP = 200_000
 # framework into a hazard.
 #
 # So the band is a REQUIREMENT TO HAVE DONE THE THINKING, not a warning to
-# ignore: at or over WARN a module fails unless docs/handoff/SOURCE_CAP_LEDGER.md
+# ignore: at or over WARN a module fails unless tools/lune/verify/data/source-cap-ledger.md
 # carries a row for it that names (a) its size at the time it was recorded,
 # within DRIFT_ALLOWANCE of what it is now, (b) a seam analysis — the one-way
 # candidates, or the recorded reason none exists — and (c) the trigger that ends
@@ -414,7 +414,7 @@ CAP = 200_000
 # analysis is worth re-reading.
 WARN = 190_000
 DRIFT_ALLOWANCE = 2_000
-LEDGER = "docs/handoff/SOURCE_CAP_LEDGER.md"
+LEDGER = "tools/lune/verify/data/source-cap-ledger.md"
 
 # path -> (ceiling, why it is over and what the plan is)
 KNOWN_OVER: dict[str, tuple[int, str]] = {}
@@ -423,7 +423,7 @@ ROOT = Path(__file__).resolve().parent.parent
 
 
 def read_ledger() -> tuple[dict[str, dict[str, str]], list[str]]:
-    """Parse SOURCE_CAP_LEDGER.md's rows.
+    """Parse source-cap-ledger.md's rows.
 
     One row per module, in a markdown table whose first cell is the module path
     in backticks:

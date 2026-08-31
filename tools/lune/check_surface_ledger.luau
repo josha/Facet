@@ -8,11 +8,11 @@
 --
 --   1. every top-level export and every nested namespace member of the LIVE
 --      public surface (required fresh from src/, never a stored dump) appears
---      backticked in artifacts/api-architecture-consistency/surface-ledger.md;
+--      backticked in tools/lune/verify/data/surface-ledger.md;
 --   2. the constitution exists and is linked from the guide index and from
 --      every extension playbook (an unlinked rulebook is a rulebook nobody
 --      finds — the same rule check_docs applies to the theme chapter);
---   3. the ledger names the constitution and the dispositions file, so the
+--   3. the ledger names the constitution and its archived disposition log, so the
 --      classification chain (item -> pattern/exception -> ruling) is walkable.
 --
 -- Usage: lune run tools/lune/check_surface_ledger   (exit 0 = PASS)
@@ -20,7 +20,7 @@
 local fs = require("@lune/fs")
 local process = require("@lune/process")
 
-local LEDGER = "artifacts/api-architecture-consistency/surface-ledger.md"
+local LEDGER = "tools/lune/verify/data/surface-ledger.md"
 local CONSTITUTION = "docs/reference/constitution.md"
 local GUIDE_INDEX = "docs/guide/README.md"
 local PLAYBOOK_DIR = "docs/extending"
@@ -101,8 +101,8 @@ else
 end
 
 -- 3. the classification chain is walkable
-if string.find(ledger :: string, "dispositions.md", 1, true) == nil then
-	table.insert(problems, "the surface ledger never names dispositions.md")
+if string.find(ledger :: string, "disposition log, archived privately", 1, true) == nil then
+	table.insert(problems, "the surface ledger never names its archived disposition log")
 end
 
 if #problems > 0 then

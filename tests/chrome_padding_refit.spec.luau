@@ -62,7 +62,7 @@ local chrome_slots = require("../src/tokens/chrome_slots")
 
 local chromeSource = fs.readFile("src/client/screen_chrome.luau")
 -- the per-class `setProp` chain (every `elseif prop == "<name>" then` branch)
--- left screen_target.luau for src/client/screen_props.luau (SOURCE_CAP_LEDGER,
+-- left screen_target.luau for src/client/screen_props.luau (source-cap-ledger,
 -- 2026-08-28) — moved verbatim, same relative indentation
 local targetSource = fs.readFile("src/client/screen_props.luau")
 

@@ -6,7 +6,7 @@
 -- session, so every live check against it tests the built place rather than the
 -- edits on disk, once it is over the 200,000-char Source WRITE cap.
 --
--- WHY THIS IS THE SEAM. `docs/handoff/SOURCE_CAP_LEDGER.md`'s row for this file
+-- WHY THIS IS THE SEAM. `tools/lune/verify/data/source-cap-ledger.md`'s row for this file
 -- named it across six prior extractions: everything large inside
 -- `screen_target.new`'s closure — `setProp` (25.8 KB), `syncTags`, `create` and
 -- `setFocusVisual` — reads the same `style`/`nativeMode`/`instancesByPath`/

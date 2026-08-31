@@ -53,7 +53,7 @@ local fake_target = require("../../tests/lib/fake_target")
 local UI = Facet.UI
 
 -- The mapping table moved to the adapter's vocabulary sibling when
--- `screen_target.luau` paid its SOURCE_CAP_LEDGER extraction (2026-08-22). It is
+-- `screen_target.luau` paid its source-cap-ledger extraction (2026-08-22). It is
 -- still the LIVE adapter's mapping — `screen_target` binds this exact table — and
 -- this reader is taught the new address rather than left to pass vacuously, which
 -- is what the assert below asks of anyone who moves it again.

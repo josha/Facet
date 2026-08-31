@@ -1710,7 +1710,7 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 		~1,000 lines moved out VERBATIM: the per-row engine cache and its retention
 		policy, the swipe dispatcher and its axis lock, the shared tray overlay, the
 		presentation slide, the commit collapse, the Delete/menu key context and the
-		focus restore on disengage. `docs/handoff/SOURCE_CAP_LEDGER.md` named this
+		focus restore on disengage. `tools/lune/verify/data/source-cap-ledger.md` named this
 		block by name and made the move a PRECONDITION of the next change to this
 		file rather than a companion to it.
 

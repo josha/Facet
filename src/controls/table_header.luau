@@ -2,7 +2,7 @@
 --[[ THE HEADER BAND for `controls/table.luau` — the column headings, their sort
 	marks, and the resize divider that lives between them.
 
-	WHY IT IS ITS OWN FILE. `docs/handoff/SOURCE_CAP_LEDGER.md`'s row for
+	WHY IT IS ITS OWN FILE. `tools/lune/verify/data/source-cap-ledger.md`'s row for
 	`table.luau` named this seam on 2026-08-18 and set its own trigger: "the
 	HEADER BAND — the header cells, `gripFor`, `isSortable`,
 	`forwardUnclaimedGripTap` and `bandPadding` — behind the same parameter

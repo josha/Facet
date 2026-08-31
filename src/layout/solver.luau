@@ -928,7 +928,7 @@ local function chosenCandidate(ctx: Ctx, node: Node, availW: number, availH: num
 	return chosen
 end
 
--- THE COMPOSITION RESOLUTION LIVES IN `./composition_resolve` (SOURCE_CAP_LEDGER,
+-- THE COMPOSITION RESOLUTION LIVES IN `./composition_resolve` (source-cap-ledger,
 -- the solver row's named next seam). It is reached through `COMPOSITION_DEPS`
 -- above, and the ONE thing it needs from this file is `measure`.
 
@@ -1046,7 +1046,7 @@ end
 -- probe that fixed the three alignment words, and why one `gap` serves both
 -- axes), unabridged.
 --
--- The short version of why it could leave: `docs/handoff/SOURCE_CAP_LEDGER.md`'s
+-- The short version of why it could leave: `tools/lune/verify/data/source-cap-ledger.md`'s
 -- row for this file names it as the next seam, and its trigger is a STATE rather
 -- than a number — the extraction PRECEDES a round's own changes. `flowPartition`
 -- was already exported as `solver.flowPartition` because it reads no node and no
@@ -2007,7 +2007,7 @@ solver.auditPlacement = placementAudit.auditPlacement
 -- `ctx` or a mutable upvalue of this file — they are functions on numbers — and
 -- `alignOffset` has been crossing a module boundary BY VALUE since the grid
 -- split, because it is declared below `grid.arrange`'s call site and a closure
--- naming it there would resolve the nil global. `docs/handoff/SOURCE_CAP_LEDGER.md`
+-- naming it there would resolve the nil global. `tools/lune/verify/data/source-cap-ledger.md`
 -- names this block as the seam behind `flowPartition`/`flowPlan`, and its trigger
 -- is a STATE: the extraction PRECEDES a round's own changes.
 --

@@ -47,7 +47,7 @@ local screen_paint = require("./screen_paint")
 -- composes against — see that module's header for why the seam is here
 local screen_presentation = require("./screen_presentation")
 -- the per-class PROPERTY-WRITE dispatch table (`adapter.setProp`'s chain),
--- extracted for the same ceiling once it became one-way (SOURCE_CAP_LEDGER):
+-- extracted for the same ceiling once it became one-way (source-cap-ledger):
 -- see that module's header for the parameter-object seam and its cost
 local screen_props = require("./screen_props")
 -- the pointer seam: the one activate meta, the global capture, the semantic
@@ -133,7 +133,7 @@ local SCROLL_BAR_RESERVE = SCROLL_BAR_THICKNESS + SCROLL_BAR_GUTTER
 -- src/client/screen_scroll_indicators, together with the ruling chain that
 -- explains which half of the reserve the policy moves and which it leaves alone.
 
---[[ THE ENGINE VOCABULARY, now a sibling (SOURCE_CAP_LEDGER, 2026-08-22): the
+--[[ THE ENGINE VOCABULARY, now a sibling (source-cap-ledger, 2026-08-22): the
 	authored-word -> engine-value maps, the two pure converters, and the stage/
 	foreign helpers that used to be declared here. They moved VERBATIM — every
 	comment travelled with the code it explains — because they read no upvalue of

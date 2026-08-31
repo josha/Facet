@@ -443,7 +443,7 @@ VENDOR_ALLOWLIST = [
     #   "when the virtual-list extraction lands", and it landed — so the sweep it
     #   was deferring came due. Six sites were reworded rather than re-exempted,
     #   and the NEW module was never added here: an extraction inherits none of its
-    #   host's exemptions (the same rule `docs/handoff/SOURCE_CAP_LEDGER.md`'s head
+    #   host's exemptions (the same rule `tools/lune/verify/data/source-cap-ledger.md`'s head
     #   states for `check_comment_codes`, and the same way it bites — the four
     #   comments that rode out of the locked file were live the moment the split
     #   commit landed). Adding the sibling would have re-created the debt under a

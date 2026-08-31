@@ -164,7 +164,7 @@ and fix round 1; RascalRally `b9a7466`, `6a12637e`, `927b8047`.
 | REUSE-120 | Medium / medium | External-observable→Signal adapter ×3 shapes, no framework owner | **DEFERRED** — owner `the audit's own (b) recommendation`; trigger: the next change that edits two or more of the copies the audit lists | — |
 | REUSE-121 | Medium / medium | Blueprint node identity is a hand-maintained path string; 17 `PATHS` tables | **DEFERRED** — owner `the audit's own (b) recommendation`; trigger: the next change that edits two or more of the copies the audit lists | — |
 | REUSE-122 | Medium / high | Cross-surface z-order has no owner; Facet roots default to the bottom | **CONSOLIDATED** — `screen_target.Opts.displayOrder` | `1776fb14` |
-| REUSE-123 | Low / high | Three input models the framework already extracted, still live in the game | **KEPT SEPARATE** — AN EXPLICITLY AUTHORISED POLICY: the root `CLAUDE.md` keeps the legacy Sponsor modules shipped and untouched as the `UseLuauUISponsor = false` rollback arm. The audit's own follow-up (record the delete-when-the-arm-retires trigger) belongs to the migration doc. | audit (c) |
+| REUSE-123 | Low / high | Three input models the framework already extracted, still live in the game | **KEPT SEPARATE** — AN EXPLICITLY AUTHORISED POLICY: the workspace policy keeps the consuming game's legacy sponsor modules shipped and untouched as the `UseLuauUISponsor = false` rollback arm. The audit's own follow-up (record the delete-when-the-arm-retires trigger) belongs to the migration doc. | audit (c) |
 | REUSE-124 | Low / high | Boot-readiness is a game-invented viewport spin loop | **DEFERRED** — owner `the audit's own (b) recommendation`; trigger: the next change that edits two or more of the copies the audit lists | — |
 | REUSE-125 | Low / high | Studio-only preview modules ship to every production client | **DEFERRED** — owner `the audit's own (b) recommendation`; trigger: the next change that edits two or more of the copies the audit lists | — |
 
@@ -216,11 +216,11 @@ finding was held by review alone. What R5 added:
   repository, scanned WHOLE-FILE (a wrapped call defeated the first version) with
   a wrapped-call plant in the selftest and its two remaining blind spots named in
   the docstring.
-- `tools/check_brand_drift.py` — the `luau-*` theme-tag family, with the
+- `tools/check_brand_drift.py` — the retired theme-tag prefix family, with the
   toolchain names asserted NOT caught, and its `gate_manifest.luau` allowlist
   entries scoped to their two literal sentences rather than to the whole file.
 - `tools/lune/check_boundary.luau` — verified by planting that a consumer require
-  of `vendor/Fusion` or `src/core/` is refused.
+  of the removed vendored tree or `src/core/` is refused.
 - `tests/session_lifetime.spec.luau`, `tests/process_globals.spec.luau`,
   `tests/leaf_helpers.spec.luau`, `tests/text_distance.spec.luau`,
   `tests/client_host.spec.luau` — each pins an owner's contract, and each was

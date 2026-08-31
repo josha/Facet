@@ -26,7 +26,7 @@
 	stops syncing into an open Studio session and a live check then tests the code
 	baked into the place rather than the edits on disk.
 	`renderer.luau` reached 198,974 — 1,026 characters of headroom — and
-	`docs/handoff/SOURCE_CAP_LEDGER.md` had this extraction OWED BEFORE the next
+	`tools/lune/verify/data/source-cap-ledger.md` had this extraction OWED BEFORE the next
 	change of any size. The prescription there was "rect_pass-shaped: lift the
 	RECT WRITE half of solveAndApply"; the rect diff-and-write loop itself had
 	already left in `rect_pass.luau` (2026-08-17, one day before that row was

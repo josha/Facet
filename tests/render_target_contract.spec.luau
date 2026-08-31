@@ -216,7 +216,7 @@ end)
 -- at load, and check_boundary forbids requiring it outside client code), so its
 -- view is read from source exactly as check_prop_parity reads it — `adapter_source
 -- .live()`, since the whole `prop == "<name>"` switch is `screen_props.luau` now
--- (SOURCE_CAP_LEDGER, 2026-08-28): screen_target itself branches on no prop at all.
+-- (source-cap-ledger, 2026-08-28): screen_target itself branches on no prop at all.
 describe("adapter prop parity: the fake and the live target handle the same props", function()
 	local liveSource = adapter_source.live()
 
@@ -339,7 +339,7 @@ describe("adapter prop parity: the fake and the live target handle the same prop
 		-- the FALLBACK path (no native StyleSheets) is where the one-way write was:
 		-- the branch must key its colour off the value, not gate the whole write on
 		-- `value == "secondary"`. The `role` branch is `screen_props.luau`'s now
-		-- (SOURCE_CAP_LEDGER, 2026-08-28).
+		-- (source-cap-ledger, 2026-08-28).
 		local source = fs.readFile("src/client/screen_props.luau")
 		expect(string.find(source, 'and value == "secondary" then', 1, true)).toBe(nil)
 		expect(

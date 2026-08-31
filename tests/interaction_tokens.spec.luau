@@ -64,7 +64,7 @@ describe("interaction tokens: promotion thresholds (SF-D3)", function()
 		-- source may not carry a bare numeric threshold any more.
 		--
 		-- THE CONTROL IS TWO FILES SINCE 2026-08-18 (the row/cell builder left for
-		-- `controls/table_rows.luau` — SOURCE_CAP_LEDGER), and the threshold went
+		-- `controls/table_rows.luau` — source-cap-ledger), and the threshold went
 		-- with the gesture that reads it. Both are scanned, and the token call is
 		-- required in the PAIR rather than in a named half, so a later move of the
 		-- same seam cannot make this check pass by making its subject disappear —

@@ -18,7 +18,7 @@
 	reads the solve; that is why it could leave without taking an argument with it,
 	the same test `./placement_audit` passed one round earlier.
 
-	WHY IT IS ITS OWN FILE. `docs/handoff/SOURCE_CAP_LEDGER.md`'s solver row names
+	WHY IT IS ITS OWN FILE. `tools/lune/verify/data/source-cap-ledger.md`'s solver row names
 	this block by name as the seam BEHIND `flowPartition`/`flowPlan`, and its
 	trigger is a STATE rather than a number: the extraction PRECEDES the round's
 	own changes rather than accompanying them, which is what `renderer.luau`,

@@ -62,7 +62,7 @@ local row_actions_state = require("../input/row_actions_state")
 local table_columns = require("./table_columns")
 -- the ROW/CELL BUILDER: one row's mounted shape and the gestures that begin
 -- on it, behind the parameter object that makes it one-way (its own header,
--- and the SOURCE_CAP_LEDGER row that made this extraction a precondition)
+-- and the source-cap-ledger row that made this extraction a precondition)
 local table_rows = require("./table_rows")
 -- the hidden-column disclosure (ADAPT-18): the facts, the list and the sheet,
 -- over `src/region_expand.luau`'s own plate — one overlay system, one set of
@@ -1145,7 +1145,7 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 	local ghostY = scope:own(core:signal(0))
 	--[[ THE ROW BUILDER'S LIVE GESTURE STATE, IN ONE RECORD, and it is the ONE
 		mutable cell shared across the builder extraction (2026-08-18,
-		`docs/handoff/SOURCE_CAP_LEDGER.md`). These were two plain upvalues —
+		`tools/lune/verify/data/source-cap-ledger.md`). These were two plain upvalues —
 		`rowGesture.drag` and `rowGesture.suppressActivate` — and they are precisely what made
 		`rowBlueprint`/`rowPointerHandlers` fail the checker's mutable-upvalue test
 		for years: a moved closure READING one would have bound a nil global, and one WRITING it could
@@ -1738,7 +1738,7 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 	local cellPadding = spec.cellPadding or "s"
 
 	--[[ THE ROW/CELL BUILDER IS A SIBLING MODULE (2026-08-18) —
-		`controls/table_rows.luau`, and `docs/handoff/SOURCE_CAP_LEDGER.md`'s row
+		`controls/table_rows.luau`, and `tools/lune/verify/data/source-cap-ledger.md`'s row
 		for this file is why. `rowBlueprint` + `rowPointerHandlers` (with the ≡
 		handle's mouse-presenting wrapper, the handle-zone decline and the default
 		cell content that only they call) are ~28 KB of one row's mounted shape and
@@ -1876,7 +1876,7 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 
 	local children = {}
 	--[[ THE HEADER BAND IS A SIBLING MODULE (2026-08-18) —
-		`controls/table_header.luau`, the seam this file's own SOURCE_CAP_LEDGER row
+		`controls/table_header.luau`, the seam this file's own source-cap-ledger row
 		named and the trigger it set. The headings, their sort marks, the resize
 		divider and the tap that divider does not claim all live there; what stays
 		here is the resize MODEL they act on. `nil` for a `header = false` table,

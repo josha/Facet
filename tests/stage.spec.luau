@@ -401,7 +401,7 @@ describe("UI.Stage: property authority (d)", function()
 		-- this pin exists to catch (the same shape assertBespokePaint gives paint).
 		-- ...and it reads the WHOLE adapter, not just its largest file: the indexed
 		-- writer moved to `screen_vocabulary` with the rest of the module-level
-		-- vocabulary (SOURCE_CAP_LEDGER, 2026-08-22), and a pin that only reads
+		-- vocabulary (source-cap-ledger, 2026-08-22), and a pin that only reads
 		-- `screen_target.luau` would have gone quietly half-blind on that move.
 		local liveSource = adapter_source.live()
 		for prop in authority.seamOwnedSet() do

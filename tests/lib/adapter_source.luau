@@ -26,7 +26,7 @@
 	ADD A PART HERE WHENEVER MORE OF THE ADAPTER MOVES OUT — otherwise the pins
 	quietly stop seeing the code they name, which is the failure this file exists
 	to prevent. `screen_props` (the per-class `setProp` chain) joined 2026-08-28,
-	the SOURCE_CAP_LEDGER extraction this document's own header predicted.
+	the source-cap-ledger extraction this document's own header predicted.
 ]]
 local fs = require("@lune/fs")
 

@@ -300,7 +300,7 @@ EVIDENCE_READS = {
         "artifacts/theme-packages-and-skinning/final-neutral-dump.json",
         "artifacts/rich-skinning-v2/rows/neutral-render-dump.json",
     ],
-    "check_surface_ledger": ["artifacts/api-architecture-consistency/surface-ledger.md"],
+    "check_surface_ledger": ["tools/lune/verify/data/surface-ledger.md"],
     "prove_perf_gate": [
         "artifacts/cross-platform-proof/rows/xp-a6-regression-proof.json",
         "artifacts/phase-4/perf.json",

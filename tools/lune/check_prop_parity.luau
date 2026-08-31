@@ -86,7 +86,7 @@ local SRC_SOLVER = SRC_SOLVER_PARTS[1]
 -- THE ADAPTER'S `setProp` SWITCH, for the same reason and the same rule: views 3
 -- (binding), "style" and "presentation" all ask "does the engine adapter branch
 -- on `prop == "<name>"`?", and the 200k `Source` write-cap split moved the whole
--- per-class chain out to `screen_props.luau` (SOURCE_CAP_LEDGER, 2026-08-28) —
+-- per-class chain out to `screen_props.luau` (source-cap ledger, 2026-08-28) —
 -- `screen_target.luau` itself now branches on no prop at all. ADD A PART
 -- WHENEVER MORE OF THE ADAPTER'S setProp MOVES OUT.
 local SRC_ADAPTER_PARTS = {

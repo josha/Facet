@@ -13,7 +13,7 @@
 	comes from its own two requires — `./composition`, the PURE decision, and
 	`./expand_plate`, the plate's own chrome.
 
-	WHY IT IS ITS OWN FILE. `docs/handoff/SOURCE_CAP_LEDGER.md`'s solver row names
+	WHY IT IS ITS OWN FILE. `tools/lune/verify/data/source-cap-ledger.md`'s solver row names
 	this block by name as the next seam and states the condition on taking it:
 	*"`chosenCandidate` + the composition resolution (~12 KB) read `ctx.fitProbe`,
 	`ctx.fitCuts`, `ctx.compositions` and `ctx.metrics` AND call `measure` back, so

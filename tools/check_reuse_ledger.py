@@ -5,7 +5,7 @@
 
 WHY THIS EXISTS
 ---------------
-`artifacts/release-candidate-review/reuse-ledger.md` is acceptance row RC-10's
+`tools/lune/verify/data/reuse-ledger.md` is acceptance row RC-10's
 whole evidence, and it opens by claiming that every finding in
 `artifacts/release-candidate-review/reviews/reuse.md` is dispositioned. The
 first version of that file made the claim while carrying 16 of 125 findings, and
@@ -44,7 +44,7 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(HERE)
 AUDIT = os.path.join(REPO, "artifacts", "release-candidate-review", "reviews", "reuse.md")
-LEDGER = os.path.join(REPO, "artifacts", "release-candidate-review", "reuse-ledger.md")
+LEDGER = os.path.join(REPO, "tools", "lune", "verify", "data", "reuse-ledger.md")
 
 # the audit's authoritative enumeration: one `###` header per finding
 AUDIT_ID = re.compile(r"^### REUSE-(\d+) —", re.M)

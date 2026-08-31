@@ -24,7 +24,7 @@
 	  · THE 200,000-CHARACTER `Source` WRITE CAP. `virtual_list.luau` sat 18,972
 	    characters from it and this feature spent 14,824 of that, which would have
 	    put the file inside the warning band the ledger exists to keep it out of
-	    (`docs/handoff/SOURCE_CAP_LEDGER.md`). Over the cap a module silently stops
+	    (`tools/lune/verify/data/source-cap-ledger.md`). Over the cap a module silently stops
 	    live-syncing into an open Studio session, so a live check tests the built
 	    place rather than the edits on disk. The extraction is not tidying; it is
 	    what keeps the file checkable.

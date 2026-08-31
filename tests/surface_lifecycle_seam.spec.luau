@@ -2,7 +2,7 @@
 --[[ THE SURFACE-LIFECYCLE SEAM, MECHANISED — what keeps
 	`present/surface_lifecycle.luau` one-way.
 
-	WHY A SPEC AND NOT A COMMENT. `docs/handoff/SOURCE_CAP_LEDGER.md` records the
+	WHY A SPEC AND NOT A COMMENT. `tools/lune/verify/data/source-cap-ledger.md` records the
 	rule every extraction in this repository is judged by: a block may leave a
 	file only if it reads no mutable upvalue of its host, because otherwise the
 	move creates a require BACK and the two files become one file with a slash in

@@ -603,7 +603,7 @@ function screen_chrome.new(ctx: Context)
 
 			FIXED 2026-08-28, the round after the source-cap extraction this drift was
 			booked against landed: `screen_props.luau`'s `textSize` branch (the
-			per-class chain moved there off `screen_target.luau`, SOURCE_CAP_LEDGER)
+			per-class chain moved there off `screen_target.luau`, source-cap-ledger)
 			now calls `refitIconArt(handle)` beside the `syncTags` it already makes,
 			so a `TextSize`-only write re-runs this arithmetic itself rather than
 			waiting on the next `applyRect`. `tests/chrome_inset_yield.spec.luau`

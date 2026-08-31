@@ -18,7 +18,7 @@
 	is the FACTS and the CONTENT, and nothing else.
 
 	WHY IT IS ITS OWN FILE. The same reason `table_rows.luau` is
-	(`docs/handoff/SOURCE_CAP_LEDGER.md`): `table.luau` is the densest control in
+	(`tools/lune/verify/data/source-cap-ledger.md`): `table.luau` is the densest control in
 	the framework and the collapse paradigm is the second feature in a row to want
 	room in it. This block is one-way by the checker's own test — it reads no
 	mutable upvalue of `newTable`, every fact arrives as an argument, and it

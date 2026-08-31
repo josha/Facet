@@ -25,6 +25,9 @@ artifacts/**/*.log
 # 409 KB, once. Its SIBLING — artifacts/rich-skinning-v2/rows/neutral-render-dump.json
 # — stays ignored on purpose: that one IS regenerable, and "regenerate it" is
 # precisely what the check tells you when it drifts.
+
+# The frozen 0.6.0 flat-render baseline: immutable, byte-compared evidence that
+# cannot be regenerated; the one artifacts/ file the public tree keeps.
 !artifacts/theme-packages-and-skinning/final-neutral-dump.json
 
 # build output + editor/OS noise

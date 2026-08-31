@@ -779,7 +779,7 @@ describe("the haptics adapter plays the declared sensation through the engine", 
 			names the seam, so a mirror deleted from one of them reddens on its own. ]]
 		local body = fs.readFile("src/client/screen_target.luau")
 		-- the per-class `setProp` chain (the `enabled` branch below) is
-		-- `screen_props.luau`'s now (SOURCE_CAP_LEDGER, 2026-08-28); `mirrorToHitExpander`
+		-- `screen_props.luau`'s now (source-cap-ledger, 2026-08-28); `mirrorToHitExpander`
 		-- itself stays a screen_target host helper, called through `screen_props`'s `ctx`
 		local propsBody = fs.readFile("src/client/screen_props.luau")
 		local function calls(after: string, span: number?, source: string?): number
@@ -839,7 +839,7 @@ describe("the haptics adapter plays the declared sensation through the engine", 
 			second copy of a fact that already has one, and would still have missed
 			Grip. The assertion is INDENTATION, because in this file indentation is
 			exactly the difference between "gated on a class" and "not". ]]
-		-- the `enabled` branch is `screen_props.luau`'s now (SOURCE_CAP_LEDGER,
+		-- the `enabled` branch is `screen_props.luau`'s now (source-cap-ledger,
 		-- 2026-08-28) — it moved verbatim, at the same relative indentation, so the
 		-- tab-depth assertions below are unchanged
 		local body = fs.readFile("src/client/screen_props.luau")
@@ -872,7 +872,7 @@ describe("the haptics adapter plays the declared sensation through the engine", 
 		expect(floors).toEqual({ "Button", "Grip", "TextField", "Toggle" })
 		-- TextField is the one the TextButton-scoped mirror could never reach. The
 		-- class map it is read from is `screen_vocabulary`'s since the adapter paid
-		-- its SOURCE_CAP_LEDGER extraction (2026-08-22); the fact is unchanged.
+		-- its source-cap-ledger extraction (2026-08-22); the fact is unchanged.
 		local vocabulary = fs.readFile("src/client/screen_vocabulary.luau")
 		expect(string.find(vocabulary, 'TextField = "TextBox"', 1, true) ~= nil).toBe(true)
 	end)

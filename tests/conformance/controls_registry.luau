@@ -317,7 +317,7 @@ local registry: { Entry } = {
 			scalars it read (the six contribution handoffs plus the render
 			controller) became ONE shared record, `deps.delivery`, which is the
 			`table.luau`/`rowGesture` technique and what made the move one-way at
-			all. `docs/handoff/SOURCE_CAP_LEDGER.md`'s row for that file made the
+			all. `tools/lune/verify/data/source-cap-ledger.md`'s row for that file made the
 			extraction a PRECONDITION of the next change of any size — it was 805
 			characters from 193,000 and 7,805 from the 200,000-char `Script.Source`
 			WRITE cap.
@@ -1076,7 +1076,7 @@ local registry: { Entry } = {
 			file — which is what those proofs have always exercised, before and after
 			2026-08-18's extraction, because the row is byte-identical either way.
 
-			WHY IT LEFT `table.luau`: `docs/handoff/SOURCE_CAP_LEDGER.md`'s row for
+			WHY IT LEFT `table.luau`: `tools/lune/verify/data/source-cap-ledger.md`'s row for
 			that file made the move a PRECONDITION of the next change of any size —
 			it was 1,236 characters from the 200,000-char `Script.Source` WRITE cap. ]]
 		name = "TableRows",
@@ -1111,7 +1111,7 @@ local registry: { Entry } = {
 			bumper, the pad Activate that SELECTS a column, and the 44px divider band
 			with its forwarded tap.
 
-			WHY IT LEFT `table.luau`: `docs/handoff/SOURCE_CAP_LEDGER.md`'s row named
+			WHY IT LEFT `table.luau`: `tools/lune/verify/data/source-cap-ledger.md`'s row named
 			this exact seam and set its trigger, and the column-collapse paradigm put
 			that file back inside the 190,000-char warning band the same day. ]]
 		name = "TableHeader",

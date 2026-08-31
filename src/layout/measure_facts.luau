@@ -18,7 +18,7 @@
 	WHY IT IS ITS OWN FILE. `src/layout/solver.luau` crossed the 200,000-character
 	`Script.Source` write cap on 2026-08-14 and stopped live-syncing into an open
 	Studio session, silently (tools/check_source_size.py). It was back inside
-	2,190 characters of that cap on 2026-08-21, and `docs/handoff/SOURCE_CAP_LEDGER.md`
+	2,190 characters of that cap on 2026-08-21, and `tools/lune/verify/data/source-cap-ledger.md`
 	had already done the analysis and named this module by name: the mutual
 	recursion at the heart of that file — `measure` / `measureUncached` /
 	`contentSize` / `arrange` / `arrangeStack` — all reads the per-solve `ctx` AND

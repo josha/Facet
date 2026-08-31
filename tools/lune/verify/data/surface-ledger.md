@@ -3,13 +3,11 @@
 Every public item, classified. **Kind** and pattern names are the constitution's
 (`docs/reference/constitution.md`); **E-n** = named exception (constitution §16);
 **F-n / DOC-n / DEP / PKT-n / ENF-n / NOTE** = the disposition applied
-(`dispositions.md`). Full evidence (shipped shape, callers, lifecycle, proof
-cases, file:line) lives in the five audit fragments under `ledger/`:
-[core-state](ledger/core-state.md) · [blueprints](ledger/blueprints.md) ·
-[controls](ledger/controls.md) · [services](ledger/services.md) ·
-[seams](ledger/seams.md).
+(the stage's disposition log, archived privately). Full evidence (shipped shape,
+callers, lifecycle, proof cases, file:line) lives in the stage's audit
+fragments, archived privately beside that log.
 
-Coverage rule: every line of `baseline/public-surface-before.txt` (plus the two
+Coverage rule: every line of the recorded public-surface snapshot (plus the two
 namespaces' members and the blessed client entry points) has a row here; the
 `surface-ledger-complete` gate check verifies it mechanically.
 
@@ -46,7 +44,7 @@ namespaces' members and the blessed client entry points) has a row here; the
 | `UI.draggable` `UI.dropTarget` | modifiers (meta channel) | typed specs; one legality path | F-18 (class gate) | blueprints |
 | `UI.sensoryFeedback` | modifier (meta channel) | typed spec; closed-taxonomy verb + Readable trigger; composes (list, not last-wins) | F-18 (structural class gate, same ruling as the drag pair); plays nothing — the emission is one bus event | blueprints |
 | `UI.schema` (11 members) `UI.isReadable` `UI.PROP_DIRTY` | tooling accessors | dot module; frozen after F-6/F-34 | F-6, F-34, DOC-9 | blueprints |
-| `UI.sortedEntries` | pure authoring helper | value-first pure fn `(dict, compare?) -> {{key,value}}`; refuses an unorderable key type at construction | fusion-comparison.md §5 G-3 (2026-08-15): deliberately NOT a `UI.ForPairs` class and deliberately NOT a `Readable` — the reactive half is the caller's own `core:memo`, and `compare` orders KEYS so the determinism guarantee holds for any comparator | blueprints |
+| `UI.sortedEntries` | pure authoring helper | value-first pure fn `(dict, compare?) -> {{key,value}}`; refuses an unorderable key type at construction | the deterministic-iteration decision (2026-08-15; see api.md §sortedEntries): deliberately NOT a `UI.ForPairs` class and deliberately NOT a `Readable` — the reactive half is the caller's own `core:memo`, and `compare` orders KEYS so the determinism guarantee holds for any comparator | blueprints |
 | Shared vocabularies: transitions, `tint`, dims/sides, metric names | closed grammars | one validator, many readers | DOC-10; BP-F25 timing NOTE | blueprints |
 
 ## Composite controls
@@ -64,7 +62,7 @@ namespaces' members and the blessed client entry points) has a row here; the
 | `newStepper` | composite | control-build, value family — the reference implementation | none (clean) | controls |
 | `newSlider` | composite | control-build, value family | PKT-7 (`onInteractionClassLost`), PKT-1 | controls |
 | `newLevelPicker` | composite | control-build; one-Grip strip of `count` discrete segments (director ruling 2026-08-16). `segment` selects the leaf (`bar` \| `glyph` \| `image`) and `tint = { filled, empty }` rides the continuous-colour channel, one half each, both independently optional. Adds `diagnostics() -> { string }` to the control-build surface — a WARNING channel for a `count` too high to draw as distinct marks, never a refusal — which also rides `dump().diagnostics` | none (clean); NOTE (postdates the Step 7 F-n audit round) | controls |
-| `newRating` | composite | control-build; one-Grip strip. Since 2026-08-16 a THIN PRESET over `newLevelPicker` (count 5, `segment = "glyph"`, the star pair): same closed spec including `starSize`, same node ids, same `luauui-rating-dump/1`, and it gains `diagnostics()` and an additive `dump().segment` from the shared body | F-25 (dump/dispose proof), PKT-7 | controls |
+| `newRating` | composite | control-build; one-Grip strip. Since 2026-08-16 a THIN PRESET over `newLevelPicker` (count 5, `segment = "glyph"`, the star pair): same closed spec including `starSize`, same node ids, same `facet-rating-dump/1`, and it gains `diagnostics()` and an additive `dump().segment` from the shared body | F-25 (dump/dispose proof), PKT-7 | controls |
 | `newProgressView` | composite | control-build, non-interactive; `value` is OPTIONAL since parity round 2 §3.1 (`value = nil` = indeterminate), and `presentation` / `motionClock` join the spec — still no input contribution, so the registry row stays `inputProofs = false` | DOC-12, NOTE (parity round 2 §3.1, postdates the Step 7 F-n audit round) | controls |
 | `newLabel` | composite | control-build, non-interactive | F-23 (`semanticText` Readable) | controls |
 | `newPicker` | composite | control-build; adaptive presentation. Gained `indicator` / `axis` / `env` in navigation-and-menus D4 — the sliding selection indicator is a PROPERTY here, not a construct: `src/controls/selection_indicator.luau` is INTERNAL (no export, no dump schema of its own; its state rides `picker.dump().indicator`), and its registry row names this export. ADR-0045 (2026-08-22, register rows ADR-0040 B-20/B-21) added ONE optional key, `textSize` — a Bound type role passed straight to every segment Button, nil by default, so no existing caller's paint moved — and one BEHAVIOUR guarantee with no new surface: a pick and its `onChange` are ONE transaction, so a caller that redirects or vetoes from inside the callback publishes nothing an observer can see. Classification unchanged: `textSize` is a pass-through of a primitive prop the segments already had, and a transaction defers the flush, never a read — though `onChange` now inherits a transaction body's no-yield obligation (`src/core/contract.luau`), which api.md states | DOC-22, PKT-6, NOTE (D4, postdates the Step 7 F-n audit round); ADR-0045 | controls |
@@ -73,7 +71,7 @@ namespaces' members and the blessed client entry points) has a row here; the
 | `newTextInput` | composite | control-build, `api` variant; commented dispose deviation (endEditing-first, deliberate) | F-26 (env guard), DOC-13, PKT-1 (`disabled`) | controls |
 | `newChip` | composite | control-build, minimal — the template shape | F-2 (validation) | controls |
 | `newAsyncImage` | composite | E-8 (caller-scope; no dump/dispose) | DOC (honest entry kept), registry `dump=false` reason (ENF-1) | controls |
-| `newRowActions` | composite | control-build, `(LuauUI, core, spec)`; underscore-prefixed internal seam (`_open` `_close` `_isOpen` `_settleTo` `_closeMenu` `_menuHandle` `_pointerHandlers` `_commitFirst` `_handleActivate`) for Table's `rowActions` composition | NOTE (row-actions merge, postdates the Step 7 F-n audit round) | controls |
+| `newRowActions` | composite | control-build, `(Facet, core, spec)`; underscore-prefixed internal seam (`_open` `_close` `_isOpen` `_settleTo` `_closeMenu` `_menuHandle` `_pointerHandlers` `_commitFirst` `_handleActivate`) for Table's `rowActions` composition | NOTE (row-actions merge, postdates the Step 7 F-n audit round) | controls |
 | `pathShapes` · `pathShapes.arc` · `pathShapes.ring` · `pathShapes.needle` · `pathShapes.MAX_CONTROL_POINTS` | pure decision module | stateless dot module | NOTE (ring comment count) | controls |
 | `specGuard` · `specGuard.keySet` · `specGuard.assertKnownKeys` | pure decision module | stateless dot module | none (exported 0.10.0, ARCH-8: the strictness rule the extension playbook teaches had no public route) | root |
 

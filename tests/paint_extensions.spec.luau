@@ -422,7 +422,7 @@ describe("tint: the native-sheet claim mechanism (source contract)", function()
 
 	--[[ A BARE `shape = "circle"` NODE NEVER GETS A REAL UICorner IN FALLBACK MODE
 		(task PAINT's disclosed boundary; closed here now that
-		`screen_target.luau`'s SOURCE_CAP_LEDGER extraction makes the fix cheap).
+		`screen_target.luau`'s source-cap-ledger extraction makes the fix cheap).
 		`applySurface` is the only fallback writer that materialises `corner()`;
 		a bare node (no `surface` ever authored) never reaches it, so the fallback
 		`shape` write has nothing to re-radius and a tint painted a SQUARE fill on

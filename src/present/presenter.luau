@@ -267,7 +267,7 @@ local helpPlateLib = require("./help_plate")
 local calloutQueueLib = require("./callout_queue")
 -- the surface lifecycle helpers — the shared focus-visual sync, the per-frame
 -- refresh body and the dismissal pair. See that module's header for the seam
--- (docs/handoff/SOURCE_CAP_LEDGER.md's row for this file named it) and
+-- (tools/lune/verify/data/source-cap-ledger.md's row for this file named it) and
 -- tests/surface_lifecycle_seam.spec.luau for what mechanises it.
 local surfaceLifecycleLib = require("./surface_lifecycle")
 

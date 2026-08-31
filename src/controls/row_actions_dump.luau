@@ -2,7 +2,7 @@
 --[[ row_actions_dump — the `dump()` diagnostics snapshot, split out of
 	`row_actions.luau` (task EXTRACT2, 2026-08-29).
 
-	SOURCE_CAP_LEDGER's row_actions.luau row named this exact seam across two
+	source-cap-ledger's row_actions.luau row named this exact seam across two
 	prior recordings: "a dump builder reads state and writes nothing, so a
 	`row_actions_dump.luau` taking the tray/edge/commit records as an argument
 	list cannot require back... it needs no behavioural change, only an

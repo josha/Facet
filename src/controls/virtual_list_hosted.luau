@@ -3,7 +3,7 @@
 	gesture, the per-row engines, the shared tray overlay and the keyboard/pad
 	route, for a list built with `spec.rowActions`.
 
-	WHY IT IS ITS OWN FILE. `docs/handoff/SOURCE_CAP_LEDGER.md`'s row for
+	WHY IT IS ITS OWN FILE. `tools/lune/verify/data/source-cap-ledger.md`'s row for
 	`virtual_list.luau` named this block by name (`hostedItemExtentIn` through
 	`hostedRestoreFocusOnDisengage`, 23% of the file) and made the extraction a
 	PRECONDITION rather than a companion: "the next change of any size to this

@@ -1,6 +1,6 @@
 --!strict
 --[[ THE ADAPTER'S ENGINE VOCABULARY — the module-level, one-way half of
-	`screen_target` (SOURCE_CAP_LEDGER, taken 2026-08-22).
+	`screen_target` (source-cap-ledger, taken 2026-08-22).
 
 	WHAT IS IN HERE AND WHY IT COULD LEAVE. Everything below is declared BEFORE
 	`screen_target.new` exists, so it reads no upvalue of that closure: the

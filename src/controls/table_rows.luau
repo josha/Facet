@@ -3,7 +3,7 @@
 	shape, and the pointer gestures that shape answers to.
 
 	WHY IT IS ITS OWN FILE, AND WHY IT HAD TO BE THIS ONE.
-	`docs/handoff/SOURCE_CAP_LEDGER.md`'s row for `table.luau` named this seam
+	`tools/lune/verify/data/source-cap-ledger.md`'s row for `table.luau` named this seam
 	and made it a PRECONDITION rather than a companion — "THE NEXT CHANGE OF ANY
 	SIZE MUST BE PRECEDED BY THE BUILDER EXTRACTION, not accompanied by it". The
 	file was 1,236 characters from the 200,000-char Source WRITE cap, past which
