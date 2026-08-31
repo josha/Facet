@@ -69,7 +69,12 @@ end
 -- ---- identity ---------------------------------------------------------------
 
 print("identity")
-local scratch = `/tmp/facet-verify-selftest-{process.args[1] or tostring(os.time())}`
+-- …under TMPDIR when the environment sets one (finding 32): a hard-coded /tmp is
+-- not writable everywhere, and a run that cannot make its scratch cannot assert
+-- anything.
+local tmpRoot = process.env.TMPDIR or "/tmp"
+tmpRoot = (string.gsub(tmpRoot, "/+$", ""))
+local scratch = `{tmpRoot}/facet-verify-selftest-{process.args[1] or tostring(os.time())}`
 if fs.isDir(scratch) then
 	fs.removeDir(scratch)
 end

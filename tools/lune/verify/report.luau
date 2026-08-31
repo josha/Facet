@@ -29,8 +29,16 @@ local function seconds(ms: number): string
 	return string.format("%6.2fs", ms / 1000)
 end
 
-function report.banner(tier: string)
+function report.banner(tier: string, gatePhase: string?)
 	print("")
+	if gatePhase ~= nil then
+		print(`{BOLD}{YELLOW}=== FACET VERIFY — GATE '{gatePhase}' — ONE PHASE, NOT A FULL RUN ==={OFF}`)
+		print(`{YELLOW}    Only this phase's producers ran. Every other phase is evaluated from{OFF}`)
+		print(`{YELLOW}    whatever results the store already holds, so this is not full or{OFF}`)
+		print(`{YELLOW}    release evidence and it is written to latest-gate-{gatePhase}.json.{OFF}`)
+		print("")
+		return
+	end
 	if tier == "full" then
 		print(`{BOLD}=== FACET VERIFY — FULL TIER: every deterministic producer, every phase view ==={OFF}`)
 	elseif tier == "release" then

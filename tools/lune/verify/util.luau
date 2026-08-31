@@ -74,12 +74,18 @@ local function encodeString(s: string): string
 	return '"' .. out .. '"'
 end
 
+--[[ AN EMPTY TABLE IS AN OBJECT (finding 31).
+	Luau cannot tell `{}` from `[]` — both are the same value — and the old test
+	`n == #t` answered "array" for the empty one, so a record with an empty
+	object field encoded as `[]` and hashed differently from the same record
+	round-tripped through a decoder that gave back `{}`. An empty table encodes
+	as `{}`: every empty field in this graph's records is an object. ]]
 local function isArray(t: { [any]: any }): boolean
 	local n = 0
 	for _ in t do
 		n += 1
 	end
-	return n == #t
+	return n > 0 and n == #t
 end
 
 encodeValue = function(value: any): string

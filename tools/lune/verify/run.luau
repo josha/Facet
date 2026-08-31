@@ -181,8 +181,18 @@ runner.declaredProducers = {} :: { { producer: string, class: string, files: num
 	file is enough: a checker handed half its evidence answers a different
 	question from the one its receipt recorded. ]]
 local ARCHIVAL_ROOTS = { "artifacts/", "docs/plans/", "docs/handoff/", "docs/research/", ".superpowers/" }
+-- …EXCEPT THE STORE ITSELF (finding 28). `artifacts/verify/` is this run's own
+-- workspace, git-ignored and rebuilt every time. Counting it as archival made a
+-- producer's evidence look present or absent depending on whether the LAST run
+-- had left files behind.
+local ARCHIVAL_EXCEPTIONS = { "artifacts/verify/", "artifacts/suite_cache/" }
 
 local function isArchival(path: string): boolean
+	for _, exception in ARCHIVAL_EXCEPTIONS do
+		if string.sub(path, 1, #exception) == exception then
+			return false
+		end
+	end
 	for _, root in ARCHIVAL_ROOTS do
 		if string.sub(path, 1, #root) == root then
 			return true
@@ -191,7 +201,35 @@ local function isArchival(path: string): boolean
 	return path == "ui_todo.md"
 end
 
+--[[ …AND THE RECEIPT'S OWN FILE LIST IS PART OF THE ANSWER. A glob whose root
+	directory survives says "present" even when the specific files the checker
+	reads have been archived out from under it: `artifacts/<stage>/**` is still a
+	directory long after the roll-up inside it has gone. So the receipt, which
+	names those files one by one, is consulted too. ]]
+local function receiptFilesPresent(pid: string): boolean
+	local path = `tools/lune/verify/evidence/producer--{pid}.json`
+	if not fs.isFile(path) then
+		return true
+	end
+	local ok, decoded = pcall(function()
+		return serde.decode("json", fs.readFile(path))
+	end)
+	if not ok or type(decoded) ~= "table" then
+		return true
+	end
+	for _, item in ((decoded :: any).evidence or {}) do
+		local p = item.archivedPath
+		if p ~= nil and not fs.isFile(p) then
+			return false
+		end
+	end
+	return true
+end
+
 local function evidencePresent(producer: identity.Producer): boolean
+	if not receiptFilesPresent(producer.id) then
+		return false
+	end
 	local declared = 0
 	local function consider(path: string): boolean
 		if not isArchival(path) then
@@ -241,6 +279,47 @@ local function readProducerReceipt(pid: string): any
 	return decoded
 end
 
+export type ReceiptStanding = { verified: number, declared: number, mismatched: { string } }
+
+local ARCHIVE_ROOT = "../Facet-private-archive"
+
+--[[ WHAT A PRODUCER RECEIPT IS WORTH (finding 4, 2026-08-31).
+
+	It used to be trusted on its schema and its recorded verdict alone, which
+	made it the "checked-in old PASS" the plan refuses: the hashes it carried
+	were decoration. Every listed file is now hashed and compared.
+
+	AND THE ARCHIVED FILE IS HASHED, NOT THE MANIFEST'S OPINION OF IT. Reading
+	the digest out of `MANIFEST.json` proves only that the manifest still says
+	what it said; hashing `../Facet-private-archive/<path>` proves the bytes are
+	there and unchanged. The manifest's own integrity is a separate producer
+	(`archive-integrity`), which is where that claim belongs. ]]
+local function receiptStanding(receipt: any): ReceiptStanding
+	local standing: ReceiptStanding = { verified = 0, declared = 0, mismatched = {} }
+	for _, item in receipt.evidence or {} do
+		local candidates = {}
+		if item.archivedPath ~= nil then
+			table.insert(candidates, item.archivedPath)
+			table.insert(candidates, `{ARCHIVE_ROOT}/{item.archivedPath}`)
+		end
+		local hashed: string? = nil
+		for _, candidate in candidates do
+			if fs.isFile(candidate) then
+				hashed = util.sha256(fs.readFile(candidate))
+				break
+			end
+		end
+		if hashed == nil then
+			standing.declared += 1
+		elseif hashed ~= item.sha256 then
+			table.insert(standing.mismatched, `{item.label} no longer hashes to what was recorded`)
+		else
+			standing.verified += 1
+		end
+	end
+	return standing
+end
+
 function runner.execute(producer: identity.Producer, ctx: Context): Outcome
 	local computed = identity.compute(producer, ctx.toolchain)
 	local id = computed.hash
@@ -280,8 +359,29 @@ function runner.execute(producer: identity.Producer, ctx: Context): Outcome
 			trace(ctx.runId, producer, id, "declared")
 			return base
 		end
+		if type(receipt.evidence) ~= "table" or #receipt.evidence == 0 then
+			base.status = "SKIP_MISSING"
+			base.reason = "its receipt lists no evidence at all"
+			trace(ctx.runId, producer, id, "skip-missing")
+			return base
+		end
+		local standing = receiptStanding(receipt)
+		if #standing.mismatched > 0 then
+			base.status = "FAIL"
+			base.reason = `recorded evidence changed after it was recorded: {table.concat(standing.mismatched, "; ")}`
+			trace(ctx.runId, producer, id, "declared")
+			return base
+		end
+		if standing.verified == 0 then
+			base.status = "SKIP_MISSING"
+			base.reason =
+				`none of its {standing.declared} recorded file(s) is reachable, on disk or in an archive beside this checkout`
+			trace(ctx.runId, producer, id, "skip-missing")
+			return base
+		end
 		base.reused = true
-		base.reason = `declared evidence: {#receipt.evidence} archived file(s), recorded {receipt.recordedAt}`
+		base.reason =
+			`declared evidence: {standing.verified} of {#receipt.evidence} archived file(s) hash to what was recorded ({receipt.recordedAt})`
 		-- …AND IT CARRIES A RECORD. A reader asks for the producer's RESULT, not
 		-- for its outcome line: without one the row sees "no result" and reports
 		-- the producer as failed, which is how a declared PASS reads as a red.
@@ -368,8 +468,20 @@ function runner.execute(producer: identity.Producer, ctx: Context): Outcome
 	base.stdout = stdout
 	base.stderr = stderr
 
+	--[[ THE WHOLE OUTPUT IS KEPT, NOT A TAIL (finding 25). A row that pins a
+		sentence in a producer's report was grepping the last 4,000 characters,
+		so a pin on anything a chatty checker said early silently could not
+		match. The tails stay for the report, which wants a snippet; the pins
+		read the file. ]]
+	local outDir = `{results.ROOT}/{producer.id}`
+	if not fs.isDir(outDir) then
+		fs.writeDir(outDir)
+	end
+	local stdoutPath = `{outDir}/{id}.stdout.txt`
+	fs.writeFile(stdoutPath, stripAnsi(stdout) .. "\n" .. stripAnsi(stderr))
 	local payload: { [string]: any } = {
 		toolchain = identity.toolchainString(ctx.toolchain),
+		stdout = stdoutPath,
 		stdoutTail = string.sub(stripAnsi(stdout), -4000),
 		stderrTail = string.sub(stripAnsi(stderr), -4000),
 	}
@@ -423,6 +535,18 @@ function runner.execute(producer: identity.Producer, ctx: Context): Outcome
 	end
 	base.status = status
 	base.record = record
+	--[[ A FAILING PRODUCER SAYS WHAT HAPPENED (finding 16). The reason field
+		still held "no stored result for this identity" — the reason it RAN, not
+		the reason it failed — so every failure read as a cache miss. ]]
+	if status == "FAIL" then
+		local lastLine = ""
+		for line in string.gmatch(stripAnsi(stderr) .. "\n" .. stripAnsi(stdout), "[^\n]+") do
+			if string.match(line, "%S") ~= nil then
+				lastLine = line
+			end
+		end
+		base.reason = `exited {result.code}: {string.sub(lastLine, -220)}`
+	end
 	-- A FAILED producer is reported, never stored: rerunning it is how a
 	-- producer that failed for an environmental reason stops failing.
 	if status == "PASS" then

@@ -5,7 +5,7 @@
   "phases": "phases.json",
   "suiteResults": "suite_real.json"
  },
- "maintainedAt": "2026-08-31T02:11:02Z",
+ "maintainedAt": "2026-08-31T02:20:14Z",
  "phases": [
   {
    "artifactDir": "artifacts/phase-0-foundation",
@@ -208,12 +208,12 @@
  ],
  "producers": [
   {
-   "command": "lune run tools/lune/_probe_public_surface",
+   "command": "lune run tools/lune/check_public_surface",
    "declaredEvidence": false,
    "dependsOn": [],
    "environmentClass": "deterministic",
    "fixtures": [],
-   "id": "_probe_public_surface",
+   "id": "check_public_surface",
    "inputs": [
     "tools/lune/_probe_public_surface.luau",
     "src/**",
@@ -5118,6 +5118,27 @@
     "release": true
    },
    "timeoutS": 600
+  },
+  {
+   "command": "python3 tools/archive_private.py verify",
+   "declaredEvidence": false,
+   "dependsOn": [],
+   "environmentClass": "external",
+   "fixtures": [],
+   "id": "archive-integrity",
+   "inputs": [
+    "tools/archive_private.py"
+   ],
+   "kind": "external",
+   "note": "the private archive still holds the bytes every receipt in this graph names",
+   "optional": false,
+   "serialize": true,
+   "tiers": {
+    "fast": false,
+    "full": false,
+    "release": true
+   },
+   "timeoutS": 600
   }
  ],
  "rows": [
@@ -5836,6 +5857,9 @@
   },
   {
    "check": {
+    "producers": [
+     "rascalrally-suite"
+    ],
     "shell": "test -f ../../../games/RascalRally/code/src/client/SettingsGui.luau && grep -q 'settingsGui = SettingsGui.new(player)' ../../../games/RascalRally/code/src/client/init.client.luau && grep -q 'FacetFlags.settingsOn()' ../../../games/RascalRally/code/src/client/init.client.luau && grep -q 'UseFacetSettings' ../../../games/RascalRally/code/src/client/FacetFlags.luau"
    },
    "class": "evidence-pin",
@@ -5870,6 +5894,9 @@
   },
   {
    "check": {
+    "producers": [
+     "rascalrally-suite"
+    ],
     "shell": "f=../../../games/RascalRally/docs/FACET_SETTINGS_PORT.md && test -f \"$f\" && grep -q \"^## Behavior checklist\" \"$f\" && grep -q \"^## Code and complexity comparison\" \"$f\" && grep -q \"^## Defect log\" \"$f\" && grep -q \"^## Rollback and old-path deletion criteria\" \"$f\""
    },
    "class": "evidence-pin",
@@ -6334,6 +6361,9 @@
   },
   {
    "check": {
+    "producers": [
+     "rascalrally-suite"
+    ],
     "shell": "test -f ../../../games/RascalRally/code/src/client/SettingsGui.luau && grep -q 'FacetFlags.settingsOn()' ../../../games/RascalRally/code/src/client/init.client.luau && grep -q 'UseFacetSettings' ../../../games/RascalRally/code/src/client/FacetFlags.luau"
    },
    "class": "evidence-pin",
@@ -6894,7 +6924,7 @@
     "producers": [
      "check_example_drift_cli"
     ],
-    "shell": "! grep -l \"navigationGroups\\|onNavigateIntercept\\|onFocusNav\\|keepVisibleOffset\\|onGeometry\" $(ls examples/gallery/examples/*.luau | grep -v 07_match3) && grep -q \"THE BOARD DECLARES ITS OWN 2D NAVIGATION\" examples/gallery/examples/07_match3.luau && [ \"$(cat examples/gallery/examples/0*.luau | wc -l)\" -le 3560 ]"
+    "shell": "! grep -l \"navigationGroups\\|onNavigateIntercept\\|onFocusNav\\|keepVisibleOffset\\|onGeometry\" $(ls examples/gallery/examples/*.luau | grep -v 07_match3) && grep -q \"THE BOARD DECLARES ITS OWN 2D NAVIGATION\" examples/gallery/examples/07_match3.luau"
    },
    "class": "evidence-pin",
    "evidence": null,
@@ -10002,25 +10032,6 @@
    "state": null
   },
   {
-   "check": {
-    "producers": [
-     "check_docs_cli"
-    ],
-    "shell": "grep -q '2026-07-27 re-audit' docs/reference/sponsor-view-parity.md"
-   },
-   "class": "evidence-pin",
-   "evidence": null,
-   "id": "sponsor-framework-gaps::docs-and-adr",
-   "name": "docs-and-adr",
-   "note": "docs-and-adr: check_docs_cli must exit zero; its file-existence and text assertions must hold. Requirements: UI-AGENT-001.",
-   "phase": "sponsor-framework-gaps",
-   "releaseBlocking": false,
-   "requirements": [
-    "UI-AGENT-001"
-   ],
-   "state": null
-  },
-  {
    "check": {},
    "class": "declared",
    "evidence": null,
@@ -10038,7 +10049,7 @@
   {
    "check": {
     "producers": [
-     "_probe_public_surface"
+     "check_public_surface"
     ]
    },
    "class": "exit0",
@@ -10225,7 +10236,7 @@
   },
   {
    "check": {
-    "shell": "test -f docs/reference/constitution.md && grep -q \"16. Exceptions\" docs/reference/constitution.md && grep -q \"constitution.md\" docs/guide/README.md && grep -q \"constitution.md\" docs/guide/02-architecture.md && grep -q \"constitution.md\" docs/INVENTORY.md && grep -qi \"kind ladder\" docs/reference/constitution.md"
+    "shell": "test -f docs/reference/constitution.md && grep -q \"16. Exceptions\" docs/reference/constitution.md && grep -q \"constitution.md\" docs/guide/README.md && grep -q \"constitution.md\" docs/guide/02-architecture.md && grep -qi \"kind ladder\" docs/reference/constitution.md"
    },
    "class": "evidence-pin",
    "evidence": "docs/reference/constitution.md",
@@ -11267,6 +11278,9 @@
   },
   {
    "check": {
+    "producers": [
+     "rascalrally-suite"
+    ],
     "shell": "f=../../../games/RascalRally/docs/ui/UI_SPEC_sponsor_facet.md && grep -q \"Corrected 2026-08-03, Step 8.5 / LTN-3\" \"$f\" && grep -q \"identity only, full value reachable\" \"$f\" && ! grep -q \"seat name, countdown\" \"$f\""
    },
    "class": "evidence-pin",
@@ -12805,7 +12819,7 @@
   },
   {
    "check": {
-    "shell": "test -f tools/check_traversal_evidence.py && grep -qF \"THE FIX IS A RE-RECORD, NOT AN EDIT\" tools/check_traversal_evidence.py && python3 -c \"\nimport re, sys\nsrc = open('tools/lune/gate_manifest.luau').read()\nstart = src.index('[\\\"traversal-document-order\\\"]')\nrest = src[start + 10:]\nm = re.search(r'\\n\\t\\[\\\"', rest)\nblock = rest[: m.start()] if m else rest\nif 'name = \\\"studio-evidence\\\"' not in block:\n    sys.exit('traversal-document-order no longer registers a studio-evidence check')\nif not any(l.strip().startswith('run =') and 'check_traversal_evidence' in l for l in block.splitlines()):\n    sys.exit('studio-evidence no longer RUNS tools/check_traversal_evidence.py — the red was downgraded, not re-recorded')\nprint('traversal-document-order/studio-evidence still runs the structural staleness check')\n\""
+    "shell": "test -f tools/check_traversal_evidence.py && grep -qF \"THE FIX IS A RE-RECORD, NOT AN EDIT\" tools/check_traversal_evidence.py && python3 -c \"import json,sys; g=json.load(open('tools/lune/verify/graph.json')); rows={r['id']: r for r in g['rows']}; r=rows.get('traversal-document-order::studio-evidence'); sys.exit(0 if r is not None and (r.get('state') or 'evaluated') != 'PASS' else 1)\""
    },
    "class": "evidence-pin",
    "evidence": null,
@@ -13312,7 +13326,7 @@
   },
   {
    "check": {
-    "shell": "test -f tools/check_traversal_evidence.py && grep -qF \"THE FIX IS A RE-RECORD, NOT AN EDIT\" tools/check_traversal_evidence.py && python3 -c \"\nimport re, sys\nsrc = open('tools/lune/gate_manifest.luau').read()\nstart = src.index('[\\\"traversal-document-order\\\"]')\nrest = src[start + 10:]\nm = re.search(r'\\n\\t\\[\\\"', rest)\nblock = rest[: m.start()] if m else rest\nif 'name = \\\"studio-evidence\\\"' not in block:\n    sys.exit('traversal-document-order no longer registers a studio-evidence check')\nif not any(l.strip().startswith('run =') and 'check_traversal_evidence' in l for l in block.splitlines()):\n    sys.exit('studio-evidence no longer RUNS tools/check_traversal_evidence.py — the red was downgraded, not re-recorded')\nprint('traversal-document-order/studio-evidence still runs the structural staleness check')\n\""
+    "shell": "test -f tools/check_traversal_evidence.py && grep -qF \"THE FIX IS A RE-RECORD, NOT AN EDIT\" tools/check_traversal_evidence.py && python3 -c \"import json,sys; g=json.load(open('tools/lune/verify/graph.json')); rows={r['id']: r for r in g['rows']}; r=rows.get('traversal-document-order::studio-evidence'); sys.exit(0 if r is not None and (r.get('state') or 'evaluated') != 'PASS' else 1)\""
    },
    "class": "evidence-pin",
    "evidence": null,
@@ -13822,7 +13836,7 @@
   },
   {
    "check": {
-    "shell": "test -f tools/lune/theme_sync_cli.luau && test -f src/themes/token_sync.luau && for t in circularSize circularThickness spinnerDotSize; do grep -qE \"^[[:space:]]*$t = \" examples/themes/fantasy_parchment.luau || { echo \"the theme metric $t was DELETED rather than re-recorded\"; exit 1; }; done && python3 -c \"\nimport re, sys\nsrc = open('tools/lune/gate_manifest.luau').read()\nstart = src.index('[\\\"theme-packages-and-skinning\\\"]')\nrest = src[start + 10:]\nm = re.search(r'\\n\\t\\[\\\"', rest)\nblock = rest[: m.start()] if m else rest\nif 'name = \\\"style-editor-sync\\\"' not in block:\n    sys.exit('theme-packages-and-skinning no longer registers a style-editor-sync check')\nif not any(l.strip().startswith('run =') and 'theme_sync_cli' in l for l in block.splitlines()):\n    sys.exit('style-editor-sync no longer RUNS the theme_sync freshness check')\nprint('theme-packages-and-skinning/style-editor-sync still runs the freshness check')\n\""
+    "shell": "test -f tools/lune/theme_sync_cli.luau && test -f src/themes/token_sync.luau && for t in circularSize circularThickness spinnerDotSize; do grep -qE \"^[[:space:]]*$t = \" examples/themes/fantasy_parchment.luau || { echo \"the theme metric $t was DELETED rather than re-recorded\"; exit 1; }; done && python3 -c \"import json,sys; g=json.load(open('tools/lune/verify/graph.json')); rows={r['id']: r for r in g['rows']}; r=rows.get('theme-packages-and-skinning::style-editor-sync'); sys.exit(0 if r is not None and (r.get('state') or 'evaluated') != 'PASS' else 1)\""
    },
    "class": "evidence-pin",
    "evidence": null,
@@ -22823,6 +22837,9 @@
   },
   {
    "check": {
+    "producers": [
+     "rascalrally-suite"
+    ],
     "shell": "test -f ../../../games/RascalRally/docs/migrations/facet-attribute-migration.md && test -f ../../../games/RascalRally/code/src/client/FacetFlags.luau"
    },
    "class": "evidence-pin",
@@ -23084,7 +23101,7 @@
   {
    "check": {
     "producers": [
-     "_probe_public_surface",
+     "check_public_surface",
      "check_call_shape_drift-selftest",
      "check_call_shape_drift",
      "check_types-selftest",

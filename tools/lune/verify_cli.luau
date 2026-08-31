@@ -58,14 +58,27 @@ do
 		elseif a == "--gate" then
 			i += 1
 			gatePhase = args[i]
+			if gatePhase == nil or string.sub(gatePhase :: string, 1, 2) == "--" then
+				print("verify: --gate needs a phase name (tools/verify.sh full --gate <phase>)")
+				process.exit(2)
+			end
 		elseif a == "--explain" then
 			explain = true
 		elseif a == "--rerun" then
 			i += 1
-			rerun[args[i]] = true
+			local target = args[i]
+			if target == nil or string.sub(target :: string, 1, 2) == "--" then
+				print("verify: --rerun needs a producer id (tools/verify.sh full --rerun <producer>)")
+				process.exit(2)
+			end
+			rerun[target :: string] = true
 		elseif a == "--jobs" then
 			i += 1
-			jobs = tonumber(args[i])
+			jobs = tonumber(args[i] or "")
+			if jobs == nil or (jobs :: number) < 1 then
+				print("verify: --jobs needs a positive number")
+				process.exit(2)
+			end
 		else
 			print(`verify: unknown argument '{a}'`)
 			process.exit(2)
@@ -77,10 +90,24 @@ end
 -- Cap concurrency from measured machine capacity, as the binding plan requires:
 -- faster scheduling must not create flaky timing results.
 if jobs == nil then
-	local cores = 4
-	local probe = process.exec("sysctl", { "-n", "hw.ncpu" })
-	if probe.ok then
-		cores = tonumber(string.match(probe.stdout, "%d+") or "4") or 4
+	--[[ HOW MANY CORES, ON A MACHINE THAT MIGHT NOT BE THIS ONE (finding 27).
+		`sysctl -n hw.ncpu` answers on macOS and nowhere else, and the fallback
+		was the literal 4 — so continuous integration on Linux ran every
+		deterministic producer at a concurrency of one and nobody was told. ]]
+	local cores = 0
+	for _, command in { "sysctl -n hw.ncpu", "nproc", "getconf _NPROCESSORS_ONLN" } do
+		local probe = process.exec("bash", { "-c", command })
+		if probe.ok then
+			local found = tonumber(string.match(probe.stdout or "", "%d+") or "")
+			if found ~= nil and found > 0 then
+				cores = found
+				break
+			end
+		end
+	end
+	if cores == 0 then
+		print("verify: could not read the core count from sysctl, nproc or getconf — using 4")
+		cores = 4
 	end
 	jobs = math.max(1, math.min(4, math.floor(cores / 4)))
 end
@@ -173,12 +200,36 @@ end)
 
 -- ---- run --------------------------------------------------------------------
 
+--[[ THE RELEASE-GATE FACTS, TAKEN AT RUN START (BLOCKER A, 2026-08-31).
+	The package channel refuses to publish without evidence that a release run
+	passed over THIS tree. It used to look for an identity hash, and the two
+	sides computed different hashes over different material, so publish could
+	never succeed. The contract now is FACTS, not a shared hash: the commit this
+	ran at, whether the tree was dirty when it started, and the same normalized
+	source hash `tools/package.py` computes for the shipped file set — asked of
+	package.py itself, so the two can never drift apart. Compared field by
+	field, a mismatch says WHICH field moved. ]]
+local function shellOut(command: string): string
+	local probe = process.exec("bash", { "-c", command })
+	if not probe.ok then
+		return ""
+	end
+	return (string.gsub(probe.stdout or "", "%s+$", ""))
+end
+
+local gateCommit = shellOut("git rev-parse HEAD")
+local gateTreeDirty = shellOut("git status --porcelain") ~= ""
+local gateSourceHash = shellOut(
+	"python3 -c \"import importlib.util; s = importlib.util.spec_from_file_location('pkg', 'tools/package.py');"
+		.. ' m = importlib.util.module_from_spec(s); s.loader.exec_module(m); print(m.source_hash())"'
+)
+
 local runId = `{os.date("!%Y%m%dT%H%M%SZ")}-{math.random(1000, 9999)}`
 local startedAt = os.date("!%Y-%m-%dT%H:%M:%SZ")
 local wallStart = datetime.now().unixTimestampMillis
 local cpuStart = os.clock()
 
-report.banner(tier)
+report.banner(tier, gatePhase)
 
 if not fs.isDir("artifacts/verify") then
 	fs.writeDir("artifacts/verify")
@@ -300,6 +351,11 @@ local function checkReceipt(row: graphMod.Row): (string, string)
 	if r.row ~= row.id then
 		return "FAIL_RECOVERABLE", "evidence receipt names a different row than the one holding it"
 	end
+	--[[ A RECEIPT WITH NOTHING IN IT IS NOT EVIDENCE (finding 3, 2026-08-31).
+		An empty list verified nothing and returned PASS. ]]
+	if type(r.evidence) ~= "table" or #r.evidence == 0 then
+		return "FAIL_RECOVERABLE", `evidence receipt {path} lists no evidence at all`
+	end
 	local declared = 0
 	local mismatched: { string } = {}
 	for _, item in r.evidence do
@@ -328,8 +384,20 @@ local function checkReceipt(row: graphMod.Row): (string, string)
 		return "FAIL_RECOVERABLE",
 			`recorded evidence changed after it was recorded:\n  {table.concat(mismatched, "\n  ")}`
 	end
+	--[[ AN UNVERIFIABLE ITEM IS AN ENVIRONMENT FAILURE, NOT A PASS (finding 3).
+		The row used to return PASS with the message "N files still hash to what
+		was recorded" while having hashed nothing at all: on a fresh clone none
+		of the 698 archived paths is tracked and the private archive is not
+		beside the checkout, so every receipt row passed verifying NOTHING and
+		said so in words that claimed the opposite.
+
+		FAIL_ENVIRONMENT is the honest state — the evidence exists, this machine
+		cannot reach it — and it is non-blocking at full and blocking at release,
+		which is the same contract every other declared class has. ]]
 	if declared > 0 then
 		table.insert(declaredEvidenceRows, { row = row.id, class = r.class, items = declared })
+		return "FAIL_ENVIRONMENT",
+			`{declared} of {#r.evidence} recorded {r.class} file(s) are neither on disk nor in a private archive beside this checkout, so nothing was verified`
 	end
 	return "PASS", `{#r.evidence} recorded {r.class} file(s) still hash to what was recorded`
 end
@@ -477,11 +545,18 @@ local function evaluate(row: graphMod.Row): (string, string)
 		if record == nil then
 			return "NOT_EVALUATED", `producer '{pin.producer}' has no result to pin against`
 		end
-		local text = (record.payload.stdoutTail or "") .. (record.payload.stderrTail or "")
-		local probe = process.exec("bash", {
-			"-c",
-			`printf '%s' "$FACET_VERIFY_PIN_TEXT" | grep {pin.flags} {pin.pattern}`,
-		}, { env = { FACET_VERIFY_PIN_TEXT = text } })
+		-- the stored WHOLE output, not the 4,000-character tail (finding 25)
+		local stored = record.payload.stdout
+		local probe
+		if type(stored) == "string" and fs.isFile(stored) then
+			probe = process.exec("bash", { "-c", `grep {pin.flags} {pin.pattern} {string.format("%q", stored)}` })
+		else
+			local text = (record.payload.stdoutTail or "") .. (record.payload.stderrTail or "")
+			probe = process.exec("bash", {
+				"-c",
+				`printf '%s' "$FACET_VERIFY_PIN_TEXT" | grep {pin.flags} {pin.pattern}`,
+			}, { env = { FACET_VERIFY_PIN_TEXT = text } })
+		end
 		if not probe.ok then
 			return "FAIL_RECOVERABLE", `producer '{pin.producer}' output does not carry {pin.pattern}`
 		end
@@ -593,6 +668,7 @@ local phaseInfo = graphMod.phaseById(g)
 
 local phaseStates: { { phase: string, status: string, counts: { [string]: number } } } = {}
 local overallRowsPass = true
+local unevaluatedPhases = 0
 
 for _, phase in graphMod.phaseIds(g) do
 	local rows = rowByPhase[phase]
@@ -624,10 +700,19 @@ for _, phase in graphMod.phaseIds(g) do
 			detail = rr.detail,
 		})
 	end
-	local status = if anyUnevaluated then "NOT_EVALUATED" elseif pass then "PASS" else worst
+	--[[ AN UNEVALUATED ROW DOES NOT HIDE ITS PHASE'S FAILURES (finding 5).
+		The phase used to report NOT_EVALUATED the moment ANY row was
+		unevaluated, and the run then skipped its failures entirely — so one row
+		nobody could judge silently swallowed every red beside it. The phase's
+		own verdict still says it is incomplete, but a failure inside it counts
+		against the run exactly as it would have. ]]
+	local status = if anyUnevaluated and pass then "NOT_EVALUATED" elseif pass then "PASS" else worst
 	table.insert(phaseStates, { phase = phase, status = status, counts = counts })
-	if not anyUnevaluated and not pass then
+	if not pass then
 		overallRowsPass = false
+	end
+	if anyUnevaluated then
+		unevaluatedPhases += 1
 	end
 	-- A phase whose rows could not all be judged does NOT get a gate.json: a
 	-- stale-but-honest artifact beats a fresh-but-partial one.
@@ -763,6 +848,13 @@ table.sort(producerRecords, function(a, b)
 end)
 
 local status = if producersPass and overallRowsPass then "PASS" else "FAIL"
+--[[ …AND A FULL OR RELEASE RUN THAT COULD NOT JUDGE EVERY ROW IS INCOMPLETE.
+	Those two tiers claim to have judged the whole graph. A run that left rows
+	unevaluated has not, and saying PASS would be the claim the tier makes rather
+	than the one the evidence supports. INCOMPLETE exits non-zero. ]]
+if status == "PASS" and unevaluatedPhases > 0 and (tier == "full" or tier == "release") then
+	status = "INCOMPLETE"
+end
 if tier == "fast" or tier == "affected" then
 	status = if producersPass then "PASS_PARTIAL" else "FAIL"
 end
@@ -774,6 +866,15 @@ end
 
 local runRecord = {
 	schema = "facet-verify-run/1",
+	gateEvidence = {
+		schema = "facet-release-gate/1",
+		tier = tier,
+		status = status,
+		commit = gateCommit,
+		treeDirty = gateTreeDirty,
+		sourceHash = gateSourceHash,
+		completedAt = os.date("!%Y-%m-%dT%H:%M:%SZ"),
+	},
 	tier = tier,
 	gate = gatePhase,
 	identity = util.sha256(table.concat(identityParts, "\n")),
@@ -787,9 +888,23 @@ local runRecord = {
 	rows = rowRecords,
 	phases = phaseStates,
 }
+--[[ A GATE RUN WRITES ITS OWN FILE (finding 6).
+	`tools/gate.sh <phase>` runs one phase's producers and leaves every other
+	phase evaluated from whatever the store happens to hold — so it is not full
+	or release evidence, and writing it to `latest-full.json` overwrote a real
+	run's record with a partial one. It gets its own name and its own tier
+	string, and the package channel's gate evidence only ever comes from
+	`latest-release.json`. ]]
+local outputTier = if gatePhase ~= nil then `gate:{gatePhase}` else tier
+runRecord.tier = outputTier
+runRecord.gateEvidence.tier = outputTier
 local encoded = serde.encode("json", runRecord, true)
 fs.writeFile(`artifacts/verify/run-{runId}.json`, encoded)
-fs.writeFile(`artifacts/verify/latest-{tier}.json`, encoded)
+if gatePhase ~= nil then
+	fs.writeFile(`artifacts/verify/latest-gate-{gatePhase}.json`, encoded)
+else
+	fs.writeFile(`artifacts/verify/latest-{tier}.json`, encoded)
+end
 
 print(
 	string.format(
@@ -801,7 +916,7 @@ print(
 		string.sub(runRecord.identity, 1, 12)
 	)
 )
-print(`        artifacts/verify/latest-{tier}.json`)
+print(`        artifacts/verify/{if gatePhase ~= nil then `latest-gate-{gatePhase}` else `latest-{tier}`}.json`)
 if tier == "fast" or tier == "affected" then
 	print(`        \27[33mThis is NOT full or release evidence.\27[0m`)
 end

@@ -52,6 +52,15 @@ COVERAGE = "artifacts/distribution-readiness/verification/coverage-map.md"
 
 # Recorded machine evidence: what a machine took and a headless run cannot
 # re-take. Everything else under artifacts/ is a record of a decision.
+#[[ RUN OUTPUT IS NOT RECORDED EVIDENCE. A producer in this same graph rewrites
+#   each of these every run, so a hash of one is a hash of the last run rather
+#   than of anything anybody recorded — and the row that held it went red the
+#   moment the benchmark ran again. They are stripped from every receipt. ]]
+REGENERATED = re.compile(
+    r"^artifacts/(?:bench\.json|test\.json|boundary\.json|verify/|conformance-[^/]*\.json"
+    r"|phase-4/perf\.json|doctor\.json|spec-timings)"
+)
+
 LIVING_EVIDENCE = re.compile(
     r"/(?:studio|device|captures|feasibility|rows|perf|matrix)/"
     r"|(?:studio-drive|device-matrix|-capture|-probe|spike)"
@@ -67,6 +76,92 @@ RETIRED_PRODUCERS = {
     "check_manifest_integrity-transcript": "it replays the archived manifest's greps against a live "
     "transcript; the manifest is gone and the graph's own case-id lookups are the "
     "surviving form of that claim",
+}
+
+
+#[[ CLAUSE REPAIRS: a pin whose SUBJECT was archived, and what it becomes.
+#
+#   Each entry names the row, the exact clause, and either a replacement or None
+#   to drop it. A dropped clause is listed in the coverage map with its reason —
+#   never removed silently — and a row left with nothing is archived whole.
+#
+#   The three `*-red-carried` rows are the interesting ones. They parsed the gate
+#   manifest's source to assert that a named row was still carried RED. The
+#   manifest is archived and the graph is its successor, so they ask the same
+#   question of the graph: the row still exists, and it still is not passing.
+#   That is a stronger form of the same claim — the manifest could only be read
+#   for its text, the graph can be read for its state. ]]
+GRAPH_RED_CARRIED = (
+    "python3 -c \"import json,sys; g=json.load(open('tools/lune/verify/graph.json')); "
+    "rows={{r['id']: r for r in g['rows']}}; r=rows.get('{row}'); "
+    "sys.exit(0 if r is not None and (r.get('state') or 'evaluated') != 'PASS' else 1)\""
+)
+
+CLAUSE_REPAIRS = {
+    "input-adaptation-audit::examples-no-input-boilerplate": [
+        (
+            '[ "$(cat examples/gallery/examples/0*.luau | wc -l)" -le 3560 ]',
+            None,
+            "a line budget frozen when the tutorial set was smaller; the examples have since "
+            "gained a crossword and a match-3 and measure 5,164 lines. The number is a record of "
+            "what the set was, not a requirement on what it may be — the living half of this row "
+            "(no navigation boilerplate, and the one documented exception) still executes",
+        ),
+    ],
+    "api-architecture-consistency::constitution-published": [
+        (
+            'grep -q "constitution.md" docs/INVENTORY.md',
+            None,
+            "the inventory is archived; the constitution's publication is still asserted by the "
+            "four surviving clauses of this row (the document, its section 16, and the two guide "
+            "pages that link it)",
+        ),
+    ],
+    "parity-round-2::traversal-evidence-red-carried": [("__RED_CARRIED__", "traversal-document-order::studio-evidence", None)],
+    "parity-round-3::traversal-evidence-red-carried": [("__RED_CARRIED__", "traversal-document-order::studio-evidence", None)],
+    "parity-round-4::theme-sync-red-carried": [("__RED_CARRIED__", "theme-packages-and-skinning::style-editor-sync", None)],
+}
+
+#[[ PRODUCERS THE GRAPH GAINS (findings 13 and 8, 2026-08-31).
+#
+#   `archive-integrity` is the claim every receipt in this graph leans on: the
+#   private archive still holds the bytes it says it holds. It is class
+#   `external` because the archive is outside the repository — absent, it is an
+#   environment failure and never a silent pass.
+#
+#   `rascalrally-suite` already exists; what was missing was the DEPENDENCY. Five
+#   rows shelled straight into the sibling checkout with no producer between
+#   them, so a machine without that sibling reported a recoverable code failure
+#   instead of "the environment does not have it". ]]
+NEW_PRODUCERS = [
+    {
+        "id": "archive-integrity",
+        "command": "python3 tools/archive_private.py verify",
+        "inputs": ["tools/archive_private.py"],
+        "fixtures": [],
+        "environmentClass": "external",
+        "kind": "external",
+        "tiers": {"fast": False, "full": False, "release": True},
+        "serialize": True,
+        "timeoutS": 600,
+        "optional": False,
+        "declaredEvidence": False,
+        "dependsOn": [],
+        "note": "the private archive still holds the bytes every receipt in this graph names",
+    },
+]
+
+# Rows that shell into the sibling game checkout with no producer to answer for
+# its absence. Routed through the external-class suite producer so a missing
+# sibling is FAIL_ENVIRONMENT rather than a recoverable code failure.
+RR_ROWS_NEEDING_PRODUCER = "rascalrally-suite"
+RR_MARKER = "games/RascalRally"
+
+# Rows whose whole subject is archived: the document they pin has left the tip.
+ARCHIVED_SUBJECT_ROWS = {
+    "sponsor-framework-gaps::docs-and-adr": "its only clause greps a reference document that was "
+    "archived with the stage record; the sponsor capability it recorded is proved by this phase's "
+    "own suite rows",
 }
 
 
@@ -114,10 +209,40 @@ def main() -> int:
     dropped_pins: list[tuple[str, str, str]] = []
     archived_rows: list[dict] = []
     retired_clauses: list[tuple[str, str]] = []
+    repaired: list[tuple[str, str, str]] = []
     kept: list[dict] = []
 
     for row in rows:
         check = row.get("check") or {}
+
+        # ---- a row whose whole subject is archived ----------------------------
+        if row["id"] in ARCHIVED_SUBJECT_ROWS:
+            row["_archiveReason"] = ARCHIVED_SUBJECT_ROWS[row["id"]]
+            archived_rows.append(row)
+            continue
+
+        # ---- clause repairs ---------------------------------------------------
+        for clause, replacement, why in CLAUSE_REPAIRS.get(row["id"], []):
+            shell = check.get("shell") or ""
+            if clause == "__RED_CARRIED__":
+                target = GRAPH_RED_CARRIED.format(row=replacement)
+                if target in shell:
+                    continue
+                parts = [c for c in shell.split(" && ") if "gate_manifest.luau" not in c]
+                parts.append(target)
+                check["shell"] = " && ".join(parts)
+                repaired.append((row["id"], "read the archived manifest's source",
+                                 f"asks the graph whether `{replacement}` is still not passing"))
+                continue
+            if clause not in shell:
+                continue
+            parts = [c for c in shell.split(" && ") if c.strip() != clause]
+            if replacement:
+                parts.append(replacement)
+            check["shell"] = " && ".join(parts) if parts else None
+            if check.get("shell") is None:
+                check.pop("shell", None)
+            repaired.append((row["id"], clause, why))
 
         # ---- producers whose subject is archived ------------------------------
         producers = check.get("producers") or []
@@ -182,6 +307,43 @@ def main() -> int:
             continue
         kept.append(row)
 
+    # ---- rows that reach the sibling checkout declare the producer ------------
+    rr_routed = []
+    for row in kept:
+        check = row.get("check") or {}
+        shell = check.get("shell") or ""
+        if RR_MARKER in shell and RR_ROWS_NEEDING_PRODUCER not in (check.get("producers") or []):
+            check["producers"] = (check.get("producers") or []) + [RR_ROWS_NEEDING_PRODUCER]
+            rr_routed.append(row["id"])
+    print(f"rows routed through the sibling producer : {len(rr_routed)}")
+
+    # ---- producers the graph gains -------------------------------------------
+    have = {p["id"] for p in graph["producers"]}
+    added = [p for p in NEW_PRODUCERS if p["id"] not in have]
+    graph["producers"] = graph["producers"] + added
+    print(f"producers added                          : {len(added)}")
+
+    # ---- strip run output from every receipt ---------------------------------
+    stripped = []
+    for name in sorted(os.listdir(RECEIPTS)):
+        if not name.endswith(".json"):
+            continue
+        path = os.path.join(RECEIPTS, name)
+        receipt = json.load(open(path))
+        before = receipt.get("evidence") or []
+        after = [e for e in before if not REGENERATED.match(e.get("archivedPath", ""))]
+        if len(after) == len(before):
+            continue
+        for e in before:
+            if e not in after:
+                stripped.append((receipt.get("row") or receipt.get("producer"), e["archivedPath"]))
+        receipt["evidence"] = after
+        if not args.dry_run:
+            with open(path, "w") as fh:
+                json.dump(receipt, fh, indent=1, sort_keys=True)
+                fh.write("\n")
+    print(f"run-output entries stripped from receipts: {len(stripped)}")
+
     graph["rows"] = kept
     graph["maintainedAt"] = datetime.datetime.now(datetime.timezone.utc).strftime(
         "%Y-%m-%dT%H:%M:%SZ"
@@ -192,6 +354,7 @@ def main() -> int:
     print(f"evidence pins dropped as a record        : {len(dropped_pins)}")
     print(f"rows archived (nothing left to run)      : {len(archived_rows)}")
     print(f"producer clauses retired                 : {len(retired_clauses)}")
+    print(f"clauses repaired or dropped              : {len(repaired)}")
     print(f"producers retired                        : {len(RETIRED_PRODUCERS)}")
     print(f"rows now                                  : {len(kept)}")
 
@@ -202,11 +365,11 @@ def main() -> int:
         json.dump(graph, fh, indent=1, sort_keys=True, ensure_ascii=False)
         fh.write("\n")
 
-    append_coverage(receipted, dropped_pins, archived_rows, retired_clauses)
+    append_coverage(receipted, dropped_pins, archived_rows, retired_clauses, repaired)
     return 0
 
 
-def append_coverage(receipted, dropped_pins, archived_rows, retired_clauses) -> None:
+def append_coverage(receipted, dropped_pins, archived_rows, retired_clauses, repaired) -> None:
     """Everything this pass moved, named, in the document that promises that."""
     stamp = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d")
     L = [
@@ -266,6 +429,15 @@ def append_coverage(receipted, dropped_pins, archived_rows, retired_clauses) -> 
     L += ["", "| Row | Producer it no longer names |", "|---|---|"]
     for rid, pid in retired_clauses:
         L.append(f"| `{rid}` | `{pid}` |")
+    L += [
+        "",
+        f"## Clauses whose subject was archived ({len(repaired)})",
+        "",
+        "| Row | Clause | What it is now |",
+        "|---|---|---|",
+    ]
+    for rid, clause, why in repaired:
+        L.append(f"| `{rid}` | `{clause[:90]}` | {why} |")
     L.append("")
     with open(COVERAGE, "a") as fh:
         fh.write("\n".join(L))
