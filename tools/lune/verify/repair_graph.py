@@ -138,6 +138,32 @@ CLAUSE_REPAIRS = {
             "pages that link it)",
         ),
     ],
+    #[[ A CLAUSE THAT REDDENS WHEN ITS OWN GOAL IS REACHED.
+    #   The packet row asserted, as its last clause, that `git remote get-url
+    #   origin` STILL carried the old brand -- the packet was prepared and
+    #   verified "without mutating the remote", so the clause was there to prove
+    #   the rename had not been performed behind it. The rename has since been
+    #   performed (`12311fb`), and the clause went red for the one reason it
+    #   never should: the work it described was done. Its post-rename form is the
+    #   same claim from the other side, and the packet half of the row -- the
+    #   target URL, the rollback section, the `git ls-remote` check -- is
+    #   untouched. ]]
+    "release-candidate-review::step14-remote-packet": [
+        (
+            "git remote get-url origin | python3 -c \"import sys, importlib.util; "
+            "s = importlib.util.spec_from_file_location('g', 'tools/check_brand_drift.py'); "
+            "m = importlib.util.module_from_spec(s); s.loader.exec_module(m); "
+            "sys.exit(0 if any(m.BRAND.search(l) for l in sys.stdin) else 1)\"",
+            "git remote get-url origin | python3 -c \"import sys, importlib.util; "
+            "s = importlib.util.spec_from_file_location('g', 'tools/check_brand_drift.py'); "
+            "m = importlib.util.module_from_spec(s); s.loader.exec_module(m); "
+            "u = sys.stdin.read(); "
+            "sys.exit(0 if '/Facet' in u and not m.BRAND.search(u) else 1)\"",
+            "the remote was renamed after this row was written, so the clause that proved the "
+            "rename was still owed now reddens because it was done; it asserts the completed "
+            "rename instead",
+        ),
+    ],
     "parity-round-2::traversal-evidence-red-carried": [("__RED_CARRIED__", "traversal-document-order::studio-evidence", None)],
     "parity-round-3::traversal-evidence-red-carried": [("__RED_CARRIED__", "traversal-document-order::studio-evidence", None)],
     "parity-round-4::theme-sync-red-carried": [("__RED_CARRIED__", "theme-packages-and-skinning::style-editor-sync", None)],

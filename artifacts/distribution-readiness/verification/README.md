@@ -25,7 +25,7 @@ manifest row became), `coverage-map.md` (nothing removed without a home),
 | `tools/lune/verify/identity.luau` | a producer's identity: sha256 over LF-normalised input content ∥ command ∥ environment class ∥ toolchain pins ∥ declared fixtures |
 | `tools/lune/verify/results.luau` | the result store, and every reason it refuses one |
 | `tools/lune/verify/graph.luau` + `graph.json` | the graph: requirement → producer → result ids → phase view. `graph.json` is GENERATED — regenerate it, never hand-edit it |
-| `tools/lune/verify/convert_manifest.py` | the generator: splits each manifest row on top-level `&&` (round trip asserted byte for byte), resolves greps to case ids, maps commands to producers, writes the census and the coverage map |
+| `tools/lune/verify/repair_graph.py` | the graph's maintainer now that the manifest and its converter are archived: idempotent, every change it makes named in a constant with its reason, and everything it has ever done accumulated in `post-archival-repair.json` and rendered into `coverage-map.md` |
 | `tools/lune/verify/run.luau` | producer execution: reuse or run, parallel batch then the serialized ones in dependency order, a settle before anything that measures AND is about to run |
 | `tools/lune/verify_cli.luau` + `tools/verify.sh` | the coordinator |
 | `tools/lune/verify/selftest.luau` | the store's own negative controls — 32 checks, each refusal made on purpose |
@@ -219,3 +219,67 @@ and restores. Re-run it after the four operands are settled.
   question. It reads the manifest, which is staying for the archival step anyway,
   and it writes `gate-legacy.json` so it cannot overwrite a live verdict. The
   call to delete it belongs with the archival pass.
+
+## Post-archival repair round (2026-08-31)
+
+The stage record was archived and deleted from the tip; this is where the graph
+stands after the repair round that followed, and what each remaining red is.
+
+```
+tools/verify.sh release
+405 PASS · 28 FAIL_RECOVERABLE · 56 PENDING · 16 FAIL_ENVIRONMENT · 2 RETIRED
+270.8 s   507 rows   134 producers
+```
+
+`artifacts/verify/latest-release.json` now carries a `gateEvidence` block —
+schema, tier, status, commit, whether the tree was dirty, the packaging source
+hash, and the completion time — so a verdict read out of that file says which
+tree it is a verdict about.
+
+### The four defects the round found in the verification itself
+
+**Identity was a race with its own batch.** A producer's identity was computed
+lazily, inside its own execution, so a producer scheduled beside one that writes
+into the tree got the tree as that writer had left it. Two producers do write:
+`check_types` generates and deletes a probe under `tests/`, and its `--selftest`
+rewrites `src/init.luau` and the type witness three times and restores them.
+Measured: the suite stored its result under identity `734639f3` while the resting
+tree hashes to `740de67b`, so nothing could ever read that result back — the
+legacy bridge missed the store and paid a second full suite run beside the one
+the suite producer had just done, and the store had accumulated seven suite
+identities, none of them the tree's. Every identity is now computed once, before
+anything is spawned, and the two writers run alone. **The release run went from
+1,135.8 s to 541.1 s on that one change**, and to 270.8 s warm.
+
+**A receipt pinned to run output is a hash of the last run.** Thirteen receipts
+pinned a file that a producer in this same graph rewrites — twelve on
+`artifacts/<phase>/gate.json`, which the coordinator itself writes at the end of
+every `--gate` run, and one on `prove_perf_gate`'s own proof row. Every one of
+them went red on the run after the run that recorded it.
+
+**A receipt that names no file pins nothing.** Eighty-four entries named no
+readable file: an unexpanded loop variable (`rows/$f.json`), a bare directory
+that had been a `find` operand, and 74 entries carrying a hash and no name at
+all. Each reported a class-shaped environment failure while verifying nothing.
+Nine are expanded against what is on disk, 74 recovered by finding the file that
+hashes to what was recorded, one dropped. All 825 surviving entries now name a
+readable file and hash to it.
+
+**A clause that reddens when its own goal is reached.**
+`release-candidate-review::step14-remote-packet` asserted that the remote still
+carried the old name, because the packet was prepared without mutating it. The
+rename happened; the clause failed for the one reason it never should. It now
+asserts the completed rename.
+
+### The 28 that remain, and who owns them
+
+| Rows | Producer | Owner |
+|---:|---|---|
+| 8 | `bench` — `textinput-typing-storm` at **1.61x and 1.66x** on two consecutive runs against a 1.5x p95-normalised gate (`baseline_p95_norm` 1.050, observed 1.693) | **another workstream.** Reproducible, not load: the baseline's own header records this scene's A/A spread at 1.22x after the sample count moved to 1,500. The baseline was frozen 2026-08-16; the likeliest cause is the text-settle change that landed 2026-08-30, and the call — defect or re-freeze — belongs to whoever owns `bench/baseline.json` |
+| 4 | `check_brand_drift`, `-selftest`, `-skip-builds` | **another workstream.** One comment line in `tools/package.py` names an operating system; the check reports exactly one match and its selftest cannot run on a tree that carries any. A neutral rewrite of that line clears all four rows |
+| 16 | `prior-gates-unregressed` | **red by design** — each is red exactly because an earlier phase is, which is the row doing its job. All sixteen resolve to the two causes above |
+
+The 16 FAIL_ENVIRONMENT are all declared physical-device or human-review rows.
+The 56 PENDING are the 33 distribution-readiness registration rows awaiting the
+director, 22 rows of the example-games stage that is still in flight, and one
+human review packet.

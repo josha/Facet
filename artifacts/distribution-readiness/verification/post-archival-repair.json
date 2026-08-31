@@ -871,7 +871,13 @@
    "artifacts/swiftui-reference-app-validation/studio/fixture-axes.json"
   ]
  ],
- "repairedClauses": [],
+ "repairedClauses": [
+  [
+   "release-candidate-review::step14-remote-packet",
+   "git remote get-url origin | python3 -c \"import sys, importlib.util; s = importlib.util.spe",
+   "the remote was renamed after this row was written, so the clause that proved the rename was still owed now reddens because it was done; it asserts the completed rename instead"
+  ]
+ ],
  "retiredClauses": [],
  "schema": "facet-post-archival-repair/1",
  "serializedProducers": 2,
@@ -965,5 +971,5 @@
    "artifacts/phase-4/perf.json"
   ]
  ],
- "updatedAt": "2026-08-31T03:06:08Z"
+ "updatedAt": "2026-08-31T03:14:16Z"
 }

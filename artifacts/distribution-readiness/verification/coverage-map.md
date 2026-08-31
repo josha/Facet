@@ -506,10 +506,11 @@ Nothing executable was left once the pin went.
 | Row | Producer it no longer names |
 |---|---|
 
-## Clauses whose subject was archived (0)
+## Clauses whose subject was archived (1)
 
 | Row | Clause | What it is now |
 |---|---|---|
+| `release-candidate-review::step14-remote-packet` | `git remote get-url origin | python3 -c "import sys, importlib.util; s = importlib.util.spe` | the remote was renamed after this row was written, so the clause that proved the rename was still owed now reddens because it was done; it asserts the completed rename instead |
 
 ## Receipt pins that named no readable file (9 expanded, 74 recovered, 1 dropped)
 

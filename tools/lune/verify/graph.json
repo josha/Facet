@@ -5,7 +5,7 @@
   "phases": "phases.json",
   "suiteResults": "suite_real.json"
  },
- "maintainedAt": "2026-08-31T03:06:08Z",
+ "maintainedAt": "2026-08-31T03:14:16Z",
  "phases": [
   {
    "artifactDir": "artifacts/phase-0-foundation",
@@ -22855,7 +22855,7 @@
   },
   {
    "check": {
-    "shell": "git remote get-url origin | python3 -c \"import sys, importlib.util; s = importlib.util.spec_from_file_location('g', 'tools/check_brand_drift.py'); m = importlib.util.module_from_spec(s); s.loader.exec_module(m); sys.exit(0 if any(m.BRAND.search(l) for l in sys.stdin) else 1)\""
+    "shell": "git remote get-url origin | python3 -c \"import sys, importlib.util; s = importlib.util.spec_from_file_location('g', 'tools/check_brand_drift.py'); m = importlib.util.module_from_spec(s); s.loader.exec_module(m); u = sys.stdin.read(); sys.exit(0 if '/Facet' in u and not m.BRAND.search(u) else 1)\""
    },
    "class": "evidence-pin",
    "evidence": null,

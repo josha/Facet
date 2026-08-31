@@ -148,3 +148,34 @@ is 128 producers run once each; the difference is smaller than the invocation
 count suggests precisely because the commands were cheap and the WASTE was in
 repetition, which is what Step 13.5's own producer census concluded.
 
+
+## The live tree, after the identity snapshot (2026-08-31)
+
+The numbers above were taken in a frozen copy because six agents share this tree.
+The repair round made the live-tree number measurable too, by fixing the reason
+it was not: **a producer's identity was computed inside its own execution**, so
+one scheduled beside a producer that writes into the tree was keyed to a tree
+state that never existed again.
+
+Two producers write. `tools/check_types.py` generates and deletes
+`tests/types/_negative_probe.luau`; its `--selftest` rewrites `src/init.luau` and
+the type witness three times and restores them. Both are inside the suite's own
+input globs, and both were in the parallel batch. The suite stored its result
+under identity `734639f3` while the resting tree hashed to `740de67b` — so the
+legacy bridge missed the store and ran the suite a second time, and the result
+store had collected seven suite identities, none of which was the tree's.
+
+Identities are now computed once, for every producer, before anything is spawned;
+the two writers moved to the serial wave. Measured on the same machine, same
+tree, same day:
+
+| Release run | Wall | Suite runs paid |
+|---|---:|---:|
+| before, cold store | **1,135.8 s** | 3 |
+| after, cold store | **541.1 s** | 1 |
+| after, warm store | **270.8 s** | 0 |
+
+Nothing was made cheaper: the same work is done. The 595 seconds were two suite
+runs bought by a race, and the warm number is what reuse was always supposed to
+be worth. All three are inside the twenty-minute budget — the worst of them at
+95 %, the current one at 23 %.
