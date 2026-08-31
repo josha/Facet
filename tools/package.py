@@ -118,7 +118,7 @@ ASSET_TYPE = "Model"
 BUILD_SCHEMA = "facet-package/1"
 MANIFEST_SCHEMA = "facet-package-manifest/1"
 RECEIPT_SCHEMA = "facet-package-receipt/1"
-GATE_SCHEMA = "facet-verify-run/1"
+GATE_SCHEMA = "facet-release-gate/1"
 
 # The names that must never reach the distribution. `check_library_purity.py`
 # guards the THEME claim (studio-neutral); this guards the CONTENT claim. Kept
@@ -517,23 +517,50 @@ def latest_receipt(directory):
     return found[-1][1] if found else None
 
 
-def gate_identity(version, commit, source_hash_value):
-    """The release-gate identity this channel expects. D7's coordinator computes
-    identity over its own normalized inputs; the package channel needs a name for
-    "this exact release", and this is it. Published as `package.sh` subcommand
-    `identity` so the coordinator can stamp the same string rather than guess."""
-    material = f"facet-release-gate/1|{version}|{commit}|{source_hash_value}"
-    return hashlib.sha256(material.encode("utf-8")).hexdigest()
+def read_gate_evidence(path=None):
+    """The `gateEvidence` object out of the coordinator's release run.
 
+    THIS IS A CONTRACT WITH ANOTHER TOOL, and the first version of it was a
+    contract with nobody. It compared a locally computed
+    `sha256("facet-release-gate/1|" + version + "|" + commit + "|" + sourceHash)`
+    against an `identity` field, and no code anywhere wrote that field — so
+    `publish` could never pass, and the only reason the selftest was green is
+    that it fabricated the file it was about to read. A guard whose only passing
+    input is one a test invents is not a guard.
 
-def read_gate_evidence(path=GATE_EVIDENCE):
+    What the coordinator actually writes is `artifacts/verify/latest-release.json`
+    with a `gateEvidence` object inside it:
+
+        {"schema": "facet-release-gate/1", "tier": "release", "status": "PASS",
+         "commit": "<sha>", "treeDirty": false, "sourceHash": "<sha256>",
+         "completedAt": "<iso>"}
+
+    Everything is compared field by field against facts this tool derives itself,
+    so there is no shared hash recipe for the two sides to disagree about.
+
+    Absent, unreadable, or carrying no `gateEvidence` object all read the same
+    way — as missing — because all three mean the same thing: nothing here
+    authorizes a publish. `status` reports which of the three it is; `decide` only
+    needs to know it cannot proceed.
+
+    `path` DEFAULTS AT CALL TIME, not at definition time. Writing
+    `path=GATE_EVIDENCE` in the signature binds the module global ONCE, when the
+    function is defined, so a caller that later redirects `GATE_EVIDENCE` — the
+    selftest does exactly that — silently keeps reading the original file. That
+    is how the receipt assertion below first came back with every gate field
+    `None`: the override looked like it was working and was not."""
+    path = path or GATE_EVIDENCE
     if not os.path.isfile(path):
         return None
-    with open(path) as handle:
-        try:
-            return json.load(handle)
-        except ValueError:
-            return {"schema": "unreadable"}
+    try:
+        with open(path) as handle:
+            document = json.load(handle)
+    except ValueError:
+        return None
+    if not isinstance(document, dict):
+        return None
+    evidence = document.get("gateEvidence")
+    return evidence if isinstance(evidence, dict) else None
 
 
 # ── the guards, as one pure function ─────────────────────────────────────────
@@ -612,20 +639,57 @@ def decide(facts):
         elif arg_asset and str(arg_asset) != str(config_asset):
             refuse("asset-id-mismatch", f"--asset-id {arg_asset} != configured {config_asset}")
 
+    #[[ THE RELEASE-GATE EVIDENCE, compared field by field.
+    #
+    #   Every comparison below is against a fact this tool derived itself, so the
+    #   two sides never have to agree about a hash recipe — which is exactly how
+    #   the previous version managed to be unsatisfiable. The checks are
+    #   INDEPENDENT rather than chained, so a single wrong field names itself
+    #   instead of hiding behind the first one.
     gate = facts.get("gate")
     if not gate:
         refuse(
             "gate-evidence-missing",
-            f"no release-gate evidence at {shown(GATE_EVIDENCE)}; the release tier must run first",
+            f"no usable release-gate evidence at {shown(GATE_EVIDENCE)} — the file must exist and carry a "
+            f"`gateEvidence` object; the release tier must run first",
         )
-    elif gate.get("status") != "PASS":
-        refuse("gate-evidence-failed", f"release-gate evidence status is {gate.get('status')!r}, not PASS")
-    elif gate.get("identity") != facts.get("current_identity"):
-        refuse(
-            "gate-identity-mismatch",
-            f"release-gate evidence is for identity {gate.get('identity')}, this release is "
-            f"{facts.get('current_identity')}",
-        )
+    else:
+        if gate.get("schema") != GATE_SCHEMA:
+            refuse(
+                "gate-evidence-schema",
+                f"release-gate evidence declares schema {gate.get('schema')!r}, not {GATE_SCHEMA!r}",
+            )
+        if gate.get("tier") != "release":
+            refuse(
+                "gate-evidence-tier",
+                f"release-gate evidence is for tier {gate.get('tier')!r}; only a `release` run authorizes a publish",
+            )
+        if gate.get("status") != "PASS":
+            refuse("gate-evidence-failed", f"release-gate evidence status is {gate.get('status')!r}, not PASS")
+        if gate.get("treeDirty") is not False:
+            refuse(
+                "gate-evidence-dirty",
+                f"release-gate evidence records treeDirty={gate.get('treeDirty')!r}; the gate must have run on a "
+                f"clean tree for its result to describe this commit",
+            )
+        #[[ ...and the commit, against `--commit` as the contract says. It is
+        #   compared only when `--commit` was given AND already equals HEAD:
+        #   otherwise `commit-mismatch` above already owns that failure, and
+        #   reporting the same wrong argument twice tells the reader nothing new.
+        target_commit = facts.get("arg_commit")
+        if target_commit and target_commit == facts.get("head_commit"):
+            if gate.get("commit") != target_commit:
+                refuse(
+                    "gate-evidence-commit",
+                    f"release-gate evidence attests commit {gate.get('commit')}, not the {target_commit} "
+                    f"being released",
+                )
+        if gate.get("sourceHash") != facts.get("source_hash"):
+            refuse(
+                "gate-evidence-source",
+                f"release-gate evidence attests source hash {gate.get('sourceHash')}, but this tree hashes "
+                f"{facts.get('source_hash')}",
+            )
 
     receipt = facts.get("latest_receipt")
     if receipt and receipt.get("operationPath") and not receipt.get("assetRevision"):
@@ -773,8 +837,6 @@ def gather_facts(op, args, config, receipts_dir, transport=None, api_key=None):
     version = read_version()
     commit = head_commit()
     source_hash_value = source_hash()
-    identity = gate_identity(version, commit, source_hash_value)
-
     build_model(quiet=True)
     fresh = write_manifest(DEFAULT_XML, DEFAULT_MODEL, DEFAULT_MANIFEST)
 
@@ -806,7 +868,6 @@ def gather_facts(op, args, config, receipts_dir, transport=None, api_key=None):
         "config_asset_id": config_asset,
         "arg_asset_id": getattr(args, "asset_id", None),
         "gate": read_gate_evidence(),
-        "current_identity": identity,
         "latest_receipt": latest_receipt(receipts_dir),
         "cloud_revision": cloud_revision,
         "moderation": moderation,
@@ -830,8 +891,12 @@ def print_verdicts(facts, refusals):
         ("publish only when an asset id exists", "asset-id-missing"),
         ("asset id argument matches config", "asset-id-mismatch"),
         ("release-gate evidence present", "gate-evidence-missing"),
+        ("release-gate evidence schema", "gate-evidence-schema"),
+        ("release-gate evidence is a release run", "gate-evidence-tier"),
         ("release-gate evidence green", "gate-evidence-failed"),
-        ("release-gate evidence at this identity", "gate-identity-mismatch"),
+        ("release-gate ran on a clean tree", "gate-evidence-dirty"),
+        ("release-gate evidence attests this commit", "gate-evidence-commit"),
+        ("release-gate evidence attests this source", "gate-evidence-source"),
         ("no operation in flight", "operation-in-flight"),
         ("cloud revision not ahead of the receipts", "cloud-revision-newer"),
         ("VERSION advanced under semver", "version-not-advanced"),
@@ -899,7 +964,14 @@ def write_receipt(receipts_dir, config, facts, *, operation_path, asset_revision
         "actor": actor,
         "route": config.get("route"),
         "toolchain": toolchain(),
-        "gateRun": {"identity": (gate or {}).get("identity"), "status": (gate or {}).get("status")},
+        #[[ THE EVIDENCE THAT AUTHORIZED THIS PUBLISH, copied whole. The field was
+        #   `{identity, status}` when identity was a hash this tool computed for
+        #   itself; now that the gate attests real facts, the receipt keeps them,
+        #   so a later reader can check the release against the run that cleared it.
+        "gateRun": {
+            key: (gate or {}).get(key)
+            for key in ("schema", "tier", "status", "commit", "treeDirty", "sourceHash", "completedAt")
+        },
         "studio_verification": {"status": "pending", "by": None, "date": None, "notes": None},
     }
     if extra:
@@ -1016,13 +1088,20 @@ def cmd_status(args):
         print("  changelog        (CHANGELOG.md not present yet)")
 
     gate = read_gate_evidence()
-    identity = gate_identity(manifest["version"], head_commit(), manifest["sourceHash"])
-    print(f"  release identity {identity}")
     if gate is None:
-        print(f"  gate evidence    absent ({shown(GATE_EVIDENCE)})")
+        detail = "absent" if not os.path.isfile(GATE_EVIDENCE) else "present but carries no readable gateEvidence"
+        print(f"  gate evidence    {detail} ({shown(GATE_EVIDENCE)})")
     else:
-        match = "matches" if gate.get("identity") == identity else "IS FOR A DIFFERENT IDENTITY"
-        print(f"  gate evidence    status {gate.get('status')}, identity {match}")
+        agrees = (
+            gate.get("schema") == GATE_SCHEMA
+            and gate.get("tier") == "release"
+            and gate.get("status") == "PASS"
+            and gate.get("treeDirty") is False
+            and gate.get("commit") == head_commit()
+            and gate.get("sourceHash") == manifest["sourceHash"]
+        )
+        print(f"  gate evidence    {gate.get('tier')}/{gate.get('status')} at {str(gate.get('commit'))[:7]}, "
+              f"{'attests this tree' if agrees else 'DOES NOT attest this tree'}")
     return 0
 
 
@@ -1092,7 +1171,7 @@ def _release_preamble(op, args, transport, decider=decide):
     refusals = decider(facts)
     print(f"package {op} (route {route}, {'CONFIRMED' if args.confirm else 'DRY RUN'})")
     print(f"  version {facts['source_version']}  commit {facts['head_commit'][:7]}  "
-          f"sourceHash {facts['source_hash'][:12]}  identity {facts['current_identity'][:12]}")
+          f"sourceHash {facts['source_hash'][:12]}")
     return config, route, api_key, facts, refusals
 
 
@@ -1370,28 +1449,44 @@ def cmd_stamp(args):
     return 0
 
 
-def cmd_identity(args):
-    print(gate_identity(read_version(), head_commit(), source_hash()))
-    return 0
-
-
 # ── selftest ─────────────────────────────────────────────────────────────────
+
+
+GOOD_COMMIT = "c" * 40
+GOOD_SOURCE_HASH = "s" * 64
+
+
+def good_gate(**overrides):
+    """A release-gate evidence object that agrees with `good_facts` in every
+    field. Each mutation case below overrides exactly ONE of them, which is the
+    only way to show that a wrong field names itself rather than hiding behind
+    whichever check happens to run first."""
+    gate = {
+        "schema": GATE_SCHEMA,
+        "tier": "release",
+        "status": "PASS",
+        "commit": GOOD_COMMIT,
+        "treeDirty": False,
+        "sourceHash": GOOD_SOURCE_HASH,
+        "completedAt": "2026-08-30T00:00:00Z",
+    }
+    gate.update(overrides)
+    return gate
 
 
 def good_facts(op):
     """An all-green fact set. Every refusal test below mutates exactly ONE key of
     this, so a refusal that fires for a second reason is a failed test rather than
     a passing one."""
-    identity = "i" * 64
     base = {
         "op": op,
         "api_key_present": True,
         "git_dirty": False,
-        "arg_commit": "c" * 40,
-        "head_commit": "c" * 40,
+        "arg_commit": GOOD_COMMIT,
+        "head_commit": GOOD_COMMIT,
         "arg_version": "0.11.0",
         "source_version": "0.11.0",
-        "source_hash": "s" * 64,
+        "source_hash": GOOD_SOURCE_HASH,
         "fresh_build_hash": "b" * 64,
         "manifest_hash": "b" * 64,
         "config_creator": {"type": "user", "id": 1234},
@@ -1399,8 +1494,7 @@ def good_facts(op):
         "arg_creator_id": 1234,
         "config_asset_id": None,
         "arg_asset_id": None,
-        "gate": {"schema": GATE_SCHEMA, "status": "PASS", "identity": identity},
-        "current_identity": identity,
+        "gate": good_gate(),
         "latest_receipt": None,
         "cloud_revision": None,
         "moderation": None,
@@ -1440,8 +1534,12 @@ REFUSAL_CASES = [
     ("asset-id-missing", "publish", {"config_asset_id": None, "arg_asset_id": None, "cloud_revision": None}),
     ("asset-id-mismatch", "publish", {"arg_asset_id": 555}),
     ("gate-evidence-missing", "create", {"gate": None}),
-    ("gate-evidence-failed", "create", {"gate": {"status": "FAIL", "identity": "i" * 64}}),
-    ("gate-identity-mismatch", "create", {"gate": {"status": "PASS", "identity": "z" * 64}}),
+    ("gate-evidence-schema", "create", {"gate": good_gate(schema="some-other-schema/9")}),
+    ("gate-evidence-tier", "create", {"gate": good_gate(tier="fast")}),
+    ("gate-evidence-failed", "create", {"gate": good_gate(status="FAIL")}),
+    ("gate-evidence-dirty", "create", {"gate": good_gate(treeDirty=True)}),
+    ("gate-evidence-commit", "create", {"gate": good_gate(commit="d" * 40)}),
+    ("gate-evidence-source", "create", {"gate": good_gate(sourceHash="x" * 64)}),
     (
         "operation-in-flight",
         "publish",
@@ -1524,8 +1622,12 @@ def selftest():
         "asset-id-missing",
         "asset-id-mismatch",
         "gate-evidence-missing",
+        "gate-evidence-schema",
+        "gate-evidence-tier",
         "gate-evidence-failed",
-        "gate-identity-mismatch",
+        "gate-evidence-dirty",
+        "gate-evidence-commit",
+        "gate-evidence-source",
         "operation-in-flight",
         "cloud-revision-newer",
         "version-not-advanced",
@@ -1575,19 +1677,77 @@ def _selftest_transport():
     real_gate, real_key = GATE_EVIDENCE, os.environ.get("ROBLOX_API_KEY")
     try:
         version, commit = read_version(), head_commit()
+
+        #[[ THE COORDINATOR'S DOCUMENT, written the way the coordinator writes it:
+        #   a verify-run envelope with the `gateEvidence` object inside. Only the
+        #   inner object is this tool's business, and writing the envelope around
+        #   it is what keeps the reader honest about digging one level down. ]]
         gate_path = os.path.join(work, "latest-release.json")
-        with open(gate_path, "w") as handle:
-            json.dump(
-                {
-                    "schema": GATE_SCHEMA,
-                    "tier": "release",
-                    "status": "PASS",
-                    "identity": gate_identity(version, commit, source_hash()),
-                },
-                handle,
-            )
+        gate_document = {
+            "schema": "facet-verify-run/1",
+            "tier": "release",
+            "status": "PASS",
+            "completedAt": now_iso(),
+            "gateEvidence": {
+                "schema": GATE_SCHEMA,
+                "tier": "release",
+                "status": "PASS",
+                "commit": commit,
+                "treeDirty": False,
+                "sourceHash": source_hash(),
+                "completedAt": now_iso(),
+            },
+        }
+        write_atomic(gate_path, json.dumps(gate_document, indent=2))
+
+        #[[ THE READER'S OWN CONTRACT, pinned three ways. This is the check the
+        #   old code most needed and did not have: the guard it fed compared
+        #   against a field nothing wrote, and no test ever read a file the
+        #   coordinator would actually produce. ]]
+        empty_path = os.path.join(work, "no-evidence.json")
+        write_atomic(empty_path, json.dumps({"schema": "facet-verify-run/1", "status": "PASS"}))
+        broken_path = os.path.join(work, "broken.json")
+        write_atomic(broken_path, "{ this is not json")
+        reader_cases = [
+            ("an absent file", os.path.join(work, "nothing-here.json"), None),
+            ("a file with no gateEvidence object", empty_path, None),
+            ("an unreadable file", broken_path, None),
+            ("the coordinator's document", gate_path, gate_document["gateEvidence"]),
+        ]
+        for label, path, want in reader_cases:
+            got = read_gate_evidence(path)
+            if got == want:
+                print(f"  [ ok  ] read_gate_evidence: {label} -> {'the evidence object' if want else 'missing'}")
+            else:
+                ok = False
+                print(f"  [WRONG] read_gate_evidence: {label} -> {got!r}")
+
         GATE_EVIDENCE = gate_path
         os.environ["ROBLOX_API_KEY"] = "selftest-key-never-sent"
+
+        #[[ SATISFIABILITY, which is the whole finding. The previous contract
+        #   compared a locally invented hash against a field nothing wrote, so no
+        #   real file could ever clear the gate — `publish` was unreachable and
+        #   the suite did not notice because the only evidence it ever read was
+        #   evidence it had just made up to match its own recipe. This asserts the
+        #   opposite property: evidence written the way the COORDINATOR writes it,
+        #   against THIS repository's real commit and source hash, leaves no gate
+        #   refusal at all. If the contract drifts apart again, this goes red. ]]
+        satisfiable = decide(
+            dict(
+                good_facts("publish"),
+                arg_commit=commit,
+                head_commit=commit,
+                source_hash=source_hash(),
+                gate=read_gate_evidence(gate_path),
+            )
+        )
+        gate_refusals = [r.code for r in satisfiable if r.code.startswith("gate-")]
+        if not gate_refusals:
+            print("  [ ok  ] real coordinator-shaped evidence clears every gate check (the guard is satisfiable)")
+        else:
+            ok = False
+            print(f"  [WRONG] coordinator-shaped evidence still refused: {gate_refusals}")
 
         def base_config(asset_id):
             config = load_config(DEFAULT_CONFIG)
@@ -1618,7 +1778,14 @@ def _selftest_transport():
         guard_config = os.path.join(work, "guarded.json")
         save_config(guard_config, base_config(None))
         silent = FakeTransport([])
+        #[[ POINTED AT A GATE FILE THAT DOES NOT EXIST, deliberately. Pass A used
+        #   to lean on the working tree being dirty, which is true on a developer's
+        #   desk and false in a release worktree — a test that passes for a reason
+        #   the environment supplies is a test that stops meaning anything the day
+        #   the environment changes. Missing gate evidence refuses everywhere. ]]
+        GATE_EVIDENCE = os.path.join(work, "no-such-gate.json")
         code = cmd_create(args_for(guard_config, os.path.join(work, "guarded-receipts")), transport=silent)
+        GATE_EVIDENCE = gate_path
         if code == 1 and not silent.calls:
             print("  [ ok  ] create --confirm under the real guards: refused, zero transport calls")
         elif code == 0 and not silent.calls:
@@ -1699,6 +1866,12 @@ def _selftest_transport():
             ok = False
             print(f"  [WRONG] publish against the fake: exit {code}, receipts {[p for p, _ in written]}")
         if written:
+            recorded_gate = written[-1][1].get("gateRun") or {}
+            if recorded_gate.get("status") == "PASS" and recorded_gate.get("commit") == commit:
+                print("  [ ok  ] the receipt records the gate evidence that authorized it")
+            else:
+                ok = False
+                print(f"  [WRONG] receipt gateRun reads {recorded_gate!r}")
             with open(written[-1][0]) as handle:
                 body = handle.read()
             if "selftest-key-never-sent" in body:
@@ -1771,8 +1944,6 @@ def main():
     stamp_parser.add_argument("--by")
     stamp_parser.add_argument("--notes")
     stamp_parser.set_defaults(func=cmd_stamp)
-
-    sub.add_parser("identity", help="print this release's gate identity").set_defaults(func=cmd_identity)
 
     args = parser.parse_args()
     if args.selftest:

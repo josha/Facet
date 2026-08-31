@@ -26,7 +26,6 @@ tools/package.sh create     mint the asset       (DRY RUN unless --confirm)
 tools/package.sh publish    push a new revision  (DRY RUN unless --confirm)
 tools/package.sh rollback   print both rollback procedures; never uploads
 tools/package.sh stamp      record a Studio verification on a receipt
-tools/package.sh identity   print this release's gate identity
 ```
 
 `tools/package.sh` is a wrapper; the program is `tools/package.py`, which has no
@@ -120,8 +119,8 @@ referents, and it is the number a human can reason about when a build drifts.
 Rebuilds, then reports version, commit, source hash and artifact hash against the
 newest receipt: whether the source has drifted since the last publish, whether
 the tree is dirty, whether `VERSION` advanced under semver, whether `CHANGELOG.md`
-mentions the version, this release's gate identity, and whether the release-gate
-evidence matches it.
+mentions the version, and whether the release-gate evidence attests this exact
+tree.
 
 ### verify
 
@@ -209,9 +208,13 @@ that runs in milliseconds and never touches a network
 | `asset-id-present` | `create` when an `assetId` already exists |
 | `asset-id-missing` | `publish` when no `assetId` exists |
 | `asset-id-mismatch` | `--asset-id` disagrees with the config |
-| `gate-evidence-missing` | `artifacts/verify/latest-release.json` is absent |
-| `gate-evidence-failed` | that file's `status` is not `PASS` |
-| `gate-identity-mismatch` | that file's `identity` is not this release's identity |
+| `gate-evidence-missing` | `artifacts/verify/latest-release.json` is absent, unreadable, or carries no `gateEvidence` |
+| `gate-evidence-schema` | the evidence declares a different schema |
+| `gate-evidence-tier` | the evidence is not from a `release` run |
+| `gate-evidence-failed` | the evidence's `status` is not `PASS` |
+| `gate-evidence-dirty` | the evidence records `treeDirty: true` |
+| `gate-evidence-commit` | the evidence attests a different commit |
+| `gate-evidence-source` | the evidence attests a different source hash |
 | `operation-in-flight` | the newest receipt records an `operationPath` with no `assetRevision` |
 | `cloud-revision-newer` | the asset's cloud revision differs from the newest receipt's |
 | `version-not-advanced` | `VERSION` did not advance under semver past the last receipt |
@@ -225,27 +228,49 @@ only thing the tool will say about it is whether it is set.
 
 ### The gate evidence file
 
-The release-gate guard reads `artifacts/verify/latest-release.json`, produced by
-the verification coordinator (`tools/verify.sh release`). It **fails closed**:
-absent means refused. Expected shape:
+The release-gate guard reads `artifacts/verify/latest-release.json`, written by
+the verification coordinator (`tools/verify.sh release`), and takes **one object
+out of it**: `gateEvidence`.
 
 ```json
 {
-  "schema": "facet-verify-run/1",
-  "tier": "release",
-  "status": "PASS",
-  "identity": "<sha256>",
-  "commit": "<sha>",
-  "version": "0.10.0",
-  "sourceHash": "<sha256>",
-  "completedAt": "2026-08-30T00:00:00Z"
+  "…the coordinator's own verify-run fields…": "…",
+  "gateEvidence": {
+    "schema": "facet-release-gate/1",
+    "tier": "release",
+    "status": "PASS",
+    "commit": "<sha>",
+    "treeDirty": false,
+    "sourceHash": "<sha256>",
+    "completedAt": "2026-08-30T00:00:00Z"
+  }
 }
 ```
 
-`identity` is what `tools/package.sh identity` prints:
-`sha256("facet-release-gate/1|" + version + "|" + commit + "|" + sourceHash)`. It
-is published as a command so the coordinator stamps the same string rather than
-guessing at it.
+`decide()` compares, field by field:
+
+| Field | Must be |
+|---|---|
+| `schema` | `facet-release-gate/1` |
+| `tier` | `release` — a `fast` or `affected` run never authorizes a publish |
+| `status` | `PASS` |
+| `treeDirty` | `false` — the gate must have run on a clean tree for its result to describe this commit |
+| `commit` | equal to `--commit` (compared once `--commit` is known to equal `HEAD`, so a wrong argument is reported once, by `commit-mismatch`, rather than twice) |
+| `sourceHash` | equal to the source hash of the tree being built |
+
+It **fails closed**. Absent, unreadable, or present with no `gateEvidence` object
+all refuse identically, because all three mean the same thing: nothing here
+authorizes a publish. `status` reports which of the three it is.
+
+Every comparison is against a fact this tool derives for itself, so there is no
+shared recipe for the two sides to disagree about. There used to be one — the
+guard compared a locally computed
+`sha256("facet-release-gate/1|" + version + "|" + commit + "|" + sourceHash)`
+against an `identity` field that no code anywhere wrote, which made `publish`
+unreachable; the selftest was green only because it fabricated the file it was
+about to read. The selftest now asserts the opposite property directly: evidence
+written the way the coordinator writes it, against this repository's real commit
+and source hash, clears every gate check.
 
 ---
 
@@ -269,7 +294,7 @@ One JSON file per publish, at `package/receipts/<version>-<sha7>.json`:
   "actor": "…",
   "route": "studio",
   "toolchain": { "rojo": "…", "lune": "…" },
-  "gateRun": { "identity": "…", "status": "PASS" },
+  "gateRun": { "schema": "…", "tier": "release", "status": "PASS", "commit": "…", "treeDirty": false, "sourceHash": "…", "completedAt": "…" },
   "studio_verification": { "status": "pending", "by": null, "date": null, "notes": null }
 }
 ```
