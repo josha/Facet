@@ -1195,11 +1195,13 @@ def main() -> int:
         "producers": sorted(producers.by_id.values(), key=lambda p: p["id"]),
         "rows": rows,
     }
+    # …recorded IN the graph, not only in the census: the four patterns that
+    # match no case are the ones a reader has to be able to find.
+    graph["unresolvedPatterns"] = unresolved
     with open(args.out, "w") as fh:
         json.dump(graph, fh, indent=1, sort_keys=True, ensure_ascii=False)
         fh.write("\n")
 
-    graph["unresolvedPatterns"] = unresolved
     write_census(args.census, graph, census, resolved_patterns, resolved_ids, migration_ready,
                  renamed, historical, receipts_written)
     manifest_reqs: set[str] = set()

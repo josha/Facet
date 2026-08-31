@@ -1,5 +1,5 @@
 {
- "generatedAt": "2026-08-31T00:11:48Z",
+ "generatedAt": "2026-08-31T00:17:23Z",
  "generatedFrom": {
   "manifest": "tools/lune/gate_manifest.luau",
   "phases": "phases.json",
@@ -24263,5 +24263,11 @@
    "state": "PENDING"
   }
  ],
- "schema": "facet-verify-graph/1"
+ "schema": "facet-verify-graph/1",
+ "unresolvedPatterns": [
+  "example-quality-pass::example-06-07-gameplay: \"✓.*placing on an occupied square names the square, and does not silently keep the tile held\"",
+  "example-quality-pass::example-06-07-gameplay: \"✓.*a spent rack slot is visibly DISABLED, not a live-looking blank button\"",
+  "example-quality-pass::example-06-07-gameplay: \"✓.*progress and completion are visible, and the rack really does run out\"",
+  "example-quality-pass::lifecycle-and-rapid-input: \"✓.*reset returns every observable to its starting value, selection and message included\""
+ ]
 }
