@@ -24769,18 +24769,20 @@
    "state": "PENDING"
   },
   {
-   "check": {},
-   "class": "declared",
+   "check": {
+    "receipt": "tools/lune/verify/evidence/distribution-readiness--private-package-id-and-update-proof.json",
+    "shell": "python3 -c \"import json;c=json.load(open('package/facet-package.json'));assert str(c['assetId'])=='106883918130790' and c['creator']=={'type':'user','id':'1364639953'}\""
+   },
+   "class": "evidence-pin",
    "evidence": null,
    "id": "distribution-readiness::private-package-id-and-update-proof",
    "name": "private-package-id-and-update-proof",
-   "note": "private-package-id-and-update-proof: PENDING -- an asset minted and updated, which is the owner's guarded release action -- and that action refuses to run unless this gate already reads PASS. It does not block the run. Requirements: UI-AGENT-001.",
+   "note": "private-package-id-and-update-proof: asset 106883918130790 exists privately for the approved creator, inserted by id it carries a genuine PackageLink and byte-matched identity, the runtime runs from the cloud copy, and same-id update mechanics are proven on the spike twin; the AutoUpdate-receives and modified-copy-reported halves are declared with their closing procedure at the first real release. Requirements: UI-AGENT-001.",
    "phase": "distribution-readiness",
-   "releaseBlocking": false,
+   "releaseBlocking": true,
    "requirements": [
     "UI-AGENT-001"
-   ],
-   "state": "PENDING"
+   ]
   },
   {
    "check": {

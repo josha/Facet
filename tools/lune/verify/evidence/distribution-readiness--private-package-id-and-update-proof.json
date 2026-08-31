@@ -1,0 +1,24 @@
+{
+ "class": "evidence-pin",
+ "evidence": [
+  {
+   "archivedPath": "artifacts/distribution-readiness/verification/package-proof.md",
+   "label": "evidence-1",
+   "sha256": "b727e9ccd19ee6f2213cb930f5756797a4c9ae924b104d5a66fc44fe6d236a37"
+  },
+  {
+   "archivedPath": "package/receipts/0.10.0-3be1344.json",
+   "label": "evidence-2",
+   "sha256": "ba086106d52106bab1530bcf0c8c3fc49f8b93ed32c07cd92e1937636c57a4be"
+  },
+  {
+   "archivedPath": "artifacts/distribution-readiness/spike/spike-package.md",
+   "label": "evidence-3",
+   "sha256": "efde2612568eb24c566354ff81bed0646631b92bba06d637e1712a0f4bf254b7"
+  }
+ ],
+ "recordedAt": "2026-08-31T06:37:00Z",
+ "row": "distribution-readiness::private-package-id-and-update-proof",
+ "schema": "facet-evidence-receipt/1",
+ "summary": "private-package-id-and-update-proof: 3 recorded package-proof file(s), pinned by content hash."
+}
