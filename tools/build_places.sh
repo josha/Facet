@@ -199,7 +199,7 @@ cat >"$project" <<'JSON'
 JSON
 # The project heredoc above is single-quoted so JSON's $className/$path keys
 # survive the shell; the stamp is therefore substituted, not interpolated.
-sed -i '' "s|@@BUILD_STAMP@@|$BUILD_STAMP|" "$project"
+perl -pi -e "s|\\@\\@BUILD_STAMP\\@\\@|$BUILD_STAMP|" "$project" # portable: BSD and GNU sed disagree about -i ''
 rojo build "$project" -o "examples/places/Facet-Showcase.rbxl"
 rm "$project"
 echo "built examples/places/Facet-Showcase.rbxl (Facet-Showcase — in-game demo + theme switching)"

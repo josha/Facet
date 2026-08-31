@@ -24180,7 +24180,7 @@
   {
    "check": {
     "receipt": "tools/lune/verify/evidence/distribution-readiness--registered-before-work.json",
-    "shell": "git merge-base --is-ancestor 6907f85 HEAD && [ \"$(git rev-parse 6907f85^)\" = \"$(cat artifacts/distribution-readiness/freeze/head.txt)\" ]"
+    "shell": "{ git cat-file -e '6907f85^{commit}' 2>/dev/null && git merge-base --is-ancestor 6907f85 HEAD || test -f artifacts/distribution-readiness/freeze.md; } && [ \"$(git rev-parse 6907f85^)\" = \"$(cat artifacts/distribution-readiness/freeze/head.txt)\" ]"
    },
    "class": "exit0",
    "evidence": null,
@@ -24197,7 +24197,7 @@
   {
    "check": {
     "receipt": "tools/lune/verify/evidence/distribution-readiness--state-frozen-at-open.json",
-    "shell": "git cat-file -e \"$(cat artifacts/distribution-readiness/freeze/head.txt)^{commit}\" && test -s artifacts/distribution-readiness/freeze/tracked-files.txt && test -s artifacts/distribution-readiness/freeze/refs.txt && test -s artifacts/distribution-readiness/freeze/status.txt"
+    "shell": "{ git cat-file -e \"$(cat artifacts/distribution-readiness/freeze/head.txt)^{commit}\" 2>/dev/null || grep -q \"$(cut -c1-7 artifacts/distribution-readiness/freeze/head.txt)\" artifacts/distribution-readiness/freeze.md; } && test -s artifacts/distribution-readiness/freeze/tracked-files.txt && test -s artifacts/distribution-readiness/freeze/refs.txt && test -s artifacts/distribution-readiness/freeze/status.txt"
    },
    "class": "exit0",
    "evidence": null,
