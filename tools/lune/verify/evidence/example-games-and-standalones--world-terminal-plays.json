@@ -1,0 +1,19 @@
+{
+ "class": "external",
+ "evidence": [
+  {
+   "archivedPath": "artifacts/example-games-and-standalones/design/outpost-power-terminal.md",
+   "label": "design",
+   "sha256": "9f9314c7c1890bfdda8e0a3ac30ee7feaa105240f75589b643325152b6e7af71"
+  },
+  {
+   "archivedPath": "artifacts/example-games-and-standalones/spike/world-surface.md",
+   "label": "spike",
+   "sha256": "ee1c6bcd4b90d28d1a33d39cd3d9e04805026f54713c99598551b5ac13ac2604"
+  }
+ ],
+ "recordedAt": "2026-08-31T05:10:17Z",
+ "row": "example-games-and-standalones::world-terminal-plays",
+ "schema": "facet-evidence-receipt/1",
+ "summary": "the terminal's design record and the world-surface spike it was built on"
+}

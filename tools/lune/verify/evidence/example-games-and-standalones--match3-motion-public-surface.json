@@ -1,0 +1,19 @@
+{
+ "class": "external",
+ "evidence": [
+  {
+   "archivedPath": "artifacts/example-games-and-standalones/design/match3-motion.md",
+   "label": "design",
+   "sha256": "ce4f312a636d3716d20d0d9c8e0facdc37f736e1e5cc68b371fa0ca6c10318bb"
+  },
+  {
+   "archivedPath": "artifacts/example-games-and-standalones/responsibility-ledger.md",
+   "label": "ownership",
+   "sha256": "4aae56d56ca9e3f73ac565a3e4b4d9337fd3644676ddcc61b742ab492f9dd0ad"
+  }
+ ],
+ "recordedAt": "2026-08-31T05:10:17Z",
+ "row": "example-games-and-standalones::match3-motion-public-surface",
+ "schema": "facet-evidence-receipt/1",
+ "summary": "the motion design record and the responsibility ledger that forbids an example-local animation system"
+}

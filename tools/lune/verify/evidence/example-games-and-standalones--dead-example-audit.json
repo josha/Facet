@@ -1,0 +1,19 @@
+{
+ "class": "external",
+ "evidence": [
+  {
+   "archivedPath": "artifacts/example-games-and-standalones/wardrobe-inventory.md",
+   "label": "inventory",
+   "sha256": "e686ef17f473313c0fa2089f28e0ea40274da8e12c7de7d35c00fd762eb9e0ac"
+  },
+  {
+   "archivedPath": "artifacts/example-games-and-standalones/design/wardrobe-retirement.md",
+   "label": "retirement",
+   "sha256": "5c81856b43a365106263571938b4b8d9e516b616431b72780a3695f3f875de12"
+  }
+ ],
+ "recordedAt": "2026-08-31T05:10:17Z",
+ "row": "example-games-and-standalones::dead-example-audit",
+ "schema": "facet-evidence-receipt/1",
+ "summary": "the inventory taken when the example was retired, and the retirement decision beside it"
+}

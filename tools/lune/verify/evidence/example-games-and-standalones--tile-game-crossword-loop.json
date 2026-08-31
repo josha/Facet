@@ -1,0 +1,19 @@
+{
+ "class": "external",
+ "evidence": [
+  {
+   "archivedPath": "artifacts/example-games-and-standalones/design/crossword-tile-game.md",
+   "label": "design",
+   "sha256": "612273eb82f9e0b95219c0abaebfedd6dd924eb7c0b5f913063a33140c5d4048"
+  },
+  {
+   "archivedPath": "artifacts/example-games-and-standalones/acceptance-ledger.md",
+   "label": "acceptance",
+   "sha256": "1dedbb61bd3dd93644e2e30ceac406de15fb3c0bedf9981464bc8e581131fa76"
+  }
+ ],
+ "recordedAt": "2026-08-31T05:10:17Z",
+ "row": "example-games-and-standalones::tile-game-crossword-loop",
+ "schema": "facet-evidence-receipt/1",
+ "summary": "the crossword's design record and the stage's acceptance ledger, where the Studio play is recorded"
+}

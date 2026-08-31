@@ -1,0 +1,14 @@
+{
+ "class": "deterministic",
+ "evidence": [
+  {
+   "archivedPath": "artifacts/distribution-readiness/verification/mutation-parity.md",
+   "label": "parity",
+   "sha256": "009f8ddeee708346cf81b6d399a681b29fbddbf77818846d8b8078143a603e95"
+  }
+ ],
+ "recordedAt": "2026-08-31T05:10:17Z",
+ "row": "example-games-and-standalones::verification-verdict-parity",
+ "schema": "facet-evidence-receipt/1",
+ "summary": "the old-path/new-path verdict comparison"
+}

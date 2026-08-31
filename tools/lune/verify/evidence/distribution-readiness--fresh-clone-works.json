@@ -1,0 +1,19 @@
+{
+ "class": "deterministic",
+ "evidence": [
+  {
+   "archivedPath": "artifacts/distribution-readiness/verification/public-clone-full-run.json",
+   "label": "run-record",
+   "sha256": "b76133a272389a6c0ea00cad50ee46dd63969a9a93568db776a8293e4f6c5227"
+  },
+  {
+   "archivedPath": "artifacts/distribution-readiness/verification/public-clone.md",
+   "label": "note",
+   "sha256": "05038037b678b01e9721c1f3c94cb1b8c28a1f6b6edd7f49f305b181b56f4dea"
+  }
+ ],
+ "recordedAt": "2026-08-31T05:13:28Z",
+ "row": "distribution-readiness::fresh-clone-works",
+ "schema": "facet-evidence-receipt/1",
+ "summary": "the clone run's verbatim machine record, and the note that says what it is and is not"
+}

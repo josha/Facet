@@ -1,0 +1,19 @@
+{
+ "class": "external",
+ "evidence": [
+  {
+   "archivedPath": "artifacts/example-games-and-standalones/design/sipworks-and-glade.md",
+   "label": "design",
+   "sha256": "d74114afe33c5cb12eae3b1215f7c29b1145244ec8972103c284dc0f5b28a64c"
+  },
+  {
+   "archivedPath": "artifacts/example-games-and-standalones/acceptance-ledger.md",
+   "label": "acceptance",
+   "sha256": "1dedbb61bd3dd93644e2e30ceac406de15fb3c0bedf9981464bc8e581131fa76"
+  }
+ ],
+ "recordedAt": "2026-08-31T05:10:17Z",
+ "row": "example-games-and-standalones::glade-loop-complete",
+ "schema": "facet-evidence-receipt/1",
+ "summary": "the same record, read for the second loop"
+}

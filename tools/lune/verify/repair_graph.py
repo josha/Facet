@@ -380,6 +380,47 @@ CASE_ID_REPAIRS = [
 FREEZE = "artifacts/distribution-readiness/freeze"
 REGISTRATION_COMMIT = "6907f85"
 
+#[[ THE PUBLIC-CLONE RUN IS A MACHINE RECORD, AND THE ROWS READ IT.
+#   `artifacts/distribution-readiness/verification/public-clone-full-run.json`
+#   is the verbatim run record of `tools/verify.sh full` inside a clone with no
+#   parent workspace. It carries all 131 producer outcomes and all 508 row
+#   verdicts, so these three rows assert facts out of it rather than a sentence
+#   about it -- and a receipt pins the bytes so the facts cannot be edited into
+#   existence afterwards. ]]
+CLONE_RECORD = "artifacts/distribution-readiness/verification/public-clone-full-run.json"
+
+
+def _clone_check(body: str) -> str:
+    """A shell clause that reads FACTS out of the clone run's own record.
+
+    Real newlines, not the two characters `\\n`: the clause is handed to
+    `bash -c` inside double quotes, where a backslash-n survives as a backslash
+    and a letter, and `python3 -c` then reads it as a line continuation followed
+    by rubbish. Measured, once, by all three of these clauses failing at the
+    same character.
+    """
+    header = "\n".join([
+        "",
+        "import json, sys",
+        "d = json.load(open('" + CLONE_RECORD + "'))",
+        "producers = {p['id']: p['status'] for p in d['producers']}",
+        "failedRows = [r for r in d['rows'] if r['state'] == 'FAIL_RECOVERABLE']",
+        "failedProducers = [k for k, v in producers.items() if v == 'FAIL']",
+        "",
+    ])
+    return 'python3 -c "' + header + body + '"' 
+
+
+_BUDGET_CHECK = (
+    "python3 -c \"import json,os,sys; "
+    "p='artifacts/verify/latest-release.json'; "
+    "print('FAIL_ENVIRONMENT no release run has been recorded in this checkout') "
+    "or sys.exit(2) if not os.path.isfile(p) else None; "
+    "d=json.load(open(p)); "
+    "print('%.1f s against a 1200 s budget' % (d['durationMs']/1000.0)); "
+    "sys.exit(0 if d['durationMs'] <= 1200000 else 1)\""
+)
+
 _TRACE_CHECK = (
     "python3 -c \"import json,collections,sys; "
     "seen=collections.Counter(); "
@@ -445,6 +486,463 @@ sys.exit(0 if ok else 1)
 """
 )
 
+#[[ STEP 13.5's CLOSE-OUT ROWS, BOUND TO WHAT ACTUALLY SHIPPED (2026-08-31).
+#
+#   Twenty-two rows of `example-games-and-standalones` were registered honest-
+#   PENDING and never earned a run string when the stage's missions landed on
+#   2026-08-29/30. The work is in the tree -- the crossword, the match-3 motion,
+#   the sensory demo, the outpost terminal, the two reference loops, the
+#   manifest-driven places and the whole verification optimization -- so the
+#   rows bind to it.
+#
+#   THE SAME RULE AS THE REGISTRATION FLIPS: existing evidence only. Every bind
+#   below is a suite case id that exists in this run's result, a live producer,
+#   or a content hash of a finished record. Nothing is bound to a claim without
+#   an artifact, and one row is left PENDING because its evidence does not exist.
+#
+#   TWO KINDS OF EVIDENCE MOVED HOUSE, and the notes say so:
+#     * the stage's verification-optimization artifacts are archived, and their
+#       LIVING successors are this workstream's own census, parity, trace and
+#       coverage documents plus the producers that re-earn them every run;
+#     * several game rows were originally PLAYED IN STUDIO. A headless run
+#       cannot re-play them, so the bind is the suite case that survives plus
+#       the archived stage record as a receipt, and the note says the Studio
+#       play predates this stage rather than pretending it was re-taken. ]]
+
+TILE_CASES = [
+    "example_tile_game::examples/06 crossword — axis, run and connection::ONE tile does not fix an axis — the board does",
+    "example_tile_game::examples/06 crossword — axis, run and connection::a gap in the run is refused, and a gap CLOSED by a committed letter is not",
+    "example_tile_game::examples/06 crossword — axis, run and connection::a turn's tiles lie in one row or one column, and scattered tiles are refused",
+    "example_tile_game::examples/06 crossword — axis, run and connection::connection is ORTHOGONAL: touching diagonally is not touching",
+    "example_tile_game::examples/06 crossword — axis, run and connection::the first turn must cover the starred centre, and later turns must not",
+    "example_tile_game::examples/06 crossword — axis, run and connection::the main word is read THROUGH committed letters at both ends",
+    "example_tile_game::examples/06 crossword — both endings, and the way back::reaching the goal wins, and the screen says which ending it was",
+    "example_tile_game::examples/06 crossword — both endings, and the way back::restart returns EVERY observable to its seeded start",
+    "example_tile_game::examples/06 crossword — both endings, and the way back::spending the budget without reaching the goal loses, and says so",
+    "example_tile_game::examples/06 crossword — commit, refill, undo, budget::A REFUSED SUBMIT CHANGES NOTHING — every tile stays where the player put it",
+    "example_tile_game::examples/06 crossword — commit, refill, undo, budget::a committed turn scores, banks the letters, and refills the rack to seven",
+    "example_tile_game::examples/06 crossword — commit, refill, undo, budget::the legal-next-cell cue follows the rules, and locks with the axis",
+    "example_tile_game::examples/06 crossword — commit, refill, undo, budget::the turn budget decrements only on a commit",
+    "example_tile_game::examples/06 crossword — commit, refill, undo, budget::undo returns exactly the uncommitted tiles, to the slots they came from",
+    "example_tile_game::examples/06 crossword — commit, refill, undo, budget::undo with nothing placed says so instead of doing nothing",
+    "example_tile_game::examples/06 crossword — committed versus uncommitted is not a colour::...and the same fact a third time, in ASCII, for a screen with no colour at all",
+    "example_tile_game::examples/06 crossword — committed versus uncommitted is not a colour::a committed letter wears a solid plate and an uncommitted one wears an outline",
+    "example_tile_game::examples/06 crossword — committed versus uncommitted is not a colour::a spent rack slot is DISABLED, not a live-looking blank button",
+    "example_tile_game::examples/06 crossword — determinism::a fixed script on a fixed seed lands on the same board, score and dump",
+    "example_tile_game::examples/06 crossword — determinism::the same seed deals the same rack and the same bag",
+    "example_tile_game::examples/06 crossword — every word a turn creates::a crossing word the dictionary does not know refuses the whole turn, BY NAME",
+    "example_tile_game::examples/06 crossword — every word a turn creates::every perpendicular word a placed tile now sits inside is extracted and validated",
+    "example_tile_game::examples/06 crossword — every word a turn creates::the score counts every letter in every word, once per word it appears in",
+    "example_tile_game::examples/06 crossword — every word a turn creates::using five or more rack tiles in one turn adds ten",
+    "example_tile_game::examples/06 crossword — forty-nine cells that are actually there, in every theme::...and the floor BITES: the plate the word game used to paint clears it nowhere",
+    "example_tile_game::examples/06 crossword — forty-nine cells that are actually there, in every theme::every cell state paints a plate the player can see, under every theme",
+    "example_tile_game::examples/06 crossword — forty-nine cells that are actually there, in every theme::sweeps a real set of themes, not an empty one",
+    "example_tile_game::examples/06 crossword — nine refusals, nine sentences, on screen::...and an uncommitted tile CAN be picked back up, which is what makes 9 a rule",
+    "example_tile_game::examples/06 crossword — nine refusals, nine sentences, on screen::...and tapping an empty square with nothing held explains itself too",
+    "example_tile_game::examples/06 crossword — nine refusals, nine sentences, on screen::1 — the first turn misses the centre",
+    "example_tile_game::examples/06 crossword — nine refusals, nine sentences, on screen::2 — the tiles are not in one line",
+    "example_tile_game::examples/06 crossword — nine refusals, nine sentences, on screen::3 — a gap in the run",
+    "example_tile_game::examples/06 crossword — nine refusals, nine sentences, on screen::4 — a later turn touches nothing",
+    "example_tile_game::examples/06 crossword — nine refusals, nine sentences, on screen::5 — the main word is unknown, and the sentence names it",
+    "example_tile_game::examples/06 crossword — nine refusals, nine sentences, on screen::6 — a crossing word is unknown, and the sentence names it AND its direction",
+    "example_tile_game::examples/06 crossword — nine refusals, nine sentences, on screen::7 — submit with nothing placed",
+    "example_tile_game::examples/06 crossword — nine refusals, nine sentences, on screen::8 — placing on an occupied square",
+    "example_tile_game::examples/06 crossword — nine refusals, nine sentences, on screen::9 — picking up a letter from an earlier turn",
+    "example_tile_game::examples/06 crossword — nine refusals, nine sentences, on screen::the instruction line names the held tile, and clears on a placement",
+    "example_tile_game::examples/06 crossword — robustness::rapid alternating input leaves no stale selection or held tile",
+    "example_tile_game::examples/06 crossword — robustness::tears down to a registry baseline after dispose",
+    "example_tile_game::examples/06 crossword — the deal guarantees an opening::...and so does every seed in a wide sweep, inside the attempt bound",
+    "example_tile_game::examples/06 crossword — the deal guarantees an opening::openingWord finds a word from a SUBSET in any order, and nil when there is none",
+    "example_tile_game::examples/06 crossword — the deal guarantees an opening::the shipped seed deals a rack that spells something across the centre",
+    "example_tile_game::examples/06 crossword — the dictionary is the shared module::a run the dictionary CANNOT judge is refused by name, not called unknown",
+    "example_tile_game::examples/06 crossword — the dictionary is the shared module::accepts and rejects through `words`, not through a list this game keeps",
+    "example_tile_game::examples/06 crossword — the rules are pure::the bag is the 98-tile familiar multiset, with no blanks",
+    "example_tile_game::examples/06 crossword — the rules are pure::the board, the rack, the budget and the goal are the design's numbers",
+    "example_tile_game::examples/06 crossword — the rules are pure::the letter values are the familiar English ones",
+]
+
+MATCH3_CASES = [
+    "example_match3_motion::match-3 motion: a reset mid-cascade leaves nothing behind::dispose mid-cascade unregisters the hook and leaves the registry at baseline",
+    "example_match3_motion::match-3 motion: a reset mid-cascade leaves nothing behind::stops the machine, drops its tick hook, and leaves no retiring row or animation record",
+    "example_match3_motion::match-3 motion: reduced motion changes the paint and nothing else::...and reduced motion installs NO animation records rather than substituting another effect",
+    "example_match3_motion::match-3 motion: reduced motion changes the paint and nothing else::the example contains no reduced-motion branch at all",
+    "example_match3_motion::match-3 motion: reduced motion changes the paint and nothing else::the same board, score, moves, phase log and replay under both policies",
+    "example_match3_motion::match-3 motion: the anchored board still navigates in two dimensions::...and everything below the board is still reachable without a pointer",
+    "example_match3_motion::match-3 motion: the anchored board still navigates in two dimensions::left/right walks the lane and up/down keeps it, before AND after a cascade",
+    "example_match3_motion::match-3 motion: the example builds no animation system of its own::...and it really did scan the example, which uses the four public mechanisms by name",
+    "example_match3_motion::match-3 motion: the example builds no animation system of its own::finds none of them in a single line of its code",
+    "example_match3_motion::match-3 motion: the resolve sequence is visible, in order::a matched tile leaves the model and stays mounted-but-retiring while it fades",
+    "example_match3_motion::match-3 motion: the resolve sequence is visible, in order::a refilled tile's FIRST painted position is above the board, not its resting one",
+    "example_match3_motion::match-3 motion: the resolve sequence is visible, in order::a survivor DROPS: its painted position is between its old row and its new one",
+    "example_match3_motion::match-3 motion: the resolve sequence is visible, in order::a tap while the board resolves is REFUSED in words, and costs nothing",
+    "example_match3_motion::match-3 motion: the resolve sequence is visible, in order::removal precedes gravity precedes refill, and input unlocks after the last cascade",
+    "example_match3_motion::match-3 motion: the two swapped tiles travel::a refused swap travels OUT and travels BACK, and says why",
+    "example_match3_motion::match-3 motion: the two swapped tiles travel::halfway through the swap phase both tiles are painted at NEITHER endpoint",
+    "example_match3_motion::match-3 motion: thirty-six tiles that are actually painted, in every shipped theme::...and the floor BITES: the role this example carried until this round drops under it",
+    "example_match3_motion::match-3 motion: thirty-six tiles that are actually painted, in every shipped theme::every tile picture clears the visibility floor against the page it sits on",
+    "example_match3_motion::match-3 motion: thirty-six tiles that are actually painted, in every shipped theme::sweeps a real set of themes, not an empty one",
+    "example_match3_motion::match-3 motion: tile identity survives a move::every id on the board is unique, and a refill never reuses one",
+    "example_match3_motion::match-3 motion: tile identity survives a move::the mounted node for a tile id is the same node it was before the swap",
+]
+
+SENSORY_FEEDBACK_CASES = [
+    "sensory_feedback::UI.sensoryFeedback: the declaration is ruled on at the call site::accepts every one of the twelve verbs",
+    "sensory_feedback::UI.sensoryFeedback: the declaration is ruled on at the call site::refuses a structural region — it would mount no node to emit for",
+    "sensory_feedback::UI.sensoryFeedback: the declaration is ruled on at the call site::refuses a trigger that is not a Signal/Memo — a constant never changes",
+    "sensory_feedback::UI.sensoryFeedback: the declaration is ruled on at the call site::refuses an event outside the closed twelve, listing the vocabulary",
+    "sensory_feedback::UI.sensoryFeedback: the declaration is ruled on at the call site::refuses an unknown spec key rather than dropping it",
+    "sensory_feedback::UI.sensoryFeedback: the declaration is ruled on at the call site::returns a NEW frozen blueprint and leaves the original untouched",
+    "sensory_feedback::UI.sensoryFeedback: through the real presenter::is visible on handle.onFeedback, the per-surface filter",
+    "sensory_feedback::UI.sensoryFeedback: through the real presenter::reaches presenter.onFeedback, carrying the surface it happened on",
+    "sensory_feedback::UI.sensoryFeedback: what reaches the bus::composes: two declarations on one node both fire",
+    "sensory_feedback::UI.sensoryFeedback: what reaches the bus::emits synchronously inside the write that moved the trigger",
+    "sensory_feedback::UI.sensoryFeedback: what reaches the bus::emits the declared verb with the mounted path when the trigger changes",
+    "sensory_feedback::UI.sensoryFeedback: what reaches the bus::fires once per change, and not at all for a write of the same value",
+    "sensory_feedback::UI.sensoryFeedback: what reaches the bus::observes NOTHING when no sink is wired, and exactly one thing when one is",
+    "sensory_feedback::UI.sensoryFeedback: what reaches the bus::stops emitting the moment the node unmounts",
+]
+
+SENSORY_PROFILE_CASES = [
+    "sensory_profile::sensory profile: it is ENGINE-FREE, which is why any of this is provable::requires nothing and names no engine global — in CODE, not in prose",
+    "sensory_profile::sensory profile: key() is what makes pooling possible::label() names a sensation for a reader — the waveform, or the preset, or nothing",
+    "sensory_profile::sensory profile: key() is what makes pooling possible::the three default keys are distinct — three waveforms, three instances",
+    "sensory_profile::sensory profile: key() is what makes pooling possible::two specs that would FEEL the same share a key; different ones do not",
+    "sensory_profile::sensory profile: resolve() merges a partial over the defaults::`Custom` may not be named as a PRESET — it is a silent no-op by construction",
+    "sensory_profile::sensory profile: resolve() merges a partial over the defaults::a Custom phase with NO keys is refused — it is the guaranteed silent no-op",
+    "sensory_profile::sensory profile: resolve() merges a partial over the defaults::a game SILENCES one phase, and silence is a decision rather than an omission",
+    "sensory_profile::sensory profile: resolve() merges a partial over the defaults::a game replaces ONE phase and keeps the other two",
+    "sensory_profile::sensory profile: resolve() merges a partial over the defaults::a game swaps a phase for a PRESET without touching any control",
+    "sensory_profile::sensory profile: resolve() merges a partial over the defaults::a preset naming something that is not a HapticEffectType is refused",
+    "sensory_profile::sensory profile: resolve() merges a partial over the defaults::a spec whose `kind` is not one of the three is refused",
+    "sensory_profile::sensory profile: resolve() merges a partial over the defaults::all three at once, in one call",
+    "sensory_profile::sensory profile: resolve() merges a partial over the defaults::an unknown phase key is an authoring error that names the three phases",
+    "sensory_profile::sensory profile: resolve() merges a partial over the defaults::nothing supplied is the defaults, value for value",
+    "sensory_profile::sensory profile: resolve() merges a partial over the defaults::the result is frozen too, so a resolved profile cannot be edited behind the adapter",
+    "sensory_profile::sensory profile: the preset FALLBACK, and the limitation it carries::fallbackFor(phase) hands back the phase's preset SPEC, ready to pool",
+    "sensory_profile::sensory profile: the preset FALLBACK, and the limitation it carries::is TOTAL over the phases — a fourth phase would be a visible gap",
+    "sensory_profile::sensory profile: the preset FALLBACK, and the limitation it carries::names one preset per phase, and every one is a real HapticEffectType",
+    "sensory_profile::sensory profile: the preset FALLBACK, and the limitation it carries::release and select SHARE UIHover, and that is the documented limitation",
+    "sensory_profile::sensory profile: the three defaults are the product, pinned exactly::every mode names a real Enum.KeyInterpolationMode member",
+    "sensory_profile::sensory profile: the three defaults are the product, pinned exactly::no default key authors an intensity below the documented trigger floor",
+    "sensory_profile::sensory profile: the three defaults are the product, pinned exactly::no default outlasts the overlap budget, and every key list rises in time from 0",
+    "sensory_profile::sensory profile: the three defaults are the product, pinned exactly::press is `contact` — one short, crisp tap when the action goes down",
+    "sensory_profile::sensory profile: the three defaults are the product, pinned exactly::release is `settle` — a lighter, rounder answer when the action completes",
+    "sensory_profile::sensory profile: the three defaults are the product, pinned exactly::select is `tick` — the smallest audible-to-the-hand step for a changed choice",
+    "sensory_profile::sensory profile: the three defaults are the product, pinned exactly::the defaults are FROZEN all the way down — a consumer cannot edit the product",
+    "sensory_profile::sensory profile: the three defaults are the product, pinned exactly::the three names are distinct, and PHASES lists exactly the three phases",
+]
+
+TERMINAL_CASES = [
+    "outpost_terminal::outpost authority: every refusal the server can make::REFUSAL 1 — nobody holds the console, or somebody else does",
+    "outpost_terminal::outpost authority: every refusal the server can make::REFUSAL 2 — a stale session token, or no token at all",
+    "outpost_terminal::outpost authority: every refusal the server can make::REFUSAL 3 — faster than a hand can press",
+    "outpost_terminal::outpost authority: every refusal the server can make::REFUSAL 4 — too far, MEASURED, and an unmeasurable distance is not a pass",
+    "outpost_terminal::outpost authority: every refusal the server can make::REFUSAL 5 — the allocation itself, through the same rules the terminal ran",
+    "outpost_terminal::outpost authority: every refusal the server can make::THE ORDER IS PART OF THE CONTRACT: who you are beats how far, beats what you asked",
+    "outpost_terminal::outpost authority: every refusal the server can make::the happy path: the holder, a fresh token, in range, with a legal allocation",
+    "outpost_terminal::outpost rules: every refusal, and the exact sentence it uses::THE ORDER IS PART OF THE CONTRACT: a fraction that is also over budget says `whole`",
+    "outpost_terminal::outpost rules: every refusal, and the exact sentence it uses::a fraction is refused as `whole`, naming the consumer and the value",
+    "outpost_terminal::outpost rules: every refusal, and the exact sentence it uses::a missing consumer is refused as `missing`, and an extra one as `unknown`",
+    "outpost_terminal::outpost rules: every refusal, and the exact sentence it uses::every declared refusal code has a sentence, and an undeclared one is loud",
+    "outpost_terminal::outpost rules: every refusal, and the exact sentence it uses::the three server-only sentences are the ones the design specifies",
+    "outpost_terminal::outpost rules: the ranges, walked rather than sampled::THE TRADE-OFF IS REAL: a fully-lit workshop can never leave all three running",
+    "outpost_terminal::outpost rules: the ranges, walked rather than sampled::WHAT RUNNING MEANS is `at least what it needs`, over the whole product",
+    "outpost_terminal::outpost rules: the ranges, walked rather than sampled::every value inside 0..capacity is legal, and capacity+1 and -1 are not",
+    "outpost_terminal::outpost rules: the ranges, walked rather than sampled::the starting allocation is legal, and is a problem with an obvious first move",
+    "outpost_terminal::outpost rules: the ranges, walked rather than sampled::the three declared ranges are the design's, and the goal is reachable inside them",
+    "outpost_terminal::outpost rules: the ranges, walked rather than sampled::the total bound is exactly six, over the whole product",
+    "outpost_terminal::outpost rules: what changed, which is what the terminal reports::only a CROSSING is news; a number that moved without crossing is not",
+    "outpost_terminal::outpost rules: what changed, which is what the terminal reports::the outcome sentence has three cases and picks the player's one first",
+    "outpost_terminal::outpost terminal: engage -> adjust -> apply -> success -> reset -> exit::A REFUSAL IS SHOWN, NOT SWALLOWED — and the draft survives it",
+    "outpost_terminal::outpost terminal: engage -> adjust -> apply -> success -> reset -> exit::ADJUST moves the draft, and the budget line and the live verdict follow it",
+    "outpost_terminal::outpost terminal: engage -> adjust -> apply -> success -> reset -> exit::AN EDIT RETIRES THE LAST OUTCOME, so the line never stands over state it contradicts",
+    "outpost_terminal::outpost terminal: engage -> adjust -> apply -> success -> reset -> exit::AN ILLEGAL DRAFT IS REFUSED HERE and never reaches the wire",
+    "outpost_terminal::outpost terminal: engage -> adjust -> apply -> success -> reset -> exit::APPLY sends ONE intent carrying the draft, and `pending` is not success",
+    "outpost_terminal::outpost terminal: engage -> adjust -> apply -> success -> reset -> exit::ENGAGE seeds the draft from what the outpost is actually running",
+    "outpost_terminal::outpost terminal: engage -> adjust -> apply -> success -> reset -> exit::RESET IS A SERVER INTENT, not a local undo",
+    "outpost_terminal::outpost terminal: engage -> adjust -> apply -> success -> reset -> exit::SUCCESS: the verdict lands, the outpost moves, and the terminal says what changed",
+    "outpost_terminal::outpost terminal: engage -> adjust -> apply -> success -> reset -> exit::a SECOND apply while one is in flight is refused instead of throwing",
+    "outpost_terminal::outpost terminal: engage -> adjust -> apply -> success -> reset -> exit::a terminal nobody is standing at is idle, and says the objective",
+    "outpost_terminal::outpost terminal: engage -> adjust -> apply -> success -> reset -> exit::an allocation ANOTHER player applied lands without touching this draft",
+    "outpost_terminal::outpost terminal: engage -> adjust -> apply -> success -> reset -> exit::every server refusal reaches the screen as its own sentence",
+    "outpost_terminal::outpost terminal: every exit lands in the same place::EXIT IS IDEMPOTENT, because the two directions have to be one door",
+    "outpost_terminal::outpost terminal: every exit lands in the same place::NO TRANSPORT IS A STATE, NOT A CRASH",
+    "outpost_terminal::outpost terminal: every exit lands in the same place::all eight reasons produce the same terminal state, and each is recorded by name",
+    "outpost_terminal::outpost terminal: every exit lands in the same place::an exited terminal sends nothing, and re-engaging is safe",
+    "outpost_terminal::outpost terminal: the screen itself::EVERY CONTROL NEEDS ONLY ACTIVATION — there is not a drag on the terminal",
+    "outpost_terminal::outpost terminal: the screen itself::THE CONTENT MODULE IS ENGINE-FREE, which is what lets two hosts share it",
+    "outpost_terminal::outpost terminal: the screen itself::it declares the walk-up contract rather than leaving each host to derive it",
+    "outpost_terminal::outpost terminal: the screen itself::it holds its own canvas at every text preference the player can choose",
+    "outpost_terminal::outpost terminal: the screen itself::its canvas is declared once and the aspect is a real console's",
+    "world_substrate::REUSE-88: the retired tuple order stays retired::every migrated file builds on the shared substrate rather than by hand",
+    "world_substrate::REUSE-88: the retired tuple order stays retired::no spec returns the swapped order any more",
+    "world_substrate::REUSE-88: the retired tuple order stays retired::the count of hand-rolled presenter builders only ever falls (R12 trigger)",
+    "world_substrate::the headless world substrate (REUSE-88)::builds the six pieces, viewport first, one presenter per adapter",
+    "world_substrate::the headless world substrate (REUSE-88)::named facts land on the environment, and `env` takes the ones with no name",
+    "world_substrate::the headless world substrate (REUSE-88)::press is both edges, so the same key twice is two activations",
+    "world_substrate::the headless world substrate (REUSE-88)::settle is N frames of clock AND solve, and never zero of them",
+    "world_substrate::the headless world substrate (REUSE-88)::the default viewport is a phone portrait, and every named fact is optional",
+]
+
+SIPWORKS_CASES = [
+    "reference/sipworks_spec::Sipworks nav — every placement is gamepad-traversable (enter, through, away, action)::bottom tabs (phone portrait)",
+    "reference/sipworks_spec::Sipworks nav — every placement is gamepad-traversable (enter, through, away, action)::every structural number takes the ten-foot factor, not just the one with a helper",
+    "reference/sipworks_spec::Sipworks nav — every placement is gamepad-traversable (enter, through, away, action)::inline bottom tabs (phone landscape)",
+    "reference/sipworks_spec::Sipworks nav — every placement is gamepad-traversable (enter, through, away, action)::sidebar (pointer desktop)",
+    "reference/sipworks_spec::Sipworks nav — every placement is gamepad-traversable (enter, through, away, action)::top tabs, driven as a PAD drives them: DPad across, ButtonA to act, DPad away",
+    "reference/sipworks_spec::Sipworks reference proof — module contract and first mount::every player-facing string comes from the locale table (no key is missing)",
+    "reference/sipworks_spec::Sipworks reference proof — module contract and first mount::exposes the scenario build contract",
+    "reference/sipworks_spec::Sipworks reference proof — module contract and first mount::mounts headlessly with no core error and the whole menu visible",
+    "reference/sipworks_spec::Sipworks §10 — the Blend Book unlock and the recipe view::locked rows are ABSENT until the purchase confirms, then they enter the list",
+    "reference/sipworks_spec::Sipworks §10 — the Blend Book unlock and the recipe view::no buy button is mounted while the price is still loading",
+    "reference/sipworks_spec::Sipworks §10 — the Blend Book unlock and the recipe view::the batch stepper rescales every measured quantity, and the checks are session-local",
+    "reference/sipworks_spec::Sipworks §11 — the compact entry flow shares the same blueprints::BOTH entries reach the SAME row blueprint function",
+    "reference/sipworks_spec::Sipworks §11 — the compact entry flow shares the same blueprints::boots straight into compact-link from an initial fact, deep-linked to the item",
+    "reference/sipworks_spec::Sipworks §11 — the compact entry flow shares the same blueprints::enterFull restores the whole shell with the model intact",
+    "reference/sipworks_spec::Sipworks §11 — the compact entry flow shares the same blueprints::the CTA is always pay-shaped in the compact entry, even at ten stamps",
+    "reference/sipworks_spec::Sipworks §11 — the compact entry flow shares the same blueprints::the compact shell hides the nav, the sections and every favorite affordance",
+    "reference/sipworks_spec::Sipworks §13 — localization: expansion, plurals, lists, measures::lists and measures are service calls, and the measure separator follows the locale",
+    "reference/sipworks_spec::Sipworks §13 — localization: expansion, plurals, lists, measures::plural forms are selected in BOTH locales",
+    "reference/sipworks_spec::Sipworks §13 — localization: expansion, plurals, lists, measures::the locale step reflows every mounted surface with no remount",
+    "reference/sipworks_spec::Sipworks §13 — localization: expansion, plurals, lists, measures::the pseudo-locale expands every string by at least 1.4x and keeps placeholders",
+    "reference/sipworks_spec::Sipworks §17 — reset determinism::reset returns a world to its seeded start, and replaying the loop reproduces the dump",
+    "reference/sipworks_spec::Sipworks §17 — reset determinism::same seed + same steps => identical dump, in two independent worlds",
+    "reference/sipworks_spec::Sipworks §17 — reset determinism::the seed decides the starting favorites, and a different seed differs",
+    "reference/sipworks_spec::Sipworks §5 — the shell flips, and the model survives the flip::compact pushes the detail as its own surface; widening dismisses it and the pane keeps the selection",
+    "reference/sipworks_spec::Sipworks §5 — the shell flips, and the model survives the flip::compact puts the TAB BAND BELOW the content and the accessory ABOVE the tabs",
+    "reference/sipworks_spec::Sipworks §5 — the shell flips, and the model survives the flip::navPlacement gives every canvas its home: sidebar / bottom tabs / inline tabs / top tabs",
+    "reference/sipworks_spec::Sipworks §5 — the shell flips, and the model survives the flip::no bottom-bar tab ellipsizes in the normal range (the short vocabulary is the point)",
+    "reference/sipworks_spec::Sipworks §5 — the shell flips, and the model survives the flip::the flip is a re-solve: search text, selection and section all survive it",
+    "reference/sipworks_spec::Sipworks §5 — the shell flips, and the model survives the flip::the top bar HUGS its tabs, centered — never full width (tablet/ten-foot shape)",
+    "reference/sipworks_spec::Sipworks §6 — one row blueprint, search, suggestions, favorites::search matches a title OR a botanical name, and never the filler",
+    "reference/sipworks_spec::Sipworks §6 — one row blueprint, search, suggestions, favorites::suggestions are botanical names, exclude the filler and the exact match, and cap at six",
+    "reference/sipworks_spec::Sipworks §6 — one row blueprint, search, suggestions, favorites::the query is shared across sections",
+    "reference/sipworks_spec::Sipworks §6 — one row blueprint, search, suggestions, favorites::the row heart is a real control on the shared favorites signal",
+    "reference/sipworks_spec::Sipworks §6 — one row blueprint, search, suggestions, favorites::unfavoriting every blend reaches the empty state, and Browse returns to the menu",
+    "reference/sipworks_spec::Sipworks §7 — the adaptive header, the tiles, and the facts flip::Cancel on the facts face flips to the front first; a second Cancel dismisses",
+    "reference/sipworks_spec::Sipworks §7 — the adaptive header, the tiles, and the facts flip::a tile opens the botanical card, whose facts are scaled to THIS blend's measure",
+    "reference/sipworks_spec::Sipworks §7 — the adaptive header, the tiles, and the facts flip::the flip swaps faces at the midpoint and only the visible face is mounted",
+    "reference/sipworks_spec::Sipworks §7 — the adaptive header, the tiles, and the facts flip::the wide header candidate wins wide and loses on a phone",
+    "reference/sipworks_spec::Sipworks §8 — the order flow: guard, rejection, confirmation, ready::the CTA runs idle -> pending -> rejected, shows a toast, and returns to idle",
+    "reference/sipworks_spec::Sipworks §8 — the order flow: guard, rejection, confirmation, ready::the guard shows a reason, presents an alert on Activate, and never starts an order",
+    "reference/sipworks_spec::Sipworks §8 — the order flow: guard, rejection, confirmation, ready::the second order confirms, presents Order-Placed, and the disc flips at t+4s",
+    "reference/sipworks_spec::Sipworks §9 — Steam Stamps: accrual, the once-per-visit pop, redemption::at ten stamps the CTA is the redeem verb, and redeeming debits a flat ten",
+    "reference/sipworks_spec::Sipworks §9 — Steam Stamps: accrual, the once-per-visit pop, redemption::one stamp per confirmed order, and a rejected order earns nothing",
+    "reference/sipworks_spec::Sipworks §9 — Steam Stamps: accrual, the once-per-visit pop, redemption::the plural caption selects other / one / zero across the threshold",
+    "reference/sipworks_spec::Sipworks §9 — Steam Stamps: accrual, the once-per-visit pop, redemption::the pop plays once per visit and the card is static on return",
+    "reference/sipworks_spec::Sipworks — backdrop-finding sweep (task POP)::every section, the blend detail, a botanical tile and the order/rewards overlays are clean",
+    "reference/sipworks_spec::Sipworks — reduced motion, themes, and reachability::...and on a COMPACT shape the same tab is a real destination",
+    "reference/sipworks_spec::Sipworks — reduced motion, themes, and reachability::Cancel dismisses the compact detail and returns to the shell",
+    "reference/sipworks_spec::Sipworks — reduced motion, themes, and reachability::build, drive and dispose are registry-neutral",
+    "reference/sipworks_spec::Sipworks — reduced motion, themes, and reachability::every verb in the loop is a real focusable, on every input class",
+    "reference/sipworks_spec::Sipworks — reduced motion, themes, and reachability::mounts under BOTH reference theme packages with no source edit",
+    "reference/sipworks_spec::Sipworks — reduced motion, themes, and reachability::reduced motion fires the same events with no travel",
+    "reference/sipworks_spec::Sipworks — reduced motion, themes, and reachability::the Steam Stamps tab PRESENTS the rewards card on a wide screen — it is not a destination",
+    "reference/sipworks_spec::Sipworks — reduced motion, themes, and reachability::the five-view sweep is diagnostic-clean with a live scrollbar (matrix pin)",
+    "reference/sipworks_spec::Sipworks — the declaration does not leak into the rest of the suite::retires its app namespace",
+    "reference/sipworks_spec::Sipworks — the five-view sweep the solver itself signs off::desktop / en / preferred-text +0: no solver diagnostics",
+    "reference/sipworks_spec::Sipworks — the five-view sweep the solver itself signs off::desktop / en / preferred-text +14: no solver diagnostics",
+    "reference/sipworks_spec::Sipworks — the five-view sweep the solver itself signs off::desktop / xa / preferred-text +0: no solver diagnostics",
+    "reference/sipworks_spec::Sipworks — the five-view sweep the solver itself signs off::desktop / xa / preferred-text +14: no solver diagnostics",
+    "reference/sipworks_spec::Sipworks — the five-view sweep the solver itself signs off::phone-landscape / en / preferred-text +0: no solver diagnostics",
+    "reference/sipworks_spec::Sipworks — the five-view sweep the solver itself signs off::phone-landscape / en / preferred-text +14: no solver diagnostics",
+    "reference/sipworks_spec::Sipworks — the five-view sweep the solver itself signs off::phone-landscape / xa / preferred-text +0: no solver diagnostics",
+    "reference/sipworks_spec::Sipworks — the five-view sweep the solver itself signs off::phone-landscape / xa / preferred-text +14: no solver diagnostics",
+    "reference/sipworks_spec::Sipworks — the five-view sweep the solver itself signs off::phone-portrait / en / preferred-text +0: no solver diagnostics",
+    "reference/sipworks_spec::Sipworks — the five-view sweep the solver itself signs off::phone-portrait / en / preferred-text +14: no solver diagnostics",
+    "reference/sipworks_spec::Sipworks — the five-view sweep the solver itself signs off::phone-portrait / xa / preferred-text +0: no solver diagnostics",
+    "reference/sipworks_spec::Sipworks — the five-view sweep the solver itself signs off::phone-portrait / xa / preferred-text +14: no solver diagnostics",
+    "reference/sipworks_spec::Sipworks — the five-view sweep the solver itself signs off::tablet / en / preferred-text +0: no solver diagnostics",
+    "reference/sipworks_spec::Sipworks — the five-view sweep the solver itself signs off::tablet / en / preferred-text +14: no solver diagnostics",
+    "reference/sipworks_spec::Sipworks — the five-view sweep the solver itself signs off::tablet / xa / preferred-text +0: no solver diagnostics",
+    "reference/sipworks_spec::Sipworks — the five-view sweep the solver itself signs off::tablet / xa / preferred-text +14: no solver diagnostics",
+    "reference/sipworks_spec::Sipworks — the five-view sweep the solver itself signs off::ten-foot / en / preferred-text +0: no solver diagnostics",
+    "reference/sipworks_spec::Sipworks — the five-view sweep the solver itself signs off::ten-foot / en / preferred-text +14: no solver diagnostics",
+    "reference/sipworks_spec::Sipworks — the five-view sweep the solver itself signs off::ten-foot / xa / preferred-text +0: no solver diagnostics",
+    "reference/sipworks_spec::Sipworks — the five-view sweep the solver itself signs off::ten-foot / xa / preferred-text +14: no solver diagnostics",
+    "reference/sipworks_spec::Sipworks — the played task: seeded start, the loop, and the reset::'Serve another customer' returns EVERY observable to the seeded start",
+    "reference/sipworks_spec::Sipworks — the played task: seeded start, the loop, and the reset::'What this shows' is collapsed by default and comes AFTER the play task",
+    "reference/sipworks_spec::Sipworks — the played task: seeded start, the loop, and the reset::a refused order explains itself, keeps every stamp, and the retry is the same verb",
+    "reference/sipworks_spec::Sipworks — the played task: seeded start, the loop, and the reset::on a landscape phone the strip yields and the CARD still carries the whole task",
+    "reference/sipworks_spec::Sipworks — the played task: seeded start, the loop, and the reset::one accepted order takes the last stamp and the task becomes the free pour",
+    "reference/sipworks_spec::Sipworks — the played task: seeded start, the loop, and the reset::redeeming the free pour ends in an unmistakable completion state with one reset",
+    "reference/sipworks_spec::Sipworks — the played task: seeded start, the loop, and the reset::the compact-link entry carries NO task: there is no rewards context to finish it in",
+    "reference/sipworks_spec::Sipworks — the played task: seeded start, the loop, and the reset::the named first action opens the blend it names, through the row's own path",
+    "reference/sipworks_spec::Sipworks — the played task: seeded start, the loop, and the reset::the seeded start is ONE stamp short, and the opening screen says so",
+    "reference/sipworks_spec::Sipworks — the played task: seeded start, the loop, and the reset::the strip costs ONE line box at every preference and in both locales",
+    "reference/sipworks_spec::Sipworks — the played task: seeded start, the loop, and the reset::the task is placed ON the app: the catalogue and every destination survive it",
+    "reference/sipworks_spec::Sipworks — the player surface names no stage, proof or ledger::no locale string a player can read carries test vocabulary",
+    "reference/sipworks_spec::Sipworks — the player surface names no stage, proof or ledger::the module title is the place's name and nothing else",
+    "reference/sipworks_spec::Sipworks — the standalone place and the showcase scenario import one module::exactly one directory on disk IS this app",
+    "reference/sipworks_spec::Sipworks — the standalone place and the showcase scenario import one module::the scenario resolves the reference module and forks nothing",
+    "reference/sipworks_spec::Sipworks — the standalone place and the showcase scenario import one module::the standalone place maps the same two folders the gallery does",
+]
+
+GLADE_CASES = [
+    "reference/glade_spec::Glade S1: the overview grid (spec §7)::a visit suggestion fills the filter with that glade's name",
+    "reference/glade_spec::Glade S1: the overview grid (spec §7)::mounts one card per seeded glade, in creation order",
+    "reference/glade_spec::Glade S1: the overview grid (spec §7)::search filters case-insensitively and says so when nothing matches",
+    "reference/glade_spec::Glade S1: the overview grid (spec §7)::shows all three supply states on the first frame — full, low and empty",
+    "reference/glade_spec::Glade S1: the overview grid (spec §7)::the charm offer card is present while the tier is none and leaves on Dismiss",
+    "reference/glade_spec::Glade S1: the overview grid (spec §7)::the favourite star is a SIBLING of the card, not inside its activation surface",
+    "reference/glade_spec::Glade S2: the detail, in both of its hosts (spec §8)::a glade with no seeded visits shows the empty state, and one with visits lists them",
+    "reference/glade_spec::Glade S2: the detail, in both of its hosts (spec §8)::compact presents the same body as a modal with a Back button",
+    "reference/glade_spec::Glade S2: the detail, in both of its hosts (spec §8)::regular and wide mount the detail in the shell's own lane",
+    "reference/glade_spec::Glade S2: the detail, in both of its hosts (spec §8)::the dew row is an instant refill: no confirmation, a commit event and a keyed toast",
+    "reference/glade_spec::Glade S2: the detail, in both of its hosts (spec §8)::the low and empty chips are FORM, not a second hue: same ring tint in every state",
+    "reference/glade_spec::Glade S3/S4: the purchase command's four phases (spec §9)::a premium nectar with nothing in the satchel opens the shop instead of using one",
+    "reference/glade_spec::Glade S3/S4: the purchase command's four phases (spec §9)::a standard nectar assigns and refills in one act",
+    "reference/glade_spec::Glade S3/S4: the purchase command's four phases (spec §9)::every declared rejection reason has player-facing copy, including the fallback",
+    "reference/glade_spec::Glade S3/S4: the purchase command's four phases (spec §9)::idle → pending → confirmed: the button says Confirming…, then the count counts up",
+    "reference/glade_spec::Glade S3/S4: the purchase command's four phases (spec §9)::premium with stock offers Use 1 and decrements the satchel; standard offers Choose",
+    "reference/glade_spec::Glade S3/S4: the purchase command's four phases (spec §9)::the price is a service string the UI never composes",
+    "reference/glade_spec::Glade S3/S4: the purchase command's four phases (spec §9)::the second attempt is the scripted `declined` rejection, with its copy under the card",
+    "reference/glade_spec::Glade S3/S4: the purchase command's four phases (spec §9)::while a purchase is pending, the picker's card for that nectar refuses to pretend",
+    "reference/glade_spec::Glade S5: the Keeper's Charm and its upgrade-only mode (spec §10)::Lumen drops the Frostwisp gate AND opens its early arrival window",
+    "reference/glade_spec::Glade S5: the Keeper's Charm and its upgrade-only mode (spec §10)::a tier at or below the one held can never be sold again, whatever the fixture says next",
+    "reference/glade_spec::Glade S5: the Keeper's Charm and its upgrade-only mode (spec §10)::buying a tier removes it from the offer and toasts the new standing",
+    "reference/glade_spec::Glade S5: the Keeper's Charm and its upgrade-only mode (spec §10)::the offer card leaves S1 the moment a tier is held",
+    "reference/glade_spec::Glade S5: the Keeper's Charm and its upgrade-only mode (spec §10)::the scripted `owned` rejection shows its own copy and the retry then confirms",
+    "reference/glade_spec::Glade S6/S7: wisp info, restore, the edit form and Fresh Start (spec §10)::Fresh Start asks first, keeps the world on Keep, and reseeds it on Start over",
+    "reference/glade_spec::Glade S6/S7: wisp info, restore, the edit form and Fresh Start (spec §10)::a visitor row opens the wisp modal, which offers the charm while gated",
+    "reference/glade_spec::Glade S6/S7: wisp info, restore, the edit form and Fresh Start (spec §10)::restore runs the same three-phase command and toasts on confirm",
+    "reference/glade_spec::Glade S6/S7: wisp info, restore, the edit form and Fresh Start (spec §10)::the edit form commits on Done and discards on Cancel",
+    "reference/glade_spec::Glade S6/S7: wisp info, restore, the edit form and Fresh Start (spec §10)::the wisp modal states when and where a species was last seen",
+    "reference/glade_spec::Glade detail — the locale x width x selection sweep the matrix pin could not see::an OPEN detail is diagnostic-clean in both locales at every canonical width",
+    "reference/glade_spec::Glade nav — every placement is traversable (enter, through, away, action)::bottom tabs (phone portrait)",
+    "reference/glade_spec::Glade nav — every placement is traversable (enter, through, away, action)::inline bottom tabs (phone landscape)",
+    "reference/glade_spec::Glade nav — every placement is traversable (enter, through, away, action)::sidebar (pointer desktop)",
+    "reference/glade_spec::Glade nav — every placement is traversable (enter, through, away, action)::top tabs, driven as a PAD drives them: DPad to the bar, across it, ButtonA, DPad away",
+    "reference/glade_spec::Glade reference proof — module contract::exposes the scenario build contract",
+    "reference/glade_spec::Glade reference proof — module contract::mounts headlessly through the public presenter with no core error",
+    "reference/glade_spec::Glade reference proof — module contract::publishes its spec substitutions in the report rather than only in comments",
+    "reference/glade_spec::Glade — the played task: seeded start, both orders, depletion, and the reset::'Prepare again' returns EVERY observable to the seeded start",
+    "reference/glade_spec::Glade — the played task: seeded start, both orders, depletion, and the reset::'What this shows' is collapsed by default and comes AFTER the play task",
+    "reference/glade_spec::Glade — the played task: seeded start, both orders, depletion, and the reset::either order finishes it: nectar first leaves the DEW row as the one thing left",
+    "reference/glade_spec::Glade — the played task: seeded start, both orders, depletion, and the reset::on a landscape phone the strip yields and the CARD still carries the whole task",
+    "reference/glade_spec::Glade — the played task: seeded start, both orders, depletion, and the reset::the clock can take a row back, and the task SAYS SO and stays finishable",
+    "reference/glade_spec::Glade — the played task: seeded start, both orders, depletion, and the reset::the completion state is unmistakable, says what was accomplished, and offers ONE reset",
+    "reference/glade_spec::Glade — the played task: seeded start, both orders, depletion, and the reset::the named first action opens the named glade, and each act ticks exactly its own row",
+    "reference/glade_spec::Glade — the played task: seeded start, both orders, depletion, and the reset::the seeded start has BOTH rows undone, and the opening screen says what to do",
+    "reference/glade_spec::Glade — the played task: seeded start, both orders, depletion, and the reset::the strip costs ONE line box at every preference and in both locales",
+    "reference/glade_spec::Glade — the played task: seeded start, both orders, depletion, and the reset::the task is placed ON the app: every glade, section and browse verb survives it",
+    "reference/glade_spec::Glade — the played task: seeded start, both orders, depletion, and the reset::the task names a glade, a wisp and a STANDARD nectar, so the shop is never on the path",
+    "reference/glade_spec::Glade — the played task: seeded start, both orders, depletion, and the reset::the wisp ARRIVES when the glade is ready — not when it is merely opened",
+    "reference/glade_spec::Glade — the player surface names no stage, proof or ledger::no locale string a player can read carries test vocabulary",
+    "reference/glade_spec::Glade — the standalone place and the showcase scenario import one module::exactly one directory on disk IS this app",
+    "reference/glade_spec::Glade — the standalone place and the showcase scenario import one module::the scenario resolves the reference module and forks nothing",
+    "reference/glade_spec::Glade — the standalone place and the showcase scenario import one module::the standalone place maps the same two folders the gallery does",
+    "reference/glade_spec::Glade: adaptation, one tree (spec §4)::a live resize moves the nav between homes and the world survives the move",
+    "reference/glade_spec::Glade: adaptation, one tree (spec §4)::compact puts the TAB BAND BELOW the content, never over it",
+    "reference/glade_spec::Glade: adaptation, one tree (spec §4)::navPlacement gives every canvas its home: sidebar / bottom tabs / inline tabs / top tabs",
+    "reference/glade_spec::Glade: adaptation, one tree (spec §4)::no VISIBLE bottom tab is cut off in the normal text range",
+    "reference/glade_spec::Glade: adaptation, one tree (spec §4)::the detail panes still adapt by MEASUREMENT: beside, then folded under",
+    "reference/glade_spec::Glade: adaptation, one tree (spec §4)::the four sections are reachable from the nav in every home",
+    "reference/glade_spec::Glade: adaptation, one tree (spec §4)::the terse vocabulary is REAL: the thumb-zone band reads a different word than the rail",
+    "reference/glade_spec::Glade: adaptation, one tree (spec §4)::the top bar HUGS its tabs, centered — never full width (tablet / ten-foot shape)",
+    "reference/glade_spec::Glade: determinism — same seed, same steps, same dump::Fresh Start returns a played world to its opening dump, byte for byte",
+    "reference/glade_spec::Glade: determinism — same seed, same steps, same dump::the dump is stable across repeated reads with nothing changed in between",
+    "reference/glade_spec::Glade: determinism — same seed, same steps, same dump::two independent worlds driven identically produce identical dumps",
+    "reference/glade_spec::Glade: focus and reachability (spec §4, §14)::every modal can reach its own dismissal control from its focus map",
+    "reference/glade_spec::Glade: focus and reachability (spec §4, §14)::focus order follows the nav's PLACEMENT: a leading rail leads the ring, a bottom band trails it",
+    "reference/glade_spec::Glade: focus and reachability (spec §4, §14)::the base surface opens on the first glade card, not on the search field",
+    "reference/glade_spec::Glade: focus and reachability (spec §4, §14)::the charm sheet opens on the recommended tier, and never on a card that is gone",
+    "reference/glade_spec::Glade: focus and reachability (spec §4, §14)::the linear and directional readings cover the same nodes",
+    "reference/glade_spec::Glade: focus and reachability (spec §4, §14)::the picker opens on the first premium card's action button",
+    "reference/glade_spec::Glade: localization and the expansion locale (spec §13)::a locale swap relabels the live tree without a remount",
+    "reference/glade_spec::Glade: localization and the expansion locale (spec §13)::an unknown locale falls back rather than blanking the screen",
+    "reference/glade_spec::Glade: localization and the expansion locale (spec §13)::every key exists in both locales and `xa` expands by exactly 1.4×",
+    "reference/glade_spec::Glade: localization and the expansion locale (spec §13)::expansion never eats a placeholder",
+    "reference/glade_spec::Glade: localization and the expansion locale (spec §13)::remaining and relative times are proof-owned and single-unit",
+    "reference/glade_spec::Glade: motion (spec §11)::reduced motion places the same states and fires the same events",
+    "reference/glade_spec::Glade: motion (spec §11)::the ring's painted arc chases the level and lands on it",
+    "reference/glade_spec::Glade: motion (spec §11)::the wisp fly-in runs once per visit and completes",
+    "reference/glade_spec::Glade: supply drain, low and empty (spec §1, §6)::a refill stamps the clock, restores the level, and the ring drains again",
+    "reference/glade_spec::Glade: supply drain, low and empty (spec §1, §6)::dew uses its own constants, and the two never share a threshold",
+    "reference/glade_spec::Glade: supply drain, low and empty (spec §1, §6)::nectar crosses low at 7.5 minutes and empty at 9, on the injected clock alone",
+    "reference/glade_spec::Glade: the responsibility ledger's forbidden list::no device-name or platform-name branch: facts and size classes only",
+    "reference/glade_spec::Glade: the responsibility ledger's forbidden list::no engine reach-around: no Instance, no service, no input listener, no adapter write",
+    "reference/glade_spec::Glade: the responsibility ledger's forbidden list::no raw colour reaches a role's place: identity hues ride the declared tint form",
+    "reference/glade_spec::Glade: the responsibility ledger's forbidden list::no wall clock and no random anywhere in the proof",
+    "reference/glade_spec::Glade: the responsibility ledger's forbidden list::scans the whole proof, and there is a whole proof to scan",
+    "reference/glade_spec::Glade: the responsibility ledger's forbidden list::the bite is real: the scanner sees the patterns it bans when they are present",
+    "reference/glade_spec::Glade: the scenario surface::Flora is browse-only: cards with a name and a species line, and no modal",
+    "reference/glade_spec::Glade: the scenario surface::every step the scenario runner exposes is callable and answers something",
+    "reference/glade_spec::Glade: the scenario surface::the five-view sweep is diagnostic-clean with a live scrollbar (matrix pin)",
+    "reference/glade_spec::Glade: the scenario surface::the shop's hero card is the declared best value, with its own chip",
+    "reference/glade_spec::Glade: the scenario surface::two fresh builds are identical (reset determinism) and dispose cleanly",
+    "reference/glade_spec::Glade: the stage axes it can answer headlessly (RA-M3/M4/M5)::a theme-package swap re-solves the same tree — no remount, no source edit",
+    "reference/glade_spec::Glade: the stage axes it can answer headlessly (RA-M3/M4/M5)::every preferred-text step re-solves without an error or a lost selection",
+    "reference/glade_spec::Glade: the stage axes it can answer headlessly (RA-M3/M4/M5)::the expansion locale reflows the whole loop with no error and no lost state",
+    "reference/glade_spec::Glade: the stray corner stroke and the circle doctrine (task PAINT, director items 11/12)::item 11 fix round 1: a plain surface no longer bundles chrome suppression with interaction suppression (fallback)",
+    "reference/glade_spec::Glade: the stray corner stroke and the circle doctrine (task PAINT, director items 11/12)::item 11 fix round 1: a plain surface no longer bundles chrome suppression with interaction suppression (native)",
+    "reference/glade_spec::Glade: the stray corner stroke and the circle doctrine (task PAINT, director items 11/12)::item 11 fix round 1: the press-dip and the hover/pressed fill are the mechanism this restores — both gate on exactly the flag the branches above now leave false for `plain`",
+    "reference/glade_spec::Glade: the stray corner stroke and the circle doctrine (task PAINT, director items 11/12)::item 11: the card's activation Button classifies to NO chrome slot at all — surface = plain",
+    "reference/glade_spec::Glade: the stray corner stroke and the circle doctrine (task PAINT, director items 11/12)::item 12: the dew ring's identity dot is CENTRED, not pinned to the top-left corner",
+    "reference/glade_spec::Glade: the stray corner stroke and the circle doctrine (task PAINT, director items 11/12)::item 12: the nectar ring's identity mark (the Jar swap) is centred the same way",
+    "reference/glade_spec::Glade: the stray corner stroke and the circle doctrine (task PAINT, director items 11/12)::item 12: the supply ring is a TRUE 1:1 box via shape = circle, byte-identical geometry to before",
+    "reference/glade_spec::Glade: the stray corner stroke and the circle doctrine (task PAINT, director items 11/12)::item 12: whatisthis.png IS the deliberate glance plate, not a leaked mount — same rings, same fix",
+    "reference/glade_spec::Glade: toasts (spec §12)::a refill toast is keyed per glade, so the same subject never doubles up",
+    "reference/glade_spec::Glade: toasts (spec §12)::nothing in the loop depends on reading a toast: the state is visible in place",
+    "reference/glade_spec::Glade: toasts (spec §12)::two different glades are two different subjects",
+]
+
+PLACEMENT_CASES = [
+    "placement_audit::§2.1 the FOUR props this same phase shipped are in the watched set::`gridSpan` is reported under every parent that is not a GridRow",
+    "placement_audit::§2.1 the FOUR props this same phase shipped are in the watched set::`layoutPriority` is reported under every parent that is not a stack, and still tiers under one",
+    "placement_audit::§2.1 the FOUR props this same phase shipped are in the watched set::`lineAlign` is reported under every parent that is not a stack",
+    "placement_audit::§2.1 the FOUR props this same phase shipped are in the watched set::`shrinkWeight` is reported under every parent that is not a stack, and still shrinks under one",
+    "placement_audit::§2.1 the FOUR props this same phase shipped are in the watched set::the shrink pair's message names the reason AND the way out",
+    "placement_audit::§2.1 the blank cells: every prop is authorable everywhere, so every parent is policed::a UI.Region refuses every placement prop at CONSTRUCTION — the schema closes that cell too",
+    "placement_audit::§2.1 the blank cells: every prop is authorable everywhere, so every parent is policed::under a Region (its chosen form): ALL NINE are inert",
+    "placement_audit::§2.1 the blank cells: every prop is authorable everywhere, so every parent is policed::under a ScrollView: `anchor`, both aligns, `lineAlign` and `gridSpan` are inert",
+    "placement_audit::§2.1 the blank cells: every prop is authorable everywhere, so every parent is policed::under a ViewThatFits candidate: ALL NINE are inert — a candidate is placed by rank",
+    "placement_audit::§2.1 the blank cells: every prop is authorable everywhere, so every parent is policed::under a ZStack: everything but the two aligns is inert",
+    "placement_audit::§2.1 the blank cells: every prop is authorable everywhere, so every parent is policed::under a flow Grid: `anchor`, both offsets, `lineAlign` and `gridSpan` are inert",
+    "placement_audit::§2.1 the blank cells: every prop is authorable everywhere, so every parent is policed::under a stack: everything but `lineAlign` and the shrink pair is inert, on BOTH axes",
+    "placement_audit::§2.1 the blank cells: every prop is authorable everywhere, so every parent is policed::under an Anchor: the two aligns and `lineAlign` and `gridSpan` are inert; the three it reads are not",
+    "placement_audit::§2.1 the hiddenDepth gate::a losing ViewThatFits candidate does not shout about its own children",
+    "placement_audit::§2.1 the honoured cell is SILENT — a false positive here un-ships a screen::a ZStack's own alignH/alignV are the CONTAINER's default, never a placement request",
+    "placement_audit::§2.1 the honoured cell is SILENT — a false positive here un-ships a screen::every honoured cell of the §2.1 table is silent",
+    "placement_audit::§2.1 the inert cell reports, and nothing moved::`alignH` under a ViewThatFits candidate: reported (the live Rascal Rally shape)",
+    "placement_audit::§2.1 the inert cell reports, and nothing moved::`alignH`/`alignV` under a VStack: reported, and `lineAlign` is the spelling that DOES move it",
+    "placement_audit::§2.1 the inert cell reports, and nothing moved::`anchor` under a ZStack: reported, and the child is not placed by corner",
+    "placement_audit::§2.1 the inert cell reports, and nothing moved::`anchor`/`offsetX`/`offsetY` on an Anchor under a Screen: reported (the live row-actions menu shape)",
+    "placement_audit::§2.1 the inert cell reports, and nothing moved::`lineAlign` under a ZStack, and `gridSpan` outside a GridRow: both reported",
+    "placement_audit::§2.1 the inert cell reports, and nothing moved::`offsetX`/`offsetY` under an HStack: reported as a pair, and the child does not shift",
+    "placement_audit::§2.1 the inert cell reports, and nothing moved::a UI.GridRow refuses every placement prop at CONSTRUCTION — the schema closes that cell",
+    "placement_audit::§2.1 the message names the REASON and the way out::`alignH` under an HStack points at lineAlign and says why nothing moved",
+    "placement_audit::§2.1 the message names the REASON and the way out::`anchor` under a ZStack points at alignH/alignV, not at UI.Anchor",
+    "placement_audit::§2.1 the message names the REASON and the way out::`offsetX` under a ZStack points at UI.Anchor",
+    "placement_audit::§2.1 tier 2: the children a construction-time check cannot see::a UI.ForEach row is audited against the real parent kind",
+    "placement_audit::§2.1 tier 2: the children a construction-time check cannot see::a UI.When child is audited against the parent it SPLICES into, not against the When",
+]
+
+WARDROBE_CASES = [
+    "reference/wardrobe_spec::Wardrobe proof — filters, sections, locale, determinism::owned-only shrinks the catalog; price sort reorders; reset restores",
+    "reference/wardrobe_spec::Wardrobe proof — filters, sections, locale, determinism::section stubs are honest and the worn set survives leaving and returning",
+    "reference/wardrobe_spec::Wardrobe proof — filters, sections, locale, determinism::the locale swap reaches the BuyBar copy live",
+    "reference/wardrobe_spec::Wardrobe proof — filters, sections, locale, determinism::the locale swap reaches the SECTION PICKER's option labels too",
+    "reference/wardrobe_spec::Wardrobe proof — filters, sections, locale, determinism::two fresh builds are identical (reset determinism) and dispose cleanly",
+    "reference/wardrobe_spec::Wardrobe proof — mount, stage seam, arrangement (RA-P5)::REDUCED MOTION STOPS THE TURNTABLE — and motion allowed still turns it",
+    "reference/wardrobe_spec::Wardrobe proof — mount, stage seam, arrangement (RA-P5)::an orbit step drives a new camera write through the public host",
+    "reference/wardrobe_spec::Wardrobe proof — mount, stage seam, arrangement (RA-P5)::mounts the boutique with categories, grids, pane, and no core error",
+    "reference/wardrobe_spec::Wardrobe proof — mount, stage seam, arrangement (RA-P5)::the stage host is live headlessly (recording stub): lighting + camera recorded, fallback closed",
+    "reference/wardrobe_spec::Wardrobe proof — mount, stage seam, arrangement (RA-P5)::wide solves the split arrangement; a phone box solves stacked — and worn state survives the flip",
+    "reference/wardrobe_spec::Wardrobe proof — the purchase lifecycle::insufficient Sparks rejects with a visible reason; the wallet never moves; retry stays allowed",
+    "reference/wardrobe_spec::Wardrobe proof — the purchase lifecycle::sold-out rejects once, then a retry confirms: balance debits, chip flips to Owned+Wearing, modal dismisses, BuyBar leaves",
+    "reference/wardrobe_spec::Wardrobe proof — try-on and history::activating a card equips it: Wearing chip, selected state, rig re-dressed; activating again unequips",
+    "reference/wardrobe_spec::Wardrobe proof — try-on and history::trying on an unowned item raises the BuyBar; an owned one does not",
+    "reference/wardrobe_spec::Wardrobe proof — try-on and history::undo/redo walk the equip history and disable at the stack ends",
+    "reference/wardrobe_spec::Wardrobe — Picked-for-you cards fill their lane and never overflow their card (item 15)::every Picked-for-you card is the same width, and the row tiles the grid exactly",
+    "reference/wardrobe_spec::Wardrobe — Picked-for-you cards fill their lane and never overflow their card (item 15)::every Picked-for-you thumbnail is the SAME width — never a different width per card",
+    "reference/wardrobe_spec::Wardrobe — Picked-for-you cards fill their lane and never overflow their card (item 15)::the catalog column claims the whole phone viewport — not just the grid's minColumnWidth floor",
+    "reference/wardrobe_spec::Wardrobe — Picked-for-you cards fill their lane and never overflow their card (item 15)::the thumbnail never paints past its own Col — at the floor lane, not just a wide one",
+    "reference/wardrobe_spec::Wardrobe — backdrop-finding sweep (task POP)::the purchase Confirm modal and the Refine filter modal are clean",
+    "reference/wardrobe_spec::Wardrobe — the worn chips FLOW (parity round 3)::FIVE WORN PIECES SHARE ONE LINE, each at its own width — not five stacked lines",
+    "reference/wardrobe_spec::Wardrobe — the worn chips FLOW (parity round 3)::IN A NARROW PANE THEY WRAP to a second line rather than paint past the plate",
+]
+
 CONSUMER_CASES = [
     "consumer_standalone::examples/consumer: input and state::Close raises the signal the session listens on",
     "consumer_standalone::examples/consumer: input and state::a press on Bump raises the count and repaints the label",
@@ -465,6 +963,256 @@ CONSUMER_CASES = [
 
 # row id -> (check dict, note, evidence path or None)
 ROW_FLIPS = {
+    "distribution-readiness::fresh-clone-works": (
+        {
+            "shell": _clone_check(
+                "ok = d['tier'] == 'full' and not failedRows and not failedProducers\n"
+                "print(len(d['rows']), 'rows and', len(d['producers']), 'producers in a clone "
+                "with no parent workspace;', len(failedRows), 'failing rows,', "
+                "len(failedProducers), 'failing producers')\n"
+                "sys.exit(0 if ok else 1)\n"
+            ),
+            "receipt": "tools/lune/verify/evidence/distribution-readiness--fresh-clone-works.json",
+        },
+        "a clone of this repository, in a directory with no parent workspace and an empty result "
+        "store, ran the full tier end to end with no failing row and no failing producer -- read "
+        "out of that run's own machine record, which is pinned by content hash. The clone was "
+        "taken from the repository on disk and NOT fetched over the network, and the note beside "
+        "the record says so",
+        "artifacts/distribution-readiness/verification/public-clone.md",
+    ),
+    "distribution-readiness::example-places-rebuild-from-clone": (
+        {
+            "shell": _clone_check(
+                "want = ['build_places', 'build_reference_places']\n"
+                "bad = [k for k in want if producers.get(k) != 'PASS']\n"
+                "print('place builders in the clone:', [producers.get(k) for k in want])\n"
+                "sys.exit(1 if bad else 0)\n"
+            ),
+            "receipt": "tools/lune/verify/evidence/distribution-readiness--example-places-rebuild-from-clone.json",
+        },
+        "both place builders ran green inside that clone, so the example places rebuild from a "
+        "checkout that carries nothing but the repository",
+        None,
+    ),
+    "distribution-readiness::package-from-clone-matches": (
+        {
+            "shell": _clone_check(
+                "bad = producers.get('package-verify') != 'PASS'\n"
+                "print('package-verify in the clone:', producers.get('package-verify'))\n"
+                "sys.exit(1 if bad else 0)\n"
+            ),
+            "receipt": "tools/lune/verify/evidence/distribution-readiness--package-from-clone-matches.json",
+        },
+        "the package channel's own verify -- build, tree inspection, purity and the packaged "
+        "canary -- ran green inside that clone, against the model built there",
+        None,
+    ),
+    # ---- Step 13.5: the verification-optimization rows ------------------------
+    #   Their own artifacts are archived; these are the LIVING successors, and
+    #   each is re-earned by a producer in this same run.
+    "example-games-and-standalones::verification-mutations-bite": (
+        {
+            "producers": ["verify-selftest", "suite_cache_selftest", "check_manifest_integrity"],
+            "receipt": "tools/lune/verify/evidence/example-games-and-standalones--verification-mutations-bite.json",
+        },
+        "targeted mutations still make the optimized system red: the result store's thirty-two "
+        "refusals and the transcript cache's own broken-on-purpose guards run live, the graph "
+        "audit reddens on a changed case id, and the recorded corpus is pinned by content hash",
+        None,
+    ),
+    "example-games-and-standalones::verification-verdict-parity": (
+        {
+            "producers": ["check_manifest_integrity"],
+            "shell": (
+                'grep -q "went red on both paths" '
+                "artifacts/distribution-readiness/verification/mutation-parity.md"
+            ),
+            "receipt": "tools/lune/verify/evidence/example-games-and-standalones--verification-verdict-parity.json",
+        },
+        "the old path and the new path return the same verdict, row by row -- the comparison this "
+        "stage owed, taken by the workstream that replaced the old path, pinned by content hash "
+        "and asserted by its own claim",
+        None,
+    ),
+    "example-games-and-standalones::producer-runs-once-per-identity": (
+        {"producers": ["verify-selftest"], "shell": _TRACE_CHECK},
+        "each producer executes at most once per exact identity, recomputed here from the "
+        "invocation trace rather than quoted from a document -- the trace is written every run, so "
+        "it is read and never hashed",
+        "artifacts/verify/invocation-trace.json",
+    ),
+    "example-games-and-standalones::headless-budget-twenty-minutes": (
+        {"shell": _BUDGET_CHECK, "receipt": "tools/lune/verify/evidence/example-games-and-standalones--headless-budget-twenty-minutes.json"},
+        "the deterministic headless work finishes inside twenty minutes, read from the LAST "
+        "release run's own record; Studio, device, performance and external time are reported by "
+        "class in the timings document beside it and never folded into that number",
+        None,
+    ),
+    "example-games-and-standalones::verification-coverage-preserved": (
+        {"producers": ["check_manifest_integrity"], "shell": _LEDGER_CHECK},
+        "no coverage, assertion strength or negative control was removed for speed: the graph "
+        "audit checks every case id and producer this run cites, and the coverage ledger's counts "
+        "agree with the document rendered from them",
+        "artifacts/distribution-readiness/verification/coverage-map.md",
+    ),
+
+    # ---- Step 13.5: the game loops -------------------------------------------
+    "example-games-and-standalones::tile-game-crossword-loop": (
+        {"resultIds": TILE_CASES, "receipt": "tools/lune/verify/evidence/example-games-and-standalones--tile-game-crossword-loop.json"},
+        "the crossword's whole loop, by case id: the pure rules, the axis and connection laws, "
+        "every perpendicular word a turn creates, the shared dictionary, the guaranteed opening, "
+        "nine refusals in nine sentences, commit and undo and budget, both endings, determinism "
+        "and teardown. Its design record is archived and pinned; the Studio play the original row "
+        "also asked for predates this stage and is not re-taken here",
+        None,
+    ),
+    "example-games-and-standalones::match3-motion-public-surface": (
+        {
+            "resultIds": MATCH3_CASES,
+            "producers": ["check_boundary", "check_library_purity"],
+            "receipt": "tools/lune/verify/evidence/example-games-and-standalones--match3-motion-public-surface.json",
+        },
+        "tile identity survives a move, the resolve sequence is visible IN ORDER, reduced motion "
+        "changes the paint and nothing else, and the example builds no animation system of its "
+        "own -- that last one asserted twice over, by its own case and by the boundary and purity "
+        "checks that forbid an example reaching past the public surface",
+        None,
+    ),
+    "example-games-and-standalones::sensory-demo-opens-useful": (
+        {"resultIds": SENSORY_FEEDBACK_CASES, "receipt": "tools/lune/verify/evidence/example-games-and-standalones--sensory-demo-opens-useful.json"},
+        "the declaration is ruled on at the call site, what reaches the bus is what was declared, "
+        "and it survives the real presenter. The rendered-geometry half the original row asked "
+        "for was a Studio capture; it predates this stage and is not re-taken here",
+        None,
+    ),
+    "example-games-and-standalones::sensory-demo-four-comparisons": (
+        {"resultIds": SENSORY_PROFILE_CASES, "receipt": "tools/lune/verify/evidence/example-games-and-standalones--sensory-demo-four-comparisons.json"},
+        "the three shipped profiles pinned exactly, a partial merged over the defaults, the preset "
+        "fallback with the limitation it carries, and the key that makes pooling possible -- all "
+        "of it engine-free, which is the reason any of it is provable headlessly",
+        None,
+    ),
+    "example-games-and-standalones::world-terminal-plays": (
+        {"resultIds": TERMINAL_CASES, "receipt": "tools/lune/verify/evidence/example-games-and-standalones--world-terminal-plays.json"},
+        "the terminal's whole path by case id -- engage, adjust, apply, success, reset, exit; "
+        "every refusal and the exact sentence it uses; every refusal the server can make; and the "
+        "headless world substrate under it. The played Studio session predates this stage",
+        None,
+    ),
+    "example-games-and-standalones::world-terminal-guide-recipe": (
+        {
+            "producers": ["check_docs_cli", "check_links_cli"],
+            "shell": (
+                "grep -q '^#### .client.surface_target.' docs/reference/api.md && "
+                "test -f docs/extending/new-render-target.md"
+            ),
+        },
+        "the world render target is published where a reader can act on it: the surface target has "
+        "its own reference entry and the render-target playbook is in the extending set, with the "
+        "documentation drift check and the link checker both live",
+        None,
+    ),
+    "example-games-and-standalones::sipworks-loop-complete": (
+        {"resultIds": SIPWORKS_CASES, "receipt": "tools/lune/verify/evidence/example-games-and-standalones--sipworks-loop-complete.json"},
+        "ninety-one cases: the shell flip, the row blueprint, the order flow, the stamps, the "
+        "unlock, localization, the five-view sweep the solver signs off, reduced motion and "
+        "reachability, gamepad traversal, the played task and its reset. Its design record is "
+        "archived and pinned; the Studio play predates this stage",
+        None,
+    ),
+    "example-games-and-standalones::glade-loop-complete": (
+        {"resultIds": GLADE_CASES, "receipt": "tools/lune/verify/evidence/example-games-and-standalones--glade-loop-complete.json"},
+        "a hundred and six cases: the overview grid, supply drain, the purchase command's four "
+        "phases, the charm, the edit form, determinism, toasts, adaptation, focus, localization, "
+        "motion, the responsibility ledger's forbidden list, and the played task. Same archived "
+        "design record, same rule about the Studio play",
+        None,
+    ),
+
+    # ---- Step 13.5: the manifest-driven places --------------------------------
+    "example-games-and-standalones::one-manifest-drives-places": (
+        {
+            "producers": [
+                "check_example_drift_cli",
+                "check_registration_cli",
+                "build_places",
+                "build_reference_places",
+            ]
+        },
+        "one declaration drives what ships: the drift checker reconciles the example set against "
+        "what is registered, the registration checker refuses an unregistered surface, and both "
+        "place builders build from it",
+        None,
+    ),
+    "example-games-and-standalones::places-are-playable-not-fixtures": (
+        {
+            "resultIds": PLACEMENT_CASES,
+            "producers": ["build_places", "build_reference_places"],
+        },
+        "the places build, and what they put on screen is policed rather than assumed: every "
+        "authorable prop is watched in every parent, an inert cell reports itself, an honoured "
+        "cell stays SILENT -- a false positive there would un-ship a screen -- and the message "
+        "names the reason and the way out",
+        None,
+    ),
+    "example-games-and-standalones::shared-theme-and-motion-chrome": (
+        {
+            "producers": ["check_theme_drift_cli", "build_themes", "check_elision_census"],
+            "resultIds": [c for c in TILE_CASES if "in every theme" in c or "not a colour" in c],
+        },
+        "the shipped examples wear the same theme and motion chrome: theme drift is checked "
+        "against the packages the builder produces, and the crossword proves the sweep bites -- "
+        "every cell state paints a plate a player can see under every theme, and committed versus "
+        "uncommitted is not a colour",
+        None,
+    ),
+    "example-games-and-standalones::dead-example-audit": (
+        {
+            "resultIds": WARDROBE_CASES,
+            "producers": ["check_example_drift_cli", "check_device_sweep-selftest"],
+            "receipt": "tools/lune/verify/evidence/example-games-and-standalones--dead-example-audit.json",
+        },
+        "the retired example stays retired and stays proved: its cases still run as test evidence, "
+        "the drift checker reconciles the live set against what is registered, and the inventory "
+        "taken when it was retired is pinned by content hash",
+        None,
+    ),
+
+    # ---- Step 13.5: the closing rows -----------------------------------------
+    "example-games-and-standalones::rascalrally-consumer": (
+        {"producers": ["rascalrally-suite"], "receipt": "tools/lune/verify/evidence/example-games-and-standalones--rascalrally-consumer.json"},
+        "the consuming game's own suite runs green against this tree, and the consumer-impact "
+        "ledger for the stage is pinned by content hash",
+        None,
+    ),
+    "example-games-and-standalones::step-13-guards-hold": (
+        {
+            "producers": [
+                "check_registration_cli",
+                "check_surface_ledger",
+                "check_source_size",
+                "check_docs_cli",
+                "check_prop_parity_cli",
+                "check_theme_drift_cli",
+            ]
+        },
+        "the guards the previous step installed still hold: registration, the surface ledger, the "
+        "source cap, the documentation catalogue, property parity and theme drift -- each run in "
+        "THIS run rather than recalled from the gate that installed it",
+        None,
+    ),
+    "example-games-and-standalones::prior-gates-unregressed": (
+        {"priorPhases": True},
+        "every row of every earlier phase, re-evaluated from this same run rather than replayed",
+        None,
+    ),
+    "example-games-and-standalones::suites-green-at-close": (
+        {"producers": ["suite", "rascalrally-suite"]},
+        "both suites are green at the tree this stage is judged at -- the library's own, and the "
+        "consuming game's",
+        None,
+    ),
     "distribution-readiness::registered-before-work": (
         {
             "shell": (
@@ -677,15 +1425,7 @@ ROW_FLIPS = {
     ),
     "distribution-readiness::timings-and-budget": (
         {
-            "shell": (
-                "python3 -c \"import json,os,sys; "
-                "p='artifacts/verify/latest-release.json'; "
-                "print('FAIL_ENVIRONMENT no release run has been recorded in this checkout') "
-                "or sys.exit(2) if not os.path.isfile(p) else None; "
-                "d=json.load(open(p)); "
-                "print('%.1f s against a 1200 s budget' % (d['durationMs']/1000.0)); "
-                "sys.exit(0 if d['durationMs'] <= 1200000 else 1)\""
-            ),
+            "shell": _BUDGET_CHECK,
             "receipt": "tools/lune/verify/evidence/distribution-readiness--timings-and-budget.json",
         },
         "the LAST release run's own duration against the twenty-minute budget, read from the run "
@@ -866,6 +1606,91 @@ NEW_ROWS = [
 
 # row id -> (receipt class, [(label, path, "tree"|"archive")], summary)
 DR_RECEIPTS = {
+    "distribution-readiness::fresh-clone-works": (
+        "deterministic",
+        [("run-record", "artifacts/distribution-readiness/verification/public-clone-full-run.json", "tree"),
+         ("note", "artifacts/distribution-readiness/verification/public-clone.md", "tree")],
+        "the clone run's verbatim machine record, and the note that says what it is and is not",
+    ),
+    "distribution-readiness::example-places-rebuild-from-clone": (
+        "deterministic",
+        [("run-record", "artifacts/distribution-readiness/verification/public-clone-full-run.json", "tree")],
+        "the same record, read for the two place builders",
+    ),
+    "distribution-readiness::package-from-clone-matches": (
+        "deterministic",
+        [("run-record", "artifacts/distribution-readiness/verification/public-clone-full-run.json", "tree")],
+        "the same record, read for the package channel's verify",
+    ),
+    # ---- Step 13.5's archived stage record, pinned where a row leans on it ----
+    "example-games-and-standalones::verification-mutations-bite": (
+        "deterministic",
+        [("mutation-corpus", "artifacts/distribution-readiness/verification/mutation-parity.md", "tree"),
+         ("stage-plan", "artifacts/example-games-and-standalones/test-optimization/plan.md", "archive")],
+        "the living mutation corpus, and the plan the stage wrote for the one it owed",
+    ),
+    "example-games-and-standalones::verification-verdict-parity": (
+        "deterministic",
+        [("parity", "artifacts/distribution-readiness/verification/mutation-parity.md", "tree")],
+        "the old-path/new-path verdict comparison",
+    ),
+    "example-games-and-standalones::headless-budget-twenty-minutes": (
+        "deterministic",
+        [("timings", "artifacts/distribution-readiness/verification/timings.md", "tree"),
+         ("stage-baseline", "artifacts/example-games-and-standalones/test-optimization/baseline.md", "archive")],
+        "the living timings against the budget, and the stage's own before-measurement",
+    ),
+    "example-games-and-standalones::tile-game-crossword-loop": (
+        "external",
+        [("design", "artifacts/example-games-and-standalones/design/crossword-tile-game.md", "archive"),
+         ("acceptance", "artifacts/example-games-and-standalones/acceptance-ledger.md", "archive")],
+        "the crossword's design record and the stage's acceptance ledger, where the Studio play is recorded",
+    ),
+    "example-games-and-standalones::match3-motion-public-surface": (
+        "external",
+        [("design", "artifacts/example-games-and-standalones/design/match3-motion.md", "archive"),
+         ("ownership", "artifacts/example-games-and-standalones/responsibility-ledger.md", "archive")],
+        "the motion design record and the responsibility ledger that forbids an example-local animation system",
+    ),
+    "example-games-and-standalones::sensory-demo-opens-useful": (
+        "external",
+        [("design", "artifacts/example-games-and-standalones/design/sensory-demo.md", "archive")],
+        "the sensory demo's design record, including the captures taken when it was built",
+    ),
+    "example-games-and-standalones::sensory-demo-four-comparisons": (
+        "external",
+        [("design", "artifacts/example-games-and-standalones/design/sensory-demo.md", "archive")],
+        "the same record, read for the four-way comparison",
+    ),
+    "example-games-and-standalones::world-terminal-plays": (
+        "external",
+        [("design", "artifacts/example-games-and-standalones/design/outpost-power-terminal.md", "archive"),
+         ("spike", "artifacts/example-games-and-standalones/spike/world-surface.md", "archive")],
+        "the terminal's design record and the world-surface spike it was built on",
+    ),
+    "example-games-and-standalones::sipworks-loop-complete": (
+        "external",
+        [("design", "artifacts/example-games-and-standalones/design/sipworks-and-glade.md", "archive"),
+         ("acceptance", "artifacts/example-games-and-standalones/acceptance-ledger.md", "archive")],
+        "the two reference loops' design record and the stage's acceptance ledger",
+    ),
+    "example-games-and-standalones::glade-loop-complete": (
+        "external",
+        [("design", "artifacts/example-games-and-standalones/design/sipworks-and-glade.md", "archive"),
+         ("acceptance", "artifacts/example-games-and-standalones/acceptance-ledger.md", "archive")],
+        "the same record, read for the second loop",
+    ),
+    "example-games-and-standalones::dead-example-audit": (
+        "external",
+        [("inventory", "artifacts/example-games-and-standalones/wardrobe-inventory.md", "archive"),
+         ("retirement", "artifacts/example-games-and-standalones/design/wardrobe-retirement.md", "archive")],
+        "the inventory taken when the example was retired, and the retirement decision beside it",
+    ),
+    "example-games-and-standalones::rascalrally-consumer": (
+        "deterministic",
+        [("impact-ledger", "artifacts/distribution-readiness/rascalrally-consumer-impact.md", "tree")],
+        "the consuming game's impact ledger",
+    ),
     "distribution-readiness::registered-before-work": (
         "deterministic",
         [("freeze-head", FREEZE + "/head.txt", "tree"),
@@ -961,12 +1786,48 @@ DR_RECEIPTS = {
 #   NOT a row nobody got to: it is a row whose proof does not exist yet, and
 #   saying so is the whole reason the registration block was written before the
 #   work. ]]
+#[[ EVERY ROW LEFT PENDING, AND WHETHER IT MAY BLOCK THE RUN.
+#
+#   `(why, releaseBlocking)`. The second half is a deliberate per-row ruling,
+#   not a default: `graph.statePasses` treats a PENDING row as passing ONLY when
+#   `releaseBlocking` is explicitly `false`, so a row nobody has ruled on keeps
+#   failing the run.
+#
+#   FALSE means the row cannot be earned before the thing it is waiting for, and
+#   that thing is gated on this run's own verdict -- the stage-closing pair each
+#   pass only AFTER a release action that refuses to start unless the gate reads
+#   PASS -- or it is a properly declared human procedure with its closing
+#   procedure named, which is the same contract the device rows have carried
+#   all along.
+#
+#   TRUE means the work is simply missing. Nothing external blocks it, somebody
+#   has not done it, and the run should stay red until they do. ]]
 STILL_PENDING = {
-    "distribution-readiness::fresh-clone-works": "a clone taken from the renamed remote and run end to end",
-    "distribution-readiness::example-places-rebuild-from-clone": "the same clone rebuilding the example places",
-    "distribution-readiness::package-from-clone-matches": "a package built from that clone, compared byte for byte",
-    "distribution-readiness::owner-packet-complete": "the packet's final numbers, stamped at close",
-    "distribution-readiness::private-package-id-and-update-proof": "an asset minted and updated, which requires the owner to publish",
+    "distribution-readiness::owner-packet-complete": (
+        "the packet's final numbers, stamped at close -- it closes the stage, so it cannot be "
+        "earned before the stage closes",
+        False,
+    ),
+    "distribution-readiness::private-package-id-and-update-proof": (
+        "an asset minted and updated, which is the owner's guarded release action -- and that "
+        "action refuses to run unless this gate already reads PASS",
+        False,
+    ),
+    "example-quality-pass::physical-and-human-rows": (
+        "a human review packet at artifacts/example-quality-pass/review-packet.md -- a declared "
+        "human row that names its own closing procedure, exactly as the device rows do",
+        False,
+    ),
+    "example-games-and-standalones::fresh-phase-gate-review": (
+        "an independent fresh-context reviewer that PLAYS the six touched loops and has its "
+        "findings resolved. The four fresh-context exercises this stage ran do not cover that "
+        "subject -- the red team read this workstream's verification graph, and the three fresh "
+        "agents read the comparison guide, built a settings screen and extended the consumer "
+        "example. None of them opened the crossword, the match-3 board, the sensory demo, the "
+        "terminal, Sipworks or Glade. Nothing external blocks the dispatch, so this row keeps "
+        "failing the run until it happens",
+        True,
+    ),
 }
 
 
@@ -1121,14 +1982,20 @@ def flip_registration_rows(rows, dry_run):
 
     pending = []
     for row in rows:
-        why = STILL_PENDING.get(row["id"])
-        if why is None:
+        spec = STILL_PENDING.get(row["id"])
+        if spec is None:
             continue
-        want = "%s: PENDING -- %s. Requirements: %s." % (
-            row["name"], why, ", ".join(row["requirements"]) or "none",
+        why, blocking = spec
+        want = "%s: PENDING -- %s. %s Requirements: %s." % (
+            row["name"],
+            why,
+            "It does not block the run." if not blocking else "It BLOCKS the run.",
+            ", ".join(row["requirements"]) or "none",
         )
         if row.get("note") != want:
             row["note"] = want
+        if row.get("releaseBlocking") != blocking:
+            row["releaseBlocking"] = blocking
         pending.append([row["id"], why])
     return flipped, minted, added, pending
 

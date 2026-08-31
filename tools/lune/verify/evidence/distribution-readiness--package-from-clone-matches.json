@@ -1,0 +1,14 @@
+{
+ "class": "deterministic",
+ "evidence": [
+  {
+   "archivedPath": "artifacts/distribution-readiness/verification/public-clone-full-run.json",
+   "label": "run-record",
+   "sha256": "b76133a272389a6c0ea00cad50ee46dd63969a9a93568db776a8293e4f6c5227"
+  }
+ ],
+ "recordedAt": "2026-08-31T05:13:28Z",
+ "row": "distribution-readiness::package-from-clone-matches",
+ "schema": "facet-evidence-receipt/1",
+ "summary": "the same record, read for the package channel's verify"
+}

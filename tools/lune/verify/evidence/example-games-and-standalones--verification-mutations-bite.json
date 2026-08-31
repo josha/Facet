@@ -1,0 +1,19 @@
+{
+ "class": "deterministic",
+ "evidence": [
+  {
+   "archivedPath": "artifacts/distribution-readiness/verification/mutation-parity.md",
+   "label": "mutation-corpus",
+   "sha256": "009f8ddeee708346cf81b6d399a681b29fbddbf77818846d8b8078143a603e95"
+  },
+  {
+   "archivedPath": "artifacts/example-games-and-standalones/test-optimization/plan.md",
+   "label": "stage-plan",
+   "sha256": "934a96a3f60806548d40a220b5f01ac8cbd255f3ca5e36b73a19dca128cfe5c1"
+  }
+ ],
+ "recordedAt": "2026-08-31T05:10:17Z",
+ "row": "example-games-and-standalones::verification-mutations-bite",
+ "schema": "facet-evidence-receipt/1",
+ "summary": "the living mutation corpus, and the plan the stage wrote for the one it owed"
+}

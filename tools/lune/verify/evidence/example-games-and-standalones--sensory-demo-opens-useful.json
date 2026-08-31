@@ -1,0 +1,14 @@
+{
+ "class": "external",
+ "evidence": [
+  {
+   "archivedPath": "artifacts/example-games-and-standalones/design/sensory-demo.md",
+   "label": "design",
+   "sha256": "1f119a5e8624e2fe0a5afabefced7b21ac051f57b676f48665aa9964911a055f"
+  }
+ ],
+ "recordedAt": "2026-08-31T05:10:17Z",
+ "row": "example-games-and-standalones::sensory-demo-opens-useful",
+ "schema": "facet-evidence-receipt/1",
+ "summary": "the sensory demo's design record, including the captures taken when it was built"
+}

@@ -1,0 +1,19 @@
+{
+ "class": "deterministic",
+ "evidence": [
+  {
+   "archivedPath": "artifacts/distribution-readiness/verification/timings.md",
+   "label": "timings",
+   "sha256": "e2e6884c9ce06e8406edb1f0ab7fe22765d4947d71ca0bef6ad96b070cd44490"
+  },
+  {
+   "archivedPath": "artifacts/example-games-and-standalones/test-optimization/baseline.md",
+   "label": "stage-baseline",
+   "sha256": "f9fab4a7005e237dce101e769a4a6deb420894a0408c8e9c2771d1a7cc28cf4d"
+  }
+ ],
+ "recordedAt": "2026-08-31T05:10:17Z",
+ "row": "example-games-and-standalones::headless-budget-twenty-minutes",
+ "schema": "facet-evidence-receipt/1",
+ "summary": "the living timings against the budget, and the stage's own before-measurement"
+}
