@@ -38,11 +38,6 @@
    "sha256": "8b658af5cb60b024a22b5fb0b3f9b7d9e0f54128bab981e0c524004bef2b69fb"
   },
   {
-   "archivedPath": "artifacts/cross-platform-proof/gate.json",
-   "label": "evidence-8",
-   "sha256": "af4fab8450f00069dff6454c1a2f886a52c222fda2e3ac7b15ac243515ce3c1d"
-  },
-  {
    "archivedPath": "artifacts/cross-platform-proof/matrix.json",
    "label": "evidence-9",
    "sha256": "095498a9c7febc6c8cb6b1d595d4b4e372761ac95102db3e85d45553c4b04333"
@@ -106,11 +101,6 @@
    "archivedPath": "artifacts/cross-platform-proof/rows/xp-a3-theme-swap-studio.json",
    "label": "evidence-21",
    "sha256": "ba971335074882d616526a87358d3e970942c7facb9e87675f4d656feeb4cd12"
-  },
-  {
-   "archivedPath": "artifacts/cross-platform-proof/rows/xp-a6-regression-proof.json",
-   "label": "evidence-22",
-   "sha256": "d497d7ddf3b3f0f7582670d820302b83ab4147ffd567ccf8318ea89c78bb0b79"
   },
   {
    "archivedPath": "artifacts/cross-platform-proof/rows/xp-a7-evidence-classes.json",

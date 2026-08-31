@@ -5,7 +5,7 @@
   "phases": "phases.json",
   "suiteResults": "suite_real.json"
  },
- "maintainedAt": "2026-08-31T03:14:16Z",
+ "maintainedAt": "2026-08-31T03:41:58Z",
  "phases": [
   {
    "artifactDir": "artifacts/phase-0-foundation",
@@ -4674,7 +4674,7 @@
    "serialize": true,
    "tiers": {
     "fast": false,
-    "full": false,
+    "full": true,
     "release": true
    },
    "timeoutS": 600
@@ -5136,6 +5136,48 @@
    "tiers": {
     "fast": false,
     "full": false,
+    "release": true
+   },
+   "timeoutS": 600
+  },
+  {
+   "command": "python3 tools/package.py --selftest",
+   "declaredEvidence": false,
+   "dependsOn": [],
+   "environmentClass": "package",
+   "fixtures": [],
+   "id": "package-selftest",
+   "inputs": [
+    "src/**",
+    "tests/**",
+    "examples/gallery/**",
+    "examples/reference/**",
+    "examples/themes/**",
+    "examples/consumer/**",
+    "examples/performance/**",
+    "examples/table_phaseb/**",
+    "docs/**",
+    "tools/**",
+    "bench/**",
+    "package/**",
+    "skills/**",
+    "rokit.toml",
+    "run-tests.sh",
+    "phases.json",
+    "requirements.json",
+    "README.md",
+    "AGENTS.md",
+    "CHANGELOG.md",
+    "CONTRIBUTING.md",
+    "LICENSE"
+   ],
+   "kind": "scanner",
+   "note": "every refusal the release interface owes, driven against a fake transport",
+   "optional": false,
+   "serialize": true,
+   "tiers": {
+    "fast": false,
+    "full": true,
     "release": true
    },
    "timeoutS": 600
@@ -23606,88 +23648,115 @@
    "state": "PENDING"
   },
   {
-   "check": {},
-   "class": "declared",
+   "check": {
+    "receipt": "tools/lune/verify/evidence/distribution-readiness--registered-before-work.json",
+    "shell": "git merge-base --is-ancestor 6907f85 HEAD && [ \"$(git rev-parse 6907f85^)\" = \"$(cat artifacts/distribution-readiness/freeze/head.txt)\" ]"
+   },
+   "class": "exit0",
    "evidence": null,
    "id": "distribution-readiness::registered-before-work",
    "name": "registered-before-work",
-   "note": "registered-before-work: declared evidence, recorded rather than executed. Requirements: UI-AGENT-001.",
+   "note": "registered-before-work: the registration commit is in this history AND its parent is exactly the head recorded at stage open, so registration was the FIRST commit of the stage rather than merely an early one -- which is the claim, and the only shape of it a later run can still falsify. Requirements: UI-AGENT-001.",
    "phase": "distribution-readiness",
    "releaseBlocking": false,
    "requirements": [
     "UI-AGENT-001"
    ],
-   "state": "PENDING"
+   "state": null
   },
   {
-   "check": {},
-   "class": "declared",
+   "check": {
+    "receipt": "tools/lune/verify/evidence/distribution-readiness--state-frozen-at-open.json",
+    "shell": "git cat-file -e \"$(cat artifacts/distribution-readiness/freeze/head.txt)^{commit}\" && test -s artifacts/distribution-readiness/freeze/tracked-files.txt && test -s artifacts/distribution-readiness/freeze/refs.txt && test -s artifacts/distribution-readiness/freeze/status.txt"
+   },
+   "class": "exit0",
    "evidence": null,
    "id": "distribution-readiness::state-frozen-at-open",
    "name": "state-frozen-at-open",
-   "note": "state-frozen-at-open: declared evidence, recorded rather than executed. Requirements: UI-AGENT-001.",
+   "note": "state-frozen-at-open: the frozen head is a real commit in this repository (not a string in a document) and the four raw records taken beside it are on disk and non-empty, each pinned by content hash. Requirements: UI-AGENT-001.",
    "phase": "distribution-readiness",
    "releaseBlocking": false,
    "requirements": [
     "UI-AGENT-001"
    ],
-   "state": "PENDING"
+   "state": null
   },
   {
-   "check": {},
-   "class": "declared",
+   "check": {
+    "receipt": "tools/lune/verify/evidence/distribution-readiness--history-audit-no-must-purge.json",
+    "shell": "grep -q \"MUST-PURGE ITEMS: 15\" artifacts/distribution-readiness/audit/history-audit.md && grep -q \"candidate-B-full\" artifacts/distribution-readiness/audit/history-candidate.md && grep -q \"history rewrite candidate \\*\\*B\\*\\*\" artifacts/distribution-readiness/packet/owner-packet.md && grep -q \"the plan forbids it while must-purge items exist\" artifacts/distribution-readiness/packet/owner-packet.md"
+   },
+   "class": "exit0",
    "evidence": null,
    "id": "distribution-readiness::history-audit-no-must-purge",
    "name": "history-audit-no-must-purge",
-   "note": "history-audit-no-must-purge: declared evidence, recorded rather than executed. Requirements: UI-AGENT-001.",
+   "note": "history-audit-no-must-purge: the 15 must-purge items DO still exist, and this row passes anyway on its own wording: a tested clean-history candidate exists, the owner has chosen one (B), and public release is recorded as blocked while they exist. The owner packet is asserted by its text rather than by a hash, because it is stamped again at close and DR-32 is the row that waits for that. Requirements: UI-AGENT-001.",
    "phase": "distribution-readiness",
    "releaseBlocking": false,
    "requirements": [
     "UI-AGENT-001"
    ],
-   "state": "PENDING"
+   "state": null
   },
   {
-   "check": {},
-   "class": "declared",
+   "check": {
+    "producers": [
+     "check_links_cli",
+     "check_links_cli-selftest"
+    ],
+    "receipt": "tools/lune/verify/evidence/distribution-readiness--provenance-and-third-party-notices.json",
+    "shell": "test -f THIRD_PARTY_NOTICES.md && test -f artifacts/distribution-readiness/audit/provenance-ledger.md && grep -q \"Copyright (c) 2026 Josh Anon\" LICENSE"
+   },
+   "class": "exit0",
    "evidence": null,
    "id": "distribution-readiness::provenance-and-third-party-notices",
    "name": "provenance-and-third-party-notices",
-   "note": "provenance-and-third-party-notices: declared evidence, recorded rather than executed. Requirements: UI-AGENT-001.",
+   "note": "provenance-and-third-party-notices: the notices and the provenance ledger exist, the copyright line is the one the owner confirmed in the packet, and every link either offers resolves. Requirements: UI-AGENT-001.",
    "phase": "distribution-readiness",
    "releaseBlocking": false,
    "requirements": [
     "UI-AGENT-001"
    ],
-   "state": "PENDING"
+   "state": null
   },
   {
-   "check": {},
-   "class": "declared",
+   "check": {
+    "producers": [
+     "check_links_cli",
+     "check_links_cli-selftest"
+    ],
+    "shell": "for f in LICENSE THIRD_PARTY_NOTICES.md CHANGELOG.md CONTRIBUTING.md SECURITY.md AGENTS.md README.md; do test -f \"$f\" || exit 1; done; grep -q \"MIT License\" LICENSE && grep -q \"Copyright (c) 2026 Josh Anon\" LICENSE"
+   },
+   "class": "exit0",
    "evidence": null,
    "id": "distribution-readiness::mit-license-root-files",
    "name": "mit-license-root-files",
-   "note": "mit-license-root-files: declared evidence, recorded rather than executed. Requirements: UI-AGENT-001.",
+   "note": "mit-license-root-files: the seven root files a public repository is expected to carry are present, the licence is the MIT text, and it names the owner-confirmed copyright line. Requirements: UI-AGENT-001.",
    "phase": "distribution-readiness",
    "releaseBlocking": false,
    "requirements": [
     "UI-AGENT-001"
    ],
-   "state": "PENDING"
+   "state": null
   },
   {
-   "check": {},
-   "class": "declared",
+   "check": {
+    "producers": [
+     "check_public_allowlist",
+     "archive-integrity"
+    ]
+   },
+   "class": "exit0",
    "evidence": null,
    "id": "distribution-readiness::public-allowlist-and-private-archive",
    "name": "public-allowlist-and-private-archive",
-   "note": "public-allowlist-and-private-archive: declared evidence, recorded rather than executed. Requirements: UI-AGENT-001.",
+   "note": "public-allowlist-and-private-archive: the tip carries nothing outside the public allowlist, and the private archive still holds the bytes its manifest says it holds -- the claim every receipt in this graph leans on. Requirements: UI-AGENT-001.",
    "phase": "distribution-readiness",
    "releaseBlocking": false,
    "requirements": [
     "UI-AGENT-001"
    ],
-   "state": "PENDING"
+   "state": null
   },
   {
    "check": {
@@ -23710,18 +23779,21 @@
    "state": null
   },
   {
-   "check": {},
-   "class": "declared",
+   "check": {
+    "receipt": "tools/lune/verify/evidence/distribution-readiness--private-comparison-archived-links-removed.json",
+    "shell": "test -z \"$(git ls-files docs/reference/swiftui-parity.md)\""
+   },
+   "class": "exit0",
    "evidence": null,
    "id": "distribution-readiness::private-comparison-archived-links-removed",
    "name": "private-comparison-archived-links-removed",
-   "note": "private-comparison-archived-links-removed: declared evidence, recorded rather than executed. Requirements: UI-AGENT-001.",
+   "note": "private-comparison-archived-links-removed: the tracked comparison document is gone from the tip, and the archived replacement still hashes to what the archive's own manifest records for it -- so the move is verified from both ends rather than asserted by the receipt document that describes it. Requirements: UI-AGENT-001.",
    "phase": "distribution-readiness",
    "releaseBlocking": false,
    "requirements": [
     "UI-AGENT-001"
    ],
-   "state": "PENDING"
+   "state": null
   },
   {
    "check": {},
@@ -23729,7 +23801,7 @@
    "evidence": null,
    "id": "distribution-readiness::framework-choice-guide-fair",
    "name": "framework-choice-guide-fair",
-   "note": "framework-choice-guide-fair: declared evidence, recorded rather than executed. Requirements: UI-AGENT-001.",
+   "note": "framework-choice-guide-fair: PENDING -- the same fresh reviewer; its mechanical half is `framework-choice-guide-published`. Requirements: UI-AGENT-001.",
    "phase": "distribution-readiness",
    "releaseBlocking": false,
    "requirements": [
@@ -23738,228 +23810,311 @@
    "state": "PENDING"
   },
   {
-   "check": {},
-   "class": "declared",
+   "check": {
+    "producers": [
+     "check_links_cli",
+     "check_links_cli-selftest",
+     "check_doc_style"
+    ],
+    "receipt": "tools/lune/verify/evidence/distribution-readiness--public-docs-refreshed-no-stale-links.json"
+   },
+   "class": "exit0",
    "evidence": null,
    "id": "distribution-readiness::public-docs-refreshed-no-stale-links",
    "name": "public-docs-refreshed-no-stale-links",
-   "note": "public-docs-refreshed-no-stale-links: declared evidence, recorded rather than executed. Requirements: UI-AGENT-001.",
+   "note": "public-docs-refreshed-no-stale-links: the refresh record is pinned by content hash and its mechanical half runs live: every link resolves, the link checker's own selftest bites, and the published documents pass the style rules. The sibling row `public-docs-no-stale-links` is the same mechanical half standing on its own. Requirements: UI-AGENT-001.",
    "phase": "distribution-readiness",
    "releaseBlocking": false,
    "requirements": [
     "UI-AGENT-001"
    ],
-   "state": "PENDING"
+   "state": null
   },
   {
-   "check": {},
-   "class": "declared",
+   "check": {
+    "producers": [
+     "check_links_cli",
+     "check_links_cli-selftest"
+    ],
+    "shell": "test -f AGENTS.md && test -f skills/use-facet/SKILL.md"
+   },
+   "class": "exit0",
    "evidence": null,
    "id": "distribution-readiness::agents-md-and-skill-route",
    "name": "agents-md-and-skill-route",
-   "note": "agents-md-and-skill-route: declared evidence, recorded rather than executed. Requirements: UI-AGENT-001.",
+   "note": "agents-md-and-skill-route: the agent onboarding file and the skill route exist, and the links they offer resolve. Requirements: UI-AGENT-001.",
    "phase": "distribution-readiness",
    "releaseBlocking": false,
    "requirements": [
     "UI-AGENT-001"
    ],
-   "state": "PENDING"
+   "state": null
   },
   {
-   "check": {},
-   "class": "declared",
+   "check": {
+    "resultIds": [
+     "consumer_standalone::examples/consumer: input and state::Close raises the signal the session listens on",
+     "consumer_standalone::examples/consumer: input and state::a press on Bump raises the count and repaints the label",
+     "consumer_standalone::examples/consumer: input and state::a write to the signal repaints the label with no press at all",
+     "consumer_standalone::examples/consumer: input and state::the toggle carries the signal the screen owns",
+     "consumer_standalone::examples/consumer: it adapts by re-solving::a viewport change re-solves the mounted surface without rebuilding it",
+     "consumer_standalone::examples/consumer: it adapts by re-solving::the button stack arranges differently at a compact and a wide viewport",
+     "consumer_standalone::examples/consumer: it adapts by re-solving::the player's preferred text size grows the untouched label",
+     "consumer_standalone::examples/consumer: teardown leaves nothing behind::a press on Close tears the whole session down through its own wiring",
+     "consumer_standalone::examples/consumer: teardown leaves nothing behind::disposing the screen alone releases the frame hook it registered",
+     "consumer_standalone::examples/consumer: teardown leaves nothing behind::returns the reactive registries to their pre-screen baseline",
+     "consumer_standalone::examples/consumer: teardown leaves nothing behind::takes every node off the render target",
+     "consumer_standalone::examples/consumer: teardown leaves nothing behind::the timer tears the session down when nobody presses Close",
+     "consumer_standalone::examples/consumer: the standalone project mounts::puts every part of the screen on the target",
+     "consumer_standalone::examples/consumer: the standalone project mounts::reads its label out of the signal, not out of a literal",
+     "consumer_standalone::examples/consumer: the theme decides the paint::repaints the accent tint when a theme package is committed"
+    ]
+   },
+   "class": "exit0",
    "evidence": null,
    "id": "distribution-readiness::standalone-consumer-proof",
    "name": "standalone-consumer-proof",
-   "note": "standalone-consumer-proof: declared evidence, recorded rather than executed. Requirements: UI-AGENT-001.",
+   "note": "standalone-consumer-proof: the fifteen standalone-consumer cases, by id -- mount, input and state, re-solve on a viewport change, theme paint, and the five teardown cases including the one that tears the whole session down through its own wiring. Requirements: UI-AGENT-001.",
    "phase": "distribution-readiness",
    "releaseBlocking": false,
    "requirements": [
     "UI-AGENT-001"
    ],
-   "state": "PENDING"
+   "state": null
   },
   {
-   "check": {},
-   "class": "declared",
+   "check": {
+    "producers": [
+     "package-verify"
+    ],
+    "shell": "test -f package/facet-package.json"
+   },
+   "class": "exit0",
    "evidence": null,
    "id": "distribution-readiness::package-metadata-and-manifest",
    "name": "package-metadata-and-manifest",
-   "note": "package-metadata-and-manifest: declared evidence, recorded rather than executed. Requirements: UI-AGENT-001.",
+   "note": "package-metadata-and-manifest: the package channel's own verify -- build, tree inspection, purity and the packaged canary -- passes, and the metadata it reads is on disk. Requirements: UI-AGENT-001.",
    "phase": "distribution-readiness",
    "releaseBlocking": false,
    "requirements": [
     "UI-AGENT-001"
    ],
-   "state": "PENDING"
+   "state": null
   },
   {
-   "check": {},
-   "class": "declared",
+   "check": {
+    "producers": [
+     "package-selftest"
+    ]
+   },
+   "class": "exit0",
    "evidence": null,
    "id": "distribution-readiness::package-interface-refusals",
    "name": "package-interface-refusals",
-   "note": "package-interface-refusals: declared evidence, recorded rather than executed. Requirements: UI-AGENT-001.",
+   "note": "package-interface-refusals: every refusal the release interface owes is driven on purpose against a fake transport, including the one that proves no API key reaches a receipt. Requirements: UI-AGENT-001.",
    "phase": "distribution-readiness",
    "releaseBlocking": false,
    "requirements": [
     "UI-AGENT-001"
    ],
-   "state": "PENDING"
+   "state": null
   },
   {
-   "check": {},
-   "class": "declared",
+   "check": {
+    "receipt": "tools/lune/verify/evidence/distribution-readiness--protected-manual-release.json",
+    "shell": "grep -q \"^## 9\\.\" artifacts/distribution-readiness/package-channel.md"
+   },
+   "class": "exit0",
    "evidence": null,
    "id": "distribution-readiness::protected-manual-release",
    "name": "protected-manual-release",
-   "note": "protected-manual-release: declared evidence, recorded rather than executed. Requirements: UI-AGENT-001.",
+   "note": "protected-manual-release: the release channel's record, including the red-team round that lists the preconditions a publish refuses without, pinned by content hash. Requirements: UI-AGENT-001.",
    "phase": "distribution-readiness",
    "releaseBlocking": false,
    "requirements": [
     "UI-AGENT-001"
    ],
-   "state": "PENDING"
+   "state": null
   },
   {
-   "check": {},
-   "class": "declared",
-   "evidence": null,
+   "check": {
+    "producers": [
+     "check_manifest_integrity",
+     "verify-selftest"
+    ],
+    "receipt": "tools/lune/verify/evidence/distribution-readiness--structured-results-replace-greps.json"
+   },
+   "class": "exit0",
+   "evidence": "artifacts/distribution-readiness/verification/graph-census.md",
    "id": "distribution-readiness::structured-results-replace-greps",
    "name": "structured-results-replace-greps",
-   "note": "structured-results-replace-greps: declared evidence, recorded rather than executed. Requirements: UI-AGENT-001.",
+   "note": "structured-results-replace-greps: every case id the graph cites exists in the one structured suite result -- checked live, by name, so a renamed case reddens this row -- and the census that records what each grep became is pinned by content hash. Requirements: UI-AGENT-001.",
    "phase": "distribution-readiness",
    "releaseBlocking": false,
    "requirements": [
     "UI-AGENT-001"
    ],
-   "state": "PENDING"
+   "state": null
   },
   {
-   "check": {},
-   "class": "declared",
-   "evidence": null,
+   "check": {
+    "producers": [
+     "verify-selftest"
+    ],
+    "shell": "python3 -c \"import json,collections,sys; seen=collections.Counter(); lines=[l for l in open('artifacts/verify/invocation-trace.json') if l.strip()]; [seen.update([(json.loads(l)['runId'], json.loads(l)['producer'])]) for l in lines]; dup=[k for k,v in seen.items() if v>1]; print(len(dup),'producer(s) appear twice in one run'); sys.exit(1 if dup else 0)\""
+   },
+   "class": "exit0",
+   "evidence": "artifacts/verify/invocation-trace.json",
    "id": "distribution-readiness::single-execution-per-identity",
    "name": "single-execution-per-identity",
-   "note": "single-execution-per-identity: declared evidence, recorded rather than executed. Requirements: UI-AGENT-001.",
+   "note": "single-execution-per-identity: the invocation trace's own answer, recomputed here rather than quoted: no producer appears twice in any run it has recorded. The trace is written every run, so it is read and never hashed. Requirements: UI-AGENT-001.",
    "phase": "distribution-readiness",
    "releaseBlocking": false,
    "requirements": [
     "UI-AGENT-001"
    ],
-   "state": "PENDING"
+   "state": null
   },
   {
-   "check": {},
-   "class": "declared",
+   "check": {
+    "producers": [
+     "verify-selftest"
+    ]
+   },
+   "class": "exit0",
    "evidence": null,
    "id": "distribution-readiness::invalidation-rejects-bad-evidence",
    "name": "invalidation-rejects-bad-evidence",
-   "note": "invalidation-rejects-bad-evidence: declared evidence, recorded rather than executed. Requirements: UI-AGENT-001.",
+   "note": "invalidation-rejects-bad-evidence: the result store's thirty-two refusals -- stale, incomplete, failed, edited, wrong toolchain, wrong class, fast tier, truncated, partial -- each made to happen on purpose. Requirements: UI-AGENT-001.",
    "phase": "distribution-readiness",
    "releaseBlocking": false,
    "requirements": [
     "UI-AGENT-001"
    ],
-   "state": "PENDING"
+   "state": null
   },
   {
-   "check": {},
-   "class": "declared",
+   "check": {
+    "shell": "! tools/verify.sh not-a-tier >/dev/null 2>&1 && ! tools/verify.sh --gate >/dev/null 2>&1 && ! tools/verify.sh --rerun >/dev/null 2>&1 && ! tools/verify.sh --jobs >/dev/null 2>&1"
+   },
+   "class": "exit0",
    "evidence": null,
    "id": "distribution-readiness::tiers-and-explain",
    "name": "tiers-and-explain",
-   "note": "tiers-and-explain: declared evidence, recorded rather than executed. Requirements: UI-AGENT-001.",
+   "note": "tiers-and-explain: the coordinator refuses what it cannot honour: an unknown tier, and each of --gate, --rerun and --jobs with no value. A tier list can only be proved by what it REJECTS -- grepping the four names out of the script would pass before the feature existed. Requirements: UI-AGENT-001.",
    "phase": "distribution-readiness",
    "releaseBlocking": false,
    "requirements": [
     "UI-AGENT-001"
    ],
-   "state": "PENDING"
+   "state": null
   },
   {
-   "check": {},
-   "class": "declared",
-   "evidence": null,
+   "check": {
+    "producers": [
+     "check_manifest_integrity"
+    ],
+    "shell": "python3 -c \"import json,re,sys; led=json.load(open('artifacts/distribution-readiness/verification/post-archival-repair.json')); doc=open('artifacts/distribution-readiness/verification/coverage-map.md').read(); want={'Evidence pins turned into a content hash':'receipted','Evidence pins dropped as a record of a past decision':'droppedPins','Rows archived whole':'archivedRows'}; bad=[h for h,k in want.items() if ('## %s (%d)' % (h, len(led[k]))) not in doc]; print(bad if bad else 'the ledger and the coverage map agree'); sys.exit(1 if bad else 0)\""
+   },
+   "class": "exit0",
+   "evidence": "artifacts/distribution-readiness/verification/coverage-map.md",
    "id": "distribution-readiness::coverage-map-no-silent-loss",
    "name": "coverage-map-no-silent-loss",
-   "note": "coverage-map-no-silent-loss: declared evidence, recorded rather than executed. Requirements: UI-AGENT-001.",
+   "note": "coverage-map-no-silent-loss: the repair ledger's counts and the document rendered from it agree, recomputed here; and the graph itself is audited live. The coverage map is regenerated by its own maintainer, so it is read and never hashed. Requirements: UI-AGENT-001.",
    "phase": "distribution-readiness",
    "releaseBlocking": false,
    "requirements": [
     "UI-AGENT-001"
    ],
-   "state": "PENDING"
+   "state": null
   },
   {
-   "check": {},
-   "class": "declared",
+   "check": {
+    "receipt": "tools/lune/verify/evidence/distribution-readiness--mutation-parity-old-vs-new.json",
+    "shell": "grep -q \"Thirteen mutations, all run\" artifacts/distribution-readiness/verification/mutation-parity.md && grep -q \"went red on both paths\" artifacts/distribution-readiness/verification/mutation-parity.md"
+   },
+   "class": "exit0",
    "evidence": null,
    "id": "distribution-readiness::mutation-parity-old-vs-new",
    "name": "mutation-parity-old-vs-new",
-   "note": "mutation-parity-old-vs-new: declared evidence, recorded rather than executed. Requirements: UI-AGENT-001.",
+   "note": "mutation-parity-old-vs-new: the corpus and its result, pinned by content hash and asserted by its two claims: thirteen mutations run, and the ones that went red on both paths named. Requirements: UI-AGENT-001.",
    "phase": "distribution-readiness",
    "releaseBlocking": false,
    "requirements": [
     "UI-AGENT-001"
    ],
-   "state": "PENDING"
+   "state": null
   },
   {
-   "check": {},
-   "class": "declared",
+   "check": {
+    "receipt": "tools/lune/verify/evidence/distribution-readiness--timings-and-budget.json",
+    "shell": "python3 -c \"import json,sys; d=json.load(open('artifacts/verify/latest-release.json')); print('%.1f s against a 1200 s budget' % (d['durationMs']/1000.0)); sys.exit(0 if d['durationMs'] <= 1200000 else 1)\""
+   },
+   "class": "exit0",
    "evidence": null,
    "id": "distribution-readiness::timings-and-budget",
    "name": "timings-and-budget",
-   "note": "timings-and-budget: declared evidence, recorded rather than executed. Requirements: UI-AGENT-001.",
+   "note": "timings-and-budget: the LAST release run's own duration against the twenty-minute budget, read from the run record rather than from the document -- so the row reddens when the run does, not when somebody forgets to update a table. Requirements: UI-AGENT-001.",
    "phase": "distribution-readiness",
    "releaseBlocking": false,
    "requirements": [
     "UI-AGENT-001"
    ],
-   "state": "PENDING"
+   "state": null
   },
   {
-   "check": {},
-   "class": "declared",
+   "check": {
+    "producers": [
+     "check_manifest_integrity"
+    ],
+    "shell": "python3 -c \"import json,sys; g=json.load(open('tools/lune/verify/graph.json')); n=sum(1 for r in g['rows'] if (r.get('check') or {}).get('priorPhases')); print(n,'prior-phase rows, re-evaluated from this run'); sys.exit(0 if n >= 16 else 1)\""
+   },
+   "class": "exit0",
    "evidence": null,
    "id": "distribution-readiness::prior-gates-reevaluated-not-replayed",
    "name": "prior-gates-reevaluated-not-replayed",
-   "note": "prior-gates-reevaluated-not-replayed: declared evidence, recorded rather than executed. Requirements: UI-AGENT-001.",
+   "note": "prior-gates-reevaluated-not-replayed: sixteen prior-phase rows are declared as re-evaluations of this run's own row verdicts, and the graph audit reddens on any row that still reaches for the retired replay script -- which is why this clause does not name it. Requirements: UI-AGENT-001.",
    "phase": "distribution-readiness",
    "releaseBlocking": false,
    "requirements": [
     "UI-AGENT-001"
    ],
-   "state": "PENDING"
+   "state": null
   },
   {
-   "check": {},
-   "class": "declared",
+   "check": {
+    "producers": [
+     "rascalrally-suite"
+    ],
+    "receipt": "tools/lune/verify/evidence/distribution-readiness--rascalrally-synchronized.json"
+   },
+   "class": "exit0",
    "evidence": null,
    "id": "distribution-readiness::rascalrally-synchronized",
    "name": "rascalrally-synchronized",
-   "note": "rascalrally-synchronized: declared evidence, recorded rather than executed. Requirements: UI-AGENT-001.",
+   "note": "rascalrally-synchronized: the consuming game's own suite runs green against this tree -- the lockstep the studio constitution requires -- and the consumer-impact ledger is pinned by content hash. Requirements: UI-AGENT-001.",
    "phase": "distribution-readiness",
    "releaseBlocking": false,
    "requirements": [
     "UI-AGENT-001"
    ],
-   "state": "PENDING"
+   "state": null
   },
   {
-   "check": {},
-   "class": "declared",
+   "check": {
+    "receipt": "tools/lune/verify/evidence/distribution-readiness--public-tree-reproducible.json"
+   },
+   "class": "exit0",
    "evidence": null,
    "id": "distribution-readiness::public-tree-reproducible",
    "name": "public-tree-reproducible",
-   "note": "public-tree-reproducible: declared evidence, recorded rather than executed. Requirements: UI-AGENT-001.",
+   "note": "public-tree-reproducible: the reproducibility measurement, pinned by content hash. It is a record of what two extractions of the public tree did on one day; re-taking it is DR-26 through DR-28, which stay PENDING. Requirements: UI-AGENT-001.",
    "phase": "distribution-readiness",
    "releaseBlocking": false,
    "requirements": [
     "UI-AGENT-001"
    ],
-   "state": "PENDING"
+   "state": null
   },
   {
    "check": {},
@@ -23967,7 +24122,7 @@
    "evidence": null,
    "id": "distribution-readiness::fresh-clone-works",
    "name": "fresh-clone-works",
-   "note": "fresh-clone-works: declared evidence, recorded rather than executed. Requirements: UI-AGENT-001.",
+   "note": "fresh-clone-works: PENDING -- a clone taken from the renamed remote and run end to end. Requirements: UI-AGENT-001.",
    "phase": "distribution-readiness",
    "releaseBlocking": false,
    "requirements": [
@@ -23981,7 +24136,7 @@
    "evidence": null,
    "id": "distribution-readiness::example-places-rebuild-from-clone",
    "name": "example-places-rebuild-from-clone",
-   "note": "example-places-rebuild-from-clone: declared evidence, recorded rather than executed. Requirements: UI-AGENT-001.",
+   "note": "example-places-rebuild-from-clone: PENDING -- the same clone rebuilding the example places. Requirements: UI-AGENT-001.",
    "phase": "distribution-readiness",
    "releaseBlocking": false,
    "requirements": [
@@ -23995,7 +24150,7 @@
    "evidence": null,
    "id": "distribution-readiness::package-from-clone-matches",
    "name": "package-from-clone-matches",
-   "note": "package-from-clone-matches: declared evidence, recorded rather than executed. Requirements: UI-AGENT-001.",
+   "note": "package-from-clone-matches: PENDING -- a package built from that clone, compared byte for byte. Requirements: UI-AGENT-001.",
    "phase": "distribution-readiness",
    "releaseBlocking": false,
    "requirements": [
@@ -24009,7 +24164,7 @@
    "evidence": null,
    "id": "distribution-readiness::fresh-agent-builds-screen",
    "name": "fresh-agent-builds-screen",
-   "note": "fresh-agent-builds-screen: declared evidence, recorded rather than executed. Requirements: UI-AGENT-001.",
+   "note": "fresh-agent-builds-screen: PENDING -- a fresh agent building a screen from the published documents alone. Requirements: UI-AGENT-001.",
    "phase": "distribution-readiness",
    "releaseBlocking": false,
    "requirements": [
@@ -24023,7 +24178,7 @@
    "evidence": null,
    "id": "distribution-readiness::fresh-agent-extends-behavior",
    "name": "fresh-agent-extends-behavior",
-   "note": "fresh-agent-extends-behavior: declared evidence, recorded rather than executed. Requirements: UI-AGENT-001.",
+   "note": "fresh-agent-extends-behavior: PENDING -- a fresh agent extending behaviour the same way. Requirements: UI-AGENT-001.",
    "phase": "distribution-readiness",
    "releaseBlocking": false,
    "requirements": [
@@ -24037,7 +24192,7 @@
    "evidence": null,
    "id": "distribution-readiness::fresh-reviewer-chooses-from-guide",
    "name": "fresh-reviewer-chooses-from-guide",
-   "note": "fresh-reviewer-chooses-from-guide: declared evidence, recorded rather than executed. Requirements: UI-AGENT-001.",
+   "note": "fresh-reviewer-chooses-from-guide: PENDING -- a fresh reviewer choosing from the comparison guide. Requirements: UI-AGENT-001.",
    "phase": "distribution-readiness",
    "releaseBlocking": false,
    "requirements": [
@@ -24051,7 +24206,7 @@
    "evidence": null,
    "id": "distribution-readiness::owner-packet-complete",
    "name": "owner-packet-complete",
-   "note": "owner-packet-complete: declared evidence, recorded rather than executed. Requirements: UI-AGENT-001.",
+   "note": "owner-packet-complete: PENDING -- the packet's final numbers, stamped at close. Requirements: UI-AGENT-001.",
    "phase": "distribution-readiness",
    "releaseBlocking": false,
    "requirements": [
@@ -24065,7 +24220,7 @@
    "evidence": null,
    "id": "distribution-readiness::private-package-id-and-update-proof",
    "name": "private-package-id-and-update-proof",
-   "note": "private-package-id-and-update-proof: declared evidence, recorded rather than executed. Requirements: UI-AGENT-001.",
+   "note": "private-package-id-and-update-proof: PENDING -- an asset minted and updated, which requires the owner to publish. Requirements: UI-AGENT-001.",
    "phase": "distribution-readiness",
    "releaseBlocking": false,
    "requirements": [
@@ -24074,18 +24229,21 @@
    "state": "PENDING"
   },
   {
-   "check": {},
-   "class": "declared",
+   "check": {
+    "receipt": "tools/lune/verify/evidence/distribution-readiness--repository-renamed-and-verified.json",
+    "shell": "git remote get-url origin | python3 -c \"import sys, importlib.util; s = importlib.util.spec_from_file_location('g', 'tools/check_brand_drift.py'); m = importlib.util.module_from_spec(s); s.loader.exec_module(m); u = sys.stdin.read(); sys.exit(0 if '/Facet' in u and not m.BRAND.search(u) else 1)\""
+   },
+   "class": "exit0",
    "evidence": null,
    "id": "distribution-readiness::repository-renamed-and-verified",
    "name": "repository-renamed-and-verified",
-   "note": "repository-renamed-and-verified: declared evidence, recorded rather than executed. Requirements: UI-AGENT-001.",
+   "note": "repository-renamed-and-verified: the remote this checkout actually talks to carries the new name and none of the old one, asked of git rather than of a document, beside the rename record pinned by content hash. Requirements: UI-AGENT-001.",
    "phase": "distribution-readiness",
    "releaseBlocking": false,
    "requirements": [
     "UI-AGENT-001"
    ],
-   "state": "PENDING"
+   "state": null
   },
   {
    "check": {
@@ -24129,6 +24287,26 @@
    "id": "distribution-readiness::public-docs-no-stale-links",
    "name": "public-docs-no-stale-links",
    "note": "public-docs-no-stale-links: check_links_cli and its selftest must exit zero — every link a published document offers resolves, and none points into a tree that is leaving. This is DR-10's mechanical half; the refresh half stays with DR-10. Requirements: UI-AGENT-001.",
+   "phase": "distribution-readiness",
+   "releaseBlocking": false,
+   "requirements": [
+    "UI-AGENT-001"
+   ],
+   "state": null
+  },
+  {
+   "check": {
+    "producers": [
+     "check_doc_style",
+     "check_links_cli"
+    ],
+    "shell": "test -f docs/guide/14-choosing-a-ui-library.md && python3 -c \"import sys, importlib.util; s=importlib.util.spec_from_file_location('g','tools/check_brand_drift.py'); m=importlib.util.module_from_spec(s); s.loader.exec_module(m); g='docs/guide/14-choosing-a-ui-library.md'; h=[]; m.scan_file(g,g,h); m.scan_file(g,g,h,m.VENDOR_PROFILE,m.VENDOR_ALLOWLIST); print(h if h else 'the guide carries no old brand and no unmarked vendor name'); sys.exit(1 if h else 0)\""
+   },
+   "class": "exit0",
+   "evidence": "docs/guide/14-choosing-a-ui-library.md",
+   "id": "distribution-readiness::framework-choice-guide-published",
+   "name": "framework-choice-guide-published",
+   "note": "framework-choice-guide-published: the comparison guide is published, carries no old brand and no vendor name outside the marked comparison exception, passes the document style rules and offers no link that does not resolve. This is DR-9's mechanical half; whether a fresh reviewer can choose from it is DR-31, and DR-9 stays PENDING for it. Requirements: UI-AGENT-001.",
    "phase": "distribution-readiness",
    "releaseBlocking": false,
    "requirements": [

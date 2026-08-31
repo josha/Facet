@@ -38,11 +38,6 @@
    "sha256": "eab689f4159389cc2a66d1cc78ea78ad340e914a2567ead8e65fcd200e5b01b6"
   },
   {
-   "archivedPath": "artifacts/performance-stress-places/gate.json",
-   "label": "evidence-8",
-   "sha256": "5b8fb0e8e66ca34c611b7c8cede78f5acb93e141f11dca55775518b6e12009f3"
-  },
-  {
    "archivedPath": "artifacts/performance-stress-places/low-end-target.md",
    "label": "evidence-9",
    "sha256": "5a00ef6bb8ff9e60ea583c68328fba539a599b47ca49e169121e16f1d336af18"
@@ -128,14 +123,17 @@
    "sha256": "5e795283d41b15c94a98dff2c211bdeb41d2f1b099799cb8fe765cf51867e4cf"
   },
   {
+   "archivedPath": "artifacts/performance-stress-places/studio/pl9-row3-luauui-1.json",
    "label": "evidence-26",
    "sha256": "0ba2b710dceaee6115258c8f564649cd509c7091511f926af940f877685c4cae"
   },
   {
+   "archivedPath": "artifacts/performance-stress-places/studio/pl9-row3-luauui-2.json",
    "label": "evidence-27",
    "sha256": "317a93109e5eb77c01945e61121fbb5f174037b53de558d87a468f095552c653"
   },
   {
+   "archivedPath": "artifacts/performance-stress-places/studio/pl9-row3-luauui-3.json",
    "label": "evidence-28",
    "sha256": "39a22e60883af2b447f183c79e5e6a79583002890df9bcba0ed8ec2a9d355c07"
   },
@@ -155,14 +153,17 @@
    "sha256": "c25522eaa78086066e7260b433814fae58821464b9de5aca406e9db060bbe123"
   },
   {
+   "archivedPath": "artifacts/performance-stress-places/studio/pl9-row4-luauui-1.json",
    "label": "evidence-32",
    "sha256": "4dc37f780e8caef1b96bb44aa4c6e5d1187bbacfca7e9591fa670c8ab987b55f"
   },
   {
+   "archivedPath": "artifacts/performance-stress-places/studio/pl9-row4-luauui-2.json",
    "label": "evidence-33",
    "sha256": "4c728082426613dd757a786d8bf68c1e0069be954e3a2b3c86e9bff33bbf8ff7"
   },
   {
+   "archivedPath": "artifacts/performance-stress-places/studio/pl9-row4-luauui-3.json",
    "label": "evidence-34",
    "sha256": "1f8c85fcce1fb1ee9793af87ee6fbacdf915256bee74115eb9e158fb5c75fc69"
   },

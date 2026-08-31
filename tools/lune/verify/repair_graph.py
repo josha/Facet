@@ -196,6 +196,25 @@ NEW_PRODUCERS = [
         "dependsOn": [],
         "note": "the private archive still holds the bytes every receipt in this graph names",
     },
+    {
+        #[[ DR-14 asks whether the release interface REFUSES what it must, and
+        #   only `--selftest` can answer that: it drives every refusal on
+        #   purpose against a fake transport that never reaches the network, and
+        #   proves no API key survives into a receipt. Offline, 6.5 s. ]]
+        "id": "package-selftest",
+        "command": "python3 tools/package.py --selftest",
+        "inputs": ["src/**", "tests/**", "examples/gallery/**", "examples/reference/**", "examples/themes/**", "examples/consumer/**", "examples/performance/**", "examples/table_phaseb/**", "docs/**", "tools/**", "bench/**", "package/**", "skills/**", "rokit.toml", "run-tests.sh", "phases.json", "requirements.json", "README.md", "AGENTS.md", "CHANGELOG.md", "CONTRIBUTING.md", "LICENSE"],
+        "fixtures": [],
+        "environmentClass": "package",
+        "kind": "scanner",
+        "tiers": {"fast": False, "full": True, "release": True},
+        "serialize": True,
+        "timeoutS": 600,
+        "optional": False,
+        "declaredEvidence": False,
+        "dependsOn": [],
+        "note": "every refusal the release interface owes, driven against a fake transport",
+    },
 ]
 
 # Rows that shell into the sibling game checkout with no producer to answer for
@@ -224,6 +243,12 @@ ARCHIVED_SUBJECT_ROWS = {
 #
 #   The identity snapshot in `run.luau` closes the second half; this closes the
 #   first. Serializing a five-second producer costs five seconds. ]]
+#[[ A ROW'S PRODUCER HAS TO RUN IN THE TIER THAT EVALUATES THE ROW.
+#   `package-verify` was release-only. DR-13 names it, and a row whose producer
+#   did not run reports NOT_EVALUATED -- which makes a full run INCOMPLETE for a
+#   reason that is nobody's defect. It is offline and costs 6 s. ]]
+RETIER = {"package-verify": {"fast": False, "full": True, "release": True}}
+
 SERIALIZED = {
     "check_types": "it generates and deletes a probe file inside tests/",
     "check_types-selftest": "it rewrites src/init.luau and the type witness, then restores them",
@@ -249,6 +274,584 @@ CASE_ID_REPAIRS = [
         "the same case, renamed to name the signal rather than the caller",
     ),
 ]
+
+
+#[[ THE REGISTRATION ROWS WHOSE EVIDENCE NOW EXISTS (2026-08-31).
+#
+#   Thirty-three distribution-readiness rows were registered PENDING at stage
+#   open, before the work they describe was done -- which is the point of
+#   registering them. The evidence for most of them has since landed, and a row
+#   that stays PENDING once its evidence exists is as dishonest as one that
+#   claims PASS before it does.
+#
+#   THE RULE FOR WHAT GOES IN HERE: a row is flipped only when something in this
+#   run can go RED for it. Every flip below carries at least one of a live
+#   producer, a suite case id, a shell assertion against the tree, or a content
+#   hash of a record that is finished. A row whose proof is still in flight, or
+#   whose subject is a human reading a document, stays PENDING and is listed at
+#   the bottom with what it waits for.
+#
+#   AND WHAT MAY NOT BE HASHED. Three of the artifacts named in the brief --
+#   `coverage-map.md`, `artifacts/verify/invocation-trace.json` and
+#   `post-archival-repair.json` -- are rewritten by this repository's own tools
+#   every time they run. A content hash of one is a hash of the last run, which
+#   is the exact defect this workstream removed from thirteen receipts a few
+#   hours ago. Those three are asserted by EXISTENCE plus a live check that reads
+#   them (the trace's own answer to "did any producer run twice", and the
+#   ledger's counts against the document rendered from it), never by a pin. ]]
+
+FREEZE = "artifacts/distribution-readiness/freeze"
+REGISTRATION_COMMIT = "6907f85"
+
+_TRACE_CHECK = (
+    "python3 -c \"import json,collections,sys; "
+    "seen=collections.Counter(); "
+    "lines=[l for l in open('artifacts/verify/invocation-trace.json') if l.strip()]; "
+    "[seen.update([(json.loads(l)['runId'], json.loads(l)['producer'])]) for l in lines]; "
+    "dup=[k for k,v in seen.items() if v>1]; "
+    "print(len(dup),'producer(s) appear twice in one run'); "
+    "sys.exit(1 if dup else 0)\""
+)
+
+_LEDGER_CHECK = (
+    "python3 -c \"import json,re,sys; "
+    "led=json.load(open('artifacts/distribution-readiness/verification/post-archival-repair.json')); "
+    "doc=open('artifacts/distribution-readiness/verification/coverage-map.md').read(); "
+    "want={'Evidence pins turned into a content hash':'receipted',"
+    "'Evidence pins dropped as a record of a past decision':'droppedPins',"
+    "'Rows archived whole':'archivedRows'}; "
+    "bad=[h for h,k in want.items() "
+    "if ('## %s (%d)' % (h, len(led[k]))) not in doc]; "
+    "print(bad if bad else 'the ledger and the coverage map agree'); "
+    "sys.exit(1 if bad else 0)\""
+)
+
+_REMOTE_CHECK = (
+    "git remote get-url origin | python3 -c \"import sys, importlib.util; "
+    "s = importlib.util.spec_from_file_location('g', 'tools/check_brand_drift.py'); "
+    "m = importlib.util.module_from_spec(s); s.loader.exec_module(m); "
+    "u = sys.stdin.read(); "
+    "sys.exit(0 if '/Facet' in u and not m.BRAND.search(u) else 1)\""
+)
+
+CONSUMER_CASES = [
+    "consumer_standalone::examples/consumer: input and state::Close raises the signal the session listens on",
+    "consumer_standalone::examples/consumer: input and state::a press on Bump raises the count and repaints the label",
+    "consumer_standalone::examples/consumer: input and state::a write to the signal repaints the label with no press at all",
+    "consumer_standalone::examples/consumer: input and state::the toggle carries the signal the screen owns",
+    "consumer_standalone::examples/consumer: it adapts by re-solving::a viewport change re-solves the mounted surface without rebuilding it",
+    "consumer_standalone::examples/consumer: it adapts by re-solving::the button stack arranges differently at a compact and a wide viewport",
+    "consumer_standalone::examples/consumer: it adapts by re-solving::the player's preferred text size grows the untouched label",
+    "consumer_standalone::examples/consumer: teardown leaves nothing behind::a press on Close tears the whole session down through its own wiring",
+    "consumer_standalone::examples/consumer: teardown leaves nothing behind::disposing the screen alone releases the frame hook it registered",
+    "consumer_standalone::examples/consumer: teardown leaves nothing behind::returns the reactive registries to their pre-screen baseline",
+    "consumer_standalone::examples/consumer: teardown leaves nothing behind::takes every node off the render target",
+    "consumer_standalone::examples/consumer: teardown leaves nothing behind::the timer tears the session down when nobody presses Close",
+    "consumer_standalone::examples/consumer: the standalone project mounts::puts every part of the screen on the target",
+    "consumer_standalone::examples/consumer: the standalone project mounts::reads its label out of the signal, not out of a literal",
+    "consumer_standalone::examples/consumer: the theme decides the paint::repaints the accent tint when a theme package is committed",
+]
+
+# row id -> (check dict, note, evidence path or None)
+ROW_FLIPS = {
+    "distribution-readiness::registered-before-work": (
+        {
+            "shell": (
+                "git merge-base --is-ancestor %s HEAD && "
+                '[ "$(git rev-parse %s^)" = "$(cat %s/head.txt)" ]'
+                % (REGISTRATION_COMMIT, REGISTRATION_COMMIT, FREEZE)
+            ),
+            "receipt": "tools/lune/verify/evidence/distribution-readiness--registered-before-work.json",
+        },
+        "the registration commit is in this history AND its parent is exactly the head recorded "
+        "at stage open, so registration was the FIRST commit of the stage rather than merely an "
+        "early one -- which is the claim, and the only shape of it a later run can still falsify",
+        None,
+    ),
+    "distribution-readiness::state-frozen-at-open": (
+        {
+            "shell": (
+                'git cat-file -e "$(cat %s/head.txt)^{commit}" && '
+                "test -s %s/tracked-files.txt && test -s %s/refs.txt && "
+                "test -s %s/status.txt" % (FREEZE, FREEZE, FREEZE, FREEZE)
+            ),
+            "receipt": "tools/lune/verify/evidence/distribution-readiness--state-frozen-at-open.json",
+        },
+        "the frozen head is a real commit in this repository (not a string in a document) and the "
+        "four raw records taken beside it are on disk and non-empty, each pinned by content hash",
+        None,
+    ),
+    "distribution-readiness::history-audit-no-must-purge": (
+        {
+            "shell": (
+                'grep -q "MUST-PURGE ITEMS: 15" artifacts/distribution-readiness/audit/history-audit.md && '
+                'grep -q "candidate-B-full" artifacts/distribution-readiness/audit/history-candidate.md && '
+                'grep -q "history rewrite candidate \\*\\*B\\*\\*" artifacts/distribution-readiness/packet/owner-packet.md && '
+                'grep -q "the plan forbids it while must-purge items exist" '
+                "artifacts/distribution-readiness/packet/owner-packet.md"
+            ),
+            "receipt": "tools/lune/verify/evidence/distribution-readiness--history-audit-no-must-purge.json",
+        },
+        "the 15 must-purge items DO still exist, and this row passes anyway on its own wording: a "
+        "tested clean-history candidate exists, the owner has chosen one (B), and public release "
+        "is recorded as blocked while they exist. The owner packet is asserted by its text rather "
+        "than by a hash, because it is stamped again at close and DR-32 is the row that waits for "
+        "that",
+        None,
+    ),
+    "distribution-readiness::provenance-and-third-party-notices": (
+        {
+            "producers": ["check_links_cli", "check_links_cli-selftest"],
+            "shell": (
+                "test -f THIRD_PARTY_NOTICES.md && "
+                "test -f artifacts/distribution-readiness/audit/provenance-ledger.md && "
+                'grep -q "Copyright (c) 2026 Josh Anon" LICENSE'
+            ),
+            "receipt": "tools/lune/verify/evidence/distribution-readiness--provenance-and-third-party-notices.json",
+        },
+        "the notices and the provenance ledger exist, the copyright line is the one the owner "
+        "confirmed in the packet, and every link either offers resolves",
+        None,
+    ),
+    "distribution-readiness::mit-license-root-files": (
+        {
+            "producers": ["check_links_cli", "check_links_cli-selftest"],
+            "shell": (
+                "for f in LICENSE THIRD_PARTY_NOTICES.md CHANGELOG.md CONTRIBUTING.md "
+                'SECURITY.md AGENTS.md README.md; do test -f "$f" || exit 1; done; '
+                'grep -q "MIT License" LICENSE && grep -q "Copyright (c) 2026 Josh Anon" LICENSE'
+            ),
+        },
+        "the seven root files a public repository is expected to carry are present, the licence is "
+        "the MIT text, and it names the owner-confirmed copyright line",
+        None,
+    ),
+    "distribution-readiness::public-allowlist-and-private-archive": (
+        {"producers": ["check_public_allowlist", "archive-integrity"]},
+        "the tip carries nothing outside the public allowlist, and the private archive still holds "
+        "the bytes its manifest says it holds -- the claim every receipt in this graph leans on",
+        None,
+    ),
+    "distribution-readiness::private-comparison-archived-links-removed": (
+        {
+            "shell": (
+                'test -z "$(git ls-files docs/reference/swiftui-parity.md)"'
+            ),
+            "receipt": "tools/lune/verify/evidence/distribution-readiness--private-comparison-archived-links-removed.json",
+        },
+        "the tracked comparison document is gone from the tip, and the archived replacement still "
+        "hashes to what the archive's own manifest records for it -- so the move is verified from "
+        "both ends rather than asserted by the receipt document that describes it",
+        None,
+    ),
+    "distribution-readiness::public-docs-refreshed-no-stale-links": (
+        {
+            "producers": ["check_links_cli", "check_links_cli-selftest", "check_doc_style"],
+            "receipt": "tools/lune/verify/evidence/distribution-readiness--public-docs-refreshed-no-stale-links.json",
+        },
+        "the refresh record is pinned by content hash and its mechanical half runs live: every "
+        "link resolves, the link checker's own selftest bites, and the published documents pass "
+        "the style rules. The sibling row `public-docs-no-stale-links` is the same mechanical half "
+        "standing on its own",
+        None,
+    ),
+    "distribution-readiness::agents-md-and-skill-route": (
+        {
+            "producers": ["check_links_cli", "check_links_cli-selftest"],
+            "shell": "test -f AGENTS.md && test -f skills/use-facet/SKILL.md",
+        },
+        "the agent onboarding file and the skill route exist, and the links they offer resolve",
+        None,
+    ),
+    "distribution-readiness::standalone-consumer-proof": (
+        {"resultIds": CONSUMER_CASES},
+        "the fifteen standalone-consumer cases, by id -- mount, input and state, re-solve on a "
+        "viewport change, theme paint, and the five teardown cases including the one that tears "
+        "the whole session down through its own wiring",
+        None,
+    ),
+    "distribution-readiness::package-metadata-and-manifest": (
+        {
+            "producers": ["package-verify"],
+            "shell": "test -f package/facet-package.json",
+        },
+        "the package channel's own verify -- build, tree inspection, purity and the packaged "
+        "canary -- passes, and the metadata it reads is on disk",
+        None,
+    ),
+    "distribution-readiness::package-interface-refusals": (
+        {"producers": ["package-selftest"]},
+        "every refusal the release interface owes is driven on purpose against a fake transport, "
+        "including the one that proves no API key reaches a receipt",
+        None,
+    ),
+    "distribution-readiness::protected-manual-release": (
+        {
+            "shell": 'grep -q "^## 9\\." artifacts/distribution-readiness/package-channel.md',
+            "receipt": "tools/lune/verify/evidence/distribution-readiness--protected-manual-release.json",
+        },
+        "the release channel's record, including the red-team round that lists the preconditions a "
+        "publish refuses without, pinned by content hash",
+        None,
+    ),
+    "distribution-readiness::structured-results-replace-greps": (
+        {
+            "producers": ["check_manifest_integrity", "verify-selftest"],
+            "receipt": "tools/lune/verify/evidence/distribution-readiness--structured-results-replace-greps.json",
+        },
+        "every case id the graph cites exists in the one structured suite result -- checked live, "
+        "by name, so a renamed case reddens this row -- and the census that records what each "
+        "grep became is pinned by content hash",
+        "artifacts/distribution-readiness/verification/graph-census.md",
+    ),
+    "distribution-readiness::single-execution-per-identity": (
+        {"producers": ["verify-selftest"], "shell": _TRACE_CHECK},
+        "the invocation trace's own answer, recomputed here rather than quoted: no producer "
+        "appears twice in any run it has recorded. The trace is written every run, so it is read "
+        "and never hashed",
+        "artifacts/verify/invocation-trace.json",
+    ),
+    "distribution-readiness::invalidation-rejects-bad-evidence": (
+        {"producers": ["verify-selftest"]},
+        "the result store's thirty-two refusals -- stale, incomplete, failed, edited, wrong "
+        "toolchain, wrong class, fast tier, truncated, partial -- each made to happen on purpose",
+        None,
+    ),
+    "distribution-readiness::tiers-and-explain": (
+        {
+            "shell": (
+                "! tools/verify.sh not-a-tier >/dev/null 2>&1 && "
+                "! tools/verify.sh --gate >/dev/null 2>&1 && "
+                "! tools/verify.sh --rerun >/dev/null 2>&1 && "
+                "! tools/verify.sh --jobs >/dev/null 2>&1"
+            )
+        },
+        "the coordinator refuses what it cannot honour: an unknown tier, and each of --gate, "
+        "--rerun and --jobs with no value. A tier list can only be proved by what it REJECTS -- "
+        "grepping the four names out of the script would pass before the feature existed",
+        None,
+    ),
+    "distribution-readiness::coverage-map-no-silent-loss": (
+        {"producers": ["check_manifest_integrity"], "shell": _LEDGER_CHECK},
+        "the repair ledger's counts and the document rendered from it agree, recomputed here; and "
+        "the graph itself is audited live. The coverage map is regenerated by its own maintainer, "
+        "so it is read and never hashed",
+        "artifacts/distribution-readiness/verification/coverage-map.md",
+    ),
+    "distribution-readiness::mutation-parity-old-vs-new": (
+        {
+            "shell": (
+                'grep -q "Thirteen mutations, all run" '
+                "artifacts/distribution-readiness/verification/mutation-parity.md && "
+                'grep -q "went red on both paths" '
+                "artifacts/distribution-readiness/verification/mutation-parity.md"
+            ),
+            "receipt": "tools/lune/verify/evidence/distribution-readiness--mutation-parity-old-vs-new.json",
+        },
+        "the corpus and its result, pinned by content hash and asserted by its two claims: thirteen "
+        "mutations run, and the ones that went red on both paths named",
+        None,
+    ),
+    "distribution-readiness::timings-and-budget": (
+        {
+            "shell": (
+                "python3 -c \"import json,sys; "
+                "d=json.load(open('artifacts/verify/latest-release.json')); "
+                "print('%.1f s against a 1200 s budget' % (d['durationMs']/1000.0)); "
+                "sys.exit(0 if d['durationMs'] <= 1200000 else 1)\""
+            ),
+            "receipt": "tools/lune/verify/evidence/distribution-readiness--timings-and-budget.json",
+        },
+        "the LAST release run's own duration against the twenty-minute budget, read from the run "
+        "record rather than from the document -- so the row reddens when the run does, not when "
+        "somebody forgets to update a table",
+        None,
+    ),
+    "distribution-readiness::prior-gates-reevaluated-not-replayed": (
+        {
+            "producers": ["check_manifest_integrity"],
+            #[[ THE "NOT REPLAYED" HALF IS THE PRODUCER'S, NOT THIS CLAUSE'S.
+            #   `check_manifest_integrity` already reddens on any row that still
+            #   references the retired replay script -- and a clause here that
+            #   named the script to prove it is gone would BE such a reference,
+            #   and reddened itself. The count is the half a clause can carry. ]]
+            "shell": (
+                "python3 -c \"import json,sys; "
+                "g=json.load(open('tools/lune/verify/graph.json')); "
+                "n=sum(1 for r in g['rows'] if (r.get('check') or {}).get('priorPhases')); "
+                "print(n,'prior-phase rows, re-evaluated from this run'); "
+                "sys.exit(0 if n >= 16 else 1)\""
+            ),
+        },
+        "sixteen prior-phase rows are declared as re-evaluations of this run's own row verdicts, "
+        "and the graph audit reddens on any row that still reaches for the retired replay script "
+        "-- which is why this clause does not name it",
+        None,
+    ),
+    "distribution-readiness::rascalrally-synchronized": (
+        {
+            "producers": ["rascalrally-suite"],
+            "receipt": "tools/lune/verify/evidence/distribution-readiness--rascalrally-synchronized.json",
+        },
+        "the consuming game's own suite runs green against this tree -- the lockstep the studio "
+        "constitution requires -- and the consumer-impact ledger is pinned by content hash",
+        None,
+    ),
+    "distribution-readiness::public-tree-reproducible": (
+        {"receipt": "tools/lune/verify/evidence/distribution-readiness--public-tree-reproducible.json"},
+        "the reproducibility measurement, pinned by content hash. It is a record of what two "
+        "extractions of the public tree did on one day; re-taking it is DR-26 through DR-28, which "
+        "stay PENDING",
+        None,
+    ),
+    "distribution-readiness::repository-renamed-and-verified": (
+        {
+            "shell": _REMOTE_CHECK,
+            "receipt": "tools/lune/verify/evidence/distribution-readiness--repository-renamed-and-verified.json",
+        },
+        "the remote this checkout actually talks to carries the new name and none of the old one, "
+        "asked of git rather than of a document, beside the rename record pinned by content hash",
+        None,
+    ),
+}
+
+# The mechanical half of DR-9, split off exactly as DR-10's was: the guide is
+# published and passes the checks a machine can run. Whether a fresh reviewer
+# can CHOOSE from it is DR-31, and it stays PENDING.
+NEW_ROWS = [
+    {
+        "id": "distribution-readiness::framework-choice-guide-published",
+        "phase": "distribution-readiness",
+        "name": "framework-choice-guide-published",
+        "class": "exit0",
+        "requirements": ["UI-AGENT-001"],
+        "releaseBlocking": False,
+        "evidence": "docs/guide/14-choosing-a-ui-library.md",
+        "state": None,
+        "check": {
+            "producers": ["check_doc_style", "check_links_cli"],
+            #[[ THE DRIFT CLAIM IS ABOUT THE GUIDE, SO IT IS ASKED OF THE GUIDE.
+            #   Naming the whole-tree `check_brand_drift` producer here would
+            #   make this row red for a word in an unrelated file, which is a row
+            #   that cannot say what it is about. The guide's own two profiles
+            #   are run in-process instead -- including the marked-comparison
+            #   exception, which is the only reason a comparison guide may name
+            #   another framework at all. ]]
+            "shell": (
+                "test -f docs/guide/14-choosing-a-ui-library.md && "
+                "python3 -c \"import sys, importlib.util; "
+                "s=importlib.util.spec_from_file_location('g','tools/check_brand_drift.py'); "
+                "m=importlib.util.module_from_spec(s); s.loader.exec_module(m); "
+                "g='docs/guide/14-choosing-a-ui-library.md'; h=[]; "
+                "m.scan_file(g,g,h); "
+                "m.scan_file(g,g,h,m.VENDOR_PROFILE,m.VENDOR_ALLOWLIST); "
+                "print(h if h else 'the guide carries no old brand and no unmarked vendor name'); "
+                "sys.exit(1 if h else 0)\""
+            ),
+        },
+        "note": "framework-choice-guide-published: the comparison guide is published, carries no "
+        "old brand and no vendor name outside the marked comparison exception, passes the document "
+        "style rules and offers no link that does not resolve. This is "
+        "DR-9's mechanical half; whether a fresh reviewer can choose from it is DR-31, and DR-9 "
+        "stays PENDING for it. Requirements: UI-AGENT-001.",
+    },
+]
+
+# row id -> (receipt class, [(label, path, "tree"|"archive")], summary)
+DR_RECEIPTS = {
+    "distribution-readiness::registered-before-work": (
+        "deterministic",
+        [("freeze-head", FREEZE + "/head.txt", "tree"),
+         ("freeze-record", "artifacts/distribution-readiness/freeze.md", "tree")],
+        "the head this stage opened at, and the record taken beside it",
+    ),
+    "distribution-readiness::state-frozen-at-open": (
+        "deterministic",
+        [("freeze-record", "artifacts/distribution-readiness/freeze.md", "tree"),
+         ("head", FREEZE + "/head.txt", "tree"),
+         ("refs", FREEZE + "/refs.txt", "tree"),
+         ("status", FREEZE + "/status.txt", "tree"),
+         ("tracked-files", FREEZE + "/tracked-files.txt", "tree"),
+         ("owner-edits", FREEZE + "/uncommitted-owner-edits.patch", "tree")],
+        "the six raw records taken before this stage's first edit",
+    ),
+    "distribution-readiness::history-audit-no-must-purge": (
+        "deterministic",
+        [("audit", "artifacts/distribution-readiness/audit/history-audit.md", "tree"),
+         ("findings", "artifacts/distribution-readiness/audit/findings.json", "tree"),
+         ("candidate", "artifacts/distribution-readiness/audit/history-candidate.md", "tree")],
+        "the full-history audit, its machine-readable findings, and the tested clean-history candidates",
+    ),
+    "distribution-readiness::provenance-and-third-party-notices": (
+        "deterministic",
+        [("ledger", "artifacts/distribution-readiness/audit/provenance-ledger.md", "tree"),
+         ("notices", "THIRD_PARTY_NOTICES.md", "tree")],
+        "the provenance ledger and the notices file it produced",
+    ),
+    "distribution-readiness::private-comparison-archived-links-removed": (
+        "external",
+        [("archived-comparison", "research/swiftui-capability-comparison-2026-08-30.md", "archive"),
+         ("receipt-document", "artifacts/distribution-readiness/swiftui-archive-receipt.md", "tree")],
+        "the archived document, verified against the archive's own manifest, and the receipt that records the move",
+    ),
+    "distribution-readiness::public-docs-refreshed-no-stale-links": (
+        "deterministic",
+        [("refresh-record", "artifacts/distribution-readiness/docs-refresh.md", "tree")],
+        "the documentation refresh record",
+    ),
+    "distribution-readiness::protected-manual-release": (
+        "deterministic",
+        [("channel-record", "artifacts/distribution-readiness/package-channel.md", "tree")],
+        "the release channel record, including its red-team round",
+    ),
+    "distribution-readiness::structured-results-replace-greps": (
+        "deterministic",
+        [("census", "artifacts/distribution-readiness/verification/graph-census.md", "tree")],
+        "the census of what every manifest row became",
+    ),
+    "distribution-readiness::mutation-parity-old-vs-new": (
+        "deterministic",
+        [("corpus", "artifacts/distribution-readiness/verification/mutation-parity.md", "tree")],
+        "the mutation corpus and its old-path/new-path results",
+    ),
+    "distribution-readiness::timings-and-budget": (
+        "deterministic",
+        [("timings", "artifacts/distribution-readiness/verification/timings.md", "tree")],
+        "the cold, warm and live-tree timings against the twenty-minute budget",
+    ),
+    "distribution-readiness::rascalrally-synchronized": (
+        "deterministic",
+        [("impact-ledger", "artifacts/distribution-readiness/rascalrally-consumer-impact.md", "tree")],
+        "the consuming game's impact ledger for this stage",
+    ),
+    "distribution-readiness::public-tree-reproducible": (
+        "deterministic",
+        [("measurement", "artifacts/distribution-readiness/verification/reproducibility.md", "tree")],
+        "the public-tree reproducibility measurement",
+    ),
+    "distribution-readiness::repository-renamed-and-verified": (
+        "deterministic",
+        [("rename-record", "artifacts/distribution-readiness/rename-record.md", "tree")],
+        "the record of the rename the owner approved and the director executed",
+    ),
+}
+
+#[[ AND THE ROWS THAT STAY PENDING, with what each is waiting for. A row here is
+#   NOT a row nobody got to: it is a row whose proof does not exist yet, and
+#   saying so is the whole reason the registration block was written before the
+#   work. ]]
+STILL_PENDING = {
+    "distribution-readiness::fresh-clone-works": "a clone taken from the renamed remote and run end to end",
+    "distribution-readiness::example-places-rebuild-from-clone": "the same clone rebuilding the example places",
+    "distribution-readiness::package-from-clone-matches": "a package built from that clone, compared byte for byte",
+    "distribution-readiness::fresh-agent-builds-screen": "a fresh agent building a screen from the published documents alone",
+    "distribution-readiness::fresh-agent-extends-behavior": "a fresh agent extending behaviour the same way",
+    "distribution-readiness::fresh-reviewer-chooses-from-guide": "a fresh reviewer choosing from the comparison guide",
+    "distribution-readiness::framework-choice-guide-fair": "the same fresh reviewer; its mechanical half is `framework-choice-guide-published`",
+    "distribution-readiness::owner-packet-complete": "the packet's final numbers, stamped at close",
+    "distribution-readiness::private-package-id-and-update-proof": "an asset minted and updated, which requires the owner to publish",
+}
+
+
+def flip_registration_rows(rows, dry_run):
+    """-> (flipped, minted, added, pending) -- rows whose evidence now exists."""
+    flipped, minted, added = [], [], []
+    #[[ ON `kept`, NOT ON `graph["rows"]`. The row list is rebuilt from `kept`
+    #   further down, so a row appended to the graph dict here is thrown away by
+    #   that assignment -- the same trap the case-id re-point fell into. ]]
+    #   A row this table already added is REPLACED, not skipped: the table is
+    #   the definition, and an earlier run's copy of it is not.
+    index = {r["id"]: i for i, r in enumerate(rows)}
+    for row in NEW_ROWS:
+        fresh = json.loads(json.dumps(row))
+        at = index.get(row["id"])
+        if at is None:
+            rows.append(fresh)
+            added.append(row["id"])
+        elif rows[at] != fresh:
+            rows[at] = fresh
+            added.append(row["id"])
+
+    archive_files = {}
+    if os.path.exists(ARCHIVE):
+        archive_files = {e["path"]: e["sha256"] for e in json.load(open(ARCHIVE))["files"]}
+
+    for rid, (cls, items, summary) in sorted(DR_RECEIPTS.items()):
+        path = os.path.join(RECEIPTS, rid.replace("::", "--") + ".json")
+        evidence = []
+        for label, where, kind in items:
+            if kind == "archive":
+                digest = archive_files.get(where)
+                if digest is None:
+                    continue
+            else:
+                if not os.path.isfile(where):
+                    continue
+                digest = _sha256(where)
+            evidence.append({"label": label, "archivedPath": where, "sha256": digest})
+        if len(evidence) != len(items):
+            continue
+        receipt = {
+            "schema": "facet-evidence-receipt/1",
+            "row": rid,
+            "class": cls,
+            "evidence": evidence,
+            "summary": summary,
+            "recordedAt": datetime.datetime.now(datetime.timezone.utc).strftime(
+                "%Y-%m-%dT%H:%M:%SZ"
+            ),
+        }
+        if os.path.exists(path):
+            old = json.load(open(path))
+            if old.get("evidence") == evidence and old.get("class") == cls:
+                continue
+        minted.append([rid, path])
+        if not dry_run:
+            with open(path, "w") as fh:
+                json.dump(receipt, fh, indent=1, sort_keys=True)
+                fh.write("\n")
+
+    for row in rows:
+        spec = ROW_FLIPS.get(row["id"])
+        if spec is None:
+            continue
+        check, note, evidence = spec
+        want_note = "%s: %s. Requirements: %s." % (
+            row["name"], note, ", ".join(row["requirements"]) or "none",
+        )
+        if (
+            row.get("check") == check
+            and row.get("note") == want_note
+            and row["class"] != "declared"
+            and row.get("state") is None
+        ):
+            continue
+        row["check"] = json.loads(json.dumps(check))
+        row["note"] = want_note
+        row["class"] = "exit0"
+        #[[ AND THE REGISTERED VERDICT IS CLEARED. A row that carries `state`
+        #   short-circuits evaluation and returns that state -- which is exactly
+        #   what a registration row is for while its evidence does not exist, and
+        #   exactly what has to go the moment it does. Leaving it set is how a
+        #   row with a real, passing check still reports PENDING, measured on the
+        #   first gate run after this flip: 33 pending, 0 evaluated. ]]
+        row["state"] = None
+        if evidence is not None:
+            row["evidence"] = evidence
+        flipped.append([row["id"], note[:90]])
+
+    pending = []
+    for row in rows:
+        why = STILL_PENDING.get(row["id"])
+        if why is None:
+            continue
+        want = "%s: PENDING -- %s. Requirements: %s." % (
+            row["name"], why, ", ".join(row["requirements"]) or "none",
+        )
+        if row.get("note") != want:
+            row["note"] = want
+        pending.append([row["id"], why])
+    return flipped, minted, added, pending
 
 
 def load_archive() -> dict:
@@ -530,7 +1133,23 @@ def main() -> int:
             rr_routed.append(row["id"])
     print(f"rows routed through the sibling producer : {len(rr_routed)}")
 
+    # ---- registration rows whose evidence now exists ---------------------------
+    flipped, minted, dr_added, dr_pending = flip_registration_rows(kept, args.dry_run)
+    print(f"registration rows given a real check    : {len(flipped)}")
+    print(f"  receipts minted for them              : {len(minted)}")
+    print(f"  rows added (a split mechanical half)  : {len(dr_added)}")
+    print(f"  rows left honestly PENDING            : {len(dr_pending)}")
+
     # ---- producers that must not share the tree -------------------------------
+    retiered = 0
+    for p in graph["producers"]:
+        want = RETIER.get(p["id"])
+        if want is not None and p.get("tiers") != want:
+            p["tiers"] = dict(want)
+            retiered += 1
+    if retiered:
+        print(f"producers whose tier set widened         : {retiered}")
+
     serialized = 0
     for p in graph["producers"]:
         if p["id"] in SERIALIZED and not p.get("serialize"):

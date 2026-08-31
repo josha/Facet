@@ -2,9 +2,49 @@
  "class": "studio",
  "evidence": [
   {
-   "archivedPath": "artifacts/theme-packages-and-skinning/feasibility/$f.json",
-   "label": "evidence-1",
-   "sha256": "absent"
+   "archivedPath": "artifacts/theme-packages-and-skinning/feasibility/m1-per-target-sheets.json",
+   "label": "evidence-1.1",
+   "sha256": "72f73aa225c7d36ece95718c4ec2dcc64d932a68771c1cd0e35a92115206c0ff"
+  },
+  {
+   "archivedPath": "artifacts/theme-packages-and-skinning/feasibility/m2-nineslice-rules.json",
+   "label": "evidence-1.2",
+   "sha256": "a6da16a0dc47db4c7cec214f76acfada4ed82100bf14f81dee0575110221405f"
+  },
+  {
+   "archivedPath": "artifacts/theme-packages-and-skinning/feasibility/m3-font-tokens.json",
+   "label": "evidence-1.3",
+   "sha256": "d1e6447493db60efbb31b757eb46f6d96677572c26e97b9a24245c672e6694b0"
+  },
+  {
+   "archivedPath": "artifacts/theme-packages-and-skinning/feasibility/m4-metric-attributes.json",
+   "label": "evidence-1.4",
+   "sha256": "9f5445590fe96e0aedb0c7d621f802bb40ee5f8b78ebde9dfa4a8ee7ba46da85"
+  },
+  {
+   "archivedPath": "artifacts/theme-packages-and-skinning/feasibility/m5-swap-atomicity-cost.json",
+   "label": "evidence-1.5",
+   "sha256": "9e4a3ae1e048dae7098484ddb21119bb572687e20d788c34dbadde54513b6915"
+  },
+  {
+   "archivedPath": "artifacts/theme-packages-and-skinning/feasibility/m6-sync-roundtrip.json",
+   "label": "evidence-1.6",
+   "sha256": "eff9300653eec5432411448b64c54928c2a66e49b8d413392db799740c372228"
+  },
+  {
+   "archivedPath": "artifacts/theme-packages-and-skinning/feasibility/m7-gradient-shadow-phantoms.json",
+   "label": "evidence-1.7",
+   "sha256": "d7d8ff070a894d0723658ddad79cb415ce82f843697bb7af8b5773cfb37fa17f"
+  },
+  {
+   "archivedPath": "artifacts/theme-packages-and-skinning/feasibility/m8-render-order-combinators.json",
+   "label": "evidence-1.8",
+   "sha256": "290f74212b3e48b71a971bdeb25930c67ad2d7b67fedda16072e1a9904300927"
+  },
+  {
+   "archivedPath": "artifacts/theme-packages-and-skinning/feasibility/m9-content-and-pixelart.json",
+   "label": "evidence-1.9",
+   "sha256": "f87b62db0ce0ec1841929f0411038cf34359bf7ebdb3f86d0f0da2edc1c489f3"
   },
   {
    "archivedPath": "artifacts/theme-packages-and-skinning/feasibility/m1-per-target-sheets.json",

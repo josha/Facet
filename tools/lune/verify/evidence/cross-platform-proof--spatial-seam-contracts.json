@@ -2,9 +2,64 @@
  "class": "studio",
  "evidence": [
   {
-   "archivedPath": "artifacts/cross-platform-proof/rows/$f.json",
-   "label": "evidence-1",
-   "sha256": "absent"
+   "archivedPath": "artifacts/cross-platform-proof/rows/xp-a1-console-profile.json",
+   "label": "evidence-1.1",
+   "sha256": "0df390656bb2b04bb3880852e2ff15a331f57860cf27579cb14a658baa1c91c4"
+  },
+  {
+   "archivedPath": "artifacts/cross-platform-proof/rows/xp-a2-production-scenes.json",
+   "label": "evidence-1.2",
+   "sha256": "9acc85a86b55b96cf0ff6d950dc6eea475979b93626627376d30d74eaa695728"
+  },
+  {
+   "archivedPath": "artifacts/cross-platform-proof/rows/xp-a3-theme-swap-scenes.json",
+   "label": "evidence-1.3",
+   "sha256": "843e65ea13f6736faced1092a55e5b4b72535734babf1f98b78dd23d4111d647"
+  },
+  {
+   "archivedPath": "artifacts/cross-platform-proof/rows/xp-a3-theme-swap-studio.json",
+   "label": "evidence-1.4",
+   "sha256": "ba971335074882d616526a87358d3e970942c7facb9e87675f4d656feeb4cd12"
+  },
+  {
+   "archivedPath": "artifacts/cross-platform-proof/rows/xp-a7-evidence-classes.json",
+   "label": "evidence-1.6",
+   "sha256": "d62cea7787e4b44209782cc2c99c4d6f87a485905ec3dfd7ea8166614dc24516"
+  },
+  {
+   "archivedPath": "artifacts/cross-platform-proof/rows/xp-b3-virtualinput.json",
+   "label": "evidence-1.7",
+   "sha256": "fa6afa558c6db3c4a8cb712e3c18ce60a12478814db08a25e2bc7c3794283779"
+  },
+  {
+   "archivedPath": "artifacts/cross-platform-proof/rows/xp-b5-intentional-failure.json",
+   "label": "evidence-1.8",
+   "sha256": "bb3f16acc57da8a626ee0a561bac3be523f97f21cc7d499c2163ebd1ff4c69d5"
+  },
+  {
+   "archivedPath": "artifacts/cross-platform-proof/rows/xp-d1-presentation-facts.json",
+   "label": "evidence-1.9",
+   "sha256": "55c7b519b746148f7f7997ce23813567cb13e325707df7f330db6c0f02fa01b2"
+  },
+  {
+   "archivedPath": "artifacts/cross-platform-proof/rows/xp-d2-spatial-events.json",
+   "label": "evidence-1.10",
+   "sha256": "a5d498b34989d1beab74618b16cd261976cc54861117a2d74fd441dc830a6f86"
+  },
+  {
+   "archivedPath": "artifacts/cross-platform-proof/rows/xp-d3-future-target.json",
+   "label": "evidence-1.11",
+   "sha256": "18359b5cbbfb7ae3793130ca234b59acc310c1447285ee73e5cd0bdfa2445467"
+  },
+  {
+   "archivedPath": "artifacts/cross-platform-proof/rows/xp-d5-no-vr-claim.json",
+   "label": "evidence-1.12",
+   "sha256": "bb2737e90f75741582c32e4c6ffe15822585e3a7f38ac60d11ffd90676277e23"
+  },
+  {
+   "archivedPath": "artifacts/cross-platform-proof/rows/xp-s-showcase.json",
+   "label": "evidence-1.13",
+   "sha256": "7e84cfef09999b0be30794382acbc03c633e1bf7f697170a47826e3b75684395"
   }
  ],
  "recordedAt": "2026-08-31T01:29:16Z",
