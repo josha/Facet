@@ -76,7 +76,7 @@ from datetime import datetime, timezone
 #[[ THE INTERPRETER FLOOR, AND WHY IT IS A COMMENT AS MUCH AS A CHECK.
 #
 #   `tools/build_model.sh` calls `python3`, and on a fresh clone that can resolve
-#   to the system interpreter — /usr/bin/python3 is 3.9.6 on current macOS — not
+#   to the system interpreter — /usr/bin/python3 is 3.9.6 on a stock developer machine — not
 #   to whatever a developer has on PATH. This file therefore has to PARSE on 3.9,
 #   and one line of it did not: a PEP-701 f-string (`f"{shown(result["path"])}"`,
 #   nested same quotes) is 3.12-only syntax and raised
