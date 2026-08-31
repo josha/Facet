@@ -34,6 +34,11 @@ dependencies outside the Python standard library.
 **`build`, `status` and `verify` are offline** and are the everyday commands.
 They contact nothing and need no credential.
 
+The verdict table prints three states, not two: `[REFUSE]` failed, `[  ok  ]`
+was compared and passed, `[ n/a  ]` had nothing to compare — a publish-only
+guard under `create`, a receipt comparison with no receipt, a moderation state
+nobody has read yet. A guard that did not run never reads as one that passed.
+
 **`create` and `publish` are dry runs by default.** A dry run prints the exact
 request that would be sent — method, URL, multipart field names, the request
 JSON, and the file part named with its size and hash but never its contents —
@@ -128,7 +133,9 @@ Build, then four checks:
 
 1. **tree inspection** — every shipped `src/**/*.luau` is present as a
    `ModuleScript` at the expected path, every intermediate directory is a
-   `Folder`, and *nothing else* is in the model. Anything unexpected fails, and
+   `Folder`, `Facet/Distribution` and both of its `StringValue` children are
+   present (the release metadata and the MIT text are required, not merely
+   tolerated), and *nothing else* is in the model. Anything unexpected fails, and
    anything whose path contains `tests`, `examples`, `vendor`, `bench`,
    `spikes`, `fusion_adapter`, `imperative` or `.spec` fails by name.
 2. **distribution notices** — reports if `LICENSE` / `THIRD_PARTY_NOTICES` fell
@@ -156,7 +163,7 @@ API path and not the update half — see *Why two routes* below.
 |  | `studio` (default) | `open-cloud` |
 |---|---|---|
 | create | build the publisher place, print the Convert-to-Package steps, then `GET /v1/assets/{id}` to verify the id a human hands back | `POST /v1/assets` (multipart `request` + `fileContent`), poll `GET /v1/operations/{id}` |
-| publish | rebuild the publisher place, print the Publish-to-Package steps, then poll `GET /v1/assets/{id}/versions` until a version newer than the last receipt appears | `PATCH /v1/assets/{id}`, poll `GET /v1/operations/{id}` |
+| publish | read the asset's current version number, rebuild the publisher place, print the Publish-to-Package steps, then poll `GET /v1/assets/{id}/versions` until the number differs from that pre-publish baseline | `PATCH /v1/assets/{id}`, poll `GET /v1/operations/{id}` |
 | read-back | `GET` asset + latest version, recorded in the receipt | same |
 
 Both routes run **the same guards before a single instruction is printed or a
@@ -168,6 +175,13 @@ override it for one invocation, but only together with `--allow-route-override`
 its trailing arguments to `package.sh`, so without that guard a bare `--route
 open-cloud` could arrive from two layers away and turn an approved Studio
 release into an unapproved `PATCH`.
+
+On the studio route the baseline is read **before** the manual steps are printed,
+and a release is recorded only on a positive edge away from it. Comparing against
+the last receipt instead meant that a first publish — no receipts yet — accepted
+the version already sitting on the asset and recorded a release that never
+happened. If the version list cannot be read, the command refuses and asks for
+`--baseline-revision <n>` rather than guessing.
 
 ### rollback
 
@@ -209,7 +223,7 @@ that runs in milliseconds and never touches a network
 | `dirty-tree` | `git status --porcelain` is non-empty |
 | `commit-mismatch` | `--commit` is absent or is not `HEAD` |
 | `version-mismatch` | `--version` is absent or is not `Facet.VERSION` |
-| `build-drift` | a fresh build's body hash differs from `build/Facet.manifest.json` |
+| `build-drift` | there is no `build/Facet.manifest.json`, or a fresh build's body hash differs from the one it records |
 | `creator-unset` | `facet-package.json` has no creator |
 | `creator-mismatch` | `--creator-id` / `--creator-type` disagree with the config |
 | `asset-id-present` | `create` when an `assetId` already exists |
@@ -327,11 +341,20 @@ tools/release.sh <version> <commit>
 It refuses an unknown commit, a dirty tree, a missing `ROBLOX_API_KEY` and an
 unconfigured asset id; then it checks the named commit out into a throwaway git
 worktree, reruns the release gate there (`tools/verify.sh release` if that script
-exists, otherwise `tools/test.sh`, recording which), runs `tools/package.sh
-publish --confirm` with every guard still in force, polls and reads back, copies
-the receipt into the main tree's `package/receipts/`, prints the Studio
-verification checklist and the exact `stamp` command, and removes the worktree.
-It never pushes.
+exists, otherwise `tools/test.sh`, recording which), builds in the worktree so
+the drift guard has a recorded manifest to compare against, runs
+`tools/package.sh publish --confirm` with every guard still in force, polls and
+reads back, copies both the new receipt and `package/facet-package.json` into the
+main tree, prints the Studio verification checklist and the exact `stamp`
+command, and removes the worktree. It never pushes.
+
+Two details of the copy-back are worth knowing. A receipt is selected by
+**content** — a `publishedAt` at or after a watermark taken before publishing —
+not by having a name the main tree has not seen, because a receipt is named
+`<version>-<sha7>` and republishing the same version from the same commit reuses
+the name. And the config is copied back only when it differs from the main tree's
+in `assetId` and `versions` alone; a disagreement anywhere else refuses and names
+the fields that moved.
 
 `.github/workflows/release.yml` is the same command behind three separate stops:
 `workflow_dispatch` only (never a push), a protected `release` environment, and a
