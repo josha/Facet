@@ -622,7 +622,13 @@ def decide(facts):
     elif arg_version != facts.get("source_version"):
         refuse("version-mismatch", f"--version {arg_version} is not Facet.VERSION ({facts.get('source_version')})")
 
-    if facts.get("fresh_build_hash") != facts.get("manifest_hash"):
+    if facts.get("manifest_hash") is None:
+        refuse(
+            "build-drift",
+            "there is no build/Facet.manifest.json to compare against; run `tools/package.sh build` (or `verify`) "
+            "so there is a recorded build of this tree",
+        )
+    elif facts.get("fresh_build_hash") != facts.get("manifest_hash"):
         refuse(
             "build-drift",
             f"a fresh build hashes {facts.get('fresh_build_hash')} but build/Facet.manifest.json records "
@@ -867,6 +873,19 @@ def gather_facts(op, args, config, receipts_dir, transport=None, api_key=None):
     version = read_version()
     commit = head_commit()
     source_hash_value = source_hash()
+    #[[ THE RECORDED MANIFEST IS READ FIRST, BEFORE ANYTHING IS REBUILT.
+    #
+    #   The build-drift guard compared `fresh["bodyHash"]` against
+    #   `fresh["bodyHash"]` — both facts came from the SAME `write_manifest` call
+    #   a line earlier, so the comparison was `x != x` and could not fail for any
+    #   input. It was not a weak guard; it was not a guard.
+    #
+    #   The question it is supposed to ask is "does the manifest on disk — the one
+    #   `build`/`verify` produced and a human looked at — still describe this
+    #   tree?", so the answer has to be read BEFORE this call rewrites it. A tree
+    #   with no manifest at all refuses too: you cannot publish something nobody
+    #   has built. ]]
+    recorded = load_manifest(DEFAULT_MANIFEST)
     build_model(quiet=True)
     fresh = write_manifest(DEFAULT_XML, DEFAULT_MODEL, DEFAULT_MANIFEST)
 
@@ -891,7 +910,7 @@ def gather_facts(op, args, config, receipts_dir, transport=None, api_key=None):
         "source_version": version,
         "source_hash": source_hash_value,
         "fresh_build_hash": fresh["bodyHash"],
-        "manifest_hash": fresh["bodyHash"],
+        "manifest_hash": (recorded or {}).get("bodyHash"),
         "config_creator": config.get("creator") or {},
         "arg_creator_type": getattr(args, "creator_type", None),
         "arg_creator_id": getattr(args, "creator_id", None),
@@ -1567,6 +1586,7 @@ REFUSAL_CASES = [
     ("version-mismatch", "create", {"arg_version": None}),
     ("version-mismatch", "create", {"arg_version": "9.9.9"}),
     ("build-drift", "create", {"fresh_build_hash": "x" * 64}),
+    ("build-drift", "create", {"manifest_hash": None}),
     ("creator-unset", "create", {"config_creator": {"type": None, "id": None}, "arg_creator_type": None, "arg_creator_id": None}),
     ("creator-mismatch", "create", {"arg_creator_id": 4321}),
     ("creator-mismatch", "create", {"arg_creator_type": "group"}),
