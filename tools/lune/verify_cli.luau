@@ -786,7 +786,7 @@ print(
 		"verify: %s  tier=%s%s  %.1fs  identity=%s",
 		status,
 		tier,
-		if gatePhase ~= nil then ` gate=${gatePhase}` else "",
+		if gatePhase ~= nil then ` gate={gatePhase}` else "",
 		durationMs / 1000,
 		string.sub(runRecord.identity, 1, 12)
 	)
