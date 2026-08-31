@@ -604,6 +604,45 @@ ROW_FLIPS = {
         "stay PENDING",
         None,
     ),
+    #[[ DR-9 AND DR-31 LANDED WHILE THIS ROUND WAS RUNNING (`51bf26d`, 20:33).
+    #   Both were listed as "leave PENDING -- proof in flight", and the proof
+    #   flew in: an adversarial fresh agent, given ONLY the guide page and no
+    #   repository and no web, chose libraries for five stated projects and
+    #   graded the page's integrity. The rule for this round is that a row moves
+    #   when its evidence exists, so they move. The receipt pins the VERDICT
+    #   document and never the guide -- the reviewer's own improvements were
+    #   applied to the guide afterwards, and a pin on it would have reddened on
+    #   the very commit that acted on the review. ]]
+    "distribution-readiness::fresh-reviewer-chooses-from-guide": (
+        {
+            "shell": (
+                'grep -q "^\\*\\*Verdict: PASS" '
+                "artifacts/distribution-readiness/fresh-agents/guide-review.md"
+            ),
+            "receipt": "tools/lune/verify/evidence/distribution-readiness--fresh-reviewer-chooses-from-guide.json",
+        },
+        "a fresh agent given only the guide page chose for five stated projects and reached a "
+        "verdict, pinned by content hash -- and the verdict is read out of the record rather than "
+        "summarised into this note",
+        "artifacts/distribution-readiness/fresh-agents/guide-review.md",
+    ),
+    "distribution-readiness::framework-choice-guide-fair": (
+        {
+            "producers": ["check_doc_style", "check_links_cli"],
+            "shell": (
+                'grep -q "never implies Facet is built on" '
+                "artifacts/distribution-readiness/fresh-agents/guide-review.md && "
+                'grep -q "no popularity/maintainer/official" '
+                "artifacts/distribution-readiness/fresh-agents/guide-review.md"
+            ),
+            "receipt": "tools/lune/verify/evidence/distribution-readiness--framework-choice-guide-fair.json",
+        },
+        "the fairness half, which is the half only a reader can answer: the fresh reviewer graded "
+        "the page's integrity -- no false parentage claim, no popularity or maintainer appeal, no "
+        "undisclaimed performance claim -- and named the near-misses it did find. Its mechanical "
+        "half stands on its own as `framework-choice-guide-published`",
+        None,
+    ),
     "distribution-readiness::repository-renamed-and-verified": (
         {
             "shell": _REMOTE_CHECK,
@@ -729,6 +768,16 @@ DR_RECEIPTS = {
         [("measurement", "artifacts/distribution-readiness/verification/reproducibility.md", "tree")],
         "the public-tree reproducibility measurement",
     ),
+    "distribution-readiness::fresh-reviewer-chooses-from-guide": (
+        "external",
+        [("reviewer-verdict", "artifacts/distribution-readiness/fresh-agents/guide-review.md", "tree")],
+        "the fresh reviewer's verdict and the improvements it named",
+    ),
+    "distribution-readiness::framework-choice-guide-fair": (
+        "external",
+        [("reviewer-verdict", "artifacts/distribution-readiness/fresh-agents/guide-review.md", "tree")],
+        "the same verdict, read for the integrity half",
+    ),
     "distribution-readiness::repository-renamed-and-verified": (
         "deterministic",
         [("rename-record", "artifacts/distribution-readiness/rename-record.md", "tree")],
@@ -746,8 +795,6 @@ STILL_PENDING = {
     "distribution-readiness::package-from-clone-matches": "a package built from that clone, compared byte for byte",
     "distribution-readiness::fresh-agent-builds-screen": "a fresh agent building a screen from the published documents alone",
     "distribution-readiness::fresh-agent-extends-behavior": "a fresh agent extending behaviour the same way",
-    "distribution-readiness::fresh-reviewer-chooses-from-guide": "a fresh reviewer choosing from the comparison guide",
-    "distribution-readiness::framework-choice-guide-fair": "the same fresh reviewer; its mechanical half is `framework-choice-guide-published`",
     "distribution-readiness::owner-packet-complete": "the packet's final numbers, stamped at close",
     "distribution-readiness::private-package-id-and-update-proof": "an asset minted and updated, which requires the owner to publish",
 }

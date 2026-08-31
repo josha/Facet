@@ -1,0 +1,14 @@
+{
+ "class": "external",
+ "evidence": [
+  {
+   "archivedPath": "artifacts/distribution-readiness/fresh-agents/guide-review.md",
+   "label": "reviewer-verdict",
+   "sha256": "16bf4d5f1c805c4bd2180a2475895b0926698b7c37d01ab3d159d06705cd8949"
+  }
+ ],
+ "recordedAt": "2026-08-31T03:45:38Z",
+ "row": "distribution-readiness::framework-choice-guide-fair",
+ "schema": "facet-evidence-receipt/1",
+ "summary": "the same verdict, read for the integrity half"
+}
