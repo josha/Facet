@@ -312,3 +312,84 @@ f632021  The reference documents that stay public are an allowlist, not a denyli
 
 Every one was made with `tools/commit_isolated.py`, path- or marker-scoped.
 Nothing was pushed.
+
+## 10. Red-team round (2026-08-30)
+
+Three findings landed in this workstream's files. All three are fixed, and each
+fix was watched failing first.
+
+**Finding 20 — a titled link was invisible to the link checker.** The
+destination pattern was `([^)%s]+)`, which stops at the first space, so
+`[text](path "title")` never matched its closing paren and the link was not read
+at all: neither dead nor archived-flagged, just unseen. `relink_archived.py` had
+handled titles from the start, so the two guards disagreed about the same file.
+The pattern now captures the whole of `(...)` and takes the destination as the
+first run of non-space. The selftest plants a titled link into archived material;
+reverting the pattern reddens exactly that case, which was measured.
+
+**Finding 21 — the scanned set missed shipped documents.** It was a
+hand-written list of six files and four directories, and it did not cover
+`docs/MAINTAINERS.md`, `THIRD_PARTY_NOTICES.md`, `examples/consumer/README.md`,
+`src/core/README.md`, any `assets/**/provenance.md`, or the issue and
+pull-request templates. The set is now DERIVED from `tools/public_allowlist.txt`
+using that file's own allow and deny semantics, mirrored from
+`tools/check_public_allowlist.py`: **6 files and 4 directories became 50
+documents**, and a document added to a published directory is covered from the
+moment it exists. The selftest plants a dead link in `docs/MAINTAINERS.md` — one
+of the documents the old list missed — so the widening is self-proving.
+
+**Finding 32 — the consumer example leaked its subscriptions and the spec
+tested a different arrangement.** The client script wired `core:observe` and
+`presenter.onTick` and never released either, and the spec asserted
+`closed:get()` and then tore down out of band, so the path the example teaches
+was never run. The lifetime moved into `screen.session`, which the client script
+and the spec both call; both subscriptions are owned by the screen's scope; and
+the spec now presses the button.
+
+Three mutations were run against the consumer, and what they showed is worth
+recording because two of them corrected a claim:
+
+| Mutation | Effect | Reading |
+|---|---|---|
+| drop `built.own` from the `onTick` | reddens exactly one case | the frame hook is the real leak: the presenter outlives the screen, so a hook nobody released keeps running against a screen that is gone |
+| wire Close to a callback that does nothing | reddens exactly one case | the press-to-teardown path, including releasing the observer from inside the dispose it is standing in, is genuinely exercised |
+| remove the `torn` re-entrancy flag | **reddens nothing** | the three teardown steps are each independently idempotent, so the flag is not what makes the path safe. The comment in `screen.luau` said it was; it now says what was measured |
+
+Dropping `built.own` from the *observer* also reddens nothing, and that is
+correct rather than a hole: the observer watches a signal that dies with the same
+scope, and a disposed node silences its own observers. The case that bites is
+therefore the one about a screen disposed on a host that keeps running, which is
+what swapping screens looks like.
+
+Result lines after the round:
+
+```
+lune run tools/lune/check_links_cli
+  check_links: PASS (50 documents, 517 relative links, 161 heading anchors)
+
+lune run tools/lune/check_links_cli -- --selftest
+  check_links --selftest: PASS — a dead link, an archived-material link, the same
+  link carrying a title, and a fault in a document the old hand-written scan list
+  missed are all reported; the tree itself still passes
+
+lune run tests/run_one consumer_standalone
+  15 passed
+
+./run-tests.sh --fast
+  7164 passed, 0 failed
+
+stylua --check src tests tools bench examples
+  PASS
+
+python3 tools/relink_archived.py --check
+  relink_archived: PASS — 24 documents, 375 links, none pointing into archived material
+
+lune run tools/lune/check_docs_cli
+  check_docs: PASS (9 documents, 166 local links)
+
+lune run tools/lune/check_boundary
+  boundary: PASS (171 src files, 425 consumer files)
+
+rojo build examples/consumer/default.project.json
+  built
+```
