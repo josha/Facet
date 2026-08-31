@@ -65,7 +65,7 @@ describe("maintainer map: every row still points at the tree it describes", func
 	it("names every obligation it enforces (the command's --list output)", function()
 		expect(#checker.OBLIGATIONS).toBeGreaterThanOrEqual(11)
 		local joined = table.concat(checker.OBLIGATIONS, "\n")
-		for _, needle in { "src/", "require graph", "gate_manifest", "check_boundary", "docs/extending" } do
+		for _, needle in { "src/", "require graph", "verify/graph", "check_boundary", "docs/extending" } do
 			if string.find(joined, needle, 1, true) == nil then
 				error(`the obligation list never mentions '{needle}'`)
 			end
@@ -137,7 +137,7 @@ describe("maintainer map: every row still points at the tree it describes", func
 	it("reports a gate stage the manifest does not have", function()
 		expect(plant(function(text)
 			return (string.gsub(text, "`phase%-0%-foundation/conformance%-custom%-core`", "`no-such-stage/x`", 1))
-		end, "which tools/lune/gate_manifest.luau does not define")).toBeGreaterThanOrEqual(1)
+		end, "which tools/lune/verify/graph.json does not define")).toBeGreaterThanOrEqual(1)
 	end)
 
 	it("reports a public seam the library has stopped exporting", function()

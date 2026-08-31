@@ -25,7 +25,7 @@
 --      area with no live surface must say so in the words `none —` plus a
 --      reason, rather than leaving an empty cell.
 --   7. GATES EXIST. Every `stage/row` the map cites is a real row of a real
---      stage in tools/lune/gate_manifest.luau, and every bare `stage` is a real
+--      stage in tools/lune/verify/graph.json, and every bare `stage` is a real
 --      stage.
 --   8. BOUNDARY RULES EXIST. Every dependency rule the map cites by name is a
 --      rule tools/lune/check_boundary.luau really enforces, so the map cannot
@@ -48,6 +48,7 @@
 -- --counts, --list).
 
 local fs = require("@lune/fs")
+local serde = require("@lune/serde")
 
 --[[ THE LIVE LIBRARY TABLE, not a parsed literal. The seam column claims that a
 	name is public; the only honest source for "what is public" is the exported
@@ -61,7 +62,7 @@ local MAP = "docs/MAINTAINERS.md"
 local SRC = "src"
 local SCENARIO_DIR = "examples/gallery/scenarios"
 local SCENARIO_INDEX = SCENARIO_DIR .. "/init.luau"
-local GATES = "tools/lune/gate_manifest.luau"
+local GATES = "tools/lune/verify/graph.json"
 local BOUNDARY = "tools/lune/check_boundary.luau"
 local PLAYBOOKS = "docs/extending"
 
@@ -394,19 +395,23 @@ function check_maintainer_map.check(opts: Opts?): Result
 	local scenarioIndex = if fs.isFile(SCENARIO_INDEX) then fs.readFile(SCENARIO_INDEX) else ""
 	local boundarySource = if fs.isFile(BOUNDARY) then fs.readFile(BOUNDARY) else ""
 
-	-- stage -> row names, parsed from the gate manifest
+	-- stage -> row names, read from the verification graph (the phase views and
+	-- their rows replaced the retired gate manifest, 2026-08-31)
 	local stages: { [string]: { [string]: boolean } } = {}
 	if fs.isFile(GATES) then
-		local currentStage: string? = nil
-		for _, line in splitLines(fs.readFile(GATES)) do
-			local stage = string.match(line, '^\t%["([^"]+)"%] = {')
-			if stage ~= nil then
-				currentStage = stage
-				stages[stage] = {}
+		local graph = serde.decode("json", fs.readFile(GATES))
+		for _, phase in (graph.phases or {}) :: { any } do
+			local id = if type(phase) == "table" then phase.id else phase
+			if type(id) == "string" then
+				stages[id] = {}
 			end
-			local row = string.match(line, '^\t\t\tname = "([^"]+)",')
-			if row ~= nil and currentStage ~= nil then
-				stages[currentStage :: string][row] = true
+		end
+		for _, row in (graph.rows or {}) :: { any } do
+			if type(row) == "table" and type(row.phase) == "string" and type(row.name) == "string" then
+				if stages[row.phase] == nil then
+					stages[row.phase] = {}
+				end
+				stages[row.phase][row.name] = true
 			end
 		end
 	end
@@ -503,7 +508,7 @@ function check_maintainer_map.check(opts: Opts?): Result
 				gateNamed += 1
 				problem(
 					`the '{area}' row cites the gate stage '{stage}', which {GATES} does not define`,
-					"cite a stage the manifest really has"
+					"cite a stage the verification graph really has"
 				)
 				continue
 			end
@@ -641,7 +646,7 @@ check_maintainer_map.OBLIGATIONS = table.freeze({
 		.. "graph one hop out of the spec file; a spec that reaches the library only through the root counts "
 		.. "under the library-root row)",
 	'every Studio scenario named exists and is registered in the scenario index, or the cell says "none — <reason>"',
-	"every gate stage and stage/row the map cites exists in tools/lune/gate_manifest.luau",
+	"every gate stage and stage/row the map cites exists in tools/lune/verify/graph.json",
 	"every dependency rule the map cites by name is a rule tools/lune/check_boundary.luau really reports",
 	"every quick answer links the page that carries the rest of the answer",
 	"every local markdown link resolves, and a link with an anchor lands on a heading that document has",

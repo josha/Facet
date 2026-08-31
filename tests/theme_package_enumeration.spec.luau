@@ -25,11 +25,11 @@ local describe, it, expect = t.describe, t.it, t.expect
 
 local theme_packages = require("../tools/lune/theme_packages")
 
--- the six consumers named in the finding, plus the playbook
+-- the consumers named in the finding, plus the playbook (the probe script that
+-- once sat here was development scratch and left with the private archive)
 local CONSUMERS = {
 	"tests/theme_reference_packages.spec.luau",
 	"tools/lune/check_docs.luau",
-	"tools/lune/_probe_matrix.luau",
 	"tests/renderer.spec.luau",
 	"tests/gallery_theme_picker.spec.luau",
 	"docs/extending/new-theme.md",
