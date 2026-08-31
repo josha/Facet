@@ -690,6 +690,26 @@ def decide(facts):
     #   the previous version managed to be unsatisfiable. The checks are
     #   INDEPENDENT rather than chained, so a single wrong field names itself
     #   instead of hiding behind the first one.
+    #[[ THE ROUTE IS CONFIGURATION, and `--route` was quietly stronger than it.
+    #
+    #   `package/facet-package.json` says `studio` because the platform docs
+    #   support Open Cloud's CREATE path for an .rbxm and not its UPDATE path, and
+    #   that is a decision with evidence behind it. A bare `--route open-cloud`
+    #   flipped it with no guard at all, under `--confirm`, straight into a PATCH
+    #   nobody had approved — and `tools/release.sh` forwards its own trailing
+    #   arguments to this command, so the flag could arrive from a caller two
+    #   layers away. Overriding stays possible; it now has to be said out loud.
+    config_route = facts.get("config_route")
+    arg_route = facts.get("arg_route")
+    if arg_route and arg_route != config_route:
+        mark("route-override")
+        if not facts.get("allow_route_override"):
+            refuse(
+                "route-override",
+                f"--route {arg_route} overrides the configured route {config_route}; the configured route is a "
+                f"recorded decision. Pass --allow-route-override to mean it.",
+            )
+
     gate = facts.get("gate")
     mark("gate-evidence-missing")
     if not gate:
@@ -934,6 +954,9 @@ def gather_facts(op, args, config, receipts_dir, transport=None, api_key=None):
         "arg_creator_id": getattr(args, "creator_id", None),
         "config_asset_id": config_asset,
         "arg_asset_id": getattr(args, "asset_id", None),
+        "config_route": config.get("route") or "studio",
+        "arg_route": getattr(args, "route", None),
+        "allow_route_override": bool(getattr(args, "allow_route_override", False)),
         "gate": read_gate_evidence(),
         "latest_receipt": latest_receipt(receipts_dir),
         "cloud_revision": cloud_revision,
@@ -962,6 +985,7 @@ def print_verdicts(facts, refusals, evaluated):
         ("create only when no asset id exists", "asset-id-present"),
         ("publish only when an asset id exists", "asset-id-missing"),
         ("asset id argument matches config", "asset-id-mismatch"),
+        ("route override acknowledged", "route-override"),
         ("release-gate evidence present", "gate-evidence-missing"),
         ("release-gate evidence schema", "gate-evidence-schema"),
         ("release-gate evidence is a release run", "gate-evidence-tier"),
@@ -1571,6 +1595,9 @@ def good_facts(op):
         "arg_creator_id": 1234,
         "config_asset_id": None,
         "arg_asset_id": None,
+        "config_route": "studio",
+        "arg_route": None,
+        "allow_route_override": False,
         "gate": good_gate(),
         "latest_receipt": None,
         "cloud_revision": None,
@@ -1611,6 +1638,7 @@ REFUSAL_CASES = [
     ("asset-id-present", "create", {"config_asset_id": 777}),
     ("asset-id-missing", "publish", {"config_asset_id": None, "arg_asset_id": None, "cloud_revision": None}),
     ("asset-id-mismatch", "publish", {"arg_asset_id": 555}),
+    ("route-override", "create", {"arg_route": "open-cloud"}),
     ("gate-evidence-missing", "create", {"gate": None}),
     ("gate-evidence-schema", "create", {"gate": good_gate(schema="some-other-schema/9")}),
     ("gate-evidence-tier", "create", {"gate": good_gate(tier="fast")}),
@@ -1699,6 +1727,7 @@ def selftest():
         "asset-id-present",
         "asset-id-missing",
         "asset-id-mismatch",
+        "route-override",
         "gate-evidence-missing",
         "gate-evidence-schema",
         "gate-evidence-tier",
@@ -1848,6 +1877,10 @@ def _selftest_transport():
                 actor="selftest",
                 timeout=1,
                 poll=1,
+                baseline_revision=None,
+                # the temp configs below declare route open-cloud, so `--route
+                # open-cloud` agrees with them and the override guard is n/a
+                allow_route_override=False,
             )
 
         # the injected decider: no refusal, and NOTHING evaluated — which is what
@@ -2006,6 +2039,11 @@ def main():
         release_parser = sub.add_parser(name, help=f"{name} the Package asset (DRY RUN unless --confirm)")
         release_parser.add_argument("--confirm", action="store_true", help="actually make the call")
         release_parser.add_argument("--route", choices=("studio", "open-cloud"))
+        release_parser.add_argument(
+            "--allow-route-override",
+            action="store_true",
+            help="mean it when --route disagrees with package/facet-package.json",
+        )
         release_parser.add_argument("--version")
         release_parser.add_argument("--commit")
         release_parser.add_argument("--asset-id")

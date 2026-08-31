@@ -160,7 +160,14 @@ API path and not the update half — see *Why two routes* below.
 | read-back | `GET` asset + latest version, recorded in the receipt | same |
 
 Both routes run **the same guards before a single instruction is printed or a
-single call is made.** Override per invocation with `--route`.
+single call is made.**
+
+The configured route is a recorded decision, not a default. `--route` can
+override it for one invocation, but only together with `--allow-route-override`
+— otherwise the run refuses with `route-override`. `tools/release.sh` forwards
+its trailing arguments to `package.sh`, so without that guard a bare `--route
+open-cloud` could arrive from two layers away and turn an approved Studio
+release into an unapproved `PATCH`.
 
 ### rollback
 
@@ -208,6 +215,7 @@ that runs in milliseconds and never touches a network
 | `asset-id-present` | `create` when an `assetId` already exists |
 | `asset-id-missing` | `publish` when no `assetId` exists |
 | `asset-id-mismatch` | `--asset-id` disagrees with the config |
+| `route-override` | `--route` disagrees with the configured route and `--allow-route-override` was not given |
 | `gate-evidence-missing` | `artifacts/verify/latest-release.json` is absent, unreadable, or carries no `gateEvidence` |
 | `gate-evidence-schema` | the evidence declares a different schema |
 | `gate-evidence-tier` | the evidence is not from a `release` run |
