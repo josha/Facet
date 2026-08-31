@@ -18,10 +18,10 @@ explains why, and what to measure instead.
 ## 14.1 What a UI library does for you
 
 Roblox draws its interface from instances: a `Frame`, a `TextLabel`, a
-`TextButton`, and so on. With no library you create each one yourself, set every
-property by hand, remember to update the right property when your data changes,
-and remember to destroy the whole thing when the screen closes. That works. It
-stops working well at about the size of a settings menu.
+`TextButton`, and so on. With no library, you create each one yourself. You set every property by hand.
+You remember to update the right property when your data changes. You remember
+to destroy the whole thing when the screen closes. That works. It stops working
+well at about the size of a settings menu.
 
 A library takes over three jobs:
 
@@ -60,9 +60,9 @@ These words are used throughout this chapter, so here they are once:
 
 The one-sentence version of each library:
 
-- **Facet** — a Roblox UI library whose decisions (state, layout, focus,
-  adaptation) are plain Luau you can test without an engine, with a thin adapter
-  edge that turns the result into real Roblox UI ([the root `README.md`](../../README.md),
+- **Facet** — a Roblox UI library. Its decisions (state, layout, focus,
+  adaptation) are plain Luau you can test without an engine. A thin adapter
+  edge turns the result into real Roblox UI ([the root `README.md`](../../README.md),
   [the guide index](README.md)). `[FACT]`
 - **React Luau** — "a comprehensive, but not exhaustive, translation of ReactJS
   17.x into Luau", giving you React's component model on Roblox instances (React
@@ -70,33 +70,33 @@ The one-sentence version of each library:
 - **Fusion** — a Luau library for reactive state and for creating or adopting
   Roblox instances from it, organised around scopes that clean themselves up
   (Fusion documentation, version 0.3). `[FACT]`
-- **Vide** — "a reactive Luau library for creating UI", "inspired by Solid",
-  built on a source and effect pair, where each reactive property gets its own
-  effect (Vide repository description, README, and reactivity documentation).
-  `[FACT]`
+- **Vide** — "a reactive Luau library for creating UI", "inspired by Solid".
+  It is built on a source and effect pair, where each reactive property gets
+  its own effect (Vide repository description, README, and reactivity
+  documentation). `[FACT]`
 
 ## 14.2 The comparison
 
 Every cell is `[FACT]` from the source pinned in [§14.6](#146-sources), unless
 the cell begins with `[INFERENCE]`. "Yours to write" means the library does not
-describe the feature, so the work is yours — not that the work is impossible.
+describe the feature. It does not mean the work is impossible.
 
 One row needs background first. Roblox has its own styling system, and it is
 worth knowing about whichever library you pick. A `StyleSheet` holds
-`StyleRule`s that "apply to every instance that matches the rule's Selector",
-and a `StyleLink` "links a StyleSheet and its associated rules to a parent
+`StyleRule`s that "apply to every instance that matches the rule's Selector".
+A `StyleLink` "links a StyleSheet and its associated rules to a parent
 ScreenGui and all of the GuiObjects within it. Only one StyleSheet can apply to
-a given tree." Tokens are attributes on a token sheet, themes are token sets you
-swap, and Studio ships a Style Editor for editing them (Roblox styling
+a given tree." Tokens are attributes on a token sheet. Themes are token sets
+you swap. Studio ships a Style Editor for editing them (Roblox styling
 documentation) `[FACT]`.
 
 That last rule raises a fair question: can your game keep its own `StyleSheet`?
-Yes — Facet links one sheet and one `StyleLink` at its own target root, which
-the reference calls "per-target isolation", so a sheet your game links to its
-own `ScreenGui` is a different tree and is left alone `[FACT]`. The one place
-Facet's sheet reaches further is an instance you adopt into a Facet box, because
-a `StyleLink` is "ambient in the DataModel and selects by class" `[FACT]`
-([`05-styling.md`](05-styling.md) is the authority, and
+Yes. Facet links one sheet and one `StyleLink` at its own target root. The
+reference calls this "per-target isolation", so a sheet your game links to its
+own `ScreenGui` is a different tree, and Facet leaves it alone `[FACT]`. The
+one place Facet's sheet reaches further is an instance you adopt into a Facet
+box. This is because a `StyleLink` is "ambient in the DataModel and selects by
+class" `[FACT]` ([`05-styling.md`](05-styling.md) is the authority, and
 [`api.md`](../reference/api.md) carries the adopted-instance case).
 
 | | Facet | React Luau | Fusion | Vide |
@@ -129,15 +129,15 @@ a model is worth checking for yourself before you pick one; this page does not
 measure it `[INFERENCE]`.
 
 Do not read "components re-render" as "there is no fine-grained route". Bindings
-are that route: the README calls them "a form of signals-based state that
-doesn't re-render, for highly-efficient animations driven by React" `[FACT]`, and
-the deviations page describes them as "a unidirectional data binding that can be
-updated outside of the render cycle" `[FACT]`. `createBinding` makes one and
+are that route. The README calls them "a form of signals-based state that
+doesn't re-render, for highly-efficient animations driven by React" `[FACT]`.
+The deviations page describes them as "a unidirectional data binding that can
+be updated outside of the render cycle" `[FACT]`. `createBinding` makes one and
 `useBinding` is the hook form `[FACT]`. `joinBindings` "combines a map or array
 of bindings into a single binding" `[FACT]`, and a bound host property follows
 the binding without the component running again `[FACT]`. Where this page quotes
 a project calling something efficient — here, and in the table above — that is
-the project's own description of itself and not a measurement, so read it beside
+the project's own description of itself, not a measurement. Read it beside
 [§14.5](#145-performance). Reach for a binding for a health bar, a countdown, or
 a value that moves every frame `[INFERENCE]`.
 
@@ -151,8 +151,8 @@ nested lifetime that cannot outlive its parent `[FACT]`. `Value` is "a state
 object that you can set manually", `Computed` "determines its own value
 automatically", and `Observer` runs code when a watched object changes `[FACT]`.
 
-`New` takes a class name and returns a component that builds instances of it;
-string keys are assigned as properties, and a property given a state object "is
+`New` takes a class name and returns a component that builds instances of it.
+String keys are assigned as properties, and a property given a state object "is
 re-assigned every time the value of the state object changes" `[FACT]`. `Hydrate`
 takes an instance you already have and returns a component that applies a
 property table to it, "binding extra functionality to that instance" `[FACT]`.
@@ -163,14 +163,14 @@ That makes it a way into interface somebody else built `[INFERENCE]`.
 ### Vide
 
 Reach for it when you want the smallest reactive vocabulary that still covers a
-real screen, and you like the idea that a property, not a component, is the unit
+real screen. You like the idea that a property, not a component, is the unit
 of update `[INFERENCE]`. A `source` is a getter and a setter in one function;
 `effect` re-runs when anything it read changes; `derive` caches a computed value;
 `root` runs a function in a stable scope and returns a destructor `[FACT]`.
 
 `create` is the whole authoring story: a string key whose value is a function
 becomes either an event connection or "an effect to update property" `[FACT]`.
-Control flow is four helpers — `show`, `switch`, `indexes` and `values` — and the
+Control flow is four helpers: `show`, `switch`, `indexes` and `values`. The
 documentation is direct that choosing between the last two is a performance
 decision, because it "can result in less property updates and less re-renders"
 `[FACT]`. `spring()` returns a source "always moving torwards the input source
@@ -188,26 +188,27 @@ parts a test can check to be checkable without an engine `[INFERENCE]`. Layout,
 focus, adaptation and state are plain Luau; only the adapter edge touches an
 `Instance` `[FACT]` ([`02-architecture.md`](02-architecture.md)). It ships the
 things you would otherwise write: nineteen composite controls, native
-`StyleSheet` paint with Studio Style Editor token editing, input across pointer,
-touch, keyboard and gamepad, layout that adapts from a phone to a console, and
-three render targets `[FACT]` ([the guide index](README.md) catalog). One of
-those controls is worth a line on its own: a virtual list mounts only the rows
-in view plus a bounded overscan margin, scrolling inside that window writes
-rectangles only, and sliding the window adds and removes just the rows that
-entered and left `[FACT]` ([`api.md`](../reference/api.md)).
+`StyleSheet` paint with Studio Style Editor token editing, and input across
+pointer, touch, keyboard and gamepad. It also ships layout that adapts from a
+phone to a console, and three render targets `[FACT]` ([the guide
+index](README.md) catalog). One of those controls is worth a line on its own:
+the virtual list. It mounts only the rows in view, plus a bounded overscan
+margin. Scrolling inside that window writes rectangles only. Sliding the
+window adds and removes just the rows that entered and left `[FACT]`
+([`api.md`](../reference/api.md)).
 
 The cost is the same fact from the other side. It is the largest of the four, it
 decides more on your behalf, and its way of doing things is the way you will do
 things `[INFERENCE]`. Two limits are worth reading before you commit. Its input
 layer requires `Workspace.PlayerScriptsUseInputActionSystem` to be enabled in
 every place, and that property cannot be read or set from code `[FACT]`
-([`07-input.md`](07-input.md)). And its own guide index states that the
-checked-in device measurement slots are still empty, so it asks you not to
-describe it as proven on low-end phones, consoles or headsets `[FACT]`
+([`07-input.md`](07-input.md)). Its own guide index states that the checked-in
+device measurement slots are still empty. It asks you not to describe Facet as
+proven on low-end phones, consoles or headsets `[FACT]`
 ([the guide index](README.md)).
 
 The world-surface target is worth stating precisely, because it is easy to
-over-read: it is flat, two-dimensional Facet on a `SurfaceGui`, on a part a
+over-read. It is flat, two-dimensional Facet on a `SurfaceGui`, on a part a
 player can walk up to and use `[FACT]`. It is not virtual reality, ray, hand or
 gaze support `[FACT]` ([`api.md`](../reference/api.md),
 [`../extending/new-platform-mode.md`](../extending/new-platform-mode.md)).
@@ -217,7 +218,7 @@ gaze support `[FACT]` ([`api.md`](../reference/api.md),
 **React Luau.** The default path is render and reconcile. Something changes
 state, and your component function runs again and returns a fresh element tree.
 The README says the library "will efficiently update and render just the right
-components when your data changes" `[FACT]`; working out which instance writes
+components when your data changes" `[FACT]`. Working out which instance writes
 that means is the reconciliation step `[INFERENCE]`. `ReactRoblox.createRoot` is
 what holds that tree against a Roblox instance container `[FACT]`. The second
 path is narrower and deliberate: a binding is updated outside the render cycle
@@ -243,18 +244,20 @@ per entry, differing in whether an element is bound to a position or to an objec
 
 **Facet has its own fine-grained reactive core; it does not use Fusion, React, or
 Vide.** That core is `src/core/custom.luau`, and `src/init.luau` binds
-`Facet.newCore` to it `[FACT]`. It gives you signals, memos, observers and effects,
-plus transactions that batch several writes so dependents recompute and observers
-fire once, and scopes that own everything and dispose it exactly once `[FACT]`
+`Facet.newCore` to it `[FACT]`. It gives you signals, memos, observers and
+effects. It gives you transactions that batch several writes so dependents
+recompute and observers fire once. It also gives you scopes that own
+everything and dispose of it exactly once `[FACT]`
 ([`01-concepts.md`](01-concepts.md) §1.3). Structure changes only through
 `UI.When` and `UI.ForEach`, which mount and unmount branches and rows, each with
 its own scope `[FACT]` ([`api.md`](../reference/api.md)). Geometry is a separate
-pure step: a two-pass solver reads a snapshot of the tree and a viewport size and
-returns a rectangle per node, reading no signal and no `Instance` `[FACT]`. Only
-then does the adapter edge write engine properties, and a change reaching a
-signal does not repaint immediately — it records a dirty entry that one refresh
-per frame drains, so many changes in a frame collapse into one layout pass and a
-minimal set of writes `[FACT]` ([`02-architecture.md`](02-architecture.md) §2.2).
+pure step. A two-pass solver reads a snapshot of the tree and a viewport size,
+and returns a rectangle per node. It reads no signal and no `Instance`
+`[FACT]`. Only then does the adapter edge write engine properties. A change
+reaching a signal does not repaint immediately. Instead, it records a dirty
+entry, and one refresh per frame drains that entry. As a result, many changes
+in a frame collapse into one layout pass and a minimal set of writes `[FACT]`
+([`02-architecture.md`](02-architecture.md) §2.2).
 Paint, by default, is not written by the adapter at all: the adapter classifies
 each instance with tags, and a generated Roblox `StyleSheet` owns the paint
 `[FACT]` ([`05-styling.md`](05-styling.md) §5.7).
@@ -276,8 +279,9 @@ know `[INFERENCE]`:
 **This page makes no relative speed claim, in either direction.** No matched,
 fair, checked-in benchmark of these four libraries exists in this repository
 `[FACT]`. A comparison that would earn a claim needs equivalent, idiomatic
-workloads for all four, written by someone fluent in each, run on the same host
-with the same settings, with raw results and stated limits. Nothing on this page
+workloads for all four, written by someone fluent in each. It also needs to run
+on the same host with the same settings, and to report raw results and stated
+limits. Nothing on this page
 is that, and a number produced any other way measures the author, not the
 library `[INFERENCE]`.
 
@@ -299,9 +303,9 @@ Then hold the conditions still:
 4. Test on the weakest device you intend to support.
 
 That last step is the one people skip. Facet's own performance chapter is blunt
-about it: a Studio device emulator can close layout and operability rows, and it
-can never close a claim about that device's speed — only the shipped client on
-named hardware does `[FACT]` ([`12-performance-lab.md`](12-performance-lab.md)).
+about it. A Studio device emulator can close layout and operability rows. It
+can never close a claim about that device's speed. Only the shipped client on
+named hardware does that `[FACT]` ([`12-performance-lab.md`](12-performance-lab.md)).
 
 ## 14.6 Sources
 
