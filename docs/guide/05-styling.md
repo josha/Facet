@@ -115,6 +115,14 @@ professional and neutral, and quick to render." Concretely:
 To use your own look instead, compile a schema and pass it when creating the
 render target: `screen_target.new({ style = compiled })`.
 
+**If you stood your surface up with `client.host.new()`** — which is what
+[chapter 3](03-getting-started.md#34-wiring-inside-roblox-studio) teaches, and
+what builds the render target for you — pass the same value there instead:
+`host.new({ style = compiled })`. The host forwards `style` verbatim to
+`screen_target.new`, along with `nativeStyle`, `parent`, `autoLocalize`,
+`themePackage` and `displayOrder`, so there is one place to say it either way
+([api.md §Client entry points](../reference/api.md#client-entry-points)).
+
 ## 5.3 Surfaces and roles
 
 Containers and controls opt into a visual treatment through two style props read
