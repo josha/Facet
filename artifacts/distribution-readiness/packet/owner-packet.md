@@ -21,7 +21,7 @@ else is done or blocked only on these.
 | 4 | **Package name + description** | Name `Facet`; description in `package/facet-package.json` (one honest paragraph: MIT, source link, what it is) |
 | 5 | **Private creation now, free Creator Store listing later** | Create private now; the listing waits for the ordered checklist after the repo is public |
 | 6 | **Credential** | `ROBLOX_API_KEY` env var, Assets API read+write, IP-allowlisted; never a cookie, never stored in the repo |
-| 7 | **Publish route** | `studio` (default) until the spike proves the API route: Roblox documents `.rbxm` content updates as unsupported over Open Cloud |
+| 7 | **Publish route** | ~~studio pending spike~~ → **`open-cloud`, proven 2026-08-31**: the spike created a real Package (genuine `PackageLink`) and updated it to version 2 by API with a distinct `.rbxm`; identical bytes are silently deduplicated, which the positive-edge guard exists for (`../spike/spike-package.md`) |
 | 8 | **The 14 tracked `.rbxl` place files** (~44 MB at tip; ~52 MB of history) | Recommended: keep at tip, purge historical revisions only if you take candidate B (below) |
 | 9 | **History rewrite** — pick one | **A** (required minimum): purge the 15 must-purge files; public clone ≈ 81 MB. **B** (recommended): A + place-file history + author-email rewrite + `.rbxl.lock`/`.pyc`/game-parity docs; public clone ≈ 23 MB. **Neither** blocks going public — the plan forbids it while must-purge items exist |
 | 10 | **Author e-mail on 1,113 rewritten commits** (candidate B only) | `facetframework@gmail.com` (owner-confirmed) |
