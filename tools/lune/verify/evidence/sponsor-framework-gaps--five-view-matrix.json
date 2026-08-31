@@ -2,29 +2,9 @@
  "class": "studio",
  "evidence": [
   {
-   "archivedPath": "artifacts/sponsor-framework-gaps/rows/matrix/compact-phone-landscape.json",
-   "label": "evidence-1.1",
-   "sha256": "ced569569a85edda82a55538378928cdb9874317b2a204ba586bf448b98c4eea"
-  },
-  {
-   "archivedPath": "artifacts/sponsor-framework-gaps/rows/matrix/compact-phone-portrait.json",
-   "label": "evidence-1.2",
-   "sha256": "83dcbd2a688dac00bc398fec25c4845c2e09d94275f2bdf3afcbedb5afd12681"
-  },
-  {
-   "archivedPath": "artifacts/sponsor-framework-gaps/rows/matrix/console-ten-foot.json",
-   "label": "evidence-1.3",
-   "sha256": "6af6d660d9540ed82a985badd251a5660c950ae51f30e8d5288040af61dee0eb"
-  },
-  {
-   "archivedPath": "artifacts/sponsor-framework-gaps/rows/matrix/desktop-standard.json",
-   "label": "evidence-1.4",
-   "sha256": "133bf3344975a6e2da650576710d74887c0d316d5f296f3d98f6e73f7463fb95"
-  },
-  {
-   "archivedPath": "artifacts/sponsor-framework-gaps/rows/matrix/tablet-landscape.json",
-   "label": "evidence-1.5",
-   "sha256": "478327c3e5273a0b0a0e80394ed722f8c6fe2daf430e87f2267aa321e06012f6"
+   "archivedPath": "artifacts/sponsor-framework-gaps/rows/matrix/",
+   "label": "evidence-1",
+   "sha256": "absent"
   }
  ],
  "recordedAt": "2026-08-31T01:29:17Z",

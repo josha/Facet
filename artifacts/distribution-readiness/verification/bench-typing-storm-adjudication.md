@@ -34,3 +34,19 @@ median is green, today's reds were environment and nothing changes; if quiet
 A/A exceeds the 1.5x factor again, the scene is un-adjudicable at p95 and the
 honest gate for it is the stable p50_norm channel — a tooling change plus
 re-freeze, recorded, never a silent adjustment.
+
+## Quiet-machine series and the ruling (2026-08-31, Studio closed)
+
+Nine runs, fixed source, Studio closed: p95_norm = 1.080, 1.826, 1.887, 1.702,
+1.804, 1.663, 1.727, 1.063, 1.053 — **bimodal even quiet** (3 green / 6 red),
+A/A spread ≈ 1.8x against a 1.5x factor, while p50 sat at 0.1145–0.1179 ms in
+every run (baseline p50 0.1093). Green runs allocate ~100 MB; red runs ~190 MB —
+two allocator/collector modes of the same process, not a source change (the
+pre-settle file reproduces both modes; Studio-open reproduces both modes).
+
+**Ruling (the procedure's third arm): the scene is un-adjudicable at p95 and its
+gate moves to the stable channel.** `textinput-typing-storm` gates on
+`p50_norm` with the same 1.5x factor (today's p50 ratio ≈ 1.05–1.12); every
+other scene keeps p95. This is a recorded instrument change, not an adjustment
+to pass: p50 is the channel this scene's own history calls stable, and the
+bimodal tail is measured and documented here rather than averaged away.

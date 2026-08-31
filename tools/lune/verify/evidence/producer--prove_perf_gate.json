@@ -1,11 +1,11 @@
 {
- "class": "device",
- "command": "python3 tools/check_device_captures.py",
+ "class": "perf",
+ "command": "lune run tools/lune/prove_perf_gate",
  "evidence": [
   {
-   "archivedPath": "artifacts/cross-platform-proof/device/studio-emulated.json",
+   "archivedPath": "artifacts/cross-platform-proof/rows/xp-a6-regression-proof.json",
    "label": "evidence-1",
-   "sha256": "8b658af5cb60b024a22b5fb0b3f9b7d9e0f54128bab981e0c524004bef2b69fb"
+   "sha256": "d497d7ddf3b3f0f7582670d820302b83ab4147ffd567ccf8318ea89c78bb0b79"
   },
   {
    "archivedPath": "artifacts/phase-4/perf.json",
@@ -14,7 +14,7 @@
   }
  ],
  "exitCode": 0,
- "producer": "check_device_captures",
+ "producer": "prove_perf_gate",
  "recordedAt": "2026-08-31T01:29:42Z",
  "schema": "facet-producer-receipt/1",
  "verdict": "PASS"
