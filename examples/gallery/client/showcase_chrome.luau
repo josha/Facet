@@ -3,7 +3,7 @@
 	them.
 
 	WHY THIS IS ITS OWN MODULE. It used to be ~140 lines inside
-	`init.client.luau`, which is a LocalScript: it reaches engine globals at load
+	`init.client.luau`, which is a client script: it reaches engine globals at load
 	and therefore cannot be required headlessly, so every claim about the chrome
 	could only ever be made by reading its SOURCE TEXT — which is exactly the
 	shape of check `tests/gallery_theme_picker.spec.luau:194` was criticised for

@@ -31,7 +31,7 @@ local unbindEnv = roblox_env.bind(env)
 -- Native-stylesheets A/B driver (ledger NSS-A2/NSS-A10). The PRECEDENCE — forced
 -- fallback over an explicit opt-in over the library default — is a decision, not
 -- an expression: it lives in `paint_mode.luau` beside `boot_mode.luau`, for the
--- same reason and with the same spec technique, because a LocalScript's argument
+-- same reason and with the same spec technique, because a client script's argument
 -- list has no witness. Facet_NativeTransitions opts the sheet transitions in
 -- (progressive enhancement, default OFF until the NSS-P3 publish rider clears).
 local paint_mode = require(script:WaitForChild("paint_mode")) :: any
@@ -208,7 +208,7 @@ end)
 
 -- ===== WHICH SURFACE THIS PLACE BOOTS =====================================
 --
--- Four surfaces share this one LocalScript, and which of them runs used to be
+-- Four surfaces share this one client script, and which of them runs used to be
 -- decided by the ORDER of three `if` blocks a hundred lines apart. That order
 -- was wrong in the one place a device pass opens: the showcase branch came
 -- first, `tools/build_places.sh` bakes `Facet_Showcase = true` into the showcase
@@ -646,7 +646,7 @@ if bootDecision.mode == "showcase" then
 	-- THE CHROME: A STRIP THAT NEVER MOVES, AND A PANEL THAT COMES AND GOES.
 	--
 	-- The structural half lives in `showcase_chrome.luau`, where it can be
-	-- required and driven headlessly — this file is a LocalScript and reaches
+	-- required and driven headlessly — this file is a client script and reaches
 	-- engine globals at load, so anything built inline here can only ever be
 	-- checked by reading its source text. Read that module's header for the two
 	-- findings behind the shape: the chrome was unreachable by keyboard and
@@ -759,7 +759,7 @@ if bootDecision.mode == "showcase" then
 	-- A HANDLE FOR THE ROOM. The scenario runner already publishes its API this
 	-- way (examples/gallery/scenarios/runner.luau) and for the same reason: the
 	-- Studio MCP's execute_luau runs in a DIFFERENT Luau VM than this
-	-- LocalScript, so `_G` does not cross but a BindableFunction in the shared
+	-- client script, so `_G` does not cross but a BindableFunction in the shared
 	-- DataModel does. It is what lets the demo be advanced without a pointer,
 	-- which matters while the injected-input limitation (XP-B3) stands.
 	_G.FacetShowcase = {

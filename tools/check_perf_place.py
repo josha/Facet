@@ -60,7 +60,7 @@ REQUIRED = [
     # the ornate reference package the flat-vs-ornate comparison needs
     ("ReplicatedStorage/FacetThemes/fantasy_ornate", "ModuleScript"),
     # the bootstrap and the matched raw-Roblox reference
-    ("StarterPlayer/StarterPlayerScripts/PerfLab", "LocalScript"),
+    ("StarterPlayer/StarterPlayerScripts/PerfLab", "Script"),
     ("StarterPlayer/StarterPlayerScripts/PerfLab/native_list", "ModuleScript"),
     # something to stand on, so the place opens as a usable session
     ("Workspace/Baseplate", "Part"),

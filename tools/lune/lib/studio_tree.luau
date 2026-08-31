@@ -22,7 +22,8 @@ local fs = require("@lune/fs")
 
 export type FileEntry = {
 	path: string, -- dot path under game, e.g. ReplicatedStorage.Facet.layout.solver
-	className: string, -- ModuleScript | LocalScript | Folder
+	className: string, -- ModuleScript | Script | Folder
+	runContext: string?, -- "Client" | "Server" for Script nodes
 	file: string, -- repo-relative source file ("" for a folder with no init)
 }
 
@@ -32,11 +33,13 @@ local function addTree(entries: { FileEntry }, fsDir: string, robloxPath: string
 	-- the directory itself: init.luau (or init.client.luau) becomes the node
 	local initFile: string? = nil
 	local className = rootClassName
+	local runContext: string? = nil
 	if fs.isFile(fsDir .. "/init.luau") then
 		initFile = fsDir .. "/init.luau"
 	elseif fs.isFile(fsDir .. "/init.client.luau") then
 		initFile = fsDir .. "/init.client.luau"
-		className = "LocalScript"
+		className = "Script"
+		runContext = "Client"
 	elseif fs.isFile(fsDir .. "/init.server.luau") then
 		--[[ THE SERVER FOLD, added with the showcase's first server side
 			(`examples/gallery/server`, the outpost's server authority). Rojo maps
@@ -46,10 +49,12 @@ local function addTree(entries: { FileEntry }, fsDir: string, robloxPath: string
 			injected place would have had no authority at all. ]]
 		initFile = fsDir .. "/init.server.luau"
 		className = "Script"
+		runContext = "Server"
 	end
 	table.insert(entries, {
 		path = robloxPath,
 		className = if initFile then className else "Folder",
+		runContext = if initFile then runContext else nil,
 		file = initFile or "",
 	})
 	for _, name in fs.readDir(fsDir) do

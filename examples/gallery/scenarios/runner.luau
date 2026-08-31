@@ -2111,7 +2111,7 @@ function Runner.start(deps: { [string]: any })
 
 	build()
 	_G.FacetScenario = api
-	-- The MCP's execute_luau runs in a DIFFERENT Luau VM than this LocalScript,
+	-- The MCP's execute_luau runs in a DIFFERENT Luau VM than this client script,
 	-- so _G does not cross. Publish the API as BindableFunctions the command VM
 	-- can Invoke (same client DataModel). JSON-in/JSON-out for table safety.
 	local apiFolder = Instance.new("Folder")

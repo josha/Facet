@@ -185,7 +185,7 @@ local host = {
 		local camera = workspace.CurrentCamera
 		local viewport = if camera ~= nil then camera.ViewportSize else Vector2.new(0, 0)
 		-- GRAPHICS QUALITY, read the way a CLIENT can read it. `settings()` is a
-		-- plugin/Studio global and is nil in a LocalScript, so the first attempt
+		-- plugin/Studio global and is nil in a client script, so the first attempt
 		-- returned "unknown" — and the capture checker correctly refused the row,
 		-- which is how this was found rather than shipped. `UserGameSettings` is the
 		-- player-visible setting and is readable from the client; `SavedQualityLevel`
@@ -240,7 +240,7 @@ local host = {
 
 	-- MicroProfiler control, so a capture window can be started and stopped from
 	-- the same driver that runs the workload. Feature-detected: LibMP is reachable
-	-- from Studio MCP / the command bar, not from an ordinary LocalScript, so this
+	-- from Studio MCP / the command bar, not from an ordinary client script, so this
 	-- reports honestly rather than pretending.
 	profilerControl = function(): any
 		local ok, LibMP = pcall(function()

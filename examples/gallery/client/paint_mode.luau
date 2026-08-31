@@ -28,7 +28,7 @@
 	WHY A MODULE AND NOT AN EXPRESSION. `boot_mode.luau` is next to this file for
 	exactly the same reason, and its header tells the story of the ordering bug
 	that was invisible while it was control flow. This is the same shape: the
-	bootstrap is a LocalScript that no headless spec can run, so a decision left
+	bootstrap is a client script that no headless spec can run, so a decision left
 	inside it has no witness at all. `tests/native_style_default.spec.luau` drives
 	the three combinations here and reads the bootstrap's call back out of the
 	source, so the place and the pin cannot drift apart.

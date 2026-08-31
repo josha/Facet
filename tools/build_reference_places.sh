@@ -35,6 +35,7 @@ for entry in "${PROOFS[@]}"; do
   cat >"$project" <<JSON
 {
   "name": "$name",
+  "emitLegacyScripts": false,
   "globIgnorePaths": ["**/*.spec.luau"],
   "tree": {
     "\$className": "DataModel",

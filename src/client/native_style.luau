@@ -378,7 +378,7 @@ function native_style.ensure(model: any, opts: EnsureOpts?): Handle
 	--     under ReplicatedStorage (Edit-seeded with the place, server-owned,
 	--     replicated to every client — the Style Editor workflow home).
 	--   * RUNTIME CREATION (no designer sheet found) goes CLIENT-LOCAL —
-	--     PlayerGui — never ReplicatedStorage: a LocalScript-created instance
+	--     PlayerGui — never ReplicatedStorage: a client-created instance
 	--     there is client-local anyway (FilteringEnabled) and invites name
 	--     collisions with replicated content. In Edit (no LocalPlayer) the
 	--     seed goes to ReplicatedStorage so it persists with the place.

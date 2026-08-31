@@ -1,7 +1,7 @@
 --!strict
 --[[ WHICH SURFACE THIS PLACE BOOTS — one decision, taken before anything mounts.
 
-	WHAT IT IS FOR. The gallery bootstrap is one LocalScript serving four surfaces:
+	WHAT IT IS FOR. The gallery bootstrap is one client script serving four surfaces:
 	the plain settings demo, a numbered tutorial example, a named verification
 	SCENARIO, and the hands-on showcase. Which one runs was decided by the ORDER of
 	three `if` blocks a hundred lines apart, each reading its own workspace

@@ -442,7 +442,7 @@ describe("the gallery A/B driver's precedence survives the flip", function()
 	end)
 
 	--[[ THE BOOTSTRAP REALLY ASKS. Same technique and same reason as
-		`gallery_boot_mode.spec.luau`: the LocalScript cannot run here, so its call
+		`gallery_boot_mode.spec.luau`: the client script cannot run here, so its call
 		is read back out of the source, and each attribute is read EXACTLY ONCE —
 		a count, because "the literal never appears" would be satisfied by a split
 		string and "it appears" would be satisfied by the second reader that is the

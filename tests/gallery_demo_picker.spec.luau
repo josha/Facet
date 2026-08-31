@@ -1059,7 +1059,7 @@ end)
 	instrument lied: nothing mounted, the wrong demo mounted, and (the live shape)
 	the previous surface still standing while the answer had moved on.
 
-	THE HOST LOOP IS THE SHIPPED ONE. `init.client.luau` is a LocalScript, so its
+	THE HOST LOOP IS THE SHIPPED ONE. `init.client.luau` is a client script, so its
 	`mountDemo` is re-expressed here by the same fork it takes — the scenario
 	contract for a fixture, the tutorial contract for an example — against the same
 	real modules Studio loads. The case below it is the negative control: the same

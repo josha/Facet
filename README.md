@@ -129,7 +129,8 @@ rule it depends on, and what a no-Rojo workflow costs.
 
 ## The five-minute screen
 
-One `LocalScript` under `StarterPlayer.StarterPlayerScripts`:
+One client script under `StarterPlayer.StarterPlayerScripts` — a **Script**
+with `RunContext = Client` (a plain `LocalScript` works too):
 
 ```lua
 local ReplicatedStorage = game:GetService("ReplicatedStorage")

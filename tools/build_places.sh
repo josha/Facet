@@ -58,6 +58,7 @@ for entry in "${EXAMPLES[@]}"; do
   cat >"$project" <<JSON
 {
   "name": "$name",
+  "emitLegacyScripts": false,
   "globIgnorePaths": ["**/*.spec.luau"],
   "tree": {
     "\$className": "DataModel",
@@ -129,6 +130,7 @@ project="examples/.place_build.project.json"
 cat >"$project" <<'JSON'
 {
   "name": "Facet-Showcase",
+  "emitLegacyScripts": false,
   "globIgnorePaths": ["**/*.spec.luau"],
   "tree": {
     "$className": "DataModel",

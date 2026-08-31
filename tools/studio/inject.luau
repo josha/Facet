@@ -76,6 +76,12 @@ for idx, entry in ipairs(manifest.files) do
 		inst.Parent = parent
 		created += 1
 	end
+	-- a modern Script node declares where it runs; a legacy class ignores this
+	if entry.runContext ~= nil and wantClass == "Script" then
+		pcall(function()
+			(inst :: any).RunContext = (Enum.RunContext :: any)[entry.runContext]
+		end)
+	end
 	--[[ `Script` JOINED THE LIST with the showcase's first server side
 		(`examples/gallery/server`). Without it the manifest would create
 		the instance and never write its Source, so the injected place would carry

@@ -37,7 +37,7 @@ function roblox_input.newSystem(core: any)
 	assert(
 		host ~= nil,
 		`Facet roblox_input: PlayerScripts did not appear within {PLAYER_SCRIPTS_WAIT_SECONDS}s — `
-			.. `newSystem() must be called from a LocalScript on a live client (see docs/guide/07-input.md)`
+			.. `newSystem() must be called from a client script on a live client (see docs/guide/07-input.md)`
 	)
 	local system = {}
 

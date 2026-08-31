@@ -192,8 +192,10 @@ suspecting anything else.
 
 Nothing about the client script is Rojo-specific — this is the same script as
 [§3.4](03-getting-started.md#34-wiring-inside-roblox-studio), typed into the
-Studio script editor instead of synced from disk. Create a **LocalScript** under
-`StarterPlayer.StarterPlayerScripts` (name it whatever you like) and paste:
+Studio script editor instead of synced from disk. Create a **Script** under
+`StarterPlayer.StarterPlayerScripts`, set its `RunContext` property to
+**Client** in the Properties panel, name it whatever you like, and paste (a
+plain `LocalScript` also works):
 
 ```lua
 -- string requires do NOT wait for replication: gate on the DataModel being

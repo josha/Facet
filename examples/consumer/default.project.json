@@ -1,5 +1,6 @@
 {
   "name": "Facet-Consumer",
+  "emitLegacyScripts": false,
   "globIgnorePaths": [
     "**/*.spec.luau"
   ],

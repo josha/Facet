@@ -204,7 +204,7 @@ Use it for scripted Play/Run sessions and for rows that genuinely need more than
 one client — join/leave cleanup, lifecycle across clients. It supports up to
 eight simulated clients, but current Studio does **not** give reliable
 fine-grained control of each one, and `GetTestArgs()` has a documented
-client-LocalScript issue. So: keep scenario selection authoritative on the
+client-script issue. So: keep scenario selection authoritative on the
 server or through the replicated test surface, and do not claim per-client
 device profiles.
 
@@ -249,7 +249,7 @@ cost a round to find:
 BindableFunctions — the same shape the scenario runner uses, and for the same
 reason. The Studio MCP's `execute_luau` runs in a different Luau virtual
 machine (VM) from the
-client LocalScript. So `_G` does not cross, but the DataModel does.
+client script. So `_G` does not cross, but the DataModel does.
 
 `current` and `showNext` both answer `{ current, mounted, ok }`. `current` is
 the demo that was *asked* for. `mounted` is the one actually on screen (`false`
