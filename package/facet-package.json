@@ -1,17 +1,24 @@
 {
- "schema": "facet-package/1",
- "displayName": "Facet",
- "description": "Facet is a declarative UI framework for Roblox, written in Luau. You describe a screen as a tree of views bound to reactive values, and Facet mounts it, solves its layout, styles it through native StyleSheets, and adapts it to the viewport, the preferred text size and the player's current input device. It ships its own fine-grained reactive core, a control library, a theme-package system and a headless test target. MIT licensed; the full licence text travels inside this package under Facet.Distribution.LICENSE. Source, documentation and issue tracker: https://github.com/josha/Facet",
- "license": "MIT",
- "repository": "https://github.com/josha/Facet",
- "route": "open-cloud",
- "creator": {
-  "type": "user",
-  "id": "1364639953"
- },
- "assetId": null,
- "listing": {
-  "creatorStore": false
- },
- "versions": []
+  "schema": "facet-package/1",
+  "displayName": "Facet",
+  "description": "Facet is a declarative UI framework for Roblox, written in Luau. You describe a screen as a tree of views bound to reactive values, and Facet mounts it, solves its layout, styles it through native StyleSheets, and adapts it to the viewport, the preferred text size and the player's current input device. It ships its own fine-grained reactive core, a control library, a theme-package system and a headless test target. MIT licensed; the full licence text travels inside this package under Facet.Distribution.LICENSE. Source, documentation and issue tracker: https://github.com/josha/Facet",
+  "license": "MIT",
+  "repository": "https://github.com/josha/Facet",
+  "route": "open-cloud",
+  "creator": {
+    "type": "user",
+    "id": "1364639953"
+  },
+  "assetId": 106883918130790,
+  "listing": {
+    "creatorStore": false
+  },
+  "versions": [
+    {
+      "version": "0.10.0",
+      "sourceCommit": "3be13441f88a1b6a973575e271b7761e59485de6",
+      "assetRevision": "1",
+      "publishedAt": "2026-08-31T06:34:17Z"
+    }
+  ]
 }

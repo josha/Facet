@@ -1,0 +1,37 @@
+{
+  "schema": "facet-package-receipt/1",
+  "version": "0.10.0",
+  "sourceCommit": "3be13441f88a1b6a973575e271b7761e59485de6",
+  "sourceHash": "c34d2a3172f03e9d675baf3cb6102bd9ea1dd602a36934662b6581e4b4d3be57",
+  "artifactSha256": "1272064570054bc7bee0535eb5b6a706277cba2f690aab82505a7eb1328cb2cd",
+  "assetId": 106883918130790,
+  "operationId": "fcf6856f-36ad-437a-9fe7-9ebc5d281b89",
+  "operationPath": "operations/fcf6856f-36ad-437a-9fe7-9ebc5d281b89",
+  "assetRevision": {
+    "revisionId": "1",
+    "revisionCreateTime": "2026-08-31T06:34:15.257480100Z"
+  },
+  "moderation": "Approved",
+  "publishedAt": "2026-08-31T06:34:17Z",
+  "actor": "josha",
+  "route": "open-cloud",
+  "toolchain": {
+    "rojo": "Rojo 7.7.0",
+    "lune": "lune 0.10.4"
+  },
+  "gateRun": {
+    "schema": "facet-release-gate/1",
+    "tier": "release",
+    "status": "PASS",
+    "commit": "3be13441f88a1b6a973575e271b7761e59485de6",
+    "treeDirty": false,
+    "sourceHash": "c34d2a3172f03e9d675baf3cb6102bd9ea1dd602a36934662b6581e4b4d3be57",
+    "completedAt": "2026-08-31T06:32:48Z"
+  },
+  "studio_verification": {
+    "status": "pending",
+    "by": null,
+    "date": null,
+    "notes": null
+  }
+}
