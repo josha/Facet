@@ -1,5 +1,5 @@
 {
- "generatedAt": "2026-08-31T00:25:17Z",
+ "generatedAt": "2026-08-31T00:30:01Z",
  "generatedFrom": {
   "manifest": "tools/lune/gate_manifest.luau",
   "phases": "phases.json",
@@ -1513,6 +1513,47 @@
    "timeoutS": 600
   },
   {
+   "command": "lune run tools/lune/check_links_cli --selftest",
+   "dependsOn": [],
+   "environmentClass": "deterministic",
+   "fixtures": [],
+   "id": "check_links_cli-selftest",
+   "inputs": [
+    "src/**",
+    "tests/**",
+    "examples/gallery/**",
+    "examples/reference/**",
+    "examples/themes/**",
+    "examples/consumer/**",
+    "examples/performance/**",
+    "examples/table_phaseb/**",
+    "docs/**",
+    "tools/**",
+    "bench/**",
+    "package/**",
+    "skills/**",
+    "rokit.toml",
+    "run-tests.sh",
+    "phases.json",
+    "requirements.json",
+    "README.md",
+    "AGENTS.md",
+    "CHANGELOG.md",
+    "CONTRIBUTING.md",
+    "LICENSE"
+   ],
+   "kind": "scanner",
+   "note": "required by the release graph",
+   "optional": false,
+   "serialize": false,
+   "tiers": {
+    "fast": false,
+    "full": true,
+    "release": true
+   },
+   "timeoutS": 600
+  },
+  {
    "command": "lune run tools/lune/check_maintainer_map_cli",
    "dependsOn": [],
    "environmentClass": "deterministic",
@@ -1735,6 +1776,47 @@
    "environmentClass": "deterministic",
    "fixtures": [],
    "id": "check_no_fusion",
+   "inputs": [
+    "src/**",
+    "tests/**",
+    "examples/gallery/**",
+    "examples/reference/**",
+    "examples/themes/**",
+    "examples/consumer/**",
+    "examples/performance/**",
+    "examples/table_phaseb/**",
+    "docs/**",
+    "tools/**",
+    "bench/**",
+    "package/**",
+    "skills/**",
+    "rokit.toml",
+    "run-tests.sh",
+    "phases.json",
+    "requirements.json",
+    "README.md",
+    "AGENTS.md",
+    "CHANGELOG.md",
+    "CONTRIBUTING.md",
+    "LICENSE"
+   ],
+   "kind": "scanner",
+   "note": "required by the release graph",
+   "optional": false,
+   "serialize": false,
+   "tiers": {
+    "fast": false,
+    "full": true,
+    "release": true
+   },
+   "timeoutS": 600
+  },
+  {
+   "command": "python3 tools/check_no_fusion.py --selftest",
+   "dependsOn": [],
+   "environmentClass": "deterministic",
+   "fixtures": [],
+   "id": "check_no_fusion-selftest",
    "inputs": [
     "src/**",
     "tests/**",
@@ -11953,18 +12035,21 @@
     ],
     "resultIds": [
      "examples_games::examples/07 tile game (Scrabble-style)::placing with nothing picked up says so instead of doing nothing",
+     "example_tile_game::examples/06 crossword — nine refusals, nine sentences, on screen::8 — placing on an occupied square",
+     "example_tile_game::examples/06 crossword — committed versus uncommitted is not a colour::a spent rack slot is DISABLED, not a live-looking blank button",
+     "example_tile_game::examples/06 crossword — both endings, and the way back::reaching the goal wins, and the screen says which ending it was",
+     "example_tile_game::examples/06 crossword — both endings, and the way back::spending the budget without reaching the goal loses, and says so",
      "examples_games::examples/08 match-3::opens with no run already on the board",
      "examples_games::examples/08 match-3::opens with at least one legal move",
      "examples_games::examples/08 match-3::a swap that makes no run is refused WITH A REASON, and costs no move",
      "examples_games::examples/08 match-3::a FAILED load is visible and recoverable, which is the half that was missing"
-    ],
-    "shell": "grep -q \"✓.*placing on an occupied square names the square, and does not silently keep the tile held\" \"$FACET_VERIFY_SUITE_TRANSCRIPT\" && grep -q \"✓.*a spent rack slot is visibly DISABLED, not a live-looking blank button\" \"$FACET_VERIFY_SUITE_TRANSCRIPT\" && grep -q \"✓.*progress and completion are visible, and the rack really does run out\" \"$FACET_VERIFY_SUITE_TRANSCRIPT\""
+    ]
    },
    "class": "result-ids",
    "evidence": "artifacts/example-quality-pass/studio/games.json",
    "id": "example-quality-pass::example-06-07-gameplay",
    "name": "example-06-07-gameplay",
-   "note": "example-06-07-gameplay: 5 named suite cases must pass; suite must exit zero; its file-existence and text assertions must hold; and artifacts/example-quality-pass/studio/games.json must exist. Requirements: UI-AGENT-001.",
+   "note": "example-06-07-gameplay: 9 named suite cases must pass; suite must exit zero; and artifacts/example-quality-pass/studio/games.json must exist. Requirements: UI-AGENT-001.",
    "phase": "example-quality-pass",
    "releaseBlocking": false,
    "requirements": [
@@ -11980,19 +12065,19 @@
     "resultIds": [
      "example_tile_game::examples/06 crossword — robustness::rapid alternating input leaves no stale selection or held tile",
      "examples_games::examples/08 match-3::rapid tapping and resetting leaves no stale selection or error",
+     "example_tile_game::examples/06 crossword — both endings, and the way back::restart returns EVERY observable to its seeded start",
      "examples_games::examples/05 word game (Wordle-style)::tears down to a registry baseline after dispose",
      "examples_games::examples/07 tile game (Scrabble-style)::tears down to a registry baseline after dispose",
      "examples_games::examples/08 match-3::tears down to a registry baseline after dispose",
      "example_word_game::examples/05 word game — the state machine::tears down to a registry baseline after dispose",
      "example_tile_game::examples/06 crossword — robustness::tears down to a registry baseline after dispose"
-    ],
-    "shell": "grep -q \"✓.*reset returns every observable to its starting value, selection and message included\" \"$FACET_VERIFY_SUITE_TRANSCRIPT\""
+    ]
    },
    "class": "result-ids",
    "evidence": "artifacts/example-quality-pass/studio/lifecycle.json",
    "id": "example-quality-pass::lifecycle-and-rapid-input",
    "name": "lifecycle-and-rapid-input",
-   "note": "lifecycle-and-rapid-input: 7 named suite cases must pass; suite must exit zero; its file-existence and text assertions must hold; and artifacts/example-quality-pass/studio/lifecycle.json must exist. Requirements: UI-RUNTIME-002.",
+   "note": "lifecycle-and-rapid-input: 8 named suite cases must pass; suite must exit zero; and artifacts/example-quality-pass/studio/lifecycle.json must exist. Requirements: UI-RUNTIME-002.",
    "phase": "example-quality-pass",
    "releaseBlocking": false,
    "requirements": [
@@ -23714,18 +23799,24 @@
    "state": "PENDING"
   },
   {
-   "check": {},
-   "class": "declared",
+   "check": {
+    "producers": [
+     "check_no_fusion",
+     "check_no_fusion-selftest"
+    ],
+    "shell": "! test -e vendor && ! test -e src/core/fusion_adapter.luau"
+   },
+   "class": "exit0",
    "evidence": null,
    "id": "distribution-readiness::no-fusion-anywhere",
    "name": "no-fusion-anywhere",
-   "note": "no-fusion-anywhere: declared evidence, recorded rather than executed. Requirements: UI-AGENT-001.",
+   "note": "no-fusion-anywhere: check_no_fusion and its selftest must exit zero, and neither the vendored tree nor the adapter may exist. Requirements: UI-AGENT-001.",
    "phase": "distribution-readiness",
    "releaseBlocking": false,
    "requirements": [
     "UI-AGENT-001"
    ],
-   "state": "PENDING"
+   "state": null
   },
   {
    "check": {},
@@ -24104,13 +24195,57 @@
     "UI-AGENT-001"
    ],
    "state": "PENDING"
+  },
+  {
+   "check": {
+    "producers": [
+     "suite"
+    ],
+    "resultIds": [
+     "text_premeasure::text_metrics: the request set a solve emits::nothing is collected outside a collect bracket (the solver stays request-free by default)",
+     "text_premeasure::text_metrics: the request set a solve emits::reports whether a measurement was exact end to end",
+     "text_premeasure::text_metrics: the request set a solve emits::a word the engine could not measure is never asked for again",
+     "text_premeasure::text_metrics: the request set a solve emits::collects one request per unknown word plus the space, deduped and ordered",
+     "text_premeasure::text_metrics: the per-word exact store::rejects a measurement that could cause a clip, keeping the safe estimate",
+     "text_premeasure::text_metrics: the request set a solve emits::keys on (font, size, word) — NOT maxWidth, so a resize costs no new measurement",
+     "text_premeasure::renderer: engine premeasurement round::an engine that cannot measure a word leaves the safe estimate and stops asking",
+     "text_calibration::text_metrics calibration (NS-A10)::calibration is per-font; unknown fonts keep the full-em pending fallback",
+     "text_fit::text_fit.fit — the state of the measure at the chosen size (F-32)::an uncalibrated font says `pending`, not merely `exact = false`",
+     "text_fit::text_fit.fit — the largest size that actually fits::reports whether the answer is EXACT or the conservative fallback"
+    ]
+   },
+   "class": "result-ids",
+   "evidence": null,
+   "id": "phase-1-minimal-screen::text-premeasurement-contract",
+   "name": "text-premeasurement-contract",
+   "note": "text-premeasurement-contract: the ten suite cases that prove the premeasurement contract must pass — a provider that yields nothing, a ready/pending/failed answer, a deduped engine queue, a conservative fallback, and a cache key that excludes the offered width. Requirements: UI-LAYOUT-003.",
+   "phase": "phase-1-minimal-screen",
+   "releaseBlocking": false,
+   "requirements": [
+    "UI-LAYOUT-003"
+   ],
+   "state": null
+  },
+  {
+   "check": {
+    "producers": [
+     "check_links_cli",
+     "check_links_cli-selftest"
+    ]
+   },
+   "class": "exit0",
+   "evidence": null,
+   "id": "distribution-readiness::public-docs-no-stale-links",
+   "name": "public-docs-no-stale-links",
+   "note": "public-docs-no-stale-links: check_links_cli and its selftest must exit zero — every link a published document offers resolves, and none points into a tree that is leaving. This is DR-10's mechanical half; the refresh half stays with DR-10. Requirements: UI-AGENT-001.",
+   "phase": "distribution-readiness",
+   "releaseBlocking": false,
+   "requirements": [
+    "UI-AGENT-001"
+   ],
+   "state": null
   }
  ],
  "schema": "facet-verify-graph/1",
- "unresolvedPatterns": [
-  "example-quality-pass::example-06-07-gameplay: \"✓.*placing on an occupied square names the square, and does not silently keep the tile held\"",
-  "example-quality-pass::example-06-07-gameplay: \"✓.*a spent rack slot is visibly DISABLED, not a live-looking blank button\"",
-  "example-quality-pass::example-06-07-gameplay: \"✓.*progress and completion are visible, and the rack really does run out\"",
-  "example-quality-pass::lifecycle-and-rapid-input: \"✓.*reset returns every observable to its starting value, selection and message included\""
- ]
+ "unresolvedPatterns": []
 }

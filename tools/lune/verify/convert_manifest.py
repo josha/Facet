@@ -386,9 +386,11 @@ RELEASE_ONLY = [
     ("fuzz-replication", "tools/fuzz.sh replication", "deterministic"),
     ("fuzz-scheduler", "tools/fuzz.sh scheduler", "deterministic"),
     ("check_no_fusion", "python3 tools/check_no_fusion.py", "deterministic"),
+    ("check_no_fusion-selftest", "python3 tools/check_no_fusion.py --selftest", "deterministic"),
     ("check_library_purity", "python3 tools/check_library_purity.py", "deterministic"),
     ("check_public_allowlist", "python3 tools/check_public_allowlist.py", "deterministic"),
     ("check_links_cli", "lune run tools/lune/check_links_cli", "deterministic"),
+    ("check_links_cli-selftest", "lune run tools/lune/check_links_cli --selftest", "deterministic"),
     ("package-verify", "tools/package.sh verify", "package"),
     ("rascalrally-suite", f"cd {RR} && tools/suite_transcript.sh", "external"),
 ]
@@ -730,6 +732,121 @@ def sha256_file(path: str) -> str | None:
         return None
 
 
+
+#[[ TWO REGISTRATION ROWS WIRED, IN THE GRAPH VIEW ONLY (2026-08-30).
+#
+#   `tools/check_no_fusion.py` and `tools/lune/check_links_cli` both run in the
+#   release graph, and both were seen to go from PASS to FAIL when their defect
+#   was planted — but no row consumed either, so neither could redden a phase.
+#   Two of the director's PENDING registration rows are exactly what they are
+#   for.
+#
+#   DR-7 is wired WHOLE, because the row's own note is entirely about the check:
+#   the scan, its selftest, and the two paths that had to leave the tip.
+#
+#   DR-10 is NOT flipped. Its note claims two things — that the public documents
+#   are refreshed, and that the link checker finds nothing stale — and only the
+#   second is mechanical. Flipping it would make the row claim the half nobody
+#   has proved. The link half gets its OWN row instead, so the producer is
+#   consumed and the claim stays exactly the size of its evidence; DR-10 stays
+#   PENDING for the director.
+#
+#   The manifest's registration block is NOT edited: this is the graph's view of
+#   those rows, which is the layer this workstream owns. ]]
+ROW_OVERRIDES = {
+    "no-fusion-anywhere": {
+        "producers": ["check_no_fusion", "check_no_fusion-selftest"],
+        "shell": "! test -e vendor && ! test -e src/core/fusion_adapter.luau",
+        "note": (
+            "no-fusion-anywhere: check_no_fusion and its selftest must exit zero, and neither the "
+            "vendored tree nor the adapter may exist. Requirements: UI-AGENT-001."
+        ),
+    },
+}
+
+#[[ UI-LAYOUT-003 HAD NO LIVING ROW, AND THE COVERAGE IT NEEDED WAS ALREADY
+#   THERE. The manifest never bound the text-premeasurement requirement to a
+#   row — the coverage map has said so in its own column since the conversion —
+#   but the suite proves every clause of it. This row binds those cases by name,
+#   so the requirement is carried by executing evidence rather than by a gap in
+#   a table, and a rename of any of them is a loud missing id like any other.
+#
+#   The five clauses of the requirement, and the case that proves each:
+#     non-yielding provider  the solver collects nothing outside a bracket
+#     ready/pending/failed   exactness reported end to end; an uncalibrated font
+#                            says `pending`; an unmeasurable word is dropped
+#     engine queue           one deduped, ordered request per unknown word
+#     conservative fallback  a measurement that could clip is refused; an
+#                            unknown font keeps the full-em fallback
+#     cache keys             keyed on (font, size, word), never on maxWidth
+#[[ THE FOUR GREPS THAT MATCHED NO CASE, AND WHERE EACH ONE WENT.
+#
+#   All four named cases in the tile-game example, which was reworked from a
+#   rack-exhaustion game into a crossword with a goal and a budget. Three of them
+#   have an exact successor. The fourth does NOT, and that is written down rather
+#   than papered over: the clause asserted two things and only one of them still
+#   exists as a mechanic. ]]
+GREP_REPOINTS = [
+    ("placing on an occupied square names the square, and does not silently keep the tile held",
+     "8 — placing on an occupied square",
+     "same assertion, renamed with the refusal's number when the example became a crossword"),
+    ("a spent rack slot is visibly DISABLED, not a live-looking blank button",
+     "a spent rack slot is DISABLED, not a live-looking blank button",
+     "same case; the word `visibly` was dropped from the name"),
+    ("progress and completion are visible, and the rack really does run out",
+     "reaching the goal wins, and the screen says which ending it was + spending the budget "
+     "without reaching the goal loses, and says so",
+     "NARROWED, deliberately. The completion half is covered by BOTH ending cases. The "
+     "rack-exhaustion half has no successor because the mechanic is gone: the crossword ends on "
+     "a goal or a spent budget, not on an empty rack. Nothing proves a claim about a rule the "
+     "example no longer has"),
+    ("reset returns every observable to its starting value, selection and message included",
+     "restart returns EVERY observable to its seeded start",
+     "same assertion under the crossword's vocabulary (`restart`, `seeded start`)"),
+]
+
+REQUIREMENT_ROWS = [
+    {
+        "name": "text-premeasurement-contract",
+        "phase": "phase-1-minimal-screen",
+        "requirements": ["UI-LAYOUT-003"],
+        "cases": [
+            ("text_premeasure", "nothing is collected outside a collect bracket"),
+            ("text_premeasure", "reports whether a measurement was exact end to end"),
+            ("text_premeasure", "a word the engine could not measure is never asked for again"),
+            ("text_premeasure", "collects one request per unknown word plus the space, deduped and ordered"),
+            ("text_premeasure", "rejects a measurement that could cause a clip, keeping the safe estimate"),
+            ("text_premeasure", "keys on (font, size, word)"),
+            ("text_premeasure", "an engine that cannot measure a word leaves the safe estimate and stops asking"),
+            ("text_calibration", "unknown fonts keep the full-em pending fallback"),
+            ("text_fit", "an uncalibrated font says `pending`, not merely `exact = false`"),
+            ("text_fit", "reports whether the answer is EXACT or the conservative fallback"),
+        ],
+        "note": (
+            "text-premeasurement-contract: the ten suite cases that prove the premeasurement "
+            "contract must pass — a provider that yields nothing, a ready/pending/failed answer, "
+            "a deduped engine queue, a conservative fallback, and a cache key that excludes the "
+            "offered width. Requirements: UI-LAYOUT-003."
+        ),
+    },
+]
+
+EXTRA_ROWS = [
+    {
+        "name": "public-docs-no-stale-links",
+        "phase": "distribution-readiness",
+        "requirements": ["UI-AGENT-001"],
+        "check": {"producers": ["check_links_cli", "check_links_cli-selftest"]},
+        "note": (
+            "public-docs-no-stale-links: check_links_cli and its selftest must exit zero — every "
+            "link a published document offers resolves, and none points into a tree that is "
+            "leaving. This is DR-10's mechanical half; the refresh half stays with DR-10. "
+            "Requirements: UI-AGENT-001."
+        ),
+    },
+]
+
+
 # ---------------------------------------------------------------------------
 # conversion
 # ---------------------------------------------------------------------------
@@ -893,6 +1010,16 @@ def main() -> int:
                 continue
             run = entry.get("run")
             if run is None:
+                override = ROW_OVERRIDES.get(name)
+                if override is not None:
+                    check = {"producers": override["producers"]}
+                    if override.get("shell"):
+                        check["shell"] = override["shell"]
+                    base.update({"class": "exit0", "state": None, "check": check,
+                                 "note": override["note"]})
+                    census["exit0"] += 1
+                    rows.append(base)
+                    continue
                 state = entry.get("state") or "PENDING"
                 base.update({"class": "declared", "state": state, "check": {},
                              "note": neutral_note(name, base["requirements"], {}, base.get("evidence"))})
@@ -1248,6 +1375,49 @@ def main() -> int:
                 census["evidence-pin"] += 1
             rows.append(base)
 
+    for spec_row in REQUIREMENT_ROWS:
+        ids, missing = [], []
+        for spec_name, fragment in spec_row["cases"]:
+            found = [cid for name, cid in cases if cid.startswith(spec_name + "::") and fragment in name]
+            if found:
+                ids.extend(found)
+            else:
+                missing.append(f"{spec_name} :: {fragment}")
+        if missing:
+            print(f"convert_manifest: {spec_row['name']} names {len(missing)} case(s) that do not exist:",
+                  file=sys.stderr)
+            for line in missing:
+                print("  " + line, file=sys.stderr)
+        rows.append({
+            "id": f"{spec_row['phase']}::{spec_row['name']}",
+            "phase": spec_row["phase"],
+            "name": spec_row["name"],
+            "requirements": spec_row["requirements"],
+            "evidence": None,
+            "releaseBlocking": False,
+            "class": "result-ids",
+            "state": None,
+            "check": {"producers": ["suite"], "resultIds": ids},
+            "note": spec_row["note"],
+        })
+        census["result-ids"] += 1
+        resolved_ids += len(ids)
+
+    for extra in EXTRA_ROWS:
+        rows.append({
+            "id": f"{extra['phase']}::{extra['name']}",
+            "phase": extra["phase"],
+            "name": extra["name"],
+            "requirements": extra["requirements"],
+            "evidence": None,
+            "releaseBlocking": False,
+            "class": "exit0",
+            "state": None,
+            "check": extra["check"],
+            "note": extra["note"],
+        })
+        census["exit0"] += 1
+
     if unresolved:
         print(f"convert_manifest: {len(unresolved)} transcript pattern(s) match no case in this suite "
               f"(kept as a grep of the recorded transcript; those rows are red today too):", file=sys.stderr)
@@ -1567,6 +1737,16 @@ def write_coverage(path: str, graph: dict, historical: list, receipts: int, mani
                 paths += f" (+{len(d['paths']) - 4} more)"
             L.append(f"| `{d['phase']}` | `{d['name']}` | {', '.join(d['requirements']) or '—'} | {paths} |")
         L.append("")
+
+    L += [
+        "",
+        f"## 5d. Transcript greps repointed at a renamed case ({len(GREP_REPOINTS)})",
+        "",
+        "| Was | Is | Why |",
+        "|---|---|---|",
+    ]
+    for old_name, new_name, why in GREP_REPOINTS:
+        L.append(f"| `{old_name}` | `{new_name}` | {why} |")
 
     L += [
         "",

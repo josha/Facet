@@ -104,13 +104,8 @@ separately as declared evidence, which is the class those rows always had.
 
 ## 5. Requirements with no living row
 
-A requirement is listed here when NO row that still executes names it. The last
-column is the one that matters: `pre-existing` means the manifest did not carry a
-living row for it before this conversion either, so the gap is older than the graph.
-
-| Requirement | Title | First gate | Introduced by the conversion? |
-|---|---|---|---|
-| `UI-LAYOUT-003` | Text premeasurement: non-yielding provider with ready/pending/failed, engine queue, conservative fallback, cac | `phase-1-minimal-screen` | no (pre-existing) |
+None: every requirement in `requirements.json` is carried by at least one row that
+still executes.
 
 ## 5b. Clauses that pinned an internal document (56)
 
@@ -362,6 +357,15 @@ on that half alone.
 | `example-games-and-standalones` | `surface-target-spike` | UI-AGENT-001, UI-WORLD-001 | `artifacts/example-games-and-standalones/spike/world-surface.md` |
 | `example-games-and-standalones` | `wardrobe-retired` | UI-AGENT-001 | `artifacts/example-games-and-standalones/wardrobe-inventory.md` |
 
+
+## 5d. Transcript greps repointed at a renamed case (4)
+
+| Was | Is | Why |
+|---|---|---|
+| `placing on an occupied square names the square, and does not silently keep the tile held` | `8 — placing on an occupied square` | same assertion, renamed with the refusal's number when the example became a crossword |
+| `a spent rack slot is visibly DISABLED, not a live-looking blank button` | `a spent rack slot is DISABLED, not a live-looking blank button` | same case; the word `visibly` was dropped from the name |
+| `progress and completion are visible, and the rack really does run out` | `reaching the goal wins, and the screen says which ending it was + spending the budget without reaching the goal loses, and says so` | NARROWED, deliberately. The completion half is covered by BOTH ending cases. The rack-exhaustion half has no successor because the mechanic is gone: the crossword ends on a goal or a spent budget, not on an empty rack. Nothing proves a claim about a rule the example no longer has |
+| `reset returns every observable to its starting value, selection and message included` | `restart returns EVERY observable to its seeded start` | same assertion under the crossword's vocabulary (`restart`, `seeded start`) |
 
 ## 6. Retired rows
 
