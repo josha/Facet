@@ -283,10 +283,14 @@ devices — is in the model you dragged in. There is no Rojo-only code path.
   the package route the
   `Distribution` folder's `Version`, `SourceCommit` and `SourceHash` attributes
   answer the same question without a checkout.
-- **The headless test suite.** `./run-tests.sh` runs the whole suite under Lune
-  with no Roblox process, but it needs the source files. You can clone the
-  repository purely to run tests and read source without ever wiring Rojo into
-  your place.
+- **The headless test suite, and the instrument for testing your own screens.**
+  `./run-tests.sh` runs the whole suite under Lune with no Roblox process, but it
+  needs the source files. So does `tests/lib/fake_target.luau`, the fake render
+  target that mounts a screen headlessly and can press its buttons
+  ([§3.2b](03-getting-started.md#32b-testing-your-screen)): it lives under
+  `tests/`, which the model and the Package do not carry. Clone the repository
+  alongside your game if you want either — you can do that purely to run tests
+  and read source, without ever wiring Rojo into your place.
 - **External-editor authoring of your own UI code.** Studio's script editor does
   type-check Luau, so `--!strict` still earns its keep — but the diff, review, and
   branch workflow is on you.

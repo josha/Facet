@@ -68,6 +68,53 @@ Two things to notice:
   `"/S/Go"` is the node's identity: the screen `id` `"S"`, then the button `id`
   `"Go"`.
 
+## 3.2b Testing your screen
+
+The adapter above is a teaching toy: it counts nodes and does nothing else. It
+cannot press a button, read a rectangle back, or wear a theme, so it can prove
+that a screen mounts and nothing more.
+
+**The real headless instrument is `tests/lib/fake_target.luau`.** It implements
+the same adapter contract the client target implements, and it records the tree:
+every node, every rectangle, every property write. It also drives input, which is
+the half that matters — a test that cannot press the button is testing the
+blueprint, not the screen.
+
+The canonical worked example is
+[`tests/consumer_standalone.spec.luau`](../../tests/consumer_standalone.spec.luau),
+which mounts [`examples/consumer/`](../../examples/consumer/) and proves it end to
+end. Read that file next; it is short, and it is the shape to copy.
+
+The verbs you will reach for first:
+
+| Call | What it does |
+|---|---|
+| `adapter.node(path)` | one node: its `rect`, its `props`, its resolved paint |
+| `adapter.paths()` / `adapter.liveCount()` | everything currently on the target |
+| `adapter.tap(path)` | activate a control the way a pointer would |
+| `adapter.pointerDown(x, y, kind)` / `pointerMove` / `pointerUp` | a raw gesture, including touch |
+| `adapter.driveDragStart` / `driveDragContinue` / `driveDragEnd` | a drag through the native detector seam |
+| `adapter.typeText(path, s)` / `commitText(path)` | text entry |
+| `adapter.setThemePackage(package, themeName)` | commit a theme and repaint |
+| `adapter.rootCount()` | what is left after teardown — the leak check |
+
+A test drives the frame by hand. `presenter.refresh()` applies what the frame
+dirtied; `presenter.tick(dt)` advances the motion clock. Both, in that order, are
+what a real frame does.
+
+> **The fake target ships in the repository, not in the library.** It lives under
+> `tests/`, so a clone has it and the built `build/Facet.rbxm` and the Roblox
+> Package do not — they carry `src/` and nothing else. If you installed Facet as
+> a Package or a model file and you want headless tests, clone the repository
+> alongside your game and point Lune at it.
+
+**What a headless theme test does and does not prove.** Committing a package
+through `adapter.setThemePackage` exercises the metric half — the resolved
+snapshot, the re-solve, and every geometry consequence — and the **fallback**
+paint arm, where the palette is written property by property. It does not
+exercise Roblox `StyleSheet` paint, which needs a running engine; that is a
+Studio claim, and `controller.inspect().mode` is what reports which arm is live.
+
 ## 3.3 Where state lives, and making the screen react
 
 The screen above is static. To make it *do* something, give it semantic state as
