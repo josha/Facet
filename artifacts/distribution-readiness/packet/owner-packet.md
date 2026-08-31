@@ -1,8 +1,12 @@
 # Owner release packet — Facet distribution readiness
 
-**Status: DRAFT at 2026-08-31; final numbers stamped at stage close.** Nothing
-remote has been touched: no push, no rename, no asset creation, no visibility
-change. The repository and everything in it are exactly as private as they were.
+**Status: ANSWERED 2026-08-31 — the owner confirmed all 11 rows** (1 confirmed
+copyright line as written; 2 rename approved and EXECUTED, see
+`../rename-record.md`; 3–7 confirmed; 8–9 recommendations adopted: places stay
+at the tip, history rewrite candidate **B**; 10 rewrite/contact e-mail =
+`facetframework@gmail.com`; 11 acknowledged). Final numbers stamped at close.
+Beyond the rename, nothing remote has been touched: no push, no asset creation,
+no visibility change. The repository is exactly as private as it was.
 
 This packet is the one batch of decisions the plan reserves for you. Everything
 else is done or blocked only on these.
@@ -20,7 +24,7 @@ else is done or blocked only on these.
 | 7 | **Publish route** | `studio` (default) until the spike proves the API route: Roblox documents `.rbxm` content updates as unsupported over Open Cloud |
 | 8 | **The 14 tracked `.rbxl` place files** (~44 MB at tip; ~52 MB of history) | Recommended: keep at tip, purge historical revisions only if you take candidate B (below) |
 | 9 | **History rewrite** — pick one | **A** (required minimum): purge the 15 must-purge files; public clone ≈ 81 MB. **B** (recommended): A + place-file history + author-email rewrite + `.rbxl.lock`/`.pyc`/game-parity docs; public clone ≈ 23 MB. **Neither** blocks going public — the plan forbids it while must-purge items exist |
-| 10 | **Author e-mail on 1,113 rewritten commits** (candidate B only) | `josha@users.noreply.github.com` (placeholder — name your preferred address) |
+| 10 | **Author e-mail on 1,113 rewritten commits** (candidate B only) | `facetframework@gmail.com` (owner-confirmed) |
 | 11 | **Old revisions of the platform-comparison document stay in Git history** | Acknowledged (product research, not sensitive; a later purge would be a separate destructive decision) |
 
 ## 2. Why a history rewrite is on the table at all

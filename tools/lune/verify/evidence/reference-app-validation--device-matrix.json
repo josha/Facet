@@ -2,9 +2,12 @@
  "class": "device",
  "evidence": [
   {
-   "archivedPath": "artifacts/swiftui-reference-app-validation/studio/device-matrix.json",
    "label": "evidence-1",
    "sha256": "3d225ebded533017720f8a0085d5cf62b4643b219443c640435247648d741e2d"
+  },
+  {
+   "label": "evidence-2",
+   "sha256": "absent"
   }
  ],
  "recordedAt": "2026-08-31T01:29:17Z",

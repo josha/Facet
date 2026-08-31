@@ -12,49 +12,9 @@
    "sha256": "0cb03d2b811990d02483227a4beac81b135e5a8c0926e0d42b41496e400ac336"
   },
   {
-   "archivedPath": "artifacts/rich-skinning-v2/feasibility/rs-m1-tilesize.json",
-   "label": "evidence-3.1",
-   "sha256": "dd611b797c6a96a215b134bfed82bd40c3f226ab811c9800a2a023f0019f72c2"
-  },
-  {
-   "archivedPath": "artifacts/rich-skinning-v2/feasibility/rs-m2-layer-zorder.json",
-   "label": "evidence-3.2",
-   "sha256": "c93682e90c2b6c6bc84282a18b05f3b52f272326ed50270ab2ed4766fab5738f"
-  },
-  {
-   "archivedPath": "artifacts/rich-skinning-v2/feasibility/rs-m3-ornament-anchoring.json",
-   "label": "evidence-3.3",
-   "sha256": "20d5aa2263d60e1a7dc51d204a2d641018dc26db70efdce5f7f0766b51eba8d8"
-  },
-  {
-   "archivedPath": "artifacts/rich-skinning-v2/feasibility/rs-m4-fill-clip.json",
-   "label": "evidence-3.4",
-   "sha256": "661dcdf37a2afd7b326c9e0725bb31a81ad83eef1a567ba69876171366d79eb4"
-  },
-  {
-   "archivedPath": "artifacts/rich-skinning-v2/feasibility/rs-m5-pixel-snapping.json",
-   "label": "evidence-3.5",
-   "sha256": "0f02fad0dc37f0119aeab776ef61e50fddb81899d5bfa85cba6175dba05de743"
-  },
-  {
-   "archivedPath": "artifacts/rich-skinning-v2/feasibility/rs-m6-state-swap-latency.json",
-   "label": "evidence-3.6",
-   "sha256": "19a0efc717151a932e99912c0293c202fe956ddf83a6023ce8d72e1e3b60e5cf"
-  },
-  {
-   "archivedPath": "artifacts/rich-skinning-v2/feasibility/rs-m7-content.json",
-   "label": "evidence-3.7",
-   "sha256": "b4967688d8c735aca0810d60133cae036d0ccf46e7df9f3d67f8b7cb8fc9c70b"
-  },
-  {
-   "archivedPath": "artifacts/rich-skinning-v2/feasibility/rs-m8-gradient-composition.json",
-   "label": "evidence-3.8",
-   "sha256": "713ad94cbe4da6f4c5f49523e2b6d04fe796be11e87f774bb721347666736bfe"
-  },
-  {
-   "archivedPath": "artifacts/rich-skinning-v2/feasibility/rs-m9-canvasgroup-mask.json",
-   "label": "evidence-3.9",
-   "sha256": "4eef4e25c4ce6454d19ce26efaf68f98479d41bb41749f381c1f18f1231a856c"
+   "archivedPath": "artifacts/rich-skinning-v2/feasibility/$f.json",
+   "label": "evidence-3",
+   "sha256": "absent"
   },
   {
    "archivedPath": "artifacts/rich-skinning-v2/feasibility/rs-m1-tilesize.json",

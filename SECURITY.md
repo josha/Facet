@@ -7,8 +7,8 @@ repository: open the **Security** tab and choose **Report a vulnerability**. Tha
 opens a report only the maintainer can see.
 
 Do not open a public issue, and do not post the details in a discussion or a pull
-request. There is no security email address for this project; the GitHub form is
-the only reporting channel.
+request. If you cannot use the GitHub form, e-mail the maintainer at
+**facetframework@gmail.com** with the same private care.
 
 A useful report contains what you tried, what happened, the smallest reproduction
 you have, the value of `Facet.VERSION` you saw it on, and the Roblox client or

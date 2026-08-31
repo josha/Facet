@@ -2,19 +2,9 @@
  "class": "perf",
  "evidence": [
   {
-   "archivedPath": "artifacts/rich-skinning-v2/captures/RS-CIRCLE_desktop_fantasy-ornate.png",
-   "label": "evidence-1.1",
-   "sha256": "bf3ab2efd90092e19401d58789719210f6106dd30f0e3c93567adbdb1f382941"
-  },
-  {
-   "archivedPath": "artifacts/rich-skinning-v2/captures/RS-CIRCLE_desktop_glossy-touch.png",
-   "label": "evidence-1.2",
-   "sha256": "4bd08d769478dfea60e37ad8d7089b40491b9b101f855706799b7c6bddeba617"
-  },
-  {
-   "archivedPath": "artifacts/rich-skinning-v2/captures/RS-CIRCLE_desktop_studio-neutral.png",
-   "label": "evidence-1.3",
-   "sha256": "f9bb9cf850cd58acc390ba4f88ecb93c259c357011af4313fbc5d2eb972a2420"
+   "archivedPath": "artifacts/rich-skinning-v2/captures/RS-CIRCLE_desktop_$f.png",
+   "label": "evidence-1",
+   "sha256": "absent"
   },
   {
    "archivedPath": "artifacts/rich-skinning-v2/captures/RS-CIRCLE_statewalk_desktop_studio-neutral.png",
