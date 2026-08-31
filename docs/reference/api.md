@@ -6568,7 +6568,11 @@ snapshot and commits it. Every capability check runs **before** the first
 mutation: a schema this build does not speak, an unknown or unprovided capability
 (`themeMetrics`, `nativeStyleSheets`, `styleTransitions`), or a missing root
 fails with an error naming what is missing, and the target and environment are
-left untouched.
+left untouched. **The missing-root refusal is native-paint only** — on targets
+with Roblox `StyleSheet`s, where a root is what the sheet links at; without them
+the install needs no root, commits the metric half, and reports fallback (see
+below). **Present before you install** on either: a target has no root until it
+has drawn one.
 
 The returned controller instance:
 

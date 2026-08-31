@@ -903,7 +903,9 @@ local controller = theme_controller.install(adapter, package, {
   capability, or a missing root fails with an error naming exactly what is
   missing — and the target and the environment are left untouched. The
   capability vocabulary is closed: `themeMetrics` (always available),
-  `nativeStyleSheets`, `styleTransitions`.
+  `nativeStyleSheets`, `styleTransitions`. The missing-root refusal belongs to
+  native paint alone: without `StyleSheet`s there is no sheet to link and no root
+  to link it at, so the install proceeds into the fallback described below.
 
 **On a target without native StyleSheets** the install still succeeds and you
 get the whole *metric* half — every layout-affecting value swaps live, because

@@ -66,6 +66,13 @@ local controller = theme_controller.install(adapter, package, {
 })
 ```
 
+**Present your first screen before you install.** The controller links its sheet
+at the target's root, and a target has no root until it has drawn one — so an
+install that runs before the first `present` has nothing to link at. On the real
+client target that is an error naming the missing root; headless, where there are
+no `StyleSheet`s to link anyway, it quietly takes the fallback paint arm instead,
+which is the more confusing of the two. Stand the surface up, then install.
+
 That is the whole installation. `install` is per-target and all-or-nothing, a
 theme change is a re-solve rather than a rebuild, and `controller.swap("Crypt")`
 moves to another theme of the same package in one atomic commit — all of it
