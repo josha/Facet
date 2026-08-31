@@ -155,7 +155,15 @@ def republish(paths, commit, was=None):
     for p in paths:
         entry = run(["ls-tree", commit, "--", p]).stdout.split()
         if len(entry) < 3:
-            continue  # deleted by this commit; nothing to point at
+            # deleted by this commit: the shared index must agree, or a
+            # sibling's plain `git commit` resurrects the file wholesale
+            for attempt in range(6):
+                r = run(["update-index", "--force-remove", p])
+                if r.returncode == 0 or "index.lock" not in r.stderr:
+                    done += 1 if r.returncode == 0 else 0
+                    break
+                time.sleep(0.5)
+            continue
         mode, blob = entry[0], entry[2]
         if was is not None:
             current = index_blob(p)
@@ -186,17 +194,59 @@ def republish(paths, commit, was=None):
     return done
 
 
+def selftest():
+    """A deleted tracked file commits as a deletion, and the shared index agrees."""
+    import subprocess, tempfile as tf
+
+    work = tf.mkdtemp(prefix="commit_isolated_selftest.")
+    def sh(*args, **kw):
+        return subprocess.run(args, cwd=work, capture_output=True, text=True, **kw)
+
+    sh("git", "init", "-q")
+    sh("git", "-c", "user.name=selftest", "-c", "user.email=s@t", "commit", "-q", "--allow-empty", "-m", "root")
+    pathlib = __import__("pathlib")
+    (pathlib.Path(work) / "keep.txt").write_text("keep\n")
+    (pathlib.Path(work) / "gone.txt").write_text("gone\n")
+    sh("git", "add", "keep.txt", "gone.txt")
+    sh("git", "-c", "user.name=selftest", "-c", "user.email=s@t", "commit", "-q", "-m", "two files")
+    (pathlib.Path(work) / "gone.txt").unlink()
+    msg = pathlib.Path(work) / "msg.txt"
+    msg.write_text("the deletion commits\n\nBody.\n")
+    me = pathlib.Path(__file__).resolve()
+    r = subprocess.run(
+        [sys.executable, str(me), "-m", str(msg), "gone.txt"],
+        cwd=work, capture_output=True, text=True,
+        env=dict(os.environ, GIT_AUTHOR_NAME="selftest", GIT_AUTHOR_EMAIL="s@t",
+                 GIT_COMMITTER_NAME="selftest", GIT_COMMITTER_EMAIL="s@t"),
+    )
+    ok = True
+    if r.returncode != 0:
+        print(f"commit_isolated selftest: FAIL (tool exited {r.returncode})\n{r.stdout}{r.stderr}")
+        return 1
+    if sh("git", "ls-tree", "HEAD", "--", "gone.txt").stdout.strip():
+        print("commit_isolated selftest: FAIL (gone.txt still in HEAD)"); ok = False
+    porcelain = sh("git", "status", "--porcelain").stdout.strip()
+    if porcelain:
+        print(f"commit_isolated selftest: FAIL (shared index disagrees: {porcelain})"); ok = False
+    print("commit_isolated selftest:", "PASS — a deletion commits and the shared index agrees" if ok else "FAIL")
+    return 0 if ok else 1
+
+
 def main():
     ap = argparse.ArgumentParser(add_help=False)
     ap.add_argument("-m", "--message-file")
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--repair", action="store_true")
+    ap.add_argument("--selftest", action="store_true")
     ap.add_argument("-h", "--help", action="store_true")
     ap.add_argument("specs", nargs="*")
     a = ap.parse_args()
     if a.help or not a.specs:
         print(__doc__)
         return 0 if a.help else 2
+
+    if a.selftest:
+        return selftest()
 
     if a.repair:
         n = republish(a.specs, "HEAD")
@@ -217,6 +267,15 @@ def main():
         paths.append(path)
         head_entry = run(["ls-tree", old_head, "--", path]).stdout.split()
         was[path] = head_entry[2] if len(head_entry) > 2 else None
+        if not os.path.exists(path):
+            # A tracked path with no file behind it is a DELETION to commit —
+            # `hash-object` on it used to crash, which silently dropped
+            # deletions from a directory spec (found 2026-08-31, twice).
+            if was[path] is None:
+                sys.exit(f"commit_isolated: {path} is neither on disk nor in HEAD")
+            git(["update-index", "--force-remove", path], env=env)
+            print(f"  DEL    {path}")
+            continue
         if not tracked(path):
             blob = git(["hash-object", "-w", path]).strip()
             git(["update-index", "--add", "--cacheinfo", f"100644,{blob},{path}"], env=env)
