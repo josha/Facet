@@ -393,3 +393,46 @@ lune run tools/lune/check_boundary
 rojo build examples/consumer/default.project.json
   built
 ```
+
+## 11. Fresh-agent friction round (2026-08-30)
+
+A fresh agent built a full screen from the public documents alone and succeeded.
+Its friction list was the final docs round; nine findings, all landed.
+
+| # | Fix | Where |
+|---|---|---|
+| 1 | The real headless instrument is taught: `tests/lib/fake_target`, the consumer spec as the shape to copy, a verb table, and the fact that the fake ships in the repository rather than in the model or the Package | new `docs/guide/03-getting-started.md` §3.2b; one bullet in guide 8 §8.9 |
+| 2 | Where a consumer's own spec lives (their project, their entry point), and the narrower in-repo rule: `run_one` resolves `tests/<name>.spec`, and a spec must be registered in `tests/run.luau` | guide 03 §3.2b and `CONTRIBUTING.md` §4 |
+| 3 | The Slider's five public sub-node paths, the three drag verbs, the pointer route, and the missing remedy — give the enclosing stack `width = UI.fill()` | `docs/reference/api.md` §`newSlider` |
+| 4 | `adaptive.conditions` builds **eighteen** memos, not six | api.md §`AdaptiveStack` plus **five** example comments (the report listed four; `perf_capture.luau` carried the same stale number) |
+| 5 | Three theme-install snippets stopped passing `rootGui = rootHandle.gui`, a variable none of the three pages defined and none of them needs | guide 09, guide 13, api.md |
+| 6 | Present before you install, and the missing-root refusal is native-paint only — reconciled at the point of the claim rather than three paragraphs later | guide 13 §13.2, guide 09, api.md |
+| 7 | A headless theme test exercises the metric commit and the fallback paint arm; `StyleSheet` paint is a Studio claim, and `controller.inspect().mode` reports which arm is live | guide 03 §3.2b |
+| 8 | The "not available yet" redirect moved to the top of the Package subsection, naming the two routes that work today | `README.md` |
+| 9 | `host.new({ style })` forwards to `screen_target.new`, cited to the reference | guide 05 §5.2 |
+
+Every path and verb in findings 3 and 4 was checked against
+`tests/value_controls.spec.luau`, `src/controls/slider.luau` and the `adaptive`
+entry's own arithmetic before it was written; finding 6's claim was checked
+against `screen_target.themeRootGui` (its `baseRootGui` starts nil and is set when
+the first root is drawn) and `theme_controller`'s mode/root branch.
+
+Result lines:
+
+```
+python3 tools/check_doc_style.py            PASS (24 documents)
+lune run tools/lune/check_links_cli         PASS (50 documents, 530 relative links, 169 heading anchors)
+lune run tools/lune/check_links_cli --selftest   PASS (all four planted faults reported)
+lune run tools/lune/check_docs_cli          PASS (9 documents, 166 local links)
+stylua --check src tests tools bench examples    PASS
+lune run tests/run_one consumer_standalone  15 passed
+./run-tests.sh --fast                       7164 passed, 0 failed
+python3 tools/check_brand_drift.py --skip-builds  FAIL (4) — see below
+```
+
+The naming scan's four remaining matches are all in `tools/lune/verify/`
+(`graph.json`, `repair_graph.py`, one evidence receipt) and none is in a file this
+workstream owns or touched. They are the gate row that asserts the retired
+comparison document was archived, which currently has to name the path it is
+asserting is gone — the same tension this workstream resolved in its own two link
+guards by making the rule structural rather than a list of names.
