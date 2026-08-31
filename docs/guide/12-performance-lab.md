@@ -140,7 +140,7 @@ print(HttpService:JSONEncode(step("export:1")))
 
 **The three before the soak are the NAMED LEVERS** (`levers.luau`), each aimed at
 a cost a device capture ranked and no workload reached: `arrange` itself was the
-top cost in all four captures of 2026-08-15, incremental layout had only ever
+top cost in all four device captures, incremental layout had only ever
 been measured on a resize, and the nested tree's write collapse had never been priced as
 frame time. One lap is one ARM, so a 60-frame dump can hold the comparison it was
 taken for — `pass:flat=60`, then `pass:fill=60`.
@@ -335,14 +335,14 @@ JSON artifact — store the capture plus a derived summary.
 ## 12.5 Capture on a low-end Android device
 
 This is the only measurement that can close the device budget. Roblox's own reason for
-insisting on it is the same as this stage's: *"Most players on Roblox use phones and
+insisting on it is Facet's reason too: *"Most players on Roblox use phones and
 tablets, and these devices have severe thermal and power constraints that limit their
 performance."*
 
-**The procedure below was corrected after a fresh-context platform review checked it
-against [the first-party MicroProfiler docs](https://create.roblox.com/docs/performance-optimization/microprofiler)
-— the original invented a developer-console tab, omitted the network prerequisite, and
-named the wrong artifact format.**
+**The procedure below is checked against
+[the first-party MicroProfiler docs](https://create.roblox.com/docs/performance-optimization/microprofiler).**
+An earlier version of it invented a developer-console tab, omitted the network
+prerequisite, and named the wrong artifact format.
 
 1. Publish the place privately (12.2) and open it on the phone.
 2. **Record the conditions before you start**, because they change the answer more
@@ -419,7 +419,7 @@ lune run tools/lune/perf_baseline_scene lab-dense-scroll   # re-baseline ONE sce
 ```
 
 `perf_baseline_scene` exists because `tools/perf.sh baseline` rewrites every budget —
-right when the machine changes, wrong when a stage adds a scene. Re-baselining after
+right when the machine changes, wrong when somebody adds a scene. Re-baselining after
 an **improvement** tightens the gate and is encouraged; re-baselining to make a
 regression pass is the thing the plan forbids.
 
@@ -433,7 +433,7 @@ frame wait is **not** framework cost — the passes stamp `frameWaitExcluded = t
 
 ## 12.7 If you are building a fixture like this one
 
-Start from the standing lesson, because it cost this stage a shipped defect:
+Start from the standing lesson, because ignoring it shipped a defect:
 
 - **Call `handle.controller.diagnostics()` in your fixture and fail on a non-empty
   result.** The solver reports overlap, main-axis overflow, collapsed content boxes and
@@ -446,7 +446,7 @@ Start from the standing lesson, because it cost this stage a shipped defect:
 - **In a fixed-height windowed list, arrangement and row height are one decision.**
 - **Measure a breakpoint inside the real fixed slot** — a free-height measurement only
   shows horizontal overflow.
-- **You no longer have to notice this one yourself.** Since 2026-08-13 the framework
+- **You do not have to notice this one yourself.** The framework
   checks the promise for you: a `newVirtualList` row whose content measures taller than
   the declared `itemExtent` files a finding on `controller.diagnostics()` naming both
   numbers and the row (`docs/reference/api.md` → [a lying `itemExtent`](../reference/api.md#a-lying-itemextent)).

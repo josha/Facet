@@ -271,11 +271,10 @@ one creates several — Fantasy Ornate's panel is six layers deep. That is the c
 that shows up in a frame time rather than a file size, and it is measured rather
 than estimated.
 
-> **Pending — the memory table.** The per-package instance and heap figures belong
-> in the release performance wave's measured table, alongside the install and swap
-> timings. Until that wave lands, this section states the shape of the cost and
-> deliberately quotes no number for it: an estimate here would be an unsupported
-> claim, which is exactly what the distribution plan forbids. The instrument
+> **Pending — the memory table.** The per-package instance and heap figures are
+> not measured yet, and neither are the install and swap timings. Until they are,
+> this section states the shape of the cost and deliberately quotes no number for
+> it: an estimate here would be an unsupported claim. The instrument
 > already exists — the screen target publishes `adapter.chromeCensus()`, which
 > counts the decoration instances a package actually created, and the performance
 > lab compares a flat package against Fantasy Ornate over an identical workload

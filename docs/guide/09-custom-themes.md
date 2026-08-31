@@ -60,7 +60,7 @@ Two rules make a package safe to pass around:
   `Position`, `Visible`, `Text`, `AnchorPoint`, `CanvasSize` or their kin;
   those belong to the solver, a data binding, or the presentation transform.
   This is checked when the package compiles, not discovered on a device. See
-  [`../extending/new-theme.md`](../extending/new-theme.md) §1 for the full ruling.
+  [`../extending/new-theme.md`](../extending/new-theme.md) §1 for the whole rule.
 
 ## 9.2 Step 1 — derive from Studio Neutral
 
@@ -286,8 +286,7 @@ for what the pulse travels through. The circular ring beside it is retuned the
 same way, with `controls.progress.circularSize` and `circularThickness` — see the
 API reference for the full table of what a stroked arc can and cannot be given.
 
-Three of the nine above were added in the Step 3.5 director round. Two things
-about them are worth knowing:
+Two things about these slots are worth knowing:
 
 **A control can DECLARE its slot.** Nothing generic can look at a `Frame` and
 work out that it is a slider rail — `surface = "control"` would have given it
@@ -327,7 +326,7 @@ UI.Text({
 label is not interactive, so the pressable surfaces (`control`, `accent`), the
 panel surface (`raised`) and the backdrops (`base`, `scrim`) are refused at
 construction; wrap the label in a `UI.Box` if you want one of those. See
-[the API reference](../reference/api.md) for the full ruling.
+[the API reference](../reference/api.md) for the whole rule.
 
 Two sizing rules worth following, both learned from the fixture:
 
@@ -667,10 +666,9 @@ is actually skinned — a flat theme carries none of them.
 
 The lifted label is **inset by the recipe's own `contentInsets`**, not
 full-bleed. That is what keeps a value off the painted border: the solver had
-already reserved that room for the parent's content, and before the Step 3.5
-director round the lift ignored it, so every number under a skin sat on the art.
-`TextLabel`s are lifted too — a badge is a `TextLabel`, and its count is exactly
-the value the director could not read.
+already reserved that room for the parent's content. A lift that ignored it put
+every number under a skin on top of the art. `TextLabel`s are lifted too: a badge
+is a `TextLabel`, and its count is exactly the value that became unreadable.
 
 **2. A TextBox yields its chrome while editing.** The engine draws the caret at
 the parent layer and that is non-negotiable, so while a field is being edited
@@ -995,7 +993,7 @@ the rules. So a game shipping a flat theme pays nothing for the ornate substrate
 existing, and the ornate cost is exactly the count this census reports.
 
 Record swap timing, instance counts and memory as **Studio-derated** numbers.
-Low-end-device performance is not claimed by this stage.
+Facet claims no low-end-device performance.
 
 ## 9.11a The customization ladder
 
@@ -1068,9 +1066,9 @@ The worked example is
 [`examples/themes/ornate_gauge.luau`](../../examples/themes/ornate_gauge.luau) —
 a control that ships its own art and contributes one need of each kind
 (`controlSize`, `color`, `number`) — walked step by step in
-[`../extending/skinned-control.md`](../extending/skinned-control.md). The smaller
-Step 3.5 fixture [`custom_control.luau`](../../examples/themes/custom_control.luau)
-is still there and still drives the `customControl` scenario step. The
+[`../extending/skinned-control.md`](../extending/skinned-control.md). A smaller
+fixture, [`custom_control.luau`](../../examples/themes/custom_control.luau),
+drives the `customControl` scenario step. The
 contributor-side rules — declaration fields, fallbacks, authority, capabilities —
 are in [`../extending/new-theme.md`](../extending/new-theme.md) §2.
 

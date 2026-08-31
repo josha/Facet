@@ -419,8 +419,8 @@ affordance becomes a **chevron** beside it, in width the form's own measure
 reserves. One gesture, one meaning; the arrow exists exactly for that
 disambiguation and nowhere else.
 
-> **The framework puts nothing of its own above your content.** A device round
-> (2026-08-21) bought that rule: a cover laid OVER the compact form rendered every
+> **The framework puts nothing of its own above your content.** A device run
+> bought that rule. A cover laid OVER the compact form rendered every
 > stepped-down zone on the HUD demo as an **empty pill**, and no headless
 > instrument in this repository could see it — the model had a rect and
 > `visible = true` for every one of those labels. "It is transparent, so it is

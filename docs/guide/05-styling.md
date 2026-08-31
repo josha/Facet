@@ -4,13 +4,12 @@ This chapter covers how a screen gets its look: design tokens, the built-in
 default appearance, surfaces and roles, drop shadows, rounded corners, and the
 principle that styling is *data* until the very last moment.
 
-> **Current-version note.** §5.1–5.6 describe the token and adapter styling every
-> screen gets by default. Two later stages sit on top of it and have **shipped**:
-> §5.7 moves runtime paint, native interaction states, Dark/Light themes and
-> optional transitions to Roblox StyleSheets, and §5.8 adds versioned
-> theme packages that own typography, metrics, insets and nine-slice chrome as
-> well. The full walkthrough for building one is
-> [chapter 9](09-custom-themes.md).
+> **How this chapter is arranged.** §5.1–5.6 describe the token and adapter
+> styling every screen gets by default. Two layers sit on top of it. §5.7 moves
+> runtime paint, native interaction states, Dark and Light themes and optional
+> transitions to Roblox StyleSheets. §5.8 adds versioned theme packages, which
+> own typography, metrics, insets and nine-slice chrome as well. The full
+> walkthrough for building one is [chapter 9](09-custom-themes.md).
 
 ## 5.1 Tokens
 
@@ -237,12 +236,9 @@ Next: [chapter 6](06-client-server.md) covers talking to the server.
 
 ## 5.7 Native stylesheets (the default): the Style Editor is the paint authority
 
-Since the native-stylesheets stage a target can hand its paint to a
-Roblox `StyleSheet` living in the DataModel, and **since 2026-08-21 that is what
-it does unless you say otherwise** (`native_style.DEFAULT_ENABLED = true`, the
-game director's ruling; the change is recorded in
-[`CHANGELOG.md`](../../CHANGELOG.md) with the rest of the unreleased behaviour
-changes):
+A target hands its paint to a Roblox `StyleSheet` living in the DataModel, and
+**that is what it does unless you say otherwise**
+(`native_style.DEFAULT_ENABLED = true`):
 
 ```lua
 local adapter = screen_target.new({})           -- sheet paint, the default
@@ -420,7 +416,7 @@ also documents the three-rung customization ladder end to end — theme package,
 per-view override, and a custom control that ships its own art
 ([`../extending/skinned-control.md`](../extending/skinned-control.md)).
 
-Still honestly open at this stage: the human Style-Editor walkthrough, the
-physical-phone pass over ornate chrome, and low-end-device cost. Those rows are open, and a Studio
-run does not close any of them. [Chapter 11](11-device-verification.md) explains
+Three claims are still open: the human Style-Editor walkthrough, the
+physical-phone pass over ornate chrome, and low-end-device cost. A Studio run
+closes none of them. [Chapter 11](11-device-verification.md) explains
 which instrument can close which class of claim.

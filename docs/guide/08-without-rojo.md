@@ -258,7 +258,7 @@ that has an avatar. Full story — including why, and how to tell — in
 [chapter 7](07-input.md).
 
 > **If the property is not in the Properties panel at all**, your Studio build
-> does not expose it: observed 2026-07-21 on Studio `0.730.0.7300790`, where
+> does not expose it. This was observed on Studio `0.730.0.7300790`, where
 > neither `Workspace` nor `StarterPlayer` has the member and
 > `Enum.PlayerScriptsUseInputActionSystem` does not exist either — the Input
 > Action System is a client beta, and the property comes and goes with it. That

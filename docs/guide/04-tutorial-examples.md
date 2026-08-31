@@ -193,8 +193,8 @@ iTunes-style playlist with a filter field, a header, and two columns — Name an
 a star Rating you can drag across — whose rows you can drag into a new order and
 swipe sideways for their actions.
 
-**There used to be a third column, Length, and measuring edit mode removed it**
-(2026-08-13). A `fill` column gets whatever the fixed ones leave, and once this
+**There used to be a third column, Length, and measuring edit mode removed it.**
+A `fill` column gets whatever the fixed ones leave, and once this
 table declared `rowActions` with a destructive action, edit mode began spending
 *two* leading gutters on every row: 32px for the reorder ≡, plus the theme's
 `editAffordance` gutter for the red ⊖. On the narrowest viewport the sweep covers

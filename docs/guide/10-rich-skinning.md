@@ -37,10 +37,9 @@ examples are real files you can read beside this page:
 
 > **What is proven, and what is not.** Everything in this chapter is covered by
 > the headless suite and by the `theme_authoring` Studio scenario, and every
-> visual claim was read back off a running session. The physical phone pass and
-> the director's readability review remain open rows.
-> Cost numbers are
-> Studio-derated. Do not quote them as device truth.
+> visual claim was read back off a running session. The physical phone pass and the
+> human readability review are still open. Cost numbers are Studio-derated. Do
+> not quote them as device truth.
 
 **The canonical documentation check for this chapter:**
 
@@ -677,11 +676,11 @@ on it, while the theme's own gradients keep painting everywhere else.
 **Two things `UI.gradient` refuses, at construction:**
 
 - **a value control's own chrome** — `sliderTrack`, `sliderThumb`, `barTrack`,
-  `barFill`. This is the same ruling `themes.define` enforces on a theme's
+  `barFill`. This is the same rule `themes.define` enforces on a theme's
   `chromeGradient` (§10.3), and for the same measured reason: a wash's alpha
   makes the node see-through, and whatever the control draws behind it reads
-  straight through the glass. A rung-2 modifier that walked around a shipped
-  ruling would be a hole, not a feature.
+  straight through the glass. A rung-2 modifier that walked around that rule
+  would be a hole, not a feature.
 - **a text-bearing node** — `Text`, `Button`, `Toggle`, `TextField`.
   `UIGradient` multiplies the parent's *entire* rendering, its engine-drawn
   glyphs included, so a wash on a Button darkens its label along with its fill.

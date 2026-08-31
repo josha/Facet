@@ -352,11 +352,11 @@ proving that through the whole suite is expensive enough that it gets skipped.
 Like the fast tier, it cannot produce a suite verdict — nothing reads its output
 but you.
 
-Sizes, measured on one developer machine on 2026-08-21: the suite takes about
-three and a half minutes, the fast tier about forty seconds, and a single spec
-file a few seconds. Read the ratios rather than the seconds — the absolute
-numbers move with the machine and with every stage that adds cases, and the
-command below re-measures them where you are.
+Sizes, measured on one developer machine: the suite takes about three and a half
+minutes, the fast tier about forty seconds, and a single spec file a few seconds.
+Read the ratios rather than the seconds. The absolute numbers move with the
+machine and with every change that adds cases, and the command below re-measures
+them where you are.
 
 To re-measure which files are the expensive ones:
 

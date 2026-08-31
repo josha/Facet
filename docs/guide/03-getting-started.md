@@ -312,10 +312,10 @@ ever matter between test and production:
    toast expiry and every spring or timer on that clock only move on frames you
    tick. A surface that drives `refresh` alone paints correctly and never
    animates — and nothing reports it, because a frozen clock and a settled one
-   look identical. (This guide taught a hand-rolled `refresh`-only loop until
-   2026-08-17, and three shipped surfaces in Rascal Rally had frozen motion
-   because of it. The host exists so the lesson cannot be copied out of this page
-   again.) In a test you call both manually — `presenter.tick(1/60)` to advance
+   look identical. (This is not hypothetical. An earlier version of this
+   guide taught a hand-rolled `refresh`-only loop, and three shipped surfaces in
+   a production game had frozen motion because of it. The host exists so that
+   loop cannot be copied out of this page again.) In a test you call both manually — `presenter.tick(1/60)` to advance
    time, `presenter.refresh()` after changing state — then inspect the result.
 
 **Per-frame work of your own** — polling a model, stepping a game clock — goes on

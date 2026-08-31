@@ -56,6 +56,42 @@ SCANNED_DIRS = ("docs/guide", "docs/extending")
 # touching anything, so it is held to the same clarity standard as the guide.
 SCANNED_FILES = ("README.md", "docs/MAINTAINERS.md")
 
+# RULE 6: NO MAINTAINER ARCHAEOLOGY IN THE GUIDE.
+#
+# A guide chapter tells a reader what is true. It is not the place to record
+# WHEN something became true, WHO decided it, or which piece of internal process
+# produced it: a reader outside this repository cannot use any of that, and it
+# dates the page the moment it is written. So in `docs/guide/**` a date literal,
+# or the internal vocabulary of the review process, is a failure.
+#
+# TWO CHAPTERS ARE EXEMPT, because there the dates ARE the content:
+#
+#   * the framework-comparison chapter pins each source to the day it was read,
+#     which is what makes the comparison checkable; and
+#   * the device-verification chapter records measurements, and a measurement
+#     without its date is not a measurement.
+#
+# DELIBERATELY NARROW. "stage", "wave" and "round" are ordinary English -- the
+# tutorial chapter really does have eight learning stages -- so this rule does
+# not touch them, and their maintainer-sense uses are removed by hand and kept
+# out by review. A rule that fires on a legitimate sentence teaches people to
+# route around the checker.
+ARCHAEOLOGY_EXEMPT = {
+    "docs/guide/14-choosing-a-ui-library.md",  # pinned sources, read on a date
+    "docs/guide/11-device-verification.md",    # recorded measurements
+}
+
+ARCHAEOLOGY = (
+    (re.compile(r"\b20\d\d-\d\d-\d\d\b"),
+     "a date literal dates the page; say what is true instead of when it became true"),
+    (re.compile(r"\bdirectors?\b", re.I),
+     "names an internal reviewer; state the rule, not who asked for it"),
+    (re.compile(r"\brulings?\b", re.I),
+     "internal process vocabulary; call it a rule, or just state it"),
+    (re.compile(r"\bmissions?\b", re.I),
+     "internal process vocabulary; say what the work produced"),
+)
+
 MAX_INSTRUCTION_WORDS = 20
 MAX_SENTENCE_WORDS = 25
 
@@ -233,6 +269,13 @@ def check_document(path, text, fails, warns):
                              f"(limit {MAX_INSTRUCTION_WORDS}). Split it so each "
                              "step carries one instruction")
 
+        # 6. maintainer archaeology, guide chapters only
+        if path.startswith("docs/guide/") and path not in ARCHAEOLOGY_EXEMPT:
+            for pattern, why in ARCHAEOLOGY:
+                found = pattern.search(prose)
+                if found is not None:
+                    fails.append(f"{path}:{n}: '{found.group(0)}' — {why}")
+
         # 4/5. warnings
         for sentence in re.split(r"(?<=[.!?])\s+", prose.strip()):
             count = len(words(sentence))
@@ -272,6 +315,12 @@ def selftest():
         ("a bare artifact row id",
          "This behaviour is pinned by row TP-A12 in the ledger.\n",
          "internal shorthand"),
+        ("a date literal in a guide chapter",
+         "The default flipped on 2026-08-21 and has stayed that way.\n",
+         "a date literal dates the page"),
+        ("an internal reviewer named in a guide chapter",
+         "The director asked for the taller row, so the theme grew one.\n",
+         "names an internal reviewer"),
     ]
     try:
         for name, body, needle in cases:
@@ -292,7 +341,8 @@ def selftest():
         print("\n".join(fails[:20]))
         return 1
     print("check_doc_style: SELFTEST PASS — an over-long numbered step, an "
-          "unexpanded acronym and a bare artifact row id were each reported; "
+          "unexpanded acronym, a bare artifact row id, a date literal in a guide "
+          "chapter and an internal reviewer named in one were each reported; "
           f"the restored tree is clean ({len(warns)} warnings, which never fail)")
     return 0
 
@@ -312,7 +362,8 @@ def main():
             print(f"  … and {len(fails) - 60} more")
         sys.exit(1)
     print(f"check_doc_style: PASS — {len(documents())} documents; no over-long "
-          "instruction step, no unexpanded acronym, no internal shorthand "
+          "instruction step, no unexpanded acronym, no internal shorthand, no "
+          "maintainer archaeology in the guide "
           f"({len(warns)} warnings, reported with --warnings and never fatal)")
 
 

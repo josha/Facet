@@ -818,12 +818,12 @@ function check_docs.check(opts: Opts?)
 		end
 		-- ...and the pending cost row stays PENDING rather than quietly acquiring
 		-- an invented number (the distribution plan's unsupported-claim rule)
-		if not contains(catalogSource, "release performance wave") then
+		if not contains(catalogSource, "quotes no number") then
 			problem(
 				CATALOG,
 				"the per-package memory table is not yet measured and the catalog no longer says so",
-				"keep the pending-measurement note until the release performance wave lands, or replace it "
-					.. "with the measured table"
+				"keep the pending-measurement note (the catalog must still say it quotes no number for "
+					.. "the memory cost) until the table is measured, or replace it with the measured table"
 			)
 		end
 	end
@@ -1242,9 +1242,8 @@ check_docs.OBLIGATIONS = table.freeze({
 	"docs/guide/13-theme-catalog.md names every SHIPPABLE package's build/themes/<Name>.rbxm and no artifact "
 		.. "tools/build_themes.sh does not build (both derived from tools/lune/theme_packages.luau), still carries "
 		.. "the install route (tools/build_themes.sh, theme_controller.install, the no-Rojo ReplicatedStorage "
-		.. "path), and still marks the per-package memory table as owed to the release performance wave rather "
-		.. "than inventing a "
-		.. "number",
+		.. "path), and still says it quotes no number for the per-package memory table rather than "
+		.. "inventing one",
 	"docs/reference/api.md cross-references the theme catalog from the theme-controller section",
 	-- ---- rich skinning v2: the image-driven authoring surface --------------
 	"docs/guide/README.md links 10-rich-skinning.md and that guide exists",

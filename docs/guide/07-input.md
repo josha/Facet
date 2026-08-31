@@ -26,7 +26,7 @@
 > it is why five shipped place projects went without the declaration for months
 > while a human re-ticked the property by hand after every rebuild. It needs the
 > rokit-pinned toolchain: a stale `rojo` fails the build with `Unknown property`
-> (measured 2026-08-15 — see `tools/build_places.sh`).
+> (see `tools/build_places.sh`).
 >
 > The flag is still **not scriptable**: no code (including Facet) can read it,
 > set it, or verify it for you, on any build. Every detector Facet ships is
@@ -162,8 +162,8 @@ Measured live against a real gameplay stack:
   fire: the focused control activates *and* the avatar jumps.
 
 > **The avatar does not sit at 2000.** 2000 is the priority Roblox *recommends a
-> game use for its own sink*. The shipped `PlayerModule`'s own contexts, measured
-> 2026-08-03, are **Camera 100, Character 150, Vehicle 200, Transformer 300** —
+> game use for its own sink*. The shipped `PlayerModule`'s own measured contexts
+> are **Camera 100, Character 150, Vehicle 200, Transformer 300** —
 > an earlier version of this guide said 1000, which was simply wrong. Nothing in
 > Facet's behavior turns on it (a plain screen is 1500 and an engaged one 3000,
 > which clear all four regardless), but do not size a context against the old
@@ -636,8 +636,8 @@ this chapter for the measurement, and
 `the-camera-still-owns-the-arrow-keys`
 for the full session.
 
-The probe for this one is separate from the gamepad probe, and it has to be —
-measured live 2026-08-15, `RbxCameraKeypress` held the arrows in a session where
+The probe for this one is separate from the gamepad probe, and it has to be.
+Measured live, `RbxCameraKeypress` held the arrows in a session where
 `jumpAction` was not bound at all, so `legacyStackActive()` answered `false`
 while the arrows were owned:
 
