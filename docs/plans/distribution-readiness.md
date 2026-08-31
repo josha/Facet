@@ -111,10 +111,10 @@ checksums. Do not hide private material in another branch or tag: every pushed r
 part of the repository that may become public. Do not destroy the only copy.
 
 Preserve Step 13's product-language boundary and clear-writing standard and Step
-13.5's one-manifest example boundary. Public files
-must not restore retired vendor language, branded paths, internal shorthand, or
-unclear legacy text. Keep any allowed comparison separate, optional, and
-non-authoritative.
+13.5's one-manifest example boundary. Public files must not restore retired vendor
+language, branded paths, internal shorthand, or unclear legacy text. The one public
+framework-choice guide below is the narrow comparison exception. It must stay
+optional, practical, and non-authoritative; the deep SwiftUI research stays private.
 
 ## Repository-wide privacy and provenance audit
 
@@ -139,6 +139,59 @@ enough. Build and verify a clean-history candidate locally, but do not force-pus
 delete refs, or change visibility. Put the exact remote migration and recovery steps
 in the owner packet. Public release stays blocked until the owner authorizes and
 performs the destructive remote operation.
+
+## Private research and public framework choice
+
+Keep two deliberately different artifacts.
+
+First, refresh the detailed SwiftUI capability comparison against the final Step 13.5
+Facet surface. Recheck both products from current primary documentation and actual
+Facet tests, examples, Studio evidence, and known gaps. Put the refreshed report
+directly in the checksummed private archive outside this Git repository. Archive and
+remove the tracked `docs/reference/swiftui-parity.md` from the public branch tip, and
+remove public links to it. Before removal, move every still-living Facet requirement
+or decision into a neutral public capability, API, architecture, or evidence source;
+change gates so they verify those living contracts rather than require the private
+comparison. The public build and docs must not depend on the private file.
+
+This comparison is product research, not sensitive data, so do not rewrite Git
+history merely to erase its older revisions. The owner packet must say plainly that
+old versions remain in history. If the owner later requires their removal from all
+public history, treat that as a separate destructive-history decision with a verified
+candidate and rollback plan.
+
+Second, add one short public guide such as `docs/guide/choosing-a-ui-library.md`, link
+it from the README and guide index, and write it for a Roblox creator who has not used
+a UI framework before. Compare **Facet, React Luau, Fusion, and Vide** with a compact
+table and short “use this when” sections. Explain in plain language:
+
+- the mental model and amount of framework supplied;
+- the normal state/update path, reactivity granularity, and cleanup model;
+- layout, controls, native StyleSheets and Studio theme editing, input/focus/device
+  adaptation, accessibility, motion, and screen/world-surface scope;
+- practical adoption, interoperability, and migration tradeoffs; and
+- performance costs, strengths, limits, and the workloads for which evidence exists.
+
+Use only technical behavior and product fit. Do not compare maintainer count,
+employer, popularity, stars, community size, release frequency, or an “official”
+label as a quality proxy. State the actual relationship: Facet ships its selected
+custom reactive core; the vendored Fusion 0.3 adapter is a non-shipping conformance and
+benchmark candidate retained so the foundation decision can be rerun. Do not imply
+that Facet is built on Fusion. Represent each alternative idiomatically. In particular,
+distinguish React component render and
+reconciliation from React Luau Bindings, which provide a narrower signal path for
+host-property updates without rerendering. Do not turn “different default update
+model” into the false claim that React has no fine-grained update route.
+
+Pin every comparison to a version, tag or commit and research date, cite current
+primary project documentation, and label facts, measured results, and architectural
+inferences separately. Never claim Facet is universally faster. A relative performance
+claim requires checked-in, equivalent, idiomatic workloads run on the same host and
+settings for mount, fine and bulk update, large-list scroll, idle, and teardown, with
+raw results and limitations. If a fair measurement does not exist, explain the update
+models and tell the reader to measure their own workload. A fresh reviewer must check
+the guide for accuracy, balance, plain language, working citations, and useful choices
+without access to the private comparison.
 
 ## Documentation and installation
 
@@ -395,6 +448,11 @@ Give only the candidate repository and public docs to two fresh agents:
 Fix failures caused by structure or instructions. The agents must not need the
 private archive, Rascal Rally, or conversation history.
 
+Give the public framework-choice guide to a third fresh reviewer. Ask them to choose a
+library for several stated projects and explain the choice from the guide. Fail if the
+answer needs private context, mistakes React Bindings, says Facet ships on Fusion,
+uses social-status comparisons, or treats an inference as benchmark evidence.
+
 ## Owner release packet
 
 Produce one short packet with:
@@ -411,7 +469,11 @@ Produce one short packet with:
   repository rename to `josha/Facet`, redirect/local-remote/link verification, the
   visibility change, license detection and public CI, enabling the free Package
   listing, install/Get Latest, and protections GitHub changes or disables during a
-  private-to-public conversion.
+  private-to-public conversion; and
+- the private SwiftUI report's archive path and checksum, proof that living contracts
+  moved before its public copy was removed, and the explicit decision that old,
+  non-sensitive revisions remain in Git history unless the owner separately approves
+  a history rewrite.
 
 After approval, make the existing repository public first, then enable the free
 Package listing. Tagged source archives or rebuilt `.rbxm` files can also be GitHub
@@ -430,6 +492,19 @@ Release assets. All are derived from Git; none becomes a second source of truth.
   warning for files produced outside Studio.
 - [Creator Store distribution](https://create.roblox.com/docs/production/creator-store)
   — free listing, public availability, metadata, ownership, and eligibility.
+- [React Luau repository](https://github.com/Roblox/react-luau) and
+  [documentation](https://roblox.github.io/roact-alignment/) — component update,
+  reconciliation, Bindings, lifecycle, and the exact release compared.
+- [Fusion repository](https://github.com/dphfox/Fusion) and
+  [documentation](https://elttob.uk/Fusion/0.3/) — reactive graph, scopes, instance
+  construction, animation, and the exact release compared.
+- [Vide repository](https://github.com/centau/vide) and
+  [documentation](https://centau.github.io/vide/) — sources, effects, scopes,
+  instance construction, and the exact revision compared.
+- [Roblox UI styling](https://create.roblox.com/docs/ui/styling) — native StyleSheets,
+  rules, tokens, themes, style queries, and Studio editing behavior.
+- [SwiftUI documentation](https://developer.apple.com/documentation/swiftui) — current
+  platform behavior and API evidence for the private comparison only.
 
 These pages describe current platform behavior; the Studio insertion/update proof is
 still required. If the API or Studio behavior differs, update this plan and record the
@@ -445,7 +520,9 @@ Rascal Rally remains synchronized, the private Package has a stable recorded ass
 and a proved guarded update path, every living requirement maps to one current
 producer, the full suite/unique release producers run once per identity, old/new
 mutation verdicts agree, the headless budget is met or every irreducible excess is
-owned, and the owner packet is complete. The repository and Creator Store listing
+owned, the refreshed SwiftUI report exists only in the private archive, the balanced
+public Facet/React Luau/Fusion/Vide guide passes its source, fairness, and fresh-reader
+checks, and the owner packet is complete. The repository and Creator Store listing
 remain private. The one confirmed rename of the existing repository and creation/
 update of the one private Package are in scope only after the explicit owner
 checkpoint. Pushing Git, changing visibility, enabling the listing, publishing a

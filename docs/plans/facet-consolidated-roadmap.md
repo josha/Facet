@@ -1638,6 +1638,12 @@ Use the plan's public allowlist. Archive private material with checksums outside
 audit Git/GitHub for secrets, private/game data, rights, and bulk. If purge is needed,
 prepare only a tested clean candidate and owner migration/rollback packet.
 
+Refresh the deep SwiftUI audit privately; archive/remove its tracked copy/links;
+no history rewrite without approval. Add a short ELI5 public Facet/React Luau/
+Fusion/Vide guide from primary sources: use cases, tradeoffs, models/reactivity,
+layout, native style, input/a11y, and performance. Ban status claims; label inference;
+explain React Bindings and Facet's custom core; benchmark fairly; fresh-review.
+
 Refresh README, guide/catalog, API, install/upgrade/Package, examples, extension,
 contributor, test, release docs, and links; remove stale/internal claims and duplicates.
 Create root `AGENTS.md` and thin Agent Skills-compatible `skills/use-facet/SKILL.md`;
@@ -1798,8 +1804,14 @@ The roadmap has achieved its goals only when all of these are true:
   render, scroll, idle, and teardown cost; measured framework hot spots are optimized
   or dispositioned without workload drift, and low-end Android proof stays honest;
 - maintained Facet code, examples, and documentation contain no third-party vendor or framework
-  references outside the dedicated parity document and optional, labeled guide
-  comparisons; the exact-allowlist drift check proves the boundary;
+  references outside the optional, labeled framework-choice guide; the refreshed deep
+  SwiftUI comparison is checksummed in the private archive outside Git, its public copy
+  and links are removed after living requirements move, and the exact-allowlist drift
+  check proves the boundary;
+- the short public Facet/React Luau/Fusion/Vide guide uses pinned primary sources,
+  technical fit rather than project-status claims, represents React Bindings and
+  Facet's custom-core/Fusion relationship accurately, separates measurements from inference, and
+  lets a fresh reader make a useful choice without private context;
 - the guide index names and categorizes every current public layout, control,
   collection, service, target, and extension family; each item leads to useful guide
   or API detail, and automated drift checks bind the guide and exhaustive API
