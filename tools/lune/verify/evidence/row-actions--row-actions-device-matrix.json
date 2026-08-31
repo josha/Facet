@@ -1,0 +1,14 @@
+{
+ "class": "studio",
+ "evidence": [
+  {
+   "archivedPath": "artifacts/row-actions/device-matrix.md",
+   "label": "evidence-1",
+   "sha256": "e741d590c6aac7775a0e5e255b76346934c7a3c83237e8bd9c136b68bc045270"
+  }
+ ],
+ "recordedAt": "2026-08-31T02:11:02Z",
+ "row": "row-actions::row-actions-device-matrix",
+ "schema": "facet-evidence-receipt/1",
+ "summary": "row-actions-device-matrix: 1 recorded file(s), pinned by content hash; the bytes live in the private archive."
+}

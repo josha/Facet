@@ -843,6 +843,7 @@ def selftest_vendor():
     long_probe = os.path.join(REPO, "docs", "guide", "long_probe_tmp.md")
     open_probe = os.path.join(REPO, "docs", "guide", "open_probe_tmp.md")
     probes = (src_probe, guide_probe, marked_probe, long_probe, open_probe)
+    made_dirs: list = []
     try:
         with open(src_probe, "w") as f:
             f.write("-- planted: this reads like SwiftUI on iOS and must be caught\n")
@@ -870,7 +871,19 @@ def selftest_vendor():
         #   nobody knows the shape of. ]]
         global _reachable_cache
         _reachable_cache = None
+        #[[ THE PROBE'S TREE IS ARCHIVED, SO THE SELFTEST MAKES ITS OWN.
+        #   `docs/plans/` left the tip with the rest of the stage record, and the
+        #   plant died on a missing directory before it could assert anything.
+        #   The RULE is still declared in VENDOR_HISTORY and is still what this
+        #   case exercises, so the probe keeps its path and the selftest creates
+        #   the directory it needs and takes it away again — the tree is
+        #   byte-identical afterwards, which the `finally` below now enforces for
+        #   the directory as well as for the files. ]]
         unlinked = "docs/plans/reachability_probe_tmp.md"
+        for probe_dir in (os.path.dirname(os.path.join(REPO, unlinked)),):
+            if not os.path.isdir(probe_dir):
+                os.makedirs(probe_dir)
+                made_dirs.append(probe_dir)
         with open(os.path.join(REPO, unlinked), "w") as f:
             f.write("# probe\n\nThis reads like SwiftUI on iOS.\n")
         probes = probes + (os.path.join(REPO, unlinked),)
@@ -909,6 +922,11 @@ def selftest_vendor():
         for path in probes:
             if os.path.exists(path):
                 os.unlink(path)
+        for probe_dir in reversed(made_dirs):
+            try:
+                os.rmdir(probe_dir)
+            except OSError:
+                pass
         _reachable_cache = None
     return 0
 

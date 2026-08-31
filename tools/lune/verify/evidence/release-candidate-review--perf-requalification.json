@@ -15,5 +15,5 @@
  "recordedAt": "2026-08-31T01:29:18Z",
  "row": "release-candidate-review::perf-requalification",
  "schema": "facet-evidence-receipt/1",
- "summary": "perf-requalification: 2 recorded perf file(s), pinned by content hash."
+ "summary": "perf-requalification: 2 recorded file(s), pinned by content hash; the bytes live in the private archive."
 }

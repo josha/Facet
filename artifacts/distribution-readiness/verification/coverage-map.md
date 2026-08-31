@@ -377,3 +377,134 @@ on that half alone.
 | `phase-0-foundation` | `conformance-fusion-adapter` | UI-LIFE-001 | workstream K removed the vendored third-party reactive core and the adapter that bridged it, and archived the scorecard this row read; the conformance corpus still runs against the custom core and the imperative baseline | `phase-0-foundation::conformance-custom-core`, `phase-0-foundation::conformance-imperative-baseline`, `phase-4-hardening::fault-injection` |
 | `phase-0-foundation` | `conformance-fusion-adapter` | UI-LIFE-002 | workstream K removed the vendored third-party reactive core and the adapter that bridged it, and archived the scorecard this row read; the conformance corpus still runs against the custom core and the imperative baseline | `phase-0-foundation::conformance-custom-core`, `phase-0-foundation::conformance-imperative-baseline`, `phase-1-minimal-screen::churn-registry-neutral` |
 | `parity-round-4` | `comparison-docs-honest` | UI-AGENT-001 | the two framework-comparison documents this row pinned were archived out of the repository by workstream K; the public framework-choice guide is their living replacement | `phase-0-foundation::doctor`, `phase-0-foundation::test-suite`, `phase-0-foundation::opus-verification` |
+
+---
+
+# Post-archival repair (2026-08-31)
+
+The stage record was archived and deleted from the tip. This section is what
+that cost each row, and what carries the claim now. Produced by
+`python3 tools/lune/verify/repair_graph.py`, which is idempotent.
+
+## Evidence pins turned into a content hash (2)
+
+Recorded machine evidence: the bytes now live only in the private archive, and the
+receipt carries the sha256 the archive's own manifest records for them.
+
+| Row | File |
+|---|---|
+| `row-actions::row-actions-device-matrix` | `artifacts/row-actions/device-matrix.md` |
+| `release-candidate-review::perf-requalification` | `artifacts/release-candidate-review/perf/requalification.md` |
+
+## Evidence pins dropped as a record of a past decision (81)
+
+Each named an acceptance table, a review packet, a roll-up or a reviewer's verdict
+from a stage that closed. A hash of one would be a pin nobody could verify again.
+The row keeps everything else it asserts; where nothing else remained, the row is
+listed in the next table instead.
+
+| Row | File | In the archive? |
+|---|---|---|
+| `phase-0-foundation::conformance-fusion-adapter` | `artifacts/conformance-fusion.json` | in the archive |
+| `input-adaptation-audit::audit-matrix` | `artifacts/input-adaptation-audit/matrix.md` | in the archive |
+| `input-paradigms::defect-example02-fix` | `artifacts/input-paradigms/defect-example02.md` | in the archive |
+| `input-paradigms::affordance-matrix` | `artifacts/input-paradigms/affordance-matrix.md` | in the archive |
+| `input-paradigms::per-control-affordance-proofs` | `artifacts/input-paradigms/affordance-matrix.md` | in the archive |
+| `input-paradigms::hybrid-hotswitch` | `artifacts/input-paradigms/affordance-matrix.md` | in the archive |
+| `input-paradigms::axes-future-proofing` | `artifacts/input-paradigms/dryrun-chip.md` | in the archive |
+| `native-substrate::game-suite-unchanged` | `artifacts/native-substrate/game-suite.txt` | in the archive |
+| `native-substrate::prior-gates-unregressed` | `artifacts/native-substrate/prior-gates.txt` | in the archive |
+| `native-substrate::physical-device-confirmation` | `artifacts/native-substrate/review-packet.md` | in the archive |
+| `native-stylesheets::game-suite-unchanged` | `artifacts/native-stylesheets/game-suite.txt` | in the archive |
+| `native-stylesheets::prior-gates-unregressed` | `artifacts/native-stylesheets/prior-gates.txt` | in the archive |
+| `native-stylesheets::designer-and-device-confirmation` | `artifacts/native-stylesheets/review-packet.md` | in the archive |
+| `authoring-adaptive-ui::game-suite-unchanged` | `artifacts/authoring-adaptive-ui/game-suite.txt` | in the archive |
+| `authoring-adaptive-ui::prior-gates-unregressed` | `artifacts/authoring-adaptive-ui/prior-gates.txt` | in the archive |
+| `theme-packages-and-skinning::prior-gates-unregressed` | `artifacts/theme-packages-and-skinning/prior-gates.txt` | in the archive |
+| `theme-packages-and-skinning::physical-and-human-rows` | `artifacts/theme-packages-and-skinning/review-packet.md` | in the archive |
+| `rich-skinning-v2::prior-gates-unregressed` | `artifacts/rich-skinning-v2/prior-gates.txt` | in the archive |
+| `rich-skinning-v2::physical-and-human-rows` | `artifacts/rich-skinning-v2/review-packet.md` | in the archive |
+| `cross-platform-proof::prior-gates-unregressed` | `artifacts/cross-platform-proof/prior-gates.txt` | in the archive |
+| `cross-platform-proof::physical-and-human-rows` | `artifacts/cross-platform-proof/review-packet.md` | in the archive |
+| `sponsor-framework-gaps::prior-gates-unregressed` | `artifacts/sponsor-framework-gaps/prior-gates.txt` | in the archive |
+| `sponsor-framework-gaps::physical-and-human-rows` | `artifacts/sponsor-framework-gaps/review-packet.md` | in the archive |
+| `code-simplicity-cleanup::prior-gates-unregressed` | `artifacts/code-simplicity-cleanup/prior-gates.txt` | in the archive |
+| `code-simplicity-cleanup::performance-unregressed` | `artifacts/code-simplicity-cleanup/perf-after.md` | in the archive |
+| `api-architecture-consistency::fresh-author-exercise` | `artifacts/api-architecture-consistency/fresh-author-exercise.md` | in the archive |
+| `api-architecture-consistency::rascalrally-consumer` | `artifacts/api-architecture-consistency/consumer-impact.md` | in the archive |
+| `api-architecture-consistency::prior-gates-unregressed` | `artifacts/api-architecture-consistency/prior-gates.txt` | in the archive |
+| `api-architecture-consistency::studio-evidence` | `artifacts/api-architecture-consistency/studio-disposition.md` | in the archive |
+| `api-architecture-consistency::physical-rows` | `artifacts/api-architecture-consistency/studio-disposition.md` | in the archive |
+| `desktop-keyboard-navigation::rascalrally-consumer` | `artifacts/desktop-keyboard-navigation/consumer-impact.md` | in the archive |
+| `desktop-keyboard-navigation::prior-gates-unregressed` | `artifacts/desktop-keyboard-navigation/prior-gates.txt` | in the archive |
+| `desktop-keyboard-navigation::physical-and-contended-rows` | `artifacts/desktop-keyboard-navigation/review-packet.md` | in the archive |
+| `traversal-document-order::step8-debt-cleared` | `artifacts/traversal-document-order/step8-debt.md` | in the archive |
+| `traversal-document-order::rascalrally-consumer` | `artifacts/traversal-document-order/consumer-impact.md` | in the archive |
+| `large-text-accessibility::rascalrally-consumer` | `artifacts/large-text-accessibility/consumer-impact.md` | in the archive |
+| `performance-stress-places::place-builds-and-opens` | `artifacts/performance-stress-places/place.json` | in the archive |
+| `performance-stress-places::optimization-loop-recorded` | `artifacts/performance-stress-places/optimization-log.md` | in the archive |
+| `performance-stress-places::rascalrally-consumer` | `artifacts/performance-stress-places/consumer-impact.md` | in the archive |
+| `performance-stress-places::prior-gates-unregressed` | `artifacts/performance-stress-places/prior-gates.txt` | in the archive |
+| `performance-stress-places::physical-rows` | `artifacts/performance-stress-places/review-packet.md` | in the archive |
+| `example-quality-pass::prior-gates-unregressed` | `artifacts/example-quality-pass/prior-gates.txt` | in the archive |
+| `example-quality-pass::rascalrally-consumer` | `artifacts/example-quality-pass/consumer-impact.md` | in the archive |
+| `example-quality-pass::physical-and-human-rows` | `artifacts/example-quality-pass/review-packet.md` | not in the archive |
+| `row-actions::rascalrally-consumer` | `artifacts/row-actions/consumer-impact.md` | in the archive |
+| `row-actions::prior-gates-unregressed` | `artifacts/row-actions/prior-gates-rerun.txt` | in the archive |
+| `declarative-3d-architecture::studio-topology-evidence` | `artifacts/declarative-3d-architecture/studio-topology.json` | in the archive |
+| `declarative-3d-architecture::spike-costs-measured` | `artifacts/declarative-3d-architecture/costs.json` | in the archive |
+| `parity-round-3::layout-protocol-verdict` | `docs/plans/parity-round3.md` | in the archive |
+| `parity-round-4::hit-expander-z-order` | `artifacts/hit-expander-overhang/corpus-measurement.md` | in the archive |
+| `parity-round-4::comparison-docs-honest` | `docs/reference/fusion-comparison.md` | in the archive |
+| `parity-round-4::studio-and-device-evidence` | `artifacts/time-based-easing/engine-oracle.md` | in the archive |
+| `navigation-and-menus::d0-one-run-per-sweep` | `artifacts/navigation-and-menus/sweep-economy.md` | in the archive |
+| `navigation-and-menus::d0-greps-still-match` | `artifacts/navigation-and-menus/grep-match-check.md` | in the archive |
+| `navigation-and-menus::d1-anchored-surface` | `artifacts/navigation-and-menus/d1-anchored-surface.md` | in the archive |
+| `navigation-and-menus::d2-menu` | `artifacts/navigation-and-menus/d2-menu.md` | in the archive |
+| `navigation-and-menus::d3a-help` | `artifacts/navigation-and-menus/d3a-help.md` | in the archive |
+| `navigation-and-menus::d3b-callout` | `artifacts/navigation-and-menus/d3b-callout.md` | in the archive |
+| `navigation-and-menus::d4-sliding-indicator` | `artifacts/navigation-and-menus/d4-sliding-indicator.md` | in the archive |
+| `navigation-and-menus::d5-tabview` | `artifacts/navigation-and-menus/d5-tabview.md` | in the archive |
+| `navigation-and-menus::d6-segmented` | `artifacts/navigation-and-menus/d6-segmented-picker.md` | in the archive |
+| `navigation-and-menus::d7-elision-discloses` | `artifacts/navigation-and-menus/d7-elision-discloses.md` | in the archive |
+| `navigation-and-menus::d8-playlist-sort-resize` | `artifacts/navigation-and-menus/d8-playlist-sort-resize.md` | in the archive |
+| `navigation-and-menus::rider-rascalrally-consumer` | `artifacts/navigation-and-menus/consumer-impact.md` | in the archive |
+| `release-candidate-review::rename-canonical-identity` | `artifacts/release-candidate-review/rename/after-inventory.md` | in the archive |
+| `release-candidate-review::rename-drift-guard-bites` | `artifacts/release-candidate-review/rename/drift-guard-proof.md` | in the archive |
+| `release-candidate-review::clean-clone-runs-as-facet` | `artifacts/release-candidate-review/rename/clean-clone-proof.md` | in the archive |
+| `release-candidate-review::rr-consumer-sync` | `artifacts/release-candidate-review/rename/rr-consumer-ledger.md` | in the archive |
+| `release-candidate-review::step14-remote-packet` | `artifacts/release-candidate-review/step14-remote-packet.md` | in the archive |
+| `release-candidate-review::ias-owns-semantic-input` | `artifacts/release-candidate-review/input/ias-authority.md` | in the archive |
+| `release-candidate-review::df7-modifier-sink-measured` | `artifacts/release-candidate-review/input/df7-measurement.md` | in the archive |
+| `release-candidate-review::haptics-defaults` | `artifacts/release-candidate-review/haptics/defaults.md` | in the archive |
+| `release-candidate-review::haptics-device-similarity` | `artifacts/release-candidate-review/haptics/device-review-packet.md` | in the archive |
+| `release-candidate-review::guide-catalog-current` | `artifacts/release-candidate-review/docs/catalog-rebuild.md` | in the archive |
+| `release-candidate-review::product-language-scan-bites` | `artifacts/release-candidate-review/docs/product-language-proof.md` | in the archive |
+| `release-candidate-review::comments-plain` | `artifacts/release-candidate-review/docs/comment-audit.md` | in the archive |
+| `release-candidate-review::clear-writing-checked` | `artifacts/release-candidate-review/docs/clear-writing-proof.md` | in the archive |
+| `release-candidate-review::maintainer-map-current` | `artifacts/release-candidate-review/maintainer-guide-proof.md` | in the archive |
+| `release-candidate-review::suites-green-at-close` | `artifacts/release-candidate-review/close-out.md` | in the archive |
+| `example-games-and-standalones::affected-and-fast-loops-trustworthy` | `artifacts/example-games-and-standalones/test-optimization/baseline.md` | in the archive |
+| `example-games-and-standalones::wardrobe-retired` | `artifacts/example-games-and-standalones/wardrobe-inventory.md` | in the archive |
+
+## Rows archived whole (1)
+
+Nothing executable was left once the pin went.
+
+| Phase | Row | Requirement |
+|---|---|---|
+| `navigation-and-menus` | `d0-greps-still-match` | UI-AGENT-001 |
+
+## Producers retired, and the rows that consumed them (3 clauses)
+
+| Producer | Why |
+|---|---|
+| `check_gate_pins` | its subject is the archived gate manifest; the plain-comment contract it also carried is enforced by check_comment_codes, which still runs |
+| `check_gate_pins-selftest` | same subject as check_gate_pins |
+| `check_manifest_integrity-transcript` | it replays the archived manifest's greps against a live transcript; the manifest is gone and the graph's own case-id lookups are the surviving form of that claim |
+
+| Row | Producer it no longer names |
+|---|---|
+| `navigation-and-menus::d0-greps-still-match` | `check_manifest_integrity-transcript` |
+| `release-candidate-review::comments-plain` | `check_gate_pins-selftest` |
+| `release-candidate-review::comments-plain` | `check_gate_pins` |

@@ -1,0 +1,9 @@
+{
+ "archivedPath": "artifacts/release-candidate-review/reviews/reuse.md",
+ "bytes": 168384,
+ "declaredFindings": 125,
+ "note": "The audit that filed these findings is archived. The ledger beside this file carries every one of them; this receipt is what the enumeration answers to.",
+ "operand": "the reuse audit's enumeration of findings",
+ "schema": "facet-source-receipt/1",
+ "sha256": "13d467f09270484fa663000b558cd5ff73399eb287fc199a7b4dac841ce45c28"
+}
