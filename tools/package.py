@@ -498,7 +498,12 @@ def inspect_tree(manifest):
             if needle in lowered:
                 problems.append(f"FORBIDDEN in the distribution: {path} (contains '{needle}')")
 
-    return problems, {"modules": len(modules), "folders": len(folders), "instances": len(present)}
+    return problems, {
+        "modules": len(modules),
+        "folders": len(folders),
+        "required": len(REQUIRED_DISTRIBUTION),
+        "instances": len(present),
+    }
 
 
 # ── config and receipts ──────────────────────────────────────────────────────
@@ -1222,8 +1227,8 @@ def cmd_verify(args):
             print(f"         - {problem}")
     else:
         print(
-            f"  [ ok ] tree inspection: {counts['modules']} modules and {counts['folders']} folders present, "
-            f"nothing else"
+            f"  [ ok ] tree inspection: {counts['modules']} modules, {counts['folders']} folders and the "
+            f"{counts['required']}-instance Distribution subtree present, nothing else"
         )
 
     staged = stage(quiet=True)  # a fresh temp dir: this only wants the placeholder report

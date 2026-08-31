@@ -392,3 +392,120 @@ Two smaller ones, recorded so they are not rediscovered:
   this work and remain `PENDING`; that file belongs to another workstream and was
   not touched.
 - Nothing was pushed.
+
+---
+
+## 9. Red-team round, 2026-08-30
+
+Thirteen findings, all fixed, each with its own commit and its own evidence. Two
+were defects that made a guard incapable of failing; one made the channel
+unreleasable; one could have reported a release that never happened.
+
+### The blocker (1)
+
+The gate guard computed
+`sha256("facet-release-gate/1|" + version + "|" + commit + "|" + sourceHash)` and
+compared it to an `identity` field **no code anywhere wrote**, so `publish` could
+never pass. The selftest was green only because it fabricated the file it was
+about to read — a guard whose only satisfying input is one a test invents is not
+a guard. (The coordinator's real `artifacts/verify/latest-release.json` does carry
+an `identity`, but it is that tool's producer identity over normalized inputs, a
+completely different quantity.)
+
+The decided contract now applies: the coordinator writes a `gateEvidence` object
+inside that file and `decide()` compares `schema`, `tier == "release"`,
+`status == "PASS"`, `treeDirty == false`, `commit == --commit` and `sourceHash`
+against the fresh build's — every one of them against a fact this tool derives
+itself, so there is no shared recipe for the two sides to disagree about. Three
+refusal codes became seven, each naming its own field. The commit is compared
+only once `--commit` is known to equal `HEAD`, so a wrong argument is reported
+once rather than twice.
+
+The selftest now proves the opposite property directly: evidence written the way
+the coordinator writes it, against this repository's real commit and source hash,
+clears every gate check. **My half is done; the coordinator's half — emitting
+`gateEvidence` — is still owed.** `status` currently reads
+`present but carries no readable gateEvidence`, which is the correct fail-closed
+state.
+
+That assertion immediately caught a defect in the fix itself:
+`read_gate_evidence(path=GATE_EVIDENCE)` bound the module global as a
+**definition-time** default, so the selftest's redirect silently kept reading the
+original file and the receipt came back with every gate field `None`. It defaults
+at call time now.
+
+### The two guards that could not fail
+
+**(10) build-drift** read both sides of its comparison from the same
+`write_manifest` call one line earlier — `x != x`, unfalsifiable for any input.
+The recorded manifest is now read *before* anything is rebuilt, which is the only
+order in which the question has an answer, and a tree with no manifest refuses
+too. Proven end to end: corrupting the recorded `bodyHash` flips the dry run from
+`ok` to `REFUSE` naming both hashes; deleting the manifest refuses with its own
+message; rebuilding restores `ok`.
+
+**(11) inspect_tree** listed the three `Distribution` instances only so the
+"nothing else" rule would not fire on them, and never asked whether any existed.
+A build that dropped the entire release stamp and the MIT text passed clean. The
+table is now `REQUIRED_DISTRIBUTION` and is part of the presence loop. Dropping
+each of the three from the manifest produces exactly one problem naming it;
+retyping `LICENSE` as a `ModuleScript` names the wrong class.
+
+### The release that never happened (9)
+
+The studio publish poll compared against the newest receipt's revision and
+accepted anything when there was no receipt. On a first publish — the state this
+repository is in — the version *already sitting on the asset* satisfied that on
+the very first poll: the command would have declared success, written a receipt
+and recorded a release nobody made. On the discriminating input (no receipt,
+asset already at version 5) the old predicate returns `True` and the new one
+`False`.
+
+The pre-publish version is now read from the cloud **before** the human is told
+to publish, and every comparison is a positive edge from it. Four fake-transport
+cases cover it: no edge refuses with no receipt written, 5 → 6 records revision 6,
+an unreadable version list refuses and names `--baseline-revision`, and a supplied
+baseline of 8 makes 9 an edge.
+
+### Concurrency (7), reproduced and fixed
+
+Three parallel `build_model.sh` invocations shared one project file at the repo
+root, one `build/.stage/Distribution`, and one trap deleting both. **All three
+failed, three different ways**: `OSError: [Errno 66] Directory not empty` from
+`shutil.rmtree` racing another process refilling the staging directory; a project
+file already deleted by a sibling's trap; and a project file read mid-write
+("File contains no JSON value"). None of those errors names concurrency, which is
+what made it expensive to diagnose.
+
+Every scratch path is now named after the calling process and every shared output
+is written through a unique temporary and moved into place. Measured after: five
+concurrent builds to distinct outputs all exit 0 with one identical artifact hash,
+and five concurrent builds *all contending for the same default output paths*
+also all exit 0, leaving a parsable manifest and no scratch files behind.
+
+### The rest
+
+| # | Was | Now |
+|---|---|---|
+| 17 | `release.sh` discarded the worktree's `package/facet-package.json`, losing the `assetId` a create records and the `versions[]` entry a publish appends | copied back, but only when it differs in `assetId` and `versions` alone; any other field moving refuses and names it |
+| 18 | a receipt counted as a real publish only if its NAME was new — but receipts are named `<version>-<sha7>`, so republishing the same version reported "publish wrote nothing" | selected by content: publish's exit code, plus a `publishedAt` at or after a watermark taken before publishing; a same-named receipt with different content refuses |
+| 22 | one PEP-701 f-string (3.12 syntax) made the file a `SyntaxError` on `/usr/bin/python3` 3.9.6, surfacing as an unexplained model-build failure | fixed, plus a `version_info` guard and a comment recording that a SyntaxError precedes any guard, so the real protection is the no-syntax-newer-than-3.8 rule |
+| 23 | `${{ inputs.* }}` interpolated straight into the run script that holds `ROBLOX_API_KEY` — command injection in the one step with the key in scope | passed via `env:` and used as quoted `"$VERSION"` / `"$COMMIT"`; no `${{ }}` remains inside any `run:` script. The org-owned-repo caveat on the actor check is now a comment |
+| 24 | the verdict table printed `[ok]` for any code absent from the refusals, so a stubbed decider showed 18 greens and publish-only guards read green under `create` | `decide()` returns `(refusals, evaluated)` and the table has three states; `[ n/a  ]` means nothing was compared |
+| 26 | `--route` overrode the configured route with no guard, under `--confirm`, and `release.sh` forwards `"$@"` | refuses with `route-override` unless `--allow-route-override` is also given |
+| 29 | the canary built file paths from unsanitised instance names — one named `../../evil` escapes the extraction directory, and duplicate siblings silently overwrote each other | a separator, `..`, or an empty name is a hard failure, and a second writer for one target stops the run. Proven by planting both into the built model; nothing was written outside the extraction directory |
+
+### After the round
+
+| Check | Result |
+|---|---|
+| `python3 tools/package.py --selftest` | PASS — 27 mutation cases over 24 refusal codes, 0 wrong, plus the reader contract, the satisfiability proof, the four studio-edge cases and the receipt's gate record |
+| `/usr/bin/python3` (3.9.6) compile | compiles and runs |
+| `tools/package.sh build` | 189 instances, 171 modules |
+| `tools/package.sh verify` | PASS — 171 modules, 15 folders and the 3-instance Distribution subtree present, nothing else; purity ok; canary ok |
+| `lune run tools/lune/package_canary` | PASS |
+| `tools/package.sh create` / `publish` (dry run) | 6 and 7 refusals, no network |
+| three concurrent default-output builds | all exit 0, no scratch left |
+| `stylua --check tools` | clean |
+
+No cloud call was made at any point in this round.
