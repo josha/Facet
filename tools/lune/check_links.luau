@@ -30,8 +30,10 @@
 	link this repository owes.
 
 	check(opts?) -> { ok, problems, counts }. `opts.fileOverrides` replaces a
-	scanned document's content in memory, which is how `--selftest` plants a
-	dangling link and an archived-material link and proves both are reported.
+	scanned document's content in memory, which is how `--selftest` plants four
+	faults — a dangling link, a link into archived material, the same link
+	carrying a markdown title, and a dead link inside a document the old
+	hand-written scan list did not cover — and proves every one is reported.
 	CLI: tools/lune/check_links_cli.luau.
 ]]
 
@@ -40,24 +42,24 @@ local fs = require("@lune/fs")
 local check_links = {}
 
 -- ---------------------------------------------------------------------------
--- WHAT IS SCANNED. Every document a reader outside this repository is expected
--- to open: the root files, the skill, the package reference, and the four public
--- document trees.
-local SCANNED_FILES = {
-	"README.md",
-	"AGENTS.md",
-	"CONTRIBUTING.md",
-	"SECURITY.md",
-	"CHANGELOG.md",
-	"package/README.md",
-}
+--[[ WHAT IS SCANNED: EVERY MARKDOWN FILE THAT SHIPS.
 
-local SCANNED_DIRS = {
-	"skills",
-	"docs/guide",
-	"docs/reference",
-	"docs/extending",
-}
+	This used to be a hand-written list of six files and four directories, and
+	the list was wrong — it missed `docs/MAINTAINERS.md`,
+	`THIRD_PARTY_NOTICES.md`, the consumer example's own README, the core's
+	README, every asset provenance record, and the issue and pull-request
+	templates. All of those ship, all of them carry links, and none of them was
+	checked. A hand-written list of what is public is a second answer to a
+	question the repository already answers once.
+
+	So the set is DERIVED from `tools/public_allowlist.txt`, the file that
+	decides what the public branch tip contains, using the same allow/deny
+	semantics `tools/check_public_allowlist.py` applies: a trailing "/" allows a
+	whole directory, anything else is an exact path or a shell glob, and a "!"
+	pattern denies. Every markdown file that survives that, and is not itself in
+	the archived set below, is scanned. A document added to a published directory
+	is checked from the moment it exists, with no edit here. ]]
+local ALLOWLIST = "tools/public_allowlist.txt"
 
 --[[ MATERIAL THAT DOES NOT GO PUBLIC. Kept in step with
 	`tools/relink_archived.py`'s two lists by hand, and deliberately so: this
@@ -185,12 +187,95 @@ local function isExternal(target: string): boolean
 	return string.match(target, "^%a[%w+.-]*:") ~= nil
 end
 
-local function documents(): { string }
-	local found: { string } = {}
-	for _, rel in SCANNED_FILES do
-		if fs.isFile(rel) then
-			table.insert(found, rel)
+--[[ THE ALLOWLIST'S OWN MATCHING RULES, mirrored from
+	`tools/check_public_allowlist.py` so the two files cannot disagree about what
+	is public: a trailing "/" is a directory prefix, an exact path matches
+	itself, and anything else is a shell glob where `*` spans separators. ]]
+local patternCache: { [string]: string } = {}
+local function globPattern(glob: string): string
+	local cached = patternCache[glob]
+	if cached ~= nil then
+		return cached
+	end
+	local out: { string } = { "^" }
+	for i = 1, #glob do
+		local c = string.sub(glob, i, i)
+		if c == "*" then
+			table.insert(out, ".*")
+		elseif c == "?" then
+			table.insert(out, ".")
+		elseif string.match(c, "[%w_/-]") ~= nil then
+			table.insert(out, c)
+		else
+			table.insert(out, "%" .. c)
 		end
+	end
+	table.insert(out, "$")
+	local pattern = table.concat(out)
+	patternCache[glob] = pattern
+	return pattern
+end
+
+local function matchesPattern(path: string, pattern: string): boolean
+	if string.sub(pattern, -1) == "/" then
+		return string.sub(path, 1, #pattern) == pattern
+	end
+	if path == pattern then
+		return true
+	end
+	return string.match(path, globPattern(pattern)) ~= nil
+end
+
+type Allowlist = { allows: { string }, denies: { string } }
+
+local function readAllowlist(): Allowlist?
+	if not fs.isFile(ALLOWLIST) then
+		return nil
+	end
+	local allows: { string } = {}
+	local denies: { string } = {}
+	for raw in string.gmatch(fs.readFile(ALLOWLIST), "[^\n]+") do
+		local line = string.match(raw, "^%s*(.-)%s*$") :: string
+		if line == "" or string.sub(line, 1, 1) == "#" then
+			continue
+		end
+		if string.sub(line, 1, 1) == "!" then
+			table.insert(denies, string.sub(line, 2))
+		else
+			table.insert(allows, line)
+		end
+	end
+	return { allows = allows, denies = denies }
+end
+
+local function isPublic(path: string, list: Allowlist): boolean
+	local allowed = false
+	for _, pattern in list.allows do
+		if matchesPattern(path, pattern) then
+			allowed = true
+			break
+		end
+	end
+	if not allowed then
+		return false
+	end
+	for _, pattern in list.denies do
+		if matchesPattern(path, pattern) then
+			return false
+		end
+	end
+	return true
+end
+
+local function documents(list: Allowlist): { string }
+	local seen: { [string]: boolean } = {}
+	local found: { string } = {}
+	local function consider(path: string)
+		if seen[path] or isArchived(path) or not isPublic(path, list) then
+			return
+		end
+		seen[path] = true
+		table.insert(found, path)
 	end
 	local function walk(dir: string)
 		if not fs.isDir(dir) then
@@ -202,17 +287,19 @@ local function documents(): { string }
 			local path = `{dir}/{entry}`
 			if fs.isDir(path) then
 				walk(path)
-			elseif string.match(entry, "%.md$") ~= nil and not isArchived(path) then
-				--[[ A document that is itself leaving the public tree is not held
-					to the public tree's rules. It is still listed above so that a
-					LINK to it fails, which is the half that matters. ]]
-				table.insert(found, path)
+			elseif string.match(entry, "%.md$") ~= nil then
+				consider(path)
 			end
 		end
 	end
-	for _, dir in SCANNED_DIRS do
-		walk(dir)
+	for _, pattern in list.allows do
+		if string.sub(pattern, -1) == "/" then
+			walk(string.sub(pattern, 1, -2))
+		elseif string.match(pattern, "%.md$") ~= nil and fs.isFile(pattern) then
+			consider(pattern)
+		end
 	end
+	table.sort(found)
 	return found
 end
 
@@ -244,7 +331,19 @@ function check_links.check(opts: Opts?): { ok: boolean, problems: { string }, co
 		return anchorCache[path]
 	end
 
-	local docs = documents()
+	local list = readAllowlist()
+	if list == nil then
+		return {
+			ok = false,
+			problems = {
+				`{ALLOWLIST} is missing, and it is what decides which documents ship — `
+					.. "this check cannot answer without it",
+			},
+			counts = { documents = 0, links = 0, anchors = 0, problems = 1 },
+		}
+	end
+
+	local docs = documents(list :: Allowlist)
 	for _, doc in docs do
 		local raw = sourceOf(doc)
 		if raw == nil then
@@ -253,10 +352,23 @@ function check_links.check(opts: Opts?): { ok: boolean, problems: { string }, co
 		local prose = blankCode(raw :: string)
 		local line = 1
 		local consumed = 1
-		for start, target in string.gmatch(prose, "()%[[^%[%]]*%]%(([^)%s]+)%)") do
+		--[[ The whole of `(...)` is captured, then split, because markdown allows a
+			TITLE after the destination — `[text](path "why")`. The pattern used to
+			be `([^)%s]+)`, which stops at the space, so the closing paren never
+			matched and a titled link was invisible to this checker: neither dead
+			nor archived-flagged, just unseen. `tools/relink_archived.py` handled
+			titles from the start, so the two guards disagreed. ]]
+		for start, inside in string.gmatch(prose, "()%[[^%[%]]*%]%(%s*([^)]*)%)") do
 			local _, breaks = string.gsub(string.sub(prose, consumed, start), "\n", "")
 			line += breaks
 			consumed = start
+			-- the destination is the first run of non-space; anything after it is
+			-- the optional title, which points at nothing and is not checked
+			local found = string.match(inside, "^%S+")
+			if found == nil then
+				continue
+			end
+			local target = found :: string
 			if isExternal(target) then
 				continue
 			end
@@ -339,10 +451,28 @@ function check_links.selftest(): { ok: boolean, problems: { string } }
 	local planted = fs.readFile(victim)
 		.. "\n\n[a file that is not there](docs/guide/00-does-not-exist.md)\n"
 		.. "\n[the internal plan](docs/plans/distribution-readiness.md)\n"
-	local result = check_links.check({ fileOverrides = { [victim] = planted } })
+		--[[ ...and the same link WITH A TITLE, which is the form that used to slip
+			through: the destination pattern stopped at the space, so the closing
+			paren never matched and the link was never read at all. ]]
+		.. '\n[the internal plan](docs/handoff/a-handoff.md "why it exists")\n'
+	--[[ ...and a fault in a document the old hand-written scan list DID NOT COVER.
+		`docs/MAINTAINERS.md` ships, carries links, and was checked by nothing
+		until the scanned set was derived from the public allowlist. Planting here
+		is what proves the set really grew, rather than the list merely reading as
+		though it had. ]]
+	local widened = "docs/MAINTAINERS.md"
+	if not fs.isFile(widened) then
+		return { ok = false, problems = { `selftest needs {widened} and it is missing` } }
+	end
+	local plantedWide = fs.readFile(widened) .. "\n\n[a page that is not there](guide/00-no-such-chapter.md)\n"
+
+	local result = check_links.check({
+		fileOverrides = { [victim] = planted, [widened] = plantedWide },
+	})
 
 	local sawDead = false
 	local sawArchived = false
+	local sawTitled = false
 	for _, problem in result.problems do
 		if string.find(problem, "00-does-not-exist.md", 1, true) ~= nil then
 			sawDead = true
@@ -350,12 +480,27 @@ function check_links.selftest(): { ok: boolean, problems: { string } }
 		if string.find(problem, "docs/plans/distribution-readiness.md", 1, true) ~= nil then
 			sawArchived = true
 		end
+		if string.find(problem, "docs/handoff/a-handoff.md", 1, true) ~= nil then
+			sawTitled = true
+		end
 	end
 	if not sawDead then
 		table.insert(problems, "a planted dead link was not reported")
 	end
 	if not sawArchived then
 		table.insert(problems, "a planted link into archived material was not reported")
+	end
+	if not sawTitled then
+		table.insert(problems, "a planted TITLED link into archived material was not reported")
+	end
+	local sawWidened = false
+	for _, problem in result.problems do
+		if string.find(problem, "00-no-such-chapter.md", 1, true) ~= nil then
+			sawWidened = true
+		end
+	end
+	if not sawWidened then
+		table.insert(problems, `a planted dead link in {widened} was not reported — the scanned set is too narrow`)
 	end
 
 	local clean = check_links.check()

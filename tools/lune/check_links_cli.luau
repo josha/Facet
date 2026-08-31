@@ -21,8 +21,9 @@ end
 if wantSelftest then
 	local result = checker.selftest()
 	if result.ok then
-		print("check_links --selftest: PASS — a dead link and an archived-material link are both reported,")
-		print("                        and the tree itself still passes")
+		print("check_links --selftest: PASS — a dead link, an archived-material link, the same link")
+		print("                        carrying a title, and a fault in a document the old hand-written")
+		print("                        scan list missed are all reported; the tree itself still passes")
 		process.exit(0)
 	end
 	print("check_links --selftest: FAIL — the check cannot report a fault it should:")
