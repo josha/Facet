@@ -245,6 +245,29 @@ SUITE_INPUTS = [
 
 RR = "../../../games/RascalRally/code"
 
+#[[ PRODUCERS WHOSE SUBJECT IS THE STAGE RECORD ITSELF.
+#
+#   These validate recorded evidence — a Studio drive, a device or performance
+#   capture, a spike's verdict table, a reviewer's verdict file, a measured row.
+#   Their whole input is a tree the director is about to archive, so after the
+#   deletion they cannot run at all; before it they must not simply vanish.
+#
+#   They become DECLARED-EVIDENCE producers: the converter runs each one now,
+#   records its verdict and the sha256 of every file it read into
+#   `tools/lune/verify/evidence/producer--<id>.json`, and the coordinator serves
+#   that receipt when the files are gone — verifying the hashes against
+#   `../Facet-private-archive/MANIFEST.json` when the archive is beside the
+#   checkout, and REPORTING the row separately when it is not. That is the
+#   contract the plan already sets for every evidence class a headless run
+#   cannot re-take; this applies it to the checkers as well as to the rows. ]]
+EVIDENCE_BOUND = {
+    "check_device_captures", "check_device_sweep", "check_eq6_evidence", "check_matrix_rows",
+    "check_perf_budgets", "check_perf_captures", "check_perf_gate_evidence", "check_perf_metrics",
+    "check_perf_place", "check_perf_scenes", "check_row_actions_matrix", "check_traversal_evidence",
+    "check_xp_matrix", "check_sf_rows", "check_spike", "check_verdicts", "prove_perf_gate",
+    "theme_sync_cli",
+}
+
 # Producers that READ recorded evidence under artifacts/. Declared so a changed
 # capture invalidates the result; a producer that only WRITES under artifacts/
 # needs nothing here, because artifacts/ is not in SOURCE_INPUTS.
@@ -520,6 +543,7 @@ class Producers:
             "serialize": pid in SERIALIZE,
             "timeoutS": TIMEOUTS.get(pid, 600),
             "optional": optional,
+            "declaredEvidence": any(pid == b or pid.startswith(b + "-") for b in EVIDENCE_BOUND),
             "dependsOn": DEPENDS_ON.get(pid, []),
             "note": note,
         }
@@ -1439,6 +1463,53 @@ def main() -> int:
         for line in unresolved:
             print("  " + line, file=sys.stderr)
 
+    #[[ One receipt per declared-evidence producer, with its verdict TAKEN NOW.
+    #   A recorded PASS is only worth anything beside the hashes of what it read,
+    #   so both go in the same file and the coordinator refuses one without the
+    #   other. ]]
+    declared_producers = 0
+    for prod in producers.by_id.values():
+        if not prod.get("declaredEvidence"):
+            continue
+        # ONLY the files in the leaving trees. The broad source-input default
+        # puts README.md and friends on every producer, and a receipt that
+        # listed those would never notice the archive at all.
+        files = []
+        for glob_or_path in list(prod["fixtures"]) + prod["inputs"]:
+            if "*" in glob_or_path or not re.match(ARCHIVAL_TREE, glob_or_path):
+                continue
+            if os.path.isfile(glob_or_path):
+                files.append(glob_or_path)
+        for glob_pat in list(prod["fixtures"]):
+            if "*" not in glob_pat or not re.match(ARCHIVAL_TREE, glob_pat):
+                continue
+            root = glob_pat.split("*")[0].rstrip("/")
+            for dirpath, _dirs, names in os.walk(root):
+                for n in sorted(names):
+                    files.append(os.path.join(dirpath, n))
+        proc = subprocess.run(["bash", "-c", prod["command"]], capture_output=True, text=True)
+        receipt = {
+            "schema": "facet-producer-receipt/1",
+            "producer": prod["id"],
+            "class": prod["environmentClass"],
+            "command": prod["command"],
+            "recordedAt": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "verdict": "PASS" if proc.returncode == 0 else "FAIL",
+            "exitCode": proc.returncode,
+            "evidence": [
+                {
+                    "label": f"evidence-{n}",
+                    "sha256": sha256_file(q) or "absent",
+                    **({"archivedPath": q} if is_publishable(q) else {}),
+                }
+                for n, q in enumerate(sorted(set(files)), 1)
+            ],
+        }
+        with open(os.path.join(receipts_dir, f"producer--{prod['id']}.json"), "w") as fh:
+            json.dump(receipt, fh, indent=1, sort_keys=True)
+            fh.write("\n")
+        declared_producers += 1
+
     graph = {
         "schema": "facet-verify-graph/1",
         "generatedAt": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
@@ -1467,7 +1538,8 @@ def main() -> int:
                 manifest_reqs.update(entry.get("requirements") or [])
     write_coverage(args.coverage, graph, historical, receipts_written, manifest_reqs, internal_clauses,
                    dropped_records)
-    print(f"convert_manifest: {len(rows)} rows, {len(graph['producers'])} producers -> {args.out}")
+    print(f"convert_manifest: {len(rows)} rows, {len(graph['producers'])} producers, "
+          f"{declared_producers} declared-evidence producer receipt(s) -> {args.out}")
     for k, v in sorted(census.items()):
         print(f"    {k:18s} {v}")
     print(f"    {'patterns resolved':18s} {resolved_patterns} -> {resolved_ids} case id references")

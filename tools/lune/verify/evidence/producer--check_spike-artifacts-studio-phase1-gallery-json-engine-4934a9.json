@@ -1,0 +1,16 @@
+{
+ "class": "studio",
+ "command": "python3 tools/check_spike.py artifacts/studio/phase1-gallery.json engine-string-requires=PASS client-bootstrap=PASS real-inputaction-slice=PASS live-env-adaptation=PASS screengui-policy=PASS",
+ "evidence": [
+  {
+   "archivedPath": "artifacts/studio/phase1-gallery.json",
+   "label": "evidence-1",
+   "sha256": "caae526f6d49af50dceb6410c8be298a203c542b42c540ad9a53c4fe4f7a2ed1"
+  }
+ ],
+ "exitCode": 0,
+ "producer": "check_spike-artifacts-studio-phase1-gallery-json-engine-4934a9",
+ "recordedAt": "2026-08-31T00:50:08Z",
+ "schema": "facet-producer-receipt/1",
+ "verdict": "PASS"
+}

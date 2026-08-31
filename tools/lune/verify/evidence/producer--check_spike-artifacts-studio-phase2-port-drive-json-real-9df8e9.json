@@ -1,0 +1,16 @@
+{
+ "class": "studio",
+ "command": "python3 tools/check_spike.py artifacts/studio/phase2-port-drive.json real-mouse=PASS real-keyboard-activate=PASS modal-render=PASS",
+ "evidence": [
+  {
+   "archivedPath": "artifacts/studio/phase2-port-drive.json",
+   "label": "evidence-1",
+   "sha256": "450e340e52e61a3ee194e407a55dc08d91fb60751393a0cbc0f40ab9cf9c7d7e"
+  }
+ ],
+ "exitCode": 0,
+ "producer": "check_spike-artifacts-studio-phase2-port-drive-json-real-9df8e9",
+ "recordedAt": "2026-08-31T00:50:08Z",
+ "schema": "facet-producer-receipt/1",
+ "verdict": "PASS"
+}

@@ -1,0 +1,16 @@
+{
+ "class": "studio",
+ "command": "python3 tools/check_spike.py artifacts/studio/property-authority-spike.json explicit-write-defeats-style style-application-is-signal-silent",
+ "evidence": [
+  {
+   "archivedPath": "artifacts/studio/property-authority-spike.json",
+   "label": "evidence-1",
+   "sha256": "8025ce13a8ec1171eceb3542cedf1993a722e184f23d0a3e7423f9574d55a25a"
+  }
+ ],
+ "exitCode": 0,
+ "producer": "check_spike-artifacts-studio-property-authority-spike-js-0120ab",
+ "recordedAt": "2026-08-31T00:50:08Z",
+ "schema": "facet-producer-receipt/1",
+ "verdict": "PASS"
+}

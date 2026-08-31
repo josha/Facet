@@ -1,0 +1,16 @@
+{
+ "class": "deterministic",
+ "command": "python3 tools/check_sf_rows.py artifacts/sponsor-framework-gaps/rows/sf-d4.json SF-D4",
+ "evidence": [
+  {
+   "archivedPath": "artifacts/sponsor-framework-gaps/rows/sf-d4.json",
+   "label": "evidence-1",
+   "sha256": "dc1c155af8b0cd57a3a6b3b084506e68ac997bbba3b58f00690117dee12ff218"
+  }
+ ],
+ "exitCode": 0,
+ "producer": "check_sf_rows-artifacts-sponsor-framework-gaps-rows-sf-d4-9a25f3",
+ "recordedAt": "2026-08-31T00:50:32Z",
+ "schema": "facet-producer-receipt/1",
+ "verdict": "PASS"
+}

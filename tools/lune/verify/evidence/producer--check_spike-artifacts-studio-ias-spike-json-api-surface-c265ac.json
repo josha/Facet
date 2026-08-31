@@ -1,0 +1,16 @@
+{
+ "class": "studio",
+ "command": "python3 tools/check_spike.py artifacts/studio/ias-spike.json api-surface=PASS fire-requires-scriptable=PASS real-input-priority-sink=PASS scriptable-fire-bypasses-arbitration=PASS_WITH_DESIGN_IMPACT context-disposal-disconnects=PASS",
+ "evidence": [
+  {
+   "archivedPath": "artifacts/studio/ias-spike.json",
+   "label": "evidence-1",
+   "sha256": "6e3708ec089905d8d32d5333587642988cc41b61311c3b39bd1e2de487eae337"
+  }
+ ],
+ "exitCode": 0,
+ "producer": "check_spike-artifacts-studio-ias-spike-json-api-surface-c265ac",
+ "recordedAt": "2026-08-31T00:50:08Z",
+ "schema": "facet-producer-receipt/1",
+ "verdict": "PASS"
+}

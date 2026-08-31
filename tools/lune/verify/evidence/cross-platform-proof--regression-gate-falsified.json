@@ -4,10 +4,10 @@
   {
    "archivedPath": "artifacts/cross-platform-proof/rows/xp-a6-regression-proof.json",
    "label": "evidence-1",
-   "sha256": "42ac39df456c600715e0dc70c7aff735ff161dd7ac28ece88a62492ec6923bf5"
+   "sha256": "48535410cea7a932d49b523b2389a6e72b7a43dadf3a3fd9437f5a8dadfea3d3"
   }
  ],
- "recordedAt": "2026-08-31T00:25:15Z",
+ "recordedAt": "2026-08-31T00:50:07Z",
  "row": "cross-platform-proof::regression-gate-falsified",
  "schema": "facet-evidence-receipt/1",
  "summary": "regression-gate-falsified: 1 recorded studio file(s), pinned by content hash."

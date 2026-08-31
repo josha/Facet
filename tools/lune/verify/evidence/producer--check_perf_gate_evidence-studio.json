@@ -1,0 +1,260 @@
+{
+ "class": "studio",
+ "command": "python3 tools/check_perf_gate_evidence.py studio",
+ "evidence": [
+  {
+   "archivedPath": "artifacts/performance-stress-places/acceptance.md",
+   "label": "evidence-1",
+   "sha256": "a6ee56d6e8a48d54824456a7311d9cefdadfb69a63009e7ff57187e0c4ff4af2"
+  },
+  {
+   "archivedPath": "artifacts/performance-stress-places/captures.json",
+   "label": "evidence-2",
+   "sha256": "562c4c6b39f48b44920821964b0c496fd841d462c5317212b88c1f2986f5776d"
+  },
+  {
+   "archivedPath": "artifacts/performance-stress-places/consumer-impact.md",
+   "label": "evidence-3",
+   "sha256": "745ec2b840387ab7948918453501e0ca318de91b8128349428d313549b6390ac"
+  },
+  {
+   "archivedPath": "artifacts/performance-stress-places/decisions.md",
+   "label": "evidence-4",
+   "sha256": "7dfb9ee8f471e77c2ec4aae10c0b290c6dea0c54d78d67ff71ae824accba4efc"
+  },
+  {
+   "archivedPath": "artifacts/performance-stress-places/device-capture-2026-08-14.md",
+   "label": "evidence-5",
+   "sha256": "71526bafc17249590f674f82c37934dc86dbc710a34a60521c3031fc3d8f89f2"
+  },
+  {
+   "archivedPath": "artifacts/performance-stress-places/device-capture-2026-08-15.md",
+   "label": "evidence-6",
+   "sha256": "dd6fc4f236da3368093c4aef98cf6f0db1c5ba25bfbdabde3022424cfe5b551c"
+  },
+  {
+   "archivedPath": "artifacts/performance-stress-places/fire-tablet-estimate.md",
+   "label": "evidence-7",
+   "sha256": "eab689f4159389cc2a66d1cc78ea78ad340e914a2567ead8e65fcd200e5b01b6"
+  },
+  {
+   "archivedPath": "artifacts/performance-stress-places/gate.json",
+   "label": "evidence-8",
+   "sha256": "d3cfe95a20815000c9151b53f1290f4aaca433f581b34a036bc66b59fa6f7302"
+  },
+  {
+   "archivedPath": "artifacts/performance-stress-places/low-end-target.md",
+   "label": "evidence-9",
+   "sha256": "5a00ef6bb8ff9e60ea583c68328fba539a599b47ca49e169121e16f1d336af18"
+  },
+  {
+   "archivedPath": "artifacts/performance-stress-places/optimization-log.md",
+   "label": "evidence-10",
+   "sha256": "90756e1fd2f5ffaf29f78a0fcd5278a9650a1c654c0eeb60254e2ed1cff6f1fd"
+  },
+  {
+   "archivedPath": "artifacts/performance-stress-places/place.json",
+   "label": "evidence-11",
+   "sha256": "7c15d2df6ec1f229a3f760e4a46a5924fd253ae07e6568f687e3ce7aaae30fa3"
+  },
+  {
+   "archivedPath": "artifacts/performance-stress-places/prior-gates-supplement.md",
+   "label": "evidence-12",
+   "sha256": "4e7f888b6e487242c865577789924dbd8a542a291c234712ec391aba814ab65c"
+  },
+  {
+   "archivedPath": "artifacts/performance-stress-places/prior-gates.txt",
+   "label": "evidence-13",
+   "sha256": "dc4d8e1da39b16e282805820b2e3991503fe36d67b224ab5d8298d9005a1dadb"
+  },
+  {
+   "archivedPath": "artifacts/performance-stress-places/prove-perf-gate.json",
+   "label": "evidence-14",
+   "sha256": "6a2d3f5e9eadb9ca0e4028a36fe164f643eec82b7927e956b4ebdde4c468969e"
+  },
+  {
+   "archivedPath": "artifacts/performance-stress-places/review-packet.md",
+   "label": "evidence-15",
+   "sha256": "1cf8cafe9acc179912434ecc88456d9e553b8de4a57594d5d824f3ca87220117"
+  },
+  {
+   "archivedPath": "artifacts/performance-stress-places/reviews/README.md",
+   "label": "evidence-16",
+   "sha256": "027bdb7955469edd5433cb36eb73a83d8af80d39b80a5f74d213b204933aff6b"
+  },
+  {
+   "archivedPath": "artifacts/performance-stress-places/reviews/architecture.md",
+   "label": "evidence-17",
+   "sha256": "93f2ff117ece85a753344b95fbc8342cb84553fbff5d1dda1bba3d1c9d76588d"
+  },
+  {
+   "archivedPath": "artifacts/performance-stress-places/reviews/phase-gate.md",
+   "label": "evidence-18",
+   "sha256": "7c2df8c576ff1363edde1d8457e9603e0f6d3006b886aca857fff6afd69dc2a1"
+  },
+  {
+   "archivedPath": "artifacts/performance-stress-places/reviews/reactive-runtime.md",
+   "label": "evidence-19",
+   "sha256": "29d948cab482b1f6feed28e817e2ed914f162608612633f444af2f9a46a01ff4"
+  },
+  {
+   "archivedPath": "artifacts/performance-stress-places/reviews/roblox-platform.md",
+   "label": "evidence-20",
+   "sha256": "cf7be35871fc3ececd00340d57972b47db4ef55dfd9b92c2d6197b7a017231bc"
+  },
+  {
+   "archivedPath": "artifacts/performance-stress-places/studio-capture-2026-08-21.md",
+   "label": "evidence-21",
+   "sha256": "69d7b732f6b692263b339dd8579d178723096cc1c6c27600fc5f6c8241b4cef4"
+  },
+  {
+   "archivedPath": "artifacts/performance-stress-places/studio/device-matrix.json",
+   "label": "evidence-22",
+   "sha256": "99c4008a84cbc19d9ca5bf8e456a2dd27d3e427e0e69bc2e51cec99ff9f12a8e"
+  },
+  {
+   "archivedPath": "artifacts/performance-stress-places/studio/perf-lab.json",
+   "label": "evidence-23",
+   "sha256": "e5af6a06181c46664b8a14680a449bb3465f335fc8168432672b052cbb342732"
+  },
+  {
+   "archivedPath": "artifacts/performance-stress-places/studio/pl13-dense-scroll-overlay.png",
+   "label": "evidence-24",
+   "sha256": "7e8476a8f730ccb59163aaeca19fb7ed01d99713dc54c14d4c0994fa91c4a368"
+  },
+  {
+   "archivedPath": "artifacts/performance-stress-places/studio/pl9-capture-set.json",
+   "label": "evidence-25",
+   "sha256": "5e795283d41b15c94a98dff2c211bdeb41d2f1b099799cb8fe765cf51867e4cf"
+  },
+  {
+   "label": "evidence-26",
+   "sha256": "0ba2b710dceaee6115258c8f564649cd509c7091511f926af940f877685c4cae"
+  },
+  {
+   "label": "evidence-27",
+   "sha256": "317a93109e5eb77c01945e61121fbb5f174037b53de558d87a468f095552c653"
+  },
+  {
+   "label": "evidence-28",
+   "sha256": "39a22e60883af2b447f183c79e5e6a79583002890df9bcba0ed8ec2a9d355c07"
+  },
+  {
+   "archivedPath": "artifacts/performance-stress-places/studio/pl9-row3-native-1.json",
+   "label": "evidence-29",
+   "sha256": "6cad377433090e314385a9a93bef65f90d00839be42cfce35de50d1b42100f62"
+  },
+  {
+   "archivedPath": "artifacts/performance-stress-places/studio/pl9-row3-native-2.json",
+   "label": "evidence-30",
+   "sha256": "bd1334496f0bfa97fb6451eb8b66f7b97ca6033a6cbe68ca136d34844ee24cc4"
+  },
+  {
+   "archivedPath": "artifacts/performance-stress-places/studio/pl9-row3-native-3.json",
+   "label": "evidence-31",
+   "sha256": "c25522eaa78086066e7260b433814fae58821464b9de5aca406e9db060bbe123"
+  },
+  {
+   "label": "evidence-32",
+   "sha256": "4dc37f780e8caef1b96bb44aa4c6e5d1187bbacfca7e9591fa670c8ab987b55f"
+  },
+  {
+   "label": "evidence-33",
+   "sha256": "4c728082426613dd757a786d8bf68c1e0069be954e3a2b3c86e9bff33bbf8ff7"
+  },
+  {
+   "label": "evidence-34",
+   "sha256": "1f8c85fcce1fb1ee9793af87ee6fbacdf915256bee74115eb9e158fb5c75fc69"
+  },
+  {
+   "archivedPath": "artifacts/performance-stress-places/studio/pl9-row4-native-1.json",
+   "label": "evidence-35",
+   "sha256": "38b377e8bd32dea3e470b6a42b607ad626bacdd5b69449b38d1f09f811a73369"
+  },
+  {
+   "archivedPath": "artifacts/performance-stress-places/studio/pl9-row4-native-2.json",
+   "label": "evidence-36",
+   "sha256": "9ca7c478c93b90fe00ebab1c35c603f9dcdb38a242e70ddf4df568b582c38b81"
+  },
+  {
+   "archivedPath": "artifacts/performance-stress-places/studio/pl9-row4-native-3.json",
+   "label": "evidence-37",
+   "sha256": "7523b1db65802def69bd0317b7ae8a8fd9a7ff0fb3ed86728c05f35280567547"
+  },
+  {
+   "archivedPath": "artifacts/performance-stress-places/studio/rc-requal-moduleload.json",
+   "label": "evidence-38",
+   "sha256": "49400a06c032e94fe2cf6ca8f599286dbc2bcf9050ff2a764f220b67fdb4af3c"
+  },
+  {
+   "archivedPath": "artifacts/performance-stress-places/studio/rc-requal-row01-idle-baseline.json",
+   "label": "evidence-39",
+   "sha256": "cbf74de21fe7d7e089ebcd8f1354d4280eb34a6492da5c12496aa6bd06b4896f"
+  },
+  {
+   "archivedPath": "artifacts/performance-stress-places/studio/rc-requal-row02-dense-scroll-flat.json",
+   "label": "evidence-40",
+   "sha256": "0c3bfbfa47d0f398f6e425ba7bec90eed5a23aa3d740c35a69b2538d2fd59bbe"
+  },
+  {
+   "archivedPath": "artifacts/performance-stress-places/studio/rc-requal-row03-dense-scroll-native.json",
+   "label": "evidence-41",
+   "sha256": "7f734ed6538d731a75a814d3f851015404b4ac4f3e7b6eb6f04e236524353034"
+  },
+  {
+   "archivedPath": "artifacts/performance-stress-places/studio/rc-requal-row04-dense-scroll-ornate.json",
+   "label": "evidence-42",
+   "sha256": "56055009fcc13a3baadc50f6b5b6309e88a8ed98a34264f1179ab1d8a7f43922"
+  },
+  {
+   "archivedPath": "artifacts/performance-stress-places/studio/rc-requal-row05-layout-style-churn.json",
+   "label": "evidence-43",
+   "sha256": "e8e2b807e95c16b849608c0af13759197124bc03bc39acac1a4b0da719562c76"
+  },
+  {
+   "archivedPath": "artifacts/performance-stress-places/studio/rc-requal-row06-collection-churn.json",
+   "label": "evidence-44",
+   "sha256": "38154fc2caf2eb926d0236b7f817950ebdd70fc0a6ac3b751f76f769a210a12c"
+  },
+  {
+   "archivedPath": "artifacts/performance-stress-places/studio/rc-requal-row07-arrange-shapes.json",
+   "label": "evidence-45",
+   "sha256": "b7258416a9ea6eb273f6ede14a79fa6f5bbab90fbe177dd75a5bf4f142a8b247"
+  },
+  {
+   "archivedPath": "artifacts/performance-stress-places/studio/rc-requal-row08-edit-locality.json",
+   "label": "evidence-46",
+   "sha256": "360bf019178a62b112aafd591b290338b999d093dfedb8860ee63846c158e266"
+  },
+  {
+   "archivedPath": "artifacts/performance-stress-places/studio/rc-requal-row09-host-move.json",
+   "label": "evidence-47",
+   "sha256": "e40368ef4ab30133f17cc5a868cee1fc2c5bbd3cca94f66b5f50307a26e16c19"
+  },
+  {
+   "archivedPath": "artifacts/performance-stress-places/studio/rc-requal-row10-variable-extents.json",
+   "label": "evidence-48",
+   "sha256": "bfdbe3b47c10ec022b01e6a5b6655d799ac9334854f256f0a09460e555eb8bce"
+  },
+  {
+   "archivedPath": "artifacts/performance-stress-places/studio/rc-requal-row11-large-text-overflow.json",
+   "label": "evidence-49",
+   "sha256": "af697bda3505f3d9777785ece4043ee93b4963af69324fcf4cfd0ce2a85704fa"
+  },
+  {
+   "archivedPath": "artifacts/performance-stress-places/studio/rc-requal-row12-async-image-churn.json",
+   "label": "evidence-50",
+   "sha256": "9250e911ca3e19aebe49c7c1ce4fc30d1c2dea05c3a4274789bf7ce45f43b1ab"
+  },
+  {
+   "archivedPath": "artifacts/performance-stress-places/studio/rc-requal-row13-lifecycle-soak.json",
+   "label": "evidence-51",
+   "sha256": "4fb4a6afb91d9d57ad783457a850552c38adda7559af386d0b67e6f1a6b58e55"
+  }
+ ],
+ "exitCode": 0,
+ "producer": "check_perf_gate_evidence-studio",
+ "recordedAt": "2026-08-31T00:50:33Z",
+ "schema": "facet-producer-receipt/1",
+ "verdict": "PASS"
+}

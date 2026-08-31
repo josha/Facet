@@ -1,0 +1,41 @@
+{
+ "class": "studio",
+ "command": "python3 tools/check_traversal_evidence.py",
+ "evidence": [
+  {
+   "archivedPath": "artifacts/traversal-document-order/studio/td13-fixture.png",
+   "label": "evidence-1",
+   "sha256": "18d318817cf120ab6bdb6077d9d186ddc34b709f8cd55d54c499e42ba27f2479"
+  },
+  {
+   "archivedPath": "artifacts/traversal-document-order/studio/td17-slider-focused.png",
+   "label": "evidence-2",
+   "sha256": "a2502c4ae9dc375c71ab4fb85a82c29964f842097bc070904fc33171da4b9e41"
+  },
+  {
+   "archivedPath": "artifacts/traversal-document-order/studio/td19-no-ring-when-passive.png",
+   "label": "evidence-3",
+   "sha256": "81a54c515e544c71f3382ebe87bb25f1fe8fc08cbf6e4811f62117b833c83ea0"
+  },
+  {
+   "archivedPath": "artifacts/traversal-document-order/studio/td22-slider-releases.png",
+   "label": "evidence-4",
+   "sha256": "02840fe9810161435297371b1ffc9440a57a99d64e1837fd175fa3f64d796296"
+  },
+  {
+   "archivedPath": "artifacts/traversal-document-order/studio/td24-resign-near-content.png",
+   "label": "evidence-5",
+   "sha256": "0fe07a6a7254ac1456fe5d74bf3abeb1ec29882f34b21d0b89fd009fa90bef10"
+  },
+  {
+   "archivedPath": "artifacts/traversal-document-order/studio/traversal.json",
+   "label": "evidence-6",
+   "sha256": "ea2e191f0c063c0d0bb404ed46619d63495d122f94aaa033b3c0403b1be87259"
+  }
+ ],
+ "exitCode": 0,
+ "producer": "check_traversal_evidence",
+ "recordedAt": "2026-08-31T00:50:33Z",
+ "schema": "facet-producer-receipt/1",
+ "verdict": "PASS"
+}

@@ -175,6 +175,60 @@ function runner.settle()
 	print(`  verify: load did not settle within {maxWait}s — measuring anyway (recorded)`)
 end
 
+runner.declaredProducers = {} :: { { producer: string, class: string, files: number } }
+
+--[[ Are the files a declared-evidence producer reads still on disk? One absent
+	file is enough: a checker handed half its evidence answers a different
+	question from the one its receipt recorded. ]]
+local ARCHIVAL_ROOTS = { "artifacts/", "docs/plans/", "docs/handoff/", "docs/research/", ".superpowers/" }
+
+local function isArchival(path: string): boolean
+	for _, root in ARCHIVAL_ROOTS do
+		if string.sub(path, 1, #root) == root then
+			return true
+		end
+	end
+	return path == "ui_todo.md"
+end
+
+local function evidencePresent(producer: identity.Producer): boolean
+	local declared = 0
+	local function consider(path: string): boolean
+		if string.find(path, "*", 1, true) or not isArchival(path) then
+			return true
+		end
+		declared += 1
+		return fs.isFile(path) or fs.isDir(path)
+	end
+	for _, path in producer.fixtures or {} do
+		if not consider(path) then
+			return false
+		end
+	end
+	for _, path in producer.inputs do
+		if not consider(path) then
+			return false
+		end
+	end
+	-- A declared-evidence producer with nothing archival left to point at is one
+	-- whose subject is already gone: serve the receipt.
+	return declared > 0
+end
+
+local function readProducerReceipt(pid: string): any
+	local path = `tools/lune/verify/evidence/producer--{pid}.json`
+	if not fs.isFile(path) then
+		return nil
+	end
+	local ok, decoded = pcall(function()
+		return serde.decode("json", fs.readFile(path))
+	end)
+	if not ok or type(decoded) ~= "table" or (decoded :: any).schema ~= "facet-producer-receipt/1" then
+		return nil
+	end
+	return decoded
+end
+
 function runner.execute(producer: identity.Producer, ctx: Context): Outcome
 	local computed = identity.compute(producer, ctx.toolchain)
 	local id = computed.hash
@@ -189,6 +243,40 @@ function runner.execute(producer: identity.Producer, ctx: Context): Outcome
 		environmentClass = producer.environmentClass,
 		command = producer.command,
 	}
+
+	--[[ A DECLARED-EVIDENCE PRODUCER WHOSE SUBJECT HAS BEEN ARCHIVED.
+		Its whole input is the stage record. While the record is on disk it runs
+		like anything else; once the director archives it, it serves the receipt
+		the converter took — the verdict AND the sha256 of every file it read —
+		verified against the private archive's manifest when that archive is
+		beside the checkout, and reported separately when it is not. A recorded
+		PASS on its own would be exactly the "checked-in old PASS" the plan
+		refuses; a recorded PASS beside the hashes of what produced it is the
+		same declared-evidence contract Studio and device results have always
+		had. ]]
+	if (producer :: any).declaredEvidence and not evidencePresent(producer) then
+		local receipt = readProducerReceipt(producer.id)
+		if receipt == nil then
+			base.status = "SKIP_MISSING"
+			base.reason = "its evidence is archived and it has no receipt"
+			trace(ctx.runId, producer, id, "skip-missing")
+			return base
+		end
+		if receipt.verdict ~= "PASS" then
+			base.status = "FAIL"
+			base.reason = `its recorded verdict was {tostring(receipt.verdict)}`
+			trace(ctx.runId, producer, id, "declared")
+			return base
+		end
+		base.reused = true
+		base.reason = `declared evidence: {#receipt.evidence} archived file(s), recorded {receipt.recordedAt}`
+		table.insert(
+			runner.declaredProducers,
+			{ producer = producer.id, class = receipt.class, files = #receipt.evidence }
+		)
+		trace(ctx.runId, producer, id, "declared")
+		return base
+	end
 
 	if not producerScriptExists(producer) then
 		base.status = "SKIP_MISSING"

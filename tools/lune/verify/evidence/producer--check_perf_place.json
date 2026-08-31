@@ -1,0 +1,16 @@
+{
+ "class": "studio",
+ "command": "python3 tools/check_perf_place.py",
+ "evidence": [
+  {
+   "archivedPath": "artifacts/performance-stress-places/place.json",
+   "label": "evidence-1",
+   "sha256": "7c15d2df6ec1f229a3f760e4a46a5924fd253ae07e6568f687e3ce7aaae30fa3"
+  }
+ ],
+ "exitCode": 0,
+ "producer": "check_perf_place",
+ "recordedAt": "2026-08-31T00:50:33Z",
+ "schema": "facet-producer-receipt/1",
+ "verdict": "PASS"
+}

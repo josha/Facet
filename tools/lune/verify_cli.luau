@@ -712,6 +712,16 @@ for _, rr in rowResults do
 end
 
 report.phases(phaseStates)
+if #runner.declaredProducers > 0 then
+	print("\27[1mProducers served from a declared-evidence receipt\27[0m")
+	print(
+		`  \27[2m{#runner.declaredProducers} producer(s) validate recorded evidence that is no longer on disk; each served its recorded verdict and the hashes of what it read.\27[0m`
+	)
+	for _, d in runner.declaredProducers do
+		print(`  \27[2m- {d.producer} ({d.class}, {d.files} archived file(s))\27[0m`)
+	end
+	print("")
+end
 if #declaredEvidenceRows > 0 then
 	print("\27[1mRecorded evidence, reported separately\27[0m")
 	print(

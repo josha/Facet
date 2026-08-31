@@ -1,0 +1,10 @@
+{
+ "class": "deterministic",
+ "command": "python3 tools/check_verdicts.py artifacts/phase-4/opus-verification.json=ALL_REQUIREMENT_AFFECTING_FINDINGS_RESOLVED artifacts/phase-4/opus-runtime-verification.json=ALL_REQUIREMENT_AFFECTING_FINDINGS_RESOLVED artifacts/phase-4/opus-platform-research.json=ALL_REQUIREMENT_AFFECTING_FINDINGS_RESOLVED artifacts/phase-4/opus-architecture-verification.json=ALL_REQUIREMENT_AFFECTING_FINDINGS_RESOLVED artifacts/phase-4/opus-phase-gate-verification.json=ALL_REQUIREMENT_AFFECTING_FINDINGS_RESOLVED",
+ "evidence": [],
+ "exitCode": 0,
+ "producer": "check_verdicts-artifacts-phase-4-opus-verification-json-ALL-6c8acd",
+ "recordedAt": "2026-08-31T00:50:09Z",
+ "schema": "facet-producer-receipt/1",
+ "verdict": "PASS"
+}

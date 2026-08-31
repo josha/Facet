@@ -1,0 +1,10 @@
+{
+ "class": "deterministic",
+ "command": "python3 tools/check_verdicts.py artifacts/phase-0/opus-verification.json=PASS",
+ "evidence": [],
+ "exitCode": 0,
+ "producer": "check_verdicts-artifacts-phase-0-opus-verification-json-PAS-86d658",
+ "recordedAt": "2026-08-31T00:50:08Z",
+ "schema": "facet-producer-receipt/1",
+ "verdict": "PASS"
+}

@@ -1,5 +1,5 @@
 {
- "generatedAt": "2026-08-31T00:32:48Z",
+ "generatedAt": "2026-08-31T00:50:33Z",
  "generatedFrom": {
   "manifest": "tools/lune/gate_manifest.luau",
   "phases": "phases.json",
@@ -208,6 +208,7 @@
  "producers": [
   {
    "command": "lune run tools/lune/_probe_public_surface",
+   "declaredEvidence": false,
    "dependsOn": [],
    "environmentClass": "deterministic",
    "fixtures": [],
@@ -250,6 +251,7 @@
   },
   {
    "command": "tools/bench.sh",
+   "declaredEvidence": false,
    "dependsOn": [],
    "environmentClass": "perf",
    "fixtures": [],
@@ -292,6 +294,7 @@
   },
   {
    "command": "tools/build_model.sh",
+   "declaredEvidence": false,
    "dependsOn": [],
    "environmentClass": "deterministic",
    "fixtures": [],
@@ -333,6 +336,7 @@
   },
   {
    "command": "tools/build_places.sh",
+   "declaredEvidence": false,
    "dependsOn": [],
    "environmentClass": "deterministic",
    "fixtures": [],
@@ -374,6 +378,7 @@
   },
   {
    "command": "tools/build_reference_places.sh",
+   "declaredEvidence": false,
    "dependsOn": [],
    "environmentClass": "deterministic",
    "fixtures": [],
@@ -415,6 +420,7 @@
   },
   {
    "command": "tools/build_themes.sh",
+   "declaredEvidence": false,
    "dependsOn": [],
    "environmentClass": "deterministic",
    "fixtures": [],
@@ -456,6 +462,7 @@
   },
   {
    "command": "python3 tools/build_word_lists.py --check",
+   "declaredEvidence": false,
    "dependsOn": [],
    "environmentClass": "deterministic",
    "fixtures": [],
@@ -498,6 +505,7 @@
   },
   {
    "command": "python3 tools/build_word_lists.py --selftest",
+   "declaredEvidence": false,
    "dependsOn": [],
    "environmentClass": "deterministic",
    "fixtures": [],
@@ -540,6 +548,7 @@
   },
   {
    "command": "lune run tools/lune/check_boundary",
+   "declaredEvidence": false,
    "dependsOn": [],
    "environmentClass": "deterministic",
    "fixtures": [],
@@ -582,6 +591,7 @@
   },
   {
    "command": "python3 tools/check_brand_drift.py",
+   "declaredEvidence": false,
    "dependsOn": [],
    "environmentClass": "deterministic",
    "fixtures": [],
@@ -624,6 +634,7 @@
   },
   {
    "command": "python3 tools/check_brand_drift.py --selftest",
+   "declaredEvidence": false,
    "dependsOn": [],
    "environmentClass": "deterministic",
    "fixtures": [],
@@ -666,6 +677,7 @@
   },
   {
    "command": "python3 tools/check_brand_drift.py --skip-builds",
+   "declaredEvidence": false,
    "dependsOn": [],
    "environmentClass": "deterministic",
    "fixtures": [],
@@ -708,6 +720,7 @@
   },
   {
    "command": "python3 tools/check_call_shape_drift.py",
+   "declaredEvidence": false,
    "dependsOn": [],
    "environmentClass": "deterministic",
    "fixtures": [],
@@ -750,6 +763,7 @@
   },
   {
    "command": "python3 tools/check_call_shape_drift.py --selftest",
+   "declaredEvidence": false,
    "dependsOn": [],
    "environmentClass": "deterministic",
    "fixtures": [],
@@ -792,6 +806,7 @@
   },
   {
    "command": "python3 tools/check_comment_codes.py",
+   "declaredEvidence": false,
    "dependsOn": [],
    "environmentClass": "deterministic",
    "fixtures": [],
@@ -834,6 +849,7 @@
   },
   {
    "command": "python3 tools/check_comment_codes.py --selftest",
+   "declaredEvidence": false,
    "dependsOn": [],
    "environmentClass": "deterministic",
    "fixtures": [],
@@ -876,6 +892,7 @@
   },
   {
    "command": "python3 tools/check_device_captures.py",
+   "declaredEvidence": true,
    "dependsOn": [],
    "environmentClass": "device",
    "fixtures": [
@@ -921,6 +938,7 @@
   },
   {
    "command": "python3 tools/check_device_sweep.py --selftest",
+   "declaredEvidence": true,
    "dependsOn": [],
    "environmentClass": "device",
    "fixtures": [
@@ -965,6 +983,7 @@
   },
   {
    "command": "python3 tools/check_doc_style.py",
+   "declaredEvidence": false,
    "dependsOn": [],
    "environmentClass": "deterministic",
    "fixtures": [],
@@ -1007,6 +1026,7 @@
   },
   {
    "command": "python3 tools/check_doc_style.py --selftest",
+   "declaredEvidence": false,
    "dependsOn": [],
    "environmentClass": "deterministic",
    "fixtures": [],
@@ -1049,6 +1069,7 @@
   },
   {
    "command": "lune run tools/lune/check_docs_cli",
+   "declaredEvidence": false,
    "dependsOn": [],
    "environmentClass": "deterministic",
    "fixtures": [],
@@ -1091,6 +1112,7 @@
   },
   {
    "command": "lune run tools/lune/check_elision_census",
+   "declaredEvidence": false,
    "dependsOn": [],
    "environmentClass": "deterministic",
    "fixtures": [],
@@ -1133,6 +1155,7 @@
   },
   {
    "command": "python3 tools/check_eq6_evidence.py",
+   "declaredEvidence": true,
    "dependsOn": [],
    "environmentClass": "studio",
    "fixtures": [
@@ -1177,6 +1200,7 @@
   },
   {
    "command": "lune run tools/lune/check_example_drift_cli",
+   "declaredEvidence": false,
    "dependsOn": [],
    "environmentClass": "deterministic",
    "fixtures": [],
@@ -1219,6 +1243,7 @@
   },
   {
    "command": "lune run tools/lune/check_flat_baseline",
+   "declaredEvidence": false,
    "dependsOn": [],
    "environmentClass": "deterministic",
    "fixtures": [
@@ -1264,6 +1289,7 @@
   },
   {
    "command": "python3 tools/check_gate_pins.py",
+   "declaredEvidence": false,
    "dependsOn": [],
    "environmentClass": "deterministic",
    "fixtures": [],
@@ -1306,6 +1332,7 @@
   },
   {
    "command": "python3 tools/check_gate_pins.py --selftest",
+   "declaredEvidence": false,
    "dependsOn": [],
    "environmentClass": "deterministic",
    "fixtures": [],
@@ -1348,6 +1375,7 @@
   },
   {
    "command": "python3 tools/check_input_authority.py",
+   "declaredEvidence": false,
    "dependsOn": [],
    "environmentClass": "deterministic",
    "fixtures": [],
@@ -1390,6 +1418,7 @@
   },
   {
    "command": "python3 tools/check_input_authority.py --selftest",
+   "declaredEvidence": false,
    "dependsOn": [],
    "environmentClass": "deterministic",
    "fixtures": [],
@@ -1432,6 +1461,7 @@
   },
   {
    "command": "python3 tools/check_library_purity.py",
+   "declaredEvidence": false,
    "dependsOn": [],
    "environmentClass": "deterministic",
    "fixtures": [],
@@ -1473,6 +1503,7 @@
   },
   {
    "command": "lune run tools/lune/check_links_cli",
+   "declaredEvidence": false,
    "dependsOn": [],
    "environmentClass": "deterministic",
    "fixtures": [],
@@ -1514,6 +1545,7 @@
   },
   {
    "command": "lune run tools/lune/check_links_cli --selftest",
+   "declaredEvidence": false,
    "dependsOn": [],
    "environmentClass": "deterministic",
    "fixtures": [],
@@ -1555,6 +1587,7 @@
   },
   {
    "command": "lune run tools/lune/check_maintainer_map_cli",
+   "declaredEvidence": false,
    "dependsOn": [],
    "environmentClass": "deterministic",
    "fixtures": [],
@@ -1597,6 +1630,7 @@
   },
   {
    "command": "lune run tools/lune/check_maintainer_map_cli -- --selftest",
+   "declaredEvidence": false,
    "dependsOn": [],
    "environmentClass": "deterministic",
    "fixtures": [],
@@ -1639,6 +1673,7 @@
   },
   {
    "command": "python3 tools/check_manifest_integrity.py",
+   "declaredEvidence": false,
    "dependsOn": [
     "suite"
    ],
@@ -1683,6 +1718,7 @@
   },
   {
    "command": "python3 tools/check_manifest_integrity.py --transcript",
+   "declaredEvidence": false,
    "dependsOn": [
     "suite",
     "rascalrally-suite"
@@ -1728,6 +1764,7 @@
   },
   {
    "command": "python3 tools/check_matrix_rows.py",
+   "declaredEvidence": true,
    "dependsOn": [],
    "environmentClass": "studio",
    "fixtures": [
@@ -1772,6 +1809,7 @@
   },
   {
    "command": "python3 tools/check_no_fusion.py",
+   "declaredEvidence": false,
    "dependsOn": [],
    "environmentClass": "deterministic",
    "fixtures": [],
@@ -1813,6 +1851,7 @@
   },
   {
    "command": "python3 tools/check_no_fusion.py --selftest",
+   "declaredEvidence": false,
    "dependsOn": [],
    "environmentClass": "deterministic",
    "fixtures": [],
@@ -1854,6 +1893,7 @@
   },
   {
    "command": "python3 tools/check_no_screen_key_bindings.py",
+   "declaredEvidence": false,
    "dependsOn": [],
    "environmentClass": "deterministic",
    "fixtures": [],
@@ -1896,6 +1936,7 @@
   },
   {
    "command": "python3 tools/check_no_screen_key_bindings.py --selftest",
+   "declaredEvidence": false,
    "dependsOn": [],
    "environmentClass": "deterministic",
    "fixtures": [],
@@ -1938,6 +1979,7 @@
   },
   {
    "command": "python3 tools/check_perf_budgets.py",
+   "declaredEvidence": true,
    "dependsOn": [],
    "environmentClass": "device",
    "fixtures": [
@@ -1983,6 +2025,7 @@
   },
   {
    "command": "python3 tools/check_perf_captures.py",
+   "declaredEvidence": true,
    "dependsOn": [],
    "environmentClass": "device",
    "fixtures": [
@@ -2029,6 +2072,7 @@
   },
   {
    "command": "python3 tools/check_perf_gate_evidence.py budgets",
+   "declaredEvidence": true,
    "dependsOn": [],
    "environmentClass": "studio",
    "fixtures": [
@@ -2073,6 +2117,7 @@
   },
   {
    "command": "python3 tools/check_perf_gate_evidence.py device-matrix",
+   "declaredEvidence": true,
    "dependsOn": [],
    "environmentClass": "studio",
    "fixtures": [
@@ -2117,6 +2162,7 @@
   },
   {
    "command": "python3 tools/check_perf_gate_evidence.py falsifiable",
+   "declaredEvidence": true,
    "dependsOn": [],
    "environmentClass": "studio",
    "fixtures": [
@@ -2161,6 +2207,7 @@
   },
   {
    "command": "python3 tools/check_perf_gate_evidence.py headless-linkage",
+   "declaredEvidence": true,
    "dependsOn": [],
    "environmentClass": "studio",
    "fixtures": [
@@ -2205,6 +2252,7 @@
   },
   {
    "command": "python3 tools/check_perf_gate_evidence.py large-text",
+   "declaredEvidence": true,
    "dependsOn": [],
    "environmentClass": "studio",
    "fixtures": [
@@ -2249,6 +2297,7 @@
   },
   {
    "command": "python3 tools/check_perf_gate_evidence.py native-reference",
+   "declaredEvidence": true,
    "dependsOn": [],
    "environmentClass": "studio",
    "fixtures": [
@@ -2293,6 +2342,7 @@
   },
   {
    "command": "python3 tools/check_perf_gate_evidence.py perf-gate",
+   "declaredEvidence": true,
    "dependsOn": [],
    "environmentClass": "studio",
    "fixtures": [
@@ -2337,6 +2387,7 @@
   },
   {
    "command": "python3 tools/check_perf_gate_evidence.py prior-gates",
+   "declaredEvidence": true,
    "dependsOn": [],
    "environmentClass": "studio",
    "fixtures": [
@@ -2381,6 +2432,7 @@
   },
   {
    "command": "python3 tools/check_perf_gate_evidence.py scopes",
+   "declaredEvidence": true,
    "dependsOn": [],
    "environmentClass": "studio",
    "fixtures": [
@@ -2425,6 +2477,7 @@
   },
   {
    "command": "python3 tools/check_perf_gate_evidence.py studio",
+   "declaredEvidence": true,
    "dependsOn": [],
    "environmentClass": "studio",
    "fixtures": [
@@ -2469,6 +2522,7 @@
   },
   {
    "command": "python3 tools/check_perf_gate_evidence.py theme-cost",
+   "declaredEvidence": true,
    "dependsOn": [],
    "environmentClass": "studio",
    "fixtures": [
@@ -2513,6 +2567,7 @@
   },
   {
    "command": "python3 tools/check_perf_metrics.py",
+   "declaredEvidence": true,
    "dependsOn": [],
    "environmentClass": "device",
    "fixtures": [
@@ -2557,6 +2612,7 @@
   },
   {
    "command": "python3 tools/check_perf_place.py",
+   "declaredEvidence": true,
    "dependsOn": [],
    "environmentClass": "studio",
    "fixtures": [
@@ -2601,6 +2657,7 @@
   },
   {
    "command": "python3 tools/check_perf_scenes.py",
+   "declaredEvidence": true,
    "dependsOn": [],
    "environmentClass": "deterministic",
    "fixtures": [
@@ -2645,6 +2702,7 @@
   },
   {
    "command": "python3 tools/check_perf_scenes.py --themes",
+   "declaredEvidence": true,
    "dependsOn": [],
    "environmentClass": "deterministic",
    "fixtures": [
@@ -2689,6 +2747,7 @@
   },
   {
    "command": "lune run tools/lune/check_prop_parity_cli",
+   "declaredEvidence": false,
    "dependsOn": [],
    "environmentClass": "deterministic",
    "fixtures": [],
@@ -2731,6 +2790,7 @@
   },
   {
    "command": "python3 tools/check_public_allowlist.py",
+   "declaredEvidence": false,
    "dependsOn": [],
    "environmentClass": "deterministic",
    "fixtures": [],
@@ -2772,6 +2832,7 @@
   },
   {
    "command": "lune run tools/lune/check_registration_cli",
+   "declaredEvidence": false,
    "dependsOn": [],
    "environmentClass": "deterministic",
    "fixtures": [],
@@ -2814,6 +2875,7 @@
   },
   {
    "command": "python3 tools/check_reuse_ledger.py",
+   "declaredEvidence": false,
    "dependsOn": [],
    "environmentClass": "deterministic",
    "fixtures": [],
@@ -2856,6 +2918,7 @@
   },
   {
    "command": "python3 tools/check_reuse_ledger.py --selftest",
+   "declaredEvidence": false,
    "dependsOn": [],
    "environmentClass": "deterministic",
    "fixtures": [],
@@ -2898,6 +2961,7 @@
   },
   {
    "command": "python3 tools/check_row_actions_matrix.py",
+   "declaredEvidence": true,
    "dependsOn": [],
    "environmentClass": "device",
    "fixtures": [
@@ -2942,6 +3006,7 @@
   },
   {
    "command": "python3 tools/check_sf_rows.py artifacts/sponsor-framework-gaps/rows/sf-a1.json SF-A1 SF-A2 SF-A3 SF-A4",
+   "declaredEvidence": true,
    "dependsOn": [],
    "environmentClass": "deterministic",
    "fixtures": [
@@ -2966,6 +3031,7 @@
   },
   {
    "command": "python3 tools/check_sf_rows.py artifacts/sponsor-framework-gaps/rows/sf-a4.json SF-A4",
+   "declaredEvidence": true,
    "dependsOn": [],
    "environmentClass": "deterministic",
    "fixtures": [
@@ -2990,6 +3056,7 @@
   },
   {
    "command": "python3 tools/check_sf_rows.py artifacts/sponsor-framework-gaps/rows/sf-c1.json SF-C1",
+   "declaredEvidence": true,
    "dependsOn": [],
    "environmentClass": "deterministic",
    "fixtures": [
@@ -3014,6 +3081,7 @@
   },
   {
    "command": "python3 tools/check_sf_rows.py artifacts/sponsor-framework-gaps/rows/sf-c2.json SF-C2",
+   "declaredEvidence": true,
    "dependsOn": [],
    "environmentClass": "deterministic",
    "fixtures": [
@@ -3038,6 +3106,7 @@
   },
   {
    "command": "python3 tools/check_sf_rows.py artifacts/sponsor-framework-gaps/rows/sf-d1.json SF-D1 SF-D4 SF-D5",
+   "declaredEvidence": true,
    "dependsOn": [],
    "environmentClass": "deterministic",
    "fixtures": [
@@ -3062,6 +3131,7 @@
   },
   {
    "command": "python3 tools/check_sf_rows.py artifacts/sponsor-framework-gaps/rows/sf-d3.json SF-D3",
+   "declaredEvidence": true,
    "dependsOn": [],
    "environmentClass": "deterministic",
    "fixtures": [
@@ -3086,6 +3156,7 @@
   },
   {
    "command": "python3 tools/check_sf_rows.py artifacts/sponsor-framework-gaps/rows/sf-d4.json SF-D4",
+   "declaredEvidence": true,
    "dependsOn": [],
    "environmentClass": "deterministic",
    "fixtures": [
@@ -3110,6 +3181,7 @@
   },
   {
    "command": "python3 tools/check_sf_rows.py artifacts/sponsor-framework-gaps/rows/sf-d5.json SF-D5",
+   "declaredEvidence": true,
    "dependsOn": [],
    "environmentClass": "deterministic",
    "fixtures": [
@@ -3134,6 +3206,7 @@
   },
   {
    "command": "python3 tools/check_sf_rows.py artifacts/sponsor-framework-gaps/rows/sf-f1.json SF-F1",
+   "declaredEvidence": true,
    "dependsOn": [],
    "environmentClass": "deterministic",
    "fixtures": [
@@ -3158,6 +3231,7 @@
   },
   {
    "command": "python3 tools/check_sf_rows.py artifacts/sponsor-framework-gaps/rows/sf-l1.json SF-L1 SF-L3",
+   "declaredEvidence": true,
    "dependsOn": [],
    "environmentClass": "deterministic",
    "fixtures": [
@@ -3182,6 +3256,7 @@
   },
   {
    "command": "python3 tools/check_sf_rows.py artifacts/sponsor-framework-gaps/rows/sf-l2.json SF-L2",
+   "declaredEvidence": true,
    "dependsOn": [],
    "environmentClass": "deterministic",
    "fixtures": [
@@ -3206,6 +3281,7 @@
   },
   {
    "command": "python3 tools/check_sf_rows.py artifacts/sponsor-framework-gaps/rows/sf-l3.json SF-L3",
+   "declaredEvidence": true,
    "dependsOn": [],
    "environmentClass": "deterministic",
    "fixtures": [
@@ -3230,6 +3306,7 @@
   },
   {
    "command": "python3 tools/check_sf_rows.py artifacts/sponsor-framework-gaps/rows/sf-m1.json SF-M1 SF-M2 SF-M3 SF-M7",
+   "declaredEvidence": true,
    "dependsOn": [],
    "environmentClass": "deterministic",
    "fixtures": [
@@ -3254,6 +3331,7 @@
   },
   {
    "command": "python3 tools/check_sf_rows.py artifacts/sponsor-framework-gaps/rows/sf-m2.json SF-M2",
+   "declaredEvidence": true,
    "dependsOn": [],
    "environmentClass": "deterministic",
    "fixtures": [
@@ -3278,6 +3356,7 @@
   },
   {
    "command": "python3 tools/check_sf_rows.py artifacts/sponsor-framework-gaps/rows/sf-m4.json SF-M4",
+   "declaredEvidence": true,
    "dependsOn": [],
    "environmentClass": "deterministic",
    "fixtures": [
@@ -3302,6 +3381,7 @@
   },
   {
    "command": "python3 tools/check_sf_rows.py artifacts/sponsor-framework-gaps/rows/sf-m5.json SF-M5",
+   "declaredEvidence": true,
    "dependsOn": [],
    "environmentClass": "deterministic",
    "fixtures": [
@@ -3326,6 +3406,7 @@
   },
   {
    "command": "python3 tools/check_sf_rows.py artifacts/sponsor-framework-gaps/rows/sf-m6.json SF-M6",
+   "declaredEvidence": true,
    "dependsOn": [],
    "environmentClass": "deterministic",
    "fixtures": [
@@ -3350,6 +3431,7 @@
   },
   {
    "command": "python3 tools/check_sf_rows.py artifacts/sponsor-framework-gaps/rows/sf-m7.json SF-M7",
+   "declaredEvidence": true,
    "dependsOn": [],
    "environmentClass": "deterministic",
    "fixtures": [
@@ -3374,6 +3456,7 @@
   },
   {
    "command": "python3 tools/check_sf_rows.py artifacts/sponsor-framework-gaps/rows/sf-m8.json SF-M8 SF-C4",
+   "declaredEvidence": true,
    "dependsOn": [],
    "environmentClass": "deterministic",
    "fixtures": [
@@ -3398,6 +3481,7 @@
   },
   {
    "command": "python3 tools/check_sf_rows.py artifacts/sponsor-framework-gaps/rows/sf-p1.json SF-P1",
+   "declaredEvidence": true,
    "dependsOn": [],
    "environmentClass": "deterministic",
    "fixtures": [
@@ -3422,6 +3506,7 @@
   },
   {
    "command": "python3 tools/check_sf_rows.py artifacts/sponsor-framework-gaps/rows/sf-p2.json SF-P2",
+   "declaredEvidence": true,
    "dependsOn": [],
    "environmentClass": "deterministic",
    "fixtures": [
@@ -3446,6 +3531,7 @@
   },
   {
    "command": "python3 tools/check_sf_rows.py artifacts/sponsor-framework-gaps/rows/sf-p3.json SF-P3",
+   "declaredEvidence": true,
    "dependsOn": [],
    "environmentClass": "deterministic",
    "fixtures": [
@@ -3470,6 +3556,7 @@
   },
   {
    "command": "python3 tools/check_sf_rows.py artifacts/sponsor-framework-gaps/rows/sf-p4.json SF-P4",
+   "declaredEvidence": true,
    "dependsOn": [],
    "environmentClass": "deterministic",
    "fixtures": [
@@ -3494,6 +3581,7 @@
   },
   {
    "command": "python3 tools/check_sf_rows.py artifacts/sponsor-framework-gaps/rows/sf-p5.json SF-P5",
+   "declaredEvidence": true,
    "dependsOn": [],
    "environmentClass": "deterministic",
    "fixtures": [
@@ -3518,6 +3606,7 @@
   },
   {
    "command": "python3 tools/check_sf_rows.py artifacts/sponsor-framework-gaps/rows/sf-t1.json SF-T1 SF-T2",
+   "declaredEvidence": true,
    "dependsOn": [],
    "environmentClass": "deterministic",
    "fixtures": [
@@ -3542,6 +3631,7 @@
   },
   {
    "command": "python3 tools/check_sf_rows.py artifacts/sponsor-framework-gaps/rows/sf-t2.json SF-T2",
+   "declaredEvidence": true,
    "dependsOn": [],
    "environmentClass": "deterministic",
    "fixtures": [
@@ -3566,6 +3656,7 @@
   },
   {
    "command": "python3 tools/check_sf_rows.py artifacts/sponsor-framework-gaps/rows/sf-t3.json SF-T3",
+   "declaredEvidence": true,
    "dependsOn": [],
    "environmentClass": "deterministic",
    "fixtures": [
@@ -3590,6 +3681,7 @@
   },
   {
    "command": "python3 tools/check_sf_rows.py artifacts/sponsor-framework-gaps/rows/sf-w1.json SF-W1",
+   "declaredEvidence": true,
    "dependsOn": [],
    "environmentClass": "deterministic",
    "fixtures": [
@@ -3614,6 +3706,7 @@
   },
   {
    "command": "python3 tools/check_source_size.py",
+   "declaredEvidence": false,
    "dependsOn": [],
    "environmentClass": "deterministic",
    "fixtures": [],
@@ -3656,6 +3749,7 @@
   },
   {
    "command": "python3 tools/check_spike.py artifacts/declarative-3d-architecture/costs.json mount-100-item-keyed-collection=MEASURED single-reactive-update=MEASURED keyed-remove-10-of-100=MEASURED keyed-reorder-full-reversal=MEASURED welded-assembly-move-20-parts=MEASURED model-pivot-move-11-instances=MEASURED teardown=MEASURED",
+   "declaredEvidence": true,
    "dependsOn": [],
    "environmentClass": "studio",
    "fixtures": [
@@ -3680,6 +3774,7 @@
   },
   {
    "command": "python3 tools/check_spike.py artifacts/declarative-3d-architecture/studio-topology.json server-root-once=PASS keyed-collection-mount=PASS client-root-once=PASS no-double-build=PASS client-root-invisible-to-server=PASS server-roots-alive-on-server=PASS anchor-created=PASS client-decoration-bound=PASS streaming-like-loss=PASS streaming-like-reentry=PASS streaming-like-second-cycle=PASS keyed-remove-survivors=PASS keyed-reorder-zero-churn=PASS single-update-bounded=PASS assembly-move-one-write=PASS assembly-welded-ride-engine-truth=PASS model-pivot-one-native-move=PASS external-destroy-tolerated=PASS destroy-cleanup=PASS",
+   "declaredEvidence": true,
    "dependsOn": [],
    "environmentClass": "studio",
    "fixtures": [
@@ -3704,6 +3799,7 @@
   },
   {
    "command": "python3 tools/check_spike.py artifacts/studio/expansion-textinput-probe.json reflection-TextInputType-security-locked reflection-Enum-TextInputType-values focus-lifecycle-round-trip handshake-gameProcessedEvent-while-focused handshake-negative-control",
+   "declaredEvidence": true,
    "dependsOn": [],
    "environmentClass": "studio",
    "fixtures": [
@@ -3728,6 +3824,7 @@
   },
   {
    "command": "python3 tools/check_spike.py artifacts/studio/ias-spike.json api-surface=PASS fire-requires-scriptable=PASS real-input-priority-sink=PASS scriptable-fire-bypasses-arbitration=PASS_WITH_DESIGN_IMPACT context-disposal-disconnects=PASS",
+   "declaredEvidence": true,
    "dependsOn": [],
    "environmentClass": "studio",
    "fixtures": [
@@ -3752,6 +3849,7 @@
   },
   {
    "command": "python3 tools/check_spike.py artifacts/studio/part2-table-phaseb.json \"plain mouse click replaces selection=PASS\" \"ctrl-click toggles into multi selection=PASS\" \"shift-click extends contiguous range=PASS\" \"grip drag=PASS\" \"row drag-and-drop=PASS\" \"keyboard focus navigation through real IAS bindings=PASS\"",
+   "declaredEvidence": true,
    "dependsOn": [],
    "environmentClass": "studio",
    "fixtures": [
@@ -3776,6 +3874,7 @@
   },
   {
    "command": "python3 tools/check_spike.py artifacts/studio/phase1-gallery.json engine-string-requires=PASS client-bootstrap=PASS real-inputaction-slice=PASS live-env-adaptation=PASS screengui-policy=PASS",
+   "declaredEvidence": true,
    "dependsOn": [],
    "environmentClass": "studio",
    "fixtures": [
@@ -3800,6 +3899,7 @@
   },
   {
    "command": "python3 tools/check_spike.py artifacts/studio/phase2-port-drive.json flag-gating=PASS gear-topbar-dock=PASS modal-render=PASS real-mouse=PASS real-keyboard-activate=PASS server-persistence-roundtrip=PASS D1-escape=RESOLVED",
+   "declaredEvidence": true,
    "dependsOn": [],
    "environmentClass": "studio",
    "fixtures": [
@@ -3824,6 +3924,7 @@
   },
   {
    "command": "python3 tools/check_spike.py artifacts/studio/phase2-port-drive.json real-mouse=PASS real-keyboard-activate=PASS modal-render=PASS",
+   "declaredEvidence": true,
    "dependsOn": [],
    "environmentClass": "studio",
    "fixtures": [
@@ -3848,6 +3949,7 @@
   },
   {
    "command": "python3 tools/check_spike.py artifacts/studio/property-authority-spike.json explicit-write-defeats-style style-application-is-signal-silent",
+   "declaredEvidence": true,
    "dependsOn": [],
    "environmentClass": "studio",
    "fixtures": [
@@ -3872,6 +3974,7 @@
   },
   {
    "command": "lune run tools/lune/check_surface_ledger",
+   "declaredEvidence": false,
    "dependsOn": [],
    "environmentClass": "deterministic",
    "fixtures": [
@@ -3916,6 +4019,7 @@
   },
   {
    "command": "lune run tools/lune/check_theme_drift_cli",
+   "declaredEvidence": false,
    "dependsOn": [],
    "environmentClass": "deterministic",
    "fixtures": [],
@@ -3958,6 +4062,7 @@
   },
   {
    "command": "python3 tools/check_traversal_evidence.py",
+   "declaredEvidence": true,
    "dependsOn": [],
    "environmentClass": "studio",
    "fixtures": [
@@ -4002,6 +4107,7 @@
   },
   {
    "command": "python3 tools/check_types.py",
+   "declaredEvidence": false,
    "dependsOn": [],
    "environmentClass": "deterministic",
    "fixtures": [
@@ -4046,6 +4152,7 @@
   },
   {
    "command": "python3 tools/check_types.py --selftest",
+   "declaredEvidence": false,
    "dependsOn": [],
    "environmentClass": "deterministic",
    "fixtures": [
@@ -4090,6 +4197,7 @@
   },
   {
    "command": "python3 tools/check_verdicts.py artifacts/expansion-textinput/platform-research.json=FINDINGS artifacts/expansion-textinput/runtime-verification.json=PASS artifacts/expansion-textinput/architecture-verification.json=PASS artifacts/expansion-textinput/phase-gate-verification.json=PASS",
+   "declaredEvidence": true,
    "dependsOn": [],
    "environmentClass": "deterministic",
    "fixtures": [],
@@ -4132,6 +4240,7 @@
   },
   {
    "command": "python3 tools/check_verdicts.py artifacts/part-2/opus-verification.json=PASS \"artifacts/part-2/opus-ws1-verification.json=ALL requirement-affecting findings resolved\" \"artifacts/part-2/opus-ws2-verification.json=ALL requirement-affecting findings resolved\" \"artifacts/part-2/opus-ws3-verification.json=ALL requirement-affecting findings resolved\" \"artifacts/part-2/opus-ws4-verification.json=ALL requirement-affecting findings resolved\"",
+   "declaredEvidence": true,
    "dependsOn": [],
    "environmentClass": "deterministic",
    "fixtures": [],
@@ -4174,6 +4283,7 @@
   },
   {
    "command": "python3 tools/check_verdicts.py artifacts/phase-0/opus-verification.json=PASS",
+   "declaredEvidence": true,
    "dependsOn": [],
    "environmentClass": "deterministic",
    "fixtures": [],
@@ -4216,6 +4326,7 @@
   },
   {
    "command": "python3 tools/check_verdicts.py artifacts/phase-1/opus-verification.json=PASS",
+   "declaredEvidence": true,
    "dependsOn": [],
    "environmentClass": "deterministic",
    "fixtures": [],
@@ -4258,6 +4369,7 @@
   },
   {
    "command": "python3 tools/check_verdicts.py artifacts/phase-2/opus-verification.json=PASS",
+   "declaredEvidence": true,
    "dependsOn": [],
    "environmentClass": "deterministic",
    "fixtures": [],
@@ -4300,6 +4412,7 @@
   },
   {
    "command": "python3 tools/check_verdicts.py artifacts/phase-3/opus-verification.json=PASS",
+   "declaredEvidence": true,
    "dependsOn": [],
    "environmentClass": "deterministic",
    "fixtures": [],
@@ -4342,6 +4455,7 @@
   },
   {
    "command": "python3 tools/check_verdicts.py artifacts/phase-4/opus-verification.json=ALL_REQUIREMENT_AFFECTING_FINDINGS_RESOLVED artifacts/phase-4/opus-runtime-verification.json=ALL_REQUIREMENT_AFFECTING_FINDINGS_RESOLVED artifacts/phase-4/opus-platform-research.json=ALL_REQUIREMENT_AFFECTING_FINDINGS_RESOLVED artifacts/phase-4/opus-architecture-verification.json=ALL_REQUIREMENT_AFFECTING_FINDINGS_RESOLVED artifacts/phase-4/opus-phase-gate-verification.json=ALL_REQUIREMENT_AFFECTING_FINDINGS_RESOLVED",
+   "declaredEvidence": true,
    "dependsOn": [],
    "environmentClass": "deterministic",
    "fixtures": [],
@@ -4384,6 +4498,7 @@
   },
   {
    "command": "python3 tools/check_xp_matrix.py",
+   "declaredEvidence": true,
    "dependsOn": [],
    "environmentClass": "device",
    "fixtures": [
@@ -4428,6 +4543,7 @@
   },
   {
    "command": "lune run tests/conformance/cli custom --require-all-pass",
+   "declaredEvidence": false,
    "dependsOn": [],
    "environmentClass": "deterministic",
    "fixtures": [],
@@ -4470,6 +4586,7 @@
   },
   {
    "command": "lune run tests/conformance/cli imperative",
+   "declaredEvidence": false,
    "dependsOn": [],
    "environmentClass": "deterministic",
    "fixtures": [],
@@ -4512,6 +4629,7 @@
   },
   {
    "command": "lune run tests/conformance/corpus_cli",
+   "declaredEvidence": false,
    "dependsOn": [],
    "environmentClass": "deterministic",
    "fixtures": [],
@@ -4554,6 +4672,7 @@
   },
   {
    "command": "tools/doctor.sh",
+   "declaredEvidence": false,
    "dependsOn": [],
    "environmentClass": "deterministic",
    "fixtures": [],
@@ -4595,6 +4714,7 @@
   },
   {
    "command": "tools/faults.sh",
+   "declaredEvidence": false,
    "dependsOn": [],
    "environmentClass": "deterministic",
    "fixtures": [],
@@ -4636,6 +4756,7 @@
   },
   {
    "command": "tools/fuzz.sh layout",
+   "declaredEvidence": false,
    "dependsOn": [],
    "environmentClass": "deterministic",
    "fixtures": [],
@@ -4677,6 +4798,7 @@
   },
   {
    "command": "tools/fuzz.sh replication",
+   "declaredEvidence": false,
    "dependsOn": [],
    "environmentClass": "deterministic",
    "fixtures": [],
@@ -4718,6 +4840,7 @@
   },
   {
    "command": "tools/fuzz.sh scheduler",
+   "declaredEvidence": false,
    "dependsOn": [],
    "environmentClass": "deterministic",
    "fixtures": [],
@@ -4759,6 +4882,7 @@
   },
   {
    "command": "tools/package.sh verify",
+   "declaredEvidence": false,
    "dependsOn": [],
    "environmentClass": "package",
    "fixtures": [],
@@ -4800,6 +4924,7 @@
   },
   {
    "command": "tools/perf.sh",
+   "declaredEvidence": false,
    "dependsOn": [],
    "environmentClass": "perf",
    "fixtures": [],
@@ -4842,6 +4967,7 @@
   },
   {
    "command": "lune run tools/lune/prove_perf_gate",
+   "declaredEvidence": true,
    "dependsOn": [],
    "environmentClass": "perf",
    "fixtures": [
@@ -4887,6 +5013,7 @@
   },
   {
    "command": "cd ../../../games/RascalRally/code && tools/suite_transcript.sh",
+   "declaredEvidence": false,
    "dependsOn": [],
    "environmentClass": "external",
    "fixtures": [],
@@ -4910,6 +5037,7 @@
   },
   {
    "command": "tools/render.sh",
+   "declaredEvidence": false,
    "dependsOn": [],
    "environmentClass": "perf",
    "fixtures": [],
@@ -4952,6 +5080,7 @@
   },
   {
    "command": "tools/soak.sh",
+   "declaredEvidence": false,
    "dependsOn": [],
    "environmentClass": "deterministic",
    "fixtures": [],
@@ -4993,6 +5122,7 @@
   },
   {
    "command": "stylua --check src tests tools bench examples",
+   "declaredEvidence": false,
    "dependsOn": [],
    "environmentClass": "deterministic",
    "fixtures": [],
@@ -5034,6 +5164,7 @@
   },
   {
    "command": "stylua --check src tests tools examples",
+   "declaredEvidence": false,
    "dependsOn": [],
    "environmentClass": "deterministic",
    "fixtures": [],
@@ -5075,6 +5206,7 @@
   },
   {
    "command": "./run-tests.sh",
+   "declaredEvidence": false,
    "dependsOn": [],
    "environmentClass": "deterministic",
    "fixtures": [],
@@ -5107,6 +5239,7 @@
   },
   {
    "command": "./run-tests.sh --fast",
+   "declaredEvidence": false,
    "dependsOn": [],
    "environmentClass": "deterministic",
    "fixtures": [],
@@ -5139,6 +5272,7 @@
   },
   {
    "command": "tools/suite_cache_selftest.sh",
+   "declaredEvidence": false,
    "dependsOn": [
     "suite"
    ],
@@ -5183,6 +5317,7 @@
   },
   {
    "command": "lune run tools/lune/theme_sync_cli -- --dump artifacts/theme-packages-and-skinning/theme-sync/parchment-live-dump.json --package examples/themes/fantasy_parchment.luau --check",
+   "declaredEvidence": true,
    "dependsOn": [],
    "environmentClass": "deterministic",
    "fixtures": [
@@ -5208,6 +5343,7 @@
   },
   {
    "command": "lune run tools/lune/verify/selftest",
+   "declaredEvidence": false,
    "dependsOn": [],
    "environmentClass": "deterministic",
    "fixtures": [],

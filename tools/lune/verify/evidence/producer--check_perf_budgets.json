@@ -1,0 +1,21 @@
+{
+ "class": "device",
+ "command": "python3 tools/check_perf_budgets.py",
+ "evidence": [
+  {
+   "archivedPath": "artifacts/cross-platform-proof/device/studio-emulated.json",
+   "label": "evidence-1",
+   "sha256": "8b658af5cb60b024a22b5fb0b3f9b7d9e0f54128bab981e0c524004bef2b69fb"
+  },
+  {
+   "archivedPath": "artifacts/phase-4/perf.json",
+   "label": "evidence-2",
+   "sha256": "415b36c2b252d6973359e4917732f3ce8ed90e20759e635b6af616caa71ad7a8"
+  }
+ ],
+ "exitCode": 0,
+ "producer": "check_perf_budgets",
+ "recordedAt": "2026-08-31T00:50:09Z",
+ "schema": "facet-producer-receipt/1",
+ "verdict": "PASS"
+}

@@ -1,0 +1,10 @@
+{
+ "class": "deterministic",
+ "command": "python3 tools/check_verdicts.py artifacts/expansion-textinput/platform-research.json=FINDINGS artifacts/expansion-textinput/runtime-verification.json=PASS artifacts/expansion-textinput/architecture-verification.json=PASS artifacts/expansion-textinput/phase-gate-verification.json=PASS",
+ "evidence": [],
+ "exitCode": 0,
+ "producer": "check_verdicts-artifacts-expansion-textinput-platform-resea-b2e918",
+ "recordedAt": "2026-08-31T00:50:09Z",
+ "schema": "facet-producer-receipt/1",
+ "verdict": "PASS"
+}

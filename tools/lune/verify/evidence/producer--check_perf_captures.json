@@ -1,0 +1,165 @@
+{
+ "class": "device",
+ "command": "python3 tools/check_perf_captures.py",
+ "evidence": [
+  {
+   "archivedPath": "artifacts/cross-platform-proof/device/studio-emulated.json",
+   "label": "evidence-1",
+   "sha256": "8b658af5cb60b024a22b5fb0b3f9b7d9e0f54128bab981e0c524004bef2b69fb"
+  },
+  {
+   "archivedPath": "artifacts/performance-stress-places/acceptance.md",
+   "label": "evidence-2",
+   "sha256": "a6ee56d6e8a48d54824456a7311d9cefdadfb69a63009e7ff57187e0c4ff4af2"
+  },
+  {
+   "archivedPath": "artifacts/performance-stress-places/studio/device-matrix.json",
+   "label": "evidence-3",
+   "sha256": "99c4008a84cbc19d9ca5bf8e456a2dd27d3e427e0e69bc2e51cec99ff9f12a8e"
+  },
+  {
+   "archivedPath": "artifacts/performance-stress-places/studio/perf-lab.json",
+   "label": "evidence-4",
+   "sha256": "e5af6a06181c46664b8a14680a449bb3465f335fc8168432672b052cbb342732"
+  },
+  {
+   "archivedPath": "artifacts/performance-stress-places/studio/pl13-dense-scroll-overlay.png",
+   "label": "evidence-5",
+   "sha256": "7e8476a8f730ccb59163aaeca19fb7ed01d99713dc54c14d4c0994fa91c4a368"
+  },
+  {
+   "archivedPath": "artifacts/performance-stress-places/studio/pl9-capture-set.json",
+   "label": "evidence-6",
+   "sha256": "5e795283d41b15c94a98dff2c211bdeb41d2f1b099799cb8fe765cf51867e4cf"
+  },
+  {
+   "label": "evidence-7",
+   "sha256": "0ba2b710dceaee6115258c8f564649cd509c7091511f926af940f877685c4cae"
+  },
+  {
+   "label": "evidence-8",
+   "sha256": "317a93109e5eb77c01945e61121fbb5f174037b53de558d87a468f095552c653"
+  },
+  {
+   "label": "evidence-9",
+   "sha256": "39a22e60883af2b447f183c79e5e6a79583002890df9bcba0ed8ec2a9d355c07"
+  },
+  {
+   "archivedPath": "artifacts/performance-stress-places/studio/pl9-row3-native-1.json",
+   "label": "evidence-10",
+   "sha256": "6cad377433090e314385a9a93bef65f90d00839be42cfce35de50d1b42100f62"
+  },
+  {
+   "archivedPath": "artifacts/performance-stress-places/studio/pl9-row3-native-2.json",
+   "label": "evidence-11",
+   "sha256": "bd1334496f0bfa97fb6451eb8b66f7b97ca6033a6cbe68ca136d34844ee24cc4"
+  },
+  {
+   "archivedPath": "artifacts/performance-stress-places/studio/pl9-row3-native-3.json",
+   "label": "evidence-12",
+   "sha256": "c25522eaa78086066e7260b433814fae58821464b9de5aca406e9db060bbe123"
+  },
+  {
+   "label": "evidence-13",
+   "sha256": "4dc37f780e8caef1b96bb44aa4c6e5d1187bbacfca7e9591fa670c8ab987b55f"
+  },
+  {
+   "label": "evidence-14",
+   "sha256": "4c728082426613dd757a786d8bf68c1e0069be954e3a2b3c86e9bff33bbf8ff7"
+  },
+  {
+   "label": "evidence-15",
+   "sha256": "1f8c85fcce1fb1ee9793af87ee6fbacdf915256bee74115eb9e158fb5c75fc69"
+  },
+  {
+   "archivedPath": "artifacts/performance-stress-places/studio/pl9-row4-native-1.json",
+   "label": "evidence-16",
+   "sha256": "38b377e8bd32dea3e470b6a42b607ad626bacdd5b69449b38d1f09f811a73369"
+  },
+  {
+   "archivedPath": "artifacts/performance-stress-places/studio/pl9-row4-native-2.json",
+   "label": "evidence-17",
+   "sha256": "9ca7c478c93b90fe00ebab1c35c603f9dcdb38a242e70ddf4df568b582c38b81"
+  },
+  {
+   "archivedPath": "artifacts/performance-stress-places/studio/pl9-row4-native-3.json",
+   "label": "evidence-18",
+   "sha256": "7523b1db65802def69bd0317b7ae8a8fd9a7ff0fb3ed86728c05f35280567547"
+  },
+  {
+   "archivedPath": "artifacts/performance-stress-places/studio/rc-requal-moduleload.json",
+   "label": "evidence-19",
+   "sha256": "49400a06c032e94fe2cf6ca8f599286dbc2bcf9050ff2a764f220b67fdb4af3c"
+  },
+  {
+   "archivedPath": "artifacts/performance-stress-places/studio/rc-requal-row01-idle-baseline.json",
+   "label": "evidence-20",
+   "sha256": "cbf74de21fe7d7e089ebcd8f1354d4280eb34a6492da5c12496aa6bd06b4896f"
+  },
+  {
+   "archivedPath": "artifacts/performance-stress-places/studio/rc-requal-row02-dense-scroll-flat.json",
+   "label": "evidence-21",
+   "sha256": "0c3bfbfa47d0f398f6e425ba7bec90eed5a23aa3d740c35a69b2538d2fd59bbe"
+  },
+  {
+   "archivedPath": "artifacts/performance-stress-places/studio/rc-requal-row03-dense-scroll-native.json",
+   "label": "evidence-22",
+   "sha256": "7f734ed6538d731a75a814d3f851015404b4ac4f3e7b6eb6f04e236524353034"
+  },
+  {
+   "archivedPath": "artifacts/performance-stress-places/studio/rc-requal-row04-dense-scroll-ornate.json",
+   "label": "evidence-23",
+   "sha256": "56055009fcc13a3baadc50f6b5b6309e88a8ed98a34264f1179ab1d8a7f43922"
+  },
+  {
+   "archivedPath": "artifacts/performance-stress-places/studio/rc-requal-row05-layout-style-churn.json",
+   "label": "evidence-24",
+   "sha256": "e8e2b807e95c16b849608c0af13759197124bc03bc39acac1a4b0da719562c76"
+  },
+  {
+   "archivedPath": "artifacts/performance-stress-places/studio/rc-requal-row06-collection-churn.json",
+   "label": "evidence-25",
+   "sha256": "38154fc2caf2eb926d0236b7f817950ebdd70fc0a6ac3b751f76f769a210a12c"
+  },
+  {
+   "archivedPath": "artifacts/performance-stress-places/studio/rc-requal-row07-arrange-shapes.json",
+   "label": "evidence-26",
+   "sha256": "b7258416a9ea6eb273f6ede14a79fa6f5bbab90fbe177dd75a5bf4f142a8b247"
+  },
+  {
+   "archivedPath": "artifacts/performance-stress-places/studio/rc-requal-row08-edit-locality.json",
+   "label": "evidence-27",
+   "sha256": "360bf019178a62b112aafd591b290338b999d093dfedb8860ee63846c158e266"
+  },
+  {
+   "archivedPath": "artifacts/performance-stress-places/studio/rc-requal-row09-host-move.json",
+   "label": "evidence-28",
+   "sha256": "e40368ef4ab30133f17cc5a868cee1fc2c5bbd3cca94f66b5f50307a26e16c19"
+  },
+  {
+   "archivedPath": "artifacts/performance-stress-places/studio/rc-requal-row10-variable-extents.json",
+   "label": "evidence-29",
+   "sha256": "bfdbe3b47c10ec022b01e6a5b6655d799ac9334854f256f0a09460e555eb8bce"
+  },
+  {
+   "archivedPath": "artifacts/performance-stress-places/studio/rc-requal-row11-large-text-overflow.json",
+   "label": "evidence-30",
+   "sha256": "af697bda3505f3d9777785ece4043ee93b4963af69324fcf4cfd0ce2a85704fa"
+  },
+  {
+   "archivedPath": "artifacts/performance-stress-places/studio/rc-requal-row12-async-image-churn.json",
+   "label": "evidence-31",
+   "sha256": "9250e911ca3e19aebe49c7c1ce4fc30d1c2dea05c3a4274789bf7ce45f43b1ab"
+  },
+  {
+   "archivedPath": "artifacts/performance-stress-places/studio/rc-requal-row13-lifecycle-soak.json",
+   "label": "evidence-32",
+   "sha256": "4fb4a6afb91d9d57ad783457a850552c38adda7559af386d0b67e6f1a6b58e55"
+  }
+ ],
+ "exitCode": 0,
+ "producer": "check_perf_captures",
+ "recordedAt": "2026-08-31T00:50:33Z",
+ "schema": "facet-producer-receipt/1",
+ "verdict": "PASS"
+}

@@ -1,0 +1,16 @@
+{
+ "class": "deterministic",
+ "command": "lune run tools/lune/theme_sync_cli -- --dump artifacts/theme-packages-and-skinning/theme-sync/parchment-live-dump.json --package examples/themes/fantasy_parchment.luau --check",
+ "evidence": [
+  {
+   "archivedPath": "artifacts/theme-packages-and-skinning/theme-sync/parchment-live-dump.json",
+   "label": "evidence-1",
+   "sha256": "0d6d86715df81c40b3a1e7ee37c739e6eaca4717c67ecead47027955b36efcd1"
+  }
+ ],
+ "exitCode": 0,
+ "producer": "theme_sync_cli-dump-artifacts-theme-packages-and-skinning-t-6f81a3",
+ "recordedAt": "2026-08-31T00:50:09Z",
+ "schema": "facet-producer-receipt/1",
+ "verdict": "PASS"
+}

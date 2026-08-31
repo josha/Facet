@@ -1,0 +1,21 @@
+{
+ "class": "perf",
+ "command": "lune run tools/lune/prove_perf_gate",
+ "evidence": [
+  {
+   "archivedPath": "artifacts/cross-platform-proof/rows/xp-a6-regression-proof.json",
+   "label": "evidence-1",
+   "sha256": "3f7b28a0a32e4444a4535c7ccde858ef5b7aac8dcbdb8d1e6b5428e163038306"
+  },
+  {
+   "archivedPath": "artifacts/phase-4/perf.json",
+   "label": "evidence-2",
+   "sha256": "bfba309a1b39c76f1daae84d950ab605231ced8e8faf4f05a5d76e860460df95"
+  }
+ ],
+ "exitCode": 0,
+ "producer": "prove_perf_gate",
+ "recordedAt": "2026-08-31T00:50:32Z",
+ "schema": "facet-producer-receipt/1",
+ "verdict": "PASS"
+}
