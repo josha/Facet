@@ -40,7 +40,7 @@
   {
    "archivedPath": "artifacts/performance-stress-places/gate.json",
    "label": "evidence-8",
-   "sha256": "d3cfe95a20815000c9151b53f1290f4aaca433f581b34a036bc66b59fa6f7302"
+   "sha256": "5b8fb0e8e66ca34c611b7c8cede78f5acb93e141f11dca55775518b6e12009f3"
   },
   {
    "archivedPath": "artifacts/performance-stress-places/low-end-target.md",
@@ -254,7 +254,7 @@
  ],
  "exitCode": 0,
  "producer": "check_perf_gate_evidence-large-text",
- "recordedAt": "2026-08-31T00:50:33Z",
+ "recordedAt": "2026-08-31T01:16:57Z",
  "schema": "facet-producer-receipt/1",
  "verdict": "PASS"
 }

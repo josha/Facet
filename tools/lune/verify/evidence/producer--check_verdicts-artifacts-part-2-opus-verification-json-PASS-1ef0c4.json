@@ -4,7 +4,7 @@
  "evidence": [],
  "exitCode": 0,
  "producer": "check_verdicts-artifacts-part-2-opus-verification-json-PASS-1ef0c4",
- "recordedAt": "2026-08-31T00:50:09Z",
+ "recordedAt": "2026-08-31T01:16:31Z",
  "schema": "facet-producer-receipt/1",
  "verdict": "PASS"
 }

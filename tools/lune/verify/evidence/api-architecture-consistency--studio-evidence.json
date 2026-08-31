@@ -7,7 +7,7 @@
    "sha256": "c12395710ff2a8bf8beb474613c76461c056db26cd016a8f35ef0b04b9716257"
   }
  ],
- "recordedAt": "2026-08-31T00:50:07Z",
+ "recordedAt": "2026-08-31T01:16:29Z",
  "row": "api-architecture-consistency::studio-evidence",
  "schema": "facet-evidence-receipt/1",
  "summary": "studio-evidence: 1 recorded studio file(s), pinned by content hash."

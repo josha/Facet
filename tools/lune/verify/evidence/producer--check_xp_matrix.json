@@ -40,7 +40,7 @@
   {
    "archivedPath": "artifacts/cross-platform-proof/gate.json",
    "label": "evidence-8",
-   "sha256": "b04703c47cc5b18ae5bd6f02d4975240f2424fd75c636e0d6ab2518d0d822716"
+   "sha256": "af4fab8450f00069dff6454c1a2f886a52c222fda2e3ac7b15ac243515ce3c1d"
   },
   {
    "archivedPath": "artifacts/cross-platform-proof/matrix.json",
@@ -110,7 +110,7 @@
   {
    "archivedPath": "artifacts/cross-platform-proof/rows/xp-a6-regression-proof.json",
    "label": "evidence-22",
-   "sha256": "3f7b28a0a32e4444a4535c7ccde858ef5b7aac8dcbdb8d1e6b5428e163038306"
+   "sha256": "7087780f2c8ae6983e523bb66ad71e752332edbd9f16a6c6c103fc041ab973ad"
   },
   {
    "archivedPath": "artifacts/cross-platform-proof/rows/xp-a7-evidence-classes.json",
@@ -165,7 +165,7 @@
  ],
  "exitCode": 0,
  "producer": "check_xp_matrix",
- "recordedAt": "2026-08-31T00:50:32Z",
+ "recordedAt": "2026-08-31T01:16:56Z",
  "schema": "facet-producer-receipt/1",
  "verdict": "PASS"
 }

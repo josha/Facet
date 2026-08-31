@@ -5,12 +5,12 @@
   {
    "archivedPath": "artifacts/phase-4/perf.json",
    "label": "evidence-1",
-   "sha256": "415b36c2b252d6973359e4917732f3ce8ed90e20759e635b6af616caa71ad7a8"
+   "sha256": "923fc65ef468bfa352b376eac21760f61de43d89e6bfce77fe18708dc9274db5"
   }
  ],
  "exitCode": 0,
  "producer": "check_perf_scenes",
- "recordedAt": "2026-08-31T00:50:09Z",
+ "recordedAt": "2026-08-31T01:16:32Z",
  "schema": "facet-producer-receipt/1",
  "verdict": "PASS"
 }
