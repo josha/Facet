@@ -5,7 +5,7 @@
   "phases": "phases.json",
   "suiteResults": "suite_real.json"
  },
- "maintainedAt": "2026-08-31T04:38:07Z",
+ "maintainedAt": "2026-08-31T04:46:39Z",
  "phases": [
   {
    "artifactDir": "artifacts/phase-0-foundation",
@@ -23781,7 +23781,7 @@
   },
   {
    "check": {
-    "shell": "\npython3 -c \"\nimport glob, json, re, sys\nkeep = sorted(p.rsplit('/', 1)[-1] for p in glob.glob('docs/reference/*'))\ndoc = glob.glob('artifacts/distribution-readiness/*archive-receipt.md')\ntext = open(doc[0]).read().replace(chr(96), '') if len(doc) == 1 else ''\npath = re.search('[*][*]Path[*][*] [|] ([^|]+)', text)\nwant = re.search('[*][*]SHA-256[*][*] [|] ([0-9a-f]{64})', text)\nmanifest = {e['path']: e['sha256'] for e in json.load(open('../Facet-private-archive/MANIFEST.json'))['files']}\nname = path.group(1).strip().rsplit('/', 1)[-1] if path else None\nhit = [k for k in manifest if name and k.endswith('/' + name)]\nok = (keep == ['api.md', 'constitution.md'] and want is not None\n      and len(hit) == 1 and manifest[hit[0]] == want.group(1))\nprint('docs/reference holds exactly', keep, '; the archived replacement matches the manifest' if ok else '; MISMATCH')\nsys.exit(0 if ok else 1)\n\"\n"
+    "shell": "\npython3 -c \"\nimport glob, json, os, re, sys\nkeep = sorted(p.rsplit('/', 1)[-1] for p in glob.glob('docs/reference/*'))\ndoc = glob.glob('artifacts/distribution-readiness/*archive-receipt.md')\ntext = open(doc[0]).read().replace(chr(96), '') if len(doc) == 1 else ''\npath = re.search('[*][*]Path[*][*] [|] ([^|]+)', text)\nwant = re.search('[*][*]SHA-256[*][*] [|] ([0-9a-f]{64})', text)\nif not os.path.isfile('../Facet-private-archive/MANIFEST.json'):\n    print('FAIL_ENVIRONMENT no private archive beside this checkout, so the archived replacement cannot be verified')\n    sys.exit(2)\nmanifest = {e['path']: e['sha256'] for e in json.load(open('../Facet-private-archive/MANIFEST.json'))['files']}\nname = path.group(1).strip().rsplit('/', 1)[-1] if path else None\nhit = [k for k in manifest if name and k.endswith('/' + name)]\nok = (keep == ['api.md', 'constitution.md'] and want is not None\n      and len(hit) == 1 and manifest[hit[0]] == want.group(1))\nprint('docs/reference holds exactly', keep, '; the archived replacement matches the manifest' if ok else '; MISMATCH')\nsys.exit(0 if ok else 1)\n\"\n"
    },
    "class": "exit0",
    "evidence": null,
@@ -24055,7 +24055,7 @@
   {
    "check": {
     "receipt": "tools/lune/verify/evidence/distribution-readiness--timings-and-budget.json",
-    "shell": "python3 -c \"import json,sys; d=json.load(open('artifacts/verify/latest-release.json')); print('%.1f s against a 1200 s budget' % (d['durationMs']/1000.0)); sys.exit(0 if d['durationMs'] <= 1200000 else 1)\""
+    "shell": "python3 -c \"import json,os,sys; p='artifacts/verify/latest-release.json'; print('FAIL_ENVIRONMENT no release run has been recorded in this checkout') or sys.exit(2) if not os.path.isfile(p) else None; d=json.load(open(p)); print('%.1f s against a 1200 s budget' % (d['durationMs']/1000.0)); sys.exit(0 if d['durationMs'] <= 1200000 else 1)\""
    },
    "class": "exit0",
    "evidence": null,

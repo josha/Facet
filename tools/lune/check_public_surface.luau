@@ -22,6 +22,8 @@
 
 	Usage: lune run tools/lune/check_public_surface ]]
 
+local fs = require("@lune/fs")
+
 local Facet = require("../../src") :: any
 
 local lines: { string } = {}
@@ -74,4 +76,19 @@ for _, entry in entries do
 	)
 end
 
-print(table.concat(lines, "\n"))
+--[[ ...AND IT IS WRITTEN DOWN, not only printed.
+	Two rows read `artifacts/verify/public-surface.txt` -- one pins it as
+	evidence, one greps the version out of it -- and NOTHING regenerated it. The
+	file on the machine that wrote it was months old and no clone ever had one,
+	so both rows were reading an operand that a fresh checkout could not
+	produce: an evidence trail with no source. The dump is the tool's output,
+	so the tool writes it. ]]
+local dump = table.concat(lines, "\n")
+print(dump)
+if not fs.isDir("artifacts") then
+	fs.writeDir("artifacts")
+end
+if not fs.isDir("artifacts/verify") then
+	fs.writeDir("artifacts/verify")
+end
+fs.writeFile("artifacts/verify/public-surface.txt", dump .. "\n")

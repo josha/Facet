@@ -425,12 +425,15 @@ _REMOTE_CHECK = (
 DR8_CLAUSE = (
     """
 python3 -c "
-import glob, json, re, sys
+import glob, json, os, re, sys
 keep = sorted(p.rsplit('/', 1)[-1] for p in glob.glob('docs/reference/*'))
 doc = glob.glob('artifacts/distribution-readiness/*archive-receipt.md')
 text = open(doc[0]).read().replace(chr(96), '') if len(doc) == 1 else ''
 path = re.search('[*][*]Path[*][*] [|] ([^|]+)', text)
 want = re.search('[*][*]SHA-256[*][*] [|] ([0-9a-f]{64})', text)
+if not os.path.isfile('../Facet-private-archive/MANIFEST.json'):
+    print('FAIL_ENVIRONMENT no private archive beside this checkout, so the archived replacement cannot be verified')
+    sys.exit(2)
 manifest = {e['path']: e['sha256'] for e in json.load(open('../Facet-private-archive/MANIFEST.json'))['files']}
 name = path.group(1).strip().rsplit('/', 1)[-1] if path else None
 hit = [k for k in manifest if name and k.endswith('/' + name)]
@@ -675,8 +678,11 @@ ROW_FLIPS = {
     "distribution-readiness::timings-and-budget": (
         {
             "shell": (
-                "python3 -c \"import json,sys; "
-                "d=json.load(open('artifacts/verify/latest-release.json')); "
+                "python3 -c \"import json,os,sys; "
+                "p='artifacts/verify/latest-release.json'; "
+                "print('FAIL_ENVIRONMENT no release run has been recorded in this checkout') "
+                "or sys.exit(2) if not os.path.isfile(p) else None; "
+                "d=json.load(open(p)); "
                 "print('%.1f s against a 1200 s budget' % (d['durationMs']/1000.0)); "
                 "sys.exit(0 if d['durationMs'] <= 1200000 else 1)\""
             ),

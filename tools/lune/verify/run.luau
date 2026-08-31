@@ -555,8 +555,11 @@ function runner.execute(producer: identity.Producer, ctx: Context): Outcome
 					break
 				end
 			end
+			--   NO SECOND TRACE LINE. The producer already traced `run`, and it
+			--   did run; a `skip-missing` line beside it makes the same producer
+			--   appear twice in one run, which is exactly what the trace exists
+			--   to prove never happens. Caught by that very check, on a clone.
 			base.reason = string.sub(said, 1, 220)
-			trace(ctx.runId, producer, id, "skip-missing")
 		end
 	end
 	base.status = status

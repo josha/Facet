@@ -270,6 +270,8 @@ end
 
 --[[ WHAT GIT ACTUALLY TRACKS, asked once. Used to tell a deleted checked-in
 	record from a run-produced one that this checkout has simply never made. ]]
+local outOfTier: { [string]: boolean } = {}
+
 local trackedPaths: { [string]: boolean } = {}
 do
 	local listed = process.exec("bash", { "-c", "git ls-files" })
@@ -530,6 +532,20 @@ local function evaluate(row: graphMod.Row): (string, string)
 				return "FAIL_ENVIRONMENT", `producer '{id}' is not available in this tree`
 			end
 			if producer ~= nil and outcomes[id] == nil then
+				--[[ OUT OF SCOPE FOR THIS TIER IS NOT THE SAME AS UNJUDGED.
+					`full` runs every deterministic producer; `release` adds
+					perf, builds, package and the sibling suite. A row whose
+					producer is declared for release only is not a row this tier
+					FAILED to judge -- it is a row this tier never promised to.
+					Both still report NOT_EVALUATED, because that is what
+					happened, but only the first kind makes a run INCOMPLETE.
+					Thirteen perf rows were turning every clean `full` run on a
+					fresh clone into a non-zero exit for a reason the tier
+					definition had already accounted for. ]]
+				if not (producer.tiers :: any)[tier] then
+					outOfTier[row.id] = true
+					return "NOT_EVALUATED", `producer '{id}' is declared for a later tier than '{tier}' and did not run`
+				end
 				return "NOT_EVALUATED", `producer '{id}' did not run in this tier: {reason}`
 			end
 			return "FAIL_RECOVERABLE", `producer '{id}': {reason}`
@@ -594,6 +610,26 @@ local function evaluate(row: graphMod.Row): (string, string)
 	if row.check.shell ~= nil then
 		local env = shellEnv()
 		local out = process.exec("bash", { "-c", row.check.shell }, { env = env })
+		--[[ A ROW'S OWN ASSERTION MAY ALSO SAY "THIS MACHINE CANNOT ANSWER",
+			by the same convention its producers use: exit 2 with
+			FAIL_ENVIRONMENT in the output. Three clauses here read something
+			outside the repository or produced by a run -- the private archive's
+			manifest, the last release record, a surface dump -- and a checkout
+			that has none of them was reporting a failed assertion, which is the
+			one thing it is not. Any other non-zero exit is still a failure. ]]
+		if not out.ok and out.code == 2 then
+			local whole = (out.stdout or "") .. "\n" .. (out.stderr or "")
+			if string.find(whole, "FAIL_ENVIRONMENT", 1, true) ~= nil then
+				local said = ""
+				for line in string.gmatch(whole, "[^\n]+") do
+					if string.find(line, "FAIL_ENVIRONMENT", 1, true) ~= nil then
+						said = line
+						break
+					end
+				end
+				return "FAIL_ENVIRONMENT", string.sub(said, 1, 220)
+			end
+		end
 		if not out.ok then
 			local traced = process.exec("bash", { "-xc", row.check.shell }, { env = env })
 			local lines: { string } = {}
@@ -677,7 +713,9 @@ for _, rr in rowResults do
 			continue
 		end
 		if other.state == "NOT_EVALUATED" then
-			unevaluated += 1
+			if not outOfTier[other.id] then
+				unevaluated += 1
+			end
 		--[[ A REGISTERED ROW THAT WAS NEVER PROVED CANNOT HAVE REGRESSED.
 			This row's question is "did any earlier gate go BACKWARDS", and a
 			PENDING row is one registered before its evidence existed -- the
@@ -735,7 +773,7 @@ for _, phase in graphMod.phaseIds(g) do
 	for _, rr in rows do
 		counts[rr.state] = (counts[rr.state] or 0) + 1
 		if rr.state == "NOT_EVALUATED" then
-			anyUnevaluated = true
+			anyUnevaluated = anyUnevaluated or not outOfTier[rr.id]
 		elseif not graphMod.statePasses(rr.state, rr.releaseBlocking) then
 			pass = false
 		end
