@@ -28,11 +28,13 @@ mkdir -p examples/places
 # attribute the showcase renders in its settings panel. The dirty flag matters
 # as much as the sha: most builds during a round are made from a working tree
 # that is ahead of HEAD.
-BUILD_SHA="$(git rev-parse --short HEAD 2>/dev/null || echo unknown)"
-if [ -n "$(git status --porcelain 2>/dev/null)" ]; then
-  BUILD_SHA="$BUILD_SHA+dirty"
-fi
-BUILD_STAMP="$BUILD_SHA $(date '+%Y-%m-%d %H:%M')"
+# THE STAMP IS THE CONTENT, NOT THE CLOCK OR THE COMMIT (2026-08-31).
+# A time-stamped tracked binary made every verification run dirty the tree, and
+# a commit-sha stamp is circular in a tracked file: committing the rebuild
+# advances the sha the file carries. A hash over the sources the place maps is
+# stable when nothing changed, moves when anything did, and still answers the
+# tester's question — "which build am I looking at" — in the settings panel.
+BUILD_STAMP="content $( { find src examples/gallery examples/reference examples/themes -type f -print0 2>/dev/null | LC_ALL=C sort -z | xargs -0 shasum -a 256 2>/dev/null; } | shasum -a 256 | cut -c1-12 )"
 
 EXAMPLES=(
   "0|Facet-SettingsDemo|00_settings_demo"

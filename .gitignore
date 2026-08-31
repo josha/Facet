@@ -64,3 +64,6 @@ API_KEYS.txt
 *.key
 *.pem
 id_rsa*
+
+# run outputs regenerate under artifacts/; the tracked exceptions stay tracked
+artifacts/
