@@ -1,14 +1,17 @@
 # 6. Client and server
 
-The interface runs on each player's own machine, but the *data that matters* is
-owned by the server. This chapter covers the three replication adapters
-(`Facet.replication`, in `src/replication/adapters.luau`), how they recover from
-an imperfect network, how to show a change instantly and reconcile it, and the
-firm list of things that must never travel over the network.
+The interface runs on each player's own machine. The *data that matters* belongs
+to the server. This chapter covers four things:
+
+- the three replication adapters (`Facet.replication`, in
+  `src/replication/adapters.luau`);
+- how they recover from an imperfect network;
+- how to show a change instantly and then reconcile it; and
+- the firm list of things that must never travel over the network.
 
 A ground rule first: **Facet does not move bytes.** Your game already has a way
 to send data between server and client (remote events, or whatever transport you
-use). The adapters sit *on top of* that transport: your networking code calls the
+use). The adapters sit *on top of* that transport. Your networking code calls the
 adapter's `ingest`/`confirm`/`reject` functions, and the adapter turns the raw
 messages into consistent, well-ordered signals your UI can read. This keeps
 Facet transport-agnostic.
@@ -38,11 +41,11 @@ flaky network cannot make the UI flicker backward to old state.
 
 ## 6.2 Receiving a keyed set: the collection adapter, with gap recovery
 
-For a set of keyed items (a leaderboard, an inventory) the server often sends
-small **patches** — "item 7 changed, item 3 was removed" — instead of the whole
-set each time. `Facet.replication.collection(core, initialRevision, initialItems,
-requestResnapshot)` handles this, and it is stricter about ordering because a
-missed patch would silently corrupt the set.
+For a set of keyed items — a leaderboard, an inventory — the server often sends
+small **patches** instead of the whole set each time: "item 7 changed, item 3 was
+removed". `Facet.replication.collection(core, initialRevision, initialItems,
+requestResnapshot)` handles this. It is stricter about ordering than the other
+adapters, because a missed patch would silently corrupt the set.
 
 - `collection.binding` — a signal holding the current `{ key -> item }` table.
 - `collection.ingestPatch(revision, patch)` — apply a patch. A patch is
@@ -56,18 +59,18 @@ The interesting part is **gap detection**. `ingestPatch` returns `"applied"`,
 `"duplicate"`, `"stale"`, or `"gap"`:
 
 - If a patch arrives for a revision *beyond* the next one, a patch was dropped in
-  transit. Applying it would leave the set inconsistent, so the adapter **refuses
+  transit. Applying it would leave the set inconsistent. So the adapter **refuses
   it**, returns `"gap"`, and calls the `requestResnapshot(fromRevision)` function
-  you supplied — your cue to ask the server for a full resend.
+  you supplied. That is your cue to ask the server for a full resend.
 - While it is waiting for that resnapshot, it keeps refusing further patches
   (returning `"gap"`), so the set never diverges from the server.
 - When the full set arrives via `ingestResnapshot`, the adapter catches up and
   resumes accepting patches.
 
 **While a gap is outstanding, an equal revision re-bases.** You are handed the
-client's *current* revision, so the natural answer when nothing has changed since
-the gap is a resnapshot at exactly that revision — and it applies, clears the
-gap, and resumes patching. (Outside a gap the rule is stricter: a resnapshot has
+client's *current* revision. When nothing has changed since the gap, the natural
+answer is a resnapshot at exactly that revision. It applies, clears the gap, and
+resumes patching. (Outside a gap the rule is stricter: a resnapshot has
 to be strictly newer, and an equal one is refused as `"stale"`.)
 
 This is also the reconnect path: after any disconnect, feed the client a fresh
@@ -75,7 +78,7 @@ This is also the reconnect path: after any disconnect, feed the client a fresh
 cleanly.
 
 Two failure paths are contained rather than latching. A `requestResnapshot` that
-**throws** does not leave the gap flag set — the next patch asks again, so a
+**throws** does not leave the gap flag set. The next patch asks again, so a
 transient error in your remote-fire path cannot turn a recoverable gap into a
 dead collection.
 
@@ -151,15 +154,15 @@ One subtlety documented in the adapter itself: `restore` re-syncs from
 authoritative state *as of now*. If a confirm outruns the snapshot that carries
 its result, `restore` briefly restores to the older truth; convergence then
 depends on the game reconciling again when the newer snapshot ingests. The robust
-pattern — used by the reference gallery client — is to also observe the snapshot
-binding and re-apply the draft when authoritative state lands, so the UI always
-ends at the server's truth. The full working example is
+pattern is the one the reference gallery client uses: also observe the snapshot
+binding, and re-apply the draft when authoritative state lands. The interface
+then always ends at the server's truth. The full working example is
 `examples/gallery/client/init.client.luau`.
 
 Both callbacks are **quarantined**. A throwing `apply` degrades that send to an
-un-optimistic one — `restore` runs, the envelope still comes back, and the
-request still goes out — so one bad line in the most consumer-authored code in
-the adapter cannot leave the control permanently stuck.
+un-optimistic one: `restore` runs, the envelope still comes back, and the request
+still goes out. One bad line in the most consumer-authored code in the adapter
+cannot leave the control permanently stuck.
 
 ## 6.5 What must never replicate
 
@@ -183,8 +186,10 @@ networking rule: **replicate meaning, never appearance.**
 
 ---
 
-That completes the guide. To review: [chapter 1](01-concepts.md) for the ideas,
-[chapter 2](02-architecture.md) for how the modules fit and why, [chapter
-3](03-getting-started.md) for a working screen, [chapter
-4](04-tutorial-examples.md) for the guided examples, and [chapter
-5](05-styling.md) for the look.
+That completes the guide. To review:
+
+- [chapter 1](01-concepts.md) for the ideas;
+- [chapter 2](02-architecture.md) for how the modules fit, and why;
+- [chapter 3](03-getting-started.md) for a working screen;
+- [chapter 4](04-tutorial-examples.md) for the guided examples; and
+- [chapter 5](05-styling.md) for the look.

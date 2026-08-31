@@ -20,8 +20,8 @@ Every Facet screen is assembled from the same short sequence:
 ## 3.2 The smallest screen, headless
 
 The headless path needs no Roblox process. Instead of the real render target you
-supply a **fake adapter** — a plain table implementing the adapter interface,
-here doing nothing but counting the nodes it is asked to create. This is exactly
+supply a **fake adapter**: a plain table that implements the adapter interface.
+The one below does nothing but count the nodes it is asked to create. This is exactly
 how `tests/smoke.spec.luau` proves the whole library wires together.
 
 ```lua
@@ -108,20 +108,22 @@ what a real frame does.
 > a Package or a model file and you want headless tests, clone the repository
 > alongside your game and point Lune at it.
 
-**Where your spec lives.** In **your own project**, next to the screen it covers,
-run by your own Lune entry point — a file that requires each of your specs and
-then runs them, which is all `tests/run.luau` is. Facet imposes no layout on you.
+**Where your spec lives.** In **your own project**, next to the screen it
+covers. Run it from your own Lune entry point: a file that requires each of your
+specs and then runs them. That is all `tests/run.luau` is. Facet imposes no
+layout on you.
 
-Inside **this repository** the rule is narrower, and worth knowing if you are
-contributing rather than consuming: `lune run tests/run_one <name>` resolves
-`tests/<name>.spec` and nothing else, so a spec lives directly under `tests/`,
-and every spec file must be registered in `tests/run.luau`. An unregistered spec
+Inside **this repository** the rule is narrower. It matters if you are
+contributing rather than consuming. `lune run tests/run_one <name>` resolves
+`tests/<name>.spec` and nothing else, so a spec lives directly under `tests/`.
+Every spec file must also be registered in `tests/run.luau`. An unregistered spec
 is a silent zero, and the registration checker fails a run that has one.
 
 **What a headless theme test does and does not prove.** Committing a package
-through `adapter.setThemePackage` exercises the metric half — the resolved
-snapshot, the re-solve, and every geometry consequence — and the **fallback**
-paint arm, where the palette is written property by property. It does not
+through `adapter.setThemePackage` exercises two things. The first is the metric
+half: the resolved snapshot, the re-solve, and every geometry consequence. The
+second is the **fallback** paint arm, where the palette is written property by
+property. It does not
 exercise Roblox `StyleSheet` paint, which needs a running engine; that is a
 Studio claim, and `controller.inspect().mode` is what reports which arm is live.
 
@@ -158,9 +160,9 @@ local screen = Facet.UI.Screen({
 })
 ```
 
-The important line is `text = label`. When you pass a **signal or memo** as a
-prop value, Facet subscribes to it: whenever the memo changes, the text node is
-marked dirty and repainted on the next refresh. When you pass a **plain value**
+The important line is `text = label`. Pass a **signal or memo** as a prop value
+and Facet subscribes to it. When the memo changes, Facet marks the text node
+dirty and repaints it on the next refresh. Pass a **plain value**
 (like `label = "Bump"`), it is fixed for the life of the node. That is the entire
 rule for making a prop reactive — hand it a readable value instead of a constant.
 
@@ -198,10 +200,9 @@ end to end.
 > `/usr/local/bin` copy.
 >
 > Facet's input layer is built entirely on the Input Action System and never
-> reaches into `ContextActionService`. Roblox's *own* scripts do, and with this
+> reaches into `ContextActionService`. Roblox's *own* scripts do. With this
 > box unticked they hold keys outside the Input Action System, where no Facet
-> binding can reach
-> them: the default camera keeps `Left`/`Right` (bound as `RbxCameraKeypress` at
+> binding can reach them. The default camera keeps `Left`/`Right` (bound as `RbxCameraKeypress` at
 > priority 2000, sinking), and the legacy control scripts keep gamepad
 > `ButtonA`. Screens built on this page still *render* perfectly — the input
 > just silently never arrives, which is the hard part to diagnose later.
@@ -217,11 +218,11 @@ reference is `examples/gallery/client/init.client.luau`; here is its shape.
 
 ### Project mapping (Rojo)
 
-> **Not using Rojo?** Rojo is not a dependency — it only turns the source folder
+> **Not using Rojo?** Rojo is not a dependency. It only turns the source folder
 > into an `Instance` tree. [Chapter 8](08-without-rojo.md) covers the same setup
-> with no external toolchain: insert the official Roblox Package (the recommended
-> route, and the one that can take a new version with *Get Latest Package*), or
-> drag in the prebuilt `build/Facet.rbxm`, then skip to
+> with no external toolchain. Insert the official Roblox Package — the
+> recommended route, and the one that can take a new version with *Get Latest
+> Package* — or drag in the prebuilt `build/Facet.rbxm`. Then skip to
 > [§3.4 The client script](#the-client-script), which is identical either way.
 
 Facet is placed under `ReplicatedStorage` and the client script under
@@ -297,9 +298,8 @@ ever matter between test and production:
 1. **The client-only require.** `host` comes from `src/client/*`, *not* from the
    `Facet` table, and neither do the four modules it composes (`screen_target`,
    `roblox_env`, `roblox_input`, and the render target's collaborators). Keeping
-   them off the public table is what lets server and shared code `require` the
-   main library safely — none of the engine-touching code is pulled in unless a
-   client explicitly asks for it. You can still build the pieces by hand (see
+   them off the public table lets server and shared code `require` the main
+   library safely. Nothing engine-touching loads unless a client asks for it. You can still build the pieces by hand (see
    [api.md §Client entry points](../reference/api.md#client-entry-points)); the
    host is what those steps compose to, in the order they have to happen.
 2. **The environment is BOUND.** `host.new` calls `roblox_env.bind(env)` for
@@ -307,16 +307,17 @@ ever matter between test and production:
    keeps them live. In the headless test the environment just used its defaults.
 3. **The per-frame `tick(dt)` + `refresh()`, which the host owns.** As explained
    in [chapter 2](02-architecture.md), changes accumulate in a dirty queue and are
-   applied when `refresh()` runs. **`tick(dt)` is the other half and it is not
-   optional**: it is what advances the presenter's motion clock, so transitions,
-   toast expiry and every spring or timer on that clock only move on frames you
+   applied when `refresh()` runs. **`tick(dt)` is the other half, and it is not
+   optional.** It advances the presenter's motion clock. Transitions, toast
+   expiry and every spring or timer on that clock move only on frames you
    tick. A surface that drives `refresh` alone paints correctly and never
    animates — and nothing reports it, because a frozen clock and a settled one
    look identical. (This is not hypothetical. An earlier version of this
    guide taught a hand-rolled `refresh`-only loop, and three shipped surfaces in
    a production game had frozen motion because of it. The host exists so that
-   loop cannot be copied out of this page again.) In a test you call both manually — `presenter.tick(1/60)` to advance
-   time, `presenter.refresh()` after changing state — then inspect the result.
+   loop cannot be copied out of this page again.) In a test you call both by
+   hand: `presenter.tick(1/60)` to advance time, then `presenter.refresh()` after
+   changing state. Inspect the result afterwards.
 
 **Per-frame work of your own** — polling a model, stepping a game clock — goes on
 `presenter.onTick(fn)`, which returns its own unsubscribe. It runs on the same
@@ -329,31 +330,36 @@ frame.
 ## 3.5 Where does *semantic* state come from?
 
 In these examples `count` is a local signal — fine for self-contained UI state.
-When the value is owned by the server (a coin balance, an inventory), you do not
-hold it in a bare signal; you hold it in a **replication adapter** whose signal
-you read the same way. That is the subject of [chapter 6](06-client-server.md).
+When the server owns the value — a coin balance, an inventory — do not hold it
+in a bare signal. Hold it in a **replication adapter**, whose signal you read the
+same way. That is the subject of [chapter 6](06-client-server.md).
 The blueprint and its control-local `onActivate` behavior do not change — only where the signal's
 value originates.
 
 ## 3.6 The same screen, as a project you can run
 
 Everything above is in [`examples/consumer/`](../../examples/consumer/) as a
-complete standalone project: a Rojo project file that maps the library and sets
-the workspace property from §3.4, a client script, and the screen itself as one
-module. Build it, press Play, then change it.
+complete standalone project. It has three parts: a Rojo project file that maps
+the library and sets the workspace property from §3.4, a client script, and the
+screen itself as one module. Build it, press Play, then change it.
 
 ```sh
 rojo build examples/consumer/default.project.json -o build/Facet-Consumer.rbxl
 ```
 
-That same screen module is mounted headlessly by
-`tests/consumer_standalone.spec.luau`, which proves it mounts, wears a theme,
-answers a button press, repaints when a signal changes, re-solves when the
-viewport or the preferred text size changes, and leaves nothing behind when it is
-disposed. So the example cannot drift away from the library without a test going
-red.
+`tests/consumer_standalone.spec.luau` mounts that same screen module headlessly.
+It proves six things:
 
-Next: [chapter 4](04-tutorial-examples.md) walks the eight example programs. If
-you build directly in Studio without a file sync, read
-[chapter 8](08-without-rojo.md) first — it replaces the Rojo project mapping
-above with a one-file install and lists the traps of a hand-built instance tree.
+- the screen mounts;
+- it wears a theme;
+- it answers a button press;
+- it repaints when a signal changes;
+- it re-solves when the viewport or the preferred text size changes; and
+- it leaves nothing behind when it is disposed.
+
+So the example cannot drift away from the library without a test going red.
+
+Next: [chapter 4](04-tutorial-examples.md) walks the eight example programs.
+Read [chapter 8](08-without-rojo.md) first if you build directly in Studio with
+no file sync. It replaces the Rojo project mapping above with a one-file install,
+and lists the traps of a hand-built instance tree.

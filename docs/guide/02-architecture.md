@@ -1,9 +1,9 @@
 # 2. Architecture
 
-This chapter maps the modules, traces one value from the network to the screen,
-lists the places you are meant to extend, and — most importantly — explains *why*
-each internal boundary exists. If you understand the boundaries, the rest of the
-code reads itself.
+This chapter maps the modules and traces one value from the network to the
+screen. It lists the places you are meant to extend, and explains *why* each
+internal boundary exists. Understand the boundaries and the rest of the code
+reads itself.
 
 ## 2.1 Module map
 
@@ -29,10 +29,11 @@ All source lives under `src/`. Grouped by responsibility:
 
 Everything except the **client** group is engine-free and runs headless.
 
-This chapter explains the boundaries. [`../MAINTAINERS.md`](../MAINTAINERS.md) is
-the operational side of the same picture: for each area, the seam other code may
-reach, the covering specs, the Studio scenario, the gate row, and the playbook to
-follow when you extend it.
+This chapter explains the boundaries.
+[`../MAINTAINERS.md`](../MAINTAINERS.md) is the operational side of the same
+picture. For each area it names the seam other code may reach, the covering
+specs, the Studio scenario, the gate row, and the playbook to follow when you
+extend it.
 
 ## 2.2 Data flow: from a replicated value to a rendered instance
 
@@ -90,18 +91,18 @@ renderer only acts when `presenter.refresh()` is called, which a client does onc
 per frame. This coalescing is deliberate — many changes in one frame collapse
 into one layout pass and a minimal set of writes.
 
-The renderer is also **minimal-write**: a paint-only change (new text, new color)
-writes just that property and does not re-run layout; only size-affecting or
-structural changes trigger a fresh layout solve, and even then only rectangles
-that actually changed are written back.
+The renderer is also **minimal-write**. A paint-only change — new text, a new
+colour — writes just that property and does not re-run layout. Only
+size-affecting or structural changes trigger a fresh solve, and even then the
+renderer writes back only the rectangles that changed.
 
 ## 2.3 Extension points
 
-You extend Facet at four seams, each a documented contract rather than a place
-to edit library internals. Whatever you add through one of them is held to
-[`the constitution`](../reference/constitution.md) — the authoritative rule set
-for how a Facet public surface is shaped, and what the playbooks and the
-registration checkers enforce.
+You extend Facet at four seams. Each one is a documented contract rather than a
+place to edit library internals. Whatever you add through a seam follows
+[`the constitution`](../reference/constitution.md), the rule set that says how a
+Facet public surface is shaped. The playbooks and the registration checkers
+enforce it.
 
 ### Composite controls
 
@@ -119,16 +120,17 @@ The renderer talks to the screen only through a small adapter interface (create 
 root, create a node, set its rectangle, set a property, remove it, destroy the
 root). `client/screen_target.luau` implements it with real Roblox `Instance`s;
 `tests/lib/fake_target.luau` implements it by recording calls into a table. Any
-target that satisfies the same interface can be dropped in — which is exactly how
-`client/billboard_target.luau` renders a Facet screen onto an in-world billboard
-by swapping only the *root* and reusing all the flat node rendering below it.
+target that satisfies the same interface drops straight in.
+`client/billboard_target.luau` is exactly that: it renders a Facet screen onto an
+in-world billboard by swapping only the *root*, and reuses all the flat node
+rendering below it.
 
 ### Engine-feature adoption via the property-authority path
 
-When Roblox ships a new visual capability (drop shadows and per-corner rounding
-are the current examples), Facet adopts it as **normalized style data** that
-rides a single, declared *authority* to the adapter, where it is materialized —
-and only if the running engine actually supports it. You do not scatter
+Roblox ships new visual capabilities from time to time; drop shadows and
+per-corner rounding are two. Facet adopts each one as **normalized style data**.
+That data rides a single declared *authority* to the adapter, which materializes
+it — and only if the running engine supports it. You do not scatter
 `Instance.new("UIShadow")` calls through your UI; you set a style modifier, and
 the one adapter that owns visual output decides how (or whether) to realize it.
 The next section explains the authority rule.
@@ -149,22 +151,23 @@ Four rules explain most of the structure.
 
 The layout solver never reads a signal, never reads an `Instance`, and never
 yields. It is a pure function from *(tree snapshot, viewport)* to *rectangles*.
-This is what makes layout testable to the pixel headless, reproducible, and free
-of timing bugs — there is no "the value changed mid-layout" case because layout
-runs on a frozen snapshot.
+That purity is what makes layout testable to the pixel, headless, and
+reproducible. It also removes a whole class of timing bug: layout runs on a
+frozen snapshot, so no value can change mid-layout.
 
 Text is where that purity has to earn its keep, because only the engine knows
-how wide a string is. The solver measures text through `layout/text_metrics`,
-which is pure data and never yields: it holds exact per-word widths the engine
-has already reported, and falls back to a deliberately conservative
-average-glyph bound for words it has not seen. A solve records the words it
+how wide a string is. The solver measures text through `layout/text_metrics`, which is pure data and
+never yields. It holds exact per-word widths the engine has already reported. For
+a word it has not seen, it falls back to a deliberately conservative average-glyph
+bound. A solve records the words it
 could not size exactly; the render-target adapter measures those off the render
 path and feeds them back, which costs exactly one re-solve.
 
 Two properties make this safe rather than clever. **Words, not laid-out
-strings** — wrapping is greedy over words, so exact word widths plus an exact
-space width reproduce the engine's own break points at any width; the cache is
-keyed `(font, size, word)` and survives every resize and every device profile.
+strings.** Wrapping is greedy over words, so exact word widths plus an exact
+space width reproduce the engine's own break points at any width. The cache is
+keyed `(font, size, word)`, so it survives every resize and every device
+profile.
 And **the fallback is never removed** — the first frame is always painted from
 the conservative bound, so exactness is layered on top of safety and never
 substituted for it.
@@ -179,26 +182,25 @@ corner radius) has **exactly one** owner, declared in `render/authority.luau`:
 - **binding** owns data-driven values (a label's text, a toggle's value, whether
   a button is enabled);
 - **presentation** owns transient transforms and opacity;
-- **host** answers a different question from the other four: they say *which
-  Facet writer owns this property of a Facet instance*, and `host` says *what the
+- **host** answers a different question from the other four. They say *which
+  Facet writer owns this property of a Facet instance*. `host` says *what the
   framework claims over an instance it does NOT own*. It went live with
   `UI.Foreign` and owns exactly one entry — `Foreign.Parent`, the
   single write that puts a caller-created GuiObject into a Facet box. One entry
   is the point of a bounded escape hatch, and all **five** authorities are live.
 
 The renderer calls `authority.assertWrite(class, prop, writer)` before *every*
-write, and a writer touching a property it does not own is a hard error. This
-exists because of a measured engine fact: writing a property directly silently
-defeats the engine's own style rules and fires no change signal — so if two parts
-of Facet both wrote the same property, the bug would be invisible. One authority
+write, and a writer touching a property it does not own is a hard error. A measured engine fact is behind this rule. Writing a property directly defeats
+the engine's own style rules and fires no change signal. So if two parts of Facet
+both wrote one property, the bug would be invisible. One authority
 per property makes that class of bug impossible.
 
 ### Scope ownership
 
 Every reactive subscription and resource is owned by a scope, and scopes nest
 along the tree (a screen owns a mount scope; a list row owns an item scope). When
-a screen closes or a row leaves a list, its scope is disposed and *everything*
-under it — observers, effects, async requests, child scopes — is cleaned up
+a screen closes or a row leaves a list, its scope is disposed. That cleans up
+*everything* under it — observers, effects, async requests, child scopes —
 exactly once, in reverse order. This is why Facet does not leak observers as
 screens come and go, and why a list can churn thousands of rows without
 accumulating dead subscriptions.
@@ -207,11 +209,10 @@ accumulating dead subscriptions.
 
 User callbacks are hostile territory: an equality function, an observer, a list's
 row factory can all throw. The core wraps them so a throw records an error and is
-contained rather than unwinding the update loop or wedging the framework. On top
-of that, the blueprint layer offers an **error boundary** (`UI.ErrorBoundary`):
-if the function that builds a subtree throws — at first build or during a later
-rebuild — the boundary swaps that subtree for a fallback view instead of taking
-the whole screen down. The presenter offers the same protection at screen
+contained rather than unwinding the update loop or wedging the framework. The blueprint layer adds an **error boundary** (`UI.ErrorBoundary`). If the
+function that builds a subtree throws, at first build or during a later rebuild,
+the boundary swaps that subtree for a fallback view. The rest of the screen keeps
+running. The presenter offers the same protection at screen
 granularity via `presentCritical`. The guiding principle: one broken corner of
 the interface must not black out the player's screen.
 
