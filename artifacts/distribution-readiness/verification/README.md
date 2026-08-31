@@ -110,7 +110,9 @@ transcript so their verdict is unchanged.
 
 ## What is red, and why
 
-A release run reports 401 PASS and 34 FAIL_RECOVERABLE. None of the failures is
+A full run in the live tree reports **398 PASS and 25 FAIL_RECOVERABLE** (a
+release run in the frozen copy reported 401 and 34; the difference is the
+producers that are red for reasons other workstreams own moving under it). None of the failures is
 caused by the conversion, and each is named in the run report with the smallest
 command that reproduces it:
 
@@ -127,6 +129,9 @@ command that reproduces it:
   work;
 - **`bench`** (perf class) — measures wall clock against a frozen p95 on a
   machine running six agents;
+- **one evidence receipt whose file changed** after the receipt was taken — a
+  sibling agent edited the artifact, and the row said so by name, which is the
+  receipt mechanism working rather than failing;
 - the rest are the **prior-phase rows**, which are red exactly because an
   earlier phase is: that is the row doing its job.
 
