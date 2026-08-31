@@ -2,6 +2,7 @@
  "class": "studio",
  "evidence": [
   {
+   "archivedPath": "artifacts/swiftui-reference-app-validation/studio/fixture-axes.json",
    "label": "evidence-1",
    "sha256": "d899ccdd9822049d56cca167c2a18c00050909d771f93a2decdbcd611d46dd25"
   }
