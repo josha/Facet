@@ -645,25 +645,43 @@ for _, rr in rowResults do
 	local mine = phaseIndex[rr.phase]
 	local regressed: { string } = {}
 	local unevaluated = 0
+	local pending = 0
 	for _, other in rowResults do
 		if other.state == "DEFERRED" or phaseIndex[other.phase] >= mine then
 			continue
 		end
 		if other.state == "NOT_EVALUATED" then
 			unevaluated += 1
+		--[[ A REGISTERED ROW THAT WAS NEVER PROVED CANNOT HAVE REGRESSED.
+			This row's question is "did any earlier gate go BACKWARDS", and a
+			PENDING row is one registered before its evidence existed -- the
+			whole point of registering it. It never passed, so it cannot have
+			stopped passing, and counting it as a regression made every later
+			phase red for a row that was doing exactly what it was written to
+			do. Measured 2026-08-31: one honest human-review pending in an early
+			phase reddened five later phases and nothing else was wrong.
+
+			It is counted and NAMED in the detail rather than swallowed, so this
+			row can never be read as "everything before here is proved" -- which
+			is a different claim, and not this one's. ]]
+		elseif other.state == "PENDING" then
+			pending += 1
 		elseif not graphMod.statePasses(other.state, other.releaseBlocking) then
 			table.insert(regressed, `{other.phase} :: {other.name} [{other.state}]`)
 		end
 	end
+	local pendingNote = if pending > 0
+		then ` ({pending} earlier row(s) are registered PENDING and were never proved, so they cannot have regressed)`
+		else ""
 	if #regressed > 0 then
 		rr.state = "FAIL_RECOVERABLE"
 		rr.detail = `{#regressed} earlier row(s) do not pass in this run:\n  {table.concat(regressed, "\n  ")}`
 	elseif unevaluated > 0 then
 		rr.state = "NOT_EVALUATED"
-		rr.detail = `{unevaluated} earlier row(s) could not be evaluated in this tier`
+		rr.detail = `{unevaluated} earlier row(s) could not be evaluated in this tier{pendingNote}`
 	else
 		rr.state = "PASS"
-		rr.detail = "every row of every earlier phase passes in this run"
+		rr.detail = `no earlier row regressed in this run{pendingNote}`
 	end
 end
 
