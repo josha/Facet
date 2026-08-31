@@ -85,6 +85,7 @@ every approved exception, is [`the constitution`](../reference/constitution.md).
 | [`12-performance-lab.md`](12-performance-lab.md) | The performance-lab place: its nine workloads, its nine profiler scopes, capturing on a low-end Android device, and when two captures are comparable. |
 | [`13-theme-catalog.md`](13-theme-catalog.md) | The shelf of ready-made looks: what each of the eight packages does to spacing, rows, and type, the two install routes, and an honest cost line. |
 | [`14-choosing-a-ui-library.md`](14-choosing-a-ui-library.md) | Optional: how Facet compares with React Luau, Fusion and Vide, and how to choose between them. |
+| [`15-adaptive-recipes.md`](15-adaptive-recipes.md) | Ten short recipes for problems a screen hits once it has to work on more than one device. Dip into these when a screen needs them; they are recipes, not required reading. |
 
 Two things worth knowing before you start, neither of which is a chapter:
 
