@@ -2,7 +2,7 @@
  "class": "studio",
  "evidence": [
   {
-   "archivedPath": "artifacts/native-substrate/feasibility/",
+   "archivedPath": "artifacts/native-substrate/feasibility/$f.json",
    "label": "evidence-1",
    "sha256": "absent"
   },
@@ -22,8 +22,8 @@
    "sha256": "14f22b03f70c133ed8a6ccaf5ae277d9f51492acd880a102ca01555f02078307"
   }
  ],
- "recordedAt": "2026-08-31T00:11:46Z",
+ "recordedAt": "2026-08-31T00:25:15Z",
  "row": "native-substrate::feasibility-matrix",
  "schema": "facet-evidence-receipt/1",
- "summary": "feasibility-matrix: 4 recorded file(s), pinned by content hash."
+ "summary": "feasibility-matrix: 4 recorded studio file(s), pinned by content hash."
 }

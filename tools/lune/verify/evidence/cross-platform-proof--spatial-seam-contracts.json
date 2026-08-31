@@ -2,13 +2,13 @@
  "class": "studio",
  "evidence": [
   {
-   "archivedPath": "artifacts/cross-platform-proof/rows/",
+   "archivedPath": "artifacts/cross-platform-proof/rows/$f.json",
    "label": "evidence-1",
    "sha256": "absent"
   }
  ],
- "recordedAt": "2026-08-31T00:11:46Z",
+ "recordedAt": "2026-08-31T00:25:15Z",
  "row": "cross-platform-proof::spatial-seam-contracts",
  "schema": "facet-evidence-receipt/1",
- "summary": "spatial-seam-contracts: 1 recorded file(s), pinned by content hash."
+ "summary": "spatial-seam-contracts: 1 recorded studio file(s), pinned by content hash."
 }

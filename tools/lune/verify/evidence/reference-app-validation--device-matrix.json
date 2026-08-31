@@ -3,15 +3,15 @@
  "evidence": [
   {
    "label": "evidence-1",
-   "sha256": "absent"
+   "sha256": "3d225ebded533017720f8a0085d5cf62b4643b219443c640435247648d741e2d"
   },
   {
    "label": "evidence-2",
-   "sha256": "3d225ebded533017720f8a0085d5cf62b4643b219443c640435247648d741e2d"
+   "sha256": "absent"
   }
  ],
- "recordedAt": "2026-08-31T00:11:46Z",
+ "recordedAt": "2026-08-31T00:25:16Z",
  "row": "reference-app-validation::device-matrix",
  "schema": "facet-evidence-receipt/1",
- "summary": "device-matrix: 2 recorded file(s), pinned by content hash."
+ "summary": "device-matrix: 2 recorded device file(s), pinned by content hash."
 }

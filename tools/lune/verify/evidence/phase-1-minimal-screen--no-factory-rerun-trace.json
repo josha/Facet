@@ -7,8 +7,8 @@
    "sha256": "caae526f6d49af50dceb6410c8be298a203c542b42c540ad9a53c4fe4f7a2ed1"
   }
  ],
- "recordedAt": "2026-08-31T00:11:46Z",
+ "recordedAt": "2026-08-31T00:25:15Z",
  "row": "phase-1-minimal-screen::no-factory-rerun-trace",
  "schema": "facet-evidence-receipt/1",
- "summary": "no-factory-rerun-trace: 1 recorded file(s), pinned by content hash."
+ "summary": "no-factory-rerun-trace: 1 recorded studio file(s), pinned by content hash."
 }

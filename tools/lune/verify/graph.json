@@ -1,5 +1,5 @@
 {
- "generatedAt": "2026-08-31T00:17:23Z",
+ "generatedAt": "2026-08-31T00:25:17Z",
  "generatedFrom": {
   "manifest": "tools/lune/gate_manifest.luau",
   "phases": "phases.json",
@@ -5388,14 +5388,13 @@
    "check": {
     "producers": [
      "check_verdicts-artifacts-phase-0-opus-verification-json-PAS-86d658"
-    ],
-    "shell": "test -f docs/research/2026-07-19-runtime-verifier-findings-resolution.md"
+    ]
    },
-   "class": "evidence-pin",
+   "class": "exit0",
    "evidence": "artifacts/phase-0/opus-verification.json",
    "id": "phase-0-foundation::opus-verification",
    "name": "opus-verification",
-   "note": "opus-verification: check_verdicts-artifacts-phase-0-opus-verification-json-PAS-86d658 must exit zero; its file-existence and text assertions must hold; and artifacts/phase-0/opus-verification.json must exist. Requirements: UI-AGENT-001.",
+   "note": "opus-verification: check_verdicts-artifacts-phase-0-opus-verification-json-PAS-86d658 must exit zero; and artifacts/phase-0/opus-verification.json must exist. Requirements: UI-AGENT-001.",
    "phase": "phase-0-foundation",
    "releaseBlocking": false,
    "requirements": [
@@ -6202,13 +6201,13 @@
     "producers": [
      "bench"
     ],
-    "receipt": "tools/lune/verify/evidence/part-2-director--ws1-adr-and-bench.json"
+    "shell": "grep -q 'table-resize-drag' artifacts/bench.json"
    },
-   "class": "exit0",
+   "class": "evidence-pin",
    "evidence": "artifacts/bench.json",
    "id": "part-2-director::ws1-adr-and-bench",
    "name": "ws1-adr-and-bench",
-   "note": "ws1-adr-and-bench: bench must exit zero; and artifacts/bench.json must exist. Requirements: UI-AGENT-001, UI-PERF-001.",
+   "note": "ws1-adr-and-bench: bench must exit zero; its file-existence and text assertions must hold; and artifacts/bench.json must exist. Requirements: UI-AGENT-001, UI-PERF-001.",
    "phase": "part-2-director",
    "releaseBlocking": false,
    "requirements": [
@@ -6268,7 +6267,7 @@
      "render_target_contract::RenderTargetAdapter contract::the FakeTarget satisfies every required and optional method",
      "render_target_contract::RenderTargetAdapter contract::a billboard-sized pixel canvas renders a nameplate and updates paint-only"
     ],
-    "shell": "test -f src/client/billboard_target.luau && test -f src/render/target_contract.luau"
+    "shell": "test -f src/client/billboard_target.luau && test -f src/render/target_contract.luau && grep -q 'billboard-nameplate-storm' artifacts/bench.json"
    },
    "class": "result-ids",
    "evidence": "artifacts/studio/part2-billboard.json",
@@ -6617,14 +6616,13 @@
      "styling::engine styling: shadows and per-corner rounding (§17)::UI.styleGroup applies the modifier set to EACH element (group semantics)",
      "styling::engine styling: shadows and per-corner rounding (§17)::styling a container styles the container's own surface, not its children",
      "styling::engine styling: shadows and per-corner rounding (§17)::style lint warns on the jagged shadow+large-corner caveat and the shadow budget"
-    ],
-    "shell": "test -f docs/research/2026-07-20-uishadow-percorner-engine-facts.md"
+    ]
    },
    "class": "result-ids",
    "evidence": "artifacts/studio/phase4-styling-fidelity.json",
    "id": "phase-4-hardening::engine-styling-shadows-corners",
    "name": "engine-styling-shadows-corners",
-   "note": "engine-styling-shadows-corners: 10 named suite cases must pass; suite must exit zero; its file-existence and text assertions must hold; and artifacts/studio/phase4-styling-fidelity.json must exist. Requirements: UI-STYLE-001, UI-FID-001.",
+   "note": "engine-styling-shadows-corners: 10 named suite cases must pass; suite must exit zero; and artifacts/studio/phase4-styling-fidelity.json must exist. Requirements: UI-STYLE-001, UI-FID-001.",
    "phase": "phase-4-hardening",
    "releaseBlocking": false,
    "requirements": [
@@ -6663,7 +6661,6 @@
      "suite",
      "check_registration_cli"
     ],
-    "receipt": "tools/lune/verify/evidence/phase-4-hardening--popup-button-dry-run.json",
     "resultIds": [
      "large_text_matrix::LT-8 control matrix: every registry row at four preferences x two themes::LT8-CTL PopupButton: no sibling overlap, no undisclosed clip beyond its declared allowlist, and no NEW sub-floor control at 0/4/10/14 px x both reference themes",
      "theme_roles::migrated controls: byte-parity under Studio Neutral::PopupButton: 40px trigger, and 36/44/56 rows per presentation",
@@ -6988,7 +6985,7 @@
      "responder::responder (g): engage/resign churn is leak-free and registry-neutral::50 engage/resign cycles leave a single working context and gameplay intact",
      "responder::responder: Sink changes go through the setSink adapter seam::engage() calls setSink(true) and resign() calls setSink(false) on the context"
     ],
-    "shell": "test -f src/client/responder_effects.luau && test -f docs/research/2026-07-21-first-responder-platform-research.md && grep -q \"setSink\" src/client/roblox_input.luau && grep -q \"Workspace.PlayerScriptsUseInputActionSystem\" docs/guide/07-input.md"
+    "shell": "test -f src/client/responder_effects.luau && grep -q \"setSink\" src/client/roblox_input.luau && grep -q \"Workspace.PlayerScriptsUseInputActionSystem\" docs/guide/07-input.md"
    },
    "class": "result-ids",
    "evidence": null,
@@ -7079,14 +7076,13 @@
    "check": {
     "producers": [
      "check_spike-artifacts-studio-expansion-textinput-probe-j-378ee4"
-    ],
-    "shell": "test -f docs/research/2026-07-20-textbox-engine-facts.md && grep -q \"RobloxScript\" docs/research/2026-07-20-textbox-engine-facts.md"
+    ]
    },
-   "class": "evidence-pin",
+   "class": "exit0",
    "evidence": "artifacts/studio/expansion-textinput-probe.json",
    "id": "expansion-textinput::engine-facts-probed",
    "name": "engine-facts-probed",
-   "note": "engine-facts-probed: check_spike-artifacts-studio-expansion-textinput-probe-j-378ee4 must exit zero; its file-existence and text assertions must hold; and artifacts/studio/expansion-textinput-probe.json must exist. Requirements: UI-FID-001.",
+   "note": "engine-facts-probed: check_spike-artifacts-studio-expansion-textinput-probe-j-378ee4 must exit zero; and artifacts/studio/expansion-textinput-probe.json must exist. Requirements: UI-FID-001.",
    "phase": "expansion-textinput",
    "releaseBlocking": false,
    "requirements": [
@@ -7228,7 +7224,7 @@
     "producers": [
      "check_registration_cli"
     ],
-    "shell": "grep -q 'newTextInput' docs/reference/api.md && grep -q 'onFocusGained(path)' docs/reference/api.md && grep -q 'TextInput' docs/guide/04-tutorial-examples.md && grep -q 'BUILT (2026-07-20)' ui_todo.md"
+    "shell": "grep -q 'newTextInput' docs/reference/api.md && grep -q 'onFocusGained(path)' docs/reference/api.md && grep -q 'TextInput' docs/guide/04-tutorial-examples.md"
    },
    "class": "evidence-pin",
    "evidence": null,
@@ -7263,13 +7259,13 @@
     "producers": [
      "bench"
     ],
-    "receipt": "tools/lune/verify/evidence/expansion-textinput--expansion-adr-bench-rollback.json"
+    "shell": "grep -q 'textinput-typing-storm' artifacts/bench.json"
    },
-   "class": "exit0",
+   "class": "evidence-pin",
    "evidence": "artifacts/bench.json",
    "id": "expansion-textinput::expansion-adr-bench-rollback",
    "name": "expansion-adr-bench-rollback",
-   "note": "expansion-adr-bench-rollback: bench must exit zero; and artifacts/bench.json must exist. Requirements: UI-AGENT-001, UI-PERF-001.",
+   "note": "expansion-adr-bench-rollback: bench must exit zero; its file-existence and text assertions must hold; and artifacts/bench.json must exist. Requirements: UI-AGENT-001, UI-PERF-001.",
    "phase": "expansion-textinput",
    "releaseBlocking": false,
    "requirements": [
@@ -7316,12 +7312,11 @@
     "producers": [
      "suite"
     ],
-    "receipt": "tools/lune/verify/evidence/input-paradigms--defect-example02-fix.json",
     "resultIds": [
      "table::Table: touch scroll vs edit-mode reorder (director design 2026-07-20)::auto Edit/Done toggle: shown when a gamepad capability is live even though preferredInput stays KeyboardAndMouse",
      "table::Table: touch scroll vs edit-mode reorder (director design 2026-07-20)::auto Edit/Done toggle: a live touch capability shows it under a KeyboardAndMouse preferredInput (hybrid handheld)"
     ],
-    "shell": "test -f docs/research/2026-07-21-preferredinput-gamepad-research.md && grep -q \"interactionClasses\" src/env/environment.luau && grep -q \"interactionClasses\" src/controls/table.luau && grep -q \"GamepadConnected\" src/client/roblox_env.luau && grep -q \"sawGamepadInput\" src/client/roblox_env.luau"
+    "shell": "grep -q \"interactionClasses\" src/env/environment.luau && grep -q \"interactionClasses\" src/controls/table.luau && grep -q \"GamepadConnected\" src/client/roblox_env.luau && grep -q \"sawGamepadInput\" src/client/roblox_env.luau"
    },
    "class": "result-ids",
    "evidence": "artifacts/input-paradigms/defect-example02.md",
@@ -7338,8 +7333,7 @@
   },
   {
    "check": {
-    "receipt": "tools/lune/verify/evidence/input-paradigms--affordance-matrix.json",
-    "shell": "test -f docs/research/2026-07-21-affordance-research.md && grep -q 'UI-PARADIGM-001' requirements.json && grep -q 'UI-PARADIGM-003' requirements.json"
+    "shell": "grep -q 'UI-PARADIGM-001' requirements.json && grep -q 'UI-PARADIGM-003' requirements.json"
    },
    "class": "evidence-pin",
    "evidence": "artifacts/input-paradigms/affordance-matrix.md",
@@ -7453,7 +7447,6 @@
      "check_registration_cli",
      "suite"
     ],
-    "receipt": "tools/lune/verify/evidence/input-paradigms--axes-future-proofing.json",
     "resultIds": [
      "chip::Chip control::Chip gamepad affordance: the gamepad structural idiom (focus/grab/A-B/ten-foot)",
      "chip::Chip control::Chip keyboard affordance: the keyboard structural idiom (focus ring/Navigate/Activate/Adjust)"
@@ -7549,29 +7542,6 @@
   },
   {
    "check": {
-    "shell": "test -f docs/research/2026-07-23-native-adoption-docs-grounding.md && grep -q \"fetched 2026-07-23\" docs/research/2026-07-23-native-adoption-docs-grounding.md && grep -qi \"UIDragDetector\" docs/research/2026-07-23-native-adoption-docs-grounding.md && grep -qi \"GetInsetArea\" docs/research/2026-07-23-native-adoption-docs-grounding.md && grep -qi \"PreloadAsync\" docs/research/2026-07-23-native-adoption-docs-grounding.md"
-   },
-   "class": "evidence-pin",
-   "evidence": "docs/research/2026-07-23-native-adoption-docs-grounding.md",
-   "id": "native-substrate::docs-grounding",
-   "name": "docs-grounding",
-   "note": "docs-grounding: its file-existence and text assertions must hold; and docs/research/2026-07-23-native-adoption-docs-grounding.md must exist. Requirements: UI-NATIVE-001, UI-NATIVE-002, UI-NATIVE-003, UI-NATIVE-004, UI-NATIVE-005, UI-NATIVE-006, UI-NATIVE-007, UI-NATIVE-008.",
-   "phase": "native-substrate",
-   "releaseBlocking": false,
-   "requirements": [
-    "UI-NATIVE-001",
-    "UI-NATIVE-002",
-    "UI-NATIVE-003",
-    "UI-NATIVE-004",
-    "UI-NATIVE-005",
-    "UI-NATIVE-006",
-    "UI-NATIVE-007",
-    "UI-NATIVE-008"
-   ],
-   "state": null
-  },
-  {
-   "check": {
     "receipt": "tools/lune/verify/evidence/native-substrate--feasibility-matrix.json"
    },
    "class": "evidence-pin",
@@ -7595,7 +7565,6 @@
   },
   {
    "check": {
-    "receipt": "tools/lune/verify/evidence/native-substrate--verification-surface.json",
     "shell": "test -f examples/gallery/scenarios/init.luau && test -f examples/gallery/scenarios/runner.luau && test -f examples/gallery/scenarios/probe.luau && test -f tools/lune/studio_sync.luau && test -f tools/studio/inject.luau && grep -q \"Facet_Scenario\" examples/gallery/client/init.client.luau"
    },
    "class": "evidence-pin",
@@ -7615,7 +7584,6 @@
     "producers": [
      "suite"
     ],
-    "receipt": "tools/lune/verify/evidence/native-substrate--safe-area-adoption.json",
     "resultIds": [
      "renderer::safe areas: deviceSafeContent root policy (native-substrate NS-A1)::deviceSafeContent insets the content rect by the per-edge MAX of core and device insets",
      "preview::Preview: notched device-safe profile (native-substrate NS-A1)::phoneNotchLandscape pushes deviceSafeInsets and profile switch resets them"
@@ -7640,7 +7608,6 @@
     "producers": [
      "suite"
     ],
-    "receipt": "tools/lune/verify/evidence/native-substrate--scroll-host-adoption.json",
     "resultIds": [
      "native_scroll::native scroll host (NS-A2)::a ScrollView declares itself a clip host and sends its solved content extent as the scroll region",
      "native_scroll::native scroll host (NS-A2)::FALLBACK: an adapter without the scroll seam mounts, clips, and lays out identically (no crash)"
@@ -7664,7 +7631,6 @@
     "producers": [
      "suite"
     ],
-    "receipt": "tools/lune/verify/evidence/native-substrate--table-virtuallist-migration.json",
     "shell": "grep -q \"bindNativeScroll\" src/controls/virtual_list.luau && grep -q \"bindNativeScroll\" src/controls/table.luau && grep -q \"bindNativeScroll\" examples/gallery/client/init.client.luau && ! grep -q \"onScrollWheel\" src/controls/virtual_list.luau"
    },
    "class": "evidence-pin",
@@ -7684,7 +7650,6 @@
     "producers": [
      "suite"
     ],
-    "receipt": "tools/lune/verify/evidence/native-substrate--drag-touch-adoption.json",
     "shell": "test -f src/input/drag_session.luau && test -f src/input/touch_gestures.luau && grep -q \"setDragDetector\" src/client/screen_target.luau && grep -q \"setTouchGestureHandlers\" src/client/screen_target.luau"
    },
    "class": "evidence-pin",
@@ -7705,7 +7670,6 @@
     "producers": [
      "suite"
     ],
-    "receipt": "tools/lune/verify/evidence/native-substrate--path2d-pagelayout.json",
     "resultIds": [
      "path::path_shapes: deterministic arc math (NS-A7)::a full ring closes: 9 points, endpoints coincide, all on the radius",
      "path::UI.Path: paint-only reactive stroke (NS-A7)::mounts as a leaf; a points change is one prop write and never a re-solve"
@@ -7729,7 +7693,6 @@
     "producers": [
      "suite"
     ],
-    "receipt": "tools/lune/verify/evidence/native-substrate--preferred-text-single-application.json",
     "resultIds": [
      "renderer::preferred text applied exactly once (native-substrate NS-A9)::the player preference scales MEASUREMENT (reserved bounds) but never the painted TextSize",
      "text_calibration::text_metrics calibration (NS-A10)::a calibrated fraction tightens the estimate and never widens it"
@@ -7754,7 +7717,6 @@
     "producers": [
      "suite"
     ],
-    "receipt": "tools/lune/verify/evidence/native-substrate--selection-policy.json",
     "resultIds": [
      "selection_bridge::engine-selection bridge (NS-A12)::default surfaces never touch engine selection (NS-A11)",
      "selection_bridge::engine-selection bridge (NS-A12)::an opted-in modal mirrors logical focus and clears on dismiss",
@@ -7779,7 +7741,6 @@
     "producers": [
      "suite"
     ],
-    "receipt": "tools/lune/verify/evidence/native-substrate--resource-transport.json",
     "resultIds": [
      "async_image::AsyncImage (NS-A14)::release-then-stale-completion never resurrects (honest cancellation)"
     ],
@@ -7802,7 +7763,6 @@
     "producers": [
      "suite"
     ],
-    "receipt": "tools/lune/verify/evidence/native-substrate--keep-visible-consolidation.json",
     "resultIds": [
      "native_scroll::A-SV2: the keep-visible clamp exists exactly once::all three consumers call it — no second implementation survives",
      "native_scroll::A-SV2: the keep-visible clamp exists exactly once::the renderer's substrate and the index path agree on the same geometry",
@@ -7827,7 +7787,6 @@
     "producers": [
      "suite"
     ],
-    "receipt": "tools/lune/verify/evidence/native-substrate--write-once-and-recipes.json",
     "resultIds": [
      "layout_vocabulary::A-LV4: aspectRatio against a fill sibling::derives the height from the RESOLVED fill width, not from zero",
      "layout_vocabulary::A-LV4: overlay does not collapse its base::the wrapper inherits the base's dimensions",
@@ -7904,8 +7863,7 @@
    "check": {
     "producers": [
      "suite"
-    ],
-    "receipt": "tools/lune/verify/evidence/native-substrate--fresh-context-verification.json"
+    ]
    },
    "class": "exit0",
    "evidence": "artifacts/native-substrate/verifier-architecture.json",
@@ -7936,14 +7894,13 @@
   },
   {
    "check": {
-    "receipt": "tools/lune/verify/evidence/native-stylesheets--spike-matrix.json",
-    "shell": "test -f docs/research/2026-07-24-native-stylesheet-spike.md"
+    "receipt": "tools/lune/verify/evidence/native-stylesheets--spike-matrix.json"
    },
    "class": "evidence-pin",
    "evidence": "artifacts/native-stylesheets/feasibility/m1-state-selectors.json",
    "id": "native-stylesheets::spike-matrix",
    "name": "spike-matrix",
-   "note": "spike-matrix: its file-existence and text assertions must hold; and artifacts/native-stylesheets/feasibility/m1-state-selectors.json must exist. Requirements: UI-STYLE-001.",
+   "note": "spike-matrix: and artifacts/native-stylesheets/feasibility/m1-state-selectors.json must exist. Requirements: UI-STYLE-001.",
    "phase": "native-stylesheets",
    "releaseBlocking": false,
    "requirements": [
@@ -7980,7 +7937,6 @@
   },
   {
    "check": {
-    "receipt": "tools/lune/verify/evidence/native-stylesheets--seed-once-materializer.json",
     "shell": "test -f src/client/native_style.luau && grep -q \"SEED-ONCE\" src/client/native_style.luau && grep -q \"FacetStyle\" src/client/native_style.luau && grep -q \"IsA(\\\"StyleSheet\\\")\" src/client/native_style.luau && grep -q \"SetDerives\" src/client/native_style.luau && grep -q \"SetPropertyTransitions\" src/client/native_style.luau"
    },
    "class": "evidence-pin",
@@ -7997,7 +7953,6 @@
   },
   {
    "check": {
-    "receipt": "tools/lune/verify/evidence/native-stylesheets--adapter-native-mode.json",
     "shell": "grep -q \"nativeStyle\" src/client/screen_target.luau && grep -q \"syncTags\" src/client/screen_target.luau && grep -q \"classifyTags\" src/client/screen_target.luau && grep -q \"wireNativePressDip\" src/client/screen_target.luau && grep -q \"nativeSheetOwned\" src/render/authority.luau && grep -q \"setNativeTransitionsEnabled\" src/render/renderer.luau"
    },
    "class": "evidence-pin",
@@ -8223,7 +8178,6 @@
     "producers": [
      "suite"
     ],
-    "receipt": "tools/lune/verify/evidence/authoring-adaptive-ui--grid-fill-and-spacer.json",
     "resultIds": [
      "layout_vocabulary::A-LV1: Grid children with fill dimensions::a fill-width cell occupies its whole column instead of collapsing to content",
      "layout_vocabulary::A-LV1: Spacer expands along the stack's main axis by default::a bare Spacer pushes its siblings apart in a VStack",
@@ -8291,7 +8245,6 @@
     "producers": [
      "suite"
     ],
-    "receipt": "tools/lune/verify/evidence/authoring-adaptive-ui--adaptive-layout.json",
     "resultIds": [
      "adaptive::A-AL3: pure adaptive decisions (no device names)::a ten-foot display never resolves the densest class, however wide it is",
      "adaptive::A-AL2: AdaptiveStack changes axis without rebuilding anything::flipping the bound axis re-solves WITHOUT a factory rerun or a remount",
@@ -8317,7 +8270,6 @@
     "producers": [
      "suite"
     ],
-    "receipt": "tools/lune/verify/evidence/authoring-adaptive-ui--layout-modifiers-and-divider.json",
     "resultIds": [
      "layout_vocabulary::A-LV2: padding, offset, aspectRatio, alignment::an unknown alignment value fails at construction",
      "layout_vocabulary::A-LV2: padding, offset, aspectRatio, alignment::a modifier writing a property the class does not have is rejected",
@@ -8345,7 +8297,6 @@
     "producers": [
      "suite"
     ],
-    "receipt": "tools/lune/verify/evidence/authoring-adaptive-ui--button-complete.json",
     "resultIds": [
      "button_complete::B-BTN1: Button supports custom content behind one activation surface::a focusable inside the content is rejected: one activation surface, one focus site",
      "button_complete::B-BTN1: Button supports custom content behind one activation surface::a content button exposes exactly ONE focusable and activates once",
@@ -8375,7 +8326,6 @@
     "producers": [
      "suite"
     ],
-    "receipt": "tools/lune/verify/evidence/authoring-adaptive-ui--value-controls.json",
     "resultIds": [
      "value_controls::B-VAL1: the shared value model::quantizes onto a grid measured FROM min, so the bounds are reachable",
      "value_controls::B-VAL1: the shared value model::stepping always makes progress and never leaves the range",
@@ -8403,7 +8353,6 @@
     "producers": [
      "suite"
     ],
-    "receipt": "tools/lune/verify/evidence/authoring-adaptive-ui--display-and-selection-controls.json",
     "resultIds": [
      "display_controls::B-DSP1: ProgressView is determinate and style-owned::paint is style-owned through the BAR FAMILY, never a borrowed surface",
      "display_controls::B-DSP1: Label keeps a semantic text fallback::iconOnly DEGRADES to the title when there is no icon (an empty square is worse than a word)",
@@ -8514,7 +8463,6 @@
     "producers": [
      "suite"
     ],
-    "receipt": "tools/lune/verify/evidence/authoring-adaptive-ui--remaining-milestone-a-b-scope.json",
     "resultIds": [
      "renderer::preferred text applied exactly once (native-substrate NS-A9)::a preference BELOW 1 never reserves less than the painted size",
      "renderer::preferred text applied exactly once (native-substrate NS-A9)::the reservation floor composes with the ten-foot paint scale",
@@ -8567,7 +8515,6 @@
     "producers": [
      "suite"
     ],
-    "receipt": "tools/lune/verify/evidence/authoring-adaptive-ui--fresh-context-verification.json",
     "resultIds": [
      "button_complete::verifier V12: a disabled control refuses the CONSUMER OVERRIDE too::opts.onActivate does not fire for a disabled node",
      "button_complete::verifier V10: structural remount forgets the per-path caches::a path re-created while still hidden is written hidden again",
@@ -8608,7 +8555,6 @@
   },
   {
    "check": {
-    "receipt": "tools/lune/verify/evidence/theme-packages-and-skinning--theme-package-contract.json",
     "shell": "test -f src/themes/package.luau && grep -q \"themes = {\" src/init.luau && grep -q \"checkCoverage\" src/init.luau && grep -q \"onDanger on danger\" src/themes/package.luau && grep -q \"theme_package.spec\" tests/run.luau"
    },
    "class": "evidence-pin",
@@ -8629,7 +8575,6 @@
     "producers": [
      "check_flat_baseline"
     ],
-    "receipt": "tools/lune/verify/evidence/theme-packages-and-skinning--metric-snapshot-single-source.json",
     "shell": "test -f src/themes/snapshot.luau && grep -q \"themeMetrics\" src/env/environment.luau && grep -q \"themeMetrics\" src/render/renderer.luau"
    },
    "class": "evidence-pin",
@@ -8650,7 +8595,6 @@
     "producers": [
      "check_theme_drift_cli"
     ],
-    "receipt": "tools/lune/verify/evidence/theme-packages-and-skinning--controls-semantic-roles.json",
     "shell": "grep -q \"theme_drift.spec\" tests/run.luau && grep -q \"theme_roles.spec\" tests/run.luau"
    },
    "class": "evidence-pin",
@@ -8668,7 +8612,6 @@
   },
   {
    "check": {
-    "receipt": "tools/lune/verify/evidence/theme-packages-and-skinning--reactive-controller-atomic-swap.json",
     "shell": "test -f src/client/theme_controller.luau && grep -q \"themeRootGui\" src/client/screen_target.luau && grep -q \"theme_controller.spec\" tests/run.luau"
    },
    "class": "evidence-pin",
@@ -8686,7 +8629,6 @@
   },
   {
    "check": {
-    "receipt": "tools/lune/verify/evidence/theme-packages-and-skinning--font-aware-measurement.json",
     "shell": "grep -q \"fontKey\" src/layout/measure_facts.luau && grep -q 'require(\"./measure_facts\")' src/layout/solver.luau && grep -q \"buildPackage\" src/client/theme_controller.luau"
    },
    "class": "evidence-pin",
@@ -8707,7 +8649,6 @@
     "producers": [
      "theme_sync_cli-dump-artifacts-theme-packages-and-skinning-t-6f81a3"
     ],
-    "receipt": "tools/lune/verify/evidence/theme-packages-and-skinning--style-editor-sync.json",
     "shell": "test -f tools/lune/theme_sync_cli.luau && test -f src/themes/token_sync.luau"
    },
    "class": "evidence-pin",
@@ -8725,7 +8666,6 @@
   },
   {
    "check": {
-    "receipt": "tools/lune/verify/evidence/theme-packages-and-skinning--chrome-recipes-and-slots.json",
     "shell": "grep -q \"buildPackage\" src/tokens/sheet_model.luau && grep -q \"FacetChromeText\" src/client/screen_chrome.luau && grep -q \"chromeArtJudgement\" src/client/screen_chrome.luau && grep -q \"judgeArt\" src/tokens/chrome_slots.luau && grep -q \"theme_chrome.spec\" tests/run.luau"
    },
    "class": "evidence-pin",
@@ -8742,7 +8682,6 @@
   },
   {
    "check": {
-    "receipt": "tools/lune/verify/evidence/theme-packages-and-skinning--fantasy-parchment-public-build.json",
     "shell": "test -f examples/themes/fantasy_parchment.luau && grep -q \"neutralPackage\" examples/themes/fantasy_parchment.luau && ! grep -q 'require(\"%.%./%.%./src' examples/themes/fantasy_parchment.luau && test -f assets/themes/fantasy-parchment/provenance.md && test -f assets/themes/fantasy-parchment/upload-manifest.json"
    },
    "class": "evidence-pin",
@@ -8760,7 +8699,6 @@
   },
   {
    "check": {
-    "receipt": "tools/lune/verify/evidence/theme-packages-and-skinning--reference-theme-families.json",
     "shell": "for f in classic_desktop glossy_mobile scifi_hud fantasy_parchment fantasy_parchment_stub custom_control; do test -f \"examples/themes/$f.luau\" || exit 1; done && grep -q \"checkCoverage\" src/themes/package.luau && grep -q \"theme_reference_packages.spec\" tests/run.luau"
    },
    "class": "evidence-pin",
@@ -8779,8 +8717,7 @@
    "check": {
     "producers": [
      "check_docs_cli"
-    ],
-    "receipt": "tools/lune/verify/evidence/theme-packages-and-skinning--docs-and-check-docs-cli.json"
+    ]
    },
    "class": "exit0",
    "evidence": "artifacts/theme-packages-and-skinning/b-a12-docs-gate.json",
@@ -8883,7 +8820,6 @@
     "producers": [
      "check_flat_baseline"
     ],
-    "receipt": "tools/lune/verify/evidence/rich-skinning-v2--layered-slots-and-posture.json",
     "shell": "grep -q 'theme_layers.spec' tests/run.luau"
    },
    "class": "evidence-pin",
@@ -8903,7 +8839,6 @@
     "producers": [
      "suite"
     ],
-    "receipt": "tools/lune/verify/evidence/rich-skinning-v2--state-variant-assets.json",
     "resultIds": [
      "theme_variants::themes.normalizeVariant: one grammar for both rungs::unstated states fall back to default, which is what lets an author ship less art",
      "theme_variants::themes.normalizeVariant: one grammar for both rungs::rejects an unknown state key, naming the legal set",
@@ -8929,7 +8864,6 @@
     "producers": [
      "suite"
     ],
-    "receipt": "tools/lune/verify/evidence/rich-skinning-v2--image-value-displays.json",
     "resultIds": [
      "theme_value_displays::chrome_slots: the window clip, expressed as numbers::the art inside the window is the WHOLE track on the driven axis",
      "theme_value_displays::chrome_slots: the window clip, expressed as numbers::direction decides the axis and the pinned edge, and nothing else",
@@ -8955,7 +8889,6 @@
     "producers": [
      "suite"
     ],
-    "receipt": "tools/lune/verify/evidence/rich-skinning-v2--semantic-icons.json",
     "resultIds": [
      "theme_icons::themes.define: the icon map is validated like every other section::rejects a name that is neither a framework icon nor namespaced",
      "theme_icons::themes.define: the icon map is validated like every other section::rejects an unknown iconSizes role and a non-positive size",
@@ -8981,7 +8914,6 @@
     "producers": [
      "suite"
     ],
-    "receipt": "tools/lune/verify/evidence/rich-skinning-v2--pixel-mode.json",
     "resultIds": [
      "theme_pixel::themes.define: the pixel declaration::rejects an unknown rendering mode, naming the modes",
      "theme_pixel::themes.define: the pixel declaration::rejects a pixel package with no unit, and a fractional or zero one",
@@ -9008,7 +8940,6 @@
     "producers": [
      "suite"
     ],
-    "receipt": "tools/lune/verify/evidence/rich-skinning-v2--content-adoption.json",
     "resultIds": [
      "theme_pixel_content::content adoption: `contentId` is an alias, never a second path::both spellings compile to the same bytes — same assets, same STAMP",
      "theme_pixel_content::content adoption: `contentId` is an alias, never a second path::both emit the same rules, carrying the same plain strings",
@@ -9032,7 +8963,6 @@
     "producers": [
      "suite"
     ],
-    "receipt": "tools/lune/verify/evidence/rich-skinning-v2--selectby-profile-selection.json",
     "resultIds": [
      "theme_selectby::selectBy resolves at INSTALL from the facts already published::a pointer profile takes the pointer package",
      "theme_selectby::selectBy resolves at INSTALL from the facts already published::an UNMAPPED profile falls back to the positional default package",
@@ -9081,7 +9011,6 @@
     "producers": [
      "suite"
     ],
-    "receipt": "tools/lune/verify/evidence/rich-skinning-v2--reference-packages.json",
     "resultIds": [
      "theme_reference_packages::the corpus covers all four theme classes::palette-only, metric-changing, font-changing and asset-backed are all represented",
      "theme_reference_packages::the corpus covers all four theme classes::METRIC-CHANGING moves the numbers a control resolves on every solve",
@@ -9108,7 +9037,6 @@
     "producers": [
      "suite"
     ],
-    "receipt": "tools/lune/verify/evidence/rich-skinning-v2--platform-pair.json",
     "resultIds": [
      "theme_selectby::a profile change swaps ONCE, after it settles::dock: touch -> pointer swaps the package and the metrics together",
      "theme_selectby::a profile change swaps ONCE, after it settles::a hybrid FLAP produces one swap per settlement, not one per flap",
@@ -9132,8 +9060,7 @@
    "check": {
     "producers": [
      "check_docs_cli"
-    ],
-    "receipt": "tools/lune/verify/evidence/rich-skinning-v2--customization-ladder-docs.json"
+    ]
    },
    "class": "exit0",
    "evidence": "artifacts/rich-skinning-v2/rs-a15-ladder-docs.json",
@@ -9152,7 +9079,6 @@
     "producers": [
      "suite"
     ],
-    "receipt": "tools/lune/verify/evidence/rich-skinning-v2--cost-honesty.json",
     "resultIds": [
      "theme_layer_application::chrome_slots.layerBoxes: rs-m3's idiom, expressed as numbers::layers and INSTANCES are different numbers, and both are published",
      "theme_layers::themes.define: a layered recipe compiles to inspectable layer data::a stack with no plaque, and every flat package, publishes NOTHING"
@@ -10137,14 +10063,13 @@
    "check": {
     "producers": [
      "_probe_public_surface"
-    ],
-    "receipt": "tools/lune/verify/evidence/code-simplicity-cleanup--public-surface-unchanged.json"
+    ]
    },
    "class": "exit0",
-   "evidence": "artifacts/code-simplicity-cleanup/public-surface.txt",
+   "evidence": "artifacts/verify/public-surface.txt",
    "id": "code-simplicity-cleanup::public-surface-unchanged",
    "name": "public-surface-unchanged",
-   "note": "public-surface-unchanged: _probe_public_surface must exit zero; and artifacts/code-simplicity-cleanup/public-surface.txt must exist. Requirements: UI-AGENT-001.",
+   "note": "public-surface-unchanged: _probe_public_surface must exit zero; and artifacts/verify/public-surface.txt must exist. Requirements: UI-AGENT-001.",
    "phase": "code-simplicity-cleanup",
    "releaseBlocking": false,
    "requirements": [
@@ -10274,13 +10199,13 @@
     "producers": [
      "bench"
     ],
-    "receipt": "tools/lune/verify/evidence/code-simplicity-cleanup--performance-unregressed.json"
+    "shell": "python3 -c \"import json,sys; d=json.load(open('artifacts/bench.json')); sys.exit(0 if d['status']=='PASS' and not any(r['regression'] for r in d['results']) else 1)\""
    },
-   "class": "exit0",
+   "class": "evidence-pin",
    "evidence": "artifacts/code-simplicity-cleanup/perf-after.md",
    "id": "code-simplicity-cleanup::performance-unregressed",
    "name": "performance-unregressed",
-   "note": "performance-unregressed: bench must exit zero; and artifacts/code-simplicity-cleanup/perf-after.md must exist. Requirements: UI-PERF-001.",
+   "note": "performance-unregressed: bench must exit zero; its file-existence and text assertions must hold; and artifacts/code-simplicity-cleanup/perf-after.md must exist. Requirements: UI-PERF-001.",
    "phase": "code-simplicity-cleanup",
    "releaseBlocking": false,
    "requirements": [
@@ -10308,8 +10233,7 @@
    "check": {
     "producers": [
      "check_surface_ledger"
-    ],
-    "receipt": "tools/lune/verify/evidence/api-architecture-consistency--surface-ledger-complete.json"
+    ]
    },
    "class": "exit0",
    "evidence": "artifacts/api-architecture-consistency/surface-ledger.md",
@@ -10408,7 +10332,6 @@
   },
   {
    "check": {
-    "receipt": "tools/lune/verify/evidence/api-architecture-consistency--fresh-author-exercise.json",
     "shell": "test ! -f src/controls/tag_count.luau"
    },
    "class": "evidence-pin",
@@ -10446,7 +10369,6 @@
     "producers": [
      "rascalrally-suite"
     ],
-    "receipt": "tools/lune/verify/evidence/api-architecture-consistency--rascalrally-consumer.json",
     "shell": "cd ../../../games/RascalRally/code"
    },
    "class": "evidence-pin",
@@ -10505,13 +10427,13 @@
     "producers": [
      "bench"
     ],
-    "receipt": "tools/lune/verify/evidence/api-architecture-consistency--performance-unregressed.json"
+    "shell": "python3 -c \"import json,sys; d=json.load(open('artifacts/bench.json')); sys.exit(0 if d['status']=='PASS' and not any(r['regression'] for r in d['results']) else 1)\""
    },
-   "class": "exit0",
+   "class": "evidence-pin",
    "evidence": null,
    "id": "api-architecture-consistency::performance-unregressed",
    "name": "performance-unregressed",
-   "note": "performance-unregressed: bench must exit zero. Requirements: UI-PERF-001.",
+   "note": "performance-unregressed: bench must exit zero; its file-existence and text assertions must hold. Requirements: UI-PERF-001.",
    "phase": "api-architecture-consistency",
    "releaseBlocking": false,
    "requirements": [
@@ -10769,7 +10691,6 @@
     "producers": [
      "rascalrally-suite"
     ],
-    "receipt": "tools/lune/verify/evidence/desktop-keyboard-navigation--rascalrally-consumer.json",
     "shell": "cd ../../../games/RascalRally/code"
    },
    "class": "evidence-pin",
@@ -11112,7 +11033,6 @@
   },
   {
    "check": {
-    "receipt": "tools/lune/verify/evidence/traversal-document-order--step8-debt-cleared.json",
     "shell": "grep -q 'keyboardNavigation' docs/reference/api.md && grep -q 'Camera 100' docs/guide/07-input.md"
    },
    "class": "evidence-pin",
@@ -11168,7 +11088,6 @@
     "producers": [
      "rascalrally-suite"
     ],
-    "receipt": "tools/lune/verify/evidence/traversal-document-order--rascalrally-consumer.json",
     "shell": "test -f ../../../games/RascalRally/code/tests/facet_focus_order_contract.spec.luau && cd ../../../games/RascalRally/code"
    },
    "class": "evidence-pin",
@@ -11372,7 +11291,6 @@
   },
   {
    "check": {
-    "receipt": "tools/lune/verify/evidence/large-text-accessibility--sponsor-policy-reconciled.json",
     "shell": "f=../../../games/RascalRally/docs/ui/UI_SPEC_sponsor_facet.md && grep -q \"Corrected 2026-08-03, Step 8.5 / LTN-3\" \"$f\" && grep -q \"identity only, full value reachable\" \"$f\" && ! grep -q \"seat name, countdown\" \"$f\""
    },
    "class": "evidence-pin",
@@ -11392,7 +11310,6 @@
     "producers": [
      "rascalrally-suite"
     ],
-    "receipt": "tools/lune/verify/evidence/large-text-accessibility--rascalrally-consumer.json",
     "shell": "test -f ../../../games/RascalRally/code/tests/facet_large_text_contract.spec.luau && test -f ../../../games/RascalRally/code/tests/facet_large_text_sweep.spec.luau && cd ../../../games/RascalRally/code"
    },
    "class": "evidence-pin",
@@ -11400,22 +11317,6 @@
    "id": "large-text-accessibility::rascalrally-consumer",
    "name": "rascalrally-consumer",
    "note": "rascalrally-consumer: rascalrally-suite must exit zero; its file-existence and text assertions must hold; and artifacts/large-text-accessibility/consumer-impact.md must exist. Requirements: UI-AGENT-001.",
-   "phase": "large-text-accessibility",
-   "releaseBlocking": false,
-   "requirements": [
-    "UI-AGENT-001"
-   ],
-   "state": null
-  },
-  {
-   "check": {
-    "shell": "f=docs/plans/performance-stress-places.md && grep -q \"layout-style-churn\" \"$f\" && grep -q \"large-text-overflow\" \"$f\" && grep -q \"premeasure cache hits/misses/corrections\" \"$f\" && grep -q \"re-solve count per preference change\" \"$f\" && grep -q \"moving-text-surface count\" \"$f\" && grep -q \"Step 8.5 gate rider\" \"$f\""
-   },
-   "class": "evidence-pin",
-   "evidence": null,
-   "id": "large-text-accessibility::perf-workloads",
-   "name": "perf-workloads",
-   "note": "perf-workloads: its file-existence and text assertions must hold. Requirements: UI-AGENT-001.",
    "phase": "large-text-accessibility",
    "releaseBlocking": false,
    "requirements": [
@@ -11471,7 +11372,6 @@
     "producers": [
      "suite"
     ],
-    "receipt": "tools/lune/verify/evidence/large-text-accessibility--fresh-context-reviews.json",
     "resultIds": [
      "preferred_text_seam::preferred_text offset seam (LT-1/LT-3/LT-4)::an answer that raced a preference step is DISCARDED — the A->B->A double-step cannot poison the cache",
      "text_disclosure::fresh-review closures: the plate answers for the label as it IS::a HIDDEN ViewThatFits candidate discloses nothing — its plate would show text that is not on screen",
@@ -11781,7 +11681,6 @@
     "producers": [
      "check_perf_gate_evidence-budgets"
     ],
-    "receipt": "tools/lune/verify/evidence/performance-stress-places--optimization-loop-recorded.json",
     "shell": "grep -q \"measureUncached\" src/layout/solver.luau && grep -q \"measureCache\" src/layout/solver.luau"
    },
    "class": "evidence-pin",
@@ -11801,7 +11700,6 @@
     "producers": [
      "rascalrally-suite"
     ],
-    "receipt": "tools/lune/verify/evidence/performance-stress-places--rascalrally-consumer.json",
     "shell": "cd ../../../games/RascalRally/code"
    },
    "class": "evidence-pin",
@@ -11900,8 +11798,7 @@
    "check": {
     "producers": [
      "check_perf_gate_evidence-budgets"
-    ],
-    "receipt": "tools/lune/verify/evidence/performance-stress-places--physical-rows.json"
+    ]
    },
    "class": "exit0",
    "evidence": "artifacts/performance-stress-places/review-packet.md",
@@ -12177,7 +12074,6 @@
     "producers": [
      "rascalrally-suite"
     ],
-    "receipt": "tools/lune/verify/evidence/example-quality-pass--rascalrally-consumer.json",
     "shell": "cd ../../../games/RascalRally/code"
    },
    "class": "evidence-pin",
@@ -12208,7 +12104,6 @@
   },
   {
    "check": {
-    "receipt": "tools/lune/verify/evidence/reference-app-validation--source-inspection-and-ip-boundary.json",
     "shell": "! python3 -c \"import sys, importlib.util, pathlib; s = importlib.util.spec_from_file_location('g', 'tools/check_brand_drift.py'); m = importlib.util.module_from_spec(s); s.loader.exec_module(m); sys.exit(0 if any(m.VENDOR.search(l) and 'artifacts/' not in l for p in pathlib.Path('examples/reference').rglob('*.luau') for l in p.read_text().splitlines()) else 1)\""
    },
    "class": "evidence-pin",
@@ -12228,7 +12123,6 @@
     "producers": [
      "check_example_drift_cli"
     ],
-    "receipt": "tools/lune/verify/evidence/reference-app-validation--responsibility-ledger.json",
     "shell": "! { grep -rnE \"Instance[.]new|GetService[(]|UserInputService|os[.]clock|os[.]time|math[.]random\" examples/reference/ tests/fixtures/retired/ --include=\"*.luau\" | grep -vE \":[0-9]+:[[:space:]]*--\" | grep -q .; }"
    },
    "class": "evidence-pin",
@@ -12248,7 +12142,6 @@
     "producers": [
      "suite"
     ],
-    "receipt": "tools/lune/verify/evidence/reference-app-validation--proof-garden-loop.json",
     "resultIds": [
      "reference/glade_spec::Glade: supply drain, low and empty (spec §1, §6)::a refill stamps the clock, restores the level, and the ring drains again",
      "reference/glade_spec::Glade S3/S4: the purchase command's four phases (spec §9)::idle → pending → confirmed: the button says Confirming…, then the count counts up",
@@ -12274,7 +12167,6 @@
     "producers": [
      "suite"
     ],
-    "receipt": "tools/lune/verify/evidence/reference-app-validation--proof-dashboard-loop.json",
     "resultIds": [
      "reference/cartwheel_spec::Cartwheel — the status machine::THE COUNTDOWN SURVIVES NAVIGATION (the service owns the fact, not the view)",
      "reference/cartwheel_spec::Cartwheel — the shell::SELECTION RESETS PUSHED DETAIL: a sidebar change lands on the section root",
@@ -12300,7 +12192,6 @@
     "producers": [
      "suite"
     ],
-    "receipt": "tools/lune/verify/evidence/reference-app-validation--proof-catalog-loop.json",
     "resultIds": [
      "reference/sipworks_spec::Sipworks §8 — the order flow: guard, rejection, confirmation, ready::the CTA runs idle -> pending -> rejected, shows a toast, and returns to idle",
      "reference/sipworks_spec::Sipworks §8 — the order flow: guard, rejection, confirmation, ready::the second order confirms, presents Order-Placed, and the disc flips at t+4s",
@@ -12327,7 +12218,6 @@
     "producers": [
      "suite"
     ],
-    "receipt": "tools/lune/verify/evidence/reference-app-validation--proof-discovery-home-loop.json",
     "resultIds": [
      "reference/foyer_spec::Foyer proof — mount and structure (RA-P4)::a size-class flip swaps chrome but never remounts the home body",
      "reference/foyer_spec::Foyer proof — tabs, search, stubs::the charts tab swaps the feed to the approval-ranked section and back",
@@ -12356,7 +12246,6 @@
     "producers": [
      "suite"
     ],
-    "receipt": "tools/lune/verify/evidence/reference-app-validation--proof-avatar-editor-loop.json",
     "resultIds": [
      "reference/wardrobe_spec::Wardrobe proof — mount, stage seam, arrangement (RA-P5)::the stage host is live headlessly (recording stub): lighting + camera recorded, fallback closed",
      "reference/wardrobe_spec::Wardrobe proof — mount, stage seam, arrangement (RA-P5)::wide solves the split arrangement; a phone box solves stacked — and worn state survives the flip",
@@ -12414,7 +12303,6 @@
     "producers": [
      "build_reference_places"
     ],
-    "receipt": "tools/lune/verify/evidence/reference-app-validation--places-and-builds.json",
     "shell": "python3 -c \"import os; built={'Facet-Ref-Glade','Facet-Ref-Cartwheel','Facet-Ref-Sipworks','Facet-Ref-Foyer'}; assert all(os.path.getsize(f'examples/places/{n}.rbxl')>200000 for n in built); assert not os.path.exists('examples/places/Facet-Ref-Wardrobe.rbxl'), 'retired: a publishable Wardrobe place is back'\""
    },
    "class": "evidence-pin",
@@ -12434,7 +12322,6 @@
     "producers": [
      "suite"
     ],
-    "receipt": "tools/lune/verify/evidence/reference-app-validation--framework-fixes-tested.json",
     "resultIds": [
      "grid_measure_arrange::grid measure/arrange agreement::a grid of content buttons in a hug stack reports no overflow (fixed thumb)",
      "scroll_bar_measure::ScrollView measure includes the bar its arrange reserves::an overflowing hug x-shelf reports zero diagnostics with a live bar",
@@ -12499,7 +12386,6 @@
     "producers": [
      "rascalrally-suite"
     ],
-    "receipt": "tools/lune/verify/evidence/reference-app-validation--rascalrally-consumer.json",
     "shell": "cd ../../../games/RascalRally/code"
    },
    "class": "evidence-pin",
@@ -12520,7 +12406,6 @@
      "check_docs_cli",
      "check_registration_cli"
     ],
-    "receipt": "tools/lune/verify/evidence/reference-app-validation--docs-updated.json",
     "shell": "grep -qF \"UI.Stage\" docs/reference/api.md"
    },
    "class": "evidence-pin",
@@ -12609,7 +12494,6 @@
     "producers": [
      "rascalrally-suite"
     ],
-    "receipt": "tools/lune/verify/evidence/row-actions--rascalrally-consumer.json",
     "shell": "test -f ../../../games/RascalRally/code/tests/facet_sponsor_table.spec.luau && cd ../../../games/RascalRally/code"
    },
    "class": "evidence-pin",
@@ -12941,7 +12825,7 @@
   },
   {
    "check": {
-    "shell": "test -f tools/check_traversal_evidence.py && grep -qF \"THE FIX IS A RE-RECORD, NOT AN EDIT\" tools/check_traversal_evidence.py && grep -qF \"Owed: the TD-13/TD-14 re-record\" docs/plans/device-bug-round-2026-08-12.md && python3 -c \"\nimport re, sys\nsrc = open('tools/lune/gate_manifest.luau').read()\nstart = src.index('[\\\"traversal-document-order\\\"]')\nrest = src[start + 10:]\nm = re.search(r'\\n\\t\\[\\\"', rest)\nblock = rest[: m.start()] if m else rest\nif 'name = \\\"studio-evidence\\\"' not in block:\n    sys.exit('traversal-document-order no longer registers a studio-evidence check')\nif not any(l.strip().startswith('run =') and 'check_traversal_evidence' in l for l in block.splitlines()):\n    sys.exit('studio-evidence no longer RUNS tools/check_traversal_evidence.py — the red was downgraded, not re-recorded')\nprint('traversal-document-order/studio-evidence still runs the structural staleness check')\n\""
+    "shell": "test -f tools/check_traversal_evidence.py && grep -qF \"THE FIX IS A RE-RECORD, NOT AN EDIT\" tools/check_traversal_evidence.py && python3 -c \"\nimport re, sys\nsrc = open('tools/lune/gate_manifest.luau').read()\nstart = src.index('[\\\"traversal-document-order\\\"]')\nrest = src[start + 10:]\nm = re.search(r'\\n\\t\\[\\\"', rest)\nblock = rest[: m.start()] if m else rest\nif 'name = \\\"studio-evidence\\\"' not in block:\n    sys.exit('traversal-document-order no longer registers a studio-evidence check')\nif not any(l.strip().startswith('run =') and 'check_traversal_evidence' in l for l in block.splitlines()):\n    sys.exit('studio-evidence no longer RUNS tools/check_traversal_evidence.py — the red was downgraded, not re-recorded')\nprint('traversal-document-order/studio-evidence still runs the structural staleness check')\n\""
    },
    "class": "evidence-pin",
    "evidence": null,
@@ -12976,8 +12860,7 @@
    "check": {
     "producers": [
      "check_spike-artifacts-declarative-3d-architecture-studio-694f2a"
-    ],
-    "receipt": "tools/lune/verify/evidence/declarative-3d-architecture--studio-topology-evidence.json"
+    ]
    },
    "class": "exit0",
    "evidence": "artifacts/declarative-3d-architecture/studio-topology.json",
@@ -12995,8 +12878,7 @@
    "check": {
     "producers": [
      "check_spike-artifacts-declarative-3d-architecture-costs-61165b"
-    ],
-    "receipt": "tools/lune/verify/evidence/declarative-3d-architecture--spike-costs-measured.json"
+    ]
    },
    "class": "exit0",
    "evidence": "artifacts/declarative-3d-architecture/costs.json",
@@ -13090,7 +12972,7 @@
   },
   {
    "check": {
-    "shell": "grep -qF \"Build flow-wrap as a native arrange branch in the solver\" docs/plans/parity-round3.md && grep -qF \"conditionally-refused future mission, with a named\" docs/plans/parity-round3.md && grep -qF \"Trigger: *a real\" docs/plans/parity-round3.md && grep -qF \"would be the first\" docs/plans/parity-round3.md && test -f tests/flow_wrap.spec.luau"
+    "shell": "test -f tests/flow_wrap.spec.luau"
    },
    "class": "evidence-pin",
    "evidence": "docs/plans/parity-round3.md",
@@ -13180,7 +13062,6 @@
     "producers": [
      "suite"
     ],
-    "receipt": "tools/lune/verify/evidence/parity-round-3--reference-apps-reproved.json",
     "resultIds": [
      "reference/cartwheel_spec::Cartwheel — the rows that WRAP (parity round 3)::THE PLAZA SUMMARY IS ONE ROW: each chip at ONE path, none at a zero rect",
      "reference/cartwheel_spec::Cartwheel — the rows that WRAP (parity round 3)::THE TAG CLOUD IS RAGGED AND MULTI-LINE, where a uniform grid gave one width",
@@ -13228,7 +13109,7 @@
      "lifecycle_hooks::hidden — the space-reserving hide::...and so does a losing ViewThatFits candidate, which is the SAME verdict",
      "examples_gallery::examples/gallery fixture: lifecycle hooks and hidden::teardown fires the badge's own disappear, so the count is never left short"
     ],
-    "shell": "grep -qF \"newAsyncImage\" docs/reference/api.md && grep -qF \"keyboardType\" docs/reference/api.md && grep -qF \"effectiveTransparency\" docs/reference/api.md && test -f docs/plans/parity-completeness-audit-2026-08-13.md"
+    "shell": "grep -qF \"newAsyncImage\" docs/reference/api.md && grep -qF \"keyboardType\" docs/reference/api.md && grep -qF \"effectiveTransparency\" docs/reference/api.md"
    },
    "class": "result-ids",
    "evidence": null,
@@ -13435,7 +13316,6 @@
   },
   {
    "check": {
-    "receipt": "tools/lune/verify/evidence/parity-round-3--owed-ledger-honest.json",
     "shell": "test -f tests/gallery_chrome.spec.luau && test -f examples/gallery/client/showcase_chrome.luau && test -f examples/gallery/client/settings_panel.luau && test -f examples/places/Facet-Showcase.rbxl && test -f docs/reference/api.md && test -f tests/overflow_sweep.spec.luau && test -f src/controls/table.luau && test -f src/controls/virtual_list.luau && test -f src/layout/shrink.luau && test -f tests/text_degrade_cascade.spec.luau && test -f tests/row_actions_input.spec.luau && test -f tests/virtual_list_row_actions.spec.luau && test -f src/controls/progress_view.luau && test -f tests/progress_circular.spec.luau && test -f tests/paradigm_table.spec.luau && test -f tools/check_source_size.py && test -f tools/lune/check_tier_costs.luau && test -f tools/lune/triage_overflow_waivers.luau && test -f tests/preferred_transparency.spec.luau && test -f examples/gallery/scenarios/preferred_transparency.luau && test -f src/controls/native_scroll_binding.luau && test -f tests/native_scroll_autobind.spec.luau"
    },
    "class": "evidence-pin",
@@ -13452,7 +13332,7 @@
   },
   {
    "check": {
-    "shell": "test -f tools/check_traversal_evidence.py && grep -qF \"THE FIX IS A RE-RECORD, NOT AN EDIT\" tools/check_traversal_evidence.py && grep -qF \"Owed: the TD-13/TD-14 re-record\" docs/plans/device-bug-round-2026-08-12.md && python3 -c \"\nimport re, sys\nsrc = open('tools/lune/gate_manifest.luau').read()\nstart = src.index('[\\\"traversal-document-order\\\"]')\nrest = src[start + 10:]\nm = re.search(r'\\n\\t\\[\\\"', rest)\nblock = rest[: m.start()] if m else rest\nif 'name = \\\"studio-evidence\\\"' not in block:\n    sys.exit('traversal-document-order no longer registers a studio-evidence check')\nif not any(l.strip().startswith('run =') and 'check_traversal_evidence' in l for l in block.splitlines()):\n    sys.exit('studio-evidence no longer RUNS tools/check_traversal_evidence.py — the red was downgraded, not re-recorded')\nprint('traversal-document-order/studio-evidence still runs the structural staleness check')\n\""
+    "shell": "test -f tools/check_traversal_evidence.py && grep -qF \"THE FIX IS A RE-RECORD, NOT AN EDIT\" tools/check_traversal_evidence.py && python3 -c \"\nimport re, sys\nsrc = open('tools/lune/gate_manifest.luau').read()\nstart = src.index('[\\\"traversal-document-order\\\"]')\nrest = src[start + 10:]\nm = re.search(r'\\n\\t\\[\\\"', rest)\nblock = rest[: m.start()] if m else rest\nif 'name = \\\"studio-evidence\\\"' not in block:\n    sys.exit('traversal-document-order no longer registers a studio-evidence check')\nif not any(l.strip().startswith('run =') and 'check_traversal_evidence' in l for l in block.splitlines()):\n    sys.exit('studio-evidence no longer RUNS tools/check_traversal_evidence.py — the red was downgraded, not re-recorded')\nprint('traversal-document-order/studio-evidence still runs the structural staleness check')\n\""
    },
    "class": "evidence-pin",
    "evidence": null,
@@ -13521,7 +13401,6 @@
     "producers": [
      "suite"
     ],
-    "receipt": "tools/lune/verify/evidence/parity-round-4--time-based-easing.json",
     "resultIds": [
      "motion_tween::clock:tween — a duration that means what it says::ARRIVES EXACTLY ON TIME, and not one frame early",
      "motion_tween::clock:tween — a duration that means what it says::advances by RAW dt: a frame spike does not stretch the duration",
@@ -13733,7 +13612,6 @@
     "producers": [
      "suite"
     ],
-    "receipt": "tools/lune/verify/evidence/parity-round-4--hit-expander-z-order.json",
     "resultIds": [
      "hit_expander_overhang::hit-expander overhang: the table divider's floor is reachable::the divider outranks the NEIGHBOUR column its 44px floor reaches into",
      "hit_expander_overhang::hit-expander overhang: the table divider's floor is reachable::nothing is left that can take the band: the whole 44px belongs to the divider",
@@ -13890,7 +13768,7 @@
      "gallery_demo_picker::showcase host: advancing the picker actually mounts the demo it names::NEGATIVE CONTROL: a demo that cannot build is NOT reported as mounted",
      "gallery_demo_picker::showcase host: advancing the picker actually mounts the demo it names::the shipped scriptable API answers with what it DELIVERED, not what it was asked for"
     ],
-    "shell": "grep -qF \"mountedId\" examples/gallery/client/demo_picker.luau && grep -q \"Read .mounted., not .current.\" docs/guide/11-device-verification.md && grep -qF \"is what was ASKED for; \" docs/handoff/SHOWCASE_DEVICE_PASS.md"
+    "shell": "grep -qF \"mountedId\" examples/gallery/client/demo_picker.luau && grep -q \"Read .mounted., not .current.\" docs/guide/11-device-verification.md"
    },
    "class": "result-ids",
    "evidence": null,
@@ -14140,7 +14018,6 @@
      "suite",
      "check_elision_census"
     ],
-    "receipt": "tools/lune/verify/evidence/parity-round-4--nested-instance-tree.json",
     "resultIds": [
      "host_move_write_cost::a host that moves costs ONE engine write, not one per descendant::THE BILL: the whole list moves 40px and ONE Position is written",
      "host_move_write_cost::a host that moves costs ONE engine write, not one per descendant::A/A: re-applying the SAME rects writes nothing at all",
@@ -22681,7 +22558,6 @@
      "suite",
      "rascalrally-suite"
     ],
-    "receipt": "tools/lune/verify/evidence/navigation-and-menus--d5-tabview.json",
     "resultIds": [
      "tab_view::D5: the strip IS a segmented picker, not a second option row::mounts newPicker's own option row, with the D4 indicator on it",
      "tab_view::D5: the strip IS a segmented picker, not a second option row::a badge rides an UNSELECTED tab and survives every switch — the strip is never evicted",
@@ -22745,7 +22621,7 @@
      "overflow_sweep::overflow sweep: the theme ledger::every ledger row still fires — a stale row is a fixed defect, delete the line",
      "large_text_matrix::LT-8 control matrix: the sweep's own coverage and mirrors::LT8-COVER every controls_registry row is swept or carries a declared reason"
     ],
-    "shell": "test -f src/controls/tab_view.luau && grep -q \"THE APP-LEVEL PLACEMENT BELONGS TO THE OUTERMOST TABVIEW\" src/controls/tab_view.luau && grep -qF \"local tabView = require(\" src/init.luau && grep -qF \"@self/controls/tab_view\" src/init.luau && grep -qF \"newTabView = tabView.build\" src/init.luau && grep -qF \"TabView = function(core: any, spec: tabView.Spec)\" src/init.luau && grep -q \"tab_view.spec\" tests/run.luau && grep -q \"adaptive.conditions\" src/controls/tab_view.luau && ! grep -q \"preferredInput\" src/controls/tab_view.luau && ! grep -q \"displaySize\" src/controls/tab_view.luau && grep -q \"picker.build\" src/controls/tab_view.luau && ! grep -q \"UI.Button\" src/controls/tab_view.luau && ! grep -q \"transientScope = \" src/controls/tab_view.luau && ! grep -q \"handleCancel\" src/controls/tab_view.luau && ! grep -q \"outsideDismiss\" src/controls/tab_view.luau && grep -q \"Facet.newTabView\" examples/reference/p4_foyer/init.luau && ! grep -q \"navItems(\" examples/reference/p4_foyer/init.luau && ! grep -q \"NavTopWhen\" examples/reference/p4_foyer/init.luau && ! grep -q \"BottomFullWhen\" examples/reference/p4_foyer/init.luau && grep -q \"^### .newTabView.\" docs/reference/api.md && grep -qF \"newTabView\" docs/reference/api.md && test -f tests/tab_view.spec.luau && grep -q \"CLOSED 2026-08-16 (navigation-and-menus D5)\" docs/plans/parity-completeness-audit-2026-08-13.md && grep -q \"facet_tab_view_contract.spec\" ../../../games/RascalRally/code/tests/run.luau && cd ../../../games/RascalRally/code && rr=\"$(cat \"$FACET_VERIFY_RR_TRANSCRIPT\")\" && echo \"$rr\" | grep -q \"✓.*it exists, takes the documented shape, and refuses an unknown key\" && echo \"$rr\" | grep -q \"✓.*two levels nest: the inner strip never claims the app-level placement\" && echo \"$rr\" | grep -q \"✓.*switching a tab is a REAL disposal, counted on this package.s core\" && echo \"$rr\" | grep -q \"✓.*this game mounts no .newTabView. — the tripwire that says a caller edit is owed\" && echo \"$rr\" | grep -q \"✓.*the shipped sponsor table.s .Split. contributes no group, on the axis that flips\" && echo \"$rr\" | grep -q \"✓.*the BOUND itself: a Split-shaped stack is not a run, however its axis reads\" && echo \"$rr\" | grep -q \"✓.*POSITIVE CONTROL: a real x-axis run DOES become one horizontal group\""
+    "shell": "test -f src/controls/tab_view.luau && grep -q \"THE APP-LEVEL PLACEMENT BELONGS TO THE OUTERMOST TABVIEW\" src/controls/tab_view.luau && grep -qF \"local tabView = require(\" src/init.luau && grep -qF \"@self/controls/tab_view\" src/init.luau && grep -qF \"newTabView = tabView.build\" src/init.luau && grep -qF \"TabView = function(core: any, spec: tabView.Spec)\" src/init.luau && grep -q \"tab_view.spec\" tests/run.luau && grep -q \"adaptive.conditions\" src/controls/tab_view.luau && ! grep -q \"preferredInput\" src/controls/tab_view.luau && ! grep -q \"displaySize\" src/controls/tab_view.luau && grep -q \"picker.build\" src/controls/tab_view.luau && ! grep -q \"UI.Button\" src/controls/tab_view.luau && ! grep -q \"transientScope = \" src/controls/tab_view.luau && ! grep -q \"handleCancel\" src/controls/tab_view.luau && ! grep -q \"outsideDismiss\" src/controls/tab_view.luau && grep -q \"Facet.newTabView\" examples/reference/p4_foyer/init.luau && ! grep -q \"navItems(\" examples/reference/p4_foyer/init.luau && ! grep -q \"NavTopWhen\" examples/reference/p4_foyer/init.luau && ! grep -q \"BottomFullWhen\" examples/reference/p4_foyer/init.luau && grep -q \"^### .newTabView.\" docs/reference/api.md && grep -qF \"newTabView\" docs/reference/api.md && test -f tests/tab_view.spec.luau && grep -q \"facet_tab_view_contract.spec\" ../../../games/RascalRally/code/tests/run.luau && cd ../../../games/RascalRally/code && rr=\"$(cat \"$FACET_VERIFY_RR_TRANSCRIPT\")\" && echo \"$rr\" | grep -q \"✓.*it exists, takes the documented shape, and refuses an unknown key\" && echo \"$rr\" | grep -q \"✓.*two levels nest: the inner strip never claims the app-level placement\" && echo \"$rr\" | grep -q \"✓.*switching a tab is a REAL disposal, counted on this package.s core\" && echo \"$rr\" | grep -q \"✓.*this game mounts no .newTabView. — the tripwire that says a caller edit is owed\" && echo \"$rr\" | grep -q \"✓.*the shipped sponsor table.s .Split. contributes no group, on the axis that flips\" && echo \"$rr\" | grep -q \"✓.*the BOUND itself: a Split-shaped stack is not a run, however its axis reads\" && echo \"$rr\" | grep -q \"✓.*POSITIVE CONTROL: a real x-axis run DOES become one horizontal group\""
    },
    "class": "result-ids",
    "evidence": "artifacts/navigation-and-menus/d5-tabview.md",
@@ -22822,7 +22698,6 @@
     "producers": [
      "suite"
     ],
-    "receipt": "tools/lune/verify/evidence/navigation-and-menus--d7-elision-discloses.json",
     "resultIds": [
      "elision_recovery::D7.1 — a region states where the content a reduced form stops showing went::REQUIRES `recover` on a region with more than one form, and names it",
      "elision_recovery::D7.1 — a region states where the content a reduced form stops showing went::REFUSES `recover` on a one-form region: there is nothing there to choose",
@@ -22919,7 +22794,6 @@
     "producers": [
      "rascalrally-suite"
     ],
-    "receipt": "tools/lune/verify/evidence/navigation-and-menus--rider-rascalrally-consumer.json",
     "shell": "for spec in anchored_surface_contract menu_contract help_callout_contract selection_indicator_contract segmented_picker_contract; do test -f \"../../../games/RascalRally/code/tests/facet_${spec}.spec.luau\" || { echo \"missing game-side contract spec: $spec\"; exit 1; }; grep -q \"facet_${spec}.spec\" ../../../games/RascalRally/code/tests/run.luau || { echo \"$spec is not REGISTERED - an unregistered spec is a silent zero\"; exit 1; }; done && (cd ../../../games/RascalRally/code && cat \"$FACET_VERIFY_RR_TRANSCRIPT\" >/dev/null)"
    },
    "class": "evidence-pin",
@@ -22936,23 +22810,6 @@
   },
   {
    "check": {
-    "shell": "f=artifacts/navigation-and-menus/review-packet.md && test -f \"$f\" && grep -qF \"Automation complete, release evidence pending\" \"$f\" && grep -qF \"tools/build_places.sh\" \"$f\" && grep -qF \"If it does not match the sha above\" \"$f\" && for id in P1 P2 P3 P4 P5 P6 P7 P8 H1 H2 H3 H4 H4a H5; do grep -q \"^### ${id} \" \"$f\" || { echo \"review packet has no ${id} row\"; exit 1; }; done && grep -qF \"Paint probe\" \"$f\" && grep -qF \"hidden under\" \"$f\" && test -f artifacts/navigation-and-menus/h4a-paint-probe.md && for d in menu tab-view level-picker callout hud ex02 all-controls sensory-feedback; do grep -q \"id .${d}.\" \"$f\" || { echo \"review packet never names the ${d} demo by id - a reviewer cannot find it\"; exit 1; }; done && for s in \"Requested\" \"This platform says no\" \"Could not determine\"; do grep -qF \"$s\" \"$f\" || { echo \"the P8 tri-state is missing its ${s} row - two of three is the collapse this row exists to prevent\"; exit 1; }; done && a=artifacts/navigation-and-menus/acceptance.md && for id in NM-X1 NM-X2 NM-X3; do row=\"$(grep -E \"[|] [*][*]${id}[*][*] [|]\" \"$a\")\" || { echo \"${id} row is missing\"; exit 1; }; printf \"%s\" \"$row\" | grep -qE \"PENDING_PHYSICAL|PASS_PHYSICAL|FAIL_PRODUCT\" || { echo \"${id} is not an honest device state\"; exit 1; }; if printf \"%s\" \"$row\" | grep -q \"PASS_AUTOMATED\"; then echo \"${id} was relabelled PASS_AUTOMATED - a device row cannot pass through a headless proxy\"; exit 1; fi; done && for id in NM-X4 NM-X5; do row=\"$(grep -E \"[|] [*][*]${id}[*][*] [|]\" \"$a\")\" || { echo \"${id} row is missing\"; exit 1; }; printf \"%s\" \"$row\" | grep -qE \"PENDING_HUMAN|PASS_HUMAN|FAIL_PRODUCT\" || { echo \"${id} is not an honest judgement state\"; exit 1; }; if printf \"%s\" \"$row\" | grep -q \"PASS_AUTOMATED\"; then echo \"${id} was relabelled PASS_AUTOMATED - a judgement row cannot pass through a headless proxy\"; exit 1; fi; done && open=\"$(grep -cE \"^[|] [*][*]NM-[^|]*[|].*FAIL_PRODUCT\" \"$a\" || true)\" && if [ \"$open\" != \"0\" ]; then echo \"the device pass found ${open} FAIL_PRODUCT row(s) - the packet is ready, the product is not\"; exit 1; fi"
-   },
-   "class": "evidence-pin",
-   "evidence": "artifacts/navigation-and-menus/review-packet.md",
-   "id": "navigation-and-menus::physical-and-human-rows",
-   "name": "physical-and-human-rows",
-   "note": "physical-and-human-rows: its file-existence and text assertions must hold; and artifacts/navigation-and-menus/review-packet.md must exist. Requirements: UI-INPUT-001.",
-   "phase": "navigation-and-menus",
-   "releaseBlocking": false,
-   "requirements": [
-    "UI-INPUT-001"
-   ],
-   "state": null
-  },
-  {
-   "check": {
-    "receipt": "tools/lune/verify/evidence/release-candidate-review--rename-canonical-identity.json",
     "shell": "test -f build/Facet.rbxm && test -f examples/places/Facet-Showcase.rbxl"
    },
    "class": "evidence-pin",
@@ -22988,7 +22845,6 @@
   },
   {
    "check": {
-    "receipt": "tools/lune/verify/evidence/release-candidate-review--clean-clone-runs-as-facet.json",
     "shell": "! ls -d ../*/ 2>/dev/null | python3 -c \"import sys, importlib.util; s = importlib.util.spec_from_file_location('g', 'tools/check_brand_drift.py'); m = importlib.util.module_from_spec(s); s.loader.exec_module(m); sys.exit(0 if any(m.BRAND.search(l) for l in sys.stdin) else 1)\""
    },
    "class": "evidence-pin",
@@ -23005,7 +22861,6 @@
   },
   {
    "check": {
-    "receipt": "tools/lune/verify/evidence/release-candidate-review--rr-consumer-sync.json",
     "shell": "test -f ../../../games/RascalRally/docs/migrations/facet-attribute-migration.md && test -f ../../../games/RascalRally/code/src/client/FacetFlags.luau"
    },
    "class": "evidence-pin",
@@ -23022,7 +22877,6 @@
   },
   {
    "check": {
-    "receipt": "tools/lune/verify/evidence/release-candidate-review--step14-remote-packet.json",
     "shell": "git remote get-url origin | python3 -c \"import sys, importlib.util; s = importlib.util.spec_from_file_location('g', 'tools/check_brand_drift.py'); m = importlib.util.module_from_spec(s); s.loader.exec_module(m); sys.exit(0 if any(m.BRAND.search(l) for l in sys.stdin) else 1)\""
    },
    "class": "evidence-pin",
@@ -23084,7 +22938,6 @@
      "suite",
      "rascalrally-suite"
     ],
-    "receipt": "tools/lune/verify/evidence/release-candidate-review--ias-owns-semantic-input.json",
     "resultIds": [
      "gamepad_contention::gamepad_contention (client module, headless structural spec)::disableLegacyControls() is INERT when IAS owns the player scripts (DF-9)",
      "platform_adapters_recovery::disableLegacyControls only claims what it freed (PLAT-21)::the IAS inert check runs BEFORE either engine remedy is attempted"
@@ -23119,7 +22972,6 @@
   },
   {
    "check": {
-    "receipt": "tools/lune/verify/evidence/release-candidate-review--haptics-defaults.json",
     "shell": "test -f src/client/sensory_profile.luau"
    },
    "class": "evidence-pin",
@@ -23155,7 +23007,6 @@
      "check_registration_cli",
      "suite"
     ],
-    "receipt": "tools/lune/verify/evidence/release-candidate-review--guide-catalog-current.json",
     "resultIds": [
      "theme_docs::the guide index catalogs the live public surface::counts a catalog entry for every namespace member, export and playbook",
      "theme_docs::the guide index catalogs the live public surface::fails when the catalog stops naming a shipped control",
@@ -23185,7 +23036,6 @@
      "check_brand_drift-selftest",
      "check_brand_drift"
     ],
-    "receipt": "tools/lune/verify/evidence/release-candidate-review--product-language-scan-bites.json",
     "shell": "grep -c \"comparison:begin\" docs/guide/10-rich-skinning.md >/dev/null"
    },
    "class": "evidence-pin",
@@ -23209,7 +23059,6 @@
      "check_gate_pins",
      "check_doc_style"
     ],
-    "receipt": "tools/lune/verify/evidence/release-candidate-review--comments-plain.json",
     "shell": "! grep -qF \"UI.Custom\" src/themes/package.luau && grep -qF \"is NOT deprecated\" src/client/roblox_input.luau && grep -qF \"an earlier version of this comment said\" src/client/roblox_input.luau"
    },
    "class": "evidence-pin",
@@ -23229,8 +23078,7 @@
     "producers": [
      "check_doc_style-selftest",
      "check_doc_style"
-    ],
-    "receipt": "tools/lune/verify/evidence/release-candidate-review--clear-writing-checked.json"
+    ]
    },
    "class": "exit0",
    "evidence": "artifacts/release-candidate-review/docs/clear-writing-proof.md",
@@ -23251,7 +23099,6 @@
      "check_maintainer_map_cli",
      "suite"
     ],
-    "receipt": "tools/lune/verify/evidence/release-candidate-review--maintainer-map-current.json",
     "resultIds": [
      "maintainer_map::maintainer map: every row still points at the tree it describes::reports a src area no row claims",
      "maintainer_map::maintainer map: every row still points at the tree it describes::reports a spec filed under an area it does not require",
@@ -23286,14 +23133,13 @@
      "check_brand_drift",
      "suite"
     ],
-    "receipt": "tools/lune/verify/evidence/release-candidate-review--naming-adr-implemented.json",
     "resultIds": [
      "controls_namespace::the Controls namespace::exports exactly the nineteen composite controls the namespace names, and nothing else",
      "controls_namespace::the Controls namespace::every entry builds what the old two-argument form builds",
      "controls_namespace::the Controls namespace::every old-form builder carries its deprecation row",
      "controls_namespace::the Controls namespace::the eleven infrastructure constructors stay at the top level and stay out of Controls"
     ],
-    "shell": "test \"$(grep -c \"^  Controls[.]\" artifacts/release-candidate-review/public-surface.txt)\" = \"$(grep -oE \"Controls[.][A-Za-z]+\" tests/conformance/controls_registry.luau | sort -u | grep -c .)\""
+    "shell": "grep -qF \"VERSION 0.10.0\" artifacts/verify/public-surface.txt && grep -qF \"Controls : table(frozen)\" artifacts/verify/public-surface.txt && test \"$(grep -c \"^  Controls[.]\" artifacts/verify/public-surface.txt)\" = \"$(grep -oE \"Controls[.][A-Za-z]+\" tests/conformance/controls_registry.luau | sort -u | grep -c .)\" && test \"$(grep -c \"since=0[.]10[.]0 | removeNoEarlierThan=0[.]12[.]0 | replacement=Facet[.]Controls[.]\" artifacts/verify/public-surface.txt)\" = \"19\""
    },
    "class": "result-ids",
    "evidence": null,
@@ -23328,7 +23174,6 @@
     "producers": [
      "suite"
     ],
-    "receipt": "tools/lune/verify/evidence/release-candidate-review--suites-green-at-close.json",
     "shell": "[ \"$(tools/test.sh --status)\" = \"hit\" ]"
    },
    "class": "evidence-pin",
@@ -23405,7 +23250,6 @@
      "rascalrally-suite",
      "suite"
     ],
-    "receipt": "tools/lune/verify/evidence/example-games-and-standalones--affected-and-fast-loops-trustworthy.json",
     "shell": "grep -q \"FACET-FAST-TIER\" run-tests.sh && grep -q \"FACET-FAST-TIER\" tools/test.sh && grep -q \"A BASH MATCH, NOT A PIPELINE\" tools/test.sh && test -f ../../../games/RascalRally/code/tests/run_one.luau && grep -qF \"tier, so there is no partial-run\" ../../../games/RascalRally/code/tools/suite_transcript.sh"
    },
    "class": "evidence-pin",
@@ -23613,7 +23457,6 @@
      "check_example_drift_cli",
      "suite"
     ],
-    "receipt": "tools/lune/verify/evidence/example-games-and-standalones--wardrobe-retired.json",
     "resultIds": [
      "reference/wardrobe_spec::Wardrobe proof — filters, sections, locale, determinism::section stubs are honest and the worn set survives leaving and returning",
      "reference/wardrobe_spec::Wardrobe proof — try-on and history::undo/redo walk the equip history and disable at the stack ends"

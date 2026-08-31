@@ -2,18 +2,13 @@
  "class": "studio",
  "evidence": [
   {
-   "archivedPath": "artifacts/cross-platform-proof/acceptance-ledger.md",
-   "label": "evidence-1",
-   "sha256": "e21bd4558d8d04566cc24c7c098d0c413a75c421ebfa8e988ec5338c5f1d9f08"
-  },
-  {
    "archivedPath": "artifacts/cross-platform-proof/rows/xp-s-showcase.json",
-   "label": "evidence-2",
+   "label": "evidence-1",
    "sha256": "7e84cfef09999b0be30794382acbc03c633e1bf7f697170a47826e3b75684395"
   }
  ],
- "recordedAt": "2026-08-31T00:11:46Z",
+ "recordedAt": "2026-08-31T00:25:15Z",
  "row": "cross-platform-proof::showcase-place",
  "schema": "facet-evidence-receipt/1",
- "summary": "showcase-place: 2 recorded file(s), pinned by content hash."
+ "summary": "showcase-place: 1 recorded studio file(s), pinned by content hash."
 }

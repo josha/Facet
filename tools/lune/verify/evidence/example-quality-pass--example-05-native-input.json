@@ -7,8 +7,8 @@
    "sha256": "72ff257c31fa59785e68d73cdca413f4125d36b5be3cdc0d53c43cbcfee6e380"
   }
  ],
- "recordedAt": "2026-08-31T00:11:46Z",
+ "recordedAt": "2026-08-31T00:25:16Z",
  "row": "example-quality-pass::example-05-native-input",
  "schema": "facet-evidence-receipt/1",
- "summary": "example-05-native-input: 1 recorded file(s), pinned by content hash."
+ "summary": "example-05-native-input: 1 recorded studio file(s), pinned by content hash."
 }

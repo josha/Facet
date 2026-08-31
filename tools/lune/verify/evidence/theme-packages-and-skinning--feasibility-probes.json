@@ -2,7 +2,7 @@
  "class": "studio",
  "evidence": [
   {
-   "archivedPath": "artifacts/theme-packages-and-skinning/feasibility/",
+   "archivedPath": "artifacts/theme-packages-and-skinning/feasibility/$f.json",
    "label": "evidence-1",
    "sha256": "absent"
   },
@@ -22,8 +22,8 @@
    "sha256": "290f74212b3e48b71a971bdeb25930c67ad2d7b67fedda16072e1a9904300927"
   }
  ],
- "recordedAt": "2026-08-31T00:11:46Z",
+ "recordedAt": "2026-08-31T00:25:15Z",
  "row": "theme-packages-and-skinning::feasibility-probes",
  "schema": "facet-evidence-receipt/1",
- "summary": "feasibility-probes: 4 recorded file(s), pinned by content hash."
+ "summary": "feasibility-probes: 4 recorded studio file(s), pinned by content hash."
 }

@@ -17,7 +17,7 @@ producer or case id that proves the same thing now.
 |---|---|---|---|---|
 | 16 `prior-gates-unregressed` rows, each running `tools/prior_gates.sh`, which re-ran every earlier gate, each of which re-ran ITS priors | one lookup: every row of every earlier phase, evaluated from this same run | UI-AGENT-001 (unchanged) | a regressed earlier row reddens the later phase, as before — and now names the row rather than a roll-up line | mutation M7 in `mutation-parity.md` deletes an evidence file an earlier phase pins and requires the later phase's prior-phases row to go red |
 
-## 3. Rows archived as records of a past decision (57)
+## 3. Rows archived as records of a past decision (60)
 
 Each pinned only that a checked-in ledger or verdict of a CLOSED stage still says what it
 said. The requirement each carried is listed with the living row that proves it today.
@@ -30,6 +30,14 @@ said. The requirement each carried is listed with the living row that proves it 
 | `input-adaptation-audit` | `adr-recorded` | UI-AGENT-001 | `input-adaptation-audit::library-suite-green`, `input-adaptation-audit::game-suite-green`, `input-adaptation-audit::examples-all-input-headless` |
 | `input-adaptation-audit` | `opus-verification` | UI-AGENT-001 | `input-adaptation-audit::library-suite-green`, `input-adaptation-audit::game-suite-green`, `input-adaptation-audit::examples-all-input-headless` |
 | `input-paradigms` | `opus-verification` | UI-AGENT-001 | `input-paradigms::axes-future-proofing`, `input-paradigms::library-suite-green`, `input-paradigms::game-suite-green` |
+| `native-substrate` | `docs-grounding` | UI-NATIVE-001 | `native-substrate::feasibility-matrix`, `native-substrate::scroll-host-adoption`, `native-substrate::table-virtuallist-migration` |
+| `native-substrate` | `docs-grounding` | UI-NATIVE-002 | `native-substrate::feasibility-matrix`, `native-substrate::drag-touch-adoption` |
+| `native-substrate` | `docs-grounding` | UI-NATIVE-003 | `native-substrate::feasibility-matrix`, `native-substrate::drag-touch-adoption`, `native-substrate::physical-device-confirmation` |
+| `native-substrate` | `docs-grounding` | UI-NATIVE-004 | `native-substrate::feasibility-matrix`, `native-substrate::path2d-pagelayout` |
+| `native-substrate` | `docs-grounding` | UI-NATIVE-005 | `native-substrate::feasibility-matrix`, `native-substrate::safe-area-adoption` |
+| `native-substrate` | `docs-grounding` | UI-NATIVE-006 | `native-substrate::feasibility-matrix`, `native-substrate::preferred-text-single-application` |
+| `native-substrate` | `docs-grounding` | UI-NATIVE-007 | `native-substrate::feasibility-matrix`, `native-substrate::selection-policy`, `native-substrate::physical-device-confirmation` |
+| `native-substrate` | `docs-grounding` | UI-NATIVE-008 | `native-substrate::feasibility-matrix`, `native-substrate::resource-transport` |
 | `native-stylesheets` | `live-acceptance-rows` | UI-STYLE-001 | `native-stylesheets::spike-matrix`, `native-stylesheets::sheet-model-headless`, `native-stylesheets::seed-once-materializer` |
 | `native-stylesheets` | `fresh-context-verification` | UI-AGENT-001 | `native-stylesheets::scenario-surface-extended`, `native-stylesheets::prior-gates-unregressed` |
 | `authoring-adaptive-ui` | `physical-and-human-rows` | UI-PARADIGM-001 | `authoring-adaptive-ui::scrollview-axes-and-keep-visible-headless`, `authoring-adaptive-ui::button-complete`, `authoring-adaptive-ui::value-controls` |
@@ -54,6 +62,7 @@ said. The requirement each carried is listed with the living row that proves it 
 | `traversal-document-order` | `human-review` | UI-INPUT-002 | `phase-1-minimal-screen::settings-subset-multi-input`, `phase-1-minimal-screen::preferred-input-affordance-no-remount`, `phase-4-hardening::fault-injection` |
 | `large-text-accessibility` | `acceptance-ledger` | UI-AGENT-001 | `large-text-accessibility::diagnostics-checks`, `large-text-accessibility::sponsor-policy-reconciled`, `large-text-accessibility::rascalrally-consumer` |
 | `large-text-accessibility` | `live-preference-probe` | UI-FID-001 | `large-text-accessibility::exact-once-seam`, `large-text-accessibility::studio-evidence` |
+| `large-text-accessibility` | `perf-workloads` | UI-AGENT-001 | `large-text-accessibility::diagnostics-checks`, `large-text-accessibility::sponsor-policy-reconciled`, `large-text-accessibility::rascalrally-consumer` |
 | `large-text-accessibility` | `prior-gates-unregressed` | UI-AGENT-001 | `large-text-accessibility::diagnostics-checks`, `large-text-accessibility::sponsor-policy-reconciled`, `large-text-accessibility::rascalrally-consumer` |
 | `large-text-accessibility` | `physical-and-human-rows` | UI-FID-001 | `large-text-accessibility::exact-once-seam`, `large-text-accessibility::studio-evidence` |
 | `performance-stress-places` | `acceptance-ledger` | UI-AGENT-001 | `performance-stress-places::place-builds-and-opens`, `performance-stress-places::capture-metadata`, `performance-stress-places::overlay-and-ramp` |
@@ -72,6 +81,7 @@ said. The requirement each carried is listed with the living row that proves it 
 | `declarative-3d-architecture` | `spike-headless-green` | UI-AGENT-001 | `declarative-3d-architecture::studio-topology-evidence`, `declarative-3d-architecture::spike-costs-measured`, `declarative-3d-architecture::library-suite-green` |
 | `declarative-3d-architecture` | `spike-isolated` | UI-AGENT-001 | `declarative-3d-architecture::studio-topology-evidence`, `declarative-3d-architecture::spike-costs-measured`, `declarative-3d-architecture::library-suite-green` |
 | `declarative-3d-architecture` | `reviews-resolved` | UI-AGENT-001 | `declarative-3d-architecture::studio-topology-evidence`, `declarative-3d-architecture::spike-costs-measured`, `declarative-3d-architecture::library-suite-green` |
+| `navigation-and-menus` | `physical-and-human-rows` | UI-INPUT-001 | `navigation-and-menus::d1-anchored-surface`, `navigation-and-menus::d2-menu`, `navigation-and-menus::d3a-help` |
 | `release-candidate-review` | `baselines-frozen` | UI-AGENT-001 | `release-candidate-review::rename-canonical-identity`, `release-candidate-review::rename-drift-guard-bites`, `release-candidate-review::clean-clone-runs-as-facet` |
 | `release-candidate-review` | `studio-baseline-frozen` | UI-AGENT-001 | `release-candidate-review::rename-canonical-identity`, `release-candidate-review::rename-drift-guard-bites`, `release-candidate-review::clean-clone-runs-as-facet` |
 | `release-candidate-review` | `facet-collision-evidence` | UI-AGENT-001 | `release-candidate-review::rename-canonical-identity`, `release-candidate-review::rename-drift-guard-bites`, `release-candidate-review::clean-clone-runs-as-facet` |
@@ -83,7 +93,7 @@ said. The requirement each carried is listed with the living row that proves it 
 | `example-games-and-standalones` | `surface-target-spike` | UI-AGENT-001 | `example-games-and-standalones::verification-mutations-bite`, `example-games-and-standalones::verification-verdict-parity`, `example-games-and-standalones::producer-runs-once-per-identity` |
 | `example-games-and-standalones` | `surface-target-spike` | UI-WORLD-001 | `example-games-and-standalones::surface-target-public-adapter`, `example-games-and-standalones::world-terminal-plays` |
 
-## 4. Rows whose artifact pins became receipts (149)
+## 4. Rows whose artifact pins became receipts (47)
 
 A `test -f <path>` or a `grep -qF "<string>" <path>` over recorded evidence became a
 sha256 of the same file in `tools/lune/verify/evidence/`. Strictly stronger: the grep
@@ -168,6 +178,189 @@ the API catalogue, or a spec — and is listed here for the sweep that creates i
 | `release-candidate-review` | `naming-adr-implemented` | UI-AGENT-001 | `test -f docs/adr/ADR-0037-public-call-shapes.md` |
 | `release-candidate-review` | `naming-adr-implemented` | UI-AGENT-001 | `test -f docs/adr/ADR-0038-theme-tag-vocabulary.md` |
 | `example-games-and-standalones` | `surface-target-public-adapter` | UI-AGENT-001, UI-WORLD-001 | `test -f docs/adr/ADR-0063-surface-render-target.md` |
+
+
+## 5c. Pins on a closed stage's record, archived (170 rows, 249 files)
+
+Each of these asserted that a checked-in ledger, acceptance table, review packet or
+decision text of a CLOSED stage still says what it said. That is a record of a
+decision, not a living requirement, and the director is deleting the tree it lives
+in — so a content hash of it would be a pin nobody could ever verify again. The
+clause is dropped and listed here; where the row had a living half, the row survives
+on that half alone.
+
+| Phase | Row | Requirement | Files it pinned |
+|---|---|---|---|
+| `phase-0-foundation` | `opus-verification` | UI-AGENT-001 | `docs/research/2026-07-19-runtime-verifier-findings-resolution.md` |
+| `phase-3-pilot` | `pilot-decision` | UI-AGENT-001 | `artifacts/decision-phase3-pilot.json` |
+| `phase-4-hardening` | `engine-styling-shadows-corners` | UI-STYLE-001, UI-FID-001 | `docs/research/2026-07-20-uishadow-percorner-engine-facts.md` |
+| `phase-4-hardening` | `popup-button-dry-run` | UI-AGENT-001 | `artifacts/phase-4/popup-dryrun.json` |
+| `input-adaptation-audit` | `audit-matrix` | UI-INPUT-001, UI-INPUT-002 | `artifacts/input-adaptation-audit/wp-a-framework.md`, `artifacts/input-adaptation-audit/wp-b-composites.md`, `artifacts/input-adaptation-audit/wp-c-examples.md` |
+| `input-adaptation-audit` | `first-responder-model` | UI-INPUT-003, UI-INPUT-004, UI-FID-001 | `docs/research/2026-07-21-first-responder-platform-research.md` |
+| `input-adaptation-audit` | `opus-verification` | UI-AGENT-001 | `artifacts/input-adaptation-audit/architecture-verification.json`, `artifacts/input-adaptation-audit/phase-gate-verification.json`, `artifacts/input-adaptation-audit/platform-verification.json` |
+| `expansion-textinput` | `engine-facts-probed` | UI-FID-001 | `docs/research/2026-07-20-textbox-engine-facts.md` |
+| `expansion-textinput` | `registration-and-docs` | UI-AGENT-001 | `ui_todo.md` |
+| `input-paradigms` | `defect-example02-fix` | UI-INPUT-002, UI-ENV-001 | `artifacts/input-paradigms/defect-example02.md`, `docs/research/2026-07-21-preferredinput-gamepad-research.md` |
+| `input-paradigms` | `affordance-matrix` | UI-INPUT-002, UI-PARADIGM-001 | `artifacts/input-paradigms/affordance-matrix.md`, `docs/research/2026-07-21-affordance-research.md` |
+| `input-paradigms` | `axes-future-proofing` | UI-AGENT-001, UI-PARADIGM-001 | `artifacts/input-paradigms/dryrun-chip.md` |
+| `input-paradigms` | `opus-verification` | UI-AGENT-001 | `artifacts/input-paradigms/architecture-verification.json`, `artifacts/input-paradigms/phase-gate-verification.json`, `artifacts/input-paradigms/platform-verification.json`, `artifacts/input-paradigms/runtime-verification.json` |
+| `native-substrate` | `docs-grounding` | UI-NATIVE-001, UI-NATIVE-002, UI-NATIVE-003, UI-NATIVE-004, UI-NATIVE-005, UI-NATIVE-006, UI-NATIVE-007, UI-NATIVE-008 | `docs/research/2026-07-23-native-adoption-docs-grounding.md` |
+| `native-substrate` | `verification-surface` | UI-AGENT-001 | `artifacts/native-substrate/verification-surface-probe.json` |
+| `native-substrate` | `safe-area-adoption` | UI-NATIVE-005, UI-ENV-001 | `artifacts/native-substrate/a1-safe-area.json` |
+| `native-substrate` | `scroll-host-adoption` | UI-NATIVE-001 | `artifacts/native-substrate/a2-scroll-host.json` |
+| `native-substrate` | `table-virtuallist-migration` | UI-NATIVE-001 | `artifacts/native-substrate/a3-table.json`, `artifacts/native-substrate/a4-virtuallist.json` |
+| `native-substrate` | `drag-touch-adoption` | UI-NATIVE-002, UI-NATIVE-003 | `artifacts/native-substrate/a5-drag.json` |
+| `native-substrate` | `path2d-pagelayout` | UI-NATIVE-004 | `artifacts/native-substrate/a7-path.json` |
+| `native-substrate` | `preferred-text-single-application` | UI-NATIVE-006, UI-FID-001 | `artifacts/native-substrate/a10-text-cal.json`, `artifacts/native-substrate/a9-preferred-text.json` |
+| `native-substrate` | `selection-policy` | UI-NATIVE-007 | `artifacts/native-substrate/a12-bridge.json` |
+| `native-substrate` | `resource-transport` | UI-NATIVE-008 | `artifacts/native-substrate/a13-resources.json`, `artifacts/native-substrate/a14-image.json` |
+| `native-substrate` | `keep-visible-consolidation` | UI-LAYOUT-001 | `artifacts/authoring-adaptive-ui/a-sv2-substrate-consolidation.json` |
+| `native-substrate` | `write-once-and-recipes` | UI-LAYOUT-001 | `artifacts/authoring-adaptive-ui/a-al4-a-lv4-writeonce.json` |
+| `native-substrate` | `fresh-context-verification` | UI-AGENT-001 | `artifacts/native-substrate/verifier-architecture.json`, `artifacts/native-substrate/verifier-platform.json` |
+| `native-stylesheets` | `spike-matrix` | UI-STYLE-001 | `docs/research/2026-07-24-native-stylesheet-spike.md` |
+| `native-stylesheets` | `seed-once-materializer` | UI-STYLE-001 | `artifacts/native-stylesheets/a9-layout-token-sync.json` |
+| `native-stylesheets` | `adapter-native-mode` | UI-STYLE-001, UI-PARADIGM-001 | `artifacts/native-stylesheets/a2-native-paint.json` |
+| `native-stylesheets` | `live-acceptance-rows` | UI-STYLE-001 | `artifacts/native-stylesheets/$f.json`, `artifacts/native-stylesheets/a10-fallback-parity.json`, `artifacts/native-stylesheets/a3-live-edit.json`, `artifacts/native-stylesheets/a4-native-states.json` (+2 more) |
+| `native-stylesheets` | `fresh-context-verification` | UI-AGENT-001 | `artifacts/native-stylesheets/verifier-architecture.json`, `artifacts/native-stylesheets/verifier-platform.json` |
+| `authoring-adaptive-ui` | `grid-fill-and-spacer` | UI-LAYOUT-001 | `artifacts/authoring-adaptive-ui/a-lv1-grid-spacer.json` |
+| `authoring-adaptive-ui` | `scrollview-live-geometry` | UI-LAYOUT-001 | `artifacts/authoring-adaptive-ui/a-sv1-scrollview.json` |
+| `authoring-adaptive-ui` | `adaptive-layout` | UI-LAYOUT-001 | `artifacts/authoring-adaptive-ui/a-al2-adaptive.json` |
+| `authoring-adaptive-ui` | `layout-modifiers-and-divider` | UI-LAYOUT-001, UI-STYLE-001 | `artifacts/authoring-adaptive-ui/a-lv2-modifiers.json` |
+| `authoring-adaptive-ui` | `button-complete` | UI-PARADIGM-001, UI-STYLE-001 | `artifacts/authoring-adaptive-ui/b-btn-button.json` |
+| `authoring-adaptive-ui` | `value-controls` | UI-PARADIGM-001 | `artifacts/authoring-adaptive-ui/b-val-value-controls.json` |
+| `authoring-adaptive-ui` | `display-and-selection-controls` | UI-PARADIGM-001, UI-STYLE-001 | `artifacts/authoring-adaptive-ui/b-dsp-display-controls.json` |
+| `authoring-adaptive-ui` | `remaining-milestone-a-b-scope` | UI-LAYOUT-001, UI-PARADIGM-001 | `artifacts/authoring-adaptive-ui/a-al4-preferred-text-sweep.json` |
+| `authoring-adaptive-ui` | `fresh-context-verification` | UI-AGENT-001 | `artifacts/authoring-adaptive-ui/verifier-phase-gate.json` |
+| `authoring-adaptive-ui` | `physical-and-human-rows` | UI-PARADIGM-001 | `artifacts/authoring-adaptive-ui/review-packet.md` |
+| `theme-packages-and-skinning` | `theme-package-contract` | UI-STYLE-001, UI-AGENT-001 | `artifacts/theme-packages-and-skinning/b-a1-package-contract.json` |
+| `theme-packages-and-skinning` | `metric-snapshot-single-source` | UI-STYLE-001, UI-LAYOUT-001 | `artifacts/theme-packages-and-skinning/b-a2-metric-snapshot.json` |
+| `theme-packages-and-skinning` | `controls-semantic-roles` | UI-STYLE-001, UI-LAYOUT-001 | `artifacts/theme-packages-and-skinning/b-a3-controls-roles.json` |
+| `theme-packages-and-skinning` | `reactive-controller-atomic-swap` | UI-STYLE-001, UI-RUNTIME-001 | `artifacts/theme-packages-and-skinning/b-a4-atomic-swap.json` |
+| `theme-packages-and-skinning` | `font-aware-measurement` | UI-FID-001, UI-LAYOUT-001 | `artifacts/theme-packages-and-skinning/b-a5-font-measurement.json` |
+| `theme-packages-and-skinning` | `style-editor-sync` | UI-STYLE-001, UI-AGENT-001 | `artifacts/theme-packages-and-skinning/b-a6-editor-sync.json`, `artifacts/theme-packages-and-skinning/theme-sync/gate-negative-proof.json`, `artifacts/theme-packages-and-skinning/theme-sync/parchment-live-dump.json` |
+| `theme-packages-and-skinning` | `chrome-recipes-and-slots` | UI-STYLE-001 | `artifacts/theme-packages-and-skinning/b-a7-chrome-slots.json` |
+| `theme-packages-and-skinning` | `fantasy-parchment-public-build` | UI-STYLE-001, UI-AGENT-001 | `artifacts/theme-packages-and-skinning/b-a9-fantasy-parchment.json` |
+| `theme-packages-and-skinning` | `reference-theme-families` | UI-STYLE-001 | `artifacts/theme-packages-and-skinning/b-a10-reference-families.json` |
+| `theme-packages-and-skinning` | `docs-and-check-docs-cli` | UI-AGENT-001 | `artifacts/theme-packages-and-skinning/b-a12-docs-gate.json` |
+| `theme-packages-and-skinning` | `studio-matrix-themes` | UI-FID-001 | `artifacts/theme-packages-and-skinning`, `artifacts/theme-packages-and-skinning/b-a13-matrix.json` |
+| `theme-packages-and-skinning` | `fresh-context-reviews` | UI-AGENT-001 | `artifacts/theme-packages-and-skinning/verifier-architecture.json`, `artifacts/theme-packages-and-skinning/verifier-phase-gate.json`, `artifacts/theme-packages-and-skinning/verifier-platform.json`, `artifacts/theme-packages-and-skinning/verifier-runtime.json` |
+| `rich-skinning-v2` | `layered-slots-and-posture` | UI-STYLE-001 | `artifacts/rich-skinning-v2/rs-a1-image-is-element.json`, `artifacts/rich-skinning-v2/rs-a2-layered-slots.json` |
+| `rich-skinning-v2` | `state-variant-assets` | UI-STYLE-001 | `artifacts/rich-skinning-v2/rs-a3-state-variants-rung1.json`, `artifacts/rich-skinning-v2/rs-a4-state-variants-rung2.json` |
+| `rich-skinning-v2` | `image-value-displays` | UI-STYLE-001 | `artifacts/rich-skinning-v2/rs-a5-image-bars.json`, `artifacts/rich-skinning-v2/rs-a6-toggle-slots.json` |
+| `rich-skinning-v2` | `semantic-icons` | UI-STYLE-001 | `artifacts/rich-skinning-v2/rs-a7-semantic-icons.json` |
+| `rich-skinning-v2` | `pixel-mode` | UI-STYLE-001, UI-FID-001 | `artifacts/rich-skinning-v2/rs-a8-pixel-mode.json` |
+| `rich-skinning-v2` | `content-adoption` | UI-STYLE-001 | `artifacts/rich-skinning-v2/rs-a9-content-adoption.json` |
+| `rich-skinning-v2` | `selectby-profile-selection` | UI-STYLE-001, UI-INPUT-002 | `artifacts/rich-skinning-v2/rs-a10-selectby.json` |
+| `rich-skinning-v2` | `tile-decision-honest` | UI-STYLE-001 | `artifacts/rich-skinning-v2/rs-a11-tile-decision.json` |
+| `rich-skinning-v2` | `reference-packages` | UI-STYLE-001, UI-AGENT-001 | `artifacts/rich-skinning-v2/rs-a12-fantasy-ornate.json`, `artifacts/rich-skinning-v2/rs-a13-pixel-package.json` |
+| `rich-skinning-v2` | `platform-pair` | UI-STYLE-001, UI-INPUT-002 | `artifacts/rich-skinning-v2/rs-a14-platform-pair.json` |
+| `rich-skinning-v2` | `customization-ladder-docs` | UI-AGENT-001 | `artifacts/rich-skinning-v2/rs-a15-ladder-docs.json` |
+| `rich-skinning-v2` | `studio-matrix-final-stamp` | UI-FID-001 | `artifacts/rich-skinning-v2`, `artifacts/rich-skinning-v2/rs-a16-matrix.json` |
+| `rich-skinning-v2` | `cost-honesty` | UI-STYLE-001 | `artifacts/rich-skinning-v2/rs-a17-cost.json` |
+| `rich-skinning-v2` | `circle-button` | UI-STYLE-001, UI-AGENT-001 | `artifacts/rich-skinning-v2/rs-circle.json` |
+| `rich-skinning-v2` | `fresh-context-reviews` | UI-AGENT-001 | `artifacts/rich-skinning-v2/verifier-architecture.json`, `artifacts/rich-skinning-v2/verifier-phase-gate.json`, `artifacts/rich-skinning-v2/verifier-platform.json` |
+| `cross-platform-proof` | `showcase-place` | UI-AGENT-001 | `artifacts/cross-platform-proof/acceptance-ledger.md` |
+| `cross-platform-proof` | `fresh-context-reviews` | UI-AGENT-001 | `artifacts/cross-platform-proof/verifier-phase-gate.json`, `artifacts/cross-platform-proof/verifier-platform.json` |
+| `sponsor-framework-gaps` | `ui-designer-reviews` | UI-AGENT-001 | `artifacts/sponsor-framework-gaps/ui-designer-review.md`, `artifacts/sponsor-framework-gaps/ui-designer-spec.md` |
+| `sponsor-framework-gaps` | `fresh-context-reviews` | UI-AGENT-001 | `artifacts/sponsor-framework-gaps/verifier-architecture.json`, `artifacts/sponsor-framework-gaps/verifier-phase-gate.json`, `artifacts/sponsor-framework-gaps/verifier-platform.json` |
+| `code-simplicity-cleanup` | `candidate-ledger` | UI-AGENT-001 | `artifacts/code-simplicity-cleanup/candidate-ledger.md` |
+| `code-simplicity-cleanup` | `step5-carryovers-dispositioned` | UI-AGENT-001 | `artifacts/code-simplicity-cleanup/carry-over-ledger.md` |
+| `code-simplicity-cleanup` | `decision-packets` | UI-AGENT-001 | `artifacts/code-simplicity-cleanup/decision-packets.md` |
+| `code-simplicity-cleanup` | `public-surface-unchanged` | UI-AGENT-001 | `artifacts/code-simplicity-cleanup/baseline/public-surface-before.txt`, `artifacts/verify` |
+| `code-simplicity-cleanup` | `performance-unregressed` | UI-PERF-001 | `artifacts/code-simplicity-cleanup/perf-after.md` |
+| `code-simplicity-cleanup` | `fresh-context-reviews` | UI-AGENT-001 | `artifacts/code-simplicity-cleanup/verifier-architecture.json`, `artifacts/code-simplicity-cleanup/verifier-phase-gate.json` |
+| `api-architecture-consistency` | `baseline-freeze` | UI-AGENT-001 | `artifacts/api-architecture-consistency/baseline`, `artifacts/api-architecture-consistency/baseline/test-before.json` |
+| `api-architecture-consistency` | `surface-ledger-complete` | UI-AGENT-001 | `artifacts/api-architecture-consistency/dispositions.md`, `artifacts/api-architecture-consistency/ledger/blueprints.md`, `artifacts/api-architecture-consistency/ledger/controls.md`, `artifacts/api-architecture-consistency/ledger/core-state.md` (+2 more) |
+| `api-architecture-consistency` | `decision-packets` | UI-AGENT-001 | `artifacts/api-architecture-consistency/decision-packets.md` |
+| `api-architecture-consistency` | `fresh-author-exercise` | UI-AGENT-001 | `artifacts/api-architecture-consistency/fresh-author-exercise.md` |
+| `api-architecture-consistency` | `rascalrally-consumer` | UI-AGENT-001 | `artifacts/api-architecture-consistency/consumer-impact.md` |
+| `api-architecture-consistency` | `studio-evidence` | UI-FID-001 | `artifacts/api-architecture-consistency/studio-disposition.md` |
+| `api-architecture-consistency` | `fresh-context-reviews` | UI-AGENT-001 | `artifacts/api-architecture-consistency/verifier-architecture.json`, `artifacts/api-architecture-consistency/verifier-phase-gate.json` |
+| `desktop-keyboard-navigation` | `acceptance-ledger` | UI-AGENT-001 | `artifacts/desktop-keyboard-navigation/acceptance.md`, `artifacts/desktop-keyboard-navigation/decisions.md` |
+| `desktop-keyboard-navigation` | `rascalrally-consumer` | UI-AGENT-001 | `artifacts/desktop-keyboard-navigation/consumer-impact.md` |
+| `desktop-keyboard-navigation` | `fresh-context-reviews` | UI-AGENT-001 | `artifacts/desktop-keyboard-navigation/verifier-architecture.json`, `artifacts/desktop-keyboard-navigation/verifier-phase-gate.json`, `artifacts/desktop-keyboard-navigation/verifier-platform.json` |
+| `traversal-document-order` | `acceptance-ledger` | UI-AGENT-001 | `artifacts/traversal-document-order/acceptance.md`, `artifacts/traversal-document-order/decisions.md` |
+| `traversal-document-order` | `physical-device-rows` | UI-INPUT-002 | `artifacts/traversal-document-order/acceptance.md`, `artifacts/traversal-document-order/review-packet.md` |
+| `traversal-document-order` | `step8-debt-cleared` | UI-AGENT-001 | `artifacts/desktop-keyboard-navigation/gate.json`, `artifacts/traversal-document-order/step8-debt.md` |
+| `traversal-document-order` | `rascalrally-consumer` | UI-AGENT-001 | `artifacts/traversal-document-order/consumer-impact.md` |
+| `traversal-document-order` | `human-review` | UI-INPUT-002 | `artifacts/traversal-document-order/acceptance.md` |
+| `large-text-accessibility` | `acceptance-ledger` | UI-AGENT-001 | `artifacts/large-text-accessibility/acceptance.md`, `artifacts/large-text-accessibility/decisions.md` |
+| `large-text-accessibility` | `live-preference-probe` | UI-FID-001 | `artifacts/large-text-accessibility/probe/preference-probe.json` |
+| `large-text-accessibility` | `sponsor-policy-reconciled` | UI-AGENT-001 | `artifacts/large-text-accessibility/decisions.md` |
+| `large-text-accessibility` | `rascalrally-consumer` | UI-AGENT-001 | `artifacts/large-text-accessibility/consumer-impact.md` |
+| `large-text-accessibility` | `perf-workloads` | UI-AGENT-001 | `docs/plans/performance-stress-places.md` |
+| `large-text-accessibility` | `prior-gates-unregressed` | UI-AGENT-001 | `artifacts/large-text-accessibility/prior-gates-supplement.md`, `artifacts/large-text-accessibility/prior-gates.txt` |
+| `large-text-accessibility` | `fresh-context-reviews` | UI-AGENT-001 | `artifacts/large-text-accessibility/decisions.md`, `artifacts/large-text-accessibility/reviews/README.md` |
+| `large-text-accessibility` | `physical-and-human-rows` | UI-FID-001 | `artifacts/large-text-accessibility/acceptance.md`, `artifacts/large-text-accessibility/review-packet.md` |
+| `performance-stress-places` | `acceptance-ledger` | UI-AGENT-001 | `artifacts/performance-stress-places/acceptance.md`, `artifacts/performance-stress-places/decisions.md` |
+| `performance-stress-places` | `optimization-loop-recorded` | UI-PERF-001 | `artifacts/performance-stress-places/optimization-log.md` |
+| `performance-stress-places` | `rascalrally-consumer` | UI-AGENT-001 | `artifacts/performance-stress-places/consumer-impact.md` |
+| `performance-stress-places` | `fresh-context-reviews` | UI-AGENT-001 | `artifacts/performance-stress-places/reviews` |
+| `performance-stress-places` | `physical-rows` | UI-PERF-002 | `artifacts/performance-stress-places/acceptance.md`, `artifacts/performance-stress-places/review-packet.md` |
+| `example-quality-pass` | `acceptance-ledger` | UI-AGENT-001 | `artifacts/example-quality-pass/acceptance.md` |
+| `example-quality-pass` | `play-teaching-matrix` | UI-AGENT-001 | `artifacts/example-quality-pass/audit.md` |
+| `example-quality-pass` | `ownership-ledger` | UI-AGENT-001 | `artifacts/example-quality-pass/ownership-ledger.md` |
+| `example-quality-pass` | `rascalrally-consumer` | UI-AGENT-001 | `artifacts/example-quality-pass/consumer-impact.md` |
+| `example-quality-pass` | `fresh-context-reviews` | UI-AGENT-001 | `artifacts/example-quality-pass/reviews` |
+| `reference-app-validation` | `acceptance-ledger` | UI-AGENT-001 | `artifacts/swiftui-reference-app-validation/acceptance.md` |
+| `reference-app-validation` | `source-inspection-and-ip-boundary` | UI-AGENT-001 | `artifacts/swiftui-reference-app-validation/sources.md`, `artifacts/swiftui-reference-app-validation/sources/features-backyard-birds.md`, `artifacts/swiftui-reference-app-validation/sources/features-food-truck.md`, `artifacts/swiftui-reference-app-validation/sources/features-fruta.md` |
+| `reference-app-validation` | `capability-ledger` | UI-AGENT-001 | `artifacts/swiftui-reference-app-validation/capability-ledger.md` |
+| `reference-app-validation` | `responsibility-ledger` | UI-AGENT-001 | `artifacts/swiftui-reference-app-validation/responsibility-ledger.md` |
+| `reference-app-validation` | `proof-garden-loop` | UI-AGENT-001 | `artifacts/swiftui-reference-app-validation/proofs/garden.json` |
+| `reference-app-validation` | `proof-dashboard-loop` | UI-AGENT-001 | `artifacts/swiftui-reference-app-validation/proofs/dashboard.json` |
+| `reference-app-validation` | `proof-catalog-loop` | UI-AGENT-001 | `artifacts/swiftui-reference-app-validation/proofs/catalog.json` |
+| `reference-app-validation` | `proof-discovery-home-loop` | UI-AGENT-001 | `artifacts/swiftui-reference-app-validation/proofs/discovery-home.json` |
+| `reference-app-validation` | `proof-avatar-editor-loop` | UI-AGENT-001 | `artifacts/swiftui-reference-app-validation/proofs/avatar-editor.json` |
+| `reference-app-validation` | `places-and-builds` | UI-AGENT-001 | `artifacts/swiftui-reference-app-validation/places.json` |
+| `reference-app-validation` | `framework-fixes-tested` | UI-AGENT-001 | `artifacts/swiftui-reference-app-validation/framework-fixes.md` |
+| `reference-app-validation` | `rascalrally-consumer` | UI-AGENT-001 | `artifacts/swiftui-reference-app-validation/consumer-impact.md` |
+| `reference-app-validation` | `docs-updated` | UI-AGENT-001 | `artifacts/swiftui-reference-app-validation/capability-ledger.md`, `artifacts/swiftui-reference-app-validation/docs.json` |
+| `reference-app-validation` | `fresh-context-reviews` | UI-AGENT-001 | `artifacts/swiftui-reference-app-validation/reviews` |
+| `reference-app-validation` | `physical-and-human-rows` | UI-INPUT-001 | `artifacts/swiftui-reference-app-validation/review-packet.md` |
+| `row-actions` | `rascalrally-consumer` | ROW-ACTIONS-001, UI-AGENT-001 | `artifacts/row-actions/consumer-impact.md` |
+| `parity-round-2` | `traversal-evidence-red-carried` | UI-FID-001, UI-AGENT-001 | `docs/plans/device-bug-round-2026-08-12.md` |
+| `declarative-3d-architecture` | `alternatives-compared` | UI-AGENT-001 | `artifacts/declarative-3d-architecture/alternatives.md` |
+| `declarative-3d-architecture` | `use-case-inventory` | UI-AGENT-001 | `artifacts/declarative-3d-architecture/use-cases.md` |
+| `declarative-3d-architecture` | `studio-topology-evidence` | UI-AGENT-001 | `artifacts/declarative-3d-architecture/studio-raw-client.json`, `artifacts/declarative-3d-architecture/studio-raw-cross.json`, `artifacts/declarative-3d-architecture/studio-raw-server.json`, `artifacts/declarative-3d-architecture/studio-topology.json` |
+| `declarative-3d-architecture` | `spike-costs-measured` | UI-AGENT-001 | `artifacts/declarative-3d-architecture/costs.json` |
+| `declarative-3d-architecture` | `reviews-resolved` | UI-AGENT-001 | `artifacts/declarative-3d-architecture/reviews.md` |
+| `parity-round-3` | `layout-protocol-verdict` | UI-LAYOUT-001, UI-AGENT-001 | `docs/plans/parity-round3.md` |
+| `parity-round-3` | `reference-apps-reproved` | UI-AGENT-001 | `artifacts/swiftui-reference-app-validation/capability-ledger.md` |
+| `parity-round-3` | `audit-gaps-and-free-parity` | UI-AGENT-001 | `docs/plans/parity-completeness-audit-2026-08-13.md` |
+| `parity-round-3` | `owed-ledger-honest` | UI-AGENT-001 | `artifacts/adr-0035-preferred-transparency/live-probes.md`, `artifacts/adr-0035-preferred-transparency/mutation-evidence.md`, `artifacts/rulings-1-and-5/mutation-evidence.md`, `artifacts/swiftui-parity-round3/flat-baseline-characterization.md` (+6 more) |
+| `parity-round-3` | `traversal-evidence-red-carried` | UI-FID-001, UI-AGENT-001 | `docs/plans/device-bug-round-2026-08-12.md` |
+| `parity-round-4` | `time-based-easing` | UI-MOTION-001, UI-AGENT-001 | `artifacts/time-based-easing/engine-oracle.md` |
+| `parity-round-4` | `hit-expander-z-order` | UI-INPUT-003, UI-PARADIGM-001 | `artifacts/hit-expander-overhang/corpus-measurement.md` |
+| `parity-round-4` | `demo-picker-mounted` | UI-FID-001, UI-AGENT-001 | `docs/handoff/SHOWCASE_DEVICE_PASS.md` |
+| `parity-round-4` | `nested-instance-tree` | UI-AGENT-001 | `artifacts/nested-instance-tree/live-probes.md` |
+| `navigation-and-menus` | `d5-tabview` | UI-LAYOUT-001, UI-INPUT-001, UI-A11Y-001 | `artifacts/api-architecture-consistency/surface-ledger.md`, `docs/plans/parity-completeness-audit-2026-08-13.md` |
+| `navigation-and-menus` | `d7-elision-discloses` | UI-LAYOUT-001, UI-A11Y-001 | `artifacts/navigation-and-menus/d7-elision-discloses.md` |
+| `navigation-and-menus` | `rider-rascalrally-consumer` | UI-AGENT-001 | `artifacts/navigation-and-menus/consumer-impact.md` |
+| `navigation-and-menus` | `physical-and-human-rows` | UI-INPUT-001 | `artifacts/navigation-and-menus/acceptance.md`, `artifacts/navigation-and-menus/h4a-paint-probe.md`, `artifacts/navigation-and-menus/review-packet.md` |
+| `release-candidate-review` | `baselines-frozen` | UI-AGENT-001 | `artifacts/release-candidate-review/baseline` |
+| `release-candidate-review` | `studio-baseline-frozen` | UI-AGENT-001 | `artifacts/release-candidate-review/baseline/studio` |
+| `release-candidate-review` | `facet-collision-evidence` | UI-AGENT-001 | `artifacts/release-candidate-review/facet-collision-check.md` |
+| `release-candidate-review` | `rename-canonical-identity` | UI-AGENT-001 | `artifacts/release-candidate-review/rename/after-inventory.json`, `artifacts/release-candidate-review/rename/after-inventory.md` |
+| `release-candidate-review` | `clean-clone-runs-as-facet` | UI-AGENT-001 | `artifacts/release-candidate-review/rename/clean-clone-proof.md` |
+| `release-candidate-review` | `rr-consumer-sync` | UI-AGENT-001 | `artifacts/release-candidate-review/rename/rr-consumer-ledger.md` |
+| `release-candidate-review` | `step14-remote-packet` | UI-AGENT-001 | `artifacts/release-candidate-review/step14-remote-packet.md` |
+| `release-candidate-review` | `review-finding-ledger` | UI-AGENT-001 | `artifacts/release-candidate-review/findings.md` |
+| `release-candidate-review` | `ias-owns-semantic-input` | UI-INPUT-001 | `artifacts/release-candidate-review/input/ias-authority.md`, `artifacts/release-candidate-review/input/ias-inventory.md`, `artifacts/release-candidate-review/input/studio-checklist.md` |
+| `release-candidate-review` | `haptics-defaults` | UI-AGENT-001 | `artifacts/release-candidate-review/haptics/defaults.md` |
+| `release-candidate-review` | `guide-catalog-current` | UI-AGENT-001 | `artifacts/release-candidate-review/docs/catalog-rebuild.md` |
+| `release-candidate-review` | `product-language-scan-bites` | UI-AGENT-001 | `artifacts/release-candidate-review/docs/product-language-proof.md` |
+| `release-candidate-review` | `comments-plain` | UI-AGENT-001 | `artifacts/release-candidate-review/docs/comment-audit.md` |
+| `release-candidate-review` | `clear-writing-checked` | UI-AGENT-001 | `artifacts/release-candidate-review/docs/clear-writing-proof.md` |
+| `release-candidate-review` | `maintainer-map-current` | UI-AGENT-001 | `artifacts/release-candidate-review/maintainer-guide-proof.md` |
+| `release-candidate-review` | `new-control-path-proven` | UI-AGENT-001 | `artifacts/release-candidate-review/exercises/colorwell` |
+| `release-candidate-review` | `seeded-defect-exercise` | UI-AGENT-001 | `artifacts/release-candidate-review/exercises/seeded-defect` |
+| `release-candidate-review` | `naming-adr-implemented` | UI-AGENT-001 | `artifacts/verify` |
+| `release-candidate-review` | `fresh-independent-reviews` | UI-AGENT-001 | `artifacts/release-candidate-review/reviews` |
+| `release-candidate-review` | `suites-green-at-close` | UI-AGENT-001 | `artifacts/release-candidate-review/close-out.md` |
+| `example-games-and-standalones` | `verification-baseline-measured` | UI-AGENT-001 | `artifacts/example-games-and-standalones/test-optimization` |
+| `example-games-and-standalones` | `affected-and-fast-loops-trustworthy` | UI-AGENT-001 | `artifacts/example-games-and-standalones/test-optimization` |
+| `example-games-and-standalones` | `surface-target-spike` | UI-AGENT-001, UI-WORLD-001 | `artifacts/example-games-and-standalones/spike/world-surface.md` |
+| `example-games-and-standalones` | `wardrobe-retired` | UI-AGENT-001 | `artifacts/example-games-and-standalones/wardrobe-inventory.md` |
 
 
 ## 6. Retired rows

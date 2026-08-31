@@ -2,18 +2,13 @@
  "class": "studio",
  "evidence": [
   {
-   "archivedPath": "artifacts/api-architecture-consistency/studio-disposition.md",
-   "label": "evidence-1",
-   "sha256": "c371f199418280df72abb7bd76da39a1e5d4e401e7352c4d4076387e0491e3c1"
-  },
-  {
    "archivedPath": "artifacts/api-architecture-consistency/studio/canary.json",
-   "label": "evidence-2",
+   "label": "evidence-1",
    "sha256": "c12395710ff2a8bf8beb474613c76461c056db26cd016a8f35ef0b04b9716257"
   }
  ],
- "recordedAt": "2026-08-31T00:11:46Z",
+ "recordedAt": "2026-08-31T00:25:15Z",
  "row": "api-architecture-consistency::studio-evidence",
  "schema": "facet-evidence-receipt/1",
- "summary": "studio-evidence: 2 recorded file(s), pinned by content hash."
+ "summary": "studio-evidence: 1 recorded studio file(s), pinned by content hash."
 }

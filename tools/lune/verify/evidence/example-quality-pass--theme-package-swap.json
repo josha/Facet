@@ -12,8 +12,8 @@
    "sha256": "absent"
   }
  ],
- "recordedAt": "2026-08-31T00:11:46Z",
+ "recordedAt": "2026-08-31T00:25:16Z",
  "row": "example-quality-pass::theme-package-swap",
  "schema": "facet-evidence-receipt/1",
- "summary": "theme-package-swap: 2 recorded file(s), pinned by content hash."
+ "summary": "theme-package-swap: 2 recorded perf file(s), pinned by content hash."
 }
