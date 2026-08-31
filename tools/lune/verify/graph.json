@@ -24180,7 +24180,7 @@
   {
    "check": {
     "receipt": "tools/lune/verify/evidence/distribution-readiness--registered-before-work.json",
-    "shell": "{ git cat-file -e '6907f85^{commit}' 2>/dev/null && git merge-base --is-ancestor 6907f85 HEAD || test -f artifacts/distribution-readiness/freeze.md; } && [ \"$(git rev-parse 6907f85^)\" = \"$(cat artifacts/distribution-readiness/freeze/head.txt)\" ]"
+    "shell": "if git cat-file -e '6907f85^{commit}' 2>/dev/null; then git merge-base --is-ancestor 6907f85 HEAD && [ \"$(git rev-parse 6907f85^)\" = \"$(cat artifacts/distribution-readiness/freeze/head.txt)\" ]; else test -f artifacts/distribution-readiness/freeze.md && grep -q \"$(cut -c1-7 artifacts/distribution-readiness/freeze/head.txt)\" artifacts/distribution-readiness/freeze.md; fi"
    },
    "class": "exit0",
    "evidence": null,
