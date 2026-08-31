@@ -7610,8 +7610,38 @@ pointer class mid-drag — or the engine cancelling the capture — reverts to t
 pre-drag snapshot rather than committing a value the player did not choose. Drive it
 from your live interaction-class watcher via `onInteractionClassLost(class)`.
 
+**The sub-node paths, because a test has to address them.** A Slider is a small
+tree under its own `id`, and these paths are public: a headless spec reads
+rectangles off them and drives the drag through them, and they are what
+`tests/value_controls.spec.luau` uses.
+
+| Path, under the slider's `id` | What it is |
+|---|---|
+| `TrackHost` | the row the track lives in; its `rect.w` is the length the value maps along |
+| `TrackHost/Track` | the interactive surface — the drag target and the tap-to-position target, carrying the 44 px touch floor |
+| `TrackHost/Groove/Rail` | the unfilled groove |
+| `TrackHost/Groove/Fill` | the filled portion; its `rect.w` is the value, painted |
+| `TrackHost/Groove/Thumb` | the handle |
+
+Drive a drag against `TrackHost/Track` with the render target's three drag verbs,
+which go through the same mutation site the native detector does:
+
+```lua
+local track = adapter.node("/S/Vol/TrackHost/Track").rect
+adapter.driveDragStart("/S/Vol/TrackHost/Track", { x = track.x, y = track.y })
+adapter.driveDragContinue("/S/Vol/TrackHost/Track", { x = track.x + track.w, y = track.y }, nil)
+adapter.driveDragEnd("/S/Vol/TrackHost/Track", { x = track.x + track.w, y = track.y })
+```
+
+`adapter.pointerDown(path, x, y, "touch")` drives the tap-to-position and
+capture-fallback route instead. Both are shown in
+[guide 3 §3.2b](../guide/03-getting-started.md#32b-testing-your-screen).
+
 The root row is `fill`-width by design: a fill-width track inside a content-sized
-parent would resolve to zero and leave nothing to drag along.
+parent would resolve to zero and leave nothing to drag along. **So give the stack
+you put a Slider in a width**: `UI.VStack{ width = UI.fill(), children = { slider.blueprint } }`.
+A Slider whose track measures zero is what a hugging parent produces, and it
+looks like a Slider that will not move.
 
 ### `newLevelPicker`
 
