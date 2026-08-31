@@ -1,0 +1,19 @@
+{
+ "class": "deterministic",
+ "evidence": [
+  {
+   "archivedPath": "artifacts/distribution-readiness/audit/provenance-ledger.md",
+   "label": "ledger",
+   "sha256": "308884f7b39d532226d684cd4ff70a90c8da1e2eb29582b77bf6ecc9834d7836"
+  },
+  {
+   "archivedPath": "THIRD_PARTY_NOTICES.md",
+   "label": "notices",
+   "sha256": "29235e2f5c866221d52003ed9df65628524c89b69fc14929518c110e74b3c1eb"
+  }
+ ],
+ "recordedAt": "2026-08-31T03:38:25Z",
+ "row": "distribution-readiness::provenance-and-third-party-notices",
+ "schema": "facet-evidence-receipt/1",
+ "summary": "the provenance ledger and the notices file it produced"
+}

@@ -1,0 +1,14 @@
+{
+ "class": "deterministic",
+ "evidence": [
+  {
+   "archivedPath": "artifacts/distribution-readiness/package-channel.md",
+   "label": "channel-record",
+   "sha256": "23ce3fb57cd75a1a063db0bafb6578ed83a4f98e9e12da27425e9074512fdf5b"
+  }
+ ],
+ "recordedAt": "2026-08-31T03:38:25Z",
+ "row": "distribution-readiness::protected-manual-release",
+ "schema": "facet-evidence-receipt/1",
+ "summary": "the release channel record, including its red-team round"
+}

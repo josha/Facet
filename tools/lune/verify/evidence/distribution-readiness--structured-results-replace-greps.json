@@ -1,0 +1,14 @@
+{
+ "class": "deterministic",
+ "evidence": [
+  {
+   "archivedPath": "artifacts/distribution-readiness/verification/graph-census.md",
+   "label": "census",
+   "sha256": "fe324adfb60e39d38aea3bc48f3e430a616239af08b684c1a7f4aa751f425462"
+  }
+ ],
+ "recordedAt": "2026-08-31T03:38:25Z",
+ "row": "distribution-readiness::structured-results-replace-greps",
+ "schema": "facet-evidence-receipt/1",
+ "summary": "the census of what every manifest row became"
+}

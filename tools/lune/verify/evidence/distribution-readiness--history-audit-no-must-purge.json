@@ -1,0 +1,24 @@
+{
+ "class": "deterministic",
+ "evidence": [
+  {
+   "archivedPath": "artifacts/distribution-readiness/audit/history-audit.md",
+   "label": "audit",
+   "sha256": "dd61e6261e1d45f54f82b2f7136f57fc584d768d5eac19821abe26047b0a1558"
+  },
+  {
+   "archivedPath": "artifacts/distribution-readiness/audit/findings.json",
+   "label": "findings",
+   "sha256": "8d3015ead0714264f4f5a85ac4ebbad927de4edc80b6587dba3cb24c1f0d4075"
+  },
+  {
+   "archivedPath": "artifacts/distribution-readiness/audit/history-candidate.md",
+   "label": "candidate",
+   "sha256": "ab4a242350db0b79f9b189fcb08b41b878349acf93e5b9b1151dadbb115978da"
+  }
+ ],
+ "recordedAt": "2026-08-31T03:38:25Z",
+ "row": "distribution-readiness::history-audit-no-must-purge",
+ "schema": "facet-evidence-receipt/1",
+ "summary": "the full-history audit, its machine-readable findings, and the tested clean-history candidates"
+}

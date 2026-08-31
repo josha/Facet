@@ -1,0 +1,19 @@
+{
+ "class": "deterministic",
+ "evidence": [
+  {
+   "archivedPath": "artifacts/distribution-readiness/freeze/head.txt",
+   "label": "freeze-head",
+   "sha256": "b9c78a19cf143a52e33224c31c28a177764662862bda7c593de33351435ead90"
+  },
+  {
+   "archivedPath": "artifacts/distribution-readiness/freeze.md",
+   "label": "freeze-record",
+   "sha256": "9b6ff7245821b28afeae1868637c114295d1f6cb541fa322e91acf72e5c0d0da"
+  }
+ ],
+ "recordedAt": "2026-08-31T03:38:25Z",
+ "row": "distribution-readiness::registered-before-work",
+ "schema": "facet-evidence-receipt/1",
+ "summary": "the head this stage opened at, and the record taken beside it"
+}

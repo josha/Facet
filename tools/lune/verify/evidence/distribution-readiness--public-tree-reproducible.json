@@ -1,0 +1,14 @@
+{
+ "class": "deterministic",
+ "evidence": [
+  {
+   "archivedPath": "artifacts/distribution-readiness/verification/reproducibility.md",
+   "label": "measurement",
+   "sha256": "a6a91e8886b4fbd80c8cf2ea8a950fce4ba3242388ae86452d9033152cf850fc"
+  }
+ ],
+ "recordedAt": "2026-08-31T03:38:25Z",
+ "row": "distribution-readiness::public-tree-reproducible",
+ "schema": "facet-evidence-receipt/1",
+ "summary": "the public-tree reproducibility measurement"
+}

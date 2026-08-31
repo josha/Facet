@@ -1,0 +1,39 @@
+{
+ "class": "deterministic",
+ "evidence": [
+  {
+   "archivedPath": "artifacts/distribution-readiness/freeze.md",
+   "label": "freeze-record",
+   "sha256": "9b6ff7245821b28afeae1868637c114295d1f6cb541fa322e91acf72e5c0d0da"
+  },
+  {
+   "archivedPath": "artifacts/distribution-readiness/freeze/head.txt",
+   "label": "head",
+   "sha256": "b9c78a19cf143a52e33224c31c28a177764662862bda7c593de33351435ead90"
+  },
+  {
+   "archivedPath": "artifacts/distribution-readiness/freeze/refs.txt",
+   "label": "refs",
+   "sha256": "c04ae63a0abad1b0d62be360c21815bb2508dec6b79b965f74cf0850abc8909c"
+  },
+  {
+   "archivedPath": "artifacts/distribution-readiness/freeze/status.txt",
+   "label": "status",
+   "sha256": "fa07193db0482d2ac30a34664582e306d9ea9ee066dd340b69bd6907e929efd9"
+  },
+  {
+   "archivedPath": "artifacts/distribution-readiness/freeze/tracked-files.txt",
+   "label": "tracked-files",
+   "sha256": "b43c9936be382426d48d93d7b5dadfe5c685c63a589c394438bd95d651586eb4"
+  },
+  {
+   "archivedPath": "artifacts/distribution-readiness/freeze/uncommitted-owner-edits.patch",
+   "label": "owner-edits",
+   "sha256": "be351f13d40140277ae4ca54b4b656cfcaf3730e5378f9e0eb46c5857ca655c2"
+  }
+ ],
+ "recordedAt": "2026-08-31T03:38:25Z",
+ "row": "distribution-readiness::state-frozen-at-open",
+ "schema": "facet-evidence-receipt/1",
+ "summary": "the six raw records taken before this stage's first edit"
+}

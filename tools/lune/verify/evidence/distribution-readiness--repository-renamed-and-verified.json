@@ -1,0 +1,14 @@
+{
+ "class": "deterministic",
+ "evidence": [
+  {
+   "archivedPath": "artifacts/distribution-readiness/rename-record.md",
+   "label": "rename-record",
+   "sha256": "e3f131dbb5cf75de6b4fe950ea66af6f74f095a0ecbafedcddb8ab5526f37319"
+  }
+ ],
+ "recordedAt": "2026-08-31T03:38:25Z",
+ "row": "distribution-readiness::repository-renamed-and-verified",
+ "schema": "facet-evidence-receipt/1",
+ "summary": "the record of the rename the owner approved and the director executed"
+}

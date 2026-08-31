@@ -1,0 +1,14 @@
+{
+ "class": "deterministic",
+ "evidence": [
+  {
+   "archivedPath": "artifacts/distribution-readiness/verification/mutation-parity.md",
+   "label": "corpus",
+   "sha256": "009f8ddeee708346cf81b6d399a681b29fbddbf77818846d8b8078143a603e95"
+  }
+ ],
+ "recordedAt": "2026-08-31T03:38:25Z",
+ "row": "distribution-readiness::mutation-parity-old-vs-new",
+ "schema": "facet-evidence-receipt/1",
+ "summary": "the mutation corpus and its old-path/new-path results"
+}

@@ -1,0 +1,14 @@
+{
+ "class": "deterministic",
+ "evidence": [
+  {
+   "archivedPath": "artifacts/distribution-readiness/rascalrally-consumer-impact.md",
+   "label": "impact-ledger",
+   "sha256": "c5921c53805e8fa348888329560a5ffda86c472683637fb6b472842692d5e45f"
+  }
+ ],
+ "recordedAt": "2026-08-31T03:38:25Z",
+ "row": "distribution-readiness::rascalrally-synchronized",
+ "schema": "facet-evidence-receipt/1",
+ "summary": "the consuming game's impact ledger for this stage"
+}

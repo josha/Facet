@@ -1,0 +1,14 @@
+{
+ "class": "deterministic",
+ "evidence": [
+  {
+   "archivedPath": "artifacts/distribution-readiness/verification/timings.md",
+   "label": "timings",
+   "sha256": "29ae499c2a37e139acd4afea972191cbbe94eaeb7bae1b36f8208627c6e5492a"
+  }
+ ],
+ "recordedAt": "2026-08-31T03:41:58Z",
+ "row": "distribution-readiness::timings-and-budget",
+ "schema": "facet-evidence-receipt/1",
+ "summary": "the cold, warm and live-tree timings against the twenty-minute budget"
+}
