@@ -186,7 +186,7 @@ return {
 		end
 
 		-- ===== the stage ====================================================
-		local conditions = Facet.adaptive.conditions(core, env, { scope = scope }) -- RR-8: six memos die with the fixture
+		local conditions = Facet.adaptive.conditions(core, env, { scope = scope }) -- RR-8: eighteen memos die with the fixture
 		local SLOT: any = { type = "fixed", px = "targetSizes.minimum" }
 
 		local function slot(id: string, alignH: string, alignV: any)

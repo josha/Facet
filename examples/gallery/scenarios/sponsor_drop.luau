@@ -49,7 +49,7 @@ return {
 		local pres = ctx.presenter
 		local scope = core:scope("sponsor-drop")
 		local clock = pres.motionClock
-		local conditions = Facet.adaptive.conditions(core, env, { scope = scope }) -- RR-8: six memos die with the fixture
+		local conditions = Facet.adaptive.conditions(core, env, { scope = scope }) -- RR-8: eighteen memos die with the fixture
 
 		local SCREEN = "/DropLab"
 		local LIST = SCREEN .. "/Main/ListZone/Rows"

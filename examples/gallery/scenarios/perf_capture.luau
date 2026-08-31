@@ -36,7 +36,7 @@ return {
 		local UI = Facet.UI
 		local core = ctx.core
 		local scope = core:scope("perf-capture")
-		local conditions = Facet.adaptive.conditions(core, ctx.env, { scope = scope }) -- RR-8: six memos die with the fixture
+		local conditions = Facet.adaptive.conditions(core, ctx.env, { scope = scope }) -- RR-8: eighteen memos die with the fixture
 
 		-- ---- owner-held state -------------------------------------------
 		local readouts = {}

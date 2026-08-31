@@ -95,7 +95,7 @@ return {
 		local UI = Facet.UI
 		local core = ctx.core
 		local scope = core:scope("adaptive-controls")
-		local conditions = Facet.adaptive.conditions(core, ctx.env, { scope = scope }) -- RR-8: six memos die with the fixture
+		local conditions = Facet.adaptive.conditions(core, ctx.env, { scope = scope }) -- RR-8: eighteen memos die with the fixture
 
 		-- owner-held state (it must outlive the controls, and it is what a live
 		-- orientation change has to preserve)

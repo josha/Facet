@@ -101,7 +101,7 @@ return {
 		local UI = Facet.UI
 		local core = ctx.core
 		local scope = core:scope("sorted-entries")
-		-- scope-owned so the six memos die with the fixture (RR-8)
+		-- scope-owned so the eighteen memos die with the fixture (RR-8)
 		local conditions = Facet.adaptive.conditions(core, ctx.env, { scope = scope })
 
 		-- THE THREE CONSTRUCTIONS. Same twelve pairs out of all three; only the

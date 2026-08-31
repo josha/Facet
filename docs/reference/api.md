@@ -823,8 +823,8 @@ stack whose **`axis` is a reactive prop**. Bind it and a viewport, orientation, 
 display-class change re-solves the stack in place:
 
 ```lua
--- pass the screen's scope: `conditions` builds six memos, and a screen that
--- rebuilds without owning them leaks six per cycle (see below)
+-- pass the screen's scope: `conditions` builds eighteen memos, and a screen that
+-- rebuilds without owning them leaks eighteen per cycle (see below)
 local conditions = Facet.adaptive.conditions(core, env, { scope = scope })
 UI.AdaptiveStack{ id = "Toolbar", axis = conditions.axis, gap = 8, children = { ... } }
 ```
