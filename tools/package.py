@@ -580,12 +580,26 @@ class Refusal:
 
 
 def decide(facts):
+    """-> (refusals, evaluated).
+
+    THE SECOND HALF EXISTS BECAUSE THE FIRST HALF CANNOT BE READ WITHOUT IT. The
+    verdict table used to print `[ok]` for every code that was simply absent from
+    the refusal list, so a guard that never ran looked exactly like a guard that
+    ran and passed — and a stubbed decider returning `[]` rendered as eighteen
+    confident greens. `evaluated` is the set of codes this call actually
+    compared something for, so a check that had nothing to compare says so."""
     op = facts["op"]
     out = []
+    evaluated = set()
+
+    def mark(*codes):
+        evaluated.update(codes)
 
     def refuse(code, message):
+        evaluated.add(code)
         out.append(Refusal(code, message))
 
+    mark("api-key-missing", "dirty-tree", "commit-mismatch", "version-mismatch", "build-drift", "creator-unset")
     if not facts.get("api_key_present"):
         refuse(
             "api-key-missing",
@@ -619,6 +633,8 @@ def decide(facts):
     if not creator.get("type") or not creator.get("id"):
         refuse("creator-unset", "package/facet-package.json has no creator; it is filled at the owner checkpoint")
     else:
+        if facts.get("arg_creator_type") or facts.get("arg_creator_id"):
+            mark("creator-mismatch")
         if facts.get("arg_creator_type") and facts["arg_creator_type"] != creator["type"]:
             refuse("creator-mismatch", f"--creator-type {facts['arg_creator_type']} != configured {creator['type']}")
         if facts.get("arg_creator_id") and str(facts["arg_creator_id"]) != str(creator["id"]):
@@ -627,6 +643,7 @@ def decide(facts):
     config_asset = facts.get("config_asset_id")
     arg_asset = facts.get("arg_asset_id")
     if op == "create":
+        mark("asset-id-present")
         if config_asset:
             refuse(
                 "asset-id-present",
@@ -634,10 +651,13 @@ def decide(facts):
                 f"Use publish to push a revision.",
             )
     else:
+        mark("asset-id-missing")
         if not config_asset:
             refuse("asset-id-missing", "package/facet-package.json records no assetId; run create first")
-        elif arg_asset and str(arg_asset) != str(config_asset):
-            refuse("asset-id-mismatch", f"--asset-id {arg_asset} != configured {config_asset}")
+        elif arg_asset:
+            mark("asset-id-mismatch")
+            if str(arg_asset) != str(config_asset):
+                refuse("asset-id-mismatch", f"--asset-id {arg_asset} != configured {config_asset}")
 
     #[[ THE RELEASE-GATE EVIDENCE, compared field by field.
     #
@@ -647,6 +667,7 @@ def decide(facts):
     #   INDEPENDENT rather than chained, so a single wrong field names itself
     #   instead of hiding behind the first one.
     gate = facts.get("gate")
+    mark("gate-evidence-missing")
     if not gate:
         refuse(
             "gate-evidence-missing",
@@ -654,6 +675,8 @@ def decide(facts):
             f"`gateEvidence` object; the release tier must run first",
         )
     else:
+        mark("gate-evidence-schema", "gate-evidence-tier", "gate-evidence-failed", "gate-evidence-dirty",
+             "gate-evidence-source")
         if gate.get("schema") != GATE_SCHEMA:
             refuse(
                 "gate-evidence-schema",
@@ -678,6 +701,7 @@ def decide(facts):
         #   reporting the same wrong argument twice tells the reader nothing new.
         target_commit = facts.get("arg_commit")
         if target_commit and target_commit == facts.get("head_commit"):
+            mark("gate-evidence-commit")
             if gate.get("commit") != target_commit:
                 refuse(
                     "gate-evidence-commit",
@@ -692,6 +716,8 @@ def decide(facts):
             )
 
     receipt = facts.get("latest_receipt")
+    if receipt:
+        mark("operation-in-flight")
     if receipt and receipt.get("operationPath") and not receipt.get("assetRevision"):
         refuse(
             "operation-in-flight",
@@ -701,6 +727,7 @@ def decide(facts):
 
     cloud = facts.get("cloud_revision")
     if cloud and receipt:
+        mark("cloud-revision-newer")
         known = (receipt.get("assetRevision") or {}).get("revisionId")
         seen = cloud.get("revisionId")
         if known is None or (seen is not None and str(seen) != str(known)):
@@ -714,6 +741,7 @@ def decide(facts):
         last = semver(receipt.get("version"))
         current = semver(facts.get("source_version"))
         if last and current:
+            mark("version-not-advanced", "version-hash-conflict")
             if current < last:
                 refuse("version-not-advanced", f"VERSION {facts['source_version']} is behind the last receipt's {receipt['version']}")
             elif current == last:
@@ -727,10 +755,12 @@ def decide(facts):
                     refuse("version-not-advanced", f"VERSION {facts['source_version']} did not advance past the last receipt")
 
     moderation = facts.get("moderation")
-    if moderation is not None and moderation not in APPROVED_MODERATION:
-        refuse("moderation-not-approved", f"the asset's moderation state reads {moderation!r}, not approved")
+    if moderation is not None:
+        mark("moderation-not-approved")
+        if moderation not in APPROVED_MODERATION:
+            refuse("moderation-not-approved", f"the asset's moderation state reads {moderation!r}, not approved")
 
-    return out
+    return out, evaluated
 
 
 # ── the transport seam ───────────────────────────────────────────────────────
@@ -875,7 +905,12 @@ def gather_facts(op, args, config, receipts_dir, transport=None, api_key=None):
     }
 
 
-def print_verdicts(facts, refusals):
+def print_verdicts(facts, refusals, evaluated):
+    """Three states, not two. `[REFUSE]` failed, `[  ok  ]` was compared and
+    passed, `[ n/a  ]` had nothing to compare — a publish-only guard under
+    `create`, a receipt comparison with no receipt, a moderation state nobody has
+    read yet. Collapsing the third into the second is what let a stubbed decider
+    render as eighteen greens."""
     print("")
     print("GUARDS")
     codes = {refusal.code for refusal in refusals}
@@ -908,15 +943,20 @@ def print_verdicts(facts, refusals):
         if (label, code) in seen:
             continue
         seen.add((label, code))
-        print(f"  [{'REFUSE' if code in codes else '  ok  '}] {label}")
+        if code in codes:
+            verdict = "REFUSE"
+        elif code in evaluated:
+            verdict = "  ok  "
+        else:
+            verdict = " n/a  "
+        print(f"  [{verdict}] {label}")
+    print("")
     if refusals:
-        print("")
         print(f"REFUSALS ({len(refusals)})")
         for refusal in refusals:
             print(f"  - {refusal.code}: {refusal.message}")
     else:
-        print("")
-        print("REFUSALS (0) — every guard passes")
+        print(f"REFUSALS (0) — {len(evaluated)} guard(s) evaluated, all passed")
 
 
 def describe_request(method, path, request_json, file_path):
@@ -1168,11 +1208,11 @@ def _release_preamble(op, args, transport, decider=decide):
         raise SystemExit(1)
     api_key = api_key_from_env()
     facts = gather_facts(op, args, config, args.receipts, transport=transport if api_key else None, api_key=api_key)
-    refusals = decider(facts)
+    refusals, evaluated = decider(facts)
     print(f"package {op} (route {route}, {'CONFIRMED' if args.confirm else 'DRY RUN'})")
     print(f"  version {facts['source_version']}  commit {facts['head_commit'][:7]}  "
           f"sourceHash {facts['source_hash'][:12]}")
-    return config, route, api_key, facts, refusals
+    return config, route, api_key, facts, refusals, evaluated
 
 
 def studio_publisher_steps(config, verb):
@@ -1197,8 +1237,8 @@ def studio_publisher_steps(config, verb):
 
 def cmd_create(args, transport=None, decider=decide):
     transport = transport or HttpTransport()
-    config, route, api_key, facts, refusals = _release_preamble("create", args, transport, decider)
-    print_verdicts(facts, refusals)
+    config, route, api_key, facts, refusals, evaluated = _release_preamble("create", args, transport, decider)
+    print_verdicts(facts, refusals, evaluated)
 
     request_json = {
         "assetType": ASSET_TYPE,
@@ -1287,8 +1327,8 @@ def cmd_create(args, transport=None, decider=decide):
 
 def cmd_publish(args, transport=None, decider=decide):
     transport = transport or HttpTransport()
-    config, route, api_key, facts, refusals = _release_preamble("publish", args, transport, decider)
-    print_verdicts(facts, refusals)
+    config, route, api_key, facts, refusals, evaluated = _release_preamble("publish", args, transport, decider)
+    print_verdicts(facts, refusals, evaluated)
 
     asset_id = config.get("assetId") or "<assetId — unset until create>"
     request_json = {
@@ -1593,15 +1633,15 @@ def selftest():
     print("package --selftest")
 
     for op in ("create", "publish"):
-        refusals = decide(good_facts(op))
+        refusals, evaluated = decide(good_facts(op))
         if refusals:
             ok = False
             print(f"  [WRONG] the all-good {op} facts produced {[r.code for r in refusals]}")
         else:
-            print(f"  [ ok  ] the all-good {op} facts produce no refusal")
+            print(f"  [ ok  ] the all-good {op} facts produce no refusal ({len(evaluated)} guards evaluated)")
 
     for expected, op, change in REFUSAL_CASES:
-        refusals = decide(mutate(op, **change))
+        refusals, _evaluated = decide(mutate(op, **change))
         codes = [refusal.code for refusal in refusals]
         if codes == [expected]:
             print(f"  [BITES] {op}: {expected}")
@@ -1733,7 +1773,7 @@ def _selftest_transport():
         #   opposite property: evidence written the way the COORDINATOR writes it,
         #   against THIS repository's real commit and source hash, leaves no gate
         #   refusal at all. If the contract drifts apart again, this goes red. ]]
-        satisfiable = decide(
+        satisfiable, _ = decide(
             dict(
                 good_facts("publish"),
                 arg_commit=commit,
@@ -1772,7 +1812,9 @@ def _selftest_transport():
                 poll=1,
             )
 
-        no_refusals = lambda facts: []  # noqa: E731 — the injected decider, one expression
+        # the injected decider: no refusal, and NOTHING evaluated — which is what
+        # the verdict table must now render as `n/a` rather than as eighteen greens
+        no_refusals = lambda facts: ([], set())  # noqa: E731
 
         # ── pass A: the real guards, and nothing must reach the transport ────
         guard_config = os.path.join(work, "guarded.json")
