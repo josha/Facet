@@ -76,30 +76,89 @@ echo "release: gate = $gate"
 (cd "$work" && $gate)
 echo "release: gate PASS ($gate)"
 
-# ── 4. publish, with every package.py guard still in force ──────────────────
+# ── 4. build in the worktree, so the drift guard has something to compare ───
+# `package.sh publish` refuses when build/Facet.manifest.json does not describe
+# this tree, and a fresh worktree has no build at all. Building here is also what
+# gives that guard its meaning: the manifest recorded now and the fresh build
+# inside publish are two independent builds of the same commit.
+(cd "$work" && tools/package.sh build >/dev/null)
+
+# THE WATERMARK for step 6. Receipts are selected by CONTENT — a publishedAt at
+# or after this instant — not by having a name the main tree has not seen. A
+# receipt is named <version>-<sha7>, so republishing the same version from the
+# same commit reuses the name, and "the name is new" would have called a real
+# publish a failure.
+started_at="$(python3 -c 'import datetime; print(datetime.datetime.now(datetime.timezone.utc).replace(microsecond=0).isoformat().replace("+00:00","Z"))')"
+
+# ── 5. publish, with every package.py guard still in force ──────────────────
 (cd "$work" && tools/package.sh publish --confirm \
 	--version "$version" \
 	--commit "$full_commit" \
 	--asset-id "$asset_id" \
 	"$@")
+echo "release: publish exited 0"
 
-# ── 5. carry the receipt back into the main tree ────────────────────────────
+# ── 6. carry the receipt AND the config back into the main tree ─────────────
+# `set -e` means we only reach here if publish exited 0; the receipt selection
+# below confirms it actually wrote something, and the config carries the state
+# publish records outside the receipt — `assetId` on create, `versions[]` on
+# publish — which the worktree would otherwise take to the bin with it.
 mkdir -p "$repo/package/receipts"
+latest=""
 copied=0
 for receipt in "$work"/package/receipts/*.json; do
 	[ -e "$receipt" ] || continue
+	fresh="$(python3 - "$receipt" "$started_at" <<'EOF'
+import json, sys
+receipt = json.load(open(sys.argv[1]))
+print("yes" if str(receipt.get("publishedAt") or "") >= sys.argv[2] else "no")
+EOF
+	)"
+	[ "$fresh" = "yes" ] || continue
 	name="$(basename "$receipt")"
-	if [ ! -e "$repo/package/receipts/$name" ]; then
-		cp "$receipt" "$repo/package/receipts/$name"
-		echo "release: receipt package/receipts/$name"
-		copied=1
-		latest="$repo/package/receipts/$name"
+	if [ -e "$repo/package/receipts/$name" ] && ! cmp -s "$receipt" "$repo/package/receipts/$name"; then
+		echo "release: $name already exists in the main tree with different content — refusing to overwrite" >&2
+		echo "release: the worktree's copy is at $receipt" >&2
+		exit 1
 	fi
+	cp "$receipt" "$repo/package/receipts/$name"
+	echo "release: receipt package/receipts/$name"
+	copied=1
+	latest="$repo/package/receipts/$name"
 done
 if [ "$copied" = "0" ]; then
-	echo "release: no new receipt appeared in the worktree — publish wrote nothing" >&2
+	echo "release: publish exited 0 but wrote no receipt dated at or after $started_at" >&2
 	exit 1
 fi
+
+# THE CONFIG, whose diff must be only what publish is allowed to change.
+# Anything else moving means the worktree and the main tree disagree about the
+# package itself, and silently copying that over would launder the disagreement.
+config_verdict="$(python3 - "$repo/package/facet-package.json" "$work/package/facet-package.json" <<'EOF'
+import json, sys
+mine, theirs = (json.load(open(path)) for path in sys.argv[1:3])
+mutable = ("assetId", "versions")
+same = {key: value for key, value in mine.items() if key not in mutable}
+other = {key: value for key, value in theirs.items() if key not in mutable}
+if same != other:
+    moved = sorted(set(same) | set(other))
+    moved = [key for key in moved if same.get(key) != other.get(key)]
+    print("differs:" + ",".join(moved))
+else:
+    print("ok:" + json.dumps({key: theirs.get(key) for key in mutable}))
+EOF
+)"
+case "$config_verdict" in
+ok:*)
+	cp "$work/package/facet-package.json" "$repo/package/facet-package.json"
+	echo "release: package/facet-package.json updated (${config_verdict#ok:})"
+	;;
+*)
+	echo "release: the worktree's package/facet-package.json disagrees with the main tree outside assetId and" >&2
+	echo "release: versions (${config_verdict#differs:}); refusing to copy it back. Reconcile by hand." >&2
+	exit 1
+	;;
+esac
 
 cat <<CHECKLIST
 
