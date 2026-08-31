@@ -245,6 +245,25 @@ do
 	results.ROOT = previousRoot
 end
 
+--[[ THE PENDING RULE, BOTH ARMS (director ruling, 2026-08-31).
+	A declared non-blocking pending must stop failing the run -- the stage's two
+	closing rows can only pass after an action the gate itself guards -- and a
+	pending row that is blocking, or that never declared either way, must still
+	fail it. The default is the arm that matters: non-blocking is something
+	somebody wrote down per row, never something a pending row acquires by being
+	pending. ]]
+do
+	local graphMod = require("./graph")
+	check("a DECLARED non-blocking PENDING row no longer fails the run", graphMod.statePasses("PENDING", false))
+	check("a release-BLOCKING pending row still fails the run", not graphMod.statePasses("PENDING", true))
+	check(
+		"...and so does a pending row that declared nothing (the default is strict)",
+		not graphMod.statePasses("PENDING", nil :: any)
+	)
+	check("a blocking FAIL_ENVIRONMENT is unchanged by any of this", not graphMod.statePasses("FAIL_ENVIRONMENT", true))
+	check("PENDING still ranks at PENDING severity", graphMod.severity("PENDING") == 3)
+end
+
 fs.removeDir(scratch)
 
 print("")

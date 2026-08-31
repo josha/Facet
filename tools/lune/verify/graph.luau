@@ -188,11 +188,36 @@ function graph.severity(state: string): number
 	return SEVERITY[state] or 4
 end
 
+--[[ WHICH ROW STATES LET A RUN BE GREEN.
+
+	PENDING NEEDS THE SAME `releaseBlocking` TREATMENT FAIL_ENVIRONMENT ALREADY
+	HAS, and the reason is a knot rather than a preference (director ruling,
+	2026-08-31). Two distribution-readiness rows -- `owner-packet-complete` and
+	`private-package-id-and-update-proof` -- are the stage-CLOSING pair: each can
+	only pass AFTER a guarded release action, and that action refuses to run
+	unless the release gate's own `gateEvidence.status` reads PASS. A row that
+	can only pass after the action must not be the reason the action cannot
+	happen.
+
+	THE HONEST RECORD SURVIVES INTACT. The row still reports PENDING, still
+	appears as PENDING in its phase's counts and in the compatibility gate.json,
+	still ranks at PENDING severity, and still says in its own note what it is
+	waiting for. The only thing that changes is whether a DECLARED, explicitly
+	NON-BLOCKING pending is counted as a failure of the run.
+
+	THE DEFAULT STAYS STRICT. `releaseBlocking` is true or unset for any row
+	pending because the WORK IS MISSING, and such a row still fails the run.
+	Non-blocking is a per-row declaration somebody had to write down, not a
+	property pending rows acquire by being pending. The selftest plants both
+	arms. ]]
 function graph.statePasses(state: string, releaseBlocking: boolean): boolean
 	return state == "PASS"
 		or state == "FAIL_OPTIONAL"
 		or state == "RETIRED"
 		or (state == "FAIL_ENVIRONMENT" and not releaseBlocking)
+		--   EXPLICIT `false`, not merely falsy: an unset `releaseBlocking` is a
+		--   row nobody has ruled on, and the strict answer is the safe one.
+		or (state == "PENDING" and releaseBlocking == false)
 end
 
 return graph
