@@ -312,7 +312,19 @@ def graph_problems(graph, case_ids, regenerable=None):
                     )
         evidence = row.get("evidence")
         if evidence and row.get("class") not in ("declared", "retired") and not os.path.exists(evidence):
-            if regenerable(evidence):
+            #[[ AN EVIDENCE PATH OUTSIDE THIS REPOSITORY IS EXTERNAL, NOT BROKEN.
+            #   A path reached through `../` names a file in a sibling checkout,
+            #   and a public clone has no sibling. Reporting it as "checked in
+            #   and GONE" turned one absent consumer into a failing producer and
+            #   a cascade of rows that named it. It is a note; the row that owns
+            #   it declares the external producer, which is what makes its
+            #   absence an environment failure rather than a silent pass. ]]
+            if evidence.startswith("../"):
+                notes.append(
+                    f"[{rid}] evidence {evidence!r} lives outside this repository — "
+                    "external, and reported by the row's own external producer"
+                )
+            elif regenerable(evidence):
                 notes.append(f"[{rid}] evidence {evidence!r} is absent (git-ignored: a run regenerates it)")
             else:
                 problems.append(

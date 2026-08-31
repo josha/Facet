@@ -168,10 +168,25 @@ def scan_repo(repo, prefix, hits):
         scan_file(os.path.join(repo, rel), prefix + p if prefix else p, hits)
 
 
+#[[ THE CONSUMING GAME IS EXTERNAL (public-clone honesty round, 2026-08-31).
+#   This scan reaches into the consuming game's checkout because a call shape
+#   that drifted there is drift too. On a public clone that checkout does not
+#   exist, and `git ls-files` in a directory that is not there exited 2 -- a
+#   crash, not a verdict. The half that can run, runs, and the half that cannot
+#   is NAMED, so an unscanned tree never reads as a clean one. ]]
+SKIPPED_TREES = []
+
+
 def run_scan():
     hits = []
+    del SKIPPED_TREES[:]
     scan_repo(REPO, "", hits)
-    scan_repo(RR, "rr:", hits)
+    if os.path.isdir(RR) and subprocess.run(
+        ["git", "-C", RR, "ls-files"], capture_output=True, text=True
+    ).returncode == 0:
+        scan_repo(RR, "rr:", hits)
+    else:
+        SKIPPED_TREES.append("the consuming game's checkout")
     return hits
 
 
@@ -247,6 +262,9 @@ def main():
           "Facet.Controls.<Name>(core, spec); the nineteen deprecated "
           "builders keep working and have no live call site outside the "
           "compatibility spec")
+    for tree in SKIPPED_TREES:
+        print(f"  NOT SCANNED: {tree} is not beside this checkout — that half of "
+              "the claim is unproved here, and says so rather than passing quietly")
 
 
 if __name__ == "__main__":

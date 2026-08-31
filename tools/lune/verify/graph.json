@@ -5,7 +5,7 @@
   "phases": "phases.json",
   "suiteResults": "suite_real.json"
  },
- "maintainedAt": "2026-08-31T03:45:38Z",
+ "maintainedAt": "2026-08-31T04:11:52Z",
  "phases": [
   {
    "artifactDir": "artifacts/phase-0-foundation",
@@ -344,33 +344,23 @@
    "id": "build_places",
    "inputs": [
     "src/**",
-    "tests/**",
     "examples/gallery/**",
     "examples/reference/**",
     "examples/themes/**",
-    "examples/consumer/**",
     "examples/performance/**",
-    "examples/table_phaseb/**",
-    "docs/**",
-    "tools/**",
-    "bench/**",
-    "package/**",
-    "skills/**",
-    "rokit.toml",
-    "run-tests.sh",
-    "phases.json",
-    "requirements.json",
-    "README.md",
-    "AGENTS.md",
-    "CHANGELOG.md",
-    "CONTRIBUTING.md",
-    "LICENSE"
+    "examples/showcase.project.json",
+    "examples/gallery.project.json",
+    "examples/performance.project.json",
+    "tools/build_places.sh",
+    "tools/build_reference_places.sh",
+    "rokit.toml"
    ],
    "kind": "build",
    "note": "required by the release graph",
    "optional": false,
    "serialize": true,
    "tiers": {
+    "affected": false,
     "fast": false,
     "full": true,
     "release": true
@@ -386,33 +376,23 @@
    "id": "build_reference_places",
    "inputs": [
     "src/**",
-    "tests/**",
     "examples/gallery/**",
     "examples/reference/**",
     "examples/themes/**",
-    "examples/consumer/**",
     "examples/performance/**",
-    "examples/table_phaseb/**",
-    "docs/**",
-    "tools/**",
-    "bench/**",
-    "package/**",
-    "skills/**",
-    "rokit.toml",
-    "run-tests.sh",
-    "phases.json",
-    "requirements.json",
-    "README.md",
-    "AGENTS.md",
-    "CHANGELOG.md",
-    "CONTRIBUTING.md",
-    "LICENSE"
+    "examples/showcase.project.json",
+    "examples/gallery.project.json",
+    "examples/performance.project.json",
+    "tools/build_places.sh",
+    "tools/build_reference_places.sh",
+    "rokit.toml"
    ],
    "kind": "build",
    "note": "required by the release graph",
    "optional": false,
    "serialize": true,
    "tiers": {
+    "affected": false,
     "fast": false,
     "full": true,
     "release": true
@@ -5135,7 +5115,7 @@
    "serialize": true,
    "tiers": {
     "fast": false,
-    "full": false,
+    "full": true,
     "release": true
    },
    "timeoutS": 600
@@ -5939,13 +5919,13 @@
     "producers": [
      "rascalrally-suite"
     ],
-    "shell": "f=../../../games/RascalRally/docs/FACET_SETTINGS_PORT.md && test -f \"$f\" && grep -q \"^## Behavior checklist\" \"$f\" && grep -q \"^## Code and complexity comparison\" \"$f\" && grep -q \"^## Defect log\" \"$f\" && grep -q \"^## Rollback and old-path deletion criteria\" \"$f\""
+    "receipt": "tools/lune/verify/evidence/phase-2-settings-parity--port-doc-and-rollback.json"
    },
    "class": "evidence-pin",
-   "evidence": "../../../games/RascalRally/docs/FACET_SETTINGS_PORT.md",
+   "evidence": null,
    "id": "phase-2-settings-parity::port-doc-and-rollback",
    "name": "port-doc-and-rollback",
-   "note": "port-doc-and-rollback: its file-existence and text assertions must hold; and ../../../games/RascalRally/docs/FACET_SETTINGS_PORT.md must exist. Requirements: UI-AGENT-001.",
+   "note": "port-doc-and-rollback: the consuming game's port document -- behaviour checklist, comparison, defect log and rollback criteria -- pinned by content hash instead of by four greps on a path this repository cannot promise is there. Requirements: UI-AGENT-001.",
    "phase": "phase-2-settings-parity",
    "releaseBlocking": false,
    "requirements": [
@@ -23780,14 +23760,13 @@
   },
   {
    "check": {
-    "receipt": "tools/lune/verify/evidence/distribution-readiness--private-comparison-archived-links-removed.json",
-    "shell": "test -z \"$(git ls-files docs/reference/swiftui-parity.md)\""
+    "shell": "\npython3 -c \"\nimport glob, json, re, sys\nkeep = sorted(p.rsplit('/', 1)[-1] for p in glob.glob('docs/reference/*'))\ndoc = glob.glob('artifacts/distribution-readiness/*archive-receipt.md')\ntext = open(doc[0]).read().replace(chr(96), '') if len(doc) == 1 else ''\npath = re.search('[*][*]Path[*][*] [|] ([^|]+)', text)\nwant = re.search('[*][*]SHA-256[*][*] [|] ([0-9a-f]{64})', text)\nmanifest = {e['path']: e['sha256'] for e in json.load(open('../Facet-private-archive/MANIFEST.json'))['files']}\nname = path.group(1).strip().rsplit('/', 1)[-1] if path else None\nhit = [k for k in manifest if name and k.endswith('/' + name)]\nok = (keep == ['api.md', 'constitution.md'] and want is not None\n      and len(hit) == 1 and manifest[hit[0]] == want.group(1))\nprint('docs/reference holds exactly', keep, '; the archived replacement matches the manifest' if ok else '; MISMATCH')\nsys.exit(0 if ok else 1)\n\"\n"
    },
    "class": "exit0",
    "evidence": null,
    "id": "distribution-readiness::private-comparison-archived-links-removed",
    "name": "private-comparison-archived-links-removed",
-   "note": "private-comparison-archived-links-removed: the tracked comparison document is gone from the tip, and the archived replacement still hashes to what the archive's own manifest records for it -- so the move is verified from both ends rather than asserted by the receipt document that describes it. Requirements: UI-AGENT-001.",
+   "note": "private-comparison-archived-links-removed: the public reference directory holds exactly the two documents it is allowed to hold -- an allowlist, so a new stray reddens it too, and no retired filename is spelled anywhere to be reintroduced by the row that forbids it -- and the archived replacement named in the archive receipt still hashes to what the private archive's own manifest records. Requirements: UI-AGENT-001.",
    "phase": "distribution-readiness",
    "releaseBlocking": false,
    "requirements": [
@@ -24166,32 +24145,38 @@
    "state": "PENDING"
   },
   {
-   "check": {},
-   "class": "declared",
-   "evidence": null,
+   "check": {
+    "receipt": "tools/lune/verify/evidence/distribution-readiness--fresh-agent-builds-screen.json",
+    "shell": "grep -q \"SUCCESS\" artifacts/distribution-readiness/fresh-agents/builder-report.md"
+   },
+   "class": "exit0",
+   "evidence": "artifacts/distribution-readiness/fresh-agents/builder-report.md",
    "id": "distribution-readiness::fresh-agent-builds-screen",
    "name": "fresh-agent-builds-screen",
-   "note": "fresh-agent-builds-screen: PENDING -- a fresh agent building a screen from the published documents alone. Requirements: UI-AGENT-001.",
+   "note": "fresh-agent-builds-screen: a fresh agent with only the public clone built an adaptive, themed, stateful screen from the documentation alone and proved it with fifteen cases and eight mutations, its report and its findings pinned by content hash. Requirements: UI-AGENT-001.",
    "phase": "distribution-readiness",
    "releaseBlocking": false,
    "requirements": [
     "UI-AGENT-001"
    ],
-   "state": "PENDING"
+   "state": null
   },
   {
-   "check": {},
-   "class": "declared",
-   "evidence": null,
+   "check": {
+    "receipt": "tools/lune/verify/evidence/distribution-readiness--fresh-agent-extends-behavior.json",
+    "shell": "grep -q \"SUCCESS\" artifacts/distribution-readiness/fresh-agents/extender-report.md"
+   },
+   "class": "exit0",
+   "evidence": "artifacts/distribution-readiness/fresh-agents/extender-report.md",
    "id": "distribution-readiness::fresh-agent-extends-behavior",
    "name": "fresh-agent-extends-behavior",
-   "note": "fresh-agent-extends-behavior: PENDING -- a fresh agent extending behaviour the same way. Requirements: UI-AGENT-001.",
+   "note": "fresh-agent-extends-behavior: a second fresh agent added a feature to the consumer example through the documented workflow, test-first, in exactly three files, with the registration guard catching a stray spec while it worked -- report and findings pinned by content hash. Requirements: UI-AGENT-001.",
    "phase": "distribution-readiness",
    "releaseBlocking": false,
    "requirements": [
     "UI-AGENT-001"
    ],
-   "state": "PENDING"
+   "state": null
   },
   {
    "check": {

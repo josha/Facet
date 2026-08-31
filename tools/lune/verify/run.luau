@@ -533,6 +533,32 @@ function runner.execute(producer: identity.Producer, ctx: Context): Outcome
 			base.reason = refusal
 		end
 	end
+	--[[ A PRODUCER MAY SAY "THIS MACHINE CANNOT ANSWER" (public-clone honesty
+		round, 2026-08-31). Several checkers read a record a run produces and a
+		clone does not carry -- a sibling game checkout, a git-ignored
+		measurement -- and there was no way for them to report that except by
+		failing, which reads as a defect in the checker. The convention the tools
+		already used in prose is now honoured: exit 2 with `FAIL_ENVIRONMENT` in
+		the output is SKIP_MISSING, so the rows that name the producer report an
+		environment failure -- non-blocking at full, blocking at release, and
+		named -- instead of red. Any OTHER non-zero exit is still a failure, and
+		exit 2 without the word is still a failure, so a checker cannot make
+		itself unfailable by accident. ]]
+	if status == "FAIL" and result.code == 2 then
+		local whole = stripAnsi(stdout) .. "\n" .. stripAnsi(stderr)
+		if string.find(whole, "FAIL_ENVIRONMENT", 1, true) ~= nil then
+			status = "SKIP_MISSING"
+			local said = ""
+			for line in string.gmatch(whole, "[^\n]+") do
+				if string.find(line, "FAIL_ENVIRONMENT", 1, true) ~= nil then
+					said = line
+					break
+				end
+			end
+			base.reason = string.sub(said, 1, 220)
+			trace(ctx.runId, producer, id, "skip-missing")
+		end
+	end
 	base.status = status
 	base.record = record
 	--[[ A FAILING PRODUCER SAYS WHAT HAPPENED (finding 16). The reason field

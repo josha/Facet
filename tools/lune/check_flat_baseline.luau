@@ -1350,20 +1350,37 @@ if not fs.isFile(BASELINE_3_5) then
 	print("input to R9's byte-compatibility claim. Restore it from git rather than re-rendering one.")
 	process.exit(1)
 end
-if not fs.isFile(CURRENT) then
-	print(`check_flat_baseline: FAIL — the stored dump {CURRENT} is missing.`)
-	print(`It is gitignored and regenerable: \`lune run {GENERATOR} -- {CURRENT}\`.`)
-	process.exit(1)
-end
-local stored = fs.readFile(CURRENT)
+--[[ A CLONE HAS NO STORED DUMP, AND THAT IS NOT A FAILURE OF THIS CHECK.
+	`CURRENT` is git-ignored and regenerable, so a fresh clone has never had one
+	-- and exiting 1 with "the stored dump is missing" told a first-time reader
+	that a check was broken when the substantive claim was still perfectly
+	askable. There are TWO claims here and only one of them needs the stored
+	file:
+
+	  1. THE REPRODUCIBILITY PIN -- the stored dump byte-equals a freshly
+	     rendered one. Nothing to compare against on a clone; named, not passed.
+	  2. THE BYTE-COMPATIBILITY CLAIM -- the freshly rendered dump matches the
+	     TRACKED 0.6.0 baseline within the characterized allowlist. This is the
+	     claim R9 exists for, it needs no stored file, and it runs.
+
+	So the fresh render is what everything below compares, the stored file is
+	only ever the first pin's operand, and its absence is a sentence in the pass
+	line rather than an exit code. ]]
 local fresh = fs.readFile(temp)
-if stored ~= fresh then
-	table.insert(
-		problems,
-		`the stored dump {CURRENT} is not reproducible from the current tree — regenerate it `
-			.. `(\`lune run {GENERATOR}\`) and re-characterize the diff in `
-			.. "artifacts/rich-skinning-v2/rs-a1-image-is-element.json"
-	)
+local skipped = ""
+if not fs.isFile(CURRENT) then
+	skipped =
+		` (the reproducibility pin was NOT asked: {CURRENT} is git-ignored and this checkout has never rendered one -- \`lune run {GENERATOR} -- {CURRENT}\` creates it)`
+else
+	local stored = fs.readFile(CURRENT)
+	if stored ~= fresh then
+		table.insert(
+			problems,
+			`the stored dump {CURRENT} is not reproducible from the current tree — regenerate it `
+				.. `(\`lune run {GENERATOR}\`) and re-characterize the diff in `
+				.. "artifacts/rich-skinning-v2/rs-a1-image-is-element.json"
+		)
+	end
 end
 
 -- 2. COMPARE against the 0.6.0 baseline, allow-list in hand.
@@ -1490,6 +1507,7 @@ print(
 		-- about a check that did not happen.
 		.. `{#ALLOWED_RECT_DRIFT} characterized rect-drift scope(s), `
 		.. `{#ALLOWED_CLASS_DRIFT} characterized class substitution(s); no other rect/hit/class change)`
+		.. skipped
 )
 -- THE WAIVER REPORTS ITS OWN SIZE. A y-shift entry is only as trustworthy as the
 -- number it turned out to forgive, so the number is printed rather than implied —

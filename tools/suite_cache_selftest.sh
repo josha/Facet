@@ -311,6 +311,18 @@ fi
 # ---------------------------------------------------------------------------
 RR=../../../games/RascalRally/code
 
+# THE CONSUMER IS EXTERNAL (public-clone honesty round, 2026-08-31). On a public
+# clone this directory does not exist, `cd` failed inside every helper below, and
+# four cases scored `no` -- reporting the cache guards as BROKEN when they had
+# simply not been asked. Skipped by name instead, and skipped is not passed:
+# `skip` scores neither, and the summary line says how many.
+skip=0
+sk() { printf '  \xe2\x8a\x98 %s\n' "$1"; skip=$((skip + 1)); }
+
+if [ ! -d "$RR" ]; then
+	sk "RascalRally: the consuming game's checkout is not beside this one — its 8 cases were not run"
+else
+
 rr_fp() { (cd "$RR" && tools/suite_transcript.sh --fingerprint); }
 
 rr_before="$(rr_fp)"
@@ -394,8 +406,14 @@ else
 	no "RascalRally: a valid transcript is served (suite red?)"
 fi
 
+fi
+
 echo
-echo "suite cache selftest: $pass passed, $fail failed"
+if [ "$skip" -gt 0 ]; then
+	echo "suite cache selftest: $pass passed, $fail failed, $skip group(s) not run (external tree absent)"
+else
+	echo "suite cache selftest: $pass passed, $fail failed"
+fi
 
 mkdir -p artifacts/navigation-and-menus
 {

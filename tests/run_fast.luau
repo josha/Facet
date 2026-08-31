@@ -9,17 +9,27 @@
 -- ============================================================================
 --
 -- Nothing is skipped or weakened: every excluded file runs in full on the gate
--- suite. The tier exists so that the loop between two keystrokes is ~8 s rather
--- than ~43 s, and so that the ~35 s of workload mounts and source scanners are
+-- suite. The tier exists so that the loop between two keystrokes is ~50 s rather
+-- than ~270 s, and so that the heavy workload mounts and source scanners are
 -- paid once, on the gate, instead of on every save.
 
 local process = require("@lune/process")
 local testkit = require("./lib/testkit")
 local tiers = require("./lib/tiers")
 
--- Measured at f476b63 by `lune run tools/lune/time_specs` (median of three
--- runs; whole-suite noise floor 2.3 % over six unchanged runs).
-local FULL_SUITE_SECONDS = 42.7
+--[[ THE DIVISOR IS A MEASUREMENT AND IT WENT STALE, WHICH BROKE THE BUDGET.
+	Frozen at 42.7 s when the suite had 305 files, and left there while the suite
+	grew to 7,886 cases and 270 s. The banner therefore reported the fast tier at
+	"118 % of the 42.7 s full suite" and printed OVER BUDGET on every run -- a
+	real check, reading a number that no longer described anything, telling every
+	developer a true-sounding falsehood until they stopped reading it.
+
+	Re-measured 2026-08-31 from the result store's own suite records: three
+	consecutive full runs at 269.0 s, 275.5 s and 273.5 s wall. The fast tier is
+	50.4 s against that, which is 19 % -- inside the 25 % budget it was always
+	meant to be inside. Re-measure this whenever the tier list changes; the store
+	holds the number (`artifacts/verify/results/suite/*.json`, `durationMs`). ]]
+local FULL_SUITE_SECONDS = 272.7
 local FAST_TIER_BUDGET = 0.25
 
 local order = tiers.fastOrder()

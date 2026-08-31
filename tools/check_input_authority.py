@@ -278,10 +278,30 @@ def scan(trees: list, allowlist: dict) -> tuple:
     return offences, stale, scanned
 
 
+#[[ AN OWNER OUTSIDE THIS REPOSITORY IS EXTERNAL, NOT MISSING.
+#   Four of this ledger's rows are owned by files in the consuming game's
+#   checkout. On a public clone that checkout does not exist and every one of
+#   them reported "owner ... is gone" -- which is what a DELETED owner looks
+#   like, and is the thing this ledger exists to catch. The two cases have to
+#   read differently: an owner inside this repository that vanished is still a
+#   failure, and an external owner this checkout simply cannot see is named and
+#   counted instead. ]]
+SKIPPED_OWNERS = []
+
+
+def _external(path: str) -> bool:
+    """An owner reached through `../` lives outside this checkout."""
+    return path.startswith("../")
+
+
 def ledger_offences() -> list:
     bad = []
+    del SKIPPED_OWNERS[:]
     for verb, owner, witness, _why in NO_IAS_SURFACE:
         if not os.path.isfile(owner):
+            if _external(owner) and not os.path.isdir(CONSUMER_TREE):
+                SKIPPED_OWNERS.append(f"  {verb}: {owner}")
+                continue
             bad.append(f"  {verb}: owner {owner} is gone")
             continue
         with open(owner, encoding="utf-8") as handle:
@@ -327,6 +347,13 @@ def main() -> None:
         f"input authority: clean. trees {', '.join(FACET_TREES)} scanned; consumer {consumer}. "
         f"{len(ALLOWLIST)} allowlisted adapters, {len(NO_IAS_SURFACE)} ledger verbs, 0 new binders."
     )
+    if SKIPPED_OWNERS:
+        print(
+            f"  NOT CHECKED: {len(SKIPPED_OWNERS)} ledger verb(s) are owned by files in the "
+            "consuming game's checkout, which is not beside this one:"
+        )
+        for line in SKIPPED_OWNERS:
+            print(line)
 
 
 # --------------------------------------------------------------------------

@@ -5,8 +5,11 @@
 #   ./run-tests.sh          THE SUITE — every spec file. This is what the gate
 #                           runs and the only thing that may be called green.
 #   ./run-tests.sh --fast   the INNER-LOOP tier: the same list minus the eleven
-#                           measured-slowest files (tests/lib/tiers.luau). ~8 s
-#                           instead of ~43 s. It prints a FACET-FAST-TIER
+#                           measured-slowest files (tests/lib/tiers.luau). ~50 s
+#                           instead of ~270 s (re-measured 2026-08-31; the old
+#                           "~8 s instead of ~43 s" described a suite of 305
+#                           files and 42.7 s, and had outlived it by a factor of
+#                           six). It prints a FACET-FAST-TIER
 #                           banner on both ends, and tools/test.sh refuses that
 #                           transcript, so it cannot be mistaken for the suite.
 set -euo pipefail

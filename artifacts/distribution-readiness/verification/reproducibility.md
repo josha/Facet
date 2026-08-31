@@ -18,3 +18,29 @@ Candidate-at commit: 3fcb5b2 (patched builder copied into the extracts).
 | Extract build vs repository build | differ, by design: the `SourceCommit` attribute is `unversioned-source` in a git-less tree and the real commit in the repository — the one documented, intentional difference |
 
 Re-run at the final candidate commit by repeating these commands verbatim.
+
+## The second documented nondeterminism: place files carry a build TIME
+
+`tools/build_places.sh` and `tools/build_reference_places.sh` stamp each place
+they emit with a build identity AND a build clock, into a Workspace attribute the
+showcase renders in its own settings panel. That stamp is deliberate and it was
+bought with a real device session: on 2026-08-16 a showcase was tested 5 h 41 m
+after the commit it was meant to prove, the tester correctly reported a missing
+feature, and the build in their hands simply predated it — with nothing on screen
+able to say so.
+
+The consequence for this document is that **the fourteen tracked `.rbxl` under
+`examples/places/` are not byte-reproducible and are not meant to be.** Two
+builds of the same source differ in the stamp, and that is the whole point of the
+stamp. They are excluded from the reproducibility claim above, which is about the
+model and the extracted tree.
+
+It has a second consequence, and it is why this section exists rather than a
+footnote: a producer that rewrites fourteen tracked files must never run in an
+inner loop. Measured by a fresh agent on a pristine clone, 2026-08-31: the
+`affected` tier selected both builders off a README edit, because they declared
+the same whole-tree input set every scanner shares, and left the working tree
+dirty for a change that could not have touched a place. Their inputs are now the
+trees that actually feed a place, and `tiers.affected = false` in the graph keeps
+them out of the inner loop entirely while `full` and `release` still build and
+judge them.

@@ -12,6 +12,7 @@ class this instrument is actually allowed to emit, and a declared inventory
 that names the classes with zero rows instead of leaving absence implicit.
 """
 import json
+import os
 import sys
 
 PERF = "artifacts/phase-4/perf.json"
@@ -33,7 +34,24 @@ def is_blind(value) -> bool:
     return isinstance(value, dict) and value.get("measured") is False and bool(value.get("reason"))
 
 
+#[[ RECORDED EVIDENCE THAT IS NOT IN THE CLONE (public-clone honesty round).
+#   `artifacts/phase-4/perf.json` is a run-produced record, git-ignored, and its row
+#   carries a content-hash receipt for exactly that reason. On a public clone it
+#   is simply absent, and `json.load` raised a bare FileNotFoundError traceback --
+#   which reads as a broken checker rather than as an unreachable operand. The
+#   row's receipt is the claim; this file says so and stops. ]]
+def _absent(path):
+    print(
+        "check_perf_metrics: FAIL_ENVIRONMENT — recorded evidence %s is not in this checkout "
+        "(git-ignored, produced by a run); its row carries the content-hash "
+        "receipt that stands for it" % path
+    )
+    return 2
+
+
 def main() -> int:
+    if not os.path.isfile(PERF):
+        return _absent(PERF)
     report = json.load(open(PERF))
     errors = []
 

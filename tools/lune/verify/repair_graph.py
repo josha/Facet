@@ -247,7 +247,43 @@ ARCHIVED_SUBJECT_ROWS = {
 #   `package-verify` was release-only. DR-13 names it, and a row whose producer
 #   did not run reports NOT_EVALUATED -- which makes a full run INCOMPLETE for a
 #   reason that is nobody's defect. It is offline and costs 6 s. ]]
-RETIER = {"package-verify": {"fast": False, "full": True, "release": True}}
+#[[ ...AND A PRODUCER THAT REWRITES TRACKED FILES DOES NOT BELONG IN A LOOP
+#   THE INNER TIERS RUN. The two place builders declared the whole-tree input
+#   set every scanner shares, so the `affected` tier selected them off a README
+#   edit -- and they rewrite fourteen tracked `.rbxl` in place, each carrying a
+#   build TIME in its stamp, so the working tree came back dirty for a change
+#   that could not have touched a place. Measured by a fresh agent on a pristine
+#   clone, 2026-08-31. Their inputs are narrowed to the trees that actually feed
+#   a place, and they run at release only: building a place is a release act.
+#   (The build-stamp nondeterminism itself is deliberate and is recorded as
+#   such -- see the reproducibility note.) ]]
+PLACE_INPUTS = [
+    "src/**",
+    "examples/gallery/**",
+    "examples/reference/**",
+    "examples/themes/**",
+    "examples/performance/**",
+    "examples/showcase.project.json",
+    "examples/gallery.project.json",
+    "examples/performance.project.json",
+    "tools/build_places.sh",
+    "tools/build_reference_places.sh",
+    "rokit.toml",
+]
+
+RETIER = {
+    "package-verify": {"fast": False, "full": True, "release": True},
+    #   `affected: False` keeps them out of the inner loop without taking them
+    #   out of `full` -- a row names one, and a row whose producer never runs
+    #   makes the tier INCOMPLETE for nobody's defect.
+    "build_places": {"fast": False, "full": True, "release": True, "affected": False},
+    "build_reference_places": {"fast": False, "full": True, "release": True, "affected": False},
+    #   and the archive check is named by a distribution-readiness row, so it
+    #   has to be answerable at `full` too. It costs 0.3 s.
+    "archive-integrity": {"fast": False, "full": True, "release": True},
+}
+
+REINPUT = {"build_places": PLACE_INPUTS, "build_reference_places": PLACE_INPUTS}
 
 SERIALIZED = {
     "check_types": "it generates and deletes a probe file inside tests/",
@@ -332,6 +368,37 @@ _REMOTE_CHECK = (
     "m = importlib.util.module_from_spec(s); s.loader.exec_module(m); "
     "u = sys.stdin.read(); "
     "sys.exit(0 if '/Facet' in u and not m.BRAND.search(u) else 1)\""
+)
+
+#[[ THE RULE IS WHAT STAYS, NOT WHAT LEFT.
+#   The first version of this row named the retired document by filename -- and a
+#   filename is exactly what this repository may not carry, so the row that proved a
+#   removal became the last four matches of the drift check. Naming the departed is also
+#   the weaker rule: it catches that ONE file coming back and nothing else. This is an
+#   allowlist of what the public reference directory may hold -- the same move the link
+#   guards made -- and the archived replacement is located STRUCTURALLY: the receipt
+#   document is found by a neutral glob, its own recorded path and digest are read out of
+#   it at run time, and both are checked against the private archive's manifest. Nothing
+#   spells a retired name, and the assertion got STRONGER: a new stray under the
+#   reference directory reddens it too. ]]
+DR8_CLAUSE = (
+    """
+python3 -c "
+import glob, json, re, sys
+keep = sorted(p.rsplit('/', 1)[-1] for p in glob.glob('docs/reference/*'))
+doc = glob.glob('artifacts/distribution-readiness/*archive-receipt.md')
+text = open(doc[0]).read().replace(chr(96), '') if len(doc) == 1 else ''
+path = re.search('[*][*]Path[*][*] [|] ([^|]+)', text)
+want = re.search('[*][*]SHA-256[*][*] [|] ([0-9a-f]{64})', text)
+manifest = {e['path']: e['sha256'] for e in json.load(open('../Facet-private-archive/MANIFEST.json'))['files']}
+name = path.group(1).strip().rsplit('/', 1)[-1] if path else None
+hit = [k for k in manifest if name and k.endswith('/' + name)]
+ok = (keep == ['api.md', 'constitution.md'] and want is not None
+      and len(hit) == 1 and manifest[hit[0]] == want.group(1))
+print('docs/reference holds exactly', keep, '; the archived replacement matches the manifest' if ok else '; MISMATCH')
+sys.exit(0 if ok else 1)
+"
+"""
 )
 
 CONSUMER_CASES = [
@@ -432,16 +499,28 @@ ROW_FLIPS = {
         "the bytes its manifest says it holds -- the claim every receipt in this graph leans on",
         None,
     ),
+    #[[ THE RULE IS WHAT STAYS, NOT WHAT LEFT.
+    #
+    #   The first version of this row named the retired document by filename --
+    #   and a filename is exactly the thing this repository is not allowed to
+    #   carry, so the row that proved the removal became the last four matches
+    #   of the drift check. Naming the departed is also the weaker rule: it
+    #   catches that ONE file coming back and nothing else.
+    #
+    #   So it is an allowlist of what the public reference directory may hold,
+    #   the same move the link guards made, and the archived replacement is
+    #   located STRUCTURALLY: the receipt document is found by a neutral glob,
+    #   its own recorded path and digest are read out of it at run time, and
+    #   both are checked against the private archive's manifest. Nothing here
+    #   spells a retired name, and the assertion got stronger rather than
+    #   quieter -- any new file appearing under the reference directory reddens
+    #   it too. ]]
     "distribution-readiness::private-comparison-archived-links-removed": (
-        {
-            "shell": (
-                'test -z "$(git ls-files docs/reference/swiftui-parity.md)"'
-            ),
-            "receipt": "tools/lune/verify/evidence/distribution-readiness--private-comparison-archived-links-removed.json",
-        },
-        "the tracked comparison document is gone from the tip, and the archived replacement still "
-        "hashes to what the archive's own manifest records for it -- so the move is verified from "
-        "both ends rather than asserted by the receipt document that describes it",
+        {"shell": DR8_CLAUSE},
+        "the public reference directory holds exactly the two documents it is allowed to hold -- "
+        "an allowlist, so a new stray reddens it too, and no retired filename is spelled anywhere "
+        "to be reintroduced by the row that forbids it -- and the archived replacement named in "
+        "the archive receipt still hashes to what the private archive's own manifest records",
         None,
     ),
     "distribution-readiness::public-docs-refreshed-no-stale-links": (
@@ -613,6 +692,40 @@ ROW_FLIPS = {
     #   document and never the guide -- the reviewer's own improvements were
     #   applied to the guide afterwards, and a pin on it would have reddened on
     #   the very commit that acted on the review. ]]
+    #[[ DR-29 AND DR-30 LANDED THE SAME WAY, an hour later: a fresh agent with
+    #   only the public clone built a themed, stateful, adaptive settings panel
+    #   from the documentation alone and proved it with fifteen cases and eight
+    #   mutations; a second one added a feature to the consumer example through
+    #   the documented workflow, test-first, and the registration guard caught a
+    #   stray spec while it worked. Both reports carry findings, and the findings
+    #   are the point -- a fresh-agent exercise that finds nothing has not been
+    #   run. The row asserts the verdict line, which is where SUCCESS is written. ]]
+    "distribution-readiness::fresh-agent-builds-screen": (
+        {
+            "shell": (
+                'grep -q "SUCCESS" '
+                "artifacts/distribution-readiness/fresh-agents/builder-report.md"
+            ),
+            "receipt": "tools/lune/verify/evidence/distribution-readiness--fresh-agent-builds-screen.json",
+        },
+        "a fresh agent with only the public clone built an adaptive, themed, stateful screen from "
+        "the documentation alone and proved it with fifteen cases and eight mutations, its report "
+        "and its findings pinned by content hash",
+        "artifacts/distribution-readiness/fresh-agents/builder-report.md",
+    ),
+    "distribution-readiness::fresh-agent-extends-behavior": (
+        {
+            "shell": (
+                'grep -q "SUCCESS" '
+                "artifacts/distribution-readiness/fresh-agents/extender-report.md"
+            ),
+            "receipt": "tools/lune/verify/evidence/distribution-readiness--fresh-agent-extends-behavior.json",
+        },
+        "a second fresh agent added a feature to the consumer example through the documented "
+        "workflow, test-first, in exactly three files, with the registration guard catching a "
+        "stray spec while it worked -- report and findings pinned by content hash",
+        "artifacts/distribution-readiness/fresh-agents/extender-report.md",
+    ),
     "distribution-readiness::fresh-reviewer-chooses-from-guide": (
         {
             "shell": (
@@ -727,12 +840,6 @@ DR_RECEIPTS = {
          ("notices", "THIRD_PARTY_NOTICES.md", "tree")],
         "the provenance ledger and the notices file it produced",
     ),
-    "distribution-readiness::private-comparison-archived-links-removed": (
-        "external",
-        [("archived-comparison", "research/swiftui-capability-comparison-2026-08-30.md", "archive"),
-         ("receipt-document", "artifacts/distribution-readiness/swiftui-archive-receipt.md", "tree")],
-        "the archived document, verified against the archive's own manifest, and the receipt that records the move",
-    ),
     "distribution-readiness::public-docs-refreshed-no-stale-links": (
         "deterministic",
         [("refresh-record", "artifacts/distribution-readiness/docs-refresh.md", "tree")],
@@ -768,6 +875,16 @@ DR_RECEIPTS = {
         [("measurement", "artifacts/distribution-readiness/verification/reproducibility.md", "tree")],
         "the public-tree reproducibility measurement",
     ),
+    "distribution-readiness::fresh-agent-builds-screen": (
+        "external",
+        [("builder-report", "artifacts/distribution-readiness/fresh-agents/builder-report.md", "tree")],
+        "the fresh builder's report and the findings it handed back",
+    ),
+    "distribution-readiness::fresh-agent-extends-behavior": (
+        "external",
+        [("extender-report", "artifacts/distribution-readiness/fresh-agents/extender-report.md", "tree")],
+        "the fresh extender's report and the findings it handed back",
+    ),
     "distribution-readiness::fresh-reviewer-chooses-from-guide": (
         "external",
         [("reviewer-verdict", "artifacts/distribution-readiness/fresh-agents/guide-review.md", "tree")],
@@ -793,11 +910,71 @@ STILL_PENDING = {
     "distribution-readiness::fresh-clone-works": "a clone taken from the renamed remote and run end to end",
     "distribution-readiness::example-places-rebuild-from-clone": "the same clone rebuilding the example places",
     "distribution-readiness::package-from-clone-matches": "a package built from that clone, compared byte for byte",
-    "distribution-readiness::fresh-agent-builds-screen": "a fresh agent building a screen from the published documents alone",
-    "distribution-readiness::fresh-agent-extends-behavior": "a fresh agent extending behaviour the same way",
     "distribution-readiness::owner-packet-complete": "the packet's final numbers, stamped at close",
     "distribution-readiness::private-package-id-and-update-proof": "an asset minted and updated, which requires the owner to publish",
 }
+
+
+#[[ AN OUT-OF-REPOSITORY EVIDENCE PIN BECOMES A RECEIPT.
+#
+#   One row pinned a document in the consuming game's checkout by path, and
+#   greppped four headings out of it. On a public clone that path does not
+#   exist, so `check_manifest_integrity` reported it as "checked in and GONE"
+#   -- the shape of a DELETED pin -- and every row that names that producer
+#   went red behind it.
+#
+#   A content-hash receipt says the same thing better: on this machine it
+#   verifies the exact bytes (stronger than four greps), and on a clone it
+#   resolves to nothing and reports FAIL_ENVIRONMENT with a count, which is what
+#   an unreachable external operand actually is. The row keeps the external
+#   producer that answers for the checkout's absence. ]]
+EXTERNAL_EVIDENCE_ROWS = {
+    "phase-2-settings-parity::port-doc-and-rollback": (
+        "../../../games/RascalRally/docs/FACET_SETTINGS_PORT.md",
+        "the consuming game's port document -- behaviour checklist, comparison, defect log and "
+        "rollback criteria -- pinned by content hash instead of by four greps on a path this "
+        "repository cannot promise is there",
+    ),
+}
+
+
+def externalise_evidence(rows, dry_run):
+    """-> rows whose out-of-repo pin became a receipt."""
+    done = []
+    for row in rows:
+        spec = EXTERNAL_EVIDENCE_ROWS.get(row["id"])
+        if spec is None:
+            continue
+        path, why = spec
+        receipt = os.path.join(RECEIPTS, row["id"].replace("::", "--") + ".json")
+        if os.path.isfile(path):
+            body = {
+                "schema": "facet-evidence-receipt/1",
+                "row": row["id"],
+                "class": "external",
+                "evidence": [{"label": "port-document", "archivedPath": path,
+                              "sha256": _sha256(path)}],
+                "summary": why,
+                "recordedAt": datetime.datetime.now(datetime.timezone.utc).strftime(
+                    "%Y-%m-%dT%H:%M:%SZ"
+                ),
+            }
+            existing = json.load(open(receipt)) if os.path.exists(receipt) else {}
+            if existing.get("evidence") != body["evidence"] and not dry_run:
+                with open(receipt, "w") as fh:
+                    json.dump(body, fh, indent=1, sort_keys=True)
+                    fh.write("\n")
+        check = row.setdefault("check", {})
+        if check.get("receipt") == receipt and "shell" not in check and row.get("evidence") is None:
+            continue
+        check.pop("shell", None)
+        check["receipt"] = receipt
+        row["evidence"] = None
+        row["note"] = "%s: %s. Requirements: %s." % (
+            row["name"], why, ", ".join(row["requirements"]) or "none",
+        )
+        done.append([row["id"], path])
+    return done
 
 
 def flip_registration_rows(rows, dry_run):
@@ -1180,6 +1357,10 @@ def main() -> int:
             rr_routed.append(row["id"])
     print(f"rows routed through the sibling producer : {len(rr_routed)}")
 
+    # ---- out-of-repository evidence pins become receipts -----------------------
+    externalised = externalise_evidence(kept, args.dry_run)
+    print(f"out-of-repo pins turned into receipts    : {len(externalised)}")
+
     # ---- registration rows whose evidence now exists ---------------------------
     flipped, minted, dr_added, dr_pending = flip_registration_rows(kept, args.dry_run)
     print(f"registration rows given a real check    : {len(flipped)}")
@@ -1193,6 +1374,10 @@ def main() -> int:
         want = RETIER.get(p["id"])
         if want is not None and p.get("tiers") != want:
             p["tiers"] = dict(want)
+            retiered += 1
+        inputs = REINPUT.get(p["id"])
+        if inputs is not None and p.get("inputs") != inputs:
+            p["inputs"] = list(inputs)
             retiered += 1
     if retiered:
         print(f"producers whose tier set widened         : {retiered}")

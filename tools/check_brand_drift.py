@@ -614,6 +614,35 @@ ALLOWLIST = [
 ]
 
 
+#[[ THE CONSUMER IS EXTERNAL, AND A CLONE WITHOUT IT IS NOT A FAILURE.
+#
+#   Three of this file's four scans reach OUTSIDE the repository -- into the
+#   consuming game's checkout and into the studio tree above it -- because the
+#   rename has to hold in the places that name this library, not only here. On a
+#   public clone none of that exists, and every one of those scans exited 2 with
+#   `FAIL_ENVIRONMENT git ls-files`, which reads as "the check is broken" rather
+#   than "the check has less to look at". Measured by a fresh agent on a pristine
+#   clone, 2026-08-31.
+#
+#   The half that CAN run, runs; the half that cannot is named in the output and
+#   counted, so a reader can tell an unscanned tree from a clean one. Nothing is
+#   weakened where the trees are present. ]]
+SKIPPED_TREES = []
+
+
+def present(repo, label):
+    """-> True when `repo` is a git checkout this run can actually read."""
+    if not os.path.isdir(repo):
+        SKIPPED_TREES.append(label)
+        return False
+    out = subprocess.run(["git", "-C", repo, "ls-files"],
+                         capture_output=True, text=True)
+    if out.returncode != 0:
+        SKIPPED_TREES.append(label)
+        return False
+    return True
+
+
 def tracked(repo):
     out = subprocess.run(["git", "-C", repo, "ls-files"],
                          capture_output=True, text=True)
@@ -755,6 +784,9 @@ def scan_builds(hits):
 
 
 def studio_surfaces(hits):
+    if not os.path.isdir(os.path.join(STUDIO_ROOT, "GameStudio", "specialists")):
+        SKIPPED_TREES.append("the studio tree above this repository")
+        return
     surfaces = [
         os.path.join(STUDIO_ROOT, "CLAUDE.md"),
         os.path.join(STUDIO_ROOT, "games/RascalRally/CLAUDE.md"),
@@ -775,8 +807,10 @@ def studio_surfaces(hits):
 
 def run_scan(skip_builds=False):
     hits = []
+    del SKIPPED_TREES[:]
     scan_repo(REPO, "", EXCLUDED_TREES, hits)
-    scan_repo(RR, "rr:", (), hits)
+    if present(RR, "the consuming game's checkout"):
+        scan_repo(RR, "rr:", (), hits)
     studio_surfaces(hits)
     # rule 2 scans the framework repo only (see the module docstring)
     scan_repo(REPO, "", EXCLUDED_TREES, hits, VENDOR_PROFILE, VENDOR_ALLOWLIST)
@@ -960,6 +994,9 @@ def main():
         sys.exit(1)
     print("check_brand_drift: PASS — no old-brand drift outside the recorded "
           "allowlist (reasons + removal rules live beside each entry)")
+    for tree in SKIPPED_TREES:
+        print(f"  NOT SCANNED: {tree} is not beside this checkout — that half of "
+              "the rename claim is unproved here, and says so rather than passing quietly")
 
 
 if __name__ == "__main__":

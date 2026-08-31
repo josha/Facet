@@ -164,6 +164,15 @@ if tier == "affected" then
 		if not (p.tiers :: any).full then
 			continue
 		end
+		--[[ A PRODUCER THAT REWRITES TRACKED FILES IS NOT AN INNER-LOOP
+			PRODUCER. The place builders emit fourteen tracked `.rbxl`, each
+			stamped with its build TIME, so selecting one leaves the working tree
+			dirty for a change that could not have touched a place -- and the
+			affected tier selected them off a README edit. `tiers.affected =
+			false` says so in the graph rather than in a name check here. ]]
+		if (p.tiers :: any).affected == false then
+			continue
+		end
 		for _, path in changedPaths do
 			if util.matchesAny(path, p.inputs) then
 				select(p.id, `an input matched a changed path ({path})`)
