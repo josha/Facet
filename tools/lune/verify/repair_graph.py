@@ -39,6 +39,8 @@ from __future__ import annotations
 import argparse
 import collections
 import datetime
+import hashlib
+import glob
 import json
 import os
 import re
@@ -58,7 +60,16 @@ COVERAGE = "artifacts/distribution-readiness/verification/coverage-map.md"
 #   moment the benchmark ran again. They are stripped from every receipt. ]]
 REGENERATED = re.compile(
     r"^artifacts/(?:bench\.json|test\.json|boundary\.json|verify/|conformance-[^/]*\.json"
-    r"|phase-4/perf\.json|doctor\.json|spec-timings)"
+    r"|phase-4/perf\.json|doctor\.json|spec-timings"
+    #   `artifacts/<phase>/gate.json` is the per-phase verdict file the
+    #   coordinator itself writes at the end of every `tools/verify.sh --gate`
+    #   run. Twelve receipts had pinned one, so twelve producers went red on the
+    #   run AFTER the run that recorded them — a receipt that cannot survive its
+    #   own system running again is measuring the clock.
+    r"|[a-z0-9-]+/gate\.json"
+    #   ...and `prove_perf_gate` rewrites its own proof row on every run for the
+    #   same reason: it is a live falsification, re-earned rather than recalled.
+    r"|cross-platform-proof/rows/xp-a6-regression-proof\.json)"
 )
 
 LIVING_EVIDENCE = re.compile(
@@ -165,6 +176,24 @@ ARCHIVED_SUBJECT_ROWS = {
 }
 
 
+#[[ PRODUCERS THAT WRITE INTO THE TREE UNDER TEST RUN ALONE.
+#
+#   `tools/check_types.py` generates a throwaway `tests/types/_negative_probe.luau`
+#   and deletes it, and its `--selftest` rewrites `src/init.luau` and the type
+#   witness three times and restores them. Both are correct, and both were in the
+#   parallel batch beside each other: on 2026-08-31 the selftest deleted the probe
+#   the plain check was still reading (`FileNotFoundError`, a red row for a check
+#   that was working), and either window could be the moment another producer
+#   hashed the tree.
+#
+#   The identity snapshot in `run.luau` closes the second half; this closes the
+#   first. Serializing a five-second producer costs five seconds. ]]
+SERIALIZED = {
+    "check_types": "it generates and deletes a probe file inside tests/",
+    "check_types-selftest": "it rewrites src/init.luau and the type witness, then restores them",
+}
+
+
 def load_archive() -> dict:
     path = os.path.join(ROOT, ARCHIVE)
     if not os.path.exists(path):
@@ -193,6 +222,133 @@ def has_work(check: dict) -> bool:
         check.get(k)
         for k in ("producers", "resultIds", "stdoutPins", "shell", "receipt", "priorPhases")
     )
+
+
+#[[ A RECEIPT THAT NAMES NO READABLE FILE PINS NOTHING.
+#
+#   The converter took each receipt from the archived manifest's `run` string,
+#   and three shapes came through it as text rather than as a path:
+#
+#     * an unexpanded loop variable — `artifacts/<phase>/rows/$f.json` is what
+#       `for f in ...; do` looked like once the loop was gone;
+#     * a bare directory — `artifacts/<phase>/captures/`, which was the operand
+#       of a `find`, not a file;
+#     * nothing at all, with the hash of a file whose name was lost.
+#
+#   All three verified nothing while reporting a class-shaped environment
+#   failure, which is the worst of both: the row could not pass and nobody was
+#   told a pin was empty. Each is repaired against what is actually on disk —
+#   the loop variable and the directory by expansion, the nameless hash by
+#   looking for a file that hashes to it — and an entry that still resolves to
+#   no file is dropped with its reason, because a receipt is a claim about
+#   recorded evidence and an entry naming none is not one. ]]
+LOOP_VARIABLE = re.compile(r"\$\{?\w+\}?")
+
+
+def _sha256(path: str) -> str:
+    h = hashlib.sha256()
+    with open(path, "rb") as fh:
+        for block in iter(lambda: fh.read(1 << 20), b""):
+            h.update(block)
+    return h.hexdigest()
+
+
+def _roots(path: str):
+    return [path, os.path.join(os.path.dirname(ARCHIVE), path)]
+
+
+def _expand(path: str):
+    """-> the real files an unexpanded loop variable or a bare directory meant."""
+    for root in _roots(path.rstrip("/")):
+        if path.endswith("/") and os.path.isdir(root):
+            found = sorted(
+                os.path.join(root, n) for n in os.listdir(root)
+                if os.path.isfile(os.path.join(root, n))
+            )
+            if found:
+                return _not_run_output(found)
+    if LOOP_VARIABLE.search(path):
+        pattern = LOOP_VARIABLE.sub("*", path)
+        for root in _roots(pattern):
+            found = sorted(glob.glob(root))
+            if found:
+                return _not_run_output(found)
+    return []
+
+
+def _not_run_output(found):
+    """A directory holds a producer's own output beside the record it took."""
+    return [f for f in found if not REGENERATED.match("artifacts/" + f.split("artifacts/", 1)[-1])]
+
+
+def _index_by_hash():
+    """-> {sha256: path} over the record trees, built once and only if needed."""
+    index = {}
+    for base in _roots("artifacts"):
+        for dirpath, _dirs, names in os.walk(base):
+            if "/verify/" in dirpath + "/" or "/suite_cache" in dirpath:
+                continue
+            for name in names:
+                full = os.path.join(dirpath, name)
+                try:
+                    index.setdefault(_sha256(full), full)
+                except OSError:
+                    pass
+    return index
+
+
+def repair_receipts(dry_run: bool):
+    """-> (expanded, recovered, dropped) — receipts that name a readable file."""
+    expanded, recovered, dropped = [], [], []
+    index = None
+    for name in sorted(os.listdir(RECEIPTS)):
+        if not name.endswith(".json"):
+            continue
+        path = os.path.join(RECEIPTS, name)
+        receipt = json.load(open(path))
+        who = receipt.get("row") or receipt.get("producer") or name
+        before = receipt.get("evidence") or []
+        after = []
+        changed = False
+        for entry in before:
+            declared = entry.get("archivedPath") or ""
+            if declared and (os.path.isfile(declared) or os.path.isfile(_roots(declared)[1])):
+                after.append(entry)
+                continue
+            files = _expand(declared) if declared else []
+            if files:
+                changed = True
+                for i, found in enumerate(files, 1):
+                    inside = found.split("artifacts/", 1)[-1]
+                    after.append({
+                        "label": f"{entry['label']}.{i}",
+                        "archivedPath": "artifacts/" + inside,
+                        "sha256": _sha256(found),
+                    })
+                expanded.append((who, declared, len(files)))
+                continue
+            digest = entry.get("sha256")
+            if digest and digest != "absent":
+                if index is None:
+                    index = _index_by_hash()
+                found = index.get(digest)
+                if found is not None:
+                    changed = True
+                    inside = found.split("artifacts/", 1)[-1]
+                    entry = dict(entry, archivedPath="artifacts/" + inside)
+                    after.append(entry)
+                    recovered.append((who, entry["label"], entry["archivedPath"]))
+                    continue
+            changed = True
+            dropped.append((who, entry.get("label"), declared or "(no path recorded)"))
+        if not changed:
+            continue
+        receipt["evidence"] = after
+        if not dry_run:
+            with open(path, "w") as fh:
+                json.dump(receipt, fh, indent=1, sort_keys=True)
+                fh.write("\n")
+    return expanded, recovered, dropped
 
 
 def main() -> int:
@@ -317,11 +473,29 @@ def main() -> int:
             rr_routed.append(row["id"])
     print(f"rows routed through the sibling producer : {len(rr_routed)}")
 
+    # ---- producers that must not share the tree -------------------------------
+    serialized = 0
+    for p in graph["producers"]:
+        if p["id"] in SERIALIZED and not p.get("serialize"):
+            p["serialize"] = True
+            p["note"] = (p.get("note") or "").strip()
+            p["note"] = (p["note"] + " " if p["note"] else "") + "runs alone: " + SERIALIZED[p["id"]]
+            serialized += 1
+    print(f"producers moved to the serial wave       : {serialized}")
+
     # ---- producers the graph gains -------------------------------------------
     have = {p["id"] for p in graph["producers"]}
     added = [p for p in NEW_PRODUCERS if p["id"] not in have]
     graph["producers"] = graph["producers"] + added
     print(f"producers added                          : {len(added)}")
+
+    # ---- receipts that named no readable file ---------------------------------
+    expanded, recovered, dropped_entries = repair_receipts(args.dry_run)
+    print(f"receipt pins expanded to real files      : {len(expanded)}")
+    print(f"receipt pins recovered by content hash   : {len(recovered)}")
+    print(f"receipt pins dropped as empty            : {len(dropped_entries)}")
+    for who, label, why in dropped_entries:
+        print(f"  - {who} {label}: {why}")
 
     # ---- strip run output from every receipt ---------------------------------
     stripped = []

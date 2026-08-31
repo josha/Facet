@@ -2,9 +2,54 @@
  "class": "studio",
  "evidence": [
   {
-   "archivedPath": "artifacts/native-substrate/feasibility/$f.json",
-   "label": "evidence-1",
-   "sha256": "absent"
+   "archivedPath": "artifacts/native-substrate/feasibility/m1-scroll-host.json",
+   "label": "evidence-1.1",
+   "sha256": "9bf8f0f0f9f2f95565744ced30e5d3b8d6e0d697d45953fb6b5358dd62cb7bba"
+  },
+  {
+   "archivedPath": "artifacts/native-substrate/feasibility/m10-preload.json",
+   "label": "evidence-1.2",
+   "sha256": "b076269a7a44d6ee22159d3208497bdc7155c10659a05ffabf3721bcb9200149"
+  },
+  {
+   "archivedPath": "artifacts/native-substrate/feasibility/m2-canvas-window.json",
+   "label": "evidence-1.3",
+   "sha256": "72d57e3359bfc4f0e8b0b996d2f7aa1bbe38b2099e0d5da094337c9426254a33"
+  },
+  {
+   "archivedPath": "artifacts/native-substrate/feasibility/m3-dragdetector.json",
+   "label": "evidence-1.4",
+   "sha256": "b397058fe27708e7bbe90e06140500e31247fb066736c2d177f7902427289cb5"
+  },
+  {
+   "archivedPath": "artifacts/native-substrate/feasibility/m4-touch-events.json",
+   "label": "evidence-1.5",
+   "sha256": "73b24cf98febda9ad98ab5303777ef619be51e644bdb487236941eec56d22bb9"
+  },
+  {
+   "archivedPath": "artifacts/native-substrate/feasibility/m5-path2d.json",
+   "label": "evidence-1.6",
+   "sha256": "14f22b03f70c133ed8a6ccaf5ae277d9f51492acd880a102ca01555f02078307"
+  },
+  {
+   "archivedPath": "artifacts/native-substrate/feasibility/m6-pagelayout.json",
+   "label": "evidence-1.7",
+   "sha256": "6c8198b226e4d4d667a56398f0d38dc4af642dbb18a7b95ed96262dfca9870f3"
+  },
+  {
+   "archivedPath": "artifacts/native-substrate/feasibility/m7-preferred-text.json",
+   "label": "evidence-1.8",
+   "sha256": "3f1195454ca84c7475e213c938d54bae94262b0004f150204d7caa8c727a0ed1"
+  },
+  {
+   "archivedPath": "artifacts/native-substrate/feasibility/m8-safe-area.json",
+   "label": "evidence-1.9",
+   "sha256": "775a495b92bb2f88786fdfe1469b2accddcea63d21ac27be772e69af81b8d049"
+  },
+  {
+   "archivedPath": "artifacts/native-substrate/feasibility/m9-selection-bridge.json",
+   "label": "evidence-1.10",
+   "sha256": "970163625089a7aa538cbad7647b4fb510fafe2c0cd88f7d03667ccdd33e5372"
   },
   {
    "archivedPath": "artifacts/native-substrate/feasibility/m10-preload.json",

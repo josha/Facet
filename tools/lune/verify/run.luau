@@ -569,6 +569,34 @@ function runner.executeAll(producers: { identity.Producer }, ctx: Context, jobs:
 		end
 	end
 
+	--[[ IDENTITY IS THE TREE AS THE RUN BEGAN, NOT AS EACH PRODUCER FINDS IT.
+
+		Identity is computed lazily inside `execute`, and the parallel batch made
+		that a race with itself. `tools/check_types.py` generates a throwaway
+		`tests/types/_negative_probe.luau` and deletes it moments later, and its
+		`--selftest` rewrites `src/init.luau` and the witness three times and
+		restores them — both are correct in isolation, and both are inside the
+		suite's own input globs. A producer whose identity happened to be
+		computed inside one of those windows was keyed to a tree state that never
+		exists again: measured on 2026-08-31, the suite stored its result under
+		`734639f3` while the resting tree hashes to `740de67b`, so the legacy
+		bridge missed the store and paid a second full 265 s suite run, and no
+		later run could ever reuse the first.
+
+		Warming every identity here, before anything is spawned, makes the answer
+		the tree as this run STARTED — one snapshot for the whole run, which is
+		what "the same inputs give the same result" was supposed to mean. The
+		content, walk and pattern caches in `util` are what hold it; nothing
+		resets them mid-run.
+
+		It is not a speed optimisation, and it costs nothing: the same digests
+		would have been computed anyway, just later and at the mercy of whoever
+		else was writing. A producer that genuinely wants a second opinion about
+		the tree is asking for a second RUN. ]]
+	for _, p in producers do
+		pcall(identity.compute, p, ctx.toolchain)
+	end
+
 	local index = 1
 	local active = 0
 	local finished = 0

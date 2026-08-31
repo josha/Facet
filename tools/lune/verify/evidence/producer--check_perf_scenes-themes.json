@@ -1,13 +1,7 @@
 {
  "class": "deterministic",
  "command": "python3 tools/check_perf_scenes.py --themes",
- "evidence": [
-  {
-   "archivedPath": "artifacts/phase-4/perf.json",
-   "label": "evidence-1",
-   "sha256": "c6fc57c779dd5675b2b79fae36219972822134f4341adc11d468519e1642d1cb"
-  }
- ],
+ "evidence": [],
  "exitCode": 0,
  "producer": "check_perf_scenes-themes",
  "recordedAt": "2026-08-31T01:29:19Z",

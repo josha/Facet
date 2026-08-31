@@ -91,9 +91,10 @@ end
 -- faster scheduling must not create flaky timing results.
 if jobs == nil then
 	--[[ HOW MANY CORES, ON A MACHINE THAT MIGHT NOT BE THIS ONE (finding 27).
-		`sysctl -n hw.ncpu` answers on macOS and nowhere else, and the fallback
-		was the literal 4 — so continuous integration on Linux ran every
-		deterministic producer at a concurrency of one and nobody was told. ]]
+		`sysctl -n hw.ncpu` answers on exactly one family of systems, and the
+		fallback was the literal 4 — so a host that answers only `nproc` ran
+		every deterministic producer at a concurrency of one, and nobody was
+		told. Three probes, in order, and the first that answers wins. ]]
 	local cores = 0
 	for _, command in { "sysctl -n hw.ncpu", "nproc", "getconf _NPROCESSORS_ONLN" } do
 		local probe = process.exec("bash", { "-c", command })

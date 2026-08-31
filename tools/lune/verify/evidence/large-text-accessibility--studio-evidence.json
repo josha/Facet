@@ -2,9 +2,39 @@
  "class": "studio",
  "evidence": [
   {
-   "archivedPath": "artifacts/large-text-accessibility/studio/",
-   "label": "evidence-1",
-   "sha256": "absent"
+   "archivedPath": "artifacts/large-text-accessibility/studio/large-text.json",
+   "label": "evidence-1.1",
+   "sha256": "ee0a26b2033bc1a0460cbcbfa03eaaf8e920857ce5d6c3a9743d67076de197d0"
+  },
+  {
+   "archivedPath": "artifacts/large-text-accessibility/studio/lt11-rolepick-largest-real-setting.png",
+   "label": "evidence-1.2",
+   "sha256": "1ff6be32dfb970c48f06a2ef208e2b882bf6db06f89c1c3af5524d1e0763e51f"
+  },
+  {
+   "archivedPath": "artifacts/large-text-accessibility/studio/lt11-sponsor-667x375-largest.png",
+   "label": "evidence-1.3",
+   "sha256": "10ede1cc6431c040ea359b1b2e5de05c08117f6eb03df124f8a32ecc1e99c66c"
+  },
+  {
+   "archivedPath": "artifacts/large-text-accessibility/studio/lt11-sponsor-table-largest.png",
+   "label": "evidence-1.4",
+   "sha256": "2bbc055d1a5eeac8f107c73785107f2792ca7d441f9f416576cab9f8380e79f9"
+  },
+  {
+   "archivedPath": "artifacts/large-text-accessibility/studio/lt9-landscape-largest.png",
+   "label": "evidence-1.5",
+   "sha256": "9b867165d6481b8983f6351a0f948d17bb7c627bd924241ad9fbe0d9bf780214"
+  },
+  {
+   "archivedPath": "artifacts/large-text-accessibility/studio/lt9-portrait-largest-disclosure.png",
+   "label": "evidence-1.6",
+   "sha256": "b3c897be5719b965813d67e25c4ae7391ca02c3218501a3c6cd58af6d2eaad60"
+  },
+  {
+   "archivedPath": "artifacts/large-text-accessibility/studio/lt9-portrait-largest.png",
+   "label": "evidence-1.7",
+   "sha256": "914855595072d334559c8cb4aedf6686c77cdb2a5696f3d24cc2bee2c5562241"
   },
   {
    "archivedPath": "artifacts/large-text-accessibility/studio/large-text.json",

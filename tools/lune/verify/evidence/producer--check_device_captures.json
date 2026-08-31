@@ -6,11 +6,6 @@
    "archivedPath": "artifacts/cross-platform-proof/device/studio-emulated.json",
    "label": "evidence-1",
    "sha256": "8b658af5cb60b024a22b5fb0b3f9b7d9e0f54128bab981e0c524004bef2b69fb"
-  },
-  {
-   "archivedPath": "artifacts/phase-4/perf.json",
-   "label": "evidence-2",
-   "sha256": "f9856242d864245ed5e23727e1ce2f2279cdf08e5b1bbc76fd318d781548de34"
   }
  ],
  "exitCode": 0,

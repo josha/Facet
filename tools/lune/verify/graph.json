@@ -5,7 +5,7 @@
   "phases": "phases.json",
   "suiteResults": "suite_real.json"
  },
- "maintainedAt": "2026-08-31T02:20:14Z",
+ "maintainedAt": "2026-08-31T02:53:57Z",
  "phases": [
   {
    "artifactDir": "artifacts/phase-0-foundation",
@@ -4009,9 +4009,9 @@
     "LICENSE"
    ],
    "kind": "scanner",
-   "note": "",
+   "note": "runs alone: it generates and deletes a probe file inside tests/",
    "optional": false,
-   "serialize": false,
+   "serialize": true,
    "tiers": {
     "fast": false,
     "full": true,
@@ -4054,9 +4054,9 @@
     "LICENSE"
    ],
    "kind": "scanner",
-   "note": "",
+   "note": "runs alone: it rewrites src/init.luau and the type witness, then restores them",
    "optional": false,
-   "serialize": false,
+   "serialize": true,
    "tiers": {
     "fast": false,
     "full": true,
