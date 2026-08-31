@@ -108,6 +108,22 @@ no case in this suite — they were red before this workstream began, they are
 named in `graph-census.md`, and they keep their grep against the ONE recorded
 transcript so their verdict is unchanged.
 
+## Triage of every failing row (release run, 2026-08-30)
+
+404 PASS, 31 FAIL_RECOVERABLE, 56 PENDING, 16 FAIL_ENVIRONMENT, 2 RETIRED.
+
+| Rows | What | Attribution |
+|---:|---|---|
+| 16 | `prior-gates-unregressed` | **red by design**: they are red exactly because an earlier phase is, which is the row doing its job |
+| 8 | `bench` produced no result | the benchmark measures wall clock against a frozen p95 on a machine running six agents; **pre-existing at stage open**, and a failed producer is never stored, so its rows follow it |
+| 4 | the product-language guard and its selftest | **another workstream**: two matches in `docs/plans/facet-consolidated-roadmap.md`, the owner's uncommitted plan prose, in a tree that is leaving. The selftest cannot complete on a tree that carries any pre-existing match |
+| 2 | an evidence receipt no longer hashes | **a sibling agent edited the file** after the receipt was taken; regenerating the receipts clears it, and the row naming it is the mechanism working |
+| 1 | `examples-no-input-boilerplate` | **pre-existing at stage open**: `examples/gallery/examples/07_match3.luau` uses one of the navigation properties the lint forbids; verified red in the working tree independently of the graph |
+
+None is caused by the conversion. The two that are one-line fixes in files this
+workstream owns were made (a verdict checker's argument parsing, and the receipt
+refresh); the rest are named above with their owner.
+
 ## What is red, and why
 
 A full run in the live tree reports **398 PASS and 25 FAIL_RECOVERABLE** (a
@@ -159,9 +175,11 @@ first run of the proof found that the PRODUCERS were not — 77 of them failed a
 declared-evidence producers, each carrying its verdict and the sha256 of every
 file it read.
 
-**Thirteen producers still need the record**, and four of them for a reason only
-the director can settle: they compare a LIVING artefact against a FROZEN operand
-that lives in a tree that is leaving.
+**Twelve producers still need the record** after two rounds of fixes (63 were
+served from receipts in the second round; a verdict checker that names its file
+before an `=` was declaring no evidence at all and has been corrected since).
+Four of them need it for a reason only the director can settle: they compare a
+LIVING artefact against a FROZEN operand that lives in a tree that is leaving.
 
 | Producer | Frozen operand it needs | What is lost if it goes |
 |---|---|---|
@@ -172,10 +190,17 @@ that lives in a tree that is leaving.
 
 Each operand is one small file. The decision is to keep those four in the public
 tree or to accept losing those four checks; nothing in this workstream can make
-it. The other nine are `bench` (a measurement on a loaded machine), `stylua` ×2,
+it. The other eight are `bench` (a measurement on a loaded machine), `stylua`,
 `suite_cache_selftest`, `check_brand_drift-selftest`, `check_public_allowlist`
 and the two manifest checkers — all red for reasons recorded below, none of them
 a dependency on the record.
+
+**The proof is therefore not yet green, and this is where it stands**: the rows
+survive the deletion, 63 of the 77 producers that did not now do, and the twelve
+that remain are named above with the file each one needs. The proof itself is
+`bash /tmp/holdproof.sh` — it rsyncs the tree into the frozen copy, runs
+release, moves 77 paths aside, runs release again, diffs the row verdicts by id,
+and restores. Re-run it after the four operands are settled.
 
 ## Left for the director
 
