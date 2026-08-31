@@ -227,9 +227,13 @@ stands after the repair round that followed, and what each remaining red is.
 
 ```
 tools/verify.sh release
-405 PASS · 28 FAIL_RECOVERABLE · 56 PENDING · 16 FAIL_ENVIRONMENT · 2 RETIRED
-270.8 s   507 rows   134 producers
+462 PASS · 0 FAIL_RECOVERABLE · 28 PENDING · 16 FAIL_ENVIRONMENT · 2 RETIRED
+278.2 s   508 rows   136 producers
 ```
+
+The run still exits non-zero, and that is the correct answer: 28 rows are
+honestly PENDING and a stage with pending work is not a green gate. Nothing in
+the tree is failing.
 
 `artifacts/verify/latest-release.json` now carries a `gateEvidence` block —
 schema, tier, status, commit, whether the tree was dirty, the packaging source
@@ -283,3 +287,40 @@ The 16 FAIL_ENVIRONMENT are all declared physical-device or human-review rows.
 The 56 PENDING are the 33 distribution-readiness registration rows awaiting the
 director, 22 rows of the example-games stage that is still in flight, and one
 human review packet.
+
+## The public-clone run (2026-08-31)
+
+Continuous integration runs `full` on a clone with no parent workspace: no
+sibling game checkout, no private archive, no git-ignored evidence. A fresh agent
+ran exactly that and found eight guards CRASHING rather than reporting less —
+the worst failure mode a verification system has, because it tells a first-time
+reader the checks are broken when the checks were simply not asked.
+
+Measured after the repair, in `git clone` of this repository into a directory
+with no parent workspace:
+
+| Run | Verdict | Rows |
+|---|---|---|
+| `tools/verify.sh fast` | **PASS_PARTIAL**, exit 0, 55.2 s | 204 PASS · 0 FAIL_RECOVERABLE · 147 FAIL_ENVIRONMENT · 127 NOT_EVALUATED · 28 PENDING · 2 RETIRED |
+| `tools/verify.sh full` | 314.5 s | 205 PASS · **0 FAIL_RECOVERABLE** · 260 FAIL_ENVIRONMENT · 13 NOT_EVALUATED · 28 PENDING · 2 RETIRED |
+
+No producer fails and no row fails. The 260 environment rows are the recorded
+Studio, device, performance and external evidence a clone cannot reach, each
+counted and named; the 13 unjudged rows are the perf rows whose producers are
+declared for the release tier, which `full` never promised to run; the 28 pending
+rows are the same ones the main tree reports.
+
+The three rules that made the difference are worth stating on their own, because
+each was a case of the system reporting the wrong KIND of thing:
+
+1. **A pin on a file a run produces is not a pin on a file somebody deleted.**
+   193 of the 211 evidence paths in this graph are git-ignored records that a run
+   writes. Absent-and-tracked is a broken row; absent-and-untracked is a checkout
+   that has not produced it yet.
+2. **An external tree that is not there is an environment failure, not a red
+   check.** The consuming game's checkout, the studio tree above this
+   repository, the private archive. A producer or a row clause says so by
+   exiting 2 with `FAIL_ENVIRONMENT` in its output, and the coordinator honours
+   that convention — any other non-zero exit is still a failure.
+3. **Out of scope for a tier is not the same as unjudged.** A row whose producer
+   is declared for a later tier is not a row this tier failed to judge.

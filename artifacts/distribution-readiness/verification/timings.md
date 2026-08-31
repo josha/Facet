@@ -179,3 +179,22 @@ Nothing was made cheaper: the same work is done. The 595 seconds were two suite
 runs bought by a race, and the warm number is what reuse was always supposed to
 be worth. All three are inside the twenty-minute budget — the worst of them at
 95 %, the current one at 23 %.
+
+## After the registration flip and the public-clone round (2026-08-31)
+
+| Run | Wall | Verdict counts |
+|---|---:|---|
+| `release`, main tree, warm store | **278.2 s** | 462 PASS · 0 FAIL_RECOVERABLE · 28 PENDING · 16 FAIL_ENVIRONMENT · 2 RETIRED |
+| `full`, public clone, cold store | **314.5 s** | 205 PASS · 0 FAIL_RECOVERABLE · 260 FAIL_ENVIRONMENT · 13 NOT_EVALUATED · 28 PENDING · 2 RETIRED |
+| `fast`, public clone, cold store | **55.2 s** | PASS_PARTIAL, exit 0 |
+
+The release run is **23 % of the twenty-minute budget**. The clone's `full` is
+cold — it has no result store at all — and still finishes in 5 minutes 15
+seconds, because a checkout without the sibling game, the private archive and
+the recorded Studio evidence has fewer producers to run and says so.
+
+Two producers moved out of the inner loop in this round and one gained a tier:
+the place builders declare `tiers.affected = false` (they rewrite fourteen
+tracked files), and `package-verify` and `archive-integrity` are answerable at
+`full` because rows name them and a row whose producer never runs makes its tier
+incomplete for nobody's defect.

@@ -1601,14 +1601,25 @@ def merge_ledger(new: dict) -> dict:
             if token not in seen:
                 seen.add(token)
                 have.append(list(row))
+    #   ...AND THE STAMP MOVES ONLY WHEN THE RECORD DOES. Writing the time on
+    #   every run made a file whose whole point is idempotence report a change
+    #   on a run that changed nothing -- which is a diff that costs a reader
+    #   attention and buys them a clock.
     ledger["schema"] = "facet-post-archival-repair/1"
-    ledger["updatedAt"] = datetime.datetime.now(datetime.timezone.utc).strftime(
-        "%Y-%m-%dT%H:%M:%SZ"
-    )
-    os.makedirs(os.path.dirname(LEDGER), exist_ok=True)
-    with open(LEDGER, "w") as fh:
-        json.dump(ledger, fh, indent=1, sort_keys=True)
-        fh.write("\n")
+    before = None
+    if os.path.exists(LEDGER):
+        before = json.load(open(LEDGER))
+        ledger["updatedAt"] = before.get("updatedAt")
+    if before is None or {k: v for k, v in before.items() if k != "updatedAt"} != {
+        k: v for k, v in ledger.items() if k != "updatedAt"
+    }:
+        ledger["updatedAt"] = datetime.datetime.now(datetime.timezone.utc).strftime(
+            "%Y-%m-%dT%H:%M:%SZ"
+        )
+        os.makedirs(os.path.dirname(LEDGER), exist_ok=True)
+        with open(LEDGER, "w") as fh:
+            json.dump(ledger, fh, indent=1, sort_keys=True)
+            fh.write("\n")
     return ledger
 
 
