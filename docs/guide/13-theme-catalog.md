@@ -62,7 +62,6 @@ local package = require(ReplicatedStorage.FantasyOrnate).build(Facet.themes)
 
 local controller = theme_controller.install(adapter, package, {
     env = env,                -- REQUIRED: the metric snapshot rides it
-    rootGui = rootHandle.gui, -- the target's root ScreenGui
     theme = "Grand Hall",     -- optional; defaults to the package's own default
 })
 ```

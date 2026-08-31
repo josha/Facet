@@ -6548,8 +6548,8 @@ table (the same rule as `screen_target`):
 local theme_controller = require(ReplicatedStorage.Facet.client.theme_controller)
 local controller = theme_controller.install(adapter, package, {
     env = env,                -- REQUIRED: the snapshot rides it as `themeMetrics`
-    rootGui = rootHandle.gui, -- the target's root; per-target isolation is one
-                              -- sheet + one StyleLink at this root
+    -- rootGui is NOT passed: screen_target reports its own root through
+    -- adapter.themeRootGui(). Pass it only when you host roots yourself.
     theme = "Daylight",       -- optional; defaults to style.defaultTheme
     -- profile-conditional selection: map the input paradigm to a
     -- package and the controller installs the right one and swaps live on a

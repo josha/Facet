@@ -883,7 +883,6 @@ local theme_controller = require(ReplicatedStorage.Facet.client.theme_controller
 
 local controller = theme_controller.install(adapter, package, {
     env = env,                 -- REQUIRED: the metric snapshot rides it
-    rootGui = rootHandle.gui,  -- the target's root ScreenGui
     theme = "Daylight",        -- optional; defaults to style.defaultTheme
 })
 ```
