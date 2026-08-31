@@ -6,8 +6,8 @@
  "repository": "https://github.com/josha/Facet",
  "route": "open-cloud",
  "creator": {
-  "type": null,
-  "id": null
+  "type": "user",
+  "id": "1364639953"
  },
  "assetId": null,
  "listing": {

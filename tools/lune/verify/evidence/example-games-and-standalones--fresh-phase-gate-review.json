@@ -1,0 +1,14 @@
+{
+ "class": "evidence-pin",
+ "evidence": [
+  {
+   "archivedPath": "artifacts/distribution-readiness/verification/fresh-phase-gate-review.md",
+   "label": "evidence-1",
+   "sha256": "4a2ad5350b98905792887bd5e3d778348ed8142f007bcda952a8f978d1eae432"
+  }
+ ],
+ "recordedAt": "2026-08-31T06:23:01Z",
+ "row": "example-games-and-standalones::fresh-phase-gate-review",
+ "schema": "facet-evidence-receipt/1",
+ "summary": "fresh-phase-gate-review: 1 recorded review file(s), pinned by content hash."
+}
