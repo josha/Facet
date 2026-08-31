@@ -1,1 +1,0 @@
-check_registration: PASS (15 controls, 77 exports documented, 115 specs registered, 14 interactive controls prove four-input, 14 prove the paradigm axis)

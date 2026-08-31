@@ -1,9 +1,0 @@
-  PASS  ws1-table-phase-b-suite
-  PASS  ws1-pointer-seam-minimal-writes
-  PASS  ws1-adr-and-bench
-  PASS  ws1-studio-drive
-  PASS  ws2-edit-preview-harness
-  PASS  ws3-billboard-target
-  PASS  ws4-game-table-surface
-  PASS  opus-verification
-gate: PASS -> artifacts/part-2/gate.json

@@ -1,9 +1,0 @@
-RR-5-R1 lastError = LuauUI: double disposal of scope 'c' detected
-RR-5-R1 counters.scopes = 0
-RR-1-R2 steps=30 transactions=0 writes=0
-RR-1-R2 lastError = /Users/josha/Library/CloudStorage/Dropbox/Documents/UntitledRacingGame/GameStudio/ui/LuauUI/tools/lune/_probe_carryovers:46: boom in a live target
-RR-1-R1 a=0 b=0 active=2 (b target 100)
-RR-5-R1(control, non-aliased) lastError = nil
-RR-8 scope-less x50 on ONE core, counter drift = memos: 9 -> 309
-
------ probe complete -----

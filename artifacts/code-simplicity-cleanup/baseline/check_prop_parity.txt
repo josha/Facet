@@ -1,1 +1,0 @@
-check_prop_parity: PASS (22 classes, 382 properties, 2 diagnosed, 412 typed fields)
