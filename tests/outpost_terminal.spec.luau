@@ -409,6 +409,17 @@ local function answer(fixture: any, situation: any?): any
 end
 
 describe("outpost terminal: engage -> adjust -> apply -> success -> reset -> exit", function()
+	it("a terminal nobody engaged sends nothing, even to a scripted apply", function()
+		local f = lab()
+		f.steps.apply() -- the control is disabled while idle; only a script gets here
+		expect(#f.sent).toBe(0)
+		f.steps.engage(rules.START)
+		f.steps.setValue("door", 2)
+		f.steps.apply()
+		expect(#f.sent).toBe(1)
+		f.built.dispose()
+	end)
+
 	it("a terminal nobody is standing at is idle, and says the objective", function()
 		local f = lab()
 		local state = f.steps.snapshot()

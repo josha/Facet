@@ -226,6 +226,12 @@ function terminal.build(Facet: any, core: any, opts: Opts?)
 		if phase:get() == "exited" then
 			return { sent = false, reason = "exited" }
 		end
+		if phase:get() == "idle" then
+			-- a terminal nobody engaged sends nothing: the Apply control is
+			-- disabled here, so only a scripted call reaches this branch, and
+			-- the server would refuse it anyway — this keeps the client honest
+			return { sent = false, reason = "idle" }
+		end
 		if mutation.status:get() == "pending" then
 			--[[ THE FRAMEWORK'S OWN RULE, HONOURED RATHER THAN TRIPPED OVER:
 				`mutation.send` ERRORS on a second in-flight request. Example 03

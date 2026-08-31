@@ -829,6 +829,11 @@ function example.build(Facet: any, core: any, deps: any)
 		if not playing() then
 			return
 		end
+		if not rules.onBoard(r, c) then
+			-- no rendered square exists off the board, so nothing a player can
+			-- press reaches here; the guard keeps a scripted call equally inert
+			return
+		end
 		local key = rules.key(r, c)
 		local slot = selectedSig:get()
 		local committed = boardSig:get()[key]

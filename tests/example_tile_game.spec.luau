@@ -550,6 +550,18 @@ describe("examples/06 crossword — nine refusals, nine sentences, on screen", f
 		game.dispose()
 	end)
 
+	it("8b — an off-board square takes nothing, so a stray call cannot beach a tile", function()
+		local core, deps, adapter = makeWorld()
+		local game = newGame(core, deps)
+		game.select(1)
+		game.place(9, 9) -- no rendered square exists there; only a script can say it
+		-- the tile is still held, and a real square still accepts it afterwards
+		expect(game.selected()).toBe(1)
+		game.place(4, 4)
+		expect(game.selected()).toBe(nil)
+		game.dispose()
+	end)
+
 	it("9 — picking up a letter from an earlier turn", function()
 		local core, deps, adapter = makeWorld()
 		local game = newGame(core, deps)

@@ -1045,12 +1045,14 @@ inside a consumer*, and the quality pass removed it. Adaptation is Facet's
 job, not an example's. An example that names device classes has taken over a
 decision the framework already makes.
 
-The tile is now one theme metric, on a `UI.Grid`:
+The tile is one theme metric. The board is a `UI.Anchor` with one keyed
+`UI.ForEach` child per tile, so a moved tile is the SAME tile in a new place —
+that identity is what lets motion carry it there:
 
 ```lua
-local CELL: any = { type = "fixed", px = "controls.large.height" }
+local CELL: any = { type = "fixed", px = "controlSizes.large.height" }
 
-UI.Grid({ id = "board", columns = COLS, itemSizing = "uniform", gap = "xs", children = cells })
+UI.Anchor({ id = "board", children = { UI.ForEach({ ... }) } })
 ```
 
 A metric path resolves against the live theme snapshot on every solve, so a
@@ -1108,17 +1110,18 @@ what lets a test assert an exact outcome. The board logic (`findMatches`,
 per-cell signals so that only the cells that actually changed repaint — which
 is what keeps a whole cascading refill cheap.
 
-Each tile is an `Image` with a transparent, focusable `Button` layered on top
-(a `ZStack`), and the board rows are `HStack`s. So the presenter derives the
-grid navigation from the layout automatically, and a gamepad moves around the
-board with no custom context and no focus-scope swap. Selection and swapping
-ride each tile's own `onActivate`, so this example, too, passes no
-`present()` opts.
+Each tile is an `Image` with a transparent, focusable `Button` layered on top.
+Because the board anchors tiles freely, no layout rows exist for the presenter
+to derive navigation from. So this example declares its own groups and passes
+them as `present()` opts (`navigationGroups`): the board is one rectangle
+group, and a gamepad crosses it left, right, up and down. Selection and
+swapping still ride each tile's own `onActivate`.
 
-One thing the example is explicit about *not* doing: sliding a tile smoothly
-from one cell to another. That would animate a layout position over time, and
-time-based layout animation is a future expansion of the library. So tiles
-change instantly here.
+Tiles travel. A swap, a fall and a refill each move through
+`presenter.withAnimation`, driven by a small phase machine (swap, mark,
+remove, gravity, refill, land, idle) so cascades resolve one visible step at a
+time. With Reduced Motion on, the travel is skipped and the result is
+identical: the same board, score and tiles, painted in place.
 
 ---
 

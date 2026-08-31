@@ -123,7 +123,7 @@ local COPY = {
 
 	-- ===== the panel that decides everything, and it is FIRST ==============
 	playToggle = "Haptics on this device",
-	playNote = "This demo turns haptics on for you.",
+	playNote = "This demo asks for haptics when it opens.",
 	playLibrary = "Facet ships them off until a game asks.",
 	stateOffHeadline = "Off",
 	stateOff = "Nothing installed or claimed.",
