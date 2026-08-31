@@ -22,8 +22,8 @@ project and connect from Studio.
 | File | What it is |
 |---|---|
 | `default.project.json` | Maps `src/` of the library to `ReplicatedStorage.Facet`, the screen module to `ReplicatedStorage.FacetConsumerScreen`, and the client script to `StarterPlayer.StarterPlayerScripts.FacetConsumer`. It also sets `Workspace.PlayerScriptsUseInputActionSystem`, which Facet's input layer requires and which cannot be set from code. |
-| `src/screen.luau` | The screen itself: state, a memo, and the blueprint. Takes `Facet` as an argument so the same module can be mounted by Roblox and by a headless test. |
-| `src/main.client.luau` | The client script: wait for the DataModel, stand up a host, present the screen, tear it down on the Close button or after a timer. |
+| `src/screen.luau` | The screen itself: state, a memo, and the blueprint — plus `session`, which presents it, wires both ways out of it, and tears it down in the right order. Takes `Facet` as an argument so the same module can be mounted by Roblox and by a headless test. |
+| `src/main.client.luau` | The client script: wait for the DataModel, stand up a host, hand it to `screen.session`. Three statements. |
 
 ## What it demonstrates
 
@@ -37,8 +37,12 @@ project and connect from Studio.
   bound to `Facet.adaptive.conditions`. There is no device name in the project.
 - **The player's text size, respected by doing nothing.** The blurb declares no
   text size, so it takes the body role and moves with the accessibility setting.
-- **Teardown that leaves nothing.** One scope owns every signal and memo. Closing
-  disposes that scope and then the host, in that order.
+- **Teardown that leaves nothing.** One scope owns every signal, every memo, and
+  both of the session's subscriptions — the observer watching the Close button
+  and the frame hook running the timer. Closing dismisses the surface, disposes
+  that scope, and then disposes the host, in that order. The order matters:
+  disposing the host while a surface is still presented leaves that surface's
+  observers alive on the core.
 
 ## The proof
 
@@ -46,8 +50,10 @@ project and connect from Studio.
 it against the headless fake render target, and proves it mounts, wears a theme,
 answers a button press through the public input path, repaints when a signal
 changes, re-solves when the viewport and the preferred text size change, and
-returns the reactive registries to their baseline after teardown. Run it on its
-own with:
+returns the reactive registries to their baseline after teardown. It also drives
+Close through the same `session` the client script uses, rather than tearing down
+out of band, and proves that a screen disposed on a host that keeps running
+releases the frame hook it registered. Run it on its own with:
 
 ```sh
 lune run tests/run_one consumer_standalone

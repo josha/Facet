@@ -43,6 +43,9 @@ local PATHS = consumerScreen.PATHS
 
 local COMPACT = { w = 390, h = 844 }
 local WIDE = { w = 1440, h = 900 }
+-- long enough that no case reaches it by accident; the timer route is driven
+-- deliberately, by stepping past it
+local CLOSE_AFTER = 120
 
 --[[ A hand-cranked frame source, the same shape `tests/client_host.spec.luau`
 	uses: `step(dt)` is one PreRender edge. ]]
@@ -70,6 +73,7 @@ type Stand = {
 	h: any,
 	adapter: any,
 	built: any,
+	session: any,
 	step: (dt: number) -> (),
 	baseline: any,
 	teardown: () -> (),
@@ -98,31 +102,22 @@ local function stand(viewport: { w: number, h: number }): Stand
 		`h.dispose()`. ]]
 	local baseline = h.core:counters()
 
-	local built = consumerScreen.build(Facet, h.core, { env = h.env, presenter = h.presenter })
-	local handle = h.presenter.present(built.blueprint)
+	--[[ THE SAME ENTRY POINT THE CLIENT SCRIPT CALLS. `session` presents the
+		screen, wires the Close button and the timer, and owns both subscriptions
+		on the screen's scope. Standing the surface up any other way here would
+		test an arrangement no consumer runs. ]]
+	local session = consumerScreen.session(Facet, h, { closeAfterSeconds = CLOSE_AFTER })
 	frames.step(1 / 60)
 
-	local torn = false
 	return {
 		h = h,
 		adapter = adapter,
-		built = built,
+		built = session.built,
+		session = session,
 		step = frames.step,
 		baseline = baseline,
-		teardown = function()
-			if torn then
-				return
-			end
-			torn = true
-			--[[ The presented surface first: `dismiss` retires the screen, its focus
-				scope and its input context. Then the screen's own scope, then the
-				host. A consumer that disposes the host while a surface is still
-				presented leaves that surface's observers alive on the core, which is
-				what the baseline case below would report. ]]
-			h.presenter.dismiss(handle)
-			built.dispose()
-			h.dispose()
-		end,
+		-- idempotent, and the same function the Close button reaches
+		teardown = session.teardown,
 	}
 end
 
@@ -208,11 +203,10 @@ describe("examples/consumer: input and state", function()
 		s.teardown()
 	end)
 
-	it("Close reports itself, which is what the client script tears down on", function()
+	it("Close raises the signal the session listens on", function()
 		local s = stand(COMPACT)
 		expect(s.built.closed:get()).toBe(false)
 		s.adapter.tap(PATHS.close)
-		s.h.presenter.refresh()
 		expect(s.built.closed:get()).toBe(true)
 		s.teardown()
 	end)
@@ -282,5 +276,75 @@ describe("examples/consumer: teardown leaves nothing behind", function()
 		expect(#s.adapter.paths() > 0).toBe(true)
 		s.teardown()
 		expect(s.adapter.rootCount()).toBe(0)
+	end)
+
+	--[[ THE ROUTE A PLAYER ACTUALLY TAKES, end to end, with nothing driven out of
+		band. Pressing Close raises the signal; the session's own observer sees it
+		and runs the three-step teardown; and the observer is released by the very
+		dispose it is standing inside, which is the re-entrant path the example
+		teaches and the one nothing used to exercise. ]]
+	it("a press on Close tears the whole session down through its own wiring", function()
+		local s = stand(COMPACT)
+		expect(s.session.isTorn()).toBe(false)
+
+		s.adapter.tap(PATHS.close)
+
+		expect(s.session.isTorn()).toBe(true)
+		expect(s.adapter.rootCount()).toBe(0)
+		local after = s.h.core:counters()
+		expect(after.observers).toBe(s.baseline.observers)
+		expect(after.scopes).toBe(s.baseline.scopes)
+		expect(s.h.core:lastError()).toBe(nil)
+
+		-- and it is idempotent: the timer route arriving late must not run it twice
+		s.session.teardown()
+		expect(s.h.core:counters().scopes).toBe(s.baseline.scopes)
+	end)
+
+	--[[ THE HALF THE TWO ROUTES ABOVE CANNOT SEE, and the reason the session owns
+		its subscriptions rather than dropping the unsubscribe on the floor.
+
+		A screen disposed on a host that keeps running is an ordinary thing — it is
+		what swapping one screen for another looks like — and it is the only state
+		in which an unowned subscription is visible at all. The observer is
+		invisible either way, because it watches a signal that dies with the same
+		scope and a disposed node silences its own observers. THE FRAME HOOK IS
+		NOT: `presenter.onTick` belongs to the presenter, which outlives the
+		screen, so a hook nobody released keeps running against a screen that is
+		gone — and this one would eventually fire the timer and tear the host down
+		underneath its next occupant.
+
+		Mutation-proved: dropping `built.own` from around the `onTick` reddens this
+		case, and reddens nothing else in this file. ]]
+	it("disposing the screen alone releases the frame hook it registered", function()
+		local s = stand(COMPACT)
+
+		s.built.dispose()
+		for _ = 1, CLOSE_AFTER + 10 do
+			s.step(1)
+		end
+
+		-- a leaked hook would have reached its timer by now and torn the host down
+		expect(s.session.isTorn()).toBe(false)
+		s.h.dispose()
+	end)
+
+	--[[ The other route out, driven the same way: frames pass, the timer fires,
+		and the session tears itself down without anybody pressing anything. ]]
+	it("the timer tears the session down when nobody presses Close", function()
+		local s = stand(COMPACT)
+		expect(s.session.isTorn()).toBe(false)
+		for _ = 1, 130 do
+			if s.session.isTorn() then
+				break
+			end
+			s.step(1)
+		end
+		expect(s.session.isTorn()).toBe(true)
+		expect(s.adapter.rootCount()).toBe(0)
+		local after = s.h.core:counters()
+		expect(after.observers).toBe(s.baseline.observers)
+		expect(after.scopes).toBe(s.baseline.scopes)
+		expect(s.h.core:lastError()).toBe(nil)
 	end)
 end)
