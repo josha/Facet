@@ -1563,9 +1563,21 @@ def main() -> int:
     if args.dry_run:
         return 0
 
-    with open(GRAPH, "w") as fh:
-        json.dump(graph, fh, indent=1, sort_keys=True, ensure_ascii=False)
-        fh.write("\n")
+    #   THE STAMP MOVES ONLY WHEN THE GRAPH DOES, for the same reason the
+    #   ledger's does: a maintainer that advertises idempotence and then reports
+    #   a one-line diff on a run that moved nothing is teaching its readers to
+    #   ignore its diffs.
+    previous = json.load(open(GRAPH))
+    stamp = graph.pop("maintainedAt", None)
+    previous.pop("maintainedAt", None)
+    if graph != previous:
+        graph["maintainedAt"] = stamp
+    else:
+        graph["maintainedAt"] = json.load(open(GRAPH)).get("maintainedAt")
+    if json.load(open(GRAPH)) != graph:
+        with open(GRAPH, "w") as fh:
+            json.dump(graph, fh, indent=1, sort_keys=True, ensure_ascii=False)
+            fh.write("\n")
 
     append_coverage(
         receipted,

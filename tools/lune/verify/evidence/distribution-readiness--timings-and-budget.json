@@ -4,10 +4,10 @@
   {
    "archivedPath": "artifacts/distribution-readiness/verification/timings.md",
    "label": "timings",
-   "sha256": "29ae499c2a37e139acd4afea972191cbbe94eaeb7bae1b36f8208627c6e5492a"
+   "sha256": "e2e6884c9ce06e8406edb1f0ab7fe22765d4947d71ca0bef6ad96b070cd44490"
   }
  ],
- "recordedAt": "2026-08-31T03:41:58Z",
+ "recordedAt": "2026-08-31T05:01:47Z",
  "row": "distribution-readiness::timings-and-budget",
  "schema": "facet-evidence-receipt/1",
  "summary": "the cold, warm and live-tree timings against the twenty-minute budget"
