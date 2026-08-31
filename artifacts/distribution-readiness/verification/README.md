@@ -144,6 +144,39 @@ no row in the graph asserts either one, because the rows that will are two of th
 thirty-four PENDING registration rows the director owns. Until those are given a
 `run`, both producers report into the run's status and neither reddens a phase.
 
+## The deletion proof, and the thirteen producers it found
+
+The pre-archival question is whether `tools/verify.sh release` returns the same
+verdicts before and after the stage record is deleted. It was asked in the frozen
+copy, not here — six agents share this tree — by moving every `artifacts/<stage>/`
+directory aside (keeping only `artifacts/verify/`, which the run owns and
+recreates) along with `docs/plans`, `docs/handoff`, `docs/research`,
+`.superpowers` and `ui_todo.md`: 77 paths, held and then restored.
+
+**The rows are clean**: no row's check reads any of those trees any more. The
+first run of the proof found that the PRODUCERS were not — 77 of them failed and
+192 rows changed verdict. Seventy of those validate the record itself and are now
+declared-evidence producers, each carrying its verdict and the sha256 of every
+file it read.
+
+**Thirteen producers still need the record**, and four of them for a reason only
+the director can settle: they compare a LIVING artefact against a FROZEN operand
+that lives in a tree that is leaving.
+
+| Producer | Frozen operand it needs | What is lost if it goes |
+|---|---|---|
+| `check_surface_ledger` | `artifacts/api-architecture-consistency/surface-ledger.md` | the public surface is no longer reconciled against a ledger |
+| `check_flat_baseline` | `artifacts/theme-packages-and-skinning/final-neutral-dump.json` | the byte-compatibility claim for the flat render. **`.gitignore` already makes this call**: that one file is the single exception to the ignore rule, "because it is NOT regenerable" |
+| `check_reuse_ledger` | `artifacts/release-candidate-review/reuse-ledger.md` | the consolidation ledger's own audit |
+| `check_source_size` | `docs/handoff/SOURCE_CAP_LEDGER.md` | the source-cap ledger's audit |
+
+Each operand is one small file. The decision is to keep those four in the public
+tree or to accept losing those four checks; nothing in this workstream can make
+it. The other nine are `bench` (a measurement on a loaded machine), `stylua` ×2,
+`suite_cache_selftest`, `check_brand_drift-selftest`, `check_public_allowlist`
+and the two manifest checkers — all red for reasons recorded below, none of them
+a dependency on the record.
+
 ## Left for the director
 
 - `tools/lune/gate_manifest.luau` stays for the archival step. The graph is

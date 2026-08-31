@@ -194,10 +194,20 @@ end
 local function evidencePresent(producer: identity.Producer): boolean
 	local declared = 0
 	local function consider(path: string): boolean
-		if string.find(path, "*", 1, true) or not isArchival(path) then
+		if not isArchival(path) then
 			return true
 		end
 		declared += 1
+		local star = string.find(path, "*", 1, true)
+		if star ~= nil then
+			-- A GLOB IS PRESENT WHEN THE TREE IT WALKS IS. Skipping globs
+			-- entirely left every producer whose only archival input is a `**`
+			-- with nothing to count, so it degraded to its receipt while the
+			-- evidence was still sitting on disk: 21 producers served a recorded
+			-- verdict they could have re-earned. Measured 2026-08-30.
+			local root = string.gsub(string.sub(path, 1, star - 1), "/+$", "")
+			return root == "" or fs.isDir(root)
+		end
 		return fs.isFile(path) or fs.isDir(path)
 	end
 	for _, path in producer.fixtures or {} do
@@ -210,9 +220,11 @@ local function evidencePresent(producer: identity.Producer): boolean
 			return false
 		end
 	end
-	-- A declared-evidence producer with nothing archival left to point at is one
-	-- whose subject is already gone: serve the receipt.
-	return declared > 0
+	-- NOTHING ARCHIVAL DECLARED MEANS NOTHING CAN BE MISSING, so it runs. The
+	-- inverse — treating an empty declaration as "the subject is gone" — served a
+	-- recorded verdict for seven producers whose evidence was never in a tree
+	-- this knows how to miss. Fail towards running.
+	return true
 end
 
 local function readProducerReceipt(pid: string): any
@@ -270,6 +282,27 @@ function runner.execute(producer: identity.Producer, ctx: Context): Outcome
 		end
 		base.reused = true
 		base.reason = `declared evidence: {#receipt.evidence} archived file(s), recorded {receipt.recordedAt}`
+		-- …AND IT CARRIES A RECORD. A reader asks for the producer's RESULT, not
+		-- for its outcome line: without one the row sees "no result" and reports
+		-- the producer as failed, which is how a declared PASS reads as a red.
+		base.record = {
+			schema = "facet-producer-result/1",
+			producer = producer.id,
+			identity = id,
+			environmentClass = producer.environmentClass,
+			command = producer.command,
+			startedAt = receipt.recordedAt,
+			durationMs = 0,
+			exitCode = 0,
+			status = "PASS",
+			complete = true,
+			payload = {
+				toolchain = identity.toolchainString(ctx.toolchain),
+				declaredEvidence = receipt,
+				stdoutTail = `declared evidence receipt recorded {receipt.recordedAt}`,
+				stderrTail = "",
+			},
+		}
 		table.insert(
 			runner.declaredProducers,
 			{ producer = producer.id, class = receipt.class, files = #receipt.evidence }
