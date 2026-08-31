@@ -108,6 +108,16 @@ what a real frame does.
 > a Package or a model file and you want headless tests, clone the repository
 > alongside your game and point Lune at it.
 
+**Where your spec lives.** In **your own project**, next to the screen it covers,
+run by your own Lune entry point — a file that requires each of your specs and
+then runs them, which is all `tests/run.luau` is. Facet imposes no layout on you.
+
+Inside **this repository** the rule is narrower, and worth knowing if you are
+contributing rather than consuming: `lune run tests/run_one <name>` resolves
+`tests/<name>.spec` and nothing else, so a spec lives directly under `tests/`,
+and every spec file must be registered in `tests/run.luau`. An unregistered spec
+is a silent zero, and the registration checker fails a run that has one.
+
 **What a headless theme test does and does not prove.** Committing a package
 through `adapter.setThemePackage` exercises the metric half — the resolved
 snapshot, the re-solve, and every geometry consequence — and the **fallback**

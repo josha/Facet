@@ -121,8 +121,14 @@ Facet's standard is not "there is a test". It is "the test was seen to fail for 
 reason you expect, before the fix existed". Write the covering spec, run
 `lune run tests/run_one <spec>`, watch it go red, then make it green.
 
-Every new spec file must be registered in `tests/run.luau`. An unregistered spec
-is a silent zero, and the registration checker fails a run that has one.
+A spec lives directly under `tests/`, named `<name>.spec.luau`, because
+`run_one` resolves exactly `tests/<name>.spec` and nothing else. Every spec file
+must then be registered in `tests/run.luau`. An unregistered spec is a silent
+zero, and the registration checker fails a run that has one.
+
+Both rules are about this repository. A spec covering a screen in *your own* game
+lives in your own project, run by your own entry point — see
+[guide 3 §3.2b](docs/guide/03-getting-started.md#32b-testing-your-screen).
 
 ## 5. What a good change looks like
 
