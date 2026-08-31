@@ -1992,11 +1992,18 @@ def _selftest_transport():
             ok = False
             print(f"  [WRONG] coordinator-shaped evidence still refused: {gate_refusals}")
 
+        # The real config is a SEED for shape only: whatever live state it has
+        # accumulated (a recorded asset id, a versions history) must not leak
+        # into the synthetic world, or the assertions below start measuring the
+        # repository's release history instead of this test's own actions.
+        real_config_before = open(DEFAULT_CONFIG, "rb").read()
+
         def base_config(asset_id):
             config = load_config(DEFAULT_CONFIG)
             config["route"] = "open-cloud"
             config["creator"] = {"type": "user", "id": 1234}
             config["assetId"] = asset_id
+            config["versions"] = []
             return config
 
         def args_for(config_path, receipts_dir):
@@ -2075,12 +2082,11 @@ def _selftest_transport():
             ok = False
             print(f"  [WRONG] versions list reads {recorded_versions}")
 
-        real = load_config(DEFAULT_CONFIG)
-        if real.get("assetId") is not None or real.get("versions"):
+        if open(DEFAULT_CONFIG, "rb").read() != real_config_before:
             ok = False
             print("  [WRONG] the selftest wrote into the real package/facet-package.json")
         else:
-            print("  [ ok  ] the real package/facet-package.json still records no assetId and no versions")
+            print("  [ ok  ] the real package/facet-package.json is byte-identical to when the selftest began")
 
         publish_config = os.path.join(work, "publish.json")
         publish_receipts = os.path.join(work, "publish-receipts")
