@@ -85,7 +85,7 @@ every approved exception, is [`the constitution`](../reference/constitution.md).
 | [`12-performance-lab.md`](12-performance-lab.md) | The performance-lab place: its nine workloads, its nine profiler scopes, capturing on a low-end Android device, and when two captures are comparable. |
 | [`13-theme-catalog.md`](13-theme-catalog.md) | The shelf of ready-made looks: what each of the eight packages does to spacing, rows, and type, the two install routes, and an honest cost line. |
 | [`14-choosing-a-ui-library.md`](14-choosing-a-ui-library.md) | Optional: how Facet compares with React Luau, Fusion and Vide, and how to choose between them. |
-| [`15-adaptive-recipes.md`](15-adaptive-recipes.md) | Ten short recipes for problems a screen hits once it has to work on more than one device. Dip into these when a screen needs them; they are recipes, not required reading. |
+| [`15-adaptive-recipes.md`](15-adaptive-recipes.md) | Ten short recipes for problems a screen hits once it works on more than one device. Dip into these when a screen needs them. They are recipes, not required reading. |
 
 Two things worth knowing before you start, neither of which is a chapter:
 
@@ -316,10 +316,13 @@ arithmetic that no pixel depends on owes none of it, however large.
 
 ## Verifying the library works
 
-Verification runs in four named tiers through one command. **affected** is the
-smallest safe set for the files you changed, **fast** is the inner-loop tier,
-**full** runs every deterministic check exactly once, and **release** adds the
-build, package, and evidence producers a release needs:
+Verification runs in four named tiers through one command:
+
+- **affected** — the smallest safe set for the files you changed;
+- **fast** — the inner-loop tier;
+- **full** — every deterministic check, exactly once; and
+- **release** — full, plus the build, package and evidence producers a release
+  needs.
 
 ```sh
 tools/verify.sh affected               # while you work
@@ -346,9 +349,9 @@ deleted: every excluded file runs in full on `./run-tests.sh`.
 
 **`run_one` is the loop to work in.** It takes a spec name without its suffix,
 so `lune run tests/run_one table` runs `tests/table.spec.luau` and nothing else.
-It is also how you watch a new check FAIL before you trust it, which this
-repository asks for every time: a check never seen to fail is decoration, and
-proving that through the whole suite is expensive enough that it gets skipped.
+It is also how you watch a new check FAIL before you trust it. This repository
+asks for that every time, because a check never seen to fail is decoration.
+Proving it through the whole suite is expensive enough that it gets skipped.
 Like the fast tier, it cannot produce a suite verdict — nothing reads its output
 but you.
 

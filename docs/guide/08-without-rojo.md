@@ -46,11 +46,11 @@ it, and what keeps the main table safe to require from shared or server code
 ## 8.2 Option A — the official Roblox Package *(recommended)*
 
 Facet is published as one Roblox Package. A package is an ordinary model asset
-that keeps a link back to the asset it came from, so every copy knows which
-version it is and can be told to take a newer one. That is the closest thing to a
-package manager Roblox offers without an external toolchain, and it is the reason
-this is the recommended route: with the other options, upgrading means finding
-every copy and re-importing it by hand.
+that keeps a link back to the asset it came from. Every copy therefore knows
+which version it is, and can be told to take a newer one. That is the closest
+thing to a package manager Roblox offers with no external toolchain, and it is
+why this route is the recommended one. With the other options, upgrading means
+finding every copy and re-importing it by hand.
 
 **The asset id is pending.** The Facet package asset has not been created yet.
 When it exists, its id and its creator are recorded in
@@ -155,16 +155,16 @@ same `src/`.
 2. Select `ReplicatedStorage.Facet`, copy it.
 3. Open your own place and paste it into `ReplicatedStorage`.
 
-Use this when you also want a working reference next to your own code: the same
-place has the gallery bootstrap in `StarterPlayer.StarterPlayerScripts` and the
-tutorial modules in `ReplicatedStorage.FacetExamples`, all of which you can read,
-run, and copy from. See [chapter 4](04-tutorial-examples.md) for what each place
+Use this when you also want a working reference next to your own code. The same
+place holds the gallery bootstrap in `StarterPlayer.StarterPlayerScripts` and the
+tutorial modules in `ReplicatedStorage.FacetExamples`. You can read, run and copy
+from all of them. See [chapter 4](04-tutorial-examples.md) for what each place
 demonstrates.
 
 ## 8.5 Option D — publish a copy of your own
 
-Option A already gives you a package, so reach for this one only when you need a
-copy under your own account: a fork you have patched, or a version pinned for a
+Option A already gives you a package. Reach for this one only when you need a
+copy under your own account — a fork you have patched, or a version pinned for a
 team that cannot take upstream updates.
 
 - **As a model.** Right-click `ReplicatedStorage.Facet` → **Save to Roblox…** and
@@ -182,10 +182,9 @@ library never touches it.
 ## 8.6 Option E — rebuild the tree by hand *(last resort)*
 
 40 ModuleScripts across 13 folders. Only worth it if you genuinely cannot move a
-file into Studio. Follow §8.1 exactly: create the folders, create a ModuleScript
-for each `.luau` file with the suffix stripped, and make `src/init.luau`'s
-contents the body of the `Facet` ModuleScript itself rather than a child named
-`init`. A mistake shows up on first require as an error naming the component it
+file into Studio. Follow §8.1 exactly. Create the folders. Create a ModuleScript for each `.luau`
+file, with the suffix stripped. Make `src/init.luau`'s contents the body of the
+`Facet` ModuleScript itself, not a child named `init`. A mistake shows up on first require as an error naming the component it
 could not resolve — check that node's name and its parent's class before
 suspecting anything else.
 
@@ -243,24 +242,24 @@ presenter.present(
 Press Play. A button appears; clicking, pressing Enter, or pressing gamepad A all
 bump the count.
 
-The `game.Loaded:Wait()` guard at the top is not optional and not cosmetic:
-require-by-string does **not** wait for a ModuleScript to replicate, so a client
+The `game.Loaded:Wait()` guard at the top is not optional and not cosmetic.
+Require-by-string does **not** wait for a ModuleScript to replicate. A client
 that starts requiring before the DataModel has finished loading can fail on a
-child that simply has not arrived yet. `WaitForChild("Facet")` covers only the
+child that has not arrived yet. `WaitForChild("Facet")` covers only the
 top node — the guard covers the rest of the tree.
 
 ## 8.8 The one manual step that has nothing to do with Rojo
 
 Tick **`Workspace.PlayerScriptsUseInputActionSystem`** in the Properties panel.
-Facet's input layer is built on the Input Action System, the flag is not
-scriptable, and with it off your gamepad Activate goes silently dead in any game
+Facet's input layer runs on the Input Action System, and the flag is not
+scriptable. With it off, your gamepad Activate goes silently dead in any game
 that has an avatar. Full story — including why, and how to tell — in
 [chapter 7](07-input.md).
 
 > **If the property is not in the Properties panel at all**, your Studio build
-> does not expose it. This was observed on Studio `0.730.0.7300790`, where
-> neither `Workspace` nor `StarterPlayer` has the member and
-> `Enum.PlayerScriptsUseInputActionSystem` does not exist either — the Input
+> does not expose it. This was observed on Studio `0.730.0.7300790`. There,
+> neither `Workspace` nor `StarterPlayer` has the member, and
+> `Enum.PlayerScriptsUseInputActionSystem` does not exist either. The Input
 > Action System is a client beta, and the property comes and goes with it. That
 > is not fatal to a UI-only place: in exactly that Studio, a freshly installed
 > Facet built its `InputContext`/`InputAction` instances and both mouse and
@@ -287,7 +286,7 @@ devices — is in the model you dragged in. There is no Rojo-only code path.
   `./run-tests.sh` runs the whole suite under Lune with no Roblox process, but it
   needs the source files. So does `tests/lib/fake_target.luau`, the fake render
   target that mounts a screen headlessly and can press its buttons
-  ([§3.2b](03-getting-started.md#32b-testing-your-screen)): it lives under
+  ([§3.2b](03-getting-started.md#32b-testing-your-screen)). It lives under
   `tests/`, which the model and the Package do not carry. Clone the repository
   alongside your game if you want either — you can do that purely to run tests
   and read source, without ever wiring Rojo into your place.

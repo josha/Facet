@@ -1,9 +1,9 @@
 # 12 — The performance lab
 
-The lab is a self-contained Roblox place that makes Facet performance problems easy
-to **reproduce, profile, optimize and compare** — with the same workload, the same
-seed and the same conditions every time. It is not a demo. Everything on screen
-exists so a number can be attributed to something.
+The lab is a self-contained Roblox place. It makes Facet performance problems
+easy to **reproduce, profile, optimize and compare**, with the same workload, the
+same seed and the same conditions every time. It is not a demo. Everything on
+screen exists so a number can be attributed to something.
 
 It is also, deliberately, a place you can publish privately and open on a phone.
 The weakest supported Android device is the only thing that can answer "is this fast
@@ -29,11 +29,12 @@ tools/build_places.sh                      # rebuilds every example place, the l
 python3 tools/check_perf_place.py          # rebuilds from clean source and inspects the result
 ```
 
-The doctor is the interesting half: `rojo build` emits a file even when a `$path` is
-wrong, so `check_perf_place.py` opens the built tree and asserts the sixteen instances
-the lab cannot run without (the library, `core/profile`, the scenario registry, the
-reused gallery runner, the five lab modules, the ornate theme package, the bootstrap
-and the raw-Roblox reference), the five version markers a capture cites, and that the
+The doctor is the half that catches real mistakes. `rojo build` emits a file even
+when a `$path` is wrong. So `check_perf_place.py` opens the built tree and
+asserts three things. First, the sixteen instances the lab cannot run without:
+the library, `core/profile`, the scenario registry, the reused gallery runner,
+the five lab modules, the ornate theme package, the bootstrap and the raw-Roblox
+reference. Second, the five version markers a capture cites. Third, that the
 place carries no absolute developer path, no assigned `PlaceId`/`GameId` and no plugin
 dependency.
 
@@ -71,9 +72,9 @@ lune run tools/lune/studio_sync perf        # NOT the default gallery tree — s
 
 then run `tools/studio/inject.luau` through the Studio Model Context Protocol
 (MCP) server, in the **Edit** datamodel.
-`perf` mode matters: the gallery and the lab both mount at
-`ReplicatedStorage.FacetScenarios` (the lab *reuses* the gallery's runner rather than
-forking it), so serving both at once would put two different `init.luau` files at the
+`perf` mode matters. The gallery and the lab both mount at
+`ReplicatedStorage.FacetScenarios`, because the lab *reuses* the gallery's runner
+rather than forking it. Serving both at once would put two different `init.luau` files at the
 same path. The injector stamps `workspace.Facet_SourceStamp`, and every capture
 records it — that stamp is how you prove a session is running the source you just
 built rather than whatever Studio had cached.
@@ -139,10 +140,9 @@ print(HttpService:JSONEncode(step("export:1")))
 | `lifecycle-soak` | do Instances, connections, memory or stale work trend upward |
 
 **The three before the soak are the NAMED LEVERS** (`levers.luau`), each aimed at
-a cost a device capture ranked and no workload reached: `arrange` itself was the
-top cost in all four device captures, incremental layout had only ever
-been measured on a resize, and the nested tree's write collapse had never been priced as
-frame time. One lap is one ARM, so a 60-frame dump can hold the comparison it was
+a cost a device capture ranked and no workload reached: `arrange` itself was the top cost in all four device
+captures. Incremental layout had only ever been measured on a resize. The nested
+tree's write collapse had never been priced as frame time. One lap is one ARM, so a 60-frame dump can hold the comparison it was
 taken for — `pass:flat=60`, then `pass:fill=60`.
 
 `variable-extents` and `table-unified` mount their own surfaces
@@ -172,9 +172,9 @@ DONE 17/17 — dump now: Ctrl/Cmd+F6, Ctrl+P to pause
   Arm the MicroProfiler first and one dump covers the whole sweep with every
   `Facet/*` phase scope in it.
 
-**A workload that fails does not end the sweep.** Its error is recorded in the result
-row and shown on the status line, and the remaining workloads still run — so one
-scenario that cannot mount in this environment costs you one result, not sixteen.
+**A workload that fails does not end the sweep.** The lab records its error in the result row, shows it on the status line, and
+runs the remaining workloads. A scenario that cannot mount in this environment
+costs you one result, not sixteen.
 
 `steps.sequence` is the same thing from a driver, and returns
 `{ran, planned, failed, completedWholeSweep, results, dumpNext}`.
@@ -345,13 +345,14 @@ An earlier version of it invented a developer-console tab, omitted the network
 prerequisite, and named the wrong artifact format.
 
 1. Publish the place privately (12.2) and open it on the phone.
-2. **Record the conditions before you start**, because they change the answer more
-   than most code does: device model, Android version, Roblox client version,
-   orientation, the in-experience graphics quality (Settings → Graphics Quality; set
-   it explicitly rather than leaving it on Automatic), the frame-rate cap, whether
-   the device is plugged in, and its thermal state. Run at least one capture from
-   cold and one after ten minutes of sustained load — a throttled phone is the real
-   device, and it is a different device from the one you started on.
+2. **Record the conditions before you start.** They change the answer more than
+   most code does. Write down the device model, the Android version, the Roblox
+   client version, the orientation, the in-experience graphics quality (Settings →
+   Graphics Quality; set it explicitly rather than leaving it on Automatic), the
+   frame-rate cap, whether the device is plugged in, and its thermal state. Then
+   take at least one capture from cold and one after ten minutes of sustained
+   load. A throttled phone is the real device, and it is a different device from
+   the one you started on.
 3. **Put the phone and a development machine on the same network.** On the phone,
    open the Roblox in-experience menu → **Settings**, and set **MicroProfiler** to
    **On**. The client displays an **IP address and port**. From the development
@@ -446,14 +447,14 @@ Start from the standing lesson, because ignoring it shipped a defect:
 - **In a fixed-height windowed list, arrangement and row height are one decision.**
 - **Measure a breakpoint inside the real fixed slot** — a free-height measurement only
   shows horizontal overflow.
-- **You do not have to notice this one yourself.** The framework
-  checks the promise for you: a `newVirtualList` row whose content measures taller than
-  the declared `itemExtent` files a finding on `controller.diagnostics()` naming both
+- **You do not have to notice this one yourself.** The framework checks the
+  promise for you. A `newVirtualList` row whose content measures taller than the
+  declared `itemExtent` files a finding on `controller.diagnostics()`, naming both
   numbers and the row (`docs/reference/api.md` → [a lying `itemExtent`](../reference/api.md#a-lying-itemextent)).
-  This lab's own `rows.heightFor` is what it was built from — it had to learn the
-  viewport width, the type scale and the theme insets one device pass at a time, and
-  still did not know about the accessibility text preference until rows overflowed
-  their 56px slot by 11/39/59px on a real phone.
+  This lab's own `rows.heightFor` is what that check was built from. It had to
+  learn the viewport width, the type scale and the theme insets one device pass at
+  a time. It still did not know about the accessibility text preference until rows
+  overflowed their 56px slot by 11/39/59px on a real phone.
 
 ## 12.8 Return to idle and verify nothing is retained
 
@@ -475,6 +476,6 @@ The residue is the lab's own overlay model and dataset signal, not the workload.
 `lifecycle-soak` is the stronger form: eight identical mount/scroll/unmount cycles,
 with Instances, signals, memos, scopes and connections byte-identical throughout.
 
-If a number climbs across cycles, that is the finding — start with
-the ownership shapes: a control that builds its own scope and
-returns a `dispose` leaks once per materialized row if the caller does not own it.
+A number that climbs across cycles is the finding. Start with the ownership
+shapes. A control that builds its own scope and returns a `dispose` leaks once
+per materialized row if the caller does not own it.
