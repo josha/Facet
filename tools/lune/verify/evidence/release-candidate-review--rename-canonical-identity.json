@@ -12,7 +12,7 @@
    "sha256": "2cfd862c2c6048e0c1d4a1be16fa1a316586ca57b4b271a8b03735e73c51147e"
   }
  ],
- "recordedAt": "2026-08-30T21:20:44Z",
+ "recordedAt": "2026-08-31T00:11:48Z",
  "row": "release-candidate-review::rename-canonical-identity",
  "schema": "facet-evidence-receipt/1",
  "summary": "rename-canonical-identity: 2 recorded file(s), pinned by content hash."

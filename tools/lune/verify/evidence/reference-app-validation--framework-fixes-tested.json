@@ -6,7 +6,7 @@
    "sha256": "0a5677e8234ab8ea3837df0aefbb711ec90690bd8d42425ad84b9c72256b8069"
   }
  ],
- "recordedAt": "2026-08-30T21:20:43Z",
+ "recordedAt": "2026-08-31T00:11:46Z",
  "row": "reference-app-validation::framework-fixes-tested",
  "schema": "facet-evidence-receipt/1",
  "summary": "framework-fixes-tested: 1 recorded file(s), pinned by content hash."

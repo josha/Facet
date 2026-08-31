@@ -6,7 +6,7 @@
    "sha256": "d899ccdd9822049d56cca167c2a18c00050909d771f93a2decdbcd611d46dd25"
   }
  ],
- "recordedAt": "2026-08-30T21:20:43Z",
+ "recordedAt": "2026-08-31T00:11:46Z",
  "row": "reference-app-validation::fixture-axes",
  "schema": "facet-evidence-receipt/1",
  "summary": "fixture-axes: 1 recorded file(s), pinned by content hash."

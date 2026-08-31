@@ -7,7 +7,7 @@
    "sha256": "5a0318b843b788579a9b56401a4b77a49a7468d5a4b921f4f866db40ed851082"
   }
  ],
- "recordedAt": "2026-08-30T21:20:44Z",
+ "recordedAt": "2026-08-31T00:11:48Z",
  "row": "release-candidate-review::rr-consumer-sync",
  "schema": "facet-evidence-receipt/1",
  "summary": "rr-consumer-sync: 1 recorded file(s), pinned by content hash."

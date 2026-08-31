@@ -1,9 +1,9 @@
 {
- "generatedAt": "2026-08-30T21:20:44Z",
+ "generatedAt": "2026-08-31T00:11:48Z",
  "generatedFrom": {
   "manifest": "tools/lune/gate_manifest.luau",
   "phases": "phases.json",
-  "suiteResults": "suite_postG.json"
+  "suiteResults": "suite_real.json"
  },
  "phases": [
   {
@@ -1598,7 +1598,9 @@
   },
   {
    "command": "python3 tools/check_manifest_integrity.py",
-   "dependsOn": [],
+   "dependsOn": [
+    "suite"
+   ],
    "environmentClass": "deterministic",
    "fixtures": [],
    "id": "check_manifest_integrity",
@@ -1630,7 +1632,7 @@
    "kind": "scanner",
    "note": "",
    "optional": false,
-   "serialize": false,
+   "serialize": true,
    "tiers": {
     "fast": false,
     "full": true,

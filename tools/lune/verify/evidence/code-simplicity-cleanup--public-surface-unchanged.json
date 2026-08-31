@@ -12,7 +12,7 @@
    "sha256": "1b0b0a5eb9d70d513e913e02898cc22c0315655c6866e5fcd2efefa3cd8001ae"
   }
  ],
- "recordedAt": "2026-08-30T21:20:42Z",
+ "recordedAt": "2026-08-31T00:11:46Z",
  "row": "code-simplicity-cleanup::public-surface-unchanged",
  "schema": "facet-evidence-receipt/1",
  "summary": "public-surface-unchanged: 2 recorded file(s), pinned by content hash."

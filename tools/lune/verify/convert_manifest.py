@@ -319,6 +319,8 @@ SERIALIZE = {
     "suite_cache_selftest",
     # replays every manifest grep against a live transcript of BOTH suites
     "check_manifest_integrity-transcript",
+    # …and the plain one compares case ids against the stored suite result
+    "check_manifest_integrity",
     "perf",
     "render",
     "prove_perf_gate",
@@ -345,6 +347,11 @@ SERIALIZE = {
 # their own: measured 351 s and 333 s in one run that had already spent 285 s
 # running it once. Declared here, they run after it and read the recording.
 DEPENDS_ON = {
+    # It compares every resultId in the graph against the LATEST stored suite
+    # result. Run in the parallel batch it races the suite, reads the previous
+    # run's result, and reports ten rows' worth of case ids as stale that are
+    # not: measured 2026-08-30.
+    "check_manifest_integrity": ["suite"],
     "suite_cache_selftest": ["suite"],
     "check_manifest_integrity-transcript": ["suite", "rascalrally-suite"],
 }
