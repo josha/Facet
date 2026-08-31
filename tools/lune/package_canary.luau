@@ -95,27 +95,85 @@ local function isScript(instance: any): boolean
 	return class == "ModuleScript" or class == "Script" or class == "LocalScript"
 end
 
+--[[ AN INSTANCE NAME IS NOT A FILENAME, and this script turns one into the other.
+
+	Roblox lets an instance be called anything at all — `../../evil`, `a/b`, the
+	empty string — and the extraction below builds a path by concatenating names
+	with `/` and then WRITES THERE. A model carrying an instance named `../../evil`
+	would have written outside `build/.canary` entirely, and two siblings sharing a
+	name would have silently overwritten each other, leaving a tree that looks
+	whole and is missing a module. Neither is hypothetical for a file this tool is
+	pointed at: the whole point of the canary is to inspect an artifact rather than
+	to trust it.
+
+	So a name that cannot be a single path segment is a HARD FAILURE, not a
+	sanitised one. Rewriting it would hide exactly the defect worth finding — a
+	module that cannot round-trip through a filesystem cannot be shipped as one
+	either. Same for a collision: the second writer stops the run instead of
+	quietly winning.
+]]
+local INVALID_NAME_REASONS: { { pattern: string, why: string } } = {
+	{ pattern = "/", why = "contains a path separator '/'" },
+	{ pattern = "\\", why = "contains a path separator '\\'" },
+	{ pattern = "%.%.", why = "contains '..', which can escape the extraction directory" },
+}
+
+local nameProblems: { string } = {}
+local writtenTargets: { [string]: string } = {}
+
+local function checkName(name: string, parentPath: string): boolean
+	if name == "" then
+		table.insert(nameProblems, `an instance under {parentPath} has an empty Name`)
+		return false
+	end
+	for _, rule in INVALID_NAME_REASONS do
+		if string.find(name, rule.pattern) ~= nil then
+			table.insert(nameProblems, `instance name {string.format("%q", name)} under {parentPath} {rule.why}`)
+			return false
+		end
+	end
+	return true
+end
+
+local function claim(target: string, instancePath: string): boolean
+	local owner = writtenTargets[target]
+	if owner ~= nil then
+		table.insert(nameProblems, `two instances write the same file {target}: {owner} and {instancePath}`)
+		return false
+	end
+	writtenTargets[target] = instancePath
+	return true
+end
+
 --[[ AN INSTANCE WITH CHILDREN BECOMES A DIRECTORY; a script leaf becomes a file.
 	That is the inverse of what Rojo did on the way in, which is the point — a
 	renamed or relocated module shows up here as a path that does not resolve. ]]
-local function extract(instance: any, dir: string)
+local function extract(instance: any, dir: string, instancePath: string)
 	if isScript(instance) then
 		local target = if #instance:GetChildren() > 0 then `{dir}/init.luau` else `{dir}.luau`
-		if #instance:GetChildren() > 0 then
-			fs.writeDir(dir)
+		if claim(target, instancePath) then
+			if #instance:GetChildren() > 0 then
+				fs.writeDir(dir)
+			end
+			fs.writeFile(target, instance.Source)
+			table.insert(extracted, target)
 		end
-		fs.writeFile(target, instance.Source)
-		table.insert(extracted, target)
 	elseif #instance:GetChildren() > 0 then
 		fs.writeDir(dir)
 	end
 	for _, child in instance:GetChildren() do
-		extract(child, `{dir}/{child.Name}`)
+		if checkName(child.Name, instancePath) then
+			extract(child, `{dir}/{child.Name}`, `{instancePath}/{child.Name}`)
+		end
 	end
 end
 
-extract(modelRoot, `{EXTRACT_ROOT}/Facet`)
+extract(modelRoot, `{EXTRACT_ROOT}/Facet`, "Facet")
 print(`  extracted {#extracted} script(s) to {EXTRACT_ROOT}/Facet`)
+check(#nameProblems == 0, `every instance name is a usable, unique single path segment`)
+for _, problem in nameProblems do
+	print(`         - {problem}`)
+end
 
 -- ── 2. tree hygiene ─────────────────────────────────────────────────────────
 
