@@ -273,14 +273,30 @@ def latest_suite_results():
         return None, newest
 
 
+_TRACKED = None
+
+
 def is_regenerable(path):
     """Is this evidence path something a run produces, rather than a checked-in file?
 
-    The line is git-ignore, and it is the right line: `artifacts/bench.json` is
-    ignored precisely because `tools/bench.sh` writes it, so its absence before a
-    run is normal. A TRACKED evidence file that is gone is a broken row.
+    THE LINE IS WHAT GIT TRACKS, and it took a public clone to find that.
+    It used to be git-IGNORE, which is nearly the same line and wrong at one
+    point: `artifacts/**/*.md` is not ignored, so a Markdown report that a run
+    WRITES and nobody ever committed answered "not regenerable" and was reported
+    as "checked in and GONE". On this machine the file was always there, because
+    a previous run had made it; on a fresh clone it never is, and the row read as
+    deleted evidence. `tools/suite_cache_selftest.sh` writes exactly such a file,
+    and the row that pins it went red on every clone.
+
+    Tracked-and-absent is a broken row -- somebody deleted evidence. Untracked-
+    and-absent is a checkout that has not produced it yet, which is a different
+    sentence and the true one.
     """
-    return subprocess.run(["git", "check-ignore", "-q", path], capture_output=True).returncode == 0
+    global _TRACKED  # noqa: PLW0603
+    if _TRACKED is None:
+        listed = subprocess.run(["git", "ls-files"], capture_output=True, text=True)
+        _TRACKED = set(listed.stdout.splitlines()) if listed.returncode == 0 else set()
+    return path not in _TRACKED
 
 
 def graph_problems(graph, case_ids, regenerable=None):

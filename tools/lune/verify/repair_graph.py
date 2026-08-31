@@ -183,7 +183,15 @@ CLAUSE_REPAIRS = {
 NEW_PRODUCERS = [
     {
         "id": "archive-integrity",
-        "command": "python3 tools/archive_private.py verify",
+        #   The archive is outside the repository, so a checkout without it must
+        #   report an environment failure rather than a red check -- the guard
+        #   is in the command because the tool it wraps belongs to another
+        #   concern and exits 1 for "no archive here".
+        "command": (
+            "test -d ../Facet-private-archive || { "
+            "echo 'archive_private: FAIL_ENVIRONMENT no private archive beside this checkout'; "
+            "exit 2; }; python3 tools/archive_private.py verify"
+        ),
         "inputs": ["tools/archive_private.py"],
         "fixtures": [],
         "environmentClass": "external",
@@ -1433,10 +1441,25 @@ def main() -> int:
     print(f"producers moved to the serial wave       : {serialized}")
 
     # ---- producers the graph gains -------------------------------------------
-    have = {p["id"] for p in graph["producers"]}
-    added = [p for p in NEW_PRODUCERS if p["id"] not in have]
-    graph["producers"] = graph["producers"] + added
-    print(f"producers added                          : {len(added)}")
+    #   A producer this table already added is REPLACED, not skipped: the table
+    #   is the definition, and an earlier run's copy of it is not. (The tier sets
+    #   in RETIER are re-applied below, after this, so the two cannot fight.)
+    byId = {p["id"]: i for i, p in enumerate(graph["producers"])}
+    added = []
+    for producer in NEW_PRODUCERS:
+        fresh = json.loads(json.dumps(producer))
+        at = byId.get(producer["id"])
+        if at is None:
+            graph["producers"].append(fresh)
+            added.append(producer["id"])
+        elif graph["producers"][at] != fresh:
+            graph["producers"][at] = fresh
+            added.append(producer["id"])
+    for p in graph["producers"]:
+        want = RETIER.get(p["id"])
+        if want is not None and p.get("tiers") != want:
+            p["tiers"] = dict(want)
+    print(f"producers added or refreshed             : {len(added)}")
 
     # ---- receipts that named no readable file ---------------------------------
     expanded, recovered, dropped_entries = repair_receipts(args.dry_run)

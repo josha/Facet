@@ -460,7 +460,14 @@ def selftest() -> None:
         offences, stale_real, scanned = scan(real_trees(), ALLOWLIST)
         if offences or stale_real:
             bad.append(f"  the REAL trees are not clean: offences={offences} stale={stale_real}")
-        if CONSUMER_TREE not in scanned:
+        #[[ THE CONSUMER TREE IS EXTERNAL, AND ITS ABSENCE IS NOT A DEFECT IN
+        #   THIS SELFTEST. The assertion is right where the tree exists -- a
+        #   scan that silently stopped covering the consumer would prove nothing
+        #   about it and must say so -- and wrong on a public clone, where there
+        #   is no consumer to cover. Told apart by asking whether the directory
+        #   is there at all, and the skip is printed, never swallowed. ]]
+        consumer_absent = not os.path.isdir(CONSUMER_TREE)
+        if CONSUMER_TREE not in scanned and not consumer_absent:
             bad.append("  the consumer tree was not scanned — this run proves nothing about it")
         if ledger_offences():
             bad.append(f"  the impossibility ledger is out of date: {ledger_offences()}")
@@ -472,6 +479,11 @@ def selftest() -> None:
         "selftest: 8 cases green (planted CAS, planted InputBegan, restore, comment, string, "
         "non-zero exit, stale entry, real tree)"
     )
+    if not os.path.isdir(CONSUMER_TREE):
+        print(
+            f"  NOT COVERED: the consumer tree {CONSUMER_TREE} is not beside this checkout, so "
+            "the real-tree case proves nothing about the consuming game"
+        )
 
 
 if __name__ == "__main__":

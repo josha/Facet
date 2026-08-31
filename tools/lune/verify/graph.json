@@ -5,7 +5,7 @@
   "phases": "phases.json",
   "suiteResults": "suite_real.json"
  },
- "maintainedAt": "2026-08-31T04:28:33Z",
+ "maintainedAt": "2026-08-31T04:38:07Z",
  "phases": [
   {
    "artifactDir": "artifacts/phase-0-foundation",
@@ -5100,7 +5100,7 @@
    "timeoutS": 600
   },
   {
-   "command": "python3 tools/archive_private.py verify",
+   "command": "test -d ../Facet-private-archive || { echo 'archive_private: FAIL_ENVIRONMENT no private archive beside this checkout'; exit 2; }; python3 tools/archive_private.py verify",
    "declaredEvidence": false,
    "dependsOn": [],
    "environmentClass": "external",
