@@ -45,3 +45,11 @@ artifacts/distribution-readiness/
 !src/core/fusion_adapter.luau
 !tests/fusion_vendor.spec.luau
 !tests/lib/fusion_*.luau
+# --- secret-shaped files are never public, even inside an allowed tree ---
+!*API_KEYS*
+!*.env
+!*/.env
+!*.key
+!*.pem
+!*id_rsa*
+!*.keychain

@@ -56,3 +56,11 @@ tools/.wordlist-cache/
 # machine's toolchain pins), and the whole point of it is that it can be thrown
 # away without losing a claim.
 artifacts/verify/
+
+# secret-shaped files never enter the repository at all
+API_KEYS.txt
+*.env
+.env
+*.key
+*.pem
+id_rsa*

@@ -130,7 +130,10 @@ def archive(paths, root=DEFAULT_ROOT, source=REPO, quiet=False):
 
     missing, copied = [], 0
     for requested in paths:
-        rel = os.path.normpath(requested).replace(os.sep, "/").lstrip("./")
+        rel = os.path.relpath(os.path.normpath(requested)).replace(os.sep, "/")
+        if rel.startswith("../"):
+            missing.append(requested)
+            continue
         members = files_under(source, rel)
         if not members:
             missing.append(requested)
