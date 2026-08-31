@@ -5,7 +5,7 @@
   "phases": "phases.json",
   "suiteResults": "suite_real.json"
  },
- "maintainedAt": "2026-08-31T02:53:57Z",
+ "maintainedAt": "2026-08-31T03:01:18Z",
  "phases": [
   {
    "artifactDir": "artifacts/phase-0-foundation",
@@ -22177,7 +22177,7 @@
      "consumer_standalone::examples/consumer: input and state::a press on Bump raises the count and repaints the label",
      "consumer_standalone::examples/consumer: input and state::a write to the signal repaints the label with no press at all",
      "consumer_standalone::examples/consumer: input and state::the toggle carries the signal the screen owns",
-     "consumer_standalone::examples/consumer: input and state::Close reports itself, which is what the client script tears down on",
+     "consumer_standalone::examples/consumer: input and state::Close raises the signal the session listens on",
      "consumer_standalone::examples/consumer: it adapts by re-solving::the button stack arranges differently at a compact and a wide viewport",
      "consumer_standalone::examples/consumer: it adapts by re-solving::a viewport change re-solves the mounted surface without rebuilding it",
      "consumer_standalone::examples/consumer: it adapts by re-solving::the player's preferred text size grows the untouched label",

@@ -495,7 +495,7 @@ Nothing executable was left once the pin went.
 |---|---|---|
 | `navigation-and-menus` | `d0-greps-still-match` | UI-AGENT-001 |
 
-## Producers retired, and the rows that consumed them (3 clauses)
+## Producers retired, and the rows that consumed them (0 clauses)
 
 | Producer | Why |
 |---|---|
@@ -505,6 +505,140 @@ Nothing executable was left once the pin went.
 
 | Row | Producer it no longer names |
 |---|---|
-| `navigation-and-menus::d0-greps-still-match` | `check_manifest_integrity-transcript` |
-| `release-candidate-review::comments-plain` | `check_gate_pins-selftest` |
-| `release-candidate-review::comments-plain` | `check_gate_pins` |
+
+## Clauses whose subject was archived (0)
+
+| Row | Clause | What it is now |
+|---|---|---|
+
+## Receipt pins that named no readable file (9 expanded, 74 recovered, 1 dropped)
+
+The converter read each pin out of the archived manifest's `run` string, and three
+shapes arrived as text rather than as a path: an unexpanded loop variable, a bare
+directory that had been a `find` operand, and an entry with a hash and no name.
+Each verified nothing while reporting a class-shaped environment failure.
+
+| Receipt | Pin | Repair |
+|---|---|---|
+| `cross-platform-proof::spatial-seam-contracts` | `artifacts/cross-platform-proof/rows/$f.json` | expanded to 12 file(s) on disk |
+| `example-quality-pass::theme-package-swap` | `artifacts/example-quality-pass/captures/` | expanded to 18 file(s) on disk |
+| `large-text-accessibility::studio-evidence` | `artifacts/large-text-accessibility/studio/` | expanded to 7 file(s) on disk |
+| `native-stylesheets::spike-matrix` | `artifacts/native-stylesheets/feasibility/$f.json` | expanded to 10 file(s) on disk |
+| `native-substrate::feasibility-matrix` | `artifacts/native-substrate/feasibility/$f.json` | expanded to 10 file(s) on disk |
+| `rich-skinning-v2::circle-button` | `artifacts/rich-skinning-v2/captures/RS-CIRCLE_desktop_$f.png` | expanded to 3 file(s) on disk |
+| `rich-skinning-v2::feasibility-probes` | `artifacts/rich-skinning-v2/feasibility/$f.json` | expanded to 9 file(s) on disk |
+| `sponsor-framework-gaps::five-view-matrix` | `artifacts/sponsor-framework-gaps/rows/matrix/` | expanded to 5 file(s) on disk |
+| `theme-packages-and-skinning::feasibility-probes` | `artifacts/theme-packages-and-skinning/feasibility/$f.json` | expanded to 9 file(s) on disk |
+| `check_perf_captures` | evidence-7 (no path recorded) | found `artifacts/performance-stress-places/studio/pl9-row3-luauui-1.json` by content hash |
+| `check_perf_captures` | evidence-8 (no path recorded) | found `artifacts/performance-stress-places/studio/pl9-row3-luauui-2.json` by content hash |
+| `check_perf_captures` | evidence-9 (no path recorded) | found `artifacts/performance-stress-places/studio/pl9-row3-luauui-3.json` by content hash |
+| `check_perf_captures` | evidence-13 (no path recorded) | found `artifacts/performance-stress-places/studio/pl9-row4-luauui-1.json` by content hash |
+| `check_perf_captures` | evidence-14 (no path recorded) | found `artifacts/performance-stress-places/studio/pl9-row4-luauui-2.json` by content hash |
+| `check_perf_captures` | evidence-15 (no path recorded) | found `artifacts/performance-stress-places/studio/pl9-row4-luauui-3.json` by content hash |
+| `check_perf_gate_evidence-budgets` | evidence-26 (no path recorded) | found `artifacts/performance-stress-places/studio/pl9-row3-luauui-1.json` by content hash |
+| `check_perf_gate_evidence-budgets` | evidence-27 (no path recorded) | found `artifacts/performance-stress-places/studio/pl9-row3-luauui-2.json` by content hash |
+| `check_perf_gate_evidence-budgets` | evidence-28 (no path recorded) | found `artifacts/performance-stress-places/studio/pl9-row3-luauui-3.json` by content hash |
+| `check_perf_gate_evidence-budgets` | evidence-32 (no path recorded) | found `artifacts/performance-stress-places/studio/pl9-row4-luauui-1.json` by content hash |
+| `check_perf_gate_evidence-budgets` | evidence-33 (no path recorded) | found `artifacts/performance-stress-places/studio/pl9-row4-luauui-2.json` by content hash |
+| `check_perf_gate_evidence-budgets` | evidence-34 (no path recorded) | found `artifacts/performance-stress-places/studio/pl9-row4-luauui-3.json` by content hash |
+| `check_perf_gate_evidence-device-matrix` | evidence-26 (no path recorded) | found `artifacts/performance-stress-places/studio/pl9-row3-luauui-1.json` by content hash |
+| `check_perf_gate_evidence-device-matrix` | evidence-27 (no path recorded) | found `artifacts/performance-stress-places/studio/pl9-row3-luauui-2.json` by content hash |
+| `check_perf_gate_evidence-device-matrix` | evidence-28 (no path recorded) | found `artifacts/performance-stress-places/studio/pl9-row3-luauui-3.json` by content hash |
+| `check_perf_gate_evidence-device-matrix` | evidence-32 (no path recorded) | found `artifacts/performance-stress-places/studio/pl9-row4-luauui-1.json` by content hash |
+| `check_perf_gate_evidence-device-matrix` | evidence-33 (no path recorded) | found `artifacts/performance-stress-places/studio/pl9-row4-luauui-2.json` by content hash |
+| `check_perf_gate_evidence-device-matrix` | evidence-34 (no path recorded) | found `artifacts/performance-stress-places/studio/pl9-row4-luauui-3.json` by content hash |
+| `check_perf_gate_evidence-falsifiable` | evidence-26 (no path recorded) | found `artifacts/performance-stress-places/studio/pl9-row3-luauui-1.json` by content hash |
+| `check_perf_gate_evidence-falsifiable` | evidence-27 (no path recorded) | found `artifacts/performance-stress-places/studio/pl9-row3-luauui-2.json` by content hash |
+| `check_perf_gate_evidence-falsifiable` | evidence-28 (no path recorded) | found `artifacts/performance-stress-places/studio/pl9-row3-luauui-3.json` by content hash |
+| `check_perf_gate_evidence-falsifiable` | evidence-32 (no path recorded) | found `artifacts/performance-stress-places/studio/pl9-row4-luauui-1.json` by content hash |
+| `check_perf_gate_evidence-falsifiable` | evidence-33 (no path recorded) | found `artifacts/performance-stress-places/studio/pl9-row4-luauui-2.json` by content hash |
+| `check_perf_gate_evidence-falsifiable` | evidence-34 (no path recorded) | found `artifacts/performance-stress-places/studio/pl9-row4-luauui-3.json` by content hash |
+| `check_perf_gate_evidence-headless-linkage` | evidence-26 (no path recorded) | found `artifacts/performance-stress-places/studio/pl9-row3-luauui-1.json` by content hash |
+| `check_perf_gate_evidence-headless-linkage` | evidence-27 (no path recorded) | found `artifacts/performance-stress-places/studio/pl9-row3-luauui-2.json` by content hash |
+| `check_perf_gate_evidence-headless-linkage` | evidence-28 (no path recorded) | found `artifacts/performance-stress-places/studio/pl9-row3-luauui-3.json` by content hash |
+| `check_perf_gate_evidence-headless-linkage` | evidence-32 (no path recorded) | found `artifacts/performance-stress-places/studio/pl9-row4-luauui-1.json` by content hash |
+| `check_perf_gate_evidence-headless-linkage` | evidence-33 (no path recorded) | found `artifacts/performance-stress-places/studio/pl9-row4-luauui-2.json` by content hash |
+| `check_perf_gate_evidence-headless-linkage` | evidence-34 (no path recorded) | found `artifacts/performance-stress-places/studio/pl9-row4-luauui-3.json` by content hash |
+| `check_perf_gate_evidence-large-text` | evidence-26 (no path recorded) | found `artifacts/performance-stress-places/studio/pl9-row3-luauui-1.json` by content hash |
+| `check_perf_gate_evidence-large-text` | evidence-27 (no path recorded) | found `artifacts/performance-stress-places/studio/pl9-row3-luauui-2.json` by content hash |
+| `check_perf_gate_evidence-large-text` | evidence-28 (no path recorded) | found `artifacts/performance-stress-places/studio/pl9-row3-luauui-3.json` by content hash |
+| `check_perf_gate_evidence-large-text` | evidence-32 (no path recorded) | found `artifacts/performance-stress-places/studio/pl9-row4-luauui-1.json` by content hash |
+| `check_perf_gate_evidence-large-text` | evidence-33 (no path recorded) | found `artifacts/performance-stress-places/studio/pl9-row4-luauui-2.json` by content hash |
+| `check_perf_gate_evidence-large-text` | evidence-34 (no path recorded) | found `artifacts/performance-stress-places/studio/pl9-row4-luauui-3.json` by content hash |
+| `check_perf_gate_evidence-native-reference` | evidence-26 (no path recorded) | found `artifacts/performance-stress-places/studio/pl9-row3-luauui-1.json` by content hash |
+| `check_perf_gate_evidence-native-reference` | evidence-27 (no path recorded) | found `artifacts/performance-stress-places/studio/pl9-row3-luauui-2.json` by content hash |
+| `check_perf_gate_evidence-native-reference` | evidence-28 (no path recorded) | found `artifacts/performance-stress-places/studio/pl9-row3-luauui-3.json` by content hash |
+| `check_perf_gate_evidence-native-reference` | evidence-32 (no path recorded) | found `artifacts/performance-stress-places/studio/pl9-row4-luauui-1.json` by content hash |
+| `check_perf_gate_evidence-native-reference` | evidence-33 (no path recorded) | found `artifacts/performance-stress-places/studio/pl9-row4-luauui-2.json` by content hash |
+| `check_perf_gate_evidence-native-reference` | evidence-34 (no path recorded) | found `artifacts/performance-stress-places/studio/pl9-row4-luauui-3.json` by content hash |
+| `check_perf_gate_evidence-perf-gate` | evidence-26 (no path recorded) | found `artifacts/performance-stress-places/studio/pl9-row3-luauui-1.json` by content hash |
+| `check_perf_gate_evidence-perf-gate` | evidence-27 (no path recorded) | found `artifacts/performance-stress-places/studio/pl9-row3-luauui-2.json` by content hash |
+| `check_perf_gate_evidence-perf-gate` | evidence-28 (no path recorded) | found `artifacts/performance-stress-places/studio/pl9-row3-luauui-3.json` by content hash |
+| `check_perf_gate_evidence-perf-gate` | evidence-32 (no path recorded) | found `artifacts/performance-stress-places/studio/pl9-row4-luauui-1.json` by content hash |
+| `check_perf_gate_evidence-perf-gate` | evidence-33 (no path recorded) | found `artifacts/performance-stress-places/studio/pl9-row4-luauui-2.json` by content hash |
+| `check_perf_gate_evidence-perf-gate` | evidence-34 (no path recorded) | found `artifacts/performance-stress-places/studio/pl9-row4-luauui-3.json` by content hash |
+| `check_perf_gate_evidence-prior-gates` | evidence-26 (no path recorded) | found `artifacts/performance-stress-places/studio/pl9-row3-luauui-1.json` by content hash |
+| `check_perf_gate_evidence-prior-gates` | evidence-27 (no path recorded) | found `artifacts/performance-stress-places/studio/pl9-row3-luauui-2.json` by content hash |
+| `check_perf_gate_evidence-prior-gates` | evidence-28 (no path recorded) | found `artifacts/performance-stress-places/studio/pl9-row3-luauui-3.json` by content hash |
+| `check_perf_gate_evidence-prior-gates` | evidence-32 (no path recorded) | found `artifacts/performance-stress-places/studio/pl9-row4-luauui-1.json` by content hash |
+| `check_perf_gate_evidence-prior-gates` | evidence-33 (no path recorded) | found `artifacts/performance-stress-places/studio/pl9-row4-luauui-2.json` by content hash |
+| `check_perf_gate_evidence-prior-gates` | evidence-34 (no path recorded) | found `artifacts/performance-stress-places/studio/pl9-row4-luauui-3.json` by content hash |
+| `check_perf_gate_evidence-scopes` | evidence-26 (no path recorded) | found `artifacts/performance-stress-places/studio/pl9-row3-luauui-1.json` by content hash |
+| `check_perf_gate_evidence-scopes` | evidence-27 (no path recorded) | found `artifacts/performance-stress-places/studio/pl9-row3-luauui-2.json` by content hash |
+| `check_perf_gate_evidence-scopes` | evidence-28 (no path recorded) | found `artifacts/performance-stress-places/studio/pl9-row3-luauui-3.json` by content hash |
+| `check_perf_gate_evidence-scopes` | evidence-32 (no path recorded) | found `artifacts/performance-stress-places/studio/pl9-row4-luauui-1.json` by content hash |
+| `check_perf_gate_evidence-scopes` | evidence-33 (no path recorded) | found `artifacts/performance-stress-places/studio/pl9-row4-luauui-2.json` by content hash |
+| `check_perf_gate_evidence-scopes` | evidence-34 (no path recorded) | found `artifacts/performance-stress-places/studio/pl9-row4-luauui-3.json` by content hash |
+| `check_perf_gate_evidence-studio` | evidence-26 (no path recorded) | found `artifacts/performance-stress-places/studio/pl9-row3-luauui-1.json` by content hash |
+| `check_perf_gate_evidence-studio` | evidence-27 (no path recorded) | found `artifacts/performance-stress-places/studio/pl9-row3-luauui-2.json` by content hash |
+| `check_perf_gate_evidence-studio` | evidence-28 (no path recorded) | found `artifacts/performance-stress-places/studio/pl9-row3-luauui-3.json` by content hash |
+| `check_perf_gate_evidence-studio` | evidence-32 (no path recorded) | found `artifacts/performance-stress-places/studio/pl9-row4-luauui-1.json` by content hash |
+| `check_perf_gate_evidence-studio` | evidence-33 (no path recorded) | found `artifacts/performance-stress-places/studio/pl9-row4-luauui-2.json` by content hash |
+| `check_perf_gate_evidence-studio` | evidence-34 (no path recorded) | found `artifacts/performance-stress-places/studio/pl9-row4-luauui-3.json` by content hash |
+| `check_perf_gate_evidence-theme-cost` | evidence-26 (no path recorded) | found `artifacts/performance-stress-places/studio/pl9-row3-luauui-1.json` by content hash |
+| `check_perf_gate_evidence-theme-cost` | evidence-27 (no path recorded) | found `artifacts/performance-stress-places/studio/pl9-row3-luauui-2.json` by content hash |
+| `check_perf_gate_evidence-theme-cost` | evidence-28 (no path recorded) | found `artifacts/performance-stress-places/studio/pl9-row3-luauui-3.json` by content hash |
+| `check_perf_gate_evidence-theme-cost` | evidence-32 (no path recorded) | found `artifacts/performance-stress-places/studio/pl9-row4-luauui-1.json` by content hash |
+| `check_perf_gate_evidence-theme-cost` | evidence-33 (no path recorded) | found `artifacts/performance-stress-places/studio/pl9-row4-luauui-2.json` by content hash |
+| `check_perf_gate_evidence-theme-cost` | evidence-34 (no path recorded) | found `artifacts/performance-stress-places/studio/pl9-row4-luauui-3.json` by content hash |
+| `reference-app-validation::device-matrix` | evidence-1 (no path recorded) | found `artifacts/swiftui-reference-app-validation/studio/device-matrix.json` by content hash |
+| `reference-app-validation::fixture-axes` | evidence-1 (no path recorded) | found `artifacts/swiftui-reference-app-validation/studio/fixture-axes.json` by content hash |
+| `reference-app-validation::device-matrix` | evidence-2 | dropped: (no path recorded) resolves to no file |
+
+## Run output stripped from receipts (22)
+
+A producer in this same graph rewrites each of these every run, so a hash of one is
+a hash of the last run. The row that held it went red the moment its own system ran
+again.
+
+| Receipt | File |
+|---|---|
+| `cross-platform-proof::console-tenfoot-profile` | `artifacts/phase-4/perf.json` |
+| `cross-platform-proof::regression-gate-falsified` | `artifacts/cross-platform-proof/rows/xp-a6-regression-proof.json` |
+| `check_device_captures` | `artifacts/phase-4/perf.json` |
+| `check_perf_budgets` | `artifacts/phase-4/perf.json` |
+| `check_perf_gate_evidence-budgets` | `artifacts/performance-stress-places/gate.json` |
+| `check_perf_gate_evidence-device-matrix` | `artifacts/performance-stress-places/gate.json` |
+| `check_perf_gate_evidence-falsifiable` | `artifacts/performance-stress-places/gate.json` |
+| `check_perf_gate_evidence-headless-linkage` | `artifacts/performance-stress-places/gate.json` |
+| `check_perf_gate_evidence-large-text` | `artifacts/performance-stress-places/gate.json` |
+| `check_perf_gate_evidence-native-reference` | `artifacts/performance-stress-places/gate.json` |
+| `check_perf_gate_evidence-perf-gate` | `artifacts/performance-stress-places/gate.json` |
+| `check_perf_gate_evidence-prior-gates` | `artifacts/performance-stress-places/gate.json` |
+| `check_perf_gate_evidence-scopes` | `artifacts/performance-stress-places/gate.json` |
+| `check_perf_gate_evidence-studio` | `artifacts/performance-stress-places/gate.json` |
+| `check_perf_gate_evidence-theme-cost` | `artifacts/performance-stress-places/gate.json` |
+| `check_perf_metrics` | `artifacts/phase-4/perf.json` |
+| `check_perf_scenes-themes` | `artifacts/phase-4/perf.json` |
+| `check_perf_scenes` | `artifacts/phase-4/perf.json` |
+| `check_xp_matrix` | `artifacts/cross-platform-proof/gate.json` |
+| `check_xp_matrix` | `artifacts/cross-platform-proof/rows/xp-a6-regression-proof.json` |
+| `prove_perf_gate` | `artifacts/cross-platform-proof/rows/xp-a6-regression-proof.json` |
+| `prove_perf_gate` | `artifacts/phase-4/perf.json` |
+
+## Producers moved to the serial wave (2)
+
+| Producer | Why it cannot share the tree |
+|---|---|
+| `check_types` | it generates and deletes a probe file inside tests/ |
+| `check_types-selftest` | it rewrites src/init.luau and the type witness, then restores them |

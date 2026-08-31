@@ -51,6 +51,13 @@ GRAPH = "tools/lune/verify/graph.json"
 RECEIPTS = "tools/lune/verify/evidence"
 ARCHIVE = "../Facet-private-archive/MANIFEST.json"
 COVERAGE = "artifacts/distribution-readiness/verification/coverage-map.md"
+#[[ WHAT THE REPAIR HAS DONE, NOT WHAT THE LAST RUN DID.
+#   This script is idempotent, so its second run moves nothing -- and a coverage
+#   section rendered from that run's deltas is an empty table where the record
+#   should be. The deltas accumulate here instead, and the document is rendered
+#   from the ledger, so running the repair again neither loses the history nor
+#   duplicates it. ]]
+LEDGER = "tools/lune/verify/data/post-archival-repair.json"
 
 # Recorded machine evidence: what a machine took and a headless run cannot
 # re-take. Everything else under artifacts/ is a record of a decision.
@@ -192,6 +199,27 @@ SERIALIZED = {
     "check_types": "it generates and deletes a probe file inside tests/",
     "check_types-selftest": "it rewrites src/init.luau and the type witness, then restores them",
 }
+
+
+#[[ A CASE THE SUITE RENAMED, RE-POINTED BY HAND AND ON PURPOSE.
+#
+#   A row that cites a case id proves nothing once the case is renamed, and the
+#   graph says so out loud -- `check_manifest_integrity` reddens on a citation
+#   the suite no longer answers, which is the whole reason ids replaced greps.
+#   Re-pointing is therefore a DELIBERATE edit with the new name written down,
+#   never a fuzzy match: an automatic re-point would happily follow a rename
+#   that changed what the case asserts.
+#
+#   Each entry is (old id, new id, who renamed it). ]]
+CASE_ID_REPAIRS = [
+    (
+        "consumer_standalone::examples/consumer: input and state::"
+        "Close reports itself, which is what the client script tears down on",
+        "consumer_standalone::examples/consumer: input and state::"
+        "Close raises the signal the session listens on",
+        "the same case, renamed to name the signal rather than the caller",
+    ),
+]
 
 
 def load_archive() -> dict:
@@ -532,6 +560,20 @@ def main() -> int:
     print(f"producers retired                        : {len(RETIRED_PRODUCERS)}")
     print(f"rows now                                  : {len(kept)}")
 
+    # ---- case ids the suite renamed under a row -------------------------------
+    # LAST, and on the finished graph: `graph["rows"]` is rebuilt above from the
+    # row objects this pass kept, so a substitution made before that assignment
+    # is thrown away by it.
+    repointed = 0
+    graph_text = json.dumps(graph, sort_keys=True, ensure_ascii=False)
+    for old, new_id, _why in CASE_ID_REPAIRS:
+        if old in graph_text:
+            graph_text = graph_text.replace(old, new_id)
+            repointed += 1
+    if repointed:
+        graph = json.loads(graph_text)
+    print(f"case ids re-pointed after a rename       : {repointed}")
+
     if args.dry_run:
         return 0
 
@@ -539,11 +581,77 @@ def main() -> int:
         json.dump(graph, fh, indent=1, sort_keys=True, ensure_ascii=False)
         fh.write("\n")
 
-    append_coverage(receipted, dropped_pins, archived_rows, retired_clauses, repaired)
+    append_coverage(
+        receipted,
+        dropped_pins,
+        archived_rows,
+        retired_clauses,
+        repaired,
+        {
+            "expanded": expanded,
+            "recovered": recovered,
+            "dropped": dropped_entries,
+            "stripped": stripped,
+            "serialized": serialized,
+        },
+    )
     return 0
 
 
-def append_coverage(receipted, dropped_pins, archived_rows, retired_clauses, repaired) -> None:
+def merge_ledger(new: dict) -> dict:
+    """Union this run's deltas into the durable record. Order is preserved."""
+    ledger = {}
+    if os.path.exists(LEDGER):
+        ledger = json.load(open(LEDGER))
+    for key, rows in new.items():
+        if not isinstance(rows, list):
+            ledger[key] = max(ledger.get(key, 0), rows)
+            continue
+        have = ledger.setdefault(key, [])
+        seen = {json.dumps(r, sort_keys=True) for r in have}
+        for row in rows:
+            token = json.dumps(list(row), sort_keys=True)
+            if token not in seen:
+                seen.add(token)
+                have.append(list(row))
+    ledger["schema"] = "facet-post-archival-repair/1"
+    ledger["updatedAt"] = datetime.datetime.now(datetime.timezone.utc).strftime(
+        "%Y-%m-%dT%H:%M:%SZ"
+    )
+    os.makedirs(os.path.dirname(LEDGER), exist_ok=True)
+    with open(LEDGER, "w") as fh:
+        json.dump(ledger, fh, indent=1, sort_keys=True)
+        fh.write("\n")
+    return ledger
+
+
+def append_coverage(receipted, dropped_pins, archived_rows, retired_clauses, repaired, receipts) -> None:
+    """Render the section from the DURABLE ledger, replacing any earlier copy."""
+    ledger = merge_ledger({
+        "receipted": receipted,
+        "droppedPins": dropped_pins,
+        "archivedRows": [[r["phase"], r["name"], ", ".join(r["requirements"]) or "—"]
+                         for r in archived_rows],
+        "retiredClauses": retired_clauses,
+        "repairedClauses": [[a, b[:90], c] for a, b, c in repaired],
+        "expandedPins": receipts["expanded"],
+        "recoveredPins": receipts["recovered"],
+        "droppedReceiptPins": receipts["dropped"],
+        "strippedRunOutput": receipts["stripped"],
+        "serializedProducers": receipts["serialized"],
+    })
+    receipted = ledger["receipted"]
+    dropped_pins = ledger["droppedPins"]
+    archived_rows = ledger["archivedRows"]
+    retired_clauses = ledger["retiredClauses"]
+    repaired = ledger["repairedClauses"]
+    receipts = {
+        "expanded": ledger["expandedPins"],
+        "recovered": ledger["recoveredPins"],
+        "dropped": ledger["droppedReceiptPins"],
+        "stripped": ledger["strippedRunOutput"],
+        "serialized": ledger["serializedProducers"],
+    }
     """Everything this pass moved, named, in the document that promises that."""
     stamp = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d")
     L = [
@@ -589,8 +697,8 @@ def append_coverage(receipted, dropped_pins, archived_rows, retired_clauses, rep
         "| Phase | Row | Requirement |",
         "|---|---|---|",
     ]
-    for row in archived_rows:
-        L.append(f"| `{row['phase']}` | `{row['name']}` | {', '.join(row['requirements']) or '—'} |")
+    for phase, name, requirements in archived_rows:
+        L.append(f"| `{phase}` | `{name}` | {requirements} |")
     L += [
         "",
         f"## Producers retired, and the rows that consumed them ({len(retired_clauses)} clauses)",
@@ -612,9 +720,64 @@ def append_coverage(receipted, dropped_pins, archived_rows, retired_clauses, rep
     ]
     for rid, clause, why in repaired:
         L.append(f"| `{rid}` | `{clause[:90]}` | {why} |")
+
+    L += [
+        "",
+        f"## Receipt pins that named no readable file ({len(receipts['expanded'])} expanded, "
+        f"{len(receipts['recovered'])} recovered, {len(receipts['dropped'])} dropped)",
+        "",
+        "The converter read each pin out of the archived manifest's `run` string, and three",
+        "shapes arrived as text rather than as a path: an unexpanded loop variable, a bare",
+        "directory that had been a `find` operand, and an entry with a hash and no name.",
+        "Each verified nothing while reporting a class-shaped environment failure.",
+        "",
+        "| Receipt | Pin | Repair |",
+        "|---|---|---|",
+    ]
+    for who, path, count in receipts["expanded"]:
+        L.append(f"| `{who}` | `{path}` | expanded to {count} file(s) on disk |")
+    for who, label, path in receipts["recovered"]:
+        L.append(f"| `{who}` | {label} (no path recorded) | found `{path}` by content hash |")
+    for who, label, why in receipts["dropped"]:
+        L.append(f"| `{who}` | {label} | dropped: {why} resolves to no file |")
+
+    L += [
+        "",
+        f"## Run output stripped from receipts ({len(receipts['stripped'])})",
+        "",
+        "A producer in this same graph rewrites each of these every run, so a hash of one is",
+        "a hash of the last run. The row that held it went red the moment its own system ran",
+        "again.",
+        "",
+        "| Receipt | File |",
+        "|---|---|",
+    ]
+    for who, path in receipts["stripped"]:
+        L.append(f"| `{who}` | `{path}` |")
+
+    L += [
+        "",
+        f"## Producers moved to the serial wave ({receipts['serialized']})",
+        "",
+        "| Producer | Why it cannot share the tree |",
+        "|---|---|",
+    ]
+    for pid, why in sorted(SERIALIZED.items()):
+        L.append(f"| `{pid}` | {why} |")
+
     L.append("")
-    with open(COVERAGE, "a") as fh:
-        fh.write("\n".join(L))
+
+    #[[ IDEMPOTENT MEANS THE DOCUMENT TOO. The first draft appended, so a second
+    #   run left a second copy of every empty table behind it. The section is
+    #   replaced from its own heading down, which is what "run it again" has to
+    #   mean for a file this one owns. ]]
+    body = open(COVERAGE).read() if os.path.exists(COVERAGE) else ""
+    marker = "\n---\n\n# Post-archival repair ("
+    cut = body.find(marker)
+    if cut != -1:
+        body = body[:cut]
+    with open(COVERAGE, "w") as fh:
+        fh.write(body.rstrip("\n") + "\n" + "\n".join(L))
 
 
 if __name__ == "__main__":
