@@ -198,6 +198,7 @@ end
 
 for _, entry in results do
 	entry.p95_norm = entry.p95_ms / yardstickP95
+	entry.p50_norm = entry.p50_ms / yardstickP95
 	if baseline ~= nil then
 		for _, b in baseline.results or {} do
 			if b.name == entry.name then
@@ -206,7 +207,21 @@ for _, entry in results do
 				local aboveFloor = entry.p95_ms > REGRESSION_FLOOR_MS or b.p95_ms > REGRESSION_FLOOR_MS
 				if baselineHasNorm and b.p95_norm ~= nil then
 					entry.baseline_p95_norm = b.p95_norm
-					entry.ratio = entry.p95_norm / b.p95_norm
+					--[[ A scene may carry `gateChannel = "p50_norm"` in the baseline:
+						the 2026-08-31 adjudication measured textinput-typing-storm's
+						p95 as bimodal at FIXED source on a QUIET machine (A/A spread
+						~1.8x against the 1.5x factor — two allocator/collector modes,
+						~100 MB vs ~190 MB churn), which the baseline's own precedent
+						calls un-adjudicable. Its p50 sat within 8% across every run
+						and every mode, so the stable channel is the honest gate for
+						that one scene. Recorded in artifacts/distribution-readiness/
+						verification/bench-typing-storm-adjudication.md. ]]
+					if b.gateChannel == "p50_norm" and b.p50_norm ~= nil and entry.p50_norm ~= nil then
+						entry.gateChannel = "p50_norm"
+						entry.ratio = entry.p50_norm / b.p50_norm
+					else
+						entry.ratio = entry.p95_norm / b.p95_norm
+					end
 					if entry.ratio > REGRESSION_FACTOR and aboveFloor then
 						entry.regression = true
 						failed = true
@@ -222,7 +237,9 @@ for _, entry in results do
 	print(
 		`  {entry.name}: p50={string.format("%.4f", entry.p50_ms)}ms p95={string.format("%.4f", entry.p95_ms)}ms`
 			.. ` norm={string.format("%.3f", entry.p95_norm)}`
-			.. (if entry.ratio ~= nil then ` vs-base={string.format("%.2f", entry.ratio)}x` else "")
+			.. (if entry.ratio ~= nil
+				then ` vs-base={string.format("%.2f", entry.ratio)}x{entry.gateChannel == "p50_norm" and " (p50 gate)" or ""}`
+				else "")
 			.. ` heapNet={entry.heapNetKb}KB(swing {entry.heapSwingKb}KB){entry.regression and "  REGRESSION" or ""}`
 	)
 end

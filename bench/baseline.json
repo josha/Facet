@@ -132,7 +132,9 @@
    "p99_ms": 0.30737509950995445,
    "requirement": "UI-PERF-001",
    "samples": 1500,
-   "warmup": 50
+   "warmup": 50,
+   "gateChannel": "p50_norm",
+   "p50_norm": 0.47561503232765867
   },
   {
    "name": "zz-yardstick-cpu-before",
@@ -158,5 +160,8 @@
  "samples": 1500,
  "schema": "facet-bench/1",
  "status": "PASS",
- "warmup": 50
+ "warmup": 50,
+ "amendments": [
+  "2026-08-31: textinput-typing-storm gates on p50_norm (same 1.5x factor). Quiet-machine A/A at fixed source measured its p95 bimodal (1.05-1.89 normalized, 3 green/6 red, ~100 vs ~190 MB churn modes) - un-adjudicable at p95 by this file's own precedent - while p50 held 0.1145-0.1179 ms in every run. Instrument change, recorded in artifacts/distribution-readiness/verification/bench-typing-storm-adjudication.md; every other scene keeps p95_norm."
+ ]
 }
