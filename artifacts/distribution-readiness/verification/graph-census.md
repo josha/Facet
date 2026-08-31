@@ -222,7 +222,7 @@ regeneration.
 | `check_links_cli` | deterministic | no | full,release | `lune run tools/lune/check_links_cli` |
 | `check_maintainer_map_cli` | deterministic | no | full,release | `lune run tools/lune/check_maintainer_map_cli` |
 | `check_maintainer_map_cli-selftest` | deterministic | no | full,release | `lune run tools/lune/check_maintainer_map_cli -- --selftest` |
-| `check_manifest_integrity` | deterministic | no | full,release | `python3 tools/check_manifest_integrity.py` |
+| `check_manifest_integrity` | deterministic | yes | full,release | `python3 tools/check_manifest_integrity.py` |
 | `check_manifest_integrity-transcript` | deterministic | yes | full,release | `python3 tools/check_manifest_integrity.py --transcript` |
 | `check_matrix_rows` | studio | no | full,release | `python3 tools/check_matrix_rows.py` |
 | `check_no_fusion` | deterministic | no | full,release | `python3 tools/check_no_fusion.py` |
