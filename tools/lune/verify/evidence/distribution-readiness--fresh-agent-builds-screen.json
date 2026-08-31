@@ -1,0 +1,14 @@
+{
+ "class": "external",
+ "evidence": [
+  {
+   "archivedPath": "artifacts/distribution-readiness/fresh-agents/builder-report.md",
+   "label": "builder-report",
+   "sha256": "ff49830e8ba4e36eaa9349ba6a43198a47eadccd310a4a8160e693b5ccb7682f"
+  }
+ ],
+ "recordedAt": "2026-08-31T03:59:42Z",
+ "row": "distribution-readiness::fresh-agent-builds-screen",
+ "schema": "facet-evidence-receipt/1",
+ "summary": "the fresh builder's report and the findings it handed back"
+}

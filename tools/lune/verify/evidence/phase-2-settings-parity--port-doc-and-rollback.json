@@ -1,0 +1,14 @@
+{
+ "class": "external",
+ "evidence": [
+  {
+   "archivedPath": "../../../games/RascalRally/docs/FACET_SETTINGS_PORT.md",
+   "label": "port-document",
+   "sha256": "5e4ccf7d997ec6f8511e4baaff730620e9e17cc037ab345f03f885915a7d5417"
+  }
+ ],
+ "recordedAt": "2026-08-31T04:11:52Z",
+ "row": "phase-2-settings-parity::port-doc-and-rollback",
+ "schema": "facet-evidence-receipt/1",
+ "summary": "the consuming game's port document -- behaviour checklist, comparison, defect log and rollback criteria -- pinned by content hash instead of by four greps on a path this repository cannot promise is there"
+}

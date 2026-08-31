@@ -4,10 +4,10 @@
   {
    "archivedPath": "artifacts/distribution-readiness/docs-refresh.md",
    "label": "refresh-record",
-   "sha256": "6cd82ec07f334b3897ef032bbc812cab31a9a08b403394e59ca2df6d58e93429"
+   "sha256": "640f2cd0d477c676fd0ef58ae9be20591c861a3b49f32330a8d7a590442b6046"
   }
  ],
- "recordedAt": "2026-08-31T03:38:25Z",
+ "recordedAt": "2026-08-31T03:58:02Z",
  "row": "distribution-readiness::public-docs-refreshed-no-stale-links",
  "schema": "facet-evidence-receipt/1",
  "summary": "the documentation refresh record"

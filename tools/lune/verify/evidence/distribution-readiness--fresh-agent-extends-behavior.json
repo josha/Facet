@@ -1,0 +1,14 @@
+{
+ "class": "external",
+ "evidence": [
+  {
+   "archivedPath": "artifacts/distribution-readiness/fresh-agents/extender-report.md",
+   "label": "extender-report",
+   "sha256": "45e16a503fa495f76258cbdd6e1966ae9dedeb69215adaff5de3665a02e3ab5e"
+  }
+ ],
+ "recordedAt": "2026-08-31T03:59:42Z",
+ "row": "distribution-readiness::fresh-agent-extends-behavior",
+ "schema": "facet-evidence-receipt/1",
+ "summary": "the fresh extender's report and the findings it handed back"
+}
