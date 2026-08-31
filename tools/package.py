@@ -204,8 +204,17 @@ def source_commit_stamp():
     """HEAD, suffixed `-dirty` when the SOURCE TREE has uncommitted work. Scoped
     to `src` deliberately: an artifact built while a doc or a test is being edited
     is still an exact build of a committed source tree, and saying otherwise would
-    make the stamp meaningless on any working day."""
-    commit = head_commit()
+    make the stamp meaningless on any working day.
+
+    A tree with no repository at all (a release tarball, GitHub's Download ZIP)
+    still deserves a working `build` — it stamps the deterministic constant
+    `unversioned-source` instead. Publishing from such a tree stays impossible:
+    every create/publish guard that compares commits calls `head_commit()`
+    directly, which still refuses loudly without git."""
+    try:
+        commit = head_commit()
+    except SystemExit:
+        return "unversioned-source"
     return commit + "-dirty" if porcelain(["src"]) else commit
 
 
