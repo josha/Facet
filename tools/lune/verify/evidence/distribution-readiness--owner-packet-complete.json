@@ -1,0 +1,14 @@
+{
+ "class": "evidence-pin",
+ "evidence": [
+  {
+   "archivedPath": "artifacts/distribution-readiness/packet/owner-packet.md",
+   "label": "evidence-1",
+   "sha256": "3cebb1464065e8fb26c6f6ead3677330be2d8e5a80dcb92bb4695c920c87e1af"
+  }
+ ],
+ "recordedAt": "2026-08-31T06:49:19Z",
+ "row": "distribution-readiness::owner-packet-complete",
+ "schema": "facet-evidence-receipt/1",
+ "summary": "owner-packet-complete: 1 recorded packet file, pinned by content hash."
+}

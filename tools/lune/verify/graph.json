@@ -24755,18 +24755,19 @@
    "state": null
   },
   {
-   "check": {},
-   "class": "declared",
+   "check": {
+    "receipt": "tools/lune/verify/evidence/distribution-readiness--owner-packet-complete.json"
+   },
+   "class": "evidence-pin",
    "evidence": null,
    "id": "distribution-readiness::owner-packet-complete",
    "name": "owner-packet-complete",
-   "note": "owner-packet-complete: PENDING -- the packet's final numbers, stamped at close -- it closes the stage, so it cannot be earned before the stage closes. It does not block the run. Requirements: UI-AGENT-001.",
+   "note": "owner-packet-complete: the packet carries every checkpoint answer, the audited remote state, the asset id and receipt, the verification numbers, the rewrite candidates with migration and rollback, and the close-out stamp; the packet file is pinned by content hash. Requirements: UI-AGENT-001.",
    "phase": "distribution-readiness",
-   "releaseBlocking": false,
+   "releaseBlocking": true,
    "requirements": [
     "UI-AGENT-001"
-   ],
-   "state": "PENDING"
+   ]
   },
   {
    "check": {

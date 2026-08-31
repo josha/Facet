@@ -121,6 +121,33 @@ fact, cited) · `fusion-excision.md` · `swiftui-migration.md` +
 `docs-refresh.md` · `rascalrally-consumer-impact.md` · the private archive's
 `MANIFEST.json` + `SHA256SUMS`.
 
-*To be stamped at close: final release-tier verdict counts and timings, the
-candidate commit id, reproducibility checksums, fresh-clone and fresh-agent
-results, red-team disposition, and the repository-size summary.*
+## 7. Stamped at close (2026-08-31)
+
+- **Verified state:** commit `cde416d`, gate evidence `status PASS, treeDirty
+  false`; release tier **488 PASS · 0 failures · 2 RETIRED · 16 declared
+  device/human rows · 2 declared pendings** (this packet's own closing row and
+  the example-quality human review packet), 275.6 s headless, identity
+  `2507ce6102c3`. The packet's own commit closes the stage on top of that state.
+- **The Package is real:** asset **106883918130790**, revision 1, Approved,
+  creator user 1364639953, route open-cloud; receipt
+  `package/receipts/0.10.0-3be1344.json`; inserted by id it carries a genuine
+  `PackageLink` and byte-matched identity, and the runtime runs from the cloud
+  copy (`../verification/package-proof.md`). Same-id update mechanics proven on
+  the spike twin; AutoUpdate/modified-copy checks are declared for the first
+  real release. The Creator Store listing stays OFF.
+- **Reproducibility:** tree extracted twice byte-identical; the model builds
+  byte-identical in the repo and in a git-less tarball
+  (`../verification/reproducibility.md`); all fourteen places rebuild
+  byte-identically at fixed content.
+- **Fresh agents:** screen-builder SUCCESS (15-case mutation-proven proof),
+  workflow-extender SUCCESS (test-first, 3-file diff), guide reviewer PASS,
+  phase-gate reviewer **[GATE-3]: APPROVE** after five findings were fixed with
+  biting checks.
+- **Red team:** 32 findings, 2 blockers — every one fixed or dispositioned in
+  the stage records; the release channel, receipts, and identity store were
+  re-proven after each round.
+- **Size:** public tip 1233 tracked files; private archive 772 files
+  (verify OK); history candidates A ≈ 81 MB / **B ≈ 23 MB** (owner chose B,
+  e-mail `facetframework@gmail.com`); candidate B is rebuilt on the final
+  commit and its push remains the owner's own ordered step with the mirror
+  rollback beside it.
