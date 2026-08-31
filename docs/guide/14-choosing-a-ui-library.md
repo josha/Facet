@@ -32,7 +32,7 @@ A library takes over three jobs:
 - **Cleanup.** When the screen closes, the instances, the event connections and
   the timers go with it.
 
-Four words are used throughout this chapter, so here they are once:
+These words are used throughout this chapter, so here they are once:
 
 - **Reactive** means a value that other things watch. Change it, and whatever
   depends on it is brought up to date without you calling anything.
@@ -42,6 +42,21 @@ Four words are used throughout this chapter, so here they are once:
   instance changes that turns the old description into the new one.
 - **Granularity** is how small the updated piece is. Coarse means a component or
   a subtree is re-run. Fine means one property on one instance is written.
+- **Signal** is a value you can read and set that other things are allowed to
+  watch; Fusion spells it `Value`, Vide spells it `source`, Facet spells it
+  `core:signal`.
+- **Memo** is a value worked out from other values, which recalculates itself
+  only when one of those values changes.
+- **Dirty entry** is a note that one piece of the screen is out of date, held
+  until the library next brings the screen up to date.
+- **Scope** is a bag that owns things and destroys them together — but the word
+  names three different constructs on this page. Facet's is an ownership scope,
+  Fusion's is a cleanup scope, and Vide's reactive scope is a computation that
+  re-runs, not only a bag.
+- **Token** is a named design value, such as a spacing step or a text colour,
+  that you set in one place and every screen reads.
+- **Solver** is the part of a library that turns a description into the position
+  and size of every box, before anything is drawn.
 
 The one-sentence version of each library:
 
@@ -75,18 +90,27 @@ a given tree." Tokens are attributes on a token sheet, themes are token sets you
 swap, and Studio ships a Style Editor for editing them (Roblox styling
 documentation) `[FACT]`.
 
+That last rule raises a fair question: can your game keep its own `StyleSheet`?
+Yes — Facet links one sheet and one `StyleLink` at its own target root, which
+the reference calls "per-target isolation", so a sheet your game links to its
+own `ScreenGui` is a different tree and is left alone `[FACT]`. The one place
+Facet's sheet reaches further is an instance you adopt into a Facet box, because
+a `StyleLink` is "ambient in the DataModel and selects by class" `[FACT]`
+([`05-styling.md`](05-styling.md) is the authority, and
+[`api.md`](../reference/api.md) carries the adopted-instance case).
+
 | | Facet | React Luau | Fusion | Vide |
 |---|---|---|---|---|
 | **Mental model** | Describe the screen as plain data; a solver decides the geometry; an adapter writes the instances ([`02-architecture.md`](02-architecture.md)) | Components return an element tree, and the library will "efficiently update and render just the right components when your data changes" (React Luau README) | Scopes hold state objects and the instances built from them | Sources hold values; effects created at build time keep single properties current |
 | **How much it supplies** | A full UI layer: layout, controls, styling, input, focus, adaptation, motion, render targets ([the guide index](README.md) catalog) | The component model, hooks, refs, bindings, portals, and a root that renders into an instance | Reactive state, instance creation and adoption, collection helpers, tween and spring | Reactive state, instance creation, control flow helpers, spring |
-| **Normal state/update path** | `core:signal` / `core:memo` change → a dirty entry → one refresh per frame → minimal writes ([`02-architecture.md`](02-architecture.md) §2.2) | `[INFERENCE]` `useState` or props change → the component re-renders → reconciliation writes what differs | `Value:set` → dependent `Computed` objects recompute → `New`/`Hydrate` re-assign the bound property | Set a source → the effects that read it re-run → each writes its one property |
+| **Normal state/update path** | A changed value marks its spot. Once a frame, Facet re-lays-out only what moved and writes only what changed ([`02-architecture.md`](02-architecture.md) §2.2) | `[INFERENCE]` `useState` or props change → the component re-renders → reconciliation writes what differs | `Value:set` → dependent `Computed` objects recompute → `New`/`Hydrate` re-assign the bound property | Set a source → the effects that read it re-run → each writes its one property |
 | **Reactivity granularity** | Fine. A paint-only change writes that property and does not re-run layout ([`02-architecture.md`](02-architecture.md) §2.2) | Coarse by default (component re-render), plus a fine route: Bindings are "a form of signals-based state that doesn't re-render" (React Luau README) | Fine. A property bound to a state object "is re-assigned every time the value of the state object changes" | Fine. A non-event property given a function makes an effect "to update property" |
 | **Cleanup model** | Scopes. Disposing a scope disposes everything it owns, in reverse order, exactly once ([`01-concepts.md`](01-concepts.md) §1.3) | `useEffect` returns a cleanup function; unmounting a root tears its tree down | `doCleanup()` on a scope destroys its contents in reverse order; `innerScope` nests | `root()` returns a destructor; a parent scope's destruction destroys its children |
 | **Layout** | A pure two-pass solver produces a rectangle per node, with no instance and no signal reads ([`02-architecture.md`](02-architecture.md) §2.1) | `[INFERENCE]` Roblox's own: you set `UDim2` values or add layout instances, as you would by hand | `[INFERENCE]` Roblox's own, in the property table you pass to `New` | `[INFERENCE]` Roblox's own, in the property table you pass to `create` |
 | **Built-in controls** | Nineteen composite controls, including table, virtual list, slider, picker, tabs and text input ([the guide index](README.md) catalog) | `[INFERENCE]` None documented; you compose Roblox classes yourself | `[INFERENCE]` None documented; you compose Roblox classes yourself | `[INFERENCE]` None documented; you compose Roblox classes yourself |
 | **Native StyleSheets and Studio theme editing** | The default paint path is a generated Roblox `StyleSheet` named `FacetStyle`, one `StyleLink` per screen, with Style Editor token edits taking effect immediately ([`05-styling.md`](05-styling.md) §5.7) | `[INFERENCE]` Yours to write; `StyleSheet` and `StyleRule` are ordinary instances you can create | `[INFERENCE]` Yours to write, same as the column to the left | `[INFERENCE]` Yours to write, same as the column to the left |
 | **Input, focus, device adaptation** | Semantic actions over Roblox's Input Action System, navigation derived from the solved layout, per-device idioms ([`07-input.md`](07-input.md)) | `[INFERENCE]` Yours to write; the library gives you events and refs on the instances | `[INFERENCE]` Yours to write; `OnEvent` connects a callback | `[INFERENCE]` Yours to write; a function on an event property is connected as a callback |
-| **Accessibility** | Reads the player's preferred text size as an additive reservation, reduced motion as a policy, and background transparency for its scrim ([`api.md`](../reference/api.md) Environment) | `[INFERENCE]` Yours to write | `[INFERENCE]` Yours to write | `[INFERENCE]` Yours to write |
+| **Accessibility** | The player's preferred text size adds space to every text box; reduced motion turns the travel off and keeps the result; the dialog backdrop follows the player's own transparency setting ([`api.md`](../reference/api.md) Environment) | `[INFERENCE]` Yours to write | `[INFERENCE]` Yours to write | `[INFERENCE]` Yours to write |
 | **Motion** | A motion clock with springs, counters, timers, tweens and timelines, plus a reduced-motion form for each ([`api.md`](../reference/api.md) Motion) | `[INFERENCE]` Bindings are offered for animation; the animation itself is yours to drive | `Tween` and `Spring` are documented animation members | `spring()` returns a source that moves towards its input |
 | **Screen, billboard, world surface** | Three shipped render targets: `ScreenGui`, `BillboardGui`, and a flat two-dimensional `SurfaceGui` ([`api.md`](../reference/api.md)) | `[INFERENCE]` Any of them: a root renders into whatever instance container you give it | `[INFERENCE]` Any of them: you name the class you want | `[INFERENCE]` Any of them: you name the class you want |
 | **Adoption and interoperability** | `UI.Foreign` reserves a box for a Roblox `GuiObject` Facet does not wrap; four install routes with no external toolchain ([`08-without-rojo.md`](08-without-rojo.md)) | Creator Store and Wally packages; `createPortal` renders into a container outside the parent tree; a migration guide from Roact 1.x exists | `Hydrate` binds extra behavior to an instance you already have | The documentation calls the library "instance independent" |
@@ -100,8 +124,9 @@ documentation) `[FACT]`.
 Reach for it when you want the React model itself: components that own state,
 hooks, and a reconciler that works out the instance changes for you `[INFERENCE]`.
 A migration guide from Roact 1.x is documented `[FACT]`, so it is also the
-route forward for an older codebase. And it is the model with the most writing
-about it outside Roblox, which matters when you are learning `[INFERENCE]`.
+route forward for an older codebase. How much learning material you can find for
+a model is worth checking for yourself before you pick one; this page does not
+measure it `[INFERENCE]`.
 
 Do not read "components re-render" as "there is no fine-grained route". Bindings
 are that route: the README calls them "a form of signals-based state that
@@ -110,8 +135,11 @@ the deviations page describes them as "a unidirectional data binding that can be
 updated outside of the render cycle" `[FACT]`. `createBinding` makes one and
 `useBinding` is the hook form `[FACT]`. `joinBindings` "combines a map or array
 of bindings into a single binding" `[FACT]`, and a bound host property follows
-the binding without the component running again `[FACT]`. Reach for a binding
-for a health bar, a countdown, or a value that moves every frame `[INFERENCE]`.
+the binding without the component running again `[FACT]`. Where this page quotes
+a project calling something efficient — here, and in the table above — that is
+the project's own description of itself and not a measurement, so read it beside
+[§14.5](#145-performance). Reach for a binding for a health bar, a countdown, or
+a value that moves every frame `[INFERENCE]`.
 
 ### Fusion
 
@@ -162,7 +190,11 @@ focus, adaptation and state are plain Luau; only the adapter edge touches an
 things you would otherwise write: nineteen composite controls, native
 `StyleSheet` paint with Studio Style Editor token editing, input across pointer,
 touch, keyboard and gamepad, layout that adapts from a phone to a console, and
-three render targets `[FACT]` ([the guide index](README.md) catalog).
+three render targets `[FACT]` ([the guide index](README.md) catalog). One of
+those controls is worth a line on its own: a virtual list mounts only the rows
+in view plus a bounded overscan margin, scrolling inside that window writes
+rectangles only, and sliding the window adds and removes just the rows that
+entered and left `[FACT]` ([`api.md`](../reference/api.md)).
 
 The cost is the same fact from the other side. It is the largest of the four, it
 decides more on your behalf, and its way of doing things is the way you will do
@@ -282,7 +314,7 @@ current on that date.
 | React Luau | newest tag `v17.1.3` (commit `7455fb005c68ec63326fcfb6b311da99800980b6`); newest published release `v17.0.1`; branch `main` at `9351444c2db37caa08b38ad5de90f438db9221ea` | <https://github.com/Roblox/react-luau> · <https://roblox.github.io/roact-alignment/> · <https://roblox.github.io/roact-alignment/api-reference/react/> · <https://roblox.github.io/roact-alignment/api-reference/react-roblox/> · <https://roblox.github.io/roact-alignment/deviations/> |
 | Fusion | release `v0.3-beta` ("Fusion 0.3"); branch `main` at `2790f7b6272bdf7cd0bbfee259a2f9d79ea20810` | <https://github.com/dphfox/Fusion> · <https://elttob.uk/Fusion/0.3/> · <https://elttob.uk/Fusion/0.3/tutorials/fundamentals/scopes/> · <https://elttob.uk/Fusion/0.3/api-reference/> · <https://elttob.uk/Fusion/0.3/api-reference/roblox/members/new/> · <https://elttob.uk/Fusion/0.3/api-reference/roblox/members/hydrate/> |
 | Vide | release `0.4.1` (commit `5ed4c01940e6bd578fb83253cfbeda0a6c05177c`); branch `main` at `f3bfc65607834370ce84a6e16722282c4d30316c` | <https://github.com/centau/vide> · <https://centau.github.io/vide/> · <https://centau.github.io/vide/tut/crash-course/1-introduction> · <https://centau.github.io/vide/api/reactivity-core.html> · <https://centau.github.io/vide/api/reactivity-dynamic.html> · <https://centau.github.io/vide/api/creation.html> · <https://centau.github.io/vide/api/animation.html> · <https://centau.github.io/vide/api/strict-mode.html> |
-| Roblox styling | the live documentation page on the fetch date | <https://create.roblox.com/docs/ui/styling> |
+| Roblox styling | the live page as read on 2026-08-30; Roblox publishes it unversioned, so it can change under this citation with no version to compare against | <https://create.roblox.com/docs/ui/styling> |
 
 Two notes on the pins. React Luau's newest tag is ahead of its newest published
 release, so both are recorded `[FACT]`. Vide publishes releases without a
