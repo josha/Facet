@@ -437,7 +437,18 @@ def expected_tree():
     return modules, folders
 
 
-ALLOWED_EXTRA = {
+#[[ THE RELEASE METADATA, WHICH IS REQUIRED — not merely tolerated.
+#
+#   This table was called ALLOWED_EXTRA and was used only to keep the
+#   "nothing else is in the model" rule from firing on it. Nothing asked whether
+#   any of it was actually THERE, so a build that silently dropped the whole
+#   Distribution folder — the version stamp, the commit, the source hash, the MIT
+#   text a consumer receives — passed tree inspection with a clean bill. The
+#   distribution plan requires the licence to travel inside the package; a check
+#   that cannot notice its absence does not enforce that.
+#
+#   It is now part of the PRESENCE loop as well as the permission set. ]]
+REQUIRED_DISTRIBUTION = {
     "Facet/Distribution": "Folder",
     "Facet/Distribution/LICENSE": "StringValue",
     "Facet/Distribution/THIRD_PARTY_NOTICES": "StringValue",
@@ -462,13 +473,20 @@ def inspect_tree(manifest):
         entry = present.get(path)
         if entry is None:
             problems.append(f"missing from the model: folder {path}")
+    for path, class_name in sorted(REQUIRED_DISTRIBUTION.items()):
+        entry = present.get(path)
+        if entry is None:
+            problems.append(
+                f"missing from the model: {path} — the release metadata and the MIT text travel inside the "
+                f"package and are not optional"
+            )
+        elif entry["className"] != class_name:
+            problems.append(f"{path} is a {entry['className']}, expected {class_name}")
 
-    known = set(modules) | folders | set(ALLOWED_EXTRA)
+    known = set(modules) | folders | set(REQUIRED_DISTRIBUTION)
     for path in sorted(present):
         if path not in known:
             problems.append(f"UNEXPECTED instance in the model: {path} ({present[path]['className']})")
-        elif path in ALLOWED_EXTRA and present[path]["className"] != ALLOWED_EXTRA[path]:
-            problems.append(f"{path} is a {present[path]['className']}, expected {ALLOWED_EXTRA[path]}")
 
     for path in sorted(present):
         segments = path.split("/")
