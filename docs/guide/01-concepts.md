@@ -29,7 +29,7 @@ local screen = UI.Screen({
     padding = "m",
     gap = "s",
     children = {
-        UI.Text({ id = "Title", text = "Main Menu", textSize = 24 }),
+        UI.Text({ id = "Title", text = "Main Menu", textSize = "title" }),
         UI.Button({ id = "Play", label = "Play" }),
     },
 })
@@ -37,8 +37,12 @@ local screen = UI.Screen({
 
 `padding` and `gap` take a theme spacing token — `"xs"`, `"s"`, `"m"`, `"l"`,
 `"xl"`, which resolve to 4, 8, 16, 24 and 40 pixels under the default theme.
-A plain number is legal and stays exactly that number: it will not follow a
-theme swap or grow on a television.
+`textSize` takes a typography role the same way: `"title"` names a rung on the
+reading ladder (`caption` up to `title`), and a `Text` that names no size at
+all draws at `body`, which already follows the player's preferred text size.
+A plain number is legal in every one of these places and stays exactly that
+number: it will not follow a theme swap, the player's text setting, or grow on
+a television.
 
 That `screen` value is inert data. Turning it into something live is a separate
 step (mounting — see [chapter 3](03-getting-started.md)).
