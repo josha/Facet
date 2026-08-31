@@ -61,8 +61,8 @@ and console/ten-foot. The rows themselves are code, not prose —
 `src/preview/matrix_rows.luau` is where they live, and it is the only definition.
 
 Roles, not device names. `src/preview/matrix_rows.luau` holds the pure selection
-policy: it takes the **live** device catalog and ranks it, so no catalog ID is
-hard-coded anywhere and a Studio release that renames a preset does not silently
+policy: it takes the **live** device catalog and ranks it. No catalog ID is
+hard-coded anywhere. A Studio release that renames a preset does not silently
 break the matrix. Two of its rules exist because the catalog is misleading:
 
 - Roblox classifies its Android TV entry as a **Tablet** (1920×1080 at 44 dpi).
@@ -77,12 +77,12 @@ row with their reason.
 
 A row also declares what must be true of the *running session* once the preset
 is selected — not just what the catalog claimed. The console row requires
-`displaySize == "Large"` (with no touch capability on the preset, so the
-derived `effectiveDisplaySize` reads the same `"Large"`, because the
-touch-vs-`"Large"` correction never fires on a console row), because
+`displaySize == "Large"`. The preset itself has no touch capability, so the
+derived `effectiveDisplaySize` reads the same `"Large"` value — the
+touch-vs-`"Large"` correction never fires on a console row.
 `effectiveDisplaySize` is the fact that actually drives the ×1.5 type floor,
-the overscan margins and the strengthened focus visual. Without it the row
-would measure a large desktop and call it a console.
+the overscan margins, and the strengthened focus visual. Without checking it,
+the row would measure a large desktop and call it a console.
 
 ### Running it
 
@@ -117,18 +117,18 @@ the same, and only one of them forces a second Play session.
 | `displaySize`, `PreferredInput` | follow, but **several frames later** | stable after 7 frames on all five rows |
 | **Touch capability** (`TouchGui`, a touch interaction class) | does **not** follow — decided at Play start from the then-selected preset | a desktop-booted session shows a 360×691 phone viewport with `touch = false` |
 
-So the second session exists for **touch**, not for the display class: the phone
-and tablet rows run in a session booted on a phone preset, and the desktop and
-console rows in one booted on a desktop preset. The console row's
+So the second session exists for **touch**, not for the display class. The
+phone and tablet rows run in a session booted on a phone preset. The desktop
+and console rows run in one booted on a desktop preset. The console row's
 `PreferredInput = Gamepad` *does* arrive mid-session — after seven frames.
 
 That settling delay is the trap. The driver waits for `preferredInput` and
-`displaySize` to hold steady for six consecutive frames and records how many
-frames it took; reading immediately after a console selection returns
-`KeyboardAndMouse`, and a row that recorded it would have said the ten-foot
-session had no gamepad. The viewport needs the same treatment for a different
-reason: it stops changing before an orientation change is finished, so it is
-re-read after the facts settle.
+`displaySize` to hold steady for six consecutive frames, and it records how
+many frames that took. Reading immediately after a console selection returns
+`KeyboardAndMouse`. A row that recorded that value would have said the
+ten-foot session had no gamepad. The viewport needs the same treatment, for a
+different reason: it stops changing before an orientation change is finished.
+So the driver re-reads it after the facts settle.
 
 ## Input: what counts, and what does not
 
@@ -140,8 +140,8 @@ are all present and callable: `SendKey(isPressed, KeyCode)`,
 leaves the button down makes the next press a silent no-op.
 
 > **This paragraph used to say the opposite.** An earlier version of this stage
-> probed four member names that exist under no security level, and — because
-> indexing a missing member *throws* rather than returning `nil` — reported the
+> probed four member names that exist under no security level. Indexing a
+> missing member *throws* rather than returning `nil`, so it reported the
 > throw as a security refusal. The probe is tri-state now (`present` / `absent` /
 > `blocked` / `error`) and keeps the raw error text, which is what makes the
 > difference checkable rather than assumed. The same mistake had produced a
@@ -150,30 +150,29 @@ leaves the button down makes the next press a silent no-op.
 > remembered story.
 
 One open limitation, stated because it is unresolved rather than because it is
-comfortable: in this session VirtualInput's calls **succeeded but delivered no
-observable input events** to the running client, apart from one early press that
-did. The obvious hypothesis — that creating a fresh instance per call breaks
-delivery — was tested and eliminated: one cached instance behaves the same. The
-cause is not established. So this stage's native-input traces came from the
-Studio Model Context Protocol (MCP) injector, every row says so in
-`input.path`, and no row claims
-VirtualInput drove it.
+comfortable: in this session, VirtualInput's calls **succeeded but delivered no
+observable input events** to the running client. One early press was the
+exception. The obvious hypothesis — that creating a fresh instance per call
+breaks delivery — was tested and eliminated: one cached instance behaves the
+same. The cause is not established. So this stage's native-input traces came
+from the Studio Model Context Protocol (MCP) injector. Every row says so in
+`input.path`, and no row claims VirtualInput drove it.
 
 Whichever injector you use, two rules keep it honest:
 
 1. **Calibrate the injection offset per row.** Injected coordinates and the
-   coordinates the engine reports are offset by an amount that depends on the
-   emulated configuration — measured at 47px on a 360×691 phone and 0px on a
-   1080×810 tablet in the same session. A remembered constant silently aims your
-   click somewhere else and the screenshot still looks right. Inject once, read
-   the reported position back, add the delta. (`gameProcessed == false` on the
-   raw event is a free second opinion: a click that hits no GUI is not consumed
-   by the GUI.)
+   coordinates the engine reports are offset by an amount. That amount depends
+   on the emulated configuration: measured at 47px on a 360×691 phone and 0px
+   on a 1080×810 tablet, in the same session. A remembered constant silently
+   aims your click somewhere else and the screenshot still looks right. Inject
+   once, read the reported position back, add the delta. (`gameProcessed ==
+   false` on the raw event is a free second opinion: a click that hits no GUI
+   is not consumed by the GUI.)
 2. **Pair the raw event with the effect.** A capture cannot tell "the control
    did nothing" from "the click missed". The `perf_capture` scenario records
-   both ends inside engine callbacks — the native `InputBegan`/`InputEnded` and
-   the property write that changes what a player sees — so the difference is
-   visible and measurable.
+   both ends inside engine callbacks: the native `InputBegan`/`InputEnded`
+   event, and the property write that changes what a player sees. So the
+   difference is visible and measurable.
 
 Injected pointer input in a phone-shaped viewport is **not** physical touch.
 Synthetic KeyCodes are **not** a gamepad. Those rows stay `PENDING_PHYSICAL`.
@@ -232,31 +231,31 @@ surfaces, so no solver lays them out together and neither can measure the other.
 Floating them over the demo was the first answer and it was wrong: every demo
 puts content somewhere, so a fixed overlay always covers *something*. The
 showcase instead RESERVES a strip, through the same mechanism the CoreGui topbar
-uses — it writes `coreSafeInsets` = (the engine's `GetGuiInset().Y` + the bar
+uses. It writes `coreSafeInsets` = (the engine's `GetGuiInset().Y` + the bar
 height) on every frame, so the solver lays every demo out below both chips.
 Nothing overlaps because nothing floats. Two details are load-bearing and each
 cost a round to find:
 
 - compute the inset **from the engine**, not by adding to whatever
-  `coreSafeInsets` currently holds — the script runs before the adapter has
-  published the real topbar, so the additive form reserved 40px of a 58px topbar
+  `coreSafeInsets` currently holds. The script runs before the adapter has
+  published the real topbar. So the additive form reserved 40px of a 58px topbar
   and put the chips *underneath* the Roblox buttons;
-- clip the chip **label**, not the chip **box** — a Button label wraps inside a
+- clip the chip **label**, not the chip **box**. A Button label wraps inside a
   narrower box, so `maxWidth` grew the chip a second line and pushed it back out
   of the strip and over the demo's title.
 
 **Driving it without a pointer.** The place publishes
 `workspace.FacetShowcaseAPI` (`list`, `current`, `showNext`) as
-BindableFunctions, the same shape the scenario runner uses and for the same
-reason: the Studio MCP's `execute_luau` runs in a different Luau virtual
+BindableFunctions — the same shape the scenario runner uses, and for the same
+reason. The Studio MCP's `execute_luau` runs in a different Luau virtual
 machine (VM) from the
-client LocalScript, so `_G` does not cross but the DataModel does.
+client LocalScript. So `_G` does not cross, but the DataModel does.
 
-`current` and `showNext` both answer `{ current, mounted, ok }`: `current` is the
-demo that was *asked* for, `mounted` is the one actually on screen (`false` when
-the build threw — it runs under a `pcall`, so the failure never leaves the
-client console), and `ok` is whether they agree. Read `mounted`, not `current` —
-a sweep taken on the id alone measured a leftover surface 21 times on 2026-08-15
+`current` and `showNext` both answer `{ current, mounted, ok }`. `current` is
+the demo that was *asked* for. `mounted` is the one actually on screen (`false`
+when the build threw — it runs under a `pcall`, so the failure never leaves the
+client console). `ok` is whether they agree. Read `mounted`, not `current`: a
+sweep taken on the id alone measured a leftover surface 21 times on 2026-08-15
 and called it clean.
 
 The place is evidence of the `studio-emulated` and `desktop-retail` kind at
@@ -266,15 +265,16 @@ best; publishing it and holding it is what produces the `phone-physical` and
 ## The device-emulator visual sweep (gate)
 
 The five-view matrix above proves ONE fixture, ONE theme, per session. The
-director's own recurring finding is different in kind: overlap/cutoff/
-stray-stroke/pop bugs that show up on a THEMED surface (Pixel Quest, Fantasy
-Ornate) that no headless test constructs — because the escape is in how a
-package's own chrome (a glow, a plate, a per-state art rung) interacts with a
-real engine layout, not in the framework's declared geometry. `tools/
-check_device_sweep.py` + `tools/studio/device_sweep_matrix.json` +
+director's own recurring finding is different in kind: overlap, cutoff,
+stray-stroke, and pop bugs that show up on a THEMED surface (Pixel Quest,
+Fantasy Ornate). No headless test constructs these bugs. The escape is in how
+a package's own chrome (a glow, a plate, a per-state art rung) interacts with
+a real engine layout — not in the framework's declared geometry. `tools/
+check_device_sweep.py`, `tools/studio/device_sweep_matrix.json`, and
 `tools/studio/device_matrix.luau`'s `row`/`observe`/`live` modes turn that
-into a gate: a machine-readable verdict over device preset × theme package ×
-scenario, captured once and diffed against a stored baseline forever after.
+into a gate. The gate produces a machine-readable verdict over device preset
+× theme package × scenario. It captures each cell once and diffs it against a
+stored baseline forever after.
 
 **This gate cannot run in CI.** It requires an open Studio session with the
 place injected and an operator (human or agent) driving
@@ -291,19 +291,19 @@ exclusive boot modes (`examples/gallery/client/boot_mode.luau`):
   before Play) drives the base matrix: `theme_authoring` wraps the
   `adaptive_controls` fixture with `installPackage:<name>` package-swapping
   and publishes `workspace.FacetScenarioAPI`. Use `device_matrix`'s `row`
-  mode (select the device preset, then `step("installPackage", theme)`, then
-  `observe`) — this is the only surface with in-place theme swapping, so it
+  mode: select the device preset, then `step("installPackage", theme)`, then
+  `observe`. This is the only surface with in-place theme swapping. So it
   is also what any OTHER scenario-mode fixture (`ref_glade`, `ref_foyer`,
-  `virtual_list_native`, …) is missing: those are driven at `neutral`
-  (their own reference styling) via plain `Facet_Scenario = "<name>"` +
-  `observe`.
+  `virtual_list_native`, …) is missing. Those fixtures are driven at
+  `neutral` (their own reference styling) instead, via plain
+  `Facet_Scenario = "<name>"` + `observe`.
 - **Showcase mode** (`Facet_Showcase = true`, the default — leave
   `Facet_Scenario` unset) is the only way to reach a themed `hud`/`menu`/
-  `tab_view`/`row-actions` demo, because `demo_picker.DEMOS` (not the
+  `tab_view`/`row-actions` demo. This is because `demo_picker.DEMOS` (not the
   scenario registry) is what the showcase's in-game theme chip drives, and
   it lists those by id. Select the demo via `workspace.FacetShowcaseAPI.
   showNext`/`current`, apply a package via `pickPackage`, then use
-  `device_matrix`'s **`live` mode** (`observeLive`) — showcase mode never
+  `device_matrix`'s **`live` mode** (`observeLive`). Showcase mode never
   creates `FacetScenarioAPI`, so `live` walks `Players.LocalPlayer.PlayerGui`
   directly with the same containment/paint judgement (`judgeInstanceTrees`,
   shared by both `observe` and `live`) instead of depending on it. The
@@ -311,46 +311,47 @@ exclusive boot modes (`examples/gallery/client/boot_mode.luau`):
   windowed (non-`ActualResolution`-forced) viewport, because that is the
   director's own repro shape. **Naming trap**: the showcase's package ids use
   **hyphens** (`pickPackage("pixel-quest")`, `pickPackage("fantasy-ornate")`) — its own
-  `identity.id` convention — while `theme_authoring`'s `installPackage` step
-  matches the FacetThemes folder's **file basenames**, underscored
-  (`"pixel_quest"`, `"fantasy_ornate"`); both name the same packages,
+  `identity.id` convention. `theme_authoring`'s `installPackage` step
+  instead matches the FacetThemes folder's **file basenames**, underscored
+  (`"pixel_quest"`, `"fantasy_ornate"`). Both name the same packages,
   reachable through the boot mode each is native to. `live` mode has two
-  further disclosed limits versus `observe`: no solver-diagnostics visibility
-  at all (only `FacetScenarioAPI.report()` exposes them), and `unfitText`
-  carries no declared/undeclared distinction (no `textPolicies` channel
-  outside scenario mode) — treat a `live`-mode `unfitText` entry as
-  informational, not gating.
+  further disclosed limits versus `observe`. First, it has no
+  solver-diagnostics visibility at all (only `FacetScenarioAPI.report()`
+  exposes them). Second, `unfitText` carries no declared/undeclared
+  distinction (no `textPolicies` channel outside scenario mode). Treat a
+  `live`-mode `unfitText` entry as informational, not gating.
 
 **The matrix**: `device_sweep_matrix.json`'s `deviceRows` × `themes` on
-`baseScenario` is the floor (5 × 3 = 15 cells); `notableCells` names specific
+`baseScenario` is the floor (5 × 3 = 15 cells). `notableCells` names specific
 director-reported surfaces beyond it (each with its own device row, theme,
-scenario, and a `director` field citing the finding it re-proves) that the
-gate REQUIRES evidence for; `plannedCells` holds cells identified but not yet
-driven (each with a `status` explaining why) — moving a cell there is how you
-defer it honestly instead of leaving the gate permanently red over future
-work. Captures
+scenario, and a `director` field citing the finding it re-proves); the gate
+REQUIRES evidence for these. `plannedCells` holds cells identified but not
+yet driven (each with a `status` explaining why). Moving a cell there is how
+you defer it honestly, instead of leaving the gate permanently red over
+future work. Captures
 follow `capture_viewport.sh`'s convention:
 `<deviceRow>__<theme>__<scenario>.png`, or a notable cell's own `id` in place
 of `deviceRow` when it overrides the viewport.
 
-**Evidence**: one JSON file per cell in
-`artifacts/device-emulator-sweep/rows/<cell>.json` (schema documented in
-`check_device_sweep.py`'s header — `ok`, `evidenceClass`, the four finding
+**Evidence**: one JSON file per cell lives in
+`artifacts/device-emulator-sweep/rows/<cell>.json`. Its schema is documented
+in `check_device_sweep.py`'s header: `ok`, `evidenceClass`, the four finding
 arrays, `solverDiagnostics`, `settledTwice`, a `capture` path with its
-sha256, and a `triage` block on every red cell), one PNG per cell in
-`artifacts/device-emulator-sweep/captures/`, and a `baseline.json` mapping
-cell → last-known verdict so a future run's red cell can say WHAT regressed
-rather than just that something is red. `check_device_sweep.py` (no
-`--selftest`) reads all of this and exits non-zero on any MISSING cell or
+sha256, and a `triage` block on every red cell. There is also one PNG per
+cell, in `artifacts/device-emulator-sweep/captures/`, and a `baseline.json`
+mapping cell → last-known verdict. That lets a future run's red cell say WHAT
+regressed, rather than just that something is red. `check_device_sweep.py`
+(no `--selftest`) reads all of this and exits non-zero on any MISSING cell or
 untriaged REGRESSION.
 
 **The "first-paint watch" substitute.** If a first-paint/transition
-invariant with an on-glass arm exists for the surface under test, wire it in;
-otherwise (the common case here) call `observe`/`live` twice, a beat apart,
-and record `settledTwice = true` only when both calls agree — proving the
-settled frame matches what a fresh re-solve produces, per a `hud`/`Shrink`-
-class fixture whose Vocab chip layout genuinely shifts for several frames
-after a package swap before it settles (measured live, task SWEEP).
+invariant with an on-glass arm exists for the surface under test, wire it in.
+Otherwise (the common case here), call `observe`/`live` twice, a beat apart,
+and record `settledTwice = true` only when both calls agree. That proves the
+settled frame matches what a fresh re-solve produces. The proof case is a
+`hud`/`Shrink`-class fixture whose Vocab chip layout genuinely shifts for
+several frames after a package swap, before it settles (measured live, task
+SWEEP).
 
 **Trigger discipline** — run this sweep:
 - before any director device-pass/review of the showcase or a reference app;
@@ -364,77 +365,79 @@ after a package swap before it settles (measured live, task SWEEP).
   row proving it must exist and pass first.
 
 **Traps specific to this gate** (measured, task SWEEP): kill any stale
-`studio_sync` on `:8642` before injecting — a second server silently answers
-alongside a leaked one and there is no error, only stale sources. A node's
-own `Visible` property says nothing about a HIDDEN ANCESTOR — a
-ViewThatFits-style construction's losing candidate is fully mounted, and its
+`studio_sync` on `:8642` before injecting. A second server silently answers
+alongside a leaked one, and there is no error — only stale sources. A node's
+own `Visible` property says nothing about a HIDDEN ANCESTOR. A
+ViewThatFits-style construction's losing candidate is fully mounted. Its
 own chrome decorations (`FacetChrome`/`FacetChromeText`) read `Visible =
-true` on themselves while the collapsed parent is `Visible = false`; without
+true` on themselves, while the collapsed parent is `Visible = false`. Without
 tracking hidden ancestry the same way clip ancestry is tracked, the
 offscreen/containment/unfit checks report the loser's stale collapsed-width
-geometry as a live defect (`device_matrix.luau`'s `effectivelyHidden`
-annotation on the shared census, fixed in task SWEEP after it produced a
-false six-node offscreen finding on a themed phone-portrait cell). A manual
+geometry as a live defect. The fix is `device_matrix.luau`'s `effectivelyHidden`
+annotation on the shared census, added in task SWEEP after this bug produced a
+false six-node offscreen finding on a themed phone-portrait cell. A manual
 `ScrollingFrame.CanvasPosition` write for investigation purposes can conflict
-with the framework's own reactive control of that property — call
-`FacetScenario.reset()` (or re-enter the demo) rather than trusting a session
+with the framework's own reactive control of that property. Call
+`FacetScenario.reset()` (or re-enter the demo) instead of trusting a session
 that has been hand-scrolled.
 
 **Known gate limitations** (found by live measurement this round, not fixed).
 Two further CHECKER limitations, found by the closing re-review (parked with
 rulings — see the campaign ledger and
 `review-finalwave-verdicts.md` for the mutation evidence): (4) a row's waiver
-is ROW-level, not finding-scoped — a row that already carries any waiver will
-silently PASS a NEW escape class; when adding a waiver, re-read the whole
+is ROW-level, not finding-scoped. A row that already carries any waiver will
+silently PASS a NEW escape class. When adding a waiver, re-read the whole
 row's evidence, and treat any waivered row's PASS as covering only what the
 waiver names. (5) the summary line double-books triaged `real-regression`
 cells inside PENDING, so its bucket counts can exceed the required-cell
-total; the REAL-REGRESSION count is authoritative, the PENDING count may
+total. The REAL-REGRESSION count is authoritative; the PENDING count may
 overlap it.
-Limitations 1 and 2 are false-**NEGATIVE**-only: each is a class of real
-defect the check structurally cannot see, so a red cell from that same check
+Limitations 1 and 2 are false-**NEGATIVE**-only. Each is a class of real
+defect the check structurally cannot see. So a red cell from that same check
 is still trustworthy — it just cannot promise there is nothing else wrong.
 Limitation 3 is the opposite direction and does not get the same reassurance:
 it is a false-**POSITIVE** generator. A prior draft of this list called
-limitation 3 false-negative-only too, which was backwards and was corrected
-after an independent review of the sweep evidence — limitation 3 is the
-single largest source of findings in the shipped sweep evidence (8 entries
+limitation 3 false-negative-only too. That was backwards, and it was
+corrected after an independent review of the sweep evidence. Limitation 3 is
+the single largest source of findings in the shipped sweep evidence (8 entries
 on `ps5-showcase-hud` alone, 2 on every `live`-sourced matrix cell). **Do not
-cite "false-negative direction only" to wave off a limitation-3 finding —
-read it as a real, expected red that needs an explicit per-entry waiver,
-never a reason to hand-set `ok: true` on the whole cell** (the same review
-found exactly that had happened — an `ok: true` cell whose own recorded
-finding arrays were never cross-checked against the claim):
+cite "false-negative direction only" to wave off a limitation-3 finding.**
+Read it as a real, expected red that needs an explicit per-entry waiver.
+It is never a reason to hand-set `ok: true` on the whole cell. (The same
+review found exactly that had happened: an `ok: true` cell whose own
+recorded finding arrays were never cross-checked against the claim.) The
+three limitations:
 
 - **Containment tests ancestor-escape, not sibling-adjacency** (false
   negative). A decoration that sits flush at zero inset against a SIBLING's
   edge under a shared ZStack (a badge overlapping its own tile's corner, say)
-  can never be flagged: `judgeContainment` only walks name-PREFIX ancestry to
-  find a tagged boundary, and two siblings composed under a shared,
+  can never be flagged. `judgeContainment` only walks name-PREFIX ancestry to
+  find a tagged boundary. Two siblings composed under a shared,
   often-untagged, sometimes not even materialized group node have no
   ancestry relationship to test at all. Confirmed live: a HUD tile badge
   sitting flush at its own tile's top-right corner with zero inset reads
   `containment: []`.
 - **Containment tests position/size, never shape** (false negative). A
-  decoration positioned and sized exactly right but painted with the wrong
-  corner radius (a hardcoded-radius focus ring on a squared-off package's
-  button, which has no `UICorner` of its own to compare against) is invisible
-  to every existing check — `dumpGuiInstance` already counts
-  `modifierChildren.UICorner`, but nothing reads the radius VALUE or compares
-  it to anything.
+  decoration can be positioned and sized exactly right but painted with the
+  wrong corner radius. Example: a hardcoded-radius focus ring on a
+  squared-off package's button, which has no `UICorner` of its own to
+  compare against. That decoration is invisible to every existing check.
+  `dumpGuiInstance` already counts `modifierChildren.UICorner`, but nothing
+  reads the radius VALUE or compares it to anything.
 - **The offscreen check has no exemption for a deliberately negative-Y
   reserved chrome band, and that makes it a false POSITIVE generator, not a
   false negative.** The showcase's own topbar-strip reservation, and any HUD
   strip mounted inside it, both legitimately paint above `y = 0` by design
   (matching `coreSafeInsets.top`, `tests/lib/device_views.luau`'s
-  `CORE_TOP = 58`); only `ScrollingFrame` clipping is exempted today, so this
-  whole class reads as **spurious** `offscreenNodes` — a red the check raises
-  over nothing wrong, which is the textbook definition of a false positive.
-  An `offscreenNodes` entry at exactly `pos.y == -coreSafeInsets.top` is
-  expected, machine-checkable, and must be waived per-entry by the gate's own
-  derived-verdict pass (`tools/check_device_sweep.py`, which derives `ok`
-  from the row's recorded evidence rather than trusting it verbatim) — never
-  dismissed by hand-setting the whole cell's `ok` to `true`.
+  `CORE_TOP = 58`). Only `ScrollingFrame` clipping is exempted today, so this
+  whole class reads as **spurious** `offscreenNodes`. That is a red the
+  check raises over nothing wrong — the textbook definition of a false
+  positive. An `offscreenNodes` entry at exactly
+  `pos.y == -coreSafeInsets.top` is expected and machine-checkable. It must
+  be waived per-entry by the gate's own derived-verdict pass
+  (`tools/check_device_sweep.py`, which derives `ok` from the row's recorded
+  evidence rather than trusting it verbatim). It must never be dismissed by
+  hand-setting the whole cell's `ok` to `true`.
 
 ## What the automated matrix can never close
 
