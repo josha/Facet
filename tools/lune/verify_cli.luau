@@ -268,6 +268,18 @@ if tier == "affected" then
 	end
 end
 
+--[[ WHAT GIT ACTUALLY TRACKS, asked once. Used to tell a deleted checked-in
+	record from a run-produced one that this checkout has simply never made. ]]
+local trackedPaths: { [string]: boolean } = {}
+do
+	local listed = process.exec("bash", { "-c", "git ls-files" })
+	if listed.ok then
+		for line in string.gmatch(listed.stdout or "", "[^\n]+") do
+			trackedPaths[line] = true
+		end
+	end
+end
+
 -- ---- evidence ---------------------------------------------------------------
 
 --[[ A producer's record, whether it ran in THIS run or is a stored result for
@@ -605,7 +617,21 @@ local function evaluate(row: graphMod.Row): (string, string)
 	end
 
 	if row.evidence ~= nil and not fs.isFile(row.evidence) then
-		return "FAIL_RECOVERABLE", `missing evidence artifact {row.evidence}`
+		--[[ A PIN ON A FILE A RUN PRODUCES IS NOT THE SAME AS A BROKEN PIN.
+			193 of the 211 evidence paths in this graph are git-ignored records
+			that some run writes; 18 are checked in. An absent CHECKED-IN pin is
+			a broken row -- somebody deleted evidence. An absent git-ignored one
+			is a checkout that has not produced it yet, which on a public clone
+			is every single one of them, and reporting that as a failure told a
+			first-time reader the graph was broken. `check_manifest_integrity`
+			has drawn this distinction since it was written; the row evaluator
+			had not. FAIL_ENVIRONMENT is non-blocking at full and blocking at
+			release, so nothing is waived where it matters. ]]
+		if trackedPaths[row.evidence] then
+			return "FAIL_RECOVERABLE", `missing evidence artifact {row.evidence}, which is CHECKED IN and gone`
+		end
+		return "FAIL_ENVIRONMENT",
+			`evidence artifact {row.evidence} is git-ignored and produced by a run; this checkout has not produced it`
 	end
 
 	return "PASS", row.note

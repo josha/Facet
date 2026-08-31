@@ -197,6 +197,39 @@ NEW_PRODUCERS = [
         "note": "the private archive still holds the bytes every receipt in this graph names",
     },
     {
+        #[[ THE STUDIO TREE ABOVE THIS REPOSITORY IS EXTERNAL TOO.
+        #   One row greps two specialist documents at `../../specialists/`, which
+        #   is inside the workspace this library is developed in and outside
+        #   every clone of it. On a public clone the greps found nothing and the
+        #   row read as a failed assertion. Wrapped in a producer that says
+        #   FAIL_ENVIRONMENT and exits 2 when the tree is not there -- the same
+        #   contract the consuming game's checkout already has -- so the row goes
+        #   yellow with a reason instead of red with a mystery. ]]
+        "id": "studio-specialist-docs",
+        "command": (
+            "test -d ../../specialists || { "
+            "echo 'check_specialist_docs: FAIL_ENVIRONMENT the studio tree above this "
+            "repository is not beside this checkout'; exit 2; }; "
+            "grep -q 'Designing for Facet' ../../specialists/UI_DESIGNER.md && "
+            "grep -q 'Building on Facet' ../../specialists/UI_ENGINEER.md && "
+            "grep -q semantic ../../specialists/UI_DESIGNER.md && "
+            "grep -q 'docs/guide/README.md' ../../specialists/UI_ENGINEER.md && "
+            "echo 'check_specialist_docs: PASS both specialist documents name this library'"
+        ),
+        "inputs": [],
+        "fixtures": [],
+        "environmentClass": "external",
+        "kind": "external",
+        "tiers": {"fast": True, "full": True, "release": True},
+        "serialize": False,
+        "timeoutS": 60,
+        "optional": False,
+        "declaredEvidence": False,
+        "dependsOn": [],
+        "note": "the two specialist documents in the studio tree above this repository still "
+        "route their readers here; absent, it is an environment failure and never a silent pass",
+    },
+    {
         #[[ DR-14 asks whether the release interface REFUSES what it must, and
         #   only `--selftest` can answer that: it drives every refusal on
         #   purpose against a fake transport that never reaches the network, and
@@ -700,6 +733,14 @@ ROW_FLIPS = {
     #   stray spec while it worked. Both reports carry findings, and the findings
     #   are the point -- a fresh-agent exercise that finds nothing has not been
     #   run. The row asserts the verdict line, which is where SUCCESS is written. ]]
+    "phase-4-hardening::specialist-docs-updated": (
+        {"producers": ["studio-specialist-docs"]},
+        "the two specialist documents in the studio tree above this repository still name this "
+        "library and route their readers to its guide -- asked through an external-class producer, "
+        "so a checkout without that tree reports an environment failure rather than four greps "
+        "that found nothing",
+        None,
+    ),
     "distribution-readiness::fresh-agent-builds-screen": (
         {
             "shell": (

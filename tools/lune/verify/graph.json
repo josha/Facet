@@ -5,7 +5,7 @@
   "phases": "phases.json",
   "suiteResults": "suite_real.json"
  },
- "maintainedAt": "2026-08-31T04:11:52Z",
+ "maintainedAt": "2026-08-31T04:28:33Z",
  "phases": [
   {
    "artifactDir": "artifacts/phase-0-foundation",
@@ -5161,6 +5161,25 @@
     "release": true
    },
    "timeoutS": 600
+  },
+  {
+   "command": "test -d ../../specialists || { echo 'check_specialist_docs: FAIL_ENVIRONMENT the studio tree above this repository is not beside this checkout'; exit 2; }; grep -q 'Designing for Facet' ../../specialists/UI_DESIGNER.md && grep -q 'Building on Facet' ../../specialists/UI_ENGINEER.md && grep -q semantic ../../specialists/UI_DESIGNER.md && grep -q 'docs/guide/README.md' ../../specialists/UI_ENGINEER.md && echo 'check_specialist_docs: PASS both specialist documents name this library'",
+   "declaredEvidence": false,
+   "dependsOn": [],
+   "environmentClass": "external",
+   "fixtures": [],
+   "id": "studio-specialist-docs",
+   "inputs": [],
+   "kind": "external",
+   "note": "the two specialist documents in the studio tree above this repository still route their readers here; absent, it is an environment failure and never a silent pass",
+   "optional": false,
+   "serialize": false,
+   "tiers": {
+    "fast": true,
+    "full": true,
+    "release": true
+   },
+   "timeoutS": 60
   }
  ],
  "rows": [
@@ -6740,13 +6759,15 @@
   },
   {
    "check": {
-    "shell": "grep -q 'Designing for Facet' ../../specialists/UI_DESIGNER.md && grep -q 'Building on Facet' ../../specialists/UI_ENGINEER.md && grep -q 'semantic' ../../specialists/UI_DESIGNER.md && grep -q 'docs/guide/README.md' ../../specialists/UI_ENGINEER.md"
+    "producers": [
+     "studio-specialist-docs"
+    ]
    },
-   "class": "evidence-pin",
+   "class": "exit0",
    "evidence": null,
    "id": "phase-4-hardening::specialist-docs-updated",
    "name": "specialist-docs-updated",
-   "note": "specialist-docs-updated: its file-existence and text assertions must hold. Requirements: UI-AGENT-001.",
+   "note": "specialist-docs-updated: the two specialist documents in the studio tree above this repository still name this library and route their readers to its guide -- asked through an external-class producer, so a checkout without that tree reports an environment failure rather than four greps that found nothing. Requirements: UI-AGENT-001.",
    "phase": "phase-4-hardening",
    "releaseBlocking": false,
    "requirements": [
