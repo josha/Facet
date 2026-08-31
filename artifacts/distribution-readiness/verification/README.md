@@ -130,6 +130,15 @@ command that reproduces it:
 - the rest are the **prior-phase rows**, which are red exactly because an
   earlier phase is: that is the row doing its job.
 
+## Two release-graph producers have no row
+
+`check_no_fusion` and `check_links_cli` both run at release and both were seen to
+go from PASS to FAIL when their defect was planted — naming the planted require
+in the source AND in the built model, and naming the dead link and its line. But
+no row in the graph asserts either one, because the rows that will are two of the
+thirty-four PENDING registration rows the director owns. Until those are given a
+`run`, both producers report into the run's status and neither reddens a phase.
+
 ## Left for the director
 
 - `tools/lune/gate_manifest.luau` stays for the archival step. The graph is
@@ -140,3 +149,10 @@ command that reproduces it:
   as text; both lists are in `coverage-map.md` for the archival pass.
 - `UI-LAYOUT-003` (text premeasurement) has no living row. It had none before
   this conversion either — the coverage map says so in its own column.
+- `tools/lune/gate_legacy.luau` is KEPT, not deleted. The plan says to delete it
+  once parity is proven, and parity is proven for three mutations on both paths —
+  but one mutation did not reproduce its defect at all (M3) and one was caught
+  only by the new path (M4), so the old path is still the only way to re-ask the
+  question. It reads the manifest, which is staying for the archival step anyway,
+  and it writes `gate-legacy.json` so it cannot overwrite a live verdict. The
+  call to delete it belongs with the archival pass.

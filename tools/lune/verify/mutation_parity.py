@@ -189,7 +189,7 @@ def build_corpus():
         raise AssertionError("no cited focus case found to rename")
 
     muts.append(Mutation(
-        "M4", "an it() a gate row names is renamed", "phase-0-foundation", "parity",
+        "M4", "an it() a gate row names is renamed", "navigation-and-menus", "parity",
         m4_apply, lambda: _restore(state["m4"]),
         "the changed-test-ID mutation: a missing id is a loud FAIL, never a satisfied lookup",
     ))
@@ -221,7 +221,7 @@ def build_corpus():
         _append(DOC, "\nSee [the page that is not there](./99-no-such-chapter.md) for more.\n")
 
     muts.append(Mutation(
-        "M8", "a broken link is planted in a public guide", "release-candidate-review", "parity",
+        "M8", "a broken link is planted in a public guide", "theme-packages-and-skinning", "parity",
         m8_apply, lambda: _restore(state["m8"]),
         "a scanner producer that fails must redden every row that asserts its exit 0",
     ))
@@ -232,9 +232,11 @@ def build_corpus():
         _append(SRC, '\nlocal _bakeoff = require("Fusion")\n')
 
     muts.append(Mutation(
-        "M9", "a require of the excised third-party core is planted in src/", "distribution-readiness", "parity",
+        "M9", "a require of the excised third-party core is planted in src/", "distribution-readiness", "producer",
         m9_apply, lambda: _restore(state["m9"]),
-        "the hard no-third-party-core check, exercised as a producer",
+        "the hard no-third-party-core check runs at release but NO ROW asserts it yet — the row "
+        "that will is one of the director's PENDING registration rows — so the proof is at the "
+        "producer: it must go from PASS to FAIL",
     ))
 
     # ---- M13: a PENDING row is flipped to PASS -----------------------------
@@ -421,6 +423,19 @@ def run_mutation(m, results):
             print(f"      new path first: {new_new_failures[0][:110]}")
         if old_new_failures:
             print(f"      old path first: {old_new_failures[0][:110]}")
+    elif m.kind == "producer":
+        # The claim is about a PRODUCER, not a row: it must go from PASS to FAIL.
+        sh("tools/verify.sh release")
+        before = _producer_status("check_no_fusion")
+        m.apply()
+        try:
+            code, out, secs = sh("tools/verify.sh release")
+            after = _producer_status("check_no_fusion")
+        finally:
+            m.restore()
+        row["producerBefore"], row["producerAfter"] = before, after
+        row["verdict"] = "NEW-ONLY" if (before == "PASS" and after == "FAIL") else "REVIEW"
+        print(f"  producer check_no_fusion: {before} -> {after}  ({secs:.0f}s)")
     elif m.kind == "reuse":
         # The question is not "does it go red" but "does it REFUSE TO REUSE".
         m.apply()
@@ -459,10 +474,34 @@ def _reuse_reason(out):
         stripped = _strip_ansi(line).strip()
         if stripped.startswith("invalidation:") and "no stored result" not in stripped:
             return stripped
-        if "body hash mismatch" in stripped or "different toolchain" in stripped or "evidence classes are never upgraded" in stripped or "silent zero" in stripped or "partial run" in stripped:
-            return stripped
+        for marker in (
+            "body hash mismatch",
+            "different toolchain",
+            "evidence classes are never upgraded",
+            "silent zero",
+            "partial run",
+            "fewer specs reported",
+            "than the",
+            "a failed producer is rerun",
+            "is incomplete",
+        ):
+            if marker in stripped:
+                return stripped
     return ""
 
+
+
+def _producer_status(pid):
+    path = os.path.join(SCRATCH, "artifacts/verify/latest-release.json")
+    try:
+        with open(path) as fh:
+            record = json.load(fh)
+    except (OSError, ValueError):
+        return "unknown"
+    for p in record["producers"]:
+        if p["id"] == pid:
+            return p["status"]
+    return "absent"
 
 
 def _failing_rows_old(out):

@@ -147,16 +147,15 @@ if tier == "affected" then
 		print("verify: no changed paths against HEAD — nothing is affected")
 	end
 elseif gatePhase ~= nil then
+	--[[ A GATE RUNS WHAT ITS OWN PHASE NEEDS, AND NOTHING ELSE.
+		Every other phase is still evaluated — from whatever results the store
+		already holds — but a standalone gate does not re-run the world to
+		satisfy them. That is the difference between "a gate may PULL a missing
+		dependency into the run once" and "a gate is a full run with a filter",
+		and the second one costs a suite. ]]
 	local rows = graphMod.rowsForPhase(g, gatePhase)
 	for _, id in graphMod.producersForRows(rows) do
 		select(id, `the phase '{gatePhase}' needs it`)
-	end
-	-- ...plus the tier's own producers, so `full --gate X` is still a full run
-	-- and only `--gate X` on its own is the narrow pull.
-	if tier ~= "fast" then
-		for _, id in graphMod.producersForTier(g, tier) do
-			select(id, `the {tier} tier runs it`)
-		end
 	end
 else
 	for _, id in graphMod.producersForTier(g, tier) do

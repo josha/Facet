@@ -62,7 +62,62 @@ two green producers hold.
 
 ## Results
 
-<!--RESULTS-->
+Thirteen mutations, all run. Every number below is from a run in this session;
+the transcripts are `/tmp/mut_cheap.txt`, `/tmp/mut_hard.txt` and `/tmp/mut_fix.txt`,
+and the machine-readable records are the `--out` JSON files beside them.
+
+| # | What it broke | Old path | New path | Verdict |
+|---|---|---|---|---|
+| M1 | a focus case's expectation | **+3 failing rows** (`modal-focus-spike` first) | **+201 failing rows** (`api-architecture-consistency::compatible-fixes-proven` first) | **PARITY** — 316 s, through the full suite |
+| M2 | a spec's `require`, deleted | **+4** (`compatible-fixes-proven` first) | **+228** | **PARITY** — 326 s, through the full suite |
+| M3 | a main-thread yield appended to a spec | +0 | +0 | **DID NOT REPRODUCE** — see below |
+| M4 | an `it()` a gate row names, renamed | +0 | **+1** (`navigation-and-menus::d0-one-run-per-sweep`) | **NEW-ONLY** — the old path did not notice |
+| M5 | a stored result edited after it was written | — | refused: *body hash mismatch — the stored result was edited after it was written* | **REFUSED** |
+| M6 | a result claiming another toolchain (re-hashed) | — | refused: *stored result was produced under a different toolchain* | **REFUSED** |
+| M7 | an evidence document a row pins, deleted | **+1** (`d0-one-run-per-sweep`) | **+1** (`navigation-and-menus::d0-one-run-per-sweep`) | **PARITY** — the same row, by name, on both |
+| M8 | a dead link planted in a public guide | no row asserts it | `check_links_cli` **PASS → FAIL**, naming the dead link and its line | **REFUSED at the producer** |
+| M9 | a require of the excised third-party core, planted in `src/` | no row asserts it | `check_no_fusion` **PASS → FAIL**, 2 violations naming the line in the source AND in the built model | **REFUSED at the producer** |
+| M10 | a source edit under a stored result | — | the suite was **not reused**: *no stored result for this identity* | **REFUSED REUSE** |
+| M11 | a partial suite result (a quarter of the cases, re-hashed so only the partial rule can fire) | — | the store **refuses to serve it**; restoring the file makes it serve again | **REFUSED** |
+| M12 | a `perf`-class result offered to a deterministic row (re-hashed) | — | refused: *stored result is class 'perf' but the row requires 'deterministic'* | **REFUSED** |
+| M13 | a PENDING row flipped to PASS with nothing behind it | +0 — the old system has no graph to fake | **+44** | **NEW-ONLY** |
+
+**Three mutations went red on both paths** (M1, M2, M7), two of them through a
+complete suite run, which is the "at least three through the full suite path"
+the plan asks for. **Six are refusals only the new path can make**, because the
+old system had no result store to corrupt — and each of those six is ALSO
+asserted in isolation by `lune run tools/lune/verify/selftest`, which makes all
+thirty-two of the store's checks happen on purpose in a scratch directory.
+
+### The four that did not come out as expected, stated rather than smoothed over
+
+**M3 did not reproduce the defect it was aiming at.** Appending
+`task.wait(0.01)` to a spec did not truncate the run under Lune 0.10.4: the
+suite completed, so neither path had anything to notice. The REFUSAL is proven —
+`suiteRefusal` rejects a run with no summary, with fewer specs reported than
+registered, and with fewer passes than registered spec modules, each asserted by
+the selftest, and M11 exercises the same rule end to end on a real stored result.
+What is NOT proven is that this particular trigger still produces that shape.
+
+**M4 was caught by the new path and missed by the old one.** Renaming a case a
+gate row names added one failing row on the new path and none on the old. That is
+the asymmetry the conversion was for — an id lookup cannot silently match a
+different sentence — but it is the opposite of parity, so it is recorded as
+NEW-ONLY rather than counted as one.
+
+**M8 and M9 have no row to redden.** `check_links_cli` and `check_no_fusion` both
+run in the release graph and both go from PASS to FAIL when their defect is
+planted, naming it precisely. Neither is asserted by any row yet, because the
+rows that will assert them are two of the director's thirty-four PENDING
+registration rows. **That is a finding for the director, not a gap in the
+conversion**: two release-graph producers are currently unconsumed.
+
+### What the corpus cost
+
+M1 and M2 each spend a full suite run on each path (316 s and 326 s). The rest
+are seconds, because the store serves everything the mutation did not touch —
+which is itself a measurement of the thing being proved.
+
 
 ## What only the new path can see, and why that is not a gap
 
@@ -76,4 +131,5 @@ every full and release tier. Each of these five is ALSO asserted in isolation by
 `lune run tools/lune/verify/selftest`, which makes all thirty-one refusals happen
 on purpose in a scratch directory.
 
-<!--NEWONLY-->
+The six are M5, M6, M8, M9, M11 and M12. M8 and M9 are refusals at the producer
+rather than at a row, for the reason given above.
