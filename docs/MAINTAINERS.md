@@ -101,7 +101,7 @@ specs appear there rather than under core.
 | an **input behavior** | `src/input/` for the model, `src/client/roblox_input.luau` for the real device, never both | [new-platform-mode.md](extending/new-platform-mode.md) and [guide 07](guide/07-input.md) |
 | a **theme feature** | `src/themes/package.luau` for the schema and compiler, `src/tokens/` for what it compiles to | [new-theme.md](extending/new-theme.md), or [skinned-control.md](extending/skinned-control.md) for a control with its own art |
 | a **device or platform fact** | `src/env/environment.luau` publishes it, `src/client/roblox_env.luau` reads it off the engine | [new-platform-mode.md](extending/new-platform-mode.md) |
-| an **example** | `examples/gallery/examples/` for a tutorial, `examples/reference/` for a whole application | [guide 04](guide/04-tutorial-examples.md) |
+| an **example** | `examples/gallery/examples/` for a tutorial, `examples/reference/` for a whole application | [guide 04](guide/04-tutorial-examples.md) | (The third example tree is `examples/consumer/`, the runnable standalone project the README points newcomers at; its own `README.md` names its spec and inner loop.)
 | a **Studio scenario** | `examples/gallery/scenarios/`, registered in that folder's `init.luau` order | [guide 11](guide/11-device-verification.md) |
 | a **test helper** | `tests/lib/` for a shared fake or fixture, `tests/fixtures/` for shared data | [guide 02](guide/02-architecture.md#23-extension-points) |
 | a **checker** | `tools/lune/` for a Luau check, `tools/` for a Python check; give it a failing case | [section 4](#4-how-this-file-stays-true) |

@@ -21,6 +21,11 @@ python3 --version             # 3.9 or newer; several checks are Python
 tools/doctor.sh               # verifies the toolchain and the library invariants
 ```
 
+The first `rokit install` on a machine may stop with "has not been marked as
+trusted": that is rokit asking you to confirm each tool's source once. Run the
+`rokit trust <tool>` commands it prints (or `rokit install --no-trust-check` if
+you accept the pins in `rokit.toml` as they stand), then re-run it.
+
 Four tools do the work.
 
 - **Lune** runs the test suite and every Luau checker. Facet's decision layer is
