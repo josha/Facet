@@ -686,6 +686,18 @@ def is_publishable(text: str) -> bool:
 ARCHIVAL_TREE = (
     r"artifacts/|docs/plans/|docs/handoff/|docs/research/|docs/superpowers/|\.superpowers/|ui_todo\.md"
 )
+#[[ …AND A ROW THAT READS ONE OF THEM DEPENDS ON THE PRODUCER THAT WRITES IT.
+#   `grep -q … artifacts/bench.json` is not an archival pin, it is a read of a
+#   measurement — and at the `full` tier, where the benchmark does not run, that
+#   file may simply not be there. Declaring the dependency makes the row
+#   NOT_EVALUATED at full and judged at release, instead of failing on an absent
+#   file it never asked anyone to produce. ]]
+REGENERATED_BY = {
+    "artifacts/bench.json": "bench",
+    "artifacts/boundary.json": "check_boundary",
+    "artifacts/phase-4/perf.json": "perf",
+}
+
 REGENERATED = re.compile(
     r"artifacts/(?:conformance-[A-Za-z0-9$_{}]+\.json|bench\.json|test\.json|boundary\.json|verify/)"
 )
@@ -1264,6 +1276,9 @@ def main() -> int:
             # `--status` is NOT touched: it asks the cache a question and starts
             # nothing, and two rows assert exactly that the cache is warm.
             if shell is not None:
+                for produced, producer_id in REGENERATED_BY.items():
+                    if produced in shell:
+                        add_producer(producer_id)
                 shell, transcripts = repoint_transcripts(shell)
                 for which in transcripts:
                     add_producer("rascalrally-suite" if which == "rr" else "suite")

@@ -1,5 +1,5 @@
 {
- "generatedAt": "2026-08-31T00:30:01Z",
+ "generatedAt": "2026-08-31T00:32:48Z",
  "generatedFrom": {
   "manifest": "tools/lune/gate_manifest.luau",
   "phases": "phases.json",
@@ -6342,7 +6342,8 @@
   {
    "check": {
     "producers": [
-     "suite"
+     "suite",
+     "bench"
     ],
     "receipt": "tools/lune/verify/evidence/part-2-director--ws3-billboard-target.json",
     "resultIds": [
@@ -6355,7 +6356,7 @@
    "evidence": "artifacts/studio/part2-billboard.json",
    "id": "part-2-director::ws3-billboard-target",
    "name": "ws3-billboard-target",
-   "note": "ws3-billboard-target: 2 named suite cases must pass; suite must exit zero; its file-existence and text assertions must hold; and artifacts/studio/part2-billboard.json must exist. Requirements: UI-EXT-001.",
+   "note": "ws3-billboard-target: 2 named suite cases must pass; suite, bench must exit zero; its file-existence and text assertions must hold; and artifacts/studio/part2-billboard.json must exist. Requirements: UI-EXT-001.",
    "phase": "part-2-director",
    "releaseBlocking": false,
    "requirements": [

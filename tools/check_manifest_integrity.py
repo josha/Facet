@@ -495,6 +495,21 @@ def main():
     if args.selftest:
         return graph_selftest()
 
+    #[[ THE MANIFEST IS LEAVING, AND THIS CHECKER OUTLIVES IT.
+    #
+    #   Parts 1 and 2 audit `tools/lune/gate_manifest.luau`. The director
+    #   archives that file; part 3 audits the GENERATED graph, which is what
+    #   `tools/verify.sh` actually evaluates and which ships. So a missing
+    #   manifest is not an error here — it is the expected end state — and the
+    #   checker says which parts it ran rather than failing on a file that was
+    #   deliberately removed. ]]
+    if not os.path.exists(MANIFEST):
+        print(
+            f"check_manifest_integrity: {MANIFEST} is absent (archived) — parts 1 and 2 do not "
+            "apply; auditing the generated graph only"
+        )
+        return run_graph_check()
+
     problems = []
     unanchored = 0
     direct = 0
