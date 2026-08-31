@@ -1,15 +1,15 @@
 # 5. Styling
 
-This chapter covers how a screen gets its look: design tokens, the built-in
-default appearance, surfaces and roles, drop shadows, rounded corners, and the
-principle that styling is *data* until the very last moment.
+This chapter covers how a screen gets its look. Topics: design tokens, the
+built-in default appearance, surfaces and roles, drop shadows, and rounded
+corners. The core idea: styling is *data* until the very last moment.
 
 > **How this chapter is arranged.** §5.1–5.6 describe the token and adapter
-> styling every screen gets by default. Two layers sit on top of it. §5.7 moves
-> runtime paint, native interaction states, Dark and Light themes and optional
-> transitions to Roblox StyleSheets. §5.8 adds versioned theme packages, which
-> own typography, metrics, insets and nine-slice chrome as well. The full
-> walkthrough for building one is [chapter 9](09-custom-themes.md).
+> styling every screen gets by default. Two layers sit on top of that. Runtime
+> paint, native interaction states, and Dark/Light themes move to Roblox
+> StyleSheets in §5.7, plus optional transitions. Then §5.8 adds versioned
+> theme packages, which also own typography, metrics, insets, and nine-slice
+> chrome. The full walkthrough for building one is [chapter 9](09-custom-themes.md).
 
 ## 5.1 Tokens
 
@@ -20,19 +20,23 @@ tooling.
 `tokens.compile(schema)` takes a game's design values and returns *(compiled,
 report)*. Compilation does two useful things before it hands anything back:
 
-- **Completeness check.** The schema must define every required value — the color
-  pairs (`surface`/`content`, `surfaceStrong`/`contentStrong`, `accent`/`onAccent`),
-  the spacing steps (`xs`, `s`, `m`, `l`, `xl`), the text roles (`body`, `label`,
-  `heading`, `title`), a minimum touch-target size, and motion durations. Anything
-  missing is listed in `report.missing`. (`strong` and `numeral` are optional and
-  derived when absent — see *Typography* below.)
-- **Contrast check.** Each surface/content color pair is checked for a text
+- **Completeness check.** The schema must define every required value:
+  - the color pairs (`surface`/`content`, `surfaceStrong`/`contentStrong`, `accent`/`onAccent`)
+  - the spacing steps (`xs`, `s`, `m`, `l`, `xl`)
+  - the text roles (`body`, `label`, `heading`, `title`)
+  - a minimum touch-target size
+  - motion durations
+
+  `report.missing` lists anything missing. (`strong` and `numeral` are
+  optional; they are derived when absent — see *Typography* below.)
+- **Contrast check.** Facet checks each surface/content color pair for a text
   contrast ratio of at least 4.5:1 (the common readability threshold).
   `report.contrast` lists each pair's ratio and whether it passed.
 
-If the schema is incomplete or any contrast pair fails, `compile` returns `nil`
-for the compiled value and an explanatory report — a game's style is not allowed
-to ship unreadable text. On success you get a **frozen** (immutable) token set.
+If the schema is incomplete, or any contrast pair fails, `compile` returns
+`nil` for the compiled value, plus an explanatory report. A game's style may
+not ship unreadable text. On success you get a **frozen** (immutable) token
+set.
 
 ```lua
 local compiled, report = Facet.tokens.compile(mySchema)
@@ -55,20 +59,22 @@ UI.Text({ id = "Name", text = racer.name, textSize = "strong" })
 UI.Text({ id = "Pos",  text = tostring(racer.place), textSize = "numeral" })
 ```
 
-**There is no `weight` prop, and that is deliberate.** A typography role carries
-its **font descriptor and line height** as well as its size, and the whole entry
-travels to the layout solver *and* to the adapter that paints the glyphs. A prop
-that set only the painted face would reserve a box for one family and draw
-another — which is exactly what happened to the deprecated `UI.Text.font`, and
-why it was removed rather than kept working. Weight is a style decision, styles
-are theme-owned, and a role is the theme-owned channel.
+**There is no `weight` prop, and that is deliberate.** A typography role
+carries its **font descriptor and line height**, as well as its size. The
+whole entry travels to the layout solver *and* to the adapter that paints the
+glyphs.
 
-`strong` and `numeral` are **optional** in a token schema and in a theme package.
-Leave them out and they are derived from the ramp you did write (`strong` from
-`body`, `numeral` from `control`-or-`heading`, changing only the weight), so
-every theme answers all eight names and a display-face theme gets *its* face in
-both weights. Author either one to override it — see
-`docs/extending/new-theme.md` §2.
+A prop that set only the painted face would reserve a box for one family and
+draw another. That is exactly what happened to the deprecated `UI.Text.font`
+— Facet removed it rather than keep it working. Weight is a style decision.
+Styles are theme-owned, so a role is the theme-owned channel.
+
+`strong` and `numeral` are **optional** in a token schema and in a theme
+package. Leave them out, and Facet derives them from the ramp you did write:
+`strong` from `body`, and `numeral` from `control` or `heading`, changing
+only the weight. Every theme then answers all eight names, and a
+display-face theme gets *its* face in both weights. Author either one to
+override it — see `docs/extending/new-theme.md` §2.
 
 ## 5.2 The Studio Neutral default
 
@@ -80,36 +86,47 @@ professional and neutral, and quick to render." Concretely:
 
 - one cool near-black surface ramp with a single restrained blue accent;
 - hairline strokes instead of heavy borders; generous corner radii;
-- every interactive state states itself *without relying on color alone*:
-  interactive surfaces are visibly raised, a pointer hovering a control gets a
-  lightened **hover** fill (the `controlHover` role — wired only when a mouse
-  is actually live, so a touch device never pays for it), focus is an accent
-  ring, a press is a quick dip, and disabled is dimmed content — so the
-  interface remains legible to players who cannot distinguish certain colors;
-- on a **television-class display** (the environment reports a `Large`
-  display, e.g. a console docked to a TV) the style automatically strengthens
-  itself for viewing at a distance: the focus ring thickens
-  (`tenFootFocusRingThickness`), the focused control scales up slightly
-  (`tenFootFocusScale`), and content insets by TV-overscan-safe margins. The
-  authored ten-foot text scale and the player's native preference compose without
-  double application: the ten-foot factor rides both seams (measure and paint),
-  while the preference is an ADDITIVE px offset the engine paints itself and the
-  solver reserves exactly once (see the next bullet);
+- every interactive state states itself *without relying on color alone*, so
+  the interface stays legible to players who cannot distinguish certain
+  colors:
+  - interactive surfaces are visibly raised.
+  - a pointer hovering a control gets a lightened **hover** fill (the
+    `controlHover` role). It is wired only when a mouse is actually live, so
+    a touch device never pays for it.
+  - focus is an accent ring.
+  - a press is a quick dip.
+  - disabled content is dimmed.
+- on a **television-class display** — the environment reports this as a
+  `Large` display, for example a console docked to a TV — the style
+  automatically strengthens itself for viewing at a distance:
+  - the focus ring thickens (`tenFootFocusRingThickness`).
+  - the focused control scales up slightly (`tenFootFocusScale`).
+  - content insets by TV-overscan-safe margins.
+
+  The authored ten-foot text scale and the player's native preference
+  compose without double application. The ten-foot factor rides both seams
+  (measure and paint). The preference is an ADDITIVE px offset the engine
+  paints itself, and the solver reserves it exactly once (see the next
+  bullet);
 - the **player's preferred text size** (Roblox settings › Text size:
-  `Medium`/`Large`/`Larger`/`Largest`) is a first-class layout input. The engine
-  paints every text node at `TextSize + offset`, where the offset is a measured
-  per-preference constant (0 / 4 / 10 / 14 px — uniform across font, weight, and
-  size). Facet's adapter feeds that offset into the environment
-  (`preferredTextOffset`), the solver reserves the exact painted box, and a
-  mid-session change re-solves every mounted surface in place — mount identity,
-  focus, scroll, and control state all survive. Screens declare content and
-  layout candidates and never read the preference themselves: reflow comes from
-  the same wrap/`lineLimit`/`ViewThatFits`/composition mechanisms as any other
-  geometry change, in the plan's order — reflow first, scroll the containing
-  region second, and truncation only for bounded secondary/identity text that
-  keeps its full value reachable;
-- cheap to render by default: flat fills, one stroke, no gradients, and shadows
-  used only in the two depth presets described below.
+  `Medium`/`Large`/`Larger`/`Largest`) is a first-class layout input. The
+  engine paints every text node at `TextSize + offset`. The offset is a
+  measured per-preference constant (0 / 4 / 10 / 14 px), uniform across
+  font, weight, and size. Facet's adapter feeds that offset into the
+  environment (`preferredTextOffset`). The solver reserves the exact painted
+  box. A mid-session change re-solves every mounted surface in place, so
+  mount identity, focus, scroll, and control state all survive.
+
+  Screens declare content and layout candidates. They never read the
+  preference themselves. Reflow comes from the same
+  wrap/`lineLimit`/`ViewThatFits`/composition mechanisms as any other
+  geometry change, in this order:
+  - reflow first.
+  - then scroll the containing region.
+  - truncate last, and only for bounded secondary/identity text that keeps
+    its full value reachable.
+- cheap to render by default: flat fills, one stroke, no gradients, and
+  shadows used only in the two depth presets described below.
 
 To use your own look instead, compile a schema and pass it when creating the
 render target: `screen_target.new({ style = compiled })`.
@@ -132,10 +149,11 @@ by the render target:
 - **`role`** — the treatment of text (for example a title versus body versus a
   secondary caption).
 
-These are *hints*, not raw colors: they name the semantic role and the active
-style resolves them to actual colors. That is what lets one blueprint look
-correct under both the default style and a game's override — the blueprint says
-"this is a title," and the style decides what a title looks like.
+These are *hints*, not raw colors. They name the semantic role, and the
+active style resolves them to actual colors. That is what lets one blueprint
+look correct under both the default style and a game's override. The
+blueprint says "this is a title," and the style decides what a title looks
+like.
 
 ## 5.4 Shadows and per-corner rounding
 
@@ -156,12 +174,15 @@ presets:
 local card = UI.shadow(UI.Box({ id = "Card", surface = "raised" }), "raised")
 ```
 
-The shadow parameters follow the real engine's shape: the blur radius is a
-scale-plus-offset value, offset and spread are two-dimensional, and — enforced at
-build time — a shadow's depth index must be negative, because a shadow renders
-*below* its parent. These constraints are validated when you call `UI.shadow`, so
-an invalid shadow is a clear error at authoring time rather than a silent visual
-bug.
+The shadow parameters follow the real engine's shape:
+
+- the blur radius is a scale-plus-offset value;
+- offset and spread are two-dimensional;
+- a shadow's depth index must be negative — enforced at build time — because
+  a shadow renders *below* its parent.
+
+`UI.shadow` validates these constraints when you call it, so an invalid
+shadow is a clear error at authoring time, not a silent visual bug.
 
 ### `UI.corners(blueprint, radiusOrSpec, style?)`
 
@@ -193,9 +214,9 @@ local styled = UI.styleGroup({ corners = "control" }, {
 
 ## 5.5 The style lint
 
-Two engine-guidance limits are checked by a **style lint**
-(`src/render/style_lint.luau`) that walks a mounted tree and reports warnings —
-never hard errors, since these are quality and performance signals:
+A **style lint** (`src/render/style_lint.luau`) checks two engine-guidance
+limits. It walks a mounted tree and reports warnings — never hard errors,
+since these are quality and performance signals:
 
 - **Jagged-corner caveat.** The engine's own release notes warn that a drop shadow
   can render jagged against a *large* corner radius. The lint flags any shadowed
@@ -209,28 +230,29 @@ against a tree, not part of the public `Facet` table.
 
 ## 5.6 Why styling is data, then instances
 
-Notice that everything above produces **data**. `UI.shadow` and `UI.corners`
-store a normalized, validated table on the blueprint; `surface` and `role` are
-string hints; tokens are plain frozen tables. None of it creates a Roblox object.
-This has a concrete payoff:
+Everything above produces **data**. `UI.shadow` and `UI.corners` store a
+normalized, validated table on the blueprint. `surface` and `role` are
+string hints. Tokens are plain frozen tables. None of it creates a Roblox
+object. This has a concrete payoff:
 
-- **Headless styling is fully testable.** Because a styled blueprint is just data,
-  a headless test (or a layout dump) can assert that a node carries the right
-  shadow parameters or corner radii without any Roblox process running. The
+- **Headless styling is fully testable.** A styled blueprint is just data. A
+  headless test (or a layout dump) can assert that a node carries the right
+  shadow parameters or corner radii, with no Roblox process running. The
   "render" of a headless target is simply that data.
-- **Instances appear only at the edge, and only if supported.** The client render
-  target (`src/client/screen_target.luau`) is the one place that turns this data
-  into real `UIShadow` and `UICorner` instances — and it does so behind
-  **capability detection**. At startup it probes whether the running engine
-  actually supports `UIShadow` and per-corner radii. If a capability is missing
-  (an older client, or a headless run), the declaration stays as harmless data:
-  shadows are simply not drawn, and per-corner radii fall back to a single uniform
-  radius using the largest declared corner. Your blueprint never changes; the same
-  description degrades gracefully on engines that cannot honor it.
+- **Instances appear only at the edge, and only if supported.** The client
+  render target (`src/client/screen_target.luau`) is the one place that
+  turns this data into real `UIShadow` and `UICorner` instances. It does so
+  behind **capability detection**: at startup it probes whether the running
+  engine actually supports `UIShadow` and per-corner radii. If a capability
+  is missing — an older client, or a headless run — the declaration stays
+  as harmless data. Shadows are simply not drawn, and per-corner radii fall
+  back to a single uniform radius using the largest declared corner. Your
+  blueprint never changes: the same description degrades gracefully on
+  engines that cannot honor it.
 
-This is the general shape of how Facet adopts any new engine visual feature:
-express it as normalized data on a single declared authority, and let the one
-edge adapter materialize it when — and only when — the platform can.
+This is the general shape of how Facet adopts any new engine visual feature.
+Express it as normalized data on a single declared authority. Let the one
+edge adapter materialize it — only when the platform can.
 
 Next: [chapter 6](06-client-server.md) covers talking to the server.
 
@@ -246,15 +268,16 @@ local explicit = screen_target.new({ nativeStyle = true })   -- the same thing, 
 local bespoke = screen_target.new({ nativeStyle = false })   -- THE OPT-OUT: explicit-write paint
 ```
 
-The opt-out is per target and wins over everything. Reach for it when you need
-the adapter to be the only writer of a property — a screen whose paint is driven
-from game state that no rule can select on, or an A/B against the sheet path.
+The opt-out is per target and wins over everything. Reach for it when you
+need the adapter to be the only writer of a property. Two examples: a screen
+where game state drives paint that no rule can select on, or an A/B test
+against the sheet path.
 
-With the sheet path live (and the engine capability present), the adapter stops
-explicit-writing every handed-off paint property and instead **classifies**
-each instance — engine class plus `facet-*` CollectionService tags — under one
-`StyleLink` per screen. A generated sheet named **`FacetStyle`** (under
-`ReplicatedStorage` by default) owns:
+With the sheet path live (and the engine capability present), the adapter
+stops explicit-writing every handed-off paint property. Instead it
+**classifies** each instance — by engine class plus `facet-*`
+CollectionService tags — under one `StyleLink` per screen. A generated sheet
+named **`FacetStyle`** (under `ReplicatedStorage` by default) owns:
 
 - surface fills and transparency (`Base surface`, `Raised panel`, `Control
   fill`, `Chip`, `Badge`, `Primary button`, `Scrim backdrop`);
@@ -271,10 +294,11 @@ each instance — engine class plus `facet-*` CollectionService tags — under o
   strips them live).
 
 With `nativeStyle = false` — or on an engine without StyleSheets — the
-explicit-write path runs unchanged, byte-equal on every mapped property. It is a
-first-class path, not a legacy one: the native-stylesheets adoption evidence
-measures the two against each other property by property, and the gallery's
-`Facet_ForceStyleFallback` attribute forces it live so both arms stay exercised.
+explicit-write path runs unchanged, byte-equal on every mapped property. It
+is a first-class path, not a legacy one. The native-stylesheets adoption
+evidence measures the two against each other, property by property, and the
+gallery's `Facet_ForceStyleFallback` attribute forces it live, so both arms
+stay exercised.
 
 ### What a Style Editor edit does (read this before editing)
 
@@ -293,13 +317,19 @@ on every apply.
 
 ### What never moved to the sheet
 
-Layout and text geometry (the headless solver owns them — `textSize` is layout
-authority, and the player's Roblox text-size preference is applied exactly once
-by the engine), data bindings, the logical focus ring and ten-foot lift,
-value-driven motion (the Toggle knob-track), pointer capture and cursor hints,
-and `UIShadow` (still adapter-materialized behind its capability probe).
+Some things never moved to the sheet:
+
+- layout and text geometry (the headless solver owns them — `textSize` is
+  layout authority, and the player's Roblox text-size preference is applied
+  exactly once by the engine);
+- data bindings;
+- the logical focus ring and ten-foot lift;
+- value-driven motion (the Toggle knob-track);
+- pointer capture and cursor hints;
+- `UIShadow` (still adapter-materialized behind its capability probe).
+
 The split is between what a `StyleSheet` rule can express and what only the
-adapter can write, and each side of it is measured.
+adapter can write. Each side of it is measured.
 
 ## 5.8 Theme packages: a theme that owns metrics, not just colour
 
@@ -336,16 +366,17 @@ The four moving parts:
   and a supported edit re-solves the running preview. One export action
   (`lune run tools/lune/theme_sync_cli`) writes them back into the committed
   package, and its `--check` mode fails a build when the two drift.
-- **Bounded chrome.** A closed list of decoration slots, each either native paint
-  (zero instances, gradients included) or adapter-created non-interactive
-  `ImageLabel`s painted entirely by package rules, with declared content insets
-  the solver honours and a tag-driven native fallback when the art fails. A slot
-  may also carry a bounded STACK of layers and per-state art
-  rather than a single picture — see §5.8a.
+- **Bounded chrome.** A closed list of decoration slots. Each slot is either
+  native paint (zero instances, gradients included), or an adapter-created
+  non-interactive `ImageLabel` painted entirely by package rules. Each
+  declares content insets the solver honours, and falls back to native
+  paint, driven by a tag, when the art fails. A slot may also carry a
+  bounded STACK of layers and per-state art, rather than a single picture —
+  see §5.8a.
 
-A swap is one transaction — `SetDerives` plus the snapshot commit in a single
-invocation — so new paint and new geometry land in the same engine frame, and
-mount identity, focus, selection, scroll and text entry all survive because
+A swap is one transaction: `SetDerives` plus the snapshot commit in a single
+invocation. New paint and new geometry land in the same engine frame. Mount
+identity, focus, selection, scroll, and text entry all survive, because
 nothing is rebuilt.
 
 **A LAYOUT that has to survive the swap, not just paint through it.** A theme can
@@ -366,20 +397,30 @@ UI.Grid({
 ```
 
 Both are re-measured on every solve under the ACTIVE snapshot, so a swap
-re-columns and re-sizes the grid with nothing to update; `itemSizing` also turns
-a ragged row of variable-width plates into one clean grid. Both are opt-in and
-`natural` is the framework-wide default — a grid that does not ask keeps content
-sizing exactly as it always had. The gallery's own theme picker
-(`examples/gallery/client/theme_picker.luau`) uses both, and it is the surface
-that proved why: with a literal `minColumnWidth` and a `fixed` row height its
-chips clipped under Classic Desktop and overflowed their plates under Sci-Fi HUD.
+re-columns and re-sizes the grid with nothing to update. `itemSizing` also
+turns a ragged row of variable-width plates into one clean grid. Both are
+opt-in, and `natural` is the framework-wide default: a grid that does not
+ask keeps content sizing exactly as it always had.
 
-**Chapter 9, [Custom themes](09-custom-themes.md), is the walkthrough**: deriving
-from Studio Neutral, editing tokens, adding nine-slice panels and buttons,
-insets and fallbacks, previewing across device profiles, validating and
-exporting, installing, swapping, upgrading, and profiling ornate cost — with
-Fantasy Parchment as the worked example. Contributors extending the theme system
-itself use [`../extending/new-theme.md`](../extending/new-theme.md).
+The gallery's own theme picker (`examples/gallery/client/theme_picker.luau`)
+uses both, and proved why it matters. With a literal `minColumnWidth` and a
+`fixed` row height, its chips clipped under Classic Desktop and overflowed
+their plates under Sci-Fi HUD.
+
+**Chapter 9, [Custom themes](09-custom-themes.md), is the walkthrough.** It
+covers:
+
+- deriving from Studio Neutral;
+- editing tokens;
+- adding nine-slice panels and buttons;
+- insets and fallbacks;
+- previewing across device profiles;
+- validating and exporting;
+- installing, swapping, and upgrading;
+- profiling ornate cost.
+
+Fantasy Parchment is the worked example. Contributors extending the theme
+system itself use [`../extending/new-theme.md`](../extending/new-theme.md).
 
 ## 5.8a Rich skinning: when the art IS the interface
 
@@ -398,9 +439,9 @@ and it is entirely package data:
   compile error — art may change on hover, geometry may not.
 - **Value displays.** `barTrack` / `barFill` / `barCap` / `barCenter`,
   `toggleTrack` / `toggleKnob`, `stepperPlate`, `spinner` (one dot of an
-  indeterminate ProgressView's ring). The bar's fill is drawn at full
-  size and revealed through a clip window, so its art is byte-stable at every
-  percent and a value change costs no adapter write at all.
+  indeterminate ProgressView's ring). Facet draws the bar's fill at full
+  size and reveals it through a clip window. Its art stays byte-stable at
+  every percent, and a value change costs no adapter write at all.
 - **Semantic icons.** `icons = { [name] = <asset> }` sized from `iconSizes` on the
   snapshot and tinted by the asset's `tintRole`; a theme with no icon draws an
   ASCII-safe fallback glyph in its own font, never tofu.
@@ -411,9 +452,9 @@ and it is entirely package data:
   paradigm to a package, so a phone skin becomes a desktop skin on dock, live,
   with the view tree unchanged.
 
-**Chapter 10, [Rich skinning](10-rich-skinning.md), is the walkthrough**, and it
-also documents the three-rung customization ladder end to end — theme package,
-per-view override, and a custom control that ships its own art
+**Chapter 10, [Rich skinning](10-rich-skinning.md), is the walkthrough.** It
+also documents the three-rung customization ladder end to end: theme
+package, per-view override, and a custom control that ships its own art
 ([`../extending/skinned-control.md`](../extending/skinned-control.md)).
 
 Three claims are still open: the human Style-Editor walkthrough, the
