@@ -19,3 +19,15 @@ beside this file. Owner-approved spike; the asset is archived at the end.
 end-to-end by API; the Studio publish flow remains the documented fallback. The
 final insert/AutoUpdate/modified-copy proof still happens in Studio against the
 REAL asset after creation.
+
+## Addendum (2026-08-31): the archive endpoint refuses Model assets
+
+`POST /v1/assets/83627005624999:archive` → HTTP 400 `INVALID_ARGUMENT: "Asset
+83627005624999 is not an archivable asset type."` — despite the Assets API
+reference listing `:archive` without a type restriction. So an unwanted Model
+(package) asset cannot be retired by API; the throwaway stays on the account,
+private and named `Facet-Spike-DeleteMe` with a description saying exactly what
+it is. Owner options: leave it, or remove it through the Creator Dashboard UI.
+Consequence for the release tooling: never rely on `:archive` for Model
+cleanup or rollback; version rollback uses `versions:rollback`, which is a
+different endpoint and was not affected by this refusal.
