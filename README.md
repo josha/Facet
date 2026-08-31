@@ -59,13 +59,18 @@ including which numbers may be compared with which.
 
 ### The official Roblox Package (recommended if you work in Studio)
 
+> **Not available yet — use [Git and Rojo](#git-and-rojo) or [the built model
+> file](#the-built-model-file) below.** The Package asset has not been created,
+> so there is nothing to install from this route today. It is documented first
+> because it is the route this project intends you to use once the asset exists.
+
 Facet is published as one Roblox Package: a model asset that remembers where its
 copies live, so a new version reaches every place with one command instead of a
 manual re-import.
 
-**The asset id is pending.** The asset has not been created yet. When it exists,
-its id and creator are recorded in `package/facet-package.json`, which is the one
-place to look. The id is deliberately not part of Facet's Luau interface.
+When the asset exists, its id and creator are recorded in
+`package/facet-package.json`, which is the one place to look. The id is
+deliberately not part of Facet's Luau interface.
 
 1. In Studio, open the Toolbox and find the package under **Inventory**.
 2. Drag it in, then move it to `ReplicatedStorage` if it landed elsewhere.
