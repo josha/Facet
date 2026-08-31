@@ -110,7 +110,7 @@
   {
    "archivedPath": "artifacts/cross-platform-proof/rows/xp-a6-regression-proof.json",
    "label": "evidence-22",
-   "sha256": "7087780f2c8ae6983e523bb66ad71e752332edbd9f16a6c6c103fc041ab973ad"
+   "sha256": "d497d7ddf3b3f0f7582670d820302b83ab4147ffd567ccf8318ea89c78bb0b79"
   },
   {
    "archivedPath": "artifacts/cross-platform-proof/rows/xp-a7-evidence-classes.json",
@@ -165,7 +165,7 @@
  ],
  "exitCode": 0,
  "producer": "check_xp_matrix",
- "recordedAt": "2026-08-31T01:16:56Z",
+ "recordedAt": "2026-08-31T01:29:42Z",
  "schema": "facet-producer-receipt/1",
  "verdict": "PASS"
 }

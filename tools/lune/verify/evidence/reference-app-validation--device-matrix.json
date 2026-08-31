@@ -10,7 +10,7 @@
    "sha256": "absent"
   }
  ],
- "recordedAt": "2026-08-31T01:16:30Z",
+ "recordedAt": "2026-08-31T01:29:17Z",
  "row": "reference-app-validation::device-matrix",
  "schema": "facet-evidence-receipt/1",
  "summary": "device-matrix: 2 recorded device file(s), pinned by content hash."

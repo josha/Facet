@@ -254,7 +254,7 @@
  ],
  "exitCode": 0,
  "producer": "check_perf_gate_evidence-falsifiable",
- "recordedAt": "2026-08-31T01:16:57Z",
+ "recordedAt": "2026-08-31T01:29:43Z",
  "schema": "facet-producer-receipt/1",
  "verdict": "PASS"
 }

@@ -10,7 +10,7 @@
  ],
  "exitCode": 0,
  "producer": "check_sf_rows-artifacts-sponsor-framework-gaps-rows-sf-d5-329c3e",
- "recordedAt": "2026-08-31T01:16:56Z",
+ "recordedAt": "2026-08-31T01:29:43Z",
  "schema": "facet-producer-receipt/1",
  "verdict": "PASS"
 }

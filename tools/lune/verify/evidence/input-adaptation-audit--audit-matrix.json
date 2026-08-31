@@ -7,7 +7,7 @@
    "sha256": "a252d0e3ad1b2f74ddfb5009bb6dc27d1b3aadf82bd168d7322abc6cc10e7bd9"
   }
  ],
- "recordedAt": "2026-08-31T01:16:29Z",
+ "recordedAt": "2026-08-31T01:29:16Z",
  "row": "input-adaptation-audit::audit-matrix",
  "schema": "facet-evidence-receipt/1",
  "summary": "audit-matrix: 1 recorded studio file(s), pinned by content hash."

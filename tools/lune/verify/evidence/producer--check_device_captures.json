@@ -10,12 +10,12 @@
   {
    "archivedPath": "artifacts/phase-4/perf.json",
    "label": "evidence-2",
-   "sha256": "c6fc57c779dd5675b2b79fae36219972822134f4341adc11d468519e1642d1cb"
+   "sha256": "f9856242d864245ed5e23727e1ce2f2279cdf08e5b1bbc76fd318d781548de34"
   }
  ],
  "exitCode": 0,
  "producer": "check_device_captures",
- "recordedAt": "2026-08-31T01:16:56Z",
+ "recordedAt": "2026-08-31T01:29:42Z",
  "schema": "facet-producer-receipt/1",
  "verdict": "PASS"
 }

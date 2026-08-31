@@ -5,17 +5,17 @@
   {
    "archivedPath": "artifacts/cross-platform-proof/rows/xp-a6-regression-proof.json",
    "label": "evidence-1",
-   "sha256": "7087780f2c8ae6983e523bb66ad71e752332edbd9f16a6c6c103fc041ab973ad"
+   "sha256": "d497d7ddf3b3f0f7582670d820302b83ab4147ffd567ccf8318ea89c78bb0b79"
   },
   {
    "archivedPath": "artifacts/phase-4/perf.json",
    "label": "evidence-2",
-   "sha256": "c6fc57c779dd5675b2b79fae36219972822134f4341adc11d468519e1642d1cb"
+   "sha256": "f9856242d864245ed5e23727e1ce2f2279cdf08e5b1bbc76fd318d781548de34"
   }
  ],
  "exitCode": 0,
  "producer": "prove_perf_gate",
- "recordedAt": "2026-08-31T01:16:56Z",
+ "recordedAt": "2026-08-31T01:29:42Z",
  "schema": "facet-producer-receipt/1",
  "verdict": "PASS"
 }

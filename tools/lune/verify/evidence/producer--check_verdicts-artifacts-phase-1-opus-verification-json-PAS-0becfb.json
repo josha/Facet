@@ -1,10 +1,16 @@
 {
  "class": "deterministic",
  "command": "python3 tools/check_verdicts.py artifacts/phase-1/opus-verification.json=PASS",
- "evidence": [],
+ "evidence": [
+  {
+   "archivedPath": "artifacts/phase-1/opus-verification.json",
+   "label": "evidence-1",
+   "sha256": "5971df9710cfd684e5060d457bcfe49d08f7a15769122f85d926981d625b3144"
+  }
+ ],
  "exitCode": 0,
  "producer": "check_verdicts-artifacts-phase-1-opus-verification-json-PAS-0becfb",
- "recordedAt": "2026-08-31T01:16:31Z",
+ "recordedAt": "2026-08-31T01:29:18Z",
  "schema": "facet-producer-receipt/1",
  "verdict": "PASS"
 }

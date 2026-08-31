@@ -9,10 +9,10 @@
   {
    "archivedPath": "artifacts/phase-4/perf.json",
    "label": "evidence-2",
-   "sha256": "923fc65ef468bfa352b376eac21760f61de43d89e6bfce77fe18708dc9274db5"
+   "sha256": "c6fc57c779dd5675b2b79fae36219972822134f4341adc11d468519e1642d1cb"
   }
  ],
- "recordedAt": "2026-08-31T01:16:29Z",
+ "recordedAt": "2026-08-31T01:29:16Z",
  "row": "cross-platform-proof::console-tenfoot-profile",
  "schema": "facet-evidence-receipt/1",
  "summary": "console-tenfoot-profile: 2 recorded perf file(s), pinned by content hash."

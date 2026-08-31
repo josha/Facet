@@ -1,10 +1,16 @@
 {
  "class": "deterministic",
  "command": "python3 tools/check_verdicts.py artifacts/part-2/opus-verification.json=PASS \"artifacts/part-2/opus-ws1-verification.json=ALL requirement-affecting findings resolved\" \"artifacts/part-2/opus-ws2-verification.json=ALL requirement-affecting findings resolved\" \"artifacts/part-2/opus-ws3-verification.json=ALL requirement-affecting findings resolved\" \"artifacts/part-2/opus-ws4-verification.json=ALL requirement-affecting findings resolved\"",
- "evidence": [],
+ "evidence": [
+  {
+   "archivedPath": "artifacts/part-2/opus-verification.json",
+   "label": "evidence-1",
+   "sha256": "e10e8489c11fb00f7c8dfae6f81c23c9694d819b263a98c97d11f4ecc79cfb35"
+  }
+ ],
  "exitCode": 0,
  "producer": "check_verdicts-artifacts-part-2-opus-verification-json-PASS-1ef0c4",
- "recordedAt": "2026-08-31T01:16:31Z",
+ "recordedAt": "2026-08-31T01:29:19Z",
  "schema": "facet-producer-receipt/1",
  "verdict": "PASS"
 }

@@ -10,7 +10,7 @@
  ],
  "exitCode": 0,
  "producer": "check_matrix_rows",
- "recordedAt": "2026-08-31T01:16:31Z",
+ "recordedAt": "2026-08-31T01:29:19Z",
  "schema": "facet-producer-receipt/1",
  "verdict": "PASS"
 }

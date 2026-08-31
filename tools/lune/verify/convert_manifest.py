@@ -580,7 +580,15 @@ class Producers:
             pid = f"{base}-{hashlib.sha1(command.encode()).hexdigest()[:8]}"
         cls = CLASS_OVERRIDES.get(base, "deterministic")
         # argv paths that exist become the producer's precise inputs
-        argv_paths = [a for a in args.split() if "/" in a and os.path.exists(os.path.join(ROOT, a))]
+        # `check_verdicts artifacts/x.json=PASS` names its file before the `=`.
+        # Taken whole, the token is not a path, os.path.exists says no, and the
+        # producer ends up declaring no evidence at all — so it kept running
+        # against a tree that had been archived instead of serving its receipt.
+        argv_paths = []
+        for a in args.split():
+            candidate = a.split("=", 1)[0]
+            if "/" in candidate and os.path.exists(os.path.join(ROOT, candidate)):
+                argv_paths.append(candidate)
         inputs: list[str] = []
         if script:
             inputs.append(script)

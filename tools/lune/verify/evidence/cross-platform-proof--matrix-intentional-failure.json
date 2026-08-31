@@ -7,7 +7,7 @@
    "sha256": "bb3f16acc57da8a626ee0a561bac3be523f97f21cc7d499c2163ebd1ff4c69d5"
   }
  ],
- "recordedAt": "2026-08-31T01:16:29Z",
+ "recordedAt": "2026-08-31T01:29:16Z",
  "row": "cross-platform-proof::matrix-intentional-failure",
  "schema": "facet-evidence-receipt/1",
  "summary": "matrix-intentional-failure: 1 recorded studio file(s), pinned by content hash."

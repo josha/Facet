@@ -1,10 +1,31 @@
 {
  "class": "deterministic",
  "command": "python3 tools/check_verdicts.py artifacts/expansion-textinput/platform-research.json=FINDINGS artifacts/expansion-textinput/runtime-verification.json=PASS artifacts/expansion-textinput/architecture-verification.json=PASS artifacts/expansion-textinput/phase-gate-verification.json=PASS",
- "evidence": [],
+ "evidence": [
+  {
+   "archivedPath": "artifacts/expansion-textinput/architecture-verification.json",
+   "label": "evidence-1",
+   "sha256": "c01427d336204feb8ae2dcc304c98b1c8414cd80e354364770689e91e27cce43"
+  },
+  {
+   "archivedPath": "artifacts/expansion-textinput/phase-gate-verification.json",
+   "label": "evidence-2",
+   "sha256": "d077064cc9041b651dd4378cd56c331a5ea8fdcca440e35091ea31ce3f3f3f71"
+  },
+  {
+   "archivedPath": "artifacts/expansion-textinput/platform-research.json",
+   "label": "evidence-3",
+   "sha256": "7771994db6330ea671d3a483c9e48e635caa23a4bbc700d6f6b5260694165950"
+  },
+  {
+   "archivedPath": "artifacts/expansion-textinput/runtime-verification.json",
+   "label": "evidence-4",
+   "sha256": "f00c712ffaf7940732fdddb321399f64acf3ebb2b70ff281733eb68fa109963c"
+  }
+ ],
  "exitCode": 0,
  "producer": "check_verdicts-artifacts-expansion-textinput-platform-resea-b2e918",
- "recordedAt": "2026-08-31T01:16:31Z",
+ "recordedAt": "2026-08-31T01:29:19Z",
  "schema": "facet-producer-receipt/1",
  "verdict": "PASS"
 }

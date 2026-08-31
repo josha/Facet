@@ -10,7 +10,7 @@
  ],
  "exitCode": 0,
  "producer": "check_eq6_evidence",
- "recordedAt": "2026-08-31T01:16:57Z",
+ "recordedAt": "2026-08-31T01:29:44Z",
  "schema": "facet-producer-receipt/1",
  "verdict": "PASS"
 }
