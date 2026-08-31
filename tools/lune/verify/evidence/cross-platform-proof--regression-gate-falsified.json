@@ -1,0 +1,14 @@
+{
+ "class": "studio",
+ "evidence": [
+  {
+   "archivedPath": "artifacts/cross-platform-proof/rows/xp-a6-regression-proof.json",
+   "label": "evidence-1",
+   "sha256": "7087780f2c8ae6983e523bb66ad71e752332edbd9f16a6c6c103fc041ab973ad"
+  }
+ ],
+ "recordedAt": "2026-08-31T01:29:16Z",
+ "row": "cross-platform-proof::regression-gate-falsified",
+ "schema": "facet-evidence-receipt/1",
+ "summary": "regression-gate-falsified: 1 recorded studio file(s), pinned by content hash."
+}
