@@ -1420,13 +1420,49 @@ def cmd_publish(args, transport=None, decider=decide):
         print(f"REFUSED — {len(refusals)} guard(s) failed; nothing was sent.")
         return 1
 
-    receipt = facts.get("latest_receipt") or {}
-    known_revision = (receipt.get("assetRevision") or {}).get("revisionId")
-
     if route == "studio":
+        #[[ THE BASELINE IS READ BEFORE THE HUMAN IS TOLD TO PUBLISH, and it is
+        #   read from the CLOUD rather than from a receipt.
+        #
+        #   This loop used to compare against the newest receipt's revision, and
+        #   accepted the first version it saw whenever there was no receipt
+        #   (`known_revision is None or …`). On a first publish — no receipts yet,
+        #   which is precisely the state this repository is in — the asset's
+        #   ALREADY EXISTING version satisfied that on the first poll, so the
+        #   command declared success, wrote a receipt and recorded a version the
+        #   human had not published. It would have reported a release that never
+        #   happened.
+        #
+        #   What makes an observation mean "they published" is a POSITIVE EDGE
+        #   from the number that was there a moment ago, so that number is read
+        #   first and every later comparison is against it. No baseline, no
+        #   publish: an unreadable version list refuses and names
+        #   `--baseline-revision` rather than guessing. ]]
+        baseline = getattr(args, "baseline_revision", None)
+        baseline_known = baseline is not None
+        baseline_source = "--baseline-revision"
+        if not baseline_known:
+            status, payload = _api(transport, "GET", f"/v1/assets/{asset_id}/versions?maxPageSize=1", api_key)
+            if status != 200:
+                print(f"  cannot read the asset's version list: HTTP {status} {json.dumps(payload)[:200]}")
+                print("  REFUSED: without a pre-publish baseline this command cannot tell a version the human just")
+                print("           published from the one that was already there. Re-run with --baseline-revision")
+                print("           <n>, the newest version number you can see on the asset today.")
+                return 1
+            versions = payload.get("assetVersions") or payload.get("data") or []
+            baseline_known = True
+            if versions:
+                baseline = str(versions[0].get("path", "")).rsplit("/", 1)[-1]
+                baseline_source = "read from the cloud before publishing"
+            else:
+                baseline = None
+                baseline_source = "the asset has no versions yet, so any version is new"
+        print("")
+        print(f"  pre-publish baseline: {baseline if baseline is not None else '(none)'} ({baseline_source})")
+
         studio_publisher_steps(config, "publish")
         print("")
-        print(f"  polling {API_BASE}/v1/assets/{asset_id}/versions for a version newer than {known_revision!r}")
+        print(f"  polling {API_BASE}/v1/assets/{asset_id}/versions for a version other than {baseline!r}")
         deadline = time.time() + args.timeout
         found = None
         while time.time() < deadline:
@@ -1436,12 +1472,15 @@ def cmd_publish(args, transport=None, decider=decide):
                 if versions:
                     newest = versions[0]
                     number = str(newest.get("path", "")).rsplit("/", 1)[-1]
-                    if known_revision is None or str(number) != str(known_revision):
+                    # the POSITIVE EDGE: different from what was there before the
+                    # human was asked to publish, never merely "different from a
+                    # receipt" and never "the list is non-empty"
+                    if baseline is None or number != str(baseline):
                         found = newest
                         break
             time.sleep(min(args.poll, 60))
         if found is None:
-            print(f"  no new version appeared within {args.timeout}s; nothing was recorded")
+            print(f"  no version other than {baseline!r} appeared within {args.timeout}s; nothing was recorded")
             return 1
         number = str(found.get("path", "")).rsplit("/", 1)[-1]
         moderation = (found.get("moderationResult") or {}).get("moderationState")
@@ -1751,6 +1790,89 @@ def selftest():
     return ok
 
 
+def _selftest_studio_edge(work, base_config, version, commit, no_refusals):
+    """The studio publish route only records a release on a POSITIVE EDGE.
+
+    Case A is the defect itself: an asset that already has version 5 and no
+    receipt yet. The old comparison was against the newest receipt's revision and
+    accepted anything when there was none, so the version already sitting on the
+    asset satisfied it on the first poll and the command wrote a receipt for a
+    publish that never happened."""
+    ok = True
+
+    def versions_page(number):
+        return {"assetVersions": [{"path": f"assets/424242/versions/{number}", "moderationResult": {"moderationState": "Approved"}}]}
+
+    def args_for(config_path, receipts_dir, baseline=None):
+        return _Args(
+            config=config_path, receipts=receipts_dir, route="studio", confirm=True, version=version,
+            commit=commit, asset_id=None, creator_id=None, creator_type=None, actor="selftest",
+            timeout=1, poll=1, baseline_revision=baseline, allow_route_override=False,
+        )
+
+    def run_case(label, script, baseline=None):
+        directory = tempfile.mkdtemp(dir=work)
+        config_path = os.path.join(directory, "c.json")
+        receipts_dir = os.path.join(directory, "receipts")
+        config = base_config(424242)
+        config["route"] = "studio"
+        save_config(config_path, config)
+        transport = FakeTransport(script)
+        code = cmd_publish(args_for(config_path, receipts_dir, baseline), transport=transport, decider=no_refusals)
+        return code, receipts(receipts_dir)
+
+    # A. the asset already has version 5 and nothing new is published
+    code, written = run_case(
+        "no edge",
+        [("GET", "/v1/assets/424242", 200, CREATED_ASSET)]
+        + [("GET", "/versions", 200, versions_page(5)) for _ in range(6)],
+    )
+    if code == 1 and not written:
+        print("  [ ok  ] studio publish: a pre-existing version is NOT a publish (refused, no receipt)")
+    else:
+        ok = False
+        print(f"  [WRONG] studio publish with no edge: exit {code}, receipts {[p for p, _ in written]}")
+
+    # B. version 5 before, version 6 after: a real edge
+    code, written = run_case(
+        "edge",
+        [
+            ("GET", "/v1/assets/424242", 200, CREATED_ASSET),
+            ("GET", "/versions", 200, versions_page(5)),
+            ("GET", "/versions", 200, versions_page(6)),
+        ],
+    )
+    if code == 0 and written and written[-1][1]["assetRevision"]["revisionId"] == "6":
+        print("  [ ok  ] studio publish: 5 -> 6 is an edge and records revision 6")
+    else:
+        ok = False
+        print(f"  [WRONG] studio publish with an edge: exit {code}, receipts {[p for p, _ in written]}")
+
+    # C. the version list cannot be read and no baseline was supplied
+    code, written = run_case(
+        "no baseline",
+        [("GET", "/v1/assets/424242", 200, CREATED_ASSET), ("GET", "/versions", 500, {"message": "boom"})],
+    )
+    if code == 1 and not written:
+        print("  [ ok  ] studio publish: an unreadable version list refuses instead of guessing")
+    else:
+        ok = False
+        print(f"  [WRONG] studio publish with no baseline: exit {code}, receipts {[p for p, _ in written]}")
+
+    # D. ...unless the human supplies one
+    code, written = run_case(
+        "given baseline",
+        [("GET", "/v1/assets/424242", 200, CREATED_ASSET), ("GET", "/versions", 200, versions_page(9))],
+        baseline="8",
+    )
+    if code == 0 and written and written[-1][1]["assetRevision"]["revisionId"] == "9":
+        print("  [ ok  ] studio publish: --baseline-revision 8 makes 9 an edge")
+    else:
+        ok = False
+        print(f"  [WRONG] studio publish with --baseline-revision: exit {code}, receipts {[p for p, _ in written]}")
+    return ok
+
+
 CREATED_ASSET = {
     "path": "assets/424242",
     "assetId": "424242",
@@ -1978,6 +2100,8 @@ def _selftest_transport():
         else:
             ok = False
             print(f"  [WRONG] publish against the fake: exit {code}, receipts {[p for p, _ in written]}")
+        ok = _selftest_studio_edge(work, base_config, version, commit, no_refusals) and ok
+
         if written:
             recorded_gate = written[-1][1].get("gateRun") or {}
             if recorded_gate.get("status") == "PASS" and recorded_gate.get("commit") == commit:
@@ -2050,6 +2174,10 @@ def main():
         release_parser.add_argument("--creator-id")
         release_parser.add_argument("--creator-type", choices=("user", "group"))
         release_parser.add_argument("--actor")
+        release_parser.add_argument(
+            "--baseline-revision",
+            help="studio route: the asset's newest version number BEFORE you publish, when it cannot be read",
+        )
         release_parser.add_argument("--timeout", type=int, default=1800, help="studio-route version poll timeout (s)")
         release_parser.add_argument("--poll", type=int, default=15, help="studio-route poll interval (s)")
         release_parser.set_defaults(func=func)
