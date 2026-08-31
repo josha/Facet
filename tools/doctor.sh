@@ -33,7 +33,7 @@ LUNE_V="$(lune --version 2>/dev/null)" && add_check lune OK "$LUNE_V" true || ad
 ROJO_V="$(rojo --version 2>/dev/null)" && add_check rojo OK "$ROJO_V" true || add_check rojo FAIL "rojo not on PATH" true
 [ -f tests/run.luau ] && add_check testkit OK "tests/run.luau present" true || add_check testkit FAIL "tests/run.luau missing" true
 [ -f requirements.json ] && add_check requirements OK "requirements.json present" true || add_check requirements FAIL "requirements.json missing" true
-[ -f phases.json ] && add_check phases OK "phases.json present" true || add_check phases FAIL "phases.json missing" true
+[ -f tools/lune/verify/graph.json ] && add_check verify-graph OK "verification graph present" true || add_check verify-graph FAIL "tools/lune/verify/graph.json missing" true
 
 # Gallery place must build (proves the Rojo project maps the library).
 if rojo build examples/gallery.project.json -o build/Facet-Gallery.rbxl >/dev/null 2>&1; then

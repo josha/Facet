@@ -30,6 +30,13 @@ skills/
 .github/
 package/
 artifacts/theme-packages-and-skinning/final-neutral-dump.json
+artifacts/distribution-readiness/
+# ^ the OPEN stage's own ledgers: allowed while the stage runs, archived at close.
+!tools/lune/gate_manifest.luau
+!tools/lune/gate_legacy.luau
+!tools/lune/verify/convert_manifest.py
+# ^ the retired gate path and its one-shot converter: archived with phases.json;
+#   the graph is the living system and check_manifest_integrity audits it.
 # --- never public, even inside an allowed directory ---
 !tools/lune/_probe_*.luau
 !tools/lune/_tmp/

@@ -1,3 +1,0 @@
-
-[32m2404 passed[0m
-RascalRally suite post-native-substrate changes, 2026-07-23; repo dirty count 0 (zero game-code edits)

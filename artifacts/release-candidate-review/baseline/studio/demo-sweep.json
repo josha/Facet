@@ -1,6 +1,0 @@
-{"place":"LuauUI-Showcase.rbxl","studioVersion":"0.734.0.7340915","viewport":"749, 380",
-"sweep":"all 36 demos current==mounted ok=true in catalogue order",
-"order":["row-actions","card-rail","with-animation","preferred-transparency","progress-ring","flow-wrap","lifecycle-hidden","row-capabilities","text-degrade","variable-extents","measured-extents","table-virtualized","virtual-grid","virtual-hgrid","sensory-feedback","hud","surface-overlap","branch-scope","sorted-entries","time-curves","foreign-content","async-images","canvas-group","level-picker","callout","menu","tab-view","nested-tree","ex01","ex02","ex03","ex04","ex05","ex06","ex07","all-controls"],
-"allControls":{"nodes":126,"root":"/AdaptiveScreen","rootSize":"749, 260"},
-"themes":{"entries":9,"swap":{"from":"studio-neutral/Dark","to":"fantasy-parchment/Daylight","ok":true,"revertedTo":"studio-neutral/Dark"},
-"sheetsDuringSwap":["LuauUIStyle","LuauUITheme studio-neutral","LuauUITheme fantasy-parchment"]}}

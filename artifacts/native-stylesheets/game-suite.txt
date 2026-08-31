@@ -1,3 +1,0 @@
-[32m2404 passed[0m
-git-porcelain:
-dirty count 0
