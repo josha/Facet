@@ -436,3 +436,119 @@ workstream owns or touched. They are the gate row that asserts the retired
 comparison document was archived, which currently has to name the path it is
 asserting is gone — the same tension this workstream resolved in its own two link
 guards by making the rule structural rather than a list of names.
+
+## 12. Guide pass — split, register sweep, archaeology removal
+
+An owner directive: a full pass over `docs/guide/**`, in three parts.
+
+### Part 1 — chapter 1 split
+
+`01-concepts.md` had grown a 338-line cookbook tail underneath the concepts a
+reader must understand first, so the chapter that says "read this before writing
+any code" was two thirds reference material.
+
+| | Before | After |
+|---|---|---|
+| `01-concepts.md` | 905 lines | 571 lines |
+| `15-adaptive-recipes.md` | — | 364 lines |
+
+The ten recipes moved whole. Each was promoted from a `###` sub-heading to a
+numbered `## 15.x` section, and the new chapter opens with a problem→recipe index
+table. No existing chapter is renumbered. Nothing outside chapter 1 had ever
+linked into the moved tail, so no cross-link needed repointing; the trimmed §1.9
+keeps the adaptation model and ends by pointing at chapter 15, and the guide index
+carries the new row with the "recipes, not required reading" note.
+
+### Part 2 — the register sweep
+
+Measured with a paragraph-aware instrument, because the existing checker splits
+sentences per line and a hard-wrapped run-on is invisible to it. Sentences over
+30 words, per chapter:
+
+| Chapter | Before | After |
+|---|---|---|
+| 01 concepts | 45 | 0 |
+| 02 architecture | 13 | 0 |
+| 03 getting started | 13 | 0 |
+| 04 tutorial | 81 | 7 |
+| 05 styling | 29 | 3 |
+| 06 client and server | 10 | 2 |
+| 07 input | 55 | 0 |
+| 08 without Rojo | 9 | 1 |
+| 09 custom themes | 49 | 4 |
+| 10 rich skinning | 49 | 2 |
+| 11 device verification | 34 | 0 |
+| 12 performance lab | 15 | 7 |
+| 13 theme catalog | 21 | 0 |
+| 14 choosing a library | 23 | 0 |
+| 15 adaptive recipes | 24 | 0 |
+| guide index | 3 | 1 |
+| **total** | **473** | **27** |
+
+Nearly every remaining hit is a bullet list the instrument reads as one sentence.
+The checker's own warning count fell from 494 to 434.
+
+The edit classes were the same everywhere: split comma-trains into one idea per
+sentence, turn a series into the list it already was, passive to active, and cut
+rhetorical throat-clearing. Nothing else changed. Each chapter was audited before
+it was committed, against four invariants: heading lines identical (anchors),
+fenced code lines identical, no inline code span or measured number lost, and
+every string the documentation checkers grep for still present. Chapter 11 was
+audited additionally for claim strength — its five PENDING markers, its unmeasured
+device budget and every "cannot"/"never"/"proves nothing" survive at identical
+count. Chapter 14 was audited for citation integrity: 51 FACT labels, 46
+INFERENCE labels, 43 citation links and both fetch dates, all identical.
+
+### Part 3 — maintainer archaeology
+
+31 sites across 11 chapters: 14 date literals, 9 "director", 6 "ruling", and the
+stage/wave/round-of-work vocabulary. Each now states the rule or the measurement
+without dating or attributing it.
+
+A new `check_doc_style` rule keeps them out. In `docs/guide/**`, a
+`20\d\d-\d\d-\d\d` literal or the words director, ruling or mission is a failure
+with a message naming the fix. Two chapters are exempt because there the dates are
+the content: the framework comparison pins each source to the day it was read, and
+the device chapter records measurements.
+
+**The rule deliberately does not cover "stage", "wave" or "round".** Those are
+ordinary English — the tutorial really does have eight learning stages, and
+chapter 9 really does have ten numbered steps. A rule that fires on a true
+sentence teaches people to route around the checker, so those uses were removed by
+hand instead.
+
+**One pin moved.** `check_docs` grepped `13-theme-catalog.md` for the literal
+phrase "release performance wave" — exactly the internal vocabulary this part
+removes. It now grips "quotes no number", the same assertion in the same
+direction. The phrase was mutated away and the check watched going red before the
+new pin was trusted.
+
+### Result lines
+
+```
+python3 tools/check_doc_style.py
+  PASS — 25 documents; no over-long instruction step, no unexpanded acronym,
+  no internal shorthand, no maintainer archaeology in the guide (434 warnings)
+
+python3 tools/check_doc_style.py --selftest
+  SELFTEST PASS — an over-long numbered step, an unexpanded acronym, a bare
+  artifact row id, a date literal in a guide chapter and an internal reviewer
+  named in one were each reported; the restored tree is clean
+
+lune run tools/lune/check_docs_cli        PASS (9 documents, 166 local links)
+lune run tools/lune/check_links_cli       PASS (51 documents, 544 relative links,
+                                          180 heading anchors)
+lune run tools/lune/check_links_cli --selftest   PASS (all four planted faults)
+python3 tools/check_brand_drift.py --skip-builds  PASS (no drift anywhere)
+lune run tools/lune/check_registration_cli PASS (299 specs registered)
+stylua --check src tests tools bench examples     PASS
+./run-tests.sh --fast                     7164 passed, 0 failed
+tools/test.sh 7000                        PASS passed=7886
+```
+
+**One honest note on the suite.** `tools/test.sh` fingerprints `src`, `tests` and
+`examples`, not `docs/` or `tools/`, so its cached pass is evidence for the code
+and not for this round's changes. The seven specs that actually read guide text
+were therefore re-run directly against the final tree: `perf_lab` (104),
+`spatial` (17), `theme_docs` (39), `extension_checker` (34), `control_feedback`
+(72), `table_themed_header` (9) and `theme_layers` (47) — 322 cases, all green.
