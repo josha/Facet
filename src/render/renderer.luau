@@ -98,7 +98,10 @@ renderer.DIRECT_PROPS = prop_channels.DIRECT_PROPS
 -- Studio session and a live check against it tests the place file instead of the
 -- edits.
 -- Rebound to locals of their original names, so no call site in this file moved.
-local toLayoutNode = layout_node.toLayoutNode
+-- `toLayoutNode` is NOT among them any more (P3 review, M4): this file calls
+-- `layout_node.build`, which owns the cross-solve node store and the recursion, so
+-- the local was dead. The module still EXPORTS `toLayoutNode` — see the note beside
+-- that export for why.
 local effectiveHitFloor = layout_node.effectiveHitFloor
 renderer.compactForm = layout_node.compactForm
 renderer.drawnButtonText = layout_node.drawnButtonText
@@ -1721,7 +1724,7 @@ function renderer.attach(
 	-- `render/layout_node.luau` carries the four axes, the weak keys and the numbers.
 	-- `nodeDirty` is axis 2 and `nodeDirtySeen` guards it — both at the build below.
 	local nodeReuseEnabled = opts == nil or (opts :: any).layoutNodeReuse ~= false
-	local nodeStore = layout_node.newStore()
+	local nodeStore = layout_node.newStore(nodeReuseEnabled)
 	local nodeDirty: { [string]: boolean }? = nil
 	local nodeDirtySeen = -1
 
@@ -1980,18 +1983,24 @@ function renderer.attach(
 			queue — which matters because a settle solve deliberately does not drain it,
 			and neither does a re-entrant one (text measurement, an env observer). Any
 			un-classified dirt takes the full arm, the direction that can only cost
-			time. `tests/node_reuse.spec` drives that case. ]]
-		if nodeReuseEnabled then
-			if root.dirtySeq() ~= nodeDirtySeen then
-				nodeDirty = nil
-				nodeDirtySeen = root.dirtySeq()
-			end
-		else
+			time. `tests/node_reuse.spec` drives that case.
+
+			THE INVARIANT THAT MAKES `nodeDirtySeen` SOUND is about the DRAIN SITES, not
+			about this line, so it is pinned as a seam rather than argued here: every
+			`root.takeDirty()` in this file either marks `nodeDirtySeen` beside it, or
+			drains only dirt a completed full build has already covered.
+			`initialRender`'s does the second — it runs AFTER `solveAndApply` and its
+			own comment says why — and `takeDirty` is monotonic-safe, so the mark that
+			solve made still stands. A THIRD drain site added without one of those two
+			properties silently re-enables the stale tree this test exists to refuse. ]]
+		if root.dirtySeq() ~= nodeDirtySeen then
 			nodeDirty = nil
+			nodeDirtySeen = root.dirtySeq()
 		end
 		local layoutRoot = layout_node.build(nodeStore, root.node, metrics, measureScale, prefOffset, nodeDirty)
-		-- consumed: this set answered for THIS build and the next one starts empty
-		nodeDirty = if nodeReuseEnabled then {} else nil
+		-- consumed: this set answered for THIS build and the next one starts empty. A
+		-- count-only store ignores it, so the off arm needs no branch of its own here.
+		nodeDirty = {}
 		stats.lastNodeBuilds = nodeStore.built
 		local solveOpts = {
 			safeInsets = insets,
@@ -4072,7 +4081,7 @@ function renderer.attach(
 		table.clear(scrollHostOf)
 		-- the node store goes with the surface: its keys are weak so it would drain on
 		-- its own, but one assignment is cheaper than a heap census asking why not
-		nodeStore = layout_node.newStore()
+		nodeStore = layout_node.newStore(nodeReuseEnabled)
 		-- RS-PATHCLIP: the per-scroll-host offset subscriptions are the one
 		-- connection this rule holds, so they die with the surface like every
 		-- other adapter subscription

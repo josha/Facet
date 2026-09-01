@@ -22,10 +22,10 @@
 
 	THE DEMONSTRATOR (D-P3) is `controller.stats().lastNodeBuilds`, a counter on the
 	one place a `solver.Node` is constructed. It is a COUNTER, not a clock. On the
-	1,008-node fixture below a one-leaf update reads **5**; with the store off — which
+	1,010-node fixture below a one-leaf update reads **5**; with the store off — which
 	is what every build in this framework did before this round — the same re-solve
-	reads **1,008**, and a re-solve with nothing dirty at all reads **0** where it also
-	read 1,008.
+	reads **1,010**, and a re-solve with nothing dirty at all reads **0** where it also
+	read 1,010.
 
 	THE ORACLE, and it is the reason this file is longer than the fix. A cross-solve
 	tree adds three failure classes a single solve cannot see:
@@ -86,17 +86,34 @@ end
 --[[ THE FIXTURE is `measure_reuse.spec`'s and `rect_cow.spec`'s, deliberately: the
 	three stores are invalidated off the same events and a divergence between the
 	files' fixtures would be a divergence in what "the same case" means. 200 rows x 5
-	nodes plus an 8-node head is 1,008 layout nodes, carrying the shapes the risk lives
+	nodes plus a 10-node head is 1,010 layout nodes, carrying the shapes the risk lives
 	in — a truncating `disclose` label and a `compactLabel` ladder (published verdicts),
 	a ScrollView (`insideClipper` is true below it, which is axis 4 in the shipped
 	tree), a `containerRelative` box under a wrapper that never moves, a `ViewThatFits`
-	with a hidden losing candidate, and one malformed box that files a diagnostic. ]]
-type Arm = { core: any, env: any, controller: any, adapter: any, rows: any, value: any, wide: any }
+	with a hidden losing candidate, one malformed box that files a diagnostic, and — added
+	by the P3 review (M3) — a `When` branch and an `ErrorBoundary` view, so all THREE of
+	the framework's structural reconcilers are spliced into the flow the differential
+	compares. ]]
+type Arm = {
+	core: any,
+	env: any,
+	root: any,
+	controller: any,
+	adapter: any,
+	rows: any,
+	value: any,
+	wide: any,
+	branch: any,
+}
 
---[[ 8, not 9: `UI.ForEach` owns MOUNTING, not layout, so `toLayoutNode` splices its
-	children into the list's own flow and builds no node for `Rows` itself — which is
-	also why a structural change rebuilds the LIST rather than a region wrapper. ]]
-local HEAD_NODES = 8
+--[[ TEN, and the three that are NOT in it are the point: `UI.ForEach`, `UI.When` and
+	`UI.ErrorBoundary` own MOUNTING, not layout, so `toLayoutNode` splices their
+	children into the enclosing flow and builds no node for the region itself. That is
+	also why a structural change rebuilds the LIST (or the scroller) rather than a
+	region wrapper. The ten: Scroll, Wrap, Bar, Bad, Fits, Long, Short, Extra (the
+	When's branch, mounted because it starts ON), Held (the ErrorBoundary's view) and
+	List. ]]
+local HEAD_NODES = 10
 local ROW_NODES = 5
 -- Scroll > List > Row > V, the deepest live chain (`Rows` splices away)
 local DEPTH = 4
@@ -118,6 +135,7 @@ local function world(
 	end
 	rows:set(items)
 	local wide = core:signal(false)
+	local branchOn = core:signal(true)
 	local wrapWidth = core:memo(function(use: any)
 		return px(if use(wide) then 300 else 220)
 	end)
@@ -144,6 +162,29 @@ local function world(
 				},
 			}),
 			UI.Box({ id = "Bad", width = px(40), height = { type = "percent", fraction = 0.5 } }),
+			--[[ THE OTHER TWO RECONCILERS (P3 review, M3). `ForEach` is the one the rows
+				exercise; `When` and `ErrorBoundary` splice the same way and are the other
+				two writers of `node.children` in the whole framework, so a differential
+				that never mounted one was testing a third of axis 2's structural half.
+				The branch starts ON and the script toggles it OFF and back, so the node
+				count at the end of the script is the count at the start — which is what
+				lets the exact totals below stay exact. ]]
+			UI.When({
+				id = "Branch",
+				condition = branchOn,
+				thenView = function()
+					return UI.Text({ id = "Extra", textSize = 12, text = "conditional row" })
+				end,
+			}),
+			UI.ErrorBoundary({
+				id = "Guard",
+				view = function()
+					return UI.Box({ id = "Held", width = px(30), height = px(10) })
+				end,
+				fallback = function()
+					return UI.Box({ id = "Fallen", width = px(30), height = px(10) })
+				end,
+			}),
 			UI.ViewThatFits({
 				id = "Fits",
 				width = px(120),
@@ -217,11 +258,13 @@ local function world(
 	return {
 		core = core,
 		env = env,
+		root = root,
 		controller = controller,
 		adapter = adapter,
 		rows = rows,
 		value = items,
 		wide = wide,
+		branch = branchOn,
 	}
 end
 
@@ -389,6 +432,29 @@ local SCRIPT: { { name: string, run: (Arm) -> () } } = {
 			arm.value[2].n:set(1)
 		end,
 	},
+	--[[ THE OTHER TWO RECONCILERS. `When` off drops a spliced child out of the
+		scroller's flow and back in; the branch is the SAME blueprint both times, so the
+		re-entry mounts a fresh node and the store must miss on it. `ErrorBoundary`
+		participates on every step by being in the tree at all — its view is spliced
+		into the same flow, so a stale splice would move every sibling below it. ]]
+	{
+		name = "structure: the When branch is dropped",
+		run = function(arm: Arm)
+			arm.branch:set(false)
+		end,
+	},
+	{
+		name = "one leaf while the branch is gone",
+		run = function(arm: Arm)
+			arm.value[2].n:set(606)
+		end,
+	},
+	{
+		name = "structure: the When branch comes back",
+		run = function(arm: Arm)
+			arm.branch:set(true)
+		end,
+	},
 	{
 		name = "nothing at all: a refresh with an empty dirty set",
 		run = function() end,
@@ -407,14 +473,14 @@ local function drive(arm: Arm, step: number)
 end
 
 describe("the cross-solve layout-node store (P3)", function()
-	it("DEMONSTRATOR D-P3: a one-leaf update at N=1008 builds O(touched), not O(N)", function()
+	it("DEMONSTRATOR D-P3: a one-leaf update at N=1010 builds O(touched), not O(N)", function()
 		--[[ THE BOUND, PINNED FROM THE FIXTURE'S OWN BRANCHING RATHER THAN FITTED. The
 			row's bound value feeds TWO memos — `V`'s text and `L`'s disclosing label —
 			so the honest touched set is those two leaves plus `Row`, `List` and
 			`Scroll`: five, and `Rows` is not in it because a `ForEach` splices and emits
 			no layout node. `2 * DEPTH` is 8, comfortably above it, so an ordinary layout
 			edit can move the constant without reddening this — and two orders of
-			magnitude below the 1,008 the pre-fix build constructed on this same
+			magnitude below the 1,010 the pre-fix build constructed on this same
 			re-solve (run recorded in the task report). ]]
 		local arm = world(true, true, true, { w = 400, h = 800 }, 200)
 		local total = HEAD_NODES + ROW_NODES * 200
@@ -426,11 +492,11 @@ describe("the cross-solve layout-node store (P3)", function()
 		expect(s.lastNodeBuilds > 0).toBe(true)
 		expect(s.lastNodeBuilds <= 2 * DEPTH).toBe(true)
 		-- ...and the tree is still the whole tree: the solve that ran over it arranged
-		-- and skipped every one of the 1,008 nodes the build did not construct
+		-- and skipped every one of the 1,010 nodes the build did not construct
 		expect(s.lastRectInserts + s.lastSkipped).toBe(total)
 	end)
 
-	it("...and a re-solve with NOTHING dirty builds zero — where it also built 1008", function()
+	it("...and a re-solve with NOTHING dirty builds zero — where it also built 1010", function()
 		--[[ A LIVE RESIZE IS THE CLEANEST FORM OF THIS: it re-solves the whole surface
 			and changes not one input this seam reads. Every dimension a viewport moves —
 			`fill`, `containerRelative`, the scroller's own inner size — is resolved by
@@ -448,7 +514,7 @@ describe("the cross-solve layout-node store (P3)", function()
 		expect(snapshot(arm)).toBe(snapshot(full))
 	end)
 
-	it("...and the store OFF rebuilds all 1008 every solve — the control", function()
+	it("...and the store OFF rebuilds all 1010 every solve — the control", function()
 		-- the denominator, and the number every build in this framework produced before
 		-- this round
 		local arm = world(false, true, true, { w = 400, h = 800 }, 200)
@@ -515,9 +581,20 @@ describe("the cross-solve layout-node store (P3)", function()
 			the node that has to be rebuilt is the LIST whose flow the rows land in, plus
 			the new row's own five nodes, plus `Scroll` above it. Removal is cheaper
 			still: nothing new is built at all, and the removed row's slate goes with the
-			node it was keyed on — the store is keyed by the mounted node TABLE, so a
-			later row mounted at the same key can never be answered with the old row's
-			tree. ]]
+			node it was keyed on.
+
+			**AND THE OBVIOUS SENTENCE ABOUT KEYS IS WRONG, so here is the true one**
+			(P3 review, M3). "A later row at the same key can never be answered with the
+			old row's tree" is FALSE: `ForEach`'s re-entry-mid-exit path hands back the
+			SAME mounted table when a key returns while its exit is still playing
+			(`mount.luau`, the `retiring[key]` branch), and `When` does the same for a
+			re-entered branch. Serving that row its cached tree is the CORRECT answer —
+			its props and children are untouched — and what did move, its position in the
+			parent's flow, is marked by the region's own `pushDirty(path, "structure")`,
+			so the list rebuilds and re-splices around it. What the table key really buys
+			is the other case: a row that genuinely DIED and came back is a fresh
+			`mountNode`, a fresh table, and a guaranteed miss — which a path key could
+			not promise without a removal sweep. ]]
 		local vp = { w = 400, h = 800 }
 		local arm = world(true, true, true, vp, 40)
 		arm.value[5].n:set(11)
@@ -778,49 +855,335 @@ describe("the layout-node store: the axes a blueprint cannot reach", function()
 		expect(second.children[2]).toBe(cleanB)
 	end)
 
-	it("THE WEAK-KEY PREMISE: a built node holds no reference back to its mounted node", function()
+	it("THE WEAK-KEY PREMISE: a built node reaches no mounted node, no closure, no metatable", function()
 		--[[ The store's keys are weak, which is what bounds it under a churning
 			`ForEach` — and in Luau a weak table is NOT an ephemeron, so a VALUE that
 			reaches its own KEY pins the pair alive forever and the bound silently
 			disappears (measured on this project once already, in `surface_overlap`'s
 			strong bucket). The premise is therefore a reachability property of the built
-			tree, and it is walked rather than promised: `id` is `node.path`, a STRING;
-			every other field is a resolved number, a carried name, or a child
-			`solver.Node`. ]]
+			tree, and it is walked rather than promised.
+
+			THE WALK FAILS ON THREE THINGS, and the second is the one the first version
+			of this case was blind to (P3 review, I3):
+
+			  · a mounted node, its `props` table or its `children` array — the direct
+			    form of the leak;
+			  · **any function or userdata value.** A closure's upvalues are invisible to
+			    a table walk, so one `textOf`-shaped capture on a built node would pin
+			    every mounted node it closed over and this walk would step straight over
+			    it. Removing a per-node closure is exactly what P3 did, so a closure
+			    coming BACK is the precise regression shape — and the earlier walk
+			    early-returned on every non-table, which made it structurally unable to
+			    see it;
+			  · **any metatable.** `__index` is a reference this walk does not follow, so
+			    a built node wearing one could reach anything at all through it.
+
+			And it runs over the REAL fixture's built root as well as a stub, because a
+			two-node stub exercises none of the branches — no text role, no chrome hint,
+			no compact ladder, no scroll container, no placement audit — that a
+			regression would most likely arrive in. ]]
+		local function auditWalk(built: any, forbidden: { [any]: string })
+			local seen: { [any]: boolean } = {}
+			local found: { string } = {}
+			local function walk(v: any, where: string)
+				local kind = type(v)
+				if kind == "function" or kind == "userdata" or kind == "thread" then
+					table.insert(found, `{where}: {kind}`)
+					return
+				end
+				if kind ~= "table" or seen[v] then
+					return
+				end
+				seen[v] = true
+				local name = forbidden[v]
+				if name ~= nil then
+					table.insert(found, `{where}: {name}`)
+					return
+				end
+				if getmetatable(v) ~= nil then
+					table.insert(found, `{where}: metatable`)
+					return
+				end
+				for k, inner in v do
+					walk(k, `{where}.<key>`)
+					walk(inner, `{where}.{tostring(k)}`)
+				end
+			end
+			walk(built, "root")
+			return found, seen
+		end
+
+		-- (1) the stub, where the forbidden set can be written out by hand
 		local leaf = stub("Text", "/r/leaf", { text = "hello", textSize = 14 })
 		local root = stub("VStack", "/r", { gap = 4 }, { leaf })
 		local store = layout_node.newStore()
 		local built = layout_node.build(store, root, NEUTRAL, 1, 0, nil)
-		local mounted = { [root] = "root", [leaf] = "leaf", [root.props] = "root.props" }
-		mounted[leaf.props] = "leaf.props"
-		mounted[root.children] = "root.children"
-		local seen: { [any]: boolean } = {}
-		local found: { string } = {}
-		local function walk(v: any)
-			if type(v) ~= "table" or seen[v] then
-				return
-			end
-			seen[v] = true
-			if mounted[v] ~= nil then
-				table.insert(found, mounted[v])
-				return
-			end
-			for k, inner in v do
-				walk(k)
-				walk(inner)
-			end
-		end
-		walk(built)
+		local forbidden: { [any]: string } = {
+			[root] = "root node",
+			[leaf] = "leaf node",
+			[root.props] = "root.props",
+			[leaf.props] = "leaf.props",
+			[root.children] = "root.children",
+		}
+		local found, seen = auditWalk(built, forbidden)
 		expect(table.concat(found, " ")).toBe("")
-		-- ...and the walk really reached the tree it is about
 		expect(seen[built]).toBe(true)
 		expect(built.id).toBe("/r")
 		expect(#built.children).toBe(1)
-		-- NEGATIVE CONTROL: the same walk over a tree that DOES reach back reports it
-		local planted = { id = "/r", children = { { id = "/r/leaf", back = leaf } } }
-		seen = {}
-		found = {}
-		walk(planted)
-		expect(table.concat(found, " ")).toBe("leaf")
+
+		--[[ (2) THE REAL FIXTURE, 1,010 nodes through every branch this seam has. The
+			forbidden set is derived by walking the MOUNTED tree, so it needs no hand
+			list and cannot go stale as the fixture grows. ]]
+		local arm = world(true, true, true, { w = 400, h = 800 }, 200)
+		local live: { [any]: string } = {}
+		local function collect(node: any)
+			live[node] = `mounted {node.path}`
+			if type(node.props) == "table" then
+				live[node.props] = `props of {node.path}`
+			end
+			if type(node.children) == "table" then
+				live[node.children] = `children of {node.path}`
+				for _, child in node.children do
+					collect(child)
+				end
+			end
+		end
+		collect(arm.root.node)
+		local liveCount = 0
+		for _ in live do
+			liveCount += 1
+		end
+		-- the derivation really saw the tree: three entries per mounted node, and the
+		-- mounted tree is larger than the layout tree (the three regions splice away)
+		expect(liveCount > 3 * (HEAD_NODES + ROW_NODES * 200)).toBe(true)
+		local realStore = layout_node.newStore()
+		local realBuilt = layout_node.build(realStore, arm.root.node, NEUTRAL, 1, 0, nil)
+		expect(realStore.built > HEAD_NODES + ROW_NODES * 200).toBe(false)
+		expect(realStore.built).toBe(HEAD_NODES + ROW_NODES * 200)
+		local realFound, realSeen = auditWalk(realBuilt, live)
+		expect(table.concat(realFound, " ")).toBe("")
+		-- ...and the walk covered a tree of the right order, not one node
+		local visited = 0
+		for _ in realSeen do
+			visited += 1
+		end
+		expect(visited > HEAD_NODES + ROW_NODES * 200).toBe(true)
+
+		--[[ THREE NEGATIVE CONTROLS, one per rule, because a walk that cannot report is
+			the same class as a check that cannot fail. ]]
+		local backRef = { id = "/r", children = { { id = "/r/leaf", back = leaf } } }
+		expect(auditWalk(backRef, forbidden)[1]).toBe("root.children.1.back: leaf node")
+		local closure = { id = "/r", children = { { id = "/r/leaf", textOf = function() end } } }
+		expect(auditWalk(closure, forbidden)[1]).toBe("root.children.1.textOf: function")
+		local metatabled = { id = "/r", children = { setmetatable({ id = "/r/leaf" }, { __index = leaf }) } }
+		expect(auditWalk(metatabled, forbidden)[1]).toBe("root.children.1: metatable")
+	end)
+end)
+
+--[[ ── THE AUDIT THAT LICENSES THE STORE, MECHANISED ─────────────────────────
+	The store is sound because `toLayoutNode` is a pure function of a KNOWN set of
+	mounted-node fields, all of which are either immutable for the node's life or
+	covered by a dirty push. That audit was first done with a `node%.` grep over
+	`layout_node.luau` and IT WAS UNSOUND IN METHOD: `chrome_slots.readHint(node)`
+	takes the WHOLE node and reads `node.meta`, a fifth field no field-read scan in
+	this file can see. The conclusion survived — `meta` is frozen at blueprint build
+	and copied once at mount — but the method did not, so it is two enumerations now
+	and both are pinned here. The next whole-node helper fails a case instead of
+	slipping a grep. ]]
+
+local LAYOUT_NODE_PATH = "src/render/layout_node.luau"
+local RENDERER_PATH = "src/render/renderer.luau"
+
+local function stripLua(source: string): string
+	local out = string.gsub("\n" .. source, "%-%-%[%[.-%]%]", " ")
+	out = string.gsub(out, "\n[ \t]*%-%-[^\n]*", "\n")
+	return out
+end
+
+describe("the layout-node store: the audit that licenses it", function()
+	local fs = require("@lune/fs")
+
+	it("every `node.<field>` the measure seam reads is one of the five", function()
+		local body = stripLua(fs.readFile(LAYOUT_NODE_PATH))
+		local seen: { [string]: boolean } = {}
+		for field in string.gmatch(body, "[^%w_]node%.([%a_][%w_]*)") do
+			seen[field] = true
+		end
+		local out: { string } = {}
+		for field in seen do
+			table.insert(out, field)
+		end
+		table.sort(out)
+		--[[ `class` and `path` are fixed for the life of a mounted node; `props` is
+			written in ONE place in the framework and `children` in ONE region, both in
+			`mount.luau`, and both push a dirty entry for that path. `meta` is not here
+			because it is not read this way — that is the whole finding, and the next
+			case is where it is caught. ]]
+		expect(out).toEqual({ "children", "class", "path", "props" })
+	end)
+
+	it("every call that hands a mounted node OUT of the file is enumerated, with its fields", function()
+		--[[ THE HALF THE FIRST AUDIT DID NOT HAVE. A helper taking `(node)` can read any
+			field it likes and no scan of THIS file will name it. So: every call site whose
+			first argument is a mounted node or a mounted child, minus the ones that are
+			local to this file (`toLayoutNode` itself and `appendChild`, both of which are
+			inside the audit by construction), must be on this list — and each one's own
+			field reads are pinned in its own module below. ]]
+		local body = stripLua(fs.readFile(LAYOUT_NODE_PATH))
+		local LOCAL_TO_THIS_FILE = { toLayoutNode = true, appendChild = true }
+		local calls: { [string]: boolean } = {}
+		for callee in string.gmatch(body, "([%a_][%w_%.]*)%(%s*node%s*[,%)]") do
+			if not LOCAL_TO_THIS_FILE[callee] then
+				calls[callee] = true
+			end
+		end
+		for callee in string.gmatch(body, "([%a_][%w_%.]*)%(%s*child%s*[,%)]") do
+			if not LOCAL_TO_THIS_FILE[callee] then
+				calls[callee] = true
+			end
+		end
+		for callee in string.gmatch(body, "([%a_][%w_%.]*)%(%s*grandchild%s*[,%)]") do
+			if not LOCAL_TO_THIS_FILE[callee] then
+				calls[callee] = true
+			end
+		end
+		-- the recursion spans lines, so its `node`/`child` first argument sits on its
+		-- own line; caught here rather than by widening the patterns above
+		for callee in string.gmatch(body, "([%a_][%w_%.]*)%(%s*\n%s*child,") do
+			if not LOCAL_TO_THIS_FILE[callee] then
+				calls[callee] = true
+			end
+		end
+		local out: { string } = {}
+		for callee in calls do
+			table.insert(out, callee)
+		end
+		table.sort(out)
+		expect(out).toEqual({ "chrome_slots.readHint" })
+	end)
+
+	it("...and `chrome_slots.readHint` reads exactly `meta`, which cannot change under a mounted node", function()
+		--[[ THE FIFTH FIELD, and why it needs no dirty axis. `readHint` reads
+			`node.meta` and nothing else. `meta` is `bp.meta` copied by reference once at
+			mount, and a blueprint node is `table.freeze`d at construction along with its
+			props and children — so a `meta` change is a different blueprint, which is a
+			remount, which is a different mounted node table, which is axis 1. ]]
+		local slots = stripLua(fs.readFile("src/tokens/chrome_slots.luau"))
+		local fn = string.match(slots, "function chrome_slots%.readHint%(node: any%): Hint%?(.-)\nend")
+		assert(fn ~= nil, "no `chrome_slots.readHint` body to read")
+		local seen: { [string]: boolean } = {}
+		for field in string.gmatch(fn :: string, "[^%w_]node%.([%a_][%w_]*)") do
+			seen[field] = true
+		end
+		local out: { string } = {}
+		for field in seen do
+			table.insert(out, field)
+		end
+		table.sort(out)
+		expect(out).toEqual({ "meta" })
+		-- the two facts the paragraph above rests on, read off the live sources
+		local mount = stripLua(fs.readFile("src/mount.luau"))
+		expect(string.find(mount, "meta = bp.meta", 1, true) ~= nil).toBe(true)
+		-- ...and `meta` is written nowhere else on a mounted node
+		expect(string.find(mount, "%.meta%s*=%s*[^b]") == nil).toBe(true)
+		local blueprint = stripLua(fs.readFile("src/blueprint.luau"))
+		expect(string.find(blueprint, "return table.freeze(node)", 1, true) ~= nil).toBe(true)
+	end)
+
+	it("`props` and `children` are written in exactly the places the dirty axis covers", function()
+		--[[ AXIS 2 IS COMPLETE ONLY IF THE WRITERS ARE. Every write to a mounted node's
+			`props` or `children` in `src/` is in `mount.luau`, and every one of them
+			pushes a dirty entry for that node's path (the initial mount is the stated
+			exception: there is nothing to invalidate before the first build). A writer
+			appearing anywhere else is a hole in axis 2 that no case in this file would
+			otherwise notice. ]]
+		local offenders: { string } = {}
+		for _, dir in { "src", "src/render", "src/layout", "src/present", "src/controls", "src/client" } do
+			for _, entry in fs.readDir(dir) do
+				local path = `{dir}/{entry}`
+				if not fs.isFile(path) or string.sub(path, -5) ~= ".luau" or path == "src/mount.luau" then
+					continue
+				end
+				local body = stripLua(fs.readFile(path))
+				if string.find(body, "%.props%[[^%]]+%]%s*=[^=]") ~= nil then
+					table.insert(offenders, `{path}: props`)
+				end
+				if string.find(body, "[^%w_]node%.children%s*=[^=]") ~= nil then
+					table.insert(offenders, `{path}: children`)
+				end
+			end
+		end
+		table.sort(offenders)
+		expect(table.concat(offenders, " ")).toBe("")
+		-- ...and the scan really looked: `mount.luau` itself has both
+		local mount = stripLua(fs.readFile("src/mount.luau"))
+		expect(string.find(mount, "%.props%[[^%]]+%]%s*=[^=]") ~= nil).toBe(true)
+		expect(string.find(mount, "[^%w_]node%.children%s*=[^=]") ~= nil).toBe(true)
+	end)
+
+	it("THE DRAIN SEAM: every `takeDirty` in the renderer marks the sequence or follows a full build", function()
+		--[[ `nodeDirtySeen` is only as sound as the set of places that drain the queue
+			(P3 review, M2). There are exactly TWO in the renderer and they are sound for
+			DIFFERENT reasons:
+
+			  · `controller.refresh` marks `nodeDirtySeen = root.dirtySeq()` on the line
+			    after its drain, so everything it consumed is classified;
+			  · `controller.initialRender` drains WITHOUT marking — and it runs after
+			    `solveAndApply`, which has already done a full build and set the mark
+			    itself; `takeDirty` does not move `dirtySeq`, so that mark still stands.
+
+			A THIRD drain with neither property would let dirt be consumed without being
+			classified, and the very next build would serve a tree that never saw it —
+			silently, because every counter would still look right. That is why this is a
+			count and not a comment. ]]
+		local body = stripLua(fs.readFile(RENDERER_PATH))
+		local sites: { string } = {}
+		for line in string.gmatch(body, "\n([^\n]*root%.takeDirty%(%)[^\n]*)") do
+			table.insert(sites, string.match(line, "^%s*(.-)%s*$") :: string)
+		end
+		expect(#sites).toBe(2)
+		-- the marking one, and the mark is on the drain's own statement list
+		expect(string.find(body, "local dirty = root.takeDirty()", 1, true) ~= nil).toBe(true)
+		expect(string.find(body, "nodeDirtySeen = root.dirtySeq()", 1, true) ~= nil).toBe(true)
+		--[[ ...and the unmarked one is `initialRender`'s, WITH the full build in front
+			of it. Read as an ordered triple off the source rather than asserted: the
+			drain must come after `solveAndApply()` inside that function. ]]
+		local initial = string.match(body, "function controller%.initialRender%(%)(.-)\n\tend")
+		assert(initial ~= nil, "no `initialRender` body to read")
+		local solveAt = string.find(initial :: string, "solveAndApply()", 1, true)
+		local drainAt = string.find(initial :: string, "root.takeDirty()", 1, true)
+		expect(solveAt ~= nil and drainAt ~= nil and (solveAt :: number) < (drainAt :: number)).toBe(true)
+	end)
+
+	it("NEGATIVE CONTROL: each audit scan reports the input it is meant to catch", function()
+		local fieldScan = function(src: string): { string }
+			local seen: { [string]: boolean } = {}
+			for field in string.gmatch(stripLua(src), "[^%w_]node%.([%a_][%w_]*)") do
+				seen[field] = true
+			end
+			local out: { string } = {}
+			for f in seen do
+				table.insert(out, f)
+			end
+			table.sort(out)
+			return out
+		end
+		-- a comment naming a field is not a read
+		expect(fieldScan("--[[ node.ghost ]]\nlocal a = node.real\n")).toEqual({ "real" })
+		expect(fieldScan("\t-- node.ghost\n\tlocal a = node.real\n")).toEqual({ "real" })
+		-- ...and a NEW field read is reported
+		expect(fieldScan("local a = node.real\nlocal b = node.surprise\n")).toEqual({ "real", "surprise" })
+		-- a new whole-node helper is reported
+		local callScan = function(src: string): { string }
+			local out: { string } = {}
+			for callee in string.gmatch(stripLua(src), "([%a_][%w_%.]*)%(%s*node%s*[,%)]") do
+				table.insert(out, callee)
+			end
+			table.sort(out)
+			return out
+		end
+		expect(callScan("local h = other_module.readSomething(node)\n")).toEqual({ "other_module.readSomething" })
+		expect(callScan("local h = mod.f(node, 1)\n")).toEqual({ "mod.f" })
+		expect(callScan("-- mod.ghost(node)\nlocal x = 1\n")).toEqual({})
 	end)
 end)

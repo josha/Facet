@@ -265,28 +265,54 @@ local function toLayoutNode(
 	store: Store?
 ): solver.Node
 	--[[ P3: THE SUBTREE THIS SOLVE DOES NOT HAVE TO BUILD. Every field below is a
-		pure function of (`node.class`, `node.path`, `node.props`, `node.children`,
-		`metrics`, `textScale`, `prefOffset`, `parentAxis`, `insideClipper`) — the
-		`node.*` reads are exactly those four and nothing else, which is what makes
-		this answerable at all — and the solver never writes into a layout node
+		pure function of FIVE mounted-node fields — `class`, `path`, `props`,
+		`children`, `meta` — plus `metrics`, `textScale`, `prefOffset`, `parentAxis`
+		and `insideClipper`; and the solver never writes into a layout node
 		(`solver.luau` contains no `node.<field> =`), so last solve's tree is still
-		this solve's answer wherever none of the nine moved.
+		this solve's answer wherever none of the ten moved.
 
-		THE FIRST FIVE ARE THE STORE'S OWN AXES and are checked once per build
-		(`build` below). The last two ride the recursion and can change WITHOUT any
-		prop or child changing — a node re-parented from an hstack to a vstack, or
-		first appearing under a `scroll` — so they are checked here, per node, and
-		they are stored rather than derived because a cache hit must not have to
-		walk up to find out where it is. ]]
+		**THE FIFTH FIELD IS NOT REACHED THROUGH `node.`, WHICH IS WHY THE AUDIT COUNTS
+		CALL SITES AND NOT ONLY FIELD READS** (P3 review, I1). `meta` is read by
+		`chrome_slots.readHint(node)` below — a WHOLE-NODE helper — so a scan for
+		`node.<field>` in this file cannot see it, and the first version of this audit
+		reported four fields where there are five. The audit is therefore TWO
+		enumerations: every `node.<field>` read, AND every call that hands the mounted
+		node (or a mounted child) to somebody else. Both are pinned by
+		`tests/node_reuse.spec.luau`, so the next whole-node helper fails a case instead
+		of slipping a grep.
+
+		`meta` IS IMMUTABLE PER MOUNTED NODE, which is what keeps it off the dirty axes:
+		it is `bp.meta` copied by reference once at mount (`mount.luau`: "library-internal
+		metadata channel: copied verbatim, never observed, never rendered, never
+		dumped"), and a blueprint node is `table.freeze`d at construction along with its
+		`props` and `children` (`blueprint.luau`, the `return table.freeze(node)` at the
+		end of the node constructor). A `meta` change is a different blueprint, which is
+		a remount, which is a different mounted node table — axis 1.
+
+		THE FIRST SIX ARE THE STORE'S OWN AXES and are checked once per build (`build`
+		below) or are constant for the node's life. The last two ride the recursion and
+		can change WITHOUT any prop or child changing — a node re-parented from an
+		hstack to a vstack, or first appearing under a `scroll` — so they are checked
+		here, per node, and stored rather than derived because a cache hit must not have
+		to walk up to find out where it is. ]]
 	if store ~= nil then
-		local hit = store.byNode[node]
-		if
-			hit ~= nil
-			and not store.dirty[node.path]
-			and hit.axis == parentAxis
-			and hit.clip == (insideClipper == true)
-		then
-			return hit.built
+		--[[ `store.reuse == false` IS THE COUNT-ONLY ARM, and it exists so the
+			differential oracle's control is an honest pre-fix build (P3 review, I2).
+			A store that looked up and wrote on the off arm would charge that arm a
+			hash probe, a record allocation and an insert per node for a table
+			discarded on the next solve — an inflated denominator in every "vs off"
+			ratio. Off costs one boolean test and one increment per node, which is
+			the counter and nothing else. ]]
+		if store.reuse then
+			local hit = store.byNode[node]
+			if
+				hit ~= nil
+				and not store.dirty[node.path]
+				and hit.axis == parentAxis
+				and hit.clip == (insideClipper == true)
+			then
+				return hit.built
+			end
 		end
 		store.built += 1
 	end
@@ -1335,7 +1361,7 @@ local function toLayoutNode(
 		end
 	end
 	layoutNode.containerRelativeInside = inside or nil
-	if store ~= nil then
+	if store ~= nil and store.reuse then
 		-- LAST, so a node that threw builds no entry. `axis`/`clip` are recorded
 		-- beside the tree because they are the two inputs the lookup above cannot
 		-- re-derive from the node it is holding.
@@ -1368,9 +1394,20 @@ end
 	FOUR AXES, and they are deliberately the same shape as `layout/measure_reuse`'s.
 
 	AXIS 1 — THE NODE. Keyed by the mounted node TABLE, not by its path, so a
-	`ForEach` that removes a row and later mounts a new one at the same key cannot be
+	`ForEach` that removes a row and later mounts a NEW one at the same key cannot be
 	answered with the old row's tree. A path key would need a removal sweep to be
 	safe; a table key is safe by construction.
+
+	**A KEY THAT COMES BACK DOES NOT ALWAYS BRING A NEW TABLE, and the honest version
+	is the interesting one** (P3 review, M3). `ForEach`'s RE-ENTRY MID-EXIT path
+	(`mount.luau`, the `retiring[key]` branch) hands back **the same mounted row** —
+	same table, same scope, same instances — when a key returns while its exit is still
+	playing, and `When` does the same for a re-entered branch. Serving that row its
+	cached tree is not a bug, it is the correct answer: nothing about its `props` or
+	`children` changed. What DID change is where it sits in the parent's flow, and the
+	region's own `pushDirty(path, "structure")` marks that — so the LIST rebuilds and
+	re-splices while the row itself is served. A row that genuinely died and came back
+	is a fresh `mountNode`, a fresh table, and a miss.
 
 	AXIS 2 — WHAT CHANGED INSIDE IT. `dirty` is the renderer's dirty set closed over
 	ANCESTORS — every path with a dirty entry of ANY class plus every ancestor of one.
@@ -1381,11 +1418,14 @@ end
 	exactly the claim a subtree-shaped cache needs.
 
 	AXIS 3 — WHAT CHANGED AROUND IT. `metrics` (the applied ThemeSnapshot),
-	`textScale` and `prefOffset` are solve-wide: none of them dirties a node, so axis
-	2 cannot catch one. They are folded into one `stamp` and compared once per build;
-	any change drops the whole store. `metrics` compares by IDENTITY because it is one
-	env-held snapshot per applied theme — see AXIS 3 IS APPLICATION, NOT EMISSION
-	below.
+	`textScale` and `prefOffset` are solve-wide: none of them dirties a node, so axis 2
+	cannot catch one. All three are held on the store AS THEMSELVES and compared once
+	per build; any change drops the whole store. `metrics` compares by IDENTITY — `~=`
+	on the table — and that is the literal comparison rather than a stamp derived from
+	it: a `tostring(metrics)` key compares ADDRESS STRINGS, and an address is reused
+	once its table is collected, so a swap to a snapshot that landed where the old one
+	had been would read as unchanged and serve the old tree (P3 review, M1). See AXIS 3
+	IS APPLICATION, NOT EMISSION below.
 
 	AXIS 4 — WHERE IT SITS. `parentAxis` and `insideClipper` ride the recursion and
 	can move without the node moving. They are stored per entry and checked at the
@@ -1409,8 +1449,11 @@ end
 	a value that reaches its own key pins the pair alive. **The entry's value must
 	never reference the mounted node**: a `solver.Node` carries `id = node.path` (a
 	string), resolved numbers, and child `solver.Node`s — no mounted-node reference on
-	any path. `tests/node_reuse.spec.luau` pins that as a reachability walk rather
-	than as a promise.
+	any path. `tests/node_reuse.spec.luau` pins that as a reachability walk rather than
+	as a promise — one that FAILS on any function or userdata value and on any
+	metatable, because a closure captures its upvalues invisibly and removing a per-node
+	closure is exactly what this seam did; a walk that stepped over functions would be
+	blind to the one regression shape it exists to catch.
 
 	INTERPLAY WITH P1 AND P2, because both key on node identity and this changes what
 	that means. `measure_reuse`'s slate and the solve's rect map are both keyed by
@@ -1423,8 +1466,16 @@ end
 ]]
 
 export type Store = {
-	-- the axis-3 inputs the entries were built under
-	stamp: string,
+	--[[ THE THREE AXIS 3 INPUTS THE ENTRIES WERE BUILT UNDER, held as themselves.
+		`metrics` is the applied ThemeSnapshot compared with `~=`, which is what
+		"identity" means and what the header says: a `tostring(metrics)` stamp would
+		compare ADDRESS STRINGS, and Luau reuses an address once a table is collected,
+		so a swap to a snapshot that landed where the old one had been would read as
+		unchanged and serve the old tree (P3 review, M1). One reference is also
+		cheaper than a formatted string per build. ]]
+	metrics: any,
+	textScale: number,
+	prefOffset: number,
 	-- mounted node -> { built, axis, clip }. WEAK IN ITS KEYS (see above).
 	byNode: any,
 	-- axis 2, the ancestor-closed dirty set for THIS build
@@ -1432,16 +1483,25 @@ export type Store = {
 	-- nodes CONSTRUCTED by the last build. The P3 demonstrator: a clean re-solve is
 	-- 0 and a one-leaf update is bounded by the touched closure, where both were N.
 	built: number,
+	-- false makes this a COUNT-ONLY store: no lookup, no write, no entry. The
+	-- oracle's honest pre-fix control (see the count-only arm in `toLayoutNode`).
+	reuse: boolean,
 }
 
 local WEAK_KEYS = table.freeze({ __mode = "k" })
 
-function layout_node.newStore(): Store
+-- `reuse == false` builds a COUNT-ONLY store: the counter still reports N, and
+-- nothing is looked up, allocated or stored. That is the differential oracle's
+-- control arm and it must cost what the pre-P3 build cost.
+function layout_node.newStore(reuse: boolean?): Store
 	return {
-		stamp = "",
+		metrics = nil,
+		textScale = 0 / 0,
+		prefOffset = 0 / 0,
 		byNode = setmetatable({}, WEAK_KEYS),
 		dirty = {},
 		built = 0,
+		reuse = reuse ~= false,
 	}
 end
 
@@ -1459,13 +1519,23 @@ function layout_node.build(
 	prefOffset: number,
 	dirty: { [string]: boolean }?
 ): solver.Node
-	local stamp = `{tostring(metrics)}|{textScale}|{prefOffset}`
-	if dirty == nil or store.stamp ~= stamp then
-		store.stamp = stamp
-		store.byNode = setmetatable({}, WEAK_KEYS)
-		store.dirty = {}
-	else
-		store.dirty = dirty
+	if store.reuse then
+		-- axis 3 by identity and by value; `metrics` is the APPLIED snapshot, never a
+		-- string derived from it (see `Store.metrics`)
+		if
+			dirty == nil
+			or store.metrics ~= metrics
+			or store.textScale ~= textScale
+			or store.prefOffset ~= prefOffset
+		then
+			store.metrics = metrics
+			store.textScale = textScale
+			store.prefOffset = prefOffset
+			store.byNode = setmetatable({}, WEAK_KEYS)
+			store.dirty = {}
+		else
+			store.dirty = dirty
+		end
 	end
 	store.built = 0
 	return toLayoutNode(node, metrics, textScale, prefOffset, nil, nil, store)
@@ -1474,6 +1544,12 @@ end
 layout_node.compactForm = compactForm
 layout_node.drawnButtonText = drawnButtonText
 layout_node.effectiveHitFloor = effectiveHitFloor
+--[[ NOBODY IN `src/` CALLS THIS ANY MORE — the renderer goes through `build` — and it
+	is exported anyway, on purpose: `FacetBench/tools/profile/lib_attr.luau` patches
+	`layout_node.toLayoutNode` and `layout_node.build` by name to time the build stage,
+	and the recursion is a module local it cannot reach. Removing the export would make
+	every profiling harness in that repo report the stage as 0.000 ms. It is also the
+	one-shot entry a caller with no store wants. ]]
 layout_node.toLayoutNode = toLayoutNode
 
 return layout_node
