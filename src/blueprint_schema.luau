@@ -1107,10 +1107,28 @@ local CONTAINER_LAYOUT: { [string]: PropSpec } = {
 		channel = "binding",
 		doc = "engine Active flag — an input-sinking panel (modal backdrops)",
 	}),
+	--[[ `dirty` CARRIES `measure` BECAUSE `layout_node` READS THIS AS A SIZE INPUT,
+		and the name of the channel is not the answer to that question (P1 review,
+		CRITICAL 1). `channel = "style"` is still true — the paint of a surface is
+		sheet paint — but two solver-visible things also read the word:
+		`layout_node:822` gives `surface = "badge"` an intrinsic minimum when the
+		author declared no dims, and `layout_node:929` feeds it to
+		`chrome_slots.classify`, whose slot decides which `chromeInsets`/
+		`chromeOutsets` are ADDED TO PADDING.
+
+		Declared `{ "paint" }`, a flip never set `needsSolve` at all
+		(`renderer.luau:2878-2884`: only structure/measure/arrange do), so the new
+		geometry landed late — on whatever unrelated solve came next. The
+		cross-solve measure store (P1) turned late into NEVER: the node is absent
+		from `dirtyContains`, so its slate is adopted and the pre-flip measurement
+		is served forever. Reproduced at 20px: a Box whose `surface` goes
+		nil -> "badge" beside a measure-dirty sibling stayed 0x0 across five solves.
+		`tests/measure_reuse.spec.luau` carries the repro, and
+		`tests/layout_prop_dirt.spec.luau` mechanises the whole class. ]]
 	surface = p({
 		types = { "string" },
 		reactive = true,
-		dirty = { "paint" },
+		dirty = { "paint", "measure" },
 		shared = true,
 		enum = { "base", "raised", "control", "chip", "badge", "accent", "scrim", "plain" },
 		channel = "style",
@@ -2109,10 +2127,13 @@ class("Text", {
 		--                     default.
 		-- A game that genuinely wants a label on a control-coloured plate wraps it
 		-- in a Box, which is one node more and honest about what it is.
+		-- `measure` for the reason CONTAINER_LAYOUT.surface carries it (P1 review,
+		-- CRITICAL 1): `layout_node` reads the word as a size input, and "badge" is
+		-- one of the two values this enum allows.
 		surface = p({
 			types = { "string" },
 			reactive = true,
-			dirty = { "paint" },
+			dirty = { "paint", "measure" },
 			enum = { "badge", "chip" },
 			channel = "style",
 			doc = 'read-only surface role painted behind this label — "badge" (the counter seal) or '
@@ -2272,10 +2293,22 @@ class("Button", {
 			channel = "binding",
 			doc = "false removes the control from focus and activation and paints the disabled state",
 		}),
+		--[[ ...AND `measure` FOR THE SAME REASON `surface` CARRIES IT. `layout_node:930`
+			passes `props.selected ~= nil` to `chrome_slots.classify` as `hasSelection`,
+			and that flag routes the node to the `selection` slot instead of
+			`control`/`panel` — a different `chromeInsets` entry, added to padding.
+
+			ONLY THE nil <-> NON-nil TRANSITION CAN MOVE GEOMETRY (the classify reads
+			presence, not the value), so a toggle between `true` and `false` re-solves
+			for nothing. That is the honest cost and it is taken deliberately: the
+			dirty table has no vocabulary for "only when it becomes nil", an exception
+			with a reason is exactly the shape that shipped CRITICAL 1, and since P1 a
+			re-solve provoked by one prop is O(touched) rather than O(tree) — the fix
+			that would have been expensive before P1 is cheap after it. ]]
 		selected = p({
 			types = { "boolean" },
 			reactive = true,
-			dirty = { "paint", "semantics" },
+			dirty = { "paint", "semantics", "measure" },
 			channel = "binding",
 			doc = "app-state selection — rides a style tag, never a bespoke fill",
 		}),

@@ -32,6 +32,11 @@ require("./measure_memo.spec")
 -- three-arm differential (memo / memo-less incremental / forced full solve) over
 -- every axis a solve boundary adds — structure, offer, viewport, theme, text metrics
 require("./measure_reuse.spec")
+-- ...and the audit that relates the two files P1's CRITICAL 1 fell between: every
+-- `props.<name>` layout_node reads, walked against that prop's declared dirty classes,
+-- because a solver-consumed prop declared paint-only is a geometry change no solve
+-- is ever provoked for
+require("./layout_prop_dirt.spec")
 -- content-terms height (framework-gaps-phase2 gap 3): the closed
 -- construction grammar, `of`'s metric resolution, the solver arithmetic for
 -- both `lines`/`rows` shapes, the nested-scroll-diagnostic regression fix,

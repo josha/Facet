@@ -2650,9 +2650,17 @@ lifetime is the mount's, not the module's).
 | `renderer.drawnButtonText(props, compact?) -> string` | pure: what a `Button`'s own engine text node actually shows (empty for a content button; the framework's ASCII-safe glyph for an icon button) |
 
 **`attach` options** — `{ rootPolicy?, edgeFloor?, onNodeTap?, engineSelectionBridge?,
-onDiscloseHover?, onDiscloseLongPress?, recycleInstances?, incrementalLayout? }`
-(the last two are the two performance opts described under `present()`, both on
-by default; a presented surface forwards its own).
+onDiscloseHover?, onDiscloseLongPress?, recycleInstances?, incrementalLayout?,
+measureReuse? }`
+(`recycleInstances` and `incrementalLayout` are the two performance opts described
+under `present()`, both on by default; a presented surface forwards its own).
+**`measureReuse`** (default **true**) is the third, and it is a TEST SEAM rather than
+a tuning knob: it turns off the cross-solve measure store
+(`src/layout/measure_reuse.luau`) while leaving incremental layout fully intact, so a
+differential can attribute a divergence to the memo rather than to the arrange skip —
+which is the standing requirement on this memo family (`tests/measure_reuse.spec.luau`
+runs every case three ways). `present()` does not forward it; a presented surface
+always gets the default. There is no reason to set it in production code.
 `rootPolicy` is the surface's content-rect policy (`"coreSafeContent"` default,
 `"deviceSafeContent"`, `"bandSafeContent"`, `"edgeToEdge"`; an unknown value
 errors and lists the set). `edgeFloor` is the opt-in edge-padding knob (a

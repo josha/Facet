@@ -1895,7 +1895,27 @@ measure = function(ctx: Ctx, node: Node, maxW: number, maxH: number): (number, n
 	local mw, mh = measureUncached(ctx, node, maxW, maxH)
 	local cuts = ctx.fitCuts - cutsBefore
 	local dAfter = #ctx.diagnostics
+	--[[ FROZEN, BECAUSE THIS ENTRY OUTLIVES THE SOLVE (P1 review, IMPORTANT 3). The
+		same finding TABLES are re-inserted on every adopted hit for as long as the
+		slate lives, and `controller.diagnostics()` clones the LIST alone — so a
+		consumer writing to a finding it was handed would corrupt the store forever.
+		Frozen rather than copied on replay: a copy allocates on the hit path this
+		exists to keep allocation-free and only narrows the corruption to one solve,
+		while a frozen table turns that write into a loud error at its own line.
+		Shallow suffices — a finding is flat, and `auditPlacement` stamps `filedBy` at
+		BUILD time. ]]
 	local diags = if dAfter > dBefore then table.move(ctx.diagnostics, dBefore + 1, dAfter, 1, {}) else nil
+	if diags ~= nil then
+		-- `isfrozen` first: a finding filed deep in a subtree is captured by EVERY
+		-- ancestor whose measure enclosed it, and `table.freeze` raises on a table
+		-- that already is.
+		for _, d in diags do
+			if not table.isfrozen(d) then
+				table.freeze(d)
+			end
+		end
+		table.freeze(diags)
+	end
 	-- one more distinct offer on this node's slate, and the cap that keeps a node
 	-- whose offers DRIFT from accumulating an entry per frame forever
 	if store ~= nil and perNode[cacheKey] == nil then

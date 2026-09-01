@@ -3948,6 +3948,17 @@ function renderer.attach(
 		end
 		local opts2 = table.clone(lastSolveInputs.opts)
 		opts2.analyzeBoundaries = true
+		--[[ THE ANALYSIS IS A FULL SOLVE OR IT IS NOTHING (P1 review, IMPORTANT 2).
+			`lastSolveInputs.opts` is the live `solveOpts` TABLE, so both reuse fields
+			are visible here — `reuse` since Stage 2, `measures` since P1. `boundary` is
+			written in `measureUncached`, so a solve served from slates records almost
+			nothing, every unrecorded node reads as "does not absorb", and this report
+			inverts (measured: 6 absorbing against the true 11). `reuse.dirtyContains`
+			is also the wrong refresh's set, and passing `measures` lets an ANALYSIS
+			write the store the next real solve reads. Pinned in
+			tests/measure_reuse.spec.luau. ]]
+		opts2.reuse = nil
+		opts2.measures = nil
 		local result = solver.solve(lastSolveInputs.layoutRoot, lastSolveInputs.viewport, opts2)
 		return solver.boundaryReport(lastSolveInputs.layoutRoot, result)
 	end

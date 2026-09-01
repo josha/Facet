@@ -442,6 +442,85 @@ describe("cross-solve measure reuse (P1)", function()
 			local c = world(false, false, vp, 12)
 			expect(snapshot(a)).toBe(snapshot(c))
 			expect(snapshot(a)).toBe(snapshot(b))
+			--[[ AFTER EVERY AXIS STEP, TWO PLAIN UPDATES — and the second is where
+				engagement is asserted (P1 review, IMPORTANT 4). Every axis step either
+				wipes the store (viewport, theme, text scale, text metrics) or forces a
+				full solve (structure), and the step right after it is therefore the FILL
+				pass, which measures exactly what the memo-less arm does. Asserting
+				engagement anywhere in that alternation measures the wipe, not the memo:
+				instrumented over the 15 script steps, only 2, 3 and 4 ever ran warm.
+				A wipe, a fill, then a hit is the real cycle, so the probe drives it and
+				compares the answer at every point of it. ]]
+			local engaged, eligible = 0, 0
+			local probe = 0
+			--[[ what each row was last written, so BOTH rounds are guaranteed to be a
+				real change. `set(7)` on a row already holding 7 enqueues nothing, the
+				refresh is a no-op, and `lastMeasured` still reports the previous solve —
+				which is what made this assertion read 73/73 after a structural step and
+				look like a store that never warmed. ]]
+			local written: { [number]: number } = {}
+			local function warmProbe(label: string)
+				probe += 1
+				-- THE SAME ROW BOTH ROUNDS. A different row per round makes round 2 a
+				-- fresh width change of its own, so nothing is ever warm.
+				local row = (probe % 5) + 1
+				local first = if written[row] == 7 then 8 else 7
+				for round = 1, 3 do
+					--[[ TWO SINGLE-DIGIT VALUES, ALTERNATING, and the width is the point.
+						A probe that wrote an ever-increasing number changed the value
+						label's measured WIDTH every round, which re-offered its siblings
+						at a new size every round — twelve distinct offers later each
+						slate hit `measure_reuse.KEY_CAP` and wiped itself, and the probe
+						then measured its own churn instead of the memo (observed: six
+						rounds engaging at on=10/off=68, then a wipe reporting 68/68).
+						`7` and `8` dirty the node without moving one offer, which is what
+						a live surface's per-frame updates mostly do. ]]
+					-- 7 and 8 are both one glyph wide, so a round dirties the node
+					-- without moving a single offer — which is what a live surface's
+					-- per-frame updates mostly do, and what keeps the slates off
+					-- `measure_reuse.KEY_CAP`. An ever-increasing probe value re-offered
+					-- every sibling each round and wiped the slates twelve rounds later.
+					local value = if round % 2 == 1 then first else (if first == 7 then 8 else 7)
+					written[row] = value
+					for _, arm in { a, b, c } do
+						arm.value[row].n:set(value)
+						arm.controller.refresh()
+					end
+					if snapshot(a) ~= snapshot(c) then
+						error(`measure reuse diverged from a FULL solve at {label} probe {round}`, 0)
+					end
+					if snapshot(a) ~= snapshot(b) then
+						error(`measure reuse diverged from the memo-less solve at {label} probe {round}`, 0)
+					end
+				end
+				--[[ THREE ROUNDS, and the count is measured rather than chosen. A
+					structural step defers its sync to the NEXT refresh, so round 1 is
+					still structural (153 measured on this fixture), round 2 is the FILL
+					pass (73) and only round 3 runs warm: a wipe, a fill, then a hit.
+
+					ENGAGEMENT IS ONLY ASKED WHERE AN INCREMENTAL SOLVE HAPPENED, and
+					`mb < mc` is the honest test for that. Arm B is the pre-P1 renderer
+					exactly, so when it cannot beat a forced full solve, nothing on this
+					fixture solved incrementally and the store had nothing it was allowed
+					to serve. Measured: from the theme swap onward this fixture solves in
+					full every refresh — both arms report 142 against arm C's 142 — which
+					is a property of the ornate package's chrome and not of the memo, since
+					arm B carries no store at all and behaves identically. `engaged`
+					below is what stops that exemption from swallowing the check. ]]
+				local ma, mb, mc =
+					a.controller.stats().lastMeasured,
+					b.controller.stats().lastMeasured,
+					c.controller.stats().lastMeasured
+				if mb < mc then
+					eligible += 1
+					if ma < mb then
+						engaged += 1
+					else
+						error(`measure reuse did not engage after {label}: on={ma} off={mb} full={mc}`, 0)
+					end
+				end
+			end
+
 			for step = 1, #SCRIPT do
 				drive(a, step)
 				drive(b, step)
@@ -453,9 +532,17 @@ describe("cross-solve measure reuse (P1)", function()
 				if snapshot(a) ~= snapshot(b) then
 					error(`measure reuse diverged from the memo-less incremental solve at {label}`, 0)
 				end
+				warmProbe(label)
 			end
-			-- ...and the feature actually ran. A differential nobody watched engage is
-			-- the first Stage-2 attempt's own failure, repeated.
+			--[[ `warmProbe` asserted `on < off` — the memo and ONLY the memo, because
+				arms A and B differ by nothing else — after every one of the 15 axis
+				steps. What stood here was `on < full`, which the ARRANGE SKIP alone
+				satisfies: arm C is a forced full solve, so a cache-off incremental arm
+				beats it too, and this spec would have stayed green with a store that
+				never hit once (P1 review, IMPORTANT 4). Kept as the weaker sibling
+				claim, below the strong one. ]]
+			expect(eligible >= 7).toBe(true)
+			expect(engaged).toBe(eligible)
 			expect(a.controller.stats().lastMeasured < c.controller.stats().lastMeasured).toBe(true)
 			text_metrics.resetCalibration()
 		end
@@ -471,6 +558,169 @@ describe("cross-solve measure reuse (P1)", function()
 			arm.value[i].n:set(i * 13)
 			arm.controller.refresh()
 			expect(string.find(findings(arm.controller), "/Scroll/Bad") ~= nil).toBe(true)
+		end
+	end)
+
+	it("a paint-classed prop that layout_node reads as a SIZE input (review CRITICAL 1)", function()
+		--[[ THE THIRD-TIME-WRONG BUG, as a regression pin. `surface` was declared
+			`dirty = { "paint" }` while `layout_node:822` reads `surface = "badge"` as an
+			intrinsic 20px minimum. Paint dirt never sets `needsSolve`
+			(`renderer.luau:2878-2884`), so the geometry always landed LATE — on the next
+			unrelated solve. The cross-solve store turned late into NEVER: the node is
+			absent from `dirtyContains`, its slate is adopted, and the pre-flip
+			measurement is served forever.
+
+			MEASURED before the schema fix, driving five solves after the flip:
+			cache on `0,0,0,0` every time; cache off `0,0,20,20` from the first. The
+			ORDER below is what makes it bite — the store must be FILLED while `surface`
+			is still nil, which is why two refreshes precede the flip. `surface` now
+			carries `measure`, and `tests/layout_prop_dirt.spec.luau` mechanises the
+			whole class so the next one is caught by a check rather than by a review. ]]
+		local function badge(cache: boolean): { string }
+			local core = customFactory.new()
+			local env = environment.new(core)
+			env:set("viewportRect", { x = 0, y = 0, w = 400, h = 600 })
+			local surf = core:signal(nil :: string?)
+			local tall = core:signal(false)
+			local bp = UI.VStack({
+				id = "S",
+				padding = 0,
+				gap = 0,
+				children = {
+					-- no authored dims: the badge minimum is the ONLY thing that can size it
+					UI.Box({
+						id = "X",
+						surface = core:memo(function(use: any)
+							return use(surf)
+						end),
+					}),
+					-- the neighbour whose measure dirt provokes the solve
+					UI.Box({
+						id = "N",
+						width = px(10),
+						height = core:memo(function(use: any)
+							return px(if use(tall) then 90 else 30)
+						end),
+					}),
+				},
+			})
+			local root = mountLib.mount(core, bp)
+			local adapter = fake_target.new()
+			local controller = renderer.attach(core, root, env, adapter, {
+				rootPolicy = "edgeToEdge",
+				incrementalLayout = true,
+				measureReuse = cache,
+			})
+			controller.initialRender()
+			-- FILL THE STORE FIRST, with `surface` still nil
+			for i = 1, 2 do
+				tall:set(i % 2 == 0)
+				controller.refresh()
+			end
+			surf:set("badge")
+			local seen = {}
+			for i = 1, 5 do
+				tall:set(i % 2 == 0)
+				controller.refresh()
+				local rect = "-"
+				for path, node in adapter.liveNodes() do
+					if path == "/S/X" and node.rect ~= nil then
+						rect = `{node.rect.w}x{node.rect.h}`
+					end
+				end
+				table.insert(seen, rect)
+			end
+			return seen
+		end
+		local on, off = badge(true), badge(false)
+		-- converges IMMEDIATELY, and stays converged
+		expect(table.concat(on, " ")).toBe("20x20 20x20 20x20 20x20 20x20")
+		expect(table.concat(on, " ")).toBe(table.concat(off, " "))
+	end)
+
+	it("the boundary analysis is a FULL solve — no reuse, no store (review IMPORTANT 2)", function()
+		--[[ `controller.analyzeBoundaries` re-solves through `table.clone` of the LIVE
+			`solveOpts` table, so it inherited both `reuse` and `measures`. `ctx.boundary`
+			is written in `measureUncached`, so a solve served from slates records almost
+			nothing and every unrecorded node reads as "does not absorb" — the report's
+			whole subject, inverted. Measured on this shape: **6 absorbing nodes reported
+			against the true 11**, and the analysis also wrote into the store the next
+			real solve reads. ]]
+		local core = customFactory.new()
+		local env = environment.new(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 600 })
+		local v = core:signal(1)
+		local kids = {}
+		for i = 1, 5 do
+			table.insert(
+				kids,
+				UI.VStack({
+					id = `F{i}`,
+					padding = 0,
+					gap = 0,
+					width = px(40),
+					height = px(20),
+					children = { UI.Box({ id = "In", width = px(10), height = px(10) }) },
+				})
+			)
+		end
+		table.insert(
+			kids,
+			UI.Box({
+				id = "D",
+				width = px(30),
+				height = core:memo(function(use: any)
+					return px(10 + use(v))
+				end),
+			})
+		)
+		local root = mountLib.mount(core, UI.VStack({ id = "S", padding = 0, gap = 0, children = kids }))
+		local adapter = fake_target.new()
+		local controller = renderer.attach(core, root, env, adapter, {
+			rootPolicy = "edgeToEdge",
+			incrementalLayout = true,
+		})
+		controller.initialRender()
+		-- drive real incremental solves, so a live store and a stale `dirtyContains`
+		-- both exist to be wrongly inherited
+		for i = 1, 3 do
+			v:set(i + 1)
+			controller.refresh()
+			expect(controller.analyzeBoundaries().absorbingNodes).toBe(11)
+		end
+		-- ...and the analysis did not disturb the surface it measured
+		v:set(99)
+		controller.refresh()
+		expect(controller.analyzeBoundaries().absorbingNodes).toBe(11)
+	end)
+
+	it("a stored finding cannot be corrupted by whoever was handed it (review IMPORTANT 3)", function()
+		-- `controller.diagnostics()` clones the LIST, not the entries, and an adopted
+		-- slate re-inserts the same tables for as many solves as it survives. Frozen at
+		-- capture, so a consumer's write raises at its own line instead of poisoning
+		-- every later solve's diagnostics.
+		local arm = world(true, true, { w = 400, h = 800 }, 6)
+		arm.value[1].n:set(11)
+		arm.controller.refresh()
+		local before = findings(arm.controller)
+		expect(string.find(before, "/Scroll/Bad") ~= nil).toBe(true)
+		local target = nil
+		for _, d in arm.controller.diagnostics() do
+			if d.node == "/Scroll/Bad" then
+				target = d
+			end
+		end
+		expect(target ~= nil).toBe(true)
+		expect(table.isfrozen(target :: any)).toBe(true)
+		local ok = pcall(function()
+			(target :: any).issue = "corrupted"
+		end)
+		expect(ok).toBe(false)
+		-- and the next solves are unaffected
+		for i = 2, 4 do
+			arm.value[i].n:set(i * 7)
+			arm.controller.refresh()
+			expect(findings(arm.controller)).toBe(before)
 		end
 	end)
 

@@ -173,6 +173,16 @@ text_metrics.canonicalFont = canonicalFont
 	So: one counter, bumped by every seam that can change what `measure` returns, and
 	only when the value actually moves. Monotone, never reset — `resetMeasured` bumps
 	it too, because forgetting a width is a change like any other.
+
+	IT IS PROCESS-GLOBAL, LIKE THE STORE IT GUARDS, and a reader chasing a miss rate
+	should know that before instrumenting anything. The exact-width store below is one
+	table shared by every surface in the session, so ANY surface learning a word moves
+	this number and therefore invalidates EVERY surface's cross-solve measure store —
+	a busy screen mounting new text can hold a quiet one's store cold. That is the safe
+	direction (a per-surface epoch could not see another surface teaching the measurer
+	a width this one reads) and it is cheap while the vocabulary settles, which it does
+	within the first frames. If it ever stops settling, the fix is a per-(font,size)
+	generation, not a per-surface one.
 ]]
 local epoch = 0
 
