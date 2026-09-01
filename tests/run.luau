@@ -28,6 +28,10 @@ require("./perf_lab.spec")
 -- last-write-wins silently becomes first-measure-wins and a cut label reports
 -- truncated = false with its geometry unchanged
 require("./measure_memo.spec")
+-- ...and its CROSS-SOLVE half (perf campaign P1): the demonstrator counter, and the
+-- three-arm differential (memo / memo-less incremental / forced full solve) over
+-- every axis a solve boundary adds — structure, offer, viewport, theme, text metrics
+require("./measure_reuse.spec")
 -- content-terms height (framework-gaps-phase2 gap 3): the closed
 -- construction grammar, `of`'s metric resolution, the solver arithmetic for
 -- both `lines`/`rows` shapes, the nested-scroll-diagnostic regression fix,

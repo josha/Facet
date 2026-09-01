@@ -159,13 +159,41 @@ text_metrics.canonicalFont = canonicalFont
 -- tighten (never exceed the proven-safe default) and can never collapse below
 -- a sane floor, so a garbage measurement cannot cause under-reservation
 -- beyond the caller's applied safety margin.
+--[[ THE MEASUREMENT EPOCH (perf campaign P1, 2026-09-01).
+
+	Everything below this line is MODULE-LEVEL MUTABLE STATE shared by every surface:
+	the calibrated glyph fractions and the exact per-word widths. A layout memo that
+	outlives a solve has to know when that state moved, and neither of the two numbers
+	already published can tell it. `measuredCount` counts DISTINCT words and does not
+	move when a width is OVERWRITTEN — which is precisely the boot-window font flip
+	(the Roblox adapter answers the same batch twice, up to ~12 s apart, and the second
+	answer corrects the first). The renderer's `textMeasureEpoch` env fact does see that
+	correction, but nothing bumps it for `calibrate`.
+
+	So: one counter, bumped by every seam that can change what `measure` returns, and
+	only when the value actually moves. Monotone, never reset — `resetMeasured` bumps
+	it too, because forgetting a width is a change like any other.
+]]
+local epoch = 0
+
 local calibration: { [string]: number } = {}
 
 function text_metrics.calibrate(font: string, fraction: number)
 	if type(fraction) ~= "number" or fraction ~= fraction then
 		return
 	end
-	calibration[canonicalFont(font)] = math.clamp(fraction, 0.30, AVG_GLYPH_FRACTION)
+	local canon = canonicalFont(font)
+	local value = math.clamp(fraction, 0.30, AVG_GLYPH_FRACTION)
+	if calibration[canon] ~= value then
+		calibration[canon] = value
+		epoch += 1
+	end
+end
+
+-- the measurement epoch (see its declaration): bumped by every seam above and below
+-- that can change what `measure` returns for the same text at the same size
+function text_metrics.epoch(): number
+	return epoch
 end
 
 -- the calibration store, keyed canonically. Short-name ALIASES are mirrored into
@@ -184,7 +212,10 @@ function text_metrics.calibrationTable(): { [string]: number }
 end
 
 function text_metrics.resetCalibration()
-	table.clear(calibration)
+	if next(calibration) ~= nil then
+		table.clear(calibration)
+		epoch += 1
+	end
 end
 
 -- descriptors the headless provider "knows"; anything else (including another
@@ -313,7 +344,10 @@ function text_metrics.setMeasured(font: string, fontSize: number, word: string, 
 		end
 		exactCount += 1
 	end
-	bucket[word] = width
+	if bucket[word] ~= width then
+		bucket[word] = width
+		epoch += 1
+	end
 	return true
 end
 
@@ -333,7 +367,10 @@ function text_metrics.markUnmeasurable(font: string, fontSize: number, word: str
 		end
 		exactCount += 1
 	end
-	bucket[word] = false
+	if bucket[word] ~= false then
+		bucket[word] = false
+		epoch += 1
+	end
 end
 
 -- start recording the words the next measure() calls cannot size exactly.
@@ -407,6 +444,7 @@ function text_metrics.resetMeasured()
 	exactCount = 0
 	collecting = nil
 	collectCount = 0
+	epoch += 1
 end
 
 local function glyphWidth(codepoint: number, fontSize: number, fraction: number): number

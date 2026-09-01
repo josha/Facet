@@ -110,6 +110,7 @@ local roundPx = num.roundPx
 -- per-node measure path, where an extra table index per call is the shape of a
 -- bench regression this file has already paid for once.
 local measureFacts = require("./measure_facts")
+local measureReuse = require("./measure_reuse")
 local CONTENT = measureFacts.CONTENT
 local MEMO_ARM_DEPTH = measureFacts.MEMO_ARM_DEPTH
 local PLAN_HEIGHT_FREE = measureFacts.PLAN_HEIGHT_FREE
@@ -497,6 +498,10 @@ type Ctx = {
 	-- { w, h, textState, compact, textFacts, composition }. The verdicts ride along
 	-- because they are REPLAYED on a hit; see `measure` for why that is load-bearing.
 	measureCache: { [any]: { [string]: any } },
+	-- THE CROSS-SOLVE HALF OF THAT MEMO (P1). The per-surface store the slates above
+	-- are adopted from and written through, or `nil` when the caller has none; see
+	-- `./measure_reuse` for the four invalidation axes.
+	measures: measureReuse.Store?,
 	-- node -> its `PLAN_*` verdict, decided once per node per solve by `memoPlan`
 	memoPlans: { [any]: number },
 	offers: { [string]: number },
@@ -1693,10 +1698,18 @@ measure = function(ctx: Ctx, node: Node, maxW: number, maxH: number): (number, n
 	-- tree the memo is measurably worth arming for. Below it the shape arms that pay
 	-- nothing (`flat`, `zstack`, `wrap`) stay uncached, which is L-6's ruling intact:
 	-- unconditional, the memo ran them +8% to +20% against a 1.5% control.
-	if not ctx.hasScroll and not ctx.deepNesting then
+	--
+	-- ...AND THE CROSS-SOLVE STORE ARMS IT FOR EVERY SHAPE (P1). Both arms above are
+	-- about a node measured twice within ONE solve — a scroller, deep nesting. The
+	-- store's win is the subtree the NEXT solve does not walk, which every shape pays
+	-- for, so a surface holding one never takes this early return. `./measure_reuse`.
+	local store = ctx.measures
+	if store == nil and not ctx.hasScroll and not ctx.deepNesting then
 		return measureUncached(ctx, node, maxW, maxH)
 	end
-	-- A CONSTANT-SIZE NODE IS CHEAPER TO RE-MEASURE THAN TO LOOK UP (see `memoPlan`).
+	-- A CONSTANT-SIZE NODE IS CHEAPER TO RE-MEASURE THAN TO LOOK UP (see `memoPlan`),
+	-- and that holds across solves too: its `content()` is never called, so it walks
+	-- no children and there is no subtree for a hit to remove.
 	local plan = memoPlan(ctx, node)
 	if plan == PLAN_SKIP then
 		return measureUncached(ctx, node, maxW, maxH)
@@ -1769,7 +1782,31 @@ measure = function(ctx: Ctx, node: Node, maxW: number, maxH: number): (number, n
 	-- cannot produce a stale hit.
 	local cacheKey = if dropH then `{maxW}|*|{ctx.scopeKey}` else `{maxW}|{maxH}|{ctx.scopeKey}`
 	local perNode = ctx.measureCache[node]
-	if perNode ~= nil then
+	--[[ THE SLATE THIS NODE ALREADY FILLED (P1), when this solve can prove nothing
+		inside it moved — and the proof is `dirtyContains`, the dirty set closed over
+		ancestors, i.e. the same validity the arrange skip beside it already trusts. No
+		reuse set means no proof: a full solve adopts nothing and only refills.
+
+		`adopted` is true at most ONCE per node per solve (binding the slate into the
+		per-solve memo is what makes that so), which is what makes it a safe gate for
+		the diagnostics replay below: a slate THIS solve wrote must not re-file
+		findings it has already filed. ]]
+	local adopted = false
+	if perNode == nil then
+		if store ~= nil then
+			perNode, adopted = measureReuse.adopt(
+				store,
+				node,
+				ctx.reuse ~= nil and ctx.reuse.dirtyContains[node.id] ~= true,
+				ctx.containerW,
+				ctx.containerH
+			)
+		else
+			perNode = {}
+		end
+		ctx.measureCache[node] = perNode
+	end
+	do
 		local hit = perNode[cacheKey]
 		if hit ~= nil then
 			-- THE PACKED ENTRY: a node that publishes NOTHING is filed as the array
@@ -1836,19 +1873,37 @@ measure = function(ctx: Ctx, node: Node, maxW: number, maxH: number): (number, n
 			if hit.cuts ~= nil then
 				ctx.fitCuts += hit.cuts
 			end
+			--[[ ...AND THE FINDINGS RIDE THE ENTRY TOO (P1), for the reason the cut
+				count does one branch up. A cross-solve hit removes a whole subtree's
+				measure, and the four sites that file from one — percent or
+				containerRelative on an unbounded axis, aspect on both, a scroll region
+				on an unbounded axis — are inside it. Without this a malformed subtree
+				goes QUIET the moment it stops being dirty, silencing the one channel
+				every layout defect in this repo was caught by. `nil` on every
+				well-formed tree. ]]
+			if adopted and hit.diags ~= nil then
+				for _, d in hit.diags do
+					table.insert(ctx.diagnostics, d)
+				end
+			end
 			return hit.w, hit.h
 		end
-	else
-		perNode = {}
-		ctx.measureCache[node] = perNode
 	end
 	-- the cut count this measure produces is part of what it publishes (contract 7)
 	local cutsBefore = ctx.fitCuts
+	local dBefore = #ctx.diagnostics
 	local mw, mh = measureUncached(ctx, node, maxW, maxH)
 	local cuts = ctx.fitCuts - cutsBefore
+	local dAfter = #ctx.diagnostics
+	local diags = if dAfter > dBefore then table.move(ctx.diagnostics, dBefore + 1, dAfter, 1, {}) else nil
+	-- one more distinct offer on this node's slate, and the cap that keeps a node
+	-- whose offers DRIFT from accumulating an entry per frame forever
+	if store ~= nil and perNode[cacheKey] == nil then
+		measureReuse.note(store, node.id, perNode)
+	end
 	-- ...and the matching write of the packed form, for the kinds that cannot publish
 	local kind = node.kind
-	if kind ~= "text" and kind ~= "composition" then
+	if kind ~= "text" and kind ~= "composition" and diags == nil then
 		perNode[cacheKey] = if cuts > 0 then { mw, mh, cuts } else { mw, mh }
 		return mw, mh
 	end
@@ -1857,6 +1912,7 @@ measure = function(ctx: Ctx, node: Node, maxW: number, maxH: number): (number, n
 		w = mw,
 		h = mh,
 		cuts = if cuts > 0 then cuts else nil,
+		diags = diags,
 		textState = ctx.textStates[node.id],
 		compact = ctx.compact[node.id],
 		textFacts = ctx.textFacts[node.id],
@@ -3626,6 +3682,20 @@ function solver.solve(
 		-- per-solve measure memo (see `measure`). Weak keys are unnecessary: the
 		-- whole ctx dies with the solve.
 		measureCache = {},
+		--[[ THE CROSS-SOLVE STORE (P1), and ONLY on a solve that can read it. A solve
+			with no reuse set proves nothing clean, so it could only WRITE — and writing
+			means arming the per-solve memo for every shape, which is precisely the
+			economics L-6 and L-37 measured and scoped away from (`flat`, `zstack` and
+			`wrap` ran +8 % to +20 % armed, against a 1.5 % control). Measured again here
+			on the pre-fix probe: populating a full solve cost +31 % at M and +40 % at L
+			for a store nothing in that solve could use.
+
+			So a full solve is the pre-P1 solver EXACTLY — `nil` here, same arming, same
+			counts — and the store is filled by the first incremental solve after it,
+			which pays one uncached pass and hits from then on. The renderer clears the
+			store on every non-reuse solve, so what that first pass fills is never a
+			slate from before the structural change. ]]
+		measures = if opts ~= nil and (opts :: any).reuse ~= nil then (opts :: any).measures else nil,
 		arranged = 0,
 		measured = 0,
 		analyze = (opts and (opts :: any).analyzeBoundaries) == true,

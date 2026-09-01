@@ -22,6 +22,7 @@
 local solver = require("../layout/solver")
 local profile = require("../core/profile")
 local text_metrics = require("../layout/text_metrics")
+local measure_reuse = require("../layout/measure_reuse")
 local authority = require("./authority")
 -- the per-node presentation channel: transform,
 -- transparency, the authored triple and the `withAnimation` records, behind one
@@ -156,6 +157,12 @@ export type RendererAttachOpts = {
 	onDiscloseLongPress: ((path: string?) -> ())?,
 	recycleInstances: boolean?,
 	incrementalLayout: boolean?,
+	-- CROSS-SOLVE MEASURE REUSE (P1), default ON. The switch exists for the
+	-- DIFFERENTIAL ORACLE this memo family is required to carry: off leaves
+	-- incremental layout intact, so a divergence names the memo, not the arrange
+	-- skip. `presenter.present` does not forward it; a presented surface gets the
+	-- default. See `src/layout/measure_reuse.luau`.
+	measureReuse: boolean?,
 }
 
 local ATTACH_OPTS_KEYS = specGuard.keySet({
@@ -167,6 +174,7 @@ local ATTACH_OPTS_KEYS = specGuard.keySet({
 	"onDiscloseLongPress",
 	"recycleInstances",
 	"incrementalLayout",
+	"measureReuse",
 })
 
 -- attach(core, mountedRoot, env, adapter, opts) -> controller
@@ -1691,6 +1699,12 @@ function renderer.attach(
 	local incrementalEnabled = opts == nil or (opts :: any).incrementalLayout ~= false
 	local lastResult: any = nil
 	local dirtyContains: { [string]: boolean }? = nil
+	-- ...AND THE MEASURE HALF OF THE SAME BARGAIN (P1): `arrange` learned to skip a
+	-- clean subtree, `measure` never did. The per-node measure slates live here, per
+	-- SURFACE beside `lastResult` and never global; `src/layout/measure_reuse.luau`
+	-- carries the four invalidation axes, of which the stamp below is axis 3.
+	local measureReuseEnabled = opts == nil or (opts :: any).measureReuse ~= false
+	local measureStore = measure_reuse.new()
 
 	-- `controller.onSolved` listeners: run at the tail of every OUTERMOST solve.
 	-- The presenter uses exactly one of these, to feed solved geometry to the
@@ -1959,6 +1973,26 @@ function renderer.attach(
 			-- this solve covered `dirtyContains` and skipped the rest, so it cannot
 			-- answer for the whole queue (see `fullSolveSeq`)
 			solvedEverything = false
+		end
+		if measureReuseEnabled then
+			-- AXIS 3: every measure input that is neither the node nor the offer. None
+			-- of them dirties a node, so `dirtyContains` cannot catch one; any move
+			-- here wipes the store. `metrics` compares by IDENTITY (one env-held
+			-- snapshot per theme) and `text_metrics.epoch()` is the only number that
+			-- sees a width OVERWRITTEN — the boot-window font flip.
+			measure_reuse.restamp(
+				measureStore,
+				`{vp.w}|{vp.h}|{insets.top}|{insets.bottom}|{insets.left}|{insets.right}|{rootPolicy}|{barReserve}`
+					.. `|{if band ~= nil then `{band.x},{band.y},{band.w},{band.h}` else "-"}|{bandFullTop}`
+					.. `|{tostring(metrics)}|{measureScale}|{prefOffset}|{text_metrics.epoch()}`
+			)
+			-- A SOLVE WITH NO REUSE SET REBUILDS THE STORE. The structural case forces
+			-- it: the shape moved, so one path can now carry different content and a
+			-- slate keyed by path would answer for the node that used to be there.
+			if solveOpts.reuse == nil then
+				measure_reuse.clear(measureStore)
+			end
+			solveOpts.measures = measureStore
 		end
 		local result = solver.solve(layoutRoot, { w = vp.w, h = vp.h }, solveOpts)
 		if result.work ~= nil and (result.work.skipped or 0) > 0 then
