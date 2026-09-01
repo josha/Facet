@@ -48,11 +48,6 @@
    "sha256": "90756e1fd2f5ffaf29f78a0fcd5278a9650a1c654c0eeb60254e2ed1cff6f1fd"
   },
   {
-   "archivedPath": "artifacts/performance-stress-places/place.json",
-   "label": "evidence-11",
-   "sha256": "7c15d2df6ec1f229a3f760e4a46a5924fd253ae07e6568f687e3ce7aaae30fa3"
-  },
-  {
    "archivedPath": "artifacts/performance-stress-places/prior-gates-supplement.md",
    "label": "evidence-12",
    "sha256": "4e7f888b6e487242c865577789924dbd8a542a291c234712ec391aba814ab65c"

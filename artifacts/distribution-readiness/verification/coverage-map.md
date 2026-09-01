@@ -380,7 +380,7 @@ on that half alone.
 
 ---
 
-# Post-archival repair (2026-08-31)
+# Post-archival repair (2026-09-01)
 
 The stage record was archived and deleted from the tip. This section is what
 that cost each row, and what carries the claim now. Produced by
@@ -606,7 +606,7 @@ Each verified nothing while reporting a class-shaped environment failure.
 | `reference-app-validation::fixture-axes` | evidence-1 (no path recorded) | found `artifacts/swiftui-reference-app-validation/studio/fixture-axes.json` by content hash |
 | `reference-app-validation::device-matrix` | evidence-2 | dropped: (no path recorded) resolves to no file |
 
-## Run output stripped from receipts (22)
+## Run output stripped from receipts (34)
 
 A producer in this same graph rewrites each of these every run, so a hash of one is
 a hash of the last run. The row that held it went red the moment its own system ran
@@ -636,6 +636,18 @@ again.
 | `check_xp_matrix` | `artifacts/cross-platform-proof/rows/xp-a6-regression-proof.json` |
 | `prove_perf_gate` | `artifacts/cross-platform-proof/rows/xp-a6-regression-proof.json` |
 | `prove_perf_gate` | `artifacts/phase-4/perf.json` |
+| `check_perf_gate_evidence-budgets` | `artifacts/performance-stress-places/place.json` |
+| `check_perf_gate_evidence-device-matrix` | `artifacts/performance-stress-places/place.json` |
+| `check_perf_gate_evidence-falsifiable` | `artifacts/performance-stress-places/place.json` |
+| `check_perf_gate_evidence-headless-linkage` | `artifacts/performance-stress-places/place.json` |
+| `check_perf_gate_evidence-large-text` | `artifacts/performance-stress-places/place.json` |
+| `check_perf_gate_evidence-native-reference` | `artifacts/performance-stress-places/place.json` |
+| `check_perf_gate_evidence-perf-gate` | `artifacts/performance-stress-places/place.json` |
+| `check_perf_gate_evidence-prior-gates` | `artifacts/performance-stress-places/place.json` |
+| `check_perf_gate_evidence-scopes` | `artifacts/performance-stress-places/place.json` |
+| `check_perf_gate_evidence-studio` | `artifacts/performance-stress-places/place.json` |
+| `check_perf_gate_evidence-theme-cost` | `artifacts/performance-stress-places/place.json` |
+| `check_perf_place` | `artifacts/performance-stress-places/place.json` |
 
 ## Producers moved to the serial wave (2)
 
@@ -644,7 +656,7 @@ again.
 | `check_types` | it generates and deletes a probe file inside tests/ |
 | `check_types-selftest` | it rewrites src/init.luau and the type witness, then restores them |
 
-## Receipts deleted as empty (5)
+## Receipts deleted as empty (6)
 
 Each held nothing but run output. An empty receipt is refused, so leaving one in
 place reddens a row whose claim is intact; the producer that re-earns the claim
@@ -657,3 +669,4 @@ every run carries it instead.
 | `check_perf_scenes-themes` | `tools/lune/verify/evidence/producer--check_perf_scenes-themes.json` |
 | `check_perf_scenes` | `tools/lune/verify/evidence/producer--check_perf_scenes.json` |
 | `prove_perf_gate` | `tools/lune/verify/evidence/producer--prove_perf_gate.json` |
+| `check_perf_place` | `tools/lune/verify/evidence/producer--check_perf_place.json` |

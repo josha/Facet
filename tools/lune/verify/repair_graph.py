@@ -79,7 +79,14 @@ REGENERATED = re.compile(
     r"|[a-z0-9-]+/gate\.json"
     #   ...and `prove_perf_gate` rewrites its own proof row on every run for the
     #   same reason: it is a live falsification, re-earned rather than recalled.
-    r"|cross-platform-proof/rows/xp-a6-regression-proof\.json)"
+    r"|cross-platform-proof/rows/xp-a6-regression-proof\.json"
+    #   ...and so does `check_perf_place`, whose whole output IS
+    #   `performance-stress-places/place.json`: it re-scans the built place and
+    #   rewrites the file, byte size and all. Twelve receipts pinned it, so every
+    #   `check_perf_gate_evidence-*` producer went red the run after the
+    #   performance place was rebuilt (3 061 361 -> 3 073 210 bytes) — the same
+    #   "measuring the clock" defect the two entries above name, found 2026-09-01.
+    r"|performance-stress-places/place\.json)"
 )
 
 LIVING_EVIDENCE = re.compile(

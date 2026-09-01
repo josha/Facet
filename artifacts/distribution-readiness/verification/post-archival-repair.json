@@ -440,6 +440,10 @@
   [
    "prove_perf_gate",
    "tools/lune/verify/evidence/producer--prove_perf_gate.json"
+  ],
+  [
+   "check_perf_place",
+   "tools/lune/verify/evidence/producer--check_perf_place.json"
   ]
  ],
  "expandedPins": [
@@ -969,7 +973,55 @@
   [
    "prove_perf_gate",
    "artifacts/phase-4/perf.json"
+  ],
+  [
+   "check_perf_gate_evidence-budgets",
+   "artifacts/performance-stress-places/place.json"
+  ],
+  [
+   "check_perf_gate_evidence-device-matrix",
+   "artifacts/performance-stress-places/place.json"
+  ],
+  [
+   "check_perf_gate_evidence-falsifiable",
+   "artifacts/performance-stress-places/place.json"
+  ],
+  [
+   "check_perf_gate_evidence-headless-linkage",
+   "artifacts/performance-stress-places/place.json"
+  ],
+  [
+   "check_perf_gate_evidence-large-text",
+   "artifacts/performance-stress-places/place.json"
+  ],
+  [
+   "check_perf_gate_evidence-native-reference",
+   "artifacts/performance-stress-places/place.json"
+  ],
+  [
+   "check_perf_gate_evidence-perf-gate",
+   "artifacts/performance-stress-places/place.json"
+  ],
+  [
+   "check_perf_gate_evidence-prior-gates",
+   "artifacts/performance-stress-places/place.json"
+  ],
+  [
+   "check_perf_gate_evidence-scopes",
+   "artifacts/performance-stress-places/place.json"
+  ],
+  [
+   "check_perf_gate_evidence-studio",
+   "artifacts/performance-stress-places/place.json"
+  ],
+  [
+   "check_perf_gate_evidence-theme-cost",
+   "artifacts/performance-stress-places/place.json"
+  ],
+  [
+   "check_perf_place",
+   "artifacts/performance-stress-places/place.json"
   ]
  ],
- "updatedAt": "2026-08-31T04:11:52Z"
+ "updatedAt": "2026-09-01T18:12:55Z"
 }
