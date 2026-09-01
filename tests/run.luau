@@ -36,6 +36,12 @@ require("./measure_reuse.spec")
 -- skipped subtree costs a return instead of N inserts. The insertion counter, the
 -- aliasing and canary cases, and the same full-solve differential over the matrix
 require("./rect_cow.spec")
+-- ...and P3's: the `solver.Node` tree is PATCHED on dirt instead of rebuilt from the
+-- mounted tree every solve. The build counter, the zero-build re-solve, the applied-
+-- theme case (emission is not application), the structural bound, the three-arm
+-- differential over the device matrix, and the four axes driven against
+-- `layout_node.build` directly — including the weak-key premise the store's bound rests on
+require("./node_reuse.spec")
 -- ...and the audit that relates the two files P1's CRITICAL 1 fell between: every
 -- `props.<name>` layout_node reads, walked against that prop's declared dirty classes,
 -- because a solver-consumed prop declared paint-only is a geometry change no solve

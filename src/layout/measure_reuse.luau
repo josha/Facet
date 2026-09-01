@@ -21,10 +21,15 @@
 	container and `fitProbe` all ride `ctx.scopeKey`). Making it cross-solve therefore
 	only has to answer the axes a SOLVE BOUNDARY adds, and there are exactly three.
 
-	AXIS 1 — THE NODE. The layout tree is rebuilt from the mounted tree on every solve
-	(`renderer.toLayoutNode`), so the per-solve memo's key — the node TABLE — is a
-	different object each time. The slate is keyed by `node.id`, the mounted path,
-	which is the same identity `dirtyContains` and `previous.rects` are keyed by.
+	AXIS 1 — THE NODE. The slate is keyed by `node.id`, the mounted path, which is the
+	same identity `dirtyContains` and `previous.rects` are keyed by — never by the node
+	TABLE, which is what the per-solve memo keys on. **That was written when the layout
+	tree was rebuilt from the mounted tree on every solve, so the table was a different
+	object each time; since P3 (`render/layout_node.build`) a clean subtree's tables are
+	REUSED across solves.** The choice is unchanged and so is its reason: `node.id` is
+	the identity the three stores share, and a table key would go stale on exactly the
+	solves P3 rebuilds. What moved is only that the per-solve memo now starts each solve
+	holding keys it can hit — warmer, never wrong, since its `ctx` is fresh either way.
 
 	AXIS 2 — WHAT CHANGED INSIDE THE NODE. A slate may only be adopted when this
 	solve can prove nothing under that node moved, and that proof already exists:

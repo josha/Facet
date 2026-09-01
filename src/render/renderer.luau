@@ -164,6 +164,11 @@ export type RendererAttachOpts = {
 	-- skip. `presenter.present` does not forward it; a presented surface gets the
 	-- default. See `src/layout/measure_reuse.luau`.
 	measureReuse: boolean?,
+	-- CROSS-SOLVE LAYOUT-NODE REUSE (P3), default ON, and the switch is here for the
+	-- same reason `measureReuse`'s is: the differential oracle needs an arm that
+	-- rebuilds the whole tree, so a divergence names THIS store and not its two
+	-- neighbours. See `render/layout_node.build`.
+	layoutNodeReuse: boolean?,
 }
 
 local ATTACH_OPTS_KEYS = specGuard.keySet({
@@ -176,6 +181,7 @@ local ATTACH_OPTS_KEYS = specGuard.keySet({
 	"recycleInstances",
 	"incrementalLayout",
 	"measureReuse",
+	"layoutNodeReuse",
 })
 
 -- attach(core, mountedRoot, env, adapter, opts) -> controller
@@ -764,6 +770,9 @@ function renderer.attach(
 		ssTotal = 0,
 		lastSkipped = 0,
 		lastRectInserts = 0,
+		-- ...and what the solve had to BUILD (P3): `solver.Node`s constructed by the
+		-- last `layout_node.build`. 0 on a re-solve nothing dirtied, where it was N.
+		lastNodeBuilds = 0,
 	}
 	-- THE RECT PASS (src/render/rect_pass): one walk in DOCUMENT ORDER, so a host's
 	-- own rect always lands before anything beneath it. Built once per attach, over
@@ -1707,6 +1716,14 @@ function renderer.attach(
 	-- carries the four invalidation axes, of which the stamp below is axis 3.
 	local measureReuseEnabled = opts == nil or (opts :: any).measureReuse ~= false
 	local measureStore = measure_reuse.new()
+	-- ...AND THE BUILD HALF (P3): the `solver.Node` tree the other two run over was
+	-- rebuilt from the mounted tree on every solve. Per SURFACE beside them;
+	-- `render/layout_node.luau` carries the four axes, the weak keys and the numbers.
+	-- `nodeDirty` is axis 2 and `nodeDirtySeen` guards it — both at the build below.
+	local nodeReuseEnabled = opts == nil or (opts :: any).layoutNodeReuse ~= false
+	local nodeStore = layout_node.newStore()
+	local nodeDirty: { [string]: boolean }? = nil
+	local nodeDirtySeen = -1
 
 	-- `controller.onSolved` listeners: run at the tail of every OUTERMOST solve.
 	-- The presenter uses exactly one of these, to feed solved geometry to the
@@ -1954,7 +1971,28 @@ function renderer.attach(
 				}
 			end
 		end
-		local layoutRoot = toLayoutNode(root.node, metrics, measureScale, prefOffset)
+		--[[ THE TREE, PATCHED RATHER THAN REBUILT (P3). `nodeDirty` is the
+			ancestor-closed set `refresh` accumulated; `nil` is "rebuild everything".
+
+			THE SEQUENCE TEST IS THE SAFETY, and it is one comparison. `root.dirtySeq()`
+			is monotonic and survives `takeDirty`, so "has anything dirtied this tree
+			that this renderer has not classified" is answerable WITHOUT draining the
+			queue — which matters because a settle solve deliberately does not drain it,
+			and neither does a re-entrant one (text measurement, an env observer). Any
+			un-classified dirt takes the full arm, the direction that can only cost
+			time. `tests/node_reuse.spec` drives that case. ]]
+		if nodeReuseEnabled then
+			if root.dirtySeq() ~= nodeDirtySeen then
+				nodeDirty = nil
+				nodeDirtySeen = root.dirtySeq()
+			end
+		else
+			nodeDirty = nil
+		end
+		local layoutRoot = layout_node.build(nodeStore, root.node, metrics, measureScale, prefOffset, nodeDirty)
+		-- consumed: this set answered for THIS build and the next one starts empty
+		nodeDirty = if nodeReuseEnabled then {} else nil
+		stats.lastNodeBuilds = nodeStore.built
 		local solveOpts = {
 			safeInsets = insets,
 			rootPolicy = rootPolicy,
@@ -2864,7 +2902,26 @@ function renderer.attach(
 		-- ...and the same collection for the authored presentation quad (`offset` added by amendment, gap 16 framework-gaps-phase2). One list,
 		-- not four: they share one stored record and one re-read.
 		local presentationTouched: { string }? = nil
+		--[[ AXIS 2 OF THE NODE STORE (P3), accumulated in the SAME walk: every dirty
+			path plus its ancestors (the prefixes), of EVERY class. Not just the layout
+			two — `label`/`icon`/`compactLabel` are paint-classed and the measure seam
+			sizes boxes with them, so `dirtyContains` below would answer a stale tree
+			for a relabelled button. It accumulates across refreshes because a refresh
+			that does not solve still SAW the dirt. ]]
+		local function markNodeDirty(path: string?)
+			local set = nodeDirty
+			if set == nil or path == nil then
+				return
+			end
+			local at: string? = path
+			while at ~= nil and at ~= "" and not set[at] do
+				set[at] = true
+				at = string.match(at, "^(.*)/[^/]*$")
+			end
+		end
+		nodeDirtySeen = root.dirtySeq()
 		for _, entry in dirty do
+			markNodeDirty(entry.path)
 			if entry.prop == "hidden" and entry.path ~= nil then
 				hiddenTouched = hiddenTouched or {}
 				table.insert(hiddenTouched :: { string }, entry.path)
@@ -4013,6 +4070,9 @@ function renderer.attach(
 		end
 		table.clear(dragUnbind)
 		table.clear(scrollHostOf)
+		-- the node store goes with the surface: its keys are weak so it would drain on
+		-- its own, but one assignment is cheaper than a heap census asking why not
+		nodeStore = layout_node.newStore()
 		-- RS-PATHCLIP: the per-scroll-host offset subscriptions are the one
 		-- connection this rule holds, so they die with the surface like every
 		-- other adapter subscription

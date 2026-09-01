@@ -258,8 +258,38 @@ local function toLayoutNode(
 	-- true once ANY ancestor is a clipping scroll container. Only the OUTERMOST
 	-- clipper reserves the shadow bleed (see the block below), so this rides the
 	-- recursion the same way `parentAxis` does.
-	insideClipper: boolean?
+	insideClipper: boolean?,
+	-- THE CROSS-SOLVE NODE STORE (perf campaign P3), or nil for a one-shot build.
+	-- See `layout_node.build` at the bottom of this file for what it holds and the
+	-- four axes it is invalidated on; here it is two lookups and one write.
+	store: Store?
 ): solver.Node
+	--[[ P3: THE SUBTREE THIS SOLVE DOES NOT HAVE TO BUILD. Every field below is a
+		pure function of (`node.class`, `node.path`, `node.props`, `node.children`,
+		`metrics`, `textScale`, `prefOffset`, `parentAxis`, `insideClipper`) — the
+		`node.*` reads are exactly those four and nothing else, which is what makes
+		this answerable at all — and the solver never writes into a layout node
+		(`solver.luau` contains no `node.<field> =`), so last solve's tree is still
+		this solve's answer wherever none of the nine moved.
+
+		THE FIRST FIVE ARE THE STORE'S OWN AXES and are checked once per build
+		(`build` below). The last two ride the recursion and can change WITHOUT any
+		prop or child changing — a node re-parented from an hstack to a vstack, or
+		first appearing under a `scroll` — so they are checked here, per node, and
+		they are stored rather than derived because a cache hit must not have to
+		walk up to find out where it is. ]]
+	if store ~= nil then
+		local hit = store.byNode[node]
+		if
+			hit ~= nil
+			and not store.dirty[node.path]
+			and hit.axis == parentAxis
+			and hit.clip == (insideClipper == true)
+		then
+			return hit.built
+		end
+		store.built += 1
+	end
 	local class = node.class
 	local props = node.props or {} -- structural regions carry no user props
 	-- resolved text size + the typography role behind it (nil unless a role was
@@ -1198,7 +1228,8 @@ local function toLayoutNode(
 						textScale,
 						prefOffset,
 						childAxis,
-						insideClipper == true or kind == "scroll"
+						insideClipper == true or kind == "scroll",
+						store
 					)
 				)
 			end
@@ -1304,7 +1335,140 @@ local function toLayoutNode(
 		end
 	end
 	layoutNode.containerRelativeInside = inside or nil
+	if store ~= nil then
+		-- LAST, so a node that threw builds no entry. `axis`/`clip` are recorded
+		-- beside the tree because they are the two inputs the lookup above cannot
+		-- re-derive from the node it is holding.
+		store.byNode[node] = { built = layoutNode, axis = parentAxis, clip = insideClipper == true }
+	end
 	return layoutNode
+end
+
+--[[ ── THE CROSS-SOLVE NODE STORE (perf campaign P3, 2026-09-01) ───────────────
+
+	`renderer.solveAndApply` called `toLayoutNode(root.node, …)` on EVERY solve and
+	rebuilt the whole mounted-tree -> `solver.Node` translation from scratch: one
+	table per node, one `textOf` closure per node, and every theme token re-resolved
+	through `themeSnapshot.resolveDim`/`resolveSides`/`resolveNumber`/`resolveSize`/
+	`effectiveTypeRole`. Measured headless on `battle_hud`, 2026-09-01
+	(`FacetBench/tools/profile/probe`, variant D): **0.51 ms / 666 kb at S (525 nodes),
+	2.66 / 2,609 at M, 6.22 / 6,507 at L** — every solve, whether one leaf moved or
+	nothing did, and 1.28 kb per node of the step's allocation.
+
+	THE STORE IS ONE SLATE PER MOUNTED NODE, and the reason it can be one at all is
+	that `toLayoutNode` reads exactly FOUR fields of the node it is handed —
+	`class`, `path`, `props`, `children` (grep `node%.` over this file) — plus the
+	five solve-wide inputs below. `class` and `path` are fixed for the life of a
+	mounted node; `props` is written in exactly ONE place in the framework
+	(`mount.luau`'s dynamic-prop observer) and `children` in exactly one region
+	(`mount.luau`'s `When`/`ForEach`/`ErrorBoundary` reconcilers), and **every one of
+	those writes pushes a dirty entry for that node's path**. That is what makes the
+	invalidation set complete rather than hopeful.
+
+	FOUR AXES, and they are deliberately the same shape as `layout/measure_reuse`'s.
+
+	AXIS 1 — THE NODE. Keyed by the mounted node TABLE, not by its path, so a
+	`ForEach` that removes a row and later mounts a new one at the same key cannot be
+	answered with the old row's tree. A path key would need a removal sweep to be
+	safe; a table key is safe by construction.
+
+	AXIS 2 — WHAT CHANGED INSIDE IT. `dirty` is the renderer's dirty set closed over
+	ANCESTORS — every path with a dirty entry of ANY class plus every ancestor of one.
+	Any class, not just `measure`/`arrange`: `label`, `icon` and `compactLabel` are
+	paint-classed and this seam sizes boxes with them, so the narrower set
+	`arrange` already uses (`reuse.dirtyContains`) would be wrong here. A node in the
+	set rebuilds; a node absent from it has no change on itself or below it, which is
+	exactly the claim a subtree-shaped cache needs.
+
+	AXIS 3 — WHAT CHANGED AROUND IT. `metrics` (the applied ThemeSnapshot),
+	`textScale` and `prefOffset` are solve-wide: none of them dirties a node, so axis
+	2 cannot catch one. They are folded into one `stamp` and compared once per build;
+	any change drops the whole store. `metrics` compares by IDENTITY because it is one
+	env-held snapshot per applied theme — see AXIS 3 IS APPLICATION, NOT EMISSION
+	below.
+
+	AXIS 4 — WHERE IT SITS. `parentAxis` and `insideClipper` ride the recursion and
+	can move without the node moving. They are stored per entry and checked at the
+	lookup, not at the stamp.
+
+	**AXIS 3 IS APPLICATION, NOT EMISSION**, and that distinction has cost this
+	project a round before. A theme package EMITS tokens; what this seam reads is what
+	the surface has APPLIED — `renderer.currentMetrics()`, which reads
+	`env:get("themeMetrics")` fresh at every use precisely because "the swap
+	transaction sets it and re-solves in the same invocation". So the key is the
+	snapshot VALUE the build actually resolved against, taken at the build. A key on a
+	theme-changed signal, a package id or a generation counter would be keyed on
+	emission and would answer a solve that had not yet been handed the new snapshot.
+	`themeSnapshot.neutral()` is memoised (`neutralCache`), so the fallback arm is a
+	stable identity too rather than a permanent miss.
+
+	THE STORE IS WEAK IN ITS KEYS, which is what bounds it. A removed node is
+	unreachable the moment its region drops it and its scope disposes, so its entry
+	goes with it and a churning `ForEach` cannot grow the store forever. This is the
+	one weak-table shape that works in Luau — where weak tables are NOT ephemerons, so
+	a value that reaches its own key pins the pair alive. **The entry's value must
+	never reference the mounted node**: a `solver.Node` carries `id = node.path` (a
+	string), resolved numbers, and child `solver.Node`s — no mounted-node reference on
+	any path. `tests/node_reuse.spec.luau` pins that as a reachability walk rather
+	than as a promise.
+
+	INTERPLAY WITH P1 AND P2, because both key on node identity and this changes what
+	that means. `measure_reuse`'s slate and the solve's rect map are both keyed by
+	`node.id`, which IS `node.path` and is stamped at build time from the mounted
+	node — so a PATCHED tree carries exactly the ids a rebuilt one would, for exactly
+	the same node set. What changes is the one thing `measure_reuse`'s AXIS 1 note
+	says about this file: the per-solve memo's key, the node TABLE, is no longer a
+	different object each solve. That makes the per-solve memo warmer, never wrong —
+	it is a fresh table per `ctx` either way.
+]]
+
+export type Store = {
+	-- the axis-3 inputs the entries were built under
+	stamp: string,
+	-- mounted node -> { built, axis, clip }. WEAK IN ITS KEYS (see above).
+	byNode: any,
+	-- axis 2, the ancestor-closed dirty set for THIS build
+	dirty: { [string]: boolean },
+	-- nodes CONSTRUCTED by the last build. The P3 demonstrator: a clean re-solve is
+	-- 0 and a one-leaf update is bounded by the touched closure, where both were N.
+	built: number,
+}
+
+local WEAK_KEYS = table.freeze({ __mode = "k" })
+
+function layout_node.newStore(): Store
+	return {
+		stamp = "",
+		byNode = setmetatable({}, WEAK_KEYS),
+		dirty = {},
+		built = 0,
+	}
+end
+
+-- build(store, node, metrics, textScale, prefOffset, dirty) -> solver.Node
+--
+-- `dirty` nil means "rebuild everything": the store starts again from an empty
+-- table rather than being cleared in place, so a full build costs one allocation
+-- and not one delete per stale entry. That is the arm a structural change, a first
+-- solve, a feedback re-solve and the reuse-disabled build all take.
+function layout_node.build(
+	store: Store,
+	node: any,
+	metrics: any,
+	textScale: number,
+	prefOffset: number,
+	dirty: { [string]: boolean }?
+): solver.Node
+	local stamp = `{tostring(metrics)}|{textScale}|{prefOffset}`
+	if dirty == nil or store.stamp ~= stamp then
+		store.stamp = stamp
+		store.byNode = setmetatable({}, WEAK_KEYS)
+		store.dirty = {}
+	else
+		store.dirty = dirty
+	end
+	store.built = 0
+	return toLayoutNode(node, metrics, textScale, prefOffset, nil, nil, store)
 end
 
 layout_node.compactForm = compactForm
