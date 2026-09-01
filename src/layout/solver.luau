@@ -510,6 +510,8 @@ type Ctx = {
 	-- surface, instead of a one-off probe that has to patch this file.
 	arranged: number,
 	measured: number,
+	-- ...and its writes into the RECT MAP: equal to `arranged` since P2 (`tests/rect_cow`).
+	rectInserts: number,
 	-- Stage-1 analysis only; nil on an ordinary solve
 	analyze: boolean,
 	boundary: { [string]: boolean },
@@ -519,7 +521,9 @@ type Ctx = {
 	-- walked. Both nil on an ordinary solve, which then behaves exactly as before.
 	reuse: any,
 	skipped: number,
-	skippedIds: { [string]: boolean },
+	-- the ids `arrange` WALKED, kept only on a reuse solve, where the walk is the small
+	-- half. A previous diagnostic is replayed exactly when its filer is absent here.
+	walkedIds: { [string]: boolean },
 	-- true once a `scroll` node has been measured in this solve; gates the memo so a
 	-- tree with no scroll region pays nothing for it
 	hasScroll: boolean,
@@ -2150,33 +2154,6 @@ end
 -- "measured one shape, arranged another" defect this file has fixed four times.
 
 -- arrange pass: assign rects into out[id]
--- Copy a whole subtree's previous entries forward, unchanged. Used only when the
--- subtree is provably unaffected: nothing inside it is dirty and it is being placed at
--- exactly the rect it already had, so every descendant's absolute geometry — and every
--- verdict that geometry produced — is the answer it already gave.
-local function replaySubtree(ctx: Ctx, node: Node, previous: any, out: { [string]: any })
-	local entry = previous.rects[node.id]
-	if entry == nil then
-		return false
-	end
-	out[node.id] = entry
-	ctx.skippedIds[node.id] = true
-	ctx.skipped += 1
-	-- the published channels the rest of the framework reads off `ctx`, replayed for
-	-- the same reason `solver.measure`'s memo replays them: a cache that returns
-	-- geometry and drops the verdicts changes `compact` and `truncated` while every
-	-- rect stays byte-identical (the BLOCKER a differential fuzz caught on that memo)
-	ctx.textStates[node.id] = entry.textState
-	ctx.compact[node.id] = entry.compact
-	ctx.textFacts[node.id] = entry.textFacts
-	for _, child in node.children or {} do
-		if not replaySubtree(ctx, child, previous, out) then
-			return false
-		end
-	end
-	return true
-end
-
 --[[ THE CONTAINMENT CHECK, ON THE ONE AXIS NOTHING ELSE WATCHES.
 
 	Every other overflow finding in this file is derived from a MEASURE against an
@@ -2267,19 +2244,28 @@ local function arrange(ctx: Ctx, node: Node, rect: Rect, out: { [string]: any })
 		-- ordinary path pays one field test.
 		local containerOk = node.containerRelativeInside ~= true
 			or (prev ~= nil and prev.containerW == ctx.containerW and prev.containerH == ctx.containerH)
-		if
-			pr ~= nil
-			and containerOk
-			and pr.x == rect.x
-			and pr.y == rect.y
-			and pr.w == rect.w
-			and pr.h == rect.h
-			and replaySubtree(ctx, node, reuse.previous, out)
-		then
+		if pr ~= nil and containerOk and pr.x == rect.x and pr.y == rect.y and pr.w == rect.w and pr.h == rect.h then
+			--[[ ...AND THE SKIP IS THE WHOLE OF IT (P2). It used to call `replaySubtree`,
+				which walked the subtree and re-inserted every descendant into a fresh
+				map — the O(N) pass incremental layout exists to avoid, paid as the price
+				of avoiding it: 5 115 nodes and 3.26 ms of `Facet/arrange` on a zero-dirt
+				L solve, copying a map the solve already held. `solve` now starts FROM
+				that map (see `out`), so the subtree is already right, table for table.
+
+				NOR ARE THE VERDICT CHANNELS: `ctx.textStates`/`compact`/`textFacts` are
+				read only where a WALKED node's entry is built, so the old copies were
+				reachable only on the partial-failure path the recursion itself made —
+				where they overwrote this solve's fresh verdicts with the last one's. ]]
 			return
 		end
 	end
 	ctx.arranged += 1
+	ctx.rectInserts += 1
+	-- WHO WALKED, for the diagnostic replay in `solve`; on a reuse solve this set is
+	-- the touched path, not the tree.
+	if reuse ~= nil then
+		ctx.walkedIds[node.id] = true
+	end
 	local gap = node.gap or 0
 	out[node.id] = {
 		rect = rect,
@@ -3722,7 +3708,8 @@ function solver.solve(
 		boundary = {},
 		reuse = opts and (opts :: any).reuse,
 		skipped = 0,
-		skippedIds = {},
+		walkedIds = {},
+		rectInserts = 0,
 		offers = {},
 		-- per-node verdict: can this node's measured size depend on the offered
 		-- HEIGHT? Computed once per node per solve, read on every measure of it.
@@ -3750,10 +3737,30 @@ function solver.solve(
 	-- (clamped to the content rect); fill stretches to the content rect
 	local rootW = if dim(root, "w").type == "fill" then contentRect.w else math.min(mw, contentRect.w)
 	local rootH = if dim(root, "h").type == "fill" then contentRect.h else math.min(mh, contentRect.h)
-	local out: { [string]: any } = {}
+	--[[ THE RECT MAP IS THE PREVIOUS SOLVE'S (P2), so a subtree `arrange` skips is
+		already right and costs nothing to keep. Sound because of what `reuse` MEANS:
+		the renderer gives it only when the mounted tree's SHAPE did not move (a
+		structural change clears the set) and `toLayoutNode` builds one layout node per
+		mounted node keyed by its path, so this solve's ids are the last one's.
+
+		PASSING `reuse` HANDS OVER THE MAP, and the one production caller does exactly
+		that — `solveAndApply` overwrites `lastResult` with this result on the next
+		line. A caller needing the old map to survive omits `reuse`, which is what
+		`controller.analyzeBoundaries` already does. ]]
+	local out: { [string]: any } = if ctx.reuse ~= nil then ctx.reuse.previous.rects else {}
 	profile.span("arrange", function()
 		arrange(ctx, root, { x = contentRect.x, y = contentRect.y, w = rootW, h = rootH }, out)
 	end)
+	--[[ HOW MANY NODES THE SKIP COVERED, BY SUBTRACTION (P2). Every node is walked or
+		under something skipped, so `arranged + skipped` is the node count (the probe
+		reads it as exactly `layoutNodes`), and `reuse` means the shape has not moved —
+		so the previous solve's total is this one's and the skip never counts itself.
+		`work.skipped` still means NODES, as four `lastSkipped` cases assert exactly. ]]
+	if ctx.reuse ~= nil then
+		local pw = ctx.reuse.previous.work
+		local total = if pw ~= nil then (pw.arranged or 0) + (pw.skipped or 0) else 0
+		ctx.skipped = math.max(0, total - ctx.arranged)
+	end
 	-- A SKIPPED SUBTREE KEEPS ITS FINDINGS. It was not walked, so it filed nothing this
 	-- solve; dropping them would silence `controller.diagnostics()` for exactly the
 	-- parts of the screen that did not change, which is the instrument every layout
@@ -3768,7 +3775,7 @@ function solver.solve(
 			-- finding fresh AND had it replayed — one extra copy per layout-dirty
 			-- frame, unbounded, with the whole list copied forward each solve.
 			-- `filedBy` is stamped at build time by `solver.auditPlacement`.
-			if ctx.skippedIds[(d :: any).filedBy or d.node] == true then
+			if ctx.walkedIds[(d :: any).filedBy or d.node] ~= true then
 				table.insert(ctx.diagnostics, d)
 			end
 		end
@@ -3780,6 +3787,7 @@ function solver.solve(
 		work = {
 			arranged = ctx.arranged,
 			measured = ctx.measured,
+			rectInserts = ctx.rectInserts,
 			skipped = ctx.skipped,
 			-- present only when asked for (Stage 1); an ordinary solve carries nothing
 			boundary = if ctx.analyze then ctx.boundary else nil,

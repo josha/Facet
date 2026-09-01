@@ -2006,6 +2006,10 @@ function renderer.attach(
 		if result.work ~= nil then
 			stats.lastArranged = result.work.arranged
 			stats.lastMeasured = result.work.measured
+			-- ...and what the solve wrote into the RECT MAP (P2). It is not `lastArranged`
+			-- by definition — before the copy-on-write map a skipped subtree inserted
+			-- every descendant, so this is the number that says the skip is O(touched).
+			stats.lastRectInserts = result.work.rectInserts
 		end
 		-- MICROPROFILER PHASE `Facet/commit` (roadmap Step 9): the ADAPTER COMMIT —
 		-- everything between a finished solve and a frame the player can see. Visibility,

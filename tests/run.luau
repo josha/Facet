@@ -32,6 +32,10 @@ require("./measure_memo.spec")
 -- three-arm differential (memo / memo-less incremental / forced full solve) over
 -- every axis a solve boundary adds — structure, offer, viewport, theme, text metrics
 require("./measure_reuse.spec")
+-- ...and P2's half of the same solve: the rect map is the PREVIOUS solve's, so a
+-- skipped subtree costs a return instead of N inserts. The insertion counter, the
+-- aliasing and canary cases, and the same full-solve differential over the matrix
+require("./rect_cow.spec")
 -- ...and the audit that relates the two files P1's CRITICAL 1 fell between: every
 -- `props.<name>` layout_node reads, walked against that prop's declared dirty classes,
 -- because a solver-consumed prop declared paint-only is a geometry change no solve

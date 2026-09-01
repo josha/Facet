@@ -3,7 +3,8 @@
 	THE PLACEMENT AUDIT UNDER INCREMENTAL LAYOUT — RED-TEAM Milestone 1, HIGH 2.
 
 	`solve` replays the previous solve's diagnostics for any finding whose
-	`d.node` sits in `ctx.skippedIds`. Every diagnostic in the solver is filed
+	`d.node` was NOT walked this solve (`ctx.walkedIds`; it read the inverse set
+	until P2 made the skip O(1)). Every diagnostic in the solver is filed
 	under the node that FILES it — except one. An `inertPlacement` finding is
 	filed by the PARENT (`arrange` walks the parent and reads
 	`node.inertPlacement`) and NAMED after the offending CHILD.
