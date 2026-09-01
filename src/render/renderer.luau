@@ -762,6 +762,7 @@ function renderer.attach(
 		-- is ~6% of it and the rest is per-NEW-NODE setup. Kept so that stays visible.
 		ssTotal = 0,
 		lastSkipped = 0,
+		lastRectInserts = 0,
 	}
 	-- THE RECT PASS (src/render/rect_pass): one walk in DOCUMENT ORDER, so a host's
 	-- own rect always lands before anything beneath it. Built once per attach, over

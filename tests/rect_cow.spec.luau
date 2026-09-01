@@ -34,12 +34,35 @@
 	     a subtree wrongly skipped is not a missing rect — it is last frame's rect,
 	     silently. Every case here is therefore a DIFFERENTIAL against a forced FULL
 	     solve, rect for rect, over the whole device matrix including 320x640.
-	  2. A READER THAT MUTATES IT. The shared structure is read-only by convention: no
-	     reader may write into an entry or into the rect table inside it, because the
-	     next solve will hand that same table back as "unchanged". The canary case
-	     drives the real renderer and holds on to the exact `rect` tables the adapter
-	     was given, then asserts they are still the same tables carrying the same
-	     numbers after later refreshes.
+	  2. A READER THAT MUTATES IT. The shared structure is read-only, because the next
+	     solve hands the same tables back as "unchanged". THE TWO HALVES OF THAT ARE
+	     ENFORCED DIFFERENTLY AND THE DIFFERENCE IS THE POINT (P2 review, IMPORTANT 1):
+
+	     · the RECT is `table.freeze`d where `arrange` builds the entry, so corrupting
+	       one is impossible rather than merely detected. O(walked), and it cost the
+	       audit that licensed it: no writer of a solved rect exists in `src/`, the
+	       tests, the examples or the game, and every rect reaching `arrange` is a
+	       fresh table literal (so an unguarded freeze cannot double-freeze).
+	     · the ENTRY cannot be frozen, and here is why rather than a shrug: `arrange`
+	       itself writes `contentSize`, `padding`, `barInset`, `overflow` and
+	       `composition` onto an entry AFTER building it, and a parent writes `hidden`
+	       onto a CHILD's entry after that child's own `arrange` has returned. There is
+	       no moment an entry is final except the end of the whole solve, and freezing
+	       there is the O(N) pass this fix removed. So the entry half is held by two
+	       instruments instead: the canary below holds the `textFacts` TABLES the
+	       renderer republishes by reference (`renderer.luau:2046-2055` ->
+	       `lastTextFacts` -> `controller.textAt()`, a shallow clone), and the scalar
+	       fields reach the adapter through `visible`/`scrollRegions`, so a corrupted
+	       one diverges from the full-solve arm in the oracle.
+
+	     THREE MUTATIONS WERE RUN, 2026-09-01, and all three bite:
+	       · drop the `table.freeze` -> the aliasing case's negative control goes red
+	         (the write to a solved rect stops raising);
+	       · make `rectKey` blind to `entry.hidden` -> the same case goes red, so the
+	         detection really is that comparison and not something else;
+	       · make a REAL reader mutate a shared entry field (`renderer.luau:2049`
+	         flipping `entry.textFacts.truncated` as it harvests) -> the canary, the
+	         oracle AND the P1 x P2 case all go red.
 
 	AND THE ONE COMPOSITION THAT IS NOT EITHER HALF'S: P1's cross-solve measure store
 	serves a subtree its cached size while P2's map serves the same subtree its cached
@@ -364,11 +387,20 @@ local function tree(groups: number, perGroup: number): any
 	return { kind = "vstack", id = "/root", gap = 4, children = children }
 end
 
+--[[ EVERY FIELD A READER CONSUMES, not only the geometry. The rect is frozen, so the
+	fields below are the ones a rogue reader could still move — and this is the
+	comparison the negative control mutates to prove the instrument bites. ]]
 local function rectKey(rects: any): string
 	local out = {}
 	for id, entry in rects do
 		local r = entry.rect
-		table.insert(out, `{id}|{r.x},{r.y},{r.w},{r.h}|{tostring(entry.hidden)}|{tostring(entry.overflow)}`)
+		local facts = if type(entry.textFacts) == "table" then entry.textFacts else nil
+		table.insert(
+			out,
+			`{id}|{r.x},{r.y},{r.w},{r.h}|h={tostring(entry.hidden)}|o={tostring(entry.overflow)}`
+				.. `|k={tostring(entry.kind)}|c={tostring(entry.compact)}|t={tostring(facts and facts.truncated)}`
+				.. `|cs={tostring(entry.contentSize and entry.contentSize.w)}`
+		)
 	end
 	table.sort(out)
 	return table.concat(out, "\n")
@@ -393,11 +425,19 @@ describe("the copy-on-write rect map (P2)", function()
 		local s = arm.controller.stats()
 		expect(s.lastRectInserts > 0).toBe(true)
 		expect(s.lastRectInserts <= 8 * DEPTH).toBe(true)
-		--[[ ...AND THIS IS THE NUMBER THAT USED TO BE INSERTED WITH IT. `skipped` counts
-			the nodes the solve did not walk, and before the fix every one of them was a
-			separate `out[id] = entry` write plus four more on `ctx`. Asserting it here
-			is what keeps the case honest if the skip ever silently stops engaging: a
-			bounded insert count with nothing skipped would be a full solve. ]]
+		--[[ ...AND THIS IS THE NUMBER THAT USED TO BE INSERTED WITH IT: before the fix
+			every skipped node was a separate `out[id] = entry` write plus four more on
+			`ctx`, so 5 + 1 003 is what this same re-solve cost.
+
+			IT IS NOT AN ENGAGEMENT GUARD, and saying so is the correction (P2 review,
+			minor 4). `skipped` is now computed BY SUBTRACTION — the previous solve's
+			node count minus `arranged` — so these three numbers are one identity read
+			three ways and cannot disagree with each other. What keeps this case from
+			going vacuous is elsewhere and is real: the ORACLE asserts
+			`partialSolves > 0` at every viewport and compares the whole surface
+			against a forced full solve after every step, so a skip that stopped
+			engaging shows up there as work, and a skip that engaged WRONGLY shows up
+			there as a divergence. ]]
 		expect(s.lastSkipped >= total - 8 * DEPTH).toBe(true)
 		expect(s.lastRectInserts + s.lastSkipped).toBe(total)
 		-- the identity the fix creates: the map costs exactly what the walk costs
@@ -444,6 +484,29 @@ describe("the copy-on-write rect map (P2)", function()
 		local full = solver.solve(root, vp, {})
 		expect(rectKey(second.rects)).toBe(before)
 		expect(rectKey(second.rects)).toBe(rectKey(full.rects))
+
+		--[[ NEGATIVE CONTROL, BOTH HALVES (P2 review, IMPORTANT 1). A canary nobody has
+			seen fail is decoration, so the corruption is planted here rather than
+			hoped for.
+
+			THE RECT half is `table.freeze`, so the failure mode is not "detected", it
+			is "refused": writing to a solved rect RAISES. That is the whole point of
+			paying for the freeze instead of trusting a grep.
+
+			THE ENTRY half cannot be frozen (see the header), so it is detected: moving
+			one field on ONE untouched entry must change `rectKey`, which is the
+			comparison every differential in this file is built out of. Restored
+			afterwards so this case leaves no corpse for the next. ]]
+		local victim = second.rects["/root/g30/l4"]
+		expect(pcall(function()
+			victim.rect.x = 999
+		end)).toBe(false)
+		local clean = rectKey(second.rects)
+		local wasHidden = victim.hidden
+		victim.hidden = true
+		expect(rectKey(second.rects) ~= clean).toBe(true)
+		victim.hidden = wasHidden
+		expect(rectKey(second.rects)).toBe(clean)
 	end)
 
 	it("ALIASING: a dirty leaf replaces its own entry and leaves every other alone", function()
@@ -492,7 +555,7 @@ describe("the copy-on-write rect map (P2)", function()
 		end
 	end)
 
-	it("CANARY: no reader mutates a shared rect, over a long run of refreshes", function()
+	it("CANARY: no reader mutates a shared rect or entry, over a long run of refreshes", function()
 		--[[ The renderer hands `entry.rect` straight to the adapter (`rect_pass.applyOne`
 			-> `adapter.setRect`), and the fake target keeps the reference — so holding
 			the tables it was given IS holding the solver's own. Every reader in the
@@ -512,6 +575,28 @@ describe("the copy-on-write rect map (P2)", function()
 			end
 		end
 		expect(next(held) ~= nil).toBe(true)
+		--[[ ...AND AN ENTRY FIELD, through the same real chain. `renderer.luau:2046-2055`
+			harvests `entry.textFacts` into `nextTextFacts` BY REFERENCE, that becomes
+			`lastTextFacts`, and `controller.textAt()` shallow-clones the outer map — so
+			the tables below ARE the solver's own entry fields, held from outside. A
+			reader writing into one is caught here; a reader writing a SCALAR entry
+			field reaches the adapter through `visible`/`scrollRegions` and is caught by
+			the oracle's full-solve differential instead. ]]
+		local facts: { [string]: any } = {}
+		local factValues: { [string]: string } = {}
+		local function factKey(f: any): string
+			local parts = {}
+			for k, v in f do
+				table.insert(parts, `{tostring(k)}={tostring(v)}`)
+			end
+			table.sort(parts)
+			return table.concat(parts, ",")
+		end
+		for path, f in arm.controller.textAt() do
+			facts[path] = f
+			factValues[path] = factKey(f)
+		end
+		expect(next(facts) ~= nil).toBe(true)
 		-- refreshes that change ONE row: every other row's rect is shared forward, so
 		-- every other held table must still be that row's live rect, unchanged
 		for i = 1, 12 do
@@ -523,7 +608,22 @@ describe("the copy-on-write rect map (P2)", function()
 					expect(`{kept.x},{kept.y},{kept.w},{kept.h}`).toBe(values[path])
 				end
 			end
+			for path, f in arm.controller.textAt() do
+				if facts[path] == f then
+					expect(factKey(f)).toBe(factValues[path])
+				end
+			end
 		end
+		-- the entry half of the canary is not vacuous: some `textFacts` tables really
+		-- were shared forward rather than rebuilt, which is what makes holding them
+		-- a test of the readers instead of a test of the allocator
+		local shared = 0
+		for path, f in arm.controller.textAt() do
+			if facts[path] == f then
+				shared += 1
+			end
+		end
+		expect(shared > 0).toBe(true)
 		-- ...and the run really did share rather than re-solve
 		expect(arm.controller.stats().lastSkipped > 100).toBe(true)
 	end)

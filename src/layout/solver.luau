@@ -2268,7 +2268,9 @@ local function arrange(ctx: Ctx, node: Node, rect: Rect, out: { [string]: any })
 	end
 	local gap = node.gap or 0
 	out[node.id] = {
-		rect = rect,
+		-- FROZEN: every later skip hands this exact table forward, so the read-only
+		-- contract on a solved rect is a fact rather than a convention (P2 review).
+		rect = table.freeze(rect),
 		-- THE CONTAINER THIS SUBTREE RESOLVED AGAINST (§2.5), recorded only for the
 		-- subtrees whose answer depends on it, so a later solve's reuse skip can ask
 		-- "is this still the ruler I measured with?" — the question the rect cannot
@@ -3737,16 +3739,13 @@ function solver.solve(
 	-- (clamped to the content rect); fill stretches to the content rect
 	local rootW = if dim(root, "w").type == "fill" then contentRect.w else math.min(mw, contentRect.w)
 	local rootH = if dim(root, "h").type == "fill" then contentRect.h else math.min(mh, contentRect.h)
-	--[[ THE RECT MAP IS THE PREVIOUS SOLVE'S (P2), so a subtree `arrange` skips is
-		already right and costs nothing to keep. Sound because of what `reuse` MEANS:
-		the renderer gives it only when the mounted tree's SHAPE did not move (a
-		structural change clears the set) and `toLayoutNode` builds one layout node per
-		mounted node keyed by its path, so this solve's ids are the last one's.
-
-		PASSING `reuse` HANDS OVER THE MAP, and the one production caller does exactly
-		that — `solveAndApply` overwrites `lastResult` with this result on the next
-		line. A caller needing the old map to survive omits `reuse`, which is what
-		`controller.analyzeBoundaries` already does. ]]
+	--[[ THIS SOLVE WRITES INTO THE PREVIOUS SOLVE'S MAP (P2). Nothing is copied and
+		nothing is snapshotted: `reuse` hands the map over, this solve overwrites what
+		it walks, and the previous result then describes a state that never existed.
+		Sound because `reuse` is given only when the tree's SHAPE did not move and the
+		ids are mounted paths, one per node. A result that must outlive the next solve
+		is solved WITHOUT `reuse` (`controller.analyzeBoundaries`), and a throw
+		mid-solve now tears `lastResult`: atomicity went with the copy. ]]
 	local out: { [string]: any } = if ctx.reuse ~= nil then ctx.reuse.previous.rects else {}
 	profile.span("arrange", function()
 		arrange(ctx, root, { x = contentRect.x, y = contentRect.y, w = rootW, h = rootH }, out)
