@@ -186,3 +186,11 @@ Order: **arena first, baselines recorded, then fixes** — every fix gets a publ
 2. **Scope extension:** fixes beyond F1–F3 discovered by profiling are IN SCOPE for Part 2. Each discovered fix follows the same discipline (red-first demonstrator or measured before/after, suite green, RR lockstep, no bench regression elsewhere).
 3. **Honesty rule:** the target is aspirational; if after the campaign the number lands above it, the shipped result states the achieved figure and names the remaining bottleneck with evidence — the target is never met by weakening the workload or the instrument.
 4. **Correction (D2):** "heap delta via gcinfo with GC quiesced" is not achievable under Lune (collectgarbage is count-only); D2 uses allocation counters/heap deltas without forced collection.
+
+## Addendum 2 (2026-09-01): Part 2 revised by profiling evidence
+
+The attribution campaign (FacetBench artifacts/profile/PROFILE_REPORT.md, 2026-09-01) supersedes Part 2's original F1–F3 hypothesis set:
+- Original D1 (clean-frame solve) and D3 (ForEach no-op churn) are REFUTED at current HEAD: a zero-dirt refresh costs 0.000–0.002 ms and is O(1); `key()` is invoked 0 times on updateItem/setState/noop. No demonstrators or fixes ship for them.
+- Original D2's cost is real but lives in steady-state per-step churn (3.4 KB per mounted node per step, flat across sizes), addressed by the revised fixes below rather than a mount-time fix.
+- Revised fix set (each with a red-first counter-based demonstrator): **P1** cross-solve measure cache (solver measure pass has no reuse arm; a reuse solve still measures N, a 1-leaf-dirty solve measures 2N); **P2** copy-on-write rect map (replaySubtree re-inserts every skipped node into a fresh out-map — the superlinear term); **P3** cache the solver Node tree across solves (rebuilt every solve incl. one closure per node and theme-token re-resolution); **P4** drive the commit from the changed-rect set (six full-tree walks + N-entry loops to make ~4 writes); **P5** structural changes get boundary-rooted partial solves (only after P1+P2).
+- Target restated per step class at size L (Lune proxy, Studio confirm): update/setState/noop ≤0.5 ms after P1–P4; add/remove/reorder ≤1 ms after P5, except list-shift writes which are irreducibly O(shifted) and are reported as such.
