@@ -179,3 +179,10 @@ Order: **arena first, baselines recorded, then fixes** — every fix gets a publ
 2. D1–D3 demonstrably red at baseline (committed evidence), green after fixes.
 3. Facet improves on its three stressor workloads with zero suite/bench/RR regressions.
 4. A stranger can add a framework or workload from CONTRIBUTING.md alone.
+
+## Addendum (2026-09-01, owner ruling): frame-cost target and scope extension
+
+1. **Target:** steady-state per-step cost (frames-mode step p50 in the Studio matrix, and its Lune proxy) on stress workloads (battle_hud at EVERY size S/M/L, war_room_inventory, killfeed_nameplates) must land **well below 1 ms — stretch goal 0.5 ms**. Structurally this means per-step cost proportional to touched work, never to scene size.
+2. **Scope extension:** fixes beyond F1–F3 discovered by profiling are IN SCOPE for Part 2. Each discovered fix follows the same discipline (red-first demonstrator or measured before/after, suite green, RR lockstep, no bench regression elsewhere).
+3. **Honesty rule:** the target is aspirational; if after the campaign the number lands above it, the shipped result states the achieved figure and names the remaining bottleneck with evidence — the target is never met by weakening the workload or the instrument.
+4. **Correction (D2):** "heap delta via gcinfo with GC quiesced" is not achievable under Lune (collectgarbage is count-only); D2 uses allocation counters/heap deltas without forced collection.
