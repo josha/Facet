@@ -13,9 +13,15 @@
 	THE DEMONSTRATOR (D-P1) is `result.work.measured` after a one-leaf update on a
 	1000-row list. It is a COUNTER, not a clock: `measureUncached` increments it, so a
 	served slate does not, and the assertion is the SHAPE of the win rather than its
-	speed. Measured on the fixture below, 5010 layout nodes: **5012 at pre-fix HEAD,
-	12 with the store** — and the bound is pinned from the fixture's own branching,
-	spelled out at the case rather than fitted to the number.
+	speed. Measured on the fixture below at the time: 5 010 layout nodes, **5 012 at
+	pre-fix HEAD, 12 with the store** — and the bound is pinned from the fixture's own
+	branching, spelled out at the case rather than fitted to the number. **The fixture
+	is 5 012 nodes now**: the P3 review (M3) added a `When` branch and an
+	`ErrorBoundary` view to all three fixtures in this family so each one exercises all
+	THREE structural reconcilers rather than `ForEach` alone, and the two head nodes
+	ride every row count. The recorded pre-fix figure is left as it was MEASURED, on the
+	8-head tree it was measured against; the assertions below are bounds, not that
+	number, and are unchanged.
 
 	THE ORACLE, and it is the reason this file is longer than the fix. This memo
 	family has shipped wrong twice — the per-solve memo returned geometry without the
@@ -72,7 +78,7 @@ local function fill(): any
 	return { type = "fill", weight = 1 }
 end
 
-type Arm = { core: any, env: any, controller: any, adapter: any, rows: any, value: any, wide: any }
+type Arm = { core: any, env: any, controller: any, adapter: any, rows: any, value: any, wide: any, branch: any }
 
 -- `cache`/`incremental` are the two knobs the three arms differ by; everything else
 -- about the world is identical, which is what makes the comparison mean anything.
@@ -89,6 +95,7 @@ local function world(cache: boolean, incremental: boolean, viewport: { w: number
 	-- ONE bound width, read by every row: the OFFER axis. Changing it dirties the
 	-- wrapper alone, and every row below it is offered a different width.
 	local wide = core:signal(false)
+	local branchOn = core:signal(true)
 	local wrapWidth = core:memo(function(use: any)
 		return px(if use(wide) then 300 else 220)
 	end)
@@ -121,6 +128,33 @@ local function world(cache: boolean, incremental: boolean, viewport: { w: number
 				the node that proves a cross-solve hit still files what the measure it
 				replaced filed. Its subtree is clean on every step but the first. ]]
 			UI.Box({ id = "Bad", width = px(40), height = { type = "percent", fraction = 0.5 } }),
+			--[[ THE OTHER TWO RECONCILERS (P3 review, M3). `ForEach` is the one the rows
+				exercise; `When` and `ErrorBoundary` splice the same way and are the other
+				two writers of `node.children` in the whole framework, so a differential
+				that never mounted one was testing a third of the structural half of every
+				invalidation axis in this family. The branch starts ON and the script
+				toggles it OFF and back, so the node count at the end of the script is the
+				count at the start — which is what lets the exact totals stay exact. The
+				three fixtures in this family (`measure_reuse`, `rect_cow`, `node_reuse`)
+				are kept identical on purpose: they are invalidated off the same events and
+				a divergence between them would be a divergence in what "the same case"
+				means. ]]
+			UI.When({
+				id = "Branch",
+				condition = branchOn,
+				thenView = function()
+					return UI.Text({ id = "Extra", textSize = 12, text = "conditional row" })
+				end,
+			}),
+			UI.ErrorBoundary({
+				id = "Guard",
+				view = function()
+					return UI.Box({ id = "Held", width = px(30), height = px(10) })
+				end,
+				fallback = function()
+					return UI.Box({ id = "Fallen", width = px(30), height = px(10) })
+				end,
+			}),
 			-- a ViewThatFits, so `fitProbe` and a hidden losing candidate are in play
 			UI.ViewThatFits({
 				id = "Fits",
@@ -201,6 +235,7 @@ local function world(cache: boolean, incremental: boolean, viewport: { w: number
 		rows = rows,
 		value = items,
 		wide = wide,
+		branch = branchOn,
 	}
 end
 
@@ -349,6 +384,23 @@ local SCRIPT: { { name: string, run: (Arm, number) -> () } } = {
 		name = "text preference: the reservation scale moves with nothing dirty",
 		run = function(arm: Arm)
 			arm.env:set("preferredTextOffset", 10)
+		end,
+	},
+	--[[ THE OTHER TWO RECONCILERS (P3 review, M3). `When` off drops a spliced child out
+		of the scroller's flow and back in; `ErrorBoundary` participates on every step by
+		being in the tree at all, its view spliced into the same flow, so a stale splice
+		would move every sibling below it. The branch ends ON, so the node count at the
+		end of this script is the count at the start. ]]
+	{
+		name = "structure: the When branch is dropped",
+		run = function(arm: Arm)
+			arm.branch:set(false)
+		end,
+	},
+	{
+		name = "structure: the When branch comes back",
+		run = function(arm: Arm)
+			arm.branch:set(true)
 		end,
 	},
 	{

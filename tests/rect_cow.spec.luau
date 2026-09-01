@@ -19,7 +19,10 @@
 	THE DEMONSTRATOR (D-P2) is `work.rectInserts`, a counter on the one place the map
 	is written (`arrange`'s `out[node.id] = {...}`). It is a COUNTER, not a clock. At
 	pre-fix HEAD, with the counter added and nothing else changed, a one-leaf update on
-	the 1 008-node fixture below reads **1 008** — the whole tree. It now reads 5.
+	the fixture below reads **1 008** — the whole tree — and it now reads 5. (That run was
+	against the 8-head fixture it was measured on; the P3 review added a `When` branch and
+	an `ErrorBoundary` view to all three fixtures in this family, so the tree is 1 010
+	today and the assertions below are bounds rather than that number.)
 
 	WHY A COUNTER AND NOT MAP IDENTITY. Entry identity was ALREADY shared before the
 	fix (`out[node.id] = entry` stored the previous solve's table), so "untouched
@@ -91,7 +94,7 @@ local function fill(): any
 	return { type = "fill", weight = 1 }
 end
 
---[[ THE FIXTURE. 200 rows of 5 nodes plus an 8-node head is 1 008 layout nodes, and it
+--[[ THE FIXTURE. 200 rows of 5 nodes plus a 10-node head is 1 010 layout nodes, and it
 	carries the shapes the risk lives in rather than plain boxes (the lesson
 	`incremental_layout.spec` states at length): a truncating `disclose` label and a
 	`compactLabel` ladder, so the published verdicts are real; a ScrollView, so the
@@ -99,13 +102,17 @@ end
 	wrapper never moves, which is the one dimension a rect cannot vouch for; a
 	`ViewThatFits`, so a hidden losing candidate is in the map; and one malformed box
 	that FILES A DIAGNOSTIC, because a skipped subtree's findings are replayed off the
-	same bookkeeping this fix rewrote. ]]
-type Arm = { core: any, env: any, controller: any, adapter: any, rows: any, items: any, wide: any }
+	same bookkeeping this fix rewrote; and — added by the P3 review (M3) — a `When`
+	branch and an `ErrorBoundary` view, so all three structural reconcilers are spliced
+	into the flow this differential compares rather than only `ForEach`. ]]
+type Arm = { core: any, env: any, controller: any, adapter: any, rows: any, items: any, wide: any, branch: any }
 
---[[ 8, not 9: `UI.ForEach` is a structural region that owns MOUNTING, not layout, so
-	`toLayoutNode` splices its children into the list's own flow and emits no node for
-	`Rows` itself. Scroll, Wrap, Bar, Bad, Fits and its two candidates, List. ]]
-local HEAD_NODES = 8
+--[[ TEN, and the three that are NOT in it are the point: `UI.ForEach`, `UI.When` and
+	`UI.ErrorBoundary` are structural regions that own MOUNTING, not layout, so
+	`toLayoutNode` splices their children into the enclosing flow and emits no node for
+	the region itself. Scroll, Wrap, Bar, Bad, Fits and its two candidates, Extra (the
+	When's branch, mounted because it starts ON), Held (the ErrorBoundary's view), List. ]]
+local HEAD_NODES = 10
 local ROW_NODES = 5
 -- Scroll > List > Row > V, the deepest live chain (`Rows` splices away)
 local DEPTH = 4
@@ -120,6 +127,7 @@ local function world(incremental: boolean, cache: boolean, viewport: { w: number
 	end
 	local rows = core:signal(items)
 	local wide = core:signal(false)
+	local branchOn = core:signal(true)
 	local wrapWidth = core:memo(function(use: any)
 		return px(if use(wide) then 300 else 220)
 	end)
@@ -146,6 +154,33 @@ local function world(incremental: boolean, cache: boolean, viewport: { w: number
 				},
 			}),
 			UI.Box({ id = "Bad", width = px(40), height = { type = "percent", fraction = 0.5 } }),
+			--[[ THE OTHER TWO RECONCILERS (P3 review, M3). `ForEach` is the one the rows
+				exercise; `When` and `ErrorBoundary` splice the same way and are the other
+				two writers of `node.children` in the whole framework, so a differential
+				that never mounted one was testing a third of the structural half of every
+				invalidation axis in this family. The branch starts ON and the script
+				toggles it OFF and back, so the node count at the end of the script is the
+				count at the start — which is what lets the exact totals stay exact. The
+				three fixtures in this family (`measure_reuse`, `rect_cow`, `node_reuse`)
+				are kept identical on purpose: they are invalidated off the same events and
+				a divergence between them would be a divergence in what "the same case"
+				means. ]]
+			UI.When({
+				id = "Branch",
+				condition = branchOn,
+				thenView = function()
+					return UI.Text({ id = "Extra", textSize = 12, text = "conditional row" })
+				end,
+			}),
+			UI.ErrorBoundary({
+				id = "Guard",
+				view = function()
+					return UI.Box({ id = "Held", width = px(30), height = px(10) })
+				end,
+				fallback = function()
+					return UI.Box({ id = "Fallen", width = px(30), height = px(10) })
+				end,
+			}),
 			UI.ViewThatFits({
 				id = "Fits",
 				width = px(120),
@@ -223,6 +258,7 @@ local function world(incremental: boolean, cache: boolean, viewport: { w: number
 		rows = rows,
 		items = items,
 		wide = wide,
+		branch = branchOn,
 	}
 end
 
@@ -354,6 +390,23 @@ local SCRIPT: { { name: string, run: (Arm) -> () } } = {
 		name = "nothing at all: a refresh with an empty dirty set",
 		run = function() end,
 	},
+	--[[ THE OTHER TWO RECONCILERS (P3 review, M3). `When` off drops a spliced child out
+		of the scroller's flow and back in; `ErrorBoundary` participates on every step by
+		being in the tree at all, its view spliced into the same flow, so a stale splice
+		would move every sibling below it. The branch ends ON, so the node count at the
+		end of this script is the count at the start. ]]
+	{
+		name = "structure: the When branch is dropped",
+		run = function(arm: Arm)
+			arm.branch:set(false)
+		end,
+	},
+	{
+		name = "structure: the When branch comes back",
+		run = function(arm: Arm)
+			arm.branch:set(true)
+		end,
+	},
 	{
 		name = "offer change back",
 		run = function(arm: Arm)
@@ -407,7 +460,7 @@ local function rectKey(rects: any): string
 end
 
 describe("the copy-on-write rect map (P2)", function()
-	it("DEMONSTRATOR D-P2: a one-leaf update at N=1008 inserts O(touched), not O(N)", function()
+	it("DEMONSTRATOR D-P2: a one-leaf update at N=1010 inserts O(touched), not O(N)", function()
 		--[[ THE BOUND, PINNED FROM THE FIXTURE'S OWN BRANCHING RATHER THAN FITTED. The
 			honest touched set of a one-value update is the scroller, the list, the dirty
 			row, the text and the one sibling the text's new width moves — MEASURED at 5,
@@ -444,7 +497,7 @@ describe("the copy-on-write rect map (P2)", function()
 		expect(s.lastRectInserts).toBe(s.lastArranged)
 	end)
 
-	it("...and a forced full solve of the same tree inserts all 1008 — the control", function()
+	it("...and a forced full solve of the same tree inserts all 1010 — the control", function()
 		-- the negative control the demonstrator is meaningless without, and the number
 		-- the pre-fix build reported for the INCREMENTAL arm above
 		local arm = world(false, true, { w = 400, h = 800 }, 200)

@@ -40,6 +40,8 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 local fs = require("@lune/fs")
+-- every `.luau` under `src/`, walked recursively (see the one-consumer case)
+local src_tree = require("./lib/src_tree")
 
 local customFactory = require("../src/core/custom")
 local UI = require("../src/blueprint")
@@ -342,31 +344,19 @@ describe("the autoscroll seam: EXPORTED == BOUND, one consumer, one-way require"
 	end)
 
 	it("there is exactly ONE consumer of the module in src/, and the require is one-way", function()
-		local seen: { string } = {}
-		for _, dir in
-			{
-				"src/render",
-				"src/layout",
-				"src/present",
-				"src/controls",
-				"src/client",
-				"src/tokens",
-				"src/themes",
-				"src/input",
-				"src/core",
-			}
-		do
-			for _, entry in fs.readDir(dir) do
-				local path = `{dir}/{entry}`
-				if not fs.isFile(path) or string.sub(path, -5) ~= ".luau" then
-					continue
-				end
-				if string.find(fs.readFile(path), 'require("./autoscroll_bridge")', 1, true) ~= nil then
-					table.insert(seen, path)
-				end
-			end
-		end
+		--[[ WALKED, NOT LISTED. This case shipped with a hand list of nine directories
+			copied from `commit_walks_seam.spec` — and `src/` has sixteen, which is the
+			precise defect `tests/lib/src_tree.luau` was written to remove and whose own
+			header records two seam specs proving "exactly ONE consumer" over nine of
+			fifteen. A second consumer in `src/async`, `src/env`, `src/focus`,
+			`src/motion`, `src/preview` or `src/replication` would have read as "exactly
+			one" (P3 review round 2). ]]
+		local seen = src_tree.pathsContaining('require("./autoscroll_bridge")')
 		expect(seen).toEqual({ RENDERER_PATH })
+		-- ...and the walk reached past the nine the old list named
+		local all = src_tree.readAll()
+		expect(all["src/env/environment.luau"] ~= nil).toBe(true)
+		expect(all["src/motion/spring.luau"] ~= nil or all["src/replication/props.luau"] ~= nil).toBe(true)
 		-- ...and the module requires NOTHING — not the renderer (which is what "one
 		-- file with a slash in the middle" would look like), not anything else: every
 		-- collaborator it has arrives through `Ctx`, which is the strongest form of

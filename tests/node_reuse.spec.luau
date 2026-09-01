@@ -75,6 +75,10 @@ local fake_target = require("./lib/fake_target")
 local device_views = require("./lib/device_views")
 local large_text = require("./lib/large_text")
 local text_metrics = require("../src/layout/text_metrics")
+-- every `.luau` under `src/`, walked RECURSIVELY — the instrument this repository
+-- already built for the hand-written-directory-list defect, and the one the first
+-- version of the writer-completeness case below reproduced instead of using
+local src_tree = require("./lib/src_tree")
 
 local function px(n: number): any
 	return { type = "fixed", px = n }
@@ -84,8 +88,14 @@ local function fill(): any
 end
 
 --[[ THE FIXTURE is `measure_reuse.spec`'s and `rect_cow.spec`'s, deliberately: the
-	three stores are invalidated off the same events and a divergence between the
-	files' fixtures would be a divergence in what "the same case" means. 200 rows x 5
+	three stores are invalidated off the same events and a divergence between the files'
+	fixtures would be a divergence in what "the same case" means. **THAT CLAIM WAS
+	BRIEFLY FALSE and the fix was to make it true again rather than to soften it** (P3
+	review round 2, minor a): this file added a `When` branch and an `ErrorBoundary` view
+	and its siblings did not, so for one round the invariant this paragraph asserts was a
+	1,010/10-head fixture claiming lockstep with two 1,008/8-head ones. Both siblings
+	carry the same two nodes and the same two script steps now, so P1's and P2's oracles
+	exercise all three structural reconcilers too. 200 rows x 5
 	nodes plus a 10-node head is 1,010 layout nodes, carrying the shapes the risk lives
 	in — a truncating `disclose` label and a `compactLabel` ladder (published verdicts),
 	a ScrollView (`insideClipper` is true below it, which is axis 4 in the shipped
@@ -1000,6 +1010,60 @@ local function stripLua(source: string): string
 	return out
 end
 
+--[[ EVERY CALL THAT HANDS A MOUNTED NODE TO SOMEBODY, IN ANY ARGUMENT POSITION.
+	The first version of this scan matched `f(node` only — first position — so
+	`f(metrics, node)` would have slipped past it, which is the same class of hole as
+	scanning six directories out of sixteen (P3 review round 2, minor b). The three
+	names are the ones this file binds a mounted node to: the parameter itself and the
+	two the child recursion uses. A comma or an open paren before, a comma or a close
+	paren after, and whitespace (including a newline, because the recursion's argument
+	list is wrapped) on either side. ]]
+local MOUNTED_NAMES: { [string]: boolean } = { node = true, child = true, grandchild = true }
+local function calleesTakingMountedNode(body: string): { [string]: string }
+	local out: { [string]: string } = {}
+	--[[ Every occurrence of one of those names as a standalone TOKEN in argument
+		position — preceded by `(` or `,`, followed by `,` or `)` — then walk LEFT over
+		balanced parentheses to the callee. Depth-aware rather than a flat
+		`%(([^()]*)%)`, because an argument list containing its own parentheses
+		(`f(a, child, (b == true))`) is exactly the shape a regex over paren-free
+		argument text steps over, and this file has now shipped two coverage holes of
+		that family. ]]
+	local at = 1
+	while true do
+		local from, to, before, name, after = string.find(body, "([%(,])%s*([%a_][%w_]*)%s*([,%)])", at)
+		if from == nil then
+			break
+		end
+		at = to :: number
+		local _ = before
+		local _ = after
+		if MOUNTED_NAMES[name :: string] then
+			-- walk left from the argument to the `(` that opens its own call
+			local depth = 0
+			local i = from :: number
+			while i > 0 do
+				local ch = string.sub(body, i, i)
+				if ch == ")" then
+					depth += 1
+				elseif ch == "(" then
+					if depth == 0 then
+						break
+					end
+					depth -= 1
+				end
+				i -= 1
+			end
+			if i > 0 then
+				local callee = string.match(string.sub(body, 1, i - 1), "([%a_][%w_%.]*)%s*$")
+				if callee ~= nil then
+					out[callee] = name :: string
+				end
+			end
+		end
+	end
+	return out
+end
+
 describe("the layout-node store: the audit that licenses it", function()
 	local fs = require("@lune/fs")
 
@@ -1032,24 +1096,8 @@ describe("the layout-node store: the audit that licenses it", function()
 		local body = stripLua(fs.readFile(LAYOUT_NODE_PATH))
 		local LOCAL_TO_THIS_FILE = { toLayoutNode = true, appendChild = true }
 		local calls: { [string]: boolean } = {}
-		for callee in string.gmatch(body, "([%a_][%w_%.]*)%(%s*node%s*[,%)]") do
-			if not LOCAL_TO_THIS_FILE[callee] then
-				calls[callee] = true
-			end
-		end
-		for callee in string.gmatch(body, "([%a_][%w_%.]*)%(%s*child%s*[,%)]") do
-			if not LOCAL_TO_THIS_FILE[callee] then
-				calls[callee] = true
-			end
-		end
-		for callee in string.gmatch(body, "([%a_][%w_%.]*)%(%s*grandchild%s*[,%)]") do
-			if not LOCAL_TO_THIS_FILE[callee] then
-				calls[callee] = true
-			end
-		end
-		-- the recursion spans lines, so its `node`/`child` first argument sits on its
-		-- own line; caught here rather than by widening the patterns above
-		for callee in string.gmatch(body, "([%a_][%w_%.]*)%(%s*\n%s*child,") do
+		for callee, arg in calleesTakingMountedNode(body) do
+			local _ = arg
 			if not LOCAL_TO_THIS_FILE[callee] then
 				calls[callee] = true
 			end
@@ -1097,20 +1145,27 @@ describe("the layout-node store: the audit that licenses it", function()
 			exception: there is nothing to invalidate before the first build). A writer
 			appearing anywhere else is a hole in axis 2 that no case in this file would
 			otherwise notice. ]]
+		--[[ THE SCAN WALKS `src/` STRUCTURALLY, and the first version of this case did
+			not — it listed SIX directories of sixteen, and the ones it omitted included
+			`src/tokens`, which is where `chrome_slots.luau` lives, i.e. the exact module
+			finding I1 was about. A hand list is the shape `tests/lib/src_tree.luau`
+			exists to have removed: its own header records two seam specs that proved
+			"exactly ONE consumer in src/" over nine of fifteen directories. Reproducing
+			that defect inside the case written to fix a coverage defect is the reason
+			this comment is here and the reason nothing below names a directory. ]]
 		local offenders: { string } = {}
-		for _, dir in { "src", "src/render", "src/layout", "src/present", "src/controls", "src/client" } do
-			for _, entry in fs.readDir(dir) do
-				local path = `{dir}/{entry}`
-				if not fs.isFile(path) or string.sub(path, -5) ~= ".luau" or path == "src/mount.luau" then
-					continue
-				end
-				local body = stripLua(fs.readFile(path))
-				if string.find(body, "%.props%[[^%]]+%]%s*=[^=]") ~= nil then
-					table.insert(offenders, `{path}: props`)
-				end
-				if string.find(body, "[^%w_]node%.children%s*=[^=]") ~= nil then
-					table.insert(offenders, `{path}: children`)
-				end
+		for path, source in src_tree.readAll() do
+			-- mount.luau IS the exemption, and it is the only one: it owns both writes
+			-- and pushes a dirty entry for every one of them
+			if path == "src/mount.luau" then
+				continue
+			end
+			local body = stripLua(source)
+			if string.find(body, "%.props%[[^%]]+%]%s*=[^=]") ~= nil then
+				table.insert(offenders, `{path}: props`)
+			end
+			if string.find(body, "[^%w_]node%.children%s*=[^=]") ~= nil then
+				table.insert(offenders, `{path}: children`)
 			end
 		end
 		table.sort(offenders)
@@ -1119,6 +1174,29 @@ describe("the layout-node store: the audit that licenses it", function()
 		local mount = stripLua(fs.readFile("src/mount.luau"))
 		expect(string.find(mount, "%.props%[[^%]]+%]%s*=[^=]") ~= nil).toBe(true)
 		expect(string.find(mount, "[^%w_]node%.children%s*=[^=]") ~= nil).toBe(true)
+		--[[ ...AND IT REACHED THE DIRECTORIES THE HAND LIST MISSED. Asserted rather
+			than assumed, because "the walk covers everything" is precisely the claim a
+			hand list also made. `src/tokens` is named explicitly: it holds
+			`chrome_slots.luau`, the module whose whole-node read this audit exists to
+			have caught, and it was invisible to the first version of this scan. ]]
+		local scanned = src_tree.readAll()
+		expect(scanned["src/tokens/chrome_slots.luau"] ~= nil).toBe(true)
+		expect(scanned["src/themes/snapshot.luau"] ~= nil).toBe(true)
+		expect(scanned["src/core/custom.luau"] ~= nil).toBe(true)
+		expect(scanned["src/env/environment.luau"] ~= nil).toBe(true)
+		local dirs: { [string]: boolean } = {}
+		for path in scanned do
+			local dir = string.match(path, "^(src/[^/]+)/")
+			if dir ~= nil then
+				dirs[dir] = true
+			end
+		end
+		local dirCount = 0
+		for _ in dirs do
+			dirCount += 1
+		end
+		-- sixteen top-level entries, of which the first version of this scan named six
+		expect(dirCount >= 14).toBe(true)
 	end)
 
 	it("THE DRAIN SEAM: every `takeDirty` in the renderer marks the sequence or follows a full build", function()
@@ -1173,10 +1251,14 @@ describe("the layout-node store: the audit that licenses it", function()
 		expect(fieldScan("\t-- node.ghost\n\tlocal a = node.real\n")).toEqual({ "real" })
 		-- ...and a NEW field read is reported
 		expect(fieldScan("local a = node.real\nlocal b = node.surprise\n")).toEqual({ "real", "surprise" })
-		-- a new whole-node helper is reported
+		--[[ ...and a new whole-node helper is reported IN ANY ARGUMENT POSITION. The
+			first version of this scan matched `f(node` alone, so `f(metrics, node)` was
+			invisible to it — the same coverage-hole family as the six-directory list in
+			the writer case above (P3 review round 2, minor b). Five shapes, and the last
+			two are the ones a flat regex over paren-free argument text cannot reach. ]]
 		local callScan = function(src: string): { string }
 			local out: { string } = {}
-			for callee in string.gmatch(stripLua(src), "([%a_][%w_%.]*)%(%s*node%s*[,%)]") do
+			for callee in calleesTakingMountedNode(stripLua(src)) do
 				table.insert(out, callee)
 			end
 			table.sort(out)
@@ -1184,6 +1266,9 @@ describe("the layout-node store: the audit that licenses it", function()
 		end
 		expect(callScan("local h = other_module.readSomething(node)\n")).toEqual({ "other_module.readSomething" })
 		expect(callScan("local h = mod.f(node, 1)\n")).toEqual({ "mod.f" })
+		expect(callScan("local h = mod.g(metrics, node)\n")).toEqual({ "mod.g" })
+		expect(callScan("local h = mod.h(a, child, (b == true))\n")).toEqual({ "mod.h" })
+		expect(callScan("local h = mod.i(other(1), grandchild)\n")).toEqual({ "mod.i" })
 		expect(callScan("-- mod.ghost(node)\nlocal x = 1\n")).toEqual({})
 	end)
 end)
