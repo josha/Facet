@@ -16,8 +16,9 @@
 	(`render/layout_node.luau`), the presentation channel
 	(`render/presentation_channel.luau`), the prop-channel manifest
 	(`render/prop_channels.luau`), the ordered rect apply
-	(`render/rect_pass.luau`) and the commit walks
-	(`render/commit_walks.luau`).
+	(`render/rect_pass.luau`), the commit walks
+	(`render/commit_walks.luau`) and the drag-to-edge autoscroll bridge
+	(`render/autoscroll_bridge.luau`).
 
 	ADD A PART HERE WHENEVER MORE OF THE RENDERER MOVES OUT — otherwise the pins
 	quietly stop seeing the code they name, which is the failure this file exists
@@ -56,6 +57,15 @@ local PARTS = {
 		so no existing pin's count moves — it is added because a part missing from an
 		instrument is only ever discovered by the pin that needed it. ]]
 	"src/render/rect_pass.luau",
+	--[[ ...and the DRAG-TO-EDGE AUTOSCROLL BRIDGE (2026-09-01): `setPointerDrag`,
+		the ScrollView chain under a point, the `autoscroll` opt-out and the per-frame
+		stepper. It holds no `adapter.setProp(` and no `setRect(` at all — it reaches
+		the engine only through `controller.scrollTo` — so no existing pin's count
+		moves; it is added because a part missing from an instrument is only ever
+		discovered by the pin that needed it, and because
+		`tests/autoscroll_bridge_seam.spec` asserts every `render/<module>.luau` the
+		paragraph above names is in this list. ]]
+	"src/render/autoscroll_bridge.luau",
 }
 
 local renderer_source = {}

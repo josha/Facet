@@ -661,6 +661,13 @@ require("./async_completeness.spec")
 require("./interaction_tokens.spec")
 -- the pure drag-to-edge autoscroll model under a scripted clock (SF-L2)
 require("./autoscroll.spec")
+-- ...and the RENDERER's chain around it (`render/autoscroll_bridge.luau`, extracted
+-- 2026-09-01): the mechanised seam — READ == DECLARED == PASSED, the mutable-upvalue
+-- test over the nine names that cross, and the claim that the two reassigned scalars
+-- left WITH the code — plus the behaviour the split moved, which had no case at all
+-- before it: the dwell, the canvas write, the opt-out, the clip-only fallback and the
+-- nested chain rule
+require("./autoscroll_bridge_seam.spec")
 -- scroll SNAPPING (ADAPT-17, audit cell B-7): the pure resolver in numbers, and
 -- the wired list/grid driven through the engine mirror on a scripted clock
 require("./scroll_snap.spec")
