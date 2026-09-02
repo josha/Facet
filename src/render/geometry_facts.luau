@@ -169,6 +169,11 @@ local BASE_KEYS = {
 	-- surface RE-SOLVES — it is never rebuilt, so mount identity, focus,
 	-- selection, scroll and text entry survive a swap untouched
 	"themeMetrics",
+	-- ...and an exact text width is geometry for EVERY surface, not only the one
+	-- whose round learned it: `text_metrics` is one store per session, so a second
+	-- surface drawing that word kept boot-window geometry with no dependency to
+	-- invalidate (`layout/text_metrics.luau`, THE EPOCH IS EVERY SURFACE'S)
+	"textMeasureEpoch",
 }
 --[[ AN edgeToEdge SURFACE DOES NOT CONSUME A SAFE-AREA INSET (L-31).
 	`solveAndApply` opens with `if rootPolicy == "edgeToEdge" then insets =

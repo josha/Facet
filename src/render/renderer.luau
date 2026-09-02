@@ -2167,10 +2167,18 @@ function renderer.attach(
 							before `solveAndApply` so the re-solve already sees the
 							re-derived values instead of needing a third pass. ]]
 						if learned and not disposed then
+							-- ...AND THE WRITE MAY HAVE ALREADY SOLVED THIS SURFACE: the fact
+							-- is a GEOMETRY KEY, so it reaches this surface too and settles
+							-- synchronously when no flush is open. The counter decides rather
+							-- than the ordering — one solve per learned round, which
+							-- `tests/text_premeasure.spec.luau` pins.
+							local solvesBefore = stats.solves
 							-- `env:get` answers the FACT's signal, so the current value is one
 							-- more `:get()` in (same shape as every other read in this file)
 							env:set("textMeasureEpoch", ((env:get("textMeasureEpoch"):get() :: number?) or 0) + 1)
-							solveAndApply()
+							if stats.solves == solvesBefore then
+								solveAndApply()
+							end
 						end
 					end)
 					-- A BOOT-WINDOW BATCH ANSWERS TWICE, up to ~12 s apart.

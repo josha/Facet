@@ -118,6 +118,8 @@ describe("the geometry-facts seam: the list and the comparator are one decision"
 		expect(has(core, "deviceSafeInsets")).toBe(true)
 		expect(has(core, "viewportRect")).toBe(true)
 		expect(has(core, "themeMetrics")).toBe(true)
+		-- an exact text width is geometry for every surface (RED-TEAM 2026-09-02)
+		expect(has(core, "textMeasureEpoch")).toBe(true)
 		expect(has(core, "platformChrome")).toBe(false)
 		-- `deviceSafeContent` takes the per-edge max of both inset facts, so it is the
 		-- unnarrowed list too

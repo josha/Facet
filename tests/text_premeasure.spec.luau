@@ -313,6 +313,59 @@ describe("renderer: engine premeasurement round", function()
 		text_metrics.resetMeasured()
 	end)
 
+	it("A WORD LEARNED BY ONE SURFACE RE-SOLVES THE OTHER (RED-TEAM 2026-09-02)", function()
+		--[[ `text_metrics` IS ONE STORE FOR THE WHOLE SESSION, and until this round the
+			re-solve it earned was one surface's. The round's own surface re-solves
+			itself (the `learned` branch in `renderer.luau`); a SECOND attached surface
+			drawing the same word — a HUD beside a menu, a toast over a screen — had no
+			dependency on the fact at all, so it went on reserving the two-line box the
+			ESTIMATOR asked for until something unrelated dirtied it. The fix is one
+			entry in `GEOMETRY_KEYS`: an exact width is geometry for every surface, and
+			the fact the round already publishes is the dependency.
+
+			SURFACE B'S ADAPTER CANNOT ASK, which is what makes this a test of the
+			publication rather than of B's own round: `measureTextWidths = nil` is the
+			shipped no-seam adapter (the case below it drives), so every exact width B
+			ever gets is one A learned. ]]
+		text_metrics.resetMeasured()
+		local core = customFactory.new()
+		local env = environment.new(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 800 })
+		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
+		local function slice(id: string)
+			return UI.Screen({
+				id = id,
+				padding = 0,
+				children = { UI.Button({ id = "Save", label = "Save changes", width = { type = "fixed", px = 130 } }) },
+			})
+		end
+		local rootA = mountLib.mount(core, slice("A"))
+		local adapterA = fake_target.new()
+		local a = renderer.attach(core, rootA, env, adapterA, {})
+		a.initialRender()
+		local rootB = mountLib.mount(core, slice("B"))
+		local adapterB = fake_target.new()
+		adapterB.measureTextWidths = nil
+		local b = renderer.attach(core, rootB, env, adapterB, {})
+		b.initialRender()
+		-- both surfaces open on the estimator's answer: a second line neither will draw
+		expect(adapterA.node("/A/Save").rect.h).toBe(68)
+		expect(adapterB.node("/B/Save").rect.h).toBe(68)
+		local solvesB = b.stats().solves
+		adapterA.deliverTextWidths(engineWidth)
+		-- A is the surface that asked, and it still takes EXACTLY ONE re-solve
+		expect(adapterA.node("/A/Save").rect.h).toBe(46)
+		-- ...and B, which asked nothing and was refreshed by nobody, is not still
+		-- painting the boot-window box
+		expect(`B solves={b.stats().solves - solvesB}`).toBe("B solves=1")
+		expect(adapterB.node("/B/Save").rect.h).toBe(46)
+		a.dispose()
+		b.dispose()
+		rootA.dispose()
+		rootB.dispose()
+		text_metrics.resetMeasured()
+	end)
+
 	it("a measurement arriving after dispose neither crashes nor re-solves", function()
 		text_metrics.resetMeasured()
 		local _, root, adapter, controller = actionSlice()

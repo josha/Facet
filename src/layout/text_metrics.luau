@@ -174,6 +174,21 @@ text_metrics.canonicalFont = canonicalFont
 	only when the value actually moves. Monotone, never reset — `resetMeasured` bumps
 	it too, because forgetting a width is a change like any other.
 
+	THE EPOCH IS EVERY SURFACE'S, AND SO IS THE ENV FACT DERIVED FROM IT (RED-TEAM
+	2026-09-02). A premeasurement round belongs to the surface whose adapter answered
+	it, and until this round the re-solve did too: `renderer.attach`'s `learned` branch
+	published `textMeasureEpoch` and solved ITSELF. Every OTHER attached surface —
+	a HUD beside a menu, a toast over a screen, the second half of any two-surface
+	shape — draws the same words out of the same store and had no dependency on the
+	fact at all, so it went on reserving boxes the ESTIMATOR sized until something
+	unrelated dirtied it. On the boot-window flip that is the whole screen: the
+	adapter's corrected answers land ~12 s in, and a surface mounted before them kept
+	the wrong geometry for the life of the session. `textMeasureEpoch` is a
+	`GEOMETRY_KEYS` entry now (`render/geometry_facts.luau`), which is what makes the
+	publication reach every surface; the round's own surface takes exactly one solve,
+	not two, because the write it makes settles synchronously and the renderer counts
+	solves rather than assuming an ordering.
+
 	IT IS PROCESS-GLOBAL, LIKE THE STORE IT GUARDS, and a reader chasing a miss rate
 	should know that before instrumenting anything. The exact-width store below is one
 	table shared by every surface in the session, so ANY surface learning a word moves
