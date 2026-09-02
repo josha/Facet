@@ -54,24 +54,37 @@
 	only T4's translate arm (which stops re-entering the subtree at all) takes it
 	to 0. T3's spec pins the 500; T4's pins the 0.
 
-	THE FIRST TICK IS COLD, AND EVERY LATER ONE IS THE STEADY NUMBER (discovered
-	running T2's baseline spec, 2026-09-02). `scene.new()` -> `controller.attach`
-	does its own solve (`controller.initialRender()`), which fills `lastResult`
-	but is not itself a REUSE solve. The first `tick`/`tickWithCasts` call after
-	that is therefore the FIRST solve eligible for `layoutNodeReuse`, and
-	`layout_node.build` rebuilds a fresh `solver.Node` for every path in that
-	solve's `dirtyContains` — all 250 moved plates plus 2 ancestors, 252,
-	matching `stats().lastNodeBuilds` exactly. Instrumented directly
-	(`solver.measureUncached`, reverted before commit): that first tick measures
-	2002 — every one of the 1502 layout nodes once (a genuinely full re-measure)
+	THE FIRST TICK IS COLD, AND EVERY LATER ONE IS THE STEADY NUMBER — pinned by
+	two SEPARATE cases in `tests/nameplates_baseline.spec.luau` rather than one
+	(discovered running T2's baseline spec, 2026-09-02; corrected in Fix round 1
+	after the controller's own probe, since the round's "currently N" has to be
+	the number every later demonstrator actually ticks against, not a one-time
+	first-frame cost). `scene.new()` -> `controller.attach` does its own solve
+	(`controller.initialRender()`), which fills `lastResult` but is not itself a
+	REUSE solve. `lastMeasured` on the first `tick`/`tickWithCasts` call after
+	that reads 2002 (the COLD number, `MEASURED_COLD`); every tick after it reads
+	the steady 1252 (`MEASURED_STEADY = LAYOUT - PLATES`). The scene's own
+	baseline is `MEASURED_STEADY`, not `MEASURED_COLD` — see the spec's "a pure
+	tick" case (which discards one warm-up tick before pinning) versus its "the
+	first tick after mount pays a one-time cold solve" case.
+
+	`lastNodeBuilds` is NOT the cold/steady lever — probed directly (Fix round 1):
+	it reads the SAME 252 (the 250 moved plates + Canvas + Screen, `dirtyContains`)
+	on the cold first tick, on a steady pure tick, and on every steady pure tick
+	after that; only a CASTER tick moves it, to 302 (the 50 caster boxes joining
+	`dirtyContains`). So the 750-measure gap between cold and steady is not a
+	rebuilt-node story. The COLD number IS instrumented (`solver.measureUncached`,
+	temporary counter, reverted before commit): 1502 distinct nodes measured once
 	PLUS the 500 `Hp`/`Cast` boxes a second time (the vstack arrange branch
-	above). Every tick after it reads the steady 1252 (`LAYOUT - PLATES`, i.e.
-	every plate's five descendants, no plate root, no second Hp/Cast pass) — the
-	cold rebuild is a ONE-TIME cost, not a per-tick one. A caller comparing two
-	ticks against each other (T2's own third case did, originally) must either
-	take both from the steady state or expect the first to be inflated;
-	comparing tick #1 against tick #2 attributes the whole one-time cost to
-	whichever mechanism happens to run second. ]]
+	above) — see the spec's cold case for the full by-kind breakdown. WHY THE
+	STEADY NUMBER IS 250 LOWER THAN A FULL PASS (1252 = LAYOUT - PLATES, i.e.
+	every plate's five descendants but not the plate root itself) is NOT
+	instrumented; the spec pins the arithmetic, not the mechanism. A caller
+	comparing two ticks against each other (T2's own fourth case did, originally,
+	comparing `lastMeasured`) must either take both from the steady state or
+	expect the first to be inflated — and even then, before T3, a pure and a
+	caster tick read the identical steady `lastMeasured`; `lastNodeBuilds` is the
+	counter a caster tick actually moves today. ]]
 local UI = require("../../src/blueprint")
 local mountLib = require("../../src/mount")
 local environment = require("../../src/env/environment")
