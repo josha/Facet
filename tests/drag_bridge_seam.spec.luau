@@ -324,6 +324,34 @@ describe("the drag-bridge seam: EXPORTED == USED, one consumer, one-way require"
 		expect(sorted(exported)).toEqual({ "attachDetector", "dispose", "peek", "registry" })
 	end)
 
+	it("the accessor split is COUNTED from the live source, not remembered", function()
+		--[[ THE MODULE HEADER AND THE SOURCE-CAP LEDGER BOTH NAME THE SPLIT — 7 reads,
+			4 builds, 2 detector acquisitions, 1 dispose — and the first version of both
+			said "four `peek()`" because the number was carried over from the ledger's
+			count of pre-split READ SITES rather than counted after the move (P4 review,
+			folded minor 2). Three inline reads became named locals on the way out, so
+			eleven read sites became fourteen call sites.
+
+			A prose count nobody recounts is a prose count that drifts, so it is pinned
+			here instead: the numbers below are what the renderer actually contains, and
+			the header has to move with them. ]]
+		local body = stripComments(rendererSource)
+		local counts: { [string]: number } = { peek = 0, registry = 0, attachDetector = 0, dispose = 0 }
+		for name in string.gmatch(body, "dragBridge%.([%a_][%w_]*)%(") do
+			if counts[name] ~= nil then
+				counts[name] += 1
+			end
+		end
+		expect(counts.peek).toBe(7)
+		expect(counts.registry).toBe(4)
+		expect(counts.attachDetector).toBe(2)
+		expect(counts.dispose).toBe(1)
+		-- ...and the header states the same four numbers, so the two cannot drift apart
+		for _, claim in { "`peek()` x7", "`registry()` x4", "`attachDetector()` x2", "`dispose()` x1" } do
+			expect(string.find(bridge, claim, 1, true) ~= nil).toBe(true)
+		end
+	end)
+
 	it("there is exactly ONE consumer of the module in src/, and the requires are one-way", function()
 		--[[ WALKED, NOT LISTED — `tests/lib/src_tree.luau` exists because a hand list of
 			directories missed six of `src/`'s sixteen and two seam specs proved "exactly

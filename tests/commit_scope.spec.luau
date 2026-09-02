@@ -65,12 +65,15 @@ local UI = require("../src/blueprint")
 local mountLib = require("../src/mount")
 local environment = require("../src/env/environment")
 local renderer = require("../src/render/renderer")
+local solver = require("../src/layout/solver")
 local customFactory = require("../src/core/custom")
 local fake_target = require("./lib/fake_target")
 local device_views = require("./lib/device_views")
 -- the second theme package the large-text matrix ships, used here for the one
 -- invalidation axis that is neither a node nor a rect: the applied snapshot
 local large_text = require("./lib/large_text")
+-- the deterministic ring math the stroked-path gate's case needs a real `UI.Path` for
+local path_shapes = require("../src/controls/path_shapes")
 
 local function px(n: number): any
 	return { type = "fixed", px = n }
@@ -710,85 +713,660 @@ describe("the commit's own skip (P4)", function()
 		expect(string.find(visibility(a), "/Root/Panel/Inner/B=true", 1, true) ~= nil).toBe(true)
 	end)
 
-	it("EVERY PROP THE WALKS READ is one a dirty entry or a remount can only reach WITH a new rect", function()
-		--[[ THE CENSUS THAT LICENSES THE PREDICATE, mechanised the way P1's review
+	it("A STROKED PATH IS CULLED BY A CLIP HOST THAT SHRANK — the gate `visible` cannot prune past", function()
+		--[[ THE FIRST OF THE TWO GATES, DRIVEN (P4 review, I1). This report originally
+			said the repository could not produce a case for it; the review built one,
+			and it is neither exotic nor hard to reach.
+
+			THE SHAPE IS "A SIBLING GREW". A clip host laid out as `fill` shrinks when
+			the box below it grows — and NOTHING INSIDE THE HOST MOVES: the path keeps
+			the rect it had, so `arrange` skips it and hands its entry forward table for
+			table, and `dirtyContains` never reaches it either because the dirty prop is
+			the sibling's height. Both halves of `skip` therefore say "leave it alone" at
+			exactly the node whose cull verdict just changed. `pathEscapesClip` asks the
+			HOST's box, not the path's, which is why entry identity cannot answer for it
+			and why `visible` refuses to prune at all on a surface that draws one.
+
+			MUTATION: `prunable = true` at the gate leaves the ring painting outside the
+			host that is supposed to crop it. ]]
+		local function surface()
+			local core = customFactory.new()
+			local env = environment.new(core)
+			env:set("viewportRect", { x = 0, y = 0, w = 400, h = 400 })
+			env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
+			local grow = core:signal(80)
+			local tick = core:signal(1)
+			local bp = UI.Screen({
+				id = "S",
+				children = {
+					UI.VStack({
+						id = "Root",
+						padding = 0,
+						gap = 0,
+						width = fill(),
+						height = fill(),
+						children = {
+							UI.VStack({
+								id = "Clip",
+								clipChildren = true,
+								padding = 0,
+								gap = 0,
+								width = px(200),
+								height = fill(),
+								children = {
+									UI.Path({
+										id = "Ring",
+										points = path_shapes.ring(),
+										thickness = 4,
+										role = "accent",
+										width = px(120),
+										height = px(120),
+									}),
+								},
+							}),
+							UI.Box({
+								id = "Grower",
+								width = px(200),
+								height = core:memo(function(use: any)
+									return px(use(grow))
+								end),
+							}),
+							-- a co-driver, so the frames below are armed commits rather
+							-- than solves that never happen
+							UI.Text({
+								id = "Tick",
+								textSize = 12,
+								text = core:memo(function(use: any)
+									return tostring(use(tick))
+								end),
+							}),
+						},
+					}),
+				},
+			})
+			local root = mountLib.mount(core, bp)
+			local adapter = fake_target.new()
+			local controller = renderer.attach(core, root, env, adapter, { rootPolicy = "edgeToEdge" })
+			controller.initialRender()
+			return { core = core, adapter = adapter, controller = controller, grow = grow, tick = tick }
+		end
+		local a = surface()
+		-- two warm frames, so the prune is armed and its store is full
+		a.tick:set(2)
+		a.controller.refresh()
+		a.tick:set(3)
+		a.controller.refresh()
+		expect(a.adapter.node("/S/Root/Clip/Ring").visible).toBe(true)
+		expect(a.adapter.node("/S/Root/Clip").rect.h > 120).toBe(true)
+
+		a.grow:set(340)
+		a.controller.refresh()
+		--[[ THE HOST SHRANK AND THE RING DID NOT MOVE — which is the whole premise, so
+			it is asserted rather than assumed: an assertion on visibility alone would
+			pass on a fixture where the ring's own rect had changed and the prune had
+			nothing to get wrong. ]]
+		expect(a.adapter.node("/S/Root/Clip").rect.h < 120).toBe(true)
+		local ring = a.adapter.node("/S/Root/Clip/Ring").rect
+		expect(`{ring.x},{ring.y},{ring.w},{ring.h}`).toBe("0,0,120,120")
+		expect(a.adapter.node("/S/Root/Clip/Ring").visible).toBe(false)
+
+		-- ...and back: a gate that only ever hid things would pass the case above by
+		-- accident
+		a.grow:set(80)
+		a.controller.refresh()
+		expect(a.adapter.node("/S/Root/Clip/Ring").visible).toBe(true)
+	end)
+
+	it(
+		"A CHROME FLOOR IS RE-GROWN WHEN AN AUTHOR CONTROL MOVES UNDER IT — the gate `hitRects` cannot prune past",
+		function()
+			--[[ THE SECOND GATE, DRIVEN (P4 review, I1), and the failure it prevents is the
+			one ruling R23 exists for: two actionable targets for one gesture, with the
+			framework's own invisible expander on top.
+
+			THE SHAPE IS "AN AUTHOR CONTROL WIDENED". A `cover` under the 44px floor asks
+			for a floor that grows only until it meets something the AUTHOR declared
+			pressable (`growWithin`). The cover itself does not move when the author's
+			button widens toward it — same rect, entry carried forward, not dirty — so
+			`skip` says leave it alone at exactly the node whose floor just changed.
+
+			THE NUMBERS ARE THE ASSERTION. At width 100 the author is clear of the
+			cover's ask and the expander is the full 44x44 at x=156. At 170 it overlaps
+			on both axes, and the floor is clipped to 40x32 at x=160. MUTATION: dropping
+			`not sawChrome` leaves the 44x44 standing over the author's own button. ]]
+			local function surface(authorW: number)
+				local core = customFactory.new()
+				local env = environment.new(core)
+				env:set("viewportRect", { x = 0, y = 0, w = 300, h = 200 })
+				env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
+				local w = core:signal(authorW)
+				local tick = core:signal(1)
+				local bp = UI.Screen({
+					id = "S",
+					children = {
+						UI.VStack({
+							id = "Root",
+							padding = 0,
+							gap = 0,
+							width = fill(),
+							height = fill(),
+							children = {
+								UI.Anchor({
+									id = "Plate",
+									width = px(200),
+									height = px(60),
+									children = {
+										UI.Button({
+											id = "Author",
+											label = "Go",
+											anchor = "topLeft",
+											offsetX = 0,
+											offsetY = 0,
+											width = core:memo(function(use: any)
+												return px(use(w))
+											end),
+											height = px(44),
+										}),
+										--[[ AUTHORS NEVER WRITE THIS — `UI.Region{ expand = … }`
+										and the dismissible-plate close both synthesize it, and
+										the schema's own doc says so. It is authored directly
+										here because the framework's two producers of it are a
+										whole Region and a whole plate, and this case is about
+										one prop's consequence rather than about either. ]]
+										UI.Button({
+											id = "Cover",
+											label = "",
+											expandTarget = { role = "cover" },
+											anchor = "topLeft",
+											offsetX = 160,
+											offsetY = 0,
+											width = px(36),
+											height = px(20),
+										}),
+									},
+								}),
+								UI.Text({
+									id = "Tick",
+									textSize = 12,
+									text = core:memo(function(use: any)
+										return tostring(use(tick))
+									end),
+								}),
+							},
+						}),
+					},
+				})
+				local root = mountLib.mount(core, bp)
+				local adapter = fake_target.new()
+				local controller = renderer.attach(core, root, env, adapter, { rootPolicy = "edgeToEdge" })
+				controller.initialRender()
+				return { core = core, adapter = adapter, controller = controller, w = w, tick = tick }
+			end
+			local function hitOf(a: any, path: string): string
+				local h = a.adapter.node(path).hitRect
+				return if h == nil then "-" else `{h.x},{h.y},{h.w},{h.h}`
+			end
+			local a = surface(100)
+			a.tick:set(2)
+			a.controller.refresh()
+			a.tick:set(3)
+			a.controller.refresh()
+			expect(hitOf(a, "/S/Root/Plate/Cover")).toBe("156,-12,44,44")
+
+			a.w:set(170)
+			a.controller.refresh()
+			-- the premise, asserted: the cover did not move, so entry identity would have
+			-- pruned it and only the gate stops that
+			local cover = a.adapter.node("/S/Root/Plate/Cover").rect
+			expect(`{cover.x},{cover.y},{cover.w},{cover.h}`).toBe("160,0,36,20")
+			expect(hitOf(a, "/S/Root/Plate/Cover")).toBe("160,-12,40,32")
+			-- ...and it equals a surface built COLD at the same final width, which is what
+			-- makes "40x32" the right answer rather than merely a different one
+			expect(hitOf(a, "/S/Root/Plate/Cover")).toBe(hitOf(surface(170), "/S/Root/Plate/Cover"))
+
+			-- ...and the author narrowing again gives the floor back
+			a.w:set(100)
+			a.controller.refresh()
+			expect(hitOf(a, "/S/Root/Plate/Cover")).toBe("156,-12,44,44")
+		end
+	)
+
+	it(
+		"EVERY PROP THE WALKS READ — DIRECTLY OR THROUGH A HELPER — resolves to one a stale prune cannot miss",
+		function()
+			--[[ THE CENSUS THAT LICENSES THE PREDICATE, mechanised the way P1's review
 			required for `layout_node` (`tests/layout_prop_dirt.spec.luau`), because the
 			same table is load-bearing here for the opposite reason.
 
 			`skip` refuses to prune a node in `nodeDirty` — P3's ancestor-closed set over
-			EVERY dirty class. Entry identity alone would already catch every prop this
-			file reads today, and this case is the proof of that rather than a hope: each
+			EVERY dirty class. Entry identity alone would already catch every prop these
+			walks read today, and this case is the proof of that rather than a hope: each
 			one either declares a LAYOUT dirty class (so a change puts it in
 			`dirtyContains`, the solver walks it, and `arrange` writes a fresh entry) or
 			is `reactive = false` (so it can only change by REMOUNT, which is structural,
-			which takes the full commit). No mutation of the `nodeDirty` clause reddens
-			any case in this file, and that is stated rather than hidden.
+			which takes the full commit).
+
+			THE FIRST VERSION OF THIS CASE PROVED NEITHER, and the correction is the
+			point (P4 review, I3). It looped over `schema.propDirty()` and skipped any
+			name that table did not carry — and `propDirty` carries only REACTIVE props,
+			so `autoscroll`, `expandTarget` and `indicators` never entered the loop at
+			all and the `reactive == false` clause never executed once. Three of the six
+			names were exonerated by absence, which is the exact shape of "a check that
+			proves nothing". The loop now runs over `schema.all()` — every DECLARATION,
+			reactive or not — and a name that resolves to no declaration anywhere FAILS
+			rather than passing quietly.
+
+			AND THE SCAN NOW FOLLOWS THE HELPERS. `textVerdicts` hands `node.props` to
+			`layout_node.compactForm` and `layout_node.drawnButtonText`, and `padding`
+			hands it to `themeSnapshot.buttonPadding` — so `label`, `compactLabel`,
+			`icon` and `shape` are props these walks read with no `props.` of their own
+			in this file. That is the same blind spot P3's review found in
+			`layout_node`'s audit ("the audit is TWO enumerations"), arriving here.
 
 			IT STAYS ANYWAY, and the census is why the conservatism is principled instead
 			of superstitious: the day a reactive PAINT-class prop is read by one of these
 			walks, entry identity stops covering it and the failure is a write that never
 			happens — invisible to every state comparison, because not writing looks
 			exactly like writing the same value. This case goes red on that day. ]]
-		local schema = require("../src/blueprint_schema")
-		local fs = require("@lune/fs")
-		local LAYOUT = { measure = true, arrange = true, structure = true }
-		local source = fs.readFile("src/render/commit_walks.luau")
-		local names: { [string]: boolean } = {}
-		local inBlock = false
-		for _, raw in string.split(source, "\n") do
-			if inBlock then
-				if string.match(raw, "%]%]") then
-					inBlock = false
-				end
-				continue
-			end
-			if string.match(raw, "%-%-%[%[") then
-				inBlock = true
-				continue
-			end
-			local code = string.gsub(raw, "%-%-.*", "")
-			for name in string.gmatch(code, "props%.([%a_][%w_]*)") do
-				names[name] = true
-			end
-		end
-		-- the parser pin: an audit that silently matched nothing would pass forever
-		expect(names.textSize).toBe(true)
-		expect(names.padding).toBe(true)
-		expect(names.autoscroll).toBe(true)
-		local n = 0
-		for _ in names do
-			n += 1
-		end
-		expect(n >= 6).toBe(true)
+			local schema = require("../src/blueprint_schema")
+			local fs = require("@lune/fs")
+			local LAYOUT = { measure = true, arrange = true, structure = true }
+			local WALKS_PATH = "src/render/commit_walks.luau"
 
-		local dirty = schema.propDirty()
-		local specs = schema.all()
-		local offenders: { string } = {}
-		for name in names do
-			for className, byProp in dirty do
-				local classes = byProp[name]
-				if classes == nil then
-					continue
+			--[[ COMMENTS ARE NOT CODE, and the line-at-a-time stripper this case first
+				shipped with could not say so: it latched `inBlock` on a block-comment OPEN
+				and never looked for the CLOSE on that same line, so one single-line block
+				comment swallowed the rest of the file and every scan below it read almost
+				nothing. Block comments come out first, whole, then line comments, which is
+				the shape the seam specs in this repository already use. ]]
+			local function stripLuauComments(text: string): string
+				local out = string.gsub("\n" .. text, "%-%-%[%[.-%]%]", " ")
+				out = string.gsub(out, "%-%-[^\n]*", "")
+				return out
+			end
+			local function propReads(code: string): { [string]: boolean }
+				local out: { [string]: boolean } = {}
+				for name in string.gmatch(code, "props%.([%a_][%w_]*)") do
+					out[name] = true
 				end
-				local layout = false
-				for _, c in classes do
-					if LAYOUT[c] then
-						layout = true
+				return out
+			end
+
+			local walks = stripLuauComments(fs.readFile(WALKS_PATH))
+
+			--[[ THE MODULE MAP, DERIVED FROM THIS FILE'S OWN REQUIRES rather than written
+			out, so a helper that moves file cannot leave the scan pointing at nothing. ]]
+			local modules: { [string]: string } = {}
+			for name, spec in string.gmatch(walks, 'local ([%a_][%w_]*) = require%("([^"]+)"%)') do
+				local rest = string.match(spec, "^%./(.+)$")
+				if rest ~= nil then
+					modules[name] = `src/render/{rest}.luau`
+				else
+					local up = string.match(spec, "^%.%./(.+)$")
+					if up ~= nil then
+						modules[name] = `src/{up}.luau`
 					end
 				end
-				if layout then
+			end
+			expect(modules.layout_node).toBe("src/render/layout_node.luau")
+			expect(modules.themeSnapshot).toBe("src/themes/snapshot.luau")
+
+			--[[ ENUMERATION TWO: every call in these walks that hands `props` to somebody
+			else. A whole-props helper is invisible to a `props.<name>` scan of this
+			file, which is precisely how `label`, `compactLabel`, `icon` and `shape`
+			went uncounted. ]]
+			local handoffs: { { mod: string, fn: string, index: number } } = {}
+			local fieldOnly: { string } = {}
+			local seenCall: { [string]: boolean } = {}
+			local seenField: { [string]: boolean } = {}
+			for mod, fn, args in string.gmatch(walks, "([%a_][%w_]*)%.([%a_][%w_]*)%(([^()]*)%)") do
+				if modules[mod] == nil or string.find(args, "props", 1, true) == nil then
 					continue
 				end
-				local spec = specs[className]
-				local prop = if spec ~= nil and spec.props ~= nil then spec.props[name] else nil
-				if prop ~= nil and prop.reactive == false then
+				--[[ WHOLE PROPS, NOT A FIELD OF IT, and the difference decides whether the
+					callee can read a prop this file never names. An argument that is exactly
+					`node.props` hands the table over; `node.props.padding` and
+					`node.props and node.props.textSize` hand over one value this file has
+					already named, so following them would add nothing and pinning them as
+					handoffs would claim a coverage the body scan does not have. Both sets are
+					pinned below, because "excluded" is a claim too. ]]
+				local index: number? = nil
+				local at = 0
+				for _, piece in string.split(args, ",") do
+					at += 1
+					local arg = string.match(piece, "^%s*(.-)%s*$")
+					if arg == "props" or arg == "node.props" then
+						index = at
+					end
+				end
+				local key = `{mod}.{fn}`
+				if index == nil then
+					if not seenField[key] then
+						seenField[key] = true
+						table.insert(fieldOnly, key)
+					end
 					continue
 				end
-				table.insert(offenders, `{className}.{name} = {table.concat(classes, "+")} and reactive`)
+				if not seenCall[key] then
+					seenCall[key] = true
+					table.insert(handoffs, { mod = mod, fn = fn, index = index :: number })
+				end
+			end
+			table.sort(fieldOnly)
+			table.sort(handoffs, function(a, b)
+				return `{a.mod}.{a.fn}` < `{b.mod}.{b.fn}`
+			end)
+			local handoffNames: { string } = {}
+			for _, h in handoffs do
+				table.insert(handoffNames, `{h.mod}.{h.fn}`)
+			end
+			--[[ PINNED, so a FOURTH whole-props helper fails this case instead of slipping
+			the scan — the property P3's review asked `node_reuse.spec` for and got. ]]
+			expect(handoffNames).toEqual({
+				"layout_node.compactForm",
+				"layout_node.drawnButtonText",
+				"themeSnapshot.buttonPadding",
+			})
+			-- ...and the calls that carry a FIELD rather than the table, which the scan
+			-- sees and deliberately does not follow
+			expect(fieldOnly).toEqual({ "themeSnapshot.effectiveTypeRole", "themeSnapshot.resolveSides" })
+
+			local names = propReads(walks)
+			-- the parser pins for enumeration one: an audit that silently matched nothing
+			-- would pass forever
+			expect(names.textSize).toBe(true)
+			expect(names.padding).toBe(true)
+			expect(names.autoscroll).toBe(true)
+
+			-- ...and enumeration two, followed into the helper's own body
+			--[[ AND THE BODY SCAN RESOLVES THE CALLEE'S OWN PARAMETER NAME rather than
+				assuming it is spelled `props`. A helper that called its parameter `p` would
+				otherwise contribute nothing and contribute it SILENTLY, which is the same
+				exonerate-by-absence failure this whole case was rewritten for. ]]
+			local transitive: { [string]: boolean } = {}
+			for _, h in handoffs do
+				local source = stripLuauComments(fs.readFile(modules[h.mod]))
+				local params, body = string.match(source, `\nlocal function {h.fn}%(([^)]*)%)[^\n]*\n(.-)\nend\n`)
+				if params == nil then
+					params, body = string.match(source, `\nfunction [%a_][%w_]*%.{h.fn}%(([^)]*)%)[^\n]*\n(.-)\nend\n`)
+				end
+				assert(params ~= nil and body ~= nil, `no body found for {h.mod}.{h.fn}`)
+				local raw = string.split(params :: string, ",")[h.index]
+				assert(raw ~= nil, `{h.mod}.{h.fn} has no parameter {h.index}`)
+				local param = string.match(raw, "([%a_][%w_]*)")
+				assert(param ~= nil, `{h.mod}.{h.fn} parameter {h.index} has no name`)
+				for name in string.gmatch(body :: string, `{param}%.([%a_][%w_]*)`) do
+					transitive[name] = true
+					names[name] = true
+				end
+			end
+			-- the pins for enumeration two, by name: these four are read by NO `props.` in
+			-- `commit_walks.luau` and are what the first version of this case never saw
+			expect(transitive.label).toBe(true)
+			expect(transitive.compactLabel).toBe(true)
+			expect(transitive.icon).toBe(true)
+			expect(transitive.shape).toBe(true)
+
+			local dirty = schema.propDirty()
+			local specs = schema.all()
+			local offenders: { string } = {}
+			local unresolved: { string } = {}
+			local checked = 0
+			local reactiveFalseSeen = 0
+			for name in names do
+				local declaredSomewhere = false
+				for className, spec in specs do
+					local prop = if spec.props ~= nil then (spec.props :: any)[name] else nil
+					if prop == nil then
+						continue
+					end
+					declaredSomewhere = true
+					checked += 1
+					--[[ ARM ONE: a LAYOUT dirty class. A change puts the node in
+					`dirtyContains`, `arrange` walks it, and the entry it writes is a new
+					table — so entry identity alone already refuses the prune. ]]
+					local classes = (dirty[className] or {})[name]
+					local layout = false
+					for _, c in classes or {} do
+						if LAYOUT[c] then
+							layout = true
+						end
+					end
+					if layout then
+						continue
+					end
+					--[[ ARM TWO: not reactive at all, so the only way it changes is a
+					REMOUNT — structural, which gives no reuse set, which takes the full
+					commit. Asserted EXPLICITLY here rather than reached by absence. ]]
+					if prop.reactive == false then
+						reactiveFalseSeen += 1
+						continue
+					end
+					table.insert(
+						offenders,
+						`{className}.{name} = {if classes then table.concat(classes, "+") else "no dirty classes"} and reactive`
+					)
+				end
+				if not declaredSomewhere then
+					--[[ THE HOLE THE REVIEW FOUND, CLOSED FROM THE OTHER SIDE: a name the
+					scan matched that resolves to no prop declaration anywhere is a scan
+					that is reading something other than props, and it must say so
+					instead of being skipped. ]]
+					table.insert(unresolved, name)
+				end
+			end
+			table.sort(offenders)
+			table.sort(unresolved)
+			expect(table.concat(unresolved, "; ")).toBe("")
+			expect(table.concat(offenders, "; ")).toBe("")
+			--[[ AND THE TWO ARMS BOTH RAN. Set comparisons and `continue`-driven loops are
+			the two shapes that pass by doing nothing, and this case has been both. ]]
+			expect(checked > 25).toBe(true)
+			expect(reactiveFalseSeen >= 4).toBe(true)
+		end
+	)
+
+	it("NEGATIVE CONTROL: the census's two enumerations and both of its arms report", function()
+		--[[ Each scan is a pure function of a string, so each is fed a broken input
+			here. A check that cannot fail is decoration — and the version of the case
+			above that shipped without this could not fail on three of its six names. ]]
+		--[[ COMMENTS ARE NOT CODE, and the line-at-a-time stripper this case first
+			shipped with could not say so: it latched `inBlock` on a block-comment OPEN
+			and never looked for the CLOSE on that same line, so one single-line block
+			comment swallowed the rest of the file and every scan below it read almost
+			nothing. Block comments come out first, whole, then line comments, which is
+			the shape the seam specs in this repository already use. ]]
+		local function stripLuauComments(text: string): string
+			local out = string.gsub("\n" .. text, "%-%-%[%[.-%]%]", " ")
+			out = string.gsub(out, "%-%-[^\n]*", "")
+			return out
+		end
+		local function propReads(code: string): { [string]: boolean }
+			local out: { [string]: boolean } = {}
+			for name in string.gmatch(code, "props%.([%a_][%w_]*)") do
+				out[name] = true
+			end
+			return out
+		end
+		-- a prop named in a comment is prose, not a read
+		local sample = "--[[ props.ghost ]]\nlocal a = props.real\n\t-- props.phantom\n"
+		local read = propReads(stripLuauComments(sample))
+		expect(read.real).toBe(true)
+		expect(read.ghost).toBe(nil)
+		expect(read.phantom).toBe(nil)
+		-- the handoff scan sees a call that carries props and ignores one that does not
+		local calls = stripLuauComments("local x = helper.take(metrics, node.props)\nlocal y = helper.other(metrics)\n")
+		local seen: { [string]: boolean } = {}
+		for mod, fn, args in string.gmatch(calls, "([%a_][%w_]*)%.([%a_][%w_]*)%(([^()]*)%)") do
+			if string.find(args, "props", 1, true) ~= nil then
+				seen[`{mod}.{fn}`] = true
 			end
 		end
-		table.sort(offenders)
-		expect(table.concat(offenders, "; ")).toBe("")
+		expect(seen["helper.take"]).toBe(true)
+		expect(seen["helper.other"]).toBe(nil)
+		--[[ ...AND THE ARM ORDER. A declaration with a paint-only dirty class AND
+			`reactive` is the offender the case exists for; the same prop declared
+			`reactive = false` is not. This is the pair the broken version could never
+			evaluate, because such a prop never appeared in `propDirty` at all. ]]
+		local LAYOUT = { measure = true, arrange = true, structure = true }
+		local function verdict(classes: { string }?, reactive: boolean?): string
+			for _, c in classes or {} do
+				if LAYOUT[c] then
+					return "safe:layout"
+				end
+			end
+			if reactive == false then
+				return "safe:remount-only"
+			end
+			return "OFFENDER"
+		end
+		expect(verdict({ "measure" }, nil)).toBe("safe:layout")
+		expect(verdict({ "paint" }, false)).toBe("safe:remount-only")
+		expect(verdict({ "paint" }, nil)).toBe("OFFENDER")
+		expect(verdict(nil, nil)).toBe("OFFENDER")
+	end)
+
+	it("A CARRIED-FORWARD ENTRY IS NEVER MUTATED IN PLACE — the precondition identity-capture rests on", function()
+		--[[ THE PRECONDITION THE PRUNE INHERITED FROM P2 AND MADE LOAD-BEARING (P4
+			review, I4). `skip` compares ENTRY IDENTITY, so it is blind by construction
+			to a field written into an entry the solve handed forward. P2 could tolerate
+			that — its own consumer re-read the map — and P4 cannot: an entry whose
+			`hidden` flipped without its table changing is a hide that never reaches
+			paint, and no counter moves.
+
+			IT IS NOT HYPOTHETICAL AS A SHAPE. `layout/solver.luau` writes fields onto an
+			entry AFTER the `arrange` that built it, at nine sites, and four of them
+			write onto a CHILD'S entry (`out[child.id].hidden = true`) after an `arrange`
+			that may legally have skip-served that child. `solver.luau` is frozen at 110
+			characters to the write cap, so this is pinned from the spec side, both ways.
+
+			WHY NO REACHABLE CASE EXISTS TODAY, which is the thing the pins have to keep
+			true rather than the thing they assert: all four writes follow an `arrange`
+			to a rect of `w = 0, h = 0`, and `arrange` skips only a node landing on the
+			rect it ALREADY had. So a child that gets the hidden mark on a carried entry
+			was already at a zero rect, which means it was already marked — the write is
+			idempotent. A fifth write of a different shape, or one of these four losing
+			its zero rect, breaks that and is what the source pin below refuses. ]]
+		local fs = require("@lune/fs")
+		local SOLVER_PATH = "src/layout/solver.luau"
+		local source = fs.readFile(SOLVER_PATH)
+		local lines = string.split(source, "\n")
+		local ownWrites, childWrites, unguarded = 0, 0, {}
+		for i, raw in lines do
+			local target, field = string.match(raw, "out%[([%w_%.]+)%]%.([%a_][%w_]*) = ")
+			if target == nil then
+				continue
+			end
+			if target == "node.id" then
+				--[[ THE NODE'S OWN ENTRY, written by the `arrange` that is building it.
+					It cannot be a carried entry: reaching these lines means the skip
+					above did not fire. ]]
+				ownWrites += 1
+				continue
+			end
+			childWrites += 1
+			--[[ A CHILD'S ENTRY, which the child's own `arrange` may have skip-served.
+				Safe only while the rect that `arrange` was handed is ZERO — see the
+				header. Looked for in the three lines above the write, which is the
+				shape all four have. ]]
+			local guarded = false
+			for back = math.max(1, i - 3), i - 1 do
+				local prior = lines[back]
+				if
+					string.find(prior, "arrange(", 1, true) ~= nil
+					and string.find(prior, "w = 0, h = 0", 1, true) ~= nil
+				then
+					guarded = true
+				end
+			end
+			if not guarded then
+				table.insert(unguarded, `{SOLVER_PATH}:{i} {string.match(raw, "^%s*(.-)%s*$")}`)
+			end
+		end
+		--[[ THE COUNTS ARE PINNED, not merely the guard: a fifth child-side write is a
+			new way for this precondition to be broken, and it should fail HERE with the
+			reason rather than somewhere downstream with a stale pixel. ]]
+		expect(childWrites).toBe(4)
+		expect(ownWrites).toBe(5)
+		expect(table.concat(unguarded, "\n")).toBe("")
+		-- the scan really looked (a regex that matched nothing would pass forever)
+		expect(string.find(source, "out[child.id].hidden = true", 1, true) ~= nil).toBe(true)
+
+		--[[ AND THE PROPERTY ITSELF, DRIVEN, because a source pin is a claim about the
+			code and this is a claim about the RUN. Two solves over a `fits` tree whose
+			winner changes: every entry the second solve handed forward by IDENTITY must
+			also be unchanged by VALUE on every field the commit reads off it. An
+			in-place write to a carried entry is exactly the pair "same table, different
+			field", and this is the only comparison that names it. ]]
+		local function entryKey(e: any): string
+			local r = e.rect
+			local facts = if type(e.textFacts) == "table" then e.textFacts else nil
+			return `{r.x},{r.y},{r.w},{r.h}|h={tostring(e.hidden)}|o={tostring(e.overflow)}|k={tostring(e.kind)}`
+				.. `|c={tostring(e.compact)}|t={tostring(facts and facts.truncated)}|b={tostring(e.barInset)}`
+				.. `|cs={tostring(e.contentSize and e.contentSize.w)}|p={tostring(e.padding)}`
+		end
+		local function fitsTree(wide: boolean): any
+			local kids = {}
+			for i = 1, 12 do
+				table.insert(kids, {
+					kind = "box",
+					id = `/root/pad{i}`,
+					width = px(10),
+					height = px(8),
+					children = {},
+				})
+			end
+			return {
+				kind = "vstack",
+				id = "/root",
+				gap = 2,
+				children = {
+					{
+						kind = "fits",
+						id = "/root/fits",
+						width = px(if wide then 200 else 40),
+						height = px(24),
+						children = {
+							{ kind = "box", id = "/root/fits/long", width = px(120), height = px(20), children = {} },
+							{ kind = "box", id = "/root/fits/short", width = px(30), height = px(20), children = {} },
+						},
+					},
+					{ kind = "vstack", id = "/root/rest", gap = 2, children = kids },
+				},
+			}
+		end
+		local vp = { w = 400, h = 800 }
+		local first = solver.solve(fitsTree(true), vp, {})
+		local held: { [string]: any } = {}
+		local values: { [string]: string } = {}
+		for id, entry in first.rects do
+			held[id] = entry
+			values[id] = entryKey(entry)
+		end
+		expect(next(held) ~= nil).toBe(true)
+		--[[ A REUSE SOLVE OF THE NARROWED TREE. `dirtyContains` names the `fits` node
+			and its ancestors, exactly as the renderer's closure would, so the candidate
+			verdict really does move — and everything else is eligible to be handed
+			forward. ]]
+		local dirty = { ["/root"] = true, ["/root/fits"] = true }
+		local second = solver.solve(fitsTree(false), vp, { reuse = { previous = first, dirtyContains = dirty } })
+		local carried, mutated = 0, {}
+		for id, entry in second.rects do
+			if held[id] ~= entry then
+				continue
+			end
+			carried += 1
+			if entryKey(entry) ~= values[id] then
+				table.insert(mutated, `{id}: {values[id]} -> {entryKey(entry)}`)
+			end
+		end
+		table.sort(mutated)
+		expect(table.concat(mutated, "\n")).toBe("")
+		-- ...and the case is not vacuous: entries really were carried, and the verdict
+		-- really did move
+		expect(carried > 10).toBe(true)
+		expect(second.rects["/root/fits/long"].hidden).toBe(true)
+		expect(first.rects["/root/fits/long"] == nil or values["/root/fits/long"] ~= nil).toBe(true)
 	end)
 
 	it("P1 x P2 x P3 x P4: all four warm, one leaf, every counter bounded and the paint identical", function()

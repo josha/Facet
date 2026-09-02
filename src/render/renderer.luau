@@ -2100,6 +2100,12 @@ function renderer.attach(
 			-- only when the lift itself changed. It stays behind rather than
 			-- travelling with the floor walk because a lift is paint ORDER, and
 			-- `syncZOrder` is declared far below both.
+			--
+			-- UNPRUNED, AND SOUND (P4 review, folded minor 6): `hit_lift.refresh` reads
+			-- `lastHitRects` — the record the pruned `hitRects` walk maintains — rather
+			-- than the tree, so it sees a pruned node's expander exactly as it saw it
+			-- last commit, which is what a pruned node's expander still IS. `syncZOrder`
+			-- then re-walks the whole tree, but only on the frames the lift itself moved.
 			if
 				adapter.setHitRect ~= nil
 				and hitLift.refresh(result.rects, lastHitRects, inputSinks, parentNodeOf, solverHidden)
@@ -3456,7 +3462,12 @@ function renderer.attach(
 		if not armedBySeam() then
 			return false
 		end
-		(dragBridge.peek() :: any).cancel(reason or "cancelVerb")
+		-- `armedBySeam` above has already proved a live session exists, which is what
+		-- makes this read safe; it is bound rather than called inline because a
+		-- statement that OPENS with `(` is one edit away from being parsed as a call
+		-- on whatever precedes it (P4 review, folded minor 7).
+		local live = dragBridge.peek() :: any
+		live.cancel(reason or "cancelVerb")
 		armedHere = false
 		return true
 	end

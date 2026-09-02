@@ -494,11 +494,33 @@ function commit_walks.new(ctx: CommitCtx)
 			here — and because both are zero-length on every surface that authors no
 			hide and one or two entries on the ones that do. The removal side is
 			collected into a list first: assigning nil during a generalized iteration is
-			what Luau leaves undefined. ]]
+			what Luau leaves undefined.
+
+			AND THE REPAIR IS WHOLE, WHICH IT WAS NOT WHEN THIS COMMENT FIRST SHIPPED
+			(P4 review, folded minor 1). A flip recorded here updates `hiddenRoots` —
+			the set `controller.hiddenRoots()` publishes and the focus map filters on —
+			but `visible` and `hitRects` see `hiddenFlips` only if their own walks REACH
+			the node, and they may be pruned at an ancestor before they do. A half
+			repair that moves focus and leaves paint is worse than no repair, because
+			the two then disagree with nobody able to see it. `markFlip` therefore
+			marks the mounted-path PREFIXES too, so the walk descends to the node. That
+			forces the whole tree for one commit, which is the conservative direction
+			and costs nothing at all while these loops keep never firing. The VISITED
+			branch above needs none of it: `visible` and `hitRects` share this `skip`
+			and only ever add reasons NOT to prune, so a node the harvest reached is a
+			node they reach. ]]
+		local function markFlip(path: string)
+			hiddenFlips[path] = true
+			local at: string? = string.match(path, "^(.*)/[^/]*$")
+			while at ~= nil and at ~= "" and hiddenFlips[at] ~= true do
+				hiddenFlips[at] = true
+				at = string.match(at, "^(.*)/[^/]*$")
+			end
+		end
 		for path in authoredHidden do
 			if hiddenRoots[path] == nil then
 				hiddenRoots[path] = true
-				hiddenFlips[path] = true
+				markFlip(path)
 				changed = true
 			end
 		end
@@ -511,7 +533,7 @@ function commit_walks.new(ctx: CommitCtx)
 		end
 		for _, path in stale do
 			hiddenRoots[path] = nil
-			hiddenFlips[path] = true
+			markFlip(path)
 			changed = true
 		end
 		return changed
@@ -797,9 +819,26 @@ function commit_walks.new(ctx: CommitCtx)
 			merely RESIZED — its own entry new, the path's entry carried forward
 			untouched — changes the answer for a node the prune would stop at. Rather
 			than reason about which resizes can reach which path, a surface that draws
-			any stroked path takes the full walk: `pathNodes` is empty on every screen
-			in this repository's own showcase but the two that draw rings, and those
-			already pay a full `reculPathClips` sweep on every scroll frame. ]]
+			any stroked path takes the full walk.
+
+			THE CASE IS REAL AND IT IS DRIVEN, not argued (P4 review, I1). A clip host
+			that shrinks because a SIBLING GREW moves no rect inside itself: the path's
+			entry is carried forward table-for-table and `dirtyContains` never reaches
+			it, so the prune stops exactly where the cull was needed. Setting
+			`prunable = true` leaves the ring painting outside its own host —
+			`tests/commit_scope.spec.luau`, "A STROKED PATH IS CULLED BY A CLIP HOST
+			THAT SHRANK".
+
+			AND THE COST OF THE GATE IS ONE WHOLE WALK, WHICH THE FIRST VERSION OF THIS
+			COMMENT UNDERSTATED. Measured 2026-09-01 on a 1,002-node list, steady
+			one-leaf update: 40 visits with both gates open, 1,039 with this one shut,
+			2,042 with both. The denominator is the PRUNED commit, not the pre-P4 one,
+			so a shut gate is ~26x this walk's own work and not "one eighth of the
+			commit". `pathNodes` is empty on every screen in this repository's showcase
+			but the two that draw rings — AND on any surface carrying a CIRCULAR
+			`ProgressView`, which emits two `UI.Path` leaves of its own
+			(`controls/progress_view.luau`, the ring's Track and Arc). A screen with one
+			spinner therefore loses this walk's prune entirely. ]]
 		local prunable = next(pathNodes) == nil
 		local function pushVisible(node: any, hidden: boolean, forced: boolean)
 			-- ...AND A HIDE IS INHERITED, so a flip at an ancestor has to reach every
@@ -960,9 +999,27 @@ function commit_walks.new(ctx: CommitCtx)
 				(`authorPressableRects` below, ruling R23), so any rect moving anywhere
 				can change what a chrome node asks for — including a chrome node whose
 				own entry was carried forward. `sawChrome` latches the moment this walk
-				meets one and is cleared only by a full commit, so a surface with a
-				plate, a cover or a close takes the whole walk and every surface without
-				one prunes. The hide half is `pushVisible`'s, for the same reason. ]]
+				meets one and is cleared only by a full commit. The hide half is
+				`pushVisible`'s, for the same reason.
+
+				THE CASE IS REAL AND IT IS DRIVEN (P4 review, I1). An author control
+				that WIDENS toward a cover moves the cover's floor without moving the
+				cover: its rect is unchanged, its entry is carried forward, and the
+				prune stops there. Dropping `not sawChrome` resurrects the exact R23 hit
+				theft the floor exists to prevent — a 44x44 expander standing over the
+				author's own button instead of the 40x32 the blockers leave it
+				(`tests/commit_scope.spec.luau`, "A CHROME FLOOR IS RE-GROWN WHEN AN
+				AUTHOR CONTROL MOVES UNDER IT").
+
+				AND THE COST IS ONE WHOLE WALK, stated the same way `pushVisible`'s gate
+				states it: 40 steady visits become 1,040 with this gate shut and 2,042
+				with both (1,002-node list, 2026-09-01). IT IS NOT A RARE SHAPE. Every
+				dismissible plate the framework builds carries a `close`
+				(`blueprint.luau`'s close affordance) and every `UI.Region` in its
+				compact form carries a `cover` (`blueprint.luau`'s expand affordance),
+				so any screen with a plate or a region loses this walk's prune for the
+				life of the surface. The headline `battle_hud` numbers have neither
+				feature and are therefore the BEST case. ]]
 			local flipped = forced or hiddenFlips[node.path] == true
 			if not sawChrome and not flipped and skip(node) then
 				return

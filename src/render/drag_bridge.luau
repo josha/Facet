@@ -29,12 +29,27 @@
 	`registry()`/`peek()`/`dispose()` are. The renderer keeps no copy of it, so there
 	is exactly one writer and eleven readers rather than two writers of the same name.
 
-	`registry()` BUILDS ON FIRST ASK and `peek()` NEVER DOES, and the difference is
-	load-bearing at four of those eleven sites: "is a drag session live" and "does
-	this tap arm instead of activating" must not CREATE a registry as a side effect of
-	being asked, because the registry existing is itself the signal that a declaring
-	source is mounted. `registry()` is the wiring path (a source or a target
-	registering, the public `controller.dragRegistry`); `peek()` is every read.
+	`registry()` BUILDS ON FIRST ASK and `peek()` NEVER DOES, and that difference is
+	load-bearing: "is a drag session live" and "does this tap arm instead of
+	activating" must not CREATE a registry as a side effect of being asked, because
+	the registry existing is itself the signal that a declaring source is mounted.
+
+	THE ACCOUNTING, COUNTED RATHER THAN REMEMBERED (P4 review, folded minor 2 — the
+	first version of this paragraph said "four of those eleven" and was wrong on both
+	numbers). `renderer.luau` reaches this module at FOURTEEN sites, which is more
+	than the eleven the ledger row counted because three of the old inline reads
+	became named locals on the way out:
+
+	  · `peek()` x7 — the tap-arm guard, the seam-armed test, the activate-arms path,
+	    the reflow that re-aims a live session, `controller.cancelArmed`,
+	    `controller.peekDragRegistry` and `controller.setDragCollaborators`;
+	  · `registry()` x4 — the two mount-time wirings, the pointer-capture path and
+	    `controller.dragRegistry`;
+	  · `attachDetector()` x2 — the mount wiring and `controller.attachDragDetector`;
+	  · `dispose()` x1.
+
+	`tests/drag_bridge_seam.spec.luau` recounts all four from the live source, so the
+	list above cannot go stale silently.
 
 	EVERYTHING IT TAKES is read-only to it or a by-reference table the renderer
 	declares once and never rebinds, which is the same seam test
