@@ -91,6 +91,9 @@ local gridLib = require("./grid")
 -- `flow`: the wrapping stacks' line partition and the plan both passes share. It
 -- takes `FLOW_DEPS` below — the same three helpers `GRID_DEPS` carries.
 local flowLib = require("./flow")
+-- `boundary_report`: the Stage 1 measurement report, re-exported below. It takes no
+-- `Deps` at all — two arguments in, a table of numbers out.
+local boundaryReportLib = require("./boundary_report")
 local num = require("../num")
 -- bound at module scope: `solver.luau` records that a per-call allocation on
 -- the measure path is a bench regression this repository has already paid for
@@ -3802,85 +3805,21 @@ solver.sides = sides
 
 -- ---- THE STAGE 1 REPORT ------------------------------------------------------
 --
--- Answers one question, for the tree as solved: **if any single node changed size,
--- how much of the tree would a boundary-aware layout have to redo?**
+-- MOVED to `src/layout/boundary_report.luau` on 2026-09-02 — the whole walk and
+-- the reasoning that used to sit here, unabridged.
 --
--- For each node it walks upward to the nearest ancestor that ABSORBS a size change
--- (inclusive of the node itself — a fixed-size node absorbs its own content's
--- change) and counts that ancestor's subtree. With no absorbing ancestor the answer
--- is the whole tree, which is what Facet does today for every node.
+-- The short version of why it could leave: it reads no `ctx`, no mutable upvalue
+-- and no helper of this file — `(root, result) -> a table of numbers`, three
+-- fields deep — which is the one-way test every split in this library is decided
+-- by, and it is not on any frame path. `tools/lune/verify/data/source-cap-ledger.md`'s
+-- row for this file had a trigger that is a STATE ("take a seam FIRST"), and the
+-- two seams it still named had both already been taken on 2026-08-22; this is the
+-- one that replaced them.
 --
--- Reported as a distribution rather than one number because the interesting fact is
--- the SHAPE: if the median node is isolated to a handful of nodes but the mean is
--- the whole tree, the win is real but uneven, and that changes what Stage 2 should
--- do first.
-function solver.boundaryReport(root: Node, result: any): any
-	local boundary = result and result.work and result.work.boundary
-	if boundary == nil then
-		error("solver.boundaryReport: solve with { analyzeBoundaries = true } first", 2)
-	end
-	local parentOf: { [string]: string } = {}
-	local subtree: { [string]: number } = {}
-	local order: { Node } = {}
-
-	local function walk(node: Node, parent: Node?)
-		if parent ~= nil then
-			parentOf[node.id] = parent.id
-		end
-		table.insert(order, node)
-		for _, child in node.children or {} do
-			walk(child, node)
-		end
-	end
-	walk(root, nil)
-
-	-- subtree sizes, bottom-up over the same order
-	for i = #order, 1, -1 do
-		local node = order[i]
-		local n = 1
-		for _, child in node.children or {} do
-			n += subtree[child.id] or 1
-		end
-		subtree[node.id] = n
-	end
-
-	local total = #order
-	local affected: { number } = {}
-	local absorbed = 0
-	for _, node in order do
-		if boundary[node.id] == true then
-			absorbed += 1
-		end
-		-- nearest absorbing ancestor, INCLUSIVE
-		local at: string? = node.id
-		local hops = 0
-		while at ~= nil and boundary[at] ~= true and hops <= total do
-			at = parentOf[at]
-			hops += 1
-		end
-		table.insert(affected, if at ~= nil and boundary[at] == true then (subtree[at] or total) else total)
-	end
-	table.sort(affected)
-	local sum = 0
-	for _, v in affected do
-		sum += v
-	end
-	local function pct(p: number): number
-		return affected[math.max(1, math.min(#affected, math.floor(#affected * p)))]
-	end
-	return {
-		nodes = total,
-		absorbingNodes = absorbed,
-		-- how many nodes a single change would re-lay-out, if boundaries were honoured
-		meanAffected = if #affected > 0 then sum / #affected else 0,
-		medianAffected = pct(0.5),
-		p95Affected = pct(0.95),
-		worstAffected = affected[#affected],
-		-- what Facet does today for every single change
-		todayAffected = total,
-		-- 1.0 = boundaries would buy nothing; 0.1 = a change touches a tenth of the tree
-		meanShareOfTree = if total > 0 and #affected > 0 then (sum / #affected) / total else 1,
-	}
-end
+-- Re-exported under its own name because that is what `render/renderer.luau`,
+-- `examples/performance/lab` and every doc call it — including the error message,
+-- which still blames the CALLER's line for a solve that did not ask for the
+-- analysis.
+solver.boundaryReport = boundaryReportLib.report
 
 return solver
