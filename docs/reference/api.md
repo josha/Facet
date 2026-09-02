@@ -2651,16 +2651,37 @@ lifetime is the mount's, not the module's).
 
 **`attach` options** — `{ rootPolicy?, edgeFloor?, onNodeTap?, engineSelectionBridge?,
 onDiscloseHover?, onDiscloseLongPress?, recycleInstances?, incrementalLayout?,
-measureReuse? }`
+measureReuse?, layoutNodeReuse?, commitScope?, structuralReuse? }`
 (`recycleInstances` and `incrementalLayout` are the two performance opts described
 under `present()`, both on by default; a presented surface forwards its own).
-**`measureReuse`** (default **true**) is the third, and it is a TEST SEAM rather than
-a tuning knob: it turns off the cross-solve measure store
-(`src/layout/measure_reuse.luau`) while leaving incremental layout fully intact, so a
-differential can attribute a divergence to the memo rather than to the arrange skip —
-which is the standing requirement on this memo family (`tests/measure_reuse.spec.luau`
-runs every case three ways). `present()` does not forward it; a presented surface
-always gets the default. There is no reason to set it in production code.
+
+The last four are **test seams rather than tuning knobs**, all four default **true**,
+and none is forwarded by `present()` — a presented surface always gets the default.
+Each turns off exactly one cross-solve mechanism and leaves the other three intact,
+which is what lets a differential oracle attribute a divergence to ONE of them instead
+of to "the reuse machinery"; that attribution is the standing requirement on this
+family (`tests/measure_reuse.spec.luau` and its four sibling files each run their cases
+against these arms). Off is always the older, slower, more conservative path — every
+one of them can only avoid work, never change what is on screen — so setting one in
+production code buys nothing but a slower frame.
+
+- **`measureReuse`** — the cross-solve MEASURE store (`src/layout/measure_reuse.luau`):
+  a per-node slate of measured sizes that outlives the solve, so a subtree nothing
+  dirtied is not re-measured. Off, every solve measures the whole tree again.
+- **`layoutNodeReuse`** — the cross-solve LAYOUT-NODE store
+  (`src/render/layout_node.luau`): the solver's node tree is patched rather than
+  rebuilt from the mounted tree. Off, every solve rebuilds every node. It is also the
+  store whose identity keeps `measureReuse`'s slate meaningful, so the two are usually
+  turned off together in a differential.
+- **`commitScope`** — the COMMIT-side prune (`src/render/commit_walks.luau`): the
+  post-solve walks (visibility, hit rects, z-order, transforms, text verdicts) visit
+  the nodes the solve touched instead of the whole tree. Off, every walk visits every
+  node, which is what the pruned counts are measured against.
+- **`structuralReuse`** — BOUNDARY-ROOTED STRUCTURAL SOLVES
+  (`src/render/structural_scope.luau`): an add, a remove or a reorder re-solves from
+  the nearest absorbing ancestor instead of throwing the whole solve away. Off
+  restores the pre-campaign branch exactly — a structural change takes a full solve —
+  which is the arm the boundary-rooted one is compared against.
 `rootPolicy` is the surface's content-rect policy (`"coreSafeContent"` default,
 `"deviceSafeContent"`, `"bandSafeContent"`, `"edgeToEdge"`; an unknown value
 errors and lists the set). `edgeFloor` is the opt-in edge-padding knob (a

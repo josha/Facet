@@ -69,6 +69,26 @@ require("./content_terms_height.spec")
 	block, and that the module holds no module-level mutable state ]]
 require("./composition_resolve_seam.spec")
 require("./measure_facts_seam.spec")
+--[[ ...and the THIRD solver seam (2026-09-02, the RED-TEAM fix wave): the Stage 1
+	report left before the wave's own change landed, because the ledger row's trigger
+	is a STATE and the two seams it still named had both already been taken. It is
+	the cheapest of the three — no `Deps`, no `ctx`, no require at all — so the spec
+	pins that emptiness, the one consumer, the one export against the re-export, and
+	that nothing stayed behind in the solver ]]
+require("./boundary_report_seam.spec")
+--[[ ...and the renderer's THIRD seam of the same round (2026-09-02): WHICH env facts
+	are geometry for a root policy, and WHEN two readings of them are the same. They
+	left together because they are one decision — a key added to the list and not
+	taught to the comparator is a surface gone deaf to a fact — and the spec pins that
+	pairing, the two measured policy narrowings, the caller-owned list, and the memo
+	the renderer kept ]]
+require("./geometry_facts_seam.spec")
+--[[ ...and the RULE THE SAME REVIEW ROUND FOUND MISSING (2026-09-02, finding 9): the
+	campaign shipped four attach options and `docs/reference/api.md` documented one, so
+	every key `ATTACH_OPTS_KEYS` accepts is now required to be named — with its default,
+	its mechanism and what OFF means — in the reference section a reader reaches by
+	looking up `attach`, in both directions ]]
+require("./attach_opts_documented.spec")
 --[[ ...and the ENUMERATION both seam specs asked their one-consumer question over
 	(rulings P5 + PRES-X minor): it was a hand-written list of nine directory names
 	against a `src/` that has fifteen and thirteen top-level files, so the second
