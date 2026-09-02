@@ -99,3 +99,13 @@ Plan 1 complete at `6addcde`. **Plan 2 complete at `0895eea`** (23 commits): reg
 - Lune `warn` writes to STDOUT (matrix decodes last line only); Studio HttpService blocked in this channel (console-dump + checksum is the transport).
 - Marker discipline before trusting any Studio reading; execute_luau VM cannot string-require and has its own module instances (guards don't span VMs).
 - Live "proven to bite" claims ship their raw dump fragment (DRIVING.md evidence rule).
+
+## Plan 3 / campaign CLOSED (2026-09-02, Facet 4d9e3aac)
+
+T10 final gate: RR live canary CLEAN (60fps sustained, quarantine nil, partials firing at pinned counts; two round-boundary diagnostics proven pre-existing via A/B). RED-TEAM: 10 findings — 9 fixed+verified (incl. the campaign-introduced stamp/flag coupling; diagnostics double-replay 605→1/frame; setMeasured epoch now a geometry fact; 4 attach opts documented + mechanised pin; two fresh extractions boundary_report + geometry_facts after the ledger's named seams proved STALE-TRIGGERED). verify.sh full: PASS 0 red (archived manifest row repaired via documented CASE_ID_REPAIRS after P4's case rename).
+
+**Bookings for the next campaign / maintenance:**
+- **propSigCache (RED-TEAM finding 3, HIGH, pre-existing Step-9-era):** recycled instances wear style props they never declared (props-table-keyed signature cache never invalidated on nil↔non-nil writes; repro in the RED-TEAM report). User-visible with recycling on. STRONG first-task candidate.
+- verify.sh hygiene trio: git-ls-files untracked blind spot (false PASS class); producer race at --jobs>1; check_perf_captures output as hashed evidence (non-idempotent verdicts). Plus: repair_graph --dry-run backlog (11 stale receipt pins, 3 retirements, 1 add, 1 dropped pin, 4 pending); suite-cache fingerprint includes untracked .DS_Store (spurious misses); place builds non-byte-stable (14-file churn per full run).
+- Source-cap ledger: AUDIT ALL ROWS for stale triggers (two named seams had already left their files). Solver headroom 861 — next solver change takes chosenCandidate (solver.luau:814) first.
+- markFlip (P4): conservative, never fired in 3,000-frame soaks — retire or keep, needs live proof either way. stats() fields beyond attach opts undocumented in api.md. RR 878375e emitLegacyScripts:false double-boots rojo-BUILT places (game-side bug, canary report has evidence).
