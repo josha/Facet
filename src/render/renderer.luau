@@ -46,7 +46,10 @@ local chrome_slots = require("../tokens/chrome_slots")
 -- public drag/drop: the declaration channel and the per-surface
 -- registry that turns declarations into one acquisition→session→terminal path
 local dragContract = require("../input/drag_contract")
-local dragRegistryLib = require("../input/drag_registry")
+-- THE DRAG BRIDGE'S REGISTRY HALF (`render/drag_bridge`): the lazy construction
+-- of `input/drag_registry` against this surface, the native detector acquisition
+-- beside it, and the OWNER of the one reassigned scalar the two used to share.
+local drag_bridge = require("./drag_bridge")
 local autoscrollLib = require("../input/autoscroll")
 local specGuard = require("../spec_guard")
 -- the CLASS SCHEMA, read here for one reason only: an enum prop's closed set has
@@ -522,11 +525,27 @@ function renderer.attach(
 		return true
 	end
 
-	local dragRegistryInstance: any = nil
 	local dragCollaborators: { [string]: any } = {}
 	-- per-path live-enabled reads for drag SOURCES (P2-3); populated at wiring,
 	-- cleared with the wiring's unbind
 	local dragSourceEnabled: { [string]: () -> boolean } = {}
+	-- the per-path unbinds a drag wiring owns, and the z the sync walk last
+	-- assigned. Declared HERE rather than beside the wiring below because the drag
+	-- bridge takes `lastZ` by reference and is built on the next line.
+	local dragUnbind: { [string]: () -> () } = {}
+	local lastZ: { [string]: number } = {}
+	local dragBridge = drag_bridge.new({
+		core = core,
+		adapter = adapter,
+		attachScope = attachScope,
+		handles = handles,
+		findNode = findNode,
+		screenRectOf = screenRectOf,
+		isPathLive = isPathLive,
+		lastZ = lastZ,
+		dragSourceEnabled = dragSourceEnabled,
+		dragCollaborators = dragCollaborators,
+	})
 	-- ONE ACTIVATION PER PRESS, the platform verifier's ruling: a node carrying
 	-- both a drag detector and
 	-- a native Activated can hear the same press twice (the detector's release
@@ -556,7 +575,7 @@ function renderer.attach(
 		end
 		-- the registry exists whenever a source is registered (registerSource
 		-- built it), so a nil instance means no declaring source is mounted
-		local reg = dragRegistryInstance
+		local reg = dragBridge.peek()
 		if reg == nil then
 			return false
 		end
@@ -602,7 +621,7 @@ function renderer.attach(
 		both, and a session it armed is invisible here. ]]
 	local armedHere = false
 	local function armedBySeam(): boolean
-		local reg = dragRegistryInstance
+		local reg = dragBridge.peek()
 		if reg == nil or not reg.isActive() or reg.mode() ~= "armed" then
 			armedHere = false
 			return false
@@ -616,7 +635,7 @@ function renderer.attach(
 		if type(meta) ~= "table" or meta.source ~= "action" then
 			return false
 		end
-		local reg = dragRegistryInstance
+		local reg = dragBridge.peek()
 		if reg == nil then
 			return false
 		end
@@ -657,81 +676,6 @@ function renderer.attach(
 		end
 		lastNodeTapAt[path] = at
 		return true
-	end
-	local dragUnbind: { [string]: () -> () } = {}
-	local lastZ: { [string]: number } = {}
-	local function dragRegistry(): any
-		if dragRegistryInstance == nil then
-			dragRegistryInstance = dragRegistryLib.new({
-				core = core,
-				rectOf = screenRectOf,
-				zOf = function(path: string): number?
-					return lastZ[path]
-				end,
-				-- A RETIRING SUBTREE IS NOT A DRAG SURFACE — resolution-time
-				-- exclusion, reversal-safe by construction
-				isPathLive = isPathLive,
-				-- P2-3: disabled sources acquire nothing, read live per acquisition
-				isSourceEnabled = function(path: string): boolean
-					local read = dragSourceEnabled[path]
-					return read == nil or read()
-				end,
-				now = dragCollaborators.now,
-				feedback = dragCollaborators.feedback,
-				proxy = dragCollaborators.proxy,
-				motionClock = dragCollaborators.motionClock,
-			})
-			-- THE HELD SOURCE IS A NODE STATE (director round five): the registry
-			-- publishes which path a live session is carrying; the adapter's
-			-- `dragHeld` state empties that node's label through the same tag+rule
-			-- channel `selected` paints by. Framework guarantee — no consumer code.
-			--[[ THROUGH THE MANIFEST, LIKE EVERY OTHER RENDERER WRITE — the architecture
-		review's channel rule.
-				These two were the only `adapter.setProp` calls in this file that
-				skipped `authority.assertWrite`, which is the single sentence
-				constitution §11 makes about the renderer ("asserts every write").
-				`dragHeld` has always been declared (`common`, presentation
-				authority) — the assert was simply never made, so the one property
-				whose whole point is that a consumer cannot author it was the one
-				property nothing checked. `findNode` is an O(N) walk and this
-				observer fires only when a drag session picks a source up or puts
-				it down, which is a gesture boundary, not a frame. ]]
-			local function setDragHeld(dragPath: string, held: boolean)
-				local handle = handles[dragPath]
-				if handle == nil then
-					return
-				end
-				local node = findNode(dragPath)
-				authority.assertWrite(if node ~= nil then node.class else "common", "dragHeld", "presentation")
-				adapter.setProp(handle, "dragHeld", held, "presentation")
-			end
-			local heldPath: string? = nil
-			attachScope:own(core:observe(dragRegistryInstance.heldSource, function(path: string?)
-				if heldPath ~= nil and heldPath ~= path then
-					setDragHeld(heldPath, false)
-				end
-				heldPath = path
-				if path ~= nil then
-					setDragHeld(path, true)
-				end
-			end))
-		end
-		return dragRegistryInstance
-	end
-	-- native drag acquisition, shared by the mount-time wiring below and the
-	-- public `controller.attachDragDetector`. Nilable by contract: an adapter or
-	-- an engine without `UIDragDetector` answers nil and the caller falls back
-	-- to the framework's own pointer capture — the ONE thing that must never differ
-	-- between the two paths is the promotion rule, which lives in the registry.
-	local function attachDetector(path: string, handlers: any): (() -> ())?
-		if adapter.setDragDetector == nil then
-			return nil
-		end
-		local handle = handles[path]
-		if handle == nil then
-			return nil
-		end
-		return adapter.setDragDetector(handle, handlers)
 	end
 	local stats = {
 		creates = 0,
@@ -1318,7 +1262,7 @@ function renderer.attach(
 			-- row that is not visible becomes reachable.
 			local dropDecl = dragContract.readTarget(node)
 			if dropDecl ~= nil then
-				dragUnbind[node.path .. "\0drop"] = dragRegistry().registerTarget(node.path, dropDecl)
+				dragUnbind[node.path .. "\0drop"] = dragBridge.registry().registerTarget(node.path, dropDecl)
 			end
 			local dragDecl = dragContract.readSource(node)
 			local dragAcquiredNatively = false
@@ -1345,7 +1289,7 @@ function renderer.attach(
 					end
 					return declEnabled ~= false
 				end
-				local registry = dragRegistry()
+				local registry = dragBridge.registry()
 				local unregisterSource = registry.registerSource(node.path, dragDecl)
 				armOnTapDecl[node.path] = dragDecl.armOnTap == true
 				dragUnbind[node.path .. "\0drag"] = function()
@@ -1393,7 +1337,7 @@ function renderer.attach(
 						end
 					end
 				end
-				local detach = attachDetector(node.path, handlers)
+				local detach = dragBridge.attachDetector(node.path, handlers)
 				if detach ~= nil then
 					dragAcquiredNatively = true
 					detectorTapGuard[node.path] = true
@@ -1436,7 +1380,7 @@ function renderer.attach(
 			then
 				local path = node.path
 				local props = node.props or {}
-				local registry = if wantsDragCapture then dragRegistry() else nil
+				local registry = if wantsDragCapture then dragBridge.registry() else nil
 				adapter.setPointerHandlers(handles[path], {
 					down = function(pos: any)
 						-- the drag declaration is offered the press FIRST: only it
@@ -2272,8 +2216,9 @@ function renderer.attach(
 			-- re-evaluated at the last pointer position on THIS frame — a verdict
 			-- that trailed the layout by a frame is a verdict about geometry the
 			-- player is no longer looking at.
-			if dragRegistryInstance ~= nil and dragRegistryInstance.isActive() then
-				dragRegistryInstance.refreshTargets()
+			local liveDrag = dragBridge.peek()
+			if liveDrag ~= nil and liveDrag.isActive() then
+				liveDrag.refreshTargets()
 			end
 		end)
 		--[[ THE SOLVE IS OVER: tell whoever measures this surface (L-31).
@@ -3435,7 +3380,7 @@ function renderer.attach(
 	-- have a fallback, which is why the return value is nilable rather than an
 	-- error.
 	function controller.attachDragDetector(path: string, handlers: any): (() -> ())?
-		return attachDetector(path, handlers)
+		return dragBridge.attachDetector(path, handlers)
 	end
 
 	-- CONTEXT GESTURES ON A MOUNTED NODE (D2 Menu). The two engine channels a
@@ -3474,7 +3419,7 @@ function renderer.attach(
 	-- calls in the SAME frame as its scroll write so the row-under-pointer
 	-- verdict never trails the scroll.
 	function controller.dragRegistry(): any
-		return dragRegistry()
+		return dragBridge.registry()
 	end
 
 	--[[ THE LAST-RESORT ACTIVATE, and the Cancel that belongs with it — the
@@ -3492,17 +3437,17 @@ function renderer.attach(
 		if not armedBySeam() then
 			return false
 		end
-		dragRegistryInstance.cancel(reason or "cancelVerb")
+		(dragBridge.peek() :: any).cancel(reason or "cancelVerb")
 		armedHere = false
 		return true
 	end
 
 	-- Non-creating read of the registry. The presenter broadcasts "a surface just
-	-- presented" (finding F7) to every LIVE surface; using `dragRegistry()` for
+	-- presented" (finding F7) to every LIVE surface; using `dragBridge.registry()` for
 	-- that would lazily build a registry on every surface that never declared a
 	-- draggable, purely to tell it about a modal it cannot care about.
 	function controller.peekDragRegistry(): any
-		return dragRegistryInstance
+		return dragBridge.peek()
 	end
 
 	-- INTEGRATION SEAM for the presentation layer: the semantic feedback bus,
@@ -3517,8 +3462,9 @@ function renderer.attach(
 		for key, value in collaborators do
 			dragCollaborators[key] = value
 		end
-		if dragRegistryInstance ~= nil then
-			dragRegistryInstance.setCollaborators(collaborators)
+		local live = dragBridge.peek()
+		if live ~= nil then
+			live.setCollaborators(collaborators)
 		end
 	end
 
@@ -4073,10 +4019,7 @@ function renderer.attach(
 		end
 		-- the drag registry dies with its surface: a live session holding a proxy
 		-- and a motion pair must not outlive the tree it was aiming at
-		if dragRegistryInstance ~= nil then
-			dragRegistryInstance.dispose()
-			dragRegistryInstance = nil
-		end
+		dragBridge.dispose()
 		table.clear(dragUnbind)
 		table.clear(scrollHostOf)
 		-- the node store goes with the surface: its keys are weak so it would drain on

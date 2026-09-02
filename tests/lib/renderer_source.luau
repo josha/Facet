@@ -17,8 +17,9 @@
 	(`render/presentation_channel.luau`), the prop-channel manifest
 	(`render/prop_channels.luau`), the ordered rect apply
 	(`render/rect_pass.luau`), the commit walks
-	(`render/commit_walks.luau`) and the drag-to-edge autoscroll bridge
-	(`render/autoscroll_bridge.luau`).
+	(`render/commit_walks.luau`), the drag-to-edge autoscroll bridge
+	(`render/autoscroll_bridge.luau`) and the drag bridge's registry half
+	(`render/drag_bridge.luau`).
 
 	ADD A PART HERE WHENEVER MORE OF THE RENDERER MOVES OUT — otherwise the pins
 	quietly stop seeing the code they name, which is the failure this file exists
@@ -66,6 +67,16 @@ local PARTS = {
 		`tests/autoscroll_bridge_seam.spec` asserts every `render/<module>.luau` the
 		paragraph above names is in this list. ]]
 	"src/render/autoscroll_bridge.luau",
+	--[[ ...and the DRAG BRIDGE'S REGISTRY HALF (2026-09-01): `dragRegistry`,
+		`attachDetector` and the held-source observer. Unlike the two parts above it
+		this one DOES carry an `adapter.setProp(` — the `dragHeld` write, the one this
+		file's own header calls out as having skipped `authority.assertWrite` for years
+		— so a future pin on that write would go blind without this line. MEASURED, not
+		assumed: adding it moved no count in the suite (7,965 either way), which says
+		no pin totals `setProp` across the parts today. It is here for the same reason
+		`rect_pass.luau` is: a part missing from an instrument is only ever discovered
+		by the pin that needed it. ]]
+	"src/render/drag_bridge.luau",
 }
 
 local renderer_source = {}

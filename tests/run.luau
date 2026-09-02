@@ -684,6 +684,12 @@ require("./paradigm_cards.spec")
 -- the public drag/drop contract, driven through the REAL acquisition paths
 -- (SF-D1..SF-D5, findings F5/F7)
 require("./drag_public.spec")
+-- ...and the RENDERER's half of the bridge to that model (`render/drag_bridge.luau`,
+-- extracted 2026-09-01, the ledger's named REGISTRY half): the mechanised seam plus
+-- the rule no previous seam spec has had to state — the reassigned scalar the ledger
+-- said needed a record now has exactly one owner, `peek` may never build and the z
+-- table crosses by reference
+require("./drag_bridge_seam.spec")
 -- row actions: pure swipe state decisions for row-action composites
 require("./row_actions_state.spec")
 -- row actions: the newRowActions composite skeleton (spec, lazy trays, static reveal)
