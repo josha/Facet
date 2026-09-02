@@ -176,6 +176,9 @@ describe("nameplates baseline — the numbers the wicked-fast round starts from"
 		-- never touched the new plate's signals at all — it stood still while
 		-- every other plate moved.
 		s.add(251)
+		-- the public `s.items` snapshot is re-pointed too (re-review note):
+		-- a reader that iterates it after an add sees the new plate
+		expect(#s.items).toBe(PLATES + 1)
 		local afterAdd = s.census()
 		expect(`plates={afterAdd.plates} mounted={afterAdd.mounted} layout={afterAdd.layout}`).toBe(
 			`plates={PLATES + 1} mounted={MOUNTED + scene.NODES_PER_PLATE} layout={LAYOUT + scene.NODES_PER_PLATE}`
@@ -185,6 +188,7 @@ describe("nameplates baseline — the numbers the wicked-fast round starts from"
 		-- one plate's own six layout nodes) — no correction needed here.
 		expect(s.stats().lastArranged).toBe(LAYOUT + scene.NODES_PER_PLATE)
 		s.remove(251)
+		expect(#s.items).toBe(PLATES)
 		local afterRemove = s.census()
 		expect(`plates={afterRemove.plates} mounted={afterRemove.mounted} layout={afterRemove.layout}`).toBe(
 			`plates={PLATES} mounted={MOUNTED} layout={LAYOUT}`

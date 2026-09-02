@@ -298,6 +298,7 @@ function nameplates_scene.new(opts: Opts?)
 		-- re-derivation — it already lives on each item in `next_`, added at
 		-- construction time above — so reassigning `items` is the whole fix.
 		items = next_
+		scene.items = items -- the public snapshot must not lag either
 		controller.refresh()
 	end
 
@@ -307,6 +308,7 @@ function nameplates_scene.new(opts: Opts?)
 		rows:set(next_)
 		-- see `scene.add`'s comment: `items` must track `rows`, not lag it.
 		items = next_
+		scene.items = items
 		controller.refresh()
 	end
 
