@@ -14,9 +14,9 @@
 
 	  | pin | moved by | to |
 	  |---|---|---|
-	  | `lastMeasured` on a STEADY tick | T3 ✅ (sha stamped by the commit right after this one) | 500 = PLATES x 2 (pure) / 652 (casters), both read off the run — see `MEASURED_STEADY` |
+	  | `lastMeasured` on a STEADY tick | T3 ✅ `157ed3c9` | 500 = PLATES x 2 (pure) / 652 (casters), both read off the run — see `MEASURED_STEADY` |
 	  | `lastMeasured` on a STEADY tick | T4 | 0 (pure) — the translate arm stops re-entering the subtree |
-	  | `lastNodeBuilds`           | T3 ✅ (sha stamped by the commit right after this one) | **THE PREDICTION WAS WRONG AND IS CORRECTED RATHER THAN LEFT STANDING: it did NOT move.** 252 pure / 302 casters, before and after. T3 rewrote the dirty closure into two sets, but `nodeDirty` — which is what `layout_node.build` counts builds against — is a THIRD set (`renderer.luau`'s `markNodeDirty`, every class, accumulated across refreshes), and the split never touched it. The counter T3 does move is `lastMeasured` |
+	  | `lastNodeBuilds`           | T3 ✅ `157ed3c9` | **THE PREDICTION WAS WRONG AND IS CORRECTED RATHER THAN LEFT STANDING: it did NOT move.** 252 pure / 302 casters, before and after. T3 rewrote the dirty closure into two sets, but `nodeDirty` — which is what `layout_node.build` counts builds against — is a THIRD set (`renderer.luau`'s `markNodeDirty`, every class, accumulated across refreshes), and the split never touched it. The counter T3 does move is `lastMeasured` |
 	  | `lastArranged`             | T4 | 252 (pure) / 302 (casters, see T4 Step 1's competing derivation) |
 	  | `lastRectInserts`          | T4 | arranged + translated = 1,502 |
 	  | every per-walk visit count | T5 | 253 (pure) / 303 (casters); hitRects stays 1,503 |
@@ -34,7 +34,7 @@
 	the second case below pins and `MEASURED_COLD` is its own small case, not the
 	round's baseline.
 
-	`MEASURED_STEADY` READ OFF THE RUN, AND MOVED BY T3 FROM 1252 TO
+	`MEASURED_STEADY` READ OFF THE RUN, AND MOVED BY T3 (`157ed3c9`) FROM 1252 TO
 	500 — and the mechanism T2 recorded as NOT INSTRUMENTED now is. T2 pinned
 	`1252 = LAYOUT - PLATES` as an arithmetic identity it had not traced; T3
 	bucketed `ctx.measured` by `memoPlan` verdict, node kind, path leaf and dirty-set
@@ -69,11 +69,11 @@ local LAYOUT = PLATES * scene.NODES_PER_PLATE + 2 -- 1502
 -- at `…/[pN]/Plate` by `:595-596`), so this is LAYOUT + 1, not LAYOUT + PLATES + 1.
 local MOUNTED = LAYOUT + 1 -- 1503
 local CASTERS = PLATES // scene.CASTER_EVERY -- 50
--- READ OFF THE RUN and INSTRUMENTED by T3 (was `LAYOUT - PLATES` =
+-- READ OFF THE RUN and INSTRUMENTED by T3 (`157ed3c9`, was `LAYOUT - PLATES` =
 -- 1252): the plate's ARRANGE pass touching its two PLAN_SKIP leaves, and nothing
 -- else. See the header, and `tests/measure_split.spec.luau` for the buckets.
 local MEASURED_STEADY = PLATES * 2 -- 500
--- ...and a caster tick is no longer the same number (T3): the 200
+-- ...and a caster tick is no longer the same number (T3, `157ed3c9`): the 200
 -- quiet plates cost 2 apiece, each of the 50 casters costs 5 (its refused root,
 -- plus `Hp`/`Cast` on both the measure and the arrange descent), and `Canvas` and
 -- the `Screen` root are the two ancestors every caster's measure dirt closes over.
@@ -109,7 +109,7 @@ describe("nameplates baseline — the numbers the wicked-fast round starts from"
 		-- literal, with the header note beside it. It is the "currently N"
 		-- every later demonstrator quotes, so it is on disk rather than in a
 		-- memory of a profiling session. Moved 1252 -> 500 by T3's
-		-- measure/arrange dirt split.
+		-- measure/arrange dirt split (`157ed3c9`).
 		expect(st.lastMeasured).toBe(MEASURED_STEADY)
 		expect(st.lastArranged).toBe(LAYOUT)
 		expect(st.lastRectInserts).toBe(LAYOUT)
@@ -173,7 +173,7 @@ describe("nameplates baseline — the numbers the wicked-fast round starts from"
 		-- NOT bite — the steady measure touched every Hp/Cast box regardless of
 		-- caster activity, so a pure and a caster tick read the identical 1252
 		-- and `lastNodeBuilds` was the only counter that moved. T3's split
-		-- separated them: the caster's `width` dirt is
+		-- separated them (`157ed3c9`): the caster's `width` dirt is
 		-- measure-classed, so only the 50 caster plate roots lose their slate.
 		expect(mixed.lastNodeBuilds).toBe(PLATES + 2 + CASTERS) -- 302
 		expect(pure.lastMeasured).toBe(MEASURED_STEADY) -- 500
