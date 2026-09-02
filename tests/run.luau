@@ -368,6 +368,12 @@ require("./perf_evidence.spec")
 -- workload as a headless fixture, so later commits in this round demonstrate
 -- against a "currently N" nobody has to remember from a profiling run
 require("./nameplates_baseline.spec")
+-- ...and the round's first optimization (T3, O2): `dirtyContains` split into a
+-- measure half and an arrange half, so an offset-only step keeps the measure
+-- slates it cannot have invalidated. The counter demonstrator with its plan-verdict
+-- buckets, the three-arm oracle over every device view and both step kinds, and the
+-- opposite direction — a real measure change still refuses a slate
+require("./measure_split.spec")
 -- the future spatial seam: contracts only, and the guard against a VR claim
 -- appearing in the shipped surface (roadmap Step 4, UI-SPATIAL-001)
 require("./spatial.spec")

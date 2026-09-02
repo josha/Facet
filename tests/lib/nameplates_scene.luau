@@ -63,10 +63,11 @@
 	(`controller.initialRender()`), which fills `lastResult` but is not itself a
 	REUSE solve. `lastMeasured` on the first `tick`/`tickWithCasts` call after
 	that reads 2002 (the COLD number, `MEASURED_COLD`); every tick after it reads
-	the steady 1252 (`MEASURED_STEADY = LAYOUT - PLATES`). The scene's own
-	baseline is `MEASURED_STEADY`, not `MEASURED_COLD` — see the spec's "a pure
-	tick" case (which discards one warm-up tick before pinning) versus its "the
-	first tick after mount pays a one-time cold solve" case.
+	the steady 500 on a pure tick and 652 on a caster tick (`MEASURED_STEADY` /
+	`MEASURED_STEADY_CASTERS`, both moved off a shared 1252 by T3's measure/arrange
+	dirt split). The scene's own baseline is that steady pair, not `MEASURED_COLD` —
+	see the spec's "a pure tick" case (which discards one warm-up tick before
+	pinning) versus its "the first tick after mount pays a one-time cold solve" case.
 
 	`lastNodeBuilds` is NOT the cold/steady lever — probed directly (Fix round 1):
 	it reads the SAME 252 (the 250 moved plates + Canvas + Screen, `dirtyContains`)
@@ -76,15 +77,17 @@
 	rebuilt-node story. The COLD number IS instrumented (`solver.measureUncached`,
 	temporary counter, reverted before commit): 1502 distinct nodes measured once
 	PLUS the 500 `Hp`/`Cast` boxes a second time (the vstack arrange branch
-	above) — see the spec's cold case for the full by-kind breakdown. WHY THE
-	STEADY NUMBER IS 250 LOWER THAN A FULL PASS (1252 = LAYOUT - PLATES, i.e.
-	every plate's five descendants but not the plate root itself) is NOT
-	instrumented; the spec pins the arithmetic, not the mechanism. A caller
-	comparing two ticks against each other (T2's own fourth case did, originally,
-	comparing `lastMeasured`) must either take both from the steady state or
-	expect the first to be inflated — and even then, before T3, a pure and a
-	caster tick read the identical steady `lastMeasured`; `lastNodeBuilds` is the
-	counter a caster tick actually moves today. ]]
+	above) — see the spec's cold case for the full by-kind breakdown. THE STEADY
+	NUMBER IS NOW INSTRUMENTED TOO (T3, the same bucket technique): the pre-split
+	1252 read as `LAYOUT - PLATES`, but that identity was a coincidence of two
+	unrelated terms — 1000 PLAN_SKIP touches on the `Hp`/`Cast` boxes (twice each,
+	the plate's measure pass and its arrange pass) plus 252 slate refusals — and
+	`tests/measure_split.spec.luau` carries the bucket table for each tick kind. A
+	caller comparing two ticks against each other (T2's own fourth case did,
+	originally, comparing `lastMeasured`) must either take both from the steady
+	state or expect the first to be inflated. Before T3 a pure and a caster tick
+	read the identical steady `lastMeasured` and only `lastNodeBuilds` separated
+	them; after T3 both counters do. ]]
 local UI = require("../../src/blueprint")
 local mountLib = require("../../src/mount")
 local environment = require("../../src/env/environment")

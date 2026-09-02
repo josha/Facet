@@ -14,9 +14,9 @@
 
 	  | pin | moved by | to |
 	  |---|---|---|
-	  | `lastMeasured` on a STEADY tick | T3 | 500 = PLATES x 2 (pure) / read off the run (casters) |
+	  | `lastMeasured` on a STEADY tick | T3 ✅ (sha stamped by the commit right after this one) | 500 = PLATES x 2 (pure) / 652 (casters), both read off the run — see `MEASURED_STEADY` |
 	  | `lastMeasured` on a STEADY tick | T4 | 0 (pure) — the translate arm stops re-entering the subtree |
-	  | `lastNodeBuilds`           | T3 | moves off 252 pure / 302 casters — the value after is read off the run when T3 rewrites the dirty closure |
+	  | `lastNodeBuilds`           | T3 ✅ (sha stamped by the commit right after this one) | **THE PREDICTION WAS WRONG AND IS CORRECTED RATHER THAN LEFT STANDING: it did NOT move.** 252 pure / 302 casters, before and after. T3 rewrote the dirty closure into two sets, but `nodeDirty` — which is what `layout_node.build` counts builds against — is a THIRD set (`renderer.luau`'s `markNodeDirty`, every class, accumulated across refreshes), and the split never touched it. The counter T3 does move is `lastMeasured` |
 	  | `lastArranged`             | T4 | 252 (pure) / 302 (casters, see T4 Step 1's competing derivation) |
 	  | `lastRectInserts`          | T4 | arranged + translated = 1,502 |
 	  | every per-walk visit count | T5 | 253 (pure) / 303 (casters); hitRects stays 1,503 |
@@ -34,16 +34,28 @@
 	the second case below pins and `MEASURED_COLD` is its own small case, not the
 	round's baseline.
 
-	`MEASURED_STEADY` READ OFF THE RUN: every tick after the scene's first reads
-	1252 = every layout node measured once EXCEPT the 250 plate roots
-	(1502 - 250). MECHANISM NOT INSTRUMENTED — unlike the cold tick (see "the
-	first tick after mount pays a one-time cold solve" below, which IS
-	instrumented), I did not trace which nodes drop out of the steady measure;
-	only that the arithmetic identity holds on every steady tick observed, pure
-	or with casters (the fourth case). `lastNodeBuilds` reads 252 on a steady
-	pure tick and 302 on a steady caster tick either way — READ OFF THE RUN, not
-	derived — the 250 moved plates + Canvas + Screen (`dirtyContains`), plus the
-	50 caster boxes when a caster tick adds them to that set. ]]
+	`MEASURED_STEADY` READ OFF THE RUN, AND MOVED BY T3 FROM 1252 TO
+	500 — and the mechanism T2 recorded as NOT INSTRUMENTED now is. T2 pinned
+	`1252 = LAYOUT - PLATES` as an arithmetic identity it had not traced; T3
+	bucketed `ctx.measured` by `memoPlan` verdict, node kind, path leaf and dirty-set
+	membership (temporary counters, reverted before commit) and the 1252 was 1000
+	PLAN_SKIP touches on the 500 `Hp`/`Cast` boxes (each touched twice — the plate's
+	measure pass AND its vstack arrange pass) plus 252 slate refusals (the 250 moved
+	plate roots + Canvas + Screen, every one of them named by `dirtyContains`). The
+	`LAYOUT - PLATES` identity was a coincidence of those two terms, not a mechanism.
+	T3's measure/arrange split lets the 252 arrange-only nodes keep their slates, so
+	the plate's measure pass no longer descends and only its ARRANGE pass touches the
+	two PLAN_SKIP leaves: 500 = PLATES x 2. `tests/measure_split.spec.luau` carries
+	the full bucket tables for both ticks.
+
+	`MEASURED_STEADY_CASTERS` IS NOW A SEPARATE NUMBER (652), which is the point of
+	T3: before the split a pure and a caster tick read the identical 1252, because
+	the steady measure touched every `Hp`/`Cast` box regardless of caster activity.
+	After it, only the 50 caster plate roots are refused, and 652 =
+	(PLATES - CASTERS) x 2 + CASTERS x 5 + 2. `lastNodeBuilds` reads 252 on a steady
+	pure tick and 302 on a steady caster tick BEFORE AND AFTER T3 — READ OFF THE RUN,
+	not derived — the 250 moved plates + Canvas + Screen, plus the 50 caster boxes
+	when a caster tick adds them. ]]
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 local scene = require("./lib/nameplates_scene")
@@ -57,9 +69,15 @@ local LAYOUT = PLATES * scene.NODES_PER_PLATE + 2 -- 1502
 -- at `…/[pN]/Plate` by `:595-596`), so this is LAYOUT + 1, not LAYOUT + PLATES + 1.
 local MOUNTED = LAYOUT + 1 -- 1503
 local CASTERS = PLATES // scene.CASTER_EVERY -- 50
--- READ OFF THE RUN, mechanism not instrumented (see the header note above):
--- every layout node measured once EXCEPT the 250 plate roots.
-local MEASURED_STEADY = LAYOUT - PLATES -- 1252
+-- READ OFF THE RUN and INSTRUMENTED by T3 (was `LAYOUT - PLATES` =
+-- 1252): the plate's ARRANGE pass touching its two PLAN_SKIP leaves, and nothing
+-- else. See the header, and `tests/measure_split.spec.luau` for the buckets.
+local MEASURED_STEADY = PLATES * 2 -- 500
+-- ...and a caster tick is no longer the same number (T3): the 200
+-- quiet plates cost 2 apiece, each of the 50 casters costs 5 (its refused root,
+-- plus `Hp`/`Cast` on both the measure and the arrange descent), and `Canvas` and
+-- the `Screen` root are the two ancestors every caster's measure dirt closes over.
+local MEASURED_STEADY_CASTERS = (PLATES - CASTERS) * 2 + CASTERS * 5 + 2 -- 652
 -- READ OFF THE RUN, instrumented (`solver.measureUncached`, temporary counter,
 -- reverted before commit): 1502 distinct nodes measured once, PLUS the 500
 -- Hp/Cast boxes measured a second time by the vstack arrange branch — see "the
@@ -87,10 +105,11 @@ describe("nameplates baseline — the numbers the wicked-fast round starts from"
 		s.tick(3, 2)
 		s.tick(3, 2)
 		local st = s.stats()
-		-- MEASURED_STEADY is the number Fix round 1 READS OFF THE RUN and
-		-- writes in as a literal, with the header note beside it. It is the
-		-- "currently N" every later demonstrator quotes, so it is on disk
-		-- rather than in a memory of a profiling session.
+		-- MEASURED_STEADY is the number READ OFF THE RUN and written in as a
+		-- literal, with the header note beside it. It is the "currently N"
+		-- every later demonstrator quotes, so it is on disk rather than in a
+		-- memory of a profiling session. Moved 1252 -> 500 by T3's
+		-- measure/arrange dirt split.
 		expect(st.lastMeasured).toBe(MEASURED_STEADY)
 		expect(st.lastArranged).toBe(LAYOUT)
 		expect(st.lastRectInserts).toBe(LAYOUT)
@@ -150,16 +169,15 @@ describe("nameplates baseline — the numbers the wicked-fast round starts from"
 		s.tickWithCasts(3, 2)
 		local mixed = s.stats()
 		-- the 50 caster boxes join `dirtyContains` alongside the 250 moved
-		-- plates + 2 ancestors (Fix round 1: comparing `lastMeasured` here does
-		-- NOT bite before T3 — the steady measure already touches every
-		-- Hp/Cast box regardless of caster activity, so a pure and a caster
-		-- tick read the identical 1252. `lastNodeBuilds` is the counter that
-		-- DOES move today; T3's own demonstrator is where `lastMeasured` for a
-		-- pure vs. a caster tick diverges — 500 pure / read off the run for
-		-- casters, per the header table above).
+		-- plates + 2 ancestors. BEFORE T3, comparing `lastMeasured` here did
+		-- NOT bite — the steady measure touched every Hp/Cast box regardless of
+		-- caster activity, so a pure and a caster tick read the identical 1252
+		-- and `lastNodeBuilds` was the only counter that moved. T3's split
+		-- separated them: the caster's `width` dirt is
+		-- measure-classed, so only the 50 caster plate roots lose their slate.
 		expect(mixed.lastNodeBuilds).toBe(PLATES + 2 + CASTERS) -- 302
-		expect(pure.lastMeasured).toBe(MEASURED_STEADY)
-		expect(mixed.lastMeasured).toBe(MEASURED_STEADY)
+		expect(pure.lastMeasured).toBe(MEASURED_STEADY) -- 500
+		expect(mixed.lastMeasured).toBe(MEASURED_STEADY_CASTERS) -- 652
 		expect(mixed.lastArranged).toBe(LAYOUT)
 		s.dispose()
 	end)

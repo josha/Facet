@@ -1591,6 +1591,11 @@ function renderer.attach(
 	local incrementalEnabled = opts == nil or (opts :: any).incrementalLayout ~= false
 	local lastResult: any = nil
 	local dirtyContains: { [string]: boolean }? = nil
+	-- ...AND THE MEASURE HALF OF THE SAME SET (wicked-fast O2): the same closure
+	-- over `measure` dirt alone, which is the only question the adopt gate asks. A
+	-- subset of `dirtyContains`, cleared with it; `tests/measure_split.spec.luau`
+	-- carries the argument and the measured numbers.
+	local measureContains: { [string]: boolean }? = nil
 	-- ...AND THE MEASURE HALF OF THE SAME BARGAIN (P1): `arrange` learned to skip a
 	-- clean subtree, `measure` never did. The per-node measure slates live here, per
 	-- SURFACE beside `lastResult` and never global; `src/layout/measure_reuse.luau`
@@ -1917,6 +1922,7 @@ function renderer.attach(
 		if structural ~= nil and (not incrementalEnabled or lastResult == nil or stampMoved) then
 			structural = nil
 			dirtyContains = nil
+			measureContains = nil
 		end
 		stats.lastStructuralBoundary = if structural ~= nil then structural.boundary else nil
 		-- ...and the ids this build CONSTRUCTS are collected only when a structural
@@ -1957,7 +1963,13 @@ function renderer.attach(
 		-- COUNTER IS WRITTEN FROM THE SOLVE)
 		local structuralPartial = false
 		if incrementalEnabled and lastResult ~= nil and dirtyContains ~= nil then
-			solveOpts.reuse = { previous = lastResult, dirtyContains = dirtyContains }
+			solveOpts.reuse = {
+				previous = lastResult,
+				dirtyContains = dirtyContains,
+				-- no measure half means no proof a slate is stale: fall back to the
+				-- arrange half, never to `nil`
+				measureContains = measureContains or dirtyContains,
+			}
 			-- this solve covered `dirtyContains` and skipped the rest, so it cannot
 			-- answer for the whole queue (see `fullSolveSeq`)
 			solvedEverything = false
@@ -2308,6 +2320,7 @@ function renderer.attach(
 		-- text-measurement solve does. `refresh`'s own tail sets and clears the pair
 		-- together; `structural_scope` carries what clearing only one of them cost.
 		dirtyContains = nil
+		measureContains = nil
 		structuralPlan = nil
 		local ok, err = pcall(solveAndApply)
 		feedbackDepth -= 1
@@ -2903,29 +2916,49 @@ function renderer.attach(
 					then structural_scope.plan(dirty, root.node.path, parentNodeAt, layoutNodeOf)
 					else nil
 				dirtyContains = if structuralPlan ~= nil then structuralPlan.contains else nil
+				-- CONSERVATIVE ON THE STRUCTURAL PATH: a structural change can move
+				-- different content under the same path, so it can change a measure.
+				measureContains = dirtyContains
 			else
 				profile.span("dirtyClosure", function()
 					-- THE ANCESTOR CLOSURE. A node may be skipped only if NOTHING inside it
 					-- is dirty, so the set handed to the solver is every dirty node plus
 					-- every ancestor of one — the solver skips exactly the nodes absent
 					-- from it. Paths are `/a/b/c`, so the ancestors are the prefixes.
+					--[[ TWO CLOSURES, NOT ONE (wicked-fast O2). The measure half carries
+						`measure` dirt and its prefixes alone — an offset-only change
+						cannot prove a slate stale. The walk terminates PER SET: an
+						arrange entry that filled a chain must not cut a measure one's. ]]
 					local contains: { [string]: boolean } = {}
+					local measures: { [string]: boolean } = {}
 					for _, entry in dirty do
 						local path = entry.path
-						if (entry.class == "measure" or entry.class == "arrange") and path ~= nil then
+						local isMeasure = entry.class == "measure"
+						if (isMeasure or entry.class == "arrange") and path ~= nil then
 							contains[path] = true
+							if isMeasure then
+								measures[path] = true
+							end
 							local at = path
 							while true do
 								local cut = string.match(at, "^(.*)/[^/]*$")
-								if cut == nil or cut == "" or contains[cut] then
+								if cut == nil or cut == "" then
 									break
 								end
+								local seen = if isMeasure then measures[cut] else contains[cut]
 								contains[cut] = true
+								if isMeasure then
+									measures[cut] = true
+								end
+								if seen then
+									break
+								end
 								at = cut
 							end
 						end
 					end
 					dirtyContains = contains
+					measureContains = measures
 				end)
 			end
 			-- ...and the pair belongs to THIS refresh, so it is cleared EVEN WHEN THE
@@ -2934,6 +2967,7 @@ function renderer.attach(
 			-- ...AND THE TAIL THAT CLEARS THEM). Same shape as `resolveForFeedback`.
 			local ok, err = pcall(solveAndApply)
 			dirtyContains = nil
+			measureContains = nil
 			structuralPlan = nil
 			if not ok then
 				error(err, 0)

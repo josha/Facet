@@ -526,6 +526,13 @@ type Ctx = {
 	-- `dirtyContains` is every node that is dirty or contains a dirty node; a node
 	-- absent from it cannot have changed, so its subtree may be replayed instead of
 	-- walked. Both nil on an ordinary solve, which then behaves exactly as before.
+	-- `measureContains` is the same closure over `measure`-classed dirt ALONE
+	-- (wicked-fast O2) and is a subset of `dirtyContains`; the adopt gate in
+	-- `measure` reads it and the arrange skip reads `dirtyContains`. REQUIRED
+	-- whenever `measures` is also supplied — the renderer passes `dirtyContains`
+	-- itself when it has no measure half, never `nil` — and unread by a solve with
+	-- no measure store, which is why the three direct `solver.solve` callers in
+	-- `tests/` that build a reuse table by hand need not carry it.
 	reuse: any,
 	skipped: number,
 	-- the ids `arrange` WALKED, kept only on a reuse solve, where the walk is the small
@@ -1672,7 +1679,13 @@ measure = function(ctx: Ctx, node: Node, maxW: number, maxH: number): (number, n
 			perNode, adopted = measureReuse.adopt(
 				store,
 				node,
-				ctx.reuse ~= nil and ctx.reuse.dirtyContains[node.id] ~= true,
+				-- THE MEASURE HALF OF THE DIRT (wicked-fast O2). The arrange skip
+				-- below reads `dirtyContains`; this gate reads `measureContains`,
+				-- the closure over `measure`-classed dirt alone, because an
+				-- arrange-only prop (`offsetX`, `anchor`, …) provably moves no
+				-- measurement — proved by mounting each of them in
+				-- `tests/layout_prop_dirt.spec.luau`, not by grepping the schema.
+				ctx.reuse ~= nil and ctx.reuse.measureContains[node.id] ~= true,
 				ctx.containerW,
 				ctx.containerH
 			)
