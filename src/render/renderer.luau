@@ -1890,11 +1890,12 @@ function renderer.attach(
 					.. `|{tostring(metrics)}|{measureScale}|{prefOffset}|{text_metrics.epoch()}`
 			)
 		end
-		-- THE STRUCTURAL QUALIFICATION: the one refusal the plan itself could not see.
+		-- THE STRUCTURAL QUALIFICATION: the one refusal the plan itself could not see,
+		-- and the stamp half of it is UNCONDITIONAL — absorbing proves a node's own
+		-- size, never the solve-wide inputs the forwarded entries were measured under.
+		-- `structural_scope`'s header owns that argument.
 		local structural = structuralPlan
-		if
-			structural ~= nil and (not incrementalEnabled or lastResult == nil or (structural.atRoot and stampMoved))
-		then
+		if structural ~= nil and (not incrementalEnabled or lastResult == nil or stampMoved) then
 			structural = nil
 			dirtyContains = nil
 		end
@@ -2249,7 +2250,12 @@ function renderer.attach(
 		end
 		feedbackDepth += 1
 		stats.feedbackSolves += 1
+		-- BOTH HALVES OF THE REFRESH-SCOPED STATE: a feedback re-solve is not the
+		-- refresh that built them and takes a full solve, exactly as the re-entrant
+		-- text-measurement solve does. `refresh`'s own tail sets and clears the pair
+		-- together; `structural_scope` carries what clearing only one of them cost.
 		dirtyContains = nil
+		structuralPlan = nil
 		local ok, err = pcall(solveAndApply)
 		feedbackDepth -= 1
 		if not ok then

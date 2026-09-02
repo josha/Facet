@@ -20,9 +20,19 @@
 	THE DEMONSTRATOR (D-P5) is `work.measured + work.arranged` after an `addItem` on a
 	600-row list that sits beside a 600-node sibling the change cannot reach. It is a
 	pair of COUNTERS, not a clock, and the claim is that the work is bounded by the
-	LIST REGION rather than by the tree. RED at pre-fix HEAD and the run is in the task
-	report; the `structuralReuse = false` arm below is that build, kept, and is what
-	the bound is asserted against rather than against a remembered number.
+	LIST REGION rather than by the tree.
+
+	IT IS A TWO-ARM DEMONSTRATION ON ONE BUILD, NOT A RED-AT-PRE-FIX-HEAD RUN, and the
+	distinction is worth stating because the campaign's other four demonstrators were
+	the second kind. `structuralReuse` is an ATTACH OPT: it does not exist at the
+	pre-fix commit, so a spec written against that HEAD cannot construct the arm it
+	needs and there is no tree on which this file is red. What stands in for it is the
+	`structuralReuse = false` arm below — the pre-fix build rather than a model of one,
+	since it leaves P1-P4 exactly as they are and takes only the structural set away —
+	and the bound is asserted against THAT number rather than against a remembered
+	one. The equivalent claim about a real pre-fix tree is the seventeen suite cases
+	that went red when the first draft of the set shipped, which the task report
+	records.
 
 	AND THE HONEST FLOOR IS ASSERTED BESIDE IT. An insert at the FRONT of a vertical
 	list moves every row after it, so O(shifted) is irreducible and the bound is the
@@ -918,8 +928,16 @@ describe("P5's oracle: the surface is identical, step for step, arm for arm", fu
 			(a geometry write solves inside its own settle, so the stamp is already
 			current by the time a structural refresh runs), which is exactly why the
 			predicate is driven directly instead. ]]
+		--[[ A THREE-LINK CHAIN, deliberately: `/Root/Box/List` -> `/Root/Box` -> `/Root`.
+			The first draft had two, so the walk reached the solve root on its FIRST hop
+			whatever `layoutOf` answered and the absorbing arm asserted `atRoot == true`
+			while its own comment claimed a non-root boundary (review, I-3). With a real
+			intermediate node the two arms actually differ. ]]
 		local function parentOf(path: string): any
-			if path == "/Root/List" then
+			if path == "/Root/Box/List" then
+				return { path = "/Root/Box" }
+			end
+			if path == "/Root/Box" then
 				return { path = "/Root" }
 			end
 			return nil
@@ -927,19 +945,28 @@ describe("P5's oracle: the surface is identical, step for step, arm for arm", fu
 		local function noLayout(): any
 			return nil
 		end
-		local dirty = { { path = "/Root/List", class = "structure" } }
+		local dirty = { { path = "/Root/Box/List", class = "structure" } }
 		local plan = structural_scope.plan(dirty, "/Root", parentOf, noLayout)
 		expect(plan ~= nil).toBe(true)
 		expect((plan :: any).boundary).toBe("/Root")
 		expect((plan :: any).atRoot).toBe(true)
-		expect((plan :: any).contains["/Root/List"]).toBe(true)
+		expect((plan :: any).contains["/Root/Box/List"]).toBe(true)
+		expect((plan :: any).contains["/Root/Box"]).toBe(true)
 		expect((plan :: any).contains["/Root"]).toBe(true)
-		-- an absorbing ancestor takes the boundary off the root
+		-- ...and an absorbing ancestor takes the boundary OFF the root, which is the
+		-- verdict the two-link fixture could not produce
 		local absorbing = structural_scope.plan(dirty, "/Root", parentOf, function(): any
 			return { width = { type = "fixed", px = 100 }, height = { type = "fixed", px = 100 } }
 		end)
-		expect((absorbing :: any).boundary).toBe("/Root")
-		expect((absorbing :: any).atRoot).toBe(true)
+		expect((absorbing :: any).boundary).toBe("/Root/Box")
+		expect((absorbing :: any).atRoot).toBe(false)
+		-- a `containerRelative` box absorbs on the same rule; a `fill` one does not
+		expect((structural_scope.plan(dirty, "/Root", parentOf, function(): any
+			return { width = { type = "containerRelative", fraction = 1 }, height = { type = "fixed", px = 8 } }
+		end) :: any).boundary).toBe("/Root/Box")
+		expect((structural_scope.plan(dirty, "/Root", parentOf, function(): any
+			return { width = { type = "fill", weight = 1 }, height = { type = "fixed", px = 8 } }
+		end) :: any).boundary).toBe("/Root")
 		--[[ REFUSAL 1: a structural entry with no path names no subtree, so nothing can
 			be proved about what it did not touch. MIXED with a real entry deliberately:
 			a list holding ONLY the pathless one refuses for a second reason (no
@@ -947,7 +974,7 @@ describe("P5's oracle: the surface is identical, step for step, arm for arm", fu
 			deleted — the mutation is what said so. ]]
 		expect(
 			structural_scope.plan(
-				{ { path = "/Root/List", class = "structure" }, { path = nil, class = "structure" } },
+				{ { path = "/Root/Box/List", class = "structure" }, { path = nil, class = "structure" } },
 				"/Root",
 				parentOf,
 				noLayout
@@ -956,7 +983,7 @@ describe("P5's oracle: the surface is identical, step for step, arm for arm", fu
 		-- REFUSAL 2: a structural path the parent map can no longer reach
 		expect(structural_scope.plan({ { path = "/Gone/List", class = "structure" } }, "/Root", parentOf, noLayout)).toBeNil()
 		-- ...and a refresh with no structural entry at all is not this branch's business
-		expect(structural_scope.plan({ { path = "/Root/List", class = "measure" } }, "/Root", parentOf, noLayout)).toBeNil()
+		expect(structural_scope.plan({ { path = "/Root/Box/List", class = "measure" } }, "/Root", parentOf, noLayout)).toBeNil()
 		-- the segment-boundary rule, which a character-wise prefix gets wrong
 		expect(structural_scope.commonAncestor("/L/[k1]", "/L/[k10]")).toBe("/L")
 		expect(structural_scope.commonAncestor("/L/[k1]/A", "/L/[k1]/B")).toBe("/L/[k1]")

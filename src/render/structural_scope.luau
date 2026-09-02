@@ -36,14 +36,35 @@
 
 	  * a node that ABSORBS (`fixed` or `containerRelative` on both axes — the
 	    offer-free half of the solver's `axisAbsorbs`, so it is true whatever it is
-	    offered) cannot change size when its content changes. A structural change
-	    under it is contained by construction, and the partial solve is allowed
-	    whatever else moved this frame.
+	    offered) cannot change size when its content changes, so a structural change
+	    under it is CONTAINED by construction;
 	  * with no absorbing ancestor the boundary is THE SOLVE ROOT, whose offer is the
-	    content rect. That is solve-WIDE — it is exactly what the measure store's
-	    stamp already compares — so the root qualifies only while the stamp is
-	    unchanged. A structural change on a solve whose stamp MOVED falls back to a
-	    full solve, and the renderer's own stamp read is where that test is spent.
+	    content rect.
+
+	AND EITHER WAY THE SOLVE-WIDE INPUTS STILL HAVE TO HOLD — the refusal on a moved
+	measure stamp is UNCONDITIONAL, and it was `atRoot`-only until the review corrected
+	it. Absorbing proves a node's own SIZE cannot change; it proves nothing about the
+	theme snapshot, the text scale or the preferred-text offset, and those are what the
+	entries a partial solve hands forward were computed under. A moved stamp under a
+	non-root boundary would have let every skipped sibling keep `textFacts`, `compact`
+	and `composition` verdicts measured under the OLD ones — the class the measure
+	memo's own axis 3 exists to refuse. `plan.atRoot` remains on the record because it
+	is what the boundary walk decided and what `lastStructuralBoundary` reports; it no
+	longer gates the refusal.
+
+	AND IT IS FREE, by this round's own null result: no route through the public API
+	pairs a moved stamp with a structural refresh — every geometry and theme write
+	solves inside its own settle phase — so nothing in the suite, the benchmarks or
+	Rascal Rally moves when the `atRoot` condition comes off it.
+
+	THE PLAN IS REFRESH-SCOPED, AND BOTH HALVES OF IT ARE. `refresh` sets the set and
+	the plan together and clears them together at its tail, because a solve that is not
+	that refresh — a feedback re-solve, a re-entrant text-measurement solve — must take
+	a FULL one. Clearing only `dirtyContains` left the plan live, and a solve reading a
+	plan built for another one stamped `lastStructuralBoundary` on a solve that was not
+	partial at all (the diagnostic this round's own engagement evidence reads) and paid
+	an O(N) `builtIds` collect and an O(N) `widen` on exactly the frames P5 exists to
+	make cheap. `renderer.resolveForFeedback` is the site.
 
 	CONSERVATIVE IN THE ONLY DIRECTION THAT MATTERS: every refusal costs time and
 	nothing else, and the fallback is the pre-P5 full solve, unchanged.
@@ -88,16 +109,17 @@
 	(the ancestor-closed, EVERY-class dirty set). So the nodes the build CONSTRUCTED
 	are exactly the nodes whose measure inputs may have moved — identity, props or
 	both — and every other node's subtree is provably the tree it was. `layout_node`
-	collects those ids on a structural build and `invalidate` below drops their slates
-	and nothing else. Bounded by the region, not by the store: a 600-row list that
-	gained one row drops the slates of the list's own chain, not of the 900 nodes
-	beside it.
+	collects those ids on a structural build and `widen` below puts them in the set,
+	which is what makes `adopt` hand each of them a fresh slate. Bounded by the region,
+	not by the store: a 600-row list that gained one row invalidates the list's own
+	chain, not the 900 nodes beside it.
 
-	AND IF P3 IS OFF, THE ANSWER DEGRADES TO THE PRE-P5 ONE. A count-only node store
-	constructs every node, so there is no smaller set to name; `invalidate(store, nil)`
-	clears the whole slate store, which is exactly what a structural change did before
-	this round. Slower, never wrong, and it keeps the differential oracle's arms
-	independent in the direction that matters (P5 on with P3 off is still correct).
+	AND IF P3 IS OFF, THE ANSWER DEGRADES TO THE pre-P5 ONE. A count-only node store
+	constructs every node, so there is no smaller set to name: the list is the whole
+	tree, the set is everything, nothing is skipped and every slate is dropped — which
+	is exactly what a structural change did before this round. Slower, never wrong, and
+	it keeps the differential oracle's arms independent in the direction that matters
+	(P5 on with P3 off is still correct).
 
 	WHAT `work.skipped` MEANS NOW, because P5 moved the ground under it. `solve`
 	derives it BY SUBTRACTION — `previous.arranged + previous.skipped - arranged` — and
@@ -110,12 +132,18 @@
 	size their entry recorded, which is O(1) per served node rather than a walk) and the
 	renderer restores `arranged + skipped == N` from the TREE instead of from induction.
 
-	ONE THING IS DELIBERATELY NOT REPAIRED and it is bounded: the solver's own
-	diagnostic-replay gate reads `ctx.skipped` INSIDE the solve, before the renderer can
-	correct it, so on a structural frame that gate is off by THAT ONE FRAME's node
-	delta. It cannot accumulate, because the repair re-bases the chain every solve, and
-	the only way it bites is a frame that adds more nodes than it leaves unwalked —
-	which is a frame that had almost nothing to replay.
+	ONE THING IS DELIBERATELY NOT REPAIRED, and the honest statement of it is stronger
+	than "off by a delta" (review, I-6). The solver's diagnostic-replay gate reads
+	`ctx.skipped` INSIDE the solve, before the renderer can correct it, and that gate is
+	all-or-nothing: `if ctx.skipped > 0`. So on a structural frame whose NODE DELTA is
+	greater than or equal to the number of nodes it genuinely skipped, the subtraction
+	floors at zero and the frame replays NO findings at all — not some of them, all of
+	them. What that costs is bounded on three sides and is worth each one: it is
+	DIAGNOSTICS ONLY (no geometry, no paint, no verdict a node publishes); it lasts ONE
+	FRAME, because the next solve's own walk re-files whatever is still true and the
+	renderer's repair re-bases the chain either way; and it cannot accumulate. The
+	shape that reaches it is a frame that adds a lot and skips a little — which is a
+	frame that had almost nothing to replay in the first place.
 
 	DIAGNOSTICS ARE PER-PATH TOO. `solve` replays the previous solve's findings for
 	every node this solve did not walk, so a departed node's finding would be replayed
@@ -196,8 +224,9 @@ export type Plan = {
 	-- the node the re-solve is rooted at: the nearest enclosing absorbing ancestor
 	-- of every structural path, or the solve root when none absorbs
 	boundary: string,
-	-- true when `boundary` IS the solve root, i.e. the qualification the caller has
-	-- to check the solve-wide stamp for
+	-- true when `boundary` IS the solve root — reported, not a gate. The caller's
+	-- stamp refusal is unconditional (see the header); this says which of the two
+	-- shapes the walk found, which is the claim `lastStructuralBoundary` publishes.
 	atRoot: boolean,
 	-- the ancestor-closed set the solver skips the complement of
 	contains: { [string]: boolean },
@@ -286,7 +315,7 @@ function structural_scope.plan(
 		at = node.path
 	end
 	-- the walk ran out of absorbing ancestors: the boundary is the solve root, whose
-	-- offer is the content rect — see `atRoot` and the caller's stamp test
+	-- offer is the content rect. The caller refuses on a moved stamp either way.
 	boundary = boundary or rootPath
 	return { boundary = boundary :: string, atRoot = boundary == rootPath, contains = contains }
 end
