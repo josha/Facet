@@ -155,6 +155,66 @@ describe("the placement audit does not duplicate under incremental layout (HIGH 
 		expect(placementFindings(w.controller)).toEqual({ "/S/Row/Inert|alignH" })
 	end)
 
+	it("...and a finding whose CONDITION goes away stops being reported", function()
+		--[[ THE OTHER JOB OF `walkedIds`, and since 2026-09-02 the only one it does
+			alone. The replay now also refuses a finding this solve already filed BY
+			VALUE (`solve`'s tail, RED-TEAM HIGH 2: the measure-time filers are inside
+			the skip and re-file every solve), and that value refusal covers the
+			duplicate this file was written for — so the walked-filer refusal would be
+			decoration if nothing drove the case only it can answer: a walked filer that
+			files NOTHING because the defect it reports has been fixed. Without it the
+			previous solve's copy is replayed forever and `controller.diagnostics()`
+			reports a placement prop that is no longer authored.
+
+			ITS OWN FIXTURE, because the shared one authors `alignH` as a literal and
+			this case needs to take it away. ]]
+		local core = customFactory.new()
+		local env = environment.new(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 600 })
+		local inert = core:signal(true)
+		local align = core:memo(function(use: any)
+			return if use(inert) then "end" else nil
+		end)
+		local bp = UI.VStack({
+			id = "S",
+			padding = 0,
+			gap = 0,
+			children = {
+				UI.HStack({
+					id = "Row",
+					padding = 0,
+					gap = 0,
+					children = {
+						UI.Box({ id = "Inert", width = px(80), height = px(40), alignH = align }),
+						UI.Box({ id = "Reactive", width = px(60), height = px(40) }),
+					},
+				}),
+				UI.Box({ id = "Tail", width = px(100), height = px(30) }),
+			},
+		})
+		local root = mountLib.mount(core, bp)
+		local adapter = fake_target.new()
+		local controller = renderer.attach(core, root, env, adapter, {
+			rootPolicy = "edgeToEdge",
+			incrementalLayout = true,
+		})
+		controller.initialRender()
+		expect(placementFindings(controller)).toEqual({ "/S/Row/Inert|alignH" })
+		-- the prop is withdrawn: `Row` is walked (its child's placement moved) and
+		-- files nothing, so the finding is gone on that very frame and stays gone
+		inert:set(false)
+		controller.refresh()
+		expect(placementFindings(controller)).toEqual({})
+		for i = 1, 5 do
+			controller.refresh()
+		end
+		expect(placementFindings(controller)).toEqual({})
+		-- ...and it comes BACK when the prop does, so the refusal is not a one-way latch
+		inert:set(true)
+		controller.refresh()
+		expect(placementFindings(controller)).toEqual({ "/S/Row/Inert|alignH" })
+	end)
+
 	it("the incremental answer is identical to the full-solve oracle, finding for finding", function()
 		-- the differential, over BOTH dirtying routes interleaved. A fix that
 		-- simply deleted the replay passes the first case and fails here; a fix

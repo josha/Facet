@@ -711,4 +711,54 @@ describe("the copy-on-write rect map (P2)", function()
 		expect(cold.lastRectInserts).toBe(HEAD_NODES + ROW_NODES * 200)
 		expect(cold.lastMeasured > 500).toBe(true)
 	end)
+
+	it("THE FINDINGS LIST IS FLAT over 100 refreshes with a malformed subtree in the SKIP", function()
+		--[[ THE REPLAY THAT COPIED ITSELF FORWARD (RED-TEAM 2026-09-02, HIGH 2). `solve`
+			replays the previous solve's findings for every filer this solve did not
+			WALK — an arrange fact — while the four measure-time filers are inside the
+			skipped subtree and are measured every solve anyway, freshly or from the
+			cross-solve slate. So each frame filed the finding AND replayed last frame's
+			copy of it: 605 findings at frame 600 against a full solve's 3, an unbounded
+			list copied forward by every solve, with `controller.diagnostics()` cloning
+			it for every caller.
+
+			IT WAS INVISIBLE TO THE SPECS THAT WATCH THIS CHANNEL because `findings`
+			above compares the SET (see its own comment: multiplicity has never been a
+			contract, and it still is not). The COUNT is what grew, so the count is what
+			this case reads — as a bound, not as a number: the arms legitimately differ
+			in how many times a solve measures the malformed box. ]]
+		local vp = { w = 400, h = 800 }
+		local arms: { { name: string, arm: Arm } } = {
+			{ name = "incremental + cache", arm = world(true, true, vp, 40) },
+			{ name = "incremental, no cache", arm = world(true, false, vp, 40) },
+			{ name = "full solve (oracle)", arm = world(false, false, vp, 40) },
+		}
+		for _, entry in arms do
+			local arm = entry.arm
+			-- THREE refreshes to reach the steady state, and the number is measured
+			-- rather than chosen: the first one after `initialRender` still fills the
+			-- map and the store, and measures the malformed box one more time than a
+			-- settled frame does (2 findings, then 1). Then a hundred more that dirty
+			-- ONE leaf far from the malformed box.
+			for warm = 1, 3 do
+				arm.items[10].n:set(-warm)
+				arm.controller.refresh()
+			end
+			local settled = #arm.controller.diagnostics()
+			local settledSet = findings(arm.controller)
+			expect(`{entry.name}: {settled > 0}`).toBe(`{entry.name}: true`)
+			for i = 1, 100 do
+				arm.items[10].n:set(i)
+				arm.controller.refresh()
+			end
+			-- FLAT. Not "bounded by something generous": the list a hundred frames later
+			-- is the list one frame in, and the findings themselves are unchanged.
+			expect(`{entry.name}: {#arm.controller.diagnostics()}`).toBe(`{entry.name}: {settled}`)
+			expect(`{entry.name}: {findings(arm.controller)}`).toBe(`{entry.name}: {settledSet}`)
+		end
+		-- ...and the SET the two incremental arms report is the full solve's, which is
+		-- the half a count can never say
+		expect(findings(arms[1].arm.controller)).toBe(findings(arms[3].arm.controller))
+		expect(findings(arms[2].arm.controller)).toBe(findings(arms[3].arm.controller))
+	end)
 end)

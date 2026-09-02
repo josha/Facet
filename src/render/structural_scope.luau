@@ -52,10 +52,26 @@
 	is what the boundary walk decided and what `lastStructuralBoundary` reports; it no
 	longer gates the refusal.
 
-	AND IT IS FREE, by this round's own null result: no route through the public API
-	pairs a moved stamp with a structural refresh — every geometry and theme write
-	solves inside its own settle phase — so nothing in the suite, the benchmarks or
-	Rascal Rally moves when the `atRoot` condition comes off it.
+	AND THE ROUTE THAT PAIRS THEM HAS SINCE BEEN FOUND, so the refusal is no longer
+	free and no longer theoretical (RED-TEAM 2026-09-02). What this paragraph used to
+	say is that no route through the public API pairs a moved stamp with a structural
+	refresh, because every geometry and theme write solves inside its own settle
+	phase. `text_metrics.calibrate` is the exception it could not construct: a live
+	client seam that moves every glyph width with NO env write, no dirty node and no
+	solve of its own, so the very next structural `refresh` solves against an offer
+	that moved under it. `tests/structural_scope.spec.luau` drives it.
+
+	AND THE STAMP HAS TO BE TAKEN WHETHER OR NOT THE MEASURE CACHE IS ON, which is
+	where the campaign's own defect was (same review, HIGH 1). `measure_reuse.restamp`
+	both ANSWERS "did the solve-wide inputs move" and re-stamps the store, and the call
+	sat inside `if measureReuseEnabled` — so with `measureReuse = false` the answer was
+	a constant `false` and this refusal could not fire at all. That flag is the CONTROL
+	ARM of five differential cases: the switch that exists to make a divergence
+	attributable was manufacturing one, and the calibration route above is what made it
+	visible (a sibling label outside the boundary kept its pre-calibration 437x39
+	against the full-solve oracle's 363x20). The call is unconditional now; only
+	`solveOpts.measures` is gated, which is the switch itself. With the cache off the
+	re-stamp clears a store nobody reads.
 
 	THE PLAN IS REFRESH-SCOPED, AND BOTH HALVES OF IT ARE. `refresh` sets the set and
 	the plan together and clears them together at its tail, because a solve that is not
@@ -65,6 +81,28 @@
 	partial at all (the diagnostic this round's own engagement evidence reads) and paid
 	an O(N) `builtIds` collect and an O(N) `widen` on exactly the frames P5 exists to
 	make cheap. `renderer.resolveForFeedback` is the site.
+
+	...AND THE TAIL THAT CLEARS THEM RUNS EVEN WHEN THE SOLVE THROWS (RED-TEAM
+	2026-09-02). An adapter that raises mid-commit used to leave both live, and the
+	solve that spends them is not exotic: `refresh`'s NON-structural arm computes a
+	fresh `dirtyContains` and never touches `structuralPlan`, so the next one-leaf
+	frame took a boundary-rooted solve claiming a boundary nothing had dirtied
+	(measured pre-fix: `partial=2 boundary=/Scroll` on a frame whose only dirt was one
+	row's bound value). What masked it is worth recording because it is a coincidence
+	rather than a guarantee: every `GEOMETRY_KEYS` fact also moves the measure stamp —
+	the viewport, the three inset facts, the display size through
+	`typographyPaintScale`, both text scales and the theme snapshot — so a geometry
+	write refuses the stale plan for its own reasons, and only a plain refresh gets
+	through. The renderer pcalls, clears the pair and re-raises, which is the shape
+	`resolveForFeedback` already had.
+
+	THE COUNTER IS WRITTEN FROM THE SOLVE, NOT FROM THE COMMIT (same review, finding
+	10). `stats.structuralPartialSolves` used to be incremented before `solver.solve`
+	was called — alone among the stats of that block, every one of which is read off
+	the result — so a solve that threw was counted as one that happened. It is counted
+	beside `partialSolves` now. A commit that throws AFTER the solve still counts, and
+	that is deliberate: the solve happened and the work was done, and what a torn
+	commit owes the surface is the clean re-solve above rather than a rewritten count.
 
 	CONSERVATIVE IN THE ONLY DIRECTION THAT MATTERS: every refusal costs time and
 	nothing else, and the fallback is the pre-P5 full solve, unchanged.
@@ -375,8 +413,21 @@ end
 
 --[[ Drop the findings whose FILER has left the tree, so the solver's replay cannot
 	carry a departed node's diagnostic forever. Called from the removal sweep's tail,
-	after the departed paths' rect entries are gone: `rects` is then exactly the live
-	set, which is what makes this one membership test rather than a second walk. ]]
+	after the departed paths' rect entries are gone, so the map answers "is this filer
+	still here?" in one membership test rather than a second walk.
+
+	WHAT `rects` ACTUALLY IS, stated literally because the sentence this replaces said
+	"exactly the live set" and that is stronger than the truth (RED-TEAM 2026-09-02).
+	It is the last solve's map MINUS the paths this sweep just retired, and the sweep
+	walks `handles` — so a path the commit never gave a handle to (an elided node, a
+	node a settle-phase solve wrote before its instance existed) keeps its entry
+	whether or not it is still mounted, until a solve with no `reuse` set rebuilds the
+	map from scratch.
+
+	IT IS A SUPERSET, AND THAT IS THE SAFE DIRECTION: an over-inclusive map keeps a
+	finding one solve longer than it deserves, which is a stale diagnostic that heals
+	itself. The failure this exists to prevent is the other one — a finding whose node
+	is gone for good, replayed on every frame for the life of the surface. ]]
 function structural_scope.sweepDiagnostics(result: any)
 	local list = result.diagnostics
 	if list == nil or #list == 0 then

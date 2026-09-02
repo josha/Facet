@@ -71,22 +71,48 @@
 	slate for such a node records the container it answered against and is adopted only
 	if it still matches.
 
-	KEYS ARE CAPPED PER NODE. A slate is written to on every genuine measure and only
-	ever grows; a node whose offers DRIFT (a clean subtree inside an animating box)
-	would accumulate one entry per frame forever. Past `KEY_CAP` distinct offers the
-	slate is wiped and starts again — a miss, never a wrong answer.
+	KEYS ARE CAPPED PER NODE, AT THE SOLVE BOUNDARY. A slate is written to on every
+	genuine measure and only ever grows; a node whose offers DRIFT (a clean subtree
+	inside an animating box) would accumulate one entry per frame forever. A slate
+	that arrives at `adopt` already holding `KEY_CAP` distinct offers is therefore not
+	adopted: the node gets a fresh one and refills — a miss, never a wrong answer.
+
+	**THE CAP USED TO FIRE AT THE WRITE INSTEAD, AND THAT DISCARDED THE ONE SOLVE'S
+	WORTH OF ENTRIES IT HAD NO BUSINESS TOUCHING** (RED-TEAM 2026-09-02). `note` wiped
+	the slate the moment the (`KEY_CAP` + 1)-th key was about to be written — and the
+	slate IS the per-solve memo (`ctx.measureCache[node]` holds the same table), so a
+	node measured at two offers per solve lost the answer the MEASURE pass had just
+	computed and made the ARRANGE pass re-measure it. Every entry the wipe threw away
+	was one this solve had made; every entry the cap exists to drop is one an EARLIER
+	solve made, and adoption is where those two sets are separable. Measured on a
+	20-solve drift probe: the wipe fired on solves 8, 14 and 20 and took the current
+	solve's own entries with it each time. THE COUNT ITSELF WAS NEVER WRONG — the
+	probe compared `store.n[id]` against the live key count on every solve and it
+	tracked exactly, which is a recorded null result rather than a fix.
 ]]
 
 local measure_reuse = {}
 
--- Distinct offers one node may keep before its slate is wiped. Twelve is well past
--- what a settled tree produces (a node is measured at 1-2 offers per solve and they
--- repeat) and small enough that a drifting node cannot hold a frame's worth of keys.
+-- Distinct offers a slate may hold and still be adopted by the NEXT solve. Twelve is
+-- well past what a settled tree produces (a node is measured at 1-2 offers per solve
+-- and they repeat) and small enough that a drifting node cannot hold a frame's worth
+-- of keys. A solve may write past it — the slate is that solve's own memo and those
+-- entries are the ones it is still going to hit — and pays for it at the next adopt.
 local KEY_CAP = 12
 
 export type Store = {
 	-- the solve-wide inputs the entries below were measured under (axis 3)
 	stamp: string,
+	--[[ ...AND THE ONE OF THEM THAT IS NOT A STRING, held AS ITSELF. `metrics` is the
+		applied ThemeSnapshot and it is compared with `~=`, which is what "identity"
+		means: a `tostring(metrics)` term inside the stamp compares ADDRESS STRINGS,
+		and Luau reuses an address once a table is collected, so a swap to a snapshot
+		that landed where the old one had been reads as UNCHANGED and serves the whole
+		store to a solve measured under the old theme (RED-TEAM 2026-09-02; the same
+		finding `render/layout_node.luau`'s `Store.metrics` records as P3 review M1,
+		which is where this mirror comes from). One reference is also cheaper than a
+		formatted address per solve. ]]
+	metrics: any,
 	byId: { [string]: { [string]: any } },
 	-- the container a `containerRelativeInside` node answered against, `"{w}|{h}"`.
 	-- Absent for every other node, which is nearly all of them.
@@ -98,7 +124,7 @@ export type Store = {
 function measure_reuse.new(): Store
 	-- the initial stamp is deliberately not `""`: a surface whose real stamp somehow
 	-- computed empty would otherwise adopt an empty store rather than be re-stamped
-	return { stamp = "\0", byId = {}, ctr = {}, n = {} }
+	return { stamp = "\0", metrics = nil, byId = {}, ctr = {}, n = {} }
 end
 
 function measure_reuse.clear(store: Store)
@@ -129,12 +155,14 @@ function measure_reuse.forget(store: Store, id: string)
 end
 
 -- Re-stamp the store with this solve's solve-wide inputs; clears it (and returns
--- true) when any of them moved.
-function measure_reuse.restamp(store: Store, stamp: string): boolean
-	if store.stamp == stamp then
+-- true) when any of them moved. `metrics` is compared by IDENTITY beside the string
+-- rather than folded into it (see `Store.metrics`).
+function measure_reuse.restamp(store: Store, stamp: string, metrics: any): boolean
+	if store.stamp == stamp and store.metrics == metrics then
 		return false
 	end
 	store.stamp = stamp
+	store.metrics = metrics
 	measure_reuse.clear(store)
 	return true
 end
@@ -154,7 +182,14 @@ function measure_reuse.adopt(
 	local scoped = node.containerRelativeInside == true
 	if reusable then
 		local prev = store.byId[id]
-		if prev ~= nil and (not scoped or store.ctr[id] == `{containerW}|{containerH}`) then
+		if
+			prev ~= nil
+			-- ...and it has not DRIFTED past the cap. This is the whole of the cap, and
+			-- it is here rather than at the write because here every entry it drops was
+			-- made by an earlier solve (see KEYS ARE CAPPED PER NODE).
+			and (store.n[id] or 0) < KEY_CAP
+			and (not scoped or store.ctr[id] == `{containerW}|{containerH}`)
+		then
 			return prev, true
 		end
 	end
@@ -167,16 +202,11 @@ function measure_reuse.adopt(
 	return fresh, false
 end
 
--- One more distinct offer for this node. Called by `solver.measure` immediately
--- BEFORE it writes a key the slate does not already hold, so the wipe cannot throw
--- away the entry it is about to make.
-function measure_reuse.note(store: Store, id: string, slate: { [string]: any })
-	local n = (store.n[id] or 0) + 1
-	if n > KEY_CAP then
-		table.clear(slate)
-		n = 1
-	end
-	store.n[id] = n
+-- One more distinct offer for this node. Called by `solver.measure` for every key it
+-- writes that the slate does not already hold, so the count and the slate move
+-- together and the cap above is asked a question about a SETTLED slate.
+function measure_reuse.note(store: Store, id: string)
+	store.n[id] = (store.n[id] or 0) + 1
 end
 
 measure_reuse.KEY_CAP = KEY_CAP

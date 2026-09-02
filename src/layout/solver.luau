@@ -1923,10 +1923,10 @@ measure = function(ctx: Ctx, node: Node, maxW: number, maxH: number): (number, n
 		end
 		table.freeze(diags)
 	end
-	-- one more distinct offer on this node's slate, and the cap that keeps a node
-	-- whose offers DRIFT from accumulating an entry per frame forever
+	-- one more distinct offer on this node's slate; the cap that keeps a node whose
+	-- offers DRIFT from accumulating an entry per frame forever is asked at `adopt`
 	if store ~= nil and perNode[cacheKey] == nil then
-		measureReuse.note(store, node.id, perNode)
+		measureReuse.note(store, node.id)
 	end
 	-- ...and the matching write of the packed form, for the kinds that cannot publish
 	local kind = node.kind
@@ -3768,16 +3768,32 @@ function solver.solve(
 	-- parts of the screen that did not change, which is the instrument every layout
 	-- defect in this repo was caught by.
 	if ctx.reuse ~= nil and ctx.skipped > 0 then
+		--[[ ONE COPY PER FINDING, AND IT TAKES BOTH REFUSALS BELOW. They answer the same
+			question — "was this finding filed this solve?" — about the two passes.
+
+			THE FILER, NOT THE NAMED NODE (RED-TEAM Milestone 1, HIGH 2): `inertPlacement`
+			is filed by the parent about the child, so a walked parent beside a skipped
+			child filed it fresh AND had it replayed. `filedBy` is stamped at build time
+			by `solver.auditPlacement`.
+
+			...AND `walkedIds` IS AN ARRANGE FACT, so it cannot answer for the four
+			MEASURE-time filers (RED-TEAM 2026-09-02, HIGH 2). Measure has no skip: a
+			subtree `arrange` skipped was still measured — freshly, or replayed from its
+			cross-solve slate by the adopted-hit branch of `measure` — so its findings are
+			already in the list above and the replay was a SECOND copy, once per frame,
+			forever. Measured on a malformed subtree inside a skipped one: 605 findings at
+			frame 600 against the full-solve oracle's 3.
+
+			A FINDING IS `(node, issue)`. Two filings of that pair are the same finding
+			whatever table they arrived in, which is what makes this cheap: identity
+			cannot see the fresh re-file, and the list is empty on every well-formed
+			tree, so the loop that builds the set is a loop over nothing. ]]
+		local filedNow: { [string]: boolean } = {}
+		for _, d in ctx.diagnostics do
+			filedNow[`{d.node}\0{d.issue}`] = true
+		end
 		for _, d in ctx.reuse.previous.diagnostics or {} do
-			-- THE FILER DECIDES, NOT THE NAMED NODE (RED-TEAM Milestone 1, HIGH 2).
-			-- "Was this finding filed this solve?" is a question about the node whose
-			-- `arrange` files it, and for every diagnostic here but one that is the
-			-- node it names. The exception is `inertPlacement`: the parent files, the
-			-- child is named, so a walked parent beside a skipped child filed the
-			-- finding fresh AND had it replayed — one extra copy per layout-dirty
-			-- frame, unbounded, with the whole list copied forward each solve.
-			-- `filedBy` is stamped at build time by `solver.auditPlacement`.
-			if ctx.walkedIds[(d :: any).filedBy or d.node] ~= true then
+			if ctx.walkedIds[(d :: any).filedBy or d.node] ~= true and not filedNow[`{d.node}\0{d.issue}`] then
 				table.insert(ctx.diagnostics, d)
 			end
 		end

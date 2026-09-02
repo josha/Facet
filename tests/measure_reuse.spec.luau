@@ -70,6 +70,9 @@ local fake_target = require("./lib/fake_target")
 local device_views = require("./lib/device_views")
 local large_text = require("./lib/large_text")
 local text_metrics = require("../src/layout/text_metrics")
+-- the store itself, driven directly for the two axis-3 claims no surface can reach
+local measure_reuse = require("../src/layout/measure_reuse")
+local fs = require("@lune/fs")
 
 local function px(n: number): any
 	return { type = "fixed", px = n }
@@ -804,5 +807,99 @@ describe("cross-solve measure reuse (P1)", function()
 		-- names a size and a spelling no fixture in this suite measures, and wiping
 		-- the whole exact-width store would take other specs' measurements with it)
 		text_metrics.resetCalibration()
+	end)
+
+	it("AXIS 3 HOLDS THE SNAPSHOT ITSELF: a twin table with the same numbers is a new theme", function()
+		--[[ THE ADDRESS-STRING DEFECT, MIRRORED FROM P3 (RED-TEAM 2026-09-02, and
+			`render/layout_node.luau`'s own `Store.metrics`, review M1). `metrics` used
+			to reach the stamp as `tostring(metrics)` — an ADDRESS — and Luau reuses an
+			address once its table is collected, so a snapshot allocated where the old
+			one had been reads as unchanged and the whole store is served to a solve
+			measured under the other theme. The comparison is now identity, beside the
+			string rather than inside it, and this drives the seam directly because the
+			collector cannot be asked to reuse an address on demand.
+
+			A DIFFERENT TABLE WITH THE SAME NUMBERS IS A DIFFERENT THEME, which is the
+			conservative direction and the same ruling P3's `AXIS 3` case records: what
+			`themeMetrics` holds is one table per applied theme, so identity is the
+			cheap and correct question. ]]
+		local store = measure_reuse.new()
+		local theme = { space = { gutter = 8 } }
+		local twin = table.clone(theme)
+		local STAMP = "400|800|0|0|0|0|coreSafeContent|0|-|false|1|0|0"
+		-- the first stamp always moves (the store is born holding `"\0"`)
+		expect(measure_reuse.restamp(store, STAMP, theme)).toBe(true)
+		store.byId["/r"] = { ["1|1|"] = { 10, 10 } }
+		expect(measure_reuse.restamp(store, STAMP, theme)).toBe(false)
+		expect(store.byId["/r"] ~= nil).toBe(true)
+		-- ...and the twin moves it, which the string alone cannot say
+		expect(measure_reuse.restamp(store, STAMP, twin)).toBe(true)
+		expect(store.byId["/r"]).toBe(nil)
+		-- the string half still answers on its own, with the snapshot held still
+		store.byId["/r"] = { ["1|1|"] = { 10, 10 } }
+		expect(measure_reuse.restamp(store, `{STAMP}|moved`, twin)).toBe(true)
+		expect(store.byId["/r"]).toBe(nil)
+	end)
+
+	it("THE KEY CAP IS ASKED AT ADOPTION, so a solve never loses the memo it is using", function()
+		--[[ THE SLATE IS THE PER-SOLVE MEMO (RED-TEAM 2026-09-02). `ctx.measureCache[node]`
+			and `store.byId[id]` are the SAME table, so the cap firing at the write wiped
+			entries the current solve had just computed and made the arrange pass
+			re-measure them — while the entries the cap exists to drop are the ones an
+			EARLIER solve left. Adoption is the one moment those two sets are separable,
+			so that is where the question is asked now. ]]
+		local CAP = measure_reuse.KEY_CAP
+		local store = measure_reuse.new()
+		local slate = (measure_reuse.adopt(store, { id = "/n" }, false, 0, 0))
+		local function keys(t: any): number
+			local n = 0
+			for _ in t do
+				n += 1
+			end
+			return n
+		end
+		-- ONE solve, writing past the cap: every entry stands, because every one of
+		-- them is an answer this solve may still be asked for
+		for i = 1, CAP + 3 do
+			measure_reuse.note(store, "/n")
+			slate[`k{i}`] = { i, i }
+		end
+		expect(keys(slate)).toBe(CAP + 3)
+		expect(store.n["/n"]).toBe(CAP + 3)
+		-- ...and the drift is paid at the NEXT solve's adoption: a slate at or past the
+		-- cap is refused, and the fresh one it gets is empty and counted from zero
+		local fresh, adopted = measure_reuse.adopt(store, { id = "/n" }, true, 0, 0)
+		expect(adopted).toBe(false)
+		expect(keys(fresh)).toBe(0)
+		expect(store.n["/n"]).toBe(0)
+		-- THE CONTROL: a slate UNDER the cap is still adopted, or the cap would be a
+		-- switch that turns the store off
+		local warm = (measure_reuse.adopt(store, { id = "/m" }, false, 0, 0))
+		for i = 1, CAP - 1 do
+			measure_reuse.note(store, "/m")
+			warm[`k{i}`] = { i, i }
+		end
+		local again, hit = measure_reuse.adopt(store, { id = "/m" }, true, 0, 0)
+		expect(hit).toBe(true)
+		expect(again).toBe(warm)
+		expect(keys(again)).toBe(CAP - 1)
+	end)
+
+	it("NO ADDRESS STRING REACHES THE STAMP — the renderer passes the snapshot itself", function()
+		--[[ THE SOURCE HALF, because the case above cannot see a term that is merely
+			REDUNDANT: a stamp that still folds `tostring(metrics)` in would pass every
+			assertion there and go on comparing addresses on the shipped path. One
+			grep, over the call and nothing else, with its COMMENTS STRIPPED — the
+			block explains the defect by name, and a scan that read prose would report
+			the very term it is checking for. ]]
+		local source = fs.readFile("src/render/renderer.luau")
+		local block = string.match(source, "local stampMoved = measure_reuse%.restamp%(\n(.-)\n\t\t%)")
+		expect(block ~= nil).toBe(true)
+		local code = string.gsub("\n" .. (block :: string), "\n[ \t]*%-%-[^\n]*", "\n")
+		expect(string.find(code, "tostring(metrics)", 1, true)).toBe(nil)
+		-- ...and the snapshot really is an argument, so the two halves cannot both
+		-- pass by the call having stopped taking one
+		expect(string.find(code, "\n\t\t\tmetrics", 1, true) ~= nil).toBe(true)
+		expect(string.find(code, "text_metrics.epoch()", 1, true) ~= nil).toBe(true)
 	end)
 end)

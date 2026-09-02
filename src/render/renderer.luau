@@ -1880,19 +1880,21 @@ function renderer.attach(
 			nodeDirty = nil
 			nodeDirtySeen = root.dirtySeq()
 		end
-		-- THE STAMP IS READ BEFORE THE REUSE DECISION (P5), where it used to be read
-		-- after it; nothing else about it moved. It is axis 3 of the measure store AND
-		-- the SOLVE ROOT'S OWN OFFER, which is what a plan rooted at the root has to be
-		-- qualified against (`render/structural_scope`).
-		local stampMoved = false
-		if measureReuseEnabled then
-			stampMoved = measure_reuse.restamp(
-				measureStore,
-				`{vp.w}|{vp.h}|{insets.top}|{insets.bottom}|{insets.left}|{insets.right}|{rootPolicy}|{barReserve}`
-					.. `|{if band ~= nil then `{band.x},{band.y},{band.w},{band.h}` else "-"}|{bandFullTop}`
-					.. `|{tostring(metrics)}|{measureScale}|{prefOffset}|{text_metrics.epoch()}`
-			)
-		end
+		-- THE STAMP IS READ BEFORE THE REUSE DECISION (P5) and UNCONDITIONALLY, whether
+		-- or not the measure cache is on: it is axis 3 of the store AND the solve root's
+		-- own offer, and gating it made the refusal below unfirable in the one arm that
+		-- exists to make a divergence attributable (`render/structural_scope`, AND THE
+		-- STAMP HAS TO BE TAKEN). Only `solveOpts.measures` is gated.
+		local stampMoved = measure_reuse.restamp(
+			measureStore,
+			`{vp.w}|{vp.h}|{insets.top}|{insets.bottom}|{insets.left}|{insets.right}|{rootPolicy}|{barReserve}`
+				.. `|{if band ~= nil then `{band.x},{band.y},{band.w},{band.h}` else "-"}|{bandFullTop}`
+				.. `|{measureScale}|{prefOffset}|{text_metrics.epoch()}`,
+			-- ...and the APPLIED SNAPSHOT ITSELF, beside the string rather than inside it:
+			-- `tostring(metrics)` was an address, and an address is reused once its table
+			-- is collected (`measure_reuse.Store.metrics`)
+			metrics
+		)
 		-- THE STRUCTURAL QUALIFICATION: the one refusal the plan itself could not see,
 		-- and the stamp half of it is UNCONDITIONAL — absorbing proves a node's own
 		-- size, never the solve-wide inputs the forwarded entries were measured under.
@@ -1935,14 +1937,17 @@ function renderer.attach(
 		-- SAME offers; an analysis run against a differently-built tree would be
 		-- measuring something other than what shipped
 		lastSolveInputs = { layoutRoot = layoutRoot, viewport = { w = vp.w, h = vp.h }, opts = solveOpts }
+		-- ...and whether THIS solve is the structural one, HELD rather than counted here:
+		-- the counter is written from the finished solve beside `partialSolves`, which
+		-- is where every other stat in this block comes from (`structural_scope`, THE
+		-- COUNTER IS WRITTEN FROM THE SOLVE)
+		local structuralPartial = false
 		if incrementalEnabled and lastResult ~= nil and dirtyContains ~= nil then
 			solveOpts.reuse = { previous = lastResult, dirtyContains = dirtyContains }
 			-- this solve covered `dirtyContains` and skipped the rest, so it cannot
 			-- answer for the whole queue (see `fullSolveSeq`)
 			solvedEverything = false
-			if structural ~= nil then
-				stats.structuralPartialSolves += 1
-			end
+			structuralPartial = structural ~= nil
 		end
 		if measureReuseEnabled then
 			-- AXIS 3 was stamped above, and A SOLVE WITH NO REUSE SET REBUILDS THE
@@ -1966,6 +1971,10 @@ function renderer.attach(
 		if result.work ~= nil and (result.work.skipped or 0) > 0 then
 			stats.partialSolves += 1
 			stats.lastSkipped = result.work.skipped
+		end
+		-- ...and the structural half, counted from the same side of the solve
+		if structuralPartial then
+			stats.structuralPartialSolves += 1
 		end
 		lastResult = result
 		-- the last solve's work, surfaced through `controller.stats()`. This is what
@@ -2866,11 +2875,16 @@ function renderer.attach(
 				end
 				dirtyContains = contains
 			end
-			solveAndApply()
-			-- the set belongs to THIS refresh; a re-entrant solve (text measurement, an
-			-- env observer) must not reuse it, and gets a full solve instead
+			-- ...and the pair belongs to THIS refresh, so it is cleared EVEN WHEN THE
+			-- COMMIT THROWS: a re-entrant solve must not reuse it, and the next plain
+			-- refresh used to spend a plan a torn one left behind (`structural_scope`,
+			-- ...AND THE TAIL THAT CLEARS THEM). Same shape as `resolveForFeedback`.
+			local ok, err = pcall(solveAndApply)
 			dirtyContains = nil
 			structuralPlan = nil
+			if not ok then
+				error(err, 0)
+			end
 		end
 		-- LAST, after the solve, so a hook can read its own rect (see the queue's
 		-- declaration). Nothing has reached the screen yet: this whole call is

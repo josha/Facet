@@ -81,7 +81,8 @@
 	  | the skip count is not repaired from the tree          | 1 red    |
 	  | a served subtree's size is not counted                | 3 red    |
 	  | a pathless structural entry does not refuse           | 1 red    |
-	  | the root qualification ignores a moved stamp          | DOES NOT |
+	  | the root qualification ignores a moved stamp          | 1 red    |
+	  | the stamp is taken only when the CACHE is on          | 1 red    |
 
 	AND THREE OF THEM ONLY BITE BECAUSE THE CASE WAS CORRECTED. The re-created-subtree
 	case first gave its branch a FREE outer box, so the new build measured to a
@@ -91,14 +92,20 @@
 	reason. And the departed-finding case first used a finding the PARENT files about
 	the child, which a walked parent corrects by re-filing.
 
-	THE ROOT QUALIFICATION IS A RECORDED NULL RESULT and is kept. `plan.atRoot` plus a
-	moved measure stamp is the one pairing no route through the public API produces
-	today: every geometry and theme write solves inside its own settle phase, so the
-	stamp is already current by the time a structural `refresh` runs. The predicate is
-	driven directly instead (THE REFUSALS, below), and the renderer's half stays
-	because the day an env fact reaches a solve WITHOUT its own settle — a text-metrics
-	epoch flip is the standing candidate — a re-solve rooted at the solve root would be
-	rooted at an offer that had moved under it.
+	THE ROOT QUALIFICATION WAS A RECORDED NULL RESULT, AND THE ROUTE IT SAID DID NOT
+	EXIST HAS BEEN FOUND (RED-TEAM 2026-09-02). What this paragraph used to say is
+	that a moved measure stamp could not meet a structural refresh through the public
+	API, because every geometry and theme write solves inside its own settle phase —
+	and it named the exception it could not construct: "the day an env fact reaches a
+	solve WITHOUT its own settle — a text-metrics epoch flip is the standing
+	candidate". `text_metrics.calibrate` is exactly that seam: it moves every glyph
+	width with no env write, no dirty node and no solve of its own, so the very next
+	structural `refresh` solves against an offer that moved under it. THE ARM THAT
+	TURNS THE CACHE OFF (below) drives it, and driving it is what caught the
+	campaign's own defect — the stamp being computed only when the measure cache was
+	on, which made this refusal unfirable in the control arm five of these cases
+	compare against. The predicate is still ALSO driven directly (THE REFUSALS,
+	below), because a unit and a route are different evidence.
 ]]
 
 local t = require("./lib/testkit")
@@ -114,6 +121,9 @@ local device_views = require("./lib/device_views")
 local large_text = require("./lib/large_text")
 -- the module under test, driven directly for the two refusals no surface can reach
 local structural_scope = require("../src/render/structural_scope")
+-- the live seam that moves axis 3 with no env write and no solve of its own
+local text_metrics = require("../src/layout/text_metrics")
+local fs = require("@lune/fs")
 
 local function px(n: number): any
 	return { type = "fixed", px = n }
@@ -1120,6 +1130,199 @@ describe("P5's oracle: the surface is identical, step for step, arm for arm", fu
 		-- ...and the analysis disturbed neither the surface nor the store it reads
 		expect(controller.analyzeBoundaries().absorbingNodes).toBe(before + 3)
 		expect(core:lastError()).toBeNil()
+	end)
+end)
+
+--[[ ── THE ARM THAT TURNS THE CACHE OFF ─────────────────────────────────────
+	The oracle above runs `measureReuse`/`layoutNodeReuse` ON in every arm, because
+	what it isolates is the STRUCTURAL set. That left the differential's own control
+	arm unproven, and the control arm is where the RED-TEAM found the round's one
+	campaign-introduced defect (2026-09-02, HIGH 1): the stamp was computed inside
+	`if measureReuseEnabled`, so with the cache off `stampMoved` was a constant
+	`false` and the root qualification below could not refuse anything.
+
+	THIS IS THE ROUTE THE HEADER'S NULL RESULT SAID DID NOT EXIST, found. Every
+	geometry and theme write solves inside its own settle phase, so the stamp is
+	current by the time a structural `refresh` runs — but `text_metrics.calibrate`
+	is a live seam that moves every glyph width with no env write, no dirty node and
+	no solve of its own, which is precisely the "an env fact reaches a solve WITHOUT
+	its own settle" case that paragraph named as the standing candidate. ]]
+
+describe("P5 x the cache switch: the stamp refusal fires in EVERY arm", function()
+	local function stepNamed(needle: string): number
+		for i, step in SCRIPT do
+			if string.find(step.name, needle, 1, true) ~= nil then
+				return i
+			end
+		end
+		error(`no SCRIPT step named '{needle}'`, 0)
+	end
+
+	it("a calibration that dirties NOTHING still refuses the plan with measureReuse = false", function()
+		--[[ `a` is the shipped structural arm with the two caches OFF — the arm five
+			cases above compare against — and `c` reuses nothing at all. Both see the
+			calibration, because the text metrics are one module-level store: the claim
+			is that the surface that keeps its plan qualified lands where the surface
+			that solves everything lands. ]]
+		local a = world(true, true, false, { w = 400, h = 800 }, 12)
+		local c = world(false, false, false, { w = 400, h = 800 }, 12)
+		expect(snapshot(a)).toBe(snapshot(c))
+		local before = snapshot(a)
+
+		-- AXIS 3 MOVES WITH NOTHING DIRTY. No env write, no signal, no solve.
+		text_metrics.calibrate("BuilderSans", 0.36)
+		-- ...and the very next refresh carries STRUCTURAL dirt, which is the only kind
+		-- that can spend a plan
+		local structuralStep = stepNamed("a row is appended")
+		drive(a, structuralStep)
+		drive(c, structuralStep)
+		local afterA, afterC = snapshot(a), snapshot(c)
+		local partials = a.controller.stats().structuralPartialSolves
+		local boundary = a.controller.stats().lastStructuralBoundary
+		-- the store is module-level, so it is restored BEFORE the assertions rather
+		-- than after them: a failed expectation must not leak a calibration into the
+		-- next spec file
+		text_metrics.resetCalibration()
+
+		-- THE CASE IS NOT VACUOUS: the calibration really did move the geometry
+		expect(afterA ~= before).toBe(true)
+		-- ...and the refusal fired, so the arm landed on the full-solve answer
+		expect(afterA).toBe(afterC)
+		expect(partials).toBe(0)
+		expect(boundary).toBe(nil)
+	end)
+
+	it("...and the same arm DOES take the boundary-rooted road when the stamp has not moved", function()
+		--[[ THE CONTROL FOR THE CASE ABOVE. A refusal that fires on every structural
+			step would satisfy the assertions above and buy nothing, which is the shape
+			this repository has had to delete before. Same arm, same step, no
+			calibration: the plan is spent. ]]
+		local a = world(true, true, false, { w = 400, h = 800 }, 12)
+		drive(a, stepNamed("a row is appended"))
+		expect(a.controller.stats().structuralPartialSolves).toBe(1)
+		expect(a.controller.stats().lastStructuralBoundary ~= nil).toBe(true)
+	end)
+end)
+
+describe("P5 x a torn commit: refresh-scoped state does not outlive its refresh", function()
+	it("a commit that throws leaves NO plan for the next solve to spend", function()
+		--[[ RED-TEAM 2026-09-02. `refresh` sets `dirtyContains` and `structuralPlan`,
+			solves, and clears them on the line after — so an adapter that raises
+			mid-commit used to leave both live for whatever solved next.
+
+			THE NEXT SOLVE THAT SPENDS THEM IS AN ORDINARY LEAF REFRESH, and that is
+			the route this drives. `refresh`'s non-structural arm computes a fresh
+			`dirtyContains` and does NOT touch `structuralPlan` — it has never had to,
+			because the plan is cleared on the way out — so a torn structural refresh
+			left a plan that the next one-leaf frame spent: a boundary-rooted solve
+			claiming a boundary nothing dirtied this frame, `structuralPartialSolves`
+			counting it, and `structural_scope.widen` writing into a set the solve was
+			not using. MEASURED pre-fix on this fixture: `partial=2 boundary=/Scroll`
+			on a frame whose only dirt was one row's bound value.
+
+			IT IS NOT REACHABLE THROUGH A GEOMETRY WRITE, which is what masked it:
+			every `GEOMETRY_KEYS` fact — the viewport, the three inset facts, the
+			display size (through `typographyPaintScale`), both text scales and the
+			theme snapshot — also moves the measure stamp, and a moved stamp refuses
+			the plan for its own reasons. The refusal that saved it was a coincidence
+			of which facts happen to appear in the stamp. ]]
+		local vp = { w = 400, h = 800 }
+		local a = world(true, true, true, vp, 12)
+		local c = world(false, false, false, vp, 12)
+		-- the ORACLE is driven identically, throw included, so the comparison is
+		-- between two surfaces with the same history rather than between a torn one
+		-- and a clean one
+		for _, arm in { a, c } :: { Arm } do
+			local raw = arm.adapter.setRect
+			local writes = 0
+			arm.adapter.setRect = function(...)
+				writes += 1
+				if writes == 3 then
+					arm.adapter.setRect = raw
+					error("adapter blew up mid-commit", 0)
+				end
+				return raw(...)
+			end
+			local next_ = table.clone(arm.items)
+			local fresh = { id = "rTorn", n = arm.core:signal(77) }
+			table.insert(next_, fresh)
+			arm.items[#arm.items + 1] = fresh
+			arm.rows:set(next_)
+			expect(pcall(arm.controller.refresh)).toBe(false)
+		end
+		local engaged = a.controller.stats().structuralPartialSolves
+		-- ...and now ONE LEAF, which is not a structural change by any reading
+		for _, arm in { a, c } :: { Arm } do
+			arm.items[3].n:set(4242)
+			arm.controller.refresh()
+		end
+		expect(a.controller.stats().lastStructuralBoundary).toBe(nil)
+		expect(a.controller.stats().structuralPartialSolves).toBe(engaged)
+		--[[ THE SURFACES ARE NOT COMPARED, and that is the honest half. A commit that
+			threw is TORN: the writes after the raise never happened, and the rect pass
+			writes only what changed, so nothing repaints a node whose rect has not
+			moved since. What this case can claim is what the renderer still CARRIES —
+			no plan, no set, no boundary — which is what decides whether the frames
+			after the throw are solved correctly. The oracle arm is driven through the
+			same throw so the two histories match; its counter is the control. ]]
+		expect(c.controller.stats().structuralPartialSolves).toBe(0)
+		expect(c.controller.stats().lastStructuralBoundary).toBe(nil)
+	end)
+
+	it("the structural counter is written from the SOLVE, and a torn commit keeps it", function()
+		--[[ THE COUNTER'S BOUNDARY, stated as a case because it is a choice rather
+			than an accident (RED-TEAM 2026-09-02, finding 10). It used to be
+			incremented BEFORE `solver.solve` was called, alone among the stats in that
+			block; it is now written beside `partialSolves` from the finished solve. A
+			commit that throws AFTER the solve still counts — the solve happened, the
+			work was done, and every sibling counter says the same thing about the same
+			frame. ]]
+		local a = world(true, true, true, { w = 400, h = 800 }, 12)
+		local before = a.controller.stats().structuralPartialSolves
+		local raw = a.adapter.setRect
+		local writes = 0
+		a.adapter.setRect = function(...)
+			writes += 1
+			if writes == 3 then
+				a.adapter.setRect = raw
+				error("adapter blew up mid-commit", 0)
+			end
+			return raw(...)
+		end
+		local next_ = table.clone(a.items)
+		local fresh = { id = "rCount", n = a.core:signal(78) }
+		table.insert(next_, fresh)
+		a.items[#a.items + 1] = fresh
+		a.rows:set(next_)
+		expect(pcall(a.controller.refresh)).toBe(false)
+		expect(a.controller.stats().structuralPartialSolves).toBe(before + 1)
+	end)
+
+	it("...and the SOURCE says so: the counter is written from the result, not before it", function()
+		--[[ THE HALF THE CASE ABOVE CANNOT SEE. A commit that throws happens AFTER the
+			solve, so both placements count it and the driven case agrees with either.
+			What separates them is a solve that never returns — a throw inside
+			`solver.solve` — and nothing a spec can reach makes the solver raise on a
+			well-formed tree. So the placement is pinned where it is decided: ONE
+			increment, downstream of the call, beside the counters that are read off
+			`result.work`. ]]
+		local source = fs.readFile("src/render/renderer.luau")
+		local bumps = 0
+		for _ in string.gmatch(source, "stats%.structuralPartialSolves %+= 1") do
+			bumps += 1
+		end
+		expect(bumps).toBe(1)
+		local solveAt = string.find(source, "local result = solver.solve(", 1, true)
+		local bumpAt = string.find(source, "stats.structuralPartialSolves += 1", 1, true)
+		expect(solveAt ~= nil and bumpAt ~= nil).toBe(true)
+		expect(`counted after the solve: {(bumpAt :: number) > (solveAt :: number)}`).toBe(
+			"counted after the solve: true"
+		)
+		-- ...and it is beside the sibling it shares a boundary with, not somewhere else
+		-- downstream: `partialSolves` is written from `result.work` two lines up
+		local partialAt = string.find(source, "stats.partialSolves += 1", 1, true)
+		expect((partialAt :: number) < (bumpAt :: number)).toBe(true)
+		expect((bumpAt :: number) - (partialAt :: number) < 400).toBe(true)
 	end)
 end)
 
