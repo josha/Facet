@@ -23,8 +23,9 @@ export type Deps = {
 	the measure cache, so measure and arrange always agree on the winner.
 
 	A CANDIDATE IS JUDGED AT THE SIZE IT WOULD LIKE, NOT AT THE SIZE IT COULD BE
-	SQUEEZED INTO (ruling 2, 2026-08-14, director: "follow swiftui's behavior").
-	Apple's reference sentence for `ViewThatFits` is "it selects the first child
+	SQUEEZED INTO (ruling 2, 2026-08-14 — the director ruled: follow the reference
+	framework's behavior). The reference framework's own sentence for its
+	`ViewThatFits` is "it selects the first child
 	whose IDEAL SIZE on the constrained axes fits within the proposed size", and an
 	ideal size is what a view reports when nothing is proposed to it — so every
 	mechanism that makes a view smaller than that ideal (truncation, `lineLimit`,
@@ -35,10 +36,10 @@ export type Deps = {
 
 	WHAT IT REPLACES: PASS 1.5 made a candidate REPORT its squeezed extent, so a
 	candidate that could not fit "fit" and won. Swept 150-420px that flipped the
-	winner at 10 of 28 widths (which carries the SwiftUI citations this was decided on).
+	winner at 10 of 28 widths (which carries the reference citations this was decided on).
 
 	THE WINNER IS STILL SHRUNK — the flag is off again by the time the chosen
-	candidate is measured and arranged, which is SwiftUI's other half: the winner
+	candidate is measured and arranged, which is the reference rule's other half: the winner
 	receives its parent's real proposal. Picking is unshrunk; showing is not. ]]
 function candidate.choose(deps: Deps, ctx: any, node: any, availW: number, availH: number): number
 	local children = node.children or {}
@@ -100,7 +101,7 @@ function candidate.choose(deps: Deps, ctx: any, node: any, availW: number, avail
 			WRAPPING IS STILL FITTING. A candidate whose label reflows onto two lines
 			inside the offer is cut nowhere and still wins; only a candidate the
 			engine would ellipsize is refused. That is the narrow reading of
-			SwiftUI's ideal-size rule, and the one that leaves a prose candidate
+			the reference ideal-size rule, and the one that leaves a prose candidate
 			exactly where it was.
 
 			THE LAST CANDIDATE IS EXEMPT BY CONSTRUCTION: it is never probed (the
