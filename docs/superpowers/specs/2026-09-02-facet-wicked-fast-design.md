@@ -46,7 +46,7 @@ additions, all framework-neutral:
 `panel` minus `direction`, plus optional numeric `width`/`height` props (px). Children may be
 any kind incl. `list`.
 
-**`x` / `y` props** (px from the canvas's top-left, integers). Legal ONLY on a direct child of
+**`x` / `y` props** (px from the canvas's top-left, numeric px, floats allowed). Legal ONLY on a direct child of
 a `canvas`, or on the `template` root of a `list` whose parent is a `canvas`. Values are the
 usual `PropValue` (literal, `{ref}` state, `{item}` field). `scene.validate` rejects `x`/`y`
 anywhere else and rejects a `canvas` child that lacks both (a child with no position is a stack
