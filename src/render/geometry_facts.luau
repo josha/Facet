@@ -88,10 +88,6 @@ local geometry_facts = {}
 	is a MISSED re-solve, not an extra one: the surface goes silently deaf to
 	one platform fact. Refusing the shape costs nothing today (no fact has a
 	table-valued field) and makes the conservative claim literally true. ]]
--- ...and the comparison itself is `src/rect.luau`'s, from the reuse audit: the
--- same body
--- lived here and in `src/controls/selection_indicator.luau`, across a layer
--- boundary, with the indicator's copy carrying a comment naming this one.
 -- ...and the comparison itself is `src/rect.luau`'s, from the reuse audit: the same
 -- body lived here and in `src/controls/selection_indicator.luau`, across a layer
 -- boundary, with the indicator's copy carrying a comment naming this one.
@@ -104,31 +100,6 @@ local sameGeometryValue = rect.sameFlatValue
 	band-riding surface would re-solve on every flush. This walks exactly the four
 	fields the fact has, and an unknown fifth would compare as "changed", which is
 	the safe direction. ]]
-local function sameChrome(a: any, b: any): boolean
-	if a == nil or b == nil then
-		return a == b
-	end
-	if type(a) ~= "table" or type(b) ~= "table" then
-		return false
-	end
-	if not sameGeometryValue(a.band, b.band) then
-		return false
-	end
-	if not sameGeometryValue(a.insets, b.insets) or not sameGeometryValue(a.bandInsets, b.bandInsets) then
-		return false
-	end
-	local ar, br = a.rects, b.rects
-	if type(ar) ~= "table" or type(br) ~= "table" or #ar ~= #br then
-		return false
-	end
-	for i = 1, #ar do
-		if not sameGeometryValue(ar[i], br[i]) then
-			return false
-		end
-	end
-	return true
-end
-
 local function sameChrome(a: any, b: any): boolean
 	if a == nil or b == nil then
 		return a == b

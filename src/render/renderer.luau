@@ -2167,11 +2167,21 @@ function renderer.attach(
 							before `solveAndApply` so the re-solve already sees the
 							re-derived values instead of needing a third pass. ]]
 						if learned and not disposed then
-							-- ...AND THE WRITE MAY HAVE ALREADY SOLVED THIS SURFACE: the fact
-							-- is a GEOMETRY KEY, so it reaches this surface too and settles
-							-- synchronously when no flush is open. The counter decides rather
-							-- than the ordering — one solve per learned round, which
-							-- `tests/text_premeasure.spec.luau` pins.
+							--[[ ...AND THE WRITE MAY HAVE ALREADY SOLVED THIS SURFACE: the fact
+								is a GEOMETRY KEY, so it reaches this surface too, and with no
+								flush open it settles synchronously — the solve is done before
+								`env:set` returns. The counter decides rather than the ordering.
+
+								ONE SOLVE PER LEARNED ROUND ON EVERY ROUTE A SESSION TAKES, and
+								the exception is stated rather than implied: an answer delivered
+								INSIDE an open flush leaves the write in the core's `writeSet`,
+								so the settle runs after this line and the round costs two — the
+								inline solve here and the settle's. No shipped path does that
+								(a premeasurement answer arrives from the engine on its own
+								task, and the specs deliver from top level), which is why the
+								counter is the guard rather than a flag: it is right on the
+								route that exists and conservative on the one that does not.
+								`tests/text_premeasure.spec.luau` pins the shipped number. ]]
 							local solvesBefore = stats.solves
 							-- `env:get` answers the FACT's signal, so the current value is one
 							-- more `:get()` in (same shape as every other read in this file)

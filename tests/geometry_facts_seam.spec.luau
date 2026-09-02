@@ -44,6 +44,25 @@ local function stripComments(source: string): string
 	return out
 end
 
+--[[ EVERY MODULE-LEVEL DECLARATION, COUNTED, and `local function x` counts as a
+	declaration of `x` rather than of the keyword. That distinction is the whole check:
+	a scan that reads the name after `local` reports "function" for every helper in the
+	file, so two copies of one function collapse into a single meaningless tally — which
+	is how a verbatim duplicate shipped in this module's own first commit. ]]
+local function declarationCounts(source: string): { [string]: number }
+	local out: { [string]: number } = {}
+	local body = "\n" .. source
+	for name in string.gmatch(body, "\nlocal function ([%a_][%w_]*)") do
+		out[name] = (out[name] or 0) + 1
+	end
+	for name in string.gmatch(body, "\nlocal ([%a_][%w_]*)") do
+		if name ~= "function" then
+			out[name] = (out[name] or 0) + 1
+		end
+	end
+	return out
+end
+
 local function has(list: { string }, needle: string): boolean
 	for _, v in list do
 		if v == needle then
@@ -70,6 +89,55 @@ describe("the geometry-facts seam: one-way, one consumer, no state", function()
 
 	it("there is exactly ONE consumer of the module in src/", function()
 		expect(srcTree.pathsMatching('require%("[^"]*geometry_facts"%)')).toEqual({ RENDERER_PATH })
+	end)
+
+	it("every module-level local is DECLARED EXACTLY ONCE — a shadowed copy is a silent no-op", function()
+		--[[ THE RULE THE EXTRACTION ITSELF NEEDED (review round 2, 2026-09-02). The
+			split landed `sameChrome` TWICE, verbatim: the second declaration shadowed
+			the first, 837 bytes of the file were dead, and an editor changing the first
+			copy would have watched a correct edit do nothing. That is the silent-no-op
+			class this repository documents, and the case below could not see it —
+			counting names into a SET collapses two declarations into one, which is
+			exactly the shape that made the duplicate invisible. Declarations are
+			COUNTED here for that reason. ]]
+		local counts = declarationCounts(stripComments(fs.readFile(FACTS_PATH)))
+		local twice: { string } = {}
+		for name, n in counts do
+			if n > 1 then
+				table.insert(twice, `{name} x{n}`)
+			end
+		end
+		table.sort(twice)
+		expect(`declared more than once: {table.concat(twice, ", ")}`).toBe("declared more than once: ")
+		-- ...and the scan reached something, which is the trap an empty result invites
+		expect(counts.sameChrome).toBe(1)
+		expect(counts.BASE_KEYS).toBe(1)
+	end)
+
+	it("NEGATIVE CONTROL: the declaration count sees a second copy a set-scan collapses", function()
+		local text = "local alpha = 1\nlocal function beta()\nend\nlocal function beta()\nend\n"
+		local counts = declarationCounts(text)
+		expect(counts.beta).toBe(2)
+		expect(counts.alpha).toBe(1)
+		-- ...and it counts the NAME, not the keyword: a scan reading the word after
+		-- `local` records a declaration of "function" for every helper, which is the
+		-- blindness that let the duplicate through
+		expect(counts["function"]).toBe(nil)
+		--[[ ...AND HERE IS THE BLINDNESS ITSELF, driven rather than asserted. The scan
+			the reassignment case below uses reads the word after `local`, so on these
+			two declarations it records the KEYWORD and never the name: `beta` is not in
+			its set at all, twice over. A rule built on it could not have reported the
+			duplicate whatever it compared. ]]
+		local set: { [string]: boolean } = {}
+		for name in string.gmatch("\n" .. text, "\nlocal ([%a_][%w_]*)") do
+			set[name] = true
+		end
+		expect(set.beta).toBe(nil)
+		expect(set["function"]).toBe(true)
+		-- a `local` named inside a comment is not a declaration
+		local commented = declarationCounts(stripComments("-- local beta = 1\nlocal gamma = 2\n"))
+		expect(commented.beta).toBe(nil)
+		expect(commented.gamma).toBe(1)
 	end)
 
 	it("no module-level local is ever reassigned — two surfaces cannot see different lists", function()
