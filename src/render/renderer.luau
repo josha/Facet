@@ -41,6 +41,8 @@ local hit_lift = require("./hit_lift")
 local instance_boundary = require("./instance_boundary")
 local rect_pass = require("./rect_pass")
 local commit_walks = require("./commit_walks")
+-- the tap-echo guard and the arm dispatch beside it (the ledger's named seam)
+local tap_arm = require("./tap_arm")
 local autoscroll_bridge = require("./autoscroll_bridge")
 local chrome_slots = require("../tokens/chrome_slots")
 -- public drag/drop: the declaration channel and the per-surface
@@ -552,137 +554,17 @@ function renderer.attach(
 		dragSourceEnabled = dragSourceEnabled,
 		dragCollaborators = dragCollaborators,
 	})
-	-- ONE ACTIVATION PER PRESS, the platform verifier's ruling: a node carrying
-	-- both a drag detector and
-	-- a native Activated can hear the same press twice (the detector's release
-	-- synthesis for classes where the engine consumes the click; the native event
-	-- for classes where it does not — gamepad A is documented to deliver it).
-	-- Whichever signal arrives first wins; a second signal for the same path
-	-- inside the window is the same press echoing. 50 ms is far below any human
-	-- double-tap, so a real second tap is never eaten. Time rides the injectable
-	-- `now` collaborator so the suite drives this deterministically.
-	-- ONLY detector-carrying nodes can echo (they are the only nodes with two
-	-- signals per press); every other control dispatches unconditionally — a
-	-- toggle mashed twice in 40 ms is two real presses and must count twice.
-	local detectorTapGuard: { [string]: boolean } = {}
-	local lastNodeTapAt: { [string]: number } = {}
-	-- armOnTap sources by path (director round six): consulted by the shared tap
-	-- dispatch so a TAP on a declaring source ARMS instead of activating — the
-	-- touch paradigm's pickup. Registered with the source, cleared with it.
-	local armOnTapDecl: { [string]: boolean } = {}
-	local function tapArmsInstead(path: string, meta: any?): boolean
-		if armOnTapDecl[path] ~= true then
-			return false
-		end
-		-- action-source activates (gamepad A / Return) belong to the consumer's
-		-- onActivate — the armed paradigm already owns them
-		if type(meta) == "table" and meta.source == "action" then
-			return false
-		end
-		-- the registry exists whenever a source is registered (registerSource
-		-- built it), so a nil instance means no declaring source is mounted
-		local reg = dragBridge.peek()
-		if reg == nil then
-			return false
-		end
-		if reg.isActive() then
-			-- a live session: this tap means something else (put-back, a row
-			-- commit) and flows to the consumer unchanged
-			return false
-		end
-		local enabled = dragSourceEnabled[path]
-		if enabled ~= nil and not enabled() then
-			return false
-		end
-		return reg.arm(path) == true
-	end
-	--[[ AN ACTIVATE NOBODY ELSE WANTED, ON A DRAG SOURCE, IS THE PICKUP — the
-			keyboard-and-pad drag adaptation.
-
-		`drag_registry.luau`'s own header says "the non-pointer arm->navigate->commit
-		verbs all funnel into `beginSession`", and every piece of that path was
-		proven working when called directly — `arm`, `armTo`, `commit`. Nothing
-		called `arm`. The presenter only ever aimed an ALREADY-armed session, so the
-		public `UI.draggable` verb had no default gamepad or keyboard pickup at all:
-		with the card focused, ButtonA armed nothing and Return armed nothing (audit
-		the adaptation review's high-severity finding M-9).
-
-		THE RULE IS `newVirtualList`'S, HOISTED. That control already answers this
-		for its own rows — `grabOnActivate = reorderable and onActivate == nil`, "a
-		source with no consumer Activate arms on Activate" — and the reason the
-		public verb had none is that `renderer` excluded action-source activates
-		from the tap-arm path on the grounds that "they belong to the consumer's
-		`onActivate`; the armed paradigm already owns them". Nothing else owned
-		them, so they owned nothing.
-
-		"NO CONSUMER WANTED IT" IS DECIDED STRUCTURALLY, not predicted: the
-		presenter offers this LAST, after the node's own `onActivate`, after the
-		Toggle flip and after every contribution — so a `VirtualList` row, a Table
-		row and any control with its own Activate keep theirs untouched, and this
-		fires only on the Activates that would otherwise have been a no-op.
-
-		THE COMMIT IS ONLY EVER OURS. `armedHere` is set when THIS seam armed the
-		session, so a control-owned grab (a VirtualList row's) can never be
-		committed or cancelled by the generic path — its own contribution handles
-		both, and a session it armed is invisible here. ]]
-	local armedHere = false
-	local function armedBySeam(): boolean
-		local reg = dragBridge.peek()
-		if reg == nil or not reg.isActive() or reg.mode() ~= "armed" then
-			armedHere = false
-			return false
-		end
-		return armedHere
-	end
-	local function activateArms(path: string, meta: any?): boolean
-		-- POINTER activates never arm: a mouse lifts by travelling past the
-		-- promotion token and a tap has to stay a tap (`armOnTap` is the touch
-		-- paradigm's own opt-in, above). This is the non-pointer half only.
-		if type(meta) ~= "table" or meta.source ~= "action" then
-			return false
-		end
-		local reg = dragBridge.peek()
-		if reg == nil then
-			return false
-		end
-		if reg.isActive() then
-			-- the COMMIT half of arm->navigate->commit: the aim is wherever the
-			-- focus ring left it (the presenter's `armTo` follows focus), so the
-			-- drop lands on the thing the player is looking at
-			if not armedBySeam() then
-				return false
-			end
-			reg.commit()
-			armedHere = false
-			return true
-		end
-		local enabled = dragSourceEnabled[path]
-		if enabled ~= nil and not enabled() then
-			return false
-		end
-		-- `arm` refuses a path that is not a registered source, so this is also
-		-- the "is this a draggable?" test — one answer, in the registry
-		if reg.arm(path) ~= true then
-			return false
-		end
-		armedHere = true
-		return true
-	end
-
-	local TAP_ECHO_WINDOW = 0.05
-	local function dispatchNodeTapOnce(path: string): boolean
-		if not detectorTapGuard[path] then
-			return true
-		end
-		local clock = dragCollaborators.now or os.clock
-		local at = clock()
-		local last = lastNodeTapAt[path]
-		if last ~= nil and (at - last) < TAP_ECHO_WINDOW then
-			return false
-		end
-		lastNodeTapAt[path] = at
-		return true
-	end
+	--[[ ONE ACTIVATION PER PRESS, AND THE ARM DISPATCH BESIDE IT — extracted
+		2026-09-01 to `render/tap_arm.luau`, which is the seam this file's source-cap
+		ledger row has named since the drag bridge's second half left. The four
+		per-path records went with the code (three tables and the one reassigned
+		scalar `armedHere`, which is why the module hands back `disarm`); the three
+		names that cross do so by reference and none of them is reassigned. ]]
+	local tapArm = tap_arm.new({
+		dragBridge = dragBridge,
+		dragSourceEnabled = dragSourceEnabled,
+		dragCollaborators = dragCollaborators,
+	})
 	local stats = {
 		creates = 0,
 		removes = 0,
@@ -1194,8 +1076,8 @@ function renderer.attach(
 					if solverHidden[path] == true then
 						return
 					end
-					if dispatchNodeTapOnce(path) then
-						if tapArmsInstead(path, meta) then
+					if tapArm.dispatchNodeTapOnce(path) then
+						if tapArm.tapArmsInstead(path, meta) then
 							return
 						end
 						onNodeTap(path, meta)
@@ -1289,10 +1171,10 @@ function renderer.attach(
 				end
 				local registry = dragBridge.registry()
 				local unregisterSource = registry.registerSource(node.path, dragDecl)
-				armOnTapDecl[node.path] = dragDecl.armOnTap == true
+				tapArm.declareSource(node.path, dragDecl.armOnTap == true)
 				dragUnbind[node.path .. "\0drag"] = function()
 					dragSourceEnabled[node.path] = nil
-					armOnTapDecl[node.path] = nil
+					tapArm.forgetSource(node.path)
 					unregisterSource()
 				end
 				-- ACQUISITION, IN PREFERENCE ORDER: the engine's own detector when
@@ -1328,9 +1210,9 @@ function renderer.attach(
 						and onNodeTap ~= nil
 						and TAPPABLE[tapClass]
 						and (tapNode.props == nil or tapNode.props.enabled ~= false)
-						and dispatchNodeTapOnce(tapPath)
+						and tapArm.dispatchNodeTapOnce(tapPath)
 					then
-						if not tapArmsInstead(tapPath, nil) then
+						if not tapArm.tapArmsInstead(tapPath, nil) then
 							onNodeTap(tapPath, { via = "dragDetectorTap" })
 						end
 					end
@@ -1338,11 +1220,10 @@ function renderer.attach(
 				local detach = dragBridge.attachDetector(node.path, handlers)
 				if detach ~= nil then
 					dragAcquiredNatively = true
-					detectorTapGuard[node.path] = true
+					tapArm.guardDetector(node.path)
 					local rawDetach = detach
 					detach = function()
-						detectorTapGuard[node.path] = nil
-						lastNodeTapAt[node.path] = nil
+						tapArm.forgetDetector(node.path)
 						rawDetach()
 					end
 					dragUnbind[node.path .. "\0det"] = detach
@@ -3455,11 +3336,11 @@ function renderer.attach(
 		and never a grab some control owns. Both answer false when there is nothing
 		of ours to act on, which is what keeps them out of every other route. ]]
 	function controller.activateArms(path: string, meta: any?): boolean
-		return activateArms(path, meta)
+		return tapArm.activateArms(path, meta)
 	end
 
 	function controller.cancelArmed(reason: string?): boolean
-		if not armedBySeam() then
+		if not tapArm.armedBySeam() then
 			return false
 		end
 		-- `armedBySeam` above has already proved a live session exists, which is what
@@ -3468,7 +3349,7 @@ function renderer.attach(
 		-- on whatever precedes it (P4 review, folded minor 7).
 		local live = dragBridge.peek() :: any
 		live.cancel(reason or "cancelVerb")
-		armedHere = false
+		tapArm.disarm()
 		return true
 	end
 
@@ -3659,10 +3540,10 @@ function renderer.attach(
 		if onNodeTap == nil then
 			return nil
 		end
-		if not dispatchNodeTapOnce(target) then
+		if not tapArm.dispatchNodeTapOnce(target) then
 			return nil
 		end
-		if tapArmsInstead(target, { via = "forwardedTap" }) then
+		if tapArm.tapArmsInstead(target, { via = "forwardedTap" }) then
 			return target
 		end
 		onNodeTap(target, { via = "forwardedTap" })

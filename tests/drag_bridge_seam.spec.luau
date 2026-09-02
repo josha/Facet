@@ -48,6 +48,9 @@ local describe, it, expect = t.describe, t.it, t.expect
 local fs = require("@lune/fs")
 -- every `.luau` under `src/`, walked recursively (see the one-consumer case)
 local src_tree = require("./lib/src_tree")
+-- the renderer AS ITS PARTS: the accessor count below is taken over all of them,
+-- because P5's Phase 0 moved three counted call sites into `render/tap_arm.luau`
+local renderer_source = require("./lib/renderer_source")
 
 local customFactory = require("../src/core/custom")
 local UI = require("../src/blueprint")
@@ -334,8 +337,18 @@ describe("the drag-bridge seam: EXPORTED == USED, one consumer, one-way require"
 
 			A prose count nobody recounts is a prose count that drifts, so it is pinned
 			here instead: the numbers below are what the renderer actually contains, and
-			the header has to move with them. ]]
-		local body = stripComments(rendererSource)
+			the header has to move with them.
+
+			COUNTED OVER THE WHOLE RENDERER, NOT OVER `renderer.luau` (2026-09-01, perf
+			campaign P5's Phase 0). The tap-echo guard and the arm dispatch left for
+			`render/tap_arm.luau` and took THREE of the seven `peek()` calls with them —
+			the first split to move a line this file COUNTS rather than one it names.
+			The split did not change the accessor split by one call, so the number must
+			not move either, and the only reading of "the renderer" under which it does
+			not is `tests/lib/renderer_source`'s: every part, joined. That library exists
+			for exactly this failure and its header's own rule is ADD A PART WHENEVER
+			MORE OF THE RENDERER MOVES OUT. ]]
+		local body = stripComments(renderer_source.all())
 		local counts: { [string]: number } = { peek = 0, registry = 0, attachDetector = 0, dispose = 0 }
 		for name in string.gmatch(body, "dragBridge%.([%a_][%w_]*)%(") do
 			if counts[name] ~= nil then

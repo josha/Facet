@@ -697,6 +697,7 @@ require("./drag_public.spec")
 -- said needed a record now has exactly one owner, `peek` may never build and the z
 -- table crosses by reference
 require("./drag_bridge_seam.spec")
+require("./tap_arm_seam.spec")
 -- row actions: pure swipe state decisions for row-action composites
 require("./row_actions_state.spec")
 -- row actions: the newRowActions composite skeleton (spec, lazy trays, static reveal)

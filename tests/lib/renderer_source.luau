@@ -18,8 +18,9 @@
 	(`render/prop_channels.luau`), the ordered rect apply
 	(`render/rect_pass.luau`), the commit walks
 	(`render/commit_walks.luau`), the drag-to-edge autoscroll bridge
-	(`render/autoscroll_bridge.luau`) and the drag bridge's registry half
-	(`render/drag_bridge.luau`).
+	(`render/autoscroll_bridge.luau`), the drag bridge's registry half
+	(`render/drag_bridge.luau`) and the tap-echo guard with the arm dispatch beside
+	it (`render/tap_arm.luau`).
 
 	ADD A PART HERE WHENEVER MORE OF THE RENDERER MOVES OUT — otherwise the pins
 	quietly stop seeing the code they name, which is the failure this file exists
@@ -77,6 +78,15 @@ local PARTS = {
 		`rect_pass.luau` is: a part missing from an instrument is only ever discovered
 		by the pin that needed it. ]]
 	"src/render/drag_bridge.luau",
+	--[[ ...and the TAP-ECHO GUARD WITH THE ARM DISPATCH (2026-09-01, perf campaign
+		P5's Phase 0): `dispatchNodeTapOnce`, `tapArmsInstead`, `activateArms`,
+		`armedBySeam` and the four per-path records they own. It carries no
+		`adapter.setProp(` and no `setRect(`, but it DOES carry three of the seven
+		`dragBridge.peek()` calls the drag-bridge seam spec counts from this text —
+		which is the first time a split has moved a COUNTED line rather than a named
+		one, and the reason that count is taken over the PARTS instead of over
+		`renderer.luau` alone. ]]
+	"src/render/tap_arm.luau",
 }
 
 local renderer_source = {}
