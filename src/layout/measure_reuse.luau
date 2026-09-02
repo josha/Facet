@@ -37,9 +37,18 @@
 	`arrange` refuses to skip. A node absent from it has no layout dirt on itself or
 	on any descendant. A node present in it — and every ancestor of every dirty node
 	is — gets a FRESH slate, which is also what drops its stale entries. A solve with
-	no reuse set at all (a structural change, a feedback re-solve, the first solve)
-	adopts nothing; the renderer clears the whole store for those, because a structural
-	change can move different content under the same path.
+	no reuse set at all (a feedback re-solve, the first solve, a REFUSED structural
+	one) adopts nothing and the renderer clears the whole store for it.
+
+	**A STRUCTURAL CHANGE IS NO LONGER ONE OF THOSE (perf campaign P5), and the reason
+	this paragraph used to name it is the reason `forget` below exists.** A structural
+	change can move different content under the SAME path — a `When` toggled off and
+	on inside one flush, a `ForEach` key removed and re-added by two writes of it — and
+	that path never leaves the tree, so no removal sweep sees it. A structural solve
+	now gets a reuse set (`render/structural_scope.luau`) and pays for it by dropping
+	the slate of every id `layout_node.build` CONSTRUCTED, which is exactly the set
+	whose identity or props may have moved; with the node store off there is no smaller
+	set to name and the whole store still goes.
 
 	AXIS 3 — WHAT CHANGED AROUND IT. Everything a measure reads that is neither the
 	node nor the offer is solve-WIDE: the viewport, the safe insets, the root policy,
@@ -96,6 +105,27 @@ function measure_reuse.clear(store: Store)
 	table.clear(store.byId)
 	table.clear(store.ctr)
 	table.clear(store.n)
+end
+
+--[[ ONE PATH'S SLATE, DROPPED (perf campaign P5). Two callers, and they are the two
+	halves of the invalidation boundary a structural partial solve needs — see
+	`render/structural_scope.luau`, which owns the argument:
+
+	  * the renderer's REMOVAL SWEEP, beside the nine other per-path records it
+	    already owns. A path that leaves takes its slate with it, or a `ForEach` that
+	    mints fresh keys grows this store for the life of the surface;
+	  * every id `layout_node.build` CONSTRUCTED on a structural build — the nodes
+	    whose identity or props may have moved, which is the set axis 1's warning
+	    ("a structural change can move different content under the same path") is
+	    actually about.
+
+	Axis 1 is unchanged and so is its reason: a solve with NO reuse set still adopts
+	nothing and still clears the whole store. This is the narrower answer for the
+	solve that now HAS one. ]]
+function measure_reuse.forget(store: Store, id: string)
+	store.byId[id] = nil
+	store.ctr[id] = nil
+	store.n[id] = nil
 end
 
 -- Re-stamp the store with this solve's solve-wide inputs; clears it (and returns

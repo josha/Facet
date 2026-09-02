@@ -295,6 +295,15 @@ local function toLayoutNode(
 		hstack to a vstack, or first appearing under a `scroll` — so they are checked
 		here, per node, and stored rather than derived because a cache hit must not have
 		to walk up to find out where it is. ]]
+	--[[ THE SUBTREE'S OWN SIZE, ACCUMULATED (perf campaign P5). `store.nodes` counts
+		the layout nodes this build's tree HAS — constructed ones one at a time, served
+		ones by the size their entry recorded — so the total is exact without walking a
+		served subtree, which is the whole point of serving it. It is the number
+		`solver.solve` derives `work.skipped` from by subtraction, and that derivation
+		reads the PREVIOUS solve's totals: while every structural change forced a full
+		solve the chain was re-based every time the node count moved, and P5 removed
+		that reset. See the renderer's repair beside `stats.lastSkipped`. ]]
+	local nodesAtEntry = if store ~= nil then store.nodes else 0
 	if store ~= nil then
 		--[[ `store.reuse == false` IS THE COUNT-ONLY ARM, and it exists so the
 			differential oracle's control is an honest pre-fix build (P3 review, I2).
@@ -311,10 +320,24 @@ local function toLayoutNode(
 				and hit.axis == parentAxis
 				and hit.clip == (insideClipper == true)
 			then
+				store.nodes += hit.n
 				return hit.built
 			end
 		end
 		store.built += 1
+		store.nodes += 1
+		--[[ ...AND WHICH ONES (perf campaign P5), when the caller asked. A node reaches
+			this line only when the lookup above refused it: a different mounted TABLE, a
+			path in `dirty`, or a moved axis/clip. So this list is exactly "the nodes
+			whose identity or props may have moved", and its COMPLEMENT — the nodes this
+			build SERVED — is the only honest licence to skip a subtree on a structural
+			solve. `render/structural_scope` spends it twice, on the reuse set and on
+			`layout/measure_reuse`'s slates. Collected only when `builtIds` is non-nil,
+			i.e. only on the builds that spend it. ]]
+		local ids = store.builtIds
+		if ids ~= nil then
+			table.insert(ids, node.path)
+		end
 	end
 	local class = node.class
 	local props = node.props or {} -- structural regions carry no user props
@@ -1365,7 +1388,8 @@ local function toLayoutNode(
 		-- LAST, so a node that threw builds no entry. `axis`/`clip` are recorded
 		-- beside the tree because they are the two inputs the lookup above cannot
 		-- re-derive from the node it is holding.
-		store.byNode[node] = { built = layoutNode, axis = parentAxis, clip = insideClipper == true }
+		store.byNode[node] =
+			{ built = layoutNode, axis = parentAxis, clip = insideClipper == true, n = store.nodes - nodesAtEntry }
 	end
 	return layoutNode
 end
@@ -1483,6 +1507,11 @@ export type Store = {
 	-- nodes CONSTRUCTED by the last build. The P3 demonstrator: a clean re-solve is
 	-- 0 and a one-leaf update is bounded by the touched closure, where both were N.
 	built: number,
+	-- ...and their PATHS, when the caller asked for them (P5). `nil` on every build
+	-- that does not spend the list, which is all of them but the structural ones.
+	builtIds: { string }?,
+	-- every layout node the last build's TREE holds, constructed or served (P5)
+	nodes: number,
 	-- false makes this a COUNT-ONLY store: no lookup, no write, no entry. The
 	-- oracle's honest pre-fix control (see the count-only arm in `toLayoutNode`).
 	reuse: boolean,
@@ -1501,6 +1530,8 @@ function layout_node.newStore(reuse: boolean?): Store
 		byNode = setmetatable({}, WEAK_KEYS),
 		dirty = {},
 		built = 0,
+		builtIds = nil,
+		nodes = 0,
 		reuse = reuse ~= false,
 	}
 end
@@ -1517,8 +1548,15 @@ function layout_node.build(
 	metrics: any,
 	textScale: number,
 	prefOffset: number,
-	dirty: { [string]: boolean }?
+	dirty: { [string]: boolean }?,
+	collect: boolean?
 ): solver.Node
+	--[[ P5's list, armed per BUILD rather than per store, and reset here so it can
+		never describe an earlier one. A COUNT-ONLY store fills it with every node, and
+		that is correct rather than wasteful: the caller's set then covers the whole
+		tree, nothing is skipped and every slate is dropped, which is exactly the
+		pre-P5 full solve. See `render/structural_scope.widen`. ]]
+	store.builtIds = if collect == true then {} else nil
 	if store.reuse then
 		-- axis 3 by identity and by value; `metrics` is the APPLIED snapshot, never a
 		-- string derived from it (see `Store.metrics`)
@@ -1538,6 +1576,7 @@ function layout_node.build(
 		end
 	end
 	store.built = 0
+	store.nodes = 0
 	return toLayoutNode(node, metrics, textScale, prefOffset, nil, nil, store)
 end
 

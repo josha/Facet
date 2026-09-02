@@ -117,7 +117,23 @@ function rect_pass.new(ctx: any)
 				end
 				applyOne(node.path, entry)
 			end
-			if recording then
+			--[[ ...AND ONLY FOR A NODE THIS COMMIT COULD ACTUALLY COMMIT (P5). Every
+				write in the span — this one, the six walks' — is guarded on
+				`handles[path]`, so a node with no handle yet is one the commit made NO
+				write for. Recording it anyway says "committed with this entry" about an
+				entry nothing was spent on, and the next commit then prunes it forever.
+
+				REACHABLE, AND P5 IS WHAT MADE IT SO. A settle-phase solve and the
+				feedback re-solve both run WITHOUT a structural sync, so a node mounted
+				this frame is already in the tree the solver walks and not yet in
+				`handles`. Before P5 the structural refresh that followed did a FULL
+				solve into a FRESH map, so every entry was a new table, nothing matched
+				and the rect landed. P5 hands the entry forward instead, `skip` finds
+				`lastCommitEntry == entry`, and the node keeps last frame's rect for as
+				long as its geometry does not move again. MEASURED: the Table's
+				collapsed-column chip (`tests/table_input.spec`) mounted with NO RECT
+				AT ALL — `chip.rect` nil — and six cases across two files went red. ]]
+			if recording and handles[node.path] ~= nil then
 				scope.note(node)
 			end
 			for _, child in node.children do
@@ -129,10 +145,13 @@ function rect_pass.new(ctx: any)
 			between the solve and the apply. Order cannot matter for one of these: it
 			has no live ancestor to be relative to.
 
-			SKIPPED ENTIRELY ON A PRUNED COMMIT, and the reason is the prune's own
-			precondition rather than an optimisation: the renderer arms it only for a
-			REUSE solve, which it gives only when the tree's shape did not move, so
-			every key in the map belongs to a live path. Running the sweep anyway would
+			SKIPPED ENTIRELY ON A PRUNED COMMIT, and the reason is a PREMISE ABOUT THE
+			MAP rather than an optimisation: every key in it belongs to a live path.
+			That used to be free — the renderer armed the prune only for a REUSE solve
+			and gave one only when the tree's shape had not moved. **P5 gives one for an
+			add/remove/reorder too, and pays for the premise where it is now spendable:
+			`renderer`'s removal sweep deletes a departed path's rect entry beside the
+			nine other per-path records it owns.** Running the sweep anyway would
 			re-apply every subtree the walk had just proved it could leave alone —
 			O(N), which is the term this fix exists to remove. ]]
 		if applied ~= nil then

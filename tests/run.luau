@@ -49,6 +49,7 @@ require("./node_reuse.spec")
 -- canvas), the hide a clean subtree has to inherit, and the census that licenses the
 -- predicate
 require("./commit_scope.spec")
+require("./structural_scope.spec")
 -- ...and the audit that relates the two files P1's CRITICAL 1 fell between: every
 -- `props.<name>` layout_node reads, walked against that prop's declared dirty classes,
 -- because a solver-consumed prop declared paint-only is a geometry change no solve

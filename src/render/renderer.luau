@@ -41,6 +41,9 @@ local hit_lift = require("./hit_lift")
 local instance_boundary = require("./instance_boundary")
 local rect_pass = require("./rect_pass")
 local commit_walks = require("./commit_walks")
+-- the structural half of the reuse bargain (P5): the boundary that qualifies a
+-- partial solve for an add/remove/reorder, and what such a solve must invalidate
+local structural_scope = require("./structural_scope")
 -- the tap-echo guard and the arm dispatch beside it (the ledger's named seam)
 local tap_arm = require("./tap_arm")
 local autoscroll_bridge = require("./autoscroll_bridge")
@@ -182,6 +185,10 @@ export type RendererAttachOpts = {
 	-- whole tree, so a divergence names THIS prune and not the three stores under it.
 	-- See `render/commit_walks.harvest`.
 	commitScope: boolean?,
+	-- BOUNDARY-ROOTED STRUCTURAL SOLVES (P5), default ON, and the switch is here for
+	-- the same reason the three above have one: off restores the pre-P5 branch exactly
+	-- (an add/remove/reorder takes a full solve). See `render/structural_scope.luau`.
+	structuralReuse: boolean?,
 }
 
 local ATTACH_OPTS_KEYS = specGuard.keySet({
@@ -196,6 +203,7 @@ local ATTACH_OPTS_KEYS = specGuard.keySet({
 	"measureReuse",
 	"layoutNodeReuse",
 	"commitScope",
+	"structuralReuse",
 })
 
 -- attach(core, mountedRoot, env, adapter, opts) -> controller
@@ -611,6 +619,11 @@ function renderer.attach(
 		-- ...and what the solve had to BUILD (P3): `solver.Node`s constructed by the
 		-- last `layout_node.build`. 0 on a re-solve nothing dirtied, where it was N.
 		lastNodeBuilds = 0,
+		-- ...and the STRUCTURAL half (P5): add/remove/reorder solves that were
+		-- boundary-rooted rather than full, and the PATH the last one was rooted at
+		-- (nil = refused, or none yet).
+		structuralPartialSolves = 0,
+		lastStructuralBoundary = nil :: string?,
 	}
 	local lastDiagnostics: { any } = {}
 	-- the last solve's composition resolutions, by node path. A solve
@@ -1579,6 +1592,21 @@ function renderer.attach(
 	-- whole tree to spend a solve that touched five nodes. `render/commit_walks`
 	-- carries the predicate, the numbers and the two walks that cannot use it.
 	local commitScopeEnabled = opts == nil or (opts :: any).commitScope ~= false
+	-- ...AND THE STRUCTURAL HALF (P5): all four of the above are armed by ONE thing, a
+	-- `reuse` set, and `refresh` refused to build one the moment any dirty entry was
+	-- `structure`. `render/structural_scope` carries the boundary, the invalidation
+	-- and the numbers. `solvedPathsDeparted` is the removal sweep's arm for its tail;
+	-- the two accessors are hoisted so a structural frame allocates no closure.
+	local structuralReuseEnabled = opts == nil or (opts :: any).structuralReuse ~= false
+	local structuralPlan: structural_scope.Plan? = nil
+	local solvedPathsDeparted = false
+	local function parentNodeAt(path: string): any
+		return parentNodeOf[path]
+	end
+	local function layoutNodeOf(node: any): any
+		local entry = nodeStore.byNode[node]
+		return if entry ~= nil then entry.built else nil
+	end
 
 	-- `controller.onSolved` listeners: run at the tail of every OUTERMOST solve.
 	-- The presenter uses exactly one of these, to feed solved geometry to the
@@ -1849,7 +1877,38 @@ function renderer.attach(
 			nodeDirty = nil
 			nodeDirtySeen = root.dirtySeq()
 		end
-		local layoutRoot = layout_node.build(nodeStore, root.node, metrics, measureScale, prefOffset, nodeDirty)
+		-- THE STAMP IS READ BEFORE THE REUSE DECISION (P5), where it used to be read
+		-- after it; nothing else about it moved. It is axis 3 of the measure store AND
+		-- the SOLVE ROOT'S OWN OFFER, which is what a plan rooted at the root has to be
+		-- qualified against (`render/structural_scope`).
+		local stampMoved = false
+		if measureReuseEnabled then
+			stampMoved = measure_reuse.restamp(
+				measureStore,
+				`{vp.w}|{vp.h}|{insets.top}|{insets.bottom}|{insets.left}|{insets.right}|{rootPolicy}|{barReserve}`
+					.. `|{if band ~= nil then `{band.x},{band.y},{band.w},{band.h}` else "-"}|{bandFullTop}`
+					.. `|{tostring(metrics)}|{measureScale}|{prefOffset}|{text_metrics.epoch()}`
+			)
+		end
+		-- THE STRUCTURAL QUALIFICATION: the one refusal the plan itself could not see.
+		local structural = structuralPlan
+		if
+			structural ~= nil and (not incrementalEnabled or lastResult == nil or (structural.atRoot and stampMoved))
+		then
+			structural = nil
+			dirtyContains = nil
+		end
+		stats.lastStructuralBoundary = if structural ~= nil then structural.boundary else nil
+		-- ...and the ids this build CONSTRUCTS are collected only when a structural
+		-- partial solve is about to spend them (`structural_scope.widen`, below).
+		local layoutRoot =
+			layout_node.build(nodeStore, root.node, metrics, measureScale, prefOffset, nodeDirty, structural ~= nil)
+		-- ...and THE OTHER HALF OF THE STRUCTURAL SET: the ancestor closure cannot see
+		-- a subtree a region RE-CREATED under a path that never left, and the ids this
+		-- build constructed are exactly that. `structural_scope.widen` owns the claim.
+		if structural ~= nil then
+			structural_scope.widen(structural.contains, nodeStore.builtIds)
+		end
 		-- ...and the COMMIT reads the same set (P4), for the same reason: its walks run
 		-- over the mounted tree too. Held before the reset rather than re-derived.
 		local builtDirty = nodeDirty
@@ -1877,28 +1936,29 @@ function renderer.attach(
 			-- this solve covered `dirtyContains` and skipped the rest, so it cannot
 			-- answer for the whole queue (see `fullSolveSeq`)
 			solvedEverything = false
+			if structural ~= nil then
+				stats.structuralPartialSolves += 1
+			end
 		end
 		if measureReuseEnabled then
-			-- AXIS 3: every measure input that is neither the node nor the offer. None
-			-- of them dirties a node, so `dirtyContains` cannot catch one; any move
-			-- here wipes the store. `metrics` compares by IDENTITY (one env-held
-			-- snapshot per theme) and `text_metrics.epoch()` is the only number that
-			-- sees a width OVERWRITTEN — the boot-window font flip.
-			measure_reuse.restamp(
-				measureStore,
-				`{vp.w}|{vp.h}|{insets.top}|{insets.bottom}|{insets.left}|{insets.right}|{rootPolicy}|{barReserve}`
-					.. `|{if band ~= nil then `{band.x},{band.y},{band.w},{band.h}` else "-"}|{bandFullTop}`
-					.. `|{tostring(metrics)}|{measureScale}|{prefOffset}|{text_metrics.epoch()}`
-			)
-			-- A SOLVE WITH NO REUSE SET REBUILDS THE STORE. The structural case forces
-			-- it: the shape moved, so one path can now carry different content and a
-			-- slate keyed by path would answer for the node that used to be there.
+			-- AXIS 3 was stamped above, and A SOLVE WITH NO REUSE SET REBUILDS THE
+			-- STORE. A structural one that HAS a set needs no second invalidation: the
+			-- set names every node the build constructed (`structural_scope.widen`), and
+			-- `adopt` reads that same set for its `reusable` argument, so a named node
+			-- is handed a fresh slate by the call that gives it somewhere to write.
 			if solveOpts.reuse == nil then
 				measure_reuse.clear(measureStore)
 			end
 			solveOpts.measures = measureStore
 		end
 		local result = solver.solve(layoutRoot, { w = vp.w, h = vp.h }, solveOpts)
+		-- THE SKIP COUNT, REPAIRED FROM THE TREE THAT WAS SOLVED rather than from the
+		-- previous solve's totals (P5): a full solve used to re-base that induction at
+		-- every structural change and no longer does. `structural_scope`'s "WHAT
+		-- `work.skipped` MEANS NOW" has it, and what it leaves alone.
+		if result.work ~= nil then
+			result.work.skipped = math.max(0, nodeStore.nodes - (result.work.arranged or 0))
+		end
 		if result.work ~= nil and (result.work.skipped or 0) > 0 then
 			stats.partialSolves += 1
 			stats.lastSkipped = result.work.skipped
@@ -2428,6 +2488,17 @@ function renderer.attach(
 				hiddenRoots[path] = nil
 				lastCompositions[path] = nil
 				lastTextFacts[path] = nil
+				-- ...and the two the SOLVE keeps (P5), which this sweep could ignore only
+				-- while a structural change forced a fresh rect map: the measure SLATE,
+				-- and the rect ENTRY — where `rect_pass.apply`'s "every key in the map
+				-- belongs to a live path" is paid for.
+				if structuralReuseEnabled then
+					measure_reuse.forget(measureStore, path)
+					if lastResult ~= nil then
+						lastResult.rects[path] = nil
+						solvedPathsDeparted = true
+					end
+				end
 				-- THE LIFETIME HOOK, queued rather than called. Called here it would run
 				-- inside the sweep's own iteration over `handles` and inside the `mount`
 				-- profiler span; both are wrong, and the first is a live-mutation hazard
@@ -2459,6 +2530,13 @@ function renderer.attach(
 				channel.forgetPath(path)
 				stats.removes += 1
 			end
+		end
+		-- ...and the FINDINGS whose filer left with them (P5): `solve` replays the last
+		-- solve's diagnostics for every node it did not walk, so once the map stops
+		-- being rebuilt a departed node's finding is replayed forever.
+		if solvedPathsDeparted and lastResult ~= nil then
+			solvedPathsDeparted = false
+			structural_scope.sweepDiagnostics(lastResult)
 		end
 		local _t4 = os.clock()
 		syncZOrder()
@@ -2897,12 +2975,15 @@ function renderer.attach(
 			needsSolve = true
 		end
 		if needsSolve then
-			-- A STRUCTURAL change clears the dirty set: the tree's shape moved, so the
-			-- last solve's rects are not a safe base to splice onto.
-			-- A STRUCTURAL change gives no reuse set at all: the tree's shape moved, so
-			-- last solve's rects are not a safe base for anything.
+			--[[ A STRUCTURAL change is BOUNDARY-ROOTED (P5) where it can be and takes
+				the pre-P5 full solve where it cannot: same set, built the same way — the
+				ancestor closure below, widened to the `structure` class — and a `nil`
+				plan IS the old branch. `render/structural_scope` owns the argument. ]]
 			if needsStructure then
-				dirtyContains = nil
+				structuralPlan = if structuralReuseEnabled
+					then structural_scope.plan(dirty, root.node.path, parentNodeAt, layoutNodeOf)
+					else nil
+				dirtyContains = if structuralPlan ~= nil then structuralPlan.contains else nil
 			else
 				-- THE ANCESTOR CLOSURE. A node may be skipped only if NOTHING inside it
 				-- is dirty, so the set handed to the solver is every dirty node plus
@@ -2930,6 +3011,7 @@ function renderer.attach(
 			-- the set belongs to THIS refresh; a re-entrant solve (text measurement, an
 			-- env observer) must not reuse it, and gets a full solve instead
 			dirtyContains = nil
+			structuralPlan = nil
 		end
 		-- LAST, after the solve, so a hook can read its own rect (see the queue's
 		-- declaration). Nothing has reached the screen yet: this whole call is
