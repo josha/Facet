@@ -32,13 +32,20 @@
 	holding keys it can hit — warmer, never wrong, since its `ctx` is fresh either way.
 
 	AXIS 2 — WHAT CHANGED INSIDE THE NODE. A slate may only be adopted when this
-	solve can prove nothing under that node moved, and that proof already exists:
-	`reuse.dirtyContains` is the dirty set closed over ancestors, i.e. exactly the set
-	`arrange` refuses to skip. A node absent from it has no layout dirt on itself or
-	on any descendant. A node present in it — and every ancestor of every dirty node
-	is — gets a FRESH slate, which is also what drops its stale entries. A solve with
-	no reuse set at all (a feedback re-solve, the first solve, a REFUSED structural
-	one) adopts nothing and the renderer clears the whole store for it.
+	solve can prove nothing under that node moved, and that proof already exists as a
+	dirty set closed over ancestors. **WHICH SET IT IS NARROWED AT wicked-fast O2, and
+	the distinction is the whole of that task.** `reuse.dirtyContains` is every class
+	of layout dirt and is what `arrange` refuses to skip; `reuse.measureContains` is
+	the same closure over `measure`-classed dirt ALONE, and it is what the caller
+	passes as `reusable` below. The two differ because `arrange` and `adopt` are
+	asking different questions: `offsetX`, `anchor` and the six other arrange-only
+	props move a node without changing any measurement (proved by mounting every one
+	of them — `tests/layout_prop_dirt.spec.luau`), so a step that only moves things
+	must not cost a slate. A node absent from the measure set has no MEASURE dirt on
+	itself or on any descendant. A node present in it gets a FRESH slate, which is
+	also what drops its stale entries. A solve with no reuse set at all (a feedback
+	re-solve, the first solve, a REFUSED structural one) adopts nothing and the
+	renderer clears the whole store for it.
 
 	**A STRUCTURAL CHANGE IS NO LONGER ONE OF THOSE (perf campaign P5), and the reason
 	this paragraph used to name it is the reason `forget` below exists.** A structural
