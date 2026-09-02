@@ -5,7 +5,7 @@
   "phases": "phases.json",
   "suiteResults": "suite_real.json"
  },
- "maintainedAt": "2026-09-01T18:12:55Z",
+ "maintainedAt": "2026-09-02T09:20:00Z",
  "phases": [
   {
    "artifactDir": "artifacts/phase-0-foundation",
@@ -14980,7 +14980,7 @@
      "commit_walks_seam::the commit-walk seam: READ == DECLARED == PASSED::every field `CommitCtx` declares is one the module actually reads",
      "commit_walks_seam::the commit-walk seam: READ == DECLARED == PASSED::every field `CommitCtx` declares is one the renderer actually PASSES",
      "commit_walks_seam::the commit-walk seam: READ == DECLARED == PASSED::NEGATIVE CONTROL: each scan reads what it claims to, and reports the pair out of step",
-     "commit_walks_seam::the commit-walk seam: the shared WRITE surface, and who owns each lifetime::the module writes through exactly twelve of the twenty-one records it is handed",
+     "commit_walks_seam::the commit-walk seam: the shared WRITE surface, and who owns each lifetime::the module writes through exactly sixteen of the twenty-six records it is handed",
      "commit_walks_seam::the commit-walk seam: the shared WRITE surface, and who owns each lifetime::every per-path record the module writes is CLEARED by the renderer's removal sweep",
      "commit_walks_seam::the commit-walk seam: the shared WRITE surface, and who owns each lifetime::NEGATIVE CONTROL: the write scan sees each spelling, and a read is not a write",
      "commit_walks_seam::the commit-walk seam: the mutable-upvalue test itself::every name that crosses is declared ONCE by the renderer and never reassigned",

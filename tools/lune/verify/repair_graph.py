@@ -357,6 +357,16 @@ CASE_ID_REPAIRS = [
         "Close raises the signal the session listens on",
         "the same case, renamed to name the signal rather than the caller",
     ),
+    (
+        "commit_walks_seam::the commit-walk seam: the shared WRITE surface, and who owns each lifetime::"
+        "the module writes through exactly twelve of the twenty-one records it is handed",
+        "commit_walks_seam::the commit-walk seam: the shared WRITE surface, and who owns each lifetime::"
+        "the module writes through exactly sixteen of the twenty-six records it is handed",
+        "the same case, renamed by P4 (36602eba, 2026-09-01) when the commit prune moved four "
+        "rebuild-wholesale maps into the shared write surface and added a fifth minimal-write "
+        "record, growing the parameter object from twenty-one fields to twenty-six and the "
+        "written set from twelve to sixteen",
+    ),
 ]
 
 
