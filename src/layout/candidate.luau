@@ -10,7 +10,7 @@
 	`FLOW_DEPS` / `COMPOSITION_DEPS` already are. Everything else it reads is a
 	field of the `ctx` or `node` it is given (`ctx.fitProbe`, `ctx.fitCuts`),
 	so no mutable upvalue of the solver crosses this boundary and no behavior
-	changes: `tests/view_that_fits.spec.luau` and the three reuse oracles are
+	changes: `tests/fits_ideal_size.spec.luau` and the three reuse oracles are
 	the proof, not this comment. ]]
 local candidate = {}
 
