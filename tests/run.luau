@@ -42,6 +42,13 @@ require("./rect_cow.spec")
 -- differential over the device matrix, and the four axes driven against
 -- `layout_node.build` directly — including the weak-key premise the store's bound rests on
 require("./node_reuse.spec")
+-- ...and P4's: the COMMIT is driven off the same two signals instead of walking the
+-- live tree seven times to make four writes. The visit counter, the ordered
+-- adapter-op differential against a full-walk arm over the device matrix, the two
+-- axes the other three files do not have (the solve-wide stamp and the scroll
+-- canvas), the hide a clean subtree has to inherit, and the census that licenses the
+-- predicate
+require("./commit_scope.spec")
 -- ...and the audit that relates the two files P1's CRITICAL 1 fell between: every
 -- `props.<name>` layout_node reads, walked against that prop's declared dirty classes,
 -- because a solver-consumed prop declared paint-only is a geometry change no solve

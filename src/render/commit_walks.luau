@@ -199,6 +199,17 @@ export type CommitCtx = {
 	paintHeld: any, -- path -> the presenter's paint hold
 	pathNodes: any, -- the stroked-path node set
 	inputSinks: any, -- path -> can this node SINK a press (the overhang lift's census)
+	--[[ THE FIVE THE PRUNE OWNS (P4). `lastCommitEntry` is the ninth minimal-write
+		record and has the same lifetime as the other eight; the three maps below it
+		were rebuilt from the whole rect map by the renderer on every solve and are
+		now maintained IN PLACE by `harvest`, which is why they cross rather than
+		being rebound up there; `authoredHidden` is the renderer's own hide set,
+		read-only here, merged with the solver's verdict on the same walk. ]]
+	lastCommitEntry: any,
+	hiddenRoots: any,
+	lastCompositions: any,
+	lastTextFacts: any,
+	authoredHidden: any,
 }
 
 function commit_walks.new(ctx: CommitCtx)
@@ -223,6 +234,288 @@ function commit_walks.new(ctx: CommitCtx)
 	local paintHeld = ctx.paintHeld
 	local pathNodes = ctx.pathNodes
 	local inputSinks = ctx.inputSinks
+	local lastCommitEntry = ctx.lastCommitEntry
+	local hiddenRoots = ctx.hiddenRoots
+	local lastCompositions = ctx.lastCompositions
+	local lastTextFacts = ctx.lastTextFacts
+	local authoredHidden = ctx.authoredHidden
+
+	--[[ THE COMMIT'S OWN SKIP (perf campaign P4), and it is the arrange skip's
+		mirror rather than a new idea.
+
+		WHAT THE PROFILE FOUND (FacetBench, headless Lune, 2026-09-01, `battle_hud` at
+		5 109 nodes, measured after P1/P2/P3). A one-leaf update arranged FIVE nodes and
+		then spent **3.99 ms of `Facet/commit`** — 62 % of the whole step — walking the
+		live tree seven times to make about four writes: the six walks below at 2.23 ms,
+		`rect_pass.apply` at 1.29, and a loop over every entry in the rect map to
+		re-harvest the hidden set, the compositions and the text facts. Every one of
+		those walks is already minimal-write, so the writes were right; the TRAVERSAL
+		was the cost.
+
+		THE PREDICATE, and why it is sound. A subtree may be skipped when BOTH of the
+		two things every walk here reads about it are the ones it was last committed
+		with:
+
+		  · `nodeDirty` — the ancestor-closed set of paths whose MOUNTED node dirtied
+		    this frame, of every dirty class (`renderer.markNodeDirty`). The walks read
+		    `node.props`/`node.class`/`node.children`, and a mounted node is mutated IN
+		    PLACE (`mount.luau` writes `node.props[name] = newValue`), so node identity
+		    says nothing and this set is the only honest signal. `nil` means "no such
+		    set" and refuses the prune outright.
+		  · `lastCommitEntry[path] == rects[path]` — ENTRY IDENTITY, which P2 made
+		    meaningful: a solve given `reuse` hands a skipped subtree's entries forward
+		    table for table, and builds a NEW table for every node it walks (even one
+		    landing on the rect it already had). So an identical entry is the solver
+		    saying "I did not touch this", and a re-walked node compares unequal and is
+		    visited — conservative in the only safe direction.
+
+		BOTH ARE ANCESTOR-CLOSED, which is what makes pruning a SUBTREE legal rather
+		than only a node: `markNodeDirty` walks up to the root, and `arrange` can only
+		reach a child through a parent it did not skip, so a child with a new entry has
+		a parent with one. A walk that stops at a clean node therefore stops above
+		nothing that changed.
+
+		AND DOCUMENT ORDER SURVIVES IT. The prune is a `return` inside the same
+		depth-first walks, so what reaches the adapter is a SUBSEQUENCE of the full
+		walk's operations in the same order — which is the property `rect_pass`'s own
+		ancestors-first rule depends on, and which `tests/commit_scope.spec.luau`
+		asserts against a full-walk arm as an ordered operation log.
+
+		THE TWO WALKS THAT READ ACROSS THE TREE CANNOT PRUNE, and they say so at their
+		own sites: `visible`'s stroked-path cull asks a CLIP HOST's box, and
+		`hitRects`' framework-chrome floor grows against every author-pressable rect on
+		the surface. Both fall back to the full walk on a surface that has the feature
+		at all, which is nearly none. ]]
+	local pruning = false
+	--[[ ...AND WHETHER THIS COMMIT RECORDS WHAT IT COMMITTED, which is a SEPARATE
+		question from whether it prunes and the two must not be one flag.
+
+		`pruning` is off for a commit that cannot prove what changed — a structural
+		solve, a moved stamp, a re-entrant solve. If such a commit also declined to
+		RECORD, the next one would find nothing to compare against and pay full price
+		too, so every viewport change, theme swap and list edit would cost two whole
+		commits instead of one. Recording on a walk that is already visiting every node
+		is one table write per node.
+
+		`recording` is off only when the FEATURE is off, and that is what keeps the
+		differential oracle's `commitScope = false` arm an honest pre-P4 build rather
+		than a pre-P4 build carrying a store it never reads (P3 review, I2: a control
+		arm dearer than the thing it is the control for inflates every ratio taken
+		against it). ]]
+	local recording = false
+	local nodeDirty: any = nil
+	local commitRects: any = nil
+	-- axis 3, the solve-wide inputs every walk reads and no node dirties: the paint
+	-- scale, the theme snapshot (compared by IDENTITY — one env-held table per theme)
+	-- and the preferred-text offset. A move here rewrites every node, so it refuses
+	-- the prune for one commit and the walk that follows re-notes the whole tree.
+	local stampScale: any = nil
+	local stampMetrics: any = nil
+	local stampOffset: any = nil
+	-- the paths whose HIDDEN verdict flipped this commit. A flip is inherited, so
+	-- `visible`/`hitRects` descend through a clean subtree under one of these.
+	local hiddenFlips: { [string]: boolean } = {}
+	-- has this surface ever shown a framework-chrome expander (`cover`/`close`)?
+	-- Latched, and cleared only by a full commit, because the floor those nodes ask
+	-- for is a function of OTHER nodes' rects.
+	local sawChrome = false
+
+	--[[ THE ENTRY THIS NODE ANSWERS FOR, WHICH IS NOT ALWAYS ITS OWN, and this is the
+		correction the first implementation of the prune needed rather than a
+		refinement of it.
+
+		THESE WALKS RUN OVER THE MOUNTED TREE AND THE ENTRIES COME FROM THE LAYOUT
+		TREE, and the two are not the same shape: `UI.ForEach`, `UI.When` and
+		`UI.ErrorBoundary` own MOUNTING, not layout, so `layout_node.build` splices
+		their children into the enclosing flow and emits no node for the region — and
+		neither for a `ForEach`'s per-item wrapper. Those paths have NO rect entry,
+		ever. A predicate that compared `rects[path]` directly therefore read `nil ==
+		nil` on every one of them and pruned the whole subtree: measured, the
+		`rect_cow` oracle's offer-change step left all 200 rows painting their old
+		width, because the walk stopped at the `ForEach` region above them.
+
+		SO AN ENTRY-LESS NODE BORROWS THE ONE BELOW IT, and only down a chain it
+		wholly contains: a single-child wrapper is answered by its child, recursively,
+		and a node with two or more children answers `nil` and is never pruned. That
+		is exactly the `ForEach` shape — the region has N children and is walked, each
+		item wrapper has ONE and is answered by its row — so the sibling scan under a
+		dirty list costs one comparison per row instead of one walk per row, and the
+		region itself is one visit that writes nothing (it has no handle).
+
+		WHY BORROWING IS SOUND. `nodeDirty` is closed over mounted-path PREFIXES, so a
+		dirty node anywhere below marks every wrapper above it; and `arrange` can only
+		reach a node through a parent it did not skip, so a changed entry below the
+		borrowed one implies the borrowed one changed too. Both properties are about
+		the subtree, which is what makes the borrowed answer answer for all of it. ]]
+	local function probeEntry(node: any): any
+		local entry = commitRects[node.path]
+		if entry ~= nil then
+			return entry
+		end
+		local kids = node.children
+		if #kids == 1 then
+			return probeEntry(kids[1])
+		end
+		return nil
+	end
+
+	local function skip(node: any): boolean
+		if not pruning or nodeDirty[node.path] == true then
+			return false
+		end
+		local probe = probeEntry(node)
+		return probe ~= nil and lastCommitEntry[node.path] == probe
+	end
+	-- WRITTEN AT THE END OF THE COMMIT AND NOWHERE ELSE, so all seven walks compare
+	-- against the same "last committed" state. `rect_pass` is the last walk and is
+	-- the one that calls this; on an unarmed commit it is never called at all, which
+	-- is what keeps the differential oracle's off arm an honest pre-P4 build (P3
+	-- review, I2: a control that writes a store the fix reads is not the control).
+	local function note(node: any)
+		lastCommitEntry[node.path] = probeEntry(node)
+	end
+	local function armed(): boolean
+		return pruning
+	end
+	local function records(): boolean
+		return recording
+	end
+
+	--[[ THE SEVENTH WALK, AND THE ONE THAT ARMS THE OTHER SIX (P4).
+
+		It replaces `renderer.solveAndApply`'s own loop over the WHOLE rect map — the
+		one that rebuilt `nextHidden`, `nextCompositions` and `nextTextFacts` from
+		scratch on every solve and then compared the hidden set to decide whether the
+		focus map's epoch had to move. Same three answers, same merge of the AUTHORED
+		hides into the solver's own verdict, and the same "a hide is a focus-map
+		change" bump; what changed is that the three maps now live across solves and
+		only the paths this commit can reach are re-derived.
+
+		TWO ARMS, and the full one is EXACTLY the loop it replaces. A commit that
+		cannot prove what changed — no reuse solve, no dirty set, a moved scale/theme/
+		offset, or the `commitScope` opt off — clears all three and rebuilds them from
+		the map, which is also what makes a structural change self-cleaning: paths that
+		left the tree leave the maps with it.
+
+		THE EPOCH BUMP IS THE SET COMPARISON IT ALWAYS WAS. On the full arm the new set
+		is built beside the old one and diffed both ways; on the pruned arm every
+		membership change passes through the flip below, so the two arms answer the
+		same question from different directions. Bumping unconditionally would defeat
+		the epoch entirely — this runs on every solve. ]]
+	local function harvest(
+		rootNode: any,
+		rects: any,
+		enabled: boolean,
+		dirty: { [string]: boolean }?,
+		scale: number,
+		metrics: any,
+		prefOffset: number
+	): boolean
+		local stampSame = stampScale == scale and stampMetrics == metrics and stampOffset == prefOffset
+		stampScale, stampMetrics, stampOffset = scale, metrics, prefOffset
+		nodeDirty = dirty
+		commitRects = rects
+		recording = enabled
+		pruning = enabled and dirty ~= nil and stampSame
+		table.clear(hiddenFlips)
+		local changed = false
+		if not pruning then
+			sawChrome = false
+			local next_: { [string]: boolean } = {}
+			table.clear(lastCompositions)
+			table.clear(lastTextFacts)
+			for path in authoredHidden do
+				next_[path] = true
+			end
+			for path, entry in rects do
+				if entry.hidden == true then
+					next_[path] = true
+				end
+				if entry.composition ~= nil then
+					lastCompositions[path] = entry.composition
+				end
+				if entry.textFacts ~= nil then
+					lastTextFacts[path] = entry.textFacts
+				end
+			end
+			for path in next_ do
+				if hiddenRoots[path] == nil then
+					changed = true
+					break
+				end
+			end
+			if not changed then
+				for path in hiddenRoots do
+					if next_[path] == nil then
+						changed = true
+						break
+					end
+				end
+			end
+			table.clear(hiddenRoots)
+			for path in next_ do
+				hiddenRoots[path] = true
+			end
+			return changed
+		end
+		local function walk(node: any)
+			if skip(node) then
+				return
+			end
+			stats.lastCommitVisits += 1
+			local path = node.path
+			local entry = rects[path]
+			local want = authoredHidden[path] == true or (entry ~= nil and entry.hidden == true)
+			if want ~= (hiddenRoots[path] == true) then
+				hiddenRoots[path] = if want then true else nil
+				hiddenFlips[path] = true
+				changed = true
+			end
+			lastCompositions[path] = if entry ~= nil then entry.composition else nil
+			lastTextFacts[path] = if entry ~= nil then entry.textFacts else nil
+			for _, child in node.children do
+				walk(child)
+			end
+		end
+		walk(rootNode)
+		--[[ THE TWO SMALL LOOPS, AND THEY ARE BELT-AND-BRACES RATHER THAN LOAD-BEARING
+			— which is stated here because a guard nobody can redden is a guard whose
+			reason has to be written down instead of assumed.
+
+			Both sets are recomputed above for every path the walk VISITED, and a hidden
+			verdict can only move in two ways, each of which forces a visit: the authored
+			half changes through `props.hidden` (arrange class, so `markNodeDirty` marks
+			the path and `skip` refuses it) and the solver half changes through the
+			entry, which is the identity the prune compares. Mutation-tested 2026-09-01:
+			deleting either loop reddens NOTHING in this repository's suite.
+
+			THEY STAY because the argument's first half lives in ANOTHER file — it is a
+			property of how `renderer.refresh` routes the `hidden` prop, not of anything
+			here — and because both are zero-length on every surface that authors no
+			hide and one or two entries on the ones that do. The removal side is
+			collected into a list first: assigning nil during a generalized iteration is
+			what Luau leaves undefined. ]]
+		for path in authoredHidden do
+			if hiddenRoots[path] == nil then
+				hiddenRoots[path] = true
+				hiddenFlips[path] = true
+				changed = true
+			end
+		end
+		local stale: { string } = {}
+		for path in hiddenRoots do
+			local entry = rects[path]
+			if authoredHidden[path] ~= true and not (entry ~= nil and entry.hidden == true) then
+				table.insert(stale, path)
+			end
+		end
+		for _, path in stale do
+			hiddenRoots[path] = nil
+			hiddenFlips[path] = true
+			changed = true
+		end
+		return changed
+	end
 
 	-- paint seam for scaled text (input-paradigms expansion, matrix D.1): write
 	-- props.textSize * typographyScale, tracking the last value per path so a
@@ -274,6 +567,10 @@ function commit_walks.new(ctx: CommitCtx)
 	local function textScale(rootNode: any, scale: number, metrics: any, rects: any?, prefOffset: number?)
 		local offset = if type(prefOffset) == "number" then prefOffset else 0
 		local function walk(node: any)
+			if skip(node) then
+				return
+			end
+			stats.lastCommitVisits += 1
 			-- an AUTHORED size paints; a role name is just as authored as a number
 			-- (it resolves through the same snapshot the measure seam used), while
 			-- an absent prop falls back to the class's own typography role
@@ -364,6 +661,10 @@ function commit_walks.new(ctx: CommitCtx)
 	-- screen but these — raises no write and materializes no engine modifier.
 	local function padding(rootNode: any, metrics: any)
 		local function walk(node: any)
+			if skip(node) then
+				return
+			end
+			stats.lastCommitVisits += 1
 			local pad: any = nil
 			if node.class == "Button" then
 				pad = themeSnapshot.buttonPadding(metrics, node.props)
@@ -429,6 +730,10 @@ function commit_walks.new(ctx: CommitCtx)
 	-- they share the traversal rather than paying for a second one on every solve.
 	local function textVerdicts(rootNode: any, rects: any)
 		local function walk(node: any)
+			if skip(node) then
+				return
+			end
+			stats.lastCommitVisits += 1
 			local handle = handles[node.path]
 			local labelDriven = node.class == "Text" or (node.class == "Button" and #node.children == 0)
 			if labelDriven and handle ~= nil then
@@ -487,7 +792,23 @@ function commit_walks.new(ctx: CommitCtx)
 		local function rectFor(path: string): any
 			return paintedRectIn(rects, path)
 		end
-		local function pushVisible(node: any, hidden: boolean)
+		--[[ A STROKED PATH IS THE ONE VERDICT ON THIS WALK THAT IS NOT LOCAL (P4).
+			`pathEscapesClip` asks the path's CLIP HOST for its box, so a host that
+			merely RESIZED — its own entry new, the path's entry carried forward
+			untouched — changes the answer for a node the prune would stop at. Rather
+			than reason about which resizes can reach which path, a surface that draws
+			any stroked path takes the full walk: `pathNodes` is empty on every screen
+			in this repository's own showcase but the two that draw rings, and those
+			already pay a full `reculPathClips` sweep on every scroll frame. ]]
+		local prunable = next(pathNodes) == nil
+		local function pushVisible(node: any, hidden: boolean, forced: boolean)
+			-- ...AND A HIDE IS INHERITED, so a flip at an ancestor has to reach every
+			-- descendant even where the descendant itself is clean.
+			local flipped = forced or hiddenFlips[node.path] == true
+			if prunable and not flipped and skip(node) then
+				return
+			end
+			stats.lastCommitVisits += 1
 			local isHidden = hidden or nextHidden[node.path] == true
 			solverHidden[node.path] = isHidden
 			-- RS-PATHCLIP: a stroked path outside its clip host is culled. It is
@@ -506,10 +827,10 @@ function commit_walks.new(ctx: CommitCtx)
 				lastVisible[node.path] = not wantHidden
 			end
 			for _, child in node.children do
-				pushVisible(child, isHidden)
+				pushVisible(child, isHidden, flipped)
 			end
 		end
-		pushVisible(rootNode, false)
+		pushVisible(rootNode, false, false)
 	end
 
 	--[[ B-BTN3: enforce the effective target floor in HIT geometry. The visual rect
@@ -633,9 +954,25 @@ function commit_walks.new(ctx: CommitCtx)
 			end
 			return out
 		end
-		local function pushHitRects(node: any, hidden: boolean)
+		local function pushHitRects(node: any, hidden: boolean, forced: boolean)
+			--[[ THE CHROME FLOOR IS THE OTHER NON-LOCAL VERDICT (P4). A cover's or a
+				close's floor grows against every AUTHOR-pressable rect on the surface
+				(`authorPressableRects` below, ruling R23), so any rect moving anywhere
+				can change what a chrome node asks for — including a chrome node whose
+				own entry was carried forward. `sawChrome` latches the moment this walk
+				meets one and is cleared only by a full commit, so a surface with a
+				plate, a cover or a close takes the whole walk and every surface without
+				one prunes. The hide half is `pushVisible`'s, for the same reason. ]]
+			local flipped = forced or hiddenFlips[node.path] == true
+			if not sawChrome and not flipped and skip(node) then
+				return
+			end
+			stats.lastCommitVisits += 1
 			local isHidden = hidden or nextHidden[node.path] == true
 			local entry = rects[node.path]
+			if isFrameworkChrome(node) then
+				sawChrome = true
+			end
 			-- the same reading the solve was handed as `hitFloor` (see
 			-- `effectiveHitFloor`): the contract declares the floor exists, the
 			-- theme owns its value, and it clamps up only
@@ -672,10 +1009,10 @@ function commit_walks.new(ctx: CommitCtx)
 				end
 			end
 			for _, child in node.children do
-				pushHitRects(child, isHidden)
+				pushHitRects(child, isHidden, flipped)
 			end
 		end
-		pushHitRects(rootNode, false)
+		pushHitRects(rootNode, false, false)
 	end
 
 	--[[ NATIVE SCROLL REGIONS — the native-substrate round's scroll seam, and the
@@ -690,6 +1027,10 @@ function commit_walks.new(ctx: CommitCtx)
 			return
 		end
 		local function pushRegions(node: any)
+			if skip(node) then
+				return
+			end
+			stats.lastCommitVisits += 1
 			if node.class == "ScrollView" then
 				local entry = rects[node.path]
 				local handle = handles[node.path]
@@ -795,12 +1136,20 @@ function commit_walks.new(ctx: CommitCtx)
 		pushRegions(rootNode)
 	end
 	return {
+		harvest = harvest,
 		textScale = textScale,
 		padding = padding,
 		textVerdicts = textVerdicts,
 		visible = visible,
 		hitRects = hitRects,
 		scrollRegions = scrollRegions,
+		--[[ THE PRUNE ITSELF, handed to `render/rect_pass` — the eighth walk of the
+			same tree and the last one in the commit, which is why it is the walk that
+			WRITES the record all seven compare against. Three functions rather than a
+			shared record because the two files then share no mutable state at all: the
+			prune's own state stays a per-attach local in here, exactly as the seam
+			test for this module requires. ]]
+		scope = { skip = skip, note = note, armed = armed, records = records },
 	}
 end
 

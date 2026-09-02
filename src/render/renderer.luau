@@ -175,6 +175,11 @@ export type RendererAttachOpts = {
 	-- rebuilds the whole tree, so a divergence names THIS store and not its two
 	-- neighbours. See `render/layout_node.build`.
 	layoutNodeReuse: boolean?,
+	-- COMMIT SCOPING (P4), default ON, and the switch is here for the same reason the
+	-- two above have one: the differential oracle needs an arm whose commit walks the
+	-- whole tree, so a divergence names THIS prune and not the three stores under it.
+	-- See `render/commit_walks.harvest`.
+	commitScope: boolean?,
 }
 
 local ATTACH_OPTS_KEYS = specGuard.keySet({
@@ -188,6 +193,7 @@ local ATTACH_OPTS_KEYS = specGuard.keySet({
 	"incrementalLayout",
 	"measureReuse",
 	"layoutNodeReuse",
+	"commitScope",
 })
 
 -- attach(core, mountedRoot, env, adapter, opts) -> controller
@@ -717,21 +723,13 @@ function renderer.attach(
 		ssTotal = 0,
 		lastSkipped = 0,
 		lastRectInserts = 0,
+		-- ...and how many NODES the COMMIT's walks visited (P4): one per walk per node
+		-- before the prune, O(touched) after it (`tests/commit_scope.spec.luau`).
+		lastCommitVisits = 0,
 		-- ...and what the solve had to BUILD (P3): `solver.Node`s constructed by the
 		-- last `layout_node.build`. 0 on a re-solve nothing dirtied, where it was N.
 		lastNodeBuilds = 0,
 	}
-	-- THE RECT PASS (src/render/rect_pass): one walk in DOCUMENT ORDER, so a host's
-	-- own rect always lands before anything beneath it. Built once per attach, over
-	-- the four by-reference records it writes.
-	local rectPass = rect_pass.new({
-		adapter = adapter,
-		handles = handles,
-		lastRects = lastRects,
-		lastBarInsets = lastBarInsets,
-		stats = stats,
-		rectsEqual = rectsEqual,
-	})
 	local lastDiagnostics: { any } = {}
 	-- the last solve's composition resolutions, by node path. A solve
 	-- OUTPUT, exposed exactly where the other two live (`diagnostics`,
@@ -1571,6 +1569,11 @@ function renderer.attach(
 	-- the parked-props record below (`commit_walks.textVerdicts` has the rest).
 	local lastWrapped: { [string]: boolean } = {}
 
+	-- the rect-map ENTRY each path was last committed with (P4). Identity, not value:
+	-- P2 hands a skipped subtree's entries forward table for table, so `==` here is
+	-- the solver saying it did not touch this node. `render/commit_walks` has the rest.
+	local lastCommitEntry: { [string]: any } = {}
+
 	-- The instance's own property record, moved with it across a recycle. These say
 	-- what the ENGINE OBJECT holds, so they stay true when the path changes — which is
 	-- what lets adoption write only the differences.
@@ -1633,6 +1636,26 @@ function renderer.attach(
 		paintHeld = paintHeld,
 		pathNodes = pathNodes,
 		inputSinks = inputSinks,
+		lastCommitEntry = lastCommitEntry,
+		hiddenRoots = hiddenRoots,
+		lastCompositions = lastCompositions,
+		lastTextFacts = lastTextFacts,
+		authoredHidden = authoredHidden,
+	})
+
+	-- THE RECT PASS (src/render/rect_pass): one walk in DOCUMENT ORDER, so a host's
+	-- own rect always lands before anything beneath it, over the four by-reference
+	-- records it writes. Built AFTER the walks above because it is the commit's LAST
+	-- walk and therefore the one that spends and records their shared prune (P4) —
+	-- three functions rather than a record, so that prune's state stays over there.
+	local rectPass = rect_pass.new({
+		adapter = adapter,
+		handles = handles,
+		lastRects = lastRects,
+		lastBarInsets = lastBarInsets,
+		stats = stats,
+		rectsEqual = rectsEqual,
+		scope = commitWalks.scope,
 	})
 
 	-- the inputs of the most recent solve, for the opt-in boundary analysis below
@@ -1671,6 +1694,10 @@ function renderer.attach(
 	local nodeStore = layout_node.newStore(nodeReuseEnabled)
 	local nodeDirty: { [string]: boolean }? = nil
 	local nodeDirtySeen = -1
+	-- ...AND THE COMMIT HALF (P4): the six write loops and the rect pass walked the
+	-- whole tree to spend a solve that touched five nodes. `render/commit_walks`
+	-- carries the predicate, the numbers and the two walks that cannot use it.
+	local commitScopeEnabled = opts == nil or (opts :: any).commitScope ~= false
 
 	-- `controller.onSolved` listeners: run at the tail of every OUTERMOST solve.
 	-- The presenter uses exactly one of these, to feed solved geometry to the
@@ -1942,6 +1969,9 @@ function renderer.attach(
 			nodeDirtySeen = root.dirtySeq()
 		end
 		local layoutRoot = layout_node.build(nodeStore, root.node, metrics, measureScale, prefOffset, nodeDirty)
+		-- ...and the COMMIT reads the same set (P4), for the same reason: its walks run
+		-- over the mounted tree too. Held before the reset rather than re-derived.
+		local builtDirty = nodeDirty
 		-- consumed: this set answered for THIS build and the next one starts empty. A
 		-- count-only store ignores it, so the off arm needs no branch of its own here.
 		nodeDirty = {}
@@ -2015,74 +2045,54 @@ function renderer.attach(
 		profile.span("commit", function()
 			local textRequests = text_metrics.endCollect()
 			lastDiagnostics = result.diagnostics
+			-- what the walks below cost, as a NUMBER rather than an inference (P4): the
+			-- claim is about the whole span, so the reset is here and not in a walk.
+			stats.lastCommitVisits = 0
+			--[[ hidden subtrees (A-AL1), the compositions and the text facts, harvested
+				by a WALK rather than by the loop over the whole rect map this replaces
+				(P4) — and a hide is a FOCUS-MAP change, which is the epoch below.
+				`render/commit_walks.harvest` carries the two arms and the merge of the
+				authored hides into the solver's verdict.
+
+				IT RUNS FIRST, and that is load-bearing rather than tidy: this call ARMS
+				the prune the walks below share, three of them used to run above the loop
+				it replaces, and an arming read from the PREVIOUS commit prunes against
+				the wrong solve (`node_reuse.spec`'s theme case: a swap that changed
+				every font wrote none of them). ]]
+			if
+				commitWalks.harvest(
+					root.node,
+					result.rects,
+					commitScopeEnabled,
+					-- the prune needs BOTH halves of what it compares: the mounted-node
+					-- dirt this build ran on, and a solve that handed its entries
+					-- forward. A solve with no `reuse` rebuilt the map, so nothing in it
+					-- is the table the last commit saw and there is nothing to prune —
+					-- but the walk it forces still records, so the NEXT commit can.
+					if solveOpts.reuse ~= nil then builtDirty else nil,
+					paintScale,
+					metrics,
+					prefOffset
+				)
+			then
+				structureEpoch += 1
+			end
 			-- `result.rects` and `prefOffset` are for `textSize = "fit"` alone: that node
 			-- has no authored size for this walk to scale, so paint reads the size the
 			-- SOLVER chose against the box (see `commit_walks.textScale`)
 			commitWalks.textScale(root.node, paintScale, metrics, result.rects, prefOffset)
 			commitWalks.padding(root.node, metrics)
 			commitWalks.textVerdicts(root.node, result.rects)
-			-- hidden subtrees (A-AL1): a ViewThatFits candidate that lost keeps its
-			-- mount but must not be reachable. The solver marks the losing candidate
-			-- roots; the presenter reads this set to exclude them from focus order,
-			-- so navigation can never land on an invisible control.
-			local nextHidden: { [string]: boolean } = {}
-			local nextCompositions: { [string]: any } = {}
-			local nextTextFacts: { [string]: any } = {}
-			-- THE AUTHORED HIDES JOIN THE SOLVER'S OWN VERDICT (round 3, item D). One
-			-- set from here down, so `hidden = true` inherits the paint walk, the
-			-- hit-rect retraction, the `hiddenRoots` the focus map filters on, and the
-			-- structure-epoch bump below — none of which a parallel paint-only channel
-			-- would have reached.
-			for path in authoredHidden do
-				nextHidden[path] = true
-			end
-			for path, entry in result.rects do
-				if entry.hidden == true then
-					nextHidden[path] = true
-				end
-				if entry.composition ~= nil then
-					nextCompositions[path] = entry.composition
-				end
-				if entry.textFacts ~= nil then
-					nextTextFacts[path] = entry.textFacts
-				end
-			end
-			lastCompositions = nextCompositions
-			lastTextFacts = nextTextFacts
-			-- ...AND A HIDE IS A FOCUS-MAP CHANGE, with no structural sync behind it.
-			-- Compared rather than assumed-changed: the set is 0-2 entries on a normal
-			-- surface, so this is cheaper than the derivation it guards, and bumping
-			-- unconditionally here would defeat the epoch entirely (this runs on every
-			-- solve).
-			local hiddenChanged = false
-			for path in nextHidden do
-				if hiddenRoots[path] == nil then
-					hiddenChanged = true
-					break
-				end
-			end
-			if not hiddenChanged then
-				for path in hiddenRoots do
-					if nextHidden[path] == nil then
-						hiddenChanged = true
-						break
-					end
-				end
-			end
-			if hiddenChanged then
-				structureEpoch += 1
-			end
-			hiddenRoots = nextHidden
 			-- a hidden candidate must not PAINT. A zero rect was not enough: text still
 			-- wrapped and drew inside a 0px box (found live in the adaptive_controls
 			-- capture, where the losing action column's labels ran down the screen edge).
-			commitWalks.visible(root.node, result.rects, nextHidden)
+			commitWalks.visible(root.node, result.rects, hiddenRoots)
 			-- B-BTN3: enforce the effective target floor in HIT geometry. The visual
 			-- rect is deliberately untouched — flooring the painted size would silently
 			-- rewrite shipped design (a 22px icon button would double) — so the
 			-- framework separates what the player SEES from what the player can HIT.
 			-- Feature-detected: an adapter without the seam keeps today's behaviour.
-			commitWalks.hitRects(root.node, result.rects, nextHidden, metrics)
+			commitWalks.hitRects(root.node, result.rects, hiddenRoots, metrics)
 			-- ...and the paint order those expanders need in order to be REACHABLE
 			-- (the overhang lift, `src/render/hit_lift.luau`). It runs HERE
 			-- because the lift is geometry: structural sync assigns z before the
@@ -2522,6 +2532,15 @@ function renderer.attach(
 				-- no `hidden` prop would otherwise inherit the old node's verdict and
 				-- never paint
 				authoredHidden[path] = nil
+				--[[ ...and the four the COMMIT keeps across solves (P4). They were
+					rebuilt from the whole rect map every solve and now persist, so the
+					sweep that owns every other per-path record owns these too. A stale
+					`lastCommitEntry` is the dangerous one: a path re-created under the
+					same name would compare a fresh entry against a dead node's. ]]
+				lastCommitEntry[path] = nil
+				hiddenRoots[path] = nil
+				lastCompositions[path] = nil
+				lastTextFacts[path] = nil
 				-- THE LIFETIME HOOK, queued rather than called. Called here it would run
 				-- inside the sweep's own iteration over `handles` and inside the `mount`
 				-- profiler span; both are wrong, and the first is a live-mutation hazard

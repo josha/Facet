@@ -62,6 +62,10 @@ local rect_pass = {}
 	  lastBarInsets   path -> the scroll bar gutter this solve spent, by reference
 	  stats           the renderer's counters, by reference
 	  rectsEqual      the pure rect comparison
+	  scope           the commit's prune (P4), from `render/commit_walks`:
+	                  `skip(node)` -> may this subtree be left alone, `note(node)` ->
+	                  record what it was committed with, `armed()` -> is the prune on
+	                  for this commit at all
 ]]
 function rect_pass.new(ctx: any)
 	local adapter = ctx.adapter
@@ -70,6 +74,7 @@ function rect_pass.new(ctx: any)
 	local lastBarInsets = ctx.lastBarInsets
 	local stats = ctx.stats
 	local rectsEqual = ctx.rectsEqual
+	local scope = ctx.scope
 
 	local function applyOne(path: string, entry: any)
 		local handle = handles[path]
@@ -89,24 +94,52 @@ function rect_pass.new(ctx: any)
 	-- `rects` is the solve's `path -> entry` map; `rootNode` is the live tree it
 	-- was solved from.
 	local function apply(rootNode: any, rects: { [string]: any })
-		local applied: { [string]: boolean } = {}
+		--[[ THE LAST WALK OF THE COMMIT, so this is the one that spends the prune AND
+			records what every walk in the span compared against (P4). `note` is called
+			for each node this walk visits — the same set the six before it visited —
+			so the next commit's comparison is against the state this one actually
+			committed. A commit that could not PRUNE still RECORDS (it walked everything
+			anyway, so the next one can prune); a commit with the feature OFF records
+			nothing, which is what keeps the differential oracle's off arm a genuine
+			pre-P4 build. ]]
+		local pruning = scope.armed()
+		local recording = scope.records()
+		local applied: { [string]: boolean }? = if pruning then nil else {}
 		local function walk(node: any)
+			if pruning and scope.skip(node) then
+				return
+			end
+			stats.lastCommitVisits += 1
 			local entry = rects[node.path]
 			if entry ~= nil then
-				applied[node.path] = true
+				if applied ~= nil then
+					applied[node.path] = true
+				end
 				applyOne(node.path, entry)
+			end
+			if recording then
+				scope.note(node)
 			end
 			for _, child in node.children do
 				walk(child)
 			end
 		end
 		walk(rootNode)
-		-- any solved path the walk could not reach — a node that left the tree
-		-- between the solve and the apply. Order cannot matter for one of these:
-		-- it has no live ancestor to be relative to.
-		for path, entry in rects do
-			if not applied[path] then
-				applyOne(path, entry)
+		--[[ any solved path the walk could not reach — a node that left the tree
+			between the solve and the apply. Order cannot matter for one of these: it
+			has no live ancestor to be relative to.
+
+			SKIPPED ENTIRELY ON A PRUNED COMMIT, and the reason is the prune's own
+			precondition rather than an optimisation: the renderer arms it only for a
+			REUSE solve, which it gives only when the tree's shape did not move, so
+			every key in the map belongs to a live path. Running the sweep anyway would
+			re-apply every subtree the walk had just proved it could leave alone —
+			O(N), which is the term this fix exists to remove. ]]
+		if applied ~= nil then
+			for path, entry in rects do
+				if not applied[path] then
+					applyOne(path, entry)
+				end
 			end
 		end
 		-- ...and the DEFERRED RE-BASE. A host that moved may carry children this
