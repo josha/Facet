@@ -287,6 +287,17 @@ function nameplates_scene.new(opts: Opts?)
 		local next_ = table.clone(rows:get() :: any)
 		table.insert(next_, item)
 		rows:set(next_)
+		-- KEEP `items` IN SYNC (wicked-fast T2, Fix round 2, I-2). `tick`,
+		-- `tickWithCasts` and `census` all read the OUTER `items` local, not
+		-- `rows`'s own value — `rows` is the REACTIVE signal the ForEach binds
+		-- to, `items` is this module's own iteration table, and the two used to
+		-- diverge the moment either method ran: `rows` grew or shrank, `items`
+		-- did not, so a tick after an `add` moved every OLD plate and silently
+		-- left the new one standing still, and `census().plates` (`= #items`)
+		-- kept reporting the pre-add count. The caster flag needs no separate
+		-- re-derivation — it already lives on each item in `next_`, added at
+		-- construction time above — so reassigning `items` is the whole fix.
+		items = next_
 		controller.refresh()
 	end
 
@@ -294,6 +305,8 @@ function nameplates_scene.new(opts: Opts?)
 		local next_ = table.clone(rows:get() :: any)
 		table.remove(next_, i)
 		rows:set(next_)
+		-- see `scene.add`'s comment: `items` must track `rows`, not lag it.
+		items = next_
 		controller.refresh()
 	end
 

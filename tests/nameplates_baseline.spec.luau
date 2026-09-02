@@ -95,7 +95,19 @@ describe("nameplates baseline — the numbers the wicked-fast round starts from"
 		expect(st.lastArranged).toBe(LAYOUT)
 		expect(st.lastRectInserts).toBe(LAYOUT)
 		expect(st.lastNodeBuilds).toBe(PLATES + 2) -- 252: the moved plates + Canvas + Screen, dirtyContains
-		expect(st.rectWrites > 0 and st.lastCommitVisits >= MOUNTED * 7).toBe(true)
+		-- CUMULATIVE since `scene.new()` (Fix round 2, I-1): `rectWrites` is
+		-- never reset per-commit, only incremented on an actual value change
+		-- (`rect_pass.applyOne`). READ OFF THE RUN: initialRender's own solve
+		-- writes every rect once (1502, everything is new) and each of the two
+		-- ticks since writes 1500 more (LAYOUT minus the 2 static ancestors,
+		-- Screen and Canvas, whose fill rect never moves) = 1502+1500+1500=4502.
+		expect(st.rectWrites).toBe(4502)
+		-- the EXACT aggregate (Fix round 2, I-1): the sum of the eight per-walk
+		-- counts below, and the only exact pin of the aggregate in this repo —
+		-- the old `>= MOUNTED * 7` bound could never fail (the actual value is
+		-- MOUNTED * 8; a walk silently publishing twice would still sail past
+		-- a MOUNTED * 7 floor).
+		expect(st.lastCommitVisits).toBe(MOUNTED * 8) -- 12024
 		-- the per-walk breakdown this task exists to publish
 		local byWalk = st.lastCommitVisitsByWalk
 		for _, name in
@@ -149,6 +161,62 @@ describe("nameplates baseline — the numbers the wicked-fast round starts from"
 		expect(pure.lastMeasured).toBe(MEASURED_STEADY)
 		expect(mixed.lastMeasured).toBe(MEASURED_STEADY)
 		expect(mixed.lastArranged).toBe(LAYOUT)
+		s.dispose()
+	end)
+
+	it("add/remove keep items and rows in sync (a census that lags is not a census)", function()
+		local s = scene.new()
+		-- I-2 (Fix round 2): `add`/`remove` used to mutate a clone of `rows`
+		-- but never update `items` — exactly the trap the fixture's own
+		-- `Census` type doc warns about above ("They had the same name in an
+		-- earlier draft of this fixture, which is exactly how a census stops
+		-- being a census"). `census().plates` reads `#items`, so an add that
+		-- did not update `items` reported the PRE-add count forever, and
+		-- `tick`/`tickWithCasts` (which also iterate `items`, not `rows`)
+		-- never touched the new plate's signals at all — it stood still while
+		-- every other plate moved.
+		s.add(251)
+		local afterAdd = s.census()
+		expect(`plates={afterAdd.plates} mounted={afterAdd.mounted} layout={afterAdd.layout}`).toBe(
+			`plates={PLATES + 1} mounted={MOUNTED + scene.NODES_PER_PLATE} layout={LAYOUT + scene.NODES_PER_PLATE}`
+		)
+		s.tick(3, 2)
+		-- READ OFF THE RUN: matches the naive expression exactly (LAYOUT plus
+		-- one plate's own six layout nodes) — no correction needed here.
+		expect(s.stats().lastArranged).toBe(LAYOUT + scene.NODES_PER_PLATE)
+		s.remove(251)
+		local afterRemove = s.census()
+		expect(`plates={afterRemove.plates} mounted={afterRemove.mounted} layout={afterRemove.layout}`).toBe(
+			`plates={PLATES} mounted={MOUNTED} layout={LAYOUT}`
+		)
+		s.dispose()
+	end)
+
+	it("overflow + withPath change the tree shape the option plumbing promises", function()
+		-- `fractional` is checked but NOT included here (M-7): with
+		-- `fractional = true` alone, census reads byte-identical to the
+		-- defaults (`mounted`/`layout`/`plates` unchanged) — it changes
+		-- VALUES (offsetX/offsetY become `{ scale, offset }` tables instead of
+		-- plain signals) and never the tree shape, so it has nothing for a
+		-- shape smoke test to prove.
+		local s = scene.new({ withPath = true, overflow = true })
+		local c = s.census()
+		-- READ OFF THE RUN: `withPath` adds exactly one node — the `UI.Path`
+		-- Spark leaf, Canvas's second child alongside the ForEach — to both
+		-- `mounted` and `layout`. `overflow` only widens plate p1's own box
+		-- (no node added or removed), so it moves neither count on its own.
+		expect(`plates={c.plates} casters={c.casters} mounted={c.mounted} layout={c.layout}`).toBe(
+			`plates={PLATES} casters={CASTERS} mounted={MOUNTED + 1} layout={LAYOUT + 1}`
+		)
+		s.tick(3, 2) -- warm-up
+		s.tick(3, 2)
+		-- READ OFF THE RUN, AND IT DISAGREES WITH THE NAIVE "LAYOUT + 1"
+		-- EXPRESSION: `lastArranged` stays exactly LAYOUT (1502) on a
+		-- translate-only tick even with the Spark leaf mounted — the extra
+		-- node does not show up in the solver's arrange count here. Mechanism
+		-- NOT instrumented; pinned as observed, same discipline as
+		-- `MEASURED_STEADY` above.
+		expect(s.stats().lastArranged).toBe(LAYOUT)
 		s.dispose()
 	end)
 end)

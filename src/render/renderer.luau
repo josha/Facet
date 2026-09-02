@@ -621,7 +621,11 @@ function renderer.attach(
 		lastCommitVisits = 0,
 		-- ...and the same number split by walk (wicked-fast T2). A FRESH table per
 		-- commit: `controller.stats()` is a shallow clone, so a shared table would
-		-- let the next commit rewrite a snapshot the caller already took.
+		-- let the next commit rewrite a snapshot the caller already took. A walk
+		-- the adapter cannot run (`visible`/`hitRects`/`scrollRegions` feature-
+		-- detect `setVisible`/`setHitRect`/`setScrollRegion` and return before
+		-- ever counting a visit) publishes NO key for itself — absent, not 0
+		-- (Fix round 2 correction).
 		lastCommitVisitsByWalk = {} :: { [string]: number },
 		-- ...and how many LAYOUT NODES the last solve had (wicked-fast T2):
 		-- `nodeStore.nodes`, the count the `work.skipped` repair below already
@@ -2764,12 +2768,13 @@ function renderer.attach(
 		end
 		nodeDirtySeen = root.dirtySeq()
 		-- MICROPROFILER SPAN `dirtyScan` (wicked-fast T2/profile §7): this loop
-		-- writes six ENCLOSING locals — `needsSolve`, `needsStructure`,
-		-- `hiddenTouched`, `presentationTouched`, `nodeDirtySeen`, `structureEpoch`
-		-- — and wrapping it in a closure keeps every one of those an UPVALUE
-		-- write, exactly as it was before. That is not a new scope for them and
-		-- changes nothing about where they land; it is not a correctness change,
-		-- only an instrument.
+		-- writes five ENCLOSING locals — `needsSolve`, `needsStructure`,
+		-- `hiddenTouched`, `presentationTouched`, `structureEpoch` (`nodeDirtySeen`
+		-- is set ABOVE this span, not inside it — Fix round 2 correction) — and
+		-- wrapping it in a closure keeps every one of those an UPVALUE write,
+		-- exactly as it was before. That is not a new scope for them and changes
+		-- nothing about where they land; it is not a correctness change, only an
+		-- instrument.
 		profile.span("dirtyScan", function()
 			for _, entry in dirty do
 				markNodeDirty(entry.path)
