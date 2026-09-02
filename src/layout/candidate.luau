@@ -25,8 +25,8 @@ export type Deps = {
 	A CANDIDATE IS JUDGED AT THE SIZE IT WOULD LIKE, NOT AT THE SIZE IT COULD BE
 	SQUEEZED INTO (ruling 2, 2026-08-14 — the director ruled: follow the reference
 	framework's behavior). The reference framework's own sentence for its
-	`ViewThatFits` is "it selects the first child
-	whose IDEAL SIZE on the constrained axes fits within the proposed size", and an
+	`ViewThatFits` is "it selects the first child whose IDEAL SIZE on the
+	constrained axes fits within the proposed size", and an
 	ideal size is what a view reports when nothing is proposed to it — so every
 	mechanism that makes a view smaller than that ideal (truncation, `lineLimit`,
 	`minimumScaleFactor`) is invisible to the choice. `shrinkWeight` is this
