@@ -320,6 +320,19 @@ function commit_walks.new(ctx: CommitCtx)
 	-- for is a function of OTHER nodes' rects.
 	local sawChrome = false
 
+	-- P4's visit counter, per walk (wicked-fast T2). `lastCommitVisits` keeps its
+	-- meaning — it is the SUM — but a single number cannot say which walk stopped
+	-- at a moved subtree and which had to descend it, and that is the whole
+	-- question T5 asks. The per-node cost went DOWN: a local increment instead of
+	-- a table-field one, published once per walk.
+	local function publishVisits(name: string, n: number)
+		stats.lastCommitVisits += n
+		local byWalk = stats.lastCommitVisitsByWalk
+		if byWalk ~= nil then
+			byWalk[name] = (byWalk[name] or 0) + n
+		end
+	end
+
 	--[[ THE ENTRY THIS NODE ANSWERS FOR, WHICH IS NOT ALWAYS ITS OWN, and this is the
 		correction the first implementation of the prune needed rather than a
 		refinement of it.
@@ -458,11 +471,12 @@ function commit_walks.new(ctx: CommitCtx)
 			end
 			return changed
 		end
+		local visits = 0
 		local function walk(node: any)
 			if skip(node) then
 				return
 			end
-			stats.lastCommitVisits += 1
+			visits += 1
 			local path = node.path
 			local entry = rects[path]
 			local want = authoredHidden[path] == true or (entry ~= nil and entry.hidden == true)
@@ -478,6 +492,7 @@ function commit_walks.new(ctx: CommitCtx)
 			end
 		end
 		walk(rootNode)
+		publishVisits("harvest", visits)
 		--[[ THE TWO SMALL LOOPS, AND THEY ARE BELT-AND-BRACES RATHER THAN LOAD-BEARING
 			— which is stated here because a guard nobody can redden is a guard whose
 			reason has to be written down instead of assumed.
@@ -588,11 +603,12 @@ function commit_walks.new(ctx: CommitCtx)
 		so the size to WRITE is that minus the same offset. ]]
 	local function textScale(rootNode: any, scale: number, metrics: any, rects: any?, prefOffset: number?)
 		local offset = if type(prefOffset) == "number" then prefOffset else 0
+		local visits = 0
 		local function walk(node: any)
 			if skip(node) then
 				return
 			end
-			stats.lastCommitVisits += 1
+			visits += 1
 			-- an AUTHORED size paints; a role name is just as authored as a number
 			-- (it resolves through the same snapshot the measure seam used), while
 			-- an absent prop falls back to the class's own typography role
@@ -657,6 +673,7 @@ function commit_walks.new(ctx: CommitCtx)
 			end
 		end
 		walk(rootNode)
+		publishVisits("textScale", visits)
 	end
 
 	-- PAINT SEAM FOR PADDING, exactly the shape `textScale` has. A Button's
@@ -682,11 +699,12 @@ function commit_walks.new(ctx: CommitCtx)
 	-- Guarded on an AUTHORED value: an unpadded Text — every Text on every shipped
 	-- screen but these — raises no write and materializes no engine modifier.
 	local function padding(rootNode: any, metrics: any)
+		local visits = 0
 		local function walk(node: any)
 			if skip(node) then
 				return
 			end
-			stats.lastCommitVisits += 1
+			visits += 1
 			local pad: any = nil
 			if node.class == "Button" then
 				pad = themeSnapshot.buttonPadding(metrics, node.props)
@@ -718,6 +736,7 @@ function commit_walks.new(ctx: CommitCtx)
 			end
 		end
 		walk(rootNode)
+		publishVisits("padding", visits)
 	end
 
 	-- PAINT SEAM FOR THE COMPACT LADDER, the same shape `textScale` and
@@ -751,11 +770,12 @@ function commit_walks.new(ctx: CommitCtx)
 	-- paint through the rects that produced them, and both are cached per path — so
 	-- they share the traversal rather than paying for a second one on every solve.
 	local function textVerdicts(rootNode: any, rects: any)
+		local visits = 0
 		local function walk(node: any)
 			if skip(node) then
 				return
 			end
-			stats.lastCommitVisits += 1
+			visits += 1
 			local handle = handles[node.path]
 			local labelDriven = node.class == "Text" or (node.class == "Button" and #node.children == 0)
 			if labelDriven and handle ~= nil then
@@ -798,6 +818,7 @@ function commit_walks.new(ctx: CommitCtx)
 			end
 		end
 		walk(rootNode)
+		publishVisits("textVerdicts", visits)
 	end
 
 	--[[ THE VISIBILITY VERDICT. A hidden candidate must not PAINT: a zero rect was
@@ -840,6 +861,7 @@ function commit_walks.new(ctx: CommitCtx)
 			(`controls/progress_view.luau`, the ring's Track and Arc). A screen with one
 			spinner therefore loses this walk's prune entirely. ]]
 		local prunable = next(pathNodes) == nil
+		local visits = 0
 		local function pushVisible(node: any, hidden: boolean, forced: boolean)
 			-- ...AND A HIDE IS INHERITED, so a flip at an ancestor has to reach every
 			-- descendant even where the descendant itself is clean.
@@ -847,7 +869,7 @@ function commit_walks.new(ctx: CommitCtx)
 			if prunable and not flipped and skip(node) then
 				return
 			end
-			stats.lastCommitVisits += 1
+			visits += 1
 			local isHidden = hidden or nextHidden[node.path] == true
 			solverHidden[node.path] = isHidden
 			-- RS-PATHCLIP: a stroked path outside its clip host is culled. It is
@@ -870,6 +892,7 @@ function commit_walks.new(ctx: CommitCtx)
 			end
 		end
 		pushVisible(rootNode, false, false)
+		publishVisits("visible", visits)
 	end
 
 	--[[ B-BTN3: enforce the effective target floor in HIT geometry. The visual rect
@@ -993,6 +1016,7 @@ function commit_walks.new(ctx: CommitCtx)
 			end
 			return out
 		end
+		local visits = 0
 		local function pushHitRects(node: any, hidden: boolean, forced: boolean)
 			--[[ THE CHROME FLOOR IS THE OTHER NON-LOCAL VERDICT (P4). A cover's or a
 				close's floor grows against every AUTHOR-pressable rect on the surface
@@ -1024,7 +1048,7 @@ function commit_walks.new(ctx: CommitCtx)
 			if not sawChrome and not flipped and skip(node) then
 				return
 			end
-			stats.lastCommitVisits += 1
+			visits += 1
 			local isHidden = hidden or nextHidden[node.path] == true
 			local entry = rects[node.path]
 			if isFrameworkChrome(node) then
@@ -1070,6 +1094,7 @@ function commit_walks.new(ctx: CommitCtx)
 			end
 		end
 		pushHitRects(rootNode, false, false)
+		publishVisits("hitRects", visits)
 	end
 
 	--[[ NATIVE SCROLL REGIONS — the native-substrate round's scroll seam, and the
@@ -1083,11 +1108,12 @@ function commit_walks.new(ctx: CommitCtx)
 		if adapter.setScrollRegion == nil then
 			return
 		end
+		local visits = 0
 		local function pushRegions(node: any)
 			if skip(node) then
 				return
 			end
-			stats.lastCommitVisits += 1
+			visits += 1
 			if node.class == "ScrollView" then
 				local entry = rects[node.path]
 				local handle = handles[node.path]
@@ -1191,6 +1217,7 @@ function commit_walks.new(ctx: CommitCtx)
 			end
 		end
 		pushRegions(rootNode)
+		publishVisits("scrollRegions", visits)
 	end
 	return {
 		harvest = harvest,
@@ -1205,8 +1232,10 @@ function commit_walks.new(ctx: CommitCtx)
 			WRITES the record all seven compare against. Three functions rather than a
 			shared record because the two files then share no mutable state at all: the
 			prune's own state stays a per-attach local in here, exactly as the seam
-			test for this module requires. ]]
-		scope = { skip = skip, note = note, armed = armed, records = records },
+			test for this module requires. `publishVisits` rides along so `rect_pass`
+			— the eighth walk, and not one of this module's seven — publishes into the
+			same per-walk table instead of keeping a second one (wicked-fast T2). ]]
+		scope = { skip = skip, note = note, armed = armed, records = records, publishVisits = publishVisits },
 	}
 end
 

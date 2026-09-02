@@ -619,6 +619,16 @@ function renderer.attach(
 		-- ...and how many NODES the COMMIT's walks visited (P4): one per walk per node
 		-- before the prune, O(touched) after it (`tests/commit_scope.spec.luau`).
 		lastCommitVisits = 0,
+		-- ...and the same number split by walk (wicked-fast T2). A FRESH table per
+		-- commit: `controller.stats()` is a shallow clone, so a shared table would
+		-- let the next commit rewrite a snapshot the caller already took.
+		lastCommitVisitsByWalk = {} :: { [string]: number },
+		-- ...and how many LAYOUT NODES the last solve had (wicked-fast T2):
+		-- `nodeStore.nodes`, the count the `work.skipped` repair below already
+		-- computes and used to throw away. The only honest denominator for
+		-- `arranged + translated + skipped` (`lastSkipped` is written only when
+		-- skipped > 0, so it is stale by design).
+		lastLayoutNodes = 0,
 		-- ...and what the solve had to BUILD (P3): `solver.Node`s constructed by the
 		-- last `layout_node.build`. 0 on a re-solve nothing dirtied, where it was N.
 		lastNodeBuilds = 0,
@@ -1966,6 +1976,11 @@ function renderer.attach(
 		-- every structural change and no longer does. `structural_scope`'s "WHAT
 		-- `work.skipped` MEANS NOW" has it, and what it leaves alone.
 		if result.work ~= nil then
+			-- HOW MANY LAYOUT NODES THIS SOLVE HAD. The repair below already reads
+			-- it; publishing it costs nothing and is the only honest denominator for
+			-- `arranged + translated + skipped` (`stats.lastSkipped` is written ONLY
+			-- when skipped > 0, so it is stale by design).
+			stats.lastLayoutNodes = nodeStore.nodes
 			result.work.skipped = math.max(0, nodeStore.nodes - (result.work.arranged or 0))
 		end
 		if result.work ~= nil and (result.work.skipped or 0) > 0 then
@@ -2002,6 +2017,10 @@ function renderer.attach(
 			-- what the walks below cost, as a NUMBER rather than an inference (P4): the
 			-- claim is about the whole span, so the reset is here and not in a walk.
 			stats.lastCommitVisits = 0
+			-- a FRESH table, not a clear (wicked-fast T2): `controller.stats()` is a
+			-- shallow clone, so clearing this one in place would rewrite a snapshot
+			-- a caller already took of the PREVIOUS commit.
+			stats.lastCommitVisitsByWalk = {}
 			--[[ hidden subtrees (A-AL1), the compositions and the text facts, harvested
 				by a WALK rather than by the loop over the whole rect map this replaces
 				(P4) — and a hide is a FOCUS-MAP change, which is the epoch below.
@@ -2744,47 +2763,56 @@ function renderer.attach(
 			end
 		end
 		nodeDirtySeen = root.dirtySeq()
-		for _, entry in dirty do
-			markNodeDirty(entry.path)
-			if entry.prop == "hidden" and entry.path ~= nil then
-				hiddenTouched = hiddenTouched or {}
-				table.insert(hiddenTouched :: { string }, entry.path)
+		-- MICROPROFILER SPAN `dirtyScan` (wicked-fast T2/profile §7): this loop
+		-- writes six ENCLOSING locals — `needsSolve`, `needsStructure`,
+		-- `hiddenTouched`, `presentationTouched`, `nodeDirtySeen`, `structureEpoch`
+		-- — and wrapping it in a closure keeps every one of those an UPVALUE
+		-- write, exactly as it was before. That is not a new scope for them and
+		-- changes nothing about where they land; it is not a correctness change,
+		-- only an instrument.
+		profile.span("dirtyScan", function()
+			for _, entry in dirty do
+				markNodeDirty(entry.path)
+				if entry.prop == "hidden" and entry.path ~= nil then
+					hiddenTouched = hiddenTouched or {}
+					table.insert(hiddenTouched :: { string }, entry.path)
+				end
+				if
+					entry.path ~= nil
+					and (
+						entry.prop == "opacity"
+						or entry.prop == "scale"
+						or entry.prop == "rotation"
+						or entry.prop == "offset"
+					)
+				then
+					presentationTouched = presentationTouched or {}
+					table.insert(presentationTouched :: { string }, entry.path)
+				end
+				if entry.class == "structure" then
+					needsStructure = true
+					needsSolve = true
+				elseif entry.class == "measure" or entry.class == "arrange" then
+					-- see THE STALE-LAYOUT-DIRT TEST above
+					needsSolve = needsSolve or not layoutDirtIsStale
+				elseif entry.class == "navigation" or entry.class == "semantics" then
+					-- ...AND THE FOCUS MAP CAN CHANGE WITHOUT THE TREE CHANGING. Read off
+					-- the SCHEMA rather than off a hand-kept prop list: `focusable` declares
+					-- `dirty = { "navigation" }` and `enabled` declares `semantics`, and both
+					-- decide whether a node is in the order at all. Caught by the suite —
+					-- "re-enabling restores focus reachability with no remount" and
+					-- "navigation skips a disabled Slider's track" both went red when the
+					-- epoch only counted structure and hidden roots.
+					--
+					-- `semantics` also carries `selected`, which the map does not read, so
+					-- this over-invalidates on a selection change. That is a click, not a
+					-- frame, and the alternative is a list of prop names that a future
+					-- navigation prop would silently fall off.
+					structureEpoch += 1
+				end
+				-- paint/semantics: prop-level writes below
 			end
-			if
-				entry.path ~= nil
-				and (
-					entry.prop == "opacity"
-					or entry.prop == "scale"
-					or entry.prop == "rotation"
-					or entry.prop == "offset"
-				)
-			then
-				presentationTouched = presentationTouched or {}
-				table.insert(presentationTouched :: { string }, entry.path)
-			end
-			if entry.class == "structure" then
-				needsStructure = true
-				needsSolve = true
-			elseif entry.class == "measure" or entry.class == "arrange" then
-				-- see THE STALE-LAYOUT-DIRT TEST above
-				needsSolve = needsSolve or not layoutDirtIsStale
-			elseif entry.class == "navigation" or entry.class == "semantics" then
-				-- ...AND THE FOCUS MAP CAN CHANGE WITHOUT THE TREE CHANGING. Read off
-				-- the SCHEMA rather than off a hand-kept prop list: `focusable` declares
-				-- `dirty = { "navigation" }` and `enabled` declares `semantics`, and both
-				-- decide whether a node is in the order at all. Caught by the suite —
-				-- "re-enabling restores focus reachability with no remount" and
-				-- "navigation skips a disabled Slider's track" both went red when the
-				-- epoch only counted structure and hidden roots.
-				--
-				-- `semantics` also carries `selected`, which the map does not read, so
-				-- this over-invalidates on a selection change. That is a click, not a
-				-- frame, and the alternative is a list of prop names that a future
-				-- navigation prop would silently fall off.
-				structureEpoch += 1
-			end
-			-- paint/semantics: prop-level writes below
-		end
+		end)
 		if needsStructure then
 			-- MICROPROFILER PHASE `Facet/mount` (roadmap Step 9): creating,
 			-- reconciling and retiring Instances. Named apart from `commit` because
@@ -2871,27 +2899,29 @@ function renderer.attach(
 					else nil
 				dirtyContains = if structuralPlan ~= nil then structuralPlan.contains else nil
 			else
-				-- THE ANCESTOR CLOSURE. A node may be skipped only if NOTHING inside it
-				-- is dirty, so the set handed to the solver is every dirty node plus
-				-- every ancestor of one — the solver skips exactly the nodes absent
-				-- from it. Paths are `/a/b/c`, so the ancestors are the prefixes.
-				local contains: { [string]: boolean } = {}
-				for _, entry in dirty do
-					local path = entry.path
-					if (entry.class == "measure" or entry.class == "arrange") and path ~= nil then
-						contains[path] = true
-						local at = path
-						while true do
-							local cut = string.match(at, "^(.*)/[^/]*$")
-							if cut == nil or cut == "" or contains[cut] then
-								break
+				profile.span("dirtyClosure", function()
+					-- THE ANCESTOR CLOSURE. A node may be skipped only if NOTHING inside it
+					-- is dirty, so the set handed to the solver is every dirty node plus
+					-- every ancestor of one — the solver skips exactly the nodes absent
+					-- from it. Paths are `/a/b/c`, so the ancestors are the prefixes.
+					local contains: { [string]: boolean } = {}
+					for _, entry in dirty do
+						local path = entry.path
+						if (entry.class == "measure" or entry.class == "arrange") and path ~= nil then
+							contains[path] = true
+							local at = path
+							while true do
+								local cut = string.match(at, "^(.*)/[^/]*$")
+								if cut == nil or cut == "" or contains[cut] then
+									break
+								end
+								contains[cut] = true
+								at = cut
 							end
-							contains[cut] = true
-							at = cut
 						end
 					end
-				end
-				dirtyContains = contains
+					dirtyContains = contains
+				end)
 			end
 			-- ...and the pair belongs to THIS refresh, so it is cleared EVEN WHEN THE
 			-- COMMIT THROWS: a re-entrant solve must not reuse it, and the next plain

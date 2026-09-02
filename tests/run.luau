@@ -364,6 +364,10 @@ require("./perf_runner.spec")
 -- evidence-class discipline: the rules that stop a headless number becoming a
 -- device claim (roadmap Step 4, UI-PERF-002)
 require("./perf_evidence.spec")
+-- the wicked-fast round's BEFORE numbers, pinned on disk (T2): the arena's
+-- workload as a headless fixture, so later commits in this round demonstrate
+-- against a "currently N" nobody has to remember from a profiling run
+require("./nameplates_baseline.spec")
 -- the future spatial seam: contracts only, and the guard against a VR claim
 -- appearing in the shipped surface (roadmap Step 4, UI-SPATIAL-001)
 require("./spatial.spec")

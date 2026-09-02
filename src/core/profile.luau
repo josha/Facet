@@ -82,12 +82,25 @@ local SCOPES: { [string]: string } = {
 	-- registered tick hooks. `present` without `tick` would have left half the frame
 	-- attributed to whatever happened to wrap it.
 	tick = "Facet/tick",
+	-- `controller.refresh`'s classification loop over the dirty queue (wicked-fast
+	-- T2, profile §7's "0.814 ms unattributed"): what needs a solve, what needs a
+	-- structural sync, and the authored-hidden/presentation collections, all in one
+	-- walk of the frame's dirt. T3 rewrites what runs here, so it is measured
+	-- before it changes.
+	dirtyScan = "Facet/dirtyScan",
+	-- ...and the ancestor closure it feeds the solver on a non-structural solve —
+	-- every dirty node's path prefixes, so the solver knows exactly which nodes it
+	-- may skip. Its own scope for the same reason `focusmap` split off `present`:
+	-- one number under `dirtyScan` would not say whether the classification or the
+	-- closure build was the cost.
+	dirtyClosure = "Facet/dirtyClosure",
 }
 
--- The bound is asserted by tests, not merely intended. If a later stage needs a
--- tenth phase it raises this deliberately; it cannot drift upward one call site
--- at a time, which is how a per-node label set is actually born.
-profile.MAX_SCOPES = 12
+-- The bound is asserted by tests, not merely intended. It was raised from 12 to
+-- 14 for `dirtyScan`/`dirtyClosure` (wicked-fast T2) — a DELIBERATE raise, with
+-- both new names carrying the same one-scope-per-actionable-question argument
+-- every other row does, not a per-call-site drift.
+profile.MAX_SCOPES = 14
 profile.SCOPES = SCOPES
 
 -- ---- engine detection -----------------------------------------------------

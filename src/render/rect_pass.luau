@@ -65,7 +65,11 @@ local rect_pass = {}
 	  scope           the commit's prune (P4), from `render/commit_walks`:
 	                  `skip(node)` -> may this subtree be left alone, `note(node)` ->
 	                  record what it was committed with, `armed()` -> is the prune on
-	                  for this commit at all
+	                  for this commit at all, `publishVisits(name, n)` -> this walk's
+	                  share of `stats.lastCommitVisits` / `lastCommitVisitsByWalk`
+	                  (wicked-fast T2) — the eighth walk of the commit, so it
+	                  publishes through the same table `commit_walks`'s own seven
+	                  share rather than keeping a second one
 ]]
 function rect_pass.new(ctx: any)
 	local adapter = ctx.adapter
@@ -105,11 +109,12 @@ function rect_pass.new(ctx: any)
 		local pruning = scope.armed()
 		local recording = scope.records()
 		local applied: { [string]: boolean }? = if pruning then nil else {}
+		local visits = 0
 		local function walk(node: any)
 			if pruning and scope.skip(node) then
 				return
 			end
-			stats.lastCommitVisits += 1
+			visits += 1
 			local entry = rects[node.path]
 			if entry ~= nil then
 				if applied ~= nil then
@@ -171,6 +176,10 @@ function rect_pass.new(ctx: any)
 		if adapter.settleRects ~= nil then
 			adapter.settleRects()
 		end
+		-- the eighth walk's share (wicked-fast T2): the sweep above and the
+		-- deferred re-base both write through `applyOne`/the adapter directly and
+		-- visit no tree node, so `visits` is already final by here.
+		scope.publishVisits("rectPass", visits)
 	end
 
 	return { apply = apply }
