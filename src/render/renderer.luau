@@ -89,6 +89,10 @@ local NO_DECORATION_CLASSES: { [string]: boolean } = { Stage = true, Foreign = t
 -- this file moved, and re-exported below because every consumer already reads
 -- them off `renderer`.
 local prop_channels = require("./prop_channels")
+-- the recycle-key family (the ledger's named seam): the structural parts a
+-- path was created/adopted with, the worn-prop set, and the key string both
+-- the adoption lookup and the park-time build share
+local recycle_key = require("./recycle_key")
 local paths = require("../paths")
 local rectLib = require("../rect")
 local isPathPrefix = paths.isPrefix
@@ -851,11 +855,11 @@ function renderer.attach(
 		stats.propWrites += 1
 	end
 
-	-- THE STYLE PROPS A PATH'S INSTANCE CURRENTLY WEARS (W1b), declared here,
-	-- ahead of the recycle-pool section below, because `applyStyleProp` is the
-	-- one choke point that maintains it (see the block above `propSignature`
-	-- there for the argument).
-	local wornStyleProps: { [string]: { [string]: boolean } } = {}
+	-- THE RECYCLE-KEY STATE (W1b; extracted to `render/recycle_key.luau` in R2's
+	-- own Phase 0), declared here — ahead of the recycle-pool section below —
+	-- because `applyStyleProp` is a choke point that maintains it and is itself
+	-- declared here. See `render/recycle_key.luau`'s own header for the argument.
+	local recycleKeyState = recycle_key.new()
 
 	local function applyStyleProp(handle: any, node: any, prop: string)
 		authority.assertWrite(node.class, prop, "style")
@@ -864,21 +868,9 @@ function renderer.attach(
 		adapter.setProp(handle, prop, value, "style")
 		stats.propWrites += 1
 		-- WORN-SET MAINTENANCE (W1b): the ONE place a style prop is ever
-		-- written to the adapter, so the one place that can keep the park-time
+		-- written to the adapter, so a choke point that can keep the park-time
 		-- recycle key honest about what the instance wears NOW.
-		if value == nil then
-			local worn = wornStyleProps[node.path]
-			if worn ~= nil then
-				worn[prop] = nil
-			end
-		else
-			local worn = wornStyleProps[node.path]
-			if worn == nil then
-				worn = {}
-				wornStyleProps[node.path] = worn
-			end
-			worn[prop] = true
-		end
+		recycleKeyState.noteWorn(node.path, prop, value)
 	end
 
 	local function applyProps(handle: any, node: any)
@@ -935,88 +927,14 @@ function renderer.attach(
 	-- is about to make anyway, because every per-path cache died with the old path.
 	stats.recycleArmed = recycleEnabled
 	local recyclePool: { [string]: { any } } = {}
-	-- THE KEY PARTS each live path was CREATED/ADOPTED with (class, hint,
-	-- engine kind) — recorded at create, since a dying node's hint is not
-	-- available at remove time. The STYLE-PROP half is deliberately NOT here
-	-- (W1b) — see `wornStyleProps` above `applyStyleProp`.
-	local recycleKeyPartsOf: { [string]: { class: string, hint: any, kind: string } } = {}
 	local recyclePooled = 0
 	local RECYCLE_POOL_CAP = 64
-	-- THE KEY INCLUDES THE DECLARED STYLE-PROP SET. Adoption writes only what
-	-- DIFFERS from the instance's own state — safe only if every property on
-	-- it is one the new node also declares, or a stale one survives uncleared
-	-- (proven: the ragged case in `instance_recycling.spec`). So two nodes
-	-- share a bucket only if class, hint, canvasGroup AND the exact STYLE
-	-- prop names they currently wear all agree.
-	--
-	--[[ W1b (wicked-fast, fix round 1 on `fa289d5a`): THE SIGNATURE IS STYLE
-		PROPS ONLY, AND THE KEY IS BUILT AT PARK, never frozen at create.
-
-		W1 deleted `propSigCache` on the theory that the cache — keyed on the
-		props TABLE, never invalidated while `mount.luau:637` mutates it in
-		place — was what let a pooled instance keep a style prop its adopter
-		never declared. MEASURED WRONG: `propSignature` is only ever called at a
-		node's own CREATE, so a cache hit there was always a hit on a value that
-		call had just computed — never stale. The real defect survived the
-		deletion: the field this block wrote was set ONCE, at create, and never
-		refreshed while the node stayed mounted, so a reactive prop crossing nil
-		AFTER create was invisible either way. Full argument, the cache-hit
-		instrument and the reproduction: `tests/recycle_prop_signature.spec.luau`
-		and the task report.
-
-		THE FIX: the key splits into PARTS frozen at create (class/hint/kind)
-		plus a WORN SET of style-prop names, maintained LIVE by `applyStyleProp`
-		— the one function that ever writes a style prop, from both the
-		create-time `STYLE_PROP_ORDER` loop and the reactive commit. Non-nil
-		ADDS to the set; nil REMOVES. Park builds the key from the parts plus
-		the CURRENT worn set — reactive history decides the bucket, not birth.
-		STYLE PROPS ONLY: a layout prop never reaches `adapter.setProp`, and a
-		binding prop always applies with a real value, never skipped — neither
-		has the "stale bespoke child" failure a style prop's ABSENCE creates.
-		`propSignature` keeps its name but now filters to `STYLE_PROPS`.
-
-		ADAPTER HALF, SAME COMMIT: `applyShadow`/`applyGradient`/`applyCorners`
-		(`screen_paint.luau`) gained the nil branch `applyStroke` already had —
-		crossing to nil tears the modifier down instead of crashing. ]]
-	local function propSignature(node: any): string
-		local props = node.props
-		if props == nil then
-			return ""
-		end
-		local names = {}
-		for name in props do
-			if STYLE_PROPS[name] then
-				table.insert(names, name)
-			end
-		end
-		table.sort(names)
-		return table.concat(names, ",")
-	end
-	-- THE WORN-SET SIGNATURE AT PARK: same sort/join as `propSignature`, over
-	-- `wornStyleProps` instead of a fresh `node.props` scan — the node may
-	-- already be torn down by the time this runs.
-	local function wornSignature(path: string): string
-		local worn = wornStyleProps[path]
-		if worn == nil then
-			return ""
-		end
-		local names = {}
-		for name in worn do
-			table.insert(names, name)
-		end
-		table.sort(names)
-		return table.concat(names, ",")
-	end
-	-- the hint goes in BY CONTENT (chrome_slots.hintKey), never by address: a
-	-- windowed list rebuilds its cell blueprints on every slide, so a
-	-- content-equal hint is a different table by construction and
-	-- `tostring(hint)` made every hinted node's bucket unreachable (L-28)
-	-- `createKind` names the ENGINE OBJECT (`render/instance_boundary.kindOf`), not
-	-- merely whether there were creation options: two kinds that produce different
-	-- classes must never share a bucket.
-	local function recycleKey(class: string, hint: any, createKind: string, propSig: string): string
-		return `{class}\0{chrome_slots.hintKey(hint)}\0{createKind}\0{propSig}`
-	end
+	-- THE KEY INCLUDES THE DECLARED STYLE-PROP SET (`render/recycle_key.luau`
+	-- carries the full argument, the W1/W1b history and the seam's own). Adoption
+	-- writes only what DIFFERS from the instance's own state — safe only if every
+	-- property on it is one the new node also declares, or a stale one survives
+	-- uncleared. So two nodes share a bucket only if class, hint, canvasGroup AND
+	-- the exact STYLE prop names they currently wear all agree.
 	local function drainRecyclePool()
 		if recyclePooled == 0 then
 			return
@@ -1102,7 +1020,12 @@ function renderer.attach(
 			end
 			local adopted: any = nil
 			if recycleEnabled then
-				local key = recycleKey(node.class, hint, instance_boundary.kindOf(createOpts), propSignature(node))
+				local key = recycleKeyState.key(
+					node.class,
+					hint,
+					instance_boundary.kindOf(createOpts),
+					recycleKeyState.signature(node)
+				)
 				local bucket = recyclePool[key]
 				if bucket ~= nil and #bucket > 0 then
 					local candidate = table.remove(bucket)
@@ -1146,12 +1069,11 @@ function renderer.attach(
 				end
 			end
 			if recycleEnabled then
-				-- the PARTS only (W1b) — `wornStyleProps[node.path]` is built
-				-- fresh a few lines below by the `STYLE_PROP_ORDER` loop; the
-				-- departure sweep clears it on the way out so a reused path
-				-- string never inherits a previous occupant's worn set.
-				recycleKeyPartsOf[node.path] =
-					{ class = node.class, hint = hint, kind = instance_boundary.kindOf(createOpts) }
+				-- the PARTS only (W1b) — the worn set is built fresh a few
+				-- lines below by the `STYLE_PROP_ORDER` loop; the departure
+				-- sweep forgets both on the way out so a reused path string
+				-- never inherits a previous occupant's worn set.
+				recycleKeyState.declareParts(node.path, node.class, hint, instance_boundary.kindOf(createOpts))
 			end
 			-- THE PER-CONTROL SENSORY VERB, published once per handle (see
 			-- target_contract's `setActivationFeedback`). Bounded to the classes
@@ -2526,15 +2448,11 @@ function renderer.attach(
 		-- so this can only ever save a create, never change what is on screen.
 		--
 		-- THE KEY IS BUILT HERE, NOW (W1b), never read as a frozen string —
-		-- parts (class/hint/kind) fixed since create, plus `wornSignature(path)`
-		-- for whatever style props the instance wears RIGHT NOW.
+		-- parts (class/hint/kind) fixed since create, plus whatever style
+		-- props the instance wears RIGHT NOW.
 		local parked = false
-		local parted = recycleKeyPartsOf[path]
-		local key = if parted ~= nil
-			then recycleKey(parted.class, parted.hint, parted.kind, wornSignature(path))
-			else nil
-		recycleKeyPartsOf[path] = nil
-		wornStyleProps[path] = nil
+		local key = recycleKeyState.parkKey(path)
+		recycleKeyState.forget(path)
 		if recycleEnabled and key ~= nil and recyclePooled < RECYCLE_POOL_CAP then
 			if not adapter.park(handle) then
 				stats.parkRefused += 1

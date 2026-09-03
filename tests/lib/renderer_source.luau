@@ -21,8 +21,9 @@
 	(`render/autoscroll_bridge.luau`), the drag bridge's registry half
 	(`render/drag_bridge.luau`), the tap-echo guard with the arm dispatch beside
 	it (`render/tap_arm.luau`), the text-premeasurement round
-	(`render/premeasure_round.luau`) and the scroll-into-view family
-	(`render/scroll_into_view.luau`).
+	(`render/premeasure_round.luau`), the scroll-into-view family
+	(`render/scroll_into_view.luau`) and the recycle-key family
+	(`render/recycle_key.luau`).
 
 	ADD A PART HERE WHENEVER MORE OF THE RENDERER MOVES OUT — otherwise the pins
 	quietly stop seeing the code they name, which is the failure this file exists
@@ -104,6 +105,13 @@ local PARTS = {
 		repoint at a MOVED CALL rather than a moved write, which is why that case now
 		reads `renderer_source.all()` instead of `src/render/renderer.luau` alone. ]]
 	"src/render/scroll_into_view.luau",
+	--[[ ...and the RECYCLE-KEY FAMILY (2026-09-03, wicked-fast T8 R2's Phase 0):
+		`recycleKey`, `propSignature`, `wornSignature`, the worn-set updater and the
+		parts bookkeeping. It carries no `adapter.setProp(` and no `setRect(` — it
+		is pure over `prop_channels` + `chrome_slots.hintKey`, no Deps record at
+		all — so no existing pin's count moves; it is here for the reason every
+		part above it is. ]]
+	"src/render/recycle_key.luau",
 }
 
 local renderer_source = {}

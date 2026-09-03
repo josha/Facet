@@ -69,46 +69,58 @@ local virtual_list = require("../src/controls/virtual_list")
 local world = require("./lib/world")
 
 describe("W1b: the cache stays gone, and the signature is style-props only", function()
-	it("`propSigCache` is not a declared local anywhere in the renderer", function()
-		local source = fs.readFile("src/render/renderer.luau")
-		expect(string.find(source, "local propSigCache", 1, true)).toBe(nil)
+	it("`propSigCache` is not a declared local anywhere in the renderer or the seam", function()
+		local rendererSrc = fs.readFile("src/render/renderer.luau")
+		local seamSrc = fs.readFile("src/render/recycle_key.luau")
+		expect(string.find(rendererSrc, "local propSigCache", 1, true)).toBe(nil)
+		expect(string.find(seamSrc, "local propSigCache", 1, true)).toBe(nil)
 	end)
 
-	it("`propSignature` filters to STYLE_PROPS and holds no cache table", function()
-		local source = fs.readFile("src/render/renderer.luau")
-		local body = string.match(source, "local function propSignature%(node: any%): string(.-)\n\tend")
-		assert(body ~= nil, "propSignature's body was not found to read")
+	it("`propSignature` (now `recycle_key.signature`) filters to STYLE_PROPS and holds no cache table", function()
+		local source = fs.readFile("src/render/recycle_key.luau")
+		local body = string.match(source, "local function signature%(node: any%): string(.-)\n\tend")
+		assert(body ~= nil, "signature's body was not found to read")
 		expect(string.find(body :: string, "if STYLE_PROPS[name] then", 1, true) ~= nil).toBe(true)
 		expect(string.find(body :: string, "propSigCache", 1, true)).toBe(nil)
 	end)
 
 	it("the park-time key is built from PARTS + the live worn set, never a frozen string", function()
-		local source = fs.readFile("src/render/renderer.luau")
-		expect(string.find(source, "local recycleKeyPartsOf", 1, true) ~= nil).toBe(true)
-		expect(string.find(source, "local wornStyleProps", 1, true) ~= nil).toBe(true)
-		local sweep = string.match(source, "local function sweepDeparted%(path: string, handle: any%)(.-)\n\tend")
-		assert(sweep ~= nil, "sweepDeparted's body was not found to read")
+		local source = fs.readFile("src/render/recycle_key.luau")
+		expect(string.find(source, "local partsOf", 1, true) ~= nil).toBe(true)
+		expect(string.find(source, "local wornOf", 1, true) ~= nil).toBe(true)
+		local park = string.match(source, "local function parkKey%(path: string%): string%?(.-)\n\tend")
+		assert(park ~= nil, "parkKey's body was not found to read")
 		expect(
-			string.find(
-				sweep :: string,
-				"recycleKey(parted.class, parted.hint, parted.kind, wornSignature(path))",
-				1,
-				true
-			) ~= nil
+			string.find(park :: string, "key(parted.class, parted.hint, parted.kind, wornSignature(path))", 1, true)
+				~= nil
 		).toBe(true)
-		-- both halves clear on departure, or a REUSED PATH would inherit a
-		-- previous, structurally different occupant's worn set
-		expect(string.find(sweep :: string, "recycleKeyPartsOf[path] = nil", 1, true) ~= nil).toBe(true)
-		expect(string.find(sweep :: string, "wornStyleProps[path] = nil", 1, true) ~= nil).toBe(true)
+		-- the renderer forgets BOTH halves on departure, or a REUSED PATH would
+		-- inherit a previous, structurally different occupant's worn set
+		local forget = string.match(source, "local function forget%(path: string%)(.-)\n\tend")
+		assert(forget ~= nil, "forget's body was not found to read")
+		expect(string.find(forget :: string, "partsOf[path] = nil", 1, true) ~= nil).toBe(true)
+		expect(string.find(forget :: string, "wornOf[path] = nil", 1, true) ~= nil).toBe(true)
+		expect(string.find(fs.readFile("src/render/renderer.luau"), "recycleKeyState.forget(path)", 1, true) ~= nil).toBe(
+			true
+		)
 	end)
 
-	it("`applyStyleProp` is the one place the worn set is ever written", function()
-		local source = fs.readFile("src/render/renderer.luau")
-		local body =
-			string.match(source, "local function applyStyleProp%(handle: any, node: any, prop: string%)(.-)\n\tend")
+	it("`applyStyleProp` is a choke point that maintains the worn set through `noteWorn`", function()
+		local rendererSrc = fs.readFile("src/render/renderer.luau")
+		local body = string.match(
+			rendererSrc,
+			"local function applyStyleProp%(handle: any, node: any, prop: string%)(.-)\n\tend"
+		)
 		assert(body ~= nil, "applyStyleProp's body was not found to read")
-		expect(string.find(body :: string, "worn[prop] = true", 1, true) ~= nil).toBe(true)
-		expect(string.find(body :: string, "worn[prop] = nil", 1, true) ~= nil).toBe(true)
+		expect(string.find(body :: string, "recycleKeyState.noteWorn(node.path, prop, value)", 1, true) ~= nil).toBe(
+			true
+		)
+		local seamSrc = fs.readFile("src/render/recycle_key.luau")
+		local noteWorn =
+			string.match(seamSrc, "local function noteWorn%(path: string, prop: string, value: any%)(.-)\n\tend")
+		assert(noteWorn ~= nil, "noteWorn's body was not found to read")
+		expect(string.find(noteWorn :: string, "worn[prop] = true", 1, true) ~= nil).toBe(true)
+		expect(string.find(noteWorn :: string, "worn[prop] = nil", 1, true) ~= nil).toBe(true)
 	end)
 end)
 
