@@ -898,6 +898,12 @@ describe("T5b audit, half three: driving each dropped prop leaves the four walks
 			paintHeld = tbl(),
 			pathNodes = tbl(),
 			inputSinks = tbl(),
+			-- THE RECYCLE-KEY WORN-SET DEP (T8 R3, re-review Minor 3). `CommitCtx`
+			-- declares it and `commit_walks.new` binds it unguarded, so a hand-built
+			-- record that omits it is a latent nil call the day a fixture here grows
+			-- a leaf Button with a compact form. A no-op recorder: nothing in this
+			-- file asserts on the worn set, only that the ladder can run at all.
+			noteWorn = function() end,
 			lastCommitEntry = tbl(),
 			hiddenRoots = tbl(),
 			lastCompositions = tbl(),

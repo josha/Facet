@@ -181,11 +181,24 @@ describe("the recycle-key seam: mutable-scope test — two `.new()` instances ne
 		expect(b.parkKey("/S/A")).toBe(nil) -- b never saw a's declare at all
 	end)
 
-	it("`signature` reads STYLE_PROPS membership off `node.props`, sorted and joined", function()
+	--[[ T8 R3 (re-review, new Minor 1): this case was written as STYLE-only and
+		its input carried no BINDING prop at all, so it passed unchanged against the
+		very narrowing Critical 1 was about — a check that could not fail for the
+		thing it was cited as pinning. One input, all three channels: `enabled` is
+		BINDING, `shadow`/`textAlign` are STYLE, `padding` is LAYOUT and stays out
+		(the key excludes it because every layout write is value-diffed against a
+		cache carried across an adoption — `recycle_key.luau`'s header). ]]
+	it("`signature` reads BINDING ∪ STYLE membership off `node.props`, sorted and joined", function()
 		local recycle_key = require("../src/render/recycle_key")
 		local rk = recycle_key.new()
-		expect(rk.signature({ props = { shadow = {}, gap = 6, textAlign = "center" } })).toBe("shadow,textAlign")
-		expect(rk.signature({ props = { gap = 6 } })).toBe("")
+		expect(rk.signature({ props = { shadow = {}, gap = 6, textAlign = "center", enabled = false, padding = 8 } })).toBe(
+			"enabled,shadow,textAlign"
+		)
+		-- BINDING alone is enough to be signed: the STYLE-only signature scored
+		-- this exact node "" and let it adopt anything
+		expect(rk.signature({ props = { enabled = false } })).toBe("enabled")
+		-- ...and LAYOUT alone is still nothing
+		expect(rk.signature({ props = { gap = 6, padding = 8 } })).toBe("")
 		expect(rk.signature({ props = nil })).toBe("")
 	end)
 

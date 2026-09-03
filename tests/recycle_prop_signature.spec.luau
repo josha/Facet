@@ -224,53 +224,96 @@ end)
 -- ============================================================================
 
 describe(
-	"T8 R2: the audit table's set is exhaustive — every setProp( call site in src/render/*.luau is accounted for",
+	"T8 R2/R3: the audit table's set is exhaustive — every setProp( call site in src/render/*.luau is accounted for",
 	function()
+		--[[ R3 (re-review Minor 2) REPLACED A COUNT WITH A SET. The R2 form read
+			FOUR HARDCODED PATHS and asserted `#sites == 13`, while its own describe
+			promised "every `adapter.setProp(` call site in `src/render/*.luau`" —
+			`src/render/` holds twenty-five modules, so a write added in any of the
+			other twenty-one was invisible, and an add-plus-remove inside the four
+			kept the count green. This walks the directory through `src_tree` and
+			compares the SET.
+
+			The key is (file, prop, authority), not a line number: line numbers make
+			every unrelated edit a false failure, and the AUTHORITY is what separates
+			the renderer's two generic choke points, which write the same `prop`
+			variable. A site whose call head cannot be read at all is keyed by its own
+			raw text so the failure names it. ]]
 		it("the choke points, the layout sites and the presentation/registry exceptions are ALL of them", function()
-			local sites: { string } = {}
-			for _, relPath in
-				{
-					"src/render/renderer.luau",
-					"src/render/commit_walks.luau",
-					"src/render/drag_bridge.luau",
-					"src/render/presentation_channel.luau",
-				}
-			do
-				local source = fs.readFile(relPath)
-				local lineNo = 0
-				for line in string.gmatch(source .. "\n", "(.-)\n") do
-					lineNo += 1
-					-- a bare source-comment mentioning the call (renderer.luau's own
-					-- top-of-file API summary) is not a SITE
-					if
-						string.match(line, "^%s*%-%-") == nil
-						and string.find(line, "adapter.setProp(", 1, true) ~= nil
-					then
-						table.insert(sites, `{relPath}:{lineNo}`)
+			local CLASSIFIED: { [string]: string } = {
+				-- CHOKE POINTS: both now call `noteWorn`, which is what makes the
+				-- park key and the create signature the same namespace.
+				["renderer.luau|prop|binding"] = "choke point (binding, incl. the late `tint` write)",
+				["renderer.luau|prop|style"] = "choke point (style)",
+				-- CHOKE-POINT-EQUIVALENT (Important 2): style/binding authority, but
+				-- a DERIVED value, so they route through the `noteWorn` dep instead.
+				['commit_walks.luau|"label"|binding'] = "choke-point-equivalent via noteWorn",
+				['commit_walks.luau|"icon"|style'] = "choke-point-equivalent via noteWorn",
+				['commit_walks.luau|"compactLabel"|style'] = "choke-point-equivalent via noteWorn",
+				-- LAYOUT, excluded by ruling: each is value-diffed against a cache
+				-- `captureParkedProps`/`restoreParkedProps` carry across an adoption,
+				-- so a tracked name's ABSENCE never leaves a stale bespoke child.
+				['commit_walks.luau|"textSize"|layout'] = "layout, value-diffed by lastTextSize",
+				['commit_walks.luau|"textFont"|'] = "layout, value-diffed by lastTextFont",
+				['commit_walks.luau|"padding"|layout'] = "layout, value-diffed by lastPadding + the un-pad branch",
+				['commit_walks.luau|"textWrapped"|layout'] = "layout, value-diffed by lastWrapped",
+				['renderer.luau|"clipChildren"|layout'] = "layout, re-derived every solve",
+				-- EXCEPTIONS: outside BINDING_PROPS ∪ STYLE_PROPS entirely, and each
+				-- with its own reason a park can never carry it into the pool.
+				['drag_bridge.luau|"dragHeld"|presentation'] = "exception: EMITTED_PROPS carve-out; the drag sweep tears it down before park",
+				['presentation_channel.luau|"transform"|presentation'] = "exception: DIRECT_PROPS; park refuses a live presentation transform",
+				['presentation_channel.luau|"transparency"|presentation'] = "exception: DIRECT_PROPS; same park refusal",
+			}
+
+			local function stripComments(source: string): string
+				local out = string.gsub("\n" .. source, "%-%-%[%[.-%]%]", " ")
+				out = string.gsub(out, "\n[ \t]*%-%-[^\n]*", "\n")
+				return out
+			end
+
+			local seen: { [string]: boolean } = {}
+			local files = 0
+			for _, path in src_tree.paths() do
+				local file = string.match(path, "^src/render/([%w_]+%.luau)$")
+				if file == nil then
+					continue
+				end
+				files += 1
+				for line in string.gmatch(stripComments(fs.readFile(path)) .. "\n", "(.-)\n") do
+					if string.find(line, "adapter.setProp(", 1, true) ~= nil then
+						local prop = string.match(line, "adapter%.setProp%([^,]*,%s*([^,]+),")
+						local authority = string.match(line, '"(%a+)"%)%s*$')
+						if prop == nil then
+							seen[`{file}|RAW {string.match(line, "^%s*(.-)%s*$") :: string}`] = true
+						else
+							seen[`{file}|{prop}|{authority or ""}`] = true
+						end
 					end
 				end
 			end
-			table.sort(sites)
-			-- CHOKE POINTS (2, `renderer.luau`): applyProp, applyStyleProp — both
-			-- now call noteWorn.
-			-- COMMIT_WALKS (7): label/icon/compactLabel (choke-point-equivalent via
-			-- the noteWorn dep, Important 2) + textSize/textFont/padding/textWrapped
-			-- (LAYOUT, value-diffed by lastTextSize/lastTextFont/lastPadding/
-			-- lastWrapped — excluded by ruling, not a defect).
-			-- RENDERER (1 more): clipChildren (LAYOUT, re-derived every solve, never
-			-- carries a stale identity across an adoption the way a style prop's
-			-- absence would).
-			-- DRAG_BRIDGE (1): dragHeld — EXCEPTION: not in BINDING_PROPS ∪
-			-- STYLE_PROPS at all (`prop_channels.EMITTED_PROPS`'s own `dragHeld`
-			-- carve-out); a park refusal never lets it survive into the pool anyway
-			-- (the drag-binding sweep at `\0drag`/`\0drop`/`\0det` tears it down
-			-- before a node is ever offered to `adapter.park`).
-			-- PRESENTATION_CHANNEL (2): transform/transparency — EXCEPTION: not in
-			-- BINDING_PROPS ∪ STYLE_PROPS (`prop_channels.DIRECT_PROPS`, "presentation
-			-- authority"); `park` itself refuses any node carrying a live
-			-- presentation transform, so one can never reach the pool at all.
-			-- 2 + 7 + 1 + 1 + 2 = 13.
-			expect(#sites).toBe(13)
+			-- the walk really reached the directory (`src/render` is 25 modules, not
+			-- the four the R2 form read)
+			expect(files >= 20).toBe(true)
+
+			local unclassified: { string } = {}
+			for entry in seen do
+				if CLASSIFIED[entry] == nil then
+					table.insert(unclassified, entry)
+				end
+			end
+			table.sort(unclassified)
+			expect(`unclassified setProp sites: {table.concat(unclassified, " ~ ")}`).toBe(
+				"unclassified setProp sites: "
+			)
+
+			local stale: { string } = {}
+			for entry in CLASSIFIED do
+				if not seen[entry] then
+					table.insert(stale, entry)
+				end
+			end
+			table.sort(stale)
+			expect(`classified but absent: {table.concat(stale, " ~ ")}`).toBe("classified but absent: ")
 		end)
 	end
 )
