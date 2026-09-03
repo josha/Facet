@@ -3181,41 +3181,6 @@ local function arrange(ctx: Ctx, node: Node, rect: Rect, out: { [string]: any })
 			end
 			local x = innerX + roundPx((innerW - w) * f[1]) + ox
 			local y = innerY + roundPx((innerH - h) * f[2]) + oy
-			--[[ ...AND RECORD THE OFFER WE JUST SERVED, BUT ONLY WHERE THE RECORD CAN
-				GO STALE. `ctx.offers` is fresh per solve and only `measure` writes it, so
-				a child served by the arm above has NO offer recorded — and if `arrange`
-				builds it a new entry, that entry files `offerW = nil`. That is not a
-				correctness bug (a nil offer fails this arm's test next solve and falls
-				back to `measure`, the conservative direction) but it is a SELF-DISARMING
-				cache: the arm would fire at most every other tick. It matters most for a
-				TRANSLATE ROOT, whose entry literal re-reads `ctx.offers` (T4).
-
-				THE WRITE IS PROVABLY REDUNDANT WHEN THE RECT DID NOT MOVE, which is the
-				common case and which is why this is a condition rather than two
-				unconditional writes. The arm's own precondition is `prev.offerW == innerW`
-				— so the entry already on the map ALREADY records exactly the number we
-				would write. `arrange` replaces that entry only when it does not take its
-				skip, and the skip's four tests are: clean (this arm required it), same
-				size and same origin (this comparison), and `containerOk`. So a rect that
-				did not move keeps an entry that already holds the right offer, and only a
-				moved one needs the two writes.
-
-				`containerOk` IS THE ONE GAP, deliberately unclosed: a child with
-				`containerRelativeInside` whose container narrowed is re-entered even on an
-				identical rect, and its fresh entry records a nil offer. That costs one
-				`measure` on the following solve for that child alone — the conservative
-				direction again, and cheaper than reproducing the skip's container test
-				here where it would be a second copy of a rule that must not disagree.
-
-				MEASURED, because the condition is a performance claim: unconditional, the
-				two writes put 498 entries into `ctx.offers` on a steady 250-plate hp step
-				and the table's hash growth cost +15.6 KB a step (143.66 -> 159.16, medians
-				of five, `tests/anchor_arrange.spec.luau` carries the numbers). Conditional,
-				it is back to the floor. ]]
-			if served and (prev.rect.x ~= x or prev.rect.y ~= y or prev.rect.w ~= w or prev.rect.h ~= h) then
-				ctx.offers[child.wKey or (child.id .. "|w")] = innerW
-				ctx.offers[child.hKey or (child.id .. "|h")] = innerH
-			end
 			arrange(ctx, child, { x = x, y = y, w = w, h = h }, out)
 		end
 		return
