@@ -421,7 +421,16 @@ type Ctx = {
 	-- working as declared rather than a defect. Absent on every other finding, so
 	-- `d.designed == true` is the whole test; see the composition arrange branch
 	-- for the one place that sets it and why the two kinds had to be separable.
-	diagnostics: { { node: string, issue: string, designed: boolean? } },
+	--
+	-- `measured` IS AN INTERNAL STAMP, NOT PART OF THE DOCUMENTED FINDING CONTRACT —
+	-- the same class as `filedBy` (stamped by `solver.auditPlacement`), and set for
+	-- the same kind of reason: the replay and the anchor arm have to tell a
+	-- MEASURE-time finding from an ARRANGE-time one, and `walkedIds` can only answer
+	-- for the second. It is written in the four measure-time filers' own literals
+	-- rather than by a wrapper because `measure` has two early returns that never
+	-- reach its capture block, and a stamp that is right on only one of three paths
+	-- is worse than none (T9 review, I1 — the probe that found it).
+	diagnostics: { { node: string, issue: string, designed: boolean?, measured: boolean? } },
 	textStates: { [string]: string },
 	-- nodes whose `compactText` won this solve. Recorded during measure and read
 	-- out during arrange, so the verdict the box was reserved for is exactly the
@@ -575,6 +584,11 @@ type Ctx = {
 	-- the ids `arrange` WALKED, kept only on a reuse solve, where the walk is the small
 	-- half. A previous diagnostic is replayed exactly when its filer is absent here.
 	walkedIds: { [string]: boolean },
+	-- FALSE WHEN THE PREVIOUS SOLVE FILED A MEASURE-TIME FINDING (T9 review, I1) —
+	-- computed once in `solve` off the `measured` stamp, read only by the anchor
+	-- arrange arm, which cannot serve a child without losing that child's subtree's
+	-- findings. True on every well-formed tree, which is what makes it free.
+	measureQuiet: boolean,
 	-- true once a `scroll` node has been measured in this solve; gates the memo so a
 	-- tree with no scroll region pays nothing for it
 	hasScroll: boolean,
@@ -794,6 +808,7 @@ local function resolveAxis(
 		if container == nil or container == math.huge then
 			table.insert(ctx.diagnostics, {
 				node = node.id,
+				measured = true,
 				issue = "containerRelativeFrame on an axis whose nearest container is unbounded (a scroller "
 					.. "inside another scroller's own axis?); falling back to content",
 			})
@@ -804,6 +819,7 @@ local function resolveAxis(
 		if limit == math.huge then
 			table.insert(ctx.diagnostics, {
 				node = node.id,
+				measured = true,
 				issue = "percent size on an unbounded axis (inside scroll axis?); falling back to content",
 			})
 			return contentFn()
@@ -1309,6 +1325,7 @@ local function contentSize(ctx: Ctx, node: Node, maxW: number, maxH: number): (n
 		then
 			table.insert(ctx.diagnostics, {
 				node = node.id,
+				measured = true,
 				issue = `scroll region on an unbounded {axis} axis (inside another scroller's own axis?): its `
 					.. `own {if axis == "x" then "width" else "height"} is '{mainDim.type}', so the viewport `
 					.. "resolves to the CONTENT and this region can never scroll — every child is materialized. "
@@ -1935,6 +1952,7 @@ measureUncached = function(ctx: Ctx, node: Node, maxW: number, maxH: number): (n
 	if wDim.type == "aspect" and hDim.type == "aspect" then
 		table.insert(ctx.diagnostics, {
 			node = node.id,
+			measured = true,
 			issue = "aspect on both axes is undefined; treating both as content",
 		})
 		wDim, hDim = CONTENT, CONTENT
@@ -3095,7 +3113,19 @@ local function arrange(ctx: Ctx, node: Node, rect: Rect, out: { [string]: any })
 			question `measure`'s own cross-solve adopt gate asks. `measureContains` is
 			absent only when the solve has no measure store, so the fallback is the wide
 			set and never nil. ]]
-		local prevOf = if reuse ~= nil then reuse.previous.rects else nil
+		--[[ ...AND `ctx.measureQuiet` IS THE FOURTH GATE, because `ctx.diagnostics` is
+			the one channel this arm CANNOT republish (T9 review, I1): a finding is filed
+			about any node in the served SUBTREE and `prev` carries none, so there is
+			nothing on the entry to replay, and the solve-level replay refuses every node
+			in `walkedIds` — which the arm's own `arrange` call puts the whole served
+			subtree into. So the arm does not fire at all on a solve whose predecessor
+			filed a MEASURE-time finding. Chosen over the two alternatives because it is
+			the only one exact in BOTH directions; the argument, the two shapes that
+			reach the loss and the negative control live in
+			`tests/redteam_closing_round.spec.luau`'s header. It is free on a
+			well-formed tree: all four measure-time filers are authoring defects, never
+			a `designed` finding. ]]
+		local prevOf = if reuse ~= nil and ctx.measureQuiet then reuse.previous.rects else nil
 		local sizeDirt = if reuse ~= nil then (reuse.measureContains or reuse.dirtyContains) else nil
 		for _, child in node.children or {} do
 			local w: number, h: number
@@ -3145,7 +3175,12 @@ local function arrange(ctx: Ctx, node: Node, rect: Rect, out: { [string]: any })
 					Re-publishing `prev`'s three channels is EXACT, not conservative: the
 					gate is `measureContains`-clean AND the same offer pair, which is the
 					condition under which `measure` republishes these same values off its
-					own slate. Same reason and same place as the offer re-record. ]]
+					own slate. Same reason and same place as the offer re-record.
+
+					THREE, NOT FOUR (T9 review, I1 — the first wording here said "EXACT"
+					of a republish that was one channel short). `ctx.diagnostics` is the
+					fourth thing `measure` publishes and the one no entry can carry back;
+					it is gated instead, at `prevOf` above. ]]
 				ctx.textStates[child.id] = prev.textState
 				ctx.compact[child.id] = prev.compact
 				ctx.textFacts[child.id] = prev.textFacts
@@ -3403,7 +3438,7 @@ function solver.solve(
 	}?
 ): {
 	rects: { [string]: any },
-	diagnostics: { { node: string, issue: string, designed: boolean? } },
+	diagnostics: { { node: string, issue: string, designed: boolean?, measured: boolean? } },
 	contentRect: Rect,
 }
 	local insets = (opts and opts.safeInsets) or { top = 0, bottom = 0, left = 0, right = 0 }
@@ -3490,6 +3525,7 @@ function solver.solve(
 		reuse = opts and (opts :: any).reuse,
 		skipped = 0,
 		walkedIds = {},
+		measureQuiet = true,
 		rectInserts = 0,
 		offers = {},
 		-- per-node verdict: can this node's measured size depend on the offered
@@ -3504,6 +3540,19 @@ function solver.solve(
 		-- resolved above, so the content rect and this record are one reading
 		metrics = metrics,
 	}
+	-- DID THE PREVIOUS SOLVE REPORT A MEASURE-TIME FINDING? Once per solve, off the
+	-- stamp `measure` freezes onto each one, and empty on every well-formed tree — so
+	-- this is a loop over nothing in the case that matters. The anchor arrange arm is
+	-- its only reader; the long form of why is at that arm.
+	local prevDiags = if ctx.reuse ~= nil then ctx.reuse.previous.diagnostics else nil
+	if prevDiags ~= nil then
+		for _, d in prevDiags do
+			if (d :: any).measured then
+				ctx.measureQuiet = false
+				break
+			end
+		end
+	end
 	-- MICROPROFILER PHASES (roadmap Step 9). The two passes are named separately
 	-- because they answer different questions and regress for different reasons: a
 	-- measure regression is text metrics / intrinsic sizing / candidate selection,

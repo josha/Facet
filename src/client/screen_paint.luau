@@ -711,6 +711,27 @@ function screen_paint.new(ctx: any)
 				end
 				return
 			end
+			--[[ ONE INSTANCE HERE, ON PURPOSE — AND WHAT THAT MEANS ON A NODE WEARING
+				TWO (T9 task review, Minor 3, stated because the eraser above changed
+				and this branch did not). It re-radiuses whichever UICorner comes first
+				in `GetChildren` and leaves any second one wearing whatever it had.
+
+				That asymmetry is deliberate rather than overlooked. The two branches
+				answer different questions. The teardown above runs when NO chrome owner
+				claims a radius, so every UICorner on the node is unowned and leaving one
+				behind strands a radius nothing will ever clear. This branch runs when
+				the chrome DOES have a recorded radius to put back, i.e. there is exactly
+				one owner and one intended radius — so it writes one, keeping the
+				instance identity a recycled node's sheet rules and tween already point
+				at. Destroying-and-recreating to normalise a second corner would break
+				that identity for every node, on a case no owner has ever produced: the
+				second UICorner comes from `corner()`'s unconditional `Instance.new`,
+				which the native-paint arms take, and those arms record nothing — so a
+				node with a record and two corners is not a state this file can reach.
+
+				If one ever does appear it is visible as a stale radius rather than a
+				missing one, which is the safe direction, and the teardown branch above
+				clears it on the next release. ]]
 			local uiCorner = instance:FindFirstChildOfClass("UICorner") or Instance.new("UICorner")
 			uiCorner.CornerRadius = restored
 			uiCorner.Parent = instance
