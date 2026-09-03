@@ -5,10 +5,16 @@
 	(`layout_node.luau`'s ForEach region), so the canvas is ONE `anchor` with 250
 	direct children and the solver's anchor arrange branch re-offers and re-places
 	every one of them to settle a single dirty child. Per child, unconditionally: one
-	`measure()` (a memo HIT still allocates the interpolated `{maxW}|{maxH}|{scopeKey}`
-	cacheKey), one rect table, two `dim()` and two `offsetPx()` calls. That is the
-	146 KB a step this fixture measures for a 3-node change — and the same floor sits
-	under every add and every remove.
+	`measure()`, one rect table, two `dim()` and two `offsetPx()` calls — and the same
+	floor sits under every add, every remove and every tick.
+
+	THE COST OF THAT `measure()` IS CPU, NOT GARBAGE, and the task brief said the
+	opposite. Its 125 KB was attributed to the 250 memo-HIT `measure()` calls; measured
+	six ways in one session (the CEILING case below carries the table), removing 249 of
+	them moves the heap by 0.08 KB, because the interpolated `{maxW}|{maxH}|{scopeKey}`
+	cacheKey is IDENTICAL for all 250 children and Luau interns it. What the arm is
+	worth is on the clock and on the arena: FacetBench `nameplates L`, tick p50 -4.2 %,
+	add -16.3 %, remove -18.2 %, every step's ABBA arms disjoint.
 
 	WHY A PER-CHILD SKIP IS SOUND HERE AND NOWHERE ELSE: an anchor child's rect is a
 	pure function of (innerX, innerY, innerW, innerH, child.anchor, child.offsetX/Y,
@@ -22,7 +28,7 @@
 	re-offer is a memo HIT that returns before reaching it. Measured at the base of
 	this task, an `hp` step on 250 plates read `arranged=4 measured=7` ALREADY — the
 	dirty chain and nothing else — while the anchor branch was calling `measure` 250
-	times and allocating 146 KB doing it. A demonstrator built on `measured` would
+	times. A demonstrator built on `measured` would
 	have been green before the change and green after it, which is the "check that
 	proves nothing" class this repository has a gate for. `work.anchorOffered` /
 	`work.anchorReused` are the two halves of the loop this task changes and their sum
@@ -33,6 +39,12 @@ local describe, it, expect = t.describe, t.it, t.expect
 local solver = require("../src/layout/solver")
 local scene = require("./lib/nameplates_scene")
 local device_views = require("./lib/device_views")
+local UI = require("../src/blueprint")
+local mountLib = require("../src/mount")
+local environment = require("../src/env/environment")
+local renderer = require("../src/render/renderer")
+local customFactory = require("../src/core/custom")
+local fake_target = require("./lib/fake_target")
 
 local PLATES = scene.PLATES -- 250
 
@@ -99,25 +111,67 @@ local CASTERS = PLATES // scene.CASTER_EVERY -- 50
 	the duration of one case and put it back. `renderer.luau` calls `solver.solve(...)`
 	as a field lookup, so the wrapper is on the shipped path; it is restored even when
 	the body throws. ]]
-local capturedResult: any = nil
+--[[ THE INSTRUMENT, AND WHAT IT HAD TO GROW (T6 review, I2). The solver's `work`
+	block is not on the controller's public surface and this task adds nothing to it,
+	so the counters are read the way `tests/translate_arm.spec.luau` reads the entry
+	map: wrap the module function for the duration of one case and put it back.
+	`renderer.luau` calls `solver.solve(...)` as a field lookup, so the wrapper is on
+	the shipped path; it is restored even when the body throws.
+
+	THE FIRST VERSION KEPT ONLY THE LAST SOLVE, AND THAT IS THE "CHECK THAT PROVES
+	NOTHING" CLASS. A drive that solves ZERO times — a `refresh()` with no dirt, which
+	is exactly what follows an `env:set` of a geometry fact — silently re-asserted the
+	previous solve's counters, and a drive that solved twice reported only the second.
+	It is what hid the fact that both "a viewport change falls through" cases were
+	measuring a full solve rather than the offer comparison.
+
+	So the wrapper COUNTS INVOCATIONS and every pin carries the count: `solves=1` is
+	part of the asserted string, not a side condition, and a step that caused no solve
+	reports `solves=0` and no counters at all rather than a stale pair. It also keeps
+	the OPTIONS the solve was called with, because `opts.reuse` is the difference
+	between "the arm declined" and "there was no arm to decline" — see
+	`geometryIsAFullSolve` below. ]]
+local capture = { result = nil :: any, opts = nil :: any, solves = 0 }
 local function withWorkCapture(fn: () -> ())
 	local real = solver.solve
 	solver.solve = function(...)
 		local r = real(...)
-		capturedResult = r
+		capture.solves += 1
+		capture.result = r
+		capture.opts = (select(3, ...))
 		return r
 	end
 	local ok, err = pcall(fn)
 	solver.solve = real
 	if not ok then
-		capturedResult = nil
+		capture.result = nil
+		capture.opts = nil
 		error(err, 0)
 	end
 end
 
-local function anchorKey(): string
-	local w = capturedResult.work
-	return `reused={w.anchorReused} offered={w.anchorOffered}`
+--[[ ONE DRIVE, AND WHAT IT COST — the whole assertion, in one string. `solves=N`
+	first so a zero reads as a zero rather than as the last step's numbers, and the
+	counters omitted entirely when there was no solve to read them from. ]]
+local function drove(fn: () -> ()): string
+	local before = capture.solves
+	capture.result = nil
+	fn()
+	local n = capture.solves - before
+	if n == 0 or capture.result == nil then
+		return `solves={n}`
+	end
+	local w = capture.result.work
+	return `solves={n} reused={w.anchorReused} offered={w.anchorOffered}`
+end
+
+-- ...and whether the LAST captured solve was handed a reuse table at all. `reuse`
+-- is nil on a full solve, and `prevOf == nil` then makes the arm structurally
+-- unreachable — a different mechanism from the arm declining, and the two produce
+-- the same counters.
+local function lastSolveWasIncremental(): string
+	local opts = capture.opts
+	return `reuse={tostring(opts ~= nil and (opts :: any).reuse ~= nil)}`
 end
 
 describe("N2: one changed plate does not re-offer 250 siblings", function()
@@ -125,12 +179,13 @@ describe("N2: one changed plate does not re-offer 250 siblings", function()
 		withWorkCapture(function()
 			local s = scene.new()
 			s.tick(3, 2)
-			s.hp(7, 0.9)
 			--[[ The two halves sum to every child of the one anchor this fixture has, so
 				a "win" that simply stopped visiting children shows up here as a sum that
 				is no longer 250 rather than as a smaller `offered`. ]]
-			expect(anchorKey()).toBe(`reused={REUSED_HP} offered={OFFERED_HP}`)
-			local w = capturedResult.work
+			expect(drove(function()
+				s.hp(7, 0.9)
+			end)).toBe(`solves=1 reused={REUSED_HP} offered={OFFERED_HP}`)
+			local w = capture.result.work
 			expect(w.anchorReused + w.anchorOffered).toBe(PLATES)
 			s.dispose()
 		end)
@@ -145,10 +200,12 @@ describe("N2: one changed plate does not re-offer 250 siblings", function()
 		withWorkCapture(function()
 			local s = scene.new()
 			s.tick(3, 2)
-			s.add(9001)
-			expect(`add:{anchorKey()}`).toBe(`add:reused={PLATES} offered=1`)
-			s.remove(1)
-			expect(`remove:{anchorKey()}`).toBe(`remove:reused={PLATES} offered=0`)
+			expect(drove(function()
+				s.add(9001)
+			end)).toBe(`solves=1 reused={PLATES} offered=1`)
+			expect(drove(function()
+				s.remove(1)
+			end)).toBe(`solves=1 reused={PLATES} offered=0`)
 			s.dispose()
 		end)
 	end)
@@ -160,10 +217,12 @@ describe("N2: one changed plate does not re-offer 250 siblings", function()
 			none of them. This is the case the `measureContains` gate exists for. ]]
 		withWorkCapture(function()
 			local s = scene.new()
-			s.tick(3, 2)
-			expect(`tick:{anchorKey()}`).toBe(`tick:reused={PLATES} offered=0`)
-			s.tick(3, 2)
-			expect(`tick again:{anchorKey()}`).toBe(`tick again:reused={PLATES} offered=0`)
+			expect(drove(function()
+				s.tick(3, 2)
+			end)).toBe(`solves=1 reused={PLATES} offered=0`)
+			expect(drove(function()
+				s.tick(3, 2)
+			end)).toBe(`solves=1 reused={PLATES} offered=0`)
 			s.dispose()
 		end)
 	end)
@@ -179,10 +238,12 @@ describe("N2: one changed plate does not re-offer 250 siblings", function()
 		withWorkCapture(function()
 			local s = scene.new()
 			s.tick(3, 2)
-			s.tickWithCasts(3, 2)
-			expect(`casts:{anchorKey()}`).toBe(`casts:reused={PLATES - CASTERS} offered={CASTERS}`)
-			s.tickWithCasts(3, 2)
-			expect(`casts again:{anchorKey()}`).toBe(`casts again:reused={PLATES - CASTERS} offered={CASTERS}`)
+			expect(drove(function()
+				s.tickWithCasts(3, 2)
+			end)).toBe(`solves=1 reused={PLATES - CASTERS} offered={CASTERS}`)
+			expect(drove(function()
+				s.tickWithCasts(3, 2)
+			end)).toBe(`solves=1 reused={PLATES - CASTERS} offered={CASTERS}`)
 			s.dispose()
 		end)
 	end)
@@ -204,57 +265,69 @@ describe("N2: one changed plate does not re-offer 250 siblings", function()
 		s.dispose()
 	end)
 
-	it("...and the ALLOCATION RECORD, which is not the one the brief predicted", function()
-		--[[ THE HEAP IS READ, NEVER COLLECTED. `collectgarbage("collect")` is not
-			available under Lune 0.10.4 (it raises "collectgarbage called with invalid
-			option"); `"count"` is. So a window is a plain delta over ten identical steps
-			after a warm-up, which measures ALLOCATION RATE rather than retention — and a
-			collection landing inside a window can only make the number SMALLER.
+	it("THE ALLOCATION CEILING, and the record of what the brief got backwards", function()
+		--[[ THIS CASE IS A CEILING AND A RECORD, NOT A DEMONSTRATOR — said in its own
+			name (T6 review, M6) because a reader skimming for "the allocation test" would
+			otherwise find one that cannot fail for this arm. It stayed GREEN under the
+			mutation that disables the arm entirely. The claims of this task are the
+			counter cases above; this one keeps a number honest and writes down why it is
+			not the number the task brief predicted.
 
-			WHICH IS WHY ONLY THE hp NUMBER IS ASSERTED HERE. The structural window
-			allocates ~3 MB and the collector reliably runs inside it: interleaved
-			BASE/T6/T6/BASE through this very case, the add+remove medians read -38.68,
-			202.16, 285.00 and 326.27 — a BASE arm produced the smallest number of the
-			four, so a "<300" ceiling on it would have been a false green on the code it
-			was written to reject. The hp window allocates ~1.6 MB and does not trip a
-			collection: 146.41, 159.08, 159.08, 146.33 on the same four runs, split
-			exactly by arm. A pin is only worth having where the instrument separates the
-			arms, so the structural claim is the COUNTER case above and the arena row in
-			the ledger, not a number from here.
+			THE HEAP IS READ, NEVER COLLECTED. `collectgarbage("collect")` is not available
+			under Lune 0.10.4 (it raises "collectgarbage called with invalid option");
+			`"count"` is. So a window is a plain delta over ten identical steps after a
+			warm-up, which measures ALLOCATION RATE rather than retention, and a collection
+			landing inside a window can only make the number SMALLER — which is why every
+			assertion here is a ceiling and the median of five windows is what is read.
 
-			WHAT THE BRIEF EXPECTED: 125 KB a step on the hp step, dominated by the 250
-			`measure()` calls the anchor loop makes, coming down under 20 KB. MEASURED, it
-			is none of that. Four arms, medians of five, one process per arm:
+			ONLY THE hp WINDOW IS PINNED. The structural window allocates ~3 MB and the
+			collector reliably runs inside it: interleaved BASE/T6/T6/BASE through an
+			earlier draft of this case, the add+remove medians read -38.68, 202.16, 285.00
+			and 326.27 — a BASE arm produced the SMALLEST of the four, so a ceiling on it
+			would have been a false green on the code it was written to reject. The hp
+			window does not trip a collection and its arms are cleanly split. A pin is only
+			worth having where the instrument separates the arms, so the structural claim
+			is the counter case above and the arena row in FacetBench's ledger.
 
-			  | arm                                        | hp KB/step |
-			  | base: no arm, no memo-hit offer recording  |     146.41 |
-			  | arm only, and its own offer writes removed |     143.66 |
-			  | memo-hit offer recording only, no arm      |     159.16 |
-			  | SHIPPED: both                              |     159.16 |
+			THE SIX-ARM ATTRIBUTION, re-measured in ONE session on 2026-09-03 (T6 review,
+			M3 — two earlier records disagreed by more than the effect they attributed,
+			because they mixed a git parent with a feature-flagged build). Medians of five
+			windows, one process per arm, same fixture, same drive:
 
-			The 250 memo-HIT `measure()` calls the arm removes are worth 2.75 KB on this
-			step, not 125 — a hit builds an interpolated cacheKey that is IDENTICAL for
-			all 250 children (same offer, same scope) and Luau interns it, so 250 builds
-			are one allocation. And recording the offer on the memo-hit path (the ruling
-			that makes the arm reachable at all — see `tests/translate_arm.spec.luau`)
-			costs +15.5 KB, because `ctx.offers` is fresh per solve and now holds two
-			entries for every node the solve measured: ~500 hash slots at 32 bytes is
-			16 KB, which is the number. THE hp STEP THEREFORE ENDS UP 12.75 KB WORSE ON
-			THIS FIXTURE (+8.7 %), and it is written down here rather than left to be
-			found. Its cause is the offer CHANNEL, not the arm — and the arena, where the
-			same channel is paid on far more nodes, comes out 6.3 % AHEAD on the tick's
-			allocation, so the trade is favourable everywhere it has been measured except
-			this one step of this one fixture.
+			  | # | arm                                          | hp KB/step |
+			  | 6 | the PARENT COMMIT `93fcd06e` — the honest before |     146.33 |
+			  | 5 | this build, BOTH features off                |     143.58 |
+			  | 4 | + the arm on, no new offer writes anywhere   |     143.66 |
+			  | 3 | + the arm's own offer writes                 |     159.16 |
+			  | 2 | the memo-hit offer write only, arm off       |     159.16 |
+			  | 1 | SHIPPED (arm + memo-hit offer write)         |     159.16 |
 
-			WHERE THE WIN IS: the structural steps, whose anchor children are not already
-			measured by the measure side. FacetBench `nameplates L`, ABBA n=4 per arm,
-			arms DISJOINT — add gcKb 280.3 -> 203.0 (-27.6 %) and p50 1.317 -> 1.095 ms
-			(-16.9 %); remove gcKb 227.4 -> 155.3 (-31.7 %) and p50 1.296 -> 1.025 ms
-			(-20.9 %); the tick's gcKb 3212.6 -> 3071.6 (-4.4 %) with its p50 unmoved.
+			WHAT IT SAYS, and none of it is what the brief predicted:
 
-			The ceiling below is loose on purpose: 159 measured, a doubling caught, a
-			10 % machine difference tolerated. The EXACT claims of this task are the
-			counters above. ]]
+			* A1 (`wKey`/`hKey`) IS THE ONLY ALLOCATION SAVING ON THIS STEP — rows 6 -> 5,
+			  -2.75 KB, the four original `ctx.offers` indexes no longer concatenating.
+			* THE ARM SAVES NOTHING HERE — rows 5 -> 4, +0.08 KB, i.e. nil. The brief's
+			  125 KB was the 250 memo-HIT `measure()` calls the arm removes; the
+			  interpolated cacheKey is IDENTICAL for all 250 children (same offer, same
+			  scope) and Luau interns it, so 250 builds are one allocation. THIS IS ALSO
+			  THE STEP-4 BOUND: rows 4 vs 5 remove 249 cacheKey builds OUTRIGHT for
+			  |delta| <= 0.1 KB against a 143.6 floor — 0.07 % — so a three-level numeric
+			  memo key (arm B) cannot reach the brief's 15 % threshold and arm A is kept.
+			* THE OFFER CHANNEL COSTS +15.5 KB, and it is the CHANNEL rather than either
+			  writer: rows 3 and 2 reach the same 159.16 from opposite sides, because
+			  `ctx.offers` is fresh per solve and either writer alone fills it with two
+			  entries per child — ~500 hash slots at 32 bytes is 16 KB, which is the
+			  number. The arm needs that channel to be reachable at all (see
+			  `tests/translate_arm.spec.luau`), so the hp step ends up 12.8 KB worse than
+			  the parent commit on THIS fixture. Written down rather than netted away.
+			* THE ARENA GOES THE OTHER WAY on the same channel, paid over far more nodes:
+			  FacetBench `nameplates L`, ABBA n=4 per arm, arms disjoint on every step —
+			  tick p50 -4.2 % and gcKb -6.3 %, add p50 -16.3 % and gcKb -21.9 %, remove
+			  p50 -18.2 % and gcKb -24.9 %. The gate is worth most of that: the same ABBA
+			  against a build that gated on `dirtyContains` read the tick p50 UNMOVED.
+
+			The ceiling below is loose on purpose: 159 measured, a doubling caught, a 10 %
+			machine difference tolerated. ]]
 		local vals: { number } = {}
 		for _ = 1, 5 do
 			local s = scene.new()
@@ -273,7 +346,7 @@ describe("N2: one changed plate does not re-offer 250 siblings", function()
 		table.sort(vals)
 		local hpKb = vals[3]
 		print(`anchor_arrange hp kbPerStep={string.format("%.2f", hpKb)}`)
-		expect(`hpKb<250={tostring(hpKb < 250)}`).toBe("hpKb<250=true")
+		expect(`hpKb<250(CEILING)={tostring(hpKb < 250)}`).toBe("hpKb<250(CEILING)=true")
 	end)
 
 	it("...at every device view", function()
@@ -281,35 +354,263 @@ describe("N2: one changed plate does not re-offer 250 siblings", function()
 			for _, view in device_views.VIEWS do
 				local s = scene.new({ viewport = { x = 0, y = 0, w = view.w, h = view.h } })
 				s.tick(3, 2)
-				s.hp(7, 0.9)
-				expect(`{view.id}:{anchorKey()}:{s.stats().lastArranged}`).toBe(
-					`{view.id}:reused={REUSED_HP} offered={OFFERED_HP}:{ARRANGED_HP}`
+				expect(`{view.id}:{drove(function()
+					s.hp(7, 0.9)
+				end)}:{s.stats().lastArranged}`).toBe(
+					`{view.id}:solves=1 reused={REUSED_HP} offered={OFFERED_HP}:{ARRANGED_HP}`
 				)
 				s.dispose()
 			end
 		end)
 	end)
 
-	it("A VIEWPORT CHANGE FALLS THROUGH: a new offer re-measures every child", function()
-		--[[ THE ARM'S PRECONDITION IS THE OFFER, NOT THE DIRT, and this is the case
-			that proves the difference is real rather than decorative. Re-attaching at a
-			different viewport changes the anchor's inner extent, so `prev.offerW` no
-			longer equals `innerW` for ANY child and all 250 go to `measure` — which is
-			also what makes the 320x640 row of the oracle below meaningful instead of
-			vacuous. ]]
+	it("A GEOMETRY FACT IS A FULL SOLVE, so the arm is unreachable rather than declining", function()
+		--[[ RE-TITLED AND RE-COMMENTED (T6 review, I1): this case was advertised as
+			proving the arm's exact-offer precondition and it proves something else, which
+			is worth having but is not that.
+
+			`viewportRect` is a GEOMETRY key (`env/geometry_facts.luau`), and the
+			renderer's geometry memo defers to `core:settle`, which calls `solveAndApply()`
+			from OUTSIDE `refresh` — where the controller-level `dirtyContains` is still
+			nil, so `solveOpts.reuse` is never set. The `env:set` therefore solves the
+			surface itself, as a FULL solve, and the `refresh()` after it has no dirt and
+			does not solve at all. The 250 that go to `measure` here do so because
+			`prevOf == nil` at the top of the anchor branch, NOT because
+			`prev.offerW ~= innerW`.
+
+			THAT INVARIANT IS LOAD-BEARING FOR THE ARM AND IS ASSERTED NOWHERE ELSE. The
+			gate is `measureContains`, so anything that changes a child's measured size
+			without entering the measure dirt set would be served a stale rect — and the
+			whole family of such things (the typography scale, the preferred-text offset,
+			the theme metrics, the font-metric flip, the viewport, the safe insets) is the
+			geometry-fact family. They are safe for exactly one reason: a geometry fact
+			moving is always a full solve with no `reuse` table, so the arm cannot fire on
+			the solve that first sees the new value. `reuse=false` below is that reason,
+			pinned. The counters alone could not carry it — `reused=0 offered=250` is what
+			BOTH mechanisms produce, which is why `solves=` and `reuse=` are in the
+			asserted strings.
+
+			The offer comparison itself is proved by "AN ANCESTOR'S PROP MOVES THE INNER
+			BOX" below, which is the only shape that changes `innerW` while the solve
+			stays incremental. ]]
 		withWorkCapture(function()
 			local s = scene.new({ viewport = { x = 0, y = 0, w = 1280, h = 720 } })
 			s.tick(3, 2)
-			s.hp(7, 0.9)
-			expect(anchorKey()).toBe(`reused={REUSED_HP} offered={OFFERED_HP}`)
-			resize(s, 1000, 700)
-			expect(anchorKey()).toBe(`reused=0 offered={PLATES}`)
-			-- ...and the very next step at the SETTLED viewport arms again, so the arm
-			-- is not one-shot
-			s.hp(7, 0.4)
-			expect(anchorKey()).toBe(`reused={REUSED_HP} offered={OFFERED_HP}`)
+			expect(drove(function()
+				s.hp(7, 0.9)
+			end)).toBe(`solves=1 reused={REUSED_HP} offered={OFFERED_HP}`)
+			expect(lastSolveWasIncremental()).toBe("reuse=true")
+			-- the `env:set` solves; the `refresh` after it finds no dirt, which is why
+			-- the count is one and not two
+			expect(drove(function()
+				resize(s, 1000, 700)
+			end)).toBe(`solves=1 reused=0 offered={PLATES}`)
+			expect(lastSolveWasIncremental()).toBe("reuse=false")
+			-- ...and the very next step at the SETTLED viewport is incremental again and
+			-- arms again, so the full solve is the geometry fact's and not a latch
+			expect(drove(function()
+				s.hp(7, 0.4)
+			end)).toBe(`solves=1 reused={REUSED_HP} offered={OFFERED_HP}`)
+			expect(lastSolveWasIncremental()).toBe("reuse=true")
 			s.dispose()
 		end)
+	end)
+end)
+
+--[[ THE ONLY SHAPE THAT MOVES AN ANCHOR'S INNER BOX ON AN *INCREMENTAL* SOLVE
+	(T6 review, I1), and therefore the only shape that can exercise the arm's
+	exact-offer precondition at all.
+
+	WHY THE 250-PLATE FIXTURE CANNOT DO IT: its anchor is the canvas root, so the only
+	thing that changes `innerW`/`innerH` there is the viewport — and the viewport is a
+	geometry fact, which is always a FULL solve with no `reuse` table (the case above
+	pins that). `prevOf == nil` then makes the arm structurally unreachable, so the
+	250 that go to `measure` on a resize say nothing about the offer comparison.
+	Deleting both comparisons from the solver reddened NOTHING in either repository
+	before this fixture existed.
+
+	SO THE ANCHOR IS NESTED and its box is moved by a PROP write on its parent. The
+	dirty closure runs UPWARD — a node is in it if it is dirty or CONTAINS a dirty node
+	— so a `padding` write on the wrapper puts the wrapper and the Screen in the sets
+	and leaves every anchor child out of both. The solve stays incremental (`reuse` is
+	present, pinned below), the anchor's rect changes, `innerW` changes with it, and
+	the offer comparison is the one and only thing standing between each child and a
+	stale size.
+
+	AND THE STALENESS IS REAL RATHER THAN THEORETICAL, which is why a third of the
+	children are wrapping `UI.Text`: their measured HEIGHT is a function of the width
+	they are offered. A child served its previous rect at a new offer keeps the box of
+	a wrap that is not going to happen — so the differential half of this case is not a
+	formality, it is where a wrong answer would show up as pixels. ]]
+local NESTED_KIDS = 12
+
+local function nestedAnchorWorld(incremental: boolean, view: any): any
+	local core = customFactory.new()
+	local env = environment.new(core)
+	env:set("viewportRect", { x = 0, y = 0, w = view.w, h = view.h })
+	local pad = core:signal(0)
+	local nudge = core:signal(0)
+	local kids = {}
+	for i = 1, NESTED_KIDS do
+		if i % 3 == 0 then
+			table.insert(
+				kids,
+				UI.Text({
+					id = `T{i}`,
+					text = "a wrapping label whose measured height depends on the width it is offered, repeatedly",
+					anchor = "topLeft",
+					-- ONE child carries the reactive placement prop, so a `nudge` step is
+					-- arrange-classed dirt on one child and nothing else: the step that
+					-- must find the offers unchanged and take the arm
+					offsetX = if i == 3 then nudge else 0,
+					offsetY = i * 3,
+				})
+			)
+		else
+			table.insert(
+				kids,
+				UI.Box({
+					id = `B{i}`,
+					width = { type = "fixed", px = 40 },
+					height = { type = "fixed", px = 20 },
+					anchor = "topLeft",
+					offsetY = i * 3,
+				})
+			)
+		end
+	end
+	local root = mountLib.mount(
+		core,
+		UI.Screen({
+			id = "S",
+			children = {
+				UI.VStack({
+					id = "Wrap",
+					width = { type = "fill", weight = 1 },
+					height = { type = "fill", weight = 1 },
+					-- the lever: a MEASURE-classed prop on the anchor's PARENT
+					padding = pad,
+					children = {
+						UI.Anchor({
+							id = "A",
+							width = { type = "fill", weight = 1 },
+							height = { type = "fill", weight = 1 },
+							children = kids,
+						}),
+					},
+				}),
+			},
+		})
+	)
+	local adapter = fake_target.new()
+	local controller = renderer.attach(core, root, env, adapter, {
+		rootPolicy = "edgeToEdge",
+		incrementalLayout = incremental,
+		measureReuse = incremental,
+		layoutNodeReuse = true,
+		commitScope = true,
+	})
+	controller.initialRender()
+	return {
+		controller = controller,
+		pad = function(v: number)
+			pad:set(v)
+			controller.refresh()
+		end,
+		nudge = function(v: number)
+			nudge:set(v)
+			controller.refresh()
+		end,
+		dump = function(): string
+			local out = {}
+			for path, node in adapter.liveNodes() do
+				local r = node.rect
+				table.insert(out, `{path}|{if r then `{r.x},{r.y},{r.w},{r.h}` else "-"}|vis={tostring(node.visible)}`)
+			end
+			table.sort(out)
+			return table.concat(out, "\n")
+		end,
+		dispose = function()
+			controller.dispose()
+			root.dispose()
+		end,
+	}
+end
+
+describe("N2: the exact-offer precondition, on the only shape that can reach it", function()
+	it("AN ANCESTOR'S PROP MOVES THE INNER BOX: every child falls through, on an INCREMENTAL solve", function()
+		withWorkCapture(function()
+			local w = nestedAnchorWorld(true, { w = 800, h = 600 })
+			-- warm: `initialRender` is not a reuse solve, so the drive after it is the
+			-- fill pass
+			w.nudge(1)
+			--[[ ARRANGE-CLASSED DIRT ON ONE CHILD, offers unchanged: the arm serves all
+				twelve. This is the control — without it, the padding row below could be
+				green because the arm never fires on this fixture at all. ]]
+			expect(drove(function()
+				w.nudge(2)
+			end)).toBe(`solves=1 reused={NESTED_KIDS} offered=0`)
+			expect(lastSolveWasIncremental()).toBe("reuse=true")
+			--[[ THE CASE THE GUARD EXISTS FOR. `padding` on the wrapper moves the
+				anchor's inner box; the closure runs upward so no child is in either dirt
+				set; the solve is still incremental (`reuse=true`, asserted — this is what
+				separates it from the viewport case); and all twelve go to `measure`
+				BECAUSE `prev.offerW ~= innerW`. Deleting the two comparisons at the arm's
+				`if` makes this row read `reused=12 offered=0` — measured, not asserted. ]]
+			expect(drove(function()
+				w.pad(10)
+			end)).toBe(`solves=1 reused=0 offered={NESTED_KIDS}`)
+			expect(lastSolveWasIncremental()).toBe("reuse=true")
+			-- ...and it re-arms at the settled box, so the fall-through is the offer's
+			-- and not a latch
+			expect(drove(function()
+				w.nudge(3)
+			end)).toBe(`solves=1 reused={NESTED_KIDS} offered=0`)
+			-- ...and a SECOND move of the same box falls through again
+			expect(drove(function()
+				w.pad(24)
+			end)).toBe(`solves=1 reused=0 offered={NESTED_KIDS}`)
+			w.dispose()
+		end)
+	end)
+
+	it("...and the geometry it produces is byte-equal to a forced FULL solve", function()
+		--[[ THE COUNTER SAYS THE ARM DECLINED; THIS SAYS THE ANSWER IS RIGHT. A third of
+			these children are wrapping text, so a child served its previous rect at a new
+			offer would keep the height of a wrap it is not going to get — a wrong box,
+			not a slow one. `b` re-solves in full on every refresh and is the ground
+			truth. ]]
+		local a = nestedAnchorWorld(true, { w = 800, h = 600 })
+		local b = nestedAnchorWorld(false, { w = 800, h = 600 })
+		local function step(what: string, drive: (any) -> ())
+			drive(a)
+			drive(b)
+			if a.dump() ~= b.dump() then
+				error(`{what}: the incremental arm diverged from a FULL solve`, 0)
+			end
+		end
+		if a.dump() ~= b.dump() then
+			error("mount: the incremental arm diverged from a FULL solve", 0)
+		end
+		for round = 1, 3 do
+			step(`nudge {round}`, function(w)
+				w.nudge(round)
+			end)
+			step(`pad in {round}`, function(w)
+				w.pad(round * 9)
+			end)
+			step(`nudge under pad {round}`, function(w)
+				w.nudge(round + 10)
+			end)
+			step(`pad out {round}`, function(w)
+				w.pad(round * 3)
+			end)
+			step(`pad zero {round}`, function(w)
+				w.pad(0)
+			end)
+		end
+		a.dispose()
+		b.dispose()
 	end)
 end)
 

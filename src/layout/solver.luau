@@ -2269,6 +2269,32 @@ local function translateDescendants(ctx: Ctx, node: Node, base: Rect, was: Rect,
 	return true
 end
 
+--[[ IS THE RULER THIS ENTRY ANSWERED AGAINST STILL THE ONE WE ARE HOLDING? (§2.5 x
+	incremental layout — RED-TEAM Milestone 1, HIGH 3, tests/container_relative_incremental.)
+
+	Every dimension the solver had before §2.5 resolves against the parent's OFFER, so
+	a node offered what it was already offered was asked the same question. A
+	`containerRelative` dimension is the first one that is not a function of its
+	ancestor's rect at all — it reads the nearest scroll VIEWPORT — so a wrapper whose
+	own rect never moves could replay a descendant sized against a container that has
+	since narrowed (a scrollbar reserve arming is enough). The measure memo's key was
+	widened for this; the reuse arms were not, and they are the shipped default.
+
+	ONE CHECK AT THE SUBTREE ROOT COVERS THE WHOLE SUBTREE: below the node the container
+	changes only at a `scroll` node, whose pushed inner size derives from its own
+	replayed rect, so if it matches here it matches everywhere the replay reaches.
+	`containerRelativeInside` is stamped at tree build time and is absent on the
+	overwhelming majority of nodes, so the ordinary path pays ONE field test.
+
+	IT IS A FUNCTION BECAUSE IT HAS TWO CALLERS AND MUST NOT BECOME TWO RULES (T6
+	review, M8): `arrange`'s own skip asks it of the node it was handed, and the anchor
+	branch's reuse arm asks it of each child it is about to serve from that child's
+	previous rect. A second hand-written copy is how the two would start disagreeing. ]]
+local function containerUnmoved(ctx: Ctx, node: Node, prev: any): boolean
+	return node.containerRelativeInside ~= true
+		or (prev ~= nil and prev.containerW == ctx.containerW and prev.containerH == ctx.containerH)
+end
+
 local function arrange(ctx: Ctx, node: Node, rect: Rect, out: { [string]: any })
 	-- THE SKIP. Same solve, same ctx, same traversal — this subtree just does not need
 	-- walking: no dirty node inside it, and it is landing on the rect it already had.
@@ -2280,27 +2306,10 @@ local function arrange(ctx: Ctx, node: Node, rect: Rect, out: { [string]: any })
 	if reuse ~= nil then
 		local prev = reuse.previous.rects[node.id]
 		local pr = if prev ~= nil then prev.rect else nil
-		-- ...AND THE CONTAINER IS THE ONE IT ANSWERED AGAINST (§2.5 x incremental
-		-- layout — RED-TEAM Milestone 1, HIGH 3, tests/container_relative_incremental).
-		--
-		-- The rect above is the whole argument for every dimension the solver had
-		-- before §2.5: each resolves against the parent's OFFER, and a subtree landing
-		-- on the rect it already had was offered what it was already offered. A
-		-- `containerRelative` dimension is the first one that is not a function of its
-		-- ancestor's rect at all — it reads the nearest scroll VIEWPORT — so a wrapper
-		-- whose own rect never moves could replay a descendant sized against a
-		-- container that has since narrowed (a scrollbar reserve arming is enough).
-		-- The measure memo's key was widened for this; the skip was not, and the skip
-		-- is the shipped default.
-		--
-		-- ONE CHECK AT THE SUBTREE ROOT COVERS THE WHOLE SUBTREE: below this node the
-		-- container changes only at a `scroll` node, whose pushed inner size derives
-		-- from its own replayed rect, so if the container matches here it matches
-		-- everywhere the replay reaches. `containerRelativeInside` is stamped at tree
-		-- build time and is absent on the overwhelming majority of nodes, so the
-		-- ordinary path pays one field test.
-		local containerOk = node.containerRelativeInside ~= true
-			or (prev ~= nil and prev.containerW == ctx.containerW and prev.containerH == ctx.containerH)
+		-- ...AND THE CONTAINER IS THE ONE IT ANSWERED AGAINST — `containerUnmoved` above
+		-- this function, which the anchor branch's reuse arm asks of each child for the
+		-- same reason.
+		local containerOk = containerUnmoved(ctx, node, prev)
 		-- THE SIZE TEST IS SHARED BY BOTH ARMS (O3): a resized subtree is re-entered
 		-- whatever its origin did, asked first and once.
 		if pr ~= nil and containerOk and pr.w == rect.w and pr.h == rect.h then
@@ -3053,89 +3062,60 @@ local function arrange(ctx: Ctx, node: Node, rect: Rect, out: { [string]: any })
 	end
 
 	if node.kind == "anchor" then
-		local prevOf = if reuse ~= nil then reuse.previous.rects else nil
-		--[[ THE DIRT THIS ARM ASKS ABOUT IS THE *MEASURE* HALF, not the whole closure,
-			and the distinction is what makes the arm reach a shipped surface at all. The
-			arm reuses one thing — the child's SIZE — so the question is the one
-			`measure`'s own cross-solve adopt gate asks: did anything change inside this
-			subtree that a MEASUREMENT could read? `offsetX`/`offsetY` (and a paint-classed
-			tint, and `hidden`) are in `dirtyContains` and provably move no measurement,
-			and gating on the wide set threw every one of those children away. MEASURED,
-			both ways, on the 250-plate fixture and on Rascal Rally's shipped minimap: a
-			`tick` moves all 250 plates and resizes none, so on `dirtyContains` the arm
-			fired for 0 of 250 and on `measureContains` it fires for all 250; a one-dot
-			minimap frame re-runs every dot's family-hue memo, 0 of 8 against 7 of 8.
-			Nothing is lost by the narrower set — a paint-dirty or moved child still fails
-			`arrange`'s own skip below, so its subtree is still walked and still repainted.
+		--[[ THE THIRD ARM (wicked-fast N2): a child with nothing MEASURE-classed dirty
+			inside it, offered exactly what it was offered last time and against the same
+			container, takes its w/h from its own previous rect instead of a `measure`
+			call.
 
-			`measureContains` is absent exactly when the solve has no measure store (the
-			renderer passes `dirtyContains` itself when it has no measure half, and the
-			hand-built reuse tables in `tests/` carry neither), so the fallback is the wide
+			WHY A PER-CHILD SKIP IS SOUND HERE AND NOWHERE ELSE: an anchor child's rect is
+			a pure function of (innerX, innerY, innerW, innerH, child.anchor,
+			child.offsetX/Y, measure(child, innerW, innerH)) — NO SIBLING APPEARS IN IT. A
+			stack's does (every child feeds `fixedMain`/`fillWeightSum` and then the
+			cursor, `./stack`), which is why this arm is the anchor branch's alone.
+
+			THE GATE IS `measureContains`, THE MEASURE HALF OF THE DIRT, and the long form
+			of that decision — the four-way measurement, the shipped surface that found it
+			and why the wide set threw every arrange-dirty child away — lives ONCE, in
+			`tests/anchor_arrange.spec.luau`'s header, per the source-cap ledger's own rule
+			that prose belongs in the spec rather than in a file 8 KB from the write cap.
+			The short version: the arm reuses one thing, the child's SIZE, so it asks the
+			question `measure`'s own cross-solve adopt gate asks. `measureContains` is
+			absent only when the solve has no measure store, so the fallback is the wide
 			set and never nil. ]]
+		local prevOf = if reuse ~= nil then reuse.previous.rects else nil
 		local sizeDirt = if reuse ~= nil then (reuse.measureContains or reuse.dirtyContains) else nil
 		for _, child in node.children or {} do
 			local w: number, h: number
-			--[[ THE THIRD ARM (wicked-fast N2). `prev.offerW`/`offerH` have been RECORDED
-				at every rect write since P2 so that a later solve could ask "is this the
-				same question I already answered?" — and until this task nothing asked. A
-				child with no dirt inside it, offered exactly what it was offered last time,
-				has the answer already: its own rect's w/h.
-
-				WHY A PER-CHILD SKIP IS SOUND HERE AND NOWHERE ELSE: an anchor child's rect
-				is a pure function of (innerX, innerY, innerW, innerH, child.anchor,
-				child.offsetX/Y, measure(child, innerW, innerH)) — NO SIBLING APPEARS IN IT.
-				A stack's does (every child feeds `fixedMain`/`fillWeightSum` and then the
-				cursor, `./stack`), which is why this arm is the anchor branch's alone.
-
-				THE OFFER TEST IS EXACT, so a viewport change — which moves `innerW`/`innerH`
-				— falls through to `measure` for every child. The `fill` give-back below
-				still runs on the served size, because a `fill` child's `w` is overwritten
-				from `innerW` two lines down either way. ]]
 			local prev = if prevOf ~= nil and sizeDirt[child.id] ~= true then prevOf[child.id] else nil
-			--[[ ...AND THE CONTAINER IT ANSWERED AGAINST, which the offer cannot speak for.
-				A `containerRelative` dimension resolves against the nearest scroll VIEWPORT
-				rather than against this anchor's offer, so the same child at the same offer
-				legitimately wants a different size once the container under it changes — a
-				scrollbar reserve arming is enough. `arrange`'s own skip makes exactly this
-				test at the top of this function and this is the same rule, not a second
-				one: `containerRelativeInside` is stamped at tree-build time and is absent
-				on the overwhelming majority of nodes, so the ordinary path pays one field
-				test. ]]
+			-- `prev.rect ~= nil` for the reason `translateDescendants` guards the same
+			-- map: two readers of one map must not disagree about how defensive to be
+			-- (T6 review, M2). `containerUnmoved` is the shared predicate `arrange`'s own
+			-- skip uses — the offer cannot speak for a `containerRelative` dimension.
 			if
 				prev ~= nil
+				and prev.rect ~= nil
 				and prev.offerW == innerW
 				and prev.offerH == innerH
-				and (
-					child.containerRelativeInside ~= true
-					or (prev.containerW == ctx.containerW and prev.containerH == ctx.containerH)
-				)
+				and containerUnmoved(ctx, child, prev)
 			then
 				ctx.anchorReused += 1
 				w, h = prev.rect.w, prev.rect.h
-				--[[ ...AND RECORD THE OFFER WE JUST SERVED. `ctx.offers` is fresh per solve
-					and only `measure` writes it, so a child served here has no offer recorded
-					— and `arrange` files `offerW = nil` on any entry it rebuilds. That is not
-					a correctness bug on its own (a nil offer fails this arm's test next solve
-					and falls back to `measure`, the conservative direction) but it is a
-					SELF-DISARMING cache: the arm would fire at most every other tick. It
-					matters most for a TRANSLATE ROOT, whose entry literal re-reads
-					`ctx.offers` (T4).
+				--[[ ...AND RECORD THE OFFER WE JUST SERVED, or the arm disarms itself.
+					`ctx.offers` is fresh per solve and only `measure` writes it, so a child
+					served here has no offer recorded and `arrange` files `offerW = nil` on
+					any entry it rebuilds — not a correctness bug (a nil offer fails this
+					test next solve and falls back to `measure`, the conservative direction)
+					but a cache that fires at most every other tick. It matters most for a
+					TRANSLATE ROOT, whose entry literal re-reads `ctx.offers` (T4).
 
-					UNCONDITIONAL, AND A CONDITIONAL VERSION WAS BUILT, MEASURED AND DELETED —
-					recorded because its reasoning was wrong in an instructive way. The idea
-					was that the write is redundant whenever the rect did not move, since this
-					arm's precondition is `prev.offerW == innerW` and the entry already on the
-					map therefore already holds that number. The premise is that an unmoved
-					rect means `arrange` takes its skip and keeps that entry, and it does not:
-					the skip ALSO requires the node to be clean in `dirtyContains`, while this
-					arm's gate is the narrower `measureContains` — so the arm's whole point is
-					serving children that are arrange-dirty and measure-clean, and those are
-					re-entered on an unmoved rect. `tests/translate_arm.spec.luau`'s
-					zero-delta case (an inert `lineAlign` that dirties a node and moves it by
-					exactly zero) caught it in one run. AND IT SAVED NOTHING ANYWAY: the two
-					writes go into a table the MEASURE side has already filled with the same
-					keys, so `ctx.offers` reaches the same size either way — 159.16 KB a step
-					on the 250-plate fixture with the condition and 159.16 without. ]]
+					UNCONDITIONAL. A version conditioned on "the rect moved" was built,
+					measured and deleted: its premise is that an unmoved rect means `arrange`
+					takes its skip and keeps the entry, and that is false here — the skip also
+					requires `dirtyContains`-clean while this arm's gate is the narrower
+					`measureContains`, so the arm's whole point is serving children that are
+					arrange-dirty and measure-clean, and those are re-entered on an unmoved
+					rect. `tests/translate_arm.spec.luau`'s zero-delta case caught it in one
+					run, and it saved no allocation anyway (159.16 KB a step either way). ]]
 				ctx.offers[child.wKey or (child.id .. "|w")] = innerW
 				ctx.offers[child.hKey or (child.id .. "|h")] = innerH
 			else
