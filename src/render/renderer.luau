@@ -933,24 +933,37 @@ function renderer.attach(
 	-- canvasGroup AND the exact set of property names they declare. In a virtualized
 	-- list every row comes from one blueprint, so they all agree and the pool works;
 	-- anything else simply does not match and takes the ordinary create path.
-	local propSigCache: { [any]: string } = {}
+	--
+	--[[ NO CACHE (wicked-fast W1). It was keyed on the props TABLE and
+		`mount.luau:637` mutates that table in place, so a reactive prop crossing
+		nil changed the key SET behind the cached answer and a pooled instance kept
+		a style prop its adopter never declared. The cache was also a strong,
+		never-cleared table holding one entry per mounted node's props for the life
+		of the controller.
+
+		It is not replaced by a cleverer key. `propSignature` is asked exactly
+		twice per node CREATE (`:1063` and `:1108`) and never per frame, so
+		the sort it does is a create-path cost, not a commit-path one.
+
+		The alternative considered and rejected: sign the DECLARED set
+		(`keys(node.props) ∪ keys(node.dynamicProps)`), which is stable across a
+		nil crossing. It is correct only with an explicit "declared but currently
+		nil => tear the modifier down" write, and no such write exists —
+		`applyShadow` (`src/client/screen_paint.luau:554`) has no nil branch at all
+		and would index nil if it were called with one. That fix is a bigger,
+		separate change to four style-prop appliers; this one is the seam that
+		removes the defect. ]]
 	local function propSignature(node: any): string
 		local props = node.props
 		if props == nil then
 			return ""
-		end
-		local hit = propSigCache[props]
-		if hit ~= nil then
-			return hit
 		end
 		local names = {}
 		for name in props do
 			table.insert(names, name)
 		end
 		table.sort(names)
-		local sig = table.concat(names, ",")
-		propSigCache[props] = sig
-		return sig
+		return table.concat(names, ",")
 	end
 	-- the hint goes in BY CONTENT (chrome_slots.hintKey), never by address: a
 	-- windowed list rebuilds its cell blueprints on every slide, so a

@@ -179,6 +179,13 @@ require("./mount_unmount_soak.spec")
 -- re-keys them, and a decoration-hint or package mismatch refuses the adoption
 require("./instance_recycling_themed.spec")
 require("./instance_park_corpse.spec")
+--[[ ...and W1 (wicked-fast T8): `propSigCache` deleted — it was keyed on the
+	props TABLE and never invalidated while `mount.luau` mutates that table in
+	place, and the fix removes a strong, never-cleared per-mounted-node table.
+	Structural proof the cache is gone, plus the ONE claim it provably still
+	holds (no risk at all when a row's declared props never cross nil). See the
+	header for the self-review finding on the claim it does NOT close. ]]
+require("./recycle_prop_signature.spec")
 require("./incremental_layout.spec")
 require("./diagnostic_replay.spec")
 require("./container_relative_incremental.spec")
