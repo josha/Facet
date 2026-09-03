@@ -20,7 +20,7 @@
 	  | `lastNodeBuilds`           | T3 ✅ `157ed3c9` | **THE PREDICTION WAS WRONG AND IS CORRECTED RATHER THAN LEFT STANDING: it did NOT move.** 252 pure / 302 casters, before and after. T3 rewrote the dirty closure into two sets, but `nodeDirty` — which is what `layout_node.build` counts builds against — is a THIRD set (`renderer.luau`'s `markNodeDirty`, every class, accumulated across refreshes), and the split never touched it. The counter T3 does move is `lastMeasured` |
 	  | `lastArranged`             | T4 ✅ `14c3459d` | 252 (pure) / **402** (casters) + `lastTranslated` 1250 / 1100. The two competing derivations in T4 Step 1 were settled BY THE RUN and it is **(b)**: `translatable` does not require the root to be clean, so a caster's plate root (dirty child `Cast`) takes the ordinary arrange and its own `Row` and `Hp` become translate ROOTS under it — 4 arranged + 2 translated per caster. `tests/translate_arm.spec` carries the arithmetic |
 	  | `lastRectInserts`          | T4 ✅ `14c3459d` | arranged + translated = 1,502, unchanged in TOTAL and re-split |
-	  | every per-walk visit count | T5 | 253 (pure) / 303 (casters); hitRects stays 1,503 |
+	  | every per-walk visit count | T5 ✅ `SHA` | 253 (pure) / 303 (casters) for the six MOVE-BLIND walks; `rectPass` 253 (pure) / **403** (casters, NOT the 303 the plan predicted — see `tests/commit_translate.spec`); `hitRects` stays 1,503 |
 	  | the four hidden-blind walks | T5b (if built) | 3 on a pure tick |
 	  | the census, `rectWrites`   | never | 1,503 mounted / 1,502 layout / 1,500 writes |
 
@@ -111,6 +111,11 @@ local MEASURED_COLD = LAYOUT -- 1502
 -- re-bases its 5 descendants.
 local ARRANGED_STEADY = PLATES + 2 -- 252
 local TRANSLATED_STEADY = PLATES * (scene.NODES_PER_PLATE - 1) -- 1250
+-- the COMMIT's own dirty closure on a steady pure tick, and T5's (`SHA`) pin for
+-- seven of the eight walks: Screen + Canvas + the ForEach region + one root per
+-- plate. `tests/commit_translate.spec.luau` carries the derivation, the caster
+-- column (303, and `rectPass` 403) and the four-arm adapter oracle behind it.
+local VISITS_PRUNED = PLATES + 3 -- 253
 
 describe("nameplates baseline — the numbers the wicked-fast round starts from", function()
 	it("the fixture is the tree the plan says it is", function()
@@ -157,17 +162,20 @@ describe("nameplates baseline — the numbers the wicked-fast round starts from"
 		expect(st.rectWrites).toBe(4502)
 		-- the EXACT aggregate (Fix round 2, I-1): the sum of the eight per-walk
 		-- counts below, and the only exact pin of the aggregate in this repo —
-		-- the old `>= MOUNTED * 7` bound could never fail (the actual value is
-		-- MOUNTED * 8; a walk silently publishing twice would still sail past
-		-- a MOUNTED * 7 floor).
-		expect(st.lastCommitVisits).toBe(MOUNTED * 8) -- 12024
-		-- the per-walk breakdown this task exists to publish
+		-- the old `>= MOUNTED * 7` bound could never fail (a walk silently
+		-- publishing twice would still sail past a MOUNTED * 7 floor).
+		expect(st.lastCommitVisits).toBe(VISITS_PRUNED * 7 + MOUNTED) -- 3274
+		-- the per-walk breakdown this task exists to publish, MOVED BY T5
+		-- (`SHA`) from the whole tree to the dirty closure: the six walks whose
+		-- output cannot read a position take `skip(node, true)` and prune a
+		-- moved subtree away, `rectPass` stops AT each translate root and emits
+		-- the solver's run, and `hitRects` still walks everything because it
+		-- centres its target-floor expander on `r.x`/`r.y`.
 		local byWalk = st.lastCommitVisitsByWalk
-		for _, name in
-			{ "harvest", "textScale", "padding", "textVerdicts", "visible", "hitRects", "scrollRegions", "rectPass" }
-		do
-			expect(`{name}={byWalk[name]}`).toBe(`{name}={MOUNTED}`)
+		for _, name in { "harvest", "textScale", "padding", "textVerdicts", "visible", "scrollRegions", "rectPass" } do
+			expect(`{name}={byWalk[name]}`).toBe(`{name}={VISITS_PRUNED}`)
 		end
+		expect(`hitRects={byWalk.hitRects}`).toBe(`hitRects={MOUNTED}`)
 		s.dispose()
 	end)
 

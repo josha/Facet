@@ -2146,7 +2146,7 @@ function renderer.attach(
 			-- measurement behind it, and the deferred re-base that goes with it.
 			-- (Unaffected by running after `scrollRegions` above: neither reads
 			-- anything the other writes to the engine.)
-			rectPass.apply(root.node, result.rects)
+			rectPass.apply(root.node, result.rects, result.work)
 
 			-- ...and only now, with this frame fully painted from the conservative
 			-- estimate, ask the engine for the words it could not size. Ordering is

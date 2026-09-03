@@ -347,21 +347,36 @@ function nameplates_scene.new(opts: Opts?)
 	-- every live node's rect and every per-path fact the eight walks own — the
 	-- COMMIT oracle, not just the solver's (copied from `commit_scope.spec`'s
 	-- `painted` so the two read the same channels)
+	--[[ BY VALUE, TO THE BOTTOM — and it used to stop one level down. A prop table
+		was flattened as `k2=tostring(v2)`, so a prop whose value is a table OF tables
+		(`UI.Path`'s `points`, nine `{ x, y }` records) serialized as nine table
+		ADDRESSES. Two arms of an oracle build their own point tables, so the
+		`withPath` fixture compared unequal at MOUNT, before any solve had run — a
+		snapshot that reports an identity difference as a paint difference is not an
+		oracle channel. Recursion with sorted keys makes it a value compare at any
+		depth; the depth bound is belt-and-braces against a cyclic prop, which no
+		blueprint prop is. ]]
+	local function ser(v: any, depth: number): string
+		if type(v) ~= "table" then
+			return tostring(v)
+		end
+		if depth <= 0 then
+			return "…"
+		end
+		local inner = {}
+		for k, item in v do
+			table.insert(inner, `{tostring(k)}={ser(item, depth - 1)}`)
+		end
+		table.sort(inner)
+		return `\{{table.concat(inner, ",")}\}`
+	end
+
 	function scene.snapshot(): string
 		local out = {}
 		for path, node in adapter.liveNodes() do
 			local props = {}
 			for k, v in node.props or {} do
-				if type(v) == "table" then
-					local inner = {}
-					for k2, v2 in v do
-						table.insert(inner, `{tostring(k2)}={tostring(v2)}`)
-					end
-					table.sort(inner)
-					table.insert(props, `{k}=\{{table.concat(inner, ",")}\}`)
-				else
-					table.insert(props, `{k}={tostring(v)}`)
-				end
+				table.insert(props, `{k}={ser(v, 6)}`)
 			end
 			table.sort(props)
 			local r, hit, region = node.rect, node.hitRect, node.scrollRegion

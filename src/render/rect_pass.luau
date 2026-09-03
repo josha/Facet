@@ -96,8 +96,11 @@ function rect_pass.new(ctx: any)
 	end
 
 	-- `rects` is the solve's `path -> entry` map; `rootNode` is the live tree it
-	-- was solved from.
-	local function apply(rootNode: any, rects: { [string]: any })
+	-- was solved from; `work` is the solve's work record, whose `translatedRoots` /
+	-- `translatedPaths` / `translatedEntries` this walk short-circuits through
+	-- (wicked-fast N1). `work` nil — `initialRender`, or any caller that does not
+	-- have one — falls back to the plain walk exactly as before.
+	local function apply(rootNode: any, rects: { [string]: any }, work: any?)
 		--[[ THE LAST WALK OF THE COMMIT, so this is the one that spends the prune AND
 			records what every walk in the span compared against (P4). `note` is called
 			for each node this walk visits — the same set the six before it visited —
@@ -109,6 +112,15 @@ function rect_pass.new(ctx: any)
 		local pruning = scope.armed()
 		local recording = scope.records()
 		local applied: { [string]: boolean }? = if pruning then nil else {}
+		--[[ THE RUNS THE SOLVER RECORDED (wicked-fast N1), and they are read only on a
+			PRUNED commit — deliberately, and for the reason this module's neighbour
+			already gives about `recording`: a `commitScope = false` arm has to stay an
+			honest pre-P4 build, and an arm that still takes the fast route is not the
+			control for the fast route. A commit that cannot prune is the rare, whole-tree
+			one anyway; the run is worth its bookkeeping only on the steady path. ]]
+		local runs = if pruning and work ~= nil then work.translatedRoots else nil
+		local runPaths = if runs ~= nil then work.translatedPaths else nil
+		local runEntries = if runs ~= nil then work.translatedEntries else nil
 		local visits = 0
 		local function walk(node: any)
 			if pruning and scope.skip(node) then
@@ -140,6 +152,57 @@ function rect_pass.new(ctx: any)
 				AT ALL — `chip.rect` nil — and six cases across two files went red. ]]
 			if recording and handles[node.path] ~= nil then
 				scope.note(node)
+			end
+			--[[ ...AND THE RUN STOPS THE WALK HERE (wicked-fast N1). This node's subtree
+				only MOVED, and the solver already wrote every descendant's re-based entry
+				into a flat, document-ordered run when it did it
+				(`layout/solver.luau`'s `translateDescendants`). Walking the live tree to
+				find them again — a hash lookup, a `rectsEqual` and a recursive call per
+				node — is the part of this walk that is not the adapter calls.
+
+				THE COMPARE IS DEAD, NOT SKIPPED ON FAITH. The arm fires only when the
+				root's origin moved, every descendant is re-based by that same non-zero
+				delta, and `lastRects[path]` — where a handle exists at all — is by
+				construction value-equal to the entry the move started from (a write is
+				skipped only when it equals `lastRects`, so the two never diverge). So no
+				run rect can equal what was last written. `rectWrites` is pinned per tick
+				by `tests/commit_translate.spec` and `tests/nameplates_baseline.spec`,
+				which is what would say so if that argument were ever wrong.
+
+				THE HANDLE GUARD ON `noteEntry` IS THE WALK'S OWN (P5): recording a path
+				the commit made no write for prunes it forever once it gains a handle. And
+				an EMPTY span (`from > to`, a childless root) is a real case — the loop
+				runs zero times and the root's own entry is applied above, by the literal.
+
+				THE ONE HONEST COST: a structural WRAPPER path inside a translated subtree
+				(a `ForEach` region, a `When` region — a mounted node that owns no rect) is
+				not re-noted here, because the run holds layout ids and a wrapper is not
+				one. Its `lastCommitEntry` then lags a tick and the six pruned walks visit
+				it once more than strictly needed. In the nameplates tree the wrappers sit
+				ABOVE the translate roots so the count is zero; the bound is one extra
+				visit per wrapper inside a translated subtree, and it is not a correctness
+				question — nothing is written from a wrapper. ]]
+			local run = if runs ~= nil then runs[node.path] else nil
+			if run ~= nil then
+				for i = run.from, run.to do
+					local path = (runPaths :: any)[i]
+					local entryAt = (runEntries :: any)[i]
+					lastBarInsets[path] = entryAt.barInset
+					local handle = handles[path]
+					if handle ~= nil then
+						authority.assertWrite("common", "size", "layout")
+						adapter.setRect(handle, entryAt.rect)
+						lastRects[path] = entryAt.rect
+						stats.rectWrites += 1
+						if recording then
+							scope.noteEntry(path, entryAt)
+						end
+					end
+					if applied ~= nil then
+						applied[path] = true
+					end
+				end
+				return
 			end
 			for _, child in node.children do
 				walk(child)

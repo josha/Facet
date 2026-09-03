@@ -372,12 +372,41 @@ function commit_walks.new(ctx: CommitCtx)
 		return nil
 	end
 
-	local function skip(node: any): boolean
+	--[[ `moveBlind` (wicked-fast O4) says THIS WALK'S OUTPUT CANNOT READ A POSITION,
+		so "the only thing that happened here is a move" is as good as "nothing
+		happened". Six of the eight walks are in that class by inspection — `harvest`
+		(hidden/composition/textFacts), `textScale` (textFacts.size), `padding`
+		(class + `props.padding`), `textVerdicts` (compact + wrap verdicts),
+		`scrollRegions` (`contentSize`, `rect.w`/`rect.h`) and `visible` behind its
+		existing whole-surface `prunable` latch. `hitRects` is NOT: it centres a
+		target-floor expander on `r.x`/`r.y`.
+
+		IT IS STILL THE TABLE-IDENTITY TEST, one link further back. The solver's
+		translate arm clones the entry it re-bases and leaves `prev` pointing at the
+		table it superseded (`layout/solver.luau`, `translateDescendants`), breaking
+		the chain at depth 1 as it goes — so `last == probe.prev` means "the entry I
+		last committed is exactly the one this move started from", which is a
+		statement about identity and not about what changed.
+
+		`moveOnly` IS STICKY, WHICH IS WHY `last ~= nil` IS LOAD-BEARING. An entry
+		that translated on tick N and merely skipped on N+1 is the same table and
+		still says `moveOnly = true` — but its `prev` was cleared as the chain broke,
+		so `probe.prev` is nil, and a node this commit span has never NOTED (no
+		handle, P5) has `last` nil too. Without the guard `nil == nil` would prune a
+		node nothing was ever committed for, forever. ]]
+	local function skip(node: any, moveBlind: boolean?): boolean
 		if not pruning or nodeDirty[node.path] == true then
 			return false
 		end
 		local probe = probeEntry(node)
-		return probe ~= nil and lastCommitEntry[node.path] == probe
+		if probe == nil then
+			return false
+		end
+		local last = lastCommitEntry[node.path]
+		if last == probe then
+			return true
+		end
+		return moveBlind == true and probe.moveOnly == true and last ~= nil and last == probe.prev
 	end
 	-- WRITTEN AT THE END OF THE COMMIT AND NOWHERE ELSE, so all seven walks compare
 	-- against the same "last committed" state. `rect_pass` is the last walk and is
@@ -386,6 +415,14 @@ function commit_walks.new(ctx: CommitCtx)
 	-- review, I2: a control that writes a store the fix reads is not the control).
 	local function note(node: any)
 		lastCommitEntry[node.path] = probeEntry(node)
+	end
+	-- ...and the same write for a path the last walk APPLIED WITHOUT VISITING as a
+	-- node (wicked-fast N1): `rect_pass` emits a translated subtree straight from
+	-- the solver's flat run, so it holds the path and the entry but no node to probe
+	-- from. Without it the next commit compares against a two-ticks-old table and
+	-- descends everything — the whole prune, silently undone one tick later.
+	local function noteEntry(path: string, entry: any)
+		lastCommitEntry[path] = entry
 	end
 	local function armed(): boolean
 		return pruning
@@ -473,7 +510,7 @@ function commit_walks.new(ctx: CommitCtx)
 		end
 		local visits = 0
 		local function walk(node: any)
-			if skip(node) then
+			if skip(node, true) then
 				return
 			end
 			visits += 1
@@ -605,7 +642,7 @@ function commit_walks.new(ctx: CommitCtx)
 		local offset = if type(prefOffset) == "number" then prefOffset else 0
 		local visits = 0
 		local function walk(node: any)
-			if skip(node) then
+			if skip(node, true) then
 				return
 			end
 			visits += 1
@@ -701,7 +738,7 @@ function commit_walks.new(ctx: CommitCtx)
 	local function padding(rootNode: any, metrics: any)
 		local visits = 0
 		local function walk(node: any)
-			if skip(node) then
+			if skip(node, true) then
 				return
 			end
 			visits += 1
@@ -772,7 +809,7 @@ function commit_walks.new(ctx: CommitCtx)
 	local function textVerdicts(rootNode: any, rects: any)
 		local visits = 0
 		local function walk(node: any)
-			if skip(node) then
+			if skip(node, true) then
 				return
 			end
 			visits += 1
@@ -866,7 +903,7 @@ function commit_walks.new(ctx: CommitCtx)
 			-- ...AND A HIDE IS INHERITED, so a flip at an ancestor has to reach every
 			-- descendant even where the descendant itself is clean.
 			local flipped = forced or hiddenFlips[node.path] == true
-			if prunable and not flipped and skip(node) then
+			if prunable and not flipped and skip(node, true) then
 				return
 			end
 			visits += 1
@@ -1110,7 +1147,7 @@ function commit_walks.new(ctx: CommitCtx)
 		end
 		local visits = 0
 		local function pushRegions(node: any)
-			if skip(node) then
+			if skip(node, true) then
 				return
 			end
 			visits += 1
@@ -1235,7 +1272,14 @@ function commit_walks.new(ctx: CommitCtx)
 			test for this module requires. `publishVisits` rides along so `rect_pass`
 			— the eighth walk, and not one of this module's seven — publishes into the
 			same per-walk table instead of keeping a second one (wicked-fast T2). ]]
-		scope = { skip = skip, note = note, armed = armed, records = records, publishVisits = publishVisits },
+		scope = {
+			skip = skip,
+			note = note,
+			noteEntry = noteEntry,
+			armed = armed,
+			records = records,
+			publishVisits = publishVisits,
+		},
 	}
 end
 

@@ -388,6 +388,13 @@ require("./measure_split.spec")
 -- the heap pin that catches a `prev` chain leak, the three self-placement defects the
 -- arm had without `selfPlaces`, and the three-arm oracle
 require("./translate_arm.spec")
+-- ...and the round's third (T5, O4 + N1): the COMMIT under a translate. Six walks
+-- whose output cannot read a position ask `skip(node, true)` and prune a moved
+-- subtree away; `rect_pass` stops AT each translate root and emits the solver's flat
+-- run instead of walking for it. The eight-walk counter demonstrator (ticked twice,
+-- so a stale `lastCommitEntry` is visible), the caster column the plan predicted
+-- wrong, and the FOUR-arm oracle whose fourth arm turns the commit prune itself off
+require("./commit_translate.spec")
 -- the future spatial seam: contracts only, and the guard against a VR claim
 -- appearing in the shipped surface (roadmap Step 4, UI-SPATIAL-001)
 require("./spatial.spec")
