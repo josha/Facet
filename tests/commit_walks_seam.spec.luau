@@ -204,8 +204,11 @@ describe("the commit-walk seam: READ == DECLARED == PASSED", function()
 		local reads = ctxFieldsRead(walks)
 		expect(#missingFrom(reads, typeFields(walks, "CommitCtx"))).toBe(0)
 		-- ...and the set is not empty, which is the trap a set comparison invites:
-		-- two empty sets are equal
-		expect(#sorted(reads)).toBe(26)
+		-- two empty sets are equal. 27 (T8 R2, Important 2): `noteWorn` joined
+		-- the record so the compact ladder's `icon`/`compactLabel`/`label`
+		-- writes can route through the SAME recycle-key worn-set updater
+		-- `applyProp`/`applyStyleProp` use, instead of a second copy.
+		expect(#sorted(reads)).toBe(27)
 	end)
 
 	it("every field `CommitCtx` declares is one the module actually reads", function()
@@ -244,7 +247,7 @@ describe("the commit-walk seam: the shared WRITE surface, and who owns each life
 	local renderer = fs.readFile(RENDERER_PATH)
 	local walks = fs.readFile(WALKS_PATH)
 
-	it("the module writes through exactly sixteen of the twenty-six records it is handed", function()
+	it("the module writes through exactly sixteen of the twenty-seven records it is handed", function()
 		--[[ THE WHOLE POINT OF THE SPLIT, STATED AS A SET. Nine of these are the
 			minimal-write records — one per verdict a walk sends, plus `lastCommitEntry`,
 			which records what the PRUNE compared against — and each exists so a steady
@@ -254,17 +257,22 @@ describe("the commit-walk seam: the shared WRITE surface, and who owns each life
 			`harvest` maintains in place (`hiddenRoots`, `lastCompositions`,
 			`lastTextFacts`), and one is the counters.
 
-			THE OTHER TEN ARE READ-ONLY AND MUST STAY SO: `adapter`, `handles`,
+			THE OTHER ELEVEN ARE READ-ONLY AND MUST STAY SO: `adapter`, `handles`,
 			`rectsEqual`, `paintedRectIn`, `pathEscapesClip`, `reculPathClips`,
-			`paintHeld`, `pathNodes`, `inputSinks`, `authoredHidden`. `paintHeld` in
-			particular is PRESENTER-owned — set and cleared through
+			`paintHeld`, `pathNodes`, `inputSinks`, `authoredHidden`, `noteWorn`.
+			`paintHeld` in particular is PRESENTER-owned — set and cleared through
 			`controller.setPaintHeld` — and a write to it from here would be a second
 			authority for a presentation hold. `authoredHidden` is the renderer's own
 			hide set, merged into the solver's verdict here and never written back.
+			`noteWorn` (T8 R2, Important 2) is CALLED, never assigned — it is the
+			renderer's own recycle-key worn-set updater, threaded in so the compact
+			ladder's derived `icon`/`compactLabel`/`label` writes route through the
+			SAME choke point `applyProp`/`applyStyleProp` use, rather than a second
+			copy of that bookkeeping living here.
 
-			A SEVENTEENTH NAME IS THE FINDING. It means state the renderer decided has
-			quietly acquired two writers, which is the shape that makes a later reader
-			unable to tell which file is answerable for it. ]]
+			AN EIGHTEENTH WRITTEN NAME IS THE FINDING. It means state the renderer
+			decided has quietly acquired two writers, which is the shape that makes a
+			later reader unable to tell which file is answerable for it. ]]
 		expect(sorted(writtenFields(walks))).toEqual({
 			"hiddenRoots",
 			"lastCommitEntry",

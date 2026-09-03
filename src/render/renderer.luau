@@ -832,6 +832,12 @@ function renderer.attach(
 		)
 	end
 
+	-- THE RECYCLE-KEY STATE (W1b; extracted to `render/recycle_key.luau` in R2's
+	-- own Phase 0; widened to BINDING ∪ STYLE by R2's own fix), declared here —
+	-- ahead of `applyProp`/`applyStyleProp`, its two choke points. See
+	-- `render/recycle_key.luau`'s own header for the namespace argument.
+	local recycleKeyState = recycle_key.new()
+
 	local function applyProp(handle: any, node: any, prop: string)
 		authority.assertWrite(node.class, if prop == "label" then "text" else prop, "binding")
 		local value = node.props[prop]
@@ -853,13 +859,12 @@ function renderer.attach(
 		end
 		adapter.setProp(handle, prop, value, "binding")
 		stats.propWrites += 1
+		-- WORN-SET MAINTENANCE (T8 R2, Critical 1): the OTHER choke point a
+		-- tracked prop is ever written from — `applyStyleProp` is the style
+		-- half. `value` here is what the adapter actually received (post the
+		-- label/thickness transforms above), which is what "worn" means.
+		recycleKeyState.noteWorn(node.path, prop, value)
 	end
-
-	-- THE RECYCLE-KEY STATE (W1b; extracted to `render/recycle_key.luau` in R2's
-	-- own Phase 0), declared here — ahead of the recycle-pool section below —
-	-- because `applyStyleProp` is a choke point that maintains it and is itself
-	-- declared here. See `render/recycle_key.luau`'s own header for the argument.
-	local recycleKeyState = recycle_key.new()
 
 	local function applyStyleProp(handle: any, node: any, prop: string)
 		authority.assertWrite(node.class, prop, "style")
@@ -929,12 +934,15 @@ function renderer.attach(
 	local recyclePool: { [string]: { any } } = {}
 	local recyclePooled = 0
 	local RECYCLE_POOL_CAP = 64
-	-- THE KEY INCLUDES THE DECLARED STYLE-PROP SET (`render/recycle_key.luau`
-	-- carries the full argument, the W1/W1b history and the seam's own). Adoption
-	-- writes only what DIFFERS from the instance's own state — safe only if every
-	-- property on it is one the new node also declares, or a stale one survives
-	-- uncleared. So two nodes share a bucket only if class, hint, canvasGroup AND
-	-- the exact STYLE prop names they currently wear all agree.
+	-- THE KEY INCLUDES THE WORN BINDING∪STYLE-PROP SET (`render/recycle_key.luau`
+	-- carries the full argument, the W1/W1b/R2 history and the seam's own).
+	-- Adoption writes only what DIFFERS from the instance's own state — safe
+	-- only if every property on it is one the new node also declares, or a
+	-- stale one survives uncleared. So two nodes share a bucket only if class,
+	-- hint, canvasGroup AND the exact BINDING∪STYLE prop names they currently
+	-- wear all agree. LAYOUT props are excluded — every layout write is
+	-- value-diffed against a cache carried across the adoption instead
+	-- (`render/recycle_key.luau`'s header names each one).
 	local function drainRecyclePool()
 		if recyclePooled == 0 then
 			return
@@ -1608,6 +1616,7 @@ function renderer.attach(
 		paintHeld = paintHeld,
 		pathNodes = pathNodes,
 		inputSinks = inputSinks,
+		noteWorn = recycleKeyState.noteWorn,
 		lastCommitEntry = lastCommitEntry,
 		hiddenRoots = hiddenRoots,
 		lastCompositions = lastCompositions,

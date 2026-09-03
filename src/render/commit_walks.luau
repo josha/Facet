@@ -199,6 +199,12 @@ export type CommitCtx = {
 	paintHeld: any, -- path -> the presenter's paint hold
 	pathNodes: any, -- the stroked-path node set
 	inputSinks: any, -- path -> can this node SINK a press (the overhang lift's census)
+	-- THE RECYCLE-KEY WORN-SET UPDATER (T8 R2, Important 2): the compact ladder
+	-- below writes `icon`/`compactLabel` straight to the adapter with style
+	-- authority, bypassing `applyStyleProp` because their VALUE is derived
+	-- (`layout_node.compactForm`), not simply `node.props[prop]` — so this dep
+	-- is the shared updater rather than a second copy of the worn-set code.
+	noteWorn: (path: string, prop: string, value: any) -> (),
 	--[[ THE FIVE THE PRUNE OWNS (P4). `lastCommitEntry` is the ninth minimal-write
 		record and has the same lifetime as the other eight; the three maps below it
 		were rebuilt from the whole rect map by the renderer on every solve and are
@@ -234,6 +240,7 @@ function commit_walks.new(ctx: CommitCtx)
 	local paintHeld = ctx.paintHeld
 	local pathNodes = ctx.pathNodes
 	local inputSinks = ctx.inputSinks
+	local noteWorn = ctx.noteWorn
 	local lastCommitEntry = ctx.lastCommitEntry
 	local hiddenRoots = ctx.hiddenRoots
 	local lastCompositions = ctx.lastCompositions
@@ -860,16 +867,28 @@ function commit_walks.new(ctx: CommitCtx)
 					local form = layout_node.compactForm(node.props)
 					if form ~= nil and lastCompact[node.path] ~= isCompact then
 						authority.assertWrite("Button", "text", "binding")
-						adapter.setProp(handle, "label", layout_node.drawnButtonText(node.props, isCompact), "binding")
+						-- `drawnButtonText` CAN return nil (an icon form whose glyph
+						-- does not resolve and whose props declare no `label`), so
+						-- `label` rides the SAME worn-set choke point as `icon` and
+						-- `compactLabel` below — it is a BINDING_PROPS member that
+						-- crosses nil on exactly the same compact toggle, just via a
+						-- different write site than `applyProp`'s own.
+						local labelValue = layout_node.drawnButtonText(node.props, isCompact)
+						adapter.setProp(handle, "label", labelValue, "binding")
 						stats.propWrites += 1
+						noteWorn(node.path, "label", labelValue)
 						if form.kind == "icon" then
 							authority.assertWrite("Button", "icon", "style")
-							adapter.setProp(handle, "icon", if isCompact then form.icon else nil, "style")
+							local iconValue = if isCompact then form.icon else nil
+							adapter.setProp(handle, "icon", iconValue, "style")
 							stats.propWrites += 1
+							noteWorn(node.path, "icon", iconValue)
 						elseif form.kind == "image" then
 							authority.assertWrite("Button", "compactLabel", "style")
-							adapter.setProp(handle, "compactLabel", if isCompact then form else nil, "style")
+							local compactLabelValue = if isCompact then form else nil
+							adapter.setProp(handle, "compactLabel", compactLabelValue, "style")
 							stats.propWrites += 1
+							noteWorn(node.path, "compactLabel", compactLabelValue)
 						end
 						lastCompact[node.path] = isCompact
 					end

@@ -4,26 +4,40 @@
 	the worn-set updater and the `recycleKeyPartsOf` bookkeeping. The ledger row's
 	trigger named this the next seam the moment the scroll-into-view family left;
 	this task's own fix round needed the room W1b's self-review round had already
-	spent down to 733 characters, so it is taken FIRST, on its own, exactly as
-	Phase 0 was.
+	spent down to 733 characters, so it was taken first, on its own, exactly as
+	Phase 0 was — the module's own git history carries that behaviour-neutral
+	commit; this docstring describes the state AFTER the fix that landed on top
+	of it.
 
 	PURE OVER `prop_channels` + `chrome_slots.hintKey` — no `renderer.attach`
 	upvalue at all. Every per-path record this module owns (`partsOf`, `wornOf`)
 	is a fresh table built inside `recycle_key.new()`, so two attached surfaces
 	share nothing and this module requires nothing back.
 
-	NO BEHAVIOUR CHANGE. The signature this commit signs is still `STYLE_PROPS`
-	only — the fix round's own broadening to `BINDING_PROPS ∪ STYLE_PROPS`
-	(T8 review, Critical 1) is a SEPARATE commit on top of this one, because a
-	seam extraction and a correctness fix are two different claims and this
-	repository never ships them in the same diff. `tests/recycle_key_seam.spec.luau`
-	mechanises the read/write sets and the mutations; the renderer's own suite
-	(`instance_recycling*`, `recycle_prop_signature.spec.luau`) is the behaviour
-	half, unmoved by the split. ]]
+	THE NAMESPACE (T8 R2, review Critical 1): structural PARTS (class, hint,
+	kind — frozen at create) plus the set of prop names in
+	`BINDING_PROPS ∪ STYLE_PROPS` the instance CURRENTLY wears non-nil. NOT
+	style-only — W1b's own narrowing of the create-time key to `STYLE_PROPS`
+	let a row adopt an instance wearing a BINDING prop (`enabled`, `image`,
+	`tint`, ...) it never itself declared, because `applyProps` iterates only
+	`node.props` and never clears a prop the adopter did not name. Layout props
+	are EXCLUDED, for one reason and no other: every layout write
+	(`commit_walks.luau` textSize/textFont/padding/textWrapped, `renderer.luau`
+	clipChildren) is value-diffed against caches `captureParkedProps`/
+	`restoreParkedProps` carry across an adoption, and padding has its own
+	explicit un-pad branch — neither has the "stale bespoke child" failure a
+	tracked prop's ABSENCE creates, so putting them in the key would only
+	narrow buckets for no safety bought. `signature()` (create) and `noteWorn`
+	(park, live) sign the SAME two tables so the two halves cannot drift apart
+	by construction. `tests/recycle_key_seam.spec.luau` mechanises the seam's
+	own read/write set and one-way shape; `tests/recycle_prop_signature.spec.luau`
+	drives the namespace claim, including the ragged-binding regression this
+	round closed. ]]
 
 local prop_channels = require("./prop_channels")
 local chrome_slots = require("../tokens/chrome_slots")
 
+local BINDING_PROPS = prop_channels.BINDING_PROPS
 local STYLE_PROPS = prop_channels.STYLE_PROPS
 
 local recycle_key = {}
@@ -37,16 +51,22 @@ local recycle_key = {}
 export type Parts = { class: string, hint: any, kind: string }
 
 export type RecycleKey = {
-	-- WORN-SET MAINTENANCE: called from the ONE place(s) a tracked prop is ever
-	-- written to the adapter. `value == nil` REMOVES the prop from `path`'s worn
-	-- set; anything else ADDS it. Callers are trusted to call this only for a
-	-- prop this module's namespace actually tracks — see the host file for which
-	-- that is in this commit.
+	-- WORN-SET MAINTENANCE: called from EVERY choke point that ever writes a
+	-- BINDING or STYLE prop to the adapter — `applyProp`, `applyStyleProp`, and
+	-- (via a passed-through dep, since their value is DERIVED and not simply
+	-- `node.props[prop]`) the two compact-ladder writes in `commit_walks.luau`.
+	-- `value == nil` REMOVES the prop from `path`'s worn set; anything else
+	-- ADDS it. Callers are trusted to call this only for a prop in
+	-- `BINDING_PROPS ∪ STYLE_PROPS` — every current call site already is, by
+	-- construction (an `emitsBinding`/style-authority write, or a name this
+	-- module itself asserts is tracked).
 	noteWorn: (path: string, prop: string, value: any) -> (),
 	-- the structural parts, recorded once at create/adopt
 	declareParts: (path: string, class: string, hint: any, kind: string) -> (),
-	-- the CREATE-TIME signature: the tracked names already present on `node.props`
-	-- (used for the adoption lookup, before this path has a worn set of its own)
+	-- the CREATE-TIME signature: the BINDING ∪ STYLE names already present on
+	-- `node.props` (used for the adoption lookup, before this path has a worn
+	-- set of its own) — the SAME namespace `noteWorn` maintains live, so the
+	-- create key and the park key can never disagree about what counts.
 	signature: (node: any) -> string,
 	-- the key string, shared by the adoption lookup and the park-time build
 	key: (class: string, hint: any, kind: string, sig: string) -> string,
@@ -94,7 +114,7 @@ function recycle_key.new(): RecycleKey
 		end
 		local names = {}
 		for name in props do
-			if STYLE_PROPS[name] then
+			if BINDING_PROPS[name] or STYLE_PROPS[name] then
 				table.insert(names, name)
 			end
 		end

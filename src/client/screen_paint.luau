@@ -636,24 +636,66 @@ function screen_paint.new(ctx: any)
 		live.Parent = instance
 	end
 
+	-- THE RADIUS `applyCorners`' NIL BRANCH RESTORES (T8 R2, Important 3): the
+	-- UICorner `applyCorners` writes into is SHARED, never owned — `applySurface`
+	-- (below, both its own `corner()` calls and its "badge" branch) and the
+	-- bare-circle-shape fallback above (gated on `declaredSurface == nil`) both
+	-- materialise the SAME single child a reactive `corners` prop also
+	-- targets. So a nil `corners` write must not simply delete it: this
+	-- mirrors `applySurface`'s OWN per-surface radius choice — the one place
+	-- that repeats that mapping, and it must move if `applySurface`'s ever does
+	-- — returning nil only when nothing else (no declared surface, no circle
+	-- shape) would have claimed a UICorner here at all.
+	local function chromeDefaultRadius(handle: any): UDim?
+		if type(handle) ~= "table" then
+			return nil
+		end
+		local surface = handle.declaredSurface
+		if surface == "raised" then
+			return cornerRadiusFor(handle, style.radii.panel)
+		elseif surface == "control" or surface == "chip" then
+			return cornerRadiusFor(handle, style.radii.control)
+		elseif surface == "badge" then
+			-- always circular, regardless of `handle.shape` (`applySurface`'s
+			-- own "badge" branch writes `UDim.new(0.5, 0)` unconditionally)
+			return UDim.new(0.5, 0)
+		elseif surface == nil and handle.shape == "circle" then
+			-- the bare-circle fallback above (`:276`): a node that carries
+			-- `shape = "circle"` but never authors a `surface` at all
+			return cornerRadiusFor(handle, style.radii.control)
+		end
+		return nil
+	end
+
 	-- normalized UI.corners data -> ONE UICorner in exactly ONE form
 	-- (uniform alias or four per-corner radii — never both; engine hazard)
-	local function applyCorners(instance: Instance, cornersData: any)
+	local function applyCorners(instance: Instance, cornersData: any, handle: any?)
 		if not instance:IsA("GuiObject") then
 			return
 		end
-		-- NIL TEARS THE MODIFIER DOWN (wicked-fast W1b) — same argument as
-		-- `applyShadow`/`applyGradient` above, in THIS function's own idiom:
-		-- unlike them, `applyCorners` never held its instance on `handle` (it
-		-- was not even given one), so it discovers it the same way its own
-		-- create path does, via `FindFirstChildOfClass`, rather than through a
-		-- handle field that does not exist here. `styling.paintCorners(nil, …)`
-		-- below indexed nil before this existed.
+		-- NIL RESTORES, NEVER DESTROYS (T8 R2, Important 3 — W1b's own first
+		-- draft `Destroy()`ed unconditionally here, which is right for
+		-- `applyShadow`/`applyGradient` — they own a handle-tracked instance
+		-- nothing else touches — but wrong here: this UICorner may be the SAME
+		-- one `applySurface` painted, and deleting it strips the surface's own
+		-- radius the moment a sibling reactive `corners` crosses to nil).
+		-- `chromeDefaultRadius` above answers "what would still claim this
+		-- UICorner if `corners` had never been authored" — only when NOTHING
+		-- would (a bare node, no surface, no circle shape) does this fall
+		-- through to the same teardown `applyShadow`/`applyGradient` use when
+		-- nothing needs their instance either.
 		if cornersData == nil then
-			local existing = instance:FindFirstChildOfClass("UICorner")
-			if existing ~= nil then
-				existing:Destroy()
+			local restored = chromeDefaultRadius(handle)
+			if restored == nil then
+				local existing = instance:FindFirstChildOfClass("UICorner")
+				if existing ~= nil then
+					existing:Destroy()
+				end
+				return
 			end
+			local uiCorner = instance:FindFirstChildOfClass("UICorner") or Instance.new("UICorner")
+			uiCorner.CornerRadius = restored
+			uiCorner.Parent = instance
 			return
 		end
 		-- the AUTHORED token re-derived for this target's distance (fix round 2)

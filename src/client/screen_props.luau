@@ -89,7 +89,7 @@ export type Ctx = {
 	applySurface: (Instance, string, any) -> (),
 	applyShadow: (Instance, any, any) -> (),
 	applyGradient: (Instance, any, any) -> (),
-	applyCorners: (Instance, any) -> (),
+	applyCorners: (Instance, any, any?) -> (),
 	applyStroke: (Instance, any, any) -> (),
 	applyTint: (any) -> (),
 	releaseTint: (any) -> (),
@@ -366,7 +366,7 @@ function screen_props.new(ctx: Ctx)
 		elseif prop == "gradient" then
 			applyGradient(instance, value, handle)
 		elseif prop == "corners" then
-			applyCorners(instance, value)
+			applyCorners(instance, value, handle)
 		elseif prop == "stroke" then
 			applyStroke(instance, value, handle)
 		elseif prop == "tint" then

@@ -793,11 +793,18 @@ function fake_target.new(opts: Opts?)
 		handle.parked = true
 		handle.alive = false
 		-- PROPERTIES SURVIVE, mirroring the live adapter. The renderer now writes only
-		-- what differs on adoption, and the pool only ever hands a node to a consumer
-		-- declaring the SAME property names — so everything on this instance is
-		-- something the next identity also declares and will overwrite if it differs.
-		-- Clearing here would model an adapter that does not exist and would hide the
-		-- property diff entirely.
+		-- what differs on adoption. T8 R2 (review Critical 1) — THE INVARIANT THIS
+		-- COMMENT USED TO STATE WAS FALSE: the pool does NOT only ever hand a node to
+		-- a consumer declaring the same property names; it hands a node to a
+		-- consumer whose BINDING ∪ STYLE PROPS worn-set matches (`render/recycle_key.luau`),
+		-- which is the namespace the CREATE-time key and the park-time key both sign
+		-- from — narrowing that namespace on only one side (W1b's own regression) is
+		-- exactly what let a Button adopt an instance still wearing a previous
+		-- occupant's `enabled = false`. LAYOUT props are the one channel that CAN
+		-- legitimately differ across an adoption — `commit_walks.luau`'s value-diffed
+		-- writes (padding's own explicit un-pad branch among them) are what keep
+		-- THOSE honest, not the recycle key. Clearing here would model an adapter
+		-- that does not exist and would hide the property diff entirely.
 		table.insert(ops, `park {handle.path}`)
 		adapter._cancelIfCaptured(handle, "removed")
 		return true
