@@ -51,6 +51,9 @@ local geometry_facts = require("./geometry_facts")
 local tap_arm = require("./tap_arm")
 local premeasure_round = require("./premeasure_round")
 local autoscroll_bridge = require("./autoscroll_bridge")
+-- the scroll-into-view family (the ledger's named seam): `scrollToVisible` and
+-- `scrollHostFor`, plus the keep-visible arithmetic between them
+local scroll_into_view = require("./scroll_into_view")
 local chrome_slots = require("../tokens/chrome_slots")
 -- public drag/drop: the declaration channel and the per-surface
 -- registry that turns declarations into one acquisition→session→terminal path
@@ -3499,53 +3502,28 @@ function renderer.attach(
 		return nil
 	end
 
-	-- scroll-to-visible (A-SV1): THE shared keep-visible substrate. Every
-	-- control that must bring a focused, selected, or newly-revealed descendant
-	-- into view asks for it here instead of carrying its own scroll arithmetic,
-	-- so the minimum-distance rule, the clamp, and the axis handling exist once.
-	-- Returns true when it actually moved the host.
+	--[[ THE SCROLL-INTO-VIEW FAMILY, EXTRACTED (`render/scroll_into_view.luau`,
+		2026-09-03, wicked-fast T8's Phase 0). The ledger row for this file named this
+		block by name as the seam owed before this file's next edit of any size; the
+		six names below are each declared once here and never reassigned, and
+		`controller` crosses whole — the one field this family needed that no earlier
+		renderer seam did — for its `scrollPosition`/`scrollTo` pair, both already
+		bound onto it before either function below can be called.
+		`tests/scroll_into_view_seam.spec.luau` mechanises the seam over the sources.
 
-	function controller.scrollToVisible(path: string): boolean
-		if adapter.setScrollPosition == nil then
-			return false -- clip-only fallback adapter: nothing to scroll
-		end
-		-- the nearest ScrollView ANCESTOR (never `path` itself). `structuralSync`'s
-		-- `livePaths` walk already threads that host down the tree and records it
-		-- here — its own comment says it exists so this is not "computed on demand
-		-- instead", which is exactly what a second full-tree walk here was doing
-		-- (Step 5.5 cleanup ledger C-03). Absent from the map means not yet
-		-- structurally synced, and such a path has no `lastRects` entry either, so
-		-- both spellings refuse it.
-		local hostPath: string? = scrollHostOf[path]
-		if hostPath == nil then
-			return false
-		end
-		local hostRect = lastRects[hostPath]
-		local targetRect = lastRects[path]
-		local region = lastScrollRegions[hostPath]
-		if hostRect == nil or targetRect == nil or region == nil then
-			return false
-		end
-		local isX = region.axis == "x"
-		local current = controller.scrollPosition(hostPath) or { x = 0, y = 0 }
-		local offset = if isX then current.x else current.y
-		local band = if isX then hostRect.w else hostRect.h
-		local extent = if isX then region.contentW else region.contentH
-		-- canvas-space span of the target (the solver arranges children in the
-		-- host's own coordinate space; the engine shifts them by the offset)
-		local top = (if isX then targetRect.x else targetRect.y) - (if isX then hostRect.x else hostRect.y)
-		local size = if isX then targetRect.w else targetRect.h
-		-- ONE implementation of the minimum-distance rule (A-SV2)
-		local wanted = solver.keepVisibleOffset(top, size, offset, band, extent)
-		if wanted == nil then
-			return false
-		end
-		controller.scrollTo(hostPath, {
-			x = if isX then wanted else current.x,
-			y = if isX then current.y else wanted,
-		})
-		return true
-	end
+		THE TWO METHODS KEEP THEIR PUBLIC NAMES on `controller`, exactly the pattern
+		the DRAG-TO-EDGE AUTOSCROLL bridge a few hundred lines below uses for the same
+		reason: `present/presenter.luau` and every control that keeps a descendant
+		visible call these by name, and nothing about the public surface moved. ]]
+	local scrollIntoView = scroll_into_view.new({
+		adapter = adapter,
+		controller = controller,
+		lastRects = lastRects,
+		lastScrollRegions = lastScrollRegions,
+		scrollHostOf = scrollHostOf,
+		screenRectOf = screenRectOf,
+	})
+	controller.scrollToVisible = scrollIntoView.scrollToVisible
 
 	--[[ HAND A PRESS TO WHAT IS UNDERNEATH IT (ruling 6, director 2026-08-13).
 
@@ -3659,48 +3637,10 @@ function renderer.attach(
 		return target
 	end
 
-	-- THE SCROLL HOST THAT CARRIES A NODE, with everything an edge autoscroll
+	-- THE SCROLL HOST THAT CARRIES A NODE (`render/scroll_into_view.luau`, see the
+	-- pointer above `scrollToVisible`'s own binding): everything an edge autoscroll
 	-- needs to steer it, in ONE answer (Table's reorder autoscroll, 2026-07-29).
-	--
-	-- A control cannot work this out for itself. The host may be its own scroller
-	-- (a viewport Table's Body) or an ANCESTOR it does not own — a block Table
-	-- inside a scrolling page is the shipped shape, and there the thing that has
-	-- to move belongs to the consumer's screen, not to the control. The nearest
-	-- ScrollView ancestor is already threaded down `structuralSync`'s live-path
-	-- walk for `screenRectOf`, and the canvas extent is already recorded per host
-	-- for the region push, so this exposes the pair rather than tempting three
-	-- separate internals out through the API (the same argument `scrollToVisible`
-	-- makes for the keep-visible arithmetic).
-	--
-	-- `rect` is in WINDOW space, because the caller compares it against a POINTER.
-	-- Pass `includeSelf` for a node that may BE the host.
-	function controller.scrollHostFor(path: string, includeSelf: boolean?): any
-		local hostPath: string? = if includeSelf == true and lastScrollRegions[path] ~= nil
-			then path
-			else scrollHostOf[path]
-		if hostPath == nil then
-			return nil
-		end
-		local region = lastScrollRegions[hostPath]
-		local rect = screenRectOf(hostPath)
-		if region == nil or rect == nil then
-			return nil
-		end
-		local isX = region.axis == "x"
-		local offset = controller.scrollPosition(hostPath) or { x = 0, y = 0 }
-		local band = if isX then rect.w else rect.h
-		local extent = if isX then region.contentW else region.contentH
-		return {
-			path = hostPath,
-			rect = rect,
-			axis = if isX then "x" else "y",
-			offset = if isX then offset.x else offset.y,
-			-- clamped the way the engine clamps CanvasPosition: nothing to scroll
-			-- reports 0, which is what makes an autoscroll model INERT rather than
-			-- arming against a canvas that cannot move
-			maxScroll = math.max(0, extent - band),
-		}
-	end
+	controller.scrollHostFor = scrollIntoView.scrollHostFor
 
 	--[[ DRAG-TO-EDGE AUTOSCROLL, EXTRACTED (`render/autoscroll_bridge.luau`,
 		2026-09-01). The ledger row for this file names the DRAG BRIDGE as the seam it

@@ -787,6 +787,16 @@ require("./tap_arm_seam.spec")
 	== PASSED, the single writer of `disposed`, that the renderer kept no copy and no
 	second `adapter.measureTextWidths` caller, and the three accessors driven ]]
 require("./premeasure_round_seam.spec")
+--[[ ...AND THE SCROLL-INTO-VIEW FAMILY (wicked-fast T8's Phase 0), the seam the
+	renderer's own ledger row named next once the text-premeasurement round left:
+	`scrollToVisible` + `scrollHostFor` and the keep-visible arithmetic between
+	them, behind the six-field `Deps` the read-set scan found — TWO more than the
+	row's own four-name prediction, and `handles` was not one of the four after
+	all. The write set is EMPTY (both functions call one encapsulated write,
+	`controller.scrollTo`, and touch nothing else directly), `controller` crosses
+	whole for its `scrollPosition`/`scrollTo` pair, and `../layout/solver` is the
+	one leaf require, exactly the `premeasure_round.luau` precedent ]]
+require("./scroll_into_view_seam.spec")
 --[[ O6 (wicked-fast T7): the STRUCTURAL SYNC takes the delta `refresh` already
 	holds. `ensureTree`, `livePaths` and the removal sweep stop being whole-tree; the
 	five per-path maps go per-subtree with the old membership snapshotted from the

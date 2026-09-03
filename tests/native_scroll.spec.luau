@@ -456,7 +456,17 @@ describe("A-SV2: the keep-visible clamp exists exactly once", function()
 
 	it("all three consumers call it — no second implementation survives", function()
 		local fs = require("@lune/fs")
-		for _, file in { "src/render/renderer.luau", "src/controls/virtual_list.luau", "src/controls/table.luau" } do
+		--[[ THE RENDERER'S OWN CALL LEFT `renderer.luau` FOR `render/scroll_into_view.luau`
+			(wicked-fast T8's Phase 0), so "the renderer uses it" is read over
+			`renderer_source.all()` — every part the renderer has shed, joined — rather
+			than over the one file, the same move `commit_walks_seam`'s own pin needed the
+			first time a walk moved out from under it. The other two consumers are not
+			part of that split and stay direct file reads. ]]
+		local renderer_source = require("./lib/renderer_source")
+		if string.find(renderer_source.all(), "keepVisibleOffset", 1, true) == nil then
+			error("the renderer (across its own parts) does not use the shared keepVisibleOffset")
+		end
+		for _, file in { "src/controls/virtual_list.luau", "src/controls/table.luau" } do
 			local source = fs.readFile(file)
 			if string.find(source, "keepVisibleOffset", 1, true) == nil then
 				error(`{file} does not use the shared keepVisibleOffset`)

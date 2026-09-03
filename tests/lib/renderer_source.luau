@@ -20,8 +20,9 @@
 	(`render/commit_walks.luau`), the drag-to-edge autoscroll bridge
 	(`render/autoscroll_bridge.luau`), the drag bridge's registry half
 	(`render/drag_bridge.luau`), the tap-echo guard with the arm dispatch beside
-	it (`render/tap_arm.luau`) and the text-premeasurement round
-	(`render/premeasure_round.luau`).
+	it (`render/tap_arm.luau`), the text-premeasurement round
+	(`render/premeasure_round.luau`) and the scroll-into-view family
+	(`render/scroll_into_view.luau`).
 
 	ADD A PART HERE WHENEVER MORE OF THE RENDERER MOVES OUT — otherwise the pins
 	quietly stop seeing the code they name, which is the failure this file exists
@@ -95,6 +96,14 @@ local PARTS = {
 		the reason `rect_pass.luau` is, and because its own seam spec takes the
 		`disposed` single-writer count over these parts rather than over one file. ]]
 	"src/render/premeasure_round.luau",
+	--[[ ...and the SCROLL-INTO-VIEW FAMILY (2026-09-03, wicked-fast T8's Phase 0):
+		`scrollToVisible`, `scrollHostFor` and the keep-visible arithmetic between them.
+		It carries no `adapter.setProp(` and no `setRect(`, but it DOES carry the one
+		`keepVisibleOffset` call site `tests/native_scroll.spec.luau`'s own "no second
+		implementation survives" pin reads for — the first pin this list has had to
+		repoint at a MOVED CALL rather than a moved write, which is why that case now
+		reads `renderer_source.all()` instead of `src/render/renderer.luau` alone. ]]
+	"src/render/scroll_into_view.luau",
 }
 
 local renderer_source = {}
