@@ -2255,8 +2255,8 @@ local function arrange(ctx: Ctx, node: Node, rect: Rect, out: { [string]: any })
 				spent (`selfPlaces`), which is what makes the plate ROOT the translate root.
 				IT DOES NOT RETURN HERE: only the ordinary write below records the root's
 				own rect, with this solve's offers and verdicts. ]]
-			-- the cheap gate first: `translatable` walks the children, `selfPlaces` is
-			-- two field reads and only runs at all when the node is itself dirty
+			-- the cheap gate first: `translatable` walks the children, `selfPlaces` is a
+			-- handful of field reads and only runs when the node is itself dirty
 			if (clean or selfPlaces(reuse, node, prev)) and translatable(reuse, node) then
 				tdx, tdy, tprev = rect.x - pr.x, rect.y - pr.y, prev
 			end
