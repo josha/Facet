@@ -1966,9 +1966,7 @@ function renderer.attach(
 			solveOpts.reuse = {
 				previous = lastResult,
 				dirtyContains = dirtyContains,
-				-- no measure half means no proof a slate is stale: fall back to the
-				-- arrange half, never to `nil`
-				measureContains = measureContains or dirtyContains,
+				measureContains = measureContains,
 			}
 			-- this solve covered `dirtyContains` and skipped the rest, so it cannot
 			-- answer for the whole queue (see `fullSolveSeq`)
@@ -2935,21 +2933,20 @@ function renderer.attach(
 						local path = entry.path
 						local isMeasure = entry.class == "measure"
 						if (isMeasure or entry.class == "arrange") and path ~= nil then
+							-- the set THIS entry terminates on. An arrange entry's two writes
+							-- land on `contains` twice, which is a no-op.
+							local target = if isMeasure then measures else contains
 							contains[path] = true
-							if isMeasure then
-								measures[path] = true
-							end
+							target[path] = true
 							local at = path
 							while true do
 								local cut = string.match(at, "^(.*)/[^/]*$")
 								if cut == nil or cut == "" then
 									break
 								end
-								local seen = if isMeasure then measures[cut] else contains[cut]
+								local seen = target[cut]
 								contains[cut] = true
-								if isMeasure then
-									measures[cut] = true
-								end
+								target[cut] = true
 								if seen then
 									break
 								end

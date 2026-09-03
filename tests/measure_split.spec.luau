@@ -117,12 +117,15 @@ describe("O2: an arrange-only step does not re-measure MORE THAN ITS PLAN_SKIP L
 	end)
 
 	--[[ THIS PIN IS ALSO WHAT GUARDS THE PER-SET PREFIX TERMINATION. The closure's
-		inner walk must not let an `arrange` entry that already filled a prefix chain
-		cut a later `measure` entry's; mutating it back to one shared `if contains[cut]
-		then break` reads 500 here instead of 652 — the arrange entries run first and
-		fill every prefix down to the plate root, so the caster's measure chain breaks
-		at its first step and `Plate`, `Canvas` and `S` all keep slates they should
-		have lost. The pure-tick pin above cannot see that mutation; this one does. ]]
+		inner walk terminates on `target[cut]` — the set THIS entry is filling — so an
+		`arrange` entry that already filled a prefix chain cannot cut a later `measure`
+		entry's. Both ways of collapsing that back to one shared set are caught HERE
+		and by nothing else in the suite (the pure-tick pin above sees neither, because
+		a pure tick has no measure entry to cut): terminating on `contains[cut]` reads
+		650 — `Canvas` and the `Screen` keep slates they should have lost — and
+		breaking BEFORE the write reads 500, which loses the caster plate roots too.
+		The arrange entries run first, so by the time a caster's `Cast` entry walks up,
+		every prefix down to its plate root is already in `contains`. ]]
 	it("a caster tick measures the cast bars and their ancestors' slates, and nothing else", function()
 		local s = scene.new()
 		s.tickWithCasts(3, 2) -- warm
@@ -216,6 +219,47 @@ describe("O2 oracle: byte-equal to a full solve, every view, every step kind", f
 					c.hp(7, 0.1 * step)
 					if a.snapshot() ~= c.snapshot() then
 						error(`{label}: hp {step} diverged from a FULL solve`, 0)
+					end
+					--[[ ...AND THE STRUCTURAL ARM, WHICH THE THREE DRIVES ABOVE NEVER
+						REACH. `add`/`remove` set the ForEach's list signal, so `refresh`
+						takes the `needsStructure` branch, where `measureContains` is not
+						built by the closure at all — it is ALIASED to `structuralPlan.contains`,
+						the set `structural_scope.widen` then MUTATES with every id
+						`layout_node.build` constructed. Aliasing two names to one table
+						that a later call grows is exactly the kind of thing that reads
+						fine and is wrong, so it gets a rect comparison rather than the
+						paragraph in `renderer.luau` arguing it is conservative.
+
+						MEASURED, so "this reaches the structural arm" is a fact and not a
+						hope: on this fixture `stats().structuralPartialSolves` goes
+						0 -> 1 -> 2 across the `add` and the `remove` and
+						`lastStructuralBoundary` is `/S`, where a plain tick leaves both
+						at 0 and `nil`. ]]
+					-- keyed by `step`, not a constant: `scene.add` mints the key
+					-- `add{i}`, and a ForEach treats a duplicate key as a HARD error
+					a.add(step)
+					b.add(step)
+					c.add(step)
+					if a.snapshot() ~= c.snapshot() then
+						error(`{label}: add {step} diverged from a FULL solve`, 0)
+					end
+					-- ...and the tick right after it, because a structural solve's own
+					-- rects are only half the claim: the NEXT incremental solve runs
+					-- against a store the widen just pruned
+					a.tick(dx, dy)
+					b.tick(dx, dy)
+					c.tick(dx, dy)
+					if a.snapshot() ~= c.snapshot() then
+						error(`{label}: tick-after-add {step} diverged from a FULL solve`, 0)
+					end
+					-- ...and `remove` takes an INDEX, so removing the row just added
+					-- (the last one) is what returns the list to its previous shape
+					local added = #a.items
+					a.remove(added)
+					b.remove(added)
+					c.remove(added)
+					if a.snapshot() ~= c.snapshot() then
+						error(`{label}: remove {step} diverged from a FULL solve`, 0)
 					end
 				end
 				a.dispose()

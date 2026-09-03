@@ -356,10 +356,26 @@ local function valuesFor(className: string, prop: string): (any, any)
 end
 
 --[[ Mount `prop` under the parent kind that reads it, drive it A -> B -> A, and
-	report `lastMeasured` on the SECOND drive. `control` swaps the driven prop for
-	a measure-classed one on the same fixture, which is what keeps a zero here from
-	being a zero the fixture would report for anything. ]]
-local function measuredOnDrive(prop: string, view: any, control: boolean): number
+	report `lastMeasured` on the SECOND drive PLUS the geometry at both ends.
+	`control` swaps the driven prop for a measure-classed one on the same fixture,
+	which is what keeps a zero here from being a zero the fixture would report for
+	anything.
+
+	WHY THE GEOMETRY COMES BACK TOO, AND WHY A COUNTER ALONE PROVED THE WRONG THING
+	(review of the first round of this audit, fix round 1). On an arrange-only drive
+	`measureContains` is EMPTY, so every slate is adopted and `lastMeasured == 0`
+	holds WHETHER OR NOT measure reads the prop. A prop that measure really did read
+	would be served the slate it filled at the warm value B while the pin reads back
+	A: stale geometry, counter still zero, audit green. The counter proves the GATE
+	fired; only a differential against a solve that has no slate to be stale proves
+	the CLAIM. So each prop is driven twice over: once on the shipped configuration
+	and once on a controller attached with `incrementalLayout = false,
+	measureReuse = false`, and the sorted rect/visibility dumps must agree at BOTH
+	ends of the drive. Same shape as `tests/measure_split.spec.luau`'s
+	`refusalWorld`. ]]
+type Arm = { measured: number, atB: string, atA: string }
+
+local function driveArm(prop: string, view: any, control: boolean, incremental: boolean, measureReuse: boolean): Arm
 	local kind = PARENT_FOR[prop]
 	local core = customFactory.new()
 	local env = environment.new(core)
@@ -398,20 +414,35 @@ local function measuredOnDrive(prop: string, view: any, control: boolean): numbe
 	local adapter = fake_target.new()
 	local controller = renderer.attach(core, root, env, adapter, {
 		rootPolicy = "edgeToEdge",
-		incrementalLayout = true,
-		measureReuse = true,
+		incrementalLayout = incremental,
+		measureReuse = measureReuse,
 		layoutNodeReuse = true,
 		commitScope = true,
 	})
 	controller.initialRender()
+	local function shot(): string
+		local out = {}
+		for path, node in adapter.liveNodes() do
+			local r, hit = node.rect, node.hitRect
+			table.insert(
+				out,
+				`{path}|{if r then `{r.x},{r.y},{r.w},{r.h}` else "-"}`
+					.. `|vis={tostring(node.visible)}`
+					.. `|hit={if hit then `{hit.x},{hit.y},{hit.w},{hit.h}` else "-"}`
+			)
+		end
+		table.sort(out)
+		return table.concat(out, "\n")
+	end
 	sig:set(b) -- warm: the fill pass after `initialRender` cleared the store
 	controller.refresh()
+	local atB = shot()
 	sig:set(a)
 	controller.refresh()
-	local measured = (controller.stats() :: any).lastMeasured
+	local arm: Arm = { measured = (controller.stats() :: any).lastMeasured, atB = atB, atA = shot() }
 	controller.dispose()
 	root.dispose()
-	return measured
+	return arm
 end
 
 describe("an arrange-only prop is PROVABLY unread by measure (the split's own audit)", function()
@@ -462,10 +493,38 @@ describe("an arrange-only prop is PROVABLY unread by measure (the split's own au
 		expect(n).toBe(8)
 	end)
 
-	it("...and driving each of them measures NOTHING, at every device view", function()
+	it("...and driving each of them measures NOTHING and lands a FULL solve's geometry", function()
 		for prop in PARENT_FOR do
 			for _, view in device_views.VIEWS do
-				expect(`{prop}@{view.id}:{measuredOnDrive(prop, view, false)}`).toBe(`{prop}@{view.id}:0`)
+				local kept = driveArm(prop, view, false, true, true)
+				local full = driveArm(prop, view, false, false, false)
+				local at = `{prop}@{view.id}`
+				-- (1) THE GATE FIRED: the slate survived an arrange-only change
+				expect(`{at}:{kept.measured}`).toBe(`{at}:0`)
+				--[[ (2) THE DRIVE IS LIVE. Asserted BEFORE the differential, and it is
+					the assertion that stops this whole audit from being vacuous: if the
+					prop's two values produce identical geometry in this fixture then the
+					parent does not read it here (the `alignH`-under-a-vstack trap the
+					header names), and a "matches the full solve" that compares a thing
+					to itself proves nothing. Both ends come from the FULL-solve arm, so
+					liveness is a fact about the fixture, not about the split. ]]
+				if full.atA == full.atB then
+					error(
+						`{at}: the drive is INERT — this parent does not read this prop, so `
+							.. `the differential below compares identical geometry and the audit `
+							.. `proves nothing. Fix PARENT_FOR or the driven values.`,
+						0
+					)
+				end
+				-- (3) THE CLAIM: the kept slate produced the SAME geometry a solve with
+				-- no slate to be stale produced, at both ends of the drive. A prop
+				-- measure really read would be served its warm-value measurement here.
+				if kept.atA ~= full.atA then
+					error(`{at}: kept a slate that a FULL solve disagrees with (at the pinned value)`, 0)
+				end
+				if kept.atB ~= full.atB then
+					error(`{at}: kept a slate that a FULL solve disagrees with (at the warm value)`, 0)
+				end
 			end
 		end
 	end)
@@ -477,7 +536,7 @@ describe("an arrange-only prop is PROVABLY unread by measure (the split's own au
 			would pass on a fixture that never solves at all. ]]
 		local view = device_views.VIEWS[1]
 		for prop in PARENT_FOR do
-			expect(`{prop}:{measuredOnDrive(prop, view, true) > 0}`).toBe(`{prop}:true`)
+			expect(`{prop}:{driveArm(prop, view, true, true, true).measured > 0}`).toBe(`{prop}:true`)
 		end
 	end)
 end)
