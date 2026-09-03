@@ -109,3 +109,58 @@ T10 final gate: RR live canary CLEAN (60fps sustained, quarantine nil, partials 
 - verify.sh hygiene trio: git-ls-files untracked blind spot (false PASS class); producer race at --jobs>1; check_perf_captures output as hashed evidence (non-idempotent verdicts). Plus: repair_graph --dry-run backlog (11 stale receipt pins, 3 retirements, 1 add, 1 dropped pin, 4 pending); suite-cache fingerprint includes untracked .DS_Store (spurious misses); place builds non-byte-stable (14-file churn per full run).
 - Source-cap ledger: AUDIT ALL ROWS for stale triggers (two named seams had already left their files). Solver headroom 861 — next solver change takes chosenCandidate (solver.luau:814) first.
 - markFlip (P4): conservative, never fired in 3,000-frame soaks — retire or keep, needs live proof either way. stats() fields beyond attach opts undocumented in api.md. RR 878375e emitLegacyScripts:false double-boots rojo-BUILT places (game-side bug, canary report has evidence).
+
+---
+
+## Wicked-fast (Plan B) CLOSED — 2026-09-03, Facet `285b8ce6` + the closing RED-TEAM fix
+
+**The headline, and the miss.** The all-dirty `nameplates` tick at L: **8.975 → 5.563 ms headless
+(−38.0 %)** and **9.430 → 5.143 ms live (1.83x)**, with the four unchanged rivals in the same live
+drive reading 0.98–1.03x as the control. The target was **0.5 ms**, so the flagship class still
+**misses by 11.1x**. Across the five arena workloads, **14 of 29 step classes meet the ≤0.5 ms
+update / ≤1 ms structural targets, up from 11** — `nameplates` add/remove (1.344/1.307 → 0.858/0.822)
+and `killfeed` add-plates crossed. Full per-class table, both runners, both canaries:
+`FacetBench/docs/studio-runs/2026-09-02-wicked-fast.md`; per-task ABBA rows:
+`FacetBench/docs/profiling/2026-09-02-wicked-ledger.md`.
+
+**What landed:** T1 solver seam extraction · T3 measure/arrange dirt split · T4 the arrange
+translate arm (1,489 arranges → 375 + 1,111 re-basings) · T5 + T5b the commit prune and the
+class-aware commit dirty set (11,920 → 2,794 visits) · T6 the anchor arrange third arm, gated on
+`measureContains` · T7 the bounded structural sync (`lastSsVisited` 15 on an add) · T8/W1b the
+recycle key from the WORN prop set, plus the three live nil branches in `screen_paint`.
+
+### The carry list for the next campaign
+
+1. **THE LEVER: one Frame per plate.** `instance_boundary.createOptsFor` is the single predicate.
+   250 hosts would carry 1,488 descendants instead of 1,488 absolute writes; `rect_pass` is
+   **2.120 ms, 38 % of the tick**, and `screen_presentation.applyRect`'s write-skip already exists
+   and is measured (120 of 120 absolute positions change, 0 of 120 relative). Risk: it changes what
+   "skip a write" means for every hosted subtree, it disables recycling on the hosted node
+   (ADR-0032), and the 2026-08-17 measurement showed the engine's relayout total re-attributed
+   rather than removed. **The user's decision, not built.**
+2. **The number that decides the target.** `span:Facet/react` is **0.513 ms for 537 signal writes
+   (~0.96 µs each)** — the update budget is 0.5 ms, so the writes alone exceed it before any
+   layout happens. vide's whole tick on the same scene is 0.290 ms live. Either the core's write
+   path gets cheaper, or the workload writes less, or the target moves.
+3. **T6's offer channel taxes a measure-classed single-item update.** `battle_hud` `updateItem-hp`
+   +3.7 % and `killfeed` `updateItem-hp` +9.9 % / `setState` +9.0 % (ABBA n=2 per arm, arms
+   disjoint), with measure allocation +119.8 KB / +35.8 KB a step. `ctx.offers` is fresh per solve.
+   The only class that got slower, and it is booked rather than netted away.
+4. **`layout_node.build` is up 13.7 % (nameplates) / 32 % (fountain)** while its allocation is down
+   a third. Needs an attribution pass before it is called anything.
+5. **The arena needs per-step-kind buckets in the shared measurement core** (`run_one_lib`, one
+   accumulator keyed by `step.kind`, plus schema). Today the Studio runner reports one distribution
+   per combo, so no live per-class number exists for any framework and vide has no per-class number
+   on either runner. This is the instrument Plan C's C0 wants first.
+6. **FacetBench harness bug:** the live positional bite errors `_fixture` on every `positioned`
+   workload (it builds no instances by construction), so the arena lost its own negative control on
+   the two campaign workloads — 12 of 126 rows. Exempt a framework with no live instances, or gate
+   the bite on `liveCount > 0`.
+7. **Closing RED-TEAM, refused-in-writing (all LOW):** the `setProp` audit collapses duplicate
+   sites; no un-suppression path exists for a skinned node (pre-existing); a `shape` write after
+   suppression records nothing; `sweepDeparted`'s `handles[path] ~= nil` guard is unreachable by
+   trace. Each is argued in the after-doc §8.
+8. **A tooling hazard to carry:** on this CloudStorage path a `grep`/`sed` returned a **pre-T5b
+   version** of `src/render/commit_walks.luau` while `Read` on the same path in the same session
+   returned HEAD, md5 matching HEAD both times. Any gate that greps source here should pin a commit
+   marker first.
