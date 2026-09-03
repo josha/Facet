@@ -421,6 +421,12 @@ require("./measure_split.spec")
 -- the heap pin that catches a `prev` chain leak, the three self-placement defects the
 -- arm had without `selfPlaces`, and the three-arm oracle
 require("./translate_arm.spec")
+--[[ THE CLOSING RED-TEAM'S THREE ADJUDICATED FINDINGS (wicked-fast T9): the
+	anchor arm's missing verdict channels, the composition that was translated as a
+	descendant, and the two live-adapter source contracts. Registered beside the arm
+	specs it corrects rather than at the end, so a reader who opens `translate_arm`
+	or `anchor_arrange` finds the correction one line away. ]]
+require("./redteam_closing_round.spec")
 -- ...and the round's third (T5, O4 + N1): the COMMIT under a translate. Six walks
 -- whose output cannot read a position ask `skip(node, true)` and prune a moved
 -- subtree away; `rect_pass` stops AT each translate root and emits the solver's flat

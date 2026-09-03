@@ -757,7 +757,6 @@ function screen_target.new(opts: Opts?)
 	})
 	local syncChrome = chrome.syncChrome
 	local setChromeAssetLoaded = chrome.setChromeAssetLoaded
-	local applySkinnedSuppression = chrome.applySkinnedSuppression
 	local syncToggleArt = chrome.syncToggleArt
 	local applyOverrideVariantArt = chrome.applyOverrideVariantArt
 	local focusArtHost = chrome.focusArtHost

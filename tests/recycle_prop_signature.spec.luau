@@ -372,11 +372,17 @@ describe("W1b: the adapter tears a style modifier down instead of crashing on ni
 			-- ...and R2's mirrored table is GONE, not merely unused
 			expect(string.find(source, "chromeDefaultRadius", 1, true)).toBe(nil)
 			expect(string.find(nilBranch :: string, "uiCorner.CornerRadius = restored", 1, true) ~= nil).toBe(true)
-			expect(string.find(nilBranch :: string, "existing:Destroy()", 1, true) ~= nil).toBe(true)
-			-- `restored == nil` gates the ONLY destroy this branch reaches
+			expect(string.find(nilBranch :: string, "child:Destroy()", 1, true) ~= nil).toBe(true)
+			-- `restored == nil` gates the ONLY destroy this branch reaches, and it
+			-- sweeps EVERY UICorner (RED-TEAM T9, finding 3) rather than the first
+			-- one it finds — the shape every other eraser on this instance has
 			local destroyGuard = string.match(nilBranch :: string, "if restored == nil then(.-)\n\t\t\tend")
 			assert(destroyGuard ~= nil, "the restored == nil guard was not found to read")
-			expect(string.find(destroyGuard :: string, "existing:Destroy()", 1, true) ~= nil).toBe(true)
+			expect(string.find(destroyGuard :: string, "for _, child in instance:GetChildren() do", 1, true) ~= nil).toBe(
+				true
+			)
+			expect(string.find(destroyGuard :: string, "child:Destroy()", 1, true) ~= nil).toBe(true)
+			expect(string.find(nilBranch :: string, "FindFirstChildOfClass", 1, true) ~= nil).toBe(true)
 		end
 	)
 
@@ -429,7 +435,10 @@ describe("W1b: the adapter tears a style modifier down instead of crashing on ni
 		  releases        `applyCorners`' nil branch tearing the corner down. It is
 		                  reached only inside `if restored == nil`, i.e. only when no
 		                  chrome owner ever claimed the child, so there is nothing
-		                  to clear
+		                  to clear — which is why it is NOT `erases` and is kept out
+		                  of the balance check. Its selector is the same
+		                  `if child:IsA("UICorner") then` line the two real erasers
+		                  use; the enclosing function is what separates them
 		  prop            `applyCorners`' own authored-`corners` write — the PROP,
 		                  which must never record or the next nil write would
 		                  restore the value it is releasing
@@ -483,7 +492,10 @@ describe("W1b: the adapter tears a style modifier down instead of crashing on ni
 			-- `applyCorners` itself: the restore reads the record, the authored
 			-- path writes the PROP and records nothing
 			['screen_paint.luau|applyCorners|local restored = if type(handle) == "table" then handle.chromeCornerRadius else nil'] = "record-read",
-			['screen_paint.luau|applyCorners|local existing = instance:FindFirstChildOfClass("UICorner")'] = "releases",
+			-- ...and the teardown sweeps `GetChildren()` like every other eraser on
+			-- this instance (RED-TEAM T9, finding 3): a node can wear two UICorners,
+			-- and "no record" means no chrome owner claims ANY of them
+			['screen_paint.luau|applyCorners|if child:IsA("UICorner") then'] = "releases",
 			['screen_paint.luau|applyCorners|local uiCorner = instance:FindFirstChildOfClass("UICorner") or Instance.new("UICorner")'] = "prop",
 			["screen_paint.luau|applyCorners|uiCorner.CornerRadius = restored"] = "updates-record",
 			["screen_paint.luau|applyCorners|uiCorner.CornerRadius = UDim.new(0, corners.radius)"] = "prop",

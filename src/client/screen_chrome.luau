@@ -332,7 +332,11 @@ function screen_chrome.new(ctx: Context)
 	-- target with no StyleSheets the adapter writes the same three suppressions
 	-- itself, so a parchment button reads identically on both paths instead of
 	-- sitting inside a leftover Studio-Neutral slab.
-	local function applySkinnedSuppression(instance: GuiObject, on: boolean, handle: any?)
+	-- `handle` IS REQUIRED, NOT OPTIONAL (RED-TEAM T9, pre-seeded). All four call
+	-- sites already pass one, and the eraser below has to be able to clear the
+	-- chrome corner record on the node it is suppressing — an optional parameter
+	-- advertised a call shape that would silently skip that clear.
+	local function applySkinnedSuppression(instance: GuiObject, on: boolean, handle: any)
 		if nativeMode then
 			return -- the rules own it; an explicit write here would defeat them
 		end

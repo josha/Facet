@@ -696,9 +696,18 @@ function screen_paint.new(ctx: any)
 		if cornersData == nil then
 			local restored = if type(handle) == "table" then handle.chromeCornerRadius else nil
 			if restored == nil then
-				local existing = instance:FindFirstChildOfClass("UICorner")
-				if existing ~= nil then
-					existing:Destroy()
+				-- EVERY ONE OF THEM, like every other eraser on this instance
+				-- (RED-TEAM T9, finding 3). `applySurface`'s plain/scrim branches and
+				-- `applySkinnedSuppression` all sweep `GetChildren()`; this branch used to
+				-- take `FindFirstChildOfClass`, i.e. one. A node CAN wear two — `corner()`
+				-- calls `Instance.new` unconditionally, so a slot's native paint or a
+				-- reactive `surface` transition can leave a second — and "no record" means
+				-- no chrome owner claims ANY of them, so leaving one behind strands a
+				-- radius on a node that is supposed to have none.
+				for _, child in instance:GetChildren() do
+					if child:IsA("UICorner") then
+						child:Destroy()
+					end
 				end
 				return
 			end

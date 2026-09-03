@@ -28,8 +28,17 @@
 	explicit un-pad branch — neither has the "stale bespoke child" failure a
 	tracked prop's ABSENCE creates, so putting them in the key would only
 	narrow buckets for no safety bought. `signature()` (create) and `noteWorn`
-	(park, live) sign the SAME two tables so the two halves cannot drift apart
-	by construction. `tests/recycle_key_seam.spec.luau` mechanises the seam's
+	(park, live) sign the SAME two tables, so the two halves cannot drift apart
+	in WHICH NAMES ARE SIGNABLE. They can still disagree about one name in ONE
+	direction (RED-TEAM T9, finding 7): `signature` counts a declared prop,
+	`noteWorn` records only what the adapter actually received, and two writers
+	drop a prop in between — `emitsBinding` refuses a tracked name this class
+	does not emit (`thickness` on anything but a `Path`), and `applyProp` can
+	transform a value to nil (`drawnButtonText`) so `noteWorn` REMOVES a name
+	`signature` counted. Both are the safe direction — the park key is exactly
+	"what this instance is wearing", which is the truth adoption needs — so the
+	cost is a MISSED reuse (two identical Dividers never share a bucket), never
+	a wrong one. `tests/recycle_key_seam.spec.luau` mechanises the seam's
 	own read/write set and one-way shape; `tests/recycle_prop_signature.spec.luau`
 	drives the namespace claim, including the ragged-binding regression this
 	round closed. ]]

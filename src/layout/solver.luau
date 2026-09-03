@@ -2240,6 +2240,19 @@ local function translateDescendants(ctx: Ctx, node: Node, base: Rect, was: Rect,
 	local rects = (ctx.reuse :: any).previous.rects
 	local paths, entries = ctx.translatedPaths, ctx.translatedEntries
 	for _, child in kids do
+		--[[ A COMPOSITION IS REFUSED AS A DESCENDANT FOR THE SAME REASON
+			`literalIsWholeEntry` REFUSES IT AS A ROOT (RED-TEAM T9, finding 2), and the
+			reason is stronger here: its resolution is a FUNCTION OF ITS ORIGIN.
+			`composition_resolve` converts author `exclusions` from window space into the
+			box and decides `atRoot` by comparing the placed y to the root rect, so a
+			re-based clone carries lanes and a platform-band reservation computed at the
+			position it no longer occupies. `scroll` is safely translated (every field it
+			stamps is translation-invariant); this one is not. Refusing rolls the whole
+			run back to a full arrange for this root, which is the conservative direction
+			and costs nothing on a tree with no composition in it. ]]
+		if child.kind == "composition" then
+			return false
+		end
 		local prevEntry = rects[child.id]
 		if prevEntry == nil or prevEntry.rect == nil then
 			return false
@@ -3118,6 +3131,24 @@ local function arrange(ctx: Ctx, node: Node, rect: Rect, out: { [string]: any })
 					run, and it saved no allocation anyway (159.16 KB a step either way). ]]
 				ctx.offers[child.wKey or (child.id .. "|w")] = innerW
 				ctx.offers[child.hKey or (child.id .. "|h")] = innerH
+				--[[ ...AND THE VERDICTS THE MEASURE WE SKIPPED WOULD HAVE PUBLISHED
+					(RED-TEAM T9, finding 1). `ctx.textStates`/`compact`/`textFacts` are
+					fresh per solve and ONLY `measure` writes them. This arm serves a child
+					without calling `measure`, so all three read nil, and a served child
+					that then rebuilds a fresh entry literal (a `fill` axis whose
+					`offsetFill` width moved, or a `selfArrangeKey` that changed) files
+					`compact = nil` / `textFacts = nil` behind a perfect rect — which
+					un-compacts a compact Button (the commit's compact ladder reads
+					`isCompact = false` and writes the full label with `icon = nil`) and
+					drops the `textScale` fit write on the frame the width changed.
+
+					Re-publishing `prev`'s three channels is EXACT, not conservative: the
+					gate is `measureContains`-clean AND the same offer pair, which is the
+					condition under which `measure` republishes these same values off its
+					own slate. Same reason and same place as the offer re-record. ]]
+				ctx.textStates[child.id] = prev.textState
+				ctx.compact[child.id] = prev.compact
+				ctx.textFacts[child.id] = prev.textFacts
 			else
 				ctx.anchorOffered += 1
 				w, h = measure(ctx, child, innerW, innerH)
