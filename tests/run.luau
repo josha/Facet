@@ -395,6 +395,14 @@ require("./translate_arm.spec")
 -- so a stale `lastCommitEntry` is visible), the caster column the plan predicted
 -- wrong, and the FOUR-arm oracle whose fourth arm turns the commit prune itself off
 require("./commit_translate.spec")
+-- ...and the round's fourth (T5b): the COMMIT'S DIRTY SET IS NOT THE BUILD'S. A
+-- second, narrower set omits the seven props that move a node and change nothing a
+-- walk reads, and `skip` picks by the walk's own `arrangeBlind` claim, so four walks
+-- leave the dirty closure entirely. The prop -> walk read audit is executable rather
+-- than a comment: a driver over all seven props on BOTH the container and the LEAF
+-- shape (the classes each walk actually writes for), a scan of every walk body out
+-- of the source, a schema round trip on the dropped set, and the T5 oracle plus
+-- hide/unhide and a placement prop on a Text leaf
 require("./commit_dirt_classes.spec")
 -- the future spatial seam: contracts only, and the guard against a VR claim
 -- appearing in the shipped surface (roadmap Step 4, UI-SPATIAL-001)

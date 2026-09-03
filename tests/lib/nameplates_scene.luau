@@ -157,6 +157,8 @@ function nameplates_scene.new(opts: Opts?)
 			-- see `scene.hide`: authored `hidden`, false on every plate, so the tree
 			-- this fixture mounts is the one every earlier pin was taken on
 			hidden = core:signal(false),
+			-- ...and see `scene.nudgeLabel`: a placement prop on a TEXT LEAF
+			labelAlign = core:signal("start"),
 			name = `Racer {i}`,
 			lvl = tostring(10 + (i % 30)),
 		}
@@ -209,7 +211,7 @@ function nameplates_scene.new(opts: Opts?)
 							height = px(16),
 							children = {
 								UI.Text({ id = "Name", textSize = 14, text = item.name }),
-								UI.Text({ id = "Lvl", textSize = 12, text = item.lvl }),
+								UI.Text({ id = "Lvl", textSize = 12, text = item.lvl, lineAlign = item.labelAlign }),
 							},
 						}),
 						UI.Box({
@@ -310,6 +312,30 @@ function nameplates_scene.new(opts: Opts?)
 		controller.refresh()
 	end
 
+	--[[ A PURE-ARRANGE PROP ON A TEXT LEAF (wicked-fast T5b, review round 1, I1).
+		Every other placement drive on this fixture writes the plate ROOT — a VStack
+		container — and the four arrange-blind walks write for `Text`, `Button` and
+		`ScrollView` and for nothing else, so no earlier step here moves a placement
+		prop on a node whose walk output can be observed. `lineAlign` on the `Name`
+		Text is that step: an HStack reads its child's `lineAlign` on the cross axis
+		(`solver.luau:3497`, `child.lineAlign or child.align or node.align`).
+
+		IT IS ON `Lvl`, NOT `Name`, AND THE 1px IS THE WHOLE REASON. `Row` is 16px
+		tall; `Name` measures 61x16 and fills it, so a cross-axis alignment has NO
+		ROOM there and the drive would be INERT — a step that moves nothing makes
+		every differential taken across it vacuous. `Lvl` measures 15x15 in the same
+		16px row, so "start" -> "end" moves it by exactly one pixel, which is a
+		difference a snapshot can see. The spec that drives this asserts the move
+		rather than assuming it.
+
+		BOUND AT `"start"` AND INERT UNTIL DRIVEN, so no earlier pin moves — measured
+		by re-running `nameplates_baseline`, `commit_translate` and this task's own
+		spec before and after the binding was added. ]]
+	function scene.nudgeLabel(i: number, value: string)
+		items[i].labelAlign:set(value)
+		controller.refresh()
+	end
+
 	function scene.hp(i: number, fraction: number)
 		items[i].hp:set(fraction)
 		controller.refresh()
@@ -325,6 +351,7 @@ function nameplates_scene.new(opts: Opts?)
 			hp = core:signal(0.5),
 			cast = core:signal(if caster then 0.25 else 0),
 			hidden = core:signal(false),
+			labelAlign = core:signal("start"),
 			name = `Added {i}`,
 			lvl = "1",
 		}

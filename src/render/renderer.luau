@@ -139,8 +139,10 @@ local INPUT_SINKING: { [string]: boolean } = { Button = true, Toggle = true, Tex
 -- hover surface (its affordance is the caret/edit handshake, not a hover lift).
 local HOVERABLE: { [string]: boolean } = { Button = true, Toggle = true }
 -- MOVES A NODE, CHANGES NOTHING A COMMIT WALK READS (T5b): the schema's 8
--- arrange-only specs minus `hidden`. `commit_dirt_classes.spec` round-trips it
--- against the schema and a scan of the walk bodies
+-- arrange-only specs minus `hidden` — kept OUT so a walk that reads it can be
+-- promoted to `arrangeBlind` without re-deriving this set, not because anything
+-- consulting `commitDirty` reads it today. `commit_dirt_classes.spec` round-trips
+-- this against the schema and a scan of the walk bodies
 local PURE_ARRANGE_PROPS: { [string]: boolean } = {
 	anchor = true,
 	offsetX = true,
@@ -2795,12 +2797,9 @@ function renderer.attach(
 		-- ...and the same collection for the authored presentation quad (`offset` added by amendment, gap 16 framework-gaps-phase2). One list,
 		-- not four: they share one stored record and one re-read.
 		local presentationTouched: { string }? = nil
-		--[[ AXIS 2 OF THE NODE STORE (P3), accumulated in the SAME walk: every dirty
-			path plus its ancestors (the prefixes), of EVERY class. Not just the layout
-			two — `label`/`icon`/`compactLabel` are paint-classed and the measure seam
-			sizes boxes with them, so `dirtyContains` below would answer a stale tree
-			for a relabelled button. It accumulates across refreshes because a refresh
-			that does not solve still SAW the dirt. ]]
+		-- ONE ancestor closure, TWO callers (T5b): the build-side `nodeDirty` and the
+		-- commit-side `commitDirty`. What goes in each is decided at the call sites
+		-- below, never here.
 		local function markDirtyIn(set: { [string]: boolean }?, path: string?)
 			if set == nil or path == nil then
 				return
@@ -2822,6 +2821,12 @@ function renderer.attach(
 		-- instrument.
 		profile.span("dirtyScan", function()
 			for _, entry in dirty do
+				--[[ AXIS 2 OF THE NODE STORE (P3): every dirty path plus its ancestors
+					(the prefixes), of EVERY class. Not just the layout two —
+					`label`/`icon`/`compactLabel` are paint-classed and the measure seam
+					sizes boxes with them, so `dirtyContains` below would answer a stale
+					tree for a relabelled button. It accumulates across refreshes because
+					a refresh that does not solve still SAW the dirt. ]]
 				markDirtyIn(nodeDirty, entry.path)
 				-- ...AND THE COMMIT'S SET (T5b): a NAME in the table is what
 				-- omits a path, so a nil `prop` is never dropped

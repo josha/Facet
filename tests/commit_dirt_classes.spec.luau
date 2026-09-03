@@ -27,6 +27,17 @@
 	the harvest reached is a node they reach. Give one of the three a different set
 	and that stops being true.
 
+	KEEPING `hidden` IN THE COMMIT-SIDE SET IS CONSERVATISM, NOT A NECESSITY, AND
+	SAYING SO IS THE HONEST VERSION (review round 1, m3). `commitDirty` is consulted
+	by exactly one branch — `skip(…, arrangeBlind = true)` — and its only four callers
+	are the four walks below, none of which reads `hidden`. Dropping it TODAY would
+	cost extra pruning of a subtree whose hidden verdict those four do not carry, and
+	the report's own mutation (b) shows exactly that: it reddens counter pins and the
+	source round trip, never the oracle. It stays so that a fifth walk which DOES read
+	`hidden` can be promoted to `arrangeBlind` without re-deriving the set, and
+	because narrowing it further is a behaviour question for the framework's owner
+	rather than a free win. The `hide` cases below pin the behaviour either way.
+
 	WHICH IS WHY `skip` TAKES TWO CLAIMS AND NOT ONE (deviation from the task brief,
 	recorded rather than silent). The brief fused them — the four narrow walks would
 	pass `skip(node, true)` and `harvest`/`visible` would "give it back" and revert to
@@ -145,6 +156,38 @@ describe("T5b: a pure-arrange write does not dirty the commit", function()
 		s.dispose()
 	end)
 
+	it("a placement prop on a TEXT LEAF prunes the leaf, and the leaf really moved", function()
+		--[[ THE SHAPE THE NARROWING IS LOAD-BEARING FOR (review round 1, I1), on the
+			fixture the oracle uses. `Lvl` is a Text — one of the three classes the four
+			narrowed walks write for — and `lineAlign` under its HStack parent is a
+			pure-arrange prop authored on the leaf ITSELF. Before T5b that leaf was in
+			`nodeDirty` and every walk descended to it; after T5b it is a childless
+			translate root and the four stop above it while `harvest` still visits it.
+
+			READ OFF THE RUN. 5 = Screen, Canvas, the region, the plate root and `Row`
+			(the ancestors of the dirty leaf, all re-arranged), with `Lvl` pruned;
+			`harvest` is 6 — the same five plus `Lvl`. The other 249 plates are
+			untouched this frame and prune on plain entry identity. ]]
+		local s = scene.new({ plates = 20 })
+		s.tick(3, 2)
+		s.tick(3, 2)
+		local before = s.snapshot()
+		s.nudgeLabel(7, "end")
+		local by = s.stats().lastCommitVisitsByWalk
+		-- NON-VACUITY FIRST: a drive with no room to move makes every line below
+		-- meaningless, and `Name` (61x16 in a 16px row) is exactly that drive
+		expect(`moved={before ~= s.snapshot()}`).toBe("moved=true")
+		for _, name in ARRANGE_BLIND do
+			expect(`{name}={by[name]}`).toBe(`{name}=5`)
+		end
+		expect(`harvest={by.harvest} visible={by.visible}`).toBe("harvest=6 visible=6")
+		-- ...and the leaf the four pruned is the one that moved
+		for _, name in ARRANGE_BLIND do
+			expect(`{name}<harvest={by[name] < by.harvest}`).toBe(`{name}<harvest=true`)
+		end
+		s.dispose()
+	end)
+
 	it("a `hidden` flip is seen by every walk, at every device view", function()
 		for _, view in device_views.VIEWS do
 			local s = scene.new({ viewport = { x = 0, y = 0, w = view.w, h = view.h } })
@@ -254,7 +297,10 @@ local function readsPlacement(body: string): string?
 end
 
 describe("T5b audit, half one: the walk bodies, read out of the source", function()
-	it("the slicer finds all eight walk bodies", function()
+	it("the slicer finds all SEVEN walk bodies that live in this module", function()
+		-- seven, not eight: `rect_pass` is its own module and asks `skip` nothing, as
+		-- `WALK_READS_ARRANGE`'s own `rectPass` row concedes
+		expect(`audited={#AUDITED_WALKS}`).toBe("audited=7")
 		local bodies = walkBodies(WALK_SOURCE)
 		for _, name in AUDITED_WALKS do
 			expect(`{name}-sliced={bodies[name] ~= nil and #bodies[name] > 400}`).toBe(`{name}-sliced=true`)
@@ -431,7 +477,30 @@ end
 
 type World = { by: { [string]: number }, shot: string, dispose: () -> () }
 
-local function driveWorld(prop: string, control: boolean, commitScope: boolean, keepStretch: boolean?): World
+--[[ TWO SHAPES, AND THE SECOND ONE IS WHAT LICENSES THE AUDIT (review round 1, I1).
+
+	`"container"` binds the driven prop to a `UI.VStack` that CARRIES the Text,
+	Button and ScrollView. That was the whole audit in the first round, and it has a
+	hole: those three classes are the ONLY ones the four arrange-blind walks ever
+	write for (`commit_walks.luau` — `textScale` writes where a size resolves,
+	`padding` for `Button`/`Text`, `textVerdicts` for a label-driven `Text`/`Button`,
+	`scrollRegions` for `ScrollView`). A container arm therefore never drives a
+	placement prop on a node whose walk OUTPUT it can observe, and the review proved
+	the consequence: an aliased `props.offsetX` read inside `textScale`'s own write
+	left all twenty cases green.
+
+	`"leaf"` binds the same prop directly onto each of those three leaves, under the
+	same parent kind `PARENT_FOR` says reads it. `distribute` is the one prop with no
+	leaf spelling — it is authored on the container that distributes — so its leaf
+	arm binds it on the parent and makes the three leaves its CHILDREN, which is the
+	same question asked the only way that prop can be asked it. ]]
+local function driveWorld(
+	prop: string,
+	control: boolean,
+	commitScope: boolean,
+	shape: string,
+	keepStretch: boolean?
+): World
 	local core = customFactory.new()
 	local env = environment.new(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 1280, h = 720 })
@@ -445,34 +514,55 @@ local function driveWorld(prop: string, control: boolean, commitScope: boolean, 
 	end
 	local sig = core:signal(a)
 	local onParent = DRIVEN_ON_PARENT[prop] == true and not control
+	-- the three classes the four arrange-blind walks write for, and nothing else
+	local function leaf(kind: string, id: string, bind: boolean): any
+		local props: any
+		if kind == "Text" then
+			props = { id = id, text = "a label", textSize = 14, padding = 4 }
+		elseif kind == "Button" then
+			props = { id = id, label = "Press me", compactLabel = { text = "P" } }
+		else
+			props = {
+				id = id,
+				axis = "y",
+				width = px(60),
+				height = px(30),
+				children = { UI.Box({ id = "Tall", width = px(50), height = px(400) }) },
+			}
+		end
+		if bind then
+			props[driven] = sig
+		end
+		return (if kind == "Text" then UI.Text elseif kind == "Button" then UI.Button else UI.ScrollView)(props)
+	end
+	local function leaves(bind: boolean): { any }
+		return { leaf("Text", "T", bind), leaf("Button", "B", bind), leaf("ScrollView", "SV", bind) }
+	end
 	local function kid(id: string, bind: boolean): any
-		local props: any = {
-			id = id,
-			width = px(120),
-			height = px(90),
-			children = {
-				UI.Text({ id = "T", text = "a label", textSize = 14, padding = 4 }),
-				UI.Button({ id = "B", label = "Press me", compactLabel = { text = "P" } }),
-				UI.ScrollView({
-					id = "SV",
-					axis = "y",
-					width = px(60),
-					height = px(30),
-					children = { UI.Box({ id = "Tall", width = px(50), height = px(400) }) },
-				}),
-			},
-		}
+		local props: any = { id = id, width = px(120), height = px(90), children = leaves(false) }
 		if bind then
 			props[driven] = sig
 		end
 		return UI.VStack(props)
 	end
-	local parentProps: any = {
-		id = "P",
-		width = px(600),
-		height = { type = "fill", weight = 1 },
-		children = { kid("A", control or not onParent), kid("B", false) },
-	}
+	local parentProps: any
+	if shape == "leaf" then
+		-- the three leaves ARE the parent's children, so the prop the parent reads is
+		-- read ABOUT a Text, a Button and a ScrollView
+		parentProps = {
+			id = "P",
+			width = px(600),
+			height = { type = "fill", weight = 1 },
+			children = leaves(control or not onParent),
+		}
+	else
+		parentProps = {
+			id = "P",
+			width = px(600),
+			height = { type = "fill", weight = 1 },
+			children = { kid("A", control or not onParent), kid("B", false) },
+		}
+	end
 	if onParent then
 		parentProps[prop] = sig
 	end
@@ -499,31 +589,38 @@ local function driveWorld(prop: string, control: boolean, commitScope: boolean, 
 	for name, n in (controller.stats() :: any).lastCommitVisitsByWalk do
 		by[name] = n
 	end
-	local function ser(v: any): string
+	--[[ EVERY adapter prop, BY VALUE to the bottom, not a hand-picked few. The first
+		round listed `textSize`/`padding`/`label`/`textWrapped` by name and serialised
+		the padding as a BOOLEAN, so two different insets compared equal; and a walk
+		writes more than those four (`textFont`, `icon`, `compactLabel`). A dump that
+		does not carry what a walk writes cannot see that walk skip a write it owed. ]]
+	local function ser(v: any, depth: number): string
 		if type(v) ~= "table" then
 			return tostring(v)
 		end
+		if depth <= 0 then
+			return "…"
+		end
 		local inner = {}
 		for k, item in v do
-			table.insert(inner, `{tostring(k)}={tostring(item)}`)
+			table.insert(inner, `{tostring(k)}={ser(item, depth - 1)}`)
 		end
 		table.sort(inner)
 		return `\{{table.concat(inner, ",")}\}`
 	end
 	local out: { string } = {}
 	for path, node in adapter.liveNodes() do
-		local r = node.rect
+		local r, region = node.rect, node.scrollRegion
+		local props = {}
+		for k, v in node.props or {} do
+			table.insert(props, `{k}={ser(v, 6)}`)
+		end
+		table.sort(props)
 		table.insert(
 			out,
 			`{path}|{if r then `{r.x},{r.y},{r.w},{r.h}` else "-"}|vis={tostring(node.visible)}`
-				-- the padding VALUE, not merely its presence: `padding` is one of the four
-				-- walks pinned here and it reaches paint through this prop alone, so a
-				-- boolean would compare two different insets equal
-				.. `|size={tostring((node.props or {}).textSize)}|pad={ser((node.props or {}).padding)}`
-				.. `|label={tostring((node.props or {}).label)}|wrap={tostring((node.props or {}).textWrapped)}`
-				.. `|canvas={if node.scrollRegion
-					then `{node.scrollRegion.contentW},{node.scrollRegion.contentH}`
-					else "-"}`
+				.. `|canvas={if region then `{region.contentW},{region.contentH}` else "-"}`
+				.. `|{table.concat(props, ",")}`
 		)
 	end
 	table.sort(out)
@@ -538,56 +635,81 @@ local function driveWorld(prop: string, control: boolean, commitScope: boolean, 
 end
 
 describe("T5b audit, half three: driving each dropped prop leaves the four walks at the floor", function()
-	--[[ THE FLOOR IS PER PROP AND IT IS READ OFF THE RUN, because the SOLVER's
-		answer differs and the commit is downstream of it:
+	--[[ THE FLOOR IS PER PROP AND PER SHAPE, AND EVERY NUMBER IS READ OFF THE RUN,
+		because the SOLVER's answer differs and the commit is downstream of it.
 
-		  | prop                        | four | harvest | why                        |
-		  | anchor/offsetX/offsetY      |   2  |    3    | the driven kid is a TRANSLATE root: same size, new origin, so its entry carries `moveOnly` and its `prev` is what the last commit noted. `harvest` still visits it (all-classes set); the four do not — that GAP is this task |
-		  | lineAlign (start -> end)    |   2  |    3    | the same, one axis over |
-		  | alignH/alignV (ZStack)      |   4  |    4    | no translate at all (`lastTranslated` is 0): a ZStack re-arranges, so every entry is new and ENTRY IDENTITY refuses the prune for both sets. The narrowing changes nothing here and the pin says so rather than hiding it |
-		  | distribute (on the parent)  |   2  |    2    | the dirty node is the PARENT, whose `selfArrangeKey` moved, so it is arranged either way; its two kids are translate roots T5 already prunes |
+		LEAF SHAPE — the prop on a Text, a Button and a ScrollView under the parent
+		that reads it. This is the arm the audit is licensed by (review round 1, I1):
 
-		So four of the seven show the T5b gap directly, as `by[walk] < by.harvest` on
-		the SAME run — a differential inside one process, not a number compared against
-		a memory. The other three are pinned at their floor with the reason written in. ]]
-	local FLOOR: { [string]: number } = {
-		anchor = 2,
-		offsetX = 2,
-		offsetY = 2,
-		lineAlign = 2,
-		alignH = 4,
-		alignV = 4,
-		distribute = 2,
+		  | prop                     | four | harvest | why |
+		  | anchor/offsetX/offsetY   |   3  |    5    | the Text and the Button are CHILDLESS TRANSLATE ROOTS — same size, new origin, so `arrange` stamps `moveOnly`/`prev` on their own entries and `translateDescendants` returns immediately, which is why `lastTranslated` reads 0 and the stamp is there anyway. The four prune both; `harvest` keeps the all-classes set and visits them. That GAP is this task |
+		  | lineAlign (start -> end) |   3  |    5    | the same, one axis over |
+		  | alignH/alignV (ZStack)   |   5  |    5    | no translate at all: a ZStack re-arranges its children, so every entry is fresh and ENTRY IDENTITY refuses the prune for both sets. The narrowing changes nothing here and the pin says so rather than hiding it |
+		  | distribute (on the parent) | 3  |    3    | the dirty node is the PARENT, arranged either way; its leaves are clean-and-moved, so T5's `moveBlind` already prunes them for `harvest` too |
+
+		THE SCROLLVIEW IS NEVER PRUNED ON THIS ARM, AND THAT IS A FINDING RATHER THAN
+		A GAP IN THE FLOOR. `literalIsWholeEntry` (`solver.luau`) refuses the `scroll`
+		and `composition` kinds, so a ScrollView can never BE a translate root: it is
+		arranged, its entry is fresh, and every walk visits it. So the 3 above is
+		Screen + parent + ScrollView, and `scrollRegions` sees a moved scroll host on
+		every frame it moves — which is exactly what it must do, since its `hostW`/
+		`hostH` come off that entry.
+
+		CONTAINER SHAPE — the prop on a VStack that CARRIES the three leaves. Kept
+		because it is a real authoring shape, but it is NOT the licence: the walks
+		write nothing for a VStack.
+
+		  | prop | four | harvest |
+		  | anchor/offsetX/offsetY/lineAlign | 2 | 3 |
+		  | alignH/alignV | 4 | 4 |
+		  | distribute | 2 | 2 | ]]
+	local FLOOR: { [string]: { [string]: number } } = {
+		leaf = { anchor = 3, offsetX = 3, offsetY = 3, lineAlign = 3, alignH = 5, alignV = 5, distribute = 3 },
+		container = { anchor = 2, offsetX = 2, offsetY = 2, lineAlign = 2, alignH = 4, alignV = 4, distribute = 2 },
 	}
-	-- the props whose drive the solver answers with the translate arm, which is where
-	-- the commit-side set is the only thing standing between the four walks and a visit
-	local BELOW_HARVEST: { [string]: boolean } = { anchor = true, offsetX = true, offsetY = true, lineAlign = true }
+	-- the props whose drive the solver answers with the translate arm ON A NODE THE
+	-- ALL-CLASSES SET STILL HOLDS, which is where the commit-side set is the only
+	-- thing standing between the four walks and a visit
+	local BELOW_HARVEST: { [string]: { [string]: boolean } } = {
+		leaf = { anchor = true, offsetX = true, offsetY = true, lineAlign = true },
+		container = { anchor = true, offsetX = true, offsetY = true, lineAlign = true },
+	}
+	local SHAPES = { "leaf", "container" }
 
-	it("each of the seven, on the parent kind that reads it", function()
-		for prop in PARENT_FOR do
-			local pruned = driveWorld(prop, false, true)
-			local unpruned = driveWorld(prop, false, false)
-			-- (1) NON-VACUITY: the fixture painted something
-			expect(`{prop}:painted={#pruned.shot > 400}`).toBe(`{prop}:painted=true`)
-			-- (2) THE CLAIM: the four arrange-blind walks are at this prop's floor
-			for _, name in ARRANGE_BLIND do
-				expect(`{prop}:{name}={pruned.by[name]}`).toBe(`{prop}:{name}={FLOOR[prop]}`)
+	for _, shape in SHAPES do
+		it(`{shape}: each of the seven, on the parent kind that reads it`, function()
+			for prop in PARENT_FOR do
+				local pruned = driveWorld(prop, false, true, shape)
+				local unpruned = driveWorld(prop, false, false, shape)
+				local at = `{shape}/{prop}`
+				-- (1) NON-VACUITY: the fixture painted something
+				expect(`{at}:painted={#pruned.shot > 400}`).toBe(`{at}:painted=true`)
+				-- (2) THE CLAIM: the four arrange-blind walks are at this prop's floor
+				for _, name in ARRANGE_BLIND do
+					expect(`{at}:{name}={pruned.by[name]}`).toBe(`{at}:{name}={FLOOR[shape][prop]}`)
+				end
+				-- (3) ...and where the solver translated, they are STRICTLY below the walk
+				-- that kept the all-classes set. That inequality is the narrowing itself.
+				for _, name in ARRANGE_BLIND do
+					local below = pruned.by[name] < pruned.by.harvest
+					expect(`{at}:{name}<harvest={below}`).toBe(
+						`{at}:{name}<harvest={BELOW_HARVEST[shape][prop] == true}`
+					)
+				end
+				-- (4) ...and the adapter was told exactly what an UNPRUNED commit would
+				-- have told it, which is the only thing a prune is allowed to change.
+				-- On the LEAF arm this is the assertion the review's aliased-read
+				-- mutation has to break: the pruned commit skips the Text whose own
+				-- placement prop moved, so a walk that read one would write a different
+				-- size there and nowhere else.
+				if pruned.shot ~= unpruned.shot then
+					error(`{at}: the pruned commit told the adapter something else`, 0)
+				end
+				pruned.dispose()
+				unpruned.dispose()
 			end
-			-- (3) ...and where the solver translated, they are STRICTLY below the walk
-			-- that kept the all-classes set. That inequality is the narrowing itself.
-			for _, name in ARRANGE_BLIND do
-				local below = pruned.by[name] < pruned.by.harvest
-				expect(`{prop}:{name}<harvest={below}`).toBe(`{prop}:{name}<harvest={BELOW_HARVEST[prop] == true}`)
-			end
-			-- (4) ...and the adapter was told exactly what an UNPRUNED commit would
-			-- have told it, which is the only thing a prune is allowed to change
-			if pruned.shot ~= unpruned.shot then
-				error(`{prop}: the pruned commit told the adapter something else`, 0)
-			end
-			pruned.dispose()
-			unpruned.dispose()
-		end
-	end)
+		end)
+	end
 
 	it("a RESIZE is still seen: `lineAlign = stretch` is not a placement move", function()
 		--[[ THE SOUNDNESS CASE. Dropping a prop from the commit-side set lifts exactly
@@ -597,13 +719,14 @@ describe("T5b audit, half three: driving each dropped prop leaves the four walks
 			with no `moveOnly` stamp, and all four walks descend to it even though
 			`lineAlign` is in `PURE_ARRANGE_PROPS`. Without this case the audit above
 			could be read as "an arrange write is invisible to the commit", which is the
-			claim this task does NOT make. ]]
-		local w = driveWorld("lineAlign", false, true, true)
-		local unpruned = driveWorld("lineAlign", false, false, true)
+			claim this task does NOT make. Driven on the LEAF arm, so the node that
+			resizes is one the four walks write for. ]]
+		local w = driveWorld("lineAlign", false, true, "leaf", true)
+		local unpruned = driveWorld("lineAlign", false, false, "leaf", true)
 		for _, name in ARRANGE_BLIND do
 			expect(`stretch:{name}={w.by[name]}`).toBe(`stretch:{name}={w.by.harvest}`)
-			expect(`stretch:{name}>{FLOOR.lineAlign}={w.by[name] > FLOOR.lineAlign}`).toBe(
-				`stretch:{name}>{FLOOR.lineAlign}=true`
+			expect(`stretch:{name}>{FLOOR.leaf.lineAlign}={w.by[name] > FLOOR.leaf.lineAlign}`).toBe(
+				`stretch:{name}>{FLOOR.leaf.lineAlign}=true`
 			)
 		end
 		if w.shot ~= unpruned.shot then
@@ -613,80 +736,127 @@ describe("T5b audit, half three: driving each dropped prop leaves the four walks
 		unpruned.dispose()
 	end)
 
-	it("CONTROL: a MEASURE-class write on the same fixture moves every one of the four", function()
-		--[[ The floor above is only evidence if this fixture can produce a non-floor.
-			Same mount, same drive, `width` instead of the arrange-only prop — and
-			`width` is `dirty = { "measure" }`, which the commit-side set never drops. ]]
-		for prop in PARENT_FOR do
-			local w = driveWorld(prop, true, true)
-			for _, name in ARRANGE_BLIND do
-				expect(`{prop}-control:{name}>{FLOOR[prop]}={w.by[name] > FLOOR[prop]}`).toBe(
-					`{prop}-control:{name}>{FLOOR[prop]}=true`
-				)
+	it("CONTROL: a MEASURE-class write on the same fixtures moves every one of the four", function()
+		--[[ The floors above are only evidence if these fixtures can produce a
+			non-floor. Same mounts, same drive, `width` instead of the arrange-only prop
+			— and `width` is `dirty = { "measure" }`, which the commit-side set never
+			drops. Run on BOTH shapes, because both carry a floor. ]]
+		for _, shape in SHAPES do
+			for prop in PARENT_FOR do
+				local w = driveWorld(prop, true, true, shape)
+				local floor = FLOOR[shape][prop]
+				for _, name in ARRANGE_BLIND do
+					expect(`{shape}/{prop}-control:{name}>{floor}={w.by[name] > floor}`).toBe(
+						`{shape}/{prop}-control:{name}>{floor}=true`
+					)
+				end
+				w.dispose()
 			end
-			w.dispose()
 		end
 	end)
 
-	it("...and the drive is LIVE: the seven props each move this fixture's geometry", function()
+	it("...and the drive is LIVE on BOTH shapes: the seven props each move the geometry", function()
 		--[[ The `alignH`-under-a-VStack trap, from T3's own audit: a prop the parent
 			does not read produces identical geometry at both ends of the drive, and
-			every differential above then compares a thing to itself. Both ends are
-			taken from the same world so this is a fact about the FIXTURE. ]]
-		for prop in PARENT_FOR do
-			local core = customFactory.new()
-			local env = environment.new(core)
-			env:set("viewportRect", { x = 0, y = 0, w = 1280, h = 720 })
-			local a, b = valuesFor(prop)
-			local sig = core:signal(a)
-			local onParent = DRIVEN_ON_PARENT[prop] == true
-			local function kid(id: string, bind: boolean): any
-				local props: any =
-					{ id = id, width = px(120), height = px(90), children = { UI.Text({ id = "T", text = "x" }) } }
-				if bind then
-					props[prop] = sig
+			every differential above then compares a thing to itself. Taken on a FORCED
+			FULL SOLVE (no incremental, no memo, so there is no prune of any kind in
+			play) and on the SAME fixture the assertions above use, so liveness is a
+			fact about the fixture rather than about the fix. ]]
+		for _, shape in SHAPES do
+			for prop in PARENT_FOR do
+				local before = driveWorld(prop, false, true, shape, false)
+				local after = driveWorld(prop, false, true, shape, false)
+				-- both worlds end on value `b`, so they must agree; the liveness question
+				-- is whether value `a` and value `b` differ, taken below
+				expect(`{shape}/{prop}:deterministic={before.shot == after.shot}`).toBe(
+					`{shape}/{prop}:deterministic=true`
+				)
+				before.dispose()
+				after.dispose()
+			end
+		end
+		for _, shape in SHAPES do
+			for prop in PARENT_FOR do
+				local core = customFactory.new()
+				local env = environment.new(core)
+				env:set("viewportRect", { x = 0, y = 0, w = 1280, h = 720 })
+				local a, b = valuesFor(prop)
+				local sig = core:signal(a)
+				local onParent = DRIVEN_ON_PARENT[prop] == true
+				local function leafOf(kind: string, id: string, bind: boolean): any
+					local props: any
+					if kind == "Text" then
+						props = { id = id, text = "a label", textSize = 14, padding = 4 }
+					elseif kind == "Button" then
+						props = { id = id, label = "Press me", compactLabel = { text = "P" } }
+					else
+						props = {
+							id = id,
+							axis = "y",
+							width = px(60),
+							height = px(30),
+							children = { UI.Box({ id = "Tall", width = px(50), height = px(400) }) },
+						}
+					end
+					if bind then
+						props[prop] = sig
+					end
+					return (if kind == "Text" then UI.Text elseif kind == "Button" then UI.Button else UI.ScrollView)(
+						props
+					)
 				end
-				return UI.VStack(props)
-			end
-			local parentProps: any = {
-				id = "P",
-				width = px(600),
-				height = { type = "fill", weight = 1 },
-				children = { kid("A", not onParent), kid("B", false) },
-			}
-			if onParent then
-				parentProps[prop] = sig
-			end
-			local root = mountLib.mount(
-				core,
-				UI.Screen({ id = "S", children = { CLASS_FOR_KIND[PARENT_FOR[prop]](parentProps) } })
-			)
-			local adapter = fake_target.new()
-			local controller = renderer.attach(core, root, env, adapter, {
-				rootPolicy = "edgeToEdge",
-				incrementalLayout = false,
-				measureReuse = false,
-				layoutNodeReuse = true,
-				commitScope = true,
-			})
-			controller.initialRender()
-			local function shot(): string
-				local out: { string } = {}
-				for path, node in adapter.liveNodes() do
-					local r = node.rect
-					table.insert(out, `{path}|{if r then `{r.x},{r.y},{r.w},{r.h}` else "-"}`)
+				local function leavesOf(bind: boolean): { any }
+					return { leafOf("Text", "T", bind), leafOf("Button", "B", bind), leafOf("ScrollView", "SV", bind) }
 				end
-				table.sort(out)
-				return table.concat(out, "\n")
+				local kids: { any }
+				if shape == "leaf" then
+					kids = leavesOf(not onParent)
+				else
+					local function kid(id: string, bind: boolean): any
+						local props: any = { id = id, width = px(120), height = px(90), children = leavesOf(false) }
+						if bind then
+							props[prop] = sig
+						end
+						return UI.VStack(props)
+					end
+					kids = { kid("A", not onParent), kid("B", false) }
+				end
+				local parentProps: any =
+					{ id = "P", width = px(600), height = { type = "fill", weight = 1 }, children = kids }
+				if onParent then
+					parentProps[prop] = sig
+				end
+				local root = mountLib.mount(
+					core,
+					UI.Screen({ id = "S", children = { CLASS_FOR_KIND[PARENT_FOR[prop]](parentProps) } })
+				)
+				local adapter = fake_target.new()
+				local controller = renderer.attach(core, root, env, adapter, {
+					rootPolicy = "edgeToEdge",
+					incrementalLayout = false,
+					measureReuse = false,
+					layoutNodeReuse = true,
+					commitScope = true,
+				})
+				controller.initialRender()
+				local function shot(): string
+					local out: { string } = {}
+					for path, node in adapter.liveNodes() do
+						local r = node.rect
+						table.insert(out, `{path}|{if r then `{r.x},{r.y},{r.w},{r.h}` else "-"}`)
+					end
+					table.sort(out)
+					return table.concat(out, "\n")
+				end
+				local atA = shot()
+				sig:set(b)
+				controller.refresh()
+				if atA == shot() then
+					error(`{shape}/{prop}: the drive is INERT on this parent — every assertion above is vacuous`, 0)
+				end
+				controller.dispose()
+				root.dispose()
 			end
-			local atA = shot()
-			sig:set(b)
-			controller.refresh()
-			if atA == shot() then
-				error(`{prop}: the drive is INERT on this parent — every assertion above is vacuous`, 0)
-			end
-			controller.dispose()
-			root.dispose()
 		end
 	end)
 
@@ -735,8 +905,8 @@ describe("T5b audit, half three: driving each dropped prop leaves the four walks
 			authoredHidden = tbl(),
 		}
 		local walks = commit_walks.new(ctx)
-		local leaf = { path = "/S/A", class = "Box", props = {}, children = {} }
-		local root = { path = "/S", class = "Screen", props = {}, children = { leaf } }
+		local leafNode = { path = "/S/A", class = "Box", props = {}, children = {} }
+		local rootNode = { path = "/S", class = "Screen", props = {}, children = { leafNode } }
 		local entry = { rect = { x = 0, y = 0, w = 10, h = 10 } }
 		local rects = { ["/S"] = { rect = { x = 0, y = 0, w = 100, h = 100 } }, ["/S/A"] = entry }
 		-- the leaf is in the ALL-CLASSES set, and no commit-side set was supplied
@@ -745,26 +915,28 @@ describe("T5b audit, half three: driving each dropped prop leaves the four walks
 		-- scale/theme/offset stamp to be unchanged, and the theme is compared by
 		-- IDENTITY, so a fresh `{}` per call disarms the prune (`armed` reads false)
 		local metrics = {}
-		walks.harvest(root, rects, true, dirty, 1, metrics, 0)
-		walks.harvest(root, rects, true, dirty, 1, metrics, 0)
+		walks.harvest(rootNode, rects, true, dirty, 1, metrics, 0)
+		walks.harvest(rootNode, rects, true, dirty, 1, metrics, 0)
 		ctx.lastCommitEntry["/S/A"] = entry
 		expect(`armed={walks.scope.armed()}`).toBe("armed=true")
 		-- without a second set the dirty veto still applies to an arrangeBlind walk
-		expect(`arrangeBlind={walks.scope.skip(leaf, true, true)}`).toBe("arrangeBlind=false")
-		expect(`moveBlind={walks.scope.skip(leaf, true)}`).toBe("moveBlind=false")
+		expect(`arrangeBlind={walks.scope.skip(leafNode, true, true)}`).toBe("arrangeBlind=false")
+		expect(`moveBlind={walks.scope.skip(leafNode, true)}`).toBe("moveBlind=false")
 		-- ...and with a commit-side set that omits it, the arrangeBlind walk prunes
 		-- and the move-blind one still does not
-		walks.harvest(root, rects, true, dirty, 1, metrics, 0, { ["/S"] = true })
-		expect(`narrowed-arrangeBlind={walks.scope.skip(leaf, true, true)}`).toBe("narrowed-arrangeBlind=true")
-		expect(`narrowed-moveBlind={walks.scope.skip(leaf, true)}`).toBe("narrowed-moveBlind=false")
+		walks.harvest(rootNode, rects, true, dirty, 1, metrics, 0, { ["/S"] = true })
+		expect(`narrowed-arrangeBlind={walks.scope.skip(leafNode, true, true)}`).toBe("narrowed-arrangeBlind=true")
+		expect(`narrowed-moveBlind={walks.scope.skip(leafNode, true)}`).toBe("narrowed-moveBlind=false")
 	end)
 end)
 
 --[[ THE ORACLE — the four arms `tests/commit_translate.spec.luau` built, plus the
 	one step this task adds at every view: `hide(i, true)` then `hide(i, false)`.
 
-	A narrowing that dropped `hidden` from the commit-side set would be invisible to
-	every other step in the suite and lethal here. ]]
+	`hidden` is arrange-classed, so this is the step that shows what the narrowing
+	does and does not touch. It is NOT a claim that dropping `hidden` would break
+	paint today (see the header: the four narrowed walks do not read it); it is the
+	step that would catch it if a walk which does read it were ever promoted. ]]
 local function arms(view: any, opts: any): (any, any, any, any)
 	local base = table.clone(opts or {})
 	base.viewport = { x = 0, y = 0, w = view.w, h = view.h }
@@ -832,6 +1004,19 @@ describe("T5b oracle: the ADAPTER is told the same thing, hide included", functi
 					end)
 					step(`unhide {round}`, false, function(w)
 						w.hide(3 + round, false)
+					end)
+					--[[ ...AND A PLACEMENT PROP ON A TEXT LEAF (review round 1, I1). Every
+						other step here writes the plate ROOT, a VStack container, and the
+						four narrowed walks write for `Text`/`Button`/`ScrollView` and
+						nothing else — so without this step the oracle never moves a
+						pure-arrange prop on a node whose walk output it can see. `Lvl`
+						measures 15x15 in a 16px row, so this moves it by one pixel; the
+						counter case below asserts the move rather than assuming it. ]]
+					step(`nudge label {round}`, false, function(w)
+						w.nudgeLabel(4 + round, if round % 2 == 0 then "center" else "end")
+					end)
+					step(`unnudge label {round}`, false, function(w)
+						w.nudgeLabel(4 + round, "start")
 					end)
 					step(`add {round}`, false, function(w)
 						w.add(round)
