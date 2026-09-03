@@ -146,6 +146,16 @@ export type Dim = measureFacts.Dim
 export type Node = {
 	kind: string,
 	id: string,
+	-- `id .. "|w"` / `id .. "|h"`, the two keys `ctx.offers` is indexed by, built
+	-- ONCE where the node is built (`render/layout_node.luau`) instead of once per
+	-- index here (wicked-fast A1). OPTIONAL, and every read of them is guarded with
+	-- `node.wKey or (node.id .. "|w")`: the P3 node store's warm-hit path returns a
+	-- node table WITHOUT re-running the literal, so a table built before those fields
+	-- existed and still in a live store is served without them, and an unguarded
+	-- index raises `table index is nil` inside a protected solve boundary. The three
+	-- direct `solver.solve` callers in `tests/` hand-build nodes and carry neither.
+	wKey: string?,
+	hKey: string?,
 	width: Dim?,
 	height: Dim?,
 	padding: any?, -- number | {top,right,bottom,left} (same shape as margin)
@@ -534,6 +544,15 @@ type Ctx = {
 	-- whose delta it was, `[from, to]` naming its span in the two flat arrays, which
 	-- are in document order for the COMMIT to walk (T5).
 	translated: number,
+	-- THE ANCHOR ARRANGE'S TWO HALVES (wicked-fast N2). An anchor re-offers every
+	-- child on every arrange of it, so settling ONE dirty child costs a `measure`
+	-- per sibling; `anchorReused` counts the children served from their own previous
+	-- rect instead and `anchorOffered` the ones that still went to `measure`. They
+	-- are the counter this task is measured by — the `measured` counter above cannot
+	-- see it, because a sibling's re-offer HITS the memo and never reaches
+	-- `measureUncached`.
+	anchorReused: number,
+	anchorOffered: number,
 	translatedRoots: { [string]: { dx: number, dy: number, from: number, to: number } },
 	translatedPaths: { string },
 	translatedEntries: { any },
@@ -1730,6 +1749,25 @@ measure = function(ctx: Ctx, node: Node, maxW: number, maxH: number): (number, n
 	do
 		local hit = perNode[cacheKey]
 		if hit ~= nil then
+			--[[ THE OFFER IS RECORDED ON THE HIT PATH TOO (wicked-fast T6, ruling 2 —
+				and it is a defect this task found rather than a convenience). `ctx.offers`
+				used to be written ONLY inside `measureUncached`, and BOTH returns below
+				skip it — so on a steady tick, where a cross-solve slate hit is exactly what
+				the reuse arms buy, `entry.offerW`/`offerH` were nil for every node that hit
+				the memo. Measured in `tests/translate_arm.spec.luau`'s own header before
+				this: a translate root recorded `nil x nil` against a full solve's 359x718.
+
+				That made the channel SELF-DISARMING for anything that reads it: the anchor
+				arrange arm's precondition is `prev.offerW == innerW`, and a nil offer fails
+				it and falls back to `measure` — so the arm would have fired at most every
+				other tick, or never. The memo key IS the offer (`{maxW}|{maxH}|{scopeKey}`),
+				so recording it here says nothing the cache did not already know.
+
+				It is two table writes on the hit path and no string allocation, which is
+				what A1's `wKey`/`hKey` bought and why the two halves of this task belong in
+				one commit. Guarded, for the reason the `Node` type states. ]]
+			ctx.offers[node.wKey or (node.id .. "|w")] = maxW
+			ctx.offers[node.hKey or (node.id .. "|h")] = maxH
 			-- THE PACKED ENTRY: a node that publishes NOTHING is filed as the array
 			-- `{ w, h }` and read back in two indexes (L-37). `ctx.textStates`,
 			-- `ctx.compact` and `ctx.textFacts` are written only by the `text` branch of
@@ -1873,8 +1911,8 @@ measureUncached = function(ctx: Ctx, node: Node, maxW: number, maxH: number): (n
 	if depth >= MEMO_ARM_DEPTH then
 		ctx.deepNesting = true
 	end
-	ctx.offers[node.id .. "|w"] = maxW
-	ctx.offers[node.id .. "|h"] = maxH
+	ctx.offers[node.wKey or (node.id .. "|w")] = maxW
+	ctx.offers[node.hKey or (node.id .. "|h")] = maxH
 	-- the gate for the memo above: a scroll node is measured before its children, so
 	-- setting this here arms the cache for exactly the subtree that benefits
 	if node.kind == "scroll" then
@@ -2308,8 +2346,8 @@ local function arrange(ctx: Ctx, node: Node, rect: Rect, out: { [string]: any })
 		containerH = if node.containerRelativeInside then ctx.containerH else nil,
 		-- the OFFER this node was measured against, so a later solve can ask "is this
 		-- the same question I already answered?" — a rect alone cannot say that
-		offerW = ctx.offers[node.id .. "|w"],
-		offerH = ctx.offers[node.id .. "|h"],
+		offerW = ctx.offers[node.wKey or (node.id .. "|w")],
+		offerH = ctx.offers[node.hKey or (node.id .. "|h")],
 		kind = node.kind,
 		overflow = node.overflow,
 		textState = ctx.textStates[node.id],
@@ -3015,8 +3053,95 @@ local function arrange(ctx: Ctx, node: Node, rect: Rect, out: { [string]: any })
 	end
 
 	if node.kind == "anchor" then
+		local prevOf = if reuse ~= nil then reuse.previous.rects else nil
+		--[[ THE DIRT THIS ARM ASKS ABOUT IS THE *MEASURE* HALF, not the whole closure,
+			and the distinction is what makes the arm reach a shipped surface at all. The
+			arm reuses one thing — the child's SIZE — so the question is the one
+			`measure`'s own cross-solve adopt gate asks: did anything change inside this
+			subtree that a MEASUREMENT could read? `offsetX`/`offsetY` (and a paint-classed
+			tint, and `hidden`) are in `dirtyContains` and provably move no measurement,
+			and gating on the wide set threw every one of those children away. MEASURED,
+			both ways, on the 250-plate fixture and on Rascal Rally's shipped minimap: a
+			`tick` moves all 250 plates and resizes none, so on `dirtyContains` the arm
+			fired for 0 of 250 and on `measureContains` it fires for all 250; a one-dot
+			minimap frame re-runs every dot's family-hue memo, 0 of 8 against 7 of 8.
+			Nothing is lost by the narrower set — a paint-dirty or moved child still fails
+			`arrange`'s own skip below, so its subtree is still walked and still repainted.
+
+			`measureContains` is absent exactly when the solve has no measure store (the
+			renderer passes `dirtyContains` itself when it has no measure half, and the
+			hand-built reuse tables in `tests/` carry neither), so the fallback is the wide
+			set and never nil. ]]
+		local sizeDirt = if reuse ~= nil then (reuse.measureContains or reuse.dirtyContains) else nil
 		for _, child in node.children or {} do
-			local w, h = measure(ctx, child, innerW, innerH)
+			local w: number, h: number
+			--[[ THE THIRD ARM (wicked-fast N2). `prev.offerW`/`offerH` have been RECORDED
+				at every rect write since P2 so that a later solve could ask "is this the
+				same question I already answered?" — and until this task nothing asked. A
+				child with no dirt inside it, offered exactly what it was offered last time,
+				has the answer already: its own rect's w/h.
+
+				WHY A PER-CHILD SKIP IS SOUND HERE AND NOWHERE ELSE: an anchor child's rect
+				is a pure function of (innerX, innerY, innerW, innerH, child.anchor,
+				child.offsetX/Y, measure(child, innerW, innerH)) — NO SIBLING APPEARS IN IT.
+				A stack's does (every child feeds `fixedMain`/`fillWeightSum` and then the
+				cursor, `./stack`), which is why this arm is the anchor branch's alone.
+
+				THE OFFER TEST IS EXACT, so a viewport change — which moves `innerW`/`innerH`
+				— falls through to `measure` for every child. The `fill` give-back below
+				still runs on the served size, because a `fill` child's `w` is overwritten
+				from `innerW` two lines down either way. ]]
+			local prev = if prevOf ~= nil and sizeDirt[child.id] ~= true then prevOf[child.id] else nil
+			--[[ ...AND THE CONTAINER IT ANSWERED AGAINST, which the offer cannot speak for.
+				A `containerRelative` dimension resolves against the nearest scroll VIEWPORT
+				rather than against this anchor's offer, so the same child at the same offer
+				legitimately wants a different size once the container under it changes — a
+				scrollbar reserve arming is enough. `arrange`'s own skip makes exactly this
+				test at the top of this function and this is the same rule, not a second
+				one: `containerRelativeInside` is stamped at tree-build time and is absent
+				on the overwhelming majority of nodes, so the ordinary path pays one field
+				test. ]]
+			if
+				prev ~= nil
+				and prev.offerW == innerW
+				and prev.offerH == innerH
+				and (
+					child.containerRelativeInside ~= true
+					or (prev.containerW == ctx.containerW and prev.containerH == ctx.containerH)
+				)
+			then
+				ctx.anchorReused += 1
+				w, h = prev.rect.w, prev.rect.h
+				--[[ ...AND RECORD THE OFFER WE JUST SERVED. `ctx.offers` is fresh per solve
+					and only `measure` writes it, so a child served here has no offer recorded
+					— and `arrange` files `offerW = nil` on any entry it rebuilds. That is not
+					a correctness bug on its own (a nil offer fails this arm's test next solve
+					and falls back to `measure`, the conservative direction) but it is a
+					SELF-DISARMING cache: the arm would fire at most every other tick. It
+					matters most for a TRANSLATE ROOT, whose entry literal re-reads
+					`ctx.offers` (T4).
+
+					UNCONDITIONAL, AND A CONDITIONAL VERSION WAS BUILT, MEASURED AND DELETED —
+					recorded because its reasoning was wrong in an instructive way. The idea
+					was that the write is redundant whenever the rect did not move, since this
+					arm's precondition is `prev.offerW == innerW` and the entry already on the
+					map therefore already holds that number. The premise is that an unmoved
+					rect means `arrange` takes its skip and keeps that entry, and it does not:
+					the skip ALSO requires the node to be clean in `dirtyContains`, while this
+					arm's gate is the narrower `measureContains` — so the arm's whole point is
+					serving children that are arrange-dirty and measure-clean, and those are
+					re-entered on an unmoved rect. `tests/translate_arm.spec.luau`'s
+					zero-delta case (an inert `lineAlign` that dirties a node and moves it by
+					exactly zero) caught it in one run. AND IT SAVED NOTHING ANYWAY: the two
+					writes go into a table the MEASURE side has already filled with the same
+					keys, so `ctx.offers` reaches the same size either way — 159.16 KB a step
+					on the 250-plate fixture with the condition and 159.16 without. ]]
+				ctx.offers[child.wKey or (child.id .. "|w")] = innerW
+				ctx.offers[child.hKey or (child.id .. "|h")] = innerH
+			else
+				ctx.anchorOffered += 1
+				w, h = measure(ctx, child, innerW, innerH)
+			end
 			local f = ANCHOR_FACTORS[child.anchor or "topLeft"]
 			if f == nil then
 				table.insert(ctx.diagnostics, { node = child.id, issue = `unknown anchor '{child.anchor}'` })
@@ -3056,6 +3181,41 @@ local function arrange(ctx: Ctx, node: Node, rect: Rect, out: { [string]: any })
 			end
 			local x = innerX + roundPx((innerW - w) * f[1]) + ox
 			local y = innerY + roundPx((innerH - h) * f[2]) + oy
+			--[[ ...AND RECORD THE OFFER WE JUST SERVED, BUT ONLY WHERE THE RECORD CAN
+				GO STALE. `ctx.offers` is fresh per solve and only `measure` writes it, so
+				a child served by the arm above has NO offer recorded — and if `arrange`
+				builds it a new entry, that entry files `offerW = nil`. That is not a
+				correctness bug (a nil offer fails this arm's test next solve and falls
+				back to `measure`, the conservative direction) but it is a SELF-DISARMING
+				cache: the arm would fire at most every other tick. It matters most for a
+				TRANSLATE ROOT, whose entry literal re-reads `ctx.offers` (T4).
+
+				THE WRITE IS PROVABLY REDUNDANT WHEN THE RECT DID NOT MOVE, which is the
+				common case and which is why this is a condition rather than two
+				unconditional writes. The arm's own precondition is `prev.offerW == innerW`
+				— so the entry already on the map ALREADY records exactly the number we
+				would write. `arrange` replaces that entry only when it does not take its
+				skip, and the skip's four tests are: clean (this arm required it), same
+				size and same origin (this comparison), and `containerOk`. So a rect that
+				did not move keeps an entry that already holds the right offer, and only a
+				moved one needs the two writes.
+
+				`containerOk` IS THE ONE GAP, deliberately unclosed: a child with
+				`containerRelativeInside` whose container narrowed is re-entered even on an
+				identical rect, and its fresh entry records a nil offer. That costs one
+				`measure` on the following solve for that child alone — the conservative
+				direction again, and cheaper than reproducing the skip's container test
+				here where it would be a second copy of a rule that must not disagree.
+
+				MEASURED, because the condition is a performance claim: unconditional, the
+				two writes put 498 entries into `ctx.offers` on a steady 250-plate hp step
+				and the table's hash growth cost +15.6 KB a step (143.66 -> 159.16, medians
+				of five, `tests/anchor_arrange.spec.luau` carries the numbers). Conditional,
+				it is back to the floor. ]]
+			if served and (prev.rect.x ~= x or prev.rect.y ~= y or prev.rect.w ~= w or prev.rect.h ~= h) then
+				ctx.offers[child.wKey or (child.id .. "|w")] = innerW
+				ctx.offers[child.hKey or (child.id .. "|h")] = innerH
+			end
 			arrange(ctx, child, { x = x, y = y, w = w, h = h }, out)
 		end
 		return
@@ -3342,6 +3502,10 @@ function solver.solve(
 		measured = 0,
 		-- the O3 translate class: nodes re-based by an ancestor's delta
 		translated = 0,
+		-- ...and the N2 anchor pair; see the `Ctx` block for why `measured` cannot
+		-- stand in for them
+		anchorReused = 0,
+		anchorOffered = 0,
 		translatedRoots = {},
 		translatedPaths = {},
 		translatedEntries = {},
@@ -3450,6 +3614,10 @@ function solver.solve(
 			skipped = ctx.skipped,
 			-- the O3 translate class and its two flat arrays, in document order
 			translated = ctx.translated,
+			-- ...and the N2 anchor pair, which together are every child of every
+			-- anchor this solve arranged
+			anchorReused = ctx.anchorReused,
+			anchorOffered = ctx.anchorOffered,
 			translatedRoots = ctx.translatedRoots,
 			translatedPaths = ctx.translatedPaths,
 			translatedEntries = ctx.translatedEntries,

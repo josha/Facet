@@ -560,6 +560,24 @@ local function toLayoutNode(
 		anchor = props.anchor,
 		offsetX = resolveOffset(metrics, props.offsetX),
 		offsetY = resolveOffset(metrics, props.offsetY),
+		-- THE TWO KEYS `ctx.offers` IS INDEXED BY (wicked-fast A1), built once per
+		-- node here instead of twice per measure AND twice per arrange — the solver
+		-- was interpolating `node.id .. "|w"` on every one of those, which is one
+		-- string allocation per node per pass on the hot path. `node.path` is the
+		-- mounted path — the same expression the `id` field two dozen lines up uses,
+		-- and there is no local `id` in this function — so this is a pure function of
+		-- identity and the P3 node store carries it across solves for free: a reused
+		-- node table keeps them, and a rebuilt one rebuilds the same two strings.
+		--
+		-- EVERY READ OF THEM IS GUARDED (`node.wKey or (node.id .. "|w")`), because
+		-- the store's warm-hit path near the top of this function returns `hit.built`
+		-- WITHOUT re-running this literal: a node table built before this commit and
+		-- still in a live `store.byNode` is served without these two fields, and an
+		-- unguarded `ctx.offers[node.wKey] = maxW` would raise `table index is nil`
+		-- inside a protected solve boundary. A Studio module reload that leaves the
+		-- controller alive is a real path to it.
+		wKey = node.path .. "|w",
+		hKey = node.path .. "|h",
 		-- "this node carries at least one placement prop", set here because every
 		-- one of the NINE values is already in hand on this line. It is what makes
 		-- the parent-side inert-placement audit (§2.1, below) affordable in the

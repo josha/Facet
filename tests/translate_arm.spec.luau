@@ -229,6 +229,31 @@ local ARRANGE_SOURCE = (function(): { string }
 	return string.split(string.sub(body, from :: number, to), "\n")
 end)()
 
+--[[ ...AND THE HALF OF `arrange` THAT NOW LIVES IN ANOTHER FILE (2026-09-02, the
+	T6 stack seam). The vstack/hstack branch — the largest of `arrange`'s container
+	branches, and the one that reads `node.align` and four `child` props — moved to
+	`src/layout/stack.luau` for the solver's Source-write headroom. The prop audits
+	below are the arm's soundness argument and they scan SOURCE, so a scan that kept
+	reading only the solver would have silently stopped covering that branch on the
+	extraction commit: the coverage would have narrowed while every case stayed green,
+	which is the hazard this repository keeps re-learning one file over
+	(`tests/stack_distribution.spec.luau`'s STRUCTURAL C5, red on the same commit).
+
+	IT IS A SEPARATE LIST FROM `ARRANGE_SOURCE` rather than an extension of it,
+	because `LITERAL_AT` and `stampsAfterLiteral` are about the ENTRY LITERAL and
+	that is the solver's alone — a second file in their input would have no literal
+	in it and index nothing. So the two prop audits take the union and the literal
+	rules take the solver. ]]
+local ARRANGE_BRANCH_SOURCE = (function(): { string }
+	local out = table.clone(ARRANGE_SOURCE)
+	local body = fs.readFile("src/layout/stack.luau")
+	body = body:gsub("%-%-%[%[.-%]%]", ""):gsub("%-%-[^\n]*", "")
+	for _, line in string.split(body, "\n") do
+		table.insert(out, line)
+	end
+	return out
+end)()
+
 -- the line index of the entry LITERAL's own `out[node.id] = {`; everything the
 -- refusal is about is written after it
 local LITERAL_AT = (function(): number
@@ -411,7 +436,7 @@ describe("O3: a translate root's own layout prop still re-places its children", 
 	end
 
 	it("every node prop ARRANGE reads is measure-classed, structural, or in selfArrangeKey", function()
-		local reads = nodeReadsIn(ARRANGE_SOURCE)
+		local reads = nodeReadsIn(ARRANGE_BRANCH_SOURCE)
 		local remainder: { string } = {}
 		local structural: { string } = {}
 		for _, prop in sortedKeys(reads) do
@@ -426,10 +451,16 @@ describe("O3: a translate root's own layout prop still re-places its children", 
 		expect(structural).toEqual({
 			"children",
 			"containerRelativeInside",
+			-- `hKey`/`wKey` are `node.path .. "|h"` / `.. "|w"`, built once where the
+			-- node is built (wicked-fast A1): a pure function of IDENTITY, so a node
+			-- whose key changed is a different node and the arm's question does not
+			-- arise. They are the memo-offer channel's index, not a layout input.
+			"hKey",
 			"hitFloor",
 			"id",
 			"kind",
 			"leadingBleed",
+			"wKey",
 		})
 		-- ...and THE CLAIM: what is left is exactly what the entry records
 		local body = fs.readFile("src/layout/solver.luau")
@@ -461,7 +492,7 @@ describe("O3: a translate root's own layout prop still re-places its children", 
 		expect(table.concat(arrangeOnly, ",")).toBe("alignH,alignV,anchor,distribute,hidden,lineAlign,offsetX,offsetY")
 		-- the four the PARENT reads off the child appear nowhere in `arrange` as
 		-- `node.<prop>`, which is why the rect we were handed has already spent them
-		local reads = nodeReadsIn(ARRANGE_SOURCE)
+		local reads = nodeReadsIn(ARRANGE_BRANCH_SOURCE)
 		for _, prop in { "anchor", "offsetX", "offsetY", "lineAlign", "hidden" } do
 			expect(`{prop} read off the node in arrange={tostring(reads[prop] == true)}`).toBe(
 				`{prop} read off the node in arrange=false`
@@ -641,20 +672,26 @@ end
 	differs between an incremental solve and a forced full one is a defect of this
 	arm, whatever the rects say.
 
-	...AND `offerW`/`offerH`, WHICH ARE NOT THIS ARM'S AND ARE MEASURED TO BE NOT
-	THIS ARM'S. `ctx.offers` is written ONLY inside `measureUncached`, so any node
-	served from the per-solve memo or a cross-solve slate records `nil` there — true
-	of every SKIPPED node's inherited entry and of every ancestor on an incremental
-	solve, and of none of them on a forced full one. Observed on `/S`, `/S/C` and
-	`[p5]/Plate/Row`: `offerH=718 offerW=359` on the full arm, absent on the
-	incremental one. That is a pre-existing property of a best-effort channel whose
-	one consumer degrades to a `measure()` call when the field is absent, so it is
-	excluded HERE and asked of the arm's own entries by `armOfferDiff` below —
-	which covers every translated entry in two halves: DESCENDANTS via
-	`work.translatedPaths` (a clone must carry the offers it superseded, unchanged)
-	and ROOTS via `work.translatedRoots` (arranged in both arms, so their offers are
-	compared against the FULL-SOLVE arm's directly). ]]
-local SHARED_SKIP = { moveOnly = true, prev = true, offerW = true, offerH = true }
+	...AND `offerW`/`offerH` ARE NO LONGER AMONG THEM (wicked-fast T6, 2026-09-02),
+	which is this comment's whole history reversed and is worth stating as such.
+
+	WHAT THIS FILE USED TO SAY, and it was true when it was written: `ctx.offers` was
+	written ONLY inside `measureUncached`, so any node served from the per-solve memo
+	or a cross-solve slate recorded `nil` there — true of every SKIPPED node's
+	inherited entry and of every ancestor on an incremental solve, and of none of them
+	on a forced full one. Observed on `/S`, `/S/C` and `[p5]/Plate/Row`: `offerH=718
+	offerW=359` on the full arm, absent on the incremental one. The two fields were
+	therefore excluded here and asked only of the arm's own entries.
+
+	WHY IT IS NOT TRUE ANY MORE: that asymmetry was a DEFECT of the offer channel, not
+	a property of it, and T6 fixed it at the source — `measure`'s memo-hit path now
+	records the offer too, because the memo KEY IS the offer and saying so costs two
+	table writes and no string (`node.wKey`/`node.hKey`). So an incremental solve and
+	a forced full one record the same offers for the same nodes, and the exclusion
+	that was honest before would now be hiding the very thing it was written to
+	describe. The fields are compared like every other one, and `armOfferDiff` below
+	is upgraded from "ask the memo-LESS arm" to an EQUALITY across both arms. ]]
+local SHARED_SKIP = { moveOnly = true, prev = true }
 
 -- every entry, modulo the four above
 local function entryKey(rects: any): string
@@ -686,27 +723,27 @@ end
 	writes 359. Measured.
 
 	ROOTS (`work.translatedRoots`) get the stronger question, against the FULL-SOLVE
-	arm — and it is asked of the MEMO-LESS incremental arm (`b`), not the shipped one
-	(`a`), which is a correction to this round's brief and is MEASURED rather than
-	argued. The brief's premise was "a translate root is arranged in both arms, so no
-	memo asymmetry applies to it". Being arranged is not the property that matters:
-	the literal stamps `offerW = ctx.offers[node.id .. "|w"]`, and `ctx.offers` is
-	written ONLY inside `measureUncached`, so a root whose measure hit its cross-solve
-	slate — which on a steady tick is every plate root, because that hit is exactly
-	what T3 bought — records nil. Run on the 20-plate fixture at 359x718:
+	arm — and since T6 (2026-09-02) it is asked of BOTH incremental arms, which is
+	this paragraph's own history reversed. What it used to say, and why:
 
 	  | arm                                   | translate root's offer | full solve |
 	  | `a` memo ON, incremental ON  (cold)   | 359x718                | 359x718    |
 	  | `a` memo ON, incremental ON  (steady) | **nil x nil**          | 359x718    |
 	  | `b` memo OFF, incremental ON (steady) | 359x718                | 359x718    |
 
-	`b` runs the identical arm (20 translate roots, same as `a`) and re-measures
-	uncached every solve, so its roots carry real offers and the comparison is about
-	the ENTRY WRITE rather than about the memo. Asking it of `a` would be red forever
-	for a reason that is not this arm's, which is the "unreachable green" class in
-	reverse. What was true and worth fixing is the reviewer's point underneath it: the
-	root's stamp was checked by NOTHING — `SHARED_SKIP` excludes the field and
-	`translatedPaths` never contains a root's id.
+	The literal stamps `offerW = ctx.offers[<key>]`, `ctx.offers` was written ONLY
+	inside `measureUncached`, and on a steady tick every plate root's measure hits its
+	cross-solve slate — which is exactly what T3 bought — so `a`'s roots recorded nil.
+	The question was therefore asked of `b` alone, because asking it of `a` would have
+	been red forever for a reason that was not this arm's.
+
+	T6 REMOVED THE REASON. `measure`'s memo-hit path records the offer too (the memo
+	KEY is the offer), so `a` and `b` now answer identically and the loop below runs
+	over BOTH arms' roots. THE EQUALITY IS THE POINT: an arm whose offers agree with a
+	full solve only when the memo is off is an arm with a channel that goes dark on
+	exactly the ticks the framework was optimised for. This is the check that would
+	have caught the nil in the first place, and it is why T6's anchor arm — whose
+	whole precondition is `prev.offerW == innerW` — could not have worked before it.
 
 	THE SETS ARE `work.translatedPaths`/`translatedRoots`, NOT "every entry carrying
 	`moveOnly`", and the difference is a fact worth writing down for T5: `moveOnly`
@@ -719,16 +756,25 @@ local function armOfferDiff(aResult: any, bResult: any, cRects: any): string?
 	local work = aResult.work or {}
 	local bWork = bResult.work or {}
 	local roots = 0
-	for path in bWork.translatedRoots or {} do
-		roots += 1
-		local mine, theirs = bResult.rects[path], cRects[path]
-		if theirs == nil then
-			return `{path}: a translate root the FULL solve has no entry for`
-		end
-		if mine.offerW ~= theirs.offerW or mine.offerH ~= theirs.offerH then
-			return `{path}: ROOT offers {tostring(mine.offerW)}x{tostring(mine.offerH)} against a full solve's {tostring(
-				theirs.offerW
-			)}x{tostring(theirs.offerH)}`
+	-- BOTH incremental arms, against the full solve, since T6: `a` is the SHIPPED
+	-- configuration and it is the one whose answer used to be nil. Named in the
+	-- message so a failure says which arm went dark.
+	for _, arm in
+		{ { id = "a(memo)", result = aResult, work = work }, { id = "b(memo-less)", result = bResult, work = bWork } }
+	do
+		for path in arm.work.translatedRoots or {} do
+			if arm.id == "b(memo-less)" then
+				roots += 1
+			end
+			local mine, theirs = arm.result.rects[path], cRects[path]
+			if theirs == nil then
+				return `{path}: a translate root the FULL solve has no entry for ({arm.id})`
+			end
+			if mine.offerW ~= theirs.offerW or mine.offerH ~= theirs.offerH then
+				return `{path}: {arm.id} ROOT offers {tostring(mine.offerW)}x{tostring(mine.offerH)} against a full solve's {tostring(
+					theirs.offerW
+				)}x{tostring(theirs.offerH)}`
+			end
 		end
 	end
 	-- ...and the memo-less arm really did take the arm on this step, or the loop

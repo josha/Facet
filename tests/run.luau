@@ -94,6 +94,16 @@ require("./arrange_reports_seam.spec")
 	call arguments are not Deps fields, the three leaf requires, the one consumer, the
 	one export, that nothing stayed behind, and that the module holds no state ]]
 require("./stack_seam.spec")
+--[[ ...and the ANCHOR ARRANGE'S THIRD ARM (wicked-fast T6): a non-dirty anchor child
+	offered exactly what it was offered last time takes its w/h from its own previous
+	rect instead of a `measure` call. The spec pins the two new work counters on an
+	hp, an add and a remove, the NEGATIVE CONTROL that a tick (which dirties every
+	plate) fires the arm for none of them, that the dirty chain's own arranged/measured
+	are untouched, the allocation record — which is NOT the one the task brief
+	predicted and says so with the four-arm attribution — and a three-arm oracle over
+	nine device views, three fixtures and eight step kinds INCLUDING a viewport change,
+	which is the step that makes every recorded offer stop matching ]]
+require("./anchor_arrange.spec")
 --[[ ...and the renderer's THIRD seam of the same round (2026-09-02): WHICH env facts
 	are geometry for a root policy, and WHEN two readings of them are the same. They
 	left together because they are one decision — a key added to the list and not
