@@ -1157,27 +1157,31 @@ end)
 --   the real risk lives: a guard that is too eager silently disables the shrink
 --   pass, and no existing case here would notice for the stack shapes below.
 --
--- THE PASS NOW SPANS TWO FILES (2026-08-14): its setup — both allocation guards,
--- which is what C5 and C6 are about — is still the solver's arrange and measure
--- branches, but the pass itself moved to `src/layout/shrink.luau` in the 200k
--- `Source` write-cap split. A source pin that keeps reading only the first file
--- silently stops seeing the code it names, so C6's "and the same filter really is
--- what the pass applies one level down" reads the module that now holds it. That
--- is the hazard this whole split has to defend against, and it is why the miss
--- was a red test rather than a discovery six months from now.
+-- THE PASS NOW SPANS THREE FILES (2026-08-14, then 2026-09-02): the pass itself
+-- moved to `src/layout/shrink.luau` in the 200k `Source` write-cap split, and its
+-- ARRANGE-side setup — C5's two allocation guards — moved to
+-- `src/layout/stack.luau` when the whole vstack/hstack branch left the solver for
+-- the same reason. C6's MEASURE-side gate is still the solver's. A source pin that
+-- keeps reading only the first file silently stops seeing the code it names, and
+-- THAT IS EXACTLY WHAT HAPPENED ON THE STACK SPLIT: C5 went red on the extraction
+-- commit and was re-pointed here, which is the second time this hazard has been a
+-- red test rather than a discovery six months from now.
 local solverSource = fs.readFile("src/layout/solver.luau")
 local shrinkSource = fs.readFile("src/layout/shrink.luau")
+local stackSource = fs.readFile("src/layout/stack.luau")
 
 describe("§2.4 shrink — C5/C6: the pass costs nothing until it has a member", function()
 	it("STRUCTURAL C5: arrange scans for a member BEFORE allocating `shrunk` and `basisMain`", function()
-		local guardAt = string.find(solverSource, "\tif hasShrink then\n\t\tlocal absorbed\n\t\tshrunk = {}", 1, true)
+		-- READ OUT OF `stack.luau`, which is where the arrange branch lives since
+		-- 2026-09-02; see the note above this describe for why the file moved.
+		local guardAt = string.find(stackSource, "\tif hasShrink then\n\t\tlocal absorbed\n\t\tshrunk = {}", 1, true)
 		expect(`the arrange shrink block is entered on hasShrink: {guardAt ~= nil}`).toBe(
 			"the arrange shrink block is entered on hasShrink: true"
 		)
 		-- ...and the scan that sets it is on the OVERFLOW path only, so a stack that
 		-- fits pays nothing for the new test either
 		local scanAt = string.find(
-			solverSource,
+			stackSource,
 			"\tlocal hasShrink = false\n\tif availMain < 0 then\n\t\tfor _, child in children do",
 			1,
 			true
@@ -1191,7 +1195,11 @@ describe("§2.4 shrink — C5/C6: the pass costs nothing until it has a member",
 		-- DIRECTIONAL: the pre-fix line is `if availMain < 0 then` immediately in
 		-- front of `shrunk = {}`, so restoring it reddens this case rather than
 		-- passing it
-		expect(string.find(solverSource, "\tif availMain < 0 then\n\t\tlocal absorbed", 1, true) == nil).toBe(true)
+		expect(string.find(stackSource, "\tif availMain < 0 then\n\t\tlocal absorbed", 1, true) == nil).toBe(true)
+		-- ...and the block really did LEAVE the solver rather than being copied: a
+		-- second live copy of this guard is the failure the source-cap ledger's
+		-- extraction rule exists to prevent.
+		expect(string.find(solverSource, "\tif hasShrink then", 1, true) == nil).toBe(true)
 	end)
 
 	it("STRUCTURAL C6: measure's PASS 1 allocates a basis only for a weight ABOVE zero", function()
@@ -1200,9 +1208,14 @@ describe("§2.4 shrink — C5/C6: the pass costs nothing until it has a member",
 		).toBe(true)
 		-- DIRECTIONAL, same shape: the pre-fix gate was the bare nil test, and
 		-- `shrinkWeight = 0` is a legal authored value meaning "never shrink".
-		-- Checked in BOTH files — the gate could regress on either side of the seam.
+		-- Checked in ALL THREE files — the gate could regress on any side of the seam.
 		expect(string.find(solverSource, "if child.shrinkWeight ~= nil then", 1, true) == nil).toBe(true)
 		expect(string.find(shrinkSource, "if child.shrinkWeight ~= nil then", 1, true) == nil).toBe(true)
+		expect(string.find(stackSource, "if child.shrinkWeight ~= nil then", 1, true) == nil).toBe(true)
+		-- ...and the ARRANGE-side copy of the same filter is in `stack.luau` now
+		expect(string.find(stackSource, "if child.shrinkWeight ~= nil and child.shrinkWeight > 0 then", 1, true) ~= nil).toBe(
+			true
+		)
 		-- and the same filter really is what the pass applies one level down —
 		-- read out of `shrink.luau`, which is where the pass lives now
 		expect(string.find(shrinkSource, "and weight > 0", 1, true) ~= nil).toBe(true)

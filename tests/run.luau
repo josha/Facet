@@ -84,6 +84,16 @@ require("./boundary_report_seam.spec")
 	against its one call site, that none of the four messages stayed behind, and that
 	the module holds no mutable state ]]
 require("./arrange_reports_seam.spec")
+--[[ ...and the FIFTH solver seam (2026-09-02, the wicked-fast round again): the
+	whole vstack/hstack ARRANGE branch — 15,821 characters, the largest block this
+	file has ever given up, and the one the source-cap ledger's row has named by name
+	since the T4 split. It took the widest `Deps` record in the file plus TWO
+	call-site arguments (`arrange`, `noteContainment`), so the spec pins READ ==
+	DECLARED == PASSED as three sets, the READ-vs-WRITE free-variable list (it assigns
+	no field of ctx/node/child at all and inserts into exactly one list), that the two
+	call arguments are not Deps fields, the three leaf requires, the one consumer, the
+	one export, that nothing stayed behind, and that the module holds no state ]]
+require("./stack_seam.spec")
 --[[ ...and the renderer's THIRD seam of the same round (2026-09-02): WHICH env facts
 	are geometry for a root policy, and WHEN two readings of them are the same. They
 	left together because they are one decision — a key added to the list and not
