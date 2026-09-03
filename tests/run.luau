@@ -382,6 +382,12 @@ require("./nameplates_baseline.spec")
 -- buckets, the three-arm oracle over every device view and both step kinds, and the
 -- opposite direction — a real measure change still refuses a slate
 require("./measure_split.spec")
+-- ...and the round's second (T4, O3): `arrange` gains a TRANSLATE arm, so a subtree
+-- whose size is unchanged and whose origin moved is re-based by one delta instead of
+-- being re-entered. The counter demonstrator, the root-rect pin no counter can make,
+-- the heap pin that catches a `prev` chain leak, the three self-placement defects the
+-- arm had without `selfPlaces`, and the three-arm oracle
+require("./translate_arm.spec")
 -- the future spatial seam: contracts only, and the guard against a VR claim
 -- appearing in the shipped surface (roadmap Step 4, UI-SPATIAL-001)
 require("./spatial.spec")

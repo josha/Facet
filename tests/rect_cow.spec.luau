@@ -492,9 +492,21 @@ describe("the copy-on-write rect map (P2)", function()
 			engaging shows up there as work, and a skip that engaged WRONGLY shows up
 			there as a divergence. ]]
 		expect(s.lastSkipped >= total - 8 * DEPTH).toBe(true)
-		expect(s.lastRectInserts + s.lastSkipped).toBe(total)
-		-- the identity the fix creates: the map costs exactly what the walk costs
-		expect(s.lastRectInserts).toBe(s.lastArranged)
+		--[[ WIDENED BY THE TRANSLATE ARM (wicked-fast O3), NOT LOOSENED. `arrange` now
+			has a THIRD outcome beside walked and skipped: a subtree whose size is
+			unchanged, whose origin moved and none of whose children is dirty is re-based
+			by one delta — `translated`, counted separately, a rect insert, and neither
+			arranged nor skipped. Both identities below were true only because that class
+			did not exist. `lastSolveSkipped` and not `lastSkipped`: the renderer writes
+			`lastSkipped` ONLY when it is > 0, so on a step that skipped nothing it holds
+			the PREVIOUS step's number and an invariant reading it passes or fails on
+			history. This fixture happens to skip on every step, so the two are equal
+			here and the change is invisible in this file — taken anyway, because the
+			pin's next reader will not know which fixtures skip. ]]
+		expect(s.lastArranged + s.lastTranslated + s.lastSolveSkipped).toBe(total)
+		-- the identity the fix creates: the map costs exactly what the walk costs —
+		-- and since O3 the walk has two halves, the entered one and the re-based one
+		expect(s.lastRectInserts).toBe(s.lastArranged + s.lastTranslated)
 	end)
 
 	it("...and a forced full solve of the same tree inserts all 1010 — the control", function()

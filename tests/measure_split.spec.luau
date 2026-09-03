@@ -72,7 +72,29 @@
 	closes over them, how many of those are themselves PLAN_SKIP, and how many
 	times the vstack branch touches the PLAN_SKIP leaves under a caster. Step 2 ran
 	it with the same buckets and the expression below carries the breakdown. THE
-	PROTOCOL: update the EXPRESSION and its comment, never the assertion. ]]
+	PROTOCOL: update the EXPRESSION and its comment, never the assertion.
+
+	AND T4 (`<T4-SHA>`) MADE THE `== 0` PIN REACHABLE, WHICH IS THE OTHER HALF OF
+	THIS FILE'S STORY. Everything above describes the world in which a moved plate
+	root fails the arrange skip and takes the vstack arrange branch. T4's translate
+	arm gives `arrange` a THIRD outcome — same size, moved origin, no dirty child,
+	and the root's own dirt is dirt its PARENT already spent (`solver.selfPlaces`) —
+	which re-bases the subtree by one delta and never enters it. The arrange descent
+	is what made every PLAN_SKIP touch, so:
+	  * `MEASURED_TICK` 500 -> 0. The T3 floor was `PLATES * 2`, ONE touch of `Hp`
+	    and one of `Cast` per plate from the plate's own arrange pass. There is no
+	    arrange pass now, so there are no touches, and the pure tick measures
+	    nothing at all.
+	  * `MEASURED_WITH_CASTS` 652 -> 252. The three terms in the table below are
+	    untouched in MEANING; the first one — the 200 quiet plates' `(PLATES -
+	    CASTERS) * 2` — simply goes to zero, because those plates translate. The
+	    50 caster plate roots still take the ordinary arrange (their `Cast` child is
+	    dirty, so `translatable` refuses) and still cost 5 apiece, and `Canvas` and
+	    the `Screen` root still lose their slates: `CASTERS * 5 + 2`.
+	Both numbers READ OFF THE RUN, same protocol. This is the one pin in the round
+	that two tasks move, and the mechanism for both moves is written into this
+	header and into `tests/nameplates_baseline.spec.luau`'s schedule table.
+	`tests/translate_arm.spec.luau` owns the arm itself. ]]
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 local scene = require("./lib/nameplates_scene")
@@ -81,11 +103,13 @@ local device_views = require("./lib/device_views")
 local PLATES = scene.PLATES
 local CASTERS = PLATES // scene.CASTER_EVERY -- 50
 -- Hp and Cast are fixed x fixed => PLAN_SKIP => `measureUncached` counts them on
--- every touch, and the plate's own ARRANGE touches both (its measure pass now
--- hits the adopted slate and never descends). See the header: this is the T3
--- floor, and T4 takes it to 0. Bucketed after the split: `SKIP box Hp = 250`,
--- `SKIP box Cast = 250`, and NOTHING else — no `Plate`, no `Canvas`, no `S`.
-local MEASURED_TICK = PLATES * 2 -- 500
+-- every touch, and the plate's own ARRANGE used to touch both (its measure pass
+-- hits the adopted slate and never descends). That was the T3 floor of
+-- `PLATES * 2` = 500, bucketed as `SKIP box Hp = 250` + `SKIP box Cast = 250` and
+-- nothing else. T4's translate arm (`<T4-SHA>`) removes the arrange descent as
+-- well, so the touches stop: READ OFF THE RUN as 0, the pin T3 said belonged here
+-- and could not reach. See the header.
+local MEASURED_TICK = 0
 --[[ READ OFF THE RUN in Step 2, with the plan-verdict buckets beside it — 652,
 	and it is three terms, not one:
 
@@ -104,11 +128,17 @@ local MEASURED_TICK = PLATES * 2 -- 500
 	  |                             | closes over                            |     |
 
 	`Row`/`Name`/`Lvl` appear in NO bucket at all, under a caster or a quiet
-	plate — they adopt and hit. ]]
-local MEASURED_WITH_CASTS = (PLATES - CASTERS) * 2 + CASTERS * 5 + 2 -- 652
+	plate — they adopt and hit.
+
+	T4 (`<T4-SHA>`) ZEROED THE FIRST TERM AND LEFT THE OTHER TWO STANDING, read off
+	the run: the 200 quiet plates translate instead of arranging, so their `SKIP Hp`
+	/ `SKIP Cast` touches are gone; the 50 casters still refuse (`translatable` sees
+	the dirty `Cast` child) and still cost 5 apiece; `Canvas` and `S` still lose
+	their slates. 652 -> 252. ]]
+local MEASURED_WITH_CASTS = CASTERS * 5 + 2 -- 252
 
 describe("O2: an arrange-only step does not re-measure MORE THAN ITS PLAN_SKIP LEAVES", function()
-	it("a pure tick measures only the two PLAN_SKIP leaves per plate", function()
+	it("a pure tick measures nothing at all (T3's floor, taken to 0 by T4's arm)", function()
 		local s = scene.new()
 		s.tick(3, 2) -- warm: the first tick after initialRender is COLD, not the steady state
 		s.tick(3, 2)

@@ -15,10 +15,11 @@
 	  | pin | moved by | to |
 	  |---|---|---|
 	  | `lastMeasured` on a STEADY tick | T3 ✅ `157ed3c9` | 500 = PLATES x 2 (pure) / 652 (casters), both read off the run — see `MEASURED_STEADY` |
-	  | `lastMeasured` on a STEADY tick | T4 | 0 (pure) — the translate arm stops re-entering the subtree |
+	  | `lastMeasured` on a STEADY tick | T4 ✅ `<T4-SHA>` | **0 (pure)** / **252 (casters)** — the translate arm stops re-entering the subtree, so the 200 quiet plates cost nothing at all and only the 50 refused caster roots (`CASTERS x 5 + 2`) are left. READ OFF THE RUN |
+	  | `lastMeasured` on the COLD tick | T4 ✅ `<T4-SHA>` | **1502** (was 2002). NOT A SCHEDULED MOVE AND THEREFORE A FINDING, in the direction the round wants: the cold tick's 2002 was 1502 distinct nodes plus the 500 `Hp`/`Cast` boxes touched a SECOND time by the plate's vstack ARRANGE descent. The translate arm removes that descent on the cold tick too — the plates moved and their subtrees were clean even on the first tick after mount — so the second touch is gone and the remaining 1502 is every layout node measured exactly once |
 	  | `lastNodeBuilds`           | T3 ✅ `157ed3c9` | **THE PREDICTION WAS WRONG AND IS CORRECTED RATHER THAN LEFT STANDING: it did NOT move.** 252 pure / 302 casters, before and after. T3 rewrote the dirty closure into two sets, but `nodeDirty` — which is what `layout_node.build` counts builds against — is a THIRD set (`renderer.luau`'s `markNodeDirty`, every class, accumulated across refreshes), and the split never touched it. The counter T3 does move is `lastMeasured` |
-	  | `lastArranged`             | T4 | 252 (pure) / 302 (casters, see T4 Step 1's competing derivation) |
-	  | `lastRectInserts`          | T4 | arranged + translated = 1,502 |
+	  | `lastArranged`             | T4 ✅ `<T4-SHA>` | 252 (pure) / **402** (casters) + `lastTranslated` 1250 / 1100. The two competing derivations in T4 Step 1 were settled BY THE RUN and it is **(b)**: `translatable` does not require the root to be clean, so a caster's plate root (dirty child `Cast`) takes the ordinary arrange and its own `Row` and `Hp` become translate ROOTS under it — 4 arranged + 2 translated per caster. `tests/translate_arm.spec` carries the arithmetic |
+	  | `lastRectInserts`          | T4 ✅ `<T4-SHA>` | arranged + translated = 1,502, unchanged in TOTAL and re-split |
 	  | every per-walk visit count | T5 | 253 (pure) / 303 (casters); hitRects stays 1,503 |
 	  | the four hidden-blind walks | T5b (if built) | 3 on a pure tick |
 	  | the census, `rectWrites`   | never | 1,503 mounted / 1,502 layout / 1,500 writes |
@@ -55,7 +56,21 @@
 	(PLATES - CASTERS) x 2 + CASTERS x 5 + 2. `lastNodeBuilds` reads 252 on a steady
 	pure tick and 302 on a steady caster tick BEFORE AND AFTER T3 — READ OFF THE RUN,
 	not derived — the 250 moved plates + Canvas + Screen, plus the 50 caster boxes
-	when a caster tick adds them. ]]
+	when a caster tick adds them.
+
+	...AND T4 (`<T4-SHA>`) TOOK BOTH OF THOSE MEASURE NUMBERS APART AGAIN, because
+	the arm it adds removes the ARRANGE descent that produced every one of the
+	PLAN_SKIP touches. A moved-not-resized plate whose children are all clean is
+	re-based by one delta and never entered, so its two `Hp`/`Cast` leaves are not
+	touched at all: the pure tick's 500 is 0, and the caster tick's 652 loses its
+	`(PLATES - CASTERS) * 2` term and keeps only the 50 casters' own 5 + the 2
+	ancestors = 252. The COLD tick moved with them (2002 -> 1502) and that one was
+	NOT on the schedule — see the table above; it is the same mechanism, and the
+	direction is the round's. What did NOT move: `lastNodeBuilds` (252/302 — builds
+	are counted against `nodeDirty`, a third set neither T3 nor T4 touches),
+	`rectWrites` (1500 a tick — the writes are real in a flat engine tree and the
+	arm makes the same ones), `lastRectInserts` (1502, re-split into 252 arranged +
+	1250 translated) and every per-walk commit visit (T5's business). ]]
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 local scene = require("./lib/nameplates_scene")
@@ -69,20 +84,33 @@ local LAYOUT = PLATES * scene.NODES_PER_PLATE + 2 -- 1502
 -- at `…/[pN]/Plate` by `:595-596`), so this is LAYOUT + 1, not LAYOUT + PLATES + 1.
 local MOUNTED = LAYOUT + 1 -- 1503
 local CASTERS = PLATES // scene.CASTER_EVERY -- 50
--- READ OFF THE RUN and INSTRUMENTED by T3 (`157ed3c9`, was `LAYOUT - PLATES` =
--- 1252): the plate's ARRANGE pass touching its two PLAN_SKIP leaves, and nothing
--- else. See the header, and `tests/measure_split.spec.luau` for the buckets.
-local MEASURED_STEADY = PLATES * 2 -- 500
--- ...and a caster tick is no longer the same number (T3, `157ed3c9`): the 200
--- quiet plates cost 2 apiece, each of the 50 casters costs 5 (its refused root,
--- plus `Hp`/`Cast` on both the measure and the arrange descent), and `Canvas` and
--- the `Screen` root are the two ancestors every caster's measure dirt closes over.
-local MEASURED_STEADY_CASTERS = (PLATES - CASTERS) * 2 + CASTERS * 5 + 2 -- 652
--- READ OFF THE RUN, instrumented (`solver.measureUncached`, temporary counter,
--- reverted before commit): 1502 distinct nodes measured once, PLUS the 500
--- Hp/Cast boxes measured a second time by the vstack arrange branch — see "the
--- first tick after mount pays a one-time cold solve" for the full breakdown.
-local MEASURED_COLD = LAYOUT + PLATES * 2 -- 2002
+-- READ OFF THE RUN. T3 (`157ed3c9`) took it from `LAYOUT - PLATES` = 1252 to
+-- `PLATES * 2` = 500 (the plate's ARRANGE pass touching its two PLAN_SKIP leaves);
+-- T4 (`<T4-SHA>`) takes it to ZERO, because the translate arm never enters the
+-- plate at all and the arrange descent that made those touches is gone. There is
+-- nothing left to measure on a steady pure tick: every node's slate is adopted and
+-- hit, and no PLAN_SKIP leaf is touched. See `tests/measure_split.spec.luau` and
+-- `tests/translate_arm.spec.luau` for the buckets and the arm.
+local MEASURED_STEADY = 0
+-- ...and a caster tick keeps ONLY its caster term (T4, `<T4-SHA>`, was 652): the
+-- `(PLATES - CASTERS) * 2` half was the 200 quiet plates' arrange descent and the
+-- translate arm removes it, leaving each of the 50 casters at 5 (its refused root,
+-- plus `Hp`/`Cast` on both the measure and the arrange descent) and the two
+-- ancestors every caster's measure dirt closes over.
+local MEASURED_STEADY_CASTERS = CASTERS * 5 + 2 -- 252
+-- READ OFF THE RUN, instrumented at T2 (`solver.measureUncached`, temporary
+-- counter, reverted before commit) as 1502 distinct nodes measured once PLUS the
+-- 500 Hp/Cast boxes measured a SECOND time by the vstack arrange branch. T4
+-- (`<T4-SHA>`) removes that second touch here too — the cold tick's plates have
+-- already moved and their subtrees are clean, so they translate — and what is left
+-- is exactly the 1502 distinct measures. See "the first tick after mount pays a
+-- one-time cold solve".
+local MEASURED_COLD = LAYOUT -- 1502
+-- the O3 split of `lastArranged` (T4, `<T4-SHA>`), read off the run: the Screen,
+-- the Canvas and the 250 plate ROOTS take the ordinary entry write and each
+-- re-bases its 5 descendants.
+local ARRANGED_STEADY = PLATES + 2 -- 252
+local TRANSLATED_STEADY = PLATES * (scene.NODES_PER_PLATE - 1) -- 1250
 
 describe("nameplates baseline — the numbers the wicked-fast round starts from", function()
 	it("the fixture is the tree the plan says it is", function()
@@ -109,9 +137,15 @@ describe("nameplates baseline — the numbers the wicked-fast round starts from"
 		-- literal, with the header note beside it. It is the "currently N"
 		-- every later demonstrator quotes, so it is on disk rather than in a
 		-- memory of a profiling session. Moved 1252 -> 500 by T3's
-		-- measure/arrange dirt split (`157ed3c9`).
+		-- measure/arrange dirt split (`157ed3c9`), and 500 -> 0 by T4's
+		-- translate arm (`<T4-SHA>`).
 		expect(st.lastMeasured).toBe(MEASURED_STEADY)
-		expect(st.lastArranged).toBe(LAYOUT)
+		-- ...and `lastArranged` is no longer the whole tree (T4, `<T4-SHA>`): the
+		-- 1250 nodes that only MOVED are a class of their own now, and the two
+		-- halves still have to add up to the tree.
+		expect(st.lastArranged).toBe(ARRANGED_STEADY)
+		expect(st.lastTranslated).toBe(TRANSLATED_STEADY)
+		expect(st.lastArranged + st.lastTranslated).toBe(LAYOUT)
 		expect(st.lastRectInserts).toBe(LAYOUT)
 		expect(st.lastNodeBuilds).toBe(PLATES + 2) -- 252: the moved plates + Canvas + Screen, dirtyContains
 		-- CUMULATIVE since `scene.new()` (Fix round 2, I-1): `rectWrites` is
@@ -154,7 +188,10 @@ describe("nameplates baseline — the numbers the wicked-fast round starts from"
 		-- solve) — which is also why `lastNodeBuilds` reads the SAME 252 here
 		-- as on a steady tick below: builds is not what makes this tick cold.
 		expect(st.lastMeasured).toBe(MEASURED_COLD)
-		expect(st.lastArranged).toBe(LAYOUT)
+		-- ...and the cold tick translates exactly as a steady one does (T4): what
+		-- makes it cold is the measure store, not the arrange half.
+		expect(st.lastArranged).toBe(ARRANGED_STEADY)
+		expect(st.lastTranslated).toBe(TRANSLATED_STEADY)
 		expect(st.lastNodeBuilds).toBe(PLATES + 2) -- 252 — same as a steady tick
 		s.dispose()
 	end)
@@ -176,9 +213,15 @@ describe("nameplates baseline — the numbers the wicked-fast round starts from"
 		-- separated them (`157ed3c9`): the caster's `width` dirt is
 		-- measure-classed, so only the 50 caster plate roots lose their slate.
 		expect(mixed.lastNodeBuilds).toBe(PLATES + 2 + CASTERS) -- 302
-		expect(pure.lastMeasured).toBe(MEASURED_STEADY) -- 500
-		expect(mixed.lastMeasured).toBe(MEASURED_STEADY_CASTERS) -- 652
-		expect(mixed.lastArranged).toBe(LAYOUT)
+		expect(pure.lastMeasured).toBe(MEASURED_STEADY) -- 0
+		expect(mixed.lastMeasured).toBe(MEASURED_STEADY_CASTERS) -- 252
+		-- ...and the caster tick's ARRANGE half is derivation (b), read off the run
+		-- (T4, `<T4-SHA>`): 4 arranged per caster (Plate, Row, Hp, Cast) because
+		-- `Row` and `Hp` are themselves translate roots under a plate the `Cast`
+		-- dirt forced open. `tests/translate_arm.spec` carries the arithmetic.
+		expect(mixed.lastArranged).toBe(PLATES + 2 + CASTERS * 3) -- 402
+		expect(mixed.lastTranslated).toBe((PLATES - CASTERS) * 5 + CASTERS * 2) -- 1100
+		expect(mixed.lastArranged + mixed.lastTranslated).toBe(LAYOUT)
 		s.dispose()
 	end)
 
@@ -202,9 +245,15 @@ describe("nameplates baseline — the numbers the wicked-fast round starts from"
 			`plates={PLATES + 1} mounted={MOUNTED + scene.NODES_PER_PLATE} layout={LAYOUT + scene.NODES_PER_PLATE}`
 		)
 		s.tick(3, 2)
-		-- READ OFF THE RUN: matches the naive expression exactly (LAYOUT plus
-		-- one plate's own six layout nodes) — no correction needed here.
-		expect(s.stats().lastArranged).toBe(LAYOUT + scene.NODES_PER_PLATE)
+		-- READ OFF THE RUN, and re-split by T4 (`<T4-SHA>`): the tree grew by one
+		-- plate, so the arrange half grew by exactly its ROOT and the translate half
+		-- by its five descendants. The SUM still matches the naive expression
+		-- (LAYOUT plus one plate's own six layout nodes), which is the pin the
+		-- add/remove case is actually about.
+		local afterTick = s.stats()
+		expect(afterTick.lastArranged).toBe(ARRANGED_STEADY + 1) -- 253
+		expect(afterTick.lastTranslated).toBe(TRANSLATED_STEADY + (scene.NODES_PER_PLATE - 1)) -- 1255
+		expect(afterTick.lastArranged + afterTick.lastTranslated).toBe(LAYOUT + scene.NODES_PER_PLATE)
 		s.remove(251)
 		expect(#s.items).toBe(PLATES)
 		local afterRemove = s.census()
@@ -232,13 +281,18 @@ describe("nameplates baseline — the numbers the wicked-fast round starts from"
 		)
 		s.tick(3, 2) -- warm-up
 		s.tick(3, 2)
-		-- READ OFF THE RUN, AND IT DISAGREES WITH THE NAIVE "LAYOUT + 1"
-		-- EXPRESSION: `lastArranged` stays exactly LAYOUT (1502) on a
-		-- translate-only tick even with the Spark leaf mounted — the extra
-		-- node does not show up in the solver's arrange count here. Mechanism
-		-- NOT instrumented; pinned as observed, same discipline as
-		-- `MEASURED_STEADY` above.
-		expect(s.stats().lastArranged).toBe(LAYOUT)
+		-- READ OFF THE RUN, AND IT STILL DISAGREES WITH THE NAIVE "+1"
+		-- EXPRESSION, now on the far side of T4 (`<T4-SHA>`): the Spark leaf is
+		-- a layout node (`layout` reads LAYOUT + 1 above) and it is neither
+		-- arranged nor translated on a translate-only tick — it lands on the
+		-- rect it already had and the SKIP catches it, which `lastSolveSkipped`
+		-- says directly. Mechanism instrumented this time, so the three
+		-- outcomes below account for every node.
+		local st = s.stats()
+		expect(st.lastArranged).toBe(ARRANGED_STEADY) -- 252
+		expect(st.lastTranslated).toBe(TRANSLATED_STEADY) -- 1250
+		expect(st.lastSolveSkipped).toBe(1) -- the Spark leaf, and only it
+		expect(st.lastArranged + st.lastTranslated + st.lastSolveSkipped).toBe(LAYOUT + 1)
 		s.dispose()
 	end)
 end)

@@ -521,8 +521,16 @@ type Ctx = {
 	-- surface, instead of a one-off probe that has to patch this file.
 	arranged: number,
 	measured: number,
-	-- ...and its writes into the RECT MAP: equal to `arranged` since P2 (`tests/rect_cow`).
+	-- ...and its writes into the RECT MAP: `arranged + translated` since O3.
 	rectInserts: number,
+	-- THE THIRD CLASS (O3): a node an ancestor re-based instead of walking — not
+	-- arranged, not skipped, a rect insert. `translatedRoots` is keyed by the node
+	-- whose delta it was, `[from, to]` naming its span in the two parallel flat
+	-- arrays, which are in document order and exist for the COMMIT to walk (T5).
+	translated: number,
+	translatedRoots: { [string]: { dx: number, dy: number, from: number, to: number } },
+	translatedPaths: { string },
+	translatedEntries: { any },
 	-- Stage-1 analysis only; nil on an ordinary solve
 	analyze: boolean,
 	boundary: { [string]: boolean },
@@ -2104,11 +2112,100 @@ local function noteContainment(
 	end
 end
 
+--[[ ...AND THE DIRT THAT MOVED A NODE IS NOT THE DIRT THAT MOVES ITS CHILDREN.
+	`translatable` answers for the subtree; this answers for the ROOT, and the arm
+	was wrong without it (three measured shapes in `tests/translate_arm.spec`, which
+	also pins the partition against `schema.propDirty()`): `measureContains` names
+	every measure-classed prop this body reads to place children; of the eight
+	arrange-classed ones, four are read off the CHILD by its parent and are already
+	spent in our `rect`, `hidden` never moves a rect, and `alignH`/`alignV`/
+	`distribute` ARE read off the node — recorded and compared BY VALUE, since
+	absence is a value (a reactive `distribute` can go back to nil). ]]
+local function selfArrangeKey(node: Node): string?
+	local d, ah, av = node.distribute, node.alignH, node.alignV
+	if d == nil and ah == nil and av == nil then
+		return nil -- the overwhelming majority: three field reads, no allocation
+	end
+	return `{d}|{ah}|{av}`
+end
+
+-- A `nil` measure half REFUSES every dirty root: the hand-built `reuse` tables in
+-- `tests/` carry none, and a set that cannot answer is not "clean".
+local function selfPlaces(reuse: any, node: Node, prev: any): boolean
+	local measures = reuse.measureContains
+	return measures ~= nil and measures[node.id] ~= true and prev.selfArrange == selfArrangeKey(node)
+end
+
+-- NO CHILD IN THE DIRTY SET => NO DESCENDANT IN IT (it is prefix-closed), so one
+-- pass over the children answers for the subtree. It also refuses a child the
+-- previous solve never recorded, which only a torn `lastResult` reaches.
+local function translatable(reuse: any, node: Node): boolean
+	local kids = node.children
+	if kids == nil then
+		return true
+	end
+	local contains, rects = reuse.dirtyContains, reuse.previous.rects
+	for _, child in kids do
+		local id = child.id
+		if contains[id] == true or rects[id] == nil then
+			return false
+		end
+	end
+	return true
+end
+
+--[[ RE-BASE EVERY DESCENDANT ONTO THE ROOT'S NEW ORIGIN. Returns false — having
+	written some — if a node below has no previous entry; the caller rolls the
+	partial run back and takes the ordinary arrange. Not dead code: `translatable`
+	inspects DIRECT children only, and the argument that a new GRANDCHILD cannot
+	reach here runs through `builtIds` and `structural_scope.widen` in two other
+	files. One nil test buys it. ]]
+local function translateDescendants(ctx: Ctx, node: Node, base: Rect, was: Rect, out: { [string]: any }): boolean
+	local kids = node.children
+	if kids == nil then
+		return true
+	end
+	local rects = (ctx.reuse :: any).previous.rects
+	local paths, entries = ctx.translatedPaths, ctx.translatedEntries
+	for _, child in kids do
+		local prevEntry = rects[child.id]
+		if prevEntry == nil or prevEntry.rect == nil then
+			return false
+		end
+		local old = prevEntry.rect
+		local entry = table.clone(prevEntry)
+		-- FROM THE ROOT'S ORIGIN, NOT BY ADDING A DELTA: `old.x + (new - was)` gains a
+		-- rounding per solve and `tests/table.spec` read 35.99999999999998 for a row
+		-- whose closed x is exactly 36. This form is idempotent.
+		entry.rect = table.freeze({ x = base.x + (old.x - was.x), y = base.y + (old.y - was.y), w = old.w, h = old.h })
+		entry.moveOnly = true
+		entry.prev = prevEntry
+		-- THE CHAIN BREAK. `prev` has one reader — the next commit's `skip`, comparing
+		-- identity — and the entry superseded above no longer needs its own, or the
+		-- node retains its whole history: tick N holds N-1 holds N-2, forever.
+		prevEntry.prev = nil
+		out[child.id] = entry
+		ctx.translated += 1
+		ctx.rectInserts += 1
+		local n = #paths + 1
+		paths[n] = child.id
+		entries[n] = entry
+		if not translateDescendants(ctx, child, base, was, out) then
+			return false
+		end
+	end
+	return true
+end
+
 local function arrange(ctx: Ctx, node: Node, rect: Rect, out: { [string]: any })
 	-- THE SKIP. Same solve, same ctx, same traversal — this subtree just does not need
 	-- walking: no dirty node inside it, and it is landing on the rect it already had.
 	local reuse = ctx.reuse
-	if reuse ~= nil and reuse.dirtyContains[node.id] ~= true then
+	-- set by the translate arm below, consumed after the entry write. `tprev` is
+	-- captured HERE because `out` IS `reuse.previous.rects` (see `solve`): after the
+	-- write the map hands back the table it just wrote.
+	local tdx: number?, tdy: number?, tprev: any = nil, nil, nil
+	if reuse ~= nil then
 		local prev = reuse.previous.rects[node.id]
 		local pr = if prev ~= nil then prev.rect else nil
 		-- ...AND THE CONTAINER IS THE ONE IT ANSWERED AGAINST (§2.5 x incremental
@@ -2132,28 +2229,41 @@ local function arrange(ctx: Ctx, node: Node, rect: Rect, out: { [string]: any })
 		-- ordinary path pays one field test.
 		local containerOk = node.containerRelativeInside ~= true
 			or (prev ~= nil and prev.containerW == ctx.containerW and prev.containerH == ctx.containerH)
-		if pr ~= nil and containerOk and pr.x == rect.x and pr.y == rect.y and pr.w == rect.w and pr.h == rect.h then
-			--[[ ...AND THE SKIP IS THE WHOLE OF IT (P2). It used to call `replaySubtree`,
-				which walked the subtree and re-inserted every descendant into a fresh
-				map — the O(N) pass incremental layout exists to avoid, paid as the price
-				of avoiding it: 5 115 nodes and 3.26 ms of `Facet/arrange` on a zero-dirt
-				L solve, copying a map the solve already held. `solve` now starts FROM
-				that map (see `out`), so the subtree is already right, table for table.
+		-- THE SIZE TEST IS SHARED BY BOTH ARMS (O3): a subtree that resized has to be
+		-- re-entered whatever its origin did, so it is asked first and once.
+		if pr ~= nil and containerOk and pr.w == rect.w and pr.h == rect.h then
+			local clean = reuse.dirtyContains[node.id] ~= true
+			if clean and pr.x == rect.x and pr.y == rect.y then
+				--[[ ...AND THE SKIP IS THE WHOLE OF IT (P2). It used to call `replaySubtree`,
+					which walked the subtree and re-inserted every descendant into a fresh
+					map — the O(N) pass incremental layout exists to avoid, paid as the price
+					of avoiding it: 5 115 nodes and 3.26 ms of `Facet/arrange` on a zero-dirt
+					L solve, copying a map the solve already held. `solve` now starts FROM
+					that map (see `out`), so the subtree is already right, table for table.
 
-				NOR ARE THE VERDICT CHANNELS: `ctx.textStates`/`compact`/`textFacts` are
-				read only where a WALKED node's entry is built, so the old copies were
-				reachable only on the partial-failure path the recursion itself made —
-				where they overwrote this solve's fresh verdicts with the last one's. ]]
-			return
+					NOR ARE THE VERDICT CHANNELS: `ctx.textStates`/`compact`/`textFacts` are
+					read only where a WALKED node's entry is built, so the old copies were
+					reachable only on the partial-failure path the recursion itself made —
+					where they overwrote this solve's fresh verdicts with the last one's. ]]
+				return
+			end
+			--[[ THE TRANSLATE (wicked-fast O3). Same size, moved origin, and nothing
+				inside is dirty — `dirtyContains` proves that in one test per CHILD, not per
+				descendant, because it is closed over ancestors. So the subtree is its old
+				rects re-based onto one new origin: no measure, no arrange, no re-entry. A
+				dirty node still qualifies when its own dirt is dirt its parent already
+				spent (`selfPlaces`), which is what makes the plate ROOT the translate root.
+				IT DOES NOT RETURN HERE: only the ordinary write below records the root's
+				own rect, with this solve's offers and verdicts. ]]
+			-- the cheap gate first: `translatable` walks the children, `selfPlaces` is
+			-- two field reads and only runs at all when the node is itself dirty
+			if (clean or selfPlaces(reuse, node, prev)) and translatable(reuse, node) then
+				tdx, tdy, tprev = rect.x - pr.x, rect.y - pr.y, prev
+			end
 		end
 	end
 	ctx.arranged += 1
 	ctx.rectInserts += 1
-	-- WHO WALKED, for the diagnostic replay in `solve`; on a reuse solve this set is
-	-- the touched path, not the tree.
-	if reuse ~= nil then
-		ctx.walkedIds[node.id] = true
-	end
 	local gap = node.gap or 0
 	out[node.id] = {
 		-- FROZEN: every later skip hands this exact table forward, so the read-only
@@ -2184,7 +2294,49 @@ local function arrange(ctx: Ctx, node: Node, rect: Rect, out: { [string]: any })
 		-- pure audit can tell an interactive rect from a decorative one without a
 		-- class table it has no business owning. `nil` = no floor declared.
 		hitFloor = node.hitFloor,
+		-- the arrange-classed props this body reads about its OWN children, so the O3
+		-- arm can ask a dirty node "did the way I place them change?". `nil` on nearly
+		-- every node.
+		selfArrange = selfArrangeKey(node),
 	}
+	if tdx ~= nil then
+		local entry = out[node.id]
+		local dx, dy = tdx :: number, tdy :: number
+		-- THE ROOT IS A MOVE TOO, AND SAYS SO — all three proved above. Inert until T5b
+		-- takes it out of the commit-side `nodeDirty` set, which `skip` reads first.
+		entry.moveOnly = true
+		entry.prev = tprev
+		tprev.prev = nil
+		local from = #ctx.translatedPaths + 1
+		if translateDescendants(ctx, node, rect, tprev.rect, out) then
+			ctx.translatedRoots[node.id] = { dx = dx, dy = dy, from = from, to = #ctx.translatedPaths }
+			-- WHO WALKED: NOT THIS NODE. Its body did not run, so `solve`'s replay must
+			-- replay its previous findings as for a skipped subtree. `arranged` and absent
+			-- from `walkedIds` is a NEW class — one set before O3 — and marking it walked
+			-- would delete the diagnostics of every node that only moved.
+			return
+		end
+		-- REFUSED, AND ROLLED BACK. The dispatch below rewrites every descendant; what
+		-- must not survive is the partial run's BOOKKEEPING, or
+		-- `rectInserts == arranged + translated` counts the same nodes twice.
+		local wrote = #ctx.translatedPaths - from + 1
+		if wrote > 0 then
+			for i = #ctx.translatedPaths, from, -1 do
+				ctx.translatedPaths[i] = nil
+				ctx.translatedEntries[i] = nil
+			end
+			ctx.translated -= wrote
+			ctx.rectInserts -= wrote
+		end
+		entry.moveOnly = nil
+		entry.prev = nil
+	end
+	-- WHO WALKED, for the diagnostic replay in `solve`; on a reuse solve this set is
+	-- the touched path, not the tree. BELOW the entry write since O3: a translate root
+	-- returned above without running its body, a REFUSED one did run and is here.
+	if reuse ~= nil then
+		ctx.walkedIds[node.id] = true
+	end
 
 	-- THE PADDING FACTS ARE COMPUTED BEFORE THE LEAF RETURN (director report
 	-- 2026-07-28). A leaf Button is `kind = "box"`, so it returned here — which
@@ -3479,6 +3631,11 @@ function solver.solve(
 		measures = if opts ~= nil and (opts :: any).reuse ~= nil then (opts :: any).measures else nil,
 		arranged = 0,
 		measured = 0,
+		-- the O3 translate class: nodes re-based by an ancestor's delta
+		translated = 0,
+		translatedRoots = {},
+		translatedPaths = {},
+		translatedEntries = {},
 		analyze = (opts and (opts :: any).analyzeBoundaries) == true,
 		boundary = {},
 		reuse = opts and (opts :: any).reuse,
@@ -3530,8 +3687,8 @@ function solver.solve(
 		`work.skipped` still means NODES, as four `lastSkipped` cases assert exactly. ]]
 	if ctx.reuse ~= nil then
 		local pw = ctx.reuse.previous.work
-		local total = if pw ~= nil then (pw.arranged or 0) + (pw.skipped or 0) else 0
-		ctx.skipped = math.max(0, total - ctx.arranged)
+		local total = if pw ~= nil then (pw.arranged or 0) + (pw.translated or 0) + (pw.skipped or 0) else 0
+		ctx.skipped = math.max(0, total - ctx.arranged - ctx.translated)
 	end
 	-- A SKIPPED SUBTREE KEEPS ITS FINDINGS. It was not walked, so it filed nothing this
 	-- solve; dropping them would silence `controller.diagnostics()` for exactly the
@@ -3577,6 +3734,11 @@ function solver.solve(
 			measured = ctx.measured,
 			rectInserts = ctx.rectInserts,
 			skipped = ctx.skipped,
+			-- the O3 translate class and its two flat arrays, in document order
+			translated = ctx.translated,
+			translatedRoots = ctx.translatedRoots,
+			translatedPaths = ctx.translatedPaths,
+			translatedEntries = ctx.translatedEntries,
 			-- present only when asked for (Stage 1); an ordinary solve carries nothing
 			boundary = if ctx.analyze then ctx.boundary else nil,
 		},

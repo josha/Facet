@@ -615,6 +615,14 @@ function renderer.attach(
 		-- is ~6% of it and the rest is per-NEW-NODE setup. Kept so that stays visible.
 		ssTotal = 0,
 		lastSkipped = 0,
+		-- ...and the SAME number published UNCONDITIONALLY (wicked-fast O3), because
+		-- `lastSkipped` above is written only when it is > 0 and is therefore stale by
+		-- design on any step that skipped nothing — an invariant reading it would pass
+		-- or fail on history. Every new invariant reads this one.
+		lastSolveSkipped = 0,
+		-- ...and the O3 class: nodes an ancestor re-based by a delta instead of
+		-- walking. `arranged + translated + skipped == lastLayoutNodes`.
+		lastTranslated = 0,
 		lastRectInserts = 0,
 		-- ...and how many NODES the COMMIT's walks visited (P4): one per walk per node
 		-- before the prune, O(touched) after it (`tests/commit_scope.spec.luau`).
@@ -1995,7 +2003,8 @@ function renderer.attach(
 			-- `arranged + translated + skipped` (`stats.lastSkipped` is written ONLY
 			-- when skipped > 0, so it is stale by design).
 			stats.lastLayoutNodes = nodeStore.nodes
-			result.work.skipped = math.max(0, nodeStore.nodes - (result.work.arranged or 0))
+			result.work.skipped =
+				math.max(0, nodeStore.nodes - (result.work.arranged or 0) - (result.work.translated or 0))
 		end
 		if result.work ~= nil and (result.work.skipped or 0) > 0 then
 			stats.partialSolves += 1
@@ -2016,6 +2025,10 @@ function renderer.attach(
 			-- by definition — before the copy-on-write map a skipped subtree inserted
 			-- every descendant, so this is the number that says the skip is O(touched).
 			stats.lastRectInserts = result.work.rectInserts
+			-- ...and the O3 translate class, beside the UNCONDITIONAL skip count the
+			-- invariants read (`lastSkipped` above is stale by design)
+			stats.lastTranslated = result.work.translated or 0
+			stats.lastSolveSkipped = result.work.skipped or 0
 		end
 		-- MICROPROFILER PHASE `Facet/commit` (roadmap Step 9): the ADAPTER COMMIT —
 		-- everything between a finished solve and a frame the player can see. Visibility,
