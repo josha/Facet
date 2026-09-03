@@ -633,7 +633,7 @@ describe("screen_target: the stack branch keeps the fix round's ORDER", function
 
 	it("it paints BEFORE it suppresses, exactly as the nine-slice branch does", function()
 		local paintAt = at(sync, "applySlotNativePaint(instance, slot, handle)")
-		local suppressAt = at(sync, "applySkinnedSuppression(instance, true)")
+		local suppressAt = at(sync, "applySkinnedSuppression(instance, true, handle)")
 		expect(paintAt < suppressAt).toBe(true)
 	end)
 

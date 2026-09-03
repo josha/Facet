@@ -2,13 +2,14 @@
 --[[ W1b — A RECYCLED INSTANCE DOES NOT KEEP A STYLE PROP IT NEVER DECLARED.
 
 	W1 (`fa289d5a`) deleted `propSigCache`, keyed on the props TABLE identity and
-	never invalidated while `mount.luau:637` mutates that table in place. Self-
-	review (Step 7, mandatory) found the theory wrong, then measured why: the
-	cache was never the mechanism. `propSignature` had exactly two call sites,
-	both inside the ONE `if handles[node.path] == nil` block that only ever runs
-	at a node's own CREATE — nothing mutates `node.props` between them, so a
-	cache hit there was always a hit on the value that SAME call's own first
-	read had just computed, never a stale one (measured: every hit recorded
+	never invalidated while `mount.luau`'s `mountNode` mutates that table in place
+	(its dynamic-prop observer writes `node.props[propName]`). Self-review (Step 7,
+	mandatory) found the theory wrong, then measured why: the cache was never the
+	mechanism. `propSignature` had exactly two call sites, both inside the ONE
+	`if handles[node.path] == nil` block that only ever runs at a node's own
+	CREATE — nothing mutates `node.props` between them, so a cache hit there was
+	always a hit on the value that SAME call's own first read had just computed,
+	never a stale one (measured: every hit recorded
 	across this repository's own `instance_recycling*` suite was exactly that
 	shape). The real defect survived the deletion: `recycleKeyOf[path]` was
 	written EXACTLY ONCE, at that create event, and never refreshed while the
@@ -379,89 +380,145 @@ describe("W1b: the adapter tears a style modifier down instead of crashing on ni
 		end
 	)
 
-	--[[ EVERY CORNER SITE IN `src/client/` CLASSIFIES ITSELF (T8 R3, Important 3).
+	--[[ EVERY CORNER SITE IN `src/client/` CLASSIFIES ITSELF (T8 R3, Important 3;
+		the ERASERS and their record clears, T8 R4, New Important 1).
 
 		R2 shipped a table beside `applyCorners` that MIRRORED each chrome owner's
 		radius choice, and it was wrong on the day it was written — it covered four
 		of the six writers of the node's own UICorner. A mirror cannot be pinned
 		("does this table still agree with six other functions?" has no mechanical
 		answer); a CLASSIFICATION can. This walks `src/client/` itself, finds every
-		site that can create or change a UICorner's radius, and requires each one to
-		appear in the table below with a bucket. A site added anywhere in that
-		directory that records nothing is UNCLASSIFIED and fails here, naming its own
-		text — which is exactly the failure R2 could not produce.
+		line that names a UICorner at all, and requires each one to appear in the
+		table below with a bucket. A site added anywhere in that directory that
+		records nothing is UNCLASSIFIED and fails here, naming its own text —
+		which is exactly the failure R2 could not produce.
+
+		R3'S PREDICATE COULD NOT SEE A DESTROY, and that is how the eraser defect
+		shipped under a green pin: it matched `Instance.new("UICorner")`,
+		`corner(`, `.CornerRadius =` and `chromeCornerRadius =`, so a
+		`for _, child in instance:GetChildren()` loop that destroys the node's own
+		UICorner matched nothing at all. The predicate is now the TOKEN rule — any
+		line naming `UICorner` or `CornerRadius`, or calling `corner(`, is a site.
+		`child:Destroy()` still carries no token, but the line that SELECTS the
+		child to destroy has to name the class, so the selector IS the site and it
+		takes the bucket of the block it guards.
+
+		KEYED BY (file, enclosing function, normalised text). The function is part
+		of the key because `if child:IsA("UICorner") then` occurs in
+		`screen_chrome.luau` twice with two different meanings — the skinned
+		suppression zeroes the node's OWN corner, `setTogglePartChrome` repaints
+		the toggle's separate track/knob children — and no one bucket is true of
+		both. It also means a new destroy loop in a NEW function cannot inherit an
+		existing classification.
 
 		The buckets:
 		  records         a chrome owner that materialises the node's OWN UICorner
-		                  and writes `handle.chromeCornerRadius`
+		                  and writes `handle.chromeCornerRadius` (the read that
+		                  decides whether it needs one included)
 		  record-write    those writes themselves, pinned so a recorder cannot be
 		                  quietly dropped while its `corner()` call stays
+		  record-clear    `handle.chromeCornerRadius = nil`, an eraser giving the
+		                  record up, pinned the same way
+		  record-read     reads the record to decide what to do next; writes no
+		                  radius itself
 		  updates-record  re-radiuses an existing corner and keeps the record true
 		                  (never CREATES a record: it does not own the child)
+		  erases          removes or zeroes the node's own UICorner while a record
+		                  may exist — so it MUST clear the record in the same block,
+		                  which the balance check below enforces
+		  releases        `applyCorners`' nil branch tearing the corner down. It is
+		                  reached only inside `if restored == nil`, i.e. only when no
+		                  chrome owner ever claimed the child, so there is nothing
+		                  to clear
 		  prop            `applyCorners`' own authored-`corners` write — the PROP,
 		                  which must never record or the next nil write would
 		                  restore the value it is releasing
 		  not-own-child   paints some OTHER instance's corner (the toggle's real
-		                  track/knob children, the focus-ring float, a decoration
-		                  mask, a capability probe) — `applyCorners` never sees these
-		  suppression     the skinned-node override, which zeroes whatever corner is
-		                  there and records nothing on purpose: it also sets
-		                  `BackgroundTransparency = 1`, so the radius it writes paints
-		                  nothing and restoring the chrome value under it is a no-op
+		                  track/knob children, the focus ring's float and the read
+		                  of the host corner it mirrors, a decoration mask) —
+		                  `applyCorners` never sees these
+		  probe           a capability probe instance, destroyed on the next line
+		  paint-guard     `assertBespokePaint("CornerRadius")`: the native-mode
+		                  refusal, which writes no radius and owns no instance
+		  suppression     the skinned-node override's zero write. It records
+		                  nothing on purpose — its own selector is the `erases`
+		                  entry that clears the record for it
 
-		SET, not count and not line numbers: two identical calls in one file are one
-		entry, because the classification is a property of the CALL, not of where it
-		sits. ]]
+		SET, not line numbers: two identical calls in one function are one entry,
+		because the classification is a property of the CALL, not of where it sits.
+		The eraser balance is the one check that counts OCCURRENCES, and it says
+		there why. ]]
 	it("every UICorner site in src/client/ is classified, and the recorders are all of them", function()
-		-- bucket per (file, normalised call text). Text is the statement with its
-		-- indentation, trailing comment and inner whitespace runs normalised away.
+		-- bucket per (file, enclosing function, normalised call text). Text is the
+		-- statement with its indentation, trailing comment and inner whitespace
+		-- runs normalised away.
 		local CLASSIFIED: { [string]: string } = {
 			-- ===== screen_paint.luau =========================================
 			-- `corner()` is the ONE materialiser for every surface, the bare
 			-- circle and `wireInteractiveStates` — so it is the one recorder.
-			['screen_paint.luau|local uiCorner = Instance.new("UICorner")'] = "records",
-			["screen_paint.luau|uiCorner.CornerRadius = resolved"] = "records",
-			["screen_paint.luau|handle.chromeCornerRadius = resolved"] = "record-write",
-			["screen_paint.luau|corner(instance, style.radii.panel, nil, handle)"] = "records",
-			["screen_paint.luau|corner(instance, style.radii.control, nil, handle)"] = "records",
-			["screen_paint.luau|corner(button, style.radii.control, nil, handle)"] = "records",
+			['screen_paint.luau|corner|assertBespokePaint("CornerRadius")'] = "paint-guard",
+			['screen_paint.luau|corner|local uiCorner = Instance.new("UICorner")'] = "records",
+			["screen_paint.luau|corner|uiCorner.CornerRadius = resolved"] = "records",
+			["screen_paint.luau|corner|handle.chromeCornerRadius = resolved"] = "record-write",
+			["screen_paint.luau|applySurface|corner(instance, style.radii.panel, nil, handle)"] = "records",
+			["screen_paint.luau|applySurface|corner(instance, style.radii.control, nil, handle)"] = "records",
+			["screen_paint.luau|wireInteractiveStates|corner(button, style.radii.control, nil, handle)"] = "records",
+			-- the bare tinted circle, and the read that decides it needs a corner
+			['screen_paint.luau|applyTint|if instance:FindFirstChildOfClass("UICorner") == nil then'] = "records",
+			["screen_paint.luau|applyTint|corner(instance, style.radii.control, nil, handle)"] = "records",
 			-- ...and `applySurface`'s badge branch, the one surface that builds
 			-- its own circle instead of calling `corner()`
-			['screen_paint.luau|local circle = Instance.new("UICorner")'] = "records",
-			["screen_paint.luau|circle.CornerRadius = UDim.new(0.5, 0)"] = "records",
-			["screen_paint.luau|handle.chromeCornerRadius = UDim.new(0.5, 0)"] = "record-write",
+			['screen_paint.luau|applySurface|local circle = Instance.new("UICorner")'] = "records",
+			["screen_paint.luau|applySurface|circle.CornerRadius = UDim.new(0.5, 0)"] = "records",
+			["screen_paint.luau|applySurface|handle.chromeCornerRadius = UDim.new(0.5, 0)"] = "record-write",
+			-- `plain` and `scrim` REMOVE the node's own corner. The selector is the
+			-- site (`child:Destroy()` names no class), and each of those two loops
+			-- clears the record in its own block — counted, not just present.
+			['screen_paint.luau|applySurface|if child:IsA("UICorner") then'] = "erases",
+			["screen_paint.luau|applySurface|handle.chromeCornerRadius = nil"] = "record-clear",
 			-- the toggle knob/track assembly: real CHILDREN of the node, passed
 			-- no handle at all, and never the child `applyCorners` writes into
-			["screen_paint.luau|corner(track, style.radii.pill, true)"] = "not-own-child",
-			["screen_paint.luau|corner(knob, style.radii.pill, true)"] = "not-own-child",
+			["screen_paint.luau|buildToggleVisual|corner(track, style.radii.pill, true)"] = "not-own-child",
+			["screen_paint.luau|buildToggleVisual|corner(knob, style.radii.pill, true)"] = "not-own-child",
 			-- `applyCorners` itself: the restore reads the record, the authored
 			-- path writes the PROP and records nothing
-			['screen_paint.luau|local uiCorner = instance:FindFirstChildOfClass("UICorner") or Instance.new("UICorner")'] = "prop",
-			["screen_paint.luau|uiCorner.CornerRadius = restored"] = "updates-record",
-			["screen_paint.luau|uiCorner.CornerRadius = UDim.new(0, corners.radius)"] = "prop",
-			["screen_paint.luau|uiCorner.CornerRadius = UDim.new(0, top)"] = "prop",
+			['screen_paint.luau|applyCorners|local restored = if type(handle) == "table" then handle.chromeCornerRadius else nil'] = "record-read",
+			['screen_paint.luau|applyCorners|local existing = instance:FindFirstChildOfClass("UICorner")'] = "releases",
+			['screen_paint.luau|applyCorners|local uiCorner = instance:FindFirstChildOfClass("UICorner") or Instance.new("UICorner")'] = "prop",
+			["screen_paint.luau|applyCorners|uiCorner.CornerRadius = restored"] = "updates-record",
+			["screen_paint.luau|applyCorners|uiCorner.CornerRadius = UDim.new(0, corners.radius)"] = "prop",
+			["screen_paint.luau|applyCorners|uiCorner.CornerRadius = UDim.new(0, top)"] = "prop",
 			-- ===== screen_chrome.luau ========================================
 			-- the value-control slots' own fallback paint (SLOT_ROUND_FALLBACK)
-			['screen_chrome.luau|local uiCorner = instance:FindFirstChildOfClass("UICorner") or Instance.new("UICorner")'] = "records",
-			["screen_chrome.luau|uiCorner.CornerRadius = slotRadius"] = "records",
-			["screen_chrome.luau|handle.chromeCornerRadius = slotRadius"] = "record-write",
-			-- the skinned override
-			["screen_chrome.luau|(child :: UICorner).CornerRadius = UDim.new(0, 0)"] = "suppression",
+			['screen_chrome.luau|applySlotNativePaint|local uiCorner = instance:FindFirstChildOfClass("UICorner") or Instance.new("UICorner")'] = "records",
+			["screen_chrome.luau|applySlotNativePaint|uiCorner.CornerRadius = slotRadius"] = "records",
+			["screen_chrome.luau|applySlotNativePaint|handle.chromeCornerRadius = slotRadius"] = "record-write",
+			-- the skinned override: its selector erases (the art replaces the
+			-- chrome), so the same block gives the record up
+			['screen_chrome.luau|applySkinnedSuppression|if child:IsA("UICorner") then'] = "erases",
+			["screen_chrome.luau|applySkinnedSuppression|(child :: UICorner).CornerRadius = UDim.new(0, 0)"] = "suppression",
+			["screen_chrome.luau|applySkinnedSuppression|handle.chromeCornerRadius = nil"] = "record-clear",
 			-- a decoration layer's own mask instance, and the toggle parts again
-			['screen_chrome.luau|local corner = Instance.new("UICorner")'] = "not-own-child",
-			["screen_chrome.luau|corner.CornerRadius = UDim.new(0.5, 0)"] = "not-own-child",
-			["screen_chrome.luau|(child :: UICorner).CornerRadius = if skinned then UDim.new(0, 0) else UDim.new(0, style.radii.pill)"] = "not-own-child",
+			['screen_chrome.luau|buildChromeStack|local corner = Instance.new("UICorner")'] = "not-own-child",
+			["screen_chrome.luau|buildChromeStack|corner.CornerRadius = UDim.new(0.5, 0)"] = "not-own-child",
+			['screen_chrome.luau|setTogglePartChrome|if child:IsA("UICorner") then'] = "not-own-child",
+			["screen_chrome.luau|setTogglePartChrome|(child :: UICorner).CornerRadius = if skinned then UDim.new(0, 0) else UDim.new(0, style.radii.pill)"] = "not-own-child",
 			-- ===== screen_props.luau =========================================
 			-- the `shape` write re-radiuses whatever corner is already there
-			["screen_props.luau|(child :: UICorner).CornerRadius = reshaped"] = "updates-record",
-			["screen_props.luau|handle.chromeCornerRadius = reshaped"] = "record-write",
+			['screen_props.luau|setProp|assertBespokePaint("CornerRadius")'] = "paint-guard",
+			['screen_props.luau|setProp|if child:IsA("UICorner") then'] = "updates-record",
+			["screen_props.luau|setProp|(child :: UICorner).CornerRadius = reshaped"] = "updates-record",
+			["screen_props.luau|setProp|if handle.chromeCornerRadius ~= nil then"] = "record-read",
+			["screen_props.luau|setProp|handle.chromeCornerRadius = reshaped"] = "record-write",
 			-- ===== screen_target.luau ========================================
 			-- a per-corner-radii capability probe, destroyed on the next line
-			['screen_target.luau|local probe = Instance.new("UICorner")'] = "not-own-child",
+			['screen_target.luau|hasPerCornerRadii|local probe = Instance.new("UICorner")'] = "probe",
 			-- the focus ring's FLOAT: its own instance, mirroring the node's
-			['screen_target.luau|floatCorner = Instance.new("UICorner")'] = "not-own-child",
-			["screen_target.luau|(floatCorner :: UICorner).CornerRadius = realCorner.CornerRadius"] = "not-own-child",
-			["screen_target.luau|(floatCorner :: UICorner).CornerRadius = radius"] = "not-own-child",
+			['screen_target.luau|adapter.setFocusVisual|local realCorner = host:FindFirstChildOfClass("UICorner")'] = "not-own-child",
+			['screen_target.luau|adapter.setFocusVisual|local floatCorner = float:FindFirstChildOfClass("UICorner")'] = "not-own-child",
+			["screen_target.luau|adapter.setFocusVisual|(floatCorner :: UICorner).CornerRadius = realCorner.CornerRadius"] = "not-own-child",
+			['screen_target.luau|adapter.setFocusVisual|floatCorner = Instance.new("UICorner")'] = "not-own-child",
+			["screen_target.luau|adapter.setFocusVisual|(floatCorner :: UICorner).CornerRadius = radius"] = "not-own-child",
 		}
 
 		local function stripComments(source: string): string
@@ -474,8 +531,26 @@ describe("W1b: the adapter tears a style modifier down instead of crashing on ni
 			text = string.gsub(text, "%s+", " ")
 			return string.match(text, "^%s*(.-)%s*$") :: string
 		end
+		-- the function a line sits in, tracked as the walk goes: a named
+		-- declaration (`local function f(`, `function adapter.f(`, `function f<T>(`)
+		-- or an assigned one (`f = function(`, `local f = (function(`). A callback
+		-- declared inside one keeps that function's name, which is what the key
+		-- wants — the callback is part of the same site.
+		local function enclosingFunction(line: string, current: string): string
+			local named = string.match(line, "function%s+([%w_%.:]+)%s*[<(]")
+			if named ~= nil then
+				return named
+			end
+			local assigned = string.match(line, "^%s*local%s+([%w_]+)%s*=%s*%(?function%s*%(")
+				or string.match(line, "^%s*([%w_]+)%s*=%s*%(?function%s*%(")
+			if assigned ~= nil then
+				return assigned
+			end
+			return current
+		end
 
-		local seen: { [string]: boolean } = {}
+		-- COUNTED, not just collected: the balance check below needs occurrences.
+		local seen: { [string]: number } = {}
 		local files = 0
 		for _, path in src_tree.paths() do
 			local file = string.match(path, "^src/client/([%w_]+%.luau)$")
@@ -483,19 +558,22 @@ describe("W1b: the adapter tears a style modifier down instead of crashing on ni
 				continue
 			end
 			files += 1
+			local fn = "?"
 			for line in string.gmatch(stripComments(fs.readFile(path)) .. "\n", "(.-)\n") do
-				local isSite = string.find(line, 'Instance.new("UICorner")', 1, true) ~= nil
+				fn = enclosingFunction(line, fn)
+				local isSite = string.find(line, "UICorner", 1, true) ~= nil
+					or string.find(line, "CornerRadius", 1, true) ~= nil
 					or string.find(line, "corner(", 1, true) ~= nil
-					or string.find(line, "%.CornerRadius%s*=") ~= nil
-					or string.find(line, "chromeCornerRadius%s*=") ~= nil
 				if isSite then
-					seen[`{file}|{normalise(line)}`] = true
+					local entry = `{file}|{fn}|{normalise(line)}`
+					seen[entry] = (seen[entry] or 0) + 1
 				end
 			end
 		end
-		-- the walk really reached the directory (a zero-file walk classifies
-		-- everything by classifying nothing)
-		expect(files >= 4).toBe(true)
+		-- the walk really reached the directory: `src/client/` holds 26 modules and
+		-- every classified entry lives in four of them, so a path filter that
+		-- regressed to those four has to fail here rather than pass
+		expect(files >= 20).toBe(true)
 
 		local unclassified: { string } = {}
 		for entry in seen do
@@ -515,21 +593,72 @@ describe("W1b: the adapter tears a style modifier down instead of crashing on ni
 		table.sort(stale)
 		expect(`classified but absent: {table.concat(stale, " ~ ")}`).toBe("classified but absent: ")
 
-		-- ...and the RECORDERS are the three the mechanism names: `corner()`,
-		-- the badge branch, `applySlotNativePaint`. Counted through the
-		-- `record-write` bucket, which is the write that makes a site a recorder.
-		local recordWrites: { string } = {}
-		for entry, bucket in CLASSIFIED do
-			if bucket == "record-write" then
-				table.insert(recordWrites, entry)
+		--[[ EVERY ERASER CLEARS THE RECORD, IN THE SAME FILE AND IN THE SAME
+			NUMBER (T8 R4). This is the one check that counts OCCURRENCES rather
+			than distinct text: `applySurface` holds TWO identical destroy loops
+			(`plain` and `scrim`) and two identical clears, so a set comparison
+			would let one clear be deleted and hide behind the other. ]]
+		local erases: { [string]: number } = {}
+		local clears: { [string]: number } = {}
+		for entry, count in seen do
+			local file = string.match(entry, "^([^|]+)|") :: string
+			local bucket = CLASSIFIED[entry]
+			if bucket == "erases" then
+				erases[file] = (erases[file] or 0) + count
+			elseif bucket == "record-clear" then
+				clears[file] = (clears[file] or 0) + count
 			end
 		end
-		table.sort(recordWrites)
-		expect(recordWrites).toEqual({
-			"screen_chrome.luau|handle.chromeCornerRadius = slotRadius",
-			"screen_paint.luau|handle.chromeCornerRadius = UDim.new(0.5, 0)",
-			"screen_paint.luau|handle.chromeCornerRadius = resolved",
-			"screen_props.luau|handle.chromeCornerRadius = reshaped",
+		local eraserFiles: { [string]: boolean } = {}
+		for file in erases do
+			eraserFiles[file] = true
+		end
+		for file in clears do
+			eraserFiles[file] = true
+		end
+		local imbalance: { string } = {}
+		local totalErases, totalClears = 0, 0
+		for file in eraserFiles do
+			local eraseCount = erases[file] or 0
+			local clearCount = clears[file] or 0
+			totalErases += eraseCount
+			totalClears += clearCount
+			if eraseCount ~= clearCount then
+				table.insert(imbalance, `{file} {eraseCount} erase / {clearCount} clear`)
+			end
+		end
+		table.sort(imbalance)
+		expect(`erasers vs record clears: {table.concat(imbalance, " ~ ")}`).toBe("erasers vs record clears: ")
+		expect(totalErases).toBe(totalClears)
+
+		-- ...and the RECORDERS are the three the mechanism names: `corner()`,
+		-- the badge branch, `applySlotNativePaint`; the ERASERS are the two that
+		-- remove the node's own corner, each with its clear. Counted through the
+		-- buckets that make a site what it is, so none can be quietly dropped
+		-- while the call it belongs to stays.
+		local function bucketKeys(bucket: string): { string }
+			local out: { string } = {}
+			for entry, value in CLASSIFIED do
+				if value == bucket then
+					table.insert(out, entry)
+				end
+			end
+			table.sort(out)
+			return out
+		end
+		expect(bucketKeys("record-write")).toEqual({
+			"screen_chrome.luau|applySlotNativePaint|handle.chromeCornerRadius = slotRadius",
+			"screen_paint.luau|applySurface|handle.chromeCornerRadius = UDim.new(0.5, 0)",
+			"screen_paint.luau|corner|handle.chromeCornerRadius = resolved",
+			"screen_props.luau|setProp|handle.chromeCornerRadius = reshaped",
+		})
+		expect(bucketKeys("erases")).toEqual({
+			'screen_chrome.luau|applySkinnedSuppression|if child:IsA("UICorner") then',
+			'screen_paint.luau|applySurface|if child:IsA("UICorner") then',
+		})
+		expect(bucketKeys("record-clear")).toEqual({
+			"screen_chrome.luau|applySkinnedSuppression|handle.chromeCornerRadius = nil",
+			"screen_paint.luau|applySurface|handle.chromeCornerRadius = nil",
 		})
 	end)
 

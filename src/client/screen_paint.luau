@@ -550,9 +550,9 @@ function screen_paint.new(ctx: any)
 	-- surface's corner, the bare-circle fallback's corner AND
 	-- `wireInteractiveStates`' corner, so there is one place to record and no
 	-- table of mirrored radii to keep in step. A caller that passes NO handle
-	-- (the toggle track/knob, `:1183`/`:1212`) is painting a real CHILD's own
-	-- corner, not the node's — it records nothing, and `applyCorners` never sees
-	-- those instances.
+	-- (the toggle track/knob, painted by `buildToggleVisual`'s two `corner()`
+	-- calls) is painting a real CHILD's own corner, not the node's — it records
+	-- nothing, and `applyCorners` never sees those instances.
 	corner = function(instance: Instance, radius: number, sanctionedOverride: boolean?, handle: any?)
 		if not sanctionedOverride then
 			assertBespokePaint("CornerRadius")
@@ -889,6 +889,15 @@ function screen_paint.new(ctx: any)
 					child:Destroy()
 				end
 			end
+			-- AN ERASER CLEARS THE RECORD (T8 R4). `handle.chromeCornerRadius`
+			-- means "the radius this instance's own UICorner is wearing because a
+			-- chrome owner put it there" (`corner()` above), and the loop that just
+			-- ran removed that child: leaving the record standing would let a
+			-- sibling reactive `corners` crossing to nil RESURRECT a corner this
+			-- surface exists to have none of.
+			if handle ~= nil then
+				handle.chromeCornerRadius = nil
+			end
 			-- explicit, not merely "left unset": `surface` is reactively
 			-- authorable, and a Button that ever wore `scrim` (which DOES set
 			-- this true, below) before flipping to `plain` must not inherit
@@ -933,6 +942,11 @@ function screen_paint.new(ctx: any)
 				end
 			end
 			if handle ~= nil then
+				-- the same eraser rule as `plain` above, and it MATTERS more here:
+				-- a scrim's fill is the one background in this vocabulary that is
+				-- neither 0 nor 1, so a resurrected corner is visibly rounded rather
+				-- than merely an instance nobody asked for.
+				handle.chromeCornerRadius = nil
 				handle.suppressStates = true
 			end
 		end
@@ -942,7 +956,7 @@ function screen_paint.new(ctx: any)
 		-- each case, so no future surface can quietly reintroduce the border the
 		-- director asked us to remove.
 		if handle ~= nil and handle.chrome ~= nil then
-			applySkinnedSuppression(instance, true)
+			applySkinnedSuppression(instance, true, handle)
 		end
 	end
 

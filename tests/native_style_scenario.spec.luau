@@ -482,7 +482,7 @@ describe("screen_target: a value control's own paint (source contract)", functio
 	it("it paints BEFORE the skinned suppression, never after", function()
 		local sync = section("function syncChrome(handle: any)", "syncChromeText(handle, deco")
 		local paintAt = string.find(sync, "applySlotNativePaint(instance, slot, handle)", 1, true)
-		local suppressAt = string.find(sync, "applySkinnedSuppression(instance, true)", 1, true)
+		local suppressAt = string.find(sync, "applySkinnedSuppression(instance, true, handle)", 1, true)
 		expect(paintAt ~= nil and suppressAt ~= nil).toBe(true)
 		expect((paintAt :: number) < (suppressAt :: number)).toBe(true)
 	end)

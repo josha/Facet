@@ -1070,16 +1070,16 @@ describe("screen_target: the bar assembly is materialized as rs-m4 measured", fu
 		local sync = section("applySlotNativePaint(instance, slot, handle)", "\n\treturn {")
 		expect(
 			at(sync, "applySlotNativePaint(instance, slot, handle)")
-				< at(sync, "applySkinnedSuppression(instance, true)")
+				< at(sync, "applySkinnedSuppression(instance, true, handle)")
 		).toBe(true)
 		-- the fill's own branch returns early, so it carries its own pair
 		local fill = section('elseif slot == "barFill" then', "if stack ~= nil then")
-		expect(has(fill, "applySkinnedSuppression(instance, true)")).toBe(true)
+		expect(has(fill, "applySkinnedSuppression(instance, true, handle)")).toBe(true)
 		-- ...and the suppression is keyed on the node being SKINNED, never on the
 		-- package declaring a recipe: a rung-2 override takes the decoration
 		-- branch with `plan.localOverride`, and that branch suppresses too
 		local deco = section("-- run on EVERY sync, not only at creation", "syncChromeText(handle, deco :: ImageLabel")
-		expect(has(deco, "applySkinnedSuppression(instance, true)")).toBe(true)
+		expect(has(deco, "applySkinnedSuppression(instance, true, handle)")).toBe(true)
 		-- and it is a NO-OP in native mode, where an explicit write would defeat
 		-- the rule it duplicates
 		local suppress = section("local function applySkinnedSuppression", "-- ===== SEMANTIC ICONS")

@@ -332,7 +332,7 @@ function screen_chrome.new(ctx: Context)
 	-- target with no StyleSheets the adapter writes the same three suppressions
 	-- itself, so a parchment button reads identically on both paths instead of
 	-- sitting inside a leftover Studio-Neutral slab.
-	local function applySkinnedSuppression(instance: GuiObject, on: boolean)
+	local function applySkinnedSuppression(instance: GuiObject, on: boolean, handle: any?)
 		if nativeMode then
 			return -- the rules own it; an explicit write here would defeat them
 		end
@@ -345,6 +345,16 @@ function screen_chrome.new(ctx: Context)
 					(child :: UIStroke).Thickness = 0
 					(child :: UIStroke).Transparency = 1
 				end
+			end
+			-- AN ERASER CLEARS THE RECORD (T8 R4), the same rule `applySurface`'s
+			-- `plain`/`scrim` destroy loops follow. A suppressed node wears NO
+			-- chrome radius — the loop above just zeroed whatever `corner()` or
+			-- `applySlotNativePaint` painted — so a later nil `corners` must tear
+			-- that zeroed child down, not restore the radius the art replaced.
+			-- The handle is optional only so this stays callable from a site that
+			-- has none; every caller today passes one.
+			if handle ~= nil then
+				handle.chromeCornerRadius = nil
 			end
 		end
 	end
@@ -2378,7 +2388,7 @@ function screen_chrome.new(ctx: Context)
 				syncTags(handle)
 			end
 			if plan ~= nil then
-				applySkinnedSuppression(instance, true)
+				applySkinnedSuppression(instance, true, handle)
 				syncBarFallback(handle)
 			end
 			syncChromeShadow(
@@ -2397,7 +2407,7 @@ function screen_chrome.new(ctx: Context)
 				handle.chromeSlot = slot
 				syncTags(handle)
 			end
-			applySkinnedSuppression(instance, true)
+			applySkinnedSuppression(instance, true, handle)
 			-- the lift rides above the WHOLE ladder; the stack's own contentInsets
 			-- box it exactly as a nine-slice recipe's do
 			syncChromeText(handle, nil, stack, chrome_slots.liftZIndexFor(stack))
@@ -2500,7 +2510,7 @@ function screen_chrome.new(ctx: Context)
 		-- run on EVERY sync, not only at creation: several construction paths
 		-- (applySurface, the TextField branch's own hairline()) paint a plate
 		-- after the decoration already exists, and a re-suppression is idempotent
-		applySkinnedSuppression(instance, true)
+		applySkinnedSuppression(instance, true, handle)
 		syncChromeText(handle, deco :: ImageLabel, plan, 1)
 		syncChromeShadow(handle, slot, deco, chromeState.shadowFor(slot :: string))
 		-- rung-2 PER-STATE ART. An overridden
