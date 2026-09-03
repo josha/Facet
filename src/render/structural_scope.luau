@@ -201,6 +201,9 @@
 	second, and the first attempt used the first — which proved nothing, and said so.
 ]]
 
+local paths = require("../paths")
+local isPrefix = paths.isPrefix
+
 local structural_scope = {}
 
 --[[ THE OFFER-FREE HALF OF `axisAbsorbs` (`layout/measure_facts.luau`). That
@@ -428,6 +431,144 @@ end
 	finding one solve longer than it deserves, which is a stale diagnostic that heals
 	itself. The failure this exists to prevent is the other one — a finding whose node
 	is gone for good, replayed on every frame for the life of the surface. ]]
+--[[ ── THE ROOTS OF A STRUCTURAL SYNC (wicked-fast O6) ──────────────────────
+
+	The other half of "a structural change is not a whole-tree event". Everything
+	above answers *how small a SOLVE a structural change needs*; these two answer
+	*how small a SYNC it needs* — which subtrees `renderer.luau` has to re-walk to
+	rebuild the five per-path maps `livePaths` owns, and which paths those subtrees
+	held before the walk.
+
+	WHY THE DELTA IS ENOUGH. `mount.luau` pushes every `structure` entry against the
+	path of the container whose `node.children` it just mutated — never against the
+	child that moved — so a structure entry names exactly the subtree that changed,
+	and everything outside those subtrees is unchanged BY CONSTRUCTION. And the maps
+	are all inherited-from-the-parent or per-node facts (`scrollHostOf`, `clipHostOf`,
+	`parentNodeOf`, `pathNodes`, `inputSinks`), so a subtree re-derives from its
+	root's own recorded pair plus the nodes themselves.
+
+	WHY THIS LIVES HERE RATHER THAN IN THE RENDERER. It is the same question this
+	module already answers, asked of a different phase — and `renderer.luau` is the
+	file with the least Source-write headroom in `src/`. Both functions are PURE
+	functions of their arguments: they read no state of their caller, hold none of
+	their own, and reach for nothing in `render/`, which is what keeps this one-way. ]]
+
+--[[ The mounted roots this sync has to re-walk, resolved against the CURRENT tree,
+	plus the number of nodes the resolution itself looked at.
+
+	`nil` means REFUSE — take the whole tree, which is what `renderer.attach`'s
+	`initialRender` does unconditionally and what any delta this cannot bound falls
+	back to. ONE THING MAKES A DELTA UNBOUNDABLE, stated rather than implied: an entry
+	whose path is not both MOUNTED (something was walked there, so there is a recorded
+	seed and a recorded membership) and RESOLVABLE in the current tree — unless another
+	entry strictly covers it, which is the ordinary case described below.
+
+	AN ANCESTOR DOES NOT SWALLOW A DESCENDANT, which the first draft of this function
+	had backwards. The caller's walk SKIPS a child whose node object and inherited
+	pair are both unchanged, so an ancestor's walk may never reach a descendant root
+	at all — a nested `ForEach` keeps its node object while `mount.luau` replaces its
+	`children` in place. Collapsing the descendant away would have made exactly that
+	change invisible. Two roots on one chain cost a second walk of a subtree, which is
+	work; dropping one costs correctness.
+
+	AND A SECOND CLASS OF ENTRY IS A ROOT: one whose PROP is a fact the caller's walk
+	reads off a node rather than off the tree. There is exactly one — `active`, the
+	input-sinking flag — because the other two the walk reads (`clipChildren`,
+	`expandTarget`) are `reactive = false` in the schema and cannot move after
+	construction. Without it, a backdrop that stops sinking keeps its entry through
+	every later sync, since `active` is `semantics`-classed and schedules no sync of
+	its own.
+
+	THE DESCENT IS THE POINT OF THE SIGNATURE. `renderer.luau`'s `findNode` is a
+	whole-tree DFS — one of the very walks this bound exists to stop paying — so a
+	root is resolved by following the one child per level whose path is a prefix of
+	the target. Every node it looks at is RETURNED in the count, so a descent through
+	a wide level shows up in `stats.lastSsVisited` instead of hiding underneath it. ]]
+-- the one prop the caller's live-path walk reads off a node and that can still move
+-- (see the note above): `clipChildren` and `expandTarget` are `reactive = false`
+local NODE_FACT_PROPS: { [string]: boolean } = { active = true }
+
+function structural_scope.roots(
+	dirty: { any },
+	rootNode: any,
+	mounted: { [string]: any }
+): ({ { path: string, node: any } }?, number)
+	local paths: { string } = {}
+	local seen: { [string]: boolean } = {}
+	for _, entry in dirty do
+		if entry.class ~= "structure" and not NODE_FACT_PROPS[entry.prop] then
+			continue
+		end
+		local path = entry.path
+		if type(path) ~= "string" then
+			return nil, 0
+		end
+		if not seen[path] then
+			seen[path] = true
+			table.insert(paths, path)
+		end
+	end
+	if #paths == 0 then
+		return nil, 0
+	end
+	local visited = 0
+	local out: { { path: string, node: any } } = {}
+	for _, path in paths do
+		local node: any = if mounted[path] ~= nil then rootNode else nil
+		while node ~= nil and node.path ~= path do
+			local found: any = nil
+			for _, child in node.children do
+				visited += 1
+				if isPrefix(child.path, path) then
+					found = child
+					break
+				end
+			end
+			node = found
+		end
+		if node == nil then
+			--[[ NOT A ROOT, AND USUALLY NOT A PROBLEM. Two ordinary things put a path
+				here: a container that MOUNTED this frame (a `ForEach` fills its children on
+				its first run and pushes for itself, before anything has a handle) and one
+				that LEFT (a region inside a removed subtree fires on its way out). Either
+				way the change is inside some other entry's subtree, so it is skipped when
+				another entry STRICTLY covers it — and only then. The topmost entry can
+				never be covered, so an unresolvable one there still takes the whole tree. ]]
+			local covered = false
+			for _, other in paths do
+				if other ~= path and isPrefix(other, path) then
+					covered = true
+					break
+				end
+			end
+			if not covered then
+				return nil, visited
+			end
+			continue
+		end
+		table.insert(out, { path = path, node = node })
+	end
+	if #out == 0 then
+		return nil, visited
+	end
+	return out, visited
+end
+
+--[[ `path` and everything that was under it at the last walk, appended to `out`,
+	read out of the renderer's per-parent index. This is how a DEPARTED subtree gets
+	named: by the time the sweep runs those nodes are gone from the tree, so the index
+	is the only thing that still knows what they were. ]]
+function structural_scope.subtreeOf(childNodesOf: { [string]: { [string]: any } }, path: string, out: { string })
+	table.insert(out, path)
+	local kids = childNodesOf[path]
+	if kids == nil then
+		return
+	end
+	for child in kids do
+		structural_scope.subtreeOf(childNodesOf, child, out)
+	end
+end
+
 function structural_scope.sweepDiagnostics(result: any)
 	local list = result.diagnostics
 	if list == nil or #list == 0 then

@@ -787,6 +787,15 @@ require("./tap_arm_seam.spec")
 	== PASSED, the single writer of `disposed`, that the renderer kept no copy and no
 	second `adapter.measureTextWidths` caller, and the three accessors driven ]]
 require("./premeasure_round_seam.spec")
+--[[ O6 (wicked-fast T7): the STRUCTURAL SYNC takes the delta `refresh` already
+	holds. `ensureTree`, `livePaths` and the removal sweep stop being whole-tree; the
+	five per-path maps go per-subtree with the old membership snapshotted from the
+	per-parent index first, `pathNodeCount` is decremented rather than zeroed, and an
+	unbounded delta falls back to the whole tree and says so via `ssFullPasses`. The
+	oracle is differential against a forced from-scratch sync at all nine device
+	views, and two cases exist only to see the facts a rect oracle cannot: an erased
+	scroll host and an emptied `pathNodes`/`pathNodeCount` pair ]]
+require("./structural_incremental.spec")
 -- row actions: pure swipe state decisions for row-action composites
 require("./row_actions_state.spec")
 -- row actions: the newRowActions composite skeleton (spec, lazy trays, static reveal)

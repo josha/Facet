@@ -345,6 +345,10 @@ function renderer.attach(
 	local clipHostOf: { [string]: string } = {}
 	local pathNodes: { [string]: boolean } = {}
 	local pathNodeCount = 0
+	-- parent path -> its children's paths AND THE NODE OBJECTS THEY WERE (O6): it names
+	-- a departed subtree, and it is the identity half of the walk's skip test.
+	-- Containers only. `tests/structural_incremental.spec.luau` carries the argument.
+	local childNodesOf: { [string]: { [string]: any } } = {}
 	-- what the SOLVER decided about each node's visibility, so the scroll-time
 	-- re-cull never contradicts it (a path inside a losing ViewThatFits candidate
 	-- stays hidden however its rect lands)
@@ -629,6 +633,12 @@ function renderer.attach(
 		-- the pass was believed to be O(all live nodes), and it is not — the no-op walk
 		-- is ~6% of it and the rest is per-NEW-NODE setup. Kept so that stays visible.
 		ssTotal = 0,
+		-- ...and the syncs that could NOT be bounded and took the whole tree (O6),
+		-- cumulative like the ms above, so a fixture that always falls back says so.
+		ssFullPasses = 0,
+		-- ...and the NODES the last sync touched. `last*` not `ss*`: the whole `ss`
+		-- family is cumulative ms, same rule as `lastCommitVisits`.
+		lastSsVisited = 0,
 		lastSkipped = 0,
 		-- ...and the SAME number published UNCONDITIONALLY (wicked-fast O3), because
 		-- `lastSkipped` above is written only when it is > 0 and is therefore stale by
@@ -969,7 +979,8 @@ function renderer.attach(
 	local captureParkedProps: (path: string) -> any
 	local restoreParkedProps: (path: string, carried: any) -> ()
 
-	local function ensureTree(node: any)
+	local function ensureTree(node: any, bounded: boolean?)
+		stats.lastSsVisited += 1
 		if handles[node.path] == nil then
 			-- THE LIFETIME BOOKKEEPING, first, so it is impossible to reach a `return`
 			-- or an adapter refusal below without it. `props.onDisappear` is captured
@@ -1428,8 +1439,14 @@ function renderer.attach(
 				applyProp(handles[node.path], node, "tint")
 			end
 		end
+		-- THE IDENTITY SKIP (O6), the create half: same node object plus a handle means
+		-- the subtree already has handles, because a node cannot be added under it
+		-- without some ancestor's `children` being replaced — which is its own root.
+		local was = if bounded then childNodesOf[node.path] else nil
 		for _, child in node.children do
-			ensureTree(child)
+			if was == nil or was[child.path] ~= child or handles[child.path] == nil then
+				ensureTree(child, bounded)
+			end
 		end
 	end
 
@@ -1437,16 +1454,21 @@ function renderer.attach(
 	-- nearest-scroll-host map `screenRectOf` needs. Threading the host down the
 	-- recursion is free here and costs a whole-tree search per hit-test if it is
 	-- computed on demand instead.
-	local function livePaths(node: any, set: { [string]: boolean }, host: string?, clip: string?)
+	local function livePaths(node: any, set: { [string]: boolean }, host: string?, clip: string?, departed: { string }?)
+		stats.lastSsVisited += 1
 		set[node.path] = true
 		scrollHostOf[node.path] = host
 		clipHostOf[node.path] = clip
 		-- ...and the stroked-path census (RS-PATHCLIP): the cull runs over this
 		-- set, so a surface with no `UI.Path` never pays for the rule existing.
-		if node.class == "Path" then
-			pathNodes[node.path] = true
-			pathNodeCount += 1
+		-- WRITTEN UNCONDITIONALLY, INCLUDING THE nil (O6), so one code path serves both
+		-- passes; the count follows by DELTA and is never zeroed. Both are LATCHES, not
+		-- values, and the spec above drives what a half-rebuilt pair silently opens.
+		local isPath = node.class == "Path"
+		if isPath ~= (pathNodes[node.path] ~= nil) then
+			pathNodeCount += if isPath then 1 else -1
 		end
+		pathNodes[node.path] = isPath or nil
 		--[[ ...and the census the overhang lift resolves against (`hit_lift`):
 			which paths can actually SINK a press. Collected on this walk for the same
 			reason the two above are — it is free here, and a whole-tree search per
@@ -1460,12 +1482,16 @@ function renderer.attach(
 			refuses to lift one expander over another. A framework affordance is a KEY
 			WITH A FALSE VALUE, so never write `if inputSinks[path] then`: ask
 			`inputSinks[path] == true` for "the author's", or iterate for "any". ]]
+		-- ...and the same unconditional write: `active` is reactive, so a backdrop that
+		-- stops sinking has to LOSE its entry here.
 		if INPUT_SINKING[node.class] or (node.props ~= nil and node.props.active == true) then
 			-- framework-declared today means the ONE prop the schema documents that
 			-- way (`expandTarget`, the region's expand affordance, which authors
 			-- never write). A second synthesized affordance joins by being named
 			-- here, and R23 is the ruling that decides whether it should.
 			inputSinks[node.path] = node.props == nil or node.props.expandTarget == nil
+		else
+			inputSinks[node.path] = nil
 		end
 		local nextHost = if node.class == "ScrollView" then node.path else host
 		-- a ScrollView is a clip host by construction (the adapter mounts a real
@@ -1474,9 +1500,39 @@ function renderer.attach(
 				or (node.props ~= nil and node.props.clipChildren == true)
 			then node.path
 			else clip
-		for _, child in node.children do
-			parentNodeOf[child.path] = node
-			livePaths(child, set, nextHost, nextClip)
+		--[[ THE PER-PARENT INDEX, THE SKIP AND THE DEPARTURES — one pass, because they are
+			one comparison against `was`, this node's children at the last walk. Same node
+			object AND same inherited pair means the child's subtree already holds these
+			facts; a `was` path missing from the new set is a departure the index can still
+			expand. `departed == nil` is the whole-tree pass, which finds removals by
+			iterating every handle instead. ]]
+		local was = childNodesOf[node.path]
+		if #node.children == 0 then
+			childNodesOf[node.path] = nil
+		else
+			local kids: { [string]: any } = {}
+			childNodesOf[node.path] = kids
+			for _, child in node.children do
+				kids[child.path] = child
+				parentNodeOf[child.path] = node
+				if
+					departed == nil
+					or was == nil
+					or was[child.path] ~= child
+					or scrollHostOf[child.path] ~= nextHost
+					or clipHostOf[child.path] ~= nextClip
+				then
+					livePaths(child, set, nextHost, nextClip, departed)
+				end
+			end
+		end
+		if departed ~= nil and was ~= nil then
+			local kids = childNodesOf[node.path]
+			for path in was do
+				if kids == nil or kids[path] == nil then
+					structural_scope.subtreeOf(childNodesOf, path, departed)
+				end
+			end
 		end
 	end
 
@@ -2391,10 +2447,173 @@ function renderer.attach(
 		end
 	end
 
-	local function structuralSync()
+	-- THE PER-PATH TEARDOWN, ONE COPY (O6): the sweep's old loop body, now called from
+	-- both of its arms. Two copies of a ~20-record clear list is how one stops being swept.
+	local function sweepDeparted(path: string, handle: any)
+		-- drag/drop declarations die WITH their node: an
+		-- unregistered target that was the live hover fires exactly one
+		-- `leave` and clears the verdict on its way out (finding F5), and
+		-- paths are reused across a remount, so a stale binding would make
+		-- a fresh node inherit a dead declaration.
+		for _, suffix in { "\0drop", "\0drag", "\0det" } do
+			local unbind = dragUnbind[path .. suffix]
+			if unbind ~= nil then
+				dragUnbind[path .. suffix] = nil
+				unbind()
+			end
+		end
+		-- PARK BEFORE REMOVE. `park` refuses anything carrying path-keyed
+		-- adapter state, and a refusal falls through to the ordinary remove —
+		-- so this can only ever save a create, never change what is on screen.
+		local parked = false
+		local key = recycleKeyOf[path]
+		recycleKeyOf[path] = nil
+		if recycleEnabled and key ~= nil and recyclePooled < RECYCLE_POOL_CAP then
+			if not adapter.park(handle) then
+				stats.parkRefused += 1
+			else
+				local bucket = recyclePool[key]
+				if bucket == nil then
+					bucket = {}
+					recyclePool[key] = bucket
+				end
+				table.insert(bucket, handle)
+				recyclePooled += 1
+				parked = true
+				stats.parked += 1
+			end
+		end
+		if parked then
+			-- CARRY THE PROPERTY CACHES WITH THE INSTANCE.
+			--
+			-- These record what the ENGINE OBJECT currently holds, so they are a
+			-- property of the instance and not of the path — carrying them across
+			-- a recycle is accurate, not stale. Dropping them (which is right for
+			-- a real removal, where the instance is destroyed) meant every
+			-- adopted node had all ~8 properties per object rewritten from
+			-- scratch, and `mount` is 67% of a fling frame.
+			--
+			-- `solverHidden` is deliberately NOT carried: it is a verdict about
+			-- the NODE, not a value on the instance, and the new identity gets
+			-- its own.
+			handle.parkedProps = captureParkedProps(path)
+		else
+			adapter.remove(handle)
+		end
+		handles[path] = nil
+		lastRects[path] = nil
+		lastBarInsets[path] = nil
+		lastScrollRegions[path] = nil
+		scrollAutoscroll[path] = nil
+		if autoscrollModels[path] ~= nil then
+			autoscrollModels[path]:reset()
+			autoscrollModels[path] = nil
+		end
+		lastZ[path] = nil
+		lastTextSize[path] = nil
+		lastTextFont[path] = nil
+		lastPadding[path] = nil
+		-- ...and the wrap verdict, which is a VALUE the departed instance held:
+		-- a path re-created with a different string would otherwise be told
+		-- nothing and keep the old node's `TextWrapped` (ruling 5)
+		lastWrapped[path] = nil
+		-- paths are REUSED across a structural remount (a When/ForEach child, a
+		-- re-created ViewThatFits candidate), so these caches must be forgotten
+		-- too. Leaving them made a fresh instance inherit the old verdict: a node
+		-- re-created while still hidden got no setVisible write and painted
+		-- (reopening the defect the hidden-candidate fix closed), and a re-created
+		-- sub-floor control silently lost its hit expander (verifier finding V10).
+		lastVisible[path] = nil
+		lastHitRects[path] = nil
+		solverHidden[path] = nil
+		-- ...and the authored hide, for the same reason: a path re-created with
+		-- no `hidden` prop would otherwise inherit the old node's verdict and
+		-- never paint
+		authoredHidden[path] = nil
+		--[[ ...and the four the COMMIT keeps across solves (P4). They were
+			rebuilt from the whole rect map every solve and now persist, so the
+			sweep that owns every other per-path record owns these too. A stale
+			`lastCommitEntry` is the dangerous one: a path re-created under the
+			same name would compare a fresh entry against a dead node's. ]]
+		lastCommitEntry[path] = nil
+		hiddenRoots[path] = nil
+		lastCompositions[path] = nil
+		lastTextFacts[path] = nil
+		-- ...and the two the SOLVE keeps (P5), which this sweep could ignore only
+		-- while a structural change forced a fresh rect map: the measure SLATE,
+		-- and the rect ENTRY — where `rect_pass.apply`'s "every key in the map
+		-- belongs to a live path" is paid for.
+		if structuralReuseEnabled then
+			measure_reuse.forget(measureStore, path)
+			if lastResult ~= nil then
+				lastResult.rects[path] = nil
+				solvedPathsDeparted = true
+			end
+		end
+		-- THE LIFETIME HOOK, queued rather than called. Called here it would run
+		-- inside the sweep's own iteration over `handles` and inside the `mount`
+		-- profiler span; both are wrong, and the first is a live-mutation hazard
+		-- while the walk is still running.
+		local departed = disappearHooks[path]
+		if departed ~= nil then
+			disappearHooks[path] = nil
+			table.insert(departedQueue, { path = path, fn = departed })
+		end
+		-- ...and the compact-label verdict cache (found LIVE 2026-08-04:
+		-- RascalRally's watch-cycle buttons painted "Previous racer" ellipsized
+		-- after a pose toggle at EVERY preference). A re-created button is
+		-- born with its FULL label; a surviving `true` here said the swap was
+		-- already applied, so `commit_walks.textVerdicts` never wrote the glyph again.
+		-- One mount looked right — which is why the device pass that shipped
+		-- the feature saw chevrons — and every remount after it did not.
+		lastCompact[path] = nil
+		-- a scroll host that left takes its RS-PATHCLIP subscription with it
+		if pathClipObservers[path] ~= nil then
+			local detach = pathClipObservers[path]
+			pathClipObservers[path] = nil
+			detach()
+		end
+		-- ...and every per-path presentation cache, which the channel forgets
+		-- together: the transform (and its live count), the transparency, both
+		-- composed memos, the parked paint delta, the authored triple and any
+		-- `withAnimation` record. The write is skipped — the handle is already
+		-- gone (V10's per-path clear, above).
+		channel.forgetPath(path)
+		-- ...and the five the LIVE-PATH WALK owns (O6), which the `table.clear` block a
+		-- bounded sync no longer runs used to drop: this is now the ONE site that forgets
+		-- a path. The `pathNodes` guard is what keeps it and its count agreeing.
+		scrollHostOf[path] = nil
+		clipHostOf[path] = nil
+		parentNodeOf[path] = nil
+		inputSinks[path] = nil
+		childNodesOf[path] = nil
+		if pathNodes[path] ~= nil then
+			pathNodes[path] = nil
+			pathNodeCount -= 1
+		end
+		stats.removes += 1
+	end
+
+	local function structuralSync(delta: { any }?)
 		structureEpoch += 1
+		-- THE ROOTS OF THIS SYNC (O6), or nil for the whole tree. `render/structural_scope`
+		-- decides — the same question it already answers of the SOLVE — and the count it
+		-- returns is its descent's own, charged here rather than hidden.
+		local roots: { { path: string, node: any } }? = nil
+		local visited = 0
+		if delta ~= nil then
+			roots, visited = structural_scope.roots(delta, root.node, handles)
+		end
+		stats.lastSsVisited = visited
 		local _t0 = os.clock()
-		ensureTree(root.node)
+		if roots == nil then
+			stats.ssFullPasses += 1
+			ensureTree(root.node)
+		else
+			for _, r in roots do
+				ensureTree(r.node, true)
+			end
+		end
 		local _t1 = os.clock()
 		collectRetiringRoots() -- retire begin/cancel both push structure
 		-- mounted identity may have changed under any path (a When branch, a ForEach
@@ -2402,150 +2621,46 @@ function renderer.attach(
 		-- node memo is dropped wholesale rather than patched per path
 		channel.dropNodeCache()
 		local alive: { [string]: boolean } = {}
-		table.clear(scrollHostOf)
-		table.clear(clipHostOf)
-		table.clear(pathNodes)
-		-- the two the overhang lift rebuilds on the same walk; a path is REUSED
-		-- across a remount, so a stale parent link would resolve a constraint to a
-		-- branch that no longer exists
-		table.clear(parentNodeOf)
-		table.clear(inputSinks)
-		pathNodeCount = 0
+		-- THE DEPARTED LIST (O6): the walk below NAMES what left, so the bounded sweep
+		-- never asks `alive` about a path outside the roots' subtrees. `nil` is the
+		-- whole-tree path, where every clear below is the unchanged `table.clear`.
+		local departed: { string }? = nil
+		if roots == nil then
+			table.clear(scrollHostOf)
+			table.clear(clipHostOf)
+			table.clear(pathNodes)
+			-- the two the overhang lift rebuilds on the same walk; a path is REUSED
+			-- across a remount, so a stale parent link would resolve a constraint to a
+			-- branch that no longer exists
+			table.clear(parentNodeOf)
+			table.clear(inputSinks)
+			table.clear(childNodesOf)
+			pathNodeCount = 0
+		else
+			departed = {}
+		end
 		local _t2 = os.clock()
-		livePaths(root.node, alive, nil, nil)
+		if roots == nil then
+			livePaths(root.node, alive, nil, nil, nil)
+		else
+			for _, r in roots do
+				livePaths(r.node, alive, scrollHostOf[r.path], clipHostOf[r.path], departed)
+			end
+		end
 		local _t3 = os.clock()
-		for path, handle in handles do
-			if not alive[path] then
-				-- drag/drop declarations die WITH their node: an
-				-- unregistered target that was the live hover fires exactly one
-				-- `leave` and clears the verdict on its way out (finding F5), and
-				-- paths are reused across a remount, so a stale binding would make
-				-- a fresh node inherit a dead declaration.
-				for _, suffix in { "\0drop", "\0drag", "\0det" } do
-					local unbind = dragUnbind[path .. suffix]
-					if unbind ~= nil then
-						dragUnbind[path .. suffix] = nil
-						unbind()
-					end
+		if departed == nil then
+			for path, handle in handles do
+				if not alive[path] then
+					sweepDeparted(path, handle)
 				end
-				-- PARK BEFORE REMOVE. `park` refuses anything carrying path-keyed
-				-- adapter state, and a refusal falls through to the ordinary remove —
-				-- so this can only ever save a create, never change what is on screen.
-				local parked = false
-				local key = recycleKeyOf[path]
-				recycleKeyOf[path] = nil
-				if recycleEnabled and key ~= nil and recyclePooled < RECYCLE_POOL_CAP then
-					if not adapter.park(handle) then
-						stats.parkRefused += 1
-					else
-						local bucket = recyclePool[key]
-						if bucket == nil then
-							bucket = {}
-							recyclePool[key] = bucket
-						end
-						table.insert(bucket, handle)
-						recyclePooled += 1
-						parked = true
-						stats.parked += 1
-					end
+			end
+		else
+			for _, path in departed :: { string } do
+				stats.lastSsVisited += 1
+				local handle = handles[path]
+				if handle ~= nil then
+					sweepDeparted(path, handle)
 				end
-				if parked then
-					-- CARRY THE PROPERTY CACHES WITH THE INSTANCE.
-					--
-					-- These record what the ENGINE OBJECT currently holds, so they are a
-					-- property of the instance and not of the path — carrying them across
-					-- a recycle is accurate, not stale. Dropping them (which is right for
-					-- a real removal, where the instance is destroyed) meant every
-					-- adopted node had all ~8 properties per object rewritten from
-					-- scratch, and `mount` is 67% of a fling frame.
-					--
-					-- `solverHidden` is deliberately NOT carried: it is a verdict about
-					-- the NODE, not a value on the instance, and the new identity gets
-					-- its own.
-					handle.parkedProps = captureParkedProps(path)
-				else
-					adapter.remove(handle)
-				end
-				handles[path] = nil
-				lastRects[path] = nil
-				lastBarInsets[path] = nil
-				lastScrollRegions[path] = nil
-				scrollAutoscroll[path] = nil
-				if autoscrollModels[path] ~= nil then
-					autoscrollModels[path]:reset()
-					autoscrollModels[path] = nil
-				end
-				lastZ[path] = nil
-				lastTextSize[path] = nil
-				lastTextFont[path] = nil
-				lastPadding[path] = nil
-				-- ...and the wrap verdict, which is a VALUE the departed instance held:
-				-- a path re-created with a different string would otherwise be told
-				-- nothing and keep the old node's `TextWrapped` (ruling 5)
-				lastWrapped[path] = nil
-				-- paths are REUSED across a structural remount (a When/ForEach child, a
-				-- re-created ViewThatFits candidate), so these caches must be forgotten
-				-- too. Leaving them made a fresh instance inherit the old verdict: a node
-				-- re-created while still hidden got no setVisible write and painted
-				-- (reopening the defect the hidden-candidate fix closed), and a re-created
-				-- sub-floor control silently lost its hit expander (verifier finding V10).
-				lastVisible[path] = nil
-				lastHitRects[path] = nil
-				solverHidden[path] = nil
-				-- ...and the authored hide, for the same reason: a path re-created with
-				-- no `hidden` prop would otherwise inherit the old node's verdict and
-				-- never paint
-				authoredHidden[path] = nil
-				--[[ ...and the four the COMMIT keeps across solves (P4). They were
-					rebuilt from the whole rect map every solve and now persist, so the
-					sweep that owns every other per-path record owns these too. A stale
-					`lastCommitEntry` is the dangerous one: a path re-created under the
-					same name would compare a fresh entry against a dead node's. ]]
-				lastCommitEntry[path] = nil
-				hiddenRoots[path] = nil
-				lastCompositions[path] = nil
-				lastTextFacts[path] = nil
-				-- ...and the two the SOLVE keeps (P5), which this sweep could ignore only
-				-- while a structural change forced a fresh rect map: the measure SLATE,
-				-- and the rect ENTRY — where `rect_pass.apply`'s "every key in the map
-				-- belongs to a live path" is paid for.
-				if structuralReuseEnabled then
-					measure_reuse.forget(measureStore, path)
-					if lastResult ~= nil then
-						lastResult.rects[path] = nil
-						solvedPathsDeparted = true
-					end
-				end
-				-- THE LIFETIME HOOK, queued rather than called. Called here it would run
-				-- inside the sweep's own iteration over `handles` and inside the `mount`
-				-- profiler span; both are wrong, and the first is a live-mutation hazard
-				-- while the walk is still running.
-				local departed = disappearHooks[path]
-				if departed ~= nil then
-					disappearHooks[path] = nil
-					table.insert(departedQueue, { path = path, fn = departed })
-				end
-				-- ...and the compact-label verdict cache (found LIVE 2026-08-04:
-				-- RascalRally's watch-cycle buttons painted "Previous racer" ellipsized
-				-- after a pose toggle at EVERY preference). A re-created button is
-				-- born with its FULL label; a surviving `true` here said the swap was
-				-- already applied, so `commit_walks.textVerdicts` never wrote the glyph again.
-				-- One mount looked right — which is why the device pass that shipped
-				-- the feature saw chevrons — and every remount after it did not.
-				lastCompact[path] = nil
-				-- a scroll host that left takes its RS-PATHCLIP subscription with it
-				if pathClipObservers[path] ~= nil then
-					local detach = pathClipObservers[path]
-					pathClipObservers[path] = nil
-					detach()
-				end
-				-- ...and every per-path presentation cache, which the channel forgets
-				-- together: the transform (and its live count), the transparency, both
-				-- composed memos, the parked paint delta, the authored triple and any
-				-- `withAnimation` record. The write is skipped — the handle is already
-				-- gone (V10's per-path clear, above).
-				channel.forgetPath(path)
-				stats.removes += 1
 			end
 		end
 		-- ...and the FINDINGS whose filer left with them (P5): `solve` replays the last
@@ -2788,7 +2903,9 @@ function renderer.attach(
 			-- reconciling and retiring Instances. Named apart from `commit` because
 			-- Instance churn and property writes have completely different fixes —
 			-- one is a keying/virtualization problem, the other is a diff problem.
-			profile.span("mount", structuralSync)
+			profile.span("mount", function()
+				structuralSync(dirty)
+			end)
 		end
 		-- OUTSIDE the mount span, and before the solve: by here the departed nodes'
 		-- handles are gone, which is the guarantee `onDisappear` publishes.
@@ -3931,6 +4048,7 @@ function renderer.attach(
 		end
 		table.clear(clipHostOf)
 		table.clear(pathNodes)
+		table.clear(childNodesOf)
 		pathNodeCount = 0
 		-- a `withAnimation` spring is built on the presenter's clock, which OUTLIVES
 		-- this surface, so the springs die with the surface that started them
