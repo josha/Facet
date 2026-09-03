@@ -21,7 +21,7 @@
 	  | `lastArranged`             | T4 ✅ `14c3459d` | 252 (pure) / **402** (casters) + `lastTranslated` 1250 / 1100. The two competing derivations in T4 Step 1 were settled BY THE RUN and it is **(b)**: `translatable` does not require the root to be clean, so a caster's plate root (dirty child `Cast`) takes the ordinary arrange and its own `Row` and `Hp` become translate ROOTS under it — 4 arranged + 2 translated per caster. `tests/translate_arm.spec` carries the arithmetic |
 	  | `lastRectInserts`          | T4 ✅ `14c3459d` | arranged + translated = 1,502, unchanged in TOTAL and re-split |
 	  | every per-walk visit count | T5 ✅ `4b0f5e19` | 253 (pure) / 303 (casters) for the six MOVE-BLIND walks; `rectPass` 253 (pure) / **403** (casters, NOT the 303 the plan predicted — see `tests/commit_translate.spec`); `hitRects` stays 1,503 |
-	  | the four hidden-blind walks | T5b (if built) | 3 on a pure tick |
+	  | the four arrange-blind walks | T5b ✅ `SHA_T5B` | **3** on a pure tick (was 253) / **103** on a caster tick (was 303). `textScale`, `padding`, `textVerdicts` and `scrollRegions` name no arrange-class prop, so they are answered against a COMMIT-side dirty set that the seven pure placement props never enter, and T4's `moveOnly` stamp on the translate ROOT — inert until this — prunes all 250 plate roots. `harvest`/`visible` keep the all-classes set (they read `hidden`) and so keep 253/303; `hitRects` and `rectPass` are untouched |
 	  | the census, `rectWrites`   | never | 1,503 mounted / 1,502 layout / 1,500 writes |
 
 	253 is Screen + Canvas + the ForEach region + one root per plate. The 250
@@ -116,6 +116,11 @@ local TRANSLATED_STEADY = PLATES * (scene.NODES_PER_PLATE - 1) -- 1250
 -- plate. `tests/commit_translate.spec.luau` carries the derivation, the caster
 -- column (303, and `rectPass` 403) and the four-arm adapter oracle behind it.
 local VISITS_PRUNED = PLATES + 3 -- 253
+-- ...and T5b's (`SHA_T5B`) floor for the four walks that read no arrange-class
+-- prop at all: Screen + Canvas + the ForEach region, every plate root pruned by
+-- T4's translate-root stamp. `tests/commit_dirt_classes.spec.luau` carries the
+-- per-prop audit, the caster column (103) and the four-arm oracle.
+local VISITS_ARRANGE_BLIND = 3
 
 describe("nameplates baseline — the numbers the wicked-fast round starts from", function()
 	it("the fixture is the tree the plan says it is", function()
@@ -168,7 +173,9 @@ describe("nameplates baseline — the numbers the wicked-fast round starts from"
 		-- counts below, and the only exact pin of the aggregate in this repo —
 		-- the old `>= MOUNTED * 7` bound could never fail (a walk silently
 		-- publishing twice would still sail past a MOUNTED * 7 floor).
-		expect(st.lastCommitVisits).toBe(VISITS_PRUNED * 7 + MOUNTED) -- 3274
+		-- MOVED BY T5b: four of the seven `VISITS_PRUNED` terms became
+		-- `VISITS_ARRANGE_BLIND`. 253 * 3 (harvest, visible, rectPass) + 3 * 4 + 1503
+		expect(st.lastCommitVisits).toBe(VISITS_PRUNED * 3 + VISITS_ARRANGE_BLIND * 4 + MOUNTED) -- 2274
 		-- the per-walk breakdown this task exists to publish, MOVED BY T5
 		-- (`4b0f5e19`) from the whole tree to the dirty closure: the six walks whose
 		-- output cannot read a position take `skip(node, true)` and prune a
@@ -176,8 +183,12 @@ describe("nameplates baseline — the numbers the wicked-fast round starts from"
 		-- the solver's run, and `hitRects` still walks everything because it
 		-- centres its target-floor expander on `r.x`/`r.y`.
 		local byWalk = st.lastCommitVisitsByWalk
-		for _, name in { "harvest", "textScale", "padding", "textVerdicts", "visible", "scrollRegions", "rectPass" } do
+		for _, name in { "harvest", "visible", "rectPass" } do
 			expect(`{name}={byWalk[name]}`).toBe(`{name}={VISITS_PRUNED}`)
+		end
+		-- ...and the four T5b took below the dirty closure entirely
+		for _, name in { "textScale", "padding", "textVerdicts", "scrollRegions" } do
+			expect(`{name}={byWalk[name]}`).toBe(`{name}={VISITS_ARRANGE_BLIND}`)
 		end
 		expect(`hitRects={byWalk.hitRects}`).toBe(`hitRects={MOUNTED}`)
 		s.dispose()

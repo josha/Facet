@@ -138,6 +138,18 @@ local INPUT_SINKING: { [string]: boolean } = { Button = true, Toggle = true, Tex
 -- the renderer draws (Table rows/headers render as Button). TextField is not a
 -- hover surface (its affordance is the caret/edit handshake, not a hover lift).
 local HOVERABLE: { [string]: boolean } = { Button = true, Toggle = true }
+-- MOVES A NODE, CHANGES NOTHING A COMMIT WALK READS (T5b): the schema's 8
+-- arrange-only specs minus `hidden`. `commit_dirt_classes.spec` round-trips it
+-- against the schema and a scan of the walk bodies
+local PURE_ARRANGE_PROPS: { [string]: boolean } = {
+	anchor = true,
+	offsetX = true,
+	offsetY = true,
+	alignH = true,
+	alignV = true,
+	lineAlign = true,
+	distribute = true,
+}
 
 export type RendererAttachOpts = {
 	-- "coreSafeContent" (default) | "deviceSafeContent" | "edgeToEdge"
@@ -1618,6 +1630,11 @@ function renderer.attach(
 	local nodeStore = layout_node.newStore(nodeReuseEnabled)
 	local nodeDirty: { [string]: boolean }? = nil
 	local nodeDirtySeen = -1
+	-- ...AND THE COMMIT'S OWN HALF (T5b): same lifecycle and loop, minus
+	-- `PURE_ARRANGE_PROPS`. TWO sets, because the P3 store's `dirty` below needs
+	-- arrange dirt. It lifts only `skip`'s dirty VETO, never entry identity, so no
+	-- walk goes blind to a resize. Audit: `commit_dirt_classes.spec`
+	local commitDirty: { [string]: boolean }? = nil
 	-- ...AND THE COMMIT HALF (P4): the six write loops and the rect pass walked the
 	-- whole tree to spend a solve that touched five nodes. `render/commit_walks`
 	-- carries the predicate, the numbers and the two walks that cannot use it.
@@ -1905,6 +1922,7 @@ function renderer.attach(
 			properties silently re-enables the stale tree this test exists to refuse. ]]
 		if root.dirtySeq() ~= nodeDirtySeen then
 			nodeDirty = nil
+			commitDirty = nil
 			nodeDirtySeen = root.dirtySeq()
 		end
 		-- THE STAMP IS READ BEFORE THE REUSE DECISION (P5) and UNCONDITIONALLY, whether
@@ -1946,9 +1964,11 @@ function renderer.attach(
 		-- ...and the COMMIT reads the same set (P4), for the same reason: its walks run
 		-- over the mounted tree too. Held before the reset rather than re-derived.
 		local builtDirty = nodeDirty
+		local builtCommitDirty = commitDirty -- T5b twin
 		-- consumed: this set answered for THIS build and the next one starts empty. A
 		-- count-only store ignores it, so the off arm needs no branch of its own here.
 		nodeDirty = {}
+		commitDirty = {}
 		stats.lastNodeBuilds = nodeStore.built
 		local solveOpts = {
 			safeInsets = insets,
@@ -2072,7 +2092,9 @@ function renderer.attach(
 					if solveOpts.reuse ~= nil then builtDirty else nil,
 					paintScale,
 					metrics,
-					prefOffset
+					prefOffset,
+					-- ...and the T5b arrange-blind set
+					if solveOpts.reuse ~= nil then builtCommitDirty else nil
 				)
 			then
 				structureEpoch += 1
@@ -2779,8 +2801,7 @@ function renderer.attach(
 			sizes boxes with them, so `dirtyContains` below would answer a stale tree
 			for a relabelled button. It accumulates across refreshes because a refresh
 			that does not solve still SAW the dirt. ]]
-		local function markNodeDirty(path: string?)
-			local set = nodeDirty
+		local function markDirtyIn(set: { [string]: boolean }?, path: string?)
 			if set == nil or path == nil then
 				return
 			end
@@ -2801,7 +2822,12 @@ function renderer.attach(
 		-- instrument.
 		profile.span("dirtyScan", function()
 			for _, entry in dirty do
-				markNodeDirty(entry.path)
+				markDirtyIn(nodeDirty, entry.path)
+				-- ...AND THE COMMIT'S SET (T5b): a NAME in the table is what
+				-- omits a path, so a nil `prop` is never dropped
+				if not (entry.class == "arrange" and entry.prop ~= nil and PURE_ARRANGE_PROPS[entry.prop]) then
+					markDirtyIn(commitDirty, entry.path)
+				end
 				if entry.prop == "hidden" and entry.path ~= nil then
 					hiddenTouched = hiddenTouched or {}
 					table.insert(hiddenTouched :: { string }, entry.path)

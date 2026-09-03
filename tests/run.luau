@@ -395,6 +395,7 @@ require("./translate_arm.spec")
 -- so a stale `lastCommitEntry` is visible), the caster column the plan predicted
 -- wrong, and the FOUR-arm oracle whose fourth arm turns the commit prune itself off
 require("./commit_translate.spec")
+require("./commit_dirt_classes.spec")
 -- the future spatial seam: contracts only, and the guard against a VR claim
 -- appearing in the shipped surface (roadmap Step 4, UI-SPATIAL-001)
 require("./spatial.spec")

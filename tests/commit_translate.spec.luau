@@ -26,7 +26,15 @@
 	`nodeDirty`, and every plate root wrote a prop this tick, so the six pruned
 	walks visit exactly the dirty closure and stop at its edge. Getting below that
 	needs a class-aware `nodeDirty` (an arrange-class prop write that does not mark
-	the COMMIT's set) and that is a separate task. ]]
+	the COMMIT's set) and that is a separate task.
+
+	...AND T5b (`tests/commit_dirt_classes.spec.luau`) IS THAT TASK, so four of the
+	six pins below have MOVED WITH IT: `textScale`, `padding`, `textVerdicts` and
+	`scrollRegions` name no arrange-class prop, so they ask `skip(node, true, true)`
+	and are answered against a commit-side dirty set the seven pure placement props
+	never enter — 253 -> 3 on a pure tick, 303 -> 103 on a caster one. `harvest` and
+	`visible` still read `hidden` (arrange-classed) and keep the all-classes set, so
+	the numbers this file pinned for THEM are unchanged, and so is `rect_pass`'s. ]]
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 local scene = require("./lib/nameplates_scene")
@@ -43,11 +51,23 @@ local MOUNTED = PLATES * scene.NODES_PER_PLATE + 2 + 1 -- 1503
 -- is never asked about them.
 local DIRTY_TICK = 3 + PLATES -- 253
 local DIRTY_CASTS = DIRTY_TICK + CASTERS -- 303
--- the six walks whose output cannot read a position. `rect_pass` is the seventh
--- that stops at a moved subtree, but it stops for a DIFFERENT reason — it stops AT
--- each translate root and emits the run, rather than pruning the root away — so it
--- gets its own number on a mixed tick (see `RECTPASS_CASTS`).
-local MOVE_BLIND = { "harvest", "textScale", "padding", "textVerdicts", "visible", "scrollRegions" }
+--[[ the walks whose output cannot read a position AND that still carry the
+	all-classes dirty set, so `|nodeDirty|` is still their floor. `rect_pass` is a
+	third that stops at a moved subtree, but it stops for a DIFFERENT reason — it
+	stops AT each translate root and emits the run, rather than pruning the root away
+	— so it gets its own number on a mixed tick (see `RECTPASS_CASTS`).
+
+	THE OTHER FOUR MOVED IN T5b and are pinned in `tests/commit_dirt_classes.spec`
+	instead: they read no arrange-class prop, so a pure placement write does not put
+	their nodes in the set they are answered against, and T4's `moveOnly` stamp on
+	the translate ROOT (inert until then) prunes the plate roots themselves. ]]
+local MOVE_BLIND = { "harvest", "visible" }
+-- what those four read on the same drives, so this file's own table stays whole
+local ARRANGE_BLIND = { "textScale", "padding", "textVerdicts", "scrollRegions" }
+-- 3 = Screen + Canvas + the ForEach region; a caster tick adds its 50 roots and
+-- their 50 dirty `Cast` boxes (a `width` write is measure-classed and is kept)
+local ARRANGE_BLIND_TICK = 3
+local ARRANGE_BLIND_CASTS = 3 + CASTERS * 2 -- 103
 --[[ ...AND ON A CASTER TICK `rectPass` IS 403, NOT 303 — READ OFF THE RUN, and the
 	plan's own table predicted 303. The two numbers differ because the two prunes are
 	different questions, which is exactly what this spec is for.
@@ -70,8 +90,12 @@ describe("O4/N1: seven walks stop at a moved subtree, hitRects does not", functi
 		for _, name in MOVE_BLIND do
 			expect(`{name}={by[name]}`).toBe(`{name}={DIRTY_TICK}`)
 		end
+		-- ...and the four T5b answers against the commit-side set instead
+		for _, name in ARRANGE_BLIND do
+			expect(`{name}={by[name]}`).toBe(`{name}={ARRANGE_BLIND_TICK}`)
+		end
 		-- every plate root IS a translate root on a pure tick, so `rect_pass` stops
-		-- at exactly the same 253 nodes the move-blind walks prune down to
+		-- at exactly the same 253 nodes the all-classes walks prune down to
 		expect(`rectPass={by.rectPass}`).toBe(`rectPass={DIRTY_TICK}`)
 		expect(`hitRects={by.hitRects}`).toBe(`hitRects={MOUNTED}`)
 		s.dispose()
@@ -84,6 +108,9 @@ describe("O4/N1: seven walks stop at a moved subtree, hitRects does not", functi
 		local by = s.stats().lastCommitVisitsByWalk
 		for _, name in MOVE_BLIND do
 			expect(`{name}={by[name]}`).toBe(`{name}={DIRTY_CASTS}`)
+		end
+		for _, name in ARRANGE_BLIND do
+			expect(`{name}={by[name]}`).toBe(`{name}={ARRANGE_BLIND_CASTS}`)
 		end
 		expect(`rectPass={by.rectPass}`).toBe(`rectPass={RECTPASS_CASTS}`)
 		expect(`hitRects={by.hitRects}`).toBe(`hitRects={MOUNTED}`)
@@ -153,6 +180,11 @@ describe("O4/N1: seven walks stop at a moved subtree, hitRects does not", functi
 		local by = st.lastCommitVisitsByWalk
 		for _, name in MOVE_BLIND do
 			expect(`{name}={by[name]}`).toBe(`{name}={DIRTY_TICK}`)
+		end
+		-- ...and the T5b four prune the 250 zero-delta roots away too: a run whose
+		-- delta is zero is not a special case for either set
+		for _, name in ARRANGE_BLIND do
+			expect(`{name}={by[name]}`).toBe(`{name}={ARRANGE_BLIND_TICK}`)
 		end
 		expect(`rectPass={by.rectPass}`).toBe(`rectPass={DIRTY_TICK}`)
 		s.dispose()

@@ -154,6 +154,9 @@ function nameplates_scene.new(opts: Opts?)
 			y = core:signal((i * 53) % 680),
 			hp = core:signal(0.5 + ((i % 7) / 14)),
 			cast = core:signal(if caster then 0.25 else 0),
+			-- see `scene.hide`: authored `hidden`, false on every plate, so the tree
+			-- this fixture mounts is the one every earlier pin was taken on
+			hidden = core:signal(false),
 			name = `Racer {i}`,
 			lvl = tostring(10 + (i % 30)),
 		}
@@ -192,6 +195,7 @@ function nameplates_scene.new(opts: Opts?)
 					offsetX = offsetOf(item, "x"),
 					offsetY = offsetOf(item, "y"),
 					lineAlign = if o.inertAlign then alignSignal else nil,
+					hidden = item.hidden,
 					padding = 0,
 					gap = 2,
 					width = px(if item.key == "p1" then plateWidth else 180),
@@ -291,6 +295,21 @@ function nameplates_scene.new(opts: Opts?)
 		controller.refresh()
 	end
 
+	--[[ THE ONE ARRANGE-CLASS PROP THE COMMIT'S SET KEEPS (wicked-fast T5b).
+		`hidden` is `dirty = { "arrange" }` like `offsetX`, but `harvest`, `visible`
+		and `hitRects` all read it, so it is the one arrange prop the commit-side
+		dirty set must NOT drop. This is the drive that says so.
+
+		NO EARLIER PIN MOVES. The prop is authored `false` on every plate and no
+		other step here writes it — `authoredHidden` only ever registers a `true`
+		(`renderer.luau`, the mount sweep and the `hiddenTouched` re-read), so a
+		fixture that never calls this method mounts and solves exactly as it did
+		before the signal existed. ]]
+	function scene.hide(i: number, on: boolean)
+		items[i].hidden:set(on)
+		controller.refresh()
+	end
+
 	function scene.hp(i: number, fraction: number)
 		items[i].hp:set(fraction)
 		controller.refresh()
@@ -305,6 +324,7 @@ function nameplates_scene.new(opts: Opts?)
 			y = core:signal((i * 17) % 680),
 			hp = core:signal(0.5),
 			cast = core:signal(if caster then 0.25 else 0),
+			hidden = core:signal(false),
 			name = `Added {i}`,
 			lvl = "1",
 		}

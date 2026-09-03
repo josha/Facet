@@ -304,6 +304,13 @@ function commit_walks.new(ctx: CommitCtx)
 		against it). ]]
 	local recording = false
 	local nodeDirty: any = nil
+	--[[ ...AND THE COMMIT'S OWN HALF OF THAT SET (wicked-fast T5b): the same
+		ancestor-closed closure MINUS the seven props that move a node and change
+		nothing any walk here reads (`renderer.PURE_ARRANGE_PROPS`). Only the walks
+		that claim `arrangeBlind` are answered against it; `nil` (a commit handed no
+		second set) falls the whole way back to `nodeDirty`, so every walk keeps the
+		set it had before this existed. ]]
+	local commitDirty: any = nil
 	local commitRects: any = nil
 	-- axis 3, the solve-wide inputs every walk reads and no node dirties: the paint
 	-- scale, the theme snapshot (compared by IDENTITY — one env-held table per theme)
@@ -393,9 +400,36 @@ function commit_walks.new(ctx: CommitCtx)
 		still says `moveOnly = true` — but its `prev` was cleared as the chain broke,
 		so `probe.prev` is nil, and a node this commit span has never NOTED (no
 		handle, P5) has `last` nil too. Without the guard `nil == nil` would prune a
-		node nothing was ever committed for, forever. ]]
-	local function skip(node: any, moveBlind: boolean?): boolean
-		if not pruning or nodeDirty[node.path] == true then
+		node nothing was ever committed for, forever.
+
+		`arrangeBlind` (wicked-fast T5b) IS A SECOND, STRICTLY STRONGER CLAIM, and it
+		is a separate parameter rather than the same one because the two answer
+		different questions. `moveBlind` decides whether a MOVE is as good as nothing
+		— which is about the ENTRY. `arrangeBlind` decides WHICH DIRTY SET the node is
+		looked up in — which is about the PROPS a walk reads. Four walks make both
+		claims (`textScale`, `padding`, `textVerdicts`, `scrollRegions`: none of them
+		names an arrange-class prop, mechanised in `tests/commit_dirt_classes.spec`).
+		`harvest` and `visible` make only the first: their output cannot read a
+		position either, but they DO read `hidden`, which is arrange-classed, and
+		`visible`/`hitRects` additionally depend on reaching every node `harvest`
+		reached (see `harvest`'s two-small-loops note), which is only true while the
+		three of them share one set.
+
+		FUSING THE TWO WOULD HAVE COST T5 ENTIRELY, and that is measured rather than
+		argued: taking `moveBlind` away from `harvest` at `a9607e17` takes it from 253
+		visits to 1503 on the nameplates fixture, because what `moveBlind` prunes is a
+		translated subtree's CLONES, and a clone is in NEITHER dirty set. ]]
+	local function skip(node: any, moveBlind: boolean?, arrangeBlind: boolean?): boolean
+		if not pruning then
+			return false
+		end
+		-- THE SET DEPENDS ON THE QUESTION (T5b). A walk that told us its output cannot
+		-- read a POSITION may still read `hidden`, which is arrange-classed; a walk
+		-- that told us it reads no arrange-class prop AT ALL is answered against the
+		-- commit-side set instead. Every other walk — and every walk at all on a
+		-- commit that was handed no second set — keeps the all-classes one.
+		local set = if arrangeBlind == true and commitDirty ~= nil then commitDirty else nodeDirty
+		if set[node.path] == true then
 			return false
 		end
 		local probe = probeEntry(node)
@@ -459,11 +493,15 @@ function commit_walks.new(ctx: CommitCtx)
 		dirty: { [string]: boolean }?,
 		scale: number,
 		metrics: any,
-		prefOffset: number
+		prefOffset: number,
+		-- the commit-side half of `dirty` (T5b). Optional: absent means every walk is
+		-- answered against `dirty`, which is what this file did before T5b.
+		commitDirtySet: { [string]: boolean }?
 	): boolean
 		local stampSame = stampScale == scale and stampMetrics == metrics and stampOffset == prefOffset
 		stampScale, stampMetrics, stampOffset = scale, metrics, prefOffset
 		nodeDirty = dirty
+		commitDirty = commitDirtySet
 		commitRects = rects
 		recording = enabled
 		pruning = enabled and dirty ~= nil and stampSame
@@ -642,7 +680,7 @@ function commit_walks.new(ctx: CommitCtx)
 		local offset = if type(prefOffset) == "number" then prefOffset else 0
 		local visits = 0
 		local function walk(node: any)
-			if skip(node, true) then
+			if skip(node, true, true) then
 				return
 			end
 			visits += 1
@@ -738,7 +776,7 @@ function commit_walks.new(ctx: CommitCtx)
 	local function padding(rootNode: any, metrics: any)
 		local visits = 0
 		local function walk(node: any)
-			if skip(node, true) then
+			if skip(node, true, true) then
 				return
 			end
 			visits += 1
@@ -809,7 +847,7 @@ function commit_walks.new(ctx: CommitCtx)
 	local function textVerdicts(rootNode: any, rects: any)
 		local visits = 0
 		local function walk(node: any)
-			if skip(node, true) then
+			if skip(node, true, true) then
 				return
 			end
 			visits += 1
@@ -1147,7 +1185,7 @@ function commit_walks.new(ctx: CommitCtx)
 		end
 		local visits = 0
 		local function pushRegions(node: any)
-			if skip(node, true) then
+			if skip(node, true, true) then
 				return
 			end
 			visits += 1
