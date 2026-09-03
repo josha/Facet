@@ -19,8 +19,9 @@
 	(`render/rect_pass.luau`), the commit walks
 	(`render/commit_walks.luau`), the drag-to-edge autoscroll bridge
 	(`render/autoscroll_bridge.luau`), the drag bridge's registry half
-	(`render/drag_bridge.luau`) and the tap-echo guard with the arm dispatch beside
-	it (`render/tap_arm.luau`).
+	(`render/drag_bridge.luau`), the tap-echo guard with the arm dispatch beside
+	it (`render/tap_arm.luau`) and the text-premeasurement round
+	(`render/premeasure_round.luau`).
 
 	ADD A PART HERE WHENEVER MORE OF THE RENDERER MOVES OUT — otherwise the pins
 	quietly stop seeing the code they name, which is the failure this file exists
@@ -87,6 +88,13 @@ local PARTS = {
 		one, and the reason that count is taken over the PARTS instead of over
 		`renderer.luau` alone. ]]
 	"src/render/tap_arm.luau",
+	--[[ ...and the TEXT-PREMEASUREMENT ROUND (2026-09-03, wicked-fast T7's Phase 0):
+		the collect/deliver/`learned` block and the three records it owned. It carries
+		no `adapter.setProp(` and no `setRect(` — its one engine call is
+		`adapter.measureTextWidths` — so no existing pin's count moves; it is here for
+		the reason `rect_pass.luau` is, and because its own seam spec takes the
+		`disposed` single-writer count over these parts rather than over one file. ]]
+	"src/render/premeasure_round.luau",
 }
 
 local renderer_source = {}

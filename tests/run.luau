@@ -779,6 +779,14 @@ require("./drag_public.spec")
 -- table crosses by reference
 require("./drag_bridge_seam.spec")
 require("./tap_arm_seam.spec")
+--[[ ...and the TEXT-PREMEASUREMENT ROUND (wicked-fast T7), the seam the renderer's
+	source-cap ledger row has named since the geometry-facts split: the collect /
+	deliver / `learned` block plus all three records it owned, behind the three-field
+	`Deps` that row predicted. `solveAndApply` crosses AT THE CALL because the round
+	re-enters it, so the spec pins that it is NOT a Deps field, plus READ == DECLARED
+	== PASSED, the single writer of `disposed`, that the renderer kept no copy and no
+	second `adapter.measureTextWidths` caller, and the three accessors driven ]]
+require("./premeasure_round_seam.spec")
 -- row actions: pure swipe state decisions for row-action composites
 require("./row_actions_state.spec")
 -- row actions: the newRowActions composite skeleton (spec, lazy trays, static reveal)

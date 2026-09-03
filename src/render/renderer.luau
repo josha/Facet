@@ -49,6 +49,7 @@ local structural_scope = require("./structural_scope")
 local geometry_facts = require("./geometry_facts")
 -- the tap-echo guard and the arm dispatch beside it (the ledger's named seam)
 local tap_arm = require("./tap_arm")
+local premeasure_round = require("./premeasure_round")
 local autoscroll_bridge = require("./autoscroll_bridge")
 local chrome_slots = require("../tokens/chrome_slots")
 -- public drag/drop: the declaration channel and the per-surface
@@ -676,15 +677,16 @@ function renderer.attach(
 	-- and the presenter's disclosure affordance and the text audit both need it
 	-- from the ONE authority that decided it rather than by re-measuring.
 	local lastTextFacts: { [string]: any } = {}
-	-- words handed to the adapter's premeasurement seam and not yet answered.
-	-- Guards against asking twice while one round is in flight; a word that
-	-- comes back (measured OR refused) is recorded in text_metrics and can
-	-- never be requested again, so this set is the only loop guard needed.
-	local textInFlight: { [string]: boolean } = {}
-	-- the live premeasurement deliveries this surface has outstanding, cancelled on
-	-- teardown so a late answer cannot reach a dismissed surface
-	local textMeasureCancels: { () -> () } = {}
-	local disposed = false
+	--[[ THE RENDERER'S END OF THE TEXT-PREMEASUREMENT SEAM — extracted 2026-09-03 to
+		`render/premeasure_round.luau`, the seam this file's source-cap ledger row has
+		named since the geometry-facts split. All three records it owned (`textInFlight`,
+		`textMeasureCancels` and the reassigned scalar `disposed`) went with it, which is
+		why `dispose()` is an accessor. ]]
+	local premeasureRound = premeasure_round.new({
+		adapter = adapter,
+		env = env,
+		stats = stats,
+	})
 	-- paths whose subtree the solver hid this pass (losing ViewThatFits candidates)
 	-- THE STRUCTURE EPOCH (2026-08-05). Monotonic; bumped by exactly the two things
 	-- that can change what the focus map derives to for a given tree: a structural
@@ -2173,102 +2175,10 @@ function renderer.attach(
 			rectPass.apply(root.node, result.rects, result.work)
 
 			-- ...and only now, with this frame fully painted from the conservative
-			-- estimate, ask the engine for the words it could not size. Ordering is
-			-- the safety property: the first frame is always the over-reserving
-			-- fallback, never a guess waiting on an async answer, and the exact
-			-- geometry lands one re-solve later. Batched per SOLVE over the whole
-			-- tree's vocabulary — never per node.
-			if adapter.measureTextWidths ~= nil and #textRequests > 0 and not disposed then
-				local batch: { any } = {}
-				for _, request in textRequests do
-					local key = `{request.font}\0{request.size}\0{request.word}`
-					if not textInFlight[key] then
-						textInFlight[key] = true
-						table.insert(batch, request)
-					end
-				end
-				if #batch > 0 then
-					stats.textMeasureBatches += 1
-					-- `final` (default true) is the adapter saying "this batch is
-					-- closed". An adapter that answers early with widths it does not
-					-- yet trust — the Roblox one does, while the engine's boot window
-					-- is still open — passes false, and the words stay in flight so a
-					-- surface waiting for exact text keeps waiting.
-					local cancelMeasure = adapter.measureTextWidths(batch, function(results: { any }, final: boolean?)
-						local learned = false
-						for _, entry in results do
-							if type(entry) ~= "table" then
-								continue
-							end
-							if final ~= false then
-								textInFlight[`{entry.font}\0{entry.size}\0{entry.word}`] = nil
-							end
-							if type(entry.width) == "number" then
-								-- an adapter may answer the SAME batch twice (the
-								-- Roblox one re-reads once the session has settled and
-								-- corrects the boot answer), so a re-solve is owed only
-								-- when a width actually moved
-								local previous = text_metrics.measuredWidth(entry.font, entry.size, entry.word)
-								if text_metrics.setMeasured(entry.font, entry.size, entry.word, entry.width) then
-									if previous ~= entry.width then
-										learned = true
-									end
-								else
-									-- a measurement this seam refuses is a measurement
-									-- that could clip: keep the estimate, and do not
-									-- ask for it again on every solve
-									text_metrics.markUnmeasurable(entry.font, entry.size, entry.word)
-								end
-							else
-								text_metrics.markUnmeasurable(entry.font, entry.size, entry.word)
-							end
-						end
-						--[[ exactly one re-solve per answered round, and only when the
-							round actually taught the measurer something.
-
-							PUBLISH THE GENERATION FIRST (director 2026-08-04, the
-							finish-screen size pop). The re-solve fixes the SOLVER's boxes,
-							but a consumer memo that called `Facet.text.fit/.size/.measure`
-							has no dependency on the exact-width store — it is plain data —
-							so it evaluated once against the ESTIMATOR and nothing here
-							invalidated it. Bumping `textMeasureEpoch` is that dependency:
-							any memo that reads it re-derives once, on this frame, together
-							with the solve rather than at some arbitrary later tick. Written
-							before `solveAndApply` so the re-solve already sees the
-							re-derived values instead of needing a third pass. ]]
-						if learned and not disposed then
-							--[[ ...AND THE WRITE MAY HAVE ALREADY SOLVED THIS SURFACE: the fact
-								is a GEOMETRY KEY, so it reaches this surface too, and with no
-								flush open it settles synchronously — the solve is done before
-								`env:set` returns. The counter decides rather than the ordering.
-
-								ONE SOLVE PER LEARNED ROUND ON EVERY ROUTE A SESSION TAKES, and
-								the exception is stated rather than implied: an answer delivered
-								INSIDE an open flush leaves the write in the core's `writeSet`,
-								so the settle runs after this line and the round costs two — the
-								inline solve here and the settle's. No shipped path does that
-								(a premeasurement answer arrives from the engine on its own
-								task, and the specs deliver from top level), which is why the
-								counter is the guard rather than a flag: it is right on the
-								route that exists and conservative on the one that does not.
-								`tests/text_premeasure.spec.luau` pins the shipped number. ]]
-							local solvesBefore = stats.solves
-							-- `env:get` answers the FACT's signal, so the current value is one
-							-- more `:get()` in (same shape as every other read in this file)
-							env:set("textMeasureEpoch", ((env:get("textMeasureEpoch"):get() :: number?) or 0) + 1)
-							if stats.solves == solvesBefore then
-								solveAndApply()
-							end
-						end
-					end)
-					-- A BOOT-WINDOW BATCH ANSWERS TWICE, up to ~12 s apart.
-					-- `disposed` already gates the re-solve; this stops the delivery
-					-- itself, so a torn-down surface is not called back at all.
-					if type(cancelMeasure) == "function" then
-						table.insert(textMeasureCancels, cancelMeasure)
-					end
-				end
-			end
+			-- estimate, ask the engine for the words it could not size. Ordering is the
+			-- safety property and `render/premeasure_round` carries the rule; the exact
+			-- geometry lands one re-solve later, through the callback this hands over.
+			premeasureRound.request(textRequests, solveAndApply)
 			-- A REFLOW MOVES THE DROP TARGETS. Every rect the live
 			-- session hit-tests against was just rewritten, so the hover is
 			-- re-evaluated at the last pointer position on THIS frame — a verdict
@@ -3987,21 +3897,14 @@ function renderer.attach(
 	-- ever asked for", which is the right answer for an adapter without the
 	-- seam: there is nothing to wait for.
 	function controller.textPending(): boolean
-		for _ in textInFlight do
-			return true
-		end
-		return false
+		return premeasureRound.pending()
 	end
 
 	function controller.dispose()
 		-- a premeasurement round outlives the surface that asked for it (it is
-		-- an async engine call): mark the controller dead so a late answer
-		-- neither re-solves nor writes into destroyed handles
-		disposed = true
-		for _, cancel in textMeasureCancels do
-			cancel()
-		end
-		table.clear(textMeasureCancels)
+		-- an async engine call): the round's own `dispose` marks it dead and
+		-- cancels the outstanding deliveries
+		premeasureRound.dispose()
 		-- ...and a disposed surface is no longer a surface: it leaves the
 		-- cross-surface registry before anything else, so a teardown that throws
 		-- later cannot leave a ghost overlapping the screen
