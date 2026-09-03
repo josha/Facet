@@ -154,8 +154,12 @@ describe("nameplates baseline — the numbers the wicked-fast round starts from"
 		expect(st.lastRectInserts).toBe(LAYOUT)
 		expect(st.lastNodeBuilds).toBe(PLATES + 2) -- 252: the moved plates + Canvas + Screen, dirtyContains
 		-- CUMULATIVE since `scene.new()` (Fix round 2, I-1): `rectWrites` is
-		-- never reset per-commit, only incremented on an actual value change
-		-- (`rect_pass.applyOne`). READ OFF THE RUN: initialRender's own solve
+		-- never reset per-commit, only incremented on an actual value change.
+		-- STILL TRUE UNDER T5's RUN ARM (`4b0f5e19`, review round 1): a translated
+		-- subtree is emitted from the solver's flat run rather than walked for, but
+		-- every element of that run goes through the same `rect_pass.applyOne` the
+		-- walk uses, so the minimal-write contract has exactly one implementation.
+		-- `tests/commit_translate.spec`'s zero-delta case is the pin. READ OFF THE RUN: initialRender's own solve
 		-- writes every rect once (1502, everything is new) and each of the two
 		-- ticks since writes 1500 more (LAYOUT minus the 2 static ancestors,
 		-- Screen and Canvas, whose fill rect never moves) = 1502+1500+1500=4502.

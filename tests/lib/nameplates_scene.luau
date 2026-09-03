@@ -118,6 +118,15 @@ export type Opts = {
 	fractional: boolean?, -- offsets as { scale, offset } instead of plain px
 	overflow: boolean?, -- plate 1 is 2,000 px wide: its subtree leaves the anchor
 	withPath: boolean?, -- add one UI.Path leaf: the `visible` prune latch closes
+	--[[ carry a reactive `lineAlign` on every plate root, and expose `scene.align`.
+		`lineAlign` under an `Anchor` parent is INERT — the anchor branch reads
+		`anchor`/`offsetX`/`offsetY` and nothing else — so driving it DIRTIES every
+		plate and MOVES nothing, which is the solver's `dx = dy = 0` translate arm
+		(`tests/translate_arm.spec.luau` drives the same shape on a ScrollView and a
+		Composition). It is the only drive on this fixture that produces a translate
+		run whose every rect is already on screen, which is what `rect_pass`'s
+		minimal-write contract has to survive. ]]
+	inertAlign: boolean?,
 }
 
 -- `layout` is the LAYOUT-NODE count (`stats().lastLayoutNodes`, i.e. the solver's
@@ -150,6 +159,9 @@ function nameplates_scene.new(opts: Opts?)
 		}
 	end
 	local rows = core:signal(items)
+	-- see `Opts.inertAlign`: bound only when the opt is on, so the default tree is
+	-- byte-identical to what every other spec pins.
+	local alignSignal = core:signal("start")
 
 	local function offsetOf(item: any, axis: "x" | "y"): any
 		local sig = if axis == "x" then item.x else item.y
@@ -179,6 +191,7 @@ function nameplates_scene.new(opts: Opts?)
 					anchor = "topLeft",
 					offsetX = offsetOf(item, "x"),
 					offsetY = offsetOf(item, "y"),
+					lineAlign = if o.inertAlign then alignSignal else nil,
 					padding = 0,
 					gap = 2,
 					width = px(if item.key == "p1" then plateWidth else 180),
@@ -267,6 +280,14 @@ function nameplates_scene.new(opts: Opts?)
 				item.cast:set(if next_ > 1 then 0.05 else next_)
 			end
 		end
+		controller.refresh()
+	end
+
+	-- THE ZERO-DELTA DRIVE (`Opts.inertAlign`). Every plate root is dirtied and none
+	-- of them moves, so all 250 take the translate arm with `dx = dy = 0` and every
+	-- re-based descendant lands on the rect it is already painted at.
+	function scene.align(value: string)
+		alignSignal:set(value)
 		controller.refresh()
 	end
 

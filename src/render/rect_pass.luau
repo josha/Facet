@@ -157,49 +157,47 @@ function rect_pass.new(ctx: any)
 				only MOVED, and the solver already wrote every descendant's re-based entry
 				into a flat, document-ordered run when it did it
 				(`layout/solver.luau`'s `translateDescendants`). Walking the live tree to
-				find them again — a hash lookup, a `rectsEqual` and a recursive call per
-				node — is the part of this walk that is not the adapter calls.
+				find them again — a hash lookup and a recursive call per node — is the part
+				of this walk that is not the adapter calls. What it does NOT skip is the
+				write decision: every run element goes through `applyOne`, the same single
+				function the walk uses, so the minimal-write contract holds BY CONSTRUCTION
+				rather than by an argument about deltas.
 
-				THE COMPARE IS DEAD, NOT SKIPPED ON FAITH. The arm fires only when the
-				root's origin moved, every descendant is re-based by that same non-zero
-				delta, and `lastRects[path]` — where a handle exists at all — is by
-				construction value-equal to the entry the move started from (a write is
-				skipped only when it equals `lastRects`, so the two never diverge). So no
-				run rect can equal what was last written. `rectWrites` is pinned per tick
-				by `tests/commit_translate.spec` and `tests/nameplates_baseline.spec`,
-				which is what would say so if that argument were ever wrong.
+				AND THE ARGUMENT WOULD HAVE BEEN FALSE (task review round 1, Important 1).
+				The first version of this arm wrote every run rect unconditionally, on the
+				premise that the solver only translates a subtree whose origin MOVED. It does
+				not: `arrange` takes the translate arm whenever the size is unchanged and the
+				node is not (clean AND unmoved), so a node dirtied by a prop `selfPlaces`
+				clears — an inert `lineAlign` under an `Anchor` parent is the shipped example,
+				and T4's own spec drives it — translates with `dx = dy = 0` and records a run
+				like any other. Every rect in THAT run equals what was last written, and
+				skipping the compare re-sent the whole subtree on a frame that moved nothing.
+				Pinned: `tests/commit_translate.spec`'s zero-delta case asserts a `rectWrites`
+				delta of exactly 0 while the six pruned walks stay at their pruned counts.
 
-				THE HANDLE GUARD ON `noteEntry` IS THE WALK'S OWN (P5): recording a path
-				the commit made no write for prunes it forever once it gains a handle. And
-				an EMPTY span (`from > to`, a childless root) is a real case — the loop
-				runs zero times and the root's own entry is applied above, by the literal.
+				THE HANDLE GUARD ON `noteEntry` IS THE WALK'S OWN (P5): recording a path the
+				commit made no write for prunes it forever once it gains a handle. And an
+				EMPTY span (`from > to`, a childless root) is a real case — the loop runs zero
+				times and the root's own entry is applied above, by the literal.
 
-				THE ONE HONEST COST: a structural WRAPPER path inside a translated subtree
-				(a `ForEach` region, a `When` region — a mounted node that owns no rect) is
-				not re-noted here, because the run holds layout ids and a wrapper is not
-				one. Its `lastCommitEntry` then lags a tick and the six pruned walks visit
-				it once more than strictly needed. In the nameplates tree the wrappers sit
-				ABOVE the translate roots so the count is zero; the bound is one extra
-				visit per wrapper inside a translated subtree, and it is not a correctness
-				question — nothing is written from a wrapper. ]]
+				NO `applied` BOOKKEEPING, and it is not an omission: `applied` exists only on
+				an UNPRUNED commit and `runs` is read only on a pruned one, so the leftover
+				sweep below and this arm can never both be live in the same commit.
+
+				A STRUCTURAL WRAPPER INSIDE A TRANSLATED SUBTREE (a `ForEach` region, a `When`
+				region — a mounted node that owns no rect) is not re-noted here, because the
+				run holds layout ids and a wrapper is not one. That changes NOTHING: a wrapper
+				owns no handle either, and the walk's own `note` is guarded on
+				`handles[node.path]`, so its `lastCommitEntry` is nil before this arm and nil
+				after it — it was never prunable in the first place. ]]
 			local run = if runs ~= nil then runs[node.path] else nil
 			if run ~= nil then
 				for i = run.from, run.to do
 					local path = (runPaths :: any)[i]
 					local entryAt = (runEntries :: any)[i]
-					lastBarInsets[path] = entryAt.barInset
-					local handle = handles[path]
-					if handle ~= nil then
-						authority.assertWrite("common", "size", "layout")
-						adapter.setRect(handle, entryAt.rect)
-						lastRects[path] = entryAt.rect
-						stats.rectWrites += 1
-						if recording then
-							scope.noteEntry(path, entryAt)
-						end
-					end
-					if applied ~= nil then
-						applied[path] = true
+					applyOne(path, entryAt)
+					if recording and handles[path] ~= nil then
+						scope.noteEntry(path, entryAt)
 					end
 				end
 				return

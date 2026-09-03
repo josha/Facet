@@ -104,7 +104,10 @@ describe("O4/N1: seven walks stop at a moved subtree, hitRects does not", functi
 		s.tick(3, 2)
 		s.tick(3, 2)
 		local by = s.stats().lastCommitVisitsByWalk
-		expect(`visible={by.visible > DIRTY_TICK}`).toBe("visible=true")
+		-- EXACTLY the whole tree, `Spark` included (task review round 1, minor 5). A
+		-- threshold could not tell 254 from 1504, and the claim is that the latch
+		-- opens the WHOLE walk, not that it opens a bit of it.
+		expect(`visible={by.visible}`).toBe(`visible={MOUNTED + 1}`)
 		-- ...and `harvest` is UNCHANGED at DIRTY_TICK, not DIRTY_TICK + 1. The Spark
 		-- Path leaf is never dirty (nothing writes it) and its rect never moves, so
 		-- its entry keeps identity and `skip` prunes it like any other clean node.
@@ -112,6 +115,134 @@ describe("O4/N1: seven walks stop at a moved subtree, hitRects does not", functi
 		-- path opens the whole-surface latch and nothing else changes.
 		expect(`harvest={by.harvest}`).toBe(`harvest={DIRTY_TICK}`)
 		s.dispose()
+	end)
+
+	it("a ZERO-DELTA translate writes NOTHING, and still prunes", function()
+		--[[ THE MINIMAL-WRITE CONTRACT UNDER THE RUN (task review round 1, Important
+			1). "A translate means the subtree MOVED" is FALSE: `arrange` takes the
+			translate arm whenever the size is unchanged and the node is not (clean AND
+			unmoved), so a root dirtied by a prop `selfPlaces` clears and landing where
+			it already was translates with `dx = dy = 0` and records a run like any
+			other. `Opts.inertAlign` is that drive on this fixture — a reactive
+			`lineAlign` on every plate, inert under the `Anchor` parent — and the
+			counters below prove it really is the arm (252 arranged + 1250 translated,
+			the same split a moving tick produces).
+
+			Every rect in that run is the rect already on screen, so the honest number
+			of adapter writes is ZERO. The first version of this arm skipped the
+			`rectsEqual` compare on a delta argument and re-sent all 1,250; nothing in
+			the snapshot oracle can see a redundant same-value write, which is why this
+			pin is a COUNTER and why it is here rather than left to an argument.
+
+			The 250 `lineAlign`-under-an-Anchor diagnostics the drive files are expected
+			— that inertness is exactly what makes the delta zero, and `auditPlacement`
+			reports it by design. ]]
+		local s = scene.new({ inertAlign = true })
+		s.tick(3, 2) -- warm: the scene's first refresh is a cold solve
+		s.align("center")
+		s.align("end")
+		local before = s.stats().rectWrites
+		s.align("start")
+		local st = s.stats()
+		expect(`rectWrites delta={st.rectWrites - before}`).toBe("rectWrites delta=0")
+		-- ...and it IS the translate arm, not a solve that skipped everything
+		expect(`arranged={st.lastArranged} translated={st.lastTranslated}`).toBe(
+			`arranged={PLATES + 2} translated={PLATES * (scene.NODES_PER_PLATE - 1)}`
+		)
+		-- ...and the prune is still on: a zero-delta run is not a special case for it
+		local by = st.lastCommitVisitsByWalk
+		for _, name in MOVE_BLIND do
+			expect(`{name}={by[name]}`).toBe(`{name}={DIRTY_TICK}`)
+		end
+		expect(`rectPass={by.rectPass}`).toBe(`rectPass={DIRTY_TICK}`)
+		s.dispose()
+	end)
+end)
+
+--[[ `skip`'s THIRD ANSWER, PINNED DIRECTLY (task review round 1, minor 4).
+
+	`commit_walks.new(ctx)` is constructed here with a hand-built ctx because the
+	case is about ONE predicate on ONE table shape, and the shape is not reachable
+	from a blueprint in two lines: an entry with `moveOnly = true` and `prev = nil`
+	on a path the commit has never noted. It is REACHABLE in production — the
+	solver's rollback (`solver.luau`, "REFUSED, AND ROLLED BACK") restores an entry
+	whose `prev` was cleared by the write that superseded it, while `moveOnly` stays
+	set because it is sticky — and `lastCommitEntry` is nil for any path the commit
+	never had a handle for (the P5 guard). Without the `last ~= nil` clause the
+	move-blind test reads `nil == nil` and prunes that node forever.
+
+	Two harvests, because `pruning` also requires the scale/theme/offset STAMP to be
+	unchanged and the first call is the one that sets it. ]]
+local commit_walks = require("../src/render/commit_walks")
+
+local function armedWalks(): (any, any)
+	local function tbl(): any
+		return {}
+	end
+	local ctx: any = {
+		adapter = {},
+		handles = tbl(),
+		stats = { lastCommitVisits = 0, lastCommitVisitsByWalk = {}, propWrites = 0, rectWrites = 0 },
+		rectsEqual = function(a: any, b: any): boolean
+			return a == b
+		end,
+		paintedRectIn = function(): any
+			return nil
+		end,
+		pathEscapesClip = function(): boolean
+			return false
+		end,
+		reculPathClips = function() end,
+		lastTextSize = tbl(),
+		lastTextFont = tbl(),
+		lastPadding = tbl(),
+		lastCompact = tbl(),
+		lastWrapped = tbl(),
+		lastVisible = tbl(),
+		lastHitRects = tbl(),
+		lastScrollRegions = tbl(),
+		scrollAutoscroll = tbl(),
+		pathClipObservers = tbl(),
+		solverHidden = tbl(),
+		paintHeld = tbl(),
+		pathNodes = tbl(),
+		inputSinks = tbl(),
+		lastCommitEntry = tbl(),
+		hiddenRoots = tbl(),
+		lastCompositions = tbl(),
+		lastTextFacts = tbl(),
+		authoredHidden = tbl(),
+	}
+	return commit_walks.new(ctx), ctx
+end
+
+describe("O4: a move-blind skip needs an entry it ACTUALLY committed", function()
+	it("a sticky moveOnly entry with no prev, on a never-noted path, is NOT skipped", function()
+		local walks, ctx = armedWalks()
+		local leaf = { path = "/S/A", class = "Box", props = {}, children = {} }
+		local root = { path = "/S", class = "Screen", props = {}, children = { leaf } }
+		-- the rollback shape: `moveOnly` survived, `prev` was cleared
+		local restored = { rect = { x = 0, y = 0, w = 10, h = 10 }, moveOnly = true, prev = nil }
+		local rects = { ["/S"] = { rect = { x = 0, y = 0, w = 100, h = 100 } }, ["/S/A"] = restored }
+		local metrics = {}
+		local dirty = { ["/S"] = true }
+		walks.harvest(root, rects, true, dirty, 1, metrics, 0)
+		walks.harvest(root, rects, true, dirty, 1, metrics, 0)
+		expect(`armed={walks.scope.armed()}`).toBe("armed=true")
+		-- THE CASE: nothing was ever committed for this path, so nothing about it can
+		-- be "unchanged since the commit before"
+		expect(`never-noted={walks.scope.skip(leaf, true)}`).toBe("never-noted=false")
+
+		-- ...and the two answers that MUST still be yes, or the clause above would be
+		-- passing by breaking the feature it guards
+		ctx.lastCommitEntry["/S/A"] = restored
+		expect(`same-entry={walks.scope.skip(leaf, true)}`).toBe("same-entry=true")
+		local moved = { rect = { x = 5, y = 0, w = 10, h = 10 }, moveOnly = true, prev = restored }
+		rects["/S/A"] = moved
+		walks.harvest(root, rects, true, dirty, 1, metrics, 0)
+		expect(`moved-from-noted={walks.scope.skip(leaf, true)}`).toBe("moved-from-noted=true")
+		-- ...and a walk that READS a position gets none of it
+		expect(`not-move-blind={walks.scope.skip(leaf)}`).toBe("not-move-blind=false")
 	end)
 end)
 
@@ -183,6 +314,12 @@ describe("O4/N1 oracle: the ADAPTER is told the same thing, every view, every st
 					end
 				end
 
+				-- NON-VACUITY (task review round 1, minor 7). Four empty adapters
+				-- compare equal four ways, so the oracle has to prove it is looking at
+				-- a painted surface before any of its comparisons mean anything.
+				if #a.snapshot() == 0 then
+					error(`{label}: the fixture painted NOTHING — every comparison below is vacuous`, 0)
+				end
 				if a.snapshot() ~= c.snapshot() then
 					error(`{label}: diverged from a FULL solve at mount`, 0)
 				end
