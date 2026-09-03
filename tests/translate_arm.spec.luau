@@ -210,6 +210,35 @@ local customFactory = require("../src/core/custom")
 local fake_target = require("./lib/fake_target")
 local fs = require("@lune/fs")
 local schema = require("../src/blueprint_schema")
+local solver = require("../src/layout/solver")
+
+local function sortedKeys(set: { [string]: boolean }): { string }
+	local out: { string } = {}
+	for k in set do
+		table.insert(out, k)
+	end
+	table.sort(out)
+	return out
+end
+
+local ARRANGE_SOURCE = (function(): { string }
+	local body = fs.readFile("src/layout/solver.luau")
+	body = body:gsub("%-%-%[%[.-%]%]", ""):gsub("%-%-[^\n]*", "")
+	local from = body:find("local function arrange%(ctx", 1)
+	local to = body:find("\nfunction solver%.solve%(", from)
+	return string.split(string.sub(body, from :: number, to), "\n")
+end)()
+
+-- the line index of the entry LITERAL's own `out[node.id] = {`; everything the
+-- refusal is about is written after it
+local LITERAL_AT = (function(): number
+	for i, line in ARRANGE_SOURCE do
+		if line:match("^\tout%[node%.id%] = {") then
+			return i
+		end
+	end
+	return -1
+end)()
 
 local function px(n: number): any
 	return { type = "fixed", px = n }
@@ -329,17 +358,95 @@ describe("O3: a translate root's own layout prop still re-places its children", 
 		end)
 	end
 
-	--[[ ...AND THE PARTITION ITSELF, MECHANISED. `selfPlaces` refuses a dirty
-		translate root on two grounds: measure-classed self-dirt (`measureContains`
-		answers for it) and the arrange-classed props the node's own body reads
-		(recorded on the entry by `selfArrangeKey` and compared by value). The second
-		half is a claim about which of the schema's arrange-only props appear as
-		`node.<prop>` in the solver — so it is derived from both files rather than
-		transcribed, and a ninth arrange-only prop, or a new `node.<prop>` read of an
-		existing one, reddens this case instead of silently falsifying the comment. ]]
-	it("selfArrangeKey covers exactly the arrange-only props the solver reads off the NODE", function()
-		-- `propDirty()` is keyed by CLASS and the same prop appears under every class
-		-- that accepts it, so the set has to be built before it is listed
+	--[[ ...AND THE PARTITION ITSELF, MECHANISED — FROM THE ARRANGE SOURCE, NOT FROM
+		THE SCHEMA'S CLASS COLUMN (task review round 1, Important 3).
+
+		The property `selfPlaces` depends on is: **every prop the arrange half reads
+		off the NODE is either measure-classed (so `measureContains` answers for it)
+		or recorded by `selfArrangeKey`**. An earlier version of this case derived its
+		set from `schema.propDirty()` — every prop declared exactly `{ "arrange" }` —
+		which guards something narrower: a future `{ "arrange", "paint" }` prop, or a
+		plain `{ "paint" }` prop that `arrange` starts reading, is invisible to
+		`measureContains` AND to that filter. Today's schema has no multi-class
+		arrange prop, so it passed for the right reason; it was not the mitigation.
+
+		This derives the set from the code instead. Every `node.<prop>` read inside
+		`arrange` (comments stripped), minus the two families that cannot reach the
+		gate, must be exactly `selfArrangeKey`'s three. The two families are DERIVED
+		too, not listed by hand:
+		  * measure-classed per `schema.propDirty()` — `align`, `axis`, `gap`,
+		    `overflow`, `padding`, `virtualSlot` today;
+		  * not a schema prop AT ALL — `children`, `containerRelativeInside`,
+		    `hitFloor`, `id`, `kind`, `leadingBleed`: fields `layout_node` stamps at
+		    build time, with no reactive binding and therefore no dirt class. A field
+		    that later BECOMES a prop leaves this family on its own and lands in the
+		    remainder, where it is either measure-classed or a failure. ]]
+	local SCHEMA_CLASSES: { [string]: { string } } = (function()
+		local out: { [string]: { string } } = {}
+		for _, props in schema.propDirty() do
+			for prop, classes in props do
+				out[prop] = classes
+			end
+		end
+		return out
+	end)()
+
+	local function isMeasureClassed(prop: string): boolean
+		for _, class in SCHEMA_CLASSES[prop] or {} do
+			if class == "measure" then
+				return true
+			end
+		end
+		return false
+	end
+
+	local function nodeReadsIn(lines: { string }): { [string]: boolean }
+		local out: { [string]: boolean } = {}
+		for _, line in lines do
+			for prop in line:gmatch("node%.([%a_][%w_]*)") do
+				out[prop] = true
+			end
+		end
+		return out
+	end
+
+	it("every node prop ARRANGE reads is measure-classed, structural, or in selfArrangeKey", function()
+		local reads = nodeReadsIn(ARRANGE_SOURCE)
+		local remainder: { string } = {}
+		local structural: { string } = {}
+		for _, prop in sortedKeys(reads) do
+			if SCHEMA_CLASSES[prop] == nil then
+				table.insert(structural, prop)
+			elseif not isMeasureClassed(prop) then
+				table.insert(remainder, prop)
+			end
+		end
+		-- the build-time fields, named so their membership is visible rather than
+		-- inferred from a green run
+		expect(structural).toEqual({
+			"children",
+			"containerRelativeInside",
+			"hitFloor",
+			"id",
+			"kind",
+			"leadingBleed",
+		})
+		-- ...and THE CLAIM: what is left is exactly what the entry records
+		local body = fs.readFile("src/layout/solver.luau")
+		body = body:gsub("%-%-%[%[.-%]%]", ""):gsub("%-%-[^\n]*", "")
+		local key = body:match("local function selfArrangeKey.-\nend")
+		expect(`keyFound={tostring(key ~= nil)}`).toBe("keyFound=true")
+		expect(remainder).toEqual(sortedKeys(nodeReadsIn({ key :: string })))
+		expect(remainder).toEqual({ "alignH", "alignV", "distribute" })
+	end)
+
+	it("...and the schema's own arrange-only column agrees, which is the weaker pin", function()
+		--[[ Kept as a SECOND pin because it says something the scan cannot: that the
+			four parent-read placement props and `hidden` are still declared
+			arrange-only, so the partition's other half — "already spent in the rect we
+			were handed" — is still about the props it was written about. It is weaker
+			because a multi-class prop escapes it; the case above is the one that
+			carries the property. ]]
 		local seen: { [string]: boolean } = {}
 		local arrangeOnly: { string } = {}
 		for _, props in schema.propDirty() do
@@ -351,28 +458,732 @@ describe("O3: a translate root's own layout prop still re-places its children", 
 			end
 		end
 		table.sort(arrangeOnly)
-		-- the same eight `layout_prop_dirt.spec` pins; asserted here too because the
-		-- partition below is a statement ABOUT this set
 		expect(table.concat(arrangeOnly, ",")).toBe("alignH,alignV,anchor,distribute,hidden,lineAlign,offsetX,offsetY")
-		-- comments name plenty of props; only CODE decides what arrange reads
-		local source = fs.readFile("src/layout/solver.luau")
-		source = source:gsub("%-%-%[%[.-%]%]", ""):gsub("%-%-[^\n]*", "")
-		local selfRead: { string } = {}
-		for _, prop in arrangeOnly do
-			if source:find(`node%.{prop}[^%w_]`) ~= nil then
-				table.insert(selfRead, prop)
-			end
-		end
-		expect(table.concat(selfRead, ",")).toBe("alignH,alignV,distribute")
-		-- ...and every one of them is in the recorded key. `selfArrangeKey`'s body is
-		-- read out of the source so this cannot pass on a key that dropped one.
-		local key = source:match("local function selfArrangeKey.-\nend")
-		expect(`found={tostring(key ~= nil)}`).toBe("found=true")
-		for _, prop in selfRead do
-			expect(`{prop} in selfArrangeKey={tostring((key :: string):find(`node%.{prop}[^%w_]`) ~= nil)}`).toBe(
-				`{prop} in selfArrangeKey=true`
+		-- the four the PARENT reads off the child appear nowhere in `arrange` as
+		-- `node.<prop>`, which is why the rect we were handed has already spent them
+		local reads = nodeReadsIn(ARRANGE_SOURCE)
+		for _, prop in { "anchor", "offsetX", "offsetY", "lineAlign", "hidden" } do
+			expect(`{prop} read off the node in arrange={tostring(reads[prop] == true)}`).toBe(
+				`{prop} read off the node in arrange=false`
 			)
 		end
+	end)
+
+	it("NEGATIVE CONTROL: the scan reports a node read it does not expect", function()
+		-- the scan is a pure function of lines, so it is fed the defect: a paint-classed
+		-- prop that `arrange` has started reading off the node
+		local fake = { "\tlocal t = node.opacity", "\tlocal u = node.gap", '\tif node.kind == "grid" then' }
+		expect(sortedKeys(nodeReadsIn(fake))).toEqual({ "gap", "kind", "opacity" })
+		expect(`opacity measure-classed={tostring(isMeasureClassed("opacity"))}`).toBe("opacity measure-classed=false")
+		-- ...so it would survive both filters and land in the remainder, which is what
+		-- makes the case above fail rather than pass quietly
+		expect(`opacity is a schema prop={tostring(SCHEMA_CLASSES.opacity ~= nil)}`).toBe(
+			"opacity is a schema prop=true"
+		)
+	end)
+end)
+
+--[[ A TRANSLATED SUBTREE KEEPS ITS FINDINGS — the replay gate, widened for the new
+	class (task review round 1, Critical 1).
+
+	Before O3 "not in `walkedIds`" implied "under a skip", so `solve`'s replay could
+	be gated on `ctx.skipped > 0`. The arm creates a THIRD population — arranged,
+	deliberately absent from `walkedIds`, and NOT under any skip — and on a solve
+	where every node is either arranged or translated the gate cannot fire at all.
+	The nameplates pure tick is exactly that shape (252 + 1250 == 1502, `skipped`
+	0), and so is every caster tick's fifty childless `Hp` roots.
+
+	MEASURED before the fix, on `solver.solve`: a `vstack` whose padding collapses
+	its content box files THREE findings on solve 1; on solve 2, where its parent's
+	padding moves it and it translates (`arranged=2 translated=1 skipped=0`),
+	`#result.diagnostics` is 0 — the findings are gone, and they stay gone for as
+	long as the node keeps moving. The CONTROL below is the same tree with a sibling
+	that skips: `skipped=2`, the gate fires, and all three come back. That pair is
+	what says the defect is the GATE and not the arm.
+
+	The oracle further down gained a diagnostics channel for the same reason, and
+	`mountedReportWorld` carries the claim through the whole renderer at every
+	device view; these cases exist because a fixture that files zero findings makes
+	that channel prove nothing. ]]
+local function reportTree(pad: number, gap: number, quietFirst: boolean): any
+	local bad = {
+		kind = "vstack",
+		id = "/r/bad",
+		width = px(20),
+		height = px(20),
+		-- 40 a side on a 20px box: the content box collapses on both axes and the
+		-- child overflows it, which is three findings from `arrange_reports.box`
+		padding = 40,
+		children = { { kind = "box", id = "/r/bad/kid", width = px(4), height = px(4), children = {} } },
+	}
+	local kids: { any } = { bad }
+	if quietFirst then
+		-- FIRST, so a `gap` change leaves it exactly where it was and it SKIPS while
+		-- `bad` below it translates
+		table.insert(kids, 1, {
+			kind = "vstack",
+			id = "/r/quiet",
+			width = px(20),
+			height = px(20),
+			children = { { kind = "box", id = "/r/quiet/kid", width = px(4), height = px(4), children = {} } },
+		})
+	end
+	return { kind = "vstack", id = "/r", gap = gap, padding = pad, children = kids }
+end
+
+local function findingsOf(r: any): string
+	local out = {}
+	for _, d in r.diagnostics do
+		table.insert(out, `{d.node}|{string.sub(d.issue, 1, 28)}`)
+	end
+	table.sort(out)
+	return `{#r.diagnostics}: ` .. table.concat(out, " ")
+end
+
+describe("O3: a translated subtree keeps its findings", function()
+	local VP = { w = 400, h = 400 }
+	local DIRT = { ["/r"] = true }
+
+	it("a solve where NOTHING skipped still replays what the translated subtree filed", function()
+		local first = solver.solve(reportTree(0, 4, false), VP, {})
+		local before = findingsOf(first)
+		expect(`solve1={before}`).toBe(
+			"solve1=3: /r/bad|content box collapses to 0px /r/bad|content box collapses to 0px "
+				.. "/r/bad|content overflows this vstac"
+		)
+		local second = solver.solve(reportTree(6, 4, false), VP, { reuse = { previous = first, dirtyContains = DIRT } })
+		-- the shape that makes the old gate unreachable: every node is arranged or
+		-- translated, so `skipped` is 0 and there is nothing for a `skipped > 0` test
+		-- to fire on
+		expect(`arranged={second.work.arranged} translated={second.work.translated} skipped={second.work.skipped}`).toBe(
+			"arranged=2 translated=1 skipped=0"
+		)
+		expect(`solve2={findingsOf(second)}`).toBe(`solve2={before}`)
+	end)
+
+	it("CONTROL: the same tree WITH a skip replays them, which is what makes it the gate", function()
+		--[[ Identical fixture, driven on `gap` instead of `padding` and with a quiet
+			sibling FIRST: the sibling lands on the rect it already had and skips, `bad`
+			below it still translates, and `skipped` is 2. This case was GREEN before
+			the fix and stays green after it — its job is to show that what the case
+			above catches is the gate's reach, not the arm losing findings some other
+			way. ]]
+		local first = solver.solve(reportTree(0, 4, true), VP, {})
+		local before = findingsOf(first)
+		local second = solver.solve(reportTree(0, 10, true), VP, { reuse = { previous = first, dirtyContains = DIRT } })
+		expect(`arranged={second.work.arranged} translated={second.work.translated} skipped={second.work.skipped}`).toBe(
+			"arranged=2 translated=1 skipped=2"
+		)
+		expect(`solve2={findingsOf(second)}`).toBe(`solve2={before}`)
+	end)
+
+	it("...and they keep replaying: ten translating solves in a row, never once dropped", function()
+		-- a single replay is not the claim; the claim is that a subtree which keeps
+		-- moving keeps its findings for as long as it moves
+		local r = solver.solve(reportTree(0, 4, false), VP, {})
+		local before = findingsOf(r)
+		for pad = 1, 10 do
+			r = solver.solve(reportTree(pad, 4, false), VP, { reuse = { previous = r, dirtyContains = DIRT } })
+			expect(`pad{pad}={findingsOf(r)}`).toBe(`pad{pad}={before}`)
+		end
+	end)
+end)
+
+--[[ THE ENTRY IS NOT THE LITERAL — the instrument the rect oracle could not be
+	(task review round 1, Critical 2).
+
+	`arrange`'s entry literal is only HALF an entry for two kinds. A `scroll` node's
+	own branch stamps `contentSize`, `padding`, `barInset` and a computed `overflow`
+	onto `out[node.id]` AFTER the literal; a `composition` node stamps
+	`composition`. A translate root returns before its branch ever runs, so it wrote
+	the literal and nothing else — and every one of those fields silently became
+	`nil` while the rect stayed perfect. Downstream, same commit:
+	`rect_pass` publishes `lastBarInsets[path] = entry.barInset` unconditionally, so
+	`controller.scrollBarInsetOf` starts answering nil and a table header loses its
+	scrollbar gutter; `commit_walks` gates the scroll-region write on
+	`entry.contentSize ~= nil`, so the host drops out of `scrollRegions` entirely (no
+	`setScrollRegion`, no autoscroll refresh, no path-clip observer); and
+	`lastCompositions[path] = entry.composition` goes nil for a composition root.
+
+	MEASURED before the fix, through the renderer: a moved `ScrollView` went
+	`contentSize=true padding=true overflow=scroll` -> `false/false/nil`, and a moved
+	`Composition` went `composition=true` -> `false`. The rects and every child were
+	unchanged, which is exactly why the rect oracle stayed green.
+
+	THE RULING IS REFUSE, NOT CARRY FORWARD: a node whose own branch writes entry
+	fields after the literal is never a translate root (`literalIsWholeEntry`). Its
+	subtree still translates when the node ABOVE it is the root — a translated
+	DESCENDANT is a `table.clone` of its previous entry and carries every field
+	forward — so the refusal costs one entry write on the node itself.
+
+	AND THE CLASS IS WIDER THAN "MOVED". The arm fires with a ZERO delta whenever a
+	node is dirty for a reason `selfPlaces` clears and lands where it already was
+	(`tdx = 0`, not `nil`) — so both drives below are real: `offsetX`, which moves
+	it, and an inert `lineAlign` under an `Anchor` parent, which dirties it and moves
+	nothing. ]]
+local function ser(v: any, depth: number): string
+	if type(v) ~= "table" then
+		return tostring(v)
+	end
+	if depth > 8 then
+		return "<deep>"
+	end
+	local parts = {}
+	for k, val in v do
+		table.insert(parts, `{tostring(k)}={ser(val, depth + 1)}`)
+	end
+	table.sort(parts)
+	return "{" .. table.concat(parts, ",") .. "}"
+end
+
+--[[ EVERY FIELD OF EVERY ENTRY, MODULO EXACTLY `moveOnly` AND `prev` — the two the
+	arm is allowed to add and the commit is the only reader of. Anything else that
+	differs between an incremental solve and a forced full one is a defect of this
+	arm, whatever the rects say.
+
+	...AND `offerW`/`offerH`, WHICH ARE NOT THIS ARM'S AND ARE MEASURED TO BE NOT
+	THIS ARM'S. `ctx.offers` is written ONLY inside `measureUncached`, so any node
+	served from the per-solve memo or a cross-solve slate records `nil` there —
+	which is every ancestor on an incremental solve and none of them on a forced
+	full one. Observed on `/S`, `/S/C` and the composition root: `offerH=718
+	offerW=359` on the full arm, absent on the incremental one, on nodes the arm
+	never translated (`moveOnly` nil on all three). It is a pre-existing property of
+	the offer channel — the field is best-effort by construction, and its one
+	consumer degrades to a `measure()` call when it is absent — so it is excluded
+	from the shared comparison and asserted SEPARATELY on the arm's own entries by
+	`armEntryKey` below, where it must match exactly. ]]
+local SHARED_SKIP = { moveOnly = true, prev = true, offerW = true, offerH = true }
+local ARM_SKIP = { moveOnly = true, prev = true }
+
+local function keyOf(rects: any, skip: { [string]: boolean }, armOnly: boolean): string
+	local out = {}
+	for id, entry in rects do
+		if not armOnly or entry.moveOnly == true then
+			local parts = {}
+			for k, v in entry do
+				if not skip[k] then
+					table.insert(parts, `{tostring(k)}={ser(v, 0)}`)
+				end
+			end
+			table.sort(parts)
+			table.insert(out, `{id}|{table.concat(parts, ",")}`)
+		end
+	end
+	table.sort(out)
+	return table.concat(out, "\n")
+end
+
+-- every entry, modulo the four above
+local function entryKey(rects: any): string
+	return keyOf(rects, SHARED_SKIP, false)
+end
+
+--[[ ...AND WHAT THE ARM OWES THE OFFER CHANNEL, which the comparison above cannot
+	ask for because the channel is best-effort on BOTH sides. A translated
+	descendant is a `table.clone`, so its offers must be exactly the ones it
+	superseded — untouched, not recomputed and not dropped. That is local,
+	deterministic and needs no full-solve arm, which is why it is a separate
+	assertion rather than a widening of `entryKey`.
+
+	WHY IT CANNOT BE ASKED OF THE FULL ARM: the nil-vs-number difference reaches
+	translated descendants too. `[p5]/Plate/Row` was ARRANGED on an earlier solve
+	whose measure hit the memo, so its entry recorded `offerW = nil`; every clone
+	after that carries the nil while a forced full solve writes 359. Measured. The
+	field is best-effort by construction and its one consumer degrades to a
+	`measure()` call when it is absent.
+
+	THE SET IS `work.translatedPaths`, NOT "every entry carrying `moveOnly`", and the
+	difference is a fact worth writing down for T5: `moveOnly` is a property of the
+	SOLVE THAT LAST WROTE THE ENTRY, not of this one. The rect map is copy-on-write,
+	so a node that translated on tick N and then SKIPPED on tick N+1 still carries
+	`moveOnly = true` on tick N+1 — measured here, on `[p2]/Plate` across a `tick`
+	followed by an `hp` drive. `translatedPaths` is this solve's own list, in
+	document order, and it is the only honest answer to "what did the arm re-base
+	just now". ]]
+local function armOfferDiff(aResult: any): string?
+	local work = aResult.work or {}
+	for i, path in work.translatedPaths or {} do
+		local entry = (work.translatedEntries or {})[i]
+		if entry == nil or entry ~= aResult.rects[path] then
+			return `{path}: translatedEntries[{i}] is not the entry in the map`
+		end
+		local was = entry.prev
+		if was == nil then
+			return `{path}: a re-based entry with no \`prev\``
+		end
+		if entry.offerW ~= was.offerW or entry.offerH ~= was.offerH then
+			return `{path}: offers changed {tostring(was.offerW)}x{tostring(was.offerH)} -> {tostring(entry.offerW)}x{tostring(
+				entry.offerH
+			)}`
+		end
+	end
+	return nil
+end
+
+--[[ The solver's rect map is not on the controller's public surface and this task
+	adds nothing to it, so the entry channel is opened the way FacetBench's own
+	`attr` driver opens one: wrap the module function for the duration of one case
+	and put it back. `renderer.luau` calls `solver.solve(...)` as a field lookup, so
+	the wrapper is on the shipped path; it is restored even when the body throws. ]]
+local capturedResult: any = nil
+local function withEntryCapture(fn: () -> ())
+	local real = solver.solve
+	solver.solve = function(...)
+		local r = real(...)
+		capturedResult = r
+		return r
+	end
+	local ok, err = pcall(fn)
+	solver.solve = real
+	capturedResult = nil
+	if not ok then
+		error(err, 0)
+	end
+end
+
+local function branchFieldWorld(incremental: boolean, view: any): any
+	local core = customFactory.new()
+	local env = environment.new(core)
+	env:set("viewportRect", { x = 0, y = 0, w = view.w, h = view.h })
+	local dx = core:signal(0)
+	-- `lineAlign` under an `Anchor` parent is INERT — the anchor branch reads
+	-- `anchor`/`offsetX`/`offsetY` and nothing else — so driving it dirties the node
+	-- and moves it by exactly zero, which is the `tdx = 0` arm
+	local la = core:signal("start")
+	local root = mountLib.mount(
+		core,
+		UI.Screen({
+			id = "S",
+			children = {
+				UI.Anchor({
+					id = "C",
+					width = { type = "fill", weight = 1 },
+					height = { type = "fill", weight = 1 },
+					children = {
+						UI.ScrollView({
+							id = "Scroll",
+							axis = "y",
+							anchor = "topLeft",
+							offsetX = dx,
+							lineAlign = la,
+							width = px(80),
+							height = px(50),
+							gap = 2,
+							children = {
+								UI.Box({ id = "a", width = px(60), height = px(30) }),
+								UI.Box({ id = "b", width = px(60), height = px(30) }),
+								UI.Box({ id = "c", width = px(60), height = px(30) }),
+							},
+						}),
+						UI.Composition({
+							id = "Comp",
+							arrangements = { "threeLane", "column" },
+							laneGap = 12,
+							groupGap = 8,
+							anchor = "topLeft",
+							offsetY = dx,
+							lineAlign = la,
+							width = px(400),
+							height = px(300),
+							groups = {
+								{ id = "lead", lane = "lead", sizing = "hug", place = "center" },
+								{ id = "main", lane = "main", sizing = "fill", minWidth = 120 },
+							},
+							children = {
+								UI.Region({
+									id = "R1",
+									group = "lead",
+									rank = 2,
+									children = { UI.Box({ id = "r1a", width = px(100), height = px(40) }) },
+								}),
+								UI.Region({
+									id = "R2",
+									group = "main",
+									rank = 1,
+									sizing = "fill",
+									children = { UI.Box({ id = "r2a", width = px(120), height = px(60) }) },
+								}),
+							},
+						}),
+					},
+				}),
+			},
+		})
+	)
+	local adapter = fake_target.new()
+	local controller = renderer.attach(core, root, env, adapter, {
+		rootPolicy = "edgeToEdge",
+		incrementalLayout = incremental,
+		measureReuse = incremental,
+		layoutNodeReuse = true,
+		commitScope = true,
+	})
+	controller.initialRender()
+	local w: any = { controller = controller }
+	function w.drive(x: number, align: string)
+		dx:set(x)
+		la:set(align)
+		controller.refresh()
+	end
+	function w.entries(): any
+		return capturedResult
+	end
+	function w.stats(): any
+		return controller.stats()
+	end
+	function w.dispose()
+		controller.dispose()
+		root.dispose()
+	end
+	return w
+end
+
+--[[ THE REFUSAL'S COMPLETENESS, MECHANISED. The two cases above prove the two
+	kinds that stamp fields today are refused; this proves the LIST is the list. It
+	scans `arrange` itself — from `local function arrange` to `function solver.solve`,
+	comments stripped — for every write onto the node's own entry AFTER the literal,
+	resolves the `if node.kind == "…"` branch each one sits in, and pins that set of
+	kinds EQUAL to the set `literalIsWholeEntry` refuses. A third kind that starts
+	stamping a field, or a new field on an existing one, reddens this case; nobody
+	has to remember to come back and edit it. ]]
+-- every `out[node.id].<field> =` / `entry.<field> =` write after the literal, with
+-- the `if node.kind == "…"` branch it sits in (empty = every kind reaches it)
+local function stampsAfterLiteral(lines: { string }, at: number): ({ [string]: boolean }, { [string]: boolean })
+	local fields: { [string]: boolean } = {}
+	local kinds: { [string]: boolean } = {}
+	for i = at + 1, #lines do
+		local field = lines[i]:match("out%[node%.id%]%.([%a_][%w_]*) =")
+			or lines[i]:match("^\t\tentry%.([%a_][%w_]*) =")
+		if field ~= nil then
+			fields[field] = true
+			for j = i - 1, at + 1, -1 do
+				if lines[j]:match("^\tif node%.kind ==") ~= nil then
+					for kind in lines[j]:gmatch('node%.kind == "([%w_]+)"') do
+						kinds[kind] = true
+					end
+					break
+				end
+			end
+		end
+	end
+	return fields, kinds
+end
+
+describe("O3: the refusal names every kind that stamps an entry field after the literal", function()
+	it("the scan finds the literal, and the kinds it finds are the kinds the arm refuses", function()
+		expect(`literalFound={LITERAL_AT > 0}`).toBe("literalFound=true")
+		local fields, kinds = stampsAfterLiteral(ARRANGE_SOURCE, LITERAL_AT)
+		--[[ THE FIELDS, so a NEW field on an existing branch is a visible change here
+			rather than a silent one. `moveOnly` and `prev` are the arm's own pair and
+			the only two `entryKey` above is allowed to ignore — they are in this set for
+			exactly that reason: the day a third one appears, the oracle's modulo and
+			this pin move together or this line fails. ]]
+		expect(sortedKeys(fields)).toEqual({
+			"barInset",
+			"composition",
+			"contentSize",
+			"moveOnly",
+			"overflow",
+			"padding",
+			"prev",
+		})
+		-- `moveOnly`/`prev` sit outside every `node.kind` branch, so they contribute
+		-- no kind; what is left is exactly what `literalIsWholeEntry` refuses
+		expect(sortedKeys(kinds)).toEqual({ "composition", "scroll" })
+		-- ...and the predicate itself, read out of the source rather than trusted
+		local refused: { string } = {}
+		local body = fs.readFile("src/layout/solver.luau")
+		body = body:gsub("%-%-%[%[.-%]%]", ""):gsub("%-%-[^\n]*", "")
+		local fn = body:match("local function literalIsWholeEntry.-\nend")
+		expect(`predicateFound={tostring(fn ~= nil)}`).toBe("predicateFound=true")
+		for kind in (fn :: string):gmatch('kind ~= "([%w_]+)"') do
+			table.insert(refused, kind)
+		end
+		table.sort(refused)
+		expect(refused).toEqual(sortedKeys(kinds))
+	end)
+
+	it("NEGATIVE CONTROL: the scan reports a new kind and a new field", function()
+		--[[ The scan is a pure function of a list of lines, so it is fed a source that
+			has the defect this pin exists to catch: a third branch stamping a field
+			after the literal. A scan that could not see it would pass the case above
+			for the wrong reason forever. ]]
+		local fake = {
+			"\tout[node.id] = {",
+			"\t\trect = rect,",
+			"\t}",
+			'\tif node.kind == "grid" then',
+			"\t\tout[node.id].columns = 3",
+			"\t\tout[node.id].lanes = 2",
+			"\tend",
+			'\tif node.kind == "scroll" or node.kind == "hwrap" then',
+			"\t\tout[node.id].contentSize = x",
+			"\tend",
+		}
+		local fields, kinds = stampsAfterLiteral(fake, 3)
+		expect(sortedKeys(fields)).toEqual({ "columns", "contentSize", "lanes" })
+		expect(sortedKeys(kinds)).toEqual({ "grid", "hwrap", "scroll" })
+		-- ...and a write BEFORE the literal is not one of these
+		expect(sortedKeys((stampsAfterLiteral(fake, 9)))).toEqual({})
+	end)
+end)
+
+describe("O3: a node whose branch stamps entry fields is never a translate root", function()
+	--[[ Both drives, on both kinds, at every device view. The channel is the WHOLE
+		entry (`entryKey`), so this closes the class rather than the two fields the
+		reviewer happened to name: a third kind that starts stamping a field after the
+		literal fails here without anyone editing this case. ]]
+	local DRIVES: { any } = {
+		-- MOVED: `offsetX`/`offsetY` change, the node lands somewhere new
+		{ name = "moved", steps = { { 7, "start" }, { 14, "start" }, { 21, "start" } } },
+		-- ZERO DELTA: an inert `lineAlign` dirties the node and moves it nowhere
+		{ name = "zero-delta", steps = { { 0, "center" }, { 0, "end" }, { 0, "start" } } },
+	}
+	for _, drive in DRIVES do
+		it(`{drive.name}: a scroll root and a composition root keep every entry field`, function()
+			withEntryCapture(function()
+				for _, view in device_views.VIEWS do
+					local a = branchFieldWorld(true, view)
+					local c = branchFieldWorld(false, view)
+					for step, values in drive.steps do
+						a.drive(values[1], values[2])
+						local aResult = a.entries()
+						local ae = entryKey(aResult.rects)
+						c.drive(values[1], values[2])
+						local cRects = c.entries().rects
+						if ae ~= entryKey(cRects) then
+							error(`{drive.name}/{view.id}: step {step} entry diverged from a FULL solve`, 0)
+						end
+						local offerDiff = armOfferDiff(aResult)
+						if offerDiff ~= nil then
+							error(
+								`{drive.name}/{view.id}: step {step} a re-based entry broke its clone: {offerDiff}`,
+								0
+							)
+						end
+					end
+					a.dispose()
+					c.dispose()
+				end
+			end)
+		end)
+	end
+
+	it("...and the fixture really exercises the arm (or the two cases above are vacuous)", function()
+		local w = branchFieldWorld(true, device_views.VIEWS[1])
+		w.drive(7, "start")
+		w.drive(14, "start")
+		-- the SUBTREES still translate; what the refusal costs is the two roots
+		expect(`translated>0={w.stats().lastTranslated > 0}`).toBe("translated>0=true")
+		w.dispose()
+	end)
+end)
+
+--[[ THE DIAGNOSTICS CHANNEL of the oracle (task review round 1, Critical 1).
+	`scene.snapshot()` reads the ADAPTER, and a lost finding never reaches the
+	adapter — the arm could silence `controller.diagnostics()` for a whole subtree
+	and every rect would still match.
+
+	AND ON THESE THREE FIXTURES IT READS 0 = 0, MEASURED — `plain`, `overflow` and
+	`fractional` all file ZERO findings at the swept viewports, because a nameplate
+	is a well-formed tree and the overflowing plate sits under an `Anchor`, which
+	`placementAudit.routesOverflow` excuses. So this channel is a GUARD against a
+	later change to the fixture, not evidence: it is `mountedReportWorld` below that
+	carries the claim through the renderer at every view, and the two
+	`solver.solve` cases above that carry it at the seam. Said here rather than left
+	to be inferred from a green run. ]]
+local function diagKey(w: any): string
+	local out = {}
+	for _, d in w.controller.diagnostics() do
+		table.insert(out, `{d.node}|{string.sub(d.issue, 1, 32)}`)
+	end
+	table.sort(out)
+	return `{#out}: ` .. table.concat(out, " ")
+end
+
+--[[ ...AND THE SAME CLAIM THROUGH THE WHOLE RENDERER, at every device view: a
+	MOUNTED subtree that files findings and translates every step. The oracle's own
+	fixtures file nothing (see `diagKey`), and `solver.solve` cases do not exercise
+	the closure that builds `dirtyContains`, `controller.diagnostics()`'s own copy,
+	or the commit — so this is the arm's diagnostics claim on the shipped path. ]]
+local function mountedReportWorld(incremental: boolean, view: any): any
+	local core = customFactory.new()
+	local env = environment.new(core)
+	env:set("viewportRect", { x = 0, y = 0, w = view.w, h = view.h })
+	local dx = core:signal(0)
+	local root = mountLib.mount(
+		core,
+		UI.Screen({
+			id = "S",
+			children = {
+				UI.Anchor({
+					id = "C",
+					width = { type = "fill", weight = 1 },
+					height = { type = "fill", weight = 1 },
+					children = {
+						UI.VStack({
+							id = "Wrap",
+							anchor = "topLeft",
+							offsetX = dx,
+							width = px(60),
+							height = px(60),
+							children = {
+								-- 40 a side on a 20px box: the content box collapses on both
+								-- axes and the child overflows it — three findings, filed by
+								-- `arrange_reports.box` on a node INSIDE the translated subtree
+								UI.VStack({
+									id = "Bad",
+									padding = 40,
+									width = px(20),
+									height = px(20),
+									children = { UI.Box({ id = "Kid", width = px(4), height = px(4) }) },
+								}),
+							},
+						}),
+					},
+				}),
+			},
+		})
+	)
+	local adapter = fake_target.new()
+	local controller = renderer.attach(core, root, env, adapter, {
+		rootPolicy = "edgeToEdge",
+		incrementalLayout = incremental,
+		measureReuse = incremental,
+		layoutNodeReuse = true,
+		commitScope = true,
+	})
+	controller.initialRender()
+	local w: any = { controller = controller }
+	function w.drive(x: number)
+		dx:set(x)
+		controller.refresh()
+	end
+	function w.stats(): any
+		return controller.stats()
+	end
+	function w.dispose()
+		controller.dispose()
+		root.dispose()
+	end
+	return w
+end
+
+describe("O3: a translated subtree keeps its findings, through the whole renderer", function()
+	it("the findings survive every step, at every device view", function()
+		for _, view in device_views.VIEWS do
+			local a = mountedReportWorld(true, view)
+			local c = mountedReportWorld(false, view)
+			-- the fixture really files something, or the comparison below is 0 == 0
+			-- and proves nothing (measured: 3)
+			expect(`{view.id}:{#a.controller.diagnostics()}`).toBe(`{view.id}:3`)
+			for step = 1, 4 do
+				a.drive(step * 7)
+				c.drive(step * 7)
+				if diagKey(a) ~= diagKey(c) then
+					error(`{view.id}: step {step} diagnostics diverged from a FULL solve`, 0)
+				end
+				-- ...and the arm really is engaged on this fixture, or the case is
+				-- measuring the ordinary arrange
+				if a.stats().lastTranslated == 0 then
+					error(`{view.id}: step {step} did not translate — this fixture is not exercising the arm`, 0)
+				end
+			end
+			a.dispose()
+			c.dispose()
+		end
+	end)
+end)
+
+local function rectKey(r: any): string
+	local out = {}
+	for id, entry in r.rects do
+		local rc = entry.rect
+		table.insert(out, `{id}|{rc.x},{rc.y},{rc.w},{rc.h}`)
+	end
+	table.sort(out)
+	return table.concat(out, "\n")
+end
+
+--[[ A REFUSED TRANSLATE PUTS THE MAP BACK, not just the counters (task review
+	round 1, Minor 4).
+
+	`translateDescendants` writes as it goes and returns false when it meets a node
+	the previous solve never recorded. The caller rolls the COUNTERS back and takes
+	the ordinary arrange, whose comment claims "the dispatch below rewrites every
+	descendant" — true only while the intervening nodes are dirty, which is exactly
+	the premise the guard distrusts. Left in the map, a partial run's clone IS the
+	previous entry as far as the next `arrange` call can tell: the skip compares
+	against `reuse.previous.rects`, which IS `out`, so a clean intermediate node
+	finds the RE-BASED rect there, compares equal to where it is going, and SKIPS —
+	taking its whole subtree with it.
+
+	MEASURED before the fix, on `solver.solve`, with a new grandchild the dirt set
+	does not name (the shape the guard exists for): `/root/A/B` and `/root/A/B/C`
+	both carry `moveOnly = true` while `translatedPaths` is EMPTY — the counters say
+	nothing was translated and the map says two nodes were — and `/root/A/B/D`, the
+	new node, is MISSING FROM THE MAP ENTIRELY, because the skip at `B` meant nobody
+	ever walked it. That is a lost rect, not a cosmetic flag. One loop restoring
+	`out` makes the rollback as complete as its comment claims. ]]
+local function rollbackTree(pad: number, withNew: boolean): any
+	local inner: { any } = { { kind = "box", id = "/root/A/B/C", width = px(6), height = px(6), children = {} } }
+	if withNew then
+		table.insert(inner, { kind = "box", id = "/root/A/B/D", width = px(6), height = px(6), children = {} })
+	end
+	return {
+		kind = "vstack",
+		id = "/root",
+		padding = pad,
+		children = {
+			{
+				kind = "vstack",
+				id = "/root/A",
+				width = px(40),
+				height = px(40),
+				children = {
+					{ kind = "vstack", id = "/root/A/B", width = px(30), height = px(30), children = inner },
+				},
+			},
+		},
+	}
+end
+
+describe("O3: a refused translate leaves no trace", function()
+	local VP = { w = 200, h = 200 }
+
+	it("the map has no clone the work record cannot account for, and no missing node", function()
+		local first = solver.solve(rollbackTree(0, false), VP, {})
+		-- a full solve marks nothing, so every `moveOnly` below belongs to solve 2
+		for id, entry in first.rects do
+			expect(`{id} moveOnly={tostring(entry.moveOnly)}`).toBe(`{id} moveOnly=nil`)
+		end
+		local second = solver.solve(
+			rollbackTree(9, true),
+			VP,
+			{ reuse = { previous = first, dirtyContains = { ["/root"] = true }, measureContains = {} } }
+		)
+		-- the refusal really happened: the arm wrote two entries and gave them back
+		expect(`translated={second.work.translated} paths={#second.work.translatedPaths}`).toBe("translated=0 paths=0")
+		local accounted: { [string]: boolean } = {}
+		for _, path in second.work.translatedPaths do
+			accounted[path] = true
+		end
+		for id in second.work.translatedRoots do
+			accounted[id] = true
+		end
+		local orphans: { string } = {}
+		for id, entry in second.rects do
+			if entry.moveOnly == true and not accounted[id] then
+				table.insert(orphans, id)
+			end
+		end
+		table.sort(orphans)
+		expect(orphans).toEqual({})
+		-- ...and THE CONSEQUENCE, which is the reason this is not a cosmetic pin: a
+		-- clean intermediate node that skips over a clone never walks its subtree, so
+		-- the node the previous solve did not have never gets a rect at all
+		local full = solver.solve(rollbackTree(9, true), VP, {})
+		expect(rectKey(second)).toBe(rectKey(full))
 	end)
 end)
 
@@ -394,17 +1205,17 @@ end)
 	  1. THE CHAIN DEPTH, read straight off the entry. Deterministic, no collector
 	     involved: after three solves, `entry.prev` exists (the commit reads it) and
 	     `entry.prev.prev` does not.
-	  2. THE ENTRY REALLY DIES, via a weak-keyed canary and the churn idiom
-	     `adaptive_defaults.spec.luau` established — with its control, so a green
-	     result is the design's doing and not the collector's laziness.
+	  2. THE ENTRY REALLY DIES — a WITNESS, not a pin, and its title says so. A
+	     weak-keyed watch plus the churn idiom `adaptive_defaults.spec.luau`
+	     established, with that file's control canary: when the churn does not
+	     collect under the full suite the case reports INCONCLUSIVE rather than
+	     asserting something it could not compel. The deterministic claim is (1).
 
 	Both run on `solver.solve` DIRECTLY (the idiom `rect_cow.spec.luau` uses),
 	because the entry table is the thing under test and the controller does not
 	publish it. A hand-built `reuse` carries no `measureContains`, so `selfPlaces`
 	refuses every DIRTY root here — which is why the drive dirties the ROOT and the
 	translate roots under it are its CLEAN children. ]]
-local solver = require("../src/layout/solver")
-
 local function chainTree(pad: number): any
 	local children = {}
 	for g = 1, 3 do
@@ -418,16 +1229,6 @@ local function chainTree(pad: number): any
 		table.insert(children, { kind = "vstack", id = `/root/g{g}`, width = px(12), gap = 2, children = kids })
 	end
 	return { kind = "vstack", id = "/root", gap = 4, padding = pad, children = children }
-end
-
-local function rectKey(r: any): string
-	local out = {}
-	for id, entry in r.rects do
-		local rc = entry.rect
-		table.insert(out, `{id}|{rc.x},{rc.y},{rc.w},{rc.h}`)
-	end
-	table.sort(out)
-	return table.concat(out, "\n")
 end
 
 describe("O3: the re-based entries do not retain the history of a plate", function()
@@ -475,46 +1276,49 @@ describe("O3: the re-based entries do not retain the history of a plate", functi
 		expect(`chain={tostring(leaf.prev.prev)}`).toBe("chain=nil")
 	end)
 
-	it("...and the superseded entry is actually collectable", function()
-		local vp = { w = 400, h = 800 }
-		local dirty = { ["/root"] = true }
-		local watched: { [any]: boolean } = setmetatable({}, { __mode = "k" }) :: any
-		-- the CONTROL from `adaptive_defaults.spec.luau`: an entry that MUST die if
-		-- anything died at all, so a green result is not the collector being idle
-		local canary: { [any]: boolean } = setmetatable({}, { __mode = "k" }) :: any
-		canary[{}] = true
-		local r = solver.solve(chainTree(0), vp, {})
-		r = solver.solve(chainTree(1), vp, { reuse = { previous = r, dirtyContains = dirty } })
-		-- the entry written by solve 2, held ONLY weakly from here on
-		watched[r.rects["/root/g2/l2"]] = true
-		for pad = 2, 12 do
-			r = solver.solve(chainTree(pad), vp, { reuse = { previous = r, dirtyContains = dirty } })
-		end
-		-- enough short-lived tables that anything unreachable has certainly gone
-		for _ = 1, 12 do
-			local waste = table.create(20000)
-			for i = 1, 20000 do
-				waste[i] = { i }
+	it(
+		"...and the superseded entry is unreachable — a WITNESS, inconclusive if the churn does not collect",
+		function()
+			local vp = { w = 400, h = 800 }
+			local dirty = { ["/root"] = true }
+			local watched: { [any]: boolean } = setmetatable({}, { __mode = "k" }) :: any
+			-- the CONTROL from `adaptive_defaults.spec.luau`: an entry that MUST die if
+			-- anything died at all, so a green result is not the collector being idle
+			local canary: { [any]: boolean } = setmetatable({}, { __mode = "k" }) :: any
+			canary[{}] = true
+			local r = solver.solve(chainTree(0), vp, {})
+			r = solver.solve(chainTree(1), vp, { reuse = { previous = r, dirtyContains = dirty } })
+			-- the entry written by solve 2, held ONLY weakly from here on
+			watched[r.rects["/root/g2/l2"]] = true
+			for pad = 2, 12 do
+				r = solver.solve(chainTree(pad), vp, { reuse = { previous = r, dirtyContains = dirty } })
+			end
+			-- enough short-lived tables that anything unreachable has certainly gone
+			for _ = 1, 12 do
+				local waste = table.create(20000)
+				for i = 1, 20000 do
+					waste[i] = { i }
+				end
+			end
+			local collected = true
+			for _ in canary do
+				collected = false
+			end
+			local retained = false
+			for _ in watched do
+				retained = true
+			end
+			if not collected then
+				-- the churn did not collect under this run; the case says so rather than
+				-- passing on an assertion it could not compel
+				expect("the churn did not collect - inconclusive, not green").toBe(
+					"the churn did not collect - inconclusive, not green"
+				)
+			else
+				expect(`retained={retained}`).toBe("retained=false")
 			end
 		end
-		local collected = true
-		for _ in canary do
-			collected = false
-		end
-		local retained = false
-		for _ in watched do
-			retained = true
-		end
-		if not collected then
-			-- the churn did not collect under this run; the case says so rather than
-			-- passing on an assertion it could not compel
-			expect("the churn did not collect - inconclusive, not green").toBe(
-				"the churn did not collect - inconclusive, not green"
-			)
-		else
-			expect(`retained={retained}`).toBe("retained=false")
-		end
-	end)
+	)
 end)
 
 --[[ THE ORACLE'S ARMS, the same three as `tests/measure_split.spec.luau`'s. `a` is
@@ -549,72 +1353,93 @@ describe("O3 oracle: byte-equal to a full solve, every view, every step kind", f
 		{ name = "fractional", plates = ORACLE_PLATES, fractional = true },
 	}
 	for _, fixture in FIXTURES do
-		it(`{fixture.name}: rects, visibility, hit rects and scroll regions survive the arm`, function()
-			for _, view in device_views.VIEWS do
-				local a, b, c = arms(view, fixture)
-				local label = `{fixture.name}/{view.id}`
-				if a.snapshot() ~= c.snapshot() then
-					error(`{label}: diverged from a FULL solve at mount`, 0)
+		it(`{fixture.name}: rects, visibility, hit rects, scroll regions, ENTRIES and findings survive`, function()
+			withEntryCapture(function()
+				for _, view in device_views.VIEWS do
+					local a, b, c = arms(view, fixture)
+					local label = `{fixture.name}/{view.id}`
+					--[[ ONE STEP, FOUR CHANNELS. `drive` is a function so the three arms take
+						the identical action, and the ENTRY maps are captured immediately after
+						each arm's own drive — `withEntryCapture` records the last solve, and
+						the three worlds solve in turn. `alsoB` is the memo-less arm, compared
+						on the plain tick alone exactly as before.
+
+						THE ENTRY CHANNEL (task review round 1, Critical 2) is what closes the
+						half-entry class for EVERY kind rather than the two that were caught:
+						`scene.snapshot()` reads the adapter, and a field like `contentSize`
+						that never reaches a walk is invisible there. ]]
+					-- `b` is DRIVEN on every step and COMPARED on the plain tick alone: an
+					-- arm that skips a drive falls out of sync with the other two and the
+					-- next comparison is about the drive it missed, not about the solver
+					local function step(what: string, compareB: boolean, drive: (any) -> ())
+						drive(a)
+						local aResult = capturedResult
+						drive(b)
+						drive(c)
+						local cRects = capturedResult.rects
+						if a.snapshot() ~= c.snapshot() then
+							error(`{label}: {what} diverged from a FULL solve`, 0)
+						end
+						if compareB and a.snapshot() ~= b.snapshot() then
+							error(`{label}: {what} diverged from the memo-less solve`, 0)
+						end
+						if diagKey(a) ~= diagKey(c) then
+							error(`{label}: {what} diagnostics diverged from a FULL solve`, 0)
+						end
+						if entryKey(aResult.rects) ~= entryKey(cRects) then
+							error(`{label}: {what} ENTRY diverged from a FULL solve`, 0)
+						end
+						local offerDiff = armOfferDiff(aResult)
+						if offerDiff ~= nil then
+							error(`{label}: {what} a re-based entry broke its clone: {offerDiff}`, 0)
+						end
+					end
+
+					if a.snapshot() ~= c.snapshot() then
+						error(`{label}: diverged from a FULL solve at mount`, 0)
+					end
+					if diagKey(a) ~= diagKey(c) then
+						error(`{label}: diagnostics diverged from a FULL solve at mount`, 0)
+					end
+					for round = 1, 4 do
+						local dx, dy = round * 3, round * 2
+						step(`tick {round}`, true, function(w)
+							w.tick(dx, dy)
+						end)
+						step(`caster tick {round}`, false, function(w)
+							w.tickWithCasts(dx, dy)
+						end)
+						step(`hp {round}`, false, function(w)
+							w.hp(7, 0.1 * round)
+						end)
+						--[[ ...AND THE STRUCTURAL ARM, which the three drives above never
+							reach and which the arm has its own stake in: on the structural
+							path `measureContains` is ALIASED to `structuralPlan.contains`, so
+							`selfPlaces` refuses every dirty root there, and `translatable`
+							refuses any child `structural_scope.widen` named. Keyed by `round`,
+							not a constant: `scene.add` mints the key `add{i}` and a ForEach
+							treats a duplicate key as a HARD error. ]]
+						step(`add {round}`, false, function(w)
+							w.add(round)
+						end)
+						-- ...and the tick right after it, because a structural solve's own
+						-- rects are only half the claim: the NEXT incremental solve runs
+						-- against a rect map the structural one only partly rewrote
+						step(`tick-after-add {round}`, false, function(w)
+							w.tick(dx, dy)
+						end)
+						-- ...and `remove` takes an INDEX, so removing the row just added
+						-- (the last one) is what returns the list to its previous shape
+						local added = #a.items
+						step(`remove {round}`, false, function(w)
+							w.remove(added)
+						end)
+					end
+					a.dispose()
+					b.dispose()
+					c.dispose()
 				end
-				for step = 1, 4 do
-					local dx, dy = step * 3, step * 2
-					a.tick(dx, dy)
-					b.tick(dx, dy)
-					c.tick(dx, dy)
-					if a.snapshot() ~= c.snapshot() then
-						error(`{label}: tick {step} diverged from a FULL solve`, 0)
-					end
-					if a.snapshot() ~= b.snapshot() then
-						error(`{label}: tick {step} diverged from the memo-less solve`, 0)
-					end
-					a.tickWithCasts(dx, dy)
-					b.tickWithCasts(dx, dy)
-					c.tickWithCasts(dx, dy)
-					if a.snapshot() ~= c.snapshot() then
-						error(`{label}: caster tick {step} diverged from a FULL solve`, 0)
-					end
-					a.hp(7, 0.1 * step)
-					b.hp(7, 0.1 * step)
-					c.hp(7, 0.1 * step)
-					if a.snapshot() ~= c.snapshot() then
-						error(`{label}: hp {step} diverged from a FULL solve`, 0)
-					end
-					--[[ ...AND THE STRUCTURAL ARM, which the three drives above never
-						reach and which the arm has its own stake in: on the structural
-						path `measureContains` is ALIASED to `structuralPlan.contains`, so
-						`selfPlaces` refuses every dirty root there, and `translatable`
-						refuses any child `structural_scope.widen` named. Keyed by `step`,
-						not a constant: `scene.add` mints the key `add{i}` and a ForEach
-						treats a duplicate key as a HARD error. ]]
-					a.add(step)
-					b.add(step)
-					c.add(step)
-					if a.snapshot() ~= c.snapshot() then
-						error(`{label}: add {step} diverged from a FULL solve`, 0)
-					end
-					-- ...and the tick right after it, because a structural solve's own
-					-- rects are only half the claim: the NEXT incremental solve runs
-					-- against a rect map the structural one only partly rewrote
-					a.tick(dx, dy)
-					b.tick(dx, dy)
-					c.tick(dx, dy)
-					if a.snapshot() ~= c.snapshot() then
-						error(`{label}: tick-after-add {step} diverged from a FULL solve`, 0)
-					end
-					-- ...and `remove` takes an INDEX, so removing the row just added
-					-- (the last one) is what returns the list to its previous shape
-					local added = #a.items
-					a.remove(added)
-					b.remove(added)
-					c.remove(added)
-					if a.snapshot() ~= c.snapshot() then
-						error(`{label}: remove {step} diverged from a FULL solve`, 0)
-					end
-				end
-				a.dispose()
-				b.dispose()
-				c.dispose()
-			end
+			end)
 		end)
 	end
 end)

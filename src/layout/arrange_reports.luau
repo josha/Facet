@@ -14,7 +14,7 @@
 	`tests/containment_diagnostic.spec.luau` and `tests/chrome_inset_yield.spec.luau`
 	are the proof, not this comment.
 
-	WHY THE THREE MESSAGES SIT TOGETHER. They are the reports a node can only make
+	WHY THE FOUR MESSAGES SIT TOGETHER. They are the reports a node can only make
 	about ITS OWN BOX once the box is resolved — a theme too big for the control, an
 	icon floor that was refused, a content box padding emptied, and a child holding
 	a placement prop this parent will never read. All four are gated on

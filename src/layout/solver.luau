@@ -525,8 +525,8 @@ type Ctx = {
 	rectInserts: number,
 	-- THE THIRD CLASS (O3): a node an ancestor re-based instead of walking — not
 	-- arranged, not skipped, a rect insert. `translatedRoots` is keyed by the node
-	-- whose delta it was, `[from, to]` naming its span in the two parallel flat
-	-- arrays, which are in document order and exist for the COMMIT to walk (T5).
+	-- whose delta it was, `[from, to]` naming its span in the two flat arrays, which
+	-- are in document order for the COMMIT to walk (T5).
 	translated: number,
 	translatedRoots: { [string]: { dx: number, dy: number, from: number, to: number } },
 	translatedPaths: { string },
@@ -2112,15 +2112,28 @@ local function noteContainment(
 	end
 end
 
+--[[ THE LITERAL IS THE WHOLE ENTRY — for every kind but these two, and a translate
+	root is a node whose entry is ONLY the literal. The `scroll` branch stamps
+	`contentSize`/`padding`/`barInset`/`overflow` after it and `composition` stamps
+	`composition`; a root returns first, so it would publish a half entry behind a
+	perfect rect, with nothing in a rect oracle to see it. REFUSED, not carried
+	forward, and it costs one node: a translated DESCENDANT is a `table.clone` and
+	keeps every field. `tests/translate_arm.spec` pins this SET against a scan of
+	this file. ]]
+local function literalIsWholeEntry(node: Node): boolean
+	local kind = node.kind
+	return kind ~= "scroll" and kind ~= "composition"
+end
+
 --[[ ...AND THE DIRT THAT MOVED A NODE IS NOT THE DIRT THAT MOVES ITS CHILDREN.
 	`translatable` answers for the subtree; this answers for the ROOT, and the arm
 	was wrong without it (three measured shapes in `tests/translate_arm.spec`, which
-	also pins the partition against `schema.propDirty()`): `measureContains` names
-	every measure-classed prop this body reads to place children; of the eight
-	arrange-classed ones, four are read off the CHILD by its parent and are already
-	spent in our `rect`, `hidden` never moves a rect, and `alignH`/`alignV`/
-	`distribute` ARE read off the node — recorded and compared BY VALUE, since
-	absence is a value (a reactive `distribute` can go back to nil). ]]
+	derives the partition from THIS file's own `node.<prop>` reads). Measure-classed
+	self-dirt is named by `measureContains`. Of the arrange-classed props, four are
+	read off the CHILD by its parent and already spent in our `rect`, `hidden` never
+	moves a rect, and `alignH`/`alignV`/`distribute` ARE read off the node — recorded
+	and compared BY VALUE, since absence is a value (a reactive `distribute` can go
+	back to nil). ]]
 local function selfArrangeKey(node: Node): string?
 	local d, ah, av = node.distribute, node.alignH, node.alignV
 	if d == nil and ah == nil and av == nil then
@@ -2129,16 +2142,17 @@ local function selfArrangeKey(node: Node): string?
 	return `{d}|{ah}|{av}`
 end
 
--- A `nil` measure half REFUSES every dirty root: the hand-built `reuse` tables in
--- `tests/` carry none, and a set that cannot answer is not "clean".
+-- A `nil` measure half REFUSES every dirty root: a set that cannot answer is not
+-- "clean" (the hand-built `reuse` tables in `tests/` carry none).
+
 local function selfPlaces(reuse: any, node: Node, prev: any): boolean
 	local measures = reuse.measureContains
 	return measures ~= nil and measures[node.id] ~= true and prev.selfArrange == selfArrangeKey(node)
 end
 
 -- NO CHILD IN THE DIRTY SET => NO DESCENDANT IN IT (it is prefix-closed), so one
--- pass over the children answers for the subtree. It also refuses a child the
--- previous solve never recorded, which only a torn `lastResult` reaches.
+-- pass answers for the subtree. It also refuses a child the previous solve never
+-- recorded, which only a torn `lastResult` reaches.
 local function translatable(reuse: any, node: Node): boolean
 	local kids = node.children
 	if kids == nil then
@@ -2156,10 +2170,9 @@ end
 
 --[[ RE-BASE EVERY DESCENDANT ONTO THE ROOT'S NEW ORIGIN. Returns false — having
 	written some — if a node below has no previous entry; the caller rolls the
-	partial run back and takes the ordinary arrange. Not dead code: `translatable`
-	inspects DIRECT children only, and the argument that a new GRANDCHILD cannot
-	reach here runs through `builtIds` and `structural_scope.widen` in two other
-	files. One nil test buys it. ]]
+	partial run back, map included. Not dead code: `translatable` inspects DIRECT
+	children only, and the argument that a new GRANDCHILD cannot reach here runs
+	through `builtIds` and `structural_scope.widen` in two other files. ]]
 local function translateDescendants(ctx: Ctx, node: Node, base: Rect, was: Rect, out: { [string]: any }): boolean
 	local kids = node.children
 	if kids == nil then
@@ -2174,15 +2187,15 @@ local function translateDescendants(ctx: Ctx, node: Node, base: Rect, was: Rect,
 		end
 		local old = prevEntry.rect
 		local entry = table.clone(prevEntry)
-		-- FROM THE ROOT'S ORIGIN, NOT BY ADDING A DELTA: `old.x + (new - was)` gains a
-		-- rounding per solve and `tests/table.spec` read 35.99999999999998 for a row
-		-- whose closed x is exactly 36. This form is idempotent.
+		-- FROM THE ROOT'S ORIGIN, NOT BY A DELTA: `old.x + (new - was)` gains a rounding
+		-- per solve — `tests/table.spec` read 35.99999999999998 for a row whose closed x
+		-- is exactly 36. This form is idempotent.
 		entry.rect = table.freeze({ x = base.x + (old.x - was.x), y = base.y + (old.y - was.y), w = old.w, h = old.h })
 		entry.moveOnly = true
 		entry.prev = prevEntry
 		-- THE CHAIN BREAK. `prev` has one reader — the next commit's `skip`, comparing
-		-- identity — and the entry superseded above no longer needs its own, or the
-		-- node retains its whole history: tick N holds N-1 holds N-2, forever.
+		-- identity — and the entry superseded above no longer needs its own, or the node
+		-- retains its whole history: N holds N-1 holds N-2, forever.
 		prevEntry.prev = nil
 		out[child.id] = entry
 		ctx.translated += 1
@@ -2201,9 +2214,9 @@ local function arrange(ctx: Ctx, node: Node, rect: Rect, out: { [string]: any })
 	-- THE SKIP. Same solve, same ctx, same traversal — this subtree just does not need
 	-- walking: no dirty node inside it, and it is landing on the rect it already had.
 	local reuse = ctx.reuse
-	-- set by the translate arm below, consumed after the entry write. `tprev` is
-	-- captured HERE because `out` IS `reuse.previous.rects` (see `solve`): after the
-	-- write the map hands back the table it just wrote.
+	-- set by the arm below, consumed after the entry write. `tprev` is captured HERE
+	-- because `out` IS `reuse.previous.rects` (see `solve`): after the write, the map
+	-- hands back the table it just wrote.
 	local tdx: number?, tdy: number?, tprev: any = nil, nil, nil
 	if reuse ~= nil then
 		local prev = reuse.previous.rects[node.id]
@@ -2229,8 +2242,8 @@ local function arrange(ctx: Ctx, node: Node, rect: Rect, out: { [string]: any })
 		-- ordinary path pays one field test.
 		local containerOk = node.containerRelativeInside ~= true
 			or (prev ~= nil and prev.containerW == ctx.containerW and prev.containerH == ctx.containerH)
-		-- THE SIZE TEST IS SHARED BY BOTH ARMS (O3): a subtree that resized has to be
-		-- re-entered whatever its origin did, so it is asked first and once.
+		-- THE SIZE TEST IS SHARED BY BOTH ARMS (O3): a resized subtree is re-entered
+		-- whatever its origin did, asked first and once.
 		if pr ~= nil and containerOk and pr.w == rect.w and pr.h == rect.h then
 			local clean = reuse.dirtyContains[node.id] ~= true
 			if clean and pr.x == rect.x and pr.y == rect.y then
@@ -2247,17 +2260,14 @@ local function arrange(ctx: Ctx, node: Node, rect: Rect, out: { [string]: any })
 					where they overwrote this solve's fresh verdicts with the last one's. ]]
 				return
 			end
-			--[[ THE TRANSLATE (wicked-fast O3). Same size, moved origin, and nothing
-				inside is dirty — `dirtyContains` proves that in one test per CHILD, not per
+			--[[ THE TRANSLATE (wicked-fast O3). Same size, moved origin, nothing inside
+				dirty — `dirtyContains` proves that in one test per CHILD, not per
 				descendant, because it is closed over ancestors. So the subtree is its old
-				rects re-based onto one new origin: no measure, no arrange, no re-entry. A
-				dirty node still qualifies when its own dirt is dirt its parent already
-				spent (`selfPlaces`), which is what makes the plate ROOT the translate root.
-				IT DOES NOT RETURN HERE: only the ordinary write below records the root's
-				own rect, with this solve's offers and verdicts. ]]
-			-- the cheap gate first: `translatable` walks the children, `selfPlaces` is a
-			-- handful of field reads and only runs when the node is itself dirty
-			if (clean or selfPlaces(reuse, node, prev)) and translatable(reuse, node) then
+				rects re-based onto one new origin: no measure, no arrange, no re-entry. IT
+				DOES NOT RETURN HERE: only the write below records the root's own rect. ]]
+			-- cheapest first: a string compare, then field reads only a dirty node pays,
+			-- then the child walk
+			if literalIsWholeEntry(node) and (clean or selfPlaces(reuse, node, prev)) and translatable(reuse, node) then
 				tdx, tdy, tprev = rect.x - pr.x, rect.y - pr.y, prev
 			end
 		end
@@ -2294,34 +2304,36 @@ local function arrange(ctx: Ctx, node: Node, rect: Rect, out: { [string]: any })
 		-- pure audit can tell an interactive rect from a decorative one without a
 		-- class table it has no business owning. `nil` = no floor declared.
 		hitFloor = node.hitFloor,
-		-- the arrange-classed props this body reads about its OWN children, so the O3
-		-- arm can ask a dirty node "did the way I place them change?". `nil` on nearly
-		-- every node.
+		-- the arrange-classed props this body reads about its OWN children, so the arm
+		-- can ask a dirty node "did the way I place them change?"
 		selfArrange = selfArrangeKey(node),
 	}
 	if tdx ~= nil then
 		local entry = out[node.id]
 		local dx, dy = tdx :: number, tdy :: number
 		-- THE ROOT IS A MOVE TOO, AND SAYS SO — all three proved above. Inert until T5b
-		-- takes it out of the commit-side `nodeDirty` set, which `skip` reads first.
+		-- takes it out of `nodeDirty`, which the commit's `skip` reads first.
 		entry.moveOnly = true
 		entry.prev = tprev
 		tprev.prev = nil
 		local from = #ctx.translatedPaths + 1
 		if translateDescendants(ctx, node, rect, tprev.rect, out) then
 			ctx.translatedRoots[node.id] = { dx = dx, dy = dy, from = from, to = #ctx.translatedPaths }
-			-- WHO WALKED: NOT THIS NODE. Its body did not run, so `solve`'s replay must
-			-- replay its previous findings as for a skipped subtree. `arranged` and absent
-			-- from `walkedIds` is a NEW class — one set before O3 — and marking it walked
-			-- would delete the diagnostics of every node that only moved.
+			-- WHO WALKED: NOT THIS NODE. Its body did not run, so `solve` must replay its
+			-- previous findings, as for a skipped subtree. `arranged` and absent from
+			-- `walkedIds` is a NEW class — one set before O3 — and marking it walked would
+			-- delete the diagnostics of every node that only moved.
 			return
 		end
-		-- REFUSED, AND ROLLED BACK. The dispatch below rewrites every descendant; what
-		-- must not survive is the partial run's BOOKKEEPING, or
-		-- `rectInserts == arranged + translated` counts the same nodes twice.
+		--[[ REFUSED, AND ROLLED BACK — THE MAP AS WELL AS THE BOOKKEEPING. `out` IS
+			`reuse.previous.rects`, so a clone left behind IS the previous entry to the
+			next `arrange`: a clean intermediate finds the re-based rect, compares equal
+			and SKIPS, and a node the previous solve lacked never gets a rect (measured).
+			A restored entry's `prev` stays nil — never a wrong predecessor. ]]
 		local wrote = #ctx.translatedPaths - from + 1
 		if wrote > 0 then
 			for i = #ctx.translatedPaths, from, -1 do
+				out[ctx.translatedPaths[i]] = ctx.translatedEntries[i].prev
 				ctx.translatedPaths[i] = nil
 				ctx.translatedEntries[i] = nil
 			end
@@ -2331,9 +2343,9 @@ local function arrange(ctx: Ctx, node: Node, rect: Rect, out: { [string]: any })
 		entry.moveOnly = nil
 		entry.prev = nil
 	end
-	-- WHO WALKED, for the diagnostic replay in `solve`; on a reuse solve this set is
-	-- the touched path, not the tree. BELOW the entry write since O3: a translate root
-	-- returned above without running its body, a REFUSED one did run and is here.
+	-- WHO WALKED, for `solve`'s diagnostic replay; on a reuse solve this is the touched
+	-- path, not the tree. BELOW the entry write since O3: a translate root returned
+	-- without running its body, a REFUSED one ran and is here.
 	if reuse ~= nil then
 		ctx.walkedIds[node.id] = true
 	end
@@ -2350,10 +2362,9 @@ local function arrange(ctx: Ctx, node: Node, rect: Rect, out: { [string]: any })
 	local innerW = math.max(0, rect.w - pl - pr)
 	local innerH = math.max(0, rect.h - pt - pb)
 
-	-- ...AND THE REPORTS THIS NODE'S OWN BOX MAKES, which moved to
-	-- `./arrange_reports` on 2026-09-02 for the Source-write headroom the translate
-	-- arm needed (`source-cap-ledger.md`). They are reported HERE, before the leaf
-	-- return below, and they need nothing from this file but the values on this line.
+	-- ...AND THE REPORTS THIS NODE'S OWN BOX MAKES, moved to `./arrange_reports` for
+	-- the Source-write headroom the translate arm needed. Reported HERE, before the
+	-- leaf return, and needing nothing but the values on this line.
 	arrange_reports.box(ctx, node, rect, innerW, innerH, pt, pr, pb, pl)
 
 	-- a leaf has no children to place, and everything below this line places
@@ -3694,7 +3705,12 @@ function solver.solve(
 	-- solve; dropping them would silence `controller.diagnostics()` for exactly the
 	-- parts of the screen that did not change, which is the instrument every layout
 	-- defect in this repo was caught by.
-	if ctx.reuse ~= nil and ctx.skipped > 0 then
+	--
+	-- ...AND SO DOES A TRANSLATED ONE (O3). The arm makes a third population —
+	-- arranged, absent from `walkedIds`, under no skip — so a solve where everything
+	-- is arranged or translated has `skipped == 0`, and the old gate could not fire
+	-- for the very nodes this replay serves (the nameplates pure tick).
+	if ctx.reuse ~= nil and (ctx.skipped > 0 or ctx.translated > 0) then
 		--[[ ONE COPY PER FINDING, AND IT TAKES BOTH REFUSALS BELOW. They answer the same
 			question — "was this finding filed this solve?" — about the two passes.
 
