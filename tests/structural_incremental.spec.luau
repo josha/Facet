@@ -460,6 +460,17 @@ describe("O6: what the bound does not re-derive still has to be true", function(
 			100px window, so scrolling 100 puts it fully outside. ]]
 		local f = scrollFixture(6)
 		expect(f.adapter.visibleOf("/S/List/Head/Ring")).toBe(true)
+		--[[ TWENTY-ONE CHURNS, not one, and the claim is repetition rather than a second
+			oracle: `pathNodes`, `pathNodeCount` and the per-parent index are all now
+			maintained by DELTA across the walk and the sweep, so what this adds is that
+			the assertions below hold after twenty-one structural changes rather than
+			after the first. The count's only consumer is an `== 0` test, so no case can
+			see the SIZE of a drift — only a drift that reaches zero, which is the arm the
+			`pathNodeCount` mutation drives. ]]
+		for _ = 1, 10 do
+			f.add()
+			f.remove()
+		end
 		f.add()
 		f.adapter.driveScroll("/S/List", { x = 0, y = 100 })
 		expect(f.adapter.visibleOf("/S/List/Head/Ring")).toBe(false)
