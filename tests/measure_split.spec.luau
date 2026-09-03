@@ -74,7 +74,7 @@
 	it with the same buckets and the expression below carries the breakdown. THE
 	PROTOCOL: update the EXPRESSION and its comment, never the assertion.
 
-	AND T4 (`<T4-SHA>`) MADE THE `== 0` PIN REACHABLE, WHICH IS THE OTHER HALF OF
+	AND T4 (`14c3459d`) MADE THE `== 0` PIN REACHABLE, WHICH IS THE OTHER HALF OF
 	THIS FILE'S STORY. Everything above describes the world in which a moved plate
 	root fails the arrange skip and takes the vstack arrange branch. T4's translate
 	arm gives `arrange` a THIRD outcome — same size, moved origin, no dirty child,
@@ -106,7 +106,7 @@ local CASTERS = PLATES // scene.CASTER_EVERY -- 50
 -- every touch, and the plate's own ARRANGE used to touch both (its measure pass
 -- hits the adopted slate and never descends). That was the T3 floor of
 -- `PLATES * 2` = 500, bucketed as `SKIP box Hp = 250` + `SKIP box Cast = 250` and
--- nothing else. T4's translate arm (`<T4-SHA>`) removes the arrange descent as
+-- nothing else. T4's translate arm (`14c3459d`) removes the arrange descent as
 -- well, so the touches stop: READ OFF THE RUN as 0, the pin T3 said belonged here
 -- and could not reach. See the header.
 local MEASURED_TICK = 0
@@ -130,7 +130,7 @@ local MEASURED_TICK = 0
 	`Row`/`Name`/`Lvl` appear in NO bucket at all, under a caster or a quiet
 	plate — they adopt and hit.
 
-	T4 (`<T4-SHA>`) ZEROED THE FIRST TERM AND LEFT THE OTHER TWO STANDING, read off
+	T4 (`14c3459d`) ZEROED THE FIRST TERM AND LEFT THE OTHER TWO STANDING, read off
 	the run: the 200 quiet plates translate instead of arranging, so their `SKIP Hp`
 	/ `SKIP Cast` touches are gone; the 50 casters still refuse (`translatable` sees
 	the dirty `Cast` child) and still cost 5 apiece; `Canvas` and `S` still lose
