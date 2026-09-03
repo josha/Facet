@@ -1,16 +1,12 @@
 --!strict
 --[[ ── THE TEXT-PREMEASUREMENT ROUND ─────────────────────────────────────────
 
-	Lifted out of `render/renderer.luau` on 2026-09-03, BYTE-VERBATIM in its body,
-	because that file's source-cap ledger row has named this block as its next seam
-	since the geometry-facts split: *the TEXT-MEASUREMENT ROUND (`textInFlight`,
-	`textMeasureCancels`, the collect/deliver/`learned` block inside `solveAndApply`,
-	~4 KB) — it reads `adapter`, `env` and `stats`, so it costs a record the way
-	`table.luau`'s `rowGesture` did, and is worth taking only by a round that needs
-	the room.* Wicked-fast T7 adds 2,500-4,000 characters to a file with 1,480 of
-	headroom, so the extraction PRECEDES the product change as its own commit —
-	which is what that ledger's wording has demanded of every split this file has
-	taken.
+	Lifted out of `render/renderer.luau` on 2026-09-03, BYTE-VERBATIM in its body.
+	THE ARGUMENT IS NOT REPEATED HERE: this is the seam that file's source-cap ledger
+	row has named by name since the geometry-facts split, and the row states the
+	predicted price, what was measured instead, and why the split came first. Read
+	`tools/lune/verify/data/source-cap-ledger.md` for the why and
+	`tests/premeasure_round_seam.spec.luau` for the executable contract.
 
 	WHAT IS HERE. The RENDERER's end of the premeasurement seam: one round per
 	solve, asked at the point in the commit where this frame is already painted from

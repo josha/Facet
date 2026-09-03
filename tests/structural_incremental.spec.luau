@@ -29,57 +29,63 @@
 	its root's recorded pair `(scrollHostOf[root], clipHostOf[root])` and the nodes
 	themselves. `alive` is the sweep's oracle and is scoped with it.
 
-	MUTATIONS RUN, 2026-09-03: twelve, of which SIX bite —
+	MUTATIONS RUN, 2026-09-03 (fix round 1): fifteen, of which TWELVE bite —
 
 	  | mutation                                          | result   |
-	  | `roots = nil` unconditionally                     | 4 red    |
+	  | `roots = nil` unconditionally                     | 13 red   |
 	  | the departed enumeration takes direct children    | 3 red    |
-	  | the whole-tree `table.clear(scrollHostOf)` back    | 3 red    |
+	  | the whole-tree `table.clear(scrollHostOf)` back    | 4 red    |
 	  | `pathNodeCount` zeroed instead of decremented     | 1 red    |
 	  | the whole-tree `table.clear(pathNodes)` back       | 2 red    |
+	  | `livePaths`' skip tests the path, not the node    | 1 red    |
+	  | `ensureTree`'s skip tests the path, not the node  | 1 red    |
+	  | the sweep forgets `pathNodes` and its count       | 1 red    |
 	  | an ancestor root swallows a descendant root       | 1 red    |
-	  | the skip ignores the inherited (host, clip) pair  | DOES NOT |
-	  | the skip ignores node identity (path only)        | DOES NOT |
-	  | `sweepDeparted` drops the five walk facts         | DOES NOT |
-	  | `active` stops being a root-making prop           | DOES NOT |
+	  | `active` stops being a node fact                  | 2 red    |
+	  | the dirty scan stops asking `isNodeFact`          | 2 red    |
+	  | a node-fact entry sets no `needsSolve`            | 2 red    |
+	  | the sweep drops its four OTHER per-path clears    | DOES NOT |
 	  | an UNCOVERED unresolvable entry is skipped        | DOES NOT |
 	  | the `mounted` guard on a root is dropped          | DOES NOT |
 
-	THE SIX NULL RESULTS ARE KEPT AS-IS AND HERE IS WHY EACH ONE IS UNREACHABLE, not
-	merely undriven. All six defend the SAME shape — a fallback or a guard whose whole
-	value is that the unsafe branch never runs — and inventing a fixture to make one
-	go red would be a case written for the mutation rather than for the behaviour.
+	THE FIRST MUTATION NOW REDDENS ALMOST EVERYTHING, and that is a change from the
+	first round rather than an accident: every asserted string carries `ssPasses` and
+	`full`, so a case no longer only asks "did the bounded rebuild get the right
+	answer" but "was the bounded path the one that ran". A forced fallback still
+	produces a CORRECT tree — the differential oracle's snapshot comparison passes
+	under it — and now says so out loud instead of passing silently.
 
-	  * THE INHERITED PAIR, and this is the one worth reading. A child's pair can only
-	    change if an ancestor's class or `clipChildren` changed, and both are immutable
-	    for a given node object — `clipChildren` is `reactive = false` in the schema, and
-	    a class change means a NEW node, which fails the identity half anyway. So the
-	    pair test is currently belt-and-braces. It stays because the skip's CLAIM is
-	    about facts, not identity: "the same node under the same context" is the true
-	    statement, and "the same node" alone is a statement that happens to hold.
-	  * NODE IDENTITY, the same test from the other side. Making the skip a path test
-	    needs a node RE-CREATED at a path its parent still lists in the same sync. No
-	    fixture in either repository does that: `ForEach` reuses an entry by key, a
-	    `When` branch departs before it returns, and the one route that could —
-	    `ErrorBoundary` tripping twice in a frame — has no driver here.
-	  * THE FIVE WALK FACTS IN `sweepDeparted`. They are latent by construction: a
-	    departed path's entries are only ever READ again if that path comes back, and
-	    when it does the walk overwrites them. The existing comment beside
-	    `parentNodeOf` is what says they must go anyway ("a stale parent link would
-	    resolve a constraint to a branch that no longer exists"), and the whole-tree
-	    pass has always cleared them.
-	  * `active` AS A ROOT-MAKING PROP closes a staleness that predates this change: an
-	    `active` flip is `semantics`-classed and schedules no sync at all, so today it
-	    is repaired only by whatever structural sync happens to run next. Bounding the
-	    sync takes that accident away; naming the prop puts it back deliberately.
-	  * THE UNCOVERED-UNRESOLVABLE FALLBACK and THE `mounted` GUARD are the same
-	    argument twice. Every route that can put an unmounted or departed path in the
-	    delta does so from inside some other entry's subtree (a region fills its
-	    children on its first run; a region inside a removed subtree fires on its way
-	    out), so the uncovered case is not reachable from any shipped mount path — and
-	    the guard is what makes "a root has a recorded seed" true rather than usual.
+	THE THREE NULL RESULTS ARE KEPT AS-IS, and each defends an outcome no shipped
+	route reaches:
 
-	AND THE SIXTH THING IS A COUNT, NOT A MAP. `pathNodeCount` is decremented per
+	  * THE SWEEP'S FOUR OTHER PER-PATH CLEARS (`scrollHostOf`, `clipHostOf`,
+	    `parentNodeOf`, `inputSinks`). A departed path that RETURNS has all four
+	    rewritten unconditionally by the walk, so nothing stale is ever served; a path
+	    that never returns leaks four entries for the life of the surface. That is
+	    unbounded growth rather than a wrong answer, which is why the drivable half of
+	    the same block — `pathNodes` and its count, which is a LATCH — is the one with
+	    a case above. They stay because the whole-tree `table.clear` a bounded sync no
+	    longer runs is what used to do this, and `parentNodeOf`'s own comment in the
+	    renderer says why a stale link is not survivable.
+	  * THE UNCOVERED-UNRESOLVABLE FALLBACK and THE `mounted` GUARD are one argument
+	    twice. Every route that can put an unmounted or departed path in the delta
+	    creates it from a parent's `children` mutation, and all seven
+	    `pushDirty(_, "structure")` sites in `mount.luau` push against the container
+	    they mutated — so the topmost changed container existed before the frame and
+	    resolves, and every entry below it is strictly covered by construction. The
+	    branch is the difference between a wrong bound and a slow one, it is LOUD
+	    (`ssFullPasses`, pinned at 0 by every case in this file and in the game's
+	    rider), and it costs one loop only on a resolution failure.
+
+	AND TWO GUARDS THAT WERE HERE IN ROUND 1 ARE GONE. The inherited-pair term in the
+	skip was two hash lookups per SKIPPED child, on the hot path this round exists to
+	shrink, defending a transition the schema forbids — deleted, with the invariant
+	asserted instead (see "the two facts that let the skip test identity alone"). And
+	`active` as a root-making prop was not a guard at all but a partial patch over a
+	hole this round opened; the whole fix is in the dirty scan now, and the two
+	hit-lift cases are what say so.
+
+		AND THE SIXTH THING IS A COUNT, NOT A MAP. `pathNodeCount` is decremented per
 	departed `UI.Path` rather than zeroed, for the same reason `pathNodes` is not
 	cleared: `commit_walks`' `prunable` latch reads `next(pathNodes) == nil` and
 	`reculPathClips` returns early on `pathNodeCount == 0`, so a partially rebuilt
@@ -98,6 +104,16 @@ local renderer = require("../src/render/renderer")
 local customFactory = require("../src/core/custom")
 local fake_target = require("./lib/fake_target")
 local path_shapes = require("../src/controls/path_shapes")
+local schema = require("../src/blueprint_schema")
+local fs = require("@lune/fs")
+
+-- comments are not code: `mount.luau` describes what it does in prose, and a scan
+-- that counted the prose would report the very assignment the header promises is absent
+local function stripComments(source: string): string
+	local out = string.gsub("\n" .. source, "%-%-%[%[.-%]%]", " ")
+	out = string.gsub(out, "\n[ \t]*%-%-[^\n]*", "\n")
+	return out
+end
 
 local PLATES = scene.PLATES -- 250
 -- 250 plates x 6 nodes + the Screen and the Anchor + the ForEach region node.
@@ -130,11 +146,18 @@ describe("O6: a structural sync visits the delta, not the tree", function()
 		s.tick(3, 2)
 		-- `scene.new()` calls `initialRender`, which is a full pass BY CONSTRUCTION, so
 		-- the fallback counter is read as a DELTA over the drive rather than absolutely
-		local before = s.stats().ssFullPasses
+		local before = s.stats()
 		s.add(1)
-		expect(`visited={s.stats().lastSsVisited} full={s.stats().ssFullPasses - before}`).toBe(
-			`visited={VISITED_ADD} full=0`
-		)
+		local st = s.stats()
+		--[[ `ssPasses` IS IN EVERY STRING, and it is not decoration: `lastSsVisited` is a
+			LAST capture, so a drive that ran two syncs would report only the second one's
+			count and a drive that ran none would re-assert the previous step's. The pin
+			only means "this step visited 16 nodes" once it also says how many syncs the
+			step caused. ]]
+		expect(
+			`visited={st.lastSsVisited} ssPasses={st.ssPasses - before.ssPasses}`
+				.. ` full={st.ssFullPasses - before.ssFullPasses}`
+		).toBe(`visited={VISITED_ADD} ssPasses=1 full=0`)
 		s.dispose()
 	end)
 
@@ -146,11 +169,13 @@ describe("O6: a structural sync visits the delta, not the tree", function()
 			already gone from the tree. ]]
 		local s = scene.new()
 		s.tick(3, 2)
-		local before = s.stats().ssFullPasses
+		local before = s.stats()
 		s.remove(3)
-		expect(`visited={s.stats().lastSsVisited} full={s.stats().ssFullPasses - before}`).toBe(
-			`visited={VISITED_REMOVE} full=0`
-		)
+		local st = s.stats()
+		expect(
+			`visited={st.lastSsVisited} ssPasses={st.ssPasses - before.ssPasses}`
+				.. ` full={st.ssFullPasses - before.ssFullPasses}`
+		).toBe(`visited={VISITED_REMOVE} ssPasses=1 full=0`)
 		s.dispose()
 	end)
 
@@ -161,11 +186,14 @@ describe("O6: a structural sync visits the delta, not the tree", function()
 			every time: a `ssFullPasses` that only ever goes up is a bounded path nobody is
 			taking. ]]
 		local s = scene.new()
-		local before = s.stats().ssFullPasses
+		local before = s.stats()
 		s.controller.initialRender()
-		expect(s.stats().ssFullPasses - before).toBe(1)
+		local st = s.stats()
 		-- two whole-tree walks, so the count is above the tree rather than near it
-		expect(s.stats().lastSsVisited > MOUNTED).toBe(true)
+		expect(
+			`ssPasses={st.ssPasses - before.ssPasses} full={st.ssFullPasses - before.ssFullPasses}`
+				.. ` overTree={tostring(st.lastSsVisited > MOUNTED)}`
+		).toBe("ssPasses=1 full=1 overTree=true")
 		s.dispose()
 	end)
 end)
@@ -187,6 +215,7 @@ describe("O6: the differential oracle — a bounded sync builds what a full one 
 		end
 		local out = "clean"
 		for step = 1, 30 do
+			local beforeA = a.stats()
 			if step % 3 == 0 then
 				--[[ A RANDOM INDEX, so the departed subtree is somewhere in the middle of
 					the region's children rather than always at its end — a plate root is a
@@ -203,6 +232,17 @@ describe("O6: the differential oracle — a bounded sync builds what a full one 
 					dead trees — caught on the first run of this file. ]]
 				a.add(step)
 				b.add(step)
+			end
+			--[[ ...AND EACH DRIVE CAUSED EXACTLY ONE BOUNDED SYNC. Checked per step rather
+				than at the end: a run that fell back on step 7 and was bounded for the other
+				29 would still compare clean, and the oracle would then be reporting the
+				FALLBACK's correctness rather than the bound's. ]]
+			local afterA = a.stats()
+			local passes = afterA.ssPasses - beforeA.ssPasses
+			local full = afterA.ssFullPasses - beforeA.ssFullPasses
+			if passes ~= 1 or full ~= 0 then
+				out = `step {step} ran ssPasses={passes} full={full}`
+				break
 			end
 			-- b is forced through the whole-tree path by a full structural sync
 			b.controller.initialRender()
@@ -230,8 +270,9 @@ describe("O6: the differential oracle — a bounded sync builds what a full one 
 			table.insert(want, `{view.id}=clean`)
 		end
 		expect(table.concat(out, " ")).toBe(table.concat(want, " "))
-		-- the sweep really did visit the narrowest supported viewport
-		expect(string.find(table.concat(want, " "), "narrow-portrait=clean", 1, true) ~= nil).toBe(true)
+		-- the sweep really did visit the narrowest supported viewport, read off the
+		-- RESULT rather than off the literal this case just built (review M6)
+		expect(string.find(table.concat(out, " "), "narrow-portrait=clean", 1, true) ~= nil).toBe(true)
 	end)
 end)
 
@@ -242,7 +283,17 @@ end)
 	erased `scrollHostOf` moves nothing and answers the wrong window position, and
 	an emptied `pathNodes`/`pathNodeCount` pair moves nothing and turns two culls
 	off. ]]
-local function scrollFixture(rows: number): any
+local function ring(id: string): any
+	return UI.Path({
+		id = id,
+		points = path_shapes.ring(),
+		closed = true,
+		width = { type = "fixed", px = 16 },
+		height = { type = "fixed", px = 16 },
+	})
+end
+
+local function scrollFixture(rows: number, opts: { removableRing: boolean? }?): any
 	local core = customFactory.new()
 	local env = environment.new(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 300, h = 600 })
@@ -252,6 +303,7 @@ local function scrollFixture(rows: number): any
 		table.insert(items, { key = `r{i}` })
 	end
 	local rowsSignal = core:signal(items)
+	local ringOn = core:signal(true)
 	local bp = UI.Screen({
 		id = "S",
 		padding = 0,
@@ -270,15 +322,7 @@ local function scrollFixture(rows: number): any
 					UI.ZStack({
 						id = "Head",
 						height = { type = "fixed", px = 50 },
-						children = {
-							UI.Path({
-								id = "Ring",
-								points = path_shapes.ring(),
-								closed = true,
-								width = { type = "fixed", px = 16 },
-								height = { type = "fixed", px = 16 },
-							}),
-						},
+						children = { if (opts or {}).removableRing then UI.Box({ id = "Plain" }) else ring("Ring") },
 					}),
 					UI.ForEach({
 						id = "Rows",
@@ -290,6 +334,23 @@ local function scrollFixture(rows: number): any
 							return UI.ZStack({ id = "Row", height = { type = "fixed", px = 50 }, children = {} })
 						end,
 					}),
+					--[[ ...AND THE ONE `UI.Path` THAT CAN LEAVE, behind a `When` so the whole
+						surface can be emptied of stroked paths while the tree around it stays
+						the same size — which is what makes the latch-reopens case a contrast
+						rather than a smaller tree. ]]
+					if (opts or {}).removableRing
+						then UI.When({
+							id = "Tip",
+							condition = ringOn,
+							thenView = function(): any
+								return UI.ZStack({
+									id = "Box",
+									height = { type = "fixed", px = 20 },
+									children = { ring("Ring") },
+								})
+							end,
+						})
+						else UI.Box({ id = "Tip", height = { type = "fixed", px = 20 } }),
 				},
 			}),
 		},
@@ -301,6 +362,10 @@ local function scrollFixture(rows: number): any
 	return {
 		controller = controller,
 		adapter = adapter,
+		dropRing = function()
+			ringOn:set(false)
+			controller.refresh()
+		end,
 		add = function()
 			local next_ = table.clone(rowsSignal:get() :: any)
 			table.insert(next_, { key = `r{#next_ + 1}` })
@@ -401,18 +466,316 @@ local function nestedFixture(): any
 	}
 end
 
+--[[ ── C1: A NODE FACT THE WALK READS IS A STRUCTURE CHANGE ─────────────────
+	`inputSinks` is written ONLY by `livePaths`, and `active` is the one prop it
+	reads that is `reactive = true` (`dirty = { "semantics" }`). Before this round a
+	lone `active` flip ran no structural sync either — but the next whole-tree sync
+	from anywhere in the tree rebuilt `inputSinks` from scratch and repaired it. A
+	BOUNDED sync does not: the flipped node's object never changed, so every later
+	sync skips it and the stale verdict stands FOR THE LIFE OF THE SURFACE. That is a
+	behaviour change, so the flip now schedules its own sync.
+
+	ASSERTED THROUGH THE HIT-LIFT OBSERVABLE, never through `inputSinks`. A control
+	under the touch floor gets an invisible expander (`Btn` is 20x20 against a 44px
+	floor, so its expander spans -12..32 x 88..132); where that expander reaches PAST
+	its host into a rect that can SINK input, `render/hit_lift` walks the host's
+	branch AFTER the target's. `Sink` is 20x20 at x=26, so the expander reaches it and
+	the button's own painted rect (0..20) does not — which is exactly the overhang the
+	lift exists for, and `active` is the only reason `Sink` is a sinker at all. ]]
+local function sinkFixture(): any
+	local core = customFactory.new()
+	local env = environment.new(core)
+	env:set("viewportRect", { x = 0, y = 0, w = 400, h = 600 })
+	local active = core:signal(true)
+	local rows = core:signal({ { key = "r1" } })
+	local bp = UI.Screen({
+		id = "S",
+		padding = 0,
+		gap = 0,
+		children = {
+			UI.Anchor({
+				id = "Board",
+				width = { type = "fill", weight = 1 },
+				height = { type = "fill", weight = 1 },
+				children = {
+					UI.Button({
+						id = "Btn",
+						label = "",
+						anchor = "topLeft",
+						offsetX = 0,
+						offsetY = 100,
+						width = { type = "fixed", px = 20 },
+						height = { type = "fixed", px = 20 },
+					}),
+					UI.ZStack({
+						id = "Sink",
+						anchor = "topLeft",
+						offsetX = 26,
+						offsetY = 100,
+						width = { type = "fixed", px = 20 },
+						height = { type = "fixed", px = 20 },
+						active = active,
+						children = {},
+					}),
+					-- the CHURN, and it is deliberately far from both: the bounded walk it
+					-- schedules has no reason to visit `Sink`
+					UI.ForEach({
+						id = "Rows",
+						items = rows,
+						key = function(item: any): string
+							return item.key
+						end,
+						row = function(item: any): any
+							return UI.ZStack({
+								id = "Row",
+								anchor = "topLeft",
+								offsetX = 200,
+								offsetY = 300,
+								width = { type = "fixed", px = 10 },
+								height = { type = "fixed", px = 10 },
+								children = {},
+							})
+						end,
+					}),
+				},
+			}),
+		},
+	})
+	local root = mountLib.mount(core, bp)
+	local adapter = fake_target.new()
+	local controller = renderer.attach(core, root, env, adapter, { rootPolicy = "edgeToEdge" })
+	controller.initialRender()
+	local function paintOrder(): string
+		return `btn={adapter.node("/S/Board/Btn").z} sink={adapter.node("/S/Board/Sink").z}`
+	end
+	return {
+		controller = controller,
+		adapter = adapter,
+		paintOrder = paintOrder,
+		setActive = function(on: boolean)
+			active:set(on)
+			controller.refresh()
+		end,
+		churn = function()
+			rows:set({ { key = "r1" }, { key = "r2" } })
+			controller.refresh()
+		end,
+		dispose = function()
+			controller.dispose()
+			root.dispose()
+		end,
+	}
+end
+
+--[[ ── THE INVARIANT THE IDENTITY SKIP RESTS ON, MADE EXECUTABLE ─────────────
+	`livePaths` skips a child on node identity ALONE. That is sound only because the
+	inherited `(nextHost, nextClip)` pair is a function of the ancestors' CLASS and
+	`clipChildren`, and neither can move for a node table that did not change. The
+	first draft of this round paid two extra hash lookups per SKIPPED child to
+	re-check the pair — on the hot path the round exists to shrink, for a transition
+	the schema forbids. The term is gone and these two cases are what replaced it: if
+	either fact stops holding, this file goes red rather than the framework going
+	quietly wrong. ]]
+--[[ ── THE OTHER HALF: A PATH REUSED BY A DIFFERENT NODE ─────────────────────
+	The skip's identity term is what the renderer's own sweep comment has warned about
+	for years — "paths are REUSED across a remount". `mount.luau` disposes a
+	`ForEach` key's row and nils its entry when the key leaves, and builds a FRESH
+	node at the SAME `rowPath` when it returns. Two `rows:set` calls inside one
+	refresh window (each settles synchronously outside a flush) therefore leave the
+	OLD node object in the per-parent index and a NEW one in `node.children` at the
+	same path, and a skip that tested only "was this path here before" would skip it —
+	so a re-created row's new descendants would never be created at all. ]]
+local function remountFixture(): any
+	local core = customFactory.new()
+	local env = environment.new(core)
+	env:set("viewportRect", { x = 0, y = 0, w = 300, h = 600 })
+	-- a PLAIN upvalue, not a signal: reading a signal inside the row factory would
+	-- make the row re-run on its own and remount the very node this case is watching
+	local withExtra = false
+	local items = core:signal({ { key = "a" }, { key = "k" } })
+	local bp = UI.Screen({
+		id = "S",
+		padding = 0,
+		gap = 0,
+		children = {
+			-- ...INSIDE A SCROLL HOST, because `ensureTree`'s identity term and
+			-- `livePaths`' are two separate skips: the first decides whether the new
+			-- node gets a HANDLE, the second whether it gets its per-path FACTS, and only
+			-- a host above the churn can see the second one go missing
+			UI.ScrollView({
+				id = "Host",
+				height = { type = "fixed", px = 120 },
+				axis = "y",
+				padding = 0,
+				gap = 0,
+				children = {
+					UI.ForEach({
+						id = "List",
+						items = items,
+						key = function(item: any): string
+							return item.key
+						end,
+						row = function(item: any): any
+							local kids: { any } = { UI.Text({ id = "Base", text = item.key }) }
+							if withExtra then
+								table.insert(kids, UI.Text({ id = "Extra", text = "x" }))
+							end
+							return UI.VStack({ id = "Row", children = kids })
+						end,
+					}),
+				},
+			}),
+		},
+	})
+	local root = mountLib.mount(core, bp)
+	local adapter = fake_target.new()
+	local controller = renderer.attach(core, root, env, adapter, { rootPolicy = "edgeToEdge" })
+	controller.initialRender()
+	return {
+		controller = controller,
+		adapter = adapter,
+		leaveAndReturn = function()
+			-- ONE refresh window, two sets: `k` leaves, the shape grows a leaf, `k` returns
+			items:set({ { key = "a" } })
+			withExtra = true
+			items:set({ { key = "a" }, { key = "k" } })
+			controller.refresh()
+		end,
+		dispose = function()
+			controller.dispose()
+			root.dispose()
+		end,
+	}
+end
+
+describe("O6: a path reused by a DIFFERENT node table is re-derived, not skipped", function()
+	it("a key that leaves and returns in one refresh window brings its new leaf with it", function()
+		local f = remountFixture()
+		expect(f.adapter.node("/S/Host/List/[k]/Row/Extra")).toBe(nil)
+		local before = f.controller.stats()
+		f.leaveAndReturn()
+		local st = f.controller.stats()
+		--[[ THE OLD ROW IS GONE AND THE NEW ONE IS WHOLE. `Extra` is the assertion that
+			matters: it exists only in the second shape, so a skip that kept the old node's
+			subtree would leave it uncreated while every path around it looked correct. ]]
+		expect(
+			`extra={tostring(f.adapter.node("/S/Host/List/[k]/Row/Extra") ~= nil)}`
+				.. ` base={tostring(f.adapter.node("/S/Host/List/[k]/Row/Base") ~= nil)}`
+				.. ` ssPasses={st.ssPasses - before.ssPasses} full={st.ssFullPasses - before.ssFullPasses}`
+		).toBe("extra=true base=true ssPasses=1 full=0")
+		--[[ ...AND ITS PER-PATH FACTS LANDED TOO, which is the OTHER skip. `ensureTree`
+			decides whether the new leaf gets a handle; `livePaths` decides whether it gets
+			a `scrollHostOf` entry, and a leaf that answers "no host" is a leaf whose window
+			position ignores the scroll offset. Read through the public accessor. ]]
+		local host = f.controller.scrollHostFor("/S/Host/List/[k]/Row/Extra")
+		expect(if host == nil then "no host" else host.path).toBe("/S/Host")
+		-- ...and the untouched sibling did NOT grow one, so the case is about the
+		-- remounted key rather than about the whole list being rebuilt
+		expect(f.adapter.node("/S/Host/List/[a]/Row/Extra")).toBe(nil)
+		f.dispose()
+	end)
+end)
+
+describe("O6: the two facts that let the skip test identity alone", function()
+	it("`clipChildren` is NOT reactive, so a clip host cannot appear under an unchanged node", function()
+		local spec = (schema.forClass("VStack") :: any).props.clipChildren
+		expect(`declared={spec ~= nil} reactive={tostring(spec ~= nil and spec.reactive == true)}`).toBe(
+			"declared=true reactive=false"
+		)
+		--[[ ...and it is a SHARED prop, so the reading is the same for every container
+			class rather than for the one this case happened to ask. ]]
+		expect(spec.shared).toBe(true)
+	end)
+
+	it("a class change builds a NEW node table: `mount.luau` never assigns `.class`", function()
+		--[[ The other half, and it is a source pin because there is no route to drive it:
+			a mounted node's `class` is written only in the table constructors that BUILD a
+			node (`class = bp.class` and the three region literals). An assignment to
+			`something.class` would be a class changing under a live node table — the exact
+			transition the skip assumes cannot happen. ]]
+		local source = fs.readFile("src/mount.luau")
+		local offenders: { string } = {}
+		for line in string.gmatch(stripComments(source), "\n([^\n]*)") do
+			if string.match(line, "[%a_][%w_]*%.class%s*=[^=]") ~= nil then
+				table.insert(offenders, string.match(line, "^%s*(.-)%s*$") :: string)
+			end
+		end
+		expect(table.concat(offenders, " | ")).toBe("")
+		-- NEGATIVE CONTROL: the scan reports an assignment when there is one
+		expect(#(function(): { string }
+			local out: { string } = {}
+			for line in string.gmatch('\nnode.class = "Box"\n', "\n([^\n]*)") do
+				if string.match(line, "[%a_][%w_]*%.class%s*=[^=]") ~= nil then
+					table.insert(out, line)
+				end
+			end
+			return out
+		end)()).toBe(1)
+	end)
+end)
+
+describe("O6: a reactive node fact the live-path walk reads schedules its own sync", function()
+	it("a backdrop that STOPS sinking stops lifting the button over it", function()
+		--[[ THE NUMBERS, DERIVED. `syncZOrder` is a document-order counter with a
+			reserved slot per hit-floor class, so the unlifted order is declaration order
+			(`Btn` before `Sink`) and the lifted one walks `Btn`'s branch after `Sink`'s.
+			Both readings are exact and both are pinned: a relation alone would pass on a
+			pair that stopped being ordered at all. ]]
+		local f = sinkFixture()
+		local before = f.controller.stats()
+		expect(f.paintOrder()).toBe("btn=5 sink=3") -- lifted: `Sink` sinks input
+		local solves = f.controller.stats().solves
+		f.setActive(false)
+		local st = f.controller.stats()
+		expect(
+			`{f.paintOrder()} ssPasses={st.ssPasses - before.ssPasses} full={st.ssFullPasses - before.ssFullPasses}`
+				.. ` solves={st.solves - solves}`
+		).toBe("btn=4 sink=5 ssPasses=1 full=0 solves=1")
+		--[[ ...AND IT STAYS REPAIRED THROUGH A CHURN SOMEWHERE ELSE, which is the half
+			that fails without the fix: the bounded sync the churn schedules skips `Sink`
+			(same node object), so if the flip had not scheduled its own sync there would
+			never be another chance to re-derive it. ]]
+		local mid = f.controller.stats()
+		f.churn()
+		local after = f.controller.stats()
+		expect(`{f.paintOrder()} ssPasses={after.ssPasses - mid.ssPasses} full={after.ssFullPasses - mid.ssFullPasses}`).toBe(
+			"btn=4 sink=5 ssPasses=1 full=0"
+		)
+		f.dispose()
+	end)
+
+	it("...and a backdrop that STARTS sinking begins lifting it, on its own frame", function()
+		-- the other direction, which the hit-lift defect family is equally bitten by:
+		-- a sinker invisible to the lift advertises a band it cannot deliver
+		local f = sinkFixture()
+		f.setActive(false)
+		expect(f.paintOrder()).toBe("btn=4 sink=5")
+		local before = f.controller.stats()
+		f.setActive(true)
+		local st = f.controller.stats()
+		expect(`{f.paintOrder()} ssPasses={st.ssPasses - before.ssPasses} full={st.ssFullPasses - before.ssFullPasses}`).toBe(
+			"btn=5 sink=3 ssPasses=1 full=0"
+		)
+		f.dispose()
+	end)
+end)
+
 describe("O6: two structural roots on one chain", function()
 	it("a nested region's change survives its ancestor's walk skipping past it", function()
 		local f = nestedFixture()
 		expect(f.adapter.node("/S/List/Outer/[a]/Row/Inner/[i2]/Leaf")).toBe(nil)
+		local before = f.controller.stats()
 		f.churnBoth()
+		local st = f.controller.stats()
 		--[[ the SURVIVING row is the case: its node object never changed, so the outer
 			region's walk skips it, and only the inner region being its own root gets the
 			new leaf mounted. The NEW row proves the outer half landed at the same time. ]]
 		expect(f.adapter.node("/S/List/Outer/[a]/Row/Inner/[i2]/Leaf") ~= nil).toBe(true)
 		-- ...and the outer half landed in the same sync: the removed row is gone
 		expect(f.adapter.node("/S/List/Outer/[b]/Row")).toBe(nil)
-		expect(f.controller.stats().ssFullPasses).toBe(1) -- the mount's own, and no more
+		expect(`ssPasses={st.ssPasses - before.ssPasses} full={st.ssFullPasses - before.ssFullPasses}`).toBe(
+			"ssPasses=1 full=0"
+		)
 		f.dispose()
 	end)
 
@@ -427,15 +790,44 @@ describe("O6: two structural roots on one chain", function()
 			ASSERTED THROUGH `scrollHostFor`, the public accessor the presenter and the
 			autoscroll models use, rather than through the private map. ]]
 		local f = nestedFixture()
+		local before = f.controller.stats()
 		f.addRow()
+		local st = f.controller.stats()
 		local host = f.controller.scrollHostFor("/S/List/Outer/[c]/Row/Inner/[i1]/Leaf")
-		expect(if host == nil then "no host" else host.path).toBe("/S/List")
-		expect(f.controller.stats().ssFullPasses).toBe(1)
+		expect(
+			`host={if host == nil then "none" else host.path}`
+				.. ` ssPasses={st.ssPasses - before.ssPasses} full={st.ssFullPasses - before.ssFullPasses}`
+		).toBe("host=/S/List ssPasses=1 full=0")
 		f.dispose()
 	end)
 end)
 
 describe("O6: what the bound does not re-derive still has to be true", function()
+	it("when the LAST UI.Path leaves, the latch REOPENS — the sweep's own clear", function()
+		--[[ THE OTHER HALF OF `sweepDeparted`'s five per-path clears, and the only one
+			with an observable: the whole-tree `table.clear(pathNodes)` a bounded sync no
+			longer runs used to be what forgot a departed path's `UI.Path`. If the sweep
+			did not clear it and decrement the count, `next(pathNodes) ~= nil` would keep
+			`visible`'s whole-surface prune SHUT for the life of the surface — after the
+			last ring had left the tree. The ring rides a `When` so it can leave while the
+			tree around it stays the same size, which is what makes this a contrast rather
+			than a smaller tree. ]]
+		local f = scrollFixture(6, { removableRing = true })
+		local before = f.controller.stats()
+		expect(before.lastCommitVisitsByWalk.visible).toBe(14) -- latch shut: the whole surface
+		f.dropRing()
+		local st = f.controller.stats()
+		expect(
+			`visible={st.lastCommitVisitsByWalk.visible} ssPasses={st.ssPasses - before.ssPasses}`
+				.. ` full={st.ssFullPasses - before.ssFullPasses}`
+		).toBe("visible=4 ssPasses=1 full=0")
+		-- ...and it STAYS open on the next structural change, so this is the latch and
+		-- not one frame's dirt
+		f.add()
+		expect(f.controller.stats().lastCommitVisitsByWalk.visible).toBe(5)
+		f.dispose()
+	end)
+
 	it("a node ABOVE the churn keeps its scroll host across an add and a remove", function()
 		--[[ `screenRectOf` subtracts the live scroll offset by walking `scrollHostOf`,
 			so a `Head` whose entry was erased answers the UNSHIFTED rect — the same
@@ -443,12 +835,15 @@ describe("O6: what the bound does not re-derive still has to be true", function(
 			between two solves can see. Driven through the public accessor. ]]
 		local f = scrollFixture(6)
 		f.adapter.driveScroll("/S/List", { x = 0, y = 40 })
-		local scrolled = f.controller.screenRectOf("/S/List/Head")
-		expect(scrolled.y).toBe(-40)
+		expect(f.controller.screenRectOf("/S/List/Head").y).toBe(-40)
+		local before = f.controller.stats()
 		f.add()
-		expect(f.controller.screenRectOf("/S/List/Head").y).toBe(-40)
 		f.remove()
-		expect(f.controller.screenRectOf("/S/List/Head").y).toBe(-40)
+		local st = f.controller.stats()
+		expect(
+			`y={f.controller.screenRectOf("/S/List/Head").y}`
+				.. ` ssPasses={st.ssPasses - before.ssPasses} full={st.ssFullPasses - before.ssFullPasses}`
+		).toBe("y=-40 ssPasses=2 full=0")
 		f.dispose()
 	end)
 
@@ -471,12 +866,17 @@ describe("O6: what the bound does not re-derive still has to be true", function(
 			f.add()
 			f.remove()
 		end
+		local before = f.controller.stats()
 		f.add()
+		local st = f.controller.stats()
 		f.adapter.driveScroll("/S/List", { x = 0, y = 100 })
-		expect(f.adapter.visibleOf("/S/List/Head/Ring")).toBe(false)
+		local gone = f.adapter.visibleOf("/S/List/Head/Ring")
 		-- ...and back, so the case cannot pass on a ring that was simply never shown
 		f.adapter.driveScroll("/S/List", { x = 0, y = 0 })
-		expect(f.adapter.visibleOf("/S/List/Head/Ring")).toBe(true)
+		expect(
+			`out={tostring(gone)} back={tostring(f.adapter.visibleOf("/S/List/Head/Ring"))}`
+				.. ` ssPasses={st.ssPasses - before.ssPasses} full={st.ssFullPasses - before.ssFullPasses}`
+		).toBe("out=false back=true ssPasses=1 full=0")
 		f.dispose()
 	end)
 
@@ -491,16 +891,35 @@ describe("O6: what the bound does not re-derive still has to be true", function(
 			dirty closure across an add and across a remove. Adding a getter for a
 			private renderer table to test this would make the test pass and the surface
 			worse. ]]
+		--[[ PINNED EXACTLY rather than against a floor (review CF1). The brief wrote this
+			case as `> floor` before the number was derivable, and a threshold where `toBe`
+			is available is the rubric's own defect. The numbers ARE derivable and the
+			contrast is the whole point: with the latch CLOSED the walk visits the mounted
+			tree (1,503 plus the churn's own nodes); the SAME drives on a scene with no
+			`UI.Path` visit 9 and 3, which is the dirty closure a pruning `visible` stops
+			at. A broken latch is that 1,510 collapsing to 9, silently. ]]
 		local s = scene.new({ withPath = true })
 		s.tick(3, 2)
+		local b1 = s.stats()
 		s.add(1)
-		local addVisible = s.stats().lastCommitVisitsByWalk.visible
+		local a1 = s.stats()
+		local b2 = s.stats()
 		s.remove(2)
-		local removeVisible = s.stats().lastCommitVisitsByWalk.visible
-		-- the dirty closure a PRUNING `visible` would stop at: the churned plate's own
-		-- chain plus the region, nowhere near the whole tree
-		local floor = 3 + PLATES
-		expect(`add={addVisible > floor} remove={removeVisible > floor}`).toBe("add=true remove=true")
+		local a2 = s.stats()
+		expect(
+			`add={a1.lastCommitVisitsByWalk.visible} remove={a2.lastCommitVisitsByWalk.visible}`
+				.. ` ssPasses={a1.ssPasses - b1.ssPasses}/{a2.ssPasses - b2.ssPasses}`
+				.. ` full={a2.ssFullPasses - b1.ssFullPasses}`
+		).toBe("add=1510 remove=1504 ssPasses=1/1 full=0")
 		s.dispose()
+		--[[ THE OTHER ARM OF THE SAME COMPARISON, in the same case so the two numbers
+			cannot drift apart: the identical drives on a scene with no stroked path. ]]
+		local plain = scene.new()
+		plain.tick(3, 2)
+		plain.add(1)
+		local plainAdd = plain.stats().lastCommitVisitsByWalk.visible
+		plain.remove(2)
+		expect(`add={plainAdd} remove={plain.stats().lastCommitVisitsByWalk.visible}`).toBe("add=9 remove=3")
+		plain.dispose()
 	end)
 end)

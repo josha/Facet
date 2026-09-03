@@ -2,15 +2,13 @@
 --[[ THE TEXT-PREMEASUREMENT SEAM, MECHANISED — what keeps `render/premeasure_round`
 	one-way.
 
-	`tools/lune/verify/data/source-cap-ledger.md` has named this block as
-	`renderer.luau`'s next seam since the geometry-facts split, together with the
-	price it predicted: *it reads `adapter`, `env` and `stats`, so it costs a record
-	the way `table.luau`'s `rowGesture` did, and is worth taking only by a round that
-	needs the room.* Wicked-fast T7 adds 2,500-4,000 characters to a file that had
-	1,480 of headroom, so the split came FIRST and on its own — which is what that
-	document's wording has demanded of every extraction this file has taken.
+	THE LEDGER ROW IS THE ARGUMENT and it is not restated here (review M4): it names
+	this block, predicts the price, and records what the split measured. What THIS
+	file is, is the executable half —
 
 	  READ      every `deps.<field>` the module reads, comments stripped
+	  WRITE     the half a read scan cannot see: exactly one `env` key and exactly one
+	            `stats` field, plus the two `env` verbs that cross at all
 	  DECLARED  every field its own `Deps` type names
 	  PASSED    every key the renderer's `premeasure_round.new({ … })` call hands over
 
@@ -241,6 +239,54 @@ describe("the premeasure-round seam: READ == DECLARED == PASSED", function()
 				true
 			) ~= nil
 		).toBe(true)
+	end)
+
+	it("THE WRITE SET: exactly one `env` key and exactly one `stats` field", function()
+		--[[ THE HALF A FIELD-READ SCAN CANNOT SEE, and the ledger row's own lesson about
+			the NEXT candidate applies to this one too (review M3). A block that only READS
+			its host's state can be moved; a block that WRITES it has to be trusted to write
+			the same thing at the same moment, which is a different and much weaker claim.
+			This module writes two things and nothing else: it bumps `textMeasureEpoch` (the
+			generation a consumer memo depends on, published BEFORE the re-solve) and it
+			increments `textMeasureBatches`. `stats.solves` is READ as the one-solve guard
+			and never assigned — which is why the scan below is over assignments and not
+			over mentions. ]]
+		local body = stripComments(roundSource)
+		local envKeys: { [string]: boolean } = {}
+		for key in string.gmatch(body, 'env:set%(%s*"([^"]+)"') do
+			envKeys[key] = true
+		end
+		expect(sorted(envKeys)).toEqual({ "textMeasureEpoch" })
+		local assigned: { [string]: boolean } = {}
+		for recv, field in string.gmatch(body, "([%a_][%w_]*)%.([%a_][%w_]*)%s*[%+%-]?=[^=]") do
+			if recv == "stats" or recv == "adapter" or recv == "env" or recv == "deps" then
+				assigned[`{recv}.{field}`] = true
+			end
+		end
+		expect(sorted(assigned)).toEqual({ "stats.textMeasureBatches" })
+		-- ...and `env:set` is the ONLY write verb reached for: no `env:` method other
+		-- than `set` and `get` crosses this boundary
+		local verbs: { [string]: boolean } = {}
+		for verb in string.gmatch(body, "env:([%a_][%w_]*)%(") do
+			verbs[verb] = true
+		end
+		expect(sorted(verbs)).toEqual({ "get", "set" })
+	end)
+
+	it("NEGATIVE CONTROL: the write scans report a second key and a stray assignment", function()
+		local fake = '\nenv:set("other", 1)\nstats.solves += 1\nlocal x = stats.solves\n'
+		local keys: { [string]: boolean } = {}
+		for key in string.gmatch(stripComments(fake), 'env:set%(%s*"([^"]+)"') do
+			keys[key] = true
+		end
+		expect(sorted(keys)).toEqual({ "other" })
+		local assigned: { [string]: boolean } = {}
+		for recv, field in string.gmatch(stripComments(fake), "([%a_][%w_]*)%.([%a_][%w_]*)%s*[%+%-]?=[^=]") do
+			if recv == "stats" then
+				assigned[`{recv}.{field}`] = true
+			end
+		end
+		expect(sorted(assigned)).toEqual({ "stats.solves" })
 	end)
 
 	it("NEGATIVE CONTROL: each of the three scans reports a broken input", function()

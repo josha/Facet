@@ -484,16 +484,33 @@ end
 	root is resolved by following the one child per level whose path is a prefix of
 	the target. Every node it looks at is RETURNED in the count, so a descent through
 	a wide level shows up in `stats.lastSsVisited` instead of hiding underneath it. ]]
--- the one prop the caller's live-path walk reads off a node and that can still move
--- (see the note above): `clipChildren` and `expandTarget` are `reactive = false`
+--[[ THE PROPS THE CALLER'S LIVE-PATH WALK READS OFF A NODE, and there is exactly
+	one that can still move: `clipChildren` and `expandTarget` are `reactive = false`
+	in the schema. It lives here rather than in the renderer because BOTH of its
+	consumers are decisions about how small a structural change is — a dirty entry
+	naming one of these is a structure entry in everything but name (see
+	`isNodeFact`), and one that arrives beside a real structure entry is a root. A
+	second hand-kept copy in the renderer is how the two would drift. ]]
 local NODE_FACT_PROPS: { [string]: boolean } = { active = true }
+
+--[[ Is this dirty entry's prop one of them? The caller asks in its dirty scan,
+	because the alternative is a change nothing ever re-derives: `livePaths` is the
+	only writer of `inputSinks`, and a BOUNDED sync skips a node whose object did not
+	change — so a flip that scheduled no sync would keep its old verdict for the life
+	of the surface. Before the bound, the next whole-tree sync from anywhere repaired
+	it; the bound takes that accident away, and this puts it back deliberately.
+	`tests/structural_incremental.spec.luau` drives both directions through the
+	hit-lift observable. ]]
+function structural_scope.isNodeFact(prop: string?): boolean
+	return prop ~= nil and NODE_FACT_PROPS[prop] == true
+end
 
 function structural_scope.roots(
 	dirty: { any },
 	rootNode: any,
 	mounted: { [string]: any }
 ): ({ { path: string, node: any } }?, number)
-	local paths: { string } = {}
+	local entryPaths: { string } = {}
 	local seen: { [string]: boolean } = {}
 	for _, entry in dirty do
 		if entry.class ~= "structure" and not NODE_FACT_PROPS[entry.prop] then
@@ -505,15 +522,15 @@ function structural_scope.roots(
 		end
 		if not seen[path] then
 			seen[path] = true
-			table.insert(paths, path)
+			table.insert(entryPaths, path)
 		end
 	end
-	if #paths == 0 then
+	if #entryPaths == 0 then
 		return nil, 0
 	end
 	local visited = 0
 	local out: { { path: string, node: any } } = {}
-	for _, path in paths do
+	for _, path in entryPaths do
 		local node: any = if mounted[path] ~= nil then rootNode else nil
 		while node ~= nil and node.path ~= path do
 			local found: any = nil
@@ -535,7 +552,7 @@ function structural_scope.roots(
 				another entry STRICTLY covers it — and only then. The topmost entry can
 				never be covered, so an unresolvable one there still takes the whole tree. ]]
 			local covered = false
-			for _, other in paths do
+			for _, other in entryPaths do
 				if other ~= path and isPrefix(other, path) then
 					covered = true
 					break

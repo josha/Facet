@@ -1501,11 +1501,14 @@ function renderer.attach(
 			then node.path
 			else clip
 		--[[ THE PER-PARENT INDEX, THE SKIP AND THE DEPARTURES — one pass, because they are
-			one comparison against `was`, this node's children at the last walk. Same node
-			object AND same inherited pair means the child's subtree already holds these
-			facts; a `was` path missing from the new set is a departure the index can still
-			expand. `departed == nil` is the whole-tree pass, which finds removals by
-			iterating every handle instead. ]]
+			one comparison against `was`, this node's children at the last walk. A `was`
+			path missing from the new set is a departure the index can still expand;
+			`departed == nil` is the whole-tree pass, which finds removals by iterating
+			every handle instead.
+
+			THE SKIP IS NODE IDENTITY ALONE: the inherited `(nextHost, nextClip)` pair is
+			a function of the ancestors' class and `clipChildren`, neither of which can
+			move for an unchanged node table. Both facts are PINNED in that spec. ]]
 		local was = childNodesOf[node.path]
 		if #node.children == 0 then
 			childNodesOf[node.path] = nil
@@ -1515,13 +1518,7 @@ function renderer.attach(
 			for _, child in node.children do
 				kids[child.path] = child
 				parentNodeOf[child.path] = node
-				if
-					departed == nil
-					or was == nil
-					or was[child.path] ~= child
-					or scrollHostOf[child.path] ~= nextHost
-					or clipHostOf[child.path] ~= nextClip
-				then
+				if departed == nil or was == nil or was[child.path] ~= child then
 					livePaths(child, set, nextHost, nextClip, departed)
 				end
 			end
@@ -2874,7 +2871,9 @@ function renderer.attach(
 					presentationTouched = presentationTouched or {}
 					table.insert(presentationTouched :: { string }, entry.path)
 				end
-				if entry.class == "structure" then
+				-- ...AND A NODE FACT THE LIVE-PATH WALK READS IS A STRUCTURE ENTRY IN ALL BUT
+				-- NAME (O6): `structural_scope.isNodeFact` owns the set and the argument.
+				if entry.class == "structure" or structural_scope.isNodeFact(entry.prop) then
 					needsStructure = true
 					needsSolve = true
 				elseif entry.class == "measure" or entry.class == "arrange" then
