@@ -311,10 +311,20 @@ function screen_props.new(ctx: Ctx)
 				-- the engine honours ONE UICorner and a second would be dead weight
 				-- whose value nobody could predict.
 				assertBespokePaint("CornerRadius")
+				local reshaped = cornerRadiusFor(handle, style.radii.control)
 				for _, child in instance:GetChildren() do
 					if child:IsA("UICorner") then
-						(child :: UICorner).CornerRadius = cornerRadiusFor(handle, style.radii.control)
+						(child :: UICorner).CornerRadius = reshaped
 					end
+				end
+				-- ...AND THE CHROME RECORD FOLLOWS THE PAINT (T8 R3, Important 3).
+				-- This write does not MATERIALISE the corner, so it never creates a
+				-- record — but when a chrome owner already made one, that record
+				-- must keep describing what the instance actually wears, or a
+				-- reactive `corners` crossing to nil would restore the square
+				-- radius `wireInteractiveStates` wrote before the disc arrived.
+				if handle.chromeCornerRadius ~= nil then
+					handle.chromeCornerRadius = reshaped
 				end
 			end
 		elseif prop == "icon" then

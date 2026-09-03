@@ -539,13 +539,31 @@ function screen_paint.new(ctx: any)
 	-- sanctionedOverride: the toggle knob-track assembly's declared real-child
 	-- chrome (authority.luau native-owned notes) — the ONLY callers allowed to
 	-- materialize modifier instances in native mode
+	--
+	-- THE OWNER RECORDS WHAT IT PAINTED (T8 R3, Important 3). `applyCorners`
+	-- below writes into the node's ONE UICorner and a nil `corners` must not
+	-- delete a radius some chrome owner put there — so every owner that
+	-- materialises the node's OWN child leaves the resolved `UDim` on the handle
+	-- and the nil branch restores exactly that. Recorded HERE rather than
+	-- re-derived from `handle.declaredSurface` in `applyCorners` (R2's first
+	-- draft, which drifted the day it was written): this one function is every
+	-- surface's corner, the bare-circle fallback's corner AND
+	-- `wireInteractiveStates`' corner, so there is one place to record and no
+	-- table of mirrored radii to keep in step. A caller that passes NO handle
+	-- (the toggle track/knob, `:1183`/`:1212`) is painting a real CHILD's own
+	-- corner, not the node's — it records nothing, and `applyCorners` never sees
+	-- those instances.
 	corner = function(instance: Instance, radius: number, sanctionedOverride: boolean?, handle: any?)
 		if not sanctionedOverride then
 			assertBespokePaint("CornerRadius")
 		end
 		local uiCorner = Instance.new("UICorner")
-		uiCorner.CornerRadius = cornerRadiusFor(handle, radius)
+		local resolved = cornerRadiusFor(handle, radius)
+		uiCorner.CornerRadius = resolved
 		uiCorner.Parent = instance
+		if type(handle) == "table" then
+			handle.chromeCornerRadius = resolved
+		end
 	end
 
 	-- normalized UI.shadow data -> a UIShadow instance under the node (style
@@ -636,56 +654,47 @@ function screen_paint.new(ctx: any)
 		live.Parent = instance
 	end
 
-	-- THE RADIUS `applyCorners`' NIL BRANCH RESTORES (T8 R2, Important 3): the
-	-- UICorner `applyCorners` writes into is SHARED, never owned — `applySurface`
-	-- (below, both its own `corner()` calls and its "badge" branch) and the
-	-- bare-circle-shape fallback above (gated on `declaredSurface == nil`) both
-	-- materialise the SAME single child a reactive `corners` prop also
-	-- targets. So a nil `corners` write must not simply delete it: this
-	-- mirrors `applySurface`'s OWN per-surface radius choice — the one place
-	-- that repeats that mapping, and it must move if `applySurface`'s ever does
-	-- — returning nil only when nothing else (no declared surface, no circle
-	-- shape) would have claimed a UICorner here at all.
-	local function chromeDefaultRadius(handle: any): UDim?
-		if type(handle) ~= "table" then
-			return nil
-		end
-		local surface = handle.declaredSurface
-		if surface == "raised" then
-			return cornerRadiusFor(handle, style.radii.panel)
-		elseif surface == "control" or surface == "chip" then
-			return cornerRadiusFor(handle, style.radii.control)
-		elseif surface == "badge" then
-			-- always circular, regardless of `handle.shape` (`applySurface`'s
-			-- own "badge" branch writes `UDim.new(0.5, 0)` unconditionally)
-			return UDim.new(0.5, 0)
-		elseif surface == nil and handle.shape == "circle" then
-			-- the bare-circle fallback above (`:276`): a node that carries
-			-- `shape = "circle"` but never authors a `surface` at all
-			return cornerRadiusFor(handle, style.radii.control)
-		end
-		return nil
-	end
-
 	-- normalized UI.corners data -> ONE UICorner in exactly ONE form
 	-- (uniform alias or four per-corner radii — never both; engine hazard)
 	local function applyCorners(instance: Instance, cornersData: any, handle: any?)
 		if not instance:IsA("GuiObject") then
 			return
 		end
-		-- NIL RESTORES, NEVER DESTROYS (T8 R2, Important 3 — W1b's own first
-		-- draft `Destroy()`ed unconditionally here, which is right for
-		-- `applyShadow`/`applyGradient` — they own a handle-tracked instance
-		-- nothing else touches — but wrong here: this UICorner may be the SAME
-		-- one `applySurface` painted, and deleting it strips the surface's own
-		-- radius the moment a sibling reactive `corners` crosses to nil).
-		-- `chromeDefaultRadius` above answers "what would still claim this
-		-- UICorner if `corners` had never been authored" — only when NOTHING
-		-- would (a bare node, no surface, no circle shape) does this fall
-		-- through to the same teardown `applyShadow`/`applyGradient` use when
-		-- nothing needs their instance either.
+		--[[ NIL RESTORES THE CHROME RECORD, NEVER GUESSES (T8 R3, Important 3).
+			W1b's first draft `Destroy()`ed unconditionally here, which is right
+			for `applyShadow`/`applyGradient` — they own a handle-tracked
+			instance nothing else touches — but wrong here: this UICorner is
+			SHARED with every chrome owner of the node's own child (`corner()`
+			and `applySurface`'s badge branch above, `screen_chrome`'s
+			`applySlotNativePaint`), and deleting it strips the radius they
+			painted the moment a sibling reactive `corners` crosses to nil.
+
+			R2 answered that by re-deriving each owner's choice from
+			`handle.declaredSurface`. That table drifted the day it was written
+			(it never knew `wireInteractiveStates`' corner — EVERY fallback-mode
+			Button and Toggle — nor the value-control slots' own radii), so the
+			owners RECORD instead: `handle.chromeCornerRadius` is the resolved
+			`UDim` the last chrome write put on this instance's UICorner, and
+			this branch restores exactly that, keeping the same Instance. No
+			record means no chrome owner ever claimed this child, and the branch
+			falls through to the same teardown `applyShadow`/`applyGradient` use
+			when nothing needs their instance either.
+
+			NATIVE MODE FALLS OUT BY CONSTRUCTION, with no branch of its own:
+			every chrome owner returns before painting a bespoke corner there
+			(`applySurface` at the `nativeMode` guard below, `wireInteractiveStates`
+			is only reached on the fallback arm of `screen_target`'s create,
+			`applySlotNativePaint` and the bare-circle fallback above both return
+			on `nativeMode`), so nothing is ever recorded and this branch tears
+			the bespoke corner down — leaving the sheet's phantom `::UICorner`
+			rule to own the radius, exactly as W1b left it.
+
+			The record travels with the instance, not with the identity: `park`
+			destroys no child and `adopt` keeps `handle.instance`, so a recycled
+			node's UICorner really does still wear the recorded radius, and any
+			owner that repaints on the new identity re-records first. ]]
 		if cornersData == nil then
-			local restored = chromeDefaultRadius(handle)
+			local restored = if type(handle) == "table" then handle.chromeCornerRadius else nil
 			if restored == nil then
 				local existing = instance:FindFirstChildOfClass("UICorner")
 				if existing ~= nil then
@@ -698,7 +707,10 @@ function screen_paint.new(ctx: any)
 			uiCorner.Parent = instance
 			return
 		end
-		-- the AUTHORED token re-derived for this target's distance (fix round 2)
+		-- the AUTHORED token re-derived for this target's distance (fix round 2).
+		-- NOTHING IS RECORDED BELOW, deliberately: this radius is the PROP's, not
+		-- the chrome's, and recording it would make the next nil write restore the
+		-- value it is supposed to be releasing.
 		local corners = styling.paintCorners(cornersData, style)
 		local uiCorner = instance:FindFirstChildOfClass("UICorner") or Instance.new("UICorner")
 		if corners.form == "uniform" then
@@ -835,6 +847,11 @@ function screen_paint.new(ctx: any)
 			local circle = Instance.new("UICorner")
 			circle.CornerRadius = UDim.new(0.5, 0)
 			circle.Parent = instance
+			-- the one surface that does not go through `corner()`, so it records
+			-- its own radius (T8 R3, Important 3 — see `corner()` above)
+			if type(handle) == "table" then
+				handle.chromeCornerRadius = UDim.new(0.5, 0)
+			end
 			if instance:IsA("ImageLabel") then
 				instance.ScaleType = Enum.ScaleType.Crop
 			end

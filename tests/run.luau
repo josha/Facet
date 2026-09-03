@@ -187,8 +187,10 @@ require("./instance_park_corpse.spec")
 require("./recycle_key_seam.spec")
 --[[ ...and W1/W1b (wicked-fast T8): `propSigCache` deleted, then the park-time
 	key rebuilt from a live worn set instead of a string frozen at create — see
-	the header for the full W1 -> W1b -> R2 history and the self-review finding
-	each round closed. ]]
+	the header for the full W1 -> W1b -> R2 -> R3 history and the self-review or
+	review finding each round closed (R3's is the shared UICorner: every chrome
+	owner now RECORDS the radius it painted and a nil `corners` restores that
+	record, which the enumerating pin in here keeps honest). ]]
 require("./recycle_prop_signature.spec")
 require("./incremental_layout.spec")
 require("./diagnostic_replay.spec")

@@ -181,8 +181,17 @@ function screen_chrome.new(ctx: Context)
 		instance.BackgroundTransparency = 0
 		instance.BackgroundColor3 = chromeFillOf[slot] or toColor3(style.colors.surfaceStrong)
 		local uiCorner = instance:FindFirstChildOfClass("UICorner") or Instance.new("UICorner")
-		uiCorner.CornerRadius = if SLOT_ROUND_FALLBACK[slot] then UDim.new(0.5, 0) else UDim.new(0, style.radii.control)
+		-- RECORDED ON THE HANDLE (T8 R3, Important 3): this is the node's OWN
+		-- UICorner, shared with a reactive `corners` prop, and `screen_paint`'s
+		-- `applyCorners` restores this exact value when that prop crosses to nil
+		-- instead of deleting a slot radius nothing would ever repaint (this
+		-- function is idempotent through `handle.slotPainted`). Unreachable in
+		-- native mode — the early return above is what keeps the record honest
+		-- there, so the sheet's own `Slot — <slot>` rules stay the only owner.
+		local slotRadius = if SLOT_ROUND_FALLBACK[slot] then UDim.new(0.5, 0) else UDim.new(0, style.radii.control)
+		uiCorner.CornerRadius = slotRadius
 		uiCorner.Parent = instance
+		handle.chromeCornerRadius = slotRadius
 		if instance:FindFirstChild("Hairline") == nil then
 			local stroke = Instance.new("UIStroke")
 			stroke.Name = "Hairline"
