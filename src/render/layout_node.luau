@@ -562,8 +562,19 @@ local function toLayoutNode(
 		offsetY = resolveOffset(metrics, props.offsetY),
 		-- THE TWO KEYS `ctx.offers` IS INDEXED BY (wicked-fast A1), built once per
 		-- node here instead of twice per measure AND twice per arrange — the solver
-		-- was interpolating `node.id .. "|w"` on every one of those, which is one
-		-- string allocation per node per pass on the hot path. `node.path` is the
+		-- was interpolating `node.id .. "|w"` on every one of those.
+		--
+		-- WHAT THAT COSTS IS INTERNING WORK, NOT GARBAGE, which is the opposite of
+		-- what the task that added these fields set out to prove and is recorded here
+		-- so nobody re-derives the wrong version. Luau interns short strings, and
+		-- these keys are the same handful every solve, so re-concatenating them
+		-- allocates nothing measurable — the bill is the hash and the compare that
+		-- FIND the existing string, once per index. Measured on FacetBench
+		-- `nameplates L`, ABBA n=4 per arm against a build that keeps the
+		-- concatenations: tick p50 5.729 -> 5.624 (-1.8 %, ranges disjoint) with the
+		-- tick's gcKb UNMOVED at ~3072.
+		--
+		-- `node.path` is the
 		-- mounted path — the same expression the `id` field two dozen lines up uses,
 		-- and there is no local `id` in this function — so this is a pure function of
 		-- identity and the P3 node store carries it across solves for free: a reused
