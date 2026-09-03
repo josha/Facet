@@ -643,65 +643,99 @@ end
 
 	...AND `offerW`/`offerH`, WHICH ARE NOT THIS ARM'S AND ARE MEASURED TO BE NOT
 	THIS ARM'S. `ctx.offers` is written ONLY inside `measureUncached`, so any node
-	served from the per-solve memo or a cross-solve slate records `nil` there —
-	which is every ancestor on an incremental solve and none of them on a forced
-	full one. Observed on `/S`, `/S/C` and the composition root: `offerH=718
-	offerW=359` on the full arm, absent on the incremental one, on nodes the arm
-	never translated (`moveOnly` nil on all three). It is a pre-existing property of
-	the offer channel — the field is best-effort by construction, and its one
-	consumer degrades to a `measure()` call when it is absent — so it is excluded
-	from the shared comparison and asserted SEPARATELY on the arm's own entries by
-	`armEntryKey` below, where it must match exactly. ]]
+	served from the per-solve memo or a cross-solve slate records `nil` there — true
+	of every SKIPPED node's inherited entry and of every ancestor on an incremental
+	solve, and of none of them on a forced full one. Observed on `/S`, `/S/C` and
+	`[p5]/Plate/Row`: `offerH=718 offerW=359` on the full arm, absent on the
+	incremental one. That is a pre-existing property of a best-effort channel whose
+	one consumer degrades to a `measure()` call when the field is absent, so it is
+	excluded HERE and asked of the arm's own entries by `armOfferDiff` below —
+	which covers every translated entry in two halves: DESCENDANTS via
+	`work.translatedPaths` (a clone must carry the offers it superseded, unchanged)
+	and ROOTS via `work.translatedRoots` (arranged in both arms, so their offers are
+	compared against the FULL-SOLVE arm's directly). ]]
 local SHARED_SKIP = { moveOnly = true, prev = true, offerW = true, offerH = true }
-local ARM_SKIP = { moveOnly = true, prev = true }
 
-local function keyOf(rects: any, skip: { [string]: boolean }, armOnly: boolean): string
+-- every entry, modulo the four above
+local function entryKey(rects: any): string
 	local out = {}
 	for id, entry in rects do
-		if not armOnly or entry.moveOnly == true then
-			local parts = {}
-			for k, v in entry do
-				if not skip[k] then
-					table.insert(parts, `{tostring(k)}={ser(v, 0)}`)
-				end
+		local parts = {}
+		for k, v in entry do
+			if not SHARED_SKIP[k] then
+				table.insert(parts, `{tostring(k)}={ser(v, 0)}`)
 			end
-			table.sort(parts)
-			table.insert(out, `{id}|{table.concat(parts, ",")}`)
 		end
+		table.sort(parts)
+		table.insert(out, `{id}|{table.concat(parts, ",")}`)
 	end
 	table.sort(out)
 	return table.concat(out, "\n")
 end
 
--- every entry, modulo the four above
-local function entryKey(rects: any): string
-	return keyOf(rects, SHARED_SKIP, false)
-end
+--[[ ...AND WHAT THE ARM OWES THE OFFER CHANNEL, in the two halves that together
+	cover every entry the arm wrote. `entryKey` above cannot ask for either, because
+	the channel is best-effort and the memo makes it asymmetric.
 
---[[ ...AND WHAT THE ARM OWES THE OFFER CHANNEL, which the comparison above cannot
-	ask for because the channel is best-effort on BOTH sides. A translated
-	descendant is a `table.clone`, so its offers must be exactly the ones it
-	superseded — untouched, not recomputed and not dropped. That is local,
-	deterministic and needs no full-solve arm, which is why it is a separate
-	assertion rather than a widening of `entryKey`.
+	DESCENDANTS (`work.translatedPaths`) are `table.clone`s, so their offers must be
+	exactly the ones they superseded — untouched, not recomputed and not dropped.
+	Local and deterministic, and it has to be asked this way rather than against the
+	full arm: the nil-vs-number difference reaches clones too. `[p5]/Plate/Row` was
+	ARRANGED on an earlier solve whose measure hit the memo, so its entry recorded
+	`offerW = nil` and every clone after it carries the nil while a forced full solve
+	writes 359. Measured.
 
-	WHY IT CANNOT BE ASKED OF THE FULL ARM: the nil-vs-number difference reaches
-	translated descendants too. `[p5]/Plate/Row` was ARRANGED on an earlier solve
-	whose measure hit the memo, so its entry recorded `offerW = nil`; every clone
-	after that carries the nil while a forced full solve writes 359. Measured. The
-	field is best-effort by construction and its one consumer degrades to a
-	`measure()` call when it is absent.
+	ROOTS (`work.translatedRoots`) get the stronger question, against the FULL-SOLVE
+	arm — and it is asked of the MEMO-LESS incremental arm (`b`), not the shipped one
+	(`a`), which is a correction to this round's brief and is MEASURED rather than
+	argued. The brief's premise was "a translate root is arranged in both arms, so no
+	memo asymmetry applies to it". Being arranged is not the property that matters:
+	the literal stamps `offerW = ctx.offers[node.id .. "|w"]`, and `ctx.offers` is
+	written ONLY inside `measureUncached`, so a root whose measure hit its cross-solve
+	slate — which on a steady tick is every plate root, because that hit is exactly
+	what T3 bought — records nil. Run on the 20-plate fixture at 359x718:
 
-	THE SET IS `work.translatedPaths`, NOT "every entry carrying `moveOnly`", and the
-	difference is a fact worth writing down for T5: `moveOnly` is a property of the
-	SOLVE THAT LAST WROTE THE ENTRY, not of this one. The rect map is copy-on-write,
-	so a node that translated on tick N and then SKIPPED on tick N+1 still carries
-	`moveOnly = true` on tick N+1 — measured here, on `[p2]/Plate` across a `tick`
-	followed by an `hp` drive. `translatedPaths` is this solve's own list, in
-	document order, and it is the only honest answer to "what did the arm re-base
-	just now". ]]
-local function armOfferDiff(aResult: any): string?
+	  | arm                                   | translate root's offer | full solve |
+	  | `a` memo ON, incremental ON  (cold)   | 359x718                | 359x718    |
+	  | `a` memo ON, incremental ON  (steady) | **nil x nil**          | 359x718    |
+	  | `b` memo OFF, incremental ON (steady) | 359x718                | 359x718    |
+
+	`b` runs the identical arm (20 translate roots, same as `a`) and re-measures
+	uncached every solve, so its roots carry real offers and the comparison is about
+	the ENTRY WRITE rather than about the memo. Asking it of `a` would be red forever
+	for a reason that is not this arm's, which is the "unreachable green" class in
+	reverse. What was true and worth fixing is the reviewer's point underneath it: the
+	root's stamp was checked by NOTHING — `SHARED_SKIP` excludes the field and
+	`translatedPaths` never contains a root's id.
+
+	THE SETS ARE `work.translatedPaths`/`translatedRoots`, NOT "every entry carrying
+	`moveOnly`", and the difference is a fact worth writing down for T5: `moveOnly`
+	is a property of the SOLVE THAT LAST WROTE THE ENTRY, not of this one. The rect
+	map is copy-on-write, so a node that translated on tick N and then SKIPPED on
+	tick N+1 still carries `moveOnly = true` on tick N+1 — measured here, on
+	`[p2]/Plate` across a `tick` followed by an `hp` drive. The two work lists are
+	this solve's own, in document order. ]]
+local function armOfferDiff(aResult: any, bResult: any, cRects: any): string?
 	local work = aResult.work or {}
+	local bWork = bResult.work or {}
+	local roots = 0
+	for path in bWork.translatedRoots or {} do
+		roots += 1
+		local mine, theirs = bResult.rects[path], cRects[path]
+		if theirs == nil then
+			return `{path}: a translate root the FULL solve has no entry for`
+		end
+		if mine.offerW ~= theirs.offerW or mine.offerH ~= theirs.offerH then
+			return `{path}: ROOT offers {tostring(mine.offerW)}x{tostring(mine.offerH)} against a full solve's {tostring(
+				theirs.offerW
+			)}x{tostring(theirs.offerH)}`
+		end
+	end
+	-- ...and the memo-less arm really did take the arm on this step, or the loop
+	-- above is a loop over nothing and the root half proves nothing
+	if roots == 0 and #(work.translatedPaths or {}) > 0 then
+		return "the shipped arm translated but the memo-less arm recorded no root"
+	end
 	for i, path in work.translatedPaths or {} do
 		local entry = (work.translatedEntries or {})[i]
 		if entry == nil or entry ~= aResult.rects[path] then
@@ -741,7 +775,7 @@ local function withEntryCapture(fn: () -> ())
 	end
 end
 
-local function branchFieldWorld(incremental: boolean, view: any): any
+local function branchFieldWorld(incremental: boolean, memoReuse: boolean, view: any): any
 	local core = customFactory.new()
 	local env = environment.new(core)
 	env:set("viewportRect", { x = 0, y = 0, w = view.w, h = view.h })
@@ -814,7 +848,7 @@ local function branchFieldWorld(incremental: boolean, view: any): any
 	local controller = renderer.attach(core, root, env, adapter, {
 		rootPolicy = "edgeToEdge",
 		incrementalLayout = incremental,
-		measureReuse = incremental,
+		measureReuse = memoReuse,
 		layoutNodeReuse = true,
 		commitScope = true,
 	})
@@ -943,26 +977,29 @@ describe("O3: a node whose branch stamps entry fields is never a translate root"
 		it(`{drive.name}: a scroll root and a composition root keep every entry field`, function()
 			withEntryCapture(function()
 				for _, view in device_views.VIEWS do
-					local a = branchFieldWorld(true, view)
-					local c = branchFieldWorld(false, view)
+					local a = branchFieldWorld(true, true, view)
+					-- the MEMO-LESS incremental arm: same translate arm, every measure
+					-- uncached, so its translate roots carry real offers (see `armOfferDiff`)
+					local b = branchFieldWorld(true, false, view)
+					local c = branchFieldWorld(false, false, view)
 					for step, values in drive.steps do
 						a.drive(values[1], values[2])
 						local aResult = a.entries()
 						local ae = entryKey(aResult.rects)
+						b.drive(values[1], values[2])
+						local bResult = b.entries()
 						c.drive(values[1], values[2])
 						local cRects = c.entries().rects
 						if ae ~= entryKey(cRects) then
 							error(`{drive.name}/{view.id}: step {step} entry diverged from a FULL solve`, 0)
 						end
-						local offerDiff = armOfferDiff(aResult)
+						local offerDiff = armOfferDiff(aResult, bResult, cRects)
 						if offerDiff ~= nil then
-							error(
-								`{drive.name}/{view.id}: step {step} a re-based entry broke its clone: {offerDiff}`,
-								0
-							)
+							error(`{drive.name}/{view.id}: step {step} the arm broke the offer channel: {offerDiff}`, 0)
 						end
 					end
 					a.dispose()
+					b.dispose()
 					c.dispose()
 				end
 			end)
@@ -970,7 +1007,7 @@ describe("O3: a node whose branch stamps entry fields is never a translate root"
 	end
 
 	it("...and the fixture really exercises the arm (or the two cases above are vacuous)", function()
-		local w = branchFieldWorld(true, device_views.VIEWS[1])
+		local w = branchFieldWorld(true, true, device_views.VIEWS[1])
 		w.drive(7, "start")
 		w.drive(14, "start")
 		-- the SUBTREES still translate; what the refusal costs is the two roots
@@ -1375,6 +1412,7 @@ describe("O3 oracle: byte-equal to a full solve, every view, every step kind", f
 						drive(a)
 						local aResult = capturedResult
 						drive(b)
+						local bResult = capturedResult
 						drive(c)
 						local cRects = capturedResult.rects
 						if a.snapshot() ~= c.snapshot() then
@@ -1389,9 +1427,9 @@ describe("O3 oracle: byte-equal to a full solve, every view, every step kind", f
 						if entryKey(aResult.rects) ~= entryKey(cRects) then
 							error(`{label}: {what} ENTRY diverged from a FULL solve`, 0)
 						end
-						local offerDiff = armOfferDiff(aResult)
+						local offerDiff = armOfferDiff(aResult, bResult, cRects)
 						if offerDiff ~= nil then
-							error(`{label}: {what} a re-based entry broke its clone: {offerDiff}`, 0)
+							error(`{label}: {what} the arm broke the offer channel: {offerDiff}`, 0)
 						end
 					end
 
