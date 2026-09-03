@@ -1,76 +1,64 @@
 --!strict
---[[ W1 — A RECYCLED INSTANCE KEEPS A STYLE PROP IT NEVER DECLARED.
+--[[ W1b — A RECYCLED INSTANCE DOES NOT KEEP A STYLE PROP IT NEVER DECLARED.
 
-	`propSigCache` (`renderer.luau:885-905`) is keyed on the props TABLE identity
-	and is never invalidated, while `mount.luau:637` mutates that same table in
-	place on every reactive write. A reactive prop whose value crosses nil
-	therefore ADDS or REMOVES a key after the signature was cached:
+	W1 (`fa289d5a`) deleted `propSigCache`, keyed on the props TABLE identity and
+	never invalidated while `mount.luau:637` mutates that table in place. Self-
+	review (Step 7, mandatory) found the theory wrong, then measured why: the
+	cache was never the mechanism. `propSignature` had exactly two call sites,
+	both inside the ONE `if handles[node.path] == nil` block that only ever runs
+	at a node's own CREATE — nothing mutates `node.props` between them, so a
+	cache hit there was always a hit on the value that SAME call's own first
+	read had just computed, never a stale one (measured: every hit recorded
+	across this repository's own `instance_recycling*` suite was exactly that
+	shape). The real defect survived the deletion: `recycleKeyOf[path]` was
+	written EXACTLY ONCE, at that create event, and never refreshed while the
+	node stayed mounted — so a reactive style prop crossing nil AFTER create was
+	invisible to the recorded key whether or not `propSignature` cached its
+	answer. This file's own two-case reproduction reddened identically before
+	and after the W1 deletion; W1b (`renderer.luau`, this commit) is the actual
+	fix, and the two cases below are that reproduction, now green.
 
-	  reactive `shadow` starts nil -> no `shadow` key -> sig "…,color", cached,
-	  and `recycleKeyOf[path]` frozen from it (`:1042-1043`);
-	  the signal fires a shadow table -> the key appears -> `applyStyleProp`
-	  materialises a real `UIShadow` (`screen_paint.luau:554-573`);
-	  at park the handle goes into the bucket for the STALE "…,color" key;
-	  a fresh node declaring only `color` adopts it, adoption writes only the
-	  properties that DIFFER (`:1377-1391` — an ABSENT prop raises no write at
-	  all), and the `UIShadow` survives onto a node that never asked for one.
+	THE FIX (`src/render/renderer.luau`, the block above `propSignature` and
+	`wornStyleProps` above `applyStyleProp` carry the full argument): the key
+	splits into PARTS frozen at create (class, decoration hint, engine kind —
+	structural facts an instance cannot change while mounted) and a WORN SET of
+	style-prop names maintained LIVE by `applyStyleProp`, the one function that
+	ever writes a style prop to the adapter, called from both the create-time
+	`STYLE_PROP_ORDER` loop and the reactive paint/semantics commit. A prop
+	resolving non-nil is ADDED to the path's worn set there; one resolving nil
+	is REMOVED. At park, the key is built from the frozen parts plus the
+	CURRENT worn set — a row's own reactive history between create and park is
+	what decides which bucket its handle files into, never a snapshot from the
+	moment it was born. `propSignature` (still that name; still called at the
+	same two-then-one call sites the old comment named) now signs STYLE_PROPS
+	only, not every declared prop — layout props never reach `adapter.setProp`
+	at all, and binding props are always applied with a real value when
+	present, never skipped, so neither has the "instance keeps a stale bespoke
+	child" failure mode a style prop's ABSENCE creates.
 
-	The whole safety argument for carrying property caches across an adoption is
-	that "every property on the instance is one the new node also declares"
-	(`renderer.luau:866-884`), and a stale signature is exactly the case where
-	that is false.
+	THE ADAPTER HALF OF THE BARGAIN, PAID IN THE SAME COMMIT
+	(`src/client/screen_paint.luau`): a style prop resolving to nil now tears
+	its bespoke modifier instance down instead of crashing. `applyShadow` /
+	`applyGradient` / `applyCorners` gained the nil branch `applyStroke` already
+	had — this key redesign would be worthless if the adopter that is SUPPOSED
+	to receive a cleared prop died reading it instead, which is exactly what
+	the pre-fix adapter did (`shadow.blurRadius` / `gradient.colors` /
+	`styling.paintCorners(nil, …)` all index nil). `surface`, `role`,
+	`textAlign`, `shape`, `scaleMode`, `compactLabel` and `icon` — the rest of
+	`STYLE_PROP_ORDER` — were checked and already handle nil without crashing
+	(`scaleMode` explicitly, via `restorePaint`; the rest by construction, e.g.
+	`TEXT_ALIGN_MAP[nil] or Left`). `surface` writes the literal string "nil"
+	via `tostring(value)` on a nil write rather than crashing or clearing — a
+	real but non-crashing gap, out of this task's scope (it does not create a
+	stale MODIFIER INSTANCE the way shadow/gradient/corners did; it is a
+	single BackgroundColor3-class write that the next surface-string overwrites
+	the moment one arrives).
 
-	(Anchors above are the brief's; re-grepped post-Phase-0: the cache WAS
-	`renderer.luau:956-973`, the safety comment `:922-935`, the two call sites
-	`:1063` and `:1108`, `recycleKeyOf[path]` read/clear `:2492-2493`,
-	`applyShadow` is `src/client/screen_paint.luau:554`, and the three in-place
-	writes are `mount.luau:634/637/644` — `:637` is the reactive one.)
-
-	INVESTIGATION FINDING (self-review, Step 7, before this spec's cases were
-		finalised) — READ THIS BEFORE TRUSTING THE HEADER ABOVE AS "WHAT THIS FIX
-		CLOSES". Built the brief's exact scenario (a `core:signal(nil)`-wired
-		`shadow` on a ragged virtualized-list's odd rows, flipped while mounted,
-		parked, and a later create offered the pooled handle) and instrumented
-		`propSignature` directly (temporary, reverted — never shipped):
-
-		  * `propSignature` is called exactly twice per node CREATE and ZERO times
-		    on any later frame — confirmed on a 200-frame nameplates all-dirty run,
-		    1503 creates -> 3006 calls at mount, +0 over 200 ticks. Matches the
-		    fix's own comment exactly.
-		  * EVERY cache hit recorded (3846 on this fixture, 3489 on
-		    `instance_recycling.spec` alone) is the SECOND of a node's own two
-		    create-time calls — i.e. a hit on the value its OWN first call just
-		    computed, nothing mutates in between. Zero cross-node hits, zero
-		    hits separated by a reactive write, in either suite.
-		  * `recycleKeyOf[path]` (`:919`, write `:1117`, read+clear `:2492-2493`)
-		    is written EXACTLY ONCE, at that same create event, and is never
-		    revisited while the node stays mounted — `handles[node.path] == nil`
-		    (`:1010`) is the only gate into the block that calls `propSignature`
-		    at all, and the only site that ever nils a mounted node's handle is
-		    the departure sweep itself (`:2529`), which tears the framework node
-		    down in the same pass. So a reactive prop that crosses nil AFTER
-		    create, while the node stays mounted, is invisible to
-		    `recycleKeyOf` — WHETHER OR NOT `propSignature` caches its answer.
-
-		CONCLUSION, MEASURED RATHER THAN ASSUMED: deleting `propSigCache` changes
-		no observable outcome in this codebase's current call graph (confirmed:
-		the full existing `instance_recycling*` + `instance_park_corpse` suites
-		and this file's own differential below are byte-identical with the cache
-		present or absent). The brief's own two-case scenario (built verbatim,
-		churned hard enough to force real recycling — `parked > 0`, `recycled >
-		0`) reproduces the described leak on BOTH sides of this fix: the actual
-		staleness lives in `recycleKeyOf` being frozen at CREATE, not in whether
-		`propSignature` memoises. The deletion is still correct and still ships
-		(a strong, never-cleared, per-mounted-node table is real defensive/memory
-		cleanup, and the brief's own rejected-alternative paragraph is the reason
-		a smarter key is out of scope here) — it is just not, by itself, the fix
-		the header above claims. Reported to the controller as a finding; not
-		something this task is authorized to close (ruling: "no alternative
-		key"). The two reproduction cases are not shipped running (a permanently
-		red case cannot sit in this gate), and are preserved in
-		`.superpowers/sdd/2026-09-02-wicked-fast-B-facet/task-8-report.md` with
-		the exact bodies, the measured offender lists, and the call-count/cache-
-		hit instrumentation output. ]]
+	Built on `tests/lib/world.luau` (reuse audit REUSE-88; `world_substrate.spec`'s
+	"hand-rolled builder count only ever falls" ratchet). No fake-Instance drive
+	exists under Lune for `screen_paint.luau` (native-mode paint is Roblox-Instance-only,
+	which the headless suite cannot construct) — the nil-branch pins below are
+	SOURCE-SHAPE, not driven; the live proof is a Studio canary (T9 runs it). ]]
 
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
@@ -80,37 +68,111 @@ local Facet = require("../src") :: any
 local virtual_list = require("../src/controls/virtual_list")
 local world = require("./lib/world")
 
-describe("W1: the cache is gone, structurally", function()
-	it("`propSigCache` no longer exists anywhere in the renderer", function()
+describe("W1b: the cache stays gone, and the signature is style-props only", function()
+	it("`propSigCache` is not a declared local anywhere in the renderer", function()
 		local source = fs.readFile("src/render/renderer.luau")
-		expect(string.find(source, "propSigCache", 1, true)).toBe(nil)
+		expect(string.find(source, "local propSigCache", 1, true)).toBe(nil)
 	end)
 
-	it("`propSignature` computes fresh every call — no memo table anywhere near it", function()
+	it("`propSignature` filters to STYLE_PROPS and holds no cache table", function()
 		local source = fs.readFile("src/render/renderer.luau")
 		local body = string.match(source, "local function propSignature%(node: any%): string(.-)\n\tend")
 		assert(body ~= nil, "propSignature's body was not found to read")
-		-- no `[` index read against anything but `props` itself inside the body —
-		-- the shape a reintroduced cache (`propSigCache[props]`, or any other
-		-- table keyed on the props identity) would have to take
-		for line in string.gmatch(body :: string, "[^\n]+") do
-			local trimmed = string.match(line, "^%s*(.-)%s*$") :: string
-			if string.find(trimmed, "%[", 1, false) ~= nil then
-				expect(`propSignature line indexes something: {trimmed}`).toBe(
-					"propSignature line indexes something: \tfor name in props do"
-				)
-			end
-		end
+		expect(string.find(body :: string, "if STYLE_PROPS[name] then", 1, true) ~= nil).toBe(true)
+		expect(string.find(body :: string, "propSigCache", 1, true)).toBe(nil)
+	end)
+
+	it("the park-time key is built from PARTS + the live worn set, never a frozen string", function()
+		local source = fs.readFile("src/render/renderer.luau")
+		expect(string.find(source, "local recycleKeyPartsOf", 1, true) ~= nil).toBe(true)
+		expect(string.find(source, "local wornStyleProps", 1, true) ~= nil).toBe(true)
+		local sweep = string.match(source, "local function sweepDeparted%(path: string, handle: any%)(.-)\n\tend")
+		assert(sweep ~= nil, "sweepDeparted's body was not found to read")
+		expect(
+			string.find(
+				sweep :: string,
+				"recycleKey(parted.class, parted.hint, parted.kind, wornSignature(path))",
+				1,
+				true
+			) ~= nil
+		).toBe(true)
+		-- both halves clear on departure, or a REUSED PATH would inherit a
+		-- previous, structurally different occupant's worn set
+		expect(string.find(sweep :: string, "recycleKeyPartsOf[path] = nil", 1, true) ~= nil).toBe(true)
+		expect(string.find(sweep :: string, "wornStyleProps[path] = nil", 1, true) ~= nil).toBe(true)
+	end)
+
+	it("`applyStyleProp` is the one place the worn set is ever written", function()
+		local source = fs.readFile("src/render/renderer.luau")
+		local body =
+			string.match(source, "local function applyStyleProp%(handle: any, node: any, prop: string%)(.-)\n\tend")
+		assert(body ~= nil, "applyStyleProp's body was not found to read")
+		expect(string.find(body :: string, "worn[prop] = true", 1, true) ~= nil).toBe(true)
+		expect(string.find(body :: string, "worn[prop] = nil", 1, true) ~= nil).toBe(true)
 	end)
 end)
 
--- The brief's own ragged-shadow world, reused for the ONE claim this fix DOES
--- hold: a row whose `shadow` value never crosses nil is at no risk at all,
--- with or without the cache — the differential Step 7 asks for ("does dropping
--- the cache change any recycle key for a node whose props never cross nil?").
+describe("W1b: the adapter tears a style modifier down instead of crashing on nil", function()
+	local function applierBody(name: string, paramName: string): string
+		local source = fs.readFile("src/client/screen_paint.luau")
+		local pattern = "local function "
+			.. name
+			.. "%(instance: Instance, "
+			.. paramName
+			.. ": any, handle: any%)(.-)\n\tend"
+		local body = string.match(source, pattern)
+		assert(body ~= nil, `{name}'s body was not found to read`)
+		return body :: string
+	end
+
+	it("applyShadow: `shadow == nil` destroys `shadowInstance` before anything indexes it", function()
+		local body = applierBody("applyShadow", "shadow")
+		local nilAt = string.find(body, "if shadow == nil then", 1, true)
+		local indexAt = string.find(body, "shadow.blurRadius", 1, true)
+		expect(nilAt ~= nil).toBe(true)
+		expect(string.find(body, "handle.shadowInstance:Destroy()", 1, true) ~= nil).toBe(true)
+		expect((nilAt :: number) < (indexAt :: number)).toBe(true)
+	end)
+
+	it("applyGradient: `gradient == nil` destroys `gradientInstance` before anything indexes it", function()
+		local body = applierBody("applyGradient", "gradient")
+		local nilAt = string.find(body, "if gradient == nil then", 1, true)
+		local indexAt = string.find(body, "gradient.colors", 1, true)
+		expect(nilAt ~= nil).toBe(true)
+		expect(string.find(body, "handle.gradientInstance:Destroy()", 1, true) ~= nil).toBe(true)
+		expect((nilAt :: number) < (indexAt :: number)).toBe(true)
+	end)
+
+	it("applyCorners: `cornersData == nil` destroys the discovered UICorner before `paintCorners` runs", function()
+		local source = fs.readFile("src/client/screen_paint.luau")
+		local body =
+			string.match(source, "local function applyCorners%(instance: Instance, cornersData: any%)(.-)\n\tend")
+		assert(body ~= nil, "applyCorners's body was not found to read")
+		local nilAt = string.find(body :: string, "if cornersData == nil then", 1, true)
+		local paintAt = string.find(body :: string, "styling.paintCorners(cornersData, style)", 1, true)
+		expect(nilAt ~= nil).toBe(true)
+		expect(string.find(body :: string, "existing:Destroy()", 1, true) ~= nil).toBe(true)
+		expect((nilAt :: number) < (paintAt :: number)).toBe(true)
+	end)
+
+	it("applyStroke already had the shape (the precedent, unpatched)", function()
+		local body = applierBody("applyStroke", "stroke")
+		expect(string.find(body, "if stroke == nil then", 1, true) ~= nil).toBe(true)
+	end)
+end)
+
+-- ============================================================================
+-- THE DRIVEN REPRODUCTION: a virtualized list (200 rows, VIEWPORT 360x640,
+-- ROW_HEIGHT 56, overscan 2), ragged the way `instance_recycling.spec.luau`
+-- established the term — every third row ("odd", `n % 3 == 0`) wires `shadow`
+-- as a reactive `core:signal(nil)` on its outer HStack; every other row never
+-- declares `shadow` at all.
+-- ============================================================================
+
 local ROW_HEIGHT = 56
 local VIEWPORT = { w = 360, h = 640 }
 local ROW_COUNT = 200
+local REAL_SHADOW = Facet.UI.shadowData({ blurRadius = { scale = 0, offset = 8 } })
 
 local function makeItems(n: number)
 	local out = {}
@@ -120,24 +182,19 @@ local function makeItems(n: number)
 	return out
 end
 
--- `alwaysReal`: when true, every odd row's `shadow` signal is seeded with a
--- real value BEFORE mount (never nil, never crosses), so the row's DECLARED
--- set is stable for its whole life — the case the safety argument was always
--- meant to cover. When false (the default), it is never wired at all.
---
--- Built on `tests/lib/world.luau` (reuse audit REUSE-88, controller ruling
--- R12's follow-up trigger: the next spec file that adds a hand-rolled builder
--- migrates its file onto the shared substrate instead of adding one).
-local function makeWorld(alwaysReal: boolean?)
+-- Built on `tests/lib/world.luau` (REUSE-88 / R12's follow-up trigger).
+-- `shadowSignals[id]` is built for every odd item UP FRONT, before any row
+-- ever mounts, so "is this signal still nil" is answerable even for a row
+-- that has not been on screen yet — a signal built lazily inside `cell()`
+-- could not tell "not yet built" apart from "built and still nil".
+local function buildWorld()
+	local w = world.new({ viewport = { x = 0, y = 0, w = VIEWPORT.w, h = VIEWPORT.h } })
 	local items = makeItems(ROW_COUNT)
 	local shadowSignals: { [string]: any } = {}
-	local w = world.new({ viewport = { x = 0, y = 0, w = VIEWPORT.w, h = VIEWPORT.h } })
-	if alwaysReal then
-		for _, item in items do
-			local n = tonumber(string.match(item.id, "%d+")) :: number
-			if n % 3 == 0 then
-				shadowSignals[item.id] = w.core:signal(Facet.UI.shadowData({ blurRadius = { scale = 0, offset = 8 } }))
-			end
+	for _, item in items do
+		local n = tonumber(string.match(item.id, "%d+")) :: number
+		if n % 3 == 0 then
+			shadowSignals[item.id] = w.core:signal(nil :: any)
 		end
 	end
 	local rows = w.core:signal(items)
@@ -154,6 +211,8 @@ local function makeWorld(alwaysReal: boolean?)
 			return Facet.UI.HStack({
 				id = "Row",
 				gap = 6,
+				-- declared on EVERY odd row (reactive, starts nil); ABSENT on
+				-- every other row
 				shadow = shadowSignals[item.id],
 				children = {
 					Facet.UI.Text({ id = "Name", text = item.label, textSize = 15 }),
@@ -167,6 +226,7 @@ local function makeWorld(alwaysReal: boolean?)
 	list.bindNativeScroll(w.controller)
 	local wAny = w :: any
 	wAny.listDispose = list.dispose
+	wAny.shadowSignals = shadowSignals
 	return w
 end
 
@@ -176,40 +236,236 @@ local function scrollTo(w: any, y: number)
 	w.overflowGuard()
 end
 
-local function churn(w: any)
+-- the item index a live path's window slot carries, or nil for a path that is
+-- not one of these per-row roots (the Hit surface, the Name text, …). The
+-- ForEach wraps each entry as `.../[r<n>]/Row/<cell's own root id>` (probed
+-- against the live adapter, not assumed).
+local function itemOf(path: string): number?
+	return tonumber(string.match(path, "%[r(%d+)%]/Row/Row$"))
+end
+
+local function pathOf(w: any, n: number): string?
+	for path in w.adapter.liveNodes() do
+		if itemOf(path) == n then
+			return path
+		end
+	end
+	return nil
+end
+
+-- flip HALF the odd rows currently on screen (`n % 6 == 0`) whose signal is
+-- still nil, called after every scroll step, so each is flipped the moment it
+-- is first visible and PARKS CARRYING A LIVE SHADOW once the window moves
+-- past it. THE OTHER HALF (`n % 3 == 0` but `n % 6 ~= 0`) IS NEVER FLIPPED —
+-- those rows stay reactive-and-nil for the whole walk, which is the second
+-- case's adopter shape below.
+local function flipVisibleOdds(w: any)
+	local flipped = false
+	for path in w.adapter.liveNodes() do
+		local n = itemOf(path)
+		if n ~= nil and n % 6 == 0 then
+			local sig = w.shadowSignals[`r{n}`]
+			if sig:get() == nil then
+				sig:set(REAL_SHADOW)
+				flipped = true
+			end
+		end
+	end
+	if flipped then
+		w.pres.refresh()
+	end
+end
+
+-- WALK THE WHOLE LIST ONCE, calling `onVisible` after each scroll step (so a
+-- case can flip/unflip signals as rows come into view), then churn back and
+-- forth so every corrupted handle the walk parked is actually offered to a
+-- later create rather than merely sitting in the pool (capped at 64 GLOBALLY,
+-- not per bucket — `renderer.luau`'s `RECYCLE_POOL_CAP`).
+local function walkAndChurn(w: any, onVisible: ((any) -> ())?)
 	local content = ROW_COUNT * ROW_HEIGHT
-	for _, top in { 0, content, content // 2 } do
+	local stride = 240 -- less than one window's worth (640px), so no row is skipped
+	local y = 0
+	while y < content do
+		scrollTo(w, y)
+		if onVisible then
+			onVisible(w)
+		end
+		y += stride
+	end
+	scrollTo(w, content)
+	if onVisible then
+		onVisible(w)
+	end
+	for _, top in { 0, content // 2 } do
 		scrollTo(w, top)
-		local y = top
-		for _ = 1, 30 do
-			y = (y + 173) % content
-			scrollTo(w, y)
+		local yy = top
+		for _ = 1, 25 do
+			yy = (yy + 173) % content
+			scrollTo(w, yy)
+			if onVisible then
+				onVisible(w)
+			end
 		end
 	end
 end
 
-describe("W1: no risk at all when a row's declared props never cross nil", function()
-	it("recycles hard, and no row ever carries a shadow it did not itself declare as real", function()
-		local w = makeWorld(true)
-		churn(w)
+describe("W1b: the brief's own reproduction, now green", function()
+	it("a row that NEVER declares shadow does not adopt an instance carrying one", function()
+		local w = buildWorld()
+		walkAndChurn(w, flipVisibleOdds)
 		expect(w.controller.stats().parked > 0).toBe(true)
 		expect(w.controller.stats().recycled > 0).toBe(true)
 
 		local offenders: { string } = {}
 		for path, node in w.adapter.liveNodes() do
-			local n = tonumber(string.match(path, "%[r(%d+)%]/Row/Row$"))
+			local n = itemOf(path)
+			if n ~= nil and n % 3 ~= 0 and (node.props :: any).shadow ~= nil then
+				table.insert(offenders, path)
+			end
+		end
+		table.sort(offenders)
+		local message = `non-shadow rows carrying a shadow: {table.concat(offenders, ",")}`
+		expect(message).toBe("non-shadow rows carrying a shadow: ")
+		local wAny = w :: any
+		wAny.listDispose()
+	end)
+
+	it("a row that declares shadow reactively but currently resolves nil does not adopt one either", function()
+		local w = buildWorld()
+		walkAndChurn(w, flipVisibleOdds)
+
+		local offenders: { string } = {}
+		for path, node in w.adapter.liveNodes() do
+			local n = itemOf(path)
+			-- an odd row currently on screen whose OWN signal still reads nil: it
+			-- declares `shadow` reactively and is not one this walk ever flipped
+			if
+				n ~= nil
+				and n % 3 == 0
+				and (w :: any).shadowSignals[`r{n}`]:get() == nil
+				and (node.props :: any).shadow ~= nil
+			then
+				table.insert(offenders, path)
+			end
+		end
+		table.sort(offenders)
+		local message = `nil-resolving shadow rows carrying a shadow: {table.concat(offenders, ",")}`
+		expect(message).toBe("nil-resolving shadow rows carrying a shadow: ")
+		local wAny = w :: any
+		wAny.listDispose()
+	end)
+end)
+
+describe("W1b: the value crossing the OTHER direction — real, then back to nil, while mounted", function()
+	it(
+		"shadow real -> nil while on screen does not crash, clears the adapter immediately, and does not leak later",
+		function()
+			local w = buildWorld()
+			scrollTo(w, 0)
+			local sig = (w :: any).shadowSignals["r3"] -- r3: n % 3 == 0, visible at the top
+			local path3 = pathOf(w, 3)
+			expect(path3 ~= nil).toBe(true)
+
+			-- FIRST CROSSING: nil -> real, while mounted
+			sig:set(REAL_SHADOW)
+			w.pres.refresh()
+			expect(w.adapter.liveNodes()[path3 :: string].props.shadow ~= nil).toBe(true)
+
+			-- SECOND CROSSING, THE ONE THIS CASE EXISTS FOR: real -> nil, STILL
+			-- mounted (row 3 has not scrolled anywhere — this is the reactive commit
+			-- path, `applyStyleProp` called with a nil value, not the create path).
+			-- Completing this call at all — rather than crashing inside
+			-- `applyShadow` indexing `shadow.blurRadius` on nil — is half the proof.
+			sig:set(nil)
+			w.pres.refresh()
+			expect(w.adapter.liveNodes()[path3 :: string].props.shadow).toBe(nil)
+
+			-- now let it depart (park) and churn hard so its handle — filed under
+			-- whatever key the WORN SET said it wore at that moment — is actually
+			-- offered to later creates
+			walkAndChurn(w, flipVisibleOdds)
+			expect(pathOf(w, 3)).toBe(nil) -- long gone from the window by now
+			expect(w.controller.stats().parked > 0).toBe(true)
+			expect(w.controller.stats().recycled > 0).toBe(true)
+
+			-- THE FULL ENUMERATION: every live row's adapter-held shadow must agree
+			-- with what ITS OWN current declaration says — never-declares rows and
+			-- still-nil reactive rows carry none; a row this walk actually flipped
+			-- (and never un-flipped) carries one. If row 3's park had filed its
+			-- handle under a STALE "has shadow" key (the pre-W1b defect), some
+			-- later row here would disagree with its own declaration.
+			local offenders: { string } = {}
+			for path, node in w.adapter.liveNodes() do
+				local n = itemOf(path)
+				if n ~= nil then
+					local hasShadow = (node.props :: any).shadow ~= nil
+					local shouldHave = n % 6 == 0 -- the only rows `flipVisibleOdds` ever sets real
+					if hasShadow ~= shouldHave then
+						table.insert(offenders, `{path}(has={hasShadow},should={shouldHave})`)
+					end
+				end
+			end
+			table.sort(offenders)
+			local message = `rows disagreeing with their own declaration: {table.concat(offenders, ",")}`
+			expect(message).toBe("rows disagreeing with their own declaration: ")
+			local wAny = w :: any
+			wAny.listDispose()
+		end
+	)
+end)
+
+describe("W1b: no risk at all when a row's declared props never cross nil", function()
+	it("recycles hard, and no row ever carries a shadow it did not itself declare as real", function()
+		local w = world.new({ viewport = { x = 0, y = 0, w = VIEWPORT.w, h = VIEWPORT.h } })
+		local items = makeItems(ROW_COUNT)
+		local shadowSignals: { [string]: any } = {}
+		for _, item in items do
+			local n = tonumber(string.match(item.id, "%d+")) :: number
+			if n % 3 == 0 then
+				shadowSignals[item.id] = w.core:signal(REAL_SHADOW)
+			end
+		end
+		local rows = w.core:signal(items)
+		local list = virtual_list.build(Facet, w.core, {
+			id = "VL",
+			rows = rows,
+			key = function(item: any)
+				return item.id
+			end,
+			rowHeight = ROW_HEIGHT,
+			viewportHeight = VIEWPORT.h,
+			overscan = 2,
+			cell = function(item: any)
+				return Facet.UI.HStack({
+					id = "Row",
+					gap = 6,
+					shadow = shadowSignals[item.id],
+					children = {
+						Facet.UI.Text({ id = "Name", text = item.label, textSize = 15 }),
+						Facet.UI.Text({ id = "Detail", text = item.detail, textSize = 12 }),
+					},
+				})
+			end,
+		})
+		local screen = Facet.UI.Screen({ id = "S", children = { list.blueprint } })
+		w.present(screen)
+		list.bindNativeScroll(w.controller)
+		walkAndChurn(w)
+		expect(w.controller.stats().parked > 0).toBe(true)
+		expect(w.controller.stats().recycled > 0).toBe(true)
+
+		local offenders: { string } = {}
+		for path, node in w.adapter.liveNodes() do
+			local n = itemOf(path)
 			local hasShadow = (node.props :: any).shadow ~= nil
-			-- every `n % 3 == 0` row declared a REAL shadow from birth and every
-			-- other row never declared one at all — so `hasShadow` must agree
-			-- with `n % 3 == 0` for every single live row, no exceptions
 			if n ~= nil and hasShadow ~= (n % 3 == 0) then
 				table.insert(offenders, path)
 			end
 		end
 		table.sort(offenders)
-		local message = `rows whose shadow disagrees with their own declaration: {table.concat(offenders, ",")}`
-		expect(message).toBe("rows whose shadow disagrees with their own declaration: ")
-		local wAny = w :: any
-		wAny.listDispose()
+		expect(`rows whose shadow disagrees with their own declaration: {table.concat(offenders, ",")}`).toBe(
+			"rows whose shadow disagrees with their own declaration: "
+		)
+		list.dispose()
 	end)
 end)

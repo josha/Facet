@@ -555,6 +555,18 @@ function screen_paint.new(ctx: any)
 		if not hasUIShadow or not instance:IsA("GuiObject") then
 			return
 		end
+		-- NIL TEARS THE MODIFIER DOWN (wicked-fast W1b), the same shape
+		-- `applyStroke` above already has: a declaration that goes away destroys
+		-- the bespoke child rather than leaving a stale one an adopter never
+		-- asked for — and, before this, the writes below indexed a nil
+		-- `shadow`'s own fields and crashed the live adapter outright.
+		if shadow == nil then
+			if handle.shadowInstance ~= nil then
+				handle.shadowInstance:Destroy()
+				handle.shadowInstance = nil
+			end
+			return
+		end
 		local shadowInstance = handle.shadowInstance
 		if shadowInstance == nil then
 			shadowInstance = Instance.new("UIShadow" :: any)
@@ -589,6 +601,16 @@ function screen_paint.new(ctx: any)
 		if not instance:IsA("GuiObject") then
 			return
 		end
+		-- NIL TEARS THE MODIFIER DOWN (wicked-fast W1b) — see `applyShadow`'s
+		-- identical branch above for the argument; the loop below indexed a
+		-- nil `gradient`'s own fields before this existed.
+		if gradient == nil then
+			if handle.gradientInstance ~= nil then
+				handle.gradientInstance:Destroy()
+				handle.gradientInstance = nil
+			end
+			return
+		end
 		local live = handle.gradientInstance
 		if live == nil then
 			live = Instance.new("UIGradient")
@@ -618,6 +640,20 @@ function screen_paint.new(ctx: any)
 	-- (uniform alias or four per-corner radii — never both; engine hazard)
 	local function applyCorners(instance: Instance, cornersData: any)
 		if not instance:IsA("GuiObject") then
+			return
+		end
+		-- NIL TEARS THE MODIFIER DOWN (wicked-fast W1b) — same argument as
+		-- `applyShadow`/`applyGradient` above, in THIS function's own idiom:
+		-- unlike them, `applyCorners` never held its instance on `handle` (it
+		-- was not even given one), so it discovers it the same way its own
+		-- create path does, via `FindFirstChildOfClass`, rather than through a
+		-- handle field that does not exist here. `styling.paintCorners(nil, …)`
+		-- below indexed nil before this existed.
+		if cornersData == nil then
+			local existing = instance:FindFirstChildOfClass("UICorner")
+			if existing ~= nil then
+				existing:Destroy()
+			end
 			return
 		end
 		-- the AUTHORED token re-derived for this target's distance (fix round 2)
