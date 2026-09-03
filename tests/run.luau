@@ -76,6 +76,14 @@ require("./measure_facts_seam.spec")
 	pins that emptiness, the one consumer, the one export against the re-export, and
 	that nothing stayed behind in the solver ]]
 require("./boundary_report_seam.spec")
+--[[ ...and the FOURTH solver seam (2026-09-02, the wicked-fast round): the four
+	reports a node makes about its OWN resolved box, taken so the translate arm had
+	Source-write headroom to land in — and this one left with no `Deps` at all, only
+	the values `arrange` already holds on the calling line. The spec pins that
+	emptiness, the CLOSED ctx/node/rect field sets, the one consumer, the one export
+	against its one call site, that none of the four messages stayed behind, and that
+	the module holds no mutable state ]]
+require("./arrange_reports_seam.spec")
 --[[ ...and the renderer's THIRD seam of the same round (2026-09-02): WHICH env facts
 	are geometry for a root policy, and WHEN two readings of them are the same. They
 	left together because they are one decision — a key added to the list and not
