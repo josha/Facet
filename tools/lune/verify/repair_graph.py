@@ -367,6 +367,16 @@ CASE_ID_REPAIRS = [
         "record, growing the parameter object from twenty-one fields to twenty-six and the "
         "written set from twelve to sixteen",
     ),
+    (
+        "commit_walks_seam::the commit-walk seam: the shared WRITE surface, and who owns each lifetime::"
+        "the module writes through exactly sixteen of the twenty-six records it is handed",
+        "commit_walks_seam::the commit-walk seam: the shared WRITE surface, and who owns each lifetime::"
+        "the module writes through exactly sixteen of the twenty-seven records it is handed",
+        "the same case, renamed again by T8 R2 (591d5240, 2026-09-03) when the recycle key grew "
+        "to sign BINDING as well as STYLE props and a `noteWorn` dep was threaded into "
+        "`CommitCtx` for the compact-ladder writes, growing the parameter object from twenty-six "
+        "fields to twenty-seven; the written set is unchanged at sixteen",
+    ),
 ]
 
 
