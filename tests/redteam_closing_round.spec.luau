@@ -610,11 +610,16 @@ describe("RED-TEAM 2: the translate arm refuses a composition as a descendant", 
 	end)
 
 	it("the refusal is a KIND check in translateDescendants, beside the root's own", function()
-		local source = fs.readFile("src/layout/solver.luau")
-		local body = section(source, "local function translateDescendants(", 2400)
+		--[[ `translateDescendants` LEFT for `src/layout/translate_arm.luau` on
+			2026-09-03 (Plan C, T2) — a pure extraction, so the kind check this case
+			pins is read from its new home; the root-side refusal it mirrors
+			(`literalIsWholeEntry`) stayed in the solver and is read from there. ]]
+		local armSource = fs.readFile("src/layout/translate_arm.luau")
+		local body = section(armSource, "function translate_arm.translateDescendants(", 2400)
 		expect(contains(body, 'if child.kind == "composition" then')).toBe(true)
 		-- the root-side refusal it mirrors, still present
-		expect(contains(source, 'return kind ~= "scroll" and kind ~= "composition"')).toBe(true)
+		local solverSource = fs.readFile("src/layout/solver.luau")
+		expect(contains(solverSource, 'return kind ~= "scroll" and kind ~= "composition"')).toBe(true)
 	end)
 end)
 

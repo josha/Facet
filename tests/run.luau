@@ -428,6 +428,12 @@ require("./measure_split.spec")
 -- the heap pin that catches a `prev` chain leak, the three self-placement defects the
 -- arm had without `selfPlaces`, and the three-arm oracle
 require("./translate_arm.spec")
+-- ...and what keeps the arm ONE-WAY after it left for its own file (Plan C, T2):
+-- `translatable`/`translateDescendants` carry no Deps record at all — the
+-- strongest one-way claim a seam here can make — read a closed set of
+-- reuse/node/child fields, and write only the widened `ctx.rectInserts` /
+-- `ctx.translated` pair plus index writes into `out`/`paths`/`entries`
+require("./translate_arm_seam.spec")
 --[[ THE CLOSING RED-TEAM'S THREE ADJUDICATED FINDINGS (wicked-fast T9): the
 	anchor arm's missing verdict channels, the composition that was translated as a
 	descendant, and the two live-adapter source contracts. Registered beside the arm
@@ -600,6 +606,12 @@ require("./lifecycle_hooks.spec")
 -- does: `solver.auditPlacement`, called from `renderer.toLayoutNode` and reported
 -- through `controller.diagnostics()`
 require("./placement_audit.spec")
+-- `placement.anchorPlace` / `placement.innerBox` (Plan C, T2): the ONE COPY of
+-- the corner-anchor maths and the padded-content-box derivation, pinned by hand
+-- arithmetic across all nine anchors, the fill axis, the `{ scale, offset }`
+-- form and the unknown-anchor fallback, plus the anti-divergence pin that drives
+-- a real solve and a direct call and asserts they agree
+require("./placement_anchor_place.spec")
 -- §2.5 `containerRelativeFrame`: a fraction of the nearest ancestor VIEWPORT
 -- rather than of the parent's offer — including the measure memo's cache key,
 -- which this is the first input to genuinely widen

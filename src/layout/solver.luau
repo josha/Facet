@@ -108,6 +108,12 @@ local arrange_reports = require("./arrange_reports")
 -- ledger's row for this file has named since the T4 split. It takes `STACK_DEPS`
 -- below plus `arrange`/`noteContainment` at the call, and holds no state.
 local stackLib = require("./stack")
+-- THE TRANSLATE ARM (wicked-fast O3) — `translatable` (is the subtree eligible?)
+-- and `translateDescendants` (re-base it) — lifted out on 2026-09-03 (Plan C, T2).
+-- NO Deps record, the strongest one-way claim this file makes about a seam:
+-- neither function reads a mutable upvalue of this file at all. See the module's
+-- own header for the full reasoning.
+local translateArm = require("./translate_arm")
 local num = require("../num")
 -- bound at module scope: `solver.luau` records that a per-call allocation on
 -- the measure path is a bench regression this repository has already paid for
@@ -2066,12 +2072,16 @@ solver.auditPlacement = placementAudit.auditPlacement
 --
 -- Bound locally rather than called through the module table because every one of
 -- them is on the per-child arrange path, where a table index per call is a bench
--- regression this file has already paid for once.
-local ANCHOR_FACTORS = placementLib.ANCHOR_FACTORS
+-- regression this file has already paid for once. `ANCHOR_FACTORS` and
+-- `offsetFill` left this list on 2026-09-03 (Plan C, T2): the anchor branch's own
+-- copy of the corner-anchor maths is now `anchorPlace`, which reaches both off
+-- `placementLib` itself rather than a second local naming them here.
 local offsetPx = placementLib.offsetPx
-local offsetFill = placementLib.offsetFill
 local alignOffset = placementLib.alignOffset
 local distributionOf = placementLib.distributionOf
+-- the corner-anchor placement (Plan C, T2) — bound locally for the same reason
+-- as the three above: the anchor branch's per-child loop is a bench-pinned path.
+local anchorPlace = placementLib.anchorPlace
 
 -- a px number as an author would read it back: whole when it is whole (an
 -- authored `itemExtent = 56` must not be quoted back as "56.00"), two places
@@ -2227,79 +2237,6 @@ local function selfPlaces(reuse: any, node: Node, prev: any): boolean
 	return measures ~= nil and measures[node.id] ~= true and prev.selfArrange == selfArrangeKey(node)
 end
 
--- NO CHILD IN THE DIRTY SET => NO DESCENDANT IN IT (it is prefix-closed), so one
--- pass answers for the subtree. It also refuses a child the previous solve never
--- recorded, which only a torn `lastResult` reaches.
-local function translatable(reuse: any, node: Node): boolean
-	local kids = node.children
-	if kids == nil then
-		return true
-	end
-	local contains, rects = reuse.dirtyContains, reuse.previous.rects
-	for _, child in kids do
-		local id = child.id
-		if contains[id] == true or rects[id] == nil then
-			return false
-		end
-	end
-	return true
-end
-
---[[ RE-BASE EVERY DESCENDANT ONTO THE ROOT'S NEW ORIGIN. Returns false — having
-	written some — if a node below has no previous entry; the caller rolls the
-	partial run back, map included. Not dead code: `translatable` inspects DIRECT
-	children only, and the argument that a new GRANDCHILD cannot reach here runs
-	through `builtIds` and `structural_scope.widen` in two other files. ]]
-local function translateDescendants(ctx: Ctx, node: Node, base: Rect, was: Rect, out: { [string]: any }): boolean
-	local kids = node.children
-	if kids == nil then
-		return true
-	end
-	local rects = (ctx.reuse :: any).previous.rects
-	local paths, entries = ctx.translatedPaths, ctx.translatedEntries
-	for _, child in kids do
-		--[[ A COMPOSITION IS REFUSED AS A DESCENDANT FOR THE SAME REASON
-			`literalIsWholeEntry` REFUSES IT AS A ROOT (RED-TEAM T9, finding 2), and the
-			reason is stronger here: its resolution is a FUNCTION OF ITS ORIGIN.
-			`composition_resolve` converts author `exclusions` from window space into the
-			box and decides `atRoot` by comparing the placed y to the root rect, so a
-			re-based clone carries lanes and a platform-band reservation computed at the
-			position it no longer occupies. `scroll` is safely translated (every field it
-			stamps is translation-invariant); this one is not. Refusing rolls the whole
-			run back to a full arrange for this root, which is the conservative direction
-			and costs nothing on a tree with no composition in it. ]]
-		if child.kind == "composition" then
-			return false
-		end
-		local prevEntry = rects[child.id]
-		if prevEntry == nil or prevEntry.rect == nil then
-			return false
-		end
-		local old = prevEntry.rect
-		local entry = table.clone(prevEntry)
-		-- FROM THE ROOT'S ORIGIN, NOT BY A DELTA: `old.x + (new - was)` gains a rounding
-		-- per solve — `tests/table.spec` read 35.99999999999998 for a row whose closed x
-		-- is exactly 36. This form is idempotent.
-		entry.rect = table.freeze({ x = base.x + (old.x - was.x), y = base.y + (old.y - was.y), w = old.w, h = old.h })
-		entry.moveOnly = true
-		entry.prev = prevEntry
-		-- THE CHAIN BREAK. `prev` has one reader — the next commit's `skip`, comparing
-		-- identity — and the entry superseded above no longer needs its own, or the node
-		-- retains its whole history: N holds N-1 holds N-2, forever.
-		prevEntry.prev = nil
-		out[child.id] = entry
-		ctx.translated += 1
-		ctx.rectInserts += 1
-		local n = #paths + 1
-		paths[n] = child.id
-		entries[n] = entry
-		if not translateDescendants(ctx, child, base, was, out) then
-			return false
-		end
-	end
-	return true
-end
-
 --[[ IS THE RULER THIS ENTRY ANSWERED AGAINST STILL THE ONE WE ARE HOLDING? (§2.5 x
 	incremental layout — RED-TEAM Milestone 1, HIGH 3, tests/container_relative_incremental.)
 
@@ -2366,7 +2303,11 @@ local function arrange(ctx: Ctx, node: Node, rect: Rect, out: { [string]: any })
 				DOES NOT RETURN HERE: only the write below records the root's own rect. ]]
 			-- cheapest first: a string compare, then field reads only a dirty node pays,
 			-- then the child walk
-			if literalIsWholeEntry(node) and (clean or selfPlaces(reuse, node, prev)) and translatable(reuse, node) then
+			if
+				literalIsWholeEntry(node)
+				and (clean or selfPlaces(reuse, node, prev))
+				and translateArm.translatable(reuse, node)
+			then
 				tdx, tdy, tprev = rect.x - pr.x, rect.y - pr.y, prev
 			end
 		end
@@ -2416,7 +2357,7 @@ local function arrange(ctx: Ctx, node: Node, rect: Rect, out: { [string]: any })
 		entry.prev = tprev
 		tprev.prev = nil
 		local from = #ctx.translatedPaths + 1
-		if translateDescendants(ctx, node, rect, tprev.rect, out) then
+		if translateArm.translateDescendants(ctx, node, rect, tprev.rect, out) then
 			ctx.translatedRoots[node.id] = { dx = dx, dy = dy, from = from, to = #ctx.translatedPaths }
 			-- WHO WALKED: NOT THIS NODE. Its body did not run, so `solve` must replay its
 			-- previous findings, as for a skipped subtree. `arranged` and absent from
@@ -2457,9 +2398,7 @@ local function arrange(ctx: Ctx, node: Node, rect: Rect, out: { [string]: any })
 	-- nothing, reporting nothing. Four lines of arithmetic are cheap; a silent
 	-- blank control is not.
 	local pt, pr, pb, pl = sides(node.padding)
-	local innerX, innerY = rect.x + pl, rect.y + pt
-	local innerW = math.max(0, rect.w - pl - pr)
-	local innerH = math.max(0, rect.h - pt - pb)
+	local innerX, innerY, innerW, innerH = placementLib.innerBox(rect.x, rect.y, rect.w, rect.h, pt, pr, pb, pl)
 
 	-- ...AND THE REPORTS THIS NODE'S OWN BOX MAKES, moved to `./arrange_reports` for
 	-- the Source-write headroom the translate arm needed. Reported HERE, before the
@@ -3194,46 +3133,26 @@ local function arrange(ctx: Ctx, node: Node, rect: Rect, out: { [string]: any })
 				ctx.anchorOffered += 1
 				w, h = measure(ctx, child, innerW, innerH)
 			end
-			local f = ANCHOR_FACTORS[child.anchor or "topLeft"]
-			if f == nil then
+			-- THE CORNER-ANCHOR PLACEMENT, ONE COPY (Plan C, T2): `placement.anchorPlace`
+			-- carries the fill give-back and the offset-resolved-once reasoning this
+			-- branch used to state here; `../layout/placement.luau` is where to read it.
+			local x, y, pw, ph, unknownAnchor = anchorPlace(
+				innerX,
+				innerY,
+				innerW,
+				innerH,
+				w,
+				h,
+				dim(child, "w").type == "fill",
+				dim(child, "h").type == "fill",
+				child.anchor,
+				child.offsetX,
+				child.offsetY
+			)
+			if unknownAnchor then
 				table.insert(ctx.diagnostics, { node = child.id, issue = `unknown anchor '{child.anchor}'` })
-				f = ANCHOR_FACTORS.topLeft
 			end
-			-- fill children stretch to the anchor (content layers under overlays)
-			-- MINUS THE ROOM THEIR OWN OFFSET COSTS THEM (director round 10, found
-			-- live 2026-07-26). A `fill` child used to take the WHOLE anchor box and
-			-- then get displaced by `offsetX`/`offsetY`, so it hung off the far edge
-			-- by exactly the offset — silently, because nothing clips an anchor.
-			-- The gallery's chrome column is this shape: `anchor = "topLeft"` +
-			-- `height = fill` + `offsetY = <CoreGui topbar inset>`, so its bottom
-			-- ran off the phone by the topbar's height and the last row of whatever
-			-- it held was unreachable. Studio Neutral never showed it because its
-			-- content stopped well short of the lost strip; a taller theme's did not.
-			--
-			-- How much to give back: the child sits at (inner - size) * f + offset.
-			-- Staying inside the far edge needs `offset <= (inner - size) * (1 - f)`,
-			-- and inside the near edge needs `(inner - size) * f + offset >= 0`. Solve
-			-- for the size and the shrink is |offset| over the factor facing the way
-			-- the offset pushes — so a centred child gives back TWICE its offset (it
-			-- loses room at both ends) and an edge-anchored one gives back exactly it.
-			--
-			-- Pushing a child OUT past the very edge it is anchored to (right anchor,
-			-- positive offsetX) is deliberate — an off-screen drawer, a peeking tab —
-			-- and no width can bring it back, so that case is left alone.
-			-- resolved ONCE, before either use: a fractional offset is a share of
-			-- this anchor's inner box, and the fill give-back below and the placement
-			-- itself have to spend the same number
-			local ox = offsetPx(child.offsetX, innerW)
-			local oy = offsetPx(child.offsetY, innerH)
-			if dim(child, "w").type == "fill" then
-				w = offsetFill(innerW, ox, f[1])
-			end
-			if dim(child, "h").type == "fill" then
-				h = offsetFill(innerH, oy, f[2])
-			end
-			local x = innerX + roundPx((innerW - w) * f[1]) + ox
-			local y = innerY + roundPx((innerH - h) * f[2]) + oy
-			arrange(ctx, child, { x = x, y = y, w = w, h = h }, out)
+			arrange(ctx, child, { x = x, y = y, w = pw, h = ph }, out)
 		end
 		return
 	end

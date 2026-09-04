@@ -115,4 +115,83 @@ function placement.distributionOf(mode: string, slack: number, count: number): (
 	return 0, 0
 end
 
+-- THE INNER (CONTENT) BOX, ONE COPY (Plan C, T2). `arrange` derives
+-- it at the padding block and the translate lane needs the identical four numbers
+-- to place a host the way the solver would have; the `math.max(0, …)` clamp is
+-- exactly the kind of detail a second hand-written copy loses.
+function placement.innerBox(
+	x: number,
+	y: number,
+	w: number,
+	h: number,
+	pt: number,
+	pr: number,
+	pb: number,
+	pl: number
+): (number, number, number, number)
+	return x + pl, y + pt, math.max(0, w - pl - pr), math.max(0, h - pt - pb)
+end
+
+-- THE CORNER-ANCHOR PLACEMENT, ONE COPY (Plan C, T2). The solver's anchor branch
+-- and the translate lane (`render/translate_lane`) both place a child from the
+-- same eleven inputs, and a second hand-written copy is how the two would start
+-- disagreeing by a rounding. `unknownAnchor` reports a factor lookup miss so the
+-- caller files the diagnostic the solver always filed; the placement falls back
+-- to `topLeft` exactly as it did.
+--
+-- fill children stretch to the anchor (content layers under overlays) MINUS THE
+-- ROOM THEIR OWN OFFSET COSTS THEM (director round 10, found live 2026-07-26). A
+-- `fill` child used to take the WHOLE anchor box and then get displaced by
+-- `offsetX`/`offsetY`, so it hung off the far edge by exactly the offset —
+-- silently, because nothing clips an anchor. The gallery's chrome column is this
+-- shape: `anchor = "topLeft"` + `height = fill` + `offsetY = <CoreGui topbar
+-- inset>`, so its bottom ran off the phone by the topbar's height and the last row
+-- of whatever it held was unreachable. Studio Neutral never showed it because its
+-- content stopped well short of the lost strip; a taller theme's did not.
+--
+-- How much to give back: the child sits at (inner - size) * f + offset. Staying
+-- inside the far edge needs `offset <= (inner - size) * (1 - f)`, and inside the
+-- near edge needs `(inner - size) * f + offset >= 0`. Solve for the size and the
+-- shrink is |offset| over the factor facing the way the offset pushes — so a
+-- centred child gives back TWICE its offset (it loses room at both ends) and an
+-- edge-anchored one gives back exactly it.
+--
+-- Pushing a child OUT past the very edge it is anchored to (right anchor,
+-- positive offsetX) is deliberate — an off-screen drawer, a peeking tab — and no
+-- width can bring it back, so that case is left alone.
+--
+-- resolved ONCE, before either use: a fractional offset is a share of this
+-- anchor's inner box, and the fill give-back below and the placement itself have
+-- to spend the same number.
+function placement.anchorPlace(
+	innerX: number,
+	innerY: number,
+	innerW: number,
+	innerH: number,
+	w: number,
+	h: number,
+	wFill: boolean,
+	hFill: boolean,
+	anchor: string?,
+	offsetX: any,
+	offsetY: any
+): (number, number, number, number, boolean)
+	local f = placement.ANCHOR_FACTORS[anchor or "topLeft"]
+	local unknown = f == nil
+	if unknown then
+		f = placement.ANCHOR_FACTORS.topLeft
+	end
+	local ox = placement.offsetPx(offsetX, innerW)
+	local oy = placement.offsetPx(offsetY, innerH)
+	if wFill then
+		w = placement.offsetFill(innerW, ox, f[1])
+	end
+	if hFill then
+		h = placement.offsetFill(innerH, oy, f[2])
+	end
+	local x = innerX + roundPx((innerW - w) * f[1]) + ox
+	local y = innerY + roundPx((innerH - h) * f[2]) + oy
+	return x, y, w, h, unknown
+end
+
 return placement
