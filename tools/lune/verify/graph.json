@@ -5,7 +5,7 @@
   "phases": "phases.json",
   "suiteResults": "suite_real.json"
  },
- "maintainedAt": "2026-09-04T04:00:00Z",
+ "maintainedAt": "2026-09-04T04:30:00Z",
  "phases": [
   {
    "artifactDir": "artifacts/phase-0-foundation",
@@ -24180,7 +24180,7 @@
   {
    "check": {
     "receipt": "tools/lune/verify/evidence/distribution-readiness--registered-before-work.json",
-    "shell": "if git cat-file -e '6907f85^{commit}' 2>/dev/null; then git merge-base --is-ancestor 6907f85 HEAD && [ \"$(git rev-parse 6907f85^)\" = \"$(cat artifacts/distribution-readiness/freeze/head.txt)\" ]; else echo 'FAIL_ENVIRONMENT the registration commit 6907f85 is not in this history: the public tip is a rewritten lineage with no private commits, so the ancestry claim cannot be asked here'; exit 2; fi"
+    "shell": "if git merge-base 6907f85 HEAD >/dev/null 2>&1; then git merge-base --is-ancestor 6907f85 HEAD && [ \"$(git rev-parse 6907f85^)\" = \"$(cat artifacts/distribution-readiness/freeze/head.txt)\" ]; else echo 'FAIL_ENVIRONMENT HEAD shares no history with the registration commit 6907f85: the public tip is a rewritten lineage with no merge base with the private one, so the ancestry claim cannot be asked here'; exit 2; fi"
    },
    "class": "exit0",
    "evidence": null,
@@ -24197,7 +24197,7 @@
   {
    "check": {
     "receipt": "tools/lune/verify/evidence/distribution-readiness--state-frozen-at-open.json",
-    "shell": "if git cat-file -e \"$(cat artifacts/distribution-readiness/freeze/head.txt)^{commit}\" 2>/dev/null; then test -s artifacts/distribution-readiness/freeze/tracked-files.txt && test -s artifacts/distribution-readiness/freeze/refs.txt && test -s artifacts/distribution-readiness/freeze/status.txt; else echo 'FAIL_ENVIRONMENT the frozen head is not a commit in this history: the public tip is a rewritten lineage, so the stage-open head cannot be resolved here'; exit 2; fi"
+    "shell": "if git merge-base 6907f85 HEAD >/dev/null 2>&1; then git cat-file -e \"$(cat artifacts/distribution-readiness/freeze/head.txt)^{commit}\" && test -s artifacts/distribution-readiness/freeze/tracked-files.txt && test -s artifacts/distribution-readiness/freeze/refs.txt && test -s artifacts/distribution-readiness/freeze/status.txt; else echo 'FAIL_ENVIRONMENT HEAD shares no history with this stage: the public tip is a rewritten lineage with no merge base with the private one, so the head recorded at stage open cannot be resolved here'; exit 2; fi"
    },
    "class": "exit0",
    "evidence": null,

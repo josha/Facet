@@ -430,10 +430,32 @@ REGISTRATION_COMMIT = "6907f85"
 #
 #   `6907f85` and the head recorded at stage open are commits of the PRIVATE
 #   history. The public tip is a rewritten lineage with no merge base with it, so
-#   neither object exists there and both rows reddened on the public clone --
-#   reporting a failed assertion, which is the one thing it is not.
+#   both rows reddened on the public clone -- reporting a failed assertion, which
+#   is the one thing it is not.
 #
-#   The rows now ask whether the object is resolvable FIRST. Where it is, the
+#   THE TEST IS SHARED HISTORY, NOT WHETHER THE OBJECT IS VISIBLE. The first
+#   draft of this guard asked `git cat-file -e`, and that is the wrong question
+#   in the one place the fix had to be verified: a `git worktree` of the public
+#   branch SHARES the private object store, so the object resolves, the guard
+#   takes the private arm, and the ancestry check then fails on a branch the
+#   commit was never in. `git merge-base <commit> HEAD` answers the question the
+#   row is actually about -- is this the lineage the stage happened on -- and it
+#   answers it identically in a worktree, a clone and CI (measured: the
+#   registration commit on the private tree, nothing at all on the graft).
+#
+#   AND BOTH ROWS USE THE SAME WITNESS -- the stage's registration commit -- not
+#   each its own subject. Gating `state-frozen-at-open` on the head IT reads
+#   would have made a corrupted `freeze/head.txt` report FAIL_ENVIRONMENT on the
+#   private tree instead of red, because a sha that resolves to nothing and a sha
+#   from another lineage look identical from inside that one row. The witness is
+#   a property of the CHECKOUT, so it belongs outside the assertion: the row's
+#   own clauses -- "a real commit in this repository, not a string in a document"
+#   plus the three raw records -- are untouched inside the then-branch, and the
+#   negative control (a valid commit of this lineage written over head.txt)
+#   still reddens.
+#
+#   The rows now ask whether HEAD shares history with the stage FIRST. Where it
+#   does, the
 #   assertion is exactly what it always was, unweakened: ancestry plus
 #   parent-equals-the-frozen-head for one, "the frozen head is a real commit in
 #   this repository, not a string in a document" plus the three raw records for
@@ -1285,12 +1307,12 @@ ROW_FLIPS = {
     "distribution-readiness::registered-before-work": (
         {
             "shell": (
-                "if git cat-file -e '%s^{commit}' 2>/dev/null; then "
+                "if git merge-base %s HEAD >/dev/null 2>&1; then "
                 "git merge-base --is-ancestor %s HEAD && "
                 '[ "$(git rev-parse %s^)" = "$(cat %s/head.txt)" ]; '
-                "else echo 'FAIL_ENVIRONMENT the registration commit %s is not in this history: "
-                "the public tip is a rewritten lineage with no private commits, so the ancestry "
-                "claim cannot be asked here'; exit 2; fi"
+                "else echo 'FAIL_ENVIRONMENT HEAD shares no history with the registration commit "
+                "%s: the public tip is a rewritten lineage with no merge base with the private "
+                "one, so the ancestry claim cannot be asked here'; exit 2; fi"
                 % (
                     REGISTRATION_COMMIT,
                     REGISTRATION_COMMIT,
@@ -1309,12 +1331,14 @@ ROW_FLIPS = {
     "distribution-readiness::state-frozen-at-open": (
         {
             "shell": (
-                'if git cat-file -e "$(cat %s/head.txt)^{commit}" 2>/dev/null; then '
+                "if git merge-base %s HEAD >/dev/null 2>&1; then "
+                'git cat-file -e "$(cat %s/head.txt)^{commit}" && '
                 "test -s %s/tracked-files.txt && test -s %s/refs.txt && "
                 "test -s %s/status.txt; "
-                "else echo 'FAIL_ENVIRONMENT the frozen head is not a commit in this history: "
-                "the public tip is a rewritten lineage, so the stage-open head cannot be "
-                "resolved here'; exit 2; fi" % (FREEZE, FREEZE, FREEZE, FREEZE)
+                "else echo 'FAIL_ENVIRONMENT HEAD shares no history with this stage: the public "
+                "tip is a rewritten lineage with no merge base with the private one, so the head "
+                "recorded at stage open cannot be resolved here'; exit 2; fi"
+                % (REGISTRATION_COMMIT, FREEZE, FREEZE, FREEZE, FREEZE)
             ),
             "receipt": "tools/lune/verify/evidence/distribution-readiness--state-frozen-at-open.json",
         },
