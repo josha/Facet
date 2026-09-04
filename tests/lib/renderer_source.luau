@@ -22,8 +22,9 @@
 	(`render/drag_bridge.luau`), the tap-echo guard with the arm dispatch beside
 	it (`render/tap_arm.luau`), the text-premeasurement round
 	(`render/premeasure_round.luau`), the scroll-into-view family
-	(`render/scroll_into_view.luau`) and the recycle-key family
-	(`render/recycle_key.luau`).
+	(`render/scroll_into_view.luau`), the recycle-key family
+	(`render/recycle_key.luau`) and the four geometry reads
+	(`render/rect_reads.luau`).
 
 	ADD A PART HERE WHENEVER MORE OF THE RENDERER MOVES OUT — otherwise the pins
 	quietly stop seeing the code they name, which is the failure this file exists
@@ -112,6 +113,13 @@ local PARTS = {
 		all — so no existing pin's count moves; it is here for the reason every
 		part above it is. ]]
 	"src/render/recycle_key.luau",
+	--[[ ...and the FOUR GEOMETRY READS (2026-09-03, Plan C's T1): `rectOf`,
+		`scrollShift`, `screenRectOf` and `paintedRectIn`, the LIVE seam Plan C's
+		host-space work (T3, T5) changes next. It carries no `adapter.setProp(` and
+		no `setRect(` at all — it is pure over `lastRects`/`handles`/`scrollHostOf`/
+		`adapter`/`presentationShift` — so no existing pin's count moves; it is here
+		for the reason every part above it is. ]]
+	"src/render/rect_reads.luau",
 }
 
 local renderer_source = {}

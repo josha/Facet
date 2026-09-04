@@ -117,15 +117,29 @@ local function assignmentsOutsideDeclaration(source: string, name: string): { st
 	return out
 end
 
+--[[ WIDENED FOR THE GEOMETRY-READ SEAM (Plan C, T1): `screenRectOf` stopped being
+	its own `local function` and became one name in the destructuring local that
+	unpacks `render/rect_reads.luau`'s table (`local rectOf, scrollShift, screenRectOf,
+	paintedRectIn = geometry.rectOf, …`). The claim this test makes — declared ONCE, as
+	a local, never reassigned — is exactly as true of a destructured name as of a bare
+	one, so the scan reads the LHS of ANY `local … = …` line as a comma list rather than
+	requiring the name to be the line's only declaration. ]]
 local function declarationsOf(source: string, name: string): number
 	local n = 0
 	for line in string.gmatch(stripComments(source), "\n([^\n]*)") do
 		local trimmed = string.match(line, "^%s*(.-)%s*$") :: string
-		if
-			string.match(trimmed, "^local " .. name .. "[%s:=]") ~= nil
-			or string.match(trimmed, "^local function " .. name .. "%(") ~= nil
-		then
+		if string.match(trimmed, "^local function " .. name .. "%(") ~= nil then
 			n += 1
+			continue
+		end
+		local lhs = string.match(trimmed, "^local (.-)%s*=")
+		if lhs ~= nil then
+			for one in string.gmatch(lhs, "[%a_][%w_]*") do
+				if one == name then
+					n += 1
+					break
+				end
+			end
 		end
 	end
 	return n

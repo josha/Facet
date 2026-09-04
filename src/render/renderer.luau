@@ -39,6 +39,8 @@ local layout_node = require("./layout_node")
 -- deliverable (its own file for the same 200k reason `layout_node` is)
 local hit_lift = require("./hit_lift")
 local instance_boundary = require("./instance_boundary")
+-- the four geometry reads (Plan C, T1: the live seam — see its own header)
+local rect_reads = require("./rect_reads")
 local rect_pass = require("./rect_pass")
 local commit_walks = require("./commit_walks")
 -- the structural half of the reuse bargain (P5): the boundary that qualifies a
@@ -320,10 +322,6 @@ function renderer.attach(
 	-- Declared with the regions because they are written and dropped together.
 	local scrollAutoscroll: { [string]: any } = {}
 	local autoscrollModels: { [string]: any } = {}
-	-- drag math reads solved rects through this lookup
-	local function rectOf(path: string): any
-		return lastRects[path]
-	end
 	-- path -> its nearest ScrollView ANCESTOR's path (rebuilt every structural
 	-- sync by the live-path walk). It exists for one reason: the solver arranges
 	-- a scroll host's children in the HOST's own coordinate space and the engine
@@ -386,24 +384,6 @@ function renderer.attach(
 	-- the solve that produces it
 	local syncZOrder: () -> ()
 	local pathClipObservers: { [string]: () -> () } = {}
-	local function scrollShift(path: string): (number, number)
-		local dx, dy = 0, 0
-		local host: string? = scrollHostOf[path]
-		local guard = 0
-		while host ~= nil and guard < 32 do
-			local handle = handles[host]
-			if handle ~= nil and adapter.getScrollPosition ~= nil then
-				local pos = adapter.getScrollPosition(handle)
-				if type(pos) == "table" then
-					dx += pos.x or 0
-					dy += pos.y or 0
-				end
-			end
-			host = scrollHostOf[host]
-			guard += 1
-		end
-		return dx, dy
-	end
 	-- ONE mounted-node lookup for the whole surface (Step 5.5 cleanup ledger C-02).
 	-- `refresh` used to declare an identical depth-first walk as a closure INSIDE
 	-- its dirty loop — one allocation per changed prop per frame — while the
@@ -457,56 +437,15 @@ function renderer.attach(
 	local presentationShift = channel.presentationShift
 	local readAuthoredPresentation = channel.readAuthoredPresentation
 
-	-- the solved rect in WINDOW space: nested scroll offsets accumulate up the
-	-- chain, so a list inside a scrolled panel still answers where it is drawn —
-	-- and presentation offsets accumulate with them, so a shifted surface answers
-	-- where it is drawn too.
-	--
-	-- `relativeTo` (gap 37, framework-gaps-phase2): optional second path whose
-	-- WINDOW-space origin is subtracted from the answer, so a caller who wants
-	-- "where is A inside B" gets it in one call instead of two `screenRectOf`
-	-- reads and a hand-subtraction — the exact pattern three call sites in
-	-- RascalRally's `StoryFlow.luau` (`_layerRectOf`/`_centreOf`) had each grown
-	-- their own copy of. `nil` when either node is not live, same as the
-	-- one-argument form; a node relative to ITSELF is `{x=0,y=0,w,h}`.
-	local function screenRectOf(path: string, relativeTo: string?): any
-		local rect = lastRects[path]
-		if rect == nil then
-			return nil
-		end
-		local dx, dy = scrollShift(path)
-		local px, py = presentationShift(path)
-		local out = if dx == 0
-				and dy == 0
-				and px == 0
-				and py == 0
-			then rect
-			else { x = rect.x - dx + px, y = rect.y - dy + py, w = rect.w, h = rect.h }
-		if relativeTo == nil then
-			return out
-		end
-		local origin = if relativeTo == path then out else screenRectOf(relativeTo)
-		if origin == nil then
-			return nil
-		end
-		return { x = out.x - origin.x, y = out.y - origin.y, w = out.w, h = out.h }
-	end
-	-- the same window-space answer over a solve's FRESH rects: the visibility
-	-- pass runs before `lastRects` is updated, and culling this frame's paths
-	-- against last frame's geometry is exactly the one-frame lag that makes a
-	-- re-sorted row flash its ring outside the list.
-	local function paintedRectIn(rects: any, path: string): any
-		local rect = if rects[path] ~= nil then rects[path].rect else nil
-		if rect == nil then
-			return nil
-		end
-		local dx, dy = scrollShift(path)
-		local px, py = presentationShift(path)
-		if dx == 0 and dy == 0 and px == 0 and py == 0 then
-			return rect
-		end
-		return { x = rect.x - dx + px, y = rect.y - dy + py, w = rect.w, h = rect.h }
-	end
+	-- THE GEOMETRY-READ SEAM (Plan C, T1 — see `render/rect_reads.luau`'s own
+	-- header for why this is the LIVE seam Plan C changes, not an ordinary split).
+	-- `rectOf`, `scrollShift`, `screenRectOf` and `paintedRectIn` moved there
+	-- verbatim; every call site below keeps its name unchanged. The seam spec pins
+	-- this construction char-for-char, hence the formatter exemption.
+	-- stylua: ignore
+	local geometry = rect_reads.new({ adapter = adapter, handles = handles, lastRects = lastRects, scrollHostOf = scrollHostOf, presentationShift = presentationShift })
+	local rectOf, scrollShift, screenRectOf, paintedRectIn =
+		geometry.rectOf, geometry.scrollShift, geometry.screenRectOf, geometry.paintedRectIn
 	-- half a pixel of slack: a rect that lands exactly on its host's edge is
 	-- INSIDE it, and solved rects are not guaranteed integral.
 	local CLIP_EPSILON = 0.5

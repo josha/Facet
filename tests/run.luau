@@ -192,6 +192,13 @@ require("./recycle_key_seam.spec")
 	owner now RECORDS the radius it painted and a nil `corners` restores that
 	record, which the enumerating pin in here keeps honest). ]]
 require("./recycle_prop_signature.spec")
+--[[ ...and the geometry-read seam (Plan C, T1's own Phase 0): `rectOf`,
+	`scrollShift`, `screenRectOf` and `paintedRectIn` left the renderer for
+	`render/rect_reads.luau` — the LIVE seam Plan C's host-space work (T3, T5)
+	changes next, taken first and in its own commit. The host-space maps and
+	helpers are declared here EMPTY, so this round's behaviour is byte-identical
+	to before it. ]]
+require("./rect_reads_seam.spec")
 require("./incremental_layout.spec")
 require("./diagnostic_replay.spec")
 require("./container_relative_incremental.spec")
