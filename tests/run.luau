@@ -104,6 +104,12 @@ require("./stack_seam.spec")
 	nine device views, three fixtures and eight step kinds INCLUDING a viewport change,
 	which is the step that makes every recorded offer stop matching ]]
 require("./anchor_arrange.spec")
+--[[ ...and the seam that round had to take first (Plan C, C3): `arrange`'s `scroll`
+	branch is `src/layout/scroll_arrange.luau`, and this is the one-way property
+	mechanised — the require direction, the six-field Deps record compared against the
+	solver's literal as sets in both directions, and the "one branch, and it is the
+	call" rule that catches a half-done extraction. ]]
+require("./scroll_arrange_seam.spec")
 --[[ ...and the renderer's THIRD seam of the same round (2026-09-02): WHICH env facts
 	are geometry for a root policy, and WHEN two readings of them are the same. They
 	left together because they are one decision — a key added to the list and not

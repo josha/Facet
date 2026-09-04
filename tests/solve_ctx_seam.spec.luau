@@ -149,8 +149,17 @@ describe("the solve-context seam: one require, no state, one export", function()
 		expect(`call sites={calls}`).toBe("call sites=1")
 	end)
 
-	it("ONE consumer, by a tree-wide scan rather than a directory list", function()
-		expect(srcTree.pathsMatching('require%("[^"]*solve_ctx"%)')).toEqual({ "src/layout/solver.luau" })
+	it("TWO consumers, by a tree-wide scan rather than a directory list", function()
+		--[[ ONE until Plan C's C3, which moved `arrange`'s `scroll` branch to
+			`src/layout/scroll_arrange.luau`; that module takes the `Rect` type from here
+			(and `chrome_slots`) rather than from the solver, which is what keeps it from
+			requiring the solver back. A THIRD consumer is still a change worth seeing —
+			this record is a per-solve accumulator and a module that reads it is a module
+			that can read another solve's state — so the list stays exact. ]]
+		expect(srcTree.pathsMatching('require%("[^"]*solve_ctx"%)')).toEqual({
+			"src/layout/scroll_arrange.luau",
+			"src/layout/solver.luau",
+		})
 	end)
 
 	it("`Rect` has ONE declaration, and the solver re-exports it rather than repeating it", function()

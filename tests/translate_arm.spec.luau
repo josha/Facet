@@ -308,13 +308,34 @@ end)()
 	that is the solver's alone — a second file in their input would have no literal
 	in it and index nothing. So the two prop audits take the union and the literal
 	rules take the solver. ]]
+local ARRANGE_BRANCH_FILES = { "src/layout/stack.luau", "src/layout/scroll_arrange.luau" }
 local ARRANGE_BRANCH_SOURCE = (function(): { string }
 	local out = table.clone(ARRANGE_SOURCE)
-	local body = fs.readFile("src/layout/stack.luau")
-	body = body:gsub("%-%-%[%[.-%]%]", ""):gsub("%-%-[^\n]*", "")
-	for _, line in string.split(body, "\n") do
-		table.insert(out, line)
+	-- ...AND THE `scroll` BRANCH JOINED THE LIST (Plan C, C3, 2026-09-04) for exactly
+	-- the reason the block above gives about `stack.luau`: it reads `node.axis`,
+	-- `node.leadingBleed` and the two `child` offsets, and a scan that kept reading
+	-- only the solver would have stopped covering them on the extraction commit.
+	for _, path in ARRANGE_BRANCH_FILES do
+		local body = fs.readFile(path)
+		body = body:gsub("%-%-%[%[.-%]%]", ""):gsub("%-%-[^\n]*", "")
+		for _, line in string.split(body, "\n") do
+			table.insert(out, line)
+		end
 	end
+	return out
+end)()
+
+--[[ ...AND THE ENTRY STAMPS THAT LEFT WITH IT. `stampsAfterLiteral` attributes a
+	stamp to the `if node.kind == "…"` branch it sits in, and a moved branch has no
+	such line — its whole body IS one kind. So the moved file is scanned separately
+	and its stamps are attributed to the kind whose branch called it, which keeps the
+	pin's claim ("the kinds that stamp are the kinds the arm refuses") exactly what it
+	was before the extraction rather than a narrower one that happens to be green. ]]
+local MOVED_STAMPS: { { kind: string, lines: { string } } } = (function()
+	local out = {}
+	local body = fs.readFile("src/layout/scroll_arrange.luau")
+	body = body:gsub("%-%-%[%[.-%]%]", ""):gsub("%-%-[^\n]*", "")
+	table.insert(out, { kind = "scroll", lines = string.split(body, "\n") })
 	return out
 end)()
 
@@ -1032,6 +1053,13 @@ describe("O3: the refusal names every kind that stamps an entry field after the 
 	it("the scan finds the literal, and the kinds it finds are the kinds the arm refuses", function()
 		expect(`literalFound={LITERAL_AT > 0}`).toBe("literalFound=true")
 		local fields, kinds = stampsAfterLiteral(ARRANGE_SOURCE, LITERAL_AT)
+		for _, moved in MOVED_STAMPS do
+			local movedFields = stampsAfterLiteral(moved.lines, 0)
+			for field in movedFields do
+				fields[field] = true
+				kinds[moved.kind] = true
+			end
+		end
 		--[[ THE FIELDS, so a NEW field on an existing branch is a visible change here
 			rather than a silent one. `moveOnly` and `prev` are the arm's own pair and
 			the only two `entryKey` above is allowed to ignore — they are in this set for

@@ -1248,9 +1248,24 @@ describe("the commit's own skip (P4)", function()
 			idempotent. A fifth write of a different shape, or one of these four losing
 			its zero rect, breaks that and is what the source pin below refuses. ]]
 		local fs = require("@lune/fs")
+		--[[ THE SOLVER *AND* THE ARRANGE BRANCHES THAT LEFT IT, joined, since Plan C's
+			C3 moved the `scroll` branch to `src/layout/scroll_arrange.luau`. Four of the
+			nine writes this scan counts went with it, and a scan that kept reading only
+			the solver would have narrowed its own coverage on the extraction commit
+			while every count stayed green after one edit — the hazard this repository
+			keeps re-learning one file over. The line-number report keeps the file name,
+			so an offender still says where it is. ]]
 		local SOLVER_PATH = "src/layout/solver.luau"
-		local source = fs.readFile(SOLVER_PATH)
-		local lines = string.split(source, "\n")
+		local SOURCES = { SOLVER_PATH, "src/layout/scroll_arrange.luau" }
+		local source = ""
+		local lines: { string } = {}
+		for _, path in SOURCES do
+			local body = fs.readFile(path)
+			source ..= body
+			for _, line in string.split(body, "\n") do
+				table.insert(lines, line)
+			end
+		end
 		local ownWrites, childWrites, unguarded = 0, 0, {}
 		for i, raw in lines do
 			local target, field = string.match(raw, "out%[([%w_%.]+)%]%.([%a_][%w_]*) = ")
