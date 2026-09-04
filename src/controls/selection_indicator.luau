@@ -75,6 +75,11 @@
 -- strip inherits; subtracting two raw host-space rects cancels them exactly.
 -- `screenRectOf` accumulates those shifts, so inside D5's overflowing horizontal
 -- ScrollView it would apply the scroll twice and the bar would fly off the strip.
+-- THE SAME ARGUMENT COVERS A COORDINATE-SPACE HOST (Plan C, C1): beneath one, a
+-- stored rect is relative to the host, and the layer and the segments are under
+-- the SAME host — so the origin is a common term in the subtraction and cancels,
+-- exactly as the scroll offset does. `tests/translate_host.spec.luau` pins the
+-- delta across a host move rather than leaving the cancellation asserted.
 --
 -- ===== REDUCED MOTION SNAPS, AND IT IS NOT RE-PLUMBED HERE =================
 --

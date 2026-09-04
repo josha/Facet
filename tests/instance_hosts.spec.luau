@@ -274,6 +274,113 @@ describe("WHICH NODES ARE REAL PARENTS, through the renderer that decides it", f
 		expect(adapter.hostCount()).toBe(3)
 	end)
 
+	--[[ THE FIFTH TRIGGER (Plan C, C1), and it is the one that is a coordinate
+		space as well as a real parent: a container whose `offsetX`/`offsetY`/`anchor`
+		is REACTIVE and that has children will MOVE as a unit, so the engine can carry
+		its subtree — and the solver stores that subtree's rects relative to it.
+
+		THE PIN ABOVE IS THE ONE TO WATCH. `"/S/Plain"` is THE elision tripwire, and
+		this trigger is precisely "a plain container becomes a host": what keeps them
+		apart is that the placement must be REACTIVE. A static offset buys nothing —
+		it never moves — and the case below says so. ]]
+	it("a REACTIVE placement on a container with children is the fifth trigger", function()
+		local core = customFactory.new()
+		local env = environment.new(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 600 })
+		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
+		local kid = function(): any
+			return UI.Box({ id = "Leaf", surface = "raised" })
+		end
+		local root = mountLib.mount(
+			core,
+			UI.Screen({
+				id = "S",
+				padding = 0,
+				gap = 0,
+				children = {
+					UI.Anchor({
+						id = "Canvas",
+						width = { type = "fill", weight = 1 },
+						height = { type = "fill", weight = 1 },
+						children = {
+							-- the trigger: reactive placement AND children
+							UI.VStack({
+								id = "Moving",
+								anchor = "topLeft",
+								offsetX = core:signal(10),
+								children = { kid() },
+							}),
+							-- ...on a LEAF it is not: there is no subtree to carry
+							UI.Box({ id = "MovingLeaf", anchor = "topLeft", offsetY = core:signal(20) }),
+							-- ...and a STATIC placement is not, however many children it has
+							UI.VStack({ id = "Static", anchor = "topLeft", offsetX = 30, children = { kid() } }),
+							-- ...and neither is a ScrollView or a `clipChildren` container,
+							-- refused outright so every raw-rect reader inside every list
+							-- Facet ships keeps its meaning
+							UI.ScrollView({ id = "Scroller", offsetX = core:signal(0), children = { kid() } }),
+							UI.VStack({
+								id = "Clip",
+								clipChildren = true,
+								offsetY = core:signal(0),
+								children = { kid() },
+							}),
+						},
+					}),
+				},
+			})
+		)
+		local adapter = fake_target.new()
+		local controller = rendererLib.attach(core, root, env, adapter, { rootPolicy = "edgeToEdge" })
+		controller.initialRender()
+		local function spaceAt(path: string): string
+			local entry = adapter.hostOf(path .. "/Leaf")
+			return `{adapter.isHost(path)}/{tostring(entry ~= nil and entry.hostSpace == true)}`
+		end
+		expect(`moving={spaceAt("/S/Canvas/Moving")}`).toBe("moving=true/true")
+		expect(`static={spaceAt("/S/Canvas/Static")}`).toBe("static=false/false")
+		expect(`scroller={spaceAt("/S/Canvas/Scroller")}`).toBe("scroller=true/false")
+		expect(`clip={spaceAt("/S/Canvas/Clip")}`).toBe("clip=true/false")
+		expect(`leaf={adapter.isHost("/S/Canvas/MovingLeaf")}`).toBe("leaf=false")
+		controller.dispose()
+		root.dispose()
+	end)
+
+	it("...and `translateHosts = false` turns the fifth trigger off and nothing else", function()
+		local core = customFactory.new()
+		local env = environment.new(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 600 })
+		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
+		local root = mountLib.mount(
+			core,
+			UI.Screen({
+				id = "S",
+				padding = 0,
+				gap = 0,
+				children = {
+					UI.ScrollView({ id = "Scroll", children = { UI.Box({ id = "A", surface = "raised" }) } }),
+					UI.VStack({
+						id = "Moving",
+						anchor = "topLeft",
+						offsetX = core:signal(10),
+						children = { UI.Box({ id = "B", surface = "raised" }) },
+					}),
+				},
+			})
+		)
+		local adapter = fake_target.new()
+		local controller =
+			rendererLib.attach(core, root, env, adapter, { rootPolicy = "edgeToEdge", translateHosts = false })
+		controller.initialRender()
+		-- the ScrollView is still a host (its own trigger is untouched); the moving
+		-- container is not one at all
+		expect(`scroll={adapter.isHost("/S/Scroll")} moving={adapter.isHost("/S/Moving")}`).toBe(
+			"scroll=true moving=false"
+		)
+		expect(adapter.hostCount()).toBe(1)
+		controller.dispose()
+		root.dispose()
+	end)
+
 	it("a descendant parents under the NEAREST host, and a flat one under nothing", function()
 		local adapter = render(UI.Screen({
 			id = "S",

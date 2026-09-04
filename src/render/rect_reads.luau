@@ -29,8 +29,16 @@ function rect_reads.new(deps: Deps)
 	local scrollHostOf = deps.scrollHostOf
 	local presentationShift = deps.presentationShift
 
-	-- path -> nearest COORDINATE-SPACE host ancestor (T3 fills it on the live-path
-	-- walk; empty here). Cleared in place with the renderer's other per-path maps.
+	--[[ path -> nearest COORDINATE-SPACE host ancestor, filled on the renderer's
+		live-path walk (`livePaths`) exactly the way `scrollHostOf` is, and cleared in
+		place with the renderer's other per-path maps.
+
+		IT IS ALSO WHAT SAYS A CARRIED RECT MAY BE CARRIED. A stored rect beneath a
+		space host is HOST-RELATIVE, so `renderer.restoreParkedProps` may move one onto
+		a recycled path only when the two paths sit in the SAME space — otherwise the
+		rect is in the wrong origin, and `rect_pass.applyOne` compares by VALUE, so the
+		wrong rect would match the incoming one and write nothing. Dropping it instead
+		costs one spare `setRect` per cross-space recycle and cannot be wrong. ]]
 	local hostSpaceOf: { [string]: string } = {}
 	-- the set of paths that ARE coordinate-space hosts (T3 fills it on the same walk)
 	local spaceHosts: { [string]: true } = {}
@@ -40,7 +48,7 @@ function rect_reads.new(deps: Deps)
 	-- otherwise refuse forever once a Path had ever been under that host.
 	local spaceHostHasPath: { [string]: number } = {}
 	-- which space host a PATH node was last counted under, so a reparented Path can
-	-- note the OLD host −1 and the NEW host +1 (review B-2). Keyed by the Path's own
+	-- note the OLD host −1 and the NEW host +1. Keyed by the Path's own
 	-- path; nil for a Path with no space host above it. WHO FILLS IT: `livePaths`
 	-- (T5 step 3), on the same latch edge that fills `spaceHostHasPath`. WHO READS
 	-- IT: exactly one site — that walk's reparent branch, which compares it against
@@ -49,8 +57,8 @@ function rect_reads.new(deps: Deps)
 	local pathHostOf: { [string]: string } = {}
 	-- absolute origin of a host, cached; invalidated wholesale by an epoch bump
 	local originCache: { [string]: { x: number, y: number, epoch: number } } = {}
-	-- the COMPOSED rect of a path, cached against the same epoch (Plan C ruling from
-	-- review IM-9): inside a space host `rectOf` would otherwise allocate a fresh
+	-- the COMPOSED rect of a path, cached against the same epoch: inside a space
+	-- host `rectOf` would otherwise allocate a fresh
 	-- table per call, and ~30 sites compare what it returns BY IDENTITY —
 	-- `slider.luau:183-185` skips a signal write on identity, and the pointer
 	-- contract `(path, pos, rectOf)` is called per pointer MOVE by `table_rows`,
@@ -91,8 +99,8 @@ function rect_reads.new(deps: Deps)
 		noteFromHost(map, hostSpaceOf[path], delta)
 	end
 	-- one departed path (called from `sweepDeparted`): the bounded structural arm
-	-- does not clear the whole map, and a stale entry keyed by a removed host is a
-	-- wrong origin, not a slow one (review IM-8)
+	-- does not clear the whole map, and an origin read off a stale entry is a WRONG
+	-- origin, not a slow one
 	local function dropPath(path: string)
 		hostSpaceOf[path] = nil
 		spaceHosts[path] = nil
@@ -100,6 +108,19 @@ function rect_reads.new(deps: Deps)
 		composedCache[path] = nil
 		spaceHostHasPath[path] = nil
 		pathHostOf[path] = nil
+	end
+	--[[ THE COMMIT SPAN'S OWN MAP, and the stable function that reads it. Two commit
+		readers compare rects that may sit in different coordinate spaces —
+		`commit_walks.authorPressableRects` and `hit_lift.refresh` — and both run
+		BEFORE `rect_pass` rewrites `lastRects`, so `hostOriginOf` (which walks
+		`lastRects`) would compose them against LAST frame's host origin: a one-frame
+		lag on exactly the frame a host moved. `commit_walks.new` is built once per
+		attach and wants a stable function, so the per-commit part is the MAP — the
+		renderer assigns it at the top of the span. It is the CALLER's table, never
+		cleared here — the renderer hands over a fresh empty one at `dispose`. ]]
+	local commitRects: { [string]: any } = {}
+	local function setCommitRects(rects: { [string]: any })
+		commitRects = rects
 	end
 	-- the sum of the host chain above `path` — (0, 0) on every path with no
 	-- coordinate-space host above it, which is every path on a host-free tree
@@ -119,7 +140,7 @@ function rect_reads.new(deps: Deps)
 		originCache[host] = { x = x, y = y, epoch = originEpoch }
 		return x, y
 	end
-	-- THE SAME WALK OVER A CALLER-SUPPLIED MAP (review BL-5). `paintedRectIn` reads
+	-- THE SAME WALK OVER A CALLER-SUPPLIED MAP. `paintedRectIn` reads
 	-- the CURRENT solve's `rects`, on purpose; `hostOriginOf` reads `lastRects`,
 	-- which on the cull pass is last frame's. Uncached by construction — the map is
 	-- the argument, so there is nothing stable to key on.
@@ -142,7 +163,7 @@ function rect_reads.new(deps: Deps)
 	-- whenever the origin is (0, 0): `slider.luau` compares what this returns by
 	-- identity to skip a signal write, and a host-free tree must stay byte-identical
 	-- at the allocation level too (Plan C ruling R-6). INSIDE a host the composed
-	-- table is memoised against the origin epoch (review IM-9) so identity is stable
+	-- table is memoised against the origin epoch so identity is stable
 	-- between host moves and no per-read allocation happens.
 	local function rectOf(path: string): any
 		local rect = lastRects[path]
@@ -248,6 +269,10 @@ function rect_reads.new(deps: Deps)
 		return { x = rect.x - dx + px + hx, y = rect.y - dy + py + hy, w = rect.w, h = rect.h }
 	end
 
+	local function commitOriginOf(path: string): (number, number)
+		return originIn(commitRects, path)
+	end
+
 	return {
 		rectOf = rectOf,
 		scrollShift = scrollShift,
@@ -262,6 +287,8 @@ function rect_reads.new(deps: Deps)
 		noteUnder = noteUnder,
 		noteFromHost = noteFromHost,
 		invalidateOrigins = invalidateOrigins,
+		setCommitRects = setCommitRects,
+		commitOriginOf = commitOriginOf,
 		clearHosts = clearHosts,
 		dropPath = dropPath,
 	}

@@ -1826,8 +1826,8 @@ describe("RowActions Task 8: the action menu — WHERE it lands", function()
 		-- ABOVE: its bottom edge sits exactly on the trigger's top
 		expect(menu.y + menu.h).toBe(trigger.y)
 		-- ...and every row travelled with it, rather than one node moving
-		local first = w.adapter.node("/RowActionsMenu-Row/Menu/MenuRows/Action:delete")
-		expect(first.rect.y).toBe(menu.y)
+		local first = w.adapter.composedRect("/RowActionsMenu-Row/Menu/MenuRows/Action:delete")
+		expect(first.y).toBe(menu.y)
 		-- WHOLLY ON SCREEN, both edges — the actual requirement
 		expect(`top inside: {menu.y >= 0}`).toBe("top inside: true")
 		expect(`bottom inside: {menu.y + menu.h <= 600}`).toBe("bottom inside: true")
@@ -1912,15 +1912,15 @@ describe("RowActions Task 8: the action menu — WHERE it lands", function()
 		expect(w.ra.dump().menuOpen).toBe(true)
 		-- the menu is its OWN presented surface, so its rects live on the adapter,
 		-- not on the row screen's controller
-		local rows = w.adapter.node("/RowActionsMenu-Row/Menu/MenuRows")
-		expect(rows).never().toBeNil()
-		expect(rows.rect.x).toBe(trigger.x)
-		expect(rows.rect.y).toBe(trigger.y + trigger.h) -- just below the row, popup_button's rule
+		expect(w.adapter.node("/RowActionsMenu-Row/Menu/MenuRows")).never().toBeNil()
+		local rows = w.adapter.composedRect("/RowActionsMenu-Row/Menu/MenuRows")
+		expect(rows.x).toBe(trigger.x)
+		expect(rows.y).toBe(trigger.y + trigger.h) -- just below the row, popup_button's rule
 		-- ...and every row of it travels with the menu, rather than one node moving
-		local first = w.adapter.node("/RowActionsMenu-Row/Menu/MenuRows/Action:delete")
-		expect(first).never().toBeNil()
-		expect(first.rect.x).toBe(trigger.x)
-		expect(first.rect.y).toBe(trigger.y + trigger.h)
+		expect(w.adapter.node("/RowActionsMenu-Row/Menu/MenuRows/Action:delete")).never().toBeNil()
+		local first = w.adapter.composedRect("/RowActionsMenu-Row/Menu/MenuRows/Action:delete")
+		expect(first.x).toBe(trigger.x)
+		expect(first.y).toBe(trigger.y + trigger.h)
 		--[[ ...and the ANCHOR'S OWN BOX CONTAINS WHAT IT PLACES. An `anchor` node
 			left content-sized measures the union of its children WITHOUT their
 			offsets, so it would report a 91x73 box at (0, 0) while painting its menu
@@ -1929,12 +1929,12 @@ describe("RowActions Task 8: the action menu — WHERE it lands", function()
 			edge-to-edge surface makes the box honest AND makes the anchor's inner
 			origin the window origin, which is the space `computeMenuAnchor` measures
 			the trigger in. ]]
-		local anchorBox = w.adapter.node("/RowActionsMenu-Row/Menu")
-		expect(anchorBox).never().toBeNil()
-		expect(anchorBox.rect.x <= rows.rect.x).toBe(true)
-		expect(anchorBox.rect.y <= rows.rect.y).toBe(true)
-		expect(anchorBox.rect.x + anchorBox.rect.w >= rows.rect.x + rows.rect.w).toBe(true)
-		expect(anchorBox.rect.y + anchorBox.rect.h >= rows.rect.y + rows.rect.h).toBe(true)
+		expect(w.adapter.node("/RowActionsMenu-Row/Menu")).never().toBeNil()
+		local anchorBox = w.adapter.composedRect("/RowActionsMenu-Row/Menu")
+		expect(anchorBox.x <= rows.x).toBe(true)
+		expect(anchorBox.y <= rows.y).toBe(true)
+		expect(anchorBox.x + anchorBox.w >= rows.x + rows.w).toBe(true)
+		expect(anchorBox.y + anchorBox.h >= rows.y + rows.h).toBe(true)
 		expect(#w.handle.controller.diagnostics()).toBe(0)
 	end)
 end)

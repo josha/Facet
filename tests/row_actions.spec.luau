@@ -1407,7 +1407,7 @@ describe("RowActions control", function()
 				return {
 					offset = w.ra.dump().offset,
 					rightEdge = box.x + box.w,
-					bodyX = w.adapter.node(ROW .. "/Content/Body").rect.x,
+					bodyX = w.adapter.composedRect(ROW .. "/Content/Body").x,
 				}
 			end
 			local edit, plain = openTrailing(true), openTrailing(false)
@@ -1463,10 +1463,10 @@ describe("RowActions control", function()
 				editing = editing,
 			})
 		end)
-		local restX = w.adapter.node(ROW .. "/Content/Body").rect.x
+		local restX = w.adapter.composedRect(ROW .. "/Content/Body").x
 		editing:set(true)
 		w.pres.refresh()
-		local editX = w.adapter.node(ROW .. "/Content/Body").rect.x
+		local editX = w.adapter.composedRect(ROW .. "/Content/Body").x
 		-- controls.rowActions.editAffordance (28, Task 2 default) + the row-facing
 		-- controls.rowActions.rowGutter (8, device bug round 2026-08-12 finding A2)
 		expect(editX - restX).toBe(36)
@@ -1536,20 +1536,20 @@ describe("RowActions control", function()
 					trailing = { { id = "delete", label = "Delete", onAction = function() end } },
 				})
 			end)
-			local restX = w.adapter.node(ROW .. "/Content/Body").rect.x
-			local restW = w.adapter.node(ROW .. "/Content/Body").rect.w
+			local restX = w.adapter.composedRect(ROW .. "/Content/Body").x
+			local restW = w.adapter.composedRect(ROW .. "/Content/Body").w
 			w.ra._open("trailing")
 			w.pres.refresh()
 			settle(w.pres)
 			w.pres.refresh()
-			expect(w.adapter.node(ROW .. "/Content/Body").rect.x < restX).toBe(true) -- genuinely open
+			expect(w.adapter.composedRect(ROW .. "/Content/Body").x < restX).toBe(true) -- genuinely open
 
 			w.ra._close()
 			local xs: { number } = {}
 			for _ = 1, SETTLE_FRAMES do
 				w.pres.tick(FRAME)
 				w.pres.refresh()
-				local rect = w.adapter.node(ROW .. "/Content/Body").rect
+				local rect = w.adapter.composedRect(ROW .. "/Content/Body")
 				-- RIGID: the row's own box never re-solves while it slides. A width
 				-- that moved mid-flight would be a re-layout — the shape the director
 				-- suspected, and the one that WOULD pop.
@@ -1606,7 +1606,7 @@ describe("RowActions control", function()
 			-- ever runs, so this identity holds at EVERY sample — which is exactly
 			-- what the branch it replaced could not say (it held only for offset
 			-- >= 0 and stepped by the whole gutter at the crossing).
-			local body = w.adapter.node(ROW .. "/Content/Body").rect
+			local body = w.adapter.composedRect(ROW .. "/Content/Body")
 			-- testkit's second argument is an ABSOLUTE tolerance, so the `6` this
 			-- was written with meant ±6px — wide enough for a 5px gutter collapse
 			-- to pass (review round, injected and confirmed green). The identity is
@@ -1847,7 +1847,7 @@ describe("device bug round 2026-08-12 — the tray's negative space (findings A1
 		end)
 		local gutter = metricOf(themeSnapshot.neutral(), "controls.rowActions.rowGutter")
 		local minus = w.adapter.node(EDIT_AFFORDANCE_PATH).rect
-		local body = w.adapter.node(ROW .. "/Content/Body").rect
+		local body = w.adapter.composedRect(ROW .. "/Content/Body")
 		-- IMG_3683: the red disc's right edge and the row's left edge were the
 		-- same x. The strip the disc lives in is a diameter PLUS the same gutter
 		-- the tray band keeps.

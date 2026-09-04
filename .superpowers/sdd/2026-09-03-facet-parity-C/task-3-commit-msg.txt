@@ -1,0 +1,85 @@
+T3: a host is a coordinate space — rects beneath a translate host are stored host-relative, composed on read
+
+A container whose placement is REACTIVE (`offsetX`/`offsetY`/`anchor` in
+`dynamicProps`) and that has children is now a real engine parent AND the origin
+its subtree's rects are STORED against. A 250-plate nameplate tick costs 250
+stored rects and 250 engine writes instead of 1,500 of each; on the shipped
+Rascal Rally minimap a dots-only frame costs 8 rect writes instead of 48, and
+`hitRects` — the one commit walk that "never prunes a move by construction" —
+stops at the dirty closure because a moved plate's descendants no longer move in
+their own space (1,503 -> 253).
+
+Every public number is unchanged, and that is what is proved rather than
+asserted: `tests/host_space_oracle.spec.luau` raises the SAME reactive fixture
+five ways, the fifth with `translateHosts = false` — no coordinate-space hosts at
+all — drives all five through an identical 24-step list at nine device views on
+four fixtures, and compares `controller.rectOf`, `controller.screenRectOf`, the
+engine `presentedPosition`/`presentedSize`, the focus record, the hit rects, the
+visibility verdicts, every adapter prop and `controller.diagnostics()` after
+EVERY step. `snapshot()` additionally asserts `pos == sro` as an identity per
+line, because two hosted arms can go stale in step with each other and only a
+check against the public reader can see that.
+
+THE MECHANISM. `instance_boundary.createOptsFor` gains a fifth trigger, with an
+explicit refusal above it: a `ScrollView` or a `clipChildren` container is never
+a coordinate space, because `scroll_into_view` subtracts a raw host rect from a
+raw target rect and a ScrollView reads `offsetX/Y` for its own axis. The solver's
+`arrange` becomes `arrangeBody` plus a four-line wrapper that pushes and pops
+`ctx.spaceOX/spaceOY` (a wrapper, because the body returns from several branches
+and a hand-placed pop is one `return` away from leaking an origin); a host's body
+runs against (0, 0, w, h); its arm records an EMPTY run. `render/rect_reads`
+composes the chain back on `rectOf`/`screenRectOf`/`paintedRectIn`, memoised
+against an origin epoch bumped at all three writers of `lastRects`. Five readers
+that compare rects across spaces learned to compose, and WHICH origin function
+each gets is decided by which map it reads: `hostOriginOf` where the map is
+`lastRects` (`coverRect`, `scroll_into_view`), the fresh-map `commitOriginOf`
+where it is this solve's (`hit_lift.refresh`, `commit_walks`), because both run
+before `lastRects` is rewritten and last frame's origin is a one-frame lag on the
+very frame a host moves.
+
+THREE THINGS THE PLAN GOT WRONG, EACH FOUND BY MEASUREMENT (full write-ups in the
+campaign ledger):
+
+1. R-13 does NOT make a Composition exact under a MOVING host. The origin carry
+   is exact only where the composition is RE-ENTERED, and under a coordinate
+   space a host's move re-bases nothing — so both the arm and the ordinary
+   arrange SKIP pass and the resolution is a position out of date. Measured: a
+   reactive-`offsetY` ZStack holding a Composition excluded {0,0,200,200} placed
+   its region 7px low after one slide. `Ctx.spaceStack`/`spaceCompositions`
+   marks every space host above a composition (carried in the work record, so a
+   solve that skipped the subtree does not forget) and `noSkipDepth` suspends
+   both the skip and the arm for such a host's body.
+2. The `hostSpace` stamp cannot live only in `ensureTree`. `render/layout_node`
+   builds the solver's node from the same mounted node and CAN RUN FIRST — a
+   re-solve driven from inside a settle reaches rows whose handles do not exist
+   yet. Instrumented on a card rail: five layout nodes built with the flag
+   missing, then stamped. The subtree was stored ABSOLUTELY under a host the
+   adapter had already registered as a coordinate space, and every reader
+   composed an origin that was never subtracted — the cause of ~50 of the 88
+   first-run failures. Both callers now ask the ONE predicate, which memoises its
+   answer on the mounted node.
+3. `adopt` never re-resolved `handle.instanceHost` for the new path, on BOTH
+   adapters (the live one wrote it only when the new path HAS a host, so an
+   instance adopted out from under one kept the old entry). Latent before this
+   task; caught by the oracle's `pos == sro` identity.
+
+THE FAKE TARGET'S TWO RECTS, recorded as the contract change it is: `node.rect`
+is the WINDOW-space rect — what every containment rule, overlap sweep and pointer
+coordinate in the suite has always meant by it — and `node.storedRect` is exactly
+what the renderer handed `setRect`. Same split for `hitRect`/`storedHitRect`,
+which `setRect` re-derives for the same reason the live `applyRect` calls
+`applyHitExpander`: the commit pushes hit rects BEFORE rects, so the origin a
+`setHitRect` composed against can still be stale.
+
+Step 0b was taken for the room this needed: `src/render/dirty_closure.luau` is
+the ancestor closure over a refresh's dirty list, a PURE FUNCTION of its argument
+— no Deps record, no adapter, no upvalue — with `tests/dirty_closure_seam.spec`
+as that property mechanised. Both source-cap ledger rows are re-recorded;
+`solver.luau` is 2,555 characters from the cap with TRIGGER: ARRIVED and two
+named next extractions.
+
+Facet 8328/0, RascalRally 3580/0 (lockstep commits `e3bfc45`, `b580702`).
+`check_comment_codes` goes from 4 orphans to 0 (Task 1's debt, paid here).
+
+Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_017ufJsxvfBxn6EyQfTpa3L8

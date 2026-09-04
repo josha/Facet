@@ -207,10 +207,14 @@ describe("the scroll-into-view seam: READ == DECLARED == PASSED", function()
 		local reads = depsFieldsRead(seamSource)
 		expect(#missingFrom(reads, typeFields(seamSource, "Deps"))).toBe(0)
 		-- ...and the set is not empty, which is the trap a set comparison invites, and
-		-- it is SIX, not the four the ledger's own row predicted
+		-- it is SEVEN — six, not the four the ledger's own row predicted, plus
+		-- `hostOriginOf` (Plan C, C1): `scrollToVisible` subtracts a host rect from a
+		-- target rect, and beneath a coordinate-space host either can be stored in a
+		-- different origin than the other
 		expect(sorted(reads)).toEqual({
 			"adapter",
 			"controller",
+			"hostOriginOf",
 			"lastRects",
 			"lastScrollRegions",
 			"screenRectOf",
@@ -301,6 +305,7 @@ describe("the scroll-into-view seam: the mutable-upvalue test itself", function(
 		expect(sorted(bindings(seamSource) :: any)).toEqual({
 			"adapter",
 			"controller",
+			"hostOriginOf",
 			"lastRects",
 			"lastScrollRegions",
 			"screenRectOf",

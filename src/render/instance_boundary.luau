@@ -62,14 +62,14 @@
 
 local instance_boundary = {}
 
-export type CreateOpts = { canvasGroup: boolean?, instanceHost: boolean? }
+export type CreateOpts = { canvasGroup: boolean?, instanceHost: boolean?, hostSpace: boolean? }
 
 --[[ The creation-time facts the adapter can only honour while it is CHOOSING the
 	engine object — which is why they ride `create`'s fifth argument rather than
 	arriving as a later prop write. By then the instance exists and its class is
 	settled. A target that does not nest ignores the argument entirely.
 ]]
-function instance_boundary.createOptsFor(node: any): CreateOpts?
+function instance_boundary.createOptsFor(node: any, opts: any?): CreateOpts?
 	local props = node.props
 	if props == nil then
 		return nil
@@ -98,6 +98,69 @@ function instance_boundary.createOptsFor(node: any): CreateOpts?
 	]]
 	if (props.scale ~= nil or props.rotation ~= nil) and node.children ~= nil and #node.children > 0 then
 		return { instanceHost = true }
+	end
+	--[[ A REACTIVE PLACEMENT ON A CONTAINER IS A COORDINATE-SPACE DECLARATION.
+		A node whose `offsetX`/`offsetY`/`anchor` is a signal or memo will MOVE, per
+		frame, as a unit — and under a flat tree every move rewrote every
+		descendant's `Position` (1,488 engine writes for 250 nameplates, measured in
+		`FacetBench/docs/profiling/2026-09-02-nameplates-attribution.md`). Given a
+		real parent AND rects stored relative to it, a move is one rect and one
+		write; the public readers compose the origin back on read.
+
+		`dynamicProps`, NOT `props`: by the time this runs, `mount` has resolved the
+		signal into `props` and the reactive FACT survives only there.
+
+		AN ADAPTER-REGISTERED HOST KEEPS THE ABSOLUTE SCHEME.
+		`offsetX`/`offsetY`/`anchor` are `shared = true` props, so a `ScrollView` or
+		a `clipChildren` container reaches this branch — and a ScrollView also READS
+		`offsetX/Y` for its own axis, while `scroll_into_view` subtracts a raw host
+		rect from a raw target rect. Making either a coordinate space would change
+		the meaning of every raw-rect reader inside every list Facet ships. Refused
+		outright, above the trigger.
+
+		THERE IS NO COMPOSITION SCAN: a create-time scan is a one-shot snapshot —
+		mount nodes start with `children = {}` and a `When`/`ForEach` can mount a
+		`Composition` under an already-registered host later, at which point the
+		gate silently stops holding. The solver instead carries the absolute origin
+		(`ctx.spaceOX`/`ctx.spaceOY`) and hands `composition_resolve` a window-space
+		origin, which is exact at any time.
+
+		THE SAME KNOWN LIMIT THE `scale`/`rotation` TRIGGER HAS: `#children > 0` is
+		read ONCE — see the memo below — and mount nodes start with `children = {}`
+		with regions mounting children later, so a container that is EMPTY when the
+		question is first asked never becomes a host. It stays correct (it is simply
+		not a host); it is stated so nobody reads a missing host as a bug.
+
+		`props` is ALREADY bound above, with the nil early-return, so this branch
+		neither re-declares it nor re-guards it. ]]
+	if node.class == "ScrollView" or props.clipChildren == true then
+		return nil
+	end
+	if opts ~= nil and opts.translateHosts == false then
+		return nil
+	end
+	--[[ ...AND THE ANSWER IS MEMOISED ON THE MOUNTED NODE, because TWO callers ask
+		it and neither is guaranteed to ask first (found by measurement, not by
+		reasoning: a card rail's rows read absolute rects under a registered
+		coordinate-space host). `renderer.ensureTree` asks when it chooses the engine
+		object; `render/layout_node` asks when it builds the solver's node, and a
+		re-solve driven from inside a settle — a virtual list widening its window off
+		the geometry it was just fed — builds nodes for rows whose handles do not
+		exist yet. If the two ever answered differently the solver would store a
+		subtree relative to a parent the adapter never made, or absolutely under one
+		it did. Whoever asks first fixes it, which is also exactly the "fixed for the
+		node's lifetime" property this flag is documented to have. ]]
+	local decided = node.hostSpace
+	if decided == nil then
+		local dyn = node.dynamicProps
+		decided = dyn ~= nil
+			and (dyn.offsetX ~= nil or dyn.offsetY ~= nil or dyn.anchor ~= nil)
+			and node.children ~= nil
+			and #node.children > 0
+		node.hostSpace = decided
+	end
+	if decided then
+		return { instanceHost = true, hostSpace = true }
 	end
 	return nil
 end

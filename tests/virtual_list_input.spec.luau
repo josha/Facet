@@ -109,7 +109,9 @@ describe("VirtualList pointer input (no consumer wiring)", function()
 		-- ABSOLUTE canvas offset (index-1)*40 (the engine translates by CanvasPos)
 		expect(w.list.debugWindow().r1).toBe(nil)
 		expect(w.list.debugWindow().r13).toBe(true)
-		expect(w.adapter.node(rowHit("r13")).rect.y - w.adapter.node("/S/VL/Canvas").rect.y).toBe(12 * 40)
+		-- COMPOSED (Plan C, C1): the row IS a coordinate space, so its hit surface's
+		-- stored rect is relative to it
+		expect(w.adapter.composedRect(rowHit("r13")).y - w.adapter.node("/S/VL/Canvas").rect.y).toBe(12 * 40)
 	end)
 
 	it("VirtualList pointer: a row tap activates through auto handleActivate", function()
@@ -337,9 +339,11 @@ describe("VirtualList native canvas (native scroll substrate)", function()
 		-- 100 rows x 40px = the full virtual extent, even though only ~14 mount
 		expect(host.scrollRegion.contentH).toBe(100 * 40)
 		-- windowed rows sit at ABSOLUTE canvas offsets under the Canvas anchor
+		-- COMPOSED (Plan C, C1): a windowed row is a coordinate space, so its hit
+		-- surface's stored rect is relative to the row rather than to the canvas
 		local canvasY = w.adapter.node("/S/VL/Canvas").rect.y
-		expect(w.adapter.node(rowHit("r1")).rect.y - canvasY).toBe(0)
-		expect(w.adapter.node(rowHit("r3")).rect.y - canvasY).toBe(2 * 40)
+		expect(w.adapter.composedRect(rowHit("r1")).y - canvasY).toBe(0)
+		expect(w.adapter.composedRect(rowHit("r3")).y - canvasY).toBe(2 * 40)
 	end)
 
 	it("the scroll canvas grows with the data (contentH tracks totalRows)", function()

@@ -73,6 +73,12 @@ local rectLib = require("../rect")
 local hit_lift = {}
 
 local overlaps = rectLib.overlaps
+-- a rect moved into window space by its coordinate-space origin (Plan C, C1).
+-- Called only where that origin is non-zero — never on a host-free tree, where
+-- every path's origin is (0, 0) and the stored rect is passed through
+local function shifted(r: any, ox: number, oy: number): any
+	return { x = r.x + ox, y = r.y + oy, w = r.w, h = r.h }
+end
 
 export type Lift = {
 	any: boolean,
@@ -135,18 +141,46 @@ function hit_lift.new(): Lift
 
 		Returns whether the constraint set CHANGED, which is what makes this cheap:
 		the caller's z walk re-runs only on a real change, never per solve. ]]
-	function self.refresh(rects: any, hitRects: any, sinks: any, parentNodeOf: any, hidden: any): boolean
+	--[[ `originOf(path) -> (ox, oy)` composes a path's COORDINATE-SPACE origin (Plan
+		C, C1) — because the three rects compared below can live in DIFFERENT spaces:
+		a sub-floor button inside a moved host and the neighbour it reaches into are
+		exactly the pair this rule exists for. It reads THIS solve's `rects`, never
+		`lastRects`: the caller builds it as a closure over the very map it hands in,
+		since a host that moved on this solve must be culled against where it is NOW
+		and not where it was last frame. Depending on nothing but its arguments is
+		this module's whole claim, so it arrives as one. ]]
+	function self.refresh(
+		rects: any,
+		hitRects: any,
+		sinks: any,
+		parentNodeOf: any,
+		hidden: any,
+		originOf: (string) -> (number, number)
+	): boolean
 		local next: { [string]: { [string]: boolean } } = {}
 		local keys: { string } = {}
 		for hostPath, hit in hitRects do
 			local hostEntry = rects[hostPath]
+			local hox, hoy = originOf(hostPath)
+			local hitAt = if hox == 0 and hoy == 0 then hit else shifted(hit, hox, hoy)
+			local hostAt = if hostEntry == nil then nil else hostEntry.rect
+			if hostAt ~= nil and (hox ~= 0 or hoy ~= 0) then
+				hostAt = shifted(hostAt, hox, hoy)
+			end
 			for targetPath in sinks do
 				local entry = if targetPath == hostPath or hostEntry == nil then nil else rects[targetPath]
+				local entryAt = if entry == nil then nil else entry.rect
+				if entryAt ~= nil then
+					local tox, toy = originOf(targetPath)
+					if tox ~= 0 or toy ~= 0 then
+						entryAt = shifted(entryAt, tox, toy)
+					end
+				end
 				if
-					entry ~= nil
+					entryAt ~= nil
 					and hidden[targetPath] ~= true
-					and overlaps(hit, entry.rect)
-					and not overlaps(hostEntry.rect, entry.rect)
+					and overlaps(hitAt, entryAt)
+					and not overlaps(hostAt, entryAt)
 				then
 					local mine, theirs, parent = branchPair(parentNodeOf, hostPath, targetPath)
 					if mine ~= nil and theirs ~= nil then

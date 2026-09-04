@@ -100,7 +100,9 @@ describe("VirtualGrid pointer input (no consumer wiring)", function()
 		expect(w.grid.debugWindow().i41).toBe(true)
 		-- and the mounted cell sits at its ABSOLUTE canvas offset — the engine
 		-- translates the whole canvas by CanvasPosition, the framework never does
-		expect(w.adapter.node(cellHit("i41")).rect.y - w.adapter.node("/S/VG/Canvas").rect.y).toBe(10 * 40)
+		-- COMPOSED (Plan C, C1): a windowed cell's ROW is a coordinate space, so the
+		-- hit surface's stored rect is relative to it
+		expect(w.adapter.composedRect(cellHit("i41")).y - w.adapter.node("/S/VG/Canvas").rect.y).toBe(10 * 40)
 	end)
 
 	it("VirtualGrid pointer: a cell tap activates through auto handleActivate", function()

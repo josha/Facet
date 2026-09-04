@@ -509,10 +509,10 @@ describe("rowDeletable — Table: a protected row survives ALL FOUR delete route
 			open-edge re-assert, which re-aims the spring at the TRAY width on the next
 			sync; this pins that, because "refused to delete AND vanished" would be the
 			worst of both answers and nothing else in the suite would have seen it. ]]
-		local afterX = w.adapter.node(w.hit("b")).rect.x
+		local afterX = w.adapter.composedRect(w.hit("b")).x
 		local travel = closedX - afterX
 		expect(`refused swipe moved the row: {travel > 0}`).toBe("refused swipe moved the row: true")
-		local rowW = w.adapter.node(w.hit("b")).rect.w
+		local rowW = w.adapter.composedRect(w.hit("b")).w
 		expect(`...but not a whole row width: {travel < rowW}`).toBe("...but not a whole row width: true")
 		w.fullSwipe("a")
 		expect(w.fired).toEqual({ "a" })

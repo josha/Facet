@@ -129,7 +129,10 @@ function screen_presentation.new(ctx: any)
 		than indexing a shared table at four call sites. The invariant is
 		structural now instead of a convention a fifth call site can miss.
 	]]
-	local instanceHosts: { [string]: { instance: Instance, rect: any?, children: { any }, path: string } } = {}
+	local instanceHosts: {
+		[string]: { instance: Instance, rect: any?, children: { any }, path: string, hostSpace: boolean? },
+	} =
+		{}
 
 	--[[ CREATE-OR-REUSE, and both halves are load-bearing.
 
@@ -150,13 +153,21 @@ function screen_presentation.new(ctx: any)
 		it must, or a ring that only ever needed to float inside a scroll canvas
 		would start floating under every container that merely moves.
 	]]
-	local function registerHost(path: string, instance: Instance, rect: any?, crops: boolean): any
+	--[[ `hostSpace` ACCUMULATES THROUGH THE REUSE PATH THE WAY `crops` DOES, and it
+		has to (Plan C): a path can be registered TWICE — once by this file's own
+		ScrollView/`clipChildren` triggers and again from `createOpts.instanceHost` —
+		and if the second call dropped the flag, `applyRect` would subtract the host
+		rect from children whose rects are ALREADY relative to it, landing every one
+		of them at `rect - host`. ]]
+	local function registerHost(path: string, instance: Instance, rect: any?, crops: boolean, hostSpace: boolean?): any
 		local existing = instanceHosts[path]
 		if existing ~= nil then
 			existing.crops = existing.crops or crops
+			existing.hostSpace = existing.hostSpace or hostSpace
 			return existing
 		end
-		local entry = { instance = instance, rect = rect, children = {}, path = path, crops = crops }
+		local entry =
+			{ instance = instance, rect = rect, children = {}, path = path, crops = crops, hostSpace = hostSpace }
 		instanceHosts[path] = entry
 		return entry
 	end
@@ -217,15 +228,23 @@ function screen_presentation.new(ctx: any)
 	-- `applyRect` is the one place a Position is written, and it adds the offset
 	-- every time.
 	--
-	-- THE INSTANCE TREE IS FLAT, and
+	-- THE INSTANCE TREE IS MOSTLY FLAT, and
 	-- that is the load-bearing fact here. Every node parents under the root gui
-	-- unless a REAL PARENT claimed it (an instance host: a clip host, a scroll host, or a fade group), so
+	-- unless a REAL PARENT claimed it (an instance host: a clip host, a scroll host, a
+	-- fade group, a scaled/rotated container, or a COORDINATE-SPACE host), so
 	-- moving a container's own instance moves nothing but that container — the
 	-- keyboard keep-visible shift on the root node would have moved one transparent
 	-- frame and nothing the player can see. So the offset ACCUMULATES down the
 	-- subtree: a node pays its own transform plus every ancestor's, stopping at its
 	-- real parent, whose own move already carries it. One rule, and the root case
 	-- (the whole surface shifts) falls out of it.
+	--
+	-- ...AND ONE KIND OF HOST BREAKS THE OTHER HALF OF "FLAT" (Plan C): beneath a
+	-- COORDINATE-SPACE host the solver stores rects RELATIVE to the host rather than
+	-- in window space, so it is the one host whose children's rects are not window
+	-- coordinates and the one whose origin `applyRect` must NOT subtract — the
+	-- subtraction has already happened, in the solver. `hostOriginOf` below is the
+	-- single place that distinction lives.
 	local presentationTransforms: { [string]: any } = {}
 	local presentationCount = 0
 	-- THE ENGINE-WRITE COUNTER (Plan C, T0): `applyRect` is the ONLY writer of
@@ -301,16 +320,26 @@ function screen_presentation.new(ctx: any)
 		handle.presentationSizeH = if ownT ~= nil and type(ownT.h) == "number" then ownT.h else 0
 	end
 
+	--[[ THE ORIGIN A NODE'S ENGINE `Position` IS RELATIVE TO — its real instance
+		parent, or (0, 0) when it has none. ZERO UNDER A COORDINATE-SPACE HOST (Plan
+		C): the solver already stored that subtree's rects relative to the host, so
+		there is nothing left to subtract. Three sites read it (the rect, the hit
+		expander, the focus-ring float) and they must not be able to disagree. ]]
+	local function hostOriginOf(handle: any): (number, number)
+		local host = handle.instanceHost
+		if host == nil or host.rect == nil or host.hostSpace == true then
+			return 0, 0
+		end
+		return host.rect.x, host.rect.y
+	end
+
 	local function applyHitExpander(handle: any)
 		local expander = handle.hitExpander
 		local rect = handle.hitRectWant
 		if expander == nil or rect == nil then
 			return
 		end
-		local ox, oy = 0, 0
-		if handle.instanceHost ~= nil and handle.instanceHost.rect ~= nil then
-			ox, oy = handle.instanceHost.rect.x, handle.instanceHost.rect.y
-		end
+		local ox, oy = hostOriginOf(handle)
 		-- the expander is this control's HIT surface, so it travels with the paint:
 		-- a shifted control whose target stayed behind would be a control you can see
 		-- and cannot press
@@ -343,10 +372,7 @@ function screen_presentation.new(ctx: any)
 		if rect == nil then
 			return
 		end
-		local ox, oy = 0, 0
-		if handle.instanceHost ~= nil and handle.instanceHost.rect ~= nil then
-			ox, oy = handle.instanceHost.rect.x, handle.instanceHost.rect.y
-		end
+		local ox, oy = hostOriginOf(handle)
 		-- THE PAINTED SIZE (withAnimation size, 2026-08-14): the solved extent plus
 		-- this node's own presentation delta. Zero for every node that is not
 		-- mid-flight, which is every node almost all of the time.

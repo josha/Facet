@@ -1082,7 +1082,12 @@ describe("the layout-node store: the audit that licenses it", function()
 			written in ONE place in the framework and `children` in ONE region, both in
 			`mount.luau`, and both push a dirty entry for that path. `meta` is not here
 			because it is not read this way — that is the whole finding, and the next
-			case is where it is caught. ]]
+			case is where it is caught.
+
+			Plan C's C1 added no field HERE: the coordinate-space flag is asked of
+			`instance_boundary.createOptsFor`, which is enumerated by the next case as a
+			call that hands a mounted node out of this file, and whose own reads are
+			pinned two cases below. ]]
 		expect(out).toEqual({ "children", "class", "path", "props" })
 	end)
 
@@ -1094,7 +1099,9 @@ describe("the layout-node store: the audit that licenses it", function()
 			inside the audit by construction), must be on this list — and each one's own
 			field reads are pinned in its own module below. ]]
 		local body = stripLua(fs.readFile(LAYOUT_NODE_PATH))
-		local LOCAL_TO_THIS_FILE = { toLayoutNode = true, appendChild = true }
+		-- `hostSpaceOf` is this file's own two-line wrapper around
+		-- `instance_boundary.createOptsFor`, which the list below names
+		local LOCAL_TO_THIS_FILE = { toLayoutNode = true, appendChild = true, hostSpaceOf = true }
 		local calls: { [string]: boolean } = {}
 		for callee, arg in calleesTakingMountedNode(body) do
 			local _ = arg
@@ -1107,7 +1114,43 @@ describe("the layout-node store: the audit that licenses it", function()
 			table.insert(out, callee)
 		end
 		table.sort(out)
-		expect(out).toEqual({ "chrome_slots.readHint" })
+		expect(out).toEqual({ "chrome_slots.readHint", "instance_boundary.createOptsFor" })
+	end)
+
+	it("...and `instance_boundary.createOptsFor` reads five fields, every one of them axis-covered", function()
+		--[[ THE SIXTH FIELD SET (Plan C, C1). The coordinate-space decision is asked of
+			the ONE predicate that owns it rather than read off a stamp, because
+			`renderer.ensureTree` — which stamps — can run AFTER this build (a re-solve
+			driven from inside a settle reaches a row whose handle does not exist yet),
+			and a layout node built with the flag missing stores its whole subtree
+			absolutely under a parent the adapter then registers as a coordinate space.
+
+			`class` and `props` are axes 1 and 2 exactly as above; `children` is the
+			region write axis 2 also covers. `dynamicProps` is written once by `mount`
+			beside `props` and is the record of WHICH props were reactive, so it changes
+			only when `props` does. `hostSpace` is the predicate's own MEMO, written on
+			the mounted node by the first caller to ask — which is what makes the two
+			callers unable to disagree. ]]
+		local boundary = stripLua(fs.readFile("src/render/instance_boundary.luau"))
+		local fn = string.match(boundary, "function instance_boundary%.createOptsFor%(.-\n(.-)\nend")
+		assert(fn ~= nil, "no `instance_boundary.createOptsFor` body to read")
+		local seen: { [string]: boolean } = {}
+		for field in string.gmatch(fn :: string, "[^%w_]node%.([%a_][%w_]*)") do
+			seen[field] = true
+		end
+		local fields: { string } = {}
+		for field in seen do
+			table.insert(fields, field)
+		end
+		table.sort(fields)
+		expect(fields).toEqual({ "children", "class", "dynamicProps", "hostSpace", "props" })
+		-- `dynamicProps` really is written beside `props`, once, by `mount`
+		local mountSrc = stripLua(fs.readFile("src/mount.luau"))
+		local writes = 0
+		for _ in string.gmatch(mountSrc, "dynamicProps = ") do
+			writes += 1
+		end
+		expect(`dynamicProps writes in mount={writes > 0}`).toBe("dynamicProps writes in mount=true")
 	end)
 
 	it("...and `chrome_slots.readHint` reads exactly `meta`, which cannot change under a mounted node", function()

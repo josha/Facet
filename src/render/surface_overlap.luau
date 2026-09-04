@@ -51,7 +51,7 @@
 	`controller.coverRect()` and `controller.diagnostics()`):
 
 	    surface_overlap.bandOf(displayOrder)        -> number
-	    surface_overlap.coverRect(rootPath, rects, excluded) -> Rect?
+	    surface_overlap.coverRect(rootPath, rects, excluded, originOf) -> Rect?
 	    surface_overlap.scan({ Surface })           -> { Overlap }   -- pure
 	    surface_overlap.issue(overlap)              -> string
 	    surface_overlap.register(target, entry)     -> () -> ()      -- unregister
@@ -126,7 +126,7 @@ function surface_overlap.scans(): number
 	return scanCount
 end
 
---[[ coverRect(rootPath, rects, excluded) -> Rect?
+--[[ coverRect(rootPath, rects, excluded, originOf) -> Rect?
 
 	The union of every painted box BELOW the surface's root.
 
@@ -142,7 +142,21 @@ end
 	anything under it" test — hidden, held, or faded to nothing. It is asked once
 	per node, and a nil or zero-area rect is skipped without asking.
 ]]
-function surface_overlap.coverRect(rootPath: string, rects: { [string]: Rect }, excluded: (string) -> boolean): Rect?
+--[[ `originOf(path) -> (ox, oy)` composes a path's COORDINATE-SPACE origin (Plan
+	C, C1). A union over rects stored in DIFFERENT origins is not a box on the
+	screen, and beneath a coordinate-space host a stored rect is host-relative — so
+	every rect is brought into window space before it joins the union. The caller's
+	map is `lastRects`, so the function it passes is `geometry.hostOriginOf`, which
+	walks that same map; a caller reading a solve's FRESH rects would pass the
+	fresh-map walk instead. (0, 0) on every path with no such host above it, which
+	is every path on a host-free tree — and then this is byte for byte the union it
+	always computed. ]]
+function surface_overlap.coverRect(
+	rootPath: string,
+	rects: { [string]: Rect },
+	excluded: (string) -> boolean,
+	originOf: (string) -> (number, number)
+): Rect?
 	local minX, minY, maxX, maxY
 	for path, rect in rects do
 		if path == rootPath or rect == nil or rect.w <= 0 or rect.h <= 0 then
@@ -151,13 +165,15 @@ function surface_overlap.coverRect(rootPath: string, rects: { [string]: Rect }, 
 		if excluded(path) then
 			continue
 		end
+		local ox, oy = originOf(path)
+		local x, y = rect.x + ox, rect.y + oy
 		if minX == nil then
-			minX, minY, maxX, maxY = rect.x, rect.y, rect.x + rect.w, rect.y + rect.h
+			minX, minY, maxX, maxY = x, y, x + rect.w, y + rect.h
 		else
-			minX = math.min(minX :: number, rect.x)
-			minY = math.min(minY :: number, rect.y)
-			maxX = math.max(maxX :: number, rect.x + rect.w)
-			maxY = math.max(maxY :: number, rect.y + rect.h)
+			minX = math.min(minX :: number, x)
+			minY = math.min(minY :: number, y)
+			maxX = math.max(maxX :: number, x + rect.w)
+			maxY = math.max(maxY :: number, y + rect.h)
 		end
 	end
 	if minX == nil then

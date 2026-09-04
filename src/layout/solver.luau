@@ -197,6 +197,10 @@ export type Node = {
 	-- set by `renderer.toLayoutNode` when this node carries ANY of the nine
 	-- placement props; the audit's fast reject (see `auditPlacement`)
 	placementProps: boolean?,
+	-- THIS NODE IS A COORDINATE SPACE (Plan C, C1): its body arranges against
+	-- (0, 0, w, h) and everything beneath it is STORED in its space. Stamped by
+	-- `render/instance_boundary.createOptsFor` and carried by `render/layout_node`.
+	hostSpace: boolean?,
 	--[[ ONE SLOT OF A FIXED-PITCH WINDOWING LIST (`virtualSlot`, 2026-08-13).
 		Stamped by `virtual_list.luau` on each row's ZStack — one shared table for
 		the whole list, since every field is a property of the LIST and the row's
@@ -569,6 +573,33 @@ type Ctx = {
 	anchorReused: number,
 	anchorOffered: number,
 	translatedRoots: { [string]: { dx: number, dy: number, from: number, to: number } },
+	-- THE ABSOLUTE ORIGIN OF THE COORDINATE SPACE THE WALK IS IN (Plan C), pushed and
+	-- popped by the `arrange` wrapper, so `rect.x + ctx.spaceOX` is a window-space x.
+	-- Two numbers, not a map: the one consumer is the arrange-time
+	-- `composition_resolve.resolve` call, which takes origin NUMBERS.
+	spaceOX: number,
+	spaceOY: number,
+	--[[ THE COORDINATE-SPACE HOSTS THE WALK IS INSIDE (outermost first), the set of
+		the ones holding a `UI.Composition`, and the suspend depth that set drives.
+
+		A composition's RESOLUTION is a function of its WINDOW origin: author
+		`exclusions` are window-space rects converted into its box. Under a
+		coordinate space that origin moves when the HOST moves while nothing beneath
+		the host moves in its own space — so both the SKIP and the arm would leave it
+		resolved at the position before last. Measured: a reactive-`offsetY` ZStack
+		holding a Composition excluded `{0,0,200,200}` placed its region 7px low
+		after one slide. `noSkipDepth` suspends both for such a subtree, which then
+		takes an ordinary arrange; it is paid only where it is owed, because a host
+		that did not move skips at its own top and never runs its body.
+
+		The set is carried from the previous solve's work record the same way `out`
+		is carried from its rect map — a solve that skipped the subtree did not
+		re-observe the composition and must not forget it — and EVERY host above the
+		composition is marked, since an outer one taking the shortcut would never
+		re-enter the inner. ]]
+	spaceStack: { string },
+	spaceCompositions: { [string]: boolean },
+	noSkipDepth: number,
 	translatedPaths: { string },
 	translatedEntries: { any },
 	-- Stage-1 analysis only; nil on an ordinary solve
@@ -1389,6 +1420,9 @@ local function contentSize(ctx: Ctx, node: Node, maxW: number, maxH: number): (n
 	end
 
 	if node.kind == "composition" then
+		-- NO ORIGIN, DELIBERATELY (Plan C): `measure` runs before any position is
+		-- known, so this call's `ctx.rootRect` fallback was ALREADY position-blind and
+		-- the ARRANGE-time re-resolve — which does carry the origin — is what lands.
 		local resolution = compositionResolve.resolve(COMPOSITION_DEPS, ctx, node, innerMaxW, innerMaxH)
 		if resolution == nil then
 			return pl + pr, pt + pb
@@ -2263,7 +2297,17 @@ local function containerUnmoved(ctx: Ctx, node: Node, prev: any): boolean
 		or (prev ~= nil and prev.containerW == ctx.containerW and prev.containerH == ctx.containerH)
 end
 
-local function arrange(ctx: Ctx, node: Node, rect: Rect, out: { [string]: any })
+--[[ THE COORDINATE-SPACE ORIGIN PUSH LIVES IN A WRAPPER, NOT IN THE BODY (Plan C).
+	`arrangeBody` returns from several branches — the leaf return among them — and a
+	hand-placed pop before each is one `return` away from leaking a host's origin
+	into its parent's siblings for the rest of the solve. A wrapper cannot be skipped
+	by a branch. Every recursive call site AND `solver.solve`'s root call still call
+	`arrange`, so the push nests by construction and a `hostSpace` ROOT pushes too.
+	ANNOTATED because this file is `--!strict`, the repo's own forward-local idiom
+	(`present/surface_lifecycle.luau`'s `refreshBody`, `presenter.luau`). ]]
+local arrange: (Ctx, Node, Rect, { [string]: any }) -> ()
+
+local function arrangeBody(ctx: Ctx, node: Node, rect: Rect, out: { [string]: any })
 	-- THE SKIP. Same solve, same ctx, same traversal — this subtree just does not need
 	-- walking: no dirty node inside it, and it is landing on the rect it already had.
 	local reuse = ctx.reuse
@@ -2271,7 +2315,9 @@ local function arrange(ctx: Ctx, node: Node, rect: Rect, out: { [string]: any })
 	-- because `out` IS `reuse.previous.rects` (see `solve`): after the write, the map
 	-- hands back the table it just wrote.
 	local tdx: number?, tdy: number?, tprev: any = nil, nil, nil
-	if reuse ~= nil then
+	-- `ctx.noSkipDepth`: inside a coordinate-space host holding a composition neither
+	-- the skip nor the arm may run — see `Ctx`.
+	if reuse ~= nil and ctx.noSkipDepth == 0 then
 		local prev = reuse.previous.rects[node.id]
 		local pr = if prev ~= nil then prev.rect else nil
 		-- ...AND THE CONTAINER IS THE ONE IT ANSWERED AGAINST — `containerUnmoved` above
@@ -2357,6 +2403,19 @@ local function arrange(ctx: Ctx, node: Node, rect: Rect, out: { [string]: any })
 		entry.prev = tprev
 		tprev.prev = nil
 		local from = #ctx.translatedPaths + 1
+		if node.hostSpace == true then
+			--[[ THE SUBTREE IS STORED IN THIS NODE'S SPACE: a move of the node moves
+				nothing in it. Recorded as an EMPTY run so `rect_pass` stops here.
+				KEY/LOOKUP ASYMMETRY, inherited deliberately: this map is keyed by
+				`node.id` and `render/rect_pass` looks it up by `node.path`. They coincide
+				today; if they stop, this write and that read are the pair to fix.
+
+				A host holding a COMPOSITION never reaches this branch: the wrapper raises
+				`ctx.noSkipDepth` around its body, so the block that sets `tdx` did not
+				run. See `Ctx.spaceCompositions`. ]]
+			ctx.translatedRoots[node.id] = { dx = dx, dy = dy, from = from, to = from - 1 }
+			return
+		end
 		if translateArm.translateDescendants(ctx, node, rect, tprev.rect, out) then
 			ctx.translatedRoots[node.id] = { dx = dx, dy = dy, from = from, to = #ctx.translatedPaths }
 			-- WHO WALKED: NOT THIS NODE. Its body did not run, so `solve` must replay its
@@ -2397,6 +2456,15 @@ local function arrange(ctx: Ctx, node: Node, rect: Rect, out: { [string]: any })
 	-- in exactly that shape: a Glossy Touch Button with a zero content box, drawing
 	-- nothing, reporting nothing. Four lines of arithmetic are cheap; a silent
 	-- blank control is not.
+	--[[ A COORDINATE-SPACE HOST'S BODY RUNS AT THE ORIGIN (Plan C). Its own entry
+		above keeps the rect its parent placed it at; everything beneath it is placed
+		against (0, 0, w, h) and stored that way. `render/rect_reads` composes the
+		chain back on read, so no public number moves — and a host that only MOVED
+		re-bases nothing below it, which is the point. The padding block below is the
+		first read of `rect.x`/`rect.y` and no later read of either survives. ]]
+	if node.hostSpace == true then
+		rect = { x = 0, y = 0, w = rect.w, h = rect.h }
+	end
 	local pt, pr, pb, pl = sides(node.padding)
 	local innerX, innerY, innerW, innerH = placementLib.innerBox(rect.x, rect.y, rect.w, rect.h, pt, pr, pb, pl)
 
@@ -2638,7 +2706,17 @@ local function arrange(ctx: Ctx, node: Node, rect: Rect, out: { [string]: any })
 			falls back to the surface's content origin, which is exact for the
 			full-bleed case every band-riding surface is and conservative otherwise
 			(see the module's own note). ]]
-		local resolution = compositionResolve.resolve(COMPOSITION_DEPS, ctx, node, innerW, innerH, innerX, innerY)
+		-- WINDOW SPACE FOR THE DECISIONS, THIS SPACE FOR THE PLACEMENT (Plan C).
+		-- `composition_resolve` takes ORIGIN NUMBERS, not a rect, and is where `atRoot`
+		-- is decided and the cache keyed — so shifting them by the coordinate-space
+		-- origin is the whole change; children are still placed at `innerX`/`innerY`.
+		local originX, originY = innerX + ctx.spaceOX, innerY + ctx.spaceOY
+		-- ...and every coordinate-space host above this one learns that its subtree
+		-- holds a composition, so none takes the move-only shortcut (`Ctx`)
+		for _, hostId in ctx.spaceStack do
+			ctx.spaceCompositions[hostId] = true
+		end
+		local resolution = compositionResolve.resolve(COMPOSITION_DEPS, ctx, node, innerW, innerH, originX, originY)
 		if resolution == nil then
 			return
 		end
@@ -3344,6 +3422,31 @@ local function arrange(ctx: Ctx, node: Node, rect: Rect, out: { [string]: any })
 	stackLib.arrange(STACK_DEPS, ctx, node, innerX, innerY, innerW, innerH, gap, arrange, noteContainment, out)
 end
 
+-- THE WRAPPER (the forward declaration above `arrangeBody` says why). The rect
+-- handed down is still the PARENT-space rect — the rebind to (0, 0) stays inside
+-- `arrangeBody`, after the entry write that keeps it.
+arrange = function(ctx: Ctx, node: Node, rect: Rect, out: { [string]: any })
+	if node.hostSpace == true then
+		local ox, oy = ctx.spaceOX, ctx.spaceOY
+		local depth = #ctx.spaceStack + 1
+		local holdsComposition = ctx.spaceCompositions[node.id] == true
+		ctx.spaceOX += rect.x
+		ctx.spaceOY += rect.y
+		ctx.spaceStack[depth] = node.id
+		if holdsComposition then
+			ctx.noSkipDepth += 1
+		end
+		arrangeBody(ctx, node, rect, out)
+		if holdsComposition then
+			ctx.noSkipDepth -= 1
+		end
+		ctx.spaceOX, ctx.spaceOY = ox, oy
+		ctx.spaceStack[depth] = nil
+		return
+	end
+	return arrangeBody(ctx, node, rect, out)
+end
+
 export type SafeInsets = { top: number, bottom: number, left: number, right: number }
 
 -- solve: entry point. rootPolicy resolves the content rect from the viewport
@@ -3443,6 +3546,18 @@ function solver.solve(
 		anchorReused = 0,
 		anchorOffered = 0,
 		translatedRoots = {},
+		spaceOX = 0,
+		spaceOY = 0,
+		spaceStack = {},
+		noSkipDepth = 0,
+		-- carried from the previous solve (`Ctx`): a solve that skipped a subtree did
+		-- not re-observe the composition inside it
+		spaceCompositions = (
+			opts
+			and (opts :: any).reuse
+			and (opts :: any).reuse.previous.work
+			and (opts :: any).reuse.previous.work.spaceCompositions
+		) or {},
 		translatedPaths = {},
 		translatedEntries = {},
 		analyze = (opts and (opts :: any).analyzeBoundaries) == true,
@@ -3571,6 +3686,9 @@ function solver.solve(
 			translatedRoots = ctx.translatedRoots,
 			translatedPaths = ctx.translatedPaths,
 			translatedEntries = ctx.translatedEntries,
+			-- which coordinate-space hosts hold a composition, carried forward so a solve
+			-- that never entered one does not forget (`Ctx.spaceCompositions`)
+			spaceCompositions = ctx.spaceCompositions,
 			-- present only when asked for (Stage 1); an ordinary solve carries nothing
 			boundary = if ctx.analyze then ctx.boundary else nil,
 		},

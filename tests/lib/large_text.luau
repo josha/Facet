@@ -232,7 +232,14 @@ function large_text.auditRects(w: any, rootPrefix: string?): { [string]: any }
 			continue
 		end
 		out[path] = {
-			rect = node.rect,
+			--[[ COMPOSED, NOT STORED (Plan C). `node.rect` is the adapter's stored rect,
+				which beneath a coordinate-space host is HOST-RELATIVE; every check below
+				(`overlaps`, `clippedEssential`, `hitFloor`) compares rects of nodes that
+				may sit in DIFFERENT spaces, so it reads the composed one. `rectOf`, not
+				`screenRectOf`: `rectOf` is the solver-space composition and returns
+				today's exact number, while `screenRectOf` would add the scroll and
+				presentation shifts this audit never had. ]]
+			rect = w.controller.rectOf(path),
 			kind = KIND[node.class] or "box",
 			class = node.class,
 			hidden = if hidden[path] == true or node.visible == false then true else nil,

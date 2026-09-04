@@ -1249,7 +1249,11 @@ function screen_target.new(opts: Opts?)
 			-- CanvasGroup buffer. Those three costs are commonly attributed to
 			-- nesting and none of them belongs to it: a move-boundary host is one
 			-- extra Frame and nothing else.
-			registerHost(path, instance, handle.windowRect, false)
+			-- ...AND WHETHER IT IS A COORDINATE SPACE (Plan C): a reactive placement on a
+			-- container earns the same plain Frame, plus the promise that its subtree's
+			-- rects are stored RELATIVE to it — which is what `applyRect` must not
+			-- subtract a second time. Same fifth argument, so the two facts cannot drift.
+			registerHost(path, instance, handle.windowRect, false, createOpts.hostSpace == true)
 		end
 		if class == "Divider" then
 			-- a Divider MUST paint: an unstyled Frame would be an invisible
@@ -1481,10 +1485,14 @@ function screen_target.new(opts: Opts?)
 		end
 		-- INSTANCE-HOST PARENTING: descendants of a registered host live INSIDE it,
 		-- so the engine can carry something down the subtree; everything else stays
-		-- flat under the root, which is still most of the tree. FOUR triggers
+		-- flat under the root, which is still most of the tree. FIVE triggers
 		-- register one, and only the first is about cropping: a
-		-- ScrollView, an authored `clipChildren`, a fade group, and an authored
-		-- `scale`/`rotation` on a container that has children.
+		-- ScrollView, an authored `clipChildren`, a fade group, an authored
+		-- `scale`/`rotation` on a container that has children, and (Plan C) a REACTIVE
+		-- `offsetX`/`offsetY`/`anchor` on a container that has children. The fifth is
+		-- the only one that also changes what its children's rects MEAN: they are
+		-- stored relative to it, which is why its entry carries `hostSpace` and
+		-- `screen_presentation.hostOriginOf` answers 0 for them.
 		local host = hostFor(path)
 		if host ~= nil then
 			handle.instanceHost = host
@@ -2076,10 +2084,11 @@ function screen_target.new(opts: Opts?)
 	function adapter.setRect(handle: any, rect: any)
 		handle.windowRect = rect
 		if handle.elided == true then
-			-- NOTHING TO MOVE. An elided node paints nothing and, in this flat tree, is
-			-- not the engine parent of its children — they were positioned absolutely
-			-- from the same solve. The rect is recorded so materialisation can apply it
-			-- if the node ever needs a real object.
+			-- NOTHING TO MOVE. An elided node paints nothing and is not the engine parent
+			-- of its children — they were positioned from the same solve, in whatever
+			-- space their nearest real parent defines (an elided node never defines one:
+			-- a coordinate-space host is registered, so it is never elided). The rect is
+			-- recorded so materialisation can apply it if the node ever needs an object.
 			handle.pendingRect = rect
 			return
 		end
@@ -2098,7 +2107,12 @@ function screen_target.new(opts: Opts?)
 		local entry = hostAt(handle.path)
 		if entry ~= nil then
 			entry.rect = rect
-			if entry.settlePending ~= true then
+			-- ...BUT A COORDINATE-SPACE HOST NEVER JOINS THE SETTLE LIST (Plan C). Its
+			-- children's rects are already relative to it, so a move re-bases nothing
+			-- below it and `settleRects` would re-apply one `applyRect` per child per
+			-- moved host per tick to write the numbers already there — the whole cost
+			-- this campaign exists to remove.
+			if entry.settlePending ~= true and entry.hostSpace ~= true then
 				entry.settlePending = true
 				table.insert(movedHosts, entry)
 			end
@@ -3509,8 +3523,13 @@ function screen_target.new(opts: Opts?)
 			handle.path = PARKED_PATH
 			return false
 		end
+		-- WRITTEN UNCONDITIONALLY, THE nil INCLUDED (Plan C). This used to be set only
+		-- when the new path HAS a host, so an instance adopted from under one into a
+		-- path with none kept the old entry — harmless while the field only picked the
+		-- engine parent it had just been given, and not harmless once `applyRect`
+		-- reads it to decide whether a rect is host-relative.
+		handle.instanceHost = host
 		if host ~= nil then
-			handle.instanceHost = host
 			table.insert(host.children, handle)
 		end
 		instancesByPath[newPath] = handle.instance

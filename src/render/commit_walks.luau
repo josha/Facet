@@ -199,6 +199,12 @@ export type CommitCtx = {
 	paintHeld: any, -- path -> the presenter's paint hold
 	pathNodes: any, -- the stroked-path node set
 	inputSinks: any, -- path -> can this node SINK a press (the overhang lift's census)
+	--[[ `originOf(path) -> (ox, oy)`: a path's COORDINATE-SPACE origin (Plan C, C1),
+		read off THIS solve's rect map rather than `lastRects` — the caller builds it
+		as a closure over the very map it hands these walks, because they run before
+		`lastRects` is rewritten and a host that moved on this solve must be composed
+		against where it is NOW. One reader: `authorPressableRects`. ]]
+	originOf: (string) -> (number, number),
 	-- THE RECYCLE-KEY WORN-SET UPDATER (T8 R2, Important 2): the compact ladder
 	-- below writes `icon`/`compactLabel` straight to the adapter with style
 	-- authority, bypassing `applyStyleProp` because their VALUE is derived
@@ -240,6 +246,7 @@ function commit_walks.new(ctx: CommitCtx)
 	local paintHeld = ctx.paintHeld
 	local pathNodes = ctx.pathNodes
 	local inputSinks = ctx.inputSinks
+	local originOf = ctx.originOf
 	local noteWorn = ctx.noteWorn
 	local lastCommitEntry = ctx.lastCommitEntry
 	local hiddenRoots = ctx.hiddenRoots
@@ -1096,8 +1103,28 @@ function commit_walks.new(ctx: CommitCtx)
 
 			A HIDDEN NODE CANNOT BE PRESSED, and `solverHidden` was written by the
 			visibility walk that runs immediately before this one. ]]
-		local function authorPressableRects(): { any }
+		--[[ ...AND THE BLOCKERS ARE BROUGHT INTO THE CHROME NODE'S OWN SPACE (Plan C,
+			C1), which is why this takes the entry's path. Beneath a coordinate-space
+			host a rect is stored relative to that host, so a sink under one host and a
+			chrome node under another are two rects in two origins and comparing them
+			raw means nothing.
+
+			COMPOSED INTO THE ENTRY'S SPACE, NOT INTO WINDOW SPACE, and that choice is
+			forced rather than stylistic: `growWithin(r, want, blockers)` RETURNS `want`,
+			and `want` is what `setHitRect` stores and what `applyHitExpander` later
+			re-bases by subtracting the host origin. Composing the blockers to window
+			space while leaving `want` raw compares mismatched spaces; composing `want`
+			too hands back a window-space rect the adapter then re-bases a SECOND time.
+			Either way a space host's chrome expander is wrong by the host origin. So
+			each blocker is offset by `originOf(sink) - originOf(entry)` and `r`, `want`,
+			`growWithin`'s output and the stored entry all stay in the entry's space.
+
+			`originOf` READS THIS SOLVE'S MAP, never `lastRects`: this walk runs inside
+			the commit span, before `lastRects` is rewritten, so last frame's origin
+			would be a one-frame lag on exactly the frame a host moved. ]]
+		local function authorPressableRects(entryPath: string): { any }
 			local out: { any } = {}
+			local ex, ey = originOf(entryPath)
 			for path, authored in inputSinks do
 				if authored ~= true or solverHidden[path] == true then
 					continue
@@ -1105,7 +1132,12 @@ function commit_walks.new(ctx: CommitCtx)
 				local other = rects[path]
 				local r = if other ~= nil then other.rect else nil
 				if r ~= nil and r.w > 0 and r.h > 0 then
-					table.insert(out, r)
+					local ox, oy = originOf(path)
+					if ox == ex and oy == ey then
+						table.insert(out, r)
+					else
+						table.insert(out, { x = r.x + ox - ex, y = r.y + oy - ey, w = r.w, h = r.h })
+					end
 				end
 			end
 			return out
@@ -1167,7 +1199,10 @@ function commit_walks.new(ctx: CommitCtx)
 							h = h,
 						}
 						if isFrameworkChrome(node) then
-							want = commit_walks.growWithin(r, want, authorPressableRects())
+							-- `r` is NOT composed: it is this entry's own rect, already in
+							-- this entry's space, and the blockers are composed INTO that
+							-- space above
+							want = commit_walks.growWithin(r, want, authorPressableRects(node.path))
 							-- grown back to the box it already paints, there is
 							-- nothing to advertise: an expander the size of its own
 							-- host is a transparent duplicate of it

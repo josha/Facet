@@ -132,7 +132,11 @@ describe("T5b: a pure-arrange write does not dirty the commit", function()
 		s.tick(3, 2)
 		local by = s.stats().lastCommitVisitsByWalk
 		expect(`harvest={by.harvest} visible={by.visible}`).toBe(`harvest={DIRTY_TICK} visible={DIRTY_TICK}`)
-		expect(`hitRects={by.hitRects}`).toBe(`hitRects={MOUNTED}`)
+		-- ...and `hitRects` MOVED, but not by anything in this file's subject (Plan C,
+		-- C1): a moved plate's descendants no longer move in their own space, so their
+		-- entry tables are the ones the last commit saw and plain `skip` stops the
+		-- walk. Still the ALL-CLASSES set, which is what this case is about.
+		expect(`hitRects={by.hitRects}`).toBe(`hitRects={DIRTY_TICK}`)
 		-- `rect_pass` is unchanged too: it never asked `skip` at all, it stops AT a
 		-- translate root and emits the solver's run (T5/N1).
 		expect(`rectPass={by.rectPass}`).toBe(`rectPass={DIRTY_TICK}`)

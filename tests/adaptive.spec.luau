@@ -1372,9 +1372,18 @@ describe("RS-A16-D1: a hidden ViewThatFits candidate requests no hit geometry", 
 		-- that shared helper, rather than being duplicated at the seam
 		local helperBody = adapter_source.bodyOf(source, "local function applyHitExpander")
 		expect(helperBody ~= "").toBe(true)
-		expect(string.find(helperBody, "handle.instanceHost", 1, true) ~= nil).toBe(true)
+		--[[ ...AND THE ORIGIN READ ITSELF MOVED ONE LEVEL FURTHER IN (Plan C, C1),
+			which is this pin's own rule taken one step: `hostOriginOf(handle)` is now
+			the single place that decides what a node's Position is relative to, because
+			a COORDINATE-SPACE host answers 0 where every other host answers its rect.
+			Three sites read it — the rect, this expander and the focus-ring float — and
+			they must not be able to disagree. ]]
+		expect(string.find(helperBody, "hostOriginOf(handle)", 1, true) ~= nil).toBe(true)
 		expect(string.find(helperBody, "rect.x - ox", 1, true) ~= nil).toBe(true)
 		expect(string.find(helperBody, "rect.y - oy", 1, true) ~= nil).toBe(true)
+		local originBody = adapter_source.bodyOf(source, "local function hostOriginOf")
+		expect(string.find(originBody, "handle.instanceHost", 1, true) ~= nil).toBe(true)
+		expect(string.find(originBody, "host.hostSpace == true", 1, true) ~= nil).toBe(true)
 		-- the wanted rect is REMEMBERED on the handle, which is what makes a late
 		-- re-base possible at all
 		local atHit = string.find(source, "function adapter.setHitRect", 1, true)

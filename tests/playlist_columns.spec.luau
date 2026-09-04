@@ -154,9 +154,14 @@ describe("playlist columns: the header is on screen and legible", function()
 		-- preference (src/controls/table.luau's `minMax` FLOOR note)
 		local band = w.adapter.node(`{HEADER}/Head-name`)
 		local firstRow = w.built.rows:get()[1].id
-		local firstCell =
-			w.adapter.node(`{ROOT}/Main/Body/Rows/[{firstRow}@0]/RowActions-{firstRow}/Content/Row/Cells/Cell-name`)
-		expect(`clear:{firstCell.rect.y >= band.rect.y + band.rect.h}`).toBe("clear:true")
+		-- COMPOSED (Plan C, C1): a row-actions row's `Content` carries a REACTIVE
+		-- `offsetX`, which makes it a coordinate space — the cell's stored rect is
+		-- relative to it, and the band's is not, so the two must be brought into one
+		-- space before they are compared
+		local firstCell = w.adapter.composedRect(
+			`{ROOT}/Main/Body/Rows/[{firstRow}@0]/RowActions-{firstRow}/Content/Row/Cells/Cell-name`
+		)
+		expect(`clear:{firstCell.y >= band.rect.y + band.rect.h}`).toBe("clear:true")
 		w.built.dispose()
 	end)
 

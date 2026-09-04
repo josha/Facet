@@ -111,7 +111,17 @@ local MEASURED_COLD = LAYOUT -- 1502
 -- the Canvas and the 250 plate ROOTS take the ordinary entry write and each
 -- re-bases its 5 descendants.
 local ARRANGED_STEADY = PLATES + 2 -- 252
-local TRANSLATED_STEADY = PLATES * (scene.NODES_PER_PLATE - 1) -- 1250
+--[[ MOVED TO ZERO BY PLAN C's C1, and the mechanism is worth stating because the
+	number looks like a lost measurement. A plate root carries a REACTIVE
+	`offsetX`/`offsetY` and has children, so it is now a COORDINATE SPACE: its
+	subtree's rects are stored relative to it, a move of the root re-bases nothing,
+	and `arrange` records an EMPTY translate run and returns before its own body.
+	The 1,250 descendants are therefore neither arranged NOR translated — they are
+	not entered at all, which `lastSolveSkipped` says directly, and the three
+	outcomes still account for every layout node. `tests/translate_arm.spec.luau`
+	keeps the arm's own numbers on a `hosts = false` mount. ]]
+local TRANSLATED_STEADY = 0
+local SKIPPED_STEADY = PLATES * (scene.NODES_PER_PLATE - 1) -- 1250
 -- the COMMIT's own dirty closure on a steady pure tick, and T5's (`4b0f5e19`) pin for
 -- seven of the eight walks: Screen + Canvas + the ForEach region + one root per
 -- plate. `tests/commit_translate.spec.luau` carries the derivation, the caster
@@ -156,8 +166,12 @@ describe("nameplates baseline — the numbers the wicked-fast round starts from"
 		-- halves still have to add up to the tree.
 		expect(st.lastArranged).toBe(ARRANGED_STEADY)
 		expect(st.lastTranslated).toBe(TRANSLATED_STEADY)
-		expect(st.lastArranged + st.lastTranslated).toBe(LAYOUT)
-		expect(st.lastRectInserts).toBe(LAYOUT)
+		expect(st.lastSolveSkipped).toBe(SKIPPED_STEADY)
+		expect(st.lastArranged + st.lastTranslated + st.lastSolveSkipped).toBe(LAYOUT)
+		-- ...and a rect insert per node the solve actually entered, which is now the
+		-- arrange half alone (Plan C, C1): a subtree stored in its host's space keeps
+		-- the entries it already had.
+		expect(st.lastRectInserts).toBe(ARRANGED_STEADY)
 		expect(st.lastNodeBuilds).toBe(PLATES + 2) -- 252: the moved plates + Canvas + Screen, dirtyContains
 		-- CUMULATIVE since `scene.new()` (Fix round 2, I-1): `rectWrites` is
 		-- never reset per-commit, only incremented on an actual value change.
@@ -165,33 +179,43 @@ describe("nameplates baseline — the numbers the wicked-fast round starts from"
 		-- subtree is emitted from the solver's flat run rather than walked for, but
 		-- every element of that run goes through the same `rect_pass.applyOne` the
 		-- walk uses, so the minimal-write contract has exactly one implementation.
-		-- `tests/commit_translate.spec`'s zero-delta case is the pin. READ OFF THE RUN: initialRender's own solve
-		-- writes every rect once (1502, everything is new) and each of the two
-		-- ticks since writes 1500 more (LAYOUT minus the 2 static ancestors,
-		-- Screen and Canvas, whose fill rect never moves) = 1502+1500+1500=4502.
-		expect(st.rectWrites).toBe(4502)
+		-- `tests/commit_translate.spec`'s zero-delta case is the pin. READ OFF THE RUN,
+		-- AND MOVED BY PLAN C's C1: `initialRender`'s own solve still writes every rect
+		-- once (1502, everything is new), but each of the two ticks since writes only
+		-- the 250 plate ROOTS — every rect beneath one is stored in the plate's own
+		-- space and did not change there — so 1502 + 250 + 250 = 2002, where a flat
+		-- tree paid 1502 + 1500 + 1500 = 4502.
+		expect(st.rectWrites).toBe(1502 + PLATES + PLATES)
 		-- the EXACT aggregate (Fix round 2, I-1): the sum of the eight per-walk
 		-- counts below, and the only exact pin of the aggregate in this repo —
 		-- the old `>= MOUNTED * 7` bound could never fail (a walk silently
 		-- publishing twice would still sail past a MOUNTED * 7 floor).
 		-- MOVED BY T5b: four of the seven `VISITS_PRUNED` terms became
-		-- `VISITS_ARRANGE_BLIND`. 253 * 3 (harvest, visible, rectPass) + 3 * 4 + 1503
-		expect(st.lastCommitVisits).toBe(VISITS_PRUNED * 3 + VISITS_ARRANGE_BLIND * 4 + MOUNTED) -- 2274
+		-- `VISITS_ARRANGE_BLIND`. MOVED AGAIN BY PLAN C's C1: `hitRects` joins the
+		-- pruned three — see its own pin below for why the "never prunes a move"
+		-- clause stopped being true. 253 * 4 + 3 * 4 = 1024.
+		expect(st.lastCommitVisits).toBe(VISITS_PRUNED * 4 + VISITS_ARRANGE_BLIND * 4) -- 1024
 		-- the per-walk breakdown this task exists to publish, MOVED BY T5
 		-- (`4b0f5e19`) from the whole tree to the dirty closure: the six walks whose
 		-- output cannot read a position take `skip(node, true)` and prune a
 		-- moved subtree away, `rectPass` stops AT each translate root and emits
-		-- the solver's run, and `hitRects` still walks everything because it
-		-- centres its target-floor expander on `r.x`/`r.y`.
+		-- the solver's run.
+		--
+		-- ...AND `hitRects` STOPPED WALKING EVERYTHING (Plan C, C1). It centres its
+		-- target-floor expander on `r.x`/`r.y`, so it had to see every move — and
+		-- under a coordinate space a moved plate's descendants DO NOT MOVE in their
+		-- own space. Their entry tables are the ones the last commit saw, `skip`
+		-- matches on plain identity, and the walk stops at the dirty closure like the
+		-- other three. 1,503 -> 253, and it is a consequence of the storage change
+		-- rather than a new prune.
 		local byWalk = st.lastCommitVisitsByWalk
-		for _, name in { "harvest", "visible", "rectPass" } do
+		for _, name in { "harvest", "visible", "rectPass", "hitRects" } do
 			expect(`{name}={byWalk[name]}`).toBe(`{name}={VISITS_PRUNED}`)
 		end
 		-- ...and the four T5b took below the dirty closure entirely
 		for _, name in { "textScale", "padding", "textVerdicts", "scrollRegions" } do
 			expect(`{name}={byWalk[name]}`).toBe(`{name}={VISITS_ARRANGE_BLIND}`)
 		end
-		expect(`hitRects={byWalk.hitRects}`).toBe(`hitRects={MOUNTED}`)
 		s.dispose()
 	end)
 
@@ -243,9 +267,14 @@ describe("nameplates baseline — the numbers the wicked-fast round starts from"
 		-- (T4, `14c3459d`): 4 arranged per caster (Plate, Row, Hp, Cast) because
 		-- `Row` and `Hp` are themselves translate roots under a plate the `Cast`
 		-- dirt forced open. `tests/translate_arm.spec` carries the arithmetic.
-		expect(mixed.lastArranged).toBe(PLATES + 2 + CASTERS * 3) -- 402
-		expect(mixed.lastTranslated).toBe((PLATES - CASTERS) * 5 + CASTERS * 2) -- 1100
-		expect(mixed.lastArranged + mixed.lastTranslated).toBe(LAYOUT)
+		-- ...MOVED BY PLAN C's C1 and re-read off the run: a plate root is a coordinate
+		-- space, so a plate whose only dirt is its own placement records an empty run
+		-- and never enters its body. What is left is the 50 CASTERS, whose `Cast`
+		-- width dirt forces the plate open — the root plus its Row and its Hp, the two
+		-- that are themselves translate roots under it.
+		expect(mixed.lastArranged).toBe(PLATES + 2 + CASTERS) -- 302
+		expect(mixed.lastTranslated).toBe(0)
+		expect(mixed.lastArranged + mixed.lastTranslated + mixed.lastSolveSkipped).toBe(LAYOUT)
 		s.dispose()
 	end)
 
@@ -276,8 +305,11 @@ describe("nameplates baseline — the numbers the wicked-fast round starts from"
 		-- add/remove case is actually about.
 		local afterTick = s.stats()
 		expect(afterTick.lastArranged).toBe(ARRANGED_STEADY + 1) -- 253
-		expect(afterTick.lastTranslated).toBe(TRANSLATED_STEADY + (scene.NODES_PER_PLATE - 1)) -- 1255
-		expect(afterTick.lastArranged + afterTick.lastTranslated).toBe(LAYOUT + scene.NODES_PER_PLATE)
+		expect(afterTick.lastTranslated).toBe(TRANSLATED_STEADY) -- 0 since Plan C, C1
+		expect(afterTick.lastSolveSkipped).toBe(SKIPPED_STEADY + (scene.NODES_PER_PLATE - 1)) -- 1255
+		expect(afterTick.lastArranged + afterTick.lastTranslated + afterTick.lastSolveSkipped).toBe(
+			LAYOUT + scene.NODES_PER_PLATE
+		)
 		s.remove(251)
 		expect(#s.items).toBe(PLATES)
 		local afterRemove = s.census()
@@ -314,8 +346,10 @@ describe("nameplates baseline — the numbers the wicked-fast round starts from"
 		-- outcomes below account for every node.
 		local st = s.stats()
 		expect(st.lastArranged).toBe(ARRANGED_STEADY) -- 252
-		expect(st.lastTranslated).toBe(TRANSLATED_STEADY) -- 1250
-		expect(st.lastSolveSkipped).toBe(1) -- the Spark leaf, and only it
+		expect(st.lastTranslated).toBe(TRANSLATED_STEADY) -- 0 since Plan C, C1
+		-- the Spark leaf joins the 1,250 plate descendants the coordinate-space hosts
+		-- no longer enter — it lands on the rect it already had and the SKIP catches it
+		expect(st.lastSolveSkipped).toBe(SKIPPED_STEADY + 1)
 		expect(st.lastArranged + st.lastTranslated + st.lastSolveSkipped).toBe(LAYOUT + 1)
 		s.dispose()
 	end)

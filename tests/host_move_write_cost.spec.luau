@@ -30,11 +30,23 @@
 	with itself while the shipped adapter did something else; this counts writes to
 	the instances the shipped function actually assigns.
 
-	THE FOUR CASES ARE A CONTROL SET, not one claim. A host move must cost 1; an
+	THE SIX CONTROL CASES ARE A SET, not one claim. A host move must cost 1; an
 	A/A re-apply must cost 0; a child that genuinely moves inside its host must
-	still be written; and a node with NO host must still pay per-node, because
-	there the absolute position really did change. Without the last two, "never
-	write anything" would pass.
+	still be written; a node with NO host must still pay per-node, because there
+	the absolute position really did change; and a resize must still write Size.
+	Without the last three, "never write anything" would pass.
+
+	AND PLAN C's C1 ADDS THE OTHER HALF, ON THE SAME REAL `applyRect` (the second
+	block below). The six above are the ABSOLUTE scheme: every rect the adapter is
+	handed is in window space and `applyRect` subtracts the host origin itself. A
+	COORDINATE-SPACE host is the one kind whose children arrive ALREADY relative —
+	the solver stored them that way — so `applyRect` must subtract NOTHING, and the
+	registry entry's `hostSpace` flag is the only thing that tells the two apart. A
+	flag lost on a second `registerHost` call would land every child at
+	`rect - host`, which is why the reuse-path OR has a case of its own. This is
+	also the only spec in the tree that drives the SHIPPED `applyRect`; the fake
+	target's mirror cannot see a divergence in it, which is exactly the lesson the
+	fake's own subtree-recompose defect taught.
 ]]
 
 local t = require("./lib/testkit")
@@ -221,5 +233,150 @@ describe("a host that moves costs ONE engine write, not one per descendant", fun
 		region.applyRect(kids[2])
 		expect(counts.size).toBe(1)
 		expect(counts.position).toBe(0)
+	end)
+end)
+
+--[[ THE COORDINATE-SPACE SCHEME (Plan C, C1), on the same shipped `applyRect`.
+
+	Three fixtures, each pinning the per-node engine `Position` the real adapter
+	writes and the T0 write counter beside it:
+	  1. a space host whose 20 children carry HOST-RELATIVE rects — a move is one
+	     write, and every child's engine Position is its stored rect UNCHANGED
+	     (nothing is subtracted, because the solver already did);
+	  2. a space host inside a space host — the inner host's own rect is relative
+	     to the outer, so moving the outer is still ONE write;
+	  3. the mixed pair: a space host inside a SCROLL host (whose children are
+	     absolute in the scroll host's space) and a scroll host inside a space host.
+	     This is where a rule that treated all hosts alike goes wrong in both
+	     directions at once. ]]
+local function spaceHost(region: any, node: any, path: string, rect: any, parent: any?): any
+	local host = node(path, rect)
+	host.instanceHost = if parent ~= nil then region.hostFor(path) else nil
+	host.hostEntry = region.registerHost(path, host.instance, host.windowRect, false, true)
+	return host
+end
+
+describe("Plan C: a COORDINATE-SPACE host subtracts nothing, and the flag is what says so", function()
+	it("fixture 1: the children's stored rects ARE their engine positions, and a move writes one", function()
+		local region, counts, node = newHarness()
+		local host = spaceHost(region, node, "/S/List", { x = 30, y = 20, w = 400, h = 800 })
+		local kids: { any } = {}
+		for i = 1, 20 do
+			-- HOST-RELATIVE, which is the whole difference from `listInHost` above
+			local kid = node(`/S/List/Row{i}`, { x = 0, y = (i - 1) * 40, w = 400, h = 40 })
+			kid.instanceHost = region.hostFor(kid.path)
+			table.insert(kids, kid)
+		end
+		region.applyRect(host)
+		for _, kid in kids do
+			region.applyRect(kid)
+		end
+		expect(counts.position).toBe(21)
+		-- NOTHING SUBTRACTED: row 3's engine Position is its stored rect
+		expect(`{(kids[3].instance :: any).Position.x},{(kids[3].instance :: any).Position.y}`).toBe("0,80")
+		expect(`{(host.instance :: any).Position.x},{(host.instance :: any).Position.y}`).toBe("30,20")
+
+		-- ...and the move: only the host's rect changes, because nothing beneath it
+		-- moved in its own space
+		counts.position, counts.size = 0, 0
+		host.windowRect = { x = 30, y = 260, w = 400, h = 800 }
+		host.hostEntry.rect = host.windowRect
+		region.applyRect(host)
+		for _, kid in kids do
+			region.applyRect(kid)
+		end
+		expect(`position={counts.position} size={counts.size}`).toBe("position=1 size=0")
+		expect((kids[3].instance :: any).Position.y).toBe(80)
+	end)
+
+	it("fixture 2: a space host inside a space host is still one write", function()
+		local region, counts, node = newHarness()
+		local outer = spaceHost(region, node, "/S/Outer", { x = 10, y = 10, w = 400, h = 800 })
+		-- the inner host's own rect is relative to the OUTER, which is what makes
+		-- the chain compose rather than accumulate twice
+		local inner = spaceHost(region, node, "/S/Outer/Inner", { x = 5, y = 50, w = 300, h = 200 }, outer)
+		local kid = node("/S/Outer/Inner/Leaf", { x = 2, y = 4, w = 100, h = 20 })
+		kid.instanceHost = region.hostFor(kid.path)
+		region.applyRect(outer)
+		region.applyRect(inner)
+		region.applyRect(kid)
+		expect(`outer={(outer.instance :: any).Position.x},{(outer.instance :: any).Position.y}`).toBe("outer=10,10")
+		expect(`inner={(inner.instance :: any).Position.x},{(inner.instance :: any).Position.y}`).toBe("inner=5,50")
+		expect(`leaf={(kid.instance :: any).Position.x},{(kid.instance :: any).Position.y}`).toBe("leaf=2,4")
+
+		counts.position = 0
+		outer.windowRect = { x = 90, y = 10, w = 400, h = 800 }
+		outer.hostEntry.rect = outer.windowRect
+		region.applyRect(outer)
+		region.applyRect(inner)
+		region.applyRect(kid)
+		expect(counts.position).toBe(1)
+	end)
+
+	it("fixture 3: a space host under a scroll host, and a scroll host under a space host", function()
+		local region, counts, node = newHarness()
+		-- (a) an ABSOLUTE-scheme host (a scroll/clip host) holding a space host
+		local scroll = node("/S/Scroll", { x = 0, y = 100, w = 400, h = 300 })
+		scroll.hostEntry = region.registerHost("/S/Scroll", scroll.instance, scroll.windowRect, true)
+		local moving = node("/S/Scroll/Moving", { x = 40, y = 160, w = 200, h = 100 })
+		moving.instanceHost = region.hostFor(moving.path)
+		moving.hostEntry = region.registerHost("/S/Scroll/Moving", moving.instance, moving.windowRect, false, true)
+		local inMoving = node("/S/Scroll/Moving/Leaf", { x = 3, y = 6, w = 50, h = 20 })
+		inMoving.instanceHost = region.hostFor(inMoving.path)
+		-- (b) a space host holding a scroll host, whose own children are absolute in
+		-- the SCROLL host's space
+		local space = node("/S/Space", { x = 8, y = 12, w = 400, h = 300 })
+		space.hostEntry = region.registerHost("/S/Space", space.instance, space.windowRect, false, true)
+		local innerScroll = node("/S/Space/List", { x = 0, y = 30, w = 400, h = 200 })
+		innerScroll.instanceHost = region.hostFor(innerScroll.path)
+		innerScroll.hostEntry = region.registerHost("/S/Space/List", innerScroll.instance, innerScroll.windowRect, true)
+		local row = node("/S/Space/List/Row", { x = 0, y = 90, w = 400, h = 40 })
+		row.instanceHost = region.hostFor(row.path)
+		for _, h in { scroll, moving, inMoving, space, innerScroll, row } do
+			region.applyRect(h)
+		end
+		-- (a) `moving` is a child of an ABSOLUTE host, so its own rect IS re-based;
+		-- its own child is not, because `moving` is a coordinate space
+		expect(`moving={(moving.instance :: any).Position.x},{(moving.instance :: any).Position.y}`).toBe(
+			"moving=40,60"
+		)
+		expect(`leaf={(inMoving.instance :: any).Position.x},{(inMoving.instance :: any).Position.y}`).toBe("leaf=3,6")
+		-- (b) the scroll host under a space host takes its rect as given, and ITS
+		-- child is re-based against it in the ordinary way
+		expect(`list={(innerScroll.instance :: any).Position.x},{(innerScroll.instance :: any).Position.y}`).toBe(
+			"list=0,30"
+		)
+		expect(`row={(row.instance :: any).Position.x},{(row.instance :: any).Position.y}`).toBe("row=0,60")
+
+		-- ...and moving the space host writes ONE, while moving the scroll host
+		-- writes one per child it re-bases (its children are absolute)
+		counts.position = 0
+		space.windowRect = { x = 8, y = 212, w = 400, h = 300 }
+		space.hostEntry.rect = space.windowRect
+		region.applyRect(space)
+		region.applyRect(innerScroll)
+		region.applyRect(row)
+		expect(`spaceMove={counts.position}`).toBe("spaceMove=1")
+	end)
+
+	it("a DOUBLE registerHost keeps hostSpace, in either order", function()
+		--[[ `registerHost` is create-or-REUSE and the reuse path returns early. A path
+			can be registered twice — the adapter's own ScrollView/`clipChildren`
+			trigger, then `createOpts.instanceHost` — and if the flag were lost on the
+			second call `applyRect` would subtract the host rect from children whose
+			rects are already relative, landing every one at `rect - host`. ]]
+		local region, _counts, node = newHarness()
+		local a = node("/S/A", { x = 0, y = 0, w = 10, h = 10 })
+		local first = region.registerHost("/S/A", a.instance, a.windowRect, false, true)
+		local second = region.registerHost("/S/A", a.instance, a.windowRect, true, nil)
+		expect(`same={first == second} space={tostring(second.hostSpace)} crops={tostring(second.crops)}`).toBe(
+			"same=true space=true crops=true"
+		)
+		local b = node("/S/B", { x = 0, y = 0, w = 10, h = 10 })
+		local one = region.registerHost("/S/B", b.instance, b.windowRect, true, nil)
+		local two = region.registerHost("/S/B", b.instance, b.windowRect, false, true)
+		expect(`same={one == two} space={tostring(two.hostSpace)} crops={tostring(two.crops)}`).toBe(
+			"same=true space=true crops=true"
+		)
 	end)
 end)

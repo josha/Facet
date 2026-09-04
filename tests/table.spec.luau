@@ -3010,8 +3010,14 @@ describe("Table: row actions (Task 10)", function()
 		})
 		local razzHit = wrappedRowHitPath(0, "razz")
 		local boltHit = wrappedRowHitPath(0, "bolt")
-		local razzClosedX = w.adapter.node(razzHit).rect.x
-		local boltClosedX = w.adapter.node(boltHit).rect.x
+		--[[ COMPOSED, NOT STORED (Plan C, C1). A row-actions row slides by a REACTIVE
+			`offsetX` on its content, which makes that container a COORDINATE SPACE: its
+			subtree's rects are stored relative to it, so the hit surface's own stored
+			`x` does not move when the tray opens — the container's does, and the engine
+			carries the rest. `adapter.composedRect` is the window-space answer, the same
+			number `controller.rectOf` gives. ]]
+		local razzClosedX = w.adapter.composedRect(razzHit).x
+		local boltClosedX = w.adapter.composedRect(boltHit).x
 
 		local function openVia(hitPath: string, y: number)
 			w.adapter.pointerDown(hitPath, 100, y, "mouse")
@@ -3025,13 +3031,13 @@ describe("Table: row actions (Task 10)", function()
 		end
 
 		openVia(razzHit, 20)
-		expect(w.adapter.node(razzHit).rect.x < razzClosedX).toBe(true) -- razz open
+		expect(w.adapter.composedRect(razzHit).x < razzClosedX).toBe(true) -- razz open
 
 		openVia(boltHit, 60)
-		expect(w.adapter.node(boltHit).rect.x < boltClosedX).toBe(true) -- bolt now open
+		expect(w.adapter.composedRect(boltHit).x < boltClosedX).toBe(true) -- bolt now open
 		-- razz closed AS A RESULT of bolt's claim through the shared coordinator
 		-- (bolt's own gesture never touched razz directly)
-		expect(w.adapter.node(razzHit).rect.x).toBe(razzClosedX)
+		expect(w.adapter.composedRect(razzHit).x).toBe(razzClosedX)
 	end)
 
 	it("mouse vertical drag on a reorderable + wrapped row still reorders", function()
@@ -3106,7 +3112,7 @@ describe("Table: row actions (Task 10)", function()
 			end,
 		})
 		local razzHit = wrappedRowHitPath(0, "razz")
-		local closedX = w.adapter.node(razzHit).rect.x
+		local closedX = w.adapter.composedRect(razzHit).x
 		w.adapter.pointerDown(razzHit, 100, 20)
 		w.tick(0.01)
 		w.adapter.pointerMove(60, 20) -- purely horizontal, past the axis lock
@@ -3116,7 +3122,7 @@ describe("Table: row actions (Task 10)", function()
 		w.adapter.pointerUp(-100, 20)
 		w.settle()
 		expect(#reorders).toBe(0) -- reorder never engaged
-		expect(w.adapter.node(razzHit).rect.x < closedX).toBe(true) -- content slid: tray revealed
+		expect(w.adapter.composedRect(razzHit).x < closedX).toBe(true) -- content slid: tray revealed
 		expect(w.adapter.node("/S/Racers/DropWhen/then/DropLine")).toBe(nil)
 	end)
 
@@ -3182,7 +3188,7 @@ describe("Table: row actions (Task 10)", function()
 				end,
 			})
 			local razzHit = wrappedRowHitPath(0, "razz")
-			local closedX = w.adapter.node(razzHit).rect.x
+			local closedX = w.adapter.composedRect(razzHit).x
 
 			-- open the tray via an ordinary horizontal drag on the row's own Hit
 			w.adapter.pointerDown(razzHit, 100, 20, "mouse")
@@ -3193,7 +3199,7 @@ describe("Table: row actions (Task 10)", function()
 			w.tick(1 / 60)
 			w.adapter.pointerUp(-200, 20)
 			w.settle()
-			expect(w.adapter.node(razzHit).rect.x < closedX).toBe(true) -- open
+			expect(w.adapter.composedRect(razzHit).x < closedX).toBe(true) -- open
 
 			-- grab the ≡ handle: the tray's CLOSE is triggered the instant the
 			-- press lands (before any move, before reorder itself even
@@ -3203,7 +3209,7 @@ describe("Table: row actions (Task 10)", function()
 			local handlePath = `{rowActionsRoot(0, "razz")}/Content/Row/EditWhen/then/HandleZone/Handle`
 			w.adapter.pointerDown(handlePath, 100, 20, "mouse")
 			w.settle()
-			expect(w.adapter.node(razzHit).rect.x).toBe(closedX)
+			expect(w.adapter.composedRect(razzHit).x).toBe(closedX)
 
 			-- and reorder itself still proceeds normally afterward — the fix
 			-- only closes the tray, it does not eat or defer the handle press
@@ -3244,7 +3250,7 @@ describe("Table: row actions (Task 10)", function()
 			end,
 		})
 		local razzHit = wrappedRowHitPath(0, "razz")
-		local closedX = w.adapter.node(razzHit).rect.x
+		local closedX = w.adapter.composedRect(razzHit).x
 
 		-- open the tray via an ordinary horizontal drag on the row's own Hit
 		w.adapter.pointerDown(razzHit, 100, 20, "mouse")
@@ -3255,7 +3261,7 @@ describe("Table: row actions (Task 10)", function()
 		w.tick(1 / 60)
 		w.adapter.pointerUp(-200, 20)
 		w.settle()
-		expect(w.adapter.node(razzHit).rect.x < closedX).toBe(true) -- open
+		expect(w.adapter.composedRect(razzHit).x < closedX).toBe(true) -- open
 
 		-- a FRESH press on the SAME Hit, dragged VERTICAL this time: the
 		-- composed body-drag path (`composeWithReorder`, NOT the ≡ handle)
@@ -3266,7 +3272,7 @@ describe("Table: row actions (Task 10)", function()
 		w.pres.refresh()
 		expect(w.adapter.node("/S/Racers/DropWhen/then/DropLine") ~= nil).toBe(true) -- reorder engaged
 		w.settle()
-		expect(w.adapter.node(razzHit).rect.x).toBe(closedX) -- tray closed, not stranded
+		expect(w.adapter.composedRect(razzHit).x).toBe(closedX) -- tray closed, not stranded
 		w.adapter.pointerUp(100, 90)
 		expect(#reorders).toBe(1)
 	end)
@@ -3285,7 +3291,7 @@ describe("Table: row actions (Task 10)", function()
 			w.tbl.api.editing:set(true) -- grab is edit-mode only
 			w.pres.refresh()
 			local razzHit = wrappedRowHitPath(0, "razz")
-			local closedX = w.adapter.node(razzHit).rect.x
+			local closedX = w.adapter.composedRect(razzHit).x
 
 			w.adapter.pointerDown(razzHit, 100, 20, "mouse")
 			w.tick(0.01)
@@ -3295,12 +3301,12 @@ describe("Table: row actions (Task 10)", function()
 			w.tick(1 / 60)
 			w.adapter.pointerUp(-200, 20)
 			w.settle()
-			expect(w.adapter.node(razzHit).rect.x < closedX).toBe(true) -- open
+			expect(w.adapter.composedRect(razzHit).x < closedX).toBe(true) -- open
 
 			w.tbl.api.handleActivate(razzHit, { source = "action" }) -- grab
 			expect(w.tbl.api.grabbedKey:get()).toBe("razz")
 			w.settle()
-			expect(w.adapter.node(razzHit).rect.x).toBe(closedX) -- tray closed, not stranded
+			expect(w.adapter.composedRect(razzHit).x).toBe(closedX) -- tray closed, not stranded
 		end
 	)
 
@@ -3428,7 +3434,7 @@ describe("Table: row actions (Task 10)", function()
 				end,
 			})
 			local razzHit = wrappedRowHitPath(0, "razz")
-			local closedX = w.adapter.node(razzHit).rect.x
+			local closedX = w.adapter.composedRect(razzHit).x
 			w.adapter.pointerDown(razzHit, 100, 20)
 			w.tick(0.01)
 			w.adapter.pointerMove(60, 20)
@@ -3445,13 +3451,13 @@ describe("Table: row actions (Task 10)", function()
 			-- tray it just opened, and a genuine tap afterwards does.
 			w.adapter.pointerUpActivating(-200, 20, "after")
 			w.settle()
-			expect(w.adapter.node(razzHit).rect.x < closedX).toBe(true) -- confirmed open
+			expect(w.adapter.composedRect(razzHit).x < closedX).toBe(true) -- confirmed open
 
 			w.adapter.tap(razzHit) -- a genuine tap/Activate on the row's own content
 			w.pres.refresh()
 			expect(w.tbl.api.selectedKeys:get().razz).toBe(nil) -- no select
 			w.settle()
-			expect(w.adapter.node(razzHit).rect.x).toBe(closedX) -- tray closed
+			expect(w.adapter.composedRect(razzHit).x).toBe(closedX) -- tray closed
 		end
 	)
 
@@ -3731,7 +3737,7 @@ describe("Table: a BLOCK table publishes no scroll path of its own (ruling 3)", 
 	-- open razz's trailing tray with a real horizontal drag on its own Hit
 	local function openTray(w: any): number
 		local hit = rowHit("razz")
-		local closedX = (w.adapter.node(hit) :: any).rect.x
+		local closedX = w.adapter.composedRect(hit).x
 		w.adapter.pointerDown(hit, 100, 20, "mouse")
 		w.tick(0.01)
 		w.adapter.pointerMove(60, 20)
@@ -3740,7 +3746,7 @@ describe("Table: a BLOCK table publishes no scroll path of its own (ruling 3)", 
 		w.tick(1 / 60)
 		w.adapter.pointerUp(-200, 20)
 		w.settle()
-		expect(`opened: {(w.adapter.node(hit) :: any).rect.x < closedX}`).toBe("opened: true")
+		expect(`opened: {w.adapter.composedRect(hit).x < closedX}`).toBe("opened: true")
 		return closedX
 	end
 

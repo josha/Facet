@@ -62,6 +62,9 @@ local rect_pass = {}
 	  lastBarInsets   path -> the scroll bar gutter this solve spent, by reference
 	  stats           the renderer's counters, by reference
 	  rectsEqual      the pure rect comparison
+	  invalidateOrigins  bump the geometry origin epoch (`render/rect_reads`), called
+	                  once per `apply`; optional, so a caller with no coordinate-space
+	                  hosts (or a test ctx) may omit it
 	  scope           the commit's prune (P4), from `render/commit_walks`:
 	                  `skip(node)` -> may this subtree be left alone, `note(node)` ->
 	                  record what it was committed with, `armed()` -> is the prune on
@@ -79,6 +82,9 @@ function rect_pass.new(ctx: any)
 	local stats = ctx.stats
 	local rectsEqual = ctx.rectsEqual
 	local scope = ctx.scope
+	-- bump the geometry origin epoch once per commit — see the header note on
+	-- `apply` below for why it is here and unconditional rather than per path
+	local invalidateOrigins = ctx.invalidateOrigins
 
 	local function applyOne(path: string, entry: any)
 		local handle = handles[path]
@@ -109,6 +115,17 @@ function rect_pass.new(ctx: any)
 			anyway, so the next one can prune); a commit with the feature OFF records
 			nothing, which is what keeps the differential oracle's off arm a genuine
 			pre-P4 build. ]]
+		--[[ THE ORIGIN EPOCH, BUMPED ONCE AND UNCONDITIONALLY (Plan C, C1). Beneath a
+			coordinate-space host `rectOf` composes the host chain out of `lastRects`
+			and memoises the answer against this epoch, so anything that can rewrite
+			`lastRects` has to bump it. Here, at the top of the pass — not per path
+			inside `applyOne`, which is both the hot loop and only ONE of that map's
+			three writers (`restoreParkedProps` and the translate lane are the others,
+			and each bumps it too). A blunt per-commit bump is cheaper than a hot-loop
+			branch and impossible to hook incompletely. ]]
+		if invalidateOrigins ~= nil then
+			invalidateOrigins()
+		end
 		local pruning = scope.armed()
 		local recording = scope.records()
 		local applied: { [string]: boolean }? = if pruning then nil else {}

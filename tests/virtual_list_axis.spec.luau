@@ -568,7 +568,10 @@ describe("VirtualList horizontal pointer input (no consumer wiring)", function()
 		expect(w.list.debugWindow().r9).toBe(true)
 		-- each mounted item still sits at its ABSOLUTE canvas x (the engine
 		-- translates by CanvasPosition; the framework never re-arranges)
-		expect(w.adapter.node(w.hitPath("r9")).rect.x - w.adapter.node("/S/VL/Canvas").rect.x).toBe(8 * 120)
+		-- COMPOSED (Plan C, C1): a windowed row places itself with a REACTIVE offset,
+		-- so the row IS a coordinate space and its hit surface's stored rect is
+		-- relative to it. `composedRect` is the canvas-space answer this line means.
+		expect(w.adapter.composedRect(w.hitPath("r9")).x - w.adapter.node("/S/VL/Canvas").rect.x).toBe(8 * 120)
 		expect(#w.diagnostics()).toBe(0)
 	end)
 

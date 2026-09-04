@@ -207,8 +207,10 @@ describe("the commit-walk seam: READ == DECLARED == PASSED", function()
 		-- two empty sets are equal. 27 (T8 R2, Important 2): `noteWorn` joined
 		-- the record so the compact ladder's `icon`/`compactLabel`/`label`
 		-- writes can route through the SAME recycle-key worn-set updater
-		-- `applyProp`/`applyStyleProp` use, instead of a second copy.
-		expect(#sorted(reads)).toBe(27)
+		-- `applyProp`/`applyStyleProp` use, instead of a second copy. 28 (Plan C, C1):
+		-- `originOf` joined it, because `authorPressableRects` compares a chrome node's
+		-- floor against sinks that may sit in a different COORDINATE SPACE.
+		expect(#sorted(reads)).toBe(28)
 	end)
 
 	it("every field `CommitCtx` declares is one the module actually reads", function()

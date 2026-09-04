@@ -199,7 +199,7 @@ function fake_target.new(opts: Opts?)
 		scroll canvas would start appearing under every container that merely moves.
 	]]
 	local instanceHosts: { [string]: any } = {}
-	local function registerFakeHost(path: string, crops: boolean): any
+	local function registerFakeHost(path: string, crops: boolean, hostSpace: boolean?): any
 		local existing = instanceHosts[path]
 		if existing ~= nil then
 			-- create-or-REUSE, mirroring `screen_presentation.registerHost`, and
@@ -207,12 +207,16 @@ function fake_target.new(opts: Opts?)
 			-- itself a fade group at creation and then be given `clipChildren`, and
 			-- the second declaration must not un-crop the first.
 			existing.crops = existing.crops or crops
+			-- ...and `hostSpace` accumulates for the identical reason (Plan C): a path
+			-- registered twice must not lose the fact that its children's rects are
+			-- stored relative to it, or every one of them lands at `rect - host`.
+			existing.hostSpace = existing.hostSpace or hostSpace
 			return existing
 		end
 		-- `rect = nil` mirrors the live shape (screen_target.setRect:2098-2100
 		-- writes `entry.rect` on the host it re-parents against); the engine-write
 		-- mirror below reads it to find the host-relative pair a real parent buys.
-		local entry = { path = path, crops = crops, children = {}, rect = nil }
+		local entry = { path = path, crops = crops, children = {}, rect = nil, hostSpace = hostSpace }
 		instanceHosts[path] = entry
 		return entry
 	end
@@ -410,8 +414,11 @@ function fake_target.new(opts: Opts?)
 		end
 		if createOpts ~= nil and (createOpts :: any).instanceHost == true then
 			-- a declared MOVE boundary: a real parent so the engine carries the
-			-- subtree, and a plain one — no buffer, no clip, nothing cropped
-			registerFakeHost(path, false)
+			-- subtree, and a plain one — no buffer, no clip, nothing cropped.
+			-- `hostSpace` says the stronger thing (Plan C): this node is also the ORIGIN
+			-- its subtree's rects are stored against, so nothing beneath it arrives in
+			-- window space and `setRect` composes this entry's rect back in.
+			registerFakeHost(path, false, (createOpts :: any).hostSpace == true)
 		end
 		if class == "Path" then
 			-- the DEFAULT stroke role's colour, from the live theme: `role` is
@@ -471,6 +478,8 @@ function fake_target.new(opts: Opts?)
 	-- counts — the two arrive at the same window position, which is the point.)
 	function adapter._composePresentation(node: any)
 		local ox, oy = 0, 0
+		-- `node.rect` is already the WINDOW rect (see `setRect`), so the
+		-- coordinate-space chain is not added again here
 		local own = node.props.transform
 		if type(own) == "table" then
 			ox += own.x or 0
@@ -527,20 +536,74 @@ function fake_target.new(opts: Opts?)
 		end
 	end
 
+	--[[ THE SPACE-HOST CHAIN ABOVE A PATH, over the STORED rects the host entries
+		hold. Zero on every path with no coordinate-space host above it, which is
+		every path on a host-free tree. ]]
+	local function spaceOriginOf(handle: any): (number, number)
+		local ox, oy = 0, 0
+		local h = handle.instanceHost
+		while h ~= nil do
+			if h.hostSpace and h.rect ~= nil then
+				ox += h.rect.x
+				oy += h.rect.y
+			end
+			h = hostFor(h.path)
+		end
+		return ox, oy
+	end
+
 	function adapter.setRect(handle: any, rect: any)
-		handle.rect = rect
-		if instanceHosts[handle.path] ~= nil then
-			-- mirrors `screen_target.setRect:2098-2100`: a host records the rect its
-			-- own children's engine-write mirror re-bases against
-			instanceHosts[handle.path].rect = rect
+		--[[ TWO RECTS, AND THE NAMES SAY WHICH IS WHICH (Plan C, C1).
+
+			`storedRect` is exactly what the renderer handed over. Beneath a
+			COORDINATE-SPACE host that is HOST-RELATIVE, because the solver stores it
+			that way and the engine composes the rest by parenting — it is the number
+			the live `applyRect` writes, and the one an oracle compares between a hosted
+			and an unhosted world.
+
+			`rect` is where the node IS: the stored rect plus every space host above it.
+			That is what this target has always reported under that name and what every
+			rule written against it means — a containment audit, an overlap sweep, a
+			pointer coordinate. Keeping the name honest is the same doctrine the header
+			states about `presentedPosition`: there is no parenting here, so the fake
+			reports the composed window answer and lets the engine-write mirror below
+			carry the host-relative pair separately. ]]
+		handle.storedRect = rect
+		local selfHost = instanceHosts[handle.path]
+		if selfHost ~= nil then
+			-- mirrors `screen_target.setRect`: a host records the STORED rect its own
+			-- children's engine-write mirror and window composition re-base against.
+			-- WRITTEN BEFORE the composition below, and the renderer walks in document
+			-- order, so a child always composes against a current origin.
+			selfHost.rect = rect
+		end
+		local spaceX, spaceY = spaceOriginOf(handle)
+		handle.rect = if spaceX == 0 and spaceY == 0
+			then rect
+			else { x = rect.x + spaceX, y = rect.y + spaceY, w = rect.w, h = rect.h }
+		--[[ ...AND THE HIT BAND IS RE-BASED HERE TOO, mirroring the live `applyRect`,
+			which calls `applyHitExpander(handle)` for exactly this reason. The commit
+			pushes hit rects BEFORE it pushes rects, so on a fresh build a host's own
+			rect is not yet current when the expander is first placed and the origin
+			`setHitRect` composed against was stale. Placing it in the one function that
+			re-bases a node is what makes the two unable to disagree. ]]
+		local storedHit = handle.storedHitRect
+		if storedHit ~= nil then
+			handle.hitRect = if spaceX == 0 and spaceY == 0
+				then storedHit
+				else { x = storedHit.x + spaceX, y = storedHit.y + spaceY, w = storedHit.w, h = storedHit.h }
 		end
 		-- see `engineWrites`: the position the engine would be handed is the
-		-- host-relative pair (`presentedPosition` is the WINDOW pair; both are kept)
+		-- host-relative pair (`presentedPosition` is the WINDOW pair; both are kept).
+		-- ZERO under a coordinate-space host, mirroring
+		-- `screen_presentation.hostOriginOf`: those children's rects are ALREADY
+		-- relative to it, so there is nothing left to subtract.
 		local hostOx, hostOy = 0, 0
 		local host = handle.instanceHost
-		if host ~= nil and host.rect ~= nil then
+		if host ~= nil and host.rect ~= nil and host.hostSpace ~= true then
 			hostOx, hostOy = host.rect.x, host.rect.y
 		end
+		-- the STORED pair, never the composed one: this mirrors what `applyRect` sends
 		local px, py = rect.x - hostOx, rect.y - hostOy
 		if handle.lastWriteX ~= px or handle.lastWriteY ~= py then
 			handle.lastWriteX, handle.lastWriteY = px, py
@@ -565,6 +628,30 @@ function fake_target.new(opts: Opts?)
 		-- a rect write RE-APPLIES the stored transform, exactly as the live
 		-- applyRect does: a re-solve must never drop a running motion
 		adapter._composePresentation(handle)
+		--[[ ...AND A COORDINATE-SPACE HOST'S MOVE RECOMPOSES ITS WHOLE SUBTREE, which
+			the `transform` prop branch below already does for its own reason. Under Plan
+			C a host move produces exactly ONE `setRect` — the host's — and zero for its
+			descendants, which is the point; but every descendant's `presentedPosition`
+			is a function of this rect, so without this loop each would keep its pre-move
+			value forever while a real engine reparents for free. The oracle's
+			`pos == sro` identity is the instrument that catches it. ]]
+		if selfHost ~= nil and selfHost.hostSpace == true then
+			local prefix = handle.path .. "/"
+			for path, node in nodes do
+				if path ~= handle.path and string.sub(path, 1, #prefix) == prefix and node.storedRect ~= nil then
+					local sx, sy = spaceOriginOf(node)
+					local st = node.storedRect
+					node.rect = if sx == 0 and sy == 0 then st else { x = st.x + sx, y = st.y + sy, w = st.w, h = st.h }
+					local sh = node.storedHitRect
+					if sh ~= nil then
+						node.hitRect = if sx == 0 and sy == 0
+							then sh
+							else { x = sh.x + sx, y = sh.y + sy, w = sh.w, h = sh.h }
+					end
+					adapter._composePresentation(node)
+				end
+			end
+		end
 		-- ...AND RE-DERIVES THE ENGINE WINDOW, because it is a function of this rect
 		-- (2026-08-14). `windowRect` was computed only in `setScrollRegion`, so a
 		-- host that MOVED or RESIZED without its canvas changing — a rotation, a
@@ -862,7 +949,16 @@ function fake_target.new(opts: Opts?)
 			the regression in `instance_recycling.spec` without touching this file.
 			A fake with no parent record at all is how 288 headless replays of this
 			defect saw nothing. ]]
-		handle.parentRoot = if hostFor(newPath) ~= nil
+		--[[ ...AND THE HOST ENTRY ITSELF, re-resolved for the NEW path and written
+			unconditionally, the `nil` included (Plan C), mirroring the live `adopt`.
+			This handle carried its PREVIOUS path's host, which was invisible while the
+			field only fed the park refusal and the engine-write mirror — and is not
+			invisible once `_composePresentation` reads the chain to decide whether a
+			stored rect is host-relative: an adopted node under a coordinate-space host
+			would compose against the host it used to live under, or against none. ]]
+		local newHost = hostFor(newPath)
+		handle.instanceHost = newHost
+		handle.parentRoot = if newHost ~= nil
 			then handle.parentRoot
 			else (if rootHandle ~= nil then rootHandle else lastCreatedRoot)
 		nodes[newPath] = handle
@@ -894,6 +990,17 @@ function fake_target.new(opts: Opts?)
 		local node = nodes[path]
 		return if node ~= nil then node.instanceHost else nil
 	end
+	--[[ THE WINDOW-SPACE RECT, BY ITS EXPLICIT NAME — the same number
+		`controller.rectOf` answers and the same table `node.rect` already holds (see
+		`setRect`). It exists so a rule that MEANS "wherever this node is on screen,
+		whatever space it is stored in" can say so at the call site instead of relying
+		on a reader knowing that `node.rect` is composed. `node.storedRect` is the
+		other half: exactly what the renderer handed the adapter. ]]
+	function adapter.composedRect(path: string): any
+		local node = nodes[path]
+		return if node ~= nil then node.rect else nil
+	end
+
 	function adapter.isHost(path: string): boolean
 		return instanceHosts[path] ~= nil
 	end
@@ -1350,8 +1457,24 @@ function fake_target.new(opts: Opts?)
 		return if node ~= nil then node.visible else nil
 	end
 
+	--[[ TWO RECTS HERE FOR THE SAME REASON `setRect` HAS TWO (Plan C, C1).
+		`storedHitRect` is what the renderer handed over — the wanted band in the
+		ENTRY's own space, which `applyHitExpander` re-bases by the host origin (zero
+		under a coordinate space, because it is already relative). `hitRect` is where
+		that band IS, which is what every rule comparing it against a neighbouring
+		control's box means. Re-derived in `setRect` too, because the commit pushes
+		hit rects BEFORE rects and the host origin can still be stale here — exactly
+		the ordering the live `applyRect -> applyHitExpander` call answers. ]]
 	function adapter.setHitRect(handle: any, rect: any)
-		handle.hitRect = rect
+		handle.storedHitRect = rect
+		if rect == nil then
+			handle.hitRect = nil
+		else
+			local sx, sy = spaceOriginOf(handle)
+			handle.hitRect = if sx == 0 and sy == 0
+				then rect
+				else { x = rect.x + sx, y = rect.y + sy, w = rect.w, h = rect.h }
+		end
 		table.insert(
 			ops,
 			if rect == nil then `hitrect {handle.path}=nil` else `hitrect {handle.path} {rect.w}x{rect.h}`

@@ -199,6 +199,10 @@ require("./recycle_prop_signature.spec")
 	helpers are declared here EMPTY, so this round's behaviour is byte-identical
 	to before it. ]]
 require("./rect_reads_seam.spec")
+-- ...and the seam step 0b took for the room that work needed: the ancestor closure
+-- over a refresh's dirty list is a PURE FUNCTION of the list it is handed, which is
+-- the strongest one-way claim a block leaving `renderer.luau` can make
+require("./dirty_closure_seam.spec")
 require("./incremental_layout.spec")
 require("./diagnostic_replay.spec")
 require("./container_relative_incremental.spec")
@@ -434,6 +438,18 @@ require("./translate_arm.spec")
 -- reuse/node/child fields, and write only the widened `ctx.rectInserts` /
 -- `ctx.translated` pair plus index writes into `out`/`paths`/`entries`
 require("./translate_arm_seam.spec")
+--[[ ...and Plan C's C1: A HOST IS A COORDINATE SPACE. A container whose placement
+	is REACTIVE and that has children is a real engine parent AND the origin its
+	subtree's rects are stored against, so a 250-plate tick costs 250 stored rects
+	and 250 engine writes instead of 1,500 of each. The counter demonstrator, the
+	public reads that do NOT move, and one pin per reader in the campaign's
+	rect-reader audit that had to learn to compose. ]]
+require("./translate_host.spec")
+-- ...and its differential: five arms over the same reactive fixture, the fifth
+-- mounted with NO coordinate-space hosts at all and compared to the shipped arm
+-- after EVERY step on every public column — the engine position, the two
+-- controller reads, the focus flags, the hit rects and the diagnostics
+require("./host_space_oracle.spec")
 --[[ THE CLOSING RED-TEAM'S THREE ADJUDICATED FINDINGS (wicked-fast T9): the
 	anchor arm's missing verdict channels, the composition that was translated as a
 	descendant, and the two live-adapter source contracts. Registered beside the arm

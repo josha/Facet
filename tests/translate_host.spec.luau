@@ -1,0 +1,744 @@
+--!strict
+--[[ A HOST IS A COORDINATE SPACE (Plan C, C1). A container whose placement is
+	REACTIVE and that has children is a real engine parent AND the origin its
+	subtree's rects are stored against. A nameplate move is then ONE stored rect
+	and ONE engine write; its five descendants' rects do not change in their own
+	space, so `rect_pass.applyOne` finds them equal and writes nothing.
+
+	THE PINS AND THEIR ARITHMETIC (fixture: 250 plates x 6 nodes):
+	  pure tick      rectWrites 250 (was 1,500) · engineWrites 250 (was 1,500)
+	                 solves 1 (the lane, T5, makes it 0)
+	  caster tick    rectWrites 250 + 50 (the Cast bar resized) · engineWrites
+	                 250 + 50 — READ OFF THE RUN, both columns
+	PUBLIC NUMBERS DO NOT MOVE: `rectOf`/`screenRectOf` for plate 7's Name leaf at
+	tick 2 are the literals below, READ OFF THE RUN AT HEAD `a46f84c4` BEFORE this
+	task and kept by construction (composition on read).
+
+	AND THE SECOND HALF OF THIS FILE IS THE READER AUDIT. Every reader in the
+	campaign's rect-reader census that is not "composes through the controller"
+	has a pin here: the hit expander and the hit lift, `scrollToVisible`,
+	`coverRect`, the selection indicator, a cross-space recycle, a focused node,
+	the two REFUSALS (a `ScrollView` and a `clipChildren` container are never
+	coordinate spaces), the fake target's own composed position, and the cull.
+	The audit table itself lives in the campaign ledger
+	(`.superpowers/sdd/2026-09-03-facet-parity-C/progress.md`). ]]
+local t = require("./lib/testkit")
+local describe, it, expect = t.describe, t.it, t.expect
+local scene = require("./lib/nameplates_scene")
+
+local UI = require("../src/blueprint")
+local mountLib = require("../src/mount")
+local environment = require("../src/env/environment")
+local renderer = require("../src/render/renderer")
+local customFactory = require("../src/core/custom")
+local path_shapes = require("../src/controls/path_shapes")
+local fake_target = require("./lib/fake_target")
+
+local PLATES, CASTERS = scene.PLATES, scene.PLATES // scene.CASTER_EVERY
+-- READ OFF THE RUN AT HEAD `a46f84c4`, before this task touched `src/` — the
+-- probe was: mount `nameplates_scene`, `tick(3, 2)` twice, print both reads.
+local NAME_RECT_AT_HEAD = "x=265,y=375,w=61,h=16"
+local NAME_SCREEN_RECT_AT_HEAD = "x=265,y=375,w=61,h=16"
+
+local function fmt(r: any): string
+	return if r == nil then "nil" else `x={r.x},y={r.y},w={r.w},h={r.h}`
+end
+
+local function px(n: number): any
+	return { type = "fixed", px = n }
+end
+local function fill(): any
+	return { type = "fill", weight = 1 }
+end
+
+--[[ A HAND-BUILT WORLD, the idiom every spec in this tree uses
+	(`tests/layout_prop_dirt.spec.luau:395-422`): one core, one environment, the
+	real mount, the fake target and `renderer.attach`. `opts` is threaded to
+	`attach` so the reader-audit pins can raise arm `e`'s `translateHosts = false`
+	against the very same blueprint. ]]
+local function world(build: (any) -> any, viewport: any?, opts: any?): any
+	local core = customFactory.new()
+	local env = environment.new(core)
+	env:set("viewportRect", viewport or { x = 0, y = 0, w = 400, h = 300 })
+	local root = mountLib.mount(core, build(core))
+	local adapter = fake_target.new()
+	local attach: any = {
+		rootPolicy = "edgeToEdge",
+		incrementalLayout = true,
+		measureReuse = true,
+		layoutNodeReuse = true,
+		commitScope = true,
+	}
+	for k, v in opts or {} do
+		attach[k] = v
+	end
+	local controller = renderer.attach(core, root, env, adapter, attach)
+	controller.initialRender()
+	return {
+		core = core,
+		env = env,
+		root = root,
+		adapter = adapter,
+		controller = controller,
+		refresh = function()
+			controller.refresh()
+		end,
+		dispose = function()
+			controller.dispose()
+			root.dispose()
+		end,
+	}
+end
+
+--[[ THE STORED RECT PLUS EVERY SPACE HOST ABOVE IT — the identity that says a
+	host-relative store composes back to the public window answer.
+
+	`storedRect`, NOT `rect`: the fake target reports `node.rect` as the WINDOW rect
+	on both targets (every containment rule, overlap sweep and pointer coordinate in
+	the suite means that by it), and keeps exactly what the renderer handed it under
+	`storedRect`. This helper is the one place that reads the second. ]]
+local function composed(adapter: any, path: string): string
+	local stored = adapter.node(path).storedRect
+	local hx, hy = 0, 0
+	local h = adapter.hostOf(path)
+	while h ~= nil do
+		if h.hostSpace then
+			hx, hy = hx + h.rect.x, hy + h.rect.y
+		end
+		h = adapter.hostOf(h.path)
+	end
+	return `{stored.x + hx},{stored.y + hy}`
+end
+
+describe("translate host: one write per plate, today's numbers on every read", function()
+	it("a pure tick writes one rect and one engine Position per plate", function()
+		local s = scene.new()
+		s.tick(3, 2) -- warm
+		local rw, ew, solves = s.stats().rectWrites, s.adapter.engineWrites(), s.stats().solves
+		s.tick(3, 2)
+		local st = s.stats()
+		expect(
+			`rectWrites={st.rectWrites - rw} engineWrites={s.adapter.engineWrites() - ew} solves={st.solves - solves}`
+		).toBe(`rectWrites={PLATES} engineWrites={PLATES} solves=1`)
+		local name = "/S/Canvas/Plates/[p7]/Plate/Row/Name"
+		expect(fmt(s.controller.rectOf(name))).toBe(NAME_RECT_AT_HEAD)
+		expect(fmt(s.controller.screenRectOf(name))).toBe(NAME_SCREEN_RECT_AT_HEAD)
+		--[[ THE STORED RECT IS HOST-RELATIVE, pinned as the IDENTITY it actually is:
+			`stored + the host chain's origin == screenRectOf`. A threshold
+			("stored.x < 180") passes on a coincidence and would still pass if the rect
+			were absolute on a plate that happens to sit near the left edge. ]]
+		local sr = s.controller.screenRectOf(name)
+		expect(`composed={composed(s.adapter, name)}`).toBe(`composed={sr.x},{sr.y}`)
+		-- ...and the engine window position is the public one
+		local pos = s.adapter.node(name).presentedPosition
+		expect(`pos={pos.x},{pos.y}`).toBe(`pos={sr.x},{sr.y}`)
+		expect(`hosts={s.adapter.hostCount()}`).toBe(`hosts={PLATES}`)
+		s.dispose()
+	end)
+
+	it("a caster tick adds exactly the Cast bars' writes", function()
+		local s = scene.new()
+		s.tickWithCasts(3, 2) -- warm
+		local rw, ew = s.stats().rectWrites, s.adapter.engineWrites()
+		s.tickWithCasts(3, 2)
+		local st = s.stats()
+		expect(`rectWrites={st.rectWrites - rw} engineWrites={s.adapter.engineWrites() - ew} solves=1`).toBe(
+			`rectWrites={PLATES + CASTERS} engineWrites={PLATES + CASTERS} solves=1`
+		)
+		s.dispose()
+	end)
+end)
+
+describe("translate host: the reader audit, one pin per reader that had to change", function()
+	--[[ (g)/(h) THE TWO REFUSALS, and they are the implementation of ruling R-2
+		rather than a restatement of it. `offsetX`/`offsetY`/`anchor` are `shared`
+		props, so `UI.ScrollView({ offsetX = signal, … })` and
+		`UI.VStack({ clipChildren = true, offsetY = signal, … })` both reach the
+		fifth trigger's branch. Either one becoming a coordinate space would change
+		the meaning of every raw-rect reader inside every list Facet ships —
+		`scroll_into_view` subtracts a raw host rect from a raw target rect, and a
+		ScrollView READS `offsetX/Y` for its own axis. Both are refused ABOVE the
+		trigger, and both are still registered as ordinary hosts. ]]
+	it("a ScrollView with a reactive offsetX is a host but NOT a coordinate space", function()
+		local w = world(function(core: any): any
+			return UI.Screen({
+				id = "S",
+				children = {
+					UI.ScrollView({
+						id = "SV",
+						offsetX = core:signal(0),
+						width = px(200),
+						height = px(120),
+						children = { UI.Box({ id = "Row", width = px(180), height = px(400) }) },
+					}),
+				},
+			})
+		end)
+		expect(`isHost={w.adapter.isHost("/S/SV")}`).toBe("isHost=true")
+		local host = w.adapter.hostOf("/S/SV/Row")
+		expect(
+			`host={if host == nil then "nil" else host.path} space={tostring(host ~= nil and host.hostSpace == true)}`
+		).toBe("host=/S/SV space=false")
+		-- ...and the child's stored rect is still the ABSOLUTE one
+		expect(`stored={fmt(w.adapter.node("/S/SV/Row").storedRect)}`).toBe(
+			`stored={fmt(w.controller.rectOf("/S/SV/Row"))}`
+		)
+		w.dispose()
+	end)
+
+	it("a clipChildren container with a reactive offsetY is a host but NOT a coordinate space", function()
+		local w = world(function(core: any): any
+			return UI.Screen({
+				id = "S",
+				children = {
+					UI.VStack({
+						id = "Clip",
+						clipChildren = true,
+						offsetY = core:signal(0),
+						width = px(200),
+						height = px(120),
+						children = { UI.Box({ id = "Row", width = px(180), height = px(40) }) },
+					}),
+				},
+			})
+		end)
+		local host = w.adapter.hostOf("/S/Clip/Row")
+		expect(
+			`host={if host == nil then "nil" else host.path} space={tostring(host ~= nil and host.hostSpace == true)}`
+		).toBe("host=/S/Clip space=false")
+		expect(`stored={fmt(w.adapter.node("/S/Clip/Row").storedRect)}`).toBe(
+			`stored={fmt(w.controller.rectOf("/S/Clip/Row"))}`
+		)
+		w.dispose()
+	end)
+
+	it("a reactive placement is the fifth trigger on a CONTAINER and never on a leaf", function()
+		local w = world(function(core: any): any
+			return UI.Screen({
+				id = "S",
+				children = {
+					UI.Anchor({
+						id = "Canvas",
+						width = fill(),
+						height = fill(),
+						children = {
+							UI.VStack({
+								id = "Box",
+								anchor = "topLeft",
+								offsetX = core:signal(10),
+								offsetY = core:signal(20),
+								width = px(60),
+								height = { type = "content" },
+								children = { UI.Text({ id = "T", text = "hi", textSize = 12 }) },
+							}),
+							UI.Box({
+								id = "Leaf",
+								anchor = "topLeft",
+								offsetX = core:signal(200),
+								offsetY = core:signal(20),
+								width = px(30),
+								height = px(30),
+							}),
+						},
+					}),
+				},
+			})
+		end)
+		expect(`box={w.adapter.isHost("/S/Canvas/Box")} leaf={w.adapter.isHost("/S/Canvas/Leaf")}`).toBe(
+			"box=true leaf=false"
+		)
+		w.dispose()
+	end)
+
+	--[[ (a) THE HIT EXPANDER AND (k) THE HIT LIFT, on the same world, because they
+		are the same reader seen twice. A 20x20 Button is below the 44px touch floor,
+		so the framework grows it an expander — and `hit_lift` decides paint ORDER by
+		asking whether that expander reaches PAST its own host into a sibling that
+		sinks presses. Both rects come off THIS solve's map, and under a moved host
+		they can sit in different coordinate spaces, so both are composed through the
+		commit span's own origin function. Composed against `lastRects` instead, the
+		lift would answer one frame late — which is what the mutation for this pin
+		is (hand `hit_lift.refresh` `hostOriginOf`).
+
+		THE STORED HIT RECT IS PINNED TOO, not just the z verdict. `growWithin`
+		returns `want`, `setHitRect` stores it, and `applyHitExpander` re-bases it by
+		the host origin — which is ZERO under a coordinate space. So the stored rect
+		must stay in the ENTRY's own space; a z assertion alone cannot see it. ]]
+	it("a hit expander under a MOVED host is composed on the same solve it moves", function()
+		local off = { sig = nil :: any }
+		local w = world(function(core: any): any
+			off.sig = core:signal(0)
+			return UI.Screen({
+				id = "S",
+				children = {
+					UI.Anchor({
+						id = "Canvas",
+						width = fill(),
+						height = fill(),
+						children = {
+							UI.VStack({
+								id = "Host",
+								anchor = "topLeft",
+								offsetX = off.sig,
+								offsetY = core:signal(0),
+								width = px(20),
+								height = px(20),
+								children = { UI.Button({ id = "Small", label = "s", width = px(20), height = px(20) }) },
+							}),
+							UI.Button({
+								id = "Static",
+								label = "S",
+								anchor = "topLeft",
+								offsetX = core:signal(200),
+								offsetY = core:signal(0),
+								width = px(60),
+								height = px(60),
+							}),
+						},
+					}),
+				},
+			})
+		end)
+		local SMALL = "/S/Canvas/Host/Small"
+		expect(`space={tostring(w.adapter.hostOf(SMALL).hostSpace == true)}`).toBe("space=true")
+		--[[ THE BAND IS STORED IN THE ENTRY'S SPACE and reported in window space, the
+			same split `rect`/`storedRect` has. `applyHitExpander` subtracts the host
+			origin — ZERO under a coordinate space, because the band is already relative
+			— so `storedHitRect` plus the host chain IS `hitRect`, and `hitRect` is
+			where the 44px floor actually sits. ]]
+		local hit = w.adapter.hitRectOf(SMALL)
+		local sro = w.controller.screenRectOf(SMALL)
+		local host = w.adapter.hostOf(SMALL)
+		local storedHit = w.adapter.node(SMALL).storedHitRect
+		expect(`hit={hit.w}x{hit.h} at {hit.x},{hit.y}`).toBe(`hit=44x44 at {sro.x - 12},{sro.y - 12}`)
+		expect(`composed={storedHit.x + host.rect.x},{storedHit.y + host.rect.y}`).toBe(`composed={hit.x},{hit.y}`)
+		-- MOVE THE HOST so the 44px floor reaches into the static button, and read the
+		-- lift on the SAME solve
+		local before = w.adapter.node("/S/Canvas/Static").z
+		off.sig:set(170)
+		w.refresh()
+		local after = w.adapter.node("/S/Canvas/Static").z
+		local smallZ = w.adapter.node(SMALL).z
+		expect(`overhang={w.controller.screenRectOf(SMALL).x + 32 > 200} lifted={after ~= before or smallZ > after}`).toBe(
+			"overhang=true lifted=true"
+		)
+		-- ...and the band never left the entry's space across the move: the STORED
+		-- rect plus the host chain is still exactly where the floor is drawn
+		local hit2 = w.adapter.hitRectOf(SMALL)
+		local host2 = w.adapter.hostOf(SMALL)
+		local storedHit2 = w.adapter.node(SMALL).storedHitRect
+		local sro2 = w.controller.screenRectOf(SMALL)
+		expect(`composed={storedHit2.x + host2.rect.x},{storedHit2.y + host2.rect.y}`).toBe(
+			`composed={sro2.x - 12},{sro2.y - 12}`
+		)
+		expect(`window={hit2.x},{hit2.y}`).toBe(`window={sro2.x - 12},{sro2.y - 12}`)
+		expect(w.core:lastError()).toBeNil()
+		w.dispose()
+	end)
+
+	--[[ (b) `scrollToVisible` THROUGH A SPACE HOST. Its arithmetic is
+		`target - host`, over `lastRects` — two rects that can now sit in different
+		coordinate spaces. A ScrollView is never itself a space host (refused above),
+		but it can sit inside one, and then BOTH its own rect and its rows' are
+		host-relative. The number this returns must be the number it returned before
+		coordinate spaces existed, which is what the no-host arm establishes. ]]
+	it("scrollToVisible answers the same offset inside a moved host as outside one", function()
+		local function build(core: any): any
+			return UI.Screen({
+				id = "S",
+				children = {
+					UI.Anchor({
+						id = "Canvas",
+						width = fill(),
+						height = fill(),
+						children = {
+							UI.VStack({
+								id = "Host",
+								anchor = "topLeft",
+								offsetX = core:signal(30),
+								offsetY = core:signal(40),
+								width = px(200),
+								height = px(120),
+								children = {
+									UI.ScrollView({
+										id = "List",
+										axis = "y",
+										width = px(200),
+										height = px(120),
+										children = {
+											UI.Box({ id = "R1", width = px(180), height = px(80) }),
+											UI.Box({ id = "R2", width = px(180), height = px(80) }),
+											UI.Box({ id = "R3", width = px(180), height = px(80) }),
+										},
+									}),
+								},
+							}),
+						},
+					}),
+				},
+			})
+		end
+		local ROW = "/S/Canvas/Host/List/R3"
+		local LIST = "/S/Canvas/Host/List"
+		local a = world(build)
+		local e = world(build, nil, { translateHosts = false })
+		expect(`moved={a.controller.scrollToVisible(ROW)}`).toBe(`moved={e.controller.scrollToVisible(ROW)}`)
+		local pa, pe = a.controller.scrollPosition(LIST), e.controller.scrollPosition(LIST)
+		expect(`x={pa.x} y={pa.y}`).toBe(`x={pe.x} y={pe.y}`)
+		-- ...and the arm really is hosted, so the comparison is not vacuous. `hostOf`
+		-- answers the NEAREST host, which for a row is the ScrollView — the
+		-- coordinate space is one level further out, above the list itself.
+		expect(`listHost={a.adapter.hostOf(LIST).hostSpace == true} rowHost={a.adapter.hostOf(ROW).hostSpace == true}`).toBe(
+			"listHost=true rowHost=false"
+		)
+		a.dispose()
+		e.dispose()
+	end)
+
+	--[[ (c) `coverRect()` is a UNION over `lastRects`, and a union over rects in two
+		different origins is not a box on the screen. The host here is moved PAST the
+		right edge of the canvas that fills the surface, so the box's window rect is
+		the only thing that can extend the union — and an uncomposed union would stop
+		at the canvas and never notice. ]]
+	it("coverRect unions window-space boxes, not host-relative ones", function()
+		local off = { sig = nil :: any }
+		local w = world(function(core: any): any
+			off.sig = core:signal(0)
+			return UI.Screen({
+				id = "S",
+				children = {
+					UI.Anchor({
+						id = "Canvas",
+						width = fill(),
+						height = fill(),
+						children = {
+							UI.VStack({
+								id = "Host",
+								anchor = "topLeft",
+								offsetX = off.sig,
+								offsetY = core:signal(50),
+								width = px(60),
+								height = px(40),
+								children = { UI.Box({ id = "Only", width = px(60), height = px(40) }) },
+							}),
+						},
+					}),
+				},
+			})
+		end)
+		local ONLY = "/S/Canvas/Host/Only"
+		off.sig:set(380)
+		w.refresh()
+		local cover = w.controller.coverRect()
+		local sro = w.controller.screenRectOf(ONLY)
+		-- the canvas fills 400x300; the box now reaches 440, so the union's right edge
+		-- IS the composed box. Read host-relative it would be 60, inside the canvas,
+		-- and this number would be 400.
+		expect(`right={cover.x + cover.w}`).toBe(`right={sro.x + sro.w}`)
+		expect(`right={cover.x + cover.w}`).toBe("right=440")
+		w.dispose()
+	end)
+
+	--[[ (d) THE SELECTION INDICATOR, which reads RAW `rectOf` on nodes that share a
+		parent (`selection_indicator.luau`'s own note): the host origin cancels in the
+		subtraction, so it needs no composition — but only because the indicator layer
+		and the segments really do share one space. Inside a moved host they still do,
+		and the DELTA between the bar and its segment is what must not move. ]]
+	it("a selection indicator inside a moved host keeps its delta to the selected segment", function()
+		local off = { sig = nil :: any }
+		local w = world(function(core: any): any
+			off.sig = core:signal(0)
+			local seg = function(id: string, width: number): any
+				return UI.Button({ id = id, label = id, width = px(width), height = px(48) })
+			end
+			return UI.Screen({
+				id = "S",
+				children = {
+					UI.Anchor({
+						id = "Canvas",
+						width = fill(),
+						height = fill(),
+						children = {
+							UI.VStack({
+								id = "Host",
+								anchor = "topLeft",
+								offsetX = off.sig,
+								offsetY = core:signal(10),
+								width = px(200),
+								height = px(48),
+								children = {
+									UI.HStack({ id = "Strip", gap = 0, children = { seg("A", 120), seg("B", 80) } }),
+								},
+							}),
+						},
+					}),
+				},
+			})
+		end)
+		local A = "/S/Canvas/Host/Strip/A"
+		local B = "/S/Canvas/Host/Strip/B"
+		local function delta(): string
+			local a, b = w.controller.rectOf(A), w.controller.rectOf(B)
+			return `{b.x - a.x},{b.y - a.y}`
+		end
+		local was = delta()
+		off.sig:set(120)
+		w.refresh()
+		-- the two segments share a parent, so their difference is space-invariant —
+		-- which is exactly why the indicator needs no composition
+		expect(`delta={delta()}`).toBe(`delta={was}`)
+		-- ...and both really did move in window space
+		expect(`moved={w.controller.screenRectOf(A).x ~= 0}`).toBe("moved=true")
+		w.dispose()
+	end)
+
+	--[[ (e) A RECYCLE ACROSS SPACES. `restoreParkedProps` carries the rect record
+		from a parked instance onto its new path — and beneath a coordinate-space host
+		a rect is host-relative, so a carry into a DIFFERENT space would hand
+		`rect_pass` a rect in the wrong origin that compares equal by value and
+		suppresses the write it owed. The guard drops it instead; what this pin
+		asserts is that the re-adopted node reads exactly where the full-solve arm
+		puts it. ]]
+	it("a node recycled across coordinate spaces lands where a full solve puts it", function()
+		local a = scene.new({ plates = 6 })
+		local c = scene.new({ plates = 6, incremental = false, measureReuse = false })
+		for _, w in { a, c } do
+			w.tick(3, 2)
+			w.remove(6)
+			w.add(1)
+			w.tick(4, 3)
+		end
+		expect(`recycled={a.stats().recycled > 0 or a.stats().parkRefused > 0}`).toBe("recycled=true")
+		expect(a.publicSnapshot()).toBe(c.publicSnapshot())
+		a.dispose()
+		c.dispose()
+	end)
+
+	--[[ (f) A FOCUSED NODE INSIDE A MOVED HOST. `presentation_channel` writes the
+		focus record for the node whose rect it read; the flags must survive a host
+		move, and the float ring's placement is `applyRect`'s third host-origin site. ]]
+	it("a focused node inside a moved host keeps its focus record across the move", function()
+		local off = { sig = nil :: any }
+		local w = world(function(core: any): any
+			off.sig = core:signal(0)
+			return UI.Screen({
+				id = "S",
+				children = {
+					UI.Anchor({
+						id = "Canvas",
+						width = fill(),
+						height = fill(),
+						children = {
+							UI.VStack({
+								id = "Host",
+								anchor = "topLeft",
+								offsetX = off.sig,
+								offsetY = core:signal(20),
+								width = px(80),
+								height = px(48),
+								children = { UI.Button({ id = "Btn", label = "b", width = px(80), height = px(48) }) },
+							}),
+						},
+					}),
+				},
+			})
+		end)
+		local BTN = "/S/Canvas/Host/Btn"
+		w.controller.setFocusPath(BTN, true)
+		w.refresh()
+		local lift = w.adapter.node(BTN).focusLift
+		off.sig:set(140)
+		w.refresh()
+		local node = w.adapter.node(BTN)
+		expect(`focused={tostring(node.focused)} lift={tostring(node.focusLift)}`).toBe(
+			`focused=true lift={tostring(lift)}`
+		)
+		-- ...and the engine position the ring rides is the public one
+		local sro = w.controller.screenRectOf(BTN)
+		expect(`pos={node.presentedPosition.x},{node.presentedPosition.y}`).toBe(`pos={sro.x},{sro.y}`)
+		w.dispose()
+	end)
+
+	--[[ A COMPOSITION UNDER A COORDINATE-SPACE HOST (Plan C ruling R-13, and the
+		reason the create-time Composition SCAN was dropped). `composition_resolve`
+		decides `atRoot` and keys its cache on a WINDOW-space origin, and author
+		`exclusions` are window-space rects converted into the box — so a composition
+		whose box is stored host-relative would resolve against the wrong origin and
+		take out the wrong lanes. The solver carries `ctx.spaceOX`/`ctx.spaceOY` down
+		the walk and hands the arrange-time `resolve` the shifted numbers, which is
+		exact at any time — including for a `Composition` a `When` mounts under an
+		already-registered host later, which a create-time scan could never see.
+
+		AUTHORABLE UNDER AN ORDINARY CONTAINER: the shape below is
+		`tests/redteam_closing_round.spec.luau`'s own composition world, mounted the
+		SHIPPED way instead of with the trigger off, so `Wrap` really is a coordinate
+		space. The two arms must agree on every public column and on `diagKey`. ]]
+	it("a Composition inside a moved host resolves against its WINDOW-space origin", function()
+		local function build(core: any, slide: any): any
+			return UI.Screen({
+				id = "S",
+				children = {
+					UI.Anchor({
+						id = "A",
+						width = fill(),
+						height = fill(),
+						children = {
+							UI.ZStack({
+								id = "Wrap",
+								anchor = "topLeft",
+								offsetX = core:signal(0),
+								offsetY = slide,
+								width = px(400),
+								height = px(300),
+								children = {
+									UI.Composition({
+										id = "Comp",
+										arrangements = { "column" },
+										laneGap = 12,
+										groupGap = 8,
+										width = px(400),
+										height = px(300),
+										-- window-space by contract, converted into the box: move
+										-- the box and a different set of lanes is taken out
+										exclusions = { { x = 0, y = 0, w = 200, h = 200 } },
+										groups = {
+											{ id = "main", lane = "main", sizing = "fill", minWidth = 120 },
+										},
+										children = {
+											UI.Region({
+												id = "R1",
+												group = "main",
+												rank = 1,
+												children = { UI.Box({ id = "r1a", width = px(100), height = px(40) }) },
+											}),
+										},
+									}),
+								},
+							}),
+						},
+					}),
+				},
+			})
+		end
+		local slides: { any } = {}
+		local function makeWorld(hosts: boolean): any
+			local w = world(function(core: any): any
+				local slide = core:signal(0)
+				table.insert(slides, slide)
+				return build(core, slide)
+			end, { x = 0, y = 0, w = 400, h = 600 }, if hosts then nil else { translateHosts = false })
+			return w
+		end
+		local a = makeWorld(true)
+		local e = makeWorld(false)
+		expect(`hosted={a.adapter.isHost("/S/A/Wrap")} flat={e.adapter.isHost("/S/A/Wrap")}`).toBe(
+			"hosted=true flat=false"
+		)
+		local function drive(v: number)
+			slides[1]:set(v)
+			slides[2]:set(v)
+			a.refresh()
+			e.refresh()
+		end
+		local function shot(w: any): string
+			local out: { string } = {}
+			for _, p in w.adapter.paths() do
+				local sro = w.controller.screenRectOf(p)
+				table.insert(out, `{p}|{fmt(sro)}`)
+			end
+			table.sort(out)
+			local diag: { string } = {}
+			for _, finding in w.controller.diagnostics() do
+				table.insert(diag, `{finding.node}:{finding.issue}`)
+			end
+			table.sort(diag)
+			return table.concat(out, "\n") .. "\ndiag=" .. table.concat(diag, ";")
+		end
+		for _, v in { 7, 23, 61 } do
+			drive(v)
+			expect(`slide {v}: {shot(a) == shot(e)}`).toBe(`slide {v}: true`)
+		end
+		-- ...and it is not vacuous: the composition really is under the host, and the
+		-- host really moved
+		expect(`comp={a.adapter.hostOf("/S/A/Wrap/Comp").path}`).toBe("comp=/S/A/Wrap")
+		expect(`y={a.controller.screenRectOf("/S/A/Wrap").y}`).toBe("y=61")
+		a.dispose()
+		e.dispose()
+	end)
+
+	--[[ (i) THE FAKE'S COMPOSED POSITION DOES NOT GO STALE. Under Plan C a host move
+		produces exactly ONE `setRect` and zero for its descendants — that is the
+		point — so a fake that composed `presentedPosition` only at its own `setRect`
+		would keep every descendant's pre-move value forever, and two hosted arms of
+		an oracle would go stale together and still compare equal. The mutation for
+		this pin is "delete the subtree recompose in `fake_target.setRect`". ]]
+	it("every descendant's engine position follows a host move on the first tick", function()
+		local s = scene.new({ plates = 4 })
+		s.tick(3, 2)
+		s.tick(11, 7)
+		for _, leaf in { "Row/Name", "Row/Lvl", "Hp", "Cast" } do
+			local path = `/S/Canvas/Plates/[p2]/Plate/{leaf}`
+			local pos = s.adapter.node(path).presentedPosition
+			local sro = s.controller.screenRectOf(path)
+			expect(`{leaf} pos={pos.x},{pos.y}`).toBe(`{leaf} pos={sro.x},{sro.y}`)
+		end
+		s.dispose()
+	end)
+
+	--[[ (j) THE CULL COMPOSES AGAINST *THIS* SOLVE'S ORIGIN. A stroked `UI.Path`'s
+		visibility is decided against its CLIP HOST's box, over the solve's FRESH
+		rects (`paintedRectIn` -> `originIn`), because a cull run against last frame's
+		geometry is the one-frame lag that makes a re-sorted row flash outside its
+		list. Moving the space host far enough takes the path out of the clip box, and
+		the verdict must flip on the SAME solve. ]]
+	it("a path leaving its clip box because its host moved is culled on that solve", function()
+		local off = { sig = nil :: any }
+		local w = world(function(core: any): any
+			off.sig = core:signal(0)
+			return UI.Screen({
+				id = "S",
+				children = {
+					UI.VStack({
+						id = "Clip",
+						clipChildren = true,
+						width = px(120),
+						height = px(120),
+						children = {
+							UI.Anchor({
+								id = "Canvas",
+								width = fill(),
+								height = fill(),
+								children = {
+									UI.VStack({
+										id = "Host",
+										anchor = "topLeft",
+										offsetX = off.sig,
+										offsetY = core:signal(0),
+										width = px(40),
+										height = px(40),
+										children = {
+											UI.Path({ id = "Spark", points = path_shapes.ring(), thickness = 2 }),
+										},
+									}),
+								},
+							}),
+						},
+					}),
+				},
+			})
+		end)
+		local SPARK = "/S/Clip/Canvas/Host/Spark"
+		expect(`space={tostring(w.adapter.hostOf(SPARK).hostSpace == true)}`).toBe("space=true")
+		expect(`visible={tostring(w.adapter.node(SPARK).visible)}`).toBe("visible=true")
+		-- push the host clean out of the 120px clip box, and read the verdict on the
+		-- SAME refresh that moved it
+		off.sig:set(400)
+		w.refresh()
+		expect(`visible={tostring(w.adapter.node(SPARK).visible)}`).toBe("visible=false")
+		-- ...and back
+		off.sig:set(0)
+		w.refresh()
+		expect(`visible={tostring(w.adapter.node(SPARK).visible)}`).toBe("visible=true")
+		w.dispose()
+	end)
+end)

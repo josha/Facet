@@ -359,7 +359,8 @@ describe("VirtualHGrid pointer and touch (no consumer wiring)", function()
 		expect(w.grid.debugWindow().i41).toBe(true)
 		-- the cell sits at its ABSOLUTE canvas offset: the engine translates the
 		-- canvas by CanvasPosition and the framework never does
-		expect(w.adapter.node(cellHit("i41")).rect.x - w.canvas().x).toBe(10 * LINE)
+		-- COMPOSED (Plan C, C1): the windowed cell's row is a coordinate space
+		expect(w.adapter.composedRect(cellHit("i41")).x - w.canvas().x).toBe(10 * LINE)
 		expect(#w.activations).toBe(0)
 	end)
 

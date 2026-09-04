@@ -16,10 +16,14 @@ describe("engineWrites: the adapter counts what the engine was told", function()
 		local before = s.adapter.engineWrites()
 		s.tick(3, 2)
 		local st = s.stats()
-		-- READ OFF THE RUN at HEAD before T3: every one of the 1,500 rect writes is a
-		-- real engine write today, because the plate tree is FLAT.
+		--[[ READ OFF THE RUN, AND THIS IS THE NUMBER THE WHOLE CAMPAIGN IS ABOUT.
+			Before Plan C's C1 every one of the 1,500 rect writes was a real engine
+			write, because the plate tree was FLAT: a plate's move changed 6 absolute
+			positions and the engine had to be told all 6. With the plate root a
+			COORDINATE SPACE it is one engine `Position` per plate and the engine
+			carries the subtree — 1,500 -> 250. ]]
 		expect(`engineWrites delta={s.adapter.engineWrites() - before} solves={st.solves}`).toBe(
-			`engineWrites delta={scene.PLATES * scene.NODES_PER_PLATE} solves={st.solves}`
+			`engineWrites delta={scene.PLATES} solves={st.solves}`
 		)
 		expect(`stats.engineWrites={st.engineWrites}`).toBe(`stats.engineWrites={s.adapter.engineWrites()}`)
 		-- an A/A re-apply costs nothing: the mirror compares before it writes

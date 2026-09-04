@@ -72,12 +72,39 @@ local function rows(rotation: number?): { any }
 	return out
 end
 
+-- ...and the same rows with a REACTIVE `offsetY` on each one, which Plan C's C1
+-- turns into a real instance parent AND the origin its subtree's rects are stored
+-- against. SAME REASON AS `ROTATED`: registering a host means materialising it, so
+-- the 20 row containers leave the elidable set, and the delta is published rather
+-- than discovered later.
+local function translatedRows(core: any): { any }
+	local out: { any } = {}
+	for i = 1, 20 do
+		local offset = core:signal(0)
+		table.insert(
+			out,
+			UI.VStack({
+				id = `Row{i}`,
+				anchor = "topLeft",
+				offsetY = offset,
+				children = {
+					UI.Text({ id = "A", text = `row {i}`, textSize = 12 }),
+					UI.Text({ id = "B", text = "sub", textSize = 12 }),
+				},
+			})
+		)
+	end
+	return out
+end
+
+-- `screen` is either a blueprint or a function of the core (a fixture that needs
+-- reactive props has to be built against the core the census mounts on)
 local function census(screen: any): { creates: number, elided: number, guiObjects: number, pct: number }
 	local core = customFactory.new()
 	local env = environment.new(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 400, h = 600 })
 	env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
-	local root = mountLib.mount(core, screen)
+	local root = mountLib.mount(core, if type(screen) == "function" then screen(core) else screen)
 	local adapter = fake_target.new()
 	local controller = rendererLib.attach(core, root, env, adapter, { rootPolicy = "edgeToEdge" })
 	controller.initialRender()
@@ -120,12 +147,29 @@ local ROTATED = census(UI.Screen({
 	children = { UI.VStack({ id = "List", children = rows(30) }) },
 }))
 
+local TRANSLATED = census(function(core: any): any
+	return UI.Screen({
+		id = "S",
+		padding = 0,
+		gap = 0,
+		children = { UI.Anchor({ id = "List", children = translatedRows(core) }) },
+	})
+end)
+
 -- the live Studio probe. Exact, not a floor — see the header.
 local EXPECT_FLAT = { creates = 142, elided = 61, guiObjects = 81 }
 -- Decision 4's price, pinned exactly for the same reason fixture A is: 20 row
 -- HStacks stop being elidable, so 61 - 20 = 41 and the surface carries 20 more
 -- GuiObjects. If that number moves, the boundary predicate changed.
 local EXPECT_ROTATED = { creates = 142, elided = 41, guiObjects = 101 }
+--[[ ...AND PLAN C's C1 PRICE, on its own fixture and read off the run. The fifth
+	trigger costs ONE FRAME PER MOVING CONTAINER, and this fixture is 62 nodes — one
+	Anchor, 20 reactive-offset VStacks and their 40 Text leaves — of which exactly
+	ONE is elidable (the Anchor is not: it is the surface's own fill container). The
+	20 rows are the price, read off the run. It is a SEPARATE fixture on purpose:
+	`EXPECT_FLAT` above is UNCHANGED, which is the claim that a container with a
+	STATIC placement pays nothing at all for the trigger existing. ]]
+local EXPECT_TRANSLATED = { creates = 62, elided = 1, guiObjects = 61 }
 -- fixture B's floor: elision must keep removing at least this share. Set two
 -- points below the measured value so an ordinary control-side node change does
 -- not cry wolf, and any real retreat does.
@@ -150,6 +194,16 @@ if ROTATED.creates ~= EXPECT_ROTATED.creates or ROTATED.elided ~= EXPECT_ROTATED
 			.. `containers materialising to become real parents), got {ROTATED.creates} / {ROTATED.elided} `
 			.. `({ROTATED.guiObjects} GuiObjects). The boundary predicate moved: either more containers `
 			.. "are earning a host than the rule says, or fewer, and both are worth writing down."
+	)
+end
+if TRANSLATED.creates ~= EXPECT_TRANSLATED.creates or TRANSLATED.elided ~= EXPECT_TRANSLATED.elided then
+	table.insert(
+		problems,
+		`translated 20-row list: expected {EXPECT_TRANSLATED.creates} creates / {EXPECT_TRANSLATED.elided} elided `
+			.. `({EXPECT_TRANSLATED.guiObjects} GuiObjects — Plan C's price, one Frame per moving `
+			.. `container), got {TRANSLATED.creates} / {TRANSLATED.elided} ({TRANSLATED.guiObjects} `
+			.. "GuiObjects). The coordinate-space trigger moved: either more containers are earning a "
+			.. "host than the rule says, or fewer, and both are worth writing down."
 	)
 end
 if SCROLLED.pct < SCROLLED_FLOOR_PCT then
@@ -196,6 +250,16 @@ print(
 		ROTATED.guiObjects,
 		ROTATED.pct,
 		ROTATED.guiObjects - FLAT.guiObjects
+	)
+)
+print(
+	string.format(
+		"                 translated rows (Plan C): %d creates, %d elided, %d GuiObjects (%.1f%% elided) "
+			.. "— one Frame per moving container; the flat arm above is unchanged",
+		TRANSLATED.creates,
+		TRANSLATED.elided,
+		TRANSLATED.guiObjects,
+		TRANSLATED.pct
 	)
 )
 

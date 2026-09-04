@@ -47,6 +47,10 @@ local schema = require("../blueprint_schema")
 -- pure numbers a package cannot move, read here so the display class and the
 -- declaration meet in one place. See `adaptive.LANE_MEASURE`.
 local adaptive = require("../layout/adaptive")
+-- the ONE predicate that decides which nodes are real engine parents, and which of
+-- those are COORDINATE SPACES (Plan C, C1) — asked here as well as in
+-- `renderer.ensureTree`; see `hostSpaceOf` below for why both ask
+local instance_boundary = require("./instance_boundary")
 
 local layout_node = {}
 
@@ -247,6 +251,12 @@ local function applyCircleShape(layoutNode: any, props: any, metrics: any)
 	elseif layoutNode.width == nil then
 		layoutNode.width = { type = "aspect", ratio = 1 }
 	end
+end
+
+-- the coordinate-space decision, through the ONE predicate that owns it
+local function hostSpaceOf(node: any, attachOpts: any): boolean?
+	local created = instance_boundary.createOptsFor(node, attachOpts)
+	return if created ~= nil and created.hostSpace == true then true else nil
 end
 
 local function toLayoutNode(
@@ -613,6 +623,19 @@ local function toLayoutNode(
 			or props.layoutPriority ~= nil
 			or props.shrinkWeight ~= nil
 		) or nil,
+		--[[ WHETHER THIS NODE IS A COORDINATE SPACE (Plan C, C1) — carried because
+			`arrange` is what runs such a host's body at the origin. Not a prop and not
+			derivable from one: the trigger reads `dynamicProps`, which does not survive
+			into the layout tree.
+
+			ASKED HERE, NOT READ OFF A STAMP. `renderer.ensureTree` stamps the same
+			answer when it chooses the node's engine object, but this build can run
+			FIRST — a re-solve driven from inside a settle reaches a row the structural
+			sync has not created yet — and a layout node built with the flag missing
+			stores its whole subtree absolutely under a parent the adapter then
+			registers as a coordinate space. `createOptsFor` memoises its answer on the
+			mounted node, so whichever of the two asks first fixes it for both. ]]
+		hostSpace = hostSpaceOf(node, store.attachOpts),
 		columns = props.columns,
 		minColumnWidth = props.minColumnWidth,
 		itemSizing = props.itemSizing,
@@ -1519,6 +1542,7 @@ end
 ]]
 
 export type Store = {
+	attachOpts: any,
 	--[[ THE THREE AXIS 3 INPUTS THE ENTRIES WERE BUILT UNDER, held as themselves.
 		`metrics` is the applied ThemeSnapshot compared with `~=`, which is what
 		"identity" means and what the header says: a `tostring(metrics)` stamp would
@@ -1551,8 +1575,12 @@ local WEAK_KEYS = table.freeze({ __mode = "k" })
 -- `reuse == false` builds a COUNT-ONLY store: the counter still reports N, and
 -- nothing is looked up, allocated or stored. That is the differential oracle's
 -- control arm and it must cost what the pre-P3 build cost.
-function layout_node.newStore(reuse: boolean?): Store
+-- `attachOpts` is the renderer's own `RendererAttachOpts`, kept so `hostSpaceOf`
+-- can ask the boundary predicate the same question `ensureTree` asks — the only
+-- key it reads is `translateHosts`
+function layout_node.newStore(reuse: boolean?, attachOpts: any?): Store
 	return {
+		attachOpts = attachOpts,
 		metrics = nil,
 		textScale = 0 / 0,
 		prefOffset = 0 / 0,

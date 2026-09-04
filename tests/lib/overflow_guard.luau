@@ -463,6 +463,10 @@ function overflow_guard.violations(adapter: any, ledger: Ledger?, snapshot: any?
 	local nodes: { [string]: any } = {}
 	local paths = adapter.paths()
 	for _, path in paths do
+		--[[ `node.rect` is the WINDOW-space rect on both targets (Plan C, C1: the
+			fake keeps the host-relative one under `storedRect`), which every rule below
+			needs — each of them compares a node's box against an ANCESTOR's, and under
+			a coordinate-space host the two are stored in different origins. ]]
 		nodes[path] = adapter.node(path)
 	end
 	--[[ THE CHILD INDEX, built once, and only when a snapshot is in hand: it exists

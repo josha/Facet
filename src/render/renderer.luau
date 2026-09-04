@@ -32,6 +32,7 @@ local presentation_channel = require("./presentation_channel")
 -- paint target, read only by `controller.diagnostics()` — nothing here runs in a
 -- solve, a commit or a frame
 local surface_overlap = require("./surface_overlap")
+local dirty_closure = require("./dirty_closure")
 local themeSnapshot = require("../themes/snapshot")
 -- the measure seam and the button-text grammar (see the pointer below)
 local layout_node = require("./layout_node")
@@ -216,6 +217,10 @@ export type RendererAttachOpts = {
 	-- the same reason the three above have one: off restores the pre-P5 branch exactly
 	-- (an add/remove/reorder takes a full solve). See `render/structural_scope.luau`.
 	structuralReuse: boolean?,
+	-- THE COORDINATE-SPACE HOST TRIGGER, default ON, switch here for the same reason
+	-- the four above have one: the oracle needs an arm with NO such host, so a
+	-- divergence names it (`render/instance_boundary`).
+	translateHosts: boolean?,
 }
 
 local ATTACH_OPTS_KEYS = specGuard.keySet({
@@ -231,6 +236,7 @@ local ATTACH_OPTS_KEYS = specGuard.keySet({
 	"layoutNodeReuse",
 	"commitScope",
 	"structuralReuse",
+	"translateHosts",
 })
 
 -- attach(core, mountedRoot, env, adapter, opts) -> controller
@@ -444,8 +450,8 @@ function renderer.attach(
 	-- this construction char-for-char, hence the formatter exemption.
 	-- stylua: ignore
 	local geometry = rect_reads.new({ adapter = adapter, handles = handles, lastRects = lastRects, scrollHostOf = scrollHostOf, presentationShift = presentationShift })
-	local rectOf, scrollShift, screenRectOf, paintedRectIn =
-		geometry.rectOf, geometry.scrollShift, geometry.screenRectOf, geometry.paintedRectIn
+	local rectOf, scrollShift, screenRectOf, paintedRectIn, hostOriginOf =
+		geometry.rectOf, geometry.scrollShift, geometry.screenRectOf, geometry.paintedRectIn, geometry.hostOriginOf
 	-- half a pixel of slack: a rect that lands exactly on its host's edge is
 	-- INSIDE it, and solved rects are not guaranteed integral.
 	local CLIP_EPSILON = 0.5
@@ -943,7 +949,12 @@ function renderer.attach(
 			-- boundary predicate and lives in `render/instance_boundary` — the one
 			-- predicate the nested-tree migration changes, and the reason it has a
 			-- module rather than two branches in the busiest function here.
-			local createOpts: any = instance_boundary.createOptsFor(node)
+			local createOpts: any = instance_boundary.createOptsFor(node, opts)
+			-- ...AND WHETHER THAT HOST IS A COORDINATE SPACE, stamped here because that
+			-- module decides it; `layout_node` copies it onto the solver's node. A warm
+			-- node-store hit skips that literal — fine, the flag is fixed for a node's
+			-- life and a REMOUNT builds all three afresh.
+			node.hostSpace = if createOpts ~= nil and createOpts.hostSpace == true then true else nil
 			local hint = chrome_slots.readHint(node)
 			-- A STAGE IS NEVER A DECORATION SURFACE (reference-app matrix,
 			-- 2026-08-08). An ornate package's whole-art recipe painted its
@@ -1385,11 +1396,22 @@ function renderer.attach(
 	-- nearest-scroll-host map `screenRectOf` needs. Threading the host down the
 	-- recursion is free here and costs a whole-tree search per hit-test if it is
 	-- computed on demand instead.
-	local function livePaths(node: any, set: { [string]: boolean }, host: string?, clip: string?, departed: { string }?)
+	local function livePaths(
+		node: any,
+		set: { [string]: boolean },
+		host: string?,
+		clip: string?,
+		departed: { string }?,
+		space: string?
+	)
 		stats.lastSsVisited += 1
 		set[node.path] = true
 		scrollHostOf[node.path] = host
 		clipHostOf[node.path] = clip
+		-- ...and the nearest COORDINATE-SPACE host, threaded like the two above and for
+		-- the same reason; unconditional, `nil` included
+		geometry.hostSpaceOf[node.path] = space
+		geometry.spaceHosts[node.path] = node.hostSpace or nil
 		-- ...and the stroked-path census (RS-PATHCLIP): the cull runs over this
 		-- set, so a surface with no `UI.Path` never pays for the rule existing.
 		-- WRITTEN UNCONDITIONALLY, INCLUDING THE nil (O6), so one code path serves both
@@ -1424,6 +1446,7 @@ function renderer.attach(
 		else
 			inputSinks[node.path] = nil
 		end
+		local nextSpace = if node.hostSpace then node.path else space
 		local nextHost = if node.class == "ScrollView" then node.path else host
 		-- a ScrollView is a clip host by construction (the adapter mounts a real
 		-- scrolling host); any container may declare itself one
@@ -1450,7 +1473,7 @@ function renderer.attach(
 				kids[child.path] = child
 				parentNodeOf[child.path] = node
 				if departed == nil or was == nil or was[child.path] ~= child then
-					livePaths(child, set, nextHost, nextClip, departed)
+					livePaths(child, set, nextHost, nextClip, departed, nextSpace)
 				end
 			end
 		end
@@ -1507,6 +1530,9 @@ function renderer.attach(
 	captureParkedProps = function(path: string): any
 		return {
 			rect = lastRects[path],
+			-- WHICH SPACE THAT RECT IS IN, so the restore can refuse to carry it into a
+			-- different one
+			hostSpace = geometry.hostSpaceOf[path],
 			z = lastZ[path],
 			textSize = lastTextSize[path],
 			textFont = lastTextFont[path],
@@ -1517,13 +1543,21 @@ function renderer.attach(
 		}
 	end
 	restoreParkedProps = function(path: string, carried: any)
-		lastRects[path] = carried.rect
+		-- THE TWO CARRIED VALUES THAT LIVE IN A COORDINATE SPACE, carried only within
+		-- one — `render/rect_reads`' `hostSpaceOf` note has the argument, and the hit
+		-- band is stored in the same space its entry is. Reading that map before this
+		-- walk rebuilds it can only be conservative: `hostSpaceOf[path]` is `nil` for
+		-- a new and a re-created path alike.
+		local sameSpace = geometry.hostSpaceOf[path] == carried.hostSpace
+		lastRects[path] = if sameSpace then carried.rect else nil
+		-- ...and the origin cache: one of `lastRects`' three writers
+		geometry.invalidateOrigins()
 		lastZ[path] = carried.z
 		lastTextSize[path] = carried.textSize
 		lastTextFont[path] = carried.textFont
 		lastPadding[path] = carried.padding
 		lastVisible[path] = carried.visible
-		lastHitRects[path] = carried.hitRect
+		lastHitRects[path] = if sameSpace then carried.hitRect else nil
 		lastWrapped[path] = carried.textWrapped
 	end
 	-- THE COMMIT WALKS (`src/render/commit_walks`): the six write loops that spend
@@ -1561,6 +1595,7 @@ function renderer.attach(
 		lastCompositions = lastCompositions,
 		lastTextFacts = lastTextFacts,
 		authoredHidden = authoredHidden,
+		originOf = geometry.commitOriginOf,
 	})
 
 	-- THE RECT PASS (src/render/rect_pass): one walk in DOCUMENT ORDER, so a host's
@@ -1576,6 +1611,9 @@ function renderer.attach(
 		stats = stats,
 		rectsEqual = rectsEqual,
 		scope = commitWalks.scope,
+		-- ONE BUMP PER COMMIT: `lastRects` has three writers and the epoch is one
+		-- integer, so a blunt bump beats a hot-loop branch
+		invalidateOrigins = geometry.invalidateOrigins,
 	})
 
 	-- the inputs of the most recent solve, for the opt-in boundary analysis below
@@ -1616,7 +1654,7 @@ function renderer.attach(
 	-- `render/layout_node.luau` carries the four axes, the weak keys and the numbers.
 	-- `nodeDirty` is axis 2 and `nodeDirtySeen` guards it — both at the build below.
 	local nodeReuseEnabled = opts == nil or (opts :: any).layoutNodeReuse ~= false
-	local nodeStore = layout_node.newStore(nodeReuseEnabled)
+	local nodeStore = layout_node.newStore(nodeReuseEnabled, opts)
 	local nodeDirty: { [string]: boolean }? = nil
 	local nodeDirtySeen = -1
 	-- ...AND THE COMMIT'S OWN HALF (T5b): same lifecycle and loop, minus
@@ -2068,6 +2106,9 @@ function renderer.attach(
 				it replaces, and an arming read from the PREVIOUS commit prunes against
 				the wrong solve (`node_reuse.spec`'s theme case: a swap that changed
 				every font wrote none of them). ]]
+			-- the map the commit's cross-space composers read for the rest of this span —
+			-- THIS solve's, not `lastRects` (see `render/rect_reads`)
+			geometry.setCommitRects(result.rects)
 			if
 				commitWalks.harvest(
 					root.node,
@@ -2119,7 +2160,14 @@ function renderer.attach(
 			-- then re-walks the whole tree, but only on the frames the lift itself moved.
 			if
 				adapter.setHitRect ~= nil
-				and hitLift.refresh(result.rects, lastHitRects, inputSinks, parentNodeOf, solverHidden)
+				and hitLift.refresh(
+					result.rects,
+					lastHitRects,
+					inputSinks,
+					parentNodeOf,
+					solverHidden,
+					geometry.commitOriginOf
+				)
 			then
 				syncZOrder()
 			end
@@ -2435,6 +2483,9 @@ function renderer.attach(
 		end
 		handles[path] = nil
 		lastRects[path] = nil
+		-- ...and its coordinate-space bookkeeping (`rect_reads.dropPath` says why the
+		-- bounded arm makes it necessary)
+		geometry.dropPath(path)
 		lastBarInsets[path] = nil
 		lastScrollRegions[path] = nil
 		scrollAutoscroll[path] = nil
@@ -2568,16 +2619,29 @@ function renderer.attach(
 			table.clear(parentNodeOf)
 			table.clear(inputSinks)
 			table.clear(childNodesOf)
+			-- ...and the coordinate-space maps, by the module that owns them
+			geometry.clearHosts()
 			pathNodeCount = 0
 		else
 			departed = {}
+			-- THE BOUNDED ARM CLEARS NOTHING, so it must at least INVALIDATE: it can move
+			-- a host without touching every path under it, and a stale origin is a WRONG
+			-- origin, not a slow one
+			geometry.invalidateOrigins()
 		end
 		local _t2 = os.clock()
 		if roots == nil then
-			livePaths(root.node, alive, nil, nil, nil)
+			livePaths(root.node, alive, nil, nil, nil, nil)
 		else
 			for _, r in roots do
-				livePaths(r.node, alive, scrollHostOf[r.path], clipHostOf[r.path], departed)
+				livePaths(
+					r.node,
+					alive,
+					scrollHostOf[r.path],
+					clipHostOf[r.path],
+					departed,
+					geometry.hostSpaceOf[r.path]
+				)
 			end
 		end
 		local _t3 = os.clock()
@@ -2924,44 +2988,11 @@ function renderer.attach(
 				-- different content under the same path, so it can change a measure.
 				measureContains = dirtyContains
 			else
+				-- THE ANCESTOR CLOSURE (`render/dirty_closure`): every dirty node plus every
+				-- ancestor of one, and the measure half alone — a pure function of `dirty`,
+				-- which is why it could leave this file
 				profile.span("dirtyClosure", function()
-					-- THE ANCESTOR CLOSURE. A node may be skipped only if NOTHING inside it
-					-- is dirty, so the set handed to the solver is every dirty node plus
-					-- every ancestor of one — the solver skips exactly the nodes absent
-					-- from it. Paths are `/a/b/c`, so the ancestors are the prefixes.
-					--[[ TWO CLOSURES, NOT ONE (wicked-fast O2). The measure half carries
-						`measure` dirt and its prefixes alone — an offset-only change
-						cannot prove a slate stale. The walk terminates PER SET: an
-						arrange entry that filled a chain must not cut a measure one's. ]]
-					local contains: { [string]: boolean } = {}
-					local measures: { [string]: boolean } = {}
-					for _, entry in dirty do
-						local path = entry.path
-						local isMeasure = entry.class == "measure"
-						if (isMeasure or entry.class == "arrange") and path ~= nil then
-							-- the set THIS entry terminates on. An arrange entry's two writes
-							-- land on `contains` twice, which is a no-op.
-							local target = if isMeasure then measures else contains
-							contains[path] = true
-							target[path] = true
-							local at = path
-							while true do
-								local cut = string.match(at, "^(.*)/[^/]*$")
-								if cut == nil or cut == "" then
-									break
-								end
-								local seen = target[cut]
-								contains[cut] = true
-								target[cut] = true
-								if seen then
-									break
-								end
-								at = cut
-							end
-						end
-					end
-					dirtyContains = contains
-					measureContains = measures
+					dirtyContains, measureContains = dirty_closure.of(dirty)
 				end)
 			end
 			-- ...and the pair belongs to THIS refresh, so it is cleared EVEN WHEN THE
@@ -3455,6 +3486,7 @@ function renderer.attach(
 		lastScrollRegions = lastScrollRegions,
 		scrollHostOf = scrollHostOf,
 		screenRectOf = screenRectOf,
+		hostOriginOf = hostOriginOf,
 	})
 	controller.scrollToVisible = scrollIntoView.scrollToVisible
 
@@ -3793,7 +3825,8 @@ function renderer.attach(
 		if not rootVisible then
 			return nil
 		end
-		return surface_overlap.coverRect(root.node.path, lastRects, paintsNothing)
+		-- `hostOriginOf`, not the fresh-map walk: the union is over `lastRects`
+		return surface_overlap.coverRect(root.node.path, lastRects, paintsNothing, hostOriginOf)
 	end
 
 	-- THE SURFACE, AS THE CROSS-SURFACE ALARM SEES IT. Registered once at attach,
@@ -3916,7 +3949,7 @@ function renderer.attach(
 		table.clear(scrollHostOf)
 		-- the node store goes with the surface: its keys are weak so it would drain on
 		-- its own, but one assignment is cheaper than a heap census asking why not
-		nodeStore = layout_node.newStore(nodeReuseEnabled)
+		nodeStore = layout_node.newStore(nodeReuseEnabled, opts)
 		-- RS-PATHCLIP: the per-scroll-host offset subscriptions are the one
 		-- connection this rule holds, so they die with the surface like every
 		-- other adapter subscription
@@ -3939,6 +3972,10 @@ function renderer.attach(
 		-- would leave it answering out of a table this surface had abandoned.
 		table.clear(handles)
 		table.clear(lastRects)
+		-- ...and the coordinate-space maps, held by `render/rect_reads` and cleared in
+		-- place by it for the same reason
+		geometry.clearHosts()
+		geometry.setCommitRects({})
 		-- ...and the overhang lift, which is a fact about a tree that no longer
 		-- exists: a re-presented surface recomputes it from its own first solve
 		table.clear(parentNodeOf)

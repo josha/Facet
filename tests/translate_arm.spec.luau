@@ -66,6 +66,24 @@ local CASTERS = PLATES // scene.CASTER_EVERY -- 50
 local LAYOUT = PLATES * scene.NODES_PER_PLATE + 2 -- 1502
 local ARRANGED_TICK = PLATES + 2 -- 252
 local TRANSLATED_TICK = PLATES * (scene.NODES_PER_PLATE - 1) -- 1250
+--[[ THE ARM'S OWN FIXTURE IS NOW MOUNTED WITH NO COORDINATE-SPACE HOSTS (Plan C,
+	C1), and that is a coverage decision, not a workaround. A container whose
+	placement is REACTIVE and that has children became the ORIGIN its subtree's rects
+	are stored against — so a move of one re-bases NOTHING beneath it and the arm
+	this file is about never runs on it: the solver records an EMPTY translate run
+	and stops. Every plate root in this fixture is such a container, so mounted the
+	shipped way `lastTranslated` is 0 and every counter below would be pinning the
+	absence of the mechanism it exists to measure.
+
+	The arm is still live for every OTHER moved subtree — a scale/rotation host, a
+	container with a STATIC placement that moves because its parent re-laid out, a
+	scroll root — so the cases that measure the ARM take `hosts = false`, which is
+	the pre-Plan-C world byte for byte. The two cases that measure the WRITE COST on
+	this fixture stay on the shipped mount and their numbers moved with the
+	measurement; `tests/translate_host.spec.luau` is the hosted counterpart, and
+	`tests/host_space_oracle.spec.luau` compares the two worlds on every public
+	column after every step. ]]
+local ARM_ONLY: any = { hosts = false }
 -- READ OFF THE RUN (derivation (b), see the header): per caster the Plate root,
 -- its Row, its Hp and its Cast are all arranged — Row and Hp because they are
 -- themselves translate ROOTS under a plate the `Cast` dirt forced open.
@@ -74,7 +92,7 @@ local TRANSLATED_CASTS = (PLATES - CASTERS) * 5 + CASTERS * 2 -- 1100
 
 describe("O3: a moved-not-resized subtree translates", function()
 	it("a pure tick arranges the roots and translates the rest", function()
-		local s = scene.new()
+		local s = scene.new(ARM_ONLY)
 		s.tick(3, 2)
 		s.tick(3, 2)
 		local st = s.stats()
@@ -85,7 +103,7 @@ describe("O3: a moved-not-resized subtree translates", function()
 	end)
 
 	it("a caster tick arranges the bars too", function()
-		local s = scene.new()
+		local s = scene.new(ARM_ONLY)
 		s.tickWithCasts(3, 2)
 		s.tickWithCasts(3, 2)
 		local st = s.stats()
@@ -132,7 +150,9 @@ describe("O3: a moved-not-resized subtree translates", function()
 		-- skip site without writing `out[node.id]` — `arranged`, `translated` and
 		-- `rectInserts` are all incremented, and the plate simply never moves on
 		-- screen. This is the assertion that catches it: the ADAPTER's rect for a
-		-- plate root, before and after, differs by exactly the delta.
+		-- plate root, before and after, differs by exactly the delta. MOUNTED THE
+		-- SHIPPED WAY (see `ARM_ONLY`'s note): this is the write-cost half, and under
+		-- Plan C the plate root IS a coordinate space, so its own rect still moves.
 		local s = scene.new()
 		s.tick(3, 2)
 		local path = "/S/Canvas/Plates/[p7]/Plate"
@@ -140,27 +160,44 @@ describe("O3: a moved-not-resized subtree translates", function()
 		s.tick(3, 2)
 		local after = s.adapter.liveNodes()[path].rect
 		expect(`dx={after.x - before.x} dy={after.y - before.y}`).toBe("dx=3 dy=2")
-		-- ...and a descendant of it moved by the same delta, from the re-based run
+		--[[ ...AND A DESCENDANT OF IT DOES NOT MOVE AT THE ADAPTER, WHICH IS THE
+			CHANGE (Plan C, C1). Its stored rect is HOST-RELATIVE, so a move of the host
+			leaves it exactly where it was in its own space — that is the 1,250 writes
+			this campaign removes. What moved is the WINDOW position the adapter
+			composed, and it moved by the same delta the root did. ]]
+		-- `storedRect`, NOT `rect`: the fake reports `node.rect` as the WINDOW rect on
+		-- both targets and keeps what the renderer actually handed it under
+		-- `storedRect`, which is the half that stopped changing
 		local kidPath = "/S/Canvas/Plates/[p7]/Plate/Hp"
-		local kidAfter = s.adapter.liveNodes()[kidPath].rect
+		local kidAfter = s.adapter.liveNodes()[kidPath].storedRect
+		local posAfter = s.adapter.node(kidPath).presentedPosition
 		s.tick(3, 2)
-		local kidNext = s.adapter.liveNodes()[kidPath].rect
-		expect(`dx={kidNext.x - kidAfter.x} dy={kidNext.y - kidAfter.y}`).toBe("dx=3 dy=2")
+		local kidNext = s.adapter.liveNodes()[kidPath].storedRect
+		local posNext = s.adapter.node(kidPath).presentedPosition
+		expect(`dx={kidNext.x - kidAfter.x} dy={kidNext.y - kidAfter.y}`).toBe("dx=0 dy=0")
+		expect(`dx={posNext.x - posAfter.x} dy={posNext.y - posAfter.y}`).toBe("dx=3 dy=2")
 		s.dispose()
 	end)
 
-	it("the writes are REAL and they all still happen (the flat tree, profile §1)", function()
+	it("the writes are ONE PER PLATE now, not one per node (Plan C, C1)", function()
+		--[[ THE NUMBER THIS FILE WAS WRITTEN TO EXPLAIN, MOVED WITH ITS MEASUREMENT.
+			Under a flat tree the 1,500 writes were real: every descendant's absolute
+			position changed, so `rect_pass` had 1,500 differing rects to send. With the
+			plate root a coordinate space its subtree's rects do not change AT ALL in
+			their own space, so `applyOne` finds them equal and sends 250 — the plate
+			roots — and the engine composes the rest by parenting. Mounted the shipped
+			way on purpose; `ARM_ONLY` is for the cases measuring the arm itself. ]]
 		local s = scene.new()
 		s.tick(3, 2)
 		local before = s.stats().rectWrites
 		s.tick(3, 2)
-		expect(s.stats().rectWrites - before).toBe(PLATES * scene.NODES_PER_PLATE) -- 1500
+		expect(s.stats().rectWrites - before).toBe(PLATES) -- 250, was 1,500
 		s.dispose()
 	end)
 
 	it("...at every device view, including 320x640", function()
 		for _, view in device_views.VIEWS do
-			local s = scene.new({ viewport = { x = 0, y = 0, w = view.w, h = view.h } })
+			local s = scene.new({ viewport = { x = 0, y = 0, w = view.w, h = view.h }, hosts = false })
 			s.tick(3, 2)
 			s.tick(3, 2)
 			local st = s.stats()
@@ -224,7 +261,13 @@ end
 local ARRANGE_SOURCE = (function(): { string }
 	local body = fs.readFile("src/layout/solver.luau")
 	body = body:gsub("%-%-%[%[.-%]%]", ""):gsub("%-%-[^\n]*", "")
-	local from = body:find("local function arrange%(ctx", 1)
+	-- `arrangeBody`, NOT `arrange` (Plan C, C1): the function was renamed when the
+	-- coordinate-space origin push became a four-line WRAPPER around it. The scanned
+	-- span now also contains that wrapper, which is harmless — `stampsAfterLiteral`
+	-- matches only `out[node.id].<field> =` and `^\t\tentry.<field> =`, and the
+	-- wrapper has neither. Narrowing the scan to exclude it is exactly the failure
+	-- mode this block's own header warns about.
+	local from = body:find("local function arrangeBody%(ctx", 1)
 	local to = body:find("\nfunction solver%.solve%(", from)
 	return string.split(string.sub(body, from :: number, to), "\n")
 end)()
@@ -320,6 +363,11 @@ local function placeWorld(kind: string, prop: string, incremental: boolean, view
 		measureReuse = incremental,
 		layoutNodeReuse = true,
 		commitScope = true,
+		-- see `ARM_ONLY`: every world in this file drives a container with a REACTIVE
+		-- placement, which under Plan C is a coordinate space whose move re-bases
+		-- nothing — so the arm this file measures would never run. Off restores the
+		-- pre-Plan-C world byte for byte.
+		translateHosts = false,
 	})
 	controller.initialRender()
 	local w: any = {}
@@ -457,6 +505,11 @@ describe("O3: a translate root's own layout prop still re-places its children", 
 			-- arise. They are the memo-offer channel's index, not a layout input.
 			"hKey",
 			"hitFloor",
+			-- `hostSpace` (Plan C, C1) is stamped by `render/instance_boundary` at the
+			-- moment the node's engine object is chosen and is fixed for its life, so
+			-- it is a build-time field exactly like `id` and `kind` — not a prop the
+			-- arm could see change under it.
+			"hostSpace",
 			"id",
 			"kind",
 			"leadingBleed",
@@ -897,6 +950,11 @@ local function branchFieldWorld(incremental: boolean, memoReuse: boolean, view: 
 		measureReuse = memoReuse,
 		layoutNodeReuse = true,
 		commitScope = true,
+		-- see `ARM_ONLY`: every world in this file drives a container with a REACTIVE
+		-- placement, which under Plan C is a coordinate space whose move re-bases
+		-- nothing — so the arm this file measures would never run. Off restores the
+		-- pre-Plan-C world byte for byte.
+		translateHosts = false,
 	})
 	controller.initialRender()
 	local w: any = { controller = controller }
@@ -920,7 +978,7 @@ end
 
 --[[ THE REFUSAL'S COMPLETENESS, MECHANISED. The two cases above prove the two
 	kinds that stamp fields today are refused; this proves the LIST is the list. It
-	scans `arrange` itself — from `local function arrange` to `function solver.solve`,
+	scans `arrange` itself — from `local function arrangeBody` to `function solver.solve`,
 	comments stripped — for every write onto the node's own entry AFTER the literal,
 	resolves the `if node.kind == "…"` branch each one sits in, and pins that set of
 	kinds EQUAL to the set `literalIsWholeEntry` refuses. A third kind that starts
@@ -1135,6 +1193,11 @@ local function mountedReportWorld(incremental: boolean, view: any): any
 		measureReuse = incremental,
 		layoutNodeReuse = true,
 		commitScope = true,
+		-- see `ARM_ONLY`: every world in this file drives a container with a REACTIVE
+		-- placement, which under Plan C is a coordinate space whose move re-bases
+		-- nothing — so the arm this file measures would never run. Off restores the
+		-- pre-Plan-C world byte for byte.
+		translateHosts = false,
 	})
 	controller.initialRender()
 	local w: any = { controller = controller }

@@ -916,7 +916,10 @@ describe("D1 anchored surface: the arrow tail is a decoration, never a claim", f
 				initialFocus = "none",
 				anchor = { source = { path = "/Editor/Bar/Plus" }, edge = "bottom", tail = tail },
 			})
-			return adapter.node(`{SURFACE}/Callout`).rect, adapter.node(`{SURFACE}/Callout/Body`).rect
+			-- COMPOSED (Plan C, C1): a Callout places itself with a REACTIVE offset,
+			-- so it is a coordinate space and its `Body`'s stored rect is relative to
+			-- it — the inset below compares the two and needs one space
+			return adapter.composedRect(`{SURFACE}/Callout`), adapter.composedRect(`{SURFACE}/Callout/Body`)
 		end
 		local withPanel, withBody = measure(true)
 		local withoutPanel, withoutBody = measure(false)

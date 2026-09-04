@@ -76,10 +76,17 @@ local ARRANGE_BLIND_CASTS = 3 + CASTERS * 2 -- 103
 	(`translatable` refuses it: its `Cast` child is dirty), and `Row` and `Hp` become
 	translate roots UNDER it — `Row` with a two-node span, `Hp` with an EMPTY one
 	(a childless root still records a run). A move-blind walk prunes `Row` and `Hp`
-	away and visits 4 - 2 = 2 nodes per caster plus the 250 roots = 303. `rect_pass`
-	cannot: it must WRITE `Row`'s and `Hp`'s own rects, so it visits them and stops
-	there. 4 per caster (Plate, Row, Hp, Cast), 1 per quiet plate, + 3 ancestors. ]]
-local RECTPASS_CASTS = 3 + (PLATES - CASTERS) + CASTERS * 4 -- 403
+	away and visits 4 - 2 = 2 nodes per caster plus the 250 roots = 303.
+
+	AND `rect_pass` NOW STOPS THERE TOO (Plan C, C1), which is why this number moved
+	403 -> 303. It used to have to WRITE `Row`'s and `Hp`'s own rects, because both
+	had moved in window space. Beneath a coordinate-space plate root neither moves at
+	all — only the `Cast` bar RESIZED — so the run collapses to the same 2 nodes per
+	caster the move-blind walks visit. It is now the same number as `DIRTY_CASTS`,
+	and it is pinned separately anyway: they are two different derivations that
+	happen to agree, and a future change that moves one must not silently move the
+	other. ]]
+local RECTPASS_CASTS = 3 + (PLATES - CASTERS) + CASTERS * 2 -- 303
 
 describe("O4/N1: seven walks stop at a moved subtree, hitRects does not", function()
 	it("a pure tick", function()
@@ -97,7 +104,14 @@ describe("O4/N1: seven walks stop at a moved subtree, hitRects does not", functi
 		-- every plate root IS a translate root on a pure tick, so `rect_pass` stops
 		-- at exactly the same 253 nodes the all-classes walks prune down to
 		expect(`rectPass={by.rectPass}`).toBe(`rectPass={DIRTY_TICK}`)
-		expect(`hitRects={by.hitRects}`).toBe(`hitRects={MOUNTED}`)
+		--[[ ...AND `hitRects` JOINED THEM (Plan C, C1), which is the one clause of
+			this file's header that stopped being true. It centres its target-floor
+			expander on `r.x`/`r.y`, so it had to see every move — and under a
+			coordinate space a moved plate's descendants DO NOT MOVE in their own
+			space: their entry tables are the ones the last commit saw, `skip` matches
+			on plain identity, and the walk stops at the dirty closure. A consequence
+			of the storage change, not a new prune. ]]
+		expect(`hitRects={by.hitRects}`).toBe(`hitRects={DIRTY_TICK}`)
 		s.dispose()
 	end)
 
@@ -113,16 +127,22 @@ describe("O4/N1: seven walks stop at a moved subtree, hitRects does not", functi
 			expect(`{name}={by[name]}`).toBe(`{name}={ARRANGE_BLIND_CASTS}`)
 		end
 		expect(`rectPass={by.rectPass}`).toBe(`rectPass={RECTPASS_CASTS}`)
-		expect(`hitRects={by.hitRects}`).toBe(`hitRects={MOUNTED}`)
+		expect(`hitRects={by.hitRects}`).toBe(`hitRects={DIRTY_CASTS}`)
 		s.dispose()
 	end)
 
-	it("the writes are all still there", function()
+	it("the writes are ONE PER PLATE (Plan C, C1 moved them; the prune did not)", function()
+		--[[ THIS FILE'S OWN POINT IS THAT A PRUNE MUST NOT DROP A WRITE IT OWED, and
+			that is still what this case says — the number it says it about moved.
+			Under a flat tree the 1,500 writes were all real. With the plate root a
+			coordinate space its subtree's rects do not change in their own space, so
+			`rect_pass.applyOne` compares equal and sends 250. The differential case
+			below is what proves the missing 1,250 are unnecessary rather than lost. ]]
 		local s = scene.new()
 		s.tick(3, 2)
 		local before = s.stats().rectWrites
 		s.tick(3, 2)
-		expect(s.stats().rectWrites - before).toBe(PLATES * scene.NODES_PER_PLATE)
+		expect(s.stats().rectWrites - before).toBe(PLATES)
 		s.dispose()
 	end)
 
@@ -172,10 +192,11 @@ describe("O4/N1: seven walks stop at a moved subtree, hitRects does not", functi
 		s.align("start")
 		local st = s.stats()
 		expect(`rectWrites delta={st.rectWrites - before}`).toBe("rectWrites delta=0")
-		-- ...and it IS the translate arm, not a solve that skipped everything
-		expect(`arranged={st.lastArranged} translated={st.lastTranslated}`).toBe(
-			`arranged={PLATES + 2} translated={PLATES * (scene.NODES_PER_PLATE - 1)}`
-		)
+		-- ...and it IS a real per-plate arrange, not a solve that skipped everything.
+		-- `translated` is 0 since Plan C's C1: a coordinate-space root records an
+		-- EMPTY run, so its 1,250 descendants are never entered at all — which is
+		-- exactly why the delta above is zero without a single `rectsEqual` compare.
+		expect(`arranged={st.lastArranged} translated={st.lastTranslated}`).toBe(`arranged={PLATES + 2} translated=0`)
 		-- ...and the prune is still on: a zero-delta run is not a special case for it
 		local by = st.lastCommitVisitsByWalk
 		for _, name in MOVE_BLIND do

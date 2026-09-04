@@ -541,6 +541,15 @@ local function compositionWorld(inner: string?): any
 		measureReuse = true,
 		layoutNodeReuse = true,
 		commitScope = true,
+		--[[ NO COORDINATE-SPACE HOSTS (Plan C, C1), because the subject here is the
+			translate ARM's composition refusal. `Wrap` carries a REACTIVE `offsetY`
+			and has children, so mounted the shipped way it is a coordinate space whose
+			move re-bases nothing and takes no run at all — which would make BOTH cases
+			below trivially green and the positive control vacuous. The hosted
+			counterpart is `tests/translate_host.spec.luau`'s composition pin, which
+			asserts the composition resolves against its WINDOW-space origin (the
+			`ctx.spaceOX`/`spaceOY` carry) rather than against the arm. ]]
+		translateHosts = false,
 	})
 	controller.initialRender()
 	return {

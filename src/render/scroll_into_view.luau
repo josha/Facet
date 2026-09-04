@@ -66,6 +66,10 @@ export type Deps = {
 	scrollHostOf: { [string]: string },
 	-- path -> the painted rect in screen space, re-read per query
 	screenRectOf: (path: string, relativeTo: string?) -> any,
+	-- path -> the sum of its COORDINATE-SPACE host chain (Plan C, C1), walked over
+	-- `lastRects` — which is the map both rects `scrollToVisible` subtracts came
+	-- from, so the origin must come from it too. `render/rect_reads.hostOriginOf`.
+	hostOriginOf: (path: string) -> (number, number),
 }
 
 export type ScrollIntoView = {
@@ -80,6 +84,7 @@ function scroll_into_view.new(deps: Deps): ScrollIntoView
 	local lastScrollRegions = deps.lastScrollRegions
 	local scrollHostOf = deps.scrollHostOf
 	local screenRectOf = deps.screenRectOf
+	local hostOriginOf = deps.hostOriginOf
 
 	-- scroll-to-visible (A-SV1): THE shared keep-visible substrate. Every
 	-- control that must bring a focused, selected, or newly-revealed descendant
@@ -106,6 +111,21 @@ function scroll_into_view.new(deps: Deps): ScrollIntoView
 		local region = lastScrollRegions[hostPath]
 		if hostRect == nil or targetRect == nil or region == nil then
 			return false
+		end
+		--[[ BOTH RECTS INTO ONE SPACE BEFORE THE SUBTRACTION (Plan C, C1). The
+			canvas-space span below is `target - host`, and beneath a coordinate-space
+			host a stored rect is relative to THAT host — so if the scroll host and the
+			target sit under different ones the subtraction mixes two origins and means
+			nothing. A ScrollView is never itself a coordinate space (the trigger
+			refuses one outright, for exactly this reader), but either node may sit
+			under one. `hostOriginOf` walks `lastRects`, which is the map both rects
+			above came from; (0, 0) on a host-free tree, where this is the arithmetic it
+			always was. ]]
+		local hox, hoy = hostOriginOf(hostPath)
+		local tox, toy = hostOriginOf(path)
+		if hox ~= 0 or hoy ~= 0 or tox ~= 0 or toy ~= 0 then
+			hostRect = { x = hostRect.x + hox, y = hostRect.y + hoy, w = hostRect.w, h = hostRect.h }
+			targetRect = { x = targetRect.x + tox, y = targetRect.y + toy, w = targetRect.w, h = targetRect.h }
 		end
 		local isX = region.axis == "x"
 		local current = controller.scrollPosition(hostPath) or { x = 0, y = 0 }

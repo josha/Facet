@@ -127,6 +127,14 @@ export type Opts = {
 		run whose every rect is already on screen, which is what `rect_pass`'s
 		minimal-write contract has to survive. ]]
 	inertAlign: boolean?,
+	--[[ THE COORDINATE-SPACE TRIGGER (Plan C), default ON — threaded straight to
+		`renderer.attach`'s `translateHosts`. It exists so an oracle can raise the
+		SAME reactive fixture with no coordinate-space hosts at all and drive it
+		through the IDENTICAL step list: a mount-only comparison against a different
+		world (static offsets) would prove nothing about the only thing that changed,
+		which is a MOVE. Off, every plate root is an ordinary node again and every
+		rect is stored in window space. ]]
+	hosts: boolean?,
 }
 
 -- `layout` is the LAYOUT-NODE count (`stats().lastLayoutNodes`, i.e. the solver's
@@ -255,6 +263,7 @@ function nameplates_scene.new(opts: Opts?)
 		measureReuse = o.measureReuse ~= false,
 		layoutNodeReuse = true,
 		commitScope = o.commitScope ~= false,
+		translateHosts = o.hosts ~= false,
 	})
 	controller.initialRender()
 
@@ -439,24 +448,81 @@ function nameplates_scene.new(opts: Opts?)
 		return `\{{table.concat(inner, ",")}\}`
 	end
 
+	local function fmtRect(r: any): string
+		return if r == nil then "-" else `{r.x},{r.y},{r.w},{r.h}`
+	end
+
+	--[[ THE PUBLIC CHANNELS JOINED THE SNAPSHOT WITH PLAN C, and each is here for a
+		reason a raw-rect column cannot serve:
+
+		  `pos`/`psize` — the ENGINE window position and size the adapter composed. A
+		    stored rect that becomes host-relative is an internal change; what a
+		    player sees is this, and it must not move.
+		  `focus` — the focus flags, which `presentation_channel` writes for a node
+		    whose rect it read; a focused node inside a moved host is the reader that
+		    would show it if that channel had learned the wrong space.
+		  `ro`/`sro` — `controller.rectOf` and `controller.screenRectOf`, the two
+		    PUBLIC reads the whole campaign promises not to move.
+		  `diag` — `controller.diagnostics()`, which is where the absolute readers
+		    (the composition resolver's `atRoot`, the audits) would file a different
+		    finding if a rect reached them in the wrong space.
+
+		AND `pos == sro` IS ASSERTED AS AN IDENTITY, per line, emitting `POSMISMATCH`
+		into the line when it does not hold. Two arms of an oracle can go stale in
+		step with each other — the fake composes `presentedPosition` at `setRect`, and
+		under Plan C a host move produces ONE `setRect` — so the only honest
+		instrument is one that checks the fake's composed position against the public
+		reader rather than against another arm. ]]
 	function scene.snapshot(): string
 		local out = {}
+		local diag = controller.diagnostics()
+		local diagKeys = {}
+		for _, finding in diag do
+			table.insert(diagKeys, `{finding.node}:{finding.issue}`)
+		end
+		table.sort(diagKeys)
+		local diagKey = table.concat(diagKeys, ";")
 		for path, node in adapter.liveNodes() do
 			local props = {}
 			for k, v in node.props or {} do
 				table.insert(props, `{k}={ser(v, 6)}`)
 			end
 			table.sort(props)
-			local r, hit, region = node.rect, node.hitRect, node.scrollRegion
+			-- `storedRect` is the column arm `e` (no coordinate-space hosts) is EXPECTED
+			-- to differ on — it is the change. `node.rect` is the WINDOW rect on both
+			-- targets, so it belongs with the public reads below.
+			local r, hit, region = node.storedRect, node.hitRect, node.scrollRegion
+			local pp, ps = node.presentedPosition, node.presentedSize
+			local sro = controller.screenRectOf(path)
+			local posOk = pp == nil or sro == nil or (pp.x == sro.x and pp.y == sro.y)
 			table.insert(
 				out,
-				`{path}|{if r then `{r.x},{r.y},{r.w},{r.h}` else "-"}|{table.concat(props, ",")}`
+				`{path}|{fmtRect(r)}|{table.concat(props, ",")}`
 					.. `|vis={tostring(node.visible)}`
-					.. `|hit={if hit then `{hit.x},{hit.y},{hit.w},{hit.h}` else "-"}`
+					.. `|hit={fmtRect(hit)}`
 					.. `|canvas={if region then `{region.contentW},{region.contentH}` else "-"}`
+					.. `|pos={if pp then `{pp.x},{pp.y}` else "-"}`
+					.. `|psize={if ps then `{ps.w},{ps.h}` else "-"}`
+					.. `|focus={tostring(node.focused)},{tostring(node.focusProfile)},{tostring(node.focusLift)}`
+					.. `|ro={fmtRect(controller.rectOf(path))}`
+					.. `|sro={fmtRect(sro)}`
+					.. (if posOk then "" else "|POSMISMATCH")
 			)
 		end
 		table.sort(out)
+		table.insert(out, `diagKey={diagKey}`)
+		return table.concat(out, "\n")
+	end
+
+	-- the STORED rect column alone, which arm `e` (no coordinate-space hosts) is
+	-- EXPECTED to differ on — that difference is the change. Everything else in
+	-- `snapshot()` must match it exactly.
+	function scene.publicSnapshot(): string
+		local out = {}
+		for _, line in string.split(scene.snapshot(), "\n") do
+			local head, tail = string.match(line, "^([^|]*)|[^|]*|(.*)$")
+			table.insert(out, if head == nil then line else `{head}|{tail}`)
+		end
 		return table.concat(out, "\n")
 	end
 

@@ -2651,16 +2651,16 @@ lifetime is the mount's, not the module's).
 
 **`attach` options** — `{ rootPolicy?, edgeFloor?, onNodeTap?, engineSelectionBridge?,
 onDiscloseHover?, onDiscloseLongPress?, recycleInstances?, incrementalLayout?,
-measureReuse?, layoutNodeReuse?, commitScope?, structuralReuse? }`
+measureReuse?, layoutNodeReuse?, commitScope?, structuralReuse?, translateHosts? }`
 (`recycleInstances` and `incrementalLayout` are the two performance opts described
 under `present()`, both on by default; a presented surface forwards its own).
 
-The last four are **test seams rather than tuning knobs**, all four default **true**,
+The last five are **test seams rather than tuning knobs**, all five default **true**,
 and none is forwarded by `present()` — a presented surface always gets the default.
 Each turns off exactly one cross-solve mechanism and leaves the other three intact,
 which is what lets a differential oracle attribute a divergence to ONE of them instead
 of to "the reuse machinery"; that attribution is the standing requirement on this
-family (`tests/measure_reuse.spec.luau` and its four sibling files each run their cases
+family (`tests/measure_reuse.spec.luau` and its sibling files each run their cases
 against these arms). Off is always the older, slower, more conservative path — every
 one of them can only avoid work, never change what is on screen — so setting one in
 production code buys nothing but a slower frame.
@@ -2682,6 +2682,13 @@ production code buys nothing but a slower frame.
   the nearest absorbing ancestor instead of throwing the whole solve away. Off
   restores the pre-campaign branch exactly — a structural change takes a full solve —
   which is the arm the boundary-rooted one is compared against.
+- **`translateHosts`** — the COORDINATE-SPACE HOST trigger
+  (`src/render/instance_boundary.luau`): a container whose `offsetX`/`offsetY`/`anchor`
+  is reactive and that has children becomes a real engine parent AND the origin its
+  subtree's rects are stored against, so moving it costs one stored rect and one engine
+  write instead of one per descendant. Off, no such host is registered, every rect is
+  stored in window space and the tree is what it was before the trigger existed — which
+  is the arm `tests/host_space_oracle.spec.luau` compares every public read against.
 `rootPolicy` is the surface's content-rect policy (`"coreSafeContent"` default,
 `"deviceSafeContent"`, `"bandSafeContent"`, `"edgeToEdge"`; an unknown value
 errors and lists the set). `edgeFloor` is the opt-in edge-padding knob (a

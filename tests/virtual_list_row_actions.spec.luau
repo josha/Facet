@@ -941,10 +941,14 @@ describe("VirtualList rowActions (Task 4): the shared tray overlay", function()
 		expect(group.rect.h).toBe(40)
 		expect(group.rect.w).toBe(800)
 		-- ...with the TRAILING tray's button inside it, at the row's right edge
-		local button = w.adapter.node(trayAction("r2", "trailing", "delete"))
+		-- COMPOSED (Plan C, C1): the tray button sits inside a windowed ROW, which is a
+		-- coordinate space, so its stored rect is relative to that row
+		local buttonPath = trayAction("r2", "trailing", "delete")
+		local button = w.adapter.node(buttonPath)
 		expect(button).never().toBeNil()
-		expect(button.rect.x + button.rect.w).toBe(800)
-		expect(button.rect.y).toBe(40)
+		local buttonRect = w.adapter.composedRect(buttonPath)
+		expect(buttonRect.x + buttonRect.w).toBe(800)
+		expect(buttonRect.y).toBe(40)
 		-- the leading tray is not declared on this row, so nothing mounts for it
 		expect(w.adapter.node(tray("r2", "leading"))).toBeNil()
 
