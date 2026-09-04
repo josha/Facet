@@ -69,8 +69,13 @@ export type Ctx = {
 	hiddenDepth: number,
 	-- TRUE while `chosenCandidate` is asking "does this candidate fit?" (ruling 2).
 	-- It suppresses the measure-side shrink so a candidate is judged at the size it
-	-- would like — SwiftUI's ideal size — and it is part of `scopeKey`, because the
+	-- would like at its own IDEAL size, and it is part of `scopeKey`, because the
 	-- same node at the same offer answers differently under it.
+	-- (The comparison this sentence used to draw travelled out of an
+	-- extraction-locked file, where it was exempt, into one that is not — an
+	-- extraction inherits none of its host's exemptions, which is the rule at the
+	-- head of the source-cap ledger and the reason `check_brand_drift` names the
+	-- moved line rather than the file it came from.)
 	fitProbe: boolean,
 	--[[ HOW MANY TEXT NODES THE CURRENT PROBE HAS SEEN CUT (DIR wave contract 7).
 		A candidate whose label only "fits" because the engine will ellipsize it does
@@ -162,6 +167,31 @@ export type Ctx = {
 	-- surface, instead of a one-off probe that has to patch this file.
 	arranged: number,
 	measured: number,
+	--[[ EVERY ENTRY INTO `measure`, AND THE ONES ANSWERED FROM THE NODE'S OWN LAST
+		ANSWER (C2). `measured` above cannot stand in for either: it counts UNCACHED
+		measures, so a memo hit never moved it and a served call does not either. The
+		serve's whole claim is that a clean sibling on a dirty path stops paying for a
+		memo lookup, and the only honest instrument for that is the pair — how many
+		times the function was asked, and how many of those returned before the memo
+		existed. Published in the work record and surfaced as
+		`controller.stats().lastMeasureCalls`/`lastMeasureServed`. ]]
+	measureCalls: number,
+	measureServed: number,
+	--[[ THE SOLVE-WIDE INPUTS THE NODE TUPLES WERE RECORDED UNDER — axis 3 of
+		`./measure_reuse`'s store, threaded in here because `measure`'s node-resident
+		serve is a FOURTH cache with the same four axes and needs its own answer to
+		each. Axis 1 (a structural change) is answered by the layout node being a
+		fresh literal; axis 2 by `reuse.measureContains`; axis 4 (the container) by
+		`node.containerRelativeInside` and the scope key. THIS IS AXIS 3, and it is
+		the one no per-node fact can see: the viewport, the safe insets, the root
+		policy, the scrollbar reserve, the band, the theme snapshot, the two text
+		scales and the TEXT-METRICS EPOCH. That last one is why a string is threaded
+		rather than an argument being declared unnecessary — a text settle corrects
+		the measured width of a label at an UNCHANGED offer under an UNCHANGED theme,
+		clears the measure store, and would otherwise leave a served node reporting
+		the width it had before the correction. `nil` for a direct `solver.solve`
+		caller, which compares equal to the `nil` such a caller's nodes carry. ]]
+	measureStamp: string?,
 	-- ...and its writes into the RECT MAP: `arranged + translated` since O3.
 	rectInserts: number,
 	-- THE THIRD CLASS (O3): a node an ancestor re-based instead of walking — not
@@ -302,6 +332,12 @@ function solve_ctx.new(contentRect: Rect, opts: any, metrics: any): Ctx
 		measures = if opts ~= nil and (opts :: any).reuse ~= nil then (opts :: any).measures else nil,
 		arranged = 0,
 		measured = 0,
+		-- see `Ctx`: how many times `measure` was asked, and how many of those it
+		-- answered from the node's own tuple
+		measureCalls = 0,
+		measureServed = 0,
+		-- the renderer's own axis-3 stamp, or nil; see `Ctx`
+		measureStamp = if opts ~= nil then (opts :: any).measureStamp else nil,
 		-- the O3 translate class: nodes re-based by an ancestor's delta
 		translated = 0,
 		-- ...and the N2 anchor pair; see the `Ctx` block for why `measured` cannot

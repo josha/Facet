@@ -224,6 +224,51 @@ export type Node = {
 	-- exactly these subtrees — see the skip. Absent on the overwhelming majority of
 	-- nodes.
 	containerRelativeInside: boolean?,
+	--[[ SET BY `layout_node.build` IN THE SAME POST-CHILDREN PASS, SELF-INCLUSIVE:
+		does this node's subtree — the node ITSELF included — hold a `scroll` node, or
+		a `composition`? Read only by `measure`'s serve, which cannot republish
+		`ctx.hasScroll`, `ctx.compositions[node.id]` or the container arm, and the
+		OWNER of each of those channels is the scroll or composition node itself. ]]
+	subtreeHasScroll: boolean?,
+	subtreeHasComposition: boolean?,
+	--[[ THE LAST TWO ANSWERS THIS NODE GAVE, written by `record` at every return of
+		`measure` and read back by its serve. Each slot is a KEY — the offer pair and
+		the scope — and the ANSWER it produced, including the verdicts a text node
+		publishes. `mStamp` is the solve-wide axis-3 stamp and is SHARED, because a
+		stamp that moved invalidates both slots at once.
+
+		TWO SLOTS, NOT ONE, AND IT IS THE DIFFERENCE BETWEEN THE MECHANISM PAYING AND
+		COSTING: almost every node in a real tree is measured at two offers per solve,
+		and one slot thrashes between them and answers neither. The measurement that
+		forced it, and the channel table that says what a slot may carry, are in
+		`tests/measure_serve.spec.luau`'s header.
+
+		They are absent on a node the build has just constructed, which is what makes a
+		stale answer impossible: a node whose props moved is a FRESH LITERAL. ]]
+	mStamp: string?,
+	-- cached `memoPlan` verdict for "can this answer read the offered HEIGHT?" — a
+	-- pure function of a BUILT node, so it survives every solve that node survives
+	mHeightFree: boolean?,
+	-- which slot the next MISS claims, so two alternating offers keep both
+	mFillB: boolean?,
+	mAOfferW: number?,
+	mAOfferH: number?,
+	mAScope: string?,
+	mAW: number?,
+	mAH: number?,
+	mACuts: number?,
+	mATextState: any,
+	mACompact: any,
+	mATextFacts: any,
+	mBOfferW: number?,
+	mBOfferH: number?,
+	mBScope: string?,
+	mBW: number?,
+	mBH: number?,
+	mBCuts: number?,
+	mBTextState: any,
+	mBCompact: any,
+	mBTextFacts: any,
 	-- px, or a FRACTION of the parent's inner extent plus a px adjustment
 	-- ({ scale, offset } — the marker-overlay shape). The
 	-- renderer resolves metric names before this; the fraction can only be spent
@@ -1441,6 +1486,143 @@ end
 -- and `ctx.memoPlans` and nothing else), and its differential-oracle evidence
 -- travels with it.
 
+--[[ THE OFFER HEIGHT, AS A KEY — `maxH`, or one sentinel for every node whose
+	answer cannot read it. The question is `memoPlan`'s, which is the ONE
+	classification of it in this library and the same one the memo's own cache key
+	spends; asking it here rather than writing a second predicate is what keeps the
+	two from drifting. `PLAN_SKIP` qualifies alongside `PLAN_HEIGHT_FREE` because a
+	node whose both dimensions are literals cannot read either offer (`PLAN_KEYED` is
+	not exported — see `measure_facts`'s note — so the test names the two that do).
+
+	It is not an optimisation: a stack offers each child the height REMAINING during
+	the measure pass and the RESOLVED content height during the arrange pass, so
+	without this the offer test failed on every container-shaped node.
+	`tests/measure_serve.spec.luau` carries the numbers.
+
+	THE VERDICT IS CACHED ON THE NODE, not looked up per call: the classification is
+	a pure function of a BUILT node — kind, its two resolved dimensions, its
+	children's verdicts — all fixed for the life of that node table, and a node whose
+	props move is a fresh literal. `-1` is a safe sentinel because every producer
+	clamps an offer with `math.max(0, ...)`, and `math.huge` could not be used: it is
+	a real offer. ]]
+local HEIGHT_FREE = -1
+
+local function offerHeightKey(ctx: Ctx, node: Node, maxH: number): number
+	local hFree = node.mHeightFree
+	if hFree == nil then
+		local plan = memoPlan(ctx, node)
+		hFree = plan == PLAN_HEIGHT_FREE or plan == PLAN_SKIP
+		node.mHeightFree = hFree
+	end
+	return if hFree then HEIGHT_FREE else maxH
+end
+
+--[[ THE RECORDER, called at EVERY return of `measure` (C2) so a slot always
+	describes one — uncached, memo hit or served alike. `Node.mStamp` above says what
+	the slots hold; `tests/measure_serve.spec.luau`'s header says what they may.
+
+	MODULE-LEVEL, AND CALLED AT EVERY RETURN RATHER THAN WRAPPED. `ctx` and
+	`cutsAtEntry` are per-call, so an inner `local function` would be a fresh CLOSURE
+	on every entry into the function this exists to make cheaper. And a
+	`local w, h = measureBody(...)` wrapper is the shape this file has already been
+	bitten by: `measure` has SEVEN returns, five of them early, and a wrapper reaches
+	only the ones that fall through it.
+
+	`cutsAtEntry` COMES BEFORE THE VALUES, AND THAT IS LOAD-BEARING. Two of the seven
+	returns are `return measureUncached(ctx, node, maxW, maxH)` — a two-value call
+	that cannot be spliced into the middle of an argument list. With the values LAST
+	they stay one-liners and the trailing call expands to both.
+
+	A MATCHING SLOT IS REFRESHED IN PLACE AND AN UNCHANGED ONE IS NOT WRITTEN AT ALL,
+	which is what keeps the served path cheap: the serve returns THROUGH here, so on
+	the calls it answers this function is three compares and a return. ]]
+local function record(
+	ctx: Ctx,
+	node: Node,
+	maxW: number,
+	maxH: number,
+	cutsAtEntry: number,
+	w: number,
+	h: number
+): (number, number)
+	--[[ ONLY ON A SOLVE THAT COULD EVER SPEND IT, and that is the solver's PURITY
+		CONTRACT rather than an economy. This file's first line says it solves "over an
+		immutable snapshot", and `tests/layout.spec.luau`'s purity case hands it a
+		`table.freeze`d tree — which a write here turns into a hard error for every
+		direct caller that has one (`dump.fromSolve`, the layout fuzzer, a hand-built
+		node tree in a spec). A solve with no reuse set is also the solve P1's own
+		economics say must be the PRE-CHANGE solver exactly, and a reuse set is
+		precisely what a frozen hand-built tree never has.
+
+		WHAT IT COSTS, stated rather than hidden: the first reuse solve after a full one
+		records and serves nothing, and the one after it serves. So a structural change
+		or a viewport change — both already full solves — is followed by ONE ordinary
+		solve at the old price. `tests/measure_serve.spec.luau` pins that pair. ]]
+	if ctx.reuse == nil then
+		return w, h
+	end
+	-- AXIS 3 IS SHARED BY BOTH SLOTS, so a stamp that moved drops both at once. It is
+	-- the one invalidation no per-node fact can see: a text-metrics settle corrects a
+	-- label's width at an UNCHANGED offer under an UNCHANGED theme.
+	local stamp = ctx.measureStamp
+	if node.mStamp ~= stamp then
+		node.mStamp = stamp
+		node.mAOfferW, node.mBOfferW = nil, nil
+	end
+	local scope = ctx.scopeKey
+	local oh = offerHeightKey(ctx, node, maxH)
+	local cuts = ctx.fitCuts - cutsAtEntry
+	local kind = node.kind
+	--[[ THE THREE PUBLISHED VERDICTS ARE CARRIED ONLY BY THE KINDS THAT PUBLISH THEM,
+		which is the memo's own packed-entry rule one branch down and the same
+		measurement behind it: `ctx.textStates`, `ctx.compact` and `ctx.textFacts` are
+		written only by the `text` branch of `contentSize`, so for every other kind
+		these are three map reads and three writes of `nil` over `nil` — and this
+		function runs on every return of `measure`. The memo measured the unpacked form
+		at +7.8 % against a 1.5 % control on the shape that publishes nothing. ]]
+	local publishes = kind == "text" or kind == "composition"
+	if node.mAOfferW == maxW and node.mAOfferH == oh and node.mAScope == scope then
+		if node.mAW == w and node.mAH == h and node.mACuts == cuts then
+			return w, h -- the served path, and every re-measure that changed nothing
+		end
+		node.mAW, node.mAH, node.mACuts = w, h, cuts
+		if publishes then
+			node.mATextState, node.mACompact, node.mATextFacts =
+				ctx.textStates[node.id], ctx.compact[node.id], ctx.textFacts[node.id]
+		end
+		return w, h
+	end
+	if node.mBOfferW == maxW and node.mBOfferH == oh and node.mBScope == scope then
+		if node.mBW == w and node.mBH == h and node.mBCuts == cuts then
+			return w, h
+		end
+		node.mBW, node.mBH, node.mBCuts = w, h, cuts
+		if publishes then
+			node.mBTextState, node.mBCompact, node.mBTextFacts =
+				ctx.textStates[node.id], ctx.compact[node.id], ctx.textFacts[node.id]
+		end
+		return w, h
+	end
+	-- A NEW KEY: claim the slot the previous miss did not, so a node asked at two
+	-- offers per solve settles with one in each rather than evicting itself.
+	if node.mFillB then
+		node.mFillB = false
+		node.mBOfferW, node.mBOfferH, node.mBScope, node.mBW, node.mBH, node.mBCuts = maxW, oh, scope, w, h, cuts
+		if publishes then
+			node.mBTextState, node.mBCompact, node.mBTextFacts =
+				ctx.textStates[node.id], ctx.compact[node.id], ctx.textFacts[node.id]
+		end
+	else
+		node.mFillB = true
+		node.mAOfferW, node.mAOfferH, node.mAScope, node.mAW, node.mAH, node.mACuts = maxW, oh, scope, w, h, cuts
+		if publishes then
+			node.mATextState, node.mACompact, node.mATextFacts =
+				ctx.textStates[node.id], ctx.compact[node.id], ctx.textFacts[node.id]
+		end
+	end
+	return w, h
+end
+
 -- measure pass: desired size within (maxW, maxH); math.huge = unbounded axis
 --
 -- PER-SOLVE MEMO (roadmap Step 9, found by the performance lab 2026-08-04). A
@@ -1500,16 +1682,94 @@ measure = function(ctx: Ctx, node: Node, maxW: number, maxH: number): (number, n
 	-- about a node measured twice within ONE solve — a scroller, deep nesting. The
 	-- store's win is the subtree the NEXT solve does not walk, which every shape pays
 	-- for, so a surface holding one never takes this early return. `./measure_reuse`.
+	--[[ THE NODE-RESIDENT SERVE (C2). A node with nothing MEASURE-classed dirty
+		inside it, asked a question it has an answer to against the same scope, answers
+		from numbers on itself and never reaches the memo below — no key string, no
+		slate adopt, no map probe, which is the whole per-clean-sibling bill on a dirty
+		path. Two slots, because a real tree measures almost every node at two offers
+		per solve (`Node.mStamp`).
+
+		THE GATE IS WHAT MAKES IT LEGAL, and it gates on the CHANNELS rather than on
+		the shapes. `measure` publishes eleven things; three ride a slot and eight
+		cannot, so the serve refuses whenever any of the eight could be live: the two
+		bottom-up booleans off `layout_node.build` (`ctx.hasScroll` and
+		`ctx.compositions`, whose owners they name), `containerRelativeInside` (the
+		container arm of the cache key), `ctx.analyze` (the boundary map is written in
+		`measureUncached`), and `ctx.measureQuiet` — the anchor arm's fourth gate, and
+		here for the identical reason: a finding is filed about a node in the SUBTREE
+		this skips and no slot can carry it back. `mScope` and `mStamp` carry the
+		inputs a measure reads that are not in its argument list, exactly as the memo's
+		own key and the measure store's own stamp do. The channel table, and the six
+		further channels that are reachable and not served, are in
+		`tests/measure_serve.spec.luau`'s header.
+
+		Gate on the channel you cannot serve; never republish a guess. ]]
+	ctx.measureCalls += 1
+	local cutsAtEntry = ctx.fitCuts
+	local reuse = ctx.reuse
+	if
+		reuse ~= nil
+		and ctx.measureQuiet
+		and not ctx.analyze
+		and node.mStamp == ctx.measureStamp
+		and node.subtreeHasScroll ~= true
+		and node.subtreeHasComposition ~= true
+		--[[ REDUNDANT TODAY AND KEPT, WHICH IS A MEASURED CLAIM RATHER THAN CAUTION.
+			Deleting this line reddens nothing in the suite, and the reason is
+			`mAScope`/`mBScope`: `hasContainerRelative` is a per-solve latch armed inside
+			`measureUncached`, so a node whose subtree arms it records an ARMED scope key
+			and can never match the unarmed `"0"` a fresh solve starts from. That
+			equivalence holds only while the arm stays LATE — and `rebuildScopeKey`'s own
+			header calls arming late the difference between a live memo and a dead one,
+			i.e. exactly the kind of thing a later round changes for a reason that has
+			nothing to do with this line. One nil field read is the price of not betting
+			the container on that. ]]
+		and node.containerRelativeInside ~= true
+		and reuse.measureContains ~= nil
+		and reuse.measureContains[node.id] ~= true
+	then
+		local scope = ctx.scopeKey
+		local oh = offerHeightKey(ctx, node, maxH)
+		local sw: number?, sh: number?, scuts: number?
+		local sts: any, scp: any, stf: any
+		if node.mAOfferW == maxW and node.mAOfferH == oh and node.mAScope == scope then
+			sw, sh, scuts = node.mAW, node.mAH, node.mACuts
+			sts, scp, stf = node.mATextState, node.mACompact, node.mATextFacts
+		elseif node.mBOfferW == maxW and node.mBOfferH == oh and node.mBScope == scope then
+			sw, sh, scuts = node.mBW, node.mBH, node.mBCuts
+			sts, scp, stf = node.mBTextState, node.mBCompact, node.mBTextFacts
+		end
+		if sw ~= nil then
+			ctx.measureServed += 1
+			ctx.offers[node.wKey or (node.id .. "|w")] = maxW
+			ctx.offers[node.hKey or (node.id .. "|h")] = maxH
+			-- ...and the three verdicts, replayed only by the kinds that publish them
+			-- (see `record`). A `nil` replay is a legitimate value, so this is a branch
+			-- on the KIND and never on the stored value.
+			local kind = node.kind
+			if kind == "text" or kind == "composition" then
+				ctx.textStates[node.id] = sts
+				ctx.compact[node.id] = scp
+				ctx.textFacts[node.id] = stf
+			end
+			ctx.fitCuts += scuts or 0
+			-- THROUGH THE RECORDER TOO, so the source pin in the spec is a plain
+			-- equality with no exception for a later edit to satisfy by adding another.
+			-- It costs three compares and a return: the slot it would write is the one
+			-- this answer just came from.
+			return record(ctx, node, maxW, maxH, cutsAtEntry, sw, sh :: number)
+		end
+	end
 	local store = ctx.measures
 	if store == nil and not ctx.hasScroll and not ctx.deepNesting then
-		return measureUncached(ctx, node, maxW, maxH)
+		return record(ctx, node, maxW, maxH, cutsAtEntry, measureUncached(ctx, node, maxW, maxH))
 	end
 	-- A CONSTANT-SIZE NODE IS CHEAPER TO RE-MEASURE THAN TO LOOK UP (see `memoPlan`),
 	-- and that holds across solves too: its `content()` is never called, so it walks
 	-- no children and there is no subtree for a hit to remove.
 	local plan = memoPlan(ctx, node)
 	if plan == PLAN_SKIP then
-		return measureUncached(ctx, node, maxW, maxH)
+		return record(ctx, node, maxW, maxH, cutsAtEntry, measureUncached(ctx, node, maxW, maxH))
 	end
 	-- THE KEY CARRIES THE INPUTS THE COMPUTATION ACTUALLY READS, AND NO MORE. A key
 	-- with a spare field in it is not merely wasteful — it is a cache that cannot hit.
@@ -1658,7 +1918,7 @@ measure = function(ctx: Ctx, node: Node, maxW: number, maxH: number): (number, n
 				if hit[3] ~= nil then
 					ctx.fitCuts += hit[3]
 				end
-				return packedW, hit[2]
+				return record(ctx, node, maxW, maxH, cutsAtEntry, packedW, hit[2])
 			end
 			-- REPLAY THE PUBLISHED VERDICTS, DO NOT MERELY RETURN THE SIZE.
 			-- (architecture review 2026-08-04, BLOCKER-1 — caught by a differential
@@ -1708,7 +1968,7 @@ measure = function(ctx: Ctx, node: Node, maxW: number, maxH: number): (number, n
 					table.insert(ctx.diagnostics, d)
 				end
 			end
-			return hit.w, hit.h
+			return record(ctx, node, maxW, maxH, cutsAtEntry, hit.w, hit.h)
 		end
 	end
 	-- the cut count this measure produces is part of what it publishes (contract 7)
@@ -1747,7 +2007,7 @@ measure = function(ctx: Ctx, node: Node, maxW: number, maxH: number): (number, n
 	local kind = node.kind
 	if kind ~= "text" and kind ~= "composition" and diags == nil then
 		perNode[cacheKey] = if cuts > 0 then { mw, mh, cuts } else { mw, mh }
-		return mw, mh
+		return record(ctx, node, maxW, maxH, cutsAtEntry, mw, mh)
 	end
 	-- captured AFTER the call, so the entry holds what this measure published
 	perNode[cacheKey] = {
@@ -1760,7 +2020,7 @@ measure = function(ctx: Ctx, node: Node, maxW: number, maxH: number): (number, n
 		textFacts = ctx.textFacts[node.id],
 		composition = ctx.compositions[node.id],
 	}
-	return mw, mh
+	return record(ctx, node, maxW, maxH, cutsAtEntry, mw, mh)
 end
 
 measureUncached = function(ctx: Ctx, node: Node, maxW: number, maxH: number): (number, number)
@@ -3324,6 +3584,10 @@ function solver.solve(
 		work = {
 			arranged = ctx.arranged,
 			measured = ctx.measured,
+			-- ...and the C2 pair: how many times `measure` was asked, and how many of
+			-- those it answered from the node's own tuple (see `Ctx`)
+			measureCalls = ctx.measureCalls,
+			measureServed = ctx.measureServed,
 			rectInserts = ctx.rectInserts,
 			skipped = ctx.skipped,
 			-- the O3 translate class and its two flat arrays, in document order

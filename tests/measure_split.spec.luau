@@ -134,8 +134,17 @@ local MEASURED_TICK = 0
 	the run: the 200 quiet plates translate instead of arranging, so their `SKIP Hp`
 	/ `SKIP Cast` touches are gone; the 50 casters still refuse (`translatable` sees
 	the dirty `Cast` child) and still cost 5 apiece; `Canvas` and `S` still lose
-	their slates. 652 -> 252. ]]
-local MEASURED_WITH_CASTS = CASTERS * 5 + 2 -- 252
+	their slates. 652 -> 252.
+
+	AND PLAN C's C2 TOOK THE SECOND TERM FROM 5 TO 3, read off the run: 252 -> 152.
+	A caster's plate root is refused (its `Cast` child is measure-dirty) and so is
+	`Cast` itself, but `Hp` is measure-CLEAN under a caster — only the cast bar's
+	width moved — so both of its touches are now answered by `measure`'s
+	node-resident serve and never reach `measureUncached`. That is 2 of the 5 per
+	caster, exactly 100 calls, and it leaves `CASTERS x 3 + 2`: the refused root
+	once, `Cast` twice (the root's measure descent and its arrange descent), and the
+	two ancestors. `tests/measure_serve.spec.luau` carries the serve's own table. ]]
+local MEASURED_WITH_CASTS = CASTERS * 3 + 2 -- 152
 
 describe("O2: an arrange-only step does not re-measure MORE THAN ITS PLAN_SKIP LEAVES", function()
 	it("a pure tick measures nothing at all (T3's floor, taken to 0 by T4's arm)", function()

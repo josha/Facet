@@ -135,8 +135,12 @@ describe("O3: a moved-not-resized subtree translates", function()
 		hosted.tickWithCasts(3, 2)
 		hosted.tickWithCasts(3, 2)
 		local st = hosted.stats()
+		--[[ `CASTERS * 3 + 2` since Plan C's C2, was `CASTERS * 5 + 2`: under a caster
+			only the `Cast` box carries measure dirt, so both touches of its `Hp` sibling
+			are served from the node's own last answer and never reach `measureUncached`.
+			`tests/measure_split.spec.luau` carries the bucket table. ]]
 		expect(`lane={st.lastLaneTranslates} measured={st.lastMeasured}`).toBe(
-			`lane={PLATES} measured={CASTERS * 5 + 2}`
+			`lane={PLATES} measured={CASTERS * 3 + 2}`
 		)
 		hosted.dispose()
 	end)

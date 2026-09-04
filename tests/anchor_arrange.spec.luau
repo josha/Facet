@@ -80,7 +80,14 @@ end
 	INVARIANT half — the thing the anchor arm must not break — while
 	`anchorReused`/`anchorOffered` and the KB are the half that moves. ]]
 local ARRANGED_HP = 4 -- Screen + Canvas + Plate + Hp
-local MEASURED_HP = 7 -- (Screen + Canvas + Plate) + Hp x2 + Cast x2, all PLAN_SKIP or dirty
+--[[ (Screen + Canvas + Plate) + `Hp` x2 + `Cast` x2 — all PLAN_SKIP or dirty — was
+	7 until Plan C's C2. The serve takes the two `Cast` touches: an `hp` step leaves
+	the cast bar measure-CLEAN at an unchanged offer, so both its touches (the
+	refused plate root's measure descent, then its arrange descent) are answered from
+	the node's own last answer. `Hp` itself is the dirty one and still costs both.
+	5 = the three-node dirty chain + `Hp` twice, and the case's real assertion —
+	that 250 re-offered siblings cannot fit in it — is unchanged. ]]
+local MEASURED_HP = 5
 
 --[[ ...AND THE HALF THAT MOVES, read off the run for every step kind the fixture
 	drives. Before this task every one of them was `reused = 0, offered = 250`.

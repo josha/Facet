@@ -185,7 +185,7 @@ describe("the solve-context seam: one require, no state, one export", function()
 		end
 		table.sort(missing)
 		table.sort(undeclared)
-		expect(`declared={#sorted(declared)} written={#sorted(written)}`).toBe("declared=49 written=49")
+		expect(`declared={#sorted(declared)} written={#sorted(written)}`).toBe("declared=52 written=52")
 		expect(`never built={table.concat(missing, " ")}`).toBe("never built=")
 		expect(`undeclared={table.concat(undeclared, " ")}`).toBe("undeclared=")
 		-- NEGATIVE CONTROL: both scans really do read a field and a key

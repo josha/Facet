@@ -1456,15 +1456,43 @@ local function toLayoutNode(
 	local selfRelative = (layoutNode.width ~= nil and layoutNode.width.type == "containerRelative")
 		or (layoutNode.height ~= nil and layoutNode.height.type == "containerRelative")
 	local inside = selfRelative
-	if not inside and kind ~= "scroll" and layoutNode.children ~= nil then
+	--[[ ...AND THE TWO THE MEASURE SERVE GATES ON, computed in this same pass because
+		it is the same shape and the same walk: a fact about the built subtree, asked
+		once here instead of per solve in `measure`.
+
+		SELF-INCLUSIVE, which is an argument rather than a convenience.
+		`solver.measure` may answer a clean node from numbers on the node itself, and a
+		tuple of numbers cannot carry `ctx.hasScroll` or `ctx.compositions[node.id]` —
+		but `ctx.hasScroll` is set for the SCROLL NODE ITSELF and `ctx.compositions` is
+		written for the composition node itself, so a child-only OR would leave the
+		OWNER of each channel ungated and a served ScrollView would drop its own
+		publish. `tests/measure_serve.spec.luau` carries the full channel table.
+
+		AND THE SCROLL MARK DOES NOT STOP AT A SCROLLER the way `containerRelativeInside`
+		does. That stop is about a scroller INSULATING its subtree from the enclosing
+		container, which is a statement about what a size depends on; these two are
+		about which node PUBLISHES a channel, and an outer scroller publishes its own
+		regardless of what is beneath it. ]]
+	local scrollInside = kind == "scroll"
+	local compositionInside = kind == "composition"
+	if layoutNode.children ~= nil then
+		local wantInside = not inside and kind ~= "scroll"
 		for _, child in layoutNode.children do
-			if child.containerRelativeInside then
+			if child.subtreeHasScroll then
+				scrollInside = true
+			end
+			if child.subtreeHasComposition then
+				compositionInside = true
+			end
+			if wantInside and child.containerRelativeInside then
 				inside = true
-				break
+				wantInside = false
 			end
 		end
 	end
 	layoutNode.containerRelativeInside = inside or nil
+	layoutNode.subtreeHasScroll = scrollInside or nil
+	layoutNode.subtreeHasComposition = compositionInside or nil
 	if store ~= nil and store.reuse then
 		-- LAST, so a node that threw builds no entry. `axis`/`clip` are recorded
 		-- beside the tree because they are the two inputs the lookup above cannot

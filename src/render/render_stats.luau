@@ -50,6 +50,12 @@ function render_stats.new(): any
 		-- nodes the MOST RECENT solve arranged / measured
 		lastArranged = 0,
 		lastMeasured = 0,
+		-- ...and how many times that solve ENTERED `measure`, against how many of
+		-- those entries it answered from the node's own last answer (C2). Neither is
+		-- `lastMeasured`: that counts UNCACHED measures, which a memo hit never moved
+		-- either, so it cannot say what a cheaper lookup path is worth.
+		lastMeasureCalls = 0,
+		lastMeasureServed = 0,
 		-- re-solves earned by a consumer publishing a layout prop back from this
 		-- surface's own geometry (see THE SOLVE'S OWN FEEDBACK). The stated cost of
 		-- closing that frame: one extra solve on the frame the number moves, which
@@ -157,6 +163,8 @@ function render_stats.publish(stats: any, result: any, layoutNodes: number, stru
 		-- than something you have to instrument the solver to see.
 		stats.lastArranged = work.arranged
 		stats.lastMeasured = work.measured
+		stats.lastMeasureCalls = work.measureCalls or 0
+		stats.lastMeasureServed = work.measureServed or 0
 		-- ...and what the solve wrote into the RECT MAP (P2). It is not `lastArranged`
 		-- by definition — before the copy-on-write map a skipped subtree inserted
 		-- every descendant, so this is the number that says the skip is O(touched).

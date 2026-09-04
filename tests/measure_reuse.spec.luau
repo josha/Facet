@@ -892,14 +892,23 @@ describe("cross-solve measure reuse (P1)", function()
 			grep, over the call and nothing else, with its COMMENTS STRIPPED — the
 			block explains the defect by name, and a scan that read prose would report
 			the very term it is checking for. ]]
+		--[[ THE BLOCK IS THE STAMP EXPRESSION *AND* THE CALL, since Plan C's C2 made the
+			string a local: `solver.measure`'s node-resident serve needs the same axis-3
+			answer the store needs, so the renderer builds the string once and hands it
+			to both. A scan pinned to the call alone would have gone quiet on the very
+			terms it is here to hold — it did, on the commit that moved them — so it
+			reads from the assignment through the call's closing paren instead. ]]
 		local source = fs.readFile("src/render/renderer.luau")
-		local block = string.match(source, "local stampMoved = measure_reuse%.restamp%(\n(.-)\n\t\t%)")
+		local block = string.match(source, "local measureStamp = (.-)\n\t\t%)")
 		expect(block ~= nil).toBe(true)
 		local code = string.gsub("\n" .. (block :: string), "\n[ \t]*%-%-[^\n]*", "\n")
 		expect(string.find(code, "tostring(metrics)", 1, true)).toBe(nil)
 		-- ...and the snapshot really is an argument, so the two halves cannot both
 		-- pass by the call having stopped taking one
 		expect(string.find(code, "\n\t\t\tmetrics", 1, true) ~= nil).toBe(true)
+		-- ...and the SAME local really is what the solve is handed, or the two caches
+		-- would answer axis 3 from two strings that can drift
+		expect(string.find(source, "measureStamp = measureStamp,", 1, true) ~= nil).toBe(true)
 		expect(string.find(code, "text_metrics.epoch()", 1, true) ~= nil).toBe(true)
 	end)
 end)

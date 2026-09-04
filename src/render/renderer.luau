@@ -1961,11 +1961,20 @@ function renderer.attach(
 		-- own offer, and gating it made the refusal below unfirable in the one arm that
 		-- exists to make a divergence attributable (`render/structural_scope`, AND THE
 		-- STAMP HAS TO BE TAKEN). Only `solveOpts.measures` is gated.
+		--[[ ...AND THE SAME STRING IS THE MEASURE SERVE'S AXIS 3 (C2), which is why it
+			is a local rather than an argument built in place. `solver.measure` may answer
+			a clean node from a tuple ON THE NODE, and that tuple outlives the store the
+			stamp clears: the layout nodes are rebuilt only when the METRICS or the two
+			text scales move, so a text-metrics settle — a corrected label width at an
+			unchanged offer under an unchanged theme — would otherwise be served the
+			width from before the correction. The store and the tuple get the same
+			answer to the same question, from the same string. ]]
+		local measureStamp = `{vp.w}|{vp.h}|{insets.top}|{insets.bottom}|{insets.left}|{insets.right}|{rootPolicy}|{barReserve}`
+			.. `|{if band ~= nil then `{band.x},{band.y},{band.w},{band.h}` else "-"}|{bandFullTop}`
+			.. `|{measureScale}|{prefOffset}|{text_metrics.epoch()}`
 		local stampMoved = measure_reuse.restamp(
 			measureStore,
-			`{vp.w}|{vp.h}|{insets.top}|{insets.bottom}|{insets.left}|{insets.right}|{rootPolicy}|{barReserve}`
-				.. `|{if band ~= nil then `{band.x},{band.y},{band.w},{band.h}` else "-"}|{bandFullTop}`
-				.. `|{measureScale}|{prefOffset}|{text_metrics.epoch()}`,
+			measureStamp,
 			-- ...and the APPLIED SNAPSHOT ITSELF, beside the string rather than inside it:
 			-- `tostring(metrics)` was an address, and an address is reused once its table
 			-- is collected (`measure_reuse.Store.metrics`)
@@ -2011,6 +2020,9 @@ function renderer.attach(
 			-- branch costs an undeclared surface one nil check.
 			band = band,
 			bandFullTop = bandFullTop,
+			-- axis 3 for the measure serve's node-resident tuple, the same string the
+			-- measure store is re-stamped with above
+			measureStamp = measureStamp,
 		}
 		-- kept so the Stage-1 boundary analysis can re-solve the SAME tree with the
 		-- SAME offers; an analysis run against a differently-built tree would be

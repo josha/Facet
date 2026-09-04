@@ -24,6 +24,7 @@
 	  | the four arrange-blind walks | T5b ✅ `da7fc3a9` | **3** on a pure tick (was 253) / **103** on a caster tick (was 303). `textScale`, `padding`, `textVerdicts` and `scrollRegions` name no arrange-class prop, so they are answered against a COMMIT-side dirty set that the seven pure placement props never enter, and T4's `moveOnly` stamp on the translate ROOT — inert until this — prunes all 250 plate roots. `harvest`/`visible` keep the all-classes set (they read `hidden`) and so keep 253/303; `hitRects` and `rectPass` are untouched |
 	  | ALL OF THEM               | T6 ✅ `262117dc` | **NOTHING MOVED, and that is a fact rather than an oversight.** T6 gave the anchor arrange branch a third arm — a child with nothing MEASURE-classed dirty inside it and the identical offer takes its w/h from its own previous rect instead of a `measure` call — and on this fixture it fires for all 250 plates on a pure tick and for 200 of them on a caster tick. NONE of the counters above can see it: `lastMeasured` is incremented inside `measureUncached`, and every call the arm removes was a memo HIT that returned before reaching it. The counters that move are the new `work.anchorReused` / `work.anchorOffered` pair, pinned in `tests/anchor_arrange.spec.luau`, and they are read off `solver.solve`'s result rather than off `stats()` because this task adds nothing to the controller's public surface. **The task brief predicted `lastMeasured` would show the 250 and it could not** — recorded here because a demonstrator built on it would have been green before the change and green after |
 	  | EVERY PURE-TICK PIN        | T5 ✅ (Plan C, C6) | **THE PURE TICK STOPPED SOLVING.** `render/translate_lane` consumes all 250 placement entries, so `refresh` hands the solve an empty remainder: `solves` delta **0**, `lastLaneTranslates` **250**, 250 rect and 250 engine writes, and the whole `stats.last*` family reports the PREVIOUS solve unchanged. Every solve-side pin in this file therefore moved to the CASTER tick, which still carries MEASURE dirt no lane may take. Three of them are SMALLER than the caster column this file used to carry — 302 arranged → **102**, 302 builds → **102**, 303 visits → **103** — because the laned plate roots never reach the classifier and so never enter `nodeDirty` or the commit's dirty set. `lastMeasured` on a caster tick did NOT move (252): the plates it counts were already the casters' own |
+	  | `lastMeasured`, caster tick | C2 ✅ (Plan C, T6) | **252 → 152 steady, 1602 → 1552 cold.** `measure`'s node-resident serve answers a clean node from numbers on the node itself, and under a caster only the `Cast` box is measure-dirty: both `Hp` touches are served on a steady tick (−100) and its SECOND touch on the cold one (−50, the first being genuinely cold). The pure-tick column is unmoved because a pure tick does not solve at all (C6). The new counters are `work.measureCalls`/`measureServed` → `stats.lastMeasureCalls`/`lastMeasureServed`, pinned in `tests/measure_serve.spec.luau` on a fixture whose shape a stack — not an anchor — can show |
 	  | the census, `rectWrites`   | never | 1,503 mounted / 1,502 layout / 1,500 writes |
 
 	253 is Screen + Canvas + the ForEach region + one root per plate. The 250
@@ -107,7 +108,13 @@ local CASTERS = PLATES // scene.CASTER_EVERY -- 50
 -- translate arm removes it, leaving each of the 50 casters at 5 (its refused root,
 -- plus `Hp`/`Cast` on both the measure and the arrange descent) and the two
 -- ancestors every caster's measure dirt closes over.
-local MEASURED_STEADY_CASTERS = CASTERS * 5 + 2 -- 252
+-- ...AND PLAN C's C2 TOOK THE PER-CASTER TERM FROM 5 TO 3 (252 -> 152, read off the
+-- run): `Hp` is measure-CLEAN under a caster — only the cast bar's width moved — so
+-- `measure`'s node-resident serve answers both of its touches from the node's own
+-- last answer and neither reaches `measureUncached`. What is left per caster is the
+-- refused root once and `Cast` twice. `tests/measure_split.spec.luau` carries the
+-- bucket table and `tests/measure_serve.spec.luau` the serve's channel table.
+local MEASURED_STEADY_CASTERS = CASTERS * 3 + 2 -- 152
 -- READ OFF THE RUN, instrumented at T2 (`solver.measureUncached`, temporary
 -- counter, reverted before commit) as 1502 distinct nodes measured once PLUS the
 -- 500 Hp/Cast boxes measured a SECOND time by the vstack arrange branch. T4
@@ -154,10 +161,20 @@ local ARRANGED_CASTER = CASTERS * 2 + 2 -- 102: each caster's root and its Cast 
 local BUILDS_CASTER = CASTERS * 2 + 2 -- 102, the same set
 local SKIPPED_CASTER = LAYOUT - ARRANGED_CASTER -- 1400
 local VISITS_CASTER = CASTERS * 2 + 3 -- 103, on all EIGHT walks
--- ...and the cold caster tick, the one-time measure-store cost this fixture pays on
--- its first solve after mount (the lane defers it: `initialRender`'s own fill pass
--- clears the store and a laned tick never re-fills it)
-local MEASURED_COLD_CASTERS = 1602
+--[[ ...and the cold caster tick, the one-time measure-store cost this fixture pays
+	on its first solve after mount (the lane defers it: `initialRender`'s own fill
+	pass clears the store and a laned tick never re-fills it).
+
+	PLAN C's C2 TOOK IT FROM 1602 TO 1552, and the 50 are exactly identifiable. 1602
+	was 1502 distinct nodes measured once PLUS the 100 second touches of the 50
+	casters' `Hp` and `Cast` boxes (the refused plate root's measure descent, then
+	its arrange descent). The FIRST touch of each node is still cold — nothing has
+	recorded a tuple for it yet — but the SECOND touch of `Hp` is now served, because
+	`Hp` is measure-clean under a caster and the measure descent recorded its answer
+	moments earlier IN THIS SOLVE. `Cast` is measure-dirty and refuses. So the serve
+	removes 50 and only 50, which is also the cleanest demonstration in this file
+	that the serve has an INTRA-solve half as well as a cross-solve one. ]]
+local MEASURED_COLD_CASTERS = 1552 -- was 1602 before C2
 
 describe("nameplates baseline — the numbers the wicked-fast round starts from", function()
 	it("the fixture is the tree the plan says it is", function()
@@ -253,7 +270,10 @@ describe("nameplates baseline — the numbers the wicked-fast round starts from"
 			first solve after mount always re-measures the whole tree. What Plan C's C6
 			changed is WHICH refresh pays it: a pure tick lanes and never solves, so the
 			cold cost is deferred to the first step that carries measure dirt. Driven on
-			the caster tick for that reason, and both columns are read off the run. ]]
+			the caster tick for that reason, and both columns are read off the run —
+			1552 against a steady 152 since C2, whose serve takes exactly the 50 `Hp`
+			second touches out of the cold column and the 100 `Hp` touches out of the
+			steady one. ]]
 		local s = scene.new()
 		s.tickWithCasts(3, 2)
 		local cold = s.stats()
