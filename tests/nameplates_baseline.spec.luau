@@ -23,12 +23,22 @@
 	  | every per-walk visit count | T5 ✅ `4b0f5e19` | 253 (pure) / 303 (casters) for the six MOVE-BLIND walks; `rectPass` 253 (pure) / **403** (casters, NOT the 303 the plan predicted — see `tests/commit_translate.spec`); `hitRects` stays 1,503 |
 	  | the four arrange-blind walks | T5b ✅ `da7fc3a9` | **3** on a pure tick (was 253) / **103** on a caster tick (was 303). `textScale`, `padding`, `textVerdicts` and `scrollRegions` name no arrange-class prop, so they are answered against a COMMIT-side dirty set that the seven pure placement props never enter, and T4's `moveOnly` stamp on the translate ROOT — inert until this — prunes all 250 plate roots. `harvest`/`visible` keep the all-classes set (they read `hidden`) and so keep 253/303; `hitRects` and `rectPass` are untouched |
 	  | ALL OF THEM               | T6 ✅ `262117dc` | **NOTHING MOVED, and that is a fact rather than an oversight.** T6 gave the anchor arrange branch a third arm — a child with nothing MEASURE-classed dirty inside it and the identical offer takes its w/h from its own previous rect instead of a `measure` call — and on this fixture it fires for all 250 plates on a pure tick and for 200 of them on a caster tick. NONE of the counters above can see it: `lastMeasured` is incremented inside `measureUncached`, and every call the arm removes was a memo HIT that returned before reaching it. The counters that move are the new `work.anchorReused` / `work.anchorOffered` pair, pinned in `tests/anchor_arrange.spec.luau`, and they are read off `solver.solve`'s result rather than off `stats()` because this task adds nothing to the controller's public surface. **The task brief predicted `lastMeasured` would show the 250 and it could not** — recorded here because a demonstrator built on it would have been green before the change and green after |
+	  | EVERY PURE-TICK PIN        | T5 ✅ (Plan C, C6) | **THE PURE TICK STOPPED SOLVING.** `render/translate_lane` consumes all 250 placement entries, so `refresh` hands the solve an empty remainder: `solves` delta **0**, `lastLaneTranslates` **250**, 250 rect and 250 engine writes, and the whole `stats.last*` family reports the PREVIOUS solve unchanged. Every solve-side pin in this file therefore moved to the CASTER tick, which still carries MEASURE dirt no lane may take. Three of them are SMALLER than the caster column this file used to carry — 302 arranged → **102**, 302 builds → **102**, 303 visits → **103** — because the laned plate roots never reach the classifier and so never enter `nodeDirty` or the commit's dirty set. `lastMeasured` on a caster tick did NOT move (252): the plates it counts were already the casters' own |
 	  | the census, `rectWrites`   | never | 1,503 mounted / 1,502 layout / 1,500 writes |
 
 	253 is Screen + Canvas + the ForEach region + one root per plate. The 250
 	`…/[pN]` strings `markNodeDirty` also writes have NO mounted node behind them
 	(`mount.luau:357` uses `rowPath` as a parent path), and `skip` is only ever
 	asked about real nodes — so they are dirty PATHS and never commit VISITS.
+
+	THE PURE-TICK CONSTANTS ARE HISTORY NOW, NOT DECLARATIONS. `MEASURED_STEADY` (0),
+	`MEASURED_COLD` (1502), `ARRANGED_STEADY` (252), `SKIPPED_STEADY` (1250),
+	`VISITS_PRUNED` (253) and `VISITS_ARRANGE_BLIND` (3) were all read on a PURE tick,
+	and since Plan C's C6 a pure tick never reaches the solver — so they were deleted
+	rather than left standing as locals nothing reads. Their values are recorded here
+	and in the table above; the live pins are the `*_CASTER` family below. The
+	paragraphs that follow are their derivations, kept because they are the record of
+	how each was measured.
 
 	`MEASURED_STEADY` and `MEASURED_COLD` (wicked-fast T2, Fix round 1 — the
 	controller's ruling): the "currently N" a later demonstrator quotes must be
@@ -92,7 +102,6 @@ local CASTERS = PLATES // scene.CASTER_EVERY -- 50
 -- nothing left to measure on a steady pure tick: every node's slate is adopted and
 -- hit, and no PLAN_SKIP leaf is touched. See `tests/measure_split.spec.luau` and
 -- `tests/translate_arm.spec.luau` for the buckets and the arm.
-local MEASURED_STEADY = 0
 -- ...and a caster tick keeps ONLY its caster term (T4, `14c3459d`, was 652): the
 -- `(PLATES - CASTERS) * 2` half was the 200 quiet plates' arrange descent and the
 -- translate arm removes it, leaving each of the 50 casters at 5 (its refused root,
@@ -106,11 +115,9 @@ local MEASURED_STEADY_CASTERS = CASTERS * 5 + 2 -- 252
 -- already moved and their subtrees are clean, so they translate — and what is left
 -- is exactly the 1502 distinct measures. See "the first tick after mount pays a
 -- one-time cold solve".
-local MEASURED_COLD = LAYOUT -- 1502
 -- the O3 split of `lastArranged` (T4, `14c3459d`), read off the run: the Screen,
 -- the Canvas and the 250 plate ROOTS take the ordinary entry write and each
 -- re-bases its 5 descendants.
-local ARRANGED_STEADY = PLATES + 2 -- 252
 --[[ MOVED TO ZERO BY PLAN C's C1, and the mechanism is worth stating because the
 	number looks like a lost measurement. A plate root carries a REACTIVE
 	`offsetX`/`offsetY` and has children, so it is now a COORDINATE SPACE: its
@@ -121,17 +128,36 @@ local ARRANGED_STEADY = PLATES + 2 -- 252
 	outcomes still account for every layout node. `tests/translate_arm.spec.luau`
 	keeps the arm's own numbers on a `hosts = false` mount. ]]
 local TRANSLATED_STEADY = 0
-local SKIPPED_STEADY = PLATES * (scene.NODES_PER_PLATE - 1) -- 1250
 -- the COMMIT's own dirty closure on a steady pure tick, and T5's (`4b0f5e19`) pin for
 -- seven of the eight walks: Screen + Canvas + the ForEach region + one root per
 -- plate. `tests/commit_translate.spec.luau` carries the derivation, the caster
 -- column (303, and `rectPass` 403) and the four-arm adapter oracle behind it.
-local VISITS_PRUNED = PLATES + 3 -- 253
 -- ...and T5b's (`da7fc3a9`) floor for the four walks that read no arrange-class
 -- prop at all: Screen + Canvas + the ForEach region, every plate root pruned by
 -- T4's translate-root stamp. `tests/commit_dirt_classes.spec.luau` carries the
 -- per-prop audit, the caster column (103) and the four-arm oracle.
-local VISITS_ARRANGE_BLIND = 3
+--[[ ── THE CASTER-TICK FAMILY (Plan C, C6 — the translate lane) ────────────────
+	A PURE TICK NO LONGER SOLVES AT ALL, so the numbers above have no tick to be
+	read on: `stats.last*` is the PREVIOUS solve's by doctrine and the lane does not
+	zero it. Every solve-side pin in this file therefore moved to the CASTER tick,
+	which is the cheapest step this fixture has that still reaches the solver — the
+	50 `Cast` bars carry MEASURE dirt, which no lane may take.
+
+	ALL FIVE ARE READ OFF THE RUN, and three of them are smaller than the caster
+	column this file used to carry (302 arranged / 302 builds / 303 visits): the
+	lane CONSUMES the 250 plate roots' placement entries, so they never reach the
+	classifier, never enter `nodeDirty` and never enter the commit's dirty set. What
+	is left of a caster tick is the 50 casters and the two ancestors above them.
+	`MEASURED_STEADY_CASTERS` did NOT move — the plates it counts were already the
+	casters' own. ]]
+local ARRANGED_CASTER = CASTERS * 2 + 2 -- 102: each caster's root and its Cast box, plus Canvas + Screen
+local BUILDS_CASTER = CASTERS * 2 + 2 -- 102, the same set
+local SKIPPED_CASTER = LAYOUT - ARRANGED_CASTER -- 1400
+local VISITS_CASTER = CASTERS * 2 + 3 -- 103, on all EIGHT walks
+-- ...and the cold caster tick, the one-time measure-store cost this fixture pays on
+-- its first solve after mount (the lane defers it: `initialRender`'s own fill pass
+-- clears the store and a laned tick never re-fills it)
+local MEASURED_COLD_CASTERS = 1602
 
 describe("nameplates baseline — the numbers the wicked-fast round starts from", function()
 	it("the fixture is the tree the plan says it is", function()
@@ -143,137 +169,139 @@ describe("nameplates baseline — the numbers the wicked-fast round starts from"
 		s.dispose()
 	end)
 
-	it("a pure tick: a full arrange, a full re-measure, eight whole-tree walks", function()
+	it("a pure tick LANES: no solve at all, one rect and one engine write per plate", function()
+		--[[ THE HEADLINE OF PLAN C's C6. Every dirty entry on this tick is a placement
+			prop on a coordinate-space host, so `render/translate_lane` consumes all 250,
+			re-places each with the solver's own `placement.anchorPlace`, writes the
+			solver's entry in place and calls `setRect` once — and the remainder handed to
+			the rest of `refresh` is empty, so no solve runs and no commit opens.
+
+			MEASURED AS DELTAS, AND DELIBERATELY NOT AS `stats.last*`. The whole `last*`
+			family reports the PREVIOUS solve and the lane does not zero it, so a pin on
+			`lastCommitVisits == 0` would pass for the wrong reason. A commit runs only
+			inside `solveAndApply`, so a `solves` delta of 0 IS "no commit ran" — and the
+			second half of this case asserts the staleness directly, because a reader who
+			does not know it is the doctrine will misread every number in this file. ]]
 		local s = scene.new()
-		-- WARM-UP, discarded (wicked-fast T2, Fix round 1). The scene's FIRST
-		-- refresh after `scene.new()` pays a one-time cold-solve cost — its own
-		-- case below, "the first tick after mount pays a one-time cold solve".
-		-- This case pins the STEADY tick — the number every later demonstrator
-		-- in this round actually reads "currently N" from — so one discarded
-		-- tick absorbs the cold cost before the pinned measurement.
-		s.tick(3, 2)
+		s.tick(3, 2) -- warm: the first tick after mount is laned too, see the cold case
+		local before = s.stats()
+		local ew = s.adapter.engineWrites()
 		s.tick(3, 2)
 		local st = s.stats()
-		-- MEASURED_STEADY is the number READ OFF THE RUN and written in as a
-		-- literal, with the header note beside it. It is the "currently N"
-		-- every later demonstrator quotes, so it is on disk rather than in a
-		-- memory of a profiling session. Moved 1252 -> 500 by T3's
-		-- measure/arrange dirt split (`157ed3c9`), and 500 -> 0 by T4's
-		-- translate arm (`14c3459d`).
-		expect(st.lastMeasured).toBe(MEASURED_STEADY)
-		-- ...and `lastArranged` is no longer the whole tree (T4, `14c3459d`): the
-		-- 1250 nodes that only MOVED are a class of their own now, and the two
-		-- halves still have to add up to the tree.
-		expect(st.lastArranged).toBe(ARRANGED_STEADY)
+		expect(
+			`solves={st.solves - before.solves} lane={st.lastLaneTranslates}`
+				.. ` rectWrites={st.rectWrites - before.rectWrites}`
+				.. ` engineWrites={s.adapter.engineWrites() - ew}`
+		).toBe(`solves=0 lane={PLATES} rectWrites={PLATES} engineWrites={PLATES}`)
+		-- ...and every solve counter is EXACTLY what it was before the tick
+		expect(
+			`arranged={st.lastArranged} measured={st.lastMeasured} builds={st.lastNodeBuilds}`
+				.. ` visits={st.lastCommitVisits}`
+		).toBe(
+			`arranged={before.lastArranged} measured={before.lastMeasured} builds={before.lastNodeBuilds}`
+				.. ` visits={before.lastCommitVisits}`
+		)
+		s.dispose()
+	end)
+
+	it("...and the CASTER tick is the solve: the arrange halves, the walks, the cumulative writes", function()
+		--[[ THE SOLVE-SIDE TABLE THIS FILE HAS ALWAYS CARRIED, moved to the step that
+			still reaches the solver. The 50 `Cast` bars carry MEASURE dirt, which no lane
+			may take, so a caster tick lanes the 250 movers and solves the 50 — and the
+			solve it takes is much smaller than the caster tick this file used to pin,
+			because the laned plate roots never reach the classifier at all. ]]
+		local s = scene.new()
+		s.tickWithCasts(3, 2) -- warm: the first solve after mount is the cold one
+		s.tickWithCasts(3, 2)
+		local st = s.stats()
+		expect(st.lastMeasured).toBe(MEASURED_STEADY_CASTERS) -- 252, unmoved by the lane
+		expect(st.lastArranged).toBe(ARRANGED_CASTER)
 		expect(st.lastTranslated).toBe(TRANSLATED_STEADY)
-		expect(st.lastSolveSkipped).toBe(SKIPPED_STEADY)
+		expect(st.lastSolveSkipped).toBe(SKIPPED_CASTER)
 		expect(st.lastArranged + st.lastTranslated + st.lastSolveSkipped).toBe(LAYOUT)
-		-- ...and a rect insert per node the solve actually entered, which is now the
-		-- arrange half alone (Plan C, C1): a subtree stored in its host's space keeps
-		-- the entries it already had.
-		expect(st.lastRectInserts).toBe(ARRANGED_STEADY)
-		expect(st.lastNodeBuilds).toBe(PLATES + 2) -- 252: the moved plates + Canvas + Screen, dirtyContains
-		-- CUMULATIVE since `scene.new()` (Fix round 2, I-1): `rectWrites` is
-		-- never reset per-commit, only incremented on an actual value change.
-		-- STILL TRUE UNDER T5's RUN ARM (`4b0f5e19`, review round 1): a translated
-		-- subtree is emitted from the solver's flat run rather than walked for, but
-		-- every element of that run goes through the same `rect_pass.applyOne` the
-		-- walk uses, so the minimal-write contract has exactly one implementation.
-		-- `tests/commit_translate.spec`'s zero-delta case is the pin. READ OFF THE RUN,
-		-- AND MOVED BY PLAN C's C1: `initialRender`'s own solve still writes every rect
-		-- once (1502, everything is new), but each of the two ticks since writes only
-		-- the 250 plate ROOTS — every rect beneath one is stored in the plate's own
-		-- space and did not change there — so 1502 + 250 + 250 = 2002, where a flat
-		-- tree paid 1502 + 1500 + 1500 = 4502.
-		expect(st.rectWrites).toBe(1502 + PLATES + PLATES)
-		-- the EXACT aggregate (Fix round 2, I-1): the sum of the eight per-walk
-		-- counts below, and the only exact pin of the aggregate in this repo —
-		-- the old `>= MOUNTED * 7` bound could never fail (a walk silently
-		-- publishing twice would still sail past a MOUNTED * 7 floor).
-		-- MOVED BY T5b: four of the seven `VISITS_PRUNED` terms became
-		-- `VISITS_ARRANGE_BLIND`. MOVED AGAIN BY PLAN C's C1: `hitRects` joins the
-		-- pruned three — see its own pin below for why the "never prunes a move"
-		-- clause stopped being true. 253 * 4 + 3 * 4 = 1024.
-		expect(st.lastCommitVisits).toBe(VISITS_PRUNED * 4 + VISITS_ARRANGE_BLIND * 4) -- 1024
-		-- the per-walk breakdown this task exists to publish, MOVED BY T5
-		-- (`4b0f5e19`) from the whole tree to the dirty closure: the six walks whose
-		-- output cannot read a position take `skip(node, true)` and prune a
-		-- moved subtree away, `rectPass` stops AT each translate root and emits
-		-- the solver's run.
-		--
-		-- ...AND `hitRects` STOPPED WALKING EVERYTHING (Plan C, C1). It centres its
-		-- target-floor expander on `r.x`/`r.y`, so it had to see every move — and
-		-- under a coordinate space a moved plate's descendants DO NOT MOVE in their
-		-- own space. Their entry tables are the ones the last commit saw, `skip`
-		-- matches on plain identity, and the walk stops at the dirty closure like the
-		-- other three. 1,503 -> 253, and it is a consequence of the storage change
-		-- rather than a new prune.
+		-- ...and a rect insert per node the solve actually entered, which is the arrange
+		-- half alone (Plan C, C1): a subtree stored in its host's space keeps its entries
+		expect(st.lastRectInserts).toBe(ARRANGED_CASTER)
+		expect(st.lastNodeBuilds).toBe(BUILDS_CASTER)
+		--[[ CUMULATIVE since `scene.new()`: `rectWrites` is never reset per commit, only
+			incremented on an actual value change. `initialRender`'s own solve writes
+			every rect once (1502, everything is new); each caster tick since writes the
+			250 laned plate ROOTS plus the 50 resized `Cast` bars. 1502 + 300 + 300. ]]
+		expect(st.rectWrites).toBe(LAYOUT + 2 * (PLATES + CASTERS))
+		-- the EXACT aggregate: the sum of the eight per-walk counts below, and the only
+		-- exact pin of the aggregate in this repo — the old `>= MOUNTED * 7` bound could
+		-- never fail (a walk silently publishing twice would sail past it).
+		expect(st.lastCommitVisits).toBe(VISITS_CASTER * 8)
+		--[[ ...AND ALL EIGHT WALKS AGREE NOW, which they did not before the lane. T5b
+			split them into a pruned six and an arrange-blind four because the arrange-
+			blind set could ignore a plate root that only MOVED; a laned frame never
+			reaches the commit at all, so on a caster tick the only dirt any walk sees is
+			the casters' own MEASURE dirt — which every walk reads. The split is still
+			real and `tests/commit_dirt_classes.spec.luau` is where it is driven; it
+			simply has nothing to separate on this step. ]]
 		local byWalk = st.lastCommitVisitsByWalk
-		for _, name in { "harvest", "visible", "rectPass", "hitRects" } do
-			expect(`{name}={byWalk[name]}`).toBe(`{name}={VISITS_PRUNED}`)
-		end
-		-- ...and the four T5b took below the dirty closure entirely
-		for _, name in { "textScale", "padding", "textVerdicts", "scrollRegions" } do
-			expect(`{name}={byWalk[name]}`).toBe(`{name}={VISITS_ARRANGE_BLIND}`)
+		for _, name in
+			{ "harvest", "visible", "rectPass", "hitRects", "textScale", "padding", "textVerdicts", "scrollRegions" }
+		do
+			expect(`{name}={byWalk[name]}`).toBe(`{name}={VISITS_CASTER}`)
 		end
 		s.dispose()
 	end)
 
-	it("the first tick after mount pays a one-time cold solve", function()
+	it("the first SOLVE after mount pays a one-time cold measure, and the lane defers it", function()
+		--[[ `initialRender`'s own fill pass CLEARS the measure store, so this fixture's
+			first solve after mount always re-measures the whole tree. What Plan C's C6
+			changed is WHICH refresh pays it: a pure tick lanes and never solves, so the
+			cold cost is deferred to the first step that carries measure dirt. Driven on
+			the caster tick for that reason, and both columns are read off the run. ]]
 		local s = scene.new()
-		s.tick(3, 2)
-		local st = s.stats()
-		-- MEASURED_COLD, instrumented directly (`solver.measureUncached`,
-		-- temporary counter, reverted before commit): of the 2002 measure calls
-		-- this first tick makes, exactly 1502 are DISTINCT nodes — every layout
-		-- node, once — and the other 500 land on the 500 Hp/Cast boxes
-		-- (`kind=box`), each measured TWICE in the same solve. By solver kind:
-		-- vstack=251, hstack=250, text=500, anchor=1 (each measured once,
-		-- matching LAYOUT's own count of each), plus box=1000 calls across 500
-		-- distinct nodes (measured twice: 251+250+500+1+1000=2002,
-		-- 251+250+500+1+500=1502 distinct). This is the scene's FIRST solve
-		-- eligible for `layoutNodeReuse` (`initialRender` is not itself a reuse
-		-- solve) — which is also why `lastNodeBuilds` reads the SAME 252 here
-		-- as on a steady tick below: builds is not what makes this tick cold.
-		expect(st.lastMeasured).toBe(MEASURED_COLD)
-		-- ...and the cold tick translates exactly as a steady one does (T4): what
-		-- makes it cold is the measure store, not the arrange half.
-		expect(st.lastArranged).toBe(ARRANGED_STEADY)
-		expect(st.lastTranslated).toBe(TRANSLATED_STEADY)
-		expect(st.lastNodeBuilds).toBe(PLATES + 2) -- 252 — same as a steady tick
+		s.tickWithCasts(3, 2)
+		local cold = s.stats()
+		s.tickWithCasts(3, 2)
+		local steady = s.stats()
+		expect(`cold={cold.lastMeasured} steady={steady.lastMeasured}`).toBe(
+			`cold={MEASURED_COLD_CASTERS} steady={MEASURED_STEADY_CASTERS}`
+		)
+		-- ...and what makes it cold is the measure store, not the arrange or build half:
+		-- both are identical on the two solves
+		expect(`arranged={cold.lastArranged} builds={cold.lastNodeBuilds}`).toBe(
+			`arranged={ARRANGED_CASTER} builds={BUILDS_CASTER}`
+		)
 		s.dispose()
 	end)
 
-	it("...and a caster tick moves lastNodeBuilds (the mixed-dirt step exists and bites)", function()
+	it("...and the mixed-dirt step exists and bites: the pure tick lanes, the caster tick solves", function()
+		--[[ THE TWO STEPS THIS FIXTURE OFFERS, and the difference between them is now
+			categorical rather than a counter. A pure tick's dirt is placement on
+			coordinate-space hosts and NOTHING else, so the lane takes all 250 and the
+			frame never solves. A caster tick adds a `{ type = "fixed", px = cast * 100 }`
+			write on 50 `Cast` bars — MEASURE-classed, which no lane may take — so those
+			50 are handed to the solve as the remainder and the frame solves once.
+
+			BEFORE T3 THIS COMPARISON DID NOT BITE at all: the steady measure touched
+			every Hp/Cast box regardless of caster activity, so a pure and a caster tick
+			read the identical `lastMeasured` and only `lastNodeBuilds` moved. T3's split
+			separated them; C6 separates them again, at the level of whether a solve
+			happened. ]]
 		local s = scene.new()
-		-- WARM-UP, discarded — see the steady case above.
-		s.tick(3, 2)
+		s.tickWithCasts(3, 2) -- warm past the cold measure
+		s.tickWithCasts(3, 2)
+		local before = s.stats()
 		s.tick(3, 2)
 		local pure = s.stats()
-		expect(pure.lastNodeBuilds).toBe(PLATES + 2) -- 252
+		expect(`solves={pure.solves - before.solves} lane={pure.lastLaneTranslates}`).toBe(`solves=0 lane={PLATES}`)
 		s.tickWithCasts(3, 2)
 		local mixed = s.stats()
-		-- the 50 caster boxes join `dirtyContains` alongside the 250 moved
-		-- plates + 2 ancestors. BEFORE T3, comparing `lastMeasured` here did
-		-- NOT bite — the steady measure touched every Hp/Cast box regardless of
-		-- caster activity, so a pure and a caster tick read the identical 1252
-		-- and `lastNodeBuilds` was the only counter that moved. T3's split
-		-- separated them (`157ed3c9`): the caster's `width` dirt is
-		-- measure-classed, so only the 50 caster plate roots lose their slate.
-		expect(mixed.lastNodeBuilds).toBe(PLATES + 2 + CASTERS) -- 302
-		expect(pure.lastMeasured).toBe(MEASURED_STEADY) -- 0
-		expect(mixed.lastMeasured).toBe(MEASURED_STEADY_CASTERS) -- 252
-		-- ...and the caster tick's ARRANGE half is derivation (b), read off the run
-		-- (T4, `14c3459d`): 4 arranged per caster (Plate, Row, Hp, Cast) because
-		-- `Row` and `Hp` are themselves translate roots under a plate the `Cast`
-		-- dirt forced open. `tests/translate_arm.spec` carries the arithmetic.
-		-- ...MOVED BY PLAN C's C1 and re-read off the run: a plate root is a coordinate
-		-- space, so a plate whose only dirt is its own placement records an empty run
-		-- and never enters its body. What is left is the 50 CASTERS, whose `Cast`
-		-- width dirt forces the plate open — the root plus its Row and its Hp, the two
-		-- that are themselves translate roots under it.
-		expect(mixed.lastArranged).toBe(PLATES + 2 + CASTERS) -- 302
-		expect(mixed.lastTranslated).toBe(0)
+		expect(`solves={mixed.solves - pure.solves} lane={mixed.lastLaneTranslates}`).toBe(`solves=1 lane={PLATES}`)
+		-- ...and the solve it took is the casters and their two ancestors, in every
+		-- counter the solve publishes
+		expect(
+			`builds={mixed.lastNodeBuilds} arranged={mixed.lastArranged} measured={mixed.lastMeasured}`
+				.. ` translated={mixed.lastTranslated}`
+		).toBe(
+			`builds={BUILDS_CASTER} arranged={ARRANGED_CASTER} measured={MEASURED_STEADY_CASTERS}`
+				.. ` translated={TRANSLATED_STEADY}`
+		)
 		expect(mixed.lastArranged + mixed.lastTranslated + mixed.lastSolveSkipped).toBe(LAYOUT)
 		s.dispose()
 	end)
@@ -297,16 +325,15 @@ describe("nameplates baseline — the numbers the wicked-fast round starts from"
 		expect(`plates={afterAdd.plates} mounted={afterAdd.mounted} layout={afterAdd.layout}`).toBe(
 			`plates={PLATES + 1} mounted={MOUNTED + scene.NODES_PER_PLATE} layout={LAYOUT + scene.NODES_PER_PLATE}`
 		)
-		s.tick(3, 2)
-		-- READ OFF THE RUN, and re-split by T4 (`14c3459d`): the tree grew by one
-		-- plate, so the arrange half grew by exactly its ROOT and the translate half
-		-- by its five descendants. The SUM still matches the naive expression
-		-- (LAYOUT plus one plate's own six layout nodes), which is the pin the
-		-- add/remove case is actually about.
+		--[[ A CASTER TICK, NOT A PURE ONE, SINCE PLAN C's C6: a pure tick lanes and
+			publishes no solve counters at all, so the three outcomes below would be read
+			off whatever solve ran last. The claim is unchanged — the three still account
+			for every layout node, and the tree really did grow by one plate's worth. ]]
+		s.tickWithCasts(3, 2)
 		local afterTick = s.stats()
-		expect(afterTick.lastArranged).toBe(ARRANGED_STEADY + 1) -- 253
+		expect(afterTick.lastArranged).toBe(ARRANGED_CASTER)
 		expect(afterTick.lastTranslated).toBe(TRANSLATED_STEADY) -- 0 since Plan C, C1
-		expect(afterTick.lastSolveSkipped).toBe(SKIPPED_STEADY + (scene.NODES_PER_PLATE - 1)) -- 1255
+		expect(afterTick.lastSolveSkipped).toBe(SKIPPED_CASTER + scene.NODES_PER_PLATE)
 		expect(afterTick.lastArranged + afterTick.lastTranslated + afterTick.lastSolveSkipped).toBe(
 			LAYOUT + scene.NODES_PER_PLATE
 		)
@@ -328,28 +355,36 @@ describe("nameplates baseline — the numbers the wicked-fast round starts from"
 		-- shape smoke test to prove.
 		local s = scene.new({ withPath = true, overflow = true })
 		local c = s.census()
-		-- READ OFF THE RUN: `withPath` adds exactly one node — the `UI.Path`
-		-- Spark leaf, Canvas's second child alongside the ForEach — to both
-		-- `mounted` and `layout`. `overflow` only widens plate p1's own box
-		-- (no node added or removed), so it moves neither count on its own.
+		-- READ OFF THE RUN: `withPath` adds exactly one node — the `UI.Path` Spark
+		-- leaf, which since Plan C's C6 sits UNDER PLATE 3 rather than beside the
+		-- ForEach, because both latches that want it want it inside a coordinate-space
+		-- host. `overflow` only widens plate p1's own box (no node added or removed),
+		-- so it moves neither count on its own.
 		expect(`plates={c.plates} casters={c.casters} mounted={c.mounted} layout={c.layout}`).toBe(
 			`plates={PLATES} casters={CASTERS} mounted={MOUNTED + 1} layout={LAYOUT + 1}`
 		)
 		s.tick(3, 2) -- warm-up
+		local before = s.stats()
 		s.tick(3, 2)
-		-- READ OFF THE RUN, AND IT STILL DISAGREES WITH THE NAIVE "+1"
-		-- EXPRESSION, now on the far side of T4 (`14c3459d`): the Spark leaf is
-		-- a layout node (`layout` reads LAYOUT + 1 above) and it is neither
-		-- arranged nor translated on a translate-only tick — it lands on the
-		-- rect it already had and the SKIP catches it, which `lastSolveSkipped`
-		-- says directly. Mechanism instrumented this time, so the three
-		-- outcomes below account for every node.
+		--[[ AND THE SPARK'S HOST IS THE ONE PLATE THAT CANNOT LANE (Plan C, C6). A
+			stroked path's visibility is decided against its CLIP host's box in WINDOW
+			space, which a host move changes and only the `visible` commit walk
+			recomputes — so `render/translate_lane` refuses a host with a `UI.Path`
+			beneath it and hands that one plate to the solve. 249 lane; the frame solves
+			once, for plate 3 alone; and 250 rects are still written, 249 by the lane and
+			one by the commit. READ OFF THE RUN. ]]
 		local st = s.stats()
-		expect(st.lastArranged).toBe(ARRANGED_STEADY) -- 252
+		expect(
+			`solves={st.solves - before.solves} lane={st.lastLaneTranslates}`
+				.. ` rectWrites={st.rectWrites - before.rectWrites}`
+		).toBe(`solves=1 lane={PLATES - 1} rectWrites={PLATES}`)
+		-- ...and the solve that one plate took is three nodes: its root, plus Canvas and
+		-- Screen above it. The Spark leaf itself is neither arranged nor translated — it
+		-- lands on the rect it already had and the SKIP catches it — and the three
+		-- outcomes account for every node of the +1 tree.
+		expect(st.lastArranged).toBe(3)
 		expect(st.lastTranslated).toBe(TRANSLATED_STEADY) -- 0 since Plan C, C1
-		-- the Spark leaf joins the 1,250 plate descendants the coordinate-space hosts
-		-- no longer enter — it lands on the rect it already had and the SKIP catches it
-		expect(st.lastSolveSkipped).toBe(SKIPPED_STEADY + 1)
+		expect(st.lastSolveSkipped).toBe(LAYOUT + 1 - 3)
 		expect(st.lastArranged + st.lastTranslated + st.lastSolveSkipped).toBe(LAYOUT + 1)
 		s.dispose()
 	end)

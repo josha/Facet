@@ -50,7 +50,15 @@ local MOUNTED = PLATES * scene.NODES_PER_PLATE + 2 + 1 -- 1503
 -- `…/[pN]` strings `markNodeDirty` also writes have no node behind them and `skip`
 -- is never asked about them.
 local DIRTY_TICK = 3 + PLATES -- 253
-local DIRTY_CASTS = DIRTY_TICK + CASTERS -- 303
+--[[ ...AND A CASTER TICK IS 103 SINCE PLAN C's C6, not the 303 it was. The lane
+	CONSUMES the 250 plate roots' placement entries before `refresh` classifies
+	anything, so those roots never enter `nodeDirty` OR the commit's dirty set. What
+	is left of a caster tick's dirt is the 50 `Cast` bars' MEASURE writes, which no
+	lane may take, and it closes over each caster's own root: 3 + 50 * 2. It is now
+	the SAME number as `ARRANGE_BLIND_CASTS` — the two sets have nothing left to
+	differ on when the only dirt is measure-classed — and both are pinned separately
+	anyway, because they are two derivations that happen to agree. ]]
+local DIRTY_CASTS = 3 + CASTERS * 2 -- 103
 --[[ the walks whose output cannot read a position AND that still carry the
 	all-classes dirty set, so `|nodeDirty|` is still their floor. `rect_pass` is a
 	third that stops at a moved subtree, but it stops for a DIFFERENT reason — it
@@ -86,11 +94,42 @@ local ARRANGE_BLIND_CASTS = 3 + CASTERS * 2 -- 103
 	and it is pinned separately anyway: they are two different derivations that
 	happen to agree, and a future change that moves one must not silently move the
 	other. ]]
-local RECTPASS_CASTS = 3 + (PLATES - CASTERS) + CASTERS * 2 -- 303
+--
+-- ...AND IT IS 103 SINCE PLAN C's C6, for the reason `DIRTY_CASTS` gives: the 250
+-- laned plate roots are not in the commit's set at all, so `rect_pass` has the same
+-- 50 casters to walk that every other walk does. The three derivations agree on
+-- this step; each is still pinned on its own.
+local RECTPASS_CASTS = 3 + CASTERS * 2 -- 103
 
 describe("O4/N1: seven walks stop at a moved subtree, hitRects does not", function()
-	it("a pure tick", function()
+	it("a pure tick opens NO COMMIT AT ALL, so there is nothing for a walk to prune", function()
+		--[[ THE STRONGEST FORM OF THIS FILE'S CLAIM, and Plan C's C6 is what makes it
+			available. A pure tick's every dirty entry is a placement prop on a
+			coordinate-space host, so `render/translate_lane` consumes all of them and the
+			solve — and therefore the commit, and therefore all eight walks — never runs.
+
+			PINNED AS A `solves` DELTA, NEVER AS `lastCommitVisits == 0`: the whole
+			`stats.last*` family reports the PREVIOUS solve by doctrine and the lane does
+			not zero it, so a pin on the visit counts would pass for the wrong reason. A
+			commit runs only inside `solveAndApply`. The staleness itself is asserted
+			below, so a reader cannot mistake the numbers for this tick's. ]]
 		local s = scene.new()
+		s.tick(3, 2)
+		local before = s.stats()
+		s.tick(3, 2)
+		local st = s.stats()
+		expect(`solves={st.solves - before.solves} lane={st.lastLaneTranslates}`).toBe(`solves=0 lane={PLATES}`)
+		expect(`visits={st.lastCommitVisits}`).toBe(`visits={before.lastCommitVisits}`)
+		s.dispose()
+	end)
+
+	it("...and with the LANE OFF the same tick is the eight-walk prune this file pins", function()
+		--[[ `hosts = false` is the pre-Plan-C world byte for byte, and it is where the
+			PRUNE itself is still observable on a placement-only tick: no coordinate-space
+			hosts means no lane, so the frame solves and commits and every walk answers
+			its own dirty set. The prune is a property of the commit, not of the storage
+			change, so this is the honest place to drive it. ]]
+		local s = scene.new({ hosts = false })
 		s.tick(3, 2)
 		s.tick(3, 2)
 		local by = s.stats().lastCommitVisitsByWalk
@@ -111,7 +150,7 @@ describe("O4/N1: seven walks stop at a moved subtree, hitRects does not", functi
 			space: their entry tables are the ones the last commit saw, `skip` matches
 			on plain identity, and the walk stops at the dirty closure. A consequence
 			of the storage change, not a new prune. ]]
-		expect(`hitRects={by.hitRects}`).toBe(`hitRects={DIRTY_TICK}`)
+		expect(`hitRects={by.hitRects}`).toBe(`hitRects={PLATES * scene.NODES_PER_PLATE + 3}`)
 		s.dispose()
 	end)
 
@@ -147,20 +186,23 @@ describe("O4/N1: seven walks stop at a moved subtree, hitRects does not", functi
 	end)
 
 	it("ONE UI.Path closes the visible prune, and only that one", function()
+		--[[ AND SINCE PLAN C's C6 THIS DRIVE IS ALSO THE LANE'S OWN `visible` GATE. The
+			Spark leaf sits under plate 3, so plate 3 is the one host
+			`render/translate_lane` refuses — a stroked path's visibility is decided
+			against its clip host's box in WINDOW space, which a host move changes and
+			only this walk recomputes. 249 plates lane, plate 3 is the remainder, and the
+			frame commits for it alone: `harvest` sees 4 nodes (Screen, Canvas, the region
+			and that one plate) while `visible` walks EXACTLY the whole tree, `Spark`
+			included, because the latch is whole-surface. A threshold could not tell 5
+			from 1504, and the claim is that the latch opens the WHOLE walk. ]]
 		local s = scene.new({ withPath = true })
 		s.tick(3, 2)
 		s.tick(3, 2)
-		local by = s.stats().lastCommitVisitsByWalk
-		-- EXACTLY the whole tree, `Spark` included (task review round 1, minor 5). A
-		-- threshold could not tell 254 from 1504, and the claim is that the latch
-		-- opens the WHOLE walk, not that it opens a bit of it.
+		local st = s.stats()
+		local by = st.lastCommitVisitsByWalk
+		expect(`lane={st.lastLaneTranslates}`).toBe(`lane={PLATES - 1}`)
 		expect(`visible={by.visible}`).toBe(`visible={MOUNTED + 1}`)
-		-- ...and `harvest` is UNCHANGED at DIRTY_TICK, not DIRTY_TICK + 1. The Spark
-		-- Path leaf is never dirty (nothing writes it) and its rect never moves, so
-		-- its entry keeps identity and `skip` prunes it like any other clean node.
-		-- The `visible` half above is the real assertion of this test: one stroked
-		-- path opens the whole-surface latch and nothing else changes.
-		expect(`harvest={by.harvest}`).toBe(`harvest={DIRTY_TICK}`)
+		expect(`harvest={by.harvest}`).toBe("harvest=4")
 		s.dispose()
 	end)
 

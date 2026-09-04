@@ -373,7 +373,7 @@ end
 	measureReuse = false`, and the sorted rect/visibility dumps must agree at BOTH
 	ends of the drive. Same shape as `tests/measure_split.spec.luau`'s
 	`refusalWorld`. ]]
-type Arm = { measured: number, atB: string, atA: string }
+type Arm = { measured: number, laned: number, solves: number, atB: string, atA: string }
 
 local function driveArm(prop: string, view: any, control: boolean, incremental: boolean, measureReuse: boolean): Arm
 	local kind = PARENT_FOR[prop]
@@ -438,8 +438,16 @@ local function driveArm(prop: string, view: any, control: boolean, incremental: 
 	controller.refresh()
 	local atB = shot()
 	sig:set(a)
+	local solvesBefore = (controller.stats() :: any).solves
 	controller.refresh()
-	local arm: Arm = { measured = (controller.stats() :: any).lastMeasured, atB = atB, atA = shot() }
+	local st = controller.stats() :: any
+	local arm: Arm = {
+		measured = st.lastMeasured,
+		laned = st.lastLaneTranslates,
+		solves = st.solves - solvesBefore,
+		atB = atB,
+		atA = shot(),
+	}
 	controller.dispose()
 	root.dispose()
 	return arm
@@ -499,8 +507,23 @@ describe("an arrange-only prop is PROVABLY unread by measure (the split's own au
 				local kept = driveArm(prop, view, false, true, true)
 				local full = driveArm(prop, view, false, false, false)
 				local at = `{prop}@{view.id}`
-				-- (1) THE GATE FIRED: the slate survived an arrange-only change
-				expect(`{at}:{kept.measured}`).toBe(`{at}:0`)
+				--[[ (1) THE GATE FIRED: the slate survived an arrange-only change — OR
+					the frame never reached the solver at all.
+
+					THREE OF THE EIGHT TAKE THE SECOND ROAD SINCE 2026-09-04 (Plan C, C6).
+					`anchor`/`offsetX`/`offsetY` under an `anchor` parent, on a kid that has
+					children, is exactly the shape `render/translate_lane` serves: the frame
+					lanes and never solves, so `lastMeasured` reports the PREVIOUS solve's
+					number by the same doctrine `lastSkipped` has always had. Asserting a
+					`solves` delta of 0 there is not a weakening — it is the stronger claim,
+					since a frame that ran no solve measured nothing BY CONSTRUCTION. Which
+					road a prop takes is read off the run rather than listed, so a prop that
+					stops laning is asserted the other way rather than silently excused. ]]
+				if kept.laned > 0 then
+					expect(`{at}:laned={kept.laned} solves={kept.solves}`).toBe(`{at}:laned=1 solves=0`)
+				else
+					expect(`{at}:{kept.measured}`).toBe(`{at}:0`)
+				end
 				--[[ (2) THE DRIVE IS LIVE. Asserted BEFORE the differential, and it is
 					the assertion that stops this whole audit from being vacuous: if the
 					prop's two values produce identical geometry in this fixture then the

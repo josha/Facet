@@ -94,13 +94,20 @@ local SCOPES: { [string]: string } = {
 	-- one number under `dirtyScan` would not say whether the classification or the
 	-- closure build was the cost.
 	dirtyClosure = "Facet/dirtyClosure",
+	-- ...and the fast path that answers a placement-only frame WITHOUT a solve
+	-- (Plan C, C6 — `render/translate_lane`). Its own scope for the same reason
+	-- `dirtyClosure` split off `dirtyScan`: a capture has to be able to say whether
+	-- the frame was cheap because the lane took it or because the solve was small,
+	-- and a lane frame has no `arrange`/`commit` bar at all to read that off.
+	lane = "Facet/lane",
 }
 
 -- The bound is asserted by tests, not merely intended. It was raised from 12 to
--- 14 for `dirtyScan`/`dirtyClosure` (wicked-fast T2) — a DELIBERATE raise, with
--- both new names carrying the same one-scope-per-actionable-question argument
--- every other row does, not a per-call-site drift.
-profile.MAX_SCOPES = 14
+-- 14 for `dirtyScan`/`dirtyClosure` (wicked-fast T2), and to 15 for `lane` (Plan
+-- C, C6) — DELIBERATE raises, each new name carrying the same
+-- one-scope-per-actionable-question argument every other row does, not a
+-- per-call-site drift.
+profile.MAX_SCOPES = 15
 profile.SCOPES = SCOPES
 
 -- ---- engine detection -----------------------------------------------------

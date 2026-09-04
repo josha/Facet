@@ -114,14 +114,31 @@ describe("O3: a moved-not-resized subtree translates", function()
 	end)
 
 	it("a pure tick now measures NOTHING (the pin T3 could not reach)", function()
-		-- T3's floor was `PLATES * 2`: the plate's own arrange descended into two
-		-- fixed x fixed, PLAN_SKIP leaves that `measureUncached` counts on every
-		-- touch. The translate arm does not descend at all, so the touches stop.
-		local s = scene.new()
+		--[[ T3's floor was `PLATES * 2`: the plate's own arrange descended into two
+			fixed x fixed, PLAN_SKIP leaves that `measureUncached` counts on every touch.
+			The translate arm does not descend at all, so the touches stop.
+
+			ON `ARM_ONLY` SINCE PLAN C's C6, for the same reason every other arm case in
+			this file is: on the shipped mount a pure tick is taken by
+			`render/translate_lane` and never reaches the solver, so `lastMeasured` would
+			be the PREVIOUS solve's and this pin would be reading history. The MIXED drive
+			below keeps the shipped mount exercised — a caster tick lanes the 250 movers
+			and solves the 50 bars, and the arm is what serves the bars' siblings. ]]
+		local s = scene.new(ARM_ONLY)
 		s.tick(3, 2)
 		s.tick(3, 2)
 		expect(s.stats().lastMeasured).toBe(0)
 		s.dispose()
+		-- THE MIXED DRIVE, on the SHIPPED mount: the frame solves for the cast bars
+		-- alone, and measures only them and the two ancestors their dirt closes over
+		local hosted = scene.new()
+		hosted.tickWithCasts(3, 2)
+		hosted.tickWithCasts(3, 2)
+		local st = hosted.stats()
+		expect(`lane={st.lastLaneTranslates} measured={st.lastMeasured}`).toBe(
+			`lane={PLATES} measured={CASTERS * 5 + 2}`
+		)
+		hosted.dispose()
 	end)
 
 	it("the work invariant holds and every translated node is a rect insert", function()

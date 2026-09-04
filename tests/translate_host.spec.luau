@@ -7,7 +7,9 @@
 
 	THE PINS AND THEIR ARITHMETIC (fixture: 250 plates x 6 nodes):
 	  pure tick      rectWrites 250 (was 1,500) · engineWrites 250 (was 1,500)
-	                 solves 1 (the lane, T5, makes it 0)
+	                 solves **0** since T5: `render/translate_lane` consumes all 250
+	                 placement entries and hands the solve an empty remainder, so the
+	                 frame never solves and never opens a commit
 	  caster tick    rectWrites 250 + 50 (the Cast bar resized) · engineWrites
 	                 250 + 50 — READ OFF THE RUN, both columns
 	PUBLIC NUMBERS DO NOT MOVE: `rectOf`/`screenRectOf` for plate 7's Name leaf at
@@ -120,7 +122,7 @@ describe("translate host: one write per plate, today's numbers on every read", f
 		local st = s.stats()
 		expect(
 			`rectWrites={st.rectWrites - rw} engineWrites={s.adapter.engineWrites() - ew} solves={st.solves - solves}`
-		).toBe(`rectWrites={PLATES} engineWrites={PLATES} solves=1`)
+		).toBe(`rectWrites={PLATES} engineWrites={PLATES} solves=0`)
 		local name = "/S/Canvas/Plates/[p7]/Plate/Row/Name"
 		expect(fmt(s.controller.rectOf(name))).toBe(NAME_RECT_AT_HEAD)
 		expect(fmt(s.controller.screenRectOf(name))).toBe(NAME_SCREEN_RECT_AT_HEAD)

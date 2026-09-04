@@ -72,7 +72,13 @@ local PLATES = scene.PLATES
 local CASTERS = PLATES // scene.CASTER_EVERY -- 50
 local MOUNTED = PLATES * scene.NODES_PER_PLATE + 2 + 1 -- 1503
 local DIRTY_TICK = 3 + PLATES -- 253, the all-classes closure T5 left them at
-local DIRTY_CASTS = DIRTY_TICK + CASTERS -- 303
+-- ...and the caster column is 103 since Plan C's C6: `render/translate_lane`
+-- consumes the 250 plate roots' placement entries before `refresh` classifies
+-- anything, so they never enter EITHER dirty set and what is left is the casters'
+-- own measure dirt. Which is why the two sets read the same number on that step —
+-- they have nothing left to differ on — and why the PURE tick is where the
+-- narrowing is still observable, on a `hosts = false` mount that still solves.
+local DIRTY_CASTS = 3 + CASTERS * 2 -- 103
 local ARRANGE_BLIND = { "textScale", "padding", "textVerdicts", "scrollRegions" }
 -- Screen, Canvas, the ForEach region: the three nodes whose entries this solve
 -- rewrote for a reason that is not a pure-arrange prop write. The Screen and the
@@ -116,7 +122,14 @@ local WALK_READS_ARRANGE: { [string]: boolean } = {
 
 describe("T5b: a pure-arrange write does not dirty the commit", function()
 	it("the four arrange-blind walks stop at the top of the surface", function()
-		local s = scene.new()
+		--[[ ON A `hosts = false` MOUNT SINCE PLAN C's C6, and that is where this file's
+			subject actually lives. The narrowing is about which walks a PURE PLACEMENT
+			WRITE dirties — and on the shipped mount such a write never reaches the commit
+			at all, because `render/translate_lane` consumes it and the frame does not
+			solve. `hosts = false` is the pre-Plan-C world byte for byte: the same
+			placement write, the same commit, the same eight walks. The lane's own claim
+			on the shipped mount is the case that closes this describe block. ]]
+		local s = scene.new({ hosts = false })
 		s.tick(3, 2)
 		s.tick(3, 2)
 		local by = s.stats().lastCommitVisitsByWalk
@@ -127,19 +140,33 @@ describe("T5b: a pure-arrange write does not dirty the commit", function()
 	end)
 
 	it("...and the three that read `hidden` are UNCHANGED from T5", function()
-		local s = scene.new()
+		-- same `hosts = false` drive and the same reason as the case above
+		local s = scene.new({ hosts = false })
 		s.tick(3, 2)
 		s.tick(3, 2)
 		local by = s.stats().lastCommitVisitsByWalk
 		expect(`harvest={by.harvest} visible={by.visible}`).toBe(`harvest={DIRTY_TICK} visible={DIRTY_TICK}`)
-		-- ...and `hitRects` MOVED, but not by anything in this file's subject (Plan C,
-		-- C1): a moved plate's descendants no longer move in their own space, so their
-		-- entry tables are the ones the last commit saw and plain `skip` stops the
-		-- walk. Still the ALL-CLASSES set, which is what this case is about.
-		expect(`hitRects={by.hitRects}`).toBe(`hitRects={DIRTY_TICK}`)
-		-- `rect_pass` is unchanged too: it never asked `skip` at all, it stops AT a
-		-- translate root and emits the solver's run (T5/N1).
-		expect(`rectPass={by.rectPass}`).toBe(`rectPass={DIRTY_TICK}`)
+		-- ...and `hitRects` and `rect_pass` pay the whole tree on this arm, because with
+		-- no coordinate-space hosts a moved plate's descendants really do move in window
+		-- space: their rects changed, so no prune can drop them. That is the pre-Plan-C
+		-- number and it is what makes this arm an honest control.
+		local WHOLE = PLATES * scene.NODES_PER_PLATE + 3
+		expect(`hitRects={by.hitRects} rectPass={by.rectPass}`).toBe(`hitRects={WHOLE} rectPass={DIRTY_TICK}`)
+		s.dispose()
+	end)
+
+	it("...and on the SHIPPED mount that same write never reaches a walk at all", function()
+		--[[ THE NARROWING'S LIMIT CASE. T5b took four walks off a pure placement write;
+			Plan C's C6 takes all eight off it, by not solving. Pinned as a `solves` delta
+			because the per-walk counts are the PREVIOUS solve's on a laned frame — a
+			doctrine this whole file's numbers depend on the reader knowing. ]]
+		local s = scene.new()
+		s.tick(3, 2)
+		local before = s.stats()
+		s.tick(3, 2)
+		local st = s.stats()
+		expect(`solves={st.solves - before.solves} lane={st.lastLaneTranslates}`).toBe(`solves=0 lane={PLATES}`)
+		expect(`visits={st.lastCommitVisits}`).toBe(`visits={before.lastCommitVisits}`)
 		s.dispose()
 	end)
 
@@ -579,6 +606,17 @@ local function driveWorld(
 		measureReuse = true,
 		layoutNodeReuse = true,
 		commitScope = commitScope,
+		--[[ NO COORDINATE-SPACE HOSTS IN THIS AUDIT (Plan C, C6). Three of the seven
+			props — `anchor`, `offsetX`, `offsetY` — on the CONTAINER shape make the
+			driven kid a coordinate-space host, and `render/translate_lane` then serves
+			that write with no solve and no commit at all: every per-walk count would be
+			the PREVIOUS drive's and this audit would be reading history for three of its
+			fourteen rows. The subject here is which walks a pure-arrange write DIRTIES,
+			which is a property of the commit's dirty set, so the audit is driven in the
+			world where that write still reaches a commit. The lane's own answer on the
+			shipped mount is pinned above ("...and on the SHIPPED mount that same write
+			never reaches a walk at all"). ]]
+		translateHosts = false,
 	})
 	controller.initialRender()
 	-- two warm drives: `initialRender` is not a reuse solve, and the prune compares

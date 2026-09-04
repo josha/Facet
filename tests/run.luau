@@ -446,6 +446,7 @@ require("./translate_arm_seam.spec")
 	public reads that do NOT move, and one pin per reader in the campaign's
 	rect-reader audit that had to learn to compose. ]]
 require("./translate_host.spec")
+require("./translate_lane.spec")
 -- ...and its differential: five arms over the same reactive fixture, the fifth
 -- mounted with NO coordinate-space hosts at all and compared to the shipped arm
 -- after EVERY step on every public column — the engine position, the two

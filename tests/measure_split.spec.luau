@@ -139,11 +139,28 @@ local MEASURED_WITH_CASTS = CASTERS * 5 + 2 -- 252
 
 describe("O2: an arrange-only step does not re-measure MORE THAN ITS PLAN_SKIP LEAVES", function()
 	it("a pure tick measures nothing at all (T3's floor, taken to 0 by T4's arm)", function()
-		local s = scene.new()
+		--[[ DRIVEN WITH `hosts = false` SINCE PLAN C's C6, and the floor is unchanged by
+			that. On the shipped fixture a plate root is a coordinate-space host, so a
+			pure tick is taken by `render/translate_lane` and never reaches the solver —
+			`lastMeasured` then reports the PREVIOUS solve and a pin on it would be
+			reading history. This case is about the SOLVER's measure floor for an
+			arrange-only step, so it is driven in the world where such a step still
+			solves; the lane's own claim is the second half below and in
+			`tests/translate_lane.spec.luau`. ]]
+		local s = scene.new({ hosts = false })
 		s.tick(3, 2) -- warm: the first tick after initialRender is COLD, not the steady state
 		s.tick(3, 2)
 		expect(s.stats().lastMeasured).toBe(MEASURED_TICK)
 		s.dispose()
+		-- ...and on the SHIPPED fixture the same step measures nothing because it never
+		-- solves at all, which is the stronger claim
+		local hosted = scene.new()
+		hosted.tick(3, 2)
+		local before = hosted.stats().solves
+		hosted.tick(3, 2)
+		local st = hosted.stats()
+		expect(`solves={st.solves - before} lane={st.lastLaneTranslates}`).toBe(`solves=0 lane={scene.PLATES}`)
+		hosted.dispose()
 	end)
 
 	--[[ THIS PIN IS ALSO WHAT GUARDS THE PER-SET PREFIX TERMINATION. The closure's
@@ -165,8 +182,9 @@ describe("O2: an arrange-only step does not re-measure MORE THAN ITS PLAN_SKIP L
 	end)
 
 	it("...at every device view, including 320x640", function()
+		-- same `hosts = false` drive and the same reason as the case above
 		for _, view in device_views.VIEWS do
-			local s = scene.new({ viewport = { x = 0, y = 0, w = view.w, h = view.h } })
+			local s = scene.new({ hosts = false, viewport = { x = 0, y = 0, w = view.w, h = view.h } })
 			s.tick(3, 2)
 			s.tick(3, 2)
 			expect(`{view.id}:{s.stats().lastMeasured}`).toBe(`{view.id}:{MEASURED_TICK}`)

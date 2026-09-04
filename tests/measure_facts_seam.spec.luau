@@ -36,6 +36,8 @@ local srcTree = require("./lib/src_tree")
 local SOLVER_PATH = "src/layout/solver.luau"
 -- the second consumer since 2026-09-04 — see the consumer case below
 local REPORTS_PATH = "src/layout/arrange_reports.luau"
+-- ...and the third, from 2026-09-04 (Plan C, T5)
+local LANE_PATH = "src/render/translate_lane.luau"
 local FACTS_PATH = "src/layout/measure_facts.luau"
 
 --[[ COMMENTS ARE NOT CODE, and in this repository that is not a nicety: the
@@ -255,7 +257,7 @@ describe("the measure-facts seam: EXPORTED == BOUND, one consumer, one-way requi
 		`tests/lib/src_tree.luau` is the one enumeration, and matching by the
 		require's TAIL is what lets it see a consumer that spells the path from
 		another directory. ]]
-	it("the consumers of the module in src/ are the two that are named here", function()
+	it("the consumers of the module in src/ are the ones named here", function()
 		--[[ IT WAS ONE UNTIL 2026-09-04 (Plan C, T3 fix round 1), and the second is
 			the honest kind: `layout/arrange_reports` took the containment report out of
 			`solver.luau` for that file's Source-write headroom, and the report reads
@@ -264,12 +266,20 @@ describe("the measure-facts seam: EXPORTED == BOUND, one consumer, one-way requi
 			record, which is what keeps `arrange_reports`' own "no Deps at all" claim
 			true (`tests/arrange_reports_seam.spec.luau`).
 
-			THE PIN STAYS A LIST, not a count: a third consumer is a fan-out this seam's
-			whole argument is about, and naming the second is what makes the third
-			visible the day it appears. ]]
+			THE PIN STAYS A LIST, not a count: a fan-out is what this seam's whole
+			argument is about, and naming each consumer is what makes the next one visible
+			the day it appears. THE THIRD ARRIVED ON 2026-09-04 (Plan C, T5):
+			`render/translate_lane` re-places a coordinate-space host without a solve and
+			asks this module the two questions the arrange branch it stands in for asks —
+			`dim(node, axis).type == "fill"` (a fill axis spends its own offset on SIZE, so
+			such a host is refused) and `sides(padding)` for the parent's inner box. It
+			asks THIS module rather than re-deriving either, for the same reason it calls
+			`placement.anchorPlace`: a second copy of the solver's arithmetic is how the
+			two start disagreeing by a rounding. ]]
 		expect(srcTree.pathsMatching('require%("[^"]*measure_facts"%)')).toEqual({
 			REPORTS_PATH,
 			SOLVER_PATH,
+			LANE_PATH,
 		})
 	end)
 

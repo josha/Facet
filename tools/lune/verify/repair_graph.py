@@ -408,6 +408,17 @@ CASE_ID_REPAIRS = [
         "`arrange_reports`' own no-Deps claim true. The case still asserts a LIST and not a count, "
         "so a THIRD consumer still reddens it; only the arity it names changed",
     ),
+    (
+        "measure_facts_seam::the measure-facts seam: EXPORTED == BOUND, one consumer, one-way require::"
+        "the consumers of the module in src/ are the two that are named here",
+        "measure_facts_seam::the measure-facts seam: EXPORTED == BOUND, one consumer, one-way require::"
+        "the consumers of the module in src/ are the ones named here",
+        "the same case, renamed by Plan C T5 (2026-09-04) when `render/translate_lane` became the "
+        "THIRD consumer: the lane asks this module the two questions the arrange branch it stands "
+        "in for asks — `dim(node, axis).type == \"fill\"` and `sides(padding)` — rather than "
+        "re-deriving either. The arity is out of the title for good this time, so a fourth "
+        "consumer moves the LIST the case asserts and not the name it is cited by",
+    ),
 ]
 
 

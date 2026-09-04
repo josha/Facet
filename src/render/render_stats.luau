@@ -83,6 +83,12 @@ function render_stats.new(): any
 		-- ...and the O3 class: nodes an ancestor re-based by a delta instead of
 		-- walking. `arranged + translated + skipped == lastLayoutNodes`.
 		lastTranslated = 0,
+		-- ...and the C6 class: hosts `render/translate_lane` re-placed with NO solve.
+		-- Cumulative, then the per-refresh count — written on EVERY refresh, 0
+		-- included, so an invariant reading it never reads history the way
+		-- `lastSkipped` above deliberately does.
+		laneTranslates = 0,
+		lastLaneTranslates = 0,
 		lastRectInserts = 0,
 		-- ...and how many NODES the COMMIT's walks visited (P4): one per walk per node
 		-- before the prune, O(touched) after it (`tests/commit_scope.spec.luau`).

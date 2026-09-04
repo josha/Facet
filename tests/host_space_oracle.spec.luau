@@ -103,6 +103,15 @@ describe("C1 oracle: a coordinate space moves no public number, every view, ever
 		-- with a stroked path on the surface `visible` takes the full walk while the
 		-- other seven still prune, so the mixed shape is the one an oracle most needs
 		{ name = "withPath", plates = ORACLE_PLATES, withPath = true },
+		--[[ THE TWO THE TRANSLATE LANE ADDED (Plan C, T5). Arm `a` LANES a
+			placement-only frame and arm `e` — no coordinate-space hosts — cannot, so
+			every step below is already a lane-against-a-solve differential on every
+			public column. These two fixtures are the shapes whose gates the lane has:
+			a hit EXPANDER under a moving host (which lanes, and makes the lane's
+			`hit_lift` serve real), and a REACTIVE anchor (which is a placement write the
+			lane must take through a different term of `anchorPlace`). ]]
+		{ name = "withButton", plates = ORACLE_PLATES, withButton = true },
+		{ name = "reactiveAnchor", plates = ORACLE_PLATES, reactiveAnchor = true },
 	}
 	for _, fixture in FIXTURES do
 		it(`{fixture.name}: the adapter, the public reads and the findings all survive`, function()
@@ -191,6 +200,32 @@ describe("C1 oracle: a coordinate space moves no public number, every view, ever
 					local added = #a.items
 					step(`remove {round}`, false, function(w)
 						w.remove(added)
+					end)
+					--[[ THE THREE THE TRANSLATE LANE ADDED. `anchorFlip` is the placement
+						write that moves through the anchor FACTOR rather than the offset, and
+						it only exists where the prop is bound (`Opts.reactiveAnchor`).
+						`moveOut` drives a host wholly outside its parent's box — the shape the
+						lane deliberately does NOT gate, so this differential is what says the
+						solve files nothing there either. `clearOffset` is the nil-flip the lane
+						REFUSES, and its restore is not tidiness: `tick` reads
+						`item.x:get() + dx`, so a plate left at nil makes every later step an
+						error on nil. ]]
+					if fixture.reactiveAnchor then
+						step(`anchorFlip {round}`, false, function(w)
+							w.anchorFlip(7)
+						end)
+					end
+					step(`moveOut {round}`, false, function(w)
+						w.moveOut(5)
+					end)
+					step(`tick-after-moveOut {round}`, false, function(w)
+						w.tick(dx, dy)
+					end)
+					step(`clearOffset {round}`, false, function(w)
+						w.clearOffset(5)
+					end)
+					step(`restoreOffset {round}`, false, function(w)
+						w.setOffsetX(5, 40 * round)
 					end)
 				end
 				a.dispose()

@@ -347,7 +347,14 @@ describe("the drag-bridge seam: EXPORTED == USED, one consumer, one-way require"
 			not move either, and the only reading of "the renderer" under which it does
 			not is `tests/lib/renderer_source`'s: every part, joined. That library exists
 			for exactly this failure and its header's own rule is ADD A PART WHENEVER
-			MORE OF THE RENDERER MOVES OUT. ]]
+			MORE OF THE RENDERER MOVES OUT.
+
+			SEVEN BECAME EIGHT ON 2026-09-04 (Plan C, T5). The translate lane serves a
+			placement-only frame with no solve, so the drag hover re-evaluation the solve
+			tail owes — "a reflow moves the drop targets" — has to be owed from the lane's
+			tail too, behind the same `isActive()` test. It is the same call in a second
+			place because it is the same obligation on a second path, not a new
+			accessor. ]]
 		local body = stripComments(renderer_source.all())
 		local counts: { [string]: number } = { peek = 0, registry = 0, attachDetector = 0, dispose = 0 }
 		for name in string.gmatch(body, "dragBridge%.([%a_][%w_]*)%(") do
@@ -355,12 +362,12 @@ describe("the drag-bridge seam: EXPORTED == USED, one consumer, one-way require"
 				counts[name] += 1
 			end
 		end
-		expect(counts.peek).toBe(7)
+		expect(counts.peek).toBe(8)
 		expect(counts.registry).toBe(4)
 		expect(counts.attachDetector).toBe(2)
 		expect(counts.dispose).toBe(1)
 		-- ...and the header states the same four numbers, so the two cannot drift apart
-		for _, claim in { "`peek()` x7", "`registry()` x4", "`attachDetector()` x2", "`dispose()` x1" } do
+		for _, claim in { "`peek()` x8", "`registry()` x4", "`attachDetector()` x2", "`dispose()` x1" } do
 			expect(string.find(bridge, claim, 1, true) ~= nil).toBe(true)
 		end
 	end)

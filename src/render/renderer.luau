@@ -43,6 +43,7 @@ local instance_boundary = require("./instance_boundary")
 -- the four geometry reads (Plan C, T1: the live seam — see its own header)
 local rect_reads = require("./rect_reads")
 local rect_pass = require("./rect_pass")
+local translate_lane = require("./translate_lane")
 local render_stats = require("./render_stats")
 local commit_walks = require("./commit_walks")
 -- the structural half of the reuse bargain (P5): the boundary that qualifies a
@@ -1344,6 +1345,26 @@ function renderer.attach(
 		-- passes; the count follows by DELTA and is never zeroed. Both are LATCHES, not
 		-- values, and the spec above drives what a half-rebuilt pair silently opens.
 		local isPath = node.class == "Path"
+		--[[ ...and WHICH SPACE HOST each Path is under, which is the translate lane's
+			`visible` gate (`render/translate_lane`). The ±1 RIDES THE LATCH BELOW and is
+			never an unconditional per-walk increment: the bounded structural arm
+			re-walks LIVE nodes and never calls `clearHosts()`, so a per-walk `+1` would
+			ratchet the count and gate that host's lane for the life of the session.
+			`geometry.noteFromHost`, not `noteUnder` — these two arms need the OLD host
+			and the NEW one BY NAME, and `noteUnder` would climb from whatever
+			`hostSpaceOf` holds for this Path right now. The arms are EXCLUSIVE by
+			construction: only the first sighting sees `pathNodes[node.path] == nil`, and
+			it is the one that sets `pathHostOf`. ]]
+		if isPath then
+			if pathNodes[node.path] == nil then
+				geometry.noteFromHost(geometry.spaceHostHasPath, space, 1)
+				geometry.pathHostOf[node.path] = space
+			elseif geometry.pathHostOf[node.path] ~= space then
+				geometry.noteFromHost(geometry.spaceHostHasPath, geometry.pathHostOf[node.path], -1)
+				geometry.noteFromHost(geometry.spaceHostHasPath, space, 1)
+				geometry.pathHostOf[node.path] = space
+			end
+		end
 		if isPath ~= (pathNodes[node.path] ~= nil) then
 			pathNodeCount += if isPath then 1 else -1
 		end
@@ -1608,6 +1629,37 @@ function renderer.attach(
 		return if entry ~= nil then entry.built else nil
 	end
 
+	-- THE TRANSLATE LANE (Plan C, C6): a refresh whose only layout-class dirt is a
+	-- placement prop on coordinate-space hosts is served WITHOUT a solve.
+	-- `render/translate_lane` carries every gate and the list of what the skipped
+	-- functions publish. Built here rather than beside `rectPass` because it closes
+	-- over `layoutNodeOf` and `lastResult`, both declared above this line.
+	local lane = translate_lane.new({
+		handles = handles,
+		lastRects = lastRects,
+		lastHitRects = lastHitRects,
+		lastCompositions = lastCompositions,
+		stats = stats,
+		adapter = adapter,
+		metrics = currentMetrics,
+		geometry = geometry,
+		parentNodeOf = parentNodeOf,
+		inputSinks = inputSinks,
+		layoutNodeOf = layoutNodeOf,
+		findNode = findNode,
+		lastResultRects = function()
+			return if lastResult ~= nil then lastResult.rects else nil
+		end,
+		solverHidden = solverHidden,
+		channelArmed = channel.armed,
+		rectsEqual = rectsEqual,
+		hitLiftRefresh = hitLift.refresh,
+		-- a forward local at this line, so the call has to go through the upvalue
+		syncZOrder = function()
+			syncZOrder()
+		end,
+	})
+
 	-- `controller.onSolved` listeners: run at the tail of every OUTERMOST solve.
 	-- The presenter uses exactly one of these, to feed solved geometry to the
 	-- consumers that measure this surface (see the tail of solveAndApply, L-31).
@@ -1683,6 +1735,25 @@ function renderer.attach(
 		the name of this variable true, and because the day `dirtyContains` outlives
 		one refresh the alternative is a surface that silently stops laying out. ]]
 	local fullSolveSeq = -1
+
+	--[[ THE SOLVE IS OVER: tell whoever measures this surface (L-31) — and the same
+		call from a translate-lane refresh that moved a host without one
+		(`render/translate_lane`).
+
+		The presenter's `feedGeometry` used to run only from `refresh()` on the host's
+		frame connection, which put a whole FRAME between a solve and the consumer
+		that measures it — so a consumer publishing a number derived from its own
+		geometry (a dock reserving space, a keyboard inset, a sticky header) could
+		never join the flush that caused it, and opened a second one. Fed from the
+		solve, that write lands inside the settle phase that produced the rects and
+		the cycle converges before anything is painted.
+
+		A FORWARD LOCAL rather than a function declared here: the body assigns
+		`notifyingSolved`/`feedbackMark`/`feedbackArmed` and calls
+		`resolveForFeedback`, which is declared BELOW `solveAndApply`, so a
+		`local function` on this line would capture a nil GLOBAL and fail inside a
+		pcall'd boundary. Assigned once, after `resolveForFeedback` exists. ]]
+	local notifySolved: () -> ()
 
 	local function solveAndApply()
 		stats.solves += 1
@@ -2116,20 +2187,6 @@ function renderer.attach(
 				liveDrag.refreshTargets()
 			end
 		end)
-		--[[ THE SOLVE IS OVER: tell whoever measures this surface (L-31).
-			The presenter's `feedGeometry` used to run only from `refresh()` on the
-			host's frame connection, which put a whole FRAME between a solve and the
-			consumer that measures it — so a consumer publishing a number derived
-			from its own geometry (a dock reserving space, a keyboard inset, a
-			sticky header) could never join the flush that caused it, and opened a
-			second one. Fed from here, that write lands inside the settle phase that
-			produced the rects and the cycle converges before anything is painted.
-
-			RE-ENTRANCY IS THE ONLY HAZARD, and it is real: the text-measurement
-			round above calls `solveAndApply()` again from inside this very
-			function. Notifying from the inner call would feed rects the outer call
-			is about to rewrite, so the guard reports once, from the outermost
-			solve, with the final geometry. ]]
 		--[[ THE LAYOUT FRAME IS CLOSED, so record what it answered for. `math.max`
 			because the text-measurement round above re-enters `solveAndApply`, and
 			an inner solve that ran LATER read a higher sequence than this one —
@@ -2138,37 +2195,7 @@ function renderer.attach(
 		if solvedEverything then
 			fullSolveSeq = math.max(fullSolveSeq, seqAtSolveStart)
 		end
-		if not notifyingSolved then
-			notifyingSolved = true
-			-- the tree's dirty sequence BEFORE anyone is told: everything past this
-			-- mark is, by definition, something a listener published (see the
-			-- solve-feedback block above)
-			feedbackMark = root.dirtySeq()
-			-- deliberately NOT pcall'd: `feedGeometry` runs unguarded from
-			-- `refreshBody` today and a throwing consumer must keep behaving the
-			-- same way. When this fires from the settle phase the core quarantines
-			-- it into `lastError` like every other callback; when it fires from
-			-- `controller.refresh()` it propagates, exactly as before.
-			local ok, err = pcall(function()
-				for _, fn in solvedListeners do
-					fn()
-				end
-			end)
-			notifyingSolved = false
-			if not ok then
-				error(err, 0)
-			end
-			if root.dirtySeq() > feedbackMark then
-				-- the write flushed synchronously (no flush was open): the dirt is
-				-- already on the tree, so close the cycle here
-				resolveForFeedback()
-			elseif solvingFromSettle then
-				-- a flush IS open, so the write is still in `writeSet`. The core ends
-				-- this pass, drains it and restarts from the first settle callback —
-				-- which is where the mark gets read again.
-				feedbackArmed = true
-			end
-		end
+		notifySolved()
 	end
 
 	--[[ The re-solve a published prop earns, bounded. `dirtyContains` is cleared
@@ -2198,6 +2225,45 @@ function renderer.attach(
 		feedbackDepth -= 1
 		if not ok then
 			error(err, 0)
+		end
+	end
+
+	notifySolved = function()
+		if notifyingSolved then
+			return
+		end
+		--[[ RE-ENTRANCY IS THE ONLY HAZARD, and it is real: the text-measurement round
+			calls `solveAndApply()` again from inside it. Notifying from the inner call
+			would feed rects the outer is about to rewrite, so this reports once, from
+			the outermost solve, with the final geometry. ]]
+		notifyingSolved = true
+		-- the tree's dirty sequence BEFORE anyone is told: everything past this
+		-- mark is, by definition, something a listener published (see the
+		-- solve-feedback block above)
+		feedbackMark = root.dirtySeq()
+		-- deliberately NOT pcall'd: `feedGeometry` runs unguarded from
+		-- `refreshBody` today and a throwing consumer must keep behaving the
+		-- same way. When this fires from the settle phase the core quarantines
+		-- it into `lastError` like every other callback; when it fires from
+		-- `controller.refresh()` it propagates, exactly as before.
+		local ok, err = pcall(function()
+			for _, fn in solvedListeners do
+				fn()
+			end
+		end)
+		notifyingSolved = false
+		if not ok then
+			error(err, 0)
+		end
+		if root.dirtySeq() > feedbackMark then
+			-- the write flushed synchronously (no flush was open): the dirt is
+			-- already on the tree, so close the cycle here
+			resolveForFeedback()
+		elseif solvingFromSettle then
+			-- a flush IS open, so the write is still in `writeSet`. The core ends
+			-- this pass, drains it and restarts from the first settle callback —
+			-- which is where the mark gets read again.
+			feedbackArmed = true
 		end
 	end
 
@@ -2377,8 +2443,17 @@ function renderer.attach(
 		end
 		handles[path] = nil
 		lastRects[path] = nil
-		-- ...and its coordinate-space bookkeeping (`rect_reads.dropPath` says why the
-		-- bounded arm makes it necessary)
+		--[[ ...and its coordinate-space bookkeeping (`rect_reads.dropPath` says why the
+			bounded arm makes it necessary). THE LANE'S PER-HOST `UI.Path` COUNT COMES OFF
+			FIRST, and both halves of that order are load-bearing: `dropPath` clears
+			`pathHostOf[path]`, which is the host chain the decrement climbs, and the
+			`pathNodes` latch further down — cleared where it is because it owns
+			`pathNodeCount` — is how this sweep knows the departed node was a Path at all,
+			since the node itself is already gone. Without this a removed Path would gate
+			its host's lane forever: `livePaths` only ever visits LIVE nodes. ]]
+		if pathNodes[path] ~= nil then
+			geometry.noteFromHost(geometry.spaceHostHasPath, geometry.pathHostOf[path], -1)
+		end
 		geometry.dropPath(path)
 		lastBarInsets[path] = nil
 		lastScrollRegions[path] = nil
@@ -2686,6 +2761,14 @@ function renderer.attach(
 
 	function controller.refresh()
 		local dirty = root.takeDirty()
+		-- THE TRANSLATE LANE (Plan C, C6): placement writes on coordinate-space hosts
+		-- are served here without a solve, and what the lane could not take is the
+		-- REMAINDER the rest of this function sees. `render/translate_lane` carries the
+		-- gates and what each one is protecting.
+		local laned = 0
+		profile.span("lane", function()
+			dirty, laned = lane.run(dirty)
+		end)
 		local needsSolve = false
 		local needsStructure = false
 		--[[ THE STALE-LAYOUT-DIRT TEST (owed row O-20, measured 2026-08-15).
@@ -2900,6 +2983,18 @@ function renderer.attach(
 			if not ok then
 				error(err, 0)
 			end
+		end
+		--[[ ...AND THE TWO CHANNELS A LANE TICK STILL OWES, when it moved something and
+			no solve ran to owe them itself: a live drag re-evaluates its targets against
+			rects that just moved, and whoever measures this surface is told geometry is
+			final. Both are the same calls the solve makes, from the same place in the
+			frame. ]]
+		if laned > 0 and not needsSolve then
+			local liveDrag = dragBridge.peek()
+			if liveDrag ~= nil and liveDrag.isActive() then
+				liveDrag.refreshTargets()
+			end
+			notifySolved()
 		end
 		-- LAST, after the solve, so a hook can read its own rect (see the queue's
 		-- declaration). Nothing has reached the screen yet: this whole call is

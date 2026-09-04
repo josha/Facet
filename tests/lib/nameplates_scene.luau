@@ -117,7 +117,24 @@ export type Opts = {
 	commitScope: boolean?, -- default true
 	fractional: boolean?, -- offsets as { scale, offset } instead of plain px
 	overflow: boolean?, -- plate 1 is 2,000 px wide: its subtree leaves the anchor
-	withPath: boolean?, -- add one UI.Path leaf: the `visible` prune latch closes
+	--[[ add one `UI.Path` leaf UNDER PLATE 3 — inside a coordinate-space host, not
+		beside the ForEach where it first sat. Two latches want it and they want it in
+		the same place: `visible`'s prune (`commit_walks.luau`, `local prunable =
+		next(pathNodes) == nil`) closes wherever the Path is, and the translate lane's
+		`spaceHostHasPath` gate can only be exercised by a Path that has a space host
+		above it. Moved rather than duplicated so there is ONE Path fixture: a second
+		one would let the two latches drift apart. ]]
+	withPath: boolean?,
+	-- plate 3's Row carries a 20x16 `UI.Button`: below the hit floor, so the
+	-- `hitRects` walk gives it an EXPANDER — the lane's `hit_lift` serve needs an
+	-- expander to exist somewhere on the surface, and one on a DESCENDANT of a
+	-- moving host (never on the host itself) is what row 10 of the owed list says
+	-- lanes rather than refuses.
+	withButton: boolean?,
+	-- every plate root binds `anchor` to a signal (default "topLeft") so an anchor
+	-- FLIP is a placement write the lane must take. Off, the prop is the literal
+	-- every other spec pins.
+	reactiveAnchor: boolean?,
 	--[[ carry a reactive `lineAlign` on every plate root, and expose `scene.align`.
 		`lineAlign` under an `Anchor` parent is INERT — the anchor branch reads
 		`anchor`/`offsetX`/`offsetY` and nothing else — so driving it DIRTIES every
@@ -167,6 +184,8 @@ function nameplates_scene.new(opts: Opts?)
 			hidden = core:signal(false),
 			-- ...and see `scene.nudgeLabel`: a placement prop on a TEXT LEAF
 			labelAlign = core:signal("start"),
+			-- see `Opts.reactiveAnchor`/`scene.anchorFlip`
+			anchor = core:signal("topLeft"),
 			name = `Racer {i}`,
 			lvl = tostring(10 + (i % 30)),
 		}
@@ -185,8 +204,15 @@ function nameplates_scene.new(opts: Opts?)
 		-- a scaleOffset metric, so `offsetPx` resolves it against the anchor's
 		-- inner extent and the answer is viewport-dependent
 		return core:memo(function(use: any)
-			local v = use(sig) :: number
-			return { scale = v / 1280, offset = -9 }
+			local v = use(sig)
+			-- ...and NIL PASSES THROUGH AS NIL, because `scene.clearOffset` is a real
+			-- drive on this fixture too: dividing a cleared offset by the viewport
+			-- quarantines the memo, and a quarantined memo makes the step it was driving
+			-- prove nothing.
+			if v == nil then
+				return nil
+			end
+			return { scale = (v :: number) / 1280, offset = -9 }
 		end)
 	end
 
@@ -199,9 +225,48 @@ function nameplates_scene.new(opts: Opts?)
 				return item.key
 			end,
 			row = function(item: any)
+				local rowChildren: { any } = {
+					UI.Text({ id = "Name", textSize = 14, text = item.name }),
+					UI.Text({ id = "Lvl", textSize = 12, text = item.lvl, lineAlign = item.labelAlign }),
+				}
+				if o.withButton and item.key == "p3" then
+					table.insert(rowChildren, UI.Button({ id = "Btn", width = px(20), height = px(16), label = "b" }))
+				end
+				local plateChildren: { any } = {
+					UI.HStack({
+						id = "Row",
+						padding = 0,
+						gap = 4,
+						width = fill(),
+						height = px(16),
+						children = rowChildren,
+					}),
+					UI.Box({
+						id = "Hp",
+						height = px(6),
+						width = core:memo(function(use: any)
+							return px(100 * (use(item.hp) :: number))
+						end),
+					}),
+					UI.Box({
+						id = "Cast",
+						height = px(4),
+						width = core:memo(function(use: any)
+							return px(100 * (use(item.cast) :: number))
+						end),
+					}),
+				}
+				if o.withPath and item.key == "p3" then
+					-- see `Opts.withPath`: the points come from `src/controls/path_shapes`
+					-- rather than two literals, because `UI.Path`'s own doc says `points`
+					-- are normalized Path2D control points from `Facet.pathShapes`
+					-- (`blueprint_schema.luau:2615-2621`), and it is the idiom
+					-- `tests/commit_scope.spec.luau:759` already uses for this latch.
+					table.insert(plateChildren, UI.Path({ id = "Spark", points = path_shapes.ring(), thickness = 2 }))
+				end
 				return UI.VStack({
 					id = "Plate",
-					anchor = "topLeft",
+					anchor = if o.reactiveAnchor then item.anchor else "topLeft",
 					offsetX = offsetOf(item, "x"),
 					offsetY = offsetOf(item, "y"),
 					lineAlign = if o.inertAlign then alignSignal else nil,
@@ -210,46 +275,11 @@ function nameplates_scene.new(opts: Opts?)
 					gap = 2,
 					width = px(if item.key == "p1" then plateWidth else 180),
 					height = { type = "content" },
-					children = {
-						UI.HStack({
-							id = "Row",
-							padding = 0,
-							gap = 4,
-							width = fill(),
-							height = px(16),
-							children = {
-								UI.Text({ id = "Name", textSize = 14, text = item.name }),
-								UI.Text({ id = "Lvl", textSize = 12, text = item.lvl, lineAlign = item.labelAlign }),
-							},
-						}),
-						UI.Box({
-							id = "Hp",
-							height = px(6),
-							width = core:memo(function(use: any)
-								return px(100 * (use(item.hp) :: number))
-							end),
-						}),
-						UI.Box({
-							id = "Cast",
-							height = px(4),
-							width = core:memo(function(use: any)
-								return px(100 * (use(item.cast) :: number))
-							end),
-						}),
-					},
+					children = plateChildren,
 				})
 			end,
 		}),
 	}
-	if o.withPath then
-		-- one stroked path anywhere on the surface shuts `visible`'s prune for the
-		-- life of the surface (`commit_walks.luau:842`, `local prunable = next(pathNodes) == nil`).
-		-- The points come from `src/controls/path_shapes` rather than two literals:
-		-- `UI.Path`'s own doc says `points` are normalized Path2D control points from
-		-- `Facet.pathShapes` (`blueprint_schema.luau:2615-2621`), and it is the idiom
-		-- `tests/commit_scope.spec.luau:759` already uses for exactly this latch.
-		table.insert(children, UI.Path({ id = "Spark", points = path_shapes.ring(), thickness = 2 }))
-	end
 	local bp = UI.Screen({
 		id = "S",
 		children = { UI.Anchor({ id = "Canvas", width = fill(), height = fill(), children = children }) },
@@ -345,6 +375,47 @@ function nameplates_scene.new(opts: Opts?)
 		controller.refresh()
 	end
 
+	--[[ AN ANCHOR FLIP IS A PLACEMENT WRITE (Plan C, T5). `anchor` is `dirty =
+		{ "arrange" }` exactly as `offsetX` is, and it is the one placement prop whose
+		new value changes the plate's rect through a DIFFERENT term of
+		`placement.anchorPlace` — the factor rather than the offset — so a lane that
+		re-derived the offset alone would place it wrong. Needs `Opts.reactiveAnchor`;
+		with the prop authored as a literal there is nothing to write.
+
+		"topLeft" <-> "top" and not, say, "bottomRight": the plate is 180 px wide in a
+		1280 px anchor, so the horizontal factor moves it by 550 px, which is a
+		difference any rect column can see, while the vertical factor stays 0 so the
+		plate cannot leave the box and trip the containment gate. ]]
+	function scene.anchorFlip(i: number)
+		local item = items[i]
+		item.anchor:set(if item.anchor:get() == "topLeft" then "top" else "topLeft")
+		controller.refresh()
+	end
+
+	-- ...and the drive that DOES leave the parent's inner box: the lane refuses a
+	-- host whose old or new rect is not fully inside it, because that is the frame
+	-- the solve would have filed (or withdrawn) a containment finding on.
+	function scene.moveOut(i: number)
+		items[i].x:set(-500)
+		controller.refresh()
+	end
+
+	--[[ THE NIL-FLIP DRIVE. `layout_node.build` derives `placementProps` — a nine-prop
+		PRESENCE flag — and the parent-side `inertPlacement` audit from these props, and
+		both move only when a prop APPEARS or DISAPPEARS. The lane serves values, not
+		presence, so this write has to reach the solve. ]]
+	function scene.clearOffset(i: number)
+		scene.setOffsetX(i, nil)
+	end
+
+	-- ...and the write back, which the nil-flip drive NEEDS: `tick` reads
+	-- `item.x:get() + dx`, so a plate left at `nil` makes every later tick an
+	-- arithmetic error on nil. A driver that clears an offset restores it.
+	function scene.setOffsetX(i: number, value: number?)
+		items[i].x:set(value)
+		controller.refresh()
+	end
+
 	function scene.hp(i: number, fraction: number)
 		items[i].hp:set(fraction)
 		controller.refresh()
@@ -361,6 +432,7 @@ function nameplates_scene.new(opts: Opts?)
 			cast = core:signal(if caster then 0.25 else 0),
 			hidden = core:signal(false),
 			labelAlign = core:signal("start"),
+			anchor = core:signal("topLeft"),
 			name = `Added {i}`,
 			lvl = "1",
 		}

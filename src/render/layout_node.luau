@@ -173,6 +173,54 @@ local function resolveOffset(metrics: any, raw: any): any
 	return themeSnapshot.resolveNumber(metrics, raw)
 end
 
+--[[ THE FOUR FIELDS A PLACEMENT PROP DECIDES, in one place (Plan C, T5).
+
+	`toLayoutNode`'s node literal used to carry these inline. They were lifted out
+	for a reason with teeth: `render/translate_lane` re-places a coordinate-space
+	host WITHOUT running a build at all, and the classifier therefore never marks
+	that node dirty — so the next build serves it out of the warm store UNCHANGED.
+	If the lane wrote a different set of fields from the build, the store would
+	hand back a node carrying last frame's `offsetX` behind a rect that had moved,
+	and the first solve that touched it for any other reason would snap the host
+	back. One function called by both sides is what makes that impossible to get
+	wrong by omission.
+
+	`placementProps` is "this node carries at least one placement prop", derived
+	from all NINE because every one of the values is in hand here. It is what makes
+	the parent-side inert-placement audit (§2.1) affordable in the arrange path: the
+	overwhelming majority of nodes carry none, and the audit's per-child cost for
+	them is this ONE field test rather than nine table lookups. Measured: the
+	per-lookup form cost +1.5-2.4 % on the 100-cell perf aggregate against a
+	0.31-0.65 % same-arm floor.
+
+	`layoutPriority`/`shrinkWeight` are in that set because they are placement props
+	exactly like the other seven — only a stack's shrink pass reads either one — and
+	were missing from it and from the solver's own table until the Milestone-1
+	review (C2). THIS TEST IS THE AUDIT'S ONLY GATE: a prop absent here is unpoliced
+	however complete `PLACEMENT_PROPS` is.
+
+	WHAT THE LANE MAY AND MAY NOT SPEND THIS ON. It writes VALUES; it never writes a
+	presence flip. `placementProps` and the parent's `inertPlacement` audit both
+	move when a prop appears or disappears, and `inertPlacement` lives on the
+	PARENT, which this function cannot reach — so the lane refuses a write whose old
+	or new value is `nil` and hands it to the solve. ]]
+local function applyPlacement(layoutNode: any, props: any, metrics: any)
+	layoutNode.anchor = props.anchor
+	layoutNode.offsetX = resolveOffset(metrics, props.offsetX)
+	layoutNode.offsetY = resolveOffset(metrics, props.offsetY)
+	layoutNode.placementProps = (
+		props.anchor ~= nil
+		or props.offsetX ~= nil
+		or props.offsetY ~= nil
+		or props.alignH ~= nil
+		or props.alignV ~= nil
+		or props.lineAlign ~= nil
+		or props.gridSpan ~= nil
+		or props.layoutPriority ~= nil
+		or props.shrinkWeight ~= nil
+	) or nil
+end
+
 --[[ stampContentTermsFacts(dim, textScale, prefOffset) -> dim — the ONE seam
 	`{ type = "content", lines = n }` (framework-gaps-phase2 gap 3) needs OUTSIDE
 	the solver, for the exact reason `textOf` above needs `prefOffset` outside
@@ -567,9 +615,8 @@ local function toLayoutNode(
 		gridSpan = props.gridSpan,
 		alignH = props.alignH,
 		alignV = props.alignV,
-		anchor = props.anchor,
-		offsetX = resolveOffset(metrics, props.offsetX),
-		offsetY = resolveOffset(metrics, props.offsetY),
+		-- THE FOUR PLACEMENT FIELDS ARE NOT HERE: `layout_node.applyPlacement` (below)
+		-- writes them, and this literal calls it four lines after the closing brace.
 		-- THE TWO KEYS `ctx.offers` IS INDEXED BY (wicked-fast A1), built once per
 		-- node here instead of twice per measure AND twice per arrange — the solver
 		-- was interpolating `node.id .. "|w"` on every one of those.
@@ -599,30 +646,6 @@ local function toLayoutNode(
 		-- controller alive is a real path to it.
 		wKey = node.path .. "|w",
 		hKey = node.path .. "|h",
-		-- "this node carries at least one placement prop", set here because every
-		-- one of the NINE values is already in hand on this line. It is what makes
-		-- the parent-side inert-placement audit (§2.1, below) affordable in the
-		-- arrange path: the overwhelming majority of nodes carry none, and the
-		-- audit's per-child cost for them is this ONE field test rather than nine
-		-- table lookups. Measured: the per-lookup form cost +1.5-2.4% on the
-		-- 100-cell perf aggregate against a 0.31-0.65% same-arm floor.
-		--
-		-- `layoutPriority`/`shrinkWeight` are here because they are placement props
-		-- exactly like the other seven — only a stack's shrink pass reads either one —
-		-- and were missing from this set and from the solver's own table until the
-		-- Milestone-1 review (C2). THIS TEST IS THE AUDIT'S ONLY GATE: a prop absent
-		-- here is unpoliced however complete `PLACEMENT_PROPS` is.
-		placementProps = (
-			props.anchor ~= nil
-			or props.offsetX ~= nil
-			or props.offsetY ~= nil
-			or props.alignH ~= nil
-			or props.alignV ~= nil
-			or props.lineAlign ~= nil
-			or props.gridSpan ~= nil
-			or props.layoutPriority ~= nil
-			or props.shrinkWeight ~= nil
-		) or nil,
 		--[[ WHETHER THIS NODE IS A COORDINATE SPACE (Plan C, C1) — carried because
 			`arrange` is what runs such a host's body at the origin. Not a prop and not
 			derivable from one: the trigger reads `dynamicProps`, which does not survive
@@ -663,6 +686,12 @@ local function toLayoutNode(
 		-- (`UI.When`), so counting children could name the wrong node.
 		expandTarget = props.expandTarget,
 	}
+	--[[ THE PLACEMENT FIELDS, WRITTEN BY THE ONE FUNCTION THAT KNOWS WHAT THEY MEAN
+		(Plan C, T5). They left the literal above so that `render/translate_lane` —
+		which re-places a coordinate-space host WITHOUT a build — can write them with
+		the build's own code instead of an enumeration of its own. Two callers, one
+		copy: a tenth placement prop is added here and both are correct. ]]
+	applyPlacement(layoutNode, props, metrics)
 	if class == "Composition" then
 		-- Every theme-owned number is resolved HERE, on every solve, so a package
 		-- with a bigger minimum field width re-arranges the screen without the
@@ -1647,5 +1676,10 @@ layout_node.effectiveHitFloor = effectiveHitFloor
 	every profiling harness in that repo report the stage as 0.000 ms. It is also the
 	one-shot entry a caller with no store wants. ]]
 layout_node.toLayoutNode = toLayoutNode
+-- the two the translate lane needs, and it needs them for the reason
+-- `applyPlacement`'s own header states: one copy of what a placement prop means
+-- on a layout node, and one copy of how a theme metric becomes an offset.
+layout_node.applyPlacement = applyPlacement
+layout_node.resolveOffset = resolveOffset
 
 return layout_node

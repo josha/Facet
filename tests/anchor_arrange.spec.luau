@@ -214,9 +214,18 @@ describe("N2: one changed plate does not re-offer 250 siblings", function()
 		--[[ THE HEADLINE STEP. `offsetX`/`offsetY` are arrange-classed, so a tick puts
 			every plate in `dirtyContains` and NONE of them in `measureContains` — their
 			sizes cannot have moved. The anchor therefore re-places all 250 and measures
-			none of them. This is the case the `measureContains` gate exists for. ]]
+			none of them. This is the case the `measureContains` gate exists for.
+
+			DRIVEN WITH `hosts = false` SINCE PLAN C's C6, and the arm under test is
+			unchanged by that. On the shipped fixture a plate root is a coordinate-space
+			host, so a pure tick is taken by `render/translate_lane` and never reaches the
+			solver at all — there is no anchor branch to run and no `anchorReused` to
+			read. The arm is a property of the SOLVER's anchor branch and has nothing to
+			do with coordinate spaces, so the honest drive for it is the world where a
+			tick still solves. The second half of this case pins the shipped behaviour
+			beside it, so the two cannot drift apart silently. ]]
 		withWorkCapture(function()
-			local s = scene.new()
+			local s = scene.new({ hosts = false })
 			expect(drove(function()
 				s.tick(3, 2)
 			end)).toBe(`solves=1 reused={PLATES} offered=0`)
@@ -225,6 +234,14 @@ describe("N2: one changed plate does not re-offer 250 siblings", function()
 			end)).toBe(`solves=1 reused={PLATES} offered=0`)
 			s.dispose()
 		end)
+		-- ...and on the SHIPPED fixture the same tick lanes and never solves
+		local hosted = scene.new()
+		hosted.tick(3, 2)
+		local before = hosted.stats().solves
+		hosted.tick(3, 2)
+		local st = hosted.stats()
+		expect(`solves={st.solves - before} lane={st.lastLaneTranslates}`).toBe(`solves=0 lane={PLATES}`)
+		hosted.dispose()
 	end)
 
 	it("NEGATIVE CONTROL: a caster tick resizes 50 plates, and exactly those 50 are measured", function()
@@ -249,8 +266,16 @@ describe("N2: one changed plate does not re-offer 250 siblings", function()
 	end)
 
 	it("...and the dirty chain is untouched: the same arranged and measured as before", function()
+		--[[ WARMED WITH CASTER TICKS SINCE PLAN C's C6. A pure tick is taken by
+			`render/translate_lane` and never solves, so it no longer warms the measure
+			store `initialRender`'s fill pass cleared — and the `hp` solve below would pay
+			that one-time cold cost instead (1,504 measures rather than 7), which is a
+			fact about which refresh pays for the mount and not about the dirty chain this
+			case is pinning. Two caster ticks warm it, because a caster tick still
+			solves. ]]
 		local s = scene.new()
-		s.tick(3, 2)
+		s.tickWithCasts(3, 2)
+		s.tickWithCasts(3, 2)
 		s.hp(7, 0.9)
 		local st = s.stats()
 		-- the dirty chain, and nothing else. What makes this a real assertion is the

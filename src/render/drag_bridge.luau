@@ -40,8 +40,10 @@
 	than the eleven the ledger row counted because three of the old inline reads
 	became named locals on the way out:
 
-	  · `peek()` x7 — the tap-arm guard, the seam-armed test, the activate-arms path,
-	    the reflow that re-aims a live session, `controller.cancelArmed`,
+	  · `peek()` x8 — the tap-arm guard, the seam-armed test, the activate-arms path,
+	    the reflow that re-aims a live session, the SECOND reflow the translate lane
+	    owes when it moved a host with no solve behind it (Plan C, C6 —
+	    `render/translate_lane`), `controller.cancelArmed`,
 	    `controller.peekDragRegistry` and `controller.setDragCollaborators`;
 	  · `registry()` x4 — the two mount-time wirings, the pointer-capture path and
 	    `controller.dragRegistry`;
