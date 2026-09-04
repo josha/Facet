@@ -19,10 +19,12 @@
 	`shrink` record) — handed over as a `Deps` record built once at module scope,
 	exactly as `GRID_DEPS` / `FLOW_DEPS` / `COMPOSITION_DEPS` / `CANDIDATE_DEPS`
 	already are — plus TWO CALL-SITE ARGUMENTS, `place` and `noteContainment`, for
-	the reason `grid.luau`'s header states about its own pair: both are declared
+	the reason `grid.luau`'s header states about its own pair: `place` is declared
 	BELOW the line the Deps record is built on, so a by-value capture there would
-	take the nil global, and forward-declaring them to avoid that would add a mutable
-	module local, which is the opposite of what a split is for.
+	take the nil global, and forward-declaring it to avoid that would add a mutable
+	module local, which is the opposite of what a split is for. (`noteContainment`
+	moved to `layout/arrange_reports` on 2026-09-04 and no longer has that
+	constraint; it stays a call-site argument because the two are one pair.)
 
 	`place` IS THE SOLVER'S RECURSIVE `arrange`, AND THAT IS NOT A CYCLE. The name is
 	passed down the call, never required back: this module names no solver symbol and

@@ -130,9 +130,13 @@ describe("src_tree: the enumeration two seam specs were missing most of", functi
 			scan pinned to one spelling (`require("./x")`) cannot see the same module
 			required from another directory (`require("../present/x")`), and that is
 			exactly the second consumer these rules exist to notice. ]]
+		--[[ `measure_facts` is required from TWO directories' worth of spelling since
+			2026-09-04 — `src/layout/solver.luau` and `src/layout/arrange_reports.luau`
+			— and both spell it `./measure_facts`, which is why the pin below names the
+			paths rather than counting them. `tests/measure_facts_seam.spec.luau` is
+			where that set is the subject; here it is the fixture. ]]
 		local solverSeen = srcTree.pathsMatching('require%("[^"]*measure_facts"%)')
-		expect(`one consumer={#solverSeen}`).toBe("one consumer=1")
-		expect(solverSeen[1]).toBe("src/layout/solver.luau")
+		expect(solverSeen).toEqual({ "src/layout/arrange_reports.luau", "src/layout/solver.luau" })
 		-- a needle nothing carries answers empty rather than erroring
 		expect(`absent={#srcTree.pathsMatching("no_such_module_anywhere")}`).toBe("absent=0")
 	end)

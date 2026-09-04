@@ -12,13 +12,27 @@
 	the line that calls it. That emptiness is the whole argument, and it is a claim
 	that decays the moment someone reaches back across it for one convenient helper.
 
-	  ZERO DEPS      the module requires nothing and takes no `deps` record
+	  ZERO DEPS      it takes no `deps` record, and requires only LEAVES
 	  ONE CONSUMER   `src/layout/solver.luau`, from inside `arrange`
 	  ONE-WAY        it names no solver symbol and imports no solver type
-	  A CLOSED INPUT the exact `ctx` and `node` fields it reads, as a SET — a sixth
-	                 `ctx` field reached for is the first step of a seam growing back
-	  NOTHING LEFT   the solver kept no copy of the four messages
+	  A CLOSED INPUT the exact `ctx`, `node`, `child` and `rect` fields it reads, as
+	                 a SET — a third `ctx` field reached for is the first step of a
+	                 seam growing back
+	  A CLOSED OUTPUT `table.insert` into `ctx.diagnostics` and nothing else
+	  NOTHING LEFT   the solver kept no copy of the five messages
 	  NO STATE       no module-level local is ever reassigned
+
+	THE CONTAINMENT CHECK JOINED IT ON 2026-09-04 (Plan C, T3 fix round 1), for the
+	same reason the four box reports left: `layout/solver.luau` stood 55 characters
+	inside the Facet-parity campaign's 197,500 STOP band with Plan C's T5 due to
+	edit it next, and the solver's own ledger row had named this block as the
+	candidate. It belongs here on its merits too — it is the same shape as the other
+	four (gated on `ctx.hiddenDepth == 0`, output only `table.insert` into
+	`ctx.diagnostics`), it simply reports about a CHILD's box rather than the node's
+	own. It brought TWO requires with it (`./placement_audit`, `./measure_facts`),
+	which is why the zero-deps rule below is now "no deps record, leaves only": both
+	are modules the solver itself imports and neither imports anything back, so this
+	file is still a leaf and no cycle can form.
 
 	Each source rule is a pure function of a string, so each carries a NEGATIVE
 	CONTROL that feeds it a broken input and proves it reports. A check that cannot
@@ -67,16 +81,37 @@ describe("the arrange-reports seam: ZERO deps, one consumer, one-way", function(
 	local reportsSrc = fs.readFile(REPORTS_PATH)
 	local solverSrc = fs.readFile(SOLVER_PATH)
 
-	it("the module requires NOTHING and takes no deps record", function()
+	it("the module takes NO deps record, and requires only leaves", function()
+		--[[ IT REQUIRED NOTHING AT ALL UNTIL 2026-09-04, and the two that arrived with
+			the containment report are named here rather than counted. Both are modules
+			`solver.luau` itself imports and neither imports anything back — each
+			re-declares the node schema as `any` for exactly that reason and says so in
+			its own header — so this file is still a LEAF and the require graph is still
+			acyclic. A third require, or one that is not a leaf, is a seam growing back.
+
+			The `deps` half is unchanged and is the half the ledger judges: no record
+			crosses this boundary, so there is no channel for a solver forward local to
+			arrive through. ]]
 		local requires: { string } = {}
 		for path in string.gmatch(stripComments(reportsSrc), 'require%("([^"]+)"%)') do
 			table.insert(requires, path)
 		end
-		expect(requires).toEqual({})
+		table.sort(requires)
+		expect(requires).toEqual({ "./measure_facts", "./placement_audit" })
 		expect(sorted(fieldsRead(reportsSrc, "deps"))).toEqual({})
+		-- ...and neither leaf requires this module or the solver back
+		for _, leaf in { "src/layout/placement_audit.luau", "src/layout/measure_facts.luau" } do
+			local body = stripComments(fs.readFile(leaf))
+			expect(`{leaf} -> solver={string.find(body, 'require("./solver")', 1, true) ~= nil}`).toBe(
+				`{leaf} -> solver=false`
+			)
+			expect(`{leaf} -> reports={string.find(body, "arrange_reports", 1, true) ~= nil}`).toBe(
+				`{leaf} -> reports=false`
+			)
+		end
 	end)
 
-	it("it reads a CLOSED set of ctx, node and rect fields", function()
+	it("it reads a CLOSED set of ctx, node, child and rect fields", function()
 		--[[ THE SCHEMA IT DEPENDS ON, AS A SET rather than as a promise. Both
 			parameters are typed `any` precisely so the module cannot import the
 			solver's own types back, which means nothing but this check reports a sixth
@@ -95,7 +130,39 @@ describe("the arrange-reports seam: ZERO deps, one consumer, one-way", function(
 			"sizeRefused",
 			"text",
 		})
-		expect(sorted(fieldsRead(reportsSrc, "rect"))).toEqual({ "h", "w" })
+		expect(sorted(fieldsRead(reportsSrc, "rect"))).toEqual({ "h", "w", "x", "y" })
+		-- `child` arrived with the containment report and is READ NOWHERE: it is
+		-- handed straight to `placement_audit.containment`, which is what keeps this
+		-- module ignorant of the solver's node schema even for the node it reports on
+		expect(sorted(fieldsRead(reportsSrc, "child"))).toEqual({})
+	end)
+
+	it("it WRITES nothing of the solver's but `ctx.diagnostics`, and only by insert", function()
+		--[[ THE HALF A READ-SET SCAN CANNOT SEE, and the half that says this boundary
+			is a REPORT CHANNEL rather than shared mutable state: a module that only READ
+			a closed set could still assign into it. Every output of every function here
+			is one `table.insert` into the list the caller already writes. ]]
+		local function writesInto(source: string, receiver: string): number
+			local n = 0
+			for _ in string.gmatch(stripComments(source), receiver .. "%.[%a_][%w_]*%s*=[^=]") do
+				n += 1
+			end
+			for _ in string.gmatch(stripComments(source), receiver .. "%[[^%]]*%]%s*=[^=]") do
+				n += 1
+			end
+			return n
+		end
+		expect(writesInto(reportsSrc, "ctx")).toBe(0)
+		expect(writesInto(reportsSrc, "node")).toBe(0)
+		expect(writesInto(reportsSrc, "child")).toBe(0)
+		local targets: { [string]: boolean } = {}
+		for target in string.gmatch(stripComments(reportsSrc), "table%.insert%(([%a_][%w_%.]*)") do
+			targets[target] = true
+		end
+		expect(sorted(targets)).toEqual({ "ctx.diagnostics" })
+		-- NEGATIVE CONTROL: both scans report a broken input
+		expect(writesInto("\n\tctx.hiddenDepth = 0\n", "ctx")).toBe(1)
+		expect(writesInto("\n\tctx[node.id] = {}\n", "ctx")).toBe(1)
 	end)
 
 	it("there is exactly ONE consumer of the module in src/", function()
@@ -137,19 +204,32 @@ describe("the arrange-reports seam: EXPORTED == BOUND, and nothing stayed behind
 	local reportsSrc = fs.readFile(REPORTS_PATH)
 	local solverSrc = fs.readFile(SOLVER_PATH)
 
-	it("the module exports exactly `box`, and the solver calls that one function", function()
+	it("the module exports exactly `box` and `containment`, and the solver calls both", function()
 		local exported: { [string]: boolean } = {}
 		for name in string.gmatch(stripComments(reportsSrc), "function arrange_reports%.([%a_][%w_]*)") do
 			exported[name] = true
 		end
-		expect(sorted(exported)).toEqual({ "box" })
+		expect(sorted(exported)).toEqual({ "box", "containment" })
 		expect(
 			string.find(solverSrc, "arrange_reports.box(ctx, node, rect, innerW, innerH, pt, pr, pb, pl)", 1, true)
 				~= nil
 		).toBe(true)
+		expect(string.find(solverSrc, "local noteContainment = arrange_reports.containment", 1, true) ~= nil).toBe(true)
+		--[[ ...AND THE CALL SITE DID NOT MOVE, char for char. `stack.luau` takes
+			`place` and `noteContainment` as CALL-SITE arguments rather than `Deps`
+			fields, and `tests/stack_seam.spec.luau` pins this exact string from the
+			other side — so a future edit cannot satisfy one pin by loosening the other. ]]
+		expect(
+			string.find(
+				solverSrc,
+				"stackLib.arrange(STACK_DEPS, ctx, node, innerX, innerY, innerW, innerH, gap, arrange, noteContainment, out)",
+				1,
+				true
+			) ~= nil
+		).toBe(true)
 	end)
 
-	it("the solver kept no copy of the four messages", function()
+	it("the solver kept no copy of the five messages", function()
 		--[[ THE FAILURE THIS REPOSITORY HAS ALREADY PAID FOR ONCE: a block "moved" by
 			copying, leaving the host's version live and the two drifting. Each string
 			below is a distinctive fragment of one of the four reports, and none of them
@@ -159,6 +239,9 @@ describe("the arrange-reports seam: EXPORTED == BOUND, and nothing stayed behind
 		expect(string.find(body, "chrome contentInsets could not be spent", 1, true)).toBe(nil)
 		expect(string.find(body, "icon floor wanted", 1, true)).toBe(nil)
 		expect(string.find(body, "node.inertPlacement", 1, true)).toBe(nil)
+		-- ...and the fifth, which arrived on 2026-09-04: definition gone, one bind left
+		expect(string.find(body, "local function noteContainment(", 1, true)).toBe(nil)
+		expect(string.find(body, "placementAudit.containment(", 1, true)).toBe(nil)
 	end)
 
 	it("NEGATIVE CONTROL: the export scan and the leftover scan both report", function()
@@ -179,6 +262,43 @@ describe("the arrange-reports seam: EXPORTED == BOUND, and nothing stayed behind
 	end)
 end)
 
+describe("the arrange-reports seam: the moved report still is the report", function()
+	it("BEHAVIOUR: containment fires on an escaping child, refuses a contained one, and is gated", function()
+		--[[ EVERY CASE ABOVE IS A SOURCE RULE, so one behavioural case anchors them:
+			the function this move renamed is the function that runs. The full treatment
+			is `tests/containment_diagnostic.spec.luau`, which drives it through a real
+			solve and did not change across the move; this drives the moved export
+			DIRECTLY, which is the half a whole-solve test cannot isolate.
+
+			The three arms are the block's own three exits: a child inside the content
+			box (the common path, which never reaches `axisAbsorbs` and never
+			allocates), a child outside it under a parent that cannot grow, and the
+			`hiddenDepth` gate every report in this file shares — a losing ViewThatFits
+			candidate does not shout. ]]
+		local reports = require("../src/layout/arrange_reports") :: any
+		local parent = {
+			id = "/S/Row",
+			kind = "hstack",
+			width = { type = "fixed", px = 100 },
+			height = { type = "fixed", px = 40 },
+		}
+		local child = { id = "/S/Row/Kid", kind = "box" }
+
+		local contained = { hiddenDepth = 0, diagnostics = {} }
+		reports.containment(contained, parent, child, { x = 0, y = 4, w = 100, h = 20 }, 0, 0, 100, 40, false)
+		expect(`contained findings={#contained.diagnostics}`).toBe("contained findings=0")
+
+		local escaping = { hiddenDepth = 0, diagnostics = {} }
+		reports.containment(escaping, parent, child, { x = 0, y = 30, w = 100, h = 40 }, 0, 0, 100, 40, false)
+		expect(`escaping findings>0={#escaping.diagnostics > 0}`).toBe("escaping findings>0=true")
+		expect(`filed about the child={escaping.diagnostics[1].node}`).toBe("filed about the child=/S/Row/Kid")
+
+		local hidden = { hiddenDepth = 1, diagnostics = {} }
+		reports.containment(hidden, parent, child, { x = 0, y = 30, w = 100, h = 40 }, 0, 0, 100, 40, false)
+		expect(`hidden findings={#hidden.diagnostics}`).toBe("hidden findings=0")
+	end)
+end)
+
 describe("the arrange-reports seam: no module-level mutable state", function()
 	it("nothing declared at module level is ever reassigned", function()
 		--[[ A MODULE-LEVEL MUTABLE IS A SECOND SOLVE'S STATE LEAKING INTO THE FIRST,
@@ -191,7 +311,19 @@ describe("the arrange-reports seam: no module-level mutable state", function()
 		for name in string.gmatch(body, "\nlocal ([%a_][%w_]*)") do
 			declared[name] = true
 		end
-		expect(sorted(declared)).toEqual({ "arrange_reports" })
+		--[[ FOUR MORE ARRIVED WITH THE CONTAINMENT REPORT on 2026-09-04, and every one
+			of them is a CONSTANT: two module requires and the two pure readers bound off
+			`measure_facts` the way `solver.luau` binds them, for the same reason (an
+			extra table index per call on a path this repository has already paid a bench
+			regression for). None is ever written, which the reassignment scan below is
+			what actually says. ]]
+		expect(sorted(declared)).toEqual({
+			"arrange_reports",
+			"axisAbsorbs",
+			"dim",
+			"measureFacts",
+			"placementAudit",
+		})
 		local reassigned: { string } = {}
 		for name in string.gmatch(body, "\n([%a_][%w_]*) =") do
 			if declared[name] then

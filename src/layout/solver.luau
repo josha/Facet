@@ -102,6 +102,9 @@ local candidate = require("./candidate")
 -- lifted out on 2026-09-02 for the Source-write headroom the wicked-fast round
 -- needed. No `Deps`: it reads only the values `arrange` hands it.
 local arrange_reports = require("./arrange_reports")
+-- ...and the containment report, bound to the name its one call site already uses:
+-- it left this file on 2026-09-04 for the headroom the ledger row named it for.
+local noteContainment = arrange_reports.containment
 -- `stack`: the vstack/hstack ARRANGE branch — the main-axis pass (hug -> shrink ->
 -- fill -> distribute) and the per-child placement loop — lifted out on 2026-09-02
 -- for the headroom the anchor-arrange task needed, and the block the source-cap
@@ -712,8 +715,10 @@ local CANDIDATE_DEPS: candidate.Deps = {
 -- forwarder (borrowed from `GRID_DEPS`, never rebuilt), the three `measure_facts`
 -- readers the main-axis pass spends, and the shrink record itself — passed rather
 -- than rebuilt there, so the two cannot end up reading a different `mainDimOf`.
--- `arrange` and `noteContainment` are NOT here: both are declared below this line,
--- so they are passed at the call site, exactly as `GRID_DEPS`'s note explains.
+-- `arrange` is NOT here: it is declared below this line, so it is passed at the
+-- call site, exactly as `GRID_DEPS`'s note explains. `noteContainment` rides beside
+-- it because the two are one pair, not because it has to (it lives in
+-- `./arrange_reports` now and could sit in this record).
 local STACK_DEPS: stackLib.Deps = {
 	measure = GRID_DEPS.measure,
 	dim = dim,
@@ -2171,68 +2176,6 @@ end
 -- "measured one shape, arranged another" defect this file has fixed four times.
 
 -- arrange pass: assign rects into out[id]
---[[ THE CONTAINMENT CHECK, ON THE ONE AXIS NOTHING ELSE WATCHES.
-
-	Every other overflow finding in this file is derived from a MEASURE against an
-	offer. This one is derived from the RECT the child was finally given, which is
-	the only instrument that can see a box placed outside its parent by ARITHMETIC
-	rather than by size — the class the solver already knew about, and the
-	property `tests/lib/overflow_guard.luau` now asserts from the
-	adapter side after every settle.
-
-	IT POLICES THE STACK'S CROSS AXIS AND NOTHING ELSE, and the scope was measured
-	rather than chosen: `./placement_audit` carries the counts. The main axis is
-	already reported by name and by number two lines above the loop; `zstack` and
-	`anchor` place children outside their box by design and have their own finding
-	and their own opt-out. What is left is the axis a stack's own `min(desired,
-	crossAvail)` is supposed to guarantee — so a child outside it means the
-	guarantee broke, and until now nothing said so.
-
-	TWO COMPARISONS ON THE COMMON PATH: a contained child never reaches
-	`axisAbsorbs`, never reaches the route test and never allocates.
-]]
-local function noteContainment(
-	ctx: Ctx,
-	node: Node,
-	child: Node,
-	rect: Rect,
-	innerX: number,
-	innerY: number,
-	innerW: number,
-	innerH: number,
-	axisIsX: boolean
-)
-	if ctx.hiddenDepth ~= 0 then
-		return
-	end
-	local near = if axisIsX then innerX - rect.x else innerY - rect.y
-	local far = if axisIsX then (rect.x + rect.w) - (innerX + innerW) else (rect.y + rect.h) - (innerY + innerH)
-	if near <= 0.5 and far <= 0.5 then
-		return
-	end
-	if placementAudit.routesOverflow(node) then
-		return
-	end
-	--[[ THE PARENT MUST BE UNABLE TO GROW, and the answer comes from `axisAbsorbs`
-		above rather than from a second reading of the resolver — a `hug` or
-		`content` parent that ends up too small has a different story (its own
-		parent squeezed it) and the measure-side findings already tell it. The
-		parent's own rect IS its resolved extent by the time it is placing children,
-		so the "bounded" arm of that predicate is answered by the box itself. ]]
-	local wD, hD = dim(node, "w"), dim(node, "h")
-	local absorbs = if axisIsX then axisAbsorbs(wD, innerW, hD, innerH) else axisAbsorbs(hD, innerH, wD, innerW)
-	if not absorbs then
-		return
-	end
-	local found = placementAudit.containment(node, child, rect, innerX, innerY, innerW, innerH, axisIsX)
-	if found == nil then
-		return
-	end
-	for _, finding in found do
-		table.insert(ctx.diagnostics, finding)
-	end
-end
-
 --[[ THE LITERAL IS THE WHOLE ENTRY — for every kind but these two, and a translate
 	root is a node whose entry is ONLY the literal. The `scroll` branch stamps
 	`contentSize`/`padding`/`barInset`/`overflow` after it and `composition` stamps
@@ -3417,8 +3360,7 @@ local function arrangeBody(ctx: Ctx, node: Node, rect: Rect, out: { [string]: an
 	-- named this block as its next extraction since the T4 split. The whole main-axis
 	-- pass (hug -> shrink -> fill -> distribute) and the per-child placement loop live
 	-- there; `arrange` and `noteContainment` are passed rather than sitting in
-	-- `STACK_DEPS` because both are declared below where that record is built — the
-	-- same distinction `GRID_DEPS` carries, and for the same reason.
+	-- `STACK_DEPS` — see that record's own note for which of the two has to be.
 	stackLib.arrange(STACK_DEPS, ctx, node, innerX, innerY, innerW, innerH, gap, arrange, noteContainment, out)
 end
 

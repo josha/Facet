@@ -34,6 +34,8 @@ local fs = require("@lune/fs")
 local srcTree = require("./lib/src_tree")
 
 local SOLVER_PATH = "src/layout/solver.luau"
+-- the second consumer since 2026-09-04 — see the consumer case below
+local REPORTS_PATH = "src/layout/arrange_reports.luau"
 local FACTS_PATH = "src/layout/measure_facts.luau"
 
 --[[ COMMENTS ARE NOT CODE, and in this repository that is not a nicety: the
@@ -253,8 +255,22 @@ describe("the measure-facts seam: EXPORTED == BOUND, one consumer, one-way requi
 		`tests/lib/src_tree.luau` is the one enumeration, and matching by the
 		require's TAIL is what lets it see a consumer that spells the path from
 		another directory. ]]
-	it("there is exactly ONE consumer of the module in src/", function()
-		expect(srcTree.pathsMatching('require%("[^"]*measure_facts"%)')).toEqual({ SOLVER_PATH })
+	it("the consumers of the module in src/ are the two that are named here", function()
+		--[[ IT WAS ONE UNTIL 2026-09-04 (Plan C, T3 fix round 1), and the second is
+			the honest kind: `layout/arrange_reports` took the containment report out of
+			`solver.luau` for that file's Source-write headroom, and the report reads
+			`dim` and `axisAbsorbs` — two of THIS module's pure readers. It requires the
+			same leaf the solver does rather than being handed the pair through a `Deps`
+			record, which is what keeps `arrange_reports`' own "no Deps at all" claim
+			true (`tests/arrange_reports_seam.spec.luau`).
+
+			THE PIN STAYS A LIST, not a count: a third consumer is a fan-out this seam's
+			whole argument is about, and naming the second is what makes the third
+			visible the day it appears. ]]
+		expect(srcTree.pathsMatching('require%("[^"]*measure_facts"%)')).toEqual({
+			REPORTS_PATH,
+			SOLVER_PATH,
+		})
 	end)
 
 	it("the module requires the solver NOWHERE — the require is one-way", function()
