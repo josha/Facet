@@ -34,6 +34,9 @@ local fs = require("@lune/fs")
 local srcTree = require("./lib/src_tree")
 
 local SOLVER_PATH = "src/layout/solver.luau"
+-- the solver's `Ctx` is declared in `./solve_ctx` and aliased in the solver, so a
+-- scan for its fields reads BOTH (Plan C, T6)
+local SOLVE_CTX_PATH = "src/layout/solve_ctx.luau"
 -- the second consumer since 2026-09-04 — see the consumer case below
 local REPORTS_PATH = "src/layout/arrange_reports.luau"
 -- ...and the third, from 2026-09-04 (Plan C, T5)
@@ -131,6 +134,7 @@ end
 
 describe("the measure-facts seam: READ == DECLARED == HOSTED", function()
 	local solver = fs.readFile(SOLVER_PATH)
+	local solverCtxSource = solver .. "\n" .. fs.readFile(SOLVE_CTX_PATH)
 	local facts = fs.readFile(FACTS_PATH)
 
 	it("every `ctx` field the module reads is declared in its own `MeasureCtx`", function()
@@ -154,7 +158,14 @@ describe("the measure-facts seam: READ == DECLARED == HOSTED", function()
 			the solver's side is a silent `nil` here rather than a missing argument.
 			This is the assertion that turns it back into a compile-time-shaped
 			failure. ]]
-		expect(#missingFrom(typeFields(facts, "MeasureCtx"), typeFields(solver, "Ctx"))).toBe(0)
+		--[[ THE `Ctx` DECLARATION MOVED, AND THE SCAN FOLLOWED IT RATHER THAN BEING
+			LOOSENED (Plan C, T6, 2026-09-04). `type Ctx` is `src/layout/solve_ctx.luau`
+			now and `solver.luau` carries the alias, so a scan of the solver alone would
+			find an EMPTY body — which this comparison reports as every field missing,
+			not as a pass, but only because `missingFrom` happens to run that way. The
+			two sources are joined instead, so the claim is unchanged and the check
+			cannot be quieted by moving the declaration again. ]]
+		expect(#missingFrom(typeFields(facts, "MeasureCtx"), typeFields(solverCtxSource, "Ctx"))).toBe(0)
 	end)
 
 	it("NEGATIVE CONTROL: each scan reads what it claims to, and reports the pair out of step", function()

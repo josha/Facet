@@ -33,6 +33,9 @@ local fs = require("@lune/fs")
 local srcTree = require("./lib/src_tree")
 
 local SOLVER_PATH = "src/layout/solver.luau"
+-- the solver's `Ctx` is declared in `./solve_ctx` and aliased in the solver, so a
+-- scan for its fields reads BOTH (Plan C, T6)
+local SOLVE_CTX_PATH = "src/layout/solve_ctx.luau"
 local RESOLVE_PATH = "src/layout/composition_resolve.luau"
 
 --[[ COMMENTS ARE NOT CODE, and in this repository that is not a nicety: this
@@ -105,6 +108,7 @@ end
 
 describe("the composition-resolve seam: READ == DECLARED == HOSTED", function()
 	local solver = fs.readFile(SOLVER_PATH)
+	local solverCtxSource = solver .. "\n" .. fs.readFile(SOLVE_CTX_PATH)
 	local resolveSrc = fs.readFile(RESOLVE_PATH)
 
 	it("every `ctx` field the module reads is declared in its own `SolveCtx`", function()
@@ -129,7 +133,14 @@ describe("the composition-resolve seam: READ == DECLARED == HOSTED", function()
 		--[[ THE HALF A PARAMETER OBJECT WOULD HAVE GIVEN FOR FREE. Nothing hands
 			these fields over one by one — the whole `ctx` crosses — so a rename on the
 			solver's side is a silent `nil` here rather than a missing argument. ]]
-		expect(#missingFrom(typeFields(resolveSrc, "SolveCtx"), typeFields(solver, "Ctx"))).toBe(0)
+		--[[ THE `Ctx` DECLARATION MOVED, AND THE SCAN FOLLOWED IT RATHER THAN BEING
+			LOOSENED (Plan C, T6, 2026-09-04). `type Ctx` is `src/layout/solve_ctx.luau`
+			now and `solver.luau` carries the alias, so a scan of the solver alone would
+			find an EMPTY body — which this comparison reports as every field missing,
+			not as a pass, but only because `missingFrom` happens to run that way. The
+			two sources are joined instead, so the claim is unchanged and the check
+			cannot be quieted by moving the declaration again. ]]
+		expect(#missingFrom(typeFields(resolveSrc, "SolveCtx"), typeFields(solverCtxSource, "Ctx"))).toBe(0)
 	end)
 
 	it("NEGATIVE CONTROL: each scan reads what it claims to, and reports the pair out of step", function()
