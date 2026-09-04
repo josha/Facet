@@ -228,6 +228,14 @@ function screen_presentation.new(ctx: any)
 	-- (the whole surface shifts) falls out of it.
 	local presentationTransforms: { [string]: any } = {}
 	local presentationCount = 0
+	-- THE ENGINE-WRITE COUNTER (Plan C, T0): `applyRect` is the ONLY writer of
+	-- this instance's Position/Size (see its header), so this is the true bill
+	-- the engine was handed — not the `setRect` CALL count `stats.rectWrites`
+	-- already tracks two levels up, but the write that survives the
+	-- write-skip compare below. Hit expanders and decorations are NOT
+	-- counted: they are a different instance, written unconditionally, and
+	-- not the collapse this campaign measures.
+	local engineWriteCount = 0
 	-- path -> the handles a transform on that path composes into (itself first).
 	-- A motion writes EVERY FRAME while it runs, and scanning every handle on the
 	-- target per write would make a leaf's 60 Hz motion cost the whole tree. Built
@@ -401,10 +409,12 @@ function screen_presentation.new(ctx: any)
 		if handle.lastWriteX ~= px or handle.lastWriteY ~= py then
 			handle.instance.Position = UDim2.fromOffset(px, py)
 			handle.lastWriteX, handle.lastWriteY = px, py
+			engineWriteCount += 1
 		end
 		if handle.lastWriteW ~= pw or handle.lastWriteH ~= ph then
 			handle.instance.Size = UDim2.fromOffset(pw, ph)
 			handle.lastWriteW, handle.lastWriteH = pw, ph
+			engineWriteCount += 1
 		end
 		applyHitExpander(handle)
 		if handle.focusRingFloat ~= nil and handle.focusRingFloat.Parent ~= nil then
@@ -592,6 +602,9 @@ function screen_presentation.new(ctx: any)
 		setTransform = setTransform,
 		dropPath = dropPath,
 		invalidateSubtree = invalidateSubtree,
+		engineWrites = function()
+			return engineWriteCount
+		end,
 	}
 end
 

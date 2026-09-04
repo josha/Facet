@@ -164,6 +164,9 @@ function fake_target.new(opts: Opts?)
 	local nodes: { [string]: any } = {}
 	local ops: { string } = {}
 	local rootCount = 0
+	-- cumulative engine Position/Size writes, mirroring `applyRect`'s own bill —
+	-- see `adapter.engineWrites` beside `hostCount`, and the mirror in `setRect`
+	local engineWriteCount = 0
 	-- MIRRORS `screen_target`'s module-scope `lastRootHandle`: the root of the last
 	-- `create` on this target, whichever surface asked for it. `adopt` is the only
 	-- reader, because `adopt` is the only entry point that is not told its root.
@@ -206,7 +209,10 @@ function fake_target.new(opts: Opts?)
 			existing.crops = existing.crops or crops
 			return existing
 		end
-		local entry = { path = path, crops = crops, children = {} }
+		-- `rect = nil` mirrors the live shape (screen_target.setRect:2098-2100
+		-- writes `entry.rect` on the host it re-parents against); the engine-write
+		-- mirror below reads it to find the host-relative pair a real parent buys.
+		local entry = { path = path, crops = crops, children = {}, rect = nil }
 		instanceHosts[path] = entry
 		return entry
 	end
@@ -523,6 +529,27 @@ function fake_target.new(opts: Opts?)
 
 	function adapter.setRect(handle: any, rect: any)
 		handle.rect = rect
+		if instanceHosts[handle.path] ~= nil then
+			-- mirrors `screen_target.setRect:2098-2100`: a host records the rect its
+			-- own children's engine-write mirror re-bases against
+			instanceHosts[handle.path].rect = rect
+		end
+		-- see `engineWrites`: the position the engine would be handed is the
+		-- host-relative pair (`presentedPosition` is the WINDOW pair; both are kept)
+		local hostOx, hostOy = 0, 0
+		local host = handle.instanceHost
+		if host ~= nil and host.rect ~= nil then
+			hostOx, hostOy = host.rect.x, host.rect.y
+		end
+		local px, py = rect.x - hostOx, rect.y - hostOy
+		if handle.lastWriteX ~= px or handle.lastWriteY ~= py then
+			handle.lastWriteX, handle.lastWriteY = px, py
+			engineWriteCount += 1
+		end
+		if handle.lastWriteW ~= rect.w or handle.lastWriteH ~= rect.h then
+			handle.lastWriteW, handle.lastWriteH = rect.w, rect.h
+			engineWriteCount += 1
+		end
 		-- ORDERING-HAZARD MIRROR (task SCROLL2 fix round 1, RED-TEAM finding 1):
 		-- captured at the EXACT moment this call runs, mirroring the live
 		-- `applyRect`'s own read of `handle.barOverlayWidenW/H`
@@ -876,6 +903,15 @@ function fake_target.new(opts: Opts?)
 			n += 1
 		end
 		return n
+	end
+
+	-- THE ENGINE-WRITE MIRROR (Plan C, T0): the live `applyRect` compares the pair
+	-- it is about to write against the pair it wrote last (`handle.lastWriteX/Y`,
+	-- `lastWriteW/H`) and skips an equal one. Mirrored here at the same
+	-- granularity — Position and Size counted separately — so a headless
+	-- demonstrator can pin the collapse a real parent buys instead of inferring it.
+	function adapter.engineWrites(): number
+		return engineWriteCount
 	end
 
 	function adapter.setZOrder(handle: any, z: number)

@@ -2123,6 +2123,11 @@ function screen_target.new(opts: Opts?)
 		table.clear(movedHosts)
 	end
 
+	-- () -> number, diagnostic (Plan C, T0): the engine Position/Size write
+	-- count `applyRect` counts at its own write-skip compare, re-exported
+	-- beside the presentation channel's other rebinds above.
+	adapter.engineWrites = presentation.engineWrites
+
 	-- ===== THE POINTER SEAM (src/client/screen_pointer) ==================
 	--
 	-- The one activate meta, the global pointer capture, the semantic cursor and

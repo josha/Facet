@@ -434,6 +434,11 @@ require("./redteam_closing_round.spec")
 -- so a stale `lastCommitEntry` is visible), the caster column the plan predicted
 -- wrong, and the FOUR-arm oracle whose fourth arm turns the commit prune itself off
 require("./commit_translate.spec")
+-- the engine-write mirror both adapters carry (Plan C, T0): a counter at the
+-- SAME granularity as `applyRect`'s own write-skip compare (Position/Size,
+-- counted separately), proving the collapse a real host buys rather than
+-- inferring it from the `setRect` CALL count `stats.rectWrites` already tracks
+require("./engine_writes.spec")
 -- ...and the round's fourth (T5b): the COMMIT'S DIRTY SET IS NOT THE BUILD'S. A
 -- second, narrower set omits the seven props that move a node and change nothing a
 -- walk reads, and `skip` picks by the walk's own `arrangeBlind` claim, so four walks

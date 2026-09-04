@@ -17,7 +17,7 @@ local target_contract = {}
 
 -- `create`'s optional arguments are CREATION-TIME facts an adapter can only honour
 -- while it is choosing the engine object: the decoration hint it classifies a
--- decoration slot from, and `createOpts` — today `{ canvasGroup }`,
+-- decoration slot from, and `createOpts` — today `{ canvasGroup?, instanceHost?, hostSpace? }`,
 -- which decides the node's engine CLASS so a subtree can be faded as one group. Neither can arrive as a later prop write; an adapter that
 -- does not skin or group ignores them.
 --
@@ -230,6 +230,13 @@ target_contract.OPTIONAL = {
 	-- modal ordering cannot reach the engine, so a modal may paint under the
 	-- screen it is modal over.
 	"setRootDisplayOrder", -- (rootHandle, n: number)
+	-- diagnostic (Plan C, T0): cumulative engine Position/Size writes made by
+	-- the node's own applyRect/setRect path — NOT hit expanders, NOT
+	-- decorations. Exists so a headless demonstrator can pin the write
+	-- collapse a real instance host buys instead of inferring it from the
+	-- `setRect` CALL count `stats.rectWrites` already tracks. `controller.stats()`
+	-- reads it when present; nil on an adapter without it.
+	"engineWrites", -- () -> number  [diagnostic: engine Position/Size writes]
 }
 
 -- THEME. Not "optional" in the OPTIONAL sense: these four are the

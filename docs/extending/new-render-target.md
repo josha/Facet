@@ -56,7 +56,7 @@ specification:
   `setRootVisible`, `setHitRect`, `setActivationFeedback`,
   `setScrollHandler`, `getScrollPosition`, `setNativeTransitionsEnabled`,
   `setReducedMotion`, `setPreferredTransparency`, `stageHost`,
-  `foreignHost`, `setRootDisplayOrder`.
+  `foreignHost`, `setRootDisplayOrder`, `engineWrites`.
 <!-- /OPTIONAL-METHODS -->
 
   `enableDisclosure`'s absence is the least obvious one: without it there is no

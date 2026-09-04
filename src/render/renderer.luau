@@ -3804,7 +3804,13 @@ function renderer.attach(
 	end
 
 	function controller.stats()
-		return table.clone(stats)
+		local out = table.clone(stats)
+		-- adapter-owned (Plan C, T0): the engine's own write count lives where the
+		-- write is made; nil on an adapter without the reader
+		if adapter.engineWrites ~= nil then
+			out.engineWrites = adapter.engineWrites()
+		end
+		return out
 	end
 
 	--[[ coverRect() -> what this surface actually PAINTS, or nil.
