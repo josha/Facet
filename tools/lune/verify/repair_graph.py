@@ -426,6 +426,29 @@ CASE_ID_REPAIRS = [
 FREEZE = "artifacts/distribution-readiness/freeze"
 REGISTRATION_COMMIT = "6907f85"
 
+#[[ AND BOTH FREEZE ROWS ASK GIT A QUESTION ONLY THE PRIVATE LINEAGE CAN ANSWER.
+#
+#   `6907f85` and the head recorded at stage open are commits of the PRIVATE
+#   history. The public tip is a rewritten lineage with no merge base with it, so
+#   neither object exists there and both rows reddened on the public clone --
+#   reporting a failed assertion, which is the one thing it is not.
+#
+#   The rows now ask whether the object is resolvable FIRST. Where it is, the
+#   assertion is exactly what it always was, unweakened: ancestry plus
+#   parent-equals-the-frozen-head for one, "the frozen head is a real commit in
+#   this repository, not a string in a document" plus the three raw records for
+#   the other. Where it is not, the row says so in the vocabulary
+#   `tools/lune/verify_cli.luau` already honours for a row's own assertion --
+#   exit 2 with FAIL_ENVIRONMENT in the output -- and is recorded and NAMED as an
+#   environment failure: non-blocking at `full`, still blocking at `release`,
+#   never a silent pass.
+#
+#   THE GUARD BELONGS HERE, NOT ONLY IN THE GRAPH. `e18ced4b` (2026-08-31) taught
+#   both rows a public-lineage fallback by editing `graph.json` alone; the next
+#   run of this tool wrote these two entries back over it and CI reddened again
+#   at the 92-commit graft. A row generated from this table can only stay fixed
+#   if the table is what carries the fix. ]]
+
 #[[ THE PUBLIC-CLONE RUN IS A MACHINE RECORD, AND THE ROWS READ IT.
 #   `artifacts/distribution-readiness/verification/public-clone-full-run.json`
 #   is the verbatim run record of `tools/verify.sh full` inside a clone with no
@@ -1262,9 +1285,19 @@ ROW_FLIPS = {
     "distribution-readiness::registered-before-work": (
         {
             "shell": (
+                "if git cat-file -e '%s^{commit}' 2>/dev/null; then "
                 "git merge-base --is-ancestor %s HEAD && "
-                '[ "$(git rev-parse %s^)" = "$(cat %s/head.txt)" ]'
-                % (REGISTRATION_COMMIT, REGISTRATION_COMMIT, FREEZE)
+                '[ "$(git rev-parse %s^)" = "$(cat %s/head.txt)" ]; '
+                "else echo 'FAIL_ENVIRONMENT the registration commit %s is not in this history: "
+                "the public tip is a rewritten lineage with no private commits, so the ancestry "
+                "claim cannot be asked here'; exit 2; fi"
+                % (
+                    REGISTRATION_COMMIT,
+                    REGISTRATION_COMMIT,
+                    REGISTRATION_COMMIT,
+                    FREEZE,
+                    REGISTRATION_COMMIT,
+                )
             ),
             "receipt": "tools/lune/verify/evidence/distribution-readiness--registered-before-work.json",
         },
@@ -1276,9 +1309,12 @@ ROW_FLIPS = {
     "distribution-readiness::state-frozen-at-open": (
         {
             "shell": (
-                'git cat-file -e "$(cat %s/head.txt)^{commit}" && '
+                'if git cat-file -e "$(cat %s/head.txt)^{commit}" 2>/dev/null; then '
                 "test -s %s/tracked-files.txt && test -s %s/refs.txt && "
-                "test -s %s/status.txt" % (FREEZE, FREEZE, FREEZE, FREEZE)
+                "test -s %s/status.txt; "
+                "else echo 'FAIL_ENVIRONMENT the frozen head is not a commit in this history: "
+                "the public tip is a rewritten lineage, so the stage-open head cannot be "
+                "resolved here'; exit 2; fi" % (FREEZE, FREEZE, FREEZE, FREEZE)
             ),
             "receipt": "tools/lune/verify/evidence/distribution-readiness--state-frozen-at-open.json",
         },
