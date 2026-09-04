@@ -60,6 +60,9 @@ function dump.fromSolve(
 		-- /2 adds `textFacts` per text node. Additive, so a /1 reader keeps
 		-- working; the version moves because a diff against a stored /1 fixture
 		-- would otherwise read as a layout change.
+		-- NO BUMP for `measured` (T9): each `diagnostics` finding now carries an
+		-- internal `measured: boolean?` stamp, same class as `filedBy` — additive
+		-- on a table no reader enumerates, so it is not a schema change.
 		schema = "facet-dump/2",
 		viewport = viewport,
 		rootPolicy = (opts and opts.rootPolicy) or "coreSafeContent",

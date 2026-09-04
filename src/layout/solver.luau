@@ -3123,8 +3123,14 @@ local function arrange(ctx: Ctx, node: Node, rect: Rect, out: { [string]: any })
 			the only one exact in BOTH directions; the argument, the two shapes that
 			reach the loss and the negative control live in
 			`tests/redteam_closing_round.spec.luau`'s header. It is free on a
-			well-formed tree: all four measure-time filers are authoring defects, never
-			a `designed` finding. ]]
+			well-formed tree: all four `measured`-stamped filers are authoring defects,
+			never a `designed` finding. A fifth measure-time filer,
+			`composition_resolve.luau:212`'s missing-`UI.Region` finding, carries no
+			stamp BY ARGUMENT, not oversight: the anchor arm never runs `measure` for
+			the served subtree, so `ctx.compositions` stays cold, and `arrange`'s own
+			`compositionResolve.resolve` (`:2702`) re-derives and re-files it
+			unconditionally for every composition it reaches — one absent from
+			`walkedIds` under an arrange skip is covered by the replay instead. ]]
 		local prevOf = if reuse ~= nil and ctx.measureQuiet then reuse.previous.rects else nil
 		local sizeDirt = if reuse ~= nil then (reuse.measureContains or reuse.dirtyContains) else nil
 		for _, child in node.children or {} do

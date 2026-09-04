@@ -355,8 +355,6 @@ function screen_chrome.new(ctx: Context)
 			-- chrome radius — the loop above just zeroed whatever `corner()` or
 			-- `applySlotNativePaint` painted — so a later nil `corners` must tear
 			-- that zeroed child down, not restore the radius the art replaced.
-			-- The handle is optional only so this stays callable from a site that
-			-- has none; every caller today passes one.
 			if handle ~= nil then
 				handle.chromeCornerRadius = nil
 			end

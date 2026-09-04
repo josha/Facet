@@ -186,10 +186,15 @@ function rect_pass.new(ctx: any)
 
 				A STRUCTURAL WRAPPER INSIDE A TRANSLATED SUBTREE (a `ForEach` region, a `When`
 				region — a mounted node that owns no rect) is not re-noted here, because the
-				run holds layout ids and a wrapper is not one. That changes NOTHING: a wrapper
-				owns no handle either, and the walk's own `note` is guarded on
-				`handles[node.path]`, so its `lastCommitEntry` is nil before this arm and nil
-				after it — it was never prunable in the first place. ]]
+				run holds layout ids and a wrapper is not one. That is NOT because the wrapper
+				lacks a handle — it has one (`renderer.luau:1066/:1070` assigns `handles` for
+				every mounted node, `elided` included) and its `lastCommitEntry` goes one
+				generation stale. It costs nothing because the wrapper is unreachable while the
+				translate root above it prunes: all six `moveBlind` walks and this pass stop
+				there. When the root does not prune, the walk descends anyway, and there
+				`probeEntry` (borrowed from the wrapper's single child) matches neither `last`
+				nor `probe.prev`, so the wrapper is conservatively walked and its children
+				pruned individually. ]]
 			local run = if runs ~= nil then runs[node.path] else nil
 			if run ~= nil then
 				for i = run.from, run.to do

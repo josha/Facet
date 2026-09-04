@@ -64,10 +64,14 @@
 	   because `measure` has two early returns that never reach its capture block,
 	   which a first draft of this fix stamped at and which the probe caught.
 
-	   THE COST IS SCOPED TO A TREE THAT IS ALREADY MALFORMED. All four measure-time
-	   filers report authoring defects (percent or containerRelative on an unbounded
-	   axis, aspect on both, a scroll region on an unbounded axis) and none is ever
-	   `designed`, so a well-formed surface never disarms the arm.
+	   THE COST IS SCOPED TO A TREE THAT IS ALREADY MALFORMED. All four `measured`-
+	   stamped filers report authoring defects (percent or containerRelative on an
+	   unbounded axis, aspect on both, a scroll region on an unbounded axis) and none
+	   is ever `designed`, so a well-formed surface never disarms the arm. A fifth
+	   measure-time filer, `composition_resolve.luau`'s missing-`UI.Region` finding,
+	   carries no stamp and needs none: the anchor arm never runs `measure` for the
+	   served subtree, so `arrange`'s own composition resolve re-derives and re-files
+	   it unconditionally wherever it is reached.
 
 	   KNOWN AND PRE-EXISTING, NOT INTRODUCED HERE: a node measured uncached at N
 	   distinct offers files N copies of the same measure-time finding, at HEAD and
@@ -113,6 +117,17 @@ local function section(source: string, from: string, length: number): string
 	local at = string.find(source, from, 1, true)
 	expect(at ~= nil).toBe(true)
 	return string.sub(source, at :: number, (at :: number) + length)
+end
+
+-- Slice-to-boundary form (final review, M-5): anchors the END on a distinctive
+-- string that follows the branch rather than a fixed character count, so a
+-- comment added inside the branch cannot push a later pin out of the window.
+local function sectionUntil(source: string, from: string, upTo: string): string
+	local at = string.find(source, from, 1, true)
+	expect(at ~= nil).toBe(true)
+	local stop = string.find(source, upTo, (at :: number) + 1, true)
+	expect(stop ~= nil).toBe(true)
+	return string.sub(source, at :: number, (stop :: number) - 1)
 end
 
 --[[ CAPTURE THE SOLVE THE RENDERER ACTUALLY DROVE. `renderer.luau` calls
@@ -610,7 +625,7 @@ describe("RED-TEAM 3: the paint erasers agree with each other", function()
 	local chromeSource = fs.readFile("src/client/screen_chrome.luau")
 
 	it("applyCorners' nil-with-no-record branch destroys EVERY UICorner, like its siblings", function()
-		local body = section(paintSource, "if cornersData == nil then", 1200)
+		local body = sectionUntil(paintSource, "if cornersData == nil then", "the AUTHORED token re-derived")
 		expect(contains(body, "for _, child in instance:GetChildren() do")).toBe(true)
 		expect(contains(body, 'if child:IsA("UICorner") then')).toBe(true)
 		-- the single-child form is what was wrong; the RESTORE path below it still

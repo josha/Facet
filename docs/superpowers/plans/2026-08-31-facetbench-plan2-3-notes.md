@@ -164,3 +164,20 @@ recycle key from the WORN prop set, plus the three live nil branches in `screen_
    version** of `src/render/commit_walks.luau` while `Read` on the same path in the same session
    returned HEAD, md5 matching HEAD both times. Any gate that greps source here should pin a commit
    marker first.
+9. **`collectRetiringRoots` whole-tree walk (T7 ruling):** `ssRetire` is **0.056 ms unattributed**
+   at L; bound it by the retiring set when a profile shows it ≥5 % of a structural class.
+10. **Anchor-arm `containerUnmoved` branch has no fixture** — mutation-confirmed only (T6 fix
+    round 1); it is the branch that guards the §2.5 stale-container class (a WRONG SCREEN, not a
+    lost cache hit) — write the fixture first thing next campaign.
+11. **Duplicate measure-time findings:** a node measured uncached at N distinct offers files N
+    copies of the same finding (pre-existing; T9 fix round 1, concern C4); the `measureQuiet`
+    fixtures are single-copy shapes on purpose.
+12. **`applyCorners` per-corner residue (parked item (a), now one step wider):** on an engine with
+    `hasPerCornerRadii` the nil-with-a-record restore (`screen_paint.luau:733-738`) AND the
+    pre-existing non-nil UNIFORM branch (`:746-747`) both write `CornerRadius` alone and strand the
+    four per-corner radii; no current target exposes per-corner radii, so no live impact — fix both
+    branches together.
+13. **Solve-level replay can resurrect a stale MEASURE-time finding in an arrange-skipped subtree**
+    (`solver.luau:3625-3629` refuses only on `walkedIds`, an arrange fact); arguably unreachable (a
+    removed cause is measure-class dirt ⇒ arrange-dirty ⇒ walked); consequence if reachable: a
+    resurrected `measured` finding keeps the anchor arm disarmed indefinitely.
