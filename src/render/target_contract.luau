@@ -17,7 +17,8 @@ local target_contract = {}
 
 -- `create`'s optional arguments are CREATION-TIME facts an adapter can only honour
 -- while it is choosing the engine object: the decoration hint it classifies a
--- decoration slot from, and `createOpts` — today `{ canvasGroup?, instanceHost?, hostSpace? }`,
+-- decoration slot from, and `createOpts` — today `{ canvasGroup?, instanceHost? }`
+-- (`hostSpace?` arrives with the coordinate-space hosts, Plan C T3),
 -- which decides the node's engine CLASS so a subtree can be faded as one group. Neither can arrive as a later prop write; an adapter that
 -- does not skin or group ignores them.
 --
