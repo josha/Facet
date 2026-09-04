@@ -203,6 +203,7 @@ require("./rect_reads_seam.spec")
 -- over a refresh's dirty list is a PURE FUNCTION of the list it is handed, which is
 -- the strongest one-way claim a block leaving `renderer.luau` can make
 require("./dirty_closure_seam.spec")
+require("./render_stats_seam.spec")
 require("./incremental_layout.spec")
 require("./diagnostic_replay.spec")
 require("./container_relative_incremental.spec")

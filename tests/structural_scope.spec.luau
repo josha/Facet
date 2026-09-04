@@ -1306,23 +1306,37 @@ describe("P5 x a torn commit: refresh-scoped state does not outlive its refresh"
 			well-formed tree. So the placement is pinned where it is decided: ONE
 			increment, downstream of the call, beside the counters that are read off
 			`result.work`. ]]
+		--[[ TWO FILES SINCE 2026-09-04 (Plan C, T5): both counters moved into
+			`render/render_stats.publish` when the counter record left `renderer.luau` for
+			the translate lane's headroom. The claim is unchanged and is still one claim —
+			it is simply asked of the pair now: ONE increment, in the publisher; and the
+			publisher itself called downstream of the solve. Re-pointed rather than
+			weakened: an increment moved before the call still reddens this. ]]
 		local source = fs.readFile("src/render/renderer.luau")
+		local publisher = fs.readFile("src/render/render_stats.luau")
 		local bumps = 0
-		for _ in string.gmatch(source, "stats%.structuralPartialSolves %+= 1") do
+		for _ in string.gmatch(publisher, "stats%.structuralPartialSolves %+= 1") do
 			bumps += 1
 		end
 		expect(bumps).toBe(1)
+		-- ...and NOWHERE ELSE: the renderer must not have kept a second one
+		local strays = 0
+		for _ in string.gmatch(source, "stats%.structuralPartialSolves %+= 1") do
+			strays += 1
+		end
+		expect(`strays in the renderer:{strays}`).toBe("strays in the renderer:0")
 		local solveAt = string.find(source, "local result = solver.solve(", 1, true)
-		local bumpAt = string.find(source, "stats.structuralPartialSolves += 1", 1, true)
+		local bumpAt = string.find(source, "render_stats.publish(", 1, true)
 		expect(solveAt ~= nil and bumpAt ~= nil).toBe(true)
 		expect(`counted after the solve: {(bumpAt :: number) > (solveAt :: number)}`).toBe(
 			"counted after the solve: true"
 		)
 		-- ...and it is beside the sibling it shares a boundary with, not somewhere else
-		-- downstream: `partialSolves` is written from `result.work` two lines up
-		local partialAt = string.find(source, "stats.partialSolves += 1", 1, true)
-		expect((partialAt :: number) < (bumpAt :: number)).toBe(true)
-		expect((bumpAt :: number) - (partialAt :: number) < 400).toBe(true)
+		-- downstream: `partialSolves` is written from `result.work` a few lines up
+		local partialAt = string.find(publisher, "stats.partialSolves += 1", 1, true)
+		local structAt = string.find(publisher, "stats.structuralPartialSolves += 1", 1, true)
+		expect((partialAt :: number) < (structAt :: number)).toBe(true)
+		expect((structAt :: number) - (partialAt :: number) < 1200).toBe(true)
 	end)
 end)
 
