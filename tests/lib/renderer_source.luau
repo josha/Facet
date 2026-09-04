@@ -63,6 +63,12 @@ local PARTS = {
 		so no existing pin's count moves — it is added because a part missing from an
 		instrument is only ever discovered by the pin that needed it. ]]
 	"src/render/rect_pass.luau",
+	--[[ ...and the EXPLICIT PAINT-ORDER WALK (2026-09-04, Plan C ruling T5-2):
+		`orderedChildren` and the z sync. It holds the ONLY `adapter.setZOrder(` call
+		in `src/render/`, so a part missing here would take every z pin's denominator
+		to zero and leave them all passing — which is the failure mode this list exists
+		to prevent, and `tests/z_order_seam.spec.luau` asserts the membership. ]]
+	"src/render/z_order.luau",
 	--[[ ...and the DRAG-TO-EDGE AUTOSCROLL BRIDGE (2026-09-01): `setPointerDrag`,
 		the ScrollView chain under a point, the `autoscroll` opt-out and the per-frame
 		stepper. It holds no `adapter.setProp(` and no `setRect(` at all — it reaches

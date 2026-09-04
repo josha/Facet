@@ -43,6 +43,7 @@ local instance_boundary = require("./instance_boundary")
 -- the four geometry reads (Plan C, T1: the live seam — see its own header)
 local rect_reads = require("./rect_reads")
 local rect_pass = require("./rect_pass")
+local z_order = require("./z_order")
 local translate_lane = require("./translate_lane")
 local render_stats = require("./render_stats")
 local commit_walks = require("./commit_walks")
@@ -2273,94 +2274,23 @@ function renderer.attach(
 		end
 	end
 
-	-- flat sibling rendering paints in z-order; instance creation order is NOT
-	-- deterministic across a structural sync, so z is assigned explicitly from
-	-- the tree walk (live-found defect 2026-07-19). `lastZ` itself is
-	-- declared up with `rectOf`, because the drag registry reads it as the
-	-- paint-order tie-break for overlapping drop targets.
-	-- AUTHORED PAINT ORDER, WITHIN THE PARENT'S STACKING SCOPE.
-	-- Siblings are visited in `(zIndex or 0, declaration order)`
-	-- order, so a lifted node — a drag ghost, a toast — paints above the siblings it
-	-- was declared before, and its whole SUBTREE travels with it because the walk
-	-- is depth-first over one counter. Nothing crosses a scope: a child's counter is
-	-- always higher than its parent's, whatever its zIndex, which is why lifting
-	-- across surfaces stays structural (the presenter's display order).
-	--
-	-- The declaration index is part of the key rather than trusted to `table.sort`:
-	-- Luau's sort is NOT stable, so ties between two zero-index siblings would
-	-- otherwise be free to swap between solves — and z-order churn is exactly the
-	-- non-determinism the explicit z walk exists to remove.
-	-- ...and the SECOND KEY, only when something asked for it: a branch whose hit
-	-- expander overhangs into a later sibling is walked AFTER that sibling
-	-- (`src/render/hit_lift.luau` owns the rule and the ordering).
-	local function orderedChildren(node: any): { any }
-		local children = node.children
-		if children == nil or #children < 2 then
-			return children or {}
-		end
-		local lifted = hitLift.touches(children)
-		local anyLift = false
-		for _, child in children do
-			if child.props ~= nil and type(child.props.zIndex) == "number" and child.props.zIndex ~= 0 then
-				anyLift = true
-				break
-			end
-		end
-		if not anyLift then
-			-- the overwhelmingly common case allocates nothing
-			return if lifted then hitLift.order(children) else children
-		end
-		local indexed: { { node: any, index: number, z: number } } = table.create(#children)
-		for index, child in children do
-			local z = if child.props ~= nil and type(child.props.zIndex) == "number" then child.props.zIndex else 0
-			table.insert(indexed, { node = child, index = index, z = z })
-		end
-		table.sort(indexed, function(a, b)
-			if a.z ~= b.z then
-				return a.z < b.z
-			end
-			return a.index < b.index
-		end)
-		local out: { any } = table.create(#children)
-		for _, entry in indexed do
-			table.insert(out, entry.node)
-		end
-		return if lifted then hitLift.order(out) else out
-	end
-	function syncZOrder()
-		if adapter.setZOrder == nil then
-			return
-		end
-		local z = 0
-		local zMetrics = currentMetrics()
-		local function walkZ(node: any)
-			-- A HOST WITH A HIT EXPANDER OWNS THE COUNTER BELOW IT TOO. The adapter
-			-- paints the expander at `hostZ - 1`, and without this reservation that
-			-- number belongs to whatever node happened to be walked immediately
-			-- before — a TIE, which the engine breaks by insertion order, i.e. by
-			-- exactly the non-determinism this explicit walk exists to remove. It is
-			-- also what makes the overhang lift land: a host lifted one position past
-			-- a leaf sibling would otherwise put its expander level with it, and
-			-- level is not above (measured on `keyboard_navigation`, whose rows are
-			-- leaves: Row1 at z 37 over Row2 at z 36 left the expander at 36).
-			-- THE CLASS, NOT THE CURRENT STATE (NM-H4a, live 2026-08-17): reading
-			-- `lastHitRects` made this band a function of HISTORY. See
-			-- tests/hit_expander_z_band.spec.
-			if effectiveHitFloor(node.class, zMetrics) ~= nil then
-				z += 1
-			end
-			z += 1
-			if handles[node.path] ~= nil and lastZ[node.path] ~= z then
-				authority.assertWrite("common", "zIndex", "layout")
-				adapter.setZOrder(handles[node.path], z)
-				lastZ[node.path] = z
-			end
-			for _, child in orderedChildren(node) do
-				walkZ(child)
-			end
-		end
-		walkZ(root.node)
-	end
+	--[[ THE EXPLICIT PAINT-ORDER WALK is `render/z_order` (Plan C, ruling T5-2), and
+		it carries the whole argument: why z is assigned from a tree walk at all
+		(instance creation order is not deterministic across a structural sync), the
+		`(zIndex or 0, declaration order)` key and why the declaration index is IN it,
+		the stacking-scope rule, and the counter a hit expander's band reserves.
+		`lastZ` stays declared here beside `rectOf`, because the drag registry reads it
+		as the paint-order tie-break for overlapping drop targets, and it crosses the
+		boundary by reference like every other record this file shares. ]]
+	local zOrder = z_order.new({
+		adapter = adapter,
+		root = root,
+		handles = handles,
+		lastZ = lastZ,
+		hitLift = hitLift,
+		metrics = currentMetrics,
+	})
+	syncZOrder = zOrder.sync
 
 	-- THE TWO DRAINS. Both take the queue by value and clear it BEFORE calling
 	-- anything, so a hook that mounts or dismisses something (which is the normal

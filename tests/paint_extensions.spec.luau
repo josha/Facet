@@ -35,6 +35,9 @@ local adapter_source = require("./lib/adapter_source")
 -- write-cap split (tests/lib/adapter_source names them and says why)
 local adapterSource = adapter_source.live()
 local rendererSource = fs.readFile("src/render/renderer.luau")
+-- ...and the WHOLE renderer, every part joined — see the z-order case below for why
+-- one file is the wrong denominator for a claim about the renderer
+local renderer_source = require("./lib/renderer_source")
 local runnerSource = fs.readFile("examples/gallery/scenarios/runner.luau")
 
 local NEUTRAL_THEME = { colors = default_style.colors, extra = default_style.extra }
@@ -802,6 +805,15 @@ describe("zIndex: paint order within the parent's stacking scope", function()
 		}))
 		expect(adapter.node("/S/One").z < adapter.node("/S/Two").z).toBe(true)
 		expect(adapter.node("/S/Two").z < adapter.node("/S/Three").z).toBe(true)
-		expect(contains(rendererSource, "return a.index < b.index")).toBe(true)
+		--[[ READ OVER THE WHOLE RENDERER, NOT ONE FILE, since 2026-09-04 (Plan C, ruling
+			T5-2): the explicit paint-order walk moved to `src/render/z_order.luau` for the
+			renderer's Source-write headroom, so a pin on `renderer.luau` alone would have
+			gone quiet on the very line it exists to hold. `renderer_source.all()` is the
+			library that exists for exactly this failure, and its own header's rule is ADD
+			A PART WHENEVER MORE OF THE RENDERER MOVES OUT. The claim is unchanged: the
+			declaration index is IN the sort key, because Luau's sort is not stable and two
+			zero-index siblings would otherwise be free to swap between solves. ]]
+		expect(contains(rendererSource, "return a.index < b.index")).toBe(false)
+		expect(contains(renderer_source.all(), "return a.index < b.index")).toBe(true)
 	end)
 end)
