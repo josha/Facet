@@ -14889,7 +14889,7 @@
      "instance_recycling_themed::the LIVE adapter's themed park/adopt (its source is the contract)::the epoch moves on a package swap AND on an asset-ledger movement",
      "instance_park_corpse::instance park corpse: the pool can never hold a destroyed instance::parkEligible refuses an unparented (destroyed) instance",
      "instance_park_corpse::instance park corpse: the pool can never hold a destroyed instance::adopt refuses (never throws) when the Parent write fails",
-     "instance_park_corpse::instance park corpse: the pool can never hold a destroyed instance::the instance-host refusal that makes the ordering hazard real is still in place",
+     "instance_park_corpse::instance park corpse: the pool can never hold a destroyed instance::the instance-host refusal is NARROWED to a host that CROPS or still has children",
      "incremental_layout::incremental layout: a partial solve answers exactly what a full solve does::an explicit `false` opts out completely",
      "incremental_layout::incremental layout: a partial solve answers exactly what a full solve does::is ON by default and ENGAGES — every differential below is vacuous otherwise",
      "incremental_layout::incremental layout: a partial solve answers exactly what a full solve does::DIFFERENTIAL: paint, text facts and diagnostics all match at every step",

@@ -1073,6 +1073,7 @@ function screen_target.new(opts: Opts?)
 	-- `settleRects` (see `adapter.setRect`)
 	local movedHosts: { any } = {}
 	local registerHost = presentation.registerHost
+	local unregisterHost = presentation.unregisterHost
 	local hostAt = presentation.hostAt
 	local hostFor = presentation.hostFor
 	local recomputePresentationOffset = presentation.recomputePresentationOffset
@@ -3317,8 +3318,11 @@ function screen_target.new(opts: Opts?)
 	-- 249 refusals against 96 parks).
 	--
 	-- STILL REFUSED, each for a stated reason:
-	--   clip-host ROLE / presentation transform — path-keyed records a recycled
-	--     node would inherit with nothing driving them (membership in a clip
+	--   a CROPPING host, or one that still has children (T4b narrowed this from
+	--     "every registered host": a clipping role is a construction decision the
+	--     pool cannot re-decide, and a populated host would travel with somebody
+	--     else's subtree inside it) / presentation transform — a path-keyed record
+	--     a recycled node would inherit with nothing driving it (membership in a
 	--     host is fine: released on park, re-established on adopt);
 	--   motion scale — a transient animation mid-flight, keyed to the old
 	--     identity's gesture;
@@ -3330,6 +3334,32 @@ function screen_target.new(opts: Opts?)
 	--   a STAGE — its WorldModel holds content the CALLER parented there, so
 	--     recycling one would hand a new identity somebody else's scene (and its
 	--     live handle names the old path). Refused on both adapters.
+	--[[ RELEASE CLIP-HOST MEMBERSHIP — one copy, called by `park` AND by `remove`.
+
+		The host keeps an array of the handles parented INSIDE it and re-places them
+		whenever its own origin moves (`settleRects`). `park` has always taken the
+		departing node out of that array; `remove` never did, so a host outlived every
+		child it destroyed and went on handing their corpses to `applyRect` on each of
+		its own moves.
+
+		T4b is what makes that a correctness bug rather than a small waste: the park
+		rule below asks whether a host still HAS children, and an array that only ever
+		shrinks when a child happens to be parkable answers "yes" forever. Both exits
+		now empty it, so `#entry.children` means live children and nothing else. ]]
+	local function releaseHostMembership(handle: any)
+		local host = handle.instanceHost
+		if host == nil then
+			return
+		end
+		for i, child in host.children do
+			if child == handle then
+				table.remove(host.children, i)
+				break
+			end
+		end
+		handle.instanceHost = nil
+	end
+
 	local function parkEligible(handle: any): boolean
 		if handle == nil or handle.instance == nil then
 			return false
@@ -3362,6 +3392,42 @@ function screen_target.new(opts: Opts?)
 		if handle.foreignBox ~= nil then
 			return false
 		end
+		--[[ A REGISTERED HOST TRAVELS ONLY IF IT IS PLAIN AND EMPTY (T4b, 2026-09-04).
+			This used to be `hostAt(path) ~= nil` — every host refused — and that cost
+			was measured: Plan C's C1 made every reactive-placement container with
+			children a host, and `removeItem` on the 250-plate arena workload went
+			**+21.3 %** because the sweep destroyed plate roots it used to pool
+			(FacetBench §C1.3 — the whole of that class's +0.168 ms sits inside
+			`span:Facet/mount`).
+
+			TWO CONDITIONS, AND NEITHER IS DECORATION.
+
+			`crops` refuses everything whose real-parenthood is a CONSTRUCTION
+			decision the pool cannot re-decide: a `CanvasGroup` (also caught by
+			`canvasGroupInstance` above), an authored `clipChildren`, and a
+			`ScrollView`, whose blueprint declares `clipChildren` for it. What is left
+			is the plain move/composite boundary — one extra `Frame`, no buffer, no
+			`ClipsDescendants` — which is exactly what a fresh `create` would build for
+			the adopter.
+
+			`#children > 0` refuses a host that would take a whole SUBTREE out of the
+			tree behind the renderer's back and hand the next adopter somebody else's
+			children. The sweep visits departed paths deepest-first for this test to be
+			answerable at all (`renderer.luau`'s `deeperFirst`); `releaseHostMembership`
+			above is what makes the array fall to zero on the ordinary remove as well as
+			on a park. The array holds every framework handle parented into this
+			instance, and the only other instance that can be inside one is a departing
+			child's hit expander — which is a sibling of a handle that is itself refused
+			while it exists, and destroyed by that handle's own remove.
+
+			`presentationTransforms[path] ~= nil` below is NOT narrowed by any of this
+			and no children rule can lift it: that record is keyed to the path, so a
+			recycled instance would inherit an offset with nothing left driving it. A
+			host that has ever carried one stays out of the pool. ]]
+		local hostEntry = hostAt(path)
+		if hostEntry ~= nil and (hostEntry.crops == true or #hostEntry.children > 0) then
+			return false
+		end
 		if
 			handle.motionScale ~= nil
 			or handle.canvasGroupInstance ~= nil
@@ -3369,7 +3435,6 @@ function screen_target.new(opts: Opts?)
 			or handle.focusRingFloat ~= nil
 			or handle.focusGlow ~= nil
 			or focusedHandles[handle] ~= nil
-			or hostAt(path) ~= nil
 			or presentationTransforms[path] ~= nil
 		then
 			return false
@@ -3399,19 +3464,16 @@ function screen_target.new(opts: Opts?)
 			return false
 		end
 		local path = handle.path
-		-- RELEASE CLIP-HOST MEMBERSHIP. The host keeps an array of its children and
-		-- re-bases their window rects against itself; a parked node left in that
-		-- array is a corpse the host goes on re-placing every solve.
-		local host = handle.instanceHost
-		if host ~= nil then
-			for i, child in host.children do
-				if child == handle then
-					table.remove(host.children, i)
-					break
-				end
-			end
-			handle.instanceHost = nil
-		end
+		-- release this node's membership of the host ABOVE it: a parked node left in
+		-- that array is a corpse the host goes on re-placing every solve
+		releaseHostMembership(handle)
+		-- ...AND ITS OWN REGISTRATION, if it was a host itself (T4b). The path is
+		-- about to become the sentinel, so a surviving entry would hand a LATER node
+		-- at this path a parent that is unparented and pooled — the one way a flat
+		-- tree loses a whole subtree silently, which is why `dropPath` already does
+		-- this on the ordinary remove. `adopt` re-earns the registration under the new
+		-- path from the ADOPTER's creation options, so nothing about it is carried.
+		unregisterHost(path)
 		instancesByPath[path] = nil
 		handlesByPath[path] = nil
 		-- ...and every chrome child registered under this path (L-28): the same
@@ -3465,7 +3527,14 @@ function screen_target.new(opts: Opts?)
 		headless replays, 144 viewport pairs and 36 live Studio combinations all
 		diverged by zero: none of them asked what an instance's PARENT was.
 	]]
-	function adapter.adopt(handle: any, newPath: string, newClass: string, hint: any, rootHandle: any): boolean
+	function adapter.adopt(
+		handle: any,
+		newPath: string,
+		newClass: string,
+		hint: any,
+		rootHandle: any,
+		createOpts: any
+	): boolean
 		if handle == nil or handle.parked ~= true then
 			return false
 		end
@@ -3531,6 +3600,21 @@ function screen_target.new(opts: Opts?)
 		handle.instanceHost = host
 		if host ~= nil then
 			table.insert(host.children, handle)
+		end
+		--[[ ...AND THIS NODE'S OWN REGISTRATION, if the ADOPTER declared one (T4b).
+			`park` dropped the entry with the old path; a plain host is parkable now, so
+			an adoption can put a real parent back into the tree and every child mounted
+			under `newPath` afterwards resolves `hostFor` against this entry.
+
+			RE-DERIVED, NEVER CARRIED. `hostSpace` says whose origin the subtree's rects
+			are stored against, and that is a fact about the NODE BEING MOUNTED — the
+			recycle bucket answers "host" for a coordinate space and for a rotated
+			container alike, so a flag carried over from the parked identity would store
+			a whole subtree against an origin nobody composes back. Same fifth argument
+			the create path reads, through the same `registerHost`, so the two cannot
+			drift; `crops` is `false` because a cropping host is refused at park. ]]
+		if createOpts ~= nil and createOpts.instanceHost == true and handle.instance:IsA("GuiObject") then
+			registerHost(newPath, handle.instance, handle.windowRect, false, createOpts.hostSpace == true)
 		end
 		instancesByPath[newPath] = handle.instance
 		handlesByPath[newPath] = handle
@@ -3598,6 +3682,11 @@ function screen_target.new(opts: Opts?)
 		end
 		instancesByPath[handle.path] = nil
 		instancesByPath[handle.path .. "/" .. chrome_slots.DECORATION_NAME] = nil
+		-- ...and this node leaves the host ABOVE it, on the same terms `park` leaves
+		-- it (T4b, `releaseHostMembership`): the array is what `settleRects` re-places
+		-- on a host move, and it is what the park rule reads to decide whether a host
+		-- still has children.
+		releaseHostMembership(handle)
 		-- the PRESENTATION record and the REAL-PARENT record both die with the node
 		-- (screen_presentation.dropPath, which owns the count)
 		dropPresentationRecords(handle.path)

@@ -924,7 +924,13 @@ function renderer.attach(
 					-- but the adapter must not depend on its caller's bookkeeping)
 					-- ...AND SO DOES THIS SURFACE'S ROOT (NM-H4a): an adoption re-parents,
 					-- and only the caller knows which surface it re-parents into.
-					if adapter.adopt(candidate, node.path, node.class, hint, rootHandle) then
+					-- ...AND THE CREATION OPTIONS (T4b): a plain instance host is parkable
+					-- now, so an adoption can put a REAL PARENT back, and the registration
+					-- it re-earns carries `hostSpace` — a fact about the NEW node.
+					-- Re-derived here rather than carried on the handle: `kindOf` signs
+					-- "host" for a coordinate space and a rotated container alike, so the
+					-- bucket key is right only while it stays coarse.
+					if adapter.adopt(candidate, node.path, node.class, hint, rootHandle, createOpts) then
 						adopted = candidate
 						-- restore the instance's own property record under its new path,
 						-- so `applyProps` writes only what actually differs
@@ -2384,6 +2390,28 @@ function renderer.attach(
 		end
 	end
 
+	--[[ THE ORDER THE SWEEP VISITS DEPARTED PATHS IN — a CORRECTNESS order since T4b.
+
+		`parkEligible` accepts a plain instance host whose child list is EMPTY, and that
+		list is emptied by the children's own departure. A host reached BEFORE its
+		children is asked the question against a set nothing has emptied: refused,
+		destroyed, and the pool never sees a plate root again — the refusal this lift
+		exists to remove, re-created by a visit order. Neither arm had an order to lose
+		(hash; `subtreeOf` appends the parent first).
+
+		LONGEST PATH FIRST IS DEEPEST FIRST over the only relation this has to respect:
+		a descendant's path is its ancestor's plus at least `"/" .. id` (`src/mount`'s
+		one path composer), so it is strictly longer — one integer compare where a
+		separator scan was the alternative. Unrelated paths come back in any order.
+
+		It also repairs a T5 edge: `sweepDeparted`'s `UI.Path` decrement climbs
+		`hostSpaceOf` from the Path's space host and `dropPath` clears that link, so
+		the two departing together stopped the climb one host short. ]]
+	local sweepOrder: { string } = {}
+	local function deeperFirst(a: string, b: string): boolean
+		return #a > #b
+	end
+
 	-- THE PER-PATH TEARDOWN, ONE COPY (O6): the sweep's old loop body, now called from
 	-- both of its arms. Two copies of a ~20-record clear list is how one stops being swept.
 	local function sweepDeparted(path: string, handle: any)
@@ -2615,13 +2643,22 @@ function renderer.attach(
 		end
 		local _t3 = os.clock()
 		if departed == nil then
-			for path, handle in handles do
+			-- one reused list, and the hash walk only COLLECTS: `deeperFirst` needs the
+			-- whole set before the first teardown runs
+			table.clear(sweepOrder)
+			for path in handles do
 				if not alive[path] then
-					sweepDeparted(path, handle)
+					table.insert(sweepOrder, path)
 				end
 			end
+			table.sort(sweepOrder, deeperFirst)
+			for _, path in sweepOrder do
+				sweepDeparted(path, handles[path])
+			end
 		else
-			for _, path in departed :: { string } do
+			local list = departed :: { string }
+			table.sort(list, deeperFirst)
+			for _, path in list do
 				stats.lastSsVisited += 1
 				local handle = handles[path]
 				if handle ~= nil then

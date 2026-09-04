@@ -302,6 +302,285 @@ describe("instance recycling: a recycled node is indistinguishable from a fresh 
 	end)
 end)
 
+--[[ T4b — THE PLAIN HOST, WHICH PLAN C MADE COMMON AND THE POOL REFUSED.
+
+	C1 made every container with a REACTIVE `offsetX`/`offsetY`/`anchor` and children
+	a real instance parent — a coordinate space, so its subtree's rects are stored
+	against it and one move is one write instead of one per descendant. It also made
+	every one of those containers unrecyclable, because `parkEligible` refused a
+	registered host outright. Measured on the arena's 250-plate workload
+	(FacetBench §C1.3, `attr nameplates L 3`, A/B/B/A): `removeItem-plates`
+	**+21.3 %**, effectively all of it inside `span:Facet/mount` — the sweep
+	destroying plate roots it used to pool.
+
+	T4b narrows the refusal to a host that CROPS or that still has CHILDREN. The
+	cases below are the behavioural half; the live adapter's own text is pinned in
+	`tests/instance_park_corpse.spec.luau`, which cannot require `screen_target`.
+
+	THE FIXTURE IS THE ARENA'S SHAPE, not a list: an `Anchor` canvas holding a
+	`ForEach` whose row root carries a reactive placement. Removing every key and
+	adding a fresh set is one remove -> add cycle over a host per row, which is
+	exactly the `removeItem-plates` / `addItem-plates` pair the measurement names. ]]
+local function plateWorld(recycle: boolean?)
+	local core = Facet.newCore()
+	local env = Facet.newEnvironment(core)
+	env:set("viewportRect", { x = 0, y = 0, w = VIEWPORT.w, h = VIEWPORT.h })
+	local system = Facet.newActionSystem(core)
+	local adapter = fake_target.new()
+	local pres = Facet.newPresenter(core, env, adapter, system)
+	local rows = core:signal({})
+	local rotRows = core:signal({})
+	--[[ TWO LISTS, ONE POOL, and that is the whole reason the second one exists.
+		`Plates` roots are COORDINATE SPACES (a reactive placement); `Rotated` roots
+		are the OTHER trigger `instance_boundary.createOptsFor` has for the same plain
+		Frame — an authored `rotation` on a container with children — and are NOT
+		coordinate spaces. `kindOf` answers `"host"` for both and `rotation` is
+		neither a binding nor a style prop, so the two share a recycle bucket: a
+		`Rotated` root really can be handed a parked `Plates` root. That is the
+		cross-space adoption `hostSpace` has to be re-derived for. ]]
+	local function plateRow(rotated: boolean)
+		return function(item: any)
+			return Facet.UI.VStack({
+				id = "Plate",
+				rotation = if rotated then 12 else nil,
+				anchor = if rotated then nil else "topLeft",
+				offsetX = if rotated then nil else item.x,
+				offsetY = if rotated then nil else item.y,
+				padding = 0,
+				gap = 2,
+				width = { type = "fixed", px = 120 },
+				height = { type = "content" },
+				children = {
+					Facet.UI.Text({ id = "Name", text = item.label, textSize = 14 }),
+					Facet.UI.Box({
+						id = "Hp",
+						width = { type = "fixed", px = 40 },
+						height = { type = "fixed", px = 6 },
+					}),
+				},
+			})
+		end
+	end
+	local function keyOf(item: any)
+		return item.id
+	end
+	local screen = Facet.UI.Screen({
+		id = "S",
+		children = {
+			Facet.UI.Anchor({
+				id = "Canvas",
+				width = { type = "fill", weight = 1 },
+				height = { type = "fill", weight = 1 },
+				children = {
+					Facet.UI.ForEach({ id = "Plates", items = rows, key = keyOf, row = plateRow(false) }),
+					Facet.UI.ForEach({ id = "Rotated", items = rotRows, key = keyOf, row = plateRow(true) }),
+				},
+			}),
+		},
+	})
+	local handle = pres.present(screen, if recycle == nil then nil else { recycleInstances = recycle })
+	pres.refresh()
+	local function itemsFor(keys: { string })
+		local items = {}
+		for i, id in keys do
+			table.insert(items, {
+				id = id,
+				label = `Plate {id}`,
+				x = core:signal((i * 37) % 300),
+				y = core:signal((i * 53) % 500),
+			})
+		end
+		return items
+	end
+	local w
+	w = {
+		core = core,
+		pres = pres,
+		adapter = adapter,
+		handle = handle,
+		-- one step of the arena's structural pair: `set` the whole key set, then
+		-- settle. Two refreshes, as every other recycling drive here does — the
+		-- adoption happens on the mount that follows the sweep.
+		setKeys = function(keys: { string })
+			rows:set(itemsFor(keys))
+			w.pres.refresh()
+			w.pres.refresh()
+			assertClean(handle, `keys {table.concat(keys, ",")}`)
+		end,
+		setRotKeys = function(keys: { string })
+			rotRows:set(itemsFor(keys))
+			w.pres.refresh()
+			w.pres.refresh()
+			assertClean(handle, `rotated keys {table.concat(keys, ",")}`)
+		end,
+	}
+	return w
+end
+
+-- the plate ROOTS the ops log names, in arrival order, for one verb
+local function opsFor(adapter: any, verb: string): { string }
+	local out: { string } = {}
+	for _, line in adapter.ops() do
+		local path = string.match(line, `^{verb} (%S+)`)
+		if path ~= nil then
+			table.insert(out, path)
+		end
+	end
+	return out
+end
+
+describe("T4b: a plain, childless instance host is recyclable", function()
+	it("a coordinate-space plate root PARKS on its removal and is ADOPTED by the next one", function()
+		local w = plateWorld(true)
+		w.setKeys({ "p1", "p2", "p3" })
+		local before = w.handle.controller.stats()
+		w.setKeys({})
+		local afterPark = w.handle.controller.stats()
+		w.setKeys({ "p4", "p5", "p6" })
+		local afterAdopt = w.handle.controller.stats()
+
+		-- the host really is one: a reactive placement on a container with children
+		expect(w.adapter.isHost("/S/Canvas/Plates/[p4]/Plate")).toBe(true)
+		-- ...and the PLATE ROOT itself is in the pool's traffic, not merely its leaves.
+		-- A `parked > 0` alone would be satisfied by the two children of every row.
+		local parked = opsFor(w.adapter, "park")
+		local adopted = opsFor(w.adapter, "adopt")
+		local parkedRoots, adoptedRoots = 0, 0
+		for _, path in parked do
+			if string.find(path, "/Plate$") ~= nil then
+				parkedRoots += 1
+			end
+		end
+		for _, path in adopted do
+			if string.find(path, "/Plate$") ~= nil then
+				adoptedRoots += 1
+			end
+		end
+		expect(`parked {parkedRoots} adopted {adoptedRoots}`).toBe("parked 3 adopted 3")
+		expect(afterPark.parked > before.parked).toBe(true)
+		expect(afterAdopt.recycled > afterPark.recycled).toBe(true)
+		-- ...and the adoption re-earned the registration under the NEW path rather
+		-- than carrying the parked one: the dead key is gone and the live one answers
+		expect(w.adapter.isHost("/S/Canvas/Plates/[p1]/Plate")).toBe(false)
+	end)
+
+	it("DIFFERENTIAL: the remove -> add cycle is byte-identical with the pool and without it", function()
+		local a, b = plateWorld(true), plateWorld(false)
+		for _, keys in { { "p1", "p2", "p3" }, {}, { "p4", "p5", "p6" }, { "p4", "p7" }, {}, { "p8", "p9" } } do
+			a.setKeys(keys)
+			b.setKeys(keys)
+			-- every step, not just the last: two builds that disagreed in the middle
+			-- and converged would satisfy an end-state compare
+			expect(snapshot(a.adapter)).toBe(snapshot(b.adapter))
+		end
+		-- ...and the arm under test really did use the pool ON A HOST, not merely on
+		-- the two leaves under one (which recycled before T4b and would keep this
+		-- compare green on a build that lifted nothing)
+		local adoptedRoots = 0
+		for _, path in opsFor(a.adapter, "adopt") do
+			if string.find(path, "/Plate$") ~= nil then
+				adoptedRoots += 1
+			end
+		end
+		expect(adoptedRoots > 0).toBe(true)
+		expect(b.handle.controller.stats().recycled).toBe(0)
+	end)
+
+	it("DIFFERENTIAL: a parked SPACE host adopted as a ROTATED one carries no space across", function()
+		--[[ THE CROSS-SPACE TRAP, in one pool. `hostSpace` decides whether a subtree's
+			rects are stored relative to this node or absolutely, so an adoption that
+			carried the parked identity's flag would place a whole subtree against an
+			origin nobody composes back — and the composed position is what a player
+			sees, which is why the differential is the instrument and a counter is not.
+			`restoreParkedProps`' same-space guard is the other half of this and covers
+			only the CARRIED rect; the registration is this task's. ]]
+		local a, b = plateWorld(true), plateWorld(false)
+		a.setKeys({ "p1", "p2", "p3" })
+		b.setKeys({ "p1", "p2", "p3" })
+		a.setKeys({})
+		b.setKeys({})
+		-- arm `a`'s pool now holds three parked coordinate-space plate roots
+		a.setRotKeys({ "r1", "r2", "r3" })
+		b.setRotKeys({ "r1", "r2", "r3" })
+		expect(snapshot(a.adapter)).toBe(snapshot(b.adapter))
+		-- NOT VACUOUS: the rotated roots really were served out of the pool, and they
+		-- really are hosts that are NOT coordinate spaces
+		local adoptedRoots = 0
+		for _, path in opsFor(a.adapter, "adopt") do
+			if string.find(path, "/Rotated/.*/Plate$") ~= nil then
+				adoptedRoots += 1
+			end
+		end
+		expect(adoptedRoots).toBe(3)
+		expect(a.adapter.isHost("/S/Canvas/Rotated/[r1]/Plate")).toBe(true)
+		expect(a.adapter.hostSpaceAt("/S/Canvas/Rotated/[r1]/Plate")).toBe(false)
+		expect(a.adapter.hostSpaceAt("/S/Canvas/Plates/[p1]/Plate")).toBe(nil)
+	end)
+
+	it("a host that still has CHILDREN is refused, and the identical EMPTY one is taken", function()
+		--[[ The rule at the adapter's own seam, both ways in one case. A behavioural
+			drive cannot reach the refusal through the renderer any more — the sweep
+			empties a host before it asks (the ordering case below) — so the positive
+			arm is what keeps this from being a test of a fixture that never parks. ]]
+		local adapter = fake_target.new() :: any
+		local root = adapter.createRoot("S")
+		local host = adapter.create(root, "/S/Host", "VStack", nil, { instanceHost = true, hostSpace = true })
+		local kid = adapter.create(root, "/S/Host/Kid", "Box", nil, nil)
+		expect(adapter.isHost("/S/Host")).toBe(true)
+		expect(adapter.park(host)).toBe(false)
+		-- the child leaves the way the sweep would take it, and the SAME host is now
+		-- eligible — so the refusal above was about the children and nothing else
+		adapter.remove(kid)
+		expect(adapter.park(host)).toBe(true)
+		-- ...and parking released the registration, so no later node at that path
+		-- resolves its parent to a pooled instance
+		expect(adapter.isHost("/S/Host")).toBe(false)
+		expect(adapter.adopt(host, "/S/Other", "VStack", nil, root, { instanceHost = true, hostSpace = true })).toBe(
+			true
+		)
+		expect(adapter.isHost("/S/Other")).toBe(true)
+	end)
+
+	it("a CANVASGROUP host is still refused — its buffer is a construction decision", function()
+		local adapter = fake_target.new() :: any
+		local root = adapter.createRoot("S")
+		local group = adapter.create(root, "/S/Group", "ZStack", nil, { canvasGroup = true })
+		expect(adapter.isHost("/S/Group")).toBe(true)
+		expect(adapter.park(group)).toBe(false)
+		-- NEGATIVE CONTROL: the same node with the plain option instead is taken, so
+		-- the refusal above is the buffer and not "a host with an option"
+		local plain = adapter.create(root, "/S/Plain", "ZStack", nil, { instanceHost = true })
+		expect(adapter.park(plain)).toBe(true)
+	end)
+
+	it("the sweep visits departed paths DEEPEST FIRST, or the children rule is unanswerable", function()
+		--[[ The order lives in `renderer.luau`'s sweep, which IS requirable headlessly,
+			so this is a behaviour pin rather than a text one: `adapter.ops()` records
+			arrival order, and the claim is that on the frame a plate root and its two
+			children all depart, both children reach the adapter before the root. Invert
+			`deeperFirst` and the root arrives first, is refused for having children, and
+			the two counts below separate immediately. ]]
+		local w = plateWorld(true)
+		w.setKeys({ "p1" })
+		local mark = #w.adapter.ops()
+		w.setKeys({})
+		local order: { string } = {}
+		for i = mark + 1, #w.adapter.ops() do
+			local line = w.adapter.ops()[i]
+			local verb, path = string.match(line, "^(park) (%S+)")
+			if verb == nil then
+				verb, path = string.match(line, "^(remove) (%S+)")
+			end
+			if path ~= nil and string.find(path, "/Plates/%[p1%]") ~= nil then
+				table.insert(order, `{verb} {string.match(path, "[^/]+$")}`)
+			end
+		end
+		-- the two leaves reach the adapter FIRST and the root LAST — and the root's
+		-- verb is `park`, which is only reachable because its children already left
+		expect(table.concat(order, " ; ")).toBe("park Name ; park Hp ; park Plate")
+	end)
+end)
+
 --[[ NM-H4a — WHERE A RECYCLED NODE LANDS WHEN THE TARGET HOSTS MORE THAN ONE
 	SURFACE.
 

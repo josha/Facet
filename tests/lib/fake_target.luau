@@ -223,6 +223,25 @@ function fake_target.new(opts: Opts?)
 	local function unregisterFakeHost(path: string)
 		instanceHosts[path] = nil
 	end
+	--[[ LEAVING THE HOST ABOVE, mirroring the live `releaseHostMembership` (T4b).
+		`children` was write-only on this target until now — filled at create and read
+		by nobody — which is precisely why the live adapter's own gap (a `remove` that
+		never emptied it) was invisible headless. The park rule below reads the array,
+		so both exits have to maintain it or a host that outlived every child it
+		destroyed would be refused forever. ]]
+	local function releaseFakeHostMembership(node: any)
+		local host = node.instanceHost
+		if host == nil then
+			return
+		end
+		for i, child in host.children do
+			if child == node then
+				table.remove(host.children, i)
+				break
+			end
+		end
+		node.instanceHost = nil
+	end
 	-- the nearest registered ANCESTOR, by the same separator walk the live registry
 	-- uses — not a scan, and never the node itself
 	local function hostFor(path: string): any
@@ -849,6 +868,8 @@ function fake_target.new(opts: Opts?)
 		-- keeps re-parenting new nodes into a destroyed instance, which is the one
 		-- way a flat tree can lose a whole subtree silently
 		unregisterFakeHost(handle.path)
+		-- ...and the node leaves the host ABOVE it on the same terms `park` does
+		releaseFakeHostMembership(handle)
 		nodes[handle.path] = nil
 		table.insert(ops, `remove {handle.path}`)
 		adapter._cancelIfCaptured(handle, "removed")
@@ -868,14 +889,23 @@ function fake_target.new(opts: Opts?)
 		if handle.canvasGroupInstance ~= nil or handle.decoration ~= nil then
 			return false
 		end
-		-- A REGISTERED HOST CANNOT BE RECYCLED (mirroring
-		-- `parkEligible`'s `hostAt(path) ~= nil`). Its subtree lives INSIDE it, so
-		-- parking it would take a whole subtree out of the tree behind the
-		-- renderer's back and hand the next adopter somebody else's children. This
-		-- is the migration's sharpest trade — every host registered is one node
-		-- removed from the pool — and until this refusal existed here, no headless
-		-- recycling spec could see it at all.
-		if instanceHosts[handle.path] ~= nil then
+		--[[ A REGISTERED HOST TRAVELS ONLY IF IT IS PLAIN AND EMPTY, mirroring
+			`parkEligible`'s narrowed rule (T4b).
+
+			The refusal used to be `instanceHosts[handle.path] ~= nil` — every host — and
+			it was called the migration's sharpest trade here for good reason. Plan C's
+			C1 made every reactive-placement container with children a host, and the
+			arena's `removeItem` class went +21.3 % on plate roots the sweep destroyed
+			instead of pooling.
+
+			What is still refused is what a fresh `create` could not reproduce for the
+			adopter: a CROPPING host (a fade group's buffer, an authored `clipChildren`,
+			a `ScrollView` — construction decisions), and a host that still has
+			CHILDREN, which would travel with somebody else's subtree inside it. The
+			renderer sweeps departed paths deepest-first so that second test is asked
+			after the children have left. ]]
+		local hostEntry = instanceHosts[handle.path]
+		if hostEntry ~= nil and (hostEntry.crops == true or #hostEntry.children > 0) then
 			return false
 		end
 		-- a Stage carrying LIVE CONTENT (the live adapter's WorldModel holds models
@@ -904,6 +934,12 @@ function fake_target.new(opts: Opts?)
 			return false
 		end
 		nodes[handle.path] = nil
+		-- the two registration facts `park` releases and `adopt` re-earns, mirroring
+		-- the live adapter: membership of the host above, and — since T4b made a plain
+		-- host parkable — this node's OWN entry, which would otherwise hand a later
+		-- node at this path a parent that has left the tree
+		releaseFakeHostMembership(handle)
+		unregisterFakeHost(handle.path)
 		handle.parked = true
 		handle.alive = false
 		-- PROPERTIES SURVIVE, mirroring the live adapter. The renderer now writes only
@@ -924,7 +960,14 @@ function fake_target.new(opts: Opts?)
 		return true
 	end
 
-	function adapter.adopt(handle: any, newPath: string, newClass: string, hint: any, rootHandle: any): boolean
+	function adapter.adopt(
+		handle: any,
+		newPath: string,
+		newClass: string,
+		hint: any,
+		rootHandle: any,
+		createOpts: any
+	): boolean
 		if handle == nil or handle.parked ~= true or handle.class ~= newClass then
 			return false
 		end
@@ -956,8 +999,30 @@ function fake_target.new(opts: Opts?)
 			invisible once `_composePresentation` reads the chain to decide whether a
 			stored rect is host-relative: an adopted node under a coordinate-space host
 			would compose against the host it used to live under, or against none. ]]
+		--[[ ...AND THE NODE'S OWN REGISTRATION, re-earned from the ADOPTER's creation
+			options and never carried across (T4b, mirroring the live `adopt`). A plain
+			host parks now, so an adoption can put a real parent back into the tree; the
+			bucket key answers "host" for a coordinate space and for a rotated container
+			alike, so `hostSpace` has to come from the node being mounted or a whole
+			subtree ends up stored against an origin nobody composes back. ]]
+		if createOpts ~= nil and (createOpts :: any).instanceHost == true then
+			local entry = registerFakeHost(newPath, false, (createOpts :: any).hostSpace == true)
+			--[[ ...AND THE ENTRY IS BORN AT THE RECT THE INSTANCE IS ALREADY AT, which
+				is the live adapter's third `registerHost` argument (`handle.windowRect`,
+				the same table `setRect` writes into the entry) and is NOT optional here.
+				The renderer carries `lastRects` across an adoption and skips a rect write
+				that would land on the same numbers — a plate re-appearing at the position
+				its predecessor left is the COMMON case in a windowed list — so an entry
+				born at `nil` can stay there for the life of the node, and every child
+				beneath it composes against an origin of zero. Found by the differential,
+				which reported the whole subtree at its host-relative rect. ]]
+			entry.rect = handle.storedRect
+		end
 		local newHost = hostFor(newPath)
 		handle.instanceHost = newHost
+		if newHost ~= nil then
+			table.insert(newHost.children, handle)
+		end
 		handle.parentRoot = if newHost ~= nil
 			then handle.parentRoot
 			else (if rootHandle ~= nil then rootHandle else lastCreatedRoot)
@@ -1003,6 +1068,16 @@ function fake_target.new(opts: Opts?)
 
 	function adapter.isHost(path: string): boolean
 		return instanceHosts[path] ~= nil
+	end
+	--[[ ...and WHICH KIND of host, which `isHost` cannot say and T4b made worth
+		asking: `nil` for a path that is not registered at all, and otherwise the
+		coordinate-space flag itself. A parked plain host can be adopted by a node
+		with the OPPOSITE flag (`kindOf` answers `"host"` for both a coordinate space
+		and a rotated container), so "it is a host again" is not the claim that
+		matters after an adoption — "it is a host of the ADOPTER's kind" is. ]]
+	function adapter.hostSpaceAt(path: string): boolean?
+		local entry = instanceHosts[path]
+		return if entry == nil then nil else entry.hostSpace == true
 	end
 	function adapter.hostCount(): number
 		local n = 0

@@ -215,12 +215,14 @@ describe("the LIVE adapter's themed park/adopt (its source is the contract)", fu
 	local chromeSrc = fs.readFile("src/client/screen_chrome.luau")
 
 	it("adopt takes the incoming hint — the mismatch rule needs it", function()
+		-- T4b split this signature across lines (the sixth argument, `createOpts`,
+		-- is what lets an adoption re-earn a host registration), so the pin is the
+		-- ORDERED parameter list rather than one literal line. Still directional:
+		-- dropping `hint` — the argument the mismatch rule needs — reddens it.
 		expect(
-			string.find(
+			string.match(
 				live,
-				"function adapter.adopt(handle: any, newPath: string, newClass: string, hint: any",
-				1,
-				true
+				"function adapter%.adopt%(%s+handle: any,%s+newPath: string,%s+newClass: string,%s+hint: any,"
 			) ~= nil
 		).toBe(true)
 	end)

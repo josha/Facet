@@ -419,6 +419,19 @@ CASE_ID_REPAIRS = [
         "re-deriving either. The arity is out of the title for good this time, so a fourth "
         "consumer moves the LIST the case asserts and not the name it is cited by",
     ),
+    (
+        "instance_park_corpse::instance park corpse: the pool can never hold a destroyed instance::"
+        "the instance-host refusal that makes the ordering hazard real is still in place",
+        "instance_park_corpse::instance park corpse: the pool can never hold a destroyed instance::"
+        "the instance-host refusal is NARROWED to a host that CROPS or still has children",
+        "the same case, renamed by Plan C T4b (2026-09-04). Its own comment asked for exactly "
+        "this: 'if this refusal ever moves, the corpse gate\'s reasoning must be revisited'. "
+        "`parkEligible` no longer refuses every registered host -- a PLAIN one (no `crops`) whose "
+        "child list is empty is parkable, which is what C1's per-plate coordinate-space hosts "
+        "needed -- and the renderer now sweeps departed paths deepest-first so the emptiness test "
+        "is answerable. The case still pins the refusal that the corpse gate's reasoning stands "
+        "on; it pins the narrowed one, directionally, and states what the gate's reasoning becomes",
+    ),
 ]
 
 
