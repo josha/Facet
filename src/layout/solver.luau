@@ -1,7 +1,24 @@
 --!strict
--- Pure two-pass layout solver (design §7, UI-LAYOUT-001/002): measure +
--- arrange over an immutable snapshot. Never yields, never reads live signals
--- or Instances; text goes through src/layout/text_metrics (non-yielding).
+-- Two-pass layout solver (design §7, UI-LAYOUT-001/002): measure + arrange over
+-- a snapshot it never authors. Never yields, never reads live signals or
+-- Instances; text goes through src/layout/text_metrics (non-yielding).
+--[[ "IMMUTABLE SNAPSHOT" IS NOW QUALIFIED, AND THE QUALIFICATION IS EXACT (C2,
+	2026-09-04). The solver MEMOISES ONTO THE LAYOUT NODE — and only there, and only
+	on a solve that was handed a reuse set (`record` returns before its first write
+	when `ctx.reuse == nil`, which is what keeps `dump.fromSolve`, the layout fuzzer
+	and every hand-built `table.freeze`d tree working; `tests/layout.spec.luau`'s
+	purity case is that pin).
+
+	WHAT IS WRITTEN IS OUTPUTS, NEVER BUILD INPUTS: the twenty-one `m*` fields are
+	the last two answers this node gave (`Node.mStamp` and below) plus the cached
+	`memoPlan` verdict, and NOTHING the build reads to construct a node. So the P3
+	node store's licence still holds in the form that matters —
+	`render/layout_node.luau` re-derives a node from `class`/`path`/`props`/
+	`children`/`meta` and the five solve-wide inputs, none of which this file
+	touches — and a node whose props moved is a FRESH LITERAL with every `m*` field
+	absent. `tests/measure_serve.spec.luau` audits the write set: every
+	`node.<field> =` in this file must be one of the enumerated memo fields, and an
+	unlisted one reddens. ]]
 -- V1 algebra: VStack/HStack/ZStack/Grid/ScrollView/Anchor/Text/Box/Spacer;
 -- dims fixed/content/hug/fill/percent/minMax/aspect; padding, uniform-or-per-side
 -- margins, cross-axis alignment, overflow annotations, and diagnostics for

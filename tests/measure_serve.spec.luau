@@ -52,6 +52,25 @@
 	height? — and drops `maxH` from the key when it cannot. One classification with
 	one rule, not a second predicate beside it.
 
+	WHAT THE SLOTS COST IN MEMORY, MEASURED. Twenty-one `m*` fields land in a layout
+	node's hash part, and only for nodes a reuse solve actually measures. On this
+	file's 1,000-row fixture (3,002 layout nodes, ~2,000 of them text), mount plus
+	three drives, `collectgarbage("count")` read at the end — Lune 0.10.4 has no
+	`"collect"`, so this is an ALLOCATION snapshot including garbage rather than a
+	retention figure, and the median of three runs is what is quoted:
+
+	  | build | heap delta |
+	  |---|---:|
+	  | pre-task `d4316f53` | 35,583 KB |
+	  | with the two slots   | **34,457 KB (−3.2 %)** |
+
+	It is NEGATIVE — the measures the serve does not run allocate more than the
+	fields cost. The one thing that is genuinely RETAINED is the pair of
+	`m*TextFacts`/`m*TextState` references on each TEXT node: two slots x two
+	references x ~2,000 text nodes here. They are references to tables the measure
+	store's own slate already holds, so they extend a lifetime rather than duplicate
+	a payload, and a rebuilt node drops both.
+
 	=====================================================================
 	THE PUBLISH TABLE — every channel `measure` publishes, with its verdict
 	=====================================================================
@@ -453,6 +472,128 @@ describe("C2: one changed row does not re-measure 999 clean siblings", function(
 		root.dispose()
 	end)
 
+	it("a `ViewThatFits` PROBE and the real measure of the same node get SEPARATE slots (row 16)", function()
+		--[[ ROW 16, ISOLATED. `candidate.choose` measures a candidate with
+			`ctx.fitProbe` on, which SUPPRESSES every squeezing mechanism — the `hug`
+			cap here, and the measure-side shrink pass — so the same node at the same
+			`(maxW, maxH)` answers differently inside the probe and outside it. That
+			difference is not in the argument list: it rides `ctx.scopeKey`, exactly as
+			it rides the memo's own cache key, and the slot key carries it for the same
+			reason.
+
+			THE SHAPE, and it took three attempts to find one that reaches this at all.
+			The CHOSEN candidate cannot be the node: a candidate that wins is one whose
+			ideal FITS, so nothing squeezes it and its two answers are equal. The
+			fallback cannot be either — `candidate.choose`'s loop stops one short of it,
+			so it is never probed. The node that is both probed and measured for real
+			with two different answers is a DESCENDANT of a winning candidate: `Rich`
+			is `fixed(400)` and fits, and its `hug`-width child `Inner` wants 900 and is
+			capped to 400 outside the probe.
+
+			WHAT THIS PINS IS THE SLOTS, not a rect, and that is deliberate. Under the
+			mutation "drop the scope term from the slot key" the probe's 900 IS served
+			to the real measure — the leak is real and reproducible — but every arranger
+			downstream re-clamps a `hug` child to its box, so the painted tree is
+			identical and arm `c` agrees. A pin on the rect would be a check that cannot
+			fail. The slot state is where the claim lives, so that is what is read: two
+			slots, ONE offer, TWO scopes, TWO answers. ]]
+		local core = customFactory.new()
+		local env = environment.new(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 1200, h = 400 })
+		local fitsH = core:signal(60)
+		local root = mountLib.mount(
+			core,
+			UI.Screen({
+				id = "S",
+				children = {
+					UI.ViewThatFits({
+						id = "Fits",
+						width = { type = "fixed", px = 400 },
+						-- the drive: it dirties `Fits` and NOTHING below it, so the
+						-- candidate ladder re-runs over a clean subtree
+						height = core:memo(function(use: any)
+							return { type = "fixed", px = use(fitsH) :: number }
+						end),
+						children = {
+							UI.VStack({
+								id = "Rich",
+								width = { type = "fixed", px = 400 },
+								height = { type = "content" },
+								padding = 0,
+								gap = 0,
+								children = {
+									UI.HStack({
+										id = "Inner",
+										width = { type = "hug" },
+										height = { type = "fixed", px = 40 },
+										padding = 0,
+										gap = 0,
+										children = {
+											UI.Box({
+												id = "Big",
+												width = { type = "fixed", px = 900 },
+												height = { type = "fixed", px = 40 },
+											}),
+										},
+									}),
+								},
+							}),
+							-- the declared fallback, so `Rich` is a PROBED candidate
+							UI.Box({
+								id = "Plain",
+								width = { type = "fixed", px = 50 },
+								height = { type = "fixed", px = 20 },
+							}),
+						},
+					}),
+				},
+			})
+		)
+		local adapter = fake_target.new()
+		local controller = rendererLib.attach(core, root, env, adapter, {
+			rootPolicy = "edgeToEdge",
+			incrementalLayout = true,
+			measureReuse = true,
+			layoutNodeReuse = true,
+			commitScope = true,
+		})
+		controller.initialRender()
+		local function innerNode(): any
+			local found: any = nil
+			local function walk(n: any)
+				if n.id == "/S/Fits/Rich/Inner" then
+					found = n
+				end
+				for _, c in n.children or {} do
+					walk(c)
+				end
+			end
+			walk(capture.root)
+			return found
+		end
+		withWorkCapture(function()
+			fitsH:set(61) -- warm: records both slots
+			controller.refresh()
+			expect(drove(function()
+				fitsH:set(62)
+				controller.refresh()
+			end)).toBe("solves=1 calls=5 served=2 measured=3")
+		end)
+		local n = innerNode()
+		assert(n ~= nil, "no `/S/Fits/Rich/Inner` layout node in the captured tree")
+		--[[ ONE OFFER, TWO SCOPES, TWO ANSWERS. `0|fit` is `rebuildScopeKey`'s probe
+			segment; the ideal 900 is what the `hug` cap is suppressed for, and 400 is
+			the same node at the same offer with the cap in force. ]]
+		expect(
+			`A[{tostring(n.mAOfferW)},{tostring(n.mAScope)}]={tostring(n.mAW)}`
+				.. ` B[{tostring(n.mBOfferW)},{tostring(n.mBScope)}]={tostring(n.mBW)}`
+		).toBe("A[400,0|fit]=900 B[400,0]=400")
+		-- ...and the painted answer is the capped one, which is what the two slots buy
+		expect(`inner={(controller.rectOf("/S/Fits/Rich/Inner") :: any).w}`).toBe("inner=400")
+		controller.dispose()
+		root.dispose()
+	end)
+
 	it("a VIEWPORT change serves NOTHING, and it is unreachable rather than declined", function()
 		withWorkCapture(function()
 			local s = scene.new({ rows = ROWS })
@@ -651,6 +792,127 @@ describe("C2: the slot lives on the layout node, and a rebuilt node has none", f
 			"same=false offer=nil scope=nil stamp=nil"
 		)
 		root.dispose()
+	end)
+end)
+
+describe("C2: what the solver writes onto a layout node is a CLOSED set of outputs", function()
+	it("every `node.<field> =` in the solver is one of the enumerated memo fields", function()
+		--[[ THE LICENCE FOR THE P3 NODE STORE USED TO BE "the solver never writes into a
+			layout node" (`render/layout_node.luau`, the audit at the head of
+			`toLayoutNode`). C2 made that false, and the replacement licence is three
+			claims: the written fields are OUTPUTS — the last answers this node gave —
+			never inputs the BUILD reads; a node whose props moved is a fresh literal; and
+			the set is CLOSED. This case is the third claim, and it is the one a comment
+			cannot make: a new `node.<field> =` in `solver.luau` that is not on this list
+			is a fact the store would forward across solves without any axis invalidating
+			it, and it reddens here rather than being discovered by a stale rect.
+
+			The scan takes only ASSIGNMENT TARGETS — the comma-separated left-hand side at
+			bracket depth zero — because `ctx.offers[node.wKey or (node.id .. "|w")] = maxW`
+			has `node.wKey` and `node.id` on the left of an `=` while writing neither. A
+			scan that missed that reported six fields where there are none. ]]
+		local source = fs.readFile("src/layout/solver.luau")
+		local stripped = string.gsub("\n" .. source, "%-%-%[%[.-%]%]", " ")
+		stripped = string.gsub(stripped, "\n[ \t]*%-%-[^\n]*", "\n")
+		local function assignmentTargets(line: string): { string }
+			-- the first `=` that is not part of `==`, `~=`, `<=` or `>=`
+			local eq: number? = nil
+			local i = 1
+			while i <= #line do
+				local ch = string.sub(line, i, i)
+				if ch == "=" then
+					local prev = string.sub(line, i - 1, i - 1)
+					local next_ = string.sub(line, i + 1, i + 1)
+					if next_ ~= "=" and prev ~= "=" and prev ~= "~" and prev ~= "<" and prev ~= ">" then
+						eq = i
+						break
+					end
+					i += 1
+				end
+				i += 1
+			end
+			if eq == nil then
+				return {}
+			end
+			local out: { string } = {}
+			local depth, cur = 0, ""
+			for k = 1, (eq :: number) - 1 do
+				local ch = string.sub(line, k, k)
+				if ch == "(" or ch == "[" or ch == "{" then
+					depth += 1
+				elseif ch == ")" or ch == "]" or ch == "}" then
+					depth -= 1
+				end
+				if ch == "," and depth == 0 then
+					table.insert(out, cur)
+					cur = ""
+				else
+					cur ..= ch
+				end
+			end
+			table.insert(out, cur)
+			return out
+		end
+		local written: { [string]: boolean } = {}
+		for line in string.gmatch(stripped, "([^\n]*)") do
+			for _, target in assignmentTargets(line) do
+				local field = string.match(target, "^%s*node%.([%a_][%w_]*)%s*$")
+				if field ~= nil then
+					written[field] = true
+				end
+			end
+		end
+		local out: { string } = {}
+		for field in written do
+			table.insert(out, field)
+		end
+		table.sort(out)
+		--[[ TWENTY-ONE, and every one is an OUTPUT: the two slots' keys and answers,
+			the shared axis-3 stamp, the eviction toggle, and the cached `memoPlan`
+			verdict. None is a field `layout_node.toLayoutNode` reads to BUILD a node,
+			which is what keeps the P3 store's four axes complete. ]]
+		expect(out).toEqual({
+			"mACompact",
+			"mACuts",
+			"mAH",
+			"mAOfferH",
+			"mAOfferW",
+			"mAScope",
+			"mATextFacts",
+			"mATextState",
+			"mAW",
+			"mBCompact",
+			"mBCuts",
+			"mBH",
+			"mBOfferH",
+			"mBOfferW",
+			"mBScope",
+			"mBTextFacts",
+			"mBTextState",
+			"mBW",
+			"mFillB",
+			"mHeightFree",
+			"mStamp",
+		})
+		-- NEGATIVE CONTROL: the scan really does see a write, really does see a
+		-- multiple assignment, and really does IGNORE a `node.` inside an index on the
+		-- left of an `=`
+		local fake = "\n\tnode.newThing = 1\n\tnode.a, node.b = 1, 2\n\tctx.offers[node.wKey or node.id] = maxW\n"
+		local seen: { [string]: boolean } = {}
+		for line in string.gmatch(fake, "([^\n]*)") do
+			for _, target in assignmentTargets(line) do
+				local field = string.match(target, "^%s*node%.([%a_][%w_]*)%s*$")
+				if field ~= nil then
+					seen[field] = true
+				end
+			end
+		end
+		local control: { string } = {}
+		for field in seen do
+			table.insert(control, field)
+		end
+		table.sort(control)
+		expect(control).toEqual({ "a", "b", "newThing" })
 	end)
 end)
 

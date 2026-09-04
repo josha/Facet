@@ -68,25 +68,27 @@ end
 	Cast do not, because the plate's content height did not move when Hp's width
 	changed, so both land on the rect they already had and take the skip.
 
-	`measured = 7` — bucketed by node id with a temporary counter inside
-	`measureUncached` (reverted before commit): `/S` x1 and `/S/Canvas` x1 and the
-	plate root x1, all three slate refusals because they are dirty, plus `Hp` x2 and
-	`Cast` x2 — both are fixed x fixed, hence PLAN_SKIP, hence counted on EVERY touch
-	with no memo, and the plate's vstack touches them once in its measure pass and
-	once in its arrange pass. 3 + 2 + 2 = 7.
+	`measured` — bucketed by node id with a temporary counter inside `measureUncached`
+	(reverted before commit): `/S` x1 and `/S/Canvas` x1 and the plate root x1, all
+	three slate refusals because they are dirty, plus `Hp` x2 and `Cast` x2 — both
+	are fixed x fixed, hence PLAN_SKIP, hence counted on EVERY touch with no memo, and
+	the plate's vstack touches them once in its measure pass and once in its arrange
+	pass. That was 3 + 2 + 2 = 7 at the T6 base.
 
-	NEITHER MOVES IN THIS TASK, and that is stated here rather than discovered by the
-	next reader: both are already the dirty chain alone. They are pinned as the
-	INVARIANT half — the thing the anchor arm must not break — while
-	`anchorReused`/`anchorOffered` and the KB are the half that moves. ]]
+	**IT WAS 7 AND IT IS NOW 5** (Plan C's C2, 2026-09-04), which is the round after
+	the one that wrote this block: an `hp` step leaves `Cast` measure-CLEAN at an
+	unchanged offer, so `measure`'s node-resident serve answers both of its touches
+	and neither reaches `measureUncached`. The old text said "NEITHER MOVES IN THIS
+	TASK" and that was true of ITS task; the sentence is corrected rather than left
+	standing, per this block's own protocol. `arranged` did not move — the serve is
+	measure-side only — and that split is now the interesting half of the pin.
+
+	BOTH ARE STILL THE INVARIANT HALF: the thing the anchor arm must not break, while
+	`anchorReused`/`anchorOffered` and the KB are what that task moved. ]]
 local ARRANGED_HP = 4 -- Screen + Canvas + Plate + Hp
---[[ (Screen + Canvas + Plate) + `Hp` x2 + `Cast` x2 — all PLAN_SKIP or dirty — was
-	7 until Plan C's C2. The serve takes the two `Cast` touches: an `hp` step leaves
-	the cast bar measure-CLEAN at an unchanged offer, so both its touches (the
-	refused plate root's measure descent, then its arrange descent) are answered from
-	the node's own last answer. `Hp` itself is the dirty one and still costs both.
-	5 = the three-node dirty chain + `Hp` twice, and the case's real assertion —
-	that 250 re-offered siblings cannot fit in it — is unchanged. ]]
+-- (Screen + Canvas + Plate) + `Hp` x2 — the three-node dirty chain plus the one
+-- PLAN_SKIP leaf that is genuinely dirty. `Cast`'s two touches are served; see the
+-- block above for the measurement and for what did NOT move with them.
 local MEASURED_HP = 5
 
 --[[ ...AND THE HALF THAT MOVES, read off the run for every step kind the fixture

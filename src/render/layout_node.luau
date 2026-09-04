@@ -325,9 +325,22 @@ local function toLayoutNode(
 	--[[ P3: THE SUBTREE THIS SOLVE DOES NOT HAVE TO BUILD. Every field below is a
 		pure function of FIVE mounted-node fields — `class`, `path`, `props`,
 		`children`, `meta` — plus `metrics`, `textScale`, `prefOffset`, `parentAxis`
-		and `insideClipper`; and the solver never writes into a layout node
-		(`solver.luau` contains no `node.<field> =`), so last solve's tree is still
-		this solve's answer wherever none of the ten moved.
+		and `insideClipper`; and NOTHING THE SOLVER WRITES ONTO A LAYOUT NODE IS ONE OF
+		THEM, so last solve's tree is still this solve's answer wherever none of the ten
+		moved.
+
+		**THAT LICENCE USED TO READ "the solver never writes into a layout node
+		(`solver.luau` contains no `node.<field> =`)", AND SINCE C2 IT DOES WRITE**
+		(2026-09-04). `solver.measure` memoises its last two answers onto the node —
+		twenty-one `m*` fields plus a cached `memoPlan` verdict — and it does so ONLY on
+		a solve that was handed a reuse set (`record` returns before its first write
+		when `ctx.reuse == nil`). The licence survives in the form that actually
+		matters, and it is three claims rather than one: the written fields are OUTPUTS
+		(the last answers this node gave), never inputs this function reads to build a
+		node; a node whose props moved is a FRESH LITERAL, so a rebuilt node carries no
+		stale answer; and the set is CLOSED — `tests/measure_serve.spec.luau` audits
+		every `node.<field> =` in `solver.luau` against the enumerated memo fields, so
+		an unlisted write reddens rather than quietly widening what the store forwards.
 
 		**THE FIFTH FIELD IS NOT REACHED THROUGH `node.`, WHICH IS WHY THE AUDIT COUNTS
 		CALL SITES AND NOT ONLY FIELD READS** (P3 review, I1). `meta` is read by
@@ -1453,6 +1466,13 @@ local function toLayoutNode(
 	-- is therefore genuinely insulated from the enclosing container. The scroller's
 	-- OWN dimensions are not: they resolve against the container outside it, so
 	-- `selfRelative` is tested for every kind.
+	--[[ THE LOOP BELOW VISITS EVERY CHILD, where it used to `break` on the first
+		`containerRelativeInside` one (C2, 2026-09-04). The two new booleans are ORs
+		over ALL children, so there is nothing to stop early for; `wantInside` keeps the
+		old rule exactly — once `inside` is true nothing re-reads it, and the `scroll`
+		stop still applies to it alone. The cost is the same walk either way: the early
+		exit only ever fired on a tree that HAS a container-relative child, which is a
+		small minority, and it saved at most the tail of one child list. ]]
 	local selfRelative = (layoutNode.width ~= nil and layoutNode.width.type == "containerRelative")
 		or (layoutNode.height ~= nil and layoutNode.height.type == "containerRelative")
 	local inside = selfRelative
