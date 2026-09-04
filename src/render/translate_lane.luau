@@ -5,9 +5,10 @@
 	Per qualifying host the lane re-places it with `placement.anchorPlace` — the
 	solver's own function, not a second copy of the arithmetic — writes the
 	solver's existing entry IN PLACE, and calls `setRect` once. Anything that
-	would need a solve is handed BACK to the solve as the remainder, so a frame
-	that moves 250 nameplates and resizes 50 cast bars lanes 200 and solves the
-	rest in one incremental solve.
+	would need a solve is handed BACK to the solve as the remainder. MEASURED on
+	the campaign's own fixture: a frame that moves 250 nameplates and resizes 50
+	cast bars lanes ALL 250 and solves only the 50 bars — the lane keys on the
+	ENTRY, and a caster's extra dirt is a MEASURE write on a different path.
 
 	TWO PASSES, AND THE SPLIT IS THE SAFETY PROPERTY. VALIDATE every candidate
 	against the gates before a single write, then APPLY. A candidate that fails
@@ -45,7 +46,13 @@ export type Deps = {
 	parentNodeOf: { [string]: any }, -- by reference
 	inputSinks: { [string]: boolean }, -- by reference, for the `hit_lift` serve
 	layoutNodeOf: (mountNode: any) -> any,
-	findNode: (path: string) -> any,
+	--[[ parent path -> its children BY PATH, the renderer's own per-parent index, BY
+		REFERENCE. This is how the lane reaches a mounted node, and the alternative is
+		why: `renderer.findNode` is a depth-first walk of the whole tree per call, and
+		one call per candidate made a 250-plate tick O(plates x nodes) — measured LIVE
+		at +5.4 ms a frame on FacetBench's `nameplates L`, 3.9 -> 9.3, where every Lune
+		instrument in the suite was blind to it because they count work, not time. ]]
+	childNodesOf: { [string]: { [string]: any } },
 	lastResultRects: () -> any?, -- the solver's live entry map
 	solverHidden: { [string]: boolean },
 	channelArmed: () -> boolean,
@@ -89,7 +96,7 @@ function translate_lane.new(deps: Deps)
 	local handles, lastRects, lastHitRects = deps.handles, deps.lastRects, deps.lastHitRects
 	local lastCompositions = deps.lastCompositions
 	local stats, adapter, geometry = deps.stats, deps.adapter, deps.geometry
-	local parentNodeOf, layoutNodeOf, findNode = deps.parentNodeOf, deps.layoutNodeOf, deps.findNode
+	local parentNodeOf, layoutNodeOf, childNodesOf = deps.parentNodeOf, deps.layoutNodeOf, deps.childNodesOf
 	local solverHidden, channelArmed, rectsEqual = deps.solverHidden, deps.channelArmed, deps.rectsEqual
 	local spaceHosts, spaceHostHasPath = geometry.spaceHosts, geometry.spaceHostHasPath
 
@@ -168,10 +175,14 @@ function translate_lane.new(deps: Deps)
 		local rects = deps.lastResultRects()
 		local entry = if rects ~= nil then rects[path] else nil
 		local stored = lastRects[path]
-		local mount = findNode(path)
-		local parentMount = parentNodeOf[path]
+		-- THE MOUNTED NODE IN O(1), through the renderer's own per-parent index (see
+		-- `Deps.childNodesOf`), never through a tree walk
+		local mountParent = parentNodeOf[path]
+		local siblings = if mountParent ~= nil then childNodesOf[mountParent.path] else nil
+		local mount = if siblings ~= nil then siblings[path] else nil
 		-- see `SPLICED`: step over the structural regions between this host and the
 		-- container that actually placed it
+		local parentMount = mountParent
 		while parentMount ~= nil and SPLICED[parentMount.class] do
 			parentMount = parentNodeOf[parentMount.path]
 		end

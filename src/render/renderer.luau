@@ -1646,7 +1646,7 @@ function renderer.attach(
 		parentNodeOf = parentNodeOf,
 		inputSinks = inputSinks,
 		layoutNodeOf = layoutNodeOf,
-		findNode = findNode,
+		childNodesOf = childNodesOf,
 		lastResultRects = function()
 			return if lastResult ~= nil then lastResult.rects else nil
 		end,
