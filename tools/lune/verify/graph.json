@@ -14714,7 +14714,7 @@
      "measure_facts_seam::the measure-facts seam: the shared WRITE surface::NEGATIVE CONTROL: the write scan sees each spelling, and a read is not a write",
      "measure_facts_seam::the measure-facts seam: EXPORTED == BOUND, one consumer, one-way require::every name the module exports is bound by the solver, and every bound name is exported",
      "measure_facts_seam::the measure-facts seam: EXPORTED == BOUND, one consumer, one-way require::every bound name is actually USED by the solver, not just bound",
-     "measure_facts_seam::the measure-facts seam: EXPORTED == BOUND, one consumer, one-way require::there is exactly ONE consumer of the module in src/",
+     "measure_facts_seam::the measure-facts seam: EXPORTED == BOUND, one consumer, one-way require::the consumers of the module in src/ are the two that are named here",
      "measure_facts_seam::the measure-facts seam: EXPORTED == BOUND, one consumer, one-way require::the module requires the solver NOWHERE — the require is one-way",
      "measure_facts_seam::the measure-facts seam: EXPORTED == BOUND, one consumer, one-way require::the module names no type from the solver either",
      "measure_facts_seam::the measure-facts seam: `axisAbsorbs` carries ONE BIT to both its callers::every read of `limit`/`otherLimit` is a boundedness test and nothing else",

@@ -396,6 +396,18 @@ CASE_ID_REPAIRS = [
         "`CommitCtx` for the compact-ladder writes, growing the parameter object from twenty-six "
         "fields to twenty-seven; the written set is unchanged at sixteen",
     ),
+    (
+        "measure_facts_seam::the measure-facts seam: EXPORTED == BOUND, one consumer, one-way require::"
+        "there is exactly ONE consumer of the module in src/",
+        "measure_facts_seam::the measure-facts seam: EXPORTED == BOUND, one consumer, one-way require::"
+        "the consumers of the module in src/ are the two that are named here",
+        "the same case, renamed by Plan C T3 fix round 1 (COMMIT A, 2026-09-04) when "
+        "`noteContainment` left `layout/solver.luau` for `layout/arrange_reports.luau` and took its "
+        "two `measure_facts` readers (`dim`, `axisAbsorbs`) with it — a second consumer, required as "
+        "a leaf rather than handed over through a Deps record, which is what keeps "
+        "`arrange_reports`' own no-Deps claim true. The case still asserts a LIST and not a count, "
+        "so a THIRD consumer still reddens it; only the arity it names changed",
+    ),
 ]
 
 
