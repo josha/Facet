@@ -2351,10 +2351,19 @@ local function arrangeBody(ctx: Ctx, node: Node, rect: Rect, out: { [string]: an
 	-- because `out` IS `reuse.previous.rects` (see `solve`): after the write, the map
 	-- hands back the table it just wrote.
 	local tdx: number?, tdy: number?, tprev: any = nil, nil, nil
+	--[[ ...AND THIS NODE'S OWN REUSE GATE, EXPOSED FOR THE ANCHOR BRANCH (C3): "the box
+		this body is about to place children into is the box it placed them into last
+		time" — same size, same origin, same container, on a reuse solve with the skip
+		armed. DERIVED HERE rather than re-asked there, because two hand-written copies
+		of one question are how the two arms start disagreeing, and it stays `false`
+		under `noSkipDepth`. `prevSelf` is this node's entry, captured BEFORE the write
+		below replaces it in the map. ]]
+	local boxUnchanged, prevSelf = false, nil :: any
 	-- `ctx.noSkipDepth`: inside a coordinate-space host holding a composition neither
 	-- the skip nor the arm may run — see `Ctx`.
 	if reuse ~= nil and ctx.noSkipDepth == 0 then
 		local prev = reuse.previous.rects[node.id]
+		prevSelf = prev
 		local pr = if prev ~= nil then prev.rect else nil
 		-- ...AND THE CONTAINER IS THE ONE IT ANSWERED AGAINST — `containerUnmoved` above
 		-- this function, which the anchor branch's reuse arm asks of each child for the
@@ -2364,7 +2373,8 @@ local function arrangeBody(ctx: Ctx, node: Node, rect: Rect, out: { [string]: an
 		-- whatever its origin did, asked first and once.
 		if pr ~= nil and containerOk and pr.w == rect.w and pr.h == rect.h then
 			local clean = reuse.dirtyContains[node.id] ~= true
-			if clean and pr.x == rect.x and pr.y == rect.y then
+			boxUnchanged = pr.x == rect.x and pr.y == rect.y
+			if clean and boxUnchanged then
 				--[[ ...AND THE SKIP IS THE WHOLE OF IT (P2). It used to call `replaySubtree`,
 					which walked the subtree and re-inserted every descendant into a fresh
 					map — the O(N) pass incremental layout exists to avoid, paid as the price
@@ -2507,6 +2517,15 @@ local function arrangeBody(ctx: Ctx, node: Node, rect: Rect, out: { [string]: an
 	end
 	local pt, pr, pb, pl = sides(node.padding)
 	local innerX, innerY, innerW, innerH = placementLib.innerBox(rect.x, rect.y, rect.w, rect.h, pt, pr, pb, pl)
+	--[[ THE INSET FROM THIS NODE'S OWN ORIGIN TO ITS INNER BOX (C3), for an `anchor`
+		alone: `innerX` is a term of the placement its branch skips, and no other channel
+		carries it. A padding REDISTRIBUTION that keeps the total leaves this node's rect
+		AND `innerW` identical while moving `innerX`, and the offer comparison the skip
+		inherits is an EXTENT comparison that cannot see an origin. ]]
+	if node.kind == "anchor" then
+		local selfEntry = out[node.id]
+		selfEntry.innerDX, selfEntry.innerDY = pl, pt
+	end
 
 	-- ...AND THE REPORTS THIS NODE'S OWN BOX MAKES, moved to `./arrange_reports` for
 	-- the Source-write headroom the translate arm needed. Reported HERE, before the
@@ -3010,8 +3029,53 @@ local function arrangeBody(ctx: Ctx, node: Node, rect: Rect, out: { [string]: an
 			`walkedIds` under an arrange skip is covered by the replay instead. ]]
 		local prevOf = if reuse ~= nil and ctx.measureQuiet then reuse.previous.rects else nil
 		local sizeDirt = if reuse ~= nil then (reuse.measureContains or reuse.dirtyContains) else nil
+		--[[ ...AND THE FOURTH ARM, WHICH DOES NOT PLACE THE CHILD AT ALL (Plan C, C3).
+			`out[child.id]` IS the entry the placement would have reproduced (`out` is
+			`reuse.previous.rects`, mutated in place), so there is nothing to compute and
+			nothing to write. Its gate is a STRICT SUPERSET of `arrangeBody`'s own skip,
+			which is the whole safety argument: the `arrange` call it replaces would have
+			returned above the entry write, above `ctx.walkedIds`, above
+			`ctx.arranged`/`rectInserts`. The proof that the placement is unchanged, the
+			thirteen-row owed list, the `measureQuiet` asymmetry and the four mutations
+			are in `tests/anchor_skip.spec.luau`'s header, per this file's source-cap rule
+			that prose belongs in the spec. `skipHeld` is the anchor's half, asked ONCE:
+			its own box stood still (`boxUnchanged`, which carries the `noSkipDepth`
+			suspension) and the inner ORIGIN it derives from that box is unchanged. ]]
+		local skipHeld = boxUnchanged
+			and reuse ~= nil
+			and prevSelf ~= nil
+			and prevSelf.innerDX == pl
+			and prevSelf.innerDY == pt
+		local prevAll = if skipHeld then reuse.previous.rects else nil
 		for _, child in node.children or {} do
 			local w: number, h: number
+			if prevAll ~= nil then
+				local held = prevAll[child.id]
+				-- A `hostSpace` CHILD THAT HOLDS A COMPOSITION is the one child `arrange`
+				-- would NOT have skipped (its wrapper raises `ctx.noSkipDepth` for its own
+				-- body — T3's finding), so it is refused by name: one field read on hosts
+				-- alone, and the superset claim above becomes true by construction.
+				if
+					held ~= nil
+					and held.rect ~= nil
+					and reuse.dirtyContains[child.id] ~= true
+					and held.offerW == innerW
+					and held.offerH == innerH
+					and containerUnmoved(ctx, child, held)
+					and (child.hostSpace ~= true or ctx.spaceCompositions[child.id] ~= true)
+				then
+					ctx.anchorSkipped += 1
+					-- the same five channels the arm below re-records, out of the same entry
+					-- and for the same reason; row 3 of the owed list states why they are
+					-- inert HERE and kept anyway
+					ctx.offers[child.wKey or (child.id .. "|w")] = innerW
+					ctx.offers[child.hKey or (child.id .. "|h")] = innerH
+					ctx.textStates[child.id] = held.textState
+					ctx.compact[child.id] = held.compact
+					ctx.textFacts[child.id] = held.textFacts
+					continue
+				end
+			end
 			local prev = if prevOf ~= nil and sizeDirt[child.id] ~= true then prevOf[child.id] else nil
 			-- `prev.rect ~= nil` for the reason `translateDescendants` guards the same
 			-- map: two readers of one map must not disagree about how defensive to be
@@ -3448,6 +3512,8 @@ function solver.solve(
 			-- anchor this solve arranged
 			anchorReused = ctx.anchorReused,
 			anchorOffered = ctx.anchorOffered,
+			-- ...and the C3 third: the children the branch did not place at all
+			anchorSkipped = ctx.anchorSkipped,
 			translatedRoots = ctx.translatedRoots,
 			translatedPaths = ctx.translatedPaths,
 			translatedEntries = ctx.translatedEntries,

@@ -208,6 +208,13 @@ export type Ctx = {
 	-- `measureUncached`.
 	anchorReused: number,
 	anchorOffered: number,
+	-- ...and the THIRD half (Plan C, C3): a child the branch did not place AT ALL,
+	-- because the anchor's own box stood still, the child is `dirtyContains`-clean at
+	-- the identical offer, and `out[child.id]` therefore already holds the entry the
+	-- placement would have reproduced. The three sum to every child of every anchor
+	-- the solve arranged, so a win that simply stopped visiting children reads as a
+	-- sum that no longer accounts for them.
+	anchorSkipped: number,
 	translatedRoots: { [string]: { dx: number, dy: number, from: number, to: number } },
 	-- THE ABSOLUTE ORIGIN OF THE COORDINATE SPACE THE WALK IS IN (Plan C), pushed and
 	-- popped by the `arrange` wrapper, so `rect.x + ctx.spaceOX` is a window-space x.
@@ -344,6 +351,7 @@ function solve_ctx.new(contentRect: Rect, opts: any, metrics: any): Ctx
 		-- stand in for them
 		anchorReused = 0,
 		anchorOffered = 0,
+		anchorSkipped = 0,
 		translatedRoots = {},
 		spaceOX = 0,
 		spaceOY = 0,

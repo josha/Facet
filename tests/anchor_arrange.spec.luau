@@ -110,7 +110,14 @@ local MEASURED_HP = 5
 	one-in-five subset with `{ type = "fixed", px = cast * 100 }` — a MEASURE-class
 	write. Exactly those 50 plate roots go to `measure` and exactly the other 200 do
 	not, so a gate that had collapsed to "always reuse" reads 250/0 here and fails. ]]
-local REUSED_HP = PLATES - 1 -- 249: every plate but the one whose Hp width changed
+--[[ THE 249 MIGRATED TO `skipped` WITH C3 (2026-09-04) and the constants are kept
+	rather than deleted, because the number this case is about has not changed: 249 of
+	250 siblings settle a one-plate change without a `measure`. What changed is HOW —
+	they are no longer placed at all, so they are no longer counted by the arm this
+	file is named for. `REUSED_HP = 0` is the honest reading of that and is asserted
+	beside the skip so the two cannot drift apart silently. ]]
+local SKIPPED_HP = PLATES - 1 -- 249: every plate but the one whose Hp width changed
+local REUSED_HP = 0 -- ...and none of them needs the SERVE any more; see above
 local OFFERED_HP = 1 -- the dirty plate root alone
 local CASTERS = PLATES // scene.CASTER_EVERY -- 50
 
@@ -171,7 +178,16 @@ local function drove(fn: () -> ()): string
 		return `solves={n}`
 	end
 	local w = capture.result.work
-	return `solves={n} reused={w.anchorReused} offered={w.anchorOffered}`
+	--[[ THREE COUNTERS SINCE C3, and the third is what most of this file's numbers
+		MIGRATED INTO. `anchorSkipped` counts a child the branch did not place at all —
+		the arm below still computed a placement and handed it to `arrange`, which then
+		took its own skip; C3 asks that question one frame earlier. A child that
+		qualifies for the skip always qualified for the serve, so the two are ordered
+		and not alternatives: `skipped` is drawn from what `reused` used to be, never
+		from `offered`. `tests/anchor_skip.spec.luau` owns that arm; this file keeps the
+		N2 gate honest, and reading all three is what makes the migration visible rather
+		than a set of numbers that quietly fell to zero. ]]
+	return `solves={n} skipped={w.anchorSkipped} reused={w.anchorReused} offered={w.anchorOffered}`
 end
 
 -- ...and whether the LAST captured solve was handed a reuse table at all. `reuse`
@@ -193,9 +209,9 @@ describe("N2: one changed plate does not re-offer 250 siblings", function()
 				is no longer 250 rather than as a smaller `offered`. ]]
 			expect(drove(function()
 				s.hp(7, 0.9)
-			end)).toBe(`solves=1 reused={REUSED_HP} offered={OFFERED_HP}`)
+			end)).toBe(`solves=1 skipped={SKIPPED_HP} reused={REUSED_HP} offered={OFFERED_HP}`)
 			local w = capture.result.work
-			expect(w.anchorReused + w.anchorOffered).toBe(PLATES)
+			expect(w.anchorSkipped + w.anchorReused + w.anchorOffered).toBe(PLATES)
 			s.dispose()
 		end)
 	end)
@@ -205,16 +221,22 @@ describe("N2: one changed plate does not re-offer 250 siblings", function()
 			allocation case below). A structural solve rebuilds the ForEach's children,
 			so the anchor re-offers all 251 — but only the NEW plate is dirty, so 250
 			take the arm and one goes to `measure`. A REMOVE adds no node at all, so it
-			offers NOTHING and every surviving sibling is served from its own rect. ]]
+			offers NOTHING and every surviving sibling is served from its own rect.
+
+			SINCE C3 THE SURVIVORS ARE SKIPPED RATHER THAN SERVED: a structural solve
+			names only the rebuilt subtree in the dirt sets, so the 250 that did not move
+			are `dirtyContains`-clean at an unchanged offer inside an anchor whose own box
+			stood still — which is the C3 gate exactly. `reused` is 0 on both steps and
+			the sum still accounts for every child. ]]
 		withWorkCapture(function()
 			local s = scene.new()
 			s.tick(3, 2)
 			expect(drove(function()
 				s.add(9001)
-			end)).toBe(`solves=1 reused={PLATES} offered=1`)
+			end)).toBe(`solves=1 skipped={PLATES} reused=0 offered=1`)
 			expect(drove(function()
 				s.remove(1)
-			end)).toBe(`solves=1 reused={PLATES} offered=0`)
+			end)).toBe(`solves=1 skipped={PLATES} reused=0 offered=0`)
 			s.dispose()
 		end)
 	end)
@@ -224,6 +246,12 @@ describe("N2: one changed plate does not re-offer 250 siblings", function()
 			every plate in `dirtyContains` and NONE of them in `measureContains` — their
 			sizes cannot have moved. The anchor therefore re-places all 250 and measures
 			none of them. This is the case the `measureContains` gate exists for.
+
+			AND `skipped = 0` HERE, WHICH IS THE CLEANEST SEPARATION OF THE TWO ARMS IN
+			THE SUITE (C3). Every plate MOVED, so every plate is in `dirtyContains` and
+			the C3 skip — whose gate is the whole closure, not the measure half — refuses
+			all 250 while this arm serves all 250. One frame, one fixture, the two gates
+			answering opposite ways.
 
 			DRIVEN WITH `hosts = false` SINCE PLAN C's C6, and the arm under test is
 			unchanged by that. On the shipped fixture a plate root is a coordinate-space
@@ -237,10 +265,10 @@ describe("N2: one changed plate does not re-offer 250 siblings", function()
 			local s = scene.new({ hosts = false })
 			expect(drove(function()
 				s.tick(3, 2)
-			end)).toBe(`solves=1 reused={PLATES} offered=0`)
+			end)).toBe(`solves=1 skipped=0 reused={PLATES} offered=0`)
 			expect(drove(function()
 				s.tick(3, 2)
-			end)).toBe(`solves=1 reused={PLATES} offered=0`)
+			end)).toBe(`solves=1 skipped=0 reused={PLATES} offered=0`)
 			s.dispose()
 		end)
 		-- ...and on the SHIPPED fixture the same tick lanes and never solves
@@ -266,10 +294,10 @@ describe("N2: one changed plate does not re-offer 250 siblings", function()
 			s.tick(3, 2)
 			expect(drove(function()
 				s.tickWithCasts(3, 2)
-			end)).toBe(`solves=1 reused={PLATES - CASTERS} offered={CASTERS}`)
+			end)).toBe(`solves=1 skipped={PLATES - CASTERS} reused=0 offered={CASTERS}`)
 			expect(drove(function()
 				s.tickWithCasts(3, 2)
-			end)).toBe(`solves=1 reused={PLATES - CASTERS} offered={CASTERS}`)
+			end)).toBe(`solves=1 skipped={PLATES - CASTERS} reused=0 offered={CASTERS}`)
 			s.dispose()
 		end)
 	end)
@@ -391,7 +419,7 @@ describe("N2: one changed plate does not re-offer 250 siblings", function()
 				expect(`{view.id}:{drove(function()
 					s.hp(7, 0.9)
 				end)}:{s.stats().lastArranged}`).toBe(
-					`{view.id}:solves=1 reused={REUSED_HP} offered={OFFERED_HP}:{ARRANGED_HP}`
+					`{view.id}:solves=1 skipped={SKIPPED_HP} reused={REUSED_HP} offered={OFFERED_HP}:{ARRANGED_HP}`
 				)
 				s.dispose()
 			end
@@ -432,19 +460,19 @@ describe("N2: one changed plate does not re-offer 250 siblings", function()
 			s.tick(3, 2)
 			expect(drove(function()
 				s.hp(7, 0.9)
-			end)).toBe(`solves=1 reused={REUSED_HP} offered={OFFERED_HP}`)
+			end)).toBe(`solves=1 skipped={SKIPPED_HP} reused={REUSED_HP} offered={OFFERED_HP}`)
 			expect(lastSolveWasIncremental()).toBe("reuse=true")
 			-- the `env:set` solves; the `refresh` after it finds no dirt, which is why
 			-- the count is one and not two
 			expect(drove(function()
 				resize(s, 1000, 700)
-			end)).toBe(`solves=1 reused=0 offered={PLATES}`)
+			end)).toBe(`solves=1 skipped=0 reused=0 offered={PLATES}`)
 			expect(lastSolveWasIncremental()).toBe("reuse=false")
 			-- ...and the very next step at the SETTLED viewport is incremental again and
 			-- arms again, so the full solve is the geometry fact's and not a latch
 			expect(drove(function()
 				s.hp(7, 0.4)
-			end)).toBe(`solves=1 reused={REUSED_HP} offered={OFFERED_HP}`)
+			end)).toBe(`solves=1 skipped={SKIPPED_HP} reused={REUSED_HP} offered={OFFERED_HP}`)
 			expect(lastSolveWasIncremental()).toBe("reuse=true")
 			s.dispose()
 		end)
@@ -583,7 +611,7 @@ describe("N2: the exact-offer precondition, on the only shape that can reach it"
 				green because the arm never fires on this fixture at all. ]]
 			expect(drove(function()
 				w.nudge(2)
-			end)).toBe(`solves=1 reused={NESTED_KIDS} offered=0`)
+			end)).toBe(`solves=1 skipped={NESTED_KIDS - 1} reused=1 offered=0`)
 			expect(lastSolveWasIncremental()).toBe("reuse=true")
 			--[[ THE CASE THE GUARD EXISTS FOR. `padding` on the wrapper moves the
 				anchor's inner box; the closure runs upward so no child is in either dirt
@@ -593,17 +621,17 @@ describe("N2: the exact-offer precondition, on the only shape that can reach it"
 				`if` makes this row read `reused=12 offered=0` — measured, not asserted. ]]
 			expect(drove(function()
 				w.pad(10)
-			end)).toBe(`solves=1 reused=0 offered={NESTED_KIDS}`)
+			end)).toBe(`solves=1 skipped=0 reused=0 offered={NESTED_KIDS}`)
 			expect(lastSolveWasIncremental()).toBe("reuse=true")
 			-- ...and it re-arms at the settled box, so the fall-through is the offer's
 			-- and not a latch
 			expect(drove(function()
 				w.nudge(3)
-			end)).toBe(`solves=1 reused={NESTED_KIDS} offered=0`)
+			end)).toBe(`solves=1 skipped={NESTED_KIDS - 1} reused=1 offered=0`)
 			-- ...and a SECOND move of the same box falls through again
 			expect(drove(function()
 				w.pad(24)
-			end)).toBe(`solves=1 reused=0 offered={NESTED_KIDS}`)
+			end)).toBe(`solves=1 skipped=0 reused=0 offered={NESTED_KIDS}`)
 			w.dispose()
 		end)
 	end)

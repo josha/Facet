@@ -56,6 +56,12 @@ function render_stats.new(): any
 		-- either, so it cannot say what a cheaper lookup path is worth.
 		lastMeasureCalls = 0,
 		lastMeasureServed = 0,
+		-- ...and the anchor branch's third arm (C3): children of an anchor the solve
+		-- did not place at all, because the anchor's box stood still and they were
+		-- clean at the identical offer. It is on the PUBLIC surface where the two
+		-- older anchor counters are not, because a consumer's own contract test is
+		-- the only instrument that can say the arm still reaches a real game screen.
+		lastAnchorSkipped = 0,
 		-- re-solves earned by a consumer publishing a layout prop back from this
 		-- surface's own geometry (see THE SOLVE'S OWN FEEDBACK). The stated cost of
 		-- closing that frame: one extra solve on the frame the number moves, which
@@ -165,6 +171,7 @@ function render_stats.publish(stats: any, result: any, layoutNodes: number, stru
 		stats.lastMeasured = work.measured
 		stats.lastMeasureCalls = work.measureCalls or 0
 		stats.lastMeasureServed = work.measureServed or 0
+		stats.lastAnchorSkipped = work.anchorSkipped or 0
 		-- ...and what the solve wrote into the RECT MAP (P2). It is not `lastArranged`
 		-- by definition — before the copy-on-write map a skipped subtree inserted
 		-- every descendant, so this is the number that says the skip is O(touched).

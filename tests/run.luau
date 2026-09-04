@@ -104,6 +104,13 @@ require("./stack_seam.spec")
 	nine device views, three fixtures and eight step kinds INCLUDING a viewport change,
 	which is the step that makes every recorded offer stop matching ]]
 require("./anchor_arrange.spec")
+--[[ ...AND THE SKIP ABOVE IT (Plan C, C3): when the anchor's own box did not move,
+	a `dirtyContains`-clean child at the identical offer is not placed at all — the
+	entry the placement would have reproduced is already in the map. Registered beside
+	its N2 sibling because the two arms share a gate and a fixture, and the invariant
+	that keeps them honest is a SUM: skipped + reused + offered is every child of every
+	anchor the solve arranged. ]]
+require("./anchor_skip.spec")
 --[[ ...and the seam that round had to take first (Plan C, C3): `arrange`'s `scroll`
 	branch is `src/layout/scroll_arrange.luau`, and this is the one-way property
 	mechanised — the require direction, the six-field Deps record compared against the
