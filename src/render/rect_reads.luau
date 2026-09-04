@@ -47,11 +47,20 @@ function rect_reads.new(deps: Deps)
 	-- truthy in Luau, and a gate written `if spaceHostHasPath[path] then` would
 	-- otherwise refuse forever once a Path had ever been under that host.
 	local spaceHostHasPath: { [string]: number } = {}
+	--[[ ...AND THE ORDER THE DECREMENT DEPENDS ON, recorded here because it is a
+		property of the CALLER and this is the map that pays for it. `noteFromHost`
+		climbs `hostSpaceOf`, and `dropPath` clears that link — so a sweep that tore
+		down a nested space host BEFORE the Path beneath it would stop the climb one
+		host short and leave every surviving ancestor counted forever. The removal
+		sweep therefore visits deepest first (T4b, `renderer.sweepDeparted`'s two
+		arms), and a Path's path is strictly longer than that of any space host above
+		it, so the Path is always reached first. ]]
 	-- which space host a PATH node was last counted under, so a reparented Path can
 	-- note the OLD host −1 and the NEW host +1. Keyed by the Path's own
 	-- path; nil for a Path with no space host above it. WHO FILLS IT: `livePaths`
 	-- (T5 step 3), on the same latch edge that fills `spaceHostHasPath`. WHO READS
-	-- IT: exactly one site — that walk's reparent branch, which compares it against
+	-- IT: two sites — `sweepDeparted`'s decrement, which starts its climb there, and
+	-- that walk's reparent branch, which compares it against
 	-- the nearest space host the walk has just computed, BEFORE `hostSpaceOf[path]`
 	-- is rewritten for this walk. Nothing else reads it.
 	local pathHostOf: { [string]: string } = {}

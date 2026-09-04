@@ -384,17 +384,22 @@ function nameplates_scene.new(opts: Opts?)
 
 		"topLeft" <-> "top" and not, say, "bottomRight": the plate is 180 px wide in a
 		1280 px anchor, so the horizontal factor moves it by 550 px, which is a
-		difference any rect column can see, while the vertical factor stays 0 so the
-		plate cannot leave the box and trip the containment gate. ]]
+		difference any rect column can see, while the vertical factor stays 0 — so the
+		flip is a pure horizontal move on every plate and no drive here depends on the
+		vertical term staying still. ]]
 	function scene.anchorFlip(i: number)
 		local item = items[i]
 		item.anchor:set(if item.anchor:get() == "topLeft" then "top" else "topLeft")
 		controller.refresh()
 	end
 
-	-- ...and the drive that DOES leave the parent's inner box: the lane refuses a
-	-- host whose old or new rect is not fully inside it, because that is the frame
-	-- the solve would have filed (or withdrawn) a containment finding on.
+	--[[ ...and the drive that puts a host WHOLLY OUTSIDE its parent's inner box. It
+		exists to prove there is nothing there to serve: an ANCHOR parent files no
+		containment finding at any position (`arrange_reports.containment` has one
+		caller, `stack.arrange`), so `controller.diagnostics()` reads the same list on
+		both sides and the host LANES. `tests/translate_lane.spec.luau` drives it both
+		ways — laned and solved — and pins the single call site by a source scan, which
+		is what would catch the day the anchor branch grew a report. ]]
 	function scene.moveOut(i: number)
 		items[i].x:set(-500)
 		controller.refresh()

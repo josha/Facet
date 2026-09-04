@@ -111,6 +111,31 @@ function translate_lane.new(deps: Deps)
 	--[[ the parent's inner (content) box, in the space the HOST's rect is STORED in.
 		A space host's children are stored relative to it, so such a parent's own box
 		sits at the origin however far the parent itself has moved. ]]
+	--[[ THE COMPOSITION PATHS OF THE LAST SOLVE, collected ONCE per refresh rather
+		than iterated per candidate. `run` refills this list only when the map is
+		non-empty, which on every surface this lane was built for is never — one
+		`next()` and no allocation — and a surface that DOES hold compositions pays one
+		pass over a handful of paths instead of `candidates x compositions`, which on a
+		250-plate frame was the difference between a few string compares and thousands.
+		The old form also interpolated a fresh `path .. "/"` per candidate; the prefix
+		test below allocates nothing. ]]
+	local compositionPaths: { string } = {}
+
+	--[[ IS THIS HOST A COMPOSITION, OR ABOVE ONE? `string.sub` on the COMPOSITION's
+		path rather than a built prefix on the host's: same answer, no string built. A
+		composition beneath a moving host re-resolves — its exclusions are window-space
+		by contract and are converted into its own box — and only `arrange` can do that
+		(the solver's `spaceCompositions`/`noSkipDepth`), so the lane refuses the host. ]]
+	local function underAComposition(path: string): boolean
+		local n = #path
+		for _, compPath in compositionPaths do
+			if compPath == path or (#compPath > n and string.sub(compPath, 1, n + 1) == path .. "/") then
+				return true
+			end
+		end
+		return false
+	end
+
 	local function innerBoxOf(parentPath: string, parentNode: any): any?
 		local own = lastRects[parentPath]
 		if own == nil then
@@ -144,9 +169,16 @@ function translate_lane.new(deps: Deps)
 			the one visibility answer a move can change. `spaceHostHasPath` is a COUNT
 			whose key `rect_reads.noteUnder`/`noteFromHost` DELETE at zero, so this plain
 			truthiness test is exact: a host that once held a Path and no longer does has
-			no key and lanes again. That is true only because every ±1 rides a latch the
-			live-path walk already keeps, so re-walking an unchanged Path cannot ratchet
-			the count. ]]
+			no key and lanes again. TWO things make that true, and both live outside this
+			file. (1) Every ±1 rides a latch the live-path walk already keeps, so
+			re-walking an unchanged Path cannot ratchet the count. (2) The removal sweep
+			visits DEEPEST FIRST (T4b), which is what keeps the decrement's climb whole:
+			it runs from `pathHostOf[Path]` up through `hostSpaceOf`, and
+			`geometry.dropPath` clears the very link it climbs — so a nested space host
+			torn down before the Path beneath it would stop the climb one host short and
+			leave every surviving ancestor gated for the life of the surface.
+			`tests/translate_lane.spec.luau`'s nested-host case drives exactly that, on
+			BOTH sweep arms, and deleting the sort is what reddens it. ]]
 		if lastHitRects[path] ~= nil or spaceHostHasPath[path] ~= nil then
 			return false
 		end
@@ -163,18 +195,11 @@ function translate_lane.new(deps: Deps)
 			renderer's own map of the last solve's resolutions, keyed by node path; the
 			host itself counts, because a Composition that is its own coordinate space
 			re-resolves its body on arrange too. ]]
-		if next(lastCompositions) ~= nil then
-			local prefix = `{path}/`
-			local n = #prefix
-			for compPath in lastCompositions do
-				if compPath == path or string.sub(compPath, 1, n) == prefix then
-					return false
-				end
-			end
+		if #compositionPaths > 0 and underAComposition(path) then
+			return false
 		end
 		local rects = deps.lastResultRects()
 		local entry = if rects ~= nil then rects[path] else nil
-		local stored = lastRects[path]
 		-- THE MOUNTED NODE IN O(1), through the renderer's own per-parent index (see
 		-- `Deps.childNodesOf`), never through a tree walk
 		local mountParent = parentNodeOf[path]
@@ -186,9 +211,17 @@ function translate_lane.new(deps: Deps)
 		while parentMount ~= nil and SPLICED[parentMount.class] do
 			parentMount = parentNodeOf[parentMount.path]
 		end
-		if entry == nil or entry.rect == nil or stored == nil or mount == nil or parentMount == nil then
+		if entry == nil or entry.rect == nil or mount == nil or parentMount == nil then
 			return false
 		end
+		--[[ THE SIZE COMES FROM THE SOLVER'S ENTRY, AND FROM NOWHERE ELSE. `apply` builds
+			the new rect from `entry.rect`, so validation has to place against the same
+			table or the two can disagree: `lastRects[path]` is the rect the COMMIT last
+			wrote, and the two are the same table on every ordinary frame but need not be
+			(a solve that produced a fresh entry a torn commit never applied leaves
+			`lastRects` one frame behind). Placing against one and writing the other would
+			put the host at a position derived from a size it does not have. ]]
+		local sized = entry.rect
 		local node, parent = layoutNodeOf(mount), layoutNodeOf(parentMount)
 		if node == nil or parent == nil then
 			return false
@@ -242,8 +275,8 @@ function translate_lane.new(deps: Deps)
 			inner.y,
 			inner.w,
 			inner.h,
-			stored.w,
-			stored.h,
+			sized.w,
+			sized.h,
 			false,
 			false,
 			props.anchor,
@@ -281,7 +314,9 @@ function translate_lane.new(deps: Deps)
 		return true
 	end
 
-	local function apply(path: string)
+	-- returns TRUE when it wrote a rect, which is what `stats.lastLaneTranslates`
+	-- counts: see the note at the bottom of `run`
+	local function apply(path: string): boolean
 		local c = candidates[path]
 		local node, entry = c.node, c.entry
 		--[[ WHAT `layout_node.build` WOULD HAVE WRITTEN, WRITTEN BY THE BUILD'S OWN
@@ -296,7 +331,11 @@ function translate_lane.new(deps: Deps)
 		local old = entry.rect
 		local newRect = table.freeze({ x = c.x, y = c.y, w = old.w, h = old.h })
 		if rectsEqual(old, newRect) then
-			return -- the same pixel: nothing moved, so nothing is written
+			-- the same pixel: nothing moved, so nothing is written AND nothing is
+			-- counted. The layout node was still re-placed above, which is what makes
+			-- the warm-store hit correct on the next build; the COUNTER is about
+			-- writes, not about candidates.
+			return false
 		end
 		--[[ THE ENTRY IS MUTATED IN PLACE, DELIBERATELY. `commit_walks.skip` prunes on
 			entry IDENTITY — it holds the last-committed entry TABLE — and this host's
@@ -309,6 +348,7 @@ function translate_lane.new(deps: Deps)
 		authority.assertWrite("common", "size", "layout")
 		adapter.setRect(handles[path], newRect)
 		stats.rectWrites += 1
+		return true
 	end
 
 	--[[ returns the entries the solve must still see — the SAME array when nothing
@@ -323,6 +363,15 @@ function translate_lane.new(deps: Deps)
 		end
 		table.clear(candidates)
 		table.clear(order)
+		-- ...and the composition list, refilled once per refresh (see `compositionPaths`).
+		-- `next` first, so the surfaces that hold none — which is nearly all of them, and
+		-- every one this lane was built for — pay one hash probe and no allocation.
+		table.clear(compositionPaths)
+		if next(lastCompositions) ~= nil then
+			for compPath in lastCompositions do
+				table.insert(compositionPaths, compPath)
+			end
+		end
 		local consumed: { [number]: boolean }? = nil
 		for i, entry in dirty do
 			if entry.class == "arrange" and entry.prop ~= nil and PLACEMENT[entry.prop] and entry.path ~= nil then
@@ -335,8 +384,11 @@ function translate_lane.new(deps: Deps)
 		if consumed == nil then
 			return dirty, 0
 		end
+		local applied = 0
 		for _, path in order do
-			apply(path)
+			if apply(path) then
+				applied += 1
+			end
 		end
 		--[[ SERVE `hit_lift`. An expander OUTSIDE a moved host can now overhang INTO
 			it, and no counter can decide that cheaply — so call the same function the
@@ -368,10 +420,17 @@ function translate_lane.new(deps: Deps)
 				table.insert(remaining, entry)
 			end
 		end
-		local n = #order
-		stats.laneTranslates += n
-		stats.lastLaneTranslates = n
-		return remaining, n
+		--[[ THE COUNTER IS HOSTS THE LANE MOVED, not candidates it validated. `apply`
+			returns early on a zero-delta re-place — a placement prop written back to the
+			value it already had — and counting those would have made
+			`stats.lastLaneTranslates` a number no engine write corresponds to, which is
+			the one thing a per-refresh counter must never be. `render/render_stats`'
+			field doc says the same in the same words. The REMAINDER is still keyed on
+			validation: a candidate the lane consumed does not reach the solve whether or
+			not its rect moved, because its layout node was re-placed either way. ]]
+		stats.laneTranslates += applied
+		stats.lastLaneTranslates = applied
+		return remaining, applied
 	end
 
 	return { run = run }

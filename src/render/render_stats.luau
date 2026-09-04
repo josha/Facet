@@ -83,10 +83,18 @@ function render_stats.new(): any
 		-- ...and the O3 class: nodes an ancestor re-based by a delta instead of
 		-- walking. `arranged + translated + skipped == lastLayoutNodes`.
 		lastTranslated = 0,
-		-- ...and the C6 class: hosts `render/translate_lane` re-placed with NO solve.
-		-- Cumulative, then the per-refresh count — written on EVERY refresh, 0
-		-- included, so an invariant reading it never reads history the way
-		-- `lastSkipped` above deliberately does.
+		--[[ ...and the C6 class: hosts `render/translate_lane` MOVED with no solve.
+			Cumulative, then the per-refresh count — written on EVERY refresh, 0 included,
+			so an invariant reading it never reads history the way `lastSkipped` above
+			deliberately does.
+
+			"MOVED", NOT "CONSIDERED", and the distinction is pinned rather than assumed:
+			the lane validates a candidate and then re-places it, and a placement prop
+			written back to the value it already had produces no rect and is not counted.
+			So `lastLaneTranslates` is a number every engine write corresponds to. The
+			lane's REMAINDER is keyed on validation instead — a consumed candidate does
+			not reach the solve whether or not its rect moved, because its layout node
+			was re-placed either way. ]]
 		laneTranslates = 0,
 		lastLaneTranslates = 0,
 		lastRectInserts = 0,

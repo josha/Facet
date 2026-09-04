@@ -54,19 +54,23 @@ end
 -- the same hand-built world every spec in this tree uses
 -- (`tests/translate_host.spec.luau:60-88`): one core, one environment, the real
 -- mount, the fake target and `renderer.attach`.
-local function world(build: (any) -> any, viewport: any?): any
+local function world(build: (any) -> any, viewport: any?, attachOpts: any?): any
 	local core = customFactory.new()
 	local env = environment.new(core)
 	env:set("viewportRect", viewport or { x = 0, y = 0, w = 400, h = 300 })
 	local root = mountLib.mount(core, build(core))
 	local adapter = fake_target.new()
-	local controller = renderer.attach(core, root, env, adapter, {
+	local attach: any = {
 		rootPolicy = "edgeToEdge",
 		incrementalLayout = true,
 		measureReuse = true,
 		layoutNodeReuse = true,
 		commitScope = true,
-	})
+	}
+	for k, v in attachOpts or {} do
+		attach[k] = v
+	end
+	local controller = renderer.attach(core, root, env, adapter, attach)
 	controller.initialRender()
 	return {
 		core = core,
@@ -461,6 +465,106 @@ describe("translate lane: the hit_lift serve and the Path count", function()
 			"solves=0 lane=1 rectWrites=1 engineWrites=1 before=btn>far:false after=btn>far:true"
 		)
 		w.dispose()
+	end)
+
+	it("a NESTED space host departs with a Path beneath it: the surviving ancestor lanes", function()
+		--[[ THE RATCHET THIS ORDER EXISTS TO PREVENT. `spaceHostHasPath` is a COUNT on
+			every space host ABOVE a `UI.Path`, and `sweepDeparted`'s decrement climbs that
+			chain from `pathHostOf[Path]` through `hostSpaceOf`. `geometry.dropPath` clears
+			the link it climbs — so if a MIDDLE host were swept before the Path beneath it,
+			the climb would stop one host short and the surviving ancestor would keep a +1
+			for the surface's life and never lane again.
+
+			IT IS THE VISIT ORDER THAT ANSWERS IT, and it belongs to T4b rather than to the
+			lane: both sweep arms sort `deeperFirst` (longest path first), and a Path's
+			path is strictly longer than that of any space host above it — `mount.luau` is
+			the one path composer and every child is its parent's path plus `"/" .. id`. So
+			the Path is always swept first and the climb is always whole. The pin is here,
+			with the counter it protects, because deleting that sort is what makes it red
+			and nothing in T4b's own specs reads `spaceHostHasPath`.
+
+			DRIVEN ON BOTH ARMS. A `When` flip is a BOUNDED structural sync; the whole-tree
+			arm is reached by the same flip on a surface the bounded planner refuses. B
+			survives, A departs with P beneath it, and B must lane on the next tick. ]]
+		local function nestedWorld(attachOpts: any?): (any, any, any)
+			local offset, inner
+			local w = world(function(core: any): any
+				offset = core:signal(0)
+				inner = core:signal(true)
+				return UI.Screen({
+					id = "S",
+					children = {
+						UI.Anchor({
+							id = "Canvas",
+							width = fill(),
+							height = fill(),
+							children = {
+								-- B: the SURVIVING space host, whose count must come back to nothing
+								UI.VStack({
+									id = "B",
+									anchor = "topLeft",
+									offsetX = offset,
+									offsetY = 0,
+									width = px(120),
+									height = px(90),
+									children = {
+										UI.Box({ id = "Keep", width = px(20), height = px(20) }),
+										UI.When({
+											id = "Mid",
+											condition = inner,
+											thenView = function()
+												-- A: a space host of its own, with the Path beneath IT
+												return UI.VStack({
+													id = "A",
+													anchor = "topLeft",
+													offsetX = core:signal(4),
+													offsetY = 0,
+													width = px(60),
+													height = px(40),
+													children = {
+														UI.Path({
+															id = "P",
+															points = path_shapes.ring(),
+															thickness = 2,
+														}),
+													},
+												})
+											end,
+										}),
+									},
+								}),
+							},
+						}),
+					},
+				})
+			end, nil, attachOpts)
+			return w, offset, inner
+		end
+		local function verdict(w: any, offset: any): string
+			local before = (w.stats() :: any).solves
+			offset:set((offset:get() :: number) + 1)
+			w.controller.refresh()
+			local st = w.stats() :: any
+			return `solves={st.solves - before} lane={st.lastLaneTranslates}`
+		end
+		local w, offset, inner = nestedWorld()
+		-- with A and its Path live, B is gated: the count reached it through A
+		expect(verdict(w, offset)).toBe("solves=1 lane=0")
+		inner:set(false)
+		w.controller.refresh()
+		expect(verdict(w, offset)).toBe("solves=0 lane=1")
+		w.dispose()
+		--[[ ...and the WHOLE-TREE ARM. `structuralReuse = false` is what makes the sweep
+			take its other branch: no bounded plan means no `departed` list, so the sweep
+			iterates `handles` in HASH order and has to sort itself. That branch is where
+			an unsorted walk would be silently correct most runs and wrong on the run where
+			the hash happened to hand A over before P. ]]
+		local w2, offset2, inner2 = nestedWorld({ structuralReuse = false })
+		expect(verdict(w2, offset2)).toBe("solves=1 lane=0")
+		inner2:set(false)
+		w2.controller.refresh()
+		expect(verdict(w2, offset2)).toBe("solves=0 lane=1")
+		w2.dispose()
 	end)
 
 	it("three bounded syncs then a Path removal — the host lanes again", function()
