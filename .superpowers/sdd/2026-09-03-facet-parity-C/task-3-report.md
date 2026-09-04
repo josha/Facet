@@ -261,3 +261,106 @@ public read unchanged.
    every individual gate producer were run directly instead, because the suite
    alone takes ~20 minutes and the harness serialises one lune process at a time).
    The gate rows it would spend are the six above.
+
+---
+
+# Fix round 1 — review verdict "Approved with fixes"
+
+Two commits, seam first. Facet `f8066de1` (COMMIT A) and the fixes commit (COMMIT B,
+SHA below). RascalRally unchanged this round (`b580702` still HEAD; suite re-run as
+the gate).
+
+## COMMIT A — `f8066de1` — the solver seam, taken first
+
+`layout/solver.luau` came out of T3 at **197,445** characters: 55 INSIDE the
+campaign's 197,500 STOP band, with T5 due to edit it next. The rule at the head of
+the source-cap ledger is to take the room FIRST, in its own behaviour-neutral
+commit, so this lands before the fixes it makes room for.
+
+`noteContainment` → `arrange_reports.containment` — the ~1.7 KB candidate the ledger
+row named. **195,222 chars: 2,278 below the STOP band, 4,778 below the 200,000 cap.**
+It belongs there on its merits as well as its size: every function in that module is
+a report gated on `ctx.hiddenDepth == 0` whose only output is `table.insert` into
+`ctx.diagnostics`, and this one is that shape — it reports about a CHILD's box rather
+than the node's own. NO Deps record (two `ctx` fields, four module-level pure
+helpers, each from a module that imports nothing back), so `arrange_reports` is still
+a leaf.
+
+- **The seam spec was WIDENED, not written.** `tests/arrange_reports_seam.spec.luau`
+  already existed (10 cases, from the 2026-09-02 split). It is now 12: the zero-deps
+  rule became "no deps record, LEAVES only" and names both requires plus proves
+  neither leaf requires this module or the solver back; the closed input set gained
+  `child` (empty — it is handed straight to `placement_audit`) and `rect.x`/`rect.y`;
+  a NEW closed-OUTPUT case; the export set is `box` + `containment` with both call
+  sites pinned; the leftover scan gained the fifth message; the module-level
+  declaration set is the four new constants; and a NEW behavioural case drives the
+  moved export through its three exits (contained, escaping, hidden).
+- **The call site did not move, char for char**, and is now pinned from BOTH sides
+  (`stack_seam` and `arrange_reports_seam`), so a future edit cannot satisfy one pin
+  by loosening the other. `tests/commit_scope.spec.luau:1276` matches the call TEXT
+  `arrange(` and is untouched; `stack_seam` green.
+- **Two pins moved with the measurement**: `measure_facts` now has TWO consumers in
+  `src/`, so `tests/measure_facts_seam.spec.luau` and `tests/src_tree.spec.luau` name
+  the pair rather than counting to one. The pin stays a LIST — a third consumer is
+  the fan-out that seam's argument is about.
+- Solver ledger row re-recorded with the size, the seam named as TAKEN, and **the
+  197,500 STOP band stated explicitly beside the 200,000 cap** (two lines on this
+  file, not one). TRIGGER: NOT ARRIVED; next is the SCROLL arrange branch.
+
+```
+$ lune run tests/run                      8330 passed, 0 failed
+$ tools/test.sh 8328                      test: PASS passed=8330
+$ python3 tools/check_source_size.py      PASS — solver 195,222 (4,778 to the cap)
+$ python3 tools/check_brand_drift.py      PASS
+$ python3 tools/check_comment_codes.py    PASS — 0 orphans
+$ stylua --check src tests tools bench examples   clean
+$ tools/verify.sh affected --jobs 1       FAIL 814.4s — ONE producer: check_public_allowlist
+                                          (the 4 SDD files; COMMIT B fixes it)
+```
+
+The first `verify.sh affected` run of this round also caught `suite_cache_selftest`
+red — the extraction had broken the two "exactly ONE consumer of `measure_facts`"
+pins and the suite exited 1. Fixed as above; the second run is clean but for the
+allowlist.
+
+## COMMIT B — the seven fixes
+
+| # | fix | evidence |
+|---|---|---|
+| Important 1 | **`node.hostSpace` had TWO writers.** `createOptsFor` memoises `false`; `ensureTree` stamped `nil` over it, so a container asked while EMPTY could re-evaluate to `true` after the adapter had registered no host — the whole subtree stored against a parent that does not exist. The stamp is DELETED; the predicate is the field's only writer. | new pin in `translate_host.spec`: drives the predicate twice with children appearing between the asks (a mounted tree is built whole before `ensureTree`, so only a direct ask can order the two on purpose), plus a SOURCE SCAN pinning `node.hostSpace =` at 0 writes in `renderer.luau`, 0 in `layout_node.luau`, 1 in `instance_boundary.luau`, with a negative control |
+| Important 2 | `Lift.refresh`'s exported type declared five parameters against a six-parameter implementation. | typed, with the `originOf` note |
+| Important 3 | **the oracle's cost, measured.** `time_specs`: `host_space_oracle.spec` **8,347.8 ms** vs `THRESHOLD_MS` 1200 (`translate_host.spec` 429.2 ms, under). Added to `tiers.SLOW` with the number and the reason. AND cut per ruling T3-1: control arms `b`/`d` on THREE views, comparison arms `a`/`c`/`e` on all nine, split stated in the spec header. | **8,348 → 6,265 ms**; full suite wall **342 s**; `check_tier_costs` no longer flags it |
+| Minor 5 | `Ctx.spaceCompositions` was never pruned — a host whose composition unmounted kept paying a full subtree walk for the surface's life. Pruned WHERE IT IS FILLED (the origin rebind, i.e. "the body is about to place its children"); not in the wrapper, because the body can return before that line and a host that never ran it learned nothing. | new pin: a real `When` flipping the composition off, `lastArranged` read on both sides |
+| Minor 6 | the `noSkipDepth` note claimed such a host "skips at its own top", which it cannot — the wrapper raises the depth BEFORE `arrangeBody`. | comment now states the cost it actually is |
+| Minor 8 | `rect_pass.apply` bumped the epoch only before the writes, so the invariant held by call order. | second bump after the last `applyOne`; the ctx doc says TWICE and why |
+| Controller finding | `b356f8a6` tracked four `.superpowers/sdd/` files (commit_isolated stages by explicit path and does not consult that directory's `.gitignore`). | `git rm --cached` all four (they stay on disk); `check_public_allowlist` PASS |
+
+```
+$ lune run tests/run                      8332 passed, 0 failed   (wall 342s)
+$ tools/test.sh 8328                      test: PASS passed=8332
+$ python3 tools/check_source_size.py      PASS — solver 195,714, renderer 196,425
+$ python3 tools/check_brand_drift.py      PASS
+$ python3 tools/check_comment_codes.py    PASS — 0 orphans
+$ python3 tools/check_public_allowlist.py PASS (every tracked path is allowed)
+$ stylua --check src tests tools bench examples   clean
+$ RascalRally ./run-tests.sh              3580 passed, 0 failed
+$ lune run tools/lune/check_tier_costs    28 problems, ALL PRE-EXISTING drift
+                                          (perf_lab 24,204 recorded vs 78,106 measured;
+                                          theme_drift 96% off; translate_arm,
+                                          commit_translate, anchor_arrange and a dozen
+                                          others over threshold and unexcluded since
+                                          before this campaign). Neither spec this task
+                                          added appears: `host_space_oracle` is now
+                                          excluded, `translate_host` is under threshold.
+                                          It is not a verify producer — `graph.json`
+                                          references it only as a file-existence test —
+                                          so its exit code gates nothing today.
+```
+
+**Deferred, untouched as instructed:** minors 7, 9, 10, 11.
+
+**Note for the next round:** `check_tier_costs`'s 28 pre-existing drift problems are
+a standing measurement debt across the whole tier record, not this task's. The
+`artifacts/spec-timings.json` in the tree is now fresh (338 specs, 8,332 cases,
+342.8 s), so re-recording `tiers.SLOW` wholesale from it is cheap whenever someone
+wants that row green.
