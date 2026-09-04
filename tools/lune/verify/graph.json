@@ -7817,7 +7817,7 @@
      "native_scroll::A-SV2: the keep-visible clamp exists exactly once::the renderer's substrate and the index path agree on the same geometry",
      "native_scroll::A-SV2: the keep-visible clamp exists exactly once::returns nil rather than a no-op scroll"
     ],
-    "shell": "grep -q \"function solver.keepVisibleOffset\" src/layout/solver.luau && grep -q \"keepVisibleOffset\" src/render/renderer.luau && grep -q \"keepVisibleOffset\" src/controls/virtual_list.luau && grep -q \"keepVisibleOffset\" src/controls/table.luau"
+    "shell": "grep -q \"function solver.keepVisibleOffset\" src/layout/solver.luau && grep -q \"keepVisibleOffset\" src/controls/virtual_list.luau && grep -q \"keepVisibleOffset\" src/controls/table.luau && grep -q \"keepVisibleOffset\" src/render/scroll_into_view.luau"
    },
    "class": "result-ids",
    "evidence": "artifacts/authoring-adaptive-ui/a-sv2-substrate-consolidation.json",

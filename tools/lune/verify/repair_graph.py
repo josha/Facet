@@ -171,6 +171,25 @@ CLAUSE_REPAIRS = {
             "rename instead",
         ),
     ],
+    #[[ A CLAUSE THAT NAMES A FILE THE RENDERER SPLIT OUT FROM UNDER IT.
+    #   `renderer.luau` was 242,943 characters and has shed seam after seam since;
+    #   `tests/lib/renderer_source.luau`'s PARTS header is the list. The
+    #   scroll-into-view family left for `render/scroll_into_view.luau`, and the
+    #   clamp's ONE renderer-side call went with it -- so a grep aimed at
+    #   `renderer.luau` stopped seeing the code it names. This is the same
+    #   assertion, re-pointed at the part that now carries the call; the other
+    #   three clauses (the definition in the solver, and the two control-side
+    #   consumers) are untouched. ]]
+    "native-substrate::keep-visible-consolidation": [
+        (
+            'grep -q "keepVisibleOffset" src/render/renderer.luau',
+            'grep -q "keepVisibleOffset" src/render/scroll_into_view.luau',
+            "the renderer's scroll-into-view family was extracted to "
+            "`src/render/scroll_into_view.luau`, and the clamp's only renderer-side call "
+            "(`solver.keepVisibleOffset` at scroll_into_view.luau:120) moved with it; the clause "
+            "asserts the same thing about the same code, at the file that now holds it",
+        ),
+    ],
     "parity-round-2::traversal-evidence-red-carried": [("__RED_CARRIED__", "traversal-document-order::studio-evidence", None)],
     "parity-round-3::traversal-evidence-red-carried": [("__RED_CARRIED__", "traversal-document-order::studio-evidence", None)],
     "parity-round-4::theme-sync-red-carried": [("__RED_CARRIED__", "theme-packages-and-skinning::style-editor-sync", None)],
