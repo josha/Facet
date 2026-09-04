@@ -586,20 +586,23 @@ type Ctx = {
 		the ones holding a `UI.Composition`, and the suspend depth that set drives.
 
 		A composition's RESOLUTION is a function of its WINDOW origin: author
-		`exclusions` are window-space rects converted into its box. Under a
-		coordinate space that origin moves when the HOST moves while nothing beneath
-		the host moves in its own space — so both the SKIP and the arm would leave it
-		resolved at the position before last. Measured: a reactive-`offsetY` ZStack
-		holding a Composition excluded `{0,0,200,200}` placed its region 7px low
-		after one slide. `noSkipDepth` suspends both for such a subtree, which then
-		takes an ordinary arrange; it is paid only where it is owed, because a host
-		that did not move skips at its own top and never runs its body.
+		`exclusions` are window-space rects converted into its box. Under a coordinate
+		space that origin moves when the HOST moves while nothing beneath it moves in
+		its own space — so both the SKIP and the arm would leave it resolved at the
+		position before last. Measured: a reactive-`offsetY` ZStack holding a
+		Composition excluded `{0,0,200,200}` placed its region 7px low after one
+		slide. `noSkipDepth` suspends both for such a subtree.
 
-		The set is carried from the previous solve's work record the same way `out`
-		is carried from its rect map — a solve that skipped the subtree did not
-		re-observe the composition and must not forget it — and EVERY host above the
-		composition is marked, since an outer one taking the shortcut would never
-		re-enter the inner. ]]
+		WHAT THAT COSTS: the wrapper raises it BEFORE `arrangeBody`, so such a host
+		cannot skip at its own top either — every solve that reaches it walks its
+		whole subtree. Only a host holding a composition pays it.
+
+		The set is carried from the previous solve's work record the way `out` is
+		carried from its rect map — a solve that skipped the subtree did not re-observe
+		the composition and must not forget it — and EVERY host above one is marked,
+		since an outer taking the shortcut would never re-enter the inner. IT IS
+		PRUNED WHERE IT IS FILLED: the origin rebind clears a host's own entry as its
+		body starts, so a composition that unmounts stops re-marking it. ]]
 	spaceStack: { string },
 	spaceCompositions: { [string]: boolean },
 	noSkipDepth: number,
@@ -2353,9 +2356,8 @@ local function arrangeBody(ctx: Ctx, node: Node, rect: Rect, out: { [string]: an
 				`node.id` and `render/rect_pass` looks it up by `node.path`. They coincide
 				today; if they stop, this write and that read are the pair to fix.
 
-				A host holding a COMPOSITION never reaches this branch: the wrapper raises
-				`ctx.noSkipDepth` around its body, so the block that sets `tdx` did not
-				run. See `Ctx.spaceCompositions`. ]]
+				A host holding a COMPOSITION never reaches here: the wrapper raised
+				`ctx.noSkipDepth`, so the block that sets `tdx` did not run. ]]
 			ctx.translatedRoots[node.id] = { dx = dx, dy = dy, from = from, to = from - 1 }
 			return
 		end
@@ -2407,6 +2409,11 @@ local function arrangeBody(ctx: Ctx, node: Node, rect: Rect, out: { [string]: an
 		first read of `rect.x`/`rect.y` and no later read of either survives. ]]
 	if node.hostSpace == true then
 		rect = { x = 0, y = 0, w = rect.w, h = rect.h }
+		-- ...AND `spaceCompositions` IS PRUNED HERE, because this line IS "the body is
+		-- about to place its children": a composition still under it re-marks below,
+		-- one that unmounted does not. Not in the WRAPPER — the body can return before
+		-- here (the skip, the arm), and a host that never ran it learned nothing.
+		ctx.spaceCompositions[node.id] = nil
 	end
 	local pt, pr, pb, pl = sides(node.padding)
 	local innerX, innerY, innerW, innerH = placementLib.innerBox(rect.x, rect.y, rect.w, rect.h, pt, pr, pb, pl)

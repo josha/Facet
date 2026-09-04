@@ -83,7 +83,16 @@ end
 export type Lift = {
 	any: boolean,
 	after: { [string]: { [string]: boolean } },
-	refresh: (rects: any, hitRects: any, sinks: any, parentNodeOf: any, hidden: any) -> boolean,
+	-- `originOf` composes a path's COORDINATE-SPACE origin over THIS solve's `rects`
+	-- (Plan C, C1); see the implementation's own note for why it is not `lastRects`
+	refresh: (
+		rects: any,
+		hitRects: any,
+		sinks: any,
+		parentNodeOf: any,
+		hidden: any,
+		originOf: (string) -> (number, number)
+	) -> boolean,
 	order: (children: { any }) -> { any },
 	touches: (children: { any }) -> boolean,
 	clear: () -> (),

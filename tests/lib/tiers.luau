@@ -68,6 +68,19 @@ tiers.SLOW = {
 		why = "the performance lab itself: 2 000- and 20 000-row mounts, a nine-workload sweep, and one case that walks a whole collection at every phone width (7.1 s on its own)",
 	},
 	{
+		--[[ MEASURED 2026-09-04 with `lune run tools/lune/time_specs`: 8,348 ms as
+			written, 6,265 ms after the controller's cost ruling narrowed the two
+			CONTROL arms (`b` the memo off, `d` the commit prune off) to three device
+			views while the three that carry the comparison — the shipped arm, the
+			forced full solve, and the world with no coordinate-space hosts — keep the
+			nine-view matrix. It is a DEVICE-MATRIX ORACLE and will always be over the
+			threshold; the exclusion is not a licence to spend time nothing reads, which
+			is why the narrowing happened anyway. ]]
+		spec = "host_space_oracle.spec",
+		ms = 6265,
+		why = "the coordinate-space differential: five arms x four fixtures x nine device views x 24 steps, comparing every public read, the engine position, the focus record and the diagnostics after every one",
+	},
+	{
 		spec = "example_drift.spec",
 		ms = 4416,
 		why = "source scanner: re-reads and re-lints the whole tutorial example tree once per case, plus once per injected negative control",

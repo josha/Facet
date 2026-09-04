@@ -150,6 +150,12 @@ function instance_boundary.createOptsFor(node: any, opts: any?): CreateOpts?
 		subtree relative to a parent the adapter never made, or absolutely under one
 		it did. Whoever asks first fixes it, which is also exactly the "fixed for the
 		node's lifetime" property this flag is documented to have. ]]
+	--[[ `false` IS A MEMOISED ANSWER, not an absent one, and writing it is the point:
+		a `nil` left here would let a container that was EMPTY when it was first asked
+		re-evaluate to `true` after the adapter had already registered no host for it,
+		and the solver would then store its subtree relative to a parent that does not
+		exist. This function is the ONLY writer of the field for that reason — nothing
+		stamps over it. ]]
 	local decided = node.hostSpace
 	if decided == nil then
 		local dyn = node.dynamicProps

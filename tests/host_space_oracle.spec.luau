@@ -33,7 +33,29 @@
 	at `setRect`, and under Plan C a host move produces exactly ONE `setRect`. An
 	instrument that compares two arms cannot see that; one that compares the fake's
 	composed position against the public reader can, and it emits `POSMISMATCH` into
-	the line when it fails. ]]
+	the line when it fails.
+
+	WHAT THIS COSTS, AND WHERE THE COST IS SPENT (controller ruling T3-1, measured
+	2026-09-04 with `lune run tools/lune/time_specs`: 8,347.8 ms across four cases,
+	against a fast-tier threshold of 1,200). Five arms x four fixtures x nine device
+	views x 24 steps is more matrix than the question needs, and the four arms are
+	not worth the same:
+
+	  a  the shipped configuration                     ALL NINE VIEWS
+	  c  both solver halves off — a forced full solve  ALL NINE VIEWS
+	  e  NO coordinate-space hosts — the pre-Plan-C world  ALL NINE VIEWS
+	  b  the measure memo off                          THREE VIEWS
+	  d  the commit prune off — the pre-P4 build       THREE VIEWS
+
+	`a`/`c`/`e` are the comparison this task exists for — the change against a full
+	solve and against a world without it — and the device matrix is where a
+	viewport-dependent origin would show. `b` and `d` vary machinery AROUND the
+	change, and a divergence in either is a property of the machinery rather than of
+	the view: three views (the first, the 320x640 narrow portrait, and the desktop
+	standard) span the shapes those two arms can differ on. This file remains in
+	`tests/lib/tiers.luau`'s fast-tier exclusions either way — it is a device-matrix
+	oracle and always will be over the threshold — but the exclusion is not a licence
+	to spend time nothing reads. ]]
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 local scene = require("./lib/nameplates_scene")
@@ -43,19 +65,33 @@ local device_views = require("./lib/device_views")
 -- it is per-plate identical, so 20 plates exercises every branch 250 does.
 local ORACLE_PLATES = 20
 
+--[[ THE THREE VIEWS THE CONTROL ARMS RUN ON (ruling T3-1). The first of the
+	matrix, the narrowest portrait and the widest desktop: the shapes `b` (memo off)
+	and `d` (commit prune off) can differ on are properties of the machinery, not of
+	the viewport, and these three span the extremes anyway. Named by ID rather than
+	by index so a change to `device_views.VIEWS`' order cannot silently narrow it. ]]
+local CONTROL_VIEWS: { [string]: boolean } = {
+	[device_views.VIEWS[1].id] = true,
+	["narrow-portrait"] = true,
+	["desktop-standard"] = true,
+}
+
 local function arms(view: any, opts: any): (any, any, any, any, any)
 	local base = table.clone(opts or {})
 	base.viewport = { x = 0, y = 0, w = view.w, h = view.h }
 	local a = table.clone(base) -- everything ON: the shipped configuration
-	local b = table.clone(base)
-	b.measureReuse = false
 	local c = table.clone(base)
 	c.measureReuse = false
 	c.incremental = false -- both solver halves off: a forced full solve, no translate
-	local d = table.clone(base)
-	d.commitScope = false -- the pre-P4 build: every walk descends and writes
 	local e = table.clone(base)
 	e.hosts = false -- NO coordinate-space hosts: the pre-Plan-C world
+	if not CONTROL_VIEWS[view.id] then
+		return scene.new(a), nil, scene.new(c), nil, scene.new(e)
+	end
+	local b = table.clone(base)
+	b.measureReuse = false
+	local d = table.clone(base)
+	d.commitScope = false -- the pre-P4 build: every walk descends and writes
 	return scene.new(a), scene.new(b), scene.new(c), scene.new(d), scene.new(e)
 end
 
@@ -73,21 +109,27 @@ describe("C1 oracle: a coordinate space moves no public number, every view, ever
 			for _, view in device_views.VIEWS do
 				local a, b, c, d, e = arms(view, fixture)
 				local label = `{fixture.name}/{view.id}`
-				-- every arm is DRIVEN on every step: an arm that skips a drive falls out
-				-- of sync and the next comparison is about the drive it missed
+				-- `b` and `d` are nil off the three control views (see `CONTROL_VIEWS`);
+				-- an arm that is present is DRIVEN on every step, because an arm that
+				-- skips a drive falls out of sync and the next comparison is about the
+				-- drive it missed
 				local function step(what: string, compareB: boolean, drive: (any) -> ())
 					drive(a)
-					drive(b)
 					drive(c)
-					drive(d)
 					drive(e)
+					if b ~= nil then
+						drive(b)
+					end
+					if d ~= nil then
+						drive(d)
+					end
 					if a.snapshot() ~= c.snapshot() then
 						error(`{label}: {what} diverged from a FULL solve`, 0)
 					end
-					if a.snapshot() ~= d.snapshot() then
+					if d ~= nil and a.snapshot() ~= d.snapshot() then
 						error(`{label}: {what} diverged from an UNPRUNED commit`, 0)
 					end
-					if compareB and a.snapshot() ~= b.snapshot() then
+					if compareB and b ~= nil and a.snapshot() ~= b.snapshot() then
 						error(`{label}: {what} diverged from the memo-less solve`, 0)
 					end
 					if a.publicSnapshot() ~= e.publicSnapshot() then
@@ -115,7 +157,7 @@ describe("C1 oracle: a coordinate space moves no public number, every view, ever
 				if a.snapshot() ~= c.snapshot() then
 					error(`{label}: diverged from a FULL solve at mount`, 0)
 				end
-				if a.snapshot() ~= d.snapshot() then
+				if d ~= nil and a.snapshot() ~= d.snapshot() then
 					error(`{label}: diverged from an UNPRUNED commit at mount`, 0)
 				end
 				if a.publicSnapshot() ~= e.publicSnapshot() then
@@ -152,10 +194,14 @@ describe("C1 oracle: a coordinate space moves no public number, every view, ever
 					end)
 				end
 				a.dispose()
-				b.dispose()
 				c.dispose()
-				d.dispose()
 				e.dispose()
+				if b ~= nil then
+					b.dispose()
+				end
+				if d ~= nil then
+					d.dispose()
+				end
 			end
 		end)
 	end

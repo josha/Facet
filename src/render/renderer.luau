@@ -949,12 +949,13 @@ function renderer.attach(
 			-- boundary predicate and lives in `render/instance_boundary` — the one
 			-- predicate the nested-tree migration changes, and the reason it has a
 			-- module rather than two branches in the busiest function here.
+			--[[ ...AND THIS CALL IS ALSO WHERE `node.hostSpace` IS DECIDED. The predicate
+				MEMOISES its coordinate-space answer on the mounted node, because
+				`render/layout_node` asks the same question and neither caller is
+				guaranteed to ask first. There is deliberately no stamp here: a second
+				writer of that field would overwrite a memoised `false` with `nil` and let
+				the answer change under a node the adapter had already registered. ]]
 			local createOpts: any = instance_boundary.createOptsFor(node, opts)
-			-- ...AND WHETHER THAT HOST IS A COORDINATE SPACE, stamped here because that
-			-- module decides it; `layout_node` copies it onto the solver's node. A warm
-			-- node-store hit skips that literal — fine, the flag is fixed for a node's
-			-- life and a REMOUNT builds all three afresh.
-			node.hostSpace = if createOpts ~= nil and createOpts.hostSpace == true then true else nil
 			local hint = chrome_slots.readHint(node)
 			-- A STAGE IS NEVER A DECORATION SURFACE (reference-app matrix,
 			-- 2026-08-08). An ornate package's whole-art recipe painted its

@@ -63,8 +63,9 @@ local rect_pass = {}
 	  stats           the renderer's counters, by reference
 	  rectsEqual      the pure rect comparison
 	  invalidateOrigins  bump the geometry origin epoch (`render/rect_reads`), called
-	                  once per `apply`; optional, so a caller with no coordinate-space
-	                  hosts (or a test ctx) may omit it
+	                  TWICE per `apply` — before the writes and after the last one, so
+	                  a read taken from inside the span cannot memoise a half-written
+	                  map; optional, so a test ctx may omit it
 	  scope           the commit's prune (P4), from `render/commit_walks`:
 	                  `skip(node)` -> may this subtree be left alone, `note(node)` ->
 	                  record what it was committed with, `armed()` -> is the prune on
@@ -122,7 +123,8 @@ function rect_pass.new(ctx: any)
 			inside `applyOne`, which is both the hot loop and only ONE of that map's
 			three writers (`restoreParkedProps` and the translate lane are the others,
 			and each bumps it too). A blunt per-commit bump is cheaper than a hot-loop
-			branch and impossible to hook incompletely. ]]
+			branch and impossible to hook incompletely. The matching bump after the last
+			write is at the bottom of this function. ]]
 		if invalidateOrigins ~= nil then
 			invalidateOrigins()
 		end
@@ -258,6 +260,17 @@ function rect_pass.new(ctx: any)
 		-- like every other optional adapter capability.
 		if adapter.settleRects ~= nil then
 			adapter.settleRects()
+		end
+		--[[ THE SECOND BUMP, AND IT IS WHAT MAKES THE INVARIANT HOLD BY CONSTRUCTION.
+			The one at the top of this pass answers "nothing cached before this commit
+			survives it"; this one answers "nothing cached DURING it survives either" —
+			because a `rectOf` called from inside the span (a `feedGeometry` consumer, a
+			settle-phase reader, an `onAppear` hook) would otherwise memoise an origin
+			composed from a `lastRects` this loop was still halfway through rewriting.
+			Two integer increments per commit, and the property stops depending on the
+			order two unrelated call sites happen to run in. ]]
+		if invalidateOrigins ~= nil then
+			invalidateOrigins()
 		end
 		-- the eighth walk's share (wicked-fast T2): the sweep above and the
 		-- deferred re-base both write through `applyOne`/the adapter directly and

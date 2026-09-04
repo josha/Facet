@@ -25,6 +25,7 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 local scene = require("./lib/nameplates_scene")
+local fs = require("@lune/fs")
 
 local UI = require("../src/blueprint")
 local mountLib = require("../src/mount")
@@ -664,6 +665,150 @@ describe("translate host: the reader audit, one pin per reader that had to chang
 		expect(`y={a.controller.screenRectOf("/S/A/Wrap").y}`).toBe("y=61")
 		a.dispose()
 		e.dispose()
+	end)
+
+	--[[ THE DECISION IS MADE ONCE AND BY ONE WRITER (fix round 1, Important 1).
+		`instance_boundary.createOptsFor` MEMOISES its coordinate-space answer on the
+		mounted node, because `render/layout_node` asks the same question and neither
+		caller is guaranteed to ask first. `false` is a memoised answer, not an absent
+		one: a container that is EMPTY when it is first asked must stay a non-host for
+		its life, or it would re-evaluate to `true` after the adapter had already
+		registered nothing and the solver would store its subtree relative to a parent
+		that does not exist — every rect under it wrong by the origin.
+
+		THE SHAPE IS THE `When` THE KNOWN LIMIT NAMES: a container that mounts with no
+		children and gains them later. Both sides must agree afterwards, which is what
+		the two assertions are — the ADAPTER (no host registered) and the SOLVER (the
+		child's stored rect is still absolute). ]]
+	it("a container empty at its first ask stays a NON-host after it gains children", function()
+		--[[ DRIVEN ON THE PREDICATE ITSELF, because that is where the decision is made
+			and where the bug was. A mounted tree is built whole before `ensureTree`
+			walks it, so "empty at the first ask" is not a shape a blueprint can be
+			authored into — it is a shape the ORDER of the two callers produces, and the
+			memo is what makes the order stop mattering. Asking the function directly is
+			the only instrument that can put the two asks in that order on purpose. ]]
+		local boundary = require("../src/render/instance_boundary")
+		local empty: any = {
+			class = "VStack",
+			props = {},
+			dynamicProps = { offsetX = true },
+			children = {},
+		}
+		expect(`empty asks -> {tostring(boundary.createOptsFor(empty))}`).toBe("empty asks -> nil")
+		expect(`memoised={tostring(empty.hostSpace)}`).toBe("memoised=false")
+		-- ...and NOW it gains children. The answer must not change: the adapter has
+		-- already been told there is no host here.
+		empty.children = { { class = "Box" } }
+		expect(`after children -> {tostring(boundary.createOptsFor(empty))}`).toBe("after children -> nil")
+		expect(`still={tostring(empty.hostSpace)}`).toBe("still=false")
+
+		--[[ ...AND THERE IS EXACTLY ONE WRITER OF THE FIELD, which is what makes the
+			memo hold. `renderer.ensureTree` used to stamp it too and stamped `nil` over
+			the memoised `false`, which is precisely how the answer could change. The
+			source pin is the guard: a second writer reintroduces the defect and nothing
+			else in the suite would see it, because it needs the two asks in one order. ]]
+		local rendererSrc = fs.readFile("src/render/renderer.luau")
+		local layoutNodeSrc = fs.readFile("src/render/layout_node.luau")
+		local boundarySrc = fs.readFile("src/render/instance_boundary.luau")
+		local function writes(source: string): number
+			local n = 0
+			for _ in string.gmatch(source, "node%.hostSpace%s*=[^=]") do
+				n += 1
+			end
+			return n
+		end
+		expect(`renderer writes={writes(rendererSrc)}`).toBe("renderer writes=0")
+		expect(`layout_node writes={writes(layoutNodeSrc)}`).toBe("layout_node writes=0")
+		expect(`boundary writes={writes(boundarySrc)}`).toBe("boundary writes=1")
+		-- NEGATIVE CONTROL: the scan really does see a write
+		expect(`control={writes("\n\tnode.hostSpace = true\n")}`).toBe("control=1")
+	end)
+
+	--[[ A COMPOSITION THAT LEAVES GIVES THE SHORTCUT BACK (fix round 1, minor 5).
+		`Ctx.spaceCompositions` marks every coordinate-space host above a composition,
+		and such a host suspends BOTH the skip and the translate arm for its own body —
+		because a composition's resolution is a function of the window origin the host
+		itself moves. Left unpruned, a host whose composition unmounts would carry that
+		cost for the surface's life. It is pruned where it is filled: the origin rebind
+		clears the host's own entry as its body starts, so a composition that is gone
+		stops re-marking it. `lastArranged` is the instrument — with the composition
+		standing the host walks its whole subtree, without it the host records an empty
+		run and arranges nothing beneath it. ]]
+	it("a composition that unmounts lets its host take the move-only shortcut again", function()
+		local st = { on = nil :: any, slide = nil :: any }
+		local w = world(function(core: any): any
+			st.on = core:signal(true)
+			st.slide = core:signal(0)
+			return UI.Screen({
+				id = "S",
+				children = {
+					UI.Anchor({
+						id = "A",
+						width = fill(),
+						height = fill(),
+						children = {
+							UI.ZStack({
+								id = "Wrap",
+								anchor = "topLeft",
+								offsetX = core:signal(0),
+								offsetY = st.slide,
+								width = px(400),
+								height = px(300),
+								children = {
+									UI.When({
+										id = "Gate",
+										condition = st.on,
+										thenView = function()
+											return UI.Composition({
+												id = "Comp",
+												arrangements = { "column" },
+												laneGap = 12,
+												groupGap = 8,
+												width = px(400),
+												height = px(300),
+												exclusions = { { x = 0, y = 0, w = 200, h = 200 } },
+												groups = {
+													{ id = "main", lane = "main", sizing = "fill", minWidth = 120 },
+												},
+												children = {
+													UI.Region({
+														id = "R1",
+														group = "main",
+														rank = 1,
+														children = {
+															UI.Box({ id = "r1a", width = px(100), height = px(40) }),
+														},
+													}),
+												},
+											})
+										end,
+									}),
+								},
+							}),
+						},
+					}),
+				},
+			})
+		end)
+		local function slideTo(v: number): number
+			st.slide:set(v)
+			w.refresh()
+			return (w.controller.stats() :: any).lastArranged
+		end
+		slideTo(7) -- warm: the first drive after mount is the fill pass
+		local withComposition = slideTo(23)
+		-- the host really is a coordinate space, and it really is walking its subtree
+		expect(`space={tostring(w.adapter.hostOf("/S/A/Wrap/Gate/then/Comp").hostSpace == true)}`).toBe("space=true")
+		expect(`walks its subtree={withComposition > 3}`).toBe("walks its subtree=true")
+
+		st.on:set(false)
+		w.refresh()
+		expect(w.adapter.node("/S/A/Wrap/Gate/then/Comp")).toBeNil()
+		slideTo(41) -- the structural solve is not the measurement; the next move is
+		local withoutComposition = slideTo(59)
+		expect(`shortcut back={withoutComposition < withComposition}`).toBe("shortcut back=true")
+		expect(w.core:lastError()).toBeNil()
+		w.dispose()
 	end)
 
 	--[[ (i) THE FAKE'S COMPOSED POSITION DOES NOT GO STALE. Under Plan C a host move
