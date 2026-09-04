@@ -345,6 +345,78 @@ describe("WHICH NODES ARE REAL PARENTS, through the renderer that decides it", f
 		root.dispose()
 	end)
 
+	--[[ ...AND THE `scale`/`rotation` TRIGGER IS A PLAIN HOST, NOT A COORDINATE
+		SPACE (Plan C ruling R-2, measured 2026-09-04 rather than assumed).
+
+		TRANSLATE HOSTS ONLY was ruled, and then TRIED: `hostSpace = true` was added
+		to the `scale`/`rotation` branch above (a one-line edit) and the whole suite
+		stayed green at 8,332/0, the elision census printed byte-identical numbers,
+		and `attr` on `battle_hud`/`killfeed_nameplates` moved inside run-to-run
+		noise — because no FacetBench workload authors a `scale` or a `rotation` at
+		all. Not one of those instruments could see it. What the change actually did
+		was break the public geometry: with it applied, this case's `Kid` reads
+		`rectOf = 0,0` under a host at `25,25`.
+
+		THE MECHANISM, because it is the interesting half. The flag has ONE writer —
+		the memo at the bottom of `createOptsFor` — and the `scale`/`rotation` branch
+		returns ABOVE it. So `layout_node.hostSpaceOf` (which re-asks `createOptsFor`)
+		saw `true` and stored the subtree relative, while `renderer`'s reader walk
+		(which reads the memoised `node.hostSpace`) saw `nil` and composed no origin
+		back. Two readers of one fact, disagreeing — exactly the split T3's fix round
+		closed, re-opened by moving a return.
+
+		And even with one writer it would still be wrong: composing a host origin is
+		an ADDITION, which is not the inverse of a rotate-and-scale. `rotation` and
+		`scale` are presentation terms the engine composes down a subtree on its own;
+		a translate is the one that arithmetic can undo. So this stays two triggers
+		with two different answers, and this case is what says so. ]]
+	it("a scale/rotation host is a real parent but NOT a coordinate space", function()
+		local core = customFactory.new()
+		local env = environment.new(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 600 })
+		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
+		local root = mountLib.mount(
+			core,
+			UI.Screen({
+				id = "S",
+				padding = 25,
+				gap = 0,
+				children = {
+					UI.ZStack({
+						id = "Rot",
+						rotation = 30,
+						scale = 1.5,
+						children = {
+							UI.Box({
+								id = "Kid",
+								surface = "raised",
+								width = { type = "fixed", px = 80 },
+								height = { type = "fixed", px = 40 },
+							}),
+						},
+					}),
+				},
+			})
+		)
+		local adapter = fake_target.new()
+		local controller = rendererLib.attach(core, root, env, adapter, { rootPolicy = "edgeToEdge" })
+		controller.initialRender()
+		local entry = adapter.hostOf("/S/Rot/Kid")
+		expect(`host={adapter.isHost("/S/Rot")} space={tostring(entry ~= nil and entry.hostSpace == true)}`).toBe(
+			"host=true space=false"
+		)
+		--[[ THE NUMBER THE FLAG WOULD HAVE MOVED, and it is the whole reason this
+			case exists: the child's stored rect IS its window rect under a
+			presentation-only host, so every public read answers the host's own
+			origin. Unifying the two triggers reads `0,0` here. ]]
+		local kid = controller.rectOf("/S/Rot/Kid")
+		local rot = controller.rectOf("/S/Rot")
+		expect(`kid={kid.x},{kid.y} rot={rot.x},{rot.y}`).toBe("kid=25,25 rot=25,25")
+		expect(`stored={adapter.node("/S/Rot/Kid").storedRect.x}`).toBe("stored=25")
+		controller.dispose()
+		root.dispose()
+	end)
+
 	it("...and `translateHosts = false` turns the fifth trigger off and nothing else", function()
 		local core = customFactory.new()
 		local env = environment.new(core)
