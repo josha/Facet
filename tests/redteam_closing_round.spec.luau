@@ -630,8 +630,13 @@ describe("RED-TEAM 3: the paint erasers agree with each other", function()
 		expect(contains(body, 'if child:IsA("UICorner") then')).toBe(true)
 		-- the single-child form is what was wrong; the RESTORE path below it still
 		-- reuses one instance on purpose (same identity, new radius), so the pin is
-		-- on the teardown branch only
-		expect(contains(body, 'local existing = instance:FindFirstChildOfClass("UICorner")')).toBe(false)
+		-- on the teardown branch only — sliced to it, so the single-child CALL
+		-- bites (the first pin named a variable the file never had: vacuous; the
+		-- bare method name is in that branch's own comment, so pin the call shape)
+		local teardown =
+			sectionUntil(body, "if restored == nil then", "local uiCorner = instance:FindFirstChildOfClass")
+		expect(contains(teardown, "for _, child in instance:GetChildren() do")).toBe(true)
+		expect(contains(teardown, 'instance:FindFirstChildOfClass("UICorner")')).toBe(false)
 	end)
 
 	it("every eraser on this instance sweeps GetChildren, and there are three of them", function()
