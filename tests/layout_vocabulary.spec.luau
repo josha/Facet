@@ -221,7 +221,7 @@ local function render(bp: any, w: number, h: number)
 	env:set("viewportRect", { x = 0, y = 0, w = w, h = h })
 	env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
 	local root = mountLib.mount(core, bp)
-	local adapter = fake_target.new()
+	local adapter = fake_target.new({ ops = true })
 	local controller = rendererLib.attach(core, root, env, adapter, { rootPolicy = "edgeToEdge" })
 	controller.initialRender()
 	return adapter, controller, root

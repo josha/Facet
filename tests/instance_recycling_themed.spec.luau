@@ -55,7 +55,7 @@ local function hintedWorld(recycle: boolean)
 	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = VIEWPORT.w, h = VIEWPORT.h })
 	local system = Facet.newActionSystem(core)
-	local adapter = fake_target.new()
+	local adapter = fake_target.new({ ops = true })
 	local pres = Facet.newPresenter(core, env, adapter, system)
 	local rows = core:signal(makeItems(400))
 	local list = virtual_list.build(Facet, core, {
@@ -180,7 +180,7 @@ describe("adopt refuses a decoration-hint mismatch (the fake mirrors the live ru
 	-- re-plans it. Refusal — not re-planning — is the ruling: a re-plan is a
 	-- rebuild, which costs what a fresh create costs, so there is nothing to win.
 	it("refuses when the hint content differs", function()
-		local adapter = fake_target.new() :: any
+		local adapter = fake_target.new({ ops = true }) :: any
 		local root = adapter.createRoot("S")
 		local h = adapter.create(root, "/S/a", "Button", { slot = "control", icon = "gear" })
 		expect(adapter.park(h)).toBe(true)
@@ -188,7 +188,7 @@ describe("adopt refuses a decoration-hint mismatch (the fake mirrors the live ru
 	end)
 
 	it("refuses across hinted and bare, in both directions", function()
-		local adapter = fake_target.new() :: any
+		local adapter = fake_target.new({ ops = true }) :: any
 		local root = adapter.createRoot("S")
 		local hinted = adapter.create(root, "/S/a", "Button", { slot = "control" })
 		expect(adapter.park(hinted)).toBe(true)
@@ -202,7 +202,7 @@ describe("adopt refuses a decoration-hint mismatch (the fake mirrors the live ru
 		-- two window slides build two hint tables; equal content must adopt, or
 		-- the whole themed prize is refused at the adapter after the renderer's
 		-- bucket already matched
-		local adapter = fake_target.new() :: any
+		local adapter = fake_target.new({ ops = true }) :: any
 		local root = adapter.createRoot("S")
 		local h = adapter.create(root, "/S/a", "Button", { slot = "control", icon = "gear", iconSize = "small" })
 		expect(adapter.park(h)).toBe(true)

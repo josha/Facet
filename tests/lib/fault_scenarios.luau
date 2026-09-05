@@ -379,12 +379,15 @@ end
 
 -- ============================ input switch ===========================
 
-local function inputSwitchCase(rng: any)
+-- `ops` arms the fake target's op log (T12, default off per ruling A-11);
+-- nothing calls this with a second argument today (`fuzz.run` invokes
+-- `case(rng)` alone), so the pass-through exists for a future caller.
+local function inputSwitchCase(rng: any, ops: boolean?)
 	local Facet = require("../../src") :: any
 	local core = Facet.newCore()
 	local env = Facet.newEnvironment(core)
 	local system = Facet.newActionSystem(core)
-	local adapter = fake_target.new()
+	local adapter = fake_target.new({ ops = ops == true })
 	local hint = core:memo(function(use)
 		local preferred = use(env:get("preferredInput"))
 		return if preferred == "Touch" then "Tap" else "Press"
@@ -544,12 +547,16 @@ end
 
 -- verifier F3: dismissing a NON-top presented screen must remove ITS focus
 -- scope, leaving the top scope (the modal) active and reachable
-local function presenterDismissNonTop(_iterations: number)
+-- `ops` arms the fake target's op log (T12, default off per ruling A-11);
+-- nothing calls this with a second argument today (the fault table's `run`
+-- field is `presenterDismissNonTop` itself, invoked as `run(iterations)`), so
+-- the pass-through exists for a future caller.
+local function presenterDismissNonTop(_iterations: number, ops: boolean?)
 	local Facet = require("../../src") :: any
 	local core = Facet.newCore()
 	local env = Facet.newEnvironment(core)
 	local system = Facet.newActionSystem(core)
-	local adapter = fake_target.new()
+	local adapter = fake_target.new({ ops = ops == true })
 	local pres = Facet.newPresenter(core, env, adapter, system)
 	local base = pres.present(Facet.UI.Screen({
 		id = "Base",

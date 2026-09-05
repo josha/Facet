@@ -890,6 +890,15 @@ require("./structural_incremental.spec")
 	moved — so the differential against a from-scratch walk is the RANKING rather than
 	the values, because gaps are free and a re-numbered tail is not owed ]]
 require("./zorder_bounded.spec")
+--[[ T12 (Plan C levers): the headless target stops being the measurement. The op
+	log is opt-in (`fake_target.new({ ops = true })`, `adapter.ops()` refuses when
+	unarmed), and a coordinate-space host's move recomposes its subtree off a
+	parent->children index instead of an O(hosts x nodes) prefix scan of the whole
+	map. The characterisation pin freezes the set the OLD scan recomposed, across
+	the sibling-that-looks-like-a-child case and an `adopt` re-key, before the walk
+	is re-derived — this file is the oracle that a fast path owes the slow path's
+	own list. ]]
+require("./fake_target_ops_opt.spec")
 -- row actions: pure swipe state decisions for row-action composites
 require("./row_actions_state.spec")
 -- row actions: the newRowActions composite skeleton (spec, lazy trays, static reveal)

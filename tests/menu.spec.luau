@@ -53,7 +53,8 @@ local function world(opts: any?)
 	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = options.w or 800, h = options.h or 600 })
 	local system = Facet.newActionSystem(core)
-	local adapter = fake_target.new()
+	-- ARMED (T12): the "no orphaned nodes once closed" case reads `.ops()`.
+	local adapter = fake_target.new({ ops = true })
 	local pres = Facet.newPresenter(core, env, adapter, system)
 	local ran: { string } = {}
 	local control = menuLib.build(Facet, core, {

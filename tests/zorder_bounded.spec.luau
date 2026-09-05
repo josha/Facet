@@ -148,7 +148,8 @@ describe("C5: the paint-order walk skips to the change", function()
 	end)
 
 	it("removing one plate walks 252, and owes not one z write", function()
-		local s = scene.new()
+		-- ARMED (T12): the op tail below reads `.ops()`.
+		local s = scene.new({ ops = true })
 		s.tick(3, 2)
 		local before = s.stats()
 		--[[ THE OP TAIL, from a mark taken before the drive: `adapter.ops()` is the
@@ -431,7 +432,7 @@ local function memoScene(): any
 			children = { UI.VStack({ id = "V", padding = 0, gap = 0, children = kids }) },
 		})
 	)
-	local adapter = fake_target.new()
+	local adapter = fake_target.new({ ops = true })
 	local controller = renderer.attach(core, root, env, adapter, { rootPolicy = "edgeToEdge" })
 	controller.initialRender()
 	return {

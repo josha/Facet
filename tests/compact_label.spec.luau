@@ -56,7 +56,7 @@ local function drawAt(spec: any, px: number, pkg: any?): Drawn
 	if pkg ~= nil then
 		env:set("themeMetrics", snapshot.resolve(pkg, nil, {}))
 	end
-	local adapter = fake_target.new()
+	local adapter = fake_target.new({ ops = true })
 	local props: any = table.clone(spec)
 	props.id = "B"
 	props.width = { type = "fixed", px = px }
@@ -82,7 +82,7 @@ local function drawSquare(spec: any, px: number): Drawn
 	local env = environment.new(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 800, h = 400 })
 	env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
-	local adapter = fake_target.new()
+	local adapter = fake_target.new({ ops = true })
 	local props: any = table.clone(spec)
 	props.id = "B"
 	props.width = { type = "fixed", px = px }
@@ -182,7 +182,7 @@ describe("compactLabel: the ladder", function()
 		local env = environment.new(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 400 })
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
-		local adapter = fake_target.new()
+		local adapter = fake_target.new({ ops = true })
 		local root = mountLib.mount(
 			core,
 			UI.Screen({
@@ -243,7 +243,7 @@ describe("compactLabel: one decision, two seams", function()
 		local env = environment.new(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 60, h = 400 })
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
-		local adapter = fake_target.new()
+		local adapter = fake_target.new({ ops = true })
 		local root = mountLib.mount(
 			core,
 			UI.Screen({
@@ -285,7 +285,7 @@ describe("compactLabel: one decision, two seams", function()
 		local env = environment.new(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 60, h = 400 })
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
-		local adapter = fake_target.new()
+		local adapter = fake_target.new({ ops = true })
 		local shown = core:signal(true)
 		local root = mountLib.mount(
 			core,
@@ -330,7 +330,7 @@ describe("compactLabel: one decision, two seams", function()
 		local env = environment.new(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 60, h = 400 })
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
-		local adapter = fake_target.new()
+		local adapter = fake_target.new({ ops = true })
 		local root = mountLib.mount(
 			core,
 			UI.Screen({
@@ -534,7 +534,7 @@ describe("compactLabel: the table's Edit/Done toggle, its first consumer", funct
 		local core = Facet.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
-		local adapter = fake_target.new()
+		local adapter = fake_target.new({ ops = true })
 		local pres = Facet.newPresenter(core, env, adapter, Facet.newActionSystem(core))
 		local rows = core:signal({ { id = "r1", name = "Ada", laps = 3 } })
 		local tbl = table_control.build(Facet, core, {

@@ -60,7 +60,7 @@ local function world(opts: any?)
 		env:set("reducedMotion", true)
 	end
 	local system = Facet.newActionSystem(core)
-	local adapter = fake_target.new()
+	local adapter = fake_target.new({ ops = true })
 	local pres = Facet.newPresenter(core, env, adapter, system)
 
 	local opacity = core:signal(options.opacity or 1)
@@ -324,7 +324,7 @@ describe("authored presentation A — the props, and the refusals", function()
 		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 600 })
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
 		local system = Facet.newActionSystem(core)
-		local adapter = fake_target.new()
+		local adapter = fake_target.new({ ops = true })
 		local pres = Facet.newPresenter(core, env, adapter, system)
 		local UI = Facet.UI
 		pres.present(UI.Screen({
@@ -430,7 +430,7 @@ describe("authored presentation B — the composition rule", function()
 		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 600 })
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
 		local system = Facet.newActionSystem(core)
-		local adapter = fake_target.new()
+		local adapter = fake_target.new({ ops = true })
 		local pres = Facet.newPresenter(core, env, adapter, system)
 		local UI = Facet.UI
 		pres.present(UI.Screen({
@@ -571,7 +571,7 @@ describe("authored presentation D — off-path cost, and one write site", functi
 		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 600 })
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
 		local system = Facet.newActionSystem(core)
-		local adapter = fake_target.new()
+		local adapter = fake_target.new({ ops = true })
 		local pres = Facet.newPresenter(core, env, adapter, system)
 		local UI = Facet.UI
 		pres.present(UI.Screen({
@@ -730,7 +730,7 @@ local function offsetWorld(opts: any?)
 	env:set("viewportRect", { x = 0, y = 0, w = 400, h = 600 })
 	env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
 	local system = Facet.newActionSystem(core)
-	local adapter = fake_target.new()
+	local adapter = fake_target.new({ ops = true })
 	local pres = Facet.newPresenter(core, env, adapter, system)
 	local offset = core:signal(options.offset or { x = 0, y = 0 })
 	local UI = Facet.UI
@@ -795,7 +795,7 @@ describe("authored presentation F — offset (gap 16)", function()
 			local env = Facet.newEnvironment(core)
 			env:set("viewportRect", { x = 0, y = 0, w = 400, h = 600 })
 			env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
-			local adapter = fake_target.new()
+			local adapter = fake_target.new({ ops = true })
 			local system = Facet.newActionSystem(core)
 			local pres = Facet.newPresenter(core, env, adapter, system)
 			local UI = Facet.UI
@@ -816,7 +816,7 @@ describe("authored presentation F — offset (gap 16)", function()
 			local env = Facet.newEnvironment(core)
 			env:set("viewportRect", { x = 0, y = 0, w = 400, h = 600 })
 			env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
-			local adapter = fake_target.new()
+			local adapter = fake_target.new({ ops = true })
 			local system = Facet.newActionSystem(core)
 			local pres = Facet.newPresenter(core, env, adapter, system)
 			local UI = Facet.UI

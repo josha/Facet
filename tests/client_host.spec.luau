@@ -67,7 +67,7 @@ end
 
 local function newHost(extra: any?)
 	local frames = newFrames()
-	local adapter = fake_target.new()
+	local adapter = fake_target.new({ ops = true })
 	local unbinds = 0
 	local o: any = {
 		newAdapter = function()
@@ -272,7 +272,7 @@ describe("client host: teardown", function()
 		local counts = { adapter = 0, input = 0, unbind = 0, disconnect = 0 }
 		local o: any = {
 			newAdapter = function()
-				local a = fake_target.new()
+				local a = fake_target.new({ ops = true })
 				a.dispose = function()
 					counts.adapter += 1
 				end
@@ -341,7 +341,7 @@ describe("client host: teardown", function()
 			does not have, and must not have its object disposed underneath it. ]]
 		local h = host.new({
 			newAdapter = function()
-				return fake_target.new() -- no `dispose`
+				return fake_target.new({ ops = true }) -- no `dispose`
 			end,
 			newInputSystem = function(core: any)
 				return { deviceKey = function() end, createContext = function() end } -- no `dispose`

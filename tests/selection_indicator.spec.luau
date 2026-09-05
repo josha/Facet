@@ -41,7 +41,7 @@ local function world(opts: any?)
 		env:set("reducedMotion", true)
 	end
 	local system = Facet.newActionSystem(core)
-	local adapter = fake_target.new()
+	local adapter = fake_target.new({ ops = true })
 	local pres = Facet.newPresenter(core, env, adapter, system)
 	local selected = core:signal(options.initial or "a")
 	local axis = options.axis or "x"
@@ -438,7 +438,7 @@ describe("D4 mounted: the bar tracks the SOLVED rect of the selected child", fun
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 600 })
 		local system = Facet.newActionSystem(core)
-		local adapter = fake_target.new()
+		local adapter = fake_target.new({ ops = true })
 		local pres = Facet.newPresenter(core, env, adapter, system)
 		local baseline = core:counters() -- AFTER the long-lived singletons
 
@@ -586,7 +586,7 @@ describe("D4 authoring: the spec is closed and the ids are checked", function()
 		})
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 200 })
-		local adapter = fake_target.new()
+		local adapter = fake_target.new({ ops = true })
 		local root = Facet.mount(core, UI.Screen({ id = "S", children = { indicator.blueprint } }))
 		local controller = Facet.renderer.attach(core, root, env, adapter)
 		controller.initialRender()
@@ -622,7 +622,7 @@ describe("D4 through the public property: newPicker's `indicator` and `axis`", f
 			env:set("reducedMotion", true)
 		end
 		local system = Facet.newActionSystem(core)
-		local adapter = fake_target.new()
+		local adapter = fake_target.new({ ops = true })
 		local pres = Facet.newPresenter(core, env, adapter, system)
 		local selected = core:signal("grid")
 		local p = Facet.Controls.Picker(core, {
@@ -816,7 +816,7 @@ describe("D4 through the public property: newPicker's `indicator` and `axis`", f
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 600 })
 		local system = Facet.newActionSystem(core)
-		local adapter = fake_target.new()
+		local adapter = fake_target.new({ ops = true })
 		local pres = Facet.newPresenter(core, env, adapter, system)
 		local baseline = core:counters()
 		local selected = core:signal("grid")
@@ -867,7 +867,7 @@ describe("D5 found: the paths are RE-RESOLVED when the strip is re-homed", funct
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 600 })
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
-		local adapter = fake_target.new()
+		local adapter = fake_target.new({ ops = true })
 		local pres = Facet.newPresenter(core, env, adapter, Facet.newActionSystem(core))
 		local selected = core:signal("a")
 		local kids = {}

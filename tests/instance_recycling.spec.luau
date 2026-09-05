@@ -326,7 +326,9 @@ local function plateWorld(recycle: boolean?)
 	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = VIEWPORT.w, h = VIEWPORT.h })
 	local system = Facet.newActionSystem(core)
-	local adapter = fake_target.new()
+	-- ARMED (T12): `opsFor` and the deepest-first order test below both read
+	-- `.ops()` off this world's adapter.
+	local adapter = fake_target.new({ ops = true })
 	local pres = Facet.newPresenter(core, env, adapter, system)
 	local rows = core:signal({})
 	local rotRows = core:signal({})

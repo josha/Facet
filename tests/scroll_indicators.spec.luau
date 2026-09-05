@@ -54,7 +54,7 @@ local function world(caps: any?, preferred: string?)
 		env:set("preferredInput", preferred)
 	end
 	local system = Facet.newActionSystem(core)
-	local adapter = fake_target.new();
+	local adapter = fake_target.new({ ops = true });
 	(adapter :: any).scrollBarThickness = 8
 	local presenter = Facet.newPresenter(core, env, adapter, system)
 	return core, env, adapter, presenter
@@ -130,7 +130,7 @@ describe("scroll indicator policy: the presenter drives the adapter seam", funct
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 360, h = 691 })
 		local system = Facet.newActionSystem(core)
-		local adapter = fake_target.new();
+		local adapter = fake_target.new({ ops = true });
 		(adapter :: any).scrollBarThickness = 8
 		(adapter :: any).setScrollIndicatorPolicy = nil
 		local presenter = Facet.newPresenter(core, env, adapter, system)

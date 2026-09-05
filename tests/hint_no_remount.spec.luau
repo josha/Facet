@@ -14,7 +14,7 @@ describe("hint changes without remount", function()
 		local core = Facet.newCore()
 		local env = Facet.newEnvironment(core)
 		local system = Facet.newActionSystem(core)
-		local adapter = fake_target.new()
+		local adapter = fake_target.new({ ops = true })
 		local hint = core:memo(function(use)
 			local preferred = use(env:get("preferredInput"))
 			return if preferred == "Touch" then "Tap Save" else "Press Enter"

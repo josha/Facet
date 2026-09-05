@@ -571,7 +571,8 @@ describe("fix round 1 (RED-TEAM finding 1): the widen lands on the SAME paint th
 			env:set("preferredInput", preferredInput)
 		end
 		local system = Facet.newActionSystem(core)
-		local adapter = fake_target.new()
+		-- ARMED (T12): the first-paint widen case below reads `.ops()`.
+		local adapter = fake_target.new({ ops = true })
 		adapter.scrollBarThickness = fake_target.SCROLL_BAR_RESERVE
 		local presenter = Facet.newPresenter(core, env, adapter, system)
 		local UI = Facet.UI

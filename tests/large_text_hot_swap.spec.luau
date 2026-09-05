@@ -76,6 +76,7 @@ local function liveWorld(opts: any?): any
 		theme = options.theme,
 		offset = 0,
 		input = "desktop", -- a hardware keyboard, so focus is a real thing to lose
+		ops = true, -- ARMED (T12): this fixture reads adapter.takeOps()
 	})
 	w.fieldValue = w.core:signal("")
 	w.commits = {}
@@ -292,6 +293,7 @@ describe("LT-5 composition: a theme swap and the preference compose on a live sc
 			theme = lt.THEMES[2],
 			offset = lt.LARGEST,
 			input = "desktop",
+			ops = true, -- ARMED (T12): this fixture reads adapter.takeOps()
 		})
 		born.fieldValue = born.core:signal("")
 		born.commits = {}

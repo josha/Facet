@@ -48,12 +48,23 @@ local showcase_chips = {}
 
 local cache: { [string]: any } = {}
 
---[[ rectFor(Facet, view, packageId, snapshot, offset) -> { x, y, w, h }?
+--[[ rectFor(Facet, view, packageId, snapshot, offset, ops) -> { x, y, w, h }?
 
 	`packageId` is the cache key only — nil means the neutral pass. `snapshot` nil
 	means the same. Returns nil when the chrome declined to mount at all, which a
-	caller must treat as "no chrome declared" rather than as a zero rect. ]]
-function showcase_chips.rectFor(Facet: any, view: any, packageId: string?, snapshot: any?, offset: number?): any
+	caller must treat as "no chrome declared" rather than as a zero rect. `ops`
+	arms the fake target's op log (T12, default off per ruling A-11); this
+	function never exposes the adapter, so nothing reads it back today — the
+	pass-through exists so a future caller does not have to touch this
+	construction site to add one. ]]
+function showcase_chips.rectFor(
+	Facet: any,
+	view: any,
+	packageId: string?,
+	snapshot: any?,
+	offset: number?,
+	ops: boolean?
+): any
 	local key = `{view.id}|{tostring(packageId)}|{tostring(offset or 0)}`
 	local hit = cache[key]
 	if hit ~= nil then
@@ -72,7 +83,7 @@ function showcase_chips.rectFor(Facet: any, view: any, packageId: string?, snaps
 		env:set("themeMetrics", snapshot)
 	end
 	local system = Facet.newActionSystem(core)
-	local adapter = fake_target.new();
+	local adapter = fake_target.new({ ops = ops == true });
 	(adapter :: any).scrollBarThickness = fake_target.SCROLL_BAR_RESERVE
 	local presenter = Facet.newPresenter(core, env, adapter, system)
 

@@ -55,13 +55,13 @@ require("./lib/gui_value_shim").install()
 -- only then reports who took it. So the taps below are attached with a handler and
 -- record what it was given, which is also the stronger assertion: the path
 -- `tapAt` RETURNS and the path the surface is TOLD about cannot drift apart.
-local function render(screen: any, taps: { string }?)
+local function render(screen: any, taps: { string }?, ops: boolean?)
 	local core = customFactory.new()
 	local env = environment.new(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 400, h = 600 })
 	env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
 	local root = mountLib.mount(core, screen)
-	local adapter = fake_target.new()
+	local adapter = fake_target.new({ ops = ops == true })
 	local controller = rendererLib.attach(core, root, env, adapter, {
 		rootPolicy = "edgeToEdge",
 		onNodeTap = if taps ~= nil
@@ -394,40 +394,50 @@ describe("a host's rect lands BEFORE its descendants', or they re-base against a
 				})
 			)
 		end
-		local adapter = render(UI.Screen({
-			id = "S",
-			padding = 0,
-			gap = 0,
-			children = {
-				UI.Box({ id = "Head", surface = "raised" }),
-				UI.ScrollView({ id = "List", children = rows }),
-			},
-		}))
+		-- ARMED (T12): `hostOrderProblems` reads `.ops()`.
+		local adapter = render(
+			UI.Screen({
+				id = "S",
+				padding = 0,
+				gap = 0,
+				children = {
+					UI.Box({ id = "Head", surface = "raised" }),
+					UI.ScrollView({ id = "List", children = rows }),
+				},
+			}),
+			nil,
+			true
+		)
 		local problems = hostOrderProblems(adapter)
 		expect(#problems).toBe(0)
 	end)
 
 	it("...and a NESTED host is placed before its own subtree too", function()
-		local adapter = render(UI.Screen({
-			id = "S",
-			padding = 0,
-			gap = 0,
-			children = {
-				UI.ScrollView({
-					id = "Outer",
-					children = {
-						UI.ZStack({
-							id = "Group",
-							canvasGroup = true,
-							children = {
-								UI.Box({ id = "Deep", surface = "raised" }),
-								UI.Box({ id = "Deeper", surface = "raised" }),
-							},
-						}),
-					},
-				}),
-			},
-		}))
+		-- ARMED (T12): `hostOrderProblems` reads `.ops()`.
+		local adapter = render(
+			UI.Screen({
+				id = "S",
+				padding = 0,
+				gap = 0,
+				children = {
+					UI.ScrollView({
+						id = "Outer",
+						children = {
+							UI.ZStack({
+								id = "Group",
+								canvasGroup = true,
+								children = {
+									UI.Box({ id = "Deep", surface = "raised" }),
+									UI.Box({ id = "Deeper", surface = "raised" }),
+								},
+							}),
+						},
+					}),
+				},
+			}),
+			nil,
+			true
+		)
 		-- both hosts, and the deeper one is inside the outer one
 		expect(adapter.isHost("/S/Outer")).toBe(true)
 		expect(adapter.isHost("/S/Outer/Group")).toBe(true)

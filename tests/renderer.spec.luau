@@ -43,7 +43,7 @@ local function makeSlice()
 		},
 	})
 	local root = mountLib.mount(core, bp)
-	local adapter = fake_target.new()
+	local adapter = fake_target.new({ ops = true })
 	local controller = renderer.attach(core, root, env, adapter, { rootPolicy = "coreSafeContent" })
 	controller.initialRender()
 	adapter.takeOps()
@@ -254,7 +254,7 @@ describe("Button padding reaches the adapter (playlist stars defect 2026-07-20)"
 		local fake_target = require("./lib/fake_target")
 		local core = Facet.newCore()
 		local env = Facet.newEnvironment(core)
-		local adapter = fake_target.new()
+		local adapter = fake_target.new({ ops = true })
 		local screen = Facet.UI.Screen({
 			id = "S",
 			children = {
@@ -282,7 +282,7 @@ describe("Toggle sizing honors its label (gallery place defect 2026-07-20)", fun
 		local fake_target = require("./lib/fake_target")
 		local core = Facet.newCore()
 		local env = Facet.newEnvironment(core)
-		local adapter = fake_target.new()
+		local adapter = fake_target.new({ ops = true })
 		local screen = Facet.UI.Screen({
 			id = "S",
 			padding = 16,
@@ -315,7 +315,7 @@ describe("Toggle sizing honors its label (gallery place defect 2026-07-20)", fun
 			},
 		})
 		local root2 = mountLib.mount(core, screen2)
-		local adapter2 = fake_target.new()
+		local adapter2 = fake_target.new({ ops = true })
 		local controller2 = rendererLib.attach(core, root2, env, adapter2, {})
 		controller2.initialRender()
 		expect(adapter2.node("/T/Wide").rect.w).toBe(300)
@@ -338,7 +338,7 @@ describe("safe areas: deviceSafeContent root policy (native-substrate NS-A1)", f
 			},
 		})
 		local root = mountLib.mount(core, bp)
-		local adapter = fake_target.new()
+		local adapter = fake_target.new({ ops = true })
 		local controller = renderer.attach(core, root, env, adapter, { rootPolicy = "deviceSafeContent" })
 		controller.initialRender()
 		adapter.takeOps()
@@ -377,7 +377,7 @@ describe("safe areas: deviceSafeContent root policy (native-substrate NS-A1)", f
 		env:set("deviceSafeInsets", { top = 0, bottom = 21, left = 47, right = 47 })
 		local bp = UI.Screen({ id = "CoreOnly", children = { UI.Text({ id = "T", text = "x", textSize = 14 }) } })
 		local root = mountLib.mount(core, bp)
-		local adapter = fake_target.new()
+		local adapter = fake_target.new({ ops = true })
 		local controller = renderer.attach(core, root, env, adapter, { rootPolicy = "coreSafeContent" })
 		controller.initialRender()
 		local rootNode = adapter.node("/CoreOnly")
@@ -399,7 +399,7 @@ describe("preferred text applied exactly once (native-substrate NS-A9)", functio
 			children = { UI.Text({ id = "Body", text = "hello", textSize = 20 }) },
 		})
 		local root = mountLib.mount(core, bp)
-		local adapter = fake_target.new()
+		local adapter = fake_target.new({ ops = true })
 		local controller = renderer.attach(core, root, env, adapter, { rootPolicy = "edgeToEdge" })
 		controller.initialRender()
 		return core, env, root, adapter, controller
@@ -470,7 +470,7 @@ describe("preferred text ADDITIVE reservation (platform verifier F1/F2, 2026-07-
 			},
 		})
 		local root = mountLib.mount(core, bp)
-		local adapter = fake_target.new()
+		local adapter = fake_target.new({ ops = true })
 		local controller = renderer.attach(core, root, env, adapter, { rootPolicy = "edgeToEdge" })
 		controller.initialRender()
 		local hExplicit = adapter.node("/AO/Explicit").rect.h
@@ -499,7 +499,7 @@ describe("Button padding is re-pushed on every solve, minimally", function()
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 		local root =
 			mountLib.mount(core, UI.Screen({ id = "S", children = { UI.Button({ id = "Go", label = "Go" }) } }))
-		local adapter = fake_target.new()
+		local adapter = fake_target.new({ ops = true })
 		local r = renderer.attach(core, root, env, adapter, {})
 		r.initialRender()
 		return core, env, adapter, r
@@ -513,7 +513,7 @@ describe("Button padding is re-pushed on every solve, minimally", function()
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 		local root =
 			mountLib.mount(core, UI.Screen({ id = "S", children = { UI.Button({ id = "Go", label = "Go" }) } }))
-		local adapter = fake_target.new()
+		local adapter = fake_target.new({ ops = true })
 		local writes = 0
 		local base = adapter.setProp
 		adapter.setProp = function(handle: any, prop: string, value: any, authority: string)
@@ -575,7 +575,7 @@ describe("Button padding is re-pushed on every solve, minimally", function()
 				},
 			})
 		)
-		local adapter = fake_target.new()
+		local adapter = fake_target.new({ ops = true })
 		local r = renderer.attach(core, root, env, adapter, {})
 		r.initialRender()
 		local neutral = themeSnapshot.neutral()
@@ -592,7 +592,7 @@ describe("Button padding is re-pushed on every solve, minimally", function()
 			plainCore,
 			UI.Screen({ id = "S", children = { UI.Button({ id = "Chip", label = "Classic Desktop" }) } })
 		)
-		local plainAdapter = fake_target.new()
+		local plainAdapter = fake_target.new({ ops = true })
 		local plainR = renderer.attach(plainCore, plainRoot, plainEnv, plainAdapter, {})
 		plainR.initialRender()
 		local rect, plain = adapter.node("/S/Chip").rect, plainAdapter.node("/S/Chip").rect
@@ -738,7 +738,7 @@ describe("RS-DIR13: a value flip is PAINT — it moves no solved geometry", func
 		env:set("viewportRect", { x = 0, y = 0, w = 1233, h = 1067 })
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
 		env:set("themeMetrics", themeSnapshot.resolve(pkg, nil, {}))
-		local adapter = fake_target.new()
+		local adapter = fake_target.new({ ops = true })
 		local presenter = Facet.newPresenter(core, env, adapter, Facet.newActionSystem(core))
 		local switch = core:signal(false)
 		presenter.present(Facet.UI.Screen({
@@ -843,7 +843,7 @@ describe("RS-DIR13: a Toggle's label is ONE line — it never breaks mid-word", 
 		env:set("viewportRect", { x = 0, y = 0, w = 320, h = 600 })
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
 		env:set("themeMetrics", themeSnapshot.resolve(Facet.themes.neutralPackage(), nil, {}))
-		local adapter = fake_target.new()
+		local adapter = fake_target.new({ ops = true })
 		local presenter = Facet.newPresenter(core, env, adapter, Facet.newActionSystem(core))
 		presenter.present(Facet.UI.Screen({
 			id = "S",
@@ -892,7 +892,7 @@ describe("RS-DIR13: a Toggle's label is ONE line — it never breaks mid-word", 
 		env:set("viewportRect", { x = 0, y = 0, w = 1233, h = 600 })
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
 		env:set("themeMetrics", themeSnapshot.resolve(Facet.themes.neutralPackage(), nil, {}))
-		local adapter = fake_target.new()
+		local adapter = fake_target.new({ ops = true })
 		local presenter = Facet.newPresenter(core, env, adapter, Facet.newActionSystem(core))
 		presenter.present(Facet.UI.Screen({
 			id = "S",
@@ -925,7 +925,7 @@ describe("renderer — root policy", function()
 		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 300 })
 		env:set("coreSafeInsets", insets)
 		env:set("themeMetrics", themeSnapshot.resolve(Facet.themes.neutralPackage(), nil, {}))
-		local adapter = fake_target.new()
+		local adapter = fake_target.new({ ops = true })
 		local presenter = Facet.newPresenter(core, env, adapter, Facet.newActionSystem(core))
 		return presenter, adapter
 	end
@@ -1008,7 +1008,7 @@ describe("renderer: diagnostic reads are copies, not the live tables (F-30)", fu
 			},
 		})
 		local root = mountLib.mount(core, bp)
-		local adapter = fake_target.new()
+		local adapter = fake_target.new({ ops = true })
 		local controller = renderer.attach(core, root, env, adapter, { rootPolicy = "edgeToEdge" })
 		controller.initialRender()
 		return controller

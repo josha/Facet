@@ -77,7 +77,7 @@ describe("Preview: device profiles", function()
 		local core = Facet.newCore()
 		local env = Facet.newEnvironment(core)
 		device_profiles.apply(env, "desktop")
-		local adapter = fake_target.new()
+		local adapter = fake_target.new({ ops = true })
 		local root = Facet.mount(
 			core,
 			Facet.UI.Screen({
@@ -113,7 +113,7 @@ describe("Preview: device profiles", function()
 		local core = Facet.newCore()
 		local env = Facet.newEnvironment(core)
 		device_profiles.apply(env, "desktop")
-		local adapter = fake_target.new()
+		local adapter = fake_target.new({ ops = true })
 		local root = Facet.mount(
 			core,
 			Facet.UI.Screen({

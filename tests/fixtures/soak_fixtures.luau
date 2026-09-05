@@ -7,6 +7,12 @@ local runner = require("../../tools/lune/registry_runner")
 local Facet = require("../../src")
 local fake_target = require("../lib/fake_target")
 
+-- arms every fixture's fake target's op log (T12, default off per ruling
+-- A-11). `runner.Fixture.run` is a fixed `() -> any` the shared runner calls
+-- with no arguments, so a per-fixture opt-in cannot travel through a call
+-- site — this module-level flag is the pass-through instead.
+local ARM_OPS = false
+
 local fixtures: { runner.Fixture } = {
 	{
 		name = "modal-churn-200",
@@ -15,7 +21,7 @@ local fixtures: { runner.Fixture } = {
 			local core = Facet.newCore()
 			local env = Facet.newEnvironment(core)
 			local system = Facet.newActionSystem(core)
-			local adapter = fake_target.new()
+			local adapter = fake_target.new({ ops = ARM_OPS })
 			local pres = Facet.newPresenter(core, env, adapter, system)
 			pres.present(Facet.UI.Screen({
 				id = "Base",

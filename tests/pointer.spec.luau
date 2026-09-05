@@ -16,7 +16,7 @@ local function world(screenBp: any)
 	local core = Facet.newCore()
 	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
-	local adapter = fake_target.new()
+	local adapter = fake_target.new({ ops = true })
 	local root = Facet.mount(core, screenBp)
 	local controller = Facet.renderer.attach(core, root, env, adapter, {})
 	controller.initialRender()
@@ -190,7 +190,7 @@ describe("Pointer seam: capture lifecycle", function()
 	end
 
 	it("a live capture on root B survives root A's destroyRoot, and cancels on root B's own destroyRoot", function()
-		local adapter = fake_target.new()
+		local adapter = fake_target.new({ ops = true })
 		local countsA = { moves = 0, ups = 0, cancels = 0 }
 		local countsB = { moves = 0, ups = 0, cancels = 0 }
 		local rootA, controllerA = mountRoot(adapter, "A", countsA)
@@ -293,7 +293,7 @@ describe("Pointer seam: dynamic hints and opt-in bindings", function()
 		local hint = core:signal("colResize")
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
-		local adapter = fake_target.new()
+		local adapter = fake_target.new({ ops = true })
 		local root = Facet.mount(
 			core,
 			Facet.UI.Screen({
@@ -323,7 +323,7 @@ describe("Pointer seam: dynamic hints and opt-in bindings", function()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 		local system = Facet.newActionSystem(core)
-		local adapter = fake_target.new()
+		local adapter = fake_target.new({ ops = true })
 		local pres = Facet.newPresenter(core, env, adapter, system)
 		-- the "character controls": a lower-priority context bound to Down
 		local game = system.createContext({ name = "CharacterControls", priority = 1000 })
@@ -357,7 +357,7 @@ describe("Pointer seam: dynamic hints and opt-in bindings", function()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 		local system = Facet.newActionSystem(core)
-		local adapter = fake_target.new()
+		local adapter = fake_target.new({ ops = true })
 		local pres = Facet.newPresenter(core, env, adapter, system)
 		local screen = Facet.UI.Screen({
 			id = "Plain",
@@ -396,7 +396,7 @@ describe("Pointer seam: rectOf and anchored overlays", function()
 		local offsetX = core:signal(40)
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
-		local adapter = fake_target.new()
+		local adapter = fake_target.new({ ops = true })
 		local root = Facet.mount(
 			core,
 			Facet.UI.Screen({

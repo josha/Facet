@@ -71,6 +71,9 @@ export type Opts = {
 	presenterOpts: any?,
 	-- swap the render target (the billboard target, a fault-injecting fake)
 	newAdapter: (() -> any)?,
+	-- arm the fake target's op log (T12, default off per ruling A-11). Ignored
+	-- when `newAdapter` swaps the target for something else.
+	ops: boolean?,
 	--[[ THE CONTAINMENT INVARIANT IS ON BY DEFAULT (overflow guard layer 1,
 		2026-08-21). Every screen this world presents and settles is asked, at every
 		settle, whether anything it paints is outside the box it lives in and
@@ -139,7 +142,7 @@ function world.new(opts: Opts?): World
 	end
 
 	-- INVARIANT 2: adapter first, one presenter per adapter
-	local adapter = if o.newAdapter then o.newAdapter() else fake_target.new()
+	local adapter = if o.newAdapter then o.newAdapter() else fake_target.new({ ops = o.ops == true })
 	local system = Facet.newActionSystem(core)
 	local pres = Facet.newPresenter(core, env, adapter, system, o.presenterOpts)
 

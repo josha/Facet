@@ -158,11 +158,27 @@ local TINT_ALPHA_ENGINE_PROP: { [string]: { string } } = {
 -- that assert the single-root `linkAt` path are unaffected; on, this adapter
 -- keeps a roots list and repoints every live one, which is the contract the
 -- client target implements against real StyleLinks.
-export type Opts = { trackThemeRoots: boolean? }
+export type Opts = { trackThemeRoots: boolean?, ops: boolean? }
 
 function fake_target.new(opts: Opts?)
 	local nodes: { [string]: any } = {}
 	local ops: { string } = {}
+	--[[ THE OP LOG IS OPT-IN (Plan C addendum, T12). All 22 `table.insert(ops, …)`
+		sites below interpolate a formatted string, and `setRect` is on the commit's
+		hot loop: 1.40 us per write measured from inside `rect_pass.applyOne`, which is
+		10.28 ms of the 30.9 ms `war_room_inventory L reorder` class in FacetBench — a
+		THIRD of a headline number spent by the instrument reading it.
+
+		THE INTERPOLATION IS INSIDE THE GUARD, NOT AT THE CALL SITE. `note(\`rect …\`)`
+		builds the string and throws it away. Only a guard the caller takes BEFORE it
+		composes costs nothing, which is why every site reads
+		`if recordOps then` / `note(...)` / `end` (stylua's own three-line shape for
+		this — it does not keep a single-line `if...then...end` at this width) and
+		why the source scan pins that shape rather than a single-line spelling. ]]
+	local recordOps = opts ~= nil and (opts :: any).ops == true
+	local function note(line: string)
+		table.insert(ops, line)
+	end
 	local rootCount = 0
 	-- cumulative engine Position/Size writes, mirroring `applyRect`'s own bill —
 	-- see `adapter.engineWrites` beside `hostCount`, and the mirror in `setRect`
@@ -257,6 +273,83 @@ function fake_target.new(opts: Opts?)
 		end
 		return nil
 	end
+
+	--[[ WHO IS DIRECTLY UNDER WHOM (T12). The coordinate-space recompose in `setRect`
+		found a host's subtree by walking EVERY node in this target and testing
+		`string.sub(path, 1, #prefix) == prefix` — O(hosts x nodes) per commit, which on
+		FacetBench's `nameplates L` tick is 248 hosts x 1,503 nodes and 21.3 of the
+		class's 24.0 ms. The same class LIVE is 2.876 ms: the engine reparents for free
+		and this fake was charging Facet for the difference.
+
+		KEYED ON THE NEAREST PATH THAT IS ACTUALLY A NODE, NOT THE LAST "/" CUT
+		(fix round, found by `facet_sponsor_table.spec`'s map name tags going stale
+		on their dot's own move). `mount.luau`'s `ForEach` and `When` splice their
+		children in WITHOUT a wrapper node at the per-item / per-branch path segment
+		— nameplates_scene's own header calls `.../[p1]` "a path string with nothing
+		mounted at it" — so a leaf can sit at `.../Dot/NameTagRegion/then/NameTag`
+		while NEITHER `NameTagRegion` NOR `then` was ever `create`d. A bare last-"/"
+		cut indexes that leaf under a parent key nobody ever inserts, orphaning it
+		from `Dot`'s own bucket the first time `Dot` moves — exactly the class of
+		regression this file exists to catch, caught here by RUNNING it rather than
+		reasoning about it. `nearestExistingAncestor` walks past any such gap to the
+		nearest path that IS a node, which is the same tolerance `hostFor` and
+		`spaceOriginOf` already have for a coordinate-space ancestor.
+
+		AND THE SELECTION IS BY PATH WHILE THE COMPUTATION IS BY HOST CHAIN, exactly as
+		today. `spaceOriginOf` walks `handle.instanceHost`, never the composed node's
+		path; `adopt` re-keys `nodes[newPath]` and never deletes the old key, so the old
+		key stays in this index too. Matching today's set is the requirement; fixing
+		`adopt`'s leak is a different change with its own oracle.
+
+		DECLARED BEFORE `adapter.create`, ON PURPOSE. Luau closures capture upvalues by
+		lexical scope at the time a `local function` is COMPILED, not at the time it
+		runs — a `create` defined above this block would have found `indexNode` still a
+		free (nil) global the first time the renderer actually called it. ]]
+	local childrenOf: { [string]: { [string]: true } } = {}
+	local function parentPathOf(path: string): string?
+		local i = #path
+		while i > 1 do
+			if string.sub(path, i, i) == "/" then
+				return string.sub(path, 1, i - 1)
+			end
+			i -= 1
+		end
+		return nil
+	end
+	-- the nearest ancestor path that is ACTUALLY a live node, skipping any
+	-- reconciler-only segment nothing was ever created at. `nodes` is declared
+	-- above this block, so it is already an upvalue here.
+	local function nearestExistingAncestor(path: string): string?
+		local p = parentPathOf(path)
+		while p ~= nil and nodes[p] == nil do
+			p = parentPathOf(p)
+		end
+		return p
+	end
+	local function indexNode(path: string)
+		local parent = nearestExistingAncestor(path)
+		if parent == nil then
+			return
+		end
+		local bucket = childrenOf[parent]
+		if bucket == nil then
+			bucket = {}
+			childrenOf[parent] = bucket
+		end
+		bucket[path] = true
+	end
+	local function unindexNode(path: string)
+		local parent = nearestExistingAncestor(path)
+		local bucket = if parent ~= nil then childrenOf[parent] else nil
+		if bucket ~= nil then
+			bucket[path] = nil
+			if next(bucket) == nil then
+				childrenOf[parent :: string] = nil
+			end
+		end
+		childrenOf[path] = nil
+	end
+
 	local trackThemeRoots = (opts ~= nil and opts.trackThemeRoots == true)
 	local themeRoots: { any } = {}
 	local LEGACY_SHEET = { Name = "FacetStyle (legacy)" }
@@ -340,7 +433,9 @@ function fake_target.new(opts: Opts?)
 
 	function adapter.createRoot(screenId: string): any
 		rootCount += 1
-		table.insert(ops, `createRoot {screenId}`)
+		if recordOps then
+			note(`createRoot {screenId}`)
+		end
 		local root = { id = screenId, alive = true }
 		if trackThemeRoots then
 			-- a LATER root inherits whatever sheet the target currently carries,
@@ -480,7 +575,10 @@ function fake_target.new(opts: Opts?)
 		node.parentRoot = if host ~= nil then nil else rootHandle
 		lastCreatedRoot = rootHandle
 		nodes[path] = node
-		table.insert(ops, `create {path} ({class})`)
+		indexNode(path)
+		if recordOps then
+			note(`create {path} ({class})`)
+		end
 		-- born under a live transform: the first placement already carries the offset
 		adapter._composePresentation(node)
 		return node
@@ -643,7 +741,9 @@ function fake_target.new(opts: Opts?)
 		-- written (`setScrollRegion`, below) proves it by staying stale here.
 		handle.appliedRectW = rect.w + (handle.barOverlayWidenW or 0)
 		handle.appliedRectH = rect.h + (handle.barOverlayWidenH or 0)
-		table.insert(ops, `rect {handle.path} {rect.x},{rect.y} {rect.w}x{rect.h}`)
+		if recordOps then
+			note(`rect {handle.path} {rect.x},{rect.y} {rect.w}x{rect.h}`)
+		end
 		-- a rect write RE-APPLIES the stored transform, exactly as the live
 		-- applyRect does: a re-solve must never drop a running motion
 		adapter._composePresentation(handle)
@@ -655,21 +755,43 @@ function fake_target.new(opts: Opts?)
 			value forever while a real engine reparents for free. The oracle's
 			`pos == sro` identity is the instrument that catches it. ]]
 		if selfHost ~= nil and selfHost.hostSpace == true then
-			local prefix = handle.path .. "/"
-			for path, node in nodes do
-				if path ~= handle.path and string.sub(path, 1, #prefix) == prefix and node.storedRect ~= nil then
-					local sx, sy = spaceOriginOf(node)
-					local st = node.storedRect
-					node.rect = if sx == 0 and sy == 0 then st else { x = st.x + sx, y = st.y + sy, w = st.w, h = st.h }
-					local sh = node.storedHitRect
-					if sh ~= nil then
-						node.hitRect = if sx == 0 and sy == 0
-							then sh
-							else { x = sh.x + sx, y = sh.y + sy, w = sh.w, h = sh.h }
+			--[[ DEPTH-FIRST OVER THE INDEX, not a scan of the map. Same set, same
+				per-node computation. Order is output-neutral: `spaceOriginOf` (above)
+				and `_composePresentation` read only host entries and ancestor
+				`props.transform`, never a sibling's composed rect.
+
+				THE ONE SEMANTIC DIFFERENCE FROM THE OLD SCAN, AND WHY IT IS ACCEPTED:
+				the old walk visited every node whose PATH carried the prefix whether or
+				not its intermediate ancestors were themselves in `nodes`; this recursion
+				stops at a missing link in `childrenOf`. `adopt`'s old-key leak (indexed
+				but with no live parent chain above it) is the one case this could matter
+				for, and the characterisation pin in `fake_target_ops_opt.spec` freezes
+				that fixture byte-equal before and after. ]]
+			local function recompose(parentPath: string)
+				local bucket = childrenOf[parentPath]
+				if bucket == nil then
+					return
+				end
+				for path in bucket do
+					local node = nodes[path]
+					if node ~= nil and node.storedRect ~= nil then
+						local sx, sy = spaceOriginOf(node)
+						local st = node.storedRect
+						node.rect = if sx == 0 and sy == 0
+							then st
+							else { x = st.x + sx, y = st.y + sy, w = st.w, h = st.h }
+						local sh = node.storedHitRect
+						if sh ~= nil then
+							node.hitRect = if sx == 0 and sy == 0
+								then sh
+								else { x = sh.x + sx, y = sh.y + sy, w = sh.w, h = sh.h }
+						end
+						adapter._composePresentation(node)
 					end
-					adapter._composePresentation(node)
+					recompose(path)
 				end
 			end
+			recompose(handle.path)
 		end
 		-- ...AND RE-DERIVES THE ENGINE WINDOW, because it is a function of this rect
 		-- (2026-08-14). `windowRect` was computed only in `setScrollRegion`, so a
@@ -698,7 +820,9 @@ function fake_target.new(opts: Opts?)
 			)
 		end
 		handle.props[prop] = value
-		table.insert(ops, `prop {handle.path}.{prop}={tostring(value)}`)
+		if recordOps then
+			note(`prop {handle.path}.{prop}={tostring(value)}`)
+		end
 		if handle.tagState ~= nil then
 			--[[ the three writes that re-classify, mirroring the live adapter's own
 				handle bookkeeping: `screen_paint.applySurfaceNative` (a `plain` or
@@ -871,7 +995,10 @@ function fake_target.new(opts: Opts?)
 		-- ...and the node leaves the host ABOVE it on the same terms `park` does
 		releaseFakeHostMembership(handle)
 		nodes[handle.path] = nil
-		table.insert(ops, `remove {handle.path}`)
+		unindexNode(handle.path)
+		if recordOps then
+			note(`remove {handle.path}`)
+		end
 		adapter._cancelIfCaptured(handle, "removed")
 	end
 
@@ -934,6 +1061,7 @@ function fake_target.new(opts: Opts?)
 			return false
 		end
 		nodes[handle.path] = nil
+		unindexNode(handle.path)
 		-- the two registration facts `park` releases and `adopt` re-earns, mirroring
 		-- the live adapter: membership of the host above, and — since T4b made a plain
 		-- host parkable — this node's OWN entry, which would otherwise hand a later
@@ -955,7 +1083,9 @@ function fake_target.new(opts: Opts?)
 		-- writes (padding's own explicit un-pad branch among them) are what keep
 		-- THOSE honest, not the recycle key. Clearing here would model an adapter
 		-- that does not exist and would hide the property diff entirely.
-		table.insert(ops, `park {handle.path}`)
+		if recordOps then
+			note(`park {handle.path}`)
+		end
 		adapter._cancelIfCaptured(handle, "removed")
 		return true
 	end
@@ -1027,7 +1157,17 @@ function fake_target.new(opts: Opts?)
 			then handle.parentRoot
 			else (if rootHandle ~= nil then rootHandle else lastCreatedRoot)
 		nodes[newPath] = handle
-		table.insert(ops, `adopt {newPath} ({newClass})`)
+		-- THE OLD KEY IS LEFT IN THE INDEX ON PURPOSE (T12 correction). `nodes`
+		-- itself never deletes the old path here either (see the three
+		-- `nodes[...] = nil` sites this file actually has: remove, park,
+		-- destroyRoot — adopt is not one of them), and `spaceOriginOf` walks
+		-- `handle.instanceHost`, never the composed node's own path, so today's
+		-- prefix walk still visits the stale entry. Matching that set is the
+		-- requirement; fixing the leak is a separate change with its own oracle.
+		indexNode(newPath)
+		if recordOps then
+			note(`adopt {newPath} ({newClass})`)
+		end
 		adapter._composePresentation(handle)
 		return true
 	end
@@ -1036,7 +1176,9 @@ function fake_target.new(opts: Opts?)
 		if handle ~= nil then
 			handle.parked = nil
 			handle.alive = false
-			table.insert(ops, `discard {handle.path}`)
+			if recordOps then
+				note(`discard {handle.path}`)
+			end
 		end
 	end
 
@@ -1045,6 +1187,10 @@ function fake_target.new(opts: Opts?)
 	-- arrive in — and order is exactly what decides whether a nested subtree is
 	-- re-based against a current origin or a stale one.
 	function adapter.ops(): { string }
+		assert(
+			recordOps,
+			"fake_target: the op log is opt-in — build this target with fake_target.new({ ops = true })"
+		)
 		return ops
 	end
 
@@ -1098,7 +1244,9 @@ function fake_target.new(opts: Opts?)
 
 	function adapter.setZOrder(handle: any, z: number)
 		handle.z = z
-		table.insert(ops, `z {handle.path}={z}`)
+		if recordOps then
+			note(`z {handle.path}={z}`)
+		end
 	end
 
 	-- cross-surface z (modal-dismissal spec §2.2): whole-root display order. The
@@ -1108,7 +1256,9 @@ function fake_target.new(opts: Opts?)
 	function adapter.setRootDisplayOrder(rootHandle: any, n: number)
 		rootHandle.displayOrder = n
 		rootDisplayOrders[rootHandle.id] = n
-		table.insert(ops, `displayOrder {rootHandle.id}={n}`)
+		if recordOps then
+			note(`displayOrder {rootHandle.id}={n}`)
+		end
 	end
 	function adapter.rootDisplayOrder(screenId: string): number?
 		return rootDisplayOrders[screenId]
@@ -1122,6 +1272,7 @@ function fake_target.new(opts: Opts?)
 				node.alive = false
 				unregisterFakeHost(path)
 				nodes[path] = nil
+				unindexNode(path)
 				adapter._cancelIfCaptured(node, "destroyed") -- teardown: no keep-alive
 			end
 		end
@@ -1144,7 +1295,9 @@ function fake_target.new(opts: Opts?)
 		if pointerCapture ~= nil and pointerCapture.root == rootHandle then
 			adapter._cancelIfCaptured(pointerCapture, "destroyed")
 		end
-		table.insert(ops, "destroyRoot")
+		if recordOps then
+			note("destroyRoot")
+		end
 	end
 
 	function adapter.setActivateHandler(handle: any, fn: () -> ())
@@ -1181,7 +1334,9 @@ function fake_target.new(opts: Opts?)
 				handle.focusLift = false
 			end
 		end
-		table.insert(ops, `focus {handle.path}={tostring(on)}`)
+		if recordOps then
+			note(`focus {handle.path}={tostring(on)}`)
+		end
 	end
 
 	-- pointer hover layer (UI-PARADIGM-001): the renderer calls enableHover only
@@ -1254,7 +1409,9 @@ function fake_target.new(opts: Opts?)
 		adapter.scrollBarThickness = if adapter.scrollIndicatorPolicy == "auto"
 			then 0
 			else adapter._configuredBarThickness
-		table.insert(ops, `indicatorPolicy {adapter.scrollIndicatorPolicy} reduced={tostring(reduced == true)}`)
+		if recordOps then
+			note(`indicatorPolicy {adapter.scrollIndicatorPolicy} reduced={tostring(reduced == true)}`)
+		end
 	end
 
 	--[[ THE ENGINE WINDOW, DERIVED FROM THE TWO THINGS IT DEPENDS ON — this host's
@@ -1416,7 +1573,9 @@ function fake_target.new(opts: Opts?)
 		local clamped = clampScroll(handle, pos)
 		local previous = handle.scrollPosition
 		handle.scrollPosition = clamped
-		table.insert(ops, `scrollpos {handle.path}={clamped.x},{clamped.y}`)
+		if recordOps then
+			note(`scrollpos {handle.path}={clamped.x},{clamped.y}`)
+		end
 		local changed = previous == nil or previous.x ~= clamped.x or previous.y ~= clamped.y
 		if changed then
 			fireScrollObservers(handle)
@@ -1450,7 +1609,9 @@ function fake_target.new(opts: Opts?)
 	adapter.engineSelection = nil
 	function adapter.setEngineSelection(handle: any?)
 		adapter.engineSelection = if handle ~= nil then handle.path else nil
-		table.insert(ops, `engineselection {if handle ~= nil then handle.path else "nil"}`)
+		if recordOps then
+			note(`engineselection {if handle ~= nil then handle.path else "nil"}`)
+		end
 	end
 
 	-- native drag acquisition mirror (NS-A5): stores handlers; driveDrag* stand
@@ -1461,7 +1622,9 @@ function fake_target.new(opts: Opts?)
 			return nil
 		end
 		handle.dragDetector = handlers
-		table.insert(ops, `dragdetector {handle.path}`)
+		if recordOps then
+			note(`dragdetector {handle.path}`)
+		end
 		return function()
 			handle.dragDetector = nil
 		end
@@ -1525,7 +1688,9 @@ function fake_target.new(opts: Opts?)
 	-- control. `nil` removes it.
 	function adapter.setVisible(handle: any, visible: boolean)
 		handle.visible = visible
-		table.insert(ops, `visible {handle.path}={tostring(visible)}`)
+		if recordOps then
+			note(`visible {handle.path}={tostring(visible)}`)
+		end
 	end
 	function adapter.visibleOf(path: string): boolean?
 		local node = nodes[path]
@@ -1567,7 +1732,9 @@ function fake_target.new(opts: Opts?)
 	-- provable without an engine.
 	function adapter.setActivationFeedback(handle: any, verb: string?)
 		handle.activationFeedback = verb
-		table.insert(ops, `activationfeedback {handle.path}={tostring(verb)}`)
+		if recordOps then
+			note(`activationfeedback {handle.path}={tostring(verb)}`)
+		end
 	end
 	function adapter.activationFeedbackOf(path: string): string?
 		local node = nodes[path]
@@ -1708,7 +1875,9 @@ function fake_target.new(opts: Opts?)
 	local rootVisible: { [string]: boolean } = {}
 	function adapter.setRootVisible(rootHandle: any, visible: boolean)
 		rootVisible[rootHandle.id] = visible
-		table.insert(ops, `rootvisible {rootHandle.id}={tostring(visible)}`)
+		if recordOps then
+			note(`rootvisible {rootHandle.id}={tostring(visible)}`)
+		end
 	end
 	function adapter.rootVisibleOf(screenId: string): boolean?
 		return rootVisible[screenId]
@@ -1835,7 +2004,9 @@ function fake_target.new(opts: Opts?)
 	local nativeTransitions: boolean? = nil
 	function adapter.setNativeTransitionsEnabled(on: boolean)
 		nativeTransitions = on
-		table.insert(ops, `nativetransitions={tostring(on)}`)
+		if recordOps then
+			note(`nativetransitions={tostring(on)}`)
+		end
 	end
 	function adapter.nativeTransitionsEnabled(): boolean?
 		return nativeTransitions
@@ -1863,7 +2034,9 @@ function fake_target.new(opts: Opts?)
 	local motionOps: { { path: string, kind: string } } = {}
 	function adapter.setReducedMotion(reduced: boolean)
 		reducedMotion = reduced == true
-		table.insert(ops, `reducedmotion={tostring(reducedMotion)}`)
+		if recordOps then
+			note(`reducedmotion={tostring(reducedMotion)}`)
+		end
 	end
 	-- what the target currently believes, for a spec that wants the fact itself
 	function adapter.reducedMotion(): boolean
@@ -1879,7 +2052,9 @@ function fake_target.new(opts: Opts?)
 	local preferredTransparency = 1
 	function adapter.setPreferredTransparency(effective: number)
 		preferredTransparency = effective
-		table.insert(ops, `preferredtransparency={tostring(effective)}`)
+		if recordOps then
+			note(`preferredtransparency={tostring(effective)}`)
+		end
 	end
 	function adapter.preferredTransparency(): number
 		return preferredTransparency

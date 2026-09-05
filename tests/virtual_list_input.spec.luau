@@ -34,7 +34,8 @@ end
 	two neighbouring specs bound an action system to a variable called `adapter`
 	and said nothing. ]]
 local function harness()
-	local w = worldLib.new({ viewport = { x = 0, y = 0, w = 800, h = 600 } })
+	-- ARMED (T12): several cases in this file read adapter.takeOps()/ops().
+	local w = worldLib.new({ viewport = { x = 0, y = 0, w = 800, h = 600 }, ops = true })
 	return w.core, w.env, w.adapter, w.system, w.pres
 end
 
@@ -280,7 +281,7 @@ describe("VirtualList focus coherence + virtualization neutrality", function()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 		local system = Facet.newActionSystem(core)
-		local adapter = fake_target.new()
+		local adapter = fake_target.new({ ops = true })
 		local pres = Facet.newPresenter(core, env, adapter, system)
 		local baseline = core:counters()
 
@@ -407,7 +408,7 @@ describe("VirtualList navigation-group overrides (SF-L4)", function()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 		local system = Facet.newActionSystem(core)
-		local adapter = fake_target.new()
+		local adapter = fake_target.new({ ops = true })
 		local pres = Facet.newPresenter(core, env, adapter, system)
 		local rows = core:signal(makeRows(4))
 		local list = virtual_list.build(Facet, core, {
@@ -508,7 +509,7 @@ describe("VirtualList navigation-group overrides (SF-L4)", function()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 		local system = Facet.newActionSystem(core)
-		local adapter = fake_target.new()
+		local adapter = fake_target.new({ ops = true })
 		local pres = Facet.newPresenter(core, env, adapter, system)
 		local rows = core:signal(makeRows(4))
 		local blocked = core:signal(true)

@@ -54,7 +54,7 @@ local function world(opts: any?)
 	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 	local system = Facet.newActionSystem(core)
-	local adapter = fake_target.new()
+	local adapter = fake_target.new({ ops = true })
 	local pres = Facet.newPresenter(core, env, adapter, system)
 	local rows = core:signal(options.rows or makeRows(options.count or 8))
 	local list = virtual_list.build(Facet, core, {

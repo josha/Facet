@@ -21,7 +21,7 @@ local adapter_source = require("./lib/adapter_source")
 
 describe("RenderTargetAdapter contract", function()
 	it("the FakeTarget satisfies every required and optional method", function()
-		local result = target_contract.check(fake_target.new())
+		local result = target_contract.check(fake_target.new({ ops = true }))
 		expect(#result.missing).toBe(0)
 		expect(#result.optionalAbsent).toBe(0)
 	end)
@@ -99,7 +99,7 @@ describe("RenderTargetAdapter contract", function()
 		expect(table.concat(bare.themeGrowthAbsent, ",")).toBe("setThemeStyle")
 
 		-- the FakeTarget HAS grown it, and records what the controller pushed
-		local themed = fake_target.new({ trackThemeRoots = true })
+		local themed = fake_target.new({ trackThemeRoots = true, ops = true })
 		expect(#target_contract.check(themed).themeGrowthAbsent).toBe(0)
 		expect(#themed.themeStylePushes()).toBe(0)
 		themed.setThemeStyle({ marker = "compiled" })
@@ -112,11 +112,11 @@ describe("RenderTargetAdapter contract", function()
 		-- `linkAt` fallback every other target still uses (fake_target.luau:137).
 		-- So the themeable fake is the opted-in one, and the default fake's only
 		-- theme gap is that one method.
-		local themed = target_contract.check(fake_target.new({ trackThemeRoots = true }))
+		local themed = target_contract.check(fake_target.new({ trackThemeRoots = true, ops = true }))
 		expect(#themed.themeAbsent).toBe(0)
 		expect(themed.themeable).toBe(true)
 
-		local plain = target_contract.check(fake_target.new())
+		local plain = target_contract.check(fake_target.new({ ops = true }))
 		expect(table.concat(plain.themeAbsent, ",")).toBe("relinkThemeSheet")
 		expect(plain.themeable).toBe(false)
 	end)
@@ -167,7 +167,7 @@ describe("RenderTargetAdapter contract", function()
 		local core = Facet.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 300, h = 96 }) -- the canvas
-		local adapter = fake_target.new()
+		local adapter = fake_target.new({ ops = true })
 		local health = core:signal("100")
 		local root = Facet.mount(
 			core,
@@ -304,7 +304,7 @@ describe("adapter prop parity: the fake and the live target handle the same prop
 	end)
 
 	it("the FakeTarget REFUSES an undeclared prop instead of recording it", function()
-		local adapter = fake_target.new()
+		local adapter = fake_target.new({ ops = true })
 		local handle = adapter.create(adapter.createRoot("S"), "/S", "Box")
 		local ok, err = pcall(function()
 			adapter.setProp(handle, "glowIntensity", 1, "style")

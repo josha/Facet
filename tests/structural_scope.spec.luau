@@ -162,7 +162,8 @@ local function world(
 	incremental: boolean,
 	cache: boolean,
 	viewport: { w: number, h: number },
-	rowCount: number
+	rowCount: number,
+	ops: boolean?
 ): Arm
 	local core = customFactory.new()
 	local env = environment.new(core)
@@ -288,7 +289,7 @@ local function world(
 		},
 	})
 	local root = mountLib.mount(core, bp)
-	local adapter = fake_target.new()
+	local adapter = fake_target.new({ ops = ops == true })
 	adapter.scrollBarThickness = 8
 	local controller = renderer.attach(core, root, env, adapter, {
 		rootPolicy = "edgeToEdge",
@@ -784,8 +785,10 @@ describe("P5's oracle: the surface is identical, step for step, arm for arm", fu
 			the second. ]]
 		for _, view in device_views.VIEWS do
 			local vp = { w = view.w, h = view.h }
-			local a = world(true, true, true, vp, 12)
-			local b = world(false, true, true, vp, 12)
+			-- ARMED (T12): both arms, so the ordered op-log compare below is not
+			-- asymmetric (review T12 SHOULD-FIX 7).
+			local a = world(true, true, true, vp, 12, true)
+			local b = world(false, true, true, vp, 12, true)
 			expect(snapshot(a)).toBe(snapshot(b))
 			expect(opsSince(a, 0)).toEqual(opsSince(b, 0))
 			local marka, markb = #a.adapter.ops(), #b.adapter.ops()

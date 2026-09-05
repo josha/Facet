@@ -218,7 +218,7 @@ describe("live preference change reflows without remount (LT-2)", function()
 			},
 		})
 		local root = mountLib.mount(core, bp)
-		local adapter = fake_target.new()
+		local adapter = fake_target.new({ ops = true })
 		local controller = renderer.attach(core, root, env, adapter, {})
 		controller.initialRender()
 		adapter.takeOps()

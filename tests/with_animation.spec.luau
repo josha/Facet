@@ -62,7 +62,7 @@ local function world(opts: any?)
 		env:set("reducedMotion", true)
 	end
 	local system = Facet.newActionSystem(core)
-	local adapter = fake_target.new()
+	local adapter = fake_target.new({ ops = true })
 	local pres = Facet.newPresenter(core, env, adapter, system)
 
 	local tall = core:signal(false)
@@ -413,7 +413,7 @@ describe("withAnimation: a path that did not exist before", function()
 		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 600 })
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
 		local system = Facet.newActionSystem(core)
-		local adapter = fake_target.new()
+		local adapter = fake_target.new({ ops = true })
 		local pres = Facet.newPresenter(core, env, adapter, system)
 		local shown = core:signal(false)
 		local UI = Facet.UI
@@ -617,7 +617,7 @@ local function sizeWorld(opts: any?)
 		env:set("reducedMotion", true)
 	end
 	local system = Facet.newActionSystem(core)
-	local adapter = fake_target.new()
+	local adapter = fake_target.new({ ops = true })
 	local pres = Facet.newPresenter(core, env, adapter, system)
 
 	local tall = core:signal(false)

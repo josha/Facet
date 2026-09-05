@@ -48,7 +48,7 @@ local function makeScrollSlice(rows: number, opts: { stripScrollSeam: boolean? }
 		},
 	})
 	local root = mountLib.mount(core, bp)
-	local adapter = fake_target.new()
+	local adapter = fake_target.new({ ops = true })
 	if opts and opts.stripScrollSeam then
 		(adapter :: any).setScrollRegion = nil
 		(adapter :: any).setScrollPosition = nil
@@ -162,7 +162,7 @@ describe("scroll contentSize includes gaps (migration-agent finding 2026-07-23)"
 			},
 		})
 		local root = mountLib.mount(core, bp)
-		local adapter = fake_target.new()
+		local adapter = fake_target.new({ ops = true })
 		local controller = renderer.attach(core, root, env, adapter, { rootPolicy = "edgeToEdge" })
 		controller.initialRender()
 		-- 3 rows x 40 + 2 gaps x 10 = 140 (was 120: the canvas under-covered and
@@ -211,7 +211,7 @@ local function makeAxisSlice(axis: string, count: number, cell: number)
 		},
 	})
 	local root = mountLib.mount(core, bp)
-	local adapter = fake_target.new()
+	local adapter = fake_target.new({ ops = true })
 	local controller = renderer.attach(core, root, env, adapter, { rootPolicy = "edgeToEdge" })
 	controller.initialRender()
 	return core, root, adapter, controller
@@ -262,7 +262,7 @@ describe("A-SV1: horizontal ScrollView", function()
 			},
 		})
 		local root = mountLib.mount(core, bp)
-		local adapter = fake_target.new()
+		local adapter = fake_target.new({ ops = true })
 		local controller = renderer.attach(core, root, env, adapter, { rootPolicy = "edgeToEdge" })
 		controller.initialRender()
 		expect(adapter.node("/S/Strip/Tall").rect.h).toBe(120)
@@ -334,7 +334,7 @@ describe("A-SV1: scrollToVisible", function()
 			},
 		})
 		local root = mountLib.mount(core, bp)
-		local adapter = fake_target.new()
+		local adapter = fake_target.new({ ops = true })
 		local controller = renderer.attach(core, root, env, adapter, { rootPolicy = "edgeToEdge" })
 		controller.initialRender()
 		expect(controller.scrollToVisible("/S/List/Row10/Btn")).toBe(true)
@@ -384,7 +384,7 @@ describe("A-SV1: focus keep-visible through the shared substrate", function()
 				})
 			)
 		end
-		local adapter = fake_target.new()
+		local adapter = fake_target.new({ ops = true })
 		local system = actionsLib.newSystem(core)
 		local pres = presenterLib.new(core, env, adapter, system)
 		local handle = pres.present(UI.Screen({
@@ -516,7 +516,7 @@ describe("fake target: observeScroll holds every observer, like the engine does"
 				}),
 			},
 		})
-		local adapter = fake_target.new()
+		local adapter = fake_target.new({ ops = true })
 		local root = mountLib.mount(core, bp)
 		local controller = renderer.attach(core, root, env, adapter, { rootPolicy = "edgeToEdge" })
 		controller.initialRender()

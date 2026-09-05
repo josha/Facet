@@ -273,7 +273,7 @@ describe("A-AL2: AdaptiveStack changes axis without rebuilding anything", functi
 			},
 		})
 		local root = mountLib.mount(core, bp)
-		local adapter = fake_target.new()
+		local adapter = fake_target.new({ ops = true })
 		local controller = renderer.attach(core, root, env, adapter, { rootPolicy = "edgeToEdge" })
 		controller.initialRender()
 		return root, adapter, controller
@@ -358,7 +358,7 @@ describe("A-AL2: AdaptiveStack changes axis without rebuilding anything", functi
 			},
 		})
 		local root = mountLib.mount(core, bp)
-		local adapter = fake_target.new()
+		local adapter = fake_target.new({ ops = true })
 		local controller = renderer.attach(core, root, env, adapter, { rootPolicy = "edgeToEdge" })
 		controller.initialRender()
 		local createsBefore = controller.stats().creates
@@ -399,7 +399,7 @@ describe("A-LV3: Divider is axis-aware", function()
 			},
 		})
 		local root = mountLib.mount(core, bp)
-		local adapter = fake_target.new()
+		local adapter = fake_target.new({ ops = true })
 		local controller = renderer.attach(core, root, env, adapter, { rootPolicy = "edgeToEdge" })
 		controller.initialRender()
 		return adapter
@@ -435,7 +435,7 @@ describe("A-LV3: Divider is axis-aware", function()
 			},
 		})
 		local root = mountLib.mount(core, bp)
-		local adapter = fake_target.new()
+		local adapter = fake_target.new({ ops = true })
 		local controller = renderer.attach(core, root, env, adapter, { rootPolicy = "edgeToEdge" })
 		controller.initialRender()
 		expect(adapter.node("/S/P/D").rect.w).toBe(1)
@@ -462,7 +462,7 @@ describe("A-LV3: Divider is axis-aware", function()
 			},
 		})
 		local root = mountLib.mount(core, bp)
-		local adapter = fake_target.new()
+		local adapter = fake_target.new({ ops = true })
 		local controller = renderer.attach(core, root, env, adapter, { rootPolicy = "edgeToEdge" })
 		controller.initialRender()
 		expect(adapter.node("/S/P/D").rect.h).toBe(1)
@@ -514,7 +514,7 @@ describe("A-AL1: ViewThatFits", function()
 			},
 		})
 		local root = mountLib.mount(core, bp)
-		local adapter = fake_target.new()
+		local adapter = fake_target.new({ ops = true })
 		local controller = renderer.attach(core, root, env, adapter, { rootPolicy = "edgeToEdge" })
 		controller.initialRender()
 		return core, env, root, adapter, controller
@@ -585,7 +585,7 @@ describe("A-AL1: ViewThatFits", function()
 			},
 		})
 		local root = mountLib.mount(core, bp)
-		local adapter = fake_target.new()
+		local adapter = fake_target.new({ ops = true })
 		local controller = renderer.attach(core, root, env, adapter, { rootPolicy = "edgeToEdge" })
 		controller.initialRender()
 		expect(adapter.node("/S/Cols/Fits/Wide").rect.w).toBe(0)
@@ -599,7 +599,7 @@ describe("A-AL1: ViewThatFits", function()
 		local env = environment.new(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 200, h = 400 })
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
-		local adapter = fake_target.new()
+		local adapter = fake_target.new({ ops = true })
 		local system = actionsLib.newSystem(core)
 		local pres = presenterLib.new(core, env, adapter, system)
 		pres.present(UI.Screen({
@@ -641,7 +641,7 @@ describe("A-AL1: ViewThatFits", function()
 		local env = environment.new(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 200, h = 400 })
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
-		local adapter = fake_target.new()
+		local adapter = fake_target.new({ ops = true })
 		local system = actionsLib.newSystem(core)
 		local pres = presenterLib.new(core, env, adapter, system)
 		pres.present(UI.Screen({
@@ -693,7 +693,7 @@ describe("A-AL1: ViewThatFits", function()
 		local env = environment.new(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 900, h = 700 })
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
-		local adapter = fake_target.new()
+		local adapter = fake_target.new({ ops = true })
 		local system = actionsLib.newSystem(core)
 		local pres = presenterLib.new(core, env, adapter, system)
 		local function pair(prefix: string): { any }
@@ -786,7 +786,7 @@ describe("A-AL1: ViewThatFits", function()
 			},
 		})
 		local root = mountLib.mount(core, bp)
-		local adapter = fake_target.new()
+		local adapter = fake_target.new({ ops = true })
 		local controller = renderer.attach(core, root, env, adapter, { rootPolicy = "edgeToEdge" })
 		controller.initialRender()
 		expect(adapter.visibleOf("/S/Fits/WideRow")).toBe(false)
@@ -809,7 +809,7 @@ describe("A-AL1: ViewThatFits", function()
 			},
 		})
 		local root = mountLib.mount(core, bp)
-		local adapter = fake_target.new()
+		local adapter = fake_target.new({ ops = true })
 		local controller = renderer.attach(core, root, env, adapter, { rootPolicy = "edgeToEdge" })
 		controller.initialRender()
 		expect(adapter.node("/S/Fits/Only").rect.w).toBe(500)
@@ -874,7 +874,7 @@ describe("A-AL1: ViewThatFits", function()
 			},
 		})
 		local root = mountLib.mount(core, bp)
-		local adapter = fake_target.new()
+		local adapter = fake_target.new({ ops = true })
 		local controller = renderer.attach(core, root, env, adapter, { rootPolicy = "edgeToEdge" })
 		controller.initialRender()
 		return adapter
@@ -949,7 +949,7 @@ describe("A-AL1: ViewThatFits", function()
 			},
 		})
 		local root = mountLib.mount(core, bp)
-		local adapter = fake_target.new()
+		local adapter = fake_target.new({ ops = true })
 		local controller = renderer.attach(core, root, env, adapter, { rootPolicy = "edgeToEdge" })
 		controller.initialRender()
 		return adapter
@@ -1011,7 +1011,7 @@ describe("A-AL1: ViewThatFits", function()
 			},
 		})
 		local root = mountLib.mount(core, bp)
-		local adapter = fake_target.new()
+		local adapter = fake_target.new({ ops = true })
 		local controller = renderer.attach(core, root, env, adapter, { rootPolicy = "edgeToEdge" })
 		controller.initialRender()
 		--[[ THE PREMISE: there is no pressure at all — the rich rung measures well
@@ -1096,7 +1096,7 @@ describe("RS-A16-D1: a hidden ViewThatFits candidate requests no hit geometry", 
 			},
 		})
 		local root = mountLib.mount(core, bp)
-		local adapter = fake_target.new()
+		local adapter = fake_target.new({ ops = true })
 		local controller = renderer.attach(core, root, env, adapter, { rootPolicy = "edgeToEdge" })
 		controller.initialRender()
 		return env, adapter, controller
@@ -1193,7 +1193,7 @@ describe("RS-A16-D1: a hidden ViewThatFits candidate requests no hit geometry", 
 				},
 			})
 		)
-		local adapter = fake_target.new()
+		local adapter = fake_target.new({ ops = true })
 		local controller = renderer.attach(core, root, env, adapter, { rootPolicy = "edgeToEdge" })
 		controller.initialRender()
 		expect(adapter.visibleOf("/S/Fits/Row/Group/Deep")).toBe(false)
@@ -1411,7 +1411,7 @@ describe("D-6: the matrix assertions reject a broken fixture", function()
 		env:set("viewportRect", { x = 0, y = 0, w = w, h = h })
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
 		local root = mountLib.mount(core, bp)
-		local adapter = fake_target.new()
+		local adapter = fake_target.new({ ops = true })
 		local controller = renderer.attach(core, root, env, adapter, { rootPolicy = "edgeToEdge" })
 		controller.initialRender()
 		return adapter
@@ -1452,7 +1452,7 @@ describe("D-6: the matrix assertions reject a broken fixture", function()
 			core,
 			UI.Screen({ id = "S", children = { UI.Button({ id = "Tiny", label = "x", height = fixed(20) }) } })
 		)
-		local bare = fake_target.new();
+		local bare = fake_target.new({ ops = true });
 		(bare :: any).setHitRect = nil
 		local controller = renderer.attach(core, root, env, bare, { rootPolicy = "edgeToEdge" })
 		controller.initialRender()
@@ -1481,7 +1481,7 @@ describe("D-6: the matrix assertions reject a broken fixture", function()
 		)
 		-- an adapter WITHOUT the visibility seam is the regressed world: the losing
 		-- candidate keeps painting, and the assertion must notice
-		local blind = fake_target.new();
+		local blind = fake_target.new({ ops = true });
 		(blind :: any).setVisible = nil
 		local controller = renderer.attach(core, root, env, blind, { rootPolicy = "edgeToEdge" })
 		controller.initialRender()
@@ -1724,7 +1724,7 @@ describe("DV3-1: the topbar band is addressable from facts alone", function()
 			},
 		})
 		local function chipRect(policy: string): any
-			local adapter = fake_target.new()
+			local adapter = fake_target.new({ ops = true })
 			local c2 = customFactory.new()
 			local mounted = mountLib.mount(c2, root)
 			local controller = renderer.attach(c2, mounted, env, adapter, { rootPolicy = policy })
@@ -1878,7 +1878,7 @@ describe("platformChrome states the L, not its bounding box", function()
 		local core = customFactory.new()
 		local env = environment.new(core)
 		local function rootRect(): any
-			local adapter = fake_target.new()
+			local adapter = fake_target.new({ ops = true })
 			local c2 = customFactory.new()
 			local mounted = mountLib.mount(c2, UI.Screen({ id = "S", width = fill(), height = fill(), children = {} }))
 			local controller = renderer.attach(c2, mounted, env, adapter, { rootPolicy = "deviceSafeContent" })

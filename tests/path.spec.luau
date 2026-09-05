@@ -106,7 +106,7 @@ describe("UI.Path: paint-only reactive stroke (NS-A7)", function()
 			},
 		})
 		local root = mountLib.mount(core, bp)
-		local adapter = fake_target.new()
+		local adapter = fake_target.new({ ops = true })
 		local controller = renderer.attach(core, root, env, adapter, { rootPolicy = "edgeToEdge" })
 		controller.initialRender()
 		local node = adapter.node("/P/Ring")
@@ -163,7 +163,7 @@ describe("UI.Path: paint-only reactive stroke (NS-A7)", function()
 					},
 				})
 			)
-			local adapter = fake_target.new()
+			local adapter = fake_target.new({ ops = true })
 			local controller = renderer.attach(core, root, env, adapter, { rootPolicy = "edgeToEdge" })
 			controller.initialRender()
 			local painted = adapter.node("/P/Ring").props.thickness
@@ -236,7 +236,7 @@ local function mountClippedPaths(rows: number, rowH: number, viewportH: number, 
 		},
 	})
 	local root = mountLib.mount(core, bp)
-	local adapter = fake_target.new()
+	local adapter = fake_target.new({ ops = true })
 	local controller = renderer.attach(core, root, env, adapter, { rootPolicy = "edgeToEdge" })
 	controller.initialRender()
 	return core, root, adapter, controller
@@ -298,7 +298,7 @@ describe("UI.Path clipping (RS-PATHCLIP)", function()
 			},
 		})
 		local root = mountLib.mount(core, bp)
-		local adapter = fake_target.new()
+		local adapter = fake_target.new({ ops = true })
 		local controller = renderer.attach(core, root, env, adapter, { rootPolicy = "edgeToEdge" })
 		controller.initialRender()
 		expect(adapter.visibleOf("/S/Ring") ~= false).toBe(true)

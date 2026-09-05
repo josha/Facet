@@ -140,6 +140,8 @@ export type WorldOpts = {
 	theme: Theme?,
 	reducedMotion: boolean?,
 	input: string?, -- "touch" (default) | "desktop"
+	-- arm the fake target's op log (T12, default off per ruling A-11)
+	ops: boolean?,
 }
 
 --[[ world(opts) -> a presented-nothing world.
@@ -174,7 +176,7 @@ function large_text.world(opts: WorldOpts?)
 	if theme ~= nil and theme.metrics ~= nil then
 		env:set("themeMetrics", theme.metrics)
 	end
-	local adapter = fake_target.new()
+	local adapter = fake_target.new({ ops = options.ops == true })
 	local system = Facet.newActionSystem(core)
 	local pres = Facet.newPresenter(core, env, adapter, system)
 

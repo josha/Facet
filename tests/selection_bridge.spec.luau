@@ -16,7 +16,7 @@ local function present(kind: string, opts: any)
 	local core = customFactory.new()
 	local env = FacetRoot.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 400, h = 400 })
-	local adapter = fake_target.new()
+	local adapter = fake_target.new({ ops = true })
 	local system = FacetRoot.newActionSystem(core)
 	local pres = FacetRoot.newPresenter(core, env, adapter, system)
 	local UI = FacetRoot.UI

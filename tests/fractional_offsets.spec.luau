@@ -29,7 +29,7 @@ local function harness(screen: any, w: number?, h: number?)
 	env:set("viewportRect", { x = 0, y = 0, w = w or 400, h = h or 600 })
 	env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
 	local root = mountLib.mount(core, screen)
-	local adapter = fake_target.new()
+	local adapter = fake_target.new({ ops = true })
 	local controller = rendererLib.attach(core, root, env, adapter, { rootPolicy = "edgeToEdge" })
 	controller.initialRender()
 	return adapter, controller, core, env
@@ -262,7 +262,7 @@ describe("Anchor: fractional offsets", function()
 				},
 			})
 		)
-		local adapter = fake_target.new()
+		local adapter = fake_target.new({ ops = true })
 		local controller = rendererLib.attach(core, root, env, adapter, { rootPolicy = "edgeToEdge" })
 		controller.initialRender()
 		local mapX = adapter.node("/S/Map").rect.x

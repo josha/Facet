@@ -35,7 +35,7 @@ local function world(opts: any?)
 	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 	local system = Facet.newActionSystem(core)
-	local adapter = fake_target.new()
+	local adapter = fake_target.new({ ops = true })
 	local pres = Facet.newPresenter(core, env, adapter, system)
 
 	local changes: { string } = {}
@@ -108,7 +108,7 @@ describe("TextInput: build + render (TextField primitive wired headless)", funct
 		local core = Facet.newCore()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 200 })
-		local adapter = fake_target.new()
+		local adapter = fake_target.new({ ops = true })
 		local root = Facet.mount(
 			core,
 			Facet.UI.Screen({
@@ -685,7 +685,7 @@ describe("TextInput: conformance (reactive discipline, dump, registry neutrality
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 		local system = Facet.newActionSystem(core)
-		local adapter = fake_target.new()
+		local adapter = fake_target.new({ ops = true })
 		local pres = Facet.newPresenter(core, env, adapter, system)
 		local baseline = core:counters()
 
@@ -795,7 +795,7 @@ describe("TextInput: the clear chip sizes for its glyph, in every theme", functi
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 320, h = 640 })
 		local system = Facet.newActionSystem(core)
-		local adapter = fake_target.new()
+		local adapter = fake_target.new({ ops = true })
 		local pres = Facet.newPresenter(core, env, adapter, system)
 		local control = Facet.Controls.TextInput(core, {
 			id = "F",

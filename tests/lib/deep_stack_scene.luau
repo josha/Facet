@@ -63,6 +63,8 @@ end
 export type Opts = {
 	viewport: { x: number, y: number, w: number, h: number }?,
 	rows: number?,
+	-- arm the fake target's op log (T12, default off per ruling A-11)
+	ops: boolean?,
 	incremental: boolean?, -- renderer.attach `incrementalLayout` (default true)
 	measureReuse: boolean?, -- default true
 	commitScope: boolean?, -- default true
@@ -226,7 +228,7 @@ function deep_stack_scene.new(opts: Opts?)
 	})
 
 	local root = mountLib.mount(core, bp)
-	local adapter = fake_target.new()
+	local adapter = fake_target.new({ ops = o.ops == true })
 	local controller = renderer.attach(core, root, env, adapter, {
 		rootPolicy = "edgeToEdge",
 		incrementalLayout = o.incremental ~= false,

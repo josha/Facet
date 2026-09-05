@@ -43,7 +43,7 @@ local function harness(w: number?, h: number?)
 	local env = environment.new(core)
 	env:set("viewportRect", { x = 0, y = 0, w = w or 400, h = h or 600 })
 	env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
-	local adapter = fake_target.new()
+	local adapter = fake_target.new({ ops = true })
 	local system = actionsLib.newSystem(core)
 	local pres = presenterLib.new(core, env, adapter, system)
 	return core, env, adapter, pres

@@ -404,7 +404,7 @@ end)
 	this block (see the header); what it does not assert is the SEAM's own contract,
 	which is what these cases are. ]]
 
-local function surface(opts: { noDetector: boolean?, noDeclarations: boolean? }?)
+local function surface(opts: { noDetector: boolean?, noDeclarations: boolean?, ops: boolean? }?)
 	local options = opts or {}
 	local core = customFactory.new()
 	local env = environment.new(core)
@@ -469,7 +469,7 @@ local function surface(opts: { noDetector: boolean?, noDeclarations: boolean? }?
 		},
 	})
 	local root = mountLib.mount(core, bp)
-	local adapter = fake_target.new()
+	local adapter = fake_target.new({ ops = options.ops == true })
 	if options.noDetector then
 		adapter.setDragDetector = nil
 	end
@@ -520,7 +520,7 @@ describe("the drag bridge, driven", function()
 			write in this module and the reason it needs `handles`, `findNode` and
 			`authority` at all. `setDragHeld` clears the PREVIOUS path before setting the
 			new one, so a hand-off leaves nothing latched. ]]
-		local s = surface()
+		local s = surface({ ops = true })
 		local registry = s.controller.dragRegistry()
 		local held = (registry :: any).heldSource
 		held:set("/S/Board/Card")
