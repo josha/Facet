@@ -220,6 +220,35 @@ local function world(
 	})
 	local root = mountLib.mount(core, bp)
 	local adapter = fake_target.new()
+	if opts.inlineText then
+		--[[ THE ENGINE'S SETTLED BRANCH, AS IT ACTUALLY BEHAVES. `text_premeasure.spawn`
+			is `task.spawn`, which runs its body synchronously until its first yield, and
+			once the session has settled `measureBatch`'s `GetTextBoundsAsync` does not
+			yield either — so on a live client the answer reaches `premeasure_round`'s
+			`done` INSIDE the solve that asked for it, while `refresh`'s own closure is
+			still standing. `fake_target` queues instead, which is right for a spec that
+			drives the delivery itself and wrong for the one case that is about WHEN the
+			answer lands. This wrapper is that one case. ]]
+		local queued = adapter.measureTextWidths
+		local answer: ((string, number) -> number?)? = nil
+		adapter.measureTextWidths = function(requests: { any }, done: (any, boolean?) -> ()): any
+			local results = {}
+			for _, r in requests do
+				table.insert(results, {
+					font = r.font,
+					size = r.size,
+					word = r.word,
+					width = if answer ~= nil then answer(r.word, r.size) else math.max(1, #r.word * r.size * 0.5),
+				})
+			end
+			done(results)
+			return function() end
+		end
+		(adapter :: any).answerInlineWith = function(fn: ((string, number) -> number?)?)
+			answer = fn
+		end
+		(adapter :: any).queuedMeasure = queued
+	end
 	local controller = renderer.attach(core, root, env, adapter, {
 		rootPolicy = "coreSafeContent",
 		incrementalLayout = opts.incremental,
@@ -480,6 +509,47 @@ describe("a learned word re-measures its users, not the tree (T18-A)", function(
 		).toBe(`narrowed={st.lastMeasured} cold={stats(cold).lastMeasured} narrower=true`)
 	end)
 
+	it("a push that names a large FRACTION of the tree is refused, and the full solve is taken", function()
+		--[[ THE BUDGET, and it is a measured number rather than a taste. A push whose
+			ancestor closure reaches the root and refuses every container on the way down
+			does the whole tree's work PLUS the closure's. Live, arm C, `battle_hud L`'s
+			`updateItem-facing` — 1,000 labels sharing one (font,size) — read **55.709
+			ms** with the push against **~39.7 ms** for the whole-tree cold solve it
+			replaced, at 14,174 measure CALLS against the cold solve's 14,215. Over the
+			cap the mark is spent as a refusal and the bare route takes the full solve,
+			which is exactly what the parent SHA did: no gain, and no regression either.
+
+			200 rows here puts the row key's user set at 200 against a cap of
+			`max(64, nodes // 8)`, and the strip key's at 4 — so the same fixture shows
+			both sides of the line in one case. ]]
+		local arm = world({ viewport = { w = 800, h = 600 }, rows = 200 })
+		settle(arm)
+		arm.rowValue[3]:set("row 1")
+		arm.controller.refresh()
+		local quiet = stats(arm)
+		expect(quiet.lastLayoutNodes // 8 > 64).toBe(true)
+		expect(`the row key would name {200} of {quiet.lastLayoutNodes} nodes, cap {quiet.lastLayoutNodes // 8}`).toBe(
+			`the row key would name 200 of {quiet.lastLayoutNodes} nodes, cap {quiet.lastLayoutNodes // 8}`
+		)
+		-- OVER the cap: refused, and the solve is the full one the parent SHA took
+		arm.rowValue[7]:set("t18aOverBudgetWord")
+		arm.controller.refresh()
+		deliverAll(arm)
+		local over = stats(arm)
+		expect(`over budget: pushed={over.lastTextDirtyPaths} arranged={over.lastArranged} of {over.lastLayoutNodes}`).toBe(
+			`over budget: pushed=0 arranged={over.lastLayoutNodes} of {over.lastLayoutNodes}`
+		)
+		-- UNDER the cap, on the same tree and the same tick shape: narrowed
+		arm.strip[1]:set("t18aUnderBudgetWord")
+		arm.controller.refresh()
+		deliverAll(arm)
+		local under = stats(arm)
+		expect(`under budget: pushed={under.lastTextDirtyPaths} arranged={under.lastArranged}`).toBe(
+			"under budget: pushed=4 arranged=6"
+		)
+		expect(under.lastMeasured < over.lastMeasured // 10).toBe(true)
+	end)
+
 	it("a settle on a key NOTHING uses re-measures nothing — and the SOLVE still runs", function()
 		--[[ THE STRONGEST CASE, and the one that was VACUOUS for an afternoon. A width
 			learned at a (font,size) no mounted node measured under names an empty user
@@ -709,6 +779,54 @@ describe("a learned word re-measures its users, not the tree (T18-A)", function(
 		assertCold(cold, "fitted")
 		expect(facts(narrowed.controller) == facts(cold.controller)).toBe(true)
 		expect(snapshot(narrowed) == snapshot(cold)).toBe(true)
+	end)
+
+	it("a word learned INSIDE a refresh is UNIONED into that refresh's closure, not dropped", function()
+		--[[ THE SHIPPED ROUTE, and a live drive is what put this case here. The engine's
+			settled branch answers INLINE — `text_premeasure.spawn` is `task.spawn`,
+			which runs its body synchronously until its first yield, and a settled
+			`GetTextBoundsAsync` does not yield — so `premeasure_round`'s `done` runs
+			while `refresh`'s own closure is still standing and the re-solve is the
+			re-entrant one. Measured live before this: `stats().lastTextDirtyPaths` read
+			**0** on every settle step of `battle_hud L`, because the push was REFUSED
+			whenever a closure was already set. The geometry was right — the refresh's
+			dirt contains the node whose text just changed — so this is a mechanism pin
+			rather than a staleness one, and it is labelled as such:
+
+			▲ A RECORDED NULL ON THE STALENESS QUESTION. No fixture in this file makes
+			the refusal produce a WRONG rect, and the argument for why is worth keeping:
+			a node's text cannot become a new word without that node being dirtied, so
+			the key's other users on this surface already measured their own strings
+			exactly, and a SECOND surface is corrected through its own bare solve (the
+			case above). The union stays because it is the conservative direction and
+			because "the caller's closure is a superset" is a property that should not
+			depend on that argument staying true.
+
+			The adapter here answers from inside `measureTextWidths`, which is what the
+			engine does and what `fake_target` deliberately does not. ]]
+		local arm = world({ viewport = { w = 800, h = 600 }, rows = 10, inlineText = true })
+		settle(arm)
+		local before = stats(arm)
+		expect(`settled: pushed={before.lastTextDirtyPaths}`).toBe("settled: pushed=0")
+		--[[ ONE WRITE, one new word, answered inline inside the refresh it caused. The
+			four strip labels share the key, so the push names four paths and they are
+			unioned into a closure the refresh had already built for one. ]]
+		arm.strip[1]:set("t18aInlineWord")
+		arm.controller.refresh()
+		local st = stats(arm)
+		expect(`pushed={st.lastTextDirtyPaths} and the rect is exact: {arm.controller.rectOf("/Root/Strip/S1").w}`).toBe(
+			`pushed=4 and the rect is exact: {arm.controller.rectOf("/Root/Strip/S1").w}`
+		)
+		-- ...and it is STILL not a whole-tree solve: a union of two small sets is small
+		expect(st.lastMeasured < st.lastLayoutNodes // 2).toBe(true)
+		-- ...and the geometry equals a forced cold solve of the same tree
+		local cold = coldWorld({ viewport = { w = 800, h = 600 }, rows = 10 })
+		settle(cold)
+		cold.strip[1]:set("t18aInlineWord")
+		cold.controller.refresh()
+		deliverAll(cold)
+		assertCold(cold, "inline")
+		expect(reads(arm.controller, arm.adapter) == reads(cold.controller, cold.adapter)).toBe(true)
 	end)
 
 	it("an unmounted path is forgotten, so a churning list does not retain the session (review SF-8)", function()

@@ -81,16 +81,20 @@
 
 	  * it fills `dirtyContains`/`measureContains`, which is the reuse set the solver
 	    reads — link (iii);
-	  * it marks the SAME closure into `nodeDirty` and `commitDirty`, the two
-	    mounted-tree sets. With `solveOpts.reuse` non-nil the commit's `harvest` prunes
-	    against `builtDirty`, which at a settle is empty, so a solve that filled only
-	    the reuse sets would re-measure the corrected label and then skip the walk that
-	    republishes what the measure decided. (A RECORDED NULL: deleting the marks
-	    reddens nothing today, because `commit_walks` prunes on an ENTRY VERDICT rather
-	    than on the dirty set and a node whose rect moved is descended anyway. The
-	    residue is a verdict that changes WITHOUT moving a rect, which the suite has no
-	    fixture for. The marks stay: they are the conservative direction and the set is
-	    four entries long on the class this exists for.)
+	  * it does NOT touch `nodeDirty`. That was tried and MEASURED, and it is the one
+	    place where the conservative direction was the wrong one: marking the push into
+	    the layout-node store's dirty set forces a REBUILD of every pushed node and
+	    every ancestor, and on the wide key (`battle_hud`'s 1,000 facing labels at size
+	    10) that is ~2,000 rebuilds the parent SHA's cold solve never paid — its
+	    `nodeDirty` was empty and every node was served. Live, arm C: the
+	    `updateItem-facing` settle class read **62.986 ms** with the marks against
+	    39.7 ms for the whole-tree cold solve they were meant to be cheaper than. What
+	    the marks were protecting is `commit_walks`' prune, and that prune does not read
+	    the dirty set alone — it asks `entryVerdict(child)` (settled / moved), so a node
+	    whose rect moved is descended whether or not anything marked it. The residue is
+	    a published VERDICT that changes without moving a rect; no fixture in the suite
+	    produces one, deleting the marks reddened nothing, and the measurement is what
+	    decided it.
 	  * it CLEARS the pair afterwards. `refresh` and `resolveForFeedback` each clear it
 	    in their own tails; a settle solve has no tail, so a push left standing would be
 	    spent again by the next bare solve as a stale set. Two `textMeasureEpoch` writes
@@ -104,9 +108,18 @@
 	    already dropped the whole store, and nothing narrower than everything is honest
 	    there. The push only ever names TEXT nodes, so spending it would leave every
 	    other node at the rect the old viewport gave it.
-	  * a closure ALREADY SET means this is a `refresh` whose own dirt is this frame's,
-	    and the settle write that made the mark is inside it.
 	  * no `lastResult`, or incremental layout off, means there is nothing to reuse.
+	  * the push names more than `cap` paths — see THE BUDGET at `take`.
+
+	A CLOSURE ALREADY SET IS A UNION, NOT A REFUSAL, and this is the one the live drive
+	corrected. On the SHIPPED route the engine's settled branch answers INLINE, from
+	inside the solve that asked, so `premeasure_round`'s `done` runs while `refresh`'s
+	own closure is still standing and the re-solve is the re-entrant one. Refusing there
+	looked safe — the refresh's dirt contains the node whose text just changed — but the
+	(font,size)'s OTHER users are not in it, and they are exactly the nodes still
+	showing the estimator's box. The push is therefore unioned into the caller's two
+	sets: strictly wider than what the caller asked for, never narrower, and the caller
+	still owns the tables (they are cleared by its own tail, not by this one).
 
 	AN EMPTY PUSH IS A PLAN, NOT A REFUSAL, and the distinction is worth 39.9 ms. A
 	width learned at a key no mounted node measured under names nobody; returning `nil`
@@ -147,7 +160,7 @@ export type Index = {
 	forget: (path: string) -> (),
 	-- take the pending push, or drop it. `narrow` false means the caller is about to
 	-- take a FULL solve anyway, which covers everything a push would have named
-	take: (narrow: boolean) -> Plan?,
+	take: (narrow: boolean, cap: number) -> Plan?,
 	-- INTERNAL, and named in the type only so the registry broadcast above can call
 	-- it without an `any` cast: mark one `metricKey` as changed. Nothing outside this
 	-- module calls it — `text_index.learned` is the seam.
@@ -253,7 +266,7 @@ function text_index.new(): Index
 		return anyMarked
 	end
 
-	function index.take(narrow: boolean): Plan?
+	function index.take(narrow: boolean, cap: number): Plan?
 		if not anyMarked then
 			return nil
 		end
@@ -310,6 +323,21 @@ function text_index.new(): Index
 			replays every subtree and re-publishes every channel from the previous
 			result. The env fact still bumps, so a consumer memo that read
 			`Facet.text.measure` still re-derives. ]]
+		--[[ ...AND A BUDGET, MEASURED RATHER THAN ASSUMED. A push that names a large
+			FRACTION of the tree is not a narrowing: its ancestor closure reaches the
+			root, every container on the way down refuses its memo, and the solve ends
+			up doing the whole tree's work PLUS the closure's. Live, arm C,
+			`battle_hud L`'s `updateItem-facing` — 1,000 labels sharing one
+			(font,size) — read **55.709 ms** with the push against **~39.7 ms** for the
+			whole-tree cold solve it replaced, at 14,174 measure CALLS against the cold
+			solve's 14,215. Over the cap the mark is spent as a refusal and the bare
+			route takes the full solve, which is exactly what the parent SHA did.
+
+			The classes this task exists for are nowhere near it: 4 paths of 5,106 nodes
+			on `setState` and 45 on `addItem-damage`, against a cap of 638. ]]
+		if #entries > cap then
+			return nil
+		end
 		local contains, measures = dirty_closure.of(entries)
 		return { contains = contains, measures = measures, n = #entries }
 	end

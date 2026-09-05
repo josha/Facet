@@ -2005,24 +2005,30 @@ function renderer.attach(
 		stats.lastStructuralBoundary = if structural ~= nil then structural.boundary else nil
 		-- THE SETTLE'S OWN CLOSURE (Plan C, T18-A): a learned word arrives here BARE, so
 		-- without this block it buys a COLD whole-tree re-solve. `render/text_index`
-		-- carries the four links, the measurement, why each refusal is a SUPERSET of
-		-- the push, why the two mounted-tree sets are filled, and why it is cleared.
+		-- carries the four links, the measurement, every refusal (including the budget
+		-- below, which is a measured number), and why the closure is cleared.
 		local textDirt = textIndex.take(
-			dirtyContains == nil
-				and not stampMoved
-				and incrementalEnabled
-				and lastResult ~= nil
-				and nodeDirty ~= nil
-				and commitDirty ~= nil
+			incrementalEnabled and lastResult ~= nil and not (stampMoved and dirtyContains == nil),
+			-- the budget, in PATHS: `render/text_index` carries the measurement
+			math.max(64, stats.lastLayoutNodes // 8)
 		)
+		local textOwnsClosure = false
 		if textDirt ~= nil then
-			dirtyContains = textDirt.contains
-			measureContains = textDirt.measures
-			local builtSet = nodeDirty :: { [string]: boolean }
-			local commitSet = commitDirty :: { [string]: boolean }
-			for path in textDirt.contains do
-				builtSet[path] = true
-				commitSet[path] = true
+			if dirtyContains == nil then
+				dirtyContains = textDirt.contains
+				measureContains = textDirt.measures
+				textOwnsClosure = true
+			else
+				-- UNIONED, NEVER DROPPED, into a caller's own closure: the delivery's
+				-- users are not all inside the dirt that produced them
+				local into = dirtyContains :: { [string]: boolean }
+				local intoM = (measureContains or dirtyContains) :: { [string]: boolean }
+				for path in textDirt.measures do
+					intoM[path] = true
+				end
+				for path in textDirt.contains do
+					into[path] = true
+				end
 			end
 		end
 		stats.lastTextDirtyPaths = if textDirt ~= nil then textDirt.n else 0
@@ -2083,7 +2089,7 @@ function renderer.attach(
 		end
 		-- ...AND A CLOSURE THIS FUNCTION SET, THIS FUNCTION CLEARS (T18-A): a settle
 		-- solve has no tail of its own, and a caller's closure belongs to the caller.
-		if textDirt ~= nil then
+		if textOwnsClosure then
 			dirtyContains = nil
 			measureContains = nil
 		end
