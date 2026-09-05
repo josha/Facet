@@ -94,6 +94,14 @@ require("./arrange_reports_seam.spec")
 	call arguments are not Deps fields, the three leaf requires, the one consumer, the
 	one export, that nothing stayed behind, and that the module holds no state ]]
 require("./stack_seam.spec")
+--[[ ...and its MEASURE-side sibling (Plan C, T13's seam, 2026-09-05):
+	`src/layout/stack_measure.luau` holds the three passes that produce a vstack's or an
+	hstack's content size, taken out FIRST so the per-child memo that follows has
+	Source-write room to be written in. The spec pins the same one-way properties plus
+	the two this seam has and the arrange half does not — a FOUR-field record where the
+	wider five-field one was already in scope, and NO call-site arguments — and it is
+	the instrument that makes the memo's growth of the `ctx` read set visible. ]]
+require("./stack_measure_seam.spec")
 --[[ ...and the ANCHOR ARRANGE'S THIRD ARM (wicked-fast T6): a non-dirty anchor child
 	offered exactly what it was offered last time takes its w/h from its own previous
 	rect instead of a `measure` call. The spec pins the two new work counters on an

@@ -125,6 +125,11 @@ local noteContainment = arrange_reports.containment
 -- ledger's row for this file has named since the T4 split. It takes `STACK_DEPS`
 -- below plus `arrange`/`noteContainment` at the call, and holds no state.
 local stackLib = require("./stack")
+-- ...and `stack_measure`: the vstack/hstack MEASURE branch — the three passes that
+-- produce a stack's content size — lifted out on 2026-09-05 for the headroom its own
+-- per-child memo needed (Plan C, T13). It takes `STACK_MEASURE_DEPS` below, has no
+-- call-site arguments and holds no state.
+local stackMeasure = require("./stack_measure")
 -- THE TRANSLATE ARM (wicked-fast O3) — `translatable` (is the subtree eligible?)
 -- and `translateDescendants` (re-base it) — lifted out on 2026-09-03 (Plan C, T2).
 -- NO Deps record, the strongest one-way claim this file makes about a seam:
@@ -583,6 +588,19 @@ local STACK_DEPS: stackLib.Deps = {
 	measure = GRID_DEPS.measure,
 	dim = dim,
 	mainDimOf = mainDimOf,
+	sides = sides,
+	shrink = SHRINK_DEPS,
+}
+
+-- ...AND WHAT `src/layout/stack_measure.luau` NEEDS, which is FOUR of those five and
+-- not the fifth: the measure branch never asks `mainDimOf` (it reads the child's own
+-- axis through `dim`), and a Deps record is a statement about what a module reads —
+-- so it declares its own rather than borrowing the wider arrange one. `measure` is
+-- borrowed from `GRID_DEPS` and `shrink` travels rather than being rebuilt, both for
+-- the reason `FLOW_DEPS` records one record up.
+local STACK_MEASURE_DEPS: stackMeasure.Deps = {
+	measure = GRID_DEPS.measure,
+	dim = dim,
 	sides = sides,
 	shrink = SHRINK_DEPS,
 }
@@ -1346,153 +1364,10 @@ local function contentSize(ctx: Ctx, node: Node, maxW: number, maxH: number): (n
 		return plan.totalCross + pl + pr, plan.maxMain + pt + pb
 	end
 
-	-- vstack / hstack
-	local isH = node.kind == "hstack"
-	local children = node.children or {}
-	local n = #children
-	local gaps = if n > 1 then gap * (n - 1) else 0
-	local mainLimit = if isH then innerMaxW else innerMaxH
-	local mainSum, fillWeightSum = 0, 0
-	local crossOf: { [number]: number } = {}
-	local marginMain: { [number]: number } = {}
-	-- lazily created, and only ever by a child that declared a shrinkWeight ABOVE
-	-- ZERO: a stack that opted into nothing allocates nothing here and PASS 1.5
-	-- below never runs. The one cost on the inert path is the field read in PASS 1.
-	--
-	-- `> 0`, NOT `~= nil` (Milestone-1 review, C6). `shrinkWeight = 0` is the
-	-- documented default AND a legal authored value — "never shrinks", Roblox's
-	-- `UIFlexMode.None` — so a caller who writes it explicitly means the inert
-	-- behaviour. The `~= nil` form allocated `shrinkBasis`, ran PASS 1.5 and called
-	-- `shrinkLib.stack` for it, which then filtered it out one level down on exactly
-	-- this test. Same filter, one level earlier.
-	local shrinkBasis: { [number]: number }? = nil
-	-- PASS 1: children with a definite main extent measure against the whole
-	-- inner box, and consume it.
-	for idx, child in children do
-		local mt, mr, mb, ml = sides(child.margin)
-		marginMain[idx] = if isH then ml + mr else mt + mb
-		local childMainDim = dim(child, if isH then "w" else "h")
-		if childMainDim.type == "fill" then
-			fillWeightSum += childMainDim.weight or 1
-		else
-			local cw, ch = measure(ctx, child, innerMaxW, innerMaxH)
-			mainSum += (if isH then cw + ml + mr else ch + mt + mb)
-			crossOf[idx] = if isH then ch + mt + mb else cw + ml + mr
-			if child.shrinkWeight ~= nil and child.shrinkWeight > 0 then
-				local basis = shrinkBasis or {}
-				basis[idx] = if isH then cw else ch
-				shrinkBasis = basis
-			end
-		end
-	end
-	-- PASS 1.5: THE MEASURE-SIDE SHRINK (§2.4, added 2026-08-12 — the mirror that
-	-- closes the seam this branch used to merely name).
-	--
-	-- The claim this replaces was that shrinking is an arrange-time negotiation and
-	-- measure only reports what a stack would LIKE, so a deficit cannot exist here.
-	-- That is true of a `hug`/`content` parent, which offers back exactly what it
-	-- measured. It is false the moment the offer is DEFINITE and smaller than the
-	-- content — a `fill`-width toolbar in a fixed screen — which is the canonical
-	-- use of the feature. There the squeeze is knowable at measure time, and not
-	-- doing it reserved the CROSS extent of a wrap that will not happen: a label
-	-- squeezed to its floor wrapped to eight lines inside a row that had reserved
-	-- one, and painted the other seven outside. That is the "painted at a size
-	-- nobody measured" family,
-	-- and shipping a new layout feature with a known instance of it inside is
-	-- shipping the next one.
-	--
-	-- It mirrors PASS 2 below, which exists for the identical reason on the `fill`
-	-- child: measure at the extent the child will ACTUALLY get, or under-report its
-	-- cross size. Order matches arrange's (shrink, then fill): the freed pixels are
-	-- part of what fill children share.
-	--
-	-- ZERO ADDED WORK WHEN NOTHING OPTED IN, deliberately — this is the hot measure
-	-- path and it has a live perf budget. `shrinkBasis` is nil unless a child
-	-- declared a weight, so the whole block is skipped by one nil test; the two
-	-- tables it needs are allocated on the deficit path only, exactly the discipline
-	-- arrange's `shrinkLib.EMPTY` was written for.
-	--
-	-- ...AND IT DOES NOT RUN INSIDE A `ViewThatFits` FIT PROBE (ruling 2). "Does
-	-- this candidate fit?" is asked of the size the candidate would LIKE, which is
-	-- SwiftUI's ideal size — a candidate that only fits after being squeezed does
-	-- not fit, exactly as a Text that only fits after truncating does not fit there.
-	-- See `chosenCandidate` for the ruling and the measurement; the probe is off
-	-- again before the chosen candidate is measured for real, so the winner still
-	-- shrinks.
-	if shrinkBasis ~= nil and mainLimit ~= math.huge and not ctx.fitProbe then
-		local deficit = mainSum + gaps - mainLimit
-		if deficit > 0 then
-			local shrunk: { [number]: number } = {}
-			local absorbed =
-				shrinkLib.stack(SHRINK_DEPS, ctx, children, isH, shrinkBasis :: { [number]: number }, deficit, shrunk)
-			if absorbed > 0 then
-				-- the report shrinks with the children: a stack that can absorb its own
-				-- deficit needs the room it is left with, not the room it started from,
-				-- and reporting the larger number would make measure a fixed point of
-				-- nothing (the parent hands the report back and the same squeeze happens
-				-- again at arrange).
-				mainSum -= absorbed
-				-- RE-MEASURE AT THE REDUCED OFFER, in document order — the same loop, the
-				-- same reason and the same ordering rule as arrange's: last-write-wins
-				-- verdict channels (`compact`, `textFacts`) must publish deterministically.
-				for idx = 1, n do
-					local size = shrunk[idx]
-					if size ~= nil then
-						local child = children[idx]
-						local mt, mr, mb, ml = sides(child.margin)
-						local cw, ch =
-							measure(ctx, child, if isH then size else innerMaxW, if isH then innerMaxH else size)
-						crossOf[idx] = if isH then ch + mt + mb else cw + ml + mr
-					end
-				end
-			end
-		end
-	end
-	-- PASS 2: a FILL child never receives the whole main extent — it receives its
-	-- weighted share of what is left, exactly as arrange distributes it.
-	--
-	-- THIS PASS MIRRORS ARRANGE'S `fill` BLOCK. Arrange's SHRINK pass has its own
-	-- mirror at PASS 1.5 above (it used to have none, and the gap between them was
-	-- the seam recorded there). Both passes are the same rule applied to the two
-	-- ways a child ends up smaller than its natural size — a fill share, or a
-	-- squeeze — and both run because the CROSS extent has to be measured at the main
-	-- extent the child will actually get.
-	--
-	-- Measuring
-	-- it against the FULL extent under-reports its cross size, because less width
-	-- means more wrapped lines and more height. That under-report is what a
-	-- ScrollView turns into a canvas that cannot reach its own content: found live
-	-- 2026-07-24 on compact-phone-landscape, where the two fill columns measured at
-	-- the full 680px reported a 292px canvas for content that actually reached
-	-- 443px — the bottom 151px, including the whole tile row, was unreachable by
-	-- scrolling. Same root cause as the 27px cross-axis clamp the overflow
-	-- diagnostic reports on the wider rows.
-	local remaining = if mainLimit == math.huge then math.huge else math.max(0, mainLimit - mainSum - gaps)
-	for idx, child in children do
-		if crossOf[idx] ~= nil then
-			continue
-		end
-		local mt, mr, mb, ml = sides(child.margin)
-		local childMainDim = dim(child, if isH then "w" else "h")
-		local share = if remaining == math.huge or fillWeightSum <= 0
-			then math.huge
-			else remaining * (childMainDim.weight or 1) / fillWeightSum
-		-- floor is the conservative direction: a slightly narrower measurement
-		-- over-reserves height rather than under-reserving it
-		local childMain = if share == math.huge then math.huge else math.max(0, math.floor(share) - marginMain[idx])
-		local cw, ch = measure(ctx, child, if isH then childMain else innerMaxW, if isH then innerMaxH else childMain)
-		crossOf[idx] = if isH then ch + mt + mb else cw + ml + mr
-	end
-	local crossMax = 0
-	for idx = 1, n do
-		crossMax = math.max(crossMax, crossOf[idx] or 0)
-	end
-	local contentMain = mainSum + gaps + (if isH then pl + pr else pt + pb)
-	local contentCross = crossMax + (if isH then pt + pb else pl + pr)
-	if isH then
-		return contentMain, contentCross
-	end
-	return contentCross, contentMain
+	--[[ vstack / hstack — `./stack_measure`, the MEASURE-side sibling of `./stack`.
+		The branch left this file on 2026-09-05 to make room for its own per-child memo
+		(Plan C, T13); `STACK_MEASURE_DEPS` is built once above, beside the other five. ]]
+	return stackMeasure.contentSize(STACK_MEASURE_DEPS, ctx, node, innerMaxW, innerMaxH, gap, pt, pr, pb, pl)
 end
 
 -- `memoPlan` and its three `PLAN_*` verdicts are bound from `./measure_facts` at

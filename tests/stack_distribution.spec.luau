@@ -1169,6 +1169,11 @@ end)
 local solverSource = fs.readFile("src/layout/solver.luau")
 local shrinkSource = fs.readFile("src/layout/shrink.luau")
 local stackSource = fs.readFile("src/layout/stack.luau")
+-- ...and the MEASURE half, which left the solver on 2026-09-05 (Plan C, T13's seam).
+-- C6 below is a claim about the measure-side PASS 1, so the file it reads has to be
+-- the file that branch lives in — a pin left pointing at the host after an extraction
+-- is a pin that has stopped asking its own question.
+local stackMeasureSource = fs.readFile("src/layout/stack_measure.luau")
 
 describe("§2.4 shrink — C5/C6: the pass costs nothing until it has a member", function()
 	it("STRUCTURAL C5: arrange scans for a member BEFORE allocating `shrunk` and `basisMain`", function()
@@ -1204,12 +1209,14 @@ describe("§2.4 shrink — C5/C6: the pass costs nothing until it has a member",
 
 	it("STRUCTURAL C6: measure's PASS 1 allocates a basis only for a weight ABOVE zero", function()
 		expect(
-			string.find(solverSource, "if child.shrinkWeight ~= nil and child.shrinkWeight > 0 then", 1, true) ~= nil
+			string.find(stackMeasureSource, "if child.shrinkWeight ~= nil and child.shrinkWeight > 0 then", 1, true)
+				~= nil
 		).toBe(true)
 		-- DIRECTIONAL, same shape: the pre-fix gate was the bare nil test, and
 		-- `shrinkWeight = 0` is a legal authored value meaning "never shrink".
-		-- Checked in ALL THREE files — the gate could regress on any side of the seam.
+		-- Checked in ALL FOUR files — the gate could regress on any side of either seam.
 		expect(string.find(solverSource, "if child.shrinkWeight ~= nil then", 1, true) == nil).toBe(true)
+		expect(string.find(stackMeasureSource, "if child.shrinkWeight ~= nil then", 1, true) == nil).toBe(true)
 		expect(string.find(shrinkSource, "if child.shrinkWeight ~= nil then", 1, true) == nil).toBe(true)
 		expect(string.find(stackSource, "if child.shrinkWeight ~= nil then", 1, true) == nil).toBe(true)
 		-- ...and the ARRANGE-side copy of the same filter is in `stack.luau` now

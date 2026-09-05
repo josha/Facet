@@ -275,21 +275,27 @@ describe("the stack seam: one-way, one consumer, and nothing stayed behind", fun
 		--[[ THE FAILURE THIS REPOSITORY HAS ALREADY PAID FOR ONCE: a block "moved" by
 			copying, leaving the host's version live and the two drifting. Each string
 			below is a distinctive line of the branch that left, and none of them may
-			appear in the solver any more. `local isH = node.kind == "hstack"` is
-			DELIBERATELY NOT one of them — the MEASURE-side stack pass still uses that
-			exact line and stayed behind, which is what makes this list a real one. ]]
+			appear in the solver any more.
+
+			▲ AMENDED 2026-09-05, and the amendment is the point of writing near-misses
+			down. This case used to pin `local isH = node.kind == "hstack"` as PRESENT,
+			on the grounds that the MEASURE-side stack pass still used that exact line —
+			true when it was written, and false the moment that pass ALSO left, for
+			`src/layout/stack_measure.luau` (Plan C, T13's seam). The three strings that
+			moved with it (`local isH = node.kind == "hstack"`, `fillWeightSum`,
+			`local shrunk`) are now pinned by `tests/stack_measure_seam.spec.luau`'s own
+			"nothing stayed behind" case instead of here. A near-miss list is a statement
+			about what ELSE lives in the host, so it goes stale when the host changes —
+			and this spec noticing that is the mechanism working. ]]
 		local body = stripComments(solverSrc)
 		expect(string.find(body, "local hugLater", 1, true)).toBe(nil)
 		expect(string.find(body, "hasShrink", 1, true)).toBe(nil)
 		expect(string.find(body, "local clipMain", 1, true)).toBe(nil)
 		expect(string.find(body, "child.lineAlign or child.align or node.align", 1, true)).toBe(nil)
-		--[[ THREE NEAR-MISSES ARE DELIBERATELY *NOT* ON THAT LIST, and each one is why
-			this case had to be written by measurement rather than by eye:
-			`local isH = node.kind == "hstack"` and `fillWeightSum` are the MEASURE-side
-			stack pass, `gapExtraApplied` and `distributionOf(` are the WRAP branch, and
-			`local shrunk` is the measure pass's own. All five stayed behind correctly.
-			The positives below prove the file was not simply emptied. ]]
-		expect(string.find(body, 'local isH = node.kind == "hstack"', 1, true) ~= nil).toBe(true)
+		--[[ TWO NEAR-MISSES ARE DELIBERATELY *NOT* ON THAT LIST: `gapExtraApplied` and
+			`distributionOf(` are the WRAP arrange branch, which stayed behind and is one
+			`Enum`-name apart from the branch that left. The positives below prove the
+			file was not simply emptied. ]]
 		expect(string.find(body, "gapExtraApplied", 1, true) ~= nil).toBe(true)
 		expect(string.find(body, "distributionOf(", 1, true) ~= nil).toBe(true)
 	end)
