@@ -2653,3 +2653,86 @@ changed key's user set, and that is a property of the WORKLOAD, not of the lever
 `battle_hud L` it is 6 and 32 against 14,245; on a screen whose new words land on its
 biggest key it is 2,002 against 14,245 — still a 7x cut, but not the same result, and
 §C16 must publish both numbers.
+
+---
+
+## Amendment log — T13b, round 2 (ruling L-8): what was BUILT, against what §Task 13b wrote
+
+The task section above was written before its adversarial review
+(`.superpowers/sdd/2026-09-03-facet-parity-C/levers-plan-review-13b.md`, VERDICT: NEEDS
+AMENDMENT, six MUST-FIX). Ruling L-8 made the review binding and told the implementer to
+amend this section to match what it built rather than re-plan. This is that amendment. The
+gate table, the argmax deletion and the A-4 answers stand exactly as written; the
+MECHANISM in step 4 did not, and neither did steps 5 and 6.
+
+**The six MUST-FIXes, each as it shipped.**
+
+1. **The payload is recorded after every COMPLETED FULL PASS, hit or miss.** Step 4's tail
+   said `if memoable and not hit`. `agg` is false while `hit` is true on four tick classes
+   (structural, audited, `mN` mismatch, both fallbacks); on all four the pass repairs the
+   per-index arrays in place while leaving `mIdx`/`mAlways`/`mFill` describing the previous
+   shape, and a `ForEach` REORDER at an unchanged child count then resolves every dirty id
+   to the wrong index on the NEXT tick. `mSum`/`mCutsSum` are also written back after every
+   aggregate tick — without that the third consecutive tick subtracts a value the second
+   already replaced, and the error accumulates. Both are mutations that bite (M10, M11).
+2. **`fillWeightSum` and `marginMain` are supplied by an O(#fill) PRE-PASS, not by PASS 2.**
+   Owed rows A4 and A8 said PASS 2 supplies them; PASS 2 only READS them. Without the
+   pre-pass the share is `math.huge` and every fill child measures at an unbounded main
+   extent. Mutation M12 bites.
+3. **Refusal is a pre-pass; the committed loop cannot bail.** Step 4 aliased the arrays and
+   then `break`ed on two valves. Two of the three corruptions the review named are also
+   structurally prevented rather than merely avoided: the fill pass's `crossOf[idx] ~= nil`
+   sentinel is GONE (PASS 1 records the fill list, which the aggregate needs anyway and
+   which makes the full path's own fill scan O(#fill) too), and `ctx.childVisits` /
+   `ctx.fitCuts` / `mainSum` are only touched inside a loop that has no exit.
+4. **The visit loop BUILDS `shrinkBasis`** rather than refusing on `shrinkWeight ~= nil`,
+   which is where this build departs from the review's proposed fix and says why: a
+   declared `shrinkWeight = 0` is a legal authored value meaning "never shrinks", it never
+   builds a basis, and refusing on it would disable the aggregate for that container
+   forever. The arrival tick is exact, the tail drops the key, the next tick walks.
+   Mutation M14 bites.
+5. **The oracle COMPUTES the aggregate's answer.** With the audit on there is no aggregate
+   to replay; `contentSize` snapshots the payload as the aggregate would have found it,
+   runs the walk, and derives four named channels — the visit set, `mainSum`, the cuts an
+   unvisited child owes, and `fillWeightSum`/`marginMain` over the fill indices — asserting
+   each before the record overwrites them. Non-vacuity is `ctx.aggregateChecks`, not the
+   `lastChildIterations` pair (which the audit flag alone guarantees). It runs on six
+   fixtures × nine `device_views.VIEWS` plus the 1,000-row tree with a no-reuse ground
+   truth. Mutations M16, N2, N3 and N4 bite through it.
+6. **The offers fold is option (d), which is neither the plan's (b) nor the review's (c).**
+   `child.oMemo` points at the CONTAINER's memo — whose key already IS the offer
+   (`mOffW`/`mOffH`) — and the arrange entry literal reads it only when `ctx.offers` misses
+   AND `cmemo.mSolve` carries this solve's token (`ctx.solveToken`, a fresh empty table per
+   solve; a module-level counter is what this file's own seam spec forbids and the `Ctx`
+   table itself would leak a dead solve's whole context). This answers M6.1 without
+   touching the two arrange writers — `ctx.offers` remains the single source of truth and
+   WINS wherever anything wrote it, so those children never consult the fallback — and
+   M6.2 is the stamp. **It is still a behavioural NULL and the report says so**: dropping
+   the fallback, and transposing its two halves, both leave 21/21 and 8,531/0, because
+   `stack.arrange` still measures every stack child (`src/layout/stack.luau`, pass 1 and
+   the `hugLater` loop) and `measure` writes `ctx.offers` itself. T14's replay is what
+   makes it load-bearing. The channel is covered by a value pin and a mechanism pin.
+
+**The SHOULD-FIXes all shipped**: `lastChildIterations` = PASS 1 + the fill scan only, with
+the `crossMax` fold named at the field as the residual it does not claim; `lastAggregateFallbacks`
+= started-then-bailed only; `budget = math.max(4, n // 4)` (mutation M17 removes the floor
+and reddens 13 of 21 cases — every small container pays a probe walk and falls back);
+`cmemo.struct` cleared by every completed full pass; an owed row (A13) for the five
+always-visit predicates with the argument that a flip of any of them makes the child dirty;
+the two extra fixtures (two consecutive aggregate ticks; a splice THEN a plain tick, with
+`iters` pinned on the tick after); the oracle's four channels named; the residual MEASURED.
+
+**One defect this task found that is not an owed row: T13's key was missing the AXIS.**
+`UI.AdaptiveStack` is one public class with a reactive `axis` prop that maps to two solver
+KINDS with the documented guarantee "the flip is a re-solve, never a remount". `mMain[idx]`
+is a MAIN-axis contribution; a container that wants content on both axes is offered the
+same `innerMaxW`/`innerMaxH` on both sides of the flip, its children stay clean, and every
+other term in T13's key holds — so the memo served heights as widths. `cmemo.mKind` is the
+term, the case drives it, and mutation M9 bites.
+
+**Costs against the section's own budgets, stated rather than smoothed.** `solver.luau`
++1,589 against ≤ +1,400 (189 over, recorded in the source-cap ledger with what it bought);
+`src/layout/stack_measure.luau` +23,058 against ≤ +6,500. The second number is 3.5× the
+budget and the reason is the six MUST-FIXes: each one is a correction whose ARGUMENT has to
+sit at the site it corrects, and the file is uncapped by design (it is the seam T13 took so
+this branch would have room). `src/render/renderer.luau`: zero characters, as specified.
