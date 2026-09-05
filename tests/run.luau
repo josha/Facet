@@ -233,6 +233,11 @@ require("./rect_reads_seam.spec")
 -- over a refresh's dirty list is a PURE FUNCTION of the list it is handed, which is
 -- the strongest one-way claim a block leaving `renderer.luau` can make
 require("./dirty_closure_seam.spec")
+-- ...and the seam T18-A took for the room the SETTLE closure needed: axis 3 of the
+-- measure store, built once and handed to the store, the node-resident serve and the
+-- container memo. One require heavier than the closure above and one-way for the same
+-- reasons — and it is where the text generation the stamp folds in now lives
+require("./measure_stamp_seam.spec")
 require("./render_stats_seam.spec")
 require("./solve_ctx_seam.spec")
 require("./z_order_seam.spec")

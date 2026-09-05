@@ -885,30 +885,40 @@ describe("cross-solve measure reuse (P1)", function()
 		expect(keys(again)).toBe(CAP - 1)
 	end)
 
-	it("NO ADDRESS STRING REACHES THE STAMP — the renderer passes the snapshot itself", function()
+	it("NO ADDRESS STRING REACHES THE STAMP — the snapshot travels as an argument", function()
 		--[[ THE SOURCE HALF, because the case above cannot see a term that is merely
 			REDUNDANT: a stamp that still folds `tostring(metrics)` in would pass every
 			assertion there and go on comparing addresses on the shipped path. One
-			grep, over the call and nothing else, with its COMMENTS STRIPPED — the
-			block explains the defect by name, and a scan that read prose would report
-			the very term it is checking for. ]]
-		--[[ THE BLOCK IS THE STAMP EXPRESSION *AND* THE CALL, since Plan C's C2 made the
-			string a local: `solver.measure`'s node-resident serve needs the same axis-3
-			answer the store needs, so the renderer builds the string once and hands it
-			to both. A scan pinned to the call alone would have gone quiet on the very
-			terms it is here to hold — it did, on the commit that moved them — so it
-			reads from the assignment through the call's closing paren instead. ]]
-		local source = fs.readFile("src/render/renderer.luau")
-		local block = string.match(source, "local measureStamp = (.-)\n\t\t%)")
+			grep, over the stamp's builder and nothing else, with its COMMENTS STRIPPED
+			— the block explains the defect by name, and a scan that read prose would
+			report the very term it is checking for.
+
+			RE-RECORDED 2026-09-05 (Plan C, T18-A). The block left `renderer.luau` for
+			`render/measure_stamp.luau` — the whole of `measure_stamp.take`, expression
+			and `restamp` call together, which is the same span this case always read
+			(Plan C's C2 made the string a local so `solver.measure`'s node-resident
+			serve could be handed the same axis-3 answer the store gets; a scan pinned
+			to the call alone would go quiet on the very terms it is here to hold).
+			What the RENDERER still owes is the other half of that rule: the same local
+			it was handed is what reaches the solve. ]]
+		local source = fs.readFile("src/render/measure_stamp.luau")
+		local block = string.match(source, "\n\tlocal stamp = (.-)\nend")
 		expect(block ~= nil).toBe(true)
 		local code = string.gsub("\n" .. (block :: string), "\n[ \t]*%-%-[^\n]*", "\n")
 		expect(string.find(code, "tostring(metrics)", 1, true)).toBe(nil)
 		-- ...and the snapshot really is an argument, so the two halves cannot both
 		-- pass by the call having stopped taking one
-		expect(string.find(code, "\n\t\t\tmetrics", 1, true) ~= nil).toBe(true)
+		expect(string.find(code, "restamp(store, stamp, metrics)", 1, true) ~= nil).toBe(true)
 		-- ...and the SAME local really is what the solve is handed, or the two caches
 		-- would answer axis 3 from two strings that can drift
-		expect(string.find(source, "measureStamp = measureStamp,", 1, true) ~= nil).toBe(true)
+		local renderer = fs.readFile("src/render/renderer.luau")
+		expect(string.find(renderer, "measureStamp = measureStamp,", 1, true) ~= nil).toBe(true)
+		expect(string.find(renderer, "local measureStamp, stampMoved = measure_stamp.take(", 1, true) ~= nil).toBe(true)
+		-- ...AND THE TEXT GENERATION IS A TERM, re-recorded with T18-A's narrowing:
+		-- `epoch()` counts every seam that can change what `measure` returns, and a
+		-- settled session paid a whole-tree cold re-solve per learned word for it.
+		-- The stamp carries the CALIBRATION half; the word half is carried by the
+		-- dirty set instead (`render/text_index`).
 		expect(string.find(code, "text_metrics.epoch()", 1, true) ~= nil).toBe(true)
 	end)
 end)

@@ -33,6 +33,8 @@ local presentation_channel = require("./presentation_channel")
 -- solve, a commit or a frame
 local surface_overlap = require("./surface_overlap")
 local dirty_closure = require("./dirty_closure")
+-- axis 3 of the measure store and of the node-resident serve (Plan C, T18-A)
+local measure_stamp = require("./measure_stamp")
 local themeSnapshot = require("../themes/snapshot")
 -- the measure seam and the button-text grammar (see the pointer below)
 local layout_node = require("./layout_node")
@@ -1968,29 +1970,21 @@ function renderer.attach(
 			commitDirty = nil
 			nodeDirtySeen = root.dirtySeq()
 		end
-		-- THE STAMP IS READ BEFORE THE REUSE DECISION (P5) and UNCONDITIONALLY, whether
-		-- or not the measure cache is on: it is axis 3 of the store AND the solve root's
-		-- own offer, and gating it made the refusal below unfirable in the one arm that
-		-- exists to make a divergence attributable (`render/structural_scope`, AND THE
-		-- STAMP HAS TO BE TAKEN). Only `solveOpts.measures` is gated.
-		--[[ ...AND THE SAME STRING IS THE MEASURE SERVE'S AXIS 3 (C2), which is why it
-			is a local rather than an argument built in place. `solver.measure` may answer
-			a clean node from a tuple ON THE NODE, and that tuple outlives the store the
-			stamp clears: the layout nodes are rebuilt only when the METRICS or the two
-			text scales move, so a text-metrics settle — a corrected label width at an
-			unchanged offer under an unchanged theme — would otherwise be served the
-			width from before the correction. The store and the tuple get the same
-			answer to the same question, from the same string. ]]
-		local measureStamp = `{vp.w}|{vp.h}|{insets.top}|{insets.bottom}|{insets.left}|{insets.right}|{rootPolicy}|{barReserve}`
-			.. `|{if band ~= nil then `{band.x},{band.y},{band.w},{band.h}` else "-"}|{bandFullTop}`
-			.. `|{measureScale}|{prefOffset}|{text_metrics.epoch()}`
-		local stampMoved = measure_reuse.restamp(
+		-- AXIS 3 OF THE MEASURE STORE AND OF THE NODE-RESIDENT SERVE, built once and
+		-- re-stamped in one call. `render/measure_stamp` owns the term list, why the
+		-- stamp is taken UNCONDITIONALLY here, why the applied snapshot travels beside
+		-- the string rather than inside it, and which text generation is a term.
+		local measureStamp, stampMoved = measure_stamp.take(
 			measureStore,
-			measureStamp,
-			-- ...and the APPLIED SNAPSHOT ITSELF, beside the string rather than inside it:
-			-- `tostring(metrics)` was an address, and an address is reused once its table
-			-- is collected (`measure_reuse.Store.metrics`)
-			metrics
+			metrics,
+			vp,
+			insets,
+			rootPolicy,
+			barReserve,
+			band,
+			bandFullTop,
+			measureScale,
+			prefOffset
 		)
 		-- THE STRUCTURAL QUALIFICATION: the one refusal the plan itself could not see,
 		-- and the stamp half of it is UNCONDITIONAL — absorbing proves a node's own
