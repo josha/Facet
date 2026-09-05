@@ -194,7 +194,9 @@ describe("the solve-context seam: one require, no state, one export", function()
 		end
 		table.sort(missing)
 		table.sort(undeclared)
-		expect(`declared={#sorted(declared)} written={#sorted(written)}`).toBe("declared=53 written=53")
+		-- 53 -> 55 (Plan C, T13): `childVisits` and `memoAudit`, the container memo's
+		-- counter and its test-only self-check
+		expect(`declared={#sorted(declared)} written={#sorted(written)}`).toBe("declared=55 written=55")
 		expect(`never built={table.concat(missing, " ")}`).toBe("never built=")
 		expect(`undeclared={table.concat(undeclared, " ")}`).toBe("undeclared=")
 		-- NEGATIVE CONTROL: both scans really do read a field and a key

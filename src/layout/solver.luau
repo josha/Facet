@@ -288,6 +288,15 @@ export type Node = {
 	mBTextState: any,
 	mBCompact: any,
 	mBTextFacts: any,
+	--[[ THE CONTAINER MEMO'S POINTER (Plan C, T13), refreshed by
+		`render/layout_node.build` on every build of this node and NIL on a solve with no
+		node store. The table it points at lives on the STORE entry, which is keyed by
+		the MOUNT node and outlives every rebuild of this one — a memo living here would
+		be nil on exactly the ticks the lever targets, because a container holding one
+		dirty child is rebuilt. Written by `layout_node`, read by
+		`./stack_measure`, and by nothing in this file: `contentSize` hands the node
+		over and the measure branch reads one field off it. ]]
+	cmemo: any?,
 	-- px, or a FRACTION of the parent's inner extent plus a px adjustment
 	-- ({ scale, offset } — the marker-overlay shape). The
 	-- renderer resolves metric names before this; the fraction can only be spent
@@ -3394,6 +3403,9 @@ function solver.solve(
 			-- those it answered from the node's own tuple (see `Ctx`)
 			measureCalls = ctx.measureCalls,
 			measureServed = ctx.measureServed,
+			-- ...and T13's: how many of those calls a stack's own measure branch made,
+			-- which is the half a container memo can remove (see `Ctx.childVisits`)
+			childVisits = ctx.childVisits,
 			rectInserts = ctx.rectInserts,
 			skipped = ctx.skipped,
 			-- the O3 translate class and its two flat arrays, in document order

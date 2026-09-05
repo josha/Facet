@@ -56,6 +56,12 @@ function render_stats.new(): any
 		-- either, so it cannot say what a cheaper lookup path is worth.
 		lastMeasureCalls = 0,
 		lastMeasureServed = 0,
+		--[[ ...and how many of those calls a STACK's own measure branch made (Plan C,
+			T13). It is the denominator the container memo moves: a hit removes the call
+			entirely, so neither counter above can say where a saving came from — one
+			does not see it and the other was already answering it cheaply. It counts
+			CALLS, not loop iterations; the PASS 1 loop still walks every child. ]]
+		lastChildVisits = 0,
 		-- ...and the anchor branch's third arm (C3): children of an anchor the solve
 		-- did not place at all, because the anchor's box stood still and they were
 		-- clean at the identical offer. It is on the PUBLIC surface where the two
@@ -213,6 +219,7 @@ function render_stats.publish(stats: any, result: any, layoutNodes: number, stru
 		stats.lastMeasured = work.measured
 		stats.lastMeasureCalls = work.measureCalls or 0
 		stats.lastMeasureServed = work.measureServed or 0
+		stats.lastChildVisits = work.childVisits or 0
 		stats.lastAnchorSkipped = work.anchorSkipped or 0
 		-- ...and what the solve wrote into the RECT MAP (P2). It is not `lastArranged`
 		-- by definition — before the copy-on-write map a skipped subtree inserted

@@ -63,6 +63,26 @@ tiers.THRESHOLD_MS = 1200
 -- catch the next drift rather than the next reader.
 tiers.SLOW = {
 	{
+		--[[ MEASURED 2026-09-05 with `lune run tools/lune/time_specs` on this machine:
+			4,734 ms over 23 cases, of which the six-fixture x nine-view differential is
+			nearly all — three arms mounted and driven twelve times each at every
+			supported viewport. It is a DEVICE-MATRIX ORACLE, like `host_space_oracle`
+			above, and it will always be over the threshold: the memo's correctness is a
+			claim about SHAPES (a fill child, a shrink child, a spliced region, a `text`
+			sibling) and each shape has to be driven against a full-solve arm at every
+			width, because a container memo that is wrong is wrong at one viewport.
+
+			▲ AND THE NUMBER BESIDE IT IS HONEST ABOUT ITS NEIGHBOURS: at the time this
+			row was written `lune run tools/lune/check_tier_costs` reported 35 problems
+			on this tree, every one of them a row recorded on different hardware (60-96 %
+			off) or a spec over the threshold that was never listed. This row is measured
+			on the run that added it; the rest of the file is owed a re-record by whoever
+			next runs the instrument. ]]
+		spec = "container_memo.spec",
+		ms = 4734,
+		why = "T13's container-memo oracle: a six-fixture x nine-view differential against a forced full solve, plus the forced-on audit replay at every viewport",
+	},
+	{
 		spec = "perf_lab.spec",
 		ms = 24204,
 		why = "the performance lab itself: 2 000- and 20 000-row mounts, a nine-workload sweep, and one case that walks a whole collection at every phone width (7.1 s on its own)",

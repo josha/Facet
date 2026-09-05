@@ -117,6 +117,14 @@ describe("the render-stats seam: no requires, no state, two exports", function()
 		-- because it is the only counter in the record that a walk publishes without
 		-- ever incrementing a visit, so nothing else would catch its deletion.
 		expect(`scans={s.lastCommitScans} cells={s.lastCommitListCells}`).toBe("scans=0 cells=0")
+		--[[ ...and T13's, for the same reason one family up: `lastChildVisits` is the
+			only counter here that a SOLVE publishes about a container's own loop rather
+			than about a node, so nothing else in this sample would catch its deletion.
+			Stated honestly: this block is a SAMPLE, so ADDING a name to it does not
+			redden anything — the pin that actually catches the new field is the
+			`lastChildVisits` equality in `tests/container_memo.spec.luau`, read off a
+			run. This line documents the contract; that one enforces it. ]]
+		expect(`childVisits={s.lastChildVisits}`).toBe("childVisits=0")
 	end)
 
 	it("`publish` writes ONLY into the record it is handed, and repairs `work.skipped`", function()

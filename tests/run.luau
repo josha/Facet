@@ -102,6 +102,14 @@ require("./stack_seam.spec")
 	wider five-field one was already in scope, and NO call-site arguments — and it is
 	the instrument that makes the memo's growth of the `ctx` read set visible. ]]
 require("./stack_measure_seam.spec")
+--[[ ...and the LEVER that seam was taken for (Plan C, T13): a container keeps its
+	children's measured contributions and re-asks only the dirty ones. The spec's header
+	carries the eleven-row owed list — every channel a skipped child's `measure` would
+	have published, with a verdict and the case that holds it — and the file pins the
+	counter pair on a 1,000-row fixture, one case per gated row, the `ForEach` splice
+	the id key exists for, a 6-fixture x 9-view differential against a full solve, and
+	an AUDIT arm that makes the memo check its own arithmetic on every container. ]]
+require("./container_memo.spec")
 --[[ ...and the ANCHOR ARRANGE'S THIRD ARM (wicked-fast T6): a non-dirty anchor child
 	offered exactly what it was offered last time takes its w/h from its own previous
 	rect instead of a `measure` call. The spec pins the two new work counters on an

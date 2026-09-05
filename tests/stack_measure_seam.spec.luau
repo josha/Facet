@@ -21,8 +21,8 @@
 	                     the record's line, so there is no `place`/`noteContainment`
 	                     pair and the call is one expression
 	  READ vs WRITE      the `ctx`/`node`/`child` fields it reads, as sets, and the
-	                     fact that it writes NONE of them — this branch is a pure
-	                     function of the tree and the box it was handed
+	                     THREE it writes — two of them channels a skipped child owes,
+	                     one of them a counter
 	  ONE CONSUMER       `src/layout/solver.luau`, from `contentSize`'s tail
 	  ONE-WAY            it names no solver symbol and imports no solver type, and its
 	                     one require (`./shrink`) is a leaf the solver also requires
@@ -37,10 +37,14 @@
 	measure a vstack or an hstack through the public surface, and they were green across
 	the split.
 
-	▲ THE `ctx` READ SET IS EXPECTED TO GROW ONCE, AND ONLY ONCE. The lever this seam
-	was taken for (Plan C, T13 — the per-child memo) adds the memo's key and gate
-	fields; this spec is the instrument that makes that growth VISIBLE in a diff rather
-	than something a reader has to notice. ]]
+	▲ AND IT GREW, ON THE COMMIT AFTER THE SPLIT. The lever this seam was taken for
+	(Plan C, T13 — the per-child container memo) took the `ctx` read set from ONE field
+	to TEN and gave this branch three WRITE channels where it had none. That is a real
+	change in what the module is, not a formality: a pure function of the tree and the
+	box became a function that also publishes what a skipped child's `measure` would
+	have published. It is priced in `tests/container_memo.spec.luau`'s owed list, row by
+	row, and it is stated here because this spec is the instrument that makes it visible
+	in a diff rather than something a reader has to notice. ]]
 
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
@@ -175,32 +179,94 @@ describe("the stack-measure seam: what it READS of the solve, and that it writes
 	it("it reads a CLOSED set of ctx, node and child fields", function()
 		--[[ THE SCHEMA IT DEPENDS ON, AS A SET rather than as a promise. Every parameter
 			is typed `any` precisely so the module cannot import the solver's own types
-			back, which means nothing but this check reports a second `ctx` field being
-			reached for. `fitProbe` is the ONE solve-wide fact this branch asks for, and
-			the reason is written where it is read: a `ViewThatFits` candidate is judged
-			at the size it would LIKE, so the measure-side shrink does not run inside a
-			fit probe. A second `ctx` field appearing here is a measure branch that has
-			started to depend on the SOLVE rather than on the node and the box. ]]
-		expect(sorted(fieldsRead(measureSrc, "ctx"))).toEqual({ "fitProbe" })
-		expect(sorted(fieldsRead(measureSrc, "node"))).toEqual({ "children", "kind" })
-		expect(sorted(fieldsRead(measureSrc, "child"))).toEqual({ "margin", "shrinkWeight" })
+			back, which means nothing but this check reports an eleventh `ctx` field being
+			reached for.
+
+			IT WAS ONE FIELD AT THE SPLIT AND IS TEN AFTER THE MEMO, and each of the nine
+			is one of three things: the memo's KEY (`measureStamp`, `scopeKey` — the two
+			solve-wide inputs a measured answer depends on and no argument carries), its
+			GATE (`reuse` for the dirty closure, `measureQuiet` and `analyze` for the two
+			channel classes a skip cannot republish, `memoAudit` for the self-check), or a
+			CHANNEL A SKIPPED CHILD OWES (`offers`, `fitCuts`) plus the counter that says
+			the skip happened (`childVisits`). `fitProbe` is the original one, and it is
+			still the only fact here that is not about the memo: a `ViewThatFits`
+			candidate is judged at the size it would LIKE, so the measure-side shrink does
+			not run inside a fit probe.
+
+			An ELEVENTH `ctx` field is a measure branch that has started to depend on the
+			SOLVE in a way this task did not price — which is exactly the review this
+			spec exists to force. ]]
+		expect(sorted(fieldsRead(measureSrc, "ctx"))).toEqual({
+			"analyze",
+			"childVisits",
+			"fitCuts",
+			"fitProbe",
+			"measureQuiet",
+			"measureStamp",
+			"memoAudit",
+			"offers",
+			"reuse",
+			"scopeKey",
+		})
+		expect(sorted(fieldsRead(measureSrc, "node"))).toEqual({ "children", "cmemo", "id", "kind" })
+		--[[ ...and the CHILD set, which is the memo's gate read out of the child rather
+			than promised about it: the two kinds that publish verdicts, the three subtree
+			booleans the serve refuses on, the declared shrink weight, the id the index is
+			keyed by and the two pre-built `ctx.offers` keys. ]]
+		expect(sorted(fieldsRead(measureSrc, "child"))).toEqual({
+			"containerRelativeInside",
+			"hKey",
+			"id",
+			"kind",
+			"margin",
+			"shrinkWeight",
+			"subtreeHasComposition",
+			"subtreeHasScroll",
+			"wKey",
+		})
 	end)
 
-	it("it WRITES no field of the solver's at all", function()
+	it("it writes exactly THREE things of the solve's, and each one is owed", function()
 		--[[ THE READ-vs-WRITE HALF OF THE ONE-WAY TEST, and the half a field-read scan
 			cannot see. A block that only reads its host's state can be moved; a block
 			that WRITES it has to be trusted to write the same thing at the same moment,
-			which is a different and much weaker claim. This branch is stronger than the
-			arrange half: it does not even insert a diagnostic — it returns two numbers
-			and every table it touches is one it allocated itself. ]]
+			which is a different and much weaker claim.
+
+			AT THE SPLIT THIS SET WAS EMPTY — the branch returned two numbers and every
+			table it touched was one it allocated. The memo made it three, and each is
+			a channel the skipped `measure` call would have published and this branch
+			now publishes in its place:
+
+			  `ctx.offers[…]`   the raw offer pair, indexed by the child's own two keys.
+			                    A nil there disarms both anchor arms for the life of the
+			                    surface, which is why it is not optional
+			  `ctx.fitCuts`     the child's own recorded delta, which is what `record`
+			                    subtracts to get a node's `cuts`
+			  `ctx.childVisits` the counter, and the only one of the three that is an
+			                    instrument rather than a debt
+
+			A FOURTH is a channel this branch has started to republish without pricing
+			it, and the list in `tests/container_memo.spec.luau`'s header is where the
+			price is argued. `node`, `child` and `deps` stay untouched — the memo lives
+			on a table the node POINTS at, never on the node. ]]
 		local body = stripComments(measureSrc)
-		local assigned: { string } = {}
+		local assigned: { [string]: boolean } = {}
 		for recv, field in string.gmatch(body, "([%a_][%w_]*)%.([%a_][%w_]*)%s*[%+%-]?=[^=]") do
 			if recv == "ctx" or recv == "node" or recv == "child" or recv == "deps" then
-				table.insert(assigned, `{recv}.{field}`)
+				assigned[`{recv}.{field}`] = true
 			end
 		end
-		expect(assigned).toEqual({})
+		expect(sorted(assigned)).toEqual({ "ctx.childVisits", "ctx.fitCuts" })
+		--[[ ...AND THE INDEXED WRITE, which the field scan above cannot see at all:
+			`ctx.offers[key] = value` is a write THROUGH a field, so a scan for
+			`ctx%.<name>%s*=` reads straight past it. It is pinned by name because it is
+			the one the T7 finding is about. ]]
+		local indexed: { [string]: boolean } = {}
+		for recv, field in string.gmatch(body, "([%a_][%w_]*)%.([%a_][%w_]*)%[[^\n]-%]%s*=[^=]") do
+			indexed[`{recv}.{field}[…]`] = true
+		end
+		expect(sorted(indexed)).toEqual({ "ctx.offers[…]" })
+		-- and it still inserts into nothing of the solver's: no diagnostic leaves here
 		local inserts: { string } = {}
 		for target in string.gmatch(body, "table%.insert%(%s*([%a_][%w_%.]*)") do
 			table.insert(inserts, target)

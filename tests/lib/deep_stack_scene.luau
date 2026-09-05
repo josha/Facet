@@ -110,6 +110,75 @@ export type Opts = {
 		offer), so a spec that only drove the default could not tell a one-slot cache
 		from a two-slot one. It is the arm that says the second slot exists. ]]
 	hug: boolean?,
+	--[[ ── THE ARMS T13'S CONTAINER MEMO ADDED (Plan C, 2026-09-05) ──────────────
+		Each one is a container SHAPE the memo must refuse, or a drive that must move
+		its key, and each is an opt on this one scene for the reason the four gate arms
+		above already are: a gate case that compares two different trees is comparing
+		the trees. ]]
+	--[[ ROW `GATE_ROW` gains a `fill`-width child, which PASS 2 measures against its
+		weighted share of what PASS 1 left. Its index is never written in PASS 1, so the
+		fill pass re-measures it on EVERY tick — owed row 5, and the one arm that proves
+		the memo did not quietly swallow a pass. ]]
+	fill: boolean?,
+	--[[ ...and a child declaring `shrinkWeight > 0`, which takes the whole container
+		out of the memo (owed row 4): PASS 1.5 rebases `mainSum` against numbers the
+		memo does not hold. The row is deliberately OVERFULL so the shrink pass is live
+		rather than merely declared. ]]
+	shrink: boolean?,
+	--[[ ...and the same weight ARRIVING LATER, on a container that has already
+		memoised at this offer (review round 3, SHOULD-FIX 3). `memoable = false` does
+		not clear `hit`, so PASS 1.5 DOES run over a partly memo-served `mainSum` on
+		that one tick — exact, because a served number equals the number HEAD's own
+		PASS 1 would have produced for that index. This arm is what drives it. ]]
+	shrinkLater: boolean?,
+	--[[ ...and a NESTED stack (a plain VStack of four boxes, no wrap), so the memo is
+		exercised on a container whose children are themselves containers rather than
+		leaves — the shape every real row list has and the one `coupled` cannot be,
+		because a wrapping stack is height-coupled on purpose. ]]
+	nested: boolean?,
+	--[[ ...and a `containerRelative` child, which C2 refuses on the container arm of
+		its cache key and which the memo refuses for the same reason (owed row 6). ]]
+	crel: boolean?,
+	--[[ ...and A WIDTH ON `List` ITSELF, driven by a signal (`scene.listWidth`). It is
+		the only drive in this fixture that moves the OFFER a memoising container hands
+		its children without moving the viewport: the container is measure-dirty and
+		every child is clean, so the memo's key is what has to refuse — and refill at
+		the new offer on the same tick. Without it the offer half of the key would be
+		exercised only by a viewport change, which is a full solve where the memo is
+		unreachable and cannot be told from a refusal. ]]
+	listWidth: boolean?,
+	--[[ ...and the HEIGHT half of that key, with a child whose ANSWER READS IT. A
+		vertically-wrapping stack's measured WIDTH is a function of the offered HEIGHT —
+		four 20x10 boxes are one column at 40px and four columns at 10px — so this arm
+		replaces the gate ROW with one, as a DIRECT child of `List`. It is the only
+		shape on which dropping `mOffH` from the memo's key changes a rect rather than
+		merely widening it: every other child here answers without reading the offer.
+		Drive it with `scene.listHeight`. ]]
+	coupledRow: boolean?,
+	--[[ ...and the container shape that makes that drive REACH the memo: `List` HUGS on
+		width and takes a signal-driven FIXED height. Both halves are needed and the run
+		is what said so — a container whose width AND height are both fixed never has its
+		content size computed at all, so `contentSize` is not entered, the memo never
+		runs, and the case measures nothing. The width must want content; the height must
+		be the thing the drive moves. ]]
+	listHeight: boolean?,
+	--[[ ...and A `text` DIRECT CHILD OF `List` (owed row 2). A `text` child publishes
+		three verdict channels no cached number can carry, so it is refused — PER CHILD.
+		The arm exists to show the OTHER thousand children still memoise around it,
+		which is the difference between a lever that serves 96.8 % of a real flat list
+		and one that serves 1.4 %: a real list splices labels straight into its own
+		flow, so a container-level refusal takes the whole list down. ]]
+	label: boolean?,
+	--[[ ...and THE SPLICE (owed row 9, the id key's whole reason). A `UI.ForEach`
+		region is the FIRST child of `List`, so an insert or a remove into the region
+		shifts EVERY row's index in the layout node's spliced flat list while `List`'s
+		own MOUNT children table stays the same OBJECT — `mount.luau` replaces the
+		REGION's children, never its parent's. An index-keyed memo would serve
+		`mMain[idx]` belonging to a different node; the id key is what refuses it.
+		`recreate` is the second half of the same hazard: the same PATH with different
+		content, which is a structural change and is covered only by
+		`renderer.luau`'s `measureContains = dirtyContains` widening. ]]
+	foreach: boolean?,
 }
 
 -- `layout` is the LAYOUT-NODE count (`stats().lastLayoutNodes`); `rows` is the
@@ -129,6 +198,12 @@ function deep_stack_scene.new(opts: Opts?)
 	local widths: { any } = {}
 	local heights: { any } = {}
 	local rowChildren: { any } = {}
+	-- the weight that ARRIVES LATER (see `Opts.shrinkLater`) and the ForEach region's
+	-- item list (see `Opts.foreach`), both signals so a drive can move them
+	local shrinkOn = core:signal(0)
+	local listWidth = core:signal(900)
+	local listHeight = core:signal(700)
+	local items = core:signal({ { key = "i1", kind = "box" }, { key = "i2", kind = "box" } })
 	for i = 1, n do
 		texts[i] = core:signal(`Row {i}`)
 		widths[i] = core:signal(300)
@@ -189,6 +264,30 @@ function deep_stack_scene.new(opts: Opts?)
 				})
 			)
 		end
+		if o.nested and i == deep_stack_scene.GATE_ROW then
+			table.insert(
+				kids,
+				UI.VStack({
+					id = "Nest",
+					gap = 1,
+					padding = 0,
+					width = { type = "content" },
+					height = { type = "content" },
+					children = {
+						UI.Box({ id = "n1", width = px(14), height = px(4) }),
+						UI.Box({ id = "n2", width = px(10), height = px(4) }),
+						UI.Box({ id = "n3", width = px(18), height = px(4) }),
+						UI.Box({ id = "n4", width = px(12), height = px(4) }),
+					},
+				})
+			)
+		end
+		if o.crel and i == deep_stack_scene.GATE_ROW then
+			table.insert(
+				kids,
+				UI.Box({ id = "Crel", width = { type = "containerRelative", fraction = 0.1 }, height = px(10) })
+			)
+		end
 		if o.unquiet and i == 1 then
 			-- `aspect` on both axes is undefined and `measureUncached` says so with a
 			-- `measured` stamp; see `Opts.unquiet`
@@ -197,6 +296,33 @@ function deep_stack_scene.new(opts: Opts?)
 				UI.Box({ id = "Bad", width = { type = "aspect", ratio = 2 }, height = { type = "aspect", ratio = 2 } })
 			)
 		end
+		--[[ THE GATE SHAPES RIDE THE ROW ITSELF, not a box inside it, and that
+			correction came from the run. `List` is the container whose PASS 1 loop the
+			memo is about; a row declares a FIXED width and height, so a row's OWN
+			content size is never computed and nothing inside it ever reaches a
+			memoising loop. A `shrinkWeight` or a `fill` one level down therefore
+			exercised neither gate — the counters were byte-identical to the plain arm,
+			which is how it was caught. `scroll`/`composition`/`crel` are different and
+			stay where they are: those three are SUBTREE booleans, so a child carries
+			them up to the row, and the row is `List`'s direct child. ]]
+		local isGate = i == deep_stack_scene.GATE_ROW
+		if o.coupledRow and isGate then
+			rowChildren[i] = UI.VStack({
+				id = `R{i}`,
+				wrap = true,
+				gap = 0,
+				padding = 0,
+				width = { type = "content" },
+				height = { type = "content" },
+				children = {
+					UI.Box({ id = "c1", width = px(20), height = px(10) }),
+					UI.Box({ id = "c2", width = px(20), height = px(10) }),
+					UI.Box({ id = "c3", width = px(20), height = px(10) }),
+					UI.Box({ id = "c4", width = px(20), height = px(10) }),
+				},
+			})
+			continue
+		end
 		rowChildren[i] = UI.HStack({
 			id = `R{i}`,
 			padding = 0,
@@ -204,15 +330,57 @@ function deep_stack_scene.new(opts: Opts?)
 			width = core:memo(function(use: any)
 				return px(use(widths[i]) :: number)
 			end),
-			height = if o.coupled and i == deep_stack_scene.GATE_ROW
+			height = if o.coupled and isGate
 				then core:memo(function(use: any)
 					return px(use(heights[i]) :: number)
 				end)
+				elseif o.fill and isGate then fill()
+				elseif o.nested and isGate then { type = "content" }
 				else px(18),
+			-- ...and the weight, on the row: `List` overflows its 720px by an order of
+			-- magnitude with 1,000 rows, so PASS 1.5 is LIVE rather than merely declared
+			shrinkWeight = if o.shrink and isGate
+				then 1
+				elseif o.shrinkLater and isGate then core:memo(function(use: any)
+					return use(shrinkOn) :: number
+				end)
+				else nil,
 			children = kids,
 		})
 	end
 
+	--[[ THE REGION GOES FIRST, and that is the whole design of this arm: a region
+		spliced BEFORE the rows means an insert into it shifts every row's index in the
+		flat list the memo indexes, while `List`'s own mount children table — the one
+		the carrier gate compares by identity — is untouched. A region AFTER the rows
+		would shift nothing and the fixture would be a witness to nothing. ]]
+	local listChildren: { any } = {}
+	if o.foreach then
+		table.insert(
+			listChildren,
+			UI.ForEach({
+				id = "F",
+				items = items,
+				key = function(item: any)
+					return item.key
+				end,
+				row = function(item: any)
+					if item.kind == "text" then
+						return UI.Text({ id = "Item", textSize = 12, text = item.key })
+					end
+					return UI.Box({ id = "Item", width = px(24), height = px(8) })
+				end,
+			})
+		)
+	end
+	for idx, row in rowChildren do
+		table.insert(listChildren, row)
+		if o.label and idx == deep_stack_scene.GATE_ROW then
+			-- a LABEL between the rows: `List`'s own direct child, and a `text` node,
+			-- so the memo must refuse it on every tick while its 999 siblings serve
+			table.insert(listChildren, UI.Text({ id = "Label", textSize = 12, text = "section" }))
+		end
+	end
 	local bp = UI.Screen({
 		id = "S",
 		children = {
@@ -220,9 +388,18 @@ function deep_stack_scene.new(opts: Opts?)
 				id = "List",
 				padding = 0,
 				gap = 2,
-				width = if o.hug then { type = "content" } else fill(),
-				height = { type = "content" },
-				children = rowChildren,
+				width = if o.listWidth
+					then core:memo(function(use: any)
+						return px(use(listWidth) :: number)
+					end)
+					elseif o.hug or o.listHeight then { type = "content" }
+					else fill(),
+				height = if o.listHeight
+					then core:memo(function(use: any)
+						return px(use(listHeight) :: number)
+					end)
+					else { type = "content" },
+				children = listChildren,
 			}),
 		},
 	})
@@ -268,6 +445,81 @@ function deep_stack_scene.new(opts: Opts?)
 		it safe to drive on every arm of an oracle. ]]
 	function scene.height(i: number, value: number)
 		heights[i]:set(value)
+		controller.refresh()
+	end
+
+	--[[ ...and the weight that ARRIVES on a container that has already memoised
+		(`Opts.shrinkLater`). `0` is the documented "never shrinks" value and is not a
+		member of the shrink pass, so the tick that writes a positive weight is the
+		first tick this container is un-memoable — with a key that still MATCHES. ]]
+	function scene.shrinkOn(value: number)
+		shrinkOn:set(value)
+		controller.refresh()
+	end
+
+	--[[ ...and the CONTAINER'S OWN WIDTH (`Opts.listWidth`), which is the offer every
+		one of its thousand clean children is measured against. The container is
+		measure-dirty on this drive and no child is, so the memo's `mOffW` term is the
+		only thing standing between those children and an answer measured at a width
+		that no longer exists. ]]
+	function scene.listWidth(value: number)
+		listWidth:set(value)
+		controller.refresh()
+	end
+
+	-- ...and the HEIGHT the same container offers, which only a child that READS the
+	-- offered height can see (`Opts.coupledRow`)
+	function scene.listHeight(value: number)
+		listHeight:set(value)
+		controller.refresh()
+	end
+
+	--[[ ...and the SPLICE (`Opts.foreach`): an insert or a remove into the region that
+		sits before the rows, which shifts every later index in the layout node's flat
+		child list without touching `List`'s own mount children table. ]]
+	function scene.insertItem(key: string)
+		scene.insertItemKind(key, "box")
+	end
+
+	--[[ ...and the same insert with a CHOSEN KIND, which is how the SAME PATH ends up
+		holding DIFFERENT CONTENT: remove a key and re-add it in the other form, and the
+		reconciler destroys and re-creates at the identical path (`solver.Node.id` is
+		`node.path`, so the memo's id key cannot tell the two apart). What refuses the
+		stale number is not the key — it is that both ticks are STRUCTURAL, and a
+		structural solve widens `measureContains` to the whole `dirtyContains` set. ]]
+	function scene.insertItemKind(key: string, kind: string)
+		local next: { any } = {}
+		for _, item in items:get() :: any do
+			table.insert(next, item)
+		end
+		table.insert(next, 1, { key = key, kind = kind })
+		items:set(next)
+		controller.refresh()
+	end
+
+	function scene.removeItem(key: string)
+		local next: { any } = {}
+		for _, item in items:get() :: any do
+			if item.key ~= key then
+				table.insert(next, item)
+			end
+		end
+		items:set(next)
+		controller.refresh()
+	end
+
+	--[[ ...and THE SAME PATH WITH DIFFERENT CONTENT — a keyed row whose CLASS changes,
+		which the reconciler serves by destroying and re-creating at the identical path.
+		`solver.Node.id` is `node.path` (`layout_node.luau`), so the memo's id key CANNOT
+		see this: what refuses it is that a structural change widens
+		`measureContains` to the whole `dirtyContains` set (`render/renderer.luau`), so
+		the re-created child is measure-dirty and the skip arm never fires for it. ]]
+	function scene.swapKind(key: string, kind: string)
+		local next: { any } = {}
+		for _, item in items:get() :: any do
+			table.insert(next, if item.key == key then { key = item.key, kind = kind } else item)
+		end
+		items:set(next)
 		controller.refresh()
 	end
 

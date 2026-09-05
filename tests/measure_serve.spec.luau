@@ -215,9 +215,19 @@ describe("C2: one changed row does not re-measure 999 clean siblings", function(
 			-- one warm-up drive is discarded: the FIRST refresh after `initialRender`
 			-- has no tuples to serve from, because nothing has recorded one yet
 			s.text(500, "warm")
+			--[[ ▲ RE-RECORDED 2026-09-05 (Plan C, T13 — the container memo), and the move is
+			BY DESIGN: `contentSize`'s stack loop now skips a clean child instead of
+			asking for it, so a call this pair used to count as SERVED is no longer made
+			at all. `calls` 2,005 -> 1,006 and `served` 1,999 -> 1,000 on this fixture,
+			which is the 999 clean rows `List`'s own PASS 1 stopped asking about. The
+			number that must NOT move is `measured`, and it does not: 5, here and in
+			every pin below. A skipped child is measure-clean AND a node-store hit, so
+			its warm slots survive the tick that skipped it — if `measured` had moved,
+			the skip would have served a child this build actually re-measures, and that
+			is a finding rather than a re-record. ]]
 			expect(drove(function()
 				s.text(500, "x")
-			end)).toBe(`solves=1 calls=2005 served=1999 measured=5`)
+			end)).toBe(`solves=1 calls=1006 served=1000 measured=5`)
 			s.dispose()
 		end)
 	end)
@@ -253,9 +263,12 @@ describe("C2: one changed row does not re-measure 999 clean siblings", function(
 		withWorkCapture(function()
 			local s = scene.new({ rows = ROWS })
 			s.width(500, 260)
+			-- T13 re-record: 2,005/1,998 -> 1,006/999. The row whose width moved is
+			-- refused by BOTH mechanisms — it is measure-dirty, so the memo's own
+			-- `dirty[child.id]` term refuses it before the offer test is reached
 			expect(drove(function()
 				s.width(500, 240)
-			end)).toBe(`solves=1 calls=2005 served=1998 measured=6`)
+			end)).toBe(`solves=1 calls=1006 served=999 measured=6`)
 			s.dispose()
 		end)
 	end)
@@ -277,9 +290,15 @@ describe("C2: one changed row does not re-measure 999 clean siblings", function(
 			expect(drove(function()
 				s.text(500, "first")
 			end)).toBe(`solves=1 calls=2005 served=999 measured=1005`)
+			--[[ T13 re-record, SECOND LINE ONLY, and the pair is now sharper than it was:
+				the FIRST reuse solve is byte-identical (2,005/999/1,005) because the
+				container memo, like `record`, can only be FILLED by a solve that could
+				spend it — so the first one pays a full pass and records, exactly as the
+				node slots do. The second solve is where both mechanisms are live, and the
+				memo takes it from 2,005 calls to 1,006. ]]
 			expect(drove(function()
 				s.text(500, "second")
-			end)).toBe(`solves=1 calls=2005 served=1999 measured=5`)
+			end)).toBe(`solves=1 calls=1006 served=1000 measured=5`)
 			s.dispose()
 		end)
 	end)
@@ -338,11 +357,17 @@ describe("C2: one changed row does not re-measure 999 clean siblings", function(
 			text_metrics.setMeasured("BuilderSans", 21, "facet-t6-serve-probe", 41)
 			expect(drove(function()
 				s.text(500, "x")
+				--[[ ▲ T13 re-record, and the SETTLE ARM IS UNCHANGED AT 2,005/999 — which is
+				the sharpest thing this case now says. The container memo's key holds the
+				same stamp, so a settle drops the memo and the slots TOGETHER: the tick
+				after a settle is a full pass at both levels, and the one after it is
+				1,006 calls again. A memo that answered axis 3 any other way would show
+				up here as a call count that did not return to the settled floor. ]]
 			end)).toBe(`solves=1 calls=2005 served=999 measured=1005`)
 			-- ...and the solve after it, at the settled epoch, serves the other half too
 			expect(drove(function()
 				s.text(500, "y")
-			end)).toBe(`solves=1 calls=2005 served=1999 measured=5`)
+			end)).toBe(`solves=1 calls=1006 served=1000 measured=5`)
 			s.dispose()
 		end)
 	end)
@@ -364,9 +389,14 @@ describe("C2: one changed row does not re-measure 999 clean siblings", function(
 			local s = scene.new({ rows = ROWS, hug = true })
 			s.text(500, "warm")
 			s.text(500, "warmer")
+			-- T13 re-record: 2,005/1,999 -> 1,006/1,000. The two-offer claim is unchanged
+			-- and is still carried by the ONE-SLOT mutation named above; what moved is
+			-- that the container memo removes the measure-pass ask entirely, so the calls
+			-- that remain are the arrange pass's — which is exactly the pair of offers
+			-- this case is about
 			expect(drove(function()
 				s.text(500, "x")
-			end)).toBe(`solves=1 calls=2005 served=1999 measured=5`)
+			end)).toBe(`solves=1 calls=1006 served=1000 measured=5`)
 			s.dispose()
 		end)
 	end)
@@ -622,8 +652,13 @@ describe("C2: the gate is what makes the serve legal", function()
 	end
 
 	it("a ScrollView inside a clean row keeps that row off the serve (row 5)", function()
-		expect(gateDrive({ rows = ROWS })).toBe(`solves=1 calls=2005 served=1999 measured=5`)
-		expect(gateDrive({ rows = ROWS, scroll = true })).toBe(`solves=1 calls=2005 served=1997 measured=7`)
+		--[[ T13 re-record, and the DIFFERENCE between the two arms is what this case is
+			for: the plain arm skips all 999 clean rows (1,006 calls), the scroll arm
+			skips 998 (1,007) because the row holding the ScrollView is refused by the
+			memo's own `subtreeHasScroll` term as well as by the serve's. One extra call,
+			one fewer serve, two more uncached measures — the scroll host and its child. ]]
+		expect(gateDrive({ rows = ROWS })).toBe(`solves=1 calls=1006 served=1000 measured=5`)
+		expect(gateDrive({ rows = ROWS, scroll = true })).toBe(`solves=1 calls=1007 served=999 measured=7`)
 	end)
 
 	it("a Composition inside a clean row does the same, and `compositionAt` still answers (row 4)", function()
@@ -637,7 +672,10 @@ describe("C2: the gate is what makes the serve legal", function()
 			key = s.compositionKey(`/S/List/R{GATE_ROW}/Comp`)
 			s.dispose()
 		end)
-		expect(out).toBe(`solves=1 calls=2005 served=1997 measured=7`)
+		-- T13 re-record: same shape as the ScrollView arm above — the composition row is
+		-- refused by `subtreeHasComposition` on both mechanisms, so it is the one row of
+		-- the thousand that still costs a call
+		expect(out).toBe(`solves=1 calls=1007 served=999 measured=7`)
 		expect(key).toBe("column|/S/List/R3/Comp/Reg:0,0,60,10:main")
 	end)
 
@@ -660,7 +698,11 @@ describe("C2: the gate is what makes the serve legal", function()
 		o2.analyzeBoundaries = true
 		local report = solver.solve(root, viewport, o2)
 		analyzed = `served={report.work.measureServed}`
-		expect(`{shipped} / {analyzed}`).toBe("served=1999 / served=0")
+		-- T13 re-record: 1,999 -> 1,000 on the shipped arm, for the reason every pin in
+		-- this file moved. The ANALYZED arm is the claim and it is unchanged at ZERO:
+		-- `ctx.analyze` is a term in the memo's gate as well as the serve's, because the
+		-- boundary map is written inside `measureUncached` and no cached number carries it
+		expect(`{shipped} / {analyzed}`).toBe("served=1000 / served=0")
 	end)
 
 	it("a solve whose PREDECESSOR filed a measure-time finding serves nothing (row 8)", function()

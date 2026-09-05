@@ -1513,12 +1513,55 @@ local function toLayoutNode(
 	layoutNode.containerRelativeInside = inside or nil
 	layoutNode.subtreeHasScroll = scrollInside or nil
 	layoutNode.subtreeHasComposition = compositionInside or nil
+	--[[ THE CONTAINER MEMO'S HOME IS THE STORE ENTRY, NOT THE LAYOUT NODE (Plan C,
+		ruling A-8). `store.byNode` is keyed by the MOUNT node and is weak
+		(`WEAK_KEYS`, this file's `newStore`), so an entry outlives every rebuild of the
+		solver `Node` — and a rebuild is exactly what a container holding one dirty
+		child gets: the warm-hit path above requires `not store.dirty[node.path]`, and
+		`store.dirty` is the renderer's ancestor-closed set. A memo living on the layout
+		node would therefore be nil on every tick the levers that read it target, and
+		the lever would measure zero.
+
+		THE POINTER IS REFRESHED, THE TABLE IS NOT REBUILT. `./layout/stack_measure`
+		reads `node.cmemo` — one field — and the table it points at is the one the
+		previous build produced, WHEN all three validity terms hold: the mount children
+		table is the same OBJECT, and the two inputs the warm-hit lookup above cannot
+		re-derive, `axis` and `clip`, are the same. Otherwise a fresh empty table —
+		never a stale one.
+
+		AND THE `kids` TERM IS A CONSERVATIVE SUPERSET, NOT A SUFFICIENT CONDITION
+		(ruling A-14). It compares the MOUNT node's children table; the array the memo
+		indexes is the LAYOUT node's SPLICED flat list, in which a `UI.ForEach` region's
+		insert shifts every later index while this term still holds — `mount` replaces
+		the REGION's children, never its parent's. Every index-keyed payload on this
+		table therefore carries its own per-child id key; this gate alone is not enough
+		to trust an index and no reader may treat it as if it were. ]]
+	local prior = if store ~= nil and store.reuse then store.byNode[node] else nil
+	local cmemo = if prior ~= nil
+			and prior.kids == node.children
+			and prior.axis == parentAxis
+			and prior.clip == (insideClipper == true)
+		then prior.cmemo
+		else nil
+	if cmemo == nil and store ~= nil and store.reuse then
+		cmemo = {}
+	end
+	layoutNode.cmemo = cmemo
 	if store ~= nil and store.reuse then
 		-- LAST, so a node that threw builds no entry. `axis`/`clip` are recorded
 		-- beside the tree because they are the two inputs the lookup above cannot
 		-- re-derive from the node it is holding.
-		store.byNode[node] =
-			{ built = layoutNode, axis = parentAxis, clip = insideClipper == true, n = store.nodes - nodesAtEntry }
+		store.byNode[node] = {
+			built = layoutNode,
+			axis = parentAxis,
+			clip = insideClipper == true,
+			n = store.nodes - nodesAtEntry,
+			-- ruling A-8: the memo's durable home, and the mount children table its
+			-- index-keyed arrays are only valid against. Compared by IDENTITY, never
+			-- iterated.
+			cmemo = cmemo,
+			kids = node.children,
+		}
 	end
 	return layoutNode
 end

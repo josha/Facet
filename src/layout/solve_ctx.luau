@@ -177,6 +177,24 @@ export type Ctx = {
 		`controller.stats().lastMeasureCalls`/`lastMeasureServed`. ]]
 	measureCalls: number,
 	measureServed: number,
+	--[[ ...AND THE CALLS A STACK'S MEASURE BRANCH ITSELF MAKES (Plan C, T13). C2's
+		pair above answers "how cheap is an ANSWER"; this one answers "how many did the
+		PARENT ask for", which is the only instrument that can see a container memo do
+		anything: a memo hit removes the call, so it moves neither `measureCalls` (the
+		call is not made) nor `measured` (it was already served) in a way that says
+		WHERE the saving came from. It counts CALLS, never loop ITERATIONS — the PASS 1
+		loop still walks every child, and a counter that quietly counted iterations
+		would report a win this task does not claim. Surfaced as
+		`controller.stats().lastChildVisits`. ]]
+	childVisits: number,
+	--[[ THE CONTAINER MEMO'S SELF-CHECK (Plan C, T13, ruling A-12 as routed by ruling
+		L-4). Test-only, default false, and reachable ONLY through `solver.solve`'s own
+		opts — never an attach opt, so `ATTACH_OPTS_KEYS` and the public `MountOpts` are
+		untouched. When it is on the memo's skip never fires and the memo's stored answer
+		is compared against the real one instead, so a differential can exercise the
+		arithmetic on EVERY container it touches without any gate being weakened. There
+		is no third behaviour: off, this field is read once per stack child. ]]
+	memoAudit: boolean,
 	--[[ THE SOLVE-WIDE INPUTS THE NODE TUPLES WERE RECORDED UNDER — axis 3 of
 		`./measure_reuse`'s store, threaded in here because `measure`'s node-resident
 		serve is a FOURTH cache with the same four axes and needs its own answer to
@@ -343,6 +361,10 @@ function solve_ctx.new(contentRect: Rect, opts: any, metrics: any): Ctx
 		-- answered from the node's own tuple
 		measureCalls = 0,
 		measureServed = 0,
+		-- ...and T13's: the `measure` calls a stack's own measure branch makes, and the
+		-- memo's test-only self-check (see `Ctx` for both)
+		childVisits = 0,
+		memoAudit = (opts and (opts :: any).containerMemoAudit) == true,
 		-- the renderer's own axis-3 stamp, or nil; see `Ctx`
 		measureStamp = if opts ~= nil then (opts :: any).measureStamp else nil,
 		-- the O3 translate class: nodes re-based by an ancestor's delta
