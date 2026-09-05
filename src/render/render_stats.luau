@@ -130,6 +130,15 @@ function render_stats.new(): any
 			denominator C4's descend-list cache moves, and the one number that would have
 			stayed flat while the span halved. ]]
 		lastCommitScans = 0,
+		--[[ ...and what those answers were STORED in (Plan C, C4 fix round 1). One per
+			array `buildDescend` materialised for a descend list, plus the slots it
+			reserved — the list's own header counted as one, so a fork that keeps
+			nothing is still visible. It is the counter for the OTHER half of the
+			cost: the questions fell 8x and the milliseconds did not follow on a
+			commit that prunes nothing, because the answer was being written into
+			three worst-case-sized arrays per visited node. `deep_stack_scene` at
+			1,000 rows, one leaf's text: 3,004 -> 3. ]]
+		lastCommitListCells = 0,
 		-- ...and how many LAYOUT NODES the last solve had (wicked-fast T2):
 		-- `nodeStore.nodes`, the count the `work.skipped` repair below already
 		-- computes and used to throw away. The only honest denominator for

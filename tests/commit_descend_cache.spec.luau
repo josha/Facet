@@ -31,11 +31,32 @@
 	prunes nothing, and it MEASURED as one: `war_room_inventory reorder` +4.7 %,
 	`killfeed_nameplates addItem-feed` +4.2 %.
 
-	AND THE CACHE CANNOT GO STALE THE UNSAFE WAY: the one input that moves
-	mid-commit, `lastCommitEntry`, is written by `rect_pass`'s `note`/`noteEntry`,
-	which can only turn `skip` from false to TRUE, so a list built by an earlier walk
-	is at worst a SUPERSET of what a later one would compute — an extra descent,
-	never a missed one.
+	AND THE COMMIT THAT PRUNES NOTHING TOOK THREE MORE MEASURED ROUNDS TO STOP PAYING
+	FOR THIS (fix round 1). It cannot be helped by any of it, so the only honest
+	target is zero cost, and three separate things were charging it: the sift probed
+	the ENTRY of a node `skip` would have answered from the dirty set alone; it
+	preallocated three worst-case `table.create(n - 1)` arrays per visited node; and
+	it wrote three hash entries per visited node where one is enough. `reorder` went
+	+3.0 % -> +0.7 % against `e74b17fd`, `removeItem-items` +3.0 % -> -0.7 %, and the
+	`feed` classes to +0.1 % / -3.3 %. The `cells` pins below are the red for the
+	middle one.
+
+	SO THE LIST IS THE DECISION, AND THIS IS THE INVARIANT THAT CARRIES SAFETY (review
+	I1): a walk descends a child if and only if that child is in the list the walk
+	selected, and **that list is, element for element, the set
+	`skip(child, <that walk's own flags>)` answers "descend" for**. There is no second
+	check behind it. Two properties make it true. (1) `buildDescend` evaluates `skip`'s
+	three shapes LITERALLY over `skip`'s own inputs — `entryVerdict` is `skip`'s
+	expensive half, extracted so there is one implementation of it, and the three
+	predicates are written out against the same `nodeDirty`/`commitDirty` tables `skip`
+	reads; the nesting explains why one pass can serve three shapes, but each walk is
+	handed its OWN set, never a superset of it. (2) The one input that can move between
+	a build and a read moves in the safe direction only: `lastCommitEntry`, written
+	mid-commit by `rect_pass`'s `note`/`noteEntry`, sets `last = probe` and so can turn
+	`skip` from false to TRUE and never back — a list built by an earlier walk is at
+	worst a SUPERSET of what a later one would compute, an extra descent and never a
+	missed one, and an extra descent writes nothing because every write in the span is
+	minimal-write.
 
 	WHAT THIS FILE REFUSES, and it is the mechanism the task was dispatched with. The
 	plan proposed a DIRTY-CHILD INDEX: `dirtyScan` records `dirtyChildren[parent] =
@@ -154,6 +175,21 @@ describe("C4: the commit's sibling scan is paid once, not once per walk", functi
 		s.text(500, "Row 500 changed")
 		local st = s.stats() :: any
 		expect(`scans={st.lastCommitScans}`).toBe("scans=1011")
+		--[[ ...AND WHAT THE ANSWERS WERE STORED IN (fix round 1, review Important 2).
+			The questions falling 8x did not make the milliseconds follow on a commit
+			that prunes NOTHING, and this is why: the first shape of `buildDescend`
+			materialised three worst-case `table.create(n - 1)` arrays per visited node
+			— on this fixture 5 arrays and 2,999 slots per commit, three of them 999
+			slots long for lists that hold ONE element, where HEAD allocated none. The
+			lists now alias each other until their predicates disagree and the fork is
+			sized to the prefix it copies. READ OFF THE RUN, `solves=1`: 3,004 -> 3.
+			Measured effect on the whole step's allocation, median of 21 drives:
+			703.66 -> 656.62 KB.
+
+			`solves` is CUMULATIVE and is pinned beside the cells so the reader knows
+			which commit the number is off: 3 = `initialRender` plus the two drives,
+			and the cells are the LAST one's. ]]
+		expect(`cells={st.lastCommitListCells} solves={st.solves}`).toBe("cells=3 solves=3")
 		-- ...AND NOT ONE VISIT MOVED. This is the whole safety claim, pinned rather
 		-- than argued: the cache decides which children are CONSIDERED and never
 		-- which are descended.
@@ -172,6 +208,7 @@ describe("C4: the commit's sibling scan is paid once, not once per walk", functi
 		s.width(500, 260)
 		local st = s.stats() :: any
 		expect(`scans={st.lastCommitScans} visits={st.lastCommitVisits}`).toBe("scans=1011 visits=24")
+		expect(`cells={st.lastCommitListCells}`).toBe("cells=2")
 		s.dispose()
 	end)
 
@@ -188,7 +225,11 @@ describe("C4: the commit's sibling scan is paid once, not once per walk", functi
 		s.text(500, "warm")
 		s.viewport(1000, 700)
 		local st = s.stats() :: any
-		expect(`scans={st.lastCommitScans} visits={st.lastCommitVisits}`).toBe("scans=6 visits=21014")
+		-- ...and an unarmed commit stores nothing either: `descendOf` returns before
+		-- `buildDescend` is ever reached
+		expect(`scans={st.lastCommitScans} visits={st.lastCommitVisits} cells={st.lastCommitListCells}`).toBe(
+			"scans=6 visits=21014 cells=0"
+		)
 		s.dispose()
 	end)
 end)
@@ -198,7 +239,14 @@ describe("C4: A CLEAN CHILD OF A DIRTY PARENT is still descended", function()
 		--[[ THE CASE THAT REFUSES THE DIRTY-CHILD INDEX (see this file's header). The
 			signal is bound to `/S/List/R5`'s `width`, so `markDirtyIn` marks
 			`/S/List/R5`, `/S/List` and `/S` and nothing below — yet the child's rect
-			changes, because the solve re-arranged it against the row's new inner box. ]]
+			changes, because the solve re-arranged it against the row's new inner box.
+
+			A FORWARD GUARD, NOT A RED FOR THIS COMMIT, and saying so is the honest
+			label (review Minor 2). The two rect assertions are GREEN AT BASE by
+			construction — nothing here was broken before this task and nothing here
+			was fixed by it. They exist to stop a future implementer building the
+			mechanism the plan named, which would turn them red while every counter in
+			this file stayed green. The `scans` pin below IS this commit's red. ]]
 		local s = fillScene(true)
 		expect(s.rectOf("/S/List/R5/Fill")).toBe("0,80,300,10")
 		s.setWidth(220)

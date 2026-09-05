@@ -116,7 +116,7 @@ describe("the render-stats seam: no requires, no state, two exports", function()
 		-- ...and the QUESTION counter beside the visit one (C4). It is named here
 		-- because it is the only counter in the record that a walk publishes without
 		-- ever incrementing a visit, so nothing else would catch its deletion.
-		expect(`scans={s.lastCommitScans}`).toBe("scans=0")
+		expect(`scans={s.lastCommitScans} cells={s.lastCommitListCells}`).toBe("scans=0 cells=0")
 	end)
 
 	it("`publish` writes ONLY into the record it is handed, and repairs `work.skipped`", function()

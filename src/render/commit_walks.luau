@@ -353,16 +353,19 @@ function commit_walks.new(ctx: CommitCtx)
 		`lastCommitVisitsByWalk`, `rectWrites`, `propWrites` and `engineWrites` are
 		IDENTICAL before and after, on every drive of every fixture.
 
-		WHAT IT COSTS WHERE IT CANNOT HELP, stated because it is not zero. A commit
-		that prunes almost nothing — a reorder, a big structural add — still pays the
-		classification and, where any child prunes at all, up to three lists per
-		visited node. Measured (FacetBench, three arms): `war_room_inventory reorder`
-		**+3.0 %** (29.68 -> 30.56 ms), which is the one class in the three workloads
-		that is worse after this change; `killfeed_nameplates` `addItem-feed`/
-		`removeItem-feed` land inside their own run-to-run spread (+1.3 %/+0.8 %). The
-		fix, if that class ever matters, is to build ONE list and fork the other two
-		only where the three predicates actually disagree, which on a stack-shaped
-		surface is never.
+		WHAT IT COSTS WHERE IT CANNOT HELP, stated because it took three measured
+		rounds to get to nearly zero. A commit that prunes almost nothing — a reorder,
+		a big structural add — cannot be helped by any of this and can only be charged
+		for it. The first shape charged **+3.0 %** on `war_room_inventory reorder`, and
+		the three things that were it are each fixed and each commented at their own
+		site below: the lost DIRTY SHORT-CIRCUIT (`skip` answers a dirty node without
+		probing its entry; the sift did not), the WORST-CASE PREALLOCATION (three
+		`table.create(n - 1)` per visited node), and THREE HASH WRITES per visited node
+		where one will do. Measured against `e74b17fd`, medians of three:
+		`reorder` **+0.7 %** (29.66 -> 29.86 ms), `removeItem-items` **-0.7 %**,
+		`killfeed_nameplates addItem-feed` **+0.1 %**, `removeItem-feed` **-3.3 %** —
+		every class in the three workloads now at or better than the base except
+		`reorder`, and that one inside the runs' own overlap.
 
 		WHAT IT IS NOT: a DIRTY-CHILD index. The plan proposed descending only the
 		children the dirty scan marked, and that is unsound — the entry-identity half
@@ -372,6 +375,10 @@ function commit_walks.new(ctx: CommitCtx)
 		(`tests/commit_descend_cache.spec.luau`, "A CLEAN CHILD OF A DIRTY PARENT").
 		That child would have kept painting 300 px behind a green suite. ]]
 	local scanCount = 0
+	-- ...and the array slots those answers were stored in (fix round 1); see
+	-- `render_stats.lastCommitListCells`. Incremented at the THREE fork sites only,
+	-- which run a handful of times a commit rather than once a child.
+	local listCells = 0
 	-- one per `skip` shape (see `buildDescend`); all three filled by one pass
 	local descendKids: { [string]: { any } } = {}
 	local descendMoveKids: { [string]: { any } } = {}
@@ -409,6 +416,7 @@ function commit_walks.new(ctx: CommitCtx)
 		-- reach a node pays its whole sibling scan and the other seven pay none of
 		-- it, so a per-walk number would read as an imbalance rather than as a cut.
 		stats.lastCommitScans = scanCount
+		stats.lastCommitListCells = listCells
 	end
 
 	--[[ THE ENTRY THIS NODE ANSWERS FOR, WHICH IS NOT ALWAYS ITS OWN, and this is the
@@ -564,60 +572,146 @@ function commit_walks.new(ctx: CommitCtx)
 		commit span is made of. ]]
 	local function buildDescend(node: any)
 		local kids = node.children
-		local n = #kids
-		local baseList: { any }? = nil
-		local baseN = 0
-		local moveList: { any }? = nil
-		local moveN = 0
-		local commitList: { any }? = nil
-		local commitN = 0
+		local path = node.path
+		--[[ THE COMMIT-SIDE SIFT IS NOT ALWAYS ASKED FOR (review Minor 5). `descendOf`
+			can only ever hand back `descendCommitKids` through its
+			`arrangeBlind == true and commitDirty ~= nil` arm, so on a commit handed no
+			second set that list is unreachable — and computing it was a table lookup
+			and, on the old shape, a whole third array per visited node, for nobody. ]]
+		local wantCommit = commitDirty ~= nil
+		--[[ THE THREE LISTS ARE ALIASED UNTIL A CHILD'S VERDICTS DISAGREE, and that is
+			the whole allocation story (review Important 2).
+
+			`nil` means "identical to `kids` so far"; two of them holding the SAME table
+			means "identical to each other so far". A list is materialised only when it
+			first has to differ from the one above it — the first child it excludes, or
+			the first child on which its own predicate parts company with its
+			neighbour's. On a surface with no `moveOnly` entries and no arrange-class-only
+			dirt the three predicates never part company, so ONE array serves all three.
+
+			MEASURED, on `deep_stack_scene` at 1,000 rows, one leaf's text: the eager
+			shape built 5 arrays totalling 2,999 SLOTS per commit — three of them
+			`table.create(999)` at the list node, for lists that end up holding one
+			element each — where HEAD allocated none. That is ~48 KB a commit on a step
+			whose whole allocation is 703 KB.
+
+			AND THE FORK IS SIZED TO WHAT IT COPIES, not to the worst case: `table.create`
+			at the prefix length, with the appends after it growing geometrically. The old
+			`table.create(n - 1)` was the tight bound only for a list that prunes its FIRST
+			child and keeps every other one, which is the opposite of the case this
+			mechanism exists for. ]]
+		local lb: { any }? = nil
+		local lm: { any }? = nil
+		local lc: { any }? = nil
+		local nb, nm, nc = 0, 0, 0
 		for i, child in kids do
 			scanCount += 1
-			local path = child.path
-			local settled, moved = entryVerdict(child)
-			local dirtyAll = nodeDirty[path] == true
-			local dirtyCommit = if commitDirty ~= nil then commitDirty[path] == true else dirtyAll
-			-- base
-			if not dirtyAll and settled then
-				if baseList == nil then
-					local prefix = table.create(n - 1)
-					table.move(kids, 1, i - 1, 1, prefix)
-					baseList = prefix
-					baseN = i - 1
-				end
-			elseif baseList ~= nil then
-				baseN += 1
-				(baseList :: { any })[baseN] = child
+			local p = child.path
+			local dirtyAll = nodeDirty[p] == true
+			local dirtyCommit = if wantCommit then (commitDirty :: any)[p] == true else dirtyAll
+			--[[ `skip`'s three shapes, written out against `skip`'s own inputs. They NEST
+				as SKIP sets (base => move => commit), so the descend lists nest the other
+				way — which is what makes the aliasing below sound.
+
+				AND THE DIRTY TEST COMES FIRST, EXACTLY AS `skip` ORDERS IT (fix round 1).
+				`skip` returns at `set[node.path] == true` WITHOUT probing the entry, and a
+				node in every dirty set is descended by every shape whatever its entry
+				says — so the probe is not just unnecessary there, it is the expensive
+				thing. Losing that short-circuit is what the reorder regression actually
+				was: a reorder dirties nearly every node, so the first version paid a
+				`probeEntry` for each of ~7,300 children that `skip` had answered with one
+				hash lookup. MEASURED across four arms: the allocation fix alone took
+				`gcKb` from 10,733 back to 10,490 (baseline 10,416) and moved the class
+				not at all (30.401 -> 30.630 ms), which is what said the arrays were never
+				the cost. ]]
+			local skipB, skipM, skipC
+			if dirtyAll and dirtyCommit then
+				skipB, skipM, skipC = false, false, false
+			else
+				local settled, moved = entryVerdict(child)
+				skipB = not dirtyAll and settled
+				skipM = not dirtyAll and (settled or moved)
+				skipC = not dirtyCommit and (settled or moved)
 			end
-			-- ...the same, one claim stronger (`moveBlind`)
-			if not dirtyAll and (settled or moved) then
-				if moveList == nil then
-					local prefix = table.create(n - 1)
-					table.move(kids, 1, i - 1, 1, prefix)
-					moveList = prefix
-					moveN = i - 1
+			--[[ ...and the two places a list has to leave the one above it. They are
+				MUTUALLY EXCLUSIVE at any one child: `skipM ~= skipB` needs `skipM` true
+				(base keeps, move drops) and `skipC ~= skipM` needs `skipM` false. ]]
+			if skipM ~= skipB and lm == lb then
+				local src: { any } = if lb ~= nil then lb else kids
+				local len = if lb ~= nil then nb else i - 1
+				listCells += len + 1
+				local forked = table.create(len)
+				table.move(src, 1, len, 1, forked)
+				-- commit was following move, so it leaves base with it
+				if lc == lm then
+					lc = forked
+					nc = len
 				end
-			elseif moveList ~= nil then
-				moveN += 1
-				(moveList :: { any })[moveN] = child
+				lm = forked
+				nm = len
 			end
-			-- ...and against the COMMIT-side set (`arrangeBlind`)
-			if not dirtyCommit and (settled or moved) then
-				if commitList == nil then
-					local prefix = table.create(n - 1)
-					table.move(kids, 1, i - 1, 1, prefix)
-					commitList = prefix
-					commitN = i - 1
+			if skipC ~= skipM and lc == lm then
+				local src: { any } = if lm ~= nil then lm else kids
+				local len = if lm ~= nil then nm else i - 1
+				listCells += len + 1
+				local forked = table.create(len)
+				table.move(src, 1, len, 1, forked)
+				lc = forked
+				nc = len
+			end
+			if skipB then
+				-- base drops it, and so do the other two (base => move => commit), so any
+				-- list still aliasing `kids` forks HERE and they keep sharing one array
+				if lb == nil then
+					listCells += i
+					local forked = table.create(i - 1)
+					table.move(kids, 1, i - 1, 1, forked)
+					if lm == nil then
+						lm = forked
+						nm = i - 1
+					end
+					if lc == nil then
+						lc = forked
+						nc = i - 1
+					end
+					lb = forked
+					nb = i - 1
 				end
-			elseif commitList ~= nil then
-				commitN += 1
-				(commitList :: { any })[commitN] = child
+			else
+				-- ...and a child a list KEEPS is appended once per DISTINCT array; an
+				-- aliased list was already served by the one it shares a table with
+				if lb ~= nil then
+					nb += 1
+					lb[nb] = child
+				end
+				if not skipM and lm ~= nil and lm ~= lb then
+					nm += 1
+					lm[nm] = child
+				end
+				if not skipC and lc ~= nil and lc ~= lm and lc ~= lb then
+					nc += 1
+					lc[nc] = child
+				end
 			end
 		end
-		local path = node.path
-		descendKids[path] = baseList or kids
-		descendMoveKids[path] = moveList or kids
-		descendCommitKids[path] = commitList or kids
+		--[[ ...AND ONLY A LIST THAT DIVERGED IS STORED (fix round 1, and it is the
+			half of the reorder regression the allocation was NOT). Three hash inserts
+			per visited node, into three tables that grow to the visited-node count and
+			are `table.clear`ed every commit, is a real bill on a commit that visits
+			everything: measured on `war_room_inventory reorder`, writing all three
+			costs +2.8 % against `e74b17fd` and writing only the base costs +0.7 %,
+			with `removeItem-items` going +3.0 % -> -0.7 % and the update classes
+			unmoved (`battle_hud updateItem-hp` -20.7 % -> -20.9 %). `descendKids` is
+			also the BUILT MARKER, so it is written unconditionally; the other two are
+			written only where their predicate actually parted company, which on a
+			stack-shaped surface is never, and `descendOf` falls back down the chain. ]]
+		descendKids[path] = lb or kids
+		if lm ~= lb then
+			descendMoveKids[path] = lm or kids
+		end
+		if wantCommit and lc ~= lm then
+			descendCommitKids[path] = lc or kids
+		end
 	end
 	--[[ ...and the read side, which takes the SAME two claims `skip` takes so a walk
 		names its shape in one place. An unarmed commit gets `node.children` back
@@ -630,16 +724,30 @@ function commit_walks.new(ctx: CommitCtx)
 			return node.children
 		end
 		local path = node.path
-		local cache = if arrangeBlind == true and commitDirty ~= nil
-			then descendCommitKids
-			elseif moveBlind == true then descendMoveKids
-			else descendKids
-		local hit = cache[path]
-		if hit ~= nil then
-			return hit
+		-- the base list doubles as the BUILT marker, so one lookup answers both "is
+		-- this node classified" and "what does the flagless shape descend"
+		local base = descendKids[path]
+		if base == nil then
+			buildDescend(node)
+			base = descendKids[path] :: { any }
 		end
-		buildDescend(node)
-		return cache[path] :: { any }
+		--[[ ...and a shape that never diverged reads the one above it. The fallback
+			chain is commit -> move -> base, which is the same nesting `buildDescend`
+			builds along, so a miss is "identical to my neighbour" and never "not
+			computed". `arrangeBlind` with no `commitDirty` falls to the move list
+			exactly as `skip` falls back to `nodeDirty`. ]]
+		if arrangeBlind == true and commitDirty ~= nil then
+			local c = descendCommitKids[path]
+			if c ~= nil then
+				return c
+			end
+			local m = descendMoveKids[path]
+			return if m ~= nil then m else base
+		elseif moveBlind == true then
+			local m = descendMoveKids[path]
+			return if m ~= nil then m else base
+		end
+		return base
 	end
 	-- WRITTEN AT THE END OF THE COMMIT AND NOWHERE ELSE, so all seven walks compare
 	-- against the same "last committed" state. `rect_pass` is the last walk and is
@@ -709,6 +817,7 @@ function commit_walks.new(ctx: CommitCtx)
 		-- and THIS commit's entries and are therefore worth nothing to the next one
 		-- (C4). Cleared here rather than at the end of the span for the reason
 		-- `hiddenFlips` is: this is the one call every commit makes first.
+		listCells = 0
 		table.clear(descendKids)
 		table.clear(descendMoveKids)
 		table.clear(descendCommitKids)
@@ -1435,9 +1544,26 @@ function commit_walks.new(ctx: CommitCtx)
 					end
 				end
 			end
-			-- ...and the same two exemptions (C4), plus the LATCH — which is read HERE
-			-- and not at the top, so a chrome node found in this node's own body opens
-			-- the full walk for its own children, exactly as it did before the cache.
+			--[[ ...and the same two exemptions (C4), plus the LATCH — read HERE and not
+				at the top, so a chrome node found in THIS NODE'S OWN BODY still opens the
+				full walk for its own children.
+
+				WHAT DID CHANGE, said plainly (review Minor 1): `selected` is decided once
+				for the whole child loop, so a chrome node discovered inside an EARLIER
+				SIBLING's subtree no longer widens the walk for the LATER siblings — before
+				the cache the latch was re-read inside each child's own guard.
+
+				IT IS OUTPUT-NEUTRAL BECAUSE OF THE LATCH'S LIFETIME, not because of the
+				loop. `sawChrome` is cleared only by an UNARMED commit (`harvest`'s
+				`if not pruning` arm) and is re-latched during that same commit, whose
+				`hitRects` walks the whole tree. So on any surface that holds chrome at
+				all, `sawChrome` is already true at the START of every pruned commit,
+				`selected` is false everywhere, and the live child list is taken exactly as
+				before. The narrowing can only bite on a surface where no walk has ever met
+				chrome — where the latch never becomes true and there is nothing to widen
+				for. Beyond that, the only thing a wider walk recomputes is another chrome
+				node's floor: `authorPressableRects` is read by `isFrameworkChrome` nodes
+				alone. ]]
 			local selected = not sawChrome and not flipped
 			for _, child in (if selected then descendOf(node) else node.children) do
 				pushHitRects(child, isHidden, flipped, selected)
