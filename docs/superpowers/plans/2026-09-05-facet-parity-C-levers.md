@@ -679,6 +679,35 @@ answered "may this CHILD be served"; this asks "may this PARENT skip asking".
   index-keyed gate revision 2 shipped reads 98.0–100 % on exactly those classes, and every
   one of those serves would be a number belonging to a different node.
 
+  ▲ **MEASURED 2026-09-05 (T13, three arms interleaved — A `a77cc101`, B the mechanism,
+  C the counter alone; medians of four `attr <wl> L 3` runs per arm; FacetBench §C11).
+  THE SURVIVAL LANDED AND THE MILLISECONDS DID NOT, and the expected column above is
+  REPLACED by this one rather than defended:**
+
+  | class | before (arm A) | survival, MEASURED | expected | **MEASURED after (arm B)** |
+  |---|---:|---:|---:|---:|
+  | `battle_hud L updateItem-hp` | 1.896 | **97.1 %** (1,133 → 33 `childVisits`) | ~0.90 | **1.800 (−5.1 %)** |
+  | `battle_hud L setState` | 2.369 | 97.1 % (1,130 → 33) | ~1.00 | 2.342 (−1.1 %) |
+  | `war_room_inventory L setState` | 3.534 | 99.7 % (1,473 → 5) | ~1.15 | **3.415 (−3.4 %)** |
+  | `killfeed_nameplates L updateItem-hp` | 0.491 | 73.7 % (335 → 88) | ~0.36 | **0.473 (−3.8 %)** |
+  | `war_room_inventory L reorder` | 30.267 | **0.1 %** (1,469 → 1,467) | ~19, NO GAIN | 30.390 (flat, as the id key says it must be) |
+  | `battle_hud L removeItem-damage` | 2.622 | 89.2 % (1,123 → 121) | ~2.5, NO GAIN | 2.740 (noise) |
+  | `span:Facet/measure`, `battle_hud hp` | 1.258 | — | — | **1.141 (−9.3 %)** |
+  | `lastMeasureCalls`, `battle_hud hp` | 2,263 | — | — | **1,163 (−48.6 %)** |
+
+  **WHY THE EXPECTED COLUMN WAS WRONG, AND IT IS THE ESTIMATE FORM RATHER THAN THIS
+  LEVER.** Every "expected after" above came from dividing the whole `span:Facet/measure`
+  by every entry in it (1.038 ms / 2,221 = **0.47 µs an entry**) and multiplying that
+  AVERAGE by the share of entries the gate can serve. The entries a container memo
+  removes are the CHEAPEST ones in that average: each was already answered by C2 from two
+  fields on the node, with no key string, no slate lookup and no subtree walk — while the
+  expensive entries are exactly the ones the memo must not skip. Measured marginally,
+  1,100 removed calls bought 0.117 ms of measure span: **~0.106 µs per served call, one
+  fifth of the figure the plan spent.** Arm C makes the division trustworthy — the counter
+  alone is within noise of arm A on every class. **Any remaining row in this plan that
+  prices a lever as `calls × average cost` is overstated by whatever share of those calls
+  was already being served, and T14/T16 should take a marginal price before booking one.**
+
   Commit `T13: a stack memoises its children's measures and re-asks only the dirty ones (C11)`.
 - [ ] **Step 9: FacetBench §C11.** The mechanism, the counter table (`lastChildVisits` before/after, `lastMeasured` unmoved), the three-arm ms table, the arm-C number, **and the withdrawal of the aggregate design with the four reasons** — a per-child memo re-summed is exact where a patched aggregate is four separate ways of being wrong.
 
