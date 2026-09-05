@@ -111,6 +111,11 @@ found the *omissions* to be the problem.
 | **T13, T14, T15, T16 → `tools/lune/verify/data/source-cap-ledger.md`** | each records a size | T13 `solver.luau`, T14 `solver.luau` + `stack.luau`, T15 `renderer.luau`, T16 all three | ▲ **NOT CLEAN — four commits, one file, and it had NO row** (review round 2 §3.7). Each task appends its own row in its own commit; never rewrite an earlier task's line. |
 | **T13 ↔ T15** | **`layout_node.luau`'s store-entry literal AND the `local prior` read** | T13 introduces `local prior` immediately before the entry write and adds `cmemo`/`kids`; T15 adds `childArray` to the same literal **and HOISTS `local prior` above the child loop at `:1348`** | ▲ **A CODE-MOTION CONFLICT the "CLEAN, and mandatory in this order" row above does not name** (review round 2 §3.7). Ordering fixes it — T13 first, T15 moves T13's own line — but T15's step 3 must state the hoist explicitly and its diff must show the line MOVED, not duplicated. |
 | T12 ↔ the other agent | `tests/zorder_bounded.spec.luau`, `src/render/render_stats.luau` | T12 must arm `ops` in `zorder_bounded.spec:140,146`; T13/T14/T15 all edit `render_stats.luau` | **CLEARED 2026-09-05 — those three files landed as `aade8fac` and the tree is clean.** T12 no longer waits. Still check `git status --short` before starting and record it: the rule is standing, only this instance is closed. `zorder_bounded.spec`'s `ops` call sites may have moved off `:140,:146` in that commit — re-grep. |
+| **T13 → T13b → T14 → T15** | **`store.byNode[node].cmemo`** (ruling A-8) | T13b adds `mN`/`mSum`/`mCutsSum`/`mIdx`/`mAlways`/`mFill`/`mIsFill`/`struct` to the SAME table T13 created; T14 adds `p*`; T15 adds `childArray` | ▲ **NEW (ruling L-7). CLEAN, and the order is now four deep.** T13b reads T13's nine names and writes eight of its own; it does not rename or re-key anything T13 shipped, and the carrier gate is unchanged. **T13b must land BEFORE T14**: T14's replay deletes `stack.arrange`'s pass-1 re-measure, which is what makes T13's `ctx.offers` write a behavioural null today — see the T13b ↔ T14 row. |
+| **T13b ↔ T14** | the `ctx.offers` channel (`solver.luau:1642-1643`, `:1790-1791`, `:1935-1936`; read `:2306-2307`) | T13b's aggregate never visits an unvisited child, so it cannot write that child's offer pair at all — where T13's skip arm still could | ▲ **NEW, and NOT CLEAN. This is the coupling that decides T13b's step 5.** T13's mutation recorded the offers write as a behavioural NULL *only while `stack.arrange` re-measures every child*; T13's own concern 3 says T14 removes that. T13b takes option (b) — the node-resident offer pair, assessment §6-L5 — which serves the channel for a child nobody measured and therefore **closes T13's concern 3 instead of handing it to T14**. If T13b falls back to option (a) (an O(n) offers-only loop), T14 inherits the concern unchanged and must carry the behavioural witness T13 could not build. |
+| **T13b ↔ T15** | `src/render/layout_node.luau` — `build`'s prologue (`:1722-1736`) and the carrier block (`:1539-1564`) | T13b writes `store.structural = collect == true` in `build` and `cmemo.struct` in the carrier block; T15 HOISTS `local prior` above the child loop and adds `childArray` to the same literal | ▲ **NEW. NOT CLEAN, and it is code motion again** — the same class as the existing T13 ↔ T15 row. Ordering fixes it: T13b first, T15 moves T13b's `cmemo.struct` line with T13's `local prior`. T15's diff must show those lines MOVED, not duplicated. **And T15 must state what its own reuse does to owed row A2:** a reused children array trivially has an unchanged id sequence, so T15 may set `struct`'s successor free — but it may not silently widen T13b's gate while doing it. |
+| **T13b → `src/render/renderer.luau`** | **zero characters** | the structural flag reaches the memo through `layout_node.build`'s existing `collect` argument (`renderer.luau:2008-2009`) rather than through a new `reuse` field | ▲ **NEW. CLEAN BY CONSTRUCTION, and deliberately so:** the wave's renderer allowance is ≤ +400 split T15 ≤ +120 · T16 ≤ +280, with nothing left for a fifth task. A T13b that needed a `reuse.structural` field would have had to re-split that budget or take renderer's booked seam first. |
+| **T13b → `solve_ctx.luau`, `render_stats.luau`, `tests/run.luau`, the source-cap ledger** | the same four shared files T13–T16 queue on | T13b adds `childIterations` + `aggregateFallbacks` to `Ctx` (`:189`, `:366`), two `last*` fields (`render_stats.luau:64`, `:222`), one require line, one ledger row | ▲ **NEW. NOT CLEAN — the queue is now five deep on `tests/run.luau` and the ledger.** Same rule as the existing rows: each task appends its own line in its own commit, and a task that finds a later task's line already present has a stale tree and STOPS. T13b's spec is `container_aggregate`. |
 
 ---
 
@@ -710,6 +715,328 @@ answered "may this CHILD be served"; this asks "may this PARENT skip asking".
 
   Commit `T13: a stack memoises its children's measures and re-asks only the dirty ones (C11)`.
 - [ ] **Step 9: FacetBench §C11.** The mechanism, the counter table (`lastChildVisits` before/after, `lastMeasured` unmoved), the three-arm ms table, the arm-C number, **and the withdrawal of the aggregate design with the four reasons** — a per-child memo re-summed is exact where a patched aggregate is four separate ways of being wrong.
+
+---
+
+### Task 13b (L1a-2 → FacetBench §C11b): the stack stops WALKING the children it did not re-measure
+
+**SCOPE — ruling L-7.** T13 made the *work inside* `contentSize`'s loops O(dirty) and said so
+in its own tail comment (`src/layout/stack_measure.luau:373-381`): three walks over the child
+array survive, and its report booked them as "the dominant term in this branch". T13b removes
+two of the three. **It is the half of the assessment's L1a that amendment A-4 withdrew, and
+A-4's four reasons are answered one by one below rather than re-litigated** — with the part
+A-4 was RIGHT about (the `crossMax` argmax) left unbuilt on a measurement, not on a habit.
+
+**THE GATE, MEASURED AT THIS TASK'S PARENT SHA `66ccc867` — read, not inherited.** Three
+`os.clock()` brackets and an iteration census inside `contentSize`, in a worktree beside a
+FacetBench worktree at `c42377a`, `lune run tools/profile/attr <wl> L 3` (Amendment log —
+T13b for the commands and the raw numbers). **Every pass figure below is EXCLUSIVE of the
+`measure` calls made inside it** — each level subtracts its own callees — so it is the price
+of the WALK and nothing else:
+
+| class (L) | class p50 | PASS 1 walk | fill-pass scan | `crossMax` fold | **three passes** | iterations/tick | of PASS 1: the two `ctx.offers` writes |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| `battle_hud updateItem-hp` | 1.802 ms | 0.207 | 0.005 | 0.004 | **0.216 ms (12.0 %)** | 1,112 × 3 = 3,336 | **0.107** (97 ns × 1,100 skips) |
+| `war_room_inventory setState` | 3.402 ms | 0.293 | 0.006 | 0.005 | **0.305 ms (9.0 %)** | 1,465 × 3 = 4,395 | **0.168** (115 ns × 1,460) |
+| `killfeed_nameplates updateItem-hp` | 0.463 ms | 0.058 | 0.001 | 0.001 | **0.061 ms (13.1 %)** | 311 × 3 = 933 | **0.027** (122 ns × 221) |
+
+**≥ 0.15 ms on `battle_hud` hp is met (0.216), so this task BUILDS.** Three facts out of that
+table decide the whole design and none of them was predictable from T13's report:
+
+1. **PASS 1's walk is 96 % of the three-pass cost** (0.207 of 0.216). The fill scan is
+   4.5 ns/child and the fold 3.6 ns/child — a bare loop with one array read. **PASS 1 is
+   186 ns/child** because its body is a `dim()` call, an eleven-term predicate, six table
+   operations and a string compare.
+2. **Half of PASS 1 is the two `ctx.offers` writes the skip arm owes** (`stack_measure.luau:188-189`):
+   deleting them takes `battle_hud` hp from 0.207 to 0.100 (measured, `t13b-bh-nooffers`).
+   They are not new cost — they are the write `measure` would have made — but they are the one
+   channel an O(dirty) walk *cannot* keep without an O(n) loop, so **the offers channel, not
+   the aggregate arithmetic, is this task's design problem** (step 5).
+3. **The `crossMax` argmax is not worth building.** The fold is 0.004 ms — **1.9 % of the
+   three-pass cost** — and a patched argmax needs a full rescan whenever the argmax child
+   shrinks, measured on these drives at **1 / 1,134 hit folds (0.09 %) on `battle_hud`,
+   78 / 1,124 (6.9 %) on `war_room_inventory` and 249 / 1,679 (14.8 %) on
+   `killfeed_nameplates`**. A-4's third reason ("a `crossMax` argmax over a re-entrant scratch
+   array") is therefore answered by DELETION: **T13b patches no `crossMax` and stores no
+   argmax.** The fold stays exactly as `stack_measure.luau:382-385` writes it, and the only
+   thing T13b owes it is a complete `crossOf`.
+
+**A-4's four withdrawal reasons, each answered with its line.**
+
+| A-4's reason (plan `:142`) | answer |
+|---|---|
+| post-shrink `aSum` compared against pre-shrink `aMain` | The aggregate stores the value `mainSum` holds **at the end of PASS 1**, captured before PASS 1.5 can touch it (`stack_measure.luau:292-320` is the only writer of `mainSum -= absorbed`, `:319`). PASS 1.5 runs only when `shrinkBasis ~= nil` (`:292`), and a child that builds `shrinkBasis` sets `memoable = false` (`:208-216`) → the tail drops the key (`:370-371`), so the container's next tick is a full pass. The captured sum is never the shrunk one. |
+| a truncated `shrinkBasis` | Every child with `shrinkWeight ~= nil` is in the **always-visit list** (step 4, `mAlways`), so the incremental pass measures each of them in document order exactly as PASS 1 does today and `shrinkBasis` is byte-identical to HEAD's. T13's skip already refuses these children (`:176`); T13b's difference is that it must now *enumerate* them rather than meet them in a walk. |
+| a `crossMax` argmax over a re-entrant scratch array | **Not built.** Measured at 1.9 % of the cost with a 0.09–14.8 % rescan rate (above). The fold stays O(n). |
+| a fill pass that stops re-measuring | The fill pass **still measures every fill child on every call**, exactly as T13's owed row 5 requires. It stops *scanning for them*: the fill indices are a recorded list (`mFill`), so the pass is O(#fill) instead of O(n) and its body is untouched (`:345-354`). `marginMain[idx]` and `fillWeightSum` are recomputed for those children every tick, so PASS 2's inputs are the same numbers HEAD computes. |
+
+**THE OWED LIST — what an O(dirty) WALK skips that T13's O(n) walk did not.** T13's list asked
+"may this parent skip *asking*". This asks "may this parent skip *looking*", which is a
+strictly larger question: a child the loop never reaches is a child whose `id`, `kind` and
+`dim` were never read.
+
+| # | channel / fact the walk supplied | site | verdict |
+|---|---|---|---|
+| A1 | `ctx.offers[child.wKey]` / `[child.hKey]` for an unvisited child | written `stack_measure.luau:188-189`, read `solver.luau:2306-2307` | **NOT SERVED BY THE WALK — the task's one real cost decision (step 5).** Option (b), node-resident offers (assessment §6-L5), serves it for free; option (a) keeps an O(n) offers-only loop and gives back half the gain. Priced in both directions above and in step 8's table. **A nil offer disarms both anchor arms for the life of the surface (T7 finding 2), so "drop it" is not on the table** — T13's own null mutation says the writes are behaviourally invisible ONLY while `stack.arrange` still re-measures every child, and T14 deletes that. |
+| A2 | the index→`child.id` binding of every UNVISITED index | T13's per-index term `mIds[idx] == child.id` (`:172`) | **GATED, AND BY A NEW TERM, because the per-index check is exactly what an O(dirty) pass cannot make.** The aggregate fires only when the tick is **non-structural** and `n == cmemo.mN`. `layout_node.build` already receives `structural ~= nil` as its `collect` argument (`renderer.luau:2008-2009`, `layout_node.luau:1722-1736`), so the flag reaches the memo with **zero `renderer.luau` characters** (step 3). The argument it stands on: a layout children array is a pure function of the mount tree's shape, every shape change is a `When`/`ForEach`/region reconcile, and every one of those makes the refresh structural — at which point either the plan exists (`collect == true`, aggregate refused) or `dirtyContains` is nil and there is **no `reuse` at all** (`renderer.luau:2048-2053`), so the memo cannot hit. The per-index term stays for every index the pass DOES visit. |
+| A3 | `childMainDim.type` — which indices are `fill` | `:153`, consumed `:198-199` and `:342` | **SERVED from `mFill` / `mIsFill`, with a FALLBACK VALVE.** A child whose main dim changed type is a prop change on that child, so it is dirty and therefore visited; the visited arm compares its type against `mIsFill[idx]` and, on a mismatch, sets `aggregateOk = false` and the container **re-runs the full pass from scratch this tick** (step 4). Correctness is never a function of the classification being fresh. |
+| A4 | `marginMain[idx]` for a FILL child | written `:196`, read `:352` | **SERVED — fill children are visited every tick** (they are in `mFill` and PASS 2 measures them), so `sides(child.margin)` is recomputed for exactly the children that read it. |
+| A5 | `crossOf[idx]` completeness for the fold | `:382-385` | **SERVED BY ALIASING.** On the incremental path `crossOf` and `marginMain` **are** `cmemo.mCross` / `cmemo.mMargin` — persisted arrays, complete for every index by the invariant in step 4. The full path keeps HEAD's freshly-allocated arrays and hands them to the memo at the tail, which is what makes them complete. |
+| A6 | `mainSum` | `:203`, `:190` | **PATCHED, and the patch is the only arithmetic in this task:** `mainSum = cmemo.mSum` then `+= new − mMain[idx]` per visited non-fill child. Exact by the same argument T13 shipped — a served number IS the number this loop would have produced for that index — with the pre-shrink capture of A-4's first row. |
+| A7 | `ctx.fitCuts` for unvisited children | `:190`, `record`'s `cuts` (`solver.luau:1481`) | **PATCHED from `cmemo.mCutsSum`:** `ctx.fitCuts += mCutsSum − Σ(mCuts[idx])` over the visited RECORDED indices, and each visited child's own call adds its own cuts as it does today. |
+| A8 | `fillWeightSum` | `:199` | **RE-ACCUMULATED from `mFill` each tick**, never patched: every fill child is visited, so the sum is recomputed from the same weights HEAD reads. |
+| A9 | **document order** | PASS 1 is a `for idx, child in children` walk; PASS 1.5's own comment states the rule (`:305-307`): last-write-wins verdict channels (`compact`, `textFacts`) must publish deterministically | **OWED AND SERVED BY A SORT, and it is the trap in this task.** The dirty set is a HASH; iterating it gives an arbitrary order. The visit list is built, then `table.sort`ed ascending, then measured — k is 1–20 on every class measured here, so the sort is free. **A mutation removes the sort and must redden a two-text-child fixture** (step 7). |
+| A10 | the walk's own bound | — | **BOUNDED BY A PROBE BUDGET, not by trust.** The pass walks `reuse.measureContains`, whose measured size is **5 / 3 / 5 entries per solve** on the three classes; it counts probes and falls back to the full pass past `budget = n // 4`, so a large closure can never make the aggregate slower than HEAD. `lastAggregateFallbacks` publishes how often that happened, and a class where it is non-zero is reported, never averaged away. |
+| A11 | `lastChildVisits`, `lastMeasureCalls`, `lastMeasureServed`, `lastMeasured` | `render_stats.luau:222`, `solver.luau:3399-3408` | **NONE OF THEM MOVE, and that is the acceptance evidence.** T13b removes ITERATIONS, not calls: the same 33 children are measured on `battle_hud` hp before and after. `lastChildVisits` UNMOVED is T13b's `lastMeasured`-unmoved witness — if it falls, the aggregate skipped a child HEAD measured, which is a finding and not a win. **No public counter moves except the two this task adds**, so unlike T13 there is no pin re-recording wave in either repo. |
+
+**Files:**
+- Modify: **`src/layout/stack_measure.luau`** (20,881 chars, no cap constraint) — the incremental branch beside HEAD's pass, the `mAlways`/`mFill`/`mIdx` recording in the full pass, the aggregate fields at the tail. Budget ≤ +6,500.
+- Modify: **`src/render/layout_node.luau`** (98,636, no cap constraint) — `store.structural = collect == true` in `build` (`:1722-1736`), and `cmemo.struct` beside the carrier block (`:1539-1564`). Budget ≤ +800.
+- Modify: **`src/layout/solve_ctx.luau`** — `Ctx` gains `childIterations: number` and `aggregateFallbacks: number` beside `childVisits` (`:189`), both initialised in `new()` (`:366`). `tests/solve_ctx_seam.spec.luau`'s field-set count moves.
+- Modify: **`src/layout/solver.luau`** — two lines in the `work` literal (`:3399-3408`) beside `childVisits`. **≤ +1,400 including step 5 option (b), taken from the wave's 2,188-char reserve with its own line in `tools/lune/verify/data/source-cap-ledger.md`** (`solver.luau` is 184,545; STOP 197,500).
+- Modify: `src/render/render_stats.luau` — `new()` (`:64`) and `publish` (`:222`) gain `lastChildIterations` and `lastAggregateFallbacks`; the 4-arg `publish` signature does not change. `tests/render_stats_seam.spec.luau`'s SAMPLE gains them (adding a field does not redden it — same statement T13's Files list makes).
+- **`src/render/renderer.luau`: NOT TOUCHED. Zero characters** — the design routes the structural flag through `layout_node.build`'s existing argument precisely because the wave's renderer allowance (≤ +400, split T15 ≤ +120 · T16 ≤ +280) has nothing left for this task.
+- Create: `tests/container_aggregate.spec.luau`; register in `tests/run.luau`; evaluate `tests/lib/tiers.luau` if the 9-view oracle rides more than three fixtures.
+- **RR rider (same commit):** `tests/facet_measure_fanout_contract.spec.luau` — every number in it must be **UNMOVED** (`childVisits=16` on the sort swap), and it gains `lastChildIterations` as an equality read off the run. That is the live consumer's compatibility evidence, per the root constitution.
+
+**Interfaces:**
+- Consumes: `ctx.reuse.measureContains` (the same set T13 probes per child, now walked once per container); `cmemo` and its carrier gate exactly as T13 built them (`layout_node.luau:1539-1564`); `layout_node.build`'s `collect` argument (`:1729`).
+- Produces — **T13b's payload on `cmemo`** (T13b is their only writer; T13's nine names are untouched):
+  - `mN: number` — the child count the arrays were recorded against
+  - `mSum: number?` — `mainSum` at the END of PASS 1, before PASS 1.5 can rebase it
+  - `mCutsSum: number` — Σ `mCuts[idx]` over recorded indices
+  - `mIdx: { [string]: number }` — `child.id` → index, the reverse of `mIds`, built in the full pass
+  - `mAlways: { number }` — ascending indices that are visited on EVERY tick (text, composition, `subtreeHasScroll`, `subtreeHasComposition`, `containerRelativeInside`, `shrinkWeight ~= nil`)
+  - `mFill: { number }` — ascending fill indices, and `mIsFill: { [number]: boolean }`
+  - `struct: boolean` — written by `layout_node`, read by the gate
+- Produces: `ctx.childIterations`, `ctx.aggregateFallbacks`, `work.*`, `stats.lastChildIterations`, `stats.lastAggregateFallbacks`.
+- Produces: solve opt `containerAggregateAudit: boolean?` (default false, test-only) → `ctx.aggregateAudit`, on the SOLVER's own opts beside `containerMemoAudit` (ruling L-4). `renderer.luau`, `ATTACH_OPTS_KEYS`, `MountOpts` and `tests/attach_opts_documented.spec.luau` stay untouched.
+- **Must NOT move: `lastChildVisits`, `lastMeasureCalls`, `lastMeasureServed`, `lastMeasured`, `lastArranged`, `lastRectInserts`, `lastSkipped`, `lastSolveSkipped`, `lastLayoutNodes`, `lastAnchorSkipped`, `rectWrites`, `propWrites`, `engineWrites`, `solves`, `partialSolves`** (owed row A11).
+
+- [ ] **Step 1: the owed list, then the two pins.** Rows A1–A11 into `tests/container_aggregate.spec.luau`'s header and into the ledger under **"### Task 13b — the owed list"**, BEFORE any code. Then the spec on `tests/lib/deep_stack_scene.luau` (1,000 rows, `ops` NOT armed — ruling A-11), one discarded warm-up tick, `scene.text(500, "x")`:
+  - **(a) the EXISTING counter that must NOT move, as an equality at base and after:** `lastChildVisits`, plus `lastMeasureCalls`, `lastMeasureServed`, `lastMeasured`, `solves=1` in the same block. **This is the reverse of T13's step 1(a) and it is deliberate** — T13b's red cannot be an existing counter, because its whole claim is that it moves none.
+  - **(b) the new counter as an equality after step 2:** `lastChildIterations`, read off the run at base (`≈ 2 × 1,112` on the arena's `battle_hud`, whatever this fixture reads) and after (`≤ mAlways + dirty + probes` per container).
+  - `it("a viewport change aggregates nothing")` — `env:set` drive, full pass, `solves=1`.
+  - `it("a structural splice refuses the aggregate")` — the `ForEach` sibling insert/remove T13's owed row 9 built; `lastAggregateFallbacks` at the container count and every rect pinned against a full-solve arm.
+  - `it("a container whose child count changed refuses")` — the `mN` term alone.
+  - One case per always-visit class (text, composition, `ScrollView`, `containerRelative`, `shrinkWeight`), each pinning that the child IS measured every tick (`lastChildVisits` unmoved) while the other 30 boxes are not walked.
+  - `it("two text children publish in document order")` — owed row A9: two `UI.Text` children whose verdicts are last-write-wins, driven with the dirty set carrying both, pinned against the full-solve arm. This is the case the sort mutation must redden.
+  - `it("a child that becomes fill re-runs the full pass")` — owed row A3's valve, pinning `lastAggregateFallbacks=1` and the rects.
+  - `it("a shrinkWeight arriving on an aggregating container")` — T13's owed row 4 sequence, re-driven through the aggregate: the arrival tick is exact, the tail drops the key, the next tick is a full pass.
+
+- [ ] **Step 2: the counters, alone (arm C).** `ctx.childIterations` / `ctx.aggregateFallbacks`, their `solve_ctx` fields and initialisers, the two `work` fields, the two `render_stats` publishes and the seam-spec sample — **no mechanism**. The increment is `+= n` per pass (one add per pass, never per child: T8 measured a per-iteration `+= 1` at +0.7–2.6 % and this loop runs 1,112×/pass). **Arm C's increments must sit on the same lines arm B's do.** Record the arm-C number either way.
+
+- [ ] **Step 3: the structural flag, with no renderer characters.**
+
+<!-- verified: sed -n '1722,1740p;1496,1516p;1536,1566p' src/render/layout_node.luau; sed -n '1995,2010p;2044,2058p;2950,2962p' src/render/renderer.luau -->
+```luau
+	-- in `layout_node.build`, beside `store.builtIds` (:1736)
+	--[[ WAS THIS BUILD PART OF A STRUCTURAL SOLVE? The renderer already answers that
+		question at the call site — `structural ~= nil` is this function's `collect`
+		argument (`render/renderer`, the `layout_node.build(...)` call) — and T13b's
+		aggregate needs exactly it: a pass that never looks at an index cannot check
+		that index's id, so it refuses to run on the one class of tick where the
+		layout children sequence can change under an unchanged mount children table.
+		Reading it here costs the renderer nothing, and `renderer.luau` has 4,291
+		characters left before the cap. ]]
+	store.structural = collect == true
+```
+```luau
+	-- in `toLayoutNode`, in the carrier block (:1539-1549)
+	layoutNode.cmemo = cmemo
+	if cmemo ~= nil then
+		cmemo.struct = store.structural == true
+	end
+```
+  **The claim this term stands on, stated so a reviewer can attack it:** a structural refresh
+  either produces a plan — `collect == true`, and the aggregate refuses — or produces none, in
+  which case `dirtyContains` is nil and `solveOpts.reuse` is never built (`renderer.luau:2048-2053`),
+  so `dirty` is nil, so `hit` is false and the memo itself refuses. There is no third arm.
+
+- [ ] **Step 4: the mechanism.** HEAD's pass is UNCHANGED and becomes the `else` arm; the
+  incremental branch is new and reads only what the tail below records.
+
+<!-- verified: sed -n '129,150p;150,256p;340,355p;356,392p' src/layout/stack_measure.luau -->
+```luau
+	--[[ THE PARENT STOPS LOOKING AT THE CHILDREN IT DID NOT ASK (Plan C addendum, T13b —
+		ruling L-7). T13 made the WORK inside these loops O(dirty) and left the loops
+		themselves: measured at `66ccc867`, PASS 1's walk is 0.207 ms of a 1.802 ms class
+		on the arena's `battle_hud L updateItem-hp`, the fill scan 0.005 and the fold
+		0.004 — 12.0 % of the class, and the dominant term in this branch now.
+
+		SO THE DIRTY CHILDREN ARE ENUMERATED INSTEAD OF FOUND. The dirty set is 5 entries
+		on that class and the container's own reverse map turns them into indices; the
+		always-visit list (a child whose kind or weights this branch can never serve) and
+		the fill list are recorded, ascending, by the full pass. Everything else is a
+		number this container already holds.
+
+		AND THE FOLD BELOW STAYS O(n) ON A MEASUREMENT, NOT A HABIT: it is 3.6 ns a child,
+		1.9 % of the three passes, and a patched `crossMax` would need a full rescan every
+		time the argmax child shrinks — measured 0.09 % of hit folds on `battle_hud`,
+		6.9 % on `war_room_inventory`, 14.8 % on `killfeed_nameplates`. Amendment A-4's
+		third reason is answered by not building the thing. ]]
+	local agg = hit
+		and cmemo.mSum ~= nil
+		and cmemo.mN == n
+		and cmemo.struct ~= true
+		and not ctx.aggregateAudit
+	if agg then
+		-- the arrays ARE the memo's on this path: the fold needs every index, and the
+		-- indices this pass does not touch are the ones it must not re-derive
+		crossOf, marginMain = cmemo.mCross, cmemo.mMargin
+		local visit: { number } = table.clone(cmemo.mAlways)
+		local budget = n // 4
+		local probes = 0
+		for id in dirty do
+			probes += 1
+			if probes > budget then
+				agg = false -- A10: a closure this wide is cheaper to walk than to index
+				break
+			end
+			local idx = cmemo.mIdx[id]
+			if idx ~= nil and cmemo.mIsFill[idx] ~= true and dirty[id] == true then
+				table.insert(visit, idx)
+			end
+		end
+		ctx.childIterations += probes
+		if agg then
+			-- A9: THE DIRTY SET IS A HASH AND THIS LOOP IS DOCUMENT-ORDERED. The rule is
+			-- PASS 1.5's own (`:305-307`): last-write-wins verdict channels must publish
+			-- deterministically. k is 1-20 on every class measured, so the sort is free.
+			table.sort(visit)
+			mainSum = cmemo.mSum
+			local cutsOwed = cmemo.mCutsSum
+			for _, idx in visit do
+				local child = children[idx]
+				local mt, mr, mb, ml = sides(child.margin)
+				local isFill = dim(child, if isH then "w" else "h").type == "fill"
+				if isFill ~= (cmemo.mIsFill[idx] == true) then
+					agg = false -- A3: the classification moved; this tick pays the full pass
+					break
+				end
+				marginMain[idx] = if isH then ml + mr else mt + mb
+				ctx.childVisits += 1
+				local cutsBefore = ctx.fitCuts
+				local cw, ch = measure(ctx, child, innerMaxW, innerMaxH)
+				local mainOf = if isH then cw + ml + mr else ch + mt + mb
+				crossOf[idx] = if isH then ch + mt + mb else cw + ml + mr
+				-- A6/A7: the ONLY arithmetic in this task, and both terms are exact
+				mainSum += mainOf - (cmemo.mMain[idx] or 0)
+				if cmemo.mIds[idx] ~= nil then
+					cutsOwed -= cmemo.mCuts[idx]
+					cmemo.mCuts[idx] = ctx.fitCuts - cutsBefore
+				end
+				cmemo.mMain[idx] = mainOf
+			end
+			ctx.fitCuts += cutsOwed
+		end
+	end
+	if not agg then
+		<HEAD's PASS 1 — `:150-256` — byte for byte, plus the recording block below>
+	end
+```
+  **The fill pass becomes O(#fill)** — the loop head changes and the body does not
+  (`:341-355`): `for _, idx in (if agg then cmemo.mFill else <every index with crossOf[idx] == nil>)`.
+  The `crossOf[idx] ~= nil` sentinel cannot survive a persisted array, which is why the list
+  exists at all. **PASS 1.5 and the fold are UNCHANGED.** The tail records what the next tick
+  reads, and only on the full path:
+
+```luau
+	if memoable and not hit then
+		<T13's nine fields, unchanged, with `mCross`/`mMargin` now taking the pass's own
+		 arrays so every index is present>
+		cmemo.mN, cmemo.mSum, cmemo.mCutsSum = n, sumAfterPass1, cutsSum
+		cmemo.mIdx, cmemo.mAlways, cmemo.mFill, cmemo.mIsFill = idxById, always, fills, isFill
+	end
+```
+  `sumAfterPass1` is captured at `:256`, **before** PASS 1.5 can write `mainSum -= absorbed`
+  (`:319`) — A-4's first reason, answered by a local.
+
+- [ ] **Step 5: the offers channel — the one cost decision, taken on the measurement.** Owed row
+  A1. Two options, both priced at this task's parent SHA:
+  - **(a) an O(n) offers-only loop.** Keeps HEAD's semantics with no other change; costs the
+    measured **97–122 ns per unvisited child** — 0.107 ms of `battle_hud` hp's 0.216, 0.168 of
+    `war_room`'s 0.305. **The lever's gain halves.**
+  - **(b) FOLD IN L5 (assessment §6-L5): the offer pair moves onto the node.** `node.oW`/`node.oH`
+    written where `ctx.offers` is written today (`solver.luau:1642-1643`, `:1790-1791`,
+    `:1935-1936`) and read by the entry literal (`:2306-2307`) when the per-solve table misses.
+    An unvisited child needs **no write at all**: its layout node is the SAME TABLE (T13 owed
+    row 11 — a memo-skipped child is a `store.byNode` hit), and the memo key contains the offer
+    pair, so the offer on the node IS this tick's offer. T9b measured L5's own time gain at
+    ~zero; **here it is worth 0.107 ms on `battle_hud` hp, and that is the marginal price T13's
+    finding demands.**
+  - **Take (b).** If `check_source_size` shows `solver.luau` above +1,400 after stylua, or the
+    review refuses the node-resident pair, fall back to (a), re-book the expected column from
+    step 8's (a) row and say so in §C11b rather than re-deriving the model. **Either way the
+    channel is served: a nil offer disarms both anchor arms for the life of the surface.**
+
+- [ ] **Step 6: green + the audit arm (ruling L-4).** `container_aggregate.spec` green. Then the
+  forced-on oracle: `containerAggregateAudit` on the SOLVER's opts, read by `solve_ctx.new`
+  exactly as `containerMemoAudit` is. **With the audit on, `agg` is false — every container runs
+  the full pass — and the full pass compares its own answers against the aggregate's before it
+  overwrites them**: `mainSum`, `crossOf[idx]`, `marginMain[idx]` and the `ctx.fitCuts` delta,
+  asserted per container at the tail. Non-vacuity is the `lastChildIterations` pair (the audited
+  arm reads the full walk, the plain arm reads the dirty count); **the case errors if they are
+  equal**. Drive it as T13's audit is driven: a real solve's `(root, viewport, opts)` captured
+  through the work-capture harness, re-solved plain and audited at **every one of the nine
+  `device_views.VIEWS`** on the four gate shapes. Beside it, unaudited, the mount-level
+  differential: six fixtures × nine views × three arms (`plain`, `nested`, `fill`, `shrink`,
+  `label`, `foreach`), `scene.snapshot()` byte-equal to arm `c`. **Both adapters** = the fake
+  target (Facet's only headless adapter) plus the adapter-free direct-solve arm — the same price
+  T13 recorded for ruling L-4. Then the standing suites that compare against arm `c`:
+  `host_space_oracle`, `translate_arm`, `measure_split`, `measure_reuse`, `rect_cow`,
+  `node_reuse`, `anchor_skip`, and T13's own `container_memo`.
+
+- [ ] **Step 7: the mutations (Step-7 discipline), each run, each recorded.** (1) **patch
+  arithmetic wrong** — `mainSum += mainOf` without `- cmemo.mMain[idx]` → **the audit arm must
+  redden**, and so must a rect pin. (2) **`cutsOwed` not decremented for a visited child** → the
+  audit's `fitCuts` delta reddens. (3) **drop the `cmemo.struct ~= true` term** → the `ForEach`
+  splice fixture reddens (this is the successor to T13's mutation 6b and the same measurement
+  says why: an index-keyed serve reads 98 % skippable on a class whose every index moved). (4)
+  **drop `cmemo.mN == n`** → the child-count fixture reddens. (5) **drop `table.sort(visit)`** →
+  the two-text-children document-order case reddens. (6) **drop the fill-type valve** → the
+  becomes-fill case reddens. (7) **drop the probe budget** → nothing reddens; **record the NULL
+  and keep the term**, with the null stated at the site: it is a performance guard, not a
+  correctness one, and `lastAggregateFallbacks` is its instrument. (8) **`sumAfterPass1` replaced
+  by the post-shrink `mainSum`** → the shrink-arrival case reddens (A-4's first reason, mechanised).
+
+- [ ] **Step 8: gates, RR, measurement, commit.** `tools/test.sh` full; `tools/verify.sh affected --jobs 1`
+  before committing; `stylua --check src tests tools bench examples`; `python3 tools/check_source_size.py`
+  **and record `solver.luau`'s size and the reserve draw in `tools/lune/verify/data/source-cap-ledger.md`**;
+  `check_brand_drift.py` (no extraction is planned, but `stack_measure.luau` is now an
+  extraction-locked file); `check_comment_codes.py`; `check_public_allowlist.py`;
+  `check_manifest_integrity.py`. **RR lockstep: `cd games/RascalRally/code && ./run-tests.sh`
+  green at or above 3,591/0 with `facet_measure_fanout_contract` UNMOVED and its new
+  `lastChildIterations` equality recorded IN THIS COMMIT**, plus `facet_measure_split`.
+  Measurement, three arms interleaved A B C C B A, medians of ≥ 4 `attr <wl> L 3` runs per arm
+  (**A** = a worktree at `66ccc867` beside a FacetBench worktree at `c42377a`, **B** = HEAD,
+  **C** = step 2's counters alone):
+
+  **Every row is derived from the MEASURED per-pass cost above — the marginal form T13's finding
+  demands — never from `iterations × an average`:**
+
+  | class | before (read at arm A) | three passes, measured | residual the aggregate leaves | **expected with (b)** | expected with (a) |
+  |---|---:|---:|---:|---:|---:|
+  | `battle_hud L updateItem-hp` | 1.802 | 0.216 | ~0.008 (fold 0.004 + 5 probes + 3 always) | **~1.60 (−11.3 %)** | ~1.70 (−5.6 %) |
+  | `war_room_inventory L setState` | 3.402 | 0.305 | ~0.007 (fold 0.005 + 3 probes + 0 always) | **~3.11 (−8.6 %)** | ~3.27 (−3.9 %) |
+  | `killfeed_nameplates L updateItem-hp` | 0.463 | 0.061 | ~0.004 (fold 0.001 + 5 probes + 19 always) | **~0.41 (−11.9 %)** | ~0.43 (−6.3 %) |
+  | `war_room_inventory L reorder` | ~30.3 | — | — | **flat — structural, the aggregate refuses** | flat |
+  | `battle_hud L removeItem-damage` | ~2.7 | — | — | **flat — structural** | flat |
+  | `nameplates L updateItem-hp` | 0.006 | — | — | 0.006 (CONTROL — anchored, no stack loop) | 0.006 |
+  | `lastChildIterations`, `battle_hud hp` | ~2,224 | — | — | **≤ 20** | ≤ 20 |
+  | `lastChildVisits` / `lastMeasured`, all classes | 33 / 6 | — | — | **UNMOVED (owed row A11)** | UNMOVED |
+
+  **The two flat rows are acceptance evidence, exactly as T13's two 0 %-survival rows were.**
+  A structural tick is the one tick on which an index binding can move without a child being
+  dirty, and refusing it is the whole safety argument of owed row A2.
+  Commit `T13b: a stack walks only the children it re-measures (C11b)`.
+
+- [ ] **Step 9: FacetBench §C11b.** The mechanism; the per-pass cost table above with the census
+  that produced it; the `lastChildIterations` before/after and the **unmoved** `lastChildVisits`;
+  the three-arm ms table; the arm-C number; **the argmax that was measured and NOT built**, with
+  the rescan rates; and, if step 5 took option (b), L5's re-priced gain — ~zero when T9b measured
+  it standalone, 0.107 ms on `battle_hud` hp once a container memo turned the offers write into
+  the only thing left in the loop.
 
 ---
 
@@ -1684,3 +2011,67 @@ written around — is served by T13 (96.8 % of its measure calls) and NOT by T14
 replays), so its predicted landing is ~0.90 ms after T13 and ~0.90 ms after T14.** The
 0.5 ms target on that class therefore rests on T15, T16 and T17, not on the two largest
 levers. Say that in §C12 and in the closing report.
+
+
+---
+
+## Amendment log — T13b (ruling L-7): the measurement that sized the task, and the design it forced
+
+**Instrument.** A worktree of Facet at `66ccc867` beside a worktree of FacetBench at
+`c42377a` (FacetBench resolves Facet as the sibling `../Facet`, `frameworks/facet/adapter.luau:5`),
+`contentSize` instrumented with three `os.clock()` brackets — one per surviving pass — an
+iteration census, and a per-container argmax record used only to count how often a patched
+`crossMax` would need a rescan. **Each bracket subtracts the `measure` calls made inside it**,
+so every figure is the price of the WALK, exclusive of its callees. Commands, one `lune` at a
+time:
+
+```
+git worktree add <scratch>/t13b-plan/Facet 66ccc867
+git -C GameStudio/ui/FacetBench worktree add <scratch>/t13b-plan/FacetBench c42377a
+cd <scratch>/t13b-plan/FacetBench && lune run tools/profile/attr battle_hud L 3
+                                     lune run tools/profile/attr war_room_inventory L 3
+                                     lune run tools/profile/attr killfeed_nameplates L 3
+```
+
+**Measured, medians of the per-step samples in one run per arm (the census build and a
+timing-only build agree to 0.001 ms on `battle_hud`, so the census is not the measurement):**
+
+| class (L) | p50 | PASS 1 walk | fill scan | `crossMax` fold | three passes | iterations/tick | offers-write share of PASS 1 |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| `battle_hud updateItem-hp` | 1.802 | 0.207 | 0.005 | 0.004 | **0.216 (12.0 %)** | 1,112 × 3 | 0.107 (0.207 → 0.100 with the two writes deleted) |
+| `war_room_inventory setState` | 3.402 | 0.293 | 0.006 | 0.005 | **0.305 (9.0 %)** | 1,465 × 3 | 0.168 (→ 0.125) |
+| `killfeed_nameplates updateItem-hp` | 0.463 | 0.058 | 0.001 | 0.001 | **0.061 (13.1 %)** | 311 × 3 | 0.027 (→ 0.031) |
+
+**Census, same runs:** `contentSize` calls 3 per tick on all three classes, of which ONE is a
+memo hit carrying 1,104 / 1,461 / 307 children — the branch is one big container and two small
+ones. Per hit tick: skipped 1,100 / 1,460 / 221; dirty children 1 / 1 / 1; statically refused
+("always-visit") 3 / 0 / 19; **`reuse.measureContains` holds 5 / 3 / 5 entries per solve**,
+which is what makes enumerating the dirty children cheaper than finding them. **Rescans a
+patched `crossMax` argmax would have needed: 1 / 1,134 hit folds (0.09 %), 78 / 1,124 (6.9 %),
+249 / 1,679 (14.8 %).**
+
+**Four findings, and each one is a design decision in §Task 13b rather than a note:**
+
+1. **The task is BUILD, not BOOKED:** 0.216 ms on `battle_hud L updateItem-hp` clears the
+   0.15 ms gate this addendum set for it, and it is 12.0 % of the class — larger than T13's
+   whole measured gain (0.096 ms).
+2. **PASS 1 is 96 % of the cost and half of PASS 1 is two hash writes.** The fill scan and the
+   fold together are 0.009 ms. An O(dirty) design that keeps the offers loop keeps half the
+   bill, which is why L5 stops being a rank-8 curiosity and becomes T13b's step 5.
+3. **The argmax is refuted by its own measurement.** 1.9 % of the cost, 0.09–14.8 % rescan rate:
+   amendment A-4's third withdrawal reason is answered by not building the thing, and the fold
+   stays exactly as it is. **The other three A-4 reasons are answered with citations in the
+   task's second table.**
+4. **The red counter in ruling L-7 was the wrong counter.** L-7 booked `lastChildVisits`
+   33 → "≤ dirty count + rescans"; measured, 33 IS the dirty-plus-always count already — T13b
+   removes iterations, not calls, so `lastChildVisits` must NOT move and its being unmoved is
+   the acceptance witness (owed row A11). The red is a new `lastChildIterations`
+   (~2,224 → ≤ 20 on that class) and the second counter is `lastAggregateFallbacks`, not
+   `lastAggregateRescans` — there are no rescans in a design that patches no aggregate maximum.
+
+**Cost carried, stated rather than smoothed:** the residual after the aggregate is the fold
+plus the probe walk plus the always-visit list — **~0.008 / 0.007 / 0.004 ms** — so the
+expected landings are ~1.60 / ~3.11 / ~0.41 with step 5 option (b) and ~1.70 / ~3.27 / ~0.43
+with option (a). Both columns are in the task's step 8 table, and both are marginal prices
+taken from a bracket around the loops themselves — never `iterations × an average`, which is
+the arithmetic T13's report falsified.
