@@ -884,6 +884,12 @@ require("./scroll_into_view_seam.spec")
 	views, and two cases exist only to see the facts a rect oracle cannot: an erased
 	scroll host and an emptied `pathNodes`/`pathNodeCount` pair ]]
 require("./structural_incremental.spec")
+--[[ C5 (Plan C, T9): ...and the LAST whole-tree pass in that sync, the paint-order
+	walk, which O6 left alone. It keeps its single running counter and its start at the
+	mount root, and reaches the change by SKIPPING a subtree whose numbers cannot have
+	moved — so the differential against a from-scratch walk is the RANKING rather than
+	the values, because gaps are free and a re-numbered tail is not owed ]]
+require("./zorder_bounded.spec")
 -- row actions: pure swipe state decisions for row-action composites
 require("./row_actions_state.spec")
 -- row actions: the newRowActions composite skeleton (spec, lazy trays, static reveal)

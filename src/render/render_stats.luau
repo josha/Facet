@@ -86,6 +86,21 @@ function render_stats.new(): any
 		-- ...and the NODES the last sync touched. `last*` not `ss*`: the whole `ss`
 		-- family is cumulative ms, same rule as `lastCommitVisits`.
 		lastSsVisited = 0,
+		--[[ ...and the PAINT-ORDER WALK's own pair (Plan C, C5), CUMULATIVE where the
+			one above is a last capture, because a frame can run TWO z walks: the
+			structural sync's bounded one and the commit's hit-lift re-run, which is
+			whole-tree and lands after it. A `last` number would report whichever ran
+			second and a reader could not tell which. Read as a delta over a drive, with
+			`zPasses` in the same string, they say both how many walks a change caused
+			and what they cost together — which is also the shape that survives a drive
+			that ran no walk at all.
+
+			`zVisits` counts NODES TOUCHED, skips included: the z walk starts at the
+			mount root every time and reaches a change by SKIPPING a subtree whose
+			numbers cannot have moved, so its cost is the descent plus the changed
+			parent's children, and this is the number that says the skip still lands. ]]
+		zPasses = 0,
+		zVisits = 0,
 		lastSkipped = 0,
 		-- ...and the SAME number published UNCONDITIONALLY (wicked-fast O3), because
 		-- `lastSkipped` above is written only when it is > 0 and is therefore stale by

@@ -469,6 +469,23 @@ function nameplates_scene.new(opts: Opts?)
 		controller.refresh()
 	end
 
+	--[[ ...and the same walk's PATHS, in declaration order. `census` counts; this one
+		NAMES, which is what a differential over paint order needs — the z walk's own
+		visit order is declaration order on this fixture, because nothing in it carries
+		a `zIndex` and the overhang lift only reorders when an expander overhangs
+		(`Opts.withButton`, which the order-sensitive cases leave off). ]]
+	function scene.paths(): { string }
+		local out: { string } = {}
+		local function walk(node: any)
+			table.insert(out, node.path)
+			for _, child in node.children do
+				walk(child)
+			end
+		end
+		walk(root.node)
+		return out
+	end
+
 	function scene.census(): Census
 		local mounted = 0
 		local function walk(node: any)

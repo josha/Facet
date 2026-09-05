@@ -391,7 +391,7 @@ function renderer.attach(
 	-- assigned below, where the z walk is defined: the solve re-runs it when the
 	-- lift changes, because the lift is GEOMETRY and structural sync runs before
 	-- the solve that produces it
-	local syncZOrder: () -> ()
+	local syncZOrder: (roots: { { path: string, node: any } }?) -> ()
 	local pathClipObservers: { [string]: () -> () } = {}
 	-- ONE mounted-node lookup for the whole surface (Step 5.5 cleanup ledger C-02).
 	-- `refresh` used to declare an identical depth-first walk as a closure INSIDE
@@ -494,8 +494,14 @@ function renderer.attach(
 	-- eligible again the same frame with no rewiring. Roots are collected once
 	-- per structural sync; the registry consults the predicate per resolution.
 	local retiringRoots: { string } = {}
-	local function collectRetiringRoots()
-		table.clear(retiringRoots)
+	local function collectRetiringRoots(roots: { { path: string, node: any } }?)
+		--[[ BOUNDED (C5): a retire begin or cancel pushes STRUCTURE AT THE NODE, so only
+			a root's subtree can have gained an entry. With an exit already in flight it
+			takes the whole tree: that list is empty in the case that pays. ]]
+		if roots == nil or #retiringRoots > 0 then
+			table.clear(retiringRoots)
+			roots = nil
+		end
 		local function walk(node: any)
 			if node.retiring == true then
 				table.insert(retiringRoots, node.path)
@@ -505,7 +511,13 @@ function renderer.attach(
 				walk(child)
 			end
 		end
-		walk(root.node)
+		if roots == nil then
+			walk(root.node)
+		else
+			for _, r in roots do
+				walk(r.node)
+			end
+		end
 	end
 	local function isPathLive(path: string): boolean
 		for _, retired in retiringRoots do
@@ -1663,7 +1675,7 @@ function renderer.attach(
 		hitLiftRefresh = hitLift.refresh,
 		-- a forward local at this line, so the call has to go through the upvalue
 		syncZOrder = function()
-			syncZOrder()
+			syncZOrder(nil)
 		end,
 	})
 
@@ -2153,7 +2165,7 @@ function renderer.attach(
 					geometry.commitOriginOf
 				)
 			then
-				syncZOrder()
+				syncZOrder(nil)
 			end
 			-- `withAnimation`, and ONLY on the armed commit it forces for itself
 			-- (design §"Blocker 1"). It must sit HERE: root classification is
@@ -2301,6 +2313,7 @@ function renderer.attach(
 		lastZ = lastZ,
 		hitLift = hitLift,
 		metrics = currentMetrics,
+		stats = stats,
 	})
 	syncZOrder = zOrder.sync
 
@@ -2433,6 +2446,7 @@ function renderer.attach(
 			autoscrollModels[path] = nil
 		end
 		lastZ[path] = nil
+		zOrder.forget(path) -- ...and the z walk's memo, keyed the same way
 		lastTextSize[path] = nil
 		lastTextFont[path] = nil
 		lastPadding[path] = nil
@@ -2538,7 +2552,7 @@ function renderer.attach(
 			end
 		end
 		local _t1 = os.clock()
-		collectRetiringRoots() -- retire begin/cancel both push structure
+		collectRetiringRoots(roots)
 		-- mounted identity may have changed under any path (a When branch, a ForEach
 		-- row, a re-created ViewThatFits candidate), so the presentation channel's
 		-- node memo is dropped wholesale rather than patched per path
@@ -2616,7 +2630,7 @@ function renderer.attach(
 			structural_scope.sweepDiagnostics(lastResult)
 		end
 		local _t4 = os.clock()
-		syncZOrder()
+		syncZOrder(roots)
 		local _t5 = os.clock()
 		stats.ssPasses += 1
 		stats.ssEnsureTree += (_t1 - _t0) * 1000

@@ -5,11 +5,22 @@
 	handle map once: `ensureTree` (a hash lookup and a recursive call per node,
 	discovering newness one node at a time), `livePaths` (five whole-tree maps
 	rebuilt from scratch after a block of `table.clear`s), and the removal sweep
-	(`for path, handle in handles`, testing `alive[path]`). Only `ssZOrder` is
-	inherently whole-tree, and it stays that way — NM-H4a forbids a state-dependent
-	reservation, so a document-order counter renumbers everything after an insert BY
-	DESIGN. `collectRetiringRoots` is whole-tree too and also stays: it answers
-	"which subtrees are mid-exit", which no delta names.
+	(`for path, handle in handles`, testing `alive[path]`). This round left `ssZOrder`
+	and `collectRetiringRoots` whole-tree on the reasoning that a document-order
+	counter renumbers everything after an insert BY DESIGN, and that "which subtrees
+	are mid-exit" is a question no delta names.
+
+	BOTH OF THOSE WERE LATER BOUNDED, and the first of them was wrong for an
+	instructive reason (Plan C, C5 — `tests/zorder_bounded.spec.luau`). The renumbering
+	IS by design; what does not follow is that the renumbered nodes have to be visited.
+	`ZIndexBehavior.Sibling` makes only each parent's children's relative order
+	observable, so a subtree whose numbers cannot have moved may keep them and the walk
+	may jump its counter past them — no state-dependent RESERVATION is involved, and
+	NM-H4a's rule (the expander band is a function of the node's CLASS, never of
+	history) is untouched. The second is bounded by its own delta: a retire begin or
+	cancel pushes structure AT THE NODE, so the roots name every subtree an entry can
+	have appeared in, and with an exit already in flight the pass takes the whole tree
+	as it always did.
 
 	MEASURED BEFORE IT WAS BUILT (FacetBench `attr nameplates L 3`, at the T6 base):
 	`ssEnsureTree` 0.109 ms + `ssLivePaths` 0.228 + `ssSweep` 0.022 = 0.359 ms of a

@@ -10,7 +10,8 @@
 	that rule, in the shape `tests/stack_seam.spec.luau` established:
 
 	  A CLOSED DEPS   READ == DECLARED == PASSED, as three SETS compared against each
-	                  other. A seventh field reached for is a seam growing back
+	                  other. An eighth field reached for is a seam growing back — the
+	                  seventh, `stats`, arrived with C5 and argues for itself below
 	  ONE CONSUMER    `src/render/renderer.luau`, and nothing else in `src/`
 	  ONE-WAY         it names no renderer symbol and imports no renderer type, and
 	                  its two requires are leaves the renderer requires as well
@@ -91,7 +92,21 @@ describe("the z-order seam: a closed deps record, one consumer, one-way", functi
 		for name in string.gmatch(call, "\n\t\t([%a_][%w_]*) =") do
 			passed[name] = true
 		end
-		expect(sorted(declared)).toEqual({ "adapter", "handles", "hitLift", "lastZ", "metrics", "root" })
+		--[[ SEVEN, since Plan C's C5 — and the growth is the thing this case exists to
+			make ARGUE for itself rather than to forbid. `stats` is there because two z
+			walks can run in one frame (the structural sync's bounded one and the commit's
+			hit-lift re-run), so the walk COUNT is part of what a caller has to read, and
+			only the module knows it. It is a write-only field: the module never reads a
+			counter back, so no renderer state re-enters through it. ]]
+		expect(sorted(declared)).toEqual({
+			"adapter",
+			"handles",
+			"hitLift",
+			"lastZ",
+			"metrics",
+			"root",
+			"stats",
+		})
 		expect(sorted(read)).toEqual(sorted(declared))
 		expect(sorted(passed)).toEqual(sorted(declared))
 		--[[ NEGATIVE CONTROL, BOTH WAYS: the scan sees a multi-name unpack, and it does
@@ -177,9 +192,16 @@ describe("the z-order seam: a closed deps record, one consumer, one-way", functi
 		--[[ ...AND THE FORWARD LOCAL IS STILL THERE AND STILL ASSIGNED ONCE. `syncZOrder`
 			is declared near the top of `renderer.attach` because three call sites — the
 			structural sync, the commit's overhang lift and the translate lane — are
-			above the line that fills it. The seam changed WHAT fills it, not the shape. ]]
+			above the line that fills it. The seam changed WHAT fills it, not the shape.
+
+			ITS SIGNATURE IS PART OF THE PIN (Plan C, C5): the walk takes the bounded
+			structural sync's ROOT LIST, `nil` meaning the whole tree. It is here so that a
+			future change back to a no-argument call has to come through this line rather
+			than past it. ]]
 		local decls, fills = 0, 0
-		for _ in string.gmatch(rendererBody, "\n\tlocal syncZOrder: %(%) %-> %(%)\n") do
+		for _ in
+			string.gmatch(rendererBody, "\n\tlocal syncZOrder: %(roots: { { path: string, node: any } }%?%) %-> %(%)\n")
+		do
 			decls += 1
 		end
 		for _ in string.gmatch(rendererBody, "\n\tsyncZOrder = zOrder%.sync\n") do
