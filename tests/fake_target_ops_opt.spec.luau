@@ -16,9 +16,10 @@
 	Every OTHER standing suite that runs on this adapter (`host_space_oracle`,
 	`translate_arm`, `commit_scope`, `structural_scope`, `nested_tree_pins`, …) is
 	this task's differential oracle for "did the composed rects change" — this
-	file's own job is narrower: pin the SET the old scan recomposed (three
-	fixtures), pin that the index reproduces it, and pin that the log really
-	costs nothing when nobody asked for it. ]]
+	file's own job is narrower: pin the SET the old scan recomposed (five
+	fixtures, (d) and (e) added in fix round 1 for the two cases where the index
+	and that set really can disagree), pin that the index reproduces it, and pin
+	that the log really costs nothing when nobody asked for it. ]]
 
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
@@ -51,6 +52,25 @@ describe("T12: the op log is opt-in", function()
 		expect(function()
 			(unarmed :: any).ops()
 		end).toThrow()
+	end)
+
+	it("takeOps refuses when unarmed too — it drains the very log ops() guards", function()
+		--[[ RED at `a77cc101` (fix round 1, review Important 4): only `ops()`
+			asserted. `takeOps` reads and CLEARS the same table and has ~2.5x the
+			call sites (74 across 30 spec files), so an unarmed caller looking for a
+			forbidden op in an empty log passes vacuously. ]]
+		local unarmed = fake_target.new()
+		local root = unarmed.createRoot("S")
+		unarmed.create(root, "/S/A", "Box", nil, nil)
+		expect(function()
+			(unarmed :: any).takeOps()
+		end).toThrow()
+
+		local armed = fake_target.new({ ops = true })
+		local root2 = armed.createRoot("S")
+		armed.create(root2, "/S/A", "Box", nil, nil)
+		expect(#armed.takeOps() > 0).toBe(true)
+		expect(#armed.takeOps()).toBe(0) -- and the drain really did drain
 	end)
 
 	--[[ SOURCE SCAN, not behaviour: the cost this task closes is CPU spent
@@ -182,7 +202,7 @@ end)
 -- ===== STEP 1/3: THE CHARACTERISATION PIN ==================================
 --[[ A pin labelled as such (review SHOULD-FIX 6): it passes at HEAD because the
 	prefix walk IS the implementation, and it exists to freeze the set before
-	that walk is re-derived off an index. Three fixtures, built with the raw
+	that walk is re-derived off an index. Five fixtures, built with the raw
 	adapter (no renderer, no mount) so the host chain and the path strings can be
 	pulled apart on purpose the way `instance_recycling.spec`'s own low-level
 	cases do. ]]
@@ -228,6 +248,11 @@ describe("T12: a coordinate-space host move recomposes exactly the descendants t
 		local root = adapter.createRoot("S")
 		local host = adapter.create(root, "/S/Host", "VStack", nil, { instanceHost = true, hostSpace = true })
 		adapter.setRect(host, { x = 0, y = 0, w = 100, h = 100 })
+		-- a real child of the moved host, so the guard below proves the index walk
+		-- DESCENDED rather than merely that the wrap is installed (fix round 1,
+		-- review Minor 2: `setRect` composes the moved host itself unconditionally)
+		local kid = adapter.create(root, "/S/Host/Kid", "Box", nil, nil)
+		adapter.setRect(kid, { x = 3, y = 4, w = 8, h = 8 })
 		local other = adapter.create(root, "/S/Host2", "VStack", nil, nil)
 		adapter.setRect(other, { x = 1, y = 1, w = 50, h = 50 })
 		local leaf = adapter.create(root, "/S/Host2/Leaf", "Box", nil, nil)
@@ -249,7 +274,10 @@ describe("T12: a coordinate-space host move recomposes exactly the descendants t
 		expect(adapter.composedRect("/S/Host2/Leaf")).toEqual({ x = 1, y = 1, w = 5, h = 5 })
 		expect(visited["/S/Host2"] == true).toBe(false)
 		expect(visited["/S/Host2/Leaf"] == true).toBe(false)
-		expect(visited["/S/Host"] == true).toBe(true) -- non-vacuous: the host itself DID recompose
+		-- ...and the walk really did run: `/S/Host/Kid` is reached only BY the index,
+		-- unlike `/S/Host`, which `setRect` composes on its own line either way
+		expect(visited["/S/Host/Kid"] == true).toBe(true)
+		expect(adapter.composedRect("/S/Host/Kid")).toEqual({ x = 102, y = 103, w = 8, h = 8 })
 	end)
 
 	--[[ fixture (c): AN ADOPT RE-KEY (review MUST-FIX 2/3, and the T12
@@ -286,6 +314,67 @@ describe("T12: a coordinate-space host move recomposes exactly the descendants t
 		-- reachable ONLY because `indexNode` ran at adopt's new-key site
 		expect(adapter.composedRect("/S/Host/Leaf2")).toEqual({ x = 115, y = 75, w = 12, h = 12 })
 	end)
+
+	--[[ fixture (d): A RECONCILER-ONLY PATH SEGMENT (fix round 1, review Important
+		2). The one BEHAVIOURAL fix in T12 — `nearestExistingAncestor` — shipped with
+		no Facet-side test: replacing its body with `return parentPathOf(path)`, i.e.
+		re-introducing the exact regression, left the whole suite green, and only
+		RascalRally's `facet_sponsor_table.spec` said otherwise. `mount.luau` splices
+		`UI.When`'s `then`/`else` branch and `UI.ForEach`'s `[key]` item into the
+		enclosing flow WITHOUT creating a node at that segment (`nameplates_scene`'s
+		own header: "a path string with nothing mounted at it"), so a leaf really does
+		sit at `/S/Host/then/Leaf` while `/S/Host/then` is not, and never will be, a
+		node. A last-`/` cut keys that leaf under a parent nobody ever inserts and it
+		silently stops following its host. ]]
+	it("fixture (d): a leaf born under a never-created path segment still follows its host", function()
+		local adapter = fake_target.new() :: any
+		local root = adapter.createRoot("S")
+		local host = adapter.create(root, "/S/Host", "VStack", nil, { instanceHost = true, hostSpace = true })
+		adapter.setRect(host, { x = 0, y = 0, w = 300, h = 300 })
+		-- `/S/Host/then` is NEVER created — that is the whole fixture
+		local leaf = adapter.create(root, "/S/Host/then/Leaf", "Box", nil, nil)
+		adapter.setRect(leaf, { x = 10, y = 10, w = 20, h = 20 })
+		expect(adapter.node("/S/Host/then")).toBeNil()
+		expect(adapter.composedRect("/S/Host/then/Leaf")).toEqual({ x = 10, y = 10, w = 20, h = 20 })
+
+		adapter.setRect(host, { x = 100, y = 50, w = 300, h = 300 })
+
+		-- with the gap walk: `110,60`. With a bare last-`/` cut: `10,10`, stale
+		-- forever (mutation bite 2, fix round 1)
+		expect(adapter.composedRect("/S/Host/then/Leaf")).toEqual({ x = 110, y = 60, w = 20, h = 20 })
+	end)
+
+	--[[ fixture (e): A PARKED PLAIN INTERMEDIATE (fix round 1, review Important 3).
+		`park` refuses a HOST that still has children, but a plain node with
+		path-children is parkable and removable — and the old prefix scan reached its
+		descendants regardless, because it selected on the path STRING. The first
+		draft of `unindexNode` ended `childrenOf[path] = nil`, throwing the whole
+		bucket away and freezing that subtree at its pre-move rect (measured: `2,2`
+		against the old scan's `72,82`). The guarantee that this "cannot happen" rested
+		entirely on the renderer's deepest-first sweep discipline, unwritten and
+		unpinned; `unindexNode` now re-homes the orphans to the nearest ancestor that
+		is still a node instead. ]]
+	it("fixture (e): parking a plain intermediate does not orphan its children from the host's move", function()
+		local adapter = fake_target.new() :: any
+		local root = adapter.createRoot("S")
+		local host = adapter.create(root, "/S/H", "VStack", nil, { instanceHost = true, hostSpace = true })
+		adapter.setRect(host, { x = 0, y = 0, w = 300, h = 300 })
+		local mid = adapter.create(root, "/S/H/M", "Box", nil, nil)
+		adapter.setRect(mid, { x = 1, y = 1, w = 50, h = 50 })
+		local leaf = adapter.create(root, "/S/H/M/L", "Box", nil, nil)
+		adapter.setRect(leaf, { x = 2, y = 2, w = 10, h = 10 })
+
+		expect(adapter.park(mid)).toBe(true)
+		expect(adapter.node("/S/H/M")).toBeNil()
+		-- the leaf is untouched by the park: it is still live, still stored at 2,2
+		expect(adapter.composedRect("/S/H/M/L")).toEqual({ x = 2, y = 2, w = 10, h = 10 })
+
+		adapter.setRect(host, { x = 70, y = 80, w = 300, h = 300 })
+
+		-- the old scan re-based it to `72,82` and so does the index; a bucket
+		-- cleared on the park leaves it at `2,2` (mutation bite 3, fix round 1)
+		expect(adapter.composedRect("/S/H/M/L")).toEqual({ x = 72, y = 82, w = 10, h = 10 })
+	end)
 end)
 
 -- ===== STEP 4: THE INDEX BOUNDS THE RECOMPOSE TO THE HOST'S OWN SUBTREE ====
@@ -304,18 +393,56 @@ describe("T12: a host move recomposes the host's own subtree, not the mounted tr
 		s.dispose()
 	end)
 
-	--[[ THE HEADLINE, as a spec-local count rather than a `src/`-side counter
-		(this file never touches `src/`): wrap the adapter's OWN composition
-		entry point for the span of one host move and count how many nodes it
-		actually re-derives. Measured (T9b §2.6): the old prefix scan visited the
-		WHOLE mounted tree for every host move — on this fixture 1,503 nodes for
-		one of 250 hosts. The index bounds it to that host's own subtree (`PER`
-		= 6 nodes/plate: the plate root plus its five descendants), independent
-		of how many OTHER plates are mounted beside it. ]]
-	it("recompose visits are bounded to the moved host's subtree, not the mounted census", function()
+	--[[ THE HEADLINE, RE-DERIVED (fix round 1, review Important 1). The first draft
+		counted `_composePresentation` calls and asserted `visits <= PER` — and it did
+		NOT fail with the pre-T12 prefix scan restored (measured: 9 passed / 0 failed),
+		because the old walk ITERATED all 1,503 mounted nodes while COMPOSING only the
+		6 that carried the prefix. Composition was never the cost; the iteration was
+		(T9b §2.6: 248 hosts x 1,503 nodes, 21.3 of the class's 24.0 ms). So this pin
+		counts what the old walk actually spent: entries pulled out of the target's own
+		node map for the span of ONE host move.
+
+		THE INSTRUMENT IS `__iter` ON THAT MAP, which is what generalized iteration
+		(`for path, node in nodes`) goes through — the old scan included — so the pin
+		sees any future re-derivation off a full-map walk without reaching into the
+		target's locals. It is SELF-PROVED below rather than trusted: a wrap the VM
+		ignored would report 0 probes and pass this case vacuously forever. Measured,
+		one host move on this fixture: **1,503 probes** with the old scan restored by
+		hand, **0** with the index. The composed set is pinned beside it because a walk
+		that probes nothing AND composes nothing would satisfy the bound emptily, and
+		`solves` beside that because a re-solve would recompose the tree by a different
+		route and this pin would have measured the wrong lane. ]]
+	it("a host move probes the host's own subtree, not every node in the mounted map", function()
 		local PER = scene.NODES_PER_PLATE
 		local s = scene.new()
 		s.tick(0, 0) -- warm: pay the cold solve before the instrumented move
+
+		local liveNodes = (s.adapter :: any).liveNodes()
+		local mounted = 0
+		for _ in liveNodes do
+			mounted += 1
+		end
+		-- the census the old scan paid ONCE PER HOST MOVE, and the reason a bound of
+		-- `PER` is a claim rather than a coincidence
+		expect(mounted > 250).toBe(true)
+
+		local probes = 0
+		setmetatable(liveNodes, {
+			__iter = function(t: any)
+				return function(tbl: any, key: any)
+					local k, v = next(tbl, key)
+					if k ~= nil then
+						probes += 1
+					end
+					return k, v
+				end,
+					t,
+					nil
+			end,
+		})
+		for _ in liveNodes do
+		end
+		expect(probes).toBe(mounted) -- the wrap really is what iteration goes through
 
 		local visits = 0
 		local original = (s.adapter :: any)._composePresentation;
@@ -324,10 +451,18 @@ describe("T12: a host move recomposes the host's own subtree, not the mounted tr
 			return original(node)
 		end
 
+		local before = s.stats()
+		probes = 0
 		s.setOffsetX(1, (s.items[1].x:get() :: number) + 11)
+		local moveProbes = probes
+		local after = s.stats()
 
+		expect(after.solves - before.solves).toBe(0) -- lane-served: no re-solve to hide behind
+		expect(after.lastLaneTranslates).toBe(1)
+		expect(moveProbes <= PER).toBe(true) -- 1,503 with the old prefix scan restored
 		expect(visits <= PER).toBe(true)
 		expect(visits > 0).toBe(true) -- non-vacuous: the moved host really did recompose something
+		setmetatable(liveNodes, nil)
 		s.dispose()
 	end)
 end)

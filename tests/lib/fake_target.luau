@@ -175,7 +175,7 @@ function fake_target.new(opts: Opts?)
 		`if recordOps then` / `note(...)` / `end` (stylua's own three-line shape for
 		this — it does not keep a single-line `if...then...end` at this width) and
 		why the source scan pins that shape rather than a single-line spelling. ]]
-	local recordOps = opts ~= nil and (opts :: any).ops == true
+	local recordOps = opts ~= nil and opts.ops == true
 	local function note(line: string)
 		table.insert(ops, line)
 	end
@@ -301,6 +301,16 @@ function fake_target.new(opts: Opts?)
 		key stays in this index too. Matching today's set is the requirement; fixing
 		`adopt`'s leak is a different change with its own oracle.
 
+		THE INDEX PARENT IS RESOLVED ONCE, AT CREATE, AND NEVER REVISED (fix round 1,
+		review Minor 1). A node created while an intermediate ancestor is still absent
+		is keyed under the higher ancestor it was born under, and creating that
+		intermediate LATER does not re-home it — so it follows the ancestor's move, not
+		the intermediate's. No renderer path reaches this: the reconciler-only segments
+		above are never created AT ALL (the gap is permanent), and every real ancestor
+		is mounted parent-first. It is stated here because it is the standing shape of
+		this index, and because `unindexNode`'s re-homing deliberately adds a second
+		case of it.
+
 		DECLARED BEFORE `adapter.create`, ON PURPOSE. Luau closures capture upvalues by
 		lexical scope at the time a `local function` is COMPILED, not at the time it
 		runs — a `create` defined above this block would have found `indexNode` still a
@@ -338,16 +348,47 @@ function fake_target.new(opts: Opts?)
 		end
 		bucket[path] = true
 	end
+	--[[ ...AND UNINDEXING RE-HOMES WHAT IT WOULD ORPHAN (fix round 1, review
+		Important 3). The first draft ended `childrenOf[path] = nil`, throwing away a
+		still-populated bucket. `park` refuses a HOST that still has children
+		(`#hostEntry.children > 0`), but a PLAIN node with path-children is parkable
+		and removable, and the old prefix scan reached those children anyway — it
+		selected on the path STRING, not on a live parent chain. Measured on
+		`fake_target_ops_opt.spec`'s fixture (e): a leaf under a parked middle node
+		stayed at its pre-move `2,2` where the old scan re-based it to `72,82`.
+
+		So the orphans move up to the nearest ancestor that IS still a node — the same
+		key `indexNode` would compute for them now that this path is gone (every call
+		site deletes `nodes[path]` BEFORE calling here, so the walk already skips the
+		dying node), and the same set the old scan selected. A re-homed child keeps
+		that higher key if its old parent is later adopted back, which is the
+		create-time resolution shape documented above rather than a new one. The
+		alternative — asserting the bucket is empty — would make the renderer's
+		deepest-first sweep discipline load-bearing and undocumented. ]]
 	local function unindexNode(path: string)
+		local orphans = childrenOf[path]
+		childrenOf[path] = nil
 		local parent = nearestExistingAncestor(path)
-		local bucket = if parent ~= nil then childrenOf[parent] else nil
-		if bucket ~= nil then
-			bucket[path] = nil
-			if next(bucket) == nil then
-				childrenOf[parent :: string] = nil
+		if parent == nil then
+			return
+		end
+		local bucket: { [string]: true }? = childrenOf[parent]
+		if bucket == nil and orphans ~= nil then
+			bucket = {}
+			childrenOf[parent] = bucket
+		end
+		if bucket == nil then
+			return
+		end
+		bucket[path] = nil
+		if orphans ~= nil then
+			for child in orphans do
+				bucket[child] = true
 			end
 		end
-		childrenOf[path] = nil
+		if next(bucket) == nil then
+			childrenOf[parent] = nil
+		end
 	end
 
 	local trackThemeRoots = (opts ~= nil and opts.trackThemeRoots == true)
@@ -2550,7 +2591,15 @@ function fake_target.new(opts: Opts?)
 		end
 		return n
 	end
+	-- ...and the DRAINING read takes the same guard `ops()` does (fix round 1,
+	-- review Important 4): the two share one log, `takeOps` has ~2.5x the call
+	-- sites, and an unarmed caller looping over an empty table for a forbidden op
+	-- passes vacuously forever.
 	function adapter.takeOps(): { string }
+		assert(
+			recordOps,
+			"fake_target: the op log is opt-in — build this target with fake_target.new({ ops = true })"
+		)
 		local taken = ops
 		ops = {}
 		return taken
