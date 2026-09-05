@@ -1734,6 +1734,14 @@ mechanism instead of a change (ruling A-7).**
 
 ### Task 18 (ruling L-10 → FacetBench §C16): the settled session stops paying a whole-tree cold solve for one word
 
+> ▲ **AMENDED 2026-09-05, AFTER THE BUILD (T18-A). Where this section and the amendment
+> below disagree, the amendment wins** — it is what was built, measured and committed
+> (`2d97dea9`, `058b752ea`, `e0fed0efe`, `b23460f81`; RR `14f4389`; FacetBench `b923501`).
+> The task was SPLIT by ruling L-12 and the review's MUST-FIXes are binding overrides;
+> the amendment log for T18-A is at the end of this section, under **"§Task 18 — what was
+> actually built"**. Read that first and this section as the derivation it came from.
+
+
 **Where this came from.** T17's third arm (the headless `fake_target` inside the live
 Studio VM) settled the 1.5 ms as the Luau host and, in doing so, uncovered a **live-only
 10x regression class the whole campaign had been measuring around**. On a SETTLED session
@@ -2202,6 +2210,88 @@ vocabulary never closes.
       fall is measuring the boot window** — which is why the largest regression class in
       this campaign sat under a green matrix for two sessions.
 
+
+
+---
+
+## §Task 18 — what was actually built (T18-A, 2026-09-05)
+
+**T18-B (the re-entry defer) WAS NOT BUILT and is booked for the owner** (ruling L-12,
+review MUST-FIX 4). It changes public behaviour twice — `onSolved` fires a second time a
+frame later (`renderer.luau:2262-2270` suppresses the inner notify today) and a settled
+rect lands one frame late — and the recursion it fixes is bounded at depth 3 on an
+ordinary mount. The trace and the harness config that overflowed are in T18-A's report.
+Nothing in T18-A moves the stack a premeasurement answer runs on, the tick it lands on, or
+the notify count.
+
+**Mechanism 2 as written in this section was a NULL, and step 0 is what proved it.** The
+settle re-solve reached the solver with `solveOpts.reuse == nil`, so the cross-solve store
+was cleared and no memo was consulted whatever `measureStamp` said. Four arms,
+`battle_hud L`, one learned word on a settled tree:
+
+| arm | what it is | `lastMeasured` | `lastArranged` | ms |
+|---|---|---:|---:|---:|
+| A | the parent SHA | 14,215 (= calls) | 5,106 | 40.1 |
+| B | the closure routed, word epoch STILL in the stamp | 10,215 (= calls) | 6 | 34.4 |
+| B' | all four links | **15** (of 1,115 calls) | 6 | **2.2** |
+| C | a forced cold solve, the control | 14,215 (= calls) | 5,106 | 28–49 |
+
+**What was built — the four links (review MUST-FIX 2), all or nothing:**
+
+1. `src/render/text_index.luau` — a per-surface `(font,size) -> mounted text paths` index,
+   filed at MEASURE time from `solver`'s text branch (`ctx.textIndex`, one line) because
+   that is the first line at which the pair is known and the only filing that survives a
+   node the store SERVED (MUST-FIX 3). Cleared from the renderer's per-path removal sweep.
+2. A `class == "measure"` push per indexed path — the class is the contract with
+   `dirty_closure.of`.
+3. `renderer.attach`'s solve takes the push above the layout build, and either OWNS the
+   closure (a bare settle solve) or UNIONS it into the caller's (a refresh whose inline
+   delivery produced the mark — the live route). It clears only what it owns.
+4. `text_metrics` splits its one counter into `calibEpoch` (calibrate / resetCalibration /
+   resetMeasured — still a `measureStamp` term through `render/measure_stamp`) and
+   `wordEpoch` (setMeasured / markUnmeasurable). `epoch()` is the SUM, unchanged in
+   signature, meaning and monotonicity.
+
+**Three things this section did not have, each measured rather than reasoned:**
+
+- **The broadcast is subscribed at `text_metrics.setMeasured`** (`onWordChanged`), not at
+  `premeasure_round`. Every writer of an exact width used to invalidate every surface for
+  free through the global epoch; hanging the narrowed notification off the one function
+  that can change a width keeps that property, and it is what preserves the cross-surface
+  reach (owed row 8) once the epoch leaves the stamp.
+- **An EMPTY push is a PLAN, not a refusal.** Returning `nil` for a key nobody draws sent
+  the caller down the bare route and bought the full cold solve: 39.865 ms and 14,215
+  measures on `battle_hud L`, against **0.046 ms and 0** with an empty closure.
+- **A push over `max(64, lastLayoutNodes // 8)` paths is refused.** The 1,000-label key
+  read 55.709 ms at 14,174 measure CALLS against the cold solve's 14,215 — the ancestor
+  closure reaches the root and the solve does the whole tree's work plus the closure's.
+
+**The renderer budget (this section booked ≤ +80):** the `measureStamp` seam was taken
+FIRST in its own commit per MUST-FIX 6 (195,709 -> 194,753), and the routing spent
+196,754 — net **+1,045**, with **746 characters to the 197,500 STOP**. Ledger row
+re-recorded, and the next task needing more than 400 characters there takes the drag-bridge
+extraction first.
+
+**Interfaces, as built.** Produced: `text_metrics.calibrationEpoch()`,
+`text_metrics.metricKey(font, size)`, `text_metrics.onWordChanged(fn)`;
+`text_index.new()/.liveCount()` with `record`/`forget`/`take`/`pending`/`mark`/`dispose`;
+`ctx.textIndex`; `stats.lastTextDirtyPaths`; `measure_stamp.take(...) -> (stamp, moved)`.
+**NOT produced** (option (a), deleted by ruling L-11): `Node.mTextKey`, `Node.mTextEpoch`,
+`cmemo.mKeyGen`, `cmemo.mKeys`, `ctx.textKeys`, `ctx.textKeyUnions`,
+`stats.lastTextKeyUnions`, `text_metrics.keyEpoch/keyGen/anyChangedSince`, and
+`stats.lastTextRoundDepth` (T18-B's).
+
+**Re-recorded, deliberately:** `measure_serve.spec`'s "a TEXT-METRICS SETTLE disarms the
+serve for one solve" (now the settled floor on both ticks — a settle on a key nobody draws
+costs nothing at all), `measure_reuse.spec`'s source pin, `measure_stamp_seam`'s epoch
+case, `solve_ctx_seam`'s field count 61 -> 62, `render_stats_seam`'s sample.
+
+**LIVE, before and after on the same build and the same probe** (arm C, `battle_hud L`,
+settled, fresh client VM per arm): `setState [SETTLE]` **38.858 -> 6.269 ms** (measured
+10,215 -> 15), `addItem-damage [SETTLE]` **78.171 -> 7.183** (14,305 -> 91),
+`updateItem-facing [SETTLE]` **37.674 -> 6.402** (10,287 -> 11), `updateItem-hp` CONTROL
+3.313 -> 3.237 (unmoved). FacetBench §C16 carries the derivation, the three-workload
+headless table and the standing rule about drivers that never answer a text batch.
 
 ---
 
