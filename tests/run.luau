@@ -495,6 +495,7 @@ require("./engine_writes.spec")
 -- of the source, a schema round trip on the dropped set, and the T5 oracle plus
 -- hide/unhide and a placement prop on a Text leaf
 require("./commit_dirt_classes.spec")
+require("./commit_descend_cache.spec")
 -- the future spatial seam: contracts only, and the guard against a VR claim
 -- appearing in the shipped surface (roadmap Step 4, UI-SPATIAL-001)
 require("./spatial.spec")

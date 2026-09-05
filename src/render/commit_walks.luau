@@ -326,6 +326,56 @@ function commit_walks.new(ctx: CommitCtx)
 		set it had before this existed. ]]
 	local commitDirty: any = nil
 	local commitRects: any = nil
+	--[[ THE SIBLING SCAN, COUNTED AND THEN SPENT ONCE (Plan C, C4).
+
+		`scanCount` is every question the commit asked about a child — the honest cost
+		of the prune, which the visit counter cannot see: P4 already took the VISITS
+		to the dirty chain, and what is left is `skip(child)` asked of all 1,000
+		siblings under a list node, once per walk, eight times over, to be told
+		"skip" 8,000 times. `descendKids` and its two twins are the answers, cached
+		per node for the whole commit, so the eight walks share ONE classification of
+		each child instead of taking eight. Measured on `deep_stack_scene`, one
+		leaf's text: 8,032 questions -> 1,011.
+
+		IT IS `skip` ITSELF, ASKED ONCE, NOT AN APPROXIMATION OF IT. `buildDescend`
+		shares `entryVerdict` — the half of `skip` that costs anything — across the
+		three shapes `skip` is called in here, and each walk reads the list for its
+		OWN shape. So no walk's prune changes: every node any walk descends is a node
+		`skip` answered "descend" for, with the same flags, on the same state.
+
+		AND IT CANNOT GO STALE THE UNSAFE WAY. The one input that moves during a
+		commit is `lastCommitEntry`, written by `rect_pass`'s `note`/`noteEntry`, and
+		that write can only turn `skip` from false to TRUE (it sets `last = probe`) —
+		`note` sets it to exactly the entry `probeEntry` will keep returning. So a
+		list built by an earlier walk is at worst a SUPERSET of what a later walk
+		would compute, which is the conservative direction: an extra descent, never a
+		missed one. Measured, and this is the load-bearing pin: `lastCommitVisits`,
+		`lastCommitVisitsByWalk`, `rectWrites`, `propWrites` and `engineWrites` are
+		IDENTICAL before and after, on every drive of every fixture.
+
+		WHAT IT COSTS WHERE IT CANNOT HELP, stated because it is not zero. A commit
+		that prunes almost nothing — a reorder, a big structural add — still pays the
+		classification and, where any child prunes at all, up to three lists per
+		visited node. Measured (FacetBench, three arms): `war_room_inventory reorder`
+		**+3.0 %** (29.68 -> 30.56 ms), which is the one class in the three workloads
+		that is worse after this change; `killfeed_nameplates` `addItem-feed`/
+		`removeItem-feed` land inside their own run-to-run spread (+1.3 %/+0.8 %). The
+		fix, if that class ever matters, is to build ONE list and fork the other two
+		only where the three predicates actually disagree, which on a stack-shaped
+		surface is never.
+
+		WHAT IT IS NOT: a DIRTY-CHILD index. The plan proposed descending only the
+		children the dirty scan marked, and that is unsound — the entry-identity half
+		of `skip` is closed UPWARD only, so a dirty parent's CLEAN child gets a new
+		entry whenever the solve re-arranged it. Driven: a `fill`-width child of a row
+		whose `width` signal moves is in NO dirty set and its rect goes 300 -> 220
+		(`tests/commit_descend_cache.spec.luau`, "A CLEAN CHILD OF A DIRTY PARENT").
+		That child would have kept painting 300 px behind a green suite. ]]
+	local scanCount = 0
+	-- one per `skip` shape (see `buildDescend`); all three filled by one pass
+	local descendKids: { [string]: { any } } = {}
+	local descendMoveKids: { [string]: { any } } = {}
+	local descendCommitKids: { [string]: { any } } = {}
 	-- axis 3, the solve-wide inputs every walk reads and no node dirties: the paint
 	-- scale, the theme snapshot (compared by IDENTITY — one env-held table per theme)
 	-- and the preferred-text offset. A move here rewrites every node, so it refuses
@@ -352,6 +402,13 @@ function commit_walks.new(ctx: CommitCtx)
 		if byWalk ~= nil then
 			byWalk[name] = (byWalk[name] or 0) + n
 		end
+		-- ...and the QUESTIONS, not the answers (C4). One local increment in `skip`
+		-- and one field write per walk, for the same reason the visit counter is
+		-- shaped that way. It is a running total rather than a per-walk split
+		-- because the cache below makes the split meaningless: the FIRST walk to
+		-- reach a node pays its whole sibling scan and the other seven pay none of
+		-- it, so a per-walk number would read as an imbalance rather than as a cut.
+		stats.lastCommitScans = scanCount
 	end
 
 	--[[ THE ENTRY THIS NODE ANSWERS FOR, WHICH IS NOT ALWAYS ITS OWN, and this is the
@@ -433,7 +490,30 @@ function commit_walks.new(ctx: CommitCtx)
 		argued: taking `moveBlind` away from `harvest` at `a9607e17` takes it from 253
 		visits to 1503 on the nameplates fixture, because what `moveBlind` prunes is a
 		translated subtree's CLONES, and a clone is in NEITHER dirty set. ]]
+	--[[ THE HALF OF THE PRUNE THAT IS ABOUT THE ENTRY, AND NOTHING ELSE — lifted out
+		of `skip` so that `skip` and the descend sift below cannot drift (C4). It is
+		the expensive half: `probeEntry` walks a chain of entry-less wrappers, and the
+		two table reads under it are what the commit pays per sibling.
+
+		`settled` = "the entry I last committed is the one this solve carried
+		forward" (table identity, P2/P4). `moved` = "...or the one this solve's
+		TRANSLATE ARM re-based it from" (T5's `moveBlind`, T4's `prev` chain), which
+		is a stronger statement than `settled` and is only good enough for a walk
+		whose output cannot read a position. Neither reads a dirty set: which SET a
+		caller is answered against is the caller's question, not the entry's. ]]
+	local function entryVerdict(node: any): (boolean, boolean)
+		local probe = probeEntry(node)
+		if probe == nil then
+			return false, false
+		end
+		local last = lastCommitEntry[node.path]
+		if last == probe then
+			return true, true
+		end
+		return false, probe.moveOnly == true and last ~= nil and last == probe.prev
+	end
 	local function skip(node: any, moveBlind: boolean?, arrangeBlind: boolean?): boolean
+		scanCount += 1
 		if not pruning then
 			return false
 		end
@@ -446,15 +526,120 @@ function commit_walks.new(ctx: CommitCtx)
 		if set[node.path] == true then
 			return false
 		end
-		local probe = probeEntry(node)
-		if probe == nil then
-			return false
+		local settled, moved = entryVerdict(node)
+		return settled or (moveBlind == true and moved)
+	end
+	--[[ THE CHILDREN WORTH DESCENDING, CLASSIFIED ONCE PER COMMIT (C4). See
+		`descendKids` above for why this replaces the sibling scan and not the prune.
+
+		THREE LISTS, ONE PASS, because `skip` has three shapes in this file and they
+		are NESTED: `skip(n)` (base — `hitRects` and `rect_pass`), `skip(n, true)`
+		(`harvest`, `visible`) and `skip(n, true, true)` (the four arrange-blind
+		walks). `commitDirty` is a subset of `nodeDirty` and `moved` only widens
+		`settled`, so base-skippable implies move-skippable implies commit-skippable —
+		i.e. the three DESCEND lists nest the other way, commit ⊆ move ⊆ base. All
+		three come out of one walk over the children sharing ONE `entryVerdict`, which
+		is where the cost is.
+
+		AND THE CALLER DOES NOT RE-ASK. Each walk iterates the list for its OWN shape,
+		so a member is one `skip` would have answered "descend" and its per-node guard
+		is redundant — the walks pass `chosen` to say so, and keep the guard for the
+		ROOT, which no parent selected. THAT is the difference between this and a
+		single shared list: with one base list every walk still had to ask its own
+		question of every member, and on a STRUCTURAL commit — where almost nothing
+		prunes and the list is the child list — that is a whole extra pass. Measured
+		before it was fixed: `war_room_inventory reorder` +4.7 %,
+		`killfeed_nameplates addItem-feed` +4.2 %.
+
+		THE LIST IS `node.children` ITSELF UNTIL A CHILD IS ACTUALLY PRUNED, for the
+		same reason and measured in the same run: a commit that descends everything
+		would otherwise allocate a full copy of the tree, one table per visited node,
+		read once and dropped. The prefix is copied on the FIRST pruned child and not
+		before, so the common structural case allocates nothing at all.
+
+		THE THREE SIFTS ARE WRITTEN OUT rather than factored behind a helper. A helper
+		would take either a per-build record (three allocations per visited node,
+		which is the cost this whole paragraph exists to avoid) or a table of state
+		(three table writes per child in place of three local ones) — on the loop the
+		commit span is made of. ]]
+	local function buildDescend(node: any)
+		local kids = node.children
+		local n = #kids
+		local baseList: { any }? = nil
+		local baseN = 0
+		local moveList: { any }? = nil
+		local moveN = 0
+		local commitList: { any }? = nil
+		local commitN = 0
+		for i, child in kids do
+			scanCount += 1
+			local path = child.path
+			local settled, moved = entryVerdict(child)
+			local dirtyAll = nodeDirty[path] == true
+			local dirtyCommit = if commitDirty ~= nil then commitDirty[path] == true else dirtyAll
+			-- base
+			if not dirtyAll and settled then
+				if baseList == nil then
+					local prefix = table.create(n - 1)
+					table.move(kids, 1, i - 1, 1, prefix)
+					baseList = prefix
+					baseN = i - 1
+				end
+			elseif baseList ~= nil then
+				baseN += 1
+				(baseList :: { any })[baseN] = child
+			end
+			-- ...the same, one claim stronger (`moveBlind`)
+			if not dirtyAll and (settled or moved) then
+				if moveList == nil then
+					local prefix = table.create(n - 1)
+					table.move(kids, 1, i - 1, 1, prefix)
+					moveList = prefix
+					moveN = i - 1
+				end
+			elseif moveList ~= nil then
+				moveN += 1
+				(moveList :: { any })[moveN] = child
+			end
+			-- ...and against the COMMIT-side set (`arrangeBlind`)
+			if not dirtyCommit and (settled or moved) then
+				if commitList == nil then
+					local prefix = table.create(n - 1)
+					table.move(kids, 1, i - 1, 1, prefix)
+					commitList = prefix
+					commitN = i - 1
+				end
+			elseif commitList ~= nil then
+				commitN += 1
+				(commitList :: { any })[commitN] = child
+			end
 		end
-		local last = lastCommitEntry[node.path]
-		if last == probe then
-			return true
+		local path = node.path
+		descendKids[path] = baseList or kids
+		descendMoveKids[path] = moveList or kids
+		descendCommitKids[path] = commitList or kids
+	end
+	--[[ ...and the read side, which takes the SAME two claims `skip` takes so a walk
+		names its shape in one place. An unarmed commit gets `node.children` back
+		untouched and caches nothing: `skip` answers false for everything there, so
+		every list would be the child list, and the `commitScope = false` arm is the
+		differential oracle's pre-P4 control — a control that allocates what the fast
+		path does not is not the control. ]]
+	local function descendOf(node: any, moveBlind: boolean?, arrangeBlind: boolean?): { any }
+		if not pruning then
+			return node.children
 		end
-		return moveBlind == true and probe.moveOnly == true and last ~= nil and last == probe.prev
+		local path = node.path
+		local cache = if arrangeBlind == true and commitDirty ~= nil
+			then descendCommitKids
+			elseif moveBlind == true then descendMoveKids
+			else descendKids
+		local hit = cache[path]
+		if hit ~= nil then
+			return hit
+		end
+		buildDescend(node)
+		return cache[path] :: { any }
 	end
 	-- WRITTEN AT THE END OF THE COMMIT AND NOWHERE ELSE, so all seven walks compare
 	-- against the same "last committed" state. `rect_pass` is the last walk and is
@@ -520,6 +705,14 @@ function commit_walks.new(ctx: CommitCtx)
 		recording = enabled
 		pruning = enabled and dirty ~= nil and stampSame
 		table.clear(hiddenFlips)
+		-- ...and the descend lists, which are a function of THIS commit's dirty sets
+		-- and THIS commit's entries and are therefore worth nothing to the next one
+		-- (C4). Cleared here rather than at the end of the span for the reason
+		-- `hiddenFlips` is: this is the one call every commit makes first.
+		table.clear(descendKids)
+		table.clear(descendMoveKids)
+		table.clear(descendCommitKids)
+		scanCount = 0
 		local changed = false
 		if not pruning then
 			sawChrome = false
@@ -561,8 +754,12 @@ function commit_walks.new(ctx: CommitCtx)
 			return changed
 		end
 		local visits = 0
-		local function walk(node: any)
-			if skip(node, true) then
+		-- `chosen` = MY PARENT ALREADY ASKED (C4): this node came out of
+		-- `descendOf(parent, true)`, which is the same question this guard asks, so
+		-- asking it again is a second sibling scan. The ROOT has no parent and is
+		-- guarded at the call below.
+		local function walk(node: any, chosen: boolean)
+			if not chosen and skip(node, true) then
 				return
 			end
 			visits += 1
@@ -576,11 +773,11 @@ function commit_walks.new(ctx: CommitCtx)
 			end
 			lastCompositions[path] = if entry ~= nil then entry.composition else nil
 			lastTextFacts[path] = if entry ~= nil then entry.textFacts else nil
-			for _, child in node.children do
-				walk(child)
+			for _, child in descendOf(node, true) do
+				walk(child, true)
 			end
 		end
-		walk(rootNode)
+		walk(rootNode, false)
 		publishVisits("harvest", visits)
 		--[[ THE TWO SMALL LOOPS, AND THEY ARE BELT-AND-BRACES RATHER THAN LOAD-BEARING
 			— which is stated here because a guard nobody can redden is a guard whose
@@ -693,8 +890,9 @@ function commit_walks.new(ctx: CommitCtx)
 	local function textScale(rootNode: any, scale: number, metrics: any, rects: any?, prefOffset: number?)
 		local offset = if type(prefOffset) == "number" then prefOffset else 0
 		local visits = 0
-		local function walk(node: any)
-			if skip(node, true, true) then
+		-- `chosen`: see `harvest`'s walk (C4)
+		local function walk(node: any, chosen: boolean)
+			if not chosen and skip(node, true, true) then
 				return
 			end
 			visits += 1
@@ -757,11 +955,11 @@ function commit_walks.new(ctx: CommitCtx)
 					end
 				end
 			end
-			for _, child in node.children do
-				walk(child)
+			for _, child in descendOf(node, true, true) do
+				walk(child, true)
 			end
 		end
-		walk(rootNode)
+		walk(rootNode, false)
 		publishVisits("textScale", visits)
 	end
 
@@ -789,8 +987,9 @@ function commit_walks.new(ctx: CommitCtx)
 	-- screen but these — raises no write and materializes no engine modifier.
 	local function padding(rootNode: any, metrics: any)
 		local visits = 0
-		local function walk(node: any)
-			if skip(node, true, true) then
+		-- `chosen`: see `harvest`'s walk (C4)
+		local function walk(node: any, chosen: boolean)
+			if not chosen and skip(node, true, true) then
 				return
 			end
 			visits += 1
@@ -820,11 +1019,11 @@ function commit_walks.new(ctx: CommitCtx)
 					stats.propWrites += 1
 				end
 			end
-			for _, child in node.children do
-				walk(child)
+			for _, child in descendOf(node, true, true) do
+				walk(child, true)
 			end
 		end
-		walk(rootNode)
+		walk(rootNode, false)
 		publishVisits("padding", visits)
 	end
 
@@ -860,8 +1059,9 @@ function commit_walks.new(ctx: CommitCtx)
 	-- they share the traversal rather than paying for a second one on every solve.
 	local function textVerdicts(rootNode: any, rects: any)
 		local visits = 0
-		local function walk(node: any)
-			if skip(node, true, true) then
+		-- `chosen`: see `harvest`'s walk (C4)
+		local function walk(node: any, chosen: boolean)
+			if not chosen and skip(node, true, true) then
 				return
 			end
 			visits += 1
@@ -914,11 +1114,11 @@ function commit_walks.new(ctx: CommitCtx)
 					end
 				end
 			end
-			for _, child in node.children do
-				walk(child)
+			for _, child in descendOf(node, true, true) do
+				walk(child, true)
 			end
 		end
-		walk(rootNode)
+		walk(rootNode, false)
 		publishVisits("textVerdicts", visits)
 	end
 
@@ -963,11 +1163,16 @@ function commit_walks.new(ctx: CommitCtx)
 			spinner therefore loses this walk's prune entirely. ]]
 		local prunable = next(pathNodes) == nil
 		local visits = 0
-		local function pushVisible(node: any, hidden: boolean, forced: boolean)
+		-- `chosen`: see `harvest`'s walk (C4). It is true only where the parent
+		-- selected from `descendOf(parent, true)` — the identical question — and
+		-- false on the root and on every child of a node that took the live list,
+		-- where this guard's own `prunable and not flipped` short-circuits before
+		-- `skip` is ever called.
+		local function pushVisible(node: any, hidden: boolean, forced: boolean, chosen: boolean)
 			-- ...AND A HIDE IS INHERITED, so a flip at an ancestor has to reach every
 			-- descendant even where the descendant itself is clean.
 			local flipped = forced or hiddenFlips[node.path] == true
-			if prunable and not flipped and skip(node, true) then
+			if not chosen and prunable and not flipped and skip(node, true) then
 				return
 			end
 			visits += 1
@@ -988,11 +1193,19 @@ function commit_walks.new(ctx: CommitCtx)
 				adapter.setVisible(handle, not wantHidden)
 				lastVisible[node.path] = not wantHidden
 			end
-			for _, child in node.children do
-				pushVisible(child, isHidden, flipped)
+			--[[ THE CACHED LIST ONLY WHERE THE PRUNE IS LIVE (C4). A non-prunable
+				surface never consults `skip` at all, and a FLIP forces every descendant
+				whatever `skip` would have said — so both take the live child list, as
+				they did before the cache existed. Where the prune IS live, a child whose
+				own verdict flipped is still in the list: `hiddenFlips` is written only
+				for nodes `harvest` VISITED, and `skip` is monotone in its flags, so a
+				node `skip(n, true)` refused is a node `skip(n)` refused too. ]]
+			local selected = prunable and not flipped
+			for _, child in (if selected then descendOf(node, true) else node.children) do
+				pushVisible(child, isHidden, flipped, selected)
 			end
 		end
-		pushVisible(rootNode, false, false)
+		pushVisible(rootNode, false, false, false)
 		publishVisits("visible", visits)
 	end
 
@@ -1143,7 +1356,11 @@ function commit_walks.new(ctx: CommitCtx)
 			return out
 		end
 		local visits = 0
-		local function pushHitRects(node: any, hidden: boolean, forced: boolean)
+		-- `chosen`: see `harvest`'s walk (C4). It is true only where the parent
+		-- selected from `descendOf(parent)` — this walk's own, flagless question —
+		-- and false wherever the parent took the live list, where `not sawChrome and
+		-- not flipped` short-circuits this guard before `skip` is called.
+		local function pushHitRects(node: any, hidden: boolean, forced: boolean, chosen: boolean)
 			--[[ THE CHROME FLOOR IS THE OTHER NON-LOCAL VERDICT (P4). A cover's or a
 				close's floor grows against every AUTHOR-pressable rect on the surface
 				(`authorPressableRects` below, ruling R23), so any rect moving anywhere
@@ -1171,7 +1388,7 @@ function commit_walks.new(ctx: CommitCtx)
 				life of the surface. The headline `battle_hud` numbers have neither
 				feature and are therefore the BEST case. ]]
 			local flipped = forced or hiddenFlips[node.path] == true
-			if not sawChrome and not flipped and skip(node) then
+			if not chosen and not sawChrome and not flipped and skip(node) then
 				return
 			end
 			visits += 1
@@ -1218,11 +1435,15 @@ function commit_walks.new(ctx: CommitCtx)
 					end
 				end
 			end
-			for _, child in node.children do
-				pushHitRects(child, isHidden, flipped)
+			-- ...and the same two exemptions (C4), plus the LATCH — which is read HERE
+			-- and not at the top, so a chrome node found in this node's own body opens
+			-- the full walk for its own children, exactly as it did before the cache.
+			local selected = not sawChrome and not flipped
+			for _, child in (if selected then descendOf(node) else node.children) do
+				pushHitRects(child, isHidden, flipped, selected)
 			end
 		end
-		pushHitRects(rootNode, false, false)
+		pushHitRects(rootNode, false, false, false)
 		publishVisits("hitRects", visits)
 	end
 
@@ -1238,8 +1459,9 @@ function commit_walks.new(ctx: CommitCtx)
 			return
 		end
 		local visits = 0
-		local function pushRegions(node: any)
-			if skip(node, true, true) then
+		-- `chosen`: see `harvest`'s walk (C4)
+		local function pushRegions(node: any, chosen: boolean)
+			if not chosen and skip(node, true, true) then
 				return
 			end
 			visits += 1
@@ -1341,11 +1563,11 @@ function commit_walks.new(ctx: CommitCtx)
 					end
 				end
 			end
-			for _, child in node.children do
-				pushRegions(child)
+			for _, child in descendOf(node, true, true) do
+				pushRegions(child, true)
 			end
 		end
-		pushRegions(rootNode)
+		pushRegions(rootNode, false)
 		publishVisits("scrollRegions", visits)
 	end
 	return {
@@ -1366,6 +1588,10 @@ function commit_walks.new(ctx: CommitCtx)
 			same per-walk table instead of keeping a second one (wicked-fast T2). ]]
 		scope = {
 			skip = skip,
+			-- ...and the eighth walk descends the same cached list the seven do (C4),
+			-- which is also what makes it the walk that FILLS the cache for a subtree
+			-- the `moveBlind` seven stopped above
+			descendOf = descendOf,
 			note = note,
 			noteEntry = noteEntry,
 			armed = armed,

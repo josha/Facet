@@ -67,7 +67,9 @@ local rect_pass = {}
 	                  a read taken from inside the span cannot memoise a half-written
 	                  map; optional, so a test ctx may omit it
 	  scope           the commit's prune (P4), from `render/commit_walks`:
-	                  `skip(node)` -> may this subtree be left alone, `note(node)` ->
+	                  `skip(node)` -> may this subtree be left alone,
+	                  `descendOf(node)` -> the children worth asking that of, cached
+	                  once per commit for all eight walks (C4), `note(node)` ->
 	                  record what it was committed with, `armed()` -> is the prune on
 	                  for this commit at all, `publishVisits(name, n)` -> this walk's
 	                  share of `stats.lastCommitVisits` / `lastCommitVisitsByWalk`
@@ -141,8 +143,11 @@ function rect_pass.new(ctx: any)
 		local runPaths = if runs ~= nil then work.translatedPaths else nil
 		local runEntries = if runs ~= nil then work.translatedEntries else nil
 		local visits = 0
-		local function walk(node: any)
-			if pruning and scope.skip(node) then
+		-- `chosen` = MY PARENT ALREADY ASKED (C4): this node came out of
+		-- `scope.descendOf(parent)`, which is the same flagless question this guard
+		-- asks. The ROOT has no parent and is guarded at the call below.
+		local function walk(node: any, chosen: boolean)
+			if not chosen and pruning and scope.skip(node) then
 				return
 			end
 			visits += 1
@@ -226,11 +231,15 @@ function rect_pass.new(ctx: any)
 				end
 				return
 			end
-			for _, child in node.children do
-				walk(child)
+			-- ...and the descend list the other seven walks already paid for (C4).
+			-- `scope.descendOf` hands back `node.children` untouched on an unarmed
+			-- commit, which is the arm this walk's own `pruning` guard above keeps
+			-- honest, so the control path allocates exactly nothing.
+			for _, child in scope.descendOf(node) do
+				walk(child, true)
 			end
 		end
-		walk(rootNode)
+		walk(rootNode, false)
 		--[[ any solved path the walk could not reach — a node that left the tree
 			between the solve and the apply. Order cannot matter for one of these: it
 			has no live ancestor to be relative to.

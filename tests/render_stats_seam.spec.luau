@@ -113,6 +113,10 @@ describe("the render-stats seam: no requires, no state, two exports", function()
 		expect(`byWalk={typeof(s.lastCommitVisitsByWalk)} boundary={tostring(s.lastStructuralBoundary)}`).toBe(
 			"byWalk=table boundary=nil"
 		)
+		-- ...and the QUESTION counter beside the visit one (C4). It is named here
+		-- because it is the only counter in the record that a walk publishes without
+		-- ever incrementing a visit, so nothing else would catch its deletion.
+		expect(`scans={s.lastCommitScans}`).toBe("scans=0")
 	end)
 
 	it("`publish` writes ONLY into the record it is handed, and repairs `work.skipped`", function()

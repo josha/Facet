@@ -121,6 +121,15 @@ function render_stats.new(): any
 		-- ever counting a visit) publishes NO key for itself — absent, not 0
 		-- (Fix round 2 correction).
 		lastCommitVisitsByWalk = {} :: { [string]: number },
+		--[[ ...and how many CHILDREN the commit CONSIDERED (Plan C, C4), which is a
+			different number from the one above and the one the commit span is actually
+			made of. A walk that prunes a subtree still asks `skip` of every child of
+			every node it DID visit, so a one-leaf update on a 1,000-row list visits four
+			nodes and asks 1,000 questions — eight times over, once per walk. `visits`
+			counts the answers that were "descend"; this counts the questions. It is the
+			denominator C4's descend-list cache moves, and the one number that would have
+			stayed flat while the span halved. ]]
+		lastCommitScans = 0,
 		-- ...and how many LAYOUT NODES the last solve had (wicked-fast T2):
 		-- `nodeStore.nodes`, the count the `work.skipped` repair below already
 		-- computes and used to throw away. The only honest denominator for
