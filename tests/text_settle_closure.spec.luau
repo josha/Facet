@@ -480,19 +480,33 @@ describe("a learned word re-measures its users, not the tree (T18-A)", function(
 		).toBe(`narrowed={st.lastMeasured} cold={stats(cold).lastMeasured} narrower=true`)
 	end)
 
-	it("a settle on a key NOTHING uses re-measures nothing", function()
-		--[[ THE STRONGEST CASE. A width learned at a (font,size) no mounted node
-			measured under names an empty user set, so the push is empty and the solve
-			the env fact still triggers finds nothing to do. At the parent SHA this was
-			a whole-tree cold re-solve like any other. ]]
+	it("a settle on a key NOTHING uses re-measures nothing — and the SOLVE still runs", function()
+		--[[ THE STRONGEST CASE, and the one that was VACUOUS for an afternoon. A width
+			learned at a (font,size) no mounted node measured under names an empty user
+			set. At the parent SHA that was a whole-tree cold re-solve like any other.
+
+			▲ THE SOLVE COUNT IS HALF THE ASSERTION, and leaving it out is what hid a
+			real defect: `text_index.take` returned `nil` for an empty push, which sent
+			the caller down the BARE route (`dirtyContains == nil`) and bought exactly
+			the full cold solve this task exists to remove. The spec passed anyway,
+			because a `lastMeasured` read after a tick that may not have solved is a
+			read of the PREVIOUS tick. It was the FacetBench settle driver — which
+			measures milliseconds and cannot be fooled by a stale counter — that found
+			it: 39.9 ms and 14,215 measures on `battle_hud L`, the parent SHA's number
+			exactly, on the one case that should be free. An empty push is a PLAN with
+			empty sets, not a refusal, and the case now says so in both halves. ]]
 		local arm = world({ viewport = { w = 800, h = 600 }, rows = 60 })
 		settle(arm)
+		-- an ordinary tick, so the floor below belongs to a solve that really ran
+		arm.rowValue[5]:set("row 1")
+		arm.controller.refresh()
 		local quiet = stats(arm)
 		expect(text_metrics.setMeasured("BuilderSans", SIZE_UNUSED, "t18aNobodyDrawsThis", 37)).toBe(true)
 		arm.env:set("textMeasureEpoch", ((arm.env:get("textMeasureEpoch"):get() :: number?) or 0) + 1)
 		local st = stats(arm)
-		expect(`pushed={st.lastTextDirtyPaths} measured={st.lastMeasured}`).toBe(
-			`pushed=0 measured={quiet.lastMeasured}`
+		expect(`the settle solved: {st.solves - quiet.solves}`).toBe("the settle solved: 1")
+		expect(`pushed={st.lastTextDirtyPaths} measured={st.lastMeasured} arranged={st.lastArranged}`).toBe(
+			"pushed=0 measured=0 arranged=0"
 		)
 	end)
 

@@ -1620,8 +1620,7 @@ function renderer.attach(
 	local measureReuseEnabled = opts == nil or (opts :: any).measureReuse ~= false
 	local measureStore = measure_reuse.new()
 	-- ...AND WHAT AXIS 3 STOPPED CARRYING (T18-A): this surface's `(font,size) ->
-	-- mounted text paths` index, filed at MEASURE time by the solver and read when a
-	-- premeasurement round learns a word (`render/text_index`)
+	-- mounted text paths` index (`render/text_index`)
 	local textIndex = text_index.new()
 	attachScope:own(textIndex.dispose)
 	-- ...AND THE BUILD HALF (P3): the `solver.Node` tree the other two run over was
@@ -2004,12 +2003,10 @@ function renderer.attach(
 			measureContains = nil
 		end
 		stats.lastStructuralBoundary = if structural ~= nil then structural.boundary else nil
-		--[[ THE SETTLE'S OWN CLOSURE (Plan C, T18-A). The delivery and the
-			`textMeasureEpoch` settle below both call this function BARE, so without
-			this block a learned word arrives with no reuse set and buys a COLD
-			whole-tree re-solve. `render/text_index` carries the four links, the
-			measurement, why each refusal below is a SUPERSET of the push, and why the
-			two mounted-tree sets are filled from the same closure. ]]
+		-- THE SETTLE'S OWN CLOSURE (Plan C, T18-A): a learned word arrives here BARE, so
+		-- without this block it buys a COLD whole-tree re-solve. `render/text_index`
+		-- carries the four links, the measurement, why each refusal is a SUPERSET of
+		-- the push, why the two mounted-tree sets are filled, and why it is cleared.
 		local textDirt = textIndex.take(
 			dirtyContains == nil
 				and not stampMoved
@@ -2083,6 +2080,12 @@ function renderer.attach(
 			-- answer for the whole queue (see `fullSolveSeq`)
 			solvedEverything = false
 			structuralPartial = structural ~= nil
+		end
+		-- ...AND A CLOSURE THIS FUNCTION SET, THIS FUNCTION CLEARS (T18-A): a settle
+		-- solve has no tail of its own, and a caller's closure belongs to the caller.
+		if textDirt ~= nil then
+			dirtyContains = nil
+			measureContains = nil
 		end
 		if measureReuseEnabled then
 			-- AXIS 3 was stamped above, and A SOLVE WITH NO REUSE SET REBUILDS THE
@@ -2532,9 +2535,7 @@ function renderer.attach(
 		-- One mount looked right — which is why the device pass that shipped
 		-- the feature saw chevrons — and every remount after it did not.
 		lastCompact[path] = nil
-		-- ...and the (font,size) this path was filed under (T18-A). A stale entry is
-		-- only cost — a push for a dead path is inert — but a `ForEach` churning rows
-		-- would retain paths for the session
+		-- ...and the (font,size) this path was filed under (T18-A)
 		textIndex.forget(path)
 		-- a scroll host that left takes its RS-PATHCLIP subscription with it
 		if pathClipObservers[path] ~= nil then

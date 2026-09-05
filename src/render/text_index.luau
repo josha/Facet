@@ -75,6 +75,46 @@
 	the renderer's one per-path removal sweep so a `ForEach` churning rows does not
 	retain paths for the session.
 
+	WHAT THE RENDERER DOES WITH `take`, since the argument does not fit in that file.
+	The plan is spent in `renderer.attach`'s solve, ABOVE the layout build, and it does
+	three things there:
+
+	  * it fills `dirtyContains`/`measureContains`, which is the reuse set the solver
+	    reads — link (iii);
+	  * it marks the SAME closure into `nodeDirty` and `commitDirty`, the two
+	    mounted-tree sets. With `solveOpts.reuse` non-nil the commit's `harvest` prunes
+	    against `builtDirty`, which at a settle is empty, so a solve that filled only
+	    the reuse sets would re-measure the corrected label and then skip the walk that
+	    republishes what the measure decided. (A RECORDED NULL: deleting the marks
+	    reddens nothing today, because `commit_walks` prunes on an ENTRY VERDICT rather
+	    than on the dirty set and a node whose rect moved is descended anyway. The
+	    residue is a verdict that changes WITHOUT moving a rect, which the suite has no
+	    fixture for. The marks stay: they are the conservative direction and the set is
+	    four entries long on the class this exists for.)
+	  * it CLEARS the pair afterwards. `refresh` and `resolveForFeedback` each clear it
+	    in their own tails; a settle solve has no tail, so a push left standing would be
+	    spent again by the next bare solve as a stale set. Two `textMeasureEpoch` writes
+	    in a row is what found that.
+
+	THE REFUSALS, and every one of them is a SUPERSET of the push rather than a
+	weakening of it. `take(false)` DROPS the mark, because the solve that follows covers
+	everything the push could have named:
+
+	  * a MOVED STAMP — a viewport, inset, scale, theme or calibration change — has
+	    already dropped the whole store, and nothing narrower than everything is honest
+	    there. The push only ever names TEXT nodes, so spending it would leave every
+	    other node at the rect the old viewport gave it.
+	  * a closure ALREADY SET means this is a `refresh` whose own dirt is this frame's,
+	    and the settle write that made the mark is inside it.
+	  * no `lastResult`, or incremental layout off, means there is nothing to reuse.
+
+	AN EMPTY PUSH IS A PLAN, NOT A REFUSAL, and the distinction is worth 39.9 ms. A
+	width learned at a key no mounted node measured under names nobody; returning `nil`
+	there would send the caller down the bare route and buy the full cold solve this
+	file exists to remove. Measured while it did exactly that on `battle_hud L`: 39.865
+	ms and 14,215 measures, the parent SHA's number to the digit, on the one case that
+	should be free. With an empty closure it is **0.046 ms and 0 measures**.
+
 	`textSize = "fit"` IS FILED CONSERVATIVELY, and this is the one place the key is
 	not enough. A fit node's ladder measures its string at SEVERAL sizes inside the
 	band (`layout/text_fit`) before choosing one, so a width learned at a size it
@@ -257,9 +297,19 @@ function text_index.new(): Index
 		for path in always do
 			push(path)
 		end
-		if #entries == 0 then
-			return nil
-		end
+		--[[ AN EMPTY PUSH IS A PLAN, NOT A REFUSAL, and this is the difference between
+			"the narrowing works" and "the narrowing works when it has something to
+			say". A width learned at a (font,size) NO MOUNTED NODE MEASURED UNDER names
+			nobody — and returning `nil` here would send the caller down the bare route,
+			where `dirtyContains == nil` buys the full cold solve this whole task exists
+			to remove. Measured on `battle_hud L` while this returned `nil`: a word at
+			an unused key still cost 39.9 ms and 14,215 measures, the parent SHA's
+			number exactly, on the one case that should be free.
+
+			An EMPTY closure is the honest answer: nothing is dirty, so the solve
+			replays every subtree and re-publishes every channel from the previous
+			result. The env fact still bumps, so a consumer memo that read
+			`Facet.text.measure` still re-derives. ]]
 		local contains, measures = dirty_closure.of(entries)
 		return { contains = contains, measures = measures, n = #entries }
 	end
