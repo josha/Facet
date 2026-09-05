@@ -10,8 +10,13 @@
 > which moves both caches onto the mount-keyed store entry and, in doing so, made both
 > mechanisms **smaller**: T13 is now a per-child memo with no aggregate arithmetic at
 > all, and T14 replays only when nothing moved. Every code block below carries a
-> `<!-- verified: … -->` line naming the `sed -n` ranges at HEAD `e26c1daf` that the
-> fields in it were read from.
+> `<!-- verified: … -->` line naming the `sed -n` ranges at `e26c1daf` that the fields in
+> it were read from. **`aade8fac` ("T9 fix round 1") landed after those reads and touched
+> `src/render/render_stats.luau`, `src/render/z_order.luau` and
+> `tests/zorder_bounded.spec.luau`**, so the `render_stats.luau` citations below have
+> drifted by ~9 lines (`lastCommitScans` `:147` → **`:156`**, `publish` `:191` → **`:200`**;
+> `render_stats_seam.spec.luau`'s `:89` and `:126` are unmoved). Every other citation
+> resolves at `e26c1daf` unchanged. **Locate by the quoted symbol, never by number.**
 
 **Parent plan:** `docs/superpowers/plans/2026-09-03-facet-parity-C.md` (Tasks 0–10). This
 file is its ADDENDUM: the build wave the owner ruled for on 2026-09-04, ranked by
@@ -91,7 +96,7 @@ found the *omissions* to be the problem.
 | T14 → T16 | `ctx.walkedIds` population | T14's replay `return`s out of `stack.arrange` without entering the placement loop, so a replayed container never `place`s its clean children, so they are never marked walked — which is the same set the solve did not touch | **CLEAN, and now stated in T16's owed list.** Also: `walkedIds` is written only under `if reuse ~= nil` (`solver.luau:2508`), and the commit prune is off on a non-reuse solve (`commit_walks.luau:814` `pruning = enabled and dirty ~= nil and stampSame`) — T16 carries that dependency explicitly instead of inheriting it. |
 | T12 → T13–T16 | `attr` baselines | T12 changes the harness | **CLEAN as ordered (A-2)**, but every "before (post-T12)" number in T13–T16 is a **prediction**; each task re-reads its own before-column at its parent SHA (arm A). |
 | T12 ↔ T13–T16 | **`tests/lib/deep_stack_scene.luau:229`, `tests/lib/nameplates_scene.luau:289`** | T12 gates `ops` per `fake_target.new()` call; these two helpers build the fixtures T13–T16 pin counters on | **NOT CLEAN — resolved by ruling A-11:** `ops` stays **OFF** in both helpers. Arming it there would re-poison the exact rows T12 exists to clean. Specs that need `ops` on those fixtures pass a per-call opt. |
-| T12 ↔ the other agent | `tests/zorder_bounded.spec.luau`, `src/render/render_stats.luau` | T12 must arm `ops` in `zorder_bounded.spec:140,146`; T13/T14/T15 all edit `render_stats.luau` | **NOT CLEAN — sequencing:** T12 **waits** for the T9-reviewer's commit of those three files, or takes only the `src/`-free half. Check `git status --short` before starting T12 and record what it showed. |
+| T12 ↔ the other agent | `tests/zorder_bounded.spec.luau`, `src/render/render_stats.luau` | T12 must arm `ops` in `zorder_bounded.spec:140,146`; T13/T14/T15 all edit `render_stats.luau` | **CLEARED 2026-09-05 — those three files landed as `aade8fac` and the tree is clean.** T12 no longer waits. Still check `git status --short` before starting and record it: the rule is standing, only this instance is closed. `zorder_bounded.spec`'s `ops` call sites may have moved off `:140,:146` in that commit — re-grep. |
 
 ---
 
@@ -111,7 +116,7 @@ found the *omissions* to be the problem.
 - Spec discovery is the hand-kept require list in `tests/run.luau` — **every new spec is added there**, and considered for `tests/lib/tiers.luau` if it is a device-matrix oracle.
 - `commit_walks.skip` compares ENTRY TABLE IDENTITY; rects are `table.freeze`d — never mutate a rect in place.
 - Fresh-context adversarial review per task, ≤ 5 fix rounds, rulings in `.superpowers/sdd/2026-09-03-facet-parity-C/progress.md`; RED-TEAM at Task 10.
-- ▲ **Another agent holds `src/render/render_stats.luau`, `src/render/z_order.luau`, `tests/zorder_bounded.spec.luau` uncommitted.** Two are files this wave edits. `commit_isolated.py` stages only the named path — **name paths explicitly, never `git add -A`, and re-check your own edits are still present after every long-running command** (the T6/T7 shared-tree hazard). Record `git status --short` at the start of every task.
+- ▲ **RESOLVED 2026-09-05: the T9 reviewer committed those three files as `aade8fac`; the tree is clean.** The hazard stands as a standing rule, not as a live blocker. `commit_isolated.py` stages only the named path — **name paths explicitly, never `git add -A`, and re-check your own edits are still present after every long-running command** (the T6/T7 shared-tree hazard). Record `git status --short` at the start of every task.
 
 ## Rulings
 
@@ -138,10 +143,10 @@ found the *omissions* to be the problem.
 **No Facet `src/` file is touched. No public Facet number moves.** Product gain zero;
 measurement gain is that the next four tasks can be believed.
 
-**Prerequisite (conflict table, last row):** run `git status --short`. If
-`tests/zorder_bounded.spec.luau` is still held uncommitted by another agent, **wait or
-coordinate** — T12 must edit it (`:140`, `:146` call `s.adapter.ops()`). Record what the
-status showed in the ledger.
+**Prerequisite (conflict table, last row): CLEARED.** `tests/zorder_bounded.spec.luau`
+landed in `aade8fac` and the tree is clean as of 2026-09-05. Still run `git status --short`
+and record it — and **re-grep `zorder_bounded.spec` for `.ops()`**, since that commit may
+have moved the two call sites off `:140`/`:146`.
 
 **The two charges, measured (T9b §2.4, §2.6):**
 
