@@ -139,6 +139,22 @@ export type Opts = {
 	--[[ ...and a `containerRelative` child, which C2 refuses on the container arm of
 		its cache key and which the memo refuses for the same reason (owed row 6). ]]
 	crel: boolean?,
+	--[[ ...and THE SAME MARK ARRIVING AFTER MOUNT (Plan C, T13b fix round 1, I-1).
+		`containerRelativeInside` is the one always-visit predicate that can flip with no
+		remount and no structural refresh: it is a pure function of a DESCENDANT's dim
+		TYPE (`render/layout_node` walks the built children), and `width`/`height` are
+		reactive measure-classed props. So the gate row holds a nested VStack whose own
+		child's WIDTH is a signal that flips `fixed` -> `containerRelative`; driving it
+		makes the ROW — `List`'s direct child — become always-visit on a tick where
+		nothing is structural and `List`'s memo still HITS.
+
+		THE ARM IS PAIRED WITH `crel` ON PURPOSE. Declared from the start, that row is
+		measured on every tick; arriving at tick 3, an aggregate that recorded its
+		classification once and never re-asked serves it from then on — the same tree,
+		the same steady state, two different answers. `crelStart` makes this arm start
+		in the containerRelative state instead, which is the DEPARTURE mirror. ]]
+	crelLater: boolean?,
+	crelStart: boolean?,
 	--[[ ...and A WIDTH ON `List` ITSELF, driven by a signal (`scene.listWidth`). It is
 		the only drive in this fixture that moves the OFFER a memoising container hands
 		its children without moving the viewport: the container is measure-dirty and
@@ -217,6 +233,8 @@ function deep_stack_scene.new(opts: Opts?)
 	local listHeight = core:signal(700)
 	local listPad = core:signal(0)
 	local items = core:signal({ { key = "i1", kind = "box" }, { key = "i2", kind = "box" } })
+	-- the descendant dim type that carries `containerRelativeInside` up to the gate row
+	local crelOn = core:signal(o.crelStart == true)
 	for i = 1, n do
 		texts[i] = core:signal(`Row {i}`)
 		widths[i] = core:signal(300)
@@ -291,6 +309,30 @@ function deep_stack_scene.new(opts: Opts?)
 						UI.Box({ id = "n2", width = px(10), height = px(4) }),
 						UI.Box({ id = "n3", width = px(18), height = px(4) }),
 						UI.Box({ id = "n4", width = px(12), height = px(4) }),
+					},
+				})
+			)
+		end
+		if o.crelLater and i == deep_stack_scene.GATE_ROW then
+			table.insert(
+				kids,
+				UI.VStack({
+					id = "CrelBox",
+					gap = 0,
+					padding = 0,
+					width = { type = "content" },
+					height = { type = "content" },
+					children = {
+						UI.Box({
+							id = "Inner",
+							width = core:memo(function(use: any)
+								if use(crelOn) :: boolean then
+									return { type = "containerRelative", fraction = 0.1 }
+								end
+								return { type = "fixed", px = 12 }
+							end),
+							height = px(10),
+						}),
 					},
 				})
 			)
@@ -547,6 +589,16 @@ function deep_stack_scene.new(opts: Opts?)
 			table.insert(next, if item.key == key then { key = item.key, kind = kind } else item)
 		end
 		items:set(next)
+		controller.refresh()
+	end
+
+	--[[ ...and the ARRIVAL of `containerRelativeInside` on a clean container's child
+		(`Opts.crelLater`). It is a measure-classed prop write on a GRANDCHILD, so the
+		refresh is not structural, `List`'s memo key still matches, and the gate row is
+		dirty exactly once — on the flip tick. What the aggregate does on the tick AFTER
+		that is the whole of fix-round-1 I-1. ]]
+	function scene.crelOn(value: boolean)
+		crelOn:set(value)
 		controller.refresh()
 	end
 

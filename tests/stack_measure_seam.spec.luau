@@ -442,9 +442,24 @@ describe("the stack-measure seam: no module-level mutable state", function()
 		local body = stripComments(fs.readFile(MEASURE_PATH))
 		local declared: { [string]: boolean } = {}
 		for name in string.gmatch(body, "\nlocal ([%a_][%w_]*)") do
+			-- `local function f` declares `f`, not `function` (T13b fix round 1) — the
+			-- crude scan read the KEYWORD, so the pin below named a thing that is not a
+			-- declaration and would have missed a real module-level `local function`
+			if name ~= "function" then
+				declared[name] = true
+			end
+		end
+		for name in string.gmatch(body, "\nlocal function ([%a_][%w_]*)") do
 			declared[name] = true
 		end
-		expect(sorted(declared)).toEqual({ "shrinkLib", "stack_measure" })
+		--[[ THREE SINCE T13b's FIX ROUND: `alwaysVisit` is a module-level FUNCTION, and
+			the distinction this case is about is mutability, not scope. It closes over
+			nothing, is never reassigned (the second half of this case is what proves
+			that), and exists because the always-visit predicate got a SECOND reader — the
+			full pass classifies with it and the aggregate's pre-pass re-asks it of every
+			index it is about to visit. Two copies of a seven-term predicate is the
+			copy-goes-stale failure this file's own header is about. ]]
+		expect(sorted(declared)).toEqual({ "alwaysVisit", "shrinkLib", "stack_measure" })
 		local reassigned: { string } = {}
 		for name in string.gmatch(body, "\n([%a_][%w_]*) =") do
 			if declared[name] then

@@ -33,6 +33,27 @@ local shrinkLib = require("./shrink")
 
 local stack_measure = {}
 
+--[[ THE SEVEN SHAPES A CONTAINER'S MEASURE BRANCH CAN NEVER SERVE (owed row A13).
+	Five of them are the serve's own refusals asked of a child — the two kinds that
+	publish verdicts no cached number can carry (`text`, `composition`), the two
+	subtree booleans whose OWNER publishes a channel, and the container-relative mark
+	— plus a declared shrink weight, which the skip arm refuses on `== nil` so a
+	declared ZERO is unservable too and the two must agree.
+
+	IT IS A MODULE FUNCTION AND NOT AN INLINE PREDICATE because T13b's fix round made
+	it have TWO readers: the full pass classifies with it, and the aggregate's pre-pass
+	re-asks it of every index it is about to visit. Two copies of a seven-term
+	predicate is the copy-goes-stale failure this file's own seam header is about, and
+	a module function closes over nothing, so it allocates nothing per call. ]]
+local function alwaysVisit(child: any): boolean
+	return child.kind == "text"
+		or child.kind == "composition"
+		or child.subtreeHasScroll == true
+		or child.subtreeHasComposition == true
+		or child.containerRelativeInside == true
+		or child.shrinkWeight ~= nil
+end
+
 -- What the branch needs from the solver, passed at every call. Typed `any` for the
 -- node/ctx arguments on purpose: the solver requires THIS module, so importing
 -- `solver.Node`/`Ctx` back would be a require cycle, and re-declaring either schema
@@ -293,13 +314,41 @@ function stack_measure.contentSize(
 				dedupe, which the sort makes one compare. ]]
 			table.sort(list)
 			local prev = -1
+			local mAlwaysAt = cmemo.mAlwaysAt
 			for _, idx in list do
 				if idx == prev then
 					continue
 				end
 				prev = idx
+				local child = children[idx]
 				-- owed row A3, one direction: a recorded non-fill child that became fill
-				if dim(children[idx], if isH then "w" else "h").type == "fill" then
+				if dim(child, if isH then "w" else "h").type == "fill" then
+					agg = false
+					break
+				end
+				--[[ ...AND OWED ROW A13'S OTHER SIX PREDICATES, RE-ASKED (fix round 1,
+					I-1). The row's argument was that a flip cannot reach an UNVISITED
+					index, and that is true — but it is only half of what the payload
+					needs. The flip tick VISITS the child and measures it correctly, and
+					then the classification is thrown away, because `mAlways` is recorded
+					only by a completed full pass. From the next tick the child is neither
+					in `mAlways` nor dirty, so it is SERVED — a serve HEAD's own PASS 1
+					refuses by this very predicate, and `lastChildVisits` falls BELOW the
+					walk's, which owed row A11 names as the one thing this task must not do.
+
+					`containerRelativeInside` is the reachable vector and it needs no
+					remount and no structural refresh: it is a pure function of a
+					DESCENDANT's dim type (`render/layout_node`), and `width`/`height` are
+					reactive measure-classed props. Measured on two trees identical at tick
+					4 — declared from the start, `visits=3`; ARRIVING at tick 3,
+					`visits=2`, the child never measured again.
+
+					SO THE PRE-PASS REFUSES, exactly as the `fill` valve one line up does
+					and for the same reason: refusal is free, it is decided before any
+					write, and HEAD's pass then re-records `mAlways` correctly. It catches
+					BOTH directions — a predicate that arrives, and one that departs and
+					would otherwise leave the child over-visited forever. ]]
+				if alwaysVisit(child) ~= (mAlwaysAt[idx] == true) then
 					agg = false
 					break
 				end
@@ -340,6 +389,10 @@ function stack_measure.contentSize(
 	-- tail. The reverse map is NOT among them: it is the only O(n) one, and it is built
 	-- lazily above on the first tick that would spend it (measured — see that block).
 	local always: { number } = {}
+	-- ...and the same list AS A SET, which the aggregate's pre-pass asks per visited
+	-- index (fix round 1, I-1). An array cannot answer "was THIS index classified
+	-- always-visit" without a scan, and the pre-pass asks it k times a tick.
+	local alwaysAt: { [number]: boolean } = {}
 	local fills: { number } = {}
 	local isFill: { [number]: boolean } = {}
 	-- the sum of `mCuts` over the RECORDED indices, which is what an unvisited child's
@@ -359,12 +412,13 @@ function stack_measure.contentSize(
 		and cmemo.mSum ~= nil
 		and cmemo.mN == n
 		and cmemo.struct ~= true
-	local aSum, aCutsSum, aMain, aCuts, aIds, aIdx, aAlways, aFill, aIsFill
+	local aSum, aCutsSum, aMain, aCuts, aIds, aIdx, aAlways, aAlwaysAt, aFill, aIsFill
 	local auditMeasured: { number }? = nil
 	if auditOn then
 		aSum, aCutsSum = cmemo.mSum, cmemo.mCutsSum
 		aMain, aCuts, aIds = table.clone(cmemo.mMain), table.clone(cmemo.mCuts), table.clone(cmemo.mIds)
-		aAlways, aFill, aIsFill = cmemo.mAlways, cmemo.mFill, cmemo.mIsFill
+		aAlways, aAlwaysAt = cmemo.mAlways, cmemo.mAlwaysAt
+		aFill, aIsFill = cmemo.mFill, cmemo.mIsFill
 		-- ...and the map the aggregate would have used, built here when the lazy build
 		-- above has not run yet: this arm is test-only, so it pays that walk itself
 		aIdx = cmemo.mIdx
@@ -505,6 +559,11 @@ function stack_measure.contentSize(
 				`crossOf`, where no index is ever nil. ]]
 				table.insert(fills, idx)
 				isFill[idx] = true
+				if mIds ~= nil then
+					-- a fill child is never recorded, and a child that BECAME fill must
+					-- lose the record it had (fix round 1, I-2)
+					mIds[idx], mCuts[idx] = nil, nil
+				end
 				-- a fill child contributes nothing to `mainSum` in this pass, and owed row
 				-- A6 needs `mMain` complete at EVERY index, not only the recorded ones
 				if mMain ~= nil then
@@ -586,15 +645,25 @@ function stack_measure.contentSize(
 
 				`shrinkWeight ~= nil` and not `> 0`: the skip above refuses on `== nil`,
 				so a declared zero is unservable too, and the two lists must agree. ]]
-				if
-					child.kind == "text"
-					or child.kind == "composition"
-					or child.subtreeHasScroll == true
-					or child.subtreeHasComposition == true
-					or child.containerRelativeInside == true
-					or child.shrinkWeight ~= nil
-				then
+				if alwaysVisit(child) then
 					table.insert(always, idx)
+					alwaysAt[idx] = true
+					--[[ ...AND THE RECORD IS RETRACTED, which nothing did (fix round 1,
+					I-2). `mIds[idx]` had ONE writer and no eraser, and on a HIT the array
+					IS `cmemo.mIds` — so a child that LEAVES the record set on a
+					hit-and-full-pass tick (it gained a `ScrollView` on a structural tick,
+					say: `hit` is computed before the `struct` term, so `hit` is true and
+					the pass runs in place) kept a non-nil `mIds` and a stale `mCuts` while
+					`cutsSum` correctly dropped it. The next aggregate tick then read
+					`mIdsA[idx] ~= nil` as "this index is RECORDED" and subtracted
+					`mCuts[idx]` from a `cutsOwed` seeded by an `mCutsSum` that never held
+					it — `ctx.fitCuts` short by that child's cuts on that tick and every
+					one after. `ctx.fitCuts` reaches the world through `chosenCandidate`'s
+					`uncut` test, where UNDER-counting makes a candidate that will paint an
+					ellipsis look honest. One owner of the field, in both directions. ]]
+					if mIds ~= nil then
+						mIds[idx], mCuts[idx] = nil, nil
+					end
 				elseif
 					memoable
 					and child.kind ~= "text"
@@ -619,6 +688,11 @@ function stack_measure.contentSize(
 					written for it either way, which is what the aggregate needs. ]]
 					mCuts[idx], mIds[idx] = ctx.fitCuts - cutsBefore, child.id
 					cutsSum += mCuts[idx]
+				elseif mIds ~= nil then
+					-- ...and the same retraction on the OTHER way out of the record set
+					-- (fix round 1, I-2): a child the gate refuses for any reason must not
+					-- keep an `mIds` entry that says it was recorded
+					mIds[idx], mCuts[idx] = nil, nil
 				end
 			end
 		end
@@ -669,7 +743,8 @@ function stack_measure.contentSize(
 			for _, idx in list do
 				if idx ~= prev then
 					prev = idx
-					if dim(children[idx], mainAxis).type == "fill" then
+					local child = children[idx]
+					if dim(child, mainAxis).type == "fill" or alwaysVisit(child) ~= (aAlwaysAt[idx] == true) then
 						reached = false
 						break
 					end
@@ -898,7 +973,7 @@ function stack_measure.contentSize(
 			-- moved every index, and the next tick that wants one pays for one map
 			-- instead of this pass paying for a map nothing may ever read
 			cmemo.mIdx = nil
-			cmemo.mAlways, cmemo.mFill, cmemo.mIsFill = always, fills, isFill
+			cmemo.mAlways, cmemo.mAlwaysAt, cmemo.mFill, cmemo.mIsFill = always, alwaysAt, fills, isFill
 			cmemo.struct = false
 		end
 	elseif cmemo ~= nil then

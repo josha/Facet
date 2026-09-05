@@ -257,6 +257,15 @@ local function fitsScene(opts: any): any
 	local env = environment.new(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 400, h = 400 })
 	local rowWidth = core:signal(20)
+	--[[ ...AND A `ScrollView` THAT ARRIVES STRUCTURALLY INSIDE THE TRUNCATING ROW (fix
+		round 1, I-2). `UI.When`'s every arm ends in `pushDirty(path, "structure")`, so
+		flipping it is the one refresh class on which `hit` can be TRUE while the
+		aggregate refuses: the memo's key still matches (the offer, the stamp, the scope
+		and the kind are all unchanged), so the full pass runs with `mIds` as the SAME
+		TABLE it recorded last epoch — and row 2 leaves the record set on that pass,
+		because `subtreeHasScroll` makes it always-visit. Whether its `mIds` entry is
+		retracted on the way out is what this fixture exists to see. ]]
+	local scrollOn = core:signal(false)
 	local rows: { any } = {}
 	--[[ FORTY ROWS, NOT SIX, AND THE RUN IS WHAT SAID SO. The probe budget is
 		`math.max(4, n // 4)`, and this drive's `reuse.measureContains` holds six entries
@@ -274,7 +283,37 @@ local function fitsScene(opts: any): any
 			height = { type = "content" },
 			children = {
 				if i == 2
-					then UI.Text({ id = "Long", text = "Reconfiguration" })
+					then UI.HStack({
+						id = "L2",
+						padding = 0,
+						gap = 0,
+						width = { type = "content" },
+						height = { type = "content" },
+						children = {
+							UI.Text({ id = "Long", text = "Reconfiguration" }),
+							UI.When({
+								id = "W",
+								condition = core:memo(function(use: any)
+									return use(scrollOn) :: boolean
+								end),
+								thenView = function()
+									return UI.ScrollView({
+										id = "Sc",
+										axis = "y",
+										width = { type = "fixed", px = 6 },
+										height = { type = "fixed", px = 6 },
+										children = {
+											UI.Box({
+												id = "In",
+												width = { type = "fixed", px = 4 },
+												height = { type = "fixed", px = 20 },
+											}),
+										},
+									})
+								end,
+							}),
+						},
+					})
 					elseif i == 1 then UI.Box({
 						id = "B",
 						width = core:memo(function(use: any)
@@ -342,6 +381,11 @@ local function fitsScene(opts: any): any
 	local w: any = {}
 	function w.driveRow(value: number)
 		rowWidth:set(value)
+		controller.refresh()
+	end
+	-- the STRUCTURAL arrival of `subtreeHasScroll` on the row that truncates
+	function w.scroll(value: boolean)
+		scrollOn:set(value)
 		controller.refresh()
 	end
 	-- WHICH RUNG WON, read the way `tests/adaptive.spec.luau` reads it: the rungs the
@@ -600,6 +644,37 @@ describe("T13b: the aggregate agrees with a full solve, tick after tick", functi
 		c.dispose()
 	end)
 
+	it("a child in BOTH lists is measured ONCE, which is what the sort buys (owed row A9)", function()
+		--[[ THE SORT'S WITNESS, and the first round could not build one. `table.sort(list)`
+			was recorded as a NULL: every last-write-wins verdict channel is keyed by node
+			id, two siblings cannot share one, and float reassociation moved no rect. The
+			review asked for a bite or a deletion, and the bite is not about ORDER at all —
+			it is about the DEDUPE the sort makes possible.
+
+			The visit list is `mAlways` plus whatever the dirty set resolves to, and a child
+			can be in both. The dedupe is a one-element compare against the previous entry,
+			which is exactly what a SORTED list needs and nothing more — so with the sort
+			removed, `always = {3, 4}` and a dirty index of 3 gives `{3, 4, 3}`, the
+			duplicate is not adjacent, and index 3 is measured TWICE. `mainSum` survives it
+			(the second patch subtracts the value the first just wrote, so the delta is
+			zero) but `ctx.childVisits` does not — and that counter moving is owed row A11's
+			whole claim.
+
+			THE SHAPE: the gate row carries `containerRelativeInside` (always-visit at its
+			index) and a `text` label sits at the index above it (always-visit too), and the
+			drive dirties the GATE ROW ITSELF. Nothing else in this fixture puts a child in
+			both lists with a second always-visit child above it. ]]
+		withWorkCapture(function()
+			local s = scene.new({ rows = 60, crelLater = true, crelStart = true, label = true })
+			s.text(30, "warm")
+			s.text(30, "a")
+			expect(drove(function()
+				s.width(GATE_ROW, 301)
+			end)).toBe("solves=1 iters=10 fallbacks=0 calls=70 served=61 measured=8 visits=4")
+			s.dispose()
+		end)
+	end)
+
 	it("two dirty siblings publish in document order (owed row A9)", function()
 		--[[ THE DIRTY SET IS A HASH. `for id in dirty` gives an arbitrary order, and PASS
 			1.5's own comment states the rule this pass inherits: last-write-wins verdict
@@ -727,6 +802,114 @@ describe("T13b: one case per always-visit class (owed row A13)", function()
 		expect(gateDrive({ rows = ROWS, fill = true })).toBe(
 			"solves=1 iters=12 fallbacks=0 calls=1008 served=1002 measured=5 visits=2"
 		)
+	end)
+end)
+
+describe("T13b: an always-visit predicate that ARRIVES after mount (fix round 1, I-1)", function()
+	--[[ OWED ROW A13'S ARGUMENT WAS HALF AN ARGUMENT. It said a flip of any of the
+		seven predicates cannot reach an UNVISITED index, and that is true — the flip
+		makes the child dirty and a dirty child is visited. What it did not say is what
+		happens to the classification the flip tick produced: `mAlways` is recorded only
+		by a COMPLETED FULL PASS, so an aggregate tick measured the child correctly and
+		threw the classification away. From the next tick the child was neither in
+		`mAlways` nor dirty — so it was SERVED, a serve HEAD's own PASS 1 refuses by this
+		very predicate, and `lastChildVisits` fell BELOW the walk's.
+
+		`containerRelativeInside` is the reachable vector because it is the only one of
+		the seven that is a pure function of a DESCENDANT's dim TYPE — no remount, no
+		structural refresh, just a reactive measure-classed `width` two levels down.
+
+		THE CASE IS A PAIR OF IDENTICALLY-SHAPED TREES, which is what makes it a witness
+		rather than a number: one DECLARES the mark at construction, one has it ARRIVE at
+		tick 3, and at the same steady state they must agree. ]]
+	local function steady(opts: any, flip: (any) -> ()): string
+		local out
+		withWorkCapture(function()
+			local s = scene.new(opts)
+			s.text(500, "warm")
+			s.text(500, "a")
+			flip(s)
+			s.text(500, "b")
+			out = drove(function()
+				s.text(500, "c")
+			end)
+			s.dispose()
+		end)
+		return out :: string
+	end
+
+	it("the ARRIVING mark is visited on every tick after it, exactly as a DECLARED one is", function()
+		local declared = steady({ rows = ROWS, crelLater = true, crelStart = true }, function() end)
+		local arrived = steady({ rows = ROWS, crelLater = true }, function(s)
+			s.crelOn(true)
+		end)
+		expect(`arrived: {arrived}`).toBe(`arrived: {declared}`)
+		-- ...and the shared number is the WALK's, not a serve: three children measured
+		-- (the dirty row, the gate row, and `List` itself asked by the Screen)
+		expect(declared).toBe("solves=1 iters=11 fallbacks=0 calls=1007 served=999 measured=7 visits=3")
+	end)
+
+	it("...and a mark that DEPARTS stops being visited, rather than being walked forever", function()
+		--[[ THE MIRROR, and the review called it benign: a child that stops being
+			always-visit stays in `mAlways` and is over-visited for the life of the
+			surface. Benign is not correct — the valve catches both directions, because
+			it compares the predicate's answer against the RECORDED classification rather
+			than testing it one way. ]]
+		local plain = steady({ rows = ROWS, crelLater = true }, function() end)
+		local departed = steady({ rows = ROWS, crelLater = true, crelStart = true }, function(s)
+			s.crelOn(false)
+		end)
+		expect(`departed: {departed}`).toBe(`departed: {plain}`)
+		expect(plain).toBe("solves=1 iters=10 fallbacks=0 calls=1006 served=1000 measured=5 visits=2")
+	end)
+
+	it("...and the flip tick itself is a REFUSAL, which is where the re-record comes from", function()
+		--[[ The valve is in the pre-pass, so it costs nothing and writes nothing: it
+			reads `dim`, the predicate and the memo, refuses, and HEAD's pass runs on the
+			fresh state it expects and re-records `mAlways` correctly. `fallbacks=1` is
+			that refusal — a STARTED-then-bailed tick, which is the only thing that
+			counter means. ]]
+		withWorkCapture(function()
+			local s = scene.new({ rows = ROWS, crelLater = true })
+			s.text(500, "warm")
+			s.text(500, "a")
+			expect(drove(function()
+				s.crelOn(true)
+			end)).toBe("solves=1 iters=1012 fallbacks=2 calls=1009 served=999 measured=9 visits=3")
+			s.dispose()
+		end)
+	end)
+
+	it("...and every rect agrees with a full solve across the flip, both ways", function()
+		local a, c = pair({ rows = 200, crelLater = true })
+		local function agree(step: string)
+			if a.snapshot() ~= c.snapshot() then
+				error(`{step}: the aggregating arm diverged from a FULL solve`, 0)
+			end
+		end
+		a.text(50, "warm")
+		c.text(50, "warm")
+		agree("warm")
+		a.text(50, "a")
+		c.text(50, "a")
+		agree("plain")
+		a.crelOn(true)
+		c.crelOn(true)
+		agree("the mark ARRIVES")
+		a.text(50, "b")
+		c.text(50, "b")
+		agree("the tick after the arrival")
+		a.text(50, "c")
+		c.text(50, "c")
+		agree("and the one after that")
+		a.crelOn(false)
+		c.crelOn(false)
+		agree("the mark DEPARTS")
+		a.text(50, "d")
+		c.text(50, "d")
+		agree("the tick after the departure")
+		a.dispose()
+		c.dispose()
 	end)
 end)
 
@@ -920,6 +1103,68 @@ end)
 	that the flag works. ]]
 local ORACLE_ROWS = 12
 
+describe("T13b: a child that LEAVES the record set retracts it (fix round 1, I-2)", function()
+	it("...or the aggregate subtracts cuts from a total that never held them", function()
+		--[[ `mIds[idx]` HAD ONE WRITER AND NO ERASER. On a HIT the array IS `cmemo.mIds`,
+			so a full pass that runs on a hit inherits the previous epoch's entries and only
+			ADDS — and the one refresh class where `hit` is true while the aggregate refuses
+			is the STRUCTURAL one (`hit` is computed before the `struct` term). A `UI.When`
+			flip is exactly that: every arm of `setBranch` ends in `pushDirty(path,
+			"structure")`.
+
+			So row 2 — which TRUNCATES, and therefore is the only child here with a non-zero
+			`mCuts` — gains a `ScrollView` and leaves the record set on that pass, while
+			`cutsSum` correctly drops it. Without the retraction its `mIds` entry survives,
+			and the next aggregate tick reads `mIdsA[idx] ~= nil` as "this index is
+			RECORDED" and runs `cutsOwed -= mCuts[idx]` against a `cutsOwed` seeded from an
+			`mCutsSum` that never contained it. `ctx.fitCuts` is short by that child's cuts
+			on that tick and every one after — and under-counting is the direction that
+			makes a candidate which WILL paint an ellipsis look honest.
+
+			THE LADDER IS THE INSTRUMENT because `ctx.fitCuts` has exactly one reader:
+			`chosenCandidate`'s `uncut = ctx.fitCuts == cutsBefore`. Every step is compared
+			against a full-solve arm, and the audited replay runs channel 3 (`mCutsSum`
+			against what the walk actually served) on the tick after the flip. ]]
+		withWorkCapture(function()
+			local a = fitsScene({})
+			local c = fitsScene({ incremental = false, measureReuse = false })
+			local function agree(step: string)
+				if a.chosen() ~= c.chosen() then
+					error(`{step}: {a.chosen()} vs a FULL solve's {c.chosen()}`, 0)
+				end
+			end
+			c.driveRow(21)
+			a.driveRow(21)
+			agree("warm")
+			c.driveRow(22)
+			a.driveRow(22)
+			agree("aggregating")
+			-- the STRUCTURAL arrival: `hit` is true, the aggregate refuses, the full pass
+			-- runs in place on the memo's own arrays and row 2 leaves the record set
+			c.scroll(true)
+			a.scroll(true)
+			agree("the ScrollView arrives")
+			for step = 1, 3 do
+				c.driveRow(22 + step)
+				a.driveRow(22 + step)
+				agree(`aggregate tick {step} after the arrival`)
+			end
+			--[[ ...AND THE AUDITED REPLAY, which is where channel 3 asks the question a
+				rung verdict cannot: `mCutsSum` must equal the sum of `mCuts` over the
+				indices the walk actually served. A stale `mIds` entry breaks that equality
+				directly, whether or not the rung it belongs to happens to flip. ]]
+			local audited = table.clone(capture.opts)
+			audited.containerAggregateAudit = true
+			local checked = solver.solve(capture.root, capture.viewport, audited)
+			if checked.work.aggregateChecks < 1 then
+				error(`the ladder's audited replay compared {checked.work.aggregateChecks} containers`, 0)
+			end
+			a.dispose()
+			c.dispose()
+		end)
+	end)
+end)
+
 describe("T13b oracle: the aggregate's own answer, computed and asserted", function()
 	it("every gate shape, at every one of the nine device views", function()
 		for _, fixture in
@@ -930,17 +1175,29 @@ describe("T13b oracle: the aggregate's own answer, computed and asserted", funct
 				{ name = "label", rows = ORACLE_ROWS, label = true },
 				{ name = "foreach", rows = ORACLE_ROWS, foreach = true },
 				{ name = "crel", rows = ORACLE_ROWS, crel = true },
+				--[[ ...and the ARRIVAL (fix round 1, I-1). Every other fixture here
+					DECLARES its gate shape at construction, so channel 1 — the visit set —
+					never had a tree where the classification could move under it. This one
+					flips it mid-drive, and channel 1 fires on it without the pre-pass
+					valve: `container aggregate visit-set mismatch at /S/List`. ]]
+				{ name = "crelLater", rows = ORACLE_ROWS, crelLater = true, flip = true },
 			}
 		do
 			local checks = 0
 			for _, view in device_views.VIEWS do
 				local opts = table.clone(fixture)
 				opts.name = nil
+				opts.flip = nil
 				opts.viewport = { x = 0, y = 0, w = view.w, h = view.h }
 				withWorkCapture(function()
 					local s = scene.new(opts)
 					s.text(5, "warm")
 					s.text(5, "x")
+					if fixture.flip then
+						s.crelOn(true)
+						s.text(5, "y")
+						s.text(5, "z")
+					end
 					s.dispose()
 				end)
 				local root, viewport = capture.root, capture.viewport
@@ -948,6 +1205,12 @@ describe("T13b oracle: the aggregate's own answer, computed and asserted", funct
 				local audited = table.clone(capture.opts)
 				audited.containerAggregateAudit = true
 				local checked = solver.solve(root, viewport, audited)
+				--[[ NON-VACUITY PER VIEW, not per fixture (review MINOR). The floor used to
+					be one comparison across all nine, so a fixture where eight views
+					silently stopped comparing still passed. Read off the run. ]]
+				if checked.work.aggregateChecks < 1 then
+					error(`{fixture.name}/{view.id}: the audit compared {checked.work.aggregateChecks} containers`, 0)
+				end
 				checks += checked.work.aggregateChecks
 				--[[ ...AND THE RECT DIFFERENTIAL BESIDE IT, over the four channels the
 					mount-level snapshot names: `rectOf`, `screenRectOf`, the hit rect and
