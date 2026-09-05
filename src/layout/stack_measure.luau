@@ -98,7 +98,7 @@ function stack_measure.contentSize(
 		slots in 0.47 us each. That serve made the ANSWER cheap; it could not make the
 		PARENT stop asking, and 1.038 ms of a 1.824 ms class is the asking.
 
-		SO THE PARENT KEEPS THE ANSWERS. Five per-child arrays, indexed by child index,
+		SO THE PARENT KEEPS THE ANSWERS. Four per-child arrays, indexed by child index,
 		on the container's `cmemo` — whose home is the mount-keyed store entry, because
 		a container holding one dirty child has its layout node REBUILT and a memo
 		living there would be nil on exactly the ticks this is for.
@@ -139,12 +139,12 @@ function stack_measure.contentSize(
 		and cmemo.mOffW == innerMaxW
 		and cmemo.mOffH == innerMaxH
 	local memoable = cmemo ~= nil and reuse ~= nil and ctx.measureStamp ~= nil and not ctx.analyze
-	local mMain, mCross, mMargin, mCuts, mIds
+	local mMain, mCross, mCuts, mIds
 	if memoable then
 		if hit then
-			mMain, mCross, mMargin, mCuts, mIds = cmemo.mMain, cmemo.mCross, cmemo.mMargin, cmemo.mCuts, cmemo.mIds
+			mMain, mCross, mCuts, mIds = cmemo.mMain, cmemo.mCross, cmemo.mCuts, cmemo.mIds
 		else
-			mMain, mCross, mMargin, mCuts, mIds = {}, {}, {}, {}, {}
+			mMain, mCross, mCuts, mIds = {}, {}, {}, {}
 		end
 	end
 	-- PASS 1: children with a definite main extent measure against the whole
@@ -184,11 +184,20 @@ function stack_measure.contentSize(
 				surface. The RAW offer is the right value, because the serve one level down
 				writes the raw pair too. `mCuts[idx]` is the `ctx.fitCuts` delta this
 				child's own call produced when it was recorded, which is what `record`
-				subtracts to get a node's `cuts`. ]]
+				subtracts to get a node's `cuts`.
+
+				`marginMain[idx]` IS NOT OWED, AND A FIFTH ARRAY FOR IT WAS DELETED (review
+				round 1, I-1). It has exactly one reader — the fill pass below — and that
+				pass reads it only where `crossOf[idx] == nil`, which a skipped index never
+				is: the line under this one writes `crossOf[idx]`, and `mMain`/`mCross` are
+				recorded together so neither can exist without the other. Carrying it cost
+				an array, a write and a read per child per solve, plus an audit term that
+				could never differ, on the branch whose own finding is that the residual is
+				now the dominant term. If a later task gives the fill pass a second reader,
+				it re-adds the array WITH a case that fails without it. ]]
 			ctx.offers[child.wKey or (child.id .. "|w")] = innerMaxW
 			ctx.offers[child.hKey or (child.id .. "|h")] = innerMaxH
 			ctx.fitCuts += mCuts[idx]
-			marginMain[idx] = mMargin[idx]
 			crossOf[idx] = mCross[idx]
 			mainSum += mMain[idx]
 			continue
@@ -227,10 +236,19 @@ function stack_measure.contentSize(
 				own predicate — comparing against a DIRTY child's fresh answer would be
 				asserting the memo is stale, which is what dirt means. And it runs BEFORE
 				the record below, because the record overwrites the very numbers it
-				compares. Off in production; there is no third behaviour. ]]
+				compares. Off in production; there is no third behaviour.
+
+				`mCuts` IS IN THE COMPARISON, and it was not (review round 1, I-2). The cuts
+				delta is the one recorded number with no geometric shadow: a wrong one moves
+				no rect, so the nine-view rect differential cannot see it, and it reaches
+				the world only through `chosenCandidate`'s `uncut` test one ladder up —
+				where under-counting makes a candidate that WILL paint an ellipsis look
+				honest. An audit that compares the numbers a snapshot already compares is
+				an audit of the snapshot. ]]
 			if skippable then
+				ctx.memoChecks += 1
 				assert(
-					mMain[idx] == mainOf and mCross[idx] == crossOfIdx and mMargin[idx] == marginMain[idx],
+					mMain[idx] == mainOf and mCross[idx] == crossOfIdx and mCuts[idx] == ctx.fitCuts - cutsBefore,
 					`container memo mismatch at {node.id}[{idx}]`
 				)
 			end
@@ -249,8 +267,7 @@ function stack_measure.contentSize(
 				and child.containerRelativeInside ~= true
 			then
 				mMain[idx], mCross[idx] = mainOf, crossOfIdx
-				mMargin[idx], mCuts[idx] = marginMain[idx], ctx.fitCuts - cutsBefore
-				mIds[idx] = child.id
+				mCuts[idx], mIds[idx] = ctx.fitCuts - cutsBefore, child.id
 			end
 		end
 	end
@@ -366,7 +383,7 @@ function stack_measure.contentSize(
 		back a memo that cannot be wrong. ]]
 	if memoable and not hit then
 		cmemo.mStamp, cmemo.mScope, cmemo.mOffW, cmemo.mOffH = ctx.measureStamp, ctx.scopeKey, innerMaxW, innerMaxH
-		cmemo.mMain, cmemo.mCross, cmemo.mMargin, cmemo.mCuts, cmemo.mIds = mMain, mCross, mMargin, mCuts, mIds
+		cmemo.mMain, cmemo.mCross, cmemo.mCuts, cmemo.mIds = mMain, mCross, mCuts, mIds
 	elseif not memoable and cmemo ~= nil then
 		cmemo.mStamp = nil
 	end

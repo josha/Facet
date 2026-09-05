@@ -195,6 +195,16 @@ export type Ctx = {
 		arithmetic on EVERY container it touches without any gate being weakened. There
 		is no third behaviour: off, this field is read once per stack child. ]]
 	memoAudit: boolean,
+	--[[ ...AND HOW MANY COMPARISONS THAT AUDIT ACTUALLY MADE (review round 1, I-3). It
+		is incremented only on the audit path — inside the branch that runs when the memo
+		WOULD have skipped a child and the audit made it measure instead — so it is zero
+		on every production solve and costs nothing there. It exists because the proxy
+		that stood in for it did not work: `childVisits` is not a reliable non-vacuity
+		guard for a REPLAY, since a second solve over the same tree finds C2's node slots
+		warm and can enter FEWER containers than the first. A guard that can read "the
+		audit asserted nothing" as "the audit passed" is the class of check this
+		repository refuses. ]]
+	memoChecks: number,
 	--[[ THE SOLVE-WIDE INPUTS THE NODE TUPLES WERE RECORDED UNDER — axis 3 of
 		`./measure_reuse`'s store, threaded in here because `measure`'s node-resident
 		serve is a FOURTH cache with the same four axes and needs its own answer to
@@ -365,6 +375,8 @@ function solve_ctx.new(contentRect: Rect, opts: any, metrics: any): Ctx
 		-- memo's test-only self-check (see `Ctx` for both)
 		childVisits = 0,
 		memoAudit = (opts and (opts :: any).containerMemoAudit) == true,
+		-- ...and how many comparisons it made; zero on every production solve
+		memoChecks = 0,
 		-- the renderer's own axis-3 stamp, or nil; see `Ctx`
 		measureStamp = if opts ~= nil then (opts :: any).measureStamp else nil,
 		-- the O3 translate class: nodes re-based by an ancestor's delta

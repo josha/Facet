@@ -21,8 +21,8 @@
 	                     the record's line, so there is no `place`/`noteContainment`
 	                     pair and the call is one expression
 	  READ vs WRITE      the `ctx`/`node`/`child` fields it reads, as sets, and the
-	                     THREE it writes — two of them channels a skipped child owes,
-	                     one of them a counter
+	                     FOUR it writes — two of them channels a skipped child owes,
+	                     two of them counters (one written only on the audit path)
 	  ONE CONSUMER       `src/layout/solver.luau`, from `contentSize`'s tail
 	  ONE-WAY            it names no solver symbol and imports no solver type, and its
 	                     one require (`./shrink`) is a leaf the solver also requires
@@ -39,7 +39,7 @@
 
 	▲ AND IT GREW, ON THE COMMIT AFTER THE SPLIT. The lever this seam was taken for
 	(Plan C, T13 — the per-child container memo) took the `ctx` read set from ONE field
-	to TEN and gave this branch three WRITE channels where it had none. That is a real
+	to ELEVEN and gave this branch four WRITE channels where it had none. That is a real
 	change in what the module is, not a formality: a pure function of the tree and the
 	box became a function that also publishes what a skipped child's `measure` would
 	have published. It is priced in `tests/container_memo.spec.luau`'s owed list, row by
@@ -182,7 +182,7 @@ describe("the stack-measure seam: what it READS of the solve, and that it writes
 			back, which means nothing but this check reports an eleventh `ctx` field being
 			reached for.
 
-			IT WAS ONE FIELD AT THE SPLIT AND IS TEN AFTER THE MEMO, and each of the nine
+			IT WAS ONE FIELD AT THE SPLIT AND IS ELEVEN AFTER THE MEMO, and each of the ten
 			is one of three things: the memo's KEY (`measureStamp`, `scopeKey` — the two
 			solve-wide inputs a measured answer depends on and no argument carries), its
 			GATE (`reuse` for the dirty closure, `measureQuiet` and `analyze` for the two
@@ -204,6 +204,7 @@ describe("the stack-measure seam: what it READS of the solve, and that it writes
 			"measureQuiet",
 			"measureStamp",
 			"memoAudit",
+			"memoChecks",
 			"offers",
 			"reuse",
 			"scopeKey",
@@ -226,7 +227,7 @@ describe("the stack-measure seam: what it READS of the solve, and that it writes
 		})
 	end)
 
-	it("it writes exactly THREE things of the solve's, and each one is owed", function()
+	it("it writes exactly FOUR things of the solve's, and each one is owed", function()
 		--[[ THE READ-vs-WRITE HALF OF THE ONE-WAY TEST, and the half a field-read scan
 			cannot see. A block that only reads its host's state can be moved; a block
 			that WRITES it has to be trusted to write the same thing at the same moment,
@@ -244,8 +245,11 @@ describe("the stack-measure seam: what it READS of the solve, and that it writes
 			                    subtracts to get a node's `cuts`
 			  `ctx.childVisits` the counter, and the only one of the three that is an
 			                    instrument rather than a debt
+			  `ctx.memoChecks`  the AUDIT's own counter, written on a path that runs only
+			                    when the test-only audit opt is on — it is how a spec
+			                    proves the audit compared something rather than nothing
 
-			A FOURTH is a channel this branch has started to republish without pricing
+			A FIFTH is a channel this branch has started to republish without pricing
 			it, and the list in `tests/container_memo.spec.luau`'s header is where the
 			price is argued. `node`, `child` and `deps` stay untouched — the memo lives
 			on a table the node POINTS at, never on the node. ]]
@@ -256,7 +260,7 @@ describe("the stack-measure seam: what it READS of the solve, and that it writes
 				assigned[`{recv}.{field}`] = true
 			end
 		end
-		expect(sorted(assigned)).toEqual({ "ctx.childVisits", "ctx.fitCuts" })
+		expect(sorted(assigned)).toEqual({ "ctx.childVisits", "ctx.fitCuts", "ctx.memoChecks" })
 		--[[ ...AND THE INDEXED WRITE, which the field scan above cannot see at all:
 			`ctx.offers[key] = value` is a write THROUGH a field, so a scan for
 			`ctx%.<name>%s*=` reads straight past it. It is pinned by name because it is

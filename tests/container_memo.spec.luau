@@ -8,8 +8,8 @@
 	the serve answered — 1.038 ms of a 1.824 ms class, spent asking questions whose
 	answers had not moved.
 
-	SO THE PARENT KEEPS ITS CHILDREN'S ANSWERS. Five arrays indexed by child index —
-	`mMain`, `mCross`, `mMargin`, `mCuts`, `mIds` — plus a four-part key
+	SO THE PARENT KEEPS ITS CHILDREN'S ANSWERS. Four arrays indexed by child index —
+	`mMain`, `mCross`, `mCuts`, `mIds` — plus a four-part key
 	(`mStamp`, `mScope`, `mOffW`, `mOffH`), on a `cmemo` table whose home is the
 	MOUNT-KEYED STORE ENTRY (`render/layout_node`'s `store.byNode`) and not the layout
 	node. That is not a detail: a container holding one dirty child has its layout node
@@ -46,7 +46,13 @@
 	 3  `ctx.fitCuts +=`                 SERVED from `mCuts[idx]`, recorded as the
 	                                     `ctx.fitCuts` delta across that child's own
 	                                     call — which is exactly what `record`
-	                                     subtracts to get a node's `cuts`
+	                                     subtracts to get a node's `cuts`. ▲ IT IS THE
+	                                     ONE SERVED NUMBER WITH NO GEOMETRIC SHADOW,
+	                                     so a rect differential cannot witness it and
+	                                     the first version of this file did not: the
+	                                     case is "a memoising stack inside a
+	                                     `ViewThatFits` candidate", and the audit arm
+	                                     now compares `mCuts` as well
 	 4  `shrinkBasis[idx]`               GATED: a `shrinkWeight > 0` child sets
 	                                     `memoable = false`, so nothing is recorded and
 	                                     the key is dropped. ▲ IT DOES NOT CLEAR `hit`:
@@ -76,16 +82,31 @@
 	                                     O(dirty). `lastChildVisits` counts CALLS, never
 	                                     iterations, and this task does not claim the
 	                                     iteration count
-	11  `record`'s slot maintenance      SERVED. A skipped child never runs `record`, so
-	    (`node.mStamp`, `mA*`/`mB*`)     its stamp and slots are not refreshed — and
-	                                     they do not need to be: a skipped child is
-	                                     measure-clean AND a node-store HIT, so its
-	                                     layout node is the SAME TABLE and its warm
-	                                     slots survive the tick that skipped it.
-	                                     `lastMeasured` UNMOVED is the witness, and if
-	                                     it ever moves the skip served a child this
-	                                     build actually re-measures — a finding, not a
-	                                     re-record
+	11  `record`'s slot maintenance      SERVED, and ▲ THE REASON WAS RESTATED (review
+	    (`node.mStamp`, `mA*`/`mB*`)     round 1, M-1). The first version said "a
+	                                     skipped child is a node-store HIT, so its
+	                                     layout node is the SAME TABLE and its slots
+	                                     survive" — which is FALSE for an
+	                                     arrange-dirty, measure-clean child:
+	                                     `layout_node.build`'s `store.dirty` is the
+	                                     renderer's `nodeDirty`, every dirty path of
+	                                     EVERY class plus prefixes, which is strictly
+	                                     wider than `measureContains`, so such a child
+	                                     IS rebuilt (fresh node, `mStamp = nil`) while
+	                                     the memo still skips it. The verdict survives
+	                                     on a tighter argument: a skipped child is
+	                                     measure-clean at an unchanged `measureStamp`,
+	                                     which is C2's OWN serve gate — so without the
+	                                     memo `measure` would have taken the serve and
+	                                     returned THROUGH `record`, where the matching
+	                                     slot's `mAW == w and mAH == h and mACuts ==
+	                                     cuts` is an unconditional early return with
+	                                     zero writes. `record` under a serve is a
+	                                     no-op, so the memo owes it nothing.
+	                                     `lastMeasured` UNMOVED is a consistent
+	                                     witness, not a sufficient one — and if it
+	                                     moves, the skip served a child this build
+	                                     actually re-measures, which is a finding
 
 	── WHY THE ID KEY, AND WHAT IT IS NOT ───────────────────────────────────────────
 	The carrier gate compares the MOUNT node's `node.children` by identity. The array
@@ -99,11 +120,17 @@
 	`child.id` IS THE MOUNT PATH (`render/layout_node`'s `id = node.path`): stable
 	across a rebuild of the child, unique among siblings because paths are — and NOT AN
 	IDENTITY. A region that re-creates DIFFERENT content under the SAME path is a
-	structural change, and what refuses it is one level up, where a structural solve
-	widens `measureContains` to the whole `dirtyContains` set (`render/renderer`), so
-	the re-created child is measure-dirty and the skip arm never fires for it. The case
-	"the SAME PATH with different content" drives exactly that and pins the geometry;
-	the id key cannot see it and does not claim to.
+	structural change, and what refuses it is one level up. ▲ NAMED PRECISELY (review
+	round 1, M-2): it is **`structural_scope.widen(structural.contains,
+	nodeStore.builtIds)`** (`renderer.luau:2014`), which mutates in place the very
+	table `measureContains` points at — NOT the `measureContains = dirtyContains`
+	assignment three hundred lines below it, which alone would not cover this, because
+	the re-created path is a DESCENDANT of the dirty region path and both
+	`dirty_closure.of` and `structural_scope.plan` close over ANCESTORS. The re-created
+	node is a new mount node, so `layout_node.build` constructs it and its path lands
+	in `builtIds`; the widen puts it in the measure-dirty set and the skip arm never
+	fires for it. The case "the SAME PATH with different content" drives exactly that
+	and pins the geometry; the id key cannot see it and does not claim to.
 
 	── WHAT THE COUNTER COUNTS ──────────────────────────────────────────────────────
 	`lastChildVisits` is `measure` calls made by PASS 1 of a stack's measure branch —
@@ -127,6 +154,12 @@ local scene = require("./lib/deep_stack_scene")
 local nameplates = require("./lib/nameplates_scene")
 local device_views = require("./lib/device_views")
 local solver = require("../src/layout/solver")
+local UI = require("../src/blueprint")
+local mountLib = require("../src/mount")
+local environment = require("../src/env/environment")
+local renderer = require("../src/render/renderer")
+local customFactory = require("../src/core/custom")
+local fake_target = require("./lib/fake_target")
 
 local ROWS = 1000
 local GATE_ROW = scene.GATE_ROW
@@ -165,6 +198,119 @@ local function drove(fn: () -> ()): string
 	end
 	local w = capture.result.work
 	return `solves={n} calls={w.measureCalls} served={w.measureServed} measured={w.measured} visits={w.childVisits}`
+end
+
+--[[ THE LADDER FIXTURE, local to the one case that needs it (owed row 3). It is not an
+	arm of `deep_stack_scene` because nothing else in this file is a `ViewThatFits`, and
+	the shape is load-bearing in a way a shared opt would hide: the rich rung is a
+	MEASURE-DIRTY VStack (so C2's serve refuses it and `contentSize` is entered at all),
+	its row 1 carries the dirt, and its row 2 holds ONE UNBROKEN WORD wider than the
+	40px offer — a phrase would wrap, and wrapping is fitting. The honest rung is no
+	TALLER than the cut one, because a taller honest rung loses the ladder's undercut
+	rule and the case would pass for the wrong reason. ]]
+local function fitsScene(opts: any): any
+	local core = customFactory.new()
+	local env = environment.new(core)
+	env:set("viewportRect", { x = 0, y = 0, w = 400, h = 400 })
+	local rowWidth = core:signal(20)
+	local rows: { any } = {}
+	for i = 1, 6 do
+		rows[i] = UI.HStack({
+			id = `Row{i}`,
+			padding = 0,
+			gap = 0,
+			width = { type = "content" },
+			height = { type = "content" },
+			children = {
+				if i == 2
+					then UI.Text({ id = "Long", text = "Reconfiguration" })
+					elseif i == 1 then UI.Box({
+						id = "B",
+						width = core:memo(function(use: any)
+							return { type = "fixed", px = use(rowWidth) :: number }
+						end),
+						height = { type = "fixed", px = 10 },
+					})
+					else UI.Box({
+						id = "B",
+						width = { type = "fixed", px = 20 },
+						height = { type = "fixed", px = 10 },
+					}),
+			},
+		})
+	end
+	local bp = UI.Screen({
+		id = "S",
+		children = {
+			UI.VStack({
+				id = "Root",
+				padding = 0,
+				gap = 0,
+				width = { type = "fill", weight = 1 },
+				height = { type = "content" },
+				children = {
+					UI.ViewThatFits({
+						id = "Fits",
+						width = { type = "fixed", px = 40 },
+						children = {
+							UI.VStack({
+								id = "Rich",
+								padding = 0,
+								gap = 0,
+								width = { type = "content" },
+								height = { type = "content" },
+								children = rows,
+							}),
+							UI.Box({
+								id = "Plain",
+								width = { type = "fixed", px = 20 },
+								height = { type = "fixed", px = 20 },
+							}),
+							UI.Box({
+								id = "Fallback",
+								width = { type = "fixed", px = 20 },
+								height = { type = "fixed", px = 10 },
+							}),
+						},
+					}),
+				},
+			}),
+		},
+	})
+	local root = mountLib.mount(core, bp)
+	local adapter = fake_target.new({})
+	local controller = renderer.attach(core, root, env, adapter, {
+		rootPolicy = "edgeToEdge",
+		incrementalLayout = opts.incremental ~= false,
+		measureReuse = opts.measureReuse ~= false,
+		layoutNodeReuse = true,
+		commitScope = true,
+		translateHosts = true,
+	})
+	controller.initialRender()
+	local w: any = {}
+	function w.driveRow(value: number)
+		rowWidth:set(value)
+		controller.refresh()
+	end
+	-- WHICH RUNG WON, read the way `tests/adaptive.spec.luau` reads it: the rungs the
+	-- ladder did not choose are arranged at zero width
+	function w.chosen(): string
+		local out = {}
+		for _, id in { "Rich", "Plain", "Fallback" } do
+			local n = adapter.node(`/S/Root/Fits/{id}`)
+			table.insert(out, `{id}={if n ~= nil and n.rect ~= nil then n.rect.w else -1}`)
+		end
+		return table.concat(out, " ")
+	end
+	function w.stats(): any
+		return controller.stats()
+	end
+	function w.dispose()
+		controller.dispose()
+		root.dispose()
+	end
+	return w
 end
 
 describe("T13: one changed row does not make 999 parents ask again", function()
@@ -423,6 +569,67 @@ describe("T13: the channels a skipped child owes", function()
 		s.dispose()
 	end)
 
+	it("a memoising stack inside a `ViewThatFits` candidate replays its CUTS (row 3)", function()
+		--[[ THE ONE SERVED NUMBER WITH NO GEOMETRIC SHADOW, and the case the first
+			version of this file did not have (review round 1, I-2). `mCuts[idx]` is the
+			`ctx.fitCuts` delta a child's own measure produced. Nothing downstream reads
+			it as geometry — it reaches the world through ONE test, `chosenCandidate`'s
+			`local uncut = ctx.fitCuts == cutsBefore`, which asks whether a candidate
+			would paint an ellipsis. Under-count it and a candidate that WILL be cut
+			looks honest and wins.
+
+			THE SHAPE IS WHAT MAKES IT REACHABLE, and two earlier attempts were vacuous.
+			The candidate must be MEASURE-DIRTY so C2's node-resident serve refuses it
+			and `contentSize` is actually entered (a clean candidate is served whole from
+			its own two slots, and then C2 — not this memo — replays the cuts). Its
+			CUTTING child must be clean, and it must be a CONTAINER rather than a `text`,
+			because a `text` child is never skipped. So: a ladder whose rich rung is a
+			VStack of rows, row 1 driven by a signal (the dirt), row 2 holding one
+			unbroken word the 40px offer cannot hold (the clamp — a phrase would WRAP,
+			which is not a cut). Row 2 is skipped on every tick after the first, and its
+			cut has to come back from `mCuts`.
+
+			Measured: with `ctx.fitCuts += 0` in the skip arm the ladder picks the CUT
+			rung (`Rich=40 Plain=0`) on two of the four drives while a full solve keeps
+			`Plain`. Every drive is compared against that full-solve arm. ]]
+		withWorkCapture(function()
+			local a = fitsScene({})
+			local c = fitsScene({ incremental = false, measureReuse = false })
+			expect(`{a.chosen()} | {c.chosen()}`).toBe("Rich=0 Plain=20 Fallback=0 | Rich=0 Plain=20 Fallback=0")
+			for step = 1, 4 do
+				local solves = capture.solves
+				-- the ground-truth arm is driven FIRST so the captured solve is arm `a`'s:
+				-- the audited replay below re-solves it, and arm `c`'s opts carry no
+				-- `reuse` at all, so replaying THAT would compare nothing and say so
+				c.driveRow(20 + step)
+				a.driveRow(20 + step)
+				expect(`step {step}: solves={capture.solves - solves} {a.chosen()} | {c.chosen()}`).toBe(
+					`step {step}: solves=2 Rich=0 Plain=20 Fallback=0 | Rich=0 Plain=20 Fallback=0`
+				)
+			end
+			--[[ ...AND THE MEMO REALLY IS LIVE ON THE LADDER'S RUNG, which is what stops
+				this being a case about `ViewThatFits` alone: after the first drive the rich
+				rung's own loop asks about the ONE dirty row, where the full walk is six
+				rows plus the ladder's own child. ]]
+			expect(`visits={a.stats().lastChildVisits}`).toBe("visits=5")
+			--[[ ...AND THE AUDIT ARM IS ASKED THE SAME QUESTION HERE, which is the only
+				place in this file it can be asked at all: `mCuts` is the one recorded
+				number with no geometric shadow, and the nine-view audited replay runs on
+				fixtures where nothing truncates, so every `mCuts` there is legitimately
+				zero and a corrupted recording is indistinguishable. This tree cuts. With
+				the memo's cuts recorded as 0 the assert fires here — measured — and
+				without the `mCuts` term in it, it does not. ]]
+			local audited = table.clone(capture.opts)
+			audited.containerMemoAudit = true
+			local checked = solver.solve(capture.root, capture.viewport, audited)
+			if checked.work.memoChecks < 1 then
+				error(`the ladder's audited replay compared {checked.work.memoChecks} memo entries`, 0)
+			end
+			a.dispose()
+			c.dispose()
+		end)
+	end)
+
 	it("a `shrinkWeight` ARRIVING on a container that already memoised (row 4, restated)", function()
 		--[[ REVIEW ROUND 3, SHOULD-FIX 3. `memoable = false` does NOT clear `hit`: on the
 			tick the weight arrives the key still matches, so the memo IS hit and PASS 1.5
@@ -449,6 +656,50 @@ describe("T13: the channels a skipped child owes", function()
 			end)).toBe("solves=1 calls=2007 served=2001 measured=5 visits=1001")
 			s.dispose()
 		end)
+	end)
+end)
+
+describe("T13: the container's own offer is half the key", function()
+	it("the container's vertical PADDING moves what its clean children are offered (`mOffH`)", function()
+		--[[ THE HEIGHT HALF OF THE OFFER KEY, WITNESSED (review round 1, M-5). The first
+			version of this task recorded `mOffH` as an unreachable null: inside
+			`contentSize` the offered height is the PARENT's, never narrowed by the node's
+			own height the way `innerMaxW` is by its own width, so no drive in the repo
+			moved it without a full solve.
+
+			A CONTAINER'S OWN VERTICAL PADDING DOES. `innerMaxH` is `maxH - pt - pb`, and
+			padding is measure-classed dirt on the container ALONE — so every child stays
+			clean while the question they were recorded under changes. The gate row is a
+			vertically-wrapping stack, whose measured WIDTH is a function of the offered
+			HEIGHT: without a child that READS the offer, serving a stale answer produces
+			the same number and the term is unfalsifiable.
+
+			Measured with the term dropped: the snapshot diverges from a full solve at
+			pads 350 and 355 — the offer crosses the point where the four boxes stop
+			fitting in one column — and `visits` reads 1 where the shipped key reads 13. ]]
+		local a = scene.new({ rows = 12, listPad = true, coupledRow = true })
+		local c = scene.new({ rows = 12, listPad = true, coupledRow = true, incremental = false, measureReuse = false })
+		local function agree(step: string)
+			if a.snapshot() ~= c.snapshot() then
+				error(`{step}: the incremental arm diverged from a FULL solve`, 0)
+			end
+		end
+		a.text(5, "warm")
+		c.text(5, "warm")
+		a.text(5, "x")
+		c.text(5, "x")
+		agree("text")
+		expect(`visits={a.stats().lastChildVisits}`).toBe("visits=2")
+		for _, pad in { 340, 350, 355, 300 } do
+			a.listPad(pad)
+			c.listPad(pad)
+			agree(`pad {pad}`)
+			-- the memo REFUSED at the new offer and refilled: a full walk of the twelve
+			-- rows plus the Screen's one child, every tick the offer moves
+			expect(`pad {pad}: visits={a.stats().lastChildVisits}`).toBe(`pad {pad}: visits=13`)
+		end
+		a.dispose()
+		c.dispose()
 	end)
 end)
 
@@ -578,6 +829,11 @@ describe("T13 oracle: byte-equal to a full solve, every view, every drive kind",
 	for _, fixture in FIXTURES do
 		it(`{fixture.name}: rects and the public readers survive the memo`, function()
 			for _, view in device_views.VIEWS do
+				--[[ THE CAPTURE IS ARMED FOR THE WHOLE VIEW, so the audited replay below
+					replays arm `a`'s LAST solve — the one the final `agree` just checked.
+					Arms `b` and `c` solve inside the same window and would overwrite it,
+					so the three arms are driven in a fixed order and `a` is driven last
+					on the final step. ]]
 				local a, b, c = arms(view, fixture)
 				local label = `{fixture.name}/{view.id}`
 				local function agree(step: string)
@@ -607,6 +863,47 @@ describe("T13 oracle: byte-equal to a full solve, every view, every drive kind",
 					b.viewport(view.w - step, view.h - step)
 					c.viewport(view.w - step, view.h - step)
 					agree(`viewport {step}`)
+				end
+				--[[ ...AND THE SECOND PASS, AUDITED (the brief's step 6; review round 1's
+					M-3 recorded its absence as a scope deviation). The audit is a SOLVER
+					opt (ruling L-4), so a mounted arm cannot turn it on — but the solve an
+					arm just ran can be REPLAYED with it. One more drive on arm `a` alone,
+					captured, then re-solved with `containerMemoAudit = true`: that forces
+					the full walk and makes every container compare its memoised numbers —
+					`mMain`, `mCross` and `mCuts` — against the real ones, inside the
+					solve, at this fixture and this viewport. `b` and `c` take the same
+					drive afterwards (outside the capture window, so the captured solve
+					stays arm `a`'s) and the snapshot is compared again. The guard is the
+					`childVisits` pair: equal numbers would mean the replay asserted
+					nothing. ]]
+				a.text(2, "audit-warm")
+				b.text(2, "audit-warm")
+				c.text(2, "audit-warm")
+				agree("audit warm-up")
+				withWorkCapture(function()
+					a.text(2, "audit")
+				end)
+				b.text(2, "audit")
+				c.text(2, "audit")
+				agree("audit drive")
+				local audited = table.clone(capture.opts)
+				audited.containerMemoAudit = true
+				local checked = solver.solve(capture.root, capture.viewport, audited)
+				--[[ THE GUARD IS THE AUDIT'S OWN COUNTER, NOT A PROXY. `childVisits` was
+					tried and is unsound here: a REPLAY is a second solve over the same
+					tree, so C2's node slots are warm and the audited pass can enter FEWER
+					containers than the plain one — the guard read "asserted nothing" on
+					two fixtures where the audit was in fact running. `memoChecks` counts
+					the comparisons themselves. A shape that records nothing (the `shrink`
+					fixture, whose weight takes its container out of the memo) legitimately
+					reads zero, which is why the minimum is asked per fixture. ]]
+				local floor = if fixture.name == "shrink" then 0 else 1
+				if checked.work.memoChecks < floor then
+					error(
+						`{label}: the audited pass compared {checked.work.memoChecks} memo entries, `
+							.. `expected at least {floor}`,
+						0
+					)
 				end
 				a.dispose()
 				b.dispose()
@@ -650,6 +947,14 @@ describe("T13 oracle: the memo checks its own arithmetic on EVERY container", fu
 			local audited = table.clone(opts)
 			audited.containerMemoAudit = true
 			local checked = solver.solve(root, viewport, audited)
+			--[[ NON-VACUITY, ASKED OF THE AUDIT ITSELF (review round 1, I-3):
+				`memoChecks` counts the comparisons the audit made. The `childVisits` pair
+				beside it is the second half of the same statement — the plain replay
+				serves where the audited one walks — and is kept because it is what says
+				the memo was LIVE on this tree rather than merely present. ]]
+			if checked.work.memoChecks < 900 then
+				error(`{view.id}: the audit compared only {checked.work.memoChecks} memo entries`, 0)
+			end
 			if plain.work.childVisits >= checked.work.childVisits then
 				error(
 					`{view.id}: the audit arm asserted nothing — plain={plain.work.childVisits} `
@@ -669,9 +974,23 @@ describe("T13 oracle: the memo checks its own arithmetic on EVERY container", fu
 		end
 	end)
 
-	it("...and the audit arm reaches every gate shape, not only the plain one", function()
-		-- the same replay over the four shapes whose arithmetic differs: a fill child,
-		-- a shrink child (PASS 1.5 live), a nested stack and a spliced region
+	it("...and the audit arm reaches every gate shape, with a ground truth per shape", function()
+		--[[ REWRITTEN (review round 1, I-3). The first version asserted
+			`expect("visits>0").toBe("visits>0")` — a literal compared with itself, the
+			"check that proves nothing" class — and `childVisits < 100`, which 120 rows
+			satisfy whether the memo was ever armed. It carried no plain-vs-audited pair
+			and compared no rects, so an edit that broke the arithmetic on exactly the
+			four shapes it exists to cover would pass it silently.
+
+			IT NOW ASKS THREE THINGS PER SHAPE. (1) The plain replay really is memoising:
+			`plain.childVisits` is far below the audited walk, which is the non-vacuity
+			guard the case above uses and this one lacked. (2) The audited replay walks
+			every child, which is what makes the per-container assert run at all. (3) A
+			GROUND TRUTH: a third solve with `reuse` and `measures` removed, where both
+			the memo and C2's serve are structurally unreachable, compared rect by rect
+			against the memoised one. That is the arm `c` of this file's mount-level
+			oracle, taken at the direct-solve level so it can be asked of a captured solve
+			the audit is also asked of. ]]
 		for _, opts in
 			{
 				{ rows = 120, fill = true },
@@ -680,18 +999,54 @@ describe("T13 oracle: the memo checks its own arithmetic on EVERY container", fu
 				{ rows = 120, foreach = true },
 			}
 		do
+			local label = if opts.fill
+				then "fill"
+				elseif opts.shrink then "shrink"
+				elseif opts.nested then "nested"
+				else "foreach"
 			withWorkCapture(function()
 				local s = scene.new(opts)
 				s.text(50, "warm")
 				s.text(50, "x")
 				s.dispose()
 			end)
+			local root, viewport = capture.root, capture.viewport
+			local plain = solver.solve(root, viewport, capture.opts)
 			local audited = table.clone(capture.opts)
 			audited.containerMemoAudit = true
-			local checked = solver.solve(capture.root, capture.viewport, audited)
-			expect(`visits>{0}`).toBe(`visits>{0}`)
-			if checked.work.childVisits < 100 then
-				error(`the audited replay walked only {checked.work.childVisits} children`, 0)
+			local checked = solver.solve(root, viewport, audited)
+			--[[ NON-VACUITY PER SHAPE, and the `shrink` row is the one that made a
+				`childVisits` guard unusable: a `shrinkWeight > 0` child takes its whole
+				container out of the memo, so that shape records nothing, compares nothing
+				and legitimately walks the same children twice. Its claim is the
+				ground-truth compare below; the other three must actually have compared. ]]
+			local floor = if opts.shrink then 0 else 1
+			if checked.work.memoChecks < floor then
+				error(
+					`{label}: the audit compared {checked.work.memoChecks} memo entries, `
+						.. `expected at least {floor}`,
+					0
+				)
+			end
+			--[[ ...AND THE GROUND TRUTH. `reuse` nil is the whole mechanism gone: no
+				memo (its gate asks for `ctx.reuse` first), no node-resident serve, no
+				cross-solve store. Every rect the memoised solve produced has to be this
+				solve's rect. ]]
+			local truth = table.clone(capture.opts)
+			truth.reuse = nil
+			truth.measures = nil
+			local c = solver.solve(root, viewport, truth)
+			local compared = 0
+			for id, entry in c.rects do
+				local other = (plain.rects :: any)[id]
+				local r, o = entry.rect, if other ~= nil then other.rect else nil
+				if o == nil or r.x ~= o.x or r.y ~= o.y or r.w ~= o.w or r.h ~= o.h then
+					error(`{label}: {id} differs from a solve with no reuse at all`, 0)
+				end
+				compared += 1
+			end
+			if compared < 100 then
+				error(`{label}: the ground-truth compare only saw {compared} rects`, 0)
 			end
 		end
 	end)

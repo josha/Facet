@@ -194,9 +194,10 @@ describe("the solve-context seam: one require, no state, one export", function()
 		end
 		table.sort(missing)
 		table.sort(undeclared)
-		-- 53 -> 55 (Plan C, T13): `childVisits` and `memoAudit`, the container memo's
-		-- counter and its test-only self-check
-		expect(`declared={#sorted(declared)} written={#sorted(written)}`).toBe("declared=55 written=55")
+		-- 53 -> 56 (Plan C, T13): `childVisits` and `memoAudit`, the container memo's
+		-- counter and its test-only self-check, plus `memoChecks` — how many comparisons
+		-- that self-check made, which is what a spec asks to prove it was not vacuous
+		expect(`declared={#sorted(declared)} written={#sorted(written)}`).toBe("declared=56 written=56")
 		expect(`never built={table.concat(missing, " ")}`).toBe("never built=")
 		expect(`undeclared={table.concat(undeclared, " ")}`).toBe("undeclared=")
 		-- NEGATIVE CONTROL: both scans really do read a field and a key

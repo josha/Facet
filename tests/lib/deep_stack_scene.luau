@@ -162,6 +162,18 @@ export type Opts = {
 		runs, and the case measures nothing. The width must want content; the height must
 		be the thing the drive moves. ]]
 	listHeight: boolean?,
+	--[[ ...and the drive that moves the offered HEIGHT of a container whose children
+		are CLEAN, which is the one shape the `mOffH` half of the memo's key can be
+		witnessed on (review round 1, M-5). It is `List`'s own VERTICAL PADDING, driven
+		by a signal: padding is measure-classed dirt on the container alone, and
+		`contentSize` derives `innerMaxH` from `maxH - pt - pb`, so a write moves what
+		every child is offered on the main axis while moving nothing else. Pair it with
+		`coupledRow`, whose wrapping child's measured WIDTH is a function of the offered
+		height — without a child that READS the offer, serving a stale answer produces
+		the same number and the term is unfalsifiable. Nothing else in this fixture
+		narrows a stack's height offer without a full solve, which is why the first
+		version of this task recorded `mOffH` as an unreachable null. ]]
+	listPad: boolean?,
 	--[[ ...and A `text` DIRECT CHILD OF `List` (owed row 2). A `text` child publishes
 		three verdict channels no cached number can carry, so it is refused — PER CHILD.
 		The arm exists to show the OTHER thousand children still memoise around it,
@@ -203,6 +215,7 @@ function deep_stack_scene.new(opts: Opts?)
 	local shrinkOn = core:signal(0)
 	local listWidth = core:signal(900)
 	local listHeight = core:signal(700)
+	local listPad = core:signal(0)
 	local items = core:signal({ { key = "i1", kind = "box" }, { key = "i2", kind = "box" } })
 	for i = 1, n do
 		texts[i] = core:signal(`Row {i}`)
@@ -386,7 +399,12 @@ function deep_stack_scene.new(opts: Opts?)
 		children = {
 			UI.VStack({
 				id = "List",
-				padding = 0,
+				padding = if o.listPad
+					then core:memo(function(use: any)
+						local v = use(listPad) :: number
+						return { top = v, right = 0, bottom = v, left = 0 }
+					end)
+					else 0,
 				gap = 2,
 				width = if o.listWidth
 					then core:memo(function(use: any)
@@ -471,6 +489,15 @@ function deep_stack_scene.new(opts: Opts?)
 	-- offered height can see (`Opts.coupledRow`)
 	function scene.listHeight(value: number)
 		listHeight:set(value)
+		controller.refresh()
+	end
+
+	--[[ ...and the container's own VERTICAL PADDING (`Opts.listPad`), which is the one
+		drive here that narrows what its children are offered on the MAIN axis while
+		leaving every one of them clean. See `Opts.listPad` for why the pair with
+		`coupledRow` is what makes it observable. ]]
+	function scene.listPad(value: number)
+		listPad:set(value)
 		controller.refresh()
 	end
 

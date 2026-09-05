@@ -3406,6 +3406,9 @@ function solver.solve(
 			-- ...and T13's: how many of those calls a stack's own measure branch made,
 			-- which is the half a container memo can remove (see `Ctx.childVisits`)
 			childVisits = ctx.childVisits,
+			-- ...and how many comparisons the container memo's AUDIT made, which is zero
+			-- on every solve that did not ask for it (see `Ctx.memoChecks`)
+			memoChecks = ctx.memoChecks,
 			rectInserts = ctx.rectInserts,
 			skipped = ctx.skipped,
 			-- the O3 translate class and its two flat arrays, in document order
