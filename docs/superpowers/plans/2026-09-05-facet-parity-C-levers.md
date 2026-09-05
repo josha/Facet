@@ -2,6 +2,17 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+> **REVISION 3 (2026-09-05), after adversarial review round 2**
+> (`.superpowers/sdd/2026-09-03-facet-parity-C/levers-plan-review-2.md`: T12, T13, T14,
+> T16 NEEDS AMENDMENT; T15 and T17 READY). Round 2 found **three blocking defects, all of
+> them in revision 2's NEW code** — the carrier misaligns under a `ForEach` splice, T14's
+> `pMain` was a placed extent compared against a measured one, and T16's `walked` could
+> not reach `buildDescend` by the route named. **All three are fixed here, and two of them
+> are fixed against MEASUREMENT rather than argument** (rulings A-14, A-15, A-16;
+> §Amendment log — round 2). The headline correction: **T13's gate as written reached
+> 1.4 % of `battle_hud L updateItem-hp`'s measure calls and T14's replay never fired on
+> that class at all.** Read §Amendment log — round 2 before executing any task.
+>
 > **REVISION 2 (2026-09-05), after adversarial review round 1**
 > (`.superpowers/sdd/2026-09-03-facet-parity-C/levers-plan-review.md`, all six tasks
 > NEEDS AMENDMENT). Every MUST-FIX and SHOULD-FIX is dispositioned in **§Amendment log**
@@ -85,17 +96,20 @@ found the *omissions* to be the problem.
 
 | Pair | Shared file / interface | Produces → consumes | Verdict |
 |---|---|---|---|
-| T13 → T14 → T15 | **`store.byNode[node].cmemo`** (ruling A-8) | T13 creates the carrier and the validity gate; T14 adds `p*` fields to the SAME table; T15 adds `childArray` to it | **CLEAN, and mandatory in this order.** One carrier, one gate, three payloads. T14 and T15 must not invent a second home. |
+| T13 → T14 → T15 | **`store.byNode[node].cmemo`** (ruling A-8) | T13 creates the carrier and the validity gate; T14 adds `p*` fields to the SAME table; T15 adds `childArray` to it | **CLEAN, and mandatory in this order.** One carrier, one gate, three payloads. T14 and T15 must not invent a second home. ▲ **The gate is a CONSERVATIVE SUPERSET, not a sufficient condition** (ruling A-14): `prior.kids` is the MOUNT children table and every index-keyed payload is indexed against the LAYOUT children, so T13 and T14 each carry their own `mIds`/`pIds` id key and T15 carries the `store.dirty` child scan. Only T15's payload is safe on the carrier gate alone. |
 | T13 ↔ T14 | `cmemo.mMain` (measure offer) vs `cmemo.pMain` (arrange offer) | T13 writes `mMain` at `(innerMaxW, innerMaxH)`; T14 writes `pMain` at `(innerW, innerH)` | **CLEAN — separated by ruling A-9.** T14 does NOT read or write T13's arrays. The two offers are different questions (`solver.luau:1380` vs `stack.luau:144`). |
 | T13 ↔ T14 ↔ T13-step-4 | `src/layout/solver.luau` characters | 190,112 now; STOP 197,500 → **7,388 usable** | **SPLIT (ruling A-10):** T13 ≤ +3,200, T14 ≤ +1,600, T15 ≤ +0 (it edits `layout_node.luau`), T16 ≤ +400, reserve 2,188. T13 step 4 (L5) spends from T13's own 3,200 or is dropped. Seam-first if T13 alone would exceed 3,200. |
 | T13, T14, T15 → `src/layout/solve_ctx.luau` | `Ctx` type + `new()` initialiser | each adds one counter field (`childVisits`, `arrangeEntries`) | **NOT CLEAN unless listed.** `Ctx` is declared in `solve_ctx.luau` (`:79,:89,:131,:178,:194,:248,:249,:252,:269,:274`), NOT in `solver.luau`; `new()` is `:311-377`. **Both files are in each task's Files list now.** `tests/solve_ctx_seam.spec.luau` pins the field-set size — each task moves it. |
-| T13, T14, T15 → `src/render/render_stats.luau` + **`tests/render_stats_seam.spec.luau`** | one new `last*` field each | the seam spec pins the export set (`:89`), the `new()` field sample (`:104-119`), the **4-arg `publish` call** (`:126`, `:135`) and "one `new`, one `publish`" in the renderer (`:163`) | **NOT CLEAN — three commits, one spec.** Each task has an explicit step for it. The `publish` SIGNATURE does not change in this wave (all three read from `work` / `nodeStore`), so `:126`'s call site is untouched; only the field sample at `:104-119` grows. |
-| T15 ↔ T16 | `src/render/renderer.luau` characters | T15 needs `stats.lastBuildChildVisits = nodeStore.childVisits` beside `:2024`; T16 needs two tables into the commit ctx at `:1536` | **NOT CLEAN — re-split (ruling A-10):** wave cap raised from ≤ +200 to **≤ +400 total**: T15 ≤ +120, T16 ≤ +280. `renderer.luau` is 195,709, STOP 197,500. |
+| T13, T14, T15, **T16** → `src/render/render_stats.luau` + **`tests/render_stats_seam.spec.luau`** | one new `last*` field each — `lastChildVisits`, `lastArrangeEntries`, `lastBuildChildVisits`, **`lastCommitProbes`** | the seam spec pins the export set (`:89`), the `new()` field SAMPLE (`:104-119`), the 4-arg `publish` call (`:126`, `:135`) and "one `new`, one `publish`" in the renderer (`:163`) | ▲ **RE-GRADED (review round 2 §3.7, §3.8): FOUR tasks, and the coupling is WEAKER than revision 2 claimed.** `:104-119` is explicitly *"a SAMPLE of the record's own contract, one field per family, so a field deleted in a later edit is caught here"* — it is a fixed literal list, so **ADDING a `last*` field does NOT redden it and no task should plan a red around it.** Adding the new field to the sample is good practice and stays. **Nothing in this spec catches a new `last*` field; the pin that actually does is each task's OWN equality on its counter, read off the run in its new spec** (Global Constraints, "each task pins TWO numbers"). The genuinely load-bearing pins here — `:89` and `:163` — are untouched by all four tasks. |
+| T15 ↔ T16 | `src/render/renderer.luau` characters | T15 needs `stats.lastBuildChildVisits = nodeStore.childVisits` beside `:2024`; ▲ T16 needs two ARGUMENTS at the `harvest` call (`:2109`), not two ctx fields at `:1536` (ruling A-14's sibling correction, review round 2 §3.5) | **NOT CLEAN — re-split (ruling A-10):** wave cap raised from ≤ +200 to **≤ +400 total**: T15 ≤ +120, T16 ≤ +280. `renderer.luau` is 195,709, STOP 197,500. |
 | T16 → `src/layout/solver.luau` | exporting `work.walkedIds` | `ctx.walkedIds` exists (`solve_ctx.luau:269`, written `solver.luau:2509`, read `:3506`) but is **NOT** on the `work` literal (`solver.luau:3515-3538`) | **NOT CLEAN — now listed.** One line in the `work` literal, budgeted from T16's ≤ +400 solver allowance. |
-| T16 → `src/render/commit_walks.luau` `CommitCtx` | two new fields | `CommitCtx` is a 26-field record (`:176-225`) destructured by `commit_walks.new` (`:227`) and pinned **bidirectionally** by `tests/commit_walks_seam.spec.luau` against the renderer's call and the module's reads | **NOT CLEAN — three test edits mandatory and now listed:** `tests/commit_walks_seam.spec.luau`, `tests/commit_dirt_classes.spec.luau:955`, `tests/commit_translate.spec.luau:317` (the two hand-built ctxs). |
+| T16 → `src/render/commit_walks.luau` **`harvest`** | two new OPTIONAL trailing parameters | `harvest`'s parameter list (`:795-807`, called `renderer.luau:2109`); `commitDirtySet` is the precedent | ▲ **RE-ROUTED (review round 2 §3.5, BLOCKING). `CommitCtx` is NOT touched.** `commit_walks.new` runs ONCE PER ATTACH (`renderer.luau:1532-1536`, its own comment) while `ctx.walkedIds` is a new table every solve, so a ctx field would be frozen at nil. Consequence: `tests/commit_walks_seam.spec.luau`'s bidirectional `CommitCtx` pins (`:203`, `:216`, `:223`) are **untouched**, and `tests/commit_dirt_classes.spec.luau:966-975` / `tests/commit_translate.spec.luau:330-343` — POSITIONAL `walks.harvest(…)` calls, not ctx builders — stay green with the filter off. **Editing those two is optional coverage, not a prerequisite.** |
 | T14 → T16 | `ctx.walkedIds` population | T14's replay `return`s out of `stack.arrange` without entering the placement loop, so a replayed container never `place`s its clean children, so they are never marked walked — which is the same set the solve did not touch | **CLEAN, and now stated in T16's owed list.** Also: `walkedIds` is written only under `if reuse ~= nil` (`solver.luau:2508`), and the commit prune is off on a non-reuse solve (`commit_walks.luau:814` `pruning = enabled and dirty ~= nil and stampSame`) — T16 carries that dependency explicitly instead of inheriting it. |
 | T12 → T13–T16 | `attr` baselines | T12 changes the harness | **CLEAN as ordered (A-2)**, but every "before (post-T12)" number in T13–T16 is a **prediction**; each task re-reads its own before-column at its parent SHA (arm A). |
 | T12 ↔ T13–T16 | **`tests/lib/deep_stack_scene.luau:229`, `tests/lib/nameplates_scene.luau:289`** | T12 gates `ops` per `fake_target.new()` call; these two helpers build the fixtures T13–T16 pin counters on | **NOT CLEAN — resolved by ruling A-11:** `ops` stays **OFF** in both helpers. Arming it there would re-poison the exact rows T12 exists to clean. Specs that need `ops` on those fixtures pass a per-call opt. |
+| **T13, T14, T15, T16, T12 → `tests/run.luau`** | the hand-kept require list | each task registers exactly one new spec (`fake_target_ops_opt`, `container_memo`, `stack_replay`, `build_children_reuse`, `commit_probe_filter`) | ▲ **NOT CLEAN — five commits, one file, and it had NO row** (review round 2 §3.7). Sequential by construction, and each task appends its own line; a task that finds the file already carrying a later task's require has a stale tree and STOPS. |
+| **T13, T14, T15, T16 → `tools/lune/verify/data/source-cap-ledger.md`** | each records a size | T13 `solver.luau`, T14 `solver.luau` + `stack.luau`, T15 `renderer.luau`, T16 all three | ▲ **NOT CLEAN — four commits, one file, and it had NO row** (review round 2 §3.7). Each task appends its own row in its own commit; never rewrite an earlier task's line. |
+| **T13 ↔ T15** | **`layout_node.luau`'s store-entry literal AND the `local prior` read** | T13 introduces `local prior` immediately before the entry write and adds `cmemo`/`kids`; T15 adds `childArray` to the same literal **and HOISTS `local prior` above the child loop at `:1348`** | ▲ **A CODE-MOTION CONFLICT the "CLEAN, and mandatory in this order" row above does not name** (review round 2 §3.7). Ordering fixes it — T13 first, T15 moves T13's own line — but T15's step 3 must state the hoist explicitly and its diff must show the line MOVED, not duplicated. |
 | T12 ↔ the other agent | `tests/zorder_bounded.spec.luau`, `src/render/render_stats.luau` | T12 must arm `ops` in `zorder_bounded.spec:140,146`; T13/T14/T15 all edit `render_stats.luau` | **CLEARED 2026-09-05 — those three files landed as `aade8fac` and the tree is clean.** T12 no longer waits. Still check `git status --short` before starting and record it: the rule is standing, only this instance is closed. `zorder_bounded.spec`'s `ops` call sites may have moved off `:140,:146` in that commit — re-grep. |
 
 ---
@@ -105,10 +119,10 @@ found the *omissions* to be the problem.
 - Facet repo `/Users/josha/Library/CloudStorage/Dropbox/Documents/UntitledRacingGame/GameStudio/ui/Facet`, branch **`facet-parity`**. Commits via `python3 tools/commit_isolated.py -m <msgfile> <path[:marker]>` (`--dry-run` first); **never amend; nothing merged or pushed**.
 - Gates on EVERY Facet commit, FOREGROUND, one lune process at a time: `tools/test.sh` (full); `tools/verify.sh affected --jobs 1` BEFORE committing; `python3 tools/check_source_size.py`; `stylua --check src tests tools bench examples`. After any file EXTRACTION also run `python3 tools/check_brand_drift.py` by hand.
 - **RascalRally lockstep on every Facet `src/` change:** `cd games/RascalRally/code && ./run-tests.sh 2>&1 | tee <transcript>` green at or above the recorded base (T9 closed at **8,452/0** Facet, **3,591/0** RR), plus the rider spec the task names. ▲ **Every task in this wave names its RR rider, T17 included.**
-- ▲ **Source cap, re-split (ruling A-10).** `solver.luau` **190,112**, STOP 197,500 → **7,388 usable**, split T13 ≤ +3,200 · T14 ≤ +1,600 · T16 ≤ +400 · reserve 2,188. `renderer.luau` **195,709** → wave allowance **≤ +400 total**, split T15 ≤ +120 · T16 ≤ +280. `solve_ctx.luau`, `stack.luau` (21,399), `layout_node.luau` (96,496), `commit_walks.luau` (87,667) have no cap constraint. A task that would exceed its split STOPS and takes its named seam first, in its own commit.
+- ▲ **Source cap, re-split (ruling A-10), and RE-CHECKED after the round-2 amendments.** `solver.luau` **190,112**, STOP 197,500 → **7,388 usable**, split T13 ≤ +3,200 · T14 ≤ +1,600 · T16 ≤ +400 · reserve 2,188. ▲ **The round-2 amendments add characters the original split did not anticipate** — T13's `mIds` array and its comment, T14's `pIds`/`pHug`/`pShrink`/`pPrio` arrays and the record block moved up beside the hug pass (in `stack.luau`, which has no cap constraint), and T16's export moving from one field to a conditional. **Each task re-runs `check_source_size` BEFORE writing its comment block and again after stylua**, and a task over its split takes its named seam first (T13 step 0) or spends from the 2,188 reserve with an explicit line in the ledger saying which task took it and why. `renderer.luau` **195,709** → wave allowance **≤ +400 total**, split T15 ≤ +120 · T16 ≤ +280. `solve_ctx.luau`, `stack.luau` (21,399), `layout_node.luau` (96,496), `commit_walks.luau` (87,667) have no cap constraint. A task that would exceed its split STOPS and takes its named seam first, in its own commit.
 - **No public API or behaviour change.** ▲ **No public counter may move except the ones each task names in its Interfaces block**, and a task that moves one re-records every pin on it — Facet AND RascalRally — in the SAME commit.
 - **Counters, never wall-time.** Every demonstrator pins a counter AND `solves=N`; `scene.new()` → ONE discarded warm-up tick → the measured tick; pin idiom `` expect(`name={actual}`).toBe(`name={expected}`) ``. ▲ **Every acceptance number is an EQUALITY read off the run — never an inequality** (review cross-cutting: an inequality cannot be written in the mandated idiom). ▲ **Each task pins TWO numbers: (a) an EXISTING counter that moves, as equality at base, and (b) its new counter as equality after the counter-only step.** A "red" that is only a nil-index is not a red.
-- ▲ **The AUDIT arm replaces "forced on" (ruling A-12).** T13 and T14 each ship a solve-opt (`containerMemoAudit`, `stackReplayAudit`, both default false, both test-only) that makes the fast path compute its answer **and** the slow one and assert equality inside the solve. The assessment demanded an arm that exercises the arithmetic on every container; forcing the *narrowing* gates off would produce legitimately wrong output, so the arm self-checks instead. Every 9-view oracle in those tasks runs with the audit arm on.
+- ▲ **The AUDIT arm replaces "forced on" (ruling A-12).** T13 and T14 each ship a solve-opt (`containerMemoAudit`, `stackReplayAudit`, both default false, both test-only) that makes the fast path compute its answer **and** the slow one and assert equality inside the solve. The assessment demanded an arm that exercises the arithmetic on every container; forcing the *narrowing* gates off would produce legitimately wrong output, so the arm self-checks instead. Every 9-view oracle in those tasks runs with the audit arm on. ▲ **ITS ROUTE INTO A SPEC IS NOW NAMED (review round 2 §3.7).** `solveOpts` is built internally by the renderer (`renderer.luau:2024+`), so a spec reaches these opts the way the existing controls do — the **ATTACH-OPT path** that `node_reuse.spec`'s `layoutNodeReuse = false` and arm `c`'s `{ measureReuse = false, incremental = false }` already use. The two new opts ride the same channel; each task's step 1 names the attach call it uses, and **each task pins that the flag is ABSENT from the public surface** (a `tests/public_surface*`-class pin, read off the run). Without that route named and that pin recorded, T13 step 6 and T14 step 4 cannot be executed and the opts are an unadvertised public API.
 - **Differential oracle** after every driver step, on the fake adapter, all 9 `device_views.VIEWS` incl. `narrow-portrait` 320x640: `scene.snapshot()` byte-equal to the full-solve arm `c` (`{ measureReuse = false, incremental = false }`); non-vacuity guard; `b`/`d` DRIVEN every step, COMPARED selectively. There is no `controller.refresh({ full = true })` and this wave adds none.
 - **A fast path that skips a function owes a LIST of everything that function published** (the T9 lesson) — written into the spec header and the ledger BEFORE code, per-channel verdict served / gated / stated-unreachable.
 - ▲ **Every task runs `attr` before it commits** (the standing rule T5 booked and no task has yet obeyed), and every task's before-column is READ at its own parent SHA, never inherited from this plan.
@@ -134,7 +148,10 @@ found the *omissions* to be the problem.
 | **A-10** | **NEW. The `solver.luau` and `renderer.luau` budgets are split across the wave, not owned by one task.** solver 7,388 usable → T13 3,200 / T14 1,600 / T16 400 / reserve 2,188; renderer ≤ +400 → T15 120 / T16 280. | Revision 1 asserted T13 was "the only task competing", while T14 adds solver fields, T16 exports `work.walkedIds`, and both T15 and T16 need renderer lines (review T13 SHOULD-FIX 16, T15 MUST-FIX 2, T16 MUST-FIX 3). |
 | **A-11** | **NEW. `ops` stays OFF in `tests/lib/deep_stack_scene.luau` and `tests/lib/nameplates_scene.luau`.** A spec needing `ops` on those fixtures passes a per-call opt through the helper; the helper's default does not change. | Those two helpers build the fixtures T13–T16 pin their counters on. Arming `ops` there re-poisons exactly the rows T12 exists to clean (review T12 MUST-FIX 4). |
 | **A-12** | **NEW. The "forced-on" oracle arm the assessment demanded is an AUDIT arm, not a gate-bypass.** `containerMemoAudit` / `stackReplayAudit` compute both answers and assert equality inside the solve. | T13's shape gates (no `shrinkWeight` child, no verdict-publishing direct child) are CORRECTNESS gates — `solver.luau:1381-1385` builds `shrinkBasis` only in the measuring arm, and `record`'s `publishes` (`solver.luau:1596`) is `kind == "text" or kind == "composition"`. Forcing them off produces legitimately wrong output, so the fuzz would be comparing two wrongs. A self-checking arm exercises the arithmetic on every container the fuzz touches and cannot ship a wrong pixel. |
-| **A-13** | **NEW, and a DISAGREEMENT with the review's T14 NOTE 14 (and with revision 1's own text). `node.distribute` is NOT a refusal term in the amended T14.** | NOTE 14 endorsed refusing `distribute` "because `lead`/`step` make δ non-prefix". True of a prefix REBASE — which A-4's amendment deleted. The amended replay fires only when **no** child's placement inputs changed, so `remaining` (`stack.luau:296`) is unchanged, so `distributionOf(mode, remaining, childCount)` (`stack.luau:343`) returns the same `lead`/`step`, so `cursor` (`stack.luau:349`) starts and advances identically. A `distribute` stack whose contents did not move has not moved. Refusing it would cost the lever every distributed row list for no correctness gain. The gate that replaces it is the one that makes the argument true: **every dirty child's main AND cross contributions, `align` and `lineAlign` unchanged, plus `node.gap`, `node.align` and the inner box unchanged.** |
+| **A-13** | **NEW, and a DISAGREEMENT with the review's T14 NOTE 14 (and with revision 1's own text). `node.distribute` is NOT a refusal term in the amended T14.** | NOTE 14 endorsed refusing `distribute` "because `lead`/`step` make δ non-prefix". True of a prefix REBASE — which A-4's amendment deleted. The amended replay fires only when **no** child's placement inputs changed, so `remaining` (`stack.luau:296`) is unchanged, so `distributionOf(mode, remaining, childCount)` (`stack.luau:343`) returns the same `lead`/`step`, so `cursor` (`stack.luau:349`) starts and advances identically. A `distribute` stack whose contents did not move has not moved. Refusing it would cost the lever every distributed row list for no correctness gain. The gate that replaces it is the one that makes the argument true: **every dirty child's main AND cross contributions, `align` and `lineAlign` unchanged, plus `gap` (the PARAMETER — `gap` is not a node field), `node.align` and the inner box unchanged.** ▲ **PARTIALLY SUPERSEDED by ruling A-15:** the argument above is about a `distribute` stack whose CONTENTS did not move, and it stands as written. It says nothing about a write that changes `node.distribute` ITSELF, which dirties the container and no child — so `pDistribute` IS a key term. |
+| **A-14** | **NEW (review round 2 §3.1, BLOCKING). Every INDEX-KEYED payload on `cmemo` carries its own `id` array and compares it per child. The carrier gate (`prior.kids == node.children`) is a CONSERVATIVE SUPERSET, never a sufficient condition.** | `prior.kids` is the **mount** node's children; the arrays are indexed against the **layout** node's children, and `layout_node.luau:1357-1364` splices `When`/`ForEach`/`ErrorBoundary` grandchildren into the parent's flow, so the two are different lists. `mount.luau:450` replaces a REGION's `node.children`, never the enclosing panel's, so on `battle_hud`'s `addItem-damage`/`removeItem-damage` the panel's `prior.kids == node.children` HOLDS while every later index shifts. And `node.children` **is** mutated in place, at `mount.luau:197` (When exit-finish) and `:465` (ForEach exit-finish), each followed by `pushDirty(path, "structure")` (`:202`, `:470`). **Measured at `92d3e7e4`:** the index-keyed gate reads 98.0–100 % skippable on exactly those classes; the id-keyed one reads 0.0 %, and 0.0 % is the correct answer for a class whose indices moved. T15 is immune for a DIFFERENT reason — it scans `store.dirty[child.path]` over the mount children and `renderer.luau:2795-2804`'s prefix walk marks a region's own path — and that difference is now stated at both sites. |
+| **A-15** | **NEW (review round 2 §3.3). T14's gate gains `node.distribute` (as the key term `pDistribute`), `child.shrinkWeight` and `child.layoutPriority` (as per-child arrays).** | Each changes a rect with **no measurement change**. `node.distribute` (`stack.luau:328`, consumed `:343`) dirties the CONTAINER and no child, so the replay's loop — which tests `dirty[child.id]` — finds nothing to re-measure and every child keeps its old cursor position. `child.shrinkWeight` (read `stack.luau:188`, consumed by `shrinkLib.stack` at `:208`) and `child.layoutPriority` (read inside that call, `shrink.luau:335`) dirty the CHILD, this arm re-measures it, the measurement is unchanged because neither is a measure input, and the shrink redistribution that should have happened is skipped. The alternative the review offered — refusing whenever the container itself is in `dirty` — is rejected: measured, that would cost every `setState` class, and `setState` is T14's actual headline. |
+| **A-16** | **NEW (review round 2 §3.6). T13's `text`/`composition` refusal is PER CHILD only; the container-level `memoable = false` is DELETED.** | The per-child term already refuses every publisher, so `record` publishes exactly as today — the container-level kill added no safety and cost the lever its own headline. **Measured at `92d3e7e4`**, as the share of `contentSize`'s per-child `measure` calls the id-keyed skip arm can serve: 1.4 % with it and **96.8 %** without, on `battle_hud L updateItem-hp`; 3.3 % vs 97.2 % on `battle_hud L setState`; **0.0 % vs 75.2 %** on `killfeed L updateItem-hp`. `war_room_inventory` is unaffected either way (99.4–99.7 %) because its rows hold no direct `text` child — which is exactly why measuring one workload would have been the wrong evidence. |
 
 ---
 
@@ -221,8 +238,11 @@ have moved the two call sites off `:140`/`:146`.
 		KEYED ON THE PARENT PATH, WHICH IS WHAT THE PREFIX TEST MEANT. The old test
 		matched `prefix = path .. "/"`, so `/S/Host2/Leaf` was NOT under `/S/Host` — the
 		trailing separator is the whole of the semantics, and a bare-prefix index would
-		silently widen it. `parentPathOf` cuts at the LAST separator, the same cut
-		`hostFor` walks.
+		silently widen it. `parentPathOf` cuts at the LAST separator, which is where
+		`hostFor` STARTS — not the whole of what `hostFor` does. `hostFor` (`:247-258`)
+		keeps walking separators upward until it finds a REGISTERED host; this stops at
+		the first cut. One cut per level is exactly right for a parent-keyed index that
+		is then recursed, but the two are not the same walk (review round 2 §3.7).
 
 		AND THE SELECTION IS BY PATH WHILE THE COMPUTATION IS BY HOST CHAIN, exactly as
 		today. `spaceOriginOf` walks `handle.instanceHost`, never the composed node's
@@ -265,15 +285,18 @@ have moved the two call sites off `:140`/`:146`.
 	end
 ```
 
-  **The site sets, verified and NOT equal in size (review MUST-FIX 1 — revision 1's pin
-  was false by construction):** `nodes[…] = <value>` at **`:482`** (`create`) and
-  **`:1029`** (`adopt`); `nodes[…] = nil` at **`:873`** (`remove`), **`:936`**
-  (`discardParked`'s neighbour) and **`:1124`** (`destroyRoot`). So `indexNode` is called
-  at `:482` **only** — `adopt`'s new key is indexed too, and its **old key is left in
-  place deliberately** to match today's walk — and `unindexNode` at `:873`, `:936`,
-  `:1124`. **The pin is therefore "2 index sites for 2 `nodes[x] = v` writes minus the
-  adopt exception, 3 unindex sites for 3 deletes", written as an explicit enumerated list
-  in the spec, not a count equality.**
+  **The site sets, verified, and stated ONCE (review round 2 §2 MUST-FIX — revision 2's
+  prose contradicted itself inside one sentence):** `nodes[…] = <value>` at **`:482`**
+  (`create`) and **`:1029`** (`adopt`'s new key); `nodes[…] = nil` at **`:873`**
+  (`remove`), **`:936`** (`discardParked`'s neighbour) and **`:1124`** (`destroyRoot`).
+  **`indexNode` is called at BOTH `:482` AND `:1029`.** The re-keyed handle has to be in
+  the index: absent from `childrenOf`, the recursion would miss a whole subtree that
+  today's prefix walk finds — the exact divergence fixture (c) exists to forbid.
+  **`unindexNode` at `:873`, `:936` and `:1124`.** `adopt`'s OLD key is deliberately left
+  in BOTH `nodes` and `childrenOf`, because today's walk still visits it. **The pin is an
+  explicit enumerated list — 2 index sites, 3 unindex sites, and the named adopt
+  exception — never a count equality against the `nodes[x] = v` write count.** (Task 12's
+  implementer has already been handed this ruling directly; the plan now agrees with it.)
 
   The walk at `:657-660` becomes a recursion over the index:
 
@@ -354,13 +377,15 @@ answered "may this CHILD be served"; this asks "may this PARENT skip asking".
 | # | channel | site | verdict |
 |---|---|---|---|
 | 1 | `ctx.offers[child.wKey]` / `[child.hKey]` | `solver.luau:1758-1759`; consumed by the entry literal at `solver.luau:2429-2437` | **SERVED** — written from the offer in hand, and the serve writes the **raw** `maxH` there, so the raw `innerMaxH` is the right value. **This is T11's finding and it is not optional**: a `nil` offer disarms both anchor arms for the life of the surface (T7 finding 2) |
-| 2 | `ctx.textStates` / `ctx.compact` / `ctx.textFacts` | `solver.luau:1766-1770`; publishers are exactly `kind == "text" or kind == "composition"` (`record`, `solver.luau:1596`) | **GATED, not served** (amended). A direct child of either kind is never skipped. Revision 1 replayed them from the child's `mA*`/`mB*` slots using a **two-term** A/B test where `record` requires three (`mAOfferW`, `mAOfferH`, `mAScope` — review MUST-FIX 6); refusing those two kinds outright removes the slot read entirely and costs a handful of measures per container |
+| 2 | `ctx.textStates` / `ctx.compact` / `ctx.textFacts` | `solver.luau:1763-1766`; publishers are exactly `kind == "text" or kind == "composition"` (`record`, `solver.luau:1596`) | **GATED PER CHILD — and per child ONLY** (RE-AMENDED, review round 2 §3.6). A direct child of either kind is never skipped, and that is the whole of the safety argument: an unskipped child is measured, so `record` publishes exactly what it publishes today. Revision 2 ALSO killed the container's entire memo at the first such child, and **measurement says that second term costs the lever its own headline**: at `92d3e7e4`, of the per-child `measure` calls `contentSize` issues on a one-leaf update, the skip arm can serve **1.4 %** on `battle_hud L updateItem-hp` with the container-level kill and **96.8 %** without it; `killfeed L updateItem-hp` **0.0 %** vs **75.2 %** (Amendment log round 2, measurement L-1a). It is not needed for correctness — the per-child term already refuses every publisher — so **the container-level kill is DELETED and only the per-child refusal remains** |
 | 3 | `ctx.fitCuts += <child's contribution>` | `solver.luau:1771`, and `record`'s `cuts = ctx.fitCuts - cutsAtEntry` | **SERVED from the memo's own array** — `cmemo.mCuts[idx]` is recorded as the `ctx.fitCuts` delta across the child's `measure` call in PASS 1, so nothing reads a slot |
 | 4 | `shrinkBasis[idx]` | `solver.luau:1381-1385`, consumed `:1425-1426` | **GATED** (amended; review MUST-FIX 4/5). A container **any** of whose children declares `shrinkWeight > 0` never memoises. PASS 1.5 then cannot run on a memoised container, so `mainSum -= absorbed` (`:1434`) never rebases the numbers the memo holds |
 | 5 | the fill pass's re-measure | `solver.luau:1471-1485` | **NOT SKIPPED, ever** (amended; review MUST-FIX 3). `crossOf` and `marginMain` are allocated FRESH each call exactly as HEAD does, and a fill child's `crossOf[idx]` is written only by the fill pass — so the fill pass re-measures every fill child on every call, as today. `remaining` depends on `mainSum`, so it must |
 | 6 | `ctx.compositions` / `ctx.hasScroll` / `armContainer` / `ctx.boundary` / the adopted-slate diagnostics | C2's table rows 4–8 | **GATED** by C2's own gate asked of the child: `subtreeHasScroll`, `subtreeHasComposition`, `containerRelativeInside`, plus `ctx.analyze` and `ctx.measureQuiet` on the container |
 | 7 | `ctx.mdepth` / `ctx.deepNesting` | `measureUncached` | **BALANCED BY CONSTRUCTION, stated** — the child is not entered, so nothing is pushed and nothing owed; `deepNesting` is a latch a later slow path re-arms |
 | 8 | `ctx.measureCalls` / `ctx.measureServed` | `solver.luau:1721`, `:1757` | **MOVES BY DESIGN** — both fall, and both pins are re-recorded in this commit, Facet and RR |
+| **9** | **the memo's index→child binding** | the splice at `layout_node.luau:1357-1364`; `mount.luau:450` `node.children = newChildren` | **GATED BY AN ID KEY — `kids` identity CANNOT carry it** (review round 2 §3.1, BLOCKING). The carrier gate compares the MOUNT node's `node.children`; the array the memo indexes is the LAYOUT node's spliced FLAT list, and the two are not the same list. `mount.luau:450` replaces the *region's* children, never the root's, so on `battle_hud`'s `addItem-damage` / `removeItem-damage` the root panel's `prior.kids == node.children` still HOLDS while every child after the splice point shifts one index — and the skip arm would serve `mMain[idx]` belonging to a different node. **`cmemo` therefore carries `mIds`, and the skip arm's own term is `cmemo.mIds[idx] == child.id`.** Measured: the index-keyed gate reads **98.0 %** skippable on `removeItem-damage`; the id-keyed one reads **0.0 %**, which is the correct answer for a class whose indices moved |
+| **10** | **the O(n) residual** | the PASS 1 loop, the fill pass's `continue` scan, the `crossMax` loop (`solver.luau:1471-1487`) | **NOT SERVED, and BOOKED as the floor** (review round 2 §3.6). Three passes, not one. See the residual paragraph after the memo fill: this task's honest floor is **~0.10–0.15 ms**, 10–15 % of the 1.038 ms it removes, not 3 %. `lastChildVisits` therefore does NOT go to "≤ 12" as the assessment's L1a booked it: it counts the `measure` CALLS the loop still makes, and the loop's own ITERATION count stays at `#children`. Measured survival puts the goal at **1,065.4 → ~34.4** on `battle_hud L updateItem-hp` (the 3.2 % the gate cannot serve), **1,155.2 → ~3.9** on `war_room L setState` and **324.7 → ~80.4** on `killfeed L updateItem-hp` — read each off the run, never quoted. The iteration count is a separate, unmoved fact and this task does not claim it |
 
 **Files:**
 - **Step 0 (conditional): the seam.** If the change measures over **+3,200 after stylua** (ruling A-10), STOP and take the seam first in its own commit: `src/layout/stack_measure.luau` carrying `contentSize`'s vstack/hstack branch (`solver.luau:1349-1496`, ~7,500 chars) as `stackMeasure.contentSize(deps, ctx, node, isH, children, n, innerMaxW, innerMaxH, gap, pt, pr, pb, pl)`. **Its real read set, re-read (review SHOULD-FIX 17 — revision 1 wrongly listed `mainDimOf`):** `deps` = `measure`, `dim`, `sides`, `shrinkLib.stack` + `SHRINK_DEPS`; `ctx` = `fitProbe` (`:1422`), plus whatever `fieldsRead` finds on the run. Give it `tests/stack_measure_seam.spec.luau` modelled on `tests/stack_seam.spec.luau` (closed `ctx` set + the read-vs-write half). Run `check_brand_drift.py` by hand after the extraction.
@@ -369,7 +394,7 @@ answered "may this CHILD be served"; this asks "may this PARENT skip asking".
 - Modify: **`src/layout/solve_ctx.luau`** (review MUST-FIX 11) — `Ctx` gains `childVisits: number` and `memoAudit: boolean`, both initialised in `new()` (`:311-377`). `tests/solve_ctx_seam.spec.luau`'s field-set count moves.
 - Modify: `src/layout/solver.luau`'s `work` literal (`:3515-3538`) — `childVisits = ctx.childVisits`.
 - Modify: `src/render/render_stats.luau` — `new()` gains `lastChildVisits = 0`; `publish` (`:191`) gains `stats.lastChildVisits = work.childVisits or 0`. **`publish`'s 4-arg signature does not change.**
-- Modify: **`tests/render_stats_seam.spec.luau`** (review T15 MUST-FIX 3) — the `new()` field sample at `:104-119` gains `lastChildVisits`. The export-set pin (`:89`), the `publish` call (`:126`, `:135`) and the "one `new`, one `publish`" scan (`:163`) are untouched.
+- Modify: **`tests/render_stats_seam.spec.luau`** — the `new()` field sample at `:104-119` gains `lastChildVisits`. ▲ **Stated honestly (review round 2 §3.8): that block is a SAMPLE — its own comment says "a SAMPLE of the record's own contract, one field per family, so a field DELETED in a later edit is caught here" — so ADDING a field does not redden it, and this task must not plan a red around it.** The addition documents the contract; the pin that actually catches the new field is this task's own `lastChildVisits` equality in `container_memo.spec`, read off the run. The export-set pin (`:89`), the `publish` call (`:126`, `:135`) and the "one `new`, one `publish`" scan (`:163`) are untouched.
 - Create: `tests/container_memo.spec.luau`; register in `tests/run.luau`. Evaluate `tiers.SLOW` if it runs the 9-view oracle over more than 3 fixtures.
 - Modify: `tests/measure_serve.spec.luau`, `tests/measure_split.spec.luau`, `tests/nameplates_baseline.spec.luau`, `tests/translate_arm.spec.luau`, `tests/anchor_arrange.spec.luau` — every `lastMeasureCalls`/`lastMeasureServed`/caster-tick pin, re-recorded from a run.
 - **RR rider (same commit):** `tests/facet_measure_fanout_contract.spec.luau` — the fanout literals and the two accounting identities. Also run `tests/facet_measure_split.spec.luau`.
@@ -379,9 +404,10 @@ answered "may this CHILD be served"; this asks "may this PARENT skip asking".
 - Produces — **the carrier** (ruling A-8), on the store entry `store.byNode[node]`:
   - `cmemo: ContainerMemo?` — one table, carried across rebuilds
   - `kids: any` — the mount `node.children` table this entry was built from, compared by IDENTITY
-- Produces — **T13's payload inside `cmemo`** (exactly these seven names; T13 is their only writer):
+- Produces — **T13's payload inside `cmemo`** (exactly these NINE names; T13 is their only writer):
   - `mStamp: string?`, `mScope: string?`, `mOffW: number?`, `mOffH: number?` — the key (ruling A-3)
   - `mMain: { [number]: number }`, `mCross: { [number]: number }`, `mMargin: { [number]: number }`, `mCuts: { [number]: number }` — per-child, indexed by child index
+  - **`mIds: { [number]: string }`** — the child `id` each index was recorded against (ruling **A-14**, owed row 9). Without it the index-keyed arrays shift under a `ForEach` splice while the carrier gate still holds
 - Produces: `layoutNode.cmemo` (the pointer), `ctx.childVisits`, `work.childVisits`, `stats.lastChildVisits`.
 - Produces: solve opt `containerMemoAudit: boolean?` (default false, test-only) → `ctx.memoAudit`.
 - **Moves (re-recorded in this commit): `lastMeasureCalls`, `lastMeasureServed`.** **Must NOT move: `lastMeasured`, `lastArranged`, `lastRectInserts`, `lastSkipped`, `lastSolveSkipped` (derived by subtraction at `solver.luau:3469`, so automatic), `lastLayoutNodes`, `lastAnchorSkipped`, `rectWrites`, `propWrites`, `engineWrites`, `solves`, `partialSolves`.**
@@ -392,13 +418,15 @@ answered "may this CHILD be served"; this asks "may this PARENT skip asking".
   - `it("a viewport change memoises nothing and serves nothing")` — `env:set` drive, full walk, `solves=1`, no `reuse`.
   - `it("a width write on the container refills the memo at the new offer")` — the key moved, not the dirt.
   - **One case per GATED row (4, 5, 6):** a container with a `shrinkWeight > 0` child (row 4); a container with a `fill` child, pinning that the fill child is re-measured on **every** tick (row 5); a container with a `text` direct child and one with a `composition` direct child (row 2), with `controller.compositionAt` still answering; a `ScrollView` child, a `containerRelative` child, an `analyze` solve and a non-quiet solve (row 6). Each pins `lastChildVisits` at the FULL walk.
+  - **`it("a ForEach sibling insert shifts every later index and the memo refuses")`** — owed row 9's fixture, built as `deep_stack_scene` plus a spliced `ForEach` region beside the rows; insert and remove into the SIBLING, pin every rect and pin `lastChildVisits` at the FULL walk. `prior.kids == node.children` holds throughout (that is the point).
+  - **`it("a container with a text child still memoises its other children")`** — the re-amended owed row 2: a stack holding one `UI.Text` and 30 boxes; the text child is measured every tick and the 30 boxes are not, and `controller.stats()` shows both facts in one block.
   - `it("the offer channel survives a skipped child")` — the T11/T7 case: a child arrange-dirty but measure-clean whose entry literal IS rebuilt must carry non-nil `offerW`/`offerH`; pin `lastAnchorSkipped` on the NEXT frame at its HEAD value.
 
 - [ ] **Step 2: the counter, alone (arm C).** Add `ctx.childVisits` (+ its `solve_ctx` field and initialiser), the `work` field, the `render_stats` publish and the seam-spec sample — **no mechanism**. Measure. T8 measured a bare `scanCount += 1` at +0.7–2.6 % because `skip` ran 9,040×/step; `childVisits += 1` runs ~2,200×/step here. If arm C is distinguishable from arm A, move the increment to a per-LOOP `+= n` and write the spec's pin against that. Record the arm-C number either way. **Arm C's increment must sit on the same line arm B's does.**
 
 - [ ] **Step 3: the carrier (ruling A-8).** In `layout_node.luau`, the rebuild path:
 
-<!-- verified: sed -n '377,398p;1516,1523p;1655,1671p;1680,1714p' src/render/layout_node.luau -->
+<!-- verified: sed -n '370,400p;1340,1390p;1512,1525p;1645,1715p' src/render/layout_node.luau; sed -n '435,472p' src/mount.luau -->
 ```luau
 	--[[ THE CONTAINER MEMO'S HOME IS THE STORE ENTRY, NOT THE LAYOUT NODE (Plan C
 		addendum, ruling A-8). `store.byNode` is keyed by the MOUNT node and is weak
@@ -454,7 +482,7 @@ answered "may this CHILD be served"; this asks "may this PARENT skip asking".
 
 - [ ] **Step 4: the mechanism.** In `contentSize`'s vstack/hstack branch, `crossOf` and `marginMain` **stay freshly allocated** (owed row 5):
 
-<!-- verified: sed -n '1349,1396p;1418,1440p;1466,1496p' src/layout/solver.luau -->
+<!-- verified: sed -n '1349,1400p;1418,1440p;1466,1500p;1740,1775p' src/layout/solver.luau -->
 ```luau
 	--[[ THE CONTAINER MEMOISES ITS CHILDREN'S ANSWERS (Plan C addendum, T13 —
 		rulings A-3, A-4, A-8). This branch re-measured every child on every call: on
@@ -498,12 +526,13 @@ answered "may this CHILD be served"; this asks "may this PARENT skip asking".
 		and cmemo.mOffW == innerMaxW
 		and cmemo.mOffH == innerMaxH
 	local memoable = cmemo ~= nil and reuse ~= nil and ctx.measureStamp ~= nil and not ctx.analyze
-	local mMain, mCross, mMargin, mCuts
+	local mMain, mCross, mMargin, mCuts, mIds
 	if memoable then
 		if hit then
-			mMain, mCross, mMargin, mCuts = cmemo.mMain, cmemo.mCross, cmemo.mMargin, cmemo.mCuts
+			mMain, mCross, mMargin, mCuts, mIds =
+				cmemo.mMain, cmemo.mCross, cmemo.mMargin, cmemo.mCuts, cmemo.mIds
 		else
-			mMain, mCross, mMargin, mCuts = {}, {}, {}, {}
+			mMain, mCross, mMargin, mCuts, mIds = {}, {}, {}, {}, {}
 		end
 	end
 	-- PASS 1: children with a definite main extent measure against the whole
@@ -514,6 +543,12 @@ answered "may this CHILD be served"; this asks "may this PARENT skip asking".
 			hit
 			and childMainDim.type ~= "fill"
 			and dirty[child.id] ~= true
+			-- THE INDEX IS NOT THE IDENTITY (owed row 9, review round 2 §3.1). A
+			-- `ForEach` splice shifts every later index while the MOUNT children
+			-- table the carrier gate compares stays the SAME OBJECT, so an array
+			-- position alone would serve another node's number. One string compare
+			-- per child, inside a loop that is already O(children).
+			and mIds[idx] == child.id
 			and mMain[idx] ~= nil
 			and child.kind ~= "text"
 			and child.kind ~= "composition"
@@ -555,24 +590,32 @@ answered "may this CHILD be served"; this asks "may this PARENT skip asking".
 				shrinkBasis = basis
 				memoable = false -- owed row 4: PASS 1.5 would rebase `mainSum`
 			end
-			if memoable then
-				if child.kind == "text" or child.kind == "composition" then
-					memoable = false -- owed row 2: this branch cannot replay the verdicts
-				elseif
-					child.subtreeHasScroll ~= true
-					and child.subtreeHasComposition ~= true
-					and child.containerRelativeInside ~= true
-				then
-					mMain[idx], mCross[idx] = mainOf, crossOfIdx
-					mMargin[idx], mCuts[idx] = marginMain[idx], ctx.fitCuts - cutsBefore
-				end
+			--[[ RECORDED, OR NOT RECORDED — never "and the container gives up". A
+				`text`/`composition` child is refused PER CHILD (owed row 2): its index is
+				left unrecorded, so the skip arm's `mIds[idx] == child.id` term refuses it
+				on every later tick and `record` publishes its verdicts exactly as today.
+				Revision 2 additionally set `memoable = false` here, which took the whole
+				container down with one label: measured, that reaches 1.4 % of
+				`battle_hud L updateItem-hp`'s measure calls where the per-child form
+				reaches 96.8 %, and 0.0 % against 75.2 % on `killfeed L updateItem-hp`. ]]
+			if
+				memoable
+				and child.kind ~= "text"
+				and child.kind ~= "composition"
+				and child.subtreeHasScroll ~= true
+				and child.subtreeHasComposition ~= true
+				and child.containerRelativeInside ~= true
+			then
+				mMain[idx], mCross[idx] = mainOf, crossOfIdx
+				mMargin[idx], mCuts[idx] = marginMain[idx], ctx.fitCuts - cutsBefore
+				mIds[idx] = child.id
 			end
 			--[[ THE AUDIT ARM (ruling A-12). When on, the skip above never fires and the
 				memo's answer is compared against the real one instead — so the standing
 				9-view fuzz exercises this arithmetic on EVERY container it touches
 				without any gate being weakened. Off in production; there is no third
 				behaviour. ]]
-			if ctx.memoAudit and hit and mMain[idx] ~= nil then
+			if ctx.memoAudit and hit and mIds[idx] == child.id and mMain[idx] ~= nil then
 				assert(
 					mMain[idx] == mainOf and mCross[idx] == crossOfIdx and mMargin[idx] == marginMain[idx],
 					`container memo mismatch at {node.id}[{idx}]`
@@ -592,7 +635,8 @@ answered "may this CHILD be served"; this asks "may this PARENT skip asking".
 	if memoable and not hit then
 		cmemo.mStamp, cmemo.mScope, cmemo.mOffW, cmemo.mOffH =
 			ctx.measureStamp, ctx.scopeKey, innerMaxW, innerMaxH
-		cmemo.mMain, cmemo.mCross, cmemo.mMargin, cmemo.mCuts = mMain, mCross, mMargin, mCuts
+		cmemo.mMain, cmemo.mCross, cmemo.mMargin, cmemo.mCuts, cmemo.mIds =
+			mMain, mCross, mMargin, mCuts, mIds
 	elseif not memoable and cmemo ~= nil then
 		-- a container that once memoised and has since gained a shrink child or a text
 		-- child must not keep a stale key
@@ -600,24 +644,40 @@ answered "may this CHILD be served"; this asks "may this PARENT skip asking".
 	end
 ```
 
-  **Residual, stated rather than hidden:** the PASS 1 loop, the fill pass's `continue`
-  scan and the `crossMax` loop are all still O(children) — three cheap passes over an
-  array. On `battle_hud L` that is ~1,000 × ~0.03 µs ≈ **0.03 ms**, which is the floor
-  this task reaches and is 3 % of the 1.038 ms it removes. It is booked, not attacked.
+  **Residual, corrected and stated rather than hidden (review round 2 §3.6).** The PASS 1
+  loop, the fill pass's `continue` scan and the `crossMax` loop are all still O(children)
+  — **three** passes over an array, not one. On `battle_hud L` that is
+  3 × ~1,000 × ~0.03 µs ≈ **0.09 ms**, and PASS 1's skip arm itself is not free: six table
+  operations per skipped child (two `ctx.offers` writes, the `fitCuts` add, and three
+  array reads), plus the new `mIds[idx] == child.id` string compare. **Book the residual
+  at ~0.10–0.15 ms — 10–15 % of the 1.038 ms removed, not 3 %.** Arm C measures it: with
+  the counter alone and the mechanism off, the loops are HEAD's, so the arm-B minus arm-C
+  delta prices the mechanism and the arm-B floor prices what is left. If arm B lands above
+  0.15 ms over the predicted floor, say so in §C11 rather than re-deriving the model.
 
+- [ ] **Step 4.5 (NEW, review round 2 §3.6): re-read the gate-survival fraction at THIS task's parent SHA, BEFORE quoting step 8's table.** The survival numbers in step 8 were measured at `92d3e7e4` with a temporary census inside `contentSize` (Amendment log round 2, measurement L-1a); T12 lands in between, and every "before" in this plan is a prediction. **Publish the pair as counters rather than re-instrumenting:** `lastChildVisits` (the `measure` CALLS `contentSize` still makes) against `lastMeasureCalls`, read on **all three** of `battle_hud L updateItem-hp`, `war_room_inventory L setState` and `killfeed_nameplates L updateItem-hp` — three workloads, because the measured spread between them is **75.2 %–99.7 %** and one workload is not evidence for the other two. If any class comes back more than 10 points under the recorded survival, STOP and re-derive that row rather than quoting this file.
 - [ ] **Step 5: L5 (`ctx.offers`) — fold in ONLY if the budget allows.** T9b §6-L5: `ctx.offers` grows to 2 × `measureServed` (~4,500 entries/tick) with a `child.id .. "|w"` concat on any node without a cached `wKey`. Its measured time gain is **~zero** (T9b arm 4: −16.6 % allocation, 0 % clock). **If `check_source_size` shows T13 above +2,700 after stylua, SKIP and re-book.** If it goes in: move the pair onto the node beside the C2 slots (`node.oW`, `node.oH`, stamped with `mStamp`) and change the single in-solve reader, the entry literal at `solver.luau:2429-2437`. T7's second NULL mutation established there is no other reader.
 - [ ] **Step 6: green + the differential oracle arm.** `container_memo.spec` green. Then, on the fake adapter, all 9 `device_views.VIEWS` incl. 320x640, three drives (text write, width write, viewport change) on **four** fixtures — `deep_stack_scene`, a nested-stack fixture, one with a `fill` child, one with a `shrinkWeight` child — `scene.snapshot()` byte-equal to arm `c`, non-vacuity guard, `b`/`d` driven every step. **Every one of these runs TWICE: once normally and once with `containerMemoAudit = true`** (ruling A-12). Public reader pin: `controller.compositionAt` on the composition fixture. Then the standing suites that compare against arm `c`: `host_space_oracle`, `translate_arm`, `measure_split`, `measure_reuse`, `rect_cow`, `node_reuse`, `anchor_skip`.
-- [ ] **Step 7: the mutation (Step-7 discipline).** Each must BITE, each recorded: (1) drop the `ctx.offers` writes in the skip arm → reddens the T7-finding-2 case. (2) drop `child.kind ~= "text"` → reddens the text-child verdict case. (3) drop the `shrinkWeight` → `memoable = false` line → reddens the shrink case. (4) drop `cmemo.mStamp = nil` on the un-memoable arm → reddens the shrink-child-arrives-later case. (5) key the memo on `innerMaxW` alone → reddens the height-offer case. (6) carry `cmemo` forward without the `prior.kids == node.children` term → reddens an insert-a-row case. (7) remove `child.containerRelativeInside ~= true` → **if it does NOT redden, record the null exactly as T6/T7 recorded theirs and KEEP the term with the null stated at both sites** (C2's own term is a known null).
+- [ ] **Step 7: the mutation (Step-7 discipline).** Each must BITE, each recorded: (1) drop the `ctx.offers` writes in the skip arm → reddens the T7-finding-2 case. (2) drop `child.kind ~= "text"` → reddens the text-child verdict case. (3) drop the `shrinkWeight` → `memoable = false` line → reddens the shrink case. (4) drop `cmemo.mStamp = nil` on the un-memoable arm → reddens the shrink-child-arrives-later case. (5) key the memo on `innerMaxW` alone → reddens the height-offer case. (6) carry `cmemo` forward without the `prior.kids == node.children` term → reddens a case where the CONTAINER's own mount children changed. (6b) **drop the `mIds[idx] == child.id` term → MUST redden the spliced-sibling fixture** (owed row 9): a `ForEach` sibling insert/remove under a container whose own mount children table is unchanged. Measured, this is the difference between 98.0 % and 0.0 % skippable on `battle_hud L removeItem-damage`, so a mutation that does not bite means the fixture is not a witness and step 1 is wrong. (6c) **restore the container-level `memoable = false` on a `text`/`composition` child → MUST NOT change any rect, and MUST collapse `lastChildVisits` back toward the full walk** — the null that proves the deleted term was cost and not safety. (7) remove `child.containerRelativeInside ~= true` → **if it does NOT redden, record the null exactly as T6/T7 recorded theirs and KEEP the term with the null stated at both sites** (C2's own term is a known null).
 - [ ] **Step 8: gates, RR, measurement, commit.** `tools/test.sh` full; `tools/verify.sh affected --jobs 1`; `stylua --check`; `check_source_size` **and record `solver.luau`'s new size in `tools/lune/verify/data/source-cap-ledger.md`**; **RR: `./run-tests.sh` with `facet_measure_fanout_contract` re-recorded IN THIS COMMIT**, plus `facet_measure_split`. Measurement, three arms (A = worktree at T12's SHA, B = HEAD, C = step 2), ABBA:
 
-  | class | before (read at arm A) | **expected after** |
-  |---|---:|---:|
-  | `battle_hud L updateItem-hp` | ~1.82 | **~0.82** (−1.00; 0.03 of the 1.038 stays as the O(n) loops) |
-  | `battle_hud L setState` | ~1.93 | ~0.92 |
-  | `war_room_inventory L setState` | ~2.58 | **~1.09** |
-  | `killfeed_nameplates L updateItem-hp` | ~0.52 | **~0.30** |
-  | `war_room_inventory L reorder` | ~19 (post-T12) | ~17 |
-  | `nameplates L updateItem-hp` | 0.006 | **0.006 (CONTROL — anchored, no stack loop)** |
+  **Every row below is now derived from the MEASURED gate-survival fraction** (Amendment
+  log round 2, measurement L-1a: the share of `contentSize`'s per-child `measure` calls
+  the id-keyed skip arm can serve, at `92d3e7e4`), not from the span share alone.
+
+  | class | before (read at arm A) | measured survival | **expected after** |
+  |---|---:|---:|---:|
+  | `battle_hud L updateItem-hp` | ~1.82 | **96.8 %** (1,031.0 / 1,065.4) | **~0.90** (−1.00 × 0.968, +0.10–0.15 residual) |
+  | `battle_hud L setState` | ~1.93 | 97.2 % (1,081.7 / 1,112.8) | ~1.00 |
+  | `war_room_inventory L setState` | ~2.58 | 99.7 % (1,151.3 / 1,155.2) | **~1.15** |
+  | `killfeed_nameplates L updateItem-hp` | ~0.52 | **75.2 %** (244.3 / 324.7) | **~0.36** |
+  | `war_room_inventory L reorder` | ~19 (post-T12) | **0.0 %** — the id key refuses a class whose indices moved | **~19 (NO GAIN, and that is the correct answer)** |
+  | `battle_hud L removeItem-damage` | ~2.5 | **0.0 %** (same reason) | **~2.5 (NO GAIN)** |
+  | `nameplates L updateItem-hp` | 0.006 | — | **0.006 (CONTROL — anchored, no stack loop)** |
+
+  **The two rows that read 0.0 % are the acceptance evidence, not a disappointment.** The
+  index-keyed gate revision 2 shipped reads 98.0–100 % on exactly those classes, and every
+  one of those serves would be a number belonging to a different node.
 
   Commit `T13: a stack memoises its children's measures and re-asks only the dirty ones (C11)`.
 - [ ] **Step 9: FacetBench §C11.** The mechanism, the counter table (`lastChildVisits` before/after, `lastMeasured` unmoved), the three-arm ms table, the arm-C number, **and the withdrawal of the aggregate design with the four reasons** — a per-child memo re-summed is exact where a patched aggregate is four separate ways of being wrong.
@@ -641,13 +701,37 @@ L updateItem-hp`, **0.809 of 2.579 (31 %)** on `war_room setState`, **0.186 of 0
 take the early skip and **5** run a body; `lastArranged` 5, `lastRectInserts` 5,
 `engineWrites` 4.
 
-**Measured evidence, and the correction it carries.** T9b's crude ceiling arm — replay
-when every dirty child measures to the size it had — read ABBA `battle_hud setState`
-**1.822 → 1.535 (−16 %)** and `removeItem-damage` **2.505 → 1.403 (−44 %)**. It did NOT
-fire on `updateItem-hp`, because it compared a child's **measured** extent to its
-**placed** rect, which differ for a `fill` child (`stack.luau:356-358`: `mainSize` comes
-from `fillPx[idx]`, not from `desired`). **T14 compares measured-to-measured, against its
-OWN placement-time array (ruling A-9), never T13's.**
+**Measured evidence, and the two corrections it carries (Amendment log round 2,
+measurement L-1b).** T9b's crude ceiling arm — replay when every dirty child measures to
+the size it had — read ABBA `battle_hud setState` **1.822 → 1.535 (−16 %)** and
+`removeItem-damage` **2.505 → 1.403 (−44 %)**, and did NOT fire on `updateItem-hp`. The
+plan attributed that to measured-against-placed. **A shadow of the amended gate, run at
+`92d3e7e4` on all three workloads, says the simpler explanation is the true one and that
+this task's headline class is NOT `updateItem-hp`:**
+
+| class | replays / `stack.arrange` entries per step | children skipped per step |
+|---|---:|---:|
+| `battle_hud L updateItem-hp` | **0.0 / 1.9** | **0** |
+| `battle_hud L setState` | 1.5 / 2.0 | 846.7 |
+| `battle_hud L updateItem-facing` | 0.6 / 1.9 | 636.6 |
+| `battle_hud L add/removeItem-damage` | **0.0 / 1.0** | 0 |
+| `war_room_inventory L setState` | 0.8 / 1.6 | 615.0 |
+| `war_room_inventory L updateItem-power` | 0.8 / 1.9 | **1,158.8** |
+| `war_room_inventory L updateItem-tier` | **0.0 / 1.4** | 0 |
+| `war_room_inventory L reorder`, `removeItem-items` | **0.0 / 1.0** | 0 |
+| `killfeed_nameplates L setState` | 0.8 / 1.0 | 251.0 |
+| `killfeed_nameplates L updateItem-hp` | **0.0 / 1.9** | 0 |
+
+**Why `updateItem-hp` cannot fire, named at both levels.** The hp bar's width IS the
+value: the adapter returns `{ type = "fixed", px = (tonumber(use(value)) or 0) *
+BAR_SCALE_PX }` (`../FacetBench/frameworks/facet/adapter.luau:39-46`) and the step writes
+`field = "hp", value = rng:next()` (`../FacetBench/workloads/battle_hud.luau:92-96`). The
+shadow names the two refusals directly: `MAIN` moves for
+`/Root/Units/[uN]/UnitRow-uN :: …/UnitHp-uN` (a main-axis change inside the row's HStack),
+and `CROSS` moves for `/Root :: /Root/Units/[uN]/UnitRow-uN` (the row's own measured width
+follows the bar, so the enclosing 1,000-row VStack refuses too). **T14 compares
+measured-to-measured, from the pass that measured (review round 2 §3.2), against its OWN
+arrays (ruling A-9), never T13's — and it still refuses this class, correctly.**
 
 **THE OWED LIST:**
 
@@ -661,19 +745,22 @@ OWN placement-time array (ruling A-9), never T13's.**
 | 6 | `deps.measure` in pass 1 and the hug pass | `stack.luau:144`, `:153-160` | **SERVED from `cmemo.pMain`/`pCross`, T14's OWN arrays (ruling A-9)** — recorded at the arrange offer `(innerW, innerH)`, never read from T13's `mMain`, which is recorded at `(innerMaxW, innerMaxH)` |
 
 **Files:**
-- **Step 0 (its own commit, ruling T7-3): widen `tests/stack_seam.spec.luau:163`'s read-set.** At HEAD the pins are `ctx = { "diagnostics", "hiddenDepth" }`, `node = { "align", "children", "distribute", "id", "kind" }`, `child = { "align", "lineAlign", "margin", "shrinkWeight" }`. The replay adds `ctx.reuse` and `ctx.noSkipDepth` (both declared `Ctx` fields — `solve_ctx.luau:269` is `walkedIds`, `:248` is `noSkipDepth`, so **the `(ctx :: any)` casts revision 1 used are unnecessary**, review SHOULD-FIX 9) and `node.gap`, `node.cmemo`. **Read the exact sets off the run**; keep the read-vs-write half asserting the module assigns no field of `ctx`/`node`/`child`/`deps`. Commit the widening ALONE with its reasoning.
+- **Step 0 (its own commit, ruling T7-3): widen `tests/stack_seam.spec.luau`'s read-set.** The three pins are at **`:161` (`ctx`), `:162` (`node`), `:163` (`child`)** — revision 2 called the whole block `:163` (review round 2 §2). At HEAD they are `ctx = { "diagnostics", "hiddenDepth" }`, `node = { "align", "children", "distribute", "id", "kind" }`, `child = { "align", "lineAlign", "margin", "shrinkWeight" }`. The replay adds **`ctx.reuse`, `ctx.noSkipDepth`, `ctx.replayAudit`** (all declared `Ctx` fields — `solve_ctx.luau:248` is `noSkipDepth`, `:269` is `walkedIds`, so **the `(ctx :: any)` casts revision 1 used are unnecessary**), **`node.cmemo`**, and **`child.id`** (`dirty[child.id]`) plus **`child.layoutPriority`** (ruling A-15). It does **NOT** add `node.gap`: `gap` is a **PARAMETER** of `stack.arrange` (`stack.luau:98-112`) and the replay reads the parameter (`cmemo.pGap == gap`), not a node field — revision 2's list was wrong on both counts. **Read the exact sets off the run**; keep the read-vs-write half (`:166-180`), which the replay passes because it writes only through the local `cmemo` and never assigns a field of `ctx`/`node`/`child`/`deps` — **say that in step 0 so the implementer does not discover it by accident** (review round 2 §3.7). Commit the widening ALONE with its reasoning.
 - Modify: `src/layout/stack.luau` — `stack.arrange`'s prologue (the replay) and the placement loop's memo fill.
 - Modify: **`src/layout/solve_ctx.luau`** — `Ctx` gains `arrangeEntries: number` and `replayAudit: boolean`, both initialised in `new()`. `tests/solve_ctx_seam.spec.luau`'s count moves.
 - Modify: `src/layout/solver.luau` — `ctx.arrangeEntries += 1` at the top of `arrangeBody`; `work.arrangeEntries`. **`arrangeBody` is NOT otherwise restructured** — the replay is entirely inside `stack.arrange`. Budget ≤ +1,600 (ruling A-10).
-- Modify: `src/render/render_stats.luau` + **`tests/render_stats_seam.spec.luau`** (the `new()` field sample) — `lastArrangeEntries`.
+- Modify: `src/render/render_stats.luau` + **`tests/render_stats_seam.spec.luau`** (the `new()` field sample at `:104-119`) — `lastArrangeEntries`. **The sample does not redden on an ADDED field** (review round 2 §3.8); the real pin is this task's own `lastArrangeEntries` equality in `stack_replay.spec`.
 - Create: `tests/stack_replay.spec.luau`; register.
 - **RR rider (same commit): `tests/facet_anchor_arrange.spec.luau` must be UNCHANGED and green** — it pins `lastArranged`, which must not move. If it moves, that is a stop. Also run `tests/facet_collection_extent_contract.spec.luau`.
 
 **Interfaces:**
 - Consumes: `reuse.dirtyContains` (the FULL closure, not the measure half); `node.cmemo` (ruling A-8, created by T13); `out[child.id].rect`.
 - Produces — **T14's payload inside `cmemo`** (T14 is their only writer, ruling A-9):
-  - `pInnerX/pInnerY/pInnerW/pInnerH: number?`, `pGap: number?`, `pAlign: any` (the container's own `node.align`) — the key
-  - `pMain: { [number]: number }`, `pCross: { [number]: number }` — per-child main/cross contributions at the ARRANGE offer
+  - `pN: number?`, `pInnerX/pInnerY/pInnerW/pInnerH: number?`, `pGap: number?`, `pAlign: any` (the container's own `node.align`), **`pDistribute: any`** (ruling A-15) — the key
+  - `pMain: { [number]: number }`, `pCross: { [number]: number }` — per-child **MEASURED, margin-inclusive** main/cross contributions, recorded after the hug pass at the pass-1 offer `(innerW, innerH)` (review round 2 §3.2)
+  - **`pIds: { [number]: string }`** — the child `id` each index was recorded against (review round 2 §3.1, BLOCKING; scanned over EVERY child, not only the dirty ones)
+  - **`pHug: { [number]: boolean }`** — measured in the hug pass at `left` (`stack.luau:153-160`), which the replay does not reproduce and therefore refuses
+  - **`pShrink: { [number]: any }`, `pPrio: { [number]: any }`** — `child.shrinkWeight` (`stack.luau:188`, consumed `:208`) and `child.layoutPriority` (`shrink.luau:335`), the two inputs that move a rect with no measurement change (ruling A-15)
   - `pCAlign: { [number]: any }`, `pCLine: { [number]: any }` — per-child `child.align` / `child.lineAlign`, the two arrange-classed props `stack.luau:386` reads that no measurement can see
   - `pRect: { [number]: any }` — the frozen rect each child was placed at
 - Produces: `work.arrangeEntries` / `stats.lastArrangeEntries` (**1,109 → the number read off the run**); solve opt `stackReplayAudit: boolean?` → `ctx.replayAudit`.
@@ -688,13 +775,17 @@ OWN placement-time array (ruling A-9), never T13's.**
   - `it("a gap change on the container refuses")`, `it("a container align change refuses")`.
   - `it("a containment finding survives a re-placed dirty child")` (owed row 2).
   - `it("a distribute stack whose contents did not move REPLAYS")` — ruling A-13's witness.
+  - **`it("a ForEach sibling splice refuses even when no child is dirty")`** — the review's blocking fixture: a container whose spliced sibling region loses a row while `prior.kids == node.children` still holds and `dirty` names none of the surviving children. **Without the `pIds` scan the replay returns having placed nothing; pin every rect.**
+  - **`it("a distribute FLIP on the container refuses")`** — ruling A-15, the mirror of the replay case above it.
+  - **`it("a shrinkWeight write with no measurement change refuses")`** and **`it("a layoutPriority write with no measurement change refuses")`** — ruling A-15, on an OVERFLOWING stack so the shrink pass is live.
+  - **`it("a MARGINED child replays")`** — the review round 2 §3.2 case: revision 2's placed `mainSize` is margin-exclusive, so a margined child could never have matched. Pin the replay FIRING.
   - `it("a viewport change replays nothing")`.
 
 - [ ] **Step 2: the counter, alone (arm C).** `ctx.arrangeEntries += 1` at the top of `arrangeBody` (+ `solve_ctx` field, `work`, `render_stats`, seam sample), mechanism off. It runs ~1,100×/step — the same order as T8's `scanCount`, which cost +0.7–2.6 %. Same line as arm B's.
 
 - [ ] **Step 3: the mechanism.** At the top of `stack.arrange`, immediately after `local children = node.children or {}`:
 
-<!-- verified: sed -n '98,135p;136,160p;340,362p;384,412p;424,442p' src/layout/stack.luau; sed -n '248,250p;269,270p' src/layout/solve_ctx.luau -->
+<!-- verified: sed -n '96,170p;178,215p;280,400p' src/layout/stack.luau; sed -n '330,340p' src/layout/shrink.luau; sed -n '248,250p;269,270p' src/layout/solve_ctx.luau -->
 ```luau
 	--[[ THE STACK RE-PLACES ONLY ITS DIRTY CHILDREN (Plan C addendum, T14 — rulings
 		A-4, A-9, A-13). A one-leaf write on a 1,000-row list entered `arrangeBody`
@@ -710,15 +801,33 @@ OWN placement-time array (ruling A-9), never T13's.**
 		`remaining`, `fillPx`, `shrunk`, `clipMain`, `lead`/`step` and every
 		`alignOffset` are the values they were — so no child's rect changes, including
 		the dirty ones, and the only work left is to re-enter the dirty subtrees. A
-		`distribute` stack is therefore NOT refused (ruling A-13): `distributionOf`
-		reads `remaining`, which did not move.
+		`distribute` stack whose CONTENTS did not move is therefore not refused for its
+		contents (ruling A-13): `distributionOf` (`:343`) reads `remaining` (`:296`),
+		which did not move. But `node.distribute` ITSELF is a gate term (ruling A-15,
+		review round 2 §3.3): flipping it from `"start"` to `"spaceBetween"` dirties the
+		CONTAINER, not any child, so the loop below would find nothing dirty and every
+		child would keep its old cursor position. Same class, same fix, for the two
+		shrink inputs: `child.shrinkWeight` (read at `:188`, consumed by
+		`shrinkLib.stack` at `:208`) and `child.layoutPriority` (read inside that call,
+		`shrink.luau:335`) both change a rect with NO measurement change, so a prop
+		write there dirties the child, this arm re-measures it, the measurement agrees,
+		and the shrink redistribution that should have happened is skipped.
 
-		MEASURED-TO-MEASURED, AGAINST THIS FILE'S OWN ARRAY. `cmemo.pMain` is recorded
-		at the ARRANGE offer `(innerW, innerH)`; T13's `mMain` is recorded at the
-		MEASURE offer `(innerMaxW, innerMaxH)` and for a `hug` or `fill` container those
-		are different questions. Comparing across them is the same class of error as
-		comparing a measurement to a placed rect, which is what made the first prototype
-		of this arm fire on `setState` and `removeItem` and never on `updateItem-hp`.
+		MEASURED-TO-MEASURED, AND `pMain` IS A MEASUREMENT (review round 2 §3.2).
+		Revision 2 recorded `pMain`/`pCross` in the PLACEMENT loop from `mainSize` /
+		`crossSize` (`stack.luau:356-358`, `:387-389`) — margin-EXCLUSIVE, clamped, and
+		for a `fill` or `shrunk` child not a measurement at all — and compared them
+		against a freshly measured margin-INCLUSIVE number here. That is the SAME
+		measured-against-placed error the prototype made, one axis over, and any child
+		with a margin would have refused unconditionally. So the pair is now recorded
+		WHERE THE MEASUREMENT HAPPENS: immediately after the hug pass, from `desired`
+		plus `margins`, before the shrink and fill passes overwrite `desired`. That is
+		the pass-1 offer `(innerW, innerH)` this arm re-measures at, so the two numbers
+		are the same question. A dirty child measured in the HUG pass is refused
+		outright (`pHug[idx]`): it was measured at `left`, which this arm does not
+		reproduce. Measured incidence of that refusal across all three workloads: ZERO.
+		T13's `mMain` is recorded at the MEASURE offer `(innerMaxW, innerMaxH)` and is
+		still never read here (ruling A-9).
 
 		A SIZE CHANGE REFUSES, AND THAT IS THE WHOLE OF THE AMENDED SCOPE. Shifting the
 		suffix by a delta is a second lever with five more gate terms (`gap`, align,
@@ -732,6 +841,10 @@ OWN placement-time array (ruling A-9), never T13's.**
 		and ctx.noSkipDepth == 0
 		and not ctx.replayAudit
 		and cmemo.pRect ~= nil
+		-- the child LIST, not just the box: a `ForEach` splice changes the length
+		-- while the mount children table the carrier gate compares is untouched
+		and cmemo.pN == #children
+		and cmemo.pDistribute == node.distribute -- ruling A-15
 		and cmemo.pInnerX == innerX
 		and cmemo.pInnerY == innerY
 		and cmemo.pInnerW == innerW
@@ -741,13 +854,40 @@ OWN placement-time array (ruling A-9), never T13's.**
 	then
 		local pMain, pCross = cmemo.pMain, cmemo.pCross
 		local pRect, pCAlign, pCLine = cmemo.pRect, cmemo.pCAlign, cmemo.pCLine
+		local pIds, pHug, pShrink, pPrio = cmemo.pIds, cmemo.pHug, cmemo.pShrink, cmemo.pPrio
 		local ok, hot = true, nil :: { number }?
 		for idx, child in children do
+			--[[ EVERY CHILD IS CHECKED FOR IDENTITY; only the DIRTY ones are
+				re-measured. The id scan is the review's BLOCKING finding (round 2 §3.1)
+				and it is not optional: `mount.luau:450` replaces a ForEach REGION's
+				children, never the enclosing panel's, so `prior.kids == node.children`
+				HOLDS across an insert into a spliced sibling while every later index
+				shifts. Measured at `92d3e7e4`, `battle_hud L removeItem-damage` reaches
+				this arm with `dirty ~= nil`, ZERO dirty children and an unmoved box over
+				1,123 children — so without the scan the arm returns having placed
+				NOTHING while the splice moved every surviving row. `war_room L reorder`
+				and `removeItem-items` are the same shape at 1,471 and 1,470.5.
+				`shrinkWeight`/`layoutPriority` are here for ruling A-15's reason: they
+				change a rect with no measurement change. One string compare and four
+				field compares per child, in a loop HEAD already runs. ]]
+			if
+				pIds[idx] ~= child.id
+				or pRect[idx] == nil
+				or pMain[idx] == nil
+				or child.align ~= pCAlign[idx]
+				or child.lineAlign ~= pCLine[idx]
+				or child.shrinkWeight ~= pShrink[idx]
+				or child.layoutPriority ~= pPrio[idx]
+			then
+				ok = false
+				break
+			end
 			if dirty[child.id] ~= true then
 				continue
 			end
-			local before = pMain[idx]
-			if before == nil or pRect[idx] == nil or child.align ~= pCAlign[idx] or child.lineAlign ~= pCLine[idx] then
+			if pHug[idx] then
+				-- measured at `left` (`stack.luau:153-160`), which this arm does not
+				-- reproduce; measured incidence on all three workloads is zero
 				ok = false
 				break
 			end
@@ -755,7 +895,7 @@ OWN placement-time array (ruling A-9), never T13's.**
 			local w, h = deps.measure(ctx, child, innerW, innerH)
 			local mainOf = if isH then w + ml + mr else h + mt + mb
 			local crossOf = if isH then h + mt + mb else w + ml + mr
-			if mainOf ~= before or crossOf ~= pCross[idx] then
+			if mainOf ~= pMain[idx] or crossOf ~= pCross[idx] then
 				ok = false
 				break
 			end
@@ -786,24 +926,49 @@ OWN placement-time array (ruling A-9), never T13's.**
 	end
 ```
 
-  and at the end of the placement loop, beside `place(ctx, child, childRect, out)`:
+  **The measured pair is recorded WHERE IT IS MEASURED**, immediately after the hug pass
+  and before the shrink and fill passes overwrite `desired` (review round 2 §3.2) —
+  `stack.luau`'s `local availMain = …` line is the seam:
 
 ```luau
-		-- record what this loop decided, so the next arrange into the same box can
-		-- replay it. `childRect` is the SAME TABLE that reaches `out` and gets frozen
-		-- there, and `commit_walks.skip` prunes on entry identity — so this array holds
-		-- references, never copies.
+	--[[ WHAT THE NEXT ARRANGE INTO THIS BOX WILL RE-ASK. `desired` holds the pass-1
+		measurement at `(innerW, innerH)` and the hug pass's at `left`; `margins` holds
+		the four sides. The pair recorded here is therefore MARGIN-INCLUSIVE and is a
+		MEASUREMENT — not `mainSize`/`crossSize`, which are margin-exclusive, clamped,
+		and for a `fill` or `shrunk` child are the placement's answer rather than the
+		measure's. `pHug` marks the children the replay must refuse. ]]
+	if cmemo ~= nil then
+		for idx, child in children do
+			local m, d = margins[idx], desired[idx]
+			if d ~= nil then
+				pMain[idx] = if isH then d.w + m.l + m.r else d.h + m.t + m.b
+				pCross[idx] = if isH then d.h + m.t + m.b else d.w + m.l + m.r
+			end
+			pIds[idx] = child.id
+			pHug[idx] = hugSet[idx] == true
+			pShrink[idx], pPrio[idx] = child.shrinkWeight, child.layoutPriority
+		end
+	end
+```
+
+  (`hugSet` is the index set `hugLater` already holds, turned into a lookup once.)
+  Then, at the end of the placement loop beside `place(ctx, child, childRect, out)`, only
+  the PLACED rect and the two arrange-classed props:
+
+```luau
+		-- the rect this loop decided. `childRect` is the SAME TABLE that reaches `out`
+		-- and gets frozen there, and `commit_walks.skip` prunes on entry identity — so
+		-- this array holds references, never copies.
 		if cmemo ~= nil then
-			pRect[idx], pMain[idx], pCross[idx] = childRect, mainOf, crossOfIdx
+			pRect[idx] = childRect
 			pCAlign[idx], pCLine[idx] = child.align, child.lineAlign
 		end
 ```
 
-  with the arrays created fresh at the top of the placement loop and the key written
-  after it (`cmemo.pInnerX/Y/W/H`, `pGap`, `pAlign`, and the six arrays). `mainOf` and
-  `crossOfIdx` are the two extents the loop already computes (`stack.luau:356-358`,
-  `:387-389`) recorded as locals. **When `cmemo == nil` (a store-less or reuse-off
-  build) nothing is written and nothing is read** — today's code exactly.
+  with the **nine** arrays created fresh at the top of `stack.arrange` and the key written
+  after the placement loop (`cmemo.pN`, `pInnerX/Y/W/H`, `pGap`, `pAlign`, `pDistribute`,
+  and the nine arrays). **When `cmemo == nil` (a store-less or reuse-off build) nothing is
+  written and nothing is read** — today's code exactly.
 
   **The audit arm (ruling A-12):** `ctx.replayAudit` disables the fast return and makes
   the full body assert that each child's freshly computed `childRect` equals `pRect[idx]`
@@ -816,17 +981,28 @@ OWN placement-time array (ruling A-9), never T13's.**
   mutation 5 pinned a branch that does not exist.
 
 - [ ] **Step 4: green + the differential oracle arm.** `stack_replay.spec` green. The 9-view oracle exactly as T13 step 6 defines it, on **five** fixtures: `deep_stack_scene`, a nested-stack fixture, a `fill`-child fixture, a `distribute` fixture (ruling A-13's witness — a refusal that silently changed a rect is the worst outcome this task can have), and an aspect-child fixture. **Every run twice, once with `stackReplayAudit = true`.** Standing: `host_space_oracle`, `translate_arm`, `anchor_skip`, `measure_split`, `rect_cow`, `node_reuse`, `container_memo`.
-- [ ] **Step 5: the mutation (Step-7 discipline).** Each must BITE: (1) compare `mainOf` against `prev.w`/`prev.h` (measured-against-placed) → reddens the `fill` case. (2) drop the `crossOf ~= pCross[idx]` term → reddens a cross-only size change. (3) drop the `child.align ~= pCAlign[idx]` term → reddens the align case. (4) drop `cmemo.pGap == gap` → reddens the gap case. (5) drop the `noteContainment` replay → reddens the diagnostics case. (6) read `cmemo.mMain` instead of `pMain` (ruling A-9's violation) → reddens the `hug`-container fixture.
+- [ ] **Step 4.5 (NEW, review round 2 §3.4): re-read the REPLAY-SURVIVAL table at THIS task's parent SHA, before quoting step 6.** `lastArrangeEntries` against the container count is the published pair; read it on `battle_hud L updateItem-hp` **and** `setState`, `war_room_inventory L setState` **and** `updateItem-power`, and `killfeed_nameplates L updateItem-hp` **and** `setState` — the two-per-workload shape is deliberate, because the measured spread inside one workload is 0.0 to 1.5 replays per step. **If `updateItem-hp` shows any replay at all, STOP: the gate is wrong, not the number** — the hp bar's width is the hp value and both the row and the enclosing list must refuse.
+- [ ] **Step 5: the mutation (Step-7 discipline).** Each must BITE: (1) compare `mainOf` against `prev.w`/`prev.h` (measured-against-placed) → reddens the `fill` case. (2) drop the `crossOf ~= pCross[idx]` term → reddens a cross-only size change. (3) drop the `child.align ~= pCAlign[idx]` term → reddens the align case. (4) drop `cmemo.pGap == gap` → reddens the gap case. (5) drop the `noteContainment` replay → reddens the diagnostics case. (6) read `cmemo.mMain` instead of `pMain` (ruling A-9's violation) → reddens the `hug`-container fixture. **(7) drop the `pIds[idx] ~= child.id` scan → MUST redden the spliced-sibling fixture** (review round 2 §3.1): measured, that arm is REACHED on `battle_hud L removeItem-damage` with `dirty ~= nil`, zero dirty children and an unmoved box over 1,123 children, so a mutation that does not bite means the fixture is not a witness. **(8) drop `cmemo.pDistribute == node.distribute` → reddens a `distribute` FLIP on the container** (ruling A-15; note this is the opposite fixture to step 1's "a distribute stack whose contents did not move REPLAYS"). **(9) drop the `child.shrinkWeight ~= pShrink[idx]` term → reddens a shrinkWeight prop write on an overflowing stack.** **(10) record `pMain` from `mainSize` in the placement loop instead of from `desired` after the hug pass → reddens a MARGINED child and a `fill` child** (review round 2 §3.2 — the shipped code must not be able to pass this mutation).
 - [ ] **Step 6: gates, RR, measurement, commit.** Full gates as T13 step 8; `check_source_size` with `solver.luau` and `stack.luau` recorded. **RR `facet_anchor_arrange.spec` UNCHANGED and green.** Three arms, ABBA:
 
-  | class | before (read at arm A) | **expected after** |
-  |---|---:|---:|
-  | `battle_hud L updateItem-hp` | ~0.82 | **~0.33** (the hp bar's row does not resize, so the replay fires) |
-  | `battle_hud L setState` | ~0.92 | ~0.36 (T9b's arm read −16 % on the un-memoised base) |
-  | `battle_hud L removeItem-damage` | ~2.0 | ~1.2 (T9b's arm read −44 %) |
-  | `war_room_inventory L setState` | ~1.09 | ~0.40 |
-  | `killfeed_nameplates L updateItem-hp` | ~0.30 | ~0.16 |
-  | `nameplates L updateItem-hp` | 0.006 | 0.006 (CONTROL) |
+  **Re-derived from the measured replay-survival table above, not from the arrange span.**
+
+  | class | before (read at arm A) | measured survival | **expected after** |
+  |---|---:|---:|---:|
+  | `battle_hud L updateItem-hp` | ~0.90 (post-T13) | **0 of 1.9 — never fires** | **~0.90 (NO GAIN — this is not T14's class)** |
+  | `battle_hud L setState` | ~1.00 | 1.5 of 2.0, 846.7 kids | **~0.55** |
+  | `battle_hud L updateItem-facing` | read at arm A | 0.6 of 1.9, 636.6 kids | ~−25 % |
+  | `battle_hud L removeItem-damage` | ~2.5 | **0 of 1.0 — the id scan refuses** | **~2.5 (NO GAIN)** |
+  | `war_room_inventory L setState` | ~1.15 | 0.8 of 1.6, 615.0 kids | **~0.75** |
+  | `war_room_inventory L updateItem-power` | read at arm A | 0.8 of 1.9, **1,158.8** kids | **the headline row — read it** |
+  | `killfeed_nameplates L updateItem-hp` | ~0.36 | **0 of 1.9** | **~0.36 (NO GAIN)** |
+  | `killfeed_nameplates L setState` | read at arm A | 0.8 of 1.0, 251.0 kids | ~−40 % |
+  | `nameplates L updateItem-hp` | 0.006 | — | 0.006 (CONTROL) |
+
+  **The three NO-GAIN rows are the honest scope of the amended lever and they must be
+  reported as such in §C12.** T9b's `−44 %` on `removeItem-damage` came from an arm with
+  no id scan; the shadow shows that arm reaching the fast return with ZERO dirty children
+  over 1,123 spliced siblings — i.e. it was fast because it was wrong.
 
   Commit (after step 0's own commit) `T14: a stack re-places only its dirty children when nothing moved (C12)`.
 - [ ] **Step 7: FacetBench §C12.** The mechanism, the counter table (`lastArrangeEntries` before/after with `lastArranged`/`rectWrites`/`engineWrites` shown UNMOVED beside it, because that is the safety claim), the ABBA table, the arm-C number, **the measured-vs-placed correction written up plainly**, and **the booked prefix rebase with its five prerequisite gate terms** — so the next round knows exactly what it is buying and what it must prove.
@@ -860,7 +1036,7 @@ loop touches all 1,000 rows.
 - Modify: `src/render/layout_node.luau` — the entry literal (already grew `cmemo`/`kids` in T13) gains `childArray`; the child loop at `:1348-1382` gains the reuse arm; the `Store` type (`:1621+`) and `newStore` (`:1658-1670`) gain `childVisits`, reset in `build` beside `store.built = 0` / `store.nodes = 0` (`:1712-1713`).
 - Modify: `src/render/renderer.luau` — one line beside `stats.lastNodeBuilds = nodeStore.built` (`:2024`): `stats.lastBuildChildVisits = nodeStore.childVisits`. **Budget ≤ +120 chars (ruling A-10).**
 - Modify: `src/render/render_stats.luau` — `new()` gains `lastBuildChildVisits = 0`. **`publish` is NOT changed** (the value comes from the store, not from `work`), so the seam spec's `publish` pins are untouched.
-- Modify: **`tests/render_stats_seam.spec.luau`** — the `new()` field sample (`:104-119`).
+- Modify: **`tests/render_stats_seam.spec.luau`** — the `new()` field sample (`:104-119`). **Adding a field does not redden it** (review round 2 §3.8); the real pin is this task's own `lastBuildChildVisits` equality in `build_children_reuse.spec`.
 - Create: `tests/build_children_reuse.spec.luau`; register.
 - **RR rider: `tests/facet_measure_fanout_contract.spec.luau` and `tests/facet_translate.spec.luau`** — verified as the two RR specs that read `lastNodeBuilds`/`lastLayoutNodes` (`grep -ln 'lastNodeBuilds\|lastLayoutNodes\|layoutNodeReuse' tests/*.luau` → `facet_anchor_arrange`, `facet_measure_fanout_contract`, `facet_translate`). There is no `facet_node_reuse_contract.spec.luau` in RR. Both must be green with **no pin moved**; `./run-tests.sh` ≥ the recorded base.
 
@@ -875,7 +1051,7 @@ loop touches all 1,000 rows.
   - **(a) an EXISTING counter as an equality red:** `lastNodeBuilds` (`renderer.luau:2024`) read off the run at the T14 SHA and after — a container that reuses still rebuilds itself, but its 1,000 children stop being built, so this moves. `lastLayoutNodes` pinned UNCHANGED in the same block, plus `solves=1`.
   - **(b) `lastBuildChildVisits` as an equality after step 2.**
   - `it("a row inserted into the list rebuilds the array")` — `node.children` is a new table, identity fails, `lastLayoutNodes` grows by exactly the new subtree.
-  - `it("a ForEach region whose own children changed rebuilds")` — owed row 4's case, with the `markDirtyIn` prefix argument named in the case's comment.
+  - `it("a ForEach region whose own children changed rebuilds")` — owed row 4's case, with the `markDirtyIn` prefix argument named in the case's comment. **Drive the ForEach EXIT-FINISH site (`mount.luau:465`, `pushDirty` at `:470`) — the in-place `table.remove` that the identity gate cannot see** (review round 2 §3.7); the `When` exit-finish site (`:197`, `pushDirty` at `:202`) is driven by the `When` fixture in step 4. Name which site each fixture drives, in the case comment.
   - `it("a container re-parented across an axis rebuilds")` / `it("a container that enters a clipper rebuilds")` — owed row 5.
   - `it("the collect arm never reuses")` — driven through `controller.analyzeBoundaries` so `build`'s `collect` is true and `store.builtIds ~= nil` (owed row 3).
 
@@ -883,7 +1059,7 @@ loop touches all 1,000 rows.
 
 - [ ] **Step 3: the mechanism.** Replacing `:1348-1382`:
 
-<!-- verified: sed -n '377,398p;1348,1385p;1516,1523p;1618,1632p;1655,1671p;1680,1714p' src/render/layout_node.luau; sed -n '2020,2026p' src/render/renderer.luau -->
+<!-- verified: sed -n '370,400p;1340,1390p;1512,1525p;1618,1632p;1645,1715p' src/render/layout_node.luau; sed -n '2020,2026p' src/render/renderer.luau; sed -n '190,205p;435,472p' src/mount.luau -->
 ```luau
 	if #node.children > 0 then
 		local childAxis: string? = if kind == "hstack" or kind == "hwrap"
@@ -899,12 +1075,20 @@ loop touches all 1,000 rows.
 			a 26 ns hit that returns immediately; 1,000 of them is 0.14 ms and 7.6 % of
 			the class, for a tree whose shape did not move.
 
-			THE GATE IS TABLE IDENTITY, NOT LENGTH — the same `prior` the container memo
-			(ruling A-8) is carried on, so one validity question serves both. `mount`
-			builds a NEW `node.children` whenever the child set changes and mutates it
-			never, so identity is exactly "the shape under me is the shape I built for";
-			a length compare would accept a swap and a per-element compare would cost the
-			loop this replaces. `axis`/`clip` come with it: the children were built with
+			THE GATE IS TABLE IDENTITY *PLUS A DIRTY SCAN*, AND THE IDENTITY HALF IS ONLY
+			A CONSERVATIVE SUPERSET (ruling A-14, review round 2 §3.7). Two things
+			revision 2 asserted here are false. `mount.luau:450` `node.children =
+			newChildren` runs on EVERY ForEach reconcile, including when both `changed`
+			and `orderChanged` are false (`:439-450`) — so identity goes cold on frames
+			where nothing moved, which is a silent loss of the lever, not a defect. And
+			`node.children` IS mutated in place: `mount.luau:197` (When exit-finish) and
+			`:465` (ForEach exit-finish), each followed by `pushDirty(path,
+			"structure")` (`:202`, `:470`). What identity actually means is "the shape
+			under me is the shape I built for, OR something changed that I will ALSO see
+			in `store.dirty`" — and the `store.dirty` child scan below is what closes it.
+			That is why T15 is safe on this gate where T13 and T14 are not; they carry
+			per-child id keys instead (ruling A-14). A length compare would accept a swap
+			and a per-element compare would cost the loop this replaces. `axis`/`clip` come with it: the children were built with
 			`childAxis` (a pure function of `kind`, fixed for a mount node) and
 			`insideClipper == true or kind == "scroll"`, so the CONTAINER's pair
 			validates the children's.
@@ -1035,11 +1219,11 @@ holds: `ctx.walkedIds` (every node whose `arrangeBody` ran — `solver.luau:2509
 | 8 | `solver.Node.id == node.path` | `layout_node.luau:608` | **LOAD-BEARING, stated** — `walkedIds` is id-keyed and `translatedPaths` is id-valued, so `walked[child.path]` is the same key space |
 
 **Files:**
-- Modify: `src/layout/solver.luau` — the `work` literal (`:3515-3538`) gains `walkedIds = ctx.walkedIds`. **Budget ≤ +400 (ruling A-10).**
-- Modify: `src/render/commit_walks.luau` — `CommitCtx` (`:176-225`) gains `walked: any` and `walkedList: any`; `commit_walks.new` (`:227`) destructures both; `buildDescend`'s loop gains the filter; a `probeCount` counter published beside `scanCount`.
-- Modify: `src/render/renderer.luau` — pass the two through at `:1536`. **Budget ≤ +280 chars (ruling A-10).** **Passing two tables and testing both inside `buildDescend` is chosen over building a union table in the renderer** (review MUST-FIX 3): a union loop plus this repo's comment density does not fit 280 chars, allocates per commit, and `commit_walks.luau` has 112 KB of headroom.
-- Modify: **`tests/commit_walks_seam.spec.luau`** (the bidirectional `CommitCtx` pin), **`tests/commit_dirt_classes.spec.luau:955`** and **`tests/commit_translate.spec.luau:317`** (the two hand-built ctxs) — review MUST-FIX 1d; without all three the seam spec reddens.
-- Modify: `src/render/render_stats.luau` + `tests/render_stats_seam.spec.luau` — `lastCommitProbes`.
+- Modify: `src/layout/solver.luau` — the `work` literal (`:3511-3540`) gains **`walkedIds = if ctx.reuse ~= nil then ctx.walkedIds else nil`** — NOT a bare `ctx.walkedIds` (review round 2 §3.5, BLOCKING). `ctx.walkedIds` is initialised `{}` in `solve_ctx.new` and is **never nil**; only its POPULATION is guarded (`solver.luau:2508` `if reuse ~= nil then`). Exported bare, the filter's `walked ~= nil` term is vacuous, a non-reuse solve classifies EVERY child as not-walked and prunes all three lists, and mutation 5 cannot bite. Exported as above, the guard is real, a non-reuse solve prunes nothing, and the mutation bites. **Budget ≤ +400 (ruling A-10).**
+- Modify: `src/render/commit_walks.luau` — **`harvest` (`:795-807`) gains two OPTIONAL trailing parameters `walkedIds` and `translatedList`; `CommitCtx` is UNTOUCHED** (review round 2 §3.5, BLOCKING). `commit_walks.new` is called **once per attach** — `renderer.luau:1532-1536` says so in its own comment ("Built once per attach") — and destructures its ctx into closure locals one time, while `ctx.walkedIds` is a NEW TABLE EVERY SOLVE. Riding `CommitCtx` would freeze both values at attach, when they are nil. `harvest`'s parameter list is the per-commit route and `commitDirtySet` is its precedent. `buildDescend`'s loop gains the filter; a `probeCount` counter published beside `scanCount`.
+- Modify: `src/render/renderer.luau` — pass the two through **at the `harvest` call (`:2109`), NOT at `:1536`** — beside the existing `if solveOpts.reuse ~= nil then builtDirty else nil` argument, which is the same guard shape. **Budget ≤ +280 chars (ruling A-10).** **Passing two tables and testing both inside `buildDescend` is chosen over building a union table in the renderer** (review MUST-FIX 3): a union loop plus this repo's comment density does not fit 280 chars, allocates per commit, and `commit_walks.luau` has 112 KB of headroom.
+- Modify (RE-SCOPED by the route change): **`tests/commit_walks_seam.spec.luau`** — its bidirectional `CommitCtx` pins (`:203`, `:216`, `:223`) are **UNTOUCHED**, because no `CommitCtx` field is added; re-read the walk-list pin (`:417-425`) and any `harvest` arity pin off the run and re-record only what actually moves. **`tests/commit_dirt_classes.spec.luau:966-975` and `tests/commit_translate.spec.luau:330-343` call `walks.harvest(…)` POSITIONALLY and are not `CommitCtx` builders** — two optional trailing parameters leave them compiling and green with the filter simply off, so editing them is **optional coverage, not a prerequisite**. Add the two arguments to at least one call site in each so the filter is exercised there, and name which in the commit message.
+- Modify: `src/render/render_stats.luau` + `tests/render_stats_seam.spec.luau` (the `new()` field sample at `:104-119`) — `lastCommitProbes`. **T16 is the FOURTH task on this spec** — the conflict table row now says so (review round 2 §3.7) — and, like the other three, it must not plan a red around a SAMPLE that does not catch additions.
 - Create: `tests/commit_probe_filter.spec.luau`; register.
 - **RR rider: `tests/facet_commit_dirt_classes.spec.luau` and `tests/facet_commit_translate.spec.luau`**, plus `./run-tests.sh` green.
 
@@ -1058,7 +1242,7 @@ holds: `ctx.walkedIds` (every node whose `arrangeBody` ran — `solver.luau:2509
 - [ ] **Step 3: the counter, alone (arm C).** Add `probeCount` and its publish with the filter's predicate evaluated but its effect discarded — i.e. compute the four terms, ignore the result, always probe. That prices the predicate. **`probeCount` sits on the same line in arm B and arm C** (review MUST-FIX 4).
 - [ ] **Step 4: the mechanism.** In `buildDescend`'s loop, replacing the `local skipB, skipM, skipC` block:
 
-<!-- verified: sed -n '318,330p;510,526p;576,584p;605,612p;626,660p;806,818p' src/render/commit_walks.luau; sed -n '2494,2496p;2506,2510p;3515,3538p' src/layout/solver.luau -->
+<!-- verified: sed -n '318,330p;510,526p;576,584p;605,612p;626,660p;790,820p' src/render/commit_walks.luau; sed -n '2500,2515p;3486,3545p' src/layout/solver.luau; sed -n '1525,1545p;2100,2125p' src/render/renderer.luau -->
 ```luau
 			--[[ A CHILD THE SOLVE NEVER TOUCHED CANNOT HAVE A NEW ENTRY (Plan C addendum,
 				T16). `arrangeBody`'s skip is the contract: a subtree it skipped kept its
@@ -1083,10 +1267,19 @@ holds: `ctx.walkedIds` (every node whose `arrangeBody` ran — `solver.luau:2509
 				every child still reaches the fork logic with the same `i`. `scanCount`
 				therefore does not move; `probeCount` is this task's number.
 
-				`walked` IS EMPTY ON A NON-REUSE SOLVE (`solver.luau:2508` guards the
-				write with `if reuse ~= nil`). `pruning` is separately false there
-				(`:814`), so the filter is unreachable — but it is gated on `walked ~= nil`
-				explicitly rather than inheriting that, and a case pins it. ]]
+				`walked` IS NIL ON A NON-REUSE SOLVE, AND THAT IS AN EXPORT DECISION.
+				`ctx.walkedIds` is `{}` from `solve_ctx.new` and is NEVER nil; only the
+				WRITE is guarded (`solver.luau:2508` `if reuse ~= nil then`). So the `work`
+				literal exports `if ctx.reuse ~= nil then ctx.walkedIds else nil`: an
+				empty-but-present set would make this guard VACUOUS and prune every child
+				on a full solve. `pruning` (`:814`) is separately false there — which is
+				exactly the inheritance this task exists to stop relying on. The guard is
+				real, a case pins it, and mutation 5 can bite.
+
+				AND IT ARRIVES ON `harvest`'s PARAMETER LIST, NOT ON `CommitCtx`.
+				`commit_walks.new` runs ONCE PER ATTACH (`renderer.luau:1532-1536`) and
+				destructures its ctx into closure locals there; these two tables are new
+				every solve, so a ctx field would be frozen at nil forever. ]]
 			local skipB, skipM, skipC
 			if dirtyAll and dirtyCommit then
 				skipB, skipM, skipC = false, false, false
@@ -1101,9 +1294,9 @@ holds: `ctx.walkedIds` (every node whose `arrangeBody` ran — `solver.luau:2509
 			end
 ```
 
-  `walked` is built once per commit inside `harvest`, beside `nodeDirty = dirty`
-  (`:810-811`), from the two things the solve publishes — **iterating
-  `translatedPaths` as the ARRAY it is**:
+  `walked` is built once per commit inside `harvest`, from that function's own two new
+  parameters, beside `nodeDirty = dirty` / `commitDirty = commitDirtySet` (`:808-809`) —
+  **iterating `translatedPaths` as the ARRAY it is**:
 
 ```luau
 		--[[ ONE SET PER COMMIT, FROM WHAT THE SOLVE PUBLISHED. `walkedIds` is already a
@@ -1128,7 +1321,7 @@ holds: `ctx.walkedIds` (every node whose `arrangeBody` ran — `solver.luau:2509
   (review SHOULD-FIX 6).
 
 - [ ] **Step 5: green + the differential oracle arm.** 9 views, arm `c` byte-equal, on `deep_stack_scene` + the `fill`-child fixture + **a chrome-bearing fixture** exercising the unpruned arm. **The two conditions that disable the prune, re-cited (review SHOULD-FIX 7 — revision 1's `:803`/`:967` were a parameter and a comment):** the `UI.Path` condition is `commit_walks.luau:1273` `local prunable = next(pathNodes) == nil` (consumed `:1278`/`:1313`), and the `expandTarget` condition is the chrome latch `:1385` `isFrameworkChrome` → `:1507` `sawChrome = true`, read at `:1500`/`:1567`; the whole-commit switch is `:814`. Standing: every commit-walk oracle plus `commit_dirt_classes.spec`, `commit_scope.spec`, `structural_scope.spec`.
-- [ ] **Step 6: the mutation.** (1) drop the `not dirtyAll` term → reddens a dirty-child case. (2) use `nodeDirty` alone as the filter (T8's unsound index) → **must redden the `fill` case**; if it does not, the fixture is not a witness and step 2 is wrong. (3) replace the flag-set with a `continue` → **must redden a fork case** (the aliasing regression, owed row 3). (4) merge `translatedPaths` as a map → reddens a translate fixture. (5) drop the `walked ~= nil` guard → reddens the full-solve case.
+- [ ] **Step 6: the mutation.** (1) drop the `not dirtyAll` term → reddens a dirty-child case. (2) use `nodeDirty` alone as the filter (T8's unsound index) → **must redden the `fill` case**; if it does not, the fixture is not a witness and step 2 is wrong. (3) replace the flag-set with a `continue` → **must redden a fork case** (the aliasing regression, owed row 3). (4) merge `translatedPaths` as a map → reddens a translate fixture. (5) drop the `walked ~= nil` guard → reddens the full-solve case. **It can only bite once the `work` literal exports `if ctx.reuse ~= nil then ctx.walkedIds else nil`** (review round 2 §3.5); if it does not bite, the export is bare and step 4 is wrong. **(6) export `walkedIds = ctx.walkedIds` bare → MUST redden the full-solve case too** — the same defect from the producing side. **(7) move the two tables onto `CommitCtx` / `commit_walks.new` instead of `harvest` → MUST redden every filtered case**, because `new` runs once per attach and both values would be frozen at nil.
 - [ ] **Step 7: gates, RR, measurement, commit.** Full gates; `check_source_size` with `solver.luau`, `commit_walks.luau` and `renderer.luau` recorded against their splits. Three arms, ABBA; expected `battle_hud L updateItem-hp` **~0.20 → ~0.14**, `killfeed L hp` ~0.12 → ~0.09, `war_room reorder` ~16.5 → ~16.2. Commit `T16: the commit probes a child only when the solve could have replaced its entry (C14)`.
 - [ ] **Step 8: FacetBench §C14.** Including, plainly, that T8 named this mechanism unsound in one form and this is the other form, with the `fill`-child case as the difference — and that the filter deliberately keeps the loop so the fork's prefix arithmetic is untouched.
 
@@ -1177,6 +1370,13 @@ mechanism instead of a change (ruling A-7).**
 ---
 
 ## Amendment log (review round 1) — every finding, dispositioned
+
+> **Round 2 re-graded four of the dispositions below. Where this section and the round-2
+> log disagree, the round-2 log wins.** Specifically: T13-6's "refusing those two kinds
+> outright" was re-amended to per-child only (ruling A-16); T14-2's `pMain` fix was
+> incomplete (review round 2 §3.2); T14 NOTE 14 / ruling A-13 is partially superseded by
+> A-15; T15-1's `:1694` is `:1693`; T16-1b's guard was inert and T16-1d's route was
+> wrong.
 
 **§0 (BLOCKING).** FIXED by **ruling A-8**: the memo's home is `store.byNode[node].cmemo`,
 mount-keyed and weak, with `layoutNode.cmemo` as a pointer refreshed on rebuild under one
@@ -1230,7 +1430,7 @@ correct for a prefix rebase and is unnecessary for the amended replay, because
 constant. A `distribute` fixture is added as the witness, and it is a REPLAY case, not a
 refusal case.
 
-**T15.** 1 FIXED (`store.builtIds ~= nil`, per `layout_node.luau:1686`/`:1694`; the
+**T15.** 1 FIXED (`store.builtIds ~= nil`, per `layout_node.luau:1686` — `build`'s `collect` parameter — and **`:1693`**, `store.builtIds = if collect == true then {} else nil`. Revision 2's log said `:1694`, one line off and in disagreement with T15's own owed row; corrected in round 2, review round 2 §2; the
 mutation can now bite). 2 FIXED (`renderer.luau` in the Files list with a ≤ +120 split;
 `Store` type, `newStore`, and the reset beside `store.built = 0` all listed). 3 FIXED
 (`tests/render_stats_seam.spec.luau` is a listed file and an explicit step in T13, T14 and
@@ -1265,9 +1465,136 @@ kept, and T17 now names its rider. Unlisted files — FIXED: `solve_ctx.luau` (T
 `renderer.luau` (T15, T16), `solver.luau` (T14, T16), `render_stats_seam.spec.luau`
 (T13, T14, T15), the three commit-ctx tests (T16).
 
+
 ---
 
-## Self-review (round 2)
+## Amendment log — round 2 — every finding, dispositioned, and the two measurements it demanded
+
+**Measured at Facet `92d3e7e4`** in a detached worktree (`git worktree add … 92d3e7e4`)
+with a private copy of FacetBench beside it, so the Task-12 agent's in-flight
+`tests/lib/fake_target.luau` edit in the shared tree could not reach the run. FacetBench
+resolves Facet by relative path (`frameworks/facet/adapter.luau:5`
+`require("../../../Facet/src")`), which is what makes the worktree arm possible at all.
+Instrument: a temporary census inside `contentSize`'s vstack/hstack branch, a temporary
+shadow of the amended replay inside `stack.arrange` after the hug pass, and a temporary
+`kids` field on the store entry so the carrier gate could be evaluated at HEAD. Driver: a
+private `tools/profile/gate_probe.luau` modelled on `attr` — mount, 50 warm-up steps, then
+the whole script with the counters reset per step and bucketed by `attr`'s own
+`bucketName`. **Neither instrument changes a rect; both are discarded.** One `lune` at a
+time throughout.
+
+### Measurement L-1a — T13's gate survival
+
+*"Of the containers `contentSize` enters on a 1-leaf update, how many pass the plan's
+gate?"* The useful denominator turned out to be not containers but the per-child `measure`
+calls those containers issue, which is what the lever removes.
+
+| class | containers / measures per step | **plan as written** | **id key + per-child text refusal (ruling A-14 + A-16)** |
+|---|---:|---:|---:|
+| `battle_hud L updateItem-hp` | 5.6 / 1,065.4 | 0.2 % of containers, **15.3 measures = 1.4 %** | **1,031.0 = 96.8 %** |
+| `battle_hud L setState` | 3.0 / 1,112.8 | 1.1 %, **36.7 = 3.3 %** | 1,081.7 = 97.2 % |
+| `battle_hud L removeItem-damage` | 1.0 / 1,123.0 | 2.2 %, 24.5 = 2.2 % | **0.0 = 0.0 %** (indices moved) |
+| `war_room_inventory L setState` | 2.4 / 1,155.2 | 33.3 %, **1,151.3 = 99.7 %** | 1,151.3 = 99.7 % |
+| `war_room_inventory L updateItem-power` | 2.8 / 1,367.6 | 33.3 %, 1,359.2 = 99.4 % | 1,362.9 = 99.7 % |
+| `war_room_inventory L reorder` | 1.0 / 1,471.0 | 100 %, 1,471.0 = 100 % | **0.0 = 0.0 %** (indices moved) |
+| `killfeed_nameplates L updateItem-hp` | 2.9 / 324.7 | 0.0 %, **0.0 = 0.0 %** | **244.3 = 75.2 %** |
+| `killfeed_nameplates L setState` | 1.0 / 331.0 | 0.0 %, 0.0 = 0.0 % | 255.0 = 77.0 % |
+
+**Two findings, and neither was predictable from `war_room` alone.**
+
+1. **The container-level `text`/`composition` kill costs T13 its own headline.** The
+   review predicted "every `UnitRow` has two `Text` direct children, so no row memoises;
+   only the flat root list does". The measurement is worse than that: the flat root list
+   **also** holds `text` children — `battle_hud`'s Damage `ForEach` splices `DmgText`
+   labels straight into the root panel's flow (`text=9…44` on a 1,110–1,145-child
+   container across the run) — so **nothing memoises on `battle_hud` at all**, and
+   `killfeed` reads a flat 0.0 %. Ruling **A-16** deletes the container-level term; the
+   per-child refusal that was always there carries the correctness. `war_room` reads
+   99.4–99.7 % either way, which is exactly why quoting it would have hidden this.
+2. **The id key is mandatory and it is not free.** Without it the gate reads 98.0–100 %
+   on `removeItem-damage`, `reorder` and `removeItem-items` — every one of those serves a
+   number belonging to a different node, because the `ForEach` splice shifted the index
+   while `prior.kids == node.children` still held. With it those classes read 0.0 %, which
+   is the correct answer and is now written into T13's expected table as **NO GAIN**.
+
+### Measurement L-1b — T14's replay survival
+
+*"On `battle_hud updateItem-hp` and `setState`, does the dirty row's MEASURED main/cross
+extent change?"* **Yes on `hp`, at both levels.** The shadow implements the amended gate —
+id scan over every child, box/gap/align/distribute key, margin-inclusive measured
+contributions taken from `desired` + `margins` after the hug pass — and counts what fires.
+
+| class | `stack.arrange` entries / step | **replays** | children skipped / step |
+|---|---:|---:|---:|
+| `battle_hud L updateItem-hp` | 1.9 | **0.0** | 0 |
+| `battle_hud L setState` | 2.0 | 1.5 | 846.7 |
+| `battle_hud L updateItem-facing` | 1.9 | 0.6 | 636.6 |
+| `battle_hud L add/removeItem-damage` | 1.0 | **0.0** | 0 |
+| `war_room_inventory L setState` | 1.6 | 0.8 | 615.0 |
+| `war_room_inventory L updateItem-power` | 1.9 | 0.8 | **1,158.8** |
+| `war_room_inventory L updateItem-tier` | 1.4 | **0.0** | 0 |
+| `war_room_inventory L reorder`, `removeItem-items` | 1.0 | **0.0** | 0 |
+| `killfeed_nameplates L setState` | 1.0 | 0.8 | 251.0 |
+| `killfeed_nameplates L updateItem-hp` | 1.9 | **0.0** | 0 |
+
+Refusal reasons on `battle_hud L updateItem-hp`, named by the shadow: `MAIN` moves for
+`/Root/Units/[uN]/UnitRow-uN :: …/UnitHp-uN` and `CROSS` moves for
+`/Root :: /Root/Units/[uN]/UnitRow-uN`. The review's reading is confirmed exactly — the
+bar's fixed width IS the hp value (`adapter.luau:39-46` × `battle_hud.luau:92-96`), the
+row refuses on its main axis and the 1,000-row list refuses on its cross axis.
+
+**And a defect the review's §3.1 predicted but did not price.** On `removeItem-damage`,
+`reorder`, `removeItem-items`, `removeItem-feed` and `removeItem-plates` the arm is
+REACHED with `dirty ~= nil`, **ZERO dirty children** and an unmoved box, over
+**1,123 / 1,471 / 1,470.5 / 324.7 / 333.5** children respectively. Revision 2's loop only
+examined dirty children, so it would have taken the fast return **having placed nothing at
+all** while the splice moved every surviving row. That is the strongest single argument for
+ruling A-14, and it is why the `pIds` scan runs over EVERY child, not only the dirty ones.
+`dirty == nil` never occurs on any measured class (0.0 everywhere), so `dirty ~= nil` was
+carrying no weight here. Hug children: **zero** dirty-hug refusals on all three workloads,
+so refusing them costs nothing.
+
+### Findings
+
+| Round-2 finding | Disposition |
+|---|---|
+| §2 MUST-FIX (T12): `:271-275` self-contradictory | **FIXED.** `indexNode` at `:482` **and** `:1029`; `unindexNode` at `:873`, `:936`, `:1124`; the adopt old key deliberately kept. Stated once, and matched to what Task 12's implementer was already told |
+| §2 NOTE: log cites `layout_node.luau:1694` | **FIXED** → `:1693`, and the log now says why it was wrong |
+| §2 NOTE: `stack_seam.spec:163` is the whole block | **FIXED** → `:161` (`ctx`), `:162` (`node`), `:163` (`child`) |
+| §2 SHOULD-FIX: read-set gains `node.gap` | **FIXED.** `gap` is a **parameter** of `stack.arrange` (`stack.luau:98-112`), not a node field; the set gains `ctx.reuse`, `ctx.noSkipDepth`, **`ctx.replayAudit`**, `node.cmemo`, **`child.id`** and **`child.layoutPriority`**, and NOT `node.gap` |
+| §3.1 MUST-FIX (BLOCKING, T13+T14): `kids` identity does not protect an index-keyed array | **FIXED by ruling A-14**, id-keyed at both sites (`mIds`, `pIds`), with the measurement above as the evidence and the spliced-sibling fixture + mutation added to both tasks |
+| §3.2 MUST-FIX (BLOCKING, T14): `pMain` is a PLACED extent | **FIXED.** The pair is recorded from `desired` + `margins` immediately after the hug pass — margin-inclusive, measured, at the pass-1 offer this arm re-measures at — and a dirty HUG child is refused (`pHug`). Margins therefore need no separate refusal. Mutation 10 pins it |
+| §3.3 MUST-FIX (T14): three placement inputs outside the gate | **FIXED by ruling A-15**: `pDistribute` in the key, `pShrink`/`pPrio` per child, each with its reader cited (`stack.luau:328`/`:343`, `:188`/`:208`, `shrink.luau:335`). Refusing on a dirty container was rejected against the measurement |
+| §3.4 MUST-FIX (T14, the headline): the replay cannot fire on `updateItem-hp` | **FIXED. The task's headline class is changed.** Measured (L-1b), the expected table now reads NO GAIN on `updateItem-hp`, `killfeed hp` and `removeItem-damage`, and names `setState` / `updateItem-power` as what T14 actually buys. Step 4.5 STOPS if `hp` ever shows a replay |
+| §3.5 MUST-FIX (BLOCKING, T16): route + vacuous guard | **FIXED both halves.** `walked` rides `harvest`'s parameter list (`commit_walks.luau:795-807`, called `renderer.luau:2109`), `CommitCtx` untouched; the `work` literal exports `if ctx.reuse ~= nil then ctx.walkedIds else nil` so the `walked ~= nil` guard is real and mutations 5–7 bite |
+| §3.6 MUST-FIX (T13): survival unmeasured; residual counts one pass of three | **FIXED both halves.** Survival measured on all three workloads (L-1a) and every expected-ms row re-derived from it; residual re-booked at **~0.10–0.15 ms (10–15 %)**, not 0.03 ms (3 %), with the skip arm's own six table operations named. Step 4.5 re-reads survival at the task's own SHA |
+| §3.7 SHOULD-FIX: `parentPathOf` ≠ `hostFor`'s walk | **FIXED** in the code comment |
+| §3.7 SHOULD-FIX: audit arm has no route into a spec | **FIXED.** The attach-opt path `node_reuse`/arm `c` already use, plus a public-surface absence pin, both now blocking for T13 step 6 and T14 step 4 |
+| §3.7 SHOULD-FIX (T15): the `mount` invariant is wrong on both halves | **FIXED.** Restated as "a conservative superset the dirty scan closes", with `mount.luau:450` (runs on every reconcile), `:197`/`:202` and `:465`/`:470` cited, and step 1 naming which exit site each fixture drives |
+| §3.7 SHOULD-FIX: conflict table missing T16, `run.luau`, the ledger, the `layout_node` code motion | **FIXED.** Four rows added/re-graded, including the `local prior` hoist |
+| §3.8 NOTE: `render_stats_seam.spec:104-119` is a SAMPLE | **FIXED, as a correction rather than an addition.** The table row is re-graded and all four tasks now say plainly that adding a field does not redden it and that the real pin is the task's own counter equality. No task plans a red around it |
+| §3.7 SHOULD-FIX (T14): `stack_seam`'s read-vs-write half | **FIXED** — stated in step 0 |
+| §3.8 NOTE: weak-key lifetime is sound and worth stating | **NOTED** — ruling A-8 already carries the lifetime argument; the "no upward pointer, so the value cannot pin its own key" half is worth one line in T13's §C11 write-up and is booked there |
+| §3.8 NOTE: source-cap splits need re-checking after the amendments | **FIXED** in Global Constraints: each task re-runs `check_source_size` before and after stylua, and a task over its split takes its seam or spends the reserve with a ledger line naming it |
+| §3.8 NOTEs: T15 arithmetic, `store.builtIds`, T17 READY, cap arithmetic | **NOTED, no change** |
+
+**Verdicts carried forward:** T15 and T17 are READY and are untouched by this round except
+for the conflict table, the `:1693` citation, the seam-spec sample re-grade and T15's
+restated invariant.
+
+---
+
+## Self-review (round 3)
+
+**What round 2 changed about this plan's honesty.** Two of the six tasks were quoting
+expected milliseconds that the mechanism could not deliver — T13 at 1.4 % of the calls it
+claimed and T14 at 0 replays on its named headline class — and neither was detectable by
+reading the code, because both gates are correct in isolation and wrong against the
+workload. **Every expected-ms row in T13 and T14 is now derived from a measured survival
+fraction, and three rows say NO GAIN.** The rule this produces, for Task 10's report: *a
+narrowing gate's expected gain is unknown until its survival rate is measured on every
+workload it is quoted against* — one workload is not evidence for the others, and the
+measured spread here was 0.0 %–100 %.
 
 **Spec coverage vs T9b §6.** L2 → T12; L1a → T13; L1b → T14; L1c → T15; L1d → T16
 (profile-gated, A-6); L3 → T17; **L4 (allocation) is deliberately NOT a task** — T9b
@@ -1275,19 +1602,28 @@ measured it as a clock null (−16.6 % allocation, 0 % time) and §4 says not to
 round on it without a live arm, so it is an observation inside T17's capture
 (`gcSwingKb` 31,982 facet vs 44 vide); **L5 (`ctx.offers`) is T13 step 5, conditional on
 the character budget**, per its rank-8 placement. Task 11 is dispositioned with its
-measured number. Nothing in §6 is unaccounted for. **Every MUST-FIX and SHOULD-FIX in the
-review is dispositioned in the amendment log above — 47 findings, 45 FIXED, 1 REFUTED
-with a citation (T14 NOTE 14 → ruling A-13), and every NOTE either cited in an owed list
-or acknowledged.**
+measured number. Nothing in §6 is unaccounted for. **Every MUST-FIX and SHOULD-FIX in
+review round 1 is dispositioned in its amendment log — 47 findings, 45 FIXED, 1 REFUTED
+with a citation (T14 NOTE 14 → ruling A-13, itself now partially superseded by A-15).
+Every round-2 finding is dispositioned in §Amendment log — round 2: 5 MUST-FIX (3
+BLOCKING) and 4 citation corrections FIXED at the source, 7 SHOULD-FIX FIXED, 5 NOTEs
+noted, and the two measurements ruling L-1 demanded are in the log with their numbers,
+their instrument and their worktree SHA.**
 
 **Placeholder scan.** No step says "similar to Task N", "as above" or "TBD". Every
 mechanism block carries a `<!-- verified: … -->` line naming the `sed -n` ranges its
-fields were read from at `e26c1daf`, and every field named in a code block appears in one
-of those ranges. Four things are left to the implementer and are LABELLED: the exact
+fields were read from, and every field named in a code block appears in one of those
+ranges. ▲ **The ranges on the five blocks round 3 touched were re-read at `92d3e7e4`**
+(T13's carrier and mechanism, T14's, T15's, T16's) and now also cover `src/mount.luau` and
+`src/layout/shrink.luau`, which rulings A-14 and A-15 depend on; `git diff e26c1daf
+92d3e7e4` touches only `render_stats.luau`, `z_order.luau`, `zorder_bounded.spec.luau` and
+this file, so every other range resolves identically at both SHAs. Four things are left to the implementer and are LABELLED: the exact
 `fieldsRead` sets in T14 step 0 ("read off the run"), every "currently N" pin ("read off
 the run", never quoted), T16's gate outcome (it may book), and T17's whole shape (A-7).
 
-**Type consistency.** `cmemo` is one optional table on the store entry (`layout_node.luau`
+**Type consistency.** ▲ T13's payload is now **nine** names (`mIds` added, ruling A-14) and
+T14's **fifteen** (`pN`, `pDistribute`, `pIds`, `pHug`, `pShrink`, `pPrio` added; rulings
+A-14, A-15), each still with exactly one writer. `cmemo` is one optional table on the store entry (`layout_node.luau`
 `:1519-1521`) and one optional field on the solver `Node`, both untyped-`any` records like
 every other field of those two tables; `kids` and `childArray` sit beside it. T13's seven
 payload names (`mStamp: string?`, `mScope: string?`, `mOffW`/`mOffH: number?`, and four
@@ -1300,10 +1636,12 @@ declared in `Store` and reset in `build`. The three new `last*` fields are added
 `render_stats.new()`'s record and to `tests/render_stats_seam.spec.luau:104-119`'s sample;
 **`publish`'s four-argument signature is unchanged in this wave**, so `:126`/`:135` and the
 `:163` call-site scan are untouched. `fake_target.Opts` gains one optional boolean beside
-`trackThemeRoots`. `CommitCtx` gains two `any` fields and is re-pinned in three places.
+`trackThemeRoots`. ▲ **`CommitCtx` is UNCHANGED**; `commit_walks.harvest` gains two
+optional trailing parameters (`walkedIds`, `translatedList`), so the seam spec's three
+bidirectional `CommitCtx` pins and the two positional `harvest` call sites in
+`commit_dirt_classes.spec` / `commit_translate.spec` all stay green untouched.
 
-**Ordering.** T12 first (A-2), and it waits on the other agent's `zorder_bounded.spec`
-commit. T13 before T14 and T15 — it installs the `cmemo` carrier both depend on. T14
+**Ordering.** T12 first (A-2); its `zorder_bounded.spec` prerequisite is CLEARED. T13 before T14 and T15 — it installs the `cmemo` carrier both depend on. T14
 step 0 is its own commit before T14's behaviour (T7-3). T15 after T14 so its `attr`
 baseline is stable. T16 gated on what T13–T15 leave. T17 is independent and could run in
 parallel with a second agent; it is last because its deliverable may be a booking and the
@@ -1311,4 +1649,9 @@ closing report needs the four numbers above it.
 
 **The one thing this plan cannot promise.** T13–T16 together approach the measured floor
 **headless**. **Live, they clear 0.5 ms only if T17 finds the 1.5 ms.** Task 10's report
-must say that in those words if T17 books instead of fixing.
+must say that in those words if T17 books instead of fixing. ▲ **And a second thing, added
+in round 3: `battle_hud L updateItem-hp` — the class this whole addendum's Goal line is
+written around — is served by T13 (96.8 % of its measure calls) and NOT by T14 (0
+replays), so its predicted landing is ~0.90 ms after T13 and ~0.90 ms after T14.** The
+0.5 ms target on that class therefore rests on T15, T16 and T17, not on the two largest
+levers. Say that in §C12 and in the closing report.
