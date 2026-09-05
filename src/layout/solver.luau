@@ -187,6 +187,18 @@ export type Node = {
 	-- direct `solver.solve` callers in `tests/` hand-build nodes and carry neither.
 	wKey: string?,
 	hKey: string?,
+	--[[ THE CONTAINER MEMO THAT LAST RECORDED THIS NODE'S OFFER (Plan C, T13b, owed
+		row A1). It is the PARENT stack's `cmemo` table, written by that stack's own
+		full measure pass beside the record, and it exists because of one hole an
+		O(dirty) pass opens: a child the parent SERVES is never handed to `measure`, so
+		nothing writes `ctx.offers` for it, and the arrange entry literal below files
+		`offerW = nil` — which disarms both anchor arms. The memo already holds the
+		offer as its own key (`mOffW`/`mOffH`), and the aggregate fires only when that
+		key EQUALS this tick's offer, so the pair on the memo IS this tick's offer:
+		byte-identical to what the walk would have written. It is read ONLY when
+		`ctx.offers` misses AND `cmemo.mSolve` carries THIS solve's token — see
+		`Ctx.solveToken` for why an unstamped node field is unsound. ]]
+	oMemo: any?,
 	width: Dim?,
 	height: Dim?,
 	padding: any?, -- number | {top,right,bottom,left} (same shape as margin)
@@ -2303,8 +2315,12 @@ local function arrangeBody(ctx: Ctx, node: Node, rect: Rect, out: { [string]: an
 		containerH = if node.containerRelativeInside then ctx.containerH else nil,
 		-- the OFFER this node was measured against, so a later solve can ask "is this
 		-- the same question I already answered?" — a rect alone cannot say that
-		offerW = ctx.offers[node.wKey or (node.id .. "|w")],
-		offerH = ctx.offers[node.hKey or (node.id .. "|h")],
+		-- ...with the container-memo fallback behind it (T13b, owed row A1). `or`
+		-- short-circuits, so a node whose `measure` ran this solve pays nothing for it.
+		offerW = ctx.offers[node.wKey or (node.id .. "|w")]
+			or (if node.oMemo ~= nil and node.oMemo.mSolve == ctx.solveToken then node.oMemo.mOffW else nil),
+		offerH = ctx.offers[node.hKey or (node.id .. "|h")]
+			or (if node.oMemo ~= nil and node.oMemo.mSolve == ctx.solveToken then node.oMemo.mOffH else nil),
 		kind = node.kind,
 		overflow = node.overflow,
 		textState = ctx.textStates[node.id],
@@ -3409,6 +3425,12 @@ function solver.solve(
 			-- ...and how many comparisons the container memo's AUDIT made, which is zero
 			-- on every solve that did not ask for it (see `Ctx.memoChecks`)
 			memoChecks = ctx.memoChecks,
+			-- ...and T13b's: the child-array POSITIONS those loops looked at (never the
+			-- calls — `childVisits` is that, and it must not move), the aggregate's
+			-- started-then-bailed count and its own oracle's comparison count
+			childIterations = ctx.childIterations,
+			aggregateFallbacks = ctx.aggregateFallbacks,
+			aggregateChecks = ctx.aggregateChecks,
 			rectInserts = ctx.rectInserts,
 			skipped = ctx.skipped,
 			-- the O3 translate class and its two flat arrays, in document order

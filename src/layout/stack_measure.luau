@@ -138,6 +138,18 @@ function stack_measure.contentSize(
 		and cmemo.mScope == ctx.scopeKey
 		and cmemo.mOffW == innerMaxW
 		and cmemo.mOffH == innerMaxH
+		--[[ ...AND THE AXIS, which was missing and is a wrong pixel (found by T13b while
+			proving owed row A2). `mMain[idx]` is the child's contribution on the MAIN
+			axis and `mCross[idx]` on the cross one; which of those is width is
+			`node.kind`. A `UI.Stack{ axis = signal }` flips `kind` between `vstack` and
+			`hstack` through a PROP (`render/layout_node`, the stack literal), and `axis`
+			is not a node fact, so the flip is measure-classed dirt on the container
+			alone: the carrier keeps the memo (the mount children table is the same
+			object), every child stays clean, and a container with a definite box offers
+			the identical `innerMaxW`/`innerMaxH` on both sides of the flip. Every other
+			term in this key would hold and the memo would serve heights as widths. One
+			compare, and `tests/container_aggregate.spec.luau` drives it. ]]
+		and cmemo.mKind == node.kind
 	local memoable = cmemo ~= nil and reuse ~= nil and ctx.measureStamp ~= nil and not ctx.analyze
 	local mMain, mCross, mCuts, mIds
 	if memoable then
@@ -147,11 +159,284 @@ function stack_measure.contentSize(
 			mMain, mCross, mCuts, mIds = {}, {}, {}, {}
 		end
 	end
+	if cmemo ~= nil and reuse ~= nil then
+		-- OWED ROW A1, AND IT IS ONE FIELD: "this container measured on THIS solve".
+		-- A child this pass SERVES is never handed to `measure`, so nothing writes
+		-- `ctx.offers` for it and the arrange entry literal would file a nil offer,
+		-- disarming both anchor arms. The offer it needs is the memo's own key, and
+		-- `solver`'s entry literal reads it through `child.oMemo` behind this stamp.
+		cmemo.mSolve = ctx.solveToken
+	end
+	--[[ THE PARENT STOPS LOOKING AT THE CHILDREN IT DID NOT ASK (Plan C, T13b —
+		rulings L-7 and L-8). T13 above made the WORK inside these loops O(dirty) and
+		left the loops themselves: measured at `66ccc867`, PASS 1's walk is 0.207 ms of
+		a 1.802 ms class on the arena's `battle_hud L updateItem-hp`, the fill scan
+		0.005 and the `crossMax` fold 0.004 — 12.0 % of the class and the dominant term
+		in this branch.
+
+		SO THE DIRTY CHILDREN ARE ENUMERATED INSTEAD OF FOUND. `reuse.measureContains`
+		is 5 entries on that class and the container's own reverse map turns them into
+		indices; the ALWAYS-VISIT list (a child whose kind or weights this branch can
+		never serve) and the FILL list are recorded, ascending, by the full pass.
+		Everything else is a number this container already holds.
+
+		AND THE FOLD BELOW STAYS O(n) ON A MEASUREMENT, NOT A HABIT: it is 3.6 ns a
+		child, 1.9 % of the three passes, and a patched `crossMax` argmax would need a
+		full rescan every time the argmax child shrinks — measured 0.09 % of hit folds
+		on `battle_hud`, 6.9 % on `war_room_inventory`, 14.8 % on `killfeed_nameplates`.
+		Amendment A-4's third withdrawal reason is answered by not building the thing.
+
+		EVERY REFUSAL IS DECIDED BEFORE A SINGLE WRITE (plan review, M3). The first
+		version aliased the arrays and then `break`ed out of the measuring loop on two
+		valves, which left HEAD's pass running on a poisoned `crossOf` sentinel, a
+		double-counted `mainSum` and a double-counted `ctx.childVisits` — the counter
+		the whole acceptance argument rests on. So this is a PRE-PASS that reads
+		`dim`/`sides`/the memo and calls no `measure`, and a committed loop that cannot
+		bail. ]]
+	local agg = hit
+		and cmemo.mSum ~= nil
+		and cmemo.mN == n
+		-- owed row A2: the one tick class on which an index binding can move under an
+		-- unchanged mount children table is a STRUCTURAL refresh, and `render/layout_node`
+		-- stamps it from the argument the renderer already passes
+		and cmemo.struct ~= true
+		-- ...and NEITHER audit: T13's forces every child through `measure` so its own
+		-- per-index assert has something to compare, and an aggregate that skipped PASS 1
+		-- would take that arm away from it (found by the run — `memoChecks` read 0)
+		and not ctx.memoAudit
+		and not ctx.aggregateAudit
+	-- the visit list, ascending and deduplicated, or nil for "this tick walks"
+	local visit: { number }? = nil
+	local aggFillWeight = 0
+	if agg then
+		local mIsFill, mFill = cmemo.mIsFill, cmemo.mFill
+		--[[ OWED ROW A10: the walk is BOUNDED BY A PROBE BUDGET, not by trust. This
+			loop walks the whole measure closure, not this container's share of it, so a
+			wide closure could make the aggregate slower than the walk it replaces. The
+			floor is `math.max(4, …)` because a bare `n // 4` is 0 below four children
+			and 1 below eight — every small container in a real tree would pay a probe
+			walk and then fall back, which is cost with no gain (plan review, S3).
+
+			AND THE BUDGET IS SPENT BEFORE THE MAP BELOW IS BUILT, which is why this is a
+			bare count rather than the resolve loop under it: a tick that bails here must
+			not have paid for anything. ]]
+		local budget = math.max(4, n // 4)
+		local probes = 0
+		for _ in dirty do
+			probes += 1
+			if probes > budget then
+				agg = false
+				break
+			end
+		end
+		ctx.childIterations += probes
+		local list: { number } = {}
+		if agg then
+			--[[ THE REVERSE MAP IS BUILT LAZILY, AND THE ARENA IS WHAT DECIDED THAT. The
+				first version built `id -> index` inside the full pass, for every child,
+				on every full pass — and measured on the arena's `battle_hud L`, that is
+				1,100 string-keyed hash inserts riding a walk that already runs, which cost
+				**+0.3 ms (+12 %) on `removeItem-damage`**, a STRUCTURAL class the aggregate
+				refuses outright. A lever that pays for itself on one class out of another's
+				pocket is not a lever, and only the three-arm interleave could see it.
+
+				SO IT IS BUILT ON THE FIRST TICK THAT WOULD SPEND IT, and dropped by every
+				completed full pass (the tail below) — which is the only event that can move
+				an index binding this pass is allowed to run under, because every OTHER way
+				a layout children sequence can change makes the refresh structural and
+				`cmemo.struct` refuses those before this line. One O(n) walk per full-pass
+				epoch, amortised over every aggregating tick in it, and ZERO on a container
+				that never aggregates. ]]
+			local mIdx = cmemo.mIdx
+			if mIdx == nil then
+				local built: { [string]: number } = {}
+				for idx, child in children do
+					built[child.id] = idx
+					--[[ OWED ROW A1 RIDES THE SAME WALK, and the arena is why it rides THIS
+						one rather than the full pass. A child this container SERVES is never
+						handed to `measure`, so nothing writes `ctx.offers` for it and the
+						arrange entry literal files a nil offer — which disarms both anchor
+						arms, and on an aggregating surface it disarms them on every tick
+						rather than for one. The pointer is to THIS memo, whose key already IS
+						the offer (`mOffW`/`mOffH`), and the gate above has just proved that
+						key equals this tick's offer.
+
+						WRITTEN ONCE PER EPOCH, NOT ONCE PER PASS. The first version stamped it
+						in the record block, per child, on every full pass: measured on the
+						arena's `battle_hud L`, that plus one accumulator cost **0.15 ms a full
+						pass** — `removeItem-damage` +6.2 % against the counters-only arm, and
+						the hp class handed back a third of its own win. Here it rides the walk
+						the reverse map already pays for, and a container that never aggregates
+						never pays it at all. ]]
+					child.oMemo = cmemo
+				end
+				cmemo.mIdx = built
+				mIdx = built
+				ctx.childIterations += n
+			end
+			table.move(cmemo.mAlways, 1, #cmemo.mAlways, 1, list)
+			for id in dirty do
+				local idx = mIdx[id]
+				if idx ~= nil and dirty[id] == true and mIsFill[idx] ~= true then
+					table.insert(list, idx)
+				end
+			end
+		end
+		local ordered: { number } = {}
+		if agg then
+			--[[ OWED ROW A9, AND IT IS THE TRAP IN THIS TASK. The dirty set is a HASH and
+				iterating it gives an arbitrary order; PASS 1.5's own comment states the
+				rule (last-write-wins verdict channels — `compact`, `textFacts` — must
+				publish deterministically). k is 1-20 on every class measured here, so the
+				sort is free. A child in the always list AND in the dirty set appears
+				twice, and measuring it twice would patch `mainSum` twice — hence the
+				dedupe, which the sort makes one compare. ]]
+			table.sort(list)
+			local prev = -1
+			for _, idx in list do
+				if idx == prev then
+					continue
+				end
+				prev = idx
+				-- owed row A3, one direction: a recorded non-fill child that became fill
+				if dim(children[idx], if isH then "w" else "h").type == "fill" then
+					agg = false
+					break
+				end
+				table.insert(ordered, idx)
+			end
+		end
+		if agg then
+			--[[ OWED ROWS A4 AND A8, AND THE PLAN HAD BOTH BACKWARDS. It said PASS 2
+				supplies `marginMain[idx]` and `fillWeightSum`; PASS 2 only READS them,
+				and both are written by PASS 1, which this path does not run. Without
+				this loop `fillWeightSum` is 0, the share below is `math.huge` and every
+				fill child measures at an unbounded main extent — the "painted at a size
+				nobody measured" family PASS 1.5 was written for. It is O(#fill), which
+				is 1-2 children on the measured classes, and it carries owed row A3's
+				OTHER direction: a recorded fill child that stopped being one. ]]
+			for _, idx in mFill do
+				local child = children[idx]
+				local childMainDim = dim(child, if isH then "w" else "h")
+				if childMainDim.type ~= "fill" then
+					agg = false
+					break
+				end
+				local mt, mr, mb, ml = sides(child.margin)
+				marginMain[idx] = if isH then ml + mr else mt + mb
+				aggFillWeight += childMainDim.weight or 1
+			end
+		end
+		if agg then
+			visit = ordered
+			ctx.childIterations += #ordered + #mFill
+		else
+			-- STARTED and refused, which is the only thing this counter means: a tick
+			-- the aggregate never entered is not a fallback (plan review, S2)
+			ctx.aggregateFallbacks += 1
+		end
+	end
+	-- the payload the NEXT tick reads, built by the full pass below and recorded at the
+	-- tail. The reverse map is NOT among them: it is the only O(n) one, and it is built
+	-- lazily above on the first tick that would spend it (measured — see that block).
+	local always: { number } = {}
+	local fills: { number } = {}
+	local isFill: { [number]: boolean } = {}
+	-- the sum of `mCuts` over the RECORDED indices, which is what an unvisited child's
+	-- cuts are patched from (owed row A7)
+	local cutsSum = 0
+	-- ...and the audit's snapshot of the payload as the aggregate would have found it,
+	-- taken BEFORE the pass overwrites the arrays in place (see the oracle below)
+	--[[ ...AND THE TWO AUDITS ARE MUTUALLY EXCLUSIVE, which is a property of what each
+		one asks. T13's `memoAudit` makes the skip never fire, so PASS 1 measures every
+		child; T13b's oracle predicts the set the AGGREGATE would have visited and
+		compares it against the set PASS 1 actually measured. With both on, the second
+		comparison is "dirty ∪ always" against "everything", which fails on healthy
+		input. ]]
+	local auditOn = ctx.aggregateAudit
+		and not ctx.memoAudit
+		and hit
+		and cmemo.mSum ~= nil
+		and cmemo.mN == n
+		and cmemo.struct ~= true
+	local aSum, aCutsSum, aMain, aCuts, aIds, aIdx, aAlways, aFill, aIsFill
+	local auditMeasured: { number }? = nil
+	if auditOn then
+		aSum, aCutsSum = cmemo.mSum, cmemo.mCutsSum
+		aMain, aCuts, aIds = table.clone(cmemo.mMain), table.clone(cmemo.mCuts), table.clone(cmemo.mIds)
+		aAlways, aFill, aIsFill = cmemo.mAlways, cmemo.mFill, cmemo.mIsFill
+		-- ...and the map the aggregate would have used, built here when the lazy build
+		-- above has not run yet: this arm is test-only, so it pays that walk itself
+		aIdx = cmemo.mIdx
+		if aIdx == nil then
+			local built: { [string]: number } = {}
+			for idx, child in children do
+				built[child.id] = idx
+			end
+			aIdx = built
+		end
+		auditMeasured = {}
+	end
+	if visit ~= nil then
+		--[[ THE COMMITTED LOOP. Nothing above it has written a solve-visible number, and
+			nothing in it can refuse. The arrays ARE the memo's on this path (owed row
+			A5): the fold at the bottom needs EVERY index, and the indices this pass does
+			not touch are exactly the ones it must not re-derive. ]]
+		crossOf = cmemo.mCross
+		fillWeightSum = aggFillWeight
+		mainSum = cmemo.mSum
+		cutsSum = cmemo.mCutsSum
+		local cutsOwed = cutsSum
+		local mMainA, mCutsA, mIdsA = cmemo.mMain, cmemo.mCuts, cmemo.mIds
+		for _, idx in visit do
+			local child = children[idx]
+			local mt, mr, mb, ml = sides(child.margin)
+			marginMain[idx] = if isH then ml + mr else mt + mb
+			ctx.childVisits += 1
+			local cutsBefore = ctx.fitCuts
+			local cw, ch = measure(ctx, child, innerMaxW, innerMaxH)
+			local mainOf = if isH then cw + ml + mr else ch + mt + mb
+			crossOf[idx] = if isH then ch + mt + mb else cw + ml + mr
+			-- OWED ROWS A6 AND A7, the only arithmetic in this task, and both are exact
+			-- because a served number IS the number the walk would have produced for
+			-- that index. `mMain` is complete for EVERY index (see the full pass), which
+			-- the first draft's `or 0` was not: an always-visit child is never RECORDED,
+			-- so `or 0` would have added its whole contribution on top of a sum that
+			-- already held it.
+			mainSum += mainOf - mMainA[idx]
+			if mIdsA[idx] ~= nil then
+				local now = ctx.fitCuts - cutsBefore
+				cutsOwed -= mCutsA[idx]
+				cutsSum += now - mCutsA[idx]
+				mCutsA[idx] = now
+			end
+			mMainA[idx] = mainOf
+			--[[ OWED ROW A12: A `shrinkWeight` THAT ARRIVES ON AN AGGREGATING CONTAINER.
+				`memoable = false` does not clear `hit`, so the key still matches and this
+				path can run on the very tick a weight appears. It builds the basis
+				exactly as PASS 1 does and drops the key at the tail, so PASS 1.5 runs
+				over a `mainSum` that is exact (the capture below is pre-shrink) and the
+				next tick is a full pass. Refusing the aggregate instead would also be
+				correct, and it is what the plan review proposed — but it would refuse
+				forever for any container holding a `shrinkWeight = 0` child, which is
+				the documented "never shrinks" value and a legal authored one. ]]
+			if child.shrinkWeight ~= nil and child.shrinkWeight > 0 then
+				local basis = shrinkBasis or {}
+				basis[idx] = if isH then cw else ch
+				shrinkBasis = basis
+				memoable = false
+			end
+		end
+		ctx.fitCuts += cutsOwed
+	end
 	-- PASS 1: children with a definite main extent measure against the whole
-	-- inner box, and consume it.
-	for idx, child in children do
-		local childMainDim = dim(child, if isH then "w" else "h")
-		--[[ MAY THIS PARENT SKIP ASKING? The serve's own question was "may this CHILD
+	-- inner box, and consume it. UNCHANGED by T13b except for what it RECORDS: it is
+	-- the arm every refusal above falls back to, and it must behave exactly as it did.
+	if visit == nil then
+		ctx.childIterations += n
+		for idx, child in children do
+			local childMainDim = dim(child, if isH then "w" else "h")
+			--[[ MAY THIS PARENT SKIP ASKING? The serve's own question was "may this CHILD
 			be served"; this is the other one, and it is asked of five things the child
 			carries plus the memo's own index binding.
 
@@ -165,19 +450,19 @@ function stack_measure.contentSize(
 			but NOT an identity — a region re-creating different content under the same
 			path is caught one level up, where a structural solve widens
 			`measureContains` to the whole dirty closure, and never here. ]]
-		local skippable = hit
-			and childMainDim.type ~= "fill"
-			and dirty[child.id] ~= true
-			and mIds[idx] == child.id
-			and mMain[idx] ~= nil
-			and child.kind ~= "text"
-			and child.kind ~= "composition"
-			and child.shrinkWeight == nil
-			and child.subtreeHasScroll ~= true
-			and child.subtreeHasComposition ~= true
-			and child.containerRelativeInside ~= true
-		if skippable and not ctx.memoAudit then
-			--[[ THE SKIP, AND THE TWO CHANNELS IT OWES. `measure` was not called, so
+			local skippable = hit
+				and childMainDim.type ~= "fill"
+				and dirty[child.id] ~= true
+				and mIds[idx] == child.id
+				and mMain[idx] ~= nil
+				and child.kind ~= "text"
+				and child.kind ~= "composition"
+				and child.shrinkWeight == nil
+				and child.subtreeHasScroll ~= true
+				and child.subtreeHasComposition ~= true
+				and child.containerRelativeInside ~= true
+			if skippable and not ctx.memoAudit then
+				--[[ THE SKIP, AND THE TWO CHANNELS IT OWES. `measure` was not called, so
 				nothing it publishes has been published — and the entry literal of a child
 				that is ARRANGE-dirty but MEASURE-clean reads `ctx.offers` for its
 				`offerW`/`offerH`. A nil there disarms BOTH anchor arms for the life of the
@@ -195,40 +480,59 @@ function stack_measure.contentSize(
 				could never differ, on the branch whose own finding is that the residual is
 				now the dominant term. If a later task gives the fill pass a second reader,
 				it re-adds the array WITH a case that fails without it. ]]
-			ctx.offers[child.wKey or (child.id .. "|w")] = innerMaxW
-			ctx.offers[child.hKey or (child.id .. "|h")] = innerMaxH
-			ctx.fitCuts += mCuts[idx]
-			crossOf[idx] = mCross[idx]
-			mainSum += mMain[idx]
-			continue
-		end
-		local mt, mr, mb, ml = sides(child.margin)
-		marginMain[idx] = if isH then ml + mr else mt + mb
-		if childMainDim.type == "fill" then
-			fillWeightSum += childMainDim.weight or 1
-		else
-			ctx.childVisits += 1
-			local cutsBefore = ctx.fitCuts
-			local cw, ch = measure(ctx, child, innerMaxW, innerMaxH)
-			local mainOf = if isH then cw + ml + mr else ch + mt + mb
-			local crossOfIdx = if isH then ch + mt + mb else cw + ml + mr
-			mainSum += mainOf
-			crossOf[idx] = crossOfIdx
-			if child.shrinkWeight ~= nil and child.shrinkWeight > 0 then
-				local basis = shrinkBasis or {}
-				basis[idx] = if isH then cw else ch
-				shrinkBasis = basis
-				-- ...AND THE CONTAINER STOPS MEMOISING, because PASS 1.5 below rebases
-				-- `mainSum` by what the shrink absorbed and re-measures at the reduced
-				-- offer — numbers this memo does not hold. It does not stop the memo
-				-- being HIT on this tick: a weight that ARRIVES on a container that
-				-- already memoised at this offer leaves the key matching, so PASS 1.5
-				-- runs over a partly served `mainSum`. That is exact — a served number
-				-- is the number this loop would have produced for that index — and the
-				-- tail below drops the key so the next tick starts again.
-				memoable = false
+				ctx.offers[child.wKey or (child.id .. "|w")] = innerMaxW
+				ctx.offers[child.hKey or (child.id .. "|h")] = innerMaxH
+				ctx.fitCuts += mCuts[idx]
+				crossOf[idx] = mCross[idx]
+				mainSum += mMain[idx]
+				-- ...and T13b's: the recorded cuts total the next tick patches from (owed
+				-- row A7). The audit's own half of it is DERIVED in the audit block rather
+				-- than accumulated here — an unconditional second `+=` per SKIPPED child is
+				-- a thousand adds a pass on the arena's `battle_hud`, for a number no
+				-- production solve reads.
+				cutsSum += mCuts[idx]
+				continue
 			end
-			--[[ THE AUDIT ARM (ruling A-12, routed by ruling L-4 through the solver's own
+			local mt, mr, mb, ml = sides(child.margin)
+			marginMain[idx] = if isH then ml + mr else mt + mb
+			if childMainDim.type == "fill" then
+				fillWeightSum += childMainDim.weight or 1
+				--[[ ...AND THE FILL LIST, WHICH REPLACES THE FILL PASS'S OWN SCAN (T13b).
+				That pass walked every index and skipped the ones `crossOf[idx] ~= nil`
+				answered; the set it finds is exactly this one, in exactly this order, so
+				the scan is a walk to re-derive a list this loop already knows. It has to
+				exist anyway: the sentinel cannot survive the aggregate's PERSISTED
+				`crossOf`, where no index is ever nil. ]]
+				table.insert(fills, idx)
+				isFill[idx] = true
+				-- a fill child contributes nothing to `mainSum` in this pass, and owed row
+				-- A6 needs `mMain` complete at EVERY index, not only the recorded ones
+				if mMain ~= nil then
+					mMain[idx] = 0
+				end
+			else
+				ctx.childVisits += 1
+				local cutsBefore = ctx.fitCuts
+				local cw, ch = measure(ctx, child, innerMaxW, innerMaxH)
+				local mainOf = if isH then cw + ml + mr else ch + mt + mb
+				local crossOfIdx = if isH then ch + mt + mb else cw + ml + mr
+				mainSum += mainOf
+				crossOf[idx] = crossOfIdx
+				if child.shrinkWeight ~= nil and child.shrinkWeight > 0 then
+					local basis = shrinkBasis or {}
+					basis[idx] = if isH then cw else ch
+					shrinkBasis = basis
+					-- ...AND THE CONTAINER STOPS MEMOISING, because PASS 1.5 below rebases
+					-- `mainSum` by what the shrink absorbed and re-measures at the reduced
+					-- offer — numbers this memo does not hold. It does not stop the memo
+					-- being HIT on this tick: a weight that ARRIVES on a container that
+					-- already memoised at this offer leaves the key matching, so PASS 1.5
+					-- runs over a partly served `mainSum`. That is exact — a served number
+					-- is the number this loop would have produced for that index — and the
+					-- tail below drops the key so the next tick starts again.
+					memoable = false
+				end
+				--[[ THE AUDIT ARM (ruling A-12, routed by ruling L-4 through the solver's own
 				opts rather than an attach opt). When it is on the skip above never fires
 				and the memo's answer is compared against the real one instead, so a
 				differential exercises this arithmetic on EVERY container it touches
@@ -245,30 +549,194 @@ function stack_measure.contentSize(
 				where under-counting makes a candidate that WILL paint an ellipsis look
 				honest. An audit that compares the numbers a snapshot already compares is
 				an audit of the snapshot. ]]
-			if skippable then
-				ctx.memoChecks += 1
-				assert(
-					mMain[idx] == mainOf and mCross[idx] == crossOfIdx and mCuts[idx] == ctx.fitCuts - cutsBefore,
-					`container memo mismatch at {node.id}[{idx}]`
-				)
-			end
-			--[[ RECORDED, OR NOT RECORDED — never "and the container gives up". A
+				if skippable then
+					ctx.memoChecks += 1
+					assert(
+						mMain[idx] == mainOf and mCross[idx] == crossOfIdx and mCuts[idx] == ctx.fitCuts - cutsBefore,
+						`container memo mismatch at {node.id}[{idx}]`
+					)
+				end
+				--[[ RECORDED, OR NOT RECORDED — never "and the container gives up". A
 				`text`/`composition` child is refused PER CHILD: its index is left
 				unrecorded, so the skip arm's `mIds[idx] == child.id` term refuses it on
 				every later tick and `record` publishes its verdicts exactly as it does
 				today. The three subtree booleans are the serve's own, asked of the child
 				for the channels no cached number can carry back. ]]
-			if
-				memoable
-				and child.kind ~= "text"
-				and child.kind ~= "composition"
-				and child.subtreeHasScroll ~= true
-				and child.subtreeHasComposition ~= true
-				and child.containerRelativeInside ~= true
-			then
-				mMain[idx], mCross[idx] = mainOf, crossOfIdx
-				mCuts[idx], mIds[idx] = ctx.fitCuts - cutsBefore, child.id
+				if auditMeasured ~= nil then
+					auditMeasured[#auditMeasured + 1] = idx
+				end
+				if mMain ~= nil then
+					-- COMPLETE AT EVERY INDEX, which the record below is deliberately not
+					-- (owed row A6). `mIds` stays the gate that says an index may be SERVED;
+					-- `mMain` is what the next tick's aggregate subtracts, and it needs the
+					-- previous contribution of every child it visits — including the
+					-- always-visit ones, which are never recorded.
+					mMain[idx] = mainOf
+				end
+				--[[ THE ALWAYS-VISIT LIST (owed rows A13 and A3). These are the five shapes
+				this branch can never serve plus the declared shrink weight, recorded ONCE
+				and never re-checked on an unvisited index — which is sound because a FLIP
+				of any of them cannot reach one: `kind` is a class change and therefore a
+				remount (structure-class); the three subtree booleans are pure functions
+				of the built subtree, so a flip means a descendant changed and a
+				descendant's measure dirt puts every ancestor up to this child in
+				`measureContains`; `containerRelativeInside` is the same shape; and
+				`shrinkWeight` is a prop on the child itself. All four routes make the
+				child DIRTY, and a dirty child is visited. Ascending because this loop is.
+
+				`shrinkWeight ~= nil` and not `> 0`: the skip above refuses on `== nil`,
+				so a declared zero is unservable too, and the two lists must agree. ]]
+				if
+					child.kind == "text"
+					or child.kind == "composition"
+					or child.subtreeHasScroll == true
+					or child.subtreeHasComposition == true
+					or child.containerRelativeInside == true
+					or child.shrinkWeight ~= nil
+				then
+					table.insert(always, idx)
+				elseif
+					memoable
+					and child.kind ~= "text"
+					and child.kind ~= "composition"
+					and child.subtreeHasScroll ~= true
+					and child.subtreeHasComposition ~= true
+					and child.containerRelativeInside ~= true
+				then
+					--[[ RECORDED, and `mCross` is no longer recorded HERE (T13b). The fold at
+					the bottom needs a complete cross array on the aggregate path, so the
+					tail records the pass's OWN `crossOf` — every index, including the ones
+					this block refuses — and `mIds` remains the only gate on what may be
+					served. `marginMain` is not recorded at all: PASS 2 is the only reader
+					and the aggregate rebuilds it for exactly the fill children that read
+					it (review round 1, I-1, unchanged).
+
+					THE `elseif` IS NOT A NARROWING. The branch above it is the SUPERSET of
+					the five refusals this one asks for — it adds `shrinkWeight ~= nil`,
+					which the record has never excluded — so a shrink-weighted child is now
+					in `always` and NOT recorded, where before it was recorded and never
+					servable. Nothing reads a record it cannot serve; `mMain` above is
+					written for it either way, which is what the aggregate needs. ]]
+					mCuts[idx], mIds[idx] = ctx.fitCuts - cutsBefore, child.id
+					cutsSum += mCuts[idx]
+				end
 			end
+		end
+	end
+	-- ...AND THE SUM AS PASS 1 LEAVES IT, captured before PASS 1.5 below can rebase it
+	-- by what the shrink absorbed. Amendment A-4's first withdrawal reason — "a
+	-- post-shrink `aSum` compared against a pre-shrink `aMain`" — is answered by this
+	-- local: the number the memo carries is never the shrunk one.
+	local sumAfterPass1 = mainSum
+	if auditOn and visit == nil then
+		--[[ THE FORCED-ON ORACLE (ruling L-4, and the plan review's M5). With
+			`containerAggregateAudit` on, `agg` is false and the full pass above ran —
+			so there is no aggregate answer to replay, and the plan's "compare the full
+			pass against the aggregate's" had nothing on the other side of the equals:
+			`cmemo.mSum` is the value the PREVIOUS full pass recorded, which legitimately
+			differs from this tick's whenever anything changed. T13's audit worked because
+			its memo holds a per-index would-have-served answer; a container-level SUM has
+			no such twin.
+
+			SO THE ANSWER IS COMPUTED, NOT REPLAYED. The four channels below are derived
+			arithmetically from the payload as it stood BEFORE this pass overwrote it —
+			no extra `measure` call, no gate weakened — and asserted against this pass's
+			own numbers before the record at the tail replaces them (T13's ordering
+			ruling). Non-vacuity is `ctx.aggregateChecks`, which counts the containers
+			actually compared and which every case pins a floor on; the plan's proposed
+			witness (the two `lastChildIterations` differ) is satisfied by the audit
+			flag alone and proves only that the flag works. ]]
+		local mainAxis = if isH then "w" else "h"
+		local budget = math.max(4, n // 4)
+		local probes = 0
+		local list = table.clone(aAlways)
+		local reached = true
+		for id in dirty do
+			probes += 1
+			if probes > budget then
+				reached = false
+				break
+			end
+			local idx = aIdx[id]
+			if idx ~= nil and dirty[id] == true and aIsFill[idx] ~= true then
+				table.insert(list, idx)
+			end
+		end
+		local ordered: { number } = {}
+		if reached then
+			table.sort(list)
+			local prev = -1
+			for _, idx in list do
+				if idx ~= prev then
+					prev = idx
+					if dim(children[idx], mainAxis).type == "fill" then
+						reached = false
+						break
+					end
+					table.insert(ordered, idx)
+				end
+			end
+		end
+		local predWeight, predMarginOk = 0, true
+		if reached then
+			for _, idx in aFill do
+				local child = children[idx]
+				local childMainDim = dim(child, mainAxis)
+				if childMainDim.type ~= "fill" then
+					reached = false
+					break
+				end
+				local mt, mr, mb, ml = sides(child.margin)
+				if marginMain[idx] ~= (if isH then ml + mr else mt + mb) then
+					predMarginOk = false
+				end
+				predWeight += childMainDim.weight or 1
+			end
+		end
+		if reached then
+			ctx.aggregateChecks += 1
+			local measured = auditMeasured :: { number }
+			-- CHANNEL 1 — THE VISIT SET, which is owed rows A2, A3 and A13 in one
+			-- equality: the indices the aggregate would have measured, in the order it
+			-- would have measured them, against the ones this walk actually did.
+			local same = #ordered == #measured
+			if same then
+				for i, idx in ordered do
+					if measured[i] ~= idx then
+						same = false
+						break
+					end
+				end
+			end
+			assert(same, `container aggregate visit-set mismatch at {node.id}`)
+			-- CHANNEL 2 — `mainSum` (owed row A6), and CHANNEL 3 — the cuts an unvisited
+			-- child owes (owed row A7), against the total this pass's skip arm served
+			local predSum, predOwed = aSum, aCutsSum
+			for _, idx in ordered do
+				predSum += (mMain :: any)[idx] - aMain[idx]
+				if aIds[idx] ~= nil then
+					predOwed -= aCuts[idx]
+				end
+			end
+			assert(predSum == sumAfterPass1, `container aggregate mainSum mismatch at {node.id}`)
+			--[[ ...and what the walk ACTUALLY served, derived here rather than accumulated
+				in the skip arm: a recorded index this pass did not measure is exactly a
+				skipped one, so the two sets partition the recorded indices. O(n) inside an
+				arm that is off in production. ]]
+			local visited: { [number]: boolean } = {}
+			for _, idx in ordered do
+				visited[idx] = true
+			end
+			local servedCuts = 0
+			for idx = 1, n do
+				if aIds[idx] ~= nil and not visited[idx] then
+					servedCuts += aCuts[idx]
+				end
+			end
+			assert(predOwed == servedCuts, `container aggregate fitCuts mismatch at {node.id}`)
+			-- CHANNEL 4 — `fillWeightSum` and `marginMain` over the fill indices, which
+			-- are owed rows A8 and A4 and are the pair PASS 2 READS and never writes
+			assert(predWeight == fillWeightSum and predMarginOk, `container aggregate fill-input mismatch at {node.id}`)
 		end
 	end
 	-- PASS 1.5: THE MEASURE-SIDE SHRINK (§2.4, added 2026-08-12 — the mirror that
@@ -355,10 +823,17 @@ function stack_measure.contentSize(
 	-- scrolling. Same root cause as the 27px cross-axis clamp the overflow
 	-- diagnostic reports on the wider rows.
 	local remaining = if mainLimit == math.huge then math.huge else math.max(0, mainLimit - mainSum - gaps)
-	for idx, child in children do
-		if crossOf[idx] ~= nil then
-			continue
-		end
+	--[[ ...AND IT IS O(#fill) NOW, NOT O(n) (T13b). The old head walked every index and
+		skipped the ones a non-nil `crossOf[idx]` answered; the set it found is exactly
+		the list PASS 1 records, in exactly the same ascending order. It is not merely
+		cheaper — the sentinel CANNOT survive the aggregate's path, where `crossOf` is
+		the container's own persisted array and no index is ever nil. The BODY below is
+		untouched, so a fill child is still measured on every single tick (T13's owed
+		row 5), which is why `lastChildVisits` cannot move. ]]
+	local fillList = if visit ~= nil then cmemo.mFill else fills
+	ctx.childIterations += #fillList
+	for _, idx in fillList do
+		local child = children[idx]
 		local mt, mr, mb, ml = sides(child.margin)
 		local childMainDim = dim(child, if isH then "w" else "h")
 		local share = if remaining == math.huge or fillWeightSum <= 0
@@ -381,10 +856,52 @@ function stack_measure.contentSize(
 		and without this line the next tick would hit again on numbers PASS 1.5 has
 		since rebased. Dropping the stamp costs that container one full pass and buys
 		back a memo that cannot be wrong. ]]
-	if memoable and not hit then
+	if memoable then
 		cmemo.mStamp, cmemo.mScope, cmemo.mOffW, cmemo.mOffH = ctx.measureStamp, ctx.scopeKey, innerMaxW, innerMaxH
-		cmemo.mMain, cmemo.mCross, cmemo.mCuts, cmemo.mIds = mMain, mCross, mCuts, mIds
-	elseif not memoable and cmemo ~= nil then
+		cmemo.mKind = node.kind
+		--[[ ...AND THE TWO AGGREGATE TOTALS, WRITTEN BACK ON EVERY TICK (T13b, plan
+			review M1(b)). The first draft read them and never wrote them, so the second
+			consecutive aggregate tick was exact and the THIRD subtracted a value the
+			second had already replaced: `mSum − mMain[idx]_from_tick_2 + new_3` where the
+			truth is `mSum − mMain[idx]_original + new_3`, with the error accumulating.
+			Same for the cuts. ]]
+		cmemo.mSum, cmemo.mCutsSum = sumAfterPass1, cutsSum
+		if visit == nil then
+			--[[ A COMPLETED FULL PASS RE-RECORDS EVERYTHING, HIT OR MISS (plan review,
+				M1(a)). The `and not hit` this condition used to carry was a real defect
+				once the payload existed: `agg` is false while `hit` is true on four tick
+				classes — a structural refresh, an audited tick, an `mN` mismatch and both
+				fallbacks — and on all four the pass repairs the per-index arrays in place
+				while leaving `mIdx`/`mAlways`/`mFill` describing the PREVIOUS shape. The
+				worked case is a `ForEach` REORDER at an unchanged child count: the
+				structural tick repairs the arrays, the next tick is non-structural, and
+				the aggregate resolves every dirty id to the wrong index. A wrong pixel
+				the splice fixture cannot see, because it stops at the structural tick.
+
+				`mCross` takes the pass's OWN array, which widens the memo to indices the
+				record block refuses (text, composition, fill). That is required — owed row
+				A5's completeness, the fold needs every index — and safe, because what may
+				be SERVED is gated by `mIds` and those indices are all in `mAlways`/`mFill`.
+				`mCross` therefore no longer means "recorded"; it means "the cross extent
+				this container last computed at this index".
+
+				AND `struct` IS CLEARED HERE, which is what keeps it from being
+				sticky-true (plan review, S5). `render/layout_node` sets it on every
+				rebuild and a container NOT rebuilt on a later non-structural tick keeps
+				the old value — so without this line one structural tick would disable the
+				aggregate for that container indefinitely, with no counter showing it.
+				Every index in this pass is either id-verified or freshly recorded, which
+				is precisely the fact the flag stands in for. ]]
+			cmemo.mMain, cmemo.mCross, cmemo.mCuts, cmemo.mIds = mMain, crossOf, mCuts, mIds
+			cmemo.mN = n
+			-- ...and the reverse map is DROPPED rather than rebuilt: this pass may have
+			-- moved every index, and the next tick that wants one pays for one map
+			-- instead of this pass paying for a map nothing may ever read
+			cmemo.mIdx = nil
+			cmemo.mAlways, cmemo.mFill, cmemo.mIsFill = always, fills, isFill
+			cmemo.struct = false
+		end
+	elseif cmemo ~= nil then
 		cmemo.mStamp = nil
 	end
 	--[[ ...AND THE RESIDUAL, BOOKED RATHER THAN HIDDEN. Three passes over the child

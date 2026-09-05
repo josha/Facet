@@ -110,6 +110,7 @@ require("./stack_measure_seam.spec")
 	the id key exists for, a 6-fixture x 9-view differential against a full solve, and
 	an AUDIT arm that makes the memo check its own arithmetic on every container. ]]
 require("./container_memo.spec")
+require("./container_aggregate.spec")
 --[[ ...and the ANCHOR ARRANGE'S THIRD ARM (wicked-fast T6): a non-dirty anchor child
 	offered exactly what it was offered last time takes its w/h from its own previous
 	rect instead of a `measure` call. The spec pins the two new work counters on an

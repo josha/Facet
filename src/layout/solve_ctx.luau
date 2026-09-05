@@ -205,6 +205,63 @@ export type Ctx = {
 		audit asserted nothing" as "the audit passed" is the class of check this
 		repository refuses. ]]
 	memoChecks: number,
+	--[[ ...AND THE ITERATIONS, WHICH ARE A DIFFERENT FACT FROM THE CALLS (Plan C,
+		T13b). `childVisits` above counts the `measure` CALLS a stack's measure branch
+		makes; this counts the child-array POSITIONS it looked at to decide which calls
+		to make — PASS 1 and the `fill` pass, and those two only. T13's memo made the
+		work inside those loops O(dirty) and left the loops themselves at O(children);
+		T13b enumerates the dirty children from the container's own reverse map instead
+		of walking to find them, and this is the only counter that can see the
+		difference (`childVisits` must NOT move — the same children are measured).
+
+		THE `crossMax` FOLD IS DELIBERATELY NOT COUNTED AND DELIBERATELY NOT REMOVED.
+		It is a bare `for idx = 1, n` with one array read, measured at 3.6 ns a child —
+		1.9 % of the three passes — and a patched argmax needs a full rescan whenever
+		the argmax child shrinks (measured 0.09 %, 6.9 % and 14.8 % of hit folds on the
+		three arena classes). It is the named O(n) residual this counter does not claim
+		to have removed. Surfaced as `controller.stats().lastChildIterations`. ]]
+	childIterations: number,
+	--[[ ...and how often the aggregate STARTED and then refused, which is the only
+		instrument on its two performance valves: the probe budget (a dirty closure
+		wider than a quarter of the container is cheaper to walk than to index) and the
+		`fill` classification valve (a child whose main dim changed type). It counts
+		STARTED-THEN-BAILED only — a tick the aggregate never entered, because the memo
+		missed or the refresh was structural, is not a fallback and is visible in
+		`childIterations` instead. Surfaced as `controller.stats().lastAggregateFallbacks`. ]]
+	aggregateFallbacks: number,
+	--[[ T13b's FORCED-ON ORACLE (ruling L-4, the route `memoAudit` above established).
+		Test-only, default false, reachable only through `solver.solve`'s own opts. When
+		it is on the aggregate never fires, and the full pass computes what the
+		aggregate WOULD have produced — its visit set, its `mainSum`, its owed
+		`ctx.fitCuts`, its `fillWeightSum` and its `marginMain` over the fill indices —
+		and asserts each against its own answer before the record overwrites them. It
+		is a prediction rather than a replay because a container-level SUM has no
+		per-index twin to compare against, which is the correction the plan review made
+		(a comparison of `cmemo.mSum` against this tick's `mainSum` is false on healthy
+		input, so it would be either wrong or silently skipped). ]]
+	aggregateAudit: boolean,
+	-- ...and how many containers that audit actually compared. Zero on every
+	-- production solve, for the same reason and by the same discipline as `memoChecks`.
+	aggregateChecks: number,
+	--[[ THIS SOLVE'S OWN IDENTITY, and the one thing it is for (Plan C, T13b, owed row
+		A1). A stack that serves a child from its container memo never calls `measure`
+		for it, so nothing writes `ctx.offers[child]` — and the arrange entry literal
+		reads that pair to file `offerW`/`offerH`, which ARMS both anchor arms next
+		solve. The container's memo therefore carries the offer (it is the memo's own
+		key, `mOffW`/`mOffH`) and each served child points at the memo; the entry literal
+		falls back to that pair ONLY when the memo carries THIS token. Without the stamp
+		the fallback would serve the last offer any container ever recorded, which is a
+		value HEAD never files and which arms a rect-serving skip on a false match.
+
+		A FRESH EMPTY TABLE RATHER THAN A COUNTER, and both alternatives are worse in a
+		way this file's own seam spec names. A module-level sequence number is exactly
+		the "module-level mutable state" that spec forbids, and the reason it forbids it
+		— a value that outlives one solve — is the reason it would be uncomfortable
+		here too. The `Ctx` table itself would work and costs nothing to allocate, but a
+		container memo holding it would keep a dead solve's whole context, its measure
+		cache and its rect map alive: a leak. An empty table is identity with no
+		payload, which is all a stamp is. ]]
+	solveToken: {},
 	--[[ THE SOLVE-WIDE INPUTS THE NODE TUPLES WERE RECORDED UNDER — axis 3 of
 		`./measure_reuse`'s store, threaded in here because `measure`'s node-resident
 		serve is a FOURTH cache with the same four axes and needs its own answer to
@@ -377,6 +434,14 @@ function solve_ctx.new(contentRect: Rect, opts: any, metrics: any): Ctx
 		memoAudit = (opts and (opts :: any).containerMemoAudit) == true,
 		-- ...and how many comparisons it made; zero on every production solve
 		memoChecks = 0,
+		-- ...and T13b's: the child-array POSITIONS PASS 1 and the fill pass looked at,
+		-- the aggregate's started-then-bailed count, its own forced-on oracle and that
+		-- oracle's comparison count (see `Ctx` for all four)
+		childIterations = 0,
+		aggregateFallbacks = 0,
+		aggregateAudit = (opts and (opts :: any).containerAggregateAudit) == true,
+		aggregateChecks = 0,
+		solveToken = {},
 		-- the renderer's own axis-3 stamp, or nil; see `Ctx`
 		measureStamp = if opts ~= nil then (opts :: any).measureStamp else nil,
 		-- the O3 translate class: nodes re-based by an ancestor's delta

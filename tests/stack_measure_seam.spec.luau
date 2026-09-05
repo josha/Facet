@@ -44,7 +44,13 @@
 	box became a function that also publishes what a skipped child's `measure` would
 	have published. It is priced in `tests/container_memo.spec.luau`'s owed list, row by
 	row, and it is stated here because this spec is the instrument that makes it visible
-	in a diff rather than something a reader has to notice. ]]
+	in a diff rather than something a reader has to notice.
+
+	▲ AND AGAIN, ON THE NEXT COMMIT. T13b (the O(dirty) aggregate) took the `ctx` read
+	set to SIXTEEN and the write set to SIX, and it added the first write this module
+	has ever made THROUGH a child: `child.oMemo`, the back-pointer an arrange entry
+	literal follows to find the offer a SERVED child was measured at. Every one of those
+	is in `tests/container_aggregate.spec.luau`'s owed list with the row it serves. ]]
 
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
@@ -197,7 +203,11 @@ describe("the stack-measure seam: what it READS of the solve, and that it writes
 			SOLVE in a way this task did not price — which is exactly the review this
 			spec exists to force. ]]
 		expect(sorted(fieldsRead(measureSrc, "ctx"))).toEqual({
+			"aggregateAudit",
+			"aggregateChecks",
+			"aggregateFallbacks",
 			"analyze",
+			"childIterations",
 			"childVisits",
 			"fitCuts",
 			"fitProbe",
@@ -208,6 +218,7 @@ describe("the stack-measure seam: what it READS of the solve, and that it writes
 			"offers",
 			"reuse",
 			"scopeKey",
+			"solveToken",
 		})
 		expect(sorted(fieldsRead(measureSrc, "node"))).toEqual({ "children", "cmemo", "id", "kind" })
 		--[[ ...and the CHILD set, which is the memo's gate read out of the child rather
@@ -220,6 +231,10 @@ describe("the stack-measure seam: what it READS of the solve, and that it writes
 			"id",
 			"kind",
 			"margin",
+			-- ...and T13b's, which this scan cannot tell from a read: `oMemo` is only
+			-- ever WRITTEN here (the pin below carries it as `child.oMemo`), and it is
+			-- listed so the closed set stays closed in both directions
+			"oMemo",
 			"shrinkWeight",
 			"subtreeHasComposition",
 			"subtreeHasScroll",
@@ -260,7 +275,24 @@ describe("the stack-measure seam: what it READS of the solve, and that it writes
 				assigned[`{recv}.{field}`] = true
 			end
 		end
-		expect(sorted(assigned)).toEqual({ "ctx.childVisits", "ctx.fitCuts", "ctx.memoChecks" })
+		--[[ ...AND T13b MADE IT SIX, three of which are instruments and one of which is
+			the first write this module has ever made through a CHILD. `child.oMemo` is
+			owed row A1: a child the aggregate SERVES is never handed to `measure`, so
+			nothing writes `ctx.offers` for it and the arrange entry literal would file a
+			nil offer, disarming both anchor arms. The pointer is to the container's own
+			memo, whose key IS the offer, and `solver` reads it only behind this solve's
+			token. It is an OUTPUT written onto a layout node, which is the class C2
+			already writes twenty-one of — never an input this module or `render/layout_node`
+			reads back to build a tree. ]]
+		expect(sorted(assigned)).toEqual({
+			"child.oMemo",
+			"ctx.aggregateChecks",
+			"ctx.aggregateFallbacks",
+			"ctx.childIterations",
+			"ctx.childVisits",
+			"ctx.fitCuts",
+			"ctx.memoChecks",
+		})
 		--[[ ...AND THE INDEXED WRITE, which the field scan above cannot see at all:
 			`ctx.offers[key] = value` is a write THROUGH a field, so a scan for
 			`ctx%.<name>%s*=` reads straight past it. It is pinned by name because it is
@@ -271,11 +303,15 @@ describe("the stack-measure seam: what it READS of the solve, and that it writes
 		end
 		expect(sorted(indexed)).toEqual({ "ctx.offers[…]" })
 		-- and it still inserts into nothing of the solver's: no diagnostic leaves here
-		local inserts: { string } = {}
+		--[[ ...and it still inserts into nothing of the SOLVER's. T13b inserts into four
+			tables, and all four are its own locals: the visit list and the ordered visit
+			list the aggregate measures in document order, and the always/fill lists the
+			full pass records for the next tick. ]]
+		local inserts: { [string]: boolean } = {}
 		for target in string.gmatch(body, "table%.insert%(%s*([%a_][%w_%.]*)") do
-			table.insert(inserts, target)
+			inserts[target] = true
 		end
-		expect(inserts).toEqual({})
+		expect(sorted(inserts)).toEqual({ "always", "fills", "list", "ordered" })
 	end)
 
 	it("NEGATIVE CONTROL: the write scans report an assignment and an insert target", function()

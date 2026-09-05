@@ -1547,6 +1547,16 @@ local function toLayoutNode(
 		cmemo = {}
 	end
 	layoutNode.cmemo = cmemo
+	if cmemo ~= nil then
+		--[[ ...AND WHETHER THIS BUILD WAS A STRUCTURAL ONE (T13b, owed row A2). It is
+			STICKY-TRUE ON PURPOSE only until the next completed full pass: a container
+			built on a structural tick keeps the flag until `contentSize` runs a whole
+			pass and clears it, because every index there is either id-verified or
+			freshly recorded, which is precisely the fact this flag stands in for. A
+			flag cleared here instead would be cleared on ticks that never re-derived
+			the index bindings. ]]
+		cmemo.struct = store ~= nil and store.structural == true
+	end
 	if store ~= nil and store.reuse then
 		-- LAST, so a node that threw builds no entry. `axis`/`clip` are recorded
 		-- beside the tree because they are the two inputs the lookup above cannot
@@ -1688,6 +1698,14 @@ export type Store = {
 	-- false makes this a COUNT-ONLY store: no lookup, no write, no entry. The
 	-- oracle's honest pre-fix control (see the count-only arm in `toLayoutNode`).
 	reuse: boolean,
+	--[[ WAS THIS BUILD PART OF A STRUCTURAL SOLVE? (Plan C, T13b.) The renderer
+		already answers that question at the call site — `structural ~= nil` is
+		`build`'s `collect` argument — and T13b's aggregate needs exactly it: a pass
+		that never looks at an index cannot check that index's id, so it refuses to run
+		on the one class of tick where the layout children SEQUENCE can change under an
+		unchanged mount children table. Reading it here costs the renderer nothing and
+		spends zero of its own character budget. ]]
+	structural: boolean?,
 }
 
 local WEAK_KEYS = table.freeze({ __mode = "k" })
@@ -1710,6 +1728,7 @@ function layout_node.newStore(reuse: boolean?, attachOpts: any?): Store
 		builtIds = nil,
 		nodes = 0,
 		reuse = reuse ~= false,
+		structural = false,
 	}
 end
 
@@ -1734,6 +1753,12 @@ function layout_node.build(
 		tree, nothing is skipped and every slate is dropped, which is exactly the
 		pre-P5 full solve. See `render/structural_scope.widen`. ]]
 	store.builtIds = if collect == true then {} else nil
+	-- ...and T13b's flag, off the SAME argument and on the same line of reasoning: a
+	-- structural refresh either produces a plan (`collect == true`, and the container
+	-- aggregate refuses) or produces none, in which case `dirtyContains` is nil, the
+	-- solve is handed no `reuse` set at all and the container memo cannot HIT. There is
+	-- no third arm — `tests/container_aggregate.spec.luau` carries the enumeration.
+	store.structural = collect == true
 	if store.reuse then
 		-- axis 3 by identity and by value; `metrics` is the APPLIED snapshot, never a
 		-- string derived from it (see `Store.metrics`)

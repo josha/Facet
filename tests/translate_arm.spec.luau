@@ -555,6 +555,14 @@ describe("O3: a translate root's own layout prop still re-places its children", 
 			"id",
 			"kind",
 			"leadingBleed",
+			--[[ `oMemo` (Plan C, T13b) is the same family as `wKey`/`hKey` above and is
+				excused on the same argument: it is the MEMO-OFFER CHANNEL's back-pointer,
+				not a layout input. The entry literal reads it only to file
+				`offerW`/`offerH` — "what question was this node answered at" — when
+				nothing wrote `ctx.offers` for it, which is what happens to a child a
+				container memo SERVED. It decides no rect in this solve; it decides
+				whether the NEXT solve may ask the same question again. ]]
+			"oMemo",
 			"wKey",
 		})
 		-- ...and THE CLAIM: what is left is exactly what the entry records

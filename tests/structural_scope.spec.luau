@@ -1339,7 +1339,12 @@ describe("P5 x a torn commit: refresh-scoped state does not outlive its refresh"
 		local partialAt = string.find(publisher, "stats.partialSolves += 1", 1, true)
 		local structAt = string.find(publisher, "stats.structuralPartialSolves += 1", 1, true)
 		expect((partialAt :: number) < (structAt :: number)).toBe(true)
-		expect((structAt :: number) - (partialAt :: number) < 1200).toBe(true)
+		-- 1,200 -> 1,500 (Plan C, T13b): T13b's two counters publish between the pair, so
+		-- the gap moved 1,003 -> 1,301. It is a PROXIMITY heuristic — "these two are
+		-- written from the same result, a few lines apart" — and the number is read off
+		-- the run each time it moves rather than being left at a value that would pass
+		-- for a publisher twice this size.
+		expect((structAt :: number) - (partialAt :: number) < 1500).toBe(true)
 	end)
 end)
 

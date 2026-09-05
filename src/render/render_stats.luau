@@ -62,6 +62,19 @@ function render_stats.new(): any
 			does not see it and the other was already answering it cheaply. It counts
 			CALLS, not loop iterations; the PASS 1 loop still walks every child. ]]
 		lastChildVisits = 0,
+		--[[ ...and the ITERATIONS, which are a different fact (Plan C, T13b). This is
+			the child-array POSITIONS a stack's measure branch looked at — PASS 1 and the
+			fill pass — where the counter above is the `measure` calls it made. T13's memo
+			cut the calls and left the loops; T13b enumerates the dirty children from the
+			container's own reverse map, so this falls while `lastChildVisits` does NOT
+			move. The `crossMax` fold is the named O(n) residual and is not counted here:
+			it is measured at 1.9 % of the three passes and a patched argmax would need a
+			rescan on up to 14.8 % of folds. ]]
+		lastChildIterations = 0,
+		-- ...and how often that aggregate STARTED and refused, on one of its two
+		-- performance valves (the probe budget or a `fill` classification change).
+		-- A class where this is non-zero is reported, never averaged away.
+		lastAggregateFallbacks = 0,
 		-- ...and the anchor branch's third arm (C3): children of an anchor the solve
 		-- did not place at all, because the anchor's box stood still and they were
 		-- clean at the identical offer. It is on the PUBLIC surface where the two
@@ -220,6 +233,8 @@ function render_stats.publish(stats: any, result: any, layoutNodes: number, stru
 		stats.lastMeasureCalls = work.measureCalls or 0
 		stats.lastMeasureServed = work.measureServed or 0
 		stats.lastChildVisits = work.childVisits or 0
+		stats.lastChildIterations = work.childIterations or 0
+		stats.lastAggregateFallbacks = work.aggregateFallbacks or 0
 		stats.lastAnchorSkipped = work.anchorSkipped or 0
 		-- ...and what the solve wrote into the RECT MAP (P2). It is not `lastArranged`
 		-- by definition — before the copy-on-write map a skipped subtree inserted

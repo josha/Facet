@@ -197,7 +197,12 @@ describe("the solve-context seam: one require, no state, one export", function()
 		-- 53 -> 56 (Plan C, T13): `childVisits` and `memoAudit`, the container memo's
 		-- counter and its test-only self-check, plus `memoChecks` — how many comparisons
 		-- that self-check made, which is what a spec asks to prove it was not vacuous
-		expect(`declared={#sorted(declared)} written={#sorted(written)}`).toBe("declared=56 written=56")
+		-- 56 -> 61 (Plan C, T13b): `childIterations` (the child-array POSITIONS the two
+		-- loops looked at, which is a different fact from the calls `childVisits`
+		-- counts), `aggregateFallbacks`, the aggregate's own `aggregateAudit` /
+		-- `aggregateChecks` pair on the route ruling L-4 established, and `solveToken` —
+		-- this solve's identity, which the served child's offer fallback is stamped on
+		expect(`declared={#sorted(declared)} written={#sorted(written)}`).toBe("declared=61 written=61")
 		expect(`never built={table.concat(missing, " ")}`).toBe("never built=")
 		expect(`undeclared={table.concat(undeclared, " ")}`).toBe("undeclared=")
 		-- NEGATIVE CONTROL: both scans really do read a field and a key
