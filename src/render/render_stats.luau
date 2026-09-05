@@ -56,6 +56,16 @@ function render_stats.new(): any
 		-- either, so it cannot say what a cheaper lookup path is worth.
 		lastMeasureCalls = 0,
 		lastMeasureServed = 0,
+		--[[ ...and the PATHS a text settle pushed as `measure` dirt on the last solve
+			(Plan C, T18-A). Zero on every solve that is not a settle, which is what
+			makes it readable as a class marker: a tick that moved it learned a word.
+			The number is the paths NAMED, not the ancestor closure they expand to, so
+			it is the size of the (font,size) key's user set on this surface — the
+			quantity the whole narrowing is a function of, and the one a workload whose
+			new words land on a 1,000-node key reads very differently from one whose
+			land on a 4-node key. Written by `renderer.attach`'s solve rather than by
+			`publish`: it belongs to the solve's INPUT, not to its work record. ]]
+		lastTextDirtyPaths = 0,
 		--[[ ...and how many of those calls a STACK's own measure branch made (Plan C,
 			T13). It is the denominator the container memo moves: a hit removes the call
 			entirely, so neither counter above can say where a saving came from — one

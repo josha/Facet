@@ -344,12 +344,23 @@ describe("C2: one changed row does not re-measure 999 clean siblings", function(
 			answers axis 3 the same way the slate does.
 
 			Driven through `setMeasured` with a probe word no fixture in this suite
-			measures, so the epoch moves and no geometry does — the counts below are
-			the ordinary drive's, with the CROSS-SOLVE half of `served` gone: 1,999 ->
-			999, exactly the intra-solve re-asks, which are recorded at the new stamp
-			inside this very solve and are therefore not stale. A serve that answered
-			axis 3 by disarming wholesale would read 0 here and be paying for the
-			settle twice. ]]
+			measures, so the epoch moves and no geometry does.
+
+			▲ RE-RECORDED 2026-09-05 (Plan C, T18-A), AND THE NEW READING IS THE RESULT
+			RATHER THAN A WEAKENED PIN. It used to read `calls=2005 served=999
+			measured=1005`: the word generation was a `measureStamp` term, so learning a
+			width NO MOUNTED NODE USES still dropped every slot and every container memo
+			on every attached surface, and the tick after a settle was a full pass at
+			both levels. It now reads the SETTLED FLOOR, unchanged from the tick before
+			it — `calls=1006 served=1000 measured=5` — because the stamp carries the
+			calibration generation alone and the word half is carried by a dirty set
+			over the (font,size)'s actual users (`render/text_index`), which for this
+			probe word is the empty set. The two ticks below are therefore now
+			IDENTICAL, and that equality is the strongest form this case has ever had:
+			a settle on a key nobody draws costs nothing at all.
+
+			WHAT STILL DISARMS THE SERVE WHOLESALE is a CALIBRATION change, and it has
+			its own control in `tests/text_settle_closure.spec.luau`. ]]
 		withWorkCapture(function()
 			local s = scene.new({ rows = ROWS })
 			s.text(500, "warm")
@@ -357,14 +368,8 @@ describe("C2: one changed row does not re-measure 999 clean siblings", function(
 			text_metrics.setMeasured("BuilderSans", 21, "facet-t6-serve-probe", 41)
 			expect(drove(function()
 				s.text(500, "x")
-				--[[ ▲ T13 re-record, and the SETTLE ARM IS UNCHANGED AT 2,005/999 — which is
-				the sharpest thing this case now says. The container memo's key holds the
-				same stamp, so a settle drops the memo and the slots TOGETHER: the tick
-				after a settle is a full pass at both levels, and the one after it is
-				1,006 calls again. A memo that answered axis 3 any other way would show
-				up here as a call count that did not return to the settled floor. ]]
-			end)).toBe(`solves=1 calls=2005 served=999 measured=1005`)
-			-- ...and the solve after it, at the settled epoch, serves the other half too
+			end)).toBe(`solves=1 calls=1006 served=1000 measured=5`)
+			-- ...and the solve after it is the SAME, because nothing was ever dropped
 			expect(drove(function()
 				s.text(500, "y")
 			end)).toBe(`solves=1 calls=1006 served=1000 measured=5`)

@@ -238,6 +238,9 @@ require("./dirty_closure_seam.spec")
 -- container memo. One require heavier than the closure above and one-way for the same
 -- reasons — and it is where the text generation the stamp folds in now lives
 require("./measure_stamp_seam.spec")
+-- ...and what that room bought: the settle re-solve goes through the dirty closure,
+-- so one learned word re-measures its (font,size)'s users instead of the whole tree
+require("./text_settle_closure.spec")
 require("./render_stats_seam.spec")
 require("./solve_ctx_seam.spec")
 require("./z_order_seam.spec")

@@ -277,6 +277,14 @@ export type Ctx = {
 		the width it had before the correction. `nil` for a direct `solver.solve`
 		caller, which compares equal to the `nil` such a caller's nodes carry. ]]
 	measureStamp: string?,
+	--[[ ...AND WHAT THE STAMP NO LONGER CARRIES (Plan C, T18-A): the per-WORD half of
+		the text-metrics generation. `render/text_index` is the surface's
+		`(font,size) -> mounted text paths` index, filed at MEASURE time from the text
+		branch below, and a learned word marks its users dirty instead of moving the
+		stamp for everybody. `nil` for a direct `solver.solve` caller and for every
+		test harness that builds its own opts — the branch that writes it is one nil
+		check on a path that already resolved the font and the size. ]]
+	textIndex: any,
 	-- ...and its writes into the RECT MAP: `arranged + translated` since O3.
 	rectInserts: number,
 	-- THE THIRD CLASS (O3): a node an ancestor re-based instead of walking — not
@@ -444,6 +452,8 @@ function solve_ctx.new(contentRect: Rect, opts: any, metrics: any): Ctx
 		solveToken = {},
 		-- the renderer's own axis-3 stamp, or nil; see `Ctx`
 		measureStamp = if opts ~= nil then (opts :: any).measureStamp else nil,
+		-- ...and the surface's text-path index, or nil; see `Ctx`
+		textIndex = if opts ~= nil then (opts :: any).textIndex else nil,
 		-- the O3 translate class: nodes re-based by an ancestor's delta
 		translated = 0,
 		-- ...and the N2 anchor pair; see the `Ctx` block for why `measured` cannot

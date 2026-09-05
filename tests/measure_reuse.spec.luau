@@ -914,11 +914,14 @@ describe("cross-solve measure reuse (P1)", function()
 		local renderer = fs.readFile("src/render/renderer.luau")
 		expect(string.find(renderer, "measureStamp = measureStamp,", 1, true) ~= nil).toBe(true)
 		expect(string.find(renderer, "local measureStamp, stampMoved = measure_stamp.take(", 1, true) ~= nil).toBe(true)
-		-- ...AND THE TEXT GENERATION IS A TERM, re-recorded with T18-A's narrowing:
-		-- `epoch()` counts every seam that can change what `measure` returns, and a
-		-- settled session paid a whole-tree cold re-solve per learned word for it.
-		-- The stamp carries the CALIBRATION half; the word half is carried by the
-		-- dirty set instead (`render/text_index`).
-		expect(string.find(code, "text_metrics.epoch()", 1, true) ~= nil).toBe(true)
+		--[[ ...AND WHICH TEXT GENERATION IS A TERM, re-recorded with T18-A's narrowing.
+			It read `text_metrics.epoch()` — every seam that can change what `measure`
+			returns, including ONE learned word, which is what made a settled session
+			pay a whole-tree cold re-solve per new damage number. The stamp carries the
+			CALIBRATION half; the word half is carried by the dirty set instead
+			(`render/text_index`). The negative half is pinned too, because a stamp that
+			folded BOTH in would pass the positive one and put the defect back. ]]
+		expect(string.find(code, "text_metrics.calibrationEpoch()", 1, true) ~= nil).toBe(true)
+		expect(string.find(string.gsub(code, "calibrationEpoch", "X"), "text_metrics.epoch()", 1, true)).toBe(nil)
 	end)
 end)

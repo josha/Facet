@@ -35,6 +35,8 @@ local surface_overlap = require("./surface_overlap")
 local dirty_closure = require("./dirty_closure")
 -- axis 3 of the measure store and of the node-resident serve (Plan C, T18-A)
 local measure_stamp = require("./measure_stamp")
+-- ...and which nodes a learned word actually moves (Plan C, T18-A)
+local text_index = require("./text_index")
 local themeSnapshot = require("../themes/snapshot")
 -- the measure seam and the button-text grammar (see the pointer below)
 local layout_node = require("./layout_node")
@@ -1617,6 +1619,11 @@ function renderer.attach(
 	-- carries the four invalidation axes, of which the stamp below is axis 3.
 	local measureReuseEnabled = opts == nil or (opts :: any).measureReuse ~= false
 	local measureStore = measure_reuse.new()
+	-- ...AND WHAT AXIS 3 STOPPED CARRYING (T18-A): this surface's `(font,size) ->
+	-- mounted text paths` index, filed at MEASURE time by the solver and read when a
+	-- premeasurement round learns a word (`render/text_index`)
+	local textIndex = text_index.new()
+	attachScope:own(textIndex.dispose)
 	-- ...AND THE BUILD HALF (P3): the `solver.Node` tree the other two run over was
 	-- rebuilt from the mounted tree on every solve. Per SURFACE beside them;
 	-- `render/layout_node.luau` carries the four axes, the weak keys and the numbers.
@@ -1997,6 +2004,31 @@ function renderer.attach(
 			measureContains = nil
 		end
 		stats.lastStructuralBoundary = if structural ~= nil then structural.boundary else nil
+		--[[ THE SETTLE'S OWN CLOSURE (Plan C, T18-A). The delivery and the
+			`textMeasureEpoch` settle below both call this function BARE, so without
+			this block a learned word arrives with no reuse set and buys a COLD
+			whole-tree re-solve. `render/text_index` carries the four links, the
+			measurement, why each refusal below is a SUPERSET of the push, and why the
+			two mounted-tree sets are filled from the same closure. ]]
+		local textDirt = textIndex.take(
+			dirtyContains == nil
+				and not stampMoved
+				and incrementalEnabled
+				and lastResult ~= nil
+				and nodeDirty ~= nil
+				and commitDirty ~= nil
+		)
+		if textDirt ~= nil then
+			dirtyContains = textDirt.contains
+			measureContains = textDirt.measures
+			local builtSet = nodeDirty :: { [string]: boolean }
+			local commitSet = commitDirty :: { [string]: boolean }
+			for path in textDirt.contains do
+				builtSet[path] = true
+				commitSet[path] = true
+			end
+		end
+		stats.lastTextDirtyPaths = if textDirt ~= nil then textDirt.n else 0
 		-- ...and the ids this build CONSTRUCTS are collected only when a structural
 		-- partial solve is about to spend them (`structural_scope.widen`, below).
 		local layoutRoot =
@@ -2029,6 +2061,8 @@ function renderer.attach(
 			-- axis 3 for the measure serve's node-resident tuple, the same string the
 			-- measure store is re-stamped with above
 			measureStamp = measureStamp,
+			-- ...and the half of the text generation it no longer carries (T18-A)
+			textIndex = textIndex,
 		}
 		-- kept so the Stage-1 boundary analysis can re-solve the SAME tree with the
 		-- SAME offers; an analysis run against a differently-built tree would be
@@ -2498,6 +2532,10 @@ function renderer.attach(
 		-- One mount looked right — which is why the device pass that shipped
 		-- the feature saw chevrons — and every remount after it did not.
 		lastCompact[path] = nil
+		-- ...and the (font,size) this path was filed under (T18-A). A stale entry is
+		-- only cost — a push for a dead path is inert — but a `ForEach` churning rows
+		-- would retain paths for the session
+		textIndex.forget(path)
 		-- a scroll host that left takes its RS-PATHCLIP subscription with it
 		if pathClipObservers[path] ~= nil then
 			local detach = pathClipObservers[path]

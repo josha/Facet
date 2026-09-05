@@ -65,7 +65,7 @@ describe("the measure-stamp seam: the string that moved is the string that was",
 		local function asTheRendererBuiltIt(band: { x: number, y: number, w: number, h: number }?): string
 			return `{VP.w}|{VP.h}|{INSETS.top}|{INSETS.bottom}|{INSETS.left}|{INSETS.right}|coreSafeContent|6`
 				.. `|{if band ~= nil then `{band.x},{band.y},{band.w},{band.h}` else "-"}|{true}`
-				.. `|{1.25}|{2}|{text_metrics.epoch()}`
+				.. `|{1.25}|{2}|{text_metrics.calibrationEpoch()}`
 		end
 		local noBand = (measure_stamp.take(store, metrics, VP, INSETS, "coreSafeContent", 6, nil, true, 1.25, 2))
 		expect(noBand).toBe(asTheRendererBuiltIt(nil))
@@ -159,24 +159,35 @@ describe("the measure-stamp seam: the string that moved is the string that was",
 		expect(base == base).toBe(true)
 	end)
 
-	it("the text generation is a term, and it is the one this seam exists to be able to change", function()
-		--[[ THE STAMP MOVES WHEN THE MEASURER LEARNS A WORD, which is what makes a
-			settled session pay a whole-tree cold re-solve per new damage number today
-			(T17, FacetBench §C15: live `setState` 39.7 ms, `addItem-damage` 77.0 ms,
-			`lastMeasured == lastMeasureCalls == 14,2xx`). The pin is here rather than
-			in the renderer because the term is here now; when the narrowing lands it is
-			THIS case that has to be re-recorded, deliberately and in the same commit. ]]
+	it("the CALIBRATION generation is a term and the WORD generation is not — T18-A, re-recorded", function()
+		--[[ RE-RECORDED IN THE COMMIT THAT TOOK THE NARROWING, which is what the seam
+			commit's own note said would happen. It used to read "a learned word moves
+			the stamp", and that was the defect: one damage number dropped the measure
+			memo of every node of every attached surface, and a settled session paid a
+			whole-tree cold re-solve for it (T17, FacetBench §C15/§C16 — live `setState`
+			39.7 ms, `addItem-damage` 77.0 ms, `lastMeasured == lastMeasureCalls ==
+			14,2xx`; headless 14,215 on the same workload).
+
+			The two halves are now separated at the seam, and BOTH directions are pinned
+			here because each is a defect on its own: a stamp that still moved on a word
+			would put the cold re-solve back, and a stamp that stopped moving on a
+			CALIBRATION would serve boxes measured under the other glyph fraction. What
+			replaces the word half is a dirty set (`render/text_index`), and
+			`tests/text_settle_closure.spec.luau` is where that is driven. ]]
 		local store = measure_reuse.new()
 		local m = {}
 		local before = (measure_stamp.take(store, m, VP, INSETS, "coreSafeContent", 0, nil, false, 1, 0))
 		expect(text_metrics.setMeasured("BuilderSans", 23, "facet-t18a-seam-probe", 41)).toBe(true)
 		local after = (measure_stamp.take(store, m, VP, INSETS, "coreSafeContent", 0, nil, false, 1, 0))
-		expect(after ~= before).toBe(true)
-		-- ...and a calibration change moves it too, which is the half that must NEVER
-		-- leave: it changes what `measure` returns for every word of a font
+		expect(`a learned word moved the stamp: {after ~= before}`).toBe("a learned word moved the stamp: false")
+		-- ...AND THE EPOCH ITSELF STILL SAW IT, so the narrowing is in what the STAMP
+		-- folds in and not in what `text_metrics` reports
+		expect(text_metrics.epoch() > 0).toBe(true)
+		-- ...and a calibration change DOES move it: it changes what `measure` returns
+		-- for every word of a font, and nothing narrower than everything is honest
 		text_metrics.calibrate("BuilderSans", 0.33)
 		local calibrated = (measure_stamp.take(store, m, VP, INSETS, "coreSafeContent", 0, nil, false, 1, 0))
-		expect(calibrated ~= after).toBe(true)
+		expect(`a calibration moved the stamp: {calibrated ~= after}`).toBe("a calibration moved the stamp: true")
 		-- the calibration is global and MUST be put back (`measure_reuse.spec`'s own
 		-- rule); the probe word names a size and a spelling no fixture measures
 		text_metrics.resetCalibration()

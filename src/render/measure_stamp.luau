@@ -85,7 +85,7 @@ function measure_stamp.take(
 ): (string, boolean)
 	local stamp = `{vp.w}|{vp.h}|{insets.top}|{insets.bottom}|{insets.left}|{insets.right}|{rootPolicy}|{barReserve}`
 		.. `|{if band ~= nil then `{band.x},{band.y},{band.w},{band.h}` else "-"}|{bandFullTop}`
-		.. `|{measureScale}|{prefOffset}|{text_metrics.epoch()}`
+		.. `|{measureScale}|{prefOffset}|{text_metrics.calibrationEpoch()}`
 	return stamp, measure_reuse.restamp(store, stamp, metrics)
 end
 

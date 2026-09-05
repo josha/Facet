@@ -125,6 +125,15 @@ describe("the render-stats seam: no requires, no state, two exports", function()
 			`lastChildVisits` equality in `tests/container_memo.spec.luau`, read off a
 			run. This line documents the contract; that one enforces it. ]]
 		expect(`childVisits={s.lastChildVisits}`).toBe("childVisits=0")
+		--[[ ...and T18-A's, for a reason of its own: `lastTextDirtyPaths` is the only
+			counter in this record that the SOLVE writes directly rather than `publish`
+			writing from the work record, so a deletion would not show up as a missing
+			`publish` field — it would show up as `nil` arithmetic inside a settle, on
+			the one tick a session takes least often. Same honesty as the block above:
+			this is a SAMPLE and adding a name to it reddens nothing; the pin that
+			enforces the counter is the equality in `tests/text_settle_closure.spec`,
+			read off a run. ]]
+		expect(`textDirtyPaths={s.lastTextDirtyPaths}`).toBe("textDirtyPaths=0")
 	end)
 
 	it("`publish` writes ONLY into the record it is handed, and repairs `work.skipped`", function()

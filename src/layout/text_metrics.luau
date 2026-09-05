@@ -192,14 +192,47 @@ text_metrics.canonicalFont = canonicalFont
 	IT IS PROCESS-GLOBAL, LIKE THE STORE IT GUARDS, and a reader chasing a miss rate
 	should know that before instrumenting anything. The exact-width store below is one
 	table shared by every surface in the session, so ANY surface learning a word moves
-	this number and therefore invalidates EVERY surface's cross-solve measure store —
-	a busy screen mounting new text can hold a quiet one's store cold. That is the safe
-	direction (a per-surface epoch could not see another surface teaching the measurer
-	a width this one reads) and it is cheap while the vocabulary settles, which it does
-	within the first frames. If it ever stops settling, the fix is a per-(font,size)
-	generation, not a per-surface one.
+	this number. That is the safe direction — a per-surface epoch could not see another
+	surface teaching the measurer a width this one reads — and it stays.
+
+	AND IT STOPPED SETTLING, WHICH THIS HEADER PREDICTED AND T18-A ACTED ON. "It is
+	cheap while the vocabulary settles, which it does within the first frames" was true
+	of a menu and false of a HUD: `battle_hud`'s damage numbers are drawn from
+	`-{1..999}`, a score readout counts, a timer ticks, so the vocabulary never closes.
+	Measured live (T17, FacetBench §C15): one learned word cost a fully COLD whole-tree
+	re-solve — `battle_hud L setState` 39.7 ms and `addItem-damage` 77.0 ms against 3.7
+	/ 4.0 headless, `lastMeasured == lastMeasureCalls == 14,2xx` on 5,109 nodes —
+	because this ONE counter reached `renderer.luau`'s `measureStamp` and dropped the
+	measure memo of every node of every attached surface.
+
+	SO THERE ARE TWO GENERATIONS NOW, and the split is exactly the one this header
+	named ("the fix is a per-(font,size) generation, not a per-surface one"), taken on
+	the coarser of the two axes it offers:
+
+	  * `calibEpoch` — `calibrate` and `resetCalibration`, which change what `measure`
+	    returns for EVERY word at EVERY size of a font. Nothing short of a whole-tree
+	    invalidation is honest for those, so `calibrationEpoch()` is what
+	    `render/measure_stamp` folds into the stamp.
+	  * `wordEpoch` — `setMeasured` and `markUnmeasurable`, which change ONE
+	    (font,size) word. The nodes that can be affected are exactly the nodes that
+	    measured under that (font,size); `render/text_index` knows which those are per
+	    surface and pushes them as `class == "measure"` dirt, and the ordinary
+	    ancestor-closed dirty closure does the rest. The correction still reaches
+	    EVERY ATTACHED SURFACE — the narrowing is on the WORD axis and on nothing else.
+
+	`resetMeasured` bumps BOTH, and that is deliberate rather than an oversight in the
+	split: forgetting the ENTIRE store is not a per-key event, nobody names the keys it
+	dropped, and no push can be derived from it. It is a reset seam for tests and for a
+	Studio tool reloading a design system (see THE RESET SEAMS ARE THE SHARP EDGE
+	above), so the whole-tree invalidation it has always caused is kept exactly.
+
+	`epoch()` is unchanged in signature, meaning and monotonicity: it is the sum of the
+	two, so every existing caller reads the same "different from last time" number it
+	always did, and `tests/measure_reuse.spec.luau`'s boot-window-flip contract still
+	holds without an edit.
 ]]
-local epoch = 0
+local calibEpoch = 0
+local wordEpoch = 0
 
 local calibration: { [string]: number } = {}
 
@@ -211,14 +244,63 @@ function text_metrics.calibrate(font: string, fraction: number)
 	local value = math.clamp(fraction, 0.30, AVG_GLYPH_FRACTION)
 	if calibration[canon] ~= value then
 		calibration[canon] = value
-		epoch += 1
+		calibEpoch += 1
 	end
 end
 
 -- the measurement epoch (see its declaration): bumped by every seam above and below
--- that can change what `measure` returns for the same text at the same size
+-- that can change what `measure` returns for the same text at the same size. The SUM
+-- of the two generations, so a caller reads the same monotone "different from last
+-- time" number it always did.
 function text_metrics.epoch(): number
-	return epoch
+	return calibEpoch + wordEpoch
+end
+
+--[[ ...AND THE HALF OF IT THAT IS A WHOLE-TREE FACT (Plan C, T18-A). `calibrate` and
+	`resetCalibration` change what `measure` returns for every word at every size of a
+	font, so this is the generation `render/measure_stamp` folds into the measure
+	stamp. The other half — one (font,size) word learned — is carried by the dirty set
+	instead (`render/text_index`), which is what stops a settled session paying a cold
+	whole-tree re-solve per new damage number. See the epoch's declaration. ]]
+function text_metrics.calibrationEpoch(): number
+	return calibEpoch
+end
+
+--[[ THE (font,size) A MEASUREMENT IS FILED UNDER, canonically — the collector's own
+	request key with the word left off (`{canon}\0{fontSize}`, `wordWidth` below).
+	`render/text_index` keys its per-surface path index with it, and
+	`render/premeasure_round` names the same string when a round learns a word: two
+	sides of one lookup, so they cannot be allowed to derive it independently. ]]
+function text_metrics.metricKey(font: string, fontSize: number): string
+	return `{canonicalFont(font)}\0{fontSize}`
+end
+
+--[[ WHOEVER NEEDS TO KNOW A WORD MOVED, TOLD FROM THE SEAM THAT MOVED IT (Plan C,
+	T18-A). `render/text_index` registers here at module load and turns one changed
+	(font,size) into the mounted paths that measured under it, on every attached
+	surface.
+
+	IT IS HERE RATHER THAN AT THE CALL SITE, and that is the whole point: until this
+	round the invalidation was the process-global epoch, so ANY writer of a measured
+	width — the premeasurement round, a Studio tool reloading a design system, a spec
+	driving the store directly — invalidated every surface's geometry for free.
+	Hanging the narrowed notification off the ONE function that can change an exact
+	width keeps that property instead of narrowing it to one caller by accident.
+
+	The listener list is module-level and never removed from: `render/text_index` is
+	one registration for the process, and its per-surface registry is what comes and
+	goes. Fired only when the value ACTUALLY moved, which is the same condition the
+	generation bump above has always had. ]]
+local wordListeners: { (font: string, fontSize: number) -> () } = {}
+
+function text_metrics.onWordChanged(listener: (font: string, fontSize: number) -> ())
+	table.insert(wordListeners, listener)
+end
+
+local function announceWord(font: string, fontSize: number)
+	for _, listener in wordListeners do
+		listener(font, fontSize)
+	end
 end
 
 -- the calibration store, keyed canonically. Short-name ALIASES are mirrored into
@@ -239,7 +321,7 @@ end
 function text_metrics.resetCalibration()
 	if next(calibration) ~= nil then
 		table.clear(calibration)
-		epoch += 1
+		calibEpoch += 1
 	end
 end
 
@@ -371,7 +453,8 @@ function text_metrics.setMeasured(font: string, fontSize: number, word: string, 
 	end
 	if bucket[word] ~= width then
 		bucket[word] = width
-		epoch += 1
+		wordEpoch += 1
+		announceWord(font, fontSize)
 	end
 	return true
 end
@@ -394,7 +477,7 @@ function text_metrics.markUnmeasurable(font: string, fontSize: number, word: str
 	end
 	if bucket[word] ~= false then
 		bucket[word] = false
-		epoch += 1
+		wordEpoch += 1
 	end
 end
 
@@ -469,7 +552,11 @@ function text_metrics.resetMeasured()
 	exactCount = 0
 	collecting = nil
 	collectCount = 0
-	epoch += 1
+	-- BOTH generations: forgetting the whole store is not a per-key event and no
+	-- `render/text_index` push can be derived from it, so this keeps the whole-tree
+	-- invalidation it has always caused (see the epoch's declaration)
+	calibEpoch += 1
+	wordEpoch += 1
 end
 
 local function glyphWidth(codepoint: number, fontSize: number, fraction: number): number

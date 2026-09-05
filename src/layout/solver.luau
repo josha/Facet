@@ -1064,6 +1064,17 @@ local function contentSize(ctx: Ctx, node: Node, maxW: number, maxH: number): (n
 			-- paint seam recovers the size to write by subtracting the same offset.
 			size = chosen.size + band.offset
 		end
+		--[[ FILE THIS NODE UNDER THE (font,size) IT IS ABOUT TO MEASURE WITH (Plan C,
+			T18-A). Here rather than at mount or at build because HERE is the first
+			line at which the pair is known: the role ladder, `measureScale`,
+			`prefOffset` and — for `textSize = "fit"` — the box itself all feed it, and
+			the three `text_metrics.measure` calls below plus `minWidth` above all use
+			exactly this pair. `render/text_index` owns the argument, the lifetime and
+			why a `fit` node is filed conservatively; the unchanged case, which is
+			every measure after the first, is two hash reads and two comparisons. ]]
+		if ctx.textIndex ~= nil then
+			ctx.textIndex.record(node.id, font, size, node.textFit ~= nil)
+		end
 		-- SINGLE-LINE TEXT (director finding 13, 2026-07-26). A control whose
 		-- adapter draws its label on one line has to be MEASURED on one line, or
 		-- the row reserves height for a second line nobody draws — the same

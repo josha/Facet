@@ -202,7 +202,10 @@ describe("the solve-context seam: one require, no state, one export", function()
 		-- counts), `aggregateFallbacks`, the aggregate's own `aggregateAudit` /
 		-- `aggregateChecks` pair on the route ruling L-4 established, and `solveToken` —
 		-- this solve's identity, which the served child's offer fallback is stamped on
-		expect(`declared={#sorted(declared)} written={#sorted(written)}`).toBe("declared=61 written=61")
+		-- 61 -> 62 (Plan C, T18-A): `textIndex`, the surface's `(font,size) -> mounted
+		-- text paths` index, filed from the text branch so a learned word can name its
+		-- users instead of moving the measure stamp for everybody
+		expect(`declared={#sorted(declared)} written={#sorted(written)}`).toBe("declared=62 written=62")
 		expect(`never built={table.concat(missing, " ")}`).toBe("never built=")
 		expect(`undeclared={table.concat(undeclared, " ")}`).toBe("undeclared=")
 		-- NEGATIVE CONTROL: both scans really do read a field and a key
