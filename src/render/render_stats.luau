@@ -101,6 +101,15 @@ function render_stats.new(): any
 			parent's children, and this is the number that says the skip still lands. ]]
 		zPasses = 0,
 		zVisits = 0,
+		--[[ ...and the LIVE size of the walk's own memo — a gauge, not a total, kept on
+			the two transitions rather than counted. It exists to pin one rule that no
+			differential can see: a LEAF earns no memo entry, because skipping a childless
+			node saves nothing while an entry per node cost a measured 16 % on the step
+			that allocates the most (`battle_hud setState`). Giving a leaf an entry is
+			CORRECT, merely expensive, so the regression would return in silence; this is
+			the number that refuses it. It equals the count of mounted nodes that have
+			children. ]]
+		zMemoEntries = 0,
 		lastSkipped = 0,
 		-- ...and the SAME number published UNCONDITIONALLY (wicked-fast O3), because
 		-- `lastSkipped` above is written only when it is > 0 and is therefore stale by

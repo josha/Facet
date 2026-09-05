@@ -132,9 +132,24 @@ function z_order.new(deps: Deps)
 		than their values — a value diff would also pass a walk that assigned the right
 		numbers in the wrong order.
 
-		WHEN A SUBTREE MAY BE SKIPPED: when no dirty root lies at or below it. A
-		subtree's assignment is a function of the set and order of the paths in it and
-		of each node's `zIndex` and the hit-lift order. The first can only change
+		WHAT A REORDER COSTS, because the paragraph above is only its CORRECTNESS half
+		and the favourable direction at that. The moment a subtree's old range lies
+		BELOW the counter it has to be renumbered — and then so does every sibling after
+		it, because the counter now runs ahead of all of them. So a reorder renumbers
+		FROM THE INSERTION POINT TO THE END OF THE PARENT, whatever distance the item
+		travelled. Measured on `nameplates_scene` (250 plates, 1,503 mounted, bounded
+		throughout): `250 -> 249` costs 258 nodes, `5 -> 40` costs 1,308, `200 -> 5`
+		costs 1,478, `1 -> 2` costs 1,498. That is the whole-tree walk again for a
+		reorder near the head — the cost this walk had BEFORE the skip, so it is a
+		missing win rather than a regression, and one monotone counter cannot avoid it
+		(there is no gap to place the moved block in). All four are pinned exactly,
+		because a `>= mounted` ceiling passes at 1,478 and would let the bound vanish.
+
+		WHEN A SUBTREE MAY BE SKIPPED: when no dirty root lies at or below it AND the
+		theme snapshot is the one the last walk reserved against (`sync`'s first
+		paragraph owns that term). A subtree's assignment is a function of the set and
+		order of the paths in it, of each node's `zIndex` and the hit-lift order, and of
+		the snapshot the expander reservation below is read from. The first can only change
 		through `mount` replacing a `children` array, which pushes a `structure` entry
 		at that parent — so that parent is one of `roots`, or an ancestor entry covers
 		it, or `render/structural_scope.roots` refuses and hands this walk `nil`.
@@ -161,10 +176,15 @@ function z_order.new(deps: Deps)
 	-- where twice a handful of nodes would compact on the first churn.
 	local zHigh = 0
 	local Z_COMPACT_SLACK = 64
+	-- ...and the theme snapshot the last walk reserved against; see `sync`
+	local lastMetrics: any = nil
 
 	local function forget(path: string)
-		zIn[path] = nil
-		zSpan[path] = nil
+		if zIn[path] ~= nil then
+			zIn[path] = nil
+			zSpan[path] = nil
+			stats.zMemoEntries -= 1
+		end
 	end
 
 	-- every path from `path` up to the mount root, which is the set the walk has to
@@ -189,17 +209,31 @@ function z_order.new(deps: Deps)
 		if adapter.setZOrder == nil then
 			return
 		end
+		--[[ THE THIRD TERM (T9 review, minor), and it is asked FIRST because it decides
+			whether there is a bound at all. The expander reservation below is a function
+			of the node's class AND the theme snapshot, so a theme whose metrics flip a
+			class's hit floor changes what every node of that class RESERVES — and a
+			skipped subtree would keep a numbering with no gap under it, which is (Z2).
+			Nothing else covers it: the commit's whole-tree re-run fires only when the
+			overhang LIFT SET changes (`render/hit_lift`'s `refresh` compares the lifted
+			pairs, not the rects), and a new expander that overhangs nobody changes no
+			pair. So a snapshot the walk has not seen before takes the whole tree. The
+			identity is stable while the theme is: `themeMetrics` holds one table per
+			committed package, and the framework default is `themes/snapshot`'s CACHED
+			`neutral()`. A surprise identity costs one whole-tree walk, never a wrong
+			number. ]]
+		local zMetrics = deps.metrics()
 		local forced: { [string]: boolean }? = nil
-		if roots ~= nil and not compactNext then
+		if roots ~= nil and not compactNext and zMetrics == lastMetrics then
 			forced = {}
 			for _, r in roots do
 				markToRoot(forced :: { [string]: boolean }, r.path)
 			end
 		end
+		lastMetrics = zMetrics
 		compactNext = false
 		local z = 0
 		local visited = 0
-		local zMetrics = deps.metrics()
 		local function walkZ(node: any)
 			visited += 1
 			if forced ~= nil and not forced[node.path] then
@@ -243,18 +277,38 @@ function z_order.new(deps: Deps)
 				allocates 1.13 MB a step and therefore collects the most — ran +16 % on an
 				arm where every counter was byte-identical and no z walk ran at all. A
 				control arm carrying the whole C5 change EXCEPT these two maps sat on the
-				base, which is what named them.
+				base, which is what named them. `stats.zMemoEntries` is that rule's
+				witness, because removing the guard breaks no differential: giving a leaf
+				an entry is CORRECT, merely expensive, so only a size counter can see it go.
+
+				THE `else` IS THE HALF THAT WAS MISSING (T9 review, IMPORTANT 1), and it is
+				a correctness clause, not bookkeeping. A guard that stops a memo being
+				WRITTEN for a childless node does not CLEAR one already there: a container
+				that empties keeps an entry from the last walk that saw its children, gets
+				renumbered by churn elsewhere without refreshing it (it is childless now),
+				and is then skipped back onto a number it has not held for two walks.
+				Reproduced on four ordinary drives — an emptied `ForEach` region and a
+				sibling that grew and shrank left `/S/V/B` and `/S/V/C8` BOTH holding z 15,
+				which is (Z1) and (Z2) together, and one of those numbers is an expander's
+				reserved slot. `tests/zorder_bounded.spec` drives exactly that scene.
 
 				WRITTEN ONLY WHEN IT MOVED, the same guard the z write above uses and for
 				the same reason: a blind hash write per visited node was a real charge on
 				the commit's own walks (C4, fix round 1). ]]
 			if #kids > 0 then
+				if zIn[node.path] == nil then
+					stats.zMemoEntries += 1
+				end
 				if zIn[node.path] ~= entered then
 					zIn[node.path] = entered
 				end
 				if zSpan[node.path] ~= z - entered then
 					zSpan[node.path] = z - entered
 				end
+			elseif zIn[node.path] ~= nil then
+				zIn[node.path] = nil
+				zSpan[node.path] = nil
+				stats.zMemoEntries -= 1
 			end
 		end
 		walkZ(root.node)
