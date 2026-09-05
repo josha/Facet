@@ -2447,6 +2447,21 @@ local function arrangeBody(ctx: Ctx, node: Node, rect: Rect, out: { [string]: an
 		-- takes it out of `nodeDirty`, which the commit's `skip` reads first.
 		entry.moveOnly = true
 		entry.prev = tprev
+		--[[ ...AND THE INNER-ORIGIN INSETS COME WITH IT (C3 fix round 1), which is what
+			keeps `literalIsWholeEntry`'s contract TRUE for `anchor` rather than adding a
+			third kind to its refusal. A translate root returns above the padding block
+			below, so its fresh literal would carry no `innerDX`/`innerDY` and the anchor
+			branch's clean-child skip would refuse every child for one whole frame after
+			the anchor settled — one lost placement pass per anchor that ever moves,
+			invisible to a fixture whose anchor stands still.
+
+			CARRYING THEM IS EXACT RATHER THAN OPTIMISTIC: this block runs only for a node
+			that is `clean` or `selfPlaces`, and `selfPlaces` requires
+			`measureContains[node.id] ~= true` — `padding` is MEASURE-classed, so the two
+			insets cannot have changed on a node that reached here. `nil` carries `nil`,
+			which is every kind but `anchor`. On the REFUSED path below, the body runs on
+			and the padding block overwrites both with this solve's own values. ]]
+		entry.innerDX, entry.innerDY = tprev.innerDX, tprev.innerDY
 		tprev.prev = nil
 		local from = #ctx.translatedPaths + 1
 		if node.hostSpace == true then

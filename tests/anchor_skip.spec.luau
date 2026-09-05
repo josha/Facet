@@ -23,7 +23,7 @@
 	the padding case below.
 
 	THE GATE IS A STRICT SUPERSET OF `arrangeBody`'S OWN SKIP, which is what makes the
-	owed list short (the campaign ledger, "### Task 7 — the owed list", 13 rows). If
+	owed list short (the campaign ledger, "### Task 7 — the owed list", 15 rows). If
 	this arm fires, `arrange(ctx, child, …)` would have returned at that skip BEFORE
 	the entry write, before `ctx.walkedIds`, before `ctx.arranged`/`rectInserts` and
 	before every branch. So the arm is the same skip taken one frame up the stack,
@@ -36,7 +36,20 @@
 	finding about the subtree was filed by nobody and replayed for nobody. A SKIPPED
 	child is not walked at all, so the replay keeps every finding it had. That is the
 	"a finding about a skipped child survives" case below, and it is the one place
-	where this arm is strictly safer than the one it sits above. ]]
+	where this arm is strictly safer than the one it sits above.
+
+	THE TWO CHANNELS THE FIRST DRAFT OF THE OWED LIST DID NOT NAME (T7 review, Minor
+	2). `measure_facts.luau` lists four channels `measure` writes through, and rows
+	3-4 of the ledger's list gave verdicts for two of them. The other two are inert,
+	and a list whose whole value is completeness owes the two lines:
+
+	  `ctx.fitCuts`  is only ever read as a DELTA, bracketing the reader's own
+	    `measure` call (`candidate.choose`, `composition_resolve`), so a bump this
+	    arm does not make on an unrelated sibling cannot change any decision. The N2
+	    arm does not publish it either, and for the same reason.
+	  `ctx.memoPlans[node]` is a per-solve memo of a PURE function of a built node
+	    (`memoPlan`'s `PLAN_*` verdict). A colder memo is slower, never wrong; any
+	    later slow-path call on that node recomputes the same answer. ]]
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 local solver = require("../src/layout/solver")
@@ -198,41 +211,53 @@ describe("C3: a clean, same-offer anchor child is not placed at all", function()
 		end)
 	end)
 
-	it("...and the geometry a skipping solve produces is byte-equal to a full one", function()
+	it("...and the geometry a skipping solve produces is byte-equal to a full one, at EVERY view", function()
 		--[[ THE COUNTERS SAY THE ARM FIRED; THIS SAYS THE ANSWER IS RIGHT. `b` re-solves
 			in full on every refresh and is the ground truth; `scene.snapshot()` is every
 			live node's stored rect, hit rect, scroll region, visibility, adapter props and
-			both public readers, so a child left at a stale x shows up as a diff. ]]
-		local a = scene.new()
-		local b = scene.new({ incremental = false, measureReuse = false })
-		local function step(what: string, drive: (any) -> ())
-			drive(a)
-			drive(b)
-			if a.snapshot() ~= b.snapshot() then
-				error(`snapshot diverged after {what}`, 0)
+			both public readers, so a child left at a stale x shows up as a diff.
+
+			SWEPT ACROSS `device_views.VIEWS` since fix round 1 (T7 review, Minor 1), to
+			match what the N2 sibling next door already does: a single viewport is one
+			geometry, and the campaign's constraint on a differential is the whole matrix
+			including 320x640. The compare is per STEP rather than only at the end, so the
+			failure names the drive that produced it. ]]
+		for _, view in device_views.VIEWS do
+			local a = scene.new({ viewport = { x = 0, y = 0, w = view.w, h = view.h } })
+			local b = scene.new({
+				viewport = { x = 0, y = 0, w = view.w, h = view.h },
+				incremental = false,
+				measureReuse = false,
+			})
+			local function step(what: string, drive: (any) -> ())
+				drive(a)
+				drive(b)
+				if a.snapshot() ~= b.snapshot() then
+					error(`{view.id}: snapshot diverged after {what}`, 0)
+				end
 			end
+			step("warm", function(s)
+				s.tickWithCasts(3, 2)
+			end)
+			step("caster tick", function(s)
+				s.tickWithCasts(3, 2)
+			end)
+			step("hp", function(s)
+				s.hp(7, 0.9)
+			end)
+			step("add", function(s)
+				s.add(9001)
+			end)
+			step("remove", function(s)
+				s.remove(1)
+			end)
+			step("caster tick again", function(s)
+				s.tickWithCasts(1, 1)
+			end)
+			expect(`{view.id}:{a.snapshot() == b.snapshot()}`).toBe(`{view.id}:true`)
+			a.dispose()
+			b.dispose()
 		end
-		step("warm", function(s)
-			s.tickWithCasts(3, 2)
-		end)
-		step("caster tick", function(s)
-			s.tickWithCasts(3, 2)
-		end)
-		step("hp", function(s)
-			s.hp(7, 0.9)
-		end)
-		step("add", function(s)
-			s.add(9001)
-		end)
-		step("remove", function(s)
-			s.remove(1)
-		end)
-		step("caster tick again", function(s)
-			s.tickWithCasts(1, 1)
-		end)
-		expect(a.snapshot() == b.snapshot()).toBe(true)
-		a.dispose()
-		b.dispose()
 	end)
 end)
 
@@ -344,6 +369,13 @@ local function paddedAnchorWorld(incremental: boolean, view: any): any
 			ov:set(overflow)
 			controller.refresh()
 		end,
+		-- ...and the SAME move with the anchor left CLEAN, which is the drive the
+		-- translate arm takes: `Sp` is a sibling, so the closure marks it and its
+		-- ancestors and never reaches into the anchor
+		moveClean = function(px: number)
+			spacer:set({ type = "fixed", px = px } :: any)
+			controller.refresh()
+		end,
 		nudge = function(v: number)
 			nudge:set(v)
 			controller.refresh()
@@ -362,6 +394,65 @@ local function paddedAnchorWorld(incremental: boolean, view: any): any
 			root.dispose()
 		end,
 	}
+end
+
+--[[ THE PADDED FIXTURE'S DIFFERENTIAL, ONE VIEW, lifted into a function so the sweep
+	above reads as a sweep. `b` re-solves in full on every refresh and is the ground
+	truth; the compare is per STEP so a failure names the drive that produced it. ]]
+local function runPaddedOracle(view: any)
+	local a = paddedAnchorWorld(true, view)
+	local b = paddedAnchorWorld(false, view)
+	local function step(what: string, drive: (any) -> ())
+		drive(a)
+		drive(b)
+		if a.dump() ~= b.dump() then
+			error(`{view.id}: {what}\nINCREMENTAL:\n{a.dump()}\nFULL:\n{b.dump()}`, 0)
+		end
+	end
+	step("nudge", function(w)
+		w.nudge(1)
+	end)
+	step("nudge again", function(w)
+		w.nudge(2)
+	end)
+	-- THE ROW THAT FAILS WITHOUT THE GUARD: the incremental arm keeps every child
+	-- 20px to the left of where the full solve puts it
+	step("redistribute", function(w)
+		w.redistribute(20, 0)
+	end)
+	step("nudge after", function(w)
+		w.nudge(3)
+	end)
+	step("redistribute back", function(w)
+		w.redistribute(0, 20)
+	end)
+	-- THE ROW THAT FAILS WITHOUT THE OFFER PAIR: the extent moves, so a served
+	-- wrapping label keeps the height of a wrap it is not going to get
+	step("right edge", function(w)
+		w.redistribute(0, 40)
+	end)
+	-- ...AND THE ROW THAT FAILS WITHOUT `boxUnchanged`: the anchor's origin moves
+	-- and every child would keep the y it had
+	step("move the box", function(w)
+		w.move(60, "hidden")
+	end)
+	step("move it back", function(w)
+		w.move(10, "visible")
+	end)
+	-- ...and the CLEAN move, which is the translate arm's drive: the carry that
+	-- keeps the arm armed across it must not change a pixel either
+	step("clean move", function(w)
+		w.moveClean(80)
+	end)
+	step("nudge after a clean move", function(w)
+		w.nudge(9)
+	end)
+	step("clean move back", function(w)
+		w.moveClean(10)
+	end)
+	expect(`{view.id}:{a.dump() == b.dump()}`).toBe(`{view.id}:true`)
+	a.dispose()
+	b.dispose()
 end
 
 describe("C3: the guards", function()
@@ -472,49 +563,63 @@ describe("C3: the guards", function()
 		end)
 	end)
 
-	it("...and the geometry it produces is byte-equal to a forced FULL solve", function()
-		local a = paddedAnchorWorld(true, { w = 800, h = 600 })
-		local b = paddedAnchorWorld(false, { w = 800, h = 600 })
-		local function step(what: string, drive: (any) -> ())
-			drive(a)
-			drive(b)
-			if a.dump() ~= b.dump() then
-				error(`{what}\nINCREMENTAL:\n{a.dump()}\nFULL:\n{b.dump()}`, 0)
-			end
-		end
-		step("nudge", function(w)
+	it("A TRANSLATED ANCHOR STAYS ARMED: the frame after a move skips like any other", function()
+		--[[ THE ENTRY A TRANSLATE ROOT PUBLISHES IS THE LITERAL AND NOTHING ELSE
+			(`literalIsWholeEntry`, `solver.luau`) — it returns above the padding block, so
+			the `innerDX`/`innerDY` this arm reads would be absent on a node that MOVED,
+			and every child of it would fall through for one whole frame after the anchor
+			settled. Found by the T7 review; the anchor of the campaign's own 250-plate
+			fixture never moves, so nothing in the suite or on the arena could see it.
+
+			THE DRIVE IS A CLEAN MOVE. `Sp` is the anchor's SIBLING, so the dirty closure
+			marks it and its ancestors and never reaches into the anchor — the anchor is
+			clean, its rect moved, and it takes the translate arm (`moveOnly`, and its
+			twelve children re-based rather than walked). The frame after that is an
+			ordinary nudge, and it is the one that used to read `skipped=0`.
+
+			CARRYING THE TWO NUMBERS ACROSS THE ROOT IS EXACT, not optimistic:
+			`translatable` fires only for a node that is `clean` or `selfPlaces`, and
+			`selfPlaces` requires `measureContains[node.id] ~= true` — `padding` is
+			MEASURE-classed, so the insets cannot have changed on a node that got here. ]]
+		withWorkCapture(function()
+			local w = paddedAnchorWorld(true, { w = 800, h = 600 })
 			w.nudge(1)
+			-- ARMED before the move, so the row below is a loss and not a cold start
+			expect(drove(function()
+				w.nudge(2)
+			end)).toBe(`solves=1 skipped={NESTED_KIDS - 1} reused=1 offered=0`)
+			--[[ THE MOVE ITSELF. The anchor is clean and only its origin changed, so its
+				body never runs: no child is placed, offered or skipped, and its whole
+				subtree is re-based by the translate arm instead. ]]
+			expect(drove(function()
+				w.moveClean(60)
+			end)).toBe("solves=1 skipped=0 reused=0 offered=0")
+			-- THE FRAME THE REVIEW FOUND: `skipped=0 reused=12` without the carry
+			expect(drove(function()
+				w.nudge(3)
+			end)).toBe(`solves=1 skipped={NESTED_KIDS - 1} reused=1 offered=0`)
+			-- ...and a move BACK, so the carry is not a one-direction accident
+			expect(drove(function()
+				w.moveClean(10)
+			end)).toBe("solves=1 skipped=0 reused=0 offered=0")
+			expect(drove(function()
+				w.nudge(4)
+			end)).toBe(`solves=1 skipped={NESTED_KIDS - 1} reused=1 offered=0`)
+			w.dispose()
 		end)
-		step("nudge again", function(w)
-			w.nudge(2)
-		end)
-		-- THE ROW THAT FAILS WITHOUT THE GUARD: the incremental arm keeps every child
-		-- 20px to the left of where the full solve puts it
-		step("redistribute", function(w)
-			w.redistribute(20, 0)
-		end)
-		step("nudge after", function(w)
-			w.nudge(3)
-		end)
-		step("redistribute back", function(w)
-			w.redistribute(0, 20)
-		end)
-		-- THE ROW THAT FAILS WITHOUT THE OFFER PAIR: the extent moves, so a served
-		-- wrapping label keeps the height of a wrap it is not going to get
-		step("right edge", function(w)
-			w.redistribute(0, 40)
-		end)
-		-- ...AND THE ROW THAT FAILS WITHOUT `boxUnchanged`: the anchor's origin moves
-		-- and every child would keep the y it had
-		step("move the box", function(w)
-			w.move(60, "hidden")
-		end)
-		step("move it back", function(w)
-			w.move(10, "visible")
-		end)
-		expect(a.dump() == b.dump()).toBe(true)
-		a.dispose()
-		b.dispose()
+	end)
+
+	it("...and the geometry it produces is byte-equal to a forced FULL solve, at EVERY view", function()
+		--[[ SWEPT ACROSS `device_views.VIEWS` since fix round 1 (T7 review, Minor 1).
+			The three shapes this fixture owns — a padding REDISTRIBUTION, a right-edge
+			EXTENT move and a moved BOX — exist nowhere else in the suite, so a single
+			800x600 reading was the only ground truth they had. A third of the children
+			are wrapping labels whose measured height is a function of the width they are
+			offered, which is what makes a narrow view a different question rather than a
+			smaller one. ]]
+		for _, view in device_views.VIEWS do
+			runPaddedOracle(view)
+		end
 	end)
 end)
 
@@ -753,8 +858,19 @@ describe("C3: a skipped child keeps what nobody re-published for it", function()
 			values" is an identity claim and is asserted as one. It is also what makes the
 			republished channels (`ctx.offers`, the three verdicts) INERT under this arm:
 			the only in-solve reader of `ctx.offers` is the entry literal, and no entry
-			literal runs for a skipped child. ]]
+			literal runs for a skipped child.
+
+			AND THE SKIP IS ASSERTED WITH IT, which is the correction fix round 1 made
+			(T7 review, Minor 3). Identity ALONE cannot fail on this arm: at the base
+			commit the same child goes N2-serve -> `arrange` -> `arrangeBody`'s own skip,
+			which also returns above the entry write, so `rawequal` is true with or
+			without C3 and the case read the same on a commit where the arm did not
+			exist. The counter is what makes the two tables the SKIPPED child's rather
+			than merely the same child's — `skipped=1` on both captured solves, from the
+			same drive, and the mutation that deletes the arm now reddens this case with
+			the others. ]]
 		local entryOf: { [string]: any } = {}
+		local skips: { number } = {}
 		local real = solver.solve
 		local w
 		local ok, err = pcall(function()
@@ -763,6 +879,7 @@ describe("C3: a skipped child keeps what nobody re-published for it", function()
 			solver.solve = function(...)
 				local r = real(...)
 				entryOf[if entryOf.first == nil then "first" else "second"] = r.rects["/S/A/Squeezed"]
+				table.insert(skips, r.work.anchorSkipped)
 				return r
 			end
 			w.nudge(2)
@@ -775,8 +892,8 @@ describe("C3: a skipped child keeps what nobody re-published for it", function()
 		expect(
 			`same={tostring(rawequal(entryOf.first, entryOf.second))} rect={tostring(
 				rawequal(entryOf.first.rect, entryOf.second.rect)
-			)}`
-		).toBe("same=true rect=true")
+			)} skipped={table.concat(skips, ",")}`
+		).toBe("same=true rect=true skipped=1,1")
 		w.dispose()
 	end)
 end)

@@ -1026,38 +1026,110 @@ end
 	kinds EQUAL to the set `literalIsWholeEntry` refuses. A third kind that starts
 	stamping a field, or a new field on an existing one, reddens this case; nobody
 	has to remember to come back and edit it. ]]
--- every `out[node.id].<field> =` / `entry.<field> =` write after the literal, with
--- the `if node.kind == "…"` branch it sits in (empty = every kind reaches it)
-local function stampsAfterLiteral(lines: { string }, at: number): ({ [string]: boolean }, { [string]: boolean })
+--[[ every write onto the node's OWN entry after the literal, with the
+	`if node.kind == "…"` branch it sits in (empty = every kind reaches it), and the
+	fields grouped BY that kind.
+
+	IT LEARNS ITS ALIASES AND IT READS THE WHOLE LEFT-HAND SIDE (T7 review,
+	IMPORTANT 1). The first version matched two literal spellings —
+	`out[node.id].<field> =` and `^\t\tentry.<field> =` — and C3's stamp was neither:
+	`local selfEntry = out[node.id]` followed by a TWO-TARGET
+	`selfEntry.innerDX, selfEntry.innerDY = pl, pt`. The scan returned "kinds =
+	composition" while the true set was "anchor, composition, scroll", so the case
+	whose whole selling point is "nobody has to remember to come back and edit it"
+	had silently stopped being that, and the missing carry across the translate root
+	shipped behind it.
+
+	So: every `local x = out[node.id]` after the literal makes `x` an alias, both
+	spellings are normalised to one token, and the scan reads every `<alias>.<field>`
+	on the LEFT of the assignment — which is what makes a multi-target write
+	contribute one field per target. A `local` declaration is not an assignment onto
+	the entry and is skipped; the negative control below feeds it exactly the
+	evasion shape it was blind to. ]]
+local function stampsAfterLiteral(
+	lines: { string },
+	at: number
+): ({ [string]: boolean }, { [string]: boolean }, { [string]: { [string]: boolean } })
 	local fields: { [string]: boolean } = {}
 	local kinds: { [string]: boolean } = {}
+	local byKind: { [string]: { [string]: boolean } } = {}
+	local alias: { [string]: boolean } = { entry = true }
 	for i = at + 1, #lines do
-		local field = lines[i]:match("out%[node%.id%]%.([%a_][%w_]*) =")
-			or lines[i]:match("^\t\tentry%.([%a_][%w_]*) =")
-		if field ~= nil then
+		local name = lines[i]:match("local ([%a_][%w_]*) = out%[node%.id%]")
+		if name ~= nil then
+			alias[name] = true
+		end
+	end
+	for i = at + 1, #lines do
+		local raw = lines[i]
+		-- the LEFT of the first `=` that is not part of `==` / `~=` / `<=` / `>=`
+		local lhs = raw:match("^([^=]*)=[^=]") or raw:match("^([^=]*)=$")
+		if lhs == nil or lhs:match("^%s*local%s") ~= nil or lhs:match("[~<>]%s*$") ~= nil then
+			continue
+		end
+		local normalised = lhs:gsub("out%[node%.id%]", "\1")
+		local found: { string } = {}
+		for field in normalised:gmatch("\1%.([%a_][%w_]*)") do
+			table.insert(found, field)
+		end
+		for name in alias do
+			for field in normalised:gmatch(`%f[%w_]{name}%.([%a_][%w_]*)`) do
+				table.insert(found, field)
+			end
+		end
+		if #found == 0 then
+			continue
+		end
+		local here: { string } = {}
+		for j = i - 1, at + 1, -1 do
+			if lines[j]:match("^\tif node%.kind ==") ~= nil then
+				for kind in lines[j]:gmatch('node%.kind == "([%w_]+)"') do
+					kinds[kind] = true
+					table.insert(here, kind)
+				end
+				break
+			end
+		end
+		for _, field in found do
 			fields[field] = true
-			for j = i - 1, at + 1, -1 do
-				if lines[j]:match("^\tif node%.kind ==") ~= nil then
-					for kind in lines[j]:gmatch('node%.kind == "([%w_]+)"') do
-						kinds[kind] = true
-					end
-					break
+			for _, kind in here do
+				byKind[kind] = byKind[kind] or {}
+				byKind[kind][field] = true
+			end
+		end
+	end
+	return fields, kinds, byKind
+end
+
+-- ...and the fields the translate root CARRIES onto its fresh literal, read off the
+-- same source: an `entry.<field>` write whose right-hand side comes from `tprev`,
+-- which is the previous entry. This is the other half of the partition below.
+local function carriedAcrossRoot(lines: { string }): { [string]: boolean }
+	local out: { [string]: boolean } = {}
+	for _, line in lines do
+		if line:match("tprev%.") ~= nil then
+			local lhs = line:match("^([^=]*)=[^=]")
+			if lhs ~= nil then
+				for field in lhs:gmatch("entry%.([%a_][%w_]*)") do
+					out[field] = true
 				end
 			end
 		end
 	end
-	return fields, kinds
+	return out
 end
 
 describe("O3: the refusal names every kind that stamps an entry field after the literal", function()
 	it("the scan finds the literal, and the kinds it finds are the kinds the arm refuses", function()
 		expect(`literalFound={LITERAL_AT > 0}`).toBe("literalFound=true")
-		local fields, kinds = stampsAfterLiteral(ARRANGE_SOURCE, LITERAL_AT)
+		local fields, kinds, byKind = stampsAfterLiteral(ARRANGE_SOURCE, LITERAL_AT)
 		for _, moved in MOVED_STAMPS do
 			local movedFields = stampsAfterLiteral(moved.lines, 0)
 			for field in movedFields do
 				fields[field] = true
 				kinds[moved.kind] = true
+				byKind[moved.kind] = byKind[moved.kind] or {}
+				byKind[moved.kind][field] = true
 			end
 		end
 		--[[ THE FIELDS, so a NEW field on an existing branch is a visible change here
@@ -1069,14 +1141,16 @@ describe("O3: the refusal names every kind that stamps an entry field after the 
 			"barInset",
 			"composition",
 			"contentSize",
+			"innerDX",
+			"innerDY",
 			"moveOnly",
 			"overflow",
 			"padding",
 			"prev",
 		})
-		-- `moveOnly`/`prev` sit outside every `node.kind` branch, so they contribute
-		-- no kind; what is left is exactly what `literalIsWholeEntry` refuses
-		expect(sortedKeys(kinds)).toEqual({ "composition", "scroll" })
+		-- `moveOnly`/`prev`, and the C3 carry beside them, sit outside every
+		-- `node.kind` branch and so contribute no kind
+		expect(sortedKeys(kinds)).toEqual({ "anchor", "composition", "scroll" })
 		-- ...and the predicate itself, read out of the source rather than trusted
 		local refused: { string } = {}
 		local body = fs.readFile("src/layout/solver.luau")
@@ -1087,7 +1161,41 @@ describe("O3: the refusal names every kind that stamps an entry field after the 
 			table.insert(refused, kind)
 		end
 		table.sort(refused)
-		expect(refused).toEqual(sortedKeys(kinds))
+		expect(refused).toEqual({ "composition", "scroll" })
+		--[[ AND THE TWO LISTS PARTITION THE STAMPING KINDS, which is the invariant this
+			case is really about and the form it had to take once a kind was allowed to
+			stamp WITHOUT being refused (T7 review, IMPORTANT 1).
+
+			A translate root publishes the literal and returns, so a kind that stamps
+			after it publishes a HALF ENTRY behind a perfect rect unless one of two
+			things is true: the predicate REFUSES it (it never becomes a root), or every
+			field it stamps is CARRIED onto the fresh literal from the previous entry.
+			`anchor` takes the second road — `innerDX`/`innerDY` are a pure function of
+			`padding`, which is measure-classed, and a translate root is measure-clean —
+			and refusing it instead would have cost every anchor the translate arm.
+
+			So: for each stamping kind the predicate does not refuse, every field it
+			stamps must appear in the carry. Delete the carry line and this reddens
+			beside the behavioural case in `anchor_skip.spec`; add a third field to the
+			anchor stamp and forget to carry it, and this reddens alone. ]]
+		local carried = carriedAcrossRoot(ARRANGE_SOURCE)
+		local refusedSet: { [string]: boolean } = {}
+		for _, kind in refused do
+			refusedSet[kind] = true
+		end
+		local uncarried: { string } = {}
+		for kind in kinds do
+			if not refusedSet[kind] then
+				for field in byKind[kind] or {} do
+					if not carried[field] then
+						table.insert(uncarried, `{kind}.{field}`)
+					end
+				end
+			end
+		end
+		table.sort(uncarried)
+		expect(`carried={table.concat(sortedKeys(carried), " ")}`).toBe("carried=innerDX innerDY")
+		expect(`neither refused nor carried={table.concat(uncarried, " ")}`).toBe("neither refused nor carried=")
 	end)
 
 	it("NEGATIVE CONTROL: the scan reports a new kind and a new field", function()
@@ -1106,12 +1214,32 @@ describe("O3: the refusal names every kind that stamps an entry field after the 
 			'\tif node.kind == "scroll" or node.kind == "hwrap" then',
 			"\t\tout[node.id].contentSize = x",
 			"\tend",
+			--[[ ...AND THE EVASION SHAPE THIS SCAN WAS BLIND TO (T7 review, IMPORTANT 1):
+				an ALIAS local plus a TWO-TARGET assignment. It is in the control rather
+				than only in the real source, so the widening cannot be quietly undone —
+				and the two decoys beside it are the false positives the wider reader could
+				introduce: a `local` declaration is not a stamp, and a COMPARISON against
+				an alias field is not an assignment. ]]
+			'\tif node.kind == "region" then',
+			"\t\tlocal e = out[node.id]",
+			"\t\te.formA, e.formB = 1, 2",
+			"\t\tlocal notAStamp = e.formA",
+			"\t\tif e.formB == 2 then",
+			"\t\tend",
+			"\tend",
 		}
-		local fields, kinds = stampsAfterLiteral(fake, 3)
-		expect(sortedKeys(fields)).toEqual({ "columns", "contentSize", "lanes" })
-		expect(sortedKeys(kinds)).toEqual({ "grid", "hwrap", "scroll" })
+		local fields, kinds, byKind = stampsAfterLiteral(fake, 3)
+		expect(sortedKeys(fields)).toEqual({ "columns", "contentSize", "formA", "formB", "lanes" })
+		expect(sortedKeys(kinds)).toEqual({ "grid", "hwrap", "region", "scroll" })
+		expect(sortedKeys(byKind.region)).toEqual({ "formA", "formB" })
 		-- ...and a write BEFORE the literal is not one of these
-		expect(sortedKeys((stampsAfterLiteral(fake, 9)))).toEqual({})
+		expect(sortedKeys((stampsAfterLiteral(fake, 20)))).toEqual({})
+		-- ...and the carry reader really reads a `tprev` right-hand side, and only that
+		expect(sortedKeys(carriedAcrossRoot({
+			"\t\tentry.a, entry.b = tprev.a, tprev.b",
+			"\t\tentry.c = 3",
+			"\t\tlocal d = tprev.d",
+		}))).toEqual({ "a", "b" })
 	end)
 end)
 
