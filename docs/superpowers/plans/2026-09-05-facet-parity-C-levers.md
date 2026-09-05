@@ -116,6 +116,13 @@ found the *omissions* to be the problem.
 | **T13b ↔ T15** | `src/render/layout_node.luau` — `build`'s prologue (`:1722-1736`) and the carrier block (`:1539-1564`) | T13b writes `store.structural = collect == true` in `build` and `cmemo.struct` in the carrier block; T15 HOISTS `local prior` above the child loop and adds `childArray` to the same literal | ▲ **NEW. NOT CLEAN, and it is code motion again** — the same class as the existing T13 ↔ T15 row. Ordering fixes it: T13b first, T15 moves T13b's `cmemo.struct` line with T13's `local prior`. T15's diff must show those lines MOVED, not duplicated. **And T15 must state what its own reuse does to owed row A2:** a reused children array trivially has an unchanged id sequence, so T15 may set `struct`'s successor free — but it may not silently widen T13b's gate while doing it. |
 | **T13b → `src/render/renderer.luau`** | **zero characters** | the structural flag reaches the memo through `layout_node.build`'s existing `collect` argument (`renderer.luau:2008-2009`) rather than through a new `reuse` field | ▲ **NEW. CLEAN BY CONSTRUCTION, and deliberately so:** the wave's renderer allowance is ≤ +400 split T15 ≤ +120 · T16 ≤ +280, with nothing left for a fifth task. A T13b that needed a `reuse.structural` field would have had to re-split that budget or take renderer's booked seam first. |
 | **T13b → `solve_ctx.luau`, `render_stats.luau`, `tests/run.luau`, the source-cap ledger** | the same four shared files T13–T16 queue on | T13b adds `childIterations` + `aggregateFallbacks` to `Ctx` (`:189`, `:366`), two `last*` fields (`render_stats.luau:64`, `:222`), one require line, one ledger row | ▲ **NEW. NOT CLEAN — the queue is now five deep on `tests/run.luau` and the ledger.** Same rule as the existing rows: each task appends its own line in its own commit, and a task that finds a later task's line already present has a stale tree and STOPS. T13b's spec is `container_aggregate`. |
+| **T18 ↔ T13 / T13b** | **`cmemo.mStamp`** (`stack_measure.luau:137`, filled `:385`) | T13 keys the container memo on `ctx.measureStamp`, which today CARRIES `text_metrics.epoch()` (`renderer.luau:1986`); T18 removes that term from the stamp | ▲ **NEW (ruling L-10). NOT CLEAN — this is the coupling that decides T18's step 9.** Removing the word-measurement generation from `measureStamp` silently WIDENS T13's memo: `mStamp` would stop covering a text node nested inside a served sub-container. T18 therefore owes the memo a replacement key (`cmemo.mKeyGen` + the subtree `mKeys` set, unioned up through `ctx.textKeys` **including from children the serve answered**), and owed row 4 plus mutations 2–4 are the witnesses. **T18 lands after T13b**, which adds its own `m*` names to the same table. |
+| **T18 ↔ T14** | `cmemo.p*` (the arrange replay key) | T14's gate holds `gap`, `align`, `distribute`, the measured `pMain`/`pCross` pair and the `pIds` scan constant; none of them reads `measureStamp` | ▲ **NEW. CLEAN, and stated rather than assumed.** T14's replay fires only when the dirty child's MEASURED extents are unchanged, and a text node whose width the settle corrected has moved extents by construction — so the replay refuses exactly the children the narrowing re-measures. T18 adds no `p*` field and reads none. |
+| **T18 → `src/render/render_stats.luau` + `tests/render_stats_seam.spec.luau`** | `lastTextRoundDepth` (commit A), `lastTextKeyUnions` (commit B) | the `new()` field SAMPLE at `:104-119` | ▲ **NEW. T18 is the FIFTH and SIXTH task on this file**, and the same re-grade applies: `:104-119` is a SAMPLE that catches DELETIONS, so adding a field does not redden it and **T18 must not plan a red around it**. The pins that catch these two are T18's own equalities in `text_round_reentry.spec` and `text_key_epoch.spec`, read off the run. |
+| **T18 → `tests/run.luau`, `tools/lune/verify/data/source-cap-ledger.md`** | the same two queued files | T18 registers `text_round_reentry` (commit A) and `text_key_epoch` (commit B), and appends one ledger row per commit | ▲ **NEW. The queue is now SIX deep on `tests/run.luau`.** Same standing rule: each commit appends its own line; a tree already carrying a later task's require is stale and the task STOPS. |
+| **T18 → `src/render/renderer.luau`** | **twelve characters**, at `:1986` | `text_metrics.epoch()` → `text_metrics.calibrationEpoch()` | ▲ **NEW. NOT CLEAN — the renderer allowance was already fully split.** 195,709 now, STOP 197,500, ≤ +400 for the wave promised T15 ≤ +120 · T16 ≤ +280. **T18's renderer allowance is ≤ +80 and the edit is +12.** If T18 ever needs more there, it takes the renderer's booked `measureStamp` seam first, in its own commit. |
+| **T18 ↔ `tests/measure_reuse.spec.luau`** | **`:912`, a LITERAL SOURCE-STRING pin** on `"text_metrics.epoch()"` inside the renderer, and `:787-805`, the epoch-bump contract | T18 changes the expression that pin quotes | ▲ **NEW. NOT CLEAN, and it is the good kind: the pin does its job.** T18 re-records both blocks in commit B and the re-record is the evidence. `text_metrics.epoch()` keeps its signature and its monotonicity (it returns the max of the two generations), so `:787-805`'s assertions about a settle bumping it stay true unchanged — only `:912`'s quoted string moves. |
+| **T18 → the `textMeasureEpoch` env fact** | `geometry_facts.luau:147`, `environment.luau:106`, written `premeasure_round.luau:152` | **nothing** | ▲ **NEW. CLEAN BY CONSTRUCTION, and it is a PUBLIC surface** — `premeasure_round.luau:123-132` documents a consumer memo depending on it. T18 changes what `measureStamp` folds in and **never what the env fact does**; `premeasure_round_seam.spec:259`'s `envKeys` equality is untouched. |
 
 ---
 
@@ -1725,6 +1732,479 @@ mechanism instead of a change (ruling A-7).**
 
 ---
 
+### Task 18 (ruling L-10 → FacetBench §C16): the settled session stops paying a whole-tree cold solve for one word
+
+**Where this came from.** T17's third arm (the headless `fake_target` inside the live
+Studio VM) settled the 1.5 ms as the Luau host and, in doing so, uncovered a **live-only
+10x regression class the whole campaign had been measuring around**. On a SETTLED session
+— the state a shipped game is in from ~0.66 s onward — `battle_hud L setState` costs
+**39.676 ms** and `addItem-damage` **76.971 ms**, against 3.733 / 3.994 with the headless
+target in the same VM. T9b read 3.426 for `setState` because it drove inside the boot
+window, where `awaitSettled()` yields and the corrections land on some later frame.
+
+**Two mechanisms, two commits, and the first is a correctness defect before it is a
+millisecond.**
+
+| # | mechanism | what it costs today | measured |
+|---|---|---|---|
+| **1** | `text_premeasure.spawn`'s settled body runs INLINE, so the whole `deliver → done → solveAndApply → solve → request → measure → spawn` cycle sits on ONE stack | an unbounded re-entry; T9b's live `C stack overflow (… line 484 in … text_premeasure)` + `Script timeout` | `sync=1` on a one-step drive; **`maxNestDepth=3`** on an ordinary mount+drive |
+| **2** | `text_metrics`'s epoch is PROCESS-GLOBAL and is folded into `measureStamp`, so one learned word drops the measure memo of every node of every attached surface | a fully COLD whole-tree re-solve per learned word | `lastMeasured == lastMeasureCalls` = **14,221** live, **14,215–14,305 headless** (5,109 nodes) |
+
+**And mechanism 2 reproduces HEADLESS**, which the T17 report could not yet say. Measured
+this session in a detached worktree at `a1728ee1`: `text_metrics.setMeasured(…)` followed
+by the `env:set("textMeasureEpoch", …)` bump `premeasure_round.luau:152` performs gives
+`lastMeasured = lastMeasureCalls = 14,221` on `battle_hud L`. **The red pin does not need
+Studio.**
+
+---
+
+## The measurement this task was written from (ruling L-10's precondition)
+
+*"How many text nodes share a (font,size) key on `battle_hud L`, so the expected
+`lastMeasured` after narrowing is a measured number rather than a guess?"*
+
+Instrument: a temporary wrapper on `text_metrics.measure` counting calls by
+`{font}|{size}`, driven through the FacetBench facet adapter with the headless target in
+a worktree at `a1728ee1`, censused on a forced cold solve at four points in the script.
+**Calls-per-text-node is a constant 3** (`solver.luau:1129` the reveal/natural measure,
+`:1141` the compact ladder's natural, `:1177` the wrapped measure) and is confirmed twice
+independently against node counts the scene fixes exactly
+(`FacetBench/workloads/battle_hud.luau:33-68`).
+
+| (font,size) key | scene role | **text nodes** | **ancestor closure** = the nodes a narrowed settle must re-measure |
+|---|---|---:|---:|
+| `BuilderSans#Regular#Normal\|10` | `UnitFacing` | **1,000** | 1,000 + 1,000 `UnitRow` + `Units` + `Root` = **2,002** |
+| `BuilderSans#Regular#Normal\|12` | `UnitName` | **1,000** | **2,002** |
+| `BuilderSans#Regular#Normal\|14` | `Squad1..4` | **4** | 4 + `SquadStrip` + `Root` = **6** |
+| `BuilderSans#Regular#Normal\|16` | `DmgText` | **0 / 10 / 30 / 0** at steps 0 / 100 / 300 / 600 | N + `Damage` + `Root` = **2 / 12 / 32 / 2** |
+
+The census is exact rather than modelled: `lastLayoutNodes` is **5,109** and the scene
+sums to `Root(1) + SquadStrip(1) + 4 + Units(1) + 1,000 UnitRow + 4,000 row children +
+Damage(1) + Blips(1) + 100 blips = 5,109`, so there are no wrapper nodes between a text
+node and the containers named above.
+
+**The two classes ruling L-10 names therefore have measured targets:**
+
+| class | the word it learns | `lastMeasured` TODAY | **`lastMeasured` after, EXPECTED** |
+|---|---|---:|---:|
+| `battle_hud L setState` | a squad count at size 14 | **14,245** | **6** |
+| `battle_hud L addItem-damage` | a damage number at size 16 | **14,305** (peak occupancy) | **32** (30 rows + `Damage` + `Root`) |
+
+**And the honest counter-case, which belongs in the report:** a workload whose new words
+land at size 12 would read **2,002**, not 6. The lever's size is the size of the key's
+user set, and `battle_hud`'s two hot classes happen to sit on the two small keys. Say so
+in §C16 rather than quoting 6 as "the" result.
+
+---
+
+**Budgets** (`python3 tools/check_source_size.py` at `a1728ee1`, PASS, `KNOWN_OVER`
+empty):
+
+| module | now | headroom to the 200,000 cap | T18's allowance |
+|---|---:|---:|---|
+| `src/render/renderer.luau` | **195,709** | 4,291 (**1,791 to the STOP at 197,500**) | ▲ **≤ +80 characters.** The wave's renderer split is already promised (T15 ≤ +120, T16 ≤ +280) out of ≤ +400. T18's whole renderer edit is the ONE expression at `:1986`; `text_metrics.epoch()` → `text_metrics.calibrationEpoch()` is **+12**. **If T18 needs more than +80 there, STOP and take the renderer's booked `measureStamp` seam first, in its own commit** — do not spend the reserve silently. |
+| `src/layout/text_metrics.luau` | **37,527** | 162,473 | the mechanism's home; no split needed |
+| `src/layout/solver.luau` | 184,726 | 15,274 | ≤ +900 (the leaf serve term + `record`'s two fields + the `Node` type) |
+| `src/layout/stack_measure.luau` | 21,976 | 178,024 | ≤ +1,400 (the container half) |
+| `src/client/text_premeasure.luau` | 21,863 | 178,137 | mechanism 1; ≤ +900 |
+| `src/render/premeasure_round.luau` | 8,775 | 191,225 | mechanism 1's guard; ≤ +900 |
+
+**Public-API verdict — CLEAR, and the two things that are public are named.**
+`text_metrics.epoch()` is **internal**: `src/init.luau` exports only
+`require("@self/layout/text_metrics").measure` (`:709`) and `.AVG_GLYPH_FRACTION`
+(`:721`), and the ONLY production reader of `epoch()` in the whole tree is
+`renderer.luau:1986` (`grep -rn "text_metrics.epoch" src` — one hit outside its own
+module). **No public change, no owner sign-off needed.** Two adjacent things ARE public
+and must not move:
+- **`textMeasureEpoch` is a registered geometry FACT** (`geometry_facts.luau:147`,
+  `environment.luau:106`) and `premeasure_round.luau:123-132` documents a consumer memo
+  depending on it. **It keeps bumping exactly as today.** T18 changes what
+  `measureStamp` folds in, never what the env fact does.
+- **`tests/measure_reuse.spec.luau:912` pins the LITERAL SOURCE STRING**
+  `"text_metrics.epoch()"` inside the renderer. That pin reddens on this change by
+  construction; T18 re-records it in the same commit, and the re-record is evidence, not
+  a workaround.
+
+**The module's own header already blessed this design** and it is worth quoting into the
+commit: `src/layout/text_metrics.luau:195-200` — *"That is the safe direction … and it is
+cheap while the vocabulary settles, which it does within the first frames. **If it ever
+stops settling, the fix is a per-(font,size) generation**, not a per-surface one."* It
+stopped settling: `battle_hud`'s damage numbers are drawn from `-{1..999}`, so the
+vocabulary never closes.
+
+**Files — mechanism 1 (commit A):**
+- Modify: `src/client/text_premeasure.luau` — the settled branch (`:485-489`).
+- Modify: `src/render/premeasure_round.luau` — the re-entry guard and its counter
+  (`:62`, `:74-91`, `:133-156`).
+- Modify: `src/render/render_stats.luau` — `new()` gains `lastTextRoundDepth`; `publish`
+  is unchanged in signature. **T18 is the FIFTH task on this file and on
+  `tests/render_stats_seam.spec.luau`'s `:104-119` SAMPLE** — and, like the other four,
+  it must NOT plan a red around that sample (it catches deletions, not additions).
+- Create: `tests/text_round_reentry.spec.luau`; register in `tests/run.luau` (**the queue
+  is now six deep on that file** — append your own line; a tree already carrying a later
+  task's require is stale, STOP).
+- **RR rider (same commit): `tests/facet_text_settle_contract.spec.luau`** plus
+  `tests/facet_large_text_contract.spec.luau`, `./run-tests.sh` green with both named in
+  the transcript.
+
+**Files — mechanism 2 (commit B):**
+- Modify: `src/layout/text_metrics.luau` — `keyEpoch`, `keyGen`, `anyChangedSince`,
+  `calibrationEpoch`; the three `epoch += 1` sites that are per-word
+  (`:242` `setMeasured`, `:374`/`:397` `markUnmeasurable`/the refusal path, `:472`
+  `resetMeasured`) split from the two that are global (`:214` `calibrate`, the
+  `resetCalibration` clear).
+- Modify: `src/render/renderer.luau` — **one expression**, `:1986`.
+- Modify: `src/layout/solver.luau` — the `Node` type (`:256-267`), `record`'s slot write
+  (`:1466-1467`), the serve gate (`:1604-1626`).
+- Modify: `src/layout/stack_measure.luau` — the `hit` gate (`:132-140`) and the memo fill
+  (`:384-389`).
+- Modify: `src/layout/solve_ctx.luau` — `Ctx` gains `textKeys` (the per-container frame
+  stack) and `textKeyUnions` (the counter), both initialised in `new()`.
+- Modify: `src/render/render_stats.luau` + `tests/render_stats_seam.spec.luau` —
+  `lastTextKeyUnions`.
+- Modify: `tests/measure_reuse.spec.luau` — `:787-805` (the epoch-bump contract) and
+  **`:912` (the source-string pin)**, re-recorded.
+- Create: `tests/text_key_epoch.spec.luau`; register in `tests/run.luau`.
+- **RR rider (same commit): `facet_text_settle_contract` + the sponsor and recap screens'
+  `screenRectOf` pins taken BEFORE and AFTER a settle** — the consumer evidence that a
+  narrowed invalidation still corrects every rect the global one corrected.
+
+**Interfaces:**
+- Produces (mechanism 1): `stats.lastTextRoundDepth: number` (max re-entry depth of a
+  premeasure round in the last tick; **must read 1**).
+- Produces (mechanism 2): `text_metrics.keyEpoch(key: string): number`,
+  `text_metrics.keyGen(): number`, `text_metrics.anyChangedSince(gen: number, keys: {
+  [string]: true }): boolean`, `text_metrics.calibrationEpoch(): number`;
+  `Node.mTextKey: string?`, `Node.mTextEpoch: number?`; `cmemo.mKeyGen: number?`,
+  `cmemo.mKeys: { [string]: true }?`; `ctx.textKeys`, `ctx.textKeyUnions`,
+  `stats.lastTextKeyUnions`.
+- **Unchanged, and each is a pin:** `text_metrics.epoch()` keeps its meaning and its
+  signature (it is now the max of the two generations, so an existing caller reads a
+  monotone number as before); the `textMeasureEpoch` env fact; `publish`'s four-argument
+  signature; every public export in `src/init.luau`.
+- **Moves (re-recorded in commit B): `lastMeasured` and `lastMeasureCalls` on a settle
+  tick only.** **Must NOT move on any non-settle tick, on any workload** — that is the
+  safety pin, and it is what separates this task from a weakened gate.
+
+- [ ] **Step 0: read the pins off the run BEFORE writing anything.** In a worktree at
+      T18's parent SHA, with the census harness above: `lastMeasured` on a forced settle
+      (the `setMeasured` + `env:set("textMeasureEpoch")` pair) for `battle_hud L`,
+      `war_room_inventory L` and `killfeed_nameplates L`, and `lastMeasured` /
+      `lastMeasureCalls` on the ordinary `updateItem-hp` tick beside it. **Three
+      workloads, because T13's own round-2 measurement found a 0.0 %–100 % spread across
+      them and one workload is not evidence for the others.** Every "currently N" in this
+      task is read here, never quoted from this file.
+
+- [ ] **Step 1 (commit A): the owed list, then the two red pins.**
+
+  **THE OWED LIST — what the SYNCHRONOUS delivery does that a deferred one must still
+  do.** The re-entry defer changes WHEN `done` runs, and every one of these is a thing
+  that ran inside the caller's stack and must still run.
+
+  | # | channel | site | verdict |
+  |---|---|---|---|
+  | 1 | `textInFlight[key] = nil` on a `final ~= false` answer | `premeasure_round.luau:97-99` | **UNCHANGED** — it runs in `done`, and `done` still runs; only its stack changes. `controller.textPending()` (`renderer.luau:3909`) therefore reports `true` for one extra resumption point, which is the ONLY observable difference and is what step 4's oracle pins |
+  | 2 | `text_metrics.setMeasured` / `markUnmeasurable` | `premeasure_round.luau:106`, `:114`, `:117` | **UNCHANGED** |
+  | 3 | `env:set("textMeasureEpoch", …)` and the `stats.solves == solvesBefore` guard | `:149-155` | **UNCHANGED IN SHAPE, and the guard gets MORE right.** Its own comment (`:139-148`) says the two-solve case is "an answer delivered INSIDE an open flush" and that "no shipped path does that". Deferring makes that true by construction instead of by inspection |
+  | 4 | the cancel token | `text_premeasure.luau:513-515`, collected at `premeasure_round.luau:161-163`, called in `dispose` | ▲ **THE ONE REAL HAZARD.** A deferred delivery widens the window in which a surface can be disposed between the measurement and the answer. `cancelled` is already checked in `deliver` (`:479-483`) and `disposed` in `done`, so the guard exists — but the defer must sit BEFORE `deliver`, never between `deliver` and `done`, and a spec must dispose inside the new window |
+  | 5 | the boot-window branch (`deliver(early, false)` → `awaitSettled()` → `deliver(final)`) | `:491-511` | **UNTOUCHED.** It already yields; mechanism 1 only makes the settled branch behave like it |
+  | 6 | ordering against the frame | the renderer asks "once the frame is fully painted from the conservative estimate" (`:68-73`) | **UNCHANGED** — that ordering belongs to the CALL, not to the answer, and the answer moving later only strengthens it |
+
+  Then `tests/text_round_reentry.spec.luau`, on a fixture whose re-solve requests a
+  SECOND new word (a `ForEach` whose row factory reads a signal the delivery's own
+  re-solve changes), with `fake_target.deliverTextWidths` answering inline the way the
+  live adapter does:
+  - **(a) an EXISTING counter as an equality red, read off the run:** `solves` on a
+    delivered round — `solves=N` today, `solves=N` after (the defer must not add or
+    remove a solve, only move it), together with `lastMeasured` unchanged on that tick.
+  - **(b) the new counter as an equality after step 2:** `lastTextRoundDepth`, which
+    reads **3 today** (T17's live `maxNestDepth`, reproduced headless by the nested
+    fixture) and **1** after.
+  - **`it("the overflow reproduces, and then it does not")`** — the T17 console line as
+    the case: drive the nested-request fixture to a depth the C stack cannot hold at
+    HEAD (or, if a Lune stack is deeper than the assertion needs, assert
+    `lastTextRoundDepth` ≥ 3 and say in the spec header that the *overflow* is the
+    Roblox-side consequence of the depth this pins). **This case is the RED-TEAM item
+    ruling L-10 hands to Task 10 and it must exist whether or not the milliseconds
+    move.**
+  - `it("a surface disposed between the measurement and the deferred delivery is not called back")` — owed row 4's fixture.
+  - `it("the boot-window branch is unchanged")` — `text_settle.spec`'s scripted flip in
+    virtual time, settle instant unmoved.
+
+- [ ] **Step 2 (commit A): the counter, alone (arm C).** `lastTextRoundDepth` and its
+      increment/decrement, **no defer**. Measure. The increment runs once per
+      premeasure round — at most once per tick — so arm C must be indistinguishable from
+      arm A; record the number either way, and **arm C's increment must sit on the same
+      line arm B's does.**
+
+- [ ] **Step 3 (commit A): the mechanism.**
+
+<!-- verified: sed -n '318,336p;475,522p' src/client/text_premeasure.luau; sed -n '56,100p;130,166p' src/render/premeasure_round.luau -->
+```luau
+	text_premeasure.spawn(function()
+		--[[ THE SETTLED ANSWER MUST NOT RUN ON THE CALLER'S STACK (Plan C addendum,
+			T18 mechanism 1 — ruling L-10). `spawn` is `task.spawn`, which runs this
+			body SYNCHRONOUSLY until its first yield, and once the session has settled
+			`measureBatch`'s `GetTextBoundsAsync` does not yield either. So `deliver`
+			reached the renderer's `done` INSIDE the solve that asked, `done` called
+			`solveAndApply`, and that solve asked again — one C frame deeper each time.
+
+			MEASURED LIVE (T17, FacetBench §C15): `sync=1` on a one-step drive and
+			`maxNestDepth=3` on an ordinary `battle_hud L` mount, and T9b's first live
+			drive printed `C stack overflow (when calling anonymous function on line
+			484 in ReplicatedStorage.ui.Facet.src.client.text_premeasure)` followed by a
+			script timeout. `textInFlight` bounds ONE surface's ONE vocabulary — the
+			same word cannot be asked twice — but it does not bound a cycle in which
+			each re-solve finds a DIFFERENT word, and it is per-surface, so two attached
+			surfaces drive each other through the global text epoch. That is exactly the
+			two-workload configuration the overflow appeared in.
+
+			ONE RESUMPTION POINT IS THE WHOLE FIX, and it is the shape the boot-window
+			branch below has always had (`awaitSettled` yields, so its corrections have
+			never been able to re-enter). Through the fakeable `wait` seam, so the
+			headless suite still drives this in virtual time. The batch is already
+			measured before the yield: nothing about WHAT is answered changes, only the
+			stack it is answered on. ]]
+		if settled then
+			local results = measureBatch(requests)
+			text_premeasure.wait(0)
+			deliver(results)
+			return
+		end
+```
+
+  and the guard that also covers the two-surface cycle, in `premeasure_round.request`:
+
+```luau
+	-- ...AND A ROUND NEVER STARTS INSIDE A ROUND (T18 mechanism 1). The defer above
+	-- fixes the one-surface cycle at its source; this fixes the cycle that runs
+	-- through TWO surfaces and a global text epoch, where no single adapter can see
+	-- it. `delivering` is this surface's own depth, published as a counter so the
+	-- claim is checkable rather than commented.
+	local function request(textRequests: { any }, solveAndApply: () -> ())
+		if adapter.measureTextWidths ~= nil and #textRequests > 0 and not disposed and depth == 0 then
+```
+
+- [ ] **Step 4 (commit A): green + the forced-on oracle arm (ruling L-4 pattern).**
+      `text_round_reentry` green; then, on **both adapters** (`fake_target` and, where
+      the suite can, the recorded-target arm), all 9 `device_views.VIEWS` including
+      320x640, three drives (a text write that learns a word, a width write, a viewport
+      change) on four fixtures, `scene.snapshot()` byte-equal to the pre-change arm, with
+      a non-vacuity guard. **The rects a settle produces must be IDENTICAL; only the tick
+      they land on may move.** Then `text_settle`, `text_premeasure`,
+      `premeasure_round_seam`, `measure_reuse`, `large_text`, `text_audit`.
+
+- [ ] **Step 5 (commit A): the mutations.** Each must BITE, each recorded: (1) delete the
+      `wait(0)` → reddens the depth pin. (2) delete the `depth == 0` term → reddens the
+      two-surface case. (3) put the `wait(0)` BETWEEN `deliver` and `done` (i.e. inside
+      `deliver`) → reddens owed row 4's dispose case. (4) drop the `cancelled` re-check
+      after the wait → reddens the dispose case differently, and if it does NOT, record
+      the null and keep the term with the null stated at the site.
+
+- [ ] **Step 6 (commit A): gates + commit.** `tools/test.sh` full; `tools/verify.sh
+      affected --jobs 1`; `stylua --check`; `check_source_size` + a ledger row; **RR
+      `./run-tests.sh` with `facet_text_settle_contract` and `facet_large_text_contract`
+      named in the transcript.** Commit
+      `T18a: the premeasure answer stops running on the solve that asked for it (C16)`.
+
+- [ ] **Step 7 (commit B): the owed list for the narrowing.**
+
+  **THE OWED LIST — what the whole-tree cold solve DID that a narrowed one skips.** This
+  is the list ruling L-10 asks for, and every row is a thing `measureStamp` moving used
+  to guarantee.
+
+  | # | what the cold solve did | site | verdict under the narrowing |
+  |---|---|---|---|
+  | 1 | re-measured **every** node, text or not — 14,221 of 5,109 nodes, three passes deep | `solver.luau:1612` (`node.mStamp == ctx.measureStamp` fails for all) | **SKIPPED, and that is the lever.** A non-text node's measure cannot depend on a word width except THROUGH a text descendant, and row 4 is what carries that dependency |
+  | 2 | refreshed both `record` slots (`mAOfferW/H/Scope/W/H/Cuts` + the three verdicts) on every node | `record`, `solver.luau:1466-1478` | **NOT REFRESHED on a skipped node — and it does not need to be.** The slots are keyed by offer + scope + stamp; an unchanged stamp means the stored answer is still the answer to the stored question. This is the property C2 already relies on every ordinary tick |
+  | 3 | re-wrote `ctx.offers[wKey]` / `[hKey]` for every node | `solver.luau:1641-1642` | **SERVED, unchanged** — the serve path writes them (`:1641-1642`), which is T11's finding and is not optional: a `nil` offer disarms both anchor arms for the life of the surface |
+  | 4 | **invalidated every CONTAINER's `cmemo` (T13) through the shared `mStamp`** | `stack_measure.luau:137`, filled `:385` | ▲ **THE ROW THAT DECIDES THIS TASK.** `cmemo.mStamp == ctx.measureStamp` is the ONLY thing that today stops a container serving `mMain[idx]` for a subtree whose text moved. T13's per-child refusal covers a DIRECT `text`/`composition` child (ruling A-16 — those are never skipped) but NOT a text node nested inside a served sub-container. **So the memo must be given a key it can still trust**, and step 9 is that key |
+  | 5 | invalidated `ctx.offers`' growth and the fill-pass allocations | `solve_ctx.luau` `offers = {}` | **UNCHANGED** — per-solve, not per-stamp |
+  | 6 | invalidated `measure_reuse`'s cross-solve store through `restamp` | `renderer.luau:1988-1996` | **STILL INVALIDATED for a calibration change** (`calibrationEpoch` stays in the stamp) and **NOT for a per-word settle**. `measure_reuse.restamp`'s own contract is "the store and the tuple get the same answer to the same question, from the same string" (`renderer.luau:1977-1984`) — the narrowing keeps that identity by keeping ONE stamp; it only removes one term from it and re-adds that term per node |
+  | 7 | re-derived `textStates` / `compact` / `textFacts` for every text node | `record` (`solver.luau:1481`) | **RE-DERIVED for exactly the text nodes on the changed key, SERVED for the rest** — and the serve replays all three by KIND (`solver.luau:1645-1651`), so nothing is republished as a guess |
+  | 8 | gave every attached surface the correction, not just the one that learned | `text_metrics.luau:170-200` | ▲ **PRESERVED AND LOAD-BEARING.** The generation is per-(font,size) and **still global across surfaces** — a busy screen teaching the measurer a width a quiet one reads must still reach the quiet one. The narrowing is on the KEY axis only, never on the surface axis. The module's own header (`:195-200`) names exactly this design |
+
+- [ ] **Step 8 (commit B): the red pins.** `tests/text_key_epoch.spec.luau`, on a
+      battle_hud-shaped fixture (a flat list of rows, each with two labels at two
+      different sizes, plus a small strip at a third size — the shape the census above
+      measured, built in `tests/lib/`):
+  - **(a) an EXISTING counter as an equality red, read off the run:** `lastMeasured` on a
+    one-word settle, **read at step 0** (on `battle_hud L` it is **14,245** for a size-14
+    word today) and equal to the fixture's own measured ancestor closure after.
+    `solves` unchanged in the same block.
+  - **(b) the new counter as an equality after step 10:** `lastTextKeyUnions`.
+  - `it("a settle on a key nothing uses re-measures nothing")` — the strongest case, and
+    a pure `lastMeasured` equality at the ordinary tick's value.
+  - `it("a calibration change still re-measures the whole tree")` — the control for owed
+    row 6, and the case that proves the narrowing did not swallow the global axis.
+  - `it("a second surface sees a width the first learned")` — owed row 8, two attached
+    controllers, the quiet one's rect corrected.
+  - `it("a text node nested inside a memoised container is not served stale")` — **owed
+    row 4's fixture**, and the one this task is most likely to get wrong: a container
+    whose direct children are all containers, each holding a text node on the changed
+    key. Pin every rect.
+
+- [ ] **Step 9 (commit B): the mechanism, and the key the container memo can still
+      trust.**
+
+<!-- verified: sed -n '188,250p;340,400p;460,480p' src/layout/text_metrics.luau; sed -n '1975,1990p' src/render/renderer.luau; sed -n '1604,1630p;1460,1480p' src/layout/solver.luau; sed -n '125,150p;378,392p' src/layout/stack_measure.luau -->
+
+  **(a) `text_metrics`: split the one generation into two axes.** `calibrate` and
+  `resetCalibration` change what `measure` returns for EVERY key and stay global;
+  `setMeasured` / `markUnmeasurable` / `resetMeasured` change ONE key and bump that key's
+  generation plus a monotone `keyGen`, appending `(gen, key)` to a bounded change log.
+  `text_metrics.epoch()` keeps its signature and returns the max of the two, so every
+  existing caller reads the same monotone number it always did.
+
+  **(b) `renderer.luau:1986` — one expression, +12 characters:**
+
+```luau
+			.. `|{measureScale}|{prefOffset}|{text_metrics.calibrationEpoch()}`
+```
+
+  **(c) the LEAF half — `record` stores the key it measured under, the serve gate checks
+  it.** `record` (`solver.luau:1466-1467`) gains, for `text`/`composition` kinds only,
+  `node.mTextKey` and `node.mTextEpoch`; the serve gate (`solver.luau:1604-1626`) gains
+  one term:
+
+```luau
+		-- ...AND THE KEY THIS NODE MEASURED UNDER (T18 mechanism 2). `mStamp` no
+		-- longer carries the word-measurement generation, so a text node carries its
+		-- own: the (font,size) it was recorded at and that key's generation. A node
+		-- with no text has no key and is unaffected, which is 4,105 of `battle_hud`
+		-- L's 5,109.
+		and (node.mTextKey == nil or text_metrics.keyEpoch(node.mTextKey) == node.mTextEpoch)
+```
+
+  **(d) the CONTAINER half — owed row 4, and the answer to "give the memo a key it can
+  still trust".** A container's memo covers a SUBTREE, so it needs the subtree's key set,
+  not its direct children's. `ctx.textKeys` is a frame stack with the same discipline as
+  `ctx.mdepth`: a text node's measure adds its key to the top frame;
+  `stack_measure.contentSize` pushes a frame on entry and unions it into its parent's on
+  exit. **The union a SERVED child owes is the row this task must not miss** — a child
+  answered from its slots never enters `measure`, so it contributes nothing, and a
+  container that served every child would record an EMPTY key set and then serve through
+  every settle forever. So the serve path (`solver.luau:1641`) unions `node.mTextKey`
+  (leaf) or the node's recorded subtree set (container) back into the open frame, and
+  `ctx.textKeyUnions` counts it so the claim is a number.
+
+```luau
+	local hit = cmemo ~= nil
+		and dirty ~= nil
+		and ctx.measureQuiet
+		and not ctx.analyze
+		and ctx.measureStamp ~= nil
+		and cmemo.mStamp == ctx.measureStamp
+		and cmemo.mScope == ctx.scopeKey
+		and cmemo.mOffW == innerMaxW
+		and cmemo.mOffH == innerMaxH
+		--[[ ...AND NO KEY THIS SUBTREE MEASURED UNDER HAS MOVED (T18 mechanism 2,
+			owed row 4). O(1) on every tick that is not a settle — one integer
+			equality — and O(changes) on the settle tick itself, where `changes` is
+			the words one batch learned. `mKeys` is the SUBTREE's set, unioned up
+			through `ctx.textKeys` including from children the serve answered, which
+			is the half a container that served everything would otherwise get wrong. ]]
+		and (
+			cmemo.mKeyGen == text_metrics.keyGen()
+			or not text_metrics.anyChangedSince(cmemo.mKeyGen, cmemo.mKeys)
+		)
+```
+
+  and the fill (`stack_measure.luau:384-389`) records `cmemo.mKeyGen = text_metrics.keyGen()`
+  and `cmemo.mKeys` = the frame this container is about to pop.
+
+  **A `store == nil` / `reuse == nil` solve is untouched on every path above**, exactly
+  as C2 and T13 are, so `node_reuse`'s `layoutNodeReuse = false` arm stays a valid
+  pre-change control.
+
+  ▲ **THE ONE DESIGN QUESTION THIS PLAN DOES NOT SETTLE, stated rather than buried.** The
+  per-container `mKeys` set is new per-container memory (~2 entries per `UnitRow` on
+  `battle_hud L`, so ~1,000 small tables) and its union discipline is the only genuinely
+  subtle part of the task. **The alternative shape is to keep no set at all and instead
+  mark the USERS of a changed key dirty** — `text_metrics` hands the renderer the changed
+  key, the renderer marks the text nodes that used it dirty through the existing
+  `markDirtyIn` path, and T13's memo, T14's replay and the dirty closure then do the
+  right thing with **zero** stamp surgery and zero new per-container state. It needs a
+  `key → mounted text paths` index the renderer does not keep today, and it re-enters the
+  same re-solve rather than removing it. **Which of the two is right is a call for the
+  owner or for T18's first review round, not for this plan**; step 9 is written for the
+  key-set shape because it is local to the three modules already in the Files list, and
+  **if the implementer's step-0 measurement shows the per-container set costs more than
+  the 0.05 ms floor ruling A-6 sets, STOP and take the dirty-marking shape instead**,
+  recording the measurement that decided it.
+
+- [ ] **Step 10 (commit B): the counter, alone (arm C).** `ctx.textKeyUnions` +
+      `lastTextKeyUnions`, no gate change. Measure; same discipline as step 2.
+
+- [ ] **Step 11 (commit B): green + the forced-on oracle arm (ruling L-4 pattern).** All
+      9 `device_views.VIEWS` including 320x640, on **both adapters**, four fixtures (the
+      battle_hud-shaped one, a nested-container one, one with a `ViewThatFits` probe so
+      `ctx.scopeKey`'s `|fit` segment is exercised, one with a `composition`), three
+      drives each (a word settle, a calibration change, a viewport change), byte-equal
+      `scene.snapshot()` against the pre-change arm, non-vacuity guard. Then the standing
+      suites that compare against a pre-change arm: `measure_serve`, `measure_split`,
+      `measure_reuse`, `container_memo`, `host_space_oracle`, `translate_arm`,
+      `node_reuse`, `anchor_skip`, `large_text`, `text_audit`.
+
+- [ ] **Step 12 (commit B): the mutations.** Each must BITE, each recorded: (1) drop the
+      leaf `mTextKey` term → reddens the leaf case. (2) drop the container
+      `anyChangedSince` term → **must redden owed row 4's nested fixture** (build the
+      fixture; a survival percentage on a workload is not a witness — T13's mutation 6b
+      is the precedent). (3) union only DIRECT children's keys instead of the subtree's →
+      reddens the nested fixture. (4) **omit the served child's union** → must redden the
+      "container that served everything" case; this is the mutation the design is most
+      likely to fail. (5) keep `text_metrics.epoch()` in `measureStamp` alongside the new
+      terms → **MUST NOT change any rect and MUST collapse `lastMeasured` back to
+      14,221** — the null that proves the removed term was cost and not safety. (6) bump
+      `keyEpoch` on `calibrate` too → must not redden anything (a superset), and if it
+      does not, record the null and keep the split with the null stated.
+
+- [ ] **Step 13 (commit B): gates, RR, and the THREE-ARM measurement including a LIVE
+      settled-session drive.** `tools/test.sh` full; `tools/verify.sh affected --jobs 1`;
+      `stylua --check`; `check_source_size` **and record `renderer.luau`'s new size in
+      `tools/lune/verify/data/source-cap-ledger.md`**; **RR `./run-tests.sh` with
+      `facet_text_settle_contract` re-recorded IN THIS COMMIT plus the sponsor and recap
+      `screenRectOf` pins taken before and after a settle.**
+
+  **Arms A (parent SHA) / B (mechanism) / C (counters alone), ABBA, medians of four
+  `attr <wl> L 3` runs per arm** — and then, because this task's whole subject is a cost
+  no headless arm can see, **T17's three-arm live protocol, re-run:**
+
+  | arm | host | target | what it isolates |
+  |---|---|---|---|
+  | A | Lune | `fake_target` | the headless baseline |
+  | B | Studio (Play, client VM) | `fake_target` | the host (T17: ~1.37x, and it does not move) |
+  | C | Studio (Play, client VM) | `screen_target` | **the number this task exists to change** |
+
+  **The live drive MUST wait for the settle** — `while h.controller.textPending() and
+  os.clock() - t0 < 14 do task.wait() end` before the sample window. A drive that does
+  not is measuring the boot window, which is exactly how T9b read 3.426 where the settled
+  session reads 39.676. Read `lastMeasured` LIVE, per class, beside the milliseconds.
+
+  | class | live TODAY (T17, arm C) | headless arm B | **target** |
+  |---|---:|---:|---:|
+  | `battle_hud L setState` | **39.676** ms, `lastMeasured` 10,257 | 3.733 | **≤ 4.0 ms, `lastMeasured` 6** |
+  | `battle_hud L addItem-damage` | **76.971** ms, `lastMeasured` 14,257 | 3.994 | **≤ 5.5 ms, `lastMeasured` ≤ 32** |
+  | `battle_hud L updateItem-hp` | 3.477 (CONTROL — learns no word) | 3.522 | **3.477 ± noise, unmoved** |
+  | `battle_hud L updateItem-facing` | 4.848 | 3.760 | **≤ 4.0** |
+
+  **The `updateItem-hp` control is the acceptance evidence, not a spare row:** it learns
+  no word, so if it moves at all this task has changed a path it does not own.
+
+  Commit `T18b: one learned word invalidates one text key, not the whole tree (C16)`.
+
+- [ ] **Step 14: FacetBench §C16.** The two mechanisms and their two commits; the
+      census table (text nodes and ancestor closure per (font,size) key) as the derivation
+      of the expected `lastMeasured`; the `lastMeasured` before/after per class; the
+      three-arm live table with the settle wait stated; the `updateItem-hp` control; the
+      depth counter 3 → 1 with the T17 console line quoted verbatim beside it; and the
+      standing rule: **a live drive that does not wait for `controller.textPending()` to
+      fall is measuring the boot window** — which is why the largest regression class in
+      this campaign sat under a green matrix for two sessions.
+
+
+---
+
 ## Amendment log (review round 1) — every finding, dispositioned
 
 > **Round 2 re-graded four of the dispositions below. Where this section and the round-2
@@ -2075,3 +2555,101 @@ expected landings are ~1.60 / ~3.11 / ~0.41 with step 5 option (b) and ~1.70 / ~
 with option (a). Both columns are in the task's step 8 table, and both are marginal prices
 taken from a bracket around the loops themselves — never `iterations × an average`, which is
 the arithmetic T13's report falsified.
+
+---
+
+## Amendment log — T18 (ruling L-10), and the measurement it was written from
+
+**Added 2026-09-05.** Task 18 is not a review finding; it is a task the wave did not have,
+created by ruling L-10 out of T17's investigation. This log records the one measurement
+ruling L-10 made a precondition, the shape it forced, and the three verdicts the coordinator
+asked for by name.
+
+### Measurement L-2 — the size of a (font,size) key's user set
+
+*"How many text nodes share a (font,size) key on `battle_hud L`, so the expected
+`lastMeasured` after narrowing is a MEASURED number rather than a guess?"* Taken in a
+detached worktree (`git worktree add … a1728ee1`) with a private copy of FacetBench beside
+it — the T9b recipe, because FacetBench resolves Facet by relative path
+(`frameworks/facet/adapter.luau:5-6`) and the shared tree was mid-edit by another
+implementer. Instrument: a temporary wrapper on `text_metrics.measure` counting calls by
+`{font}|{size}`, censused on a forced cold solve produced exactly the way
+`premeasure_round.luau:152` produces one (`text_metrics.setMeasured` + the
+`env:set("textMeasureEpoch", …)` bump). **The instrument changes no rect and is discarded.**
+One `lune` at a time.
+
+| (font,size) | role | calls | **text nodes** (calls ÷ 3) | **ancestor closure** |
+|---|---|---:|---:|---:|
+| `BuilderSans#Regular#Normal\|10` | `UnitFacing` | 3,000 | **1,000** | **2,002** |
+| `BuilderSans#Regular#Normal\|12` | `UnitName` | 3,000 | **1,000** | **2,002** |
+| `BuilderSans#Regular#Normal\|14` | `Squad1..4` | 12 | **4** | **6** |
+| `BuilderSans#Regular#Normal\|16` | `DmgText` | 0 / 30 / 90 / 0 | **0 / 10 / 30 / 0** at steps 0 / 100 / 300 / 600 | **2 / 12 / 32 / 2** |
+
+**Three findings, and two of them changed the task.**
+
+1. **The whole-tree cold solve reproduces HEADLESS.** `lastMeasured == lastMeasureCalls ==`
+   **14,215–14,305** (5,109 nodes) against the live **14,229–14,257**. T17 could only show
+   it in Studio; it is a Lune red pin, so **T18's step-8 red does not need a live drive** and
+   the live drive becomes acceptance rather than evidence-of-existence.
+2. **Calls-per-text-node is a constant 3** (`solver.luau:1129`, `:1141`, `:1177`), confirmed
+   twice independently against node counts the scene fixes exactly, and
+   `lastLayoutNodes = 5,109` sums to the scene with no wrapper nodes — so the closure column
+   is arithmetic on a measured census, not a model.
+3. **The lever's size is the size of the key's user set, and `battle_hud`'s two hot classes
+   sit on its two SMALL keys.** `setState` → 6, `addItem-damage` → 32. A workload whose new
+   words landed at size 12 would read **2,002**, i.e. a 7x cut rather than a 2,370x one.
+   **§C16 must say that instead of quoting 6 as "the" result** — this is the same trap
+   measurement L-1a caught for T13, where quoting `war_room` alone would have hidden a
+   0.0 % survival on `battle_hud`.
+
+### The three verdicts ruling L-10 asked for by name
+
+| question | verdict |
+|---|---|
+| **renderer budget** | ▲ **FITS, barely, and the allowance is written into the conflict table.** 195,709 now, 4,291 to the cap and **1,791 to the STOP at 197,500**, of which the wave already promised ≤ +400 (T15 ≤ +120, T16 ≤ +280). **T18's renderer allowance is ≤ +80 and its whole renderer edit is ONE expression at `:1986`, `text_metrics.epoch()` → `text_metrics.calibrationEpoch()`, +12 characters.** The mechanism's weight lands in `text_metrics.luau` (37,527, 162,473 of headroom), `stack_measure.luau` (21,976) and `solver.luau` (184,726). If T18 ever needs more than +80 in the renderer it takes the booked `measureStamp` seam FIRST, in its own commit — it does not spend the reserve silently. |
+| **public API** | ▲ **CLEAR — no public change, no owner sign-off needed.** `text_metrics.epoch()` is internal: `src/init.luau` exports only `.measure` (`:709`) and `.AVG_GLYPH_FRACTION` (`:721`), and the only production reader of `epoch()` outside its own module is `renderer.luau:1986`. Two adjacent things ARE public and are pinned as UNCHANGED: the `textMeasureEpoch` env fact (`geometry_facts.luau:147`, `environment.luau:106`; a documented consumer-memo dependency at `premeasure_round.luau:123-132`) keeps bumping exactly as today, and `text_metrics.epoch()` keeps its signature and monotonicity by returning the max of the two generations. `tests/measure_reuse.spec.luau:912` pins the literal source string `"text_metrics.epoch()"` in the renderer and reddens by construction — T18 re-records it in commit B, and that re-record is evidence rather than a workaround. |
+| **the design question T18 could NOT settle** | ▲ **STATED IN THE TASK, at step 9, rather than buried.** The container half needs a per-container subtree key SET (`cmemo.mKeys`) whose union discipline — including the union a SERVED child owes, which is mutation 4 — is the subtlest thing in the task and costs ~1,000 small tables on `battle_hud L`. **The alternative is to keep no set at all and mark the USERS of a changed key dirty**, letting T13's memo, T14's replay and the existing dirty closure do the work with zero stamp surgery; it needs a `key → mounted text paths` index the renderer does not keep. **Which is right is a call for the owner or for T18's first review round.** Step 9 is written for the key-set shape because it is local to modules already in the Files list, and it carries an explicit STOP: if the per-container set costs more than ruling A-6's 0.05 ms floor at step 10's arm C, take the dirty-marking shape and record the measurement that decided it. |
+
+### Self-review (writing-plans discipline)
+
+**Placeholder scan.** No step in Task 18 says "similar to Task N", "as above" or "TBD". The
+two mechanism blocks carry `<!-- verified: … -->` lines naming the `sed -n` ranges every
+field was read from, and every field named in a code block appears in one of those ranges
+(`text_premeasure.luau:318-336,475-522`; `premeasure_round.luau:56-100,130-166`;
+`text_metrics.luau:188-250,340-400,460-480`; `renderer.luau:1975-1990`;
+`solver.luau:1460-1480,1604-1630`; `stack_measure.luau:125-150,378-392`), all re-read at
+`a1728ee1`. Four things are left to the implementer and are LABELLED: every "currently N"
+pin (step 0, "read off the run"), the fixture's own ancestor closure (step 8), the
+key-set-vs-dirty-marking call (step 9), and whether the Lune stack is deep enough to
+reproduce the overflow itself rather than the depth beneath it (step 1).
+
+**Red pins.** Two per commit, per Global Constraints, and both are EQUALITIES.
+Commit A: an existing counter (`solves` on a delivered round, unchanged) plus the new
+`lastTextRoundDepth` (**3 → 1**). Commit B: an existing counter (`lastMeasured` on a
+one-word settle, **14,245 → 6** on `battle_hud L`) plus the new `lastTextKeyUnions`. No
+inequality is used as a red. Each commit also carries a NULL mutation (A-4, B-5) whose job
+is to prove the removed term was cost and not safety.
+
+**Type consistency.** `text_metrics` gains four functions and no exported type.
+`Node` gains `mTextKey: string?` and `mTextEpoch: number?` beside the existing
+`mStamp: string?` (`solver.luau:256-267`), both untyped-`any` records like every other field
+there. `cmemo` gains `mKeyGen: number?` and `mKeys: { [string]: true }?` beside T13's nine
+names, T13b's eight and T14's fifteen — **each with exactly one writer**, and T18 renames
+and re-keys nothing any earlier task shipped. `Ctx` gains `textKeys` and `textKeyUnions`,
+declared in `solve_ctx.luau` and initialised in `new()`, so `tests/solve_ctx_seam.spec.luau`'s
+field-set count moves once per commit. `render_stats.new()` gains one field per commit;
+**`publish`'s four-argument signature is unchanged**, so `render_stats_seam.spec`'s `:89`
+export set, its `:126`/`:135` call pins and its `:163` scan are untouched.
+
+**Ordering.** T18 is SERIAL AFTER T13b (ruling L-10): T13b adds eight names to the same
+`cmemo` T18 must re-key, and re-keying a table while another task is adding fields to it is
+the conflict-table's own worst case. Commit A before commit B — the re-entry defer is a
+correctness fix that must not wait on a design call, and it is the one that carries the
+RED-TEAM item. Within commit B, step 9(d) (the container half) after 9(c) (the leaf half),
+because the leaf's `mTextKey` is what the container's union collects.
+
+**The one thing this task cannot promise.** The epoch narrowing's size is the size of the
+changed key's user set, and that is a property of the WORKLOAD, not of the lever. On
+`battle_hud L` it is 6 and 32 against 14,245; on a screen whose new words land on its
+biggest key it is 2,002 against 14,245 — still a 7x cut, but not the same result, and
+§C16 must publish both numbers.
