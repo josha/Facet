@@ -128,7 +128,15 @@
 	silently re-asserts the previous solve's counters, and `lastLayoutNodes` is pinned
 	UNMOVED in the same block as every counter that moves — a kept array that lost or
 	duplicated a node would move it. Every number was read off the run at this commit
-	with the warm-up drive discarded. ]]
+	with the warm-up drive discarded.
+
+	HOW MANY OF THESE PINS PASS AT THE PARENT SHA: **none, and they cannot.** Every count
+	pin reads `store.childVisits` or `lastBuildChildVisits`, neither of which exists at
+	`6b95b02a`, so this file does not run there at all. Falsifiability therefore rests
+	entirely on two things and the header says so rather than implying a base
+	comparison: the COUNTER-ONLY arm C of the FacetBench matrix, which is what makes a
+	BEFORE number exist, and the mutation battery in the task report — ten run, eight
+	bite, two recorded nulls. ]]
 
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
@@ -575,11 +583,80 @@ end)
 	comparison on a single tick can see. There is nothing to assert at runtime — the
 	property is "no line of `src/` ever writes into it" — so it is asserted about the
 	source, with the whole of `src/layout` and `src/render` in scope, because a reader
-	one module away is exactly where such a write would appear. ]]
+	one module away is exactly where such a write would appear.
+
+	▲ THE FIRST VERSION OF THIS SWEEP COULD NOT ENFORCE THE INVARIANT IT CLAIMED, and
+	it took a reviewer's mutation to show it (review round 1, I-1). It matched an
+	indexed assignment and `table.remove` — and had NO `table.insert` counterpart, no
+	`table.sort`, no `table.move`, no `table.clear`. An in-place
+	`table.insert(children, children[1])` planted in an unreachable branch of
+	`src/layout/flow.luau` left the suite at 8,646/0. Every growth and reorder idiom is
+	swept now, and the sweep carries an explicit ALLOWLIST of the two legitimate lines
+	rather than a pattern loose enough to let them through: `layout_node.luau`'s
+	fresh-array insert (counted exactly once by the case below, so the allowlist is a
+	NAME and not a hole) and `dump.luau`'s insert into its own freshly built `d.children`.
+
+	WHY THE FAILURE MATTERS MORE THAN THE PATTERN. A later solver or commit pass that
+	appends to, sorts or `table.move`s a layout node's `children` in place lands on TWO
+	trees at once the moment this arm has fired — the array is `prior.childArray` on the
+	store entry AND the `children` of the previous tick's layout node, which
+	`lastSolveInputs.layoutRoot` still holds for `controller.analyzeBoundaries` — and on
+	every future adoption after that. A duplicated or reordered child in focus order, in
+	the commit's document order, or in `mIds`/`pIds`' index bindings, silently and
+	forever. This sweep is the only instrument that can see it coming. ]]
+--[[ THE FIVE STDLIB CALLS THAT CAN CHANGE AN ARRAY IN PLACE. `insert`/`remove` change
+	its length, `sort`/`move` its contents, `clear` both — and every one of them is a
+	cross-tick aliasing bug on a published array, so the sweep asks about all five rather
+	than about the two the first version happened to think of. ]]
+local TABLE_MUTATORS: { string } = { "insert", "remove", "sort", "move", "clear" }
+
+--[[ ...AND THE TWO (path, receiver) PAIRS IN `src/` THAT ARE ALLOWED TO MATCH, named
+	exactly rather than excused by a looser pattern. Both build a FRESH array and neither
+	can ever be handed a published one: `layout_node`'s is the else-arm of this task's own
+	gate, pinned to exactly one occurrence by the case below; `dump`'s writes into the
+	`d.children` it allocated on the line above.
+
+	AND THE REGISTRY CANNOT ROT, because the case asserts every entry was USED. An
+	allowlist that silently stops matching is the "check that proves nothing" class: the
+	line it excused could have been deleted, renamed or moved and the sweep would go on
+	reporting a clean bill for a pattern it no longer meets. ]]
+local ALLOWED_MUTATIONS: { [string]: boolean } = {
+	-- the else-arm of this task's own gate, building the array it is about to publish;
+	-- pinned to exactly ONE occurrence by the case below, so this entry is a name and
+	-- not a hole
+	["src/render/layout_node.luau|insert|layoutNode.children"] = true,
+	-- `dump` writes into the `d.children` it allocated on the line above
+	["src/layout/dump.luau|insert|d.children"] = true,
+	--[[ ...and the one the widened sweep FOUND (review round 1, I-1): `text_audit`'s
+		`local children = byParent[parent]` is a fresh list of PATH STRINGS built in that
+		function out of the rect map. It is not a layout node's array and cannot be one —
+		no layout node ever reaches `text_audit`. Keyed by the function as well as the
+		receiver, so a future `table.insert` on the same local in the same file is still
+		an offender. ]]
+	["src/layout/text_audit.luau|sort|children"] = true,
+}
+
+--[[ THE SWEEP READS THE WHOLE FILE, NOT A LINE AT A TIME, and that is the second half of
+	round 1's I-1. `stylua` wraps a long call across lines — `layout_node`'s own insert is
+	written `table.insert(\n\t\t\t\t\t\tlayoutNode.children,` — so a per-line matcher
+	cannot see the receiver of any wrapped call, and a mutation only has to be long enough
+	to be invisible. Comments are stripped first, because this file's prose names the very
+	shapes it forbids. ]]
+local function codeOf(src: string): string
+	local out = string.gsub(src, "%-%-%[=*%[.-%]=*%]", " ")
+	local lines: { string } = {}
+	for line in string.gmatch(out .. "\n", "([^\n]*)\n") do
+		local cut = string.find(line, "%-%-")
+		table.insert(lines, if cut ~= nil then string.sub(line, 1, cut - 1) else line)
+	end
+	return table.concat(lines, "\n")
+end
+
 describe("T15: a published children array is never mutated", function()
-	it("the only writer of a layout node's `children` in the framework is the fresh-array arm", function()
+	it("no line of `src/layout` or `src/render` grows, shrinks or reorders a children array", function()
 		local fs = require("@lune/fs")
 		local offenders: { string } = {}
+		local used: { [string]: boolean } = {}
 		local checked = 0
 		local function sweep(dir: string)
 			for _, entry in fs.readDir(dir) do
@@ -588,22 +665,27 @@ describe("T15: a published children array is never mutated", function()
 					sweep(path)
 				elseif string.sub(entry, -5) == ".luau" then
 					checked += 1
-					local src = fs.readFile(path)
-					for line in string.gmatch(src, "[^\n]+") do
-						local trimmed = string.match(line, "^%s*(.-)%s*$") or line
-						if string.sub(trimmed, 1, 2) == "--" then
-							continue
-						end
-						--[[ THE TWO SHAPES A MUTATION TAKES: an indexed assignment into
-							a children array, and an insert/remove against one. The
-							fresh-array arm's own `table.insert(\n\t\t\t\t\tlayoutNode
-							.children,` is wrapped across lines by stylua and so is
-							matched by the multi-line search below, not here. ]]
-						if string.match(trimmed, "children%s*%[[^%]]+%]%s*=") ~= nil then
-							table.insert(offenders, `{path}: {trimmed}`)
-						end
-						if string.match(trimmed, "table%.remove%s*%(%s*[%w_.]*children") ~= nil then
-							table.insert(offenders, `{path}: {trimmed}`)
+					local code = codeOf(fs.readFile(path))
+					-- an INDEXED ASSIGNMENT into a children array, which no allowlist
+					-- entry covers because no legitimate line in `src/` does it
+					for receiver in string.gmatch(code, "([%w_.]*children)%s*%[[^%]]+%]%s*=") do
+						table.insert(offenders, `{path}: {receiver}[…] =`)
+					end
+					for _, fn in TABLE_MUTATORS do
+						--[[ `table.move`'s DESTINATION is its fifth argument, not its
+							first, so it gets a pattern that reaches across the whole call
+							— the round-1 negative control caught this one too. Every other
+							mutator takes the array first. ]]
+						local pattern = if fn == "move"
+							then `table%.move%s*%([^%)]*([%w_.]*children)`
+							else `table%.{fn}%s*%(%s*([%w_.]*children)`
+						for receiver in string.gmatch(code, pattern) do
+							local key = `{path}|{fn}|{receiver}`
+							if ALLOWED_MUTATIONS[key] then
+								used[key] = true
+							else
+								table.insert(offenders, `{path}: table.{fn}(… {receiver}`)
+							end
 						end
 					end
 				end
@@ -611,9 +693,58 @@ describe("T15: a published children array is never mutated", function()
 		end
 		sweep("src/layout")
 		sweep("src/render")
-		expect(`checked>10={checked > 10} offenders={table.concat(offenders, " | ")}`).toBe(
-			"checked>10=true offenders="
-		)
+		local unused: { string } = {}
+		for key in ALLOWED_MUTATIONS do
+			if not used[key] then
+				table.insert(unused, key)
+			end
+		end
+		table.sort(offenders)
+		table.sort(unused)
+		expect(
+			`checked>10={checked > 10} offenders={table.concat(offenders, " | ")} unusedAllowlist={table.concat(
+				unused,
+				" | "
+			)}`
+		).toBe("checked>10=true offenders= unusedAllowlist=")
+	end)
+
+	it("NEGATIVE CONTROL: the sweep sees each of the five idioms, wrapped or not", function()
+		--[[ THE CHECK THAT PROVES THE CHECK. Round 1's sweep passed a reviewer's
+			in-place `table.insert(children, children[1])` planted in an unreachable
+			branch of `src/layout/flow.luau` — the suite stayed 8,646/0 — so this case
+			asks the same matcher the sweep uses about the six shapes it must catch,
+			including the multi-line form `stylua` produces. A matcher that cannot fail
+			cannot pass. ]]
+		local function offends(code: string): boolean
+			local stripped = codeOf(code)
+			if string.match(stripped, "[%w_.]*children%s*%[[^%]]+%]%s*=") ~= nil then
+				return true
+			end
+			for _, fn in TABLE_MUTATORS do
+				local pattern = if fn == "move"
+					then `table%.move%s*%([^%)]*[%w_.]*children`
+					else `table%.{fn}%s*%(%s*[%w_.]*children`
+				if string.match(stripped, pattern) ~= nil then
+					return true
+				end
+			end
+			return false
+		end
+		local caught = {}
+		table.insert(caught, tostring(offends("table.insert(children, children[1])")))
+		table.insert(caught, tostring(offends("table.remove(node.children, 2)")))
+		table.insert(caught, tostring(offends("table.sort(layoutNode.children, cmp)")))
+		table.insert(caught, tostring(offends("table.move(a, 1, 2, 1, out.children)")))
+		table.insert(caught, tostring(offends("table.clear(entry.childArray.children)")))
+		table.insert(caught, tostring(offends("layoutNode.children[3] = other")))
+		-- ...and the WRAPPED form, which a per-line matcher cannot see
+		table.insert(caught, tostring(offends("table.insert(\n\t\tlayoutNode.children,\n\t\tx\n\t)")))
+		-- ...and the two shapes that must NOT offend: a comment naming the idiom, and a
+		-- read of the array
+		table.insert(caught, tostring(offends("-- table.insert(children, x)")))
+		table.insert(caught, tostring(offends("for _, child in layoutNode.children do")))
+		expect(table.concat(caught, ",")).toBe("true,true,true,true,true,true,true,false,false")
 	end)
 
 	it("`layout_node` inserts into `layoutNode.children` in exactly one place, and it is the fresh arm", function()
@@ -649,15 +780,25 @@ end)
 	THE DRIVES INTERLEAVE A STRUCTURAL STEP with the container-prop writes on purpose:
 	a kept array has to survive an insert into a spliced region on the very next tick.
 
-	THE SETTLE IS NOT IN THIS DIFFERENTIAL, and the reason is measured rather than
-	assumed. Delivering text widths (`fake_target.deliverTextWidths`) makes all THREE
-	arms disagree with each other on `compact-phone-portrait` — arm `a` reads 36 px for
-	"Row 1" where arm `c` reads 44 — and **that divergence reproduces BYTE-IDENTICALLY
-	at `06ab8826` with this mechanism stashed**, on a run where both arms queued a batch
-	and both were answered. It is a property of how a full-solve arm and an incremental
-	arm absorb a settled correction, it is older than this task, and the task report
-	books it. Putting it in this differential would make a red that says nothing about a
-	kept array.
+	THE SETTLE IS NOT IN THIS DIFFERENTIAL, because a PRE-EXISTING DEFECT lives on that
+	drive and it is not this task's. Delivering text widths
+	(`fake_target.deliverTextWidths`) diverges on `compact-phone-portrait` and on that
+	view alone, and the SHAPE of the disagreement is what names the culprit:
+
+	    a != b == c
+
+	Arm `b` is `measureReuse = false` with the incremental arrange still ON, and it
+	agrees with the full-solve arm BYTE FOR BYTE. So incrementality is exonerated; the
+	arm that disagrees is the one carrying the **cross-solve measure slate**
+	(`layout/measure_reuse`), which is the arm Facet SHIPS. Measured at this commit,
+	`deep_stack_scene { rows = 12, listWidth, listPad, label }`, all nine views, each arm
+	settled: `/S/List/Label` reads `0,60,42,15` on arm `a` against `0,60,53,15` on `b`
+	and `c` (11 px, 21 %), and `/S/List/R1/A` reads 36 px against 44. **It reproduces
+	byte-identically at `06ab8826` with this task's mechanism stashed**, on a run where
+	every arm queued a batch and every batch was answered — so T15 neither causes nor
+	widens it. It is booked for the RED-TEAM wave against `layout/measure_reuse`, with
+	the view, the rect and the recipe, in the campaign ledger. Putting it in this
+	differential would make a red that says nothing about a kept array.
 
 	SO THE SETTLE GETS ITS OWN CASE AND ITS OWN ORACLE, one arm against ITSELF: drive,
 	settle, snapshot; then nudge the viewport away and back — two FULL solves, each with

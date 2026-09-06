@@ -134,6 +134,19 @@ describe("the render-stats seam: no requires, no state, two exports", function()
 			enforces the counter is the equality in `tests/text_settle_closure.spec`,
 			read off a run. ]]
 		expect(`textDirtyPaths={s.lastTextDirtyPaths}`).toBe("textDirtyPaths=0")
+		--[[ ...and T15's, which is the SAME CLASS as the line above and named here for
+			the same reason: `lastBuildChildVisits` is written by `renderer.attach`'s
+			solve straight from the node store (`stats.lastBuildChildVisits =
+			nodeStore.childVisits`, beside `lastNodeBuilds`), not by `publish` from the
+			work record — so its deletion would surface as `nil` arithmetic in a
+			consumer rather than as a missing `publish` field. It counts the CHILD
+			POSITIONS a build's rebuild loop visited, which `lastNodeBuilds` beside it
+			structurally cannot see, and the two are only meaningful as a pair. Same
+			honesty as every block above: this is a SAMPLE, so adding a name reddens
+			nothing — the pin that enforces the counter is the
+			`visits=`/`builds=` equality in `tests/build_children_reuse.spec.luau`,
+			read off a run. ]]
+		expect(`buildChildVisits={s.lastBuildChildVisits}`).toBe("buildChildVisits=0")
 	end)
 
 	it("`publish` writes ONLY into the record it is handed, and repairs `work.skipped`", function()

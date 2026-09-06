@@ -3143,11 +3143,18 @@ drive.
 ### F. What the differential could and could not carry
 
 The nine-view three-arm differential runs on four fixtures with a structural step
-interleaved. **The SETTLE is not in it**, and the reason is measured: delivering text
-widths makes all three arms disagree with each other on `compact-phone-portrait` (36 px
-for "Row 1" against 44), and **that divergence reproduces byte-identically at `06ab8826`
-with this mechanism stashed**, on a run where both arms queued a batch and both were
-answered. It is older than this task and is booked as a concern, not absorbed into it. The
+interleaved. **The SETTLE is not in it, because a PRE-EXISTING DEFECT lives on that drive**
+— and fix round 1 re-attributed it, because the first description would have sent the next
+reader to the wrong module. The shape is **`a != b == c`**: arm `b` is
+`measureReuse = false` with the incremental arrange still ON and it matches the full-solve
+arm BYTE FOR BYTE, so incrementality is exonerated and the arm that disagrees is the one
+carrying the **cross-solve measure slate** (`layout/measure_reuse`) — the arm Facet ships.
+Only `compact-phone-portrait` diverges, `/S/List/Label` reading `0,60,42,15` against
+`0,60,53,15` (11 px, 21 %), which makes it **a wrong pixel in the default configuration**
+rather than an oracle curiosity. It reproduces byte-identically at `06ab8826` with this
+mechanism stashed, so T15 neither causes nor widens it; it is booked for the RED-TEAM wave
+in the campaign ledger under "### Task 15 — booked" with the module, the view, the rect and
+a one-run reproduction recipe. The
 settle gets its own case with its own oracle — one surface against itself, driven, settled,
 snapshotted, then rebuilt from scratch by a viewport nudge away and back (two FULL solves,
 `dirty == nil`, `store.byNode` replaced) — across all nine views, with the container's own
@@ -3165,3 +3172,28 @@ below the campaign's 197,500 STOP.**
 gains the game-side `lastBuildChildVisits` witness, 15 on a steady one-row update against
 36 cold); `verify affected` PASS_PARTIAL 881.9 s **0 FAIL_RECOVERABLE**; `verify full`
 **PASS**; `check_source_size`, stylua, brand-drift, comment-codes clean.
+
+### H. Fix round 1 (review round 1: 2 Important, 6 Minor) — tests and docs only
+
+**The never-mutated pin could not enforce the invariant this section's mechanism delegates
+to it.** The reviewer planted an in-place `table.insert(children, children[1])` in an
+unreachable branch of `src/layout/flow.luau` and the suite stayed 8,646/0: the sweep had a
+`table.remove` pattern and no `table.insert` counterpart, no `sort`, no `move`, no `clear`
+— and it read **one line at a time**, which cannot see the receiver of a `stylua`-wrapped
+call at all. It now strips comments and matches over the whole file text, carries all five
+mutators (with `table.move`'s destination-is-the-fifth-argument pattern of its own), and
+uses a three-entry `(path, function, receiver)` allowlist that asserts every entry was
+USED, so an excused line that moves reddens instead of silently widening the sweep. The
+widening found a third line: `layout/text_audit.luau`'s `table.sort(children)` — checked
+and allowlisted, because that local is a fresh list of PATH STRINGS and no layout node
+reaches that module. Both mutation forms, inline and wrapped, now redden.
+
+**Minors:** `render_stats_seam.spec` gains `lastBuildChildVisits`' named line (the file's
+convention for a counter the renderer writes outside `publish`); the case count is
+reconciled (17 `it(` sites / 20 executed at `1554ba10`; the +26 over T14's floor is 20 mine
+plus 6 from the T14 fix round that landed mid-task, so the true base is 8,626); "pins that
+pass at base: **none**, falsifiability is arm C plus the mutations" is stated; the worst
+refusal shape is corrected to *many mount children splicing FEW layout nodes*, not a large
+plain container. `layout_node.luau`'s dead `(prior.n or 1)` is `src/` and is **booked for
+the RED-TEAM fix wave** rather than touched in a tests-and-docs round, together with the
+comment its neighbouring assignment is owed.
