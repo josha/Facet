@@ -3039,3 +3039,129 @@ fact still nests once.
 
 **Gates:** Facet 8,572/0; RR 3,595/0; `verify affected` and `verify full` recorded in
 T18-B's report; `check_source_size`, stylua, brand-drift, comment-codes, doc-style clean.
+
+---
+
+## §Task 15 — what was actually BUILT, against what §Task 15 wrote (T15, 2026-09-06)
+
+Base `6b95b02a`. The mechanism is built, exact, green under a nine-view differential and
+a from-scratch-rebuild self-oracle, and its arena number is **ZERO**. Two of §Task 15's
+own statements were false, one of them dangerously; both are corrected here.
+
+### A. Owed row 5 was WRONG, and the suite caught it — `childAxis` is not fixed
+
+§Task 15 (`:1030`, repeating review round 2 NOTE 9) says the children's `axis`/`clip` are
+"SERVED BY THE CONTAINER'S OWN PAIR", because "`childAxis` is a pure function of `kind`,
+fixed for a mount node". **`kind` is not fixed for a mounted node.**
+`layout_node.luau:529` derives it from `AdaptiveStack`'s REACTIVE `axis` prop, `:523`/
+`:544` from `wrap` on a `VStack`/`HStack`, and `:560` from whether a `Button` has
+children — three prop-decides-kind seams whose stated guarantee is that a flip *re-solves
+and never remounts*.
+
+An `AdaptiveStack` whose axis signal moves is therefore dirty on its OWN path with clean
+children, which is precisely the arm's shape, and the container's own `axis`/`clip` say
+nothing about it — that pair records where the CONTAINER sits, not what it imposes. The
+first build shipped without the term and `tests/adaptive.spec.luau`'s "follows an
+AdaptiveStack's axis flip with no rebuild" went red with a Divider **280 px wide where it
+must be 1**. `kidsAxis`/`kidsClip` — the exact pair handed to the children — are now
+recorded on the entry and compared. The container's own `axis`/`clip` are kept beside them
+because this is the same entry gate the `cmemo` carrier rides, and the spec says which
+half is load-bearing and which is conservative.
+
+### B. Owed row 3's citation was wrong — `analyzeBoundaries` never calls `build`
+
+§Task 15's step 1 says the collect arm is "driven through `controller.analyzeBoundaries`
+so `build`'s `collect` is true". `controller.analyzeBoundaries` (`renderer.luau:3780-3799`)
+clones the last solve's opts, drops `reuse`/`measures`, and re-solves
+`lastSolveInputs.layoutRoot`. **It never calls `layout_node.build`.** `collect == true` is
+`structural ~= nil` at the one call site (`renderer.luau:2028`), so the case drives a
+build with `collect` set directly. The GATE — `store.builtIds == nil` — is unchanged and
+correct, and its mutation bites.
+
+### C. THE FINDING: the gate the plan specified cannot fire on this arena, and that was decidable before the run
+
+`store.dirty` is ancestor-closed over path prefixes (`markDirtyIn`, `renderer.luau:2837`),
+which §Task 15's own owed row 4 states. The consequence it did not draw: a container
+holding a dirty DESCENDANT always fails the child scan, and a container holding none never
+reaches the rebuild — the warm-hit arm served it whole. **So the arm fires only for a
+container dirtied for its OWN reasons whose every child subtree is clean.** Every drive in
+all five FacetBench workloads writes a signal on a LEAF, so the container that owns the
+thousand-child loop is on that leaf's dirty ancestor chain on every step.
+
+Measured with a temporary census at the lever's commit, five workloads, every step kind:
+**the arm fires 0 times**, and its refusal costs 0–6 extra hash probes a solve (128 on
+`nameplates updateItems`, against 374 visits) — cheap because the scan walks the MOUNT
+children while the loop it guards walks the SPLICED ones (four probes decide a
+1,126-iteration loop on `battle_hud`'s Root).
+
+The expected table (`:1148-1152`) is therefore replaced by measurement:
+
+| class | plan booked | measured (A → B, medians, A B C C B A × 2) |
+|---|---:|---:|
+| `battle_hud L updateItem-hp` | ~0.33 → ~0.20 | 1.022 → 1.023 (+0.0 %) |
+| `war_room_inventory L reorder` | ~17 → ~16.5 | 30.821 → 31.437 (+2.0 %, noise) |
+| `killfeed_nameplates L updateItem-hp` | ~0.16 → ~0.12 | 0.286 → 0.288 (+0.9 %) |
+| `nameplates L updateItems-plates` | ~2.6 → ~2.4 | 4.671 → 4.663 (−0.2 %) |
+
+`lastBuildChildVisits` is **identical between arm B and arm C on every class of every
+workload**, which is the direct measurement that the arm never fired. **This is the third
+consecutive task whose booked figure was wrong in a way only the built mechanism could
+show, and this one was the most predictable of the three: it follows from a property the
+plan itself wrote down two rows earlier.**
+
+### D. What it IS worth, on the shape it serves
+
+Driven on `deep_stack_scene` at 1,000 rows with a signal on the container's own width —
+an animating panel, a themed gap, a resizing sidebar — arms A and B interleaved three
+times each, medians of nine 60-drive windows: `lastBuildChildVisits` **1,003 → 1**,
+`lastNodeBuilds` 2 → 2, `lastLayoutNodes` 3,002 unmoved, whole-refresh p50 **1.637 →
+1.575 ms (−3.8 %)**. 1,002 removed visits buy 0.062 ms — **~62 ns a visit**, T13's lesson
+said again from the build side. **The arena has no workload that writes a container's own
+layout prop**; that gap is booked in FacetBench §C13.
+
+### E. Mutations: 10 run, 8 bite, 2 recorded NULLS
+
+Bite: length-instead-of-identity (the swap case), drop `prior.axis` (the parent-axis
+case), drop `prior.kidsAxis` (the AdaptiveStack case AND `adaptive.spec`), collect-arm may
+reuse, drop the `store.dirty` scan (**49 cases**), `store.nodes +=` instead of
+`= nodesAtEntry +` (4), mutate the reused array (**11**, across three specs), and the
+Step-7 control — the mechanism off — which reddens **34**.
+
+Recorded nulls, kept with their argument: `prior.kidsClip == childClip` cannot be
+falsified today because `kind == "scroll"` is class-fixed, so `prior.clip` covers it —
+but that is exactly the inference `AdaptiveStack` falsified for the axis; and
+`prior.childArray ~= nil` is covered by the identity term, because a node can only gain
+children by having its `children` table replaced.
+
+The swap and the nil-array cases are driven at the `layout_node.build` seam, not through a
+blueprint, and the reason is recorded rather than assumed: the only writers of a mounted
+node's `children` after mount are the region reconcilers (`mount.luau:450`, `:197`,
+`:465`), and a region is spliced away in `appendChild`, so it never owns a layout node and
+never reaches this gate. A length mutation is a structural NULL against any blueprint
+drive.
+
+### F. What the differential could and could not carry
+
+The nine-view three-arm differential runs on four fixtures with a structural step
+interleaved. **The SETTLE is not in it**, and the reason is measured: delivering text
+widths makes all three arms disagree with each other on `compact-phone-portrait` (36 px
+for "Row 1" against 44), and **that divergence reproduces byte-identically at `06ab8826`
+with this mechanism stashed**, on a run where both arms queued a batch and both were
+answered. It is older than this task and is booked as a concern, not absorbed into it. The
+settle gets its own case with its own oracle — one surface against itself, driven, settled,
+snapshotted, then rebuilt from scratch by a viewport nudge away and back (two FULL solves,
+`dirty == nil`, `store.byNode` replaced) — across all nine views, with the container's own
+width write reading `visits=1` and the settle's pushed paths non-zero as the guard that
+the case is exercising a kept array at all.
+
+### G. Renderer characters
+
++53, not the ≤ +120 the A-10 split allowed: one line beside `stats.lastNodeBuilds`. **No
+seam was needed and the drag-bridge extraction was not taken.** The ledger row's own
+arithmetic was stale by 146 and is re-measured: 197,298 at base, **197,351 after — 149
+below the campaign's 197,500 STOP.**
+
+**Gates:** Facet **8,646/0**; RR **3,597/0** (no pin moved; `facet_measure_fanout_contract`
+gains the game-side `lastBuildChildVisits` witness, 15 on a steady one-row update against
+36 cold); `verify affected` PASS_PARTIAL 881.9 s **0 FAIL_RECOVERABLE**; `verify full`
+**PASS**; `check_source_size`, stylua, brand-drift, comment-codes clean.
