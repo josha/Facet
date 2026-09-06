@@ -128,9 +128,11 @@
 	is not what serves a stale node, and `render/text_index` unions the text-dirty
 	paths into an empty one anyway. Withholding the MARK is the fix: `solveAndApply`'s
 	own sequence test then takes the full arm and re-marks it, and the owed round runs
-	as the drain's own round would have. The empty queue is production's shape, not a
-	contrivance — a learned width changes no node's props on a static-text surface, so
-	a full premeasure learn moves `root.dirtySeq()` by ZERO there.
+	as the drain's own round would have. WHAT THE GUARD IS KEYED ON is `dirtySeq`
+	HAVING MOVED while the queue was drained (a props write between the deferral and
+	the frame) — not on the queue being empty: on a static-text surface a learn moves
+	`root.dirtySeq()` by ZERO, `seq == seen`, and the drain round is already
+	store-served and converges by itself (measured, fix round 3 review B1).
 
 	WHAT IT IS STILL NOT is a promise about a surface that trips the cap and then
 	never renders again; that one carries its owed round until something solves, and a

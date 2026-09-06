@@ -916,12 +916,14 @@ describe("the premeasure answer does not run on the solve that asked", function(
 		test (`root.dirtySeq() ~= nodeDirtySeen`) then takes the full arm and re-marks
 		it, and the owed round runs as the drain's own round would have.
 
-		THE SHAPE IS PRODUCTION'S, not a contrivance. A learned width changes no node's
-		props on a real surface — the text is a static string — so a full premeasure
-		learn moves `root.dirtySeq()` by ZERO there and the next frame's queue is empty
-		by itself. This fixture's label is a memo over `textMeasureEpoch`, so it
-		manufactures dirt the walk can ride on; one `root.takeDirty()` is what takes that
-		crutch away and asks the question the real surface asks. ]]
+		THE SHAPE THIS PINS: the queue's ENTRIES are gone but `root.dirtySeq()` has
+		MOVED — a props write landed and was drained between the deferral and the frame.
+		That is the state reader 4 exists for. It is NOT the static-text surface's state
+		(there a learn moves the seq by ZERO, `seq == seen`, and the drain round is
+		store-served and converges by itself — measured, fix round 3 review B1). This
+		fixture's label is a memo over `textMeasureEpoch`, so it manufactures dirt the
+		walk can ride on; one `root.takeDirty()` steals the entries and leaves the seq
+		moved. ]]
 	it("a `takeDirty()` between the deferral and the next frame does not strand the walk", function()
 		withReports(function()
 			local CHAIN = CAP * 3

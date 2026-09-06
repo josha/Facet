@@ -2330,7 +2330,7 @@ function renderer.attach(
 		buys — firing the public `UI.dropTarget` callbacks against rects the next solve
 		was about to rewrite. The lane's tick calls the same pair, from the same place
 		in the frame. ]]
-	-- ...and the queue's own owed-round reader, asked in three places below:
+	-- ...and the queue's own owed-round reader, asked in four places below:
 	-- `render/solve_queue`'s AND THE DEFERRAL OWNS ITS RE-ARMING (C-3 fix round 2)
 	local drainOwed: () -> boolean
 	solveAndApply, drainOwed = solve_queue.trampoline({
