@@ -196,13 +196,15 @@ describe("the measure-facts seam: the shared WRITE surface", function()
 			    the reserved box was built from (LTN-4);
 			  · `fitCuts` — the `ViewThatFits` probe's clamped-cut counter, the one
 			    signal that distinguishes "this fits" from "this was made to fit";
-			  · `memoPlans` — the per-node `PLAN_*` verdict, memoised once per solve.
+			  · `planVisits` — how many per-node `PLAN_*` verdicts the solve had to
+			    COMPUTE (Plan D, D1: the verdict itself now lives on the node literal,
+			    so the shared write is the counter, not the memo).
 
 			A FIFTH NAME HERE IS THE FINDING. It means a value the solve decided has
 			quietly become state with two owners, which is the shape that makes a
 			later reader unable to tell which file is answerable for it. ]]
 		local writes = sorted(ctxFieldsWritten(facts))
-		expect(writes).toEqual({ "fitCuts", "memoPlans", "textFacts", "textStates" })
+		expect(writes).toEqual({ "fitCuts", "planVisits", "textFacts", "textStates" })
 	end)
 
 	it("NEGATIVE CONTROL: the write scan sees each spelling, and a read is not a write", function()

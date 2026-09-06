@@ -56,6 +56,10 @@ function render_stats.new(): any
 		-- either, so it cannot say what a cheaper lookup path is worth.
 		lastMeasureCalls = 0,
 		lastMeasureServed = 0,
+		-- ...and the `PLAN_*` verdicts the last solve COMPUTED (Plan D, D1): reads
+		-- the tree size on a checkout that re-derives them per solve, and the dirty
+		-- chain's depth on one that caches them on the literal
+		lastPlanVisits = 0,
 		--[[ ...and the PATHS a text settle pushed as `measure` dirt on the last solve
 			(Plan C, T18-A). Zero on every solve that is not a settle, which is what
 			makes it readable as a class marker: a tick that moved it learned a word.
@@ -296,6 +300,7 @@ function render_stats.publish(stats: any, result: any, layoutNodes: number, stru
 		stats.lastMeasured = work.measured
 		stats.lastMeasureCalls = work.measureCalls or 0
 		stats.lastMeasureServed = work.measureServed or 0
+		stats.lastPlanVisits = work.planVisits or 0
 		stats.lastChildVisits = work.childVisits or 0
 		stats.lastChildIterations = work.childIterations or 0
 		stats.lastArrangeEntries = work.arrangeEntries or 0

@@ -47,9 +47,10 @@
 	    `measure` call (`candidate.choose`, `composition_resolve`), so a bump this
 	    arm does not make on an unrelated sibling cannot change any decision. The N2
 	    arm does not publish it either, and for the same reason.
-	  `ctx.memoPlans[node]` is a per-solve memo of a PURE function of a built node
-	    (`memoPlan`'s `PLAN_*` verdict). A colder memo is slower, never wrong; any
-	    later slow-path call on that node recomputes the same answer. ]]
+	  `node.mPlan` (Plan D, D1; was `ctx.memoPlans[node]`) is a cache of a PURE
+	    function of a built node (`memoPlan`'s `PLAN_*` verdict), for the literal's
+	    life. A colder cache is slower, never wrong; any later slow-path call on
+	    that node recomputes the same answer. ]]
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 local solver = require("../src/layout/solver")

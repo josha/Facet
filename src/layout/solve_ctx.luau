@@ -159,8 +159,9 @@ export type Ctx = {
 	-- are adopted from and written through, or `nil` when the caller has none; see
 	-- `./measure_reuse` for the four invalidation axes.
 	measures: measureReuse.Store?,
-	-- node -> its `PLAN_*` verdict, decided once per node per solve by `memoPlan`
-	memoPlans: { [any]: number },
+	-- how many `PLAN_*` verdicts `memoPlan` COMPUTED this solve; the rest were read
+	-- off the node literal (Plan D, D1). Published as `work.planVisits`
+	planVisits: number,
 	offers: { [string]: number },
 	-- HOW MUCH OF THE TREE THIS SOLVE TOUCHED. Published in the result so a test can
 	-- ask "did changing one bound value re-lay-out the whole screen?" from the public
@@ -523,9 +524,9 @@ function solve_ctx.new(contentRect: Rect, opts: any, metrics: any): Ctx
 		measureQuiet = true,
 		rectInserts = 0,
 		offers = {},
-		-- per-node verdict: can this node's measured size depend on the offered
-		-- HEIGHT? Computed once per node per solve, read on every measure of it.
-		memoPlans = {},
+		-- ...and D1's: the per-node `PLAN_*` verdicts this solve had to compute
+		-- because the literal did not already carry one (see `Ctx`)
+		planVisits = 0,
 		mdepth = 0,
 		deepNesting = false,
 		-- armed the first time a scroll node is measured; a tree without one never

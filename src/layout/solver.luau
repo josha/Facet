@@ -280,6 +280,9 @@ export type Node = {
 	-- cached `memoPlan` verdict for "can this answer read the offered HEIGHT?" — a
 	-- pure function of a BUILT node, so it survives every solve that node survives
 	mHeightFree: boolean?,
+	-- ...and the whole `PLAN_*` verdict, cached for the literal's life (Plan D, D1;
+	-- `measure_facts.memoPlan` is the only reader and writer)
+	mPlan: number?,
 	-- which slot the next MISS claims, so two alternating offers keep both
 	mFillB: boolean?,
 	mAOfferW: number?,
@@ -1404,8 +1407,8 @@ end
 
 -- `memoPlan` and its three `PLAN_*` verdicts are bound from `./measure_facts` at
 -- the top of this file — the classification is pure (it reads `dim`, `mainDimOf`
--- and `ctx.memoPlans` and nothing else), and its differential-oracle evidence
--- travels with it.
+-- and the node's own cached verdict `mPlan` and nothing else), and its
+-- differential-oracle evidence travels with it.
 
 --[[ THE OFFER HEIGHT, AS A KEY — `maxH`, or one sentinel for every node whose
 	answer cannot read it. The question is `memoPlan`'s, which is the ONE
@@ -3434,6 +3437,8 @@ function solver.solve(
 			-- those it answered from the node's own tuple (see `Ctx`)
 			measureCalls = ctx.measureCalls,
 			measureServed = ctx.measureServed,
+			-- ...and D1's: the `PLAN_*` verdicts this solve computed (see `Ctx`)
+			planVisits = ctx.planVisits,
 			-- ...and T13's: how many of those calls a stack's own measure branch made,
 			-- which is the half a container memo can remove (see `Ctx.childVisits`)
 			childVisits = ctx.childVisits,

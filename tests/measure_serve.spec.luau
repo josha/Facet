@@ -99,7 +99,7 @@
 	 10  `ctx.measureCache[node]`               NOT SERVED — a per-solve convenience
 	 11  `ctx.mdepth` / `ctx.deepNesting`       BALANCED BY CONSTRUCTION — the serve
 	                                                     returns before both
-	 12  `ctx.memoPlans[node]`                  WRITTEN BY THE SERVE — `heightFree`
+	 12  `node.mPlan` (was `ctx.memoPlans`)     WRITTEN BY THE SERVE — `heightFree`
 	                                                     asks `memoPlan`, the ONE
 	                                                     classification of "can this
 	                                                     answer read the offered

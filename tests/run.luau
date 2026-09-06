@@ -1201,6 +1201,11 @@ require("./containment_diagnostic.spec")
 	does — those read process-wide waiver counts — and below the diagnostic because
 	it is the applied floor rather than the rule. ]]
 require("./themed_containment.spec")
+--[[ PLAN D, D1 (2026-09-06): the `PLAN_*` verdict lives on the node literal, not in a
+	per-solve memo that re-walked the whole tree — the one call that was 78 % of a
+	one-leaf class on the arena (FacetBench §D1). Counter, production-path flip
+	witness, and the negative control the cache cannot see. ]]
+require("./plan_cache.spec")
 --[[ THE STANDALONE CONSUMER (distribution-readiness D2/D4): `examples/consumer/`
 	is the smallest complete Facet project, and this mounts ITS OWN screen module
 	— the same file the client script requires through the instance tree — against

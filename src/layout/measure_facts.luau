@@ -35,7 +35,7 @@
 	  · every fact it reads off the solve arrives on `ctx`, and the fields it reads
 	    are declared HERE, in `MeasureCtx` — READ == DECLARED == HOSTED (the
 	    solver's own `Ctx` block) as three set comparisons over the live sources;
-	  · it WRITES exactly four of them — `fitCuts`, `memoPlans`, `textFacts`,
+	  · it WRITES exactly four of them — `fitCuts`, `planVisits`, `textFacts`,
 	    `textStates` — and that set is pinned by name, because a dep this module
 	    writes is state two files share while a dep it reads is a fact the solve
 	    decided;
@@ -70,7 +70,7 @@ local measure_facts = {}
 	a runtime `nil`; a field declared here and read nowhere is a fact the solve is
 	still computing for nobody.
 
-	Four of the six are WRITTEN through (`fitCuts`, `memoPlans`, `textFacts`,
+	Four of the six are WRITTEN through (`fitCuts`, `planVisits`, `textFacts`,
 	`textStates`) — that is the shared write surface, and the spec pins it at
 	exactly those four names.
 ]]
@@ -80,8 +80,9 @@ export type MeasureCtx = {
 	fitCuts: number,
 	-- true while a candidate is being asked "do you fit?" (read only)
 	fitProbe: boolean,
-	-- node -> its `PLAN_*` verdict, decided once per node per solve (written)
-	memoPlans: { [any]: number },
+	-- how many `PLAN_*` verdicts this solve COMPUTED rather than read off the node
+	-- literal — the counter that says the cache is serving (written; see `memoPlan`)
+	planVisits: number,
 	-- the active ThemeSnapshot: the ONE place a typography role's size, font and
 	-- line height are learned (read only)
 	metrics: any,
@@ -407,10 +408,26 @@ local HEIGHT_COUPLED_KINDS: { [string]: boolean } = {
 local PLAN_SKIP, PLAN_KEYED, PLAN_HEIGHT_FREE = 0, 1, 2
 
 local function memoPlan(ctx: MeasureCtx, node: any): number
-	local memo = ctx.memoPlans[node]
+	--[[ CACHED ON THE LITERAL, FOR ITS LIFE (Plan D, D1 — FacetBench §D1). This was a
+		per-solve memo in `ctx.memoPlans`, and on every incremental solve of the arena's
+		5,127-node `battle_hud` it re-derived every node's verdict and allocated a
+		5,127-entry map: 0.768 ms and 303 KB of a 0.949 ms ONE-LEAF class, and invisible
+		to every wrap-based profile because the solver binds this function at load.
+
+		WHY THE LITERAL IS THE RIGHT LIFETIME. The verdict is a pure function of
+		`width`/`height`/`kind`/`textFit`/`shrinkWeight` and the CHILDREN's verdicts;
+		nothing in `src/` writes any of those after `render/layout_node` constructs the
+		literal, and `layout_node.build` rebuilds a FRESH literal for every node in the
+		ANCESTOR-CLOSED dirty set — so a node whose subtree changed is never the same
+		table, and the one write this cannot see (a dim rewritten in place on a built
+		node, with no rebuild) is a write no production path makes.
+		`tests/plan_cache.spec.luau` carries it as the negative control. A colder cache
+		is slower, never wrong: `memoPlan` recomputes the same answer. ]]
+	local memo = node.mPlan
 	if memo ~= nil then
 		return memo
 	end
+	ctx.planVisits += 1
 	local kind = node.kind
 	local wD, hD = dim(node, "w"), dim(node, "h")
 	local plan = PLAN_KEYED
@@ -470,7 +487,7 @@ local function memoPlan(ctx: MeasureCtx, node: any): number
 			end
 		end
 	end
-	ctx.memoPlans[node] = plan
+	node.mPlan = plan
 	return plan
 end
 
