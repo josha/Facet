@@ -3325,3 +3325,41 @@ The generalisable half, for the next implementer: **`commit_isolated.py -m` is a
 Write the message to a file and pass the file; `-m "$(cat …)"` fails loudly with
 `File name too long`, which is safe, and `-m /dev/stdin` fails SILENTLY by committing
 whatever the stream happened to hold, which is not.
+
+### K — fix round 1 (review: Spec ✅, Approved with fixes)
+
+Facet `688c84485`; RascalRally `218aa83`; FacetBench §C14 addendum. `renderer.luau` and
+`solver.luau` still byte-unchanged.
+
+**The Important was right and it was the whole booked regression.** `local own =
+commitRects[p]` sat ABOVE the `dirtyAll and dirtyCommit` short-circuit, re-introducing —
+one level down, in the same file — the defect C4 fix round 1 records fifty lines up
+(*"AND THE DIRTY TEST COMES FIRST … Losing that short-circuit is what the reorder
+regression actually was"*). Fixed by reading `own`/`last` inside the else branch and
+splitting the verdict into `verdictOf(probe, last)`, a pure function of the pair, with
+`entryVerdict(node)` kept as the wrapper `skip` uses — **one implementation of the rule**,
+which is why `entryVerdict` exists at all.
+
+**The A-repeat arm refuted the claim it was asked to support**, and this is the entry a
+later reader needs: `war_room reorder`'s arm-A spread is **0.373–0.374**, one thousandth,
+so §C14's "+0.055 ms, inside the runs' own spread" was never true of that class. Retracted
+in all three documents. The regression is **+0.055 → +0.026 ms** and the residual is NAMED
+(+7 % of the span, +0.08 % of a 31.4 ms class): it is the two lookups the fast path takes
+on children it cannot serve, which on a reorder is nearly all of them.
+
+**For §Task 17 and anything after it — the generalisable rules this round produced:**
+
+1. **A "within noise" claim about a workload with no repeat arm is not a measurement.** The
+   arena's tightest arm-A spread turned out to belong to the one class T16 waved at.
+2. **A counter's population is part of its contract.** `scanCount` counted `skip` and the
+   loop; `probeCount` counted only the loop, so `probes <= scans` was a ratio between two
+   different things. Aligning them moved a RascalRally pin (44 → 48) with no behaviour
+   change, and the first `verify affected` of the round went red on it. That is the
+   lockstep rule working, and it is the shape any counter widening will take.
+3. **A `med/max` census cell is not an A/B pair.** T16's counters paragraph read as one and
+   also carried a real error (`updateItem-hp`'s `lastCommitVisits` is 52/52, not 48 —
+   48/52 is `noop`). Labelled tables, one arm per column, from here on.
+4. **A hash-lookup cost can be red-tested without a production counter**: hand the walk an
+   empty table whose `__index` forwards and tallies. The trap is that C4's descend cache is
+   filled by `harvest`'s own walk, so the classified subtree must be one `harvest` never
+   visited or the case reports zero however the branch is written.
