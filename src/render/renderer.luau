@@ -2012,34 +2012,18 @@ function renderer.attach(
 		end
 		stats.lastStructuralBoundary = if structural ~= nil then structural.boundary else nil
 		-- THE SETTLE'S OWN CLOSURE (Plan C, T18-A): a learned word arrives here BARE, so
-		-- without this block it buys a COLD whole-tree re-solve. `render/text_index`
-		-- carries the four links, the measurement, every refusal (including the budget
-		-- below, which is a measured number), and why the closure is cleared.
-		local textDirt = textIndex.take(
+		-- without this the solve buys a COLD whole-tree re-solve. `render/text_index`
+		-- owns the whole decision — own the closure, union into the caller's, or drop
+		-- the caller's for the full solve when the push is over budget — and every
+		-- refusal, the four links, the budget and the measurements behind them.
+		local textOwnsClosure, textPushed
+		dirtyContains, measureContains, textOwnsClosure, textPushed = textIndex.apply(
+			dirtyContains,
+			measureContains,
 			incrementalEnabled and lastResult ~= nil and not (stampMoved and dirtyContains == nil),
-			-- the budget, in PATHS: `render/text_index` carries the measurement
 			math.max(64, stats.lastLayoutNodes // 8)
 		)
-		local textOwnsClosure = false
-		if textDirt ~= nil then
-			if dirtyContains == nil then
-				dirtyContains = textDirt.contains
-				measureContains = textDirt.measures
-				textOwnsClosure = true
-			else
-				-- UNIONED, NEVER DROPPED, into a caller's own closure: the delivery's
-				-- users are not all inside the dirt that produced them
-				local into = dirtyContains :: { [string]: boolean }
-				local intoM = (measureContains or dirtyContains) :: { [string]: boolean }
-				for path in textDirt.measures do
-					intoM[path] = true
-				end
-				for path in textDirt.contains do
-					into[path] = true
-				end
-			end
-		end
-		stats.lastTextDirtyPaths = if textDirt ~= nil then textDirt.n else 0
+		stats.lastTextDirtyPaths = textPushed
 		-- ...and the ids this build CONSTRUCTS are collected only when a structural
 		-- partial solve is about to spend them (`structural_scope.widen`, below).
 		local layoutRoot =

@@ -109,7 +109,9 @@
 	    there. The push only ever names TEXT nodes, so spending it would leave every
 	    other node at the rect the old viewport gave it.
 	  * no `lastResult`, or incremental layout off, means there is nothing to reuse.
-	  * the push names more than `cap` paths — see THE BUDGET at `take`.
+	  * ...and the push that names more than `cap` paths is NOT one of these: it comes
+	    back as `full`, and the caller drops whatever closure it was holding. See THE
+	    BUDGET at `take` for the route where returning `nil` there was a wrong box.
 
 	A CLOSURE ALREADY SET IS A UNION, NOT A REFUSAL, and this is the one the live drive
 	corrected. On the SHIPPED route the engine's settled branch answers INLINE, from
@@ -142,10 +144,15 @@ local text_metrics = require("../layout/text_metrics")
 local text_index = {}
 
 export type Plan = {
+	--[[ TRUE when the push was over budget and the caller must take the WHOLE-TREE
+		solve instead. `contains`/`measures` are nil there, and the caller has to DROP
+		any closure it was already holding — see THE BUDGET at `take` for why a
+		refusal that merely returns `nil` is not a superset on every route. ]]
+	full: boolean,
 	-- the arrange-and-measure closure and the measure half, exactly as
-	-- `dirty_closure.of` builds them for a refresh
-	contains: { [string]: boolean },
-	measures: { [string]: boolean },
+	-- `dirty_closure.of` builds them for a refresh. Nil when `full`.
+	contains: { [string]: boolean }?,
+	measures: { [string]: boolean }?,
 	-- how many PATHS were pushed (not the closure size): the counter
 	-- `stats.lastTextDirtyPaths` publishes, and the number this whole task is about
 	n: number,
@@ -161,6 +168,22 @@ export type Index = {
 	-- take the pending push, or drop it. `narrow` false means the caller is about to
 	-- take a FULL solve anyway, which covers everything a push would have named
 	take: (narrow: boolean, cap: number) -> Plan?,
+	--[[ ...AND SPEND IT ON THE CALLER'S TWO CLOSURES, which is `take` plus the whole
+		own/union/full decision in one call. Returns `(contains, measures, owns, pushed)`:
+		the two sets the solve should use, whether THIS call created them (so the caller
+		knows to clear them — a settle solve has no tail of its own, and a caller's
+		closure belongs to the caller), and how many paths were pushed.
+
+		IT LIVES HERE RATHER THAN AT THE CALL SITE for a reason this repository states
+		in its own ledger: `render/renderer.luau` is the capped file, 56 characters under
+		the campaign's STOP when this round opened, and an argument this long cannot be
+		paid for there. The decision is three lines of code and a page of why. ]]
+	apply: (
+		contains: { [string]: boolean }?,
+		measures: { [string]: boolean }?,
+		narrow: boolean,
+		cap: number
+	) -> ({ [string]: boolean }?, { [string]: boolean }?, boolean, number),
 	-- INTERNAL, and named in the type only so the registry broadcast above can call
 	-- it without an `any` cast: mark one `metricKey` as changed. Nothing outside this
 	-- module calls it — `text_index.learned` is the seam.
@@ -330,16 +353,96 @@ function text_index.new(): Index
 			`battle_hud L`'s `updateItem-facing` — 1,000 labels sharing one
 			(font,size) — read **55.709 ms** with the push against **~39.7 ms** for the
 			whole-tree cold solve it replaced, at 14,174 measure CALLS against the cold
-			solve's 14,215. Over the cap the mark is spent as a refusal and the bare
-			route takes the full solve, which is exactly what the parent SHA did.
+			solve's 14,215.
 
-			The classes this task exists for are nowhere near it: 4 paths of 5,106 nodes
-			on `setState` and 45 on `addItem-damage`, against a cap of 638. ]]
+			THE CUTOFF IS NOW SWEPT RATHER THAN BRACKETED (fix round 1, FacetBench §C16).
+			A scene that holds the tree still — 3,002 nodes, always — and moves only how
+			many text nodes share the changed key, push arm against forced-full arm, two
+			runs of 5 and 7 reps:
+
+			    users   % of tree   PUSH ms        FULL ms        verdict
+			       50        1.7    7.9 /  8.2    21.0 / 22.6    push wins ~2.7x
+			      200        6.7   10.6 / 14.6    20.8 / 20.9    push wins 1.4-2.0x
+			      400       13.3   13.5 / 17.5    17.2 / 21.7    a coin flip
+			      638       21.3   19.0 / 23.3    18.5 / 20.5    full wins
+			    1,000       33.3   30.1 / 31.9    16.9 / 17.2    full wins ~1.9x
+
+			The crossover is a BAND between roughly 7 % and 13 % of the tree, not a
+			point, and `lastLayoutNodes // 8` is 12.5 % — the top of that band, where a
+			refusal costs at worst a wash and never the 1.9x the far end costs. That is
+			why the cap stayed where it was: the sweep vindicated the fraction rather
+			than replacing it. `battle_hud`'s own wide key cannot answer this question at
+			all — its 1,000 labels are always ~20 % of its 5,106 nodes, so scaling the
+			workload scales both together and the ratio never moves.
+
+			IT READS THE PREVIOUS SOLVE'S `lastLayoutNodes`, which is 0 on a first solve
+			and therefore the `max(64, ...)` floor. Benign by construction: a surface
+			with no previous solve has `lastResult == nil`, so `narrow` is false and no
+			push is built for the cap to judge.
+
+			▲ AND OVER THE CAP THE ANSWER IS `full`, NOT `nil`, WHICH IS A CORRECTION.
+			This returned `nil` and both this file and T18-A's report claimed the
+			fallback was "the full solve the parent SHA took". That is true on the BARE
+			route, where `dirtyContains` is already nil. It was FALSE on the INLINE
+			route — the one that ships, where a caller closure is standing — and there
+			the mark was consumed, the push discarded, and the solve stayed NARROW:
+			measured `cap=76 pushed=0 measured=4 arranged=5 nodes=614`, with the key's
+			other users left on the estimator's box and nothing to repair them later.
+			A word is a TOKEN, not a label — `text_metrics.measure` sums per word — so
+			two labels sharing no string still share words, and a correction to one of
+			them moves every node that draws it while only the written node is in the
+			refresh's dirt. `full` makes the caller drop its closure, which is what the
+			claim always said. `tests/text_settle_closure.spec.luau`'s over-budget
+			inline case is the witness, and it reddens on both halves.
+
+			The classes this task exists for are nowhere near the cap: 4 paths of 5,106
+			nodes on `setState` and 45 on `addItem-damage`, against a cap of 638. ]]
 		if #entries > cap then
-			return nil
+			return { full = true, contains = nil, measures = nil, n = 0 }
 		end
 		local contains, measures = dirty_closure.of(entries)
-		return { contains = contains, measures = measures, n = #entries }
+		return { full = false, contains = contains, measures = measures, n = #entries }
+	end
+
+	--[[ THE THREE OUTCOMES, and every one of them is a SUPERSET of the push rather than
+		a weakening of it.
+
+		  * NO CLOSURE STANDING (a bare settle solve — `premeasure_round`'s own
+		    `solveAndApply`, or the `textMeasureEpoch` geometry fact's settle callback):
+		    the push IS the closure, and the caller is told it owns it.
+		  * A CLOSURE STANDING (a `refresh` whose INLINE delivery produced the mark —
+		    the route that ships): the push is UNIONED in. The delivery's users are not
+		    all inside the dirt that produced them; a word is a TOKEN, not a label, so
+		    two rows sharing no string still share words.
+		  * OVER BUDGET: the caller's closure is DROPPED and the solve is the whole-tree
+		    one. See THE BUDGET at `take` for the wrong box that came of returning `nil`
+		    here instead. ]]
+	function index.apply(
+		contains: { [string]: boolean }?,
+		measures: { [string]: boolean }?,
+		narrow: boolean,
+		cap: number
+	): ({ [string]: boolean }?, { [string]: boolean }?, boolean, number)
+		local plan = index.take(narrow, cap)
+		if plan == nil then
+			return contains, measures, false, 0
+		end
+		if plan.full then
+			return nil, nil, false, 0
+		end
+		local pushC = plan.contains :: { [string]: boolean }
+		local pushM = plan.measures :: { [string]: boolean }
+		if contains == nil then
+			return pushC, pushM, true, plan.n
+		end
+		local intoM = (measures or contains) :: { [string]: boolean }
+		for path in pushM do
+			intoM[path] = true
+		end
+		for path in pushC do
+			(contains :: { [string]: boolean })[path] = true
+		end
+		return contains, measures, false, plan.n
 	end
 
 	table.insert(live, index)

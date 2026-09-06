@@ -476,8 +476,25 @@ function text_metrics.markUnmeasurable(font: string, fontSize: number, word: str
 		exactCount += 1
 	end
 	if bucket[word] ~= false then
+		--[[ ...AND IT ANNOUNCES, for the same reason `setMeasured` does (Plan C, T18-A
+			fix round 1). The header above lists this seam under `wordEpoch`, and the
+			generation alone reaches nobody now that it has left `measureStamp` — so a
+			write that changes what `measure` returns and pushes nothing would be a
+			narrowing with a hole in it.
+
+			WHEN IT ACTUALLY CHANGES A WIDTH, stated because the common case does not:
+			the round only calls this for words `wordWidth` would have estimated anyway
+			(`nil -> false` keeps the same estimate, and an exact word is never
+			re-requested), so the announcement is usually a no-op push. The case it is
+			here for is `number -> false` — a spec or a Studio tool retracting a
+			measurement — which at the parent SHA moved the stamp and invalidated
+			everything, and on a narrow route would otherwise invalidate nothing. ]]
+		local wasExact = type(bucket[word]) == "number"
 		bucket[word] = false
 		wordEpoch += 1
+		if wasExact then
+			announceWord(font, fontSize)
+		end
 	end
 end
 

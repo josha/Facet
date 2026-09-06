@@ -97,6 +97,21 @@ local function world(
 		-- cross-surface correction has to work in.
 		share: { core: any, env: any }?,
 		prefix: string?,
+		--[[ ANSWER EVERY BATCH SYNCHRONOUSLY, from inside `measureTextWidths`, which is
+			what a settled live client does: `text_premeasure.spawn` is `task.spawn`,
+			which runs its body until its first yield, and a settled
+			`GetTextBoundsAsync` does not yield — so the answer reaches
+			`premeasure_round`'s `done` INSIDE the solve that asked, while `refresh`'s
+			own closure is still standing. `tests/lib/fake_target`'s `answerTextInline`
+			(T18-B) is that mode; this flag only turns it on at mount, and `arm.inline`
+			/ `arm.queued` switch it per case. ]]
+		inlineText: boolean?,
+		--[[ the `textSize = "fit"` node, OFF by default and on only for its own cases.
+			It joins EVERY push by construction (`render/text_index`'s conservative
+			set), so leaving it in the shared fixture would add one to every push count
+			in this file and blunt the sharpest case here — "a settle on a key nothing
+			uses pushes NOTHING" would read 1. ]]
+		withFit: boolean?,
 	}
 ): Arm
 	local core = if opts.share ~= nil then opts.share.core else customFactory.new()
@@ -220,40 +235,16 @@ local function world(
 	})
 	local root = mountLib.mount(core, bp)
 	local adapter = fake_target.new()
-	if opts.inlineText then
-		--[[ THE ENGINE'S SETTLED BRANCH, AS IT ACTUALLY BEHAVES. `text_premeasure.spawn`
-			is `task.spawn`, which runs its body synchronously until its first yield, and
-			once the session has settled `measureBatch`'s `GetTextBoundsAsync` does not
-			yield either — so on a live client the answer reaches `premeasure_round`'s
-			`done` INSIDE the solve that asked for it, while `refresh`'s own closure is
-			still standing. `fake_target` queues instead, which is right for a spec that
-			drives the delivery itself and wrong for the one case that is about WHEN the
-			answer lands. This wrapper is that one case. ]]
-		local queued = adapter.measureTextWidths
-		local answer: ((string, number) -> number?)? = nil
-		adapter.measureTextWidths = function(requests: { any }, done: (any, boolean?) -> ()): any
-			local results = {}
-			for _, r in requests do
-				table.insert(results, {
-					font = r.font,
-					size = r.size,
-					word = r.word,
-					width = if answer ~= nil then answer(r.word, r.size) else math.max(1, #r.word * r.size * 0.5),
-				})
-			end
-			done(results)
-			return function() end
-		end
-		(adapter :: any).answerInlineWith = function(fn: ((string, number) -> number?)?)
-			answer = fn
-		end
-		(adapter :: any).queuedMeasure = queued
-	end
 	local controller = renderer.attach(core, root, env, adapter, {
 		rootPolicy = "coreSafeContent",
 		incrementalLayout = opts.incremental,
 		measureReuse = opts.measureReuse,
 	})
+	if opts.inlineText then
+		adapter.answerTextInline(function(word: string, size: number, _font: string): number?
+			return math.max(1, #word * size * 0.5)
+		end)
+	end
 	controller.initialRender()
 	return {
 		core = core,
@@ -267,6 +258,31 @@ local function world(
 		pinned = pinned,
 		fitted = fitted,
 	}
+end
+
+--[[ THE TWO ADAPTER SHAPES, and the reason every case below has to say which one it is
+	driving. `fake_target` QUEUES by default — the spec plays the engine by hand with
+	`deliverTextWidths` from top level, so the renderer's solve has already returned and
+	the correction arrives on the BARE route with no caller closure standing.
+	`answerTextInline` (T18-B) is the SETTLED LIVE ENGINE: the answer reaches
+	`premeasure_round`'s `done` inside the solve that asked, so `refresh`'s own closure
+	is still standing and the correction takes the UNION route.
+
+	The two routes differ only in whether a caller closure is standing, and that is
+	precisely the variable the push budget got wrong — an over-budget refusal is a full
+	solve on the bare route and was a NARROW one on the inline route, with the
+	correction discarded. So the oracle below runs on both, and `inline` is the shipped
+	one. ]]
+local function widthOfDefault(word: string, size: number, _font: string): number?
+	return math.max(1, #word * size * 0.5)
+end
+
+local function inlineOn(arm: Arm, widthOf: ((string, number, string) -> number?)?)
+	arm.adapter.answerTextInline(widthOf or widthOfDefault)
+end
+
+local function inlineOff(arm: Arm)
+	arm.adapter.answerTextInline(nil)
 end
 
 -- every batch the surface has asked for, answered with a deterministic width. The
@@ -480,6 +496,67 @@ describe("a learned word re-measures its users, not the tree (T18-A)", function(
 		expect(`solves for the drive and the settle={stats(arm).solves - before}`).toBe(
 			"solves for the drive and the settle=2"
 		)
+	end)
+
+	it("a settle fires ONE `onSolved` per solve, and a container with no key-K text keeps its memo", function()
+		--[[ TWO PINS THE OWED LIST CARRIED AS ARGUMENTS AND NOT AS NUMBERS, made numbers
+			here (T18-A fix round 1).
+
+			OWED ROW 14 — the `onSolved` COUNT. The argument was structural and correct:
+			the settle solve was already an outermost solve of its own (it runs from
+			`core:settle`), T18-A built no defer, and T18-B's queue fires one
+			notification per solve against the finished tree. But "unchanged" was never
+			counted, and a consumer that measures this surface sees exactly this number.
+			One per solve, and the settle's solve is the second of the two the drive
+			costs.
+
+			RULING L-11's POSITIVE HALF — a container whose subtree holds no key-K text
+			keeps its T13/T13b memo. The negative half (a container ON the path is
+			refused) is pinned by the nested case below, on rects and facts. This is the
+			other side, and it is what makes the narrowing a memo question rather than
+			just a smaller closure: `lastChildVisits` is the `measure` calls a stack's
+			own measure branch made, so a settle that dropped every container memo would
+			move it. It must read the ordinary tick's number. ]]
+		local arm = world({ viewport = { w = 800, h = 600 }, rows = 30 })
+		settle(arm)
+		local notifies = 0
+		local stop = arm.controller.onSolved(function()
+			notifies += 1
+		end)
+		--[[ AN ORDINARY TICK ON THE SAME DIRT SHAPE first: a strip label rewritten with
+			a word the measurer already knows. Same closure, no correction — which is
+			what makes the settle's counters below a comparison rather than two
+			unrelated numbers (an earlier version dirtied a ROW here and read 103
+			against the settle's 5, comparing the list's walk with the strip's). ]]
+		arm.strip[2]:set("S1")
+		arm.controller.refresh()
+		local quiet = stats(arm)
+		expect(`an ordinary tick: notifies={notifies} solves=1`).toBe("an ordinary tick: notifies=1 solves=1")
+		notifies = 0
+		local before = quiet.solves
+		-- ...and the settle: one solve for the drive, one for the correction, one
+		-- notification each, and the container memo untouched
+		arm.strip[2]:set("t18aNotifyWord")
+		arm.controller.refresh()
+		deliverAll(arm)
+		local st = stats(arm)
+		expect(`the settle: solves={st.solves - before} notifies={notifies} pushed={st.lastTextDirtyPaths}`).toBe(
+			"the settle: solves=2 notifies=2 pushed=4"
+		)
+		--[[ ...AND THE MEMO, which is the number ruling L-11's positive half was missing.
+			`lastChildVisits` is the `measure` calls a stack's own measure branch made,
+			and it is a `last*` counter — so on the settle tick it reports the
+			CORRECTION's solve, not the write's. The write re-walks the whole strip and
+			the list below it (a strip label changing height re-offers the list);
+			the correction re-walks the strip alone, because every container whose
+			subtree holds no size-14 text keeps its T13/T13b memo. Both numbers read off
+			the run, and the ratio is the claim: a settle that dropped those memos would
+			read the write's number here, not a twentieth of it. ]]
+		expect(`the write walked {quiet.lastChildVisits}, the correction {st.lastChildVisits}`).toBe(
+			"the write walked 103, the correction 5"
+		)
+		expect(st.lastMeasureServed > 0).toBe(true)
+		stop()
 	end)
 
 	it("...and the SAME word on the WIDE key costs its own user set, which is the honest counter-case", function()
@@ -712,24 +789,29 @@ describe("a learned word re-measures its users, not the tree (T18-A)", function(
 			whose box is FIXED the rect channel says nothing at all — 60px before, 60px
 			after — while `truncated` flips, so the rect oracle alone cannot see it.
 
-			The settle's paths and their ancestors are therefore marked into `nodeDirty`
-			AND `commitDirty` before the build captures them, which is what puts this
-			node in every walk's descend list. Compared against a forced cold arm, since
-			"what the published value should be" is the cold solve's answer and nothing
-			else.
+			WHAT CARRIES IT AT HEAD IS `entryVerdict`, NOT A DIRTY MARK, and this block
+			said the opposite until the review caught it. An earlier arm of this task
+			DID mark the settle's paths and their ancestors into `nodeDirty` and
+			`commitDirty` before the build captured them; that was deleted after a live
+			measurement (marking into the layout-node store forces a REBUILD of every
+			pushed node and every ancestor — ~2,000 of them on a 1,000-label key, which
+			the whole-tree cold solve it was meant to beat never paid: 62.986 ms against
+			~37.7 ms). This case was left describing the deleted mechanism, which in a
+			project where a comment is evidence is the same defect as a stale pin.
 
-			▲ A RECORDED NULL, kept with its argument rather than dropped. Deleting the
-			two mark loops reddens NOTHING in this suite, and the reason is that
-			`commit_walks`' prune does not read the dirty set alone: it asks
-			`entryVerdict(child)` — settled / moved — so a node whose RECT changed is
-			descended whether or not anything marked it. What the marks still buy is the
-			case where a measure correction changes a published verdict WITHOUT moving a
-			rect, and this suite has no fixture that produces one (a fixed-box `Text`
-			publishes no `textAt` facts at all, and the wrap/compact writes did not flip
-			on the shapes tried). The marks stay because they are the conservative
-			direction and cost one loop over a set that is four entries long on the
-			class this task is about; the gap is named here so the next round knows it
-			is a fixture gap and not a proof. ]]
+			THE ARGUMENT THAT ACTUALLY CLOSES IT, and it is one line rather than an open
+			fixture debt: **every node in `measures` is ARRANGED** — the clean-child /
+			`selfPlaces` skip requires `measureContains[node.id] ~= true` — and an
+			arranged node writes a FRESH entry table (`solver.luau`'s rect pass), so
+			`entryVerdict`'s `last == probe` identity cannot hold for it and
+			`commit_walks` descends it whatever the dirty sets say. A node NOT in
+			`measures` cannot have a text fact move from a word width, because a word
+			width only reaches a node through that node's own measure. So the residue
+			the deleted marks were protecting is EMPTY, not merely un-fixtured.
+
+			The case stays because it is the executable half of that argument: a node
+			whose rect cannot move, whose verdict can, compared against a forced cold
+			arm, on both halves of the settle. ]]
 		local narrowed = world({ viewport = { w = 800, h = 600 }, rows = 15 })
 		local cold = coldWorld({ viewport = { w = 800, h = 600 }, rows = 15 })
 		settle(narrowed)
@@ -802,8 +884,9 @@ describe("a learned word re-measures its users, not the tree (T18-A)", function(
 			because "the caller's closure is a superset" is a property that should not
 			depend on that argument staying true.
 
-			The adapter here answers from inside `measureTextWidths`, which is what the
-			engine does and what `fake_target` deliberately does not. ]]
+			The adapter answers from inside `measureTextWidths` — `fake_target`'s
+			`answerTextInline` (T18-B), which is the settled live engine and what the
+			queued default deliberately is not. ]]
 		local arm = world({ viewport = { w = 800, h = 600 }, rows = 10, inlineText = true })
 		settle(arm)
 		local before = stats(arm)
@@ -829,6 +912,74 @@ describe("a learned word re-measures its users, not the tree (T18-A)", function(
 		expect(reads(arm.controller, arm.adapter) == reads(cold.controller, cold.adapter)).toBe(true)
 	end)
 
+	it("an OVER-BUDGET push on the INLINE route repairs the key's other users, not just the dirty one", function()
+		--[[ THE WRONG PIXEL THE BUDGET LET THROUGH, and it is a route bug rather than an
+			arithmetic one. `text_index.take` refuses a push that names more than
+			`max(64, lastLayoutNodes // 8)` paths, and both this file and the report
+			claimed the fallback was "the full solve the parent SHA took". That is TRUE
+			on the bare route, where `dirtyContains` is nil and a refusal leaves it nil.
+			It was FALSE on the INLINE route — the one that ships — where a caller
+			closure is standing: the mark was consumed, the push discarded, and the
+			solve stayed narrow. Measured at `b23460f8` on this fixture:
+			`cap=76 pushed=0 measured=4 arranged=5 nodes=614`.
+
+			A WORD IS A TOKEN, NOT A LABEL, which is what makes this a wrong box rather
+			than a tidiness point. `text_metrics.measure` sums per WORD, so two labels
+			that share no string still share words — every row here draws the word
+			"row". A correction to that word (the boot-window flip: the engine answers a
+			batch and corrects itself, `answerAgain`'s whole reason for existing) moves
+			all 200 rows, and only one of them is in the refresh's dirt. The engine
+			delivers that correction inline, alongside the new word it was asked for.
+
+			THE FIX IS THE ONE THE COMMENT ALREADY CLAIMED: over the cap the caller's
+			closure is DROPPED, so the solve really is the whole-tree one — and the
+			whole-tree one is also the cheaper of the two honest options at that size
+			(the sweep in FacetBench §C16). ]]
+		local FONT = "BuilderSans"
+		local NEW = "t18aOverBudgetInline"
+		local function drive(arm: Arm)
+			settle(arm)
+			--[[ THE ENGINE ANSWERS TWO THINGS AT ONCE: the word it was asked for, and a
+				CORRECTION to a word it answered earlier that 200 nodes draw. Delivered
+				from inside `measureTextWidths`, which is where a settled client
+				delivers it. ]]
+			local corrected = false
+			inlineOn(arm, function(word: string, size: number, _font: string): number?
+				if not corrected then
+					corrected = true
+					text_metrics.setMeasured(FONT, SIZE_ROW, "row", 3)
+				end
+				return if word == NEW then 9 else math.max(1, #word * size * 0.5)
+			end)
+			arm.rowValue[9]:set(NEW)
+			arm.controller.refresh()
+		end
+		local narrowed = world({ viewport = { w = 800, h = 600 }, rows = 200, inlineText = true })
+		local cold = coldWorld({ viewport = { w = 800, h = 600 }, rows = 200 })
+		drive(narrowed)
+		drive(cold)
+		local st = stats(narrowed)
+		expect(`the push was over budget: {st.lastTextDirtyPaths}`).toBe("the push was over budget: 0")
+		--[[ THE PIXELS FIRST, because they are the half that matters and the half that
+			was wrong: every OTHER row draws the corrected word and none of them is in
+			the refresh's dirt, so the forced cold arm is what they should read. ]]
+		assertCold(cold, "over-budget inline")
+		expect(reads(narrowed.controller, narrowed.adapter) == reads(cold.controller, cold.adapter)).toBe(true)
+		--[[ ...AND THE MECHANISM THAT CARRIES THEM. Before the fix this read
+			`arranged=5 of 614`. ]]
+		expect(`over budget arranged {st.lastArranged} of {st.lastLayoutNodes}`).toBe(
+			`over budget arranged {st.lastLayoutNodes} of {st.lastLayoutNodes}`
+		)
+		-- NON-VACUITY: the correction really did move a row nobody wrote to
+		local other = narrowed.controller.rectOf("/Root/List/Rows/[r120]/Row/Name")
+		local dirty = narrowed.controller.rectOf("/Root/List/Rows/[r9]/Row/Name")
+		expect(`the untouched row moved to {other.w}, the written one to {dirty.w}`).toBe(
+			`the untouched row moved to {cold.controller.rectOf("/Root/List/Rows/[r120]/Row/Name").w}, `
+				.. `the written one to {cold.controller.rectOf("/Root/List/Rows/[r9]/Row/Name").w}`
+		)
+		expect(other.w ~= dirty.w).toBe(true)
+	end)
+
 	it("an unmounted path is forgotten, so a churning list does not retain the session (review SF-8)", function()
 		--[[ THE LIFETIME PIN, in the registry-neutrality style. A stale entry is only
 			cost — a push for a dead path is inert through the closure and the solver's
@@ -839,6 +990,7 @@ describe("a learned word re-measures its users, not the tree (T18-A)", function(
 			second implementation of it. ]]
 		local arm = world({ viewport = { w = 800, h = 600 }, rows = 12 })
 		settle(arm)
+		expect(arm.controller.rectOf("/Root/List/Rows/[r1]/Row/Name") ~= nil).toBe(true)
 		arm.rowValue[1]:set("t18aChurnWordA")
 		arm.controller.refresh()
 		deliverAll(arm)
@@ -846,7 +998,11 @@ describe("a learned word re-measures its users, not the tree (T18-A)", function(
 		-- the rows leave, and the strip stays so the surface is still worth solving
 		arm.rows:set({})
 		settle(arm)
-		expect(arm.controller.rectOf("/Root/List/Rows/r1/Name")).toBe(nil)
+		--[[ the row really is gone. THE PATH SHAPE MATTERS and this line used to have it
+			wrong (`/Rows/r1/Name`), which made `toBe(nil)` a sentence that could not
+			fail: a `ForEach` key is bracketed and the row template's own id is in the
+			path. Both halves are asserted now — the live one before, the nil after. ]]
+		expect(arm.controller.rectOf("/Root/List/Rows/[r1]/Row/Name")).toBe(nil)
 		--[[ ...and a word learned at the ROW label's size now names nobody. The strip
 			key is untouched, so this is the index forgetting twelve paths rather than
 			the whole push machinery having gone quiet. ]]
@@ -861,47 +1017,121 @@ describe("a learned word re-measures its users, not the tree (T18-A)", function(
 end)
 
 describe("the settle oracle: identical geometry, whatever the tick did (T18-A)", function()
-	--[[ EVERY VIEW, BOTH ARMS. The narrowed settle and a FORCED COLD solve after the
-		same deliver must agree byte for byte on every channel a consumer can read —
-		the adapter's paint and hit rects, `controller.textAt()`, `rectOf`,
-		`screenRectOf` and the diagnostic SET. 320x640 is in the list deliberately: it
-		is the view where the strip wraps and the row labels truncate, so the two arms
-		are compared on a tree whose verdicts are non-trivial. ]]
+	--[[ EVERY VIEW, BOTH ADAPTER SHAPES, against a FORCED COLD arm. The narrowed settle
+		and a whole-tree solve after the same deliver must agree byte for byte on every
+		channel a consumer can read — the adapter's paint and hit rects,
+		`controller.textAt()`, `rectOf`, `screenRectOf` and the diagnostic SET. 320x640
+		is in the list deliberately: it is the view where the strip wraps and the row
+		labels truncate, so the arms are compared on a tree whose verdicts are
+		non-trivial.
+
+		▲ BOTH SHAPES, AND THE SECOND ONE IS WHY. The loop used to run on the QUEUED
+		target alone — the spec delivering from top level, so the renderer's solve had
+		already returned and the correction arrived on the BARE route with no caller
+		closure standing. The shipped route is the other one: `answerTextInline`
+		(T18-B's sync-answer mode) is the settled live engine, and the answer reaches
+		`premeasure_round`'s `done` INSIDE the solve that asked. The two differ only in
+		whether a caller closure is standing — which is precisely the variable the push
+		budget got wrong, and running one shape is what let that through. ]]
 	for _, view in device_views.VIEWS do
-		it(`{view.id} {view.w}x{view.h}: a narrowed settle equals a forced cold one`, function()
-			local narrowed = world({ viewport = { w = view.w, h = view.h }, rows = 25 })
-			local cold = coldWorld({ viewport = { w = view.w, h = view.h }, rows = 25 })
-			settle(narrowed)
-			settle(cold)
-			-- THE NON-VACUITY GUARD: the arms must agree BEFORE the settle too, or a
-			-- byte-equal comparison afterwards says nothing about the settle
-			expect(snapshot(narrowed) == snapshot(cold)).toBe(true)
-			--[[ A WORD PER VIEW, and this is a trap worth naming: the exact-width store is
-				PROCESS-GLOBAL, so a shared literal here would be learned by the first
-				view's arms and already known to the other eight — whose settle would then
-				never happen and whose "the narrowed arm really narrowed" guard would read
-				a stale counter and pass by accident. ]]
-			local WORD = `t18aOracle{view.id}`
-			for _, arm in { narrowed, cold } do
-				arm.strip[3]:set(WORD)
-				arm.solo:set(WORD)
-				arm.rowValue[4]:set(WORD)
-				arm.controller.refresh()
-				arm.adapter.deliverTextWidths(function(word: string, size: number): number?
+		for _, inline in { false, true } do
+			local shape = if inline then "inline" else "queued"
+			it(`{view.id} {view.w}x{view.h} [{shape}]: a narrowed settle equals a forced cold one`, function()
+				local narrowed = world({ viewport = { w = view.w, h = view.h }, rows = 25, inlineText = inline })
+				local cold = coldWorld({ viewport = { w = view.w, h = view.h }, rows = 25 })
+				settle(narrowed)
+				settle(cold)
+				-- THE NON-VACUITY GUARD: the arms must agree BEFORE the settle too, or a
+				-- byte-equal comparison afterwards says nothing about the settle
+				expect(snapshot(narrowed) == snapshot(cold)).toBe(true)
+				--[[ A WORD PER VIEW AND PER SHAPE, and this is a trap worth naming: the
+					exact-width store is PROCESS-GLOBAL, so a shared literal would be
+					learned by the first arm and already known to the other seventeen —
+					whose settle would then never happen and whose "the narrowed arm
+					really narrowed" guard would read a stale counter and pass by
+					accident. ]]
+				local WORD = `t18aOracle{view.id}{shape}`
+				local function widths(word: string, size: number): number?
 					return if word == WORD then 41 else math.max(1, #word * size * 0.5)
-				end)
-			end
-			-- the control really is cold, or this is two arms of one mechanism agreeing
-			assertCold(cold, view.id)
-			-- ...and the narrowed one really did narrow, or the comparison is vacuous
-			local st = stats(narrowed)
-			expect(
-				`{view.id} narrowed: pushed={st.lastTextDirtyPaths} measured={st.lastMeasured} of {st.lastLayoutNodes} nodes`
-			).toBe(`{view.id} narrowed: pushed=30 measured={st.lastMeasured} of {st.lastLayoutNodes} nodes`)
-			expect(st.lastMeasured < st.lastLayoutNodes).toBe(true)
-			expect(snapshot(narrowed) == snapshot(cold)).toBe(true)
-		end)
+				end
+				if inline then
+					inlineOn(narrowed, function(word: string, size: number): number?
+						return widths(word, size)
+					end)
+				end
+				for _, arm in { narrowed, cold } do
+					arm.strip[3]:set(WORD)
+					arm.solo:set(WORD)
+					arm.rowValue[4]:set(WORD)
+					arm.controller.refresh()
+					if arm == cold or not inline then
+						arm.adapter.deliverTextWidths(widths)
+					end
+				end
+				-- the control really is cold, or this is two arms of one mechanism agreeing
+				assertCold(cold, `{view.id} {shape}`)
+				-- ...and the narrowed one really did narrow, or the comparison is vacuous
+				local st = stats(narrowed)
+				expect(
+					`{view.id} {shape}: pushed={st.lastTextDirtyPaths} measured={st.lastMeasured} of {st.lastLayoutNodes}`
+				).toBe(`{view.id} {shape}: pushed=30 measured={st.lastMeasured} of {st.lastLayoutNodes}`)
+				expect(st.lastMeasured < st.lastLayoutNodes).toBe(true)
+				expect(snapshot(narrowed) == snapshot(cold)).toBe(true)
+			end)
+		end
 	end
+
+	it("...and an OVER-BUDGET settle equals a forced cold one on both shapes too", function()
+		--[[ THE OTHER SIDE OF THE BUDGET LINE, swept over both routes rather than
+			argued. 200 rows puts the row key's user set at 200 against a cap of
+			`max(64, nodes // 8)` = 76, so every arm here refuses the push — and the
+			refusal has to be the whole-tree solve on BOTH shapes, which is exactly what
+			it was not until this round. Driven at the narrowest supported viewport as
+			well as the desktop one, because a wrapping strip and a truncating row are
+			where a stale measurement shows up as a verdict rather than a width. ]]
+		for _, view in { device_views.VIEWS[1], device_views.VIEWS[6] } do
+			for _, inline in { false, true } do
+				local shape = if inline then "inline" else "queued"
+				local WORD = `t18aOverBudget{view.id}{shape}`
+				local narrowed = world({ viewport = { w = view.w, h = view.h }, rows = 200, inlineText = inline })
+				local cold = coldWorld({ viewport = { w = view.w, h = view.h }, rows = 200 })
+				settle(narrowed)
+				settle(cold)
+				expect(snapshot(narrowed) == snapshot(cold)).toBe(true)
+				local corrected = false
+				local function widths(word: string, size: number): number?
+					if not corrected then
+						corrected = true
+						-- the boot-window flip, on a word EVERY row draws
+						text_metrics.setMeasured("BuilderSans", SIZE_ROW, "row", 3)
+					end
+					return if word == WORD then 9 else math.max(1, #word * size * 0.5)
+				end
+				if inline then
+					inlineOn(narrowed, function(word: string, size: number): number?
+						return widths(word, size)
+					end)
+				end
+				for _, arm in { narrowed, cold } do
+					corrected = arm == cold
+					arm.rowValue[9]:set(WORD)
+					arm.controller.refresh()
+					if arm == cold or not inline then
+						arm.adapter.deliverTextWidths(widths)
+					end
+				end
+				local st = stats(narrowed)
+				expect(`{view.id} {shape}: over budget pushed={st.lastTextDirtyPaths}`).toBe(
+					`{view.id} {shape}: over budget pushed=0`
+				)
+				expect(`{view.id} {shape}: arranged {st.lastArranged} of {st.lastLayoutNodes}`).toBe(
+					`{view.id} {shape}: arranged {st.lastLayoutNodes} of {st.lastLayoutNodes}`
+				)
+				assertCold(cold, `{view.id} {shape} over budget`)
+				expect(snapshot(narrowed) == snapshot(cold)).toBe(true)
+			end
+		end
+	end)
 
 	it("a viewport change DURING a pending settle takes the whole tree, not the push", function()
 		--[[ THE REFUSAL THAT PROTECTS THE ARRANGE AXIS. A moved `measureStamp` means
