@@ -1370,6 +1370,99 @@ arrays (ruling A-9), never T13's — and it still refuses this class, correctly.
   Commit (after step 0's own commit) `T14: a stack re-places only its dirty children when nothing moved (C12)`.
 - [ ] **Step 7: FacetBench §C12.** The mechanism, the counter table (`lastArrangeEntries` before/after with `lastArranged`/`rectWrites`/`engineWrites` shown UNMOVED beside it, because that is the safety claim), the ABBA table, the arm-C number, **the measured-vs-placed correction written up plainly**, and **the booked prefix rebase with its five prerequisite gate terms** — so the next round knows exactly what it is buying and what it must prove.
 
+#### AMENDMENT LOG — what was BUILT against what §Task 14 wrote (T14, 2026-09-05)
+
+Append-only, per the discipline the earlier tasks' logs follow: the section above is the
+plan as reviewed and is not rewritten.
+
+**A. THE SCOPE IS WIDER THAN "NOTHING MOVED", AND THAT IS WHERE THE HEADLINE CAME FROM.**
+The plan's amended gate refuses a dirty child whose CROSS extent moved, and its own
+measured-survival table therefore predicted **zero** replays on `battle_hud L
+updateItem-hp` — the campaign's target class — with the prefix rebase booked as the only
+way to reach it. The shipped arm splits that refusal in two, because the two axes are not
+symmetrical:
+
+  * the MAIN axis is a CURSOR, so one child's extent moving moves every later sibling.
+    That is still refused, and the prefix rebase is still booked.
+  * the CROSS axis has NO cursor. `desired[idx]`'s cross extent is read at exactly one
+    place (`crossSize`, `stack.luau`'s placement loop) and no sibling reads it. So a
+    dirty child whose main extent stood still and whose CROSS extent moved is re-placed
+    HERE — `crossAvail`, `crossSize`, one `alignOffset`, with the main half taken from
+    the rect it already has — and every other child still keeps its rect.
+
+Measured, that is the whole difference between the plan's expected outcome and the
+shipped one: `battle_hud L updateItem-hp` **1.642 -> 1.016 ms (-38.2 %)** where the plan
+wrote "~0.90 (NO GAIN — this is not T14's class)". The hp bar's width IS the value, the
+row's measured WIDTH follows it, and the enclosing thousand-row VStack sees a pure
+cross-extent change on one child. The plan's shadow read that as a `CROSS` refusal and
+concluded the class was out of scope; it is in scope, and it is the headline.
+
+**B. THE PAYLOAD IS SIX ARRAYS AND SEVEN CONTAINER FIELDS, NOT FIFTEEN ARRAYS.** The
+plan's `pHug`, `pShrink`, `pPrio`, `pCAlign` and `pCLine` are not built, and each is
+replaced by something exact and cheaper — the per-child record loop is the cost this
+lever pays on every class it REFUSES, which is the trap T13b's report named:
+
+  * `pCAlign`/`pCLine` -> **`pAl`**, ONE array holding the RESOLVED
+    `child.lineAlign or child.align or node.align`. Only the resolved value reaches the
+    placement, and `node.align` is already a container gate term.
+  * `pHug`, plus the `fill`/`aspect`/`shrunk` classes the plan did not gate at all ->
+    **`pFlag`**, one integer per child: main `fill`/`hug` (1), cross `fill` (2), `aspect`
+    on either axis (4), a member of `shrunk` (8). Those are exactly the children whose
+    recorded pair is NOT the measurement that decided their rect, because each was
+    measured a second time at an offer this arm does not reproduce. A dirty child that IS
+    or WAS any of them refuses, which also catches a dim flipping TYPE at an unchanged
+    content size — a hole the plan's gate had (`fixedMain`/`fillWeightSum` move with no
+    measurement change).
+  * `pShrink`/`pPrio` -> **`pShort`**, ONE container boolean ("this stack came out SHORT
+    last pass"), plus the DIRTY child's CURRENT `shrinkWeight`/`layoutPriority`. A clean
+    child's weight cannot have moved; on a stack that was not short the shrink pass
+    cannot run at all, because `availMain` is proved unchanged by the gate. Ruling A-15's
+    property, with no per-child array.
+  * **`pMarg` is NEW and it is a wrong pixel without it.** A margin-inclusive pair cannot
+    see `left 11/right 7` becoming `left 7/right 11`: same measurement, same
+    contribution, child 4px to the left. Compared for DIRTY children only, and stored as
+    `false` when all four sides are zero, so the common child retains no table.
+  * **`pKind` is NEW** — the axis. It is the defect T13b found in T13's own key:
+    `UI.AdaptiveStack` flips `kind` through a prop with the documented guarantee that the
+    flip is a re-solve and never a remount, so every child stays clean while `pMain`
+    stops meaning the axis it was recorded on.
+  * `pRect` is kept, and the plan's `pIds` scan is kept.
+
+**C. MUST-FIX 1 (the stamp) IS BUILT AS SPECIFIED**, with T18-A's split accounted for:
+`pStamp == ctx.measureStamp` and `pScope == ctx.scopeKey`. The per-WORD half of the
+text-metrics generation left the stamp in T18-A and arrives as DIRT over the (font,size)'s
+users, so a settled word reaches this arm as a dirty child and is re-measured like any
+other; the CALIBRATION half still rides the stamp and is what the case drives.
+
+**D. MUST-FIX 2 AND 3 ARE BUILT, AND 3 IS RE-FILED RATHER THAN REFUSED.**
+`noteContainment` is replayed for EVERY child, gated on `pNoted` (this container filed one
+on the recording pass) — which is exact, because with no finding and every rect unchanged
+there is none now. The container's own two findings (the overflow diagnostic AND the
+`distribute`-has-nothing conflict, which the plan did not name) are recorded as
+`pIssues` and re-inserted. `arrange_reports.containment` now RETURNS whether it filed,
+which is what makes `pNoted` free.
+
+**E. THE OFFER PAIR: T13's AND T13b's NULL IS STRUCTURAL, NOT UNWITNESSED.** Both reports
+booked `child.oMemo` as a behavioural null and named T14 as the task that would make it
+load-bearing. It does not. Its only writer is `stack_measure`'s container walk, so the
+nodes carrying it are children of a STACK; `entry.offerW`/`offerH` have exactly two
+readers, both in the ANCHOR branch, both about children of an ANCHOR; and a node has one
+parent. Under the replay a CLEAN child is not placed at all, so no fresh entry literal is
+built for it and its offer pair is the one the previous solve filed at the same
+`innerW`/`innerH` — both gate terms. Poisoning the fallback leaves the whole 8,620-case
+suite green. Pinned as a source-level reachability case plus a rect-level positive.
+
+**F. THE COUNTERS.** `arrangeEntries` as specified, plus **`placeSkipped`** (review-3
+SHOULD-FIX 4): `lastArrangeEntries` cannot fall below the container count, so the
+per-child census is published beside it and neither is quoted alone. `replayChecks`
+guards the forced-on oracle's non-vacuity, on the `memoChecks` precedent.
+
+**G. STEP 0 SHIPPED AS REASONING, NOT AS VALUES.** A commit that widened
+`stack_seam.spec`'s expected sets ahead of the source is RED by construction — the
+`toEqual` is exact and that exactness is the point. So the step-0 commit restructures the
+three read sets and the write list into named, per-field-justified tables and NAMES the
+nine fields the mechanism will add, and the values move in the mechanism's own commit.
+
 ---
 
 ### Task 15 (L1c → FacetBench §C13): `layout_node.build` keeps a container's children array
