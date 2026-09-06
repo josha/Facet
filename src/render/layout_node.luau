@@ -1460,8 +1460,18 @@ local function toLayoutNode(
 					a licence to skip subtrees (`render/structural_scope.widen`) and a
 					reused array constructs no child, so the list would be short by the
 					whole subtree. ]]
+				--[[ ...AND IT IS AN ASSIGNMENT, not a `+=`, which is sound only because
+					the child loop below is the ONLY thing between this container's own
+					`store.nodes += 1` and the entry write that recorded `n`. A second
+					recursion site added between them would make this silently
+					double-count — the count would still be plausible, and only
+					`stats.lastLayoutNodes` and the skip arithmetic derived from it would
+					be wrong. `prior.n` is read bare: the entry write records
+					`n = store.nodes - nodesAtEntry` unconditionally, so there is no entry
+					without it, and a fallback here would quietly substitute a number for
+					a state that cannot occur. ]]
 				layoutNode.children = prior.childArray
-				store.nodes = nodesAtEntry + (prior.n or 1)
+				store.nodes = nodesAtEntry + prior.n
 			end
 		end
 		if not reusableKids then
