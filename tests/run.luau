@@ -543,6 +543,16 @@ require("./engine_writes.spec")
 -- hide/unhide and a placement prop on a Text leaf
 require("./commit_dirt_classes.spec")
 require("./commit_descend_cache.spec")
+-- ...and the differential the cache's own header states and nothing asked for: the
+-- three descend lists against `skip`'s answer for the same child, over every
+-- ordering of every verdict class, because a walk re-examines nothing its parent's
+-- list handed it and a list built SHORT is silently a stale prop
+require("./commit_descend_predicate.spec")
+-- ...and the end-to-end half of the same axis: a commit-class write (padding,
+-- textSize, wrap/compact verdict, scroll canvas) on the SIBLING of a pure-arrange
+-- write, which is the only shape where the commit list parts company with the other
+-- two — prune on against prune off against a from-scratch mount, over the matrix
+require("./commit_arrange_sibling.spec")
 -- ...and the half of that scan the cache could not remove (Plan C, C14): the
 -- `entryVerdict` CALL, kept only for the two populations that need it — an entry-less
 -- spliced region, and a child whose entry the solve replaced. The scan-count pin that

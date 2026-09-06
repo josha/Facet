@@ -765,8 +765,21 @@ function commit_walks.new(ctx: CommitCtx)
 				nm = len
 			end
 			if skipC ~= skipM and lc == lm then
+				--[[ ...AND THE PREFIX LENGTH COMES OFF THE ARRAY, NOT OFF THE NAME. A
+					COUNT IS PER ARRAY, and `lm` may BE `lb`'s array: the append block
+					below adds a kept child once per DISTINCT table, so for as long as
+					`lm == lb` only `nb` advances and `nm` stands still at whatever it held
+					when the two started sharing. Copying `nm` elements from that shared
+					array would store a commit list SHORT BY EVERY CHILD KEPT SINCE THE
+					ALIAS BEGAN — and `descendOf` hands that list to the four arrange-blind
+					walks with no second check behind it, so a child in `commitDirty`
+					silently keeps a stale `padding`, `TextSize`/font, compact/wrap verdict
+					and scroll canvas. `nb` is the live count of the array `lm` is aliasing;
+					ask THAT. (The move fork above is already written this way — it reads
+					`nb` for `lb`'s array — and `nc` needs no such term because a list is
+					only ever appended to while it is nobody's alias.) ]]
 				local src: { any } = if lm ~= nil then lm else kids
-				local len = if lm ~= nil then nm else i - 1
+				local len = if lm ~= nil then (if lm == lb then nb else nm) else i - 1
 				listCells += len + 1
 				local forked = table.create(len)
 				table.move(src, 1, len, 1, forked)
