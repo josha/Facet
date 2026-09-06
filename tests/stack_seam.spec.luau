@@ -150,27 +150,77 @@ end)
 describe("the stack seam: what it READS of the solve, and the one thing it WRITES", function()
 	local stackSrc = fs.readFile(STACK_PATH)
 
+	--[[ THE SCHEMA IT DEPENDS ON, AS THREE SETS rather than as a promise. Every
+		parameter is typed `any` precisely so the module cannot import the solver's own
+		types back, which means nothing but this check reports a further field being
+		reached for. A field appearing here that is not on this list is a stack branch
+		that has started to depend on the SOLVE rather than on the node and the box it
+		was handed — which is sometimes exactly the right change, and is never one a
+		green run should be able to make quietly.
+
+		SO THE LISTS CARRY THEIR REASONS (Plan C, T14 step 0, ruling T7-3). `stack_measure`'s
+		own seam went from ONE `ctx` field to TEN when T13's container memo landed, and
+		that widening was worth a sentence per field rather than a diff on a literal.
+		The stack ARRANGE branch is about to make the same move for the same reason —
+		the replay that re-places only the children that moved has to ask the SOLVE what
+		it is allowed to trust — so the three sets become named tables with a line each,
+		and the widening lands as a set of new lines rather than as an edited literal.
+
+		WHAT T14 WILL ADD, NAMED HERE BEFORE IT LANDS, so the commit that adds them is a
+		commit about the mechanism and not about this pin:
+		  `ctx.reuse`         the previous solve's map and dirty closure — the replay is
+		                      structurally unreachable without it
+		  `ctx.noSkipDepth`   the suspension a coordinate-space host raises; the arm must
+		                      refuse under it exactly as `arrangeBody`'s own skip does
+		  `ctx.measureQuiet`  the anchor arm's fourth gate and T13's: a measure-time
+		                      finding is filed about a node in the subtree the arm does
+		                      not re-measure, and no rect can carry it back
+		  `ctx.measureStamp`  and `ctx.scopeKey` — the solve-wide inputs no per-child
+		  `ctx.scopeKey`      fact can see (the viewport, the theme, the text scales,
+		                      the text-metrics CALIBRATION generation)
+		  `ctx.replayAudit`   the forced-on oracle's switch (ruling A-12)
+		  `node.cmemo`        the container memo T13 created (ruling A-8), which is where
+		                      the replay's own payload lives
+		  `child.id`          the identity the payload's per-index arrays are keyed by —
+		                      the `ForEach` splice moves indices under an unchanged mount
+		                      children table
+		  `child.layoutPriority`  the shrink pass's order, one of the two inputs that
+		                      move a rect with no measurement change (ruling A-15)
+		It does NOT add `node.gap`: `gap` is a PARAMETER of `stack.arrange`, and the
+		replay compares the parameter it was handed. ]]
+	local CTX_FIELDS = {
+		-- the list its caller owns, appended to by the two diagnostics below
+		"diagnostics",
+		-- ...and the gate those two share
+		"hiddenDepth",
+	}
+	local NODE_FIELDS = { "align", "children", "distribute", "id", "kind" }
+	local CHILD_FIELDS = { "align", "lineAlign", "margin", "shrinkWeight" }
+
 	it("it reads a CLOSED set of ctx, node and child fields", function()
-		--[[ THE SCHEMA IT DEPENDS ON, AS A SET rather than as a promise. Every
-			parameter is typed `any` precisely so the module cannot import the solver's
-			own types back, which means nothing but this check reports a third `ctx`
-			field being reached for. `hiddenDepth` is the gate the two diagnostics share
-			and `diagnostics` is the only thing this module writes — so a third `ctx`
-			field appearing here is a stack branch that has started to depend on the
-			SOLVE rather than on the node and the box it was handed. ]]
-		expect(sorted(fieldsRead(stackSrc, "ctx"))).toEqual({ "diagnostics", "hiddenDepth" })
-		expect(sorted(fieldsRead(stackSrc, "node"))).toEqual({ "align", "children", "distribute", "id", "kind" })
-		expect(sorted(fieldsRead(stackSrc, "child"))).toEqual({ "align", "lineAlign", "margin", "shrinkWeight" })
+		expect(sorted(fieldsRead(stackSrc, "ctx"))).toEqual(CTX_FIELDS)
+		expect(sorted(fieldsRead(stackSrc, "node"))).toEqual(NODE_FIELDS)
+		expect(sorted(fieldsRead(stackSrc, "child"))).toEqual(CHILD_FIELDS)
 	end)
 
+	--[[ THE READ-vs-WRITE HALF OF THE ONE-WAY TEST, and the half a field-read scan
+		cannot see. A block that only reads its host's state can be moved; a block that
+		WRITES it has to be trusted to write the same thing at the same moment, which is
+		a different and much weaker claim. This branch assigns no field of `ctx`,
+		`node`, `child` or `deps` at all — its two diagnostics append to the list its
+		caller owns, and every rect it produces reaches `out` through `place`, which is
+		the solver's own `arrange`.
+
+		A COUNTER IS THE ONE ASSIGNMENT THIS SET WILL EVER ACCEPT (T14 step 0). It is
+		WRITE-ONLY — the module never reads the field back, so no behaviour of this
+		branch is a function of it and the "same thing at the same moment" objection
+		does not arise. `stack_measure.luau`'s own seam went from an EMPTY write set to
+		three on exactly that argument when T13/T13b's counters landed. Anything that is
+		not a counter belongs in the empty list below, and a counter that is ever READ
+		here stops being one. ]]
+	local WRITES: { string } = {}
+
 	it("it WRITES nothing of the solver's but `ctx.diagnostics`, and only by insert", function()
-		--[[ THE READ-vs-WRITE HALF OF THE ONE-WAY TEST, and the half a field-read scan
-			cannot see. A block that only reads its host's state can be moved; a block
-			that WRITES it has to be trusted to write the same thing at the same moment,
-			which is a different and much weaker claim. This branch assigns no field of
-			`ctx`, `node`, `child` or `deps` at all — its two diagnostics append to the
-			list its caller owns, and every rect it produces reaches `out` through
-			`place`, which is the solver's own `arrange`. ]]
 		local body = stripComments(stackSrc)
 		local assigned: { string } = {}
 		for recv, field in string.gmatch(body, "([%a_][%w_]*)%.([%a_][%w_]*)%s*[%+%-]?=[^=]") do
@@ -178,7 +228,7 @@ describe("the stack seam: what it READS of the solve, and the one thing it WRITE
 				table.insert(assigned, `{recv}.{field}`)
 			end
 		end
-		expect(assigned).toEqual({})
+		expect(assigned).toEqual(WRITES)
 		local inserts: { [string]: boolean } = {}
 		for target in string.gmatch(body, "table%.insert%(%s*([%a_][%w_%.]*)") do
 			if string.find(target, ".", 1, true) ~= nil then
