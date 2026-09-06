@@ -97,13 +97,40 @@
 	loud throw, on every surface a presenter mounts.
 
 	SO THE STATE IS EXPORTED: `trampoline` returns the entry point AND `owed()`, and
-	the renderer asks it in the three places a deferral has to survive — the frame
+	the renderer asks it in the four places a deferral has to survive — the frame
 	entry point solves when a round is owed whatever the dirty queue says,
 	`controller.textPending()` ORs it in (a surface that owes a round is NOT settled,
 	on every adapter shape: the boot window's still-in-flight words are the special
-	case, not the general one), and `initialRender` does not drain dirt while a round
-	is owed. The first two are the ruling; the third is what the measurement above
-	added to it, and it is the one that carries the WORK rather than the intent.
+	case, not the general one), `initialRender` does not drain dirt while a round is
+	owed, and `refresh` does not MARK dirt classified while one is (below). The first
+	two are the ruling; the other two are what the measurements added to it, and they
+	are the ones that carry the WORK rather than the intent.
+
+	AND A SOLVE THAT MAKES NO PROGRESS MUST NOT RETIRE THE ROUND (fix round 3, review
+	F1-b). Reader 1 above forces a solve; it does not, by itself, force that solve to
+	DO anything. `renderer.refresh` writes `nodeDirtySeen = root.dirtySeq()` before it
+	scans the queue — the claim "everything dirtied so far is classified into
+	`nodeDirty`" — and on an EMPTY queue that claim is a lie whenever anything else
+	drained it: nothing is classified, `nodeDirty` stays `{}`, `layout_node.build`
+	serves every node from the store, and the forced solve measures a tree still
+	holding the PREVIOUS word. The drain nevertheless spends the carried-in round, so
+	`owed` clears and `textPending()` flips back to FALSE — F2's defect, restored by
+	F1's fix, one frame later. Measured on `tests/text_round_reentry.spec.luau`'s
+	48-word chain with the queue drained after the deferral: `solves 20 -> 22`, epoch
+	FROZEN at 19, `pending false`, and the box 150 px around a word that needs 324.
+	STRICTLY WORSE than not forcing the solve at all, which strands the surface LOUDLY
+	with the presenter's reveal deadline as the escape hatch.
+
+	AND THE NARROWING WAS NOT THE CAUSE, which is worth stating because it is the
+	obvious remedy and it was measured to do nothing: making that solve UNNARROWED on
+	the owed arm (`dirtyContains, measureContains = nil, nil`) left the same drive at
+	`solves 22`, epoch 19, `w 150`, byte for byte the stranded reading — the closure
+	is not what serves a stale node, and `render/text_index` unions the text-dirty
+	paths into an empty one anyway. Withholding the MARK is the fix: `solveAndApply`'s
+	own sequence test then takes the full arm and re-marks it, and the owed round runs
+	as the drain's own round would have. The empty queue is production's shape, not a
+	contrivance — a learned width changes no node's props on a static-text surface, so
+	a full premeasure learn moves `root.dirtySeq()` by ZERO there.
 
 	WHAT IT IS STILL NOT is a promise about a surface that trips the cap and then
 	never renders again; that one carries its owed round until something solves, and a

@@ -2855,7 +2855,10 @@ function renderer.attach(
 				at = string.match(at, "^(.*)/[^/]*$")
 			end
 		end
-		nodeDirtySeen = root.dirtySeq()
+		-- reader 4: the owed round needs the FULL build the mark would deny it
+		if not drainOwed() then
+			nodeDirtySeen = root.dirtySeq()
+		end
 		-- MICROPROFILER SPAN `dirtyScan` (wicked-fast T2/profile §7): this loop
 		-- writes five ENCLOSING locals — `needsSolve`, `needsStructure`,
 		-- `hiddenTouched`, `presentationTouched`, `structureEpoch` (`nodeDirtySeen`

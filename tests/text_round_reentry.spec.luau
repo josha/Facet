@@ -92,6 +92,8 @@ type Arm = {
 	words: { string },
 	-- the vocabulary's own bound (see `mountAt`): `bound:set(chain)` opens it
 	bound: any,
+	-- the mounted tree, so a case can drain the dirty queue the way a caller does
+	root: any,
 }
 
 --[[ EVERY ARM GETS ITS OWN VOCABULARY, AND EVERY VOCABULARY IS THE SAME SHAPE.
@@ -204,6 +206,7 @@ local function surface(
 		notifyRects = {},
 		words = words,
 		bound = bound,
+		root = root,
 	}
 	controller.onSolved(function()
 		arm.notifies += 1
@@ -798,9 +801,13 @@ describe("the premeasure answer does not run on the solve that asked", function(
 
 		SO THE DEFERRAL OWNS ITS RE-ARMING: the frame entry point asks the QUEUE whether
 		a round is owed, which is a fact about the queue rather than about any caller's
-		dirty bookkeeping, so no `takeDirty()` anywhere can strand it. Driven on BOTH
-		adapter shapes — the boot window is where the cap trips live, and the settled
-		shape is where a reader would assume it cannot. ]]
+		dirty bookkeeping. WHAT THAT PINS IS THAT A SOLVE RUNS, and this case's first
+		claim used to say more than that — "no `takeDirty()` anywhere can strand it",
+		which the review falsified (fix round 3, F1-b): whether the forced solve makes
+		PROGRESS is a second question, and this arm cannot ask it because the dirt is
+		still in the queue when the next frame takes it. The `takeDirty()` case below is
+		the one that asks it. Driven on BOTH adapter shapes — the boot window is where the cap trips
+		live, and the settled shape is where a reader would assume it cannot. ]]
 	it("a cap tripped inside `initialRender` is not stranded: ordinary frames finish the walk", function()
 		withReports(function(reports)
 			-- deep enough that neither the mount nor the frame after it can finish it
@@ -876,6 +883,109 @@ describe("the premeasure answer does not run on the solve that asked", function(
 			end
 			expect(`settled: pending {arm.controller.textPending()}`).toBe("settled: pending false")
 			arm.controller.dispose()
+		end)
+	end)
+
+	--[[ ── AN OWED ROUND IS A ROUND THAT MUST STILL DO THE WORK (C-3 fix round 3, F1-b) ─
+
+		WHAT WAS WRONG. Fix round 2 made the frame entry point solve whenever a round is
+		owed — and then handed that solve a tree it had just declared CLEAN. `refresh`
+		writes `nodeDirtySeen = root.dirtySeq()` before it scans the queue, which is the
+		claim "everything dirtied so far is classified into `nodeDirty`". On an EMPTY
+		queue that claim is a lie whenever anything else drained it: nothing is
+		classified, `nodeDirty` stays `{}`, `layout_node.build` serves every node from
+		the store, and the forced solve measures a tree still holding the PREVIOUS word.
+		It makes no progress — but the drain still spends the carried-in round, so
+		`owed` clears, `controller.textPending()` flips back to FALSE, and
+		`present/presenter`'s `syncTextReveal` reveals the surface and stamps
+		`handle.textRevealedExact = true` on geometry that is 29 words short. The
+		reviewer measured it on this fixture: `solves 20 -> 22`, epoch FROZEN at 19,
+		`pending FALSE`, and the box 150 px around a word that needs 324 — which is F2's
+		defect restored by F1's own fix, and STRICTLY WORSE than not shipping reader 1
+		at all (without it the surface strands LOUDLY, pending true, with the
+		presenter's deadline as the escape hatch).
+
+		AND THE NARROWING WAS NOT THE CAUSE, which is why this case exists rather than
+		the one-line remedy the review proposed. Making the forced solve UNNARROWED on
+		the owed arm (`dirtyContains, measureContains = nil, nil`) was measured on this
+		exact drive and changed NOTHING — `solves 22`, epoch 19, `w 150`, byte for byte
+		the stranded reading — because `render/text_index` unions the text-dirty paths
+		into an empty closure anyway. The cause is one line further back, and it is the
+		same line fix round 2 already found on the mount path: the CLASSIFICATION MARK.
+		So reader 4 withholds it while a round is owed, `solveAndApply`'s own sequence
+		test (`root.dirtySeq() ~= nodeDirtySeen`) then takes the full arm and re-marks
+		it, and the owed round runs as the drain's own round would have.
+
+		THE SHAPE IS PRODUCTION'S, not a contrivance. A learned width changes no node's
+		props on a real surface — the text is a static string — so a full premeasure
+		learn moves `root.dirtySeq()` by ZERO there and the next frame's queue is empty
+		by itself. This fixture's label is a memo over `textMeasureEpoch`, so it
+		manufactures dirt the walk can ride on; one `root.takeDirty()` is what takes that
+		crutch away and asks the question the real surface asks. ]]
+	it("a `takeDirty()` between the deferral and the next frame does not strand the walk", function()
+		withReports(function()
+			local CHAIN = CAP * 3
+			--[[ ONE TRANSCRIPT, ONE COMPARISON, because the defect is a TABLE of readings
+				and an assert that stops at the first one hides the rest. At `b59a01f3` the
+				boot arm's epoch is frozen AND the settled arm reads `pending false`; a
+				per-line assert would report the first and never reach the second. ]]
+			local seen: { string } = {}
+			local want: { string } = {}
+			for _, bootWindow in { true, false } do
+				local name = if bootWindow then "boot" else "settled"
+				--[[ THE F2 SHAPE: mount short, open the vocabulary under a drive, so the
+					deferral lands inside `refresh` and `initialRender`'s own guard (reader 2)
+					is not what this case is asking about. ]]
+				local arm = surface({ chain = CHAIN, mountAt = 2, bootWindow = bootWindow })
+				arm.controller.initialRender()
+				arm.bound:set(CHAIN)
+				local before = arm.controller.stats().solves
+				arm.controller.refresh()
+				-- the premise: a round really was deferred, and it really is carried
+				table.insert(
+					seen,
+					`{name} deferred: solves +{arm.controller.stats().solves - before} pending {arm.controller.textPending()}`
+				)
+				table.insert(want, `{name} deferred: solves +{CAP + 1} pending true`)
+				--[[ AND NOW THE ONE LINE THIS CASE IS. The dirt the deferred round would have
+					ridden is taken by a caller — exactly what `initialRender`'s own drain used
+					to do — leaving the owed round with nothing but itself. ]]
+				local stolen = #arm.root.takeDirty()
+				table.insert(seen, `{name} stole dirt: {stolen > 0}`)
+				table.insert(want, `{name} stole dirt: true`)
+				--[[ ONE FRAME LATER THE WALK HAS MOVED AND IS NOT FINISHED. At `b59a01f3`
+					the epoch is frozen where the deferral left it and the settled arm reads
+					`pending false` — the reveal gate open, `textRevealedExact` stamped, 29
+					words short of the geometry it claims. ]]
+				arm.controller.refresh()
+				local mid = (arm.env:get("textMeasureEpoch"):get() :: any) or 0
+				table.insert(seen, `{name} one frame on: moved {mid > CAP + 3} pending {arm.controller.textPending()}`)
+				table.insert(want, `{name} one frame on: moved true pending true`)
+				-- ...and ordinary frames finish it
+				for _ = 1, 4 do
+					arm.controller.refresh()
+				end
+				--[[ THE EPOCH IS THE WHOLE VOCABULARY, THE BOX IS THE LAST WORD'S OWN WIDTH
+					(the epoch alone would pass on a surface that learned every width and never
+					re-laid itself out, which is what the reviewer's 138 px box was), AND THE
+					GATE OPENS AGAIN on the settled adapter. The boot-window arm stays pending
+					for the reason the mount case states: `final = false` leaves every answered
+					word in flight until the engine's settled re-read, which is the boot window
+					and not the deferral. ]]
+				local r = arm.controller.rectOf("/Root/Chain")
+				table.insert(
+					seen,
+					`{name} converged: epoch {(arm.env:get("textMeasureEpoch"):get() :: any) or 0} `
+						.. `w {if r ~= nil then r.w else -1} pending {arm.controller.textPending()}`
+				)
+				table.insert(
+					want,
+					`{name} converged: epoch {CHAIN} w {widthOf(arm.words[CHAIN], 12, "")} `
+						.. `pending {if bootWindow then "true" else "false"}`
+				)
+				arm.controller.dispose()
+			end
+			expect(table.concat(seen, "\n")).toBe(table.concat(want, "\n"))
 		end)
 	end)
 

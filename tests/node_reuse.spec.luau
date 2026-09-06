@@ -1248,7 +1248,11 @@ describe("the layout-node store: the audit that licenses it", function()
 			DIFFERENT reasons:
 
 			  · `controller.refresh` marks `nodeDirtySeen = root.dirtySeq()` on the line
-			    after its drain, so everything it consumed is classified;
+			    after its drain, so everything it consumed is classified — UNLESS it is
+			    paying an owed round, in which case the mark is withheld (ruling C-3, fix
+			    round 3): an empty queue classifies NOTHING, and a mark taken over
+			    nothing let the forced solve serve a stale tree and retire the round
+			    anyway. `render/solve_queue`'s header carries the measurement;
 			  · `controller.initialRender` drains WITHOUT marking — and it runs after
 			    `solveAndApply`, which has already done a full build and set the mark
 			    itself; `takeDirty` does not move `dirtySeq`, so that mark still stands.
@@ -1268,7 +1272,8 @@ describe("the layout-node store: the audit that licenses it", function()
 			text clipped, because `refresh` then marked that same dirt classified. So the
 			drain is GUARDED by the queue's owed-round reader, and the guard is the third
 			term of the ordered triple below — without it this case would pass on a
-			renderer that strands every deep mount. ]]
+			renderer that strands every deep mount. THE MARK CARRIES THE SAME GUARD, for
+			the same reason and read as its own ordered pair below. ]]
 		local body = stripLua(fs.readFile(RENDERER_PATH))
 		local sites: { string } = {}
 		for line in string.gmatch(body, "\n([^\n]*root%.takeDirty%(%)[^\n]*)") do
@@ -1278,6 +1283,22 @@ describe("the layout-node store: the audit that licenses it", function()
 		-- the marking one, and the mark is on the drain's own statement list
 		expect(string.find(body, "local dirty = root.takeDirty()", 1, true) ~= nil).toBe(true)
 		expect(string.find(body, "nodeDirtySeen = root.dirtySeq()", 1, true) ~= nil).toBe(true)
+		--[[ ...AND THE MARK IS GUARDED BY THE OWED-ROUND READER, read off `refresh`'s OWN
+			body — the whole file carries a second, unguarded `nodeDirtySeen = ...` inside
+			`solveAndApply`, which is the one that re-takes the mark after the full arm,
+			so a file-wide `find` here would answer about the wrong statement. The guard
+			must be the statement immediately in front of the mark: a mark taken while a
+			round is owed claims a classification the scan did not make. ]]
+		local refreshBody = string.match(body, "function controller%.refresh%(%)(.-)\n\tend")
+		assert(refreshBody ~= nil, "no `refresh` body to read")
+		local refreshMarkAt = string.find(refreshBody :: string, "nodeDirtySeen = root.dirtySeq()", 1, true)
+		local guarded = refreshMarkAt ~= nil
+			and string.match(
+					string.sub(refreshBody :: string, 1, (refreshMarkAt :: number) - 1),
+					"if not drainOwed%(%) then%s*$"
+				)
+				~= nil
+		expect(`refresh marks under the guard: {guarded}`).toBe("refresh marks under the guard: true")
 		--[[ ...and the unmarked one is `initialRender`'s, WITH the full build in front
 			of it. Read as an ordered triple off the source rather than asserted: the
 			drain must come after `solveAndApply()` inside that function. ]]
