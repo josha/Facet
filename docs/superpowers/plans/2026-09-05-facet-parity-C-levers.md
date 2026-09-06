@@ -3197,3 +3197,116 @@ refusal shape is corrected to *many mount children splicing FEW layout nodes*, n
 plain container. `layout_node.luau`'s dead `(prior.n or 1)` is `src/` and is **booked for
 the RED-TEAM fix wave** rather than touched in a tests-and-docs round, together with the
 comment its neighbouring assignment is owed.
+
+---
+
+## §Task 16 — what was actually BUILT, against what §Task 16 wrote (T16, 2026-09-06)
+
+**The gate PASSED and the mechanism was REFUSED by its own measurement.** §Task 16's
+membership filter was built exactly as specified — including both review MUST-FIXes and a
+third term the plan did not have — and then measured against a two-line alternative that
+needs no `solver.luau` export, no `renderer.luau` argument and no `harvest` parameter. The
+alternative produces the identical prune decisions, is faster on every class, and does not
+regress the two structural classes the filter does. Facet `788366e12`; RascalRally
+`tests/facet_commit_dirt_classes.spec.luau`; FacetBench §C14.
+
+### A — the gate, with the numbers (§Task 16 step 1)
+
+At `48f010cd`, `attr <wl> L 3`: `battle_hud L updateItem-hp` **`cw.harvest` 0.098 ms of a
+1.053 ms class — 9.3 %**; `war_room_inventory L setState` 0.160 of 1.918 (8.4 %);
+`killfeed_nameplates L updateItem-hp` 0.031 of 0.293 (10.5 %). ≥ 0.05 ms and ≥ 5 % both
+clear on the campaign's headline class. **IN.** The plan's prediction that T13–T15 would
+not reduce `cw.harvest` is confirmed — 0.089 ms at `e26c1daf`, 0.098 ms now — and ruling
+A-6's decision to restate the gate on the absolute value rather than on a share is
+vindicated by exactly that.
+
+### B — the premise, and where it stopped being true
+
+§Task 16 says "`entryVerdict` … is the cost (`probeEntry` plus a `lastCommitEntry`
+lookup)". `probeEntry`'s FIRST LINE is `commitRects[node.path]`, so for a child that owns
+its own entry the whole verdict is **two hash lookups and an `==`**, wrapped in two closure
+calls. `probeEntry` only costs more than one lookup for an entry-LESS child, where it walks
+a chain of spliced wrappers — and **review round 3's MUST-FIX 4 (`and rects[p] ~= nil`)
+removed exactly that population from the filter**. After that fix the membership test was
+deciding a question the entry lookup had already answered, and the measurement says so:
+`lastCommitProbes` is IDENTICAL between the two builds on every class of every workload.
+
+### C — the third term the plan did not have (found by the suite, not by argument)
+
+`tests/structural_scope.spec.luau`'s **"A NODE THE COMMIT HAD NO HANDLE FOR is not recorded
+as committed"** goes RED under the filter as specified. `rect_pass` deliberately leaves such
+a node UNNOTED so the next commit descends to it; membership in `walkedIds` says nothing
+about that, and the node's rect never reaches the engine. The sound filter is
+`walked[p] ~= true and commitRects[p] ~= nil and lastCommitEntry[p] ~= nil` — three lookups
+where the last two alone already compute `settled` exactly.
+
+### D — owed row 2 is FALSE, and the plan's union is three sets
+
+Review round 3 §2.3 states "the translate root is itself walked (it does not return at
+`:2400`)". **It is not.** `ctx.walkedIds[node.id] = true` is `solver.luau:2424`, at the END
+of `arrangeBody`; the translate arm's two success returns are `:2392` and `:2397`, and the
+source comment between them says so outright — *"WHO WALKED: **NOT THIS NODE**. Its body did
+not run"*. The fresh entry was written at `:2321`, above both. `translate_arm.luau:105-107`
+appends only the re-based DESCENDANTS. So a successful translate ROOT is in neither
+`walkedIds` nor `translatedPaths` while holding a brand-new `moveOnly` entry — the entry
+shape `hitRects` and `rect_pass` exist to descend for — and pruning it is a missed position
+write. `work.translatedRoots` (already exported at `:3465`) is the third set. **This is
+recorded even though the mechanism did not ship, because the next task that reaches for
+`walkedIds` as "everything this solve touched" will be wrong in the same way.**
+
+### E — what shipped, and the invariant it inherits
+
+`buildDescend` takes the two entry lookups in the loop body and keeps the `entryVerdict`
+call for the two populations that need it: an entry-LESS child, and one whose entry this
+solve REPLACED (where `moved` must still be computed). **It is `entryVerdict` ITSELF, not an
+approximation** — `settled` IS `lastCommitEntry[p] == probeEntry(child)`, and for
+`own ~= nil` that is exactly `lastCommitEntry[p] == own`, with `settled` short-circuiting
+`moved` in all three consumers. That is C4's own invariant ("it is `skip` ITSELF, ASKED
+ONCE, NOT AN APPROXIMATION OF IT") one level down, and it is why no verdict can differ.
+
+### F — the four arms
+
+| `battle_hud L`, `cw.harvest` med | A (HEAD) | A repeat | C (counter + predicate, discarded) | B (§Task 16's filter) | **B2 SHIPPED** |
+|---|---:|---:|---:|---:|---:|
+| `updateItem-hp` | 0.098 | 0.098 | 0.114 | 0.078 | **0.074** |
+| `setState` | 0.093 | 0.095 | 0.113 | 0.071 | **0.071** |
+| `addItem-damage` | 0.101 | 0.115 | 0.134 | 0.115 | **0.100** |
+| `removeItem-damage` | 0.098 | 0.107 | 0.131 | 0.109 | **0.096** |
+
+Arm C prices the counter and the predicate at **+0.016 ms**, so the shipped gain against a
+counter-free build is 0.114 → 0.074. Across the arena: `killfeed updateItem-hp` 0.031 →
+0.025, `killfeed setState` 0.026 → 0.020, `war_room setState` 0.160 → 0.125, `war_room
+addItem-items` 0.201 → 0.174, and **`war_room reorder` 0.374 → 0.429 — BOOKED** (+0.17 % of
+a 32 ms class: a reorder replaces nearly every entry, so the fast path declines and the
+extra lookup is pure cost).
+
+### G — the plan's steps, dispositioned
+
+| step | disposition |
+|---|---|
+| 1 — run the gate | **DONE**, numbers in the ledger and in §C14 |
+| 2 — the owed list, then the two pins | **DONE.** Twelve rows in the ledger before any code, including rows 2 and 12 (the translate root and the rollback) which the plan's eight did not have. `lastCommitScans` is the safety pin and does NOT move; `lastCommitProbes` is the acceptance number |
+| 3 — the counter alone (arm C) | **DONE**, and it found +0.016 ms |
+| 4 — the mechanism | **BUILT AS SPECIFIED, THEN REPLACED.** The `work` literal export, the `harvest` parameter and the renderer argument are all reverted; `solver.luau` and `renderer.luau` are byte-unchanged |
+| 5 — green + the differential oracle arm | **DONE.** Nine `device_views.VIEWS` on both arms plus a six-drive differential over three fixtures including the `foreach` arm; `commit_dirt_classes`, `commit_scope`, `structural_scope`, `commit_translate`, `translate_lane`, `rect_cow` all green |
+| 6 — the mutations | **4 BITE (1, 13, 17, 46 red), 1 PROVEN-EQUIVALENT NULL.** The plan's 5, 6 and 7 are moot with the export gone; its 1, 2 and 3 map to the shipped mutations 1, 4 and 3. Mutation 2 (`nil == nil` prunes every spliced region) is new and is C4's own recorded scar re-armed |
+| 7 — gates, RR, measurement, commit | **DONE.** Suite 8,661/0, RR 3,599/0, `verify affected` PASS_PARTIAL 503.0 s, `verify full` PASS 389.7 s, zero `FAIL_RECOVERABLE` |
+| 8 — FacetBench §C14 | **DONE**, including what the arena could NOT see |
+
+### H — the budgets
+
+**`renderer.luau` is UNCHANGED at 197,351 characters** — zero of the ≤ +280 the A-10 split
+allowed and, more to the point, zero of the **149** actually available under this campaign's
+197,500 STOP (the split was written when the file stood at 195,709; T18-A/B and T15 have
+spent it since). The source-cap ledger's own rule — *the drag-bridge extraction is owed
+before anything larger than a publish line lands here* — is therefore untouched by this
+task. `solver.luau` unchanged at 187,617; `commit_walks.luau` 87,703 → 91,557 (uncapped).
+
+### I — one methodological note for the remaining tasks
+
+A lever whose premise is "this call is expensive" should have the call's arithmetic written
+out in the plan before the plumbing that avoids it is designed. Here the plumbing (a solver
+export, a renderer argument, a `harvest` parameter, a per-commit union of three tables) was
+specified through three review rounds against a premise — *`probeEntry` is the cost* — that
+a review MUST-FIX had already invalidated by excluding the only children for whom it is
+true. The refutation cost one attr run.
