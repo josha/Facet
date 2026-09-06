@@ -2237,15 +2237,6 @@ function renderer.attach(
 			-- safety property and `render/premeasure_round` carries the rule; the exact
 			-- geometry lands one re-solve later, through the callback this hands over.
 			premeasureRound.request(textRequests, solveAndApply)
-			-- A REFLOW MOVES THE DROP TARGETS. Every rect the live
-			-- session hit-tests against was just rewritten, so the hover is
-			-- re-evaluated at the last pointer position on THIS frame — a verdict
-			-- that trailed the layout by a frame is a verdict about geometry the
-			-- player is no longer looking at.
-			local liveDrag = dragBridge.peek()
-			if liveDrag ~= nil and liveDrag.isActive() then
-				liveDrag.refreshTargets()
-			end
 		end)
 		--[[ THE LAYOUT FRAME IS CLOSED, so record what it answered for. `math.max`
 			because the text-measurement round above re-enters `solveAndApply`, and
@@ -2327,7 +2318,25 @@ function renderer.attach(
 	end
 
 	-- ...and only now, with both halves in hand, is the entry point built
-	solveAndApply = solve_queue.trampoline({ solve = solveOnce, notify = notifySolved })
+	--[[ ...AND THE TAIL A COMPLETED SOLVE OWES, run after the DRAIN rather than
+		between the drained solves (`render/solve_queue` carries the whole argument).
+		A REFLOW MOVES THE DROP TARGETS: the hover is re-evaluated at the last pointer
+		position on THIS frame, because a verdict that trails the layout is a verdict
+		about geometry the player is no longer looking at. It used to sit inside the
+		commit under the premeasurement request — BEFORE the correction that request
+		buys — firing the public `UI.dropTarget` callbacks against rects the next solve
+		was about to rewrite. The lane's tick calls the same pair, from the same place
+		in the frame. ]]
+	solveAndApply = solve_queue.trampoline({
+		solve = solveOnce,
+		tail = function()
+			local liveDrag = dragBridge.peek()
+			if liveDrag ~= nil and liveDrag.isActive() then
+				liveDrag.refreshTargets()
+			end
+			notifySolved()
+		end,
+	})
 
 	--[[ THE EXPLICIT PAINT-ORDER WALK is `render/z_order` (Plan C, ruling T5-2), and
 		it carries the whole argument: why z is assigned from a tree walk at all

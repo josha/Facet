@@ -71,6 +71,8 @@ local environment = require("../src/env/environment")
 local renderer = require("../src/render/renderer")
 local customFactory = require("../src/core/custom")
 local fake_target = require("./lib/fake_target")
+local solve_queue = require("../src/render/solve_queue")
+local Facet = require("../src") :: any
 
 local function fill(): any
 	return { type = "fill", weight = 1 }
@@ -109,13 +111,21 @@ end
 	measured, the next solve asks for it. `math.min` is the bound — without it the
 	chain is infinite in BOTH shapes, and a test that hangs proves nothing. Two of
 	these on one core and one environment is the two-workload configuration. ]]
-local function surface(opts: {
-	chain: number,
-	share: { core: any, env: any }?,
-	prefix: string?,
-	tag: string?,
-	stride: number?,
-}): Arm
+local function surface(
+	opts: {
+		chain: number,
+		share: { core: any, env: any }?,
+		prefix: string?,
+		tag: string?,
+		stride: number?,
+		-- answer on a FRESH THREAD the way `task.spawn` does, which is the only arm that
+		-- can see what a throwing re-solve does (fix round 1, review Important 1)
+		ownThread: boolean?,
+		-- throw out of an engine write on the Nth solve: the failure the live route
+		-- absorbs at its own thread boundary
+		throwOnSolve: number?,
+	}
+): Arm
 	local core = if opts.share ~= nil then opts.share.core else customFactory.new()
 	local env = if opts.share ~= nil then opts.share.env else environment.new(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 400, h = 300 })
@@ -152,8 +162,21 @@ local function surface(opts: {
 		})
 	)
 	local adapter = fake_target.new()
-	adapter.answerTextInline(widthOf)
+	adapter.answerTextInline(widthOf, nil, opts.ownThread)
 	local controller = renderer.attach(core, root, env, adapter, { rootPolicy = "coreSafeContent" })
+	if opts.throwOnSolve ~= nil then
+		--[[ AN ENGINE WRITE THAT THROWS, which is the shipped shape of this failure: a
+			destroyed instance, a rejected property value, a consumer error reached from
+			the solve. Armed on ONE solve so the drain has something to absorb and
+			something to carry on with. ]]
+		local realSetRect = adapter.setRect
+		adapter.setRect = function(...)
+			if controller.stats().solves == opts.throwOnSolve then
+				error("PROBE BOOM", 0)
+			end
+			return realSetRect(...)
+		end
+	end
 	local arm: Arm = {
 		core = core,
 		env = env,
@@ -304,6 +327,218 @@ describe("the premeasure answer does not run on the solve that asked", function(
 			queued.controller.refresh()
 		end
 		expect(painted(queued.adapter)).toBe(painted(inline.adapter))
+	end)
+
+	--[[ ── THE TAIL RUNS AFTER THE DRAIN (fix round 1, review Important 2) ────────
+
+		`notifySolved` was never the risk — the count is one per solve in both shapes.
+		THE OTHER POST-SOLVE HOOK WAS. `renderer.luau` used to call the drag bridge's
+		drop-target refresh inside the commit, UNDER the premeasurement request, and
+		under the recursion that was still safe: the nested solve had already applied
+		the corrected rects by the time the outer solve reached it, so every call saw
+		final geometry. With the drain it ran on solve 1's rects — and that call is not
+		internal. `input/drag_registry.refreshTargets` rebuilds every target rect,
+		re-runs the hover through `input/drag_session.retarget`, and `setHover` fires
+		the PUBLIC `UI.dropTarget` `onEnter` / `onLeave` / `onPredict`; `publishVerdict`
+		then writes the public `verdict` Readable.
+
+		THE SHAPE THIS CATCHES IS A HOVER NO FRAME EVER SHOWED, and it needs no
+		calibration. The slot FILLS the row beside the label, so the label's width is
+		the slot's left edge. Before the settle the label is short and measured, so the
+		pointer near the right edge is over the slot. The new word is 400 characters:
+		its ESTIMATE overflows the viewport, which collapses the slot to nothing on
+		solve 1, and its exact width is 20, which restores the slot on solve 2. So the
+		pointer is over the slot before the frame and over the slot after it, and only
+		an intermediate look sees anything else.
+
+		AND IT IS THE ORDINARY ONE-WORD SETTLE (`solves = 2`), not a deep chain — the
+		correction IS the second solve. ]]
+	it("a live drag's public drop-target callbacks see one set of rects per frame", function()
+		local UI2 = Facet.UI
+		local SHORT = "rrT18bShort"
+		local LONG = string.rep("m", 400)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 900, h = 400 })
+		local adapter = fake_target.new()
+		-- the settled engine: every word answered INSIDE the solve that asked. The long
+		-- word's exact width is 20 where its estimate is thousands, which is the
+		-- over-reserving conservative estimate this whole seam exists to correct.
+		adapter.answerTextInline(function(word: string): number?
+			return if word == LONG then 20 else math.max(1, #word * 4)
+		end)
+		local label = core:signal(SHORT)
+		local enters: { string } = {}
+		local leaves: { string } = {}
+		local verdicts: { string } = {}
+		local screen = UI2.Screen({
+			id = "S",
+			padding = 0,
+			children = {
+				UI2.HStack({
+					id = "Row",
+					padding = 0,
+					gap = 0,
+					width = { type = "fill", weight = 1 },
+					height = { type = "fixed", px = 120 },
+					children = {
+						UI2.Text({ id = "Label", textSize = 20, text = label }),
+						UI2.dropTarget(
+							UI2.Box({
+								id = "Slot",
+								width = { type = "fill", weight = 1 },
+								height = { type = "fixed", px = 100 },
+							}),
+							{
+								onDrop = function() end,
+								onEnter = function()
+									table.insert(enters, "Slot")
+								end,
+								onLeave = function()
+									table.insert(leaves, "Slot")
+								end,
+							}
+						),
+					},
+				}),
+				UI2.draggable(
+					UI2.Box({ id = "Card", width = { type = "fixed", px = 60 }, height = { type = "fixed", px = 60 } }),
+					{ payload = "card" }
+				),
+			},
+		})
+		local root = mountLib.mount(core, screen)
+		local controller = renderer.attach(core, root, env, adapter, { rootPolicy = "coreSafeContent" })
+		controller.initialRender()
+		local registry = controller.dragRegistry()
+		core:observe(registry.verdict, function(v: any)
+			table.insert(verdicts, if v == nil then "-" else tostring(v.targetId))
+		end)
+
+		local slot = controller.rectOf("/S/Row/Slot")
+		expect(slot ~= nil and slot.w > 100).toBe(true)
+		local x, y = slot.x + slot.w - 10, slot.y + slot.h / 2
+		-- past the mouse promotion token (10 px), landing on that point
+		adapter.driveDragStart("/S/Card", { x = x - 30, y = y, pointerType = "mouse" })
+		adapter.driveDragContinue("/S/Card", { x = x, y = y, pointerType = "mouse" }, { x = 0, y = 0 })
+		expect(registry.isActive()).toBe(true)
+		expect(`hovering {tostring(registry.verdict:get().targetId)}`).toBe("hovering /S/Row/Slot")
+		local entersBefore, leavesBefore, verdictsBefore = #enters, #leaves, #verdicts
+
+		--[[ ...AND THE SETTLE, IN ONE `refresh()`: the label learns its word, the answer
+			arrives inside the solve that asked, and the drain runs the correction. ]]
+		--[[ ...and every rect this frame WRITES to the engine, so the intermediate look
+			is a recorded fact rather than an inference: the drain applies solve 1's rects
+			and then solve 2's, and the case's whole claim is that no public callback was
+			taken against the first set. ]]
+		local slotWrites: { string } = {}
+		local realSetRect = adapter.setRect
+		adapter.setRect = function(handle: any, rect: any, ...)
+			if handle ~= nil and handle.path == "/S/Row/Slot" then
+				table.insert(slotWrites, `{rect.x},{rect.w}`)
+			end
+			return realSetRect(handle, rect, ...)
+		end
+		local solvesBefore = controller.stats().solves
+		label:set(LONG)
+		controller.refresh()
+		adapter.setRect = realSetRect
+		expect(`solves {controller.stats().solves - solvesBefore}`).toBe("solves 2")
+		--[[ NON-VACUITY, BOTH HALVES, and the second is what makes the pin mean anything.
+			The corrected slot still holds the pointer — AND the frame really did write an
+			intermediate rect that does not, so an intermediate look had something to see. ]]
+		local after = controller.rectOf("/S/Row/Slot")
+		expect(`still over the slot: {x >= after.x and x < after.x + after.w}`).toBe("still over the slot: true")
+		expect(`slot rects written this frame: {#slotWrites}`).toBe("slot rects written this frame: 2")
+		local firstX, firstW = string.match(slotWrites[1], "([%-%d%.]+),([%-%d%.]+)")
+		local fx, fw = tonumber(firstX) :: number, tonumber(firstW) :: number
+		expect(`the estimate took the pointer off the slot: {not (x >= fx and x < fx + fw)}`).toBe(
+			"the estimate took the pointer off the slot: true"
+		)
+		--[[ THE PIN. The pointer was over the slot before this frame and is over the slot
+			after it, so a session that only ever sees final rects fires NOTHING. The
+			pre-fix drain fired `onLeave` on solve 1's collapsed rects and `onEnter` on
+			solve 2's — a hover no frame ever showed. ]]
+		expect(`enters {#enters - entersBefore} leaves {#leaves - leavesBefore}`).toBe("enters 0 leaves 0")
+		--[[ ...AND THE PUBLIC `verdict` READABLE, whose COUNT was never the question:
+			`publishVerdict` writes a fresh table on every refresh, so a tail per solve is
+			two publishes in either shape. What must not move is what each one SAYS. ]]
+		local said: { string } = {}
+		for i = verdictsBefore + 1, #verdicts do
+			table.insert(said, verdicts[i])
+		end
+		expect(table.concat(said, ",")).toBe("/S/Row/Slot,/S/Row/Slot")
+		controller.dispose()
+	end)
+
+	--[[ ── A DRAINED SOLVE'S THROW IS ABSORBED (fix round 1, review Important 1) ────
+
+		The shipped adapter delivers inside `task.spawn` (`client/screen_target` ->
+		`client/text_premeasure`), which runs its body on a NEW THREAD. So an error in
+		the nested solve died at that boundary, the scheduler reported it, and the outer
+		solve finished and NOTIFIED. Measured across the two worktrees with exactly this
+		shape: base `initialRender()` returned normally with ONE `onSolved`; the queue's
+		first form raised out of `refresh()` with NONE — for a frame that DID paint,
+		which can leave a consumer gated on `onSolved` (the presenter's no-pop text
+		reveal is the shipped one) never revealing.
+
+		`ownThread` is what makes this arm real: the same-stack fake cannot see it,
+		which is exactly why it was missed. ]]
+	it("a drained solve that throws is absorbed, and the completed solve still notifies", function()
+		local reports: { string } = {}
+		local realReport = solve_queue.report
+		solve_queue.report = function(message: string)
+			table.insert(reports, message)
+		end
+		local ok, err = pcall(function()
+			local arm = surface({ chain = 1, ownThread = true, throwOnSolve = 2 })
+			-- IT RETURNS, which is the whole claim
+			arm.controller.initialRender()
+			expect(`solves {arm.controller.stats().solves} notifies {arm.notifies}`).toBe("solves 2 notifies 1")
+			-- ...and the report was made rather than swallowed
+			expect(#reports).toBe(1)
+			expect(string.find(reports[1], "absorbed", 1, true) ~= nil).toBe(true)
+			-- ...and the surface is not wedged: a later frame solves and notifies
+			arm.controller.refresh()
+			arm.env:set("viewportRect", { x = 0, y = 0, w = 380, h = 300 })
+			expect(arm.notifies > 1).toBe(true)
+			arm.controller.dispose()
+		end)
+		solve_queue.report = realReport
+		if not ok then
+			error(err, 0)
+		end
+	end)
+
+	--[[ ── THE DRAIN IS BOUNDED BY A CAP, NOT ONLY BY AN INVARIANT (fix round 1) ────
+
+		The loop terminates on its own because a surface's vocabulary is finite, but
+		that is an invariant three modules away — and without a cap a pathological drain
+		is a NON-YIELDING HANG where it used to be a `C stack overflow`, which is
+		strictly harder to diagnose than the crash it replaced. Same idiom and same
+		shape as `SOLVE_FEEDBACK_ROUND_CAP`: a named error, and the flags cleared first
+		so the surface is not wedged by its own diagnostic. ]]
+	it("a drain that will not converge raises the round cap instead of hanging", function()
+		local arm = surface({ chain = 40 })
+		local ok, err = pcall(function()
+			arm.controller.initialRender()
+		end)
+		expect(ok).toBe(false)
+		expect(string.find(tostring(err), "solve-drain round cap", 1, true) ~= nil).toBe(true)
+		--[[ ...AND THE QUEUE IS NOT LATCHED BY ITS OWN DIAGNOSTIC. `draining` is cleared
+			before the error is raised, so the next call still ENTERS a solve rather than
+			being swallowed as a queued re-entry — which on this deliberately
+			non-converging fixture means it raises the cap again, having solved more. A
+			latched queue would return silently with the counter unmoved. ]]
+		local before = arm.controller.stats().solves
+		local ok2, err2 = pcall(function()
+			arm.controller.refresh()
+			arm.env:set("viewportRect", { x = 0, y = 0, w = 360, h = 280 })
+		end)
+		expect(arm.controller.stats().solves > before).toBe(true)
+		expect(ok2).toBe(false)
+		expect(string.find(tostring(err2), "solve-drain round cap", 1, true) ~= nil).toBe(true)
+		arm.controller.dispose()
 	end)
 
 	--[[ THE ORDINARY SETTLE, which is the shape every shipped surface is in: ONE

@@ -23,8 +23,9 @@
 	it (`render/tap_arm.luau`), the text-premeasurement round
 	(`render/premeasure_round.luau`), the scroll-into-view family
 	(`render/scroll_into_view.luau`), the recycle-key family
-	(`render/recycle_key.luau`) and the four geometry reads
-	(`render/rect_reads.luau`).
+	(`render/recycle_key.luau`), the four geometry reads
+	(`render/rect_reads.luau`) and the solve trampoline
+	(`render/solve_queue.luau`).
 
 	ADD A PART HERE WHENEVER MORE OF THE RENDERER MOVES OUT — otherwise the pins
 	quietly stop seeing the code they name, which is the failure this file exists
@@ -126,6 +127,15 @@ local PARTS = {
 		`adapter`/`presentationShift` — so no existing pin's count moves; it is here
 		for the reason every part above it is. ]]
 	"src/render/rect_reads.luau",
+	--[[ ...and the SOLVE TRAMPOLINE (2026-09-05, Plan C's T18-B): the queue a nested
+		premeasurement answer's re-solve lands in, the drain that spends it, and — the
+		part that matters to this list — THE TAIL EVERY COMPLETED SOLVE OWES. The
+		renderer's `notifySolved()` call and its drop-target refresh both left
+		`renderer.luau` with it, so the solve ENTRY POINT and the solve TAIL are now
+		outside `renderer.luau` and a pin anchored on either would go blind. It carries
+		no `adapter.setProp(` and no `setRect(` — it has no requires at all — so no
+		existing count moves; it is here for the reason every part above it is. ]]
+	"src/render/solve_queue.luau",
 }
 
 local renderer_source = {}

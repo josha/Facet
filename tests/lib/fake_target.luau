@@ -1829,6 +1829,8 @@ function fake_target.new(opts: Opts?)
 		promise the queued arm makes. ]]
 	local syncAnswer: ((string, number, string) -> number?)? = nil
 	local syncFinal: boolean? = nil
+	local ownThread = false
+	local answerErrors: { string } = {}
 	local answerDepth = 0
 	local maxAnswerDepth = 0
 	local maxAnswerStack = 0
@@ -1856,16 +1858,42 @@ function fake_target.new(opts: Opts?)
 		answerDepth += 1
 		maxAnswerDepth = math.max(maxAnswerDepth, answerDepth)
 		maxAnswerStack = math.max(maxAnswerStack, stackDepth())
-		batch.done(results, syncFinal)
+		local done = batch.done
+		if ownThread then
+			--[[ ...AND THE OTHER HALF OF THE LIVE SHAPE, which the first form of this
+				mode did not have and which is exactly the gap that hid the error-path
+				defect (T18-B review, Important 1). `text_premeasure.spawn` is
+				`task.spawn`: a NEW THREAD, resumed synchronously, so the answer still
+				reaches the renderer inside the solve that asked — and a THROW dies at
+				the thread boundary and is reported by the scheduler instead of
+				unwinding the caller. `coroutine.resume` is that shape exactly; the
+				absorbed error is recorded so a spec can assert it rather than lose it. ]]
+			local ok, err = coroutine.resume(coroutine.create(done), results, syncFinal)
+			if not ok then
+				table.insert(answerErrors, tostring(err))
+			end
+		else
+			done(results, syncFinal)
+		end
 		answerDepth -= 1
 	end
-	-- turn the mode on (a `widthOf`) or off (`nil`), and reset the two witnesses
-	function adapter.answerTextInline(widthOf: ((string, number, string) -> number?)?, final: boolean?)
+	--[[ turn the mode on (a `widthOf`) or off (`nil`), and reset the witnesses.
+		`ownThread` picks which half of the live shape to reproduce: OFF answers on the
+		caller's own stack (the cheapest reproduction of "the answer lands inside the
+		solve"), ON answers on a fresh coroutine the way `task.spawn` does, which is the
+		only arm that can see what a throwing re-solve does. ]]
+	function adapter.answerTextInline(
+		widthOf: ((string, number, string) -> number?)?,
+		final: boolean?,
+		onOwnThread: boolean?
+	)
 		syncAnswer = widthOf
 		syncFinal = final
+		ownThread = onOwnThread == true
 		answerDepth = 0
 		maxAnswerDepth = 0
 		maxAnswerStack = 0
+		table.clear(answerErrors)
 	end
 	-- the deepest NESTING of answer bodies, and the deepest Luau stack one ran on
 	function adapter.textAnswerDepth(): number
@@ -1873,6 +1901,11 @@ function fake_target.new(opts: Opts?)
 	end
 	function adapter.textAnswerStack(): number
 		return maxAnswerStack
+	end
+	-- errors an `ownThread` answer absorbed at its thread boundary, the way the live
+	-- scheduler absorbs them
+	function adapter.textAnswerErrors(): { string }
+		return table.clone(answerErrors)
 	end
 	--[[ RETURNS THE CANCEL TOKEN THE CONTRACT DESCRIBES, and it is a memory fact
 		rather than a fidelity nicety (measured 2026-08-29).
