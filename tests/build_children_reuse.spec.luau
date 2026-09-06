@@ -206,7 +206,13 @@ describe("T15: the gate, driven against `layout_node.build` directly", function(
 		local store = layout_node.newStore()
 		local first = layout_node.build(store, root, NEUTRAL, 1, 0, nil)
 		local second = layout_node.build(store, root, NEUTRAL, 1, 0, { ["/r"] = true, ["/r/c3"] = true })
-		expect(`built={store.built} visits={store.childVisits} nodes={store.nodes}`).toBe("built=2 visits=8 nodes=9")
+		--[[ `visits=1` WHERE T15 READ 8 (Plan D, D2a). The gate's seven terms all still
+			hold — same children table, same axis/clip pair, not a collecting build — so
+			the scan's refusal no longer costs the whole loop: the array's values are
+			copied and index 3 alone is rebuilt. `built` and `nodes` are UNMOVED, which
+			is the pair that says the patch is the same tree; the three identity
+			assertions below are unchanged and say it again per slot. ]]
+		expect(`built={store.built} visits={store.childVisits} nodes={store.nodes}`).toBe("built=2 visits=1 nodes=9")
 		expect(second.children).never().toBe(first.children)
 		expect(second.children[3]).never().toBe(first.children[3])
 		expect(second.children[4]).toBe(first.children[4])
@@ -377,7 +383,10 @@ describe("T15: the counter, on the thousand-row list", function()
 		local s = scene.new({ rows = 1000, listWidth = true, listPad = true })
 		s.text(5, "warm") -- the warm-up drive, discarded
 		local warm = s.stats()
-		expect(statLine(s, { solves = warm.solves - 1 })).toBe("solves=1 visits=1003 builds=4 nodes=3002")
+		--[[ `visits=3` WHERE T15 READ 1,003 (Plan D, D2a): a LEAF write is the shape the
+			per-index patch was built for, and the three visits left are the three
+			containers on the dirty chain rebuilding ONE index each. ]]
+		expect(statLine(s, { solves = warm.solves - 1 })).toBe("solves=1 visits=3 builds=4 nodes=3002")
 		--[[ THE CONTAINER'S OWN WIDTH. `List` is measure-dirty, its thousand rows are
 			not, and the array it built last tick is the array it would build now. The
 			one remaining visit is the SCREEN's — its single child is `List`, which IS
@@ -391,7 +400,7 @@ describe("T15: the counter, on the thousand-row list", function()
 		-- ...and a LEAF write puts the loop straight back, because the row is dirty
 		before = s.stats()
 		s.text(9, "z")
-		expect(statLine(s, before)).toBe("solves=1 visits=1003 builds=4 nodes=3002")
+		expect(statLine(s, before)).toBe("solves=1 visits=3 builds=4 nodes=3002")
 		s.dispose()
 	end)
 

@@ -307,6 +307,125 @@ local function hostSpaceOf(node: any, attachOpts: any): boolean?
 	return if created ~= nil and created.hostSpace == true then true else nil
 end
 
+--[[ ── THE PER-INDEX CHILD PATCH (Plan D, D2a — ruling A-9, deferred in Plan C for
+	scope and not for soundness) ─────────────────────────────────────────────────
+
+	T15's kept-children array refuses on every LEAF edit BY CONSTRUCTION: `store.dirty`
+	is ancestor-closed, so every container on the dirty chain holds a dirty child and
+	the scan below falsifies the arm. The container then rebuilds a fresh array and
+	re-visits EVERY child — 1,126 warm store hits on `battle_hud L updateItem-hp`,
+	0.146 ms of a 0.364 ms class (FacetBench §D1/§D2). These two helpers are the third
+	arm: keep the array's VALUES and re-run `toLayoutNode` only at the indices whose
+	child is in `store.dirty`.
+
+	THE INDEX IS OVER THE SPLICED FLAT LIST, never over `node.children`. `appendChild`
+	splices `When`/`ForEach`/`ErrorBoundary` grandchildren into the parent's flow, and
+	on every arena workload the thousand-child loop IS such a splice — a container
+	holding one `UI.ForEach` — so an index over the mount children would be an index
+	over one region and would reach nothing.
+
+	WHAT VALIDATES THE COPY, in three layers, none of which walks the children:
+	  1. the container's own children table, compared by IDENTITY by the caller's gate
+	     (`prior.kids == node.children`) — the same term the kept array rides;
+	  2. each spliced REGION's children table, compared by identity AND length here.
+	     That pair is exact: `mount.luau` replaces a region's array wholesale at `:450`,
+	     `:218` and `:234` (identity moves) and mutates it IN PLACE only by
+	     `table.remove` at `:197` and `:465` (length moves). There is no in-place
+	     insertion or replacement anywhere in the mount layer, so identity+length sees
+	     every writer;
+	  3. on the pass that BUILDS the index a stronger check is available for free —
+	     `store.byNode[child].built` must be the very layout node standing at that
+	     position — so the FIRST patch of an array verifies every slot against the
+	     array it is about to copy, and later patches verify the regions alone.
+
+	WHY THE REGION'S OWN DIRT CANNOT BE THE GATE. `renderer`'s `markDirtyIn` climbs
+	path prefixes, so a dirty grandchild always marks its region's path too: refusing
+	on "a region under me is dirty" would refuse on exactly the shape this arm exists
+	for. What distinguishes a region whose CONTENT moved is a `pushDirty(path,
+	"structure")`, which makes the refresh structural, which makes `build`'s `collect`
+	true, which the caller's `store.builtIds == nil` term already refuses — and layer 2
+	is the belt to that braces, exact on its own and independent of the renderer's
+	structural routing (so the `structuralReuse = false` arm is covered too). ]]
+local function indexKids(node: any, childArray: { any }, store: any): ({ [string]: number }?, { any }?, { any }?)
+	local index: { [string]: number } = {}
+	local mounts: { any } = {}
+	-- flat triples: the region NODE, the children table it had, and that table's
+	-- length. Re-read and compared on every later patch of this array.
+	local regions: { any } = {}
+	local n = 0
+	local ok = true
+	local function visit(child: any)
+		if child.class == "When" or child.class == "ForEach" or child.class == "ErrorBoundary" then
+			local kids = child.children
+			regions[#regions + 1] = child
+			regions[#regions + 1] = kids
+			regions[#regions + 1] = #kids
+			for _, grandchild in kids do
+				visit(grandchild)
+			end
+		else
+			n += 1
+			local entry = store.byNode[child]
+			-- layer 3: the position holds the layout node THIS mounted child produced
+			if entry == nil or entry.built ~= childArray[n] then
+				ok = false
+			end
+			index[child.path] = n
+			mounts[n] = child
+		end
+	end
+	for _, child in node.children do
+		visit(child)
+	end
+	if not ok or n ~= #childArray then
+		return nil, nil, nil
+	end
+	return index, mounts, regions
+end
+
+--[[ THE INDICES TO REBUILD, or `nil` for "refuse and take the full pass". The dirty
+	SET is walked, not the children: on a one-leaf edit it is the ancestor chain, so
+	this is O(depth) per container where the loop it replaces is O(children). The
+	budget bounds the other direction — a dirt set wider than a quarter of the array
+	rebuilds most of it anyway, and paying the scan on top of the full pass is the one
+	way this arm could cost more than it saves. ]]
+local function patchIndices(store: any, node: any, prior: any): { number }?
+	local index = prior.kidIndex
+	if index == nil then
+		local mounts, regions
+		index, mounts, regions = indexKids(node, prior.childArray, store)
+		if index == nil then
+			return nil
+		end
+		prior.kidIndex = index
+		prior.kidMounts = mounts
+		prior.kidRegions = regions
+	else
+		local regions = prior.kidRegions
+		for i = 1, #regions, 3 do
+			local kids = regions[i].children
+			if kids ~= regions[i + 1] or #kids ~= regions[i + 2] then
+				return nil
+			end
+		end
+	end
+	local mounts = prior.kidMounts
+	local out: { number } = {}
+	local budget = math.max(4, #prior.childArray // 4)
+	for path in store.dirty do
+		local idx = index[path]
+		if idx ~= nil then
+			-- the subtree size to UNDO comes off the child's own entry, so an entry
+			-- that is not there is a refusal rather than a guessed number
+			if #out >= budget or store.byNode[mounts[idx]] == nil then
+				return nil
+			end
+			out[#out + 1] = idx
+		end
+	end
+	return out
+end
+
 local function toLayoutNode(
 	node: any,
 	metrics: any,
@@ -1367,6 +1486,20 @@ local function toLayoutNode(
 		guarantee is that a flip re-solves and never remounts. So the pair a container
 		hands its children is a per-BUILD fact, not a per-node one. ]]
 	local childClip = insideClipper == true or kind == "scroll"
+	--[[ THE FOUR FACTS THE POST-CHILDREN FOLD USED TO RE-DERIVE BY WALKING THE ARRAY
+		(Plan D, D2a). Three are the ORs `subtreeHasScroll` / `subtreeHasComposition` /
+		`containerRelativeInside` are built from and the fourth is the placement audit's
+		fast reject; all four are pure functions of the child layout nodes, so they are
+		COUNTED as the array is built and carried on the store entry beside `n`. Counts
+		rather than booleans because an OR cannot be undone: the patch arm below
+		subtracts the child it replaces and adds the one it built, which a boolean fold
+		could only do by walking the array again. ]]
+	local kidScroll, kidComposition, kidInside, kidPlaced = 0, 0, 0, 0
+	-- ...and the patch's own index over this container's SPLICED children, carried
+	-- with the array it describes and dropped whenever the array is rebuilt
+	local kidIndex: { [string]: number }? = nil
+	local kidMounts: { any }? = nil
+	local kidRegions: { any }? = nil
 	if #node.children > 0 then
 		--[[ THE CHILDREN ARRAY IS KEPT WHEN THE SHAPE UNDER IT DID NOT MOVE (Plan C,
 			T15). A store HIT returns a whole subtree in two hash probes (`:386-395`); a
@@ -1432,8 +1565,10 @@ local function toLayoutNode(
 			~= nil` is covered by the identity term, because a node can only gain
 			children by having its `children` table replaced. ]]
 		local reusableKids = false
+		-- the indices the PATCH arm rebuilds; nil means "no patch" (Plan D, D2a)
+		local patchAt: { number }? = nil
 		if store ~= nil and prior ~= nil then
-			reusableKids = store.builtIds == nil -- a build that COLLECTS never reuses
+			local gated = store.builtIds == nil -- a build that COLLECTS never reuses
 				and prior.kids == node.children
 				and prior.childArray ~= nil
 				-- what the CHILDREN were built under, which is the correctness half
@@ -1444,12 +1579,26 @@ local function toLayoutNode(
 				-- than two (see the block header for what each half is load-bearing for)
 				and prior.axis == parentAxis
 				and prior.clip == (insideClipper == true)
+			reusableKids = gated
 			if reusableKids then
 				for _, child in node.children do
 					if store.dirty[child.path] then
 						reusableKids = false
 						break
 					end
+				end
+			end
+			if gated and not reusableKids then
+				--[[ THE SCAN REFUSED, WHICH IS THE LEAF-EDIT SHAPE (Plan D, D2a). Every
+					term above still holds — same children table, same axis/clip pair,
+					not a collecting build — so the array's VALUES stand at every index
+					whose child is clean, and the only positions that need a
+					`toLayoutNode` call are the dirty ones. `patchIndices` finds them
+					from the dirty set and refuses (nil) on anything it cannot validate
+					without walking. ]]
+				patchAt = patchIndices(store, node, prior)
+				if patchAt == nil then
+					store.patchRefused += 1
 				end
 			end
 			if reusableKids then
@@ -1472,9 +1621,68 @@ local function toLayoutNode(
 					a state that cannot occur. ]]
 				layoutNode.children = prior.childArray
 				store.nodes = nodesAtEntry + prior.n
+				kidScroll, kidComposition, kidInside, kidPlaced =
+					prior.kidScroll, prior.kidComposition, prior.kidInside, prior.kidPlaced
+				kidIndex, kidMounts, kidRegions = prior.kidIndex, prior.kidMounts, prior.kidRegions
 			end
 		end
-		if not reusableKids then
+		if patchAt ~= nil and store ~= nil and prior ~= nil then
+			--[[ THE PATCH (Plan D, D2a). A FRESH array receives the previous one's
+				values in one `table.move` — the published array is never written into,
+				which is owed row 11's invariant and the reason the copy is not skipped
+				— and then the dirty indices alone are rebuilt.
+
+				THE `store.nodes` ARITHMETIC IS THE FRAGILE PART, and it is the same
+				identity the kept arm uses with one term per replaced child: start from
+				`nodesAtEntry + prior.n`, SUBTRACT the subtree size the replaced child's
+				own entry recorded (read BEFORE the rebuild overwrites that entry), and
+				let each `toLayoutNode` call add the size it constructs. A clean child
+				contributes exactly what the full loop's warm hit would have contributed
+				— `hit.n` off the same entry — so `lastLayoutNodes` is unmoved by
+				construction, and `lastNodeBuilds` is too: a clean child SERVES and
+				`store.built` never sees it either way. ]]
+			local kn = #prior.childArray
+			local kept = table.create(kn)
+			table.move(prior.childArray, 1, kn, 1, kept)
+			store.nodes = nodesAtEntry + prior.n
+			kidScroll, kidComposition, kidInside, kidPlaced =
+				prior.kidScroll, prior.kidComposition, prior.kidInside, prior.kidPlaced
+			kidIndex, kidMounts, kidRegions = prior.kidIndex, prior.kidMounts, prior.kidRegions
+			local mounts = prior.kidMounts
+			for _, idx in patchAt do
+				local was = kept[idx]
+				if was.subtreeHasScroll then
+					kidScroll -= 1
+				end
+				if was.subtreeHasComposition then
+					kidComposition -= 1
+				end
+				if was.containerRelativeInside then
+					kidInside -= 1
+				end
+				if was.placementProps ~= nil then
+					kidPlaced -= 1
+				end
+				local mountChild = mounts[idx]
+				store.nodes -= store.byNode[mountChild].n
+				store.childVisits += 1
+				local now = toLayoutNode(mountChild, metrics, textScale, prefOffset, childAxis, childClip, store)
+				kept[idx] = now
+				if now.subtreeHasScroll then
+					kidScroll += 1
+				end
+				if now.subtreeHasComposition then
+					kidComposition += 1
+				end
+				if now.containerRelativeInside then
+					kidInside += 1
+				end
+				if now.placementProps ~= nil then
+					kidPlaced += 1
+				end
+			end
+			layoutNode.children = kept
+		elseif not reusableKids then
 			layoutNode.children = {}
 			local function appendChild(child: any)
 				-- structural regions (When/ForEach) own MOUNTING, not layout:
@@ -1488,10 +1696,23 @@ local function toLayoutNode(
 					if store ~= nil then
 						store.childVisits += 1
 					end
-					table.insert(
-						layoutNode.children,
-						toLayoutNode(child, metrics, textScale, prefOffset, childAxis, childClip, store)
-					)
+					--[[ ...AND THE FOUR COUNTS ARE TAKEN HERE, on the one pass that
+						already touches every child, rather than in a second walk after
+						it (Plan D, D2a). ]]
+					local built = toLayoutNode(child, metrics, textScale, prefOffset, childAxis, childClip, store)
+					if built.subtreeHasScroll then
+						kidScroll += 1
+					end
+					if built.subtreeHasComposition then
+						kidComposition += 1
+					end
+					if built.containerRelativeInside then
+						kidInside += 1
+					end
+					if built.placementProps ~= nil then
+						kidPlaced += 1
+					end
+					table.insert(layoutNode.children, built)
 				end
 			end
 			for _, child in node.children do
@@ -1561,7 +1782,15 @@ local function toLayoutNode(
 		-- The findings ride on the layout node and are reported by `arrange`,
 		-- which is what gates them behind `hiddenDepth` and replays them through
 		-- the incremental-layout reuse path.
-		layoutNode.inertPlacement = solver.auditPlacement(kind, layoutNode.id, layoutNode.children)
+		--[[ ...AND THE COUNT IS THE AUDIT'S OWN FAST REJECT, HOISTED OUT OF ITS LOOP
+			(Plan D, D2a). `auditPlacement`'s first act per child is `if
+			child.placementProps == nil then continue end`, so a container none of whose
+			children carries a placement prop can only return nil — and `kidPlaced` is
+			exactly that population, counted where the array was built and carried on the
+			entry, so the kept and patched arms answer it without a walk. ]]
+		if kidPlaced > 0 then
+			layoutNode.inertPlacement = solver.auditPlacement(kind, layoutNode.id, layoutNode.children)
+		end
 	end
 	-- "A `containerRelative` DIMENSION LIVES SOMEWHERE IN HERE" (§2.5 x incremental
 	-- layout — RED-TEAM Milestone 1, HIGH 3). Computed here for the same reason
@@ -1611,23 +1840,14 @@ local function toLayoutNode(
 		container, which is a statement about what a size depends on; these two are
 		about which node PUBLISHES a channel, and an outer scroller publishes its own
 		regardless of what is beneath it. ]]
-	local scrollInside = kind == "scroll"
-	local compositionInside = kind == "composition"
-	if layoutNode.children ~= nil then
-		local wantInside = not inside and kind ~= "scroll"
-		for _, child in layoutNode.children do
-			if child.subtreeHasScroll then
-				scrollInside = true
-			end
-			if child.subtreeHasComposition then
-				compositionInside = true
-			end
-			if wantInside and child.containerRelativeInside then
-				inside = true
-				wantInside = false
-			end
-		end
-	end
+	--[[ ...AND THE THREE ARE NOW READ OFF THE COUNTS (Plan D, D2a), which is the same
+		fold expressed as three comparisons: `scrollInside`/`compositionInside` were ORs
+		over every child, and `inside` was an OR guarded by `wantInside` — `not
+		selfRelative and kind ~= "scroll"` — which is preserved verbatim below because
+		`inside` starts as `selfRelative` and nothing re-reads it once true. ]]
+	local scrollInside = kind == "scroll" or kidScroll > 0
+	local compositionInside = kind == "composition" or kidComposition > 0
+	inside = inside or (kind ~= "scroll" and kidInside > 0)
 	layoutNode.containerRelativeInside = inside or nil
 	layoutNode.subtreeHasScroll = scrollInside or nil
 	layoutNode.subtreeHasComposition = compositionInside or nil
@@ -1696,6 +1916,19 @@ local function toLayoutNode(
 			childArray = layoutNode.children,
 			kidsAxis = childAxis,
 			kidsClip = childClip,
+			--[[ ...and D2a's four counts plus the index that describes the array beside
+				them. The index is nil on the arm that BUILT a fresh array (the positions
+				it described belong to the array that was replaced) and is carried
+				forward by the kept and patched arms, whose positions are unchanged —
+				which is what makes the lazy build in `patchIndices` a once-per-array
+				cost rather than a per-tick one. ]]
+			kidScroll = kidScroll,
+			kidComposition = kidComposition,
+			kidInside = kidInside,
+			kidPlaced = kidPlaced,
+			kidIndex = kidIndex,
+			kidMounts = kidMounts,
+			kidRegions = kidRegions,
 		}
 	end
 	return layoutNode
@@ -1827,6 +2060,12 @@ export type Store = {
 		one of these visits is a warm store hit that constructs nothing, which is
 		exactly why `built` cannot see the loop. ]]
 	childVisits: number,
+	--[[ ...and the number of containers whose kept-array gate held but whose PATCH
+		(Plan D, D2a) refused: a region whose children table moved, an array whose slots
+		did not answer to their mounted children, or a dirt set wider than the budget.
+		Read by `tests/build_index_patch.spec.luau` off the store itself — the renderer
+		sits at its Source-write cap and this counter is not worth a seam. ]]
+	patchRefused: number,
 	-- false makes this a COUNT-ONLY store: no lookup, no write, no entry. The
 	-- oracle's honest pre-fix control (see the count-only arm in `toLayoutNode`).
 	reuse: boolean,
@@ -1860,6 +2099,7 @@ function layout_node.newStore(reuse: boolean?, attachOpts: any?): Store
 		builtIds = nil,
 		nodes = 0,
 		childVisits = 0,
+		patchRefused = 0,
 		reuse = reuse ~= false,
 		structural = false,
 	}
@@ -1913,6 +2153,7 @@ function layout_node.build(
 	store.built = 0
 	store.nodes = 0
 	store.childVisits = 0
+	store.patchRefused = 0
 	return toLayoutNode(node, metrics, textScale, prefOffset, nil, nil, store)
 end
 

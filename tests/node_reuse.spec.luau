@@ -1100,8 +1100,22 @@ describe("the layout-node store: the audit that licenses it", function()
 			field reads are pinned in its own module below. ]]
 		local body = stripLua(fs.readFile(LAYOUT_NODE_PATH))
 		-- `hostSpaceOf` is this file's own two-line wrapper around
-		-- `instance_boundary.createOptsFor`, which the list below names
-		local LOCAL_TO_THIS_FILE = { toLayoutNode = true, appendChild = true, hostSpaceOf = true }
+		-- `instance_boundary.createOptsFor`, which the list below names.
+		--[[ ...AND D2a's THREE (Plan D). `indexKids`, its inner `visit` and
+			`patchIndices` are file-locals like `appendChild`, and they are inside the
+			audit for the same reason: every mounted-node field they touch —
+			`child.class`, `child.children`, `child.path` and the region node's
+			`children` — is one of the four the case above enumerates, and they hand a
+			mounted node to nothing outside this file (`store.byNode[child]` is a table
+			index, not a call). ]]
+		local LOCAL_TO_THIS_FILE = {
+			toLayoutNode = true,
+			appendChild = true,
+			hostSpaceOf = true,
+			indexKids = true,
+			visit = true,
+			patchIndices = true,
+		}
 		local calls: { [string]: boolean } = {}
 		for callee, arg in calleesTakingMountedNode(body) do
 			local _ = arg

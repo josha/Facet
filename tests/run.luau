@@ -1206,6 +1206,12 @@ require("./themed_containment.spec")
 	one-leaf class on the arena (FacetBench §D1). Counter, production-path flip
 	witness, and the negative control the cache cannot see. ]]
 require("./plan_cache.spec")
+--[[ PLAN D, D2a (2026-09-06): a container whose kept-array gate holds but whose dirty
+	scan refused — the LEAF-edit shape, which is every arena drive — patches the array
+	it built last tick at the dirty indices instead of re-visiting every child. The
+	owed list, the three validation layers, the four counts that replaced the
+	post-children fold, and the full-solve oracle over nine views. ]]
+require("./build_index_patch.spec")
 --[[ THE STANDALONE CONSUMER (distribution-readiness D2/D4): `examples/consumer/`
 	is the smallest complete Facet project, and this mounts ITS OWN screen module
 	— the same file the client script requires through the instance tree — against
