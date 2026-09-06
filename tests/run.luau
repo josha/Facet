@@ -264,6 +264,9 @@ require("./text_settle_closure.spec")
 -- recursion, and the three observables it must not move
 require("./text_round_reentry.spec")
 require("./render_stats_seam.spec")
+-- ...and the diagnostic re-solve that left the renderer for the room ruling C-3's
+-- fix round 2 needed: one argument crosses the seam, and it is not a render
+require("./boundary_analysis_seam.spec")
 require("./solve_ctx_seam.spec")
 require("./z_order_seam.spec")
 require("./incremental_layout.spec")

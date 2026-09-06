@@ -33,6 +33,8 @@ local presentation_channel = require("./presentation_channel")
 -- solve, a commit or a frame
 local surface_overlap = require("./surface_overlap")
 local dirty_closure = require("./dirty_closure")
+-- the absorbing-boundary report's diagnostic re-solve (ruling C-3, fix round 2)
+local boundary_analysis = require("./boundary_analysis")
 -- axis 3 of the measure store and of the node-resident serve (Plan C, T18-A)
 local measure_stamp = require("./measure_stamp")
 -- ...and which nodes a learned word actually moves (Plan C, T18-A)
@@ -3778,25 +3780,9 @@ function renderer.attach(
 	-- nothing and runs only when called, so an ordinary frame pays nothing for it —
 	-- the whole point of Stage 1 is to size Stages 2 and 3 before touching the solver
 	-- for real.
+	-- a DIAGNOSTIC re-solve, not a render: `render/boundary_analysis` owns it
 	function controller.analyzeBoundaries(): any
-		if lastSolveInputs == nil then
-			return nil
-		end
-		local opts2 = table.clone(lastSolveInputs.opts)
-		opts2.analyzeBoundaries = true
-		--[[ THE ANALYSIS IS A FULL SOLVE OR IT IS NOTHING (P1 review, IMPORTANT 2).
-			`lastSolveInputs.opts` is the live `solveOpts` TABLE, so both reuse fields
-			are visible here — `reuse` since Stage 2, `measures` since P1. `boundary` is
-			written in `measureUncached`, so a solve served from slates records almost
-			nothing, every unrecorded node reads as "does not absorb", and this report
-			inverts (measured: 6 absorbing against the true 11). `reuse.dirtyContains`
-			is also the wrong refresh's set, and passing `measures` lets an ANALYSIS
-			write the store the next real solve reads. Pinned in
-			tests/measure_reuse.spec.luau. ]]
-		opts2.reuse = nil
-		opts2.measures = nil
-		local result = solver.solve(lastSolveInputs.layoutRoot, lastSolveInputs.viewport, opts2)
-		return solver.boundaryReport(lastSolveInputs.layoutRoot, result)
+		return boundary_analysis.report(lastSolveInputs)
 	end
 
 	function controller.stats()
