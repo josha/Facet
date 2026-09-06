@@ -66,8 +66,33 @@
 
 	AND BOTH EXITS PAY WHAT THE DRAIN OWES. The round cap below is a diagnostic
 	about the round that would come NEXT; the rounds already finished DID paint, so
-	their tails run before it raises. And the outermost solve's error carries the
+	their tails run before it exits. And the outermost solve's error carries the
 	stack it was raised on rather than a bare message — see `annotate`.
+
+	AND THE CAP DEFERS RATHER THAN THROWS (ruling C-3, from the live failure in
+	FacetBench §8). A cap that RAISED made a slow boot window a hard error out of
+	`refresh()`: `battle_hud facet` at 120 samples, in a fresh client VM, mounted and
+	driven with no settle wait, took NINE text-measure batches on one `updateItem`
+	step and died on a cap of eight. Nothing was wrong with that drain except that it
+	was not FINISHED — the cap below records what it actually was, measured word by
+	word — and a diagnostic about the round that has not run yet is no reason to
+	throw away the frame that did. So the cap stops the loop, leaves the re-solve
+	QUEUED, reports once and returns: the frame keeps the rounds it ran, every
+	completed solve's tail runs, `controller.textPending()` still reads true (the
+	words are in flight and the settle is still open), and nothing raises.
+
+	THE DEFERRED ROUND IS SPENT BY THE NEXT SOLVE, NOT SCHEDULED FOR ONE, and the
+	distinction is worth stating because this module cannot schedule anything (it has
+	no requires, by design). `owed` survives the exit, so the next call — the next
+	`controller.refresh()` that solves, the next settle-phase solve, the next
+	premeasurement answer — runs it first and drains from there, bounded by the cap
+	again. In the window this trips in that is the very next frame: the boot window's
+	own second answer for every outstanding batch bumps the geometry epoch, and a
+	surface deep enough in a drain to trip a cap is a surface with dozens of those
+	still owed to it. What it is NOT is a promise about a surface that trips the cap
+	and then goes completely quiet; that one carries its owed round until something
+	solves. Measured live: the failing step deferred, and the next drive step drained
+	another full cap from where it stopped.
 
 	ONE SOLVE ON THE STACK AT A TIME is the property, and the queue is a BOOLEAN
 	rather than a list because the re-solve carries no argument: it is "solve
@@ -93,10 +118,39 @@ local solve_queue = {}
 	"terminates because of an invariant three modules away" is exactly the argument
 	that used to end in a `C stack overflow`. Without a cap a pathological drain is
 	now a NON-YIELDING HANG, which is strictly harder to diagnose than the crash it
-	replaced. MEASURED rather than guessed: the deepest drain in the Facet suite,
-	the Rascal Rally suite and the example places is 4 rounds (the four-link chain
-	fixture); every shipped settle is 1. ]]
-local SOLVE_DRAIN_ROUND_CAP = 8
+	replaced.
+
+	THE NUMBER IS MEASURED, AND THE MEASUREMENT REFUTED WHAT THE CAP WAS FOR
+	(ruling C-3). At 8 it was read off the suite alone — the deepest drain in the
+	Facet suite, the Rascal Rally suite and the example places is 4 rounds (the
+	four-link chain fixture), and every shipped settle is 1. Live, on the workload
+	that broke it (FacetBench `battle_hud` size L, 1,000 rows, driven from a cold
+	mount with no settle wait), the drain at the failing step does not converge in 8
+	rounds, or in 64, or in 192 — and the reason is not an adapter that answers
+	badly. Recorded batch by batch at step 118, with the target's own
+	`measureTextWidths` wrapped:
+
+	  #1 n=1 "744"  #2 n=1 "724"  #3 n=1 "725"  #4 n=1 "726"  ...  #65 n=1 "786"
+
+	ONE WORD PER ROUND, walking the row numbers in order. This drain is not a cycle;
+	it is the surface learning a 1,000-row VOCABULARY one row at a time, because
+	each learned width moves the boxes enough to bring the next unmeasured row into
+	the measured set. It terminates on the invariant this block already names — the
+	vocabulary is finite — but the bound IS THE VOCABULARY, not a small constant, so
+	no cap "the boot window cannot reach" exists to be chosen. A cap of 64 on that
+	step is a 3.4-SECOND FRAME (measured, 65 solves at ~52 ms) and it is no closer to
+	converging at the end of it.
+
+	SO THE CAP IS A FRAME BUDGET, and the deferral above is what makes that sound: a
+	trip costs a frame, not a session, and the next frame carries on from here. The
+	number is 4x the deepest drain that actually CONVERGES anywhere it has been
+	measured — 4 rounds in the Facet suite, 3 on `war_room_inventory` L and 2 on
+	`battle_hud` L headless (`FacetBench tools/profile/drain_rounds`, inline
+	boot-window answers, 600 steps) — which keeps every converging settle whole and
+	keeps the pathological one's frame at ~830 ms instead of 3.4 s on the most
+	extreme scene in the arena. Bigger buys nothing (the walk is not converging at
+	any of these numbers); smaller starts costing frames a real settle needs. ]]
+local SOLVE_DRAIN_ROUND_CAP = 16
 
 --[[ WHERE AN ABSORBED SOLVE'S ERROR GOES. Default is the engine's own `warn`,
 	which is the channel `core/custom.luau`'s `fail` already uses for every
@@ -145,6 +199,13 @@ function solve_queue.trampoline(deps: Deps): () -> ()
 	local draining = false
 	-- has a re-solve been asked for from inside the drain?
 	local owed = false
+	--[[ has the cap already been reported since the last drain that CONVERGED? The
+		diagnostic is worth one line, not one line a frame: a surface whose adapter
+		genuinely never converges deferred a round on every refresh, and at 60 fps
+		that is a log flood that costs more than the thing it is reporting. Cleared
+		by a drain that finished on its own, so a LATER trip after a healthy stretch
+		is reported again rather than swallowed by a latch set minutes ago. ]]
+	local capReported = false
 
 	return function()
 		if draining then
@@ -156,10 +217,10 @@ function solve_queue.trampoline(deps: Deps): () -> ()
 		-- that threw never reached its own tail under the recursion either
 		local done = 0
 		--[[ ...AND THE TAILS ARE OWED BY THE SOLVES THAT COMPLETED, on EVERY exit from
-			this function — the ordinary one below and the cap's. A solve that ran to
+			this function — the ordinary one and the cap's. A solve that ran to
 			completion applied its rects, so the frame painted; the cap is a diagnostic
 			about the round that would come NEXT and says nothing about the rounds that
-			already finished. Raising past them would leave a consumer gated on
+			already finished. Exiting past them would leave a consumer gated on
 			`onSolved` never notified for a frame it can see, which is the failure the
 			absorb above exists to prevent — reintroduced by the guard that bounds the
 			loop. A `tail` that throws unwinds the caller from here exactly as it does
@@ -176,22 +237,27 @@ function solve_queue.trampoline(deps: Deps): () -> ()
 			cleared before the error is re-raised — a drain that dies must not leave the
 			surface refusing every later solve. ]]
 		local ok, err = xpcall(solve, annotate)
+		-- did this drain stop at the cap with a round still owed?
+		local deferred = false
 		if ok then
 			done += 1
 			local rounds = 0
 			while owed do
+				if rounds >= SOLVE_DRAIN_ROUND_CAP then
+					--[[ THE DEFERRAL, AND `owed` IS DELIBERATELY LEFT SET. It is the whole
+						mechanism: the flag says "a solve is owed", the next entry to this
+						function runs one and then drains the rest of the queue, so the round
+						this drain declined to run is the round the next refresh starts from.
+						Nothing is dropped and nothing is scheduled: the frame the settle was
+						going to take anyway is what spends it. In the window this cap trips
+						in — the boot window — the engine answers `final = false`, so the words
+						are still in flight, `controller.textPending()` still reads true, and a
+						surface gated on exact text is still waiting for the frame that pays. ]]
+					deferred = true
+					break
+				end
 				owed = false
 				rounds += 1
-				if rounds > SOLVE_DRAIN_ROUND_CAP then
-					draining = false
-					owed = false
-					runTails()
-					error(
-						`Facet renderer: a solve's text-measurement drain did not converge in {SOLVE_DRAIN_ROUND_CAP} rounds `
-							.. `(an adapter answering a premeasurement batch with a width that changes the words it asks for?); solve-drain round cap`,
-						0
-					)
-				end
 				local rok, rerr = xpcall(solve, annotate)
 				if rok then
 					done += 1
@@ -201,9 +267,23 @@ function solve_queue.trampoline(deps: Deps): () -> ()
 			end
 		end
 		draining = false
-		owed = false
 		if not ok then
+			-- a re-solve queued by a solve that then threw is discarded with it: the
+			-- state it was asked against never landed
+			owed = false
 			error(err, 0)
+		end
+		if deferred then
+			if not capReported then
+				capReported = true
+				solve_queue.report(
+					`Facet renderer: a solve's text-measurement drain did not converge in {SOLVE_DRAIN_ROUND_CAP} rounds `
+						.. `(an adapter answering a premeasurement batch with a width that changes the words it asks for?); `
+						.. `the remaining re-solve is deferred to the next refresh; solve-drain round cap`
+				)
+			end
+		else
+			capReported = false
 		end
 		runTails()
 	end

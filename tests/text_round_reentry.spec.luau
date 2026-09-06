@@ -510,56 +510,225 @@ describe("the premeasure answer does not run on the solve that asked", function(
 		end
 	end)
 
-	--[[ ── THE DRAIN IS BOUNDED BY A CAP, NOT ONLY BY AN INVARIANT (fix round 1) ────
+	--[[ ── THE DRAIN IS BOUNDED BY A CAP, AND THE CAP DEFERS (ruling C-3) ──────────
 
 		The loop terminates on its own because a surface's vocabulary is finite, but
 		that is an invariant three modules away — and without a cap a pathological drain
 		is a NON-YIELDING HANG where it used to be a `C stack overflow`, which is
-		strictly harder to diagnose than the crash it replaced. Same idiom and same
-		shape as `SOLVE_FEEDBACK_ROUND_CAP`: a named error, and the flags cleared first
-		so the surface is not wedged by its own diagnostic. ]]
-	it("a drain that will not converge raises the round cap instead of hanging", function()
-		local arm = surface({ chain = 40 })
+		strictly harder to diagnose than the crash it replaced. So there is a cap.
+
+		WHAT THE CAP MAY NOT DO IS RAISE, and that is what these cases are. Measured
+		live (FacetBench §8, the one hard failure of that document): `battle_hud facet`
+		at 120 samples, in a FRESH client VM, mounted and driven with no settle wait,
+		threw out of `refresh()` — `FAILED at step 118 kind=updateItem field=facing |
+		textPending=true batches 56 -> 65`. One ordinary step drove nine text-measure
+		batches past a cap of eight, in the boot window, on a wide key (1,000
+		`UnitFacing` rows). Nothing was wrong with that drain except that it was not
+		FINISHED — and the round that would have finished it is exactly the round the
+		next refresh runs anyway, because the queue's own "solve again" flag is what
+		the deferral hands forward. A production surface mounted into the first few
+		seconds of a session is in that window by construction.
+
+		So: no throw, the remaining round stays queued, `textPending()` stays true, the
+		tails every completed solve owes still run, and ONE line says what happened. ]]
+	--[[ PINNED AGAINST `SOLVE_DRAIN_ROUND_CAP` (`src/render/solve_queue.luau`). Read
+		out of the source instead and the case could not tell a cap of 64 from a cap
+		that silently became 6 — the number is the contract, so it is written here. ]]
+	local CAP = 16
+
+	--[[ THE DEFERRAL AT THE TRAMPOLINE ITSELF, with no renderer in the way. `solve`
+		here is the adapter the ruling names — one whose answer always changes the
+		words it asks for, so every solve queues another from inside its own body,
+		forever. The module has no requires, so this drives the exact loop. ]]
+	it("the cap defers the queued re-solve instead of raising, and says so once", function()
+		local reports: { string } = {}
+		local realReport = solve_queue.report
+		solve_queue.report = function(message: string)
+			table.insert(reports, message)
+		end
 		local ok, err = pcall(function()
-			arm.controller.initialRender()
+			local solves, tails = 0, 0
+			local converge = false
+			local run: () -> ()
+			run = solve_queue.trampoline({
+				solve = function()
+					solves += 1
+					if not converge then
+						-- the re-solve a premeasurement answer asks for from INSIDE the
+						-- solve that asked for the measurement
+						run()
+					end
+				end,
+				tail = function()
+					tails += 1
+				end,
+			})
+
+			-- IT RETURNS. That is the ruling, and the rest of the case is what it
+			-- returned having done.
+			run()
+			expect(`drain 1: solves {solves} tails {tails} reports {#reports}`).toBe(
+				`drain 1: solves {CAP + 1} tails {CAP + 1} reports 1`
+			)
+			expect(string.find(reports[1], "solve-drain round cap", 1, true) ~= nil).toBe(true)
+			expect(string.find(reports[1], "deferred", 1, true) ~= nil).toBe(true)
+
+			--[[ ...AND THE NEXT REFRESH PICKS IT UP WHERE THIS ONE STOPPED. The round the
+				cap declined to run is still owed, so the next call runs it and drains from
+				there — bounded by the same cap. A deferral that dropped the queued re-solve
+				would still read `solves` climbing (the caller asked for one), so the honest
+				witness is the CONVERGING arm below, where the deferred round is the only
+				thing left to run. ]]
+			run()
+			expect(`drain 2: solves {solves} tails {tails}`).toBe(
+				`drain 2: solves {2 * (CAP + 1)} tails {2 * (CAP + 1)}`
+			)
+			--[[ ...AND IT IS ONE LINE, NOT ONE A FRAME. A surface whose adapter genuinely
+				never converges defers on every refresh; at 60 fps a line each would cost
+				more than the thing it reports. ]]
+			expect(#reports).toBe(1)
+
+			--[[ THE DEFERRED ROUND IS REALLY STILL QUEUED: with the cycle broken, this
+				call is the caller's own solve PLUS the one the last drain deferred — two,
+				not one. That is the deferral proved by subtraction. ]]
+			converge = true
+			local before = solves
+			run()
+			expect(`the deferred round ran: solves +{solves - before} tails +{tails - before}`).toBe(
+				"the deferred round ran: solves +2 tails +2"
+			)
+
+			--[[ ...AND THE ONE-LINE LATCH IS CLEARED BY A DRAIN THAT CONVERGED, so a
+				later trip after a healthy stretch is reported rather than swallowed by a
+				latch set minutes ago. ]]
+			converge = false
+			run()
+			expect(`after a healthy drain: reports {#reports}`).toBe("after a healthy drain: reports 2")
 		end)
-		expect(ok).toBe(false)
-		expect(string.find(tostring(err), "solve-drain round cap", 1, true) ~= nil).toBe(true)
-		--[[ ...AND THE QUEUE IS NOT LATCHED BY ITS OWN DIAGNOSTIC. `draining` is cleared
-			before the error is raised, so the next call still ENTERS a solve rather than
-			being swallowed as a queued re-entry — which on this deliberately
-			non-converging fixture means it raises the cap again, having solved more. A
-			latched queue would return silently with the counter unmoved. ]]
-		local before = arm.controller.stats().solves
-		local ok2, err2 = pcall(function()
-			arm.controller.refresh()
-			arm.env:set("viewportRect", { x = 0, y = 0, w = 360, h = 280 })
-		end)
-		expect(arm.controller.stats().solves > before).toBe(true)
-		expect(ok2).toBe(false)
-		expect(string.find(tostring(err2), "solve-drain round cap", 1, true) ~= nil).toBe(true)
-		arm.controller.dispose()
+		solve_queue.report = realReport
+		if not ok then
+			error(err, 0)
+		end
 	end)
 
-	--[[ ...AND THE CAP PATH IS STILL A FRAME THAT PAINTED. Every solve the drain ran
-		to completion applied its rects, so every one of them owes a `tail()` — the
-		"this surface finished solving" notification and the drag bridge's drop-target
-		refresh. Raising out of the loop skipped all of them, which is precisely the
-		failure this module's header says the absorb exists to prevent: "a consumer
-		gated on `onSolved` (the presenter's no-pop text reveal) never revealing", for
-		a frame that DID paint. The cap is a diagnostic about the NEXT round; it is not
-		a statement that the rounds already finished did not happen. ]]
-	it("...and every solve the cap path completed still notifies", function()
-		local arm = surface({ chain = 40 })
-		local ok = pcall(function()
-			arm.controller.initialRender()
+	--[[ ...AND THE SAME THING THROUGH A MOUNTED SURFACE, ON THE SHAPE THE LIVE
+		FAILURE HAPPENED IN: a `refresh()` whose own solve starts the cascade, which is
+		what step 118 of the `battle_hud` drive was. Two observables live only here —
+		`controller.textPending()` and `onSolved`.
+
+		EVERY SOLVE THE CAP PATH COMPLETED IS STILL A FRAME THAT PAINTED, so every one
+		of them owes a `tail()` — the "this surface finished solving" notification and
+		the drag bridge's drop-target refresh (fix round 1's I-2, kept). And the settle
+		is still OPEN: this fixture answers `final = false`, the way
+		`client/text_premeasure` answers while the engine's font metrics have not
+		flipped, so the words stay in flight, `textPending()` keeps reading true and a
+		surface gated on exact text keeps waiting for the frame that finishes the drain
+		instead of being handed an error.
+
+		THE FIXTURE IS THE CHAIN WITH A SIGNAL FOR ITS BOUND, and the bound is why it is
+		written out here rather than taken from `surface` above: a chain that is already
+		deep at MOUNT defers inside `initialRender`, and `initialRender` drains the dirty
+		queue after its solve ("initial mount noise is not an update"), which throws away
+		the very dirt the deferred round is owed for. So this arm mounts SHORT — two
+		words, converged, exactly like a real surface's first frame — and only then opens
+		the vocabulary, which puts the deep drain inside a `refresh()`, where the dirt a
+		deferred round still owes stays queued for the next one. ]]
+	it("a refresh defers, keeps textPending, notifies every solve, and drains again next frame", function()
+		local reports: { string } = {}
+		local realReport = solve_queue.report
+		solve_queue.report = function(message: string)
+			table.insert(reports, message)
+		end
+		local ok, err = pcall(function()
+			local CHAIN = CAP * 3
+			local core = customFactory.new()
+			local env = environment.new(core)
+			env:set("viewportRect", { x = 0, y = 0, w = 400, h = 300 })
+			local tag = claimTag()
+			local words = {}
+			for i = 1, CHAIN do
+				words[i] = `{tag}{string.rep("x", i)}{i}`
+			end
+			local bound = core:signal(2)
+			local label = core:memo(function(use)
+				local epoch = (use(env:get("textMeasureEpoch")) :: number?) or 0
+				return words[math.min(use(bound) :: number, epoch + 1)]
+			end)
+			local root = mountLib.mount(
+				core,
+				UI.VStack({
+					id = "Deferral",
+					padding = 0,
+					gap = 0,
+					width = fill(),
+					height = fill(),
+					children = {
+						UI.Text({ id = "Chain", textSize = 12, text = label }),
+						UI.Text({ id = "Static", textSize = 12, text = `{tag} static` }),
+					},
+				})
+			)
+			local adapter = fake_target.new()
+			-- the boot window: answered INSIDE the solve that asked, and NOT final
+			adapter.answerTextInline(widthOf, false)
+			local controller = renderer.attach(core, root, env, adapter, { rootPolicy = "coreSafeContent" })
+			local notifies = 0
+			controller.onSolved(function()
+				notifies += 1
+			end)
+			controller.initialRender()
+			-- the ordinary first frame: a two-word chain, drained and converged
+			expect(`mounted: solves {controller.stats().solves} reports {#reports}`).toBe("mounted: solves 3 reports 0")
+
+			--[[ ...AND NOW THE VOCABULARY OPENS UNDER A DRIVE, which is the live recipe:
+				a state write, then the frame that serves it, and the cascade is inside
+				THAT frame. IT RETURNS — that is the ruling — having drained the cap. ]]
+			bound:set(CHAIN)
+			local before = controller.stats().solves
+			controller.refresh()
+			local first = controller.stats().solves - before
+			expect(`first deferred drain: solves {first}`).toBe(`first deferred drain: solves {CAP + 1}`)
+			expect(`notified: {notifies}`).toBe(`notified: {controller.stats().solves}`)
+			expect(controller.textPending()).toBe(true)
+			expect(#reports).toBe(1)
+			expect(string.find(reports[1], "solve-drain round cap", 1, true) ~= nil).toBe(true)
+			expect(string.find(reports[1], "deferred", 1, true) ~= nil).toBe(true)
+
+			--[[ THE NEXT FRAME DRAINS AGAIN, FROM WHERE THIS ONE STOPPED. Nothing
+				scheduled it and nothing was dropped: the round the cap declined to run left
+				its dirt on the tree and its "solve again" in the queue, so the ordinary next
+				refresh spends both — bounded by the same cap, and with no second line while
+				it is still the same unconverged drain. ]]
+			local second = controller.stats().solves
+			controller.refresh()
+			expect(`second deferred drain: solves {controller.stats().solves - second}`).toBe(
+				`second deferred drain: solves {CAP + 1}`
+			)
+			expect(`notified: {notifies}`).toBe(`notified: {controller.stats().solves}`)
+			expect(#reports).toBe(1)
+
+			--[[ ...AND IT FINISHES. A bounded vocabulary drained a cap at a time reaches
+				its end, and the surface is left solved rather than wedged by its own
+				diagnostic — which is what the raising cap's "not latched" case was really
+				claiming, now claimed about a session that survives to make it. ]]
+			for _ = 1, 4 do
+				controller.refresh()
+			end
+			local settledAt = controller.stats().solves
+			controller.refresh()
+			expect(`a converged refresh adds nothing: {controller.stats().solves - settledAt}`).toBe(
+				"a converged refresh adds nothing: 0"
+			)
+			-- ...and the whole vocabulary really was learned, one epoch bump per word
+			expect(`epoch {(env:get("textMeasureEpoch"):get() :: any) or 0}`).toBe(`epoch {CHAIN}`)
+			expect(`notified: {notifies}`).toBe(`notified: {controller.stats().solves}`)
+			expect(#reports).toBe(1)
+			controller.dispose()
 		end)
-		expect(ok).toBe(false)
-		local solves = arm.controller.stats().solves
-		-- non-vacuity: the fixture really did drain several rounds before the cap
-		expect(solves > 1).toBe(true)
-		expect(`cap: solves {solves} notifies {arm.notifies}`).toBe(`cap: solves {solves} notifies {solves}`)
-		arm.controller.dispose()
+		solve_queue.report = realReport
+		if not ok then
+			error(err, 0)
+		end
 	end)
 
 	--[[ ...AND THE OUTERMOST SOLVE'S THROW KEEPS ITS TRACEBACK. The recursion this
