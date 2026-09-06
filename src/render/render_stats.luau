@@ -194,17 +194,25 @@ function render_stats.new(): any
 			denominator C4's descend-list cache moves, and the one number that would have
 			stayed flat while the span halved. ]]
 		lastCommitScans = 0,
-		--[[ ...and how many of those questions still COST A CALL (Plan C, C14). A scan
-			is a loop iteration; a PROBE is an `entryVerdict` call inside it. C14 answers
-			the common case — a child that owns an entry, holding the table the last
-			commit wrote — from the two entry maps in the loop body, and leaves the call
-			for the children that need it: an entry-LESS one, where `probeEntry` walks a
-			chain of spliced wrappers, and one whose entry this solve replaced, where
-			`moved` still has to be computed. The two counters are published together and
-			read together: C14 removes probes and must remove NO scans, because the fork
-			arithmetic beside it copies a prefix of the child array BY INDEX.
-			`lastCommitScans` unmoved beside a fallen `lastCommitProbes` is what says the
-			change took the cost and not the loop. ]]
+		--[[ ...and how many of those questions still COST A CALL (Plan C, C14). A scan is
+			a question asked; a PROBE is an `entryVerdict` call taken to answer one. C14
+			answers the common case — a child that owns an entry, holding the table the
+			last commit wrote — from the two entry maps at the asking site, and leaves the
+			call for the children that need it: an entry-LESS one, where `probeEntry`
+			walks a chain of spliced wrappers, and one whose entry this solve replaced,
+			where `moved` still has to be computed.
+
+			THE TWO ARE OVER THE SAME POPULATION, deliberately (fix round 1). `skip` and
+			`buildDescend`'s loop each increment BOTH — `skip`'s own verdict is a probe
+			like any other — so `probes <= scans` is a readable ratio rather than two
+			counts of different things. Since C4 `skip` runs only for a walk's ROOT, so
+			its share is a handful per commit; on a commit that cannot prune it is zero,
+			because `skip` returns before the verdict.
+
+			They are published together and read together: C14 removes probes and must
+			remove NO scans, because the fork arithmetic beside the branch copies a prefix
+			of the child array BY INDEX. `lastCommitScans` unmoved beside a fallen
+			`lastCommitProbes` is what says the change took the cost and not the loop. ]]
 		lastCommitProbes = 0,
 		--[[ ...and what those answers were STORED in (Plan C, C4 fix round 1). One per
 			array `buildDescend` materialised for a descend list, plus the slots it

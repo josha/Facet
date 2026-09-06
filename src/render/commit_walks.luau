@@ -457,11 +457,30 @@ function commit_walks.new(ctx: CommitCtx)
 		reach a node through a parent it did not skip, so a changed entry below the
 		borrowed one implies the borrowed one changed too. Both properties are about
 		the subtree, which is what makes the borrowed answer answer for all of it. ]]
+	--[[ THE BORROW HALF, SPLIT OUT SO A CALLER THAT ALREADY KNOWS THE ANSWER TO THE
+		FIRST LINE DOES NOT ASK IT AGAIN (C14 fix round 1). `buildDescend`'s loop reads
+		`commitRects[p]` itself to answer the common case, so when it reaches here it
+		knows the entry is absent — and calling `probeEntry` would re-read the identical
+		key to learn what it just learned.
+
+		MEASURED, AND SMALL, AND REPORTED AS SUCH: `war_room_inventory reorder`
+		`cw.harvest` 0.408 -> 0.399 / 0.401 ms over two runs whose own spread is 0.002.
+		Consistently in the predicted direction and inside the class's noise, because
+		this arena's `ForEach` rows OWN entries — the spike behind C14 read 1,124 of
+		1,126 probed children owning one — so the population this serves is the spliced
+		REGION and the single-child pass-through, which are a handful per surface here
+		and the majority on a surface built out of wrappers. It ships because it is the
+		same "read each key once" rule as the branch below and is exactly equivalent by
+		construction, not because the arena could prove it. ]]
+	local probeBorrowed: (any) -> any
 	local function probeEntry(node: any): any
 		local entry = commitRects[node.path]
 		if entry ~= nil then
 			return entry
 		end
+		return probeBorrowed(node)
+	end
+	probeBorrowed = function(node: any): any
 		local kids = node.children
 		if #kids == 1 then
 			return probeEntry(kids[1])
@@ -520,16 +539,25 @@ function commit_walks.new(ctx: CommitCtx)
 		is a stronger statement than `settled` and is only good enough for a walk
 		whose output cannot read a position. Neither reads a dirty set: which SET a
 		caller is answered against is the caller's question, not the entry's. ]]
-	local function entryVerdict(node: any): (boolean, boolean)
-		local probe = probeEntry(node)
+	--[[ ...and the verdict AS A FUNCTION OF THE PAIR, so there is exactly ONE
+		implementation of it whether or not the caller already had the two values in
+		hand (C14). `buildDescend`'s loop reads both keys to answer the common case
+		itself and hands them straight here; `skip` below has neither and reads them
+		through `entryVerdict`. Splitting it this way is what lets the loop stop paying
+		for a second read of a key it is holding WITHOUT growing a second copy of the
+		rule — which is the drift `entryVerdict` was extracted from `skip` to prevent
+		in the first place. ]]
+	local function verdictOf(probe: any, last: any): (boolean, boolean)
 		if probe == nil then
 			return false, false
 		end
-		local last = lastCommitEntry[node.path]
 		if last == probe then
 			return true, true
 		end
 		return false, probe.moveOnly == true and last ~= nil and last == probe.prev
+	end
+	local function entryVerdict(node: any): (boolean, boolean)
+		return verdictOf(probeEntry(node), lastCommitEntry[node.path])
 	end
 	local function skip(node: any, moveBlind: boolean?, arrangeBlind: boolean?): boolean
 		scanCount += 1
@@ -545,6 +573,13 @@ function commit_walks.new(ctx: CommitCtx)
 		if set[node.path] == true then
 			return false
 		end
+		--[[ ...AND `skip`'s OWN VERDICT IS A PROBE TOO (C14, fix round 1). `scanCount`
+			counts this function's entry as well as the loop's iterations, so counting
+			the call here and not there would leave the two counters over DIFFERENT
+			populations and `probes <= scans` unreadable as a ratio. Since C4 this
+			runs only for a walk's ROOT — every other node is answered by the list its
+			parent built — so it is a handful per commit either way. ]]
+		probeCount += 1
 		local settled, moved = entryVerdict(node)
 		return settled or (moveBlind == true and moved)
 	end
@@ -678,21 +713,39 @@ function commit_walks.new(ctx: CommitCtx)
 				branch did NOT answer — is this task's number, and the two are pinned
 				together for exactly that reason. ]]
 			local skipB, skipM, skipC
-			local own = commitRects[p]
 			if dirtyAll and dirtyCommit then
 				skipB, skipM, skipC = false, false, false
-			elseif own ~= nil and lastCommitEntry[p] == own then
-				-- `settled`, computed rather than guessed: the entry this solve carried
-				-- forward IS the one the last commit wrote
-				skipB = not dirtyAll
-				skipM = not dirtyAll
-				skipC = not dirtyCommit
 			else
-				probeCount += 1
-				local settled, moved = entryVerdict(child)
-				skipB = not dirtyAll and settled
-				skipM = not dirtyAll and (settled or moved)
-				skipC = not dirtyCommit and (settled or moved)
+				--[[ ...AND THE ENTRY READ IS BELOW THE DIRTY SHORT-CIRCUIT, WHICH IS THIS
+					FILE'S OWN LESSON FIFTY LINES UP (fix round 1, and C4's before it). A
+					child in both dirty sets is descended by every shape whatever its entry
+					says, so a read taken above the branch is a hash lookup HEAD never took,
+					once per child, on exactly the commits that have the most children —
+					a reorder, a large structural add. Measured as `war_room_inventory
+					reorder` `cw.harvest` +14.7 % when it sat above this line. ]]
+				local own = commitRects[p]
+				local last = lastCommitEntry[p]
+				if own ~= nil and last == own then
+					-- `settled`, computed rather than guessed: the entry this solve carried
+					-- forward IS the one the last commit wrote, so `verdictOf` would answer
+					-- `(true, true)` and the three expressions below collapse to these
+					skipB = not dirtyAll
+					skipM = not dirtyAll
+					skipC = not dirtyCommit
+				else
+					probeCount += 1
+					--[[ ...AND EACH KEY IS READ ONCE. `probeEntry`'s first line is this same
+						`commitRects[p]` and `entryVerdict`'s next line is this same
+						`lastCommitEntry[p]`, so calling either from here would re-read a key
+						already in hand — the second half of the same cost. `probeBorrowed`
+						is `probeEntry` WITHOUT that first line, which is the only part of it
+						this branch has already done; the walk below it is untouched and is
+						still what answers a spliced region. ]]
+					local settled, moved = verdictOf(if own ~= nil then own else probeBorrowed(child), last)
+					skipB = not dirtyAll and settled
+					skipM = not dirtyAll and (settled or moved)
+					skipC = not dirtyCommit and (settled or moved)
+				end
 			end
 			--[[ ...and the two places a list has to leave the one above it. They are
 				MUTUALLY EXCLUSIVE at any one child: `skipM ~= skipB` needs `skipM` true

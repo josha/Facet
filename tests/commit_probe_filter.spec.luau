@@ -60,7 +60,25 @@
 	`kids` BY INDEX, so skipping the rest of the loop body would let the first fork
 	after a fast-pathed child copy that child back in. The three flags are set
 	directly. `lastCommitScans` therefore MUST NOT MOVE and is this file's safety pin;
-	`lastCommitProbes` is its acceptance number. ]]
+	`lastCommitProbes` is its acceptance number.
+
+	WHICH CASES ARE REDS AND WHICH ARE GUARDS, said once here and again at each site
+	(review fix round 1, Minor 1). **RED AT BASE** — they fail with the fast path
+	neutered: the two scan/probe pairs, the `fill`-child acceptance case, "costs no
+	call", "A DIRTY CHILD WITH A SETTLED ENTRY", "A NEVER-COMMITTED ENTRY", "A MOVE-ONLY
+	ENTRY", and "A BOTH-DIRTY CHILD READS NO ENTRY AT ALL" (which is red against the
+	FIRST shipped form, not against C4 — see its own header). **GREEN AT BASE** — they
+	are forward guards, and saying so is the honest label: the viewport/unpruned case,
+	the structural-churn case (green BY DESIGN — it is the "degrades to today's count"
+	arm), "the filtered arm agrees with a full-walk arm", the `ForEach` region case, "AN
+	ENTRY-LESS CHILD is never fast-pathed", the `commitDirty ⊆ nodeDirty` source pin, and
+	both differential oracles.
+
+	AND THE ORACLES ARE C4's ARM SWITCH, NOT C14's (Minor 7). Both compare
+	`commitScope = true` against `commitScope = false`, which is the prune as a whole;
+	there is no attach opt for this branch and inventing one would be a public surface
+	for a code path. They are excellent guards — mutation 2 reddens both — but C14's own
+	A/B evidence is the five hand-built cases plus the mutation battery. ]]
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 local deep = require("./lib/deep_stack_scene")
@@ -158,7 +176,7 @@ end
 
 describe("C14: the probe is asked only where the solve could have replaced an entry", function()
 	it("one leaf's text on a 1,000-row list SCANS the same and PROBES almost nothing", function()
-		--[[ THE PAIR IS THE POINT. `scans` is C4's number and must not move by one:
+		--[[ RED AT BASE. THE PAIR IS THE POINT. `scans` is C4's number and must not move by one:
 			the filter sets three flags where the probe used to run and lets every child
 			reach the fork logic with the same `i`. `probes` is C14's, read off the run
 			with `solves=1` on the class. The first drive is a warm-up — the fixture's
@@ -178,10 +196,20 @@ describe("C14: the probe is asked only where the solve could have replaced an en
 		expect(`rects={st.rectWrites} props={st.propWrites} engine={st.engineWrites}`).toBe(
 			"rects=3006 props=7004 engine=6008"
 		)
+		--[[ ...and the REST of the brief's must-not-move list, named here rather than
+			left to transitive coverage (review fix round 1, Minor 3). `lastCommitListCells`
+			is C4's allocation counter and is the one a change to this loop could plausibly
+			move; the pool and lifecycle four are here because "nothing else moved" is a
+			claim about the whole commit, not about the walks. ]]
+		expect(
+			`cells={st.lastCommitListCells} elided={st.elided} creates={st.creates} `
+				.. `removes={st.removes} parked={st.parked} recycled={st.recycled}`
+		).toBe("cells=3 elided=1001 creates=3002 removes=0 parked=0 recycled=0")
 		s.dispose()
 	end)
 
 	it("...and a width write on the ROW itself is the same shape", function()
+		-- RED AT BASE: the probe count is this branch's own number.
 		local s = deep.new({})
 		s.width(500, 280)
 		s.width(500, 260)
@@ -193,7 +221,7 @@ describe("C14: the probe is asked only where the solve could have replaced an en
 	end)
 
 	it("a viewport change filters nothing — the unpruned arm never reaches the filter", function()
-		--[[ `descendOf` returns `node.children` before `buildDescend` is ever called
+		--[[ GREEN AT BASE — a forward guard. `descendOf` returns `node.children` before `buildDescend` is ever called
 			when `pruning` is false, and a viewport change is a full solve with no reuse
 			table at all. So the filter is not "off" here; it is unreachable, and both
 			counters say so. ]]
@@ -208,7 +236,9 @@ describe("C14: the probe is asked only where the solve could have replaced an en
 	end)
 
 	it("a structural churn degrades to today's probe count", function()
-		--[[ THE ARM THE FILTER CANNOT HELP, priced rather than hoped for. An insert
+		--[[ GREEN AT BASE, BY DESIGN — that is what "degrades to today's count" MEANS, and
+			the number is here so a later reader cannot mistake a small probe count elsewhere
+			for a universal one. THE ARM THE FILTER CANNOT HELP, priced rather than hoped for. An insert
 			into the `ForEach` region dirties the region and re-arranges the list, so
 			most children are either dirty or walked and the probe is asked of them
 			anyway. `probes` close to `scans` is the correct answer here, and having it
@@ -253,6 +283,7 @@ describe("C14: A CLEAN CHILD OF A DIRTY PARENT is still descended", function()
 	end)
 
 	it("...and the filtered arm agrees with a full-walk arm rect for rect", function()
+		-- GREEN AT BASE: a differential guard on the prune, not this branch's red.
 		local a = fillScene(true)
 		local b = fillScene(false)
 		for _, px in { 220, 300, 180, 180, 420 } do
@@ -272,7 +303,8 @@ end)
 
 describe("C14: a `ForEach` REGION is never filtered", function()
 	it("a padding write on the list still reaches every item inside the region", function()
-		--[[ REVIEW ROUND 3'S MUST-FIX, DRIVEN. The region is `List`'s first mount
+		--[[ GREEN AT BASE — a forward guard, and the reason `own ~= nil` is a term at all.
+			REVIEW ROUND 3'S MUST-FIX, DRIVEN. The region is `List`'s first mount
 			child and has no layout node — `layout_node`'s `appendChild` splices its
 			children into `List`'s flow — so it is in no dirty set, in none of the three
 			published sets, and it owns no rect entry. Its ITEMS are re-placed (`List`'s
@@ -389,6 +421,7 @@ describe("C14: the fast path is the verdict, and the two nils that refuse it", f
 	end
 
 	it("a child whose committed entry IS this solve's entry costs no call", function()
+		-- RED AT BASE: this is the fast path, counted.
 		local walks, ctx = newWalks()
 		local root, rects = tree()
 		local metrics = {}
@@ -411,7 +444,7 @@ describe("C14: the fast path is the verdict, and the two nils that refuse it", f
 	end)
 
 	it("A DIRTY CHILD WITH A SETTLED ENTRY is dirty for the base and move shapes", function()
-		--[[ THE ONE STATE IN WHICH `dirtyAll` MATTERS ON THIS PATH. `commitDirty` is a
+		--[[ RED AT BASE. THE ONE STATE IN WHICH `dirtyAll` MATTERS ON THIS PATH. `commitDirty` is a
 			SUBSET of `nodeDirty` (T5b drops the seven props that move a node and change
 			nothing a walk reads), so `dirtyCommit` implies `dirtyAll` and the branch
 			above catches every child in both sets. What reaches the fast path with
@@ -458,7 +491,7 @@ describe("C14: the fast path is the verdict, and the two nils that refuse it", f
 	end)
 
 	it("A NEVER-COMMITTED ENTRY still reaches the probe, and is still descended", function()
-		--[[ THE RED THE UNION FILTER PRODUCED, kept as a case in its own right.
+		--[[ RED AT BASE. THE RED THE UNION FILTER PRODUCED, kept as a case in its own right.
 			`rect_pass` deliberately does NOT record a node the commit had no handle for,
 			so `lastCommitEntry[p]` is nil while `commitRects[p]` is a perfectly good
 			entry — and the next commit MUST descend to it. `nil == own` is false, so the
@@ -477,7 +510,7 @@ describe("C14: the fast path is the verdict, and the two nils that refuse it", f
 	end)
 
 	it("AN ENTRY-LESS CHILD is never fast-pathed, whatever `lastCommitEntry` holds", function()
-		--[[ THE `nil == nil` TRAP, which this file's ancestor already paid for once:
+		--[[ GREEN AT BASE — a forward guard on a term, not a red. THE `nil == nil` TRAP, which this file's ancestor already paid for once:
 			C4's header records that a predicate comparing `rects[path]` directly read
 			`nil == nil` on every spliced region and pruned the whole subtree. `own ~= nil`
 			is the term that refuses it, and a region whose own `note` wrote nil is the
@@ -505,8 +538,83 @@ describe("C14: the fast path is the verdict, and the two nils that refuse it", f
 		expect(`probes={ctx.stats.lastCommitProbes} scans={ctx.stats.lastCommitScans}`).toBe("probes=3 scans=4")
 	end)
 
+	it("A BOTH-DIRTY CHILD READS NO ENTRY AT ALL — the dirty test comes first", function()
+		--[[ RED AT BASE (fix round 1, review Important 1). The first shipped form read
+			`commitRects[p]` ABOVE the `dirtyAll and dirtyCommit` short-circuit, so every
+			child in both sets paid a hash lookup HEAD never took — once per child, on
+			exactly the commits that have the most children. Fifty lines above the branch,
+			`commit_walks` records the same lesson from C4 fix round 1: "AND THE DIRTY
+			TEST COMES FIRST, EXACTLY AS `skip` ORDERS IT … Losing that short-circuit is
+			what the reorder regression actually was." Measured, the hoist WAS the whole
+			booked regression: `war_room_inventory reorder` `cw.harvest` 0.374 -> 0.429 ms,
+			+14.7 %.
+
+			THE INSTRUMENT IS A COUNTING PROXY, not a counter in the source. A hash lookup
+			cannot be counted in production without paying more than it costs, so the map
+			`harvest` is handed is an EMPTY table whose `__index` forwards to the real one
+			and tallies. `commitRects` is a plain upvalue read with a computed key, so
+			every read in the file goes through it and none of them can tell.
+
+			AND THE CLASSIFIED SUBTREE IS DETACHED FROM THE HARVESTED ONE, which is the
+			difference between measuring this branch and measuring C4's cache: `harvest`
+			walks its own tree and fills `descendKids` on the way, so a `descendOf` of a
+			node it already visited reads the CACHE and would report zero however this
+			branch is written. `/X` is never harvested, so its classification is fresh. ]]
+		local walks, ctx = newWalks()
+		local rects: any = { ["/S"] = { rect = { x = 0, y = 0, w = 100, h = 100 } } }
+		local dirty: any = { ["/S"] = true, ["/X"] = true }
+		local kids: { any } = {}
+		for i = 1, 8 do
+			local path = `/X/D{i}`
+			kids[i] = { path = path, class = "Box", props = {}, children = {} }
+			rects[path] = { rect = { x = 0, y = i, w = 10, h = 10 } }
+			-- EVERY child in BOTH sets: the reorder shape, where the fast path can never
+			-- fire and a read above the branch is therefore pure loss
+			dirty[path] = true
+		end
+		local harvested = { path = "/S", class = "Screen", props = {}, children = {} }
+		local detached = { path = "/X", class = "VStack", props = {}, children = kids }
+		local reads = 0
+		local counting = setmetatable({}, {
+			__index = function(_, key: any): any
+				reads += 1
+				return rects[key]
+			end,
+		})
+		local metrics = {}
+		walks.harvest(harvested, counting :: any, true, dirty, 1, metrics, 0, dirty)
+		walks.harvest(harvested, counting :: any, true, dirty, 1, metrics, 0, dirty)
+		expect(`armed={walks.scope.armed()}`).toBe("armed=true")
+		reads = 0
+		local list = walks.scope.descendOf(detached)
+		--[[ ZERO. Not "fewer" — the eight children are answered by two reads of the DIRTY
+			maps and the entry map is never consulted at all. `#list` is 8 beside it,
+			because a both-dirty child is descended by every shape: this branch removed a
+			LOOKUP and not a child, which is `lastCommitScans`' own claim one level up.
+			(The stats record is written by a WALK's `publishVisits`, so a bare
+			`descendOf` does not move it; the counter pins live in the mounted cases.) ]]
+		expect(`reads={reads} kept={#list}`).toBe("reads=0 kept=8")
+
+		--[[ ...AND THE CONTROL, which is what makes the zero above mean something. The
+			same eight children CLEAN read the entry map exactly ONCE EACH — once is what
+			`entryVerdict` reads anyway, so the fast path costs nothing extra. A form that
+			called `probeEntry` from the loop while already holding `own`, or that let
+			`entryVerdict` re-read `lastCommitEntry`, would say more than 8 here. ]]
+		local walks2, ctx2 = newWalks()
+		for _, child in kids do
+			ctx2.lastCommitEntry[child.path] = rects[child.path]
+		end
+		local clean: any = { ["/S"] = true, ["/X"] = true }
+		local metrics2 = {}
+		walks2.harvest(harvested, counting :: any, true, clean, 1, metrics2, 0, clean)
+		walks2.harvest(harvested, counting :: any, true, clean, 1, metrics2, 0, clean)
+		reads = 0
+		local cleanList = walks2.scope.descendOf(detached)
+		expect(`clean-reads={reads} kept={#cleanList}`).toBe("clean-reads=8 kept=0")
+	end)
+
 	it("A MOVE-ONLY ENTRY still reaches the probe, so `moved` is computed", function()
-		--[[ The translate arm's entry is a FRESH table with `prev` pointing at the one
+		--[[ RED AT BASE. The translate arm's entry is a FRESH table with `prev` pointing at the one
 			the last commit wrote, so `lastCommitEntry[p] == own` is false and the fast
 			path declines — which is required, because the three shapes disagree here:
 			the move-blind walks may skip it and `hitRects`/`rect_pass`, which read a
@@ -528,9 +636,60 @@ describe("C14: the fast path is the verdict, and the two nils that refuse it", f
 	end)
 end)
 
+describe("C14: `commitDirty` is a SUBSET of `nodeDirty`, and one line makes it so", function()
+	it("`markDirtyIn(commitDirty, …)` has exactly one producer, inside the `nodeDirty` mark", function()
+		--[[ GREEN AT BASE — a forward guard on an invariant this file ARGUES from (review
+			fix round 1, Minor 5). Mutation 5 of this task's battery (`skipC = true` in
+			place of `not dirtyCommit`) is recorded as a PROVEN-EQUIVALENT null, and the
+			proof is exactly this: `commitDirty ⊆ nodeDirty`, so `dirtyCommit` implies
+			`dirtyAll` and every both-dirty child is caught by the branch above the fast
+			path. An argued invariant with no pin is how a null turns into a hole.
+
+			(The SHIPPED line does not depend on it — when `dirtyCommit` is true,
+			`not dirtyCommit` is false and so is HEAD's `not dirtyCommit and (settled or
+			moved)`. The unconditional form is deliberate; this pin protects the
+			null's VERDICT, not the code.)
+
+			IT IS A SOURCE PIN BECAUSE THE PRODUCER IS THE RENDERER'S, one file over and
+			behind an attach. `renderer.luau`'s dirty-scan loop marks `nodeDirty` for every
+			entry and `commitDirty` for the subset that is not a `PURE_ARRANGE_PROPS`
+			write, in the SAME iteration — so the subset is a property of that one block,
+			and the thing that can break it is a second, unguarded `markDirtyIn(commitDirty,
+			…)` appearing somewhere else. That is what this counts. ]]
+		local fs = require("@lune/fs")
+		local source = fs.readFile("src/render/renderer.luau")
+		local producers = 0
+		for _ in string.gmatch(source, "markDirtyIn%(commitDirty") do
+			producers += 1
+		end
+		local all = 0
+		for _ in string.gmatch(source, "markDirtyIn%(nodeDirty") do
+			all += 1
+		end
+		expect(`commitDirty-producers={producers} nodeDirty-producers={all}`).toBe(
+			"commitDirty-producers=1 nodeDirty-producers=1"
+		)
+		--[[ ...AND THE ONE PRODUCER IS INSIDE THE OTHER'S BLOCK, which is the half a
+			count cannot say: the `commitDirty` mark must appear AFTER the `nodeDirty`
+			mark with no intervening `end` at the loop's own depth. Read as text, the
+			guard between them is the only thing that removes a path. ]]
+		local between = string.match(source, "markDirtyIn%(nodeDirty[^\n]*\n(.-)markDirtyIn%(commitDirty")
+		expect(`gap-found={between ~= nil}`).toBe("gap-found=true")
+		expect(`guard={string.find(between :: string, "PURE_ARRANGE_PROPS", 1, true) ~= nil}`).toBe("guard=true")
+		-- NEGATIVE CONTROL: the scan really does see a second producer
+		local fake = "markDirtyIn(commitDirty, a)\nmarkDirtyIn(commitDirty, b)"
+		local n = 0
+		for _ in string.gmatch(fake, "markDirtyIn%(commitDirty") do
+			n += 1
+		end
+		expect(`control={n}`).toBe("control=2")
+	end)
+end)
+
 describe("C14: the differential oracle", function()
 	it("every drive leaves the filtered arm and the full-walk arm byte-identical", function()
-		--[[ THE SAME QUESTION C4's oracle asks, asked of the filter, on the fixtures
+		--[[ GREEN AT BASE — C4's arm switch, kept as a guard (see the file header, Minor 7).
+			THE SAME QUESTION C4's oracle asks, asked of the filter, on the fixtures
 			whose sibling scan it cuts: a leaf's text, a row's own width, a coupled
 			row's HEIGHT (which moves a CLEAN child's offer without dirtying it — the
 			shape a dirty index would break), a viewport change (a full solve, no reuse
@@ -587,7 +746,7 @@ describe("C14: the differential oracle", function()
 	end)
 
 	it("...at every view in the device matrix, on both adapters", function()
-		--[[ THE ADAPTER-FREE ARM is the price C4's review named: `solver.solve` driven
+		--[[ GREEN AT BASE — C4's arm switch again. THE ADAPTER-FREE ARM is the price C4's review named: `solver.solve` driven
 			directly over the same layout tree, so the comparison is the SOLVER's own
 			answer and not a second reading of the adapter the first arm already read.
 			Nine views, both arms, the whole rect map per view. ]]
