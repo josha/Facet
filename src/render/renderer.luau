@@ -2330,7 +2330,10 @@ function renderer.attach(
 		buys — firing the public `UI.dropTarget` callbacks against rects the next solve
 		was about to rewrite. The lane's tick calls the same pair, from the same place
 		in the frame. ]]
-	solveAndApply = solve_queue.trampoline({
+	-- ...and the queue's own owed-round reader, asked in three places below:
+	-- `render/solve_queue`'s AND THE DEFERRAL OWNS ITS RE-ARMING (C-3 fix round 2)
+	local drainOwed: () -> boolean
+	solveAndApply, drainOwed = solve_queue.trampoline({
 		solve = solveOnce,
 		tail = function()
 			local liveDrag = dragBridge.peek()
@@ -2338,6 +2341,10 @@ function renderer.attach(
 				liveDrag.refreshTargets()
 			end
 			notifySolved()
+		end,
+		id = root.node.path,
+		onDefer = function()
+			stats.drainDeferrals += 1
 		end,
 	})
 
@@ -2807,7 +2814,8 @@ function renderer.attach(
 		profile.span("lane", function()
 			dirty, laned = lane.run(dirty)
 		end)
-		local needsSolve = false
+		-- reader 1: an owed drain round is a solve this frame owes, dirty queue or not
+		local needsSolve = drainOwed()
 		local needsStructure = false
 		--[[ THE STALE-LAYOUT-DIRT TEST (owed row O-20, measured 2026-08-15).
 			A settle-phase solve does NOT consume the dirty queue — deliberately, so
@@ -3250,7 +3258,11 @@ function renderer.attach(
 	function controller.initialRender()
 		structuralSync()
 		solveAndApply()
-		root.takeDirty() -- initial mount noise is not an update
+		-- reader 2: this site may drain only because the solve above it did a full
+		-- build covering the dirt — and a DEFERRED round is that build, not run
+		if not drainOwed() then
+			root.takeDirty() -- initial mount noise is not an update
+		end
 		initialized = true
 		-- the same order `refresh` uses, for the same reason: after the solve, so an
 		-- `onAppear` on a first-frame node can read the rect it was just given
@@ -3935,8 +3947,10 @@ function renderer.attach(
 	-- be seen until its text is exact polls this. False also means "nothing was
 	-- ever asked for", which is the right answer for an adapter without the
 	-- seam: there is nothing to wait for.
+	-- reader 3: ...OR an owed round. A settled adapter clears in-flight on every
+	-- answer, so "words outstanding" alone reads false one solve short of exact
 	function controller.textPending(): boolean
-		return premeasureRound.pending()
+		return premeasureRound.pending() or drainOwed()
 	end
 
 	function controller.dispose()

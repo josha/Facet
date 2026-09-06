@@ -1256,7 +1256,19 @@ describe("the layout-node store: the audit that licenses it", function()
 			A THIRD drain with neither property would let dirt be consumed without being
 			classified, and the very next build would serve a tree that never saw it —
 			silently, because every counter would still look right. That is why this is a
-			count and not a comment. ]]
+			count and not a comment.
+
+			...AND THE SECOND PROPERTY HAS A PRECONDITION THAT USED TO BE FREE (ruling
+			C-3, fix round 2). "`solveAndApply` has already done a full build" stopped
+			being true the day the text-measurement drain's round cap began DEFERRING
+			instead of throwing: a deferred round is exactly the build that did not run,
+			so the dirt its own last answer created was consumed by a drain that had not
+			covered it. Measured at `bec8e935`: a surface whose cap tripped at mount ran
+			zero further solves and zero further batches for the rest of the session, its
+			text clipped, because `refresh` then marked that same dirt classified. So the
+			drain is GUARDED by the queue's owed-round reader, and the guard is the third
+			term of the ordered triple below — without it this case would pass on a
+			renderer that strands every deep mount. ]]
 		local body = stripLua(fs.readFile(RENDERER_PATH))
 		local sites: { string } = {}
 		for line in string.gmatch(body, "\n([^\n]*root%.takeDirty%(%)[^\n]*)") do
@@ -1272,8 +1284,11 @@ describe("the layout-node store: the audit that licenses it", function()
 		local initial = string.match(body, "function controller%.initialRender%(%)(.-)\n\tend")
 		assert(initial ~= nil, "no `initialRender` body to read")
 		local solveAt = string.find(initial :: string, "solveAndApply()", 1, true)
+		local guardAt = string.find(initial :: string, "if not drainOwed() then", 1, true)
 		local drainAt = string.find(initial :: string, "root.takeDirty()", 1, true)
-		expect(solveAt ~= nil and drainAt ~= nil and (solveAt :: number) < (drainAt :: number)).toBe(true)
+		expect(
+			`solve<guard<drain: {solveAt ~= nil and guardAt ~= nil and drainAt ~= nil and (solveAt :: number) < (guardAt :: number) and (guardAt :: number) < (drainAt :: number)}`
+		).toBe("solve<guard<drain: true")
 	end)
 
 	it("NEGATIVE CONTROL: each audit scan reports the input it is meant to catch", function()

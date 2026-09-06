@@ -107,6 +107,22 @@ function render_stats.new(): any
 		-- closing that frame: one extra solve on the frame the number moves, which
 		-- is the solve the NEXT frame used to pay.
 		feedbackSolves = 0,
+		--[[ ...and the times this surface's text-measurement drain hit the round cap and
+			DEFERRED the round it declined to run (ruling C-3, fix round 2, review F8).
+
+			IT IS A NUMBER BECAUSE THE LINE IS NOT ENOUGH. `render/solve_queue` prints one
+			`warn` per unconverged stretch — latched deliberately, because a surface that
+			defers on every frame at 60 fps would cost more in log lines than in solves —
+			so the diagnostic a human reads cannot be counted, and the live failure this
+			ruling came from (FacetBench §8) was found by SCRAPING WARNINGS. This is the
+			same fact in the form an arena runner, an invariant or a spec can assert:
+			once per TRIP, per surface, cumulative for the surface's life.
+
+			A NON-ZERO VALUE IS NOT A FAILURE, and the counter is deliberately not named
+			as one. A trip means one frame's settle ran out of budget and the next frame
+			carries on from where it stopped; a value that keeps CLIMBING across a
+			settled session is the condition worth reading. ]]
+		drainDeferrals = 0,
 		-- solves served by re-solving one absorbing box instead of the whole tree
 		partialSolves = 0,
 		elided = 0,

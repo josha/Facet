@@ -90,6 +90,8 @@ type Arm = {
 	notifies: number,
 	notifyRects: { string },
 	words: { string },
+	-- the vocabulary's own bound (see `mountAt`): `bound:set(chain)` opens it
+	bound: any,
 }
 
 --[[ EVERY ARM GETS ITS OWN VOCABULARY, AND EVERY VOCABULARY IS THE SAME SHAPE.
@@ -124,6 +126,21 @@ local function surface(
 		-- throw out of an engine write on the Nth solve: the failure the live route
 		-- absorbs at its own thread boundary
 		throwOnSolve: number?,
+		--[[ answer `final = false`, the way `client/text_premeasure` answers while the
+			engine's font metrics have not flipped. Default is the SETTLED adapter
+			(`final` absent, i.e. `~= false`), and the two differ in exactly one
+			observable this file cares about: on the settled shape the answered word
+			leaves `textInFlight`, so `controller.textPending()` reads false between
+			rounds. Both shapes are driven wherever a case's claim is about the
+			deferral rather than about the boot window. ]]
+		bootWindow: boolean?,
+		--[[ MOUNT SHORT AND OPEN THE VOCABULARY LATER. The word index is bounded by
+			this until `arm.bound:set(chain)`, so the deep drain lands inside a
+			`refresh()` rather than inside `initialRender()` — the shape the live
+			failure happened in (FacetBench §8, step 118: a mounted surface driven by
+			ordinary state writes). Absent, the bound is the chain itself and the memo
+			is exactly what it was. ]]
+		mountAt: number?,
 	}
 ): Arm
 	local core = if opts.share ~= nil then opts.share.core else customFactory.new()
@@ -142,10 +159,11 @@ local function surface(
 		the recursion runs THROUGH the shared `textMeasureEpoch` fact — exactly the
 		configuration T9b's two-workload run overflowed in. ]]
 	local stride = opts.stride
+	local bound = core:signal(opts.mountAt or opts.chain)
 	local label = core:memo(function(use)
 		local epoch = (use(env:get("textMeasureEpoch")) :: number?) or 0
 		local index = if stride ~= nil then 1 + (epoch + stride) // 2 else epoch + 1
-		return words[math.min(opts.chain, index)]
+		return words[math.min(opts.chain, use(bound) :: number, index)]
 	end)
 	local root = mountLib.mount(
 		core,
@@ -162,7 +180,7 @@ local function surface(
 		})
 	)
 	local adapter = fake_target.new()
-	adapter.answerTextInline(widthOf, nil, opts.ownThread)
+	adapter.answerTextInline(widthOf, if opts.bootWindow then false else nil, opts.ownThread)
 	local controller = renderer.attach(core, root, env, adapter, { rootPolicy = "coreSafeContent" })
 	if opts.throwOnSolve ~= nil then
 		--[[ AN ENGINE WRITE THAT THROWS, which is the shipped shape of this failure: a
@@ -185,6 +203,7 @@ local function surface(
 		notifies = 0,
 		notifyRects = {},
 		words = words,
+		bound = bound,
 	}
 	controller.onSolved(function()
 		arm.notifies += 1
@@ -197,6 +216,24 @@ end
 local function rect(arm: Arm, path: string): string
 	local r = arm.controller.rectOf(path)
 	return if r then `{r.x},{r.y},{r.w},{r.h}` else "-"
+end
+
+--[[ THE DIAGNOSTIC IS CAPTURED, NOT PRINTED. `solve_queue.report` defaults to the
+	engine's `warn`, which is why the module has the seam at all: a case that
+	deliberately drives a cap trip would otherwise print through the suite's own
+	PASS/FAIL lines. The real reporter is restored whether the body returned or threw,
+	so one red case cannot leave every later one deaf. ]]
+local function withReports(body: ({ string }) -> ())
+	local reports: { string } = {}
+	local realReport = solve_queue.report
+	solve_queue.report = function(message: string)
+		table.insert(reports, message)
+	end
+	local ok, err = pcall(body, reports)
+	solve_queue.report = realReport
+	if not ok then
+		error(err, 0)
+	end
 end
 
 -- the geometry channel this task must not move: every mounted node's rect and hit
@@ -541,16 +578,12 @@ describe("the premeasure answer does not run on the solve that asked", function(
 		words it asks for, so every solve queues another from inside its own body,
 		forever. The module has no requires, so this drives the exact loop. ]]
 	it("the cap defers the queued re-solve instead of raising, and says so once", function()
-		local reports: { string } = {}
-		local realReport = solve_queue.report
-		solve_queue.report = function(message: string)
-			table.insert(reports, message)
-		end
-		local ok, err = pcall(function()
-			local solves, tails = 0, 0
+		withReports(function(reports)
+			local solves, tails, defers = 0, 0, 0
 			local converge = false
 			local run: () -> ()
-			run = solve_queue.trampoline({
+			local owed: () -> boolean
+			run, owed = solve_queue.trampoline({
 				solve = function()
 					solves += 1
 					if not converge then
@@ -562,14 +595,23 @@ describe("the premeasure answer does not run on the solve that asked", function(
 				tail = function()
 					tails += 1
 				end,
+				--[[ THE COUNTER THE RENDERER PUBLISHES AS `stats.drainDeferrals` (fix
+					round 2, review F8), driven here at the seam it is written at. It is
+					once per TRIP where the line below is once per unconverged STRETCH, and
+					the two numbers diverging is exactly what the latch is. ]]
+				onDefer = function()
+					defers += 1
+				end,
 			})
 
 			-- IT RETURNS. That is the ruling, and the rest of the case is what it
 			-- returned having done.
 			run()
-			expect(`drain 1: solves {solves} tails {tails} reports {#reports}`).toBe(
-				`drain 1: solves {CAP + 1} tails {CAP + 1} reports 1`
+			expect(`drain 1: solves {solves} tails {tails} defers {defers} reports {#reports}`).toBe(
+				`drain 1: solves {CAP + 1} tails {CAP + 1} defers 1 reports 1`
 			)
+			-- ...and the round really is owed, which is the fact the renderer reads
+			expect(`drain 1: owed {owed()}`).toBe("drain 1: owed true")
 			expect(string.find(reports[1], "solve-drain round cap", 1, true) ~= nil).toBe(true)
 			expect(string.find(reports[1], "deferred", 1, true) ~= nil).toBe(true)
 
@@ -585,8 +627,9 @@ describe("the premeasure answer does not run on the solve that asked", function(
 			)
 			--[[ ...AND IT IS ONE LINE, NOT ONE A FRAME. A surface whose adapter genuinely
 				never converges defers on every refresh; at 60 fps a line each would cost
-				more than the thing it reports. ]]
-			expect(#reports).toBe(1)
+				more than the thing it reports. THE COUNTER IS THE OTHER HALF: it moves on
+				every trip, which is why a rig reads it and not the log. ]]
+			expect(`drain 2: defers {defers} reports {#reports}`).toBe("drain 2: defers 2 reports 1")
 
 			--[[ THE DEFERRED ROUND IS REALLY STILL QUEUED: with the cycle broken, this
 				call is the caller's own solve PLUS the one the last drain deferred — two,
@@ -597,6 +640,8 @@ describe("the premeasure answer does not run on the solve that asked", function(
 			expect(`the deferred round ran: solves +{solves - before} tails +{tails - before}`).toBe(
 				"the deferred round ran: solves +2 tails +2"
 			)
+			-- ...and nothing is owed any more, which is what lets the renderer stop
+			expect(`converged: owed {owed()} defers {defers}`).toBe("converged: owed false defers 2")
 
 			--[[ ...AND THE ONE-LINE LATCH IS CLEARED BY A DRAIN THAT CONVERGED, so a
 				later trip after a healthy stretch is reported rather than swallowed by a
@@ -605,10 +650,6 @@ describe("the premeasure answer does not run on the solve that asked", function(
 			run()
 			expect(`after a healthy drain: reports {#reports}`).toBe("after a healthy drain: reports 2")
 		end)
-		solve_queue.report = realReport
-		if not ok then
-			error(err, 0)
-		end
 	end)
 
 	--[[ ...AND THE SAME THING THROUGH A MOUNTED SURFACE, ON THE SHAPE THE LIVE
@@ -625,21 +666,17 @@ describe("the premeasure answer does not run on the solve that asked", function(
 		surface gated on exact text keeps waiting for the frame that finishes the drain
 		instead of being handed an error.
 
-		THE FIXTURE IS THE CHAIN WITH A SIGNAL FOR ITS BOUND, and the bound is why it is
-		written out here rather than taken from `surface` above: a chain that is already
-		deep at MOUNT defers inside `initialRender`, and `initialRender` drains the dirty
-		queue after its solve ("initial mount noise is not an update"), which throws away
-		the very dirt the deferred round is owed for. So this arm mounts SHORT — two
-		words, converged, exactly like a real surface's first frame — and only then opens
-		the vocabulary, which puts the deep drain inside a `refresh()`, where the dirt a
-		deferred round still owes stays queued for the next one. ]]
+		THE FIXTURE IS THE CHAIN WITH A SIGNAL FOR ITS BOUND, so this arm mounts SHORT —
+		two words, converged, exactly like a real surface's first frame — and only then
+		opens the vocabulary, which puts the deep drain inside a `refresh()` the way
+		step 118's was. (In fix round 1 that was not a choice: a chain already deep at
+		MOUNT deferred inside `initialRender`, whose post-solve drain of the dirty queue
+		threw away the very dirt the deferred round was the build for, and the surface
+		was stranded for the session. The case below this one is that defect, and it is
+		why `initialRender` no longer drains while a round is owed. This arm keeps the
+		refresh-shaped drive because it is the one the live failure happened in.) ]]
 	it("a refresh defers, keeps textPending, notifies every solve, and drains again next frame", function()
-		local reports: { string } = {}
-		local realReport = solve_queue.report
-		solve_queue.report = function(message: string)
-			table.insert(reports, message)
-		end
-		local ok, err = pcall(function()
+		withReports(function(reports)
 			local CHAIN = CAP * 3
 			local core = customFactory.new()
 			local env = environment.new(core)
@@ -690,9 +727,19 @@ describe("the premeasure answer does not run on the solve that asked", function(
 			expect(`first deferred drain: solves {first}`).toBe(`first deferred drain: solves {CAP + 1}`)
 			expect(`notified: {notifies}`).toBe(`notified: {controller.stats().solves}`)
 			expect(controller.textPending()).toBe(true)
+			--[[ THE COUNTER IS THE WITNESS A LIVE RIG HAS (fix round 2, review F8): the
+				`warn` is latched, so a scrape cannot count trips, and scraping warnings is
+				how FacetBench §8's failure was found in the first place. The message's
+				CONTENT is still asserted below, because the line has its own job — it has
+				to name the surface and the mechanism it was measured to be. ]]
+			expect(`deferrals {controller.stats().drainDeferrals}`).toBe("deferrals 1")
 			expect(#reports).toBe(1)
 			expect(string.find(reports[1], "solve-drain round cap", 1, true) ~= nil).toBe(true)
 			expect(string.find(reports[1], "deferred", 1, true) ~= nil).toBe(true)
+			-- ...and it names THIS surface's root and the walk, not the refuted adapter
+			-- hypothesis (review F5)
+			expect(string.find(reports[1], "/Deferral", 1, true) ~= nil).toBe(true)
+			expect(string.find(reports[1], "one word per round", 1, true) ~= nil).toBe(true)
 
 			--[[ THE NEXT FRAME DRAINS AGAIN, FROM WHERE THIS ONE STOPPED. Nothing
 				scheduled it and nothing was dropped: the round the cap declined to run left
@@ -705,7 +752,7 @@ describe("the premeasure answer does not run on the solve that asked", function(
 				`second deferred drain: solves {CAP + 1}`
 			)
 			expect(`notified: {notifies}`).toBe(`notified: {controller.stats().solves}`)
-			expect(#reports).toBe(1)
+			expect(`deferrals {controller.stats().drainDeferrals} reports {#reports}`).toBe("deferrals 2 reports 1")
 
 			--[[ ...AND IT FINISHES. A bounded vocabulary drained a cap at a time reaches
 				its end, and the surface is left solved rather than wedged by its own
@@ -723,12 +770,157 @@ describe("the premeasure answer does not run on the solve that asked", function(
 			expect(`epoch {(env:get("textMeasureEpoch"):get() :: any) or 0}`).toBe(`epoch {CHAIN}`)
 			expect(`notified: {notifies}`).toBe(`notified: {controller.stats().solves}`)
 			expect(#reports).toBe(1)
+			--[[ ...and this arm still reads PENDING, which is the BOOT WINDOW and not the
+				deferral: `final = false` leaves every answered word in flight until the
+				engine's settled re-read, so the surface is legitimately still waiting. The
+				case below drives the settled adapter, where pending really does fall with
+				the last owed round. ]]
+			expect(`converged: pending {controller.textPending()}`).toBe("converged: pending true")
 			controller.dispose()
 		end)
-		solve_queue.report = realReport
-		if not ok then
-			error(err, 0)
-		end
+	end)
+
+	--[[ ── A DEFERRAL THE MOUNT MADE IS STILL A DEFERRAL (C-3 fix round 2, F1) ────────
+
+		WHAT WAS WRONG. `owed` is the deferral's only carrier and it is PASSIVE: this
+		module cannot schedule, so the round it declined to run is spent by whatever
+		solves NEXT. In production that is `controller.refresh()` — and `refresh` solved
+		only if the DIRTY QUEUE said so. `controller.initialRender()` calls
+		`root.takeDirty()` immediately after its solve ("initial mount noise is not an
+		update"), which throws away the very dirt the deferred round was queued against,
+		so a cap tripped AT MOUNT left `needsSolve` false on every later frame. Measured
+		at `bec8e935` on this fixture: twenty ordinary refreshes produced ZERO solves and
+		ZERO text batches, and the label held a 24-character word inside the 138 px box
+		word 17 had earned. A loud throw had become silent, permanent text clipping —
+		and every presented surface mounts through that path (`present/presenter`,
+		`present/anchored`, `present/catchers`, `present/text_reveal`,
+		`client/edit_preview`).
+
+		SO THE DEFERRAL OWNS ITS RE-ARMING: the frame entry point asks the QUEUE whether
+		a round is owed, which is a fact about the queue rather than about any caller's
+		dirty bookkeeping, so no `takeDirty()` anywhere can strand it. Driven on BOTH
+		adapter shapes — the boot window is where the cap trips live, and the settled
+		shape is where a reader would assume it cannot. ]]
+	it("a cap tripped inside `initialRender` is not stranded: ordinary frames finish the walk", function()
+		withReports(function(reports)
+			-- deep enough that neither the mount nor the frame after it can finish it
+			local CHAIN = CAP * 2 + 8
+			for _, bootWindow in { true, false } do
+				local name = if bootWindow then "boot" else "settled"
+				local arm = surface({ chain = CHAIN, bootWindow = bootWindow })
+				arm.controller.initialRender()
+				-- the mount itself tripped the cap, which is the whole premise
+				expect(`{name}: mount solves {arm.controller.stats().solves}`).toBe(`{name}: mount solves {CAP + 1}`)
+				-- ...and now ORDINARY FRAMES, with nothing else dirtying the tree
+				for _ = 1, 8 do
+					arm.controller.refresh()
+				end
+				local epoch = (arm.env:get("textMeasureEpoch"):get() :: any) or 0
+				expect(`{name}: epoch {epoch}`).toBe(`{name}: epoch {CHAIN}`)
+				--[[ ...AND THE BOX IS THE LAST WORD'S OWN WIDTH. The epoch alone would pass
+					on a surface that learned every width and never re-laid itself out, which
+					is exactly what a player sees as clipped text. ]]
+				local r = arm.controller.rectOf("/Root/Chain")
+				expect(`{name}: w {if r ~= nil then r.w else -1}`).toBe(`{name}: w {widthOf(arm.words[CHAIN], 12, "")}`)
+				arm.controller.dispose()
+			end
+			-- one line per surface per unconverged stretch, not one a frame
+			expect(`reports {#reports}`).toBe("reports 2")
+		end)
+	end)
+
+	--[[ ── AN OWED ROUND IS "PENDING", ON EVERY ADAPTER SHAPE (C-3 fix round 2, F2) ───
+
+		WHAT WAS WRONG. `controller.textPending()` was "is a word still in flight", and a
+		word stays in flight only while the adapter answers `final == false`
+		(`render/premeasure_round`: a settled answer clears the key, a boot-window one
+		marks it "answered"). The cap trips at the TOP of the drain loop — after the last
+		round's answer has already cleared the set — so on a SETTLED session a surface
+		deferred a round with `textPending()` reading FALSE. The header, the ruling and
+		the commit all claimed it stays true; only an inline comment scoped that to the
+		boot window.
+
+		WHAT THAT COSTS is the text-pop class the gate exists to prevent.
+		`present/presenter`'s `syncTextReveal` reveals a gated surface the moment
+		`pending` reads false and sets `handle.textRevealedExact = true` with it: a
+		surface that still owes a round is revealed, CLAIMING EXACTNESS, one solve before
+		its geometry is exact. The campaign's live settle oracle ("drive until
+		`controller.textPending()` falls") returns early for the same reason and measures
+		an unsettled tree.
+
+		So pending is "a word in flight OR a round owed", and this case is the settled
+		adapter the boot-window arm above cannot speak for. ]]
+	it("a deferred round reads as PENDING on a settled adapter, so the no-pop gate stays shut", function()
+		withReports(function(reports)
+			local CHAIN = CAP * 3
+			--[[ MOUNT SHORT, THEN OPEN THE VOCABULARY UNDER A DRIVE, which is the live
+				recipe (a state write, then the frame that serves it) and the one shape that
+				isolates this finding from F1's: nothing here is deferred at mount. ]]
+			local arm = surface({ chain = CHAIN, mountAt = 2 })
+			arm.controller.initialRender()
+			expect(`mounted: solves {arm.controller.stats().solves} pending {arm.controller.textPending()}`).toBe(
+				"mounted: solves 3 pending false"
+			)
+			arm.bound:set(CHAIN)
+			local before = arm.controller.stats().solves
+			arm.controller.refresh()
+			expect(`deferred: solves +{arm.controller.stats().solves - before}`).toBe(`deferred: solves +{CAP + 1}`)
+			--[[ THE ONE OBSERVABLE THIS CASE EXISTS FOR. `syncTextReveal` is a pure
+				function of this answer and its deadline, so a surface that reads NOT pending
+				here is a surface the presenter reveals and stamps `textRevealedExact`. ]]
+			expect(`deferred: pending {arm.controller.textPending()}`).toBe("deferred: pending true")
+			expect(`deferred: reports {#reports}`).toBe("deferred: reports 1")
+			-- ...and it falls again once the walk finishes, so the gate really does open
+			for _ = 1, 4 do
+				arm.controller.refresh()
+			end
+			expect(`settled: pending {arm.controller.textPending()}`).toBe("settled: pending false")
+			arm.controller.dispose()
+		end)
+	end)
+
+	--[[ ── A THROWING FRAME EATS ONLY WHAT IT QUEUED (C-3 fix round 2, F3) ────────────
+
+		WHAT WAS WRONG. `owed` was cleared unconditionally when the OUTERMOST solve
+		threw, under a comment that is true of a re-solve that solve queued ("the state
+		it was asked against never landed") and false of one a PREVIOUS frame deferred.
+		One throwing frame therefore cancelled a deferral it had nothing to do with, and
+		the surface lost the round in silence — the same permanent-clip outcome as F1,
+		reached from the other side. So the value at ENTRY is remembered and restored,
+		and only what this solve itself queued is discarded with it. ]]
+	it("a throwing frame discards its own queued re-solve, not one a previous frame deferred", function()
+		withReports(function()
+			local solves, tails = 0, 0
+			local converge, boom = false, false
+			local run: () -> ()
+			run = solve_queue.trampoline({
+				solve = function()
+					solves += 1
+					if boom then
+						error("OUTER BOOM", 0)
+					end
+					if not converge then
+						run()
+					end
+				end,
+				tail = function()
+					tails += 1
+				end,
+			})
+			-- frame 1 trips the cap and defers a round
+			run()
+			expect(`after defer: solves {solves} tails {tails}`).toBe(`after defer: solves {CAP + 1} tails {CAP + 1}`)
+			-- frame 2's outermost solve throws BEFORE it can queue anything of its own
+			boom = true
+			local threw = not (pcall(run))
+			expect(`throwing frame: threw {threw} solves {solves}`).toBe(`throwing frame: threw true solves {CAP + 2}`)
+			--[[ frame 3 is healthy, and runs TWO solves: its own, plus the round frame 1
+				deferred and frame 2 had no business cancelling. `+1` is the defect. ]]
+			boom, converge = false, true
+			local before = solves
+			run()
+			expect(`recovery: solves +{solves - before}`).toBe("recovery: solves +2")
+		end)
 	end)
 
 	--[[ ...AND THE OUTERMOST SOLVE'S THROW KEEPS ITS TRACEBACK. The recursion this

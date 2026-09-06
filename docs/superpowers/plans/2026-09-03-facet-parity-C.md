@@ -1578,3 +1578,35 @@ Sixteen items are BOOKED or PARKED in §9 of the after-doc, and the first of the
 millisecond: **T18-B's `SOLVE_DRAIN_ROUND_CAP` trips in the boot window** on a wide text
 key (`battle_hud` L, fresh client VM, step 118 driving nine batches past a cap of eight) —
 bounded and named where it used to be a `C stack overflow`, but still a throw.
+
+**Ruling C-3, as landed (fix round 2).** The cap now defers instead of throwing, and the
+deferral OWNS its re-arming: `render/solve_queue.trampoline` returns `owed()` beside the
+entry point, and the renderer asks it in three places — `refresh` solves when a round is
+owed whatever the dirty queue says, `controller.textPending()` ORs it in, and
+`initialRender` stops draining the dirty queue while a round is owed. The third is what
+fix round 1 was missing and what the RED-TEAM's F1 found: a cap tripped at MOUNT was
+stranded for the session, because `initialRender`'s post-solve `takeDirty()` consumed the
+dirt the deferred round was the build for and `refresh` then marked that same dirt
+classified (`nodeDirtySeen`), so even a forced full solve served a stale layout node —
+twenty ordinary frames, zero solves, permanently clipped text where the parent commit had
+a loud throw. Also landed: a throwing frame now discards only what its OWN solve queued
+(F3), the one diagnostic line names the surface and the measured mechanism instead of the
+hypothesis this ruling refuted (F5/F7), and `stats.drainDeferrals` makes a trip assertable
+without scraping warnings (F8). `renderer.luau` 197,366 after the boundary-analysis seam
+(`1d2680e0`); suite 8,682/0; RascalRally 3,599/0; the three-observable differential
+md5-identical at `3db66551b80fe677d314f2092b0a0038`.
+
+**Two more BOOKED by that round, both deliberately not built.** (1) **The drain's real
+lever is upstream, not a better cap** (review F4). A cap counted in ROUNDS is not a
+millisecond budget — a round is ~0.05 ms on a small surface and ~52 ms on the scene the
+number was tuned against — but a wall-clock budget was refused here because it would make
+round counts machine-dependent and move the converging-settle observables on an L scene (4
+rounds × ~52 ms). The walk is one word per round BECAUSE each learned width brings the next
+unmeasured row into the measured set; batching the surface's whole unmeasured vocabulary
+into one round removes the walk instead of rationing it. That is step 2 of
+`docs/plans/2026-09-06-facet-parity-D-goal.md` and the mechanism is now named there and in
+`solve_queue`'s cap block. (2) **`SOLVE_FEEDBACK_ROUND_CAP` still raises out of `refresh`**
+(review F6) — the same failure class C-3 exists to remove, in a different loop with a
+different cause (a consumer publishing a layout prop derived from the rect that prop
+moves). Untouched by ruling, carried in the D goal's "Booked, not perf" line, and the
+`solve_queue` cap block no longer claims the two caps exist "for the same reason".

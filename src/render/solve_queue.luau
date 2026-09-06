@@ -78,21 +78,37 @@
 	word — and a diagnostic about the round that has not run yet is no reason to
 	throw away the frame that did. So the cap stops the loop, leaves the re-solve
 	QUEUED, reports once and returns: the frame keeps the rounds it ran, every
-	completed solve's tail runs, `controller.textPending()` still reads true (the
-	words are in flight and the settle is still open), and nothing raises.
+	completed solve's tail runs, the surface still reads NOT SETTLED, and nothing
+	raises.
 
-	THE DEFERRED ROUND IS SPENT BY THE NEXT SOLVE, NOT SCHEDULED FOR ONE, and the
-	distinction is worth stating because this module cannot schedule anything (it has
-	no requires, by design). `owed` survives the exit, so the next call — the next
-	`controller.refresh()` that solves, the next settle-phase solve, the next
-	premeasurement answer — runs it first and drains from there, bounded by the cap
-	again. In the window this trips in that is the very next frame: the boot window's
-	own second answer for every outstanding batch bumps the geometry epoch, and a
-	surface deep enough in a drain to trip a cap is a surface with dozens of those
-	still owed to it. What it is NOT is a promise about a surface that trips the cap
-	and then goes completely quiet; that one carries its owed round until something
-	solves. Measured live: the failing step deferred, and the next drive step drained
-	another full cap from where it stopped.
+	AND THE DEFERRAL OWNS ITS RE-ARMING (fix round 2, review F1/F2). `owed` is the
+	round's only carrier and it is PASSIVE — this module cannot schedule anything, it
+	has no requires by design — so the round is spent by whatever solves NEXT, and the
+	first form of this shipped that as a HOPE about the caller. It was not true of the
+	caller that matters. `renderer.initialRender()` drains the dirty queue right after
+	its solve ("initial mount noise is not an update"), and with a round deferred that
+	dirt IS the build the deferred round never ran: `refresh` then found an empty
+	queue, solved nothing, and — because it also marks that dirt CLASSIFIED
+	(`nodeDirtySeen = root.dirtySeq()`) — even a forced solve served a stale layout
+	node still holding the previous word. Measured at `bec8e935` on a 40-word chain:
+	`initialRender()` and then twenty ordinary refreshes ran ZERO further solves and
+	ZERO further batches, the epoch frozen at 17, a 24-character word inside the
+	138 px box word 17 earned. Silent permanent clipping where the parent commit had a
+	loud throw, on every surface a presenter mounts.
+
+	SO THE STATE IS EXPORTED: `trampoline` returns the entry point AND `owed()`, and
+	the renderer asks it in the three places a deferral has to survive — the frame
+	entry point solves when a round is owed whatever the dirty queue says,
+	`controller.textPending()` ORs it in (a surface that owes a round is NOT settled,
+	on every adapter shape: the boot window's still-in-flight words are the special
+	case, not the general one), and `initialRender` does not drain dirt while a round
+	is owed. The first two are the ruling; the third is what the measurement above
+	added to it, and it is the one that carries the WORK rather than the intent.
+
+	WHAT IT IS STILL NOT is a promise about a surface that trips the cap and then
+	never renders again; that one carries its owed round until something solves, and a
+	surface no frame reaches has no frame to clip. Measured live: the failing step
+	deferred, and the next drive step drained another full cap from where it stopped.
 
 	ONE SOLVE ON THE STACK AT A TIME is the property, and the queue is a BOOLEAN
 	rather than a list because the re-solve carries no argument: it is "solve
@@ -111,8 +127,16 @@
 
 local solve_queue = {}
 
---[[ THE ROUND CAP, the `renderer.luau` `SOLVE_FEEDBACK_ROUND_CAP` idiom and for the
-	same reason. The drain terminates on its own because a surface's vocabulary is
+--[[ THE ROUND CAP, which is the `renderer.luau` `SOLVE_FEEDBACK_ROUND_CAP` IDIOM and
+	no longer its reasoning (fix round 2, review F6). That cap still RAISES out of
+	`refresh`, which is the failure class ruling C-3 exists to remove; it is a
+	different loop with a different cause (a consumer publishing a layout prop derived
+	from the rect that prop moves, which is a bug in the consumer and converges or
+	does not) and it is BOOKED rather than changed here — see the Plan D goal. What
+	the two share is the shape: a loop bounded by a constant because the invariant
+	that really terminates it lives three modules away.
+
+	The drain terminates on its own because a surface's vocabulary is
 	finite — `render/premeasure_round`'s `textInFlight` refuses a word twice and
 	`layout/text_metrics`' `setMeasured`/`markUnmeasurable` are permanent — but
 	"terminates because of an invariant three modules away" is exactly the argument
@@ -147,9 +171,21 @@ local solve_queue = {}
 	measured — 4 rounds in the Facet suite, 3 on `war_room_inventory` L and 2 on
 	`battle_hud` L headless (`FacetBench tools/profile/drain_rounds`, inline
 	boot-window answers, 600 steps) — which keeps every converging settle whole and
-	keeps the pathological one's frame at ~830 ms instead of 3.4 s on the most
-	extreme scene in the arena. Bigger buys nothing (the walk is not converging at
-	any of these numbers); smaller starts costing frames a real settle needs. ]]
+	keeps the pathological one's frame at ~890 ms (`stepP95`, the live table for this
+	ruling) instead of 3.4 s on the most extreme scene in the arena. Bigger buys
+	nothing (the walk is not converging at any of these numbers); smaller starts
+	costing frames a real settle needs.
+
+	AND THE REAL LEVER IS UPSTREAM, BOOKED (fix round 2, review F4). A cap counted in
+	ROUNDS is not a millisecond budget: a round costs ~0.05 ms on a small surface and
+	~52 ms on the scene this number was tuned against. A wall-clock budget was
+	considered and REFUSED for this round — it would make round counts
+	machine-dependent and move the converging-settle observables on an L scene (4
+	rounds x ~52 ms) — because the cost is not really the cap's to fix. The walk is one
+	word per round BECAUSE each learned width brings the next unmeasured row into the
+	measured set; batching the surface's whole unmeasured vocabulary into one round
+	removes the walk instead of rationing it, and that is step 2 of the Plan D goal
+	(`docs/plans/2026-09-06-facet-parity-D-goal.md`). ]]
 local SOLVE_DRAIN_ROUND_CAP = 16
 
 --[[ WHERE AN ABSORBED SOLVE'S ERROR GOES. Default is the engine's own `warn`,
@@ -190,11 +226,29 @@ export type Deps = {
 	-- "this surface finished solving". Fired once per completed solve, after the
 	-- drain, so every one of them sees the final tree
 	tail: () -> (),
+	--[[ WHICH SURFACE THIS IS, for the one line a cap trip prints (fix round 2, review
+		F5). The latch below is per surface and correctly so, which means N surfaces in
+		trouble print N identical lines; without a name in them the count is
+		uninformative and a live rig cannot tell which tree to look at. ]]
+	id: string?,
+	--[[ ...AND THE SAME FACT AS A NUMBER (fix round 2, review F8). The line is a
+		diagnostic for a human; this is the one an arena runner or a spec reads, and
+		the renderer's hook publishes it as `stats.drainDeferrals`. Called once per
+		TRIP, where the line is once per unconverged stretch — the two are different
+		questions and the latch is exactly the difference. ]]
+	onDefer: (() -> ())?,
 }
 
-function solve_queue.trampoline(deps: Deps): () -> ()
+--[[ THE ENTRY POINT AND THE ONE FACT ABOUT IT A CALLER HAS TO SEE. `owed()` is "does
+	this surface still owe the round the cap declined to run" — see AND THE DEFERRAL
+	OWNS ITS RE-ARMING above for the three places the renderer asks it and what each
+	one was losing without it. It is a reader, never a setter: nothing outside this
+	closure can queue or cancel a solve. ]]
+function solve_queue.trampoline(deps: Deps): (() -> (), () -> boolean)
 	local solve = deps.solve
 	local tail = deps.tail
+	local onDefer = deps.onDefer
+	local id = deps.id or "?"
 	-- is a drain running? (the re-entry test, and the only state that decides)
 	local draining = false
 	-- has a re-solve been asked for from inside the drain?
@@ -207,12 +261,15 @@ function solve_queue.trampoline(deps: Deps): () -> ()
 		is reported again rather than swallowed by a latch set minutes ago. ]]
 	local capReported = false
 
-	return function()
+	local function run()
 		if draining then
 			owed = true
 			return
 		end
 		draining = true
+		--[[ WHAT THIS FRAME INHERITED, held so the throw path below can tell it apart
+			from what this frame's own solve queues (fix round 2, review F3). ]]
+		local owedAtEntry = owed
 		-- solves that RAN TO COMPLETION, which is how many tails are owed: a solve
 		-- that threw never reached its own tail under the recursion either
 		local done = 0
@@ -249,10 +306,9 @@ function solve_queue.trampoline(deps: Deps): () -> ()
 						function runs one and then drains the rest of the queue, so the round
 						this drain declined to run is the round the next refresh starts from.
 						Nothing is dropped and nothing is scheduled: the frame the settle was
-						going to take anyway is what spends it. In the window this cap trips
-						in — the boot window — the engine answers `final = false`, so the words
-						are still in flight, `controller.textPending()` still reads true, and a
-						surface gated on exact text is still waiting for the frame that pays. ]]
+						going to take anyway is what spends it — and `owed()` below is how the
+						renderer knows to make that frame solve, and to keep reading NOT
+						SETTLED until it has. ]]
 					deferred = true
 					break
 				end
@@ -268,24 +324,49 @@ function solve_queue.trampoline(deps: Deps): () -> ()
 		end
 		draining = false
 		if not ok then
-			-- a re-solve queued by a solve that then threw is discarded with it: the
-			-- state it was asked against never landed
-			owed = false
+			--[[ A RE-SOLVE THIS SOLVE QUEUED IS DISCARDED WITH IT — the state it was
+				asked against never landed — AND ONE A PREVIOUS FRAME DEFERRED IS NOT
+				(fix round 2, review F3). `owed = false` said both, and the second half was
+				false: a throwing frame silently cancelled a round it had nothing to do
+				with, which is F1's permanent clip reached from the other side. Restoring
+				the entry value is the whole distinction. ]]
+			owed = owedAtEntry
 			error(err, 0)
 		end
 		if deferred then
+			-- the number an arena runner or a spec reads, once per TRIP
+			if onDefer ~= nil then
+				onDefer()
+			end
 			if not capReported then
 				capReported = true
+				--[[ WHAT THE LINE SAYS IS WHAT WAS MEASURED (fix round 2, review F5). It
+					used to blame "an adapter answering a batch with a width that changes the
+					words it asks for" — the hypothesis this ruling's own measurement REFUTED
+					150 lines up, which would send the next debugger at the adapter seam
+					instead of at the vocabulary walk. It also named no surface, so N surfaces
+					in trouble produced N identical unattributable lines. ]]
 				solve_queue.report(
-					`Facet renderer: a solve's text-measurement drain did not converge in {SOLVE_DRAIN_ROUND_CAP} rounds `
-						.. `(an adapter answering a premeasurement batch with a width that changes the words it asks for?); `
-						.. `the remaining re-solve is deferred to the next refresh; solve-drain round cap`
+					`Facet renderer: {id}: a solve's text-measurement drain did not converge in `
+						.. `{SOLVE_DRAIN_ROUND_CAP} rounds (a wide text key learning its vocabulary one word per round, `
+						.. `because each learned width brings the next unmeasured row into the measured set — or an `
+						.. `adapter whose answer changes the words it asks for); the remaining re-solve is deferred to `
+						.. `the next solve this surface makes; solve-drain round cap`
 				)
 			end
 		else
 			capReported = false
 		end
 		runTails()
+	end
+
+	--[[ READ FROM OUTSIDE A DRAIN, which is the only place it means anything and the
+		only place the renderer asks it: after `run` returns, `owed` is true exactly
+		when the cap deferred a round. Inside a drain the flag is the loop's own
+		bookkeeping — cleared before each round, set by the re-entry — and a reader
+		would be sampling that. ]]
+	return run, function(): boolean
+		return owed
 	end
 end
 
