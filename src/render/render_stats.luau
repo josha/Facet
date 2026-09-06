@@ -212,6 +212,13 @@ function render_stats.new(): any
 		-- ...and what the solve had to BUILD (P3): `solver.Node`s constructed by the
 		-- last `layout_node.build`. 0 on a re-solve nothing dirtied, where it was N.
 		lastNodeBuilds = 0,
+		--[[ ...and the CHILD POSITIONS that build's rebuild loop visited (Plan C,
+			T15), which `lastNodeBuilds` structurally cannot see: almost every visit is
+			a warm store hit that constructs nothing, so a container re-visiting a
+			thousand clean children reads 1 there and 1,000 here. It falls when a
+			container adopts the children array it built last tick. Written from the
+			STORE, not from `work`, so `publish` does not carry it. ]]
+		lastBuildChildVisits = 0,
 		-- ...and the STRUCTURAL half (P5): add/remove/reorder solves that were
 		-- boundary-rooted rather than full, and the PATH the last one was rooted at
 		-- (nil = refused, or none yet).

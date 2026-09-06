@@ -2043,6 +2043,7 @@ function renderer.attach(
 		nodeDirty = {}
 		commitDirty = {}
 		stats.lastNodeBuilds = nodeStore.built
+		stats.lastBuildChildVisits = nodeStore.childVisits
 		local solveOpts = {
 			safeInsets = insets,
 			rootPolicy = rootPolicy,

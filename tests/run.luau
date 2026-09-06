@@ -120,6 +120,16 @@ require("./container_aggregate.spec")
 	would have lost, the `ForEach` splice with NOTHING dirty, and a forced-on audit that
 	makes the full placement loop check every rect the replay would have served ]]
 require("./stack_replay.spec")
+--[[ ...and the BUILD side of it (Plan C, T15): a rebuilt container adopts the children
+	array it built last tick when the shape under it did not move. A store HIT returns a
+	whole subtree in two hash probes; a MISS re-visits every child through a fresh
+	closure, and `lastNodeBuilds` cannot see that loop because almost every visit is
+	itself a warm hit. `lastBuildChildVisits` is the counter, the gate is table identity
+	PLUS a `store.dirty` child scan (identity alone is blind to `mount`'s two in-place
+	exit-finish removes), and the spec carries the twelve-row owed list, one case per
+	gate term, both exit-finish sites, the never-mutated invariant as a source scan, and
+	a 4-fixture x 9-view differential with a structural step and a settle interleaved ]]
+require("./build_children_reuse.spec")
 --[[ ...and the ANCHOR ARRANGE'S THIRD ARM (wicked-fast T6): a non-dirty anchor child
 	offered exactly what it was offered last time takes its w/h from its own previous
 	rect instead of a `measure` call. The spec pins the two new work counters on an

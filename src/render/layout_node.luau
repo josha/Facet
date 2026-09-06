@@ -1345,40 +1345,148 @@ local function toLayoutNode(
 			end
 		end
 	end
+	--[[ THE STORE ENTRY THIS BUILD IS REPLACING, read ONCE (ruling A-8, hoisted here
+		by T15 from the `cmemo` block below — it is now read by two consumers on the
+		way down and written by one at the end, and a second `store.byNode[node]` probe
+		for the same answer is the cost this file exists to remove). Nothing between
+		here and the entry write touches `store.byNode`, so the value is the same at
+		either line. ]]
+	local prior = if store ~= nil and store.reuse then store.byNode[node] else nil
+	-- the axis this container imposes on its children (nil = not a stack)
+	-- a wrapping stack imposes the SAME axis as the stack it is a mode of: a
+	-- Divider inside a wrapping row is still a vertical rule (round 3 item A)
+	local childAxis: string? = if kind == "hstack" or kind == "hwrap"
+		then "x"
+		elseif kind == "vstack" or kind == "vwrap" then "y"
+		else nil
+	--[[ ...AND THE CLIP THEY WERE BUILT UNDER, hoisted beside it and recorded on the
+		entry for the reason T15's gate learned the hard way (see the kept-array block
+		below): `kind` is NOT fixed for the life of a mounted node. `AdaptiveStack.axis`
+		(`:529`), `VStack`/`HStack`'s `wrap` (`:523`, `:544`) and `Button`'s
+		content/label split (`:560`) are all PROP-DECIDES-KIND seams whose whole
+		guarantee is that a flip re-solves and never remounts. So the pair a container
+		hands its children is a per-BUILD fact, not a per-node one. ]]
+	local childClip = insideClipper == true or kind == "scroll"
 	if #node.children > 0 then
-		layoutNode.children = {}
-		-- the axis this container imposes on its children (nil = not a stack)
-		-- a wrapping stack imposes the SAME axis as the stack it is a mode of: a
-		-- Divider inside a wrapping row is still a vertical rule (round 3 item A)
-		local childAxis: string? = if kind == "hstack" or kind == "hwrap"
-			then "x"
-			elseif kind == "vstack" or kind == "vwrap" then "y"
-			else nil
-		local function appendChild(child: any)
-			-- structural regions (When/ForEach) own MOUNTING, not layout:
-			-- their children splice into the parent's flow so fill dims and
-			-- stack math behave as if the region wrapper did not exist
-			if child.class == "When" or child.class == "ForEach" or child.class == "ErrorBoundary" then
-				for _, grandchild in child.children do
-					appendChild(grandchild)
+		--[[ THE CHILDREN ARRAY IS KEPT WHEN THE SHAPE UNDER IT DID NOT MOVE (Plan C,
+			T15). A store HIT returns a whole subtree in two hash probes (`:386-395`); a
+			MISS rebuilds the container AND re-visits every child — a fresh array, a
+			fresh `appendChild` closure over eight upvalues, one `toLayoutNode` call and
+			one `table.insert` per child. Each of those calls is itself a warm hit that
+			returns immediately, so the loop is a five-figure count of cheap operations
+			for a tree whose shape did not move.
+
+			THE GATE IS TABLE IDENTITY *PLUS A `store.dirty` CHILD SCAN*, and the
+			identity half alone is only a conservative superset (ruling A-14). Two things
+			that look true here are not. `mount.luau:450` `node.children = newChildren`
+			runs on EVERY `ForEach` reconcile, including when neither `changed` nor
+			`orderChanged` is set (`:439-450`), so identity goes cold on frames where
+			nothing moved — a silent loss of the arm, not a defect. And `node.children`
+			IS mutated in place, at `mount.luau:197` (When exit-finish) and `:465`
+			(ForEach exit-finish), each followed by `pushDirty(path, "structure")`
+			(`:202`, `:470`). What identity means is therefore "the shape under me is the
+			shape I built for, OR something changed that I will ALSO see in
+			`store.dirty`" — and the scan below is what closes it. A LENGTH compare would
+			accept a swap and hand a downstream reader a lost or duplicated node; a
+			per-element compare would cost the loop it replaces.
+
+			THE AXIS AND CLIP THE CHILDREN WERE BUILT UNDER ARE THEIR OWN TERMS, and
+			the plan's reasoning for leaving them out was FALSE — the suite caught it.
+			The claim was "`childAxis` is a pure function of `kind`, and `kind` is fixed
+			for a mounted node, so validating the CONTAINER's `axis`/`clip` validates the
+			children's". `kind` is NOT fixed: `AdaptiveStack.axis` (`:529`), `wrap` on a
+			`VStack`/`HStack` (`:523`, `:544`) and a `Button` gaining children (`:560`)
+			are prop-decides-kind seams whose stated guarantee is that a flip RE-SOLVES
+			AND NEVER REMOUNTS. So an `AdaptiveStack` whose axis signal flips is dirty on
+			its own path with clean children, which is precisely this arm's shape, and
+			without `kidsAxis` it would serve a row's children a column's tree — measured
+			as a Divider 280px wide where it must be 1 (`tests/adaptive.spec`, "follows an
+			AdaptiveStack's axis flip with no rebuild"). `kidsAxis`/`kidsClip` are
+			therefore recorded and compared, and the container's own `axis`/`clip` are
+			kept beside them because this is the same entry gate the `cmemo` carrier
+			rides; `parentAxis` is not an input to any child, so that half is
+			conservative rather than load-bearing, and the spec says which is which.
+
+			AND THE ARRAY IS NEVER MUTATED AFTER PUBLICATION. The moment it is reused it
+			is shared between two `layoutNode`s across ticks, so an in-place edit would
+			be a cross-tick aliasing bug. `tests/build_children_reuse.spec.luau` pins by
+			source scan that the only writer of a layout node's `children` in this file
+			is the fresh-array arm below.
+
+			WHAT THIS ARM CAN AND CANNOT REACH, booked before it was measured.
+			`store.dirty` is ancestor-closed over path prefixes, so a container holding a
+			dirty descendant always fails the scan, and a container holding none never
+			gets here — it is served whole at `:386-395`. The arm therefore fires for a
+			container dirtied for its OWN reasons whose every child subtree is clean —
+			an animating panel width, a gap that moves with a theme, a sidebar that
+			resizes over a static list. Measured on the five FacetBench arena workloads,
+			every step kind: the arm fires ZERO times there, because every one of their
+			drives writes a signal on a LEAF. A per-index rebuild would reach the rest;
+			it is DEFERRED (ruling A-9), and the reason is in the task report.
+
+			TWO TERMS ABOVE ARE RECORDED NULLS, kept with their argument rather than
+			deleted. `prior.kidsClip == childClip` cannot be falsified today because
+			`kind == "scroll"` is class-fixed, so `prior.clip` already covers it — but
+			that is exactly the inference `AdaptiveStack` falsified for the axis, and
+			recording the value handed to the children costs one field. `prior.childArray
+			~= nil` is covered by the identity term, because a node can only gain
+			children by having its `children` table replaced. ]]
+		local reusableKids = false
+		if store ~= nil and prior ~= nil then
+			reusableKids = store.builtIds == nil -- a build that COLLECTS never reuses
+				and prior.kids == node.children
+				and prior.childArray ~= nil
+				-- what the CHILDREN were built under, which is the correctness half
+				and prior.kidsAxis == childAxis
+				and prior.kidsClip == childClip
+				-- ...and where the CONTAINER sat, kept because this is the same gate
+				-- the `cmemo` carrier rides and one gate is easier to reason about
+				-- than two (see the block header for what each half is load-bearing for)
+				and prior.axis == parentAxis
+				and prior.clip == (insideClipper == true)
+			if reusableKids then
+				for _, child in node.children do
+					if store.dirty[child.path] then
+						reusableKids = false
+						break
+					end
 				end
-			else
-				table.insert(
-					layoutNode.children,
-					toLayoutNode(
-						child,
-						metrics,
-						textScale,
-						prefOffset,
-						childAxis,
-						insideClipper == true or kind == "scroll",
-						store
-					)
-				)
+			end
+			if reusableKids then
+				--[[ NOTHING UNDER THIS CONTAINER MOVED: the array stands, and the
+					subtree accounting comes off this container's own recorded `n` — the
+					same arithmetic the per-child warm hit does with `hit.n`, done once.
+					A build that COLLECTS is refused above because `builtIds` is spent as
+					a licence to skip subtrees (`render/structural_scope.widen`) and a
+					reused array constructs no child, so the list would be short by the
+					whole subtree. ]]
+				layoutNode.children = prior.childArray
+				store.nodes = nodesAtEntry + (prior.n or 1)
 			end
 		end
-		for _, child in node.children do
-			appendChild(child)
+		if not reusableKids then
+			layoutNode.children = {}
+			local function appendChild(child: any)
+				-- structural regions (When/ForEach) own MOUNTING, not layout:
+				-- their children splice into the parent's flow so fill dims and
+				-- stack math behave as if the region wrapper did not exist
+				if child.class == "When" or child.class == "ForEach" or child.class == "ErrorBoundary" then
+					for _, grandchild in child.children do
+						appendChild(grandchild)
+					end
+				else
+					if store ~= nil then
+						store.childVisits += 1
+					end
+					table.insert(
+						layoutNode.children,
+						toLayoutNode(child, metrics, textScale, prefOffset, childAxis, childClip, store)
+					)
+				end
+			end
+			for _, child in node.children do
+				appendChild(child)
+			end
 		end
 		--[[ ── THE SIBLING PLATE'S CARVED BORDER, AND WHY THE FRAMEWORK DOES NOT
 			SPEND IT (task THEME, director items 7-8) ──────────
@@ -1536,7 +1644,6 @@ local function toLayoutNode(
 		the REGION's children, never its parent's. Every index-keyed payload on this
 		table therefore carries its own per-child id key; this gate alone is not enough
 		to trust an index and no reader may treat it as if it were. ]]
-	local prior = if store ~= nil and store.reuse then store.byNode[node] else nil
 	local cmemo = if prior ~= nil
 			and prior.kids == node.children
 			and prior.axis == parentAxis
@@ -1571,6 +1678,14 @@ local function toLayoutNode(
 			-- iterated.
 			cmemo = cmemo,
 			kids = node.children,
+			--[[ ...and the built array itself (T15), under the SAME `kids`/`axis`/
+				`clip` gate the memo above rides, plus a `store.dirty` scan over the
+				mount children. Compared by nothing — it is a VALUE the next build may
+				adopt whole — and NEVER MUTATED once published, because adoption makes
+				it shared between two layout nodes across ticks. ]]
+			childArray = layoutNode.children,
+			kidsAxis = childAxis,
+			kidsClip = childClip,
 		}
 	end
 	return layoutNode
@@ -1695,6 +1810,13 @@ export type Store = {
 	builtIds: { string }?,
 	-- every layout node the last build's TREE holds, constructed or served (P5)
 	nodes: number,
+	--[[ ...and the CHILD POSITIONS the last build's rebuild loop visited (Plan C,
+		T15) — one per `toLayoutNode` call `appendChild` made, spliced regions counted
+		at the grandchildren they contribute and never at the region itself. It is the
+		denominator the kept children array moves, and it is NOT `built`: almost every
+		one of these visits is a warm store hit that constructs nothing, which is
+		exactly why `built` cannot see the loop. ]]
+	childVisits: number,
 	-- false makes this a COUNT-ONLY store: no lookup, no write, no entry. The
 	-- oracle's honest pre-fix control (see the count-only arm in `toLayoutNode`).
 	reuse: boolean,
@@ -1727,6 +1849,7 @@ function layout_node.newStore(reuse: boolean?, attachOpts: any?): Store
 		built = 0,
 		builtIds = nil,
 		nodes = 0,
+		childVisits = 0,
 		reuse = reuse ~= false,
 		structural = false,
 	}
@@ -1779,6 +1902,7 @@ function layout_node.build(
 	end
 	store.built = 0
 	store.nodes = 0
+	store.childVisits = 0
 	return toLayoutNode(node, metrics, textScale, prefOffset, nil, nil, store)
 end
 
