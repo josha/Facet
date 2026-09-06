@@ -2216,13 +2216,10 @@ vocabulary never closes.
 
 ## §Task 18 — what was actually built (T18-A, 2026-09-05)
 
-**T18-B (the re-entry defer) WAS NOT BUILT and is booked for the owner** (ruling L-12,
-review MUST-FIX 4). It changes public behaviour twice — `onSolved` fires a second time a
-frame later (`renderer.luau:2262-2270` suppresses the inner notify today) and a settled
-rect lands one frame late — and the recursion it fixes is bounded at depth 3 on an
-ordinary mount. The trace and the harness config that overflowed are in T18-A's report.
-Nothing in T18-A moves the stack a premeasurement answer runs on, the tick it lands on, or
-the notify count.
+**T18-B WAS NOT BUILT BY T18-A and was booked for the owner** (ruling L-12, review
+MUST-FIX 4), who ruled on it 2026-09-05 (ruling L-13). It was BUILT the next task, in a
+form this section did not propose. See **"§Task 18 mechanism 1 — what was actually built
+(T18-B)"** at the end of this section; where the two disagree, that amendment wins.
 
 **Mechanism 2 as written in this section was a NULL, and step 0 is what proved it.** The
 settle re-solve reached the solver with `solveOpts.reuse == nil`, so the cross-solve store
@@ -2826,3 +2823,86 @@ term, the case drives it, and mutation M9 bites.
 budget and the reason is the six MUST-FIXes: each one is a correction whose ARGUMENT has to
 sit at the site it corrects, and the file is uncapped by design (it is the seam T13 took so
 this branch would have room). `src/render/renderer.luau`: zero characters, as specified.
+
+
+---
+
+## §Task 18 mechanism 1 — what was actually built (T18-B, 2026-09-05)
+
+**THIS SECTION'S MECHANISM 1 WAS NOT BUILT. Ruling L-13 replaced the DEFER with a
+QUEUE AND A DRAIN, and the review is what forced it.** Commit `a6d97638`; RR `67e6d0e`;
+FacetBench `d5b4c04`.
+
+**Why the defer died.** MUST-FIX 4 showed a `wait(0)` before `deliver` is TWO public
+behaviour changes, not one: `text_premeasure.wait` is `task.wait`, so the settled rect
+lands a FRAME later (a text pop on every damage number, score and timer readout of a
+settled session), and the correction becomes an outermost solve of its own, so every
+`onSolved` consumer gets one notification with the estimate and a second with the exact
+geometry. SHOULD-FIX 6 killed the belt that came with it: a `depth == 0` guard in
+`premeasure_round.request` DROPS the batch rather than deferring it, and a quiescent
+settled surface then keeps estimated geometry indefinitely. Both are confirmed by the
+mutation that builds them: the drop reddens all six cases of the new spec, T18-A's own
+closure case, and the differential.
+
+**What was built instead.** `src/render/solve_queue.luau` (4,857 characters, zero
+requires, no module state, one export `trampoline(deps) -> () -> ()`): a re-solve asked
+for while a solve is on the stack sets a flag; the outermost solve drains the flag with a
+`while`, IN THE SAME FRAME, with no `task.wait` and no `task.defer`. `renderer.luau` pays
+the wiring alone (+690: one require, one forward local, the body renamed to `solveOnce`
+with its `notifySolved()` tail removed, and one line building the entry point) — 197,444,
+**56 characters under this campaign's 197,500 STOP**, which is now the binding constraint
+on the next task.
+
+**THREE FACTS THE PLAN AND THE REVIEW BOTH HAD WRONG, and each changed the design.**
+
+1. **The inner notify is NOT suppressed.** Both documents cite `renderer.luau:2262-2270`
+   as suppressing it. `notifyingSolved` is set and cleared AROUND THE LISTENER LOOP only,
+   so it guards a listener that publishes back into a solve — not this cycle. Measured at
+   `bd6bef89`: `notifies == solves == 5` on a four-link chain. **The property that
+   actually holds is that every notification sees FINAL geometry**, because the recursion
+   unwinds only after the whole cascade is done — all five reported the same rect.
+2. **That fact is why the queue is NOT in `render/premeasure_round`**, which is where the
+   task brief put it for the renderer's budget. A drain sited after the adapter's answer
+   returns bounds the stack just as well and reads `maxNestDepth = 1` — and fires
+   notification k+1 BEFORE the chain's next solve, showing a consumer a rect no consumer
+   has ever seen. The loop must therefore live where `notifySolved` does, counting its
+   solves and firing that many notifications after the last one. The mutation that moves
+   them back inside the loop reddens exactly that case.
+3. **The `env:set("textMeasureEpoch", …)` route does not re-solve inline from inside a
+   solve** (a flush is open), so the EXPLICIT `solveAndApply()` at
+   `premeasure_round.luau:154` is the one that runs — measured 4 of 4 on the chain probe.
+   Both routes now land in the same queue.
+
+**MUST-FIX 5 confirmed and paid.** The depth red is not reproducible with `fake_target`
+as it stood: it QUEUES, delivered from top level, so the depth reads 1 at HEAD and the
+equality asserts nothing. `answerTextInline` is the new sync-answer mode — the settled
+live adapter — and it records the nesting of its own answer bodies plus the deepest Luau
+stack one ran on (`debug.info`), in the TARGET rather than in `src/`.
+
+**The numbers, read off the run.**
+
+| | before (`bd6bef89`) | after |
+|---|---:|---:|
+| LIVE `maxNestDepth`, two workloads / 200 samples, fresh client VM | **3** | **1** |
+| LIVE `measure` calls / words / answered inline | 146 / 3,402 / 145 | 146 / 3,402 / 145 |
+| headless depth, a four-link chain | 4 | 1 |
+| headless Luau stack, a two-workload cycle at 2 links / 8 links | 34 / 70 | 34 / 34 |
+| `solves` in one frame, ordinary one-word settle | 2 | 2 |
+| `onSolved` per settle | one per solve, all final geometry | unchanged |
+
+**The three observables, proven rather than argued.** A differential against a detached
+worktree at `bd6bef89` over all nine `device_views.VIEWS` × BOTH adapters (queued from
+top level, and answering inline) × four drives, on a fixture carrying a four-link
+epoch-driven word chain: 338,764 bytes of rects, hit rects, screen rects and every
+adapter prop, plus the per-drive counters — **identical, md5 for md5.**
+
+**Named residues, neither hidden nor fixtured.** A mid-drag reflow's `refreshTargets`
+sees intermediate rects on intermediate solves where it used to see final ones (the last
+call is unchanged); a drained solve's profile spans are siblings of the outer solve's
+`Facet/commit` rather than nested inside it (exclusive totals unmoved). The stack bound
+after the fix is **one solve per ATTACHED SURFACE, not one per link** — each controller
+owns its own queue, so a neighbour's settle solve reached through the shared geometry
+fact still nests once.
+
+**Gates:** Facet 8,572/0; RR 3,595/0; `verify affected` and `verify full` recorded in
+T18-B's report; `check_source_size`, stylua, brand-drift, comment-codes, doc-style clean.
