@@ -284,8 +284,19 @@ local function world(o: any): any
 				so a 500px row in a 300px stack is placed at 300 and contains fine. What
 				lands outside is a margin wider than the box — `placement_audit.containment`'s
 				own sentence says so — and that is the only shape this finding has. ]]
-			margin = if o.contain and isGate
-				then { left = 340 }
+			--[[ ...and the NEGATIVE-margin shape (fix round 1, I-1), which is the only one
+				that makes a child's OVERHANG a function of its own measured cross extent.
+				A stack CLAMPS `crossSize` to `crossAvail`, so a plain wide row is placed
+				at the box width and contains fine; `right = -200` widens `crossAvail` to
+				500 against a 300px box, so the row is placed at its full measured width
+				and hangs `w - 300` past the right edge. Driving `rowW[gate]` therefore
+				moves the FINDING, which is what a chain of replays has to be asked about.
+				A negative side is a schema-accepted `sides` value. TWO rows carry it (the
+				gate row and `gate + 3`), because owed row 11's ORDER claim needs two
+				findings to have an order at all. ]]
+			margin = if o.negMargin and (isGate or i == gate + 3)
+				then { right = -200 }
+				elseif o.contain and isGate then { left = 340 }
 				elseif o.margin and isGate then core:memo(function(use: any)
 					local l = use(gateMargin) :: number
 					return { top = 5, right = 18 - l, bottom = 3, left = l }
@@ -476,6 +487,17 @@ local function world(o: any): any
 			table.insert(out, if r == nil then `R{i}=-` else `R{i}={r.x},{r.y},{r.w},{r.h}`)
 		end
 		return table.concat(out, " ")
+	end
+	--[[ ...and the SAME findings UNSORTED, which is the only reader that can see the
+		order the replay filed them in (fix round 1, minor 3). `diagKey` sorts, so the
+		oracle compares the finding SET; owed row 11's claim is about the ORDER the
+		placement loop and the replay file in, and it needs its own instrument. ]]
+	function w.diagOrder(): string
+		local out: { string } = {}
+		for _, f in controller.diagnostics() do
+			table.insert(out, f.node)
+		end
+		return table.concat(out, ",")
 	end
 	function w.diagKey(): string
 		local keys: { string } = {}
@@ -1002,6 +1024,18 @@ describe("T14 oracle: byte-equal to a full solve, every view, every drive kind",
 		{ name = "fill", rows = 8, fill = true },
 		{ name = "distribute", rows = 6, distribute = "spaceBetween" },
 		{ name = "aspect", rows = 8, aspect = true },
+		--[[ ...and a TEXT fixture (fix round 1, I-2), which is the only shape a
+			replay -> settle -> replay chain can be driven on: a calibration change moves
+			`ctx.measureStamp` and dirties nothing, so it is the solve-wide correction the
+			replay must refuse BETWEEN two replays without leaving the payload describing
+			a tree measured under the old calibration. ]]
+		{ name = "text", rows = 8, text = true },
+		--[[ ...and the OVERHANGING fixture, because Important 1 was a DIAGNOSTICS defect
+			and every other fixture here files nothing. A negative right margin makes the
+			gate row's overhang a function of its own measured width, so a chain of cross
+			re-places moves a FINDING as well as a rect and the snapshot's `diag=` column
+			has something to compare. ]]
+		{ name = "overhang", rows = 8, negMargin = true, wide = true },
 	}
 	for _, fixture in FIXTURES do
 		it(`{fixture.name}: rects, hit rects and the public readers survive the replay`, function()
@@ -1011,6 +1045,22 @@ describe("T14 oracle: byte-equal to a full solve, every view, every drive kind",
 				local a, c = pair(o)
 				local label = `{fixture.name}/{view.id}`
 				agreeAll(a, c, `{label} mount`)
+				--[[ THREE CONSECUTIVE CROSS DRIVES ON DIFFERENT ROWS, WITH NOTHING
+					REFUSING BETWEEN THEM (fix round 1, I-2). The loop below interleaves a
+					MAIN change after every cross change, and a MAIN change refuses and
+					re-records — so before this block no case in this file chained two
+					replays with DIFFERENT dirty children, which is exactly the shape
+					Important 1's defect needed. The fourth drive repeats the SAME row,
+					which is the other half: a payload that a replay wrote has to be
+					readable by the replay after it. ]]
+				for chain = 1, 3 do
+					a.width(chain + 1, 44 + chain * 9)
+					c.width(chain + 1, 44 + chain * 9)
+					agreeAll(a, c, `{label} chain {chain}`)
+				end
+				a.width(2, 91)
+				c.width(2, 91)
+				agreeAll(a, c, `{label} chain repeat`)
 				for step = 1, 3 do
 					-- a CROSS-only change (the class the replay is for)
 					a.width(step + 1, 50 + step * 7)
@@ -1043,9 +1093,51 @@ describe("T14 oracle: byte-equal to a full solve, every view, every drive kind",
 					THE GUARD IS `replayChecks`, NOT A PROXY. It counts the comparisons
 					themselves and is incremented only on the audit path, so every
 					production solve reads 0 and a case where the audit asserted NOTHING
-					cannot read as a case where it passed. ]]
-				a.width(2, 41)
-				c.width(2, 41)
+					cannot read as a case where it passed.
+
+					AND IT PRICES ONE TICK ONLY (fix round 1, I-2). The audited pass does
+					not re-record, so the payload it checks is the one the last REPLAY left
+					— which is the state Important 1's defect lived in, and is why the
+					audit could not see it before. What it still cannot say is "and it will
+					hold after two more replays": that is the chained-replay drives above
+					and the rotating-rows case, and the two are a pair rather than one
+					covering the other. ]]
+				--[[ ...AND A REPLAY -> SETTLE -> REPLAY CHAIN (fix round 1, I-2). A
+					CALIBRATION change moves `ctx.measureStamp` and dirties nothing, so the
+					replay must REFUSE across it — and the tick after it must not be reading
+					a payload recorded under the old calibration. Global, so it is put back
+					whatever happens, exactly as `measure_reuse.spec`'s own rule demands. ]]
+				a.width(3, 47)
+				c.width(3, 47)
+				agreeAll(a, c, `{label} pre-settle replay`)
+				local calOk, calErr = pcall(function()
+					text_metrics.calibrate("BuilderSans", 0.33)
+					a.width(4, 53)
+					c.width(4, 53)
+					agreeAll(a, c, `{label} settle tick`)
+					a.width(5, 59)
+					c.width(5, 59)
+					agreeAll(a, c, `{label} post-settle replay`)
+				end)
+				text_metrics.resetCalibration()
+				if not calOk then
+					a.dispose()
+					c.dispose()
+					error(calErr, 0)
+				end
+				a.width(6, 61)
+				c.width(6, 61)
+				agreeAll(a, c, `{label} post-reset replay`)
+				--[[ THE WARM-UP CROSS-RE-PLACES A **DIFFERENT** ROW FROM THE ONE THE
+					AUDITED SOLVE DIRTIES (fix round 1, I-2). That is what puts a stale
+					entry in front of the audit at all: row 3 is re-placed and then goes
+					CLEAN, so the audited pass compares `pRect[3]` — the payload as the
+					last REPLAY left it — against a freshly computed rect. With the
+					warm-up on the same row as the drive (the first version of this block)
+					the served value is always `hot[idx]`, no recorded entry is ever
+					consulted, and the arm asserts only about the tick it is looking at. ]]
+				a.width(3, 43)
+				c.width(3, 43)
 				agreeAll(a, c, `{label} audit warm-up`)
 				withWorkCapture(function()
 					a.width(2, 44)
@@ -1125,12 +1217,51 @@ describe("T14: the node-resident offer pair, and why T13/T13b's null is structur
 		-- ...and BOTH entry-offer readers sit inside the anchor branch, after the line
 		-- that opens it. A reader that moved out of it would break the argument above,
 		-- and this is the check that would say so.
+		--[[ ...AND **BOTH** READERS, NOT THE FIRST (fix round 1, minor 5). A pin that
+			only asked about the first would pass while a second reader migrated out of
+			the anchor branch, which is the one edit that would break the argument above.
+			The branch's own end is not greppable, so the check is "every `.offerW ==`
+			and `.offerH ==` in the file sits after the line that opens it" — the
+			conservative half, plus the exact count above, which is what stops a THIRD
+			reader appearing anywhere. ]]
 		local anchorAt = string.find(solverBody, 'node.kind == "anchor"', 1, true)
 		expect(anchorAt ~= nil).toBe(true)
-		local firstOfferRead = string.find(solverBody, ".offerW ==", 1, true)
-		expect(`the first entry-offer read is inside the anchor branch={firstOfferRead > (anchorAt :: number)}`).toBe(
-			"the first entry-offer read is inside the anchor branch=true"
+		local outside = 0
+		local seen = 0
+		for at in string.gmatch(solverBody, "()%.offer[WH]%s*==") do
+			seen += 1
+			if at < (anchorAt :: number) then
+				outside += 1
+			end
+		end
+		expect(`entry-offer reads={seen} outside the anchor branch={outside}`).toBe(
+			"entry-offer reads=4 outside the anchor branch=0"
 		)
+		--[[ ...AND TASK 13b's SECOND DEMAND, which its review made and this file owes an
+			answer to: "a case for the fallback's own failure mode — a container measured
+			at TWO offers in one solve". That shape is real and this is it: a HUGGING list
+			hands each row the screen's width in the measure pass and its own resolved
+			width in the arrange pass, so `cmemo.mOffW` holds whichever was recorded LAST
+			and a served child taking its offer from there could file a pair that no pass
+			ever asked it. **The wrongness is unobservable**, and the count above is why:
+			the pair reaches only a STACK child's entry and is read only about an ANCHOR
+			child. What this case pins is the precondition and the actual outcome — every
+			row's entry carries the ARRANGE offer, which is what `measure` wrote, not the
+			memo's. If a later round gives `offerW` a third reader, this is the case that
+			has to be re-argued. ]]
+		local two = scene.new({ rows = 12, hug = true })
+		two.text(4, "warm")
+		withWorkCapture(function()
+			two.text(4, "two-offer")
+		end)
+		local rects = capture.result.rects
+		local list = rects["/S/List"]
+		local sample = rects["/S/List/R7"]
+		expect(
+			`list innerW={if list ~= nil and list.rect ~= nil then list.rect.w else -1} `
+				.. `row offerW={if sample ~= nil then tostring(sample.offerW) else "-"}`
+		).toBe("list innerW=300 row offerW=300")
+		two.dispose()
 	end)
 
 	it("a CLEAN child the replay skipped keeps the offer pair the last solve filed", function()
@@ -1286,5 +1417,143 @@ describe("T14: three terms whose witness took a shape of its own", function()
 		expect(`skipped={capture.result.work.placeSkipped}`).toBe("skipped=0")
 		controller.dispose()
 		root.dispose()
+	end)
+end)
+
+describe("T14: a CHAIN of replays, which is where the payload has to keep up", function()
+	--[[ FIX ROUND 1, IMPORTANT 1. The replay COMMITS rects it did not RECORD: a
+		cross-only re-place writes `hot[idx]` and `place`s it while `cmemo.pRect`/`pCross`
+		keep describing the last FULL pass, and `pNoted` is never raised. The RECTS
+		survive that — `pRect` and `pCross` go stale TOGETHER, so the "nothing moved" copy
+		is only ever taken when the fresh measurement matches the rect it was recorded
+		with — but the DIAGNOSTICS do not, in both directions:
+
+		  * a finding re-filed for a CLEAN child is re-filed from the rect that child had
+		    two ticks ago, so an overhang that grew is reported at its old size;
+		  * a finding CREATED by a cross re-place is lost on the next tick, because
+		    `pNoted` still says this container filed nothing and no clean child is
+		    re-noted — while `solve`'s diagnostic replay drops the previous copy, since
+		    the container was walked.
+
+		The second is the "silently, and forever" class MUST-FIX 3 was written to prevent,
+		one lane over — and the lane is the one this task added beyond the plan.
+
+		BOTH CASES CHAIN TWO REPLAYS WITH **DIFFERENT** DIRTY CHILDREN, which is the shape
+		nothing in this file had: the two ten-step diagnostic loops above chain replays but
+		always with the SAME dirty row, so the child whose payload goes stale is never the
+		one that goes clean. ]]
+	it("a finding about a CLEAN child is re-filed from THIS tick's rect, not from two ticks ago", function()
+		local a, c = pair({ rows = 8, negMargin = true, wide = true })
+		a.width(3, 400)
+		c.width(3, 400)
+		agree(a, c, "chain warm")
+		expect(string.find(a.diagKey(), "100px past the right edge", 1, true) ~= nil).toBe(true)
+		-- TICK A: the OVERHANGING row is the dirty one, so it is cross-re-placed and its
+		-- finding is filed fresh at the new rect
+		withWorkCapture(function()
+			a.width(3, 460)
+		end)
+		c.width(3, 460)
+		agree(a, c, "chain tick A")
+		expect(`A: skipped={capture.result.work.placeSkipped}`).toBe("A: skipped=7")
+		-- TICK B: a DIFFERENT row is dirty, so row 3 is CLEAN and is re-noted from the
+		-- payload. Without the write-back that payload is the last FULL pass's rect and
+		-- the finding reads 100px where the truth is 160px.
+		withWorkCapture(function()
+			a.width(5, 70)
+		end)
+		c.width(5, 70)
+		agree(a, c, "chain tick B")
+		expect(`B: skipped={capture.result.work.placeSkipped}`).toBe("B: skipped=7")
+		expect(string.find(a.diagKey(), "160px past the right edge", 1, true) ~= nil).toBe(true)
+		a.dispose()
+		c.dispose()
+	end)
+
+	it("a finding CREATED by a cross re-place survives the NEXT replay", function()
+		--[[ THE SHARPER OF THE TWO. The recording pass leaves `pNoted = false` because
+			nothing overhangs; the cross re-place on tick A files the finding (a `hot`
+			child is always re-noted); and on tick B `pNoted` is STILL false, so no clean
+			child is re-noted and the previous copy is dropped by the solve-level replay.
+			Live diagnostics: empty. Control: the finding. ]]
+		local a, c = pair({ rows = 8, negMargin = true })
+		a.width(3, 200)
+		c.width(3, 200)
+		agree(a, c, "loss warm")
+		expect(a.diagKey()).toBe("")
+		withWorkCapture(function()
+			a.width(3, 460)
+		end)
+		c.width(3, 460)
+		agree(a, c, "loss tick A")
+		expect(`A: skipped={capture.result.work.placeSkipped}`).toBe("A: skipped=7")
+		expect(string.find(a.diagKey(), "160px past the right edge", 1, true) ~= nil).toBe(true)
+		withWorkCapture(function()
+			a.width(5, 70)
+		end)
+		c.width(5, 70)
+		agree(a, c, "loss tick B")
+		expect(`B: skipped={capture.result.work.placeSkipped}`).toBe("B: skipped=7")
+		expect(string.find(a.diagKey(), "160px past the right edge", 1, true) ~= nil).toBe(true)
+		a.dispose()
+		c.dispose()
+	end)
+
+	it("...and a chain of FIVE cross re-places on rotating rows tracks a full solve throughout", function()
+		--[[ THE GENERAL SHAPE, because the two cases above each pin one direction. Five
+			consecutive replays, a different row dirty each time and no refusing drive
+			between them, with the whole snapshot compared against a forced full solve
+			after every one. `placeSkipped=7` on each says every tick really was a replay
+			— a chain that quietly started refusing would agree with the control for the
+			wrong reason. ]]
+		local a, c = pair({ rows = 8, negMargin = true, wide = true })
+		a.width(3, 400)
+		c.width(3, 400)
+		agreeAll(a, c, "rotate warm")
+		for step = 1, 5 do
+			local row = 1 + (step % 8)
+			withWorkCapture(function()
+				a.width(row, 380 + step * 13)
+			end)
+			c.width(row, 380 + step * 13)
+			agreeAll(a, c, `rotate {step} (row {row})`)
+			expect(`step {step}: skipped={capture.result.work.placeSkipped}`).toBe(`step {step}: skipped=7`)
+		end
+		a.dispose()
+		c.dispose()
+	end)
+end)
+
+describe("T14: owed row 11 — the order the replay files in", function()
+	it("the replay files its containment findings in DOCUMENT order, as the placement loop does", function()
+		--[[ OWED ROW 11, PINNED RATHER THAN ASSERTED (fix round 1, minor 3). The row
+			claims "document order UNCHANGED", and nothing in this file could see it: the
+			oracle's `diagKey()` SORTS, so it compares the finding SET. `diagOrder()` is
+			the unsorted reader, and two overhanging rows are what make an order exist at
+			all.
+
+			THE CLAIM IS ABOUT THIS ARM'S OWN FILING, AND THE ROW IS NARROWED TO IT. The
+			SOLVE's final diagnostics LIST is not claimed to match a full solve's: the
+			solve-level replay appends every carried-forward finding at the TAIL
+			(`solver.luau`'s replay loop), which is a different position from where the
+			walking pass would have filed it, and that is true at HEAD for every skipped
+			subtree. What this arm owes is that IT does not reorder, and that is what is
+			pinned here — including across a replay, where the re-file walks `children`
+			and interleaves `noteContainment`/`place` exactly as the placement loop does. ]]
+		local a, c = pair({ rows = 8, negMargin = true, wide = true })
+		a.width(3, 400)
+		c.width(3, 400)
+		agree(a, c, "order warm")
+		expect(c.diagOrder()).toBe("/S/List/R3")
+		-- row 6 carries the same negative margin and is driven past the edge here, so the
+		-- tick has TWO findings and they must come back in index order on both arms
+		withWorkCapture(function()
+			a.width(6, 480)
+		end)
+		c.width(6, 480)
+		agree(a, c, "order two findings")
+		expect(`skipped={capture.result.work.placeSkipped}`).toBe("skipped=7")
+		expect(a.diagOrder()).toBe(c.diagOrder())
+		expect(a.diagOrder()).toBe("/S/List/R3,/S/List/R6")
 	end)
 end)

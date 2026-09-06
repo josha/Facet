@@ -218,6 +218,12 @@ function stack.arrange(
 	-- the children this arm must re-place, by index, with the rect to place them at.
 	-- `nil` on a stack where nothing is dirty, which is a real and common shape.
 	local hot: { [number]: Rect }? = nil
+	--[[ ...and the MARGIN-INCLUSIVE CROSS EXTENT of a child the arm re-placed on the
+		cross axis, carried to the commit loop rather than written where it is computed
+		(fix round 1, I-1). A per-child term that refuses AFTER an earlier child has been
+		recorded would leave `cmemo` half-describing a pass that never ran, and "a refusal
+		writes nothing" is the property the first prototype of this arm did not have. ]]
+	local hotCross: { [number]: number }? = nil
 	local hotCount = 0
 	if replayable then
 		local pIds, pRect = cmemo.pIds, cmemo.pRect
@@ -275,8 +281,9 @@ function stack.arrange(
 				break
 			end
 			local prev = pRect[idx]
+			local crossOf = if isH then h + mt + mb else w + ml + mr
 			local r: Rect
-			if (if isH then h + mt + mb else w + ml + mr) == pCross[idx] then
+			if crossOf == pCross[idx] then
 				-- NOTHING MOVED: a fresh table because `arrangeBody` freezes what it is
 				-- handed and the frozen one is already the entry in `out`
 				r = { x = prev.x, y = prev.y, w = prev.w, h = prev.h }
@@ -305,6 +312,10 @@ function stack.arrange(
 						w = crossSize,
 						h = prev.h,
 					}
+				if hotCross == nil then
+					hotCross = {}
+				end
+				(hotCross :: { [number]: number })[idx] = crossOf
 			end
 			if hot == nil then
 				hot = {}
@@ -329,17 +340,44 @@ function stack.arrange(
 			replaying container always is. `pNoted` is what makes the common case free:
 			if this container filed no containment finding on the pass that recorded, a
 			re-file is provably a no-op, because every rect and the box are unchanged. ]]
-		local noted, pRect = cmemo.pNoted, cmemo.pRect
+		local noted, pRect, pCross = cmemo.pNoted, cmemo.pRect, cmemo.pCross
 		local axisIsX = not isH
+		--[[ ...AND WHAT THIS PASS FILED, which is the value the NEXT replay reads (fix
+			round 1, I-1). `noted` above is the RECORDING pass's answer and decides whether
+			a clean child is re-noted at all; this is THIS pass's, and it has to replace it
+			or a finding the cross re-place just created is dropped on the very next tick —
+			`pNoted` would still say this container filed nothing, no clean child would be
+			re-noted, and `solve`'s diagnostic replay drops the previous copy because the
+			container was walked. That is the "silently, and forever" class one lane over.
+
+			A CLEAN CHILD CANNOT HAVE STARTED OVERHANGING while `noted` is false: its rect
+			is the one the recording pass placed it at (the arm only ever re-places `hot`
+			children, and it now records what it re-places), and the box is a gate term. ]]
+		local filed = false
 		for idx, child in children do
 			local r = if hot ~= nil then hot[idx] else nil
 			if r ~= nil then
-				noteContainment(ctx, node, child, r, innerX, innerY, innerW, innerH, axisIsX)
+				filed = noteContainment(ctx, node, child, r, innerX, innerY, innerW, innerH, axisIsX) or filed
+				--[[ THE ARM RECORDS WHAT IT COMMITS (fix round 1, I-1). Without these two
+					writes the payload keeps describing the last FULL pass while the rect map
+					holds this one's, so the next replay re-notes a CLEAN child from the rect
+					it had two ticks ago — the reviewer's witness reported a 100px overhang
+					where the truth was 160px. The RECTS survived it, because `pRect` and
+					`pCross` went stale together and the "nothing moved" copy is only taken
+					when the fresh measurement matches the rect it was recorded with; the
+					diagnostics did not. `r` is the SAME TABLE `place` freezes into `out`,
+					so this array still holds references and never copies. ]]
+				pRect[idx] = r
+				local cross = if hotCross ~= nil then hotCross[idx] else nil
+				if cross ~= nil then
+					pCross[idx] = cross
+				end
 				place(ctx, child, r, out)
 			elseif noted then
-				noteContainment(ctx, node, child, pRect[idx], innerX, innerY, innerW, innerH, axisIsX)
+				filed = noteContainment(ctx, node, child, pRect[idx], innerX, innerY, innerW, innerH, axisIsX) or filed
 			end
 		end
+		cmemo.pNoted = filed
 		--[[ ...AND THE CONTAINER'S OWN FINDINGS ARE RE-FILED (review round 3, MUST-FIX
 			3). Neither the overflow diagnostic nor the `distribute`-has-nothing conflict
 			carries a `filedBy`, so the solver's replay keys them on `d.node` — the
@@ -357,8 +395,18 @@ function stack.arrange(
 		ctx.placeSkipped += #children - hotCount
 		return
 	end
-	-- REFUSED, or the audit is on: fall through to the full pass. Nothing above wrote a
-	-- rect, wrote to `cmemo` or touched T13's arrays.
+	--[[ REFUSED, or the audit is on: fall through to the full pass. Nothing above wrote a
+		rect, wrote to `cmemo` or touched T13's arrays — every write this arm makes is
+		inside the commit loop, which runs only once the whole scan has passed.
+
+		THAT IS FREE OF *RECT* SIDE EFFECTS, NOT OF ALL OF THEM (fix round 1, minor 7).
+		The scan calls `deps.measure` for each DIRTY child before a later child can
+		refuse, so a refusing replay measures those children once more than HEAD did. It
+		is idempotent — the same node at the same offer, answered by the per-solve memo or
+		by C2's node-resident serve — and it is why the `calls`/`served` pins in
+		`container_memo`, `container_aggregate` and `measure_serve` were re-recorded with
+		their reason. The order is cheapest-term-first precisely so the common refusals
+		(a changed id, a changed gap, a changed box) cost no measure at all. ]]
 	local desired = {}
 	local margins = {}
 	local fillWeightSum = 0
@@ -650,10 +698,23 @@ function stack.arrange(
 	local gapsPlaced, gapExtraApplied = 0, 0
 	-- did any child overhang its box (T14)? See the replay's `pNoted`.
 	local noted = false
-	-- the audit's own bookkeeping (ruling A-12): with `ctx.replayAudit` on, the arm
-	-- above evaluated its gate and placed nothing, and this loop asserts every rect it
-	-- WOULD have served against the one it just computed — BEFORE the record below
-	-- replaces it, which is the mistake T13's first audit made.
+	--[[ THE AUDIT (ruling A-12), AND WHAT IT CAN AND CANNOT SEE. With `ctx.replayAudit`
+		on, the arm above evaluated its gate and placed nothing, and this loop asserts
+		every rect it WOULD have served against the one it just computed.
+
+		IT DOES NOT RE-RECORD (fix round 1, I-2). The first version let the audited pass
+		write `cmemo` at the tail, so the audited arm always held a payload one full pass
+		old and could never be handed a payload a REPLAY had left — which is exactly the
+		state Important 1's defect lived in. Skipping the record makes this arm a
+		comparison of the payload AS THE LAST REPLAY LEFT IT against a fresh computation,
+		which is the only shape that can catch a payload that drifted from the rect map.
+
+		IT STILL PRICES ONE TICK. It says "the rects this payload would serve are the
+		rects a full pass computes, right now"; it cannot say "and they will still be
+		after two more replays". That class belongs to the differential's chained-replay
+		drives (`tests/stack_replay.spec.luau`, the rotating-rows case and the oracle's
+		consecutive cross drives), and the two are stated as a pair rather than one being
+		read as covering the other. ]]
 	local audit = ctx.replayAudit and replayable
 	for idx, child in children do
 		local m = margins[idx]
@@ -790,8 +851,10 @@ function stack.arrange(
 	--[[ THE KEY, WRITTEN LAST (T14) — after the loop that filled the arrays, so a throw
 		inside it leaves a payload no gate can match rather than one that half-describes
 		this pass. When `cmemo == nil` (a store-less or reuse-off build) nothing above
-		was written and nothing here is: today's code exactly. ]]
-	if cmemo ~= nil then
+		was written and nothing here is: today's code exactly. Under `ctx.replayAudit`
+		nothing here runs either, so the audited pass leaves the payload the last REPLAY
+		left — see the audit block above for why that is the whole point. ]]
+	if cmemo ~= nil and not ctx.replayAudit then
 		cmemo.pN, cmemo.pKind = #children, node.kind
 		cmemo.pStamp, cmemo.pScope, cmemo.pHidden = ctx.measureStamp, ctx.scopeKey, ctx.hiddenDepth
 		cmemo.pInnerX, cmemo.pInnerY, cmemo.pInnerW, cmemo.pInnerH = innerX, innerY, innerW, innerH
