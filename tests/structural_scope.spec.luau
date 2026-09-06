@@ -1344,7 +1344,9 @@ describe("P5 x a torn commit: refresh-scoped state does not outlive its refresh"
 		-- written from the same result, a few lines apart" — and the number is read off
 		-- the run each time it moves rather than being left at a value that would pass
 		-- for a publisher twice this size.
-		expect((structAt :: number) - (partialAt :: number) < 1500).toBe(true)
+		-- 1,500 -> 1,600 (Plan D, D1 + D2c): `lastPlanVisits` and `lastPlaceScanned`
+		-- publish between the pair too, and the gap reads 1,501 off this run.
+		expect((structAt :: number) - (partialAt :: number) < 1600).toBe(true)
 	end)
 end)
 

@@ -1500,6 +1500,15 @@ local function toLayoutNode(
 	local kidIndex: { [string]: number }? = nil
 	local kidMounts: { any }? = nil
 	local kidRegions: { any }? = nil
+	--[[ ...AND THE ONE FACT A DOWNSTREAM INDEX-KEYED PAYLOAD CANNOT DERIVE (Plan D,
+		D2c): a token that is a FRESH table whenever this build rebuilt the children
+		array from scratch, and the SAME table whenever it kept or patched one. Two
+		builds that share it hold layout children with the same ids in the same order —
+		the patch validates that in three layers and the kept arm is the same array —
+		so a reader holding an index->id payload recorded under this token may trust its
+		indices without re-scanning them. `layout/stack`'s arrange replay is the reader;
+		its own header says why the scan it replaces is not optional. ]]
+	local kidToken: any = nil
 	if #node.children > 0 then
 		--[[ THE CHILDREN ARRAY IS KEPT WHEN THE SHAPE UNDER IT DID NOT MOVE (Plan C,
 			T15). A store HIT returns a whole subtree in two hash probes (`:386-395`); a
@@ -1624,6 +1633,7 @@ local function toLayoutNode(
 				kidScroll, kidComposition, kidInside, kidPlaced =
 					prior.kidScroll, prior.kidComposition, prior.kidInside, prior.kidPlaced
 				kidIndex, kidMounts, kidRegions = prior.kidIndex, prior.kidMounts, prior.kidRegions
+				kidToken = prior.kidToken
 			end
 		end
 		if patchAt ~= nil and store ~= nil and prior ~= nil then
@@ -1648,6 +1658,7 @@ local function toLayoutNode(
 			kidScroll, kidComposition, kidInside, kidPlaced =
 				prior.kidScroll, prior.kidComposition, prior.kidInside, prior.kidPlaced
 			kidIndex, kidMounts, kidRegions = prior.kidIndex, prior.kidMounts, prior.kidRegions
+			kidToken = prior.kidToken
 			local mounts = prior.kidMounts
 			for _, idx in patchAt do
 				local was = kept[idx]
@@ -1718,6 +1729,8 @@ local function toLayoutNode(
 			for _, child in node.children do
 				appendChild(child)
 			end
+			-- a REBUILT array is a new sequence as far as any index-keyed reader knows
+			kidToken = {}
 		end
 		--[[ ── THE SIBLING PLATE'S CARVED BORDER, AND WHY THE FRAMEWORK DOES NOT
 			SPEND IT (task THEME, director items 7-8) ──────────
@@ -1848,6 +1861,10 @@ local function toLayoutNode(
 	local scrollInside = kind == "scroll" or kidScroll > 0
 	local compositionInside = kind == "composition" or kidComposition > 0
 	inside = inside or (kind ~= "scroll" and kidInside > 0)
+	-- D2c's token rides on the layout node because the arrange replay is handed the
+	-- layout node and never the store; `nil` on a store-less build, which is why every
+	-- reader compares it against a NON-NIL recorded value
+	layoutNode.kidToken = kidToken
 	layoutNode.containerRelativeInside = inside or nil
 	layoutNode.subtreeHasScroll = scrollInside or nil
 	layoutNode.subtreeHasComposition = compositionInside or nil
@@ -1929,6 +1946,7 @@ local function toLayoutNode(
 			kidIndex = kidIndex,
 			kidMounts = kidMounts,
 			kidRegions = kidRegions,
+			kidToken = kidToken,
 		}
 	end
 	return layoutNode

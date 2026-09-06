@@ -100,6 +100,60 @@ export type Rect = { x: number, y: number, w: number, h: number }
 -- (largest-remainder rounding); and `distribute` spreads what fill did not take
 -- (§2.6). Cross axis honours `child.lineAlign`, else `child.align`, else this
 -- container's `align` (`stretch` fills the line).
+--[[ ── THE CANDIDATE INDICES, WITHOUT THE SIBLING SCAN (Plan D, D2c) ─────────────
+
+	The replay below walks EVERY sibling twice for a one-child payload —
+	`ctx.placeSkipped` is literally the census of those iterations, 1,124 of them on
+	`battle_hud L updateItem-hp`. The first walk is there for one reason its own header
+	states: `render/layout_node` splices a `UI.ForEach` REGION's children into this flat
+	list, so an insert into a spliced sibling shifts every later index while the mount
+	children table the carrier gate compares is untouched — and a container that reaches
+	the arm with ZERO dirty children would otherwise return having placed NOTHING.
+
+	`node.kidToken` is what answers that WITHOUT the scan. `render/layout_node` hands a
+	container a fresh token whenever it rebuilt the children array and the SAME token
+	whenever it kept or patched one, and both of those preserve every id at every index
+	(the patch validates it in three layers). So a payload recorded under a token that
+	is still the node's own describes exactly the sequence standing here, and the ids
+	need no re-reading. The token is compared against a recorded NON-NIL value, so a
+	store-less build — where the token is nil on both sides — takes the scan.
+
+	The inverse map is built once per token and dropped with it. The budget is the same
+	one `render/layout_node`'s patch uses and for the same reason: the DIRTY SET is what
+	is walked here, so a dirt set wider than a quarter of the children costs a scan the
+	full pass does not pay, on a tick that is going to re-place most of them anyway. The
+	refusal is a pure function of the MATCH COUNT, never of the hash order the set
+	happens to enumerate in. ]]
+local function candidateIndices(cmemo: any, dirty: any, n: number): { number }?
+	local map = cmemo.pIdx
+	if map == nil or cmemo.pIdxToken ~= cmemo.pToken then
+		map = {}
+		local pIds = cmemo.pIds
+		for i = 1, n do
+			map[pIds[i]] = i
+		end
+		cmemo.pIdx = map
+		cmemo.pIdxToken = cmemo.pToken
+	end
+	local out: { number } = {}
+	local budget = math.max(4, n // 4)
+	for id in dirty do
+		local idx = map[id]
+		if idx ~= nil then
+			if #out >= budget then
+				return nil
+			end
+			out[#out + 1] = idx
+		end
+	end
+	--[[ ASCENDING, WHICH IS THE ORDER THE SCAN VISITS THEM IN. It matters on the
+		REFUSING path, not the succeeding one: the loop calls `deps.measure` for each
+		dirty child before a later one can refuse, so a different order would measure a
+		different subset before the same refusal and move `lastMeasured` for no reason. ]]
+	table.sort(out)
+	return out
+end
+
 function stack.arrange(
 	deps: Deps,
 	ctx: any,
@@ -225,13 +279,33 @@ function stack.arrange(
 		writes nothing" is the property the first prototype of this arm did not have. ]]
 	local hotCross: { [number]: number }? = nil
 	local hotCount = 0
+	--[[ THE INDICES THIS ARM WILL VISIT, or `nil` for "visit every sibling" (Plan D,
+		D2c). See `candidateIndices` above for what licenses the short list and what
+		refuses it. `pNoted` is a term because the commit walk below has to visit every
+		CLEAN child when this container filed a containment finding last pass — the
+		indexed arm serves the shape where it filed none, which is the shape a settled
+		surface is in. ]]
+	local order: { number }? = nil
+	if replayable and cmemo.pToken ~= nil and cmemo.pToken == node.kidToken and cmemo.pNoted ~= true then
+		order = candidateIndices(cmemo, dirty, #children)
+	end
 	if replayable then
 		local pIds, pRect = cmemo.pIds, cmemo.pRect
 		local pMain, pCross, pAl, pFlag, pMarg = cmemo.pMain, cmemo.pCross, cmemo.pAl, cmemo.pFlag, cmemo.pMarg
 		local short = cmemo.pShort
 		local crossRoom = if isH then innerH else innerW
-		for idx, child in children do
-			--[[ EVERY CHILD IS CHECKED FOR IDENTITY; only the DIRTY ones are re-measured.
+		--[[ ONE BODY, TWO ENUMERATIONS. `order == nil` is the scan HEAD has always run —
+			every sibling checked for identity, only the dirty ones measured; otherwise
+			the short list, whose members are exactly the dirty children in the same
+			ascending order the scan would have reached them in. ]]
+		local visits = if order ~= nil then #order else #children
+		local at = 0
+		while at < visits do
+			at += 1
+			local idx = if order ~= nil then (order :: { number })[at] else at
+			local child = children[idx]
+			if order == nil then
+				--[[ EVERY CHILD IS CHECKED FOR IDENTITY; only the DIRTY ones are re-measured.
 				The id scan is not optional: `render/layout_node` splices a `UI.ForEach`
 				REGION's children into this flat list while `mount` replaces the REGION's
 				children and never the enclosing panel's, so the carrier's `prior.kids ==
@@ -242,12 +316,13 @@ function stack.arrange(
 				arm returns having placed NOTHING while the splice moved every surviving
 				row. One interned-string compare and one hash probe per clean child, in a
 				loop the full pass below already runs. ]]
-			if pIds[idx] ~= child.id or pRect[idx] == nil then
-				replayable = false
-				break
-			end
-			if dirty[child.id] ~= true then
-				continue
+				if pIds[idx] ~= child.id or pRect[idx] == nil then
+					replayable = false
+					break
+				end
+				if dirty[child.id] ~= true then
+					continue
+				end
 			end
 			local mainDim = deps.mainDimOf(child, isH)
 			local wD, hD = deps.dim(child, "w"), deps.dim(child, "h")
@@ -323,6 +398,7 @@ function stack.arrange(
 			(hot :: { [number]: Rect })[idx] = r
 			hotCount += 1
 		end
+		ctx.placeScanned += at
 	end
 	if replayable and not ctx.replayAudit then
 		--[[ NOTHING ON THE MAIN AXIS MOVED: every child keeps the main half of the rect
@@ -354,6 +430,40 @@ function stack.arrange(
 			is the one the recording pass placed it at (the arm only ever re-places `hot`
 			children, and it now records what it re-places), and the box is a gate term. ]]
 		local filed = false
+		--[[ ...AND THE SECOND SIBLING WALK GOES WITH THE FIRST (Plan D, D2c). When the
+			indexed arm ran, `noted` is false by its own gate, so a clean child's branch
+			below is a lookup that finds nothing and a test that does nothing — and every
+			index in `order` carries a rect, because a dirty child that failed any term
+			refused the whole arm. So the walk is the short list, in the same ascending
+			document order, and `placeSkipped` counts the iterations that did not happen:
+			zero, where the scan counted 1,124. ]]
+		if order ~= nil then
+			for _, idx in order :: { number } do
+				local child = children[idx]
+				local r = (hot :: { [number]: Rect })[idx]
+				filed = noteContainment(ctx, node, child, r, innerX, innerY, innerW, innerH, axisIsX) or filed
+				pRect[idx] = r
+				local cross = if hotCross ~= nil then hotCross[idx] else nil
+				if cross ~= nil then
+					pCross[idx] = cross
+				end
+				place(ctx, child, r, out)
+			end
+			cmemo.pNoted = filed
+			local issues = cmemo.pIssues
+			if issues ~= nil then
+				for _, finding in issues do
+					table.insert(ctx.diagnostics, finding)
+				end
+			end
+			--[[ `placeSkipped` KEEPS ITS MEANING, which is a statement about
+				`arrangeBody` and not about this loop: the children this stack did not
+				re-place are the same children whatever enumeration found them. What the
+				indexed arm moves is `placeScanned`, added above. ]]
+			ctx.placeSkipped += #children - hotCount
+			ctx.placeScanned += #(order :: { number })
+			return
+		end
 		for idx, child in children do
 			local r = if hot ~= nil then hot[idx] else nil
 			if r ~= nil then
@@ -393,6 +503,7 @@ function stack.arrange(
 			end
 		end
 		ctx.placeSkipped += #children - hotCount
+		ctx.placeScanned += #children
 		return
 	end
 	--[[ REFUSED, or the audit is on: fall through to the full pass. Nothing above wrote a
@@ -863,6 +974,14 @@ function stack.arrange(
 		-- axis came out SHORT (which is when a `shrinkWeight` arriving on a dirty child
 		-- would change every rect) and whether any child overhung its box.
 		cmemo.pShort, cmemo.pNoted, cmemo.pIssues = availMain < 0, noted, ownIssues
+		--[[ ...AND THE SEQUENCE THIS PAYLOAD'S INDICES DESCRIBE (Plan D, D2c).
+			`render/layout_node` hands a container a fresh `kidToken` whenever it rebuilt
+			the children array and the same one whenever it kept or patched it, so a later
+			replay holding this token may trust `pIds`' indices without re-reading them.
+			Recorded HERE, with the rest of the key, so a pass that never completed leaves
+			a token no replay can match. It is `nil` on a store-less build, and the
+			replay's gate requires a NON-NIL match for exactly that reason. ]]
+		cmemo.pToken = node.kidToken
 	end
 end
 

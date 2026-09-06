@@ -1212,6 +1212,11 @@ require("./plan_cache.spec")
 	owed list, the three validation layers, the four counts that replaced the
 	post-children fold, and the full-solve oracle over nine views. ]]
 require("./build_index_patch.spec")
+--[[ PLAN D, D2c (2026-09-06): the stack's arrange replay walked every sibling TWICE to
+	place one child. `render/layout_node`'s `kidToken` says the ids at the indices did
+	not move, so the replay enumerates the dirty set instead — and the cases are the
+	three shapes that still take the scan, with the splice the scan was written for. ]]
+require("./stack_replay_candidates.spec")
 --[[ THE STANDALONE CONSUMER (distribution-readiness D2/D4): `examples/consumer/`
 	is the smallest complete Facet project, and this mounts ITS OWN screen module
 	— the same file the client script requires through the instance tree — against

@@ -206,8 +206,12 @@ describe("the stack seam: what it READS of the solve, and the one thing it WRITE
 		-- the suspension a coordinate-space host holding a composition raises. The
 		-- replay refuses under it for the reason `arrangeBody`'s own skip does
 		"noSkipDepth",
-		-- ...and the census the arm owes: how many per-child placements it did NOT
-		-- spend. WRITE-ONLY, never read back here (see the write half below)
+		-- ...and the two censuses the arm owes: how many per-child placements it did NOT
+		-- spend, and (Plan D, D2c) how many per-child ITERATIONS it DID. They are
+		-- independent — the replay used to walk every sibling twice to serve a one-child
+		-- payload — and both are WRITE-ONLY, never read back here (see the write half
+		-- below)
+		"placeScanned",
 		"placeSkipped",
 		-- the forced-on oracle's switch (ruling A-12) and its comparison count, the
 		-- second of the two write-only counters
@@ -230,6 +234,13 @@ describe("the stack seam: what it READS of the solve, and the one thing it WRITE
 		"cmemo",
 		"distribute",
 		"id",
+		--[[ (Plan D, D2c) the TABLE IDENTITY `render/layout_node` stamps where the
+			children array is built: the same table on every build that kept or patched
+			it, a fresh one on every build that rebuilt it. Read only to compare against
+			the token the recording pass wrote, which is what licenses this branch to
+			trust `pIds`' indices instead of re-reading every sibling's id. It is not a
+			layout input and no rect is a function of it. ]]
+		"kidToken",
 		"kind",
 	}
 	local CHILD_FIELDS = {
@@ -267,23 +278,31 @@ describe("the stack seam: what it READS of the solve, and the one thing it WRITE
 		three on exactly that argument when T13/T13b's counters landed. Anything that is
 		not a counter belongs in the empty list below, and a counter that is ever READ
 		here stops being one. ]]
+	--[[ ...AS A SET, NOT AS A TRANSCRIPT (Plan D, D2c). The scan used to compare the
+		assignments in source order, which happened to work while each counter had one
+		write site; the indexed arm gives `placeScanned` and `placeSkipped` one site per
+		exit, and a list that pins HOW MANY TIMES a counter is incremented is pinning the
+		branch's shape rather than its write SET — which is the claim this case makes.
+		Deduped and sorted; the negative control below still reports the field it sees. ]]
 	local WRITES: { string } = {
-		-- the per-child placements the replay did not spend, and the rects its
-		-- forced-on oracle compared. Both are pure counters: this module never reads
-		-- either field back, so no behaviour of this branch is a function of them
+		-- the per-child placements the replay did not spend, the per-child ITERATIONS it
+		-- did (D2c), and the rects its forced-on oracle compared. All three are pure
+		-- counters: this module never reads any of them back, so no behaviour of this
+		-- branch is a function of them
+		"ctx.placeScanned",
 		"ctx.placeSkipped",
 		"ctx.replayChecks",
 	}
 
 	it("it WRITES nothing of the solver's but `ctx.diagnostics`, and only by insert", function()
 		local body = stripComments(stackSrc)
-		local assigned: { string } = {}
+		local assigned: { [string]: boolean } = {}
 		for recv, field in string.gmatch(body, "([%a_][%w_]*)%.([%a_][%w_]*)%s*[%+%-]?=[^=]") do
 			if recv == "ctx" or recv == "node" or recv == "child" or recv == "deps" then
-				table.insert(assigned, `{recv}.{field}`)
+				assigned[`{recv}.{field}`] = true
 			end
 		end
-		expect(assigned).toEqual(WRITES)
+		expect(sorted(assigned)).toEqual(WRITES)
 		local inserts: { [string]: boolean } = {}
 		for target in string.gmatch(body, "table%.insert%(%s*([%a_][%w_%.]*)") do
 			if string.find(target, ".", 1, true) ~= nil then
@@ -437,6 +456,11 @@ describe("the stack seam: no module-level mutable state", function()
 		expect(sorted(declared)).toEqual({
 			"alignOffset",
 			"distributionOf",
+			--[[ (Plan D, D2c) `local function candidateIndices` — the crude scan reads the
+				keyword, not the name, and that is the honest report: what it forbids is a
+				module-level `local` that is later WRITTEN, and a `local function` is a
+				constant binding. It is listed so a second one does not arrive unremarked. ]]
+			"function",
 			"num",
 			"placementLib",
 			"roundPx",

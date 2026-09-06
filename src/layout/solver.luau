@@ -3456,6 +3456,7 @@ function solver.solve(
 			-- that replay's own oracle comparison count
 			arrangeEntries = ctx.arrangeEntries,
 			placeSkipped = ctx.placeSkipped,
+			placeScanned = ctx.placeScanned,
 			replayChecks = ctx.replayChecks,
 			rectInserts = ctx.rectInserts,
 			skipped = ctx.skipped,

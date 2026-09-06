@@ -209,7 +209,13 @@ describe("the solve-context seam: one require, no state, one export", function()
 		-- `arranged` — the early skip sits above every counter this record had),
 		-- `placeSkipped` (the per-child placements the stack replay did not spend),
 		-- and the replay's forced-on oracle `replayAudit` with its `replayChecks`
-		expect(`declared={#sorted(declared)} written={#sorted(written)}`).toBe("declared=66 written=66")
+		-- 66 -> 66 (Plan D, D1): `memoPlans` left and `planVisits` arrived in its place —
+		-- the plan verdict moved off a per-solve map onto the node literal, and the count
+		-- of verdicts COMPUTED is what replaced it.
+		-- 66 -> 67 (Plan D, D2c): `placeScanned`, the per-child ITERATIONS the stack
+		-- replay spent, which `placeSkipped` cannot see — the replay used to walk every
+		-- sibling twice to serve a one-child payload.
+		expect(`declared={#sorted(declared)} written={#sorted(written)}`).toBe("declared=67 written=67")
 		expect(`never built={table.concat(missing, " ")}`).toBe("never built=")
 		expect(`undeclared={table.concat(undeclared, " ")}`).toBe("undeclared=")
 		-- NEGATIVE CONTROL: both scans really do read a field and a key

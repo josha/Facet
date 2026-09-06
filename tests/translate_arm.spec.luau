@@ -562,6 +562,15 @@ describe("O3: a translate root's own layout prop still re-places its children", 
 			-- arm could see change under it.
 			"hostSpace",
 			"id",
+			--[[ `kidToken` (Plan D, D2c) is a TABLE IDENTITY stamped by
+				`render/layout_node` where the children array is built: the same table on
+				every build that kept or patched the array, a fresh one on every build that
+				rebuilt it. It is excused on the `cmemo` argument and on a narrower one of
+				its own — it is not read as a value at all, only compared with the token a
+				previous pass of this same branch recorded, and the only thing that
+				comparison decides is whether the branch may trust an index it already
+				holds instead of re-reading the ids. It decides no rect. ]]
+			"kidToken",
 			"kind",
 			"leadingBleed",
 			--[[ `oMemo` (Plan C, T13b) is the same family as `wKey`/`hKey` above and is

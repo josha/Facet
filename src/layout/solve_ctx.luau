@@ -249,6 +249,14 @@ export type Ctx = {
 		and it is reported beside the entry count, never instead of it. Surfaced as
 		`controller.stats().lastPlaceSkipped`. ]]
 	placeSkipped: number,
+	--[[ ...AND THE ITERATIONS THE REPLAY ACTUALLY SPENT (Plan D, D2c). `placeSkipped`
+		is what the arm did NOT re-place and it is a statement about `arrangeBody`;
+		this is what the arm COST, and the two are independent — the replay walked every
+		sibling twice to serve a one-child payload, so a stack could skip a thousand
+		placements and still pay a thousand iterations to decide it. The indexed arm
+		walks the dirty children alone and this is the counter that says so. Surfaced as
+		`controller.stats().lastPlaceScanned`. ]]
+	placeScanned: number,
 	--[[ T14's FORCED-ON ORACLE (ruling A-12, the route `memoAudit` established). When
 		it is on the replay never returns early: the gate is still evaluated, the full
 		placement loop still runs, and every child whose rect the replay WOULD have
@@ -485,6 +493,7 @@ function solve_ctx.new(contentRect: Rect, opts: any, metrics: any): Ctx
 		-- forced-on oracle with its comparison count (see `Ctx` for all four)
 		arrangeEntries = 0,
 		placeSkipped = 0,
+		placeScanned = 0,
 		replayAudit = (opts and (opts :: any).stackReplayAudit) == true,
 		replayChecks = 0,
 		aggregateAudit = (opts and (opts :: any).containerAggregateAudit) == true,
