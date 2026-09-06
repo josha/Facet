@@ -2826,8 +2826,11 @@ own `scale`/`rotation` blueprint prop on children it has is a real parent too, a
 render buffer.
 
 **Two rect reads, and which one a pointer question takes.** `controller.rectOf(path)`
-answers the **solved** rect — layout space, what the solver wrote, and what a
-consumer computing layout facts wants. `controller.screenRectOf(path)` answers the
+answers the **solved** rect — layout space, composed from its host chain, and what a
+consumer computing layout facts wants. (Under a **coordinate-space host** the solver
+STORES the rect host-relative and the engine's own parenting carries the rest, so
+"what the solver wrote" is no longer the whole answer and `rectOf` composes the chain
+back to layout space for you — Plan C, §C1.) `controller.screenRectOf(path)` answers the
 same rect **where it is painted**: nested scroll offsets and every live presentation
 offset (the node's own and every ancestor's) compose into it. Anything comparing a
 rect against a POINTER — drop hit-tests, autoscroll bands, authored

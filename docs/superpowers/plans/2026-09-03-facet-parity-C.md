@@ -1530,3 +1530,51 @@ Build if `ssZOrder` ≥5 % of a structural class after T3 (T0 §before: nameplat
 - Names: `geometry.hostSpaceOf/spaceHosts/spaceHostHasPath/pathHostOf/hostOriginOf/originIn/noteUnder/noteFromHost/invalidateOrigins/clearHosts/dropPath` plus the internal `originCache`/`composedCache` — **all DECLARED in T1's `rect_reads` interface** so `clearHosts`/`dropPath` can never forget one; filled in T3 (`hostSpaceOf`, `spaceHosts`) and T5 (`spaceHostHasPath`, `pathHostOf`). **`noteFromHost` is the SECOND entry point onto `noteUnder`'s loop** (review D-0): it starts AT the host it is handed instead of at `hostSpaceOf[path]`, which is what T5's reparent branch needs on both sides — it runs before `hostSpaceOf[node.path]` is rewritten, and `noteUnder(map, oldHost, -1)` would skip `oldHost` itself. `noteUnder` is one line through it, so delete-at-zero lives in one place; **there is no `hostHitCount` and no `hostSinkCount`** (R-12). The per-commit `originOf(path)` closure over `originIn(result.rects, …)` is the FRESH-map origin (`hit_lift` and `commit_walks` ON THE COMMIT PATH, composing into the ENTRY's space); `hostOriginOf` is the `lastRects` origin (`coverRect`, `scroll_into_view`, and the LANE's own `hit_lift` serve, which runs no solve) — the split is decided by which map the composer reads, not by taste; `createOpts.hostSpace`, `RendererAttachOpts.translateHosts`, mount `node.hostSpace`, layout `Node.hostSpace` (T3); `ctx.spaceOX`/`ctx.spaceOY` + `arrangeBody` and its `arrange` wrapper (T3, R-13 — **`ctx.spaceOrigin` was considered and DELETED: its only candidate reader, `layout/dump.luau`, never sees a `ctx`**); `placement.anchorPlace` + `placement.innerBox` (T2, T5); `translateArm.translatable/translateDescendants` (T2, T3); `adapter.engineWrites()` (T0, all); `stats.laneTranslates/lastLaneTranslates` (T5); `layout_node.applyPlacement` + `layout_node.resolveOffset` (T5, R-10); `src/render/dirty_closure.luau` (the R-14 fallback seam, T3 step 0b); `arrangeBody` + the `arrange` wrapper and `layout_node.applyPlacement`'s post-literal call site (T3/T5); the two one-line producer composes — `tests/lib/large_text.auditRects` and `layout/dump.luau`'s `nodeDump` accumulator (T3); `record(ctx, node, maxW, maxH, cutsAtEntry, w, h)` + `Node.subtreeHasScroll`/`subtreeHasComposition` + `work.measureCalls/measureServed` (T6, R-11); `work.anchorSkipped` (T7); `nameplates_scene.Opts.hosts` (T3), `Opts.reactiveAnchor`/`Opts.withButton` + `scene.anchorFlip/moveOut/clearOffset` (T5), `Opts.structuralReuse` (T9). **`Opts.withPath` is NOT introduced by this plan** — it already exists at `nameplates_scene.luau:120`; T3 step 8 and T5 both REUSE it.
 - Every name above is introduced in exactly one task (and `Opts.withPath` in none — it predates the plan) and used under that name everywhere later; the rulings table (R-1..R-15) is the index, and R-8's row records what it was replaced by rather than being deleted.
 - Placeholders: T5 step 1 has four cases sketched with `…` or a comment-only body (the scaleOffset/metric-name case, the `hit_lift` serve pin, the entry-identity pin, the R-10 stale-build pin, the Slider case) — the implementer writes each from the described drive and READS its number off the run; T6-T9 are profile-gated and carry their mechanism + counters + red pins in prose because their exact shape is decided by T0's numbers (stated at each). Everything else carries code.
+
+---
+
+## As built — Task 10 (C9), 2026-09-06, at `ee5e3dc0`
+
+The campaign is closed. The measurement, the chart and every verdict live in
+`GameStudio/ui/FacetBench/docs/studio-runs/2026-09-03-facet-parity.md` **§after**
+(committed at FacetBench `151237c`); this section records only what this plan owes its
+own reader.
+
+**The rulings held as written.** R-1..R-15 are the index above and none was reversed by
+what shipped. Three carry deviations from the SPEC and all three are in the table on
+their own row, not hidden here: **R-2** (translate hosts are the only trigger by default;
+`createOptsFor` returns `nil` for a `ScrollView` or a `clipChildren` container outright,
+and T4 step 3 measured the unify decision and pinned SCOPE), **R-3** (the lane consumes
+its qualifying entries and hands the REMAINDER to the solve — spec §5.4's "never
+partially applies" kept in its intended sense, all-or-nothing per validated candidate
+set), and **R-8, which is REPLACED by R-13** (there is no create-time `Composition` scan;
+the solver carries `ctx.spaceOX`/`ctx.spaceOY` down `arrange` and compositions under a
+host are exact at any time). R-9 as amended by R-11 shipped gated. `refresh({ full = true })`
+was never introduced.
+
+**Task 10's steps, as executed.** Step 1: the ABBA ran as a **paired worktree** pair
+(`git worktree add --detach` for Facet at `7cf6bb69` and `ee5e3dc0` beside a FacetBench
+worktree at `74d8158` on BOTH arms) rather than by repointing `attr`'s `FACET` constant —
+recorded here because the plan asked which. The arena is byte-identical across that range
+apart from `attr`'s own counter names, so the swap is Facet and nothing else. Step 2 drove
+all five workloads in loop and frames mode plus six settled-session probes, each in a fresh
+client VM. Step 3's chart is `docs/studio-runs/2026-09-03-facet-parity-after.svg`. Step 4
+(RED-TEAM) ran ahead of Step 5 under ruling C-1 and its wave is `d64c974c`, `a165317e`,
+`21665305`, `ee5e3dc0`. Step 5's canary is §12 of the after-doc. **Step 6 (memory files and
+`tasks/lessons.md`) is NOT done by this task** and is owed to the session that closes the
+branch. Step 7 (the branch menu) is the owner's.
+
+**The two sentences that had to change.** `docs/reference/api.md`'s "Two rect reads" said
+`rectOf` answers "what the solver wrote" — under C1 the solver writes a HOST-RELATIVE
+number beneath a coordinate-space host and `rectOf` composes the chain, so that clause
+became false and now says so. Nothing else in `api.md` or the `CHANGELOG` moved: the
+public numbers did not.
+
+**What it cost, and what is owed.** The suite went 8,251 → **8,672**; `renderer.luau` ended
+at 197,351 chars against R-14's 197,500 STOP with the `dirty_closure` fallback seam taken
+as planned; `solver.luau` 187,617. `tools/verify.sh full --jobs 1` PASS tier=full 402.0 s,
+0 `FAIL_RECOVERABLE`; RascalRally 3,599/0 with a clean live canary on a moving field.
+Sixteen items are BOOKED or PARKED in §9 of the after-doc, and the first of them is not a
+millisecond: **T18-B's `SOLVE_DRAIN_ROUND_CAP` trips in the boot window** on a wide text
+key (`battle_hud` L, fresh client VM, step 118 driving nine batches past a cap of eight) —
+bounded and named where it used to be a `C stack overflow`, but still a throw.
