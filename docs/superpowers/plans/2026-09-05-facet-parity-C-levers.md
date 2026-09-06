@@ -1463,6 +1463,46 @@ guards the forced-on oracle's non-vacuity, on the `memoChecks` precedent.
 three read sets and the write list into named, per-field-justified tables and NAMES the
 nine fields the mechanism will add, and the values move in the mechanism's own commit.
 
+**H. FIX ROUND 1 (2026-09-06) — the replay committed rects it did not RECORD, and the
+audit could not see it.** Two corrections and two counting fixes; the landed commits are
+not rewritten.
+
+  * **I-1, the defect.** A cross-only re-place wrote `hot[idx]` and `place`d it while
+    `cmemo.pRect`/`pCross` kept describing the last FULL pass, and `pNoted` was never
+    raised. The RECTS survived that — `pRect` and `pCross` went stale TOGETHER, so the
+    "nothing moved" copy is only ever taken when the fresh measurement matches the rect it
+    was recorded with — but the DIAGNOSTICS did not, in both directions: a finding about a
+    CLEAN child was re-filed from the rect that child had two ticks ago (reviewer's
+    witness: `100px past the right edge` where the truth was `160px`), and a finding
+    CREATED by a re-place vanished on the next tick, because `pNoted` still said this
+    container filed nothing while `solve`'s replay dropped the previous copy. That is the
+    "silently, and forever" class MUST-FIX 3 was written to prevent, one lane over — in
+    the lane this task added beyond the plan. Fixed by three writes inside the commit loop
+    (`pRect[idx]`, `pCross[idx]` from a `hotCross` carried out of the scan, and
+    `cmemo.pNoted = filed`), which keeps "a refusal writes nothing" intact because every
+    write still sits behind the whole scan passing.
+  * **I-2, the methodology hole that hid it.** `stackReplayAudit` suppressed the fast
+    return AND let the audited pass re-record, so the audit arm could never be handed a
+    payload a REPLAY had left; and the differential's drive order put a refusing MAIN
+    change between every pair of cross drives, so no case in the suite chained two replays
+    with DIFFERENT dirty children. The audited pass no longer records, the oracle gains
+    three consecutive cross drives on different rows plus a repeat on the same row and a
+    replay → settle → replay chain, and the audit's warm-up now re-places a DIFFERENT row
+    from the one the audited solve dirties. **Measured: with the drive order fixed, the
+    AUDIT arm reddens on the pre-fix source with a rect-level mismatch** (`served
+    309,47,47,24 vs placed 313,47,43,24` on `plain`, `nested` and `distribute`), and the
+    differential reddens on a new `overhang` fixture at the third chained drive. Before
+    the I-2 fix, neither arm reddened at all.
+  * **The counts, corrected.** The payload is **SEVEN per-child arrays and FIFTEEN
+    container fields** (entry B above said six and eight; §C12 said six and seven). The
+    mutation battery is **25 run / 19 bite / 6 nulls**, not 24/17/7 — the table always
+    said so; the sentence quoting it did not. Fix round 1 adds five: **30 / 22 / 8**.
+  * **Owed row 11 is narrowed to what it can hold.** The claim is that THIS ARM does not
+    reorder — pinned with two overhanging rows and an unsorted reader, since the oracle's
+    `diagKey()` sorts. The SOLVE's final diagnostics list is not claimed to match a full
+    solve's: the solve-level replay appends carried-forward findings at the tail, which is
+    true at HEAD for every skipped subtree.
+
 ---
 
 ### Task 15 (L1c → FacetBench §C13): `layout_node.build` keeps a container's children array
