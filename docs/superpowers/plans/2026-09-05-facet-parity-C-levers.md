@@ -3310,3 +3310,18 @@ export, a renderer argument, a `harvest` parameter, a per-commit union of three 
 specified through three review rounds against a premise — *`probeEntry` is the cost* — that
 a review MUST-FIX had already invalidated by excluding the only children for whom it is
 true. The refutation cost one attr run.
+
+### J — a disclosure about the commit above this one
+
+**`11297388e` landed with the subject `placeholder`.** Its CONTENT is entries A–I above
+and is correct; only the message is wrong — `tools/commit_isolated.py` takes `-m` as a
+message *file* path, and a here-doc piped through `/dev/stdin` delivered the placeholder
+line that was standing in for it. History is not rewritten in this campaign (controller
+ruling, 2026-09-06), so the commit stands as it is and the message it should have carried
+is the body of the commit that adds this paragraph. A reader looking for the T16 amendment
+log should read `11297388e`'s diff, not its subject.
+
+The generalisable half, for the next implementer: **`commit_isolated.py -m` is a PATH.**
+Write the message to a file and pass the file; `-m "$(cat …)"` fails loudly with
+`File name too long`, which is safe, and `-m /dev/stdin` fails SILENTLY by committing
+whatever the stream happened to hold, which is not.
