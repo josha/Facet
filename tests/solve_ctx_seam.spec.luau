@@ -205,7 +205,11 @@ describe("the solve-context seam: one require, no state, one export", function()
 		-- 61 -> 62 (Plan C, T18-A): `textIndex`, the surface's `(font,size) -> mounted
 		-- text paths` index, filed from the text branch so a learned word can name its
 		-- users instead of moving the measure stamp for everybody
-		expect(`declared={#sorted(declared)} written={#sorted(written)}`).toBe("declared=62 written=62")
+		-- 62 -> 66 (Plan C, T14): `arrangeEntries` (`arrangeBody` ENTRIES, which is not
+		-- `arranged` — the early skip sits above every counter this record had),
+		-- `placeSkipped` (the per-child placements the stack replay did not spend),
+		-- and the replay's forced-on oracle `replayAudit` with its `replayChecks`
+		expect(`declared={#sorted(declared)} written={#sorted(written)}`).toBe("declared=66 written=66")
 		expect(`never built={table.concat(missing, " ")}`).toBe("never built=")
 		expect(`undeclared={table.concat(undeclared, " ")}`).toBe("undeclared=")
 		-- NEGATIVE CONTROL: both scans really do read a field and a key

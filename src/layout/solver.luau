@@ -2251,6 +2251,10 @@ local SCROLL_DEPS: scrollArrange.Deps = {
 }
 
 local function arrangeBody(ctx: Ctx, node: Node, rect: Rect, out: { [string]: any })
+	-- ENTERED, WHICH IS NOT THE SAME AS ARRANGED (T14). The skip below is free; the
+	-- parent's per-child placement loop that got here is not, and `ctx.arranged` sits
+	-- under the skip's own `return` so it cannot see the difference. See `Ctx`.
+	ctx.arrangeEntries += 1
 	-- THE SKIP. Same solve, same ctx, same traversal — this subtree just does not need
 	-- walking: no dirty node inside it, and it is landing on the rect it already had.
 	local reuse = ctx.reuse
@@ -3442,6 +3446,12 @@ function solver.solve(
 			childIterations = ctx.childIterations,
 			aggregateFallbacks = ctx.aggregateFallbacks,
 			aggregateChecks = ctx.aggregateChecks,
+			-- ...and T14's: `arrangeBody` ENTRIES (the denominator `arranged` cannot
+			-- give), the placement-loop iterations the stack replay did not spend, and
+			-- that replay's own oracle comparison count
+			arrangeEntries = ctx.arrangeEntries,
+			placeSkipped = ctx.placeSkipped,
+			replayChecks = ctx.replayChecks,
 			rectInserts = ctx.rectInserts,
 			skipped = ctx.skipped,
 			-- the O3 translate class and its two flat arrays, in document order

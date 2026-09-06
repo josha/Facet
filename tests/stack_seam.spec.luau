@@ -191,11 +191,60 @@ describe("the stack seam: what it READS of the solve, and the one thing it WRITE
 	local CTX_FIELDS = {
 		-- the list its caller owns, appended to by the two diagnostics below
 		"diagnostics",
-		-- ...and the gate those two share
+		-- ...and the gate those two share, which is also a replay gate term: the
+		-- decision to file cannot have flipped under a re-filed finding
 		"hiddenDepth",
+		-- the anchor arm's fourth gate and T13's. A measure-time finding is filed about
+		-- a node in the subtree the replay does not re-measure, and no rect carries it
+		-- back, so the arm refuses on a solve whose predecessor filed one
+		"measureQuiet",
+		-- the solve-wide inputs no per-child fact can see: the viewport, the safe
+		-- insets, the theme snapshot, the two text scales and the text-metrics
+		-- CALIBRATION generation (the per-WORD half left this stamp in T18-A and
+		-- arrives as dirt on the label, which the replay re-measures like any dirt)
+		"measureStamp",
+		-- the suspension a coordinate-space host holding a composition raises. The
+		-- replay refuses under it for the reason `arrangeBody`'s own skip does
+		"noSkipDepth",
+		-- ...and the census the arm owes: how many per-child placements it did NOT
+		-- spend. WRITE-ONLY, never read back here (see the write half below)
+		"placeSkipped",
+		-- the forced-on oracle's switch (ruling A-12) and its comparison count, the
+		-- second of the two write-only counters
+		"replayAudit",
+		"replayChecks",
+		-- the previous solve's rect map and dirty closure. The replay is structurally
+		-- unreachable without it, which is what makes a full solve the pre-T14 branch
+		"reuse",
+		-- the container/hidden scope the measurements were taken under, beside the
+		-- stamp for the same reason
+		"scopeKey",
 	}
-	local NODE_FIELDS = { "align", "children", "distribute", "id", "kind" }
-	local CHILD_FIELDS = { "align", "lineAlign", "margin", "shrinkWeight" }
+	local NODE_FIELDS = {
+		"align",
+		"children",
+		-- the container memo T13 created (ruling A-8), whose home is the mount-keyed
+		-- node store — which is why it survives the rebuild a container with one dirty
+		-- child gets. T14's payload lives beside T13's on it, under the same carrier
+		-- gate and with its own per-index id key
+		"cmemo",
+		"distribute",
+		"id",
+		"kind",
+	}
+	local CHILD_FIELDS = {
+		"align",
+		-- the identity the payload's per-index arrays are keyed by. A `ForEach` splice
+		-- moves every later index while the mount children table the carrier compares
+		-- is untouched, so an index alone is not a binding
+		"id",
+		-- the shrink pass's order, one of the two inputs that move a rect with NO
+		-- measurement change (ruling A-15); the other is `shrinkWeight` below
+		"layoutPriority",
+		"lineAlign",
+		"margin",
+		"shrinkWeight",
+	}
 
 	it("it reads a CLOSED set of ctx, node and child fields", function()
 		expect(sorted(fieldsRead(stackSrc, "ctx"))).toEqual(CTX_FIELDS)
@@ -218,7 +267,13 @@ describe("the stack seam: what it READS of the solve, and the one thing it WRITE
 		three on exactly that argument when T13/T13b's counters landed. Anything that is
 		not a counter belongs in the empty list below, and a counter that is ever READ
 		here stops being one. ]]
-	local WRITES: { string } = {}
+	local WRITES: { string } = {
+		-- the per-child placements the replay did not spend, and the rects its
+		-- forced-on oracle compared. Both are pure counters: this module never reads
+		-- either field back, so no behaviour of this branch is a function of them
+		"ctx.placeSkipped",
+		"ctx.replayChecks",
+	}
 
 	it("it WRITES nothing of the solver's but `ctx.diagnostics`, and only by insert", function()
 		local body = stripComments(stackSrc)

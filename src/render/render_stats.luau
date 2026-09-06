@@ -81,6 +81,17 @@ function render_stats.new(): any
 			it is measured at 1.9 % of the three passes and a patched argmax would need a
 			rescan on up to 14.8 % of folds. ]]
 		lastChildIterations = 0,
+		--[[ ...and the ARRANGE side of the same distinction (Plan C, T14). This is how
+			many times `arrangeBody` was ENTERED, where `lastArranged` is how many bodies
+			RAN — a gap that is the whole cost of a stack re-placing children whose
+			arrangement did not move, because the early skip sits above every counter
+			this record already had. `lastPlaceSkipped` is the per-child census beside
+			it: the placement-loop iterations the replay did not spend. Neither may be
+			read without the other, because an entry count cannot fall below the
+			container count and a skipped-placement count cannot say how many containers
+			paid for it. ]]
+		lastArrangeEntries = 0,
+		lastPlaceSkipped = 0,
 		-- ...and how often that aggregate STARTED and refused, on one of its two
 		-- performance valves (the probe budget or a `fill` classification change).
 		-- A class where this is non-zero is reported, never averaged away.
@@ -244,6 +255,8 @@ function render_stats.publish(stats: any, result: any, layoutNodes: number, stru
 		stats.lastMeasureServed = work.measureServed or 0
 		stats.lastChildVisits = work.childVisits or 0
 		stats.lastChildIterations = work.childIterations or 0
+		stats.lastArrangeEntries = work.arrangeEntries or 0
+		stats.lastPlaceSkipped = work.placeSkipped or 0
 		stats.lastAggregateFallbacks = work.aggregateFallbacks or 0
 		stats.lastAnchorSkipped = work.anchorSkipped or 0
 		-- ...and what the solve wrote into the RECT MAP (P2). It is not `lastArranged`

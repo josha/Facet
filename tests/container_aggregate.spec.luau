@@ -68,7 +68,27 @@
 	was keyed on the offer pair but not on the AXIS. `UI.AdaptiveStack` flips `kind`
 	between `vstack` and `hstack` through a reactive prop with no remount, and `mMain` is
 	a MAIN-axis contribution — so the memo served heights as widths. `cmemo.mKind` closes
-	it and the last case in this file drives it. ]]
+	it and the last case in this file drives it. 
+	── RE-RECORDED 2026-09-05 (Plan C, T14), AND THE MOVEMENT IS THE POINT ──────────
+	Every `calls`/`served` number in this file fell, and one `measured` moved by one.
+	The cause is one line of arithmetic: at HEAD a stack child was measured TWICE per
+	solve — once by its parent's MEASURE pass (`contentSize`, what this file is about)
+	and once by its parent's ARRANGE pass (`stack.arrange`'s PASS 1, which measured
+	every child in order to build a `childRect` for it). T14 deletes the second one on
+	every stack where nothing moved, so the arrange half of `lastMeasureCalls`
+	disappears and the calls that used to be ANSWERED by C2's node-resident serve
+	disappear with it — which is why `served` falls hardest of all.
+
+	WHAT DID NOT MOVE IS THE CLAIM THIS FILE MAKES. `visits` (the `measure` calls a
+	stack's MEASURE branch makes) and `measured` (uncached measures) are this lever's
+	numbers, and they are unchanged on every steady-state case. The one exception is
+	the `containerRelative`-ARRIVAL tick, which is re-recorded with its reason at the
+	case: the arrange pass used to refresh each child's SECOND measure slot at the
+	arrange offer, and a tick that now finds that slot cold pays one more uncached
+	measure and one more visit. Every rect on that tick still agrees with a full solve,
+	which is the case's own oracle and is unchanged.
+
+]]
 
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
@@ -426,7 +446,7 @@ describe("T13b: the counter that moves, and the four that must not", function()
 			local s = scene.new({ rows = ROWS })
 			expect(drove(function()
 				s.text(500, "warm")
-			end)).toBe("solves=1 iters=1001 fallbacks=0 calls=2005 served=999 measured=1005 visits=1001")
+			end)).toBe("solves=1 iters=1001 fallbacks=0 calls=1007 served=0 measured=1005 visits=1001")
 			--[[ THE FIRST AGGREGATING TICK PAYS FOR THE REVERSE MAP, once per full-pass
 				epoch, and it is pinned rather than amortised away: `iters=1011` is the
 				1,000-child walk that builds `id -> index` plus the ten the aggregate
@@ -434,12 +454,12 @@ describe("T13b: the counter that moves, and the four that must not", function()
 				+0.3 ms on a STRUCTURAL class that never aggregates. ]]
 			expect(drove(function()
 				s.text(500, "x")
-			end)).toBe("solves=1 iters=1011 fallbacks=0 calls=1006 served=1000 measured=5 visits=2")
+			end)).toBe("solves=1 iters=1011 fallbacks=0 calls=8 served=1 measured=5 visits=2")
 			-- ...AND THE STEADY STATE, which is what the arena measures: the map is warm
 			-- and the tick is five probes, two visits and the Screen's own container
 			expect(drove(function()
 				s.text(500, "y")
-			end)).toBe("solves=1 iters=10 fallbacks=0 calls=1006 served=1000 measured=5 visits=2")
+			end)).toBe("solves=1 iters=10 fallbacks=0 calls=6 served=0 measured=5 visits=2")
 			s.dispose()
 		end)
 	end)
@@ -670,7 +690,7 @@ describe("T13b: the aggregate agrees with a full solve, tick after tick", functi
 			s.text(30, "a")
 			expect(drove(function()
 				s.width(GATE_ROW, 301)
-			end)).toBe("solves=1 iters=10 fallbacks=0 calls=70 served=61 measured=8 visits=4")
+			end)).toBe("solves=1 iters=10 fallbacks=0 calls=10 served=1 measured=8 visits=4")
 			s.dispose()
 		end)
 	end)
@@ -764,25 +784,25 @@ describe("T13b: one case per always-visit class (owed row A13)", function()
 
 	it("a `text` direct child", function()
 		expect(gateDrive({ rows = ROWS, label = true })).toBe(
-			"solves=1 iters=11 fallbacks=0 calls=1008 served=1002 measured=5 visits=3"
+			"solves=1 iters=11 fallbacks=0 calls=7 served=1 measured=5 visits=3"
 		)
 	end)
 
 	it("a `composition` subtree", function()
 		expect(gateDrive({ rows = ROWS, composition = true })).toBe(
-			"solves=1 iters=11 fallbacks=0 calls=1007 served=999 measured=7 visits=3"
+			"solves=1 iters=11 fallbacks=0 calls=7 served=0 measured=6 visits=3"
 		)
 	end)
 
 	it("a `ScrollView` subtree", function()
 		expect(gateDrive({ rows = ROWS, scroll = true })).toBe(
-			"solves=1 iters=11 fallbacks=0 calls=1007 served=999 measured=7 visits=3"
+			"solves=1 iters=11 fallbacks=0 calls=7 served=0 measured=6 visits=3"
 		)
 	end)
 
 	it("a `containerRelative` subtree", function()
 		expect(gateDrive({ rows = ROWS, crel = true })).toBe(
-			"solves=1 iters=11 fallbacks=0 calls=1007 served=999 measured=7 visits=3"
+			"solves=1 iters=11 fallbacks=0 calls=7 served=0 measured=6 visits=3"
 		)
 	end)
 
@@ -794,13 +814,13 @@ describe("T13b: one case per always-visit class (owed row A13)", function()
 			disable the aggregate for that container forever. It is an always-visit child
 			instead, and the container keeps aggregating around it. ]]
 		expect(gateDrive({ rows = ROWS, shrinkLater = true })).toBe(
-			"solves=1 iters=11 fallbacks=0 calls=1007 served=1001 measured=5 visits=3"
+			"solves=1 iters=11 fallbacks=0 calls=7 served=1 measured=5 visits=3"
 		)
 	end)
 
 	it("a `fill` child is measured on EVERY tick, and the fill pass is O(#fill)", function()
 		expect(gateDrive({ rows = ROWS, fill = true })).toBe(
-			"solves=1 iters=12 fallbacks=0 calls=1008 served=1002 measured=5 visits=2"
+			"solves=1 iters=12 fallbacks=0 calls=7 served=1 measured=5 visits=2"
 		)
 	end)
 end)
@@ -846,7 +866,7 @@ describe("T13b: an always-visit predicate that ARRIVES after mount (fix round 1,
 		expect(`arrived: {arrived}`).toBe(`arrived: {declared}`)
 		-- ...and the shared number is the WALK's, not a serve: three children measured
 		-- (the dirty row, the gate row, and `List` itself asked by the Screen)
-		expect(declared).toBe("solves=1 iters=11 fallbacks=0 calls=1007 served=999 measured=7 visits=3")
+		expect(declared).toBe("solves=1 iters=11 fallbacks=0 calls=7 served=0 measured=6 visits=3")
 	end)
 
 	it("...and a mark that DEPARTS stops being visited, rather than being walked forever", function()
@@ -860,7 +880,7 @@ describe("T13b: an always-visit predicate that ARRIVES after mount (fix round 1,
 			s.crelOn(false)
 		end)
 		expect(`departed: {departed}`).toBe(`departed: {plain}`)
-		expect(plain).toBe("solves=1 iters=10 fallbacks=0 calls=1006 served=1000 measured=5 visits=2")
+		expect(plain).toBe("solves=1 iters=10 fallbacks=0 calls=6 served=0 measured=5 visits=2")
 	end)
 
 	it("...and the flip tick itself is a REFUSAL, which is where the re-record comes from", function()
@@ -875,7 +895,16 @@ describe("T13b: an always-visit predicate that ARRIVES after mount (fix round 1,
 			s.text(500, "a")
 			expect(drove(function()
 				s.crelOn(true)
-			end)).toBe("solves=1 iters=1012 fallbacks=2 calls=1009 served=999 measured=9 visits=3")
+				--[[ ▲ RE-RECORDED 2026-09-05 (Plan C, T14): `iters` 1012 -> 1018,
+				`fallbacks` 2 -> 3, `measured` 9 -> 11, `visits` 3 -> 4. At HEAD
+				`stack.arrange`'s PASS 1 re-measured every child at the ARRANGE offer,
+				which kept each child's SECOND node slot (`mB*`) warm at that offer as a
+				side effect; T14 deletes that pass on every stack where nothing moved, so
+				a tick that DOES run it — this one, the flip — finds the second slot cold
+				and pays an uncached measure and a visit for it. The claim this case
+				makes is unchanged and is the line below: every rect agrees with a full
+				solve across the flip, both ways. ]]
+			end)).toBe("solves=1 iters=1018 fallbacks=3 calls=12 served=0 measured=11 visits=4")
 			s.dispose()
 		end)
 	end)

@@ -225,17 +225,25 @@ function arrange_reports.containment(
 	innerW: number,
 	innerH: number,
 	axisIsX: boolean
-)
+): boolean
+	--[[ IT REPORTS WHETHER IT FILED (Plan C, T14). `stack.arrange`'s replay must
+		re-file a containment finding about a CLEAN child — the finding carries
+		`filedBy = parentId` and `solver`'s diagnostic replay drops any previous copy
+		whose filer was walked, which the replaying container always is — and the
+		cheapest way to know whether that re-file is owed at all is for the pass that
+		files to say so. Every caller that does not care ignores it, which is every
+		caller but one: a function returning a value where `-> ()` is declared is
+		still a subtype of it. ]]
 	if ctx.hiddenDepth ~= 0 then
-		return
+		return false
 	end
 	local near = if axisIsX then innerX - rect.x else innerY - rect.y
 	local far = if axisIsX then (rect.x + rect.w) - (innerX + innerW) else (rect.y + rect.h) - (innerY + innerH)
 	if near <= 0.5 and far <= 0.5 then
-		return
+		return false
 	end
 	if placementAudit.routesOverflow(node) then
-		return
+		return false
 	end
 	--[[ THE PARENT MUST BE UNABLE TO GROW, and the answer comes from `axisAbsorbs`
 		above rather than from a second reading of the resolver — a `hug` or
@@ -246,15 +254,16 @@ function arrange_reports.containment(
 	local wD, hD = dim(node, "w"), dim(node, "h")
 	local absorbs = if axisIsX then axisAbsorbs(wD, innerW, hD, innerH) else axisAbsorbs(hD, innerH, wD, innerW)
 	if not absorbs then
-		return
+		return false
 	end
 	local found = placementAudit.containment(node, child, rect, innerX, innerY, innerW, innerH, axisIsX)
 	if found == nil then
-		return
+		return false
 	end
 	for _, finding in found do
 		table.insert(ctx.diagnostics, finding)
 	end
+	return true
 end
 
 return arrange_reports

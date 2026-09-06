@@ -540,6 +540,15 @@ describe("O3: a translate root's own layout prop still re-places its children", 
 		-- inferred from a green run
 		expect(structural).toEqual({
 			"children",
+			--[[ `cmemo` (Plan C, T13/T14) is the CONTAINER MEMO, whose home is the
+				mount-keyed node store rather than the layout node — which is why it
+				survives the rebuild a container with one dirty child gets. It is excused
+				here on the same argument as `oMemo` and `wKey`/`hKey`: it is not a layout
+				INPUT. Nothing on it is authored, everything on it was written by a
+				previous pass of this same branch, and every index-keyed array it carries
+				is gated by a per-child id key plus the pass's own recorded box. It
+				decides no rect; it decides whether the branch may skip re-deriving one. ]]
+			"cmemo",
 			"containerRelativeInside",
 			-- `hKey`/`wKey` are `node.path .. "|h"` / `.. "|w"`, built once where the
 			-- node is built (wicked-fast A1): a pure function of IDENTITY, so a node

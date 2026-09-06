@@ -108,6 +108,25 @@
 	                                     moves, the skip served a child this build
 	                                     actually re-measures, which is a finding
 
+	── RE-RECORDED 2026-09-05 (Plan C, T14), AND THE MOVEMENT IS THE POINT ──────────
+	Every `calls`/`served` number in this file fell, and one `measured` moved by one.
+	The cause is one line of arithmetic: at HEAD a stack child was measured TWICE per
+	solve — once by its parent's MEASURE pass (`contentSize`, what this file is about)
+	and once by its parent's ARRANGE pass (`stack.arrange`'s PASS 1, which measured
+	every child in order to build a `childRect` for it). T14 deletes the second one on
+	every stack where nothing moved, so the arrange half of `lastMeasureCalls`
+	disappears and the calls that used to be ANSWERED by C2's node-resident serve
+	disappear with it — which is why `served` falls hardest of all.
+
+	WHAT DID NOT MOVE IS THE CLAIM THIS FILE MAKES. `visits` (the `measure` calls a
+	stack's MEASURE branch makes) and `measured` (uncached measures) are this lever's
+	numbers, and they are unchanged on every steady-state case. The one exception is
+	the `containerRelative`-ARRIVAL tick, which is re-recorded with its reason at the
+	case: the arrange pass used to refresh each child's SECOND measure slot at the
+	arrange offer, and a tick that now finds that slot cold pays one more uncached
+	measure and one more visit. Every rect on that tick still agrees with a full solve,
+	which is the case's own oracle and is unchanged.
+
 	── WHY THE ID KEY, AND WHAT IT IS NOT ───────────────────────────────────────────
 	The carrier gate compares the MOUNT node's `node.children` by identity. The array
 	the memo indexes is the LAYOUT node's SPLICED FLAT LIST, and the two are not the
@@ -332,7 +351,7 @@ describe("T13: one changed row does not make 999 parents ask again", function()
 			s.text(500, "warm")
 			expect(drove(function()
 				s.text(500, "x")
-			end)).toBe("solves=1 calls=1006 served=1000 measured=5 visits=2")
+			end)).toBe("solves=1 calls=8 served=1 measured=5 visits=2")
 			s.dispose()
 		end)
 	end)
@@ -347,10 +366,10 @@ describe("T13: one changed row does not make 999 parents ask again", function()
 			local s = scene.new({ rows = ROWS })
 			expect(drove(function()
 				s.text(500, "warm")
-			end)).toBe("solves=1 calls=2005 served=999 measured=1005 visits=1001")
+			end)).toBe("solves=1 calls=1007 served=0 measured=1005 visits=1001")
 			expect(drove(function()
 				s.text(500, "x")
-			end)).toBe("solves=1 calls=1006 served=1000 measured=5 visits=2")
+			end)).toBe("solves=1 calls=8 served=1 measured=5 visits=2")
 			s.dispose()
 		end)
 	end)
@@ -371,7 +390,7 @@ describe("T13: one changed row does not make 999 parents ask again", function()
 			end)).toBe("solves=1 calls=5003 served=0 measured=5003 visits=2001")
 			expect(drove(function()
 				s.text(500, "y")
-			end)).toBe("solves=1 calls=2005 served=999 measured=1005 visits=1001")
+			end)).toBe("solves=1 calls=1005 served=0 measured=1004 visits=1001")
 			s.dispose()
 		end)
 	end)
@@ -389,13 +408,13 @@ describe("T13: one changed row does not make 999 parents ask again", function()
 			s.text(500, "warm")
 			expect(drove(function()
 				s.text(500, "x")
-			end)).toBe("solves=1 calls=1006 served=1000 measured=5 visits=2")
+			end)).toBe("solves=1 calls=8 served=1 measured=5 visits=2")
 			expect(drove(function()
 				s.listWidth(880)
 			end)).toBe("solves=1 calls=2003 served=1000 measured=1002 visits=1001")
 			expect(drove(function()
 				s.text(500, "y")
-			end)).toBe("solves=1 calls=1006 served=1000 measured=5 visits=2")
+			end)).toBe("solves=1 calls=6 served=0 measured=5 visits=2")
 			s.dispose()
 		end)
 	end)
@@ -415,7 +434,7 @@ describe("T13: the gate, one case per owed row", function()
 		return out :: string
 	end
 
-	local PLAIN = "solves=1 calls=1006 served=1000 measured=5 visits=2"
+	local PLAIN = "solves=1 calls=8 served=1 measured=5 visits=2"
 
 	it("a `text` DIRECT child is refused, and its 999 siblings still memoise (row 2)", function()
 		--[[ THE RE-AMENDED ROW 2, and the measurement behind it. A `text` child publishes
@@ -429,7 +448,7 @@ describe("T13: the gate, one case per owed row", function()
 			label is asked on every tick, forever, and the thousand boxes beside it are
 			not. A container-level refusal would read 1,002 here. ]]
 		expect(gateDrive({ rows = ROWS })).toBe(PLAIN)
-		expect(gateDrive({ rows = ROWS, label = true })).toBe("solves=1 calls=1008 served=1002 measured=5 visits=3")
+		expect(gateDrive({ rows = ROWS, label = true })).toBe("solves=1 calls=9 served=2 measured=5 visits=3")
 	end)
 
 	it("a `shrinkWeight > 0` child takes the whole container out of the memo (row 4)", function()
@@ -440,7 +459,7 @@ describe("T13: the gate, one case per owed row", function()
 			2. The weight rides the ROW rather than a box inside it because `List` is the
 			container the memo is about, and `List` overflows its 720px by an order of
 			magnitude, so the pass is LIVE rather than merely declared. ]]
-		expect(gateDrive({ rows = ROWS, shrink = true })).toBe("solves=1 calls=2007 served=2001 measured=5 visits=1001")
+		expect(gateDrive({ rows = ROWS, shrink = true })).toBe("solves=1 calls=1008 served=1001 measured=5 visits=1001")
 	end)
 
 	it("a `fill` child is re-measured on EVERY tick, memo or no memo (row 5)", function()
@@ -454,7 +473,7 @@ describe("T13: the gate, one case per owed row", function()
 			NOT counted by this task's counter (the memo never removes it), so the arm
 			reads `visits=2` like the plain one and TWO MORE CALLS — the fill row asked
 			again, every tick. ]]
-		expect(gateDrive({ rows = ROWS, fill = true })).toBe("solves=1 calls=1008 served=1002 measured=5 visits=2")
+		expect(gateDrive({ rows = ROWS, fill = true })).toBe("solves=1 calls=9 served=2 measured=5 visits=2")
 	end)
 
 	it("a ScrollView, a Composition and a `containerRelative` subtree are each refused (row 6)", function()
@@ -464,11 +483,9 @@ describe("T13: the gate, one case per owed row", function()
 			container arm of the cache key by whatever reads the container — and no cached
 			number carries any of them back. All three read the same way: one extra call,
 			one fewer serve, two more uncached measures and `visits=3`. ]]
-		expect(gateDrive({ rows = ROWS, scroll = true })).toBe("solves=1 calls=1007 served=999 measured=7 visits=3")
-		expect(gateDrive({ rows = ROWS, composition = true })).toBe(
-			"solves=1 calls=1007 served=999 measured=7 visits=3"
-		)
-		expect(gateDrive({ rows = ROWS, crel = true })).toBe("solves=1 calls=1007 served=999 measured=7 visits=3")
+		expect(gateDrive({ rows = ROWS, scroll = true })).toBe("solves=1 calls=9 served=1 measured=6 visits=3")
+		expect(gateDrive({ rows = ROWS, composition = true })).toBe("solves=1 calls=9 served=1 measured=6 visits=3")
+		expect(gateDrive({ rows = ROWS, crel = true })).toBe("solves=1 calls=9 served=1 measured=6 visits=3")
 	end)
 
 	it("...and `compositionAt` still answers for the refused row, which a rect cannot say", function()
@@ -647,13 +664,13 @@ describe("T13: the channels a skipped child owes", function()
 			s.text(500, "warm")
 			expect(drove(function()
 				s.text(500, "x")
-			end)).toBe("solves=1 calls=1007 served=1001 measured=5 visits=3")
+			end)).toBe("solves=1 calls=9 served=2 measured=5 visits=3")
 			expect(drove(function()
 				s.shrinkOn(1)
 			end)).toBe("solves=1 calls=1008 served=999 measured=8 visits=2")
 			expect(drove(function()
 				s.text(500, "z")
-			end)).toBe("solves=1 calls=2007 served=2001 measured=5 visits=1001")
+			end)).toBe("solves=1 calls=1007 served=1001 measured=5 visits=1001")
 			s.dispose()
 		end)
 	end)

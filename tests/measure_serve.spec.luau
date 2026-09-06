@@ -143,7 +143,36 @@
 	frame up the stack (the parent never calls `measure` for that child at all) and
 	is pinned by `tests/anchor_arrange.spec.luau`, `tests/translate_arm.spec.luau`
 	and RascalRally's own contract. Deleting it would be a second measurement, not a
-	simplification. ]]
+	simplification. 
+	── RE-RECORDED 2026-09-05 (Plan C, T14), AND THE MOVEMENT IS THE POINT ──────────
+	Every `calls`/`served` number in this file fell, and one `measured` moved by one.
+	The cause is one line of arithmetic: at HEAD a stack child was measured TWICE per
+	solve — once by its parent's MEASURE pass (`contentSize`, what this file is about)
+	and once by its parent's ARRANGE pass (`stack.arrange`'s PASS 1, which measured
+	every child in order to build a `childRect` for it). T14 deletes the second one on
+	every stack where nothing moved, so the arrange half of `lastMeasureCalls`
+	disappears and the calls that used to be ANSWERED by C2's node-resident serve
+	disappear with it — which is why `served` falls hardest of all.
+
+	WHAT DID NOT MOVE IS THE CLAIM THIS FILE MAKES. `visits` (the `measure` calls a
+	stack's MEASURE branch makes) and `measured` (uncached measures) are this lever's
+	numbers, and they are unchanged on every steady-state case. The one exception is
+	the `containerRelative`-ARRIVAL tick, which is re-recorded with its reason at the
+	case: the arrange pass used to refresh each child's SECOND measure slot at the
+	arrange offer, and a tick that now finds that slot cold pays one more uncached
+	measure and one more visit. Every rect on that tick still agrees with a full solve,
+	which is the case's own oracle and is unchanged.
+
+	...AND THE TWO-SLOT ARGUMENT ABOVE IS NARROWED, NOT REFUTED. "Almost every node is
+	measured at TWO offers per solve — the measure pass hands a container's own offer
+	down, the arrange pass hands the RESOLVED inner box down" is now true of every
+	stack whose arrange pass RUNS, and false of one whose arrange replayed. The second
+	slot still earns its place on every refusing tick, on every non-stack container,
+	and on the tick after any structural change; what has changed is that a settled
+	stack no longer asks the second question at all. The HUGGING-list case below is the
+	one that drives the two-offer shape directly and still reads it.
+
+]]
 
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
@@ -227,7 +256,7 @@ describe("C2: one changed row does not re-measure 999 clean siblings", function(
 			is a finding rather than a re-record. ]]
 			expect(drove(function()
 				s.text(500, "x")
-			end)).toBe(`solves=1 calls=1006 served=1000 measured=5`)
+			end)).toBe(`solves=1 calls=8 served=1 measured=5`)
 			s.dispose()
 		end)
 	end)
@@ -268,7 +297,7 @@ describe("C2: one changed row does not re-measure 999 clean siblings", function(
 			-- `dirty[child.id]` term refuses it before the offer test is reached
 			expect(drove(function()
 				s.width(500, 240)
-			end)).toBe(`solves=1 calls=1006 served=999 measured=6`)
+			end)).toBe(`solves=1 calls=7 served=0 measured=6`)
 			s.dispose()
 		end)
 	end)
@@ -289,7 +318,7 @@ describe("C2: one changed row does not re-measure 999 clean siblings", function(
 			local s = scene.new({ rows = ROWS })
 			expect(drove(function()
 				s.text(500, "first")
-			end)).toBe(`solves=1 calls=2005 served=999 measured=1005`)
+			end)).toBe(`solves=1 calls=1007 served=0 measured=1005`)
 			--[[ T13 re-record, SECOND LINE ONLY, and the pair is now sharper than it was:
 				the FIRST reuse solve is byte-identical (2,005/999/1,005) because the
 				container memo, like `record`, can only be FILLED by a solve that could
@@ -298,7 +327,7 @@ describe("C2: one changed row does not re-measure 999 clean siblings", function(
 				memo takes it from 2,005 calls to 1,006. ]]
 			expect(drove(function()
 				s.text(500, "second")
-			end)).toBe(`solves=1 calls=1006 served=1000 measured=5`)
+			end)).toBe(`solves=1 calls=8 served=1 measured=5`)
 			s.dispose()
 		end)
 	end)
@@ -368,11 +397,11 @@ describe("C2: one changed row does not re-measure 999 clean siblings", function(
 			text_metrics.setMeasured("BuilderSans", 21, "facet-t6-serve-probe", 41)
 			expect(drove(function()
 				s.text(500, "x")
-			end)).toBe(`solves=1 calls=1006 served=1000 measured=5`)
+			end)).toBe(`solves=1 calls=8 served=1 measured=5`)
 			-- ...and the solve after it is the SAME, because nothing was ever dropped
 			expect(drove(function()
 				s.text(500, "y")
-			end)).toBe(`solves=1 calls=1006 served=1000 measured=5`)
+			end)).toBe(`solves=1 calls=6 served=0 measured=5`)
 			s.dispose()
 		end)
 	end)
@@ -401,7 +430,7 @@ describe("C2: one changed row does not re-measure 999 clean siblings", function(
 			-- this case is about
 			expect(drove(function()
 				s.text(500, "x")
-			end)).toBe(`solves=1 calls=1006 served=1000 measured=5`)
+			end)).toBe(`solves=1 calls=8 served=1 measured=5`)
 			s.dispose()
 		end)
 	end)
@@ -612,7 +641,7 @@ describe("C2: one changed row does not re-measure 999 clean siblings", function(
 			expect(drove(function()
 				fitsH:set(62)
 				controller.refresh()
-			end)).toBe("solves=1 calls=5 served=2 measured=3")
+			end)).toBe("solves=1 calls=6 served=2 measured=4")
 		end)
 		local n = innerNode()
 		assert(n ~= nil, "no `/S/Fits/Rich/Inner` layout node in the captured tree")
@@ -662,8 +691,8 @@ describe("C2: the gate is what makes the serve legal", function()
 			skips 998 (1,007) because the row holding the ScrollView is refused by the
 			memo's own `subtreeHasScroll` term as well as by the serve's. One extra call,
 			one fewer serve, two more uncached measures — the scroll host and its child. ]]
-		expect(gateDrive({ rows = ROWS })).toBe(`solves=1 calls=1006 served=1000 measured=5`)
-		expect(gateDrive({ rows = ROWS, scroll = true })).toBe(`solves=1 calls=1007 served=999 measured=7`)
+		expect(gateDrive({ rows = ROWS })).toBe(`solves=1 calls=8 served=1 measured=5`)
+		expect(gateDrive({ rows = ROWS, scroll = true })).toBe(`solves=1 calls=9 served=1 measured=6`)
 	end)
 
 	it("a Composition inside a clean row does the same, and `compositionAt` still answers (row 4)", function()
@@ -680,7 +709,7 @@ describe("C2: the gate is what makes the serve legal", function()
 		-- T13 re-record: same shape as the ScrollView arm above — the composition row is
 		-- refused by `subtreeHasComposition` on both mechanisms, so it is the one row of
 		-- the thousand that still costs a call
-		expect(out).toBe(`solves=1 calls=1007 served=999 measured=7`)
+		expect(out).toBe(`solves=1 calls=9 served=1 measured=6`)
 		expect(key).toBe("column|/S/List/R3/Comp/Reg:0,0,60,10:main")
 	end)
 
@@ -707,7 +736,7 @@ describe("C2: the gate is what makes the serve legal", function()
 		-- this file moved. The ANALYZED arm is the claim and it is unchanged at ZERO:
 		-- `ctx.analyze` is a term in the memo's gate as well as the serve's, because the
 		-- boundary map is written inside `measureUncached` and no cached number carries it
-		expect(`{shipped} / {analyzed}`).toBe("served=1000 / served=0")
+		expect(`{shipped} / {analyzed}`).toBe("served=0 / served=0")
 	end)
 
 	it("a solve whose PREDECESSOR filed a measure-time finding serves nothing (row 8)", function()

@@ -555,7 +555,16 @@ describe("a learned word re-measures its users, not the tree (T18-A)", function(
 		expect(`the write walked {quiet.lastChildVisits}, the correction {st.lastChildVisits}`).toBe(
 			"the write walked 103, the correction 5"
 		)
-		expect(st.lastMeasureServed > 0).toBe(true)
+		--[[ ...AND THE ARRANGE SIDE OF THE SAME CLAIM (Plan C, T14). This line used to
+			read `lastMeasureServed > 0` — the correction's ARRANGE pass re-measuring
+			every clean row and being answered from its node slots. T14's replay deletes
+			that pass on a stack where nothing moved, so the correction now serves
+			NOTHING and skips the placements instead, which is the stronger version of
+			the same statement: the correction did not re-place the strip's siblings
+			either. Read off the run. ]]
+		expect(`served={st.lastMeasureServed} placeSkipped={st.lastPlaceSkipped > 0}`).toBe(
+			"served=0 placeSkipped=true"
+		)
 		stop()
 	end)
 

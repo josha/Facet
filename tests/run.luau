@@ -111,6 +111,15 @@ require("./stack_measure_seam.spec")
 	an AUDIT arm that makes the memo check its own arithmetic on every container. ]]
 require("./container_memo.spec")
 require("./container_aggregate.spec")
+--[[ ...and the ARRANGE side of the same idea (Plan C, T14): a stack re-places only the
+	children that MOVED. The main axis is a cursor, so an unchanged main extent
+	everywhere means no child's main-axis placement can have changed; the cross axis has
+	none, so a cross-only change costs one child. The spec's header carries the
+	thirteen-row owed list, and the file pins the counter pair with the five that must
+	NOT move beside it, one case per gate term, the diagnostics both `filedBy` classes
+	would have lost, the `ForEach` splice with NOTHING dirty, and a forced-on audit that
+	makes the full placement loop check every rect the replay would have served ]]
+require("./stack_replay.spec")
 --[[ ...and the ANCHOR ARRANGE'S THIRD ARM (wicked-fast T6): a non-dirty anchor child
 	offered exactly what it was offered last time takes its w/h from its own previous
 	rect instead of a `measure` call. The spec pins the two new work counters on an

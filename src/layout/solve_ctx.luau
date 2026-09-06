@@ -229,6 +229,38 @@ export type Ctx = {
 		missed or the refresh was structural, is not a fallback and is visible in
 		`childIterations` instead. Surfaced as `controller.stats().lastAggregateFallbacks`. ]]
 	aggregateFallbacks: number,
+	--[[ THE ARRANGE-SIDE DENOMINATOR (Plan C, T14). `arranged` above counts the bodies
+		that RAN; this counts the times `arrangeBody` was ENTERED, which is the number a
+		stack's per-child placement loop actually spends. The two are far apart on an
+		incremental solve and that gap is the whole of T14's bill: measured on the
+		arena's `battle_hud L updateItem-hp`, `arrangeBody` is entered ~1,109 times to
+		run FIVE bodies — 1,104 of those entries reach the early skip at the top of the
+		function and return. The skip was already free; GETTING THERE was the cost, and
+		no counter on this record could see it. Surfaced as
+		`controller.stats().lastArrangeEntries`. ]]
+	arrangeEntries: number,
+	--[[ ...AND THE CENSUS THE ENTRY COUNT CANNOT GIVE (review round 3, SHOULD-FIX 4).
+		`arrangeEntries` cannot fall below the number of CONTAINERS a solve walks, so on
+		a tree with one thousand-child stack it moves by a thousand and says nothing
+		about a tree with a thousand small ones. This counts the per-child placement-loop
+		ITERATIONS the replay did not spend — the children a stack did not re-place
+		because nothing about the arrangement moved. It is the honest size of the lever
+		and it is reported beside the entry count, never instead of it. Surfaced as
+		`controller.stats().lastPlaceSkipped`. ]]
+	placeSkipped: number,
+	--[[ T14's FORCED-ON ORACLE (ruling A-12, the route `memoAudit` established). When
+		it is on the replay never returns early: the gate is still evaluated, the full
+		placement loop still runs, and every child whose rect the replay WOULD have
+		served is asserted against the rect the loop just computed, before the record
+		overwrites it. So the standing fuzz exercises the comparison on every stack it
+		touches without any gate being weakened. Off, this field is read once per
+		`stack.arrange`. ]]
+	replayAudit: boolean,
+	-- ...and how many rects that audit actually compared. Zero on every production
+	-- solve, for the same reason and by the same discipline as `memoChecks`: a guard
+	-- that can read "the audit asserted nothing" as "the audit passed" is the class of
+	-- check this repository refuses.
+	replayChecks: number,
 	--[[ T13b's FORCED-ON ORACLE (ruling L-4, the route `memoAudit` above established).
 		Test-only, default false, reachable only through `solver.solve`'s own opts. When
 		it is on the aggregate never fires, and the full pass computes what the
@@ -447,6 +479,13 @@ function solve_ctx.new(contentRect: Rect, opts: any, metrics: any): Ctx
 		-- oracle's comparison count (see `Ctx` for all four)
 		childIterations = 0,
 		aggregateFallbacks = 0,
+		-- ...and T14's: `arrangeBody` ENTRIES (never bodies — `arranged` is that), the
+		-- placement-loop iterations its replay did not spend, and the replay's own
+		-- forced-on oracle with its comparison count (see `Ctx` for all four)
+		arrangeEntries = 0,
+		placeSkipped = 0,
+		replayAudit = (opts and (opts :: any).stackReplayAudit) == true,
+		replayChecks = 0,
 		aggregateAudit = (opts and (opts :: any).containerAggregateAudit) == true,
 		aggregateChecks = 0,
 		solveToken = {},
