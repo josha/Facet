@@ -543,6 +543,12 @@ require("./engine_writes.spec")
 -- hide/unhide and a placement prop on a Text leaf
 require("./commit_dirt_classes.spec")
 require("./commit_descend_cache.spec")
+-- ...and the half of that scan the cache could not remove (Plan C, C14): the
+-- `entryVerdict` CALL, kept only for the two populations that need it — an entry-less
+-- spliced region, and a child whose entry the solve replaced. The scan-count pin that
+-- says the fork's prefix arithmetic is untouched, the two nils that refuse the fast
+-- path, and the measured refusal of the walked-set filter the plan asked for
+require("./commit_probe_filter.spec")
 -- the future spatial seam: contracts only, and the guard against a VR claim
 -- appearing in the shipped surface (roadmap Step 4, UI-SPATIAL-001)
 require("./spatial.spec")

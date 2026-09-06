@@ -117,6 +117,12 @@ describe("the render-stats seam: no requires, no state, two exports", function()
 		-- because it is the only counter in the record that a walk publishes without
 		-- ever incrementing a visit, so nothing else would catch its deletion.
 		expect(`scans={s.lastCommitScans} cells={s.lastCommitListCells}`).toBe("scans=0 cells=0")
+		--[[ ...and its PRICED half (C14), which is named here for the reason the line
+			above is and with the same honest caveat: this block is a SAMPLE, so ADDING
+			a name to it reddens nothing. The pin that would catch this field's deletion
+			is the `probes=` equality in `tests/commit_probe_filter.spec.luau`, read off
+			a run beside `lastCommitScans` — the two are only meaningful as a pair. ]]
+		expect(`probes={s.lastCommitProbes}`).toBe("probes=0")
 		--[[ ...and T13's, for the same reason one family up: `lastChildVisits` is the
 			only counter here that a SOLVE publishes about a container's own loop rather
 			than about a node, so nothing else in this sample would catch its deletion.

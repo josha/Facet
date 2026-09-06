@@ -375,6 +375,16 @@ function commit_walks.new(ctx: CommitCtx)
 		(`tests/commit_descend_cache.spec.luau`, "A CLEAN CHILD OF A DIRTY PARENT").
 		That child would have kept painting 300 px behind a green suite. ]]
 	local scanCount = 0
+	--[[ ...and the QUESTIONS THAT STILL COST A CALL, which is a different number and
+		is C14's (Plan C). `scanCount` counts loop ITERATIONS; `probeCount` counts the
+		`entryVerdict` calls left inside them once `buildDescend` answers the common
+		case from the two entry maps directly. The two are published side by side
+		deliberately: C14 removes probes and must remove NO iterations, because the
+		fork arithmetic beside it copies a prefix of `kids` BY INDEX. `scanCount`
+		unmoved against a fallen `probeCount` is how a reader knows that held.
+		Measured on `deep_stack_scene`, one leaf's text: 1,011 scans either way, and
+		1,011 probes -> 1. ]]
+	local probeCount = 0
 	-- ...and the array slots those answers were stored in (fix round 1); see
 	-- `render_stats.lastCommitListCells`. Incremented at the THREE fork sites only,
 	-- which run a handful of times a commit rather than once a child.
@@ -416,6 +426,7 @@ function commit_walks.new(ctx: CommitCtx)
 		-- reach a node pays its whole sibling scan and the other seven pay none of
 		-- it, so a per-walk number would read as an imbalance rather than as a cut.
 		stats.lastCommitScans = scanCount
+		stats.lastCommitProbes = probeCount
 		stats.lastCommitListCells = listCells
 	end
 
@@ -624,10 +635,60 @@ function commit_walks.new(ctx: CommitCtx)
 				`gcKb` from 10,733 back to 10,490 (baseline 10,416) and moved the class
 				not at all (30.401 -> 30.630 ms), which is what said the arrays were never
 				the cost. ]]
+			--[[ THE COMMON ANSWER, WITHOUT THE CALL THAT COMPUTES IT (Plan C, C14).
+
+				`entryVerdict` is `probeEntry` plus a `lastCommitEntry` lookup plus a
+				compare, and `probeEntry`'s FIRST LINE is `commitRects[node.path]`. So for
+				a child that owns its own entry — which is nearly every child of nearly
+				every visited node — the whole verdict is TWO HASH LOOKUPS AND AN `==`,
+				wrapped in two closure calls. This branch does the two lookups here and
+				keeps the calls for the children that actually need them: an entry-LESS
+				one (a spliced `UI.When`/`UI.ForEach`/`UI.ErrorBoundary` region or a
+				single-child pass-through, where `probeEntry` walks a chain), and one whose
+				entry this solve REPLACED, where `moved` still has to be computed.
+
+				IT IS `entryVerdict` ITSELF, NOT AN APPROXIMATION OF IT, and that is the
+				whole safety argument — the same one C4 makes one level up. `settled` IS
+				`lastCommitEntry[p] == probeEntry(child)`, and for `own ~= nil` that is
+				exactly `lastCommitEntry[p] == own`; `settled` short-circuits `moved` in
+				every consumer below, so the three flags are the same three. No verdict
+				can differ, which is why `lastCommitScans`, `lastCommitVisits`,
+				`lastCommitVisitsByWalk`, `rectWrites`, `propWrites` and `engineWrites` are
+				identical on every drive of every fixture.
+
+				WHAT THE PLAN ASKED FOR INSTEAD, AND WHY IT IS NOT HERE. C14 was written
+				as a set-membership filter: publish the ids the solve WALKED and skip the
+				probe for a child outside the set. Built and measured against this branch
+				at `48f010cd` (`attr battle_hud L 3`), it produced **the identical probe
+				count on every class** — because a child a walked-set filter may prune must
+				also own an entry (a spliced region owns none, and pruning one takes its
+				whole subtree with it) and must also have been COMMITTED before (an entry
+				the last commit had no handle for is deliberately left unnoted so the next
+				one descends). Both terms are hash lookups on the entry maps, so the
+				membership test is a THIRD lookup deciding nothing the first two had not:
+				`cw.harvest` 0.098 -> 0.078 ms with it against **0.074 ms without**, and
+				+11 % / +14 % against HEAD on the two structural classes it cannot help.
+				`render/commit_walks` needs no fact from the solve to answer this.
+
+				AND IT DOES NOT `continue`. The fork points below copy a PREFIX of `kids`
+				BY INDEX (`i - 1`), so skipping the rest of the body would let the first
+				fork after a filtered child copy that child back into the list. The flags
+				are set directly and every child still reaches the fork logic with the same
+				`i`. `scanCount` therefore does not move; `probeCount` — the calls this
+				branch did NOT answer — is this task's number, and the two are pinned
+				together for exactly that reason. ]]
 			local skipB, skipM, skipC
+			local own = commitRects[p]
 			if dirtyAll and dirtyCommit then
 				skipB, skipM, skipC = false, false, false
+			elseif own ~= nil and lastCommitEntry[p] == own then
+				-- `settled`, computed rather than guessed: the entry this solve carried
+				-- forward IS the one the last commit wrote
+				skipB = not dirtyAll
+				skipM = not dirtyAll
+				skipC = not dirtyCommit
 			else
+				probeCount += 1
 				local settled, moved = entryVerdict(child)
 				skipB = not dirtyAll and settled
 				skipM = not dirtyAll and (settled or moved)
@@ -822,6 +883,7 @@ function commit_walks.new(ctx: CommitCtx)
 		table.clear(descendMoveKids)
 		table.clear(descendCommitKids)
 		scanCount = 0
+		probeCount = 0
 		local changed = false
 		if not pruning then
 			sawChrome = false
