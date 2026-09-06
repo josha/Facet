@@ -241,6 +241,9 @@ require("./measure_stamp_seam.spec")
 -- ...and what that room bought: the settle re-solve goes through the dirty closure,
 -- so one learned word re-measures its (font,size)'s users instead of the whole tree
 require("./text_settle_closure.spec")
+-- ...and the STACK that settle runs on: the re-entry is a queue and a drain, not a
+-- recursion, and the three observables it must not move
+require("./text_round_reentry.spec")
 require("./render_stats_seam.spec")
 require("./solve_ctx_seam.spec")
 require("./z_order_seam.spec")

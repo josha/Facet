@@ -1804,6 +1804,76 @@ function fake_target.new(opts: Opts?)
 			table.remove(answeredBatches, answered)
 		end
 	end
+	--[[ SYNC-ANSWER MODE — THE SETTLED ENGINE, AS IT ACTUALLY BEHAVES.
+
+		The default above QUEUES, which is right for a spec that plays the engine by
+		hand and wrong for the one question that is about the STACK the answer runs
+		on. On a live client `text_premeasure.spawn` is `task.spawn`, which runs its
+		body synchronously until its first yield, and once the session has settled
+		`measureBatch`'s `GetTextBoundsAsync` does not yield either — so the answer
+		reaches `premeasure_round`'s `done` INSIDE the solve that asked for it.
+		Measured live (T17, FacetBench §C15): `sync=1` on a one-step drive and
+		`maxNestDepth=3` on an ordinary mount, with `C stack overflow (when calling
+		anonymous function on line 484 in ...text_premeasure)` on a two-workload run.
+
+		WITHOUT THIS MODE THE DEPTH PIN IS VACUOUS: delivered from top level, the
+		re-entry depth reads 1 at HEAD and the red can never be red. The two
+		witnesses it publishes are the ones probe D read live — the nesting of the
+		answer bodies (`maxAnswerDepth`) and the Luau stack the deepest one ran on
+		(`maxAnswerStack`, counted with `debug.info`, which is what an overflow is a
+		consequence of). Both are recorded here rather than in `src/`: a counter
+		inside the framework would be measuring its own claim.
+
+		`answerAgain` still replays against these batches, and the cancel token
+		still forgets them, so a disposed surface is not called back — the same
+		promise the queued arm makes. ]]
+	local syncAnswer: ((string, number, string) -> number?)? = nil
+	local syncFinal: boolean? = nil
+	local answerDepth = 0
+	local maxAnswerDepth = 0
+	local maxAnswerStack = 0
+	local function stackDepth(): number
+		local n = 0
+		while debug.info(n + 1, "l") ~= nil do
+			n += 1
+		end
+		return n
+	end
+	local function answerInline(batch: any)
+		if batch.done == nil then
+			return
+		end
+		local widthOf = syncAnswer :: (string, number, string) -> number?
+		local results = {}
+		for _, request in batch.requests do
+			table.insert(results, {
+				font = request.font,
+				size = request.size,
+				word = request.word,
+				width = widthOf(request.word, request.size, request.font),
+			})
+		end
+		answerDepth += 1
+		maxAnswerDepth = math.max(maxAnswerDepth, answerDepth)
+		maxAnswerStack = math.max(maxAnswerStack, stackDepth())
+		batch.done(results, syncFinal)
+		answerDepth -= 1
+	end
+	-- turn the mode on (a `widthOf`) or off (`nil`), and reset the two witnesses
+	function adapter.answerTextInline(widthOf: ((string, number, string) -> number?)?, final: boolean?)
+		syncAnswer = widthOf
+		syncFinal = final
+		answerDepth = 0
+		maxAnswerDepth = 0
+		maxAnswerStack = 0
+	end
+	-- the deepest NESTING of answer bodies, and the deepest Luau stack one ran on
+	function adapter.textAnswerDepth(): number
+		return maxAnswerDepth
+	end
+	function adapter.textAnswerStack(): number
+		return maxAnswerStack
+	end
 	--[[ RETURNS THE CANCEL TOKEN THE CONTRACT DESCRIBES, and it is a memory fact
 		rather than a fidelity nicety (measured 2026-08-29).
 
@@ -1832,6 +1902,13 @@ function fake_target.new(opts: Opts?)
 		-- NOT an op: asking the engine for word widths is an observation, not a
 		-- write to the tree, and the minimal-writes assertions count writes
 		local batch = { requests = requests, done = done }
+		if syncAnswer ~= nil then
+			table.insert(answeredBatches, batch)
+			answerInline(batch)
+			return function()
+				forgetBatch(batch)
+			end
+		end
 		table.insert(textBatches, batch)
 		return function()
 			forgetBatch(batch)

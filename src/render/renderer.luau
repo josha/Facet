@@ -60,6 +60,7 @@ local geometry_facts = require("./geometry_facts")
 -- the tap-echo guard and the arm dispatch beside it (the ledger's named seam)
 local tap_arm = require("./tap_arm")
 local premeasure_round = require("./premeasure_round")
+local solve_queue = require("./solve_queue")
 local autoscroll_bridge = require("./autoscroll_bridge")
 -- the scroll-into-view family (the ledger's named seam): `scrollToVisible` and
 -- `scrollHostFor`, plus the keep-visible arithmetic between them
@@ -1781,8 +1782,15 @@ function renderer.attach(
 		`local function` on this line would capture a nil GLOBAL and fail inside a
 		pcall'd boundary. Assigned once, after `resolveForFeedback` exists. ]]
 	local notifySolved: () -> ()
+	--[[ ...AND THE SOLVE IS ENTERED THROUGH A QUEUE (T18-B). The body below re-enters
+		this name through `premeasureRound.request`, and it used to do so ON THE STACK
+		— one C frame deeper per word a settled cascade learned, which is the
+		`C stack overflow` T9b's two-workload drive printed. `render/solve_queue` owns
+		the argument, the measurement, and why the notifications are fired after the
+		drain. Forward-declared for `notifySolved`'s reason: the body reads it. ]]
+	local solveAndApply: () -> ()
 
-	local function solveAndApply()
+	local function solveOnce()
 		stats.solves += 1
 		-- read BEFORE the solve: the props of everything dirtied up to here are
 		-- already written (`mount`'s bound-prop observer writes `node.props` and
@@ -2263,7 +2271,6 @@ function renderer.attach(
 		if solvedEverything then
 			fullSolveSeq = math.max(fullSolveSeq, seqAtSolveStart)
 		end
-		notifySolved()
 	end
 
 	--[[ The re-solve a published prop earns, bounded. `dirtyContains` is cleared
@@ -2334,6 +2341,9 @@ function renderer.attach(
 			feedbackArmed = true
 		end
 	end
+
+	-- ...and only now, with both halves in hand, is the entry point built
+	solveAndApply = solve_queue.trampoline({ solve = solveOnce, notify = notifySolved })
 
 	--[[ THE EXPLICIT PAINT-ORDER WALK is `render/z_order` (Plan C, ruling T5-2), and
 		it carries the whole argument: why z is assigned from a tree walk at all
