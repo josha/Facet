@@ -366,6 +366,49 @@ describe("renderer: engine premeasurement round", function()
 		text_metrics.resetMeasured()
 	end)
 
+	it("...AND SO DOES A SECOND HOST THAT ASKED FOR THE SAME WORD ITSELF", function()
+		--[[ THE OTHER HALF OF THE SAME STORE, and the one the case above cannot reach.
+			Surface B there has NO premeasurement seam and shares A's environment, so
+			the geometry key carries A's answer to it. Two HOSTS — two cores, two
+			environments, which is what `client/host.new` builds and what a
+			world-surface host beside a screen host is — share only the process-global
+			`layout/text_metrics` store, and both of them ASK: they open cold in the
+			same frame, so each has the same words in flight before either is answered.
+
+			A's answer lands first and teaches the store. B's answer then CONFIRMS a
+			width the store already holds — and the re-solve B is owed was decided by
+			comparing against that store, which is a per-surface question answered with
+			a process-global fact. B solved with the estimate, so B owes a re-solve
+			whatever any other surface has since learned; without one it paints the
+			estimator's box for the life of the session, and nothing dirties it because
+			nothing about B changed. Measured at the parent SHA: `B solves=0 h=68`
+			against A's 46 — a 22px box on a 46px control, first session only, which is
+			why no steady-state fixture sees it.
+
+			`render/text_index`'s broadcast is not the rescue and cannot be: it MARKS
+			B's paths (`setMeasured` announces on the value's move, and B's index is in
+			the registry), but a mark is spent by B's next solve and there is nothing
+			here to make B solve. Bumping B's `textMeasureEpoch` by hand corrects it
+			instantly, which is how the missing piece was identified as the TRIGGER
+			rather than the measurement or the mark. ]]
+		text_metrics.resetMeasured()
+		local _, rootA, adapterA, a = actionSlice()
+		local _, rootB, adapterB, b = actionSlice()
+		-- both hosts open on the estimator's two-line box, and both have asked
+		expect(`A {adapterA.node("/S/Save").rect.h} B {adapterB.node("/S/Save").rect.h}`).toBe("A 68 B 68")
+		expect(`B batches {adapterB.textBatchCount()}`).toBe("B batches 1")
+		adapterA.deliverTextWidths(engineWidth)
+		expect(adapterA.node("/S/Save").rect.h).toBe(46)
+		local solvesB = b.stats().solves
+		adapterB.deliverTextWidths(engineWidth)
+		expect(`B solves={b.stats().solves - solvesB} h={adapterB.node("/S/Save").rect.h}`).toBe("B solves=1 h=46")
+		a.dispose()
+		b.dispose()
+		rootA.dispose()
+		rootB.dispose()
+		text_metrics.resetMeasured()
+	end)
+
 	it("a measurement arriving after dispose neither crashes nor re-solves", function()
 		text_metrics.resetMeasured()
 		local _, root, adapter, controller = actionSlice()
@@ -415,6 +458,25 @@ describe("renderer: engine premeasurement round", function()
 		local solves = controller.stats().solves
 		adapter.answerAgain(engineWidth)
 		expect(controller.stats().solves).toBe(solves)
+		root.dispose()
+		text_metrics.resetMeasured()
+	end)
+
+	it("a NON-FINAL answer and the settled re-read that agrees with it cost ONE re-solve", function()
+		--[[ THE SHIPPED BOOT ROUTE, and the reason "this surface has been answered" is
+			tracked separately from "this surface asked". `final == false` is the engine's
+			boot window still being open: the words STAY in flight so the adapter may
+			correct them and so a reveal gate keeps waiting. This surface has already
+			re-solved on that answer, though — so when the settled re-read agrees, it is
+			a duplicate and not a second debt. One re-solve across both answers. ]]
+		text_metrics.resetMeasured()
+		local _, root, adapter, controller = actionSlice()
+		local solves = controller.stats().solves
+		adapter.deliverTextWidths(engineWidth, false)
+		expect(`after the boot answer: {controller.stats().solves - solves}`).toBe("after the boot answer: 1")
+		adapter.answerAgain(engineWidth)
+		expect(`after the settled re-read: {controller.stats().solves - solves}`).toBe("after the settled re-read: 1")
+		expect(adapter.node("/S/Save").rect.h).toBe(46)
 		root.dispose()
 		text_metrics.resetMeasured()
 	end)

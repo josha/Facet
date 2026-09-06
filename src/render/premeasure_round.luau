@@ -55,11 +55,18 @@ function premeasure_round.new(deps: Deps): PremeasureRound
 	local env = deps.env
 	local stats = deps.stats
 
-	-- words handed to the adapter's premeasurement seam and not yet answered.
-	-- Guards against asking twice while one round is in flight; a word that
-	-- comes back (measured OR refused) is recorded in text_metrics and can
-	-- never be requested again, so this set is the only loop guard needed.
-	local textInFlight: { [string]: boolean } = {}
+	--[[ words handed to the adapter's premeasurement seam and not yet answered.
+		Guards against asking twice while one round is in flight; a word that
+		comes back (measured OR refused) is recorded in text_metrics and can
+		never be requested again, so this set is the only loop guard needed.
+
+		TWO STATES, because "this surface asked" and "this surface has been
+		answered" are different questions and the re-solve below turns on the
+		second. `true` is asked-and-unanswered; `"answered"` is an EARLY answer
+		(`final == false`, the engine's boot window) that this surface has already
+		re-solved on, with the word still in flight so the settled re-read is not
+		refused as a duplicate request. ]]
+	local textInFlight: { [string]: boolean | string } = {}
 	-- the live premeasurement deliveries this surface has outstanding, cancelled on
 	-- teardown so a late answer cannot reach a dismissed surface
 	local textMeasureCancels: { () -> () } = {}
@@ -94,17 +101,38 @@ function premeasure_round.new(deps: Deps): PremeasureRound
 						if type(entry) ~= "table" then
 							continue
 						end
+						local key = `{entry.font}\0{entry.size}\0{entry.word}`
+						--[[ THIS SURFACE ASKED, AND HAS NOT RE-SOLVED SINCE. A word in
+							flight is a word THIS surface's last solve could not size, so
+							it reserved the estimator's box; the answer is what pays for
+							that, whatever any OTHER surface has learned in the meantime.
+
+							THE STORE CANNOT ANSWER IT, and that was the defect. Two hosts
+							— two cores, two environments, one process-global
+							`layout/text_metrics` — that open cold in the same frame both
+							ask for the same words. The first answer teaches the store; the
+							second CONFIRMS a width the store already holds, so a
+							`previous ~= width` test read `false` and the second surface
+							never re-solved, painting the estimator's box for the life of
+							the session (`tests/text_premeasure.spec.luau`, "...AND SO DOES
+							A SECOND HOST"). `render/text_index`'s broadcast marks that
+							surface's paths but a mark is passive: it is spent by the next
+							solve, and nothing else was going to make one. ]]
+						local owedHere = textInFlight[key] == true
 						if final ~= false then
-							textInFlight[`{entry.font}\0{entry.size}\0{entry.word}`] = nil
+							textInFlight[key] = nil
+						elseif owedHere then
+							textInFlight[key] = "answered"
 						end
 						if type(entry.width) == "number" then
 							-- an adapter may answer the SAME batch twice (the
 							-- Roblox one re-reads once the session has settled and
 							-- corrects the boot answer), so a re-solve is owed only
-							-- when a width actually moved
+							-- when a width actually moved — or when this surface has
+							-- not yet solved on the answer at all
 							local previous = text_metrics.measuredWidth(entry.font, entry.size, entry.word)
 							if text_metrics.setMeasured(entry.font, entry.size, entry.word, entry.width) then
-								if previous ~= entry.width then
+								if previous ~= entry.width or owedHere then
 									learned = true
 								end
 							else
