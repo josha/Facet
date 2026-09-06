@@ -541,6 +541,57 @@ describe("the premeasure answer does not run on the solve that asked", function(
 		arm.controller.dispose()
 	end)
 
+	--[[ ...AND THE CAP PATH IS STILL A FRAME THAT PAINTED. Every solve the drain ran
+		to completion applied its rects, so every one of them owes a `tail()` — the
+		"this surface finished solving" notification and the drag bridge's drop-target
+		refresh. Raising out of the loop skipped all of them, which is precisely the
+		failure this module's header says the absorb exists to prevent: "a consumer
+		gated on `onSolved` (the presenter's no-pop text reveal) never revealing", for
+		a frame that DID paint. The cap is a diagnostic about the NEXT round; it is not
+		a statement that the rounds already finished did not happen. ]]
+	it("...and every solve the cap path completed still notifies", function()
+		local arm = surface({ chain = 40 })
+		local ok = pcall(function()
+			arm.controller.initialRender()
+		end)
+		expect(ok).toBe(false)
+		local solves = arm.controller.stats().solves
+		-- non-vacuity: the fixture really did drain several rounds before the cap
+		expect(solves > 1).toBe(true)
+		expect(`cap: solves {solves} notifies {arm.notifies}`).toBe(`cap: solves {solves} notifies {solves}`)
+		arm.controller.dispose()
+	end)
+
+	--[[ ...AND THE OUTERMOST SOLVE'S THROW KEEPS ITS TRACEBACK. The recursion this
+		trampoline replaced propagated a solve's error NATIVELY, with its stack; a
+		`pcall` + `error(err, 0)` re-raise hands the caller a message with no origin,
+		so every framework crash report from a shipped surface would name
+		`solve_queue` and nothing else. `xpcall` with a traceback handler runs on the
+		ERRORING stack, so the annotation is taken where the throw happened rather than
+		where it was caught. ]]
+	it("an outermost solve's throw arrives with the stack it was raised on", function()
+		local arm = surface({ chain = 1, throwOnSolve = 1 })
+		local ok, err = pcall(function()
+			arm.controller.initialRender()
+		end)
+		expect(ok).toBe(false)
+		local text = tostring(err)
+		print(`reentry trace: {string.gsub(text, "\n", " | ")}`)
+		-- the message survives...
+		expect(string.find(text, "PROBE BOOM", 1, true) ~= nil).toBe(true)
+		--[[ ...and so do the frames it was raised in, which is the whole point. The
+			pins are FILE names rather than lines: `rect_pass` is the walk that made the
+			engine write that threw and `renderer` is the solve above it, and a trace
+			that names neither is a trace that lost the origin. (Lune's
+			`debug.traceback` prints the frames with no "stack traceback:" banner, so
+			the shape is asserted by the frame count.) ]]
+		local frames = select(2, string.gsub(text, "\n", "\n"))
+		expect(`frames > 4: {frames > 4}`).toBe("frames > 4: true")
+		expect(string.find(text, "render/rect_pass", 1, true) ~= nil).toBe(true)
+		expect(string.find(text, "render/renderer", 1, true) ~= nil).toBe(true)
+		arm.controller.dispose()
+	end)
+
 	--[[ THE ORDINARY SETTLE, which is the shape every shipped surface is in: ONE
 		round, ONE learned word, and the drain runs exactly one further solve. `solves
 		= 2` in one frame is what it is today and what it stays. ]]

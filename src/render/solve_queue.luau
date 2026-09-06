@@ -64,6 +64,11 @@
 	the OUTERMOST solve, which the recursion ran on the caller's own stack, still
 	unwinds its caller.
 
+	AND BOTH EXITS PAY WHAT THE DRAIN OWES. The round cap below is a diagnostic
+	about the round that would come NEXT; the rounds already finished DID paint, so
+	their tails run before it raises. And the outermost solve's error carries the
+	stack it was raised on rather than a bare message — see `annotate`.
+
 	ONE SOLVE ON THE STACK AT A TIME is the property, and the queue is a BOOLEAN
 	rather than a list because the re-solve carries no argument: it is "solve
 	again", and two of them asked for during one body are one solve, exactly as
@@ -103,6 +108,27 @@ function solve_queue.report(message: string)
 	warn(message)
 end
 
+--[[ THE STACK IS THE ERROR'S ONLY WITNESS, and a `pcall` throws it away. Under the
+	recursion this trampoline replaced, an error inside `solveAndApply` propagated
+	NATIVELY and the caller's crash report named the line that raised it; catching
+	it here and re-raising the message alone would make every framework crash from
+	a shipped surface point at this file and nowhere else. A message handler runs
+	on the ERRORING stack, before it unwinds, which is the one place the frames
+	still exist — `level = 2` starts the trace at the frame that raised rather than
+	at this function.
+
+	A NON-STRING ERROR IS PASSED THROUGH UNTOUCHED: `error({ ... })` is a value a
+	consumer may be catching and matching on, and `debug.traceback` takes a string
+	message. Annotating it would change what the caller receives; losing the trace
+	for that case is the smaller harm and the one this framework's own
+	`core/custom` quarantine already accepts. ]]
+local function annotate(err: any): any
+	if type(err) == "string" then
+		return debug.traceback(err, 2)
+	end
+	return err
+end
+
 export type Deps = {
 	-- one solve: the renderer's whole solve-and-apply body, minus its tail
 	solve: () -> (),
@@ -129,11 +155,27 @@ function solve_queue.trampoline(deps: Deps): () -> ()
 		-- solves that RAN TO COMPLETION, which is how many tails are owed: a solve
 		-- that threw never reached its own tail under the recursion either
 		local done = 0
+		--[[ ...AND THE TAILS ARE OWED BY THE SOLVES THAT COMPLETED, on EVERY exit from
+			this function — the ordinary one below and the cap's. A solve that ran to
+			completion applied its rects, so the frame painted; the cap is a diagnostic
+			about the round that would come NEXT and says nothing about the rounds that
+			already finished. Raising past them would leave a consumer gated on
+			`onSolved` never notified for a frame it can see, which is the failure the
+			absorb above exists to prevent — reintroduced by the guard that bounds the
+			loop. A `tail` that throws unwinds the caller from here exactly as it does
+			on the ordinary path. ]]
+		local function runTails()
+			local owedTails = done
+			done = 0
+			for _ = 1, owedTails do
+				tail()
+			end
+		end
 		--[[ THE OUTERMOST SOLVE IS NOT ABSORBED. The recursion ran it on the caller's
 			own stack, so its throw unwound `refresh()` then and must now. The flags are
 			cleared before the error is re-raised — a drain that dies must not leave the
 			surface refusing every later solve. ]]
-		local ok, err = pcall(solve)
+		local ok, err = xpcall(solve, annotate)
 		if ok then
 			done += 1
 			local rounds = 0
@@ -143,13 +185,14 @@ function solve_queue.trampoline(deps: Deps): () -> ()
 				if rounds > SOLVE_DRAIN_ROUND_CAP then
 					draining = false
 					owed = false
+					runTails()
 					error(
 						`Facet renderer: a solve's text-measurement drain did not converge in {SOLVE_DRAIN_ROUND_CAP} rounds `
 							.. `(an adapter answering a premeasurement batch with a width that changes the words it asks for?); solve-drain round cap`,
 						0
 					)
 				end
-				local rok, rerr = pcall(solve)
+				local rok, rerr = xpcall(solve, annotate)
 				if rok then
 					done += 1
 				else
@@ -162,9 +205,7 @@ function solve_queue.trampoline(deps: Deps): () -> ()
 		if not ok then
 			error(err, 0)
 		end
-		for _ = 1, done do
-			tail()
-		end
+		runTails()
 	end
 end
 
