@@ -1040,6 +1040,10 @@ function Runner.start(deps: { [string]: any })
 			flags = {
 				forceDragFallback = workspace:GetAttribute("Facet_ForceDragFallback") == true,
 				forceScrollFallback = workspace:GetAttribute("Facet_ForceScrollFallback") == true,
+				-- `hud`'s device-defect paint-probe card (NM-H4a) is a non-shipped
+				-- instrument: off unless an operator asks for it before Play, the same
+				-- shape as the two switches above (stabilization B2, 2026-09-07)
+				paintProbe = workspace:GetAttribute("Facet_PaintProbe") == true,
 				-- theme-packages stage: the package/theme a Studio operator
 				-- selects BEFORE Play, so the five-view matrix can be driven
 				-- against a chosen skin without editing a scenario

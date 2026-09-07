@@ -112,7 +112,14 @@ local function ctxFor(w: any, lie: ((path: string) -> any)?): any
 		adapter = w.adapter,
 		presenter = w.presenter,
 		actionSystem = w.system,
-		flags = {},
+		-- THIS FILE is the non-shipped switch's caller (stabilization B2,
+		-- 2026-09-07): `paintProbe = true` is what turns the "Freeze"/"Live
+		-- again" card on for every test below. The shipped showcase's own ctx
+		-- carries no `flags` key at all, and the default Studio scenario run
+		-- leaves the sibling `Facet_PaintProbe` workspace attribute unset, so
+		-- the card never reaches a player — see the last `describe` in this
+		-- file for the proof.
+		flags = { paintProbe = true },
 		geometry = geometryFor(w, lie),
 	}
 end
@@ -1695,6 +1702,80 @@ describe("hud: the solver's own findings reach the plate", function()
 		local solverAt = string.find(plate, "SOLVER SAYS", 1, true)
 		local paintAt = string.find(plate, "painting", 1, true) or #plate
 		expect((solverAt :: number) < paintAt).toBe(true)
+		built.dispose()
+	end)
+end)
+
+--[[ THE CARD IS A NON-SHIPPED SWITCH (stabilization B2, 2026-09-07). Every test
+	above turns the probe's own screen on with `ctxFor`'s `flags = { paintProbe =
+	true }`, which is what this file needs to test the card. A player never does
+	that: the shipped showcase's minimal ctx (`examples/gallery/client/
+	init.client.luau`) carries no `flags` key at all, and the default Studio
+	scenario run (`scenarios/runner.luau`) leaves `Facet_PaintProbe` unset — both
+	shapes are proved here directly, without touching `ctxFor`, so this describe
+	cannot pass by accident just because the shared helper happens to be on. ]]
+describe("hud: the paint probe card is a non-shipped switch", function()
+	it("never presents when the caller passes no `flags` at all — the shipped showcase's own ctx shape", function()
+		local w = world(PORTRAIT)
+		local ctx = ctxFor(w)
+		ctx.flags = nil
+		local built = mount(w, ctx)
+		w.presenter.refresh()
+		local sawProbe = false
+		for _, path in w.adapter.paths() do
+			if string.find(path, "^/PaintProbe") ~= nil then
+				sawProbe = true
+				break
+			end
+		end
+		expect(sawProbe).toBe(false)
+		built.dispose()
+	end)
+
+	it("never presents under the default Studio scenario flags either — the switch defaults off", function()
+		local w = world(PORTRAIT)
+		local ctx = ctxFor(w)
+		-- `scenarios/runner.luau`'s shape with every workspace attribute unset
+		ctx.flags = { forceDragFallback = false, forceScrollFallback = false, paintProbe = false }
+		local built = mount(w, ctx)
+		w.presenter.refresh()
+		local sawProbe = false
+		for _, path in w.adapter.paths() do
+			if string.find(path, "^/PaintProbe") ~= nil then
+				sawProbe = true
+				break
+			end
+		end
+		expect(sawProbe).toBe(false)
+		built.dispose()
+	end)
+
+	it("still answers `report().paintProbe` and the scripted steps with the card off", function()
+		local w = world(PORTRAIT)
+		local ctx = ctxFor(w)
+		ctx.flags = nil
+		local built = mount(w, ctx)
+		w.presenter.refresh()
+		local sampled = built.steps.sampleProbe()
+		expect(sampled.probe).never().toBe(nil)
+		expect(built.report().paintProbe).never().toBe(nil)
+		built.dispose()
+	end)
+
+	it("presents when a caller explicitly asks, exactly as this file's own fixtures do", function()
+		local w = world(PORTRAIT)
+		local ctx = ctxFor(w)
+		expect(ctx.flags.paintProbe).toBe(true)
+		local built = mount(w, ctx)
+		w.presenter.refresh()
+		local sawProbe = false
+		for _, path in w.adapter.paths() do
+			if string.find(path, "^/PaintProbe") ~= nil then
+				sawProbe = true
+				break
+			end
+		end
+		expect(sawProbe).toBe(true)
 		built.dispose()
 	end)
 end)

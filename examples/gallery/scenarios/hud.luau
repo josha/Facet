@@ -2304,7 +2304,26 @@ return {
 				controller.setDisplayOrder(ctx.presenter.SURFACE_LAYER.toast + 100)
 			end
 		end
-		raiseProbe()
+		--[[ THE CARD IS A NON-SHIPPED SWITCH (stabilization B2, 2026-09-07). This
+			plate is a device-defect INSTRUMENT for NM-H4a, not a player-facing
+			feature, and it was presenting on top of every player who opened this
+			demo — the "Freeze"/"Live again" card and its `N of N rows wanted`
+			readout. `ctx.flags.paintProbe` is the same shape as the sibling
+			switches (`forceDragFallback`, `noTopbarStrip`): false whenever `ctx.flags`
+			is absent or silent, which is what the shipped showcase's minimal ctx and
+			the default Studio scenario run both are, so the card never ships.
+			`tests/hud_paint_probe.spec.luau` turns it on to test the card itself; a
+			Studio operator chasing a live device disagreement can do the same with
+			the `Facet_PaintProbe` workspace attribute (`scenarios/runner.luau`),
+			exactly the way `Facet_ForceDragFallback` already works. Nothing the
+			probe MEASURES is gated — `probeSample`, `report().paintProbe` and
+			`steps.holdProbe`/`armProbe`/`sampleProbe` all keep answering with the
+			switch off, because a comparison a driver can query is not the same thing
+			as a card put in front of a player. ]]
+		local paintProbeOn = ctx.flags ~= nil and ctx.flags.paintProbe == true
+		if paintProbeOn then
+			raiseProbe()
+		end
 		-- PROBE-EXEMPT END
 
 		--[[ THE SECOND CLOCK, AND IT IS PART OF THE HONESTY (2026-08-16).
@@ -2325,7 +2344,7 @@ return {
 			The presenter's tick is absent headlessly (the suite has no frame clock and
 			drives `steps.sampleProbe` instead), so this is the shipped host's half. ]]
 		local unbindProbeTick: (() -> ())? = nil
-		if ctx.presenter ~= nil and ctx.presenter.onTick ~= nil then
+		if paintProbeOn and ctx.presenter ~= nil and ctx.presenter.onTick ~= nil then
 			local since = 0
 			unbindProbeTick = ctx.presenter.onTick(function(dt: number)
 				since += dt
