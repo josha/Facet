@@ -70,23 +70,15 @@ local STACK_PARENT: { [string]: boolean } = { VStack = true, HStack = true, Scro
 	    control paint belongs to the role and the state machine (blueprint_schema's
 	    TINT block).
 ]]
-export type Inherit = { disabled: boolean, tint: any? }
+export type Inherit = { disabled: boolean, tint: any }
 
 local TINT_STOPS: { [string]: boolean } = { Button = true, Toggle = true, TextField = true }
 
 -- the two prop names whose change re-resolves a subtree (see `recascade`)
 local INHERITED_PROPS: { [string]: boolean } = { enabled = true, tint = true }
 
---[[ Resolve one node against the record it was handed. Sets the two derived
-	fields — `node.disabled` (this node is inside, or is, a disabled subtree) and
-	`node.inheritedTint` (the tint it paints when it declared none) — records the
-	incoming record for a later re-walk, and returns the record its children get
-	plus whether either derived field actually MOVED.
-
-	The derived fields are deliberately NOT folded into `node.props`: props stays
-	"what the author declared", which is what makes "does this node override?"
-	answerable at all. ]]
-local function sameRecord(a: any, b: any): boolean
+-- two records say the same thing when they answer the same two questions
+local function sameRecord(a: Inherit?, b: Inherit?): boolean
 	if a == b then
 		return true
 	end
@@ -96,7 +88,17 @@ local function sameRecord(a: any, b: any): boolean
 	return a.disabled == b.disabled and a.tint == b.tint
 end
 
-local function applyInherited(node: any, inherited: any): (any, boolean, boolean, boolean)
+--[[ Resolve one node against the record it was handed. Sets the two derived
+	fields — `node.disabled` (this node is inside, or is, a disabled subtree) and
+	`node.inheritedTint` (the tint it paints when it declared none) — records the
+	incoming record for a later re-walk, and returns the record its children get,
+	whether either derived field MOVED, and whether the outgoing record is the one
+	this node handed down last time.
+
+	The derived fields are deliberately NOT folded into `node.props`: props stays
+	"what the author declared", which is what makes "does this node override?"
+	answerable at all. ]]
+local function applyInherited(node: any, inherited: Inherit?): (Inherit?, boolean, boolean, boolean)
 	local props = node.props
 	local ownEnabled = if props ~= nil then props.enabled else nil
 	local ownTint = if props ~= nil then props.tint else nil
@@ -111,15 +113,15 @@ local function applyInherited(node: any, inherited: any): (any, boolean, boolean
 	node.inheritFrom = inherited
 
 	local childTint = if TINT_STOPS[node.class] then nil else (if ownTint ~= nil then ownTint else inTint)
-	local previous = node.inheritOut
-	local out: any = nil
+	local previous: Inherit? = node.inheritOut
+	local out: Inherit? = nil
 	if disabled or childTint ~= nil then
 		if inherited ~= nil and inherited.disabled == disabled and inherited.tint == childTint then
 			out = inherited -- the same answer this node was handed: share the table
 		elseif previous ~= nil and previous.disabled == disabled and previous.tint == childTint then
 			out = previous -- unchanged: descendants keep the reference they hold
 		else
-			out = { disabled = disabled, tint = childTint }
+			out = { disabled = disabled, tint = childTint } :: Inherit
 		end
 	end
 	--[[ `outSame` IS THE STOP CONDITION FOR THE RE-WALK, and it is a different
@@ -807,7 +809,7 @@ function mountLib.mount(core: any, rootBlueprint: Blueprint, opts: MountOpts?)
 		A FLIP IS A GESTURE, NOT A FRAME — a panel switched off, a hue dragged — so an
 		honest O(touched) subtree walk beats keeping a second index in sync, and the
 		walk stops the moment a node hands its children the answer they already had. ]]
-	local function recascade(node: any, inherited: any)
+	local function recascade(node: any, inherited: Inherit?)
 		local childInherit, disabledMoved, tintMoved, outSame = applyInherited(node, inherited)
 		--[[ A STRUCTURAL REGION IS WALKED THROUGH, NEVER DIRTIED. It carries no `dirty`
 			table because it materializes nothing — no instance, no paint, no focus stop —
