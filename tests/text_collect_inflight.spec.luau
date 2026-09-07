@@ -626,6 +626,137 @@ describe("the collector budget: a word the budget refused is held for the next c
 		text_metrics.resetMeasured()
 	end)
 
+	it("RED-TEAM C-8: ...and the same thing through a solve that actually throws", function()
+		--[[ THE SHAPE, not the mechanism. A settled 300-row surface takes a 1,200-word
+			body, holds 176 past the budget, and then the NEXT solve throws — a row's text
+			signal handed a table, which `text_metrics.measure` raises on from inside the
+			solve, so `beginCollect` has run and `endCollect` has not. The recovery solve
+			after it must still ask for the held tail.
+
+			`pcall` around `refresh` is the whole point: this is what a consumer's own
+			error boundary, or a Studio script erroring mid-frame, does to the collector.
+			Before the fix the tail is gone and `tailAfter` reads 0. ]]
+		text_metrics.resetMeasured()
+		local w = bootWorld()
+		for _ = 1, 12 do
+			w.controller.refresh()
+			if w.adapter.textBatchCount() == 0 then
+				break
+			end
+			w.adapter.deliverTextWidths(widthOf)
+		end
+		w.controller.refresh()
+		local words: { string } = {}
+		for i = 1, BODY do
+			words[i] = bodyWord(i)
+		end
+		w.body:set(table.concat(words, " "))
+		w.controller.refresh()
+		local function bodyAsked(): number
+			local n = 0
+			for _, request in w.adapter.pendingTextRequests() do
+				if string.sub(request.word, 1, 4) == "zqxb" then
+					n += 1
+				end
+			end
+			return n
+		end
+		local firstRound = bodyAsked()
+
+		-- THE THROWING SOLVE: a row's text is handed a table, which the measure raises on
+		w.rows[1]:set({ notAString = true } :: any)
+		local ok = pcall(function()
+			w.controller.refresh()
+		end)
+		-- the row is put back so the recovery solve is an ordinary one
+		w.rows[1]:set(rowWordAt(1))
+		w.controller.refresh()
+		local tailAfter = bodyAsked() - firstRound
+		expect(`threw={tostring(not ok)} first={firstRound} tail={tailAfter}`).toBe(
+			`threw=true first={CAP} tail={BODY - CAP}`
+		)
+		w.controller.dispose()
+		text_metrics.resetMeasured()
+	end)
+
+	it("RED-TEAM C-8: WHICH held words leave first is the KEY ORDER, not the hash order", function()
+		--[[ THE OBSERVABLE IS `pendingTextRequests()`, so the selection has to be a pure
+			function of the SET rather than of the order a hash happens to enumerate in —
+			the rule this campaign states at `patchIndices` and `candidateIndices` and did
+			not follow here. With a held tail WIDER than the budget the loop breaks partway
+			through, so before this the second batch was an arbitrary 1,024 of 1,277 and
+			the third was whatever was left: two runs of the same program could disagree.
+
+			2,300 words plus the one space that joins them = 2,301 requests. The first
+			collector takes 1,024 in DOCUMENT order (the space and words 1-1,023) and holds
+			1,277; the second takes the 1,024 lexicographically smallest of those, which
+			for a zero-padded name is words 1,024-2,047; the third takes the remaining 253.
+			Contiguous ranges are the signature of an ordered drain — a hash-ordered one
+			cannot produce them. ]]
+		text_metrics.resetMeasured()
+		local words: { string } = {}
+		for i = 1, 2300 do
+			words[i] = string.format("zqxo%04d", i)
+		end
+		text_metrics.beginCollect()
+		text_metrics.measure(table.concat(words, " "), "TestSans", SIZE, math.huge)
+		local first = text_metrics.endCollect()
+		local function rangeOf(batch: { any }): string
+			local names: { string } = {}
+			for _, request in batch do
+				if request.word ~= " " then
+					table.insert(names, request.word)
+				end
+			end
+			table.sort(names)
+			return if #names == 0 then "-" else `{names[1]}..{names[#names]}`
+		end
+		text_metrics.beginCollect()
+		local second = text_metrics.endCollect()
+		text_metrics.beginCollect()
+		local third = text_metrics.endCollect()
+		expect(`first={#first} {rangeOf(first)} | second={#second} {rangeOf(second)} | third={#third} {rangeOf(third)}`).toBe(
+			"first=1024 zqxo0001..zqxo1023 | second=1024 zqxo1024..zqxo2047 | third=253 zqxo2048..zqxo2300"
+		)
+		text_metrics.resetMeasured()
+	end)
+
+	it("RED-TEAM C-8: a collector that never drained leaves its held words held", function()
+		--[[ THE ONE HOLE IN "held, not dropped". `beginCollect` deleted the request from
+			`overflow` BEFORE the batch was dispatched, so a solve that threw between
+			`beginCollect` and `endCollect` lost those words from BOTH structures — the
+			next `beginCollect` discards `collecting`, and nothing else remembers them.
+			Held until the drain actually hands them over, the throw costs a round.
+
+			DRIVEN THROUGH `text_metrics` ALONE here, and through a real thrown solve in
+			the case below: this one is the mechanism, that one is the shape. The second
+			`beginCollect` stands in for the collector the throwing solve opened and never
+			closed; the third is the next solve. Before the fix `again` reads 253 and 1,024
+			words are gone for the life of the process. ]]
+		text_metrics.resetMeasured()
+		local words: { string } = {}
+		for i = 1, 2300 do
+			words[i] = string.format("zqxt%04d", i)
+		end
+		text_metrics.beginCollect()
+		text_metrics.measure(table.concat(words, " "), "TestSans", SIZE, math.huge)
+		expect(`first={#text_metrics.endCollect()}`).toBe("first=1024")
+		-- the collector a throwing solve opened, and never drained
+		text_metrics.beginCollect()
+		-- ...and the next solve's, which must find the same tail waiting
+		text_metrics.beginCollect()
+		local again = text_metrics.endCollect()
+		local names: { string } = {}
+		for _, request in again do
+			if request.word ~= " " then
+				table.insert(names, request.word)
+			end
+		end
+		table.sort(names)
+		expect(`again={#again} {names[1]}..{names[#names]}`).toBe("again=1024 zqxt1024..zqxt2047")
+		text_metrics.resetMeasured()
+	end)
+
 	it("...and forgetting the store forgets the queue", function()
 		--[[ `resetMeasured` is "this process no longer remembers anything", and a queue
 			of requests for a store that remembers nothing is a queue for a different

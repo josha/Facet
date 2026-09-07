@@ -476,6 +476,12 @@ local collectCapped = false
 	not ask about") true. ]]
 local overflow: { [string]: Request } = {}
 local overflowCount = 0
+--[[ ...and the held words THIS collector took, released only when `endCollect`
+	actually hands the batch over (RED-TEAM C-8). It is the difference between "held"
+	and "held unless the solve throws". Cleared by `beginCollect` (a collector that
+	never drained left its words in `overflow`, which is exactly where the next one
+	should find them) and by `resetMeasured`. ]]
+local taken: { [string]: boolean } = {}
 
 local SPACE = " "
 
@@ -588,21 +594,46 @@ function text_metrics.beginCollect()
 		rather than re-asked, and one already in flight rides free exactly as it does on
 		the fresh path. Held words that do not fit stay held: `overflowCount` is only
 		decremented for what actually leaves. ]]
+	table.clear(taken)
 	if overflowCount == 0 then
 		return
 	end
-	for key, request in overflow do
+	--[[ IN KEY ORDER, NOT HASH ORDER (RED-TEAM C-8). When the held tail is wider than
+		the budget, WHICH words leave first decides what `pendingTextRequests()` says —
+		and everywhere else in this campaign a counter is required to be "a pure
+		function of the set's SIZE and of document order, never of the hash order it
+		enumerates in" (`patchIndices`, `candidateIndices`). This was the one place
+		that was not, so a >1,024-word tail made the observable non-deterministic
+		across runs. The key is `{font}\0{size}\0{word}`, so sorting it is the same
+		order `endCollect` already publishes its output in. ]]
+	local keys: { string } = {}
+	for key in overflow do
+		table.insert(keys, key)
+	end
+	table.sort(keys)
+	for _, key in keys do
 		if collectCount >= COLLECT_CAP then
 			break
 		end
-		overflow[key] = nil
-		overflowCount -= 1
+		local request = overflow[key]
 		local bucket = bucketFor(request.font, request.size, false)
 		if bucket == nil or bucket[request.word] == nil then
 			queue[key] = request
+			--[[ ...AND IT IS RELEASED BY THE DRAIN, NOT BY THIS LOOP (RED-TEAM C-8).
+				Deleting here was the one hole in "held, not dropped": a solve that threw
+				between `beginCollect` and `endCollect` left the word gone from BOTH
+				structures, because the next `beginCollect` discards `collecting`. Held
+				until `endCollect` actually hands it over, the throw costs a round and
+				nothing else. ]]
+			taken[key] = true
 			if inFlight[key] == nil then
 				collectCount += 1
 			end
+		else
+			-- the store has since learned it: it leaves for good, and no drain owes it
+			-- a release
+			overflow[key] = nil
+			overflowCount -= 1
 		end
 	end
 end
@@ -695,8 +726,21 @@ function text_metrics.endCollect(): { Request }
 	collectCount = 0
 	local out: { Request } = {}
 	if pending == nil then
+		-- nothing left, so nothing is released: a suspended or never-opened collector
+		-- still owes every held word its round
 		return out
 	end
+	--[[ THE HELD WORDS ARE RELEASED HERE, and only here (RED-TEAM C-8). This is the
+		moment the batch actually leaves, so it is the moment a held word stops being
+		owed a round. A collector that never reached this line left its words in
+		`overflow` and the next `beginCollect` takes them again. ]]
+	for key in taken do
+		if overflow[key] ~= nil then
+			overflow[key] = nil
+			overflowCount -= 1
+		end
+	end
+	table.clear(taken)
 	for _, request in pending do
 		table.insert(out, request)
 	end
@@ -753,6 +797,7 @@ function text_metrics.resetMeasured()
 	-- ...and the held tail with it (D6d): a queue of requests for a store that no
 	-- longer remembers anything is a queue for a different process
 	table.clear(overflow)
+	table.clear(taken)
 	overflowCount = 0
 	-- BOTH generations: forgetting the whole store is not a per-key event and no
 	-- `render/text_index` push can be derived from it, so this keeps the whole-tree
