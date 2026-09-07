@@ -144,6 +144,85 @@ describe("C: a container accepts `enabled` and `tint`", function()
 		expect(string.find(tostring(err), "claim", 1, true) ~= nil).toBe(true)
 	end)
 
+	--[[ N1: AND THE REFUSAL HAS A READ-SITE HALF. The schema check runs at
+		construction, and a container `tint` is REACTIVE, so binding a Readable is a
+		first-class authoring form the constructor never sees. Without the second half
+		the bound value walked straight through and claimed `TextTransparency` on every
+		`Text` in the subtree — and with a `UI.Path` down there it CRASHED the render,
+		naming a class the author never wrote `transparency` on.
+
+		`blueprint_schema.luau`'s own rule, twelve lines above the check, is that a
+		property with one ruling is read at construction for a static value and by the
+		reader for a reactive one, "because a reactive value that skipped the check
+		would paint garbage the constructor would have refused". This is that half. ]]
+	it("a REACTIVE container tint carrying the alpha is refused at present, with the same sentence", function()
+		local w = newWorld()
+		local hue = w.core:signal({ role = "accent", blend = 1, transparency = 0.5 })
+		local ok, err = pcall(function()
+			return w.present(UI.Screen({
+				id = "S",
+				children = {
+					UI.VStack({ id = "Panel", tint = hue, children = { UI.Text({ id = "L", text = "hi" }) } }),
+				},
+			}))
+		end)
+		expect(ok).toBe(false)
+		expect(string.find(tostring(err), "inherited tint takes no `transparency`", 1, true) ~= nil).toBe(true)
+	end)
+
+	it("...and a mid-life flip to an alpha is refused too, on a presented screen", function()
+		local w = newWorld()
+		local hue = w.core:signal({ role = "accent", blend = 1 })
+		w.present(UI.Screen({
+			id = "S",
+			children = { UI.VStack({ id = "Panel", tint = hue, children = { UI.Text({ id = "L", text = "hi" }) } }) },
+		}))
+		w.pres.refresh()
+		expect(w.core:lastError()).toBeNil()
+		hue:set({ role = "accent", blend = 1, transparency = 0.5 })
+		--[[ a mid-life set runs inside mount's own observer, so the framework's error
+			ladder QUARANTINES it (constitution §8) rather than throwing through the
+			consumer's `:set`. Refused either way, and recorded where a bug report can
+			read it. ]]
+		expect(string.find(tostring(w.core:lastError()), "inherited tint takes no `transparency`", 1, true) ~= nil).toBe(
+			true
+		)
+	end)
+
+	--[[ THE OTHER HALF OF THE SAME REPRO: a `UI.Path` under a REACTIVE container tint
+		with no alpha still renders. The crash this refusal prevents was a Path being
+		handed a `transparency` it has no channel for; the legal form must keep
+		working, or the fix would have closed the hazard by closing the feature. ]]
+	it("a Path under a reactive container tint WITHOUT an alpha renders and repaints", function()
+		local w = newWorld()
+		local hue = w.core:signal({ role = "accent", blend = 1 })
+		w.present(UI.Screen({
+			id = "S",
+			children = {
+				UI.VStack({
+					id = "Panel",
+					tint = hue,
+					children = {
+						UI.Path({
+							id = "Arc",
+							points = { { x = 0, y = 0 }, { x = 10, y = 10 } },
+							width = fixed(20),
+							height = fixed(20),
+						}),
+						UI.Text({ id = "L", text = "hi" }),
+					},
+				}),
+			},
+		}))
+		w.pres.refresh()
+		expect(w.core:lastError()).toBeNil()
+		expect((w.adapter.node("/S/Panel/Arc").props.tint :: any).role).toBe("accent")
+		hue:set({ role = "danger", blend = 1 })
+		w.pres.refresh()
+		expect(w.core:lastError()).toBeNil()
+		expect((w.adapter.node("/S/Panel/Arc").props.tint :: any).role).toBe("danger")
+	end)
+
 	it("...and a LEAF tint still accepts it", function()
 		local bp = UI.Text({ id = "T", text = "hi", tint = { role = "accent", blend = 1, transparency = 0.5 } })
 		expect((bp.props.tint :: any).transparency).toBe(0.5)

@@ -13,6 +13,12 @@
 --   root.dispose()
 
 local blueprintLib = require("./blueprint")
+--[[ THE SCHEMA, for one fact and one sentence (RED-TEAM round 3, N1): which classes
+	carry the INHERITED form of `tint`, and what to say when one of them is handed an
+	alpha. The schema owns that ruling; this module is its READ-SITE half, because a
+	container `tint` is reactive and a bound value never reaches the constructor. No
+	new direction: `./blueprint` already requires it, so it sits below both. ]]
+local schema = require("./blueprint_schema")
 local profile = require("./core/profile")
 local specGuard = require("./spec_guard")
 -- the `UI.sensoryFeedback` declaration's reader (round 2 §3.3, and the control
@@ -135,6 +141,24 @@ local function applyInherited(node: any, inherited: Inherit?): (Inherit?, boolea
 	node.inheritedTint = inheritedTint
 	node.inheritFrom = inherited
 
+	--[[ THE READ-SITE HALF OF THE `transparency` REFUSAL (RED-TEAM round 3, N1). The
+		schema refuses an alpha on a container's `tint` at construction, but that prop
+		is REACTIVE: a `core:signal({ …, transparency = 0.5 })` is a first-class
+		authoring form the constructor never sees, and without this it walked straight
+		through, claimed `TextTransparency` on every `Text` in the subtree, and — with a
+		`UI.Path` down there — crashed the render with a message naming a class the
+		author never wrote `transparency` on.
+
+		HERE is the read site, because here is where a container's own tint stops being
+		its own and becomes the thing it hands down. The predicate is the schema's own
+		(`INHERITED_TINT_CLASSES`, derived from `channel = "inherit"`), and the sentence
+		is the schema's own string, so the two halves of one ruling cannot drift.
+
+		A LEAF is untouched: it paints its alpha on itself, which is the bounded,
+		named decision the channel exists for. ]]
+	if ownTint ~= nil and (ownTint :: any).transparency ~= nil and schema.INHERITED_TINT_CLASSES[node.class] then
+		error(`Facet {node.class}.tint at {node.path}: {schema.INHERITED_TINT_ALPHA_REFUSAL}`, 0)
+	end
 	local childTint = if TINT_STOPS[node.class] then nil else (if ownTint ~= nil then ownTint else inTint)
 	local previous: Inherit? = node.inheritOut
 	local out: Inherit? = nil

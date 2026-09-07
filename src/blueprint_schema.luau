@@ -255,6 +255,21 @@ local DIM_METRIC_FIELDS = { "px", "min", "max", "preferred", "of" }
 -- so a range test alone lets it through, and an NaN reaching `GroupTransparency`
 -- or `UIScale.Scale` is an invisible or absent node with no error anywhere.
 
+--[[ ONE SENTENCE, TWO READERS (RED-TEAM round 3, N1). A container's `tint` is
+	REACTIVE, so binding a Readable is a first-class authoring form the constructor
+	never sees — and this file's own rule twelve lines below is that a property with
+	one ruling is read HERE for a static value and by the READER for a reactive one,
+	"because a reactive value that skipped the check would paint garbage the
+	constructor would have refused".
+
+	`src/mount.luau` is that reader: it is where a container's own tint becomes the
+	value it hands its subtree. It quotes this string rather than a copy of it, so
+	an author who binds the alpha and an author who writes it get the same sentence
+	and the two halves can never drift. ]]
+schema.INHERITED_TINT_ALPHA_REFUSAL = "an inherited tint takes no `transparency`: the alpha is a permanent CLAIM "
+	.. "on the node it lands on, and one declared here would take TextTransparency from every Text in the "
+	.. "subtree for the life of the surface. Write the alpha on the leaf that needs it"
+
 function schema.checkOpacity(v: any): (boolean, string?)
 	if type(v) ~= "number" or v ~= v then
 		return false, "a number from 0 (invisible) to 1 (opaque)"
@@ -682,10 +697,7 @@ local TYPE_CHECKS: { [string]: (any) -> (boolean, string?) } = {
 			return false, detail
 		end
 		if type(v) == "table" and (v :: any).transparency ~= nil then
-			return false,
-				"an inherited tint takes no `transparency`: the alpha is a permanent CLAIM on the node it "
-					.. "lands on, and one declared here would take TextTransparency from every Text in the "
-					.. "subtree for the life of the surface. Write the alpha on the leaf that needs it"
+			return false, schema.INHERITED_TINT_ALPHA_REFUSAL
 		end
 		return true
 	end,
@@ -3130,5 +3142,20 @@ function schema.propNames(className: string): { string }
 	table.sort(out)
 	return out
 end
+
+--[[ WHICH CLASSES CARRY THE INHERITED FORM OF `tint`, derived from the rows above
+	rather than listed (RED-TEAM round 3, N1). `src/mount.luau`'s read-site refusal
+	needs to know "is this node handing a tint DOWN rather than painting it", and a
+	hand-kept list here would be the same fact written twice — the drift this file
+	exists to prevent. A class is in the set exactly when its `tint` prop declares
+	`channel = "inherit"`, which is the definition of the inherited form. ]]
+local INHERITED_TINT_CLASSES: { [string]: boolean } = {}
+for name, spec in CLASSES do
+	local tintSpec = spec.props.tint
+	if tintSpec ~= nil and tintSpec.channel == "inherit" then
+		INHERITED_TINT_CLASSES[name] = true
+	end
+end
+schema.INHERITED_TINT_CLASSES = table.freeze(INHERITED_TINT_CLASSES)
 
 return schema
