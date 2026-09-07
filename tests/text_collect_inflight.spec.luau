@@ -350,6 +350,81 @@ describe("the collector budget: the flight refcount is what makes a process-glob
 		text_metrics.resetMeasured()
 	end)
 
+	it("RED-TEAM C-6: an answer that arrives AFTER dispose decrements nothing", function()
+		--[[ THE DOUBLE DECREMENT. `dispose` gives back one count per key it still holds
+			and DELIBERATELY leaves the SET standing — `pending()` reads it, and the seam
+			spec has that case. The delivery callback had no `disposed` guard at its top
+			(only the re-solve did), so a late answer walked the same set, found
+			`state == true` for every key, and decremented a SECOND time — driving a word
+			ANOTHER surface is still waiting on to zero, which is the D3a pathology
+			(a collector that skips an "in flight" word nobody is going to answer).
+
+			THE ADAPTER IS CONTRACT-LEGAL AND IS THE POINT. `target_contract.luau` declares
+			the cancel token OPTIONAL (`-> (() -> ())?`); both shipped adapters return one
+			and honour it, which is why nothing in the tree reaches this. One that returns
+			`nil` — or a cancel the engine races — does. So the fake here forwards nothing
+			and hands the callback back to the spec to fire whenever it likes.
+
+			TWO SURFACES, because one cannot show it: the second decrement takes the count
+			below what THIS surface owed, and `noteInFlight` floors at zero, so on a single
+			surface the damage is invisible. With B still waiting, `after the late answer`
+			reads 0 before the fix and 1 after. ]]
+		text_metrics.resetMeasured()
+		--[[ a surface whose adapter parks the callback instead of answering, and returns
+			NO cancel token — the legal minimum a target may implement ]]
+		local function parkedWorld(prefix: string): (any, { any })
+			local core = customFactory.new()
+			local env = environment.new(core)
+			env:set("viewportRect", { x = 0, y = 0, w = 480, h = 720 })
+			local children: { any } = {}
+			for i = 1, 3 do
+				children[i] = UI.Text({ id = `T{i}`, textSize = SIZE, text = wordAt(prefix, i) })
+			end
+			local root = mountLib.mount(
+				core,
+				UI.Screen({
+					id = "S",
+					children = { UI.VStack({ id = "L", padding = 0, gap = 0, children = children }) },
+				})
+			)
+			local adapter = fake_target.new()
+			local parked: { any } = {}
+			adapter.measureTextWidths = function(batch: { any }, done: any): any
+				table.insert(parked, { batch = batch, done = done })
+				return nil
+			end
+			local controller = renderer.attach(core, root, env, adapter)
+			controller.initialRender()
+			return controller, parked
+		end
+
+		local aController, aParked = parkedWorld("c6")
+		local bController, _bParked = parkedWorld("c6")
+		local first = aParked[1].batch[1]
+		local key = `{text_metrics.canonicalFont(first.font)}\0{first.size}\0{first.word}`
+		expect(`two surfaces: {text_metrics.inFlightCount(key)}`).toBe("two surfaces: 2")
+
+		aController.dispose()
+		expect(`after A's dispose: {text_metrics.inFlightCount(key)}`).toBe("after A's dispose: 1")
+
+		-- ...and NOW the engine answers A's batch, which nothing cancelled
+		local results: { any } = {}
+		for _, request in aParked[1].batch do
+			table.insert(results, {
+				font = request.font,
+				size = request.size,
+				word = request.word,
+				width = widthOf(request.word, request.size, request.font),
+			})
+		end
+		aParked[1].done(results, true)
+		expect(`after the late answer: {text_metrics.inFlightCount(key)}`).toBe("after the late answer: 1")
+
+		bController.dispose()
+		expect(`after B's dispose: {text_metrics.inFlightCount(key)}`).toBe("after B's dispose: 0")
+		text_metrics.resetMeasured()
+	end)
+
 	it("an EARLY answer keeps the word in flight, and the settled re-read releases it", function()
 		--[[ THE `"answered"` STATE. A `final == false` answer is the engine's boot window
 			talking: `premeasure_round` keeps the word in flight so the settled re-read is

@@ -111,6 +111,25 @@ function premeasure_round.new(deps: Deps): PremeasureRound
 				-- is still open — passes false, and the words stay in flight so a
 				-- surface waiting for exact text keeps waiting.
 				local cancelMeasure = adapter.measureTextWidths(batch, function(results: { any }, final: boolean?)
+					--[[ A LATE ANSWER AFTER DISPOSE IS NOT THIS ROUND'S TO COUNT (RED-TEAM
+						C-6). `dispose` gives back one flight count per key it still holds and
+						DELIBERATELY leaves the set standing (`pending()` reads it, and the seam
+						spec has the case). The loop below then finds `state == true` for those
+						same keys and decrements a SECOND time — driving another surface's
+						in-flight word to zero while it is still waiting, which is the D3a
+						pathology for one word.
+
+						Both shipped adapters return a cancel token that is honoured
+						(`screen_target` -> `text_premeasure.measure`, `fake_target` ->
+						`forgetBatch`), so nothing in the tree reaches it today. The contract
+						declares the token OPTIONAL (`target_contract.luau`: `-> (() -> ())?`),
+						so a contract-legal adapter that returns nil, or a cancel the engine
+						races, does — and `disposed` is already the flag every other late-answer
+						effect in this callback is gated on. Checking it at the TOP is what makes
+						the refcount agree with the set. ]]
+					if disposed then
+						return
+					end
 					local learned = false
 					for _, entry in results do
 						if type(entry) ~= "table" then
