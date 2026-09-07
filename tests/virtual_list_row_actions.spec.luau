@@ -207,7 +207,14 @@ local function world(opts: any?): any
 			})
 		)
 	end
-	local screen = Facet.UI.Screen({ id = "S", children = children })
+	--[[ A DISABLE-ABLE ANCESTOR, for the one case that needs one (RED-TEAM I1). It
+		is the SCREEN rather than a wrapper container, so every path in this file —
+		`/S/VL`, the tray group, the tray actions — is exactly what it was. ]]
+	local screenSpec: any = { id = "S", children = children }
+	if options.screenEnabled ~= nil then
+		screenSpec.enabled = options.screenEnabled
+	end
+	local screen = Facet.UI.Screen(screenSpec)
 	local handle = pres.present(screen)
 	pres.refresh()
 	local unbindScroll = list.bindNativeScroll(handle.controller)
@@ -2801,5 +2808,49 @@ describe("VirtualList rowActions (redteam NEW-1): a hosted swipe survives its ow
 		w3.system.deviceKey("ButtonA", false)
 		w3.settle()
 		expect(w3.activations).toEqual({ "r2" })
+	end)
+end)
+
+--[[ ===== A TRAY THAT IS ALREADY OPEN WHEN ITS SUBTREE IS DISABLED (RED-TEAM I1)
+	`collectTrayFocusables` — the walk that builds the tray's contributed focus
+	group — carried its own reading of `enabled`, `props.enabled == false`, which is
+	the AUTHORED value on that Button and nothing else. A tray opened before an
+	ancestor was switched off therefore kept its action Buttons in the ring: they
+	were in the group, Tab reached them, and Return ran the action, on a screen the
+	player had been told was off.
+
+	It was the last direct reader of `props.enabled` outside `mount`,
+	`class_contract` and `render/inherited`. It now asks the same predicate every
+	other focus walk asks. ]]
+describe("a tray already open when its subtree is disabled leaves the ring (RED-TEAM I1)", function()
+	it("its action buttons are in the group while enabled, and gone the frame it is disabled", function()
+		local fired: { string } = {}
+		local enabled = Facet.newCore():signal(true)
+		local w = world({ rowActions = trailingActions(fired), screenEnabled = enabled, keyboardNavigation = true })
+		w.dragLeft("r2", 80)
+		w.release()
+		w.settle()
+		local action = trayAction("r2", "trailing", "delete")
+
+		local function trayPaths(): { string }
+			local out: { string } = {}
+			for _, group in w.handle.focusOrder().navigation or {} do
+				for _, entry in group.order or {} do
+					if string.find(tostring(entry), "RowActionsOverlay", 1, true) ~= nil then
+						table.insert(out, tostring(entry))
+					end
+				end
+			end
+			return out
+		end
+
+		-- OPEN and live: the tray group carries the action
+		expect(trayPaths()).toEqual({ action })
+
+		enabled:set(false)
+		w.pres.refresh()
+		-- ...and switching the surface off takes it out of the ring
+		expect(trayPaths()).toEqual({})
+		w.unbindScroll()
 	end)
 end)

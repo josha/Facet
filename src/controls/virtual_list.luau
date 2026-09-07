@@ -270,6 +270,9 @@
 -- `row_actions.composeWithReorder`, over a hit it owns outright).
 
 local cardRail = require("./card_rail")
+-- the one mounted-node reading of `enabled` (own OR any ancestor's `false`),
+-- shared with `present/focus_map` and the renderer's input gates
+local classContract = require("../class_contract")
 local gapMetric = require("./gap_metric")
 local contribution = require("../input/contribution")
 local surfaceEnv = require("../env/surface_env")
@@ -373,7 +376,14 @@ local function collectTrayFocusables(node: any, out: { string })
 	end
 	local props = node.props
 	if node.class == "Button" then
-		if not (props ~= nil and (props.focusable == false or props.enabled == false)) then
+		--[[ `classContract.isDisabled`, NOT `props.enabled == false` (RED-TEAM I1).
+			The authored value is only half the answer since `enabled` became
+			inheritable: a tray opened BEFORE an ancestor was switched off kept its
+			action Buttons in this contributed group, so they stayed in the ring, Tab
+			reached them and Return ran the action on a screen the player had been told
+			was off. This is the same predicate `present/focus_map` and the renderer's
+			input gates ask, which is the point — there is one reading of "disabled". ]]
+		if not (props ~= nil and props.focusable == false) and not classContract.isDisabled(node) then
 			table.insert(out, node.path)
 		end
 		return
