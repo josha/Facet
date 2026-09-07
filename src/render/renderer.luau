@@ -114,7 +114,6 @@ local inherited = require("./inherited")
 local rectLib = require("../rect")
 local isPathPrefix = paths.isPrefix
 local STYLE_PROPS = prop_channels.STYLE_PROPS
-local emitsBinding = prop_channels.emitsBinding
 -- the two props whose VALUE the mount cascade may have resolved (see `./inherited`);
 -- one lookup keeps every other binding write on its old path
 local INHERITED_PROPS: { [string]: boolean } = { enabled = true, tint = true }
@@ -786,12 +785,14 @@ function renderer.attach(
 			-- surface written after a tint would overwrite the very property the tint
 			-- claimed, and the node would wear its plain fill for as long as nothing
 			-- else touched it.
-			if emitsBinding(node.class, prop) and prop ~= "tint" then
+			if inherited.emits(node, prop) and prop ~= "tint" and prop ~= "enabled" then
 				applyProp(handle, node, prop)
 			end
 		end
+		-- `enabled` is emitted from ONE place for both the authored and the inherited
+		-- form, so the two cannot disagree about which containers get materialized
 		if inherited.needsEnabledWrite(node) then
-			applyProp(handle, node, "enabled") -- inherited: the loop above cannot see it
+			applyProp(handle, node, "enabled")
 		end
 	end
 
@@ -1342,7 +1343,7 @@ function renderer.attach(
 			-- final word — and because it is last, the adapter's blend resolves against
 			-- a node whose style paint is already settled. A reactive change later rides
 			-- the ordinary refresh path, by which time the same is true.
-			if emitsBinding(node.class, "tint") and inherited.hasTint(node) then
+			if inherited.emits(node, "tint") and inherited.hasTint(node) then
 				applyProp(handles[node.path], node, "tint")
 			end
 		end
@@ -2992,7 +2993,7 @@ function renderer.attach(
 						seen[key] = true
 						local node = findNode(entry.path)
 						if node ~= nil and handles[entry.path] ~= nil then
-							if emitsBinding(node.class, entry.prop :: string) then
+							if inherited.emits(node, entry.prop :: string) then
 								applyProp(handles[entry.path], node, entry.prop :: string)
 							elseif STYLE_PROPS[entry.prop] then
 								applyStyleProp(handles[entry.path], node, entry.prop :: string)

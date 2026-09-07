@@ -570,6 +570,47 @@ describe("C3: a disabled subtree blocks every input path", function()
 		expect(adapter.node("/S/B/Caption").props.enabled).toBe(false)
 	end)
 
+	--[[ WHO ACTUALLY NEEDS THE WRITE (RED-TEAM I3). The resolved `enabled` used to go
+		to EVERY node in a disabled subtree — 26 of 26 classes, `Screen`, `VStack`,
+		`Spacer`, `Divider`, `Path` and all. Two costs, one of them permanent: the
+		adapter materializes an ELIDED container the moment any property is written to
+		it and there is no re-elide, so switching a panel off created a real `Frame`
+		per elidable container for the life of the surface — and bought a
+		`facet-state-disabled` tag that no rule selects, because the one rule that
+		exists selects `TextLabel`.
+
+		So the write goes to the classes that can consume it and nowhere else: the
+		three the engine gives a non-interactable state, plus `Text`, which is what the
+		themed rule paints. ]]
+	it("a disabled subtree writes `enabled` only where something consumes it", function()
+		local _, adapter = renderOnly(UI.Screen({
+			id = "S",
+			children = {
+				UI.VStack({
+					id = "Panel",
+					enabled = false,
+					children = {
+						UI.VStack({
+							id = "Inner",
+							children = { UI.Spacer({ id = "Sp1" }), UI.Spacer({ id = "Sp2" }) },
+						}),
+						UI.Box({ id = "Plate", width = fixed(10), height = fixed(10) }),
+						UI.Divider({ id = "Rule" }),
+						UI.Text({ id = "Label", text = "hi" }),
+						UI.Button({ id = "Go", label = "go", height = fixed(44) }),
+					},
+				}),
+			},
+		}))
+		-- nothing consumes it here: no write, so no elided container is materialized
+		for _, path in { "/S", "/S/Panel", "/S/Panel/Inner", "/S/Panel/Inner/Sp1", "/S/Panel/Plate", "/S/Panel/Rule" } do
+			expect(`{path}={tostring(adapter.node(path).props.enabled)}`).toBe(`{path}=nil`)
+		end
+		-- ...and the two that do
+		expect(adapter.node("/S/Panel/Label").props.enabled).toBe(false)
+		expect(adapter.node("/S/Panel/Go").props.enabled).toBe(false)
+	end)
+
 	it("the engine is told: the resolved value reaches the adapter as enabled = false", function()
 		local _, adapter = renderOnly(screen(function() end))
 		expect(adapter.node("/S/Panel/Off").props.enabled).toBe(false)

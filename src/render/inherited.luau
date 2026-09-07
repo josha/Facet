@@ -30,6 +30,7 @@
 ]]
 
 local classContract = require("../class_contract")
+local prop_channels = require("./prop_channels")
 
 local inherited = {}
 
@@ -56,17 +57,67 @@ function inherited.resolve(node: any, prop: string, declared: any): any
 	return declared
 end
 
---[[ Does this node owe an `enabled` write its own props cannot produce? True for
-	exactly the node that inherited a disable and declared no `enabled` of its own —
-	the case the creation-time props loop cannot see, because it iterates the props
-	the author wrote.
+--[[ WHICH CLASSES CONSUME A RESOLVED `enabled` (RED-TEAM I3).
+
+	The write used to go to every node in a disabled subtree — all 26 classes,
+	`Screen`, `VStack`, `Spacer`, `Divider`, `Path` included. Two costs, and the
+	first is permanent: the engine adapter ELIDES a container that draws nothing
+	(`screen_target`'s `ELIDABLE_CLASSES`: VStack, HStack, ZStack, Grid, Anchor,
+	Spacer) and materializes it the moment any property is written to it, with no
+	re-elide. Switching a panel off therefore created a real `Frame` per elidable
+	container for the life of the surface. What it bought was a
+	`facet-state-disabled` tag that NOTHING SELECTS: the one rule the framework
+	emits for that tag selects `TextLabel`.
+
+	So the write goes where something reads it:
+	  * `Button`, `Toggle`, `TextField` — the engine's own non-interactable state
+	    (`Active`/`Interactable`), which is what makes an ancestor-disabled control
+	    genuinely unpressable rather than merely skipped;
+	  * `Text` — the `TextLabel` the themed `Disabled subtree text` rule paints.
+
+	THE HONEST LIMIT, STATED. A theme package that wanted to key its own disabled
+	rule on another class — a `Frame` background, say — would not find the tag
+	there. That is a deliberate trade: a permanent instance per elidable container,
+	on every screen that switches a panel off, against a rule nobody has written.
+	Widening it is this one table plus the rule that justifies the widening, and
+	`api.md`'s inheritance section says so in public. ]]
+local ENABLED_CONSUMERS: { [string]: boolean } = {
+	Button = true,
+	Toggle = true,
+	TextField = true,
+	Text = true,
+}
+
+--[[ May this node emit this prop at all? `prop_channels.emitsBinding` answers the
+	CLASS-vs-authority half (the `tint` allowlist, the `thickness` one); this adds the
+	`enabled` half, which the authority manifest cannot express because `enabled` is
+	declared on `common` so that a node of any class MAY carry a resolved value —
+	"may carry" and "is worth writing" are different questions and this is the second.
+
+	Both renderer write sites ask this one function, so the authored path and the
+	inherited path cannot disagree about which containers get materialized. ]]
+function inherited.emits(node: any, prop: string): boolean
+	if not prop_channels.emitsBinding(node.class, prop) then
+		return false
+	end
+	return prop ~= "enabled" or ENABLED_CONSUMERS[node.class] == true
+end
+
+--[[ Does this node owe an `enabled` write? True for a class that consumes one, when
+	the author declared a value OR the cascade resolved a disable onto it. The second
+	half is the case the creation-time props loop cannot see, because it iterates the
+	props the author wrote.
 
 	A NODE WITH NO `props` TABLE IS A STRUCTURAL REGION (`When`/`ForEach`/
 	`ErrorBoundary`). The cascade resolves those too, because the re-walk has to pass
 	through them, but they materialize nothing and have no property to write — so the
 	table's presence is the test for "is there an instance behind this". ]]
 function inherited.needsEnabledWrite(node: any): boolean
-	return node.disabled == true and node.props ~= nil and node.props.enabled == nil
+	local props = node.props
+	if props == nil or ENABLED_CONSUMERS[node.class] ~= true then
+		return false
+	end
+	return props.enabled ~= nil or node.disabled == true
 end
 
 --[[ Does this node have a tint to write at creation — its own, or one it
