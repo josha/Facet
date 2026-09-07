@@ -1237,6 +1237,13 @@ require("./text_settle_probe.spec")
 	a call whose three arguments are string literals and whose answer is a module-load
 	constant. Asked once per `apply` instead. ]]
 require("./rect_pass_constant.spec")
+--[[ PLAN D, D4b (2026-09-06): and the same question for `render/z_order`'s walk, whose
+	LENGTH is O(n - insertion point) by design and is not touched — `zVisits` is pinned
+	unmoved in every case. What each of its 7,323 visits does is: the hit-floor reading
+	(a pure function of class and a snapshot read once per walk) is memoised BY CLASS,
+	an empty lift set is not asked whether it touches anything, and the node's path is
+	read once instead of eleven times. ]]
+require("./z_order_visit_constant.spec")
 --[[ THE STANDALONE CONSUMER (distribution-readiness D2/D4): `examples/consumer/`
 	is the smallest complete Facet project, and this mounts ITS OWN screen module
 	— the same file the client script requires through the instance tree — against

@@ -74,7 +74,14 @@ function z_order.new(deps: Deps)
 		if children == nil or #children < 2 then
 			return children or {}
 		end
-		local lifted = hitLift.touches(children)
+		--[[ ...AND THE LIFT SET IS ASKED ONLY WHEN THERE IS ONE (Plan D, D4b).
+			`touches` iterates the children until it finds one with an overhang entry
+			and returns `false` at its FIRST LINE when the set is empty — which is
+			every surface with no hit expander, i.e. all five arena workloads and most
+			game HUDs. The call was made once per container with two or more children
+			(1,465 of them on `war_room_inventory L`) to be told the same thing each
+			time. `hitLift.any` is the same latch that first line reads. ]]
+		local lifted = hitLift.any and hitLift.touches(children)
 		local anyLift = false
 		for _, child in children do
 			if child.props ~= nil and type(child.props.zIndex) == "number" and child.props.zIndex ~= 0 then
@@ -232,12 +239,26 @@ function z_order.new(deps: Deps)
 		end
 		lastMetrics = zMetrics
 		compactNext = false
+		--[[ THE FLOOR READING, ONCE PER CLASS (Plan D, D4b). `effectiveHitFloor` is a
+			pure function of `(class, zMetrics)` — `class_contract.forClass(class)` and
+			`metrics.targetSizes.minimum`, nothing else — and `zMetrics` was read ONE
+			LINE ABOVE and is fixed for this walk (the module already leans on that: a
+			snapshot it has not seen forces a whole-tree pass, three paragraphs up). So
+			for the length of one walk the answer is a function of the CLASS, and a
+			7,505-node `war_room_inventory` has six of them. `false` is a real answer
+			here and `nil` means "not asked yet", which is why the value is a boolean
+			and not the floor. ]]
+		local floorOf: { [string]: boolean } = {}
 		local z = 0
 		local visited = 0
 		local function walkZ(node: any)
 			visited += 1
-			if forced ~= nil and not forced[node.path] then
-				local was, span = zIn[node.path], zSpan[node.path]
+			-- ONE READ OF THE PATH FOR THE WHOLE VISIT (Plan D, D4b): the body below
+			-- asked the node for it up to eleven times, on a walk that visits 7,323
+			-- nodes for one `war_room_inventory` reorder
+			local path = node.path
+			if forced ~= nil and not forced[path] then
+				local was, span = zIn[path], zSpan[path]
 				if was ~= nil and span ~= nil and z <= was then
 					z = was + span
 					return
@@ -256,14 +277,21 @@ function z_order.new(deps: Deps)
 			-- THE CLASS, NOT THE CURRENT STATE (NM-H4a, live 2026-08-17): reading
 			-- `lastHitRects` made this band a function of HISTORY. See
 			-- tests/hit_expander_z_band.spec.
-			if effectiveHitFloor(node.class, zMetrics) ~= nil then
+			local class = node.class
+			local reserves = floorOf[class]
+			if reserves == nil then
+				reserves = effectiveHitFloor(class, zMetrics) ~= nil
+				floorOf[class] = reserves
+			end
+			if reserves then
 				z += 1
 			end
 			z += 1
-			if handles[node.path] ~= nil and lastZ[node.path] ~= z then
+			local handle = handles[path]
+			if handle ~= nil and lastZ[path] ~= z then
 				authority.assertWrite("common", "zIndex", "layout")
-				adapter.setZOrder(handles[node.path], z)
-				lastZ[node.path] = z
+				adapter.setZOrder(handle, z)
+				lastZ[path] = z
 			end
 			local kids = orderedChildren(node)
 			for _, child in kids do
@@ -295,19 +323,23 @@ function z_order.new(deps: Deps)
 				WRITTEN ONLY WHEN IT MOVED, the same guard the z write above uses and for
 				the same reason: a blind hash write per visited node was a real charge on
 				the commit's own walks (C4, fix round 1). ]]
+			-- ...and the memo's own key is read ONCE too (Plan D, D4b). Nothing between
+			-- the read and the writes below can touch THIS path's entry: the recursion
+			-- above wrote only its children's, and a child cannot carry this path.
+			local wasIn = zIn[path]
 			if #kids > 0 then
-				if zIn[node.path] == nil then
+				if wasIn == nil then
 					stats.zMemoEntries += 1
 				end
-				if zIn[node.path] ~= entered then
-					zIn[node.path] = entered
+				if wasIn ~= entered then
+					zIn[path] = entered
 				end
-				if zSpan[node.path] ~= z - entered then
-					zSpan[node.path] = z - entered
+				if zSpan[path] ~= z - entered then
+					zSpan[path] = z - entered
 				end
-			elseif zIn[node.path] ~= nil then
-				zIn[node.path] = nil
-				zSpan[node.path] = nil
+			elseif wasIn ~= nil then
+				zIn[path] = nil
+				zSpan[path] = nil
 				stats.zMemoEntries -= 1
 			end
 		end
