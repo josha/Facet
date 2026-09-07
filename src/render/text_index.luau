@@ -225,6 +225,10 @@ export type Plan = {
 	-- Measures`). 0 on every under-cap push, which is every push this file's first
 	-- round was written for.
 	probed: number,
+	-- ...and the leaves the WORD INDEX answered for without one (Plan D, D6c). The
+	-- pair sums to the population the probe serves, which is what says the narrowing
+	-- answered the same question rather than a smaller one.
+	skipped: number,
 }
 
 export type Index = {
@@ -287,13 +291,13 @@ local live: { Index } = {}
 	IT RUNS BEFORE THE `textMeasureEpoch` WRITE that makes those surfaces solve
 	(`render/premeasure_round`'s `learned` branch calls `setMeasured` first, then
 	publishes), so the mark is already standing when their solves ask for it. ]]
-text_metrics.onWordChanged(function(font: string, size: number)
+text_metrics.onWordChanged(function(font: string, size: number, word: string)
 	if #live == 0 then
 		return
 	end
 	local key = text_metrics.metricKey(font, size)
 	for _, index in live do
-		index.mark(key)
+		index.mark(key, word)
 	end
 end)
 
@@ -317,10 +321,25 @@ function text_index.new(): Index
 	local byKey: { [string]: { [string]: boolean } } = {}
 	-- the conservative set: `textSize = "fit"` nodes, which join every push
 	local always: { [string]: boolean } = {}
-	-- keys marked since the last `take`. Keys, not paths: a delivery that learns
-	-- forty damage numbers at one size costs one entry here, and the paths are
-	-- expanded once, at the solve that spends them.
-	local marked: { [string]: boolean } = {}
+	--[[ ...AND THE WORDS EACH PATH DRAWS (Plan D, D6c), beside the string they were
+		derived from so the unchanged case is one hash read and one compare — the same
+		shape the (font,size) pair above already has, and the same reason: `record`
+		runs once per text node per solve and the answer almost never moves.
+
+		WHAT IT IS FOR. Over the cap, D3c re-measures every leaf filed under the
+		corrected key to find the ones that MOVED — 1,000 measures on `battle_hud`'s
+		facing labels, 1,464 on `war_room`'s. But a label can only move if it draws a
+		word whose width changed, and that is a set membership rather than a measure.
+		`nil` here means "this path's drawn string is not indexed" (a node with no
+		`text`), and a nil is always a candidate: the narrowing may never turn a label
+		the probe would have kept into one it drops. ]]
+	local pathText: { [string]: string } = {}
+	local pathWords: { [string]: { [string]: boolean } } = {}
+	--[[ keys marked since the last `take`, each with the WORDS that moved under it
+		(Plan D, D6c; keys alone before). A delivery that learns forty damage numbers
+		at one size still costs ONE key entry here — the words are what the probe
+		spends, and the paths are still expanded once, at the solve that spends them. ]]
+	local marked: { [string]: { [string]: boolean } } = {}
 	local anyMarked = false
 
 	local index: any = {}
@@ -336,12 +355,33 @@ function text_index.new(): Index
 		end
 	end
 
+	--[[ THE DRAWN-WORD SET, RE-DERIVED ONLY WHEN THE STRING MOVES (D6c). `record`'s
+		own guard returns on an unchanged (font,size), and a text change with the SAME
+		pair is exactly the case that guard lets through — see its header — so this is
+		asked on the unconditional side of it and compares the literal itself. ]]
+	local function noteWords(path: string, node: any)
+		local text = if node ~= nil then node.text else nil
+		if pathText[path] == text then
+			return
+		end
+		if type(text) ~= "string" then
+			pathText[path] = nil
+			pathWords[path] = nil
+			return
+		end
+		pathText[path] = text
+		pathWords[path] = text_metrics.wordsOf(text)
+	end
+
 	function index.record(path: string, font: string, size: number, alwaysDirty: boolean, node: any)
 		-- BEFORE the unchanged guard, and unconditionally: the (font,size) can stand
 		-- still across a rebuild while the literal underneath it is replaced, and the
 		-- probe re-measures THIS solve's node or nothing. A bare write, not a
 		-- compare-then-write — one hash store against one hash load plus a branch.
 		pathNode[path] = node
+		-- ...and so is the drawn-word set, for the same reason and on the same side of
+		-- the guard: the pair can stand still while the literal under it is replaced
+		noteWords(path, node)
 		if pathFont[path] == font and pathSize[path] == size and always[path] == (alwaysDirty or nil) then
 			return
 		end
@@ -364,10 +404,17 @@ function text_index.new(): Index
 		pathSize[path] = nil
 		pathNode[path] = nil
 		always[path] = nil
+		pathText[path] = nil
+		pathWords[path] = nil
 	end
 
-	function index.mark(key: string)
-		marked[key] = true
+	function index.mark(key: string, word: string)
+		local words = marked[key]
+		if words == nil then
+			words = {}
+			marked[key] = words
+		end
+		words[word] = true
 		anyMarked = true
 	end
 
@@ -406,11 +453,18 @@ function text_index.new(): Index
 				table.insert(entries, { path = path, class = "measure" })
 			end
 		end
-		for key in keys do
+		--[[ ...AND EACH PUSHED PATH REMEMBERS THE WORDS ITS OWN KEY MARKED (Plan D,
+			D6c). One path belongs to one key, so this is a write per push and not a
+			join; the probe below reads it to ask "does this label draw any of them"
+			before it re-measures anything. A path that reaches `entries` any OTHER way
+			(the `always` set) has no entry here, and a nil is a candidate. ]]
+		local markedWords: { [string]: { [string]: boolean } } = {}
+		for key, words in keys do
 			local bucket = byKey[key]
 			if bucket ~= nil then
 				for path in bucket do
 					push(path)
+					markedWords[path] = words
 				end
 			end
 		end
@@ -484,6 +538,7 @@ function text_index.new(): Index
 			The classes this task exists for are nowhere near the cap: 4 paths of 5,106
 			nodes on `setState` and 45 on `addItem-damage`, against a cap of 638. ]]
 		local probed = 0
+		local skipped = 0
 		if #entries > cap then
 			--[[ ...AND OVER THE CAP, THE LEAVES ARE ASKED BEFORE THE TREE IS (Plan D,
 				D3c). The header owns the whole argument — which leaves can be asked,
@@ -504,6 +559,42 @@ function text_index.new(): Index
 				local keep = true
 				local node = if always[path] then nil else pathNode[path]
 				local was = if node ~= nil then node.mTextW else nil
+				--[[ ...AND THE WORD ANSWERS IT WITHOUT A MEASURE, WHERE IT CAN (Plan D,
+					D6c). A label's width is the sum of its own words' widths, so a label
+					that draws NONE of the words this delivery corrected cannot have
+					moved — and that is a set membership against the marked words, not a
+					re-measure. It is asked HERE, inside the `was ~= nil` arm, and that
+					placement is the whole safety argument: every node the probe already
+					refused to answer for (a `fit` node, a wrapping or multi-word label,
+					a `compactPrefer` node, a path the index has never seen measured)
+					has no `mTextW` and is kept exactly as before. This narrowing only
+					ever replaces a MEASURE with a lookup on the population the measure
+					already served, and it never turns a kept leaf into a dropped one on
+					any other ground.
+
+					`words` is the marked set of THIS path's key (usually one word — a
+					delivery corrects one token at a time) and `drawn` is what the label
+					asks about, so the loop is over the smaller side by construction. A
+					path with no `drawn` set (no `text` on the node) or no `words` (it
+					joined through `always`) falls through to the measure. ]]
+				if was ~= nil then
+					local words = markedWords[path]
+					local drawn = pathWords[path]
+					if words ~= nil and drawn ~= nil then
+						local draws = false
+						for word in words do
+							if drawn[word] then
+								draws = true
+								break
+							end
+						end
+						if not draws then
+							was = nil
+							keep = false
+							skipped += 1
+						end
+					end
+				end
 				if was ~= nil then
 					probed += 1
 					-- UNBOUNDED, and with no `lineHeight` or `lineLimit`: neither can
@@ -519,12 +610,19 @@ function text_index.new(): Index
 			end
 			text_metrics.resumeCollect(held)
 			if #moved > cap then
-				return { full = true, contains = nil, measures = nil, n = 0, probed = probed }
+				return { full = true, contains = nil, measures = nil, n = 0, probed = probed, skipped = skipped }
 			end
 			entries = moved
 		end
 		local contains, measures = dirty_closure.of(entries)
-		return { full = false, contains = contains, measures = measures, n = #entries, probed = probed }
+		return {
+			full = false,
+			contains = contains,
+			measures = measures,
+			n = #entries,
+			probed = probed,
+			skipped = skipped,
+		}
 	end
 
 	--[[ THE THREE OUTCOMES, and every one of them is a SUPERSET of the push rather than
@@ -545,18 +643,18 @@ function text_index.new(): Index
 		measures: { [string]: boolean }?,
 		narrow: boolean,
 		cap: number
-	): ({ [string]: boolean }?, { [string]: boolean }?, boolean, number, number)
+	): ({ [string]: boolean }?, { [string]: boolean }?, boolean, number, number, number)
 		local plan = index.take(narrow, cap)
 		if plan == nil then
-			return contains, measures, false, 0, 0
+			return contains, measures, false, 0, 0, 0
 		end
 		if plan.full then
-			return nil, nil, false, 0, plan.probed
+			return nil, nil, false, 0, plan.probed, plan.skipped
 		end
 		local pushC = plan.contains :: { [string]: boolean }
 		local pushM = plan.measures :: { [string]: boolean }
 		if contains == nil then
-			return pushC, pushM, true, plan.n, plan.probed
+			return pushC, pushM, true, plan.n, plan.probed, plan.skipped
 		end
 		local intoM = (measures or contains) :: { [string]: boolean }
 		for path in pushM do
@@ -565,7 +663,7 @@ function text_index.new(): Index
 		for path in pushC do
 			(contains :: { [string]: boolean })[path] = true
 		end
-		return contains, measures, false, plan.n, plan.probed
+		return contains, measures, false, plan.n, plan.probed, plan.skipped
 	end
 
 	table.insert(live, index)

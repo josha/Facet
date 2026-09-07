@@ -291,15 +291,21 @@ end
 	one registration for the process, and its per-surface registry is what comes and
 	goes. Fired only when the value ACTUALLY moved, which is the same condition the
 	generation bump above has always had. ]]
-local wordListeners: { (font: string, fontSize: number) -> () } = {}
+local wordListeners: { (font: string, fontSize: number, word: string) -> () } = {}
 
-function text_metrics.onWordChanged(listener: (font: string, fontSize: number) -> ())
+function text_metrics.onWordChanged(listener: (font: string, fontSize: number, word: string) -> ())
 	table.insert(wordListeners, listener)
 end
 
-local function announceWord(font: string, fontSize: number)
+--[[ ...AND THE WORD TRAVELS WITH THE KEY (Plan D, D6c). A listener that knows only
+	the (font,size) has to treat every label filed under it as a candidate; the word
+	is what turns "one of these thousand labels may have moved" into "these three
+	draw it". It is the CANONICAL word — the same string the collector keyed and the
+	store remembers — so a listener can compare it against `text_metrics.wordsOf`
+	without deriving anything of its own. ]]
+local function announceWord(font: string, fontSize: number, word: string)
 	for _, listener in wordListeners do
-		listener(font, fontSize)
+		listener(font, fontSize, word)
 	end
 end
 
@@ -523,7 +529,7 @@ function text_metrics.setMeasured(font: string, fontSize: number, word: string, 
 	if bucket[word] ~= width then
 		bucket[word] = width
 		wordEpoch += 1
-		announceWord(font, fontSize)
+		announceWord(font, fontSize, word)
 	end
 	return true
 end
@@ -562,7 +568,7 @@ function text_metrics.markUnmeasurable(font: string, fontSize: number, word: str
 		bucket[word] = false
 		wordEpoch += 1
 		if wasExact then
-			announceWord(font, fontSize)
+			announceWord(font, fontSize, word)
 		end
 	end
 end
@@ -633,6 +639,38 @@ end
 function text_metrics.noteInFlight(key: string, delta: number)
 	local now = (inFlight[key] or 0) + delta
 	inFlight[key] = if now > 0 then now else nil
+end
+
+--[[ THE WORDS A LABEL WILL ASK ABOUT, AS A SET (Plan D, D6c). `render/text_index`
+	needs to answer one question per settled correction — "does this label draw the
+	word that moved" — and it must answer it with exactly the tokens `wrap` below
+	would request, or it would drop a label that did move.
+
+	IT IS A SECOND DERIVATION, AND THE SPEC IS WHAT MAKES THAT SAFE. `wrap`'s own
+	loop fuses tokenisation with width accumulation (a run of spaces is as wide as it
+	is long, the grid step is spent per JOINT), so factoring the split out of it would
+	rewrite the hot path for a caller that only wants the names. Instead
+	`tests/text_settle_probe.spec.luau` drives the COLLECTOR over a set of strings and
+	compares the request set it produces against this function's output, string for
+	string — the equivalence is asserted rather than assumed, and a change to either
+	splitter reddens it.
+
+	THE SPACE IS A WORD, and it is in the set exactly when `wrap` would consult one:
+	from the second word onward, because that is when a gap is drawn. A label with no
+	gap never asks about it, so putting it in unconditionally would keep every
+	one-word label on the candidate list of every space correction. ]]
+function text_metrics.wordsOf(text: string): { [string]: boolean }
+	local out: { [string]: boolean } = {}
+	local first = true
+	for word: string in string.gmatch(text, "%S+") do
+		if first then
+			first = false
+		else
+			out[SPACE] = true
+		end
+		out[word] = true
+	end
+	return out
 end
 
 -- how many surfaces are waiting on one word. The instrument the refcount's own

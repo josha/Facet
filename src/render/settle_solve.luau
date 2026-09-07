@@ -47,7 +47,11 @@ local settle_solve = {}
 	`stats` is written, not read back: `lastTextDirtyPaths` is how many paths the
 	push actually named — over the cap, the set the probe found MOVED — and
 	`lastTextProbeMeasures` how many leaves that probe re-measured to get there
-	(Plan D, D3c; `render/text_index` owns both). ]]
+	(Plan D, D3c; `render/text_index` owns both) — and `lastTextWordSkips` how many of
+	that same population the WORD INDEX answered for without a measure at all (D6c).
+	The last two SUM to the leaves the probe serves, which is the invariant that says
+	the narrowing answered the probe's own question more cheaply rather than a smaller
+	one. ]]
 function settle_solve.spend(
 	index: text_index.Index,
 	stats: any,
@@ -55,10 +59,11 @@ function settle_solve.spend(
 	measures: { [string]: boolean }?,
 	narrow: boolean
 ): ({ [string]: boolean }?, { [string]: boolean }?, boolean)
-	local nextContains, nextMeasures, owns, pushed, probed =
+	local nextContains, nextMeasures, owns, pushed, probed, skipped =
 		index.apply(contains, measures, narrow, math.max(64, stats.lastLayoutNodes // 8))
 	stats.lastTextDirtyPaths = pushed
 	stats.lastTextProbeMeasures = probed
+	stats.lastTextWordSkips = skipped
 	return nextContains, nextMeasures, owns
 end
 

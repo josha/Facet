@@ -103,6 +103,18 @@ function render_stats.new(): any
 			.spec.luau`'s sample block is what catches its deletion (the D3a lesson: an
 			assigned field's declaration reddens nothing on its own). ]]
 		lastTextProbeMeasures = 0,
+		--[[ ...and how many of that same population the WORD INDEX answered for without a
+			measure (Plan D, D6c). A label's width is the sum of its own words' widths, so a
+			label that draws none of the words a delivery corrected cannot have moved — a set
+			membership, not a re-measure. `lastTextProbeMeasures + lastTextWordSkips` is the
+			leaf population the probe serves, and the pair is what says the narrowing answered
+			the probe's question more cheaply rather than a smaller one: on `battle_hud`'s
+			wide key a word ten labels draw reads 10 / 991 where the pair used to read
+			1,001 / 0.
+
+			ASSIGNED, NOT INCREMENTED, like the two counters above it, so this declaration is
+			what makes the field exist before the first settle writes it. ]]
+		lastTextWordSkips = 0,
 		--[[ ...and how many of those calls a STACK's own measure branch made (Plan C,
 			T13). It is the denominator the container memo moves: a hit removes the call
 			entirely, so neither counter above can say where a saving came from — one

@@ -364,7 +364,7 @@ describe("the over-cap push probes its leaves (Plan D, D3c)", function()
 		expect(
 			`solves={st.solves - before} probes={st.lastTextProbeMeasures} paths={st.lastTextDirtyPaths} `
 				.. `measured={st.lastMeasured} arranged={st.lastArranged}`
-		).toBe("solves=1 probes=1001 paths=0 measured=0 arranged=0")
+		).toBe("solves=1 probes=0 paths=0 measured=0 arranged=0")
 	end)
 
 	it("...and a word TEN of them draw pushes exactly those ten, on the same tree", function()
@@ -387,7 +387,7 @@ describe("the over-cap push probes its leaves (Plan D, D3c)", function()
 		learn(arm, "t18dTenShare", widthOf("t18dTenShare", SIZE_ROW, FONT) :: number + 9)
 		local st = stats(arm)
 		expect(`solves={st.solves - before} probes={st.lastTextProbeMeasures} paths={st.lastTextDirtyPaths}`).toBe(
-			"solves=1 probes=1001 paths=10"
+			"solves=1 probes=10 paths=10"
 		)
 		--[[ ...AND THE MEASURES, which is the counter the defect was found in: ten
 			labels plus the ancestor chain the closure reaches, against the 3,003-node
@@ -416,9 +416,15 @@ describe("the over-cap push probes its leaves (Plan D, D3c)", function()
 			exactly as it was — `paths=0` is `full`'s own signature (the caller drops
 			its closure), and the solve is cold. The probe's cost is paid and refunded
 			nothing here, which is the honest worst case and the reason the ABBA has a
-			control arm. ]]
+			control arm.
+
+			AND D6c CANNOT HELP HERE EITHER, WHICH IS WHY THIS NUMBER BARELY MOVES: the
+			word index only refuses a label that does not DRAW the corrected word, and
+			on this tree every label draws it. 1,000 probes against the 1,001 of the
+			parent SHA — the one that goes is the PIN, which draws something else. It is
+			the file's worst case in both dimensions and it is stated as such. ]]
 		expect(`solves={st.solves - before} probes={st.lastTextProbeMeasures} paths={st.lastTextDirtyPaths}`).toBe(
-			"solves=1 probes=1001 paths=0"
+			"solves=1 probes=1000 paths=0"
 		)
 		--[[ AND IT REALLY IS THE WHOLE TREE: every layout node arranged, which is the
 			property `assertCold` uses and the one that survives the per-solve memo
@@ -457,7 +463,13 @@ describe("the over-cap push probes its leaves (Plan D, D3c)", function()
 			`paths` is 5 even though the correction moved nothing any of them draws.
 
 			The failure direction is the one this file takes everywhere: a leaf the
-			probe cannot answer for is a leaf that stays in the push. ]]
+			probe cannot answer for is a leaf that stays in the push.
+
+			SINCE D6c `probes` READS 0 HERE, AND THE REASON IS NOT THE PHRASES: the 996
+			single-word leaves the probe used to measure are now answered by the word
+			index (they draw none of the corrected token), and the five phrases were
+			never probed on either arm. `lastTextWordSkips` is what tells those two
+			zeroes apart, and the case below reads it. ]]
 		local arm = world({ rows = ROWS, words = distinct, pin = "pinPhrase", phrases = 5 })
 		settle(arm)
 		local quiet = quiesce(arm)
@@ -465,7 +477,7 @@ describe("the over-cap push probes its leaves (Plan D, D3c)", function()
 		learn(arm, "t18dNobodyDrawsThisThird", 39)
 		local st = stats(arm)
 		expect(`solves={st.solves - before} probes={st.lastTextProbeMeasures} paths={st.lastTextDirtyPaths}`).toBe(
-			"solves=1 probes=996 paths=5"
+			"solves=1 probes=0 paths=5"
 		)
 	end)
 
@@ -515,7 +527,7 @@ describe("the over-cap push probes its leaves (Plan D, D3c)", function()
 		local st = stats(arm)
 		expect(
 			`solves={st.solves - before} probes={st.lastTextProbeMeasures} batches={st.textMeasureBatches - batches}`
-		).toBe("solves=1 probes=1001 batches=0")
+		).toBe("solves=1 probes=0 batches=0")
 	end)
 
 	it("a label RELABELLED since the last push is probed as it is NOW, not as it was", function()
@@ -546,7 +558,7 @@ describe("the over-cap push probes its leaves (Plan D, D3c)", function()
 			end)
 		end
 		local st = stats(hot)
-		expect(`probes={st.lastTextProbeMeasures} paths={st.lastTextDirtyPaths}`).toBe("probes=201 paths=1")
+		expect(`probes={st.lastTextProbeMeasures} paths={st.lastTextDirtyPaths}`).toBe("probes=1 paths=1")
 		expect(painted(hot.adapter)).toBe(painted(cold.adapter))
 		expect(facts(hot.controller)).toBe(facts(cold.controller))
 	end)
@@ -569,7 +581,7 @@ describe("the over-cap push probes its leaves (Plan D, D3c)", function()
 		learn(arm, "t18dNobodyDrawsThisEither", 43)
 		local st = stats(arm)
 		expect(`solves={st.solves - before} probes={st.lastTextProbeMeasures} paths={st.lastTextDirtyPaths}`).toBe(
-			"solves=1 probes=1001 paths=1"
+			"solves=1 probes=0 paths=1"
 		)
 	end)
 end)
@@ -623,7 +635,7 @@ describe("the probe's oracle: identical channels, whatever the push did (D3c)", 
 		local st = stats(hot)
 		--[[ ...AND THE HOT ARM REALLY NARROWED, or the equality below is two whole-tree
 			solves agreeing. Eleven paths of 201 probed, on a 604-node tree. ]]
-		expect(`probes={st.lastTextProbeMeasures} paths={st.lastTextDirtyPaths}`).toBe("probes=201 paths=11")
+		expect(`probes={st.lastTextProbeMeasures} paths={st.lastTextDirtyPaths}`).toBe("probes=11 paths=11")
 		expect(st.lastMeasured < st.lastLayoutNodes).toBe(true)
 		expect(snapshot(hot) == snapshot(cold)).toBe(true)
 	end)
@@ -657,7 +669,7 @@ describe("the probe's oracle: identical channels, whatever the push did (D3c)", 
 
 		local st = stats(hot)
 		-- ONE leaf of 201 moved, and it is the one whose rect cannot
-		expect(`probes={st.lastTextProbeMeasures} paths={st.lastTextDirtyPaths}`).toBe("probes=201 paths=1")
+		expect(`probes={st.lastTextProbeMeasures} paths={st.lastTextDirtyPaths}`).toBe("probes=1 paths=1")
 		local now = facts(hot.controller):match("/Root/List/Pinned|[^\n]*") :: string
 		expect(`after: {if now:find("truncated=true") then "cut" else "not cut"}`).toBe("after: cut")
 		local rect = hot.adapter.liveNodes()["/Root/List/Pinned"].rect
@@ -691,8 +703,108 @@ describe("the probe's oracle: identical channels, whatever the push did (D3c)", 
 		local st = stats(hot)
 		expect(
 			`probes={st.lastTextProbeMeasures} paths={st.lastTextDirtyPaths} measured={st.lastMeasured} arranged={st.lastArranged}`
-		).toBe("probes=201 paths=0 measured=0 arranged=0")
+		).toBe("probes=10 paths=0 measured=0 arranged=0")
 		assertCold(cold, "cold arm")
 		expect(snapshot(hot) == snapshot(cold)).toBe(true)
+	end)
+end)
+
+--[[ ── THE WORD IS WHAT DECIDES, NOT THE MEASURE (Plan D, D6c) ──────────────────
+
+	D3c re-measured every single-word leaf filed under the corrected key to find the
+	ones that MOVED — 1,001 measures on this fixture, 1,000 live on `battle_hud`'s
+	facing labels and 1,464 on `war_room`'s power labels, at ~1 us each: the 1.6 / 2.3
+	ms that stayed on those `[S]` rows after D3c shipped. But a label's width is the
+	sum of its OWN words' widths, so a label that draws none of the words a delivery
+	corrected cannot have moved, and that is a set membership.
+
+	THE PAIR IS THE PROOF. `lastTextProbeMeasures` and `lastTextWordSkips` sum to the
+	population the probe serves, and `lastTextDirtyPaths` — what the narrowing BUYS —
+	is unchanged on every case in this file. Same question, same answer, one lookup
+	instead of one measure. ]]
+describe("T18-D6c: the word index answers the probe's question without measuring", function()
+	it("the counters SUM to the probe's own population, on the ten-share tree", function()
+		local arm = world({
+			rows = ROWS,
+			pin = "pinPairTen",
+			words = function(i: number): string
+				return if i <= 10 then "t18dPairTen" else distinct(i)
+			end,
+		})
+		settle(arm)
+		local quiet = quiesce(arm)
+		local before = quiet.solves
+		learn(arm, "t18dPairTen", widthOf("t18dPairTen", SIZE_ROW, FONT) :: number + 9)
+		local st = stats(arm)
+		--[[ 10 + 991 = 1,001, which is the number the parent SHA measured outright.
+			The ten are the labels that draw the corrected token; the 991 are answered
+			by the index; and the one that is neither is the PIN, which is filed under
+			its own key. ]]
+		expect(
+			`solves={st.solves - before} probes={st.lastTextProbeMeasures} skips={st.lastTextWordSkips} `
+				.. `paths={st.lastTextDirtyPaths}`
+		).toBe("solves=1 probes=10 skips=991 paths=10")
+	end)
+
+	it("...and a MULTI-WORD leaf is skipped by neither: it never had a width to compare", function()
+		--[[ THE TWO ZEROES, TOLD APART. The phrases are refused by the `mTextW` gate
+			above the word check — they have no cached unbounded width — so the word
+			index never sees them and `skips` counts only the single-word leaves it
+			actually answered for. If the check had been placed ABOVE that gate it would
+			have dropped a phrase from the push on the strength of a string it does not
+			draw, and this pin is what would catch it: `skips` would read 1,001. ]]
+		local arm = world({ rows = ROWS, words = distinct, pin = "pinPairPhrase", phrases = 5 })
+		settle(arm)
+		local quiet = quiesce(arm)
+		local before = quiet.solves
+		learn(arm, "t18dNobodyDrawsThisEither", 41)
+		local st = stats(arm)
+		expect(
+			`solves={st.solves - before} probes={st.lastTextProbeMeasures} skips={st.lastTextWordSkips} `
+				.. `paths={st.lastTextDirtyPaths}`
+		).toBe("solves=1 probes=0 skips=996 paths=5")
+	end)
+
+	it("THE SECOND DERIVATION IS CHECKED, NOT ASSUMED: `wordsOf` is the collector's own set", function()
+		--[[ `text_metrics.wordsOf` names the tokens a label will ask about, and `wrap`
+			derives the same tokens fused with its width accumulation. Two derivations of
+			one answer is the defect `metricKey`'s own header exists to prevent, so the
+			equivalence is asserted here: drive the COLLECTOR over each string and
+			compare the request set it produces, word for word.
+
+			THE STRINGS ARE THE EDGES, not a happy path: one word (no space asked for),
+			two (a space is), a RUN of spaces (still one space token), leading and
+			trailing whitespace (never a token of their own), and a tab-separated pair
+			(`%S+` splits on it, so the gap is a drawn space). ]]
+		local cases = {
+			"alone",
+			"two words",
+			"three  spaced   out",
+			"  leading and trailing  ",
+			"tab\tseparated",
+		}
+		local rows: { string } = {}
+		for _, text in cases do
+			text_metrics.resetMeasured()
+			text_metrics.beginCollect()
+			text_metrics.measure(text, FONT, SIZE_ROW, math.huge)
+			local asked: { string } = {}
+			for _, request in text_metrics.endCollect() do
+				table.insert(asked, if request.word == " " then "<sp>" else request.word)
+			end
+			table.sort(asked)
+			local named: { string } = {}
+			for word in text_metrics.wordsOf(text) do
+				table.insert(named, if word == " " then "<sp>" else word)
+			end
+			table.sort(named)
+			table.insert(rows, `{table.concat(asked, "|")} == {table.concat(named, "|")}`)
+			expect(`{text}: {table.concat(named, "|")}`).toBe(`{text}: {table.concat(asked, "|")}`)
+		end
+		-- ...and the sets are not empty, which is the trap a string compare invites
+		expect(`cases={#rows} empty={tostring(string.find(table.concat(rows, ";"), " == ;") ~= nil)}`).toBe(
+			"cases=5 empty=false"
+		)
+		text_metrics.resetMeasured()
 	end)
 end)
