@@ -113,7 +113,6 @@ local paths = require("../paths")
 local inherited = require("./inherited")
 local rectLib = require("../rect")
 local isPathPrefix = paths.isPrefix
-local BINDING_PROPS = prop_channels.BINDING_PROPS
 local STYLE_PROPS = prop_channels.STYLE_PROPS
 local emitsBinding = prop_channels.emitsBinding
 -- the two props whose VALUE the mount cascade may have resolved (see `./inherited`);
