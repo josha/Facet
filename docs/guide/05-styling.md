@@ -183,9 +183,10 @@ rule is in
 The same shape, for state rather than colour. `enabled = false` on a container
 disables everything under it, and the disabled look is themed: a control keeps
 the engine's own non-interactable rules, and every other node in the subtree
-wears a `facet-state-disabled` tag that each theme dims through its own
-`disabledContentOpacity`. It is a state, so it stays on a tag and a rule, never
-on a `tint`. What that blocks, and why nothing can re-enable from below, is in
+wears a `facet-state-disabled` tag, and every theme dims the **text** on it
+through its own `disabledContentOpacity`. It is a state, so it stays on a tag and
+a rule, never on a `tint` — and if a picture should dim with its panel, give that
+picture a `tint`. What that blocks, and why nothing can re-enable from below, is in
 [guide 7](07-input.md) and
 [api.md](../reference/api.md#inherited-properties-enabled-and-tint).
 
