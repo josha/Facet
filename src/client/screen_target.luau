@@ -152,7 +152,6 @@ local writeStageProp = screen_vocabulary.writeStageProp
 local markStageDisposed = screen_vocabulary.markStageDisposed
 local markForeignDisposed = screen_vocabulary.markForeignDisposed
 
-local ZZ_NO_PATH2D = true -- ZZ-EXPERIMENT
 local screen_target = {}
 
 export type Opts = {
@@ -1333,7 +1332,7 @@ function screen_target.new(opts: Opts?)
 			instance.ClipsDescendants = true
 			handle.foreignBox = true
 		end
-		if class == "Path" and not ZZ_NO_PATH2D then
+		if class == "Path" then
 			-- stroked-path leaf: engine Path2D strokes inside a
 			-- transparent holder; color comes from the style role hint
 			local path2d = Instance.new("Path2D")
