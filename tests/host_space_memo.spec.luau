@@ -195,3 +195,181 @@ describe("RED-TEAM C-10: the coordinate-space verdict is decided once, on every 
 		expect(`gap={plain.y - faded.y} fadedX={faded.x} plainX={plain.x}`).toBe("gap=31 fadedX=0 plainX=0")
 	end)
 end)
+
+--[[ ── THE OTHER ORDER: A SPACE THAT LATER GAINS A PAINT PROP (RED-TEAM F1) ──────
+
+	The block above closes `number -> nil`: a container that was a `CanvasGroup` on its
+	first ask does not become a coordinate space on its second. THIS block closes
+	`nil -> number`, which is the direction with the live producer and the worse
+	consequence.
+
+	WHY IT WAS OPEN. C-10 made every path through `createOptsFor` DECIDE the memo, but
+	`layout_node.hostSpaceOf` still read the branch's RETURN VALUE. A row memoised
+	`true` by the D6a trigger that later gains an `opacity`/`scale`/`rotation` takes an
+	early return carrying `{ canvasGroup = true }` or `{ instanceHost = true }` — a
+	correct answer to "which engine object", and silent about the coordinate space. So
+	the LAYOUT node was rebuilt with `hostSpace = nil` while the mounted node's memo,
+	`renderer.livePaths`' `spaceHosts` and the adapter's create-time host entry all
+	still said `true`: the solver stored the row's whole subtree ABSOLUTELY and
+	`rect_reads` composed the host origin onto it anyway.
+
+	AND THE PRODUCER IS PUBLIC, which is why this is a fix and not a note. `opacity` is
+	a documented prop on `Box` and `ZStack` whose own doc names `UI.ZStack { opacity =
+	0.4, … }` as the common spelling; `scale`/`rotation` are offered on every rendered
+	class ("a press dip, a motion pop"); `ZStack` is a `ROW_HOST`; and `mount.luau`
+	writes `node.props[propName]` on every signal fire. A press animation on a hosted
+	list row is the shipped shape.
+
+	THE ORACLE IS THAT NONE OF THE THREE PROPS IS ALLOWED TO MOVE A BOX. All three are
+	paint-only by their own schema doc — `scale` "changes nothing the solver computed" —
+	so the whole census, read through the two public readers, must be BYTE-EQUAL to the
+	same census before the write and to a control surface that never took the prop. At
+	`4c56f1c9` the faded row's `Bar` reads y=124 through `rectOf` against the control's
+	62: one 62px host origin, counted twice.
+
+	AND THE STORED RECT IS THE LAYOUT NODE'S OWN ANSWER, read directly. `storedRect` is
+	what the renderer handed the adapter — host-RELATIVE when the layout node called the
+	row a space and absolute when it did not — so `stored` beside `hostSpaceAt` is
+	exactly "the layout node and the mounted node agree", as two numbers rather than as
+	a claim. ]]
+
+--[[ the same 40-row shape as `makeWorld`, with the prop starting ABSENT so the first
+	ask decides `true` on the D6a trigger, and arriving later. One builder for all three
+	props because the divergence is a property of the EARLY RETURN, not of which prop
+	took it: `opacity`/`canvasGroup` return `{ canvasGroup = true }` and
+	`scale`/`rotation` return `{ instanceHost = true }`, and neither carries the key. ]]
+local function makeLateWorld(prop: string): any
+	local w = worldLib.new({
+		viewport = { x = 0, y = 0, w = 600, h = 500 },
+		overflowGuardOff = "a 40-row list of 30px rows is taller than a 500px viewport on purpose: this "
+			.. "fixture measures the coordinate-space memo, not containment",
+	})
+	local core = w.core
+	local late = core:signal(nil)
+	local items = {}
+	for i = 1, ROWS do
+		items[i] = { id = `k{i}`, n = i, fade = i == FADE_ROW }
+	end
+	local rows = core:signal(items)
+	w.present(UI.Screen({
+		id = "S",
+		children = {
+			UI.VStack({
+				id = "List",
+				padding = 0,
+				gap = 1,
+				children = {
+					UI.ForEach({
+						id = "Rows",
+						items = rows,
+						key = function(item: any)
+							return item.id
+						end,
+						row = function(item: any)
+							local p: any = {
+								id = "Row",
+								padding = 0,
+								height = px(30),
+								children = {
+									UI.Text({ id = "Name", textSize = 12, text = `row{item.n}` }),
+									UI.Box({ id = "Bar", width = px(40), height = px(6) }),
+								},
+							}
+							if item.fade then
+								p[prop] = late
+							end
+							return UI.ZStack(p)
+						end,
+					}),
+				},
+			}),
+		},
+	}))
+	w.late = late
+	return w
+end
+
+--[[ EVERY NODE, THROUGH BOTH PUBLIC READERS. A per-row assertion would have named the
+	row this fixture already suspects; the divergence is a whole-subtree one and the
+	census is what says no OTHER node moved either. Sorted so the string is a function
+	of the set and not of the adapter's hash order. ]]
+local function census(w: any): string
+	local paths = w.adapter.paths()
+	table.sort(paths)
+	local out: { string } = {}
+	for _, path in paths do
+		local r = w.controller.rectOf(path)
+		local s = w.controller.screenRectOf(path)
+		if r == nil or s == nil then
+			table.insert(out, `{path} unread`)
+		else
+			table.insert(out, `{path} {r.x},{r.y},{r.w},{r.h} {s.x},{s.y},{s.w},{s.h}`)
+		end
+	end
+	return table.concat(out, "\n")
+end
+
+-- the value each prop takes when it arrives. Each is the identity for its own term —
+-- an invisible fade, an unscaled scale, a zero rotation — so a box that moves cannot be
+-- excused as the prop doing its job.
+local LATE_VALUE: { [string]: number } = { opacity = 0.5, scale = 1, rotation = 0 }
+
+describe("RED-TEAM F1: a row that is already a coordinate space stays one", function()
+	for _, prop in { "opacity", "scale", "rotation" } do
+		it(`a late \`{prop}\` moves no box, and the stored rect stays host-relative`, function()
+			local w = makeLateWorld(prop)
+			--[[ THE PRECONDITION, stated rather than assumed: the row IS a space before
+				the write. Without it the case would pass on a fixture where the trigger
+				never fired and would say nothing at all. ]]
+			expect(`space={tostring(w.adapter.hostSpaceAt(FADE_ROW_PATH))}`).toBe("space=true")
+			local beforeCensus = census(w)
+			local before = instance_boundary.decisions()
+
+			--[[ THE WRITE, AND THEN A WHOLE-TREE REBUILD — the half the drive needs, for
+				the reason the block above states: all three props are PAINT-classed, so
+				moving one does not rebuild a layout node and `hostSpaceOf` is never
+				re-asked. The viewport goes out and comes BACK so the closing census is
+				taken at the fixture's own viewport and is comparable to the opening one
+				byte for byte. ]]
+			w.late:set(LATE_VALUE[prop])
+			w.env:set("viewportRect", { x = 0, y = 0, w = 601, h = 500 })
+			w.pres.refresh()
+			w.env:set("viewportRect", { x = 0, y = 0, w = 600, h = 500 })
+			w.pres.refresh()
+
+			--[[ ...AND THE MEMO NEVER RE-OPENED. Read HERE and not at the end of the case:
+				the control surface below is a second 40-row tree and decides 122 containers
+				of its own, so a delta taken after it would be measuring the fixture. ]]
+			expect(`decided={instance_boundary.decisions() - before}`).toBe("decided=0")
+
+			--[[ ARM 1: THE PRE-WRITE FRAME. A paint prop that moved a box is a defect
+				whatever else is true, and this arm needs no second surface to say so. ]]
+			expect(`census moved={tostring(census(w) ~= beforeCensus)}`).toBe("census moved=false")
+
+			--[[ ARM 2: A CONTROL SURFACE THAT NEVER TOOK THE PROP, driven through the
+				identical viewport sequence. Arm 1 alone could be satisfied by a solve that
+				answered nothing at all; this one says the tree really was rebuilt and still
+				landed where an unfaded tree lands. ]]
+			local control = makeLateWorld(prop)
+			control.env:set("viewportRect", { x = 0, y = 0, w = 601, h = 500 })
+			control.pres.refresh()
+			control.env:set("viewportRect", { x = 0, y = 0, w = 600, h = 500 })
+			control.pres.refresh()
+			expect(`vs control={tostring(census(w) ~= census(control))}`).toBe("vs control=false")
+
+			--[[ ...AND THE TWO ANSWERS, AS NUMBERS. `hostSpaceAt` is the mounted node's
+				memo as the adapter latched it at create; `storedRect` is what the LAYOUT
+				node decided, because the renderer hands over a host-relative rect exactly
+				when the layout node called the row a space. Equal stored y on the faded row
+				and its plain neighbour is the two callers agreeing — the `Bar` sits at the
+				top of its own 30px row, so 0 is the host-relative answer and 62 is the
+				absolute one. At `4c56f1c9` the faded row reads `stored=62` against its
+				neighbour's 0, on all three props. ]]
+			local fadedStored = w.adapter.node(`{FADE_ROW_PATH}/Bar`).storedRect
+			local plainStored = w.adapter.node(`{PLAIN_ROW_PATH}/Bar`).storedRect
+			expect(
+				`space={tostring(w.adapter.hostSpaceAt(FADE_ROW_PATH))} stored={fadedStored.y} plain={plainStored.y}`
+			).toBe("space=true stored=0 plain=0")
+		end)
+	end
+end)

@@ -201,7 +201,22 @@ function instance_boundary.createOptsFor(node: any, opts: any?): CreateOpts?
 		end
 		return nil
 	end
+	--[[ ...AND SO DOES THE FEATURE SWITCH (RED-TEAM F2). This was the one return that
+		still left the field absent, and the exception was stated nowhere: under
+		`translateHosts = false` — the oracle arm every host case in
+		`tests/translate_host.spec.luau` compares against — `decisions()` climbed on
+		EVERY ask for EVERY container forever, so the "on a settled tree it stops
+		moving" property the counter is read for was false in exactly the arm a
+		divergence would be diagnosed from.
+
+		SAFE BECAUSE THE FLAG IS FIXED AT ATTACH AND BOTH CALLERS READ THE SAME TABLE:
+		`renderer.ensureTree`'s local `opts` and `render/layout_node`'s
+		`store.attachOpts` are the one `RendererAttachOpts` the surface was attached
+		with, so `false` here can never be contradicted by the other asker. ]]
 	if opts ~= nil and opts.translateHosts == false then
+		if node.hostSpace == nil then
+			node.hostSpace = false
+		end
 		return nil
 	end
 	--[[ ...AND THE ANSWER IS MEMOISED ON THE MOUNTED NODE, because TWO callers ask
@@ -244,10 +259,13 @@ function instance_boundary.createOptsFor(node: any, opts: any?): CreateOpts?
 			or (node.inStack == true and ROW_HOST[node.class] == true and node.children ~= nil and #node.children >= 2)
 		node.hostSpace = decided
 	end
-	if decided then
-		return { instanceHost = true, hostSpace = true }
-	end
-	return nil
+	--[[ ONE RETURN, so that "every return decides" is an EQUALITY a source scan can
+		check rather than a claim with a remembered exception (RED-TEAM F2, the
+		`measure`-returns-through-`record` idiom from `tests/measure_serve.spec.luau`).
+		Two returns here would leave the memo block's single write standing against two
+		exits, and the pin in `tests/translate_host.spec.luau` would have to carry an
+		off-by-one nobody could tell from a missing decision. ]]
+	return if decided then { instanceHost = true, hostSpace = true } else nil
 end
 
 --[[ THE RECYCLE-BUCKET DISCRIMINATOR, and it names the ENGINE OBJECT rather than

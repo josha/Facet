@@ -1084,11 +1084,22 @@ describe("the layout-node store: the audit that licenses it", function()
 			because it is not read this way — that is the whole finding, and the next
 			case is where it is caught.
 
-			Plan C's C1 added no field HERE: the coordinate-space flag is asked of
+			Plan C's C1 asked for no field HERE: the coordinate-space flag was asked of
 			`instance_boundary.createOptsFor`, which is enumerated by the next case as a
 			call that hands a mounted node out of this file, and whose own reads are
-			pinned two cases below. ]]
-		expect(out).toEqual({ "children", "class", "path", "props" })
+			pinned two cases below.
+
+			`hostSpace` JOINED THE SET ON 2026-09-07 (RED-TEAM F1), and it is the SAFEST
+			member of it rather than a relaxation. `hostSpaceOf` used to read the flag off
+			`createOptsFor`'s RETURN, which answers "which engine object" and goes silent
+			about the coordinate space on every early return — so a row that gained an
+			`opacity`/`scale`/`rotation` after it was already a space rebuilt as a non-space
+			and the solver stored its whole subtree absolutely under a parent the adapter
+			still called an origin. It now reads the MEMO the same call decides, and that
+			memo is first-answer-wins for the node's life: unlike `props` and `children`,
+			which change and push a dirty entry, this one CANNOT change at all, which is
+			exactly the property the reuse gate needs of a field it does not watch. ]]
+		expect(out).toEqual({ "children", "class", "hostSpace", "path", "props" })
 	end)
 
 	it("every call that hands a mounted node OUT of the file is enumerated, with its fields", function()

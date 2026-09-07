@@ -1119,27 +1119,125 @@ describe("translate host: the reader audit, one pin per reader that had to chang
 		end
 		expect(`renderer writes={writes(rendererSrc)}`).toBe("renderer writes=0")
 		expect(`layout_node writes={writes(layoutNodeSrc)}`).toBe("layout_node writes=0")
-		--[[ FOUR WRITE SITES SINCE 2026-09-07 (RED-TEAM C-10), AND STILL ONE WRITER.
-			`createOptsFor`'s early returns — `opacity`/`canvasGroup`, `scale`/`rotation`,
-			`ScrollView`/`clipChildren` — used to return ABOVE the memo block without
-			answering the field, so a container whose reactive `opacity` went number ->
-			nil was a non-host on its first ask and a candidate on its second: the exact
-			shape this case is about, arriving through a different door. Each of them now
-			decides the field, all four sites are inside this one function, and the count
-			is pinned so a FIFTH cannot appear in another module unnoticed. ]]
-		expect(`boundary writes={writes(boundarySrc)}`).toBe("boundary writes=4")
+		--[[ FIVE WRITE SITES SINCE 2026-09-07 (RED-TEAM C-10, then F2), AND STILL ONE
+			WRITER. `createOptsFor`'s early returns — `opacity`/`canvasGroup`,
+			`scale`/`rotation`, `ScrollView`/`clipChildren`, and the `translateHosts =
+			false` feature switch — used to return ABOVE the memo block without answering
+			the field, so a container whose reactive `opacity` went number -> nil was a
+			non-host on its first ask and a candidate on its second: the exact shape this
+			case is about, arriving through a different door. Each of them now decides the
+			field, all five sites are inside this one function, and the count is pinned so
+			a SIXTH cannot appear in another module unnoticed. ]]
+		expect(`boundary writes={writes(boundarySrc)}`).toBe("boundary writes=5")
 		--[[ ...AND EVERY ONE OF THEM IS FIRST-ANSWER-WINS, which is the property the
-			count alone cannot carry. Three are the literal `if node.hostSpace == nil`
-			shape; the fourth is the memo block's `decided == nil`, the same test through
+			count alone cannot carry. Four are the literal `if node.hostSpace == nil`
+			shape; the fifth is the memo block's `decided == nil`, the same test through
 			a local it has already read. A write without either guard would be a stamp,
 			which is what `renderer.ensureTree` used to do. ]]
 		local guarded = 0
 		for _ in string.gmatch(boundarySrc, "if node%.hostSpace == nil then%s*\n%s*node%.hostSpace = ") do
 			guarded += 1
 		end
-		expect(`guarded={guarded} + the memo block's own`).toBe("guarded=3 + the memo block's own")
+		expect(`guarded={guarded} + the memo block's own`).toBe("guarded=4 + the memo block's own")
 		-- NEGATIVE CONTROL: the scan really does see a write
 		expect(`control={writes("\n\tnode.hostSpace = true\n")}`).toBe("control=1")
+	end)
+
+	--[[ ...AND THE PROPERTY THE COUNT CANNOT CARRY: EVERY RETURN DECIDES (RED-TEAM F2).
+
+		The write-site count above is the same class of check C-4 had just fixed for the
+		closed write-set audit — it counts WRITES, so a return that decides nothing is
+		invisible to it, which is precisely the defect the writes exist to prevent. And
+		one was: `if opts ~= nil and opts.translateHosts == false then return nil end`
+		left the field absent on every ask, so `decisions()` climbed forever in the arm
+		this whole file compares against, and "every path through this function decides"
+		was false while the commit that claimed it was green.
+
+		THE SCAN IS AN EQUALITY WITH NO REMEMBERED EXCEPTION, which is the
+		`measure`-returns-through-`record` idiom from `tests/measure_serve.spec.luau`. It
+		reads the region of the function AFTER `decisions += 1`, and that boundary is
+		structural rather than an excuse: the counter's own contract is that it counts
+		asks which found the field undecided, so the `props == nil` return above it is
+		not an ask at all. Below it, `returns == decisions` — and it is an equality only
+		because the memo block ends in ONE return; two would have needed an off-by-one
+		nobody could tell from a missing decision. ]]
+	it("every RETURN of `createOptsFor` past the counter decides the field, by source scan", function()
+		local boundarySrc = fs.readFile("src/render/instance_boundary.luau")
+		--[[ comments first, both forms: this function's block comments are full of the
+			words `return` and `node.hostSpace =` and every one of them would be counted. ]]
+		local stripped = string.gsub("\n" .. boundarySrc, "%-%-%[%[.-%]%]", " ")
+		stripped = string.gsub(stripped, "\n[ \t]*%-%-[^\n]*", "\n")
+		local body = string.match(stripped, "\nfunction instance_boundary%.createOptsFor.-\nend\n")
+		assert(body ~= nil, "could not isolate `createOptsFor`'s body")
+		local counted = string.match(body :: string, "decisions %+= 1(.*)")
+		assert(counted ~= nil, "could not find the undecided-arrival counter")
+		local function scan(source: string, pattern: string): number
+			local n = 0
+			for _ in string.gmatch(source, pattern) do
+				n += 1
+			end
+			return n
+		end
+		expect(
+			`returns={scan(counted :: string, "%f[%w]return%f[%W]")} decides={scan(
+				counted :: string,
+				"node%.hostSpace%s*=[^=]"
+			)}`
+		).toBe("returns=5 decides=5")
+		--[[ NEGATIVE CONTROL: the scan really reads both halves, and a fabricated
+			non-deciding return really does break the equality it is asked to hold. ]]
+		local fake = "\nfunction instance_boundary.createOptsFor(node)\n\tdecisions += 1\n"
+			.. "\tif a then\n\t\tnode.hostSpace = false\n\t\treturn nil\n\tend\n\treturn nil\nend\n"
+		local fakeBody = string.match(fake, "decisions %+= 1(.*)") :: string
+		expect(`returns={scan(fakeBody, "%f[%w]return%f[%W]")} decides={scan(fakeBody, "node%.hostSpace%s*=[^=]")}`).toBe(
+			"returns=2 decides=1"
+		)
+	end)
+
+	--[[ ...AND THE ARM THE SCAN IS ABOUT, DRIVEN (RED-TEAM F2). `translateHosts = false`
+		is the oracle arm every host case in this file compares against, so a counter that
+		is meaningless there is a counter that cannot be read where a divergence would be
+		diagnosed. Before the fix this climbed by one per container per rebuild, forever;
+		the field is now decided `false` on the first ask and the second one reads it back.
+
+		SAFE BECAUSE THE FLAG IS FIXED AT ATTACH: `renderer.ensureTree`'s `opts` and
+		`render/layout_node`'s `store.attachOpts` are the one `RendererAttachOpts` the
+		surface was attached with, so `false` here can never be contradicted by the other
+		asker. ]]
+	it("under `translateHosts = false` the verdict is decided ONCE, not re-asked forever", function()
+		local boundary = require("../src/render/instance_boundary")
+		local e = world(function(_core: any)
+			return UI.Screen({
+				id = "S",
+				children = {
+					UI.VStack({
+						id = "List",
+						children = {
+							UI.ZStack({
+								id = "Row",
+								children = { UI.Box({ id = "A" }), UI.Box({ id = "B" }) },
+							}),
+						},
+					}),
+				},
+			})
+		end, { x = 0, y = 0, w = 400, h = 300 }, { translateHosts = false, layoutNodeReuse = false })
+		--[[ `layoutNodeReuse = false` IS THE DRIVE, and it is a shipped switch rather than
+			a contrivance: with the store's reuse arm on, a viewport change re-solves
+			without rebuilding a clean node, so `hostSpaceOf` is never re-asked and a
+			counter case would pass by asking nothing at all — measured, at `decided=0`
+			with the fix REVERTED. Off, every refresh builds every node and therefore asks
+			every container, which is the repetition the memo exists to absorb. ]]
+		local before = boundary.decisions()
+		e.env:set("viewportRect", { x = 0, y = 0, w = 401, h = 300 })
+		e.refresh()
+		e.env:set("viewportRect", { x = 0, y = 0, w = 402, h = 300 })
+		e.refresh()
+		expect(`decided={boundary.decisions() - before}`).toBe("decided=0")
+		-- ...and NOT vacuous: the arm really is the no-host one, so the row is not a
+		-- coordinate space and its children's rects are stored absolutely
+		expect(`host={tostring(e.adapter.hostOf("/S/List/Row/A") ~= nil)}`).toBe("host=false")
+		e.dispose()
 	end)
 
 	--[[ A COMPOSITION THAT LEAVES GIVES THE SHORTCUT BACK (fix round 1, minor 5).

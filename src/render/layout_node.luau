@@ -301,10 +301,39 @@ local function applyCircleShape(layoutNode: any, props: any, metrics: any)
 	end
 end
 
--- the coordinate-space decision, through the ONE predicate that owns it
+--[[ the coordinate-space decision, through the ONE predicate that owns it — AND IT
+	IS THE MEMO THAT ANSWERS, NEVER THE BRANCH (RED-TEAM F1).
+
+	`createOptsFor` is asked for two different things at once: WHICH ENGINE OBJECT to
+	create (its return value, a create-time fact the adapter spends once) and WHETHER
+	THIS NODE IS A COORDINATE SPACE (`node.hostSpace`, a fact fixed for the node's
+	life). Reading the space off the RETURN tied the second to the first, and the two
+	come apart the moment a presentation prop arrives LATE: a row memoised `true` by
+	the D6a trigger that later gains an `opacity`/`canvasGroup`/`scale`/`rotation`
+	takes an early return carrying `{ canvasGroup = true }` or `{ instanceHost = true }`
+	— correct answers to the FIRST question, and silent on the second.
+
+	The consequence is a live divergence and not a tidiness point, because the two
+	readers read different fields: `renderer.livePaths` reads the mounted node's memo
+	(`geometry.spaceHosts[node.path] = node.hostSpace`) and the adapter's host entry is
+	LATCHED at create, while `layout/solver` and `layout/translate_arm` read the layout
+	node this function fills in. Answer `nil` here and the solver stores the row's whole
+	subtree ABSOLUTELY under a parent both the adapter and the renderer still call a
+	coordinate space — so `rect_reads` composes the host origin onto an absolute rect
+	and every child of that row reports, and paints, one host origin too far. That is
+	the exact failure the `hostSpace` field's own comment below names.
+
+	MEASURED, not reasoned: `tests/host_space_memo.spec.luau`'s reverse-order cases
+	drive `nil -> 0.5` on all three props and read `/Row/Bar` at y=124 where its
+	unfaded control reads y=62 — one 62px host origin, twice.
+
+	So this asks the predicate (which is what MAKES the decision, first-answer-wins)
+	and then reads the decision. Every path through `createOptsFor` writes the field,
+	which is what makes the read total; `translateHosts = false` and a props-less node
+	leave it `false`/absent and behave exactly as they did. ]]
 local function hostSpaceOf(node: any, attachOpts: any): boolean?
-	local created = instance_boundary.createOptsFor(node, attachOpts)
-	return if created ~= nil and created.hostSpace == true then true else nil
+	instance_boundary.createOptsFor(node, attachOpts)
+	return if node.hostSpace == true then true else nil
 end
 
 --[[ ── THE PER-INDEX CHILD PATCH (Plan D, D2a — ruling A-9, deferred in Plan C for
