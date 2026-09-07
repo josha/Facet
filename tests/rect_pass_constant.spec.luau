@@ -30,7 +30,16 @@
 	this file the tree had NO case that drove the write authority through this module
 	at all: `tests/foreign.spec` pins `assertWrite` for `Foreign.Parent`, and the
 	`authorityFor` pins elsewhere read the manifest without ever entering `rect_pass`.
- ]]
+
+	...AND THE THIRD CASE IS THE OTHER PER-ROW CONSTANT (D4b-2). `lastBarInsets[path]
+	= entry.barInset` wrote into a hash table once per applied rect for a field only an
+	OVERFLOWING SCROLL HOST ever sets — zero of `war_room_inventory`'s 7,335 rows. The
+	write is counted through a PROXY table rather than inferred, because the value
+	being written is `nil`: an unconditional write of nil and no write at all leave the
+	same empty map behind, so only the write itself can be observed. Both directions of
+	"something to clear" are driven — a gutter that appears and one that goes away —
+	because a guard on `entry.barInset ~= nil` alone would leave last frame's gutter
+	standing forever. ]]
 
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
@@ -58,7 +67,20 @@ local function newHarness(nodes: { string })
 	end
 	local written: { string } = {}
 	local lastRects: { [string]: any } = {}
-	local lastBarInsets: { [string]: any } = {}
+	--[[ A COUNTING PROXY, not a plain table: `applyOne` writes `entry.barInset`,
+		which is `nil` on every node that is not an overflowing scroll host, and an
+		unconditional write of nil leaves exactly the same empty map behind as no write
+		at all. `__newindex` fires on every write because nothing is ever `rawset` into
+		the proxy itself, so the shadow holds the values and the proxy holds none. ]]
+	local barShadow: { [string]: any } = {}
+	local barWrites = 0
+	local lastBarInsets: any = setmetatable({}, {
+		__index = barShadow,
+		__newindex = function(_, k: string, v: any)
+			barWrites += 1
+			barShadow[k] = v
+		end,
+	})
 	local stats = { rectWrites = 0, lastCommitVisits = 0, lastCommitVisitsByWalk = {} }
 	local ctx = {
 		adapter = {
@@ -100,7 +122,10 @@ local function newHarness(nodes: { string })
 		rects = rects,
 		written = written,
 		lastRects = lastRects,
-		lastBarInsets = lastBarInsets,
+		lastBarInsets = barShadow,
+		barWrites = function(): number
+			return barWrites
+		end,
 		stats = stats,
 	}
 end
@@ -145,5 +170,24 @@ describe("rect pass: the per-row constant (Plan D, D4)", function()
 		-- read off the run: four rects land (the root and its three children) and the
 		-- claim is asked once. Before D4 this read `lookups=4`.
 		expect(`lookups={calls} written={#h.written}`).toBe("lookups=1 written=4")
+	end)
+	it("A GUTTER NOBODY SPENT IS NOT WRITTEN, and one that goes away still is", function()
+		local h = newHarness({ "/S/a", "/S/b" })
+		h.pass.apply(h.root, h.rects, nil)
+		-- three rects land and NOT ONE of them is an overflowing scroll host, so the
+		-- map the unconditional write probed three times a commit is never touched.
+		-- Before D4 this read `barWrites=3`.
+		expect(`barWrites={h.barWrites()} written={#h.written}`).toBe("barWrites=0 written=3")
+
+		-- ...a gutter that APPEARS is written
+		h.rects["/S/a"] = { rect = { x = 0, y = 11, w = 100, h = 10 }, barInset = 12 }
+		h.pass.apply(h.root, h.rects, nil)
+		expect(`a={tostring(h.lastBarInsets["/S/a"])} barWrites={h.barWrites()}`).toBe("a=12 barWrites=1")
+
+		-- ...and one that GOES AWAY is cleared, which is the half a guard on
+		-- `entry.barInset ~= nil` alone would lose
+		h.rects["/S/a"] = { rect = { x = 0, y = 12, w = 100, h = 10 } }
+		h.pass.apply(h.root, h.rects, nil)
+		expect(`a={tostring(h.lastBarInsets["/S/a"])} barWrites={h.barWrites()}`).toBe("a=nil barWrites=2")
 	end)
 end)

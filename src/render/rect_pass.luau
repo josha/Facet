@@ -91,11 +91,21 @@ function rect_pass.new(ctx: any)
 
 	local function applyOne(path: string, entry: any)
 		local handle = handles[path]
-		-- the bar gutter a scroll host spent this solve, carried on the same walk
-		-- the rects are (solver: `out[id].barInset`). Nil on every node that is not
-		-- an overflowing scroll host, which is nearly all of them, so this is one
-		-- nil assignment per node rather than a second walk.
-		lastBarInsets[path] = entry.barInset
+		--[[ THE BAR GUTTER A SCROLL HOST SPENT THIS SOLVE, carried on the same walk the
+			rects are (solver: `out[id].barInset`) — and WRITTEN ONLY WHEN THERE IS
+			SOMETHING TO WRITE OR SOMETHING TO CLEAR (Plan D, D4b). It is nil on every
+			node that is not an OVERFLOWING scroll host, which on the arena's
+			`war_room_inventory` is all 7,335 of them, so the unconditional form spent a
+			hash write per applied rect to store nothing. The guard's second half is the
+			half that keeps it exact: a gutter that GOES AWAY has `entry.barInset == nil`
+			and a live `lastBarInsets[path]`, and dropping that term would leave last
+			frame's gutter standing forever. Measured with the arena's fake target split
+			out of the span (FacetBench §D4a): Facet's own share of `rectPass.apply` on
+			`reorder` 2.39 -> 2.29 ms and on `removeItem-items` 0.95 -> 0.89, with every
+			write counter identical on every arm. ]]
+		if entry.barInset ~= nil or lastBarInsets[path] ~= nil then
+			lastBarInsets[path] = entry.barInset
+		end
 		if handle ~= nil and not rectsEqual(lastRects[path], entry.rect) then
 			adapter.setRect(handle, entry.rect)
 			lastRects[path] = entry.rect
