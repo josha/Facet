@@ -102,6 +102,29 @@ local function applyInherited(node: any, inherited: Inherit?): (Inherit?, boolea
 	local props = node.props
 	local ownEnabled = if props ~= nil then props.enabled else nil
 	local ownTint = if props ~= nil then props.tint else nil
+	--[[ THE OFF PATH, AND IT IS MOST OF EVERY MOUNT (RED-TEAM I2). A screen that
+		declares neither channel — which is every screen shipped before this feature
+		and most screens after it — has nothing above, nothing here, and nothing
+		resolved on a previous pass, so there is no answer to compute and no field to
+		write. Measured on the reviewer's 3,281-node tree, best of twelve: without
+		this the body's four field writes and four returns cost 1.73-1.79 ms against
+		a 1.13-1.20 ms baseline, ~50% of a mount, for a feature the tree does not use.
+
+		`node.inheritOut ~= nil` IS the "nothing resolved before" test on its own —
+		a disabled node always hands a record down, and an inherited tint always came
+		from one — but the two derived fields are read as well, so the early-out is
+		provably equivalent to the body rather than equivalent-by-invariant. Three
+		nil reads is a price worth paying to keep that argument short. ]]
+	if
+		inherited == nil
+		and ownTint == nil
+		and ownEnabled ~= false
+		and node.inheritOut == nil
+		and node.disabled == nil
+		and node.inheritedTint == nil
+	then
+		return nil, false, false, true
+	end
 	local inTint = if inherited ~= nil then inherited.tint else nil
 	local disabled = (inherited ~= nil and inherited.disabled == true) or ownEnabled == false
 	local inheritedTint = if ownTint == nil then inTint else nil
@@ -936,10 +959,22 @@ function mountLib.mount(core: any, rootBlueprint: Blueprint, opts: MountOpts?)
 			node.activationFeedback = activationFeedback
 		end
 
-		-- THE INHERITED CHANNELS, resolved for this node and for the record its
-		-- children receive. `nil` in, `nil` out on an undeclared tree: the fields are
-		-- never written and the off path costs one table read per node.
-		local childInherit = applyInherited(node, inherited)
+		--[[ THE INHERITED CHANNELS, resolved for this node and for the record its
+			children receive.
+
+			THE GUARD IS INLINE HERE, and not only inside `applyInherited`, because on
+			the off path the CALL is the remaining cost (RED-TEAM I2: the reviewer's
+			no-op stub still measured 1.13-1.29 ms against a 1.13-1.20 ms baseline on
+			3,281 nodes). A fresh node has no previous resolution — `inheritOut` is nil
+			by construction at mount — so nothing above plus nothing here IS the whole
+			test, and `inherited` is itself the answer to hand down: nil.
+
+			`recascade` deliberately calls unconditionally. It runs on a flip, where
+			the previous state is exactly what has to be cleared. ]]
+		local childInherit: Inherit? = inherited
+		if inherited ~= nil or bp.props.enabled ~= nil or bp.props.tint ~= nil then
+			childInherit = applyInherited(node, inherited)
+		end
 
 		-- ...and the CHANGE form (round 2 §3.3): one observer per declaration,
 		-- owned by this node's scope, so it stops the frame the node unmounts.

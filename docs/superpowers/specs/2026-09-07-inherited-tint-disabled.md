@@ -236,8 +236,26 @@ node.disabled        boolean?   this node is inside (or is) a disabled subtree
 node.inheritedTint   tint?      the tint this node paints, when it declared none
 ```
 
-Both are `nil` on an undeclared tree, so a screen that uses neither pays one
-table read per node and stores nothing.
+Both are `nil` on an undeclared tree.
+
+**AS BUILT, AND THE FIRST VERSION OF THIS PARAGRAPH WAS WRONG.** It claimed the
+off path "pays one table read per node and stores nothing"; it in fact called
+`applyInherited` on every node, which wrote four fields and returned four values
+whether or not anything was declared. Measured on a 3,281-node tree that declares
+neither channel, best of twelve: **1.73–1.79 ms against a 1.13–1.20 ms
+baseline — about half a mount again**, for a feature that tree does not use. The
+existing bench could not see it: all fifteen scenes measure an update or a churn
+and none of them mounts a tree.
+
+Two guards now make the sentence true. `applyInherited` returns immediately when
+nothing above declared, nothing here declares, and nothing was resolved on a
+previous pass; and the mount call site does not make the call at all in that case,
+because a *fresh* node has no previous resolution, so "nothing above plus nothing
+here" is the whole test there and `inherited` is itself the answer to hand down.
+Interleaved A/B after both: **base 1.09–1.17, live 1.18–1.20**. `recascade` still
+calls unconditionally — it runs on a flip, where the previous state is exactly
+what has to be cleared. Two bench scenes, `mount-ramp` and
+`mount-ramp-inherited`, now measure this so the next regression is visible.
 
 **Reactivity.** A container's `enabled` / `tint` is an ordinary reactive prop:
 mount's existing per-prop observer writes `node.props`, and a cascade hook then

@@ -189,6 +189,63 @@ table.insert(scenarios, {
 	end,
 })
 
+--[[ MOUNT RAMP (RED-TEAM I2, 2026-09-07). Every scene above this line measures an
+	UPDATE or a churn; not one of them measures building a tree, which is how a
+	~50% mount regression shipped under a green `bench: PASS`. The tree is the
+	reviewer's: a 3,281-node balanced fan-out that declares NEITHER inherited
+	channel, because the off path is the one every existing screen takes and the one
+	the regression lived on.
+
+	`mount-ramp-inherited` is the same tree under a disabled, tinted root, so the
+	cost of the feature when it is actually used is on the record beside the cost
+	when it is not — one number, not an argument.
+
+	NEITHER HAS A BASELINE ENTRY YET. `bench/baseline.json` is a frozen artifact
+	with its own provenance and re-freezing it belongs to whoever cuts the next one;
+	until then the runner prints these two without a ratio and cannot gate on them,
+	which is honest about what they are: a measurement that exists, not a budget
+	that has been agreed. ]]
+local function rampTree(depth: number, i: number): any
+	if depth == 0 then
+		return Facet.UI.Text({ id = `T{i}`, text = "leaf" })
+	end
+	local kids: { any } = {}
+	for k = 1, 3 do
+		table.insert(kids, rampTree(depth - 1, k))
+	end
+	return Facet.UI.VStack({ id = `V{i}`, children = kids })
+end
+table.insert(scenarios, {
+	name = "mount-ramp",
+	requirement = "UI-PERF-001",
+	setup = function()
+		return { core = Facet.newCore(), bp = Facet.UI.Screen({ id = "S", children = { rampTree(7, 1) } }) }
+	end,
+	run = function(state)
+		local root = Facet.mount(state.core, state.bp)
+		root.dispose()
+	end,
+})
+table.insert(scenarios, {
+	name = "mount-ramp-inherited",
+	requirement = "UI-PERF-001",
+	setup = function()
+		return {
+			core = Facet.newCore(),
+			bp = Facet.UI.Screen({
+				id = "S",
+				enabled = false,
+				tint = { role = "accent", blend = 1 },
+				children = { rampTree(7, 1) },
+			}),
+		}
+	end,
+	run = function(state)
+		local root = Facet.mount(state.core, state.bp)
+		root.dispose()
+	end,
+})
+
 -- Table: row churn + committed resize on the composite control
 local table_control = require("../src/controls/table")
 table.insert(scenarios, {
