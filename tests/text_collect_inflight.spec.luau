@@ -397,3 +397,251 @@ describe("the collector budget: the flight refcount is what makes a process-glob
 		text_metrics.resetMeasured()
 	end)
 end)
+
+--[[ ── THE WORDS THE BUDGET REFUSED ARE HELD, NOT DROPPED (Plan D, D6d) ──────────
+
+	FOUND BY D5's publish-list sweep, and measured HERE before it was built. A word
+	past `COLLECT_CAP` used to be discarded: nothing measured it and nothing marked its
+	owner dirty, so the only thing that ever brought the tail out was something else
+	re-measuring the label for its own reasons.
+
+	THE RED ARM, read off the run at `2c463891` (the mechanism absent, this file's
+	fixture unchanged): a SETTLED 300-row surface whose body label becomes a 1,200-word
+	paragraph asks for 1,024 words and drops 176, and the next FOUR solves — rows
+	changing while the engine has not answered yet, which is the live boot window — ask
+	for NONE of them: `asked=1024 batches=2` on every one. They come back only when the
+	outstanding batch is finally answered and the correction's re-solve happens to
+	re-measure that label, which costs a whole-tree measure (`lastMeasured=305` of 304
+	nodes) and a SECOND answer round.
+
+	AND THE ACCIDENT IS ONE THIS CAMPAIGN NEARLY REMOVED: D5's mount serve (built,
+	refuted on its own gate, reverted at `2c463891`) made a solve serve its clean
+	labels, and with that arm standing the 176 labels kept an estimated width for the
+	life of the surface. The tail should not depend on an accident, which is why this is
+	a correctness fix rather than a performance one — though it is both: with the queue
+	the drain finishes in ONE answer round and that round measures 4 nodes, not 305.
+]]
+describe("the collector budget: a word the budget refused is held for the next collector", function()
+	local BODY = 1200
+	local BOOT_ROWS = 300
+
+	local function bodyWord(i: number): string
+		return string.format("zqxb%04d", i)
+	end
+	local function rowWordAt(i: number): string
+		return string.format("zqxr%04d", i)
+	end
+
+	type BootWorld = {
+		controller: any,
+		adapter: any,
+		body: any,
+		rows: { any },
+	}
+
+	local function bootWorld(): BootWorld
+		local core = customFactory.new()
+		local env = environment.new(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 480, h = 720 })
+		local body = core:signal("alpha beta gamma")
+		local rows: { any } = {}
+		local rowChildren: { any } = {}
+		for i = 1, BOOT_ROWS do
+			rows[i] = core:signal(rowWordAt(i))
+			-- a SECOND size, so the rows and the body do not share a (font,size) key:
+			-- the row edits below must not be the thing that re-measures the body
+			rowChildren[i] = UI.Text({ id = `R{i}`, textSize = 14, text = rows[i] })
+		end
+		local bp = UI.Screen({
+			id = "S",
+			children = {
+				UI.VStack({
+					id = "L",
+					padding = 0,
+					gap = 0,
+					children = {
+						UI.Text({ id = "P", textSize = SIZE, text = body }),
+						UI.VStack({ id = "M", padding = 0, gap = 0, children = rowChildren }),
+					},
+				}),
+			},
+		})
+		local root = mountLib.mount(core, bp)
+		local adapter = fake_target.new()
+		local controller = renderer.attach(core, root, env, adapter)
+		controller.initialRender()
+		return { controller = controller, adapter = adapter, body = body, rows = rows }
+	end
+
+	it("THE BOOT WINDOW: a settled surface takes a 1,200-word body, and the tail goes out next solve", function()
+		text_metrics.resetMeasured()
+		local base = text_metrics.collectTruncated()
+		local w = bootWorld()
+		--[[ SETTLE FIRST, and that is the half of the shape that makes it a real test.
+			A solve that follows a MOUNT re-measures the whole tree for want of anything
+			to serve from, so a truncation at mount is covered by the accident this fix
+			replaces; a truncation on an INCREMENTAL solve of a settled surface is not. ]]
+		for _ = 1, 12 do
+			w.controller.refresh()
+			if w.adapter.textBatchCount() == 0 then
+				break
+			end
+			w.adapter.deliverTextWidths(widthOf)
+		end
+		w.controller.refresh()
+		expect(`settled={tostring(w.controller.textPending() == false)} measured={text_metrics.measuredCount()}`).toBe(
+			"settled=true measured=304"
+		)
+
+		local asked: { [string]: boolean } = {}
+		local function noteAsked()
+			for _, request in w.adapter.pendingTextRequests() do
+				asked[request.word] = true
+			end
+		end
+		local function bodyAsked(): number
+			local n = 0
+			for word in asked do
+				if string.sub(word, 1, 4) == "zqxb" then
+					n += 1
+				end
+			end
+			return n
+		end
+
+		local words: { string } = {}
+		for i = 1, BODY do
+			words[i] = bodyWord(i)
+		end
+		w.body:set(table.concat(words, " "))
+		w.controller.refresh()
+		noteAsked()
+		local st1 = w.controller.stats()
+		-- THE TRUNCATION, both arms: 1,024 of the 1,200 words asked about, and the
+		-- counter says out loud that the collector ran out
+		expect(`asked={bodyAsked()} truncated={st1.textCollectTruncated - base} batches={st1.textMeasureBatches}`).toBe(
+			"asked=1024 truncated=1 batches=2"
+		)
+
+		--[[ FOUR MORE SOLVES WITH THE ENGINE STILL SILENT. The rows change (a live
+			surface does not stop because a batch is outstanding), and none of those
+			solves re-measures the body label — it is clean and served. ARM A reads
+			`asked=1024 batches=2` on every one of them. ]]
+		local rounds: { string } = {}
+		for round = 1, 4 do
+			w.rows[round]:set(rowWordAt(BOOT_ROWS - round))
+			w.controller.refresh()
+			noteAsked()
+			table.insert(rounds, `{bodyAsked()}`)
+		end
+		expect(`asked={table.concat(rounds, ",")}`).toBe(`asked={BODY},{BODY},{BODY},{BODY}`)
+		expect(`batches={w.controller.stats().textMeasureBatches}`).toBe("batches=3")
+
+		--[[ ...AND THE ANSWER ROUND IS THEN THE LAST ONE. ARM A needs TWO: the first
+			answer re-measures the whole tree (`lastMeasured=305` of 304 nodes) purely to
+			re-discover the words it dropped, and dispatches them as a second batch. Here
+			the store already holds every word the surface draws, so the settle re-solve
+			measures the four nodes the correction actually moved. ]]
+		local answers = 0
+		local lastMeasured = -1
+		for _ = 1, 6 do
+			if w.adapter.textBatchCount() == 0 then
+				break
+			end
+			answers += 1
+			w.adapter.deliverTextWidths(widthOf)
+			w.controller.refresh()
+			lastMeasured = w.controller.stats().lastMeasured
+		end
+		expect(
+			`answers={answers} lastMeasured={lastMeasured} pending={tostring(w.controller.textPending())}`
+				.. ` measured={text_metrics.measuredCount()}`
+		).toBe("answers=1 lastMeasured=4 pending=false measured=1504")
+		w.controller.dispose()
+		text_metrics.resetMeasured()
+	end)
+
+	it("...and the second collector takes what the first could not afford, charged against the same budget", function()
+		--[[ THE MECHANISM ITSELF, driven through `text_metrics` alone: no surface, no
+			renderer, no in-flight set. The bound is what makes the queue safe to have —
+			the engine still sees at most `COLLECT_CAP` new words per frame — so it is
+			asserted here rather than argued, on a vocabulary more than twice the cap. ]]
+		text_metrics.resetMeasured()
+		local words: { string } = {}
+		for i = 1, 2300 do
+			words[i] = string.format("zqxq%04d", i)
+		end
+		local text = table.concat(words, " ")
+		text_metrics.beginCollect()
+		text_metrics.measure(text, "TestSans", SIZE, math.huge)
+		local first = #text_metrics.endCollect()
+		--[[ ...AND THE THREE COLLECTORS THAT FOLLOW MEASURE NOTHING AT ALL, which is the
+			property the whole fix turns on: the tail does not wait for anything to
+			re-measure its owner. 2,300 words plus the ONE space they are joined by =
+			2,301 requests, and the second collector is 1,024 and not 1,277 — the budget
+			is still the bound, exactly as it is on the fresh path. Read off the run. ]]
+		local empty: { number } = {}
+		for _ = 1, 3 do
+			text_metrics.beginCollect()
+			table.insert(empty, #text_metrics.endCollect())
+		end
+		expect(`first={first} then={table.concat(empty, ",")}`).toBe("first=1024 then=1024,253,0")
+		text_metrics.resetMeasured()
+	end)
+
+	it("...a held word the store has since learned is dropped rather than re-asked", function()
+		--[[ THE QUEUE IS A REQUEST LIST, NOT A DEBT. Another surface may have asked for
+			the same word and been answered while these sat here, and re-asking would
+			spend this frame's budget on a word the store can already answer. The word is
+			taken off the queue either way — `overflowCount` is decremented for what
+			LEAVES, not for what is dispatched — so the ceiling cannot fill up with words
+			nobody will ever ask about again. ]]
+		text_metrics.resetMeasured()
+		local words: { string } = {}
+		for i = 1, 1100 do
+			words[i] = string.format("zqxs%04d", i)
+		end
+		text_metrics.beginCollect()
+		text_metrics.measure(table.concat(words, " "), "TestSans", SIZE, math.huge)
+		local first = text_metrics.endCollect()
+		local font = first[1].font
+		-- teach the store three of the words the budget refused, exactly as an answer
+		-- for another surface would
+		local held: { string } = {}
+		for i = 1096, 1100 do
+			table.insert(held, words[i])
+		end
+		for i = 1, 3 do
+			text_metrics.setMeasured(font, SIZE, held[i], 12)
+		end
+		text_metrics.beginCollect()
+		local second = text_metrics.endCollect()
+		local asked: { [string]: boolean } = {}
+		for _, request in second do
+			asked[request.word] = true
+		end
+		expect(
+			`second={#second} learned1={tostring(asked[held[1]] == true)} unlearned={tostring(asked[held[4]] == true)}`
+		).toBe("second=74 learned1=false unlearned=true")
+		text_metrics.resetMeasured()
+	end)
+
+	it("...and forgetting the store forgets the queue", function()
+		--[[ `resetMeasured` is "this process no longer remembers anything", and a queue
+			of requests for a store that remembers nothing is a queue for a different
+			process — every one of those words will be asked about again by the solve that
+			needs it, through the front door. ]]
+		text_metrics.resetMeasured()
+		local words: { string } = {}
+		for i = 1, 1100 do
+			words[i] = string.format("zqxu%04d", i)
+		end
+		text_metrics.beginCollect()
+		text_metrics.measure(table.concat(words, " "), "TestSans", SIZE, math.huge)
+		expect(`first={#text_metrics.endCollect()}`).toBe("first=1024")
+		text_metrics.resetMeasured()
+		text_metrics.beginCollect()
+		expect(`after reset={#text_metrics.endCollect()}`).toBe("after reset=0")
+		text_metrics.resetMeasured()
+	end)
+end)
