@@ -55,8 +55,6 @@ settings_panel.MODES = table.freeze({ "full", "reduced" })
 	Everything here is `policy = "none"` text: it must fit, wrapping where it has to,
 	and never clip. ]]
 settings_panel.COPY = table.freeze({
-	-- the chip, and therefore the word the whole surface is named by
-	chip = "Settings",
 	motion = "Motion",
 	full = "Full",
 	reduced = "Reduced",
@@ -104,10 +102,6 @@ export type MountOpts = {
 	-- or nil when no packages replicated. Settings composes them rather than
 	-- rebuilding them: one card, one scroller, one place a setting lives.
 	themeSections: { any }?,
-	-- what this surface's chip press means. The showcase chrome owns panel
-	-- PRESENCE (showcase_chrome.luau §2), so the chip asks rather than toggling
-	-- state of its own.
-	onChip: (() -> ())?,
 	-- WHICH BUILD IS THIS. Passed in rather than read here, so this module stays
 	-- engine-free like every other example surface; `init.client.luau` reads the
 	-- Workspace attribute the place builder stamped.
@@ -125,7 +119,7 @@ export type MountOpts = {
 	copy: { [string]: string }?,
 }
 
---[[ mount(opts) -> { chip, iconChip, sections, mode, setting, apply, dispose }
+--[[ mount(opts) -> { sections, mode, setting, apply, dispose }
 
 	THE PLACE-WIDE FACT, AND WHY THERE ARE TWO SIGNALS FOR IT.
 
@@ -249,37 +243,19 @@ function settings_panel.mount(opts: MountOpts): any
 		table.insert(sections, section)
 	end
 
-	-- THE CHIP, in both forms the chrome's ViewThatFits ladder needs. A chip is
-	-- built here rather than by the host for the same reason the pickers build
-	-- theirs: the label is this surface's word, not the chrome's.
-	local function pressChip()
-		if opts.onChip ~= nil then
-			opts.onChip()
-		end
-	end
-	local function chipOf(id: string, icon: string?): any
-		if icon == nil then
-			return UI.Button({ id = id, label = COPY.chip, surface = "chip", onActivate = pressChip })
-		end
-		-- `label` STAYS and is not drawn (blueprint_schema: "label stays the
-		-- semantic name and is not drawn"), so the icon-only rung is still a
-		-- control with an accessible name.
-		return UI.Button({
-			id = id,
-			label = COPY.chip,
-			surface = "chip",
-			shape = "circle",
-			icon = icon,
-			onActivate = pressChip,
-		})
-	end
+	--[[ THE DEDICATED CHIP IS RETIRED (stabilization B3, 2026-09-07). This surface
+		used to build its own `chip`/`iconChip` pair for the chrome's strip — a
+		second, always-visible button whose only job was opening straight to this
+		section. `showcase_chrome.luau` no longer reads them: Settings is reached
+		through the panel's own "Section" switch (Demos/Settings), which is already
+		how a keyboard or a pad player gets here (Tab/d-pad onto the switch, or the
+		`SECTION_GAMEPAD` shoulder), and a mouse/touch player now takes the same
+		route rather than a shortcut a second widget existed only to offer. Nothing
+		here builds a `Button` or a `UI.Button`-shaped chip any more; `COPY.chip`
+		and the `onChip` option went with it — see git history for the removed
+		shape if a future surface needs it back. ]]
 
 	return {
-		chip = chipOf("SettingsToggle"),
-		-- "more" is the framework's own ellipsis mark (src/themes/standard_icons):
-		-- the standard set ships no gear, and inventing one would mean new art and
-		-- an upload rather than a chrome restructure.
-		iconChip = chipOf("SettingsToggleIcon", "more"),
 		sections = sections,
 		-- the live fact's mirror (what the picker shows)
 		mode = mode,

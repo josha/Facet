@@ -700,9 +700,6 @@ if bootDecision.mode == "showcase" then
 		-- theme is a SETTING and lives in here now (CONCERNS 16); nil when no
 		-- package replicated, which leaves settings with just its motion section
 		themeSections = if showcasePicker ~= nil then showcasePicker.sections else nil,
-		onChip = function()
-			chrome.request("settings")
-		end,
 		-- stamped by tools/build_places.sh at build time; nil in a Rojo-served
 		-- session, where the source on disk IS the running source and the
 		-- question this answers cannot arise.

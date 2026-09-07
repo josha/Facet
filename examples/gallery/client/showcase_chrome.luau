@@ -45,8 +45,9 @@
 	measured bottom edge, so the solver lays every demo out below it) while the
 	DEMO must own the focus scope. One surface cannot do both. Two can:
 
-	  * THE BAR (`ShowcaseChrome`) — the two chips. Presented ONCE, before the
-	    first demo, and never re-presented. It cannot be covered because nothing
+	  * THE BAR (`ShowcaseChrome`) — the chip strip (one chip since B3, §3
+	    below). Presented ONCE, before the first demo, and never re-presented.
+	    It cannot be covered because nothing
 	    is ever laid out into the strip it reserves, and its scope stays buried,
 	    so Tab and the d-pad belong to the demo exactly as they should.
 	  * THE PANEL (`ShowcasePanel`) — presented when a target is opened and
@@ -63,13 +64,24 @@
 
 	=== 3. TWO TARGETS FOREVER (`[SHOWCASE-CHROME]: CONCERNS 16`) ===
 
-	The strip carries exactly two chips — *which demo*, and *settings* — and the
-	third one was rejected on the strip's own arithmetic (at 320 px the two
-	existing chips already spend ~284 of ~304 px). Motion and theme both live
-	inside settings; see `settings_panel.luau`.
+	The panel carries exactly two targets — *which demo*, and *settings* — and a
+	third one was rejected on the strip's own arithmetic (at 320 px two chips
+	already spent ~284 of ~304 px, which is the arithmetic a THIRD chip failed
+	and the reason a SECOND one does not get to stand unquestioned either — see
+	below). Motion and theme both live inside settings; see `settings_panel.luau`.
 
-	The chips step down through a `UI.ViewThatFits` ladder to ICON-ONLY rather
-	than clipping labels by character count. `p4_foyer`'s nav bar is the reference.
+	ONE CHIP ON THE STRIP, NOT TWO (stabilization B3, 2026-09-07). The strip used
+	to carry a dedicated chip per target, each opening straight to its section.
+	It now carries the ONE demo chip; settings is reached through the panel's own
+	`sectionPicker` below (the "Section" switch), which every input class already
+	had to be able to reach anyway once the panel is open — Tab for a keyboard,
+	the shoulders for a pad, and now a tap for a pointer/touch player too. The
+	shoulder shortcuts (`SECTION_GAMEPAD`) are unchanged: a pad still opens
+	straight to either section in one press.
+
+	The remaining chip steps down through a `UI.ViewThatFits` ladder to ICON-ONLY
+	rather than clipping its label by character count. `p4_foyer`'s nav bar is
+	the reference.
 
 	IT USED TO CARRY A TRAP AND NO LONGER DOES (2026-08-22): `hug` CAPPED at the offer, so a hug candidate could never tell a
 	`ViewThatFits` that it did not fit, the ladder silently pinned its first rung
@@ -217,10 +229,14 @@ showcase_chrome.COPY = table.freeze({
 	0.10.0, so its removal rides R15 (breaking changes ride the unreleased version)
 	and is recorded there; the pad's route is `SECTION_GAMEPAD` below. ]]
 showcase_chrome.TOGGLE_KEYBOARD = "Backquote"
---[[ THE PAD'S TWO DOORS (director round 3, 2026-08-21). The chips sit at the two
-	top corners of the strip, so the two SHOULDER buttons match them by position:
-	the left one opens the demo list, the right one opens settings. A player holding
-	a pad reaches the thing on the left with the button on the left.
+--[[ THE PAD'S TWO DOORS (director round 3, 2026-08-21; layout updated by B3,
+	2026-09-07). The strip used to carry both chips at the two top corners, so the
+	two SHOULDER buttons matched them by position: the left one opens the demo
+	list, the right one opens settings. Only the demo chip remains now — the
+	right shoulder no longer has a chip of its own beside it, only its glyph hint
+	— but the position argument still holds for what the glyphs draw either side
+	of the one chip, and the bindings themselves did not move: a player holding a
+	pad still reaches the thing on the left with the button on the left.
 
 	AND THEY ARE THE PAD'S ONLY ROUTE (R20). A face-button toggle would leave the
 	SECTION to whatever it was, which is one press to open and a second to choose —
@@ -428,10 +444,12 @@ function showcase_chrome.mount(opts: MountOpts): any
 	end
 
 	-- ===== the panel's own section switch ===================================
-	-- A SEGMENTED PICKER, not a second pair of chips. The strip's chips SAY
-	-- "open this"; this says "which section am I in", which is a different
-	-- question and reads as one. It is also what makes both targets reachable
-	-- from ONE toggle key: press the key, then Tab/d-pad onto this.
+	-- A SEGMENTED PICKER, not a second chip on the strip (retired, B3). The
+	-- strip's one chip SAYS "open this"; this says "which section am I in",
+	-- which is a different question and reads as one. It is also what makes
+	-- BOTH targets reachable from ONE toggle key: press the key, then Tab/d-pad
+	-- onto this — and, since B3, it is the ONLY route a mouse or touch player
+	-- has into Settings, the strip having no dedicated chip for it any more.
 	-- the disable is gone (ADAPT-1 call-site review): two short labels resolve
 	-- segmented at every width anyway, so declaring it only hid the ladder
 	local sectionPicker = Facet.Controls.Picker(core, {
@@ -491,6 +509,16 @@ function showcase_chrome.mount(opts: MountOpts): any
 	-- included — so the two spellings agree at every width. These rungs want the
 	-- UNCAPPED natural width either way.
 	local NATURAL = { type = "content" }
+	--[[ ONE CHIP NOW, NOT TWO (stabilization B3, 2026-09-07). The strip used to
+		carry a second, dedicated "Settings" chip beside the demo one — the two
+		targets §3 above describes, each with its own always-visible button. A
+		mouse/touch player now opens the ONE chip, which lands on whichever
+		section was last showing, and reaches the other one through the panel's
+		own "Section" switch below (`sectionPicker`) — exactly the route a
+		keyboard already used (Tab onto the switch) and a pad already had a
+		dedicated shortcut for. `SECTION_GAMEPAD`/`SECTION_GLYPH` are UNCHANGED:
+		`ButtonR1` still opens straight to Settings, and its shoulder hint still
+		draws beside the one chip that remains — a pad player loses nothing. ]]
 	local chipRow = UI.ViewThatFits({
 		id = "Chips",
 		width = UI.fill(),
@@ -502,7 +530,6 @@ function showcase_chrome.mount(opts: MountOpts): any
 				children = {
 					shoulderHint("demos"),
 					opts.demos.chip,
-					opts.settings.chip,
 					shoulderHint("settings"),
 				},
 			}),
@@ -513,7 +540,6 @@ function showcase_chrome.mount(opts: MountOpts): any
 				children = {
 					shoulderHint("demos"),
 					opts.demos.iconChip,
-					opts.settings.iconChip,
 					shoulderHint("settings"),
 				},
 			}),

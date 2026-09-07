@@ -217,9 +217,6 @@ local function showcase(opts: any?): any
 		core = core,
 		env = env,
 		themeSections = if picker ~= nil then picker.sections else nil,
-		onChip = function()
-			chrome.request("settings")
-		end,
 		copy = o.copy,
 	})
 
@@ -339,8 +336,15 @@ end)
 --      nothing on screen names.
 --
 --      These cases drive the d-pad ONLY, from where a player actually starts.
+--
+--      UPDATED FOR B3 (stabilization, 2026-09-07): the strip now carries ONE
+--      chip, not two (`showcase_chrome.luau` §3) — a settings CHIP is no
+--      longer a thing the d-pad can land on. What the d-pad still has to prove
+--      is that Settings is reachable anyway, through the panel's own section
+--      switch once the one chip opens it; the case that used to walk
+--      `DPadRight` onto a second chip now walks the switch instead.
 -- ===========================================================================
-describe("showcase chrome (0b): the d-pad alone reaches both chips", function()
+describe("showcase chrome (0b): the d-pad alone reaches the chip, and Settings through the panel", function()
 	-- every path the ACTIVE scope's focus map carries, which is what navigation
 	-- walks — as opposed to what any surface's props say about itself
 	local function activePaths(w: any): { string }
@@ -360,23 +364,22 @@ describe("showcase chrome (0b): the d-pad alone reaches both chips", function()
 		return false
 	end
 
-	it("the demo's own focus map carries the chips — one map, not two", function()
+	it("the demo's own focus map carries the chip — one map, not two", function()
 		local w = showcase()
 		-- the map still BELONGS to the demo: adoption is reachability, not a takeover
 		expect(w.pres.focus.activeScopeName()).toBe("Demo")
 		local paths = activePaths(w)
 		expect(contains(paths, "/Demo/D1")).toBe(true)
 		expect(contains(paths, "/ShowcaseChrome/Dock/Bar/Chips/Full/DemoToggle")).toBe(true)
-		expect(contains(paths, "/ShowcaseChrome/Dock/Bar/Chips/Full/SettingsToggle")).toBe(true)
+		-- B3: no second chip to adopt — SettingsToggle is retired
+		expect(contains(paths, "/ShowcaseChrome/Dock/Bar/Chips/Full/SettingsToggle")).toBe(false)
 	end)
 
-	it("up from the demo lands on the demo-list chip, and right walks to Settings", function()
+	it("up from the demo lands on the demo-list chip", function()
 		local w = showcase()
 		expect(isPrefix("/Demo", w.pres.focus.focused:get())).toBe(true)
 		press(w.system, "DPadUp")
 		expect(w.pres.focus.focused:get()).toBe("/ShowcaseChrome/Dock/Bar/Chips/Full/DemoToggle")
-		press(w.system, "DPadRight")
-		expect(w.pres.focus.focused:get()).toBe("/ShowcaseChrome/Dock/Bar/Chips/Full/SettingsToggle")
 	end)
 
 	it("...and down goes back to the demo, so the strip is somewhere you can leave", function()
@@ -396,11 +399,39 @@ describe("showcase chrome (0b): the d-pad alone reaches both chips", function()
 		expect(isPrefix("/ShowcasePanel", w.pres.focus.focused:get())).toBe(true)
 	end)
 
-	it("ButtonA on the reached settings chip OPENS SETTINGS", function()
+	it("from the opened demo list, the d-pad alone reaches the section switch's Settings option", function()
+		-- B3: there is no second chip to walk `DPadRight` onto any more. Settings
+		-- is still reachable with the d-pad alone, through the panel's own
+		-- section switch — the same walk "the motion setting is reachable and
+		-- changeable with a pad alone" (case (2)) already proves for the control
+		-- one step further in: a segmented picker's neighbour is to its RIGHT
+		-- (navigation-and-menus D5's AdaptiveStack group), Down as the fallback.
 		local w = showcase()
 		press(w.system, "DPadUp")
-		press(w.system, "DPadRight")
 		press(w.system, "ButtonA")
+		w.settle()
+		expect(`open:{w.chrome.isOpen()} section:{w.chrome.kind:get()}`).toBe("open:true section:demos")
+		local function step()
+			local before = w.pres.focus.focused:get()
+			press(w.system, "DPadRight")
+			if w.pres.focus.focused:get() == before then
+				press(w.system, "DPadDown")
+			end
+		end
+		local reached = false
+		for _ = 1, 60 do
+			local focused = w.pres.focus.focused:get()
+			if focused ~= nil and string.find(focused, "/Section/Indicator/Options/Opt2", 1, true) ~= nil then
+				reached = true
+				break
+			end
+			step()
+		end
+		expect(`the d-pad alone reached the section switch's Settings option: {reached}`).toBe(
+			"the d-pad alone reached the section switch's Settings option: true"
+		)
+		press(w.system, "ButtonA")
+		w.settle()
 		expect(`open:{w.chrome.isOpen()} section:{w.chrome.kind:get()}`).toBe("open:true section:settings")
 	end)
 
@@ -412,7 +443,7 @@ describe("showcase chrome (0b): the d-pad alone reaches both chips", function()
 
 	it("a tap still moves focus onto a chip, and still does not paint the ring", function()
 		local w = showcase()
-		w.adapter.tap("/ShowcaseChrome/Dock/Bar/Chips/Full/SettingsToggle")
+		w.adapter.tap("/ShowcaseChrome/Dock/Bar/Chips/Full/DemoToggle")
 		w.settle()
 		expect(w.pres.focus.focusVisible:get()).toBe(false)
 	end)
@@ -661,12 +692,27 @@ describe("showcase chrome (3): mouse and touch still work exactly as before", fu
 		expect(w.chrome.isOpen()).toBe(false)
 	end)
 
-	it("a tap on the settings chip opens settings", function()
+	it("a tap on the section switch's Settings option opens settings (B3: no dedicated chip any more)", function()
 		local w = showcase()
-		w.adapter.tap("/ShowcaseChrome/Dock/Bar/Chips/Full/SettingsToggle")
+		w.adapter.tap("/ShowcaseChrome/Dock/Bar/Chips/Full/DemoToggle")
 		w.settle()
 		expect(w.chrome.isOpen()).toBe(true)
+		expect(w.chrome.kind:get()).toBe("demos")
+		-- found by substring, like case (1)'s keyboard test does, rather than a
+		-- hardcoded absolute path: the claim under test is "a tap reaches it",
+		-- not "the picker's internal ids never change"
+		local settingsOption: string? = nil
+		for _, path in w.adapter.paths() do
+			if string.find(path, "/Section/Indicator/Options/Opt2", 1, true) ~= nil then
+				settingsOption = path
+				break
+			end
+		end
+		expect(settingsOption ~= nil).toBe(true)
+		w.adapter.tap(settingsOption :: string)
+		w.settle()
 		expect(w.chrome.kind:get()).toBe("settings")
+		expect(w.chrome.isOpen()).toBe(true)
 	end)
 
 	it("a tap outside the open panel takes it down (the engaged-surface dismissal path)", function()
@@ -776,16 +822,18 @@ describe("showcase chrome (4): exactly one engaged surface, and no stolen keys",
 end)
 
 -- ===========================================================================
--- (5) THE TWO-CHIP LADDER (`[SHOWCASE-CHROME]: CONCERNS 16`)
+-- (5) THE ONE-CHIP STRIP (`[SHOWCASE-CHROME]: CONCERNS 16`; retired to one
+--     chip by stabilization B3, 2026-09-07 — the panel still carries the two
+--     TARGETS, `showcase_chrome.KINDS`, just not one chip each any more)
 -- ===========================================================================
 describe("showcase chrome (5): two targets forever, stepping down to icon-only", function()
-	it("the strip carries exactly two chips", function()
+	it("the strip carries exactly one chip; the second target is the panel's own section switch", function()
 		expect(#showcase_chrome.KINDS).toBe(2)
 		local w = showcase()
 		local full = w.adapter.node("/ShowcaseChrome/Dock/Bar/Chips/Full")
 		expect(full ~= nil).toBe(true)
 		expect(w.adapter.node("/ShowcaseChrome/Dock/Bar/Chips/Full/DemoToggle") ~= nil).toBe(true)
-		expect(w.adapter.node("/ShowcaseChrome/Dock/Bar/Chips/Full/SettingsToggle") ~= nil).toBe(true)
+		expect(w.adapter.node("/ShowcaseChrome/Dock/Bar/Chips/Full/SettingsToggle")).toBe(nil)
 	end)
 
 	local function rung(w: any): string
@@ -806,15 +854,12 @@ describe("showcase chrome (5): two targets forever, stepping down to icon-only",
 		expect(rung(showcase({ w = 1232, h = 1067 }))).toBe("full")
 	end)
 
-	it("the 320px phone that killed the third chip steps down to icons rather than clipping", function()
-		-- the case CONCERNS 16 did the arithmetic on. The demo chip's label is the
-		-- current demo's title, so the widest catalogue entry is what has to fit.
-		local w = showcase({ w = 320, h = 640 })
-		--[[ SELECTED BY LENGTH, NOT BY INDEX. This used to be `showNext(6)` with a
-			comment naming the demo it landed on — and a catalogue entry inserted
-			anywhere before that one silently re-aimed it at a shorter title, which is
-			how the case went red on a round that only ADDED a fixture. The thing
-			under test is "the widest catalogue entry has to fit", so derive it. ]]
+	--[[ SELECTED BY LENGTH, NOT BY INDEX. This used to be `showNext(6)` with a
+		comment naming the demo it landed on — and a catalogue entry inserted
+		anywhere before that one silently re-aimed it at a shorter title, which is
+		how the case went red on a round that only ADDED a fixture. The thing
+		under test is "the widest catalogue entry has to fit", so derive it. ]]
+	local function selectWidest(w: any): any
 		local widest = demo_picker.list()[1]
 		for _, demo in demo_picker.list() do
 			if #demo.title > #widest.title then
@@ -828,7 +873,31 @@ describe("showcase chrome (5): two targets forever, stepping down to icon-only",
 			w.demos.showNext(1)
 		end
 		w.settle()
-		expect(`landed on the widest title: {w.demos.current()}`).toBe(`landed on the widest title: {widest.id}`)
+		return widest
+	end
+
+	it(
+		"the 320px phone that killed the third chip now fits the widest title in full (B3: one chip, not two)",
+		function()
+			-- the case CONCERNS 16 did the arithmetic on: at 320px, the demo chip's
+			-- widest possible label PLUS a second, dedicated settings chip did not
+			-- fit, forcing the icon-only rung. B3 retired that second chip, and the
+			-- freed ~90px is exactly why the SAME label alone now fits without it —
+			-- a real improvement, not a loss of coverage (the rung below proves the
+			-- ladder itself is untouched).
+			local w = showcase({ w = 320, h = 640 })
+			local widest = selectWidest(w)
+			expect(`landed on the widest title: {w.demos.current()}`).toBe(`landed on the widest title: {widest.id}`)
+			expect(rung(w)).toBe("full")
+		end
+	)
+
+	it("the icon-only rung still exists, and the ladder still falls back to it when nothing else fits", function()
+		-- NOT a phone width any more (B3 moved the crossover well below any real
+		-- device) — this exists to prove the RUNG and the ladder's own mechanics
+		-- survive the one-chip strip, not to name a device.
+		local w = showcase({ w = 140, h = 640 })
+		selectWidest(w)
 		expect(rung(w)).toBe("icons")
 	end)
 

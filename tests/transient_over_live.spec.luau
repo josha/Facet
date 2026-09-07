@@ -397,9 +397,6 @@ describe("the standing rule, on the surface that commissioned it", function()
 			Facet = Facet,
 			core = w.core,
 			env = w.env,
-			onChip = function()
-				chrome.request("settings")
-			end,
 		})
 		chrome = showcase_chrome.mount({
 			Facet = Facet,
