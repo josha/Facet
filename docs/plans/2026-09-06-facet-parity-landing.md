@@ -83,3 +83,69 @@ per-surface re-solve trigger). Six new seams keep `renderer.luau` under its 200k
 | — | `SOLVE_FEEDBACK_ROUND_CAP` still raises out of `refresh` | BOOKED |
 
 The next campaign's goal prompt: `docs/plans/2026-09-06-facet-parity-D-goal.md`.
+
+---
+
+# Plan D — where it landed (2026-09-07)
+
+Branch `facet-parity-d` (33 commits over main `b315dc34`; head `4c56f1c9` after the RED-TEAM wave, `f4fab4ac` before it).
+Authority: `FacetBench/docs/studio-runs/2026-09-03-facet-parity.md` **§after-2** (and §D1–§D9 per task).
+Gates at the head: Facet suite 8,779/0, `tools/verify.sh full` PASS (0 FAIL_RECOVERABLE, 454.3 s), RascalRally 3,601/0,
+FacetBench `check.sh` green, differential re-baselined over the axes it was blind to (`6f14ec6b…`, 360 blocks; zero public-reader differences against the base), renderer 197,305.
+
+## 1. The short version
+
+- The goal's step-1 hypothesis was wrong and the first measurement said so: the seven commit walks were already
+  tiny; **one function, `memoPlan`, re-walked the whole tree every solve** and no wrap-based profile could see it.
+- Update classes ≤ 0.5 ms live: **8 of 12 MET** (was 4). `battle_hud updateItem-hp` 1.54 → **0.32**, `war_room
+  setState` 1.94 → **0.32**, `updateItem-tier` 2.49 → **0.39**, `killfeed updateItem-hp` 0.45 → **0.26**.
+- The wide-key settle rows (47–84 ms, the largest number Plan C left) are **1.4–1.5 ms**: the drain was the
+  collector's 1,024-word budget re-consumed by in-flight words (one new word per solve), and the over-cap route
+  now probes the WORD's users instead of cold-solving the tree. Boot-window `stepP95` on `battle_hud` **890 → 3.2 ms**.
+- Structural classes: a list row is a coordinate space now — `war_room reorder` writes 1,467 engine positions
+  where it wrote 7,335: **36.5 → 19.7 ms**, `removeItem-items` **18.6 → 8.3**. Still over the 1 ms bar; vide's
+  honest bound at the same shape is 7.7 / 4.3 because the engine slides its rows in C++, which is an architecture
+  decision (Luau owns layout) this campaign did not make.
+- Three real defects found and fixed: the collector DROPPED words past its budget and nothing marked their owners
+  (a > 1,024-word surface could settle believing it was settled); a coordinate-space host's children were re-based
+  TWICE on a structural shift (shipped on RowActions trays); the word index was blind to numeric text (every HUD
+  number). One lever (D5, mount) was built, measured, refuted and reverted. Two pre-existing defects booked with repros.
+
+## 2. The headline classes (live, settled, fresh client VM)
+
+| class | Plan C close | Plan D | vide | target |
+|---|---:|---:|---:|---|
+| battle_hud updateItem-hp | 1.539 | **0.321** | 0.002 | 0.5 MET |
+| battle_hud setState | 1.602 | **0.357** | 0.001 | 0.5 MET |
+| war_room setState / tier | 1.942 / 2.493 | **0.322 / 0.389** | 0.006 / 0.003 | 0.5 MET |
+| killfeed updateItem-hp / setState | 0.448 / 0.458 | **0.263 / 0.296** | 0.002 | 0.5 MET |
+| battle_hud updateItem-facing [S] | 47.243 | **1.418** | 0.003 | 0.5 |
+| war_room updateItem-power [S] | 73.365 | **1.525** | 0.004 | 0.5 |
+| war_room addItem-items [S] | 83.668 | **6.958** | — | 1.0 |
+| war_room reorder / removeItem-items | 36.488 / 18.612 | **19.698 / 8.261** | 7.671 / 4.346 | 1.0 |
+| nameplates tick | 3.071 | 2.901 | 0.303 | 0.5 |
+| damage_fountain updateItems-numbers | 1.609 | 1.635 | 0.179 | 0.5 |
+
+## 3. What shipped (all internal, no public API change)
+
+memoPlan on the node literal · per-index child patch · arrange replay over the dirty children · in-flight words
+uncharged from the collector budget · probe budget on the dirty-set walks · `render/settle_solve.luau` seam + the
+over-cap leaf probe · per-rect constant (assertWrite once per apply, bar-inset guard, cheaper z visit) · collector
+overflow queue · hitRects walk refused when no sinks · per-word settle index with numeric text · rows as
+coordinate-space hosts (translate arm stops at a host's own rect). Refuted and reverted: the cold-solve serve.
+
+## 3b. The RED-TEAM (§after-2 §6)
+
+11 concerns, no blocker. C-1 (a compact-form label the over-cap probe dropped — fixed, and pinned on the game side
+where the shape ships), C-2 (the differential could not see six of the eight fast paths — re-baselined over
+row hosts, the push cap, the collector cap, numeric text, compact labels, host-under-host; zero public-reader
+differences against the base), C-3 (composed-rect identity churn — measured null: readers compare values), eight
+minors fixed. A pre-existing RascalRally spec that walked nothing was found and fixed.
+
+## 4. Booked (pointers in §after-2 §5)
+
+The settle probe's per-word take loop (the `[S]` rows' last ms) · the structural floor is the engine's per-write
+cost × the row count — the `UIListLayout` route is the owner's call · `damage_fountain`'s per-leaf constants ·
+the tick's per-plate lane constant · two pre-existing defects (When-branch return after an insert; ScrollView
+canvas width after reorder → branch toggle) · D2b's harvest descend list (a renderer seam) · mount (no O(1) lever) ·
+`SOLVE_FEEDBACK_ROUND_CAP`.
