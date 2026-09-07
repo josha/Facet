@@ -82,13 +82,55 @@ local screen_presentation = {}
 	the painted box (`rect + presentationSize`) — so the "re-scales with a box that
 	is travelling" promise below is now kept by the engine rather than re-derived
 	here, and a shape can no longer be a frame behind its own node. ]]
+--[[ ...AND THE UPLOAD IS VALUE-DIFFED, like every other channel this adapter
+	owns (2026-09-07).
+
+	`SetControlPoints` is not a property assignment. It hands the engine a whole
+	new vector geometry and the engine does not diff it, so it is the most
+	expensive single call this target can make on a `Path` node. `applyRect`
+	calls it on EVERY rect write — and, since the points moved to `Scale`, for
+	numbers that are the same every time. The paragraph above says so out loud:
+	"these are the same numbers every time". So a ring re-uploaded its geometry on
+	every solve that moved its box, and a rotation moves every box.
+
+	MEASURED on the shipped `hud` fixture, live: with this diff the two ring nodes
+	upload ONCE for the life of the surface instead of once per rect write.
+
+	BY VALUE AND NOT BY IDENTITY, because the `points` prop arrives as a fresh
+	table on every rebuild of the blueprint — an identity check would never fire.
+	The applied set is COPIED rather than aliased: the caller's table is not this
+	adapter's to hold, and a caller that mutates its own array in place would
+	otherwise make this record agree with a geometry the engine never got.
+
+	THE RULE THIS RESTORES: a render target may not re-issue a write it already
+	owns with the value it already wrote. `render/commit_walks.luau` holds every
+	other channel to it; this one was the exception. It is NOT a fix for the
+	chrome-rotation paint loss — measured, it does not move that defect — and it
+	is not offered as one. ]]
+local function samePathPoints(applied: { any }?, points: { any }): boolean
+	if applied == nil or #applied ~= #points then
+		return false
+	end
+	for i = 1, #points do
+		local a, p = applied[i], points[i]
+		if a.x ~= p.x or a.y ~= p.y or a.inX ~= p.inX or a.inY ~= p.inY or a.outX ~= p.outX or a.outY ~= p.outY then
+			return false
+		end
+	end
+	return true
+end
+
 local function applyPathPoints(handle: any)
 	local path2d = handle.path2d
 	local points = handle.normPoints
 	if path2d == nil or points == nil then
 		return
 	end
+	if samePathPoints(handle.appliedPathPoints, points) then
+		return
+	end
 	local cps = table.create(#points)
+	local applied = table.create(#points)
 	for _, p in points do
 		table.insert(
 			cps,
@@ -98,8 +140,10 @@ local function applyPathPoints(handle: any)
 				UDim2.fromScale(p.outX, p.outY)
 			)
 		)
+		table.insert(applied, { x = p.x, y = p.y, inX = p.inX, inY = p.inY, outX = p.outX, outY = p.outY })
 	end
 	path2d:SetControlPoints(cps)
+	handle.appliedPathPoints = applied
 end
 
 function screen_presentation.new(ctx: any)

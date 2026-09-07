@@ -396,6 +396,11 @@ require("./table_themed_header.spec")
 require("./pointer.spec")
 require("./preview.spec")
 require("./render_target_contract.spec")
+--[[ ...and the two facts about the `Path2D` a target creates that nothing else
+	can reach (2026-09-07): its paint order, which the z walk never visits, and
+	its geometry upload, which is a whole new shape handed to the engine rather
+	than a diffed property. Both are pinned on the fake AND on the live source. ]]
+require("./path_stroke_authority.spec")
 --[[ the WORLD SURFACE target's pure half: the canvas rect the solver
 	is handed, every argument it refuses and whether the refusal says WHY, and that
 	each capability it deletes is one the contract actually declares. It has a spec

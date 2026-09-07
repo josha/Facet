@@ -580,6 +580,18 @@ function fake_target.new(opts: Opts?)
 			-- optional, so a path that never declares one is painted only here
 			-- (mirrors screen_target's Path2D creation)
 			node.pathRoleColor = pathRoleColor(nil)
+			--[[ THE STROKE ITSELF, as a record (2026-09-07). `screen_target` creates a
+				`Path2D` CHILD for a Path node and owns two facts about it that nothing
+				else can reach: its paint order — born at its holder's `ZIndex` and
+				mirrored by `setZOrder`, because the z walk never visits a child — and
+				how many times its GEOMETRY has been uploaded, which is a real cost
+				(`SetControlPoints` hands the engine a whole new shape and the engine
+				does not diff it). A fake with no stroke record could not tell a target
+				that uploads once from one that uploads on every rect write, which is
+				exactly the difference `screen_presentation.applyPathPoints` now makes.
+				`zIndex` starts at 1 because that is what a freshly created engine
+				object carries when `create` reads it. ]]
+			node.pathStroke = { zIndex = 1, uploads = 0, points = nil }
 		end
 		-- ANY creation option means a real engine object is required, mirroring the
 		-- live guard exactly. This read
@@ -710,6 +722,47 @@ function fake_target.new(opts: Opts?)
 		return ox, oy
 	end
 
+	--[[ THE STROKE'S GEOMETRY UPLOAD, VALUE-DIFFED — the mirror of
+		`src/client/screen_presentation.luau`'s `applyPathPoints`. Both call sites
+		are mirrored (the `points` prop setter, and the belt `applyRect` runs on
+		every rect write) so a headless spec can count what the engine would
+		actually be handed. Compared BY VALUE: the prop arrives as a fresh table on
+		every rebuild, so identity would never match. ]]
+	local function applyFakePathPoints(handle: any)
+		local stroke = handle.pathStroke
+		local points = handle.normPoints
+		if stroke == nil or points == nil then
+			return
+		end
+		local applied = stroke.points
+		if applied ~= nil and #applied == #points then
+			local same = true
+			for i = 1, #points do
+				local a, b = applied[i], points[i]
+				if
+					a.x ~= b.x
+					or a.y ~= b.y
+					or a.inX ~= b.inX
+					or a.inY ~= b.inY
+					or a.outX ~= b.outX
+					or a.outY ~= b.outY
+				then
+					same = false
+					break
+				end
+			end
+			if same then
+				return
+			end
+		end
+		local copy = table.create(#points)
+		for _, p in points do
+			table.insert(copy, { x = p.x, y = p.y, inX = p.inX, inY = p.inY, outX = p.outX, outY = p.outY })
+		end
+		stroke.points = copy
+		stroke.uploads += 1
+	end
+
 	function adapter.setRect(handle: any, rect: any)
 		--[[ TWO RECTS, AND THE NAMES SAY WHICH IS WHICH (Plan C, C1).
 
@@ -788,6 +841,10 @@ function fake_target.new(opts: Opts?)
 		-- a rect write RE-APPLIES the stored transform, exactly as the live
 		-- applyRect does: a re-solve must never drop a running motion
 		adapter._composePresentation(handle)
+		-- ...and re-runs the stroke belt, exactly as the live `applyRect` does. It is
+		-- a BELT and not a write: `applyFakePathPoints` value-diffs, so a box that
+		-- moved with points that did not uploads nothing (mirrors the live diff)
+		applyFakePathPoints(handle)
 		--[[ ...AND A COORDINATE-SPACE HOST'S MOVE RECOMPOSES ITS WHOLE SUBTREE, which
 			the `transform` prop branch below already does for its own reason. Under Plan
 			C a host move produces exactly ONE `setRect` — the host's — and zero for its
@@ -988,6 +1045,10 @@ function fake_target.new(opts: Opts?)
 					end
 				end
 			end
+		elseif prop == "points" and handle.pathStroke ~= nil then
+			-- the same seam `screen_props` writes on the live target
+			handle.normPoints = value
+			applyFakePathPoints(handle)
 		elseif prop == "role" and handle.class == "Path" then
 			-- A `UI.Path`'s STROKE COLOUR, mirrored (director report 2026-08-14). A
 			-- Path2D is not a GuiObject and no rule can select one, so the live
@@ -1285,6 +1346,10 @@ function fake_target.new(opts: Opts?)
 
 	function adapter.setZOrder(handle: any, z: number)
 		handle.z = z
+		-- ...and the stroke, which the walk never visits (live: `handle.path2d.ZIndex = z`)
+		if handle.pathStroke ~= nil then
+			handle.pathStroke.zIndex = z
+		end
 		if recordOps then
 			note(`z {handle.path}={z}`)
 		end
@@ -2665,6 +2730,14 @@ function fake_target.new(opts: Opts?)
 	end
 	function adapter.node(path: string): any
 		return nodes[path]
+	end
+	--[[ THE STROKE A `Path` NODE OWNS: `{ zIndex, uploads }`, or nil for every
+		other class. `zIndex` is the paint order this target gave the engine object
+		it created beside the node; `uploads` is how many times its geometry has
+		been handed over. Both are facts only the adapter knows. ]]
+	function adapter.pathStrokeOf(path: string): any
+		local node = nodes[path]
+		return if node ~= nil then node.pathStroke else nil
 	end
 	--[[ WHICH SURFACE ROOT THIS NODE IS PARENTED UNDER, or nil when it lives
 		inside an instance host instead. The live adapter answers this with

@@ -1338,6 +1338,13 @@ function screen_target.new(opts: Opts?)
 			local path2d = Instance.new("Path2D")
 			path2d.Name = "Stroke"
 			path2d.Thickness = 4
+			--[[ BORN AT ITS NODE'S PAINT ORDER (2026-09-07). This target owns `ZIndex`
+				for every engine object it creates, and this one was the exception: it
+				kept the class default `1` for life while its holder carried whatever
+				the z walk assigned. `setZOrder` below mirrors every later change, for
+				the same reason it mirrors the hit expander — neither child is reached
+				by the walk, so both are carried explicitly or not at all. ]]
+			path2d.ZIndex = instance.ZIndex
 			path2d.Parent = instance
 			handle.path2d = path2d
 			-- THE DEFAULT ROLE, FROM THE LIVE THEME. `role` is optional, so for a
@@ -3298,6 +3305,11 @@ function screen_target.new(opts: Opts?)
 			-- without moving any rect, so the mirror belongs here too.
 			if handle.hitExpander ~= nil then
 				handle.hitExpander.ZIndex = z - 1
+			end
+			-- ...and the stroke, which is a CHILD rather than a sibling and is
+			-- therefore not reached by the walk either (see `create`'s Path branch)
+			if handle.path2d ~= nil then
+				handle.path2d.ZIndex = z
 			end
 		end
 	end
