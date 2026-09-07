@@ -971,3 +971,86 @@ describe("D5 found: the paths are RE-RESOLVED when the strip is re-homed", funct
 		w.indicator.dispose()
 	end)
 end)
+
+--[[ stabilization B'2, 2026-09-07 — FIRST-PAINT VISIBILITY, WHICH THIS FILE
+	NEVER ASSERTED.
+
+	Every mounted case above reads the bar's solved RECT. None of them read the
+	PAINT BIT, and the two are independent: `shown` is a signal of this module's,
+	the `Bar`'s `hidden` prop is a memo over it, and what reaches the screen is
+	`adapter.setVisible`. A bar can be measured, placed and reported `placed =
+	true` while the adapter has still been told `Visible = false` — and it is.
+
+	WHY IT IS PINNED HERE RATHER THAN FIXED HERE. The drop is not in this module
+	and not in its consumer; it is in the renderer, and it is a general defect
+	with `hidden` rather than anything about an indicator. `props.hidden` is
+	`arrange`-classed and reaches the commit through the renderer's OWN
+	`authoredHidden` cache (`src/render/renderer.luau:625`), which is refreshed
+	only while draining the dirty queue (`:2949-2957`). The presenter feeds solved
+	geometry from INSIDE the solve (`src/present/presenter.luau:1969-1975`), so
+	`applyTarget`'s `shown:set(true)` lands during the solve; the settle re-solve
+	then stamps `fullSolveSeq` ABOVE that write (`:1814`, `:2259`), and the next
+	refresh reads `layoutDirtIsStale` (`:2846`) as true, declines to solve, and so
+	never runs the visibility walk that would push the write. The proof that it is
+	`hidden` alone and not the timing: `offsetX`/`width`/`height` are written in
+	the SAME instant by the same `applyTarget` and all three land, because the
+	solver reads them off the tree.
+
+	These cases therefore assert TODAY's behaviour, so the renderer fix — the day
+	it lands — turns the pin red and brings whoever lands it here to tighten it.
+	`tests/gallery_chrome.spec.luau`'s "B4" block pins the same defect one layer
+	up and must be flipped in the same change. ]]
+describe("stabilization B'2: the bar is placed at first paint, and (today) still not painted", function()
+	it("the rect is measured and placed, and the adapter is still holding Visible = false", function()
+		local w = world({ skin = "pill" })
+		-- the MODEL is right: geometry arrived, the transition was a placement, and
+		-- `applyTarget` reached `shown:set(true)` (it is the statement immediately
+		-- after `placed = true`, so a true `placed` cannot be reached without it)
+		expect(w.indicator.state().placed).toBe(true)
+		expect(w.indicator.state().rect ~= nil).toBe(true)
+		expect(w.indicator.state().rect.w > 0 and w.indicator.state().rect.h > 0).toBe(true)
+		-- ...and the PAINT is not. THE PINNED DEFECT — see the header.
+		expect(w.adapter.visibleOf(BAR)).toBe(false)
+		-- the two arrange-class props written in the SAME instant DID land, which is
+		-- what rules out "the write was too late" and names `hidden` as the outlier
+		expect(barRect(w).w).toBe(w.indicator.state().rect.w)
+		expect(barRect(w).x).toBe(w.indicator.state().rect.x)
+	end)
+
+	it("no number of plain refreshes recovers it — this is not 'one more frame'", function()
+		local w = world({ skin = "pill" })
+		for _ = 1, 10 do
+			w.pres.refresh()
+		end
+		expect(w.adapter.visibleOf(BAR)).toBe(false)
+	end)
+
+	it("...and neither half of an interaction recovers it alone; together they do", function()
+		local w = world({ skin = "pill" })
+		-- ticking alone: nothing is dirty, so nothing solves
+		for _ = 1, 10 do
+			w.pres.tick(1 / 60)
+			w.pres.refresh()
+		end
+		expect(`ticks alone: {tostring(w.adapter.visibleOf(BAR))}`).toBe("ticks alone: false")
+		-- a value change alone: it re-aims the springs, and a spring that has not
+		-- been stepped has not moved a rect, so still nothing solves
+		w.selected:set("b")
+		w.pres.refresh()
+		expect(`value alone: {tostring(w.adapter.visibleOf(BAR))}`).toBe("value alone: false")
+		-- the spring's own steps are what finally dirty `arrange` ABOVE the stale
+		-- mark, force a solve, and let the commit push the visibility it has been
+		-- holding since the first frame
+		for _ = 1, 30 do
+			w.pres.tick(1 / 60)
+			w.pres.refresh()
+		end
+		expect(`slid: {tostring(w.adapter.visibleOf(BAR))}`).toBe("slid: true")
+	end)
+
+	it("the UNDERLINE skin is the same story, so the defect is the prop and not the skin", function()
+		local w = world()
+		expect(w.indicator.state().placed).toBe(true)
+		expect(w.adapter.visibleOf(BAR)).toBe(false)
+	end)
+end)
