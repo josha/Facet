@@ -184,13 +184,28 @@
 	  * `m.width` is `ceil(widest)`, so a sub-pixel correction that the ceiling
 	    absorbs moves nothing at all — no rect, no fact, no verdict.
 
-	EVERYTHING ELSE IS PUSHED UNCONDITIONALLY, which is the same failure direction
-	this file already takes everywhere: `always` (the `fit` nodes), a wrapping or
+	SO THE GATE IS A POSITIVE LIST, NOT A LIST OF REFUSALS (RED-TEAM C-1). The probe
+	answers for a leaf the index has seen measured, that is not in the conservative
+	`always` set, that the renderer classified as ONE WORD, and that declares NO
+	COMPACT FORM. Everything else is pushed unconditionally, which is the same failure
+	direction this file takes everywhere: `always` (the `fit` nodes), a wrapping or
 	multi-word label (its measure is against a box its parent chose, and
 	reconstructing that box outside the solve is the offer-versus-occupied trap the
-	solver has had to be fixed for twice), a `compactPrefer` node (it returns before
-	the cached measure), and any path whose node the index has not seen measured.
-	A leaf the probe cannot answer for is a leaf that stays in the push.
+	solver has had to be fixed for twice), ANY node carrying `compactText` — the
+	ordinary ladder as well as `compactPrefer` — and any path whose node the index has
+	not seen measured. A leaf the probe cannot answer for is a leaf that stays in the
+	push.
+
+	AND THE COMPACT RUNG IS THE ONE THAT WAS MISSING, which is worth naming because
+	the enumeration used to name only its harmless half. `compactPrefer` returns before
+	the cached measure at EVERY offer, so `mTextW` is never written and a nil kept the
+	leaf. The ORDINARY ladder returns at the same place, but only once the box has
+	shrunk — leaving `mTextW` holding the FULL label's width from an earlier measure at
+	a width the full label fitted. The probe reproduces that stale number exactly, and
+	D6c's word set (`wordsOf(node.text)`, the full label's tokens) never names the
+	compact form's token either: a correction to the string the button is ACTUALLY
+	DRAWING dropped it from both directions and left a published `truncated` verdict
+	stale behind it.
 
 	AN EMPTY MOVED SET IS AN EMPTY CLOSURE, not a refusal — the same plan a push at an
 	unused key already produces, and worth 39.9 ms for the same reason. And a moved
@@ -567,7 +582,41 @@ function text_index.new(): Index
 			for _, entry in entries do
 				local path = entry.path
 				local keep = true
-				local node = if always[path] then nil else pathNode[path]
+				--[[ THE GATE IS A POSITIVE LIST OF WHAT THE PROBE CAN ANSWER (RED-TEAM
+					C-1), rather than a growing list of refusals, and it had to become one
+					because the ordinary COMPACT LADDER was missing from the list.
+
+					`mTextW` is "the number the solver's own text branch cached from its
+					last measure", and for a node DRAWING ITS COMPACT FORM that is false:
+					the ladder returns (`layout/solver.luau`, the `compact ~= nil` arm)
+					BEFORE `node.mTextW = m.width`, so the cache still holds the FULL
+					label's width from an earlier measure at a width the full label fitted.
+					The probe measures `node.text` — the full label again — reproduces the
+					stale number exactly, and drops a leaf that is drawing something else
+					entirely. D6c's word check drops it one step earlier and for the same
+					reason: `pathWords` is `wordsOf(node.text)` and never names the compact
+					form's token, so a correction to the COMPACT string could not reach it
+					from either direction.
+
+					`compactPrefer` was always safe, which is what hid it: a preferred form
+					takes the branch at EVERY offer, so `mTextW` is never written and `was
+					== nil` kept the leaf. `compactText ~= nil` refuses both rungs and needs
+					no second test.
+
+					THE `singleLine` TERM IS BELT AND IS RECORDED AS ONE (mutation M2, a
+					kept null). `mTextW` is written only under that classification and a
+					text change rebuilds the literal, so no node in the tree carries a
+					cached width it no longer qualifies for and dropping the term reddens
+					nothing. It is stated anyway because the probe's whole
+					offer-independence argument is about the classification — asking for it
+					costs one field read and makes the list say what it means. ]]
+				local held = pathNode[path]
+				local node = if held ~= nil
+						and always[path] == nil
+						and held.singleLine == true
+						and held.compactText == nil
+					then held
+					else nil
 				local was = if node ~= nil then node.mTextW else nil
 				--[[ ...AND THE WORD ANSWERS IT WITHOUT A MEASURE, WHERE IT CAN (Plan D,
 					D6c). A label's width is the sum of its own words' widths, so a label
@@ -575,9 +624,10 @@ function text_index.new(): Index
 					moved — and that is a set membership against the marked words, not a
 					re-measure. It is asked HERE, inside the `was ~= nil` arm, and that
 					placement is the whole safety argument: every node the probe already
-					refused to answer for (a `fit` node, a wrapping or multi-word label,
-					a `compactPrefer` node, a path the index has never seen measured)
-					has no `mTextW` and is kept exactly as before. This narrowing only
+					refused to answer for (a `fit` node, a wrapping or multi-word label, a
+					node with a compact form, a path the index has never seen measured) is
+					refused by the gate above or has no `mTextW`, and is kept exactly as
+					before. This narrowing only
 					ever replaces a MEASURE with a lookup on the population the measure
 					already served, and it never turns a kept leaf into a dropped one on
 					any other ground.

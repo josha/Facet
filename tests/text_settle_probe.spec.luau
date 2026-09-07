@@ -82,6 +82,7 @@ type Arm = {
 	rowValue: { any },
 	solo: any,
 	pinned: any,
+	compactBox: any,
 	rows: number,
 }
 
@@ -105,6 +106,10 @@ local function world(
 		incremental: boolean?,
 		measureReuse: boolean?,
 		fit: boolean?,
+		-- ...and the COMPACT LADDER's own leaf (RED-TEAM C-1), in a box whose width
+		-- is a signal so the button can be measured at a width its FULL label fits
+		-- and then squeezed until its compact form wins
+		compactBtn: boolean?,
 	}
 ): Arm
 	local core = customFactory.new()
@@ -135,6 +140,31 @@ local function world(
 			then UI.Text({ id = "Fitted", textSize = "fit", width = px(70), height = px(20), text = solo })
 			else UI.Text({ id = "Solo", textSize = SIZE_SOLO, text = solo })
 	)
+	--[[ THE COMPACT LEAF (RED-TEAM C-1). `Subscribe`/`Sub` are ONE WORD each, so the
+		button is `singleLine` and the solver caches `mTextW` for it — but ONLY on a
+		measure that did not take the compact ladder's early return. The signal is the
+		whole point: at 200px the full label fits, the ladder falls through and
+		`mTextW = width("Subscribe")`; at 40px the compact form wins and the ladder
+		returns BEFORE the cache write, so `mTextW` is left naming a string the button
+		is no longer drawing. `CBox` is dirty on that write and the BUTTON is not, so
+		`layout_node.build`'s kept arm hands the same literal — and the stale number
+		with it. ]]
+	local compactBox = core:signal(px(200))
+	if opts.compactBtn then
+		table.insert(
+			rowChildren,
+			UI.HStack({
+				id = "CBox",
+				padding = 0,
+				gap = 0,
+				width = compactBox,
+				height = px(24),
+				children = {
+					UI.Button({ id = "Sub", label = "Subscribe", compactLabel = "Sub", textSize = SIZE_ROW }),
+				},
+			})
+		)
+	end
 	local bp = UI.VStack({
 		id = "Root",
 		padding = 0,
@@ -161,6 +191,7 @@ local function world(
 		rowValue = rowValue,
 		solo = solo,
 		pinned = pinned,
+		compactBox = compactBox,
 		rows = opts.rows,
 	}
 end
@@ -317,7 +348,13 @@ end
 	`measureReuse = false` removes the cross-solve store AND the node-resident serve.
 	`measureReuse = false` also means the solver's own `mTextW` cache is beside the
 	point on this arm — it takes the whole tree whatever the probe would have said. ]]
-local function coldArm(opts: { rows: number, words: (i: number) -> string, pin: string?, fit: boolean? }): Arm
+local function coldArm(opts: {
+	rows: number,
+	words: (i: number) -> string,
+	pin: string?,
+	fit: boolean?,
+	compactBtn: boolean?,
+}): Arm
 	return world({
 		rows = opts.rows,
 		words = opts.words,
@@ -325,6 +362,7 @@ local function coldArm(opts: { rows: number, words: (i: number) -> string, pin: 
 		incremental = false,
 		measureReuse = false,
 		fit = opts.fit,
+		compactBtn = opts.compactBtn,
 	})
 end
 
@@ -833,5 +871,109 @@ describe("T18-D6c: the word index answers the probe's question without measuring
 			"cases=5 empty=false"
 		)
 		text_metrics.resetMeasured()
+	end)
+end)
+
+--[[ ── THE COMPACT LADDER IS NOT THE PROBE'S TO ANSWER (RED-TEAM C-1) ───────────
+
+	THE HOLE. `mTextW` is "the number the solver's own text branch cached from its
+	last measure", and the probe's whole exactness argument is that it can reproduce
+	that number. For a node DRAWING ITS COMPACT FORM it cannot: the compact ladder
+	returns at `solver.luau:1187` BEFORE `node.mTextW = m.width`, so the cache still
+	holds the FULL label's width, taken on an earlier measure at a width the full
+	label fitted. The probe then measures `node.text` — the full label again — gets
+	the same number, and drops the leaf. D6c's word check drops it one step earlier
+	and for the same reason: `pathWords` is `wordsOf(node.text)`, the FULL label's
+	tokens, and it never names the compact form's.
+
+	Both directions are wrong on the SAME leaf, which is why the gate had to become a
+	POSITIVE list of what the probe can answer rather than one more refusal bolted on.
+
+	AND `compactPrefer` WAS ALWAYS SAFE, which is what hid this: a preferred form
+	takes the branch at EVERY offer, so `mTextW` is never written at all and `was ==
+	nil` keeps the leaf. The file's enumeration named that one and not the ordinary
+	ladder — the one that leaves a stale number behind. ]]
+describe("RED-TEAM C-1: a leaf drawing its COMPACT form stays in the push", function()
+	local COMPACT_WIDE = px(200)
+	local COMPACT_TIGHT = px(40)
+
+	-- squeeze the box until the ladder's rung is taken, and settle there. The button
+	-- has already been measured at 200px by then, which is what leaves `mTextW`
+	-- holding "Subscribe" while the button draws "Sub".
+	local function goCompact(arm: Arm)
+		arm.compactBox:set(COMPACT_TIGHT)
+		arm.controller.refresh()
+		deliverAll(arm)
+		arm.controller.refresh()
+	end
+
+	-- WHAT THE BUTTON IS ACTUALLY PAINTING. `label` is the drawn string — the paint
+	-- seam writes the compact form into it when the solver's verdict is compact —
+	-- while `compactLabel` carries the authored alternative whichever rung is taken.
+	local function drawn(arm: Arm): string
+		local node = arm.adapter.liveNodes()["/Root/List/CBox/Sub"]
+		return `label={tostring((node.props or {}).label)}`
+	end
+
+	it("the fixture really is compact, and `mTextW` really does name the other string", function()
+		--[[ THE PRECONDITION, DRIVEN RATHER THAN ASSERTED IN PROSE. At 200px the
+			button paints its full label; at 40px it paints "Sub" — and the ONE measure
+			that wrote `mTextW` was the first of those, because the second returned
+			before the write. Nothing here is about the probe yet: this is the shape the
+			case below needs to exist. ]]
+		local arm = world({ rows = 20, words = distinct, pin = "pinC1Shape", compactBtn = true })
+		settle(arm)
+		expect(`wide: {drawn(arm)}`).toBe("wide: label=Subscribe")
+		goCompact(arm)
+		expect(`tight: {drawn(arm)}`).toBe("tight: label=Sub")
+	end)
+
+	it("a correction to the COMPACT string pushes the button, and equals the cold arm", function()
+		--[[ THE REPRO. 201 leaves under one key against a cap of 75, so the over-cap
+			route runs; the correction is to `"Sub"`, which is the string the button is
+			actually drawing and the ONLY leaf in the tree that draws it.
+
+			AT HEAD THIS READ `paths=0`: `drawn = {"Subscribe"}` does not contain
+			`"Sub"`, so the word check dropped it — and with the word check reverted the
+			measure dropped it too, because measuring `node.text` reproduces the stale
+			`mTextW` exactly. The button then keeps the estimator's box, and its
+			PUBLISHED `truncated` verdict (`cm.width > availW`) stays stale with it,
+			which is what the cold arm sees and the hot arm did not. ]]
+		local hot = world({ rows = 200, words = distinct, pin = "t18dC1Pin", compactBtn = true })
+		local cold = coldArm({ rows = 200, words = distinct, pin = "t18dC1Pin", compactBtn = true })
+		settle(hot)
+		settle(cold)
+		goCompact(hot)
+		goCompact(cold)
+		-- the non-vacuity guard: two arms that already disagree cannot be an oracle
+		expect(snapshot(hot) == snapshot(cold)).toBe(true)
+		expect(`compact: {drawn(hot)}`).toBe("compact: label=Sub")
+		local quiet = quiesce(hot)
+		quiesce(cold)
+		expect(`nodes={quiet.lastLayoutNodes} cap={math.max(64, quiet.lastLayoutNodes // 8)}`).toBe("nodes=606 cap=75")
+		local before = quiet.solves
+
+		--[[ THE CORRECTION CROSSES THE BOX. "Sub" measured 18 at the estimator's
+			widths against an inner width of 16, so `truncated` was true; at 10 it is
+			false. A published fact with no geometry behind it — the same class as the
+			PINNED label's flip above, and the reason a dropped leaf here is a wrong
+			answer rather than a missed optimisation. ]]
+		expect(text_metrics.setMeasured(FONT, SIZE_ROW, "Sub", 10)).toBe(true)
+		for _, arm in { hot, cold } do
+			arm.env:set("textMeasureEpoch", ((arm.env:get("textMeasureEpoch"):get() :: number?) or 0) + 1)
+		end
+
+		local st = stats(hot)
+		--[[ ONE PATH, AND IT IS NOT PROBED: the gate is a positive list now, so a node
+			carrying `compactText` is refused before `was` is read and before the word
+			check — exactly the way a `fit` node is. `skips` counts the 201 leaves the
+			word index legitimately answered for, and the button is in neither counter
+			because the probe never had a question it could ask about it. ]]
+		expect(
+			`solves={st.solves - before} probes={st.lastTextProbeMeasures} skips={st.lastTextWordSkips} `
+				.. `paths={st.lastTextDirtyPaths}`
+		).toBe("solves=1 probes=0 skips=201 paths=1")
+		assertCold(cold, "cold arm")
+		expect(snapshot(hot) == snapshot(cold)).toBe(true)
 	end)
 end)
