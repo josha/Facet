@@ -771,6 +771,18 @@ require("./button_complete.spec")
 	path blocked, focus restoration, the themed disabled rule on Studio Neutral and
 	on a reference package, and teardown mid-disable. ]]
 require("./inherited_subtree.spec")
+--[[ NO SCRATCH EXPERIMENT SURVIVES IN `src/` (RED-TEAM C1, 2026-09-07): a
+	`ZZ_NO_PATH2D = true` flag reached `screen_target.luau` inside an unrelated
+	feature commit and switched the whole Path2D creation branch off, so every
+	`UI.Path` drew nothing on a device while this suite stayed green — the headless
+	target builds its own Path2D model. The guard, and the negative control that
+	plants the line that actually shipped. ]]
+require("./experiment_markers.spec")
+-- ...and the showcase surface for the same two properties (stabilization pass,
+-- stream D): every §9 beat through the real scenario steps/report shape, real
+-- input paths, three paradigms, two theme worlds, and standing-rule-4
+-- registration.
+require("./inherited_subtree_scenario.spec")
 -- the circle Button (feature round 2026-07-26)
 require("./button_shape.spec")
 -- the circle shape generalized to ZStack (task PAINT, 2026-08-27, director item 12)
