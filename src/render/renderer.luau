@@ -37,8 +37,10 @@ local dirty_closure = require("./dirty_closure")
 local boundary_analysis = require("./boundary_analysis")
 -- axis 3 of the measure store and of the node-resident serve (Plan C, T18-A)
 local measure_stamp = require("./measure_stamp")
--- ...and which nodes a learned word actually moves (Plan C, T18-A)
+-- ...and which nodes a learned word actually moves (Plan C, T18-A), spent by the
+-- seam beside it (Plan D, D3c)
 local text_index = require("./text_index")
+local settle_solve = require("./settle_solve")
 local themeSnapshot = require("../themes/snapshot")
 -- the measure seam and the button-text grammar (see the pointer below)
 local layout_node = require("./layout_node")
@@ -2013,19 +2015,16 @@ function renderer.attach(
 			measureContains = nil
 		end
 		stats.lastStructuralBoundary = if structural ~= nil then structural.boundary else nil
-		-- THE SETTLE'S OWN CLOSURE (Plan C, T18-A): a learned word arrives here BARE, so
-		-- without this the solve buys a COLD whole-tree re-solve. `render/text_index`
-		-- owns the whole decision — own the closure, union into the caller's, or drop
-		-- the caller's for the full solve when the push is over budget — and every
-		-- refusal, the four links, the budget and the measurements behind them.
-		local textOwnsClosure, textPushed
-		dirtyContains, measureContains, textOwnsClosure, textPushed = textIndex.apply(
+		-- THE SETTLE'S OWN CLOSURE (T18-A; the seam, D3c): a learned word arrives BARE,
+		-- so without this the solve buys a COLD whole-tree re-solve.
+		local textOwnsClosure
+		dirtyContains, measureContains, textOwnsClosure = settle_solve.spend(
+			textIndex,
+			stats,
 			dirtyContains,
 			measureContains,
-			incrementalEnabled and lastResult ~= nil and not (stampMoved and dirtyContains == nil),
-			math.max(64, stats.lastLayoutNodes // 8)
+			incrementalEnabled and lastResult ~= nil and not (stampMoved and dirtyContains == nil)
 		)
-		stats.lastTextDirtyPaths = textPushed
 		-- ...and the ids this build CONSTRUCTS are collected only when a structural
 		-- partial solve is about to spend them (`structural_scope.widen`, below).
 		local layoutRoot =
@@ -2084,9 +2083,9 @@ function renderer.attach(
 		end
 		-- ...AND A CLOSURE THIS FUNCTION SET, THIS FUNCTION CLEARS (T18-A): a settle
 		-- solve has no tail of its own, and a caller's closure belongs to the caller.
+		-- Here, not in the seam: it runs after `solveOpts.reuse` reads the same pair.
 		if textOwnsClosure then
-			dirtyContains = nil
-			measureContains = nil
+			dirtyContains, measureContains = nil, nil
 		end
 		if measureReuseEnabled then
 			-- AXIS 3 was stamped above, and A SOLVE WITH NO REUSE SET REBUILDS THE
