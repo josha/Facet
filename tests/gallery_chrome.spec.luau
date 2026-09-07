@@ -289,84 +289,67 @@ local function isPrefix(prefix: string, path: string?): boolean
 	return path ~= nil and (path == prefix or string.sub(path, 1, #prefix + 1) == prefix .. "/")
 end
 
---[[ B4 (stabilization, 2026-09-07) — INVESTIGATED, NOT FIXED HERE: a FRAMEWORK
-	defect, not a showcase or theme-table one.
+--[[ B4 (stabilization, 2026-09-07) — FIXED IN THE RENDERER (B4-R), and this
+	block is the flip its own header asked for.
 
 	THE ASK. Under Studio Neutral the demo list should open with "Demos"
 	visibly selected in the accent blue at first paint, not after an
-	interaction. It does not, and this pins exactly what is and is not true.
+	interaction. It now does.
 
-	THE SEMANTIC HALF IS FINE. `chrome.kind:get()` reads "demos" from
-	construction (`showcase_chrome.mount`'s `kind = scope:own(core:signal
+	THE SEMANTIC HALF WAS NEVER THE PROBLEM. `chrome.kind:get()` reads "demos"
+	from construction (`showcase_chrome.mount`'s `kind = scope:own(core:signal
 	("demos"))`), so `sectionPicker`'s bound value is correct from frame one —
-	there is no "nothing selected until interaction" at the DATA layer, and no
+	there was no "nothing selected until interaction" at the DATA layer, and no
 	theme-role gap either (Studio Neutral's own `extra.controlSelected` and the
 	derived `$OnSelected` are exercised and proved by
 	`tests/sheet_model.spec.luau`'s classic-desktop and RS-DIR8 coverage, which
 	is a different package but the same mechanism).
 
-	THE PAINT HALF IS NOT. The segmented "Section" switch's sliding pill
+	THE PAINT HALF WAS. The segmented "Section" switch's sliding pill
 	(`src/controls/selection_indicator.luau`'s `Bar` node, the accent-blue fill
-	a player actually reads as "Demos is selected") is not visible on the
-	FIRST paint of a freshly-opened panel, no matter how many plain
-	`presenter.refresh()` calls follow with nothing else happening.
-	`picker.dump().indicator.placed` reports `true` at that point — so
-	`applyTarget` DID run, measured the correct rect, and called `shown:set
-	(true)` — but the adapter never sees `Visible` flip off its initial
-	`false` from those refreshes alone. It reproduces in AS FEW AS TEN LINES
-	with a bare `Facet.Controls.Picker({ presentation = "segmented", indicator
-	= "pill" })` mounted directly under a `UI.Screen` — no showcase code, no
-	theme package, no chrome nesting involved — so it is not this file's bug
-	to fix, and not a theme table's either: `src/controls/
-	selection_indicator.luau`'s existing suite
-	(`tests/selection_indicator.spec.luau`) never asserts `adapter.
-	visibleOf(...)` on the Bar, only its solved RECT, which is why this
-	shipped unnoticed.
+	a player actually reads as "Demos is selected") was measured, placed and
+	reported `placed = true` while the adapter had been told `Visible = false`
+	— and no number of plain refreshes recovered it, because nothing was left
+	to run the visibility walk. It reproduced picker-free, which is what named
+	it a renderer defect rather than a control or a theme one:
+	`tests/authored_hidden_stale_dirt.spec.luau` is that ten-line repro, and
+	carries the mechanism. In one line: `hidden` reaches the commit through the
+	renderer's own `authoredHidden` cache, refreshed at the dirty-queue drain
+	— strictly AFTER the settle re-solve that had already stamped the entry
+	"answered" — so the queue declined to solve and the pre-write verdict stuck
+	forever. The drain now forces the solve it owes when the re-read value has
+	actually MOVED.
 
-	AND IT MATCHES THE ITEM'S OWN HYPOTHESIS EXACTLY: "the picker may start
-	with nothing selected until interaction." A genuine section switch AND
-	BACK (`chrome.request`, exactly what a player's own first tap does)
-	recovers it — some LATER reactive commit applies the `Visible` write the
-	very first one dropped. So the defect is real, narrow, and self-heals the
-	moment a player touches the control — which is exactly why nobody filed
-	it from a screenshot taken after any interaction at all.
-
-	Filed as a finding for whoever owns `src/controls/selection_indicator
-	.luau`; this test pins today's actual behavior (broken at first paint,
-	self-correcting after) so a real fix there — the day someone lands it —
-	turns the first assertion green already and the comment stops being true,
-	which is the signal to come back and tighten this test. ]]
-describe("showcase chrome: B4 — Demos selected under Studio Neutral (data yes, first-paint no)", function()
-	it(
-		"kind reads 'demos' from first paint, but the section switch's pill is not painted until an interaction",
-		function()
-			local w = showcase()
-			w.chrome.request("demos")
-			w.settle()
-			expect(w.chrome.kind:get()).toBe("demos")
-			local pillPath = "/ShowcasePanel/Dock/Column/Panel/Section/Indicator/Layer/Bar"
-			local bar = w.adapter.node(pillPath)
-			expect(`the pill's geometry is measured: {bar ~= nil and bar.rect ~= nil}`).toBe(
-				"the pill's geometry is measured: true"
-			)
-			expect(`the pill's rect is non-empty: {bar.rect.w > 0 and bar.rect.h > 0}`).toBe(
-				"the pill's rect is non-empty: true"
-			)
-			-- THE DEFECT, PINNED: this SHOULD already be `true` (the accent-blue
-			-- fill visibly selecting "Demos") on the frame the panel opens. It is
-			-- `false` — see the header above. More plain refreshes alone do not
-			-- recover it either — ruling out "just needs one more frame".
-			w.settle()
-			expect(w.adapter.visibleOf(pillPath)).toBe(false)
-			-- ...but a genuine interaction does: switching sections and back is
-			-- what a player's own tap looks like, and it self-heals from here.
-			w.chrome.request("settings")
-			w.settle()
-			w.chrome.request("demos")
-			w.settle()
-			expect(w.adapter.visibleOf(pillPath)).toBe(true)
-		end
-	)
+	SO THIS BLOCK ASSERTS THE FIXED BEHAVIOUR and keeps the round trip that
+	used to be the self-heal: a section switch and back must leave the pill
+	painted, which is the guard against a fix that unhides once and then
+	stops tracking. `tests/selection_indicator.spec.luau`'s "B'2" pins the
+	same thing one layer down. ]]
+describe("showcase chrome: B4 — Demos selected under Studio Neutral, at first paint", function()
+	it("kind reads 'demos' from first paint, and so does the section switch's pill", function()
+		local w = showcase()
+		w.chrome.request("demos")
+		w.settle()
+		expect(w.chrome.kind:get()).toBe("demos")
+		local pillPath = "/ShowcasePanel/Dock/Column/Panel/Section/Indicator/Layer/Bar"
+		local bar = w.adapter.node(pillPath)
+		expect(`the pill's geometry is measured: {bar ~= nil and bar.rect ~= nil}`).toBe(
+			"the pill's geometry is measured: true"
+		)
+		expect(`the pill's rect is non-empty: {bar.rect.w > 0 and bar.rect.h > 0}`).toBe(
+			"the pill's rect is non-empty: true"
+		)
+		-- THE FIX: the accent-blue fill visibly selecting "Demos" is painted on
+		-- the frame the panel opens, with no interaction at all.
+		expect(`painted at first paint: {tostring(w.adapter.visibleOf(pillPath))}`).toBe("painted at first paint: true")
+		-- ...and the round trip that used to be the self-heal is now the tracking
+		-- guard: switching sections and back must leave it painted, not toggle it.
+		w.chrome.request("settings")
+		w.settle()
+		w.chrome.request("demos")
+		w.settle()
+		expect(w.adapter.visibleOf(pillPath)).toBe(true)
+	end)
 end)
 
 -- ===========================================================================
