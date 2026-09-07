@@ -111,7 +111,14 @@ chrome_slots.TAGS = table.freeze({
 		It is not redundant with the two `:NonInteractable` rules — they paint the
 		same number on the classes that DO have the engine state, and a rule that
 		writes the same value twice changes nothing — and it is the only thing a theme
-		can key a non-control dim on. ]]
+		can key a non-control dim on.
+
+		WHAT SHIPS ON IT is one rule per theme, `Disabled subtree text`
+		(`TextLabel.facet-state-disabled`). The tag lands on every node in the subtree,
+		so a package may key more of its own on it; the framework paints only text,
+		because image paint in a theme rule is legal only inside a nineSlice chrome
+		recipe (`themes/package.lintProperty`) and the package builder holds its own
+		generated rules to that same test. ]]
 	stateDisabled = "facet-state-disabled",
 })
 
