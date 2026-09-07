@@ -2100,6 +2100,20 @@ end
 -- value in the adapter's colour writes.
 chrome_slots.TOGGLE_ON_TAG = "facet-toggle-on"
 
+--[[ THE LABEL-ONLY BUTTON ROLE (stabilization B'1, 2026-09-07). `Button.role`'s
+	fourth value, and the only one that names a text colour without a fill: its
+	plate is painted by something ELSE — Facet's sliding selection indicator, a
+	`surface = "accent"` chip that slides behind the option strip
+	(`src/controls/selection_indicator.luau`).
+
+	The name lives HERE, beside `TOGGLE_ON_TAG`, for the same reason that one
+	does: a control publishes the fact and the sheet paints it, so the string has
+	to be reachable from `src/controls/` without requiring the whole rule
+	compiler. `sheet_model` derives `facet-role-onIndicator` from it and owns the
+	rule; `blueprint_schema` carries it in the Button `role` enum, where every
+	other role name is a literal too. ]]
+chrome_slots.ON_INDICATOR_ROLE = "onIndicator"
+
 -- The two toggle parts are DIRECT CHILDREN of the Toggle button (P3 moved the
 -- knob out of the track for exactly this reason): every per-state rule the
 -- package emits is a child combinator off the interactive node, and a knob

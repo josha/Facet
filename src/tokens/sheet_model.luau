@@ -194,6 +194,15 @@ export type ModelCensus = {
 	overhang: { [string]: { top: number, right: number, bottom: number, left: number } },
 }
 
+--[[ THE LABEL-ONLY BUTTON ROLE'S TAG (stabilization B'1, 2026-09-07). The role
+	NAME lives in `chrome_slots` — the vocabulary module a control may require
+	without pulling this whole compiler in, exactly as `TOGGLE_ON_TAG` does for a
+	switch's value — and the tag is derived from it here so the two can never
+	drift. See `blueprint_schema`'s Button `role` entry for why a role that brings
+	no fill is the right shape. ]]
+local ON_INDICATOR_TAG = "facet-role-" .. chrome_slots.ON_INDICATOR_ROLE
+sheet_model.ON_INDICATOR_TAG = ON_INDICATOR_TAG
+
 -- classifyTags: the PURE hint->tag mapping the native adapter applies with
 -- CollectionService (Phase 2, ledger the native stylesheets work/the native stylesheets work). Headlessly tested so the
 -- classification decisions never depend on an engine. `plain` and `scrim`
@@ -350,6 +359,13 @@ function sheet_model.classifyTags(input: ClassifyInput): { [string]: boolean }
 		tags["facet-role-destructive"] = true
 	elseif input.buttonRole == "cancel" then
 		tags["facet-role-cancel"] = true
+	elseif input.buttonRole == chrome_slots.ON_INDICATOR_ROLE then
+		-- THE LABEL-ONLY ROLE (stabilization B'1). Deliberately NOT gated on
+		-- `suppressed` the way `selected` and `interactive` are: `plain` suppresses
+		-- those two because both bring a PLATE, and this role brings none — it is
+		-- the answer to "something else painted my plate", so the one surface it
+		-- has to survive is exactly the one that says "I paint nothing".
+		tags[ON_INDICATOR_TAG] = true
 	end
 	-- THE IMAGE IS THE BUTTON: the node carries its skinned-slot tag so the
 	-- package's suppression rules can turn off the plate, the corner and the
@@ -1054,6 +1070,22 @@ function sheet_model.build(opts: BuildOpts): Model
 			name = "Cancel button",
 			selector = ".facet-role-cancel",
 			props = { BackgroundColor3 = "$Surface", TextColor3 = "$ContentSecondary" },
+		},
+		--[[ THE ROLE WITH NO FILL (stabilization B'1). Its plate is Facet's own
+			sliding selection indicator — a `surface = "accent"` chip painted BEHIND
+			the option — so the only thing this rule may write is the colour that
+			reads on it. A `BackgroundColor3` here would hide the very chip the role
+			exists to sit on.
+
+			`TextButton`-scoped, like `Primary button label` one block up and for the
+			same reason: the pair it restores is ($Accent, $OnAccent), which is the
+			theme contract's ONE gated pair, and the node that has text to paint is
+			the Button. Placed with the other roles — after every surface fill it
+			must beat, before the hover/press rules that still layer on top. ]]
+		{
+			name = "Indicator label",
+			selector = "TextButton." .. ON_INDICATOR_TAG,
+			props = { TextColor3 = "$OnAccent" },
 		},
 	})
 
@@ -2171,6 +2203,12 @@ function sheet_model.buildPackage(package: any, opts: BuildPackageOpts?): Model
 		selector = ".facet-role-cancel",
 		props = { BackgroundColor3 = "$Surface", TextColor3 = "$ContentSecondary" },
 	})
+	-- the label-only role: see the base seed for why it carries no fill
+	emit("roles", {
+		name = "Indicator label",
+		selector = "TextButton." .. ON_INDICATOR_TAG,
+		props = { TextColor3 = "$OnAccent" },
+	})
 
 	-- A SKINNED VALUE SLOT SUPPRESSES ITS OWN PAINT TOO (director round 5,
 	-- 2026-07-25). The three `Slot — <slot>` rules above are the ACCESSIBILITY
@@ -2573,6 +2611,15 @@ function sheet_model.buildPackage(package: any, opts: BuildPackageOpts?): Model
 			name = "Chrome text — destructive",
 			selector = `.facet-role-destructive > .{liftTag}`,
 			props = { TextColor3 = "$OnDanger" },
+		})
+		-- ...and the label-only role's lifted twin (stabilization B'1). A skinned
+		-- text-bearing slot moves the label into a managed child, so every
+		-- parent-role colour needs one of these or the lift paints plain $Content —
+		-- which is exactly the defect the unlifted rule closes, one node down.
+		emit("chrome", {
+			name = "Chrome text — indicator",
+			selector = `.{ON_INDICATOR_TAG} > .{liftTag}`,
+			props = { TextColor3 = "$OnAccent" },
 		})
 		emit("chrome", {
 			name = "Chrome text — cancel",

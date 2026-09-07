@@ -15,6 +15,13 @@ runtime as `Facet.VERSION`.
 
 ### Added
 
+- **`Button.role = "onIndicator"`, the label-only role.** The other three button
+  roles name a fill *and* the colour that reads on it; this one names the colour
+  alone, because the plate is painted by something behind the button — an accent
+  surface such as Facet's own sliding selection indicator. Its rule is
+  `TextColor3 = $OnAccent`, the theme contract's one gated partner for `$Accent`,
+  and it brings no background, so the chip it sits on is still the only plate on
+  screen. See [api.md — semantic roles](docs/reference/api.md#uibutton).
 - **`enabled` and `tint` on the layout containers, where they apply to the whole
   subtree.** `enabled = false` on a `Screen`, stack, `ScrollView`, `Grid`,
   `Anchor`, `AdaptiveStack` or `Composition` disables everything under it: every
@@ -46,6 +53,15 @@ runtime as `Facet.VERSION`.
 
 ### Changed
 
+- **A segmented `Picker`'s selected option is readable on its own chip.** The
+  sliding pill paints `$Accent` behind the option; the option's label kept
+  `$Content`, the colour chosen to read on `$Surface`, and on a package with a
+  saturated accent the pair measured 1.55:1 against a 4.5 floor. The option the
+  pill covers now carries `role = "onIndicator"`, so the label takes `$OnAccent`
+  and travels with the selection. Nothing else about the control moves: the
+  option still declares `surface = "plain"`, still carries no `selected` tag, and
+  the chip is still the selection paint. The `underline` indicator is unaffected —
+  it paints a tint rule on the segment's far edge, not a plate under the label.
 - **`enabled = false` now means the node AND its subtree.** On `Button`, `Toggle`
   and `TextField` the property is unchanged for a leaf; what is new is that the
   state is inherited, and that it cannot be undone from below — an ancestor never

@@ -64,6 +64,10 @@
 -- reads them, so threading them through `ctx` would be a copy of an address
 -- this module can already take for itself.
 
+-- the same reason: the ONE spelling of the label-only Button role is a
+-- module-scope constant of the vocabulary module that owns it, and a copy of the
+-- string here is exactly the drift `chrome_slots` exists to prevent
+local chrome_slots = require("../tokens/chrome_slots")
 local screen_vocabulary = require("./screen_vocabulary")
 local TEXT_ALIGN_MAP = screen_vocabulary.TEXT_ALIGN_MAP
 local SCALE_MODE_ENGINE = screen_vocabulary.SCALE_MODE_ENGINE
@@ -144,13 +148,26 @@ function screen_props.new(ctx: Ctx)
 			end
 		elseif prop == "role" then
 			-- B-BTN2: on a BUTTON, `role` is the semantic role (default | cancel |
-			-- destructive). Native mode emits a tag and the sheet's rule paints it;
-			-- the fallback path writes the danger/cancel fill directly. Never a
+			-- destructive | onIndicator). Native mode emits a tag and the sheet's rule
+			-- paints it; the fallback path writes the danger/cancel fill directly. Never a
 			-- parallel paint-state system — the states below still own hover/press.
 			if handle.class == "Button" then
 				if nativeMode then
 					handle.nativeButtonRole = if value == "default" then nil else value
 					syncTags(handle)
+				elseif value == chrome_slots.ON_INDICATOR_ROLE then
+					--[[ THE LABEL-ONLY ROLE, ON THE BESPOKE PATH (stabilization B'1). It
+						is the one role that must NOT touch the fill: its plate is the
+						sliding indicator painted behind this node, and writing a
+						background here would hide the very chip the colour is for.
+						`roleFill` stays nil so the hover/press states keep restoring
+						whatever the SURFACE decided — which for the option that carries
+						this role is `plain`, i.e. nothing. ]]
+					handle.roleFill = nil
+					if instance:IsA("TextButton") then
+						assertBespokePaint("TextColor3")
+						instance.TextColor3 = COLOR.onAccent
+					end
 				else
 					local fill = if value == "destructive"
 						then COLOR.danger

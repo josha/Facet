@@ -2275,13 +2275,38 @@ class("Button", {
 	structural = false,
 	props = merge(BOX, {
 		help = HELP,
+		--[[ `onIndicator` IS THE FOURTH ROLE, AND IT IS THE ONE THAT BRINGS NO FILL
+			(stabilization B'1, 2026-09-07). The other three name a fill AND the
+			colour that reads on it — `default` -> ($Control, $Content), `cancel` ->
+			($Surface, $ContentSecondary), `destructive` -> ($Danger, $OnDanger).
+			This one names the second half alone, because the first half is painted
+			by something else: Facet's own sliding selection indicator
+			(`src/controls/selection_indicator.luau`), a `surface = "accent"` chip
+			that slides BEHIND the strip it decorates.
+
+			The option the chip covers therefore declares `surface = "plain"` — it
+			must paint no plate of its own, or it would hide the chip — and a plain
+			surface suppresses `facet-selected` too, so the label fell through to
+			`TextButton { TextColor3 = $Content }`: a colour chosen to read on
+			$Surface, sitting on $Accent. Measured 1.55:1 under Classic Desktop Day.
+			`$OnAccent` is the theme contract's one guaranteed partner for $Accent
+			(gated at 4.5:1 in every theme of every package), so this role is how the
+			covered label asks for it — reactively, so the colour travels with the
+			selection, and through a rule, so a theme still owns the value.
+
+			It is a real authoring surface, not a private hole: any screen that
+			paints its own accent plate behind a plain Button (a custom tab strip, a
+			hand-rolled toggle group) names this role and gets the readable pair. ]]
 		role = p({
 			types = { "string" },
 			reactive = true,
 			dirty = { "paint" },
-			enum = { "default", "cancel", "destructive" },
+			enum = { "default", "cancel", "destructive", "onIndicator" },
 			channel = "style",
-			doc = "semantic role — drives a style tag and its sheet rule (never a bespoke fill)",
+			doc = "semantic role — drives a style tag and its sheet rule (never a bespoke fill). "
+				.. '"onIndicator" is the label-only role for a plain Button whose plate is an accent '
+				.. "surface painted behind it (Facet's sliding selection indicator): it takes $OnAccent "
+				.. "and brings no fill of its own",
 		}),
 		gap = GAP,
 		align = ALIGN,

@@ -29,6 +29,7 @@ local fs = require("@lune/fs")
 local Facet = require("../src") :: any
 local fake_target = require("./lib/fake_target")
 local focus_map = require("../src/present/focus_map")
+local selectionIndicatorLib = require("../src/controls/selection_indicator")
 
 local UI = Facet.UI
 
@@ -902,5 +903,115 @@ describe("§6 seam: a selection and its onChange are ONE transaction", function(
 		expect(table.concat(seen, ",")).toBe("list")
 		expect(table.concat(changed, ",")).toBe("list/list")
 		p.dispose()
+	end)
+end)
+
+--[[ stabilization B'1, 2026-09-07 — THE LABEL ON THE CHIP.
+
+	The sliding pill is a `surface = "accent"` Box painted BEHIND the strip, and
+	each option goes `surface = "plain"` so nothing covers it. Nothing then told
+	the covered option's own label what it was sitting on: it kept `TextButton {
+	TextColor3 = $Content }`, a colour chosen to read on $Surface. Measured on
+	Classic Desktop, 1.55:1 on Day and 1.95:1 on Night against a 4.5 floor.
+
+	The fix is a style state, not a colour: the option under a PLATING indicator
+	carries `role = "onIndicator"`, whose compiled rule is `TextColor3 =
+	$OnAccent` — the theme contract's one gated partner for $Accent — and which
+	brings no fill, so the chip behind it is still the only plate on screen.
+	`tests/sheet_model.spec.luau` pins the rule and the contrast; these pin that
+	the right node wears it, that it MOVES, and that the skins that plate nothing
+	are left alone. ]]
+describe("stabilization B'1: the option the pill covers takes the plate's content colour", function()
+	local sheet_model = require("../src/tokens/sheet_model")
+	local ROLE_TAG = sheet_model.ON_INDICATOR_TAG
+
+	local function wears(w: any, n: number): boolean
+		return table.find(w.adapter.tagsOf(optPath(w, n)), ROLE_TAG) ~= nil
+	end
+
+	-- settings_panel's Motion picker: two short labels, DECLARED segmented, a
+	-- group label above the strip
+	local MOTION = {
+		presentation = "segmented",
+		label = "Motion",
+		options = { { value = "full", label = "Full" }, { value = "reduced", label = "Reduced" } },
+		initial = "full",
+	}
+	-- adaptive_controls' Quality picker: three options and an ADAPTIVE
+	-- presentation, which is what most callers write
+	local QUALITY = {
+		label = "Quality",
+		-- the fixture's own desktop offer: three longer labels need the room
+		-- before `presentation = "automatic"` resolves segmented at all
+		viewport = 900,
+		options = {
+			{ value = "performance", label = "Performance" },
+			{ value = "balanced", label = "Balanced" },
+			{ value = "fidelity", label = "Fidelity" },
+		},
+		initial = "performance",
+	}
+
+	it("the Motion picker's chosen option wears the role, and its neighbour does not", function()
+		local w = world(MOTION)
+		expect(w.picker.dump().indicator.skin).toBe("pill")
+		expect(`Opt1 {wears(w, 1)} / Opt2 {wears(w, 2)}`).toBe("Opt1 true / Opt2 false")
+	end)
+
+	it("...and the role TRAVELS with the selection, exactly as the chip does", function()
+		local w = world(MOTION)
+		w.selected:set("reduced")
+		w.pres.refresh()
+		expect(`Opt1 {wears(w, 1)} / Opt2 {wears(w, 2)}`).toBe("Opt1 false / Opt2 true")
+		-- ...and back, because a bound role that could not name its resting value
+		-- would leave the option it LEFT painted white on the ordinary surface
+		w.selected:set("full")
+		w.pres.refresh()
+		expect(`Opt1 {wears(w, 1)} / Opt2 {wears(w, 2)}`).toBe("Opt1 true / Opt2 false")
+	end)
+
+	it("the Quality picker resolves segmented and gets the same treatment", function()
+		local w = world(QUALITY)
+		expect(w.picker.dump().presentation).toBe("segmented")
+		expect(`Opt1 {wears(w, 1)} / Opt2 {wears(w, 2)} / Opt3 {wears(w, 3)}`).toBe(
+			"Opt1 true / Opt2 false / Opt3 false"
+		)
+	end)
+
+	it("NOTHING PAINTS OVER THE CHIP: the role brings no surface and no selected tag", function()
+		local w = world(MOTION)
+		-- the two facts the D6 header rests on are untouched
+		expect(w.adapter.node(optPath(w, 1)).props.surface).toBe("plain")
+		expect(w.adapter.node(optPath(w, 1)).props.selected).toBeNil()
+		-- and the ONLY tag the chosen option gained is the label-only role
+		expect(table.concat(w.adapter.tagsOf(optPath(w, 1)), ",")).toBe(ROLE_TAG)
+		expect(table.concat(w.adapter.tagsOf(optPath(w, 2)), ",")).toBe("")
+		-- the chip is still there and still the selection paint
+		expect(w.adapter.node(BAR) ~= nil).toBe(true)
+	end)
+
+	it("the UNDERLINE skin plates nothing under the label, so no option wears it", function()
+		-- the audit's open question, confirmed rather than assumed: the underline
+		-- is a `space.xs` tint rule on the segment's far edge, not a box under the
+		-- label, so the label still sits on the ordinary surface and keeps $Content
+		expect(selectionIndicatorLib.barSurfaceFor("underline", nil)).toBeNil()
+		local w = world({ presentation = "segmented", indicator = "underline" })
+		expect(w.picker.dump().indicator.skin).toBe("underline")
+		expect(`Opt1 {wears(w, 1)} / Opt2 {wears(w, 2)}`).toBe("Opt1 false / Opt2 false")
+	end)
+
+	it('`indicator = "none"` is untouched: the static `selected` tag still owns the paint', function()
+		local w = world({ presentation = "segmented", indicator = "none" })
+		expect(w.adapter.node(optPath(w, 1)).props.selected).toBe(true)
+		expect(`Opt1 {wears(w, 1)}`).toBe("Opt1 false")
+		expect(table.find(w.adapter.tagsOf(optPath(w, 1)), "facet-selected") ~= nil).toBe(true)
+	end)
+
+	it("a caller that plates the chip with something else gets $Content, which is already right", function()
+		-- every surface but `accent` paints a label $Content, so there is nothing
+		-- for this role to add; the mapping says so rather than assuming it
+		expect(selectionIndicatorLib.barSurfaceFor("pill", nil)).toBe("accent")
+		expect(selectionIndicatorLib.barSurfaceFor("pill", "chip")).toBe("chip")
+		expect(selectionIndicatorLib.barSurfaceFor("underline", "accent")).toBe("accent")
 	end)
 end)

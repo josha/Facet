@@ -162,15 +162,20 @@ describe("B-BTN1: Button supports custom content behind one activation surface",
 end)
 
 describe("B-BTN2: semantic roles ride tags and style rules", function()
-	it("accepts the three documented roles and rejects anything else", function()
-		for _, role in { "default", "cancel", "destructive" } do
+	it("accepts the four documented roles and rejects anything else", function()
+		-- `onIndicator` is the label-only one (stabilization B'1): its plate is an
+		-- accent surface painted BEHIND the button, so it names $OnAccent and brings
+		-- no fill. It is a role like the other three and is authored like them.
+		for _, role in { "default", "cancel", "destructive", "onIndicator" } do
 			expect(UI.Button({ id = "B", label = "x", role = role }).props.role).toBe(role)
 		end
 		local ok, err = pcall(function()
 			return UI.Button({ id = "B", label = "x", role = "scary" })
 		end)
 		expect(ok).toBe(false)
-		expect(string.find(tostring(err), "default | cancel | destructive", 1, true) ~= nil).toBe(true)
+		-- the WHOLE set, so a role added without a refusal message to match is
+		-- caught here rather than by an author reading a stale list
+		expect(string.find(tostring(err), "default | cancel | destructive | onIndicator", 1, true) ~= nil).toBe(true)
 	end)
 
 	it("the role reaches the adapter as a style write, not a paint write", function()

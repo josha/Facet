@@ -818,7 +818,9 @@ end)
 -- the adapter uses — never from a hand-maintained list of package names.
 
 local SURFACES = { "base", "raised", "control", "chip", "badge", "accent", "scrim", "plain" }
-local BUTTON_ROLES = { "default", "cancel", "destructive" }
+-- the fourth role is the label-only one (stabilization B'1): it is exactly the
+-- shape this sweep exists to catch — a tag with no rule behind it in some sheet
+local BUTTON_ROLES = { "default", "cancel", "destructive", "onIndicator" }
 
 local function emittableTags(): { { tag: string, from: string } }
 	local out: { { tag: string, from: string } } = {}

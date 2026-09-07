@@ -254,6 +254,31 @@ function selection_indicator.resolveTransition(placed: boolean, selectionChanged
 	return if selectionChanged then "slide" else "place"
 end
 
+--[[ THE ONE PAINT DECISION: WHICH SURFACE THE BAR PLATES WITH, or nil for a bar
+	that plates nothing (stabilization B'1, 2026-09-07).
+
+	It was an inline expression at `barSurface`'s declaration, spent by this
+	module alone. It is a function now — pure, exported, tested as arithmetic —
+	because the CONSUMER has to be able to ask the same question: a bar that
+	paints a plate is a plate UNDER SOMEBODY'S LABEL, and the label needs the
+	colour that reads on it (`sheet_model.ON_INDICATOR_ROLE`). The consumer
+	builds its strip BEFORE this seam exists, so it cannot read the answer off
+	`build`; a second copy of the expression over there is how the two skins
+	would drift apart the day a third one lands.
+
+	`underline` returns nil deliberately and that is the whole distinction: it
+	paints a `space.xs` tint RULE on the far edge of the segment, not a plate
+	under the label, so the label keeps sitting on the ordinary surface and keeps
+	$Content. Confirmed against the geometry above — `resolveIndicatorRect`'s
+	underline branch is a bar `thickness` deep on one edge, never the segment
+	box. ]]
+function selection_indicator.barSurfaceFor(skin: string, surface: string?): string?
+	if surface ~= nil then
+		return surface
+	end
+	return if skin == "pill" then "accent" else nil
+end
+
 -- BY-VALUE COMPARISON, and the renderer's own. This comment used to
 -- say "renderer.luau's `sameGeometryValue`, kept field-for-field" above a
 -- verbatim copy of it, across a layer boundary; `src/rect.luau` is the leaf both
@@ -374,7 +399,7 @@ function selection_indicator.build(Facet: any, core: any, spec: Spec)
 		below has to know what the bar's surface CARVES. The declaration and the
 		reasoning for it live at `barSurface`'s use site further down; only the two
 		values move here. ]]
-	local barSurface = if spec.surface ~= nil then spec.surface elseif skin == "pill" then "accent" else nil
+	local barSurface = selection_indicator.barSurfaceFor(skin, spec.surface)
 	local barSurfaceSlot = chrome_slots.classify({ class = "Box", surface = barSurface })
 
 	--[[ THE CARVED BORDER THE PILL'S OWN PLATE WEARS (task THEME, director item 8;

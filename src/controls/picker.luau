@@ -544,6 +544,29 @@ function picker.build(Facet: any, core: any, spec: Spec)
 	-- buttons go plain so nothing paints over the chip behind them (see header).
 	local slides = indicator ~= "none"
 
+	--[[ ...AND A PLATE UNDER A LABEL OWES THAT LABEL A COLOUR (stabilization B'1,
+		2026-09-07). Going plain stops the option painting OVER the chip; it does
+		not tell the option's own label what it is now sitting ON. It kept
+		`TextButton { TextColor3 = $Content }` — the colour chosen to read on
+		$Surface — while the chip filled with $Accent. Measured on Classic Desktop:
+		1.55:1 on Day, 1.95:1 on Night, against a 4.5 floor. Studio Neutral passed
+		at 4.82:1 by coincidence of that one palette, which is why it shipped.
+
+		`role = "onIndicator"` is the label-only Button role (blueprint_schema, and
+		the `Indicator label` rule in `tokens/sheet_model`): it names $OnAccent, the
+		theme contract's one GATED partner for $Accent, and brings no fill — so the
+		chip behind the option is still the only plate on screen.
+
+		WHICH SKIN OWES IT is `selection_indicator.barSurfaceFor`, asked rather than
+		re-derived: the pill plates with `accent`, the underline plates with nothing
+		(it is a tint rule on one edge, and its label sits on the ordinary surface),
+		and a caller that hands the seam a different plate gets nothing here because
+		every other surface's label colour already IS $Content. ]]
+	local platedRole: string? = nil
+	if slides and selectionIndicator.barSurfaceFor(indicator, nil) == "accent" then
+		platedRole = chrome_slots.ON_INDICATOR_ROLE
+	end
+
 	--[[ BADGE_CLEAR_SLOT + badgeCornerInset (task THEME2, director item 2: "the
 		badge has no padding and overlaps the edge of the control", i2.png — a
 		count seal straddling a Pixel Quest segment's own plank border).
@@ -624,6 +647,17 @@ function picker.build(Facet: any, core: any, spec: Spec)
 				then nil
 				else scope:own(core:memo(function(use)
 					return use(selected) == option.value
+				end)),
+			-- THE PLATE'S OWN CONTENT COLOUR, on whichever option the chip is under
+			-- right now (see `platedRole` above). Reactive, and it names BOTH ends:
+			-- a bound role that resolved to nil on the way back would drop the prop
+			-- instead of writing the resting value, which is the one-way latch
+			-- `Text.role`'s own `"content"` spelling exists to prevent — so the
+			-- option the chip LEAVES is written "default", the role nothing tags.
+			role = if platedRole == nil
+				then nil
+				else scope:own(core:memo(function(use)
+					return if use(selected) == option.value then platedRole else "default"
 				end)),
 			-- inside a badge wrapper the Button FILLS the cell, so the cell's own
 			-- width (the reactive one) is the single place the segment's size is

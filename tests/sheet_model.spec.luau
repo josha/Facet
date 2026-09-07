@@ -1055,3 +1055,135 @@ describe("stabilization B1: Classic Desktop's own selected-state contrast is pin
 		end
 	end)
 end)
+
+--[[ stabilization B'1, 2026-09-07. THE SEGMENTED PICKER'S PILL LABEL.
+
+	A segmented `Picker` (and D5's TabView strip, which is built out of it) paints
+	its selection with the sliding indicator: a `Box` with `surface = "accent"`
+	sitting BEHIND the option strip (`src/controls/selection_indicator.luau`). The
+	option Buttons go `surface = "plain"` so nothing paints over that chip — and
+	`plain` suppresses the `facet-selected` tag too, so the label of whichever
+	option the pill covers fell through to `TextButton { TextColor3 = $Content }`.
+
+	$Content is chosen to read on $Surface. It is NOT the accent plate's partner,
+	and on a package whose accent is a saturated navy it is unreadable: Classic
+	Desktop Day measured 1.55:1, Night 1.95:1, against a 4.5 floor. `$OnAccent` is
+	the theme contract's ONE guaranteed partner for `$Accent` (`gateTheme` gates
+	the pair at 4.5:1 in every theme of every package), so the option that the
+	PLATING indicator covers takes it — through a role tag and a sheet rule, never
+	a literal, and reactively, so the colour moves with the selection. ]]
+describe("stabilization B'1: the plated indicator's option label pairs with its plate", function()
+	local tokensLib = require("../src/tokens/tokens")
+	local classic_desktop = require("../examples/themes/classic_desktop")
+	local pixel_quest = require("../examples/themes/pixel_quest")
+	local themesApi = require("../src") :: any
+
+	local ROLE_TAG = "facet-role-onIndicator"
+
+	it("`onIndicator` is a classification tag, and the resting `default` role still mints none", function()
+		local tags = sheet_model.classifyTags({ surface = "plain", buttonRole = "onIndicator" })
+		expect(tags[ROLE_TAG]).toBe(true)
+		-- ...and the round trip: a picker whose selection moved off this option
+		-- writes the resting value, which is a role NOBODY tags
+		expect(sheet_model.classifyTags({ surface = "plain", buttonRole = "default" })[ROLE_TAG]).toBeNil()
+		-- it never brings a plate with it: the whole point is that the chip
+		-- BEHIND the option is the fill, so a second one would hide it
+		expect(sheet_model.classifyTags({ surface = "plain", buttonRole = "onIndicator" })["facet-surface-accent"]).toBeNil()
+	end)
+
+	it("both builders compile ONE rule for it: a role token, no fill, after the default label", function()
+		for _, model in { build(), sheet_model.buildPackage(definePkg()) } do
+			local at, defaultAt = nil, nil
+			for i, rule in model.rules do
+				if rule.name == "Indicator label" then
+					at = i
+					expect(rule.selector).toBe(`TextButton.{ROLE_TAG}`)
+					expect(rule.props.TextColor3).toBe("$OnAccent")
+					-- NO FILL. A background here would paint over the chip the
+					-- indicator slides behind this label — the exact thing
+					-- `surface = "plain"` on the option exists to prevent.
+					expect(rule.props.BackgroundColor3).toBeNil()
+					expect(rule.props.BackgroundTransparency).toBeNil()
+				elseif rule.name == "Button text default" then
+					defaultAt = i
+				end
+			end
+			expect(at ~= nil).toBe(true)
+			expect(defaultAt ~= nil).toBe(true)
+			-- the measured cascade is Priority then INSERTION ORDER, so the rule
+			-- that has to win is the later one
+			expect((defaultAt :: any) < (at :: any)).toBe(true)
+		end
+	end)
+
+	it("$OnAccent resolves in every theme of both builders", function()
+		for _, model in { build(), sheet_model.buildPackage(definePkg()) } do
+			for _, theme in model.themes do
+				expect(`{theme.name}: {theme.tokens.OnAccent ~= nil}`).toBe(`{theme.name}: true`)
+			end
+		end
+	end)
+
+	--[[ THE MEASUREMENT THE DEFECT WAS FOUND BY, both directions. `$Content` on
+		`$Accent` is what shipped; `$OnAccent` on `$Accent` is what the theme
+		contract guarantees. The first is the negative control — it FAILS on
+		Classic Desktop, which is what makes the second worth asserting. ]]
+	it("the pairing clears 4.5:1 on every package the audit named, where $Content did not", function()
+		local entries: { { id: string, pkg: any } } = {
+			{ id = "studio-neutral", pkg = snapshotLib.neutralPackage() },
+			{ id = "classic-desktop", pkg = classic_desktop.build(themesApi.themes) },
+			{ id = "pixel-quest", pkg = pixel_quest.build(themesApi.themes) },
+		}
+		local failedBefore: { string } = {}
+		local checked = 0
+		for _, entry in entries do
+			for _, theme in entry.pkg.style.themes do
+				local accent = sheet_model.paletteColor(theme, "accent")
+				local onAccent = sheet_model.paletteColor(theme, "onAccent")
+				local content = sheet_model.paletteColor(theme, "content")
+				local after = tokensLib.contrastRatio(onAccent, accent)
+				expect(`{entry.id}/{theme.name}: {if after >= 4.5 then "readable" else "UNREADABLE"}`).toBe(
+					`{entry.id}/{theme.name}: readable`
+				)
+				if tokensLib.contrastRatio(content, accent) < 4.5 then
+					table.insert(failedBefore, `{entry.id}/{theme.name}`)
+				end
+				checked += 1
+			end
+		end
+		expect(checked >= 4).toBe(true)
+		-- NAMED, not counted: the shipped `$Content` label was unreadable on
+		-- exactly these, which is the defect this rule closes. A package that
+		-- silently joins or leaves the list shows up in the diff.
+		table.sort(failedBefore)
+		expect(table.concat(failedBefore, ", ")).toBe("classic-desktop/Day, classic-desktop/Night, pixel-quest/Quest")
+	end)
+
+	it("a SKINNED package lifts the same colour onto the managed label", function()
+		-- a text-bearing skinned slot moves the label into a managed child, so
+		-- every parent-role colour rule needs its lifted twin or the lift paints
+		-- plain $Content (the `Chrome text — *` family)
+		local model = sheet_model.buildPackage(definePkg(function(def)
+			def.assets = {
+				plate = { content = "rbxassetid://1", sliceCenter = { x0 = 4, y0 = 4, x1 = 12, y1 = 12 } },
+			}
+			def.chrome = {
+				control = {
+					kind = "nineSlice",
+					asset = { default = "plate" },
+					contentInsets = { top = 4, right = 4, bottom = 4, left = 4 },
+					fallback = "native",
+				},
+			}
+		end))
+		local found = false
+		for _, rule in model.rules do
+			if rule.name == "Chrome text — indicator" then
+				found = true
+				expect(rule.selector).toBe(`.{ROLE_TAG} > .facet-chrome-text`)
+				expect(rule.props.TextColor3).toBe("$OnAccent")
+			end
+		end
+		expect(found).toBe(true)
+	end)
+end)

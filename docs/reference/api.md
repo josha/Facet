@@ -1624,13 +1624,29 @@ UI.Button({ id = "D", label = "Delete", compactLabel = { icon = "trash", prefer 
   so there is nothing to shorten; declaring one is refused at construction. Use
   `UI.ViewThatFits` inside the content instead.
 
-**Semantic roles.** `role` is `"default"`, `"cancel"`, or `"destructive"`. It drives
-a style **tag** and its sheet rule (`Destructive button`, `Cancel button`), never a
-bespoke fill, so a designer retheming those rules restyles every such button. The
-destructive palette is a gated `$Danger`/`$OnDanger` token pair, and the role is not
-colour-only — it carries the tag and semantics too. A style that predates the pair
-keeps working: the library default fills in and the contrast gate runs on the
-effective pair.
+**Semantic roles.** `role` is `"default"`, `"cancel"`, `"destructive"`, or
+`"onIndicator"`. It drives a style **tag** and its sheet rule (`Destructive
+button`, `Cancel button`, `Indicator label`), never a bespoke fill, so a designer
+retheming those rules restyles every such button. The destructive palette is a
+gated `$Danger`/`$OnDanger` token pair, and the role is not colour-only — it
+carries the tag and semantics too. A style that predates the pair keeps working:
+the library default fills in and the contrast gate runs on the effective pair.
+
+- **`"onIndicator"` is the label-only role, and the only one that brings no
+  fill.** The other three name a plate *and* the colour that reads on it. This one
+  names the colour alone, because the plate is painted by something else: an
+  **accent** surface sitting **behind** the button. That is what Facet's own
+  sliding selection indicator is — the chip a segmented `Picker` and a `TabView`
+  strip slide between their options — and the option it covers declares
+  `surface = "plain"` so it paints no plate of its own. Without this role that
+  label kept `$Content`, the colour chosen to read on `$Surface`; on a package
+  whose accent is a saturated navy it measured **1.55:1**. The role's rule is
+  `TextColor3 = $OnAccent`, the theme contract's one **gated** partner for
+  `$Accent`, so the pairing is readable in every theme of every package. Facet's
+  segmented `Picker` applies it for you, reactively, so the colour travels with
+  the selection; declare it yourself on any plain Button you have painted an
+  accent plate behind. It never applies to the `underline` indicator, which paints
+  a thin tint rule on the segment's far edge rather than a plate under the label.
 
 **Circle buttons.** `shape = "circle"` turns the button into a true 1:1 disc — the
 floating round "…" action. It is **not reactive**: a shape is what the control *is*.
