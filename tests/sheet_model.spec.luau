@@ -993,3 +993,65 @@ describe("RS-DIR8 sweep: every reference package's selected state is readable", 
 		expect(report.content >= 4.5).toBe(true)
 	end)
 end)
+
+--[[ stabilization B1, 2026-09-07. `examples/themes/classic_desktop.luau`'s
+	Night theme declares a dark navy `extra.controlSelected` (rgb 56,74,104) —
+	the "dark-blue selection surface" a selected chip/row's plate paints. The
+	RS-DIR8 sweep above already proves the aggregate case; this block pins THIS
+	package by name, with a negative control showing the assertion can actually
+	fail, so a future palette edit that quietly breaks the pairing shows up here
+	rather than only in the shared sweep list. ]]
+describe("stabilization B1: Classic Desktop's own selected-state contrast is pinned", function()
+	local classic_desktop = require("../examples/themes/classic_desktop")
+	local themesApi = require("../src") :: any
+	local pkg = classic_desktop.build(themesApi.themes)
+
+	local function themeNamed(name: string): any
+		for _, theme in pkg.style.themes do
+			if theme.name == name then
+				return theme
+			end
+		end
+		error(`theme '{name}' not found in classic-desktop`)
+	end
+
+	it("Day and Night both resolve $OnSelected to $Content, comfortably over the 4.5 floor", function()
+		for _, name in { "Day", "Night" } do
+			local theme = themeNamed(name)
+			local report = sheet_model.selectedPairReport(theme)
+			expect(`{name}: {if report.ok then "readable" else "UNREADABLE"}`).toBe(`{name}: readable`)
+			expect(report.picked).toBe("content")
+			expect(report.content >= 4.5).toBe(true)
+		end
+	end)
+
+	it("NEGATIVE CONTROL: a selected surface too dark for EITHER partner is refused, not waved through", function()
+		-- proves the assertion above can fail: near-black content AND near-black
+		-- onAccent against a near-black selected surface is exactly the
+		-- unreadable pairing `selectedPairReport` exists to catch
+		local broken = {
+			colors = {
+				content = { r = 0.05, g = 0.05, b = 0.05 },
+				onAccent = { r = 0.08, g = 0.08, b = 0.08 },
+			},
+			extra = { controlSelected = { r = 0.12, g = 0.12, b = 0.18 } },
+		}
+		expect(sheet_model.selectedPairReport(broken).ok).toBe(false)
+	end)
+
+	it("the compiled sheet rule carries a THEME ROLE, never a literal — provable without a screen", function()
+		local model = sheet_model.buildPackage(pkg)
+		local found = false
+		for _, rule in model.rules do
+			if rule.name == "Selected row" then
+				found = true
+				expect(rule.props.BackgroundColor3).toBe("$ControlSelected")
+				expect(rule.props.TextColor3).toBe("$OnSelected")
+			end
+		end
+		expect(found).toBe(true)
+		for _, theme in model.themes do
+			expect(theme.tokens.OnSelected ~= nil).toBe(true)
+		end
+	end)
+end)
