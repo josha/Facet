@@ -53,6 +53,9 @@ runtime as `Facet.VERSION`.
   re-enables itself inside a disabled container. A focusable `Grip` inside a
   disabled subtree now leaves focus order too, which it did not before: `Grip`
   carries no `enabled` of its own, so nothing had ever asked the question for it.
+  A `Button` is a container, so **a disabled button's custom content is now
+  disabled with it** — its own children wear the theme's disabled state instead
+  of keeping full contrast beside a plate the engine had already dimmed.
 - **Facet is licensed under the MIT License.** Material this repository did not
   create is listed with its own notice in
   [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).

@@ -548,6 +548,28 @@ describe("C3: a disabled subtree blocks every input path", function()
 		expect(registry.arm("/S/Free")).toBe(true)
 	end)
 
+	--[[ A `Button` IS A CONTAINER, so its own `enabled = false` now reaches the custom
+		content it draws inside its one activation surface. Before the cascade the
+		content kept full contrast beside a plate the engine had already dimmed, which
+		is the same inconsistency B-BTN4 closed for the button's own label. Recorded in
+		the changelog because it is visible on a screen nobody edited. ]]
+	it("a disabled Button's custom content is disabled with it", function()
+		local _, adapter, _, root = renderOnly(UI.Screen({
+			id = "S",
+			children = {
+				UI.Button({
+					id = "B",
+					label = "save",
+					enabled = false,
+					height = fixed(44),
+					children = { UI.Text({ id = "Caption", text = "Save" }) },
+				}),
+			},
+		}))
+		expect(classContract.isDisabled(nodeAt(root, "/S/B/Caption"))).toBe(true)
+		expect(adapter.node("/S/B/Caption").props.enabled).toBe(false)
+	end)
+
 	it("the engine is told: the resolved value reaches the adapter as enabled = false", function()
 		local _, adapter = renderOnly(screen(function() end))
 		expect(adapter.node("/S/Panel/Off").props.enabled).toBe(false)
