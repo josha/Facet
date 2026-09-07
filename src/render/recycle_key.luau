@@ -44,6 +44,9 @@
 	round closed. ]]
 
 local prop_channels = require("./prop_channels")
+-- the two INHERITED channels' write policy: what a node ACTUALLY emits, which is
+-- not the same question as what its author declared
+local inherited = require("./inherited")
 local chrome_slots = require("../tokens/chrome_slots")
 
 local BINDING_PROPS = prop_channels.BINDING_PROPS
@@ -116,6 +119,15 @@ function recycle_key.new(): RecycleKey
 		partsOf[path] = { class = class, hint = hint, kind = kind }
 	end
 
+	--[[ THE CREATE SIGNATURE MUST NAME WHAT WILL BE WRITTEN, and for the two
+		INHERITED channels the authored props are the wrong list in both directions
+		(RED-TEAM M2). A node that inherited a disable carries no authored `enabled`
+		and gets one written; a CONTAINER that authored a `tint` carries the prop and
+		emits nothing, because a container has no paint channel. Either way the park
+		key (built from the WORN set) named a bucket the create key could never look
+		up, so a parked instance sat unreachable holding a pool slot until the cap
+		evicted it. Asking `render/inherited` — the one module that decides what is
+		emitted — is what keeps the two keys the same question. ]]
 	local function signature(node: any): string
 		local props = node.props
 		if props == nil then
@@ -123,9 +135,15 @@ function recycle_key.new(): RecycleKey
 		end
 		local names = {}
 		for name in props do
-			if BINDING_PROPS[name] or STYLE_PROPS[name] then
+			if (BINDING_PROPS[name] or STYLE_PROPS[name]) and name ~= "enabled" and name ~= "tint" then
 				table.insert(names, name)
 			end
+		end
+		if inherited.needsEnabledWrite(node) then
+			table.insert(names, "enabled")
+		end
+		if inherited.emits(node, "tint") and inherited.hasTint(node) then
+			table.insert(names, "tint")
 		end
 		return sortedJoin(names)
 	end

@@ -1124,6 +1124,39 @@ end)
 
 -- ===== 6. lifecycle =======================================================
 
+--[[ THE CREATE KEY AND THE PARK KEY ARE THE SAME QUESTION (RED-TEAM M2). The
+	create-time signature was read off the AUTHORED props while the park key is built
+	from what was actually WORN, and the two inherited channels break that equality
+	in both directions: a node that inherited a disable carries no authored `enabled`
+	and gets one written, and a CONTAINER that authored a `tint` carries the prop and
+	emits nothing. Either way a parked instance landed in a bucket the create lookup
+	could never name — unreachable, and holding a pool slot until the cap evicted it. ]]
+describe("M2: an inherited node's recycle key matches what it actually wears", function()
+	local recycle_key = require("../src/render/recycle_key")
+
+	it("a node that INHERITED a disable signs `enabled`, which is what it wears", function()
+		local rk = recycle_key.new()
+		local node = { class = "Text", props = {}, disabled = true }
+		expect(rk.signature(node)).toBe("enabled")
+		rk.declareParts(node.class, node.class, nil, "leaf")
+		rk.noteWorn(node.class, "enabled", false)
+		expect(rk.parkKey(node.class)).toBe(rk.key(node.class, nil, "leaf", rk.signature(node)))
+	end)
+
+	it("a CONTAINER that authored a tint signs nothing, which is also what it wears", function()
+		local rk = recycle_key.new()
+		local node = { class = "VStack", props = { tint = ACCENT } }
+		expect(rk.signature(node)).toBe("")
+		rk.declareParts("/V", node.class, nil, "container")
+		expect(rk.parkKey("/V")).toBe(rk.key(node.class, nil, "container", rk.signature(node)))
+	end)
+
+	it("...and a leaf that PAINTS the inherited tint signs it", function()
+		local rk = recycle_key.new()
+		expect(rk.signature({ class = "Text", props = {}, inheritedTint = ACCENT })).toBe("tint")
+	end)
+end)
+
 describe("C: teardown", function()
 	it("disposing while a subtree is disabled leaves nothing live", function()
 		local core = customFactory.new()

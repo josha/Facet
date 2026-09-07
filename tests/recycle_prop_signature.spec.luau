@@ -128,9 +128,21 @@ describe("W1b/R2: the cache stays gone, and the signature is BINDING ∪ STYLE",
 			local source = fs.readFile("src/render/recycle_key.luau")
 			local body = string.match(source, "local function signature%(node: any%): string(.-)\n\tend")
 			assert(body ~= nil, "signature's body was not found to read")
-			expect(string.find(body :: string, "if BINDING_PROPS[name] or STYLE_PROPS[name] then", 1, true) ~= nil).toBe(
-				true
-			)
+			--[[ The filter is still BINDING u STYLE membership; since the inherited
+				channels it EXCLUDES the two whose written-ness is not the same question
+				as their authored-ness (`enabled`, `tint`) and re-adds them from
+				`render/inherited`, which is the module that decides what is emitted.
+				Both halves are pinned so neither can quietly go away. ]]
+			expect(
+				string.find(
+					body :: string,
+					'if (BINDING_PROPS[name] or STYLE_PROPS[name]) and name ~= "enabled" and name ~= "tint" then',
+					1,
+					true
+				) ~= nil
+			).toBe(true)
+			expect(string.find(body :: string, "inherited.needsEnabledWrite(node)", 1, true) ~= nil).toBe(true)
+			expect(string.find(body :: string, 'inherited.emits(node, "tint")', 1, true) ~= nil).toBe(true)
 			expect(string.find(body :: string, "propSigCache", 1, true)).toBe(nil)
 		end
 	)
