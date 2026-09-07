@@ -81,6 +81,9 @@ local focusMap = require("./focus_map")
 local isPathPrefix = focusMap.isPathPrefix
 local filterHidden = focusMap.filterHidden
 local filterGroupsHidden = focusMap.filterGroupsHidden
+-- ...and its disabled twin: the REFRESH half of the same one placement, so a panel
+-- switched off after the surface was presented leaves the ring too (RED-TEAM round 2)
+local filterGroupsDisabled = focusMap.filterGroupsDisabled
 local focusOrder = focusMap.focusOrder
 local traversalRank = focusMap.traversalRank
 
@@ -404,7 +407,10 @@ function surfaceLifecycle.new(ctx: any)
 		local hidden = if ctrl ~= nil and ctrl.hiddenRoots ~= nil then ctrl.hiddenRoots() else nil
 		local derived: any
 		if handle.navigationGroupsFn ~= nil then
-			local groups = filterGroupsHidden(handle.navigationGroupsFn(handle.root.node), hidden)
+			local groups = filterGroupsDisabled(
+				filterGroupsHidden(handle.navigationGroupsFn(handle.root.node), hidden),
+				handle.root.node
+			)
 			derived = {
 				grouped = true,
 				groups = groups,

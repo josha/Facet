@@ -905,6 +905,295 @@ describe("I5: a presented surface does not inherit the presenter's disabled subt
 	end)
 end)
 
+--[[ ===== EVERY GROUP, NOT EVERY WALK (RED-TEAM round 2, NEW-1/2/3/4) ==========
+	Round 1 put the disabled test inside the three walks that BUILD navigation groups.
+	That was the wrong placement, three times over:
+
+	  * a control that contributes its own `focusGroups` — `newTable`,
+	    `newVirtualList`, `newVirtualGrid`, `newTextInput` — emits them verbatim and
+	    the builders never descend into it, so a disabled list kept every row in the
+	    ring (NEW-1), and a consumer-declared `navigationGroups` map was never
+	    filtered at all (NEW-4);
+	  * removing a cell from `collectFocusables` REPACKS an inferred grid, because
+	    that walk is what fills the rectangle's rows: a disabled `C5` slid `C7` up a
+	    lane instead of leaving a hole (NEW-2);
+	  * `hasHorizontalStructure` counts through the same walk, so disabling one row
+	    could flip the WHOLE screen between the grouped and the flat derivation
+	    (NEW-3).
+
+	`hidden` — the same kind of fact — has always been filtered on the BUILT groups,
+	one call, in the presenter. Disabled is filtered there now too, and the walks are
+	back to answering a structural question. The two facts even share the splice:
+	a disabled subtree contributes its topmost node as a ROOT, exactly as a hidden
+	subtree does, so `filterGroupsHidden` does the work for both. ]]
+describe("NEW-1/2/4: the disabled filter runs on the BUILT groups, so it reaches every one", function()
+	local function ids(group: any): { string }
+		local out: { string } = {}
+		for _, entry in group.order or {} do
+			local id = tostring(if type(entry) == "table" then (entry.id or entry.path) else entry)
+			table.insert(out, (string.match(id, "[^/]+$")) or id)
+		end
+		return out
+	end
+	local function groupsOf(pres: any): { any }
+		return pres.focus.focusMap().navigation or {}
+	end
+	local function ringHas(pres: any, needle: string): boolean
+		for _, group in groupsOf(pres) do
+			for _, entry in group.order or {} do
+				local id = tostring(if type(entry) == "table" then (entry.id or entry.path) else entry)
+				if string.find(id, needle, 1, true) ~= nil then
+					return true
+				end
+			end
+		end
+		return false
+	end
+	--[[ The panel is switched off by default; every case below also builds the LIVE
+		arm, because "the ring does not contain it" is worth nothing until the same
+		screen with the panel on is shown to contain it. ]]
+	local function panel(child: any, enabled: boolean?)
+		return UI.Screen({
+			id = "S",
+			children = {
+				UI.HStack({
+					id = "Row",
+					children = {
+						UI.Button({ id = "A", label = "a", width = fixed(80), height = fixed(44) }),
+						UI.Button({ id = "B", label = "b", width = fixed(80), height = fixed(44) }),
+					},
+				}),
+				UI.VStack({ id = "Panel", enabled = enabled ~= false, children = { child } }),
+			},
+		})
+	end
+	local function world(screen: any, opts: any?)
+		local core = customFactory.new()
+		local env = environment.new(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 600, h = 600 })
+		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
+		local adapter = fake_target.new()
+		local system = actionsLib.newSystem(core)
+		local pres = presenterLib.new(core, env, adapter, system)
+		pres.present(screen, opts)
+		pres.refresh()
+		return core, pres, adapter
+	end
+
+	--[[ Each case builds the SAME screen twice — panel live, panel off — on its own
+		core, because a composite control binds to the core it was built on and the
+		live arm is what stops "the ring does not contain it" from being vacuous. ]]
+	local function withControl(make: (any, any) -> any, enabled: boolean): (any, any)
+		local core = customFactory.new()
+		local env = environment.new(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 600, h = 600 })
+		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
+		local built = make(core, env)
+		local pres = presenterLib.new(core, env, fake_target.new(), actionsLib.newSystem(core))
+		pres.present(panel(built.blueprint, enabled))
+		pres.refresh()
+		return pres, built
+	end
+
+	local function ringCase(name: string, needle: string, make: (any, any) -> any, checkFocus: boolean)
+		it(`{name}`, function()
+			local livePres, live = withControl(make, true)
+			expect(ringHas(livePres, needle)).toBe(true)
+			live.dispose()
+
+			local offPres, off = withControl(make, false)
+			expect(ringHas(offPres, needle)).toBe(false)
+			if checkFocus then
+				expect(string.find(tostring(offPres.focus.focused:get()), "/S/Panel/", 1, true)).toBe(nil)
+			end
+			off.dispose()
+		end)
+	end
+
+	ringCase(
+		"a Table's contributed row groups leave the ring, and initial focus is not a row",
+		"/S/Panel/T/",
+		function(core, _env)
+			local rows = core:signal({ { id = "r1", name = "one" }, { id = "r2", name = "two" } })
+			return Facet.Controls.Table(core, {
+				id = "T",
+				rows = rows,
+				key = function(item: any)
+					return item.id
+				end,
+				-- a selectable table is what contributes `row:` focus groups at all
+				selection = "single",
+				rowHeight = 40,
+				columns = {
+					{
+						id = "name",
+						title = "Name",
+						width = { type = "fill", weight = 1 },
+						value = function(item: any)
+							return item.name
+						end,
+					},
+				},
+			})
+		end,
+		true
+	)
+
+	ringCase("a VirtualList's contributed row group leaves the ring", "/S/Panel/VL/", function(core, _env)
+		local items: { any } = {}
+		for i = 1, 20 do
+			table.insert(items, { id = `r{i}`, label = `row {i}` })
+		end
+		return Facet.Controls.VirtualList(core, {
+			id = "VL",
+			rows = core:signal(items),
+			key = function(item: any)
+				return item.id
+			end,
+			rowHeight = 40,
+			viewportHeight = 200,
+			cell = function(item: any)
+				return UI.Text({ id = "L", text = item.label })
+			end,
+		})
+	end, true)
+
+	ringCase("a VirtualGrid's contributed cell group leaves the ring", "/S/Panel/VG/", function(core, _env)
+		local items: { any } = {}
+		for i = 1, 12 do
+			table.insert(items, { id = `c{i}` })
+		end
+		return Facet.Controls.VirtualGrid(core, {
+			id = "VG",
+			items = core:signal(items),
+			key = function(item: any)
+				return item.id
+			end,
+			itemExtent = 40,
+			columns = 3,
+			viewportExtent = 200,
+			cell = function(item: any)
+				return UI.Text({ id = "C", text = item.id })
+			end,
+		})
+	end, false)
+
+	--[[ THE TEXT INPUT IS THE ONE THE `props.enabled` GREP COULD NOT SEE: its
+		contribution gates on `controlContract.enabledNow(spec.enabled)`, the AUTHORED
+		spec value, which is I1's defect in a spelling no search for `props.enabled`
+		would ever have found. Filtering the built groups reaches it without the
+		control knowing anything about inheritance. ]]
+	ringCase("a TextInput's contributed group leaves the ring", "/S/Panel/Field", function(core, env)
+		return Facet.Controls.TextInput(core, { id = "Field", value = core:signal("hello"), env = env })
+	end, true)
+
+	it("a CONSUMER-declared navigationGroups map is filtered too, exactly as `hidden` is", function()
+		local _, pres = world(
+			UI.Screen({
+				id = "S",
+				children = {
+					UI.Button({ id = "Live", label = "l", width = fixed(80), height = fixed(44) }),
+					UI.VStack({
+						id = "Panel",
+						enabled = false,
+						children = { UI.Button({ id = "Off", label = "o", width = fixed(80), height = fixed(44) }) },
+					}),
+				},
+			}),
+			{
+				navigationGroups = {
+					{ name = "declared", axis = "vertical", order = { "/S/Live", "/S/Panel/Off" } },
+				},
+			}
+		)
+		expect(ringHas(pres, "/S/Panel/Off")).toBe(false)
+		expect(ringHas(pres, "/S/Live")).toBe(true)
+	end)
+
+	--[[ NEW-2: a disabled cell punches a HOLE, it does not repack. `hidden` has
+		always behaved this way, and the comment on the filter it shares says why —
+		"every entry after a removed one shifts a lane, so the perpendicular arrow
+		would land confidently wrong". ]]
+	it("a disabled Grid cell leaves a hole, the same shape a hidden one leaves", function()
+		local function grid(mut: (any) -> ())
+			local kids: { any } = {}
+			for i = 1, 9 do
+				local props: any = { id = `C{i}`, label = "c", width = fixed(60), height = fixed(40) }
+				if i == 5 then
+					mut(props)
+				end
+				table.insert(kids, UI.Button(props))
+			end
+			return UI.Screen({ id = "S", children = { UI.Grid({ id = "G", columns = 3, children = kids }) } })
+		end
+		local function shape(screen: any): string
+			local _, pres = world(screen)
+			local parts: { string } = {}
+			for _, group in groupsOf(pres) do
+				table.insert(parts, "[" .. table.concat(ids(group), ",") .. "]")
+			end
+			return table.concat(parts, " ")
+		end
+		local hiddenShape = shape(grid(function(props)
+			props.hidden = true
+		end))
+		expect(hiddenShape).toBe("[C1,C2,C3] [C4,C6] [C7,C8,C9]")
+		expect(shape(grid(function(props)
+			props.enabled = false
+		end))).toBe(hiddenShape)
+	end)
+end)
+
+--[[ NEW-3: the DERIVATION is a structural question. `hasHorizontalStructure` counts
+	focusables to decide whether a screen is navigated by groups or by the flat ring,
+	and while that count read the disabled state, switching off one unrelated row
+	could re-derive the navigation model — and the traversal rank — for the whole
+	screen, live, in both directions. ]]
+describe("NEW-3: disabling a row does not flip the screen between derivations", function()
+	it("the live column keeps its own group when the row beside it is switched off", function()
+		local function screen(rowEnabled: boolean)
+			return UI.Screen({
+				id = "S",
+				children = {
+					UI.HStack({
+						id = "Row",
+						enabled = rowEnabled,
+						children = {
+							UI.Button({ id = "X", label = "x", width = fixed(60), height = fixed(40) }),
+							UI.Button({ id = "Y", label = "y", width = fixed(60), height = fixed(40) }),
+						},
+					}),
+					UI.VStack({
+						id = "Col",
+						children = {
+							UI.Button({ id = "P", label = "p", width = fixed(60), height = fixed(40) }),
+							UI.Button({ id = "Q", label = "q", width = fixed(60), height = fixed(40) }),
+						},
+					}),
+				},
+			})
+		end
+		local function names(enabled: boolean): string
+			local core = customFactory.new()
+			local env = environment.new(core)
+			env:set("viewportRect", { x = 0, y = 0, w = 600, h = 600 })
+			env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
+			local pres = presenterLib.new(core, env, fake_target.new(), actionsLib.newSystem(core))
+			pres.present(screen(enabled))
+			pres.refresh()
+			local out: { string } = {}
+			for _, group in pres.focus.focusMap().navigation or {} do
+				table.insert(out, tostring(group.name))
+			end
+			table.sort(out)
+			return table.concat(out, " | ")
+		end
+		-- the same groups, whatever the row's state: only their MEMBERS change
+		expect(names(false)).toBe(names(true))
+		expect(string.find(names(false), "auto-v", 1, true) ~= nil).toBe(true)
+	end)
+end)
+
 describe("C3: focus restoration when the focused subtree is switched off", function()
 	it("focus leaves for a legal node and does not come back on re-enable", function()
 		local core = customFactory.new()

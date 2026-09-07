@@ -286,6 +286,10 @@ local entryPath = focusMap.entryPath
 local isHiddenPath = focusMap.isHiddenPath
 local filterHidden = focusMap.filterHidden
 local filterGroupsHidden = focusMap.filterGroupsHidden
+-- ...and the same splice for a DISABLED subtree, which is the same kind of fact
+-- (RED-TEAM round 2): filtered on the BUILT groups, so it reaches a contributed
+-- group and a consumer-declared map, neither of which any builder walks
+local filterGroupsDisabled = focusMap.filterGroupsDisabled
 local focusOrder = focusMap.focusOrder
 local resolveInitialFocus = focusMap.resolveInitialFocus
 local nodePriority = focusMap.nodePriority
@@ -2103,6 +2107,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 				navigationGroups,
 				if controller.hiddenRoots ~= nil then controller.hiddenRoots() else nil
 			)
+			navigationGroups = filterGroupsDisabled(navigationGroups, root.node)
 			graph.pushScope({
 				name = blueprint.id or kind,
 				trap = kind == "modal",

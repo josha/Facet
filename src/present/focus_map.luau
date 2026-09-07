@@ -157,6 +157,53 @@ local function filterGroupsHidden(groups: { any }, hidden: { [string]: boolean }
 	return out
 end
 
+--[[ ...AND THE SAME SPLICE FOR A DISABLED SUBTREE (RED-TEAM round 2, NEW-1/2/3/4).
+
+	A disabled subtree is the same KIND of fact as a hidden one — a region of the
+	tree the ring must not enter — so it is filtered in the same place, on the BUILT
+	groups, and by the same function. The first attempt put the test inside the three
+	walks that build the groups, and that was wrong three ways:
+
+	  * it never reached a control that CONTRIBUTES its own `focusGroups`
+	    (`newTable`, `newVirtualList`, `newVirtualGrid`, `newTextInput`), because
+	    `autoGroups` emits a contribution's groups verbatim and does not descend —
+	    so a disabled list kept every row in the ring — nor a CONSUMER-declared
+	    `navigationGroups` map, which no builder touches at all;
+	  * it REPACKED an inferred grid, because `collectFocusables` is the walk
+	    `emitGridGroups` fills its rows from: a disabled `C5` slid `C7` up a lane
+	    instead of leaving a hole, and `entry = "nearest"` then aimed Down at a cell
+	    two visual rows away;
+	  * it made `hasHorizontalStructure` state-dependent, so switching off one
+	    unrelated row could re-derive the whole screen's navigation model.
+
+	Disabled ROOTS, not disabled nodes: the cascade is a conjunction, so the topmost
+	disabled node stands for its whole subtree and `filterHidden`'s path-prefix test
+	does the rest. That is also why the walk stops descending at one. ]]
+local function collectDisabledRoots(node: any, out: { [string]: boolean })
+	if isRetiring(node) then
+		return
+	end
+	if isDisabled(node) then
+		out[node.path] = true
+		return -- everything below is disabled too; one root stands for the subtree
+	end
+	for _, child in node.children or {} do
+		collectDisabledRoots(child, out)
+	end
+end
+
+local function filterGroupsDisabled(groups: { any }, rootNode: any): { any }
+	if groups == nil or rootNode == nil then
+		return groups
+	end
+	local roots: { [string]: boolean } = {}
+	collectDisabledRoots(rootNode, roots)
+	if next(roots) == nil then
+		return groups
+	end
+	return filterGroupsHidden(groups, roots)
+end
+
 local function focusOrder(node: any, out: { string })
 	local deferred: { string } = {}
 	focusWalk(node, out, deferred)
@@ -449,17 +496,18 @@ end
 --[[ collect focusable paths (excluding grips) under `node`, in document order
 	(hoisted above autoGroups — both derivations share the layout helpers)
 
-	AND IT ASKS `isDisabled`, like every other "is this a focus stop" test in this
-	file (RED-TEAM C2). This walk feeds `focusableCount` — which decides whether a
-	row becomes a horizontal group at all — `emitGridGroups`, and both grouped
-	derivations, so a disabled node missed here is a node the pad can reach on any
-	screen with horizontal structure while the flat walk correctly refuses it. The
-	two verbs walk the SAME set (constitution §9); they now agree on this too. ]]
+	IT ASKS A STRUCTURAL QUESTION ONLY, deliberately (RED-TEAM round 2). It briefly
+	asked `isDisabled` too, and that broke two things a builder must not decide:
+	`emitGridGroups` fills a rectangle's rows from this walk, so a removal here
+	REPACKS the board rather than leaving a hole, and `focusableCount` reads it to
+	decide whether the screen is grouped at all, so one disabled row could flip the
+	whole navigation model. The disabled test belongs to `filterGroupsDisabled`,
+	which runs on the built groups — see its note. ]]
 local function collectFocusables(node: any, out: { string })
 	if node.class == "Grip" or isRetiring(node) then
 		return
 	end
-	if FOCUSABLE[node.class] and not (node.props and node.props.focusable == false) and not isDisabled(node) then
+	if FOCUSABLE[node.class] and not (node.props and node.props.focusable == false) then
 		table.insert(out, node.path)
 	end
 	for _, child in node.children or {} do
@@ -747,17 +795,14 @@ local function autoGroups(rootNode: any): { any }
 			table.insert(groups, { name = `auto-h-{node.path}`, axis = "horizontal", entry = "nearest", order = cells })
 			return
 		end
-		-- ...and both stops ask `isDisabled` (RED-TEAM C2): this derivation builds the
-		-- member set the presenter navigates when the screen has horizontal structure
+		-- STRUCTURAL ONLY: the disabled test runs on the BUILT groups
+		-- (`filterGroupsDisabled`), the one placement that also reaches a contributed
+		-- group and a consumer-declared map
 		if node.class == "Grip" then
-			if node.props and node.props.focusable == true and not isDisabled(node) then
+			if node.props and node.props.focusable == true then
 				table.insert(grips, node.path)
 			end
-		elseif
-			FOCUSABLE[node.class]
-			and not (node.props and node.props.focusable == false)
-			and not isDisabled(node)
-		then
+		elseif FOCUSABLE[node.class] and not (node.props and node.props.focusable == false) then
 			table.insert(pending, node.path)
 		end
 		for _, child in node.children or {} do
@@ -821,7 +866,7 @@ local function layoutGroups(rootNode: any): { any }
 			return
 		end
 		if node.class == "Grip" then
-			if node.props and node.props.focusable == true and not isDisabled(node) then
+			if node.props and node.props.focusable == true then
 				table.insert(grips, node.path)
 			end
 			return
@@ -841,7 +886,7 @@ local function layoutGroups(rootNode: any): { any }
 			table.insert(groups, { name = `auto-h-{node.path}`, axis = "horizontal", entry = "nearest", order = cells })
 			return
 		end
-		if FOCUSABLE[node.class] and not (node.props and node.props.focusable == false) and not isDisabled(node) then
+		if FOCUSABLE[node.class] and not (node.props and node.props.focusable == false) then
 			table.insert(pending, node.path)
 		end
 		for _, child in node.children or {} do
@@ -868,6 +913,7 @@ return {
 	isHiddenPath = isHiddenPath,
 	filterHidden = filterHidden,
 	filterGroupsHidden = filterGroupsHidden,
+	filterGroupsDisabled = filterGroupsDisabled,
 	focusOrder = focusOrder,
 	resolveInitialFocus = resolveInitialFocus,
 	nodePriority = nodePriority,
