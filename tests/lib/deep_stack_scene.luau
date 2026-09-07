@@ -490,6 +490,50 @@ function deep_stack_scene.new(opts: Opts?)
 		controller.refresh()
 	end
 
+	--[[ ...and the WIDE version of that same drive (Plan D, D3b): many leaves moving in
+		ONE solve, which is what a settled text push delivers and what no single-signal
+		drive can produce. The writes go inside one `env:batch` so the refresh below is
+		the only solve and the dirty set that reaches the build and the arrange is the
+		union of every row named — the shape that makes "the dirty set is the ancestor
+		chain" false, and the one the two probe budgets exist for. ]]
+	function scene.textMany(from: number, to: number, value: string)
+		env:batch(function()
+			for i = from, to do
+				texts[i]:set(`{value}{i}`)
+			end
+		end)
+		controller.refresh()
+	end
+
+	--[[ ...and the SETTLE PUSH, which is the route a shipped session is actually on
+		(Plan D, D3b; `tests/text_settle_closure.spec.luau` owns the mechanism). Drive
+		the surface to settled first, then write a word the measurer has never seen: the
+		width arrives from the target, `render/text_index` pushes every path that shares
+		the (font, size) key — EVERY row's `A` label, since they all sit at 14 — and the
+		re-solve runs on the layout tree already standing. That is the one drive here
+		whose dirty set is WIDE while every container keeps the token it had, which is
+		the state the two probe budgets exist for and which no signal write reaches. ]]
+	local function textWidthOf(word: string, size: number, _font: string): number?
+		return math.max(1, #word * size * 0.5)
+	end
+
+	function scene.settleText()
+		for _ = 1, 8 do
+			controller.refresh()
+			if adapter.textBatchCount() == 0 then
+				break
+			end
+			adapter.deliverTextWidths(textWidthOf)
+		end
+		controller.refresh()
+	end
+
+	function scene.pushWord(i: number, word: string)
+		texts[i]:set(word)
+		controller.refresh()
+		adapter.deliverTextWidths(textWidthOf)
+	end
+
 	-- ...and the MEASURE-class drive on the ROW ITSELF, which moves the offer its
 	-- two children are measured against (see the header)
 	function scene.width(i: number, value: number)

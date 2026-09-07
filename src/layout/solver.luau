@@ -3457,6 +3457,7 @@ function solver.solve(
 			arrangeEntries = ctx.arrangeEntries,
 			placeSkipped = ctx.placeSkipped,
 			placeScanned = ctx.placeScanned,
+			replayProbes = ctx.replayProbes,
 			replayChecks = ctx.replayChecks,
 			rectInserts = ctx.rectInserts,
 			skipped = ctx.skipped,

@@ -257,6 +257,19 @@ export type Ctx = {
 		walks the dirty children alone and this is the counter that says so. Surfaced as
 		`controller.stats().lastPlaceScanned`. ]]
 	placeScanned: number,
+	--[[ ...AND WHAT THE INDEXED ARM READ TO DECIDE (Plan D, D3b). `placeScanned` is
+		the SIBLINGS the replay touched; this is the DIRTY IDS it enumerated to build the
+		short list, and only this one can see the term the probe budget in
+		`layout/stack`'s `candidateIndices` bounds — a wide push made every container walk
+		the whole solve's dirt while `placeScanned` stayed at one per container. Surfaced
+		as `controller.stats().lastReplayProbes`. ]]
+	replayProbes: number,
+	--[[ ...and the widest lower bound on `reuse.dirtyContains`'s SIZE this solve has
+		established (Plan D, D3b). The set is one fixed table per solve, so the first
+		bounded walk answers the size question for every container after it and the probe
+		budget costs a comparison instead of a walk. Never surfaced: it is the walk's own
+		scratch, and `replayProbes` is what a spec reads. ]]
+	dirtySeen: number,
 	--[[ T14's FORCED-ON ORACLE (ruling A-12, the route `memoAudit` established). When
 		it is on the replay never returns early: the gate is still evaluated, the full
 		placement loop still runs, and every child whose rect the replay WOULD have
@@ -494,6 +507,8 @@ function solve_ctx.new(contentRect: Rect, opts: any, metrics: any): Ctx
 		arrangeEntries = 0,
 		placeSkipped = 0,
 		placeScanned = 0,
+		replayProbes = 0,
+		dirtySeen = 0,
 		replayAudit = (opts and (opts :: any).stackReplayAudit) == true,
 		replayChecks = 0,
 		aggregateAudit = (opts and (opts :: any).containerAggregateAudit) == true,

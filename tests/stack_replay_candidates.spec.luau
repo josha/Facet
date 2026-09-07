@@ -112,13 +112,16 @@
 	    gate stricter and it is kept for the reason `AdaptiveStack` taught one lane over,
 	    where an inference about what could not happen was false.
 
-	  * the BUDGET (owed row 10). No drive in this suite dirties more than a quarter of a
-	    container's children while every other gate term still holds: the drives that
-	    dirty many children at once move the container's box or the measure stamp, and
-	    the replay refuses on those first. It is a COST guard, not a correctness one —
-	    removing it changes no output, only the worst case — and it is kept because
-	    `render/layout_node`'s patch carries the identical budget for the identical
-	    reason and IS exercised there, by a spec that can hand `build` any dirty set.
+	  * the OUTPUT budget (owed row 10). No drive in this suite dirties more than a
+	    quarter of a container's children while every other gate term still holds: the
+	    drives that dirty many children at once move the container's box or the measure
+	    stamp, and the replay refuses on those first. It is a COST guard, not a
+	    correctness one — removing it changes no output, only the worst case — and it is
+	    kept because `render/layout_node`'s patch carries the identical budget for the
+	    identical reason and IS exercised there, by a spec that can hand `build` any
+	    dirty set. (Its PROBE twin, added by D3b, is a different matter: it bites, it has
+	    its own drive at the bottom of this file, and dropping its early return reddens
+	    that drive by three orders of magnitude.)
 	  * the `table.sort` on the short list (owed row 4). Order is observable only on the
 	    REFUSING path with two or more dirty children reaching different terms, and the
 	    dirty set's enumeration order is a hash order this suite cannot control. The
@@ -216,6 +219,82 @@ describe("D2c: what refuses the short list", function()
 		expect(`scanned={string.match(removed, "scanned=(%d+)")} equal={tostring(shot == coldShot)}`).toBe(
 			"scanned=1 equal=true"
 		)
+	end)
+end)
+
+--[[ ── THE WALK, WHICH THE OUTPUT BUDGET NEVER BOUNDED (Plan D, D3b) ───────────
+	`candidateIndices` enumerates `reuse.dirtyContains` — THE WHOLE SOLVE'S DIRT, not
+	this container's share of it — and until D3b the budget on it capped only what it
+	RETURNED. On the drives above the two are the same thing: a leaf write's dirty set
+	is that leaf's ancestor chain. On a WIDE one they are not, and Plan D's cutoff sweep
+	is where it surfaced — 1,000 settled text leaves arriving in one solve put ~2,000
+	ids in the set, each of the 1,000 two-child rows read all 2,000 to find its one, and
+	the push route went 24.2 ms at the Plan D base -> 62.6 ms at `aeaf17de`, of which
+	this walk was the larger half (+29.5 ms on the 1,000 point alone; `render/layout_node`
+	carries the smaller twin and `tests/build_index_patch.spec.luau` pins it).
+
+	`lastReplayProbes` is the only counter that can see it. `lastPlaceScanned` prices
+	the SHORT LIST — one entry per dirty child, which is what the arm returns — and it
+	stays at one per container however wide the set the container read to get there. So
+	the case below pins the two together, and pins the fallback with them: past the
+	budget `order` is nil and the loop takes the SCAN, so `scanned` rises to the sibling
+	count, which is the arm HEAD always ran and the exact one D2c replaced. ]]
+describe("D3b: the dirty-set WALK is bounded, and the wide push takes the scan", function()
+	it("THE HEADLINE: forty rows moving at once cost one bounded walk, not one per row", function()
+		local s = scene.new({ rows = 200 })
+		s.text(2, "warm") -- the warm-up: it records the payload under the current token
+		s.text(3, "warm")
+		--[[ THE NARROW CONTROL, on this same surface: the indexed arm, the short list,
+			and a probe count that is the ancestor chain and nothing else. ]]
+		local before = s.stats()
+		s.text(4, "x")
+		expect(`{line(s, before)} probes={s.stats().lastReplayProbes}`).toBe(
+			"solves=1 scanned=4 skipped=199 arranged=5 entries=5 probes=12"
+		)
+		--[[ ...AND THE WIDE DRIVE: forty rows in one solve, 82 dirty ids against rows of
+			two children. The list arranges first and carries the widest budget (its child
+			count), so it walks the set ONCE and every row under it — dirty ones refused by
+			their rebuilt token, clean ones by the recorded bound — pays a comparison.
+			`probes` is therefore the SIZE OF THE SET, once, where an unbounded walk makes
+			it a per-container multiple of it: this drive reads 16,564 with the early
+			return removed, and `scanned` is unmoved by that because the scan is what both
+			arms fall to. It is `scanned` rising from 4 to 232 that says the fallback is
+			the sibling walk D2c replaced, and `arranged`/`entries` that say the same
+			children were placed. ]]
+		before = s.stats()
+		s.textMany(1, 40, "wide")
+		expect(`{line(s, before)} probes={s.stats().lastReplayProbes}`).toBe(
+			"solves=1 scanned=232 skipped=197 arranged=85 entries=85 probes=82"
+		)
+		s.dispose()
+	end)
+
+	it("...and the PRODUCTION route: a wide-key settle push, tokens intact", function()
+		--[[ THE SHAPE NO SIGNAL WRITE REACHES. Every drive above dirties containers,
+			so `render/layout_node` rebuilds them and the replay is refused by the fresh
+			token before its walk can matter. A SETTLE PUSH does not: the width of one
+			new word arrives from the target, `render/text_index` pushes every path that
+			shares the (font, size) key — all 64 row labels — and the re-solve runs on the
+			layout tree already standing, so every container keeps its token and every one
+			of them reaches `candidateIndices` with the whole push in `dirtyContains`.
+			That is the state the D3b sweep measured at 3,002,000 probes on a 1,000-row
+			push (`.superpowers/.../d3b/`), and the state this budget exists for. SIXTY-
+			FOUR ROWS because that is what fits under the SHIPPED push cap — `max(64,
+			nodes // 8)`, and this tree is three nodes per row, so the cap's floor is the
+			only door a whole-list push gets through. `probes=65` is the list's own walk
+			stopping one past its budget, and the two guards are priced separately by the
+			battery: without the per-pass bound this drive reads 4,290 (65 per container),
+			without the early return 130 (the whole set, once). Every number was read off
+			the run. ]]
+		local s = scene.new({ rows = 64 })
+		s.settleText()
+		local before = s.stats()
+		s.pushWord(7, "d3bWideWord")
+		local st = s.stats()
+		expect(`{line(s, before)} pushed={st.lastTextDirtyPaths} probes={st.lastReplayProbes}`).toBe(
+			"solves=2 scanned=382 skipped=63 arranged=131 entries=131 pushed=64 probes=65"
+		)
+		s.dispose()
 	end)
 end)
 

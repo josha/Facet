@@ -326,6 +326,15 @@ local ALLOWLIST: { { file: string, match: string, why: string } } = {
 		match = "math.max(r.w, floor)",
 		why = "hit-rect arithmetic over the ALREADY theme-resolved floor",
 	},
+	{
+		file = "src/render/layout_node.luau",
+		match = "local DIRT_PROBE_FLOOR = 64",
+		why = "a PROBE BUDGET in hash-table entries, not a distance: how many dirty-set entries a "
+			.. "container may read before it stops trusting the walk and takes the full pass. Nothing "
+			.. "is drawn at 64 and no theme can move what it bounds -- the floor exists because the "
+			.. "irreducible dirty set on a leaf edit is the tree's DEPTH, and it must clear a "
+			.. "realistic one (Plan D, D3b)",
+	},
 }
 
 -- lines that are pure comments carry no code

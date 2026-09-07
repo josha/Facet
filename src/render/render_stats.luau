@@ -120,6 +120,11 @@ function render_stats.new(): any
 			is the only counter that can see it — `lastPlaceSkipped` moves with the
 			children NOT re-placed and is unmoved by the lever. ]]
 		lastPlaceScanned = 0,
+		--[[ ...and the DIRTY IDS that indexed arm enumerated to decide (Plan D, D3b).
+			`lastPlaceScanned` prices the short list; this prices the WALK that produced it,
+			and a wide push is exactly the shape where the two diverge — one scan per
+			container, the whole solve's dirt read to get there. ]]
+		lastReplayProbes = 0,
 		-- ...and how often that aggregate STARTED and refused, on one of its two
 		-- performance valves (the probe budget or a `fill` classification change).
 		-- A class where this is non-zero is reported, never averaged away.
@@ -330,6 +335,7 @@ function render_stats.publish(stats: any, result: any, layoutNodes: number, stru
 		stats.lastArrangeEntries = work.arrangeEntries or 0
 		stats.lastPlaceSkipped = work.placeSkipped or 0
 		stats.lastPlaceScanned = work.placeScanned or 0
+		stats.lastReplayProbes = work.replayProbes or 0
 		stats.lastAggregateFallbacks = work.aggregateFallbacks or 0
 		stats.lastAnchorSkipped = work.anchorSkipped or 0
 		-- ...and what the solve wrote into the RECT MAP (P2). It is not `lastArranged`

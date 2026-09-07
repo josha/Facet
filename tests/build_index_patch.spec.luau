@@ -493,6 +493,85 @@ describe("D2a: the counter, on the thousand-row list", function()
 	end)
 end)
 
+--[[ ── THE WALK THE OUTPUT BUDGET DID NOT BOUND (Plan D, D3b) ──────────────────
+	`patchIndices` walks `store.dirty` — the WHOLE pass's dirt, not this container's
+	share of it — and until D3b the only budget on it capped what it RETURNED. On a
+	narrow leaf edit the two are the same thing: the dirty set IS the ancestor chain.
+	On a WIDE push they are not, and Plan D's own cutoff sweep is where that surfaced:
+	1,000 settled text leaves delivered at once put ~2,000 entries in the set, every one
+	of the 1,000 rebuilt two-child rows read all 2,000 to find its single dirty child,
+	and the push route went from 24.2 ms at the Plan D base to 62.6 ms at `aeaf17de`
+	(`.superpowers/.../d3b/cutoff-*.txt`; D2c's twin walk in `layout/stack` is the
+	larger half and `tests/stack_replay_candidates.spec.luau` pins that one).
+
+	`store.patchProbes` is the counter, and it is the only one that can see this: a
+	container that walks two thousand entries and then patches successfully leaves
+	`patchRefused` at 0, `childVisits` at 1 and every other number exactly where the
+	narrow case leaves it. The cases below pin the walk and the fallback TOGETHER,
+	because the fix is a TRADE — the wide arm now pays `visits` it did not pay before
+	(the full pass, which is the pre-D2a arm verbatim) to stop paying probes. ]]
+describe("D3b: the dirty-set WALK is bounded, not only the array it rebuilds", function()
+	-- one thousand two-child rows under one list: the sweep's shape, without the text
+	-- route, so the dirt is exactly what the drive names and nothing else
+	local function rowTree(): (any, { [string]: boolean }, { [string]: boolean })
+		local rows: { any } = {}
+		local wide: { [string]: boolean } = { ["/r"] = true }
+		for i = 1, 1000 do
+			local a = stub("Box", `/r/row{i}/a`, { width = px(10), height = px(10) })
+			local b = stub("Box", `/r/row{i}/b`, { width = px(10), height = px(10) })
+			rows[i] = stub("HStack", `/r/row{i}`, {}, { a, b })
+			wide[`/r/row{i}`] = true
+			wide[`/r/row{i}/a`] = true
+		end
+		return stub("VStack", "/r", {}, rows), wide, { ["/r"] = true, ["/r/row500"] = true, ["/r/row500/a"] = true }
+	end
+
+	it("THE HEADLINE: a wide push reads a bounded slice of the dirty set, not all of it", function()
+		local root, wide, narrow = rowTree()
+		local store = layout_node.newStore()
+		layout_node.build(store, root, NEUTRAL, 1, 0, nil)
+		expect(`{line(store)} probes={store.patchProbes}`).toBe("built=3001 visits=3000 nodes=3001 refused=0 probes=0")
+		--[[ THE NARROW DRIVE FIRST, on the same tree, as the control: three dirty paths,
+			two containers on the chain, three probes each, and the patch serves both. This
+			is the case the budget must not touch and the number the wide drive is read
+			against. ]]
+		layout_node.build(store, root, NEUTRAL, 1, 0, narrow)
+		expect(`{line(store)} probes={store.patchProbes}`).toBe("built=3 visits=2 nodes=3001 refused=0 probes=6")
+		--[[ ...AND THE WIDE ONE. 2,001 dirty paths, 1,001 containers, and 1,001 probes
+			for the whole pass: the list is built first and its budget is its child count,
+			so its walk stops at 1,001 and every row under it — budget 64, the floor —
+			refuses on that recorded bound without walking at all. The battery prices the
+			two guards separately: without the per-pass bound this drive reads 66,001 (65
+			per container), without the early return 2,001 (the whole set, once), and
+			without either the product of them. What it costs instead is the FULL PASS at every refusing
+			container, 3,000 visits, which is exactly what T15 and the pre-D2a build spent
+			on the same tree (the mount line above). ]]
+		layout_node.build(store, root, NEUTRAL, 1, 0, wide)
+		expect(`{line(store)} probes={store.patchProbes}`).toBe(
+			"built=2001 visits=3000 nodes=3001 refused=1001 probes=1001"
+		)
+	end)
+
+	it("the budget is spent BEFORE the index is, so a refusing tick has paid nothing", function()
+		--[[ `stack_measure`'s owed row A10 states the rule and this is the same one: the
+			bare count runs ahead of `indexKids`, so the wide arm never builds the
+			path->index map or re-reads the region triples. The witness is the LAZY index
+			itself — after a wide-only tick the container still has no index, so the next
+			NARROW tick is the one that builds it, three probes per container on the chain
+			and six for the pass, exactly what the same drive costs on a store that never
+			saw the wide one. ]]
+		local root, wide, narrow = rowTree()
+		local store = layout_node.newStore()
+		layout_node.build(store, root, NEUTRAL, 1, 0, nil)
+		layout_node.build(store, root, NEUTRAL, 1, 0, wide)
+		local prior = store.byNode[(root :: any).children[500]]
+		expect(`index={tostring(prior.kidIndex)} refused={store.patchRefused}`).toBe("index=nil refused=1001")
+		layout_node.build(store, root, NEUTRAL, 1, 0, narrow)
+		expect(`{line(store)} probes={store.patchProbes}`).toBe("built=3 visits=2 nodes=3001 refused=0 probes=6")
+		expect(`index={tostring(prior.kidIndex ~= nil)}`).toBe("index=true")
+	end)
+end)
+
 --[[ ── THE PRODUCTION DIRT SHAPE ───────────────────────────────────────────────
 	The arena workloads put the THOUSAND ROWS THEMSELVES inside one `UI.ForEach` and
 	drive a per-item signal on one row's leaf (`FacetBench/frameworks/facet/NOTES.md`

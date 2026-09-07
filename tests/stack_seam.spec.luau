@@ -191,6 +191,16 @@ describe("the stack seam: what it READS of the solve, and the one thing it WRITE
 	local CTX_FIELDS = {
 		-- the list its caller owns, appended to by the two diagnostics below
 		"diagnostics",
+		--[[ (Plan D, D3b) the widest lower bound on `reuse.dirtyContains`' SIZE this
+			solve has established. It is the ONE field here that is written and read back
+			in the same solve, and that is deliberate rather than an exception smuggled
+			in: the set is a single fixed table per solve, so one container's bounded walk
+			answers the size question for every container after it, and the alternative is
+			a walk per container over a set that has nothing to do with that container's
+			children. It decides only WHICH ENUMERATION runs, never what either produces —
+			both arms place the same children at the same rects, which is what the oracle
+			at the bottom of `tests/stack_replay_candidates.spec.luau` compares. ]]
+		"dirtySeen",
 		-- ...and the gate those two share, which is also a replay gate term: the
 		-- decision to file cannot have flipped under a re-filed finding
 		"hiddenDepth",
@@ -217,6 +227,10 @@ describe("the stack seam: what it READS of the solve, and the one thing it WRITE
 		-- second of the two write-only counters
 		"replayAudit",
 		"replayChecks",
+		-- ...and (Plan D, D3b) the third census: the DIRTY IDS the indexed arm
+		-- enumerated to build its short list, which `placeScanned` cannot see because it
+		-- prices the list and not the walk that produced it. Write-only like the others
+		"replayProbes",
 		-- the previous solve's rect map and dirty closure. The replay is structurally
 		-- unreachable without it, which is what makes a full solve the pre-T14 branch
 		"reuse",
@@ -285,13 +299,24 @@ describe("the stack seam: what it READS of the solve, and the one thing it WRITE
 		branch's shape rather than its write SET — which is the claim this case makes.
 		Deduped and sorted; the negative control below still reports the field it sees. ]]
 	local WRITES: { string } = {
+		--[[ ...AND THE ONE ENTRY THAT IS NOT A COUNTER (Plan D, D3b). `ctx.dirtySeen` is
+			written here AND read back here, so the paragraph above does not cover it and
+			saying "counter" of it would be false. It is per-solve SCRATCH: a lower bound
+			on the dirty set's size, established by whichever container walked it first
+			and spent by every container after. What it selects is the ENUMERATION — the
+			short list or the sibling scan — and both enumerations place the same children
+			at the same rects, so the "same thing at the same moment" objection is answered
+			by the differential oracle rather than by write-only-ness. It is listed first
+			so a second read-back field cannot arrive under this comment unremarked. ]]
+		"ctx.dirtySeen",
 		-- the per-child placements the replay did not spend, the per-child ITERATIONS it
-		-- did (D2c), and the rects its forced-on oracle compared. All three are pure
-		-- counters: this module never reads any of them back, so no behaviour of this
-		-- branch is a function of them
+		-- did (D2c), the dirty IDS it read to decide (D3b), and the rects its forced-on
+		-- oracle compared. All four are pure counters: this module never reads any of
+		-- them back, so no behaviour of this branch is a function of them
 		"ctx.placeScanned",
 		"ctx.placeSkipped",
 		"ctx.replayChecks",
+		"ctx.replayProbes",
 	}
 
 	it("it WRITES nothing of the solver's but `ctx.diagnostics`, and only by insert", function()
@@ -454,6 +479,9 @@ describe("the stack seam: no module-level mutable state", function()
 			declared[name] = true
 		end
 		expect(sorted(declared)).toEqual({
+			--[[ (Plan D, D3b) the floor under the probe budget — a CONSTANT, which is
+				exactly what this scan permits: declared once, never written. ]]
+			"DIRT_PROBE_FLOOR",
 			"alignOffset",
 			"distributionOf",
 			--[[ (Plan D, D2c) `local function candidateIndices` — the crude scan reads the

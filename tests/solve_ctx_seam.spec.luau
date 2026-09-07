@@ -215,7 +215,11 @@ describe("the solve-context seam: one require, no state, one export", function()
 		-- 66 -> 67 (Plan D, D2c): `placeScanned`, the per-child ITERATIONS the stack
 		-- replay spent, which `placeSkipped` cannot see — the replay used to walk every
 		-- sibling twice to serve a one-child payload.
-		expect(`declared={#sorted(declared)} written={#sorted(written)}`).toBe("declared=67 written=67")
+		-- 67 -> 69 (Plan D, D3b): `replayProbes` and `dirtySeen` — the DIRTY IDS that
+		-- indexed replay enumerated to build its short list, and the widest lower bound
+		-- on the set's size this solve has established, which is what turns the second
+		-- container's probe budget into a comparison instead of a walk.
+		expect(`declared={#sorted(declared)} written={#sorted(written)}`).toBe("declared=69 written=69")
 		expect(`never built={table.concat(missing, " ")}`).toBe("never built=")
 		expect(`undeclared={table.concat(undeclared, " ")}`).toBe("undeclared=")
 		-- NEGATIVE CONTROL: both scans really do read a field and a key

@@ -123,8 +123,46 @@ export type Rect = { x: number, y: number, w: number, h: number }
 	is walked here, so a dirt set wider than a quarter of the children costs a scan the
 	full pass does not pay, on a tick that is going to re-place most of them anyway. The
 	refusal is a pure function of the MATCH COUNT, never of the hash order the set
-	happens to enumerate in. ]]
-local function candidateIndices(cmemo: any, dirty: any, n: number): { number }?
+	happens to enumerate in.
+
+	── AND THE WALK ITSELF IS BOUNDED (Plan D, D3b) ─────────────────────────────────
+	That budget bounds what this RETURNS and not what it READS, and `dirtyContains` is
+	the whole solve's dirt rather than this container's share of it. On a WIDE push —
+	1,000 settled text leaves delivered at once, ~2,000 dirty ids — each of the 1,000
+	two-child rows walked all 2,000 to find its own one, and the D3b cutoff sweep priced
+	that at +29.5 ms on the 1,000-leaf point alone, the largest single term in a
+	regression that took the push route from 24.2 ms to 62.6. So a bare probe COUNT runs
+	first, `stack_measure`'s shape and for its reason (a tick that bails must not have
+	paid for anything — here the inverse map is not built either), with the same
+	`DIRT_PROBE_FLOOR` floor `render/layout_node` states the depth argument for. Past it
+	`order` is nil and the loop below takes the SCAN, which is the arm HEAD has always
+	run and the exact one D2c replaced.
+
+	AND, AS THERE, THE COUNT IS PAID ONCE PER SOLVE. `reuse.dirtyContains` is one fixed
+	table for the length of a solve, so a walk that stopped at `budget + 1` proved the
+	set is wider than that and a walk that finished measured it exactly; `ctx.dirtySeen`
+	carries the larger of the two and the arrange descends outermost-first, so the
+	widest budget goes first and every container under it refuses on a comparison. ]]
+local DIRT_PROBE_FLOOR = 64
+
+local function candidateIndices(ctx: any, cmemo: any, dirty: any, n: number): { number }?
+	local probeBudget = math.max(DIRT_PROBE_FLOOR, n)
+	if ctx.dirtySeen > probeBudget then
+		return nil
+	end
+	local probes = 0
+	for _ in dirty do
+		probes += 1
+		if probes > probeBudget then
+			ctx.replayProbes += probes
+			ctx.dirtySeen = probes
+			return nil
+		end
+	end
+	ctx.replayProbes += probes
+	if probes > ctx.dirtySeen then
+		ctx.dirtySeen = probes
+	end
 	local map = cmemo.pIdx
 	if map == nil or cmemo.pIdxToken ~= cmemo.pToken then
 		map = {}
@@ -287,7 +325,7 @@ function stack.arrange(
 		surface is in. ]]
 	local order: { number }? = nil
 	if replayable and cmemo.pToken ~= nil and cmemo.pToken == node.kidToken and cmemo.pNoted ~= true then
-		order = candidateIndices(cmemo, dirty, #children)
+		order = candidateIndices(ctx, cmemo, dirty, #children)
 	end
 	if replayable then
 		local pIds, pRect = cmemo.pIds, cmemo.pRect

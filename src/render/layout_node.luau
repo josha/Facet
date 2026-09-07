@@ -383,13 +383,64 @@ local function indexKids(node: any, childArray: { any }, store: any): ({ [string
 	return index, mounts, regions
 end
 
+--[[ THE FLOOR UNDER THE PROBE BUDGET BELOW, and under `layout/stack`'s twin (Plan D,
+	D3b). The dirty set's IRREDUCIBLE size on the shape both arms exist for is the
+	edited leaf's ancestor chain — the tree's depth, never its width — so the budget has
+	to clear a realistic depth before it starts refusing, or every small container in a
+	deep tree refuses the very tick the arm was built for. 64 is the same "small enough
+	not to bother" constant `render/text_index`'s push cap already spends, an order of
+	magnitude above any UI depth and an order of magnitude below the wide-push dirt sets
+	this bounds (2,002 on the D3b sweep). ]]
+local DIRT_PROBE_FLOOR = 64
+
 --[[ THE INDICES TO REBUILD, or `nil` for "refuse and take the full pass". The dirty
 	SET is walked, not the children: on a one-leaf edit it is the ancestor chain, so
 	this is O(depth) per container where the loop it replaces is O(children). The
-	budget bounds the other direction — a dirt set wider than a quarter of the array
-	rebuilds most of it anyway, and paying the scan on top of the full pass is the one
-	way this arm could cost more than it saves. ]]
+	output budget bounds the other direction — a dirt set wider than a quarter of the
+	array rebuilds most of it anyway, and paying the scan on top of the full pass is one
+	way this arm could cost more than it saves.
+
+	── AND THE WALK IS BOUNDED BY A PROBE BUDGET, NOT BY TRUST (Plan D, D3b) ─────────
+	The output budget above bounds what this returns; it does not bound what it READS.
+	`store.dirty` is the whole pass's dirt, not this container's share of it, so a WIDE
+	push — 1,000 settled text leaves arriving at once, ~2,000 dirty entries — made every
+	one of the 1,000 rebuilt row containers walk all 2,000 to find its own one: O(dirty
+	x containers), and the D3b cutoff sweep read the push route at 62.6 ms against the
+	pre-D2 base's 24.2. The arena's ABBA could not see it because no arena class pushes
+	a thousand leaves under the text cap.
+
+	So the walk spends a bare COUNT first, `stack_measure`'s shape and for its reason:
+	a tick that bails must not have paid for anything, and the refusal here happens
+	before the index is built or the region triples are re-read. Past the budget the
+	container takes the FULL PASS — the exact arm T15 refused to and D2a replaced — so
+	the fallback is O(children) and the total is bounded by it either way.
+
+	AND THE COUNT IS PAID ONCE PER PASS, NOT ONCE PER CONTAINER. `store.dirty` is one
+	fixed table for the length of a `build`, so a walk that stopped at `budget + 1`
+	established that the set holds MORE than that, and a walk that finished established
+	its exact size: either way `store.dirtySeen` is a lower bound every later container
+	can refuse against in O(1). The outermost container is built first and carries the
+	largest budget, so on the wide push the whole pass pays one bounded walk and the
+	thousand rows under it pay a comparison each. Both numbers are pure functions of the
+	set's SIZE and of document order, never of the hash order it enumerates in. ]]
 local function patchIndices(store: any, node: any, prior: any): { number }?
+	local probeBudget = math.max(DIRT_PROBE_FLOOR, #prior.childArray)
+	if store.dirtySeen > probeBudget then
+		return nil
+	end
+	local probes = 0
+	for _ in store.dirty do
+		probes += 1
+		if probes > probeBudget then
+			store.patchProbes += probes
+			store.dirtySeen = probes
+			return nil
+		end
+	end
+	store.patchProbes += probes
+	if probes > store.dirtySeen then
+		store.dirtySeen = probes
+	end
 	local index = prior.kidIndex
 	if index == nil then
 		local mounts, regions
@@ -2084,6 +2135,19 @@ export type Store = {
 		Read by `tests/build_index_patch.spec.luau` off the store itself — the renderer
 		sits at its Source-write cap and this counter is not worth a seam. ]]
 	patchRefused: number,
+	--[[ ...and the DIRTY-SET ITERATIONS those patch attempts spent (Plan D, D3b). The
+		refusal count above says how often the arm gave up; this says what it READ to
+		decide, and it is the only counter that can see the O(dirty x containers) term
+		the probe budget bounds — a container that patches successfully leaves
+		`patchRefused` at zero however wide the set it walked. Read off the store by
+		`tests/build_index_patch.spec.luau`, for the same reason `patchRefused` is. ]]
+	patchProbes: number,
+	--[[ ...and the widest lower bound on `store.dirty`'s SIZE this pass has
+		established (Plan D, D3b). One fixed table serves the whole build, so the first
+		bounded walk answers the size question for every container after it and the probe
+		budget becomes a comparison rather than a walk. Reset per build, beside the
+		counters, because it describes ONE dirty set. ]]
+	dirtySeen: number,
 	-- false makes this a COUNT-ONLY store: no lookup, no write, no entry. The
 	-- oracle's honest pre-fix control (see the count-only arm in `toLayoutNode`).
 	reuse: boolean,
@@ -2118,6 +2182,8 @@ function layout_node.newStore(reuse: boolean?, attachOpts: any?): Store
 		nodes = 0,
 		childVisits = 0,
 		patchRefused = 0,
+		patchProbes = 0,
+		dirtySeen = 0,
 		reuse = reuse ~= false,
 		structural = false,
 	}
@@ -2172,6 +2238,8 @@ function layout_node.build(
 	store.nodes = 0
 	store.childVisits = 0
 	store.patchRefused = 0
+	store.patchProbes = 0
+	store.dirtySeen = 0
 	return toLayoutNode(node, metrics, textScale, prefOffset, nil, nil, store)
 end
 
