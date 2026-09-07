@@ -245,10 +245,16 @@ describe("nameplates baseline — the numbers the wicked-fast round starts from"
 			every rect once (1502, everything is new); each caster tick since writes the
 			250 laned plate ROOTS plus the 50 resized `Cast` bars. 1502 + 300 + 300. ]]
 		expect(st.rectWrites).toBe(LAYOUT + 2 * (PLATES + CASTERS))
-		-- the EXACT aggregate: the sum of the eight per-walk counts below, and the only
-		-- exact pin of the aggregate in this repo — the old `>= MOUNTED * 7` bound could
-		-- never fail (a walk silently publishing twice would sail past it).
-		expect(st.lastCommitVisits).toBe(VISITS_CASTER * 8)
+		--[[ the EXACT aggregate: the sum of the per-walk counts below, and the only
+			exact pin of the aggregate in this repo — the old `>= MOUNTED * 7` bound could
+			never fail (a walk silently publishing twice would sail past it).
+
+			SEVEN, NOT EIGHT (Plan D, D6b): a nameplates surface declares no input sink,
+			so `hitRects` is refused before it starts and publishes 0 — the seven that
+			remain still agree with each other, which is what this pin has always been
+			about (`tests/hit_rect_refusal.spec.luau` holds the refusal's own proof, and
+			its Button case is where "the walk visits the tree" is still pinned). ]]
+		expect(st.lastCommitVisits).toBe(VISITS_CASTER * 7)
 		--[[ ...AND ALL EIGHT WALKS AGREE NOW, which they did not before the lane. T5b
 			split them into a pruned six and an arrange-blind four because the arrange-
 			blind set could ignore a plate root that only MOVED; a laned frame never
@@ -257,11 +263,12 @@ describe("nameplates baseline — the numbers the wicked-fast round starts from"
 			real and `tests/commit_dirt_classes.spec.luau` is where it is driven; it
 			simply has nothing to separate on this step. ]]
 		local byWalk = st.lastCommitVisitsByWalk
-		for _, name in
-			{ "harvest", "visible", "rectPass", "hitRects", "textScale", "padding", "textVerdicts", "scrollRegions" }
-		do
+		for _, name in { "harvest", "visible", "rectPass", "textScale", "padding", "textVerdicts", "scrollRegions" } do
 			expect(`{name}={byWalk[name]}`).toBe(`{name}={VISITS_CASTER}`)
 		end
+		-- ...and the EIGHTH is refused rather than agreeing (Plan D, D6b): no sink on
+		-- this surface, so the hit-rect walk cannot write anything and never starts
+		expect(`hitRects={byWalk.hitRects}`).toBe("hitRects=0")
 		s.dispose()
 	end)
 

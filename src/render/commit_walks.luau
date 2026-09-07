@@ -1454,6 +1454,45 @@ function commit_walks.new(ctx: CommitCtx)
 		if adapter.setHitRect == nil then
 			return
 		end
+		--[[ A WALK THAT CANNOT WRITE ANYTHING DOES NOT RUN (Plan D, D6b — D4b-4's
+			booked finding, and the largest single term that task found).
+
+			WHAT IT COSTS TO RUN IT ANYWAY, measured (FacetBench §D7.2, `d4_hitrects`):
+			`war_room_inventory L` reorder visits **7,337 nodes to write nothing** —
+			`inputSinks=0 authorSinks=0 frameworkChrome=0 hitFloorNodes=0` on every arena
+			workload — and because it is the only walk that visits the MOVED set, it is
+			the walk that builds C4's whole descend cache (`lastCommitScans` 7,346,
+			`lastCommitProbes` 7,335). 2.85 of 19.7 ms of Facet's own `reorder` (14.5 %),
+			1.05 of 9.1 on `removeItem-items`.
+
+			WHY THE TWO TERMS ARE EXACTLY THE WALK'S WRITE SET, and this is a claim about
+			the CONTRACT rather than about a workload:
+
+			  * the only write below is `adapter.setHitRect`, and it is behind
+			    `floor ~= nil` — `layout_node.effectiveHitFloor(node.class, metrics)`, a
+			    function of the CLASS alone. Exactly four classes declare `minHitSize`
+			    (`Grip`, `Button`, `Toggle`, `TextField`) and they are exactly the four
+			    `INPUT_SINKING` classes `render/renderer`'s live-path walk files into
+			    `inputSinks` — pinned as a SOURCE SCAN of both sets in
+			    `tests/hit_rect_refusal.spec.luau`, because a fifth class joining one and
+			    not the other is precisely what would make this gate wrong. `inputSinks`
+			    is a strict SUPERSET besides: it also files any node with `active = true`,
+			    whatever its class. So an empty `inputSinks` means no node on this surface
+			    can carry a floor, and the walk's write is unreachable;
+			  * `lastHitRects` is the record of what this surface has ALREADY asked the
+			    adapter for. Empty means there is nothing to retract, so the diff below
+			    cannot fire either. A DEPARTING path does not need this walk to forget it:
+			    `render/renderer`'s `dropPath` clears `lastHitRects[path]` with the rest of
+			    the per-path caches, which is what makes "empty" mean "nothing stands".
+
+			`sawChrome` is read only inside this walk, and `hit_lift.refresh` reads
+			`lastHitRects` — which a refusal leaves exactly as it found it. The visit count
+			is PUBLISHED as zero rather than left absent: the walk was asked and refused,
+			which is a different fact from the adapter having no hit-rect seam at all. ]]
+		if next(inputSinks) == nil and next(lastHitRects) == nil then
+			publishVisits("hitRects", 0)
+			return
+		end
 		-- A HIDDEN CANDIDATE ASKS FOR NOTHING — found live by the rich-skinning
 		-- device matrix, under the flat default, with real injected clicks. This
 		-- walk used to ignore the

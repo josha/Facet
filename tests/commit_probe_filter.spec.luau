@@ -185,13 +185,18 @@ describe("C14: the probe is asked only where the solve could have replaced an en
 		s.text(500, "warm")
 		s.text(500, "Row 500 changed")
 		local st = s.stats() :: any
-		expect(`scans={st.lastCommitScans}`).toBe("scans=1011")
-		expect(`probes={st.lastCommitProbes} visits={st.lastCommitVisits}`).toBe("probes=1 visits=34")
+		--[[ ...AND THE ONE SCAN THAT WENT WITH `hitRects` (Plan D, D6b). This surface
+			declares no input sink, so the hit-rect walk is refused before it starts
+			(`tests/hit_rect_refusal.spec.luau`) — and it was the walk whose ROOT guard
+			asked the extra question. Numbers re-read off the run; the shape the pin
+			carries is unchanged. ]]
+		expect(`scans={st.lastCommitScans}`).toBe("scans=1010")
+		expect(`probes={st.lastCommitProbes} visits={st.lastCommitVisits}`).toBe("probes=1 visits=29")
 		-- ...AND NOT ONE VISIT OR WRITE MOVED, which is the whole safety claim. These
 		-- are `commit_descend_cache.spec`'s own numbers, re-asserted here because a
 		-- filter that changed one of them would be pruning a node, not a question.
 		expect(byWalk(st)).toBe(
-			"harvest=4 hitRects=5 padding=4 rectPass=5 scrollRegions=4 textScale=4 textVerdicts=4 visible=4"
+			"harvest=4 hitRects=0 padding=4 rectPass=5 scrollRegions=4 textScale=4 textVerdicts=4 visible=4"
 		)
 		expect(`rects={st.rectWrites} props={st.propWrites} engine={st.engineWrites}`).toBe(
 			"rects=3006 props=7004 engine=6008"
@@ -214,8 +219,13 @@ describe("C14: the probe is asked only where the solve could have replaced an en
 		s.width(500, 280)
 		s.width(500, 260)
 		local st = s.stats() :: any
+		--[[ ...AND THE ONE SCAN THAT WENT WITH `hitRects` (Plan D, D6b). This surface
+			declares no input sink, so the hit-rect walk is refused before it starts
+			(`tests/hit_rect_refusal.spec.luau`) — and it was the walk whose ROOT guard
+			asked the extra question. Numbers re-read off the run; the shape the pin
+			carries is unchanged. ]]
 		expect(`scans={st.lastCommitScans} probes={st.lastCommitProbes} visits={st.lastCommitVisits}`).toBe(
-			"scans=1011 probes=0 visits=24"
+			"scans=1010 probes=0 visits=21"
 		)
 		s.dispose()
 	end)
@@ -230,7 +240,7 @@ describe("C14: the probe is asked only where the solve could have replaced an en
 		s.viewport(1000, 700)
 		local st = s.stats() :: any
 		expect(`scans={st.lastCommitScans} probes={st.lastCommitProbes} visits={st.lastCommitVisits}`).toBe(
-			"scans=6 probes=0 visits=21014"
+			"scans=5 probes=0 visits=18012"
 		)
 		s.dispose()
 	end)
@@ -248,7 +258,7 @@ describe("C14: the probe is asked only where the solve could have replaced an en
 		s.text(3, "warm")
 		s.insertItem("x1")
 		local st = s.stats() :: any
-		expect(`scans={st.lastCommitScans} probes={st.lastCommitProbes}`).toBe("scans=193 probes=183")
+		expect(`scans={st.lastCommitScans} probes={st.lastCommitProbes}`).toBe("scans=72 probes=63")
 		s.dispose()
 	end)
 end)
@@ -277,7 +287,7 @@ describe("C14: A CLEAN CHILD OF A DIRTY PARENT is still descended", function()
 		expect(`w={stored.w}`).toBe("w=220")
 		local st = s.controller.stats() :: any
 		expect(`scans={st.lastCommitScans} probes={st.lastCommitProbes} solves={st.solves}`).toBe(
-			"scans=30 probes=1 solves=2"
+			"scans=29 probes=1 solves=2"
 		)
 		s.dispose()
 	end)

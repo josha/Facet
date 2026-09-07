@@ -150,8 +150,12 @@ describe("T5b: a pure-arrange write does not dirty the commit", function()
 		-- no coordinate-space hosts a moved plate's descendants really do move in window
 		-- space: their rects changed, so no prune can drop them. That is the pre-Plan-C
 		-- number and it is what makes this arm an honest control.
-		local WHOLE = PLATES * scene.NODES_PER_PLATE + 3
-		expect(`hitRects={by.hitRects} rectPass={by.rectPass}`).toBe(`hitRects={WHOLE} rectPass={DIRTY_TICK}`)
+		--[[ ...AND `hitRects` IS NOW ZERO ON BOTH ARMS (Plan D, D6b), which does not
+			weaken the control: this scene declares no input sink, so the walk cannot
+			write anything on EITHER storage scheme and is refused before it starts.
+			`rectPass` is the half that still tells the two arms apart, and it is the
+			half the clause above is about. ]]
+		expect(`hitRects={by.hitRects} rectPass={by.rectPass}`).toBe(`hitRects=0 rectPass={DIRTY_TICK}`)
 		s.dispose()
 	end)
 

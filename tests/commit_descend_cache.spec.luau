@@ -174,7 +174,12 @@ describe("C4: the commit's sibling scan is paid once, not once per walk", functi
 		s.text(500, "warm")
 		s.text(500, "Row 500 changed")
 		local st = s.stats() :: any
-		expect(`scans={st.lastCommitScans}`).toBe("scans=1011")
+		--[[ ...AND THE ONE SCAN THAT WENT WITH `hitRects` (Plan D, D6b). This surface
+			declares no input sink, so the hit-rect walk is refused before it starts
+			(`tests/hit_rect_refusal.spec.luau`) — and it was the walk whose ROOT guard
+			asked the extra question. Numbers re-read off the run; the shape the pin
+			carries is unchanged. ]]
+		expect(`scans={st.lastCommitScans}`).toBe("scans=1010")
 		--[[ ...AND WHAT THE ANSWERS WERE STORED IN (fix round 1, review Important 2).
 			The questions falling 8x did not make the milliseconds follow on a commit
 			that prunes NOTHING, and this is why: the first shape of `buildDescend`
@@ -194,7 +199,7 @@ describe("C4: the commit's sibling scan is paid once, not once per walk", functi
 		-- than argued: the cache decides which children are CONSIDERED and never
 		-- which are descended.
 		expect(`visits={st.lastCommitVisits} {byWalk(st)}`).toBe(
-			"visits=34 harvest=4 hitRects=5 padding=4 rectPass=5 scrollRegions=4 textScale=4 textVerdicts=4 visible=4"
+			"visits=29 harvest=4 hitRects=0 padding=4 rectPass=5 scrollRegions=4 textScale=4 textVerdicts=4 visible=4"
 		)
 		expect(`rects={st.rectWrites} props={st.propWrites} engine={st.engineWrites}`).toBe(
 			"rects=3006 props=7004 engine=6008"
@@ -207,7 +212,12 @@ describe("C4: the commit's sibling scan is paid once, not once per walk", functi
 		s.width(500, 280)
 		s.width(500, 260)
 		local st = s.stats() :: any
-		expect(`scans={st.lastCommitScans} visits={st.lastCommitVisits}`).toBe("scans=1011 visits=24")
+		--[[ ...AND THE ONE SCAN THAT WENT WITH `hitRects` (Plan D, D6b). This surface
+			declares no input sink, so the hit-rect walk is refused before it starts
+			(`tests/hit_rect_refusal.spec.luau`) — and it was the walk whose ROOT guard
+			asked the extra question. Numbers re-read off the run; the shape the pin
+			carries is unchanged. ]]
+		expect(`scans={st.lastCommitScans} visits={st.lastCommitVisits}`).toBe("scans=1010 visits=21")
 		expect(`cells={st.lastCommitListCells}`).toBe("cells=2")
 		s.dispose()
 	end)
@@ -228,7 +238,7 @@ describe("C4: the commit's sibling scan is paid once, not once per walk", functi
 		-- ...and an unarmed commit stores nothing either: `descendOf` returns before
 		-- `buildDescend` is ever reached
 		expect(`scans={st.lastCommitScans} visits={st.lastCommitVisits} cells={st.lastCommitListCells}`).toBe(
-			"scans=6 visits=21014 cells=0"
+			"scans=5 visits=18012 cells=0"
 		)
 		s.dispose()
 	end)
@@ -258,7 +268,7 @@ describe("C4: A CLEAN CHILD OF A DIRTY PARENT is still descended", function()
 		expect(`w={stored.w}`).toBe("w=220")
 		local st = s.controller.stats() :: any
 		expect(`scans={st.lastCommitScans} {byWalk(st)}`).toBe(
-			"scans=30 harvest=4 hitRects=4 padding=4 rectPass=4 scrollRegions=4 textScale=4 textVerdicts=4 visible=4"
+			"scans=29 harvest=4 hitRects=0 padding=4 rectPass=4 scrollRegions=4 textScale=4 textVerdicts=4 visible=4"
 		)
 		s.dispose()
 	end)

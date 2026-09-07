@@ -1244,6 +1244,12 @@ require("./rect_pass_constant.spec")
 	an empty lift set is not asked whether it touches anything, and the node's path is
 	read once instead of eleven times. ]]
 require("./z_order_visit_constant.spec")
+--[[ ...AND THE WALK THAT REFUSES WHEN IT CANNOT WRITE ANYTHING (Plan D, D6b): the
+	contract scan the gate rests on (the four `minHitSize` classes ARE the four
+	`INPUT_SINKING` classes), the sink-free list that stops being walked, the one
+	Button that keeps the walk, and the departure that empties `lastHitRects` through
+	`dropPath` rather than through the walk. ]]
+require("./hit_rect_refusal.spec")
 --[[ THE STANDALONE CONSUMER (distribution-readiness D2/D4): `examples/consumer/`
 	is the smallest complete Facet project, and this mounts ITS OWN screen module
 	— the same file the client script requires through the instance tree — against

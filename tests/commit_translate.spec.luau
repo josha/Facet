@@ -150,7 +150,12 @@ describe("O4/N1: seven walks stop at a moved subtree, hitRects does not", functi
 			space: their entry tables are the ones the last commit saw, `skip` matches
 			on plain identity, and the walk stops at the dirty closure. A consequence
 			of the storage change, not a new prune. ]]
-		expect(`hitRects={by.hitRects}`).toBe(`hitRects={PLATES * scene.NODES_PER_PLATE + 3}`)
+		--[[ ...AND THEN IT LEFT THEM AGAIN (Plan D, D6b): this scene declares no input
+			sink, so the walk is refused outright and never reaches the prune this
+			clause described. The prune itself is unchanged and is pinned where it can
+			still be seen — `tests/hit_rect_refusal.spec.luau`'s Button case keeps a
+			sink on the surface and reads the walk running. ]]
+		expect(`hitRects={by.hitRects}`).toBe("hitRects=0")
 		s.dispose()
 	end)
 
@@ -166,7 +171,8 @@ describe("O4/N1: seven walks stop at a moved subtree, hitRects does not", functi
 			expect(`{name}={by[name]}`).toBe(`{name}={ARRANGE_BLIND_CASTS}`)
 		end
 		expect(`rectPass={by.rectPass}`).toBe(`rectPass={RECTPASS_CASTS}`)
-		expect(`hitRects={by.hitRects}`).toBe(`hitRects={DIRTY_CASTS}`)
+		-- ...refused, for the reason the case above states (D6b): no sink, no walk
+		expect(`hitRects={by.hitRects}`).toBe("hitRects=0")
 		s.dispose()
 	end)
 
