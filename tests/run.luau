@@ -1230,6 +1230,13 @@ require("./text_collect_inflight.spec")
 	pushed. Its oracle is a forced-cold arm that does not share the switch, plus the
 	fixed-width label whose truncation verdict flips while its box cannot. ]]
 require("./text_settle_probe.spec")
+--[[ PLAN D, D4b (2026-09-06): the per-row constant of `render/rect_pass.applyOne`,
+	which `war_room_inventory L reorder` runs 7,335 times for one gesture. With the
+	arena's fake target split out of the span (FacetBench §D4a) Facet's own share of
+	`rectPass.apply` is 2.63 of 12.4 ms, and the write-authority claim was 0.24 of it —
+	a call whose three arguments are string literals and whose answer is a module-load
+	constant. Asked once per `apply` instead. ]]
+require("./rect_pass_constant.spec")
 --[[ THE STANDALONE CONSUMER (distribution-readiness D2/D4): `examples/consumer/`
 	is the smallest complete Facet project, and this mounts ITS OWN screen module
 	— the same file the client script requires through the instance tree — against

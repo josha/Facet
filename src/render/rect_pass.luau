@@ -97,7 +97,6 @@ function rect_pass.new(ctx: any)
 		-- nil assignment per node rather than a second walk.
 		lastBarInsets[path] = entry.barInset
 		if handle ~= nil and not rectsEqual(lastRects[path], entry.rect) then
-			authority.assertWrite("common", "size", "layout")
 			adapter.setRect(handle, entry.rect)
 			lastRects[path] = entry.rect
 			stats.rectWrites += 1
@@ -127,6 +126,25 @@ function rect_pass.new(ctx: any)
 			and each bumps it too). A blunt per-commit bump is cheaper than a hot-loop
 			branch and impossible to hook incompletely. The matching bump after the last
 			write is at the bottom of this function. ]]
+		--[[ THE WRITE AUTHORITY, CLAIMED ONCE FOR THE PASS (Plan D, D4b). This call
+			used to sit inside `applyOne`, i.e. once per rect the commit applies — 7,335
+			times for one `war_room_inventory` reorder. Its three arguments are STRING
+			LITERALS and its answer is `MANIFEST.common.size`, a table built at module
+			load and never written afterwards, so it cannot give two answers inside one
+			`apply` or inside one session; what it asserts is a property of THIS PASS
+			("the layout writer owns `common.size`, and I am the layout writer"), not of
+			any particular row. Measured with the arena's fake target split out of the
+			span (FacetBench §D4a): Facet's own share of `rectPass.apply` on that class
+			2.63 -> 2.39 ms, **-9.0 %**, `rectWrites`/`engineWrites`/`lastRectInserts`
+			identical on every arm.
+
+			STRICTLY MORE EAGER, WHICH IS THE FREE DIRECTION: a commit that applies no
+			rect at all now asserts anyway. A manifest that stopped granting the layout
+			writer `common.size` used to throw on the first commit that MOVED something
+			and now throws on the first commit. `tests/rect_pass_constant.spec` drives a
+			wrong-owner manifest through `apply` and demands the throw — the tree had no
+			case that entered this module's authority claim before it. ]]
+		authority.assertWrite("common", "size", "layout")
 		if invalidateOrigins ~= nil then
 			invalidateOrigins()
 		end
