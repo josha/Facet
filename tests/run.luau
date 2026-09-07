@@ -1051,6 +1051,13 @@ require("./surface_overlap.spec")
 -- mounts fresh per viewport, so none of them could see a rotation defect), the
 -- app's own chrome declared through `appChromeRects`, and the drawn URL bar
 require("./hud_chrome_rotation.spec")
+--[[ ...and the SEQUENCE, which is a fourth axis on the same fixture: the app's
+	own chrome toggled ACROSS a rotation rather than beside it (2026-09-07,
+	`hud.mov`). It is a null result on the model — restored landscape equals a
+	fresh landscape mount over node set, rects, visibility, hit rects, props,
+	paint-order ranking, focus ring, bindings and teardown — and the file's header
+	carries the live root-cause work that null result forced. ]]
+require("./hud_chrome_sequence.spec")
 --[[ D7 — ELISION MUST DISCLOSE, NOT DELETE. The `recover` contract on UI.Region,
 	`elided` + `Resolution.unshown` (the seam an overflow surface reads), the
 	authoring error for a `self` route whose reduced form holds nothing focusable,
