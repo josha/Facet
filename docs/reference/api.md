@@ -347,7 +347,7 @@ Three groups recur in the column below and are worth naming once:
 | `clipChildren` | layout containers | make this container an engine clip host; `ScrollView` defaults it to true |
 | `active` | layout containers, `Box` | engine `Active` flag — an input-sinking panel (modal backdrops) |
 | `surface` | layout containers, `Box`, `Button`, `GridRow`, `Image`, `Stage`, `Text` (only `"badge"`/`"chip"` — see `Text`) | surface style role painted behind the node |
-| `enabled` | layout containers, `Button`, `Toggle`, `TextField` | `false` disables the node **and its whole subtree**: every descendant leaves focus order — both derivations (linear and directional), and every group, including the ones a control contributes for itself and a `navigationGroups` map you declare — refuses activation on every input class, and takes no pointer, touch or drag. The themed disabled state reaches the **text** of that subtree. **Inherited** — see [Inherited properties](#inherited-properties-enabled-and-tint) for the precedence rule, what is painted, and what is not |
+| `enabled` | layout containers, `Button`, `Toggle`, `TextField` | `false` disables the node **and its whole subtree**: every descendant leaves focus order — both derivations (linear and directional), and every group, including the ones a control contributes for itself and a `navigationGroups` map you declare (a **static array** is filtered when the surface is presented; use the **function** form for a map that must follow a reactive `enabled`, which is the same rule `hidden` has always had) — refuses activation on every input class, and takes no pointer, touch or drag. The themed disabled state reaches the **text** of that subtree. **Inherited** — see [Inherited properties](#inherited-properties-enabled-and-tint) for the precedence rule, what is painted, and what is not |
 | `tint` | layout containers (subtree only), `Box`, `Text`, `Image`, `Path`, `Stage` | the one continuous colour channel. On a painting class it paints that class's own channel; on a layout container it paints nothing and is **inherited** by the subtree. See [Continuous colour](#continuous-colour-tint) for the value forms and [Inherited properties](#inherited-properties-enabled-and-tint) for the precedence rule |
 | `shadow`, `gradient`, `corners`, `stroke` | every rendered class, **and `GridRow`** | normalized style-modifier data — produce them with `UI.shadow` / `UI.gradient` / `UI.corners` / `UI.stroke`, never by hand |
 | `zIndex` | every rendered class, **and `GridRow`** | paint-order override **within the parent's stacking scope**: siblings paint in `(zIndex or 0, declaration order)` order and a node's whole subtree travels with it. A child is always above its own parent, whatever its `zIndex`, so lifting across surfaces stays structural (`presentModal`'s display order). Read once at mount — a lift is what a node *is* (a drag ghost, a toast), not a state it passes through |
@@ -624,6 +624,16 @@ Three consequences, all deliberate, none of them a bug to report:
   `TextTransparency` from every `Text` beneath it for the life of the surface,
   including long after the tint itself was cleared. Write the alpha on the leaf
   that needs it — the error says so.
+
+**The arrows cannot cross a `Grid` row whose every cell is disabled.** A grid
+names each row group's `up`/`down` exit by index, so a row with no members left is
+still the named neighbour and the move lands nowhere: everything below it is
+unreachable by the arrows and the pad. `hidden` behaves the same way and always
+has — what is new is that `enabled` is inheritable, which puts the shape on an
+ordinary screen. **Lay the same content out as stacked `HStack` rows and it is
+crossed cleanly**, which is the way around; `UI.When` is the other, and it closes
+the space up as well. Tab is unaffected either way: linear traversal walks the
+order, not the exits.
 
 **A presented surface is its own root.** A modal, a toast, a menu, a popover or
 an anchored sheet is mounted as a fresh tree, so it does **not** inherit the

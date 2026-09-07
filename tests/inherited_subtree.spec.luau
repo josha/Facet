@@ -1238,6 +1238,80 @@ end)
 	and while that count read the disabled state, switching off one unrelated row
 	could re-derive the navigation model — and the traversal rank — for the whole
 	screen, live, in both directions. ]]
+--[[ N2: WHAT A FULLY DISABLED GRID ROW COSTS, pinned because it is a promise now.
+
+	A `Grid` names its row groups' `up`/`down` exits by INDEX, so a row every cell of
+	which is disabled is still the named neighbour — and it is empty, so the move
+	lands nowhere. The arrows cannot pass it, and everything below it is unreachable
+	by the pad. `hidden` behaves identically, and always has; what this feature
+	changed is that `enabled = false` is now INHERITABLE, which puts the shape on an
+	ordinary settings screen rather than a rare one.
+
+	A STACK OF `HStack` ROWS IS CROSSED CLEANLY, which is the way around and the
+	reason this pin has two arms: the same content, laid out as stacked rows rather
+	than as a grid, walks straight over the dead row. Both halves are asserted so the
+	documented advice cannot rot into folklore. ]]
+describe("N2: a fully disabled Grid row is a wall; stacked rows are not", function()
+	local function drive(screen: any, from: string, presses: number): string
+		local w = newWorld(600, 600)
+		w.present(screen)
+		w.pres.refresh()
+		w.focusOn = nil
+		w.pres.focus.focusOn(from)
+		w.pres.refresh()
+		for _ = 1, presses do
+			w.system.deviceKey("DPadDown", true)
+			w.system.deviceKey("DPadDown", false)
+			w.pres.refresh()
+		end
+		return tostring(w.pres.focus.focused:get())
+	end
+	local function cell(id: string, off: boolean?)
+		local props: any = { id = id, label = "x", width = fixed(50), height = fixed(40) }
+		if off then
+			props.enabled = false
+		end
+		return UI.Button(props)
+	end
+
+	it("the arrows cannot cross a Grid row whose every cell is disabled", function()
+		local screen = UI.Screen({
+			id = "S",
+			children = {
+				UI.Grid({
+					id = "G",
+					children = {
+						UI.GridRow({ id = "R1", children = { cell("A1"), cell("A2") } }),
+						UI.GridRow({ id = "R2", children = { cell("B1", true), cell("B2", true) } }),
+						UI.GridRow({ id = "R3", children = { cell("D1"), cell("D2") } }),
+					},
+				}),
+			},
+		})
+		expect(drive(screen, "/S/G/R1/A1", 3)).toBe("/S/G/R1/A1")
+	end)
+
+	it("...and the SAME content as stacked rows is crossed cleanly — the documented way around", function()
+		local screen = UI.Screen({
+			id = "S",
+			children = {
+				UI.HStack({ id = "R1", children = { cell("A1"), cell("A2") } }),
+				UI.HStack({ id = "R2", children = { cell("B1", true), cell("B2", true) } }),
+				UI.HStack({ id = "R3", children = { cell("D1"), cell("D2") } }),
+			},
+		})
+		expect(drive(screen, "/S/R1/A1", 1)).toBe("/S/R3/D1")
+	end)
+
+	it("the limit is written down where an author will meet it", function()
+		local fs = require("@lune/fs")
+		expect(string.find(fs.readFile("docs/reference/api.md"), "cannot cross a `Grid` row", 1, true) ~= nil).toBe(
+			true
+		)
+		expect(string.find(fs.readFile("CHANGELOG.md"), "cannot cross a `Grid` row", 1, true) ~= nil).toBe(true)
+	end)
+end)
+
 describe("NEW-3: disabling a row does not flip the screen between derivations", function()
 	it("the live column keeps its own group when the row beside it is switched off", function()
 		local function screen(rowEnabled: boolean)

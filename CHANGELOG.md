@@ -78,6 +78,13 @@ runtime as `Facet.VERSION`.
   ring sitting on it. The two agree now, and the error is the same one. **If you
   focus a primary action that starts disabled until a form is valid, name a
   control that is live, or use `"first"` / `"none"`.**
+- **The arrows cannot cross a `Grid` row whose every cell is disabled.** A grid
+  names each row group's `up`/`down` exit by index, so an emptied row is still the
+  named neighbour and the move lands nowhere — everything below it is unreachable
+  by the arrows and the pad. This is exactly what a fully `hidden` grid row has
+  always done; what changed is that `enabled` is now inheritable, so the shape
+  reaches an ordinary settings screen. **The same content as stacked `HStack` rows
+  is crossed cleanly**, and `UI.When` removes the row outright. Tab is unaffected.
 - **`enabled = false` now means the node AND its subtree.** On `Button`, `Toggle`
   and `TextField` the property is unchanged for a leaf; what is new is that the
   state is inherited, and that it cannot be undone from below — an ancestor never

@@ -440,6 +440,24 @@ however it was built.
 presented — a modal, toast, menu, popover or anchored sheet — is its own mounted
 root and does not inherit; see §6.
 
+**What it COSTS, measured rather than assumed.** A `Grid` names each row group's
+`up`/`down` exit by index, so a row whose every cell is disabled is still the
+named neighbour and is empty — the arrows cannot cross it, and everything below is
+unreachable by the pad. Measured against the branch base: `hidden` does exactly
+this and always has (`A1 → A1 → A1` in both), while base `disabled` walked onto
+the dead row and round 1's placement repacked around it, so no shipped version
+dead-ended and this one does. It is specific to a grid's group-to-group exits: the
+same content as stacked `HStack` rows is crossed cleanly (`R1/A → R3/E`), which is
+the documented way around, and Tab is unaffected because linear traversal walks the
+order rather than the exits. The real fix — `emitGridGroups` naming the nearest
+NON-EMPTY adjacent group, which repairs `hidden` at the same time — is booked, not
+taken: changing focus behaviour was out of scope for the round that found this.
+
+**A consumer-declared `navigationGroups` map** is filtered when the surface is
+presented. A STATIC array is filtered once, there; the FUNCTION form is re-derived
+and so follows a reactive `enabled`. That split is pre-existing and identical for
+`hidden`; `api.md` says which to reach for.
+
 **What is painted, exactly.** One rule, `Disabled subtree text`, selecting a
 `TextLabel` that carries the tag. The tag reaches the four classes that consume a
 resolved `enabled` (`Button`, `Toggle`, `TextField`, `Text`) and not every node,
