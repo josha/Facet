@@ -2612,10 +2612,27 @@ function sheet_model.buildPackage(package: any, opts: BuildPackageOpts?): Model
 			selector = `.facet-role-destructive > .{liftTag}`,
 			props = { TextColor3 = "$OnDanger" },
 		})
-		-- ...and the label-only role's lifted twin (stabilization B'1). A skinned
-		-- text-bearing slot moves the label into a managed child, so every
-		-- parent-role colour needs one of these or the lift paints plain $Content —
-		-- which is exactly the defect the unlifted rule closes, one node down.
+		--[[ ...and the label-only role's lifted twin (stabilization B'1). A skinned
+			text-bearing slot moves the label into a managed child, so every
+			parent-role colour needs one of these or the lift paints plain $Content —
+			which is exactly the defect the unlifted rule closes, one node down.
+
+			NOTHING IN THE TREE REACHES IT TODAY, and that is stated rather than left
+			for a reader to assume from the family it sits in. The only consumer of
+			`onIndicator` is the segmented Picker's covered option, which is always
+			`surface = "plain"` — and `chrome_slots.classify` returns NO SLOT for
+			`plain` ("AN EXPLICIT `plain` PAINTS NOTHING — including chrome",
+			`chrome_slots.luau`), so that option gets no decoration and no
+			`FacetChromeText` child under ANY package. Verified headless on
+			`glossy_touch` and `fantasy_ornate`: no lift instance is created, and the
+			label reaches the screen through the UNLIFTED rule above in every package,
+			exactly as it does on a flat theme.
+
+			It is emitted anyway, for the reason every sibling in this family is: the
+			set is generated per role, and a role missing its twin is the defect
+			`Chrome text — accent` and `— selected` were both added to fix. It becomes
+			live the day a control pairs a `decorationHint` (which outranks `plain`)
+			with this role. So: proved to COMPILE, not proved to paint. ]]
 		emit("chrome", {
 			name = "Chrome text — indicator",
 			selector = `.{ON_INDICATOR_TAG} > .{liftTag}`,

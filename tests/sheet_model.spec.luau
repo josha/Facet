@@ -1159,10 +1159,22 @@ describe("stabilization B'1: the plated indicator's option label pairs with its 
 		expect(table.concat(failedBefore, ", ")).toBe("classic-desktop/Day, classic-desktop/Night, pixel-quest/Quest")
 	end)
 
-	it("a SKINNED package lifts the same colour onto the managed label", function()
-		-- a text-bearing skinned slot moves the label into a managed child, so
-		-- every parent-role colour rule needs its lifted twin or the lift paints
-		-- plain $Content (the `Chrome text — *` family)
+	it("a SKINNED package COMPILES the lifted twin — which nothing reaches today, and say so", function()
+		--[[ a text-bearing skinned slot moves the label into a managed child, so
+			every parent-role colour rule needs its lifted twin or the lift paints
+			plain $Content (the `Chrome text — *` family).
+
+			WHAT THIS CASE DOES AND DOES NOT PROVE, because the difference matters to
+			the next reader (B' review, minor 3). It builds a SYNTHETIC package with a
+			skinned `control` slot and asserts the rule is emitted. It does NOT prove
+			the segmented Picker exercises it: the Picker's covered option is always
+			`surface = "plain"`, and `chrome_slots.classify` returns no slot for
+			`plain`, so that option gets no decoration and no `FacetChromeText` child
+			under any package — its label reaches the screen through the UNLIFTED
+			`TextButton.facet-role-onIndicator` rule everywhere. The twin is emitted
+			for the reason every sibling in its family is (a role missing one is the
+			defect `Chrome text — accent` was added to fix) and goes live the day a
+			control pairs a decoration hint with this role. Compiled, not painted. ]]
 		local model = sheet_model.buildPackage(definePkg(function(def)
 			def.assets = {
 				plate = { content = "rbxassetid://1", sliceCenter = { x0 = 4, y0 = 4, x1 = 12, y1 = 12 } },

@@ -154,7 +154,9 @@ local CONTROLS: { [string]: ControlContract } = {
 		minHitSize = 44,
 		accessibility = "activates on Activate action from any bound input; takes optional custom content "
 			.. "inside its ONE activation surface (a focusable in that content is a build error); semantic "
-			.. "role default|cancel|destructive rides a style tag; enabled=false removes it from focus "
+			.. "role default|cancel|destructive|onIndicator rides a style tag, and onIndicator is the "
+			.. "label-only one (it names $OnAccent for a label sitting on a plate something else painted, "
+			.. "and brings no fill); enabled=false removes it from focus "
 			.. "order AND refuses activation on every input class",
 	},
 	Toggle = {

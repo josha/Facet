@@ -670,8 +670,8 @@ label is what you see.
 What this means for you: **the chrome-text rules paint a skinned button's
 label**, not the button's own text rules. The generated set covers the font
 (`Chrome text — button font`, `— field font`) and the role variants
-(`— accent`, `— destructive`, `— cancel`, `— secondary`, `— disabled button`,
-`— disabled field`). If you want a different label colour on a skinned control,
+(`— accent`, `— destructive`, `— cancel`, `— indicator`, `— secondary`,
+`— disabled button`, `— disabled field`). If you want a different label colour on a skinned control,
 that is where it goes. Facet emits these rules **only** when a text-bearing
 slot is actually skinned — a flat theme carries none of them.
 
