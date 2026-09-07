@@ -27,8 +27,14 @@ local UI = require("../src/blueprint")
 local mountLib = require("../src/mount")
 local environment = require("../src/env/environment")
 local rendererLib = require("../src/render/renderer")
-local presenterLib = require("../src/present/presenter")
-local actionsLib = require("../src/input/actions")
+--[[ THE SHARED HEADLESS WORLD, not a builder of this file's own (R12's follow-up
+	trigger: "the next spec file that ADDS a builder migrates its file"). Eleven
+	presenter setups in this file were eleven copies of the same six lines, and two
+	of them had already drifted into a different argument spelling. `renderOnly`
+	below stays hand-rolled because it deliberately has NO presenter — it drives the
+	renderer straight, which is the only way to read what actually reached the
+	adapter. ]]
+local worldLib = require("./lib/world")
 local classContract = require("../src/class_contract")
 local sheet_model = require("../src/tokens/sheet_model")
 local chrome_slots = require("../src/tokens/chrome_slots")
@@ -40,17 +46,23 @@ local function fixed(px: number)
 	return { type = "fixed", px = px }
 end
 
-local function present(screen: any)
-	local core = customFactory.new()
-	local env = environment.new(core)
-	env:set("viewportRect", { x = 0, y = 0, w = 400, h = 600 })
-	env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
-	local adapter = fake_target.new()
-	local system = actionsLib.newSystem(core)
-	local pres = presenterLib.new(core, env, adapter, system)
-	local handle = pres.present(screen)
-	pres.refresh()
-	return core, env, adapter, system, pres, handle
+local ZERO_INSETS = { top = 0, bottom = 0, left = 0, right = 0 }
+local GUARD_OFF =
+	"a focus/paint fixture: these screens are stacks of fixed-size buttons and are never asked to contain text"
+
+local function newWorld(w: number?, h: number?): any
+	return worldLib.new({
+		viewport = { x = 0, y = 0, w = w or 400, h = h or 600 },
+		safeInsets = ZERO_INSETS,
+		overflowGuardOff = GUARD_OFF,
+	})
+end
+
+local function present(screen: any, opts: any?)
+	local w = newWorld()
+	local handle = w.present(screen, opts)
+	w.pres.refresh()
+	return w.core, w.env, w.adapter, w.system, w.pres, handle
 end
 
 local function renderOnly(screen: any)
@@ -729,14 +741,9 @@ describe("C3 (grouped): a disabled subtree is out of the GROUPED derivation too"
 	end)
 
 	it("focus already inside it LEAVES when the panel is switched off", function()
-		local core = customFactory.new()
-		local env = environment.new(core)
-		env:set("viewportRect", { x = 0, y = 0, w = 600, h = 600 })
-		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
+		local w = newWorld(600, 600)
+		local core, env, adapter, system, pres = w.core, w.env, w.adapter, w.system, w.pres
 		local on = core:signal(true)
-		local adapter = fake_target.new()
-		local system = actionsLib.newSystem(core)
-		local pres = presenterLib.new(core, env, adapter, system)
 		pres.present(grouped(on, offButton()))
 		pres.refresh()
 		pres.focus.focusOn("/S/Row/Panel/Off")
@@ -748,14 +755,9 @@ describe("C3 (grouped): a disabled subtree is out of the GROUPED derivation too"
 	end)
 
 	it("...and the same holds when the live siblings are a Grid rather than a row", function()
-		local core = customFactory.new()
-		local env = environment.new(core)
-		env:set("viewportRect", { x = 0, y = 0, w = 600, h = 600 })
-		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
+		local w = newWorld(600, 600)
+		local core, env, adapter, system, pres = w.core, w.env, w.adapter, w.system, w.pres
 		local on = core:signal(true)
-		local adapter = fake_target.new()
-		local system = actionsLib.newSystem(core)
-		local pres = presenterLib.new(core, env, adapter, system)
 		pres.present(UI.Screen({
 			id = "S",
 			children = {
@@ -793,13 +795,8 @@ describe("C3 (grouped): a disabled subtree is out of the GROUPED derivation too"
 		Slider's track is a focusable `Grip`, which is the branch that had no
 		`isDisabled` in EITHER grouped walk. ]]
 	it("a Slider inside the subtree keeps its owner's value, on both Adjust keys", function()
-		local core = customFactory.new()
-		local env = environment.new(core)
-		env:set("viewportRect", { x = 0, y = 0, w = 600, h = 600 })
-		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
-		local adapter = fake_target.new()
-		local system = actionsLib.newSystem(core)
-		local pres = presenterLib.new(core, env, adapter, system)
+		local w = newWorld(600, 600)
+		local core, env, adapter, system, pres = w.core, w.env, w.adapter, w.system, w.pres
 		local value = core:signal(0.5)
 		local slider = Facet.Controls.Slider(core, { id = "Vol", value = value, min = 0, max = 1 })
 		pres.present(UI.Screen({
@@ -836,13 +833,8 @@ describe("C3 (grouped): a disabled subtree is out of the GROUPED derivation too"
 	end)
 
 	it("a Stepper inside the subtree is not a dead stop the pad can reach", function()
-		local core = customFactory.new()
-		local env = environment.new(core)
-		env:set("viewportRect", { x = 0, y = 0, w = 600, h = 600 })
-		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
-		local adapter = fake_target.new()
-		local system = actionsLib.newSystem(core)
-		local pres = presenterLib.new(core, env, adapter, system)
+		local w = newWorld(600, 600)
+		local core, env, adapter, system, pres = w.core, w.env, w.adapter, w.system, w.pres
 		local qty = core:signal(3)
 		local stepper = Facet.Controls.Stepper(core, { id = "Qty", label = "Qty", value = qty, min = 0, max = 9 })
 		pres.present(UI.Screen({
@@ -885,14 +877,9 @@ end)
 	the consumer's call, which it can already express.  ]]
 describe("I5: a presented surface does not inherit the presenter's disabled subtree", function()
 	it("a modal opened before the panel is switched off stays live, and api.md says so", function()
-		local core = customFactory.new()
-		local env = environment.new(core)
-		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 600 })
-		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
+		local w = newWorld(400, 600)
+		local core, env, adapter, system, pres = w.core, w.env, w.adapter, w.system, w.pres
 		local on = core:signal(true)
-		local adapter = fake_target.new()
-		local system = actionsLib.newSystem(core)
-		local pres = presenterLib.new(core, env, adapter, system)
 		pres.present(UI.Screen({
 			id = "S",
 			children = {
@@ -998,32 +985,24 @@ describe("NEW-1/2/4: the disabled filter runs on the BUILT groups, so it reaches
 			},
 		})
 	end
-	local function world(screen: any, opts: any?)
-		local core = customFactory.new()
-		local env = environment.new(core)
-		env:set("viewportRect", { x = 0, y = 0, w = 600, h = 600 })
-		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
-		local adapter = fake_target.new()
-		local system = actionsLib.newSystem(core)
-		local pres = presenterLib.new(core, env, adapter, system)
-		pres.present(screen, opts)
-		pres.refresh()
-		return core, pres, adapter
+	-- named for what it does, not for what it wraps: `worldLib` is the world now
+	local function presented(screen: any, opts: any?)
+		local w = newWorld(600, 600)
+		w.present(screen, opts)
+		w.pres.refresh()
+		return w.core, w.pres, w.adapter
 	end
 
 	--[[ Each case builds the SAME screen twice — panel live, panel off — on its own
 		core, because a composite control binds to the core it was built on and the
 		live arm is what stops "the ring does not contain it" from being vacuous. ]]
 	local function withControl(make: (any, any) -> any, enabled: boolean): (any, any)
-		local core = customFactory.new()
-		local env = environment.new(core)
-		env:set("viewportRect", { x = 0, y = 0, w = 600, h = 600 })
-		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
-		local built = make(core, env)
-		local pres = presenterLib.new(core, env, fake_target.new(), actionsLib.newSystem(core))
-		pres.present(panel(built.blueprint, enabled))
-		pres.refresh()
-		return pres, built
+		local w = newWorld(600, 600)
+		-- the control is built BEFORE the screen, on the world's own core
+		local built = make(w.core, w.env)
+		w.present(panel(built.blueprint, enabled))
+		w.pres.refresh()
+		return w.pres, built
 	end
 
 	local function ringCase(name: string, needle: string, make: (any, any) -> any, checkFocus: boolean)
@@ -1119,7 +1098,7 @@ describe("NEW-1/2/4: the disabled filter runs on the BUILT groups, so it reaches
 	end, true)
 
 	it("a CONSUMER-declared navigationGroups map is filtered too, exactly as `hidden` is", function()
-		local _, pres = world(
+		local _, pres = presented(
 			UI.Screen({
 				id = "S",
 				children = {
@@ -1158,7 +1137,7 @@ describe("NEW-1/2/4: the disabled filter runs on the BUILT groups, so it reaches
 			return UI.Screen({ id = "S", children = { UI.Grid({ id = "G", columns = 3, children = kids }) } })
 		end
 		local function shape(screen: any): string
-			local _, pres = world(screen)
+			local _, pres = presented(screen)
 			local parts: { string } = {}
 			for _, group in groupsOf(pres) do
 				table.insert(parts, "[" .. table.concat(ids(group), ",") .. "]")
@@ -1205,11 +1184,8 @@ describe("NEW-3: disabling a row does not flip the screen between derivations", 
 			})
 		end
 		local function names(enabled: boolean): string
-			local core = customFactory.new()
-			local env = environment.new(core)
-			env:set("viewportRect", { x = 0, y = 0, w = 600, h = 600 })
-			env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
-			local pres = presenterLib.new(core, env, fake_target.new(), actionsLib.newSystem(core))
+			local w = newWorld(600, 600)
+			local core, env, pres = w.core, w.env, w.pres
 			pres.present(screen(enabled))
 			pres.refresh()
 			local out: { string } = {}
@@ -1232,11 +1208,8 @@ end)
 	the form is valid" is an ordinary pattern — so it has a release note and a pin. ]]
 describe("NEW-5: initialFocus naming a disabled control refuses, and says what IS available", function()
 	local function presentWith(structure: boolean)
-		local core = customFactory.new()
-		local env = environment.new(core)
-		env:set("viewportRect", { x = 0, y = 0, w = 600, h = 600 })
-		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
-		local pres = presenterLib.new(core, env, fake_target.new(), actionsLib.newSystem(core))
+		local w = newWorld(600, 600)
+		local core, env, pres = w.core, w.env, w.pres
 		local children: { any } = {
 			UI.Button({ id = "Confirm", label = "ok", enabled = false, width = fixed(80), height = fixed(44) }),
 			UI.Button({ id = "Cancel", label = "no", width = fixed(80), height = fixed(44) }),
@@ -1265,14 +1238,9 @@ end)
 
 describe("C3: focus restoration when the focused subtree is switched off", function()
 	it("focus leaves for a legal node and does not come back on re-enable", function()
-		local core = customFactory.new()
-		local env = environment.new(core)
-		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 600 })
-		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
+		local w = newWorld(400, 600)
+		local core, env, adapter, system, pres = w.core, w.env, w.adapter, w.system, w.pres
 		local on = core:signal(true)
-		local adapter = fake_target.new()
-		local system = actionsLib.newSystem(core)
-		local pres = presenterLib.new(core, env, adapter, system)
 		pres.present(UI.Screen({
 			id = "S",
 			children = {
