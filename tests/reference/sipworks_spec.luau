@@ -1133,10 +1133,23 @@ describe("Sipworks — reduced motion, themes, and reachability", function()
 		expect(trapped.present).toBe(true)
 		step(w, "cancelCard")
 
-		-- the recipe: the stepper's two affordances and a gathered toggle
+		--[[ the recipe: the stepper's two affordances and a gathered toggle.
+
+			THE BATCH OPENS AT ITS MINIMUM, so `Dec` opens `enabled = false` — "at a
+			bound the affordance is disabled, not silently inert" (api.md, `newStepper`)
+			— and a disabled control is not a focus stop. This case used to assert `Dec`
+			was focusable AT the bound, and passed only because the GROUPED focus
+			derivation this screen takes had no disabled test at all: the flat
+			derivation had excluded it the whole time (RED-TEAM C2). Stepping the batch
+			off its bound first makes the case say what it always meant — BOTH
+			affordances are real focusables — and the bound itself is asserted below,
+			which is a stronger claim than the one that was passing. ]]
 		step(w, "section", "recipes")
 		step(w, "open", "copper-chai")
+		expect(find(w, "/Batch/Dec") == nil).toBe(true) -- at the minimum: disabled, so not a stop
+		step(w, "batch", "3")
 		expect(find(w, "/Batch/Decrement") ~= nil or find(w, "/Batch/Dec") ~= nil).toBe(true)
+		expect(find(w, "/Batch/Increment") ~= nil or find(w, "/Batch/Inc") ~= nil).toBe(true)
 		expect(find(w, "/Got-ginger") ~= nil).toBe(true)
 		expect(w.core:lastError()).toBeNil()
 		w.built.dispose()
