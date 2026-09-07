@@ -660,6 +660,35 @@ local TYPE_CHECKS: { [string]: (any) -> (boolean, string?) } = {
 	-- THE CONTINUOUS-COLOUR CHANNEL. One ruling, in tokens/styling, so the schema,
 	-- the adapter's write site and the reference all quote the same vocabulary.
 	tint = styling.checkTint,
+	--[[ ...AND THE INHERITED FORM, which is the same value MINUS its alpha.
+
+		A tint's `transparency` is not a colour, it is a CLAIM: the node it lands on
+		takes `TextTransparency` from the sheet, permanently — `screen_paint`'s
+		`releaseTint` restores the VALUE but the property never returns to the sheet's
+		authority. On a leaf that is a bounded decision about one node the author
+		named. Inherited, one container declaration would take that property on every
+		`Text` beneath it and leave the whole subtree un-dimmable for the life of the
+		surface, long after the tint itself was cleared — silently, and with no
+		diagnostic anywhere.
+
+		So the container form refuses it, and that costs nobody: the form is new, so no
+		screen can be relying on it. An author who wants a translucent plate still
+		writes the alpha where the plate is (constitution §11 — a continuous channel
+		claims its properties "permanently and on the record"; the record is the node
+		it was written on). ]]
+	inheritedTint = function(v)
+		local ok, detail = styling.checkTint(v)
+		if not ok then
+			return false, detail
+		end
+		if type(v) == "table" and (v :: any).transparency ~= nil then
+			return false,
+				"an inherited tint takes no `transparency`: the alpha is a permanent CLAIM on the node it "
+					.. "lands on, and one declared here would take TextTransparency from every Text in the "
+					.. "subtree for the life of the surface. Write the alpha on the leaf that needs it"
+		end
+		return true
+	end,
 	opacity = schema.checkOpacity,
 	scaleFactor = schema.checkScaleFactor,
 	degrees = schema.checkDegrees,
@@ -1170,15 +1199,16 @@ local CONTAINER_LAYOUT: { [string]: PropSpec } = {
 			.. "conjunction: an ancestor can never re-enable a node that declares false",
 	}),
 	tint = p({
-		types = { "tint" },
+		types = { "inheritedTint" },
 		reactive = true,
 		dirty = { "paint" },
 		shared = true,
 		channel = "inherit",
-		doc = "the continuous colour this container's SUBTREE paints with — same value vocabulary as a "
-			.. "leaf `tint` ({ role, blend, from? } or { direct }). A container has no paint channel of "
-			.. "its own (its plate is `surface`), so this paints nothing here. Nearest declaration wins: "
-			.. "a descendant's own `tint`, or a nearer container's, replaces it",
+		doc = "the continuous colour this container's SUBTREE paints with — the same value vocabulary as "
+			.. "a leaf `tint` ({ role, blend, from? } or { direct }) MINUS `transparency`, which is a "
+			.. "permanent per-node claim and is refused here. A container has no paint channel of its own "
+			.. "(its plate is `surface`), so this paints nothing here. Nearest declaration wins: a "
+			.. "descendant's own `tint`, or a nearer container's, replaces it",
 	}),
 }
 

@@ -5,7 +5,7 @@
   "phases": "phases.json",
   "suiteResults": "suite_real.json"
  },
- "maintainedAt": "2026-09-04T04:30:00Z",
+ "maintainedAt": "2026-09-07T00:00:00Z",
  "phases": [
   {
    "artifactDir": "artifacts/phase-0-foundation",
@@ -569,6 +569,29 @@
     "release": true
    },
    "timeoutS": 600
+  },
+  {
+   "command": "lune run tools/lune/check_experiment_markers_cli",
+   "declaredEvidence": false,
+   "dependsOn": [],
+   "environmentClass": "deterministic",
+   "fixtures": [],
+   "id": "check_experiment_markers",
+   "inputs": [
+    "tools/lune/check_experiment_markers.luau",
+    "tools/lune/check_experiment_markers_cli.luau",
+    "src/**"
+   ],
+   "kind": "scanner",
+   "note": "no ZZ-prefixed scratch marker may live in src/. Added 2026-09-07 after a `ZZ_NO_PATH2D = true` flag reached screen_target.luau inside an unrelated commit and switched the whole Path2D creation branch off: every UI.Path drew nothing on a device while the headless suite stayed green, because the fake target builds its own Path2D model. INPUTS ARE THE SUBJECT rather than the catch-all list the older scanners carry, so it re-runs exactly when its answer could change. FAST because it is a text scan of 199 modules and the defect it catches is the kind that ships inside a commit nobody re-reads.",
+   "optional": false,
+   "serialize": false,
+   "tiers": {
+    "fast": true,
+    "full": true,
+    "release": true
+   },
+   "timeoutS": 120
   },
   {
    "command": "python3 tools/check_brand_drift.py",

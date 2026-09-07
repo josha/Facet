@@ -106,6 +106,37 @@ describe("C: a container accepts `enabled` and `tint`", function()
 		end
 	end)
 
+	--[[ NEW-7: a CONTAINER tint refuses `transparency`, and a leaf keeps it.
+
+		The alpha is not a colour, it is a CLAIM: a tint that declares one takes
+		`TextTransparency` on the node it lands on, permanently — `releaseTint`
+		restores the value but never gives the property back to the sheet. On a leaf
+		that is a bounded, named decision the author made about one node. Inherited, a
+		single container declaration would silently take that property on every `Text`
+		beneath it and leave the whole subtree un-dimmable for the life of the
+		surface, long after the tint itself was cleared.
+
+		Refusing it on the container form costs nobody: the form is new, so no screen
+		can be relying on it, and the leaf form — where the author names the node — is
+		untouched. That is the whole reason to decide it now rather than document it. ]]
+	it("a CONTAINER tint refuses `transparency`, and the refusal names the leaf form", function()
+		local ok, err = pcall(function()
+			return UI.VStack({
+				id = "V",
+				tint = { role = "accent", blend = 1, transparency = 0.5 },
+				children = {},
+			})
+		end)
+		expect(ok).toBe(false)
+		expect(string.find(tostring(err), "transparency", 1, true) ~= nil).toBe(true)
+		expect(string.find(tostring(err), "claim", 1, true) ~= nil).toBe(true)
+	end)
+
+	it("...and a LEAF tint still accepts it", function()
+		local bp = UI.Text({ id = "T", text = "hi", tint = { role = "accent", blend = 1, transparency = 0.5 } })
+		expect((bp.props.tint :: any).transparency).toBe(0.5)
+	end)
+
 	it("an illegal tint on a container is refused with the same sentence a leaf gets", function()
 		local ok, err = pcall(function()
 			return UI.VStack({ id = "V", tint = { role = "nope", blend = 1 }, children = {} })
@@ -1194,6 +1225,44 @@ describe("NEW-3: disabling a row does not flip the screen between derivations", 
 	end)
 end)
 
+--[[ NEW-5: `initialFocus` naming a disabled control is a REFUSAL, on both
+	derivations. The flat one always refused; the grouped one did not, because it
+	never excluded the node in the first place. That alignment is a behaviour change
+	an author can trip over — "focus the primary action, which starts disabled until
+	the form is valid" is an ordinary pattern — so it has a release note and a pin. ]]
+describe("NEW-5: initialFocus naming a disabled control refuses, and says what IS available", function()
+	local function presentWith(structure: boolean)
+		local core = customFactory.new()
+		local env = environment.new(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 600, h = 600 })
+		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
+		local pres = presenterLib.new(core, env, fake_target.new(), actionsLib.newSystem(core))
+		local children: { any } = {
+			UI.Button({ id = "Confirm", label = "ok", enabled = false, width = fixed(80), height = fixed(44) }),
+			UI.Button({ id = "Cancel", label = "no", width = fixed(80), height = fixed(44) }),
+		}
+		local body = if structure
+			then UI.HStack({ id = "Row", children = children })
+			else UI.VStack({ id = "Col", children = children })
+		pres.present(UI.Screen({ id = "S", children = { body } }), { initialFocus = "Confirm" })
+	end
+
+	for _, arm in { { "grouped", true }, { "flat", false } } do
+		it(`the {arm[1]} derivation refuses, naming the legal set`, function()
+			local ok, err = pcall(presentWith, arm[2] :: any)
+			expect(ok).toBe(false)
+			expect(string.find(tostring(err), "names no focusable on this surface", 1, true) ~= nil).toBe(true)
+			expect(string.find(tostring(err), "Cancel", 1, true) ~= nil).toBe(true)
+		end)
+	end
+
+	it("the release note says so", function()
+		local fs = require("@lune/fs")
+		local changelog = fs.readFile("CHANGELOG.md")
+		expect(string.find(changelog, "initialFocus` names a disabled control", 1, true) ~= nil).toBe(true)
+	end)
+end)
+
 describe("C3: focus restoration when the focused subtree is switched off", function()
 	it("focus leaves for a legal node and does not come back on re-enable", function()
 		local core = customFactory.new()
@@ -1368,6 +1437,10 @@ describe("C4/C6: the disabled state is themed, through the sheet", function()
 		expect(adapter.node("/S/Panel/Label").props.enabled).toBe(false)
 	end)
 
+	--[[ The alpha is declared on the LEAF, because a CONTAINER tint refuses it
+		(NEW-7): the claim is per-node and permanent, so the author names the node.
+		This is the composition that remains, and it is the one that matters — a
+		claimed `TextTransparency` inside a disabled subtree. ]]
 	it("a tint WITH its own alpha carries it, and that is the value the claim writes", function()
 		local hue = { role = "accent", blend = 1, transparency = 0 }
 		local _, adapter = renderOnly(UI.Screen({
@@ -1376,8 +1449,7 @@ describe("C4/C6: the disabled state is themed, through the sheet", function()
 				UI.VStack({
 					id = "Panel",
 					enabled = false,
-					tint = hue,
-					children = { UI.Text({ id = "Label", text = "hi" }) },
+					children = { UI.Text({ id = "Label", text = "hi", tint = hue }) },
 				}),
 			},
 		}))

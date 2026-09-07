@@ -399,21 +399,54 @@ legal, enabled node outside it, and re-enabling does not move it back.
 
 Every row is blocked by `contract.isDisabled`, at the site named.
 
+**THIS MATRIX WAS TRUE OF ONE DERIVATION, AND THEN OF ONE KIND OF GROUP.** The
+presenter builds the member set two ways: `focusWalk` for a screen with no
+horizontal structure, and NAVIGATION GROUPS the moment there is an `HStack` run
+or a `Grid`. The first version of this table named only `focusWalk`, and the
+grouped reading had no disabled test at all. The second attempt put the test
+inside the three walks that BUILD groups, which reached neither a control that
+contributes its own groups (`newTable`, `newVirtualList`, `newVirtualGrid`,
+`newTextInput` — a disabled list kept every row) nor a consumer-declared
+`navigationGroups` map, and broke two things a builder must not decide: it
+repacked an inferred grid, and it made the choice of derivation depend on the
+enabled state.
+
+It is one filter on the BUILT groups now — `filterGroupsDisabled`, beside
+`filterGroupsHidden`, at the presenter's initial push and at the refresh
+derivation — so the rows below are true of both readings and of every group,
+however it was built.
+
 | Path | Blocked at |
 |---|---|
 | Activate (semantic action: Return / Space / ButtonA) | `presenter.dispatchActivate` — consumes the verb, emits no feedback event |
 | Consumer `opts.onActivate` override | same site, ahead of the override (finding V12) |
-| Focus entry / initial focus | `focus_map.focusWalk` — the path never enters the order |
-| Tab / Shift+Tab traversal | same order (constitution §9: one focus map, read two ways) |
-| Arrow / D-pad navigation | same order |
-| Focusable `Grip` (Slider track, Rating strip) | `focus_map.focusWalk`'s Grip branch — **new** |
+| Focus entry / initial focus | `focusWalk` (flat) **and** `filterGroupsDisabled` (grouped); `initialFocus` naming a disabled control is a refusal on both |
+| Tab / Shift+Tab traversal | the same set (constitution §9: one focus map, read two ways) |
+| Arrow / D-pad navigation | `filterGroupsDisabled` — no group carries the path |
+| Focusable `Grip` (Slider track, Rating strip) | `focusWalk`'s Grip branch, and the group filter for every group |
+| Adjust on a focused value control | consequent: the verb is bound only while focus sits on its target, and focus cannot get there |
+| A control's OWN contributed groups (`newTable`, `newVirtualList`, `newVirtualGrid`, `newTextInput`) | `filterGroupsDisabled` — the builders are never asked, which is why a control need know nothing about inheritance |
+| A consumer's `navigationGroups` map | `filterGroupsDisabled` — overridden for this exactly as it is for `hidden` |
 | Pointer / touch tap | `controller.tapAt` |
 | Pointer zones (`onPointerDown/Move/Up`) | `controller.tapAt` — the same walk routes them |
 | Drag acquisition | `dragSourceEnabled[path]` |
 | Drag-detector synthesized tap | `handlers.onEnd` |
 | Row actions (swipe tray, flick, reorder) | the pointer routing above; the row's own engine never arms |
+| An ALREADY-OPEN row tray's action buttons | `virtual_list.collectTrayFocusables` |
 | Menus (long press / secondary / keyboard / gamepad triggers) | the trigger node's tap and Activate paths above |
 | Engine-level press | `enabled` → `Active` / `Interactable` false on the real adapter |
+
+**What is NOT blocked, and is not meant to be.** A surface that was already
+presented — a modal, toast, menu, popover or anchored sheet — is its own mounted
+root and does not inherit; see §6.
+
+**What is painted, exactly.** One rule, `Disabled subtree text`, selecting a
+`TextLabel` that carries the tag. The tag reaches the four classes that consume a
+resolved `enabled` (`Button`, `Toggle`, `TextField`, `Text`) and not every node,
+because writing to an elided container materializes it permanently; and a `tint`
+that declares its own `transparency` claims that property and outranks the dim —
+which is why a CONTAINER tint refuses `transparency` outright. All of it is in
+`api.md`.
 
 ---
 
@@ -470,3 +503,18 @@ write cap, so its share of this change is four small edits and one require, and
   consume one. Writing a property to a container the renderer had elided
   materializes it permanently, and a real `Frame` per container is too much to pay
   for a tag no rule selects.
+- **An inherited `transparency`.** A container's `tint` refuses it at
+  construction. The alpha is not a colour, it is a per-node CLAIM: the node takes
+  `TextTransparency` from the sheet and `screen_paint.releaseTint` restores the
+  value without ever giving the property back. On a leaf that is a bounded
+  decision about a node the author named; inherited, one declaration would leave a
+  whole subtree un-dimmable for the life of the surface, silently, long after the
+  tint was cleared. Refusing it costs nobody — the container form is new, so no
+  screen can be relying on it — and it removes the hazard instead of documenting
+  it.
+- **A disabled test inside a group BUILDER.** Round 1 tried that; the walks
+  answer structural questions (does this row become a group at all, what shape is
+  this grid) and a state-dependent answer there repacks a board and flips a
+  screen's whole derivation. Disabled is filtered on the BUILT groups, where
+  `hidden` has always been filtered, which is also the only placement that reaches
+  a contributed group and a consumer-declared map.

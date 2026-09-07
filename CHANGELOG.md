@@ -70,6 +70,14 @@ runtime as `Facet.VERSION`.
   option still declares `surface = "plain"`, still carries no `selected` tag, and
   the chip is still the selection paint. The `underline` indicator is unaffected —
   it paints a tint rule on the segment's far edge, not a plate under the label.
+- **`present()` refuses when `initialFocus` names a disabled control**, on every
+  screen rather than only some. The flat focus derivation always refused —
+  "initialFocus 'X' names no focusable on this surface", listing the ones that
+  are — but a screen with horizontal structure took the grouped derivation, which
+  did not exclude a disabled control at all and so presented happily with the
+  ring sitting on it. The two agree now, and the error is the same one. **If you
+  focus a primary action that starts disabled until a form is valid, name a
+  control that is live, or use `"first"` / `"none"`.**
 - **`enabled = false` now means the node AND its subtree.** On `Button`, `Toggle`
   and `TextField` the property is unchanged for a leaf; what is new is that the
   state is inherited, and that it cannot be undone from below — an ancestor never
