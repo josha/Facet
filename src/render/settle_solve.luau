@@ -45,7 +45,9 @@ local settle_solve = {}
 	clears only what it was told it owns.
 
 	`stats` is written, not read back: `lastTextDirtyPaths` is how many paths the
-	push actually named. ]]
+	push actually named — over the cap, the set the probe found MOVED — and
+	`lastTextProbeMeasures` how many leaves that probe re-measured to get there
+	(Plan D, D3c; `render/text_index` owns both). ]]
 function settle_solve.spend(
 	index: text_index.Index,
 	stats: any,
@@ -53,9 +55,10 @@ function settle_solve.spend(
 	measures: { [string]: boolean }?,
 	narrow: boolean
 ): ({ [string]: boolean }?, { [string]: boolean }?, boolean)
-	local nextContains, nextMeasures, owns, pushed =
+	local nextContains, nextMeasures, owns, pushed, probed =
 		index.apply(contains, measures, narrow, math.max(64, stats.lastLayoutNodes // 8))
 	stats.lastTextDirtyPaths = pushed
+	stats.lastTextProbeMeasures = probed
 	return nextContains, nextMeasures, owns
 end
 

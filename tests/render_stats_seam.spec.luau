@@ -165,6 +165,15 @@ describe("the render-stats seam: no requires, no state, two exports", function()
 			`renderer.attach` before the first solve — where a consumer would read `nil`
 			instead of 0. That is what this line pins. ]]
 		expect(`collectTruncated={s.textCollectTruncated}`).toBe("collectTruncated=0")
+		--[[ ...and D3c's, which is D3a's class exactly: `lastTextProbeMeasures` is
+			ASSIGNED by `render/settle_solve.spend` beside `lastTextDirtyPaths`, so
+			deleting the declaration below creates the key on first use and every
+			equality in `tests/text_settle_probe.spec.luau` reads a surface that has
+			already solved. The one moment the declaration is observable is
+			`renderer.attach` before the first solve, where a consumer reading the pair
+			would get `nil` for the cost half and a number for the benefit half — and
+			the two are only meaningful together. That is what this line pins. ]]
+		expect(`textProbeMeasures={s.lastTextProbeMeasures}`).toBe("textProbeMeasures=0")
 	end)
 
 	it("`publish` writes ONLY into the record it is handed, and repairs `work.skipped`", function()

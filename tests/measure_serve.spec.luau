@@ -943,10 +943,16 @@ describe("C2: what the solver writes onto a layout node is a CLOSED set of outpu
 			table.insert(out, field)
 		end
 		table.sort(out)
-		--[[ TWENTY-ONE, and every one is an OUTPUT: the two slots' keys and answers,
-			the shared axis-3 stamp, the eviction toggle, and the cached `memoPlan`
-			verdict. None is a field `layout_node.toLayoutNode` reads to BUILD a node,
-			which is what keeps the P3 store's four axes complete. ]]
+		--[[ TWENTY-TWO, and every one is an OUTPUT: the two slots' keys and answers,
+			the shared axis-3 stamp, the eviction toggle, the cached `memoPlan` verdict
+			and (Plan D, D3c) the one-word text width `render/text_index`'s over-cap
+			probe compares against. None is a field `layout_node.toLayoutNode` reads to
+			BUILD a node, which is what keeps the P3 store's four axes complete.
+
+			`mTextW` is written by the UNCACHED text branch and never by the serve,
+			which is right rather than an omission: a served node was not re-measured,
+			so its last real measure IS its current answer, and a node whose string
+			moved is a fresh literal with no cached width at all. ]]
 		expect(out).toEqual({
 			"mACompact",
 			"mACuts",
@@ -969,6 +975,7 @@ describe("C2: what the solver writes onto a layout node is a CLOSED set of outpu
 			"mFillB",
 			"mHeightFree",
 			"mStamp",
+			"mTextW",
 		})
 		-- NEGATIVE CONTROL: the scan really does see a write, really does see a
 		-- multiple assignment, and really does IGNORE a `node.` inside an index on the

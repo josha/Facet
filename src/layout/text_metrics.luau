@@ -540,6 +540,29 @@ function text_metrics.beginCollect()
 	collectCapped = false
 end
 
+--[[ MEASURE WITHOUT ASKING (Plan D, D3c). `render/text_index`'s probe re-measures a
+	label that the solve is about to SERVE, to find out whether the correction moved
+	it — and a measure taken with the collector open would file that label's unknown
+	words as REQUESTS, so the surface would ask the engine for words it is not going
+	to draw a different box for. `textRequests` is a published observable
+	(`premeasure_round`, `stats.textMeasureBatches`), so that is not a cost question.
+
+	A PAIR, and the collector is handed back rather than re-opened: `beginCollect`
+	DISCARDS what it was collecting, so "suspend, measure, begin again" would throw
+	away every word the solve had already found. `suspendCollect` returns the exact
+	table it took, `resumeCollect` puts it back, and the budget counters
+	(`collectCount`, `collectCapped`) are untouched by both — nothing is collected
+	while it is suspended, so neither can move. ]]
+function text_metrics.suspendCollect(): any
+	local held = collecting
+	collecting = nil
+	return held
+end
+
+function text_metrics.resumeCollect(held: any)
+	collecting = held
+end
+
 --[[ ONE WORD ENTERS OR LEAVES FLIGHT. `key` is the collector's own request key,
 	`{canonicalFont(font)}\0{fontSize}\0{word}` — taken rather than rebuilt, because
 	`render/premeasure_round` already holds that exact string for its per-surface set

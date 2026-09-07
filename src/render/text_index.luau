@@ -136,6 +136,70 @@
 	merely PROBED can change which rung it lands on — while the key recorded here is
 	the size it chose. Those nodes go into `always`, which joins every push. They are
 	rare (an opt-in prop), and being wrong about them would be a wrong box on screen.
+
+	── AND OVER THE CAP, THE LEAVES ARE PROBED BEFORE THE ANSWER IS `full` ─────────
+	(Plan D, D3c; scout S2 §4b.)
+
+	THE MISS THIS EXISTS FOR, live, settled, in a fresh client VM at D2/D3a:
+	`battle_hud updateItem-facing [S]` **47.5 ms**, `war_room updateItem-power [S]`
+	**70.4 ms** and `addItem-items [S]` **75.6 ms**, each with `lastMeasured ==
+	lastMeasureCalls` (14,263 and 20,505) — the signature of a whole-tree COLD solve.
+	A settled step that learns ONE new word at a key ~1,000 mounted labels share is
+	over the cap above, `take` answers `full`, and the caller drops its closure. It is
+	50 of `war_room`'s 600 settled steps.
+
+	AND THE CAP IS RIGHT: D3b re-swept the crossover after D1 and D2 and the band did
+	not move (~13-21 % of the tree). A push that names a third of the tree really is
+	slower than the cold solve it replaces. So the lever is not the cap — it is the
+	SIZE OF THE PUSH, and the observation that a token correction usually moves almost
+	none of the labels filed under its key. `battle_hud`'s 1,000 facing labels draw
+	360 distinct values; `war_room`'s 1,500 power labels draw 999. One learned word
+	moves the two or three labels that draw it and provably nothing else.
+
+	SO: BETWEEN `take` AND THE CLOSURE BUILD, EACH PUSHED LEAF IS RE-MEASURED, and
+	only the ones whose box MOVED reach `dirty_closure.of`. It is right AND fast in
+	the Plan D sense — every label drawing a corrected token is still re-solved,
+	because a word is a TOKEN shared across labels and the probe asks each label
+	itself, not the string that was written.
+
+	WHAT MAKES THE DROP EXACT, and it is a restriction rather than an argument. The
+	probe answers with `text_metrics.measure` at an UNBOUNDED offer, and compares
+	against `node.mTextW` — the number the solver's own text branch cached from its
+	last measure. That comparison is only sound when the offer cannot enter the
+	answer, so it is taken ONLY for a node the renderer classified as one word
+	(`node.singleLine == true`, `render/layout_node`'s `isSingleWord`):
+
+	  * `wrapWidth` is `math.huge` for such a node, so the measure the solver took IS
+	    the unbounded one and the probe reproduces it exactly, at every offer the node
+	    was measured at this solve or any other — the two-offers-per-node problem
+	    (`ctx.offers`) cannot arise;
+	  * `lines` is 1 whatever `lineLimit` says and the line box is a function of
+	    `size`/`lineHeight` alone, so the HEIGHT cannot move while the width does not;
+	  * the published `truncated` verdict is `m.width > availW`, and the compact
+	    ladder's rung is `natural.width > availW`, both with `availW` unchanged by a
+	    word delivery — so an unchanged `m.width` cannot flip either. This is the
+	    truncation-boundary case the brief asks for by name: a label sitting exactly
+	    on the boundary has a CHANGED width (that is what put it there), so it is
+	    pushed. The verdict cannot move while the width stands still;
+	  * `m.width` is `ceil(widest)`, so a sub-pixel correction that the ceiling
+	    absorbs moves nothing at all — no rect, no fact, no verdict.
+
+	EVERYTHING ELSE IS PUSHED UNCONDITIONALLY, which is the same failure direction
+	this file already takes everywhere: `always` (the `fit` nodes), a wrapping or
+	multi-word label (its measure is against a box its parent chose, and
+	reconstructing that box outside the solve is the offer-versus-occupied trap the
+	solver has had to be fixed for twice), a `compactPrefer` node (it returns before
+	the cached measure), and any path whose node the index has not seen measured.
+	A leaf the probe cannot answer for is a leaf that stays in the push.
+
+	AN EMPTY MOVED SET IS AN EMPTY CLOSURE, not a refusal — the same plan a push at an
+	unused key already produces, and worth 39.9 ms for the same reason. And a moved
+	set that is STILL over the cap falls back to `full`, unchanged.
+
+	THE COLLECTOR IS SUSPENDED ACROSS THE PROBE (`text_metrics.suspendCollect`). The
+	probe measures labels the solve is about to SERVE; collecting their unknown words
+	would make the surface ask the engine for widths it will not use, and
+	`textRequests` is a published observable.
 ]]
 
 local dirty_closure = require("./dirty_closure")
@@ -154,15 +218,27 @@ export type Plan = {
 	contains: { [string]: boolean }?,
 	measures: { [string]: boolean }?,
 	-- how many PATHS were pushed (not the closure size): the counter
-	-- `stats.lastTextDirtyPaths` publishes, and the number this whole task is about
+	-- `stats.lastTextDirtyPaths` publishes, and the number this whole task is about.
+	-- Over the cap it is the MOVED set, not the key's whole bucket (D3c).
 	n: number,
+	-- ...and how many leaves the probe re-measured to get there (`stats.lastTextProbe
+	-- Measures`). 0 on every under-cap push, which is every push this file's first
+	-- round was written for.
+	probed: number,
 }
 
 export type Index = {
-	-- file `path` under the (font,size) it was just measured with. Called from the
-	-- solver's text branch, on every measure of a text node, so the unchanged case
-	-- is two hash reads and two comparisons and nothing else
-	record: (path: string, font: string, size: number, always: boolean) -> (),
+	--[[ file `path` under the (font,size) it was just measured with. Called from the
+		solver's text branch, on every measure of a text node, so the unchanged case
+		is two hash reads and two comparisons and nothing else.
+
+		`node` is the LAYOUT NODE LITERAL, held so the over-cap probe can re-measure
+		this label without walking a tree to find it. Held by reference and replaced
+		on every measure, so it is never the stale one: `render/layout_node.build`
+		constructs a FRESH literal for every node in the ancestor-closed dirty set
+		(the invariant D1's `mPlan` cache rests on), and a node that was not rebuilt
+		was not written to. `forget` and `dispose` drop it with everything else. ]]
+	record: (path: string, font: string, size: number, always: boolean, node: any) -> (),
 	-- a path left the tree (the renderer's per-path removal sweep)
 	forget: (path: string) -> (),
 	-- take the pending push, or drop it. `narrow` false means the caller is about to
@@ -183,7 +259,7 @@ export type Index = {
 		measures: { [string]: boolean }?,
 		narrow: boolean,
 		cap: number
-	) -> ({ [string]: boolean }?, { [string]: boolean }?, boolean, number),
+	) -> ({ [string]: boolean }?, { [string]: boolean }?, boolean, number, number),
 	-- INTERNAL, and named in the type only so the registry broadcast above can call
 	-- it without an `any` cast: mark one `metricKey` as changed. Nothing outside this
 	-- module calls it — `text_index.learned` is the seam.
@@ -233,6 +309,10 @@ function text_index.new(): Index
 	-- the unchanged case allocates nothing and builds no key string
 	local pathFont: { [string]: string } = {}
 	local pathSize: { [string]: number } = {}
+	-- ...and the layout node literal each path was last measured as, which is what
+	-- the over-cap probe re-measures (see the header). Written on every measure,
+	-- never read on the unchanged path.
+	local pathNode: { [string]: any } = {}
 	-- `metricKey -> { path: true }`
 	local byKey: { [string]: { [string]: boolean } } = {}
 	-- the conservative set: `textSize = "fit"` nodes, which join every push
@@ -256,7 +336,12 @@ function text_index.new(): Index
 		end
 	end
 
-	function index.record(path: string, font: string, size: number, alwaysDirty: boolean)
+	function index.record(path: string, font: string, size: number, alwaysDirty: boolean, node: any)
+		-- BEFORE the unchanged guard, and unconditionally: the (font,size) can stand
+		-- still across a rebuild while the literal underneath it is replaced, and the
+		-- probe re-measures THIS solve's node or nothing. A bare write, not a
+		-- compare-then-write — one hash store against one hash load plus a branch.
+		pathNode[path] = node
 		if pathFont[path] == font and pathSize[path] == size and always[path] == (alwaysDirty or nil) then
 			return
 		end
@@ -277,6 +362,7 @@ function text_index.new(): Index
 		detach(path)
 		pathFont[path] = nil
 		pathSize[path] = nil
+		pathNode[path] = nil
 		always[path] = nil
 	end
 
@@ -397,11 +483,48 @@ function text_index.new(): Index
 
 			The classes this task exists for are nowhere near the cap: 4 paths of 5,106
 			nodes on `setState` and 45 on `addItem-damage`, against a cap of 638. ]]
+		local probed = 0
 		if #entries > cap then
-			return { full = true, contains = nil, measures = nil, n = 0 }
+			--[[ ...AND OVER THE CAP, THE LEAVES ARE ASKED BEFORE THE TREE IS (Plan D,
+				D3c). The header owns the whole argument — which leaves can be asked,
+				why an unchanged unbounded width is EXACT rather than likely, and why a
+				leaf the probe cannot answer for stays in the push. Three shapes come out
+				of this loop: a MOVED set under the cap (the point — a narrow push where
+				there was a whole-tree cold solve), an EMPTY one (already a plan, not a
+				refusal), and a moved set still over the cap, which falls back to `full`
+				exactly as before.
+
+				THE COLLECTOR IS HANDED OVER AND HANDED BACK across the loop rather than
+				re-begun: `beginCollect` discards, and the solve that called us has words
+				in it. ]]
+			local held = text_metrics.suspendCollect()
+			local moved: { { path: string, class: string } } = {}
+			for _, entry in entries do
+				local path = entry.path
+				local keep = true
+				local node = if always[path] then nil else pathNode[path]
+				local was = if node ~= nil then node.mTextW else nil
+				if was ~= nil then
+					probed += 1
+					-- UNBOUNDED, and with no `lineHeight` or `lineLimit`: neither can
+					-- reach `width` (the line box is a function of the size, and a
+					-- one-word string wraps to one line at any cap), and this node is
+					-- one word or it would have no cached width to compare against.
+					local now = text_metrics.measure(node.text or "", pathFont[path], pathSize[path], math.huge)
+					keep = now.width ~= was
+				end
+				if keep then
+					table.insert(moved, entry)
+				end
+			end
+			text_metrics.resumeCollect(held)
+			if #moved > cap then
+				return { full = true, contains = nil, measures = nil, n = 0, probed = probed }
+			end
+			entries = moved
 		end
 		local contains, measures = dirty_closure.of(entries)
-		return { full = false, contains = contains, measures = measures, n = #entries }
+		return { full = false, contains = contains, measures = measures, n = #entries, probed = probed }
 	end
 
 	--[[ THE THREE OUTCOMES, and every one of them is a SUPERSET of the push rather than
@@ -422,18 +545,18 @@ function text_index.new(): Index
 		measures: { [string]: boolean }?,
 		narrow: boolean,
 		cap: number
-	): ({ [string]: boolean }?, { [string]: boolean }?, boolean, number)
+	): ({ [string]: boolean }?, { [string]: boolean }?, boolean, number, number)
 		local plan = index.take(narrow, cap)
 		if plan == nil then
-			return contains, measures, false, 0
+			return contains, measures, false, 0, 0
 		end
 		if plan.full then
-			return nil, nil, false, 0
+			return nil, nil, false, 0, plan.probed
 		end
 		local pushC = plan.contains :: { [string]: boolean }
 		local pushM = plan.measures :: { [string]: boolean }
 		if contains == nil then
-			return pushC, pushM, true, plan.n
+			return pushC, pushM, true, plan.n, plan.probed
 		end
 		local intoM = (measures or contains) :: { [string]: boolean }
 		for path in pushM do
@@ -442,7 +565,7 @@ function text_index.new(): Index
 		for path in pushC do
 			(contains :: { [string]: boolean })[path] = true
 		end
-		return contains, measures, false, plan.n
+		return contains, measures, false, plan.n, plan.probed
 	end
 
 	table.insert(live, index)
@@ -457,6 +580,7 @@ function text_index.new(): Index
 		table.clear(byKey)
 		table.clear(pathFont)
 		table.clear(pathSize)
+		table.clear(pathNode)
 		table.clear(always)
 		marked = {}
 		anyMarked = false

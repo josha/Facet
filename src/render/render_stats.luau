@@ -88,6 +88,21 @@ function render_stats.new(): any
 			land on a 4-node key. Written by `renderer.attach`'s solve rather than by
 			`publish`: it belongs to the solve's INPUT, not to its work record. ]]
 		lastTextDirtyPaths = 0,
+		--[[ ...and how many of those paths' LEAVES were re-measured to arrive at that
+			number (Plan D, D3c). Non-zero only on a push that came back OVER the cap,
+			where the answer used to be an unconditional whole-tree cold solve and is
+			now "ask each label whether the corrected token moved it". The pair is the
+			whole story of that round: `lastTextProbeMeasures` is what the narrowing
+			COST (one unbounded measure per single-word leaf, no solver protocol around
+			it) and `lastTextDirtyPaths` what it BOUGHT (the leaves that actually
+			moved, which on a settled `war_room` is two or three of 1,500).
+
+			ASSIGNED, NOT INCREMENTED, like `lastTextDirtyPaths` and
+			`textCollectTruncated` beside it — so the declaration here is what makes the
+			field exist before the first solve writes it, and `tests/render_stats_seam
+			.spec.luau`'s sample block is what catches its deletion (the D3a lesson: an
+			assigned field's declaration reddens nothing on its own). ]]
+		lastTextProbeMeasures = 0,
 		--[[ ...and how many of those calls a STACK's own measure branch made (Plan C,
 			T13). It is the denominator the container memo moves: a hit removes the call
 			entirely, so neither counter above can say where a saving came from — one

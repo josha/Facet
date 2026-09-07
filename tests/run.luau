@@ -1223,6 +1223,13 @@ require("./stack_replay_candidates.spec")
 	solves in the boot window (FacetBench §8b, scout S2). The in-flight refcount, the
 	truncation counter nobody had, and the pre-measured oracle. ]]
 require("./text_collect_inflight.spec")
+--[[ PLAN D, D3c (2026-09-06): over the push cap the answer was a whole-tree COLD
+	solve — 47.5-75.6 ms per settled step on a key ~1,000 labels share, and 50 of
+	`war_room`'s 600 steps. The probe asks each pushed leaf whether the corrected
+	token actually moved it before the closure is built, and only the MOVED ones are
+	pushed. Its oracle is a forced-cold arm that does not share the switch, plus the
+	fixed-width label whose truncation verdict flips while its box cannot. ]]
+require("./text_settle_probe.spec")
 --[[ THE STANDALONE CONSUMER (distribution-readiness D2/D4): `examples/consumer/`
 	is the smallest complete Facet project, and this mounts ITS OWN screen module
 	— the same file the client script requires through the instance tree — against

@@ -283,6 +283,9 @@ export type Node = {
 	-- ...and the whole `PLAN_*` verdict, cached for the literal's life (Plan D, D1;
 	-- `measure_facts.memoPlan` is the only reader and writer)
 	mPlan: number?,
+	-- a ONE-WORD text node's last width at an unbounded offer; the over-cap
+	-- probe in `render/text_index` is its only reader (D3c)
+	mTextW: number?,
 	-- which slot the next MISS claims, so two alternating offers keep both
 	mFillB: boolean?,
 	mAOfferW: number?,
@@ -1076,7 +1079,7 @@ local function contentSize(ctx: Ctx, node: Node, maxW: number, maxH: number): (n
 			why a `fit` node is filed conservatively; the unchanged case, which is
 			every measure after the first, is two hash reads and two comparisons. ]]
 		if ctx.textIndex ~= nil then
-			ctx.textIndex.record(node.id, font, size, node.textFit ~= nil)
+			ctx.textIndex.record(node.id, font, size, node.textFit ~= nil, node)
 		end
 		-- SINGLE-LINE TEXT (director finding 13, 2026-07-26). A control whose
 		-- adapter draws its label on one line has to be MEASURED on one line, or
@@ -1189,6 +1192,10 @@ local function contentSize(ctx: Ctx, node: Node, maxW: number, maxH: number): (n
 			ctx.compact[node.id] = false
 		end
 		local m = text_metrics.measure(node.text or "", font, size, wrapWidth, lineHeight, node.lineLimit)
+		-- ONE WORD ONLY, so it is offer-independent: `render/text_index` owns why
+		if node.singleLine == true then
+			node.mTextW = m.width
+		end
 		-- CLAMPED TO THE WIDTH THIS NODE WILL OCCUPY, not to its parent's offer. This
 		-- read `innerMaxW`, which for a `fixed`-width text node is the OFFER (line
 		-- 1283 excludes `text` from the self-clamp on purpose) — the exact trap
