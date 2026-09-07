@@ -264,10 +264,15 @@ describe("tint: emission and application", function()
 		end
 		expect(surfaceAt ~= nil and tintAt ~= nil).toBe(true)
 		expect((tintAt :: number) > (surfaceAt :: number)).toBe(true)
-		-- the renderer says why, at the seam
-		-- (`emitsBinding` is BINDING_PROPS plus the one class restriction — see the
-		-- renderer's BINDING_PROP_CLASSES; the `prop ~= "tint"` clause is the pin)
-		expect(contains(rendererSource, 'if emitsBinding(node.class, prop) and prop ~= "tint" then')).toBe(true)
+		--[[ the renderer says why, at the seam. `inherited.emits` is
+			`prop_channels.emitsBinding` (BINDING_PROPS plus the class restrictions) with
+			the `enabled` consumer set folded in; the `prop ~= "tint"` clause is the pin,
+			and `enabled` joined the exclusion for a different reason — it is emitted
+			from ONE place for both the authored and the inherited form, just below. ]]
+		expect(contains(rendererSource, 'if inherited.emits(node, prop) and prop ~= "tint" and prop ~= "enabled" then')).toBe(
+			true
+		)
+		expect(contains(rendererSource, "if inherited.needsEnabledWrite(node) then")).toBe(true)
 	end)
 
 	--[[ THE TINT'S OWN ALPHA (2026-07-31). The channel exists for the one thing a
