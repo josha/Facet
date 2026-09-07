@@ -85,8 +85,13 @@ describe("the translate arm seam: a CLOSED set of reuse/node/child fields", func
 		expect(sorted(fieldsRead(armSrc, "node"))).toEqual({ "children" })
 	end)
 
-	it("it reads exactly `id`/`kind` off `child`", function()
-		expect(sorted(fieldsRead(armSrc, "child"))).toEqual({ "id", "kind" })
+	--[[ `hostSpace` JOINED THE SET ON 2026-09-07 (Plan D, D6a's fix round) and the
+		rider is the whole point of pinning the set at all: the walk now stops at a
+		coordinate-space host instead of re-basing its subtree a second time, and that
+		question is asked of the CHILD. Three fields, not two — a fourth would be a
+		widening nobody argued for. ]]
+	it("it reads exactly `hostSpace`/`id`/`kind` off `child`", function()
+		expect(sorted(fieldsRead(armSrc, "child"))).toEqual({ "hostSpace", "id", "kind" })
 	end)
 
 	it("NEGATIVE CONTROL: the field-read scan reports a changed set", function()

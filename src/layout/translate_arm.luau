@@ -10,8 +10,9 @@
 	already carry about themselves. Every input arrives as a parameter
 	(`reuse`/`node` for `translatable`; `ctx`/`node`/`base`/`was`/`out` for
 	`translateDescendants`), both read only `reuse.dirtyContains`/`reuse.previous`,
-	`node.children` and `child.id`/`child.kind` off what they are handed, and
-	neither closes over a solver local. `ctx: any, node: any` rather than the
+	`node.children` and `child.id`/`child.kind`/`child.hostSpace` off what they are
+	handed — plus `ctx.spaceCompositions`, a map the solver owns and that this file
+	only ever asks a question of — and neither closes over a solver local. `ctx: any, node: any` rather than the
 	solver's own `Ctx`/`Node` — stack's precedent (`layout/stack.luau`) — because
 	those types are erased at runtime and importing them would name a solver symbol,
 	which is the one thing a one-way module may not do. `Rect` is declared fresh
@@ -103,6 +104,37 @@ function translate_arm.translateDescendants(ctx: any, node: any, base: Rect, was
 		local n = #paths + 1
 		paths[n] = child.id
 		entries[n] = entry
+		--[[ A COORDINATE-SPACE HOST STOPS THE RE-BASE AT ITS OWN RECT. `solver.luau`
+			already makes this ruling about a host that is the translate ROOT — "the
+			subtree is stored in this node's space: a move of the node moves nothing in
+			it", recorded there as an EMPTY run — and until this line it was made nowhere
+			for a host that is merely a DESCENDANT of one. The host's OWN rect lives in
+			its parent's space and moves with the run; everything beneath it is stored
+			HOST-RELATIVE, so re-basing that a second time leaves the host and its subtree
+			in two different bases.
+
+			IT IS REACHED BY SHIPPED CODE, not only by a new fixture: `RowActions-<key>`
+			is an `Anchor` holding the sliding tray, the tray is a coordinate space (its
+			`offsetX` is reactive), and a row leaving above it moves the anchor while the
+			tray stands still inside it — 98 such runs in `tests/playlist_columns.spec`
+			alone, each re-basing 16 tray descendants that had not moved. Nothing in the
+			suite READ one, which is why this arrived as a D6a finding rather than as a
+			bug report.
+
+			...AND A HOST WHOSE SUBTREE HOLDS A COMPOSITION IS REFUSED OUTRIGHT, by the
+			same pair of terms `arrange`'s anchor arm already asks
+			(`child.hostSpace ~= true or ctx.spaceCompositions[child.id] ~= true`) and for
+			the reason the composition refusal above gives: a composition's resolution is
+			a function of its WINDOW-space origin, which a host's move does change.
+			Stopping the walk at the host would otherwise carry it PAST the one descendant
+			that may not be translated. Refusing rolls the whole run back to a full
+			arrange, which is the conservative direction. ]]
+		if child.hostSpace == true then
+			if ctx.spaceCompositions[child.id] == true then
+				return false
+			end
+			continue
+		end
 		if not translate_arm.translateDescendants(ctx, child, base, was, out) then
 			return false
 		end

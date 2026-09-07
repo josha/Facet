@@ -1,0 +1,24 @@
+D6a FIX ROUND — mutations against `src/layout/translate_arm.luau`'s host stop
+(run: `lune run tests/run_one translate_host` + the three neighbours, one lune at a time)
+
+M1  delete the whole `if child.hostSpace == true then ... end` block (i.e. recurse into
+    a coordinate-space host exactly as the head did)
+    BITES — tests/translate_host.spec "a host inside a MOVED anchor keeps its subtree in
+    its own space": expected 0,-40 to be 0,0.  The tray leaf's HOST-RELATIVE stored rect
+    moved by the anchor's delta, which is the defect in one line.
+    (The same mutation is the head itself, so it also reddens the six D6a oracles under
+    the row trigger: measure_reuse / rect_cow / node_reuse / commit_scope /
+    structural_scope x2, all on `structure: the When branch is dropped`.)
+
+M2  delete the `ctx.spaceCompositions[child.id]` refusal, keep the `continue`
+    BITES — tests/translate_host.spec "a host holding a COMPOSITION is refused as a
+    translate descendant": `spacer 40: false` against a world with no coordinate-space
+    hosts.  The composition kept the lanes it resolved at the window origin the host no
+    longer occupies.
+    RECORDED: with no producer in the tree this mutation was a NULL (translate_host,
+    host_space_oracle, commit_translate and translate_arm all green without the
+    refusal) — the producer was built for it, which is why the case exists.
+
+M3  the seam pin (`tests/translate_arm_seam.spec`, the `child` field-read set)
+    BITES — reverting it to `{ "id", "kind" }` reports `tables not equal`, which is how
+    the head's own suite caught the very first instrumented read of `child.hostSpace`.

@@ -253,6 +253,223 @@ describe("translate host: the reader audit, one pin per reader that had to chang
 		w.dispose()
 	end)
 
+	--[[ A HOST THAT IS A TRANSLATE **DESCENDANT**, not a translate ROOT (D6a fix
+		round, 2026-09-07). The solver already refuses to re-base a host it reaches as
+		the root of a move — it records an EMPTY run and returns — and that ruling was
+		made nowhere for a host reached one level down, inside a subtree the arm walks.
+		`layout/translate_arm.translateDescendants` re-based every descendant it found,
+		host or not: the host's own rect (correct — it lives in its parent's space) and
+		then, a second time and by the same delta, every rect stored in the host's OWN
+		space. Two bases, one arm.
+
+		THE SHAPE IS SHIPPED, NOT INVENTED. `RowActions-<key>` is an `Anchor` holding
+		the sliding tray; the tray's `offsetX` is reactive, so the tray is a coordinate
+		space and the anchor is not. A row leaving above it moves the anchor and leaves
+		the tray where it is — 98 such runs in `tests/playlist_columns.spec` at the head
+		before this fix, each re-basing 16 tray descendants that had not moved, and NO
+		spec in the tree read one of them. This fixture is that shape at its smallest: a
+		spacer above a cell, so shrinking the spacer moves the cell and nothing else.
+
+		FOUR CHANNELS, because a position pin alone would not say which base was wrong:
+		the stored (host-relative) rect, which must not move AT ALL; the composed
+		window position, against a forced FULL solve; the public `rectOf`, same; and
+		`lastTranslated`, which is 1 — the tray's own entry — where it was 3. ]]
+	it("a host inside a MOVED anchor keeps its subtree in its own space", function()
+		local sig: { spacer: any } = { spacer = nil }
+		local function build(core: any): any
+			local spacer = core:signal(60)
+			sig.spacer = spacer
+			return UI.Screen({
+				id = "S",
+				children = {
+					UI.VStack({
+						id = "List",
+						padding = 0,
+						gap = 0,
+						width = fill(),
+						height = { type = "content" },
+						children = {
+							UI.Box({
+								id = "Spacer",
+								width = fill(),
+								height = core:memo(function(use: any): any
+									return px(use(spacer) :: number)
+								end),
+							}),
+							UI.Anchor({
+								id = "Cell",
+								width = fill(),
+								height = px(60),
+								children = {
+									UI.VStack({
+										id = "Tray",
+										anchor = "topLeft",
+										offsetX = core:signal(8),
+										offsetY = core:signal(4),
+										padding = 0,
+										gap = 0,
+										width = px(120),
+										height = { type = "content" },
+										children = {
+											UI.Text({ id = "A", text = "one", textSize = 12 }),
+											UI.Text({ id = "B", text = "two", textSize = 12 }),
+										},
+									}),
+								},
+							}),
+						},
+					}),
+				},
+			})
+		end
+		local a = world(build)
+		local aSpacer = sig.spacer
+		-- the ground truth: both solver halves off, so every rect is placed from scratch
+		local c = world(build, nil, { incrementalLayout = false, measureReuse = false })
+		local cSpacer = sig.spacer
+
+		-- NON-VACUITY: the tray really is a coordinate space and the cell really is not
+		expect(`tray={a.adapter.isHost("/S/List/Cell/Tray")} cell={a.adapter.isHost("/S/List/Cell")}`).toBe(
+			"tray=true cell=false"
+		)
+		local storedBefore = a.adapter.node("/S/List/Cell/Tray/A").storedRect
+		aSpacer:set(20)
+		a.refresh()
+		cSpacer:set(20)
+		c.refresh()
+
+		-- (1) the cell moved and the tray moved with it — otherwise nothing is proved
+		expect(`cellY={a.adapter.node("/S/List/Cell").rect.y}`).toBe("cellY=20")
+		-- (2) NOTHING in the tray's own space moved
+		local storedAfter = a.adapter.node("/S/List/Cell/Tray/A").storedRect
+		expect(`{storedAfter.x},{storedAfter.y}`).toBe(`{storedBefore.x},{storedBefore.y}`)
+		-- (3) and (4): the composed window position and the public reader both equal a
+		-- forced full solve's, on every leaf of the tray
+		for _, id in { "A", "B" } do
+			local path = `/S/List/Cell/Tray/{id}`
+			expect(`{id} composed={composed(a.adapter, path)}`).toBe(`{id} composed={composed(c.adapter, path)}`)
+			expect(`{id} rectOf={fmt(a.controller.rectOf(path))}`).toBe(`{id} rectOf={fmt(c.controller.rectOf(path))}`)
+		end
+		-- (5) THE COUNT: the run re-bases the tray's own entry and stops there
+		expect(a.controller.stats().lastTranslated).toBe(1)
+		a.dispose()
+		c.dispose()
+	end)
+
+	--[[ ...AND THE ONE DESCENDANT THAT MAY NOT BE STOPPED AT. Stopping the walk at a
+		host is right for every rect stored in its space and WRONG for a composition
+		below it: `composition_resolve` converts author `exclusions` out of WINDOW space
+		and decides `atRoot` by comparing the placed y to the root rect, so a host that
+		moves carries a resolution computed at a position it no longer occupies. The arm
+		already refuses a composition it meets DIRECTLY; the host stop would have walked
+		straight past one. `ctx.spaceCompositions` is the map the solver fills for
+		exactly this question and that `arrange`'s anchor arm already asks — asked here
+		by the same pair of terms.
+
+		THE SAME SHIPPED SHAPE as the case above with a `Composition` inside the tray,
+		so the refusal is driven rather than argued: arm `a` must agree with a world
+		that has no coordinate-space hosts at all, on `screenRectOf` for every painted
+		path and on the findings. ]]
+	it("a host holding a COMPOSITION is refused as a translate descendant", function()
+		local spacers: { any } = {}
+		local function build(core: any): any
+			local spacer = core:signal(120)
+			table.insert(spacers, spacer)
+			return UI.Screen({
+				id = "S",
+				children = {
+					UI.VStack({
+						id = "List",
+						padding = 0,
+						gap = 0,
+						width = fill(),
+						height = { type = "content" },
+						children = {
+							UI.Box({
+								id = "Spacer",
+								width = fill(),
+								height = core:memo(function(use: any): any
+									return px(use(spacer) :: number)
+								end),
+							}),
+							UI.Anchor({
+								id = "Cell",
+								width = fill(),
+								height = px(300),
+								children = {
+									UI.ZStack({
+										id = "Wrap",
+										anchor = "topLeft",
+										offsetX = core:signal(0),
+										offsetY = core:signal(0),
+										width = px(400),
+										height = px(300),
+										children = {
+											UI.Composition({
+												id = "Comp",
+												arrangements = { "column" },
+												laneGap = 12,
+												groupGap = 8,
+												width = px(400),
+												height = px(300),
+												-- window-space by contract: move the box and a
+												-- different set of lanes is taken out
+												exclusions = { { x = 0, y = 0, w = 200, h = 200 } },
+												groups = {
+													{ id = "main", lane = "main", sizing = "fill", minWidth = 120 },
+												},
+												children = {
+													UI.Region({
+														id = "R1",
+														group = "main",
+														rank = 1,
+														children = {
+															UI.Box({ id = "r1a", width = px(100), height = px(40) }),
+														},
+													}),
+												},
+											}),
+										},
+									}),
+								},
+							}),
+						},
+					}),
+				},
+			})
+		end
+		local a = world(build, { x = 0, y = 0, w = 400, h = 600 })
+		local e = world(build, { x = 0, y = 0, w = 400, h = 600 }, { translateHosts = false })
+		expect(`hosted={a.adapter.isHost("/S/List/Cell/Wrap")} flat={e.adapter.isHost("/S/List/Cell/Wrap")}`).toBe(
+			"hosted=true flat=false"
+		)
+		local function shot(w: any): string
+			local out: { string } = {}
+			for _, p in w.adapter.paths() do
+				table.insert(out, `{p}|{fmt(w.controller.screenRectOf(p))}`)
+			end
+			table.sort(out)
+			local diag: { string } = {}
+			for _, finding in w.controller.diagnostics() do
+				table.insert(diag, `{finding.node}:{finding.issue}`)
+			end
+			table.sort(diag)
+			return table.concat(out, "\n") .. "\ndiag=" .. table.concat(diag, ";")
+		end
+		for _, v in { 40, 8, 96 } do
+			spacers[1]:set(v)
+			spacers[2]:set(v)
+			a.refresh()
+			e.refresh()
+			expect(`spacer {v}: {shot(a) == shot(e)}`).toBe(`spacer {v}: true`)
+		end
+		-- non-vacuity: the composition really is under the host, and the cell really moved
+		expect(`comp={a.adapter.hostOf("/S/List/Cell/Wrap/Comp").path}`).toBe("comp=/S/List/Cell/Wrap")
+		expect(`y={a.controller.screenRectOf("/S/List/Cell").y}`).toBe("y=96")
+		a.dispose()
+		e.dispose()
+	end)
+
 	--[[ (a) THE HIT EXPANDER AND (k) THE HIT LIFT, on the same world, because they
 		are the same reader seen twice. A 20x20 Button is below the 44px touch floor,
 		so the framework grows it an expander — and `hit_lift` decides paint ORDER by
