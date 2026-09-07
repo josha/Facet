@@ -153,6 +153,18 @@ describe("the render-stats seam: no requires, no state, two exports", function()
 			`visits=`/`builds=` equality in `tests/build_children_reuse.spec.luau`,
 			read off a run. ]]
 		expect(`buildChildVisits={s.lastBuildChildVisits}`).toBe("buildChildVisits=0")
+		--[[ ...and D3a's, which is named here because NOTHING ELSE CATCHES IT — measured,
+			not assumed. `textCollectTruncated` is the only field in this record that its
+			writer ASSIGNS rather than increments (`render/premeasure_round` publishes
+			`layout/text_metrics.collectTruncated()` once per solve), so deleting the
+			declaration below produces neither a missing `publish` field nor nil arithmetic
+			anywhere: the write simply creates the key on first use, and every equality in
+			`tests/text_collect_inflight.spec.luau` reads a surface that has already solved.
+			Deleting it was run as a mutation and reddened NOTHING across both seam specs
+			and that file. What it costs is the one moment the declaration is observable —
+			`renderer.attach` before the first solve — where a consumer would read `nil`
+			instead of 0. That is what this line pins. ]]
+		expect(`collectTruncated={s.textCollectTruncated}`).toBe("collectTruncated=0")
 	end)
 
 	it("`publish` writes ONLY into the record it is handed, and repairs `work.skipped`", function()
