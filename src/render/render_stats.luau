@@ -37,6 +37,24 @@ function render_stats.new(): any
 		propWrites = 0,
 		solves = 0,
 		textMeasureBatches = 0,
+		--[[ ...and the times a SOLVE's word collector ran out of budget (Plan D, D3a).
+			`layout/text_metrics` fills a per-solve request queue in document order under
+			a 1024-word cap and drops the rest in silence — no warning, no counter, no
+			spec — which is how FacetBench §8b's sixty-five-round boot drain was diagnosed
+			as boxes moving for three rounds. This is that silence made readable.
+
+			A PROCESS TOTAL MIRRORED PER SURFACE, stated because the rest of this record
+			is per-surface: the collector is one per process (its own header says why), so
+			this is `layout/text_metrics.collectTruncated()` as of this surface's last
+			round. Read it as a DELTA over a drive. `render/premeasure_round` writes it,
+			for the same reason it writes `textMeasureBatches` — it is the one seam that
+			runs once per solve and already holds both the store and this record.
+
+			A NON-ZERO VALUE IS NOT A FAILURE: a vocabulary larger than the budget
+			truncates by construction and the words come back on the next solve. A value
+			that keeps CLIMBING across a settled session is the condition worth reading —
+			that is the backlog eating the budget, and it is what D3a removed. ]]
+		textCollectTruncated = 0,
 		-- recycling: `parked` counts nodes taken out of the tree intact rather than
 		-- destroyed; `recycled` counts creates served from the pool instead of the
 		-- engine. Both stay 0 unless the feature is on, which makes "is it actually

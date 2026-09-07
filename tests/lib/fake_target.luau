@@ -2014,6 +2014,27 @@ function fake_target.new(opts: Opts?)
 		end
 		answer(batches, widthOf, final)
 	end
+	--[[ ...AND THE LIVE ASYMMETRY THE ONE ABOVE CANNOT REPRODUCE (Plan D, D3a):
+		answer the MOST RECENT batch and leave every older one outstanding.
+
+		`deliverTextWidths` answers everything, which is the settled engine. The BOOT
+		window is not that shape: `client/text_premeasure.measureBatch` warms the font
+		first (`ContentProvider:PreloadAsync`, which yields) and the FacetBench loop
+		driver applies its steps in one unbroken Luau run, so the first big batch's
+		thread never resumes while later, smaller batches are answered from a font that
+		is already warm. That is the state S2 measured live — a large unanswered
+		backlog with the drain still making one-word progress — and it is the state
+		`tests/text_collect_inflight.spec.luau` has to mount in order to see the
+		collector budget being eaten. ]]
+	function adapter.deliverLatestTextWidths(widthOf: (string, number, string) -> number?, final: boolean?)
+		local batch = textBatches[#textBatches]
+		if batch == nil then
+			return
+		end
+		table.remove(textBatches, #textBatches)
+		table.insert(answeredBatches, batch)
+		answer({ batch }, widthOf, final)
+	end
 	-- the real adapter re-reads a batch once the session has settled and answers
 	-- the SAME batch again with corrections (the engine's boot answers are wrong
 	-- but stable). This replays that second answer.

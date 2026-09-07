@@ -402,6 +402,39 @@ local collecting: { [string]: { font: string, size: number, word: string } }? = 
 local collectCount = 0
 local COLLECT_CAP = 1024
 
+--[[ THE WORDS THIS PROCESS HAS ASKED THE ENGINE ABOUT AND NOT YET BEEN ANSWERED ON
+	(Plan D, D3a; scout S2, FacetBench §8b), keyed exactly as the collector keys and
+	refcounted by `render/premeasure_round` — the one module that knows when a word
+	enters and leaves flight.
+
+	WHY THE COLLECTOR NEEDS TO KNOW. `wordWidth`'s only test is the STORE's answer, and
+	a word that has been requested is still `nil` there until it comes back — so the
+	whole outstanding backlog re-spent the 1024-word budget on every whole-tree solve.
+	Live, where the boot window's first batch cannot be answered inline, that left room
+	for exactly ONE new word per solve and turned a two-round drain into a
+	sixty-five-round one, each round a wide-key whole-tree cold solve.
+
+	IT UNCHARGES; IT DOES NOT SKIP, and the difference is the second host. An in-flight
+	word is still COLLECTED, because the surface that owns the flight is not the only
+	surface that can need the answer: two hosts opening cold in the same frame both ask,
+	and the second one's re-solve is decided by ITS OWN in-flight set rather than by
+	this store (`tests/text_premeasure.spec.luau`, "...AND SO DOES A SECOND HOST THAT
+	ASKED FOR THE SAME WORD ITSELF"). A collector that refused to collect would leave
+	that host with no batch, no answer and no re-solve. It is also the fail-safe
+	direction: a count that ever leaked upward would only relax the budget, where a skip
+	would strand a word nobody ever measures again.
+
+	REFCOUNTED, NOT FLAGGED, because a surface may die with words outstanding while
+	another surface is still waiting on the same ones. `noteInFlight` is the only
+	writer and it floors at zero, so a delivery for a key this process never asked
+	about cannot push the count negative. ]]
+local inFlight: { [string]: number } = {}
+-- ...and the collector's own silence, made loud. Incremented ONCE per collector, the
+-- first time `wordWidth` has to refuse a word for want of budget: the absence of this
+-- number is why the drain was diagnosed as moving boxes for three rounds.
+local collectTruncations = 0
+local collectCapped = false
+
 local SPACE = " "
 
 export type Request = { font: string, size: number, word: string }
@@ -504,6 +537,32 @@ end
 function text_metrics.beginCollect()
 	collecting = {}
 	collectCount = 0
+	collectCapped = false
+end
+
+--[[ ONE WORD ENTERS OR LEAVES FLIGHT. `key` is the collector's own request key,
+	`{canonicalFont(font)}\0{fontSize}\0{word}` — taken rather than rebuilt, because
+	`render/premeasure_round` already holds that exact string for its per-surface set
+	and two independent derivations of one lookup key is the defect `metricKey` above
+	exists to prevent. `delta` is +1 at a dispatch and -1 at every clear: a final
+	answer, and a `dispose` that gives back what its surface still owed. ]]
+function text_metrics.noteInFlight(key: string, delta: number)
+	local now = (inFlight[key] or 0) + delta
+	inFlight[key] = if now > 0 then now else nil
+end
+
+-- how many surfaces are waiting on one word. The instrument the refcount's own
+-- contract is asserted through (`tests/text_collect_inflight.spec.luau`); nothing in
+-- `src/` reads it.
+function text_metrics.inFlightCount(key: string): number
+	return inFlight[key] or 0
+end
+
+-- collectors that ran out of budget, cumulative for the process. `render_stats` calls
+-- it `textCollectTruncated` and publishes it per surface; the number is a process
+-- fact because the collector is one.
+function text_metrics.collectTruncated(): number
+	return collectTruncations
 end
 
 -- drain what was collected, in a deterministic order (font, size, word), and
@@ -605,9 +664,22 @@ local function wordWidth(
 		-- (unmeasured words), which is off the steady-state hot loop
 		local queue = collecting :: { [string]: Request }
 		local key = `{canon}\0{fontSize}\0{word}`
-		if queue[key] == nil and collectCount < COLLECT_CAP then
-			collectCount += 1
-			queue[key] = { font = canon, size = fontSize, word = word }
+		if queue[key] == nil then
+			if inFlight[key] ~= nil then
+				--[[ ALREADY ASKED, SO IT IS NOT NEWS (Plan D, D3a). The word is collected —
+					another surface may be the one that needs the answer, and its own
+					in-flight set is what decides that — but it does NOT spend the budget,
+					because the budget exists to bound how many words go to the ENGINE in one
+					frame and this one is already on its way. Charging it is what turned a
+					two-round drain into a sixty-five-round one; see `inFlight` above. ]]
+				queue[key] = { font = canon, size = fontSize, word = word }
+			elseif collectCount < COLLECT_CAP then
+				collectCount += 1
+				queue[key] = { font = canon, size = fontSize, word = word }
+			elseif not collectCapped then
+				collectCapped = true
+				collectTruncations += 1
+			end
 		end
 	end
 	local estimate = 0

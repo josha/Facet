@@ -246,11 +246,14 @@ describe("the premeasure-round seam: READ == DECLARED == PASSED", function()
 			the NEXT candidate applies to this one too (review M3). A block that only READS
 			its host's state can be moved; a block that WRITES it has to be trusted to write
 			the same thing at the same moment, which is a different and much weaker claim.
-			This module writes two things and nothing else: it bumps `textMeasureEpoch` (the
-			generation a consumer memo depends on, published BEFORE the re-solve) and it
-			increments `textMeasureBatches`. `stats.solves` is READ as the one-solve guard
-			and never assigned — which is why the scan below is over assignments and not
-			over mentions. ]]
+			This module writes three things and nothing else: it bumps `textMeasureEpoch` (the
+			generation a consumer memo depends on, published BEFORE the re-solve), it
+			increments `textMeasureBatches`, and it publishes `textCollectTruncated` from
+			`layout/text_metrics`'s process counter (Plan D, D3a — the collector's own
+			silence, which crosses HERE rather than through a new require in
+			`render/render_stats`, whose seam claim is that it requires nothing).
+			`stats.solves` is READ as the one-solve guard and never assigned — which is why
+			the scan below is over assignments and not over mentions. ]]
 		local body = stripComments(roundSource)
 		local envKeys: { [string]: boolean } = {}
 		for key in string.gmatch(body, 'env:set%(%s*"([^"]+)"') do
@@ -263,7 +266,7 @@ describe("the premeasure-round seam: READ == DECLARED == PASSED", function()
 				assigned[`{recv}.{field}`] = true
 			end
 		end
-		expect(sorted(assigned)).toEqual({ "stats.textMeasureBatches" })
+		expect(sorted(assigned)).toEqual({ "stats.textCollectTruncated", "stats.textMeasureBatches" })
 		-- ...and `env:set` is the ONLY write verb reached for: no `env:` method other
 		-- than `set` and `get` crosses this boundary
 		local verbs: { [string]: boolean } = {}

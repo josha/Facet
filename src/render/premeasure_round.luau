@@ -35,7 +35,8 @@ export type Deps = {
 	adapter: any,
 	-- the surface environment. `textMeasureEpoch` is the ONE key written here
 	env: any,
-	-- the controller's counter record. `textMeasureBatches` is incremented and
+	-- the controller's counter record. `textMeasureBatches` is incremented,
+	-- `textCollectTruncated` is published from the store's process counter, and
 	-- `solves` is read as the one-solve-per-round guard
 	stats: any,
 }
@@ -79,12 +80,26 @@ function premeasure_round.new(deps: Deps): PremeasureRound
 		lands one re-solve later. Batched per SOLVE over the whole tree's vocabulary —
 		never per node. ]]
 	local function request(textRequests: { any }, solveAndApply: () -> ())
+		--[[ THE COLLECTOR'S OWN SILENCE, PUBLISHED (Plan D, D3a). `layout/text_metrics`
+			drops a word it has no budget for and says nothing, which is how a
+			sixty-five-round boot drain was read as boxes moving for three rounds. This is
+			the one seam that runs once per solve AND already holds both the store and the
+			counter record, so the number crosses here rather than through a new require in
+			`render/render_stats` — whose whole seam claim is that it requires nothing. It
+			is a PROCESS total, because the collector is one per process. ]]
+		stats.textCollectTruncated = text_metrics.collectTruncated()
 		if adapter.measureTextWidths ~= nil and #textRequests > 0 and not disposed then
 			local batch: { any } = {}
 			for _, request in textRequests do
 				local key = `{request.font}\0{request.size}\0{request.word}`
 				if not textInFlight[key] then
 					textInFlight[key] = true
+					--[[ ...AND THE PROCESS LEARNS THE WORD IS OUT (Plan D, D3a). The
+						per-surface set above answers "may I ask?"; the refcount answers "is
+						anyone waiting?", which is the question the COLLECTOR needs so an
+						unanswered backlog stops re-spending its 1024-word budget on every
+						solve. One `+1` per dispatch, and every clear below gives it back. ]]
+					text_metrics.noteInFlight(key, 1)
 					table.insert(batch, request)
 				end
 			end
@@ -118,9 +133,20 @@ function premeasure_round.new(deps: Deps): PremeasureRound
 							A SECOND HOST"). `render/text_index`'s broadcast marks that
 							surface's paths but a mark is passive: it is spent by the next
 							solve, and nothing else was going to make one. ]]
-						local owedHere = textInFlight[key] == true
+						local state = textInFlight[key]
+						local owedHere = state == true
 						if final ~= false then
-							textInFlight[key] = nil
+							--[[ ...AND THE REFCOUNT MOVES ONLY WHEN THE SET DOES. A delivery may
+								name a key this surface never asked about (an adapter answering a
+								batch twice, or answering more than it was asked); the write below
+								is a no-op for such a key and the `-1` has to be too, or the
+								process count would drift under a set it is supposed to mirror.
+								An `"answered"` entry is still in flight and still holds its one:
+								the settled re-read is owed, and THAT delivery is the release. ]]
+							if state ~= nil then
+								textInFlight[key] = nil
+								text_metrics.noteInFlight(key, -1)
+							end
 						elseif owedHere then
 							textInFlight[key] = "answered"
 						end
@@ -205,6 +231,18 @@ function premeasure_round.new(deps: Deps): PremeasureRound
 		-- async engine call): mark this round dead so a late answer neither re-solves
 		-- nor writes into destroyed handles, and stop the deliveries themselves
 		dispose = function()
+			--[[ ...AND IT GIVES BACK WHAT IT STILL OWED (Plan D, D3a). The flight refcount
+				is process-global and this surface's share of it dies here: a cancelled
+				batch is never answered, so nothing else would ever decrement these. The
+				SET is deliberately left standing — `pending()` reads it, and a disposed
+				surface whose words were never answered still answers "yes" (the seam
+				spec's own case). Guarded on `disposed` so a second `dispose` cannot
+				double-decrement a count another surface is holding. ]]
+			if not disposed then
+				for key in textInFlight do
+					text_metrics.noteInFlight(key, -1)
+				end
+			end
 			disposed = true
 			for _, cancel in textMeasureCancels do
 				cancel()

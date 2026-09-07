@@ -1217,6 +1217,12 @@ require("./build_index_patch.spec")
 	not move, so the replay enumerates the dirty set instead — and the cases are the
 	three shapes that still take the scan, with the splice the scan was written for. ]]
 require("./stack_replay_candidates.spec")
+--[[ PLAN D, D3a (2026-09-06): a word the engine has been ASKED about is still `nil` in
+	the store, so an unanswered backlog re-spent `text_metrics`'s 1024-word collector
+	budget on every whole-tree solve — one new word per round, sixty-five wide-key cold
+	solves in the boot window (FacetBench §8b, scout S2). The in-flight refcount, the
+	truncation counter nobody had, and the pre-measured oracle. ]]
+require("./text_collect_inflight.spec")
 --[[ THE STANDALONE CONSUMER (distribution-readiness D2/D4): `examples/consumer/`
 	is the smallest complete Facet project, and this mounts ITS OWN screen module
 	— the same file the client script requires through the instance tree — against

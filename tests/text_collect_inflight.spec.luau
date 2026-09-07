@@ -1,0 +1,399 @@
+--!strict
+--[[
+	AN IN-FLIGHT WORD STOPS EATING THE COLLECTOR BUDGET (Plan D, D3a — scout S2,
+	FacetBench §8b).
+
+	WHAT WAS WRONG, MEASURED LIVE. `layout/text_metrics`'s per-solve word collector
+	carries `COLLECT_CAP = 1024`, filled in DOCUMENT ORDER, and its only test is
+	`known == nil` — the store's answer. A word that has been REQUESTED and not yet
+	ANSWERED is still `nil` in the store, so the whole outstanding backlog re-consumed
+	the budget on every whole-tree solve. Live in the boot window the first batch
+	cannot be answered inline (`client/text_premeasure.measureBatch` warms the font
+	first and `ContentProvider:PreloadAsync` yields; FacetBench's loop driver applies
+	its steps in one unbroken Luau run, so that thread never resumes), so with a
+	1,023-word backlog a solve had room for exactly ONE new word. FacetBench §8b
+	recorded the walk to the digit on `battle_hud` L: `#1 n=1 "744"`, `#2 "724"`,
+	`#3 "725"`, `#4 "726"` … `#65 "786"`, all at `BuilderSans#Regular#Normal/12` —
+	sixty-five rounds, each of which is a learned word marking a 1,000-user key over
+	the push cap and therefore a ~52 ms whole-tree cold solve.
+
+	§8b read that walk as boxes moving ("each learned width brings the next unmeasured
+	row into the measured set"). It is not: nothing in the layout stops measurement
+	early, so a full solve that re-measured 1,000 labels would have collected ALL their
+	unmeasured words in one round. The budget is the mechanism, and this file is S2's
+	owed experiment — mount a vocabulary larger than the cap, leave the first batch
+	outstanding, and read the NEW request set per round.
+
+	THE FIXTURE IS THE LIVE SHAPE, NOT A MINIATURE. 1,200 distinct words at one
+	(font, size) — over the cap by 176 — one `UI.Text` each, the fake target QUEUEING
+	(never `answerTextInline`), and the per-round driver is the production trigger:
+	edit one leaf's text to a new word, answer THAT batch alone
+	(`deliverLatestTextWidths`, the boot-window asymmetry — see its header), which
+	teaches the store one word, announces the (font,size), marks 1,200 paths against
+	the push cap and therefore takes the WIDE-KEY `full` route: a whole-tree cold
+	solve. That solve is the one whose collector is the subject.
+
+	READ OFF THE RUN AT `7f85b15f` + the counters alone (the D2 head, mechanism
+	absent), five rounds: the vocabulary this surface has ASKED ABOUT reads
+	`1025, 1026, 1027, 1028, 1029` — one more word per whole-tree solve, ascending in
+	document order from the mount's truncation frontier, with 171 of the 176 dropped
+	words never asked about at all and nothing bounding how long that goes on. Eleven
+	engine batches for six words. AFTER: `1200, 1200, 1200, 1200, 1200` — the whole
+	tail rides out on the first solve that follows the mount — and six batches.
+
+	THE MECHANISM IS "UNCHARGED", NOT "SKIPPED", AND THAT IS A DELIBERATE DEPARTURE
+	from the plan's line (`(inFlight[key] or 0) == 0` as a term of the collect
+	condition). An in-flight word is still COLLECTED — it simply does not spend the
+	budget — because the surface that owns the flight is not the only surface that can
+	need the answer. `tests/text_premeasure.spec.luau`'s "...AND SO DOES A SECOND HOST
+	THAT ASKED FOR THE SAME WORD ITSELF" is a shipped fix for exactly that: two hosts
+	opening cold in the same frame both ask, and the second one's re-solve is decided
+	by ITS OWN in-flight set, not by the process-global store. A collector that refused
+	to collect an in-flight word would leave host B with no batch, no answer and no
+	re-solve — the estimator's box for the life of the session. Not charging is also
+	the fail-safe direction: a refcount that ever leaked upward would only relax the
+	budget, where a skip would strand a word forever.
+]]
+
+local t = require("./lib/testkit")
+local describe, it, expect = t.describe, t.it, t.expect
+
+local UI = require("../src/blueprint")
+local mountLib = require("../src/mount")
+local environment = require("../src/env/environment")
+local renderer = require("../src/render/renderer")
+local customFactory = require("../src/core/custom")
+local fake_target = require("./lib/fake_target")
+local text_metrics = require("../src/layout/text_metrics")
+
+-- over `COLLECT_CAP` (1024) by 176: the tail is the quantity every pin below is a
+-- function of, and it is stated here rather than spelled into each one
+local VOCAB = 1200
+local CAP = 1024
+local TAIL = VOCAB - CAP
+local ROUNDS = 5
+local SIZE = 13
+--[[ a PRIVATE vocabulary, per DESCRIBE BLOCK. `layout/text_metrics` is process-global,
+	so a word another spec measured is a word this fixture never asks about — and the
+	batch counts here are the whole point (`text_premeasure.spec`'s own header records
+	the same trap). The refcount cases below carry their own prefix for a second reason:
+	a case that FAILS never reaches its `dispose`, and a surface left standing with words
+	outstanding is a count the next case would inherit. ]]
+local function wordAt(prefix: string, i: number): string
+	return string.format("zqx%s%04d", prefix, i)
+end
+
+type World = {
+	core: any,
+	env: any,
+	controller: any,
+	adapter: any,
+	texts: { any },
+}
+
+local function world(opts: { prefix: string, count: number? }): World
+	local count = opts.count or VOCAB
+	local core = customFactory.new()
+	local env = environment.new(core)
+	env:set("viewportRect", { x = 0, y = 0, w = 480, h = 720 })
+	local texts: { any } = {}
+	local children: { any } = {}
+	for i = 1, count do
+		texts[i] = core:signal(wordAt(opts.prefix, i))
+		children[i] = UI.Text({ id = `T{i}`, textSize = SIZE, text = texts[i] })
+	end
+	local bp = UI.Screen({
+		id = "S",
+		children = {
+			UI.VStack({ id = "L", padding = 0, gap = 0, children = children }),
+		},
+	})
+	local root = mountLib.mount(core, bp)
+	local adapter = fake_target.new()
+	local controller = renderer.attach(core, root, env, adapter)
+	controller.initialRender()
+	return { core = core, env = env, controller = controller, adapter = adapter, texts = texts }
+end
+
+-- the engine's answer, deterministic and the same on every arm so the store two arms
+-- converge to is byte-comparable
+local function widthOf(word: string, size: number, _font: string): number?
+	return math.max(1, #word * size * 0.5)
+end
+
+local function pendingSet(adapter: any): { [string]: boolean }
+	local out: { [string]: boolean } = {}
+	for _, request in adapter.pendingTextRequests() do
+		out[request.word] = true
+	end
+	return out
+end
+
+-- every live node's rect and props, the geometry channel the oracle compares
+local function painted(adapter: any): string
+	local out: { string } = {}
+	for path, node in adapter.liveNodes() do
+		local props: { string } = {}
+		for k, v in node.props or {} do
+			if type(v) ~= "table" then
+				table.insert(props, `{k}={tostring(v)}`)
+			end
+		end
+		table.sort(props)
+		local r = node.rect
+		table.insert(out, `{path}|{if r then `{r.x},{r.y},{r.w},{r.h}` else "-"}|{table.concat(props, ",")}`)
+	end
+	table.sort(out)
+	return table.concat(out, "\n")
+end
+
+local function dump(): string
+	local out: { string } = {}
+	for _, row in text_metrics.measuredDump() do
+		table.insert(out, `{row.font}|{row.size}|{row.word}|{tostring(row.width)}`)
+	end
+	return table.concat(out, "\n")
+end
+
+-- drive to SETTLED: solve, answer everything outstanding, repeat. A drive that stops
+-- early is measuring the boot window (T17 §4).
+local function settle(w: World)
+	for _ = 1, 12 do
+		w.controller.refresh()
+		if w.adapter.textBatchCount() == 0 then
+			break
+		end
+		w.adapter.deliverTextWidths(widthOf)
+	end
+	w.controller.refresh()
+end
+
+describe("the collector budget: an in-flight word is not charged for it", function()
+	it("THE RED ARM: a 1,200-word vocabulary, the first batch outstanding, five whole-tree solves", function()
+		--[[ S2'S OWED EXPERIMENT. Every number below is read off the run, and the two
+			that carry the finding are the per-round NEW request set and the size of the
+			first batch a whole-tree solve dispatches once one word has been learned. ]]
+		text_metrics.resetMeasured()
+		--[[ THE COUNTER IS A PROCESS TOTAL, so every reading of it here is a DELTA over
+			this case's own drive. Read absolutely it would carry whatever the 8,700 cases
+			before this one left behind. ]]
+		local base = text_metrics.collectTruncated()
+		local w = world({ prefix = "w" })
+		local st0 = w.controller.stats()
+
+		-- THE CAP IS REAL, AND NOTHING SAID SO BEFORE THIS COUNTER: the mount solve
+		-- asked for 1,024 of the 1,200 words it measured and dropped 176 in silence.
+		local first = w.adapter.pendingTextRequests()
+		expect(`batch1={#first} batches={st0.textMeasureBatches} truncated={st0.textCollectTruncated - base}`).toBe(
+			"batch1=1024 batches=1 truncated=1"
+		)
+		-- ...in DOCUMENT ORDER, which is what makes the frontier a position and not a set
+		expect(`lo={first[1].word} hi={first[#first].word}`).toBe(`lo={wordAt("w", 1)} hi={wordAt("w", CAP)}`)
+
+		--[[ THE OBSERVABLE IS CUMULATIVE, and that is not a convenience. A round dispatches
+			its batch at whichever solve first measures the word, and the fix moves that
+			solve one step EARLIER (the edit's own re-solve already carries the tail, where
+			the parent SHA needs the LEARNED word's solve to find one more) — so a set
+			differenced across one point inside the round reports where the batch landed,
+			not how much of the vocabulary the surface has asked about. `asked` is the union
+			of every word ever dispatched, sampled on both sides of the answer, and the
+			number that matters is how much of the 1,200-word VOCABULARY it holds. ]]
+		local asked: { [string]: boolean } = {}
+		local function noteAsked()
+			for _, request in w.adapter.pendingTextRequests() do
+				asked[request.word] = true
+			end
+		end
+		local function vocabularyAsked(): (number, string)
+			local n, hi = 0, "-"
+			for word in asked do
+				if string.sub(word, 1, 4) == "zqxw" then
+					n += 1
+					if word > hi then
+						hi = word
+					end
+				end
+			end
+			return n, hi
+		end
+		noteAsked()
+		local rounds: { string } = {}
+		for round = 1, ROUNDS do
+			--[[ THE PRODUCTION TRIGGER. One leaf's text becomes a NEW word, and answering
+				THAT batch alone (never the outstanding one) teaches the store one word —
+				which announces the (font,size), marks all 1,200 paths, blows the push cap
+				and takes the wide-key `full` route: a whole-tree cold solve, which is the
+				shape whose collector this file is about. ]]
+			w.texts[round]:set(`zqxe{round}`)
+			w.controller.refresh()
+			noteAsked()
+			w.adapter.deliverLatestTextWidths(widthOf)
+			noteAsked()
+			local n = vocabularyAsked()
+			table.insert(rounds, `{n}`)
+		end
+		--[[ THE WALK, MECHANISED. ARM C (the counters alone, no uncharged term — read off
+			the run 2026-09-06) reads `asked=1025,1026,1027,1028,1029`: ONE more word of the
+			vocabulary per whole-tree solve, exactly FacetBench §8b's "744, 724, 725, 726
+			…", with 171 of the 176 dropped words never asked about at all and no bound on
+			how long that would go on. AFTER: the whole tail goes out on the first solve
+			that follows the mount and the number stands still. ]]
+		expect(`asked={table.concat(rounds, ",")}`).toBe(`asked={VOCAB},{VOCAB},{VOCAB},{VOCAB},{VOCAB}`)
+		--[[ ...AND THE REST OF THE SHAPE IN ONE STRING, because these three numbers are
+			only meaningful together. `hi` says the tail was taken from the mount's
+			truncation FRONTIER and not from some arbitrary position; `truncated` says the
+			cap is still real (the vocabulary IS bigger than the budget, so the mount still
+			truncates — the fix is what happens NEXT, not that the cap stops firing);
+			`batches` is the mount, the five edits, and the tail riding out with the first
+			of them. ARM C: `hi=zqxw1029 truncated=7 batches=11` — a truncating solve on
+			every single round, and five extra engine round trips to learn five words. ]]
+		local n, hi = vocabularyAsked()
+		local st = w.controller.stats()
+		expect(`asked={n} hi={hi} truncated={st.textCollectTruncated - base} batches={st.textMeasureBatches}`).toBe(
+			`asked={VOCAB} hi={wordAt("w", VOCAB)} truncated=1 batches=6`
+		)
+		w.controller.dispose()
+		text_metrics.resetMeasured()
+	end)
+
+	it("...and answering both batches settles the surface: nothing pending, no deferred round", function()
+		--[[ A NULL BY DESIGN, and it is here to say so. A drive that ANSWERS what it asked
+			for never builds a backlog, so the settled path is the one shape the defect
+			could not reach — every number below is the same on both arms, and a change in
+			any of them would be this task breaking something it was not supposed to touch.
+			(`drainDeferrals` is the C-3 round-cap trip: zero here, and it stays zero.) ]]
+		text_metrics.resetMeasured()
+		local base = text_metrics.collectTruncated()
+		local w = world({ prefix = "w" })
+		settle(w)
+		local st = w.controller.stats()
+		expect(
+			`pending={tostring(w.controller.textPending())} batches={st.textMeasureBatches}`
+				.. ` solves={st.solves} deferrals={st.drainDeferrals} truncated={st.textCollectTruncated - base}`
+		).toBe("pending=false batches=2 solves=3 deferrals=0 truncated=1")
+		-- every word of the vocabulary is in the store, which is what "settled" means
+		expect(`measured={text_metrics.measuredCount()}`).toBe(`measured={VOCAB}`)
+		w.controller.dispose()
+		text_metrics.resetMeasured()
+	end)
+
+	it("THE ORACLE: a surface handed the whole vocabulary before mount lands the same tree", function()
+		--[[ AN ORACLE THAT DOES NOT SHARE THE SWITCH (Plan D global constraint, and the
+			RED-TEAM lesson of 2026-09-06). The pre-measured arm never enters `wordWidth`'s
+			collect branch at all — every word is a store hit — so it exercises none of this
+			task's code and is the fixed point both routes must converge to. Two channels,
+			byte-equal: the painted tree and the measured store. ]]
+		text_metrics.resetMeasured()
+		local a = world({ prefix = "w" })
+		settle(a)
+		local paintedA = painted(a.adapter)
+		local dumpA = dump()
+		a.controller.dispose()
+		text_metrics.resetMeasured()
+
+		--[[ THE FONT IS READ OFF THE SEAM, never re-derived: the store is keyed by the
+			descriptor the SOLVER measured with, and a spec that guessed one would compare
+			two arms that measured different things. Arm a's dump is that reading. ]]
+		local font = string.match(dumpA, "^([^|]+)|") :: string
+		for i = 1, VOCAB do
+			local word = wordAt("w", i)
+			text_metrics.setMeasured(font, SIZE, word, widthOf(word, SIZE, font))
+		end
+		local b = world({ prefix = "w" })
+		-- no batch at all: there was nothing the store could not answer
+		expect(`batches={b.controller.stats().textMeasureBatches}`).toBe("batches=0")
+		settle(b)
+		expect(`painted equal: {tostring(painted(b.adapter) == paintedA)}`).toBe("painted equal: true")
+		expect(`store equal: {tostring(dump() == dumpA)}`).toBe("store equal: true")
+		-- ...and the channels are not empty, which is the trap a string compare invites
+		expect(#paintedA > 10000 and #dumpA > 10000).toBe(true)
+		b.controller.dispose()
+		text_metrics.resetMeasured()
+	end)
+end)
+
+describe("the collector budget: the flight refcount is what makes a process-global set safe", function()
+	it("two surfaces, one word: a dispose decrements, the last answer clears, nothing is stranded", function()
+		--[[ THE REFCOUNT IS THE DISPOSE-SAFETY MECHANISM. The set is process-global (the
+			collector is), and the surfaces that fill it are not: a surface that dies with
+			words outstanding has to give them back, and a second surface waiting on the same
+			word has to keep them. A plain boolean set could do neither. ]]
+		text_metrics.resetMeasured()
+		local a = world({ prefix = "d", count = 3 })
+		local first = a.adapter.pendingTextRequests()[1]
+		local key = `{text_metrics.canonicalFont(first.font)}\0{first.size}\0{first.word}`
+		expect(`one surface: {text_metrics.inFlightCount(key)}`).toBe("one surface: 1")
+
+		--[[ THE SECOND SURFACE ASKS TOO, and that it CAN is the departure this file's
+			header states: the collector does not refuse an in-flight word, it only stops
+			charging the budget for it. `text_premeasure.spec`'s second-host case is the
+			shipped behaviour that depends on it. ]]
+		local b = world({ prefix = "d", count = 3 })
+		expect(`two surfaces: {text_metrics.inFlightCount(key)}`).toBe("two surfaces: 2")
+		expect(`b asked: {tostring(pendingSet(b.adapter)[first.word] == true)}`).toBe("b asked: true")
+
+		a.controller.dispose()
+		expect(`after dispose: {text_metrics.inFlightCount(key)}`).toBe("after dispose: 1")
+		b.adapter.deliverTextWidths(widthOf)
+		expect(`after the answer: {text_metrics.inFlightCount(key)}`).toBe("after the answer: 0")
+		b.controller.dispose()
+		text_metrics.resetMeasured()
+
+		--[[ ...AND A THIRD SURFACE ASKS FOR IT AGAIN once the store has been forgotten,
+			which is the property a leaked count would destroy: a word stuck in flight in a
+			SKIPPING collector is a word nobody ever measures again. ]]
+		local c = world({ prefix = "d", count = 3 })
+		expect(`c asked: {tostring(pendingSet(c.adapter)[first.word] == true)}`).toBe("c asked: true")
+		expect(`c in flight: {text_metrics.inFlightCount(key)}`).toBe("c in flight: 1")
+		c.controller.dispose()
+		expect(`after c's dispose: {text_metrics.inFlightCount(key)}`).toBe("after c's dispose: 0")
+		text_metrics.resetMeasured()
+	end)
+
+	it("an EARLY answer keeps the word in flight, and the settled re-read releases it", function()
+		--[[ THE `"answered"` STATE. A `final == false` answer is the engine's boot window
+			talking: `premeasure_round` keeps the word in flight so the settled re-read is
+			not refused as a duplicate request, and the refcount has to agree with that set
+			or the two would disagree about what is outstanding. ]]
+		text_metrics.resetMeasured()
+		local w = world({ prefix = "e", count = 3 })
+		local first = w.adapter.pendingTextRequests()[1]
+		local key = `{text_metrics.canonicalFont(first.font)}\0{first.size}\0{first.word}`
+		w.adapter.deliverTextWidths(widthOf, false)
+		expect(`early answer: {text_metrics.inFlightCount(key)} pending={tostring(w.controller.textPending())}`).toBe(
+			"early answer: 1 pending=true"
+		)
+		w.adapter.answerAgain(widthOf, true)
+		expect(`settled: {text_metrics.inFlightCount(key)} pending={tostring(w.controller.textPending())}`).toBe(
+			"settled: 0 pending=false"
+		)
+		w.controller.dispose()
+		text_metrics.resetMeasured()
+	end)
+
+	it("...and an answer for a word this surface is no longer owed moves nothing at all", function()
+		--[[ THE MIRROR RULE, AND ITS OWN READER. The `-1` is guarded on the per-surface set
+			actually HOLDING the key, because a delivery may name a word this surface is not
+			(or is no longer) waiting on: the live adapter re-answers a settled batch, and
+			`answerAgain` replays exactly that. An unguarded decrement would take the count
+			down for a word ANOTHER surface is still waiting on — the process count drifting
+			under the per-surface sets it is supposed to mirror — and a floor at zero hides
+			it rather than preventing it. Two surfaces make that visible; one cannot. ]]
+		text_metrics.resetMeasured()
+		local a = world({ prefix = "f", count = 3 })
+		local first = a.adapter.pendingTextRequests()[1]
+		local key = `{text_metrics.canonicalFont(first.font)}\0{first.size}\0{first.word}`
+		local b = world({ prefix = "f", count = 3 })
+		expect(`both waiting: {text_metrics.inFlightCount(key)}`).toBe("both waiting: 2")
+		b.adapter.deliverTextWidths(widthOf)
+		expect(`b answered: {text_metrics.inFlightCount(key)}`).toBe("b answered: 1")
+		-- the SAME batch answered a second time: a is still owed its word
+		b.adapter.answerAgain(widthOf)
+		b.adapter.answerAgain(widthOf)
+		expect(`re-answered twice: {text_metrics.inFlightCount(key)}`).toBe("re-answered twice: 1")
+		a.controller.dispose()
+		expect(`a gone: {text_metrics.inFlightCount(key)}`).toBe("a gone: 0")
+		b.controller.dispose()
+		text_metrics.resetMeasured()
+	end)
+end)
