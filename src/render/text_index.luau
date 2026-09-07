@@ -285,6 +285,13 @@ export type Index = {
 	mark: (key: string) -> (),
 	-- is anything waiting? (read before a solve decides how to spend it)
 	pending: () -> boolean,
+	--[[ INTERNAL, and named in the type for the same reason `mark` is: the leak
+		instrument. It counts every per-path entry this index holds, across all six
+		maps plus the key buckets, so "dispose gave everything back" is one number
+		rather than six assertions that can each be forgotten separately — which is
+		exactly how D6c's two new maps were left out of `dispose` (RED-TEAM C-5).
+		Nothing in `src/` reads it. ]]
+	census: () -> number,
 	-- leave the registry: a surface that detaches must stop receiving broadcasts
 	dispose: () -> (),
 }
@@ -375,27 +382,151 @@ function text_index.new(): Index
 		pair is exactly the case that guard lets through — see its header — so this is
 		asked on the unconditional side of it and compares the literal itself. ]]
 	local function noteWords(path: string, node: any)
-		local text = if node ~= nil then node.text else nil
-		if pathText[path] == text then
-			return
-		end
+		local raw = if node ~= nil then node.text else nil
 		--[[ A NUMBER IS TEXT TOO (Plan D, D6c live drive, 2026-09-07). Every HUD number
 			— `battle_hud`'s 1,000 facing labels, `war_room`'s 1,500 power labels — reaches
 			the solver as a NUMBER prop, and `text_metrics.measure` coerces it the way the
 			engine draws it. The first draft accepted only strings, so on the arena every
 			path fell through to the measure: live `probes=1000 skips=0` with ONE label
-			drawing the announced word, while the string-text spec read `skips=991`. The
-			comparison key stays the raw value (a number compares by value). ]]
-		if type(text) == "number" then
-			text = tostring(text)
-		end
+			drawing the announced word, while the string-text spec read `skips=991`.
+
+			...AND THE GUARD COMPARES THE COERCED FORM, NOT THE RAW ONE (RED-TEAM C-9).
+			It compared `node.text` and stored `node.text`, and `==` on Luau numbers is
+			not injective with respect to `tostring`: `-0 == 0` is true while
+			`tostring(-0)` is `"-0"`. A numeric label moving between `0` and `-0` kept a
+			`pathWords` naming the token it no longer draws, and the over-cap probe then
+			word-skipped it for a correction that DID move it. The derived set is
+			`tostring`-based, so the key that guards it has to be too.
+
+			IT COSTS ONE `tostring` PER NUMERIC LABEL PER MEASURE, stated rather than
+			hidden: the unchanged case for a STRING label is still one hash read and one
+			compare, and for a numeric one it is a coercion the solve is about to make
+			anyway inside `text_metrics.measure`. Against the measure it replaces (D6c
+			priced 1,000 probe measures at 0.439 ms and 1,000 lookups at 0.0186 ms) it is
+			not a term. ]]
+		local text = if type(raw) == "number" then tostring(raw) else raw
 		if type(text) ~= "string" then
 			pathText[path] = nil
 			pathWords[path] = nil
 			return
 		end
-		pathText[path] = if node ~= nil then node.text else nil
+		if pathText[path] == text then
+			return
+		end
+		pathText[path] = text
 		pathWords[path] = text_metrics.wordsOf(text)
+	end
+
+	--[[ THE PROBE LOOP, HOISTED SO ITS FAILURE GUARD COSTS NOTHING (RED-TEAM C-7).
+		`take` suspends the word collector across this loop and hands it back after —
+		and a THROW inside `text_metrics.measure` (a `node.text` that is a table, a
+		torn `pathFont` entry) skipped the hand-back and left `collecting` nil for the
+		REST OF THE SOLVE. Every word that solve would have collected was then dropped
+		in silence with no counter moving, which is the exact failure mode this
+		module's own doctrine ("the collector's own silence, made loud") exists to
+		refuse.
+
+		IT IS A NAMED UPVALUE RATHER THAN A CLOSURE PER PUSH so the `pcall` at the
+		call site allocates nothing: one function per index, not one per correction.
+		Returns the two counters rather than writing them, because a `pcall`'d call
+		cannot assign to the caller's locals. ]]
+	local function probeEntries(
+		entries: { { path: string, class: string } },
+		markedWords: { [string]: { [string]: boolean } },
+		moved: { { path: string, class: string } }
+	): (number, number)
+		local probed = 0
+		local skipped = 0
+		for _, entry in entries do
+			local path = entry.path
+			local keep = true
+			--[[ THE GATE IS A POSITIVE LIST OF WHAT THE PROBE CAN ANSWER (RED-TEAM
+				C-1), rather than a growing list of refusals, and it had to become one
+				because the ordinary COMPACT LADDER was missing from the list.
+
+				`mTextW` is "the number the solver's own text branch cached from its
+				last measure", and for a node DRAWING ITS COMPACT FORM that is false:
+				the ladder returns (`layout/solver.luau`, the `compact ~= nil` arm)
+				BEFORE `node.mTextW = m.width`, so the cache still holds the FULL
+				label's width from an earlier measure at a width the full label fitted.
+				The probe measures `node.text` — the full label again — reproduces the
+				stale number exactly, and drops a leaf that is drawing something else
+				entirely. D6c's word check drops it one step earlier and for the same
+				reason: `pathWords` is `wordsOf(node.text)` and never names the compact
+				form's token, so a correction to the COMPACT string could not reach it
+				from either direction.
+
+				`compactPrefer` was always safe, which is what hid it: a preferred form
+				takes the branch at EVERY offer, so `mTextW` is never written and `was
+				== nil` kept the leaf. `compactText ~= nil` refuses both rungs and needs
+				no second test.
+
+				THE `singleLine` TERM IS BELT AND IS RECORDED AS ONE (mutation M2, a
+				kept null). `mTextW` is written only under that classification and a
+				text change rebuilds the literal, so no node in the tree carries a
+				cached width it no longer qualifies for and dropping the term reddens
+				nothing. It is stated anyway because the probe's whole
+				offer-independence argument is about the classification — asking for it
+				costs one field read and makes the list say what it means. ]]
+			local held = pathNode[path]
+			local node = if held ~= nil
+					and always[path] == nil
+					and held.singleLine == true
+					and held.compactText == nil
+				then held
+				else nil
+			local was = if node ~= nil then node.mTextW else nil
+			--[[ ...AND THE WORD ANSWERS IT WITHOUT A MEASURE, WHERE IT CAN (Plan D,
+				D6c). A label's width is the sum of its own words' widths, so a label
+				that draws NONE of the words this delivery corrected cannot have
+				moved — and that is a set membership against the marked words, not a
+				re-measure. It is asked HERE, inside the `was ~= nil` arm, and that
+				placement is the whole safety argument: every node the probe already
+				refused to answer for (a `fit` node, a wrapping or multi-word label, a
+				node with a compact form, a path the index has never seen measured) is
+				refused by the gate above or has no `mTextW`, and is kept exactly as
+				before. This narrowing only
+				ever replaces a MEASURE with a lookup on the population the measure
+				already served, and it never turns a kept leaf into a dropped one on
+				any other ground.
+
+				`words` is the marked set of THIS path's key (usually one word — a
+				delivery corrects one token at a time) and `drawn` is what the label
+				asks about, so the loop is over the smaller side by construction. A
+				path with no `drawn` set (no `text` on the node) or no `words` (it
+				joined through `always`) falls through to the measure. ]]
+			if was ~= nil then
+				local words = markedWords[path]
+				local drawn = pathWords[path]
+				if words ~= nil and drawn ~= nil then
+					local draws = false
+					for word in words do
+						if drawn[word] then
+							draws = true
+							break
+						end
+					end
+					if not draws then
+						was = nil
+						keep = false
+						skipped += 1
+					end
+				end
+			end
+			if was ~= nil then
+				probed += 1
+				-- UNBOUNDED, and with no `lineHeight` or `lineLimit`: neither can
+				-- reach `width` (the line box is a function of the size, and a
+				-- one-word string wraps to one line at any cap), and this node is
+				-- one word or it would have no cached width to compare against.
+				local now = text_metrics.measure(node.text or "", pathFont[path], pathSize[path], math.huge)
+				keep = now.width ~= was
+			end
+			if keep then
+				table.insert(moved, entry)
+			end
+		end
+		return probed, skipped
 	end
 
 	function index.record(path: string, font: string, size: number, alwaysDirty: boolean, node: any)
@@ -445,6 +576,17 @@ function text_index.new(): Index
 
 	function index.pending(): boolean
 		return anyMarked
+	end
+
+	-- see the type: every per-path entry this index is holding, as ONE number
+	function index.census(): number
+		local n = 0
+		for _, map in { pathFont, pathSize, pathNode, pathText, pathWords, always, byKey } do
+			for _ in map :: any do
+				n += 1
+			end
+		end
+		return n
 	end
 
 	function index.take(narrow: boolean, cap: number): Plan?
@@ -579,96 +721,17 @@ function text_index.new(): Index
 				in it. ]]
 			local held = text_metrics.suspendCollect()
 			local moved: { { path: string, class: string } } = {}
-			for _, entry in entries do
-				local path = entry.path
-				local keep = true
-				--[[ THE GATE IS A POSITIVE LIST OF WHAT THE PROBE CAN ANSWER (RED-TEAM
-					C-1), rather than a growing list of refusals, and it had to become one
-					because the ordinary COMPACT LADDER was missing from the list.
-
-					`mTextW` is "the number the solver's own text branch cached from its
-					last measure", and for a node DRAWING ITS COMPACT FORM that is false:
-					the ladder returns (`layout/solver.luau`, the `compact ~= nil` arm)
-					BEFORE `node.mTextW = m.width`, so the cache still holds the FULL
-					label's width from an earlier measure at a width the full label fitted.
-					The probe measures `node.text` — the full label again — reproduces the
-					stale number exactly, and drops a leaf that is drawing something else
-					entirely. D6c's word check drops it one step earlier and for the same
-					reason: `pathWords` is `wordsOf(node.text)` and never names the compact
-					form's token, so a correction to the COMPACT string could not reach it
-					from either direction.
-
-					`compactPrefer` was always safe, which is what hid it: a preferred form
-					takes the branch at EVERY offer, so `mTextW` is never written and `was
-					== nil` kept the leaf. `compactText ~= nil` refuses both rungs and needs
-					no second test.
-
-					THE `singleLine` TERM IS BELT AND IS RECORDED AS ONE (mutation M2, a
-					kept null). `mTextW` is written only under that classification and a
-					text change rebuilds the literal, so no node in the tree carries a
-					cached width it no longer qualifies for and dropping the term reddens
-					nothing. It is stated anyway because the probe's whole
-					offer-independence argument is about the classification — asking for it
-					costs one field read and makes the list say what it means. ]]
-				local held = pathNode[path]
-				local node = if held ~= nil
-						and always[path] == nil
-						and held.singleLine == true
-						and held.compactText == nil
-					then held
-					else nil
-				local was = if node ~= nil then node.mTextW else nil
-				--[[ ...AND THE WORD ANSWERS IT WITHOUT A MEASURE, WHERE IT CAN (Plan D,
-					D6c). A label's width is the sum of its own words' widths, so a label
-					that draws NONE of the words this delivery corrected cannot have
-					moved — and that is a set membership against the marked words, not a
-					re-measure. It is asked HERE, inside the `was ~= nil` arm, and that
-					placement is the whole safety argument: every node the probe already
-					refused to answer for (a `fit` node, a wrapping or multi-word label, a
-					node with a compact form, a path the index has never seen measured) is
-					refused by the gate above or has no `mTextW`, and is kept exactly as
-					before. This narrowing only
-					ever replaces a MEASURE with a lookup on the population the measure
-					already served, and it never turns a kept leaf into a dropped one on
-					any other ground.
-
-					`words` is the marked set of THIS path's key (usually one word — a
-					delivery corrects one token at a time) and `drawn` is what the label
-					asks about, so the loop is over the smaller side by construction. A
-					path with no `drawn` set (no `text` on the node) or no `words` (it
-					joined through `always`) falls through to the measure. ]]
-				if was ~= nil then
-					local words = markedWords[path]
-					local drawn = pathWords[path]
-					if words ~= nil and drawn ~= nil then
-						local draws = false
-						for word in words do
-							if drawn[word] then
-								draws = true
-								break
-							end
-						end
-						if not draws then
-							was = nil
-							keep = false
-							skipped += 1
-						end
-					end
-				end
-				if was ~= nil then
-					probed += 1
-					-- UNBOUNDED, and with no `lineHeight` or `lineLimit`: neither can
-					-- reach `width` (the line box is a function of the size, and a
-					-- one-word string wraps to one line at any cap), and this node is
-					-- one word or it would have no cached width to compare against.
-					local now = text_metrics.measure(node.text or "", pathFont[path], pathSize[path], math.huge)
-					keep = now.width ~= was
-				end
-				if keep then
-					table.insert(moved, entry)
-				end
-			end
+			--[[ ...AND THE COLLECTOR IS HANDED BACK WHATEVER HAPPENS (RED-TEAM C-7). See
+				`probeEntries` for why a throw here is not this loop's to swallow: the error is
+				re-raised at level 0 so the message is the measure's own, and the only thing
+				this adds is that the solve still has a collector when it unwinds. ]]
+			local ok, a, b = pcall(probeEntries, entries, markedWords, moved)
 			text_metrics.resumeCollect(held)
+			if not ok then
+				error(a, 0)
+			end
+			probed = a :: number
+			skipped = b :: number
 			if #moved > cap then
 				return { full = true, contains = nil, measures = nil, n = 0, probed = probed, skipped = skipped }
 			end
@@ -740,6 +803,12 @@ function text_index.new(): Index
 		table.clear(pathSize)
 		table.clear(pathNode)
 		table.clear(always)
+		-- ...AND D6c'S TWO MAPS (RED-TEAM C-5). `forget` was updated for both when they
+		-- landed and `dispose` was not, so a disposed controller still referenced from
+		-- anywhere — a presenter holding a torn-down surface, a Studio module reload —
+		-- retained one string and one word set per text path it had ever measured.
+		table.clear(pathText)
+		table.clear(pathWords)
 		marked = {}
 		anyMarked = false
 	end
