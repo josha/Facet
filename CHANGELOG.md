@@ -15,6 +15,19 @@ runtime as `Facet.VERSION`.
 
 ### Added
 
+- **`enabled` and `tint` on the layout containers, where they apply to the whole
+  subtree.** `enabled = false` on a `Screen`, stack, `ScrollView`, `Grid`,
+  `Anchor`, `AdaptiveStack` or `Composition` disables everything under it: every
+  descendant leaves focus order, refuses Activate on every input class, takes no
+  pointer, touch, drag or secondary action, and paints the theme's disabled state.
+  `tint` on the same containers is the continuous colour their subtree paints
+  with. Both are reactive, and a change re-solves in place rather than rebuilding.
+  See [Inherited properties](docs/reference/api.md#inherited-properties-enabled-and-tint).
+- **A themed disabled state for non-control nodes**, `facet-state-disabled`. The
+  engine's `:NonInteractable` state exists only on the classes it considers
+  interactable, so a disabled container's labels now wear a tag, and Studio
+  Neutral and every theme package emit a `Disabled subtree text` rule for it at
+  that theme's own `disabledContentOpacity`.
 - **A Roblox Package distribution channel.** Facet is now published as one Roblox
   Package asset, which is the recommended install for creators who work in Studio
   without a file sync. The asset id does not exist yet; it is recorded in
@@ -33,6 +46,13 @@ runtime as `Facet.VERSION`.
 
 ### Changed
 
+- **`enabled = false` now means the node AND its subtree.** On `Button`, `Toggle`
+  and `TextField` the property is unchanged for a leaf; what is new is that the
+  state is inherited, and that it cannot be undone from below — an ancestor never
+  re-enables a node that declares `enabled = false`, and a descendant never
+  re-enables itself inside a disabled container. A focusable `Grip` inside a
+  disabled subtree now leaves focus order too, which it did not before: `Grip`
+  carries no `enabled` of its own, so nothing had ever asked the question for it.
 - **Facet is licensed under the MIT License.** Material this repository did not
   create is listed with its own notice in
   [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).

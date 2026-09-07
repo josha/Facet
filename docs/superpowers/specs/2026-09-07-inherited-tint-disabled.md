@@ -182,6 +182,16 @@ retunes it retunes this, and a package that ships its own rules can override it
 by priority like any other. The three control classes keep their engine-state
 rules as well; the tag's value is the same number, so nothing double-dims.
 
+**AS BUILT: text only.** The design above also proposed an
+`ImageLabel.facet-state-disabled -> ImageTransparency` rule, and the framework's
+own lint refuses it: image paint is legal in a theme rule only inside a nineSlice
+chrome recipe, where the slot is what makes the picture meaningful
+(`themes/package.lintProperty`), and `buildPackage` lints the rules it generates by
+that same test. Reaching around that would have been a special case for the
+framework's own rules against a rule the framework enforces on everyone else. So a
+picture inside a disabled subtree keeps its own paint, `api.md` says so, and the
+answer for a picture that should dim with its panel is a `tint`.
+
 The tag reaches the adapter through the property Facet already has for this:
 `enabled`. See §3.3.
 
@@ -233,10 +243,27 @@ table read per node and stores nothing.
 mount's existing per-prop observer writes `node.props`, and a cascade hook then
 recomputes the node and re-walks its subtree, pushing the declared dirty classes
 for every descendant whose resolved value actually changed. The walk is
-`O(subtree)` and runs only on a flip — a gesture, not a frame — and it stops
-descending where a descendant re-declares both channels, because nothing below
-can change. No remount: identity, focus, scroll and in-flight state survive
-(constitution §10, "re-solve, never rebuild").
+`O(subtree)` and runs only on a flip — a gesture, not a frame. No remount:
+identity, focus, scroll and in-flight state survive (constitution §10, "re-solve,
+never rebuild").
+
+**AS BUILT: the stop condition is what a node HANDS DOWN, not what it wears.** The
+first draft stopped the walk where the node's own derived fields had not moved,
+and that is wrong for the most common case in the feature: a container that
+declares its OWN tint never moves when that tint changes — its `inheritedTint` is
+`nil` either way — while every descendant does. So each node also records the
+record it hands its children (`node.inheritOut`), and the walk descends exactly
+when that record changed by value. A node whose outgoing record is unchanged is a
+subtree that cannot have changed, because every answer under it was computed from
+it.
+
+**AS BUILT: a structural region is walked THROUGH, never dirtied.** `When`,
+`ForEach` and `ErrorBoundary` nodes carry no `props` and no `dirty` table — they
+materialize nothing — so the walk resolves them (their children need the record)
+and pushes no queue entry for them. They are also resolved at mount, not only on a
+flip: a region that had never recorded an outgoing record would report "the same
+answer as before" the first time an ancestor flipped, and stop the walk at its own
+door with its branch still disabled.
 
 **Structural regions.** `When` / `ForEach` / `ErrorBoundary` mount children
 later, so each region node remembers the inheritance record it was handed and
@@ -309,6 +336,22 @@ No new emitted property, no second state channel: the fact has one name
   against the **active theme**, the claim is recorded, a theme commit
   re-resolves it, and the `facet-tint-fill` tag still carries a Box's fill. An
   inherited tint is byte-identical to the same tint written on the node.
+
+### 3.4a AS BUILT: the render side is a sibling module
+
+`src/render/inherited.luau` holds the two lines of policy the renderer needs —
+`resolve(node, prop, declared)`, `needsEnabledWrite(node)`, `hasTint(node)`, and a
+re-export of `isDisabled` — for the reason `prop_channels`, `layout_node` and
+`presentation_channel` were taken out of `renderer.luau`: the renderer is within a
+couple of thousand characters of the 200,000-character `Source` write cap. Nothing
+in it reads a `renderer.attach` upvalue, so the extraction is one-way by
+construction. `renderer.luau` grew by 227 characters, all of them call sites.
+
+One more render-side edit came out of the same work and is worth naming: the
+refresh loop dispatched a paint entry on `BINDING_PROPS[entry.prop]`, which is the
+class-BLIND set, while creation dispatched on `emitsBinding(class, prop)`, the
+class-restricted one. Both now use `emitsBinding`. Without it a container carrying
+a `tint` would have re-applied it against an authority it does not hold.
 
 ### 3.5 The prop channel for the container declarations
 

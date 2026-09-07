@@ -155,6 +155,40 @@ look correct under both the default style and a game's override. The
 blueprint says "this is a title," and the style decides what a title looks
 like.
 
+### One colour for a whole subtree: an inherited `tint`
+
+`tint` is the one continuous colour channel, for a value no role can name — a
+team hue, an energy blend. Written on a `Box`, `Text`, `Image`, `Path` or
+`Stage`, it paints that node. Written on a layout container it paints nothing
+there and becomes **the tint the whole subtree paints with**:
+
+```lua
+UI.VStack({ id = "Team", tint = { role = "accent", blend = heat }, children = {
+    UI.Text({ id = "Name", text = racer }),
+    UI.Image({ id = "Crest", image = crest }),
+} })
+```
+
+The **nearest declaration wins**: a node's own `tint` beats an inherited one, and
+a nested container replaces the outer value for its own subtree. The cascade
+stops at a `Button`, `Toggle` or `TextField`, because inside a control the paint
+belongs to the role and the state machine. It is still a theme role, still
+reactive, and still re-resolved by a theme swap — an inherited tint is exactly
+what the same value written on the node would have been. The full precedence
+rule is in
+[api.md](../reference/api.md#inherited-properties-enabled-and-tint).
+
+### Switching a subtree off: an inherited `enabled`
+
+The same shape, for state rather than colour. `enabled = false` on a container
+disables everything under it, and the disabled look is themed: a control keeps
+the engine's own non-interactable rules, and every other node in the subtree
+wears a `facet-state-disabled` tag that each theme dims through its own
+`disabledContentOpacity`. It is a state, so it stays on a tag and a rule, never
+on a `tint`. What that blocks, and why nothing can re-enable from below, is in
+[guide 7](07-input.md) and
+[api.md](../reference/api.md#inherited-properties-enabled-and-tint).
+
 ## 5.4 Shadows and per-corner rounding
 
 Two visual modifiers let you add depth and shape. Each is a function that takes a

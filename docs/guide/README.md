@@ -224,6 +224,7 @@ replacement and their earliest removal version.
 | `UI.shadow`, `UI.gradient`, `UI.corners`, `UI.stroke` | The four paint modifiers. | [api](../reference/api.md#shadow) |
 | `UI.shadowData`, `UI.gradientData`, `UI.cornersData`, `UI.strokeData` | The same four as plain data, for a theme or a control to pass around. | [api](../reference/api.md#shadowdata--gradientdata--cornersdata) |
 | `UI.styleGroup` | Applies one modifier set to every element of a collection. | [api](../reference/api.md#stylegroup) |
+| Inherited container properties | The two properties a container passes to its whole subtree: `enabled` switches the subtree off, `tint` gives it one continuous colour. | [api](../reference/api.md#inherited-properties-enabled-and-tint) |
 | `UI.isReadable` | The one public predicate for "is this value already resolved". | [api](../reference/api.md#tooling-surface-uischema-uiisreadable-uiprop_dirty) |
 | `UI.sensoryFeedback` | Declares a haptic and audio cue for an interaction. | [api](../reference/api.md#sensoryfeedback) |
 | `renderer` | The low-level render driver, plus the property-authority tables. | [api](../reference/api.md#renderer) |

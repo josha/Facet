@@ -115,6 +115,22 @@ Layout adaptation and input adaptation move together. When a screen's layout
 switches idioms per device, the presenter re-derives the navigation map from
 what is actually mounted, every refresh.
 
+**Switching a whole part of the screen off: `enabled = false`.** Written on a
+control it does what it always did. Written on a container it applies to the
+whole subtree, and it applies to *every* input path at once — the point of one
+property rather than a per-control opt-out. Nothing inside it takes focus, so
+Tab, the arrows and the gamepad skip past it; nothing activates on a tap, a
+click, `Return` or `ButtonA`; no pointer or touch reaches it; no drag starts
+there; and no secondary action opens, so a row's swipe tray and a long-press
+menu stop with it. If focus was inside the subtree when it was switched off, it
+falls to the nearest focusable outside it, exactly as it does when a focused
+node is removed.
+
+Disabled is a conjunction, and that is deliberate: an ancestor never re-enables
+a node that declares `enabled = false`, and a node inside a disabled container
+never re-enables itself. A screen therefore cannot present a control that looks
+live inside a panel that is not.
+
 **Input-appropriate idioms per class, chosen by the environment.** The
 environment tracks `preferredInput` and device capabilities, and controls adapt
 their affordances from it. The same table, for example:
