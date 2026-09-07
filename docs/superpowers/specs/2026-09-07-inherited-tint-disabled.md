@@ -458,3 +458,15 @@ write cap, so its share of this change is four small edits and one require, and
 - **An escape hatch.** `enabled = true` under a disabled ancestor is not an
   override. A subtree that is off is off, so a screen can never present a
   control that looks live inside a panel that is not.
+- **A cascade into a presented surface.** A modal, toast, menu, popover or
+  anchored sheet is mounted as a fresh root and inherits neither channel. Eight
+  call sites across `present/` raise those roots and only some have a presenting
+  node to inherit FROM — an anchored surface has its anchor, a modal has nothing —
+  so half a cascade would be a worse promise than none, and which half is a design
+  question about what a modal raised from a dead panel MEANS rather than a
+  plumbing change. Documented in `api.md`, pinned by a check, and dismissing what
+  a panel opened stays the consumer's call.
+- **A tag on every node.** The resolved `enabled` reaches the four classes that
+  consume one. Writing a property to a container the renderer had elided
+  materializes it permanently, and a real `Frame` per container is too much to pay
+  for a tag no rule selects.

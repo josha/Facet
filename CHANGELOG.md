@@ -21,20 +21,28 @@ runtime as `Facet.VERSION`.
   surface such as Facet's own sliding selection indicator. Its rule is
   `TextColor3 = $OnAccent`, the theme contract's one gated partner for `$Accent`,
   and it brings no background, so the chip it sits on is still the only plate on
-  screen. See [api.md — semantic roles](docs/reference/api.md#uibutton).
+  screen. See [api.md — semantic roles](docs/reference/api.md#button).
 - **`enabled` and `tint` on the layout containers, where they apply to the whole
   subtree.** `enabled = false` on a `Screen`, stack, `ScrollView`, `Grid`,
   `Anchor`, `AdaptiveStack` or `Composition` disables everything under it: every
-  descendant leaves focus order, refuses Activate on every input class, takes no
-  pointer, touch, drag or secondary action, and paints the theme's disabled state.
-  `tint` on the same containers is the continuous colour their subtree paints
-  with. Both are reactive, and a change re-solves in place rather than rebuilding.
+  descendant leaves focus order — both derivations, the linear one Tab walks and
+  the directional one the arrows and the pad walk — refuses Activate on every
+  input class, and takes no pointer, touch, drag or secondary action. `tint` on
+  the same containers is the continuous colour their subtree paints with. Both are
+  reactive, and a change re-solves in place rather than rebuilding.
   See [Inherited properties](docs/reference/api.md#inherited-properties-enabled-and-tint).
-- **A themed disabled state for non-control nodes**, `facet-state-disabled`. The
-  engine's `:NonInteractable` state exists only on the classes it considers
-  interactable, so a disabled container's labels now wear a tag, and Studio
-  Neutral and every theme package emit a `Disabled subtree text` rule for it at
-  that theme's own `disabledContentOpacity`.
+- **A themed disabled state, `facet-state-disabled`**, and what it paints is
+  exactly one rule. The engine's `:NonInteractable` state exists only on the
+  classes it considers interactable, so Studio Neutral and every theme package
+  emit `Disabled subtree text`: a `TextLabel` carrying the tag is dimmed to that
+  theme's own `disabledContentOpacity`. **Text only** — image paint is legal in a
+  theme rule only inside a nineSlice chrome recipe — and the tag reaches the four
+  classes that consume it (`Button`, `Toggle`, `TextField`, `Text`) rather than
+  every node, because writing to a container the renderer had elided materializes
+  it permanently. A `tint` that declares its own `transparency` claims that
+  property and outranks the dim. A presented surface (modal, toast, menu, popover,
+  anchored sheet) is its own root and inherits neither channel. All four limits
+  are stated in [api.md](docs/reference/api.md#inherited-properties-enabled-and-tint).
 - **A Roblox Package distribution channel.** Facet is now published as one Roblox
   Package asset, which is the recommended install for creators who work in Studio
   without a file sync. The asset id does not exist yet; it is recorded in

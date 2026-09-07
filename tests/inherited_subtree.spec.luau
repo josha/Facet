@@ -836,6 +836,75 @@ describe("C3 (grouped): a disabled subtree is out of the GROUPED derivation too"
 	end)
 end)
 
+--[[ ===== A PRESENTED SURFACE IS ITS OWN ROOT (RED-TEAM I5) =================
+	A modal, a toast, a menu, a popover and an anchored sheet are each mounted as a
+	FRESH root — `mount(core, blueprint)` with no inherited record — so a surface
+	presented from inside a disabled subtree does not inherit its disable. The
+	TRIGGER is blocked (nothing in a disabled subtree activates), so a new one
+	cannot be opened from there; what this pins is the surface that was ALREADY
+	OPEN when the panel was switched off. It stays live.
+
+	THREADING IT WAS CONSIDERED AND DECLINED for this round. Eight call sites
+	across `present/` mount those roots, and only some of them have a presenting
+	node to inherit FROM: an anchored surface has its anchor, a modal or a toast
+	has nothing. Half a cascade — anchored surfaces inherit, modals do not — is a
+	worse promise than none, and choosing per site is a design decision about what
+	a modal raised from a dead panel MEANS, not a plumbing change. So the limit is
+	documented in api.md and pinned here, and dismissing what a panel opened stays
+	the consumer's call, which it can already express.  ]]
+describe("I5: a presented surface does not inherit the presenter's disabled subtree", function()
+	it("a modal opened before the panel is switched off stays live, and api.md says so", function()
+		local core = customFactory.new()
+		local env = environment.new(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 600 })
+		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
+		local on = core:signal(true)
+		local adapter = fake_target.new()
+		local system = actionsLib.newSystem(core)
+		local pres = presenterLib.new(core, env, adapter, system)
+		pres.present(UI.Screen({
+			id = "S",
+			children = {
+				UI.VStack({
+					id = "Panel",
+					enabled = on,
+					children = { UI.Button({ id = "Open", label = "open", height = fixed(44) }) },
+				}),
+			},
+		}))
+		pres.refresh()
+		local fired = 0
+		pres.presentModal(UI.Screen({
+			id = "M",
+			children = {
+				UI.Button({
+					id = "Confirm",
+					label = "ok",
+					height = fixed(44),
+					onActivate = function()
+						fired += 1
+					end,
+				}),
+			},
+		}))
+		pres.refresh()
+		on:set(false)
+		pres.refresh()
+		--[[ the modal that was already up is NOT disabled with the panel that raised
+			it. (The panel's own button is not tapped here on purpose: a tap OUTSIDE a
+			modal is a dismissal, so it would take the modal away and prove nothing.
+			That the panel's button is dead is pinned by the C3 checks above.) ]]
+		adapter.tap("/M/Confirm")
+		pres.refresh()
+		expect(fired).toBe(1)
+
+		local fs = require("@lune/fs")
+		expect(string.find(fs.readFile("docs/reference/api.md"), "A presented surface is its own root", 1, true) ~= nil).toBe(
+			true
+		)
+	end)
+end)
+
 describe("C3: focus restoration when the focused subtree is switched off", function()
 	it("focus leaves for a legal node and does not come back on re-enable", function()
 		local core = customFactory.new()
@@ -974,6 +1043,67 @@ describe("C4/C6: the disabled state is themed, through the sheet", function()
 		expect(type(dim)).toBe("number")
 		expect(dim > 0).toBe(true)
 		expect(resolvedTextTransparency(NEUTRAL, false)).toBe(nil)
+	end)
+
+	--[[ WHEN A TINT'S OWN ALPHA MEETS THE DISABLED DIM (RED-TEAM I4), the tint wins,
+		and it wins by the rule the framework already had rather than by a new one.
+
+		A `tint` that declares `transparency` CLAIMS `TextTransparency` on that node
+		(`screen_paint`'s `claimPaint`) — an intentional, recorded defeat of the sheet,
+		permanent for the instance's lifetime, published as `Facet_PaintClaims` so the
+		authority audit reads a hand-off instead of an accident. The themed disabled
+		state is a RULE. A rule never beats a claim; that is what a claim is.
+
+		So the author who writes `tint = { …, transparency = 0 }` on a label has taken
+		that property, and switching an ancestor off cannot dim it. Without the alpha
+		— every tint written before it existed, and every one that does not need it —
+		nothing is claimed and the dim applies normally. Both halves are pinned here,
+		and api.md's inheritance section says which wins in public. ]]
+	it("a tint WITHOUT its own alpha claims no transparency, so the dim reaches the label", function()
+		local _, adapter = renderOnly(UI.Screen({
+			id = "S",
+			children = {
+				UI.VStack({
+					id = "Panel",
+					enabled = false,
+					tint = ACCENT,
+					children = { UI.Text({ id = "Label", text = "hi" }) },
+				}),
+			},
+		}))
+		local emitted = adapter.node("/S/Panel/Label").props.tint
+		expect((emitted :: any).role).toBe("accent")
+		expect((emitted :: any).transparency).toBe(nil)
+		expect(sheet_model.tintTransparency(emitted, "Text")).toBe(0)
+		-- the node still takes the resolved disable, so the sheet's rule selects it
+		expect(adapter.node("/S/Panel/Label").props.enabled).toBe(false)
+	end)
+
+	it("a tint WITH its own alpha carries it, and that is the value the claim writes", function()
+		local hue = { role = "accent", blend = 1, transparency = 0 }
+		local _, adapter = renderOnly(UI.Screen({
+			id = "S",
+			children = {
+				UI.VStack({
+					id = "Panel",
+					enabled = false,
+					tint = hue,
+					children = { UI.Text({ id = "Label", text = "hi" }) },
+				}),
+			},
+		}))
+		local emitted = adapter.node("/S/Panel/Label").props.tint
+		expect((emitted :: any).transparency).toBe(0)
+		-- 0 is opaque: the claim writes full contrast, and the themed dim cannot
+		-- reach a property the node has taken
+		expect(sheet_model.tintTransparency(emitted, "Text")).toBe(0)
+		expect(adapter.node("/S/Panel/Label").props.enabled).toBe(false)
+	end)
+
+	it("the rule that decides it is stated in public", function()
+		local fs = require("@lune/fs")
+		local api = fs.readFile("docs/reference/api.md")
+		expect(string.find(api, "claim outranks the disabled dim", 1, true) ~= nil).toBe(true)
 	end)
 
 	it("the tag rides the classification the adapter syncs, not a bespoke write", function()

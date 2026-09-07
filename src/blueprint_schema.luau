@@ -1165,8 +1165,9 @@ local CONTAINER_LAYOUT: { [string]: PropSpec } = {
 		shared = true,
 		channel = "inherit",
 		doc = "false disables this container AND ITS WHOLE SUBTREE — every descendant leaves focus "
-			.. "order, refuses activation on every input class, and paints the theme's disabled state. "
-			.. "Disabled is a conjunction: an ancestor can never re-enable a node that declares false",
+			.. "order (both derivations), refuses activation on every input class, and takes no pointer, "
+			.. "touch or drag. The themed disabled state reaches the TEXT of that subtree. Disabled is a "
+			.. "conjunction: an ancestor can never re-enable a node that declares false",
 	}),
 	tint = p({
 		types = { "tint" },

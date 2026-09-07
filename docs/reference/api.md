@@ -347,7 +347,7 @@ Three groups recur in the column below and are worth naming once:
 | `clipChildren` | layout containers | make this container an engine clip host; `ScrollView` defaults it to true |
 | `active` | layout containers, `Box` | engine `Active` flag — an input-sinking panel (modal backdrops) |
 | `surface` | layout containers, `Box`, `Button`, `GridRow`, `Image`, `Stage`, `Text` (only `"badge"`/`"chip"` — see `Text`) | surface style role painted behind the node |
-| `enabled` | layout containers, `Button`, `Toggle`, `TextField` | `false` disables the node **and its whole subtree**: every descendant leaves focus order, refuses activation on every input class, and paints the theme's disabled state. **Inherited** — see [Inherited properties](#inherited-properties-enabled-and-tint) for the precedence rule |
+| `enabled` | layout containers, `Button`, `Toggle`, `TextField` | `false` disables the node **and its whole subtree**: every descendant leaves focus order (both derivations — linear and directional), refuses activation on every input class, and takes no pointer, touch or drag. The themed disabled state reaches the **text** of that subtree. **Inherited** — see [Inherited properties](#inherited-properties-enabled-and-tint) for the precedence rule, what is painted, and what is not |
 | `tint` | layout containers (subtree only), `Box`, `Text`, `Image`, `Path`, `Stage` | the one continuous colour channel. On a painting class it paints that class's own channel; on a layout container it paints nothing and is **inherited** by the subtree. See [Continuous colour](#continuous-colour-tint) for the value forms and [Inherited properties](#inherited-properties-enabled-and-tint) for the precedence rule |
 | `shadow`, `gradient`, `corners`, `stroke` | every rendered class, **and `GridRow`** | normalized style-modifier data — produce them with `UI.shadow` / `UI.gradient` / `UI.corners` / `UI.stroke`, never by hand |
 | `zIndex` | every rendered class, **and `GridRow`** | paint-order override **within the parent's stacking scope**: siblings paint in `(zIndex or 0, declaration order)` order and a node's whole subtree travels with it. A child is always above its own parent, whatever its `zIndex`, so lifting across surfaces stays structural (`presentModal`'s display order). Read once at mount — a lift is what a node *is* (a drag ghost, a toast), not a state it passes through |
@@ -595,14 +595,37 @@ paint belongs to the role and the state machine, and a continuous colour there
 would be a second authority over the affordance ([above](#continuous-colour-tint)).
 A control *beside* tinted nodes is unaffected either way.
 
-**What the disabled state looks like.** It is themed, through the sheet, never a
-literal. A disabled control keeps the engine `:NonInteractable` rules it always
-had; every other node in the subtree wears the `facet-state-disabled` tag, and
-every theme — Studio Neutral and every package — emits one `Disabled subtree text`
-rule for it at that theme's own `disabledContentOpacity`. **Text only**: image
-paint is legal in a theme rule only inside a nineSlice chrome recipe (see
-[`themes`](#themes)), so a picture inside a disabled subtree keeps its own paint.
-Give it a `tint` if it should dim with the panel.
+**What the disabled state looks like, exactly.** It is themed, through the sheet,
+never a literal. A disabled control keeps the engine `:NonInteractable` rules it
+always had. Beyond that, **one rule ships**: every theme — Studio Neutral and
+every package — emits `Disabled subtree text`, which selects a `TextLabel`
+carrying the `facet-state-disabled` tag and dims it to that theme's own
+`disabledContentOpacity`.
+
+Three consequences, all deliberate, none of them a bug to report:
+
+- **Text only.** Image paint is legal in a theme rule only inside a nineSlice
+  chrome recipe (see [`themes`](#themes)), so a picture inside a disabled subtree
+  keeps its own paint. Give it a `tint` if it should dim with the panel.
+- **The tag reaches the classes that consume it** — `Button`, `Toggle`,
+  `TextField` and `Text` — and not every node in the subtree. Writing a property
+  to a container the renderer had elided materializes it permanently, and the
+  framework will not buy a real `Frame` per container to carry a tag no rule
+  selects. A theme that wants to key a disabled rule on another class needs that
+  set widened, which is a framework change and not a package one.
+- **A claim outranks the disabled dim.** A `tint` that declares its own
+  `transparency` *claims* `TextTransparency` on that node — an intentional,
+  recorded defeat of the sheet, permanent for the instance's lifetime (see
+  [Continuous colour](#continuous-colour-tint)). A rule never beats a claim, so a
+  label whose tint declares an alpha stays at the alpha it declared, disabled or
+  not. A tint with no `transparency` claims nothing there and dims normally.
+
+**A presented surface is its own root.** A modal, a toast, a menu, a popover or
+an anchored sheet is mounted as a fresh tree, so it does **not** inherit the
+disabled state or the tint of whatever presented it. Opening one from inside a
+disabled subtree cannot happen — the trigger is dead — but one that was already
+open when the panel was switched off stays live and stays interactive. Dismiss
+it yourself if that is not what the screen means.
 
 ### `Screen`
 
