@@ -74,6 +74,25 @@ local instance_boundary = {}
 
 export type CreateOpts = { canvasGroup: boolean?, instanceHost: boolean?, hostSpace: boolean? }
 
+--[[ HOW MANY ASKS FOUND THE COORDINATE-SPACE VERDICT UNDECIDED (RED-TEAM C-10). The
+	memo instrument, and a process total for the same reason
+	`text_metrics.collectTruncated` is one: the field is per node and the property being
+	asserted is "each node is decided ONCE, for its life".
+
+	IT COUNTS AT THE DOOR, NOT AT THE WRITE, and that is the whole design. Counting
+	writes would have been blind to the exact defect it exists for: a branch that
+	returns without deciding writes nothing, so a write counter reads the same zero
+	whether the branch memoises or not. Counting UNDECIDED ARRIVALS climbs on every ask
+	such a branch takes — and each of those asks is a window in which the two callers
+	(`renderer.ensureTree` at create, `render/layout_node` at build) can answer
+	DIFFERENTLY as a reactive prop moves under them, which is the "solver stores a
+	subtree relative to a parent the adapter never made" hazard the memo exists to
+	prevent. Nothing in `src/` reads it. ]]
+local decisions = 0
+function instance_boundary.decisions(): number
+	return decisions
+end
+
 --[[ The creation-time facts the adapter can only honour while it is CHOOSING the
 	engine object — which is why they ride `create`'s fifth argument rather than
 	arriving as a later prop write. By then the instance exists and its class is
@@ -84,7 +103,30 @@ function instance_boundary.createOptsFor(node: any, opts: any?): CreateOpts?
 	if props == nil then
 		return nil
 	end
+	if node.hostSpace == nil then
+		decisions += 1
+	end
+	--[[ ...AND THE EARLY RETURNS DECIDE THE FIELD TOO (RED-TEAM C-10). `opacity` is a
+		REACTIVE prop — `mount.luau` rewrites `node.props[propName]` on every signal
+		fire — so a container whose author signal yields a number and later `nil` used to
+		be a non-host on its first ask and a candidate on its second, because this
+		branch returned BEFORE the memo below could write `false`. The memo block's own
+		words are "`false` IS A MEMOISED ANSWER, not an absent one, and writing it is
+		the point"; the branches above it simply were not doing it. D6a made the
+		fall-through population every 2+-child `ForEach` row in a stack, i.e. every list
+		row an author fades.
+
+		THE OTHER ORDER IS OUT OF SCOPE AND IS STATED RATHER THAN LEFT IMPLIED: a node
+		already decided `true` that LATER gains an `opacity` still returns
+		`{ canvasGroup = true }` here while its field says `true`. That direction needs
+		the buffer and the space on one instance, which is a create-time shape neither
+		adapter has ever been handed; nothing in `src/` writes `props.opacity`, so no
+		producer exists for it either. Inventing the combined shape to close a case with
+		no producer would be a bigger change than the one it fixes. ]]
 	if props.canvasGroup == true or props.opacity ~= nil then
+		if node.hostSpace == nil then
+			node.hostSpace = false
+		end
 		return { canvasGroup = true }
 	end
 	--[[ AN AUTHORED `scale`/`rotation` ON A CONTAINER IS A REAL-PARENT DECLARATION
@@ -107,6 +149,12 @@ function instance_boundary.createOptsFor(node: any, opts: any?): CreateOpts?
 		registering it would buy an instance-pool refusal and deliver nothing.
 	]]
 	if (props.scale ~= nil or props.rotation ~= nil) and node.children ~= nil and #node.children > 0 then
+		-- ...and this one decides the field too, for the reason the `opacity` branch
+		-- above states: `scale`/`rotation` are reactive as well, and a real parent that
+		-- is not a coordinate space is a decided `false`, never an absent answer.
+		if node.hostSpace == nil then
+			node.hostSpace = false
+		end
 		return { instanceHost = true }
 	end
 	--[[ A REACTIVE PLACEMENT ON A CONTAINER IS A COORDINATE-SPACE DECLARATION.
@@ -144,6 +192,13 @@ function instance_boundary.createOptsFor(node: any, opts: any?): CreateOpts?
 		`props` is ALREADY bound above, with the nil early-return, so this branch
 		neither re-declares it nor re-guards it. ]]
 	if node.class == "ScrollView" or props.clipChildren == true then
+		-- a class and an authored structural prop, neither of which moves under a
+		-- signal — but the field is still DECIDED here rather than left absent, so that
+		-- "every path through this function answers the memo" is a property of the
+		-- function instead of a property of which branch you happened to take
+		if node.hostSpace == nil then
+			node.hostSpace = false
+		end
 		return nil
 	end
 	if opts ~= nil and opts.translateHosts == false then

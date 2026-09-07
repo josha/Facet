@@ -1119,7 +1119,25 @@ describe("translate host: the reader audit, one pin per reader that had to chang
 		end
 		expect(`renderer writes={writes(rendererSrc)}`).toBe("renderer writes=0")
 		expect(`layout_node writes={writes(layoutNodeSrc)}`).toBe("layout_node writes=0")
-		expect(`boundary writes={writes(boundarySrc)}`).toBe("boundary writes=1")
+		--[[ FOUR WRITE SITES SINCE 2026-09-07 (RED-TEAM C-10), AND STILL ONE WRITER.
+			`createOptsFor`'s early returns — `opacity`/`canvasGroup`, `scale`/`rotation`,
+			`ScrollView`/`clipChildren` — used to return ABOVE the memo block without
+			answering the field, so a container whose reactive `opacity` went number ->
+			nil was a non-host on its first ask and a candidate on its second: the exact
+			shape this case is about, arriving through a different door. Each of them now
+			decides the field, all four sites are inside this one function, and the count
+			is pinned so a FIFTH cannot appear in another module unnoticed. ]]
+		expect(`boundary writes={writes(boundarySrc)}`).toBe("boundary writes=4")
+		--[[ ...AND EVERY ONE OF THEM IS FIRST-ANSWER-WINS, which is the property the
+			count alone cannot carry. Three are the literal `if node.hostSpace == nil`
+			shape; the fourth is the memo block's `decided == nil`, the same test through
+			a local it has already read. A write without either guard would be a stamp,
+			which is what `renderer.ensureTree` used to do. ]]
+		local guarded = 0
+		for _ in string.gmatch(boundarySrc, "if node%.hostSpace == nil then%s*\n%s*node%.hostSpace = ") do
+			guarded += 1
+		end
+		expect(`guarded={guarded} + the memo block's own`).toBe("guarded=3 + the memo block's own")
 		-- NEGATIVE CONTROL: the scan really does see a write
 		expect(`control={writes("\n\tnode.hostSpace = true\n")}`).toBe("control=1")
 	end)
