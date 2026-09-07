@@ -88,9 +88,9 @@ The next campaign's goal prompt: `docs/plans/2026-09-06-facet-parity-D-goal.md`.
 
 # Plan D — where it landed (2026-09-07)
 
-Branch `facet-parity-d` (33 commits over main `b315dc34`; head `4c56f1c9` after the RED-TEAM wave, `f4fab4ac` before it).
+Branch `facet-parity-d` (33 commits over main `b315dc34`; head `c5755412` after the RED-TEAM wave and its re-review round, `f4fab4ac` before them).
 Authority: `FacetBench/docs/studio-runs/2026-09-03-facet-parity.md` **§after-2** (and §D1–§D9 per task).
-Gates at the head: Facet suite 8,779/0, `tools/verify.sh full` PASS (0 FAIL_RECOVERABLE, 454.3 s), RascalRally 3,601/0,
+Gates at the head: Facet suite 8,785/0, `tools/verify.sh full` PASS (0 FAIL_RECOVERABLE, 488.0 s), RascalRally 3,602/0,
 FacetBench `check.sh` green, differential re-baselined over the axes it was blind to (`6f14ec6b…`, 360 blocks; zero public-reader differences against the base), renderer 197,305.
 
 ## 1. The short version
