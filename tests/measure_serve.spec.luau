@@ -886,8 +886,17 @@ describe("C2: what the solver writes onto a layout node is a CLOSED set of outpu
 			The scan takes only ASSIGNMENT TARGETS — the comma-separated left-hand side at
 			bracket depth zero — because `ctx.offers[node.wKey or (node.id .. "|w")] = maxW`
 			has `node.wKey` and `node.id` on the left of an `=` while writing neither. A
-			scan that missed that reported six fields where there are none. ]]
-		local source = fs.readFile("src/layout/solver.luau")
+			scan that missed that reported six fields where there are none.
+
+			IT READS BOTH FILES, AND UNTIL 2026-09-07 IT READ ONE (RED-TEAM C-4). D1 put
+			`node.mPlan = plan` in `src/layout/measure_facts.luau` — the field is on the
+			list below and in the publish table, but the scan that makes the list CLOSED
+			could not see the file it lives in, so the next `node.<field> =` added there
+			would have widened the forwarded set in silence. The two files are the whole
+			of the measure seam: `solver.luau` writes the two slots and the stamp,
+			`measure_facts.luau` writes the plan verdict, and nothing else in `src/`
+			writes a layout node at all. ]]
+		local source = fs.readFile("src/layout/solver.luau") .. "\n" .. fs.readFile("src/layout/measure_facts.luau")
 		local stripped = string.gsub("\n" .. source, "%-%-%[%[.-%]%]", " ")
 		stripped = string.gsub(stripped, "\n[ \t]*%-%-[^\n]*", "\n")
 		local function assignmentTargets(line: string): { string }
@@ -943,11 +952,12 @@ describe("C2: what the solver writes onto a layout node is a CLOSED set of outpu
 			table.insert(out, field)
 		end
 		table.sort(out)
-		--[[ TWENTY-TWO, and every one is an OUTPUT: the two slots' keys and answers,
+		--[[ TWENTY-THREE, and every one is an OUTPUT: the two slots' keys and answers,
 			the shared axis-3 stamp, the eviction toggle, the cached `memoPlan` verdict
-			and (Plan D, D3c) the one-word text width `render/text_index`'s over-cap
-			probe compares against. None is a field `layout_node.toLayoutNode` reads to
-			BUILD a node, which is what keeps the P3 store's four axes complete.
+			(`mPlan`, which is why this scan reads `measure_facts.luau` too) and
+			(Plan D, D3c) the one-word text width `render/text_index`'s over-cap probe
+			compares against. None is a field `layout_node.toLayoutNode` reads to BUILD a
+			node, which is what keeps the P3 store's four axes complete.
 
 			`mTextW` is written by the UNCACHED text branch and never by the serve,
 			which is right rather than an omission: a served node was not re-measured,
@@ -974,6 +984,7 @@ describe("C2: what the solver writes onto a layout node is a CLOSED set of outpu
 			"mBW",
 			"mFillB",
 			"mHeightFree",
+			"mPlan",
 			"mStamp",
 			"mTextW",
 		})

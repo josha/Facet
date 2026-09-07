@@ -502,15 +502,26 @@ local function toLayoutNode(
 		**THAT LICENCE USED TO READ "the solver never writes into a layout node
 		(`solver.luau` contains no `node.<field> =`)", AND SINCE C2 IT DOES WRITE**
 		(2026-09-04). `solver.measure` memoises its last two answers onto the node —
-		twenty-one `m*` fields plus a cached `memoPlan` verdict — and it does so ONLY on
-		a solve that was handed a reuse set (`record` returns before its first write
-		when `ctx.reuse == nil`). The licence survives in the form that actually
+		twenty-one `m*` fields plus a cached `memoPlan` verdict. **MOST of those are
+		written only on a solve that was handed a reuse set** (`record` returns before
+		its first write when `ctx.reuse == nil`), and TWO ARE NOT: `node.mTextW`
+		(`solver.luau`'s text branch, outside `record`) and `node.mPlan`
+		(`measure_facts.memoPlan`) are written on EVERY solve, a purity, analyse or
+		dump solve included. That sentence read "ONLY" until 2026-09-07 and was false
+		from D1 onward (RED-TEAM C-4); it does not throw, because nothing in `src/` or
+		`tests/lib/` freezes a layout node, but a load-bearing sentence that is false is
+		a defect on its own terms. The licence survives in the form that actually
 		matters, and it is three claims rather than one: the written fields are OUTPUTS
 		(the last answers this node gave), never inputs this function reads to build a
 		node; a node whose props moved is a FRESH LITERAL, so a rebuilt node carries no
 		stale answer; and the set is CLOSED — `tests/measure_serve.spec.luau` audits
-		every `node.<field> =` in `solver.luau` against the enumerated memo fields, so
-		an unlisted write reddens rather than quietly widening what the store forwards.
+		every `node.<field> =` in `solver.luau` AND in `measure_facts.luau` against the
+		enumerated memo fields, so an unlisted write reddens rather than quietly
+		widening what the store forwards. That audit read `solver.luau` alone until
+		2026-09-07, which is the file D1's `node.mPlan` is NOT in: the field was on the
+		list while the scan that makes the list closed could not see the file it lives
+		in, so the next write added there would have widened the forwarded set in
+		silence — the exact failure the audit exists to prevent.
 
 		**THE FIFTH FIELD IS NOT REACHED THROUGH `node.`, WHICH IS WHY THE AUDIT COUNTS
 		CALL SITES AND NOT ONLY FIELD READS** (P3 review, I1). `meta` is read by
