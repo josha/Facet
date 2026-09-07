@@ -63,6 +63,23 @@
 	sides of every comparison are driven the same way and the estimate is
 	self-consistent. What it buys is that a future divergence which only appears
 	once real widths land has a place to appear.
+
+	── AND ANSWERING IS A PROCESS-GLOBAL WRITE, SO IT IS BRACKETED ──────────────
+
+	`src/layout/text_metrics.luau`'s exact-width store is ONE table shared by
+	every core and every surface in the session — its own header says so — and
+	answering a batch teaches it. This file answers with a FABRICATED width
+	function and its vocabulary is the shipped HUD's, so an unbracketed run left
+	every later spec measuring that HUD's words against this file's arithmetic.
+	Found by a pair test: `hud_chrome_sequence` immediately before
+	`tests/hit_floor_region_clamp.spec.luau` moved its measured covers from
+	75 | 80 to 68 | 47, standalone-green both ways.
+
+	So every case here brackets the store, the way `tests/layout.spec.luau`
+	does around its own `setMeasured` calls: reset on the way IN, so this file
+	cannot inherit another's vocabulary either, and a closing case that resets and
+	ASSERTS the store is clean, so the discipline is checked rather than
+	remembered.
 ]]
 
 local t = require("./lib/testkit")
@@ -70,6 +87,7 @@ local describe, it, expect = t.describe, t.it, t.expect
 
 local Facet = require("../src") :: any
 local fake_target = require("./lib/fake_target")
+local text_metrics = require("../src/layout/text_metrics")
 local test_world = require("./lib/world")
 local hud = require("../examples/gallery/scenarios/hud") :: any
 
@@ -121,6 +139,12 @@ end
 	a phone does and because the shipped `settle` would leave the queue standing.
 	The world's containment invariant is still asked, at the same point it asks it
 	itself: after the loop, on the state the caller is about to assert against. ]]
+--[[ THE BRACKET. Called first in every case: this file teaches the process-global
+	exact-width store, so it must neither inherit a vocabulary nor leave one. ]]
+local function freshMetrics()
+	text_metrics.resetMeasured()
+end
+
 local function settle(w: any)
 	for _ = 1, 6 do
 		w.pres.refresh()
@@ -353,6 +377,7 @@ end
 
 describe("hud: the reported chrome-and-rotation sequence lands on a fresh landscape mount", function()
 	it("landscape -> URL bar on -> portrait -> URL bar off -> landscape", function()
+		freshMetrics()
 		local fresh = freshLandscape()
 		local want = census(fresh)
 
@@ -395,6 +420,7 @@ describe("hud: the reported chrome-and-rotation sequence lands on a fresh landsc
 
 	for _, row in POSITIONS do
 		it(`the URL bar {row.name}: the restored landscape is still the fresh mount`, function()
+			freshMetrics()
 			local fresh = freshLandscape()
 			local want = census(fresh)
 
@@ -427,6 +453,7 @@ describe("hud: the reported chrome-and-rotation sequence lands on a fresh landsc
 		luck. Every cycle is compared, not only the last, so a drift that
 		accumulates names the cycle it started on. ]]
 	it("N rotation cycles: every one of them lands on the fresh landscape mount", function()
+		freshMetrics()
 		local fresh = freshLandscape()
 		local want = census(fresh)
 
@@ -453,6 +480,7 @@ describe("hud: the reported chrome-and-rotation sequence lands on a fresh landsc
 		fresh mount, because "restored" has to mean restored for a thumb and a
 		keyboard as well as for a camera. ]]
 	it("focus ring and bindings come back equal to the fresh mount's", function()
+		freshMetrics()
 		local fresh = freshLandscape()
 		local wantRing, wantBound = traversal(fresh), bindings(fresh)
 
@@ -477,6 +505,7 @@ describe("hud: the reported chrome-and-rotation sequence lands on a fresh landsc
 		restored, a branch opened and closed, a hit expander destroyed and rebuilt
 		on every rotation. ]]
 	it("dispose after the sequence leaves no live node, no handler and no root", function()
+		freshMetrics()
 		local live = world(LANDSCAPE)
 		live.built.steps.openUrlBar()
 		settle(live)
@@ -502,5 +531,37 @@ describe("hud: the reported chrome-and-rotation sequence lands on a fresh landsc
 			"adapter handlers after dispose: 0"
 		)
 		expect(`surface roots after dispose: {live.adapter.rootCount()}`).toBe("surface roots after dispose: 0")
+	end)
+
+	--[[ ...AND THE PROCESS-GLOBAL STORE THIS FILE TEACHES IS HANDED BACK CLEAN.
+
+		Last, and it is the cleanup AND the check on it: a bracket nobody asserts is
+		one the next edit drops, and the way this one went missing the first time was
+		invisible to every spec run on its own — it surfaced as a STRANGER's measured
+		geometry moving (`tests/hit_floor_region_clamp.spec.luau`'s HUD covers, 75|80
+		-> 68|47, with both files green standalone).
+
+		`measuredDump` is asked rather than a word being guessed, because which words
+		at which size reach the store is the theme's business and not this case's. ]]
+	it("hands the process-global width store back the way it found it", function()
+		freshMetrics()
+		local live = world(LANDSCAPE)
+		rotate(live, PORTRAIT)
+		rotate(live, LANDSCAPE)
+
+		--[[ THE PREMISE: the drive really did teach the store, or the reset below
+			has nothing to undo and this passes on a file that answered nothing. ]]
+		local dump = text_metrics.measuredDump()
+		expect(`the drive taught the store: {#dump > 0}`).toBe("the drive taught the store: true")
+		local one = dump[1]
+		expect(`and it can be read back: {text_metrics.measuredWidth(one.font, one.size, one.word) ~= nil}`).toBe(
+			"and it can be read back: true"
+		)
+
+		text_metrics.resetMeasured()
+		expect(`the store forgot it: {text_metrics.measuredWidth(one.font, one.size, one.word) == nil}`).toBe(
+			"the store forgot it: true"
+		)
+		expect(`nothing is left behind: {text_metrics.measuredCount()}`).toBe("nothing is left behind: 0")
 	end)
 end)
