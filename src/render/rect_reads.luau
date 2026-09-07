@@ -66,14 +66,25 @@ function rect_reads.new(deps: Deps)
 	local pathHostOf: { [string]: string } = {}
 	-- absolute origin of a host, cached; invalidated wholesale by an epoch bump
 	local originCache: { [string]: { x: number, y: number, epoch: number } } = {}
-	-- the COMPOSED rect of a path, cached against the same epoch: inside a space
-	-- host `rectOf` would otherwise allocate a fresh
-	-- table per call, and ~30 sites compare what it returns BY IDENTITY —
-	-- `slider.luau:183-185` skips a signal write on identity, and the pointer
-	-- contract `(path, pos, rectOf)` is called per pointer MOVE by `table_rows`,
-	-- `level_picker`, `virtual_list_hosted`, `region_expand`. Memoised per
-	-- (path, epoch), identity is stable between host moves; the cost is one table
-	-- per path under a host per host move, on demand.
+	--[[ the COMPOSED rect of a path, cached against the same epoch: inside a space
+		host `rectOf` would otherwise allocate a fresh table per call, and there are
+		~30 call sites. Memoised per (path, epoch): identity is stable between host
+		moves and the cost is one table per path under a host per host move, on demand.
+
+		AND THE IDENTITY IS A COST STORY, NOT A CORRECTNESS ONE (RED-TEAM C-3,
+		measured 2026-09-07). This block used to claim `slider.luau:183-185` "skips a
+		signal write on identity"; it does not, and says so in its own words — its two
+		rect signals carry `rectLib.equal` and the comment above them names this exact
+		day ("the day rectOf builds a fresh table the cost would appear as a silent
+		per-frame re-solve"). D6a made that day arrive for every control inside a list
+		row, and `tests/host_rect_identity.spec.luau` is what says nothing came of it:
+		a 200-row list with 200 coordinate-space hosts and a real `Slider` in one of
+		them takes five churning commits in five solves and zero feedback solves, and
+		a bare settled tick does not commit at all so the epoch never moves. The
+		pointer contract `(path, pos, rectOf)` — `table_rows`, `level_picker`,
+		`virtual_list_hosted`, `region_expand` — reads x/y/w/h for hit math on a
+		pointer EVENT, so it has no per-frame identity to compare. Mutation M1 (the
+		slider's signals switched to identity) reddens all five cases. ]]
 	local composedCache: { [string]: { epoch: number, src: any, rect: any } } = {}
 	local originEpoch = 0
 
@@ -169,11 +180,12 @@ function rect_reads.new(deps: Deps)
 	end
 
 	-- drag math reads solved rects through this lookup. THE STORED TABLE, UNCHANGED,
-	-- whenever the origin is (0, 0): `slider.luau` compares what this returns by
-	-- identity to skip a signal write, and a host-free tree must stay byte-identical
-	-- at the allocation level too (Plan C ruling R-6). INSIDE a host the composed
-	-- table is memoised against the origin epoch so identity is stable
-	-- between host moves and no per-read allocation happens.
+	-- whenever the origin is (0, 0), because a host-free tree must stay
+	-- byte-identical at the allocation level (Plan C ruling R-6). INSIDE a host the
+	-- composed table is memoised against the origin epoch so identity is stable
+	-- between host moves and no per-read allocation happens — a cost property, not a
+	-- correctness one: no shipped reader compares what this returns by identity, and
+	-- `tests/host_rect_identity.spec.luau` is the measurement that keeps it that way.
 	local function rectOf(path: string): any
 		local rect = lastRects[path]
 		if rect == nil then
