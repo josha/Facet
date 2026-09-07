@@ -302,28 +302,29 @@ describe("C2: one changed row does not re-measure 999 clean siblings", function(
 		end)
 	end)
 
-	it("the FIRST reuse solve after a full one is now an ORDINARY one — the mount recorded", function()
-		--[[ ── REWRITTEN 2026-09-06 (Plan D, D5), AND THE CASE IS THE INVERSE OF WHAT IT
-			WAS. It read "the FIRST reuse solve after a full one records and serves
-			nothing; the next one serves", and it was the price of `record`'s old gate:
-			the tuple was written only on a solve that had a REUSE SET, so a mount — or
-			any full solve — left nothing behind and the tick after it re-measured 1,005
-			nodes at the old price. D5 re-gates `record` on `ctx.measureStamp`, which the
-			renderer threads on every solve it drives, so THE MOUNT RECORDS: this tick is
-			an ordinary one, `measured` 1,005 -> 5 and `served` 0 -> 1,000.
+	it("the FIRST reuse solve after a full one records and serves nothing; the next one serves", function()
+		--[[ THE TUPLE IS WRITTEN ONLY ON A SOLVE THAT COULD SPEND IT, which is the
+			solver's purity contract and not an economy — see `record`. So this pair is
+			the whole cost of that decision, said as a number.
 
-			WHAT THE PAIR STILL SAYS, and it is why it is a pair rather than one drive.
-			The first tick serves 1,000 and calls 1,007; the second serves 1 and calls 8.
-			The difference is the CONTAINER memo (T13), which — unlike `record` — can
-			still only be filled by a solve that had a reuse set, so the first tick after
-			a full solve walks all 1,000 children and the second asks about 2. The serve
-			answers what the walk asks; the memo stops it asking. Two mechanisms, and this
-			is the drive that tells them apart. ]]
+			AND IT SHOWS THE SERVE HAS TWO HALVES, which no single-drive pin can. The
+			first reuse solve after a full one has no tuples at entry and still serves
+			999: those are the INTRA-SOLVE re-asks, where a stack's arrange pass asks
+			for a size its own measure pass computed two frames of the recursion ago.
+			The second solve serves 1,999 — the same 999 plus the cross-solve half.
+			Halving the first number and near-eliminating the second is what the two
+			mechanisms are worth separately. ]]
 		withWorkCapture(function()
 			local s = scene.new({ rows = ROWS })
 			expect(drove(function()
 				s.text(500, "first")
-			end)).toBe(`solves=1 calls=1007 served=1000 measured=5`)
+			end)).toBe(`solves=1 calls=1007 served=0 measured=1005`)
+			--[[ T13 re-record, SECOND LINE ONLY, and the pair is now sharper than it was:
+				the FIRST reuse solve is byte-identical (2,005/999/1,005) because the
+				container memo, like `record`, can only be FILLED by a solve that could
+				spend it — so the first one pays a full pass and records, exactly as the
+				node slots do. The second solve is where both mechanisms are live, and the
+				memo takes it from 2,005 calls to 1,006. ]]
 			expect(drove(function()
 				s.text(500, "second")
 			end)).toBe(`solves=1 calls=8 served=1 measured=5`)
@@ -657,23 +658,13 @@ describe("C2: one changed row does not re-measure 999 clean siblings", function(
 		root.dispose()
 	end)
 
-	it("a VIEWPORT change serves only its OWN answers — the cross-solve arm is unreachable", function()
-		--[[ ── RE-RECORDED 2026-09-06 (Plan D, D5), TITLE INCLUDED: it read "serves
-			NOTHING". A geometry write is a full solve with no reuse table, so the
-			CROSS-solve arm is structurally absent and `reuse=false` below is what says so.
-			The WITHIN-solve arm is not: `record` writes a slot the first time this solve
-			measures a node and the serve answers the second ask of the same node at the
-			same offer from it, which takes `measured` to exactly one per layout node
-			(3,002 of 3,002) and `calls` to 4,003 — a served container never descends into
-			the children it would have re-measured. Nothing here is served that this solve
-			did not itself measure, because `node.mSolve` is written only where
-			`ctx.reuse == nil` and compared against a table this solve allocated. ]]
+	it("a VIEWPORT change serves NOTHING, and it is unreachable rather than declined", function()
 		withWorkCapture(function()
 			local s = scene.new({ rows = ROWS })
 			s.text(500, "warm")
 			expect(drove(function()
 				s.viewport(900, 640)
-			end)).toBe(`solves=1 calls=4003 served=1001 measured=3002`)
+			end)).toBe(`solves=1 calls=5003 served=0 measured=5003`)
 			expect(lastSolveWasIncremental()).toBe("reuse=false")
 			s.dispose()
 		end)
@@ -952,13 +943,11 @@ describe("C2: what the solver writes onto a layout node is a CLOSED set of outpu
 			table.insert(out, field)
 		end
 		table.sort(out)
-		--[[ TWENTY-THREE, and every one is an OUTPUT: the two slots' keys and answers,
-			the shared axis-3 stamp, the SOLVE stamp beside it (Plan D, D5 — `mSolve`, the
-			token that says a full solve wrote these slots itself), the eviction toggle,
-			the cached `memoPlan` verdict and (Plan D, D3c) the one-word text width
-			`render/text_index`'s over-cap probe compares against. None is a field
-			`layout_node.toLayoutNode` reads to BUILD a node, which is what keeps the P3
-			store's four axes complete.
+		--[[ TWENTY-TWO, and every one is an OUTPUT: the two slots' keys and answers,
+			the shared axis-3 stamp, the eviction toggle, the cached `memoPlan` verdict
+			and (Plan D, D3c) the one-word text width `render/text_index`'s over-cap
+			probe compares against. None is a field `layout_node.toLayoutNode` reads to
+			BUILD a node, which is what keeps the P3 store's four axes complete.
 
 			`mTextW` is written by the UNCACHED text branch and never by the serve,
 			which is right rather than an omission: a served node was not re-measured,
@@ -985,7 +974,6 @@ describe("C2: what the solver writes onto a layout node is a CLOSED set of outpu
 			"mBW",
 			"mFillB",
 			"mHeightFree",
-			"mSolve",
 			"mStamp",
 			"mTextW",
 		})
