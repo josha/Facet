@@ -629,19 +629,26 @@ function screen_props.new(ctx: Ctx)
 			end
 		elseif prop == "value" then
 			applyToggleValue(handle, value == true)
-		elseif prop == "enabled" then
-			--[[ THE RESOLVED DISABLED STATE, WHICH ANY CLASS MAY NOW WEAR (stream C,
-				2026-09-07). `enabled = false` is legal on a container, so the mount
-				cascade resolves it onto the whole subtree and the renderer writes the
-				RESOLVED value here — which means this branch is now reached for Frames,
-				labels and pictures, not just the three control classes.
+		--[[ THE RESOLVED DISABLED STATE, WHICH ANY CLASS MAY NOW WEAR (stream C,
+			2026-09-07). `enabled = false` is legal on a container, so the mount cascade
+			resolves it onto the whole subtree and the renderer writes the RESOLVED value
+			here — which means the branch below is now reached for Frames, labels and
+			pictures, not just the three control classes.
 
-				The class chain below is unchanged and still answers "which engine
-				property says disabled for THIS class". This line answers the other half:
-				a node with no interactable GuiState says so with a tag instead, and the
-				theme's `Disabled subtree text` rule paints it. It rides `syncTags`'
-				desired set like every other classification tag, or the next pass would
-				strip it. ]]
+			Its class chain is unchanged and still answers "which engine property says
+			disabled for THIS class". The `disabledState` line answers the other half: a
+			node with no interactable GuiState says so with a tag instead, and the theme's
+			`Disabled subtree text` rule paints it. The tag rides `syncTags`' desired set
+			like every other classification tag, or the next pass would strip it.
+
+			WRITTEN HERE, ABOVE THE BRANCH, ON PURPOSE. `control_feedback.spec`'s F1 pins
+			read a fixed-size window that starts at this branch's own `elseif` line and
+			require `mirrorToHitExpander(handle)` inside it, at the branch's own
+			indentation. A comment of this size INSIDE the branch pushes the mirror out of
+			that window and reddens a check about a seam nothing touched — and a comment
+			that QUOTES the line those pins search for would move the window itself, which
+			is why the quotation is not here either. ]]
+		elseif prop == "enabled" then
 			local nowDisabled = value == false
 			if (handle.disabledState == true) ~= nowDisabled then
 				handle.disabledState = nowDisabled
