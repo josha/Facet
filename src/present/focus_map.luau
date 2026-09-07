@@ -19,6 +19,11 @@
 -- beside the input system: a contribution's `focusGroups` is an INPUT to the focus map,
 -- so collecting contributions and deriving groups is one cluster or it is a cycle.
 local contribution = require("../input/contribution")
+-- ...and the mounted-node reading of `enabled`, which lives beside the two SPEC
+-- readings (`enabledNow`/`enabledIn`) in the file that owns what `enabled` means.
+-- `render/` reads the identical function, which is what keeps the focus map and
+-- the renderer's input gates from ever disagreeing about "disabled".
+local classContract = require("../class_contract")
 local paths = require("../paths")
 
 local FOCUSABLE: { [string]: boolean } = { Button = true, Toggle = true, TextField = true }
@@ -27,9 +32,13 @@ local FOCUSABLE: { [string]: boolean } = { Button = true, Toggle = true, TextFie
 -- appearance and semantics. It used to reach only paint and semantics, so a
 -- disabled control stayed in focus order and still activated on tap, Return and
 -- ButtonA — visible as disabled, fully operable by keyboard and gamepad.
-local function isDisabled(node: any): boolean
-	return node ~= nil and node.props ~= nil and node.props.enabled == false
-end
+--
+-- ...and since the stabilization pass (2026-09-07) it also answers TRUE for a node
+-- inside a disabled container's subtree, because the mount cascade resolved the
+-- container's `enabled = false` onto it. Same predicate, same consistency rule,
+-- one more way to become disabled. Still exported under this name: every caller
+-- here and in `presenter.luau` already asks the question this way.
+local isDisabled = classContract.isDisabled
 
 -- grips (opt-in focusable pointer zones) sort AFTER the ordinary walk so list
 -- navigation lands on content first; they stay reachable past the end
@@ -49,7 +58,13 @@ local function focusWalk(node: any, out: { string }, deferred: { string })
 		return
 	end
 	if node.class == "Grip" then
-		if node.props and node.props.focusable == true then
+		-- ...AND A DISABLED ONE IS NOT A FOCUS STOP EITHER (stream C). This branch
+		-- never consulted `isDisabled`, because `Grip` carries no `enabled` prop of
+		-- its own — a Slider binds the control's enabled reading to the Grip's opt-in
+		-- `focusable` instead. A DISABLED CONTAINER above it has no such seam, so a
+		-- Slider's track and a Rating's strip stayed in the ring inside a panel that
+		-- was switched off.
+		if node.props and node.props.focusable == true and not isDisabled(node) then
 			table.insert(deferred, node.path)
 		end
 	elseif FOCUSABLE[node.class] and not (node.props and node.props.focusable == false) and not isDisabled(node) then

@@ -1134,6 +1134,51 @@ local CONTAINER_LAYOUT: { [string]: PropSpec } = {
 		channel = "style",
 		doc = "surface style role painted behind this container",
 	}),
+	--[[ ===== THE TWO INHERITED CHANNELS =====================================
+		(stabilization pass 2026-09-07; design note
+		`docs/superpowers/specs/2026-09-07-inherited-tint-disabled.md`.)
+
+		A container has descendants, which is what makes these two different from
+		every other prop in this table: the value declared here is resolved onto the
+		whole subtree by the MOUNT walk — the one pass that sees a blueprint's
+		ancestors and its mounted node at the same moment, and the pass that already
+		threads `sensoryFeedback` down for that reason.
+
+		`channel = "inherit"` says the honest thing about where the value goes: it
+		reaches the engine ONLY through the descendants the cascade resolves it onto,
+		so this node writes no adapter property of its own. It is neither `binding`
+		(declaring one would authorize the renderer to paint a container's plate with
+		a tint) nor `style`, `layout`, `handler` or `presentation`. The dirty classes
+		are real, and `check_prop_parity`'s view 1 still holds because both names are
+		members of the renderer's `BINDING_PROPS` and its refresh loop re-applies
+		them onto the descendants that inherited them.
+
+		`Region`, `GridRow` and `ViewThatFits` deliberately do NOT carry this table,
+		and so do not carry these two: their children are ranked forms, grid cells
+		and candidate layouts that the parent owns (constitution E-5). A cascade
+		still passes THROUGH them, so a disabled `Composition` disables the buttons
+		inside its regions. ]]
+	enabled = p({
+		types = { "boolean" },
+		reactive = true,
+		dirty = { "paint", "semantics", "navigation" },
+		shared = true,
+		channel = "inherit",
+		doc = "false disables this container AND ITS WHOLE SUBTREE — every descendant leaves focus "
+			.. "order, refuses activation on every input class, and paints the theme's disabled state. "
+			.. "Disabled is a conjunction: an ancestor can never re-enable a node that declares false",
+	}),
+	tint = p({
+		types = { "tint" },
+		reactive = true,
+		dirty = { "paint" },
+		shared = true,
+		channel = "inherit",
+		doc = "the continuous colour this container's SUBTREE paints with — same value vocabulary as a "
+			.. "leaf `tint` ({ role, blend, from? } or { direct }). A container has no paint channel of "
+			.. "its own (its plate is `surface`), so this paints nothing here. Nearest declaration wins: "
+			.. "a descendant's own `tint`, or a nearer container's, replaces it",
+	}),
 }
 
 local GAP: PropSpec = p({

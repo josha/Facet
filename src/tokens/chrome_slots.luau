@@ -99,6 +99,20 @@ chrome_slots.TAGS = table.freeze({
 	-- carrying. Every theme's sheet empties its label — "the slot sits empty
 	-- until it lands or returns" is a framework guarantee, not consumer code.
 	dragHeld = "facet-drag-held",
+	--[[ THE DISABLED STATE, AS A TAG (stabilization pass 2026-09-07, stream C).
+		`disabled` has an engine GuiState — `:NonInteractable`, which the two sheet
+		rules for `TextButton`/`TextBox` already key on — but that state only exists on
+		an instance the engine considers interactable in the first place. Since
+		`enabled = false` became legal on a CONTAINER, a whole subtree of Frames,
+		TextLabels and ImageLabels can be disabled, and none of them has a GuiState to
+		say so. So the resolved fact reaches native selectors the way every other
+		Facet state does: a tag, on the node, in the desired set `syncTags` diffs.
+
+		It is not redundant with the two `:NonInteractable` rules — they paint the
+		same number on the classes that DO have the engine state, and a rule that
+		writes the same value twice changes nothing — and it is the only thing a theme
+		can key a non-control dim on. ]]
+	stateDisabled = "facet-state-disabled",
 })
 
 -- The decoration child's fixed identity. Named, so a Studio reader can tell a

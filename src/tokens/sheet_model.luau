@@ -227,6 +227,11 @@ export type ClassifyInput = {
 	-- disabled` all ride an engine GuiState or a tag the renderer already emits;
 	-- `error` has no engine state, so a control that has one publishes it here.
 	errorState: boolean?,
+	-- THE RESOLVED DISABLED STATE (stream C, 2026-09-07). `enabled = false` is legal
+	-- on a container now, so a Frame / TextLabel / ImageLabel with no GuiState of its
+	-- own can be disabled by an ancestor. Drives `facet-state-disabled` — see
+	-- `chrome_slots.TAGS` for why the engine state alone cannot carry it.
+	disabled: boolean?,
 	-- ONE PARENT TAG HIDES THE WHOLE STACK (probe rs-m2). The
 	-- single-decoration editing yield tags the DECORATION, which syncTags never
 	-- touches; a layered node's yield has to ride the DECORATED NODE, and every
@@ -294,6 +299,10 @@ function sheet_model.classifyTags(input: ClassifyInput): { [string]: boolean }
 	-- so nothing a package published before this stage renders can carry it.
 	if input.errorState == true then
 		tags[chrome_slots.TAGS.stateError] = true
+	end
+	-- ...and the DISABLED state's, which a non-control node has no engine state for
+	if input.disabled == true then
+		tags[chrome_slots.TAGS.stateDisabled] = true
 	end
 	-- the layered editing yield (see chromeYield above): one tag, and the
 	-- child-combinator rules blank the whole ladder
@@ -1108,6 +1117,23 @@ function sheet_model.build(opts: BuildOpts): Model
 		{
 			name = "Disabled field",
 			selector = "TextBox:NonInteractable",
+			props = { TextTransparency = num(numbers.DisabledContentTransparency) },
+		},
+		--[[ ...AND THE SUBTREE A DISABLED CONTAINER TURNED OFF (stream C, 2026-09-07).
+			The two rules above ride an engine GuiState, which only exists on the classes
+			the engine considers interactable; `enabled = false` on a container disables
+			plain labels too, and those say so with a tag instead. The same number, so a
+			control that wears both is dimmed once.
+
+			TEXT ONLY, AND THE LIMIT IS THE FRAMEWORK'S OWN RULE, not an oversight: image
+			paint is legal in a theme rule only inside a nineSlice chrome recipe, where
+			the slot is what makes the picture meaningful (`themes/package.lintProperty`),
+			and the package builder lints the rules it generates by that same test. A
+			picture inside a disabled subtree therefore keeps its own paint; api.md says
+			so. ]]
+		{
+			name = "Disabled subtree text",
+			selector = `TextLabel.{chrome_slots.TAGS.stateDisabled}`,
 			props = { TextTransparency = num(numbers.DisabledContentTransparency) },
 		},
 		-- SEMANTIC ICON ART. Last in the `disabled` group and so
@@ -2855,6 +2881,14 @@ function sheet_model.buildPackage(package: any, opts: BuildPackageOpts?): Model
 	emit("disabled", {
 		name = "Disabled field",
 		selector = "TextBox:NonInteractable",
+		props = { TextTransparency = num(baseExtra.disabledContentOpacity) },
+	})
+	-- ...and the SUBTREE a disabled container turned off — see the legacy builder's
+	-- note beside the same two rules. Emitted by every package, so a swap can never
+	-- leave a disabled panel's labels reading at full contrast.
+	emit("disabled", {
+		name = "Disabled subtree text",
+		selector = `TextLabel.{chrome_slots.TAGS.stateDisabled}`,
 		props = { TextTransparency = num(baseExtra.disabledContentOpacity) },
 	})
 	-- SEMANTIC ICON ART, emitted by EVERY package — including a

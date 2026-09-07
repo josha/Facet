@@ -44,6 +44,94 @@ local DIRTY_CLASSES = { "paint", "measure", "arrange", "structure", "navigation"
 	answers a different question, about the scroller's CHILDREN. ]]
 local STACK_PARENT: { [string]: boolean } = { VStack = true, HStack = true, ScrollView = true }
 
+--[[ ===== THE INHERITED CHANNELS (stabilization pass 2026-09-07, stream C) =====
+	Design note: `docs/superpowers/specs/2026-09-07-inherited-tint-disabled.md`.
+
+	`enabled` and `tint` are declared on a container and resolved onto its WHOLE
+	SUBTREE, and this is the pass that resolves them, for the reason the
+	`sensoryFeedback` cascade below already gives: mount is the only walk that sees
+	a blueprint's ancestors and its mounted node at the same moment. Two more
+	reasons make it the right owner here — every reader of "disabled" reads a
+	MOUNTED NODE (the focus map, the presenter's Activate dispatch, the renderer's
+	three input gates), and mount already owns the per-node scopes and the dirty
+	queue, so reactivity and teardown need no new machinery.
+
+	THE RECORD IS SHARED BY REFERENCE. `Inherit` is what a node hands its children,
+	and a node that re-declares nothing hands down the identical table it received —
+	so an undeclared tree allocates nothing and stores nothing, and a declared one
+	costs one table per declaration site rather than one per node.
+
+	TWO RULES, AND THEY ARE DIFFERENT ON PURPOSE:
+	  * disabled is a CONJUNCTION — own `false` OR any ancestor's `false`. There is
+	    no re-enable, in either direction, so a screen can never present a control
+	    that looks live inside a panel that is not.
+	  * tint is NEAREST-DECLARATION — the node's own value, else the nearest
+	    ancestor's. A control STOPS it for its own interior, because inside a
+	    control paint belongs to the role and the state machine (blueprint_schema's
+	    TINT block).
+]]
+export type Inherit = { disabled: boolean, tint: any? }
+
+local TINT_STOPS: { [string]: boolean } = { Button = true, Toggle = true, TextField = true }
+
+-- the two prop names whose change re-resolves a subtree (see `recascade`)
+local INHERITED_PROPS: { [string]: boolean } = { enabled = true, tint = true }
+
+--[[ Resolve one node against the record it was handed. Sets the two derived
+	fields — `node.disabled` (this node is inside, or is, a disabled subtree) and
+	`node.inheritedTint` (the tint it paints when it declared none) — records the
+	incoming record for a later re-walk, and returns the record its children get
+	plus whether either derived field actually MOVED.
+
+	The derived fields are deliberately NOT folded into `node.props`: props stays
+	"what the author declared", which is what makes "does this node override?"
+	answerable at all. ]]
+local function sameRecord(a: any, b: any): boolean
+	if a == b then
+		return true
+	end
+	if a == nil or b == nil then
+		return false
+	end
+	return a.disabled == b.disabled and a.tint == b.tint
+end
+
+local function applyInherited(node: any, inherited: any): (any, boolean, boolean, boolean)
+	local props = node.props
+	local ownEnabled = if props ~= nil then props.enabled else nil
+	local ownTint = if props ~= nil then props.tint else nil
+	local inTint = if inherited ~= nil then inherited.tint else nil
+	local disabled = (inherited ~= nil and inherited.disabled == true) or ownEnabled == false
+	local inheritedTint = if ownTint == nil then inTint else nil
+
+	local disabledMoved = (node.disabled == true) ~= disabled
+	local tintMoved = node.inheritedTint ~= inheritedTint
+	node.disabled = if disabled then true else nil
+	node.inheritedTint = inheritedTint
+	node.inheritFrom = inherited
+
+	local childTint = if TINT_STOPS[node.class] then nil else (if ownTint ~= nil then ownTint else inTint)
+	local previous = node.inheritOut
+	local out: any = nil
+	if disabled or childTint ~= nil then
+		if inherited ~= nil and inherited.disabled == disabled and inherited.tint == childTint then
+			out = inherited -- the same answer this node was handed: share the table
+		elseif previous ~= nil and previous.disabled == disabled and previous.tint == childTint then
+			out = previous -- unchanged: descendants keep the reference they hold
+		else
+			out = { disabled = disabled, tint = childTint }
+		end
+	end
+	--[[ `outSame` IS THE STOP CONDITION FOR THE RE-WALK, and it is a different
+		question from whether this node moved. A container that declares its OWN tint
+		never moves when that tint changes — its `inheritedTint` is nil either way —
+		while everything below it moves, which is exactly the bound-container case.
+		So the walk descends on what this node HANDS DOWN, not on what it wears. ]]
+	local outSame = sameRecord(out, previous)
+	node.inheritOut = out
+	return out, disabledMoved, tintMoved, outSame
+end
+
 -- STRUCTURAL TRANSITIONS. An optional
 -- collaborator — supplied by the render/presenter layer, scripted in headless
 -- tests — that turns a structural REMOVAL into a RETIREMENT: the subtree stays in
@@ -170,7 +258,8 @@ function mountLib.mount(core: any, rootBlueprint: Blueprint, opts: MountOpts?)
 		scope: any,
 		boundary: any,
 		activation: string?,
-		inStack: boolean?
+		inStack: boolean?,
+		inherited: any
 	): any
 		local node: any = {
 			class = "When",
@@ -178,6 +267,11 @@ function mountLib.mount(core: any, rootBlueprint: Blueprint, opts: MountOpts?)
 			children = {},
 			factoryRuns = 0,
 			branchScope = nil,
+			-- the inherited record a LATER branch mount reads. Read off the node
+			-- rather than captured, because a re-cascade updates it in place: a
+			-- branch entered after an ancestor flipped must inherit the CURRENT
+			-- answer, not the one that was true when the region was mounted
+			inheritFrom = inherited,
 		}
 		local branchPath = path .. "/then"
 		-- the declared transition, stamped onto the branch root so a collaborator
@@ -272,7 +366,8 @@ function mountLib.mount(core: any, rootBlueprint: Blueprint, opts: MountOpts?)
 						1,
 						boundary,
 						activation,
-						inStack
+						inStack,
+						node.inheritFrom
 					)
 				end)
 				if not ok then
@@ -294,8 +389,16 @@ function mountLib.mount(core: any, rootBlueprint: Blueprint, opts: MountOpts?)
 		if initial then
 			local branchScope = scope:child(branchPath)
 			node.branchScope = branchScope
-			local mounted =
-				mountNode(bp.props.thenView(branchScope), branchPath, branchScope, 1, boundary, activation, inStack)
+			local mounted = mountNode(
+				bp.props.thenView(branchScope),
+				branchPath,
+				branchScope,
+				1,
+				boundary,
+				activation,
+				inStack,
+				node.inheritFrom
+			)
 			node.children = { mounted }
 			if declared ~= nil then
 				mounted.transition = declared
@@ -336,11 +439,14 @@ function mountLib.mount(core: any, rootBlueprint: Blueprint, opts: MountOpts?)
 		scope: any,
 		boundary: any,
 		activation: string?,
-		inStack: boolean?
+		inStack: boolean?,
+		inherited: any
 	): any
 		local node: any = {
 			class = "ForEach",
 			path = path,
+			-- the inherited record a LATER row mount reads (see `mountWhen`)
+			inheritFrom = inherited,
 			children = {},
 			factoryRuns = 0,
 			itemsByKey = {},
@@ -447,7 +553,8 @@ function mountLib.mount(core: any, rootBlueprint: Blueprint, opts: MountOpts?)
 							1,
 							boundary,
 							activation,
-							inStack
+							inStack,
+							node.inheritFrom
 						)
 						markRow(built, inStack)
 						return built
@@ -564,8 +671,16 @@ function mountLib.mount(core: any, rootBlueprint: Blueprint, opts: MountOpts?)
 			end
 			seen[key] = true
 			local itemScope = scope:child(`{path}/[{key}]`)
-			local built =
-				mountNode(bp.props.row(item, itemScope), `{path}/[{key}]`, itemScope, 1, boundary, activation, inStack)
+			local built = mountNode(
+				bp.props.row(item, itemScope),
+				`{path}/[{key}]`,
+				itemScope,
+				1,
+				boundary,
+				activation,
+				inStack,
+				node.inheritFrom
+			)
 			markRow(built, inStack)
 			node.itemsByKey[key] = { scope = itemScope, mounted = built }
 			table.insert(order, key)
@@ -597,11 +712,14 @@ function mountLib.mount(core: any, rootBlueprint: Blueprint, opts: MountOpts?)
 		scope: any,
 		_boundary: any,
 		activation: string?,
-		inStack: boolean?
+		inStack: boolean?,
+		inherited: any
 	): any
 		local node: any = {
 			class = "ErrorBoundary",
 			path = path,
+			-- the inherited record a LATER fallback/view mount reads (see `mountWhen`)
+			inheritFrom = inherited,
 			children = {},
 			factoryRuns = 0,
 		}
@@ -619,8 +737,18 @@ function mountLib.mount(core: any, rootBlueprint: Blueprint, opts: MountOpts?)
 			end
 			node.children = {}
 			contentScope = core:scope(path .. "/fallback")
-			node.children =
-				{ mountNode(bp.props.fallback(err), path .. "/fallback", contentScope, 1, nil, activation, inStack) }
+			node.children = {
+				mountNode(
+					bp.props.fallback(err),
+					path .. "/fallback",
+					contentScope,
+					1,
+					nil,
+					activation,
+					inStack,
+					node.inheritFrom
+				),
+			}
 			pushDirty(path, "structure")
 		end
 		local boundary = {
@@ -632,7 +760,16 @@ function mountLib.mount(core: any, rootBlueprint: Blueprint, opts: MountOpts?)
 		}
 		contentScope = core:scope(path .. "/view")
 		local ok, result = pcall(function()
-			return mountNode(bp.props.view(), path .. "/view", contentScope, 1, boundary, activation, inStack)
+			return mountNode(
+				bp.props.view(),
+				path .. "/view",
+				contentScope,
+				1,
+				boundary,
+				activation,
+				inStack,
+				node.inheritFrom
+			)
 		end)
 		if ok and not tripped then
 			node.children = { result }
@@ -649,11 +786,53 @@ function mountLib.mount(core: any, rootBlueprint: Blueprint, opts: MountOpts?)
 	-- correctly a fourth time; now it is one table entry.
 	-- `mountErrorBoundary` takes no boundary of its own — it CREATES one — so the
 	-- extra argument is deliberately ignored there.
-	local STRUCTURAL: { [string]: (Blueprint, string, any, any, string?, boolean?) -> any } = {
+	local STRUCTURAL: { [string]: (Blueprint, string, any, any, string?, boolean?, any) -> any } = {
 		ErrorBoundary = mountErrorBoundary,
 		When = mountWhen,
 		ForEach = mountForEach,
 	}
+
+	--[[ THE INHERITED CHANNELS' REACTIVE HALF. A container's `enabled` / `tint` is
+		an ordinary reactive prop — the per-prop observer in `mountNode` writes
+		`node.props` and pushes this node's own dirt — and this is what carries the
+		change to the SUBTREE: it re-resolves each descendant against the record its
+		parent now hands down, and pushes dirt only where a derived value actually
+		moved, so re-declaring the same value costs one walk and no writes.
+
+		THE PROP NAMES ARE `enabled` AND `tint` because those are the names the
+		renderer's refresh loop already dispatches on: a descendant that inherited a
+		disable is re-applied through the same seam as one that declared it, so there
+		is no second write site and no second state channel.
+
+		A FLIP IS A GESTURE, NOT A FRAME — a panel switched off, a hue dragged — so an
+		honest O(touched) subtree walk beats keeping a second index in sync, and the
+		walk stops the moment a node hands its children the answer they already had. ]]
+	local function recascade(node: any, inherited: any)
+		local childInherit, disabledMoved, tintMoved, outSame = applyInherited(node, inherited)
+		--[[ A STRUCTURAL REGION IS WALKED THROUGH, NEVER DIRTIED. It carries no `dirty`
+			table because it materializes nothing — no instance, no paint, no focus stop —
+			so an entry naming its path would send the renderer's refresh loop to a node
+			with no props to write. The nodes it splices into the flow push their own. ]]
+		local dirtyOf = node.dirty
+		if dirtyOf ~= nil and disabledMoved then
+			dirtyOf.paint = true
+			dirtyOf.semantics = true
+			dirtyOf.navigation = true
+			pushDirty(node.path, "paint", "enabled")
+			pushDirty(node.path, "semantics", "enabled")
+			pushDirty(node.path, "navigation", "enabled")
+		end
+		if dirtyOf ~= nil and tintMoved then
+			dirtyOf.paint = true
+			pushDirty(node.path, "paint", "tint")
+		end
+		if outSame then
+			return
+		end
+		for _, child in node.children do
+			recascade(child, childInherit)
+		end
+	end
 
 	mountNode = function(
 		bp: Blueprint,
@@ -662,13 +841,22 @@ function mountLib.mount(core: any, rootBlueprint: Blueprint, opts: MountOpts?)
 		index: number,
 		boundary: any,
 		inheritedActivation: string?,
-		inStack: boolean?
+		inStack: boolean?,
+		inherited: any
 	): any
 		local id = bp.id or `{bp.class}#{index}`
 		local path = parentPath .. "/" .. id
 		local mountStructural = STRUCTURAL[bp.class]
 		if mountStructural ~= nil then
-			local node = mountStructural(bp, path, scope, boundary, inheritedActivation, inStack)
+			local node = mountStructural(bp, path, scope, boundary, inheritedActivation, inStack, inherited)
+			--[[ A REGION IS A NODE THE CASCADE HAS TO KNOW ABOUT. It declares neither
+				channel, so it hands its children exactly the record it was handed — but
+				the RE-WALK compares against `node.inheritOut`, and a region that never
+				recorded one would report "the same answer as before" the first time an
+				ancestor flipped and stop the walk at the region's own door. Resolving it
+				here (after the initial branch, which mounted with the same record) is
+				what makes a `When` branch follow its panel. ]]
+			applyInherited(node, inherited)
 			node.id = id
 			counters.mounted += 1
 			counters.factoryRuns += 1
@@ -711,6 +899,11 @@ function mountLib.mount(core: any, rootBlueprint: Blueprint, opts: MountOpts?)
 						node.dirty[dirtyClass] = true
 						pushDirty(path, dirtyClass, propName)
 					end
+					-- ...and where the prop is one of the two INHERITED channels, the
+					-- subtree it declares for is re-resolved from this new value
+					if INHERITED_PROPS[propName] then
+						recascade(node, node.inheritFrom)
+					end
 				end))
 			else
 				node.props[propName] = value
@@ -740,6 +933,11 @@ function mountLib.mount(core: any, rootBlueprint: Blueprint, opts: MountOpts?)
 		if activationFeedback ~= nil then
 			node.activationFeedback = activationFeedback
 		end
+
+		-- THE INHERITED CHANNELS, resolved for this node and for the record its
+		-- children receive. `nil` in, `nil` out on an undeclared tree: the fields are
+		-- never written and the off path costs one table read per node.
+		local childInherit = applyInherited(node, inherited)
 
 		-- ...and the CHANGE form (round 2 §3.3): one observer per declaration,
 		-- owned by this node's scope, so it stops the frame the node unmounts.
@@ -774,7 +972,16 @@ function mountLib.mount(core: any, rootBlueprint: Blueprint, opts: MountOpts?)
 				seen[childId] = true
 				table.insert(
 					node.children,
-					mountNode(childBp, path, scope, i, boundary, activationFeedback, STACK_PARENT[bp.class])
+					mountNode(
+						childBp,
+						path,
+						scope,
+						i,
+						boundary,
+						activationFeedback,
+						STACK_PARENT[bp.class],
+						childInherit
+					)
 				)
 			end
 		end

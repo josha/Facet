@@ -211,6 +211,33 @@ function contract.enabledIn(use: (any) -> any, enabled: any): boolean
 	return enabled ~= false
 end
 
+--[[ ...AND THE THIRD SPELLING: THE MOUNTED-NODE READING (stabilization pass
+	2026-09-07, stream C). The two above ask a control's SPEC; this one asks a node
+	in the mounted tree, which is the question the focus map, the presenter's
+	Activate dispatch and the renderer's three input gates all ask.
+
+	It lives beside them because it is the same decision — `enabled` gates
+	activation on every input class and removes the node from focus order — and it
+	lives in THIS file because the file requires nothing, so `present/` and
+	`render/` may both read it without either depending on the other.
+
+	TWO TERMS BECAUSE THERE ARE TWO TRUTHS. `node.disabled` is what the mount
+	cascade RESOLVED (this node, or any ancestor, declared `enabled = false` — the
+	conjunction), and `props.enabled` is what the author DECLARED on this node.
+	Mount sets the first whenever the second is false, so the second term is what
+	keeps the predicate honest on a hand-built node table that never ran through
+	mount — of which the suite has many. ]]
+function contract.isDisabled(node: any): boolean
+	if node == nil then
+		return false
+	end
+	if node.disabled == true then
+		return true
+	end
+	local props = node.props
+	return props ~= nil and props.enabled == false
+end
+
 --[[ DOES THIS CLASS CONTRIBUTE A FOCUS STOP OR A SEMANTIC ACTION? (wave REVEAL).
 
 	The `expand` affordance has to answer one question about a compact form — "do

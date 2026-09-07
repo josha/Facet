@@ -129,11 +129,24 @@ describe("tint: the authoring boundary", function()
 		)).toBe(true)
 	end)
 
-	it("is offered on FOUR classes only: a control paints from its role and states", function()
-		for _, class in { "Box", "Text", "Image", "Path" } do
-			expect((schema.forClass(class) :: any).props.tint ~= nil).toBe(true)
+	--[[ WIDENED BY THE STABILIZATION PASS (2026-09-07, stream C), and the shape of the
+		rule is what this pin is really about. A tint PAINTS on the classes that have
+		one paint channel of their own; it is INHERITED on the layout containers, where
+		it declares the colour a whole subtree paints with and writes no property at
+		all; and a CONTROL still refuses it, for the reason it always did — inside a
+		control, paint belongs to the role and the state machine. ]]
+	it("paints on the leaves, is inherited on a container, and a control refuses it", function()
+		for _, class in { "Box", "Text", "Image", "Path", "Stage" } do
+			local spec = (schema.forClass(class) :: any).props.tint
+			expect(spec ~= nil).toBe(true)
+			expect(spec.channel).toBe("binding")
 		end
-		for _, class in { "Button", "Toggle", "TextField", "VStack", "Screen", "Grip" } do
+		for _, class in { "Screen", "VStack", "HStack", "ZStack", "ScrollView", "Grid", "AdaptiveStack" } do
+			local spec = (schema.forClass(class) :: any).props.tint
+			expect(spec ~= nil).toBe(true)
+			expect(spec.channel).toBe("inherit")
+		end
+		for _, class in { "Button", "Toggle", "TextField", "Grip", "Divider", "Foreign" } do
 			expect((schema.forClass(class) :: any).props.tint).toBeNil()
 		end
 		expect(contains(

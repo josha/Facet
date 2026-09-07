@@ -109,11 +109,16 @@ local prop_channels = require("./prop_channels")
 -- the adoption lookup and the park-time build share
 local recycle_key = require("./recycle_key")
 local paths = require("../paths")
+-- the two INHERITED channels' render policy (see that module's header)
+local inherited = require("./inherited")
 local rectLib = require("../rect")
 local isPathPrefix = paths.isPrefix
 local BINDING_PROPS = prop_channels.BINDING_PROPS
 local STYLE_PROPS = prop_channels.STYLE_PROPS
 local emitsBinding = prop_channels.emitsBinding
+-- the two props whose VALUE the mount cascade may have resolved (see `./inherited`);
+-- one lookup keeps every other binding write on its old path
+local INHERITED_PROPS: { [string]: boolean } = { enabled = true, tint = true }
 local STYLE_PROP_ORDER = prop_channels.STYLE_PROP_ORDER
 renderer.STYLE_PROPS = prop_channels.STYLE_PROPS
 renderer.BINDING_PROPS = prop_channels.BINDING_PROPS
@@ -734,6 +739,9 @@ function renderer.attach(
 	local function applyProp(handle: any, node: any, prop: string)
 		authority.assertWrite(node.class, if prop == "label" then "text" else prop, "binding")
 		local value = node.props[prop]
+		if INHERITED_PROPS[prop] then
+			value = inherited.resolve(node, prop, value)
+		end
 		assertEnumValue(node.class, prop, value)
 		-- B-BTN1: a content button's label is SEMANTICS, not paint. Writing it as
 		-- text too would draw it underneath the custom content.
@@ -782,6 +790,9 @@ function renderer.attach(
 			if emitsBinding(node.class, prop) and prop ~= "tint" then
 				applyProp(handle, node, prop)
 			end
+		end
+		if inherited.needsEnabledWrite(node) then
+			applyProp(handle, node, "enabled") -- inherited: the loop above cannot see it
 		end
 	end
 
@@ -1117,7 +1128,7 @@ function renderer.attach(
 				local declNode = node
 				local declEnabled = dragDecl.enabled
 				dragSourceEnabled[node.path] = function(): boolean
-					if declNode.props ~= nil and declNode.props.enabled == false then
+					if inherited.isDisabled(declNode) then
 						return false
 					end
 					-- the DECLARATION's own gate, from the drag design: a source may refuse to be
@@ -1171,7 +1182,7 @@ function renderer.attach(
 						outcome == "tap"
 						and onNodeTap ~= nil
 						and TAPPABLE[tapClass]
-						and (tapNode.props == nil or tapNode.props.enabled ~= false)
+						and not inherited.isDisabled(tapNode)
 						and tapArm.dispatchNodeTapOnce(tapPath)
 					then
 						if not tapArm.tapArmsInstead(tapPath, nil) then
@@ -1332,7 +1343,7 @@ function renderer.attach(
 			-- final word — and because it is last, the adapter's blend resolves against
 			-- a node whose style paint is already settled. A reactive change later rides
 			-- the ordinary refresh path, by which time the same is true.
-			if node.props ~= nil and node.props.tint ~= nil then
+			if emitsBinding(node.class, "tint") and inherited.hasTint(node) then
 				applyProp(handles[node.path], node, "tint")
 			end
 		end
@@ -2982,7 +2993,7 @@ function renderer.attach(
 						seen[key] = true
 						local node = findNode(entry.path)
 						if node ~= nil and handles[entry.path] ~= nil then
-							if BINDING_PROPS[entry.prop] then
+							if emitsBinding(node.class, entry.prop :: string) then
 								applyProp(handles[entry.path], node, entry.prop :: string)
 							elseif STYLE_PROPS[entry.prop] then
 								applyStyleProp(handles[entry.path], node, entry.prop :: string)
@@ -3587,11 +3598,7 @@ function renderer.attach(
 				return -- the forwarding surface's own subtree is never a target
 			end
 			local tappable = TAPPABLE[node.class]
-			if
-				(tappable or isPointerZone(node))
-				and solverHidden[path] ~= true
-				and (node.props == nil or node.props.enabled ~= false)
-			then
+			if (tappable or isPointerZone(node)) and solverHidden[path] ~= true and not inherited.isDisabled(node) then
 				local rect = screenRectOf(path)
 				if
 					rect ~= nil

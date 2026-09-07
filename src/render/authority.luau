@@ -93,6 +93,16 @@ local MANIFEST: { [string]: { [string]: Authority } } = {
 		-- or a direct text write (bespoke). Never authored — a consumer cannot
 		-- set it, which is what makes the guarantee universal.
 		dragHeld = "presentation",
+		--[[ THE RESOLVED DISABLED STATE (stabilization pass 2026-09-07, stream C).
+			`enabled` is declared per class for `Button`/`Toggle`/`TextField` below and
+			says the same thing there; this `common` row is what lets a node of ANY
+			class carry the value the mount cascade resolved for it, so a Text or a Box
+			inside a disabled container can wear the theme's disabled state through the
+			same property and the same adapter branch rather than a second channel.
+			The renderer writes the RESOLVED value (`class_contract.isDisabled`), never
+			the authored one, so a control disabled by an ancestor really is
+			non-interactable in the engine. ]]
+		enabled = "binding",
 	},
 	-- Box is the one container-shaped leaf that can wear a continuous fill. `tint` is BINDING authority on purpose: the value is
 	-- data (a blend driven by a signal, an identity hue), which is exactly what the

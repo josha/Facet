@@ -175,6 +175,13 @@ export type ContainerProps = {
 	clipChildren: boolean?,
 	active: Bound<boolean>?,
 	surface: Bound<string>?,
+	-- THE TWO INHERITED CHANNELS. Declared here, resolved onto the whole subtree
+	-- by the mount walk: `enabled = false` disables everything below (a
+	-- conjunction — no ancestor re-enables a node that declares false), and
+	-- `tint` is the continuous colour the subtree paints with (nearest
+	-- declaration wins). See `blueprint_schema`'s CONTAINER_LAYOUT block
+	enabled: Bound<boolean>?,
+	tint: Bound<any>?,
 	children: { Blueprint }?,
 }
 

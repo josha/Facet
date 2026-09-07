@@ -630,6 +630,25 @@ function screen_props.new(ctx: Ctx)
 		elseif prop == "value" then
 			applyToggleValue(handle, value == true)
 		elseif prop == "enabled" then
+			--[[ THE RESOLVED DISABLED STATE, WHICH ANY CLASS MAY NOW WEAR (stream C,
+				2026-09-07). `enabled = false` is legal on a container, so the mount
+				cascade resolves it onto the whole subtree and the renderer writes the
+				RESOLVED value here — which means this branch is now reached for Frames,
+				labels and pictures, not just the three control classes.
+
+				The class chain below is unchanged and still answers "which engine
+				property says disabled for THIS class". This line answers the other half:
+				a node with no interactable GuiState says so with a tag instead, and the
+				theme's `Disabled subtree text` rule paints it. It rides `syncTags`'
+				desired set like every other classification tag, or the next pass would
+				strip it. ]]
+			local nowDisabled = value == false
+			if (handle.disabledState == true) ~= nowDisabled then
+				handle.disabledState = nowDisabled
+				if nativeMode then
+					syncTags(handle)
+				end
+			end
 			if instance:IsA("TextBox") then
 				instance.TextEditable = value == true
 				if nativeMode then

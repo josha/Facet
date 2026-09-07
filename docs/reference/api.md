@@ -347,6 +347,8 @@ Three groups recur in the column below and are worth naming once:
 | `clipChildren` | layout containers | make this container an engine clip host; `ScrollView` defaults it to true |
 | `active` | layout containers, `Box` | engine `Active` flag — an input-sinking panel (modal backdrops) |
 | `surface` | layout containers, `Box`, `Button`, `GridRow`, `Image`, `Stage`, `Text` (only `"badge"`/`"chip"` — see `Text`) | surface style role painted behind the node |
+| `enabled` | layout containers, `Button`, `Toggle`, `TextField` | `false` disables the node **and its whole subtree**: every descendant leaves focus order, refuses activation on every input class, and paints the theme's disabled state. **Inherited** — see [Inherited properties](#inherited-properties-enabled-and-tint) for the precedence rule |
+| `tint` | layout containers (subtree only), `Box`, `Text`, `Image`, `Path`, `Stage` | the one continuous colour channel. On a painting class it paints that class's own channel; on a layout container it paints nothing and is **inherited** by the subtree. See [Continuous colour](#continuous-colour-tint) for the value forms and [Inherited properties](#inherited-properties-enabled-and-tint) for the precedence rule |
 | `shadow`, `gradient`, `corners`, `stroke` | every rendered class, **and `GridRow`** | normalized style-modifier data — produce them with `UI.shadow` / `UI.gradient` / `UI.corners` / `UI.stroke`, never by hand |
 | `zIndex` | every rendered class, **and `GridRow`** | paint-order override **within the parent's stacking scope**: siblings paint in `(zIndex or 0, declaration order)` order and a node's whole subtree travels with it. A child is always above its own parent, whatever its `zIndex`, so lifting across surfaces stays structural (`presentModal`'s display order). Read once at mount — a lift is what a node *is* (a drag ghost, a toast), not a state it passes through |
 | `hidden` | every rendered class | `true` keeps the node's **layout box** and stops painting it — and takes its whole subtree out of focus order and off the tap path with it. It is the one thing neither of the other two answers gives you: `UI.When` *removes* the node so the siblings close up, and Roblox's own `Visible = false` frees the layout slot inside a `UIListLayout` (Facet arranges absolutely and materializes none of those, which is why one prop is enough). Reactive — bind it to a signal to reserve a slot until the value arrives. Reach for `UI.When` instead whenever the space *should* close up |
@@ -542,6 +544,65 @@ win. A declared `tint.transparency` is a real value the engine accepts as
 explicit and still rides the claim, so it out-ranks all of it. The colour stays a
 claim, because a rule cannot carry per-node data; the fill is a finite state, and
 finite states stay on tags.
+
+#### Inherited properties: `enabled` and `tint`
+
+Two properties are declared on a node and apply to its **whole subtree**. They are
+the only two: everything else in the tables above describes the node it is written
+on. Both are reactive, and a change to either re-solves in place — mount identity,
+focus, scroll and in-flight state all survive, exactly as an axis flip or a theme
+swap does.
+
+**`enabled = false` disables the subtree, and disabled is a conjunction.** A node
+is disabled when it declares `enabled = false` or when *any* ancestor does. There
+is no re-enable, in either direction:
+
+| You wrote | What happens |
+|---|---|
+| `enabled = false` on a container | every descendant is disabled |
+| `enabled = true` on a descendant of a disabled container | nothing; it stays disabled |
+| `enabled = true` on an ancestor of a node that declares `false` | nothing; that node stays disabled |
+
+A disabled node leaves focus order (so Tab, the arrows and the gamepad all skip
+it), refuses Activate from every input class, is not hit by a pointer or a touch,
+acquires no drag, and offers no secondary action — a row's swipe tray and a
+long-press menu are routed through the same paths and stop with them. Focus that
+was sitting inside a subtree when it is switched off falls to the nearest
+surviving focusable outside it, the same way focus behaves when a focused node is
+removed. And the resolved state reaches the engine, so an ancestor-disabled
+`Button` is genuinely non-interactable rather than merely skipped.
+
+**`tint` cascades, and the nearest declaration wins.** A node paints the `tint` it
+declares itself; failing that, the one declared by its nearest ancestor; failing
+that, none. A nested container's `tint` replaces the outer one for its own
+subtree. An inherited tint lands on every descendant whose class has a channel to
+paint it into — `Box`, `Text`, `Image`, `Path`, `Stage` — and paints exactly what
+the same value written on that node would paint, theme role and all. On a layout
+container the property paints nothing at all: a container has no paint channel,
+its plate is `surface`.
+
+```lua
+UI.VStack({ id = "Team", tint = { role = "accent", blend = heat }, children = {
+    UI.Text({ id = "Name", text = racer }),            -- accent
+    UI.Image({ id = "Crest", image = crest }),         -- accent
+    UI.Text({ id = "Note", text = "?", tint = muted }), -- its own
+} })
+```
+
+**The cascade stops at a control.** `Button`, `Toggle` and `TextField` do not
+accept a `tint` and do not pass one into their own content: inside a control,
+paint belongs to the role and the state machine, and a continuous colour there
+would be a second authority over the affordance ([above](#continuous-colour-tint)).
+A control *beside* tinted nodes is unaffected either way.
+
+**What the disabled state looks like.** It is themed, through the sheet, never a
+literal. A disabled control keeps the engine `:NonInteractable` rules it always
+had; every other node in the subtree wears the `facet-state-disabled` tag, and
+every theme — Studio Neutral and every package — emits one `Disabled subtree text`
+rule for it at that theme's own `disabledContentOpacity`. **Text only**: image
+paint is legal in a theme rule only inside a nineSlice chrome recipe (see
+[`themes`](#themes)), so a picture inside a disabled subtree keeps its own paint.
+Give it a `tint` if it should dim with the panel.
 
 ### `Screen`
 

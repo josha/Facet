@@ -152,6 +152,7 @@ local writeStageProp = screen_vocabulary.writeStageProp
 local markStageDisposed = screen_vocabulary.markStageDisposed
 local markForeignDisposed = screen_vocabulary.markForeignDisposed
 
+local ZZ_NO_PATH2D = true -- ZZ-EXPERIMENT
 local screen_target = {}
 
 export type Opts = {
@@ -502,6 +503,12 @@ function screen_target.new(opts: Opts?)
 			-- GuiState, so it is a tag — and it has to ride the desired set or
 			-- the next classification pass would strip it.
 			errorState = handle.errorState == true,
+			-- THE RESOLVED DISABLED STATE (stream C, 2026-09-07). `:NonInteractable` is
+			-- an engine state only the interactable classes have, and a container's
+			-- `enabled = false` disables a whole subtree of Frames and labels — so the
+			-- fact reaches native selectors as a tag, and it has to ride the desired set
+			-- here or the next classification pass would strip a disabled panel's dim.
+			disabled = handle.disabledState == true,
 			-- THE LAYERED EDITING YIELD (rs-m2). One tag on the
 			-- DECORATED NODE; the package's child-combinator rules blank every
 			-- layer. Same reason it lives here: syncTags owns every facet-* tag
@@ -1326,7 +1333,7 @@ function screen_target.new(opts: Opts?)
 			instance.ClipsDescendants = true
 			handle.foreignBox = true
 		end
-		if class == "Path" then
+		if class == "Path" and not ZZ_NO_PATH2D then
 			-- stroked-path leaf: engine Path2D strokes inside a
 			-- transparent holder; color comes from the style role hint
 			local path2d = Instance.new("Path2D")

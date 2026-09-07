@@ -121,9 +121,21 @@ local DEDICATED_PAINT_SEAMS: { [string]: string } = {
 	offset = "renderer readAuthoredPresentation + pushPresentationPaint",
 }
 
--- Props consumed by the PRESENTER (focus graph / control contract) rather than
--- by a render write. They legitimately have no adapter side.
-local PRESENTER_CHANNELS: { [string]: boolean } = { semantic = true, structural = true }
+--[[ Props with no adapter side of their own, and the reason each one has none.
+
+	`semantic` / `structural` are consumed by the PRESENTER (focus graph / control
+	contract) rather than by a render write.
+
+	`inherit` is the two INHERITED CHANNELS (stabilization pass 2026-09-07, stream
+	C): `enabled` and `tint` declared on a layout CONTAINER, where they apply to the
+	container's whole subtree. The value reaches the engine only through the
+	DESCENDANTS `src/mount.luau`'s cascade resolves it onto — each of which writes it
+	under its own class's authority — so the declaring node writes nothing, and
+	giving it an authority entry would authorize the renderer to paint a container's
+	plate with a tint it was never asked to paint. View 1 above still binds: both
+	names are members of the renderer's `BINDING_PROPS`, so a reactive change is
+	re-applied by the refresh loop on every node that inherited it. ]]
+local PRESENTER_CHANNELS: { [string]: boolean } = { semantic = true, structural = true, inherit = true }
 
 -- authority manifest key for a schema prop, where the two names differ
 local AUTHORITY_ALIAS: { [string]: string } = { label = "text" }

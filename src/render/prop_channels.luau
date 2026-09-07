@@ -148,6 +148,17 @@ prop_channels.BINDING_PROPS = BINDING_PROPS
 -- stays loud (an undeclared write is still an assertWrite error).
 local BINDING_PROP_CLASSES: { [string]: { [string]: boolean } } = {
 	thickness = { Path = true },
+	--[[ THE CONTINUOUS-COLOUR CHANNEL, RESTRICTED (stabilization pass 2026-09-07,
+		stream C). `tint` is now legal on the layout CONTAINERS too, where it declares
+		the colour a whole SUBTREE paints with and paints nothing of its own — a
+		container has no paint channel; its plate is `surface`. Without this row the
+		container's own node would try to write a tint it does not own and hit the
+		authority wall, exactly as `UI.Divider{ thickness = … }` did.
+
+		The five listed classes are the ones `render/authority.luau` declares
+		`tint = "binding"` for, and `check_prop_parity`'s view 7 pins the two lists
+		against each other in both directions. ]]
+	tint = { Box = true, Text = true, Image = true, Path = true, Stage = true },
 }
 
 function prop_channels.emitsBinding(class: string, prop: string): boolean

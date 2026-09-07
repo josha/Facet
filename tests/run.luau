@@ -764,6 +764,13 @@ require("./adaptive.spec")
 	and the sweep here is what says `hug` and `content` now agree at every width. ]]
 require("./fits_ideal_size.spec")
 require("./button_complete.spec")
+--[[ INHERITED `tint` AND INHERITED DISABLED SUBTREES (stabilization pass 2026-09-07,
+	stream C). Both properties are declared on a layout container and resolved onto
+	its whole subtree by `src/mount.luau`'s cascade: precedence (nested, override,
+	re-enable refused), reactivity in both directions with no remount, every input
+	path blocked, focus restoration, the themed disabled rule on Studio Neutral and
+	on a reference package, and teardown mid-disable. ]]
+require("./inherited_subtree.spec")
 -- the circle Button (feature round 2026-07-26)
 require("./button_shape.spec")
 -- the circle shape generalized to ZStack (task PAINT, 2026-08-27, director item 12)
