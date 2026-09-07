@@ -36,6 +36,7 @@ local renderer = require("../src/render/renderer")
 local customFactory = require("../src/core/custom")
 local path_shapes = require("../src/controls/path_shapes")
 local fake_target = require("./lib/fake_target")
+local list_scene = require("./lib/row_host_scene")
 
 local PLATES, CASTERS = scene.PLATES, scene.PLATES // scene.CASTER_EVERY
 -- READ OFF THE RUN AT HEAD `a46f84c4`, before this task touched `src/` — the
@@ -468,6 +469,186 @@ describe("translate host: the reader audit, one pin per reader that had to chang
 		expect(`y={a.controller.screenRectOf("/S/List/Cell").y}`).toBe("y=96")
 		a.dispose()
 		e.dispose()
+	end)
+
+	--[[ THE FIFTH TRIGGER, AND THE COUNT IT BUYS (Plan D, D6a). A `ForEach` item root
+		spliced into a stack is a coordinate space, so a LIST SHIFT — the banner above
+		the rows leaving, every row below it moving up by 60 — is one rect and one
+		engine write PER ROW instead of one per box. Read off the run on a 300-row list
+		whose rows carry four children each:
+
+		  hosts off   1,501 rects / 1,501 engine writes, 1,500 translated
+		  hosts on      301 rects /   301 engine writes,   300 translated   (5.0x)
+
+		AND THE PRICE IS PINNED BESIDE THE WIN, because a lever whose cost is not in
+		the same assertion is a lever nobody can re-judge later: a coordinate space is a
+		REAL Instance, so the same 300 rows leave the elidable set — `elided` 302 -> 2,
+		i.e. +300 GuiObjects that the flat tree did not materialise. The trade is 1,200
+		writes per shift against 300 instances for the life of the surface, and it is
+		why the trigger is the `ForEach`'s items alone rather than every stack inside a
+		stack (`mount.markRow`).
+
+		THE SHIFT IS DRIVEN TWICE, off and back on, because the two directions take
+		different arms of the solver's reuse gate and only one of them was ever
+		exercised by a fixture in this tree. ]]
+	it("a list shift writes one rect per ROW, and the rows cost one Instance each", function()
+		local function measure(hosts: boolean): string
+			local s = list_scene.new({ viewport = { x = 0, y = 0, w = 400, h = 800 }, rows = 300, hosts = hosts })
+			-- a warm-up write: the first refresh after `initialRender` is structural
+			s.write(1, "warm")
+			local before = s.stats() :: any
+			local r0, e0 = before.rectWrites, before.engineWrites
+			s.branch(false)
+			local off = s.stats() :: any
+			local r1, e1 = off.rectWrites, off.engineWrites
+			s.branch(true)
+			local on = s.stats() :: any
+			local spaces = 0
+			for _, path in s.adapter.paths() do
+				if s.adapter.hostSpaceAt(path) == true then
+					spaces += 1
+				end
+			end
+			local out = `off={r1 - r0}/{e1 - e0} on={on.rectWrites - r1}/{on.engineWrites - e1} `
+				.. `translated={on.lastTranslated} spaces={spaces} elided={on.elided}`
+			s.dispose()
+			return out
+		end
+		expect(measure(false)).toBe("off=1501/1501 on=1501/1501 translated=1500 spaces=0 elided=302")
+		expect(measure(true)).toBe("off=301/301 on=301/301 translated=300 spaces=300 elided=2")
+	end)
+
+	--[[ ...AND THE POOL IS UNTOUCHED, WHICH WAS AN OPEN QUESTION AND IS NOW A
+		MEASUREMENT. The brief that asked for the fifth trigger flagged a risk it could
+		not price on paper: a coordinate space is a registered instance host, hosts have
+		their own recycle bucket (`render/recycle_key`), and if a hosted row could not
+		PARK then every `removeItem`/`addItem` on a list would give back the recycling
+		the pool exists for. Driven both ways on the same 200-row list — 50 removals
+		then 50 inserts — the four lifecycle counters are IDENTICAL with hosts on and
+		off, to the unit. A hosted row parks and is recycled exactly as a flat one is,
+		so the count lever costs the pool nothing and needs no length gate. ]]
+	it("a hosted row parks and recycles exactly as a flat one does", function()
+		local function churn(hosts: boolean): string
+			local s = list_scene.new({ viewport = { x = 0, y = 0, w = 400, h = 800 }, rows = 200, hosts = hosts })
+			s.write(1, "warm")
+			local b = s.stats() :: any
+			local c0, p0, y0, x0 = b.creates, b.parked, b.recycled, b.removes
+			for _ = 1, 50 do
+				s.remove(1)
+			end
+			local m = s.stats() :: any
+			local out = `remove: creates={m.creates - c0} parked={m.parked - p0} `
+				.. `recycled={m.recycled - y0} removes={m.removes - x0}`
+			local c1, p1, y1, x1 = m.creates, m.parked, m.recycled, m.removes
+			for _ = 1, 50 do
+				s.insert(1)
+			end
+			local a = s.stats() :: any
+			out ..= ` | add: creates={a.creates - c1} parked={a.parked - p1} ` .. `recycled={a.recycled - y1} removes={a.removes - x1}`
+			s.dispose()
+			return out
+		end
+		local flat = churn(false)
+		expect(flat).toBe(
+			"remove: creates=0 parked=64 recycled=0 removes=250 | add: creates=186 parked=0 recycled=64 removes=0"
+		)
+		expect(churn(true)).toBe(flat)
+	end)
+
+	--[[ THE THREE TERMS OF THE FIFTH TRIGGER, EACH DRIVEN ON ITS OWN (D6a). The
+		predicate is "a `ForEach` item root, spliced into a stack, with two or more
+		children", and each clause is there for a reason that can be stated as a
+		measurement rather than as an intention:
+
+		  IN A STACK — a `ForEach` under an `Anchor` places each row by its own
+		    offset, so a shift is not a line shift and the rows have no shared move to
+		    ride. Hosting them would buy an Instance apiece and no write. (It is also
+		    the shipped nameplate/minimap shape, where the rows are already hosts by
+		    the FIRST trigger and a second space inside each would be pure cost.)
+		  TWO OR MORE CHILDREN — a one-child row costs the same single write hosted or
+		    not, and hosting it spends a real Instance for nothing.
+		  A CONTAINER CLASS — `ROW_HOST`; a leaf has no subtree for the engine to carry.
+
+		Three worlds, same drive, one census each. ]]
+	it("a row earns its coordinate space by being in a stack, with children", function()
+		local function census(build: (any) -> any): number
+			local w = world(build)
+			local n = 0
+			for _, path in w.adapter.paths() do
+				if w.adapter.hostSpaceAt(path) == true then
+					n += 1
+				end
+			end
+			w.dispose()
+			return n
+		end
+		local ITEMS = { { key = "a" }, { key = "b" }, { key = "c" } }
+		local function rowsForEach(core: any, kids: number): any
+			return UI.ForEach({
+				id = "Rows",
+				items = core:signal(ITEMS),
+				key = function(item: any): string
+					return item.key
+				end,
+				row = function(): any
+					local children: { any } = { UI.Box({ id = "A", width = px(10), height = px(10) }) }
+					if kids > 1 then
+						table.insert(children, UI.Box({ id = "B", width = px(10), height = px(10) }))
+					end
+					return UI.VStack({
+						id = "Row",
+						padding = 0,
+						gap = 0,
+						width = fill(),
+						height = px(20),
+						children = children,
+					})
+				end,
+			})
+		end
+		local inStackTwo = census(function(core: any): any
+			return UI.Screen({
+				id = "S",
+				children = {
+					UI.VStack({
+						id = "L",
+						padding = 0,
+						gap = 0,
+						width = fill(),
+						height = fill(),
+						children = {
+							rowsForEach(core, 2),
+						},
+					}),
+				},
+			})
+		end)
+		local inStackOne = census(function(core: any): any
+			return UI.Screen({
+				id = "S",
+				children = {
+					UI.VStack({
+						id = "L",
+						padding = 0,
+						gap = 0,
+						width = fill(),
+						height = fill(),
+						children = {
+							rowsForEach(core, 1),
+						},
+					}),
+				},
+			})
+		end)
+		local underAnchor = census(function(core: any): any
+			return UI.Screen({
+				id = "S",
+				children = {
+					UI.Anchor({ id = "L", width = fill(), height = fill(), children = { rowsForEach(core, 2) } }),
+				},
+			})
+		end)
+		expect(`stack2={inStackTwo} stack1={inStackOne} anchor={underAnchor}`).toBe("stack2=3 stack1=0 anchor=0")
 	end)
 
 	--[[ (a) THE HIT EXPANDER AND (k) THE HIT LIFT, on the same world, because they

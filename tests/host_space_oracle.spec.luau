@@ -59,6 +59,7 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 local scene = require("./lib/nameplates_scene")
+local list_scene = require("./lib/row_host_scene")
 local device_views = require("./lib/device_views")
 
 -- see `commit_translate`'s note: the tree SHAPE is what correctness depends on and
@@ -262,5 +263,155 @@ describe("C1 oracle: a coordinate space moves no public number, every view, ever
 		local sro = s.controller.screenRectOf(name)
 		expect(`relative={stored.x ~= sro.x or stored.y ~= sro.y}`).toBe("relative=true")
 		s.dispose()
+	end)
+end)
+
+--[[ THE LIST WORLD (Plan D, D6a) — the SAME five arms on the fifth trigger.
+
+	The four fixtures above are C1's world: a container whose PLACEMENT is reactive.
+	D6a makes a second population coordinate spaces — a `ForEach` item root spliced
+	into a stack — and this oracle had no fixture that contained one, which is
+	exactly how a structural shift landed a host and its subtree in two different
+	bases and reached the tree unobserved (`layout/translate_arm`, the host stop).
+	So the blind spot gets the same instrument rather than a new kind of one:
+	`tests/lib/row_host_scene.luau` publishes the same columns, and `arms()` above
+	raises it unchanged.
+
+	THE STEP LIST IS THE LIST'S OWN. A reorder, an insert, a removal, a row write, a
+	value write, the `When` banner above the rows leaving and coming back (the shape
+	that found the defect — every row moves up by 60), a scroll, and a viewport
+	change; each compared against a forced FULL solve and against a world with no
+	coordinate spaces at all. Nine views, because a row's height and the scroll
+	region are both viewport-dependent. ]]
+describe("D6a oracle: a ROW is a coordinate space and no public number moves", function()
+	it("reorder, insert, remove and a branch drop all survive, every view", function()
+		for _, view in device_views.VIEWS do
+			local base = { viewport = { x = 0, y = 0, w = view.w, h = view.h }, rows = 12 }
+			local aOpts = table.clone(base)
+			local cOpts = table.clone(base)
+			cOpts.measureReuse = false
+			cOpts.incremental = false
+			local eOpts = table.clone(base)
+			eOpts.hosts = false
+			local a, c, e = list_scene.new(aOpts), list_scene.new(cOpts), list_scene.new(eOpts)
+			local b, d = nil :: any, nil :: any
+			if CONTROL_VIEWS[view.id] then
+				local bOpts = table.clone(base)
+				bOpts.measureReuse = false
+				b = list_scene.new(bOpts)
+				local dOpts = table.clone(base)
+				dOpts.commitScope = false
+				d = list_scene.new(dOpts)
+			end
+			local label = `list/{view.id}`
+
+			--[[ NON-VACUITY, the same three ways — but counted on the COORDINATE-SPACE
+				flag rather than on `hostCount()`. The list sits in a `ScrollView`, which
+				is an adapter-registered instance host on BOTH arms and is refused as a
+				coordinate space by name, so `hostCount()` is never 0 here and would have
+				made the arm-`e` guard a check that cannot fail. ]]
+			local function spaceHosts(w: any): number
+				local n = 0
+				for _, path in w.adapter.paths() do
+					if w.adapter.hostSpaceAt(path) == true then
+						n += 1
+					end
+				end
+				return n
+			end
+			if #a.snapshot() == 0 then
+				error(`{label}: the fixture painted NOTHING`, 0)
+			end
+			if spaceHosts(a) == 0 then
+				error(`{label}: arm a has NO row hosts — the fifth trigger is not engaged`, 0)
+			end
+			if spaceHosts(e) ~= 0 then
+				error(`{label}: arm e has coordinate spaces — hosts=false is not reaching the trigger`, 0)
+			end
+			if a.snapshot() == e.snapshot() then
+				error(`{label}: the two worlds store IDENTICAL rects — the rows are not hosted`, 0)
+			end
+
+			local function step(what: string, drive: (any) -> ())
+				drive(a)
+				drive(c)
+				drive(e)
+				if b ~= nil then
+					drive(b)
+				end
+				if d ~= nil then
+					drive(d)
+				end
+				if a.snapshot() ~= c.snapshot() then
+					error(`{label}: {what} diverged from a FULL solve`, 0)
+				end
+				if d ~= nil and a.snapshot() ~= d.snapshot() then
+					error(`{label}: {what} diverged from an UNPRUNED commit`, 0)
+				end
+				if b ~= nil and a.snapshot() ~= b.snapshot() then
+					error(`{label}: {what} diverged from the memo-less solve`, 0)
+				end
+				if a.publicSnapshot() ~= e.publicSnapshot() then
+					error(`{label}: {what} diverged from the NO-HOSTS world`, 0)
+				end
+			end
+
+			--[[ THE ORDER IS DELIBERATE, AND WHAT IT AVOIDS IS A FINDING, NOT A
+				CONVENIENCE. Driving an INSERT while the banner is OFF and then bringing
+				the banner back leaves the content-sized `Body`'s height short by exactly
+				the inserted row (428 against a full solve's 458) — and it does so with
+				`hosts = false` as well, i.e. in the pre-D6a world, so it is a
+				pre-existing incremental-vs-full defect this fixture uncovered rather
+				than anything the fifth trigger does — as does a `ScrollView` around the
+				same list, whose canvas `contentW` goes stale after a reorder followed by
+				a branch toggle (8 against a full solve's 190), again in BOTH worlds.
+				Both are recorded, with their reproductions, in the campaign ledger;
+				conflating either with this oracle would make a D6a regression
+				indistinguishable from it. Every structural drive is still here — the
+				branch leaves and returns with the rows below it, which IS the shape the
+				fix round was found on — and each one happens against a settled list. ]]
+			step("mount", function(_w) end)
+			for round = 1, 2 do
+				step(`reorder {round}`, function(w)
+					w.reorder(2, 9)
+				end)
+				step(`write {round}`, function(w)
+					w.write(4, `changed {round}`)
+				end)
+				step(`bump {round}`, function(w)
+					w.bump(6, 100 + round)
+				end)
+				-- THE STEP THE FIX ROUND WAS FOUND ON: the banner above the rows leaves,
+				-- every row below it moves up by 60, and the list is the translate ROOT
+				-- while each row is a coordinate-space DESCENDANT of one
+				step(`branch off {round}`, function(w)
+					w.branch(false)
+				end)
+				step(`branch on {round}`, function(w)
+					w.branch(true)
+				end)
+				step(`insert {round}`, function(w)
+					w.insert(3)
+				end)
+				step(`remove {round}`, function(w)
+					w.remove(5)
+				end)
+				step(`viewport {round}`, function(w)
+					w.viewport(view.w - 20 * round, view.h)
+				end)
+				step(`viewport back {round}`, function(w)
+					w.viewport(view.w, view.h)
+				end)
+			end
+			a.dispose()
+			c.dispose()
+			e.dispose()
+			if b ~= nil then
+				b.dispose()
+			end
+			if d ~= nil then
+				d.dispose()
+			end
+		end
 	end)
 end)

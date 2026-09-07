@@ -24,6 +24,26 @@ type Blueprint = blueprintLib.Blueprint
 
 local DIRTY_CLASSES = { "paint", "measure", "arrange", "structure", "navigation", "semantics" }
 
+--[[ THE CLASSES WHOSE CHILDREN ARE LAID OUT IN A LINE (Plan D, D6a), so a child of
+	one is a "row" for `render/instance_boundary`'s fifth coordinate-space trigger.
+	Mount is where the fact belongs because mount is the only pass that knows the
+	AUTHORED parent: a `ForEach` region is spliced into the enclosing flow by
+	`render/layout_node`, so by the time the solver sees a row its parent is the
+	stack's flow and the region has vanished. The fact is threaded down instead —
+	one boolean parameter through `mountNode` and the three structural regions — so
+	a row mounted inside a `ForEach` inside a `VStack` inherits the stack-ness the
+	region stands in for.
+
+	`ScrollView` IS IN THE SET, and it is not an oversight that it is not a stack: a
+	scroller lays its children out along an axis exactly as a stack does, and it is
+	where Facet's own `Table` puts its rows (`controls/table.luau`'s Body is a
+	`ScrollView` unless `spec.scrolls == false`). Without it the trigger reached a
+	hand-written list and not the framework's list control — measured on
+	RascalRally's racer list, which is that control. The scroller itself is still
+	REFUSED as a coordinate space by name in `render/instance_boundary`; this set
+	answers a different question, about the scroller's CHILDREN. ]]
+local STACK_PARENT: { [string]: boolean } = { VStack = true, HStack = true, ScrollView = true }
+
 -- STRUCTURAL TRANSITIONS. An optional
 -- collaborator — supplied by the render/presenter layer, scripted in headless
 -- tests — that turns a structural REMOVAL into a RETIREMENT: the subtree stays in
@@ -144,7 +164,14 @@ function mountLib.mount(core: any, rootBlueprint: Blueprint, opts: MountOpts?)
 		already give you, for one more line and no new idiom, so the prop buys
 		nothing and adds a way to get the lifetime wrong. Refused deliberately; see
 		`tests/mount.spec.luau`, "a flip back gets a FRESH scope". ]]
-	local function mountWhen(bp: Blueprint, path: string, scope: any, boundary: any, activation: string?): any
+	local function mountWhen(
+		bp: Blueprint,
+		path: string,
+		scope: any,
+		boundary: any,
+		activation: string?,
+		inStack: boolean?
+	): any
 		local node: any = {
 			class = "When",
 			path = path,
@@ -238,7 +265,15 @@ function mountLib.mount(core: any, rootBlueprint: Blueprint, opts: MountOpts?)
 				local branchScope = scope:child(branchPath)
 				node.branchScope = branchScope
 				local ok, mounted = guarded(boundary, function()
-					return mountNode(bp.props.thenView(branchScope), branchPath, branchScope, 1, boundary, activation)
+					return mountNode(
+						bp.props.thenView(branchScope),
+						branchPath,
+						branchScope,
+						1,
+						boundary,
+						activation,
+						inStack
+					)
 				end)
 				if not ok then
 					return -- the boundary swapped to its fallback
@@ -259,7 +294,8 @@ function mountLib.mount(core: any, rootBlueprint: Blueprint, opts: MountOpts?)
 		if initial then
 			local branchScope = scope:child(branchPath)
 			node.branchScope = branchScope
-			local mounted = mountNode(bp.props.thenView(branchScope), branchPath, branchScope, 1, boundary, activation)
+			local mounted =
+				mountNode(bp.props.thenView(branchScope), branchPath, branchScope, 1, boundary, activation, inStack)
 			node.children = { mounted }
 			if declared ~= nil then
 				mounted.transition = declared
@@ -269,8 +305,39 @@ function mountLib.mount(core: any, rootBlueprint: Blueprint, opts: MountOpts?)
 		return node
 	end
 
+	--[[ A ForEach ITEM ROOT SPLICED INTO A STACK IS A ROW (Plan D, D6a) — the fact
+		`render/instance_boundary`'s fifth coordinate-space trigger asks for, and the
+		only node that may carry it.
+
+		WHY MOUNT, AND WHY ONLY HERE. A region is spliced into the enclosing flow by
+		`render/layout_node`, so by the time the solver sees a row its parent is the
+		stack's flow and the region has vanished — mount is the one pass that still
+		knows the authored parent. And the population is deliberately the ForEach's
+		items ALONE, not every stack inside a stack: the lever this fact buys is the
+		LIST SHIFT (a reorder/insert/remove moves every row below it, and a hosted row
+		is one rect write instead of one per box), which only a keyed region produces.
+		Every other stack-in-stack would pay a real Instance for a shift it never has —
+		measured on `tools/lune/check_elision_census`'s fixture, where the broader rule
+		gave back 40 of 61 elisions on 20 rows and the narrow one gives back none.
+
+		A structural row (a `When` as the item root) still THREADS the fact down, so
+		the branch it splices in is the row; only the layout node it produces is
+		stamped, because `createOptsFor` is asked of nothing else. ]]
+	local function markRow(mounted: any, inStack: boolean?)
+		if inStack == true and mounted ~= nil then
+			mounted.inStack = true
+		end
+	end
+
 	-- structural region: ForEach (add/remove/move only, §5.4)
-	local function mountForEach(bp: Blueprint, path: string, scope: any, boundary: any, activation: string?): any
+	local function mountForEach(
+		bp: Blueprint,
+		path: string,
+		scope: any,
+		boundary: any,
+		activation: string?,
+		inStack: boolean?
+	): any
 		local node: any = {
 			class = "ForEach",
 			path = path,
@@ -373,14 +440,17 @@ function mountLib.mount(core: any, rootBlueprint: Blueprint, opts: MountOpts?)
 					-- item-scoped resources (async handles, per-row memos —
 					-- §10.3/§10.5); ignoring the second argument stays valid
 					local produce = function()
-						return mountNode(
+						local built = mountNode(
 							bp.props.row(wanted[key], itemScope),
 							rowPath,
 							itemScope,
 							1,
 							boundary,
-							activation
+							activation,
+							inStack
 						)
+						markRow(built, inStack)
+						return built
 					end
 					local mounted
 					if boundary ~= nil then
@@ -494,17 +564,10 @@ function mountLib.mount(core: any, rootBlueprint: Blueprint, opts: MountOpts?)
 			end
 			seen[key] = true
 			local itemScope = scope:child(`{path}/[{key}]`)
-			node.itemsByKey[key] = {
-				scope = itemScope,
-				mounted = mountNode(
-					bp.props.row(item, itemScope),
-					`{path}/[{key}]`,
-					itemScope,
-					1,
-					boundary,
-					activation
-				),
-			}
+			local built =
+				mountNode(bp.props.row(item, itemScope), `{path}/[{key}]`, itemScope, 1, boundary, activation, inStack)
+			markRow(built, inStack)
+			node.itemsByKey[key] = { scope = itemScope, mounted = built }
 			table.insert(order, key)
 		end
 		for _, key in order do
@@ -528,7 +591,14 @@ function mountLib.mount(core: any, rootBlueprint: Blueprint, opts: MountOpts?)
 	-- dispose it early without a double-dispose at teardown; the boundary's
 	-- scope owns a guard closure that disposes whichever content scope is
 	-- current.
-	local function mountErrorBoundary(bp: Blueprint, path: string, scope: any, _boundary: any, activation: string?): any
+	local function mountErrorBoundary(
+		bp: Blueprint,
+		path: string,
+		scope: any,
+		_boundary: any,
+		activation: string?,
+		inStack: boolean?
+	): any
 		local node: any = {
 			class = "ErrorBoundary",
 			path = path,
@@ -549,7 +619,8 @@ function mountLib.mount(core: any, rootBlueprint: Blueprint, opts: MountOpts?)
 			end
 			node.children = {}
 			contentScope = core:scope(path .. "/fallback")
-			node.children = { mountNode(bp.props.fallback(err), path .. "/fallback", contentScope, 1, nil, activation) }
+			node.children =
+				{ mountNode(bp.props.fallback(err), path .. "/fallback", contentScope, 1, nil, activation, inStack) }
 			pushDirty(path, "structure")
 		end
 		local boundary = {
@@ -561,7 +632,7 @@ function mountLib.mount(core: any, rootBlueprint: Blueprint, opts: MountOpts?)
 		}
 		contentScope = core:scope(path .. "/view")
 		local ok, result = pcall(function()
-			return mountNode(bp.props.view(), path .. "/view", contentScope, 1, boundary, activation)
+			return mountNode(bp.props.view(), path .. "/view", contentScope, 1, boundary, activation, inStack)
 		end)
 		if ok and not tripped then
 			node.children = { result }
@@ -578,7 +649,7 @@ function mountLib.mount(core: any, rootBlueprint: Blueprint, opts: MountOpts?)
 	-- correctly a fourth time; now it is one table entry.
 	-- `mountErrorBoundary` takes no boundary of its own — it CREATES one — so the
 	-- extra argument is deliberately ignored there.
-	local STRUCTURAL: { [string]: (Blueprint, string, any, any, string?) -> any } = {
+	local STRUCTURAL: { [string]: (Blueprint, string, any, any, string?, boolean?) -> any } = {
 		ErrorBoundary = mountErrorBoundary,
 		When = mountWhen,
 		ForEach = mountForEach,
@@ -590,13 +661,14 @@ function mountLib.mount(core: any, rootBlueprint: Blueprint, opts: MountOpts?)
 		scope: any,
 		index: number,
 		boundary: any,
-		inheritedActivation: string?
+		inheritedActivation: string?,
+		inStack: boolean?
 	): any
 		local id = bp.id or `{bp.class}#{index}`
 		local path = parentPath .. "/" .. id
 		local mountStructural = STRUCTURAL[bp.class]
 		if mountStructural ~= nil then
-			local node = mountStructural(bp, path, scope, boundary, inheritedActivation)
+			local node = mountStructural(bp, path, scope, boundary, inheritedActivation, inStack)
 			node.id = id
 			counters.mounted += 1
 			counters.factoryRuns += 1
@@ -700,7 +772,10 @@ function mountLib.mount(core: any, rootBlueprint: Blueprint, opts: MountOpts?)
 					error(`Facet mount {path}: duplicate child id '{childId}'`, 0)
 				end
 				seen[childId] = true
-				table.insert(node.children, mountNode(childBp, path, scope, i, boundary, activationFeedback))
+				table.insert(
+					node.children,
+					mountNode(childBp, path, scope, i, boundary, activationFeedback, STACK_PARENT[bp.class])
+				)
 			end
 		end
 		return node

@@ -1131,7 +1131,7 @@ describe("the layout-node store: the audit that licenses it", function()
 		expect(out).toEqual({ "chrome_slots.readHint", "instance_boundary.createOptsFor" })
 	end)
 
-	it("...and `instance_boundary.createOptsFor` reads five fields, every one of them axis-covered", function()
+	it("...and `instance_boundary.createOptsFor` reads six fields, every one of them axis-covered", function()
 		--[[ THE SIXTH FIELD SET (Plan C, C1). The coordinate-space decision is asked of
 			the ONE predicate that owns it rather than read off a stamp, because
 			`renderer.ensureTree` — which stamps — can run AFTER this build (a re-solve
@@ -1144,7 +1144,15 @@ describe("the layout-node store: the audit that licenses it", function()
 			beside `props` and is the record of WHICH props were reactive, so it changes
 			only when `props` does. `hostSpace` is the predicate's own MEMO, written on
 			the mounted node by the first caller to ask — which is what makes the two
-			callers unable to disagree. ]]
+			callers unable to disagree.
+
+			`inStack` JOINED THE SET ON 2026-09-07 (Plan D, D6a) and is the same KIND of
+			field as `meta` two cases below: written once by `mount`, by `markRow`, on a
+			`ForEach` item root spliced into a stack, and never written again — no signal
+			reaches it, no region rewrites it, and the mount that stamps it has returned
+			before any renderer walk can ask. It cannot change under a mounted node, so
+			no dirty axis has to cover it; the axis argument is that there is nothing to
+			cover. ]]
 		local boundary = stripLua(fs.readFile("src/render/instance_boundary.luau"))
 		local fn = string.match(boundary, "function instance_boundary%.createOptsFor%(.-\n(.-)\nend")
 		assert(fn ~= nil, "no `instance_boundary.createOptsFor` body to read")
@@ -1157,7 +1165,13 @@ describe("the layout-node store: the audit that licenses it", function()
 			table.insert(fields, field)
 		end
 		table.sort(fields)
-		expect(fields).toEqual({ "children", "class", "dynamicProps", "hostSpace", "props" })
+		expect(fields).toEqual({ "children", "class", "dynamicProps", "hostSpace", "inStack", "props" })
+		-- ...and `inStack` really is written ONCE, by `mount`, and nowhere else in `src/`
+		local stamps = 0
+		for _ in string.gmatch(stripLua(fs.readFile("src/mount.luau")), "%.inStack = ") do
+			stamps += 1
+		end
+		expect(`inStack writes in mount={stamps}`).toBe("inStack writes in mount=1")
 		-- `dynamicProps` really is written beside `props`, once, by `mount`
 		local mountSrc = stripLua(fs.readFile("src/mount.luau"))
 		local writes = 0

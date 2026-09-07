@@ -60,6 +60,16 @@
 	adapter answer to the same rule rather than to two copies of it.
 ]]
 
+--[[ THE CLASSES A ROW MAY BE (Plan D, D6a): the three containers, i.e. everything
+	that can hold a subtree the engine could carry. `ZStack` is in the set because
+	Facet's OWN `Table` builds its rows as one (`controls/table_rows.luau`: a hit
+	surface under a cell strip), so leaving it out would have made this lever reach
+	the benchmark's hand-written list and not the framework's shipped list control —
+	measured on RascalRally's racer list, where the trigger fired on nothing until
+	`ZStack` joined. Nothing about a coordinate space wants a linear layout; a host is
+	an ORIGIN, and Plan C's own fixture hosts a `ZStack` already. ]]
+local ROW_HOST: { [string]: boolean } = { VStack = true, HStack = true, ZStack = true }
+
 local instance_boundary = {}
 
 export type CreateOpts = { canvasGroup: boolean?, instanceHost: boolean?, hostSpace: boolean? }
@@ -159,10 +169,24 @@ function instance_boundary.createOptsFor(node: any, opts: any?): CreateOpts?
 	local decided = node.hostSpace
 	if decided == nil then
 		local dyn = node.dynamicProps
-		decided = dyn ~= nil
+		decided = (
+			dyn ~= nil
 			and (dyn.offsetX ~= nil or dyn.offsetY ~= nil or dyn.anchor ~= nil)
 			and node.children ~= nil
 			and #node.children > 0
+		)
+			--[[ THE FIFTH TRIGGER (Plan D, D6a): a ROW — a stack laid out in a line by
+				another stack — is a coordinate space too. A structural shift then writes
+				ONE rect per row instead of one per box, and the engine carries the row's
+				children: 7,335 rect writes on a 1,467-row reorder become 1,467.
+
+				`>= 2` BECAUSE ONE CHILD BUYS NOTHING. A row with a single child costs the
+				same one write hosted or not, and hosting it spends a real Instance
+				(`ssEnsureTree` 4.07 us/create) for no count. The term is read ONCE and
+				memoised beside the `> 0` term above it, whose own known limit — a
+				container empty at its first ask stays a non-host for its life — this one
+				inherits unchanged and for the same reason. ]]
+			or (node.inStack == true and ROW_HOST[node.class] == true and node.children ~= nil and #node.children >= 2)
 		node.hostSpace = decided
 	end
 	if decided then
