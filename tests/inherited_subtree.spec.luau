@@ -577,6 +577,224 @@ describe("C3: a disabled subtree blocks every input path", function()
 	end)
 end)
 
+--[[ ===== THE GROUPED DERIVATION (RED-TEAM C2) ==============================
+	Everything above this block drives a VERTICAL screen, and a vertical screen is
+	served by `focusWalk` — one of TWO derivations the presenter runs. The moment a
+	screen has horizontal structure (an `HStack` run of two focusables, a `Grid`),
+	`hasHorizontalStructure` engages and the member set becomes the NAVIGATION
+	GROUPS, built by `autoGroups`/`layoutGroups` over `collectFocusables`. Those
+	walks had their own copies of "is this a focus stop" and none of them asked
+	`isDisabled`, so a disabled panel beside a live row stayed fully navigable:
+	`DPadRight` landed on it, `initialFocus` landed on it, focus already inside it
+	stayed there when the panel was switched off, and a Slider inside it still moved
+	its owner's value.
+
+	The constitution's rule is that the two verbs walk the SAME set (§9, "one focus
+	map, read two ways"), so every C3 claim above owes a grouped arm. These are
+	those arms. ]]
+describe("C3 (grouped): a disabled subtree is out of the GROUPED derivation too", function()
+	local function grouped(panelEnabled: any, panelChildren: { any })
+		return UI.Screen({
+			id = "S",
+			children = {
+				UI.HStack({
+					id = "Row",
+					children = {
+						UI.Button({ id = "A", label = "a", width = fixed(80), height = fixed(44) }),
+						UI.VStack({ id = "Panel", enabled = panelEnabled, children = panelChildren }),
+						UI.Button({ id = "B", label = "b", width = fixed(80), height = fixed(44) }),
+					},
+				}),
+			},
+		})
+	end
+	local function offButton()
+		return { UI.Button({ id = "Off", label = "off", width = fixed(80), height = fixed(44) }) }
+	end
+	local function pathsOf(entries: { any }): { string }
+		local out: { string } = {}
+		for _, e in entries do
+			table.insert(out, tostring(if type(e) == "table" then (e.path or e.id) else e))
+		end
+		return out
+	end
+	local function has(list: { string }, needle: string): boolean
+		for _, v in list do
+			if string.find(v, needle, 1, true) ~= nil then
+				return true
+			end
+		end
+		return false
+	end
+
+	it("the horizontal run's traversal skips it, exactly as the flat walk does", function()
+		local _, _, _, _, pres = present(grouped(false, offButton()))
+		local map = pres.focus.focusMap()
+		expect(has(pathsOf(map.traversal), "/S/Row/Panel/Off")).toBe(false)
+		expect(has(pathsOf(map.traversal), "/S/Row/A")).toBe(true)
+	end)
+
+	it("no navigation group carries it either — the two readings agree", function()
+		local _, _, _, _, pres = present(grouped(false, offButton()))
+		for _, group in pres.focus.focusMap().navigation or {} do
+			expect(has(pathsOf(group.order or {}), "/S/Row/Panel/Off")).toBe(false)
+		end
+	end)
+
+	it("DPadRight walks past it to the live button on the far side", function()
+		local _, _, _, system, pres = present(grouped(false, offButton()))
+		pres.focus.focusOn("/S/Row/A")
+		pres.refresh()
+		system.deviceKey("DPadRight", true)
+		system.deviceKey("DPadRight", false)
+		pres.refresh()
+		expect(pres.focus.focused:get()).toBe("/S/Row/B")
+	end)
+
+	it("initialFocus does not land inside it", function()
+		local _, _, _, _, pres = present(grouped(false, offButton()))
+		expect(tostring(pres.focus.focused:get())).never().toBe("/S/Row/Panel/Off")
+	end)
+
+	it("focus already inside it LEAVES when the panel is switched off", function()
+		local core = customFactory.new()
+		local env = environment.new(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 600, h = 600 })
+		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
+		local on = core:signal(true)
+		local adapter = fake_target.new()
+		local system = actionsLib.newSystem(core)
+		local pres = presenterLib.new(core, env, adapter, system)
+		pres.present(grouped(on, offButton()))
+		pres.refresh()
+		pres.focus.focusOn("/S/Row/Panel/Off")
+		pres.refresh()
+		expect(pres.focus.focused:get()).toBe("/S/Row/Panel/Off")
+		on:set(false)
+		pres.refresh()
+		expect(tostring(pres.focus.focused:get())).never().toBe("/S/Row/Panel/Off")
+	end)
+
+	it("...and the same holds when the live siblings are a Grid rather than a row", function()
+		local core = customFactory.new()
+		local env = environment.new(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 600, h = 600 })
+		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
+		local on = core:signal(true)
+		local adapter = fake_target.new()
+		local system = actionsLib.newSystem(core)
+		local pres = presenterLib.new(core, env, adapter, system)
+		pres.present(UI.Screen({
+			id = "S",
+			children = {
+				UI.Grid({
+					id = "G",
+					columns = 2,
+					children = {
+						UI.Button({ id = "A", label = "a", width = fixed(80), height = fixed(44) }),
+						UI.Button({ id = "B", label = "b", width = fixed(80), height = fixed(44) }),
+						UI.VStack({
+							id = "Panel",
+							enabled = on,
+							children = {
+								UI.Button({ id = "Off", label = "off", width = fixed(80), height = fixed(44) }),
+							},
+						}),
+					},
+				}),
+			},
+		}))
+		pres.refresh()
+		pres.focus.focusOn("/S/G/Panel/Off")
+		pres.refresh()
+		on:set(false)
+		pres.refresh()
+		expect(tostring(pres.focus.focused:get())).never().toBe("/S/G/Panel/Off")
+		for _, group in pres.focus.focusMap().navigation or {} do
+			expect(has(pathsOf(group.order or {}), "/S/G/Panel/Off")).toBe(false)
+		end
+	end)
+
+	--[[ A VALUE CONTROL IS THE SHARPEST ARM: the Adjust verb is bound only while
+		focus sits on its declared target, so "the track is still in the ring" and
+		"the owner's signal still moves" are the same defect seen from two ends. The
+		Slider's track is a focusable `Grip`, which is the branch that had no
+		`isDisabled` in EITHER grouped walk. ]]
+	it("a Slider inside the subtree keeps its owner's value, on both Adjust keys", function()
+		local core = customFactory.new()
+		local env = environment.new(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 600, h = 600 })
+		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
+		local adapter = fake_target.new()
+		local system = actionsLib.newSystem(core)
+		local pres = presenterLib.new(core, env, adapter, system)
+		local value = core:signal(0.5)
+		local slider = Facet.Controls.Slider(core, { id = "Vol", value = value, min = 0, max = 1 })
+		pres.present(UI.Screen({
+			id = "S",
+			children = {
+				UI.HStack({
+					id = "Row",
+					children = {
+						UI.Button({ id = "A", label = "a", width = fixed(80), height = fixed(44) }),
+						UI.Button({ id = "B", label = "b", width = fixed(80), height = fixed(44) }),
+					},
+				}),
+				UI.VStack({ id = "Panel", enabled = false, children = { slider.blueprint } }),
+			},
+		}))
+		pres.refresh()
+		for _, group in pres.focus.focusMap().navigation or {} do
+			expect(has(pathsOf(group.order or {}), "/S/Panel/Vol")).toBe(false)
+		end
+		pres.focus.focusOn("/S/Panel/Vol/TrackHost/Track")
+		pres.refresh()
+		for _ = 1, 3 do
+			system.deviceKey("Right", true)
+			system.deviceKey("Right", false)
+			pres.refresh()
+		end
+		for _ = 1, 3 do
+			system.deviceKey("DPadRight", true)
+			system.deviceKey("DPadRight", false)
+			pres.refresh()
+		end
+		expect(value:get()).toBe(0.5)
+		slider.dispose()
+	end)
+
+	it("a Stepper inside the subtree is not a dead stop the pad can reach", function()
+		local core = customFactory.new()
+		local env = environment.new(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 600, h = 600 })
+		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
+		local adapter = fake_target.new()
+		local system = actionsLib.newSystem(core)
+		local pres = presenterLib.new(core, env, adapter, system)
+		local qty = core:signal(3)
+		local stepper = Facet.Controls.Stepper(core, { id = "Qty", label = "Qty", value = qty, min = 0, max = 9 })
+		pres.present(UI.Screen({
+			id = "S",
+			children = {
+				UI.Button({ id = "A", label = "a", width = fixed(80), height = fixed(44) }),
+				UI.VStack({ id = "Panel", enabled = false, children = { stepper.blueprint } }),
+			},
+		}))
+		pres.refresh()
+		for _ = 1, 6 do
+			system.deviceKey("DPadDown", true)
+			system.deviceKey("DPadDown", false)
+			pres.refresh()
+		end
+		expect(string.find(tostring(pres.focus.focused:get()), "/S/Panel/", 1, true)).toBe(nil)
+		for _, group in pres.focus.focusMap().navigation or {} do
+			expect(has(pathsOf(group.order or {}), "/S/Panel/Qty")).toBe(false)
+		end
+		expect(qty:get()).toBe(3)
+		stepper.dispose()
+	end)
+end)
+
 describe("C3: focus restoration when the focused subtree is switched off", function()
 	it("focus leaves for a legal node and does not come back on re-enable", function()
 		local core = customFactory.new()

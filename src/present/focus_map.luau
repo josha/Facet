@@ -446,13 +446,20 @@ end
 -- position; standalone focusables outside any contribution subtree form flat
 -- vertical groups between them (preserving focusOrder order); focusable grips
 -- defer last. Re-derived on every refresh (function form).
--- collect focusable paths (excluding grips) under `node`, in document order
--- (hoisted above autoGroups — both derivations share the layout helpers)
+--[[ collect focusable paths (excluding grips) under `node`, in document order
+	(hoisted above autoGroups — both derivations share the layout helpers)
+
+	AND IT ASKS `isDisabled`, like every other "is this a focus stop" test in this
+	file (RED-TEAM C2). This walk feeds `focusableCount` — which decides whether a
+	row becomes a horizontal group at all — `emitGridGroups`, and both grouped
+	derivations, so a disabled node missed here is a node the pad can reach on any
+	screen with horizontal structure while the flat walk correctly refuses it. The
+	two verbs walk the SAME set (constitution §9); they now agree on this too. ]]
 local function collectFocusables(node: any, out: { string })
 	if node.class == "Grip" or isRetiring(node) then
 		return
 	end
-	if FOCUSABLE[node.class] and not (node.props and node.props.focusable == false) then
+	if FOCUSABLE[node.class] and not (node.props and node.props.focusable == false) and not isDisabled(node) then
 		table.insert(out, node.path)
 	end
 	for _, child in node.children or {} do
@@ -740,11 +747,17 @@ local function autoGroups(rootNode: any): { any }
 			table.insert(groups, { name = `auto-h-{node.path}`, axis = "horizontal", entry = "nearest", order = cells })
 			return
 		end
+		-- ...and both stops ask `isDisabled` (RED-TEAM C2): this derivation builds the
+		-- member set the presenter navigates when the screen has horizontal structure
 		if node.class == "Grip" then
-			if node.props and node.props.focusable == true then
+			if node.props and node.props.focusable == true and not isDisabled(node) then
 				table.insert(grips, node.path)
 			end
-		elseif FOCUSABLE[node.class] and not (node.props and node.props.focusable == false) then
+		elseif
+			FOCUSABLE[node.class]
+			and not (node.props and node.props.focusable == false)
+			and not isDisabled(node)
+		then
 			table.insert(pending, node.path)
 		end
 		for _, child in node.children or {} do
@@ -808,7 +821,7 @@ local function layoutGroups(rootNode: any): { any }
 			return
 		end
 		if node.class == "Grip" then
-			if node.props and node.props.focusable == true then
+			if node.props and node.props.focusable == true and not isDisabled(node) then
 				table.insert(grips, node.path)
 			end
 			return
@@ -828,7 +841,7 @@ local function layoutGroups(rootNode: any): { any }
 			table.insert(groups, { name = `auto-h-{node.path}`, axis = "horizontal", entry = "nearest", order = cells })
 			return
 		end
-		if FOCUSABLE[node.class] and not (node.props and node.props.focusable == false) then
+		if FOCUSABLE[node.class] and not (node.props and node.props.focusable == false) and not isDisabled(node) then
 			table.insert(pending, node.path)
 		end
 		for _, child in node.children or {} do
