@@ -2945,16 +2945,27 @@ function renderer.attach(
 		-- OUTSIDE the mount span, and before the solve: by here the departed nodes'
 		-- handles are gone, which is the guarantee `onDisappear` publishes.
 		drainDeparted()
-		-- ...and the authored hides, re-read from the live tree, so the merge inside
-		-- the solve below sees this frame's value
+		--[[ ...and the authored hides, re-read from the live tree, so the merge inside
+			the solve below sees this frame's value.
+
+			AND A MOVED VALUE FORCES THE SOLVE THAT OWES IT A WALK (stabilization
+			B4-R). `layoutDirtIsStale` above speaks for props the SOLVE read off the
+			tree — it cannot speak for this one, which reaches the adapter through
+			THIS cache and nothing else, refreshed here, strictly AFTER the solve that
+			stamped `fullSolveSeq`. A `hidden` written from inside a solve (every
+			`syncGeometry` runs there) therefore got its entry declared answered by a
+			solve that painted the PRE-write value, and the verdict stuck forever.
+			Keyed on the re-read having MOVED, never on the entry existing: a write
+			that lands back on the cached value buys nothing, and a frame where
+			nothing moved still solves exactly as often as it did (owed row O-20). ]]
 		if hiddenTouched ~= nil then
 			for _, path in hiddenTouched :: { string } do
 				local node = findNode(path)
-				authoredHidden[path] = if node ~= nil
-						and node.props ~= nil
-						and node.props.hidden == true
-					then true
-					else nil
+				local want = if node ~= nil and node.props ~= nil and node.props.hidden == true then true else nil
+				if authoredHidden[path] ~= want then
+					authoredHidden[path] = want
+					needsSolve = true
+				end
 			end
 		end
 		-- THE AUTHORED TRIPLE, re-read from the live tree. Here — after the

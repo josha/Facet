@@ -550,6 +550,15 @@ require("./engine_writes.spec")
 -- of the source, a schema round trip on the dropped set, and the T5 oracle plus
 -- hide/unhide and a placement prop on a Text leaf
 require("./commit_dirt_classes.spec")
+--[[ ...AND THE OTHER HALF OF THE SAME SEAM (stabilization B4-R): `hidden` is the
+	one prop in the layout classes that does NOT reach the commit through the tree
+	— it reaches it through the renderer's own `authoredHidden` cache, refreshed at
+	the drain, strictly after the settle re-solve that stamped the entry answered.
+	A `hidden` written from INSIDE a solve (which is where every `syncGeometry`
+	runs) was therefore declared stale by `layoutDirtIsStale` and swallowed for the
+	life of the surface. Picker-free repro, both directions, and the two solve
+	counts that keep the repair from costing a frame it did not owe. ]]
+require("./authored_hidden_stale_dirt.spec")
 require("./commit_descend_cache.spec")
 -- ...and the differential the cache's own header states and nothing asked for: the
 -- three descend lists against `skip`'s answer for the same child, over every
