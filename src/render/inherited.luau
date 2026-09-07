@@ -121,8 +121,8 @@ function inherited.needsEnabledWrite(node: any): boolean
 end
 
 --[[ Does this node have a tint to write at creation — its own, or one it
-	inherited? The caller still asks `prop_channels.emitsBinding` first: a container
-	may carry a `tint` prop and has no channel to paint it into. ]]
+	inherited? The caller still asks `inherited.emits` first: a container may carry a
+	`tint` prop and has no channel to paint it into. ]]
 function inherited.hasTint(node: any): boolean
 	return node.inheritedTint ~= nil or (node.props ~= nil and node.props.tint ~= nil)
 end
