@@ -131,6 +131,8 @@ local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 local scene = require("./lib/deep_stack_scene")
 local device_views = require("./lib/device_views")
+local stackLib = require("../src/layout/stack")
+local solveCtx = require("../src/layout/solve_ctx")
 
 local function line(s: any, before: any): string
 	local st = s.stats()
@@ -366,4 +368,100 @@ describe("D2c oracle: byte-equal to a full solve, every view", function()
 			end
 		end)
 	end
+end)
+
+--[[ ── THE BELT THE INDEXED ARM WAS MISSING (RED-TEAM C-11) ─────────────────────
+
+	The SCAN arm refuses on `pIds[idx] ~= child.id or pRect[idx] == nil`; the indexed
+	arm skips both and reads `local prev = pRect[idx]` followed by `prev.x`. Every path
+	traced makes a nil unreachable — `pIds`/`pMain`/`pCross` are filled for all indices
+	before the placement loop, `pRect[idx]` in it with no `continue`, and `pN` is
+	written LAST so a throw leaves a payload no gate matches — which is why this is a
+	belt and not a bug report.
+
+	AND A BELT WITH NO CASE IS DECORATION, so the case is here. There is no producer in
+	a mounted tree, so it is driven against `stack.arrange` DIRECTLY: three fixed boxes
+	in an hstack, one full pass to record the payload, one indexed pass to prove the
+	short list is live, and then one recorded rect removed by hand. With the guard the
+	arm refuses and the full pass places the child correctly; without it the solve dies
+	on "attempt to index nil with 'x'" INSIDE `stack.luau`, which is the difference
+	between a refusal and a crash. ]]
+describe("RED-TEAM C-11: a payload with a missing rect refuses the short list", function()
+	local function px(n: number): any
+		return { type = "fixed", px = n }
+	end
+	local function dim(node: any, axis: string): any
+		local d = if axis == "w" then node.width else node.height
+		return d or { type = "hug" }
+	end
+	--[[ THE SMALLEST `Deps` THAT IS STILL THE REAL CONTRACT: `stackLib.Deps` is five
+		fields and every one of them is a pure function of a node, so a fixed-size box
+		fixture needs no solver behind it. `shrink` is never reached — no child declares
+		a `shrinkWeight`, which is what `stack_measure`'s own "opted into nothing"
+		path already turns off. ]]
+	local DEPS: any = {
+		measure = function(_ctx: any, node: any, _maxW: number, _maxH: number): (number, number)
+			return node.width.px, node.height.px
+		end,
+		dim = dim,
+		mainDimOf = function(node: any, isH: boolean): any
+			return dim(node, if isH then "w" else "h")
+		end,
+		sides = function(_margin: any): (number, number, number, number)
+			return 0, 0, 0, 0
+		end,
+		shrink = {},
+	}
+	local function place(_ctx: any, node: any, rect: any, out: { [string]: any })
+		out[node.id] = rect
+	end
+	local function noteContainment(): boolean
+		return false
+	end
+
+	it("the arm refuses instead of indexing a nil, and the child is still placed", function()
+		local ctx: any = solveCtx.new({ x = 0, y = 0, w = 400, h = 400 }, nil, nil)
+		ctx.measureStamp = "c11"
+		local node: any = {
+			kind = "hstack",
+			id = "/R",
+			cmemo = {},
+			kidToken = {},
+			children = {
+				{ kind = "box", id = "/R/a", width = px(20), height = px(10) },
+				{ kind = "box", id = "/R/b", width = px(30), height = px(10) },
+				{ kind = "box", id = "/R/c", width = px(40), height = px(10) },
+			},
+		}
+		-- PASS 1: the full pass, which records the payload the arms below replay
+		local full: { [string]: any } = {}
+		stackLib.arrange(DEPS, ctx, node, 0, 0, 400, 100, 0, place, noteContainment, full)
+		local memo = node.cmemo
+		expect(`recorded n={memo.pN} rects={#memo.pRect} token={tostring(memo.pToken ~= nil)}`).toBe(
+			"recorded n=3 rects=3 token=true"
+		)
+
+		--[[ PASS 2: the INDEXED arm, live. One dirty child, a token that still matches
+			and a payload that is complete, so `candidateIndices` answers a short list —
+			`replayProbes` moving is what says it did, and is the non-vacuity guard for
+			the pass below. ]]
+		local probesBefore = ctx.replayProbes
+		ctx.reuse = { dirtyContains = { ["/R/b"] = true } }
+		local indexed: { [string]: any } = {}
+		stackLib.arrange(DEPS, ctx, node, 0, 0, 400, 100, 0, place, noteContainment, indexed)
+		expect(`short list ran: {tostring(ctx.replayProbes > probesBefore)} b={indexed["/R/b"].x}`).toBe(
+			`short list ran: true b={full["/R/b"].x}`
+		)
+
+		--[[ PASS 3: the same drive with one recorded rect gone. The guard refuses the
+			short list, the scan arm refuses on its own copy of the same term, and the
+			full pass places every child at the number pass 1 gave it. Without the guard
+			this raises inside the solve. ]]
+		memo.pRect[3] = nil
+		ctx.reuse = { dirtyContains = { ["/R/c"] = true } }
+		local recovered: { [string]: any } = {}
+		local ok, err = pcall(stackLib.arrange, DEPS, ctx, node, 0, 0, 400, 100, 0, place, noteContainment, recovered)
+		expect(`ok={tostring(ok)} err={tostring(err)}`).toBe("ok=true err=nil")
+		expect(`c={recovered["/R/c"].x},{recovered["/R/c"].w}`).toBe(`c={full["/R/c"].x},{full["/R/c"].w}`)
+	end)
 end)

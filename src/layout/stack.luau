@@ -175,10 +175,21 @@ local function candidateIndices(ctx: any, cmemo: any, dirty: any, n: number): { 
 	end
 	local out: { number } = {}
 	local budget = math.max(4, n // 4)
+	--[[ ...AND THE SAME BELT THE SCAN ARM WEARS (RED-TEAM C-11). The scan refuses on
+		`pIds[idx] ~= child.id or pRect[idx] == nil`; the indexed arm skips both, and
+		then reads `local prev = pRect[idx]` followed by `prev.x`. Every path traced
+		makes a nil unreachable — `pIds`/`pMain`/`pCross` are filled for all indices
+		before the placement loop, `pRect[idx]` in it with no `continue`, and `pN` is
+		written LAST so a throw leaves a payload no gate matches — but "unreachable"
+		is the argument, not the code, and the failure if it is ever wrong is
+		"attempt to index nil" INSIDE a solve rather than a refusal. Refusing the short
+		list is free and restores the belt: the caller falls back to the scan, which
+		refuses on the same term and takes the full pass. ]]
+	local pRect = cmemo.pRect
 	for id in dirty do
 		local idx = map[id]
 		if idx ~= nil then
-			if #out >= budget then
+			if #out >= budget or pRect[idx] == nil then
 				return nil
 			end
 			out[#out + 1] = idx
