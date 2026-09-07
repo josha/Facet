@@ -58,6 +58,9 @@ local MIGRATED = {
 	"display_controls",
 	"feedback",
 	"help",
+	-- migrated by its own R12 trigger, 2026-09-07: adding the inherited-subtree
+	-- grouped cases made it the 79th hand-rolled builder against a pin of 78
+	"inherited_subtree",
 	"keyboard_navigation",
 	"late_contributions",
 	"leaf_helpers",

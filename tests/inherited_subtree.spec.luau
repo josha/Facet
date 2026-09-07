@@ -47,21 +47,27 @@ local function fixed(px: number)
 end
 
 local ZERO_INSETS = { top = 0, bottom = 0, left = 0, right = 0 }
-local GUARD_OFF =
-	"a focus/paint fixture: these screens are stacks of fixed-size buttons and are never asked to contain text"
 
+--[[ THE CONTAINMENT GUARD IS ON. The migration briefly turned it off with a reason
+	describing a different fixture — "stacks of fixed-size buttons never asked to
+	contain text" — which is the failure `tests/lib/world.luau`'s own header warns
+	about ("'off' with no reason is how an always-on check becomes a check nobody
+	notices is off"): a sentence the next reader trusts, hiding seven real
+	`outside-parent` violations in the one case that was genuinely overflowing. The
+	FIXTURE was fixed instead of the sentence. ]]
 local function newWorld(w: number?, h: number?): any
 	return worldLib.new({
 		viewport = { x = 0, y = 0, w = w or 400, h = h or 600 },
 		safeInsets = ZERO_INSETS,
-		overflowGuardOff = GUARD_OFF,
 	})
 end
 
+-- `w.present` refreshes ("present + settle in one"), so these helpers do not: a
+-- second refresh would mean no case in this file ever reads the single-frame state,
+-- which is exactly where a "filtered on refresh but not at push" defect would live
 local function present(screen: any, opts: any?)
 	local w = newWorld()
 	local handle = w.present(screen, opts)
-	w.pres.refresh()
 	return w.core, w.env, w.adapter, w.system, w.pres, handle
 end
 
@@ -1068,7 +1074,6 @@ describe("NEW-1/2/4: the disabled filter runs on the BUILT groups, so it reaches
 	local function presented(screen: any, opts: any?)
 		local w = newWorld(600, 600)
 		w.present(screen, opts)
-		w.pres.refresh()
 		return w.core, w.pres, w.adapter
 	end
 
@@ -1080,7 +1085,6 @@ describe("NEW-1/2/4: the disabled filter runs on the BUILT groups, so it reaches
 		-- the control is built BEFORE the screen, on the world's own core
 		local built = make(w.core, w.env)
 		w.present(panel(built.blueprint, enabled))
-		w.pres.refresh()
 		return w.pres, built
 	end
 
@@ -1141,6 +1145,11 @@ describe("NEW-1/2/4: the disabled filter runs on the BUILT groups, so it reaches
 			end,
 			rowHeight = 40,
 			viewportHeight = 200,
+			-- an explicit width, so the rows are contained by the list they are in.
+			-- Without it the list hugs and every cell overflows it by 8px — real
+			-- violations the containment guard reports, and the reason this file
+			-- briefly (and wrongly) turned that guard off
+			width = fixed(300),
 			cell = function(item: any)
 				return UI.Text({ id = "L", text = item.label })
 			end,
