@@ -72,6 +72,14 @@ function premeasure_round.new(deps: Deps): PremeasureRound
 	-- teardown so a late answer cannot reach a dismissed surface
 	local textMeasureCancels: { () -> () } = {}
 	local disposed = false
+	--[[ THIS SURFACE'S IDENTITY IN THE PROCESS-GLOBAL HELD-WORD QUEUE (RED-TEAM F5). A
+		fresh table, never read for its contents: `layout/text_metrics`'s `overflow` had no
+		surface identity at all, so `dispose` below could hand back this surface's share of
+		the flight refcount and NOT its share of the queue — and the next surface's first
+		collector spent its whole budget on a dead one's vocabulary. Declared here because
+		the round is one per surface, which is exactly the granularity the queue was
+		missing. ]]
+	local overflowOwner = {}
 
 	--[[ ORDERING IS THE SAFETY PROPERTY, and it belongs to the CALL rather than to
 		this function: the renderer asks only once the frame is fully painted from the
@@ -88,6 +96,12 @@ function premeasure_round.new(deps: Deps): PremeasureRound
 			`render/render_stats` — whose whole seam claim is that it requires nothing. It
 			is a PROCESS total, because the collector is one per process. ]]
 		stats.textCollectTruncated = text_metrics.collectTruncated()
+		--[[ ...AND THIS SURFACE OWNS WHAT ITS SOLVE COULD NOT AFFORD TO ASK ABOUT
+			(RED-TEAM F5). Unconditional, above the `measureTextWidths` feature test: a
+			target with no premeasurement seam never answers a held word, which makes its
+			tail MORE in need of an owner and not less. The claim is O(the keys this solve
+			pushed), so a settled surface pays nothing. ]]
+		text_metrics.claimOverflow(overflowOwner)
 		if adapter.measureTextWidths ~= nil and #textRequests > 0 and not disposed then
 			local batch: { any } = {}
 			for _, request in textRequests do
@@ -261,6 +275,13 @@ function premeasure_round.new(deps: Deps): PremeasureRound
 				for key in textInFlight do
 					text_metrics.noteInFlight(key, -1)
 				end
+				--[[ ...AND THE HELD TAIL TOO (RED-TEAM F5). Same argument one structure
+					over: nothing else would ever give these back, and a word held for a
+					label that will never be measured again is a request that can only ever
+					spend a LIVE surface's budget. Inside the `disposed` guard for the same
+					reason the refcount is — a second `dispose` must not reach a queue the
+					next surface has since refilled. ]]
+				text_metrics.forgetOverflow(overflowOwner)
 			end
 			disposed = true
 			for _, cancel in textMeasureCancels do

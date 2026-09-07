@@ -832,6 +832,66 @@ describe("the collector budget: a word the budget refused is held for the next c
 		text_metrics.resetMeasured()
 	end)
 
+	it("RED-TEAM F5: a disposed surface's tail does not spend the next surface's budget", function()
+		--[[ THE HELD QUEUE HAD NO SURFACE IDENTITY. `premeasure_round.dispose` hands back
+			this surface's share of the process-global FLIGHT refcount — a cancelled batch
+			is never answered, so nothing else ever would — and could not hand back its
+			share of the QUEUE, because `overflow` did not record whose words those were. A
+			surface torn down with a tail standing therefore left it for whoever solved
+			next, and `beginCollect` charges held words against the live surface's budget
+			BEFORE it looks at any of its own: the D3a pathology, one round deep, for a
+			surface that no longer exists.
+
+			DROPPING IS EXACT. A held word is held because some label wanted it, and
+			`wordWidth` re-pushes it the moment a live surface measures that label again —
+			so the only words lost belong to labels nobody will ever measure again.
+
+			TWO ARMS, AND THE FIRST ONE IS THE SCOPE. A LIVE surface's tail must still ride
+			the next collector's budget: that is what the queue is FOR, and a fix that
+			dropped it would pass the second arm and break D6d. So arm 1 pins
+			`foreign={TAIL}` with A standing, and arm 2 pins `foreign=0` with A disposed —
+			the same drive, differing in the dispose alone. Before the fix arm 2 reads arm
+			1's numbers. ]]
+		local function firstBatchOf(w: World, prefix: string): string
+			local own, foreign = 0, 0
+			for _, request in w.adapter.pendingTextRequests() do
+				if string.find(request.word, `zqx{prefix}`, 1, true) == 1 then
+					own += 1
+				else
+					foreign += 1
+				end
+			end
+			return `own={own} foreign={foreign}`
+		end
+
+		--[[ ARM 1: A IS ALIVE, AND A THIRD SURFACE DISPOSES IN THE MIDDLE. A's 176-word
+			tail is still the next collector's to take, charged against B's budget, which
+			is exactly what D6d built the queue to do — so this arm is the SCOPE, and it is
+			what a fix that simply emptied the queue on every dispose would break. `d`
+			exists before A and holds nothing of its own; a `forgetOverflow` that ignored
+			its argument would take A's tail with it and this arm would read `foreign=0`.
+			(`d` has to be built FIRST: any collector opened after A's overflow drains it.) ]]
+		text_metrics.resetMeasured()
+		local d1 = world({ prefix = "d", count = 10 })
+		local a1 = world({ prefix = "y" })
+		expect(`a1 asked={#a1.adapter.pendingTextRequests()}`).toBe(`a1 asked={CAP}`)
+		d1.controller.dispose()
+		local b1 = world({ prefix = "z" })
+		expect(firstBatchOf(b1, "z")).toBe(`own={CAP - TAIL} foreign={TAIL}`)
+		a1.controller.dispose()
+		b1.controller.dispose()
+
+		-- ARM 2: A IS DISPOSED FIRST, and its tail goes with it. B's whole budget is B's.
+		text_metrics.resetMeasured()
+		local a2 = world({ prefix = "p" })
+		expect(`a2 asked={#a2.adapter.pendingTextRequests()}`).toBe(`a2 asked={CAP}`)
+		a2.controller.dispose()
+		local b2 = world({ prefix = "q" })
+		expect(firstBatchOf(b2, "q")).toBe(`own={CAP} foreign=0`)
+		b2.controller.dispose()
+		text_metrics.resetMeasured()
+	end)
+
 	it("...and forgetting the store forgets the queue", function()
 		--[[ `resetMeasured` is "this process no longer remembers anything", and a queue
 			of requests for a store that remembers nothing is a queue for a different

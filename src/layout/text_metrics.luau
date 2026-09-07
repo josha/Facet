@@ -482,6 +482,32 @@ local overflowCount = 0
 	never drained left its words in `overflow`, which is exactly where the next one
 	should find them) and by `resetMeasured`. ]]
 local taken: { [string]: boolean } = {}
+--[[ ...AND WHOSE TAIL EACH HELD WORD IS (RED-TEAM F5). `overflow` is process-global and
+	had NO surface identity, so `render/premeasure_round.dispose` — which hands back this
+	surface's share of the flight refcount for exactly this reason — could not hand back
+	its share of the QUEUE. A surface torn down with a tail standing left up to
+	`EXACT_CAP` requests behind, and the next surface's first `beginCollect` spent its
+	whole 1,024-word budget on a dead surface's vocabulary, dispatched it to the engine,
+	and refused its OWN words for a round: the D3a pathology, one round deep, for a
+	surface that no longer exists.
+
+	DROPPING THEM IS EXACT, NOT LOSSY, and that is what makes the fix a deletion rather
+	than a transfer. The queue is a convenience and never a source of truth: a word is
+	held because some LABEL wanted it, `wordWidth` re-pushes it the moment a live surface
+	measures that label again, and the labels of a disposed surface are never measured
+	again by anyone. So a held word whose owner is gone is a request nobody will ever
+	spend.
+
+	OWNERSHIP IS CLAIMED AT THE END OF THE SOLVE THAT PUSHED, not at the push: the push
+	happens inside `measure`, which knows nothing about surfaces, and
+	`render/premeasure_round.request` runs once per solve on the surface whose collector
+	just closed. `unowned` is the keys pushed since the last claim, so the claim is
+	O(pushes) rather than O(queue) — the difference matters precisely in the truncation
+	regime this exists for. A solve that THROWS between the push and the claim leaves its
+	keys unowned and the NEXT surface to solve adopts them; bounded, one round, and
+	stated rather than left to be discovered. ]]
+local overflowOwner: { [string]: any } = {}
+local unowned: { string } = {}
 
 local SPACE = " "
 
@@ -633,6 +659,7 @@ function text_metrics.beginCollect()
 			-- the store has since learned it: it leaves for good, and no drain owes it
 			-- a release
 			overflow[key] = nil
+			overflowOwner[key] = nil
 			overflowCount -= 1
 		end
 	end
@@ -737,6 +764,7 @@ function text_metrics.endCollect(): { Request }
 	for key in taken do
 		if overflow[key] ~= nil then
 			overflow[key] = nil
+			overflowOwner[key] = nil
 			overflowCount -= 1
 		end
 	end
@@ -754,6 +782,36 @@ function text_metrics.endCollect(): { Request }
 		return a.word < b.word
 	end)
 	return out
+end
+
+--[[ THE SURFACE THAT JUST SOLVED OWNS WHAT ITS SOLVE PUSHED (RED-TEAM F5; see
+	`overflowOwner`). Called once per solve by `render/premeasure_round.request`, which
+	runs after `endCollect` on the surface whose collector just closed — the first moment
+	in the round at which a held word can be attributed to anybody. Already-owned keys
+	keep their owner, so a tail a previous surface left is not adopted by the next one. ]]
+function text_metrics.claimOverflow(owner: any)
+	for _, key in unowned do
+		if overflow[key] ~= nil and overflowOwner[key] == nil then
+			overflowOwner[key] = owner
+		end
+	end
+	table.clear(unowned)
+end
+
+--[[ ...AND A DISPOSED SURFACE HANDS ITS TAIL BACK, the way `premeasure_round.dispose`
+	already hands back its share of the flight refcount. `overflowCount` moves with the
+	table, because it is the `EXACT_CAP` bound and a count that outlived its entries
+	would refuse a live surface's words on a queue that is empty. ]]
+function text_metrics.forgetOverflow(owner: any)
+	for key, held in overflowOwner do
+		if held == owner then
+			overflowOwner[key] = nil
+			if overflow[key] ~= nil then
+				overflow[key] = nil
+				overflowCount -= 1
+			end
+		end
+	end
 end
 
 function text_metrics.measuredWidth(font: string, fontSize: number, word: string): (number | false)?
@@ -798,6 +856,8 @@ function text_metrics.resetMeasured()
 	-- longer remembers anything is a queue for a different process
 	table.clear(overflow)
 	table.clear(taken)
+	table.clear(overflowOwner)
+	table.clear(unowned)
 	overflowCount = 0
 	-- BOTH generations: forgetting the whole store is not a per-key event and no
 	-- `render/text_index` push can be derived from it, so this keeps the whole-tree
@@ -860,6 +920,9 @@ local function wordWidth(
 					if overflowCount < EXACT_CAP then
 						overflowCount += 1
 						overflow[key] = { font = canon, size = fontSize, word = word }
+						-- ...and the surface that pushed it claims it at the end of this
+						-- solve (RED-TEAM F5); see `overflowOwner`
+						table.insert(unowned, key)
 					end
 				end
 			end
