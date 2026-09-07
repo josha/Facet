@@ -1250,6 +1250,29 @@ require("./z_order_visit_constant.spec")
 	Button that keeps the walk, and the departure that empties `lastHitRects` through
 	`dropPath` rather than through the walk. ]]
 require("./hit_rect_refusal.spec")
+--[[ RED-TEAM C-3 (2026-09-07): `rect_pass.apply` bumps the origin epoch twice per
+	commit whatever moved, so a hosted path's COMPOSED rect is re-allocated every
+	frame and its identity differs — and D6a made that population every `ForEach` row
+	and everything beneath it. The concern was that the ~30 identity-comparing readers
+	`rect_reads` names would each turn that into a signal write per frame. Measured
+	instead of argued: the churn is real, the readers compare VALUES, and five steady
+	ticks on a 200-row list with a real `Slider` inside a host write zero rects. ]]
+require("./host_rect_identity.spec")
+--[[ RED-TEAM C-5 / C-7 / C-9 (2026-09-07): three properties of `render/text_index`'s
+	own bookkeeping, each with no producer in a mounted tree — what `dispose` gives
+	back (D6c added two per-path maps and only `forget` was updated), what a throw
+	inside the over-cap probe leaves behind (the word collector, suspended and never
+	handed back, silently dropping every word that solve would have collected), and
+	which two values the unchanged-guard may call the same (`-0 == 0` is true while
+	`tostring(-0)` is `"-0"`). Driven against `text_index.new()` directly. ]]
+require("./text_index_seam.spec")
+--[[ RED-TEAM C-10 (2026-09-07): `instance_boundary.createOptsFor`'s early returns did
+	not write `node.hostSpace`, and `opacity` is a REACTIVE prop — so a container whose
+	author signal yielded a number and later nil was a non-host on its first ask and a
+	coordinate-space candidate on its second, which is the "solver stores a subtree
+	relative to a parent the adapter never made" hazard the memo exists to prevent. D6a
+	made that fall-through population every 2+-child `ForEach` row in a stack. ]]
+require("./host_space_memo.spec")
 --[[ THE STANDALONE CONSUMER (distribution-readiness D2/D4): `examples/consumer/`
 	is the smallest complete Facet project, and this mounts ITS OWN screen module
 	— the same file the client script requires through the instance tree — against
