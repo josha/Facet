@@ -24,7 +24,7 @@
 	census — across ~700 nodes and every position the URL bar can be toggled in.
 	Nothing in `mount`, `layout`, `render` or `env` is holding stale state.
 
-	── WHERE THE DEFECT ACTUALLY LIVES (Studio, iPhone 16 simulator, 734x372) ────
+	── WHERE THE DEFECT ACTUALLY LIVES (Studio, compact-phone profile, 734x372) ──
 
 	Driven live in the showcase `hud` demo, ONE portrait <-> landscape rotation is
 	enough. In the broken state every fact this framework owns reads back CORRECT
