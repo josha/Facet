@@ -435,6 +435,35 @@ local inFlight: { [string]: number } = {}
 local collectTruncations = 0
 local collectCapped = false
 
+--[[ THE WORDS THE BUDGET REFUSED, HELD FOR THE NEXT COLLECTOR (Plan D, D5).
+
+	THE DEFECT IT CLOSES, and it was an ACCIDENT that hid it. A truncated word is
+	dropped: nothing measures it, nothing marks its owner dirty — a word nobody asked
+	about is by definition one nobody knows they need — so the only thing that ever
+	brought the tail out was the NEXT solve re-measuring the labels for its own
+	reasons. Before D5 that always happened, because a full solve recorded no node
+	tuples and the solve after a truncating mount therefore re-measured everything.
+	D5 makes a full solve record, so that solve now SERVES its clean labels, collects
+	nothing, and the 176 words past a 1,200-word vocabulary's budget were never asked
+	about again: those labels keep an ESTIMATED width for the life of the surface
+	(`tests/text_collect_inflight.spec.luau` reads `asked=1024` on every round of its
+	red arm with this queue removed, against the 1,200 it must read).
+
+	SO THE OVERFLOW IS A QUEUE, NOT A DROP, and that is strictly better than what the
+	accident bought: the tail rides the NEXT batch instead of a whole-tree cold
+	re-solve, and it does not depend on a solve happening to re-measure anything.
+	`beginCollect` seeds from here and charges the budget for what it takes, so the
+	engine still sees at most `COLLECT_CAP` new words per frame — the bound the
+	budget exists for is untouched, and only the discard is gone.
+
+	BOUNDED BY THE STORE'S OWN CAP. Holding more requests than `EXACT_CAP` would be
+	holding requests for words the store would refuse to remember anyway, so that is
+	the ceiling; a refusal past it increments `collectTruncations` exactly as a
+	budget refusal does, which keeps the counter's meaning ("a word this process
+	wanted and did not ask about") true. ]]
+local overflow: { [string]: Request } = {}
+local overflowCount = 0
+
 local SPACE = " "
 
 export type Request = { font: string, size: number, word: string }
@@ -535,9 +564,34 @@ end
 -- Flat, not nested: a second begin discards whatever the first was collecting,
 -- so an error thrown mid-solve cannot leave a stale collector accumulating.
 function text_metrics.beginCollect()
-	collecting = {}
+	local queue: { [string]: Request } = {}
+	collecting = queue
 	collectCount = 0
 	collectCapped = false
+	--[[ ...AND THE TAIL THE LAST COLLECTOR COULD NOT AFFORD GOES FIRST (Plan D, D5;
+		see `overflow`). Charged against this frame's budget, because the bound is on
+		what reaches the ENGINE in one frame and a held word is as expensive to ask
+		about as a fresh one; a word another surface has since had measured is dropped
+		rather than re-asked, and one already in flight rides free exactly as it does on
+		the fresh path. Held words that do not fit stay held: `overflowCount` is only
+		decremented for what actually leaves. ]]
+	if overflowCount == 0 then
+		return
+	end
+	for key, request in overflow do
+		if collectCount >= COLLECT_CAP then
+			break
+		end
+		overflow[key] = nil
+		overflowCount -= 1
+		local bucket = bucketFor(request.font, request.size, false)
+		if bucket == nil or bucket[request.word] == nil then
+			queue[key] = request
+			if inFlight[key] == nil then
+				collectCount += 1
+			end
+		end
+	end
 end
 
 --[[ MEASURE WITHOUT ASKING (Plan D, D3c). `render/text_index`'s probe re-measures a
@@ -651,6 +705,10 @@ function text_metrics.resetMeasured()
 	exactCount = 0
 	collecting = nil
 	collectCount = 0
+	-- ...and the held tail with it (D5): a queue of requests for a store that no
+	-- longer remembers anything is a queue for a different process
+	table.clear(overflow)
+	overflowCount = 0
 	-- BOTH generations: forgetting the whole store is not a per-key event and no
 	-- `render/text_index` push can be derived from it, so this keeps the whole-tree
 	-- invalidation it has always caused (see the epoch's declaration)
@@ -699,9 +757,21 @@ local function wordWidth(
 			elseif collectCount < COLLECT_CAP then
 				collectCount += 1
 				queue[key] = { font = canon, size = fontSize, word = word }
-			elseif not collectCapped then
-				collectCapped = true
-				collectTruncations += 1
+			else
+				--[[ OUT OF BUDGET: HELD, NOT DROPPED (Plan D, D5 — see `overflow`). The
+					counter still fires ONCE per collector, because "this collector ran out"
+					is the diagnosis it was added for and it is still true; what changed is
+					that the word survives the frame and rides the next batch. ]]
+				if not collectCapped then
+					collectCapped = true
+					collectTruncations += 1
+				end
+				if overflow[key] == nil then
+					if overflowCount < EXACT_CAP then
+						overflowCount += 1
+						overflow[key] = { font = canon, size = fontSize, word = word }
+					end
+				end
 			end
 		end
 	end

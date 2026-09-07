@@ -551,9 +551,18 @@ describe("a learned word re-measures its users, not the tree (T18-A)", function(
 			the correction re-walks the strip alone, because every container whose
 			subtree holds no size-14 text keeps its T13/T13b memo. Both numbers read off
 			the run, and the ratio is the claim: a settle that dropped those memos would
-			read the write's number here, not a twentieth of it. ]]
+			read the write's number here, not a fraction of it.
+
+			── THE WRITE COLUMN RE-RECORDED 2026-09-06 (Plan D, D5), 103 -> 8, AND THE
+			CORRECTION DID NOT MOVE. The settle above ends on a solve with no reuse table,
+			which until D5 left no node slots behind — so this ordinary tick re-measured
+			the strip and re-descended the list under it, and every container it descended
+			into re-walked its children. A full solve records now, so the arrange pass's
+			second ask of each container is SERVED and the descent that produced the 95
+			never happens. The claim is the same claim: the correction stays at 5 with the
+			memos live, and dropping them puts the whole strip's walk back. ]]
 		expect(`the write walked {quiet.lastChildVisits}, the correction {st.lastChildVisits}`).toBe(
-			"the write walked 103, the correction 5"
+			"the write walked 8, the correction 5"
 		)
 		--[[ ...AND THE ARRANGE SIDE OF THE SAME CLAIM (Plan C, T14). This line used to
 			read `lastMeasureServed > 0` — the correction's ARRANGE pass re-measuring

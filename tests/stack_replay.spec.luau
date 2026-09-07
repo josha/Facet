@@ -576,7 +576,15 @@ describe("T14: the counters — what falls, and the five that must not move", fu
 
 			IT ALSO SAYS WHERE THE PAYLOAD COMES FROM. The mount RECORDS while it places,
 			so the very next incremental solve can replay — which is why the "warm-up"
-			tick below is already a replay and not a second full walk. ]]
+			tick below is already a replay and not a second full walk.
+
+			── `calls` RE-RECORDED 2026-09-06 (Plan D, D5), 5,003 -> 4,003, and it is the
+			only number here that moved. The arrange pass used to re-measure every child
+			the measure pass had already answered at the same offer, because a full solve
+			recorded no node slots to answer from; it records them now, so the second ask
+			is SERVED and a served container never descends into the 1,000 children it
+			would have re-measured. `entries`, `skipped`, `arranged` and `inserts` — the
+			replay's own four — are untouched. ]]
 		local mount = ""
 		withWorkCapture(function()
 			local s
@@ -591,7 +599,7 @@ describe("T14: the counters — what falls, and the five that must not move", fu
 			end)).toBe("solves=1 entries=5 skipped=999 arranged=5 inserts=5 calls=8");
 			(s :: any).dispose()
 		end)
-		expect(mount).toBe("solves=1 entries=3002 skipped=0 arranged=3002 inserts=3002 calls=5003")
+		expect(mount).toBe("solves=1 entries=3002 skipped=0 arranged=3002 inserts=3002 calls=4003")
 	end)
 
 	it("the four commit-side counters and the solve census do not move", function()

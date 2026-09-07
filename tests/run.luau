@@ -1244,6 +1244,13 @@ require("./rect_pass_constant.spec")
 	an empty lift set is not asked whether it touches anything, and the node's path is
 	read once instead of eleven times. ]]
 require("./z_order_visit_constant.spec")
+--[[ PLAN D, D5 (2026-09-06): the COLD solve, which recorded nothing and therefore
+	re-measured every node its arrange pass re-asked — 2.78 measures per node on a
+	5,106-node mount. `record`'s refusal is now keyed on the measure STAMP rather than
+	on the reuse set, so a full solve serves its own second questions; the file carries
+	the caller census that makes that swap exact, the publish-list delta, and a
+	differential whose slow arm is a solve with no stamp, i.e. the code as it was. ]]
+require("./mount_serve.spec")
 --[[ THE STANDALONE CONSUMER (distribution-readiness D2/D4): `examples/consumer/`
 	is the smallest complete Facet project, and this mounts ITS OWN screen module
 	— the same file the client script requires through the instance tree — against

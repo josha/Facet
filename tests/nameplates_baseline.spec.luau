@@ -174,7 +174,15 @@ local VISITS_CASTER = CASTERS * 2 + 3 -- 103, on all EIGHT walks
 	moments earlier IN THIS SOLVE. `Cast` is measure-dirty and refuses. So the serve
 	removes 50 and only 50, which is also the cleanest demonstration in this file
 	that the serve has an INTRA-solve half as well as a cross-solve one. ]]
-local MEASURED_COLD_CASTERS = 1552 -- was 1602 before C2
+--[[ RE-RECORDED 2026-09-06 (Plan D, D5): 1,552 -> 152, i.e. THE COLD COLUMN IS GONE
+	and equals the steady one. `initialRender`'s fill pass clears the measure STORE, so
+	the first solve after mount has no cross-solve slate — but D5 makes the mount's own
+	full solve record the node-resident slots, and those are what this solve was
+	re-measuring 1,400 nodes to rediscover. The case below is kept and its name with it:
+	the number it pins is now an EQUALITY between the two columns, which is a stronger
+	statement of the same claim (the lane defers a cost that no longer exists) and goes
+	red the moment either mechanism regresses. ]]
+local MEASURED_COLD_CASTERS = 152 -- was 1602 before C2, 1552 before D5
 
 describe("nameplates baseline — the numbers the wicked-fast round starts from", function()
 	it("the fixture is the tree the plan says it is", function()

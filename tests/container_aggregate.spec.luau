@@ -441,12 +441,17 @@ describe("T13b: the counter that moves, and the four that must not", function()
 		--[[ THE REVERSE OF T13'S STEP 1(a), AND DELIBERATELY SO. T13's red was
 			`lastChildVisits` falling; T13b's whole claim is that it does not, because the
 			aggregate measures exactly the children the walk would have. If it fell, the
-			aggregate skipped a child HEAD measured — a finding, not a win. ]]
+			aggregate skipped a child HEAD measured — a finding, not a win.
+
+			── RE-RECORDED 2026-09-06 (Plan D, D5), AND `visits` AND `iters` ARE THE ONES
+			THAT DID NOT MOVE. The warm-up's `measured` 1,005 -> 5 and `served` 0 -> 1,000
+			is the mount's full solve recording node slots for the first time, which is
+			the whole of D5; the walk this case is about is unchanged at 1,001. ]]
 		withWorkCapture(function()
 			local s = scene.new({ rows = ROWS })
 			expect(drove(function()
 				s.text(500, "warm")
-			end)).toBe("solves=1 iters=1001 fallbacks=0 calls=1007 served=0 measured=1005 visits=1001")
+			end)).toBe("solves=1 iters=1001 fallbacks=0 calls=1007 served=1000 measured=5 visits=1001")
 			--[[ THE FIRST AGGREGATING TICK PAYS FOR THE REVERSE MAP, once per full-pass
 				epoch, and it is pinned rather than amortised away: `iters=1011` is the
 				1,000-child walk that builds `id -> index` plus the ten the aggregate
@@ -491,13 +496,21 @@ describe("T13b: the counter that moves, and the four that must not", function()
 			the aggregate's own gate is reached and `lastAggregateFallbacks` must be 0: a
 			tick the aggregate never ENTERED is not a fallback (that is the whole of the
 			counter's definition, and the plan had it pinned at the container count on a
-			tick where the aggregate never starts). ]]
+			tick where the aggregate never starts).
+
+			── RE-RECORDED 2026-09-06 (Plan D, D5). `fallbacks=0` is this case's claim and
+			it is unmoved. Everything beside it halves because the node-resident serve now
+			has a WITHIN-solve arm on a full solve: each layout node is measured exactly
+			once (3,002 of 3,002), the arrange pass's second ask is served, and a served
+			container never descends — so `iters`/`visits` fall with the calls that are no
+			longer made. The AGGREGATE is still unreachable, which is what is being said
+			here. ]]
 		withWorkCapture(function()
 			local s = scene.new({ rows = ROWS })
 			s.text(500, "warm")
 			expect(drove(function()
 				s.viewport(1000, 800)
-			end)).toBe("solves=1 iters=2001 fallbacks=0 calls=5003 served=0 measured=5003 visits=2001")
+			end)).toBe("solves=1 iters=1001 fallbacks=0 calls=4003 served=1001 measured=3002 visits=1001")
 			s.dispose()
 		end)
 	end)

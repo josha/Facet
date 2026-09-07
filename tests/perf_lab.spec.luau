@@ -1631,8 +1631,18 @@ describe("perf lab: the three named levers measure what they claim (device captu
 		-- both measure strictly more than the control at the same node count
 		expect(out.fill.measuredNodes > out.flat.measuredNodes).toBe(true)
 		expect(out.zstack.measuredNodes > out.flat.measuredNodes).toBe(true)
-		-- the flow planner caches its lines, so wrap measures FEWER
-		expect(out.wrap.measuredNodes < out.flat.measuredNodes).toBe(true)
+		--[[ THE `wrap` CLAUSE IS GONE, 2026-09-06 (Plan D, D5), AND THE REASON IS WORTH
+			MORE THAN THE CLAUSE WAS. It read "the flow planner caches its lines, so wrap
+			measures FEWER" — a comparison whose whole signal was the CONTROL's redundancy:
+			`flat` measured more than its 242 nodes because a cold solve re-measured every
+			node its arrange pass re-asked. D5 serves that second ask, so every arm here now
+			measures each node exactly once and `wrap` and `flat` both read 242. No counter
+			left tells a wrap tree from a flat one, and pinning their EQUALITY would be the
+			"check that proves nothing" this case exists to be the opposite of. What still
+			discriminates is above and below: `fill` and `zstack` measure MORE than their node
+			count (a second measure at a genuinely different offer, which no slot answers) and
+			`deep` arranges more nodes than `flat`; the wrap SHAPE itself is pinned on rects by
+			`tests/flow_wrap.spec.luau`. ]]
 		--[[ ...and the headline, WHICH MOVED WITH THE MEASUREMENT THAT LICENSED IT
 			(L-37). This clause used to read `deep.measuresPerArrangedNode > 4 *
 			flat`'s — the 16.4-against-2.0 fan-out L-36 found. That fan-out was the
@@ -1646,8 +1656,19 @@ describe("perf lab: the three named levers measure what they claim (device captu
 
 			It still discriminates, which is the only reason this clause exists: if the
 			`kind` chain regressed and every arm built `flat`, both sides would be the
-			same number and this fails. ]]
-		expect(out.deep.measuresPerArrangedNode < 0.8 * out.flat.measuresPerArrangedNode).toBe(true)
+			same number and this fails.
+
+			── RE-RECORDED 2026-09-06 (Plan D, D5). It read `deep.measuresPerArrangedNode <
+			0.8 * flat`'s, and that ratio was the flat control's own repeat measures — which a
+			cold solve no longer makes: `record` writes on a full solve now, so the second ask
+			of a node at the same offer is served and BOTH arms read exactly 1.0. The equality
+			is the stronger pin and is what replaces the ratio: 1.0 is the floor (a solve
+			cannot arrange a node it never measured), it was 2.0 on this control and ~16 on
+			the deep arm before L-37, and every one of the three ways of breaking the memo
+			listed in the case below — plus a fourth, breaking the within-solve serve — moves
+			it off 1.0. What it can no longer catch is a `deep` arm that silently built
+			`flat`; `arrangedNodes` above is the clause that does that. ]]
+		expect(`flat={out.flat.measuresPerArrangedNode} deep={out.deep.measuresPerArrangedNode}`).toBe("flat=1 deep=1")
 		built.dispose()
 	end)
 

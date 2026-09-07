@@ -3,15 +3,17 @@
 -- a snapshot it never authors. Never yields, never reads live signals or
 -- Instances; text goes through src/layout/text_metrics (non-yielding).
 --[[ "IMMUTABLE SNAPSHOT" IS NOW QUALIFIED, AND THE QUALIFICATION IS EXACT (C2,
-	2026-09-04). The solver MEMOISES ONTO THE LAYOUT NODE — and only there, and only
-	on a solve that was handed a reuse set (`record` returns before its first write
-	when `ctx.reuse == nil`, which is what keeps `dump.fromSolve`, the layout fuzzer
-	and every hand-built `table.freeze`d tree working; `tests/layout.spec.luau`'s
-	purity case is that pin).
+	2026-09-04; re-gated by D5, 2026-09-06). The solver MEMOISES ONTO THE LAYOUT NODE —
+	and only there, and only on a solve THE RENDERER DROVE (`record` returns before its
+	first write when `ctx.measureStamp == nil`, and the renderer is the only caller that
+	threads one, which is what keeps `dump.fromSolve`, the layout fuzzer and every
+	hand-built `table.freeze`d tree working; `tests/layout.spec.luau`'s purity case is
+	that pin, `tests/mount_serve.spec.luau` the census).
 
-	WHAT IS WRITTEN IS OUTPUTS, NEVER BUILD INPUTS: the twenty-one `m*` fields are
-	the last two answers this node gave (`Node.mStamp` and below) plus the cached
-	`memoPlan` verdict, and NOTHING the build reads to construct a node. So the P3
+	WHAT IS WRITTEN IS OUTPUTS, NEVER BUILD INPUTS: the twenty-two `m*` fields are
+	the last two answers this node gave (`Node.mStamp` and below), the solve that wrote
+	them (`mSolve`, D5) and the cached `memoPlan` verdict, and NOTHING the build reads
+	to construct a node. So the P3
 	node store's licence still holds in the form that matters —
 	`render/layout_node.luau` re-derives a node from `class`/`path`/`props`/
 	`children`/`meta` and the five solve-wide inputs, none of which this file
@@ -277,6 +279,11 @@ export type Node = {
 		They are absent on a node the build has just constructed, which is what makes a
 		stale answer impossible: a node whose props moved is a FRESH LITERAL. ]]
 	mStamp: string?,
+	--[[ ...AND THE SOLVE THAT LAST CLAIMED A SLOT ON THIS NODE (D5): `ctx.solveToken`,
+		written by `record` on a FULL solve only and read by the serve as the WITHIN-solve
+		half of its dirt gate. Absent on an incremental solve, where
+		`reuse.measureContains` is available and STRICTER. ]]
+	mSolve: any?,
 	-- cached `memoPlan` verdict for "can this answer read the offered HEIGHT?" — a
 	-- pure function of a BUILT node, so it survives every solve that node survives
 	mHeightFree: boolean?,
@@ -1476,28 +1483,38 @@ local function record(
 	w: number,
 	h: number
 ): (number, number)
-	--[[ ONLY ON A SOLVE THAT COULD EVER SPEND IT, and that is the solver's PURITY
-		CONTRACT rather than an economy. This file's first line says it solves "over an
-		immutable snapshot", and `tests/layout.spec.luau`'s purity case hands it a
-		`table.freeze`d tree — which a write here turns into a hard error for every
-		direct caller that has one (`dump.fromSolve`, the layout fuzzer, a hand-built
-		node tree in a spec). A solve with no reuse set is also the solve P1's own
-		economics say must be the PRE-CHANGE solver exactly, and a reuse set is
-		precisely what a frozen hand-built tree never has.
+	--[[ ONLY ON A SOLVE THE RENDERER DROVE, and that is the solver's PURITY CONTRACT
+		rather than an economy. This file's first line says it solves "over an immutable
+		snapshot", and `tests/layout.spec.luau`'s purity case hands it a `table.freeze`d
+		tree — which a write here turns into a hard error for every direct caller that
+		has one (`dump.fromSolve`, the layout fuzzer, a hand-built node tree in a spec).
 
-		WHAT IT COSTS, stated rather than hidden: the first reuse solve after a full one
-		records and serves nothing, and the one after it serves. So a structural change
-		or a viewport change — both already full solves — is followed by ONE ordinary
-		solve at the old price. `tests/measure_serve.spec.luau` pins that pair. ]]
-	if ctx.reuse == nil then
+		THE GATE IS THE STAMP, NOT THE REUSE SET (D5). `ctx.measureStamp` is threaded by
+		`render/renderer.luau` alone, unconditionally, so the contract holds where it is
+		exercised (`tests/mount_serve.spec.luau` pins that census). What the swap buys is
+		the COLD solve: a mount recorded nothing, so the arrange pass re-measured every
+		node the measure pass had answered — 2.78 per node on a 5,106-node HUD. The old
+		gate's cost ("the first reuse solve after a full one serves nothing") goes too. ]]
+	local stamp = ctx.measureStamp
+	if stamp == nil then
 		return w, h
 	end
 	-- AXIS 3 IS SHARED BY BOTH SLOTS, so a stamp that moved drops both at once. It is
 	-- the one invalidation no per-node fact can see: a text-metrics settle corrects a
 	-- label's width at an UNCHANGED offer under an UNCHANGED theme.
-	local stamp = ctx.measureStamp
 	if node.mStamp ~= stamp then
 		node.mStamp = stamp
+		node.mAOfferW, node.mBOfferW = nil, nil
+	end
+	--[[ ...AND A FULL SOLVE DROPS THEM ON FIRST TOUCH (D5). `layoutNodeReuse` keeps the
+		literal, so such a solve can meet slots the PREVIOUS one wrote under this stamp,
+		and `mSolve` is one flag over two: claiming one and leaving the other stale is how
+		the serve below would answer from last frame. Costs a full solve nothing — it had
+		no cross-solve serve to lose. A KEPT NULL, recorded at
+		`tests/mount_serve.spec.luau`'s M3: unreachable, because a node whose answer can
+		have moved is a fresh literal. ]]
+	if ctx.reuse == nil and node.mSolve ~= ctx.solveToken then
+		node.mSolve = ctx.solveToken
 		node.mAOfferW, node.mBOfferW = nil, nil
 	end
 	local scope = ctx.scopeKey
@@ -1639,8 +1656,7 @@ measure = function(ctx: Ctx, node: Node, maxW: number, maxH: number): (number, n
 	local cutsAtEntry = ctx.fitCuts
 	local reuse = ctx.reuse
 	if
-		reuse ~= nil
-		and ctx.measureQuiet
+		ctx.measureQuiet
 		and not ctx.analyze
 		and node.mStamp == ctx.measureStamp
 		and node.subtreeHasScroll ~= true
@@ -1656,8 +1672,16 @@ measure = function(ctx: Ctx, node: Node, maxW: number, maxH: number): (number, n
 			nothing to do with this line. One nil field read is the price of not betting
 			the container on that. ]]
 		and node.containerRelativeInside ~= true
-		and reuse.measureContains ~= nil
-		and reuse.measureContains[node.id] ~= true
+		--[[ ...AND "HAS ANYTHING MEASURE-CLASSED INSIDE THIS NODE MOVED SINCE THE SLOT WAS
+			WRITTEN?", WHICH HAS TWO FORMS (D5). Across solves it is the ancestor-closed
+			dirty set, C2's arm. WITHIN one solve it is free — the tree is immutable for
+			the solve's life, this file's first line — and `mSolve` says exactly that. The
+			two are disjoint by construction (`record` writes `mSolve` only when
+			`ctx.reuse == nil`) and ordered common-case first. ]]
+		and (
+			(reuse ~= nil and reuse.measureContains ~= nil and reuse.measureContains[node.id] ~= true)
+			or node.mSolve == ctx.solveToken
+		)
 	then
 		local scope = ctx.scopeKey
 		local oh = offerHeightKey(ctx, node, maxH)

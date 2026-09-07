@@ -361,12 +361,23 @@ describe("T13: one changed row does not make 999 parents ask again", function()
 			reuse solve after a full one has an EMPTY memo, so it walks all 1,000 children
 			and records — `visits=1001`, `calls=2005`, which are HEAD's numbers exactly.
 			A spec that only pinned the drive could not tell a working memo from a fixture
-			that stopped having children. ]]
+			that stopped having children.
+
+			── RE-RECORDED 2026-09-06 (Plan D, D5), AND THE CASE'S OWN NUMBERS ARE THE ONES
+			THAT DID NOT MOVE. `visits` — the container memo's walk, which is what this case
+			is about — still reads 1,001, the full walk, and so does `calls`. What moved is
+			`measured` 1,005 -> 5 with `served` 0 -> 1,000: D5 lets a FULL solve record the
+			node-resident slots, so the mount leaves 3,002 of them behind and this walk's
+			1,000 questions are answered from a tuple instead of re-measured. That is
+			exactly the cost `record`'s old gate carried in its own words — "the first
+			reuse solve after a full one records and serves nothing" — and it is gone. The
+			memo's before-column is untouched by it, which is why this case still says what
+			it said. ]]
 		withWorkCapture(function()
 			local s = scene.new({ rows = ROWS })
 			expect(drove(function()
 				s.text(500, "warm")
-			end)).toBe("solves=1 calls=1007 served=0 measured=1005 visits=1001")
+			end)).toBe("solves=1 calls=1007 served=1000 measured=5 visits=1001")
 			expect(drove(function()
 				s.text(500, "x")
 			end)).toBe("solves=1 calls=8 served=1 measured=5 visits=2")
@@ -374,23 +385,37 @@ describe("T13: one changed row does not make 999 parents ask again", function()
 		end)
 	end)
 
-	it("a VIEWPORT change memoises nothing and serves nothing — it is unreachable, not declined", function()
-		--[[ A geometry write is a FULL solve with no reuse table, and the memo's gate
-			asks for `ctx.reuse` before anything else. So this is the arm where the whole
-			mechanism is structurally absent, and the numbers are the pre-change solver's:
-			every child of every container asked, nothing recorded, nothing served. The
-			solve AFTER it records again, which is the same one-solve cost `record`'s own
-			purity contract pays. ]]
+	it("a VIEWPORT change memoises nothing, and what it serves is its OWN first answers", function()
+		--[[ A geometry write is a FULL solve with no reuse table, and the CONTAINER memo's
+			gate asks for `ctx.reuse` before anything else. So this is the arm where THAT
+			mechanism is structurally absent: nothing is memoised, and `visits` is every
+			child of every container, asked.
+
+			── RE-RECORDED 2026-09-06 (Plan D, D5), TITLE INCLUDED. It read "serves
+			nothing", which was true of both serves until D5 gave the node-resident one a
+			WITHIN-solve arm: a full solve now records a slot the first time it measures a
+			node and answers the second ask of the same node at the same offer from it. So
+			`measured` is one per layout node exactly (3,002 of 3,002) where it was 5,003,
+			`served` is 1,001, and `visits` falls 2,001 -> 1,001 because a container the
+			arrange pass re-asks is served WITHOUT descending into the children it would
+			have re-measured. The CROSS-solve arm is still structurally unreachable here,
+			which is what this case is for: `node.mSolve` is written only where
+			`ctx.reuse == nil`, so nothing this solve did not itself measure can be
+			served. ]]
 		withWorkCapture(function()
 			local s = scene.new({ rows = ROWS })
 			s.text(500, "warm")
 			s.text(500, "x")
 			expect(drove(function()
 				s.viewport(900, 640)
-			end)).toBe("solves=1 calls=5003 served=0 measured=5003 visits=2001")
+			end)).toBe("solves=1 calls=4003 served=1001 measured=3002 visits=1001")
+			--[[ ...AND THE SOLVE AFTER IT NO LONGER PAYS THE OLD ONE-SOLVE COST. It read
+				`calls=1005 served=0 measured=1004`: the full solve above recorded nothing,
+				so every clean row was re-measured once more before the steady state came
+				back. It records now, so this is an ordinary tick. ]]
 			expect(drove(function()
 				s.text(500, "y")
-			end)).toBe("solves=1 calls=1005 served=0 measured=1004 visits=1001")
+			end)).toBe("solves=1 calls=1005 served=999 measured=5 visits=1001")
 			s.dispose()
 		end)
 	end)
@@ -667,7 +692,12 @@ describe("T13: the channels a skipped child owes", function()
 			end)).toBe("solves=1 calls=9 served=2 measured=5 visits=3")
 			expect(drove(function()
 				s.shrinkOn(1)
-			end)).toBe("solves=1 calls=1008 served=999 measured=8 visits=2")
+				--[[ RE-RECORDED 2026-09-06 (Plan D, D5): `served` 999 -> 1,001, `measured` 8 -> 6.
+				Two of the nodes this tick re-measured were a container the arrange pass
+				re-asked at the offer its own measure pass had just answered, which is what
+				the within-solve arm now serves. `visits=2` — the claim of the case — is
+				unmoved, and so is the tail below. ]]
+			end)).toBe("solves=1 calls=1008 served=1001 measured=6 visits=2")
 			expect(drove(function()
 				s.text(500, "z")
 			end)).toBe("solves=1 calls=1007 served=1001 measured=5 visits=1001")

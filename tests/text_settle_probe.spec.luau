@@ -428,7 +428,16 @@ describe("the over-cap push probes its leaves (Plan D, D3c)", function()
 		expect(`arranged={st.lastArranged} of {st.lastLayoutNodes}`).toBe(
 			`arranged={st.lastLayoutNodes} of {st.lastLayoutNodes}`
 		)
-		expect(st.lastMeasured > st.lastLayoutNodes).toBe(true)
+		--[[ RE-RECORDED 2026-09-06 (Plan D, D5). This read `lastMeasured >
+			lastLayoutNodes` — a cold solve measured every node MORE than once, because
+			nothing recorded a slot the second ask could be answered from. D5 records on a
+			full solve, so the second ask is served and a cold solve now measures every
+			layout node EXACTLY once. The equality is the sharper form of the same
+			coldness claim: below it and the solve served something it did not measure,
+			above it and the within-solve serve has regressed. ]]
+		expect(`measured={st.lastMeasured} of {st.lastLayoutNodes}`).toBe(
+			`measured={st.lastLayoutNodes} of {st.lastLayoutNodes}`
+		)
 	end)
 
 	it("UNDER the cap nothing is probed at all — the route this file does not touch", function()
