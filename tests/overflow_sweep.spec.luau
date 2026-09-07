@@ -473,6 +473,10 @@ local SCENARIOS = {
 	-- engine to build. The lab is swept for the same reason every other fixture is:
 	-- a surface with no case is indistinguishable from a passing one.
 	"outpost_terminal",
+	-- Facet stabilization pass, stream D: the inherited `enabled`/`tint`
+	-- showcase — a seven-node panel, a status line and two controls, swept the
+	-- same as every other fixture here.
+	"inherited_subtree",
 	-- scaffold: new control scenarios are appended above this line
 }
 

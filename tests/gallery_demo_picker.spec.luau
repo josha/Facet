@@ -29,7 +29,9 @@ describe("showcase catalogue", function()
 		-- the compositing showcase — a registered host's engine-composed group opacity
 		-- beside its rotation/scale carry, the two capabilities the round's own brief
 		-- names as its showcase deliverable
-		expect(#demos).toBe(36)
+		-- 37 on 2026-09-07 (the stabilization pass, stream D): `inherited-subtree`,
+		-- the inherited `enabled`/`tint` showcase
+		expect(#demos).toBe(37)
 		-- the all-controls fixture leads: it is the one that answers "what does
 		-- this look like on my device"; the row-actions fixture follows it for
 		-- the same feel-first reason (hosted row-actions device pass)
@@ -128,7 +130,9 @@ describe("showcase catalogue", function()
 		-- again with `level-picker`, whose fixture reproduces the reference screenshot
 		-- 29 on 2026-08-16/17: `nested-tree`, the nested-instance-tree
 		-- compositing showcase
-		expect(fixtures).toBe(29)
+		-- 30 on 2026-09-07: `inherited-subtree`, the stabilization pass's
+		-- inherited `enabled`/`tint` showcase
+		expect(fixtures).toBe(30)
 	end)
 
 	-- A BLURB IS READ IN THE OPEN LIST ON THE NARROWEST PHONE, and the list is
@@ -634,7 +638,8 @@ describe("showcase host: the fixture branch delivers `present` opts", function()
 		-- and D5's `tab-view` got the surfaces they shipped without; 28 the same day
 		-- again with `level-picker`, whose fixture reproduces the reference screenshot
 		-- 29 on 2026-08-16/17: `nested-tree`
-		expect(fixtures).toBe(29)
+		-- 30 on 2026-09-07: `inherited-subtree`
+		expect(fixtures).toBe(30)
 		-- and at least one of them actually declares opts, or this proves nothing
 		expect(withOpts >= 1).toBe(true)
 	end)
@@ -1105,6 +1110,8 @@ local DEMO_ROOT: { [string]: string } = {
 	["tab-view"] = "TabViewDemo",
 	-- the nested-instance-tree compositing showcase
 	["nested-tree"] = "NestedCompositing",
+	-- the stabilization pass's inherited `enabled`/`tint` showcase
+	["inherited-subtree"] = "InheritedSubtree",
 	-- scaffold: new control roots are appended above this line. A scaffolded
 	-- scenario names its root screen after the control, so the stamped row is the
 	-- control's own display name and the author only revisits it if the fixture's

@@ -459,6 +459,18 @@ demo_picker.DEMOS = {
 		kind = "fixture",
 		module = "nested_compositing",
 	},
+	-- ...and the Facet stabilization pass's inherited `enabled`/`tint`
+	-- showcase (stream D): a container's own colour and power reaching two
+	-- levels down with nothing named there, both override forms, the control
+	-- boundary, a dynamic toggle that dims and unreaches the whole panel, the
+	-- focus ring jumping to a legal stop outside it, and a reactive tint drag.
+	{
+		id = "inherited-subtree",
+		title = "Inherited power and tint",
+		blurb = "One panel hands its subtree a colour and a power switch it never asked for",
+		kind = "fixture",
+		module = "inherited_subtree",
+	},
 	-- scaffold: new control demos are appended above this line. Fixtures lead the
 	-- tutorials, which follow in the order the guide teaches them, so a scaffolded
 	-- control lands at the end of the fixture run rather than in the middle of a

@@ -285,6 +285,12 @@ local ORDER = {
 		the same reason `sponsor_billboard` is not: a fixture whose demo needs an
 		engine fixture built for it is not something the chip strip can mount. ]]
 	"outpost_terminal",
+	-- Facet stabilization pass, stream D: the inherited `enabled`/`tint`
+	-- showcase. A container's own state and colour reaching a subtree that
+	-- never asked for them is not in any single frame — the panel dimming is a
+	-- toggle, the ring landing outside is a jump, and the reactive tint is a
+	-- drag. Also in `demo_picker.DEMOS`.
+	"inherited_subtree",
 	-- scaffold: new control scenarios are appended above this line
 }
 
