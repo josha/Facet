@@ -746,6 +746,33 @@ describe("T18-D6c: the word index answers the probe's question without measuring
 		).toBe("solves=1 probes=10 skips=991 paths=10")
 	end)
 
+	it("A NUMBER IS TEXT TOO: the labels every HUD actually draws are numbers, and the index must name them", function()
+		--[[ THE LIVE DRIVE FOUND THIS (Plan D, D6c, 2026-09-07). On the arena every label
+			— `battle_hud`'s 1,000 facing values, `war_room`'s 1,500 power values — reaches
+			the solver as a NUMBER prop, and the settle read `probes=1000 skips=0` with ONE
+			label drawing the announced word, while the string-text case above read
+			`skips=991`. `noteWords` accepted only strings, so a numeric label had no drawn
+			set and fell through to the measure. The engine draws `tostring(text)` and
+			`text_metrics.measure` coerces the same way; the index has to as well. Same
+			shape as the ten-share case, with numbers where it had strings. ]]
+		local arm = world({
+			rows = ROWS,
+			pin = "pinPairTen",
+			words = function(i: number): any
+				return if i <= 10 then 190 else 100000 + i
+			end,
+		})
+		settle(arm)
+		local quiet = quiesce(arm)
+		local before = quiet.solves
+		learn(arm, "190", widthOf("190", SIZE_ROW, FONT) :: number + 9)
+		local st = stats(arm)
+		expect(
+			`solves={st.solves - before} probes={st.lastTextProbeMeasures} skips={st.lastTextWordSkips} `
+				.. `paths={st.lastTextDirtyPaths}`
+		).toBe("solves=1 probes=10 skips=991 paths=10")
+	end)
+
 	it("...and a MULTI-WORD leaf is skipped by neither: it never had a width to compare", function()
 		--[[ THE TWO ZEROES, TOLD APART. The phrases are refused by the `mTextW` gate
 			above the word check — they have no cached unbounded width — so the word

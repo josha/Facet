@@ -364,12 +364,22 @@ function text_index.new(): Index
 		if pathText[path] == text then
 			return
 		end
+		--[[ A NUMBER IS TEXT TOO (Plan D, D6c live drive, 2026-09-07). Every HUD number
+			— `battle_hud`'s 1,000 facing labels, `war_room`'s 1,500 power labels — reaches
+			the solver as a NUMBER prop, and `text_metrics.measure` coerces it the way the
+			engine draws it. The first draft accepted only strings, so on the arena every
+			path fell through to the measure: live `probes=1000 skips=0` with ONE label
+			drawing the announced word, while the string-text spec read `skips=991`. The
+			comparison key stays the raw value (a number compares by value). ]]
+		if type(text) == "number" then
+			text = tostring(text)
+		end
 		if type(text) ~= "string" then
 			pathText[path] = nil
 			pathWords[path] = nil
 			return
 		end
-		pathText[path] = text
+		pathText[path] = if node ~= nil then node.text else nil
 		pathWords[path] = text_metrics.wordsOf(text)
 	end
 
