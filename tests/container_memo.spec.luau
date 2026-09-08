@@ -742,9 +742,9 @@ describe("T13: the index is not the identity", function()
 			is the point: an index-keyed memo would pass its own gate and serve a number
 			belonging to a different node.
 
-			The counters say the memo refused (a full walk on the insert and on the remove,
-			1,004 and 1,003 — the extra visits are the region's own items), and the
-			snapshot says nothing moved. ]]
+			The insert still refuses (1,004 visits). Plan E removal reuse maps the
+			clean surviving subset by id (one remaining visit); the independent full
+			snapshot still governs both operations. ]]
 		local a, c = pair({ rows = ROWS, foreach = true })
 		local function agree(step: string)
 			if a.snapshot() ~= c.snapshot() then
@@ -769,7 +769,7 @@ describe("T13: the index is not the identity", function()
 		a.removeItem("i0")
 		c.removeItem("i0")
 		agree("remove")
-		expect(`visits={a.stats().lastChildVisits}`).toBe("visits=1003")
+		expect(`visits={a.stats().lastChildVisits}`).toBe("visits=1")
 		a.dispose()
 		c.dispose()
 	end)

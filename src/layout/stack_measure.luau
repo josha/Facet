@@ -177,9 +177,10 @@ function stack_measure.contentSize(
 			compare, and `tests/container_aggregate.spec.luau` drives it. ]]
 		and cmemo.mKind == node.kind
 	-- Structural dirt changes indices. Validate the complete unchanged set before
-	-- remapping any answer; a changed row makes this a normal full pass.
+	-- remapping any answer; deletion may keep a clean subset. A changed survivor
+	-- makes this a normal full pass.
 	if hit and cmemo.struct == true and not ctx.memoAudit and not ctx.aggregateAudit then
-		local order = permutation.order(children, cmemo.mIds, cmemo.mN, dirty)
+		local order = permutation.order(children, cmemo.mIds, cmemo.mN, dirty, nil, true)
 		if order ~= nil then
 			cmemo.mMain = permutation.remap(cmemo.mMain, order)
 			cmemo.mCross = permutation.remap(cmemo.mCross, order)

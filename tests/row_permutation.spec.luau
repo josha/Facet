@@ -10,7 +10,11 @@ local function world(full: boolean, opts: any?)
 	env:set("viewportRect", { x = 0, y = 0, w = 600, h = 1000 })
 	local items = {}
 	for i = 1, 96 do
-		items[i] = { key = tostring(i), height = core:signal({ type = "fixed", px = 20 + i % 3 }) }
+		items[i] = {
+			key = tostring(i),
+			height = core:signal({ type = "fixed", px = 20 + i % 3 }),
+			label = core:signal("row " .. i),
+		}
 	end
 	local rows = core:signal(items)
 	local bp = Facet.UI.Screen({
@@ -19,7 +23,7 @@ local function world(full: boolean, opts: any?)
 			(if opts.horizontal then Facet.UI.HStack else Facet.UI.VStack)({
 				id = "List",
 				width = { type = "fill" },
-				height = { type = "content" },
+				height = if opts.fixedList then { type = "fixed", px = 1000 } else { type = "content" },
 				gap = opts.gap or 2,
 				padding = opts.padding,
 				distribute = opts.distribute,
@@ -50,14 +54,21 @@ local function world(full: boolean, opts: any?)
 											px = 10,
 										},
 									}),
-									Facet.UI.Box({
-										id = "B",
-										width = { type = "fixed", px = 5 },
-										height = {
-											type = "fixed",
-											px = 5,
-										},
-									}),
+									if opts.withText
+										then Facet.UI.Text({
+											id = "B",
+											text = item.label,
+											width = { type = "fixed", px = 40 },
+											textSize = 12,
+										})
+										else Facet.UI.Box({
+											id = "B",
+											width = { type = "fixed", px = 5 },
+											height = {
+												type = "fixed",
+												px = 5,
+											},
+										}),
 								},
 							})
 						end,
@@ -83,6 +94,9 @@ local function world(full: boolean, opts: any?)
 	controller.refresh()
 	local function reverse(changed: boolean)
 		if changed then
+			if items[1].label then
+				items[1].label:set("changed content that wraps over the narrow row")
+			end
 			items[1].height:set({ type = "fixed", px = 47 })
 		end
 		local out = {}
@@ -178,6 +192,7 @@ end)
 t.describe("row prefix refusal and chained replay", function()
 	for _, opts in
 		{
+			{ name = "changed text", withText = true },
 			{ name = "fractional gap", gap = 1.5 },
 			{ name = "fractional origin", padding = 0.5 },
 			{ name = "margin", margin = 3 },
@@ -245,6 +260,26 @@ t.describe("host local paint order", function()
 		b.reverse(false)
 		b.controller.initialRender()
 		t.expect(ranking(a, false)).toBe(ranking(b, false))
+		a.dispose()
+		b.dispose()
+	end)
+end)
+
+t.describe("surviving row extents", function()
+	t.it("removing a row reuses surviving measurements against forced full", function()
+		local a, b = world(false), world(true)
+		a.splice(true)
+		b.splice(true)
+		t.expect(a.snapshot()).toBe(b.snapshot())
+		print("REMOVE CALLS", a.controller.stats().lastMeasureCalls)
+		t.expect(a.controller.stats().lastMeasureCalls <= 100).toBe(true)
+		for step = 1, 4 do
+			a.reverse(step % 2 == 0)
+			b.reverse(step % 2 == 0)
+			a.splice(true)
+			b.splice(true)
+			t.expect(a.snapshot()).toBe(b.snapshot())
+		end
 		a.dispose()
 		b.dispose()
 	end)
