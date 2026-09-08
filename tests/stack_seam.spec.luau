@@ -201,6 +201,8 @@ describe("the stack seam: what it READS of the solve, and the one thing it WRITE
 			both arms place the same children at the same rects, which is what the oracle
 			at the bottom of `tests/stack_replay_candidates.spec.luau` compares. ]]
 		"dirtySeen",
+		-- Plan E republishes the cut verdict and measurement offer of a served row.
+		"fitCuts",
 		-- ...and the gate those two share, which is also a replay gate term: the
 		-- decision to file cannot have flipped under a re-filed finding
 		"hiddenDepth",
@@ -216,6 +218,7 @@ describe("the stack seam: what it READS of the solve, and the one thing it WRITE
 		-- the suspension a coordinate-space host holding a composition raises. The
 		-- replay refuses under it for the reason `arrangeBody`'s own skip does
 		"noSkipDepth",
+		"offers",
 		-- ...and the two censuses the arm owes: how many per-child placements it did NOT
 		-- spend, and (Plan D, D2c) how many per-child ITERATIONS it DID. They are
 		-- independent — the replay used to walk every sibling twice to serve a one-child
@@ -259,16 +262,23 @@ describe("the stack seam: what it READS of the solve, and the one thing it WRITE
 	}
 	local CHILD_FIELDS = {
 		"align",
+		-- Plan E refuses kinds with measurement side channels or relative sizing.
+		"containerRelativeInside",
+		"hKey",
 		-- the identity the payload's per-index arrays are keyed by. A `ForEach` splice
 		-- moves every later index while the mount children table the carrier compares
 		-- is untouched, so an index alone is not a binding
 		"id",
 		-- the shrink pass's order, one of the two inputs that move a rect with NO
 		-- measurement change (ruling A-15); the other is `shrinkWeight` below
+		"kind",
 		"layoutPriority",
 		"lineAlign",
 		"margin",
 		"shrinkWeight",
+		"subtreeHasComposition",
+		"subtreeHasScroll",
+		"wKey",
 	}
 
 	it("it reads a CLOSED set of ctx, node and child fields", function()
@@ -309,6 +319,8 @@ describe("the stack seam: what it READS of the solve, and the one thing it WRITE
 			by the differential oracle rather than by write-only-ness. It is listed first
 			so a second read-back field cannot arrive under this comment unremarked. ]]
 		"ctx.dirtySeen",
+		-- Cut verdict replay is semantic state, not a work counter.
+		"ctx.fitCuts",
 		-- the per-child placements the replay did not spend, the per-child ITERATIONS it
 		-- did (D2c), the dirty IDS it read to decide (D3b), and the rects its forced-on
 		-- oracle compared. All four are pure counters: this module never reads any of
@@ -387,7 +399,14 @@ describe("the stack seam: one-way, one consumer, and nothing stayed behind", fun
 			table.insert(requires, path)
 		end
 		table.sort(requires)
-		expect(requires).toEqual({ "../num", "./baseline", "./measure_facts", "./placement", "./shrink" })
+		expect(requires).toEqual({
+			"../num",
+			"./baseline",
+			"./measure_facts",
+			"./placement",
+			"./row_permutation",
+			"./shrink",
+		})
 	end)
 
 	it("it names no solver symbol and imports no solver type", function()
@@ -492,6 +511,7 @@ describe("the stack seam: no module-level mutable state", function()
 				constant binding. It is listed so a second one does not arrive unremarked. ]]
 			"function",
 			"num",
+			"permutation",
 			"placementLib",
 			"roundPx",
 			"shrinkLib",

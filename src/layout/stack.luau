@@ -55,6 +55,8 @@ local roundPx = num.roundPx
 local alignOffset = placementLib.alignOffset
 local distributionOf = placementLib.distributionOf
 
+local permutation = require("./row_permutation")
+
 local stack = {}
 
 -- What the branch needs from the solver, passed at every call. Typed `any` for the
@@ -477,6 +479,10 @@ function stack.arrange(
 			replaying container always is. `pNoted` is what makes the common case free:
 			if this container filed no containment finding on the pass that recorded, a
 			re-file is provably a no-op, because every rect and the box are unchanged. ]]
+		-- Replay can change cut verdicts without a full measurement recording.
+		if hotCount > 0 then
+			cmemo.pCuts = nil
+		end
 		local noted, pRect, pCross = cmemo.pNoted, cmemo.pRect, cmemo.pCross
 		local axisIsX = not isH
 		--[[ ...AND WHAT THIS PASS FILED, which is the value the NEXT replay reads (fix
@@ -579,6 +585,51 @@ function stack.arrange(
 		`container_memo`, `container_aggregate` and `measure_serve` were re-recorded with
 		their reason. The order is cheapest-term-first precisely so the common refusals
 		(a changed id, a changed gap, a changed box) cost no measure at all. ]]
+	-- Arrange's offer differs from measure's (inventory: 598 vs 1280 pixels).
+	-- Reuse only this pass's own saved answers and republish its cuts and offers.
+	local permuted = nil
+	if
+		cmemo ~= nil
+		and reuse ~= nil
+		and ctx.measureQuiet
+		and ctx.measureStamp ~= nil
+		and ctx.noSkipDepth == 0
+		and not ctx.replayAudit
+		and not hasBaseline
+		and cmemo.pStamp == ctx.measureStamp
+		and cmemo.pScope == ctx.scopeKey
+		and cmemo.pKind == node.kind
+		and cmemo.pHidden == ctx.hiddenDepth
+		and cmemo.pInnerW == innerW
+		and cmemo.pInnerH == innerH
+		and cmemo.pCuts ~= nil
+	then
+		permuted = permutation.order(children, cmemo.pIds, cmemo.pN, reuse.measureContains)
+		if permuted ~= nil then
+			for _, child in children do
+				local mainType = deps.mainDimOf(child, isH).type
+				if
+					mainType == "hug"
+					or mainType == "fill"
+					or child.kind == "text"
+					or child.kind == "composition"
+					or child.shrinkWeight ~= nil
+					or child.subtreeHasScroll
+					or child.subtreeHasComposition
+					or child.containerRelativeInside
+				then
+					permuted = nil
+					break
+				end
+			end
+		end
+	end
+	local previousCuts = if cmemo ~= nil then cmemo.pCuts else nil
+	local measuredCuts = if cmemo ~= nil then {} else nil
+	-- A throw during a full pass must not leave old cut data paired with new extents.
+	if cmemo ~= nil then
+		cmemo.pCuts = nil
+	end
 	local desired = {}
 	local margins = {}
 	local fillWeightSum = 0
@@ -610,7 +661,21 @@ function stack.arrange(
 			table.insert(hugLater, idx)
 			continue
 		end
-		local w, h = deps.measure(ctx, child, innerW, innerH)
+		local w, h
+		local cutsBefore = ctx.fitCuts
+		if permuted ~= nil then
+			local old = permuted[idx]
+			w = (if isH then cmemo.pMain[old] else cmemo.pCross[old]) - ml - mr
+			h = (if isH then cmemo.pCross[old] else cmemo.pMain[old]) - mt - mb
+			ctx.fitCuts += previousCuts[old] or 0
+			ctx.offers[child.wKey or (child.id .. "|w")] = innerW
+			ctx.offers[child.hKey or (child.id .. "|h")] = innerH
+		else
+			w, h = deps.measure(ctx, child, innerW, innerH)
+		end
+		if measuredCuts ~= nil then
+			measuredCuts[idx] = ctx.fitCuts - cutsBefore
+		end
 		desired[idx] = { w = w, h = h }
 		if mainDim.type == "fill" then
 			fillWeightSum += mainDim.weight or 1
@@ -1057,6 +1122,7 @@ function stack.arrange(
 		nothing here runs either, so the audited pass leaves the payload the last REPLAY
 		left — see the audit block above for why that is the whole point. ]]
 	if cmemo ~= nil and not ctx.replayAudit then
+		cmemo.pCuts = measuredCuts
 		cmemo.pN, cmemo.pKind = #children, node.kind
 		cmemo.pStamp, cmemo.pScope, cmemo.pHidden = ctx.measureStamp, ctx.scopeKey, ctx.hiddenDepth
 		cmemo.pInnerX, cmemo.pInnerY, cmemo.pInnerW, cmemo.pInnerH = innerX, innerY, innerW, innerH

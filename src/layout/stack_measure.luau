@@ -33,6 +33,8 @@ local shrinkLib = require("./shrink")
 local baseline = require("./baseline")
 local spacerMinimum = require("./measure_facts").spacerMinimum
 
+local permutation = require("./row_permutation")
+
 local stack_measure = {}
 
 --[[ THE SEVEN SHAPES A CONTAINER'S MEASURE BRANCH CAN NEVER SERVE (owed row A13).
@@ -174,6 +176,17 @@ function stack_measure.contentSize(
 			term in this key would hold and the memo would serve heights as widths. One
 			compare, and `tests/container_aggregate.spec.luau` drives it. ]]
 		and cmemo.mKind == node.kind
+	-- Structural dirt changes indices. Validate the complete unchanged set before
+	-- remapping any answer; a changed row makes this a normal full pass.
+	if hit and cmemo.struct == true and not ctx.memoAudit and not ctx.aggregateAudit then
+		local order = permutation.order(children, cmemo.mIds, cmemo.mN, dirty)
+		if order ~= nil then
+			cmemo.mMain = permutation.remap(cmemo.mMain, order)
+			cmemo.mCross = permutation.remap(cmemo.mCross, order)
+			cmemo.mCuts = permutation.remap(cmemo.mCuts, order)
+			cmemo.mIds = permutation.remap(cmemo.mIds, order)
+		end
+	end
 	local memoable = cmemo ~= nil and reuse ~= nil and ctx.measureStamp ~= nil and not ctx.analyze
 	local mMain, mCross, mCuts, mIds
 	if memoable then

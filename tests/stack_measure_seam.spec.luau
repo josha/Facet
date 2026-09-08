@@ -357,7 +357,7 @@ describe("the stack-measure seam: one-way, one consumer, and nothing stayed behi
 			table.insert(requires, path)
 		end
 		table.sort(requires)
-		expect(requires).toEqual({ "./baseline", "./measure_facts", "./shrink" })
+		expect(requires).toEqual({ "./baseline", "./measure_facts", "./row_permutation", "./shrink" })
 	end)
 
 	it("it names no solver symbol and imports no solver type", function()
@@ -459,7 +459,14 @@ describe("the stack-measure seam: no module-level mutable state", function()
 			full pass classifies with it and the aggregate's pre-pass re-asks it of every
 			index it is about to visit. Two copies of a seven-term predicate is the
 			copy-goes-stale failure this file's own header is about. ]]
-		expect(sorted(declared)).toEqual({ "alwaysVisit", "baseline", "shrinkLib", "spacerMinimum", "stack_measure" })
+		expect(sorted(declared)).toEqual({
+			"alwaysVisit",
+			"baseline",
+			"permutation",
+			"shrinkLib",
+			"spacerMinimum",
+			"stack_measure",
+		})
 		local reassigned: { string } = {}
 		for name in string.gmatch(body, "\n([%a_][%w_]*) =") do
 			if declared[name] then
