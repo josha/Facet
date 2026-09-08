@@ -42,8 +42,8 @@ local function world(full: boolean, opts: any?)
 						row = function(item)
 							return Facet.UI.ZStack({
 								id = "Row",
-								width = { type = "fill" },
-								height = item.height,
+								width = if opts.horizontalKnown then item.height else { type = "fill" },
+								height = if opts.horizontalKnown then { type = "fixed", px = 22 } else item.height,
 								margin = opts.margin,
 								children = {
 									Facet.UI.Box({
@@ -97,7 +97,9 @@ local function world(full: boolean, opts: any?)
 			if items[1].label then
 				items[1].label:set("changed content that wraps over the narrow row")
 			end
-			items[1].height:set({ type = "fixed", px = 47 })
+			if not opts.textOnly then
+				items[1].height:set({ type = "fixed", px = 47 })
+			end
 		end
 		local out = {}
 		for i = #items, 1, -1 do
@@ -107,7 +109,9 @@ local function world(full: boolean, opts: any?)
 		rows:set(out)
 		controller.refresh()
 	end
+	local added = 0
 	local function snapshot()
+		t.expect(core:lastError()).toBeNil()
 		local paths = adapter.paths()
 		table.sort(paths)
 		local out = {}
@@ -140,7 +144,8 @@ local function world(full: boolean, opts: any?)
 			if remove then
 				table.remove(out, 3)
 			else
-				table.insert(out, 3, { key = "added" .. #out, height = core:signal({ type = "fixed", px = 23 }) })
+				added += 1
+				table.insert(out, 3, { key = "added" .. added, height = core:signal({ type = "fixed", px = 23 }) })
 			end
 			items = out
 			rows:set(out)
@@ -149,6 +154,7 @@ local function world(full: boolean, opts: any?)
 		snapshot = snapshot,
 		controller = controller,
 		dispose = function()
+			t.expect(core:lastError()).toBeNil()
 			controller.dispose()
 			root.dispose()
 		end,
@@ -193,6 +199,8 @@ t.describe("row prefix refusal and chained replay", function()
 	for _, opts in
 		{
 			{ name = "changed text", withText = true },
+			{ name = "text-only change", withText = true, textOnly = true },
+			{ name = "horizontal prefix", horizontal = true, horizontalKnown = true },
 			{ name = "fractional gap", gap = 1.5 },
 			{ name = "fractional origin", padding = 0.5 },
 			{ name = "margin", margin = 3 },
@@ -202,10 +210,18 @@ t.describe("row prefix refusal and chained replay", function()
 	do
 		t.it(opts.name .. " preserves geometry and findings through mixed and clean frames", function()
 			local a, b = world(false, opts), world(true, opts)
-			for _, changed in { false, false, true, false, false } do
+			for step, changed in { false, false, true, false, false } do
 				a.reverse(changed)
 				b.reverse(changed)
 				t.expect(a.snapshot()).toBe(b.snapshot())
+				if opts.horizontalKnown and step == 1 then
+					t.expect(a.controller.stats().lastArrangeEntries <= 4).toBe(true)
+				end
+				for _, path in a.adapter.paths() do
+					for _, key in { "text", "textWrapped", "compactLabel" } do
+						t.expect(a.adapter.node(path).props[key]).toBe(b.adapter.node(path).props[key])
+					end
+				end
 			end
 			a.dispose()
 			b.dispose()
@@ -300,5 +316,64 @@ t.describe("suffix rebase after deletion", function()
 		end
 		a.dispose()
 		b.dispose()
+	end)
+end)
+
+t.describe("host-local ordering after an interrupted adapter write", function()
+	t.it("restores global priority and retries a failed restoration", function()
+		local zOrder = require("../src/render/z_order")
+		local zScope = require("../src/render/z_scope")
+		local function node(path, children, host)
+			return { path = path, class = "Box", props = {}, children = children or {}, hostSpace = host }
+		end
+		local a = node("/S/A", { node("/S/A/a"), node("/S/A/b") }, true)
+		local b = node("/S/B", { node("/S/B/a"), node("/S/B/b") }, true)
+		local c = node("/S/C", { node("/S/C/a"), node("/S/C/b") }, true)
+		local root = { node = node("/S", { a, b, c }) }
+		local handles, lastZ = {}, {}
+		local function collect(n)
+			handles[n.path] = { path = n.path }
+			for _, child in n.children do
+				collect(child)
+			end
+		end
+		collect(root.node)
+		local fail = false
+		local z = zOrder.new({
+			root = root,
+			handles = handles,
+			lastZ = lastZ,
+			hitLift = { any = false },
+			metrics = function()
+				return nil
+			end,
+			stats = { zMemoEntries = 0, zPasses = 0, zVisits = 0 },
+			adapter = {
+				setZOrder = function(h, _value)
+					if fail and h.path == "/S/B" then
+						error("injected adapter failure")
+					end
+				end,
+			},
+		})
+		z.sync(nil)
+		root.node.children = { c, a, b }
+		fail = true
+		local ok = pcall(function()
+			z.sync({ { path = "/S", node = root.node } })
+		end)
+		t.expect(ok).toBe(false)
+		t.expect(zScope.of(lastZ).localNumbers).toBe(true)
+		ok = pcall(function()
+			zScope.requireGlobal(lastZ)
+		end)
+		t.expect(ok).toBe(false)
+		t.expect(zScope.of(lastZ).global).toBe(false)
+		t.expect(zScope.of(lastZ).localNumbers).toBe(true)
+		fail = false
+		zScope.requireGlobal(lastZ)
+		t.expect(lastZ["/S/C/a"] < lastZ["/S/A/a"]).toBe(true)
+		t.expect(lastZ["/S/A/a"] < lastZ["/S/B/a"]).toBe(true)
+		t.expect(zScope.of(lastZ).localNumbers).toBe(false)
 	end)
 end)

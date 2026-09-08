@@ -19,9 +19,9 @@
 	`(zIndex or 0, declaration order)` order, so a lifted node — a drag ghost, a
 	toast — paints above the siblings it was declared before, and its whole SUBTREE
 	travels with it because the walk is depth-first over one counter. Nothing crosses
-	a scope: a child's counter is always higher than its parent's, whatever its
-	zIndex, which is why lifting across surfaces stays structural (the presenter's
-	display order).
+	a scope: real hosts isolate their descendants' relative order. A global reader
+	first restores one monotone counter; without one, child numbers need not exceed
+	the host's own number. Lifting across surfaces stays structural (display order).
 
 	The declaration index is part of the key rather than trusted to `table.sort`:
 	Luau's sort is NOT stable, so ties between two zero-index siblings would
@@ -32,8 +32,8 @@
 	renderer declares once, clears in place and never rebinds — plus `root`, the
 	mount handle, which is likewise never reassigned; the adapter; the lift; and one
 	function for the metrics snapshot. NO reassigned upvalue of the host crosses this
-	boundary, it names no renderer symbol, and its two requires (`./authority`,
-	`./layout_node`) are leaves the renderer requires as well.
+	boundary and it names no renderer symbol. `authority` and `layout_node` are
+	shared leaves; `z_scope` coordinates this walk with the drag reader.
 	`tests/z_order_seam.spec.luau` is that property mechanised. ]]
 local authority = require("./authority")
 local zScope = require("./z_scope")
@@ -313,6 +313,9 @@ function z_order.new(deps: Deps)
 				and not scope.global
 			if HOST_LOCAL and localHost then
 				localNumbers = true
+				-- Publish before any later adapter write can throw. A global-reader
+				-- acquisition must restore even an interrupted first local pass.
+				scope.localNumbers = true
 				z = entered + zSpan[path]
 				zIn[path] = entered
 				return
