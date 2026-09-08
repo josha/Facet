@@ -62,6 +62,7 @@
 ]]
 
 local authority = require("./authority")
+local zScope = require("./z_scope")
 local dragRegistryLib = require("../input/drag_registry")
 
 local drag_bridge = {}
@@ -101,6 +102,7 @@ function drag_bridge.new(ctx: DragBridgeCtx)
 
 	local function registry(): any
 		if instance == nil then
+			zScope.requireGlobal(lastZ)
 			instance = dragRegistryLib.new({
 				core = core,
 				rectOf = screenRectOf,

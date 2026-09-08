@@ -36,6 +36,14 @@
 	`./layout_node`) are leaves the renderer requires as well.
 	`tests/z_order_seam.spec.luau` is that property mechanised. ]]
 local authority = require("./authority")
+local zScope = require("./z_scope")
+-- Plan E: Z1/Z2 below remain the global-reader contract. Without a drag
+-- registry, a clean real host may keep its descendants' numbers: Sibling mode
+-- compares them only within that parent. z_scope synchronously restores the full
+-- numbering before exposing a newly acquired global reader, then latches that
+-- surface into the original walk. Full syncs and metric/lift changes still walk
+-- every child. No renderer state or public option was added.
+local HOST_LOCAL = true -- C validates eligibility but retains the global walk
 local layoutNode = require("./layout_node")
 
 local effectiveHitFloor = layoutNode.effectiveHitFloor
@@ -65,6 +73,7 @@ function z_order.new(deps: Deps)
 	local adapter, root = deps.adapter, deps.root
 	local handles, lastZ, hitLift = deps.handles, deps.lastZ, deps.hitLift
 	local stats = deps.stats
+	local scope = zScope.of(lastZ)
 
 	-- ...and the SECOND KEY, only when something asked for it: a branch whose hit
 	-- expander overhangs into a later sibling is walked AFTER that sibling
@@ -251,6 +260,7 @@ function z_order.new(deps: Deps)
 		local floorOf: { [string]: boolean } = {}
 		local z = 0
 		local visited = 0
+		local localNumbers = forced ~= nil and scope.localNumbers == true
 		local function walkZ(node: any)
 			visited += 1
 			-- ONE READ OF THE PATH FOR THE WHOLE VISIT (Plan D, D4b): the body below
@@ -292,6 +302,20 @@ function z_order.new(deps: Deps)
 				authority.assertWrite("common", "zIndex", "layout")
 				adapter.setZOrder(handle, z)
 				lastZ[path] = z
+			end
+			-- A real host owns its children's stacking scope. Only its own number
+			-- moves when the subtree is clean; a drag reader opts the surface back
+			-- into the globally ordered oracle before exposing its first registry.
+			local localHost = forced ~= nil
+				and not forced[path]
+				and node.hostSpace == true
+				and zSpan[path] ~= nil
+				and not scope.global
+			if HOST_LOCAL and localHost then
+				localNumbers = true
+				z = entered + zSpan[path]
+				zIn[path] = entered
+				return
 			end
 			local kids = orderedChildren(node)
 			for _, child in kids do
@@ -348,10 +372,16 @@ function z_order.new(deps: Deps)
 			zHigh = z
 		end
 		compactNext = z > zHigh * 2 + Z_COMPACT_SLACK
+		scope.localNumbers = localNumbers
 		stats.zPasses += 1
 		stats.zVisits += visited
 	end
 
+	scope.restore = function()
+		if scope.localNumbers then
+			sync(nil)
+		end
+	end
 	return { orderedChildren = orderedChildren, sync = sync, forget = forget }
 end
 

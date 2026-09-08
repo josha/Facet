@@ -120,6 +120,18 @@ local function world(full: boolean, opts: any?)
 	end
 	return {
 		reverse = reverse,
+		adapter = adapter,
+		splice = function(remove)
+			local out = table.clone(items)
+			if remove then
+				table.remove(out, 3)
+			else
+				table.insert(out, 3, { key = "added" .. #out, height = core:signal({ type = "fixed", px = 23 }) })
+			end
+			items = out
+			rows:set(out)
+			controller.refresh()
+		end,
 		snapshot = snapshot,
 		controller = controller,
 		dispose = function()
@@ -184,4 +196,56 @@ t.describe("row prefix refusal and chained replay", function()
 			b.dispose()
 		end)
 	end
+end)
+
+t.describe("host local paint order", function()
+	local function ranking(w, localScope)
+		local paths = w.adapter.paths()
+		table.sort(paths, function(a, b)
+			local na, nb = w.adapter.node(a), w.adapter.node(b)
+			local pa, pb =
+				if localScope then (na.instanceHost and na.instanceHost.path) or "" else "",
+				if localScope then (nb.instanceHost and nb.instanceHost.path) or "" else ""
+			if pa ~= pb then
+				return pa < pb
+			end
+			return na.z < nb.z
+		end)
+		return table.concat(paths, "\n")
+	end
+	t.it("reorders hosts without visiting their clean children, against a full z walk", function()
+		local a, b = world(false), world(true)
+		local before = a.controller.stats().zVisits
+		a.reverse(false)
+		b.reverse(false)
+		b.controller.initialRender()
+		t.expect(ranking(a, true)).toBe(ranking(b, true))
+		local visits = a.controller.stats().zVisits - before
+		print("HOST Z VISITS", visits)
+		t.expect(visits <= 105).toBe(true)
+		for step = 1, 12 do
+			if step % 3 == 0 then
+				a.splice(true)
+				b.splice(true)
+			elseif step % 3 == 1 then
+				a.splice(false)
+				b.splice(false)
+			else
+				a.reverse(step % 2 == 0)
+				b.reverse(step % 2 == 0)
+			end
+			b.controller.initialRender()
+			t.expect(ranking(a, true)).toBe(ranking(b, true))
+		end
+		-- Acquiring a cross-host reader after local numbering must restore ranking
+		-- immediately, before the first drop target can ask for a tie break.
+		a.controller.dragRegistry()
+		t.expect(ranking(a, false)).toBe(ranking(b, false))
+		a.reverse(false)
+		b.reverse(false)
+		b.controller.initialRender()
+		t.expect(ranking(a, false)).toBe(ranking(b, false))
+		a.dispose()
+		b.dispose()
+	end)
 end)
