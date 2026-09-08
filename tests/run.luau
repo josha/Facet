@@ -1351,6 +1351,8 @@ require("./overflow_guard.spec")
 	Unset, this is exactly the run it always was. `registeredSpecs` is counted
 	from THIS file's require list — a spec that registers nothing is then a
 	number that disagrees with itself rather than a silent zero. ]]
+require("./bound_enum_seam.spec")
+
 local ok = testkit.run({
 	jsonOut = process.env.FACET_SUITE_JSON,
 	tier = "full",
@@ -1359,3 +1361,4 @@ local ok = testkit.run({
 if not ok then
 	process.exit(1)
 end
+
