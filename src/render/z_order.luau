@@ -19,9 +19,9 @@
 	`(zIndex or 0, declaration order)` order, so a lifted node — a drag ghost, a
 	toast — paints above the siblings it was declared before, and its whole SUBTREE
 	travels with it because the walk is depth-first over one counter. Nothing crosses
-	a scope: a child's counter is always higher than its parent's, whatever its
-	zIndex, which is why lifting across surfaces stays structural (the presenter's
-	display order).
+	a scope: real hosts isolate their descendants' relative order. A global reader
+	first restores one monotone counter; without one, child numbers need not exceed
+	the host's own number. Lifting across surfaces stays structural (display order).
 
 	The declaration index is part of the key rather than trusted to `table.sort`:
 	Luau's sort is NOT stable, so ties between two zero-index siblings would
@@ -32,10 +32,18 @@
 	renderer declares once, clears in place and never rebinds — plus `root`, the
 	mount handle, which is likewise never reassigned; the adapter; the lift; and one
 	function for the metrics snapshot. NO reassigned upvalue of the host crosses this
-	boundary, it names no renderer symbol, and its two requires (`./authority`,
-	`./layout_node`) are leaves the renderer requires as well.
+	boundary and it names no renderer symbol. `authority` and `layout_node` are
+	shared leaves; `z_scope` coordinates this walk with the drag reader.
 	`tests/z_order_seam.spec.luau` is that property mechanised. ]]
 local authority = require("./authority")
+local zScope = require("./z_scope")
+-- Plan E: Z1/Z2 below remain the global-reader contract. Without a drag
+-- registry, a clean real host may keep its descendants' numbers: Sibling mode
+-- compares them only within that parent. z_scope synchronously restores the full
+-- numbering before exposing a newly acquired global reader, then latches that
+-- surface into the original walk. Full syncs and metric/lift changes still walk
+-- every child. No renderer state or public option was added.
+local HOST_LOCAL = true -- C validates eligibility but retains the global walk
 local layoutNode = require("./layout_node")
 
 local effectiveHitFloor = layoutNode.effectiveHitFloor
@@ -65,6 +73,7 @@ function z_order.new(deps: Deps)
 	local adapter, root = deps.adapter, deps.root
 	local handles, lastZ, hitLift = deps.handles, deps.lastZ, deps.hitLift
 	local stats = deps.stats
+	local scope = zScope.of(lastZ)
 
 	-- ...and the SECOND KEY, only when something asked for it: a branch whose hit
 	-- expander overhangs into a later sibling is walked AFTER that sibling
@@ -251,6 +260,7 @@ function z_order.new(deps: Deps)
 		local floorOf: { [string]: boolean } = {}
 		local z = 0
 		local visited = 0
+		local localNumbers = forced ~= nil and scope.localNumbers == true
 		local function walkZ(node: any)
 			visited += 1
 			-- ONE READ OF THE PATH FOR THE WHOLE VISIT (Plan D, D4b): the body below
@@ -292,6 +302,23 @@ function z_order.new(deps: Deps)
 				authority.assertWrite("common", "zIndex", "layout")
 				adapter.setZOrder(handle, z)
 				lastZ[path] = z
+			end
+			-- A real host owns its children's stacking scope. Only its own number
+			-- moves when the subtree is clean; a drag reader opts the surface back
+			-- into the globally ordered oracle before exposing its first registry.
+			local localHost = forced ~= nil
+				and not forced[path]
+				and node.hostSpace == true
+				and zSpan[path] ~= nil
+				and not scope.global
+			if HOST_LOCAL and localHost then
+				localNumbers = true
+				-- Publish before any later adapter write can throw. A global-reader
+				-- acquisition must restore even an interrupted first local pass.
+				scope.localNumbers = true
+				z = entered + zSpan[path]
+				zIn[path] = entered
+				return
 			end
 			local kids = orderedChildren(node)
 			for _, child in kids do
@@ -348,10 +375,16 @@ function z_order.new(deps: Deps)
 			zHigh = z
 		end
 		compactNext = z > zHigh * 2 + Z_COMPACT_SLACK
+		scope.localNumbers = localNumbers
 		stats.zPasses += 1
 		stats.zVisits += visited
 	end
 
+	scope.restore = function()
+		if scope.localNumbers then
+			sync(nil)
+		end
+	end
 	return { orderedChildren = orderedChildren, sync = sync, forget = forget }
 end
 

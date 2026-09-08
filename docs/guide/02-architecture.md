@@ -225,3 +225,7 @@ Next: [chapter 3](03-getting-started.md) builds the smallest working screen.
 owns a content scope. Input contributions reuse presenter Cancel routing and the
 existing focus graph. Theme and environment changes only re-solve the current
 page; they do not create another navigation or rendering system.
+
+The renderer validates bound paint and style enum values through the internal
+`render/bound_enum.luau` helper. It depends only on the blueprint schema and
+holds no surface state. Binding and style writes share this check.

@@ -207,6 +207,9 @@ describe("C5: the differential — a bounded walk paints in the order a full one
 		local viewport = { x = 0, y = 0, w = view.w, h = view.h }
 		local a = scene.new({ viewport = viewport, withButton = withButton })
 		local b = scene.new({ viewport = viewport, withButton = withButton })
+		-- E3: these historical global-rank pins model a cross-host drag reader.
+		a.controller.dragRegistry()
+		b.controller.dragRegistry()
 		local seed = 20260904
 		local function rnd(n: number): number
 			seed = (seed * 1103515245 + 12345) % 2147483648
@@ -669,6 +672,7 @@ describe("C5: what the bound does NOT survive — a reorder", function()
 			unbounded steps without saying so (T9 review, IMPORTANT 2). ]]
 		local function reorder(from: number, to: number): string
 			local s = scene.new()
+			s.controller.dragRegistry()
 			local before = s.stats()
 			local rows = table.clone(s.rows:get() :: any)
 			table.insert(rows, to, table.remove(rows, from) :: any)

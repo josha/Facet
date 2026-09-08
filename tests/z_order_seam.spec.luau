@@ -133,7 +133,7 @@ describe("the z-order seam: a closed deps record, one consumer, one-way", functi
 		end
 		-- two LEAVES, both of which the renderer requires as well, so the module can
 		-- ask them the same questions without either file learning about the other
-		expect(sorted(requires)).toEqual({ "./authority", "./layout_node" })
+		expect(sorted(requires)).toEqual({ "./authority", "./layout_node", "./z_scope" })
 		-- ...and NOTHING back: no renderer require, no renderer symbol, no renderer type
 		expect(`renderer require:{string.find(source, "renderer", 1, true) ~= nil}`).toBe("renderer require:false")
 		-- NEGATIVE CONTROL: the scan really does see a require
@@ -162,6 +162,8 @@ describe("the z-order seam: a closed deps record, one consumer, one-way", functi
 		end
 		expect(decls).toEqual({
 			'local authority = require("./authority")',
+			'local zScope = require("./z_scope")',
+			"local HOST_LOCAL = true -- C validates eligibility but retains the global walk",
 			'local layoutNode = require("./layout_node")',
 			"local effectiveHitFloor = layoutNode.effectiveHitFloor",
 			"local z_order = {}",

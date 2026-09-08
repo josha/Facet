@@ -390,7 +390,7 @@ describe("the drag-bridge seam: EXPORTED == USED, one consumer, one-way require"
 			table.insert(requires, path)
 		end
 		table.sort(requires)
-		expect(requires).toEqual({ "../input/drag_registry", "./authority" })
+		expect(requires).toEqual({ "../input/drag_registry", "./authority", "./z_scope" })
 		for _, path in { "src/input/drag_registry.luau", "src/render/authority.luau" } do
 			local text = fs.readFile(path)
 			expect(string.find(text, "drag_bridge", 1, true)).toBe(nil)
