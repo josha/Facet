@@ -56,6 +56,7 @@ local alignOffset = placementLib.alignOffset
 local distributionOf = placementLib.distributionOf
 
 local permutation = require("./row_permutation")
+local rowPrefix = require("./row_prefix")
 
 local stack = {}
 
@@ -604,7 +605,13 @@ function stack.arrange(
 		and cmemo.pInnerH == innerH
 		and cmemo.pCuts ~= nil
 	then
-		permuted = permutation.order(children, cmemo.pIds, cmemo.pN, reuse.measureContains)
+		permuted = permutation.order(
+			children,
+			cmemo.pIds,
+			cmemo.pN,
+			reuse.measureContains,
+			if cmemo.pToken ~= nil and cmemo.pIdxToken == cmemo.pToken then cmemo.pIdx else nil
+		)
 		if permuted ~= nil then
 			for _, child in children do
 				local mainType = deps.mainDimOf(child, isH).type
@@ -623,6 +630,9 @@ function stack.arrange(
 				end
 			end
 		end
+	end
+	if rowPrefix.try(ctx, node, innerX, innerY, gap, permuted, place, out) then
+		return
 	end
 	local previousCuts = if cmemo ~= nil then cmemo.pCuts else nil
 	local measuredCuts = if cmemo ~= nil then {} else nil

@@ -3,7 +3,8 @@
 local t = require("./lib/testkit")
 local Facet = require("../src")
 local fake = require("./lib/fake_target")
-local function world(full: boolean)
+local function world(full: boolean, opts: any?)
+	opts = opts or {}
 	local core = Facet.newCore()
 	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 600, h = 1000 })
@@ -15,12 +16,19 @@ local function world(full: boolean)
 	local bp = Facet.UI.Screen({
 		id = "S",
 		children = {
-			Facet.UI.VStack({
+			(if opts.horizontal then Facet.UI.HStack else Facet.UI.VStack)({
 				id = "List",
 				width = { type = "fill" },
 				height = { type = "content" },
-				gap = 2,
+				gap = opts.gap or 2,
+				padding = opts.padding,
+				distribute = opts.distribute,
 				children = {
+					Facet.UI.Box({
+						id = "Header",
+						width = { type = "fixed", px = 100 },
+						height = { type = "fixed", px = 17 },
+					}),
 					Facet.UI.ForEach({
 						id = "Rows",
 						items = rows,
@@ -32,6 +40,7 @@ local function world(full: boolean)
 								id = "Row",
 								width = { type = "fill" },
 								height = item.height,
+								margin = opts.margin,
 								children = {
 									Facet.UI.Box({
 										id = "A",
@@ -93,8 +102,20 @@ local function world(full: boolean)
 			local r = n.rect
 			if r then
 				out[#out + 1] = `{path}:{r.x},{r.y},{r.w},{r.h}`
+				for _, key in { "rectOf", "screenRectOf" } do
+					local public = controller[key](path)
+					if public then
+						out[#out + 1] = `{key}:{public.x},{public.y},{public.w},{public.h}`
+					end
+				end
 			end
 		end
+		local findings = {}
+		for _, d in controller.diagnostics() do
+			findings[#findings + 1] = `{d.node}:{d.issue}`
+		end
+		table.sort(findings)
+		out[#out + 1] = table.concat(findings, ";")
 		return table.concat(out, "\n")
 	end
 	return {
@@ -115,8 +136,16 @@ t.describe("row permutation measurement", function()
 		b.reverse(false)
 		t.expect(a.snapshot()).toBe(b.snapshot())
 		local st = a.controller.stats()
-		print("PERMUTATION", st.lastMeasureCalls, st.lastArranged, st.rectWrites)
+		print(
+			"PERMUTATION",
+			st.lastMeasureCalls,
+			st.lastArranged,
+			st.rectWrites,
+			st.lastArrangeEntries,
+			st.lastPlaceScanned
+		)
 		t.expect(st.lastMeasureCalls <= 10).toBe(true)
+		t.expect(st.lastArrangeEntries <= 4).toBe(true)
 		a.dispose()
 		b.dispose()
 	end)
@@ -132,4 +161,27 @@ t.describe("row permutation measurement", function()
 		a.dispose()
 		b.dispose()
 	end)
+end)
+
+t.describe("row prefix refusal and chained replay", function()
+	for _, opts in
+		{
+			{ name = "fractional gap", gap = 1.5 },
+			{ name = "fractional origin", padding = 0.5 },
+			{ name = "margin", margin = 3 },
+			{ name = "horizontal", horizontal = true },
+			{ name = "distribution", distribute = "center" },
+		}
+	do
+		t.it(opts.name .. " preserves geometry and findings through mixed and clean frames", function()
+			local a, b = world(false, opts), world(true, opts)
+			for _, changed in { false, false, true, false, false } do
+				a.reverse(changed)
+				b.reverse(changed)
+				t.expect(a.snapshot()).toBe(b.snapshot())
+			end
+			a.dispose()
+			b.dispose()
+		end)
+	end
 end)

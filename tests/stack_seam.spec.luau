@@ -405,6 +405,7 @@ describe("the stack seam: one-way, one consumer, and nothing stayed behind", fun
 			"./measure_facts",
 			"./placement",
 			"./row_permutation",
+			"./row_prefix",
 			"./shrink",
 		})
 	end)
@@ -514,6 +515,7 @@ describe("the stack seam: no module-level mutable state", function()
 			"permutation",
 			"placementLib",
 			"roundPx",
+			"rowPrefix",
 			"shrinkLib",
 			"spacerMinimum",
 			"stack",

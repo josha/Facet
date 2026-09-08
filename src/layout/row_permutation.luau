@@ -5,17 +5,19 @@
 local permutation = {}
 local ENABLED = true -- experiment arm: false retains validation but serves no answer
 
-function permutation.order(children: any, ids: any, n: number?, dirty: any): any
+function permutation.order(children: any, ids: any, n: number?, dirty: any, cachedIndex: any?): any
 	if ids == nil or dirty == nil or n ~= #children then
 		return nil
 	end
-	local index, order = {}, {}
-	for i = 1, n :: number do
-		local id = ids[i]
-		if id == nil or index[id] ~= nil then
-			return nil
+	local index, order = if cachedIndex ~= nil then table.clone(cachedIndex) else {}, {}
+	if cachedIndex == nil then
+		for i = 1, n :: number do
+			local id = ids[i]
+			if id == nil or index[id] ~= nil then
+				return nil
+			end
+			index[id] = i
 		end
-		index[id] = i
 	end
 	local moved = false
 	for i, child in children do
