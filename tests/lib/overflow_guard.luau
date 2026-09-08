@@ -261,23 +261,10 @@ end
 	every package whose `chromeInsets` are all zero — which is what makes this rule
 	free on a flat theme rather than merely cheap.
 
-	THE SLOT IS DERIVED THE WAY THE RENDERER DERIVES IT (`chrome_slots.classify`,
-	the same call `render/layout_node` makes), minus the internal `hint` channel a
-	node census cannot carry — and the honest statement of what that costs is TWO
-	directions, not one (review Minor 6, 2026-08-28; this header used to claim it
-	"can never over-report", which is not enforced and is not true in general).
-
-	  * UNDER-REPORTS on a node whose control declared its own POSITIVE slot (a
-	    Slider's rail): it is judged against the slot the generic map guesses.
-	  * CAN OVER-REPORT on a node hinted `chrome_slots.NO_SLOT` — an explicit "not
-	    a decoration surface", which the classifier honours and this census cannot
-	    see. `present/catchers.luau`'s scrim Button and `controls/slider.luau`'s
-	    accent Box both land on `control` here, where the renderer reserves zero.
-
-	MEASURED 2026-08-28 across every surface at all nine viewports under every
-	package: ZERO such violations today, which is why this is a disclosure rather
-	than a defect. The instrument is `tools/lune/theme_containment_census`, so the
-	claim is re-runnable rather than remembered. ]]
+	THE SLOT IS DERIVED THE WAY THE RENDERER DERIVES IT (`chrome_slots.classify`),
+	including the explicit decoration hint carried by the adapter census. A field
+	may use a chip surface yet reserve the field border; NO_SLOT reserves none.
+	Ignoring that hint judges correctly placed content against the wrong skin. ]]
 local function themedBox(snapshot: any, node: any, box: any): any
 	if type(snapshot) ~= "table" or box == nil then
 		return box
@@ -291,6 +278,7 @@ local function themedBox(snapshot: any, node: any, box: any): any
 		class = node.class,
 		surface = props.surface,
 		hasSelection = props.selected ~= nil,
+		hint = if node.decorationHint ~= nil then node.decorationHint.slot else nil,
 	})
 	local ins = if slot ~= nil then (insets :: any)[slot] else nil
 	if type(ins) ~= "table" then

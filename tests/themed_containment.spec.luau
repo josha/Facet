@@ -646,6 +646,40 @@ describe("themed containment: the guard's new rules bite", function()
 		return overflow_guard.violations(w.adapter, overflow_guard.newLedger({}), snapshot)
 	end
 
+	local function hintedPlate(slot: string, offset: number): any
+		return UI.Screen({
+			id = "Hinted",
+			children = {
+				chrome_slots.attachHint(
+					UI.Anchor({
+						id = "Plate",
+						surface = "chip",
+						width = { type = "fixed", px = 200 },
+						height = { type = "fixed", px = 100 },
+						children = {
+							UI.Text({ id = "Ink", text = "Search", anchor = "left", offsetX = offset }),
+						},
+					}),
+					{ slot = slot }
+				),
+			},
+		})
+	end
+
+	it("uses the actual field hint rather than the generic control border", function()
+		local ornate = Facet.themes.resolve(require("../examples/themes/fantasy_ornate").build(Facet.themes), nil, {})
+		expect(ornate.chromeInsets.field.left < ornate.chromeInsets.control.left).toBe(true)
+		expect(#violationsOf(hintedPlate("field", 0), ornate)).toBe(0)
+		local broken = violationsOf(hintedPlate("field", -4), ornate)
+		expect(#broken).toBe(1)
+		expect(broken[1].kind).toBe("outside-parent")
+		expect(broken[1].overhang).toBe(4)
+	end)
+
+	it("does not invent a themed border for an explicit no-slot plate", function()
+		expect(#violationsOf(hintedPlate(chrome_slots.NO_SLOT, 0), PIXEL)).toBe(0)
+	end)
+
 	it("a row inside the RECT but over the package's carved border is reported", function()
 		local found = violationsOf(panelScreen(176), PIXEL)
 		expect(#found).toBe(1)
