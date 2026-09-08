@@ -173,6 +173,7 @@ local MANIFEST: { [string]: { [string]: Authority } } = {
 		enabled = "binding",
 		maxLength = "binding",
 		keyboardType = "binding",
+		multiline = "binding",
 		-- textSize joined for the same measure-paint agreement Toggle's did
 		-- (director fix round 2026-07-25): a field's intrinsic `control` role now
 		-- reaches paint, so a package that moves that role moves the drawn text

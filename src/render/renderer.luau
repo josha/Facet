@@ -274,6 +274,7 @@ function renderer.attach(
 	-- the three fields honest; this makes a fourth, misspelled one loud instead of
 	-- inert — the same rule `rootPolicy`'s own value check applies one level up.
 	specGuard.assertKnownKeys("renderer.attach", opts, ATTACH_OPTS_KEYS, "opts")
+	local controller = {}
 	-- THE ACCEPTED POLICIES, ENUMERATED. `edgeToEdge` was passed by every modal
 	-- scrim for months and read by nothing: it fell through to the default and
 	-- the scrim was quietly inset, with a comment above the call site describing
@@ -1310,6 +1311,11 @@ function renderer.attach(
 						end
 						else nil,
 					onFocusLost = node.props.onFocusLost,
+					onCaretRect = if node.props.multiline == true
+						then function(rect)
+							controller.scrollToVisible(nodePath, rect)
+						end
+						else nil,
 				})
 			end
 			-- real clipping (touch-scroll design): a container declaring
@@ -2171,7 +2177,7 @@ function renderer.attach(
 			-- has no authored size for this walk to scale, so paint reads the size the
 			-- SOLVER chose against the box (see `commit_walks.textScale`)
 			commitWalks.textScale(root.node, paintScale, metrics, result.rects, prefOffset)
-			commitWalks.padding(root.node, metrics)
+			commitWalks.padding(root.node, metrics, nodeStore.byNode)
 			commitWalks.textVerdicts(root.node, result.rects)
 			-- a hidden candidate must not PAINT. A zero rect was not enough: text still
 			-- wrapped and drew inside a 0px box (found live in the adaptive_controls
@@ -2811,8 +2817,6 @@ function renderer.attach(
 	attachScope:own(core:settle(function()
 		feedbackArmed = false
 	end))
-
-	local controller = {}
 
 	function controller.refresh()
 		local dirty = root.takeDirty()

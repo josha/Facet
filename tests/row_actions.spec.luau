@@ -73,6 +73,7 @@ local SETTLE_FRAMES = 90
 local function settle(pres: any, frames: number?)
 	for _ = 1, frames or SETTLE_FRAMES do
 		pres.tick(FRAME)
+		pres.refresh() -- departure hands off from the mounted row's geometry pass
 	end
 end
 

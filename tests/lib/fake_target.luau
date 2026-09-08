@@ -47,6 +47,7 @@ local HANDLED_PROPS: { string } = {
 	"editing",
 	"maxLength",
 	"keyboardType",
+	"multiline",
 	"points",
 	"thickness",
 	"closed",

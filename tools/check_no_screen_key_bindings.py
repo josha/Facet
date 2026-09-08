@@ -100,7 +100,11 @@ BINDING_SITES = re.compile(r"keyCode *=")
 # through the same contribution-scoped seam as the other pins. The bindings
 # shipped and were gated in the navigation-and-menus round; this pin records
 # that decision. The game director may veto in the Step 13 report review.
+# Control improvements: user-requested repeat, scoped shortcuts and dialog actions.
+# Button declares four sites through the same contribution/action-system seam;
+# tests/button_behavior.spec.luau proves focus, hidden, editing and top-modal exclusion.
 PINS = {
+    "src/controls/button.luau": 4,
     "src/controls/row_actions.luau": 4,
     "src/controls/text_input.luau": 2,
     "src/controls/menu.luau": 3,
@@ -223,8 +227,8 @@ def main() -> None:
             "the set of controls that bind a key has CHANGED.\n"
             f"  pinned  : {sorted(PINS)}\n"
             f"  on disk : {sorted(binding_files)}\n"
-            "Both pinned files ride the SAME director-approved seam (contribution-scoped\n"
-            "through bindActionSystem, focus-gated per row). A third file is a new claim on\n"
+            "The pinned files ride the SAME approved seam (contribution-scoped\n"
+            "through bindActionSystem, focus-gated per row). An additional file is a new claim on\n"
             "the keyboard and needs the same approval before this pin moves."
         )
     for path, expected in sorted(PINS.items()):

@@ -240,6 +240,8 @@ package.CONTROL_FAMILIES = table.freeze({
 -- package written before it existed.
 package.CONTROL_FAMILY_OPTIONAL = table.freeze({
 	button = table.freeze({ "height" }),
+	popup = table.freeze({ "panelWidth" }),
+	textInput = table.freeze({ "multilineHeight" }),
 	-- the gutter BETWEEN two adjacent tray buttons (director device round
 	-- 2026-08-12: "Delete 645-777, Flag 780-905, corners touching" — two rounded
 	-- plates rendered flush read as one merged slab). Optional for the reason

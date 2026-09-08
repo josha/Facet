@@ -70,6 +70,58 @@ export type Fixture = {
 
 local FIXTURES: { Fixture } = {
 	{
+		id = "ToggleControl",
+		class = "ToggleControl",
+		build = function(core)
+			return Facet.Controls.Toggle(core, {
+				id = "Ctl",
+				value = core:signal(false),
+				mixed = core:signal(true),
+				presentation = "checkbox",
+				label = PSEUDO,
+			}).blueprint
+		end,
+	},
+	{
+		id = "ButtonControl",
+		class = "ButtonControl",
+		build = function(core)
+			return Facet.Controls.Button(
+				core,
+				{ id = "Ctl", label = PSEUDO, width = UI.fill(), onActivate = function() end }
+			).blueprint
+		end,
+	},
+	{
+		id = "ComboBox",
+		class = "ComboBox",
+		build = function(core)
+			return Facet.Controls.ComboBox(core, {
+				id = "Ctl",
+				value = core:signal("a"),
+				text = core:signal(""),
+				placeholder = "Choose or type",
+				options = { { id = "a", label = "Alpine" } },
+				acceptCustom = function()
+					return true
+				end,
+			}).blueprint
+		end,
+	},
+	{
+		id = "SplitButton",
+		class = "SplitButton",
+		build = function(core)
+			return Facet.Controls.SplitButton(core, {
+				id = "Ctl",
+				label = "Start race",
+				onActivate = function() end,
+				items = { { id = "practice", label = PSEUDO, onSelect = function() end } },
+			}).blueprint
+		end,
+	},
+
+	{
 		id = "Text",
 		class = "Text",
 		-- an essential status line: a phrase, so the reflow rung applies and it

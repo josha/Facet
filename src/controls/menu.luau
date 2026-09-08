@@ -69,7 +69,9 @@
 ]]
 
 local contribution = require("../input/contribution")
+local coreContract = require("../core/contract")
 local menuRecipe = require("./menu_recipe")
+local controlContract = require("../class_contract")
 local specGuard = require("../spec_guard")
 local surfaceEnv = require("../env/surface_env")
 local themePackage = require("../themes/package")
@@ -93,6 +95,12 @@ menu.TRIGGER_KEYS = {
 menu.TRIGGER_KEY_PRIORITY = 1200
 
 export type Item = {
+	checked: coreContract.Signal<boolean>?,
+	selected: any?, -- Signal of the caller's arbitrary identity type, paired with value
+	value: any?, -- same identity type as selected; boolean for checked callbacks
+	description: (string | coreContract.Readable<string>)?,
+	dismiss: boolean?,
+	onChange: ((any) -> ())?,
 	id: string?,
 	label: string?,
 	icon: string?, -- semantic icon NAME, never an asset id
@@ -149,7 +157,22 @@ local MENU_KEYS = specGuard.keySet({
 	"trigger",
 	"triggers",
 })
-local ITEM_KEYS = specGuard.keySet({ "children", "divider", "enabled", "icon", "id", "label", "onSelect", "role" })
+local ITEM_KEYS = specGuard.keySet({
+	"children",
+	"divider",
+	"enabled",
+	"icon",
+	"id",
+	"label",
+	"onSelect",
+	"role",
+	"checked",
+	"selected",
+	"value",
+	"description",
+	"dismiss",
+	"onChange",
+})
 local TRIGGERS: { [string]: boolean } =
 	table.freeze({ activate = true, secondary = true, longPress = true, keyboard = true, gamepad = true })
 local ALL_TRIGGERS = { "activate", "secondary", "longPress", "keyboard", "gamepad" }
@@ -192,7 +215,31 @@ local function validate(id: string, items: { Item }, path: string, depth: number
 			end
 			continue
 		end
-		local hasSelect = item.onSelect ~= nil
+
+		local hasState = item.checked ~= nil or item.selected ~= nil
+		assert(
+			not (item.checked ~= nil and item.selected ~= nil),
+			"Menu: checked and selected are distinct contracts; specify only one"
+		)
+		if hasState then
+			local state = item.checked or item.selected
+			assert(
+				type(state) == "table" and state.kind == "signal",
+				"Menu: checked/selected must be caller-owned settable Signals"
+			)
+			assert(item.checked == nil or type(state:get()) == "boolean", "Menu: checked must hold a boolean")
+			assert(item.selected == nil or item.value ~= nil, "Menu: a selected group item requires value")
+			assert(
+				item.children == nil and item.onSelect == nil,
+				"Menu: a state item cannot also have children or onSelect; use onChange"
+			)
+		end
+		assert(item.dismiss == nil or type(item.dismiss) == "boolean", "Menu: dismiss must be boolean")
+		assert(
+			item.onChange == nil or (hasState and type(item.onChange) == "function"),
+			"Menu: onChange requires a state item and function"
+		)
+		local hasSelect = item.onSelect ~= nil or hasState
 		local hasChildren = item.children ~= nil
 		if hasSelect and hasChildren then
 			error(
@@ -343,6 +390,31 @@ function menu.build(Facet: any, core: any, spec: Spec)
 	-- Held as a plain array behind a signal so a level change is one write.
 	local openPath = scope:own(core:signal({} :: { string }))
 	local isOpen = scope:own(core:signal(false))
+	local disposed = false
+	local mountedNode
+	local function available()
+		return not disposed and not controlContract.isDisabled(mountedNode)
+	end
+	-- State bindings live once per item, independently of transient panels.
+	local selectedByItem, hiddenByItem = {}, {}
+	local function bindStates(items)
+		for _, item in items do
+			if item.checked ~= nil or item.selected ~= nil then
+				local selected = scope:own(core:memo(function(use)
+					return if item.checked ~= nil then use(item.checked) else use(item.selected) == item.value
+				end))
+				selectedByItem[item] = selected
+				hiddenByItem[item] = scope:own(core:memo(function(use)
+					return not use(selected)
+				end))
+			end
+			if item.children then
+				bindStates(item.children)
+			end
+		end
+	end
+	bindStates(spec.items)
+
 	-- one entry per live surface, deepest last
 	local handles: { any } = {}
 	local presentModalFn: ((any, any?) -> any)? = nil
@@ -551,7 +623,12 @@ function menu.build(Facet: any, core: any, spec: Spec)
 				rows,
 				menuRecipe.row(UI, {
 					id = `Item:{item.id}`,
+
 					label = item.label,
+					description = item.description,
+					indicator = if item.checked ~= nil then "check" elseif item.selected ~= nil then "radio" else nil,
+					markHidden = hiddenByItem[item],
+					selected = selectedByItem[item],
 					icon = item.icon,
 					role = item.role,
 					enabled = item.enabled,
@@ -561,12 +638,22 @@ function menu.build(Facet: any, core: any, spec: Spec)
 			)
 		end
 		local isSheet = presentation == "sheet"
+		local rich = false
+		for _, item in list do
+			if item.checked ~= nil or item.selected ~= nil or item.description ~= nil then
+				rich = true
+				break
+			end
+		end
 		local panel = UI.VStack({
 			id = PANEL_ID,
 			-- a SHEET spans the width a thumb reaches; a floating panel hugs its
 			-- longest row, which is what lets D1 place it against the trigger
 			anchor = if isSheet then "bottomLeft" else nil,
-			width = if isSheet then { type = "fill", weight = 1 } else { type = "hug" },
+			width = if isSheet
+				then { type = "fill", weight = 1 }
+				elseif rich then { type = "fixed", px = "controls.popup.panelWidth" }
+				else { type = "hug" },
 			surface = "raised",
 			padding = if isSheet then "s" else nil,
 			gap = menuRecipe.ROW_GAP,
@@ -779,6 +866,9 @@ function menu.build(Facet: any, core: any, spec: Spec)
 	end
 
 	function ops.enter(itemId: string)
+		if not available() then
+			return
+		end
 		local chain = table.clone(openPath:get())
 		table.insert(chain, itemId)
 		openPath:set(chain)
@@ -838,7 +928,38 @@ function menu.build(Facet: any, core: any, spec: Spec)
 		rebuild(openPath:get(), presentation)
 	end))
 
+	-- A submenu cannot retain input ownership after its parent becomes unavailable.
+	local validOpenChain = scope:own(core:memo(function(use)
+		local chain, valid, items = use(openPath), {}, spec.items
+		for _, identity in chain do
+			local item = itemIn(items, identity)
+			if not item or item.children == nil then
+				break
+			end
+			local state = item.enabled
+			if type(state) == "table" and state.kind then
+				state = use(state)
+			end
+			if state == false then
+				break
+			end
+			table.insert(valid, identity)
+			items = item.children
+		end
+		return valid
+	end))
+	scope:own(core:observe(validOpenChain, function(valid)
+		if not isOpen:get() or #valid == #openPath:get() then
+			return
+		end
+		openPath:set(valid)
+		rebuild(valid, presentationNow())
+	end))
+
 	function ops.select(itemId: string): boolean
+		if not available() then
+			return false
+		end
 		local chain = openPath:get()
 		local item = itemIn(itemsAt(chain), itemId)
 		if item == nil then
@@ -853,7 +974,21 @@ function menu.build(Facet: any, core: any, spec: Spec)
 		end
 		-- close FIRST, so an onSelect that presents something of its own is not
 		-- fighting a surface on its way out (row_actions' own ordering)
-		closeAll()
+
+		local hasState = item.checked ~= nil or item.selected ~= nil
+		if item.dismiss == true or (item.dismiss ~= false and not hasState) then
+			closeAll()
+		end
+		if hasState then
+			local state = item.checked or item.selected
+			local nextValue = if item.checked ~= nil then not state:get() else item.value
+			if state:get() ~= nextValue then
+				state:set(nextValue)
+				if item.onChange then
+					pcall(item.onChange, nextValue)
+				end
+			end
+		end
 		if item.onSelect ~= nil then
 			pcall(item.onSelect)
 		end
@@ -886,6 +1021,9 @@ function menu.build(Facet: any, core: any, spec: Spec)
 	local api = {} :: any
 
 	function api.open(): boolean
+		if not available() then
+			return false
+		end
 		if isOpen:get() then
 			return false
 		end
@@ -1025,6 +1163,10 @@ function menu.build(Facet: any, core: any, spec: Spec)
 	local blueprint = contribution.attach(spec.trigger, {
 		handleActivate = api.handleActivate,
 		syncGeometry = function(_rectOf: (string) -> any, rootNode: any?)
+			mountedNode = rootNode
+			if not available() and isOpen:get() then
+				closeAll()
+			end
 			if rootNode ~= nil and rootPath == nil then
 				rootPath = rootNode.path
 				wireGestures()
@@ -1066,7 +1208,15 @@ function menu.build(Facet: any, core: any, spec: Spec)
 						icon = item.icon,
 						role = item.role or "default",
 						enabled = readFact(item.enabled) ~= false,
-						kind = if item.children ~= nil then "submenu" else "action",
+						kind = if item.children ~= nil
+							then "submenu"
+							elseif item.checked ~= nil then "check"
+							elseif item.selected ~= nil then "selection"
+							else "action",
+						checked = if item.checked ~= nil
+							then item.checked:get()
+							elseif item.selected ~= nil then item.selected:get() == item.value
+							else nil,
 					}
 					if item.children ~= nil then
 						entry.children = {}
@@ -1108,6 +1258,10 @@ function menu.build(Facet: any, core: any, spec: Spec)
 		presentation = presentationNow,
 		dump = dump,
 		dispose = function()
+			if disposed then
+				return
+			end
+			disposed = true
 			closeAll()
 			scope:dispose()
 		end,

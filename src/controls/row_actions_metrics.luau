@@ -25,12 +25,12 @@
 	  * `BUTTON_MIN_WIDTH`, `EDIT_AFFORDANCE` — the theme KEYS, re-exported
 	    because a tray plate and the edit minus declare them raw as props
 	  * `build(core, scope, env, leadingActions, trailingActions,
-	     hasEditAffordance, editingReadable)` -> `{ metricsSig, buttonPadPx,
+	     hasEditAffordance, editingReadable)` -> `{ env, metricsSig, buttonPadPx,
 	     buttonMinWidthPx, trayGapPx, rowGutterPx, buttonChromePx,
 	     leadingNaturals, trailingNaturals, leadingWidth, trailingWidth,
 	     editAffordanceShown, editGutterPx }`
 
-	DEPENDS ON: `../themes/snapshot` alone.
+	DEPENDS ON: theme snapshots and the core's published environment.
 
 	NOT HERE: the NATURALS are WRITTEN by `deriveNaturals` in row_actions.luau,
 	which needs the live `controller.textAt` facts and the icon glyph — a
@@ -39,6 +39,7 @@
 	engine that receives the geometry broadcast. ]]
 
 local themeSnapshot = require("../themes/snapshot")
+local surfaceEnv = require("../env/surface_env")
 local rowActionsSpec = require("./row_actions_spec")
 
 type ActionSpec = rowActionsSpec.ActionSpec
@@ -115,7 +116,7 @@ row_actions_metrics.EDIT_FOOTPRINT = EDIT_FOOTPRINT
 
 --[[ EVERY ARGUMENT IS A BUILD-TIME FACT, and that is what makes this safe to
 	call once from inside `buildEngine` and close over the result. `env` is
-	`spec.env` (optional, `themeSnapshot.neutral()` when absent);
+	`spec.env` (optional; the published core environment supplies the fallback);
 	`leadingActions`/`trailingActions` are the already-validated lists;
 	`editingReadable` is `spec.editing`, read only when `hasEditAffordance`. ]]
 function row_actions_metrics.build(
@@ -134,20 +135,22 @@ function row_actions_metrics.build(
 	-- in row_actions.luau because it needs the presenter's live text facts), so
 	-- they need the environment's theme snapshot directly. `spec.env` is
 	-- optional, exactly `table.luau`'s own `metricsOr`/`rowGapPx` pattern:
-	-- absent degrades to `themeSnapshot.neutral()`, present and live re-solves
+	-- an omitted env uses the core's published environment, with neutral as the
+	-- fallback for a bare core. A live environment re-solves
 	-- on a runtime theme swap (`env:get("themeMetrics")` is itself reactive).
 	--
 	-- HOISTED above the naturals (director device round 2026-08-12): the tray's
 	-- own travel distance now includes its inter-button gutters, so `trayGap` has
 	-- to exist before `leadingWidth`/`trailingWidth` read it.
+	local metricsEnv = if env ~= nil then env else (surfaceEnv.find(core))
 	local function metricsOr(raw: any): any
 		return if type(raw) == "table" and type(raw.controls) == "table" then raw else themeSnapshot.neutral()
 	end
 	local metricsSig = scope:own(core:memo(function(use)
-		if env == nil then
+		if metricsEnv == nil then
 			return themeSnapshot.neutral()
 		end
-		return metricsOr(use(env:get("themeMetrics")))
+		return metricsOr(use(metricsEnv:get("themeMetrics")))
 	end))
 	local buttonPadPx = scope:own(core:memo(function(use)
 		return themeSnapshot.resolveNumber(use(metricsSig), BUTTON_PAD) or 0
@@ -295,6 +298,7 @@ function row_actions_metrics.build(
 	end
 
 	return {
+		env = metricsEnv,
 		metricsSig = metricsSig,
 		buttonPadPx = buttonPadPx,
 		buttonMinWidthPx = buttonMinWidthPx,

@@ -586,6 +586,11 @@ function screen_chrome.new(ctx: Context)
 	-- scale-1 child resolves against is the node's rect minus its own UIPadding —
 	-- the same content box `applyFullBleed` above has to compensate for.
 	local function liftGeometry(plan: any, handle: any?): (UDim2, UDim2)
+		if handle ~= nil and handle.class == "TextField" then
+			-- The renderer publishes the field's measured padding to its native
+			-- TextBox. Its resting label uses that same content box as the editor.
+			return UDim2.fromOffset(0, 0), UDim2.fromScale(1, 1), Vector2.zero
+		end
 		local hostW, hostH = nil, nil
 		local padL, padR, padT, padB = 0, 0, 0, 0
 		local rect = if handle ~= nil then handle.windowRect else nil

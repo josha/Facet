@@ -434,6 +434,23 @@ All of the above is engine-independent and enforced. The conformance registry
 requires every interactive control to cite passing device-true tests for all
 four input classes, so a mouse-only control cannot land.
 
+Native text editing stays with Roblox. `Controls.TextInput` uses one TextBox for
+plain, search, numeric, or multiline entry. During editing, arrows move the
+native caret; multiline Return inserts a newline. Use `api.submit()` for an
+explicit multiline submission. Numeric entry keeps a text draft separate from
+its committed number and validates on commit. A searchable PopupButton keeps
+query and selection separate: submit or leave the text field before navigating
+results with the focus graph. Filtering never clears the selected value.
+
+`Controls.Button` declares busy state, optional hold repeat, and scoped
+`shortcut` or `dialogAction` behavior through the same semantic action system.
+Only the active, visible, enabled surface's controls are eligible. The first
+eligible declaration wins duplicate keys, and active native editing takes
+precedence over shortcuts and dialog defaults. A held control stops repeating
+on release, cancellation, pointer exit, loss of focus/input ownership, disable,
+busy state, or disposal. `dialogAction="default"` uses Return and `"cancel"`
+uses gamepad ButtonB; Escape remains reserved by Roblox.
+
 ## 7.3 The responder chain: UI in a game with an avatar
 
 In a real game the avatar owns the controls by default, and UI must *take* them

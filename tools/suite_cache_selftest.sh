@@ -25,6 +25,8 @@ ok() { printf '  \xe2\x9c\x93 %s\n' "$1"; pass=$((pass + 1)); }
 no() { printf '  \xe2\x9c\x97 %s\n' "$1"; fail=$((fail + 1)); }
 
 TMP="$(mktemp -d)"
+# Producer TMPDIR may be relative; the consumer changes checkout before reading it.
+TMP="$(cd "$TMP" && pwd)"
 trap 'rm -rf "$TMP"; rm -f tests/.suite_cache_selftest_probe.luau' EXIT
 
 # --- Build a synthetic cache in $1 whose meta claims fingerprint $2 -----------

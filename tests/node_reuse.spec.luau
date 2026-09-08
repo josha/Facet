@@ -1139,7 +1139,11 @@ describe("the layout-node store: the audit that licenses it", function()
 			table.insert(out, callee)
 		end
 		table.sort(out)
-		expect(out).toEqual({ "chrome_slots.readHint", "instance_boundary.createOptsFor" })
+		expect(out).toEqual({
+			"chrome_slots.hasOnlyPlainLeaves",
+			"chrome_slots.readHint",
+			"instance_boundary.createOptsFor",
+		})
 	end)
 
 	it("...and `instance_boundary.createOptsFor` reads six fields, every one of them axis-covered", function()

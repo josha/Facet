@@ -80,8 +80,6 @@ export type Ctx = {
 	style: any,
 	nativeMode: boolean,
 	palette: any,
-	canSetTextInputType: boolean,
-	keyboardTypeEngineName: { [string]: string },
 	assertBespokePaint: (string, any?) -> (),
 	claimPaint: (any, string) -> (),
 	restorePaint: (any, string) -> (),
@@ -111,8 +109,6 @@ function screen_props.new(ctx: Ctx)
 	local style = ctx.style
 	local nativeMode = ctx.nativeMode
 	local COLOR = ctx.palette
-	local canSetTextInputType = ctx.canSetTextInputType
-	local KEYBOARD_TYPE_ENGINE_NAME = ctx.keyboardTypeEngineName
 	local assertBespokePaint = ctx.assertBespokePaint
 	local claimPaint = ctx.claimPaint
 	local restorePaint = ctx.restorePaint
@@ -265,7 +261,10 @@ function screen_props.new(ctx: Ctx)
 						away. `refitFullBleed`'s own comment carries the full measurement. ]]
 					refitFullBleed(handle)
 				end
-			elseif handle.class == "Text" and instance:IsA("TextLabel") then
+			elseif
+				(handle.class == "Text" and instance:IsA("TextLabel"))
+				or (handle.class == "TextField" and instance:IsA("TextBox"))
+			then
 				-- A PADDED `Text` LEAF (device report 2026-08-12, IMG_3691). The solver
 				-- adds a Text's authored padding to its reserved box and then returns at
 				-- the leaf without insetting anything — a container spends its padding
@@ -308,6 +307,9 @@ function screen_props.new(ctx: Ctx)
 					-- write can MATERIALISE a `UIPadding` where there was none, which
 					-- turns a correct identity compensation into a stale zero
 					refitFullBleed(handle)
+					if handle.class == "TextField" then
+						refitIconArt(handle)
+					end
 				end
 			end
 		elseif prop == "shape" then
@@ -462,7 +464,7 @@ function screen_props.new(ctx: Ctx)
 				instance.TextXAlignment = TEXT_ALIGN_MAP[value] or Enum.TextXAlignment.Left
 			end
 		elseif prop == "textSize" then
-			if instance:IsA("TextLabel") or instance:IsA("TextButton") then
+			if instance:IsA("TextLabel") or instance:IsA("TextButton") or instance:IsA("TextBox") then
 				instance.TextSize = value -- layout authority in BOTH modes
 				-- ...AND the Toggle's lifted label, which is the thing that
 				-- actually draws that text (director round 9). It was pinned at 16
@@ -512,6 +514,9 @@ function screen_props.new(ctx: Ctx)
 			-- rule, so in native mode the role rides a `facet-type-<role>` TAG whose
 			-- generated rule carries the same descriptor.
 			local descriptor = if type(value) == "table" then value else nil
+			if instance:IsA("TextBox") and descriptor ~= nil then
+				instance.LineHeight = descriptor.lineHeight or 1.2
+			end
 			if nativeMode then
 				handle.typeRole = if descriptor ~= nil then descriptor.role else nil
 				syncTags(handle)
@@ -603,20 +608,14 @@ function screen_props.new(ctx: Ctx)
 					end
 				end
 			end
-		elseif prop == "keyboardType" then
-			-- best-effort engine hint: map numeric/email/phone -> the closest
-			-- Enum.TextInputType; default/unknown -> Default. Degrades to the default
-			-- keyboard when the security-locked TextInputType is unreachable (facts
-			-- §1: RobloxScript-locked, so canSetTextInputType is false on shipping
-			-- game/plugin scripts and this whole branch is skipped — forward-
-			-- compatible when a future engine unlocks it). The declaration always
-			-- stays valid data on the model side regardless.
-			if instance:IsA("TextBox") and canSetTextInputType then
-				local name = KEYBOARD_TYPE_ENGINE_NAME[tostring(value)] or "Default"
-				pcall(function()
-					(instance :: any).TextInputType = (Enum.TextInputType :: any)[name]
-				end)
+		elseif prop == "multiline" then
+			if instance:IsA("TextBox") then
+				instance.MultiLine = value == true
+				instance.TextWrapped = value == true
+				instance.TextYAlignment = if value == true then Enum.TextYAlignment.Top else Enum.TextYAlignment.Center
 			end
+		elseif prop == "keyboardType" then
+			-- Intent metadata only. Roblox exposes no public keyboard-type setter.
 		elseif prop == "maxLength" then
 			-- no engine property enforces this; the value model clamps by Unicode
 			-- scalar (WP2). Nothing to write to the TextBox — data-only.

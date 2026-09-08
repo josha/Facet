@@ -206,6 +206,22 @@ package with a 13 px control role reserved 20 px for a one-word button label,
 and the engine then drew it 24 px wide. It wrapped inside a box that was
 exactly the right size — for the size it was measured at.
 
+Selection and text controls use the same metrics as their button and text-field
+primitives. Relevant control metrics are `controls.popup.triggerHeight`,
+`controls.popup.panelWidth` (floating searchable/live/multiple picker and stateful menu width,
+default 360), `controls.textInput.fieldHeight`, `multilineHeight` (default four
+minimum targets), `clearSize`, and `padding`. Descriptive rows grow to fit their
+content, and virtual search results measure visible rows. Existing packages
+inherit defaults for omitted metrics.
+
+Checkbox, radio, menu-selection and toggle-button rows use the ordinary
+`control` chrome and `selected` state. Hover, press and focus compose with
+selection; disabled state prevents interaction while retaining the visible
+selection. Mixed checkboxes use the selected row with a decrement mark. Busy
+buttons disable interaction and compose the existing ProgressView spinner.
+Numeric validation uses the semantic danger tint and caption typography.
+Theme changes update paint and measurement while preserving caller state.
+
 ## 9.3 Step 2 — edit tokens in the Style Editor
 
 > **In plain words.** Once your theme is running, its values are sitting in a

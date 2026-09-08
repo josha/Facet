@@ -1140,6 +1140,10 @@ local function toLayoutNode(
 		layoutNode.padding = layoutNode.padding or themeSnapshot.toggleRowPadding(metrics)
 		layoutNode.height = layoutNode.height or { type = "minMax", min = metrics.controls.toggle.minHeight }
 	elseif class == "TextField" then
+		layoutNode.singleLine = props.multiline ~= true
+		-- Native editing scrolls the complete value into view; a one-line field
+		-- has a full-value path even when its resting text exceeds the box.
+		layoutNode.disclose = true
 		-- measure from the shown text (value) or placeholder when empty, so a
 		-- bare field still has an intrinsic size; the composite passes explicit
 		-- fill/fixed dims which win
@@ -1261,7 +1265,7 @@ local function toLayoutNode(
 	-- one reservation covers every slot at every depth — and it is 0 for any
 	-- package that declares no shadow, so a flat theme is untouched and the
 	-- neutral baseline cannot move.
-	if kind == "scroll" and insideClipper ~= true then
+	if kind == "scroll" and insideClipper ~= true and not chrome_slots.hasOnlyPlainLeaves(node) then
 		local bleed = if type(metrics.chromeBleed) == "number" then metrics.chromeBleed else 0
 		if bleed > 0 then
 			local top, right, bottom, left = solver.sides(layoutNode.padding)
@@ -1405,8 +1409,20 @@ local function toLayoutNode(
 				else 0
 			local wantX = extra.left + extra.right
 			local wantY = extra.top + extra.bottom
-			local spentX = chrome_slots.spendInset(wExtent, left + right, wantX, textFloor)
-			local spentY = chrome_slots.spendInset(hExtent, top + bottom, wantY, textFloor)
+			-- Native text editing uses the padded content box, unlike a full-bleed
+			-- button label. Its padding must also leave room for the caret and text.
+			local spentX = chrome_slots.spendInset(
+				wExtent,
+				left + right,
+				wantX,
+				textFloor + (if class == "TextField" then left + right else 0)
+			)
+			local spentY = chrome_slots.spendInset(
+				hExtent,
+				top + bottom,
+				wantY,
+				textFloor + (if class == "TextField" then top + bottom else 0)
+			)
 			-- "was it spent AS ASKED", not "is it non-zero": a slot that reserves
 			-- nothing asks for nothing and gets exactly that, and reporting it as
 			-- a yield would put a diagnostic on every flat scrollbar in the tree.

@@ -370,6 +370,13 @@ SERIALIZED = {
 #   Each entry is (old id, new id, who renamed it). ]]
 CASE_ID_REPAIRS = [
     (
+        'text_calibration::text_metrics: consecutive spaces are reserved, not collapsed::a gap made of a NEWLINE still counts as one, so embedded newlines are unchanged',
+        'text_calibration::text_metrics: consecutive spaces are reserved, not collapsed::hard breaks reserve distinct lines, including trailing and empty lines',
+        "Multiline text preserves hard breaks and trailing empty lines. The replacement case "
+        "asserts line counts, widths, CRLF, empty lines and line limits instead of the obsolete "
+        "newline-as-space behavior.",
+    ),
+    (
         "consumer_standalone::examples/consumer: input and state::"
         "Close reports itself, which is what the client script tears down on",
         "consumer_standalone::examples/consumer: input and state::"
@@ -2299,13 +2306,34 @@ def repair_receipts(dry_run: bool):
     return expanded, recovered, dropped
 
 
+def repair_case_ids(graph):
+    text = json.dumps(graph, sort_keys=True, ensure_ascii=False)
+    count = 0
+    for old, new_id, _why in CASE_ID_REPAIRS:
+        if old in text:
+            text = text.replace(old, new_id)
+            count += 1
+    return (json.loads(text) if count else graph), count
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument("--case-ids-only", action="store_true",
+                    help="repoint named cases without changing evidence or producer clauses")
     args = ap.parse_args()
     os.chdir(ROOT)
 
     graph = json.load(open(GRAPH))
+    if args.case_ids_only:
+        graph, count = repair_case_ids(graph)
+        print(f"case ids re-pointed after a rename       : {count}")
+        if count and not args.dry_run:
+            graph["maintainedAt"] = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+            with open(GRAPH, "w") as fh:
+                json.dump(graph, fh, indent=1, sort_keys=True, ensure_ascii=False)
+                fh.write("\n")
+        return 0
     archive = load_archive()
     rows = graph["rows"]
 
@@ -2559,14 +2587,7 @@ def main() -> int:
     # LAST, and on the finished graph: `graph["rows"]` is rebuilt above from the
     # row objects this pass kept, so a substitution made before that assignment
     # is thrown away by it.
-    repointed = 0
-    graph_text = json.dumps(graph, sort_keys=True, ensure_ascii=False)
-    for old, new_id, _why in CASE_ID_REPAIRS:
-        if old in graph_text:
-            graph_text = graph_text.replace(old, new_id)
-            repointed += 1
-    if repointed:
-        graph = json.loads(graph_text)
+    graph, repointed = repair_case_ids(graph)
     print(f"case ids re-pointed after a rename       : {repointed}")
 
     if args.dry_run:

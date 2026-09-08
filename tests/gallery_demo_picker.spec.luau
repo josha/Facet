@@ -31,14 +31,17 @@ describe("showcase catalogue", function()
 		-- names as its showcase deliverable
 		-- 37 on 2026-09-07 (the stabilization pass, stream D): `inherited-subtree`,
 		-- the inherited `enabled`/`tint` showcase
-		expect(#demos).toBe(37)
+		expect(#demos).toBe(40)
 		-- the all-controls fixture leads: it is the one that answers "what does
 		-- this look like on my device"; the row-actions fixture follows it for
 		-- the same feel-first reason (hosted row-actions device pass)
 		expect(demos[1].id).toBe("all-controls")
-		expect(demos[2].id).toBe("row-actions")
+		expect(demos[2].id).toBe("text-controls")
+		expect(demos[3].id).toBe("selection-controls")
+		expect(demos[4].id).toBe("action-controls")
+		expect(demos[5].id).toBe("row-actions")
 		expect(demos[2].kind).toBe("fixture")
-		expect(demos[2].module).toBe("row_actions")
+		expect(demos[2].module).toBe("text_controls")
 		expect(demos[1].kind).toBe("fixture")
 		-- ...then the two parity round 2 fixtures, ahead of the tutorials
 		-- for the same reason the first two lead: each is the only hands-on proof
@@ -46,12 +49,12 @@ describe("showcase catalogue", function()
 		-- be flung; a motion policy has to be watched). They are the surfaces the
 		-- Showcase rule exists for — content that is not reachable in-experience
 		-- is not shipped (docs/plans/parity-round2-brief.md).
-		expect(demos[3].id).toBe("card-rail")
-		expect(demos[3].kind).toBe("fixture")
-		expect(demos[3].module).toBe("card_rail")
-		expect(demos[4].id).toBe("with-animation")
-		expect(demos[4].kind).toBe("fixture")
-		expect(demos[4].module).toBe("with_animation")
+		expect(demos[6].id).toBe("card-rail")
+		expect(demos[6].kind).toBe("fixture")
+		expect(demos[6].module).toBe("card_rail")
+		expect(demos[7].id).toBe("with-animation")
+		expect(demos[7].kind).toBe("fixture")
+		expect(demos[7].module).toBe("with_animation")
 		local examples = 0
 		local fixtures = 0
 		for _, d in demos do
@@ -132,7 +135,7 @@ describe("showcase catalogue", function()
 		-- compositing showcase
 		-- 30 on 2026-09-07: `inherited-subtree`, the stabilization pass's
 		-- inherited `enabled`/`tint` showcase
-		expect(fixtures).toBe(30)
+		expect(fixtures).toBe(33)
 	end)
 
 	-- A BLURB IS READ IN THE OPEN LIST ON THE NARROWEST PHONE, and the list is
@@ -639,7 +642,7 @@ describe("showcase host: the fixture branch delivers `present` opts", function()
 		-- again with `level-picker`, whose fixture reproduces the reference screenshot
 		-- 29 on 2026-08-16/17: `nested-tree`
 		-- 30 on 2026-09-07: `inherited-subtree`
-		expect(fixtures).toBe(30)
+		expect(fixtures).toBe(33)
 		-- and at least one of them actually declares opts, or this proves nothing
 		expect(withOpts >= 1).toBe(true)
 	end)
@@ -1112,6 +1115,9 @@ local DEMO_ROOT: { [string]: string } = {
 	["nested-tree"] = "NestedCompositing",
 	-- the stabilization pass's inherited `enabled`/`tint` showcase
 	["inherited-subtree"] = "InheritedSubtree",
+	["text-controls"] = "TextControls",
+	["selection-controls"] = "SelectionControls",
+	["action-controls"] = "ActionControls",
 	-- scaffold: new control roots are appended above this line. A scaffolded
 	-- scenario names its root screen after the control, so the stamped row is the
 	-- control's own display name and the author only revisits it if the fixture's

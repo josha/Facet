@@ -3,7 +3,7 @@
 # example (docs/guide/04-tutorial-examples.md) plus the plain settings demo.
 # Each place maps src -> ReplicatedStorage.Facet, the example modules ->
 # ReplicatedStorage.FacetExamples, the gallery bootstrap ->
-# StarterPlayerScripts, adds a baseplate + spawn, and pre-sets the Workspace
+# ReplicatedStorage, adds a baseplate + spawn, and pre-sets the Workspace
 # attribute Facet_Example so the place boots straight into its example.
 # Usage: tools/build_places.sh          (from the library root)
 # Output: examples/places/*.rbxl
@@ -55,17 +55,11 @@ for entry in "${EXAMPLES[@]}"; do
   else
     attributes="\"\$attributes\": { \"Facet_Example\": $index },"
   fi
-  # emitLegacyScripts MUST BE TRUE, here and in the checked-in project files
-  # (2026-09-07). As a RunContext=Client Script the gallery bootstrap runs from
-  # StarterPlayerScripts AND the PlayerScripts copy: two hosts, two chromes, and a
-  # demo swap that replaced only one of the two "All controls" screens. These
-  # heredocs are the project the build actually uses, so a flag flipped only in
-  # examples/showcase.project.json changes nothing — check_place_bootstrap below
-  # refuses the build if the emitted Gallery is not a LocalScript.
+  # Client-context Scripts live in ReplicatedStorage, where they run once.
   cat >"$project" <<JSON
 {
   "name": "$name",
-  "emitLegacyScripts": true,
+  "emitLegacyScripts": false,
   "globIgnorePaths": ["**/*.spec.luau"],
   "tree": {
     "\$className": "DataModel",
@@ -109,17 +103,14 @@ for entry in "${EXAMPLES[@]}"; do
       "\$properties": { "CharacterAutoLoads": false }
     },
     "ReplicatedStorage": {
+      "Gallery": { "\$path": "gallery/client" },
       "Facet": { "\$path": "../src" },
       "FacetExamples": { "\$path": "gallery/examples" }
     },
     "StarterGui": {
       "\$properties": { "ScreenOrientation": "Sensor" }
     },
-    "StarterPlayer": {
-      "StarterPlayerScripts": {
-        "Gallery": { "\$path": "gallery/client" }
-      }
-    }
+    "StarterPlayer": {}
   }
 }
 JSON
@@ -137,7 +128,7 @@ project="examples/.place_build.project.json"
 cat >"$project" <<'JSON'
 {
   "name": "Facet-Showcase",
-  "emitLegacyScripts": true,
+  "emitLegacyScripts": false,
   "globIgnorePaths": ["**/*.spec.luau"],
   "tree": {
     "$className": "DataModel",
@@ -185,6 +176,7 @@ cat >"$project" <<'JSON'
       "$properties": { "CharacterAutoLoads": false }
     },
     "ReplicatedStorage": {
+      "Gallery": { "$path": "gallery/client" },
       "Facet": { "$path": "../src" },
       "FacetExamples": { "$path": "gallery/examples" },
       "FacetScenarios": { "$path": "gallery/scenarios" },
@@ -193,11 +185,7 @@ cat >"$project" <<'JSON'
     "StarterGui": {
       "$properties": { "ScreenOrientation": "Sensor" }
     },
-    "StarterPlayer": {
-      "StarterPlayerScripts": {
-        "Gallery": { "$path": "gallery/client" }
-      }
-    },
+    "StarterPlayer": {},
     "ServerScriptService": {
       "Outpost": { "$path": "gallery/server" }
     }

@@ -318,8 +318,8 @@ describe("virtualization: fixed-height keyed rows (§10.5)", function()
 			from the source rather than listed here, so the day a fifth control is
 			deferred this line moves with it instead of quietly not covering it. ]]
 		expect(table.concat(probe.deferred(), " ")).toBe(
-			"@self/controls/async_image @self/controls/chip "
-				.. "@self/controls/virtual_grid @self/controls/virtual_list"
+			"@self/controls/async_image @self/controls/button @self/controls/chip @self/controls/combo_box "
+				.. "@self/controls/split_button @self/controls/toggle @self/controls/virtual_grid @self/controls/virtual_list"
 		)
 	end)
 

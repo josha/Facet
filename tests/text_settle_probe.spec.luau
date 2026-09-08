@@ -847,6 +847,8 @@ describe("T18-D6c: the word index answers the probe's question without measuring
 			"three  spaced   out",
 			"  leading and trailing  ",
 			"tab\tseparated",
+			"first\nsecond\n",
+			"\nfirst words\n\nsecond words\n",
 		}
 		local rows: { string } = {}
 		for _, text in cases do
@@ -868,7 +870,7 @@ describe("T18-D6c: the word index answers the probe's question without measuring
 		end
 		-- ...and the sets are not empty, which is the trap a string compare invites
 		expect(`cases={#rows} empty={tostring(string.find(table.concat(rows, ";"), " == ;") ~= nil)}`).toBe(
-			"cases=5 empty=false"
+			"cases=7 empty=false"
 		)
 		text_metrics.resetMeasured()
 	end)

@@ -37,6 +37,9 @@ local ORDER = {
 	"native_style",
 	"authoring",
 	"adaptive_controls",
+	"text_controls",
+	"selection_controls",
+	"action_controls",
 	"theme_authoring",
 	-- roadmap Step 4: the production-shaped fixture the five-view matrix drives
 	-- and the Studio performance capture measures

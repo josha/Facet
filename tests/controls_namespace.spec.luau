@@ -71,6 +71,10 @@ local NAMES = {
 	(measured 2026-08-21: a fresh-context agent found this list by its failure
 	message and had to guess whether editing it was allowed). ]]
 local POST_ADR_NAMES: { string } = {
+	"Button",
+	"Toggle",
+	"ComboBox",
+	"SplitButton",
 	-- scaffold: new control names are appended above this line
 }
 

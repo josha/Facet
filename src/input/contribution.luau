@@ -84,6 +84,9 @@
 local contribution = {}
 
 export type Bundle = {
+	-- Presenter-owned input eligibility and dispatch for declarative control actions.
+	bindInputScope: ((inputScope: any) -> ())?,
+	actionKeys: { [string]: boolean }?,
 	focusGroups: ((rootNode: any) -> { any })?,
 	handleActivate: ((path: string, meta: any?) -> boolean)?,
 	navigateIntercept: ((direction: string) -> boolean)?,

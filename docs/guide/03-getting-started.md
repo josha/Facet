@@ -225,23 +225,19 @@ reference is `examples/gallery/client/init.client.luau`; here is its shape.
 > Package* — or drag in the prebuilt `build/Facet.rbxm`. Then skip to
 > [§3.4 The client script](#the-client-script), which is identical either way.
 
-Facet is placed under `ReplicatedStorage` and the client script under
-`StarterPlayerScripts`. The example project file
+Facet and its client-context bootstrap Script are placed under `ReplicatedStorage`. The example project file
 `examples/gallery.project.json` does exactly this:
 
 ```json
 {
   "name": "Facet-Gallery",
+  "emitLegacyScripts": false,
   "globIgnorePaths": ["**/*.spec.luau"],
   "tree": {
     "$className": "DataModel",
     "ReplicatedStorage": {
-      "Facet": { "$path": "../src" }
-    },
-    "StarterPlayer": {
-      "StarterPlayerScripts": {
-        "Gallery": { "$path": "gallery/client" }
-      }
+      "Facet": { "$path": "../src" },
+      "Gallery": { "$path": "gallery/client" }
     }
   }
 }

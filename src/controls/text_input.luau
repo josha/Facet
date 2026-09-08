@@ -28,11 +28,16 @@
 -- model keeps the last accepted value). Engine-free; Lune-tested in
 -- tests/text_input.spec.luau.
 
+local controlContract = require("../class_contract")
+local coreContract = require("../core/contract")
 local contribution = require("../input/contribution")
 local specGuard = require("../spec_guard")
 local surfaceEnv = require("../env/surface_env")
 local paths = require("../paths")
 local rectLib = require("../rect")
+local chromeSlots = require("../tokens/chrome_slots")
+local themePackage = require("../themes/package")
+local themeSnapshot = require("../themes/snapshot")
 
 -- a node id is interpolated into a Lua PATTERN below, so its magic characters
 -- have to be escaped first. Module scope, not per-instance: it is a pure
@@ -43,16 +48,23 @@ local patternEscape = paths.escape
 local text_input = {}
 
 export type Spec = {
+	presentation: ("plain" | "search" | "number")?,
+	numericValue: coreContract.Signal<number>?,
+	min: number?,
+	max: number?,
+	parse: ((string) -> number?)?,
+	format: ((number) -> string)?,
+	multiline: boolean?,
+	height: any?,
+	onCancel: (() -> ())?,
+	enabled: (boolean | coreContract.Readable<boolean>)?,
 	id: string?,
 	value: any, -- Signal<string>: the field text (owner-held)
 	onChange: ((text: string) -> ())?, -- live: every accepted edit while typing
-	onCommit: ((text: string, reason: "enter" | "focusLost") -> ())?, -- Enter / focus loss
+	onCommit: ((text: string, reason: "enter" | "focusLost" | "submit") -> ())?, -- Enter / focus loss
 	placeholder: string?,
 	disabled: (boolean | any)?, -- boolean | Signal<boolean>
-	-- keyboardType: declared engine intent (data). The engine member that would
-	-- honor it (TextBox.TextInputType) is real but RobloxScript-security-locked, so
-	-- the adapter maps + applies it behind capability detection and degrades cleanly
-	-- otherwise (docs/research/2026-07-20-textbox-engine-facts.md §1).
+	-- Intent metadata only; Roblox has no public native keyboard-type setter.
 	keyboardType: ("default" | "numeric" | "email" | "phone")?,
 	-- submitLabel: declared Return-key label hint (data). There is NO reachable
 	-- public engine surface for it — TextBox.ReturnKeyType is [Hidden,
@@ -130,14 +142,24 @@ end
 -- CLOSED SPEC (constitution §4). Exactly the fields this control
 -- reads — an unknown one is an authoring mistake, never a silent no-op.
 local TEXT_INPUT_KEYS = specGuard.keySet({
+	"presentation",
+	"numericValue",
+	"min",
+	"max",
+	"parse",
+	"format",
 	"actionSystem",
 	"clearButton",
 	"clearButtonMode",
 	"disabled",
+	"enabled",
 	"env",
 	"id",
 	"keyboardType",
 	"maxLength",
+	"multiline",
+	"height",
+	"onCancel",
 	"onChange",
 	"onCommit",
 	"placeholder",
@@ -148,6 +170,68 @@ local TEXT_INPUT_KEYS = specGuard.keySet({
 
 function text_input.build(Facet: any, core: any, spec: Spec)
 	specGuard.assertKnownKeys("newTextInput", spec, TEXT_INPUT_KEYS, "spec")
+	assert(
+		spec.enabled == nil or spec.disabled == nil,
+		"TextInput: do not specify both enabled and disabled; use enabled"
+	)
+	assert(spec.multiline == nil or type(spec.multiline) == "boolean", "TextInput: multiline must be a boolean")
+
+	for _, name in { "enabled", "disabled" } do
+		local value = spec[name]
+		if isReadable(value) then
+			value = value:get()
+		end
+		assert(value == nil or type(value) == "boolean", `TextInput: {name} must be boolean or readable boolean`)
+	end
+	assert(spec.clearButton == nil or type(spec.clearButton) == "boolean", "TextInput: clearButton must be boolean")
+
+	local presentation = spec.presentation or "plain"
+	assert(
+		presentation == "plain" or presentation == "search" or presentation == "number",
+		"TextInput: presentation must be plain | search | number"
+	)
+	if presentation == "number" then
+		assert(
+			type(spec.numericValue) == "table"
+				and spec.numericValue.kind == "signal"
+				and type(spec.numericValue:get()) == "number"
+				and spec.numericValue:get() == spec.numericValue:get()
+				and math.abs(spec.numericValue:get()) < math.huge,
+			"TextInput: numericValue must be a caller-owned Signal<number>"
+		)
+		assert(spec.multiline ~= true, "TextInput: numeric entry must be single-line")
+		assert(
+			spec.min == nil or (type(spec.min) == "number" and spec.min == spec.min and math.abs(spec.min) < math.huge),
+			"TextInput: min must be finite"
+		)
+		assert(
+			spec.max == nil or (type(spec.max) == "number" and spec.max == spec.max and math.abs(spec.max) < math.huge),
+			"TextInput: max must be finite"
+		)
+		assert(spec.min == nil or spec.max == nil or spec.min <= spec.max, "TextInput: min must not exceed max")
+	else
+		assert(
+			spec.numericValue == nil
+				and spec.min == nil
+				and spec.max == nil
+				and spec.parse == nil
+				and spec.format == nil,
+			"TextInput: numericValue, bounds, parse and format require presentation number"
+		)
+	end
+	for _, name in { "parse", "format", "validate", "onChange", "onCommit", "onCancel" } do
+		assert(spec[name] == nil or type(spec[name]) == "function", `TextInput: {name} must be a function`)
+	end
+	assert(
+		spec.maxLength == nil
+			or (
+				type(spec.maxLength) == "number"
+				and spec.maxLength >= 0
+				and spec.maxLength < math.huge
+				and spec.maxLength % 1 == 0
+			),
+		"TextInput: maxLength must be a nonnegative integer"
+	)
 	local UI = Facet.UI
 	local id = spec.id or "TextInput"
 	local scope = core:scope(`text_input-{id}`)
@@ -161,6 +245,7 @@ function text_input.build(Facet: any, core: any, spec: Spec)
 		`TextInput '{id}': value must be a settable Signal of the field text (owner-held); `
 			.. `a read-only Memo cannot be edited (it would error on the first keystroke)`
 	)
+	assert(type(spec.value:get()) == "string", "TextInput: value must hold a string")
 	local KEYBOARD_TYPES = { default = true, numeric = true, email = true, phone = true }
 	assert(
 		spec.keyboardType == nil or KEYBOARD_TYPES[spec.keyboardType] == true,
@@ -193,12 +278,15 @@ function text_input.build(Facet: any, core: any, spec: Spec)
 	)
 
 	-- control-owned state (selection/value lives in the owner's signal)
+	local validationError = scope:own(core:signal(""))
 	local disposed = false
 	local editing = scope:own(core:signal(false))
 	local fieldRect = scope:own(core:signal(nil :: any)) -- solved rect (occlusion)
 	local editSnapshot: string = "" -- value at edit-entry (cancel target)
 	local fieldFullPath: string? = nil -- learned from the activate that begins editing
+	local viewportHeight = if spec.multiline then scope:own(core:signal(0)) else nil
 	local latestRectOf: ((string) -> any)? = nil
+	local renderController: any = nil
 	-- hot-switch (UI-PARADIGM-002): was touch (the on-screen-keyboard entry
 	-- surface) live when this edit began? Used to detect the dock CANCEL — touch
 	-- leaving mid-edit with no hardware keyboard to supersede it.
@@ -206,7 +294,14 @@ function text_input.build(Facet: any, core: any, spec: Spec)
 
 	-- disabled resolves a boolean or a Signal<boolean> to a plain memo; the
 	-- field's enabled/focusable ride its negation
+	local inheritedDisabled = scope:own(core:signal(false))
 	local disabledMemo = scope:own(core:memo(function(use)
+		if use(inheritedDisabled) then
+			return true
+		end
+		if spec.enabled ~= nil then
+			return (if isReadable(spec.enabled) then use(spec.enabled) else spec.enabled) == false
+		end
 		local d = spec.disabled
 		if d == nil then
 			return false
@@ -221,7 +316,8 @@ function text_input.build(Facet: any, core: any, spec: Spec)
 	end))
 	-- the clear affordance: the declared MODE, then the two gates every mode
 	-- shares — there must be something to clear, and a disabled field may not.
-	local clearMode = spec.clearButtonMode or (if spec.clearButton then "always" else "never")
+	local clearMode = spec.clearButtonMode
+		or (if spec.clearButton or presentation == "search" then "always" else "never")
 	if CLEAR_MODES[clearMode] == nil then
 		error(
 			`Facet newTextInput('{id}'): clearButtonMode '{tostring(spec.clearButtonMode)}' is not a mode `
@@ -313,6 +409,9 @@ function text_input.build(Facet: any, core: any, spec: Spec)
 	-- outright (value unchanged, no onChange), the same as a validate-nil, and
 	-- so can never slip past maxLength via a truncate no-op.
 	local function applyProposed(proposed: string): boolean
+		if disposed or disabledMemo:get() then
+			return false
+		end
 		if utf8.len(proposed) == nil then
 			return false -- rejected: not valid UTF-8
 		end
@@ -375,14 +474,72 @@ function text_input.build(Facet: any, core: any, spec: Spec)
 		end
 	end
 
+	scope:own(core:observe(disabledMemo, function(disabled)
+		if disabled then
+			endEditing()
+		end
+	end))
+
 	-- commit (Enter / focus-loss): validate the committed text defensively (all
 	-- edits already validated, so this is normally a no-op), fire onCommit
 	local function commit(reason: string)
-		if not editing:get() then
+		if disposed or disabledMemo:get() or not editing:get() then
 			return
 		end
+
 		local text = spec.value:get()
-		if spec.validate ~= nil then
+		if presentation == "number" then
+			local ok, number = pcall(spec.parse or tonumber, text)
+			if disposed or disabledMemo:get() then
+				return
+			end
+			local message = ""
+			if not ok or type(number) ~= "number" or number ~= number or math.abs(number) == math.huge then
+				message = "Enter a valid number."
+			elseif spec.min ~= nil and number < spec.min then
+				message = "Enter a value of at least " .. tostring(spec.min) .. "."
+			elseif spec.max ~= nil and number > spec.max then
+				message = "Enter a value of at most " .. tostring(spec.max) .. "."
+			end
+			if message ~= "" then
+				validationError:set(message)
+				endEditing()
+				return
+			end
+			local formattedOk, formatted = pcall(spec.format or tostring, number)
+			if disposed or disabledMemo:get() then
+				return
+			end
+			if not formattedOk or type(formatted) ~= "string" then
+				validationError:set("The number could not be formatted.")
+				endEditing()
+				return
+			end
+			if spec.validate ~= nil then
+				local valid, normalized = pcall(spec.validate, formatted)
+				if disposed or disabledMemo:get() then
+					return
+				end
+				if not valid or type(normalized) ~= "string" or utf8.len(normalized) == nil then
+					validationError:set("The formatted number is not accepted.")
+					endEditing()
+					return
+				end
+				formatted = normalized
+			end
+			if utf8.len(formatted) == nil or (spec.maxLength and utf8.len(formatted) > spec.maxLength) then
+				validationError:set("The formatted number exceeds the text limit.")
+				endEditing()
+				return
+			end
+			validationError:set("")
+			core:transaction(function()
+				spec.numericValue:set(number)
+				spec.value:set(formatted)
+			end)
+			text = formatted
+		end
+		if spec.validate ~= nil and presentation ~= "number" then
 			local normalized = spec.validate(text)
 			if normalized ~= nil and normalized ~= text then
 				spec.value:set(normalized)
@@ -406,6 +563,9 @@ function text_input.build(Facet: any, core: any, spec: Spec)
 			spec.value:set(editSnapshot)
 		end
 		endEditing()
+		if spec.onCancel then
+			spec.onCancel()
+		end
 	end
 
 	-- ---- hot-switch: in-flight class-flip semantics (matrix §C; UI-PARADIGM-002)
@@ -468,7 +628,14 @@ function text_input.build(Facet: any, core: any, spec: Spec)
 	-- ---- public api ----------------------------------------------------------
 	local api = {} :: any
 	api.editing = editing
+	api.submit = function()
+		commit("submit")
+	end
+	api.cancel = cancelEdit
 	api.keepVisibleOffset = keepVisibleOffset
+	function api.bindController(controller)
+		renderController = controller
+	end
 
 	-- presenter auto-wiring seam: bind the action system that raises
 	-- the edit-mode sink context. Idempotent + guarded so spec.actionSystem
@@ -509,17 +676,22 @@ function text_input.build(Facet: any, core: any, spec: Spec)
 				name = `{id}:field`,
 				axis = "horizontal",
 				entry = "first",
-				order = { rootNode.path .. "/Field" },
+				order = {
+					rootNode.path .. (if presentation == "number"
+						then "/Input/Field"
+						elseif spec.multiline then "/Viewport/Field"
+						else "/Field"),
+				},
 			},
 		}
 	end
 
-	local idPattern = patternEscape(id)
+	local idPattern = patternEscape(id) .. (if presentation == "number" then "/Input" else "")
 
 	-- routes a presenter/tap Activate; returns true when the path was ours.
 	-- The field enters editing; the clear affordance empties the value.
 	function api.handleActivate(path: string, _meta: any?): boolean
-		if string.match(path, `/{idPattern}/Field$`) ~= nil then
+		if string.match(path, `/{idPattern}{if spec.multiline then "/Viewport" else ""}/Field$`) ~= nil then
 			fieldFullPath = path -- learn our full path for keep-visible
 			beginEditing()
 			return true
@@ -534,10 +706,34 @@ function text_input.build(Facet: any, core: any, spec: Spec)
 	-- fed the controller's rectOf after each layout (presenter onGeometry seam):
 	-- store it (so beginEditing can capture) and refresh the field rect while
 	-- editing, guarded by equality so a stable rect never churns the memo
-	function api.syncGeometry(rectOf: (string) -> any)
+	function api.syncGeometry(rectOf: (string) -> any, rootNode: any?)
+		if disposed then
+			return
+		end
+		if rootNode ~= nil then
+			inheritedDisabled:set(controlContract.isDisabled(rootNode))
+		end
 		latestRectOf = rectOf
+		if spec.multiline and rootNode then
+			local frame = rectOf(rootNode.path)
+			local metrics = env:get("themeMetrics"):get()
+			local inset = metrics.chromeInsets and metrics.chromeInsets.field
+			local height = if frame then math.max(0, frame.h - (if inset then inset.top + inset.bottom else 0)) else 0
+			if height ~= viewportHeight:get() then
+				viewportHeight:set(height)
+			end
+		end
 		if fieldFullPath ~= nil and editing:get() then
-			local r = rectOf(fieldFullPath)
+			local r = rectOf(if spec.multiline and rootNode then rootNode.path else fieldFullPath)
+			if spec.multiline and rootNode and renderController then
+				-- Reveal the editor viewport inside its ancestor scroller before lifting
+				-- the surface. Translating an already clipped field cannot reveal it.
+				renderController.scrollToVisible(rootNode.path)
+				local painted = renderController.screenRectOf(rootNode.path)
+				if painted then
+					r = { x = painted.x, y = painted.y + keepVisibleOffset:get(), w = painted.w, h = painted.h }
+				end
+			end
 			if not rectsEqual(fieldRect:get(), r) then
 				fieldRect:set(r)
 			end
@@ -556,7 +752,13 @@ function text_input.build(Facet: any, core: any, spec: Spec)
 	local function clearButtonView(): any
 		return UI.Button({
 			id = "Clear",
-			label = "×",
+			label = "Clear",
+			children = {
+				chromeSlots.attachHint(
+					UI.Text({ id = "Mark", text = themePackage.iconGlyph("close"), textSize = "control" }),
+					{ icon = "close" }
+				),
+			},
 			anchor = "right",
 			offsetX = CLEAR_INSET,
 			-- A GLYPH CHIP IS NOT A LABELLED BUTTON, and it was being geometried
@@ -593,41 +795,131 @@ function text_input.build(Facet: any, core: any, spec: Spec)
 		})
 	end
 
-	local blueprint = UI.Anchor({
-		id = id,
+	local defaultHeight = if spec.multiline
+		then scope:own(core:memo(function(use)
+			local raw = use(env:get("themeMetrics"))
+			local metrics = if type(raw) == "table" and raw.controls then raw else themeSnapshot.neutral()
+			local height = metrics.controls.textInput.multilineHeight
+			local occlusion = use(env:get("keyboardOcclusionRect"))
+			if use(editing) and type(occlusion) == "table" then
+				local viewport = use(env:get("viewportRect"))
+				local insets = use(env:get("coreSafeInsets"))
+				local room = occlusion.y - viewport.y - (insets.top or 0) - KEEP_VISIBLE_MARGIN
+				height = math.min(height, math.max(metrics.controls.textInput.fieldHeight, room))
+			end
+			return { type = "fixed", px = height }
+		end))
+		else { type = "minMax", min = FIELD_HEIGHT }
+	local rootView = UI.Anchor
+	local rootSpec = {
+		id = if presentation == "number" then "Input" else id,
 		width = { type = "fill", weight = 1 },
-		height = { type = "fixed", px = FIELD_HEIGHT },
+		height = spec.height or defaultHeight,
 		children = {
 			UI.TextField({
 				id = "Field",
 				text = spec.value,
-				placeholder = spec.placeholder,
+				multiline = spec.multiline,
+				surface = "plain",
+				-- A centered single line needs horizontal inset; the skin owns
+				-- vertical clearance. Multiline keeps its inset on all four sides.
+				padding = if spec.multiline
+					then nil
+					else { left = "controls.textInput.padding", right = "controls.textInput.padding" },
+
+				placeholder = spec.placeholder or (if presentation == "search" then "Search" else nil),
 				editing = editing,
 				enabled = enabledMemo,
 				focusable = enabledMemo,
 				maxLength = spec.maxLength,
 				keyboardType = spec.keyboardType or "default",
 				width = { type = "fill", weight = 1 },
-				height = { type = "fill", weight = 1 },
+				height = if spec.multiline
+					then scope:own(core:memo(function(use)
+						return { type = "minMax", min = use(viewportHeight) }
+					end))
+					else UI.fill(),
 				-- engine -> model seam (functions, not engine writes)
 				onTextChanged = onTextChanged,
 				onFocusGained = onFocusGained,
 				onFocusLost = onFocusLost,
 			}),
+
 			UI.When({
 				id = "ClearWhen",
 				condition = clearVisible,
 				thenView = clearButtonView,
 			}),
 		},
-	})
+	}
+	if presentation == "search" then
+		rootSpec.padding = { left = "xl" }
+		table.insert(
+			rootSpec.children,
+			chromeSlots.attachHint(
+				UI.Text({
+					id = "SearchIcon",
+					text = "o/",
+					textSize = "control",
+					anchor = "left",
+					offsetX = "-xl",
+				}),
+				{ icon = "facet:search" }
+			)
+		)
+	end
+	rootSpec.surface = "chip"
+	rootSpec.enabled = if spec.enabled ~= nil
+		then spec.enabled
+		elseif spec.disabled ~= nil then scope:own(core:memo(function(use)
+			return (if isReadable(spec.disabled) then use(spec.disabled) else spec.disabled) ~= true
+		end))
+		else nil
+	rootSpec.children[1] = chromeSlots.attachHint(rootSpec.children[1], { slot = chromeSlots.NO_SLOT })
+	if spec.multiline then
+		local field = rootSpec.children[1]
+		rootSpec.children[1] = UI.ScrollView({
+			id = "Viewport",
+			width = UI.fill(),
+			height = scope:own(core:memo(function(use)
+				return { type = "fixed", px = use(viewportHeight) }
+			end)),
+			padding = { right = "s" },
+			children = { field },
+		})
+	end
+	local blueprint = chromeSlots.attachHint(rootView(rootSpec), { slot = "field" })
 
+	if presentation == "number" then
+		blueprint = UI.VStack({
+			id = id,
+			width = UI.fill(),
+			gap = "xs",
+			children = {
+				blueprint,
+				UI.Text({
+					id = "Validation",
+					text = validationError,
+					tint = { role = "danger", blend = 1 },
+					textSize = "caption",
+					width = UI.fill(),
+					hidden = scope:own(core:memo(function(use)
+						return use(validationError) == ""
+					end)),
+				}),
+			},
+		})
+	end
 	-- deterministic diagnostic summary (§10.2 control contract dump form)
 	local function dump()
 		return {
 			schema = "facet-text_input-dump/1",
+			presentation = presentation,
+			validationError = validationError:get(),
+			numericValue = if spec.numericValue then spec.numericValue:get() else nil,
 			id = id,
 			value = spec.value:get(),
+			multiline = spec.multiline == true,
 			editing = editing:get(),
 			disabled = disabledMemo:get(),
 			placeholderVisible = spec.value:get() == "",
@@ -651,6 +943,7 @@ function text_input.build(Facet: any, core: any, spec: Spec)
 			syncGeometry = api.syncGeometry,
 			keepVisibleOffset = keepVisibleOffset,
 			bindActionSystem = api.bindActionSystem,
+			bindController = api.bindController,
 			handleTraverse = api.handleTraverse,
 		}),
 		api = api,

@@ -237,16 +237,16 @@ function example.build(Facet: any, core: any, deps: any)
 	end
 
 	-- THE FILTER FIELD -------------------------------------------------------
-	-- A real UI.TextInput. Its `value` IS `filterText`, so every accepted
+	-- A search TextInput. Its `value` IS `filterText`, so every accepted
 	-- keystroke updates the signal the `filteredRows` memo reads — the filter
-	-- is live by construction (no onChange plumbing needed). `clearButton`
+	-- is live by construction (no onChange plumbing needed). Search presentation
 	-- shows a trailing ✕ only while the field is non-empty; activating it
 	-- empties `filterText` and the whole list returns.
 	local filterControl = Facet.Controls.TextInput(core, {
 		id = "Filter",
 		value = filterText,
+		presentation = "search",
 		placeholder = "Filter tracks",
-		clearButton = true,
 		env = deps and deps.env,
 		actionSystem = deps and deps.actionSystem,
 	})

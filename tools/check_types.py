@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
-"""Gate check: `Facet.Controls`'s fifteen typed signatures still carry their types.
+"""Gate check: `Facet.Controls`'s typed signatures still carry their types.
+
+CURRENT SURFACE: 23 entries, 19 typed and four historic `any` exceptions. The
+four new controls declare their specs at the public entry point, preserving
+types while their implementations remain deferred. The history below describes
+the original fifteen module-owned types and four deferred implementations.
 
 WHY THIS EXISTS. Fifteen of the nineteen `Facet.Controls` entries declare a real
 `spec` type, and they can only do it by holding a direct `local M = require(...)`
@@ -168,8 +173,8 @@ def run():
 
     # ---- half 2: the typed/any split is what src/init.luau declares ---------
     entries = namespace_entries(open(INIT).read())
-    if len(entries) != 19:
-        problems.append(f"src/init.luau declares {len(entries)} Controls entries, expected 19")
+    if len(entries) != 23:
+        problems.append(f"src/init.luau declares {len(entries)} Controls entries, expected 23")
     declared_typed = {n for n, ann in entries.items() if ann.strip() != "any"}
     declared_any = set(entries) - declared_typed
 

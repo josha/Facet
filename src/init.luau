@@ -19,50 +19,22 @@ local replication = require("@self/replication/adapters")
 local tokensLib = require("@self/tokens/tokens")
 local focusLib = require("@self/focus/focus_graph")
 local transitionsLib = require("@self/render/transitions") -- item 41: EXIT_CAP_SECONDS
---[[ THE NINETEEN COMPOSITE CONTROLS. Named locals rather than inline
-	`require(...)` expressions, because `Facet.Controls` below has to name each
-	module twice — once for the closure that calls it and once for the spec type
-	that closure declares — and a namespace whose entries are typed `any` would
-	give the author the completion list and take the argument checking away.
+--[[ THE TWENTY-THREE COMPOSITE CONTROLS.
 
-	FIFTEEN OF THEM ARE HERE AND FOUR ARE NOT, AND THE LINE BETWEEN THEM IS A
-	MEASURED ONE (wave T15, director's memory ruling 2026-08-21).
+	Fifteen legacy Spec types enter scope through direct module bindings, so
+	those implementations load here. Luau does not expose a module's exported
+	types through deferred `typeof(require(...))` spellings (tools/check_types.py).
 
-	Requiring the whole framework retains ~2.76 MB of Lua heap (low-mode median
-	2,763 KB), and deferring all nineteen composite controls would give back
-	**860 KB [762..860]** of it — a game that never builds a Table pays for one
-	anyway. The obvious repair is to move each `require` into the closure that
-	needs it, with `require`'s own cache as the memoizer, so a control compiles at
-	its first construction and never before. (An EARLIER version of this comment
-	claimed 831 KB. That figure was subset arithmetic — each control charged for
-	the shared graph this file loads regardless — and it was retracted with the
-	rest of §7; the numbers here are the A/B on this file.)
+	Eight implementations remain deferred until construction: Chip, VirtualList,
+	VirtualGrid, AsyncImage, Button, Toggle, ComboBox and SplitButton. The first
+	four retain their historic `any` specs; the newer four publish typed specs
+	directly below, so deferral costs no argument checking. The checker pins the
+	four `any` exceptions and probes every typed entry.
 
-	IT ONLY WORKS FOR FOUR OF THEM, AND THE REASON IS A LANGUAGE FACT THIS
-	REPOSITORY NOW HAS AN INSTRUMENT FOR. A module's EXPORTED TYPES enter scope
-	only through a direct `local M = require(...)` binding. Every deferral
-	spelling loses them — measured with the pinned analyzer, all four of
-	`type M = typeof(require(x))`, `local M = (nil :: any) :: typeof(require(x))`,
-	`local M: typeof(require(x)) = (nil :: any)` and
-	`local M = if false then require(x) else (nil :: any)` answer
-	`TypeError: Unknown type 'M.Spec'`. So for the fifteen entries that declare a
-	real `Spec`, deferring the require means widening the parameter to `any`,
-	which is precisely the argument checking the `Controls` namespace exists to have bought.
-
-	The four below already take `spec: any` — `Chip`, `VirtualList`, `VirtualGrid`
-	and `AsyncImage` were never given a published spec type — so they need nothing
-	from their module at load, and deferring them costs no type at all. Measured
-	over repeated separate-process rounds paired by index (and independently
-	re-reproduced at review): 2,763 KB eager against 2,535 KB with these
-	four deferred, i.e. **228 KB [131..313]**, and `tools/check_types.py` pins the
-	set BOTH WAYS: an entry that loses its spec type fails, and an entry that
-	GAINS one fails too — which is the day the require below has to come back to
-	the top of this file, or the fifteen spec types have to move to a module that
-	costs nothing to load. That is the remaining **632 KB** and it is not a change
-	to this file.
-
-	`Facet.preload()` at the bottom force-loads all four for a game that would
-	rather pay at the loading screen. ]]
+	The original four-module deferral saved 228 KB [131..313] in the wave T15
+	paired measurements. That historical result is not a measurement of the
+	current eight-module set. Facet.preload() force-loads all eight at a caller's
+	chosen loading-screen moment. ]]
 local tableControl = require("@self/controls/table")
 local popupButton = require("@self/controls/popup_button")
 local menuControl = require("@self/controls/menu")
@@ -97,6 +69,69 @@ export type Signal<T> = coreContract.Signal<T>
 export type Memo<T> = coreContract.Memo<T>
 export type Readable<T> = coreContract.Readable<T>
 export type Unsubscribe = coreContract.Unsubscribe
+
+-- These specs live at the public boundary so their implementations remain
+-- deferred without losing argument checking. Existing eager controls retain
+-- their module-owned Spec declarations below.
+export type ButtonShortcut = { keyCode: string, modifiers: { shift: boolean? }? }
+export type ButtonSpec = {
+	id: string?,
+	label: blueprint.Bound<string>?,
+	children: { blueprint.Blueprint }?,
+	enabled: blueprint.Bound<boolean>?,
+	busy: blueprint.Bound<boolean>?,
+	onActivate: () -> (),
+	repeatDelay: number?,
+	repeatInterval: number?,
+	shortcut: ButtonShortcut?,
+	dialogAction: ("default" | "cancel")?,
+	role: blueprint.Bound<string>?,
+	width: blueprint.Bound<blueprint.Dim>?,
+	height: blueprint.Bound<blueprint.Dim>?,
+}
+export type ToggleSpec = {
+	id: string?,
+	label: blueprint.Bound<string>?,
+	value: Signal<boolean>,
+	mixed: Signal<boolean>?, -- construction restricts this to checkbox
+	presentation: ("switch" | "checkbox" | "button")?,
+	children: { blueprint.Blueprint }?, -- construction restricts this to button
+	enabled: blueprint.Bound<boolean>?,
+	onChange: ((boolean) -> ())?,
+}
+export type ComboBoxOption =
+	{
+		id: string,
+		label: blueprint.Bound<string>,
+		description: blueprint.Bound<string>?,
+		icon: blueprint.Bound<string>?,
+		enabled: blueprint.Bound<boolean>?,
+		divider: false?,
+	}
+	| { divider: true }
+export type ComboBoxSpec = {
+	id: string?,
+	value: Signal<string>,
+	text: Signal<string>,
+	options: blueprint.Bound<{ ComboBoxOption }>,
+	enabled: blueprint.Bound<boolean>?,
+	acceptCustom: (string) -> (boolean, string?),
+	onChange: ((string) -> ())?,
+	commitOnFocusLost: boolean?,
+	placeholder: string?,
+	env: environment.Env?,
+}
+export type SplitButtonSpec = {
+	id: string?,
+	label: blueprint.Bound<string>?,
+	menuLabel: blueprint.Bound<string>?,
+	onActivate: () -> (),
+	items: { menuControl.Item },
+	enabled: blueprint.Bound<boolean>?,
+	busy: blueprint.Bound<boolean>?,
+	shortcut: ButtonShortcut?,
+	env: environment.Env?,
+}
 
 export type Deprecation = {
 	surface: string,
@@ -355,7 +390,7 @@ end
 	first argument is the library handing itself to its own builder — boilerplate
 	that teaches nothing and that autocomplete cannot explain. This namespace
 	closes over the library once, so the redundant argument disappears and
-	`Facet.Controls.` completes to exactly the nineteen composites instead of the
+	`Facet.Controls.` completes to the composite controls instead of the
 	forty-four mixed entries `Facet.` offers (nineteen controls and eleven
 	infrastructure constructors shared one top level).
 
@@ -374,6 +409,18 @@ end
 local library: any = nil
 
 local Controls = table.freeze({
+	SplitButton = function(core: any, spec: SplitButtonSpec)
+		return require("@self/controls/split_button").build(library, core, spec)
+	end,
+	Button = function(core: any, spec: ButtonSpec)
+		return require("@self/controls/button").build(library, core, spec)
+	end,
+	ComboBox = function(core: any, spec: ComboBoxSpec)
+		return require("@self/controls/combo_box").build(library, core, spec)
+	end,
+	Toggle = function(core: any, spec: ToggleSpec)
+		return require("@self/controls/toggle").build(library, core, spec)
+	end,
 	Table = function(core: any, spec: tableControl.Spec)
 		return tableControl.build(library, core, spec)
 	end,
@@ -463,28 +510,21 @@ local Facet = {
 		declared in DEPRECATIONS with `Facet.Controls.<Name>` as the replacement. ]]
 	Controls = Controls,
 
-	--[[ FORCE-LOAD EVERY DEFERRED MODULE, FOR THE LOADING-SCREEN MOMENT
-		(wave T15). Four composites compile at their first construction rather
-		than at `require` (see the Controls block header) — 228 KB [131..313] of Lua
-		heap a game that builds none never pays. A game that would rather pay it while a
-		loading screen is up, instead of on the frame a player first opens a list,
-		calls this once and is done.
-
-		It is deliberately not clever: `require`'s own cache is the memoizer, so
-		calling it twice costs a table lookup, and calling it never is the
-		supported default. Returns the number of modules it loaded so a caller can
-		log the cost rather than guess at it. ]]
+	-- Force-load the eight deferred implementations at a caller-chosen loading
+	-- moment. require's cache makes repeated calls idempotent. The return value
+	-- counts the deferred module set, including modules that were already loaded.
 	preload = function(): number
-		--[[ Written out rather than looped: Luau's require-by-string takes a
-			LITERAL, so a path in a loop variable is not requirable. Four lines is
-			also the honest length of this — the count below is the number of
-			deferred modules, and if a fifth is ever deferred both halves move
-			together in one edit. ]]
+		-- Literal paths preserve Luau require resolution; keep this list and its
+		-- return count together when the deferred set changes.
 		local _chip = require("@self/controls/chip")
 		local _list = require("@self/controls/virtual_list")
 		local _grid = require("@self/controls/virtual_grid")
 		local _image = require("@self/controls/async_image")
-		return 4
+		local _button = require("@self/controls/button")
+		local _toggle = require("@self/controls/toggle")
+		local _combo = require("@self/controls/combo_box")
+		local _split = require("@self/controls/split_button")
+		return 8
 	end,
 
 	-- deprecation ledger: { surface, since, removeNoEarlierThan,

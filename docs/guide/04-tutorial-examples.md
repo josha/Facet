@@ -115,11 +115,7 @@ local field = Facet.Controls.TextInput(core, {
 })
 ```
 
-`keyboardType = "numeric"` is a *hint* the engine adapter may honor where a
-numeric on-screen keyboard exists. It is never a promise — the current engine
-exposes no public keyboard-type API — so it must not be your only line of
-defense. The `validate` hook is what actually enforces numeric input, on every
-platform:
+`keyboardType = "numeric"` is intent metadata. Roblox exposes no public keyboard-type setter, so it does not change the native keyboard. Use `presentation = "number"` with `numericValue`, `min`, `max`, `parse`, and `format` for numeric commits, or `validate` for a custom live editing rule:
 
 ```lua
 -- optional leading '-', digits, at most one '.'; also accepts the in-progress
@@ -225,6 +221,10 @@ size at Largest, `UI.Table`'s touch Edit toggle overlaps the rating column's
 header title. It is a framework defect in the Table's toolbar/header spacing.
 This example authors no toolbar or header geometry. The large-text evidence
 row for this example records it as an open defect.
+
+The filter uses `Controls.TextInput` with `presentation = "search"`. Typing
+filters the existing rows immediately; clearing the field restores the list.
+The search icon and clear affordance follow the active theme.
 
 ### The data
 

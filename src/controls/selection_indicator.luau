@@ -400,27 +400,14 @@ function selection_indicator.build(Facet: any, core: any, spec: Spec)
 		reasoning for it live at `barSurface`'s use site further down; only the two
 		values move here. ]]
 	local barSurface = selection_indicator.barSurfaceFor(skin, spec.surface)
+	-- The default pill must paint Accent beneath OnAccent. Arbitrary control
+	-- artwork can replace that fill with dark pixels, breaking the paired label.
+	local barHint = if skin == "pill" and spec.surface == nil then chrome_slots.NO_SLOT else nil
 	local barSurfaceSlot = chrome_slots.classify({ class = "Box", surface = barSurface })
 
-	--[[ THE CARVED BORDER THE PILL'S OWN PLATE WEARS (task THEME, director item 8;
-		the themed-chrome round).
-		The paragraph beside `barSurface` below says a ~40px chip "has room for a
-		themed control chrome's borders and insets". Measured 2026-08-27 on the tab
-		strip it was written for: Pixel Quest's `control` recipe carves 16px per side,
-		so a 44px segment inset by `space.xs` gives a 128x36 plate whose own content
-		box is 96x4 — and the option's label, which is a SIBLING of the plate and
-		spans the whole 136x44 segment, is drawn straight across the frame (IMG_3787:
-		"tab font has no padding, overlaps edge").
-
-		SO THE PILL'S OWN INSET GIVES WAY TO THE FRAME FIRST. `inset` is decoration —
-		"stand this chip off the segment edge" — and the package's carved border is
-		not: a plate that cannot contain what it decorates is worse than one flush
-		with its segment. Zero on every flat package (`chromeInsets` all zero, so
-		`inset` is untouched and the shipped geometry cannot move) and, on an ornate
-		one, the difference between a plate 8px too small on each axis and one that is
-		merely tight. It does NOT make a 16px frame fit a 44px tab — no arrangement
-		does, and what remains is the package's own metric to answer; it stops the
-		framework from spending pixels making it worse. ]]
+	-- Keep the theme's segment coverage even when the pill uses palette paint.
+	-- NO_SLOT changes artwork, not the established control-border clearance:
+	-- subtracting that clearance prevents a second inset inside themed segments.
 	local skinOpts = scope:own(core:memo(function(use)
 		local snap = use(metricsSig)
 		local carved = 0
@@ -471,20 +458,9 @@ function selection_indicator.build(Facet: any, core: any, spec: Spec)
 		return not use(shown)
 	end))
 
-	--[[ A CHIP IS A SURFACE; A RULE IS A STROKE OF COLOUR (found by D5's theme
-		sweep, and it is a real defect the pill skin could never show). The bar was
-		declared `surface = "accent"` for both skins. That is right for the PILL —
-		a ~40px chip has room for a themed control chrome's borders and insets —
-		and wrong for the UNDERLINE, which is `space.xs` deep: every themed package
-		in the sweep filed "the 'control' chrome contentInsets could not be spent
-		on y: 20px of border on a 4px height", eighty-odd times across the matrix,
-		because a 4px box cannot wear a control's chrome.
-
-		`tint` is what a thin themed rule is painted with — a continuous colour
-		blended between two theme roles, no chrome, still fully themable — and it
-		is the idiom `p4_foyer`'s own hand-rolled 3px active bar already used
-		before this seam replaced it. `spec.surface` still overrides, on either
-		skin, for a caller that wants the plate. ]]
+	-- A pill fills its themed surface; an underline is a tint rule. The default
+	-- pill keeps the palette fill paired with its label, while an explicit surface
+	-- opts into that surface's ordinary chrome.
 	local UNDERLINE_TINT = table.freeze({ role = "accent", blend = 1 })
 	-- `barSurface` is declared above `skinOpts` (the carved-border rule reads its
 	-- slot); the decision it records is this paragraph's.
@@ -500,6 +476,9 @@ function selection_indicator.build(Facet: any, core: any, spec: Spec)
 		hidden = hiddenMemo,
 	})
 	local corner = spec.corner or (if skin == "pill" then DEFAULT_PILL_CORNER else nil)
+	if barHint ~= nil then
+		bar = chrome_slots.attachHint(bar, { slot = barHint })
+	end
 	if corner ~= nil then
 		bar = UI.corners(bar, corner)
 	end

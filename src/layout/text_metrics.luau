@@ -719,14 +719,16 @@ end
 	one-word label on the candidate list of every space correction. ]]
 function text_metrics.wordsOf(text: string): { [string]: boolean }
 	local out: { [string]: boolean } = {}
-	local first = true
-	for word: string in string.gmatch(text, "%S+") do
-		if first then
-			first = false
-		else
+	local prevEnd = 0
+	local breakAt = string.find(text, "\n", 1, true)
+	for wordStart: number, word: string in string.gmatch(text, "()(%S+)") do
+		if breakAt ~= nil and breakAt < wordStart then
+			breakAt = string.find(text, "\n", wordStart, true)
+		elseif prevEnd > 0 then
 			out[SPACE] = true
 		end
 		out[word] = true
+		prevEnd = wordStart + #word - 1
 	end
 	return out
 end
@@ -955,7 +957,7 @@ end
 -- byte-unchanged, which is what keeps the flat baseline reproducible.
 local BOUNDS_GRID = 0.5
 
-local function wrap(
+local function wrapLine(
 	text: string,
 	canon: string,
 	fontSize: number,
@@ -981,10 +983,8 @@ local function wrap(
 	-- 124.5 — the four extra spaces, at 2.5 px each, exactly — so the label
 	-- truncated to "…x…" on a 907 px-wide desktop with 780 px to spare.
 	--
-	-- The gap's literal SPACE characters are counted. Only spaces: a gap made of a
-	-- newline still counts as one, so the embedded-newline behaviour
-	-- is byte-identical, and
-	-- so is every single-spaced string in the suite.
+	-- Count literal SPACE characters within this logical line. Hard breaks are
+	-- split by wrap before reaching this loop.
 	--
 	-- CAPTURED AS A POSITION, NOT AS A STRING (bench, 2026-08-06). The obvious
 	-- spelling is `for gap, word in string.gmatch(text, "(%s*)(%S+)")`, and it costs
@@ -1034,6 +1034,28 @@ local function wrap(
 	end
 	widest = math.max(widest, lineWidth)
 	return lines, math.min(widest, maxWidth), exact
+end
+
+local function wrap(
+	text: string,
+	canon: string,
+	fontSize: number,
+	maxWidth: number,
+	fraction: number
+): (number, number, boolean)
+	if not string.find(text, "\n", 1, true) then
+		return wrapLine(text, canon, fontSize, maxWidth, fraction)
+	end
+	local lines, widest, exact = 0, 0, true
+	-- The final delimiter preserves a trailing empty line, which must have room
+	-- for the native caret after Return at the end of a multiline editor.
+	for line in string.gmatch(text .. "\n", "(.-)\n") do
+		local count, width, measured = wrapLine(line, canon, fontSize, maxWidth, fraction)
+		lines += count
+		widest = math.max(widest, width)
+		exact = exact and measured
+	end
+	return lines, widest, exact
 end
 
 -- measure(text, font, fontSize, maxWidth, lineHeight?, maxLines?) -> Metrics.

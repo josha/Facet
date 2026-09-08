@@ -41,6 +41,7 @@ local BINDING_PROPS: { [string]: boolean } = {
 	editing = true,
 	maxLength = true,
 	keyboardType = true,
+	multiline = true,
 	-- Path (the native substrate): reactive stroke geometry/config — a bound
 	-- progress arc updates points as a paint-only prop write (never a re-solve)
 	points = true,
@@ -189,7 +190,7 @@ local DIRECT_PROPS: { [string]: string } = {
 	-- succeed and publishes the verdict; this carries it to the adapter, which
 	-- otherwise sees the string and not the box.
 	textWrapped = "commit_walks.textVerdicts — the wrap-rule paint seam (layout authority)",
-	padding = "commit_walks.padding — the Button and padded-Text text-inset paint seam",
+	padding = "commit_walks.padding — the Button, TextField and padded-Text text-inset paint seam",
 	transform = "controller.setPresentationTransform / setPresentationOffset (presentation authority)",
 	transparency = "controller.setPresentationTransparency (presentation authority)",
 }

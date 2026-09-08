@@ -2531,6 +2531,13 @@ class("TextField", {
 	container = false,
 	structural = false,
 	props = merge(BOX, {
+		surface = CONTAINER_LAYOUT.surface,
+		multiline = p({
+			types = { "boolean" },
+			reactive = false,
+			channel = "binding",
+			doc = "native multiline editing and wrapping; Enter inserts a newline",
+		}),
 		help = HELP,
 		text = p({
 			types = { "string" },
