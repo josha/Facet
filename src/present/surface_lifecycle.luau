@@ -82,7 +82,7 @@ local isPathPrefix = focusMap.isPathPrefix
 local filterHidden = focusMap.filterHidden
 local filterGroupsHidden = focusMap.filterGroupsHidden
 -- ...and its disabled twin: the REFRESH half of the same one placement, so a panel
--- switched off after the surface was presented leaves the ring too (RED-TEAM round 2)
+-- switched off after the surface was presented leaves the ring too (2026-09-07)
 local filterGroupsDisabled = focusMap.filterGroupsDisabled
 local focusOrder = focusMap.focusOrder
 local traversalRank = focusMap.traversalRank

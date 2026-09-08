@@ -1,6 +1,5 @@
 --!strict
---[[ THE RENDER SIDE OF THE TWO INHERITED CHANNELS (stabilization pass 2026-09-07,
-	stream C; design note
+--[[ THE RENDER SIDE OF THE TWO INHERITED CHANNELS (2026-09-07; design note
 	`docs/superpowers/specs/2026-09-07-inherited-tint-disabled.md`).
 
 	`enabled` and `tint` may be declared on a layout container, where they apply to
@@ -57,7 +56,7 @@ function inherited.resolve(node: any, prop: string, declared: any): any
 	return declared
 end
 
---[[ WHICH CLASSES CONSUME A RESOLVED `enabled` (RED-TEAM I3).
+--[[ WHICH CLASSES CONSUME A RESOLVED `enabled` (2026-09-07).
 
 	The write used to go to every node in a disabled subtree — all 26 classes,
 	`Screen`, `VStack`, `Spacer`, `Divider`, `Path` included. Two costs, and the

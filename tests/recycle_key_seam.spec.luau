@@ -85,7 +85,7 @@ describe("the recycle-key seam: one-way, no state, EXPORTED == USED, one consume
 	local rendererSource = fs.readFile(RENDERER_PATH)
 	local seamSource = fs.readFile(SEAM_PATH)
 
-	--[[ THREE LEAVES SINCE THE INHERITED CHANNELS (RED-TEAM M2). `render/inherited`
+	--[[ THREE LEAVES SINCE THE INHERITED CHANNELS (2026-09-07). `render/inherited`
 		is the one module that decides what a node actually EMITS, and the create
 		signature has to ask it or it names a bucket the park key cannot match. It is
 		a leaf the renderer already requires and it is not the renderer, so the seam
@@ -197,7 +197,7 @@ describe("the recycle-key seam: mutable-scope test — two `.new()` instances ne
 	it("`signature` reads BINDING ∪ STYLE membership off `node.props`, sorted and joined", function()
 		local recycle_key = require("../src/render/recycle_key")
 		local rk = recycle_key.new()
-		--[[ ...AND THE NODE CARRIES ITS CLASS (RED-TEAM M2). `enabled` is written only
+		--[[ ...AND THE NODE CARRIES ITS CLASS (2026-09-07). `enabled` is written only
 			for the classes that consume one, so the signature has to ask the class to
 			stay equal to the worn set. A classless node is not a thing mount produces;
 			it produced a signature nothing could match. ]]

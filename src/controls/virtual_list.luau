@@ -376,7 +376,7 @@ local function collectTrayFocusables(node: any, out: { string })
 	end
 	local props = node.props
 	if node.class == "Button" then
-		--[[ `classContract.isDisabled`, NOT `props.enabled == false` (RED-TEAM I1).
+		--[[ `classContract.isDisabled`, NOT `props.enabled == false` (2026-09-07).
 			The authored value is only half the answer since `enabled` became
 			inheritable: a tray opened BEFORE an ancestor was switched off kept its
 			action Buttons in this contributed group, so they stayed in the ring, Tab

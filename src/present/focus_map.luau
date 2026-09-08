@@ -58,7 +58,7 @@ local function focusWalk(node: any, out: { string }, deferred: { string })
 		return
 	end
 	if node.class == "Grip" then
-		-- ...AND A DISABLED ONE IS NOT A FOCUS STOP EITHER (stream C). This branch
+		-- ...AND A DISABLED ONE IS NOT A FOCUS STOP EITHER (2026-09-07). This branch
 		-- never consulted `isDisabled`, because `Grip` carries no `enabled` prop of
 		-- its own — a Slider binds the control's enabled reading to the Grip's opt-in
 		-- `focusable` instead. A DISABLED CONTAINER above it has no such seam, so a
@@ -157,7 +157,7 @@ local function filterGroupsHidden(groups: { any }, hidden: { [string]: boolean }
 	return out
 end
 
---[[ ...AND THE SAME SPLICE FOR A DISABLED SUBTREE (RED-TEAM round 2, NEW-1/2/3/4).
+--[[ ...AND THE SAME SPLICE FOR A DISABLED SUBTREE (2026-09-07).
 
 	A disabled subtree is the same KIND of fact as a hidden one — a region of the
 	tree the ring must not enter — so it is filtered in the same place, on the BUILT
@@ -496,7 +496,7 @@ end
 --[[ collect focusable paths (excluding grips) under `node`, in document order
 	(hoisted above autoGroups — both derivations share the layout helpers)
 
-	IT ASKS A STRUCTURAL QUESTION ONLY, deliberately (RED-TEAM round 2). It briefly
+	IT ASKS A STRUCTURAL QUESTION ONLY, deliberately. It briefly
 	asked `isDisabled` too, and that broke two things a builder must not decide:
 	`emitGridGroups` fills a rectangle's rows from this walk, so a removal here
 	REPACKS the board rather than leaving a hole, and `focusableCount` reads it to

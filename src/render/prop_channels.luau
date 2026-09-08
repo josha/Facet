@@ -148,8 +148,8 @@ prop_channels.BINDING_PROPS = BINDING_PROPS
 -- stays loud (an undeclared write is still an assertWrite error).
 local BINDING_PROP_CLASSES: { [string]: { [string]: boolean } } = {
 	thickness = { Path = true },
-	--[[ THE CONTINUOUS-COLOUR CHANNEL, RESTRICTED (stabilization pass 2026-09-07,
-		stream C). `tint` is now legal on the layout CONTAINERS too, where it declares
+	--[[ THE CONTINUOUS-COLOUR CHANNEL, RESTRICTED (2026-09-07).
+		`tint` is now legal on the layout CONTAINERS too, where it declares
 		the colour a whole SUBTREE paints with and paints nothing of its own — a
 		container has no paint channel; its plate is `surface`. Without this row the
 		container's own node would try to write a tint it does not own and hit the

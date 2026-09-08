@@ -1,6 +1,6 @@
 --!strict
---[[ INHERITED `tint` AND INHERITED DISABLED SUBTREES (stabilization pass, stream C;
-	design note `docs/superpowers/specs/2026-09-07-inherited-tint-disabled.md`).
+--[[ INHERITED `tint` AND INHERITED DISABLED SUBTREES (2026-09-07; design note
+	`docs/superpowers/specs/2026-09-07-inherited-tint-disabled.md`).
 
 	Two properties that used to live only on leaves now live on the containers too,
 	and a container's value reaches its whole subtree:
@@ -124,7 +124,7 @@ describe("C: a container accepts `enabled` and `tint`", function()
 		end
 	end)
 
-	--[[ NEW-7: a CONTAINER tint refuses `transparency`, and a leaf keeps it.
+	--[[ A CONTAINER TINT REFUSES `transparency`, AND A LEAF KEEPS IT (2026-09-07).
 
 		The alpha is not a colour, it is a CLAIM: a tint that declares one takes
 		`TextTransparency` on the node it lands on, permanently — `releaseTint`
@@ -150,7 +150,7 @@ describe("C: a container accepts `enabled` and `tint`", function()
 		expect(string.find(tostring(err), "claim", 1, true) ~= nil).toBe(true)
 	end)
 
-	--[[ N1: AND THE REFUSAL HAS A READ-SITE HALF. The schema check runs at
+	--[[ AND THE REFUSAL HAS A READ-SITE HALF. The schema check runs at
 		construction, and a container `tint` is REACTIVE, so binding a Readable is a
 		first-class authoring form the constructor never sees. Without the second half
 		the bound value walked straight through and claimed `TextTransparency` on every
@@ -698,7 +698,7 @@ describe("C3: a disabled subtree blocks every input path", function()
 		expect(adapter.node("/S/B/Caption").props.enabled).toBe(false)
 	end)
 
-	--[[ WHO ACTUALLY NEEDS THE WRITE (RED-TEAM I3). The resolved `enabled` used to go
+	--[[ WHO ACTUALLY NEEDS THE WRITE (2026-09-07). The resolved `enabled` used to go
 		to EVERY node in a disabled subtree — 26 of 26 classes, `Screen`, `VStack`,
 		`Spacer`, `Divider`, `Path` and all. Two costs, one of them permanent: the
 		adapter materializes an ELIDED container the moment any property is written to
@@ -746,7 +746,7 @@ describe("C3: a disabled subtree blocks every input path", function()
 	end)
 end)
 
---[[ ===== THE GROUPED DERIVATION (RED-TEAM C2) ==============================
+--[[ ===== THE GROUPED DERIVATION (2026-09-07) ===============================
 	Everything above this block drives a VERTICAL screen, and a vertical screen is
 	served by `focusWalk` — one of TWO derivations the presenter runs. The moment a
 	screen has horizontal structure (an `HStack` run of two focusables, a `Grid`),
@@ -944,7 +944,7 @@ describe("C3 (grouped): a disabled subtree is out of the GROUPED derivation too"
 	end)
 end)
 
---[[ ===== A PRESENTED SURFACE IS ITS OWN ROOT (RED-TEAM I5) =================
+--[[ ===== A PRESENTED SURFACE IS ITS OWN ROOT (2026-09-07) ==================
 	A modal, a toast, a menu, a popover and an anchored sheet are each mounted as a
 	FRESH root — `mount(core, blueprint)` with no inherited record — so a surface
 	presented from inside a disabled subtree does not inherit its disable. The
@@ -1008,28 +1008,27 @@ describe("I5: a presented surface does not inherit the presenter's disabled subt
 	end)
 end)
 
---[[ ===== EVERY GROUP, NOT EVERY WALK (RED-TEAM round 2, NEW-1/2/3/4) ==========
+--[[ ===== EVERY GROUP, NOT EVERY WALK (2026-09-07) ==========================
 	Round 1 put the disabled test inside the three walks that BUILD navigation groups.
 	That was the wrong placement, three times over:
 
 	  * a control that contributes its own `focusGroups` — `newTable`,
 	    `newVirtualList`, `newVirtualGrid`, `newTextInput` — emits them verbatim and
 	    the builders never descend into it, so a disabled list kept every row in the
-	    ring (NEW-1), and a consumer-declared `navigationGroups` map was never
-	    filtered at all (NEW-4);
+	    ring, and a consumer-declared `navigationGroups` map was never filtered at
+	    all;
 	  * removing a cell from `collectFocusables` REPACKS an inferred grid, because
 	    that walk is what fills the rectangle's rows: a disabled `C5` slid `C7` up a
-	    lane instead of leaving a hole (NEW-2);
+	    lane instead of leaving a hole;
 	  * `hasHorizontalStructure` counts through the same walk, so disabling one row
-	    could flip the WHOLE screen between the grouped and the flat derivation
-	    (NEW-3).
+	    could flip the WHOLE screen between the grouped and the flat derivation.
 
 	`hidden` — the same kind of fact — has always been filtered on the BUILT groups,
 	one call, in the presenter. Disabled is filtered there now too, and the walks are
 	back to answering a structural question. The two facts even share the splice:
 	a disabled subtree contributes its topmost node as a ROOT, exactly as a hidden
 	subtree does, so `filterGroupsHidden` does the work for both. ]]
-describe("NEW-1/2/4: the disabled filter runs on the BUILT groups, so it reaches every one", function()
+describe("the disabled filter runs on the BUILT groups, so it reaches every one", function()
 	local function ids(group: any): { string }
 		local out: { string } = {}
 		for _, entry in group.order or {} do
@@ -1208,7 +1207,7 @@ describe("NEW-1/2/4: the disabled filter runs on the BUILT groups, so it reaches
 		expect(ringHas(pres, "/S/Live")).toBe(true)
 	end)
 
-	--[[ NEW-2: a disabled cell punches a HOLE, it does not repack. `hidden` has
+	--[[ A DISABLED CELL PUNCHES A HOLE, IT DOES NOT REPACK. `hidden` has
 		always behaved this way, and the comment on the filter it shares says why —
 		"every entry after a removed one shifts a lane, so the perpendicular arrow
 		would land confidently wrong". ]]
@@ -1242,12 +1241,12 @@ describe("NEW-1/2/4: the disabled filter runs on the BUILT groups, so it reaches
 	end)
 end)
 
---[[ NEW-3: the DERIVATION is a structural question. `hasHorizontalStructure` counts
+--[[ THE DERIVATION IS A STRUCTURAL QUESTION. `hasHorizontalStructure` counts
 	focusables to decide whether a screen is navigated by groups or by the flat ring,
 	and while that count read the disabled state, switching off one unrelated row
 	could re-derive the navigation model — and the traversal rank — for the whole
 	screen, live, in both directions. ]]
---[[ N2: WHAT A FULLY DISABLED GRID ROW COSTS, pinned because it is a promise now.
+--[[ WHAT A FULLY DISABLED GRID ROW COSTS, pinned because it is a promise now.
 
 	A `Grid` names its row groups' `up`/`down` exits by INDEX, so a row every cell of
 	which is disabled is still the named neighbour — and it is empty, so the move
@@ -1260,7 +1259,7 @@ end)
 	reason this pin has two arms: the same content, laid out as stacked rows rather
 	than as a grid, walks straight over the dead row. Both halves are asserted so the
 	documented advice cannot rot into folklore. ]]
-describe("N2: a fully disabled Grid row is a wall; stacked rows are not", function()
+describe("a fully disabled Grid row is a wall; stacked rows are not", function()
 	local function drive(screen: any, from: string, presses: number): string
 		local w = newWorld(600, 600)
 		w.present(screen)
@@ -1321,7 +1320,7 @@ describe("N2: a fully disabled Grid row is a wall; stacked rows are not", functi
 	end)
 end)
 
-describe("NEW-3: disabling a row does not flip the screen between derivations", function()
+describe("disabling a row does not flip the screen between derivations", function()
 	it("the live column keeps its own group when the row beside it is switched off", function()
 		local function screen(rowEnabled: boolean)
 			return UI.Screen({
@@ -1363,12 +1362,12 @@ describe("NEW-3: disabling a row does not flip the screen between derivations", 
 	end)
 end)
 
---[[ NEW-5: `initialFocus` naming a disabled control is a REFUSAL, on both
+--[[ `initialFocus` naming a disabled control is a REFUSAL, on both
 	derivations. The flat one always refused; the grouped one did not, because it
 	never excluded the node in the first place. That alignment is a behaviour change
 	an author can trip over — "focus the primary action, which starts disabled until
 	the form is valid" is an ordinary pattern — so it has a release note and a pin. ]]
-describe("NEW-5: initialFocus naming a disabled control refuses, and says what IS available", function()
+describe("initialFocus naming a disabled control refuses, and says what IS available", function()
 	local function presentWith(structure: boolean)
 		local w = newWorld(600, 600)
 		local core, env, pres = w.core, w.env, w.pres
@@ -1533,7 +1532,7 @@ describe("C4/C6: the disabled state is themed, through the sheet", function()
 		expect(resolvedTextTransparency(NEUTRAL, false)).toBe(nil)
 	end)
 
-	--[[ WHEN A TINT'S OWN ALPHA MEETS THE DISABLED DIM (RED-TEAM I4), the tint wins,
+	--[[ WHEN A TINT'S OWN ALPHA MEETS THE DISABLED DIM (2026-09-07), the tint wins,
 		and it wins by the rule the framework already had rather than by a new one.
 
 		A `tint` that declares `transparency` CLAIMS `TextTransparency` on that node
@@ -1568,7 +1567,7 @@ describe("C4/C6: the disabled state is themed, through the sheet", function()
 	end)
 
 	--[[ The alpha is declared on the LEAF, because a CONTAINER tint refuses it
-		(NEW-7): the claim is per-node and permanent, so the author names the node.
+		(2026-09-07): the claim is per-node and permanent, so the author names the node.
 		This is the composition that remains, and it is the one that matters — a
 		claimed `TextTransparency` inside a disabled subtree. ]]
 	it("a tint WITH its own alpha carries it, and that is the value the claim writes", function()
@@ -1615,7 +1614,7 @@ end)
 
 -- ===== 6. lifecycle =======================================================
 
---[[ THE CREATE KEY AND THE PARK KEY ARE THE SAME QUESTION (RED-TEAM M2). The
+--[[ THE CREATE KEY AND THE PARK KEY ARE THE SAME QUESTION (2026-09-07). The
 	create-time signature was read off the AUTHORED props while the park key is built
 	from what was actually WORN, and the two inherited channels break that equality
 	in both directions: a node that inherited a disable carries no authored `enabled`

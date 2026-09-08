@@ -646,8 +646,8 @@ function screen_props.new(ctx: Ctx)
 			end
 		elseif prop == "value" then
 			applyToggleValue(handle, value == true)
-		--[[ THE RESOLVED DISABLED STATE, WHICH ANY CLASS MAY NOW WEAR (stream C,
-			2026-09-07). `enabled = false` is legal on a container, so the mount cascade
+		--[[ THE RESOLVED DISABLED STATE, WHICH ANY CLASS MAY NOW WEAR
+			(2026-09-07). `enabled = false` is legal on a container, so the mount cascade
 			resolves it onto the whole subtree and the renderer writes the RESOLVED value
 			here — which means the branch below is now reached for Frames, labels and
 			pictures, not just the three control classes.

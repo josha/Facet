@@ -121,7 +121,7 @@ function recycle_key.new(): RecycleKey
 
 	--[[ THE CREATE SIGNATURE MUST NAME WHAT WILL BE WRITTEN, and for the two
 		INHERITED channels the authored props are the wrong list in both directions
-		(RED-TEAM M2). A node that inherited a disable carries no authored `enabled`
+		(2026-09-07). A node that inherited a disable carries no authored `enabled`
 		and gets one written; a CONTAINER that authored a `tint` carries the prop and
 		emits nothing, because a container has no paint channel. Either way the park
 		key (built from the WORN set) named a bucket the create key could never look

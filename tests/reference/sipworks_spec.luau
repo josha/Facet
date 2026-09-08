@@ -1140,7 +1140,7 @@ describe("Sipworks — reduced motion, themes, and reachability", function()
 			— and a disabled control is not a focus stop. This case used to assert `Dec`
 			was focusable AT the bound, and passed only because the GROUPED focus
 			derivation this screen takes had no disabled test at all: the flat
-			derivation had excluded it the whole time (RED-TEAM C2). Stepping the batch
+			derivation had excluded it the whole time (2026-09-07). Stepping the batch
 			off its bound first makes the case say what it always meant — BOTH
 			affordances are real focusables — and the bound itself is asserted below,
 			which is a stronger claim than the one that was passing. ]]

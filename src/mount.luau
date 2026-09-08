@@ -13,7 +13,7 @@
 --   root.dispose()
 
 local blueprintLib = require("./blueprint")
---[[ THE SCHEMA, for one fact and one sentence (RED-TEAM round 3, N1): which classes
+--[[ THE SCHEMA, for one fact and one sentence (2026-09-07): which classes
 	carry the INHERITED form of `tint`, and what to say when one of them is handed an
 	alpha. The schema owns that ruling; this module is its READ-SITE half, because a
 	container `tint` is reactive and a bound value never reaches the constructor. No
@@ -50,7 +50,7 @@ local DIRTY_CLASSES = { "paint", "measure", "arrange", "structure", "navigation"
 	answers a different question, about the scroller's CHILDREN. ]]
 local STACK_PARENT: { [string]: boolean } = { VStack = true, HStack = true, ScrollView = true }
 
---[[ ===== THE INHERITED CHANNELS (stabilization pass 2026-09-07, stream C) =====
+--[[ ===== THE INHERITED CHANNELS (2026-09-07) ===============================
 	Design note: `docs/superpowers/specs/2026-09-07-inherited-tint-disabled.md`.
 
 	`enabled` and `tint` are declared on a container and resolved onto its WHOLE
@@ -108,7 +108,7 @@ local function applyInherited(node: any, inherited: Inherit?): (Inherit?, boolea
 	local props = node.props
 	local ownEnabled = if props ~= nil then props.enabled else nil
 	local ownTint = if props ~= nil then props.tint else nil
-	--[[ THE OFF PATH, AND IT IS MOST OF EVERY MOUNT (RED-TEAM I2). A screen that
+	--[[ THE OFF PATH, AND IT IS MOST OF EVERY MOUNT. A screen that
 		declares neither channel — which is every screen shipped before this feature
 		and most screens after it — has nothing above, nothing here, and nothing
 		resolved on a previous pass, so there is no answer to compute and no field to
@@ -141,7 +141,7 @@ local function applyInherited(node: any, inherited: Inherit?): (Inherit?, boolea
 	node.inheritedTint = inheritedTint
 	node.inheritFrom = inherited
 
-	--[[ THE READ-SITE HALF OF THE `transparency` REFUSAL (RED-TEAM round 3, N1). The
+	--[[ THE READ-SITE HALF OF THE `transparency` REFUSAL. The
 		schema refuses an alpha on a container's `tint` at construction, but that prop
 		is REACTIVE: a `core:signal({ …, transparency = 0.5 })` is a first-class
 		authoring form the constructor never sees, and without this it walked straight
@@ -987,11 +987,11 @@ function mountLib.mount(core: any, rootBlueprint: Blueprint, opts: MountOpts?)
 			children receive.
 
 			THE GUARD IS INLINE HERE, and not only inside `applyInherited`, because on
-			the off path the CALL is the remaining cost (RED-TEAM I2: the reviewer's
-			no-op stub still measured 1.13-1.29 ms against a 1.13-1.20 ms baseline on
-			3,281 nodes). A fresh node has no previous resolution — `inheritOut` is nil
-			by construction at mount — so nothing above plus nothing here IS the whole
-			test, and `inherited` is itself the answer to hand down: nil.
+			the off path the CALL is the remaining cost: a no-op stub still measured
+			1.13-1.29 ms against a 1.13-1.20 ms baseline on 3,281 nodes. A fresh node
+			has no previous resolution — `inheritOut` is nil by construction at mount —
+			so nothing above plus nothing here IS the whole test, and `inherited` is
+			itself the answer to hand down: nil.
 
 			`recascade` deliberately calls unconditionally. It runs on a flip, where
 			the previous state is exactly what has to be cleared. ]]

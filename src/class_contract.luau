@@ -214,7 +214,7 @@ function contract.enabledIn(use: (any) -> any, enabled: any): boolean
 end
 
 --[[ ...AND THE THIRD SPELLING: THE MOUNTED-NODE READING (stabilization pass
-	2026-09-07, stream C). The two above ask a control's SPEC; this one asks a node
+	2026-09-07). The two above ask a control's SPEC; this one asks a node
 	in the mounted tree, which is the question the focus map, the presenter's
 	Activate dispatch and the renderer's three input gates all ask.
 

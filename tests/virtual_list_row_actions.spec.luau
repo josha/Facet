@@ -207,7 +207,7 @@ local function world(opts: any?): any
 			})
 		)
 	end
-	--[[ A DISABLE-ABLE ANCESTOR, for the one case that needs one (RED-TEAM I1). It
+	--[[ A DISABLE-ABLE ANCESTOR, for the one case that needs one (2026-09-07). It
 		is the SCREEN rather than a wrapper container, so every path in this file —
 		`/S/VL`, the tray group, the tray actions — is exactly what it was. ]]
 	local screenSpec: any = { id = "S", children = children }
@@ -2811,7 +2811,7 @@ describe("VirtualList rowActions (redteam NEW-1): a hosted swipe survives its ow
 	end)
 end)
 
---[[ ===== A TRAY THAT IS ALREADY OPEN WHEN ITS SUBTREE IS DISABLED (RED-TEAM I1)
+--[[ ===== A TRAY THAT IS ALREADY OPEN WHEN ITS SUBTREE IS DISABLED (2026-09-07)
 	`collectTrayFocusables` — the walk that builds the tray's contributed focus
 	group — carried its own reading of `enabled`, `props.enabled == false`, which is
 	the AUTHORED value on that Button and nothing else. A tray opened before an
@@ -2822,7 +2822,7 @@ end)
 	It was the last direct reader of `props.enabled` outside `mount`,
 	`class_contract` and `render/inherited`. It now asks the same predicate every
 	other focus walk asks. ]]
-describe("a tray already open when its subtree is disabled leaves the ring (RED-TEAM I1)", function()
+describe("a tray already open when its subtree is disabled leaves the ring (2026-09-07)", function()
 	it("its action buttons are in the group while enabled, and gone the frame it is disabled", function()
 		local fired: { string } = {}
 		local enabled = Facet.newCore():signal(true)

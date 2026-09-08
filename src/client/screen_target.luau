@@ -502,7 +502,7 @@ function screen_target.new(opts: Opts?)
 			-- GuiState, so it is a tag — and it has to ride the desired set or
 			-- the next classification pass would strip it.
 			errorState = handle.errorState == true,
-			-- THE RESOLVED DISABLED STATE (stream C, 2026-09-07). `:NonInteractable` is
+			-- THE RESOLVED DISABLED STATE (2026-09-07). `:NonInteractable` is
 			-- an engine state only the interactable classes have, and a container's
 			-- `enabled = false` disables a whole subtree of Frames and labels — so the
 			-- fact reaches native selectors as a tag, and it has to ride the desired set

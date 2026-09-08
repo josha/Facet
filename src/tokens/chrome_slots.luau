@@ -99,7 +99,7 @@ chrome_slots.TAGS = table.freeze({
 	-- carrying. Every theme's sheet empties its label — "the slot sits empty
 	-- until it lands or returns" is a framework guarantee, not consumer code.
 	dragHeld = "facet-drag-held",
-	--[[ THE DISABLED STATE, AS A TAG (stabilization pass 2026-09-07, stream C).
+	--[[ THE DISABLED STATE, AS A TAG (2026-09-07).
 		`disabled` has an engine GuiState — `:NonInteractable`, which the two sheet
 		rules for `TextButton`/`TextBox` already key on — but that state only exists on
 		an instance the engine considers interactable in the first place. Since

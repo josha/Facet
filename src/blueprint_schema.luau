@@ -255,7 +255,7 @@ local DIM_METRIC_FIELDS = { "px", "min", "max", "preferred", "of" }
 -- so a range test alone lets it through, and an NaN reaching `GroupTransparency`
 -- or `UIScale.Scale` is an invisible or absent node with no error anywhere.
 
---[[ ONE SENTENCE, TWO READERS (RED-TEAM round 3, N1). A container's `tint` is
+--[[ ONE SENTENCE, TWO READERS (2026-09-07). A container's `tint` is
 	REACTIVE, so binding a Readable is a first-class authoring form the constructor
 	never sees — and this file's own rule twelve lines below is that a property with
 	one ruling is read HERE for a static value and by the READER for a reactive one,
@@ -3144,7 +3144,7 @@ function schema.propNames(className: string): { string }
 end
 
 --[[ WHICH CLASSES CARRY THE INHERITED FORM OF `tint`, derived from the rows above
-	rather than listed (RED-TEAM round 3, N1). `src/mount.luau`'s read-site refusal
+	rather than listed (2026-09-07). `src/mount.luau`'s read-site refusal
 	needs to know "is this node handing a tint DOWN rather than painting it", and a
 	hand-kept list here would be the same fact written twice — the drift this file
 	exists to prevent. A class is in the set exactly when its `tint` prop declares

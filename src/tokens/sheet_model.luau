@@ -236,7 +236,7 @@ export type ClassifyInput = {
 	-- disabled` all ride an engine GuiState or a tag the renderer already emits;
 	-- `error` has no engine state, so a control that has one publishes it here.
 	errorState: boolean?,
-	-- THE RESOLVED DISABLED STATE (stream C, 2026-09-07). `enabled = false` is legal
+	-- THE RESOLVED DISABLED STATE (2026-09-07). `enabled = false` is legal
 	-- on a container now, so a Frame / TextLabel / ImageLabel with no GuiState of its
 	-- own can be disabled by an ancestor. Drives `facet-state-disabled` — see
 	-- `chrome_slots.TAGS` for why the engine state alone cannot carry it.
@@ -1151,7 +1151,7 @@ function sheet_model.build(opts: BuildOpts): Model
 			selector = "TextBox:NonInteractable",
 			props = { TextTransparency = num(numbers.DisabledContentTransparency) },
 		},
-		--[[ ...AND THE SUBTREE A DISABLED CONTAINER TURNED OFF (stream C, 2026-09-07).
+		--[[ ...AND THE SUBTREE A DISABLED CONTAINER TURNED OFF (2026-09-07).
 			The two rules above ride an engine GuiState, which only exists on the classes
 			the engine considers interactable; `enabled = false` on a container disables
 			plain labels too, and those say so with a tag instead. The same number, so a

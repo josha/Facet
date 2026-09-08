@@ -1,5 +1,5 @@
 --!strict
---[[ NO SCRATCH EXPERIMENT SURVIVES IN `src/` (RED-TEAM C1, 2026-09-07).
+--[[ NO SCRATCH EXPERIMENT SURVIVES IN `src/` (2026-09-07).
 
 	Two lines of a throwaway experiment reached `src/client/screen_target.luau`
 	inside a feature commit that had nothing to do with that file — a

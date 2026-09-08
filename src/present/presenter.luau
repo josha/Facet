@@ -287,7 +287,7 @@ local isHiddenPath = focusMap.isHiddenPath
 local filterHidden = focusMap.filterHidden
 local filterGroupsHidden = focusMap.filterGroupsHidden
 -- ...and the same splice for a DISABLED subtree, which is the same kind of fact
--- (RED-TEAM round 2): filtered on the BUILT groups, so it reaches a contributed
+-- (2026-09-07): filtered on the BUILT groups, so it reaches a contributed
 -- group and a consumer-declared map, neither of which any builder walks
 local filterGroupsDisabled = focusMap.filterGroupsDisabled
 local focusOrder = focusMap.focusOrder

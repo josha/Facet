@@ -93,7 +93,7 @@ local MANIFEST: { [string]: { [string]: Authority } } = {
 		-- or a direct text write (bespoke). Never authored — a consumer cannot
 		-- set it, which is what makes the guarantee universal.
 		dragHeld = "presentation",
-		--[[ THE RESOLVED DISABLED STATE (stabilization pass 2026-09-07, stream C).
+		--[[ THE RESOLVED DISABLED STATE (2026-09-07).
 			`enabled` is declared per class for `Button`/`Toggle`/`TextField` below and
 			says the same thing there; this `common` row is what lets a node of ANY
 			class carry the value the mount cascade resolved for it, so a Text or a Box
