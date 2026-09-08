@@ -47,14 +47,6 @@ each cannot see.
   machine you ran it on**. It cannot see a low-end processor, memory pressure,
   thermals, or battery.
 
-**The physical-device evidence classes are declared and empty.** Facet records
-three of them — a desktop retail client, the weakest supported Android phone, and
-a console — and each currently carries zero rows rather than being omitted.
-Device performance budgets are marked as unmeasured and are reported as skipped on
-every run. So: do not describe Facet as proven on low-end phones, consoles, or
-televisions. [Guide 11](docs/guide/11-device-verification.md) is the full account,
-including which numbers may be compared with which.
-
 ## Installing
 
 ### The official Roblox Package (recommended if you work in Studio)
