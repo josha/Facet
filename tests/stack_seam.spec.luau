@@ -502,6 +502,7 @@ describe("the stack seam: no module-level mutable state", function()
 		expect(sorted(declared)).toEqual({
 			--[[ (Plan D, D3b) the floor under the probe budget — a CONSTANT, which is
 				exactly what this scan permits: declared once, never written. ]]
+			"ARRANGE_REMOVAL",
 			"DIRT_PROBE_FLOOR",
 			"alignOffset",
 			"baseline",

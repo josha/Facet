@@ -57,6 +57,7 @@ local distributionOf = placementLib.distributionOf
 
 local permutation = require("./row_permutation")
 local rowPrefix = require("./row_prefix")
+local ARRANGE_REMOVAL = true -- C performs validation but retains ordinary placement
 
 local stack = {}
 
@@ -610,7 +611,8 @@ function stack.arrange(
 			cmemo.pIds,
 			cmemo.pN,
 			reuse.measureContains,
-			if cmemo.pToken ~= nil and cmemo.pIdxToken == cmemo.pToken then cmemo.pIdx else nil
+			if cmemo.pToken ~= nil and cmemo.pIdxToken == cmemo.pToken then cmemo.pIdx else nil,
+			true
 		)
 		if permuted ~= nil then
 			for _, child in children do
@@ -631,8 +633,12 @@ function stack.arrange(
 			end
 		end
 	end
-	if rowPrefix.try(ctx, node, innerX, innerY, gap, permuted, place, out) then
+	local allow = permuted == nil or cmemo.pN == #children or ARRANGE_REMOVAL
+	if rowPrefix.try(ctx, node, innerX, innerY, gap, permuted, place, out, allow) then
 		return
+	end
+	if not allow then
+		permuted = nil
 	end
 	local previousCuts = if cmemo ~= nil then cmemo.pCuts else nil
 	local measuredCuts = if cmemo ~= nil then {} else nil
@@ -845,21 +851,7 @@ function stack.arrange(
 		is nearly all of them. ]]
 	local ownIssues: { any }? = nil
 	if availMain < 0 and ctx.hiddenDepth == 0 then
-		local issue = string.format(
-			"content overflows this %s by %dpx on the main axis; it will paint outside its box "
-				.. "(wrap it in a ScrollView, or give it room)",
-			node.kind,
-			-availMain
-		)
-		if shrinkOrder ~= nil then
-			issue ..= string.format(
-				" — every shrinkable child is already at its floor (layoutPriority order tried: %s), "
-					.. "so the box CLIPPED the remaining %dpx",
-				shrinkOrder,
-				-availMain
-			)
-		end
-		local finding = { node = node.id, issue = issue }
+		local finding = rowPrefix.overflow(node, -availMain, shrinkOrder)
 		table.insert(ctx.diagnostics, finding)
 		ownIssues = { finding }
 	end
