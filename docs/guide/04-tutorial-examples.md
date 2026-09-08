@@ -668,15 +668,14 @@ currentModal = presenter.presentModal(dialog, { initialFocus = { id = "Cancel" }
 
 Styling and focus are separate choices: an accent surface gives an action primary
 visual weight; `initialFocus` tells the presenter where focus starts. This example
-puts the default action at the trailing end of the row, following
-[Apple's alert guidance](https://developer.apple.com/design/human-interface-guidelines/alerts).
+puts the safe default action at the trailing end of the row.
 
 The presenter traps focus inside the modal, routes gamepad B to dismissal, and
 restores focus to the original **Delete Save** control afterward. Left/right moves
 between the alert actions. Roblox reserves Escape; the on-screen Cancel action
 remains available to keyboard users.
 
-The result is visible and repeatable: confirming empties the slot and offers
+**The answer has to be visible.** Confirming empties the slot and offers
 **Restore the save**, while Cancel keeps it. Restoring the save lets the player
 try the flow again without leaving the example.
 
