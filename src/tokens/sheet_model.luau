@@ -343,7 +343,7 @@ function sheet_model.classifyTags(input: ClassifyInput): { [string]: boolean }
 	end
 	-- THE TYPOGRAPHY ROLE (F2). Emitted for every role a text node resolves to,
 	-- including the class defaults: a rule that restates the class default is inert
-	-- under a package whose ramp shares one face (Studio Neutral, every existing
+	-- under a package whose ramp shares one face (Facet Neutral, every existing
 	-- screen) and load-bearing the moment a package gives one role its own.
 	if type(input.typeRole) == "string" and input.typeRole ~= "" then
 		tags[T.typePrefix .. input.typeRole] = true
@@ -423,7 +423,7 @@ local BLACK = { r = 0, g = 0, b = 0 }
 -- What it looked like: under classic-desktop the picker's chip outline never
 -- drew at all and every chip LABEL grew a hairline-coloured halo — measured at
 -- the shipped stamp as a 3.35x larger mid-tone (halo) pixel fraction and 17%
--- softer glyph edges than the same frame with Border. Under Studio Neutral the
+-- softer glyph edges than the same frame with Border. Under Facet Neutral the
 -- hairline is white and the label is white, so it hid for two whole stages.
 local STROKE_BORDER: RuleProp = { kind = "enum", enum = "ApplyStrokeMode", item = "Border" }
 sheet_model.STROKE_BORDER = STROKE_BORDER
@@ -445,7 +445,7 @@ sheet_model.STROKE_BORDER = STROKE_BORDER
 --   content   the status quo, and the answer wherever it still clears the
 --             contract's own 4.5 floor against the selected surface — which is
 --             every reference theme except pixel-quest. Preferring it (rather
---             than taking whichever scores HIGHER) is what keeps Studio Neutral
+--             than taking whichever scores HIGHER) is what keeps Facet Neutral
 --             and every flat package byte-identical: neutral's selected surface
 --             reads content at 9.74:1 and onAccent at 11.22:1, and switching it
 --             would have been a visible change with no defect behind it.
@@ -627,7 +627,7 @@ end
 -- WHY THIS IS A SHARED FUNCTION AND NOT A LOOP INSIDE ONE BUILDER. It used to
 -- be a loop inside `buildPackage`, whose own comment said "emitted for every
 -- package including the flat ones — a value control has to be visible under
--- Studio Neutral too". Studio Neutral was the one path it was not emitted on:
+-- Facet Neutral too". Facet Neutral was the one path it was not emitted on:
 -- with no package installed the live sheet is `build`'s base seed, which emitted
 -- none of the family, so the default Download bar painted nothing at all
 -- (pixel-identical at 0% and 100%) and the default Brightness slider had no rail
@@ -1601,7 +1601,7 @@ end
 -- cannot own: its transparency rides the `Toggle chrome` tag rule, but the
 -- COLOURS change with the VALUE, and a rule cannot see a value. They were
 -- therefore written from constants captured at adapter construction — so a
--- parchment toggle rendered a Studio-Neutral BLUE pill (director screenshot).
+-- parchment toggle rendered a Facet-Neutral BLUE pill (director screenshot).
 -- This is the resolver those two write sites now go through.
 --
 -- THE MAPPING, and why each half is what it is:
@@ -1937,7 +1937,7 @@ function sheet_model.buildPackage(package: any, opts: BuildPackageOpts?): Model
 	-- drawn under it: fill, ::UICorner radius and ::UIStroke hairline all go to
 	-- nothing on the DECORATED NODE. Emitted per skinned slot — nine-slice and
 	-- layered alike — never globally, so a slot the package paints natively keeps
-	-- every bit of its Studio-Neutral chrome.
+	-- every bit of its Facet-Neutral chrome.
 	--
 	-- ONCE PER SLOT. A RULE NAME IS IDENTITY (see the base group below), so the
 	-- same slot reaching this twice — a value slot that is both pre-armed below
@@ -2014,7 +2014,7 @@ function sheet_model.buildPackage(package: any, opts: BuildPackageOpts?): Model
 	-- eight roles, class defaults included, so a role always beats the class rule
 	-- it sits on (a `strong` Text inside a TextButton, a `body` Button label) — and
 	-- inert wherever the package's ramp shares one face, which is every flat
-	-- reference package and Studio Neutral.
+	-- reference package and Facet Neutral.
 	--
 	-- The live-edit push (`fromMetric`) is registered only for an AUTHORED role: a
 	-- derived one has no `type.<role>.font` token attribute for the watcher to read.
@@ -2147,7 +2147,7 @@ function sheet_model.buildPackage(package: any, opts: BuildPackageOpts?): Model
 	-- so a slot's flat appearance is one decision rather than two that drift.
 	-- Emitted for every package including the flat ones — and, since the rich-skinning v2 decision,
 	-- by `build`'s base seed through this same shared emitter, because a value
-	-- control has to be visible under Studio Neutral too and that is the one path
+	-- control has to be visible under Facet Neutral too and that is the one path
 	-- this loop used not to reach.
 	-- the disc's chrome, in the group right after the surfaces whose corners it
 	-- replaces and right before `chrome`, whose skinned-slot suppression must

@@ -305,7 +305,7 @@ describe("the subscription lives and dies with the controller", function()
 		settle.fire()
 		-- the environment is back on the pre-install snapshot, not on a package
 		-- some dead controller swapped in after its own uninstall
-		expect(w.env:get("themeMetrics"):get().identity.packageId).toBe("studio-neutral")
+		expect(w.env:get("themeMetrics"):get().identity.packageId).toBe("facet-neutral")
 	end)
 
 	it("a controller with no selectBy publishes no selectBy state at all", function()
@@ -348,7 +348,7 @@ describe("the subscription lives and dies with the controller", function()
 		-- task.delay closure keeps the whole controller reachable for its window
 		expect(settle.cancelled).toBe(cancelledBefore + 1)
 		settle.fire()
-		expect(w.env:get("themeMetrics"):get().identity.packageId).toBe("studio-neutral")
+		expect(w.env:get("themeMetrics"):get().identity.packageId).toBe("facet-neutral")
 	end)
 
 	it("the source keeps ONE swap path with an explicit ORIGIN (contract)", function()

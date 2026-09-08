@@ -943,8 +943,21 @@ function mountLib.mount(core: any, rootBlueprint: Blueprint, opts: MountOpts?)
 				node.props[propName] = value:get()
 				local classes = dirtyMap[propName] or { "paint" }
 				scope:own(core:observe(value, function(newValue)
+					local oldValue = node.props[propName]
 					node.props[propName] = newValue
-					for _, dirtyClass in classes do
+					-- Ordinary placement keeps its arrange-only fast path. A baseline
+					-- joins ascent/descent into the parent's measured line height.
+					local baselineChange = propName == "lineAlign"
+						and (
+							oldValue == "firstTextBaseline"
+							or oldValue == "lastTextBaseline"
+							or newValue == "firstTextBaseline"
+							or newValue == "lastTextBaseline"
+						)
+					for _, declaredClass in classes do
+						local dirtyClass = if baselineChange and declaredClass == "arrange"
+							then "measure"
+							else declaredClass
 						node.dirty[dirtyClass] = true
 						pushDirty(path, dirtyClass, propName)
 					end

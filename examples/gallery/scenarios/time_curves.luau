@@ -97,7 +97,7 @@ local PANEL_SECONDS = 0.45
 	it immediately: a `control`-chrome package (fantasy-ornate,
 	fantasy-parchment, glossy-touch, pixel-quest) wants 28px of border on x and
 	20px on y, so an 18px plate cannot spend its own theme's insets and draws
-	smaller than the theme expects. Studio Neutral said nothing at all, which
+	smaller than the theme expects. Facet Neutral said nothing at all, which
 	is exactly why that sweep runs every shipped package. 40 was the size this
 	fixture and `with_animation`'s puck each hardened by hand, independently,
 	against the same sweep — the two fixtures gap 34 names — and it is now

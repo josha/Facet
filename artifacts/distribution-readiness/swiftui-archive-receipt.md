@@ -1,55 +1,15 @@
-# Archive receipt — the capability comparison, moved out of the public tree
+# Archive receipt — current capability comparison
 
-**Workstream E1, 2026-08-30.** The tracked comparison document was product
-research rather than product documentation, so it was refreshed against the
-current Facet surface, written to the checksummed private archive outside Git,
-and the tracked copy removed from the branch tip.
-
-This receipt exists because the archive's `MANIFEST.json` and `SHA256SUMS` are
-owned by the archive tool, not by this workstream. **Nothing here was written
-into either file.** The director registers the row below.
-
-## The row to register
+The comparison is private research, outside the public reference directory. This receipt identifies the current 2026-09-08 document and matches the archive tool's manifest and checksums.
 
 | Field | Value |
 |---|---|
 | **Path** | `GameStudio/ui/Facet-private-archive/research/swiftui-capability-comparison-2026-08-30.md` |
-| **Bytes** | `321697` |
-| **Lines** | `2608` |
-| **SHA-256** | `bdff768feaefe68c046655adddce5167535f169750be6d79d8093a203ed88dd6` |
-| **Produced by** | workstream E1, 2026-08-30 |
-| **Source it replaces** | `docs/reference/swiftui-parity.md` (2384 lines), removed from the branch tip with `git rm` in the same change |
+| **Bytes** | `44784` |
+| **Lines** | `439` |
+| **SHA-256** | `5dd84b585f2e8685f7ba3d4f4b65ea7726b648130c5fea7c94722909541a92d6` |
+| **Produced by** | Facet 0.11.0 capability release and final verification, 2026-09-08 |
 
-Reproduce the digest with:
+The document re-derives the capability inventory from current Facet code and named Apple primary documentation. It distinguishes FACT, MEASURED and INFERENCE; captured Studio results, headless measurements and user-confirmed device observations have separate meanings. Its release priorities include split navigation, serializable typed paths and deep links, inspector/scene ownership and conditional sheet detents. Performance claims retain named source boundaries.
 
-```bash
-shasum -a 256 \
-  GameStudio/ui/Facet-private-archive/research/swiftui-capability-comparison-2026-08-30.md
-```
-
-## What the archived file is
-
-The previous revision's structure, refreshed. It carries a research header
-naming the research date, the Facet commit it was taken at
-(`6907f859ce5abb58259290a85fd7ceb6b0e8fdfd`, `Facet.VERSION` `0.10.0`), and the
-three labels every claim now carries — **FACT** (a written statement in a named
-primary source), **MEASURED** (a number or behaviour observed by running a named
-instrument on a named date), **INFERENCE** (a conclusion drawn from those). A
-fourth marker, `[UNVERIFIED 2026-08-30]`, is on every claim this pass could not
-close; those claims are carried forward rather than silently re-asserted or
-silently deleted.
-
-The refresh is by **area, not cell by cell**, and the header says so. Seven
-capability areas were re-derived from the live tree because they had moved
-enough to change a verdict; rows outside those areas are carried at their
-2026-08-15 reading. Every count in the document's own tables was re-measured.
-
-## Old revisions stay in Git history
-
-This comparison is product research, not sensitive data. **No Git history was
-rewritten and none is proposed.** Every revision of
-`docs/reference/swiftui-parity.md` before 2026-08-30 remains reachable in this
-repository's history, and the owner packet must say so plainly. If the owner
-later requires their removal from all public history, that is a separate
-destructive-history decision needing its own verified candidate and rollback
-plan.
+The public `docs/reference/` directory contains only `api.md` and `constitution.md`. Verify the private archive with `python3 tools/archive_private.py verify` from Facet. No Git history rewrite is performed by this receipt.

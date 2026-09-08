@@ -247,6 +247,36 @@ describe("ten-foot focus lift is capped to bounds that fit the screen (director 
 		expect(adapter.node("/S/Wide").focusLift).toBe(false) -- lifted bounds would overflow
 	end)
 
+	it("a label on a separate indicator retains its ring without lifting away from its plate", function()
+		local role
+		local _, _, root, adapter, controller = attach("Large", function(core)
+			role = core:signal("default")
+			return {
+				UI.Button({
+					id = "Option",
+					label = "Coastal journey",
+					role = role,
+					surface = "plain",
+					width = { type = "fixed", px = 300 },
+					height = { type = "fixed", px = 44 },
+				}),
+			}
+		end)
+		controller.setFocusPath("/S/Option")
+		local node = adapter.node("/S/Option")
+		expect(node.focusLift).toBe(true)
+		role:set("onIndicator")
+		controller.refresh()
+		expect(node.focused).toBe(true)
+		expect(node.focusProfile).toBe("ten-foot")
+		expect(node.focusLift).toBe(false)
+		role:set("default")
+		controller.refresh()
+		expect(node.focusLift).toBe(true)
+		controller.dispose()
+		root.dispose()
+	end)
+
 	it("a near display never lifts regardless of size", function()
 		local _, _, _, adapter, controller = attach(nil, function(core)
 			return {

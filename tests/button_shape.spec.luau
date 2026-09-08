@@ -77,7 +77,7 @@ local function fails(fn: () -> ()): string
 	return tostring(err)
 end
 
--- a package built through the PUBLIC compiler, derived from Studio Neutral
+-- a package built through the PUBLIC compiler, derived from Facet Neutral
 -- exactly as a real theme author derives one, so the metric assertions below are
 -- what a consumer would actually get
 local function packageWith(metrics: any, identityExtra: any?): any
@@ -347,7 +347,7 @@ describe("circle Button geometry: a true 1:1 box from the control metric", funct
 		  classic-desktop  22px disc / 20px picture  (91%)
 		  compact-pointer  22px disc
 		  fantasy-ornate   38px disc / 32px picture  (84%, plus six ring plates)
-		  studio-neutral   36px disc / 20px picture  (56%, fine)
+		  facet-neutral   36px disc / 20px picture  (56%, fine)
 
 		At 84-91% the glyph runs to the rim and past it — `ClipsDescendants` is
 		false on the flat target, so the picture simply paints over the edge of the
@@ -560,7 +560,7 @@ describe("circle Button paint: the pill and the rim are phantom modifier rules",
 		-- gets a circle, and its layer/instance census is untouched by the shape.
 		local model = sheet_model.buildPackage(packageWith({}))
 		expect(model.census.layers).toBe(0)
-		-- NOT zero image rules any more, and the disc is not why: the framework's own icon set (compact-label stage) resolves BELOW a package's map, so a package that declares nothing still DRAWS pictures — and `ImageColor3` is sheet-owned, so each of those names needs its tint rule or the art paints pure white. Found live in the running showcase: Studio Neutral emitted 70 rules and ZERO icon rules while `resolveIcon` returned real art for the same names.
+		-- NOT zero image rules any more, and the disc is not why: the framework's own icon set (compact-label stage) resolves BELOW a package's map, so a package that declares nothing still DRAWS pictures — and `ImageColor3` is sheet-owned, so each of those names needs its tint rule or the art paints pure white. Found live in the running showcase: Facet Neutral emitted 70 rules and ZERO icon rules while `resolveIcon` returned real art for the same names.
 		-- The claim this test makes — the SHAPE costs no instances and no layers —
 		-- is unchanged, so it is asserted against the icon floor rather than 0.
 		expect(model.census.imageRules).toBe(frameworkIconRuleCount())

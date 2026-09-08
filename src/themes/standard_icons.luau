@@ -48,6 +48,11 @@ local standard_icons = {}
 -- `assets/icons/` and the key in that folder's `upload-manifest.json`; the two
 -- are cross-checked by `tools/lune/check_docs`.
 standard_icons.ART = table.freeze({
+	["facet:search"] = table.freeze({
+		assetName = "facet_icon_search",
+		contentId = "rbxassetid://85188541706347",
+		tintRole = "content",
+	}),
 	["chevron.leading"] = table.freeze({
 		assetName = "facet_icon_chevron_left",
 		contentId = "rbxassetid://81739481512878",

@@ -271,7 +271,7 @@ describe("buildPackage: the Pixelated stamp is a counted claim", function()
 			expect(rule.props.ResampleMode).toBeNil()
 		end
 		-- ...and the flat baseline's only image rules are the framework icon tints
-		-- (the framework's own icon set (compact-label stage) resolves BELOW a package's map, so a package that declares nothing still DRAWS pictures — and `ImageColor3` is sheet-owned, so each of those names needs its tint rule or the art paints pure white. Found live in the running showcase: Studio Neutral emitted 70 rules and ZERO icon rules while `resolveIcon` returned real art for the same names.), none of which carry a resample stamp on a STANDARD package.
+		-- (the framework's own icon set (compact-label stage) resolves BELOW a package's map, so a package that declares nothing still DRAWS pictures — and `ImageColor3` is sheet-owned, so each of those names needs its tint rule or the art paints pure white. Found live in the running showcase: Facet Neutral emitted 70 rules and ZERO icon rules while `resolveIcon` returned real art for the same names.), none of which carry a resample stamp on a STANDARD package.
 		local flat = sheet_model.buildPackage(snapshot.neutralPackage())
 		expect(flat.census.imageRules > 0).toBe(true)
 		expect(flat.census.pixelatedRules).toBe(0)

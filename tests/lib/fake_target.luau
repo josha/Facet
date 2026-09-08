@@ -919,6 +919,9 @@ function fake_target.new(opts: Opts?)
 			)
 		end
 		handle.props[prop] = value
+		if prop == "role" and handle.focused then
+			adapter.setFocusVisual(handle, true, handle.focusProfile)
+		end
 		if recordOps then
 			note(`prop {handle.path}.{prop}={tostring(value)}`)
 		end
@@ -1424,7 +1427,7 @@ function fake_target.new(opts: Opts?)
 			-- still fit the screen (a scaled full-width surface would overflow
 			-- the viewport, as the Xbox filter field did live). Mirrors the
 			-- screen_target rule so the cap is headlessly provable.
-			if profile == "ten-foot" and handle.rect ~= nil then
+			if profile == "ten-foot" and handle.rect ~= nil and handle.props.role ~= chrome_slots.ON_INDICATOR_ROLE then
 				local scale = default_style.extra.tenFootFocusScale
 				local screen = nil
 				local rootSegment = string.match(handle.path or "", "^(/[^/]+)")

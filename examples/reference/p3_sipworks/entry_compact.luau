@@ -13,7 +13,7 @@
 -- pin (`sipworks_spec`: "both entries reach the same blueprint functions").
 --
 -- WHAT THE COMPACT SHELL HIDES: the Composition shell itself (the root is a
--- plain `Screen` over the Menu list), Favorites / Stamps / Blend Book and every
+-- Menu list hosted as the shared NavigationStack root), Favorites / Stamps / Blend Book and every
 -- route to them, the favorite affordances (`app.entry` gates them inside the
 -- shared row and detail factories — no dead verbs), and the redeem branch (no
 -- rewards context here, so the CTA is always pay-shaped). Stamps still accrue

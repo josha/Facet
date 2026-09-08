@@ -922,7 +922,7 @@ local THEMES: { { id: string, package: any?, themeName: string?, theme: any } } 
 	local out: { { id: string, package: any?, themeName: string?, theme: any } } = {}
 	local neutral = Facet.themes.neutralPackage()
 	for _, theme in neutral.style.themes do
-		table.insert(out, { id = `studio-neutral/{theme.name}`, package = nil, themeName = nil, theme = theme })
+		table.insert(out, { id = `facet-neutral/{theme.name}`, package = nil, themeName = nil, theme = theme })
 	end
 	local names = fs.readDir("examples/themes")
 	table.sort(names)

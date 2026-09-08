@@ -1,7 +1,7 @@
 --!strict
 -- EXAMPLE PROPERTY-AUTHORITY DRIFT LINT (roadmap Step 10). A literal in a
 -- tutorial example is invisible in review and invisible to the suite — 24 is
--- still 24 under Studio Neutral — while making that example immune to the very
+-- still 24 under Facet Neutral — while making that example immune to the very
 -- theme picker mounted beside it. So the check runs here, AND it is proven to
 -- FAIL: a lint nobody has watched fail is a lint nobody knows works.
 --

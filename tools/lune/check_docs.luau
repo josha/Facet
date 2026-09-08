@@ -101,7 +101,7 @@ type Anchor = { term: string, why: string }
 
 local GUIDE_ANCHORS: { Anchor } = {
 	{ term = "themes.define", why = "the compiler the walkthrough starts from" },
-	{ term = "neutralPackage", why = "deriving from Studio Neutral is step 1 of the walkthrough" },
+	{ term = "neutralPackage", why = "deriving from Facet Neutral is step 1 of the walkthrough" },
 	{ term = "theme_controller", why = "installing at an application root" },
 	{ term = "theme_sync_cli", why = "the validate/export step and its --check freshness gate" },
 	{ term = "--check", why = "the freshness gate the export step must teach" },

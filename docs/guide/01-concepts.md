@@ -243,7 +243,7 @@ every screen follows.
 Facet's tokens live under `Facet.tokens`. `tokens.compile(schema)` takes a
 game's design values. It checks them for completeness and for adequate text
 contrast. It returns a frozen, validated set. The library ships a built-in
-default token set called **Studio Neutral** (`src/tokens/default_style.luau`),
+default token set called **Facet Neutral** (`src/tokens/default_style.luau`),
 so you get a polished, professional-looking interface with zero configuration.
 A game can override it. Tokens and styling are the subject of
 [chapter 5](05-styling.md).

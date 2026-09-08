@@ -59,21 +59,8 @@ function example.build(Facet: any, core: any, deps: any)
 	-- button / Cancel routing dismisses WITHOUT reaching these — the presenter
 	-- handles that and restores focus on its own.
 	--
-	-- A MODAL IS A SCRIM PLUS A PANEL, and it needs to LOOK like one.
-	--
-	-- This dialog had neither: the screen was transparent, so on a device the
-	-- prompt and its two buttons floated loose over whatever was behind them with
-	-- no boundary at all, and "Delete" — a destructive, irreversible action — sat
-	-- unframed on top of the very screen it was about to change. Found on an
-	-- a physical phone; in Studio over a plain baseplate it had looked merely plain.
-	--
-	-- ...AND THE CENTRING HAS TO BE ON A ZSTACK (example-quality-pass, measured
-	-- 2026-08-06). `alignH`/`alignV` are documented as alignment inside a ZSTACK
-	-- parent. They were authored on the Screen, which stacks its children
-	-- vertically, so they were accepted and silently ignored and the card rendered
-	-- at 16,16 — the top-left corner — while every reader of this file believed it
-	-- was centred. The scrim Screen now holds ONE full-bleed ZStack, and the card
-	-- centres inside that.
+	-- Keep the alert brief and centered. Its actions size to content and share spare row space; Cancel
+	-- is the safe primary choice and receives initial focus through the presenter.
 	local dialog = UI.Screen({
 		id = "ConfirmDialog",
 		surface = "scrim",
@@ -94,27 +81,55 @@ function example.build(Facet: any, core: any, deps: any)
 						children = {
 							UI.Text({
 								id = "Prompt",
-								text = "Delete this save? This cannot be undone.",
+								text = "Delete this save?",
+								textSize = "title",
+								textAlign = "center",
+								width = UI.fill(),
+							}),
+							UI.Text({
+								id = "Message",
+								text = "This cannot be undone.",
 								textSize = "body",
+								role = "secondary",
+								textAlign = "center",
+								width = UI.fill(),
 							}),
-							UI.Button({
-								id = "Confirm",
-								label = "Delete",
-								onActivate = function()
-									result:set("confirmed")
-									hasSave:set(false)
-									presenter.dismiss(currentModal)
-									currentModal = nil
-								end,
-							}),
-							UI.Button({
-								id = "Cancel",
-								label = "Cancel",
-								onActivate = function()
-									result:set("cancelled")
-									presenter.dismiss(currentModal)
-									currentModal = nil
-								end,
+							UI.HStack({
+								id = "Actions",
+								width = UI.fill(),
+								distribute = "spaceAround",
+								align = "center",
+								gap = "s",
+								children = {
+									UI.Button({
+										id = "Confirm",
+										label = "Delete Save",
+										compactLabel = "Delete",
+										role = "destructive",
+										width = { type = "content" },
+										shrinkWeight = 1,
+										align = "center",
+										onActivate = function()
+											result:set("confirmed")
+											hasSave:set(false)
+											presenter.dismiss(currentModal)
+											currentModal = nil
+										end,
+									}),
+									UI.Button({
+										id = "Cancel",
+										label = "Cancel",
+										surface = "accent",
+										width = { type = "content" },
+										shrinkWeight = 1,
+										align = "center",
+										onActivate = function()
+											result:set("cancelled")
+											presenter.dismiss(currentModal)
+											currentModal = nil
+										end,
+									}),
+								},
 							}),
 						},
 					}),
@@ -127,7 +142,11 @@ function example.build(Facet: any, core: any, deps: any)
 		if currentModal ~= nil then
 			return -- already open: one modal, not a stack of identical ones
 		end
-		currentModal = presenter.presentModal(dialog)
+		currentModal = presenter.presentModal(dialog, { initialFocus = { id = "Cancel" } })
+		currentModal.scope:own(function()
+			-- Back dismisses without either button callback.
+			currentModal = nil
+		end)
 	end
 
 	local function restore()
@@ -175,8 +194,8 @@ function example.build(Facet: any, core: any, deps: any)
 		restorePath = "/DangerScreen/Page/Restore",
 		outcomePath = "/DangerScreen/Page/Outcome",
 		titlePath = "/DangerScreen/Page/Title",
-		confirmPath = "/ConfirmDialog/Center/Card/Confirm",
-		cancelPath = "/ConfirmDialog/Center/Card/Cancel",
+		confirmPath = "/ConfirmDialog/Center/Card/Actions/Confirm",
+		cancelPath = "/ConfirmDialog/Center/Card/Actions/Cancel",
 		cardPath = "/ConfirmDialog/Center/Card",
 		dispose = function()
 			if currentModal ~= nil then

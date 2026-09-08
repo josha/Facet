@@ -49,7 +49,7 @@
 --
 -- THIS NUMBER WAS MEASURED, NOT GUESSED (a px height fixed against unfixed
 -- content is a defect class). Its history, kept because the
--- reasoning is still the margin: 200 was reasoned from Studio Neutral's
+-- reasoning is still the margin: 200 was reasoned from Facet Neutral's
 -- ~36px chip, then the nine-package sweep in `tests/flow_wrap.spec.luau`
 -- found four packages overflowing it on the cross axis at 320px wide
 -- (glossy_touch by 33, fantasy_parchment by 33, fantasy_ornate by 49,

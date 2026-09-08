@@ -225,6 +225,9 @@ describe("the measure-facts seam: EXPORTED == BOUND, one consumer, one-way requi
 
 	it("every name the module exports is bound by the solver, and every bound name is exported", function()
 		local exported = exportsOf(facts)
+		-- Spacer floors are consumed by the extracted stack/flow passes.
+		expect(exported.spacerMinimum).toBe(true)
+		exported.spacerMinimum = nil
 		local bound = boundOf(solver)
 		expect(#missingFrom(exported, bound)).toBe(0) -- an export nobody takes
 		expect(#missingFrom(bound, exported)).toBe(0) -- a binding that would be nil
@@ -291,7 +294,11 @@ describe("the measure-facts seam: EXPORTED == BOUND, one consumer, one-way requi
 			two start disagreeing by a rounding. ]]
 		expect(srcTree.pathsMatching('require%("[^"]*measure_facts"%)')).toEqual({
 			REPORTS_PATH,
+			"src/layout/baseline.luau",
+			"src/layout/flow.luau",
 			SOLVER_PATH,
+			"src/layout/stack.luau",
+			"src/layout/stack_measure.luau",
 			LANE_PATH,
 		})
 	end)

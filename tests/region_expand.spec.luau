@@ -2429,7 +2429,7 @@ describe("EXPAND 17 — the way out is a disc CENTRED on the plate's corner", fu
 
 	-- the plate, its disc and the panel that holds both, at one display class
 	--[[ ...AND IT TAKES A PACKAGE, because the default is the LOOSEST one (fix
-		round 1, review MEDIUM-4b). `studio_neutral` clears the R18 inequality by
+		round 1, review MEDIUM-4b). `facet_neutral` clears the R18 inequality by
 		9.2px; `classic_desktop` clears it by 0.63px and clears the DISTANCE by
 		0.31px — below the whole-pixel granularity a solve rounds its rects to. A
 		geometric sweep that only ever runs the roomiest package is a sweep whose
@@ -2817,13 +2817,13 @@ describe("EXPAND 17 — the way out is a disc CENTRED on the plate's corner", fu
 			guarantee here with the count still green. `shippable()` reads the
 			directory, so the guarantee grows with the corpus and the assertion below
 			is a function of it. ]]
-		local packages = { "studio_neutral" }
+		local packages = { "facet_neutral" }
 		for _, name in themePackages.shippable() do
 			table.insert(packages, name)
 		end
 		local checked = 0
 		for _, name in packages do
-			local package = if name == "studio_neutral"
+			local package = if name == "facet_neutral"
 				then themeSnapshot.neutralPackage()
 				else (require)(`../examples/themes/{name}`).build(Facet.themes)
 			local base = themeSnapshot.resolve(package, nil, {})
@@ -2862,7 +2862,7 @@ describe("EXPAND 17 — the way out is a disc CENTRED on the plate's corner", fu
 			clears the ring on EVERY shipped package at BOTH rungs, universally, with no
 			named exceptions — because it is now the `max` of the ring and the package's
 			own `space.xs`, not an unrelated spacing step that happened to be big enough. ]]
-		local packages = { "studio_neutral" }
+		local packages = { "facet_neutral" }
 		for _, name in themePackages.shippable() do
 			table.insert(packages, name)
 		end
@@ -2870,7 +2870,7 @@ describe("EXPAND 17 — the way out is a disc CENTRED on the plate's corner", fu
 		local mismatched: { string } = {}
 		local checked = 0
 		for _, name in packages do
-			local package = if name == "studio_neutral"
+			local package = if name == "facet_neutral"
 				then themeSnapshot.neutralPackage()
 				else (require)(`../examples/themes/{name}`).build(Facet.themes)
 			-- the package's OWN theme entry first, then the library default — which is

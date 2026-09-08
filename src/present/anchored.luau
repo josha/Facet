@@ -44,7 +44,7 @@
 	AND THE WEDGE MUST BE SQUARE-CORNERED, WHICH IT WAS NOT (director, 2026-08-17:
 	the stem read as *"a second shape below the main box"*). `surface = "raised"`
 	brings the panel's phantom `::UICorner` with it — `radii.panel` is 12 under
-	Studio Neutral against a `space.m` = 16px box, and the engine CLAMPS a corner
+	Facet Neutral against a `space.m` = 16px box, and the engine CLAMPS a corner
 	radius to half the shorter side. 12 > 8, so the "wedge" was a CIRCLE, and what
 	protruded past the panel was a semicircular bump wearing a hairline arc. The
 	authored `corners = 0` below is what makes it a triangle; an instance property
@@ -115,7 +115,7 @@ local TAIL_SEAM_ID = "TailSeam"
 local DUMP_SCHEMA = "facet-anchored-dump/1"
 
 -- THEME METRICS, never bare pixels. The gap is the small spacing
--- step; the tail is one medium step square, which is 16px under Studio Neutral
+-- step; the tail is one medium step square, which is 16px under Facet Neutral
 -- and therefore an 11.3px protrusion, which is the usual popover-arrow size.
 -- The corner keep-out is the panel radius, so a tail can never grow out of a
 -- rounded corner however the theme rounds them.

@@ -1109,7 +1109,7 @@ table.insert(
 	})
 )
 
--- 17. asset-backed swap: Studio Neutral (no art) against Fantasy Ornate (33
+-- 17. asset-backed swap: Facet Neutral (no art) against Fantasy Ornate (33
 -- declared assets and chrome recipes). Headlessly this measures the metric
 -- invalidation plus the asset DECLARATION the package carries; the nine-slice
 -- layer instances and their decode cost are an E3 quantity captured in Studio,
@@ -1294,7 +1294,7 @@ table.insert(
 	themeSwapScene({
 		name = "theme-swap-assets",
 		kind = "asset-backed",
-		dataset = "Studio Neutral <-> Fantasy Ornate (declared art + chrome recipes); swap + refresh per iter",
+		dataset = "Facet Neutral <-> Fantasy Ornate (declared art + chrome recipes); swap + refresh per iter",
 		assetsDeclared = ORNATE_ASSETS,
 		snapshots = function()
 			return {

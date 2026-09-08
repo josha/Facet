@@ -1291,10 +1291,10 @@ end)
 -- `adapter.setThemePackage` — the DECORATION half. The METRIC half (the resolved
 -- snapshot, published as `themeMetrics` so the solver reserves the recipe's
 -- `contentInsets`) was never committed at all. So the adapter painted
--- fantasy-ornate art onto a surface the solver had measured with Studio Neutral.
+-- fantasy-ornate art onto a surface the solver had measured with Facet Neutral.
 --
 -- Measured live at 360x691 before the fix: an `Open` button 60x46 with
--- `TextSize = 18` (Studio Neutral's `control` size; ornate's is 17), 36px of text
+-- `TextSize = 18` (Facet Neutral's `control` size; ornate's is 17), 36px of text
 -- and 12+12 of neutral button padding — no trace of the 14+14 the ornate recipe
 -- asks for. The paint seam then lifted the label by that 14+14 it never got, so
 -- EVERY lifted label came out short by exactly 28 - 24 = **4px**, at every

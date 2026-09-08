@@ -200,7 +200,7 @@ function book.recipeView(app: any, opts: any): any
 		children = {
 			app.Facet.navBar({
 				id = "TopBar",
-				padding = "m",
+				padding = if options.navigationHosted then 0 else "m",
 				onBack = if options.showBack
 					then function()
 						app.commands.closeRecipe()
@@ -215,7 +215,7 @@ function book.recipeView(app: any, opts: any): any
 				id = "Page",
 				axis = "y",
 				gap = "m",
-				padding = "m",
+				padding = if options.navigationHosted then 0 else "m",
 				width = dims.fill,
 				height = dims.fill,
 				children = {

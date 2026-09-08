@@ -124,7 +124,7 @@ describe("buildPackage: nine-slice chrome rules carry the package's own values",
 	end)
 
 	it("a flat package emits no chrome rules BUT the framework icon tints", function()
-		-- the framework's own icon set (compact-label stage) resolves BELOW a package's map, so a package that declares nothing still DRAWS pictures — and `ImageColor3` is sheet-owned, so each of those names needs its tint rule or the art paints pure white. Found live in the running showcase: Studio Neutral emitted 70 rules and ZERO icon rules while `resolveIcon` returned real art for the same names.
+		-- the framework's own icon set (compact-label stage) resolves BELOW a package's map, so a package that declares nothing still DRAWS pictures — and `ImageColor3` is sheet-owned, so each of those names needs its tint rule or the art paints pure white. Found live in the running showcase: Facet Neutral emitted 70 rules and ZERO icon rules while `resolveIcon` returned real art for the same names.
 		-- So "flat pays nothing" now has exactly one exception, and naming it here
 		-- is what keeps it an exception rather than a leak: any OTHER chrome
 		-- selector on a flat package is still a defect.
@@ -864,7 +864,7 @@ describe("theme chrome: metric-derived rule props are mapped for live repaint", 
 		-- 6 radii/stroke literals + 3 FontFace literals (Text/Button/Field
 		-- default) + the value-control chrome's own hairline/corner literals.
 		-- The value-control rules are emitted for EVERY package including the
-		-- flat ones: a slider still has to be visible under Studio Neutral, and
+		-- flat ones: a slider still has to be visible under Facet Neutral, and
 		-- it no longer borrows a public surface to get there.
 		--
 		-- The count tracks OWN_PAINT_SLOTS, which the image-driven round extended from the
@@ -909,7 +909,7 @@ end)
 describe("the image IS the button: a skinned node's native plate is suppressed", function()
 	it("emits fill/corner/stroke suppression per SKINNED slot, and only for skinned slots", function()
 		-- director: "there should not be extra button border around it". The
-		-- parchment art was sitting inside a rounded Studio-Neutral slab with a
+		-- parchment art was sitting inside a rounded Facet-Neutral slab with a
 		-- hairline, because every surface rule still applied underneath it.
 		local model = sheet_model.buildPackage(parchment())
 		local plate = ruleNamed(model, "Skinned — control")
@@ -924,7 +924,7 @@ describe("the image IS the button: a skinned node's native plate is suppressed",
 		expect(outline.props.Thickness.value).toBe(0)
 		expect(outline.props.Transparency.value).toBe(1)
 		-- the stub skins panel/control/field; a NATIVE slot keeps every bit of
-		-- its Studio-Neutral chrome
+		-- its Facet-Neutral chrome
 		expect(ruleNamed(model, "Skinned — panel") ~= nil).toBe(true)
 		expect(ruleNamed(model, "Skinned — field") ~= nil).toBe(true)
 		expect(ruleNamed(model, "Skinned — selection")).toBeNil()
@@ -1543,7 +1543,7 @@ describe("the focus treatment: a themed ring, or a glow", function()
 		local literal = { kind = "glow", color = { r = 1, g = 0.5, b = 0 } }
 		expect(chrome_slots.resolveFocusColor(literal, {}).r).toBe(1)
 		-- no colour declared at all: nil, and the ADAPTER substitutes the active
-		-- theme's own accent (never Studio Neutral's blue — the theme-blindness fix)
+		-- theme's own accent (never Facet Neutral's blue — the theme-blindness fix)
 		expect(chrome_slots.resolveFocusColor({ kind = "glow" }, shipping().style.themes[1])).toBeNil()
 	end)
 
@@ -1729,8 +1729,8 @@ describe("the toggle is palette-true, in every theme", function()
 		return out
 	end
 
-	it("the ON track is THAT theme's accent — never Studio Neutral's blue", function()
-		-- director screenshot: the parchment toggle rendered a Studio-Neutral BLUE
+	it("the ON track is THAT theme's accent — never Facet Neutral's blue", function()
+		-- director screenshot: the parchment toggle rendered a Facet-Neutral BLUE
 		-- pill, because the track colour was a constant captured when the adapter
 		-- was constructed
 		local neutralAccent = themes.neutralPackage().style.themes[1].colors.accent

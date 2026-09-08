@@ -341,6 +341,11 @@ end
 -- grows cannot leave this audit driving a value that no longer exists
 local function valuesFor(className: string, prop: string): (any, any)
 	local spec = (schema.forClass(className) :: any).props[prop]
+	-- Baseline transitions intentionally upgrade to measure; their incremental oracle
+	-- is in baseline_spacer. This audit pins the original placement-only words.
+	if prop == "lineAlign" then
+		return "start", "stretch"
+	end
 	if spec.enum ~= nil then
 		return spec.enum[1], spec.enum[#spec.enum]
 	end

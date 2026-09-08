@@ -450,7 +450,8 @@ function Sipworks.build(Facet: any, core: any, deps: any): any
 
 	-- ---- surfaces ---------------------------------------------------------
 	local shellHandle: any = nil
-	local detailHandle: any = nil
+	local navigationFlow: any = nil
+	local navigationPath = scope:own(core:signal({}))
 	local cardHandle: any = nil
 	local guardHandle: any = nil
 	local placedHandle: any = nil
@@ -462,44 +463,26 @@ function Sipworks.build(Facet: any, core: any, deps: any): any
 		end
 	end
 
-	local function closeDetailSurface()
-		if detailHandle ~= nil then
-			dismiss(detailHandle)
-			detailHandle = nil
-			resetGathered()
+	local function closeDetailRoute()
+		if navigationFlow ~= nil then
+			navigationFlow.api.popToRoot()
 		end
+		resetGathered()
 	end
 
-	local function presentDetailSurface(kind: string)
-		closeDetailSurface()
-		local body = if kind == "recipes"
-			then bookView.recipeView(app, { id = "Recipe", showBack = true })
-			else detailView.body(app, { id = "Detail", showBack = true })
-		detailHandle = presenter.presentModal(
-			UI.Screen({
-				id = "SipworksDetail",
-				padding = 0,
-				surface = "base",
-				children = { body },
-			}),
-			{
-				-- a compact detail is a PUSH, not a dialog: no dim, and the
-				-- surface owns the whole viewport. It is presented as a modal
-				-- rather than a second `present()` because two plain base screens
-				-- share ONE focus graph (api.md `newPresenter`) — the shell
-				-- behind would keep taking Tab.
-				scrim = "none",
-				-- task-fix3 symptoms 2/3 ("SAME in Sipworks -> navigation-general,
-				-- not app code"): `distance` travels the surface's own current
-				-- width, so the push/pop reads as a slide rather than the themed
-				-- `space.l` default's ~24px nudge (director device round
-				-- 2026-08-23; render/transitions.luau's `slideDistance` header).
-				transition = { enter = "slide-left", distance = env:get("viewportRect"):get().w },
-				initialFocus = "first",
-				keyboardNavigation = true,
-			}
-		)
+	local function openDetailRoute(kind: string)
+		navigationPath:set({
+			{ id = if kind == "recipes" then "recipe" else "detail", value = state.selectedBlendId:get() },
+		})
 	end
+
+	-- Shared Back/Cancel edits this caller-owned path too. Transient recipe
+	-- checkmarks retire on return; selection and service state stay in the model.
+	scope:own(core:observe(navigationPath, function(path)
+		if #path == 0 then
+			resetGathered()
+		end
+	end))
 
 	-- ---- commands (every on-screen verb lands here) -----------------------
 	local commands: any = {}
@@ -511,7 +494,7 @@ function Sipworks.build(Facet: any, core: any, deps: any): any
 	-- scenario step, so the two can never drift.
 	local resetToSeed: () -> ()
 
-	-- ONE authority for "is the detail a pane or a pushed surface", and it is the
+	-- ONE authority for "is the detail a pane or a pushed route", and it is the
 	-- same memo the shell mounts the pane behind — so a row Activate can never
 	-- land in the gap where neither exists.
 	local function pushesDetail(): boolean
@@ -539,16 +522,16 @@ function Sipworks.build(Facet: any, core: any, deps: any): any
 		resetGathered()
 		state.batch:set(1)
 		if pushesDetail() or app.entry == "compact-link" then
-			presentDetailSurface(kind)
+			openDetailRoute(kind)
 		end
 	end
 
 	function commands.closeDetail()
-		closeDetailSurface()
+		closeDetailRoute()
 	end
 
 	function commands.closeRecipe()
-		closeDetailSurface()
+		closeDetailRoute()
 	end
 
 	function commands.toggleFavorite(blendId: string)
@@ -832,11 +815,11 @@ function Sipworks.build(Facet: any, core: any, deps: any): any
 		unlock.acknowledge()
 	end)
 
-	-- WIDENING WITH A COMPACT DETAIL UP DISMISSES IT (spec §5): the selection
+	-- WIDENING WITH A COMPACT DETAIL UP POPS ITS ROUTE (spec §5): the selection
 	-- survives and the regular pane renders it. Narrowing never auto-presents.
 	local unsubscribeWidth = core:observe(app.paneSplit, function(split: boolean)
-		if split and detailHandle ~= nil and app.entry == "full" then
-			closeDetailSurface()
+		if split and #navigationPath:get() > 0 and app.entry == "full" then
+			closeDetailRoute()
 		end
 	end)
 
@@ -864,8 +847,79 @@ function Sipworks.build(Facet: any, core: any, deps: any): any
 	-- handle that stopped being the surface three drives ago.
 	local result: any = nil
 
+	-- Page-local views own their derived values in the NavigationStack's page
+	-- scope. Rebuilding a route never leaves an observer attached to an old page.
+	local function pageApp(pageScope: any): any
+		local scoped = table.clone(app)
+		function scoped.own(readable: any): any
+			pageScope:own(function()
+				readable:dispose()
+			end)
+			return readable
+		end
+		function scoped.text(key: string, params: any?): any
+			return scoped.own(core:memo(function(use)
+				local locale = use(i18n.locale)
+				return i18n.at(locale, key, if type(params) == "function" then params(use) else params)
+			end))
+		end
+		return scoped
+	end
+
 	local function buildShell()
-		local blueprint = if app.entry == "compact-link" then entryCompact.build(app) else shellView.build(app)
+		navigationFlow = viewScope:own(Facet.Controls.NavigationStack(core, {
+			id = "SipworksFlow",
+			path = navigationPath,
+			backLabel = i18n.at(i18n.locale:get(), "nav.back"),
+			env = env,
+			transition = {
+				enter = "slide-left",
+				exit = "slide-right",
+				class = "container",
+				distance = env:get("viewportRect"):get().w,
+			},
+			root = {
+				content = function(pageScope)
+					local scoped = pageApp(pageScope)
+					local shell = if app.entry == "compact-link"
+						then entryCompact.build(scoped)
+						else shellView.build(scoped)
+					return UI.VStack({
+						id = "Root",
+						width = UI.fill(),
+						height = UI.fill(),
+						gap = 0,
+						children = shell.children,
+					})
+				end,
+			},
+			destinations = {
+				detail = {
+					title = app.text("detail.title"),
+					content = function(pageScope)
+						return detailView.body(
+							pageApp(pageScope),
+							{ id = "Detail", showBack = false, navigationHosted = true }
+						)
+					end,
+				},
+				recipe = {
+					title = app.text("recipe.title"),
+					content = function(pageScope)
+						return bookView.recipeView(
+							pageApp(pageScope),
+							{ id = "Recipe", showBack = false, navigationHosted = true }
+						)
+					end,
+				},
+			},
+		}))
+		local blueprint = UI.Screen({
+			id = if app.entry == "compact-link" then "SipworksCompact" else "Sipworks",
+			padding = 0,
+			surface = "base",
+			children = { navigationFlow.blueprint },
+		})
 		shellHandle = presenter.present(blueprint, {
 			keyboardNavigation = true,
 			initialFocus = "first",
@@ -888,7 +942,7 @@ function Sipworks.build(Facet: any, core: any, deps: any): any
 			dismiss(rewardsHandle)
 			rewardsHandle = nil
 		end
-		closeDetailSurface()
+		closeDetailRoute()
 		if shellHandle ~= nil then
 			dismiss(shellHandle)
 			shellHandle = nil
@@ -908,7 +962,12 @@ function Sipworks.build(Facet: any, core: any, deps: any): any
 		local controller = if shellHandle ~= nil then shellHandle.controller else nil
 		if controller ~= nil and controller.scrollToVisible ~= nil then
 			-- a keyed `ForEach` row carries its key as its own path segment
-			pcall(controller.scrollToVisible, `/SipworksCompact/Menu/List/Rows/[{target}]/Row-{target}`)
+			for _, entry in shellHandle.focusOrder().traversal do
+				if entry.path:sub(-#`/Row-{target}/Line/Open`) == `/Row-{target}/Line/Open` then
+					pcall(controller.scrollToVisible, entry.path)
+					break
+				end
+			end
 		end
 		commands.openBlend(target, "menu")
 	end
@@ -951,10 +1010,6 @@ function Sipworks.build(Facet: any, core: any, deps: any): any
 	end
 
 	local function reconcileSurfaces()
-		if detailHandle ~= nil and not alive(detailHandle) then
-			detailHandle = nil
-			resetGathered()
-		end
 		if cardHandle ~= nil and not alive(cardHandle) then
 			cardHandle = nil
 			state.openBotanical:set(nil)
@@ -978,7 +1033,7 @@ function Sipworks.build(Facet: any, core: any, deps: any): any
 		reconcileSurfaces()
 		return {
 			shell = shellHandle ~= nil,
-			detail = detailHandle ~= nil,
+			detail = #navigationPath:get() > 0,
 			card = cardHandle ~= nil,
 			guard = guardHandle ~= nil,
 			placed = placedHandle ~= nil,
@@ -1061,7 +1116,6 @@ function Sipworks.build(Facet: any, core: any, deps: any): any
 			{ name = "guard", handle = guardHandle },
 			{ name = "card", handle = cardHandle },
 			{ name = "rewards", handle = rewardsHandle },
-			{ name = "detail", handle = detailHandle },
 			{ name = "shell", handle = shellHandle },
 		}
 		for _, entry in ordered do
@@ -1131,6 +1185,7 @@ function Sipworks.build(Facet: any, core: any, deps: any): any
 		local unspent = rewards.unspent()
 		return {
 			proof = "p3_sipworks",
+			navigation = navigationFlow.dump(),
 			title = Sipworks.title,
 			entry = app.entry,
 			entryItemId = state.entryItemId:get(),

@@ -753,11 +753,19 @@ function text_input.build(Facet: any, core: any, spec: Spec)
 		return UI.Button({
 			id = "Clear",
 			label = "Clear",
+			align = "center",
 			children = {
+				UI.Spacer({ id = "BeforeMark" }),
 				chromeSlots.attachHint(
-					UI.Text({ id = "Mark", text = themePackage.iconGlyph("close"), textSize = "control" }),
+					UI.Text({
+						id = "Mark",
+						text = themePackage.iconGlyph("close"),
+						textSize = "control",
+						textAlign = "center",
+					}),
 					{ icon = "close" }
 				),
+				UI.Spacer({ id = "AfterMark" }),
 			},
 			anchor = "right",
 			offsetX = CLEAR_INSET,
@@ -859,7 +867,7 @@ function text_input.build(Facet: any, core: any, spec: Spec)
 			chromeSlots.attachHint(
 				UI.Text({
 					id = "SearchIcon",
-					text = "o/",
+					text = themePackage.iconGlyph("facet:search"),
 					textSize = "control",
 					anchor = "left",
 					offsetX = "-xl",

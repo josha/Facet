@@ -19,9 +19,9 @@ local replication = require("@self/replication/adapters")
 local tokensLib = require("@self/tokens/tokens")
 local focusLib = require("@self/focus/focus_graph")
 local transitionsLib = require("@self/render/transitions") -- item 41: EXIT_CAP_SECONDS
---[[ THE TWENTY-THREE COMPOSITE CONTROLS.
+--[[ THE TWENTY-FOUR COMPOSITE CONTROLS.
 
-	Fifteen legacy Spec types enter scope through direct module bindings, so
+	Fifteen legacy Spec types and NavigationStack.Spec enter scope through direct module bindings, so
 	those implementations load here. Luau does not expose a module's exported
 	types through deferred `typeof(require(...))` spellings (tools/check_types.py).
 
@@ -50,6 +50,7 @@ local disclosureGroup = require("@self/controls/disclosure_group")
 local textInput = require("@self/controls/text_input")
 local rowActions = require("@self/controls/row_actions")
 local levelPicker = require("@self/controls/level_picker")
+local navigationStack = require("@self/controls/navigation_stack")
 local asyncResources = require("@self/async/resources")
 local themesPackage = require("@self/themes/package")
 local themesSnapshot = require("@self/themes/snapshot")
@@ -69,6 +70,8 @@ export type Signal<T> = coreContract.Signal<T>
 export type Memo<T> = coreContract.Memo<T>
 export type Readable<T> = coreContract.Readable<T>
 export type Unsubscribe = coreContract.Unsubscribe
+export type NavigationStackSpec = navigationStack.Spec
+export type NavigationEntry = navigationStack.Entry
 
 -- These specs live at the public boundary so their implementations remain
 -- deferred without losing argument checking. Existing eager controls retain
@@ -409,6 +412,9 @@ end
 local library: any = nil
 
 local Controls = table.freeze({
+	NavigationStack = function(core: any, spec: navigationStack.Spec)
+		return navigationStack.build(library, core, spec)
+	end,
 	SplitButton = function(core: any, spec: SplitButtonSpec)
 		return require("@self/controls/split_button").build(library, core, spec)
 	end,
@@ -491,7 +497,7 @@ local Controls = table.freeze({
 local Facet = {
 	-- semantic version: MAJOR.MINOR.PATCH; pre-1.0 the minor
 	-- tracks the completed design phase. Bump here AND in the changelog.
-	VERSION = "0.10.0",
+	VERSION = "0.11.0",
 
 	--[[ THE FLAT, NON-OVERRIDABLE EXIT CAP (framework-gaps-phase2 item 41; ui-designer
 		spec §2.1 / disposition F8). No exit's teardown may defer past this many
@@ -800,7 +806,7 @@ local Facet = {
 
 	-- theme packages: the PURE half of the theme system — compile a
 	-- declarative package, resolve it to the frozen metric snapshot the solver
-	-- and renderer read, and reach Studio Neutral as a derivation base. The
+	-- and renderer read, and reach Facet Neutral as a derivation base. The
 	-- client-side controller (sheet materialization, per-target install, the
 	-- swap transaction) lives behind the client entry point, so this module
 	-- stays safe for shared/server require graphs (UI-BOUND-001).
@@ -808,7 +814,7 @@ local Facet = {
 		define = themesPackage.define,
 		resolve = themesSnapshot.resolve,
 		neutral = themesSnapshot.neutral,
-		-- the compiled Studio Neutral package: pass it as `base` to start from
+		-- the compiled Facet Neutral package: pass it as `base` to start from
 		-- the library's own theme and override only what you mean to change
 		neutralPackage = themesSnapshot.neutralPackage,
 		--[[ THE APP NAMESPACE. One call at app boot reserves the `app.*`

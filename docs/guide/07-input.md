@@ -807,3 +807,30 @@ That completes the core guide. To review:
 
 One appendix follows: [chapter 8](08-without-rojo.md), for installing and working
 with Facet when you build directly in Studio and do not use Rojo.
+
+## Root and destination flows
+
+Use `Controls.NavigationStack` for a wizard or a sequence of detail pages. Keep a
+`path` Signal in your model: an empty array shows the root, and each `{id, value}`
+entry names a destination and its data. Push, pop, Back and return-to-root all
+write that same state. The framework supplies Back chrome and legal focus
+restoration. Content receives a scope that is disposed when the page leaves.
+Keep durable answers outside that scope so returning to a page retains them.
+
+For horizontal page travel, set `transition = { enter = "slide-left" }`.
+Push slides the next page in from the right while the current page moves left;
+Back reverses that travel. Both pages occupy the same clipped viewport. The
+distance follows the stack's own width, including a stack inside a wider layout.
+Reduced motion switches pages in place. Omitting `transition` switches immediately.
+
+The Showcase's **Plan a journey** uses one flow across compact, tablet, desktop
+and ten-foot contexts. Size and input facts choose its arrangement and controls;
+its title, spacing, hit targets and motion use the current theme and preferences.
+A popup or text editor consumes Cancel first, then the stack pops, then the
+containing modal can close. See the [API](../reference/api.md#controlsnavigationstack).
+
+Screen size and input remain separate facts in a navigation flow. A phone with
+a gamepad keeps compact chrome and arrangement while gaining directional focus,
+Button A activation and Button B Back. A ten-foot display uses the theme's larger
+text, targets and focus treatment. Changing preferred input does not reset the
+path or form data. The Showcase journey tests this mixed-input case explicitly.

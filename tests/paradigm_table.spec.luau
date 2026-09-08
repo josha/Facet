@@ -826,7 +826,7 @@ describe("paradigm_table: the row box adapts, and cells can never outgrow it", f
 		only its text and its `rowPadding`. Under Pixel Quest, which carves 16px on
 		all four sides, that left a 48px row handing its cells 16px for a 20px line:
 		4px of text outside its own cell, in every row, on every viewport, AT THE
-		DEFAULT TEXT PREFERENCE. Studio Neutral and Classic Desktop reserve nothing,
+		DEFAULT TEXT PREFERENCE. Facet Neutral and Classic Desktop reserve nothing,
 		which is exactly why every check in this repo was silent on it.
 
 		The two cases below are the same question from both ends: the derived row

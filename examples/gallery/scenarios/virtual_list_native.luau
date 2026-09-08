@@ -58,7 +58,7 @@ return {
 			(adopted 2026-08-15, docs/plans/variable-item-extents.md).
 
 			WHAT IT WAS: `rowHeight = 36`. The cell is one `UI.Text` at textSize 16, and
-			36 is right for exactly one configuration — Studio Neutral, near display,
+			36 is right for exactly one configuration — Facet Neutral, near display,
 			default preference. The overflow sweep carried a lying-extent waiver for it:
 			on a console-class display at `preferredTextOffset` +14 the row MEASURES 46,
 			because the ten-foot type floor multiplies the authored 16 by 1.5 and the

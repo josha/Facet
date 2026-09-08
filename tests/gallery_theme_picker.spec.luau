@@ -27,10 +27,10 @@ local function packages(): { [string]: any }
 end
 
 describe("theme picker: the listing a player reads", function()
-	it("puts Studio Neutral first, always, and sorts the rest by display name", function()
+	it("puts Facet Neutral first, always, and sorts the rest by display name", function()
 		local entries = theme_picker.listing(packages(), themes.neutralPackage())
 		expect(entries[1].id).toBe(theme_picker.NEUTRAL_ID)
-		expect(entries[1].displayName).toBe("Studio Neutral")
+		expect(entries[1].displayName).toBe("Facet Neutral")
 		-- "put it back the way it was" is one click and never depends on a module
 		-- having replicated
 		local names: { string } = {}
@@ -148,7 +148,7 @@ describe("theme picker: which packages a director can actually reach", function(
 			end
 		end
 		local entries = theme_picker.listing(pkgs, themes.neutralPackage())
-		expect(#entries).toBe(6) -- Studio Neutral + the five shipping packages
+		expect(#entries).toBe(6) -- Facet Neutral + the five shipping packages
 		for _, id in { "fantasy-ornate", "pixel-quest", "glossy-touch", "compact-pointer", "fantasy-parchment" } do
 			expect(theme_picker.find(entries, id) ~= nil).toBe(true)
 		end
@@ -259,7 +259,7 @@ end
 -- surface-level handler. That works right up until something else shares the
 -- surface, and then the router answers for the neighbours too — by doing
 -- nothing. Composed into the showcase chrome it killed both chips ("I click
--- Studio Neutral, nothing happens"); a re-present that dropped the override had
+-- Facet Neutral, nothing happens"); a re-present that dropped the override had
 -- the mirror-image effect, chips alive and rows dead.
 --
 -- Behaviour therefore lives on the NODES. It cannot be dropped by a re-present
@@ -459,7 +459,7 @@ describe("theme picker: the chip is its package's control metric, not a padded g
 	-- the four packages the round drove live, all FLAT (no skin content insets),
 	-- so the chip lands EXACTLY on the package's own compact control height
 	local FLAT = {
-		{ id = "studio-neutral", package = nil, height = 36 },
+		{ id = "facet-neutral", package = nil, height = 36 },
 		{ id = "classic-desktop", package = "classic_desktop", height = 22 },
 		{ id = "sci-fi-hud", package = "scifi_hud", height = 32 },
 		{ id = "glossy-mobile", package = "glossy_mobile", height = 44 },
@@ -511,13 +511,13 @@ describe("theme picker: the chip is its package's control metric, not a padded g
 		-- unclipped is a HEIGHT claim here: the box has to hold one line of the
 		-- Button's intrinsic type role at that role's leading, plus the vertical
 		-- padding, plus whatever a nine-slice skin reserves for its carved border
-		local names: { string } = { "studio-neutral" }
+		local names: { string } = { "facet-neutral" }
 		for name in PICKABLE do
 			table.insert(names, name)
 		end
 		table.sort(names)
 		for _, name in names do
-			local pkg = if name == "studio-neutral"
+			local pkg = if name == "facet-neutral"
 				then themes.neutralPackage()
 				else (PICKABLE[name] :: any).build(themes)
 			local live = pickerUnder(pkg, 1233, 1067)
@@ -555,13 +555,13 @@ end)
 
 describe("theme picker: the two questions are separated, not stacked", function()
 	it("puts the package section and the theme row a SECTION gap apart", function()
-		local names: { string } = { "studio-neutral" }
+		local names: { string } = { "facet-neutral" }
 		for name in PICKABLE do
 			table.insert(names, name)
 		end
 		table.sort(names)
 		for _, name in names do
-			local pkg = if name == "studio-neutral"
+			local pkg = if name == "facet-neutral"
 				then themes.neutralPackage()
 				else (PICKABLE[name] :: any).build(themes)
 			local live = pickerUnder(pkg, 1233, 1067)
@@ -619,9 +619,9 @@ end)
 
 describe("RS-DIR14: the picker's grid rows breathe with the installed package", function()
 	-- DIRECTOR FINDING 14 (2026-07-26): "the picker grid needs more VERTICAL
-	-- space between rows, especially studio-neutral and compact-pointer".
+	-- space between rows, especially facet-neutral and compact-pointer".
 	--
-	-- Measured live at the reported stamp, studio-neutral 1233x1067: ten 196x36
+	-- Measured live at the reported stamp, facet-neutral 1233x1067: ten 196x36
 	-- chips, rows **4 px** apart and columns **78 px** apart, because a grid's
 	-- column pitch is `innerWidth / columns` while its row pitch IS the gap. The
 	-- literal 4 was protecting the column count (a director ruling) and paying
@@ -629,10 +629,10 @@ describe("RS-DIR14: the picker's grid rows breathe with the installed package", 
 	--
 	-- The row gap is now the package's own `s` step — the smallest step that is
 	-- at least the old literal under every reference package and grows with a
-	-- denser-target ladder: studio-neutral 8, classic-desktop 4, compact-pointer
+	-- denser-target ladder: facet-neutral 8, classic-desktop 4, compact-pointer
 	-- 6, sci-fi 8, glossy-mobile/touch 10, ornate/parchment 8, pixel-quest 8.
 	local EXPECTED_ROW_GAP = {
-		["studio-neutral"] = 8,
+		["facet-neutral"] = 8,
 		classic_desktop = 4,
 		scifi_hud = 8,
 		glossy_mobile = 10,
@@ -644,7 +644,7 @@ describe("RS-DIR14: the picker's grid rows breathe with the installed package", 
 	}
 
 	local function packageOf(name: string): any
-		return if name == "studio-neutral" then themes.neutralPackage() else (PICKABLE[name] :: any).build(themes)
+		return if name == "facet-neutral" then themes.neutralPackage() else (PICKABLE[name] :: any).build(themes)
 	end
 
 	-- the A/B: mount the same picker with the row gap the literal used to give
@@ -689,7 +689,7 @@ describe("RS-DIR14: the picker's grid rows breathe with the installed package", 
 		-- boxes and its column count is not the live one (the live counts are in
 		-- the round's Studio trace). What IS provable here is the property the
 		-- ruling needs — that the row gap cannot reach the column arithmetic.
-		local HEIGHTS = { ["studio-neutral"] = 36, classic_desktop = 22, scifi_hud = 32, glossy_mobile = 44 }
+		local HEIGHTS = { ["facet-neutral"] = 36, classic_desktop = 22, scifi_hud = 32, glossy_mobile = 44 }
 		for name, height in HEIGHTS do
 			local live = pickerUnder(packageOf(name), 1233, 1067)
 			for _, rect in live.chips do
@@ -723,7 +723,7 @@ describe("RS-DIR14: the picker's grid rows breathe with the installed package", 
 	it("keeps the grid's own solved height honest about the taller rows", function()
 		-- the panel has to GROW: rows that are further apart and a grid that
 		-- reports its old height would push the theme row under the last chips
-		local tight = pickerUnder(packageOf("studio-neutral"), 1233, 1067)
+		local tight = pickerUnder(packageOf("facet-neutral"), 1233, 1067)
 		local grid = tight.adapter.node("/GalleryThemePicker/Dock/Panel/Choose/Packages").rect
 		local last = tight.chips[#tight.chips]
 		expect(last.y + last.h <= grid.y + grid.h).toBe(true)
@@ -738,7 +738,7 @@ end)
 -- (director round 10, found live 2026-07-26 on a physical phone)
 --
 -- The composed panel was `fill` on both axes, which is "as big as the space"
--- rather than "as big as the list". Under Studio Neutral the ten themes ended
+-- rather than "as big as the list". Under Facet Neutral the ten themes ended
 -- less than halfway down a raised plate that ran to the bottom of the screen,
 -- and the card was the full width of the phone with the rows inset inside it.
 -- Under Fantasy Ornate — taller rows, a 30px carved frame — the OTHER half

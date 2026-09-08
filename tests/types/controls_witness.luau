@@ -88,6 +88,29 @@ local splitSpec: Facet.SplitButtonSpec = {
 }
 local _split = Facet.Controls.SplitButton(core, splitSpec)
 
+local routes: { Facet.NavigationEntry } = { { id = "details", value = { name = "Alder" } } }
+local navigationSpec: Facet.NavigationStackSpec = {
+	path = core:signal(routes),
+	backLabel = "Back",
+	root = {
+		title = core:signal("Home"),
+		content = function(scope: Facet.Scope)
+			local title = scope:own(core:signal("Welcome"))
+			return Facet.UI.Text({ text = title })
+		end,
+	},
+	destinations = {
+		details = {
+			title = "Details",
+			content = function(_scope: Facet.Scope, entry: Facet.NavigationEntry?)
+				return Facet.UI.Text({ text = if entry then entry.id else "Root" })
+			end,
+		},
+	},
+	transition = { enter = "slide-left", distance = 100 },
+}
+local _navigation = Facet.Controls.NavigationStack(core, navigationSpec)
+
 local tableControlSpec: tableControl.Spec = nil :: any
 local _table = Facet.Controls.Table(core, tableControlSpec)
 

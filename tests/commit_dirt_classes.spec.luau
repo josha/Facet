@@ -495,6 +495,11 @@ end
 	VETO and never entry identity. Here the pair is a pure PLACEMENT move. ]]
 local function valuesFor(prop: string, keepStretch: boolean?): (any, any)
 	local spec = (schema.forClass("VStack") :: any).props[prop]
+	-- Baseline words change measured ascent/descent. Keep this placement audit on
+	-- its documented start/end pair; baseline_spacer pins their measure oracle.
+	if prop == "lineAlign" then
+		return "start", if keepStretch then "stretch" else "end"
+	end
 	if spec.enum ~= nil then
 		local last = spec.enum[#spec.enum]
 		if last == "stretch" and keepStretch ~= true then

@@ -63,7 +63,7 @@ Two rules make a package safe to pass around:
   device. See
   [`../extending/new-theme.md`](../extending/new-theme.md) §1 for the whole rule.
 
-## 9.2 Step 1 — derive from Studio Neutral
+## 9.2 Step 1 — derive from Facet Neutral
 
 > **In plain words.** Do not start from an empty table. Start from Facet's own
 > theme and change only what you care about. Anything you leave out you simply
@@ -510,7 +510,7 @@ with the decoration:
 They sit after every surface rule they have to beat and before the interaction
 states — which only change *colour*, so an invisible plate stays invisible
 through hover and press. A slot you leave `native` keeps every bit of its
-Studio-Neutral chrome. A flat package emits none of these rules at all. On a
+Facet-Neutral chrome. A flat package emits none of these rules at all. On a
 target with no `StyleSheet` support the adapter writes the same three
 suppressions itself, so both paths look the same.
 
@@ -557,7 +557,7 @@ package *and* the built-in default with no package installed at all:
 The colours come from the same map the asset-failure fallback uses, so "what a
 flat slot looks like" is one decision rather than two that drift. The tag is
 present whether or not you skin the slot — a slider has to be visible under
-Studio Neutral too. When you *do* skin it, the `Skinned — <slot>` rules above
+Facet Neutral too. When you *do* skin it, the `Skinned — <slot>` rules above
 turn this plate off underneath the art, in that order.
 
 Those `Skinned — <slot>` rules are emitted by **every** package, including one
@@ -737,7 +737,7 @@ insets = {
 the resolved snapshot exposes the sum at `snapshot.insets[slot]` and the
 chrome-only portion separately at `snapshot.chromeInsets[slot]`, which is what
 the renderer actually adds to a skinned node's padding. A flat package —
-including Studio Neutral — has an empty `chromeInsets`, so existing geometry is
+including Facet Neutral — has an empty `chromeInsets`, so existing geometry is
 byte-identical.
 
 ### Fallbacks: what happens when the art does not arrive
@@ -784,7 +784,7 @@ Do not eyeball one screen. The repository ships a Studio fixture that mounts the
 [`examples/gallery/scenarios/theme_authoring.luau`](../../examples/gallery/scenarios/theme_authoring.luau).
 
 **Swapping themes by hand.** The gallery place ships a small theme picker in the
-top-right corner: Studio Neutral plus every package under
+top-right corner: Facet Neutral plus every package under
 `ReplicatedStorage.FacetThemes`, with that package's themes underneath. Click a
 row and the running screen re-themes. It is the same `install` / `swapPackage`
 / `swap` calls §9.8 and §9.9 describe, driven by a UI instead of by an

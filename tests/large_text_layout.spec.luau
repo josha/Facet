@@ -16,7 +16,7 @@
 
 	Four representative screens — a form in a ScrollView, a ViewThatFits CTA
 	band, an AdaptiveStack split, and a screen-level Composition — each solved at
-	{ 0, 4, 10, 14 } px x { Studio Neutral, Fantasy Parchment } x { 390x844
+	{ 0, 4, 10, 14 } px x { Facet Neutral, Fantasy Parchment } x { 390x844
 	compact portrait, 667x375 small landscape }: 32 rows per screen.
 
 	THE ORDER IS ASSERTED AS AN INVARIANT, NOT AS A SNAPSHOT. "The candidate

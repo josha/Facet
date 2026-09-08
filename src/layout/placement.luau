@@ -146,7 +146,7 @@ end
 -- silently, because nothing clips an anchor. The gallery's chrome column is this
 -- shape: `anchor = "topLeft"` + `height = fill` + `offsetY = <CoreGui topbar
 -- inset>`, so its bottom ran off the phone by the topbar's height and the last row
--- of whatever it held was unreachable. Studio Neutral never showed it because its
+-- of whatever it held was unreachable. Facet Neutral never showed it because its
 -- content stopped well short of the lost strip; a taller theme's did not.
 --
 -- How much to give back: the child sits at (inner - size) * f + offset. Staying

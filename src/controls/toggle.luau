@@ -113,6 +113,8 @@ function toggle.build(Facet, core, spec)
 						UI.corners(
 							UI.ZStack({
 								id = "Indicator",
+								alignH = "center",
+								alignV = "center",
 								surface = "control",
 								width = { type = "minMax", min = "l" },
 								height = { type = "minMax", min = "l" },

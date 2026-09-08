@@ -11,7 +11,7 @@
 -- proportion sweep) and `tools/lune/check_theme_drift.luau` (the sweep census)
 -- do not: the token resolves at NEUTRAL to exactly 6, AUTHORED BEATS DERIVED
 -- exactly as `space.gutter` already does, the derivation TRACKS a package's
--- own `xs`/`s` rather than hard-coding Studio Neutral's 6, and the token is
+-- own `xs`/`s` rather than hard-coding Facet Neutral's 6, and the token is
 -- legal in the CHANNELS the brief named — a blueprint `gap` prop and the
 -- VirtualList/VirtualGrid `gap_metric` channel G5 built.
 
@@ -44,7 +44,7 @@ local function derive(metrics: any, id: string?): any
 end
 
 describe("space.tight — the missing spacing step", function()
-	it("resolves to 6 at Studio Neutral (xs=4, s=8)", function()
+	it("resolves to 6 at Facet Neutral (xs=4, s=8)", function()
 		local neutral = snapshot.neutral()
 		expect(neutral.space.tight).toBe(6)
 	end)
@@ -65,7 +65,7 @@ describe("space.tight — the missing spacing step", function()
 		expect(snap.space.tight).toBe(99)
 	end)
 
-	-- THE FORMULA TRACKS THE PACKAGE'S OWN LADDER, not a Studio-Neutral literal:
+	-- THE FORMULA TRACKS THE PACKAGE'S OWN LADDER, not a Facet-Neutral literal:
 	-- a package that re-ladders xs/s moves the derived midpoint with them, which
 	-- is what makes this step correct for every package rather than a constant
 	-- that happens to equal 6 today.

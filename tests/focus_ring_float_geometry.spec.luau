@@ -180,3 +180,15 @@ describe("screen_target.setFocusVisual: the float ring's geometry (device fix ro
 		expect(string.find(FN, "radius = UDim.new(0, style.radii", 1, true)).toBe(nil)
 	end)
 end)
+
+describe("label-only indicator focus", function()
+	it("the live adapter declines independent lift and refreshes it when the focused role changes", function()
+		expect(string.find(FN, "strong and handle.buttonRole ~= chrome_slots.ON_INDICATOR_ROLE", 1, true) ~= nil).toBe(
+			true
+		)
+		local setter = adapter_source.bodyOf(source, "function adapter.setProp(")
+		expect(string.find(setter, 'prop == "role" and handle.class == "Button"', 1, true) ~= nil).toBe(true)
+		expect(string.find(setter, "handle.buttonRole = value", 1, true) ~= nil).toBe(true)
+		expect(string.find(setter, "adapter.setFocusVisual(handle, true, profile)", 1, true) ~= nil).toBe(true)
+	end)
+end)

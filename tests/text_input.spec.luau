@@ -46,6 +46,7 @@ local function world(opts: any?)
 		id = "Name",
 		value = value,
 		placeholder = options.placeholder,
+		presentation = options.presentation,
 		onChange = function(text: string)
 			table.insert(changes, text)
 		end,
@@ -922,5 +923,40 @@ describe("TextInput: clearButtonMode", function()
 				clearButtonMode = "sometimes",
 			})
 		end)).toBe(false)
+	end)
+end)
+
+describe("TextInput: themed search art", function()
+	it("keeps its semantic request and live icon geometry across art and glyph themes", function()
+		local w = world({ presentation = "search", initial = "kept" })
+		local iconPath = "/S/Name/SearchIcon"
+		local icon = w.adapter.node(iconPath)
+		expect(icon.decorationHint.icon).toBe("facet:search")
+		expect(icon.props.text).toBe("o/")
+		local neutral = require("../src/themes/snapshot").neutralPackage()
+		local ornate = require("../examples/themes/fantasy_ornate").build(Facet.themes)
+		local glyph = require("../examples/themes/compact_pointer").build(Facet.themes)
+		for _, pkg in { neutral, ornate, glyph, neutral } do
+			local snap = Facet.themes.resolve(pkg, nil, {})
+			w.env:set("themeMetrics", snap)
+			w.pres.refresh()
+			local node = w.adapter.node(iconPath)
+			local resolved = require("../src/themes/package").resolveIcon(pkg, "facet:search")
+			expect(node).toBe(icon) -- theme changes remeasure the existing control
+			expect(node.decorationHint.icon).toBe("facet:search")
+			if resolved.source == "asset" then
+				expect(node.rect.w >= snap.iconSizes.medium).toBe(true)
+				expect(node.rect.h >= snap.iconSizes.medium).toBe(true)
+			else
+				expect(node.props.text).toBe(resolved.glyph)
+				-- The prior ornate picture reserved 32px; opting out removes that floor.
+				expect(node.rect.w < Facet.themes.resolve(ornate, nil, {}).iconSizes.medium).toBe(true)
+			end
+			expect(w.value:get()).toBe("kept")
+			expect(w.core:lastError()).toBeNil()
+		end
+		w.pres.dismiss(w.handle)
+		w.control.dispose()
+		w.value:dispose()
 	end)
 end)

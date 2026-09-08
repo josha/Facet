@@ -407,6 +407,118 @@ local function attach(core: any, env: any, clock: any, screen: any, feedback: an
 end
 
 describe("transition coordinator: the forms", function()
+	it("a slide exit clears the interrupted fade before moving and disposing", function()
+		local core, env, clock = world()
+		local on = core:signal(true)
+		local root, adapter, controller, coordinator = attach(
+			core,
+			env,
+			clock,
+			whenScreen(on, {
+				enter = "fade",
+				exit = "slide-left",
+			})
+		)
+		local path = "/S/Gate/then/Panel"
+		local panel = adapter.node(path)
+		for _ = 1, 5 do
+			clock:step(FRAME)
+		end
+		local alpha = panel.canvasGroupInstance.groupTransparency
+		expect(alpha > 0 and alpha < 1).toBe(true)
+		on:set(false)
+		expect(panel.canvasGroupInstance.groupTransparency).toBe(0)
+		for _ = 1, 90 do
+			clock:step(FRAME)
+		end
+		controller.refresh()
+		expect(adapter.node(path)).toBeNil()
+		expect(clock:activeCount()).toBe(0)
+		root.dispose()
+		coordinator.dispose()
+		clock:dispose()
+	end)
+
+	it("a revived row samples pure slide and clears the cancelled fade through settle", function()
+		local core, env, clock = world()
+		local on = core:signal(true)
+		local declared = core:signal({ enter = "fade" })
+		local root, adapter, controller, coordinator = attach(core, env, clock, whenScreen(on, declared))
+		local panel = adapter.node("/S/Gate/then/Panel")
+		for _ = 1, 90 do
+			clock:step(FRAME)
+		end
+		on:set(false)
+		for _ = 1, 5 do
+			clock:step(FRAME)
+		end
+		local alpha = panel.canvasGroupInstance.groupTransparency
+		expect(alpha > 0 and alpha < 1).toBe(true)
+		declared:set({ enter = "slide-right" })
+		expect(panel.canvasGroupInstance.groupTransparency).toBe(alpha)
+		on:set(true)
+		expect(panel.canvasGroupInstance.groupTransparency).toBe(0)
+		for _ = 1, 90 do
+			clock:step(FRAME)
+		end
+		controller.refresh()
+		expect(adapter.node("/S/Gate/then/Panel")).toBe(panel)
+		expect(panel.canvasGroupInstance.groupTransparency).toBe(0)
+		expect(panel.props.transform).toBeNil()
+		expect(clock:activeCount()).toBe(0)
+		root.dispose()
+		coordinator.dispose()
+		clock:dispose()
+	end)
+
+	it("redirecting materialize to slide clears descendant alpha and whole-page scale", function()
+		local core, env, clock = world()
+		local root, adapter, _, coordinator = attach(
+			core,
+			env,
+			clock,
+			UI.Screen({
+				id = "S",
+				children = {
+					UI.ZStack({
+						id = "Panel",
+						children = {
+							UI.Box({ id = "Backdrop", surface = "raised" }),
+							UI.ZStack({
+								id = "Content",
+								canvasGroup = true,
+								children = { UI.Text({ id = "Label", text = "Journey" }) },
+							}),
+						},
+					}),
+				},
+			})
+		)
+		local path = "/S/Panel"
+		local node = root.node.children[1]
+		local panel = adapter.node(path)
+		local content = adapter.node(path .. "/Content")
+		coordinator.beginEnter(path, node, { enter = "materialize" })
+		for _ = 1, 5 do
+			clock:step(FRAME)
+		end
+		expect(content.canvasGroupInstance.groupTransparency > 0).toBe(true)
+		expect(panel.props.transform.scale < 1).toBe(true)
+		coordinator.beginEnter(path, node, { enter = "slide-left" })
+		expect(content.canvasGroupInstance.groupTransparency).toBe(0)
+		expect(panel.props.transform.scale).toBeNil()
+		for _ = 1, 90 do
+			clock:step(FRAME)
+		end
+		expect(content.canvasGroupInstance.groupTransparency).toBe(0)
+		expect(panel.props.transform).toBeNil()
+		expect(#coordinator.findings()).toBe(0)
+		root.dispose()
+		coordinator.dispose()
+		expect(clock:activeCount()).toBe(0)
+		clock:dispose()
+	end)
+
 	it("a fade drives group transparency 1 -> 0 and clears at rest", function()
 		local core, env, clock = world()
 		local on = core:signal(true)
@@ -573,6 +685,162 @@ describe("transition coordinator: lifetime", function()
 		local gate = root.node.children[1]
 		on:set(false)
 		expect(#gate.children).toBe(0) -- disposed on the spot
+	end)
+end)
+
+describe("transition coordinator: event-sampled slides", function()
+	it("mounted When and ForEach sample structural declarations without subscribing or scheduling solves", function()
+		for _, kind in { "When", "ForEach" } do
+			local core = customFactory.new()
+			local on = core:signal(true)
+			local items = core:signal({ "a" })
+			local declared = core:signal({ enter = "slide-left", distance = 400 })
+			local sampled = nil
+			local collaborator = scripted()
+			collaborator.coordinator.shouldRetire = function(_, node)
+				sampled = transitionsLib.resolve(node.transition)
+				return sampled
+			end
+			local function row()
+				return UI.Box({ id = "Page" })
+			end
+			local region = if kind == "When"
+				then UI.When({ id = "Region", condition = on, thenView = row, transition = declared })
+				else UI.ForEach({
+					id = "Region",
+					items = items,
+					key = function(item)
+						return item
+					end,
+					row = row,
+					transition = declared,
+				})
+			local root = mountLib.mount(core, UI.Screen({ id = "S", children = { region } }), {
+				transitions = collaborator.coordinator,
+			})
+			local dirty, counters = root.dirtySeq(), root.counters()
+			-- Only condition/items owns an observer; transition is read at the event.
+			expect(core:counters().observers).toBe(1)
+			local calls = #collaborator.calls
+			declared:set({ enter = "slide-right", distance = 800 })
+			expect(root.dirtySeq()).toBe(dirty)
+			expect(root.counters().factoryRuns).toBe(counters.factoryRuns)
+			expect(#collaborator.calls).toBe(calls)
+			expect(UI.PROP_DIRTY[kind].transition[1]).toBe("structure")
+			if kind == "When" then
+				on:set(false)
+			else
+				items:set({})
+			end
+			expect(sampled.enter).toBe("slide-right")
+			expect(sampled.distance).toBe(800)
+			expect(root.dirtySeq() > dirty).toBe(true)
+			root.dispose()
+			declared:dispose()
+			on:dispose()
+			items:dispose()
+		end
+	end)
+	local function slideWorld()
+		local core, _, clock = world()
+		local painted = { x = 0, y = 0 }
+		local progress = nil
+		local spring = clock.spring
+		clock.spring = function(self, ...)
+			progress = spring(self, ...)
+			return progress
+		end
+		local coordinator = transitionsLib.new({
+			core = core,
+			clock = clock,
+			controller = {
+				setPresentationTransform = function(_, value)
+					painted = value or { x = 0, y = 0 }
+				end,
+			},
+		})
+		return core, clock, coordinator, function()
+			return painted, progress
+		end
+	end
+
+	it("samples and validates a readable only when an operation starts", function()
+		local core, clock, coordinator, read = slideWorld()
+		local declared = core:signal({ enter = "slide-left", exit = "slide-left", distance = 400 })
+		local node = { props = {}, transition = declared }
+		coordinator.beginEnter("/Page", node, declared)
+		expect(read().x).toBe(400)
+		declared:set({ enter = "slide-right", exit = "slide-right", distance = 800 })
+		-- Publishing a new declaration does not steer an active flight.
+		expect(read().x).toBe(400)
+		local snapshot = coordinator.shouldRetire("/Page", node)
+		expect(snapshot.distance).toBe(800)
+		expect(snapshot.exit).toBe("slide-right")
+		declared:set({ enter = "sideways" })
+		expect(function()
+			coordinator.shouldRetire("/Page", node)
+		end).toThrow()
+		declared:set({ enter = "slide-left", distance = math.huge })
+		expect(function()
+			coordinator.shouldRetire("/Page", node)
+		end).toThrow()
+		expect(read().x).toBe(400)
+		coordinator.dispose()
+		clock:dispose()
+		declared:dispose()
+	end)
+
+	it("reversing a slide mid-enter preserves its painted position and pixel velocity", function()
+		local _, clock, coordinator, read = slideWorld()
+		local node = { props = {} }
+		local spec = transitionsLib.resolve({ enter = "slide-left", exit = "slide-left", distance = 400 })
+		coordinator.beginEnter("/Page", node, spec)
+		for _ = 1, 5 do
+			clock:step(FRAME)
+		end
+		local before, progress = read()
+		local x, velocity = before.x, -400 * progress:getVelocity()
+		local done = 0
+		coordinator.beginExit("/Page", node, spec, function()
+			done += 1
+		end)
+		local after, redirected = read()
+		expect(math.abs(after.x - x) < 1e-8).toBe(true)
+		expect(math.abs(400 * redirected:getVelocity() - velocity) < 1e-8).toBe(true)
+		clock:step(FRAME)
+		expect(read().x < x).toBe(true)
+		for _ = 1, 90 do
+			clock:step(FRAME)
+		end
+		expect(done).toBe(1)
+		coordinator.dispose()
+		clock:dispose()
+	end)
+
+	it("returning mid-exit samples a new width without jumping or restarting velocity", function()
+		local _, clock, coordinator, read = slideWorld()
+		local node = { props = {} }
+		local outward = transitionsLib.resolve({ enter = "slide-left", exit = "slide-left", distance = 400 })
+		coordinator.beginExit("/Page", node, outward, function()
+			error("cancelled exit completed")
+		end)
+		for _ = 1, 5 do
+			clock:step(FRAME)
+		end
+		local before, progress = read()
+		local x, velocity = before.x, 400 * progress:getVelocity()
+		coordinator.cancelExit("/Page")
+		coordinator.beginEnter("/Page", node, { enter = "slide-right", distance = 700 })
+		local after, redirected = read()
+		expect(math.abs(after.x - x) < 1e-8).toBe(true)
+		expect(math.abs(700 * redirected:getVelocity() - velocity) < 1e-8).toBe(true)
+		for _ = 1, 120 do
+			clock:step(FRAME)
+		end
+		expect(read().x).toBe(0)
+		expect(clock:activeCount()).toBe(0)
+		coordinator.dispose()
+		clock:dispose()
 	end)
 end)
 

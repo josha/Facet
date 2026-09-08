@@ -186,6 +186,14 @@ def flag() -> Image.Image:
     return img
 
 
+def search() -> Image.Image:
+    """An open lens and a round handle, at the standard set's stroke weight."""
+    img, d = _canvas()
+    d.ellipse([22 * SS, 22 * SS, 88 * SS, 88 * SS], outline=INK, width=STROKE * SS)
+    _stroke(d, [(81, 81), (103, 103)])
+    return img
+
+
 ICONS = {
     "facet_icon_chevron_left": lambda: chevron("left"),
     "facet_icon_chevron_right": lambda: chevron("right"),
@@ -200,6 +208,7 @@ ICONS = {
     "facet_icon_edit": edit,
     "facet_icon_trash": trash,
     "facet_icon_flag": flag,
+    "facet_icon_search": search,
 }
 
 

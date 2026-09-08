@@ -1,7 +1,7 @@
 --!strict
 -- Theme DRIFT lint. A hardcoded metric inside a reusable control
 -- is invisible in review and invisible to the suite — 44 is still 44 under
--- Studio Neutral — while quietly making that control immune to every theme. So
+-- Facet Neutral — while quietly making that control immune to every theme. So
 -- the check runs here, and it is proven to FAIL: a lint nobody has watched fail
 -- is a lint nobody knows works.
 
@@ -381,7 +381,7 @@ describe("the teaching corpus spells the values the theme system already names",
 		end
 		expect(message ~= nil).toBe(true)
 		-- the message names the class, the ladder, the constants and BOTH exits
-		for _, phrase in { "COUPLED", "Studio Neutral ONLY", "ROW_GAP", "THEME-OPT-OUT", "rowPaddingV" } do
+		for _, phrase in { "COUPLED", "Facet Neutral ONLY", "ROW_GAP", "THEME-OPT-OUT", "rowPaddingV" } do
 			expect(`the coupled message says '{phrase}': {string.find(message :: string, phrase, 1, true) ~= nil}`).toBe(
 				`the coupled message says '{phrase}': true`
 			)

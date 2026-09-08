@@ -12,12 +12,14 @@
 -- for; the presenter merely CONSUMES it (and `present` already depends on
 -- `render`, so the direction is the established one).
 --
--- ONE SPRING PER TRANSITION, and it is a PROGRESS spring in [0, 1]: 1 = at rest
+-- ONE SPRING PER TRANSITION: 1 = at rest
 -- (fully present), 0 = fully absent. Enter aims at 1, exit aims at 0, and a
 -- re-entry mid-exit simply re-aims the SAME spring — which is why reversal keeps
 -- both the value and the velocity and needs no case of its own. Every visual form
 -- (offset, scale, transparency) is derived from that one number, so a form can
 -- never disagree with itself half way through.
+-- Redirected pure slides may temporarily use progress outside [0, 1] to keep
+-- their painted position and velocity when their travel direction changes.
 --
 -- THE ABSENT PLACE IS THE SAME FOR A MIRROR PAIR. A form names the direction of
 -- TRAVEL: an enter travels toward rest, an exit travels away from it. `slide-up`
@@ -42,12 +44,13 @@ local transitions = {}
 
 -- ui-designer spec §2.1 / disposition F8: flat and non-overridable
 local EXIT_CAP_SECONDS = 0.5
--- the slide travel, as a THEME metric (`space.l` = 24 px in Studio Neutral): a
+-- the slide travel, as a THEME metric (`space.l` = 24 px in Facet Neutral): a
 -- roomier theme slides a little further, and no call site carries a magic number
 local DEFAULT_SLIDE_DISTANCE = 24
 -- materialize (ratified: sponsor_motion §2/§8, range [0.94–0.98])
 local MATERIALIZE_SCALE = 0.96
 local DEFAULT_CLASS = "container"
+local TRANSITION_SPEC = (schema.forClass("ForEach") :: any).props.transition
 
 -- travel vector per form, in screen space (+y is down)
 local TRAVEL: { [string]: { x: number, y: number } } = {
@@ -71,7 +74,7 @@ export type Opts = {
 	core: any,
 	clock: any,
 	controller: any?,
-	-- the live metric authority; defaults to Studio Neutral
+	-- the live metric authority; defaults to Facet Neutral
 	metrics: (() -> any)?,
 	-- the semantic feedback sink. An ENTER that reaches rest
 	-- is a motion arrival, so it emits `arrive` on that frame.
@@ -83,12 +86,14 @@ export type Opts = {
 -- so this only fills the defaults: the exit mirrors the enter unless it was
 -- declared, and the motion class is `container` (large surfaces materializing).
 function transitions.resolve(declared: any): Spec
-	if type(declared) ~= "table" then
-		error(
-			"Facet transition: a transition is a table { enter = <form>, exit? , class?, fade? } — "
-				.. `got {typeof(declared)}`,
-			0
-		)
+	-- Read once at the structural event boundary. The mounted node retains the
+	-- source; an active entry retains this validated value snapshot.
+	if type(declared) == "table" and (declared.kind == "signal" or declared.kind == "memo") then
+		declared = declared:get()
+	end
+	local valid, detail = schema.checkValue(TRANSITION_SPEC, declared)
+	if not valid then
+		error("Facet transition: " .. tostring(detail), 0)
 	end
 	local enter = declared.enter
 	local exit = declared.exit or (schema.TRANSITION_MIRROR :: any)[enter]
@@ -389,6 +394,13 @@ function transitions.new(opts: Opts)
 		local p = entry.progress:get()
 		local k = 1 - p
 		local absent = entry.absent
+		-- A newly sampled form may stop fading (or resolve a different group).
+		-- Clear the channel we actually wrote, rather than infer ownership from
+		-- the new form. Transform writes already replace the whole scale/offset.
+		if entry.writtenAlphaPath ~= nil and (absent.alpha == nil or entry.writtenAlphaPath ~= entry.alphaPath) then
+			controller.setPresentationTransparency(entry.writtenAlphaPath, nil)
+			entry.writtenAlphaPath = nil
+		end
 		controller.setPresentationTransform(entry.path, {
 			x = absent.x * k,
 			y = absent.y * k,
@@ -396,6 +408,35 @@ function transitions.new(opts: Opts)
 		})
 		if absent.alpha ~= nil then
 			controller.setPresentationTransparency(entry.alphaPath, absent.alpha * k)
+			entry.writtenAlphaPath = entry.alphaPath
+		end
+	end
+
+	local function setAbsent(entry: any, absent: any)
+		local old = entry.absent
+		local oldDistance, newDistance = nil, nil
+		-- A collinear pure slide can change direction or distance using the same
+		-- spring. Preserve pixels and pixel velocity, not the progress fraction.
+		-- Fade/materialize keep their existing shared progress semantics: their
+		-- alpha/scale vectors are not collinear when a slide direction reverses.
+		if old.alpha == nil and absent.alpha == nil and old.scale == nil and absent.scale == nil then
+			if old.y == 0 and absent.y == 0 and old.x ~= 0 and absent.x ~= 0 then
+				oldDistance, newDistance = old.x, absent.x
+			elseif old.x == 0 and absent.x == 0 and old.y ~= 0 and absent.y ~= 0 then
+				oldDistance, newDistance = old.y, absent.y
+			end
+		end
+		if oldDistance ~= nil and newDistance ~= nil and oldDistance ~= newDistance then
+			local ratio = oldDistance / newDistance
+			local p = 1 - ratio * (1 - entry.progress:get())
+			local velocity = ratio * entry.progress:getVelocity()
+			core:transaction(function()
+				entry.absent = absent
+				entry.progress:snap(p)
+				entry.progress:setVelocity(velocity)
+			end)
+		else
+			entry.absent = absent
 		end
 	end
 
@@ -406,8 +447,9 @@ function transitions.new(opts: Opts)
 			return
 		end
 		controller.setPresentationTransform(entry.path, nil)
-		if entry.absent.alpha ~= nil then
-			controller.setPresentationTransparency(entry.alphaPath, nil)
+		if entry.writtenAlphaPath ~= nil then
+			controller.setPresentationTransparency(entry.writtenAlphaPath, nil)
+			entry.writtenAlphaPath = nil
 		end
 	end
 
@@ -560,7 +602,7 @@ function transitions.new(opts: Opts)
 		stopCap(entry)
 		entry.done = nil
 		entry.phase = "enter"
-		entry.absent = absentFor(spec, spec.enter, "enter")
+		setAbsent(entry, absentFor(spec, spec.enter, "enter"))
 		writeEntry(entry) -- seed the absent place before the first step
 		entry.progress:setTarget(1)
 	end
@@ -599,7 +641,7 @@ function transitions.new(opts: Opts)
 		local entry = entryFor(path, node, spec, 1, alphaPath)
 		entry.phase = "exit"
 		entry.done = done
-		entry.absent = absentFor(spec, spec.exit, "exit")
+		setAbsent(entry, absentFor(spec, spec.exit, "exit"))
 		writeEntry(entry)
 		-- THE HARD CAP, armed before the aim so an instant form (reduced motion)
 		-- disposes it on the way out rather than leaving a timer behind

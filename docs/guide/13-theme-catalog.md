@@ -14,7 +14,7 @@ is whether somebody has already written the one you want.
 
 ## 13.1 What is in the box, and what is not
 
-**Studio Neutral is built in.** It is the library's own theme — a flat, legible,
+**Facet Neutral is built in.** It is the library's own theme — a flat, legible,
 Roblox-shaped look with a 44 px hit floor, a 4/8/16/24/40 spacing ladder and
 16 px body text. Every control in Facet is drawn and measured against it. Every
 example starts from it. You never install it: a screen with no theme package
@@ -22,11 +22,11 @@ at all is already wearing it. If you never read another word of this chapter, yo
 still have a complete, accessible interface.
 
 **Everything else is a package you pick.** `build/Facet.rbxm` contains `src/` and
-nothing else — the engine plus Studio Neutral. The eight packages below each build
+nothing else — the engine plus Facet Neutral. The eight packages below each build
 to their own artifact under `build/themes/`, so taking a skin never means taking
 the gallery, the fixtures, or the eight other skins. `tools/check_library_purity.py`
 is what keeps that true: the shipped library names no reference package anywhere in
-its code, and the model carries exactly one package identity, `studio-neutral`.
+its code, and the model carries exactly one package identity, `facet-neutral`.
 
 Build the artifacts with:
 
@@ -91,7 +91,7 @@ references (see [§13.5](#135-what-a-package-actually-costs)).
 
 | Package | Artifact | Themes | Character | Art | Size |
 |---|---|---|---|---|---|
-| *(built in)* **Studio Neutral** | — | Dark, Light\* | the flat default: 44 px rows, 16 px body, soft 8/12 px corners | none | — |
+| *(built in)* **Facet Neutral** | — | Dark, Light\* | the flat default: 44 px rows, 16 px body, soft 8/12 px corners | none | — |
 | **Classic Desktop** | `ClassicDesktop.rbxm` | Day, Night | dense workstation: 26 px rows, 13 px body, square corners, hairline strokes | none | 4.2 KB |
 | **Glossy Mobile** | `GlossyMobile.rbxm` | Daylight | roomy and rounded: 52 px rows, 18 px spacing step, 24 px panel radius, 48 px hit floor | none | 4.8 KB |
 | **Sci-Fi HUD** | `ScifiHud.rbxm` | Nightwatch | angular and cold: zero radii everywhere, 2 px strokes, Michroma display face | none | 5.4 KB |
@@ -101,7 +101,7 @@ references (see [§13.5](#135-what-a-package-actually-costs)).
 | **Glossy Touch** | `GlossyTouch.rbxm` | Sky | the thumb-first skin: 44 px rows at every size class, 10/14 px radii, sliced plates | 14 images | 9.3 KB |
 | **Compact Pointer** | `CompactPointer.rbxm` | Aqua | the mouse-first partner to Glossy Touch: 24 px rows, 10 px spacing step, 13 px body | 12 images | 7.0 KB |
 
-\* Studio Neutral's *package* declares one theme, `Dark`. The Light variant is a
+\* Facet Neutral's *package* declares one theme, `Dark`. The Light variant is a
 second, native sheet — the screen target builds it only when it is running the
 built-in style. A game package carries no light variant to derive one from. So a
 package that wants two lights declares two themes, the way Classic Desktop
@@ -299,7 +299,7 @@ shippable packages only.
 ## 13.7 None of these? Write one
 
 - **[09 — Custom themes](09-custom-themes.md)** builds a package end to end from
-  Studio Neutral: paint, fonts, metrics, nine-slice chrome, live editing in the
+  Facet Neutral: paint, fonts, metrics, nine-slice chrome, live editing in the
   Style Editor, validation and install.
 - **[10 — Rich skinning](10-rich-skinning.md)** is the same road further: layered
   decoration, per-state art, image bars, semantic icons, pixel mode, `selectBy`,

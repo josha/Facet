@@ -13,6 +13,38 @@ runtime as `Facet.VERSION`.
 
 ## [Unreleased]
 
+## [0.11.0] — not yet published
+
+- `Controls.NavigationStack` adds a caller-owned observable route path, root and
+  destination builders, push/pop/back/root operations, page scope cleanup and
+  legal focus restoration through the existing presenter contribution seam.
+- Navigation pages share a clipped viewport. Pure horizontal slides travel the
+  stack's width, reverse on Back and preserve motion when interrupted; outgoing
+  pages no longer create a second vertical layout slot. Structural transition
+  declarations can be readable and are sampled on enter/exit.
+- Interrupted transitions release paint channels no longer used by the next
+  form, so changing a fade to a slide cannot leave content partly transparent.
+- The confirmation example uses an content-sized horizontal actions with compact-label fitting, centered
+  labels and a primary Cancel action with explicit initial focus.
+- Search clear icons and checkbox marks are centered through the existing layout
+  rules, including theme changes and larger text.
+- Search fields use a tintable magnifying-glass asset in the existing `facet:search`
+  icon slot. Preferred compact icons reserve their theme size, including Back.
+  Selected labels keep aligned with their selection pill during ten-foot focus.
+- Horizontal `firstTextBaseline` / `lastTextBaseline` alignment composes with
+  nested and wrapped layouts. Theme typography supplies semantic guides; no
+  engine glyph-baseline measurement is claimed.
+- `UI.Spacer.minLength` adds a reactive, theme-compatible main-axis floor.
+- `motion` clocks can bind numeric animation values to observable state with
+  `clock:animate`, including existing theme tint blends and reduced motion.
+- The default theme is **Facet Neutral**, package ID `facet-neutral`. Replace
+  saved or configured `studio-neutral` identifiers with `facet-neutral`.
+  The theme's colors and geometry are unchanged; its identity and content stamp
+  change. `themes.neutral()` and `themes.neutralPackage()` keep their names.
+- The Showcase journey demonstrates navigation, text guides and flexible gaps;
+  the controls guide describes current controls and their configuration.
+
+
 ### Added
 
 - **`Button.role = "onIndicator"`, the label-only role.** The other three button
@@ -33,7 +65,7 @@ runtime as `Facet.VERSION`.
   See [Inherited properties](docs/reference/api.md#inherited-properties-enabled-and-tint).
 - **A themed disabled state, `facet-state-disabled`**, and what it paints is
   exactly one rule. The engine's `:NonInteractable` state exists only on the
-  classes it considers interactable, so Studio Neutral and every theme package
+  classes it considers interactable, so Facet Neutral and every theme package
   emit `Disabled subtree text`: a `TextLabel` carrying the tag is dimmed to that
   theme's own `disabledContentOpacity`. **Text only** — image paint is legal in a
   theme rule only inside a nineSlice chrome recipe — and the tag reaches the four
@@ -323,7 +355,7 @@ its row here in the same commit.
     composition that declares no `topbar` region resolves exactly as
     `deviceSafeContent` would have resolved it.
 25. The gallery's grid scenarios forced their cell and line gaps to `"xs"` (4px)
-    at Studio Neutral, because no space step named 6. They are restored to
+    at Facet Neutral, because no space step named 6. They are restored to
     `"tight"` (6px), the value both fixtures originally wanted, now that
     `space.tight` exists as a derived step naming the value halfway between `xs`
     and `s`. Both grids' rendered gutters grow from 4px to 6px in the shipped
@@ -331,7 +363,7 @@ its row here in the same commit.
 26. Two gallery viewports carried literal pixel heights (150 and 120, each a
     hand-guessed "roughly N rows with the next one peeking through"). They are
     now content-terms formulas — four rows of the compact control height (144px),
-    and six lines (116px). Both render 6px and 4px shorter at Studio Neutral, in
+    and six lines (116px). Both render 6px and 4px shorter at Facet Neutral, in
     the safe direction for a viewport: the old 150 never held four full rows
     either, since the rows are 46px each. What actually changes is that both now
     grow at the ten-foot ladder and at a raised text preference, where the frozen
@@ -352,12 +384,12 @@ its row here in the same commit.
     a measured 1px overrun by construction rather than by a named ratchet.
 29. `surface = "badge"` had no intrinsic size at all — a bare glyph hugging its
     own pixels, or an empty zero-sized box. It now carries a theme-owned minimum
-    (20px at Studio Neutral, scaling at the ten-foot ladder like every other
+    (20px at Facet Neutral, scaling at the ten-foot ladder like every other
     control metric) on both axes when the author declared neither `width` nor
     `height`.
 30. Two gallery motion fixtures sized their lane and puck with a raw 40, unscaled
     at every display class. Both now use the theme-owned decorative-chrome floor:
-    identical 40 at Studio Neutral and Medium, and 60 at the ten-foot class — the
+    identical 40 at Facet Neutral and Medium, and 60 at the ten-foot class — the
     first scaling either box has ever had. Both render 20px larger there, in the
     safe direction.
 31. `UI.Composition{ exclusions }` shared a lane's slack out as the lane's budget
@@ -378,7 +410,7 @@ its row here in the same commit.
     that carves a border: an ornate disc loses the frame it was reserving twice
     (60px becomes 52px under one package, 44px becomes 38px under another), and
     every pill indicator covers its whole segment rather than an inset chip.
-    Studio Neutral and every flat package are byte-identical, because their carve
+    Facet Neutral and every flat package are byte-identical, because their carve
     insets are all zero.
 33. `newMenu`'s automatic presentation at a **compact** size class with a
     pointer-primary interaction class resolved to its own answer, gated on live
@@ -424,7 +456,7 @@ its row here in the same commit.
     right by the theme's carved border for its slot, through one shared
     primitive rather than the same four-line loop written by hand three times.
     Shipped geometry moves under any package that carves a control or accent
-    border; flat and Studio Neutral packages are byte-identical, because the
+    border; flat and Facet Neutral packages are byte-identical, because the
     computed inset is zero on both axes.
 38. Every `UI.Path` wrote its normalized control points as pixel offsets and now
     writes them as scale. A `UDim` offset is a 32-bit integer — measured live on a

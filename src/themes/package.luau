@@ -124,6 +124,7 @@ function package.deriveTypeRole(role: string, typography: any): any
 		font = { family = base.font.family, weight = rule.weight, style = base.font.style },
 		size = base.size,
 		lineHeight = base.lineHeight,
+		baseline = base.baseline,
 	}
 end
 
@@ -144,7 +145,7 @@ package.REQUIRED_SPACE_STEPS = table.freeze({ "xs", "s", "m", "l", "xl" })
 	header names. It is derived in `themes/snapshot.resolve` as
 	`(space.xs + space.s) / 2` — a package that authors its own `space.tight`
 	still wins, exactly as `gutter` does — which is what keeps it correct for
-	every package's own ladder rather than a Studio-Neutral-only constant: it
+	every package's own ladder rather than a Facet-Neutral-only constant: it
 	answers 6 at neutral (4, 8) and moves with a package that re-ladders `xs`/`s`.
 
 	NAMING DOCTRINE (do not invent a new class): the five REQUIRED steps are relative-size letters (xs/s/m/l/xl),
@@ -391,7 +392,7 @@ local METRIC_SECTIONS: { [string]: boolean } = {
 		may legitimately be defined before an app has made it. ]]
 	app = true,
 }
-local TYPOGRAPHY_FIELDS: { [string]: boolean } = { font = true, size = true, lineHeight = true }
+local TYPOGRAPHY_FIELDS: { [string]: boolean } = { font = true, size = true, lineHeight = true, baseline = true }
 local FONT_FIELDS: { [string]: boolean } = { family = true, weight = true, style = true }
 -- `content` is the CANONICAL asset field; `contentId` stays a
 -- legal alias. Both normalize to one plain string at define time, so there is
@@ -947,6 +948,7 @@ end
 -- others. ASCII is the only range every Roblox font is guaranteed to draw, so
 -- the fallback is legible by construction rather than by luck.
 package.ICON_FALLBACK_GLYPHS = table.freeze({
+	["facet:search"] = "o/",
 	["chevron.leading"] = "<",
 	["chevron.trailing"] = ">",
 	["chevron.up"] = "^",
@@ -1411,6 +1413,15 @@ function package.define(def: any): (any, any)
 				`metrics.typography.{role}.size`,
 				`size must be a positive number (got {tostring(entry.size)})`,
 				"give the role its authored pixel size, e.g. size = 16"
+			)
+		end
+		if
+			entry.baseline ~= nil and (not isFiniteNumber(entry.baseline) or entry.baseline < 0 or entry.baseline > 1)
+		then
+			reject(
+				"invalidMetric",
+				`metrics.typography.{role}.baseline`,
+				"baseline must be a finite em ratio between 0 and 1"
 			)
 		end
 		if not isFiniteNumber(entry.lineHeight) or entry.lineHeight <= 0 then

@@ -1017,6 +1017,14 @@ local function toLayoutNode(
 			expand = props.expand,
 		}
 	end
+	if class == "Spacer" then
+		layoutNode.minLength = if props.minLength ~= nil
+			then math.max(0, themeSnapshot.resolveNumber(metrics, props.minLength))
+			else nil
+		if props.minLength ~= nil then
+			layoutNode.placementProps = true
+		end
+	end
 	if class == "Text" then
 		layoutNode.text = props.text
 		-- THE LINE CAP (Text.lineLimit). A theme metric NAME is legal here like
@@ -1051,6 +1059,7 @@ local function toLayoutNode(
 		-- measures as that weight instead of as the family's Regular
 		layoutNode.font = props.font or (if role ~= nil then role.fontKey else nil)
 		layoutNode.lineHeight = if role ~= nil then role.lineHeight else nil
+		layoutNode.textBaseline = if role ~= nil then role.baseline else nil
 	elseif class == "Button" then
 		if #node.children == 0 then
 			layoutNode.text = drawnButtonText(props)
@@ -1060,6 +1069,7 @@ local function toLayoutNode(
 			layoutNode.textFit = fit
 			layoutNode.font = if role ~= nil then role.fontKey else nil
 			layoutNode.lineHeight = if role ~= nil then role.lineHeight else nil
+			layoutNode.textBaseline = if role ~= nil then role.baseline else nil
 			-- THE COMPACT ALTERNATIVE, handed to the solver alongside the full
 			-- label so ONE pass can measure both and pick (director, 2026-07-27).
 			-- The choice cannot be made here: it depends on the width this node is
@@ -1134,6 +1144,7 @@ local function toLayoutNode(
 		layoutNode.textFit = fit
 		layoutNode.font = if role ~= nil then role.fontKey else nil
 		layoutNode.lineHeight = if role ~= nil then role.lineHeight else nil
+		layoutNode.textBaseline = if role ~= nil then role.baseline else nil
 		-- the row's box now comes from the SHARED description the adapter paints
 		-- from (`themeSnapshot.toggleRowPadding`), so the reserved label column
 		-- and the drawn one cannot disagree — director round 9
@@ -1158,6 +1169,7 @@ local function toLayoutNode(
 		layoutNode.textFit = fit
 		layoutNode.font = if role ~= nil then role.fontKey else nil
 		layoutNode.lineHeight = if role ~= nil then role.lineHeight else nil
+		layoutNode.textBaseline = if role ~= nil then role.baseline else nil
 		layoutNode.padding = layoutNode.padding or metrics.controls.textInput.padding
 	elseif class == "Screen" then
 		layoutNode.width = props.width or { type = "fill", weight = 1 }
@@ -1218,7 +1230,7 @@ local function toLayoutNode(
 	-- SOLVER-VISIBLE: they are added to whatever padding the node already had,
 	-- after every class default, so a Button's theme padding and its skin's
 	-- border both apply. `chromeInsets` is empty for every flat package
-	-- (Studio Neutral included) and this whole block is then a no-op, which is
+	-- (Facet Neutral included) and this whole block is then a no-op, which is
 	-- why swapping to an ornate theme moves geometry and swapping between two
 	-- flat ones does not.
 	--
@@ -1307,7 +1319,7 @@ local function toLayoutNode(
 	-- slot — a Slider's rail — would otherwise reserve the slot the generic map
 	-- guessed instead of the one its art actually occupies), AND for the icon
 	-- reservation after it. Read ONCE, above both, because the icon box is owed
-	-- even by a package that reserves no chrome at all: Studio Neutral declares
+	-- even by a package that reserves no chrome at all: Facet Neutral declares
 	-- no `contentInsets` and still paints the framework's own pictures.
 	local hint = chrome_slots.readHint(node)
 	if wantsInsets or wantsOutsets then
@@ -1469,7 +1481,7 @@ local function toLayoutNode(
 	-- Ornate's `medium` rung is 32. The disclosure caret therefore painted 13px
 	-- outside itself on every side — into the frame on one side and the label on
 	-- the other. Measured live: SEVEN of the nine reference configurations
-	-- overhang, Studio Neutral among them. It was never a theme's bug.
+	-- overhang, Facet Neutral among them. It was never a theme's bug.
 	--
 	-- So the node reserves the picture, through the dimension vocabulary that
 	-- already says "content, but never below this" — the same move `shape =
@@ -1495,6 +1507,13 @@ local function toLayoutNode(
 		-- the same fact reached through the public prop instead of the internal
 		-- hint channel; an icon Button owes its picture exactly the same box
 		iconName = props.icon
+	end
+	if iconName == nil and class == "Button" and #node.children == 0 then
+		local form = compactForm(props)
+		if form ~= nil and form.prefer and form.kind == "icon" then
+			-- Preferred compact art is the content, just like an icon hint.
+			iconName = form.icon
+		end
 	end
 	if iconName ~= nil and type(metrics.iconArt) == "table" and metrics.iconArt[iconName] == true then
 		local role = (if hint ~= nil then hint.iconSize else nil) or "medium"
@@ -1523,7 +1542,7 @@ local function toLayoutNode(
 				22px disc holding a 20px picture (91%) and fantasy-ornate a 38px disc
 				holding a 32px one (84%) — at which point the glyph runs to the rim and
 				over it, and what a viewer sees is a circle cut off where the glyph
-				crosses it. Studio Neutral (36/20) is why the default theme looked fine.
+				crosses it. Facet Neutral (36/20) is why the default theme looked fine.
 
 				So the authored axis is RAISED to hold its own picture, and the `aspect`
 				pairing set a few dozen lines above carries the other axis with it — the
@@ -1602,6 +1621,9 @@ local function toLayoutNode(
 		subtracts the child it replaces and adds the one it built, which a boolean fold
 		could only do by walking the array again. ]]
 	local kidScroll, kidComposition, kidInside, kidPlaced = 0, 0, 0, 0
+	-- Baseline participation follows the existing kept/patched child summary.
+	-- Re-scanning every sibling here would defeat the one-leaf layout fast path.
+	local kidBaseline = 0
 	-- ...and the patch's own index over this container's SPLICED children, carried
 	-- with the array it describes and dropped whenever the array is rebuilt
 	local kidIndex: { [string]: number }? = nil
@@ -1739,6 +1761,7 @@ local function toLayoutNode(
 				store.nodes = nodesAtEntry + prior.n
 				kidScroll, kidComposition, kidInside, kidPlaced =
 					prior.kidScroll, prior.kidComposition, prior.kidInside, prior.kidPlaced
+				kidBaseline = prior.kidBaseline
 				kidIndex, kidMounts, kidRegions = prior.kidIndex, prior.kidMounts, prior.kidRegions
 				kidToken = prior.kidToken
 			end
@@ -1764,11 +1787,16 @@ local function toLayoutNode(
 			store.nodes = nodesAtEntry + prior.n
 			kidScroll, kidComposition, kidInside, kidPlaced =
 				prior.kidScroll, prior.kidComposition, prior.kidInside, prior.kidPlaced
+			kidBaseline = prior.kidBaseline
 			kidIndex, kidMounts, kidRegions = prior.kidIndex, prior.kidMounts, prior.kidRegions
 			kidToken = prior.kidToken
 			local mounts = prior.kidMounts
 			for _, idx in patchAt do
 				local was = kept[idx]
+				local baselineAlign = was.lineAlign or was.align
+				if baselineAlign == "firstTextBaseline" or baselineAlign == "lastTextBaseline" then
+					kidBaseline -= 1
+				end
 				if was.subtreeHasScroll then
 					kidScroll -= 1
 				end
@@ -1786,6 +1814,10 @@ local function toLayoutNode(
 				store.childVisits += 1
 				local now = toLayoutNode(mountChild, metrics, textScale, prefOffset, childAxis, childClip, store)
 				kept[idx] = now
+				local baselineAlign = now.lineAlign or now.align
+				if baselineAlign == "firstTextBaseline" or baselineAlign == "lastTextBaseline" then
+					kidBaseline += 1
+				end
 				if now.subtreeHasScroll then
 					kidScroll += 1
 				end
@@ -1818,6 +1850,10 @@ local function toLayoutNode(
 						already touches every child, rather than in a second walk after
 						it (Plan D, D2a). ]]
 					local built = toLayoutNode(child, metrics, textScale, prefOffset, childAxis, childClip, store)
+					local baselineAlign = built.lineAlign or built.align
+					if baselineAlign == "firstTextBaseline" or baselineAlign == "lastTextBaseline" then
+						kidBaseline += 1
+					end
 					if built.subtreeHasScroll then
 						kidScroll += 1
 					end
@@ -1998,6 +2034,9 @@ local function toLayoutNode(
 		the REGION's children, never its parent's. Every index-keyed payload on this
 		table therefore carries its own per-child id key; this gate alone is not enough
 		to trust an index and no reader may treat it as if it were. ]]
+	layoutNode.baselineAligned = kidBaseline > 0
+		or layoutNode.align == "firstTextBaseline"
+		or layoutNode.align == "lastTextBaseline"
 	local cmemo = if prior ~= nil
 			and prior.kids == node.children
 			and prior.axis == parentAxis
@@ -2050,6 +2089,7 @@ local function toLayoutNode(
 			kidComposition = kidComposition,
 			kidInside = kidInside,
 			kidPlaced = kidPlaced,
+			kidBaseline = kidBaseline,
 			kidIndex = kidIndex,
 			kidMounts = kidMounts,
 			kidRegions = kidRegions,

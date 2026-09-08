@@ -103,10 +103,10 @@
 --
 -- ── THE THEME AXIS (standing rule 4, 2026-08-14) ─────────────────────────────
 --
--- This sweep ran its entire cross product on the flat Studio Neutral resolution
+-- This sweep ran its entire cross product on the flat Facet Neutral resolution
 -- and nothing else, while the round-3 brief's standing rule 4 requires every gap
 -- closure to be "verified to not overlap or clip ACROSS EVERY SHIPPED THEME —
--- Pixel Quest and Parchment have both broken layouts that Studio Neutral
+-- Pixel Quest and Parchment have both broken layouts that Facet Neutral
 -- survived". That clause was carried by three hand-written per-file sweeps
 -- (theme_matrix_audit, theme_reference_packages, instance_recycling_themed),
 -- none of which asks this question of the showcase corpus. It was the house
@@ -293,6 +293,7 @@ local SCENARIOS = {
 	"native_style",
 	"authoring",
 	"adaptive_controls",
+	"navigation_stack",
 	"text_controls",
 	"selection_controls",
 	"action_controls",
@@ -1880,7 +1881,7 @@ end)
 	three lines — mounted through the same world and settled the same way as the
 	surfaces above.
 
-	THE ARITHMETIC IS THE POINT. Studio Neutral's `body` role is 16px at a 1.2
+	THE ARITHMETIC IS THE POINT. Facet Neutral's `body` role is 16px at a 1.2
 	line-height, and the preference is ADDITIVE, so one line box is 20px at +0,
 	24px at +4, 32px at +10 and 36px at +14. Three lines: 60 / 72 / 96 / 108.
 	A 102px slot therefore has 6px to spare at Larger and is 6px short at Largest,
@@ -2189,7 +2190,7 @@ end)
 	THE SCREEN IS THE O-23 SHAPE, REDUCED TO ARITHMETIC. A 120px row holding five
 	4px boxes with the theme's own `l` step between them — the shape every one of
 	this framework's indicators has, where the pieces are fixed and the SPACING
-	comes from the package. Studio Neutral's `l` is 24, so the row needs 20 + 4x24 =
+	comes from the package. Facet Neutral's `l` is 24, so the row needs 20 + 4x24 =
 	116 and fits with 4px to spare; Glossy Touch's is 28, so the same row needs 132
 	and is 12px over. Nothing about the screen changes between the two passes except
 	the one `env:set` the sweep above makes.
@@ -2296,7 +2297,7 @@ describe("overflow sweep: every registered showcase surface is swept", function(
 end)
 
 describe("overflow sweep: the theme axis bites", function()
-	it("THEME CONTROL: a row that fits under Studio Neutral is REPORTED under a package", function()
+	it("THEME CONTROL: a row that fits under Facet Neutral is REPORTED under a package", function()
 		local view = { id = "control", w = 400, h = 800, displaySize = "Medium", input = "KeyboardAndMouse" }
 		local w = world(view)
 		local screen = UI.Screen({
@@ -2332,7 +2333,7 @@ describe("overflow sweep: the theme axis bites", function()
 		local neutral = findings()
 		if #neutral > 0 then
 			error(
-				`the theme control reported under Studio Neutral, where it must be silent: `
+				`the theme control reported under Facet Neutral, where it must be silent: `
 					.. `{neutral[1].node} — {neutral[1].issue}`,
 				0
 			)

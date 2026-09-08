@@ -171,7 +171,7 @@ describe("Glade reference proof — module contract", function()
 		local w = world()
 		-- the nav construct now hangs off the shell stack the task strip leads, so
 		-- the tail is the same node one level deeper
-		expect(w.find("/Glade/Shell/Nav") ~= nil).toBe(true)
+		expect(w.find("/Shell/Nav") ~= nil).toBe(true)
 		expect(w.core:lastError()).toBeNil()
 		expect(w.report().proof).toBe("p1_glade")
 		expect(w.report().seed).toBe(seedData.WORLD)
@@ -323,16 +323,39 @@ describe("Glade S2: the detail, in both of its hosts (spec §8)", function()
 		expect(pane.rect.x >= sections.rect.x + sections.rect.w - 1).toBe(true)
 	end)
 
-	it("compact presents the same body as a modal with a Back button", function()
+	it("compact pushes the same body through NavigationStack with a Back button", function()
 		local w = world(390, 844)
 		expect(w.built.api.conditions.isCompact:get()).toBe(true)
 		w.tap("/GladeCard_mossholm")
-		expect(w.report().surfaces[1]).toBe("detail")
+		expect(#w.report().surfaces).toBe(0)
+		expect(w.report().detailNavigation[1].value).toBe("mossholm")
 		expect(w.find("/Back") ~= nil).toBe(true)
 		expect(w.find("/SupplyRow_dew") ~= nil).toBe(true)
 		w.tap("/Back")
 		expect(#w.report().surfaces).toBe(0)
 		expect(w.report().selectedGlade).toBeNil()
+	end)
+
+	it("compact detail survives rotation and returns through the shared path without modal state", function()
+		local w = world(390, 844)
+		w.env:set("reducedMotion", true)
+		w.tap("/GladeCard_mossholm")
+		expect(w.built.api.detailNavigation.dump().depth).toBe(1)
+		expect(#w.report().surfaces).toBe(0)
+		w.env:set("viewportRect", { x = 0, y = 0, w = 1280, h = 800 })
+		w.presenter.refresh()
+		expect(w.built.api.detailNavigation.dump().depth).toBe(0)
+		expect(w.report().selectedGlade).toBe("mossholm")
+		expect(w.find("/DetailLane/[mossholm]/Pane/Detail/Supplies/SupplyRow_dew") ~= nil).toBe(true)
+		w.env:set("viewportRect", { x = 0, y = 0, w = 390, h = 844 })
+		w.presenter.refresh()
+		expect(w.built.api.detailNavigation.dump().depth).toBe(1)
+		w.tap("/NavBar/Back")
+		expect(w.report().selectedGlade).toBeNil()
+		expect(w.built.api.detailNavigation.dump().depth).toBe(0)
+		w.built.dispose()
+		expect(w.built.api.detailNavigation.dump().livePages).toBe(0)
+		expect(w.core:lastError()).toBeNil()
 	end)
 
 	it("the dew row is an instant refill: no confirmation, a commit event and a keyed toast", function()
@@ -818,7 +841,8 @@ describe("Glade S6/S7: wisp info, restore, the edit form and Fresh Start (spec �
 		local w = world()
 		w.tap(navTail("keeper"))
 		w.tap("/EditKeeper")
-		expect(w.report().surfaces[1]).toBe("edit")
+		expect(#w.report().surfaces).toBe(0) -- data page stays inside the existing surface
+		expect(w.report().keeperNavigation[1].id).toBe("edit")
 		w.built.api.state.draftName:set("Alder of Stillpond")
 		w.tap("/SaveKeeper")
 		expect(w.report().keeper.name).toBe("Alder of Stillpond")
@@ -828,6 +852,67 @@ describe("Glade S6/S7: wisp info, restore, the edit form and Fresh Start (spec �
 		w.built.api.state.draftName:set("discarded")
 		w.tap("/CancelKeeper")
 		expect(w.report().keeper.name).toBe("Alder of Stillpond")
+	end)
+
+	it("Keeper edit is a scoped navigation page with four-input Back and restored launcher focus", function()
+		for _, facts in
+			{
+				{ width = 390, height = 844, input = "touch" },
+				{ width = 834, height = 1112, input = "touch" },
+				{ width = 1280, height = 800, input = "keyboard" },
+				{ width = 1920, height = 1080, input = "gamepad", display = "Large" },
+				{ width = 1280, height = 800, input = "pointer" },
+			}
+		do
+			local w = world(facts.width, facts.height)
+			w.env:set("capabilities", {
+				keyboard = facts.input == "keyboard",
+				mouse = facts.input == "pointer",
+				touch = facts.input == "touch",
+				gamepad = facts.input == "gamepad",
+			})
+			w.env:set(
+				"preferredInput",
+				if facts.input == "touch"
+					then "Touch"
+					elseif facts.input == "gamepad" then "Gamepad"
+					else "KeyboardAndMouse"
+			)
+			w.env:set("displaySize", facts.display or (if facts.input == "touch" then "Small" else "Medium"))
+			w.built.api.nav.selectSection("keeper")
+			w.presenter.refresh()
+			local launcher = w.find("/EditKeeper")
+			local depth = w.presenter.depth()
+			local function activate(path)
+				if facts.input == "touch" then
+					w.adapter.touchTap(path)
+				elseif facts.input == "pointer" then
+					w.adapter.tap(path)
+				else
+					w.presenter.focus.focusOn(path)
+					w.system.deviceKey(if facts.input == "gamepad" then "ButtonA" else "Return", true)
+					w.system.deviceKey(if facts.input == "gamepad" then "ButtonA" else "Return", false)
+				end
+				w.presenter.refresh()
+			end
+			activate(launcher)
+			expect(w.built.api.keeperNavigation.dump().depth).toBe(1)
+			expect(w.presenter.depth()).toBe(depth)
+			local name = w.report().keeper.name
+			w.built.api.state.draftName:set("discard this draft")
+			activate(w.find("/NavBar/Back"))
+			expect(w.report().keeper.name).toBe(name)
+			expect(w.built.api.keeperNavigation.dump().depth).toBe(0)
+			expect(w.presenter.focus.focused:get()).toBe(launcher)
+			activate(launcher)
+			expect(w.built.api.state.draftName:get()).toBe(name)
+			w.built.api.nav.selectSection("glades")
+			w.presenter.refresh()
+			expect(w.built.api.keeperNavigation.dump().depth).toBe(0)
+			expect(w.core:lastError()).toBeNil()
+			w.built.dispose()
+			expect(w.built.api.keeperNavigation.dump().livePages).toBe(0)
+		end
 	end)
 
 	it("Fresh Start asks first, keeps the world on Keep, and reseeds it on Start over", function()
@@ -878,14 +963,28 @@ describe("Glade: determinism — same seed, same steps, same dump", function()
 		expect(#a.built.dump() > 200).toBe(true)
 	end)
 
-	it("Fresh Start returns a played world to its opening dump, byte for byte", function()
+	it("Fresh Start restores every opening state field and clears transient feedback history", function()
 		local w = world()
-		local opening = w.built.dump()
+		local opening = w.report()
+		-- Initial instant placement announces arrival synchronously. Reset clears
+		-- this event history; it restores seeded state without replaying arrival.
+		expect(#opening.feedback > 0).toBe(true)
+		for _, event in opening.feedback do
+			expect(event).toBe("arrive")
+		end
+		opening.feedback = {}
+		local expected = w.built.api.serialize(opening)
 		drive(w)
-		expect(w.built.dump()).never().toBe(opening)
+		expect(#w.report().feedback > 0).toBe(true)
+		local played = w.report()
+		played.feedback = {}
+		expect(w.built.api.serialize(played)).never().toBe(expected)
 		w.built.api.reset()
-		expect(w.built.dump()).toBe(opening)
-	end)
+		expect(#w.report().feedback).toBe(0)
+		expect(w.built.dump()).toBe(expected)
+	end, {
+		id = "reference/glade_spec::Glade: determinism — same seed, same steps, same dump::Fresh Start returns a played world to its opening dump, byte for byte",
+	})
 
 	it("the dump is stable across repeated reads with nothing changed in between", function()
 		local w = world()
@@ -1632,7 +1731,7 @@ describe("Glade: the stage axes it can answer headlessly (RA-M3/M4/M5)", functio
 		w.built.steps.setLocale(nil, "xa")
 		w.tap("/GladeCard_mossholm")
 		w.tap("/SupplyRow_nectar")
-		expect(w.report().surfaces[2]).toBe("picker")
+		expect(w.report().surfaces[1]).toBe("picker")
 		expect(w.textOf("/NectarCard_starlight/Name")).toBe(strings.TABLES.xa["nectar.starlight"])
 		w.tap("/Act_starlight")
 		expect(w.built.api.supply.nectarOf("mossholm"):get()).toBe("starlight")

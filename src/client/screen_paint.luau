@@ -111,7 +111,7 @@ function screen_paint.new(ctx: any)
 	-- cannot see a value — so these two colours stay bespoke writes in BOTH modes
 	-- (the `Toggle chrome` rule owns only their opacity). That is precisely why
 	-- they were still painting from constants captured at construction, and why a
-	-- parchment toggle rendered a Studio-Neutral blue pill.
+	-- parchment toggle rendered a Facet-Neutral blue pill.
 	--
 	-- WITH NO PACKAGE INSTALLED this returns exactly today's COLOR.* values, so
 	-- every existing game and every existing test is byte-identical. The mapping
@@ -321,7 +321,7 @@ function screen_paint.new(ctx: any)
 	-- applyTint's Path branch), so its colour is adapter-owned paint in every
 	-- mode — exactly like the focus ring and the toggle palette above it. It used
 	-- to resolve against `COLOR`, the palette this target was CONSTRUCTED with, so
-	-- a stroked path wore Studio Neutral under every package that was ever
+	-- a stroked path wore Facet Neutral under every package that was ever
 	-- installed. That is the same theme-blindness the focus ring carried before
 	-- the 2026-07-25 director round (screen_target's focus-treatment block, defect
 	-- (1)) — one seam over, and never fixed because a path has no interactive
@@ -1141,7 +1141,7 @@ function screen_paint.new(ctx: any)
 	-- THE LABEL COLUMN IS THE COLUMN THE SOLVER RESERVED (director round 9,
 	-- found live 2026-07-26). It used to be built from `style.space.*` — the
 	-- style captured when this ScreenTarget was CONSTRUCTED — while the measure
-	-- seam reserved it from the LIVE snapshot. Under Studio Neutral the two
+	-- seam reserved it from the LIVE snapshot. Under Facet Neutral the two
 	-- agree to the byte (space.s + 4 = 12 = trackInset, space.m = 16), which is
 	-- why it survived four stages; under classic-desktop the solver reserved 28
 	-- px and this drew 20, and the label read "Mu".
@@ -1190,7 +1190,7 @@ function screen_paint.new(ctx: any)
 		-- 2026-07-26). The reserved label column is `ceil(the engine's own
 		-- measurement)` and the engine draws exactly that, so under four of the
 		-- nine reference packages the column and the drawn bounds are EQUAL to
-		-- the pixel (Studio Neutral 35/35, classic-desktop 28/28, and the
+		-- the pixel (Facet Neutral 35/35, classic-desktop 28/28, and the
 		-- ValueProbe's "Candlelight" at 67/67 and 73/73). With `TextWrapped` a
 		-- one-pixel shortfall does not clip a pixel — it BREAKS THE WORD:
 		-- perturbing the live Music row by −1 px collapsed `TextBounds` from

@@ -31,7 +31,7 @@
 --   (d) the solver reports no diagnostics on any row.
 --   (e) every classification TAG a row's tree carries is selected by at least one
 --       rule in the sheet that row would really run — the base seed for the five
---       studio-neutral rows, the package model for the other fourteen — plus a
+--       facet-neutral rows, the package model for the other fourteen — plus a
 --       sweep of the whole `classifyTags` vocabulary against every one of those
 --       sheets. Emission is not application, and `Frame default` makes an
 --       unselected surface INVISIBLE rather than merely unstyled.
@@ -121,11 +121,11 @@ local function rows(): { { id: string, view: any, package: string? } }
 	local byId: { [string]: any } = {}
 	for _, view in VIEWS do
 		byId[view.id] = view
-		for _, name in { "studio-neutral", "fantasy_ornate", "pixel_quest" } do
+		for _, name in { "facet-neutral", "fantasy_ornate", "pixel_quest" } do
 			table.insert(out, {
-				id = `{view.id}/{if name == "studio-neutral" then name else string.gsub(name, "_", "-")}`,
+				id = `{view.id}/{if name == "facet-neutral" then name else string.gsub(name, "_", "-")}`,
 				view = view,
-				package = if name == "studio-neutral" then nil else name,
+				package = if name == "facet-neutral" then nil else name,
 			})
 		end
 	end
@@ -433,12 +433,12 @@ end
 -- RS-A16-D4: `screen_target` builds the BASE seed (`sheet_model.build`, Dark +
 -- Light) when no package is installed and `buildPackage` when one is. The
 -- value-control own-paint family existed in the second and not in the first, so
--- the five studio-neutral rows ran a sheet in which four surfaces were selected
+-- the five facet-neutral rows ran a sheet in which four surfaces were selected
 -- by nothing at all and `Frame default` made them invisible. Every assertion
 -- below therefore reads the model for THAT row rather than a package model.
 local modelCache: { [string]: any } = {}
 local function liveModel(package: any?): any
-	local key = if package == nil then "<studio-neutral>" else package.identity.id
+	local key = if package == nil then "<facet-neutral>" else package.identity.id
 	if modelCache[key] == nil then
 		modelCache[key] = if package == nil
 			then sheet_model.build({
@@ -457,7 +457,7 @@ end
 -- `facet-chrome-barCap`.
 local selectedCache: { [string]: { [string]: boolean } } = {}
 local function selectedTags(package: any?): { [string]: boolean }
-	local key = if package == nil then "<studio-neutral>" else package.identity.id
+	local key = if package == nil then "<facet-neutral>" else package.identity.id
 	if selectedCache[key] == nil then
 		local out: { [string]: boolean } = {}
 		for _, rule in liveModel(package).rules do
@@ -752,7 +752,7 @@ describe("the headless matrix audit: nineteen canonical rows, solved and checked
 		-- the rows the two stopped drives named, by the names they used
 		for _, id in
 			{
-				"desktop-standard/studio-neutral",
+				"desktop-standard/facet-neutral",
 				"desktop-standard/fantasy-ornate",
 				"console-ten-foot/fantasy-ornate",
 				"desktop-standard/pixel-quest",
@@ -784,7 +784,7 @@ describe("the headless matrix audit: nineteen canonical rows, solved and checked
 		expect(report({ "NO rule in the live sheet" })).toBe("")
 	end)
 
-	it("(e) the five studio-neutral rows really do run the BASE seed", function()
+	it("(e) the five facet-neutral rows really do run the BASE seed", function()
 		-- the guard above is only worth anything if the flat rows are checked
 		-- against `sheet_model.build` and not against a package model: the defect
 		-- was a family of rules the package builder had and the base seed did not
@@ -917,7 +917,7 @@ end
 describe("every tag the framework can emit has a rule that applies it (RS-A16-D4)", function()
 	local VOCABULARY = emittableTags()
 
-	local SHEETS: { { name: string, package: any? } } = { { name = "studio-neutral (the BASE seed)", package = nil } }
+	local SHEETS: { { name: string, package: any? } } = { { name = "facet-neutral (the BASE seed)", package = nil } }
 	for _, name in { "fantasy_ornate", "pixel_quest", "glossy_touch", "compact_pointer" } do
 		local pkg, report = (PACKAGES[name] :: any).build(Facet.themes)
 		assert(pkg ~= nil, `{name} failed its own package gate: {report.errors[1] and report.errors[1].message}`)

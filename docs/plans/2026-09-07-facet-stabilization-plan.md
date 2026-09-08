@@ -31,7 +31,7 @@ weapon cards and the round pill while the probe says 14/14 rows painting.
 - [ ] B3 The dedicated Settings button is removed; Settings is reached only
       through the Demos/Settings toggle in the demo menu; focus/gamepad
       bindings (LB/RB) still reach both sections.
-- [ ] B4 Under Studio Neutral the demo list opens with "Demos" selected and
+- [ ] B4 Under Facet Neutral the demo list opens with "Demos" selected and
       painted in the accent blue (selected state present at first paint, not
       after an interaction).
 - [ ] B5 Existing showcase specs updated; new checks fail before, pass after.
@@ -51,7 +51,7 @@ weapon cards and the round pill while the probe says 14/14 rows painting.
 - [ ] C5 No duplicate state channel; no per-control workaround; schema, class
       contract, `docs/reference/api.md`, guide catalog, boundary check,
       types check all updated.
-- [ ] C6 Themes: at least Studio Neutral + one reference package prove the
+- [ ] C6 Themes: at least Facet Neutral + one reference package prove the
       tint/disabled paint through the sheet, not the node.
 
 ### D. Showcase demonstration

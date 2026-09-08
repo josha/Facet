@@ -388,7 +388,7 @@ collision.
 > bar is art, raise the metric that controls its height — that is what metrics
 > are for.
 
-Studio Neutral draws a 6 px progress track because a flat bar is a rectangle.
+Facet Neutral draws a 6 px progress track because a flat bar is a rectangle.
 Fantasy Ornate's track PNG is 28 px tall with a 12 px slice border, so at 6 px
 the two borders overlap and the carving smears. The package therefore raises the
 numbers:

@@ -58,7 +58,7 @@ chrome_slots.TAGS = table.freeze({
 	-- rides the DECORATION; this one rides its PARENT, and it is what lets the
 	-- package suppress the native plate the art now replaces: background,
 	-- ::UICorner radius and ::UIStroke hairline all go to nothing under a skin.
-	-- Without it a parchment button sat inside a rounded Studio-Neutral slab —
+	-- Without it a parchment button sat inside a rounded Facet-Neutral slab —
 	-- "there should not be extra button border around it".
 	skinnedPrefix = "facet-skinned-", -- + <slot>, on the DECORATED NODE
 	-- THE SLOT IDENTITY TAG (director follow-up 2026-07-25). `skinnedPrefix`
@@ -2349,7 +2349,7 @@ end
 -- selection a glow."
 --
 -- TWO defects sat on top of each other. The ring was painted from a STATIC
--- accent constant, so it stayed Studio-Neutral blue no matter which package was
+-- accent constant, so it stayed Facet-Neutral blue no matter which package was
 -- installed; and a hairline ring is the wrong IDIOM for an ornate skin, where
 -- everything else is soft, warm and painted.
 --

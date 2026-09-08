@@ -9,7 +9,7 @@
 	This file is the CONTROL half of that sweep. Every row of
 	tests/conformance/controls_registry — the same registry the extension checker
 	enforces — is either mounted here in a compact 390x844 phone screen and swept
-	at { 0, 4, 10, 14 } x { Studio Neutral, Fantasy Parchment }, or carries a
+	at { 0, 4, 10, 14 } x { Facet Neutral, Fantasy Parchment }, or carries a
 	declared reason why it cannot be. Enumerated from the registry rather than
 	hand-picked, so the day a new control lands, the coverage case fails until
 	someone decides what its large-text story is.
@@ -266,8 +266,8 @@ describe("LT-6 policy: reflow before truncation on the controls that can reflow"
 			-- box for a shape the engine will not draw. Measured on this exact fixture
 			-- (150px fixed Button, `lt.PSEUDO_ACTION`):
 			--
-			--   studio-neutral    +0 / +4 / +10  longest word 79/96/122px  -> 3 lines
-			--   studio-neutral    +14            longest word 139px        -> 1 line
+			--   facet-neutral    +0 / +4 / +10  longest word 79/96/122px  -> 3 lines
+			--   facet-neutral    +14            longest word 139px        -> 1 line
 			--   fantasy-parchment +0 .. +14      longest word 119..217px   -> 1 line
 			--
 			-- So the honest invariant is the RULE, not one of its arms: while wrapping

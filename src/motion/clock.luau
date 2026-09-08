@@ -40,6 +40,7 @@ local chaseLib = require("./chase")
 local timelineLib = require("./timeline")
 local curvesLib = require("./curves")
 local specGuard = require("../spec_guard")
+local num = require("../num")
 
 local clock = {}
 
@@ -74,6 +75,8 @@ export type Stats = {
 	transactions: number,
 }
 
+export type AnimateOpts = motionValues.ValueOpts & { scope: any? }
+
 export type Clock = {
 	step: (self: Clock, dt: number?) -> (),
 	activeCount: (self: Clock) -> number,
@@ -83,6 +86,7 @@ export type Clock = {
 	timer: (self: Clock, spec: motionValues.TimerSpec) -> motionValues.MotionValue,
 	glide: (self: Clock, initial: number, spec: motionValues.GlideSpec) -> motionValues.MotionValue,
 	tween: (self: Clock, initial: number, curveName: any, opts: motionValues.ValueOpts?) -> motionValues.MotionValue,
+	animate: (self: Clock, source: any, class: any, opts: AnimateOpts?) -> motionValues.MotionValue,
 	setEasing: (self: Clock, evaluate: (number, string, string) -> number) -> (),
 	chase: (self: Clock, opts: chaseLib.Opts) -> chaseLib.Chase,
 	timeline: (self: Clock, spec: timelineLib.Spec) -> timelineLib.Timeline,
@@ -94,6 +98,7 @@ export type Clock = {
 -- CLOSED OPTS (constitution §4). `motionPolicy` misspelled means reduced
 -- motion is never read and every accessibility toggle is ignored, silently.
 local CLOCK_OPTS_KEYS = specGuard.keySet({ "motionPolicy", "now" })
+local ANIMATE_OPTS_KEYS = specGuard.keySet({ "scope", "kind", "quantum", "reducedMotion", "eps" })
 
 function clock.new(core: any, opts: Opts?): Clock
 	specGuard.assertKnownKeys("motion.newClock", opts, CLOCK_OPTS_KEYS, "opts")
@@ -313,6 +318,67 @@ function clock.new(core: any, opts: Opts?): Clock
 	function self.tween(_: any, initial: number, curveName: any, valueOpts: motionValues.ValueOpts?)
 		assert(not disposed, "Facet motion: cannot build a tween on a disposed clock")
 		return motionValues.newTween(internals, initial, curveName, valueOpts)
+	end
+
+	-- A state binding over the existing MotionValue, not another animation driver.
+	-- The source stays caller-owned; every disposal route releases its observer.
+	function self.animate(_: any, source: any, class: any, animateOpts: AnimateOpts?)
+		assert(not disposed, "Facet motion: cannot animate state on a disposed clock")
+		specGuard.assertKnownKeys("clock:animate", animateOpts, ANIMATE_OPTS_KEYS, "opts")
+		assert(
+			type(source) == "table"
+				and (source.kind == "signal" or source.kind == "memo")
+				and type(source.get) == "function",
+			"Facet clock:animate: source must be a Facet Readable<number>; pass a signal or memo"
+		)
+		local options = animateOpts or {}
+		local scope = options.scope
+		assert(
+			scope == nil
+				or (
+					type(scope) == "table"
+					and type(scope.own) == "function"
+					and type(scope.isDisposed) == "function"
+					and not scope:isDisposed()
+				),
+			"Facet clock:animate: opts.scope must be a live ownership scope"
+		)
+		for _, field in { "quantum", "eps" } do
+			local value = (options :: any)[field]
+			assert(
+				value == nil or (num.isFinite(value) and value > 0),
+				`Facet clock:animate: opts.{field} must be a positive finite number`
+			)
+		end
+		local initial = source:get()
+		assert(num.isFinite(initial), "Facet clock:animate: source must contain a finite number")
+		local valueOpts = {
+			kind = options.kind,
+			quantum = options.quantum,
+			reducedMotion = options.reducedMotion,
+			eps = options.eps,
+		}
+		local value = if type(class) == "string" and curvesLib.isRegistered(class)
+			then self:tween(initial, class, valueOpts)
+			else self:spring(initial, class, valueOpts)
+		local unsubscribe = core:observe(source, function(target: any)
+			if not num.isFinite(target) then
+				internals.noteError(
+					"Facet clock:animate: source must remain a finite number; retaining the last valid target"
+				)
+				return
+			end
+			value:setTarget(target)
+		end)
+		local disposeValue = value.dispose
+		function value.dispose(_: any)
+			unsubscribe()
+			disposeValue(value)
+		end
+		if scope ~= nil then
+			scope:own(value)
+		end
+		return value
 	end
 
 	-- Install the easing evaluator. THE ENGINE OWNS THE CURVE (director

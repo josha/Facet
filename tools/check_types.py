@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Gate check: `Facet.Controls`'s typed signatures still carry their types.
 
-CURRENT SURFACE: 23 entries, 19 typed and four historic `any` exceptions. The
+CURRENT SURFACE: 24 entries, 20 typed and four historic `any` exceptions. The
 four new controls declare their specs at the public entry point, preserving
 types while their implementations remain deferred. The history below describes
 the original fifteen module-owned types and four deferred implementations.
@@ -173,8 +173,8 @@ def run():
 
     # ---- half 2: the typed/any split is what src/init.luau declares ---------
     entries = namespace_entries(open(INIT).read())
-    if len(entries) != 23:
-        problems.append(f"src/init.luau declares {len(entries)} Controls entries, expected 23")
+    if len(entries) != 24:
+        problems.append(f"src/init.luau declares {len(entries)} Controls entries, expected 24")
     declared_typed = {n for n, ann in entries.items() if ann.strip() != "any"}
     declared_any = set(entries) - declared_typed
 
@@ -196,6 +196,30 @@ def run():
 
     with tempfile.TemporaryDirectory() as tmp:
         observed = negative_probe(entries, tmp)
+    # A first-class path is more than an outer spec table. Pin its nested types,
+    # and Blueprint-returning factories, so widening either to any is visible.
+    nav_probe = "tests/types/_navigation_shape_probe.luau"
+    nav_lines = [
+        '--!strict', 'local Facet = require("../../src")', 'local core = Facet.newCore()',
+        'local root = {content = function() return Facet.UI.Box({}) end}',
+        'Facet.Controls.NavigationStack(core, {path = core:signal(42), root = root, destinations = {}, backLabel = "Back"})',
+        'Facet.Controls.NavigationStack(core, {path = core:signal({{id = 42}}), root = root, destinations = {}, backLabel = "Back"})',
+        'Facet.Controls.NavigationStack(core, {path = core:signal({}), root = {title = 42, content = root.content}, destinations = {}, backLabel = "Back"})',
+        'Facet.Controls.NavigationStack(core, {path = core:signal({}), root = {content = function() return 42 end}, destinations = {}, backLabel = "Back"})',
+    ]
+    try:
+        with open(nav_probe, "w") as fh:
+            fh.write("\n".join(nav_lines) + "\n")
+        nav_errors, _ = analyze([nav_probe])
+        rejected_lines = {int(m.group(1)) for line in nav_errors
+                          if (m := re.match(r".*\((\d+),\d+\):", line))}
+        for line, name in enumerate(["non-array path", "non-string route id", "non-string title", "non-Blueprint factory"], 5):
+            if line not in rejected_lines:
+                problems.append(f"NavigationStack accepted {name} in its typed spec")
+    finally:
+        if os.path.exists(nav_probe):
+            os.unlink(nav_probe)
+
     for name in sorted(entries):
         typed = name in declared_typed
         rejected = observed.get(name, False)

@@ -59,7 +59,7 @@ local PACKAGES: { [string]: any } = {
 	compact_pointer = require("../examples/themes/compact_pointer"),
 }
 local ROWS = {
-	"studio-neutral",
+	"facet-neutral",
 	"classic_desktop",
 	"glossy_mobile",
 	"scifi_hud",
@@ -188,7 +188,7 @@ describe("Table header: the sort mark under every shipped theme package", functi
 		works right up until something is painted at that edge. ]]
 	it("the mark stops the theme's OWN reserve short of the column boundary", function()
 		for _, name in ROWS do
-			local pkg = if name == "studio-neutral" then nil else name
+			local pkg = if name == "facet-neutral" then nil else name
 			for _, resizable in { true, false } do
 				local row = solveRow(pkg, "name", resizable)
 				local spent = (row.head.x + row.head.w) - (row.mark.x + row.mark.w)
@@ -206,7 +206,7 @@ describe("Table header: the sort mark under every shipped theme package", functi
 	it("the mark clears the plate's carved border, so it paints INSIDE the box", function()
 		local bordered = 0
 		for _, name in ROWS do
-			local pkg = if name == "studio-neutral" then nil else name
+			local pkg = if name == "facet-neutral" then nil else name
 			local row = solveRow(pkg, "name", true)
 			if row.border > 0 then
 				bordered += 1
@@ -229,7 +229,7 @@ describe("Table header: the sort mark under every shipped theme package", functi
 	-- way the column is aligned. `best` is trailing, `name` is leading.
 	it("the title never overlaps the mark, leading or trailing", function()
 		for _, name in ROWS do
-			local pkg = if name == "studio-neutral" then nil else name
+			local pkg = if name == "facet-neutral" then nil else name
 			for _, column in { "name", "best" } do
 				local row = solveRow(pkg, column, true)
 				expect(`{name}/{column}: clear`).toBe(
@@ -247,7 +247,7 @@ describe("Table header: the sort mark under every shipped theme package", functi
 		home. ]]
 	it("a column resize carries the mark with the boundary, at any width", function()
 		for _, name in ROWS do
-			local pkg = if name == "studio-neutral" then nil else name
+			local pkg = if name == "facet-neutral" then nil else name
 			for _, width in { 200, 600 } do
 				local row = solveRow(pkg, "name", true, width)
 				local spent = (row.head.x + row.head.w) - (row.mark.x + row.mark.w)
@@ -262,7 +262,7 @@ describe("Table header: the sort mark under every shipped theme package", functi
 	-- (d) and the solver has nothing to report about any of it
 	it("no package makes the header band report a layout finding", function()
 		for _, name in ROWS do
-			local pkg = if name == "studio-neutral" then nil else name
+			local pkg = if name == "facet-neutral" then nil else name
 			local row = solveRow(pkg, "name", true)
 			expect(`{name}: {#row.diagnostics}`).toBe(`{name}: 0`)
 		end
@@ -450,7 +450,7 @@ describe("Table header: the columns line up with the rows in every body shape", 
 	it("a header cell and its body cell occupy the same span, in every shape and package", function()
 		for _, shape in SHAPES do
 			for _, name in ROWS do
-				local pkg = if name == "studio-neutral" then nil else name
+				local pkg = if name == "facet-neutral" then nil else name
 				local row = solveShape(pkg, shape)
 				expect(`{shape}/{name}: drift 0px —{row.detail}`).toBe(
 					`{shape}/{name}: drift {row.drift}px —{row.detail}`
@@ -480,7 +480,7 @@ describe("Table header: the columns line up with the rows in every body shape", 
 	it("the Edit toolbar clears the header band and ends on the trailing column", function()
 		for _, shape in SHAPES do
 			for _, name in ROWS do
-				local pkg = if name == "studio-neutral" then nil else name
+				local pkg = if name == "facet-neutral" then nil else name
 				local row = solveShape(pkg, shape)
 				local editRight, columnRight, clearance =
 					string.match(row.toolbar, "editRight (%-?%d+) trailingColumnRight (%-?%d+) clearsHeaderBy (%-?%d+)")
@@ -514,7 +514,7 @@ describe("Table header: the columns line up with the rows in every body shape", 
 	it("the Edit toolbar's clearance covers the chrome glow, not merely the zero floor", function()
 		for _, shape in SHAPES do
 			for _, name in ROWS do
-				local pkg = if name == "studio-neutral" then nil else name
+				local pkg = if name == "facet-neutral" then nil else name
 				local row = solveShape(pkg, shape)
 				local clearance = tonumber(string.match(row.toolbar, "clearsHeaderBy (%-?%d+)"))
 				expect(`{shape}/{name}: clearance {clearance}, bleed {row.bleed}`).toBe(
@@ -532,7 +532,7 @@ describe("Table header: the columns line up with the rows in every body shape", 
 	it("the swept packages really do declare a glow gutter, or this axis proves nothing", function()
 		local bleeding = 0
 		for _, name in ROWS do
-			local pkg = if name == "studio-neutral" then nil else name
+			local pkg = if name == "facet-neutral" then nil else name
 			if solveShape(pkg, "viewport").bleed > 0 then
 				bleeding += 1
 			end

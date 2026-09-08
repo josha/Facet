@@ -87,7 +87,7 @@ return {
 				return { ok = false, reason = "theme controller unavailable" }
 			end
 			local package
-			if moduleName == "neutral" or moduleName == "studio_neutral" then
+			if moduleName == "neutral" or moduleName == "facet_neutral" then
 				package = ctx.Facet.themes.neutralPackage()
 			else
 				local module = (ctx.themePackages or {})[moduleName]

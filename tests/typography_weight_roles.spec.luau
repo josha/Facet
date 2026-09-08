@@ -56,7 +56,7 @@ local function derive(id: string, metrics: any): any
 end
 
 describe("the ramp grows two WEIGHT roles and moves nothing else", function()
-	it("Studio Neutral answers all eight roles", function()
+	it("Facet Neutral answers all eight roles", function()
 		local snap = snapshot.neutral()
 		for _, role in themes.TYPE_ROLES do
 			expect(`{role}: {type(snap.type[role])}`).toBe(`{role}: table`)

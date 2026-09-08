@@ -48,7 +48,7 @@ local function build()
 	})
 end
 
--- the compiled Studio Neutral package, the shipped path (the `packageWith` idiom
+-- the compiled Facet Neutral package, the shipped path (the `packageWith` idiom
 -- every other package spec uses)
 local function neutralPackage(): any
 	return (

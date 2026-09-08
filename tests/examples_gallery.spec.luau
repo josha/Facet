@@ -1889,31 +1889,40 @@ describe("examples/gallery 05: confirmation dialog", function()
 
 	it("opens a modal that traps focus, and ButtonB dismisses it and restores focus", function()
 		local ex = require("../examples/gallery/examples/04_confirm_dialog")
-		local core, system, _, presenter, deps = makeHarness()
+		local core, system, adapter, presenter, deps = makeHarness()
 		local built = ex.build(Facet, core, deps)
 		local handle = presenter.present(built.screen, built.present)
 
 		expect(presenter.focus.focused:get()).toBe("/DangerScreen/Page/Delete")
-		-- activate the base button -> opens the confirmation modal
-		system.deviceKey("Return", true)
-		system.deviceKey("Return", false)
+		-- Pointer opens the modal; gamepad dismissal restores keyboard focus.
+		adapter.tap(built.deletePath)
 		expect(presenter.depth()).toBe(2)
-		expect(presenter.focus.focused:get()).toBe("/ConfirmDialog/Center/Card/Confirm")
+		expect(presenter.focus.focused:get()).toBe("/ConfirmDialog/Center/Card/Actions/Cancel")
 
-		-- focus is trapped inside the modal: navigation moves Confirm<->Cancel
-		-- and wraps, never escaping to the base screen
-		system.deviceKey("Down", true)
-		system.deviceKey("Down", false)
-		expect(presenter.focus.focused:get()).toBe("/ConfirmDialog/Center/Card/Cancel")
-		system.deviceKey("Down", true)
-		system.deviceKey("Down", false)
-		expect(presenter.focus.focused:get()).toBe("/ConfirmDialog/Center/Card/Confirm") -- wrapped
+		-- The horizontal row follows directional input without leaving the modal.
+		system.deviceKey("DPadLeft", true)
+		system.deviceKey("DPadLeft", false)
+		expect(presenter.focus.focused:get()).toBe("/ConfirmDialog/Center/Card/Actions/Confirm")
+		system.deviceKey("DPadRight", true)
+		system.deviceKey("DPadRight", false)
+		expect(presenter.focus.focused:get()).toBe("/ConfirmDialog/Center/Card/Actions/Cancel")
 
 		-- ButtonB (gamepad B) is Cancel routing: dismiss + restore focus
 		system.deviceKey("ButtonB", true)
 		system.deviceKey("ButtonB", false)
 		expect(presenter.depth()).toBe(1)
 		expect(presenter.focus.focused:get()).toBe("/DangerScreen/Page/Delete") -- restored
+		-- Reopening restores the safe default. Return accepts Cancel, keeping the save.
+		for _ = 1, 2 do
+			system.deviceKey("Return", true)
+			system.deviceKey("Return", false)
+			expect(presenter.focus.focused:get()).toBe("/ConfirmDialog/Center/Card/Actions/Cancel")
+			system.deviceKey("Return", true)
+			system.deviceKey("Return", false)
+			expect(built.result:get()).toBe("cancelled")
+			expect(built.hasSave:get()).toBe(true)
+			expect(presenter.depth()).toBe(1)
+		end
 		expect(core:lastError()).toBeNil()
 		presenter.dismiss(handle)
 	end)
@@ -1928,13 +1937,27 @@ describe("examples/gallery 05: confirmation dialog", function()
 		system.deviceKey("ButtonA", false)
 		expect(presenter.depth()).toBe(2)
 
-		system.deviceKey("Down", true) -- move to Cancel
-		system.deviceKey("Down", false)
-		expect(presenter.focus.focused:get()).toBe("/ConfirmDialog/Center/Card/Cancel")
+		expect(presenter.focus.focused:get()).toBe("/ConfirmDialog/Center/Card/Actions/Cancel")
+		system.deviceKey("DPadLeft", true)
+		system.deviceKey("DPadLeft", false)
+		expect(presenter.focus.focused:get()).toBe("/ConfirmDialog/Center/Card/Actions/Confirm")
+		system.deviceKey("DPadRight", true)
+		system.deviceKey("DPadRight", false)
+		expect(presenter.focus.focused:get()).toBe("/ConfirmDialog/Center/Card/Actions/Cancel")
 		system.deviceKey("ButtonA", true) -- activate Cancel
 		system.deviceKey("ButtonA", false)
 
 		expect(built.result:get()).toBe("cancelled")
+		expect(presenter.depth()).toBe(1)
+		expect(built.hasSave:get()).toBe(true)
+		-- An immediate default activation on the next opening also cancels.
+		system.deviceKey("ButtonA", true)
+		system.deviceKey("ButtonA", false)
+		expect(presenter.focus.focused:get()).toBe("/ConfirmDialog/Center/Card/Actions/Cancel")
+		system.deviceKey("ButtonA", true)
+		system.deviceKey("ButtonA", false)
+		expect(built.result:get()).toBe("cancelled")
+		expect(built.hasSave:get()).toBe(true)
 		expect(presenter.depth()).toBe(1)
 		expect(presenter.focus.focused:get()).toBe("/DangerScreen/Page/Delete")
 		expect(core:lastError()).toBeNil()
@@ -1946,20 +1969,36 @@ describe("examples/gallery 05: confirmation dialog", function()
 	-- their own node onActivate, dispatched by the presenter. These close the
 	-- pointer + touch cells the audit left UNPROVEN (a modal example that never
 	-- tested a real click/tap).
-	local function ex04World()
+	local function ex04World(facts, confirmLabel)
 		local ex = require("../examples/gallery/examples/04_confirm_dialog")
 		local core, system, adapter, presenter, deps = makeHarness()
-		local built = ex.build(Facet, core, deps)
+		for key, value in facts or {} do
+			deps.env:set(key, value)
+		end
+		local library = Facet
+		if confirmLabel ~= nil then
+			-- Expand one real action's copy without adding a demo configuration API.
+			library = table.clone(Facet)
+			library.UI = table.clone(Facet.UI)
+			library.UI.Button = function(spec)
+				if spec.id == "Confirm" then
+					spec = table.clone(spec)
+					spec.label = confirmLabel
+				end
+				return Facet.UI.Button(spec)
+			end
+		end
+		local built = ex.build(library, core, deps)
 		local handle = presenter.present(built.screen, built.present)
-		return core, system, adapter, presenter, built, handle
+		return core, system, adapter, presenter, built, handle, deps
 	end
 
 	it("✓ ex04 pointer: tapping Delete opens the modal; tapping Cancel records cancelled and dismisses", function()
 		local core, _, adapter, presenter, built, handle = ex04World()
 		adapter.tap("/DangerScreen/Page/Delete") -- mouse click opens the dialog
 		expect(presenter.depth()).toBe(2)
-		expect(presenter.focus.focused:get()).toBe("/ConfirmDialog/Center/Card/Confirm")
-		adapter.tap("/ConfirmDialog/Center/Card/Cancel") -- a tap INSIDE the modal routes normally
+		expect(presenter.focus.focused:get()).toBe("/ConfirmDialog/Center/Card/Actions/Cancel")
+		adapter.tap("/ConfirmDialog/Center/Card/Actions/Cancel") -- a tap INSIDE the modal routes normally
 		expect(built.result:get()).toBe("cancelled")
 		expect(presenter.depth()).toBe(1)
 		expect(presenter.focus.focused:get()).toBe("/DangerScreen/Page/Delete") -- restored
@@ -1971,7 +2010,7 @@ describe("examples/gallery 05: confirmation dialog", function()
 		local core, _, adapter, presenter, built, handle = ex04World()
 		adapter.tap("/DangerScreen/Page/Delete", { pointer = "touch" })
 		expect(presenter.depth()).toBe(2)
-		adapter.tap("/ConfirmDialog/Center/Card/Confirm", { pointer = "touch" })
+		adapter.tap("/ConfirmDialog/Center/Card/Actions/Confirm", { pointer = "touch" })
 		expect(built.result:get()).toBe("confirmed")
 		expect(presenter.depth()).toBe(1)
 		expect(core:lastError()).toBeNil()
@@ -2036,20 +2075,93 @@ describe("examples/gallery 05: confirmation dialog", function()
 	end)
 
 	it("the card is CENTRED, not parked in the top-left corner", function()
-		local core, _, adapter, presenter, built, handle = ex04World()
+		for _, facts in
+			{
+				{ viewportRect = { x = 0, y = 0, w = 390, h = 844 }, displaySize = "Small", preferredInput = "Touch" },
+				{
+					viewportRect = { x = 0, y = 0, w = 1280, h = 720 },
+					displaySize = "Medium",
+					preferredInput = "KeyboardAndMouse",
+				},
+				{
+					viewportRect = { x = 0, y = 0, w = 1920, h = 1080 },
+					displaySize = "Large",
+					preferredInput = "Gamepad",
+				},
+			}
+		do
+			local core, _, adapter, presenter, built, handle = ex04World(facts)
+			adapter.tap(built.deletePath)
+			presenter.refresh()
+			local screenRect = adapter.node("/ConfirmDialog").rect
+			local card = adapter.node(built.cardPath).rect
+			local confirm, cancel = adapter.node(built.confirmPath), adapter.node(built.cancelPath)
+			local prompt = adapter.node(built.cardPath .. "/Prompt")
+			local message = adapter.node(built.cardPath .. "/Message")
+			-- The card and action group are centered; each action sizes from its own label.
+			expect(math.abs((card.x + card.w / 2) - (screenRect.x + screenRect.w / 2)) <= 2).toBe(true)
+			expect(math.abs((card.y + card.h / 2) - (screenRect.y + screenRect.h / 2)) <= 2).toBe(true)
+			expect(card.w < screenRect.w and card.h < screenRect.h).toBe(true)
+			expect(confirm.rect.w > 0 and cancel.rect.w > 0).toBe(true)
+			expect(math.abs((confirm.rect.y + confirm.rect.h / 2) - (cancel.rect.y + cancel.rect.h / 2)) <= 1).toBe(
+				true
+			)
+			expect(confirm.rect.x + confirm.rect.w <= cancel.rect.x).toBe(true)
+			expect(math.abs((confirm.rect.x + cancel.rect.x + cancel.rect.w) / 2 - (card.x + card.w / 2)) <= 1).toBe(
+				true
+			)
+			expect(confirm.props.role).toBe("destructive")
+			expect(cancel.props.surface).toBe("accent")
+			expect(prompt.props.text).toBe("Delete this save?")
+			expect(message.props.text).toBe("This cannot be undone.")
+			expect(prompt.props.textAlign).toBe("center")
+			expect(message.props.textAlign).toBe("center")
+			expect(prompt.props.textSize > message.props.textSize).toBe(true)
+			expect(presenter.focus.focused:get()).toBe(built.cancelPath)
+			expect(core:lastError()).toBeNil()
+			presenter.dismiss(handle)
+		end
+
+		local longLabel = "Permanently delete this saved progress"
+		local core, system, adapter, presenter, built, handle, deps = ex04World({
+			viewportRect = { x = 0, y = 0, w = 1280, h = 720 },
+			displaySize = "Medium",
+			preferredInput = "KeyboardAndMouse",
+		}, longLabel)
 		adapter.tap(built.deletePath)
 		presenter.refresh()
-		local screenRect = adapter.node("/ConfirmDialog").rect
+		local confirm, cancel = adapter.node(built.confirmPath), adapter.node(built.cancelPath)
+		expect(confirm.props.label).toBe(longLabel)
+		expect(confirm.rect.w > cancel.rect.w).toBe(true)
+		local roomyWidth = confirm.rect.w
+		deps.env:set("viewportRect", { x = 0, y = 0, w = 320, h = 640 })
+		deps.env:set("displaySize", "Small")
+		deps.env:set("preferredInput", "Touch")
+		presenter.refresh()
+		expect(adapter.node(built.confirmPath)).toBe(confirm)
+		expect(adapter.node(built.cancelPath)).toBe(cancel)
+		expect(confirm.props.label).toBe("Delete")
+		expect(cancel.props.label).toBe("Cancel")
+		expect(confirm.rect.w < roomyWidth).toBe(true)
 		local card = adapter.node(built.cardPath).rect
-		expect(card ~= nil).toBe(true)
-		-- the card's centre sits within 2px of the scrim's centre on both axes
-		local dx = math.abs((card.x + card.w / 2) - (screenRect.x + screenRect.w / 2))
-		local dy = math.abs((card.y + card.h / 2) - (screenRect.y + screenRect.h / 2))
-		expect(dx <= 2).toBe(true)
-		expect(dy <= 2).toBe(true)
-		-- ...and it is genuinely smaller than the scrim, so "centred" means something
-		expect(card.w < screenRect.w).toBe(true)
-		expect(card.h < screenRect.h).toBe(true)
+		expect(confirm.rect.x >= card.x).toBe(true)
+		expect(confirm.rect.x + confirm.rect.w <= cancel.rect.x).toBe(true)
+		expect(cancel.rect.x + cancel.rect.w <= card.x + card.w).toBe(true)
+		for _, path in { built.confirmPath, built.cancelPath } do
+			local hit = adapter.hitRectOf(path) or adapter.node(path).rect
+			expect(hit.w >= 44 and hit.h >= 44).toBe(true)
+		end
+		expect(presenter.focus.focused:get()).toBe(built.cancelPath)
+		system.deviceKey("ButtonA", true)
+		system.deviceKey("ButtonA", false)
+		expect(built.result:get()).toBe("cancelled")
+		expect(built.hasSave:get()).toBe(true)
+		expect(presenter.depth()).toBe(1)
+		deps.env:set("viewportRect", { x = 0, y = 0, w = 1280, h = 720 })
+		adapter.tap(built.deletePath)
+		presenter.refresh()
+		expect(adapter.node(built.confirmPath).props.label).toBe(longLabel)
+		expect(presenter.focus.focused:get()).toBe(built.cancelPath)
 		expect(core:lastError()).toBeNil()
 		presenter.dismiss(handle)
 	end)
@@ -2428,6 +2540,27 @@ describe("examples/gallery fixture: withAnimation + reduced motion", function()
 			w.presenter.tick(FRAME)
 		end
 	end
+
+	it("state-driven theme tint interpolates, snaps when reduced, and cleans up with the demo", function()
+		local w, built = motionWorld()
+		expect(built.color:get()).toBe(0)
+		w.adapter.tap(RUN)
+		w.presenter.tick(FRAME)
+		expect(built.color:get() > 0 and built.color:get() < 1).toBe(true)
+		w.presenter.refresh()
+		local tint = w.adapter.node(PUCK).props.tint
+		expect(tint.from).toBe("contentSecondary")
+		expect(tint.role).toBe("accent")
+		expect(tint.blend).toBe(built.color:get())
+		built.motionMode:set("reduced")
+		w.adapter.tap(RUN)
+		expect(built.color:get()).toBe(0)
+		w.presenter.dismiss(built.handle)
+		built.dispose()
+		settleMotion(w)
+		expect(w.presenter.motionClock:activeCount()).toBe(0)
+		expect(w.core:lastError()).toBeNil()
+	end)
 
 	it("mounts under the showcase's own chrome with ZERO solver diagnostics", function()
 		for _, view in { NARROW_PORTRAIT, NARROW_LANDSCAPE, DESKTOP } do

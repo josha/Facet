@@ -37,6 +37,7 @@ local ORDER = {
 	"native_style",
 	"authoring",
 	"adaptive_controls",
+	"navigation_stack",
 	"text_controls",
 	"selection_controls",
 	"action_controls",

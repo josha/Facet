@@ -2895,7 +2895,7 @@ return {
 		-- fantasy-ornate art onto a surface the solver had measured with Studio
 		-- Neutral, and the paint seam then lifted every label by 14+14 of inset the
 		-- layout had never been told about. Live at 360x691: an `Open` button 60x46
-		-- at `TextSize = 18` — Studio Neutral's `control` size; ornate's is 17 — and
+		-- at `TextSize = 18` — Facet Neutral's `control` size; ornate's is 17 — and
 		-- every lifted label short by exactly 28 - 24 = 4px, at every control size
 		-- and every label length, because both terms are constants.
 		--

@@ -46,7 +46,7 @@ local function gladeCard(ctx: any, glade: any, rowScope: any): any
 		-- BY CLASS ALONE (`chrome_slots.classify`: "class = Button|Toggle ->
 		-- control ... including a Button that never declared a surface"), which
 		-- under the running package paints a `controls.control` fill inside a
-		-- `radii.control` (8px under Studio Neutral) rounded corner — its OWN
+		-- `radii.control` (8px under Facet Neutral) rounded corner — its OWN
 		-- chrome, wearing its OWN radius. This card's content is edge-to-edge
 		-- (`padding = 0`, a full-bleed `Scene`) and rounds ITS OWN box at
 		-- `radii.panel` (12px) via `sceneLib.glade`'s `UI.corners(_, "panel")`

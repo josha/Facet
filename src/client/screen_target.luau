@@ -7,7 +7,7 @@
 -- getInstance). Renders under PlayerGui with ZIndexBehavior=Sibling and
 -- IgnoreGuiInset=true: Facet solves insets itself (§8.1).
 --
--- STYLE: applies the "Studio Neutral" default style (src/tokens/default_style)
+-- STYLE: applies the "Facet Neutral" default style (src/tokens/default_style)
 -- or a game-compiled override passed via new({ style = ... }). All visual
 -- writes here are the STYLE authority (design §7.3): surfaces, radii,
 -- hairlines, state colors, focus ring, motion. Data writes (text/value/
@@ -323,7 +323,7 @@ function screen_target.new(opts: Opts?)
 				local model = (type(nativeOpt) == "table" and nativeOpt.model) or nil
 				if model == nil then
 					-- built-in model: the passed style is the default theme; the
-					-- built-in Light theme ships only when running Studio Neutral
+					-- built-in Light theme ships only when running Facet Neutral
 					-- (a game style carries no light variant to derive)
 					local themes = { { name = "Dark", style = baseStyle } }
 					if baseStyle == defaultStyle then
@@ -619,7 +619,7 @@ function screen_target.new(opts: Opts?)
 	-- make selection a glow."
 	--
 	-- TWO defects, stacked. (1) The ring painted itself from a STATIC accent
-	-- constant captured at construction, so it stayed Studio-Neutral blue no
+	-- constant captured at construction, so it stayed Facet-Neutral blue no
 	-- matter which package was installed — a real theme-blindness bug quite apart
 	-- from the glow. (2) A hairline ring is the wrong IDIOM under an ornate skin,
 	-- where every other edge is soft and painted.
@@ -691,7 +691,7 @@ function screen_target.new(opts: Opts?)
 		local color = if rgb ~= nil then toColor3(rgb) else nil
 		if theme ~= nil and rgb == nil and type(theme.colors) == "table" and type(theme.colors.accent) == "table" then
 			-- THE THEME-BLINDNESS FIX: a package that says nothing about focus
-			-- still gets ITS OWN accent, not Studio Neutral's blue
+			-- still gets ITS OWN accent, not Facet Neutral's blue
 			color = toColor3(theme.colors.accent)
 		end
 		focusTreatment = { kind = recipe.kind, recipe = recipe, color = color }
@@ -3004,7 +3004,8 @@ function screen_target.new(opts: Opts?)
 				by hand because a clipping host would cut an outward stroke, needs the
 				factor spelled out. ]]
 			local lift = false
-			if strong then
+			-- A label over a separate indicator must stay aligned with that plate.
+			if strong and handle.buttonRole ~= chrome_slots.ON_INDICATOR_ROLE then
 				local screenGui = instance:FindFirstAncestorWhichIsA("ScreenGui")
 				if screenGui ~= nil then
 					-- bounds = the solved ROOT node's frame (the SAFE content rect,
@@ -3132,7 +3133,7 @@ function screen_target.new(opts: Opts?)
 								target that ever installs a non-neutral package, `style.radii`
 								answers "what radius did this target boot with", never "what
 								radius is live right now" — measured: Pixel Quest's `control`
-								radius is 4px, Studio Neutral's (this showcase's boot style) is
+								radius is 4px, Facet Neutral's (this showcase's boot style) is
 								8px, and every fallback ring stayed at 8px under every package
 								until this fix, on the FIRST focus after a swap, not only one
 								that survived it. `activeThemeSnapshot` is the SAME
@@ -3191,7 +3192,7 @@ function screen_target.new(opts: Opts?)
 					stroke.Name = "FocusRing"
 					-- THEMED, not the constant this used to capture: a package's
 					-- own accent, live, so a parchment ring is ink-and-gold rather
-					-- than Studio Neutral's blue
+					-- than Facet Neutral's blue
 					stroke.Color = focusColor()
 					stroke.Thickness = thickness
 					stroke.Transparency = 0
@@ -3299,6 +3300,13 @@ function screen_target.new(opts: Opts?)
 	function adapter.setProp(handle: any, prop: string, value: any, authority: string)
 		ensureInstance(handle)
 		props.setProp(handle, prop, value, authority)
+		if prop == "role" and handle.class == "Button" then
+			handle.buttonRole = value
+			local profile = focusedHandles[handle]
+			if profile ~= nil then
+				adapter.setFocusVisual(handle, true, profile)
+			end
+		end
 	end
 
 	-- an elided node has nothing on screen to order

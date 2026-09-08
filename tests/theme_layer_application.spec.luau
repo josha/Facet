@@ -599,7 +599,7 @@ describe("screen_target: the layer ladder is materialized as the plan describes"
 		-- decoration; the ladder did not, so a swap from a layered package to a
 		-- flat one left an orphan `FacetChromeText` still boxed by the OUTGOING
 		-- recipe's contentInsets. Measured live at the director round: after
-		-- fantasy-ornate -> studio-neutral the toolbar's three buttons each kept a
+		-- fantasy-ornate -> facet-neutral the toolbar's three buttons each kept a
 		-- lift at `{1, -28}` inside a 36px box — minus sixteen pixels wide. It drew
 		-- nothing at that size, which is exactly why it survived.
 		local destroy = section("local function destroyChromeStack", "\n\tend")

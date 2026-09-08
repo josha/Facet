@@ -657,7 +657,7 @@ describe("RS-DIR9: the Toggle's label column is ONE description, not two", funct
 
 	it("the neutral answer is byte-identical to the constants the adapter used to carry", function()
 		-- the compatibility statement: `space.s + 4` and `space.m` of the boot
-		-- style happened to equal `trackInset` and the gap under Studio Neutral,
+		-- style happened to equal `trackInset` and the gap under Facet Neutral,
 		-- which is exactly why the divergence hid for four stages
 		local pad = themeSnapshot.toggleRowPadding(themeSnapshot.neutral())
 		expect(pad.left).toBe(12)
@@ -769,13 +769,13 @@ describe("RS-DIR13: a value flip is PAINT — it moves no solved geometry", func
 	end
 
 	it("is byte-stable across repeated flips, in every reference package", function()
-		local names: { string } = { "studio-neutral" }
+		local names: { string } = { "facet-neutral" }
 		for name in PACKAGES do
 			table.insert(names, name)
 		end
 		table.sort(names)
 		for _, name in names do
-			local pkg = if name == "studio-neutral"
+			local pkg = if name == "facet-neutral"
 				then Facet.themes.neutralPackage()
 				else (PACKAGES[name] :: any).build(Facet.themes)
 			local w = world(pkg)
@@ -811,7 +811,7 @@ describe("RS-DIR13: a Toggle's label is ONE line — it never breaks mid-word", 
 	-- THE DEFECT, measured live 2026-07-26 (Studio 0.731, 1233x1067, native
 	-- StyleSheets on). The reserved label column is `ceil(measured width)` and the
 	-- engine draws exactly that, so under four of nine reference packages the
-	-- column and the drawn bounds are EQUAL to the pixel: Studio Neutral 35/35,
+	-- column and the drawn bounds are EQUAL to the pixel: Facet Neutral 35/35,
 	-- classic-desktop 28/28, and the ValueProbe's "Candlelight" at 67/67 (neutral)
 	-- and 73/73 (sci-fi). With `TextWrapped = true` a one-pixel shortfall does not
 	-- clip — it BREAKS THE WORD: perturbing the live Music row by −1 px collapsed

@@ -75,6 +75,7 @@ local POST_ADR_NAMES: { string } = {
 	"Toggle",
 	"ComboBox",
 	"SplitButton",
+	"NavigationStack",
 	-- scaffold: new control names are appended above this line
 }
 
