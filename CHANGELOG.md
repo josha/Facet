@@ -59,6 +59,17 @@ runtime as `Facet.VERSION`.
   [`AGENTS.md`](AGENTS.md), a `skills/use-facet/` skill, and continuous
   integration plus issue and pull-request templates under `.github/`.
 
+### Fixed
+
+- **An authored hide that moves during a solve now lands on the next drain.** A
+  `hidden` flip made from inside the presenter's geometry feed was swallowed
+  for the life of the surface, so a segmented `Picker`'s selection indicator
+  never painted until a real slide ticked. The renderer now forces the solve
+  that owes the walk when the re-read value actually moved.
+- **A `UI.Path`'s stroke is born at, and follows, its node's paint order, and its
+  geometry is uploaded once.** The screen target never gave a `Path2D` its
+  `ZIndex` and re-sent unchanged control points on every rect write.
+
 ### Changed
 
 - **A segmented `Picker`'s selected option is readable on its own chip.** The

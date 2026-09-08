@@ -291,7 +291,7 @@ describe("inherited_subtree showcase: beat 4 — the dynamic toggle, per paradig
 	end)
 end)
 
---[[ THE EXACT DETERMINISTIC LANDING (D-review round 1, Important #1). Disabling
+--[[ THE EXACT DETERMINISTIC LANDING (2026-09-07). Disabling
 	`Go` removes it from the ring at its own index, and `After` — the NEXT stop
 	in document order — shifts into that slot: "remove and keep index, clamp at
 	the end", the same rule `tests/inherited_subtree.spec.luau:936-938`'s own
