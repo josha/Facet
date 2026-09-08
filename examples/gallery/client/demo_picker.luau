@@ -145,6 +145,27 @@ demo_picker.DEMOS = {
 		kind = "fixture",
 		module = "adaptive_controls",
 	},
+	{
+		id = "text-controls",
+		title = "Writing and search",
+		blurb = "Native notes, track search and validated numbers",
+		kind = "fixture",
+		module = "text_controls",
+	},
+	{
+		id = "selection-controls",
+		title = "Choices and filters",
+		blurb = "Checkboxes, radio groups, search, tags and editable choices",
+		kind = "fixture",
+		module = "selection_controls",
+	},
+	{
+		id = "action-controls",
+		title = "Actions and menus",
+		blurb = "Busy actions, hold to repeat, shortcuts and stateful menus",
+		kind = "fixture",
+		module = "action_controls",
+	},
 	-- the second fixture, for the same reason the first one leads: swipe row
 	-- actions are a FEEL feature, and this is the surface a device pass drives
 	-- (its ModeBar switches the same mail model between the hand-wrapped list,

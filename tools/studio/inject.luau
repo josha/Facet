@@ -6,7 +6,7 @@
 --   ReplicatedStorage.Facet            (library, src/)
 --   ReplicatedStorage.FacetExamples    (tutorial examples)
 --   ReplicatedStorage.FacetScenarios   (verification scenarios + runner)
---   StarterPlayer.StarterPlayerScripts.Gallery (client bootstrap)
+--   ReplicatedStorage.Gallery (client bootstrap)
 -- Idempotent: existing nodes are patched in place (module require cache means
 -- a PLAY session always sees fresh sources because play-mode copies re-require;
 -- a module result is cached for a whole play session).
@@ -115,6 +115,26 @@ for idx, entry in ipairs(manifest.files) do
 	end
 end
 
+-- Migrate the gallery's former starter location only after a complete sync.
+-- Matching source identifies our bootstrap and preserves unrelated user scripts.
+local migratedBootstrap = false
+if #refused + #failed == 0 then
+	local modern = game:GetService("ReplicatedStorage"):FindFirstChild("Gallery")
+	local starter = game:GetService("StarterPlayer"):FindFirstChild("StarterPlayerScripts")
+	local legacy = starter and starter:FindFirstChild("Gallery")
+	if
+		modern
+		and modern:IsA("Script")
+		and modern.RunContext == Enum.RunContext.Client
+		and legacy
+		and (legacy:IsA("LocalScript") or legacy:IsA("Script"))
+		and (string.find(legacy.Source, "FacetScenarios", 1, true) or legacy.Source == modern.Source)
+	then
+		legacy:Destroy()
+		migratedBootstrap = true
+	end
+end
+
 workspace:SetAttribute("Facet_SourceStamp", manifest.stamp)
 -- The stamp describes the manifest, NOT the place, whenever anything was
 -- refused — say so on the attribute too, so a preflight that only reads the
@@ -122,6 +142,7 @@ workspace:SetAttribute("Facet_SourceStamp", manifest.stamp)
 workspace:SetAttribute("Facet_SourceStale", #refused + #failed)
 return HttpService:JSONEncode({
 	stamp = manifest.stamp,
+	migratedBootstrap = migratedBootstrap,
 	nodes = #manifest.files,
 	created = created,
 	patched = patched,

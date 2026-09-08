@@ -147,9 +147,18 @@ function menu_recipe.rowHeightFor(presentation: string): string
 end
 
 export type Row = {
+	width: any?,
+	textSize: any?,
+	iconOnly: boolean?,
+	core: any?, -- required with scope for readable icon or badge
+	scope: any?,
+	badge: any?, -- string | number | Readable; empty removes the badge paint
+	description: any?,
+	markHidden: any?,
+	indicator: string?,
 	id: string, -- the path segment, already prefixed by the caller
 	label: any, -- string | number | Readable — the SEMANTIC name, always present
-	icon: string?, -- semantic icon NAME, never an asset id
+	icon: any?, -- semantic icon NAME or Readable<string?>, never an asset id
 	role: string?, -- "default" (the fallback) | "destructive"
 	enabled: any?, -- boolean | Readable<boolean>
 	selected: any?, -- Readable<boolean>, for a menu that also marks a current value
@@ -162,6 +171,144 @@ export type Row = {
 	init cycle every control avoids the same way. ]]
 function menu_recipe.row(UI: any, row: Row): any
 	local height = { type = "fixed", px = row.height or menu_recipe.ROW_HEIGHT }
+	local function readable(value)
+		return type(value) == "table" and (value.kind == "signal" or value.kind == "memo")
+	end
+	local function read(value, use)
+		return if readable(value) then use(value) else value
+	end
+	local liveIcon = readable(row.icon)
+	if liveIcon or readable(row.badge) then
+		assert(row.core and row.scope, "menu row: readable icon and badge require core and scope")
+	end
+
+	if row.description ~= nil or row.indicator ~= nil or liveIcon or row.badge ~= nil then
+		local content = {}
+		if row.indicator ~= nil then
+			local ring = chrome_slots.attachHint(
+				UI.Text({
+					id = "Outline",
+					hidden = row.selected,
+					text = if row.indicator == "radio" then "o" else "[]",
+					textSize = "control",
+					textAlign = "center",
+					width = { type = "fill", weight = 1 },
+				}),
+				{ icon = if row.indicator == "radio" then "facet:selection.radio.off" else "facet:selection.check.off" }
+			)
+			local mark = chrome_slots.attachHint(
+				UI.Text({
+					id = "Mark",
+					hidden = row.markHidden,
+					text = if row.indicator == "radio" then "*" else themePackage.iconGlyph("checkmark"),
+					textSize = "control",
+					textAlign = "center",
+					width = { type = "fill", weight = 1 },
+				}),
+				{ icon = if row.indicator == "radio" then "facet:selection.radio.on" else "checkmark" }
+			)
+			table.insert(
+				content,
+				UI.ZStack({
+					id = "Indicator",
+					width = { type = "minMax", min = "l" },
+					height = { type = "minMax", min = "l" },
+					children = { ring, mark },
+				})
+			)
+		end
+		local function iconView(icon)
+			return chrome_slots.attachHint(
+				UI.Text({
+					id = "Icon",
+					text = themePackage.iconGlyph(icon) or "•",
+					textSize = row.textSize or "control",
+					width = { type = "minMax", min = "l" },
+				}),
+				{ icon = icon }
+			)
+		end
+		if liveIcon then
+			local icons = row.scope:own(row.core:memo(function(use)
+				local icon = read(row.icon, use)
+				return if icon == nil or icon == "" then {} else { icon }
+			end))
+			table.insert(
+				content,
+				UI.ForEach({
+					id = "Icons",
+					items = icons,
+					key = function(icon)
+						return icon
+					end,
+					row = function(icon)
+						return iconView(icon)
+					end,
+				})
+			)
+		elseif row.icon ~= nil then
+			table.insert(content, iconView(row.icon))
+		end
+
+		if not row.iconOnly then
+			local labels = {
+				UI.Text({
+					id = "Label",
+					text = row.label,
+					textSize = row.textSize or "control",
+					width = { type = "fill", weight = 1 },
+				}),
+			}
+			if row.description ~= nil then
+				table.insert(
+					labels,
+					UI.Text({
+						id = "Description",
+						text = row.description,
+						textSize = "caption",
+						role = "secondary",
+						width = { type = "fill", weight = 1 },
+					})
+				)
+			end
+			table.insert(content, UI.VStack({ gap = "xs", width = { type = "fill", weight = 1 }, children = labels }))
+		end
+		if row.badge ~= nil then
+			local badge = if readable(row.badge)
+				then row.scope:own(row.core:memo(function(use)
+					local value = read(row.badge, use)
+					return if value == nil then "" else tostring(value)
+				end))
+				else tostring(row.badge)
+			local hidden = if readable(badge)
+				then row.scope:own(row.core:memo(function(use)
+					return use(badge) == ""
+				end))
+				else badge == ""
+			table.insert(
+				content,
+				UI.Text({
+					id = "Badge",
+					text = badge,
+					hidden = hidden,
+					surface = "badge",
+					textSize = "caption",
+					padding = { left = "xs", right = "xs" },
+					corners = UI.cornersData("pill"),
+				})
+			)
+		end
+		return UI.Button({
+			id = row.id,
+			label = row.label,
+			role = if row.role == "destructive" then "destructive" else "default",
+			enabled = row.enabled,
+			selected = row.selected,
+			width = row.width or { type = "fill", weight = 1 },
+			height = { type = "minMax", min = row.height or "targetSizes.minimum" },
+			children = { UI.HStack({ gap = "s", width = { type = "fill", weight = 1 }, children = content }) },
+		})
+	end
 	if row.submenu ~= true then
 		-- THE SHIPPED LEAF ROW, unchanged from `row_actions.buildMenuRows`.
 		return UI.Button({

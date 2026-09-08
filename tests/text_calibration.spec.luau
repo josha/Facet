@@ -102,10 +102,17 @@ describe("text_metrics: consecutive spaces are reserved, not collapsed", functio
 		end
 	end)
 
-	it("a gap made of a NEWLINE still counts as one, so embedded newlines are unchanged", function()
+	it("hard breaks reserve distinct lines, including trailing and empty lines", function()
 		local withNewline = text_metrics.measure("a\nb", FONT, SIZE, 10000)
-		local withSpace = text_metrics.measure("a b", FONT, SIZE, 10000)
-		expect(withNewline.width).toBe(withSpace.width)
+		expect(withNewline.lines).toBe(2)
+		expect(withNewline.width).toBe(text_metrics.measure("a", FONT, SIZE, 10000).width)
+		expect(text_metrics.measure("\na\n\nb\n", FONT, SIZE, 10000).lines).toBe(5)
+		expect(text_metrics.measure("\n\n", FONT, SIZE, 10000).lines).toBe(3)
+		expect(text_metrics.measure("a\r\nb\r\n", FONT, SIZE, 10000).lines).toBe(3)
+		local capped = text_metrics.measure("a\nb\nc", FONT, SIZE, 10000, nil, 2)
+		expect(capped.lines).toBe(2)
+		expect(capped.naturalLines).toBe(3)
+		expect(capped.truncated).toBe(true)
 	end)
 
 	it("leading and trailing whitespace still reserve nothing", function()

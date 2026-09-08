@@ -594,28 +594,9 @@ describe("RowActions flight — C8a: a destructive commit leaves nothing standin
 end)
 
 describe("RowActions flight — the commit's own handoff (director device round 2026-08-13)", function()
-	--[[ VERBATIM: "there's an odd pause once the row goes away before the others
-		animate up after i swipe and click delete."
+	-- Collapse follows visual departure, before the spring's long numeric tail.
+	-- Starting both flights together leaves departing paint over rising rows.
 
-		MEASURED on the playlist example before the fix: the slide carried the row
-		off-screen over frames 1-38 (gone from view by about frame 20), then NOTHING
-		in the whole tree moved for 27 frames (~0.45s), and only at frame 65 did the
-		height collapse begin and the rows below start closing the gap.
-
-		The cause was this control chaining slide-off -> collapse on
-		`spring:onSettle`, the NUMERIC settle (`|x - target| <= 1e-3 AND |v| <=
-		1e-3`), on the largest position-domain spring in the library. `spring.luau`'s
-		own header warns about precisely that, and `chase.luau` already carries the
-		answer — perceptual arrival is a RADIUS, settle is only the fallback.
-
-		WHAT THIS CASE ASSERTS is the symptom, not the implementation: the collapse
-		must begin while the slide is still visibly moving, or within a frame or two
-		of it stopping. It deliberately does NOT pin the radius, the spring class or
-		the frame numbers — any of those may be retuned; a dead window may not
-		reappear. It also deliberately measures only up to the fire, because the
-		collapse's OWN settle tail plays out on a row already at zero height, where
-		being late costs nothing and is not what the director saw.
-	]]
 	it("the collapse begins as the slide ARRIVES, not when it numerically settles", function()
 		local fired: { string } = {}
 		-- 703px: the width a playlist row actually solves to on the phone the
@@ -655,47 +636,72 @@ describe("RowActions flight — the commit's own handoff (director device round 
 		end
 		expect(#fired).toBe(1)
 
-		--[[ THE TWO QUANTITIES, AND WHY NOT THE OBVIOUS ONE ─────────────────
-			The first metric tried here was "frames between the slide finishing
-			and the collapse starting", and it did not bite: after the action
-			fires, `finishCommit` springs the row HOME from a full row width
-			away, and that homeward flight is the LAST visible slide in the
-			trace. The measure was reading the wrong flight.
-
-			So: the OUTBOUND slide only — frames on which |offset| is still
-			growing — against the first frame the height moves. The claim is
-			that the collapse begins while the row is still flying out, which
-			is what "concurrent, not chained" means and what the eye reads as
-			a single motion. Measured: frame 2 concurrent, frame 66 when
-			chained on the slide's numeric settle.
-		]]
-		local lastOutboundSlide, firstHeightChange = 0, nil :: number?
-		for i = 2, #samples do
-			local prev, cur = samples[i - 1], samples[i]
-			if math.abs(cur.offset) - math.abs(prev.offset) >= 1 then
-				lastOutboundSlide = i
+		-- A disappearing row must be out of view before its neighbours rise.
+		-- A one-pixel arrival tolerance avoids the spring's invisible settle tail.
+		local firstArrival, firstCollapse = nil, nil
+		local width = w.rect(ROW).w
+		for i, sample in samples do
+			if firstArrival == nil and width - math.abs(sample.offset) <= 1 then
+				firstArrival = i
 			end
-			if firstHeightChange == nil and math.abs(cur.rowH - prev.rowH) >= 1 then
-				firstHeightChange = i
+			if restHeight - sample.rowH >= 1 then
+				firstCollapse = firstCollapse or i
+				expect(width - math.abs(sample.offset) <= 1).toBe(true)
 			end
 		end
-		-- both halves of the animation must actually have happened, or the
-		-- comparison below is between two numbers that mean nothing
-		expect(`the row never flew out at all over {#samples} frames: {lastOutboundSlide > 1}`).toBe(
-			`the row never flew out at all over {#samples} frames: true`
-		)
-		expect(`the height never collapsed at all over {#samples} frames: {firstHeightChange ~= nil}`).toBe(
-			`the height never collapsed at all over {#samples} frames: true`
-		)
-		local began = firstHeightChange :: number
-		expect(`collapse began on frame {began}, outbound slide ran to frame {lastOutboundSlide}`).toBe(
-			`collapse began on frame {math.min(began, lastOutboundSlide)}, outbound slide ran to frame {lastOutboundSlide}`
-		)
+		expect(firstArrival ~= nil).toBe(true)
+		expect(firstCollapse ~= nil).toBe(true)
+		expect(firstCollapse >= firstArrival and firstCollapse - firstArrival <= 2).toBe(true)
+
 		local detail = {}
 		for _, d in w.diagnostics() do
 			table.insert(detail, `{d.node or "?"}: {d.issue or "?"}`)
 		end
 		expect(`diagnostics: {table.concat(detail, " / ")}`).toBe("diagnostics: ")
+	end)
+
+	it("a fast right-to-left reversal departs before the row height shrinks", function()
+		local fired: { string } = {}
+		local w = flight(function(core)
+			return twoActionRow(core, fired)
+		end, nil, 703)
+		w.run(3)
+		local rest = w.rect(ROW)
+		w.adapter.pointerDown(HIT, 350, 20, "touch")
+		w.step()
+		w.adapter.pointerMove(400, 20)
+		w.step()
+		w.adapter.pointerMove(100, 20)
+		w.step()
+		w.adapter.pointerUp(80, 20)
+		expect(w.ra.dump().phase).toBe("committing")
+		local collapsed = false
+		for _ = 1, 180 do
+			local sample = w.step()
+			if sample.rowH < rest.h - 1 then
+				collapsed = true
+				expect(rest.w - math.abs(sample.offset) <= 1).toBe(true)
+			end
+			if #fired > 0 then
+				break
+			end
+		end
+		expect(collapsed).toBe(true)
+		expect(#fired).toBe(1)
+		expect(fired[1]).toBe("delete")
+	end)
+
+	it("disposing during departure cancels the pending collapse and action", function()
+		local fired: { string } = {}
+		local w = flight(function(core)
+			return twoActionRow(core, fired)
+		end)
+		w.run(3)
+		w.ra._commitFirst("trailing")
+		w.step()
+		w.ra.dispose()
+		w.run(180)
+		expect(#fired).toBe(0)
 	end)
 
 	-- ...and the handoff still happens EXACTLY ONCE. The radius and the settle are
@@ -883,4 +889,118 @@ describe("RowActions flight — the plate's DECORATION never paints past the ban
 		end
 		expect(`overhang: {string.format("%.2f", worstOverhang)}px {worstDetail}`).toBe("overhang: 0.00px ")
 	end)
+end)
+
+describe("RowActions departure clipping", function()
+	-- A row-width translation is insufficient inside a padded scrolling window:
+	-- the old row's last inset and shadow remain visible while the next row rises.
+	for _, theme in { "neutral", "fantasy_ornate" } do
+		for _, mode in
+			{ { wired = true, scroll = true }, { wired = false, scroll = true }, { wired = false, scroll = false } }
+		do
+			local wired = mode.wired
+			for _, edge in { "leading", "trailing" } do
+				it(
+					`{theme} {edge} deletion clears its window before reflow (explicit env: {wired}, scroll: {mode.scroll})`,
+					function()
+						local metrics = if theme == "neutral"
+							then themeSnapshot.neutral()
+							else Facet.themes.resolve(
+								require("../examples/themes/fantasy_ornate").build(Facet.themes),
+								nil,
+								{}
+							)
+						local now = 0
+						local w = require("./lib/world").new({
+							viewport = { x = 0, y = 0, w = 1200, h = 600 },
+							themeMetrics = if wired then metrics else themeSnapshot.neutral(),
+							presenterOpts = {
+								now = function()
+									return now
+								end,
+							},
+						})
+						local fired = 0
+						local action = {
+							id = "delete",
+							label = "Delete",
+							role = "destructive",
+							onAction = function()
+								fired += 1
+							end,
+						}
+						local row = Facet.Controls.RowActions(w.core, {
+							id = "Row",
+							env = if wired then w.env else nil,
+							leading = if edge == "leading" then { action } else nil,
+							trailing = if edge == "trailing" then { action } else nil,
+							content = Facet.UI.Box({
+								id = "Body",
+								surface = "chip",
+								height = { type = "fixed", px = 70 },
+								width = { type = "fill" },
+							}),
+						})
+						w.present(Facet.UI.Screen({
+							id = "S",
+							padding = 16,
+							children = {
+								(if mode.scroll then Facet.UI.ScrollView else Facet.UI.VStack)({
+									id = "Scroll",
+									width = { type = "fill" },
+									height = { type = "fixed", px = 300 },
+									children = {
+										Facet.UI.VStack({
+											id = "Rows",
+											padding = 17,
+											width = { type = "fill" },
+											children = {
+												row.blueprint,
+												Facet.UI.Box({ id = "Next", height = { type = "fixed", px = 70 } }),
+											},
+										}),
+									},
+								}),
+							},
+						}))
+						-- The implicit environment must stay live across theme changes.
+						if not wired then
+							w.env:set("themeMetrics", metrics)
+							w.pres.refresh()
+						end
+						local path = "/S/Scroll/Rows/Row"
+						local rest = w.controller.screenRectOf(path)
+						local host = w.controller.scrollHostFor(path)
+						local clip = if host then host.rect else w.env:get("viewportRect"):get()
+						local nextY = w.controller.screenRectOf("/S/Scroll/Rows/Next").y
+						expect(rest.x > clip.x).toBe(true)
+						row._commitFirst(edge)
+						local collapsed = false
+						for _ = 1, 240 do
+							now += FRAME
+							w.pres.tick(FRAME)
+							w.pres.refresh()
+							if w.controller.screenRectOf("/S/Scroll/Rows/Next").y < nextY - 1 then
+								collapsed = true
+								local paint = w.controller.screenRectOf(path .. "/Content/Body")
+								local bleed = metrics.chromeBleed or 0
+								if edge == "trailing" then
+									expect(paint.x + paint.w + bleed <= clip.x).toBe(true)
+								else
+									expect(paint.x - bleed >= clip.x + clip.w).toBe(true)
+								end
+							end
+							if fired > 0 then
+								break
+							end
+						end
+						expect(collapsed).toBe(true)
+						expect(fired).toBe(1)
+						w.pres.dismiss(w.handle)
+						row.dispose()
+					end
+				)
+			end
+		end
+	end
 end)

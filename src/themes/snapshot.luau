@@ -1816,6 +1816,14 @@ function snapshot.resolve(package: any, themeName: string?, facts: Facts?, overr
 		buttonFamily.height = out.targetSizes.minimum
 	end
 
+	-- Additive resolved defaults preserve authored package stamps.
+	if type(out.controls.popup.panelWidth) ~= "number" then
+		out.controls.popup.panelWidth = out.targetSizes.minimum * (360 / 44)
+	end
+	if type(out.controls.textInput.multilineHeight) ~= "number" then
+		out.controls.textInput.multilineHeight = out.targetSizes.minimum * 4
+	end
+
 	--[[ 4a-ante. THE SCREEN-EDGE GUTTER, WITH A FLOOR (DIR wave contract 6,
 		2026-08-18; device round 2026-08-17).
 

@@ -51,6 +51,7 @@
 local authority = require("./authority")
 local layout_node = require("./layout_node")
 local themeSnapshot = require("../themes/snapshot")
+local chromeSlots = require("../tokens/chrome_slots")
 -- the ONE reading of the `textSize = "fit"` grammar (shared with the schema and
 -- with `render/layout_node.textOf`, which resolves the band the solver picks from)
 local textFit = require("../layout/text_fit")
@@ -1178,7 +1179,10 @@ function commit_walks.new(ctx: CommitCtx)
 				local roleName, role =
 					themeSnapshot.effectiveTypeRole(metrics, node.class, node.props and node.props.textSize)
 				if role ~= nil then
-					if lastTextFont[node.path] ~= role.fontKey then
+					local fontStamp = if node.class == "TextField"
+						then role.fontKey .. "/" .. tostring(role.lineHeight)
+						else role.fontKey
+					if lastTextFont[node.path] ~= fontStamp then
 						authority.assertWrite(node.class, "textFont", "layout")
 						adapter.setProp(handles[node.path], "textFont", {
 							role = roleName,
@@ -1186,8 +1190,9 @@ function commit_walks.new(ctx: CommitCtx)
 							family = role.font.family,
 							weight = role.font.weight,
 							style = role.font.style,
+							lineHeight = if node.class == "TextField" then role.lineHeight else nil,
 						}, "layout")
-						lastTextFont[node.path] = role.fontKey
+						lastTextFont[node.path] = fontStamp
 						stats.propWrites += 1
 					end
 				end
@@ -1222,7 +1227,7 @@ function commit_walks.new(ctx: CommitCtx)
 	--
 	-- Guarded on an AUTHORED value: an unpadded Text — every Text on every shipped
 	-- screen but these — raises no write and materializes no engine modifier.
-	local function padding(rootNode: any, metrics: any)
+	local function padding(rootNode: any, metrics: any, layoutNodes: any?)
 		local visits = 0
 		-- `chosen`: see `harvest`'s walk (C4)
 		local function walk(node: any, chosen: boolean)
@@ -1233,6 +1238,11 @@ function commit_walks.new(ctx: CommitCtx)
 			local pad: any = nil
 			if node.class == "Button" then
 				pad = themeSnapshot.buttonPadding(metrics, node.props)
+			elseif node.class == "TextField" then
+				-- Native editing spends the exact four sides used to measure its
+				-- content, including the current skin's reserved border.
+				local entry = if layoutNodes ~= nil then layoutNodes[node] else nil
+				pad = if entry ~= nil then entry.built.padding else metrics.controls.textInput.padding
 			elseif node.class == "Text" then
 				if node.props ~= nil and node.props.padding ~= nil then
 					pad = themeSnapshot.resolveSides(metrics, node.props.padding)
@@ -1796,6 +1806,9 @@ function commit_walks.new(ctx: CommitCtx)
 					-- reachable.
 					-- Zero for every package that declares no shadow.
 					local bleed = if type(metrics.chromeBleed) == "number" then metrics.chromeBleed else 0
+					if bleed > 0 and chromeSlots.hasOnlyPlainLeaves(node) then
+						bleed = 0
+					end
 					local region = {
 						axis = props.axis or "y",
 						contentW = entry.contentSize.w + pl + pr + bleed,

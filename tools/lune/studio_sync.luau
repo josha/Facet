@@ -9,7 +9,7 @@
 -- Manifest maps repository files onto the gallery Rojo tree
 -- (examples/gallery.project.json): src -> ReplicatedStorage.Facet,
 -- examples/gallery/examples -> ReplicatedStorage.FacetExamples,
--- examples/gallery/client -> StarterPlayer.StarterPlayerScripts.Gallery.
+-- examples/gallery/client -> ReplicatedStorage.Gallery.
 -- Rojo folding: <dir>/init.luau => ModuleScript named <dir> whose Source is the
 -- init file; sibling .luau files => child ModuleScripts. *.spec.luau excluded.
 -- The manifest carries a content stamp so a Studio session can prove exactly
@@ -50,6 +50,7 @@ local entries: { FileEntry } = studio_tree.entries(mode)
 -- just built". A stamp that can certify a state it does not describe is worse
 -- than no stamp. 123 files is nothing to re-read.
 local function buildManifest(): any
+	entries = studio_tree.entries(mode)
 	local stampParts: { string } = {}
 	local totalBytes = 0
 	for _, e in entries do

@@ -155,18 +155,22 @@ replacement and their earliest removal version.
 | `UI.Text` | Draws a string, with fitting, wrapping, and reveal options. | [api](../reference/api.md#text) |
 | `UI.Image` | Draws one image asset. | [api](../reference/api.md#image) |
 | `UI.Button` | The pressable primitive every input class can reach. | [api](../reference/api.md#button) |
-| `UI.Toggle` | A two-state switch primitive. | [api](../reference/api.md#toggle) |
-| `UI.TextField` | The raw single-line text-entry primitive. | [api](../reference/api.md#textfield) |
+| `Controls.Toggle` | Switch, mixed checkbox, and persistent toggle button with caller-owned boolean state. | [api](../reference/api.md#controlstoggle) |
+| `Controls.Button` | Busy progress, cancellable hold repeat, scoped shortcuts and dialog actions. | [api](../reference/api.md#controlsbutton) |
+| `Controls.SplitButton` | Independent primary action and anchored menu affordance. | [api](../reference/api.md#controlssplitbutton) |
+| `Controls.ComboBox` | Native draft editing, supplied suggestions and explicitly validated custom values. | [api](../reference/api.md#controlscombobox) |
+| `UI.Toggle` | A two-state switch primitive. Use Controls.Toggle for checkbox and toggle-button presentations. | [api](../reference/api.md#toggle) |
+| `UI.TextField` | Native single-line or multiline text-entry primitive. | [api](../reference/api.md#textfield) |
 | `UI.Path` | Draws a stroked path from points or from `pathShapes`. | [api](../reference/api.md#path) |
 | `Controls.Label` | An icon-and-text pair that compacts when space runs out. | [api](../reference/api.md#newlabel) |
 | `Controls.Chip` | A selectable filter or action pill. | [api](../reference/api.md#newchip) |
 | `Controls.Slider` | A continuous value you drag, step, or adjust. | [api](../reference/api.md#newslider) |
 | `Controls.Stepper` | A value with minus and plus buttons. | [api](../reference/api.md#newstepper) |
 | `Controls.Rating` | A star-style rating input. | [api](../reference/api.md#newrating) |
-| `Controls.Picker` | A segmented or inline chooser over a small option set. | [api](../reference/api.md#newpicker) |
-| `Controls.PopupButton` | A button that opens a popup of selectable options. | [api](../reference/api.md#newpopupbutton) |
-| `Controls.Menu` | A verb menu, with icons, anchored to what opened it. | [api](../reference/api.md#newmenu) |
-| `Controls.TextInput` | A single-line text-entry control with commit and cancel. | [api](../reference/api.md#newtextinput) |
+| `Controls.Picker` | Radio, segmented and inline single selection with live options. | [api](../reference/api.md#newpicker) |
+| `Controls.PopupButton` | Supplied-value selection, search and caller-owned multiple selection. | [api](../reference/api.md#newpopupbutton) |
+| `Controls.Menu` | Anchored actions, checks, radio groups and nested submenus. | [api](../reference/api.md#newmenu) |
+| `Controls.TextInput` | Native plain, search, numeric and multiline editing with commit and cancel. | [api](../reference/api.md#newtextinput) |
 | `Controls.ProgressView` | A determinate or indeterminate bar or ring. | [api](../reference/api.md#newprogressview) |
 | `Controls.DisclosureGroup` | A header that expands and collapses its content. | [api](../reference/api.md#newdisclosuregroup) |
 | `Controls.LevelPicker` | A ranked level chooser with locked and cleared states. | [api](../reference/api.md#newlevelpicker) |
@@ -234,7 +238,7 @@ replacement and their earliest removal version.
 | Capability | What it does | Reference |
 |---|---|---|
 | `newCore` | Creates the reactive runtime: signals, memos, effects, scopes. | [api](../reference/api.md#newcore) |
-| `preload` | Force-loads the four controls Facet defers, for the loading-screen moment. | [api](../reference/api.md#preload) |
+| `preload` | Force-loads the eight controls Facet defers, for the loading-screen moment. | [api](../reference/api.md#preload) |
 | `mount` | Turns a blueprint description into a live node graph. | [api](../reference/api.md#mount) |
 | `UI.When` | Shows one branch or the other, and disposes the branch it drops. | [api](../reference/api.md#when) |
 | `UI.ErrorBoundary` | Contains a failing subtree instead of losing the screen. | [api](../reference/api.md#errorboundary) |

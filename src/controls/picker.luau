@@ -156,6 +156,7 @@
 -- shipped before D5 is byte-identical.
 
 local chrome_slots = require("../tokens/chrome_slots")
+local coreContract = require("../core/contract")
 local controlContract = require("../class_contract")
 local contribution = require("../input/contribution")
 local selectionIndicator = require("./selection_indicator")
@@ -163,6 +164,8 @@ local specGuard = require("../spec_guard")
 local surfaceEnv = require("../env/surface_env")
 local themeSnapshot = require("../themes/snapshot")
 
+local selectionModel = require("../selection_model")
+local menuRecipe = require("./menu_recipe")
 local picker = {}
 
 -- `icon` is a SEMANTIC NAME ("close", "chevron.trailing", a namespaced
@@ -171,14 +174,17 @@ local picker = {}
 -- and a terse localized name live). `badge` is the count seal — a string, a
 -- number, or a Readable of either; an empty one hides the plate rather than
 -- painting an empty bubble.
-export type Option = { value: any, label: any, icon: string?, badge: any? }
+export type Option =
+	{ id: string?, value: any, label: any, icon: string?, badge: any?, enabled: any?, description: any? }
 
 export type Spec = {
+	required: boolean?,
+	onChanging: ((any, any) -> boolean)?,
 	id: string?,
 	label: string?,
-	options: { Option },
+	options: { Option } | coreContract.Readable<{ Option }>,
 	selected: any, -- owner-held Signal
-	presentation: string?, -- "automatic" (default) | "segmented" | "inline"
+	presentation: string?, -- "automatic" (default) | "segmented" | "inline" | "radio"
 	-- "automatic" (default) | "none" | "underline" | "pill" — the D4 sliding
 	-- selection indicator. "automatic" is the PILL unless `presentation =
 	-- "inline"` was declared, in which case it is "none" (see the header).
@@ -214,7 +220,7 @@ export type Spec = {
 	onChange: ((value: any) -> ())?,
 }
 
-local PRESENTATIONS: { [string]: boolean } = { automatic = true, segmented = true, inline = true }
+local PRESENTATIONS: { [string]: boolean } = { automatic = true, segmented = true, inline = true, radio = true }
 local INDICATORS: { [string]: boolean } = { automatic = true, none = true, underline = true, pill = true }
 local AXES: { [string]: boolean } = { x = true, y = true }
 local SIZINGS: { [string]: boolean } = { fill = true, hug = true }
@@ -272,6 +278,8 @@ end
 -- CLOSED SPEC (constitution §4). Exactly the fields this control
 -- reads — an unknown one is an authoring mistake, never a silent no-op.
 local PICKER_KEYS = specGuard.keySet({
+	"required",
+	"onChanging",
 	"axis",
 	"enabled",
 	"env",
@@ -300,21 +308,287 @@ local function readValue(source: any, use: any?): any
 	return source
 end
 
+local OPTION_KEYS = specGuard.keySet({ "id", "value", "label", "description", "icon", "badge", "enabled" })
+local function validateArray(list)
+	assert(type(list) == "table", "Picker: options must be an array")
+	local count = 0
+	for index in list do
+		assert(
+			type(index) == "number" and index % 1 == 0 and index >= 1 and index <= #list,
+			"Picker: options must be a dense array"
+		)
+		count += 1
+	end
+	assert(count == #list, "Picker: options must be a dense array")
+end
+local function validateOption(option, use)
+	assert(type(option) == "table", "Picker: each option must be a table")
+	specGuard.assertKnownKeys("Picker.option", option, OPTION_KEYS, "option")
+	assert(option.value ~= nil and option.value == option.value, "Picker: each option needs a non-NaN value")
+	local label = readValue(option.label, use)
+	assert(type(label) == "string" and label ~= "", "Picker: each option needs a non-empty label (its semantic name)")
+	local description = readValue(option.description, use)
+	assert(
+		description == nil or type(description) == "string",
+		"Picker: description must be a string or readable string"
+	)
+	local badge = readValue(option.badge, use)
+	assert(
+		badge == nil or type(badge) == "string" or type(badge) == "number",
+		"Picker: badge must be a string or number or readable of either"
+	)
+	local enabled = readValue(option.enabled, use)
+	assert(enabled == nil or type(enabled) == "boolean", "Picker: option enabled must be boolean or readable boolean")
+	assert(
+		option.icon == nil or (type(option.icon) == "string" and option.icon ~= ""),
+		"Picker: icon must be a non-empty semantic icon name"
+	)
+	assert(
+		option.id == nil
+			or (type(option.id) == "string" and option.id ~= "" and not string.find(option.id, "/", 1, true)),
+		"Picker: option id must be a non-empty path-safe string"
+	)
+end
+
+-- Live arrays use keyed rows: identity follows the supplied id, while selection
+-- follows value. Removing a row never reconciles the caller's selected signal.
+local function buildLive(Facet, core, spec)
+	local UI = Facet.UI
+	local scope = core:scope("live-picker")
+	local id = spec.id or "Picker"
+	assert(
+		type(spec.selected) == "table" and spec.selected.kind == "signal",
+		"Picker: selected must be a SETTABLE Signal"
+	)
+	local requested = spec.presentation or "automatic"
+	assert(PRESENTATIONS[requested], "Picker: presentation must be automatic | segmented | inline | radio")
+	assert(
+		spec.indicator == nil or spec.indicator == "automatic" or spec.indicator == "none",
+		"Picker: live options use selected row chrome; indicator must be automatic or none"
+	)
+	local disposed = false
+	local mountedNode
+	scope:own(function()
+		disposed = true
+	end)
+	local function key(option)
+		return option.id or tostring(option.value)
+	end
+	local function validateOptions(list, use)
+		validateArray(list)
+		local ids, values = {}, {}
+		local icons = 0
+		for _, option in list do
+			validateOption(option, use)
+			local identity = key(option)
+			assert(
+				type(identity) == "string" and identity ~= "" and not string.find(identity, "/", 1, true),
+				"Picker: option identities must be path-safe"
+			)
+			assert(not ids[identity] and not values[option.value], "Picker: duplicate option identity or value")
+			ids[identity] = true
+			values[option.value] = true
+			if option.icon ~= nil then
+				icons += 1
+			end
+		end
+		assert(icons == 0 or icons == #list, "Picker: provide icons for all options or none")
+		assert(not spec.iconOnly or icons == #list, "Picker: iconOnly requires an icon for every option")
+		return list
+	end
+	validateOptions(readValue(spec.options))
+	local options = scope:own(core:memo(function(use)
+		return validateOptions(use(spec.options), use)
+	end))
+	options:get()
+	local env = spec.env
+	if requested == "automatic" and not spec.sizeClass then
+		env = surfaceEnv.resolve("newPicker", id, core, env, "automatic selection adapts to available space")
+	end
+	local presentation = scope:own(core:memo(function(use)
+		if requested ~= "automatic" then
+			return requested
+		end
+		local list = use(options)
+		local longest = 0
+		for _, option in list do
+			longest = math.max(longest, #readValue(option.label, use))
+		end
+		return picker.resolvePresentation(#list, readValue(spec.sizeClass or env:get("sizeClass"), use), longest)
+	end))
+	local axis = scope:own(core:memo(function(use)
+		return if use(presentation) == "inline" or use(presentation) == "radio"
+			then "y"
+			else (readValue(spec.axis, use) or "x")
+	end))
+	local function sizingNow(use)
+		local value = readValue(spec.sizing, use)
+		return if SIZINGS[value] then value else "fill"
+	end
+	local verticalPill = scope:own(core:memo(function(use)
+		return use(presentation) == "segmented" and use(axis) == "y"
+	end))
+	local groupWidth = scope:own(core:memo(function(use)
+		return if use(verticalPill) then RAIL_WIDTH elseif sizingNow(use) == "hug" then NATURAL_WIDTH else BAND_WIDTH
+	end))
+	local segmentWidth = scope:own(core:memo(function(use)
+		return if use(verticalPill) or sizingNow(use) == "fill" then SEGMENT_FILL else SEGMENT_NATURAL
+	end))
+	local function choose(identity)
+		if disposed or controlContract.isDisabled(mountedNode) or not controlContract.enabledNow(spec.enabled) then
+			return
+		end
+		local option
+		for _, item in options:get() do
+			if key(item) == identity then
+				option = item
+				break
+			end
+		end
+		if not option then
+			return
+		end
+		local accepted, nextValue =
+			selectionModel.choose(options:get(), spec.selected:get(), option.value, spec.required, spec.onChanging)
+		if
+			accepted
+			and not disposed
+			and not controlContract.isDisabled(mountedNode)
+			and controlContract.enabledNow(spec.enabled)
+		then
+			core:transaction(function()
+				spec.selected:set(nextValue)
+				if spec.onChange then
+					spec.onChange(nextValue)
+				end
+			end)
+		end
+	end
+	local rows = UI.ForEach({
+		id = "Rows",
+		items = options,
+		key = key,
+		row = function(initial, rowScope)
+			local identity = key(initial)
+			local current = rowScope:own(core:memo(function(use)
+				for _, option in use(options) do
+					if key(option) == identity then
+						return option
+					end
+				end
+				return initial
+			end))
+			local function prop(name, fallback)
+				return rowScope:own(core:memo(function(use)
+					local value = readValue(use(current)[name], use)
+					return if value == nil then fallback else value
+				end))
+			end
+			local selected = rowScope:own(core:memo(function(use)
+				return use(spec.selected) == use(current).value
+			end))
+			local enabled = rowScope:own(core:memo(function(use)
+				return controlContract.enabledIn(use, spec.enabled)
+					and controlContract.enabledIn(use, use(current).enabled)
+			end))
+			local row = menuRecipe.row(UI, {
+				id = "Option",
+				label = prop("label"),
+				description = prop("description", ""),
+				icon = prop("icon"),
+				badge = prop("badge", ""),
+				core = core,
+				scope = rowScope,
+				width = segmentWidth,
+				textSize = spec.textSize,
+				iconOnly = spec.iconOnly,
+				selected = selected,
+				enabled = enabled,
+				indicator = if requested == "radio" then "radio" else nil,
+				markHidden = rowScope:own(core:memo(function(use)
+					return not use(selected)
+				end)),
+			})
+			return contribution.attach(row, {
+				handleActivate = function()
+					choose(identity)
+					return true
+				end,
+			})
+		end,
+	})
+	local children =
+		{ UI.AdaptiveStack({ id = "Options", axis = axis, gap = "xs", width = groupWidth, children = { rows } }) }
+	if spec.label then
+		table.insert(children, 1, UI.Text({ id = "Label", text = spec.label, textSize = "label", width = UI.fill() }))
+	end
+	local blueprint = contribution.attach(UI.VStack({ id = id, width = groupWidth, gap = "xs", children = children }), {
+		syncGeometry = function(_, node)
+			mountedNode = node
+		end,
+	})
+	local function dump()
+		return {
+			schema = "facet-picker-dump/1",
+			id = id,
+			selected = spec.selected:get(),
+			presentation = presentation:get(),
+			axis = axis:get(),
+			sizing = sizingNow(),
+			iconOnly = spec.iconOnly == true,
+			optionCount = #options:get(),
+		}
+	end
+	return {
+		blueprint = blueprint,
+		presentation = presentation,
+		dump = dump,
+		dispose = function()
+			scope:dispose()
+		end,
+	}
+end
+
 function picker.build(Facet: any, core: any, spec: Spec)
 	specGuard.assertKnownKeys("newPicker", spec, PICKER_KEYS, "spec")
+	assert(spec.required == nil or type(spec.required) == "boolean", "Picker: required must be boolean")
+	for _, name in { "onChanging", "onChange" } do
+		assert(spec[name] == nil or type(spec[name]) == "function", `Picker: {name} must be a function`)
+	end
+	local enabled = readValue(spec.enabled)
+	assert(enabled == nil or type(enabled) == "boolean", "Picker: enabled must be boolean or readable boolean")
+	assert(spec.axis == nil or AXES[readValue(spec.axis)], "Picker: axis must be x | y")
+	assert(spec.sizing == nil or SIZINGS[readValue(spec.sizing)], "Picker: sizing must be fill | hug")
+	assert(spec.iconOnly == nil or type(spec.iconOnly) == "boolean", "Picker: iconOnly must be boolean")
+	assert(
+		spec.presentation ~= "radio" or not spec.iconOnly,
+		"Picker: radio presentation requires visible labels; iconOnly is incompatible"
+	)
+	if type(spec.options) == "table" and spec.options.kind ~= nil then
+		return buildLive(Facet, core, spec)
+	end
 	local UI = Facet.UI
 	local id = spec.id or "Picker"
 	local scope = core:scope("picker-" .. tostring(id))
+	local disposed = false
+	local mountedNode
+	scope:own(function()
+		disposed = true
+	end)
 	if type(spec.options) ~= "table" or #spec.options == 0 then
 		error(`Facet newPicker('{id}'): \`options\` must be a non-empty array of value/label pairs`, 0)
 	end
+	validateArray(spec.options)
 	local selected = spec.selected
 	if type(selected) ~= "table" or (selected :: any).kind ~= "signal" then
 		error(`Facet newPicker('{id}'): \`selected\` must be a SETTABLE Signal the caller owns`, 0)
 	end
 	local requested = spec.presentation or "automatic"
 	if not PRESENTATIONS[requested] then
-		error(`Facet newPicker('{id}'): unknown presentation '{requested}'. One of automatic | segmented | inline.`, 0)
+		error(
+			`Facet newPicker('{id}'): unknown presentation '{requested}'. One of automatic | segmented | inline | radio.`,
+			0
+		)
 	end
 	local indicatorRequest = spec.indicator or "automatic"
 	if not INDICATORS[indicatorRequest] then
@@ -331,7 +605,7 @@ function picker.build(Facet: any, core: any, spec: Spec)
 	-- seam takes it as a build-time string for exactly that reason.
 	local indicator = if indicatorRequest ~= "automatic"
 		then indicatorRequest
-		elseif requested == "inline" then "none"
+		elseif requested == "inline" or requested == "radio" then "none"
 		else "pill"
 	-- `axis` and `sizing` may each be a plain string or a Readable (see the Spec
 	-- comments). The CURRENT value of a Readable is validated here too, so a typo
@@ -381,7 +655,13 @@ function picker.build(Facet: any, core: any, spec: Spec)
 	local function labelNow(option: any): any
 		return readValue(option.label)
 	end
+	local optionIds, optionValues = {}, {}
 	for index, option in spec.options do
+		validateOption(option)
+		local optionId = option.id or "Opt" .. index
+		assert(not optionIds[optionId] and not optionValues[option.value], "Picker: duplicate option identity or value")
+		optionIds[optionId] = true
+		optionValues[option.value] = true
 		if type(option) ~= "table" then
 			error(`Facet newPicker('{id}'): option {index} must be a table of value / label / optional icon`, 0)
 		end
@@ -484,7 +764,7 @@ function picker.build(Facet: any, core: any, spec: Spec)
 	-- `axis = "y"` on the SEGMENTED presentation is the vertical PILL; `inline` is
 	-- a column by definition and ignores it.
 	local axis = scope:own(core:memo(function(use)
-		return if use(presentation) == "segmented" then axisNow(use) else "y"
+		return if use(presentation) == "segmented" or use(presentation) == "radio" then axisNow(use) else "y"
 	end))
 
 	-- ...and the fact `axis` alone CANNOT express, because the vertical pill and
@@ -523,11 +803,15 @@ function picker.build(Facet: any, core: any, spec: Spec)
 
 	-- the contract's one reading of `enabled` (a one-shot read: never subscribes)
 	local function isEnabled(): boolean
-		return controlContract.enabledNow(spec.enabled)
+		return not disposed and not controlContract.isDisabled(mountedNode) and controlContract.enabledNow(spec.enabled)
 	end
 
 	local function choose(value: any): boolean
-		if not isEnabled() or selected:get() == value then
+		if not isEnabled() then
+			return false
+		end
+		local accepted = selectionModel.choose(spec.options, selected:get(), value, spec.required, spec.onChanging)
+		if not isEnabled() or not accepted then
 			return false
 		end
 		core:transaction(function()
@@ -567,36 +851,9 @@ function picker.build(Facet: any, core: any, spec: Spec)
 		platedRole = chrome_slots.ON_INDICATOR_ROLE
 	end
 
-	--[[ BADGE_CLEAR_SLOT + badgeCornerInset (task THEME2, director item 2: "the
-		badge has no padding and overlaps the edge of the control", i2.png — a
-		count seal straddling a Pixel Quest segment's own plank border).
-
-		The count seal used to anchor flush to the segment cell's raw corner —
-		zero inset, on every package. That is invisible on a flat theme (nothing
-		is painted under the corner to overlap) and wrong on any package that
-		carves a border into whatever surface actually paints behind this segment,
-		which is EXACTLY `selection_indicator.luau`'s own `barSurfaceSlot` finding
-		(director item 8, "tab font has no padding, overlaps
-		edge") one seam over: a decoration that ignores the themed chrome inset
-		the themed-chrome round made available collides with it.
-
-		WHICH SURFACE PAINTS UNDER THE BADGE is exactly what decides `surface`
-		on the option Button four lines below, so the same branch is read here:
-		`indicator = "none"` -> the option's OWN surface (nil -> classifies to
-		`control` by CLASS alone, the Button/Toggle fallback rule); any sliding
-		indicator's bar wears `surface = "accent"` when it paints at all (`pill`)
-		or nothing chrome-carrying at all (`underline`, a tint-only rule) — and
-		`chrome_slots.classify` resolves BOTH `control` and `accent` to the same
-		`control` decoration slot, so one lookup covers every indicator except
-		`underline`, whose (still-`plain`) option surface classifies to nil.
-
-		Costs nothing unless a badge exists (`badgeCount` is counted above) and
-		moves no pixel on a flat package: `chromeInsets.control` is all-zero
-		there (the themed-chrome round's own "flat packages are byte-identical" guarantee), so
-		`carved` stays 0 and `padding` stays the same `{}` it always solved to. ]]
-	local badgeClearSlot: string? = if indicator == "underline"
-		then nil
-		else chrome_slots.classify({ class = "Button", surface = if indicator == "none" then nil else "accent" })
+	-- Static and pill segments retain the theme's corner clearance. The pill
+	-- uses palette paint, but its count seal must keep the same inset geometry.
+	local badgeClearSlot: string? = if indicator == "none" or indicator == "pill" then "control" else nil
 	local badgeCornerInset: any = nil
 	if badgeCount > 0 then
 		local metricsSig = scope:own(core:memo(function(use)
@@ -623,7 +880,7 @@ function picker.build(Facet: any, core: any, spec: Spec)
 	local byId: { [string]: any } = {}
 	local segments: { any } = {}
 	for i, option in spec.options do
-		local optionId = "Opt" .. i
+		local optionId = option.id or "Opt" .. i
 		byId[optionId] = option.value
 		table.insert(segments, { value = option.value, id = optionId })
 		local badged = option.badge ~= nil
@@ -640,7 +897,9 @@ function picker.build(Facet: any, core: any, spec: Spec)
 				then nil
 				elseif iconOnly then { icon = option.icon, prefer = true }
 				else { icon = option.icon },
-			enabled = spec.enabled,
+			enabled = scope:own(core:memo(function(use)
+				return controlContract.enabledIn(use, spec.enabled) and controlContract.enabledIn(use, option.enabled)
+			end)),
 			textSize = spec.textSize,
 			surface = if slides then "plain" else nil,
 			selected = if slides
@@ -665,6 +924,26 @@ function picker.build(Facet: any, core: any, spec: Spec)
 			width = if badged then SEGMENT_FILL else segmentWidth,
 			height = if badged then OVERLAY_FILL else SEGMENT_HEIGHT,
 		})
+		if requested == "radio" or option.description ~= nil then
+			button = menuRecipe.row(UI, {
+				id = optionId,
+				label = option.label,
+				textSize = spec.textSize,
+				description = option.description,
+				icon = option.icon,
+				indicator = if requested == "radio" then "radio" else nil,
+				markHidden = scope:own(core:memo(function(use)
+					return use(selected) ~= option.value
+				end)),
+				selected = scope:own(core:memo(function(use)
+					return use(selected) == option.value
+				end)),
+				enabled = scope:own(core:memo(function(use)
+					return controlContract.enabledIn(use, spec.enabled)
+						and controlContract.enabledIn(use, option.enabled)
+				end)),
+			})
+		end
 		if not badged then
 			table.insert(rows, button)
 		else
@@ -772,6 +1051,9 @@ function picker.build(Facet: any, core: any, spec: Spec)
 		else UI.VStack({ id = id, width = groupWidth, children = { group } })
 
 	local built = contribution.attach(root, {
+		syncGeometry = function(_, node)
+			mountedNode = node
+		end,
 		handleActivate = function(path: string): boolean
 			local leaf = string.match(path, "([^/]+)$")
 			if leaf ~= nil and byId[leaf] ~= nil then

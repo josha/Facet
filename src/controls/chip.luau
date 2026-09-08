@@ -24,11 +24,13 @@
 local contribution = require("../input/contribution")
 local specGuard = require("../spec_guard")
 
+local controlContract = require("../class_contract")
 local chip = {}
 
 -- CLOSED SPEC (constitution §4). Exactly the fields this control
 -- reads — an unknown one is an authoring mistake, never a silent no-op.
 local CHIP_KEYS = specGuard.keySet({
+	"enabled",
 	"id",
 	"label",
 	"onToggle",
@@ -40,6 +42,10 @@ function chip.build(Facet: any, core: any, spec: any)
 	local UI = Facet.UI
 	local id = spec.id or "Chip"
 	local scope = core:scope("chip-" .. tostring(id))
+	local disposed = false
+	scope:own(function()
+		disposed = true
+	end)
 	local selected = spec.selected -- owner-held Signal<boolean>
 	-- AUTHORING IS STRICT: fail at BUILD, not at first render (docs/extending/new-control.md §2). `selected` is required AND is the
 	-- control's single mutation site, so a missing one used to surface as
@@ -59,6 +65,9 @@ function chip.build(Facet: any, core: any, spec: any)
 	-- the SINGLE Activate site: every input class routes here through the
 	-- presenter's auto dispatch (never a direct callback in a consumer).
 	local function toggle()
+		if disposed or not controlContract.enabledNow(spec.enabled) then
+			return
+		end
 		local nextValue = not selected:get()
 		selected:set(nextValue)
 		if spec.onToggle ~= nil then
@@ -74,6 +83,7 @@ function chip.build(Facet: any, core: any, spec: any)
 			id = id,
 			label = label,
 			selected = selected,
+			enabled = spec.enabled,
 			-- honour the Button contract's minHitSize as a real layout floor (a chip
 			-- is a touch target first) — the touch structural idiom. The FLOOR is a
 			-- theme metric, so a theme with roomier targets grows the chip with it.
@@ -101,6 +111,7 @@ function chip.build(Facet: any, core: any, spec: any)
 			id = id,
 			label = label,
 			selected = selected:get(),
+			enabled = controlContract.enabledNow(spec.enabled),
 		}
 	end
 

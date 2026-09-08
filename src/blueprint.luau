@@ -417,6 +417,8 @@ export type ToggleSpec = BoxProps & {
 }
 
 export type TextFieldSpec = BoxProps & {
+	surface: Bound<string>?,
+	multiline: boolean?,
 	text: Bound<string>?,
 	placeholder: Bound<string>?,
 	editing: Bound<boolean>?,

@@ -503,6 +503,33 @@ icons = {
 Fantasy Ornate deliberately leaves `menu` and `more` **unmapped**, so the
 centerpiece exercises the fallback path, not just a test.
 
+Control-state marks are semantic icons, so a package can provide image art for
+them independently of its button chrome:
+
+| Meaning | Icon name / chrome |
+|---|---|
+| Checkbox on / mixed | `checkmark` / `decrement`, inside `control` chrome |
+| Radio unselected / selected | `facet:selection.radio.off` / `facet:selection.radio.on` |
+| Menu or multiple-selection checkbox off / on | `facet:selection.check.off` / `checkmark` |
+| Search / clear | `facet:search` / `close` |
+| Split-button menu affordance | `chevron.down`; separator uses Divider styling |
+| Busy progress | Existing ProgressView spinner tokens and decoration slots |
+
+Selection rows display one complete state icon at a time: the selected mark
+replaces the unselected icon. Supply complete off/on artwork for the radio slots;
+the renderer does not overlay a mark on the off artwork.
+The standard sliding selection pill uses the palette's `accent` fill and
+`onAccent` text, with themed corners, spacing and motion. It does not borrow
+button imagery, whose interior color may not match the accent palette. A custom
+SelectionIndicator surface retains its normal chrome and must pair its content
+with that surface.
+Each icon falls back to a font-safe character when no image is supplied. Use
+`metrics.iconSizes` and asset content insets together: larger marks and thicker
+borders must reserve their own space. Native TextBoxes retain Roblox caret,
+selection and composition behavior; themes style the supported text, background,
+border and font properties through Facet's existing property owners. They cannot
+supply a custom caret, selection renderer, IME interface or native keyboard type.
+
 ## 10.6 Pixel mode
 
 > **In plain words.** Pixel art has one requirement: never blur it. Say your

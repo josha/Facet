@@ -1030,6 +1030,13 @@ local function buildEngine(Facet: any, core: any, spec: any, hosted: HostedOpts?
 	end
 
 	local spring: any = nil
+	local pendingDeparture: any = nil
+	scope:own(function()
+		if pendingDeparture ~= nil then
+			pendingDeparture.unsubscribe()
+			pendingDeparture = nil
+		end
+	end)
 	local function ensureSpring()
 		if spring ~= nil or motionClock == nil then
 			return
@@ -1291,6 +1298,31 @@ local function buildEngine(Facet: any, core: any, spec: any, hosted: HostedOpts?
 		return if r ~= nil then r.h else 0
 	end
 
+	-- A row can be inset from its clipping window. Moving by its own width
+	-- leaves that inset (and the plate's shadow) visible during the collapse.
+	-- Use the shared screen-space geometry in both standalone and hosted mode.
+	local function departureTarget(edge: Edge, fallback: number): number
+		local path = pathsOf()
+		if controller == nil or path == nil or controller.screenRectOf == nil then
+			return fallback
+		end
+		local row = controller.screenRectOf(path)
+		local host = if controller.scrollHostFor ~= nil then controller.scrollHostFor(path) else nil
+		local window = if host ~= nil
+			then host.rect
+			elseif bandMetrics.env ~= nil then bandMetrics.env:get("viewportRect"):get()
+			else nil
+		if row == nil or window == nil then
+			return fallback
+		end
+		-- Hosted content itself carries the slide; the standalone root does not.
+		local x = row.x - (if hosted ~= nil then offset:get() else 0)
+		local bleed = metricsSig:get().chromeBleed or 0
+		return if edge == "trailing"
+			then math.min(fallback, window.x - x - row.w - bleed)
+			else math.max(fallback, window.x + window.w - x + bleed)
+	end
+
 	local function firstActionFor(edge: Edge): ActionSpec?
 		local list = if edge == "leading" then leadingActions else trailingActions
 		if list == nil or #list == 0 then
@@ -1493,73 +1525,60 @@ local function buildEngine(Facet: any, core: any, spec: any, hosted: HostedOpts?
 		commitEpoch += 1
 		local myEpoch = commitEpoch
 		openEdge:set(edge)
-		--[[ THE TWO FLIGHTS RUN TOGETHER, NOT ONE AFTER THE OTHER ───────────────
-			Director device round 2026-08-13: "there's an odd pause once the row
-			goes away before the others animate up after i swipe and click delete."
-
-			MEASURED, frame by frame on the playlist example at 60fps. The slide
-			carried the row off-screen over frames 1-38 — it was completely out of
-			view by about frame 20 — and then NOTHING in the tree moved for 27
-			frames (~0.45s). Only at frame 65 did the height collapse begin and the
-			rows below start closing the gap. Counted from the moment the row
-			actually disappeared, the list sat still with a hole in it for the
-			better part of a second.
-
-			THE CAUSE WAS SERIALISATION ON A SETTLE. The chain was slide-off ->
-			collapse -> fire, handed off on `spring:onSettle` — the NUMERIC settle,
-			`|x - target| <= 1e-3 AND |v| <= 1e-3` (spring.luau `DEFAULT_EPS`).
-			`spring.luau`'s own header warns about exactly this: "position-domain
-			springs (hundreds of px) settle a few frames after they visually arrive
-			— which is exactly why perceptual arrival is a RADIUS, not this epsilon
-			(chase.luau)". This was the largest position-domain spring in the
-			library, a whole row width, so the visible half of the animation waited
-			on an invisible object converging through its last thousandth of a pixel.
-
-			WHY CONCURRENT RATHER THAN A RADIUS. A perceptual-arrival radius was
-			built first and it did fix the timing — rows started moving at frame 23
-			instead of 65 — but it had to observe the spring's VALUE to see the
-			radius, which meant `onArrive` (and through it the consumer's
-			`onAction`) fired from inside a core commit. That is a real hazard, not
-			a theoretical one: `presenter.withAnimation` refuses outright from
-			inside a commit, so a consumer animating its own deletion started
-			raising "nothing flushed, so it could not force its own commit". Two
-			concurrent flights need no observer at all — the collapse keeps its own
-			plain `onSettle`, which motion.luau fires from its `post()` phase,
-			after the write and outside the commit, exactly as this code always did.
-
-			It is also the better animation. The usual treatment collapses the row WHILE it slides;
-			the gap closing is what tells you the deletion took. Nothing about the
-			C8a ruling changes: the tray still unmounts the instant the commit
-			starts (`committingSig`), and the row's paint is still not put back
-			before the owner's removal lands (`finishCommit`).
-
-			`onAction` now chains off the COLLAPSE, which is the correct one of the
-			two to wait for — the row must genuinely be at zero height before the
-			owner removes it, or the rows below jump the last few pixels. The slide
-			is aimed and left to fly; nothing waits on it.
-		]]
-		retarget(offscreenTarget)
-		collapseThen(currentRowHeight(), function()
-			if disposed or commitEpoch ~= myEpoch then
-				return
+		offscreenTarget = departureTarget(edge, offscreenTarget)
+		-- Finish the visible departure before shrinking the row. Geometry sync
+		-- hands off within one pixel, then snaps the invisible remainder; waiting
+		-- for the spring's numeric settle would leave a stationary empty gap.
+		-- The collapse callback still runs from motion's post phase, so an owner
+		-- may safely animate its data removal with presenter.withAnimation.
+		local function collapseAfterDeparture()
+			collapseThen(currentRowHeight(), function()
+				if disposed or commitEpoch ~= myEpoch then
+					return
+				end
+				-- QUARANTINED (constitution): the ONE user callback this
+				-- composite ever fires on a caller's behalf. A throw must
+				-- not skip `finishCommit()` below, nor fire a second time —
+				-- `committed` already forbids a second commit, and this
+				-- whole chain only ever runs once per row.
+				pcall(action.onAction)
+				-- the ONE place allowed to clear `committed` mid-flight (see
+				-- `resetToClosed`'s own comment above `close()`): this IS the
+				-- commit's own natural completion, not an external cancel —
+				-- `close()` itself would no-op here since `committed` is
+				-- still true. C8a (device round 2026-08-12): `finishCommit`
+				-- rather than `resetToClosed`, so the row's PAINT is not put
+				-- back — full height, flying home from a row width away —
+				-- before the owner's own removal has landed. See its comment
+				-- above `close()`.
+				finishCommit()
+			end)
+		end
+		if motionClock == nil then
+			retarget(offscreenTarget)
+			collapseAfterDeparture()
+		else
+			ensureSpring()
+			local departure = { target = offscreenTarget, unsubscribe = function() end }
+			local function arrive()
+				if pendingDeparture ~= departure then
+					return
+				end
+				pendingDeparture = nil
+				departure.unsubscribe()
+				if disposed or commitEpoch ~= myEpoch then
+					return
+				end
+				spring:snap(offscreenTarget)
+				collapseAfterDeparture()
 			end
-			-- QUARANTINED (constitution): the ONE user callback this
-			-- composite ever fires on a caller's behalf. A throw must
-			-- not skip `finishCommit()` below, nor fire a second time —
-			-- `committed` already forbids a second commit, and this
-			-- whole chain only ever runs once per row.
-			pcall(action.onAction)
-			-- the ONE place allowed to clear `committed` mid-flight (see
-			-- `resetToClosed`'s own comment above `close()`): this IS the
-			-- commit's own natural completion, not an external cancel —
-			-- `close()` itself would no-op here since `committed` is
-			-- still true. C8a (device round 2026-08-12): `finishCommit`
-			-- rather than `resetToClosed`, so the row's PAINT is not put
-			-- back — full height, flying home from a row width away —
-			-- before the owner's own removal has landed. See its comment
-			-- above `close()`.
-			finishCommit()
-		end)
+			departure.arrive = arrive
+			pendingDeparture = departure
+			-- Bare motion consumers need no geometry loop: numeric settle is the
+			-- fallback, while mounted rows take the perceptual handoff below.
+			departure.unsubscribe = spring:onSettle(arrive)
+			retarget(offscreenTarget)
+		end
 		return true
 	end
 
@@ -3129,6 +3148,9 @@ local function buildEngine(Facet: any, core: any, spec: any, hosted: HostedOpts?
 			-- it is the one piece of work here that does not need a path — see
 			-- `drainPostCommitRestore`'s own comment above `close()`.
 			drainPostCommitRestore()
+			if pendingDeparture ~= nil and math.abs(offset:get() - pendingDeparture.target) <= 1 then
+				pendingDeparture.arrive()
+			end
 			if rootNode ~= nil then
 				local isFirstRootPath = rootPath == nil
 				rootPath = rootNode.path

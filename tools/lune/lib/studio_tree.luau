@@ -11,7 +11,7 @@
 -- performance.project.json` (perf mode): src -> ReplicatedStorage.Facet,
 -- examples/gallery/examples -> ReplicatedStorage.FacetExamples,
 -- examples/gallery/scenarios -> ReplicatedStorage.FacetScenarios,
--- examples/gallery/client -> StarterPlayer.StarterPlayerScripts.Gallery,
+-- examples/gallery/client -> ReplicatedStorage.Gallery,
 -- examples/gallery/server -> ServerScriptService.Outpost,
 -- examples/reference -> ReplicatedStorage.FacetReference,
 -- examples/themes -> ReplicatedStorage.FacetThemes. Rojo folding: <dir>/
@@ -88,7 +88,7 @@ function studio_tree.entries(mode: string?): { FileEntry }
 	else
 		addTree(entries, "examples/gallery/examples", "ReplicatedStorage.FacetExamples", "Folder")
 		addTree(entries, "examples/gallery/scenarios", "ReplicatedStorage.FacetScenarios", "ModuleScript")
-		addTree(entries, "examples/gallery/client", "StarterPlayer.StarterPlayerScripts.Gallery", "ModuleScript")
+		addTree(entries, "examples/gallery/client", "ReplicatedStorage.Gallery", "ModuleScript")
 		-- the showcase's server side: the outpost's authority, and the
 		-- only server-owned code in the repository
 		addTree(entries, "examples/gallery/server", "ServerScriptService.Outpost", "Script")

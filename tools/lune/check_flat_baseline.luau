@@ -154,6 +154,11 @@ local GENERATOR = "tools/lune/_theme_baseline"
 -- (every viewport), so no existing entry changes.
 local ALLOWED_RECT_DRIFT: { { fixture: string, viewport: string?, prefix: string?, path: string?, why: string } } = {
 	{
+		fixture = "02_playlist_table",
+		path = "/Playlist/Page/Filter/Field",
+		why = "The playlist opts into search presentation. Its native editor moves right by the neutral xl inset (40px) and loses exactly that width to reserve the search mark: tablet 16,53 788x44 -> 56,53 748x44; desktop 16,53 1248x44 -> 56,53 1208x44; phone 16,53 358x44 -> 56,53 318x44. The outer frame and table geometry remain unchanged.",
+	},
+	{
 		fixture = "06_tile_game",
 		path = "/TileGame/Page/Title",
 		why = "THE EXAMPLE TITLES NAME THE FRAMEWORK, AND THE FRAMEWORK WAS RENAMED (2026-08-17, roadmap "
@@ -469,6 +474,14 @@ local ALLOWED_CLASS_DRIFT: { { fixture: string, path: string, from: string, to: 
 -- their prop coverage. Omitted means every viewport, so no existing entry moves.
 local ALLOWED_PROP_DRIFT: { { path: string, viewport: string?, why: string } } = {
 	{
+		path = "/Vocabulary/Quality/Options/Opt1",
+		why = "Control improvements: Picker rows now expose positive enabled and explicit control typography for live options and textSize. Existing labels, selection, padding and geometry are unchanged.",
+	},
+	{
+		path = "/Vocabulary/Quality/Options/Opt2",
+		why = "Same Picker option contract as Opt1: enabled and explicit control typography; no geometry change.",
+	},
+	{
 		path = "/TileGame/Page/Title",
 		why = "`text` only: `LuauUI Tiles` -> `Facet Tiles` (2026-08-17, the framework rename), and then "
 			.. "`Facet Tiles` -> `Facet Crossword` (2026-08-29, the crossword rewrite — the example is no "
@@ -619,6 +632,10 @@ end
 -- Nodes the current tree has and the 3.5 baseline does not. Additions are as
 -- much of a compatibility statement as changes, so they are enumerated too.
 local ALLOWED_NEW_NODES: { { path: string, why: string } } = {
+	{
+		path = "/Vocabulary/Name/ClearWhen/then/Clear/Mark",
+		why = "Control improvements: the native TextInput clear action keeps its semantic Clear label and paints the standard close icon in a themeable child; existing clear-button geometry is unchanged.",
+	},
 	{ path = "/Vocabulary/More/Header/CaretOpen", why = "the expanded caret's structural region (F3)" },
 	{
 		path = "/Vocabulary/More/Header/CaretOpen/then/Caret",
@@ -1030,7 +1047,47 @@ local RESHAPED_SUBTREES: { { fixture: string, prefix: string, why: string } } = 
 -- `textWrapped` can, and the value IS the invariant there rather than a detail
 -- (see its entry). A pinned entry forgives that one value and fails on any other,
 -- so the rule survives a legitimate new prop without going blind to a wrong one.
-local ALLOWED_ADDED_PROPS: { { prop: string, value: string?, why: string } } = {
+local ALLOWED_ADDED_PROPS: { { prop: string, value: string?, class: string?, path: string?, why: string } } = {
+	{
+		prop = "surface",
+		value = "plain",
+		class = "TextField",
+		why = "The containing TextInput now owns the unchanged frame, keeping native editing transparent while focused.",
+	},
+	{
+		prop = "surface",
+		value = "chip",
+		class = "Anchor",
+		path = "/Vocabulary/Name",
+		why = "TextInput moves the native field surface onto its existing frame so focus preserves its decoration; neutral rectangles and hits remain unchanged.",
+	},
+	{
+		prop = "surface",
+		value = "chip",
+		class = "Anchor",
+		path = "/Playlist/Page/Filter",
+		why = "TextInput moves the native field surface onto its existing frame so focus preserves its decoration; neutral rectangles and hits remain unchanged.",
+	},
+	{
+		prop = "surface",
+		value = "chip",
+		class = "Anchor",
+		path = "/TempConverter/Page/Fahrenheit",
+		why = "TextInput moves the native field surface onto its existing frame so focus preserves its decoration; neutral rectangles and hits remain unchanged.",
+	},
+	{
+		prop = "padding",
+		value = "12",
+		class = "TextField",
+		why = "Bare TextField primitives receive the exact neutral inset their intrinsic layout already measured; no rectangle or hit geometry changes.",
+	},
+	{
+		prop = "padding",
+		value = "{left=12,right=12}",
+		class = "TextField",
+		why = "Native fields receive their already-measured inset, including skin borders on themed solves. "
+			.. "The neutral single-line inset is exactly 12 left/right and zero vertically, matching its existing native editor. Only this TextField prop is accepted; no rect or hit changes.",
+	},
 	{
 		prop = "textSize",
 		why = "the class's INTRINSIC typography role now reaches PAINT (director fix round 2026-07-25). It used "
@@ -1130,7 +1187,14 @@ local ALLOWED_ADDED_PROPS: { { prop: string, value: string?, why: string } } = {
 	identical to the 0.6.0 render. A radius that actually moved fails here with
 	the old and new numbers in the message, which is what makes this a
 	characterization rather than a waiver. ]]
-local ALLOWED_ADDED_SUBKEYS: { { prop: string, subkey: string, why: string } } = {
+local ALLOWED_ADDED_SUBKEYS: { { prop: string, subkey: string, class: string?, value: string?, why: string } } = {
+	{
+		prop = "textFont",
+		subkey = "lineHeight",
+		class = "TextField",
+		value = "1.2",
+		why = "The native editor receives the same neutral line spacing its layout measures. Only the exact neutral 1.2 descriptor is characterized; other font fields and geometry still compare unchanged.",
+	},
 	{
 		prop = "corners",
 		subkey = "tokens",
@@ -1163,12 +1227,15 @@ local ALLOWED_ADDED_SUBKEYS: { { prop: string, subkey: string, why: string } } =
 	in this dump and cannot be compared here (it is pinned in
 	`tests/ten_foot_metrics.spec.luau`, at both display classes). Everything else
 	in the value survives to the byte comparison. ]]
-local function withoutAddedSubkeys(was: string?, now: string?): string?
+local function withoutAddedSubkeys(was: string?, now: string?, class: string?): string?
 	if now == nil or now == "" or was == nil then
 		return now
 	end
 	local out = now
 	for _, entry in ALLOWED_ADDED_SUBKEYS do
+		if entry.class ~= nil and entry.class ~= class then
+			continue
+		end
 		-- only when the BASELINE carried the prop: a wholly new prop is the other
 		-- list's business, and must not be smuggled in through this one
 		if string.find(was, `{entry.prop}=`, 1, true) == nil then
@@ -1176,16 +1243,24 @@ local function withoutAddedSubkeys(was: string?, now: string?): string?
 		end
 		-- concatenated rather than interpolated: `{` opens an expression inside a
 		-- Luau interpolated string, and this pattern is mostly braces
-		out = string.gsub(out, "," .. entry.subkey .. "={%.%.%.}", "")
-		out = string.gsub(out, entry.subkey .. "={%.%.%.},", "")
+		local pattern = if entry.value then string.gsub(entry.value, "(%W)", "%%%1") else "{%.%.%.}"
+		out = string.gsub(out, entry.prop .. "=%b{}", function(value)
+			value = string.gsub(value, "," .. entry.subkey .. "=" .. pattern, "")
+			return (string.gsub(value, entry.subkey .. "=" .. pattern .. ",", ""))
+		end)
 	end
 	return out
 end
 
-local function addedPropAllowed(prop: string, value: string): boolean
+local function addedPropAllowed(prop: string, value: string, class: string?, path: string?): boolean
 	for _, entry in ALLOWED_ADDED_PROPS do
-		if entry.prop == prop then
-			return entry.value == nil or entry.value == value
+		if
+			entry.prop == prop
+			and (entry.class == nil or entry.class == class)
+			and (entry.path == nil or entry.path == path)
+			and (entry.value == nil or entry.value == value)
+		then
+			return true
 		end
 	end
 	return false
@@ -1193,7 +1268,7 @@ end
 
 -- the prop string with every CHARACTERIZED-ADDITION key the baseline did not
 -- carry removed, so the remainder can be compared byte for byte
-local function withoutAddedProps(was: string?, now: string?): string?
+local function withoutAddedProps(was: string?, now: string?, class: string?, path: string?): string?
 	if now == nil or now == "" then
 		return now
 	end
@@ -1207,7 +1282,7 @@ local function withoutAddedProps(was: string?, now: string?): string?
 		if key == nil then
 			key, value = entry, ""
 		end
-		if had[key :: string] or not addedPropAllowed(key :: string, value :: string) then
+		if had[key :: string] or not addedPropAllowed(key :: string, value :: string, class, path) then
 			table.insert(kept, entry)
 		end
 	end
@@ -1300,7 +1375,7 @@ if process.args[1] == "--list" then
 	end
 	for _, entry in ALLOWED_ADDED_PROPS do
 		local scope = if entry.value ~= nil then `(any node, ONLY as "{entry.value}")` else "(any node, any value)"
-		print(`  added prop {entry.prop} {scope}\n        {entry.why}`)
+		print(`  added prop {entry.prop} {scope} {entry.class or ""}\n        {entry.why}`)
 	end
 	for _, entry in ALLOWED_ADDED_SUBKEYS do
 		print(
@@ -1443,7 +1518,8 @@ for key, node in now do
 			table.insert(problems, `{key}: {field} changed '{was[field]}' -> '{node[field]}' (never allowed)`)
 		end
 	end
-	local nowProps = withoutAddedSubkeys(was.props, withoutAddedProps(was.props, node.props))
+	local nowProps =
+		withoutAddedSubkeys(was.props, withoutAddedProps(was.props, node.props, node.class, node.path), node.class)
 	if was.props ~= nowProps and propDriftReason(node.path, viewport) == nil then
 		table.insert(problems, `{key}: props changed '{was.props}' -> '{node.props}' and is not characterized`)
 	end

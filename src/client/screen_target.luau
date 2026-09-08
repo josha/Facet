@@ -50,6 +50,7 @@ local screen_presentation = require("./screen_presentation")
 -- extracted for the same ceiling once it became one-way (source-cap-ledger):
 -- see that module's header for the parameter-object seam and its cost
 local screen_props = require("./screen_props")
+local screen_caret = require("./screen_caret")
 -- the pointer seam: the one activate meta, the global capture, the semantic
 -- cursor and the connection census that reports what they hold
 local screen_pointer = require("./screen_pointer")
@@ -847,31 +848,6 @@ function screen_target.new(opts: Opts?)
 	refreshThemedPaint = paint.refreshThemedPaint
 	refreshBackdropPaint = paint.refreshBackdropPaint
 
-	-- §17 Phase 5: keyboardType capability detection. `TextBox.TextInputType` is
-	-- the ONLY member that could summon a numeric/email/password keyboard, but it
-	-- is RobloxScript-security-locked BOTH directions today — a plain game/plugin
-	-- write pcall-FAILS ("lacking capability RobloxScript"), so this flag is false
-	-- on shipping engines (docs/research/2026-07-20-textbox-engine-facts.md §1).
-	-- The probe writes rather than merely reads because reads are locked too. When
-	-- a future engine unlocks it, this flag flips true and the keyboardType write
-	-- below starts working with NO other change (playbook §3.5 forward-compat).
-	local canSetTextInputType = (function(): boolean
-		return (
-			pcall(function()
-				local probe = Instance.new("TextBox");
-				(probe :: any).TextInputType = Enum.TextInputType.Number
-				probe:Destroy()
-			end)
-		)
-	end)()
-
-	-- keyboardType hint -> the closest Enum.TextInputType member NAME. The enum
-	-- ships Number/Email/Phone (facts §1); default/unknown -> Default. Mirrored
-	-- headlessly by tests/lib/fake_target's KEYBOARD_TYPE_ENGINE_NAME so the
-	-- capability contract is provable without an engine — keep the two in lockstep.
-	local KEYBOARD_TYPE_ENGINE_NAME: { [string]: string } =
-		{ default = "Default", numeric = "Number", email = "Email", phone = "Phone" }
-
 	-- theme packages: the FIRST root is the target's identity for
 	-- per-target theming — the controller links the package sheet there, and
 	-- every LATER root (modals, popups) inherits whatever sheet the base root
@@ -1464,9 +1440,8 @@ function screen_target.new(opts: Opts?)
 			-- config (research 2026-07-20-textbox-engine-facts):
 			--   * ClearTextOnFocus=false — engine default TRUE wipes the bound
 			--     value the instant the box is focused (F10). MUST be false.
-			--   * MultiLine=false + TextWrapped=false — single line only;
-			--     wrap-while-typing is engine-broken on mobile (devforum 1014598),
-			--     so multi-line stays unshipped/ungated.
+			-- Multiline and wrapping are applied by the multiline binding. Native
+			-- editing owns caret, selection, composition and newline insertion.
 			instance.ClearTextOnFocus = false
 			instance.MultiLine = false
 			instance.TextWrapped = false
@@ -2636,8 +2611,8 @@ function screen_target.new(opts: Opts?)
 		if not instance:IsA("TextBox") then
 			return
 		end
-		handle.textHandlers = handlers
 		handle.lastModelText = handle.lastModelText or instance.Text
+		screen_caret.wire(handle, handlers)
 		-- RECONNECT, NOT A RAW ASSIGNMENT (task CONN round 2, completeness sweep):
 		-- once-per-life setter, same Finding-1 unconditional-overwrite shape as
 		-- `screen_pointer.luau`'s siblings — a recycled handle kept a stale
@@ -2699,7 +2674,7 @@ function screen_target.new(opts: Opts?)
 		pcall(function()
 			reconnect(handle, "oskReturnConn", function()
 				return (instance :: any).ReturnPressedFromOnScreenKeyboard:Connect(function()
-					if instance:IsFocused() then
+					if instance:IsFocused() and not instance.MultiLine then
 						instance:ReleaseFocus(true)
 					end
 				end)
@@ -2938,6 +2913,50 @@ function screen_target.new(opts: Opts?)
 		-- optional. Switching treatments tears the other one down first, so a
 		-- swap from ring to glow while a control is focused cannot leave both.
 		local wantGlow = on and focusTreatment.kind == "glow" and hasUIShadow
+		local focusShadow: any = nil
+		if wantGlow then
+			local ok, normalized =
+				pcall(styling.normalizeShadow, chrome_slots.focusShadowSpec(focusTreatment.recipe, strong), style)
+			if ok then
+				focusShadow = normalized
+				local g: any = normalized
+				-- Centered pixel-radius halos fit every actual clipping ancestor,
+				-- including one beyond a non-clipping transform/animation host.
+				if
+					g.blurRadius.scale == 0
+					and g.offset.x.scale == 0
+					and g.offset.x.offset == 0
+					and g.offset.y.scale == 0
+					and g.offset.y.offset == 0
+					and g.spread.x.scale == 0
+					and g.spread.x.offset == 0
+					and g.spread.y.scale == 0
+					and g.spread.y.offset == 0
+				then
+					local pos, size = host.AbsolutePosition, host.AbsoluteSize
+					local ancestor = host.Parent
+					while ancestor do
+						if ancestor:IsA("GuiObject") and (ancestor.ClipsDescendants or ancestor:IsA("CanvasGroup")) then
+							local cp = ancestor.AbsolutePosition
+							local cs = if ancestor:IsA("ScrollingFrame")
+								then ancestor.AbsoluteWindowSize
+								else ancestor.AbsoluteSize
+							g.blurRadius.offset = chrome_slots.focusBlurWithin(
+								g.blurRadius.offset,
+								{ x = pos.X, y = pos.Y, w = size.X, h = size.Y },
+								{ x = cp.X, y = cp.Y, w = cs.X, h = cs.Y }
+							)
+						end
+						ancestor = ancestor.Parent
+					end
+					-- A flush edge cannot display a halo. Keep focus visible with
+					-- the same ring fallback used when UIShadow is unavailable.
+					wantGlow = g.blurRadius.offset > 0
+				end
+			else
+				wantGlow = false
+			end
+		end
 		if ring ~= nil and (not on or wantGlow) then
 			ring:Destroy()
 			ring = nil
@@ -2954,29 +2973,21 @@ function screen_target.new(opts: Opts?)
 			chromeState.noteFocusGlow(false)
 		end
 		if on and wantGlow then
-			-- ONE UIShadow child, named so a Studio reader can tell a focus glow
-			-- from a slot shadow at a glance. The ten-foot profile scales blur UP
-			-- and transparency DOWN, which is the glow's answer to the same §8.4
-			-- requirement the ring answers by thickening.
-			local spec = chrome_slots.focusShadowSpec(focusTreatment.recipe, strong)
-			local okSpec, normalized = pcall(styling.normalizeShadow, spec, style)
-			if okSpec then
-				if glow == nil then
-					glow = Instance.new("UIShadow" :: any)
-					glow.Name = "FocusGlow"
-					handle.focusGlow = glow
-					chromeState.noteFocusGlow(true)
-				end
-				local g: any = normalized
-				glow.BlurRadius = UDim.new(g.blurRadius.scale, g.blurRadius.offset)
-				glow.Color = focusColor()
-				glow.Transparency = g.transparency
-				glow.Offset = UDim2.new(g.offset.x.scale, g.offset.x.offset, g.offset.y.scale, g.offset.y.offset)
-				glow.Spread = UDim2.new(g.spread.x.scale, g.spread.x.offset, g.spread.y.scale, g.spread.y.offset)
-				glow.ZIndex = g.zIndex
-				glow.Enabled = true
-				glow.Parent = host
+			if glow == nil then
+				glow = Instance.new("UIShadow" :: any)
+				glow.Name = "FocusGlow"
+				handle.focusGlow = glow
+				chromeState.noteFocusGlow(true)
 			end
+			local g = focusShadow
+			glow.BlurRadius = UDim.new(g.blurRadius.scale, g.blurRadius.offset)
+			glow.Color = focusColor()
+			glow.Transparency = g.transparency
+			glow.Offset = UDim2.new(g.offset.x.scale, g.offset.x.offset, g.offset.y.scale, g.offset.y.offset)
+			glow.Spread = UDim2.new(g.spread.x.scale, g.spread.x.offset, g.spread.y.scale, g.spread.y.offset)
+			glow.ZIndex = g.zIndex
+			glow.Enabled = true
+			glow.Parent = host
 		end
 		if on then
 			--[[ THE LIFT, COMPUTED BEFORE THE RING (device bug fix, director 2026-08-23:
@@ -3259,8 +3270,6 @@ function screen_target.new(opts: Opts?)
 		style = style,
 		nativeMode = nativeMode,
 		palette = COLOR,
-		canSetTextInputType = canSetTextInputType,
-		keyboardTypeEngineName = KEYBOARD_TYPE_ENGINE_NAME,
 		assertBespokePaint = assertBespokePaint,
 		claimPaint = claimPaint,
 		restorePaint = restorePaint,

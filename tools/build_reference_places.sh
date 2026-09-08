@@ -79,6 +79,7 @@ for entry in "${PROOFS[@]}"; do
       "\$properties": { "CharacterAutoLoads": false }
     },
     "ReplicatedStorage": {
+      "Gallery": { "\$path": "gallery/client" },
       "Facet": { "\$path": "../src" },
       "FacetExamples": { "\$path": "gallery/examples" },
       "FacetScenarios": { "\$path": "gallery/scenarios" },
@@ -88,11 +89,7 @@ for entry in "${PROOFS[@]}"; do
     "StarterGui": {
       "\$properties": { "ScreenOrientation": "Sensor" }
     },
-    "StarterPlayer": {
-      "StarterPlayerScripts": {
-        "Gallery": { "\$path": "gallery/client" }
-      }
-    }
+    "StarterPlayer": {}
   }
 }
 JSON

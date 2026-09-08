@@ -2969,4 +2969,46 @@ function chrome_slots.censusOf(
 	}
 end
 
+-- An explicitly plain leaf has no frame that can paint beyond its box. A
+-- viewport containing only these leaves needs no decoration shadow allowance.
+function chrome_slots.hasOnlyPlainLeaves(node: any): boolean
+	local children = node.children or {}
+	if #children == 0 then
+		return false
+	end
+	for _, child in children do
+		local props = child.props or {}
+		local hint = chrome_slots.readHint(child)
+		if
+			props.surface ~= "plain"
+			or #(child.children or {}) > 0
+			or chrome_slots.classify({
+					class = child.class,
+					surface = props.surface,
+					hasSelection = props.selected ~= nil,
+					hint = if hint then hint.slot else nil,
+				})
+				~= nil
+		then
+			return false
+		end
+	end
+	return true
+end
+
+-- Fit a centered pixel-radius focus halo inside the viewport that clips it.
+-- Focus changes paint, not layout; keep the halo's authored colour/opacity.
+function chrome_slots.focusBlurWithin(blur: number, rect: any, clip: any): number
+	return math.max(
+		0,
+		math.min(
+			blur,
+			rect.x - clip.x,
+			rect.y - clip.y,
+			clip.x + clip.w - rect.x - rect.w,
+			clip.y + clip.h - rect.y - rect.h
+		)
+	)
+end
+
 return chrome_slots

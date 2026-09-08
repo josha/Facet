@@ -38,6 +38,7 @@ Exit 0 = clean; 1 = a FAIL-class violation; 2 = environment failure.
 import os
 import re
 import sys
+import tempfile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(HERE)
@@ -151,10 +152,10 @@ PASSIVE_SKIP = {"used", "based", "named", "called", "fixed", "closed", "open",
                 "needed", "allowed", "supposed", "intended", "limited"}
 
 
-def documents():
+def documents(repo_root=REPO):
     found = []
     for rel in SCANNED_DIRS:
-        root = os.path.join(REPO, rel)
+        root = os.path.join(repo_root, rel)
         if not os.path.isdir(root):
             continue
         for name in sorted(os.listdir(root)):
@@ -165,7 +166,7 @@ def documents():
     # a file name added there would have been scanned by nothing while looking
     # exactly like it was covered.
     for rel in SCANNED_FILES:
-        if os.path.isfile(os.path.join(REPO, rel)):
+        if os.path.isfile(os.path.join(repo_root, rel)):
             found.append(rel)
     return found
 
@@ -290,7 +291,7 @@ def check_document(path, text, fails, warns):
 
 def run(root=REPO):
     fails, warns = [], []
-    for path in documents():
+    for path in documents(root):
         full = os.path.join(root, path)
         if not os.path.isfile(full):
             continue
@@ -301,9 +302,8 @@ def run(root=REPO):
 
 def selftest():
     """Plant one violation of each FAIL rule, require each to be reported, then
-    require the restored tree to pass. A checker nobody has watched fail proves
+    require the working tree to pass. A checker nobody has watched fail proves
     nothing about the tree it passes."""
-    probe = os.path.join(REPO, "docs", "guide", "style_probe_tmp.md")
     cases = [
         ("an over-long numbered step",
          "1. Open the place file, then find the client script, then read the "
@@ -322,28 +322,27 @@ def selftest():
          "The director asked for the taller row, so the theme grew one.\n",
          "names an internal reviewer"),
     ]
-    try:
+    with tempfile.TemporaryDirectory(prefix="facet-doc-style-") as probe_root:
+        probe = os.path.join(probe_root, "docs", "guide", "style_probe_tmp.md")
+        os.makedirs(os.path.dirname(probe))
         for name, body, needle in cases:
             with open(probe, "w") as handle:
                 handle.write("# Probe\n\n" + body)
-            fails, _warns = run()
+            fails, _warns = run(probe_root)
             hit = [f for f in fails if "style_probe_tmp" in f and needle in f]
             if not hit:
                 print(f"check_doc_style: SELFTEST FAIL — {name} was not reported")
                 print("\n".join(fails[:10]))
                 return 1
-    finally:
-        if os.path.exists(probe):
-            os.unlink(probe)
     fails, warns = run()
     if fails:
-        print("check_doc_style: SELFTEST FAIL — the restored tree is not clean:")
+        print("check_doc_style: SELFTEST FAIL — the working tree is not clean:")
         print("\n".join(fails[:20]))
         return 1
     print("check_doc_style: SELFTEST PASS — an over-long numbered step, an "
           "unexpanded acronym, a bare artifact row id, a date literal in a guide "
           "chapter and an internal reviewer named in one were each reported; "
-          f"the restored tree is clean ({len(warns)} warnings, which never fail)")
+          f"the working tree is clean ({len(warns)} warnings, which never fail)")
     return 0
 
 

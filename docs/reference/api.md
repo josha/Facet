@@ -88,13 +88,17 @@ entries.
 how many it loaded. Call it once while a loading screen is up if you would rather
 pay the cost there than on the frame a player first opens a list.
 
-**You do not need this.** Four composite controls — `Chip`, `VirtualList`,
-`VirtualGrid` and `AsyncImage` — compile at their first construction rather than
-when you require Facet. Measured on the development host, mode-matched across 30
-paired samples: **228 KB** of Lua heap a game that builds none of them never
-pays. The load happens at a construction seam, never inside a frame's steady
-state, so scrolling and animation cannot trigger one. `preload` exists for the
-game that wants the cost accounted for at a moment of its own choosing.
+Eight composite controls — `Chip`, `VirtualList`, `VirtualGrid`, `AsyncImage`,
+`Button`, `Toggle`, `ComboBox` and `SplitButton` — compile at their first
+construction rather than when you require Facet. The new four expose typed
+`ButtonSpec`, `ToggleSpec`, `ComboBoxSpec` and `SplitButtonSpec` through Facet;
+their type declarations do not load their implementations.
+
+The original four-module set saved **228 KB** of Lua heap in 30 paired samples
+on the development host. That historical measurement does not quantify the
+current eight-module set. Loading happens at construction, outside steady
+scrolling and animation. `preload()` returns **8**, including modules that were
+already loaded; it does not report how many were newly compiled.
 
 Calling it twice costs a table lookup: Luau's `require` cache is the memoizer.
 Calling it never is the supported default.
@@ -348,7 +352,7 @@ Three groups recur in the column below and are worth naming once:
 | `overflow` | layout containers | declared overflow handling (`clip`/`scroll`/`visible`/`intentionalOverlap`). **`"clip"` makes the node a clip host** — it sets `clipChildren` at construction unless you authored that flag yourself, so the word does the thing it names. The other three values are declared intent, read by the solver's overflow diagnostic and by the layout dump, and drive no engine property |
 | `clipChildren` | layout containers | make this container an engine clip host; `ScrollView` defaults it to true |
 | `active` | layout containers, `Box` | engine `Active` flag — an input-sinking panel (modal backdrops) |
-| `surface` | layout containers, `Box`, `Button`, `GridRow`, `Image`, `Stage`, `Text` (only `"badge"`/`"chip"` — see `Text`) | surface style role painted behind the node |
+| `surface` | layout containers, `Box`, `Button`, `GridRow`, `Image`, `Stage`, `TextField`, `Text` (only `"badge"`/`"chip"` — see `Text`) | surface style role painted behind the node |
 | `enabled` | layout containers, `Button`, `Toggle`, `TextField` | `false` disables the node **and its whole subtree**: every descendant leaves focus order — both derivations (linear and directional), and every group, including the ones a control contributes for itself and a `navigationGroups` map you declare (a **static array** is filtered when the surface is presented; use the **function** form for a map that must follow a reactive `enabled`, which is the same rule `hidden` has always had) — refuses activation on every input class, and takes no pointer, touch or drag. The themed disabled state reaches the **text** of that subtree. **Inherited** — see [Inherited properties](#inherited-properties-enabled-and-tint) for the precedence rule, what is painted, and what is not |
 | `tint` | layout containers (subtree only), `Box`, `Text`, `Image`, `Path`, `Stage` | the one continuous colour channel. On a painting class it paints that class's own channel; on a layout container it paints nothing and is **inherited** by the subtree. See [Continuous colour](#continuous-colour-tint) for the value forms and [Inherited properties](#inherited-properties-enabled-and-tint) for the precedence rule |
 | `shadow`, `gradient`, `corners`, `stroke` | every rendered class, **and `GridRow`** | normalized style-modifier data — produce them with `UI.shadow` / `UI.gradient` / `UI.corners` / `UI.stroke`, never by hand |
@@ -889,7 +893,7 @@ service rather than a per-control recipe:
 |---|---|
 | `controller.scrollTo(path, {x,y})` | programmatic position; the engine clamps it |
 | `controller.scrollPosition(path)` | the LIVE offset, read from the engine (it co-authors the value, so a user fling the framework never saw is still reflected) |
-| `controller.scrollToVisible(path)` | scroll the node's nearest `ScrollView` **ancestor** the minimum distance that brings the node fully into view; returns `false` when it is already visible, has no scroll ancestor, or the adapter has no scroll seam |
+| `controller.scrollToVisible(path, localRect?)` | scroll the node's nearest `ScrollView` **ancestor** the minimum distance that brings the node fully into view, or the supplied `{x,y,w,h}` rectangle relative to it; returns `false` when it is already visible, has no scroll ancestor, or the adapter has no scroll seam |
 | `controller.observeScroll(path, fn)` | engine-driven offset changes (virtualization consumes this) |
 
 `scrollToVisible` is the ONE keep-visible substrate: the presenter calls it on
@@ -1789,7 +1793,7 @@ hover and focus only, nothing on touch (see `Text`'s `help`).
 ### `TextField`
 
 `UI.TextField{ id?, text?, placeholder?, editing?, enabled?, focusable?,
-maxLength?, keyboardType?, help?, onTextChanged?, onFocusGained?, onFocusLost? }` —
+maxLength?, keyboardType?, multiline?, surface?, help?, onTextChanged?, onFocusGained?, onFocusLost? }` —
 the text-entry leaf primitive the renderer maps to an engine `TextBox`. All of
 `text`/`placeholder`/`editing`/`enabled`/`maxLength`/`keyboardType` ride the
 binding authority (the engine adapter maps `editing` to CaptureFocus/
@@ -1798,11 +1802,11 @@ props inherit `common`. **`help`** (construction-only) is the player-pulled
 sentence about what this field is for — pointer hover and focus only, nothing on
 touch (see `Text`'s `help`). The three handler props are functions the adapter wires
 through the optional `setTextInputHandlers(handle, handlers)` seam
-(`handlers = { onTextChanged(text), onFocusGained(path), onFocusLost(reason) }`,
+(`handlers = { onTextChanged(text), onFocusGained(path), onFocusLost(reason), onCaretRect?(rect) }`,
 `reason ∈ "enter" | "focusLost" | "cancel"`; `path` is the focused node's full
 path — engine-initiated focus must deliver it so occlusion keep-visible works
-without a prior activate). Prefer the `Facet.newTextInput`
-composite over building on the raw primitive.
+without a prior activate). The renderer supplies `onCaretRect` for multiline fields; adapters report the native caret's line rectangle relative to the field so the existing scroll authority can reveal it. Prefer the `Facet.newTextInput`
+composite over building on the raw primitive. `multiline = true` is construction-only and maps to public `TextBox.MultiLine` and `TextWrapped`; Enter inserts a newline. `keyboardType` is intent metadata with no native keyboard effect. `surface = "plain"` provides a transparent native editor when a containing control owns the frame, as in `TextInput`. The frame stays visible during native focus and editing.
 
 ### `Box` / `Spacer`
 
@@ -2828,7 +2832,7 @@ surface and no zones are wired (focus-driven disclosure still works).
 | Render cycle | `initialRender()`, `refresh()`, `dispose()` |
 | Geometry reads | `rectOf(path)` (solved), `screenRectOf(path, relativeTo?)` (painted — see "Two rect reads"), `hiddenRoots()`, `compositionAt(path?)`, `textAt(path?)` (the per-text-node facts of the last solve: font, size, lines, naturalLines, truncated, disclose, reveal, naturalWidth, policy — the channel the disclosure plate and the auto reveal both read), `structureEpoch()` (a monotonic counter bumped by exactly the two things that change what a tree derives to — a structural sync, and a change in which roots are hidden — so a caller can cache a derivation on it instead of redoing it every frame, which is what the presenter's focus map does), `mountedPathOf(declaredPath)` (a node's own LIVE mounted path — see "A node hands back its own mounted path") |
 | Focus | `setFocusPath(path?, visible?)` |
-| Scrolling | `scrollTo(path, {x,y})`, `scrollPosition(path)`, `scrollToVisible(path)`, `scrollHostFor(path, includeSelf?)` (the nearest `ScrollView` ancestor's handle — reach for this instead of re-deriving the host), `scrollBarInsetOf(path)` (the scrollbar gutter that host reserved on its last solve — `{ right, bottom }`, `right` for a Y scroller and `bottom` for an X one, or **nil** when it reserved none; for a node that must line up ACROSS a scroll boundary while living outside the subtree, which is the case `newTable`'s header is — do NOT derive it from `adapter.scrollBarThickness`, that is what a bar *would* take, not what this host took), `observeScroll(path, fn) -> unsubscribe`, `stepAutoscroll(dt?)`, `setPointerDrag(info?)` |
+| Scrolling | `scrollTo(path, {x,y})`, `scrollPosition(path)`, `scrollToVisible(path, localRect?)`, `scrollHostFor(path, includeSelf?)` (the nearest `ScrollView` ancestor's handle — reach for this instead of re-deriving the host), `scrollBarInsetOf(path)` (the scrollbar gutter that host reserved on its last solve — `{ right, bottom }`, `right` for a Y scroller and `bottom` for an X one, or **nil** when it reserved none; for a node that must line up ACROSS a scroll boundary while living outside the subtree, which is the case `newTable`'s header is — do NOT derive it from `adapter.scrollBarThickness`, that is what a bar *would* take, not what this host took), `observeScroll(path, fn) -> unsubscribe`, `stepAutoscroll(dt?)`, `setPointerDrag(info?)` |
 | Drag | `dragRegistry()` (builds one on demand), `peekDragRegistry()` (nil when none exists yet), `setDragCollaborators(collaborators)`, `attachDragDetector(path, handlers) -> detach?` |
 | Presentation channel | `setPresentationTransform(path, t?)`, `setPresentationTransparency(path, alpha?)`, `setPresentationOffset(dy)`, `setPaintHeld(path, held)` (hold a node's own paint while something is painted over it — the auto reveal's strip is the framework's only caller; the solve, the rects and the truncation facts are untouched, and the hold survives a re-solve and a remount of that path) |
 | Engine content | `stageHost(path)` — the `UI.Stage` seam, nil on an adapter without it (see [The content seam](#the-content-seam-controllerstagehostpath)) |
@@ -6760,89 +6764,148 @@ the `install` call above.
 what each one looks like, what it does to your metrics, and what it costs. The
 library itself names none of them — `build/Facet.rbxm` carries `src/` and the
 `studio-neutral` package alone, which `tools/check_library_purity.py` enforces.
+### `Controls.Toggle`
+
+`Facet.Controls.Toggle(core, spec) -> { blueprint, dump, dispose }`
+
+One boolean selection control with `presentation = "switch"` (default),
+`"checkbox"`, or `"button"`. Required `value: Signal<boolean>` is caller-owned.
+Optional fields are `id`, `label`, `enabled`, `onChange(value)`, and `children`
+(custom button content only). `UI.Toggle` remains the compatible switch primitive.
+
+Checkboxes additionally accept `mixed: Signal<boolean>`. Mixed activation sets
+`value` to true and clears mixed in one transaction. There is no automatic
+three-state cycle. Clicking the label uses the same activation as the indicator.
+Checkbox labels wrap; toggle buttons retain selected styling between presses.
+Disabled controls preserve state and cannot activate. Pointer, touch, Return,
+and ButtonA follow the same semantic activation path.
+
+### `Controls.Button`
+
+`Facet.Controls.Button(core, spec) -> { blueprint, dump, dispose }`
+
+A button with required `onActivate(meta)` and optional `id`, `label`, custom
+`children`, `enabled`, `busy`, `role`, `width`, `height`, `shortcut`,
+`repeatDelay`, `repeatInterval`, and `dialogAction`. Enabled and busy accept
+booleans or readable booleans. Busy displays the existing themed progress spinner
+and rejects activation until the caller clears it.
+
+Repeat is opt-in by declaring a delay or interval. Defaults are 0.4 seconds before
+repeating and 0.1 seconds between repeats. Keyboard/gamepad activation occurs on
+press; a pointer tap activates on release, while a held pointer starts repeating
+after the delay. Release after a repeat does not add an extra activation. A slow
+frame emits at most one current repeat. Release, pointer exit, cancellation,
+focus loss, lost input ownership, disabling, busy state, and disposal stop the hold.
+
+`shortcut = { keyCode = "F6", modifiers = { shift = true } }` uses the existing
+semantic action system. Only documented modifier bindings are supported. Hidden,
+disabled, busy, inactive, or covered controls do not execute. Shortcuts are scoped
+to their presented surface, below higher-priority gameplay contexts. During
+native text editing all control shortcuts yield. Escape remains engine-owned;
+Tab retains traversal. Roblox-reserved keys cannot be promised to intercept.
+
+`dialogAction = "default"` binds Return; `"cancel"` binds ButtonB. These actions
+use the same activation and ownership rules, including yielding Enter to an
+active multiline editor. The first eligible declared control wins duplicate
+shortcut/default keys in document order. A focused repeat button's normal
+activation takes precedence over a default. Overlapping bindings on one button
+produce one activation. Dismissing the surface releases its key contexts.
+
+### `Controls.SplitButton`
+
+`Facet.Controls.SplitButton(core, spec) -> { blueprint, dump, dispose }`
+
+A primary Button beside a separately focusable menu affordance. Required fields
+are `label`, `onActivate`, and Menu `items`. Optional fields are `id`, `enabled`,
+`busy`, `shortcut`, `env`, and `menuLabel` (default “More options”). Opening the
+menu never runs the primary action. Busy/disabled state prevents both parts.
+The separator and dropdown icon use the theme, and the menu uses Menu's anchored
+surfaces, focus restoration, and dismissal policy.
+
 ### `newPopupButton`
 
-`Facet.Controls.PopupButton(core, spec) -> { blueprint, api, dump, dispose }`
-— a select/dropdown control. Closed, it is a single focusable button showing
-the currently-selected option's label. Activating it (tap, keyboard Return,
-gamepad ButtonA) opens a popup panel listing the options as activatable rows
-plus a Cancel row. Activating an option writes the owner-held `value` signal,
-fires `onChange`, and closes the popup — the button's label reflects the new
-selection with no structural rebuild (the label is a binding on `value`).
-Activating the trigger again, or the Cancel row, closes the popup without
-changing the selection. While open, the option rows are ordinary focusable
-buttons, so keyboard/gamepad users navigate them with the normal focus ring
-(Down/Up) and select with Activate; closed, only the trigger is focusable.
+Construction refuses a missing or ambiguous environment when adaptation or native editing requires it; pass `env` explicitly when the core serves multiple surfaces. `client.host.new()` supplies an environment.
 
-The two-argument spelling `Facet.newPopupButton(Facet, core, spec)` is **deprecated** since
-0.10.0 (removal no earlier than 0.12.0): it still builds the identical
-control, and `Facet.Controls.PopupButton` is a closure over the library, not a second
-implementation.
 
-Spec: `{ id?, options: { { id: string, label: string } }, value:
-Signal<string> (the selected option id), onChange: ((id: string) -> ())?,
-presentation: ("automatic" | "menu" | "inline" | "sheet")?, sizeClass:
-(string | Readable)?, interactionClasses: (table | Readable)?, env: Environment? }`.
-**Both facts arrive by themselves** (ADAPT-1): an automatic presentation missing
-either reads the environment this control's core published — `env` is there for a
-control whose core is not the surface's — and refuses to construct when there is none.
-`dump().factsFrom` is `"spec"` or `"core"`. Until 2026-08-18 every shipped call site
-wired `sizeClass` and none wired `interactionClasses`, so the touch rung below never
-fired anywhere.
-Option `id`s must be path-safe (no `/`) and are asserted at build. `value` must
-be a **settable Signal you own** — a read-only Memo is refused at build, the way
-every sibling control refuses one, rather than crashing on the first selection.
-The
-selection is OWNER-HELD in `value`: the control reads it (label + per-row
-selected marks) and writes it on selection, but never stores selection state
-of its own — durable state belongs in your data model. `onChange` fires only
-on an actual change (re-selecting the current option just closes).
+`Facet.Controls.PopupButton(core, spec) -> { blueprint, api, presentation, dump, dispose }`
 
-Returns `{ blueprint, api, presentation, dump, dispose }`, where
-`api = { handleActivate(path, meta?) -> boolean, open(), close(), select(id),
-isOpen (Signal), presentation() }`. `presentation` here is a **function**
-returning the resolved idiom — `"menu"`, `"inline"` or `"sheet"` — chosen from
-the option count, the space class and whether touch is the PRIMARY class (a mouse on
-a touchscreen laptop still wins outright — ADAPT-9): touch-primary takes the
-sheet; a compact space with more than 6 options takes the sheet; 3 or fewer
-options outside a compact space go inline; everything else is a menu. (Note the
-sibling asymmetry: `newPicker`'s `presentation` is a Readable, not a function.
-PKT-1 tracks unifying them at 1.0.) Route the presenter's `onActivate` to
-`api.handleActivate` (it returns `true` when the path was the control's — the
-trigger, an option row, or Cancel); `open`/`close`/`select` drive the control
-from host code without a pointer. `dump()` returns the deterministic
-diagnostic summary (`{ schema, id, open, value, selectedLabel, options }`).
+A selection button that opens valid choices. Its label summarizes caller-owned
+selection. Use a `query` signal for searchable results, or `selectedValues` for
+independent multiple selection. Use ComboBox when arbitrary text may be committed.
+
+| Field | Contract and default |
+|---|---|
+| `id` | Stable control identity. |
+| `options` | Option array or readable array. Options have unique path-safe `id`, `label`, optional `description`, semantic `icon`, and boolean/readable `enabled`. `{divider=true}` separates static groups. Icons are present for every option in a group or none. |
+| `value` | Caller-owned settable Signal containing one option id. Mutually exclusive with `selectedValues`. |
+| `selectedValues` | Caller-owned `Signal<{[string]: boolean}>`; true entries identify selected options. Each activation clones and updates the set immediately and keeps the panel open. Cancel dismisses; it does not roll back completed changes. |
+| `query` | Optional caller-owned `Signal<string>`. Filters supplied labels, case-insensitively, using native text entry and VirtualList for results. Query, focused result, and selected value remain separate. |
+| `placeholder` | Summary when nothing is selected. |
+| `enabled` | Boolean/readable boolean, default true. Disabling closes the popup without changing selection. |
+| `required` | Single selection defaults to required: nil is accepted only when false. Multiple selection permits an empty set unless explicitly true. |
+| `onChanging(proposed, current)` | Optional veto before a write. False or an exception rejects the proposal. Caller normalization can be applied in `onChange`; rendering never reconciles selection. |
+| `onChange(selection)` | Runs once per actual accepted change, receiving an id or a fresh set according to the declared selection contract. |
+| `presentation` | `"automatic"`, `"menu"`, `"inline"`, or `"sheet"`. |
+| `sizeClass`, `interactionClasses`, `env` | Optional adaptive facts. Automatic presentation reads missing facts from the environment published by this core. |
+
+Reselecting the current single value dismisses without a callback. Disabled
+choices remain visible and cannot be selected. A selected option becoming
+disabled or disappearing retains the caller's selection; a missing id is shown
+literally until the caller reconciles it. Replacing a keyed row updates its label
+without replacing its selection. Filtering never clears a selection.
+
+While editing a query, native editing owns arrow keys. Tab moves to the result
+list; arrows/D-pad then navigate results, and Return/ButtonA selects. Empty
+results display “No matching options.” Search selects supplied values only.
+Outside dismissal and Cancel preserve selection; multiple selection remains open
+between changes. Popup presentation adapts from available space and input class.
+
+`api` exposes `open()`, `close()`, `select(id)`, `isOpen`, `presentation()`, and
+`handleActivate(path, meta?)`. The presenter wires input automatically. `dump()`
+reports the open state, selection, summary, query, resultCount, and options.
+`presentation()` returns the resolved idiom. Dispose releases owned bindings;
+retained selection methods cannot mutate state afterward.
 
 ```lua
-local value = core:signal("normal")
-local difficulty = Facet.Controls.PopupButton(core, {
-	id = "Difficulty",
-	options = {
-		{ id = "easy", label = "Easy" },
-		{ id = "normal", label = "Normal" },
-		{ id = "hard", label = "Hard" },
-	},
-	value = value,
-	onChange = function(id)
-		print("picked", id)
-	end,
-})
--- host screen wires activation to the control's router:
-pres.present(Facet.UI.Screen({ id = "S", children = { difficulty.blueprint } }), {
-	sinkNavigation = true,
-	onActivate = function(path, meta)
-		difficulty.api.handleActivate(path, meta)
-	end,
+local selected = core:signal({ coastal = true })
+local filters = Facet.Controls.PopupButton(core, {
+    id = "Scenery", selectedValues = selected,
+    options = {
+        { id = "coastal", label = "Coastal" },
+        { id = "forest", label = "Forest" },
+    },
 })
 ```
+
+`Facet.newPopupButton(Facet, core, spec)` is deprecated since 0.10.0, with removal
+no earlier than 0.12.0. It calls the same builder.
+
+### `Controls.ComboBox`
+
+`Facet.Controls.ComboBox(core, spec) -> { blueprint, api, dump, dispose }`
+
+Editable selection with separate caller-owned `value: Signal<string>` for the
+committed value and `text: Signal<string>` for the native editor's draft. Required
+`options` follow PopupButton's option contract. `acceptCustom(text)` must return
+true to accept custom text, or false plus an optional message to reject it.
+Supplied labels commit their option ids; custom text commits as its own value.
+Disabled supplied options cannot be bypassed by typing their labels.
+
+Optional fields are `id`, `enabled`, `placeholder`, `env`, `onChange(value)`, and
+`commitOnFocusLost` (false). Enter or `api.submit()` validates and commits.
+Focus loss preserves the uncommitted draft unless explicitly configured to
+commit. Cancel or `api.cancel()` restores the current committed label and closes
+suggestions. Choosing a suggestion commits its id and updates the draft label.
+Invalid custom values retain the draft, display an error, and leave `value`
+unchanged. The suggestions use native search entry and virtualized results;
+Tab moves between editing and suggestion navigation without taking editing arrows.
 
 ### `newMenu`
 
 `Facet.Controls.Menu(core, spec) -> { blueprint, api, presentation, dump, dispose }`
-— a freestanding **action menu**. Its items are *verbs*, not values: each one runs
-something when it is picked. That is the whole difference from `newPopupButton`,
-whose `value` is a `Signal<string>` a verb list cannot fill. It is the control
-a right-click, a long press or the context key opens.
+— a menu combining actions, independently checked filters, exclusive selection
+groups, submenus, and dividers. Pointer, touch, context keys, and the focus graph
+all use the same anchored presentation.
 
 The two-argument spelling `Facet.newMenu(Facet, core, spec)` is **deprecated** since
 0.10.0 (removal no earlier than 0.12.0): it still builds the identical
@@ -6862,46 +6925,35 @@ presentation: (("automatic" | "menu" | "sheet") | Readable<string>)?, sizeClass:
 interactionClasses: (table | Readable)?, env: Environment?, backLabel: string?,
 onOpen: (() -> ())?, onClose: (() -> ())? }`. Both adaptive facts arrive by themselves
 from the surface's environment when you pass neither, and an automatic menu with no
-environment anywhere refuses to construct (ADAPT-1); `dump().factsFrom` says which
+environment anywhere refuses to construct; `dump().factsFrom` says which
 happened.
 
-**`backLabel` (compact-boundary fix round 1) is the word on the `sheet` idiom's Back
-row.** Same shape as `present/nav_bar.luau`'s `NavBarSpec.backLabel` and the
-same reason it exists there: *"a Button always needs a label (a11y)... this
-construct has no i18n system of its own to invent one from."* Unlike
-`nav_bar` — which has no built-in Back verb, so omitting `backLabel` there
-means an icon-only button — `newMenu` invents its OWN Back row, so omitting
-`backLabel` here falls back to the literal English word "Back" rather than
-going blank. **That fallback is an i18n gap, not a feature**: since
-`sizeClass == "compact"` is now the framework's own default for every
-automatic menu, any submenu-bearing `newMenu` shipped to a
-localized audience should set `backLabel` before it reaches a compact
-session. The row degrades to the chevron icon alone under an over-length
-label (the same `compactLabel` ladder every other row in the panel already
-uses — no `prefer`, so the word shows whenever it fits) rather than clipping.
+**`backLabel`** labels the sheet's Back row and defaults to "Back". Supply a
+localized label when appropriate. Long labels use the shared compact-label
+fallback rather than clipping.
 
-**`presentation` accepts a `Readable<string>` as well as a plain string** (gap 20,
-framework-gaps-phase2). A FORCED (non-`"automatic"`) value used to be
-construction-time only; it now rides the same hot-switch machinery `sizeClass`/
-`interactionClasses` already drive an open menu through, so `presentation:set(...)`
-re-presents a live surface at its current open depth exactly like a live
-size/interaction-class change does. A static misspelling still fails fast at
-construction; a reactive one out-of-domain is refused loudly — `warn()`ed AND
-recorded on `core:lastError()` — at the read site (the reactive core QUARANTINES
-a memo compute error rather than letting it unwind an unrelated surface's
-refresh — see `src/core/custom.luau`) and the menu HOLDS its last valid
-presentation rather than adopting the bad one.
+**`presentation`** accepts a string or readable `automatic`, `menu`, or `sheet`.
+Changing it or the adaptive environment re-presents the menu at its current
+open depth. Invalid static values fail construction; invalid reactive values
+report through `core:lastError()` and retain the last valid presentation.
 
-An **`Item`** is exactly one of three shapes:
+An **`Item`** is one of these shapes:
 
 | Shape | Fields | What it is |
 |---|---|---|
 | action | `{ id, label, icon?, role?, enabled?, onSelect }` | runs `onSelect` and closes the menu |
 | submenu | `{ id, label, icon?, role?, enabled?, children }` | opens a nested level; draws a trailing chevron |
+| checked | `{ id, label, checked: Signal<boolean>, onChange?, dismiss?, enabled?, description?, icon? }` | toggles independent caller-owned state; stays open by default |
+| selection | `{ id, label, selected: Signal, value, onChange?, dismiss?, enabled?, description?, icon? }` | shares one selected-value signal across exclusive choices; stays open by default |
 | divider | `{ divider = true }` | a rule between two groups; carries nothing else |
 
 Declaring **both** `onSelect` and `children` is an authoring error, not a
-precedence rule, and so is an item with neither. `role` is `"default"` (the
+precedence rule. Items require one action, submenu, checked binding, or selected binding.
+State bindings cannot be combined with `onSelect`; use `onChange(value)`.
+`dismiss=true` closes the surface before the callback, while `dismiss=false` keeps an action open.
+State marks have their own theme slots, distinct from ordinary icons.
+Disabled state changes leave caller-owned selections intact. If an open submenu’s parent becomes disabled, that submenu closes back to its available parent level. Disabling the trigger closes the menu.
+ `role` is `"default"` (the
 fallback) or `"destructive"`; `icon` is a semantic icon **name**, never an asset
 id. `enabled` may be a `Readable<boolean>` — and note that **a menu whose every
 item is disabled still opens**, because a trigger that silently does nothing
@@ -7336,189 +7388,91 @@ content) when it must be pressable, which keeps one activation surface.
 
 ### `newPicker`
 
+Construction refuses a missing or ambiguous environment when adaptation or native editing requires it; pass `env` explicitly when the core serves multiple surfaces. `client.host.new()` supplies an environment.
+
+
 `Facet.Controls.Picker(core, spec) -> { blueprint, presentation, dump, dispose }`
-— single selection from a small option set. `spec = { id?, label?, options ({ value,
-label, icon? }[]), selected (Signal), presentation? ("automatic" | "segmented" |
-"inline"), indicator? ("automatic" | "none" | "underline" | "pill"), axis? ("x" |
-"y"), sizing? ("fill" | "hug"), iconOnly? (boolean), textSize?, sizeClass?, env?,
-enabled?, onChange? }`.
 
-**`textSize`** is the type role every segment wears — a role name or a number, or a
-Readable of either, passed straight to each segment's Button. Reactive for the same
-reason `axis` and `sizing` are: a strip's home moves under a live rotation, and a tab
-bar in the thumb zone is caption-sized while the same strip on a rail is not.
+Single selection backed by one caller-owned signal. Choose `radio` for explicit
+exclusive choices, `segmented` for a compact band or rail, and `inline` for a
+full-width column. Use `Controls.PopupButton` for searchable or multiple
+selection, `Controls.ComboBox` for validated custom text, and `Controls.TabView`
+when choosing a different page rather than a value.
 
-**A pick and its `onChange` are ONE transaction.** A caller may redirect or veto a
-selection from inside `onChange` by writing the Signal back, and the two writes
-coalesce: no observer sees the value that was undone, and a `UI.When` over the
-selection never mounts a subtree it is about to evict. A transaction defers the flush
-and never a read, so `onChange` still sees the value it was handed.
-
-> **So `onChange` inherits a transaction body's obligation: it MUST NOT YIELD.** The
-> transaction stays open across a yield, which holds every observer in the session and
-> any unrelated write made meanwhile (`core.transaction`, and the same rule
-> `withAnimation`'s body carries). Do the waiting outside — set state and let an
-> observer or a task pick it up.
-
-The two-argument spelling `Facet.newPicker(Facet, core, spec)` is **deprecated** since
-0.10.0 (removal no earlier than 0.12.0): it still builds the identical
-control, and `Facet.Controls.Picker` is a closure over the library, not a second
-implementation.
-
-**A segmented picker used as a tab bar IS a `TabView`.** If the strip switches
-between *screens* rather than choosing a *value*, reach for `TabView`, which owns the
-content subtree and its lifecycle, the placement that restructures the screen, and
-nesting. It composes this control for its own strip — the two are the same row, and
-that is deliberate. A picker chooses a value; a tab view chooses a page.
-
-**The presentation is adaptive, not a platform branch — and the facts arrive by
-themselves.** `"automatic"` (the default) picks from the option count and the space
-class. You do **not** have to pass the class: an environment publishes itself against
-the core it was built on, and every control built on that core finds it, so a screen
-stood up with `Facet.client.host.new` adapts with no wiring at all (ADAPT-1). An
-authored `sizeClass` still wins where a screen drives its own. A picker asked for an
-automatic presentation with **no** environment anywhere **refuses to construct**,
-naming the host — because adaptation that silently does not happen is the defect this
-replaced: an unwired picker used to take the large-screen answer on every device,
-forever. `dump().sizeClassFrom` reports `"spec"`, `"core"` or `"none"` (a declared
-presentation consults no ladder). The rule is small enough to state in full, and it is
-the whole rule — a device name appears nowhere:
-
-| Condition (first match wins) | Presentation |
+| Spec field | Contract / default |
 |---|---|
-| more than 4 options | `inline` |
-| `sizeClass == "compact"` **and** (more than 3 options **or** the longest label is over 10 characters) | `inline` |
-| otherwise | `segmented` |
+| `id`, `label` | Optional stable control identity and group label. |
+| `selected` | Required caller-owned settable signal of the option value. |
+| `options` | Static option array or readable array with stable values/identities. |
+| `presentation` | `automatic` (default), `segmented`, `inline`, or `radio`. |
+| `required` | Defaults true. Selection requests cannot clear a required selection; rendering never repairs caller state. |
+| `onChanging(proposed,current)` | Optional synchronous veto; returning false rejects the request. |
+| `onChange(value)` | Accepted changes only; runs in the selection transaction and must not yield. |
+| `enabled` | Boolean/readable boolean, default true; applies to all choices. |
+| `axis` | Boolean-independent arrangement: `x` or `y`, optionally readable. Radio defaults to `y`; segmented defaults to `x`; inline is always vertical. |
+| `sizing` | `fill` (default) or `hug`, optionally readable. A hugging horizontal strip can live in a ScrollView. |
+| `textSize` | Optional type role, numeric size, or readable; defaults to the control type role. |
+| `iconOnly` | Defaults false; requires icons on every option. Radio retains visible labels. |
+| `indicator` | Static lists: `automatic`, `none`, `underline`, `pill`. Live lists: `automatic` or `none`, using selected row chrome. |
+| `sizeClass`, `env` | Optional environment overrides; automatic presentation otherwise reads the core's environment. |
 
-`presentation` on the returned table is a **`Readable<string>`** of the resolved
-answer, so you can bind it. (The rule function itself is not on the public
-`Facet` table today; the table above is the contract.)
+An option has required `value` and nonempty `label`, and optional `id`,
+`description`, semantic `icon`, `badge`, and boolean/readable `enabled`.
+Descriptions explain unavailable choices without hiding them. Values and stable
+ids must be unique. A live array uses `id`, or the string form of `value`, as
+its path-safe key. Replacing or reordering an option keeps the surviving row's
+identity and focus; removing a row lets the existing focus graph choose another
+available target. Labels, descriptions, icons and badges update with live records.
+Provide icons for every option in a group, or none.
 
-The option group is a `UI.AdaptiveStack`, so a live space change **flips the
-presentation without remounting the options** — they keep their identity, focus and
-state. Selection rides the `selected` binding (a style tag), never a bespoke fill, and
-every option row meets the enforced 44 px floor. For a popup presentation use
-`newPopupButton`, which owns the transient-surface machinery.
+Reselecting the current value is a no-op. A selected option becoming disabled,
+being removed, or being hidden by another presentation does not rewrite the
+signal. Callers reconcile unavailable selections explicitly and may set nil for
+an unselected state. `onChanging` runs before a write; `onChange` may normalize by
+writing the signal within the same transaction. Neither callback may yield.
+Arrow and D-pad navigation use the mounted focus graph; Activate selects the
+focused available choice. Disabling the control rejects every activation route.
 
-#### Icons on an option — `icon` and `iconOnly`
+Automatic presentation resolves from the live environment:
 
-`Option.icon` is a **semantic icon name** (`"close"`, `"chevron.trailing"`, a
-namespaced `"ns:name"`), never an asset id — the same currency `newLabel` and the
-row-action menus spend, so a theme package that ships art for that name paints it and
-one that does not draws the framework's ASCII-safe glyph.
-
-|  |  |
+| First matching condition | Presentation |
 |---|---|
-| `iconOnly = false` (default) | the segment **keeps its word** and wears the glyph only when the word does not fit. Authoring an icon beside a label is authoring a ladder, not a second slot |
-| `iconOnly = true` | the glyph is what **every** segment wears at every width — `f1`'s top pill and left rail. `label` stays the semantic name: it is what `dump().semanticText` announces and what an assistive reader gets |
+| More than four options | `inline` |
+| Compact width and either more than three options or a label longer than ten characters | `inline` |
+| Otherwise | `segmented` |
 
-Two rules are enforced at construction rather than left to be noticed on a screen:
+The returned `presentation` is a readable value. Layout and theme changes keep
+option identity and caller state. An automatic picker requires an environment;
+`client.host.new()` supplies it.
 
-- **`label` is required and non-empty on every option**, whatever is drawn. An icon
-  with no name is unreadable to every non-visual consumer.
-- **Provide icons for all options in a group, or none of them.** A
-  half-iconned group looks fine at the one width it was authored at and wrong
-  everywhere else, so it is an authoring error. `iconOnly` with no icons is refused
-  for the same reason — there would be nothing to draw.
+For static segmented lists, `indicator="automatic"` uses a sliding pill.
+Explicit inline and radio presentations use selected row styling. `underline`
+draws a bar at the strip's far edge; `pill` fills the selected box with the
+theme's pill radius and spacing inset. The indicator follows solved rectangles,
+places immediately on first paint or layout changes, and snaps under reduced
+motion. It adds no focus target. A bare mount without a motion clock places it
+immediately. `indicator="none"` uses ordinary selected chrome.
 
-A permanent icon-*beside*-title pair is `newLabel` inside a `Button`, which is a
-different construct and already owns that layout.
-
-#### The sliding selection indicator — `indicator` and `axis`
-
-`indicator = "automatic"` (default) `| "none" | "underline" | "pill"`. When it is on,
-the selection chip or bar **animates from the previously selected option's rect to the
-new one** instead of the fill cross-fading, so the eye follows one moving mark
-rather than two fading ones. The mechanism is internal
-(`src/controls/selection_indicator.luau`); this property is the whole public
-surface, and `TabView` carries the same one.
-
-**`"automatic"` is the pill**, unless you declared `presentation = "inline"` — the
-stacked row list never wore a chip, so it resolves to `"none"` and its painting is
-unchanged. Everything else, including the `"automatic"` presentation most callers
-write, gets the pill: a segmented control with a sliding chip is what every reference
-product draws, and a mechanism nobody consumes by default is a mechanism nobody has
-proved. An adaptive picker that flips into its stacked form **carries its chip with
-it** — one selection paint re-solved, rather than two paintings swapping.
-
-`indicator = "none"` is the escape hatch back to the static `selected` style tag, and
-it leaves the pre-indicator control byte-identical.
+The vertical pill is not the inline row list: `axis="y"` makes a segmented rail
+that hugs its contents, while `presentation="inline"` fills the available width.
 
 ```lua
-Facet.Controls.Picker(core, {
-    id = "View",
-    selected = view,
-    options = { { value = "grid", label = "Grid" }, { value = "list", label = "List" } },
-    presentation = "segmented",
-    indicator = "pill",     -- the DEFAULT for segmented; spell it out or leave it off
-    axis = "y",             -- ...and this makes it a VERTICAL pill (f1's left rail)
-    env = env,              -- optional: the bar's metrics then follow a live theme
+local mode = core:signal("open")
+local clubEnabled = core:signal(false)
+local picker = Facet.Controls.Picker(core, {
+    id = "RaceGroup", selected = mode, presentation = "radio",
+    options = {
+        { value = "open", label = "Open races" },
+        { value = "club", label = "Club races", enabled = clubEnabled,
+          description = "Join a club to unlock these races." },
+    },
 })
 ```
 
-| | |
-|---|---|
-| `"underline"` | a bar on the far edge of the strip's axis — the bottom of a horizontal segment, the leading edge of a vertical one. Its depth is `thickness`, a theme metric (`"space.xs"` by default), and it spans the segment's full cross extent |
-| `"pill"` | the whole segment box, inset on all four sides (`"space.xs"`), rounded with the theme's `pill` radius — r3's chip |
-| `axis` | `"x"` (default) or `"y"`, and it applies to the **segmented** presentation. `"y"` is a real vertical *pill* — see below. Under `inline` the axis is a column by definition and `axis` is inert |
-
-#### The vertical pill is not the inline row list
-
-Both stack their options along y, and both report `axis = "y"`. What tells them apart
-is the **container**, and it is the thing to look at when a picker is the wrong width:
-
-|  | container | segments |
-|---|---|---|
-| `presentation = "segmented"`, `axis = "y"` | a **rail**: content-sized, floored at the 44 px target, as wide as its widest segment and no wider — so it sits at the edge of a screen the way `f1`'s left rail does | cross-axis `fill`, so every segment shares that one width |
-| `presentation = "inline"` | a **full-width column**: every row spans the offer, which is what makes it a list of rows rather than a control | full width |
-
-`dump().verticalPill` is the boolean that says which one is on screen. The floor is
-load-bearing rather than defensive: an icon-only rail has nothing wide in it and
-solves to 36 px without it, which is under the tap target on both axes.
-
-
-**Turning the indicator on changes what the options paint**, deliberately:
-they stop carrying the `selected` style tag and are declared `surface = "plain"`.
-A tag *and* a chip is the same statement twice, and an opaque button would paint
-over the chip meant to sit behind its label. Selection is still fully reported by
-`dump()`. `indicator = "none"` leaves the pre-existing control byte-identical.
-
-**Invariants worth knowing:**
-
-- **The transition is between two rects, never two indices.** Segments stop being
-  equal-width the moment their labels differ, and again under a 1.4x
-  pseudo-localization; four scalar springs carry x, y, w and h. Because the bar is
-  derived from the *solved* rect, a wider label widens the bar with it and it can
-  never be painted at a size nobody measured.
-- **First paint places.** The initial selection is where the indicator *is*; it
-  does not slide in from the origin.
-- **A re-solve is not a transition.** A rotation, a theme swap or a
-  preferred-text change moves every segment under an unchanged selection — the
-  indicator re-places rather than flying, so it never swims across the strip.
-- **Reduced motion snaps.** Nothing branches on it: the indicator's motion values
-  are decorative, and the motion authority already places a decorative value at
-  its terminus instantly under reduced motion. One write, no intermediate frames.
-- **It is never a focus stop.** The two classes it mounts (`Anchor`, `Box`) are
-  outside the focusable set, so an indicator adds nothing to the Tab order.
-- **No presenter is a supported degradation.** With no motion clock bound (a bare
-  `mount` + `renderer.attach` in a unit test) every retarget is an instant
-  placement.
-
-**One structural consequence to know before you reference a path.** The
-decoration layer and the option stack must share one parent, so an indicated
-picker wraps its options: the mounted options move from `…/Options/OptN` to
-`…/Indicator/Options/OptN`, and the bar itself is `…/Indicator/Layer/Bar`.
-Activation is unaffected (the control dispatches on the leaf segment), and
-`indicator = "none"` leaves the original paths untouched.
-
-`dump()` carries `axis`, `verticalPill`, `requestedIndicator`, `indicator`,
-`iconOnly`, `iconCount`, `selectedLabel` and `selectedIcon` beside the fields it
-always had. `indicator` is the seam's live state (`skin`, `axis`, the resolved rect,
-how many placements and how many slides, how many times the fed geometry actually
-moved), or the string `"none"`. The schema string is still
-`"facet-picker-dump/1"`: every field that shipped keeps its name, type and meaning,
-so nothing written against `/1` breaks — a schema string warns about an incompatible
-shape, and adding fields is not one.
+`dump()` reports the current selection, presentation and arrangement; static
+indicator diagnostics also describe its solved rectangle and motion. The
+compatibility spelling `Facet.newPicker(Facet, core, spec)` is deprecated since
+0.10.0, with removal no earlier than 0.12.0.
 
 ### `newTabView`
 
@@ -7675,7 +7629,7 @@ hugging home. The default `fill` band is deliberately not a scroller because `fi
 segments divide the offer and cannot overflow — that is a statement about the default,
 not about the home.
 
-**A segmented picker used as a tab bar IS this**, with `indicator = "pill"`. A picker
+**A segmented picker used as a tab bar IS a TabView**, with `indicator = "pill"`. A picker
 chooses a value; a tab view chooses a page.
 
 Ownership: the control's scope owns the strip and its indicator; each tab's `tabScope`
@@ -8015,160 +7969,81 @@ unwinding a solve.
 
 ### `newTextInput`
 
+Construction refuses a missing or ambiguous environment when adaptation or native editing requires it; pass `env` explicitly when the core serves multiple surfaces. `client.host.new()` supplies an environment.
+
+
 `Facet.Controls.TextInput(core, spec) -> { blueprint, api, dump, dispose }`
-— a single-line text field: a composite of the `UI.TextField` primitive and an
-optional trailing clear button. The OWNER holds the text in a `Signal<string>`;
-the control never creates it (state that must outlive the control belongs to
-the caller, §10.5). Editing is a control-owned handshake — activating the field
-(tap, or focus + Activate on keyboard/gamepad) enters text-entry mode, which
-raises a high-priority **sinking** InputContext so keystrokes/arrows stop being
-navigation while the field is focused; commit-on-Enter and focus-loss arrive
-from the engine through the render-adapter text seam. Cross-platform by
-construction: pointer, touch, keyboard, and gamepad each drive the same value
-model.
 
-The two-argument spelling `Facet.newTextInput(Facet, core, spec)` is **deprecated** since
-0.10.0 (removal no earlier than 0.12.0): it still builds the identical
-control, and `Facet.Controls.TextInput` is a closure over the library, not a second
-implementation.
+A native text editor with caller-owned text. Choose `presentation = "plain"`,
+`"search"`, or `"number"`; set `multiline = true` on a plain editor for notes and
+messages. Roblox owns typing, caret movement, selection, clipboard interaction,
+and composition. Facet owns accepted values, validation, focus participation,
+geometry, and theme styling.
 
-**Spec** `{ id, value, onChange?, onCommit?, placeholder?, disabled?,
-keyboardType?, submitLabel?, clearButton?, clearButtonMode?, maxLength?,
-validate?, env?, actionSystem? }` — `env` is optional to WRITE and required to
-EXIST: see its bullet below:
+| Field | Contract and default |
+|---|---|
+| `id` | Stable control identity; defaults to `"TextInput"`. |
+| `value` | Required caller-owned, settable `Signal<string>` containing editable text. |
+| `presentation` | `"plain"` (default), `"search"`, or `"number"`. |
+| `placeholder` | Engine placeholder when text is empty. Search defaults to `"Search"`. |
+| `enabled` | Boolean or readable boolean; defaults true. |
+| `disabled` | Legacy inverse spelling. Supplying both forms is an error, even if they agree. |
+| `multiline` | Construction-time boolean, default false. Native multiline text and wrapping inside a native scroll viewport. Incompatible with numeric presentation. |
+| `height` | Dimension; a single line has a minimum of `controls.textInput.fieldHeight` and grows for its text and theme. Multiline defaults to `controls.textInput.multilineHeight`. Long multiline content grows inside the viewport and can be scrolled; native caret movement and line insertion reveal the active line. The default viewport shrinks to the available keyboard-free area while editing; an explicit height stays caller-owned. |
+| `onChange(text)` | Called for each accepted user edit or clear, never for caller writes or cancellation. |
+| `onCommit(text, reason)` | Called for a valid commit. Reasons are `"enter"`, `"focusLost"`, and explicit `"submit"`. |
+| `onCancel()` | Called after restoring the text captured at edit entry. No commit fires. |
+| `clearButton` | Convenience for `clearButtonMode = "always"`. |
+| `clearButtonMode` | `"never"`, `"whileEditing"`, `"unlessEditing"`, or `"always"`. Default is never; search defaults to always. Empty or disabled fields hide the affordance. |
+| `maxLength` | Maximum accepted Unicode scalar count. Invalid UTF-8 is rejected. |
+| `validate(text)` | Return an accepted, idempotently normalized string, or nil to reject. Applied after length limiting and on commit. Numeric formatting must also pass validation before committed values change. |
+| `numericValue` | Required caller-owned `Signal<number>` for number presentation; distinct from the editable string in `value`. |
+| `parse(text)` / `format(number)` | Numeric commit functions; default to `tonumber` and `tostring`. Parsing must return a finite number; formatting must return a string. |
+| `min` / `max` | Optional inclusive numeric bounds. Invalid input leaves `numericValue` unchanged and displays a validation message. |
+| `env` | Defaults to the environment published by this core; an environment must exist for keyboard occlusion and input-class handling. |
+| `actionSystem` | Optional legacy injection; the presenter supplies the existing action system automatically. |
+| `keyboardType` | `"default"`, `"numeric"`, `"email"`, or `"phone"`. Intent metadata: the shipping public engine API does not allow Facet to choose the native keyboard. |
+| `submitLabel` | `"default"`, `"done"`, `"go"`, `"next"`, `"search"`, or `"send"`. Intent metadata; no public engine property applies it. |
 
-- `id: string` — path-stable identity.
-- `value: Signal<string>` (required, owner-held) — the field text. Must be a
-  **settable** signal (the control calls `value:set` on every accepted edit); a
-  read-only Memo is a build error. The field's `text` is a binding on it; an
-  accepted edit relabels the field with no structural churn.
-- `onChange: (text) -> ()?` — **live** mode: fires on every accepted edit while
-  typing (and on clear). Never fires for a cancel revert.
-- `onCommit: (text, reason) -> ()?` — **commit** mode: fires on Enter
-  (`reason = "enter"`) and on focus loss (`reason = "focusLost"`). `onChange`
-  and `onCommit` are distinct and may coexist.
-- `placeholder: string?` — shown by the engine when the value is empty.
-- `disabled: boolean | Signal<boolean>?` — a disabled field is excluded from
-  focus, cannot be edited (tap/Activate do nothing), and shows no clear button.
-- `keyboardType: "default" | "numeric" | "email" | "phone"?` — declared intent;
-  an unknown value is a build error. **The current engine exposes no public
-  keyboard-type API** (`TextBox.TextInputType` is CoreScript-only), so the
-  adapter detects capability and degrades to the default keyboard; the
-  declaration is preserved as data on the field for the engine adapter and never
-  promises a particular keyboard.
-- `submitLabel: "default" | "done" | "go" | "next" | "search" | "send"?` — the
-  Return-key label hint, validated at build and **never applied to anything**.
-  `TextBox.ReturnKeyType` is hidden and not scriptable, so there is no engine
-  surface to write it to; this is a declared, justified engine-absent exception
-  kept as data (it appears in `dump()`) for parity with `keyboardType`. Declaring
-  it changes no pixels today.
-- `clearButton: boolean?` — sugar for `clearButtonMode = "always"`. Activating
-  the `×` empties the value (a user edit: fires `onChange`, does not commit);
-  focus returns to the field as the vanished button's nearest survivor.
-- `clearButtonMode: "never" | "whileEditing" | "unlessEditing" | "always"` —
-  **when** the trailing `×` is offered. The four states are the four real
-  answers:
+Single-line Enter commits. Multiline Enter inserts a newline; use `api.submit()`
+for explicit submission. Focus loss commits through the same validation path.
+Tab finishes editing and traverses the existing focus graph. While editing,
+arrows remain with the native editor. ButtonB, engine-reported cancellation,
+and `api.cancel()` restore the entry snapshot. Disabling, including through an
+ancestor, ends editing, preserves accepted text, and rejects late edits and commits.
 
-  | mode | offered |
-  |---|---|
-  | `"never"` (default) | no affordance at all |
-  | `"whileEditing"` | only while the field has focus — the search-field convention, and the one that stops a list of filled fields being a wall of `×` glyphs |
-  | `"unlessEditing"` | only while it does *not* have focus — a settings row that offers "clear this" at rest and gets out of the way once you type |
-  | `"always"` | whenever there is text to clear |
+Numeric entry keeps strings such as `"-"`, `"."`, and `"1e"` as editable drafts.
+Parsing, bounds, and formatting run on commit, rather than rewriting each
+keystroke. Rejected commits retain the draft and show an error. Search uses the
+same text pipeline with a themeable search mark and clear affordance; bind its
+`value` to a filtering memo for an ordinary list or to a PopupButton's `query`.
 
-  Every mode is additionally gated on **there is something to clear** and **the
-  field is not disabled**: an empty field offers nothing in any mode. The two
-  focus-sensitive modes read the control's own `editing` state, so the
-  affordance appears and disappears with the caret and nothing else has to drive
-  it. An unrecognised mode is a **build error**, not a field that silently never
-  offers a `×`.
-- `maxLength: number?` — accepted text is clamped at the value-model boundary
-  (Unicode-scalar count); edits that would exceed are truncated, including a
-  paste-like multi-character append. A proposed edit that is not valid UTF-8 is
-  rejected outright (value unchanged, no `onChange`) — the model never accepts a
-  malformed byte sequence, so nothing can slip past `maxLength`.
-- `validate: (proposed) -> string??` — runs on every proposed edit (typing,
-  clear, engine-reported text) AFTER the maxLength clamp, and on the commit
-  path. Return the accepted (possibly normalized) string, or `nil` to REJECT
-  (value unchanged, no `onChange`). **`validate` MUST be an idempotent
-  normalizer: `validate(validate(x)) == validate(x)`.** A real engine echoes a
-  programmatic `.Text` write back through `onTextChanged`, so a non-idempotent
-  normalizer (one whose output re-normalizes to something different) would not
-  reach a fixed point and could loop; an idempotent one settles in one round.
-- `env: Environment?` — **the field REFUSES to construct without an environment,
-  and unlike its three siblings the refusal is unconditional** (ADAPT-1,
-  2026-08-18). Omit the key and the control reads the environment its own core
-  published — a surface stood up with `Facet.client.host.new` publishes one, and a
-  headless caller gets the same from `Facet.newEnvironment(core)` — so on any real
-  surface this key is a convenience for a control whose core is not that surface's.
-  There is nothing to gate the refusal on, and that is the point: `newPicker`
-  refuses only for an *automatic* presentation because a declared one consults no
-  ladder, while every field's three environment reads are on the EDIT path
-  (`keyboardOcclusionRect` for keep-visible; `interactionClasses` for the
-  touch-at-edit-start snapshot and the dock-mid-edit commit) and every field can be
-  edited. Nor is there an honest default to degrade to, the way `newTable` degrades
-  to the neutral package: a field with no environment simply sits UNDER the
-  on-screen keyboard and says nothing, which is the defect this replaced. Keep-visible
-  behaviour itself is unchanged (see invariants).
-- `actionSystem?` — the action system to raise the text-entry sinking context
-  in. Injected like `env`; without it the value model still works but keystroke
-  sinking cannot engage. The presenter's action system is the right one to pass.
+Accepted edits do not force programmatic TextBox rewrites on each keystroke.
+Rejected or clamped engine text is reconciled when editing ends. Live theme and
+layout changes preserve the TextBox instance. Wrapped multiline editing uses a content-sized TextBox and a surrounding ScrollView: Roblox's built-in caret scrolling requires TextWrapped to be off. Facet reads the native cursor and measures its line to reveal it through the existing scroll authority; it does not synthesize caret movement or selection. Keyboard occlusion uses the
+presenter's keep-visible transform after revealing a multiline viewport inside its ancestor scroller; physical OS keyboard and IME behavior must
+be verified on the target device.
 
-**Returns** `api = { editing (readable Signal<boolean>), keepVisibleOffset
-(readable Signal<number>, 0 when clear), handleActivate(path, meta?) -> boolean,
-syncGeometry(rectOf), focusGroups(rootNode), bindActionSystem(actionSystem) }`.
-Route the presenter's `onActivate` to `api.handleActivate` (returns `true` when
-the path was the field or its clear button); wire `onGeometry` to
-`api.syncGeometry` and `keepVisibleOffset` to `api.keepVisibleOffset` to enable
-keep-visible. (`focusGroups` and `bindActionSystem` also ride the control's own
-input contribution, so the presenter already calls them — they are on `api` for a
-host that composes input by hand.) `dump()` returns
-`{ schema, id, value, editing, disabled, placeholderVisible, clearVisible,
-clearButtonMode, occlusionOffset, keyboardType, submitLabel }`.
-
-**Invariants**
-
-- **Accepted-edit semantics.** `value` only ever holds a value that passed
-  clamp + validate. The engine view may briefly diverge past the model when an
-  edit is rejected/clamped (the engine avoids rewriting `.Text` per keystroke,
-  which is IME-unsafe); the model keeps the last accepted value and the next
-  refresh reconciles the shown text on commit/blur.
-- **Text-entry mode sinks navigation, not Activate.** While editing, arrows and
-  D-pad are swallowed so typing never navigates; Activate (Return/ButtonA) is
-  intentionally left un-sunk (re-activation is an idempotent no-op) so the
-  presenter's shared Activate state is never corrupted and keyboard/gamepad
-  re-entry keeps working. Cancel (ButtonB, or the engine-reported desktop
-  Escape as `onFocusLost("cancel")`) reverts to the pre-edit snapshot.
-- **Keyboard occlusion.** With `env` provided, while editing, if the field's
-  solved rect intersects `env.keyboardOcclusionRect` the control publishes a
-  minimal upward offset on `api.keepVisibleOffset`; the presenter applies it as
-  a presentation-authority transform on the screen root (no remount, no factory
-  reruns) and restores 0 on exit.
-- **Ownership.** `dispose()` = `scope:dispose()`; the text-entry context is
-  owned by the control scope and disposed even if disposed mid-edit.
+The presenter wires the control automatically. `api` exposes `submit()`,
+`cancel()`, `editing`, `keepVisibleOffset`, `handleActivate(path, meta?)`,
+`syncGeometry(rectOf, rootNode?)`, `focusGroups(rootNode)`, and
+`bindActionSystem(system)` for composed hosts. `dump()` reports value, editing,
+disabled, multiline, presentation, numericValue, validationError, clearVisible,
+clearButtonMode, placeholderVisible, occlusionOffset, keyboardType, and submitLabel.
+`dispose()` releases the edit context and restores any keep-visible offset.
 
 ```lua
-local name = core:signal("")
+local draft, laps = core:signal("3"), core:signal(3)
 local field = Facet.Controls.TextInput(core, {
-	id = "Name",
-	value = name,
-	placeholder = "Your name",
-	clearButton = true,
-	maxLength = 24,
-	onChange = function(text) print("editing:", text) end,
-	onCommit = function(text, reason) print("committed", text, "via", reason) end,
-	env = env,
-	actionSystem = system,
+    id = "Laps", presentation = "number", value = draft,
+    numericValue = laps, min = 1, max = 99,
 })
--- these three opts ARE the text-entry wiring; nothing here is required to make
--- typing stop navigating — that comes from the injected `actionSystem` raising
--- the field's own sinking edit context while editing.
-pres.present(Facet.UI.Screen({ id = "S", children = { field.blueprint } }), {
-	onActivate = function(path, meta) field.api.handleActivate(path, meta) end,
-	onGeometry = function(rectOf) field.api.syncGeometry(rectOf) end,
-	keepVisibleOffset = field.api.keepVisibleOffset,
-})
+pres.present(Facet.UI.Screen({ id = "Settings", children = { field.blueprint } }))
 ```
+
+`Facet.newTextInput(Facet, core, spec)` is deprecated since 0.10.0, with removal
+no earlier than 0.12.0. It calls the same builder.
+
 ### `newChip`
 
 `Facet.Controls.Chip(core, spec) -> { blueprint, dump, dispose }` — a small
@@ -8190,6 +8065,7 @@ Spec fields:
 |---|---|---|---|
 | `id` | `string` | no (default `"Chip"`) | the blueprint id; the mounted path is `<screen>/<id>`. |
 | `label` | `string` | no (default `""`) | the text painted on the pill. |
+| `enabled` | `boolean` or readable boolean | no (default true) | Disabled chips retain selection, leave the focus ring, and reject activation. |
 | `selected` | `Signal<boolean>` | **yes** | the owner-held selection. The chip reads it to paint the surface and flips it on activate — it never creates or owns it. Validated at build: absent, or a read-only Memo, is an error naming the control and the field, not a crash on the first tap. |
 | `onToggle` | `(nextValue: boolean) -> ()` | no | called after each flip with the new value (e.g. to persist a filter). |
 

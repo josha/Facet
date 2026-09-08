@@ -73,7 +73,7 @@ export type Deps = {
 }
 
 export type ScrollIntoView = {
-	scrollToVisible: (path: string) -> boolean,
+	scrollToVisible: (path: string, localRect: any?) -> boolean,
 	scrollHostFor: (path: string, includeSelf: boolean?) -> any,
 }
 
@@ -91,7 +91,7 @@ function scroll_into_view.new(deps: Deps): ScrollIntoView
 	-- into view asks for it here instead of carrying its own scroll arithmetic,
 	-- so the minimum-distance rule, the clamp, and the axis handling exist once.
 	-- Returns true when it actually moved the host.
-	local function scrollToVisible(path: string): boolean
+	local function scrollToVisible(path: string, localRect: any?): boolean
 		if adapter.setScrollPosition == nil then
 			return false -- clip-only fallback adapter: nothing to scroll
 		end
@@ -111,6 +111,14 @@ function scroll_into_view.new(deps: Deps): ScrollIntoView
 		local region = lastScrollRegions[hostPath]
 		if hostRect == nil or targetRect == nil or region == nil then
 			return false
+		end
+		if localRect ~= nil then
+			targetRect = {
+				x = targetRect.x + localRect.x,
+				y = targetRect.y + localRect.y,
+				w = localRect.w,
+				h = localRect.h,
+			}
 		end
 		--[[ BOTH RECTS INTO ONE SPACE BEFORE THE SUBTRACTION (Plan C, C1). The
 			canvas-space span below is `target - host`, and beneath a coordinate-space

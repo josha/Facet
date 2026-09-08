@@ -29,6 +29,22 @@ rows of that class: the refusal is a violation, not a pass.
 The physical classes appear in every artifact **with zero rows** rather than
 being omitted. Absence is stated, never inferred.
 
+## Control input checks
+
+The showcase offers Writing and search, Choices and filters, and Actions and menus.
+Drive the controls with native input, then read their reported state: a changed
+label alone does not establish a commit, and a script-written signal is not input.
+Check open menus, disabled options, mixed state, repeat release, dialog scoping,
+invalid numeric and custom values, and query/selection separation. Switch themes
+while a menu is open and while a native editor holds focus. Rotate the simulated
+phone with the keyboard visible and verify the editor against every ancestor clip.
+
+Multiline editing uses public TextBox behavior and a native scrolling viewport.
+Studio proves Enter, focus continuity, engine instances and simulated geometry.
+Physical touch, OS clipboard/IME composition, mobile keyboard interaction and a
+real gamepad still need their own target-device run; injected input and Studio's
+simulator do not establish those claims.
+
 ## The two budgets, and why they are different in kind
 
 `bench/perf_budgets.json` holds both:

@@ -1830,6 +1830,98 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 				return
 			end
 			boundBundles[c.bundle] = true
+			if c.bundle.bindInputScope ~= nil then
+				local function available(path, allowText)
+					local h = surfaceRef
+					if h == nil or h.context.destroyed or not h.context.enabled then
+						return false
+					end
+					local found = false
+					for _, candidate in stack do
+						if candidate == h then
+							found = true
+						elseif
+							found
+							and candidate.context.enabled
+							and (candidate.kind == "modal" or candidate.kind == "screen")
+						then
+							return false
+						end
+					end
+					if not found then
+						return false
+					end
+					local ancestorPath = path
+					while ancestorPath ~= "" do
+						local ancestor = nodeAt(root.node, ancestorPath)
+						if ancestor and ancestor.props and ancestor.props.hidden == true then
+							return false
+						end
+						ancestorPath = string.match(ancestorPath, "^(.*)/[^/]+$") or ""
+					end
+					local node = nodeAt(root.node, path)
+					if node == nil or isDisabled(node) or not graph.isFocusable(path) then
+						return false
+					end
+					for hidden in controller.hiddenRoots() do
+						if path == hidden or string.sub(path, 1, #hidden + 1) == hidden .. "/" then
+							return false
+						end
+					end
+					if not allowText then
+						local function editing(n)
+							if n.class == "TextField" and n.props.editing == true then
+								return true
+							end
+							for _, child in n.children or {} do
+								if editing(child) then
+									return true
+								end
+							end
+							return false
+						end
+						if editing(root.node) then
+							return false
+						end
+					end
+					return true
+				end
+				c.bundle.bindInputScope({
+					available = available,
+					preferred = function(path, key)
+						for _, candidate in contributions do
+							if
+								candidate.bundle.actionKeys
+								and candidate.bundle.actionKeys[key]
+								and available(candidate.path, false)
+							then
+								return candidate.path == path
+							end
+						end
+						return false
+					end,
+					onDispose = function(fn)
+						scope:own(fn)
+					end,
+					priority = function()
+						return if surfaceRef then surfaceRef.context.priority else 0
+					end,
+					focused = function()
+						return graph.focused:get()
+					end,
+					onTick = function(fn)
+						local off = self.onTick(fn)
+						scope:own(off)
+						return off
+					end,
+					activate = function(path, meta)
+						if available(path, meta and meta.pointer == true) then
+							dispatchActivate(surfaceRef, path, meta, "action")
+						end
+					end,
+				})
+			end
+
 			-- always bind the action system into every contribution
 			-- (idempotent — e.g. TextInput's edit-mode sink context uses it)
 			if c.bundle.bindActionSystem ~= nil then

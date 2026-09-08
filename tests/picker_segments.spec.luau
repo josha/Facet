@@ -958,6 +958,21 @@ describe("stabilization B'1: the option the pill covers takes the plate's conten
 		expect(`Opt1 {wears(w, 1)} / Opt2 {wears(w, 2)}`).toBe("Opt1 true / Opt2 false")
 	end)
 
+	it("the default pill keeps its accent plate under the matching label in image themes", function()
+		local w = world(MOTION)
+		local slots = require("../src/tokens/chrome_slots")
+		local ornate = require("../examples/themes/fantasy_ornate").build(Facet.themes)
+		w.env:set("themeMetrics", Facet.themes.resolve(ornate))
+		w.pres.refresh()
+		local bar = w.adapter.node(BAR)
+		local hint = bar.decorationHint
+		expect(slots.classify({ class = "Box", surface = bar.props.surface, hint = if hint then hint.slot else nil })).toBeNil()
+		expect(bar.props.surface).toBe("accent")
+		expect(wears(w, 1)).toBe(true)
+		w.pres.dismiss(w.handle)
+		w.picker.dispose()
+	end)
+
 	it("...and the role TRAVELS with the selection, exactly as the chip does", function()
 		local w = world(MOTION)
 		w.selected:set("reduced")

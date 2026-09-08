@@ -94,6 +94,164 @@ export type Entry = {
 }
 
 local registry: { Entry } = {
+	{
+		name = "ToggleControl",
+		kind = "composite",
+		module = "src/controls/toggle.luau",
+		export = "Controls.Toggle",
+		spec = "tests/toggle_presentations.spec.luau",
+		conformance = "tests/control_family_inputs.spec.luau",
+		docsAnchor = "Controls.Toggle",
+		dumpFunction = "function dump",
+		inputProofs = {
+			pointer = {
+				"toggle button combo and split controls share pointer touch keyboard and gamepad activation and disable guards",
+			},
+			touch = {
+				"toggle button combo and split controls share pointer touch keyboard and gamepad activation and disable guards",
+			},
+			keyboard = {
+				"toggle button combo and split controls share pointer touch keyboard and gamepad activation and disable guards",
+			},
+			gamepad = {
+				"toggle button combo and split controls share pointer touch keyboard and gamepad activation and disable guards",
+			},
+		},
+		affordanceProofs = {
+			pointer = {
+				"toggle button combo and split controls share pointer touch keyboard and gamepad activation and disable guards",
+			},
+			touch = {
+				"toggle button combo and split controls share pointer touch keyboard and gamepad activation and disable guards",
+			},
+			keyboard = {
+				"toggle button combo and split controls share pointer touch keyboard and gamepad activation and disable guards",
+			},
+			gamepad = {
+				"toggle button combo and split controls share pointer touch keyboard and gamepad activation and disable guards",
+			},
+			hotSwitch = false,
+		},
+	},
+	{
+		name = "ButtonControl",
+		kind = "composite",
+		module = "src/controls/button.luau",
+		export = "Controls.Button",
+		spec = "tests/button_behavior.spec.luau",
+		conformance = "tests/control_family_inputs.spec.luau",
+		docsAnchor = "Controls.Button",
+		dumpFunction = "function dump",
+		inputProofs = {
+			pointer = {
+				"toggle button combo and split controls share pointer touch keyboard and gamepad activation and disable guards",
+			},
+			touch = {
+				"toggle button combo and split controls share pointer touch keyboard and gamepad activation and disable guards",
+			},
+			keyboard = {
+				"toggle button combo and split controls share pointer touch keyboard and gamepad activation and disable guards",
+			},
+			gamepad = {
+				"toggle button combo and split controls share pointer touch keyboard and gamepad activation and disable guards",
+			},
+		},
+		affordanceProofs = {
+			pointer = {
+				"toggle button combo and split controls share pointer touch keyboard and gamepad activation and disable guards",
+			},
+			touch = {
+				"toggle button combo and split controls share pointer touch keyboard and gamepad activation and disable guards",
+			},
+			keyboard = {
+				"toggle button combo and split controls share pointer touch keyboard and gamepad activation and disable guards",
+			},
+			gamepad = {
+				"toggle button combo and split controls share pointer touch keyboard and gamepad activation and disable guards",
+			},
+			hotSwitch = { "hold repeat stops on release busy and disposal and shortcuts respect active text entry" },
+		},
+	},
+	{
+		name = "ComboBox",
+		kind = "composite",
+		module = "src/controls/combo_box.luau",
+		export = "Controls.ComboBox",
+		spec = "tests/combo_box.spec.luau",
+		conformance = "tests/control_family_inputs.spec.luau",
+		docsAnchor = "Controls.ComboBox",
+		dumpFunction = "function dump",
+		inputProofs = {
+			pointer = {
+				"toggle button combo and split controls share pointer touch keyboard and gamepad activation and disable guards",
+			},
+			touch = {
+				"toggle button combo and split controls share pointer touch keyboard and gamepad activation and disable guards",
+			},
+			keyboard = {
+				"toggle button combo and split controls share pointer touch keyboard and gamepad activation and disable guards",
+			},
+			gamepad = {
+				"toggle button combo and split controls share pointer touch keyboard and gamepad activation and disable guards",
+			},
+		},
+		affordanceProofs = {
+			pointer = {
+				"toggle button combo and split controls share pointer touch keyboard and gamepad activation and disable guards",
+			},
+			touch = {
+				"toggle button combo and split controls share pointer touch keyboard and gamepad activation and disable guards",
+			},
+			keyboard = {
+				"toggle button combo and split controls share pointer touch keyboard and gamepad activation and disable guards",
+			},
+			gamepad = {
+				"toggle button combo and split controls share pointer touch keyboard and gamepad activation and disable guards",
+			},
+			hotSwitch = {
+				"toggle button combo and split controls share pointer touch keyboard and gamepad activation and disable guards",
+			},
+		},
+	},
+	{
+		name = "SplitButton",
+		kind = "composite",
+		module = "src/controls/split_button.luau",
+		export = "Controls.SplitButton",
+		spec = "tests/split_button.spec.luau",
+		conformance = "tests/control_family_inputs.spec.luau",
+		docsAnchor = "Controls.SplitButton",
+		dumpFunction = "function dump",
+		inputProofs = {
+			pointer = {
+				"toggle button combo and split controls share pointer touch keyboard and gamepad activation and disable guards",
+			},
+			touch = {
+				"toggle button combo and split controls share pointer touch keyboard and gamepad activation and disable guards",
+			},
+			keyboard = {
+				"toggle button combo and split controls share pointer touch keyboard and gamepad activation and disable guards",
+			},
+			gamepad = {
+				"toggle button combo and split controls share pointer touch keyboard and gamepad activation and disable guards",
+			},
+		},
+		affordanceProofs = {
+			pointer = {
+				"toggle button combo and split controls share pointer touch keyboard and gamepad activation and disable guards",
+			},
+			touch = {
+				"toggle button combo and split controls share pointer touch keyboard and gamepad activation and disable guards",
+			},
+			keyboard = {
+				"toggle button combo and split controls share pointer touch keyboard and gamepad activation and disable guards",
+			},
+			gamepad = {
+				"toggle button combo and split controls share pointer touch keyboard and gamepad activation and disable guards",
+			},
+			hotSwitch = false,
+		},
+	},
 	-- ===== composite controls (src/controls/*.luau) =====================
 	{
 		name = "Table",

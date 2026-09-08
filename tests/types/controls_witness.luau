@@ -14,10 +14,9 @@
 	justification was a claim no check could falsify. This file is the half of the
 	instrument the analyzer reads.
 
-	IT IS RUN BY `tools/check_types.py`, NOT BY THE LUAU SUITE. It is never
-	executed: every value in it is `(nil :: any)`. Running it would index nil on
-	the first line, which is why it lives under `tests/types/` and is excluded from
-	the spec glob.
+	IT IS RUN BY `tools/check_types.py`, NOT BY THE LUAU SUITE. Legacy witnesses
+	use `(nil :: any)`; the newer four use concrete specs exported by Facet itself.
+	It is never executed and lives under `tests/types/`, outside the spec glob.
 
 	HOW EACH CASE PROVES SOMETHING. A local is declared with the CONTROL MODULE'S
 	OWN `Spec` type and handed to the namespace entry. If the entry's parameter
@@ -53,6 +52,42 @@ local calloutControl = require("../../src/controls/callout")
 
 local core = Facet.newCore()
 
+-- The new deferred controls publish their specs directly at the entry point.
+-- Concrete values exercise required fields, owned signals and callback results.
+local buttonSpec: Facet.ButtonSpec = {
+	label = "Repeat",
+	busy = core:signal(false),
+	repeatDelay = 0.4,
+	shortcut = { keyCode = "F6", modifiers = { shift = true } },
+	dialogAction = "default",
+	onActivate = function() end,
+}
+local _button = Facet.Controls.Button(core, buttonSpec)
+local toggleSpec: Facet.ToggleSpec = {
+	label = "Select all",
+	value = core:signal(false),
+	mixed = core:signal(true),
+	presentation = "checkbox",
+	onChange = function(_value: boolean) end,
+}
+local _toggle = Facet.Controls.Toggle(core, toggleSpec)
+local comboSpec: Facet.ComboBoxSpec = {
+	value = core:signal("a"),
+	text = core:signal("Alpine"),
+	options = { { id = "a", label = "Alpine", description = "Mountain" } },
+	acceptCustom = function(text: string): (boolean, string?)
+		return #text > 2, "Use at least three characters."
+	end,
+	onChange = function(_value: string) end,
+}
+local _combo = Facet.Controls.ComboBox(core, comboSpec)
+local splitSpec: Facet.SplitButtonSpec = {
+	label = "Start",
+	onActivate = function() end,
+	items = { { id = "practice", label = "Practice", onSelect = function() end } },
+}
+local _split = Facet.Controls.SplitButton(core, splitSpec)
+
 local tableControlSpec: tableControl.Spec = nil :: any
 local _table = Facet.Controls.Table(core, tableControlSpec)
 
@@ -65,11 +100,43 @@ local _stepper = Facet.Controls.Stepper(core, stepperControlSpec)
 local pickerControlSpec: pickerControl.Spec = nil :: any
 local _picker = Facet.Controls.Picker(core, pickerControlSpec)
 
+local initialPickerOptions: { pickerControl.Option } = { { id = "a", value = "a", label = "Alpine" } }
+local livePickerOptions: Facet.Signal<{ pickerControl.Option }> = core:signal(initialPickerOptions)
+local livePickerSpec: pickerControl.Spec = {
+	options = livePickerOptions,
+	selected = core:signal("a"),
+	presentation = "radio",
+}
+local _livePicker = Facet.Controls.Picker(core, livePickerSpec)
+
 local popupButtonSpec: popupButton.Spec = nil :: any
 local _popupbutton = Facet.Controls.PopupButton(core, popupButtonSpec)
 
+local multiPopupSpec: popupButton.Spec = {
+	options = { { id = "a", label = "Alpine" } },
+	selectedValues = core:signal({ a = true }),
+	onChange = function(chosen: { [string]: boolean })
+		local _selected: boolean? = chosen.a
+	end,
+}
+local _multiPopup = Facet.Controls.PopupButton(core, multiPopupSpec)
+
 local menuControlSpec: menuControl.Spec = nil :: any
 local _menu = Facet.Controls.Menu(core, menuControlSpec)
+
+local statefulMenuSpec: menuControl.Spec = {
+	trigger = Facet.UI.Button({ label = "Filters" }),
+	items = {
+		{
+			id = "a",
+			label = "Alpine",
+			description = core:signal("Mountain"),
+			checked = core:signal(false),
+			onChange = function(_checked: boolean) end,
+		},
+	},
+}
+local _statefulMenu = Facet.Controls.Menu(core, statefulMenuSpec)
 
 local tabViewSpec: tabView.Spec = nil :: any
 local _tabview = Facet.Controls.TabView(core, tabViewSpec)
@@ -85,6 +152,23 @@ local _rating = Facet.Controls.Rating(core, ratingControlSpec)
 
 local textInputSpec: textInput.Spec = nil :: any
 local _textinput = Facet.Controls.TextInput(core, textInputSpec)
+
+local numericTextSpec: textInput.Spec = {
+	value = core:signal("1"),
+	numericValue = core:signal(1),
+	presentation = "number",
+	min = 0,
+	max = 10,
+	parse = function(text: string): number?
+		return tonumber(text)
+	end,
+	format = function(number: number): string
+		return tostring(number)
+	end,
+	onCommit = function(_text: string, _reason: "enter" | "focusLost" | "submit") end,
+	onCancel = function() end,
+}
+local _numericText = Facet.Controls.TextInput(core, numericTextSpec)
 
 local progressViewSpec: progressView.Spec = nil :: any
 local _progressview = Facet.Controls.ProgressView(core, progressViewSpec)

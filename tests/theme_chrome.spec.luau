@@ -1848,6 +1848,17 @@ end)
 -- scrollbar at the end of its track, content still cut off.
 -- ===========================================================================
 describe("the scroll canvas reaches a theme's decoration bleed", function()
+	it("a focus halo fits its clipping margin without changing the control rectangle", function()
+		local slots = require("../src/tokens/chrome_slots")
+		local rect = { x = 33, y = 179, w = 125, h = 67 }
+		local clip = { x = 16, y = 108, w = 1520, h = 885 }
+		expect(slots.focusBlurWithin(26, rect, clip)).toBe(17)
+		expect(slots.focusBlurWithin(10, rect, clip)).toBe(10)
+		expect(slots.focusBlurWithin(26, rect, { x = 0, y = 0, w = 1570, h = 1080 })).toBe(26)
+		expect(slots.focusBlurWithin(26, rect, { x = 33, y = 0, w = 1570, h = 1080 })).toBe(0)
+		expect(rect.x).toBe(33)
+	end)
+
 	local scifi = require("../examples/themes/scifi_hud")
 
 	it("a package's deepest shadow reach is published as ONE number", function()

@@ -302,6 +302,9 @@ describe("LT-5 composition: a theme swap and the preference compose on a live sc
 		born.adapter.focusText(FIELD)
 		born.adapter.typeText(FIELD, "Kai")
 		born.adapter.driveScroll(LIST, { x = 0, y = 120 })
+		-- Match liveWorld: solve the typed value before comparing geometry,
+		-- otherwise this side still measures the long placeholder.
+		born.pres.refresh()
 
 		local a, b = lt.geometryOf(swung), lt.geometryOf(born)
 		for path, rect in a do

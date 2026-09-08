@@ -789,3 +789,63 @@ describe("RowActions hosted mode: `editing` (Table-hosting order, stage 1)", fun
 		expect(w.engine.editGutterPx:get()).toBe(expected)
 	end)
 end)
+
+describe("Hosted departure clipping", function()
+	for _, edge in { "leading", "trailing" } do
+		it(`{edge} departure removes the existing host translation before computing clearance`, function()
+			local fired = 0
+			local action = {
+				id = "delete",
+				label = "Delete",
+				role = "destructive",
+				onAction = function()
+					fired += 1
+				end,
+			}
+			local w = hostedWorld({
+				leading = if edge == "leading" then { action } else nil,
+				trailing = if edge == "trailing" then { action } else nil,
+				__unset = if edge == "leading" then { "trailing" } else {},
+				paths = {
+					content = ROW,
+					trayLeading = if edge == "leading" then TRAY_LEADING else nil,
+					trayTrailing = if edge == "trailing" then TRAY_TRAILING else nil,
+				},
+			})
+			w.engine.bindController({
+				rectOf = function()
+					return { x = 33, y = 0, w = ROW_W, h = ROW_H }
+				end,
+				screenRectOf = function()
+					return { x = 33 + w.engine.dump().offset, y = 0, w = ROW_W, h = ROW_H }
+				end,
+				scrollHostFor = function()
+					return { rect = { x = 16, y = 0, w = ROW_W + 34, h = 300 } }
+				end,
+				textAt = function()
+					return { font = FONT, size = SIZE }
+				end,
+			})
+			w.engine.open(edge)
+			w.settle()
+			expect(math.abs(w.engine.dump().offset) > 1).toBe(true)
+			w.engine._commitFirst(edge)
+			local collapsed = false
+			for _ = 1, 240 do
+				w.tick(FRAME)
+				local height = w.heights[#w.heights]
+				if height ~= nil and height.px ~= nil and height.px < ROW_H - 1 then
+					collapsed = true
+					local x = 33 + w.engine.dump().offset
+					expect(if edge == "trailing" then x + ROW_W <= 16 else x >= 16 + ROW_W + 34).toBe(true)
+				end
+				if fired > 0 then
+					break
+				end
+			end
+			expect(collapsed).toBe(true)
+			expect(fired).toBe(1)
+			w.engine.dispose()
+		end)
+	end
+end)

@@ -5,7 +5,7 @@
   "phases": "phases.json",
   "suiteResults": "suite_real.json"
  },
- "maintainedAt": "2026-09-07T00:00:00Z",
+ "maintainedAt": "2026-09-08T06:11:18Z",
  "phases": [
   {
    "artifactDir": "artifacts/phase-0-foundation",
@@ -15261,7 +15261,7 @@
      "text_calibration::text_metrics: consecutive spaces are reserved, not collapsed::a doubled space is WIDER than a single one, by about one space",
      "text_calibration::text_metrics: consecutive spaces are reserved, not collapsed::the live legend string measures wider than its single-spaced form",
      "text_calibration::text_metrics: consecutive spaces are reserved, not collapsed::a single-spaced string is byte-identical to what it always reserved",
-     "text_calibration::text_metrics: consecutive spaces are reserved, not collapsed::a gap made of a NEWLINE still counts as one, so embedded newlines are unchanged",
+     "text_calibration::text_metrics: consecutive spaces are reserved, not collapsed::hard breaks reserve distinct lines, including trailing and empty lines",
      "text_calibration::text_metrics: consecutive spaces are reserved, not collapsed::leading and trailing whitespace still reserve nothing",
      "text_degrade_cascade::ruling 1: the degrade cascade descends only as far as it must::a row that FITS is untouched — the cascade never opens",
      "text_degrade_cascade::ruling 1: the degrade cascade descends only as far as it must::rung 1: it gives up its WRAP first, and keeps every character",

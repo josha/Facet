@@ -1,6 +1,6 @@
 {
   "name": "Facet-Gallery",
-  "emitLegacyScripts": true,
+  "emitLegacyScripts": false,
   "globIgnorePaths": [
     "**/*.spec.luau"
   ],
@@ -56,6 +56,9 @@
       },
       "FacetThemes": {
         "$path": "themes"
+      },
+      "Gallery": {
+        "$path": "gallery/client"
       }
     },
     "StarterGui": {
@@ -64,11 +67,7 @@
       }
     },
     "StarterPlayer": {
-      "StarterPlayerScripts": {
-        "Gallery": {
-          "$path": "gallery/client"
-        }
-      }
+      "StarterPlayerScripts": {}
     },
     "ServerScriptService": {
       "Outpost": {
