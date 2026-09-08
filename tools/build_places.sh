@@ -55,10 +55,17 @@ for entry in "${EXAMPLES[@]}"; do
   else
     attributes="\"\$attributes\": { \"Facet_Example\": $index },"
   fi
+  # emitLegacyScripts MUST BE TRUE, here and in the checked-in project files
+  # (2026-09-07). As a RunContext=Client Script the gallery bootstrap runs from
+  # StarterPlayerScripts AND the PlayerScripts copy: two hosts, two chromes, and a
+  # demo swap that replaced only one of the two "All controls" screens. These
+  # heredocs are the project the build actually uses, so a flag flipped only in
+  # examples/showcase.project.json changes nothing — check_place_bootstrap below
+  # refuses the build if the emitted Gallery is not a LocalScript.
   cat >"$project" <<JSON
 {
   "name": "$name",
-  "emitLegacyScripts": false,
+  "emitLegacyScripts": true,
   "globIgnorePaths": ["**/*.spec.luau"],
   "tree": {
     "\$className": "DataModel",
@@ -130,7 +137,7 @@ project="examples/.place_build.project.json"
 cat >"$project" <<'JSON'
 {
   "name": "Facet-Showcase",
-  "emitLegacyScripts": false,
+  "emitLegacyScripts": true,
   "globIgnorePaths": ["**/*.spec.luau"],
   "tree": {
     "$className": "DataModel",
@@ -217,5 +224,9 @@ echo "built examples/places/Facet-Showcase.rbxl (Facet-Showcase — in-game demo
 # PUBLISHES: `rojo build` writes a local file and nothing else.
 rojo build examples/performance.project.json -o "examples/places/Facet-PerformanceLab.rbxl"
 echo "built examples/places/Facet-PerformanceLab.rbxl (Facet-PerformanceLab — Step 9 performance lab)"
+
+# THE BOOTSTRAP GUARD (see the emitLegacyScripts note above the first heredoc):
+# a place whose Gallery is not a LocalScript boots two hosts. Refuse to ship it.
+lune run tools/lune/check_place_bootstrap.luau examples/places/0*.rbxl examples/places/Facet-Showcase.rbxl
 
 echo "done: $(ls examples/places/*.rbxl | wc -l | tr -d ' ') place files in examples/places/"
