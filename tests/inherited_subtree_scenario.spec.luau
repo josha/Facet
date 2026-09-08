@@ -291,26 +291,67 @@ describe("inherited_subtree showcase: beat 4 — the dynamic toggle, per paradig
 	end)
 end)
 
+--[[ THE EXACT DETERMINISTIC LANDING (D-review round 1, Important #1). Disabling
+	`Go` removes it from the ring at its own index, and `After` — the NEXT stop
+	in document order — shifts into that slot: "remove and keep index, clamp at
+	the end", the same rule `tests/inherited_subtree.spec.luau:936-938`'s own
+	mechanism-level case proves for the opposite (LAST-stop) shape, where the
+	fallback has nowhere forward to shift into and lands on the PRECEDING stop
+	(`/S/Live`) instead. Confirmed once by direct measurement here, across both
+	shipped themes and both input arms this beat is asserted under (all four
+	combinations of {Studio Neutral, pixel_quest} x {keyboard, gamepad} land on
+	`P.after` and nowhere else) — not a guess dressed as a claim, and not
+	merely "outside the panel", which would equally pass if a future regression
+	moved the landing to the wrong legal node (the ScrollView itself, or past
+	`After` entirely). ]]
 describe("inherited_subtree showcase: beat 5 — focus restoration", function()
-	it("tabInto reaches Go; disabling from there restores focus to a legal node OUTSIDE the panel", function()
+	it("tabInto reaches Go; disabling from there restores focus to the exact legal stop After it", function()
 		local w, built = world(DESKTOP)
 		local into = built.steps.tabInto(built)
 		expect(into.focus).toBe(P.go)
 
 		local flip = built.steps.disableWhileFocused(built)
 		expect(flip.before).toBe(P.go)
-		expect(flip.after).never().toBeNil()
-		expect(flip.after).never().toBe(P.go)
-		-- landed OUTSIDE the panel entirely — not merely a different node inside
-		-- it (the panel has no other focusable now that it is disabled, but the
-		-- assertion is about the PATH, which is what a driver actually reads)
-		expect(string.find(tostring(flip.after), P.panel, 1, true)).toBeNil()
+		expect(flip.after).toBe(P.after)
 		-- re-enabling does not pull focus back in — the same "no re-entry"
 		-- rule `tests/inherited_subtree.spec.luau`'s own focus-restoration case
 		-- proves at the mechanism level
 		built.steps.toggleEnabled(built, "on")
 		w.presenter.refresh()
-		expect(w.presenter.focus.focused:get()).toBe(flip.after)
+		expect(w.presenter.focus.focused:get()).toBe(P.after)
+		teardown(w, built)
+	end)
+
+	it("...lands on the SAME exact stop under a reference theme package (pixel_quest)", function()
+		local w, built = world(DESKTOP, { package = "pixel_quest" })
+		local into = built.steps.tabInto(built)
+		expect(into.focus).toBe(P.go)
+		local flip = built.steps.disableWhileFocused(built)
+		expect(flip.after).toBe(P.after)
+		teardown(w, built)
+	end)
+
+	it("...and via the gamepad D-pad arm instead of Tab", function()
+		local w, built = world(DESKTOP, { caps = GAMEPAD, preferredInput = "Gamepad" })
+		-- the same walk `tabInto` drives, on the D-pad's own vertical axis
+		-- (beat 4's "gamepad: D-pad down never stops on or under the panel"
+		-- proves this axis already skips a DISABLED panel; this is the same
+		-- axis reaching an ENABLED one, then disabling it from inside)
+		w.presenter.focus.focusOn(P.toggle)
+		w.presenter.focus.setFocusOrigin("navigation")
+		w.presenter.refresh()
+		for _ = 1, 8 do
+			if w.presenter.focus.focused:get() == P.go then
+				break
+			end
+			w.system.deviceKey("DPadDown", true)
+			w.system.deviceKey("DPadDown", false)
+			w.presenter.refresh()
+		end
+		expect(w.presenter.focus.focused:get()).toBe(P.go)
+		local flip = built.steps.disableWhileFocused(built)
+		expect(flip.before).toBe(P.go)
+		expect(flip.after).toBe(P.after)
 		teardown(w, built)
 	end)
 end)
