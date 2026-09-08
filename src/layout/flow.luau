@@ -70,6 +70,8 @@
 	genuinely different arithmetic; here they are the same number.)
 ]]
 
+local baseline = require("./baseline")
+local spacerMinimum = require("./measure_facts").spacerMinimum
 local flow = {}
 
 -- What the plan needs from the solver, passed at every call. Typed `any` for the
@@ -84,9 +86,10 @@ export type Deps = {
 	measure: (ctx: any, node: any, maxW: number, maxH: number) -> (number, number),
 	dim: (node: any, axis: string) -> any,
 	sides: (margin: any) -> (number, number, number, number),
+	baseline: any,
 }
 
-export type Line = { first: number, last: number, main: number, cross: number }
+export type Line = { first: number, last: number, main: number, cross: number, baselines: any? }
 
 -- THE LINE PARTITION, AND IT IS A PURE FUNCTION ON PURPOSE.
 --
@@ -156,6 +159,11 @@ function flow.plan(
 		local mt, mr, mb, ml = deps.sides(child.margin)
 		local w, h =
 			deps.measure(ctx, child, if isH then innerMain else innerCross, if isH then innerCross else innerMain)
+		if isH then
+			w = math.max(w, spacerMinimum(child, true))
+		else
+			h = math.max(h, spacerMinimum(child, false))
+		end
 		sizes[idx] = { w = w, h = h, mt = mt, mr = mr, mb = mb, ml = ml }
 		-- A `fill` MAIN DIMENSION TAKES THE WHOLE LINE, and it has to be said here
 		-- rather than left to `measure`. `resolveAxis` can only report CONTENT for a
@@ -176,6 +184,11 @@ function flow.plan(
 		local lineCross = 0
 		for i = line.first, line.last do
 			lineCross = math.max(lineCross, crosses[i])
+		end
+		if isH and baseline.has(node) then
+			local groups, cross = baseline.line(deps.baseline, ctx, node, sizes, line.first, line.last)
+			line.baselines = groups
+			lineCross = math.max(lineCross, cross)
 		end
 		line.cross = lineCross
 		-- the lines are PACKED (the probe): one gap between them and nothing else

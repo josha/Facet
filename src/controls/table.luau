@@ -444,7 +444,7 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 	-- whatever the frame left over: Pixel Quest reserves 16px on all four sides,
 	-- the 02_playlist_table row solved to 48px, the cell stack got 48 - 32 = 16px,
 	-- and every cell `Value` in every row measured 20px — 4px outside its own
-	-- cell, at the DEFAULT text preference, on every viewport. Studio Neutral and
+	-- cell, at the DEFAULT text preference, on every viewport. Facet Neutral and
 	-- Classic Desktop reserve nothing, which is why it was invisible.
 	--
 	-- A fixed box cannot hold a theme's frame, and the closing line of that
@@ -1080,7 +1080,7 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 	-- inside that rect, so under every package with a real border — Glossy Touch,
 	-- Pixel Quest, Compact Pointer — the first cell's text started OUTSIDE the
 	-- card it was supposed to sit in, and Compact's rating cell ran off the other
-	-- end. Studio Neutral and Classic Desktop reserve nothing, which is exactly
+	-- end. Facet Neutral and Classic Desktop reserve nothing, which is exactly
 	-- why they looked right and hid this for so long.
 	--
 	-- Reading the reservation as a theme METRIC is what makes this theme-agnostic:

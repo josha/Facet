@@ -14,7 +14,7 @@
 -- real renderer against `fake_target` and reads the rect and the drawn string the
 -- adapter actually received. The package sweep installs each reference package
 -- the way the framework does at runtime -- `env:set("themeMetrics", ...)` -- because
--- Studio Neutral reserves nothing for chrome and hides this entire class of bug.
+-- Facet Neutral reserves nothing for chrome and hides this entire class of bug.
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
@@ -492,7 +492,7 @@ describe("compactLabel: the icon form degrades and the image form does not", fun
 end)
 
 describe("compactLabel: measured under every reference package", function()
-	-- Studio Neutral reserves nothing for chrome, so a button measured only there
+	-- Facet Neutral reserves nothing for chrome, so a button measured only there
 	-- has slack no shipped package gives it. Every claim above is re-driven here
 	-- against the packages the director actually looks at.
 	it("the ladder holds under the flat theme and all eight shipped packages", function()

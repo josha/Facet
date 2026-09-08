@@ -292,7 +292,7 @@ end
 --[[ B4 (stabilization, 2026-09-07) — FIXED IN THE RENDERER (B4-R), and this
 	block is the flip its own header asked for.
 
-	THE ASK. Under Studio Neutral the demo list should open with "Demos"
+	THE ASK. Under Facet Neutral the demo list should open with "Demos"
 	visibly selected in the accent blue at first paint, not after an
 	interaction. It now does.
 
@@ -300,7 +300,7 @@ end
 	from construction (`showcase_chrome.mount`'s `kind = scope:own(core:signal
 	("demos"))`), so `sectionPicker`'s bound value is correct from frame one —
 	there was no "nothing selected until interaction" at the DATA layer, and no
-	theme-role gap either (Studio Neutral's own `extra.controlSelected` and the
+	theme-role gap either (Facet Neutral's own `extra.controlSelected` and the
 	derived `$OnSelected` are exercised and proved by
 	`tests/sheet_model.spec.luau`'s classic-desktop and RS-DIR8 coverage, which
 	is a different package but the same mechanism).
@@ -325,7 +325,7 @@ end
 	painted, which is the guard against a fix that unhides once and then
 	stops tracking. `tests/selection_indicator.spec.luau`'s "B'2" pins the
 	same thing one layer down. ]]
-describe("showcase chrome: B4 — Demos selected under Studio Neutral, at first paint", function()
+describe("showcase chrome: B4 — Demos selected under Facet Neutral, at first paint", function()
 	it("kind reads 'demos' from first paint, and so does the section switch's pill", function()
 		local w = showcase()
 		w.chrome.request("demos")

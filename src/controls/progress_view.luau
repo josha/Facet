@@ -503,7 +503,7 @@ function progress_view.build(Facet: any, core: any, spec: Spec)
 		-- own box. Measured on `progress_ring` at 320x640, at the DEFAULT text
 		-- preference: 40px past under Glossy Mobile and Glossy Touch (dot 10, `s` 10
 		-- -> a 74px spinner beside a 210px label in 254px), 6px under Fantasy Ornate
-		-- and Parchment. Studio Neutral fit with 110px to spare, which is exactly why
+		-- and Parchment. Facet Neutral fit with 110px to spare, which is exactly why
 		-- nothing saw it. It is the same family read from the other end: elsewhere a
 		-- fixed box could not hold
 		-- a theme's frame, here a fixed indicator leaves a theme's type nowhere to go.

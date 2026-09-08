@@ -45,10 +45,7 @@ function scene.ring(ctx: any, spec: RingSpec): any
 	-- the painted arc chases the level through a spring (§11, class `object`).
 	-- Under reduced motion `setTarget` places instantly and fires the same
 	-- settle — the framework's parity contract, not a branch here.
-	local painted = spec.scope:own(ctx.clock:spring(level:get(), "object"))
-	spec.scope:own(core:observe(level, function(value: number)
-		painted:setTarget(value)
-	end))
+	local painted = ctx.clock:animate(level, "object", { scope = spec.scope })
 
 	local sweep = spec.scope:own(core:memo(function(use)
 		local value = use(painted)

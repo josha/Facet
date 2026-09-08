@@ -10,7 +10,7 @@
 --
 -- Measured live before the fix, across all nine reference configurations:
 --
---     studio-neutral    box 8x22   icon 20x20   6.0px overhang per side
+--     facet-neutral    box 8x22   icon 20x20   6.0px overhang per side
 --     classic-desktop   box 6x15   icon 20x20   7.0px
 --     compact-pointer   box 6x17   no art       0
 --     fantasy-ornate    box 6x23   icon 32x32   13.0px
@@ -56,10 +56,10 @@ local function packageOf(name: string): any
 end
 
 -- every configuration the library ships, INCLUDING the flat neutral one: the
--- live measurement above proved Studio Neutral overhangs by 6px, so a sweep that
+-- live measurement above proved Facet Neutral overhangs by 6px, so a sweep that
 -- skipped it would have called the defect theme-specific
 local function configurations(): { { name: string, pkg: any } }
-	local out = { { name = "studio-neutral", pkg = snapshot.neutralPackage() } }
+	local out = { { name = "facet-neutral", pkg = snapshot.neutralPackage() } }
 	for _, name in PACKAGES do
 		table.insert(out, { name = name, pkg = packageOf(name) })
 	end
@@ -190,6 +190,44 @@ describe("the icon's box: a picture is reserved for, not painted over", function
 	end)
 end)
 
+describe("preferred compact icons", function()
+	it("reserve the same art square as an icon hint across live themes", function()
+		local w = require("./lib/world").new({ viewport = { x = 0, y = 0, w = 800, h = 400 } })
+		w.present(UI.Screen({
+			id = "S",
+			children = {
+				UI.HStack({
+					id = "Row",
+					children = {
+						UI.Button({
+							id = "Back",
+							label = "Back",
+							compactLabel = { icon = "chevron.leading", prefer = true },
+						}),
+					},
+				}),
+			},
+		}))
+		local original = w.adapter.node("/S/Row/Back")
+		for _, config in configurations() do
+			local snap = snapshot.resolve(config.pkg, nil, {})
+			w.env:set("themeMetrics", snap)
+			w.pres.refresh()
+			local node = w.adapter.node("/S/Row/Back")
+			expect(node).toBe(original)
+			if paintsArt(config.pkg, "chevron.leading") then
+				local pad = snapshot.buttonPadding(snap, {})
+				local inset = snap.chromeInsets.control or { top = 0, right = 0, bottom = 0, left = 0 }
+				local pt, pr, pb, pl = pad + inset.top, pad + inset.right, pad + inset.bottom, pad + inset.left
+				expect(chrome_slots.iconBoxPx(snap.iconSizes.medium, node.rect.w, node.rect.h, pl + pr, pt + pb)).toBe(
+					snap.iconSizes.medium
+				)
+			end
+		end
+		w.pres.dismiss(w.handle)
+	end)
+end)
+
 describe("the icon's box: the paint seam clamps to what it was given", function()
 	it("a picture never draws wider than the node's content box", function()
 		-- the report's defect 1, in numbers: `CmpIcon` solved to 52x67 under
@@ -237,4 +275,87 @@ describe("the icon's box: the paint seam clamps to what it was given", function(
 		expect(clamp ~= nil).toBe(true)
 		expect((clamp :: number) < (sizingLine :: number)).toBe(true)
 	end)
+end)
+
+-- Semantic art is centered on its Text node by screen_chrome. The containing
+-- control must center that node too; leaving either stack at its default start
+-- alignment shifts an otherwise correctly centered icon toward the top-left.
+describe("control glyphs are centered in their plates", function()
+	local cases = {
+		{ name = "facet-neutral", pkg = snapshot.neutralPackage() },
+		{ name = "classic-desktop", pkg = packageOf("classic_desktop") },
+		{ name = "glossy-touch", pkg = packageOf("glossy_touch") },
+	}
+	local function checkCenter(adapter, platePath, markPath, label)
+		local plate, mark = adapter.node(platePath).rect, adapter.node(markPath).rect
+		expect(`{label} center X delta={math.abs((plate.x + plate.w / 2) - (mark.x + mark.w / 2)) <= 0.5}`).toBe(
+			`{label} center X delta=true`
+		)
+		expect(`{label} center Y delta={math.abs((plate.y + plate.h / 2) - (mark.y + mark.h / 2)) <= 0.5}`).toBe(
+			`{label} center Y delta=true`
+		)
+	end
+	for _, kind in { "search-clear", "checkbox" } do
+		it(kind .. " stays centered across live themes, large text, and checked/mixed states", function()
+			local core = Facet.newCore()
+			local env = Facet.newEnvironment(core)
+			env:set("viewportRect", { x = 0, y = 0, w = 600, h = 400 })
+			local adapter = fake_target.new()
+			local pres = Facet.newPresenter(core, env, adapter, Facet.newActionSystem(core))
+			local mixed = core:signal(false)
+			local control = if kind == "checkbox"
+				then Facet.Controls.Toggle(core, {
+					id = "Control",
+					label = "Filter",
+					value = core:signal(true),
+					mixed = mixed,
+					presentation = "checkbox",
+				})
+				else Facet.Controls.TextInput(core, {
+					id = "Control",
+					value = core:signal("Race"),
+					presentation = "search",
+					env = env,
+				})
+			local handle = pres.present(UI.Screen({ id = "S", children = { control.blueprint } }))
+			pres.refresh()
+			local plate = if kind == "checkbox" then nil else "/S/Control/ClearWhen/then/Clear"
+			-- Anonymous nodes use generated IDs; read the mounted indicator once.
+			if kind == "checkbox" then
+				for _, path in adapter.paths() do
+					if path:sub(-10) == "/Indicator" then
+						plate = path
+					end
+				end
+			end
+			assert(plate ~= nil, "missing mounted glyph plate")
+			local original = adapter.node(plate)
+			for _, case in cases do
+				env:set("themeMetrics", snapshot.resolve(case.pkg, nil, {}))
+				for _, offset in { 0, 14 } do
+					env:set("preferredTextOffset", offset)
+					pres.refresh()
+					expect(adapter.node(plate)).toBe(original)
+					checkCenter(
+						adapter,
+						plate,
+						plate .. (if kind == "checkbox" then "/Check" else "/Mark"),
+						`{kind}/{case.name}+{offset}`
+					)
+					if kind == "search-clear" then
+						-- Glyph-only themes paint the character inside the centered node.
+						expect(adapter.node(plate .. "/Mark").props.textAlign).toBe("center")
+					end
+					if kind == "checkbox" then
+						mixed:set(true)
+						pres.refresh()
+						checkCenter(adapter, plate, plate .. "/Mixed", `mixed/{case.name}+{offset}`)
+						mixed:set(false)
+					end
+				end
+			end
+			pres.dismiss(handle)
+			control.dispose()
+		end)
+	end
 end)

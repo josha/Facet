@@ -221,7 +221,7 @@ describe("D4 mounted: the bar tracks the SOLVED rect of the selected child", fun
 		local bar = barRect(w)
 		expect(bar.x).toBe(a.x)
 		expect(bar.w).toBe(a.w) -- 120, the wide segment
-		expect(bar.y).toBe(a.y + a.h - 4) -- space.xs under Studio Neutral
+		expect(bar.y).toBe(a.y + a.h - 4) -- space.xs under Facet Neutral
 		expect(bar.h).toBe(4)
 		-- FIRST PAINT DOES NOT ANIMATE: nothing is on the clock, and the dump
 		-- records a placement rather than a slide

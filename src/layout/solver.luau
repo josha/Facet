@@ -61,7 +61,7 @@
 --       { type = "containerRelative", count, span?, spacing? }
 -- solve(root, viewport, opts) -> { rects, diagnostics, contentRect }
 -- opts.metrics is the active ThemeSnapshot; omitted, the solve
--- runs on Studio Neutral, whose values are the framework's historic literals.
+-- runs on Facet Neutral, whose values are the framework's historic literals.
 
 local text_metrics = require("./text_metrics")
 -- `text_fit`: the ONE binary search for "what size makes this string fit this
@@ -125,6 +125,7 @@ local noteContainment = arrange_reports.containment
 -- ledger's row for this file has named since the T4 split. It takes `STACK_DEPS`
 -- below plus `arrange`/`noteContainment` at the call, and holds no state.
 local stackLib = require("./stack")
+local baselineLib = require("./baseline")
 -- ...and `stack_measure`: the vstack/hstack MEASURE branch — the three passes that
 -- produce a stack's content size — lifted out on 2026-09-05 for the headroom its own
 -- per-child memo needed (Plan C, T13). It takes `STACK_MEASURE_DEPS` below, has no
@@ -367,6 +368,9 @@ export type Node = {
 	textFit: { cap: number, floor: number, offset: number }?,
 	-- line-height factor from the role; absent = the library's global 1.2
 	lineHeight: number?,
+	textBaseline: number?,
+	baselineAligned: boolean?,
+	minLength: number?,
 	-- measure this text on ONE line and clamp to the offer, because the adapter
 	-- draws it on one line (director finding 13; today: a Toggle's label)
 	singleLine: boolean?,
@@ -578,12 +582,18 @@ local GRID_DEPS: gridLib.Deps = {
 	sides = sides,
 }
 
--- ...AND WHAT `src/layout/flow.luau` NEEDS, which is the SAME THREE, so it is the
--- same record rather than a second copy of it. Two modules asking the solver for
--- `measure`/`dim`/`sides` is not a coincidence — it is what a pure measure-side
--- helper needs, and building the forwarder twice is how the two ends up reading a
--- different `measure` after someone edits one of them.
-local FLOW_DEPS: flowLib.Deps = GRID_DEPS
+-- Baseline probes re-use this solver after module initialization, so all three
+-- stack passes borrow one forwarder rather than capturing an unset solve function.
+local function baselineOffset(ctx: any, node: any, w: number, h: number, which: string): number
+	return baselineLib.offset(solver.solve, ctx, node, w, h, which)
+end
+-- Wrapping shares grid's measure forwarder and adds baseline line metrics.
+local FLOW_DEPS: flowLib.Deps = {
+	measure = GRID_DEPS.measure,
+	dim = dim,
+	sides = sides,
+	baseline = baselineOffset,
+}
 -- ...and `./composition_resolve` needs exactly one of the three, so it declares
 -- its own record rather than borrowing a wider one: a Deps record is a statement
 -- about what a module reads, and a spare field in it is a false statement.
@@ -617,10 +627,11 @@ local STACK_DEPS: stackLib.Deps = {
 	mainDimOf = mainDimOf,
 	sides = sides,
 	shrink = SHRINK_DEPS,
+	baseline = baselineOffset,
 }
 
--- ...AND WHAT `src/layout/stack_measure.luau` NEEDS, which is FOUR of those five and
--- not the fifth: the measure branch never asks `mainDimOf` (it reads the child's own
+-- ...AND WHAT `src/layout/stack_measure.luau` NEEDS: baseline plus the original
+-- four fields. The measure branch never asks `mainDimOf` (it reads the child's own
 -- axis through `dim`), and a Deps record is a statement about what a module reads —
 -- so it declares its own rather than borrowing the wider arrange one. `measure` is
 -- borrowed from `GRID_DEPS` and `shrink` travels rather than being rebuilt, both for
@@ -630,6 +641,7 @@ local STACK_MEASURE_DEPS: stackMeasure.Deps = {
 	dim = dim,
 	sides = sides,
 	shrink = SHRINK_DEPS,
+	baseline = baselineOffset,
 }
 
 -- resolve one axis of `node` given the limit and a content thunk
@@ -3125,6 +3137,12 @@ local function arrangeBody(ctx: Ctx, node: Node, rect: Rect, out: { [string]: an
 	-- two passes cannot disagree about where the lines break.
 	if node.kind == "hwrap" or node.kind == "vwrap" then
 		local isH = node.kind == "hwrap"
+		if not isH and baselineLib.has(node) and ctx.hiddenDepth == 0 then
+			table.insert(ctx.diagnostics, {
+				node = node.id,
+				issue = "text baseline alignment requires a horizontal stack; vertical stacks use start alignment",
+			})
+		end
 		local children = node.children or {}
 		local innerMain = if isH then innerW else innerH
 		local innerCross = if isH then innerH else innerW
@@ -3137,7 +3155,7 @@ local function arrangeBody(ctx: Ctx, node: Node, rect: Rect, out: { [string]: an
 		-- created to end (§2.1). A literal `align = "stretch"` is a construction
 		-- error (`blueprint.luau`); this is the same rule for a value only a solve
 		-- can see, because `align` is reactive.
-		local blockAlign = node.align
+		local blockAlign = if baselineLib.is(node.align) then "start" else node.align
 		if blockAlign == "stretch" then
 			if ctx.hiddenDepth == 0 then
 				table.insert(ctx.diagnostics, {
@@ -3230,7 +3248,7 @@ local function arrangeBody(ctx: Ctx, node: Node, rect: Rect, out: { [string]: an
 				-- the same ladder the plain stack's arrange uses, one line up from the
 				-- container's word — which here is the BLOCK's word, exactly as Roblox's
 				-- `ItemLineAlignment = Automatic` defers to the container's alignment
-				local childAlign = child.lineAlign or child.align or blockAlign
+				local childAlign = child.lineAlign or child.align or node.align
 				local crossDim = dim(child, if isH then "h" else "w")
 				-- AN ASPECT CHILD KEEPS THE PAIR MEASURE RESOLVED, and that is a rule
 				-- rather than an omission: the partition is a function of the measured
@@ -3246,7 +3264,18 @@ local function arrangeBody(ctx: Ctx, node: Node, rect: Rect, out: { [string]: an
 				if isH then
 					childRect = {
 						x = cursor + s.ml,
-						y = crossCursor + s.mt + alignOffset(childAlign, crossAvail, crossSize),
+						y = if isH
+								and line.baselines
+								and baselineLib.is(childAlign)
+							then crossCursor + line.baselines[childAlign].above - baselineLib.offset(
+								solver.solve,
+								ctx,
+								child,
+								mainSize,
+								crossSize,
+								childAlign
+							)
+							else crossCursor + s.mt + alignOffset(childAlign, crossAvail, crossSize),
 						w = mainSize,
 						h = crossSize,
 					}
@@ -3334,7 +3363,7 @@ function solver.solve(
 }
 	local insets = (opts and opts.safeInsets) or { top = 0, bottom = 0, left = 0, right = 0 }
 	local policy = (opts and opts.rootPolicy) or "coreSafeContent"
-	-- Studio Neutral when the caller supplies none: a solve is never without a
+	-- Facet Neutral when the caller supplies none: a solve is never without a
 	-- metric authority, and neutral reproduces the pre-theme literals.
 	local metrics = (opts and opts.metrics) or themeSnapshot.neutral()
 	local contentRect: Rect

@@ -11,8 +11,8 @@
 --
 -- Public interface
 --   snapshot.resolve(package, themeName, facts, overrides?) -> frozen snapshot
---   snapshot.neutral()          the Studio Neutral snapshot (the env default)
---   snapshot.neutralPackage()   the compiled Studio Neutral package (derivation base)
+--   snapshot.neutral()          the Facet Neutral snapshot (the env default)
+--   snapshot.neutralPackage()   the compiled Facet Neutral package (derivation base)
 --   snapshot.resolveSize(snap, value)    typography role name | number -> px
 --   snapshot.resolveNumber(snap, value)  space step | metric path | number -> px
 --   snapshot.resolveSides(snap, sides)   the same, per side
@@ -57,7 +57,7 @@ function snapshot.fontKey(font: any): string
 	return `{font.family}#{font.weight or DEFAULT_WEIGHT}#{font.style or DEFAULT_STYLE}`
 end
 
--- ===== Studio Neutral ======================================================
+-- ===== Facet Neutral ======================================================
 -- Everything the library already had comes from src/tokens/default_style (ONE
 -- source: the numbers are not restated here). What follows are the semantic
 -- roles this stage ADDED so the framework's own controls could stop hardcoding
@@ -138,8 +138,8 @@ local function neutralDefinition(): any
 	local style = defaultStyle :: any
 	return {
 		identity = {
-			id = "studio-neutral",
-			displayName = "Studio Neutral",
+			id = "facet-neutral",
+			displayName = "Facet Neutral",
 			schemaVersion = pkg.SCHEMA,
 			version = "1.0.0",
 		},
@@ -188,7 +188,7 @@ local function neutralDefinition(): any
 				-- (not re-pointed at the `space.tight` step, which
 				-- resolves to the same 6 at neutral) because moving it into a
 				-- resolve-time derivation would REMOVE an authored key from this
-				-- definition and move Studio Neutral's own content stamp — the
+				-- definition and move Facet Neutral's own content stamp — the
 				-- exact hazard the `gutter`/`tight` notes below warn a NEW
 				-- addition away from; this is a pre-existing one. A package that
 				-- wants this gap to track its own `space.tight` still can, by
@@ -275,7 +275,7 @@ function snapshot.neutralPackage(): any
 		local compiled, report = pkg.define(neutralDefinition())
 		assert(
 			compiled ~= nil,
-			"Studio Neutral failed its own package gate: "
+			"Facet Neutral failed its own package gate: "
 				.. (if report and report.errors and report.errors[1] then report.errors[1].message else "?")
 		)
 		neutralPackageCache = compiled
@@ -450,7 +450,7 @@ end
 	is the whole point of it, a typo caught when the form is built rather than
 	becoming a nil size on the first solve of a themed screen. So the vocabulary
 	an app adds has to be knowable without a snapshot, and a proof that must mount
-	under Studio Neutral AND Fantasy Parchment with no source edit cannot carry
+	under Facet Neutral AND Fantasy Parchment with no source edit cannot carry
 	its numbers on either package. One process-wide declaration answers both: the
 	app OWNS the names, every resolved snapshot carries them, and a PACKAGE may
 	MOVE any of them (`metrics.app`) exactly as it moves `space.m`.
@@ -1419,6 +1419,7 @@ function snapshot.resolve(package: any, themeName: string?, facts: Facts?, overr
 			},
 			size = entry.size,
 			lineHeight = entry.lineHeight,
+			baseline = entry.baseline or 0.8,
 		}
 	end
 	for role, entry in metrics.typography do
@@ -1433,7 +1434,7 @@ function snapshot.resolve(package: any, themeName: string?, facts: Facts?, overr
 	-- DERIVED HERE AND NOT IN THE NEUTRAL DEFINITION, for exactly the reason the
 	-- `iconSizes` note above records: a new authored `metrics.*` entry would move
 	-- every derived package's content STAMP and invalidate stored capture
-	-- evidence, for values no package wrote. Studio Neutral therefore gains the
+	-- evidence, for values no package wrote. Facet Neutral therefore gains the
 	-- two roles without a single authored byte moving.
 	for _, role in pkg.OPTIONAL_TYPE_ROLES do
 		if out.type[role] == nil then
@@ -1463,7 +1464,7 @@ function snapshot.resolve(package: any, themeName: string?, facts: Facts?, overr
 	end
 	--[[ 1b. THE APP NAMESPACE. The APP owns the names — it declared
 		them once, before anything mounted — and every package publishes them, so a
-		proof that has to run under Studio Neutral and under Fantasy Parchment keeps
+		proof that has to run under Facet Neutral and under Fantasy Parchment keeps
 		its geometry either way. A package may then MOVE any of them: `metrics.app`
 		is a THEME's answer for an app number, exactly as `metrics.space.m` is its
 		answer for a spacing step.
@@ -1646,7 +1647,7 @@ function snapshot.resolve(package: any, themeName: string?, facts: Facts?, overr
 	-- character. `">"` is 6px wide; Fantasy Ornate's `medium` rung is 32. So the
 	-- picture painted 13px outside its own node on every side, reaching the frame
 	-- beside it and the label after it. Measured live under all nine reference
-	-- configurations: SEVEN overhang, Studio Neutral included.
+	-- configurations: SEVEN overhang, Facet Neutral included.
 	--
 	-- The measure seam has to reserve the picture's box, and to do that it must
 	-- know whether there IS a picture — because the two packages that looked
@@ -1766,7 +1767,7 @@ function snapshot.resolve(package: any, themeName: string?, facts: Facts?, overr
 	-- per-slot numbers `census.overhang` publishes) and
 	-- `chrome_slots.barReservation` reads the cap/centrepiece against the track's
 	-- resolved cross extent. A package with no plaque and no bar ornament reserves
-	-- nothing and this table stays EMPTY — the flat/Studio-Neutral case,
+	-- nothing and this table stays EMPTY — the flat/Facet-Neutral case,
 	-- byte-identical by construction.
 	-- (filled in below, after the pixel snap: an extent is measured against
 	-- RESOLVED metrics, so it has to see the snapped numbers)
@@ -1800,7 +1801,7 @@ function snapshot.resolve(package: any, themeName: string?, facts: Facts?, overr
 	-- and for the same recorded reason (see the NOTE beside `iconSizes` in
 	-- `neutralDefinition`). Declaring it in the neutral DEFINITION would move the
 	-- authored metrics — and therefore the content STAMP — of every package
-	-- derived from Studio Neutral, invalidating stored captures for a value no
+	-- derived from Facet Neutral, invalidating stored captures for a value no
 	-- package wrote. Filling it in here means every theme answers
 	-- `controls.button.height` while nobody's authored data moves.
 	--
@@ -1854,7 +1855,7 @@ function snapshot.resolve(package: any, themeName: string?, facts: Facts?, overr
 		FILLED HERE, NOT IN THE NEUTRAL DEFINITION, for the reason every derived
 		metric under this comment carries: an authored `metrics.*` entry would move
 		the authored metrics — and therefore the CONTENT STAMP — of every package
-		derived from Studio Neutral, for a value no package wrote. It is above the
+		derived from Facet Neutral, for a value no package wrote. It is above the
 		pixel-unit snap below, so a pixel package's gutter lands on its own grid.
 
 		The guard is `tests/gallery_chrome.spec.luau` ("no package's screen-edge
@@ -1874,7 +1875,7 @@ function snapshot.resolve(package: any, themeName: string?, facts: Facts?, overr
 
 		`tight` is a SEVENTH derived step, one rung tighter than `s`: the
 		midpoint of the package's own `xs`/`s`, which is what makes it correct
-		for every package's ladder rather than a Studio-Neutral-only literal —
+		for every package's ladder rather than a Facet-Neutral-only literal —
 		it answers 6 at neutral (xs=4, s=8) and moves with a package that
 		re-ladders either neighbour. A package that authors its own `space.tight`
 		still wins, exactly as `gutter` does above.
@@ -1882,7 +1883,7 @@ function snapshot.resolve(package: any, themeName: string?, facts: Facts?, overr
 		FILLED HERE, NOT IN THE NEUTRAL DEFINITION, for the reason every derived
 		metric under this comment carries: an authored `metrics.space.tight`
 		entry would move the authored metrics — and therefore the CONTENT STAMP —
-		of every package derived from Studio Neutral, for a value no package
+		of every package derived from Facet Neutral, for a value no package
 		wrote. It is above the pixel-unit snap below, so a pixel package's
 		`tight` lands on its own grid, exactly like `gutter`. ]]
 	if type(out.space.tight) ~= "number" then
@@ -1899,7 +1900,7 @@ function snapshot.resolve(package: any, themeName: string?, facts: Facts?, overr
 	-- Filled in HERE, exactly as `controls.button.height` above and for the same
 	-- recorded reason: declaring it in the neutral DEFINITION would move the
 	-- authored metrics (and the content stamp) of every package derived from
-	-- Studio Neutral. A package that authors its own wins; the pixel snap below
+	-- Facet Neutral. A package that authors its own wins; the pixel snap below
 	-- rounds it onto the grid.
 	local rowActionsFamily = out.controls.rowActions
 	if type(rowActionsFamily) ~= "table" then
@@ -2283,7 +2284,7 @@ end
 	several generations alive at once. ]]
 local neutralsIssued: any = setmetatable({}, { __mode = "k" })
 
--- the snapshot every screen gets for free: Studio Neutral, no facts, no
+-- the snapshot every screen gets for free: Facet Neutral, no facts, no
 -- overrides. Values are byte-identical to the literals the framework shipped
 -- before theme packages existed.
 function snapshot.neutral(): any
@@ -2500,7 +2501,7 @@ end
 -- 2026-07-26). The renderer's measure seam built this table from the LIVE
 -- snapshot while the adapter boxed the label from constants captured when the
 -- ScreenTarget was CONSTRUCTED — `style.space.s + 4` and `style.space.m` of
--- whatever package was installed at boot. Under Studio Neutral the two happen
+-- whatever package was installed at boot. Under Facet Neutral the two happen
 -- to agree exactly (space.s = 8 -> 12 = trackInset, space.m = 16), so the
 -- divergence was invisible for four stages. Under classic-desktop (space.m = 8)
 -- the solver reserved a 28 px label column and the adapter drew a 20 px one;

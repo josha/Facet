@@ -31,7 +31,7 @@ describe("showcase catalogue", function()
 		-- names as its showcase deliverable
 		-- 37 on 2026-09-07 (the stabilization pass, stream D): `inherited-subtree`,
 		-- the inherited `enabled`/`tint` showcase
-		expect(#demos).toBe(40)
+		expect(#demos).toBe(41)
 		-- the all-controls fixture leads: it is the one that answers "what does
 		-- this look like on my device"; the row-actions fixture follows it for
 		-- the same feel-first reason (hosted row-actions device pass)
@@ -135,7 +135,7 @@ describe("showcase catalogue", function()
 		-- compositing showcase
 		-- 30 on 2026-09-07: `inherited-subtree`, the stabilization pass's
 		-- inherited `enabled`/`tint` showcase
-		expect(fixtures).toBe(33)
+		expect(fixtures).toBe(34)
 	end)
 
 	-- A BLURB IS READ IN THE OPEN LIST ON THE NARROWEST PHONE, and the list is
@@ -370,7 +370,7 @@ end)
 -- THE RESERVED STRIP MEASURES ITS CHIPS (device report 2026-07-27)
 --
 -- `BAR_HEIGHT = 62` used to BE the reservation: the strip's 8px top padding plus
--- the taller chip's 46px, measured once under Studio Neutral. A chip is a themed
+-- the taller chip's 46px, measured once under Facet Neutral. A chip is a themed
 -- control, so that number was only ever right for the package it was measured
 -- under — and under Pixel Quest, on a physical phone, the chip grew past the strip and
 -- its plate painted over the top of the demo's own page title.
@@ -642,7 +642,7 @@ describe("showcase host: the fixture branch delivers `present` opts", function()
 		-- again with `level-picker`, whose fixture reproduces the reference screenshot
 		-- 29 on 2026-08-16/17: `nested-tree`
 		-- 30 on 2026-09-07: `inherited-subtree`
-		expect(fixtures).toBe(33)
+		expect(fixtures).toBe(34)
 		-- and at least one of them actually declares opts, or this proves nothing
 		expect(withOpts >= 1).toBe(true)
 	end)
@@ -1115,6 +1115,7 @@ local DEMO_ROOT: { [string]: string } = {
 	["nested-tree"] = "NestedCompositing",
 	-- the stabilization pass's inherited `enabled`/`tint` showcase
 	["inherited-subtree"] = "InheritedSubtree",
+	["navigation-stack"] = "NavigationFlow",
 	["text-controls"] = "TextControls",
 	["selection-controls"] = "SelectionControls",
 	["action-controls"] = "ActionControls",
@@ -1293,5 +1294,21 @@ describe("showcase host: advancing the picker actually mounts the demo it names"
 		expect(string.find(source, "ok = delivered == demos.current()", 1, true) ~= nil).toBe(true)
 		-- the shape that lied must not come back
 		expect(string.find(source, "JSONEncode({ current = demos.current() })", 1, true)).toBeNil()
+	end)
+end)
+
+describe("Showcase curation", function()
+	it("keeps twelve useful examples up front and all focused fixtures addressable", function()
+		local count = 0
+		for _, demo in demo_picker.list() do
+			if demo_picker.isPrimary(demo.id) then
+				count += 1
+			end
+			expect(demo_picker.find(demo.id)).toBe(demo)
+		end
+		expect(count).toBe(12)
+		expect(demo_picker.isPrimary("navigation-stack")).toBe(true)
+		expect(demo_picker.isPrimary("async-images")).toBe(false)
+		expect(demo_picker.find("async-images").title).toBe("Loading profile pictures")
 	end)
 end)

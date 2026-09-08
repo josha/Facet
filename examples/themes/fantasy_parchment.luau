@@ -169,7 +169,7 @@ local ASSETS = {
 -- Fondamento (a Roblox-shipped calligraphic family — fantasy-appropriate
 -- without bundling a font) at 1.35 line height, because a calligraphic face
 -- needs more air than a UI sans; a rounder 4/8/16/26/42 spacing rhythm than
--- Studio Neutral's; taller controls (38/46/58) because the carved border needs
+-- Facet Neutral's; taller controls (38/46/58) because the carved border needs
 -- shoulder room; and per-slot insets that each nine-slice recipe's own
 -- contentInsets are ADDED to, so content always clears the painted border.
 --

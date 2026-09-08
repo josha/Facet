@@ -195,6 +195,8 @@ function Glade.build(Facet: any, core: any, deps: any): any
 		keeperContact = scope:own(core:signal(seedData.KEEPER.contact)),
 		draftName = scope:own(core:signal(seedData.KEEPER.displayName)),
 		draftContact = scope:own(core:signal(seedData.KEEPER.contact)),
+		keeperPath = scope:own(core:signal({})),
+		detailPath = scope:own(core:signal({})),
 		favourites = {} :: { [string]: any },
 	}
 	for _, glade in seedData.GLADES do
@@ -390,6 +392,8 @@ function Glade.build(Facet: any, core: any, deps: any): any
 	-- than disposed on the spot: the exit transition is still painting the tree
 	-- that reads it, so the scope dies when the next surface opens (or at
 	-- teardown), which bounds the retirement to exactly one surface.
+	local keeperFlow: any
+	local detailFlow: any
 	local stack: { any } = {}
 	local retired: { any } = {}
 
@@ -413,13 +417,13 @@ function Glade.build(Facet: any, core: any, deps: any): any
 	function nav.dismissTop(): boolean
 		local top = table.remove(stack)
 		if top == nil then
-			return false
+			if keeperFlow ~= nil and keeperFlow.api.back() then
+				return true
+			end
+			return detailFlow ~= nil and detailFlow.api.back() or false
 		end
 		presenter.dismiss(top.handle)
 		table.insert(retired, top.scope)
-		if top.kind == "detail" then
-			state.selectedGlade:set(nil)
-		end
 		if top.kind == "shop" or top.kind == "charm" then
 			commerce.clearAll()
 		end
@@ -434,6 +438,12 @@ function Glade.build(Facet: any, core: any, deps: any): any
 	local function dismissAll()
 		while #stack > 0 do
 			nav.dismissTop()
+		end
+		if keeperFlow then
+			keeperFlow.api.popToRoot()
+		end
+		if detailFlow then
+			detailFlow.api.popToRoot()
 		end
 	end
 
@@ -550,28 +560,7 @@ function Glade.build(Facet: any, core: any, deps: any): any
 	function nav.openGlade(gladeId: string)
 		state.selectedGlade:set(gladeId)
 		if conditions.isCompact:get() then
-			pushSurface("detail", function(surfaceScope)
-				return shopUI.sheet(ctx, "GladeDetail", {
-					detailUI.body(ctx, {
-						id = "DetailBody",
-						glade = gladeId,
-						scope = surfaceScope,
-						compact = true,
-					}),
-				})
-			end, {
-				outsideTapCancel = false,
-				scrim = "none",
-				-- task-fix3 symptoms 2/3: this IS the surface leaving/entering the
-				-- screen (a `scrim = "none"` push, its own opaque backdrop per the
-				-- fix above), not a decorative nudge — `distance` travels its own
-				-- current width so it reads as a slide at every viewport this
-				-- proof's matrix sweeps, not the themed `space.l` default's ~24px
-				-- (director device round 2026-08-23: "should slide and fade
-				-- further"; measured ~94% still on screen through the whole enter)
-				transition = { enter = "slide-left", class = "container", distance = env:get("viewportRect"):get().w },
-				initialFocus = "SupplyRow_nectar",
-			})
+			state.detailPath:set({ { id = "detail", value = gladeId } })
 		end
 		--[[ THE TASK'S WISP WAITS FOR ITS GLADE. Every other glade presents its
 			visitor the moment it is opened, exactly as before. The one named glade
@@ -585,8 +574,8 @@ function Glade.build(Facet: any, core: any, deps: any): any
 	end
 
 	function nav.closeDetail()
-		if topKind() == "detail" then
-			nav.dismissTop()
+		if #state.detailPath:get() > 0 then
+			detailFlow.api.popToRoot()
 		else
 			state.selectedGlade:set(nil)
 		end
@@ -741,25 +730,15 @@ function Glade.build(Facet: any, core: any, deps: any): any
 	function nav.openEdit()
 		state.draftName:set(state.keeperName:get())
 		state.draftContact:set(state.keeperContact:get())
-		pushSurface("edit", function(surfaceScope)
-			return keeperUI.editForm(ctx, surfaceScope)
-		end, {
-			scrim = "scrim",
-			outsideTapCancel = true,
-			transition = { enter = "slide-up", fade = true, class = "container" },
-			-- "first" IS the display-name field: both text inputs name their inner
-			-- focusable `Field`, so an id would be ambiguous and is refused.
-			initialFocus = "first",
-		})
+		state.section:set("keeper")
+		state.keeperPath:set({ { id = "edit" } })
 	end
 
 	function nav.saveKeeper()
 		state.keeperName:set(state.draftName:get())
 		state.keeperContact:set(state.draftContact:get())
 		presenter.emitFeedback({ type = "commit", context = { verb = "saveKeeper" } })
-		if topKind() == "edit" then
-			nav.dismissTop()
-		end
+		keeperFlow.api.popToRoot()
 	end
 
 	function nav.openFreshStart()
@@ -875,6 +854,37 @@ function Glade.build(Facet: any, core: any, deps: any): any
 			return
 		end
 		toast("restore", L("keeper.restoreToast"))
+	end))
+
+	-- Keeper -> Edit is a data flow. The shared stack owns page lifetime, Back,
+	-- Cancel ordering and focus restoration; drafts remain in the app's model.
+	-- Purchase sheets and the destructive Fresh Start choice remain modals.
+	keeperFlow = scope:own(Facet.Controls.NavigationStack(core, {
+		id = "KeeperFlow",
+		path = state.keeperPath,
+		backLabel = Lnow("keeper.cancel"),
+		env = env,
+		root = {
+			title = L("section.keeper"),
+			content = function(pageScope)
+				local pageContext = table.clone(ctx)
+				pageContext.scope = pageScope
+				return keeperUI.section(pageContext)
+			end,
+		},
+		destinations = {
+			edit = {
+				title = L("keeper.editTitle"),
+				content = function(pageScope)
+					return keeperUI.editForm(ctx, pageScope)
+				end,
+			},
+		},
+	}))
+	scope:own(core:observe(state.section, function(section)
+		if section ~= "keeper" then
+			keeperFlow.api.popToRoot()
+		end
 	end))
 
 	-- ---- the shell ----------------------------------------------------------
@@ -1000,7 +1010,9 @@ function Glade.build(Facet: any, core: any, deps: any): any
 		glades = overviewUI.glades,
 		wisps = overviewUI.wisps,
 		flora = overviewUI.flora,
-		keeper = keeperUI.section,
+		keeper = function()
+			return keeperFlow.blueprint
+		end,
 	}
 	local navTabs: { any } = {}
 	for _, id in SECTIONS do
@@ -1058,19 +1070,66 @@ function Glade.build(Facet: any, core: any, deps: any): any
 		CARD, and the card leads the Glades page inside that page's own scroller
 		where it can be as tall as its words. `ui/task.luau` records the measurement
 		that decided the split. ]]
-	local screen = UI.Screen({
-		id = "Glade",
-		surface = "base",
-		children = {
-			UI.VStack({
-				id = "Shell",
-				gap = 0,
-				width = UI.fill(),
-				height = UI.fill(),
-				children = { taskUI.strip(ctx), navBar.blueprint },
-			}),
-		},
+	local shell = UI.VStack({
+		id = "Shell",
+		gap = 0,
+		width = UI.fill(),
+		height = UI.fill(),
+		children = { taskUI.strip(ctx), navBar.blueprint },
 	})
+	local detailTitle = scope:own(core:memo(function(use)
+		local _ = use(locale)
+		local selected = use(state.selectedGlade)
+		return if selected then Lnow("glade." .. selected) else Lnow("section.glades")
+	end))
+	detailFlow = scope:own(Facet.Controls.NavigationStack(core, {
+		id = "GladeFlow",
+		path = state.detailPath,
+		backLabel = Lnow("detail.back"),
+		env = env,
+		transition = {
+			enter = "slide-left",
+			exit = "slide-right",
+			class = "container",
+			distance = env:get("viewportRect"):get().w,
+		},
+		root = {
+			content = function()
+				return shell
+			end,
+		},
+		destinations = {
+			detail = {
+				title = detailTitle,
+				content = function(pageScope, entry)
+					return detailUI.body(ctx, {
+						id = "DetailBody",
+						glade = entry.value,
+						scope = pageScope,
+						compact = true,
+						navigationHosted = true,
+					})
+				end,
+			},
+		},
+	}))
+	-- One selection survives rotations: compact pushes the detail; wider layouts
+	-- return it to the existing split lane. Back on compact clears the selection.
+	scope:own(core:observe(state.detailPath, function(path)
+		if #path == 0 and conditions.isCompact:get() then
+			state.selectedGlade:set(nil)
+			interruptFlyIns()
+		end
+	end))
+	scope:own(core:observe(conditions.isCompact, function(compact)
+		local selected = state.selectedGlade:get()
+		if compact and selected ~= nil then
+			state.detailPath:set({ { id = "detail", value = selected } })
+		elseif not compact then
+			detailFlow.api.popToRoot()
+		end
+	end))
+	local screen = UI.Screen({ id = "Glade", surface = "base", children = { detailFlow.blueprint } })
 
 	-- ---- the frame tick -----------------------------------------------------
 	-- The proof's ONE frame source, and it is the presenter's own: no second
@@ -1113,6 +1172,8 @@ function Glade.build(Facet: any, core: any, deps: any): any
 			offerDismissed = state.offerDismissed:get(),
 			favourites = favouriteList(),
 			keeper = { name = state.keeperName:get(), contact = state.keeperContact:get() },
+			keeperNavigation = table.clone(state.keeperPath:get()),
+			detailNavigation = table.clone(state.detailPath:get()),
 			-- the played task, published so a drive reads the same phase the card
 			-- paints rather than re-deriving it from the supply service
 			task = taskModel.dump(),
@@ -1279,6 +1340,8 @@ function Glade.build(Facet: any, core: any, deps: any): any
 		-- the proof's own verbs, for a test that would rather call than drive
 		api = {
 			nav = nav,
+			keeperNavigation = keeperFlow,
+			detailNavigation = detailFlow,
 			state = state,
 			task = taskModel,
 			supply = supply,

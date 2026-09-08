@@ -5,7 +5,7 @@
 -- Why it exists: the theme system only works if the framework's own controls
 -- speak semantic roles. One `height = { type = "fixed", px = 44 }` slipped back
 -- into a control is invisible in review, passes every test (44 is still 44 under
--- Studio Neutral), and silently makes that control immune to every theme — the
+-- Facet Neutral), and silently makes that control immune to every theme — the
 -- exact failure mode the stage exists to remove. So it is checked mechanically.
 --
 -- TWO SCOPES, because there are two different claims to make.
@@ -52,7 +52,7 @@
 --
 -- WHAT "THE REWRITE CANNOT MOVE ONE PIXEL" ACTUALLY GUARANTEES, stated exactly
 -- because the first version of this file overstated it and shipped a regression
--- for the difference (review 2026-08-22, HIGH-1). **It is a Studio-Neutral,
+-- for the difference (review 2026-08-22, HIGH-1). **It is a Facet-Neutral,
 -- scale-1.0 guarantee and nothing more.** A NAME is resolved per solve against
 -- the ACTIVE snapshot, and a distance-adapted snapshot scales the whole `space`
 -- section: `"xs"` is 4 at arm's length and 6 on a television. So naming a literal
@@ -692,7 +692,7 @@ function checker.check(opts: Options?)
 			table.insert(
 				problems,
 				`{v.file}:{v.line}: [example, COUPLED] {v.what} — "{v.text}". Naming it is `
-					.. `pixel-identical at Studio Neutral ONLY: a theme name rides the distance ladder `
+					.. `pixel-identical at Facet Neutral ONLY: a theme name rides the distance ladder `
 					.. `("xs" is 4 at arm's length and 6 on a television), and THIS FILE PREDICTS `
 					.. `GEOMETRY FROM RAW CONSTANTS ({table.concat(v.coupled :: { string }, ", ")}), which `
 					.. `do not. Swapping without moving the predictor de-calibrates it — measured, the `

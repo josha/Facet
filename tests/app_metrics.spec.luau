@@ -29,7 +29,7 @@
 	     `px = "iconSizes.large"` passes, and an UNDECLARED `app.*` name is
 	     refused exactly as `iconSizes.enormous` is;
 	  3. it RESOLVES on every snapshot, whatever package is installed, so a proof
-	     that must mount under Studio Neutral AND Fantasy Parchment keeps its
+	     that must mount under Facet Neutral AND Fantasy Parchment keeps its
 	     numbers;
 	  4. it rides the TEN-FOOT LADDER: an app length scales by `metricScale`
 	     exactly like a built-in, and an app number whose NAME says it is not a
@@ -180,7 +180,7 @@ describe("app metrics: a declared name is spellable", function()
 end)
 
 describe("app metrics: every package carries them", function()
-	it("resolves on Studio Neutral and on a package that never heard of them", function()
+	it("resolves on Facet Neutral and on a package that never heard of them", function()
 		withApp(PROOF, function()
 			local parchment = (require)("../examples/themes/fantasy_parchment").build(themes)
 			for _, package in { snapshot.neutralPackage(), parchment } do

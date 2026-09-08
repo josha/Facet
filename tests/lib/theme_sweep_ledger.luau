@@ -747,7 +747,8 @@ theme_ledger.ROWS = {
 		-- gained a `/Shell` segment. `globMatches` requires an EQUAL segment count, so
 		-- the old pattern stopped matching outright rather than matching wrong. Same
 		-- node, same finding, same box.
-		node = "/Glade/Shell/Nav/Content/Tab-glades/then/Pane_glades/Panes/Section/Body_glades/GladesPage/Cards/Glades/[*]/*/Fav_*",
+		-- Same existing chrome-inset finding and ceilings; root now lives in NavigationStack.
+		node = "/Glade/GladeFlow/Pages/[*]/PageMotion/Page/BodyHost/Content/view/Shell/Nav/Content/Tab-glades/then/Pane_glades/Panes/Section/Body_glades/GladesPage/Cards/Glades/[*]/*/Fav_*",
 		sig = "the 'X' chrome contentInsets could not be",
 		-- RE-PINNED by wave TEN-FOOT (ADAPT-8, 2026-08-20): the star already spends `targetSizes.minimum`, so its box follows the ladder to 68 under Pixel Quest. Same finding, larger box, SMALLER shortfall (20px of room for a 32px frame at near, 28px at distance).
 		px = 68,

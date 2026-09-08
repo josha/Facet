@@ -466,3 +466,11 @@ part.
   context/sink/focus pipeline and proves nothing.
 - **Absolute paths** in every shell command; Dropbox paths contain spaces —
   quote them.
+
+## Controls inside navigation pages
+
+A NavigationStack content factory receives a page scope. Own a composite control
+on that scope and keep caller data outside it. Declare Cancel through the normal
+contribution so an editor or popup gets first refusal before the page pops. Do
+not bind Back hardware or create a second focus order. Test a page switch while
+your control owns focus and while its transient content is open.

@@ -81,7 +81,7 @@ describe("the stack seam: a CLOSED Deps record, read == declared == passed", fun
 		for name in string.gmatch(block :: string, "\n\t([%a_][%w_]*):") do
 			declared[name] = true
 		end
-		expect(sorted(declared)).toEqual({ "dim", "mainDimOf", "measure", "shrink", "sides" })
+		expect(sorted(declared)).toEqual({ "baseline", "dim", "mainDimOf", "measure", "shrink", "sides" })
 		expect(sorted(fieldsRead(stackSrc, "deps"))).toEqual(sorted(declared))
 	end)
 
@@ -92,7 +92,7 @@ describe("the stack seam: a CLOSED Deps record, read == declared == passed", fun
 		for name in string.gmatch(literal :: string, "\n\t([%a_][%w_]*) =") do
 			passed[name] = true
 		end
-		expect(sorted(passed)).toEqual({ "dim", "mainDimOf", "measure", "shrink", "sides" })
+		expect(sorted(passed)).toEqual({ "baseline", "dim", "mainDimOf", "measure", "shrink", "sides" })
 		--[[ AND `measure` IS BORROWED, NOT REBUILT. `GRID_DEPS.measure` is the
 			forwarder that reads the forward local at call time; building a second one
 			here is how the two records end up reading a different `measure` after an
@@ -387,7 +387,7 @@ describe("the stack seam: one-way, one consumer, and nothing stayed behind", fun
 			table.insert(requires, path)
 		end
 		table.sort(requires)
-		expect(requires).toEqual({ "../num", "./placement", "./shrink" })
+		expect(requires).toEqual({ "../num", "./baseline", "./measure_facts", "./placement", "./shrink" })
 	end)
 
 	it("it names no solver symbol and imports no solver type", function()
@@ -440,7 +440,8 @@ describe("the stack seam: one-way, one consumer, and nothing stayed behind", fun
 		expect(string.find(body, "local hugLater", 1, true)).toBe(nil)
 		expect(string.find(body, "hasShrink", 1, true)).toBe(nil)
 		expect(string.find(body, "local clipMain", 1, true)).toBe(nil)
-		expect(string.find(body, "child.lineAlign or child.align or node.align", 1, true)).toBe(nil)
+		-- The wrap branch now shares the baseline-aware inheritance expression.
+		expect(string.find(body, "child.lineAlign or child.align or node.align", 1, true) ~= nil).toBe(true)
 		--[[ TWO NEAR-MISSES ARE DELIBERATELY *NOT* ON THAT LIST: `gapExtraApplied` and
 			`distributionOf(` are the WRAP arrange branch, which stayed behind and is one
 			`Enum`-name apart from the branch that left. The positives below prove the
@@ -483,6 +484,7 @@ describe("the stack seam: no module-level mutable state", function()
 				exactly what this scan permits: declared once, never written. ]]
 			"DIRT_PROBE_FLOOR",
 			"alignOffset",
+			"baseline",
 			"distributionOf",
 			--[[ (Plan D, D2c) `local function candidateIndices` — the crude scan reads the
 				keyword, not the name, and that is the honest report: what it forbids is a
@@ -493,6 +495,7 @@ describe("the stack seam: no module-level mutable state", function()
 			"placementLib",
 			"roundPx",
 			"shrinkLib",
+			"spacerMinimum",
 			"stack",
 		})
 		local reassigned: { string } = {}

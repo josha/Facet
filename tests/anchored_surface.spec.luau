@@ -530,7 +530,7 @@ describe("D1 anchored surface: the arrow tail is a decoration, never a claim", f
 
 	--[[ THE WEDGE IS A TRIANGLE, NOT A BLOB (director, 2026-08-17). `surface =
 		"raised"` carries the panel's phantom `::UICorner`, and `radii.panel` (12
-		under Studio Neutral) against a `space.m` = 16px box CLAMPS to half the side
+		under Facet Neutral) against a `space.m` = 16px box CLAMPS to half the side
 		— so the "arrow" was a circle and what protruded was a semicircular bump.
 		Pinned as the authored value, because no rect assertion can see a radius. ]]
 	it("the wedge carries a ZERO corner radius, so the panel's rounding cannot reach it", function()

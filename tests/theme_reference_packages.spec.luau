@@ -9,7 +9,7 @@
 -- this spec is where it shows up.
 --
 -- The coverage matrix is computed by DIFFING each compiled package against
--- Studio Neutral rather than read from a declaration, so a package that claims
+-- Facet Neutral rather than read from a declaration, so a package that claims
 -- to change the font and does not fails here instead of in a Studio capture.
 
 local t = require("./lib/testkit")
@@ -59,7 +59,7 @@ local function built(name: string): any
 	return pkg
 end
 
--- the theme CLASSES a package exercises, computed against Studio Neutral
+-- the theme CLASSES a package exercises, computed against Facet Neutral
 local function classesOf(pkg: any): { [string]: boolean }
 	local neutral = themes.neutralPackage()
 	local neutralSnap = themes.neutral()
@@ -413,7 +413,7 @@ describe("fantasy_parchment carries its metrics in the theme_sync region", funct
 
 	it("consuming the region left the package value-identical (the stored captures stay honest)", function()
 		-- the stamp the live Studio dump was taken against. Re-pinned in the
-		-- 2026-08-10 row-actions Task 2 round: Studio Neutral (and therefore
+		-- 2026-08-10 row-actions Task 2 round: Facet Neutral (and therefore
 		-- every package deriving from it) grew `controls.rowActions.*`
 		-- (buttonMinWidth/buttonPad/editAffordance), so the stored captures are
 		-- re-taken against THIS stamp.

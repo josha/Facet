@@ -104,7 +104,7 @@ describe("the stack-measure seam: a CLOSED Deps record, read == declared == pass
 		for name in string.gmatch(block :: string, "\n\t([%a_][%w_]*):") do
 			declared[name] = true
 		end
-		expect(sorted(declared)).toEqual({ "dim", "measure", "shrink", "sides" })
+		expect(sorted(declared)).toEqual({ "baseline", "dim", "measure", "shrink", "sides" })
 		expect(sorted(fieldsRead(measureSrc, "deps"))).toEqual(sorted(declared))
 	end)
 
@@ -116,7 +116,7 @@ describe("the stack-measure seam: a CLOSED Deps record, read == declared == pass
 		for name in string.gmatch(literal :: string, "\n\t([%a_][%w_]*) =") do
 			passed[name] = true
 		end
-		expect(sorted(passed)).toEqual({ "dim", "measure", "shrink", "sides" })
+		expect(sorted(passed)).toEqual({ "baseline", "dim", "measure", "shrink", "sides" })
 		--[[ AND `measure` IS BORROWED, NOT REBUILT, and the shrink record TRAVELS. Two
 			copies of a forwarder is how the two records end up reading a different
 			`measure` after an edit — the failure `FLOW_DEPS = GRID_DEPS` was written to
@@ -125,7 +125,7 @@ describe("the stack-measure seam: a CLOSED Deps record, read == declared == pass
 		expect(string.find(literal :: string, "shrink = SHRINK_DEPS", 1, true) ~= nil).toBe(true)
 	end)
 
-	it("it takes FOUR, not the arrange half's five: `mainDimOf` is not among them", function()
+	it("it takes baseline plus FOUR geometry fields: `mainDimOf` is not among them", function()
 		--[[ THE DISTINCTION THAT IS THE WHOLE REASON THIS RECORD EXISTS. `STACK_DEPS`
 			was already in scope and already had every field this branch needs — passing
 			it would have been one character of the solver instead of six lines. It is
@@ -347,7 +347,7 @@ describe("the stack-measure seam: one-way, one consumer, and nothing stayed behi
 	local measureSrc = fs.readFile(MEASURE_PATH)
 	local solverSrc = fs.readFile(SOLVER_PATH)
 
-	it("it requires exactly one leaf, and never the solver", function()
+	it("it requires baseline, measure facts and shrink, never the solver", function()
 		--[[ `./shrink` IS A LEAF THE SOLVER ALSO REQUIRES, so the graph stays acyclic:
 			it takes the record this module is handed rather than reaching back for one.
 			The measure branch is the shorter of the two stack halves and it shows here —
@@ -357,7 +357,7 @@ describe("the stack-measure seam: one-way, one consumer, and nothing stayed behi
 			table.insert(requires, path)
 		end
 		table.sort(requires)
-		expect(requires).toEqual({ "./shrink" })
+		expect(requires).toEqual({ "./baseline", "./measure_facts", "./shrink" })
 	end)
 
 	it("it names no solver symbol and imports no solver type", function()
@@ -459,7 +459,7 @@ describe("the stack-measure seam: no module-level mutable state", function()
 			full pass classifies with it and the aggregate's pre-pass re-asks it of every
 			index it is about to visit. Two copies of a seven-term predicate is the
 			copy-goes-stale failure this file's own header is about. ]]
-		expect(sorted(declared)).toEqual({ "alwaysVisit", "shrinkLib", "stack_measure" })
+		expect(sorted(declared)).toEqual({ "alwaysVisit", "baseline", "shrinkLib", "spacerMinimum", "stack_measure" })
 		local reassigned: { string } = {}
 		for name in string.gmatch(body, "\n([%a_][%w_]*) =") do
 			if declared[name] then

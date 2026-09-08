@@ -29,7 +29,7 @@ local function derive(metrics: any, id: string?): any
 	return pkg
 end
 
-describe("themes.neutral: Studio Neutral reproduces the pre-theme literals", function()
+describe("themes.neutral: Facet Neutral reproduces the pre-theme literals", function()
 	it("reads its shared values from default_style rather than restating them", function()
 		local snap = snapshot.neutral()
 		expect(snap.type.caption.size).toBe(defaultStyle.type.caption)
@@ -87,7 +87,7 @@ describe("themes.neutral: Studio Neutral reproduces the pre-theme literals", fun
 
 	it("carries its package identity and stamp for inspection", function()
 		local snap = snapshot.neutral()
-		expect(snap.identity.packageId).toBe("studio-neutral")
+		expect(snap.identity.packageId).toBe("facet-neutral")
 		expect(snap.identity.themeName).toBe("Dark")
 		expect(#snap.identity.stamp).toBe(8)
 	end)
@@ -260,7 +260,7 @@ describe("metric-name resolution", function()
 end)
 
 describe("the themeMetrics environment fact", function()
-	it("defaults to Studio Neutral and is a plain per-key signal", function()
+	it("defaults to Facet Neutral and is a plain per-key signal", function()
 		local core = customFactory.new()
 		local env = environment.new(core)
 		expect(env:get("themeMetrics"):get()).toBe(snapshot.neutral())

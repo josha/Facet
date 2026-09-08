@@ -8,7 +8,7 @@
 -- work — it never claims an in-flight fetch stopped.
 
 return {
-	title = "Async images via PreloadAsync (NS-A13/NS-A14)",
+	title = "Loading profile pictures",
 	ledgerRows = { "NS-A13", "NS-A14" },
 	build = function(ctx: any)
 		local UI = ctx.Facet.UI
@@ -39,7 +39,12 @@ return {
 		}
 
 		local statusLine = core:memo(function(use)
-			return string.format("1:%s 2:%s 3:%s", use(imgs[1].state), use(imgs[2].state), use(imgs[3].state))
+			return string.format(
+				"Roblox: %s • Builderman: %s • Unavailable picture: %s",
+				use(imgs[1].state),
+				use(imgs[2].state),
+				use(imgs[3].state)
+			)
 		end)
 
 		local screen = UI.Screen({
@@ -61,7 +66,12 @@ return {
 					width = UI.fill(),
 					height = UI.fill(),
 					children = {
-						UI.Text({ id = "Title", text = "Async images (PreloadAsync transport)", textSize = 22 }),
+						UI.Text({ id = "Title", text = "Loading profile pictures", textSize = "title" }),
+						UI.Text({
+							id = "Explanation",
+							text = "Pictures can arrive later than the page. These keep their space while loading; an unavailable picture keeps a placeholder.",
+							textSize = "body",
+						}),
 						UI.Text({ id = "Status", text = statusLine, textSize = "label" }),
 						UI.HStack({
 							id = "Row",

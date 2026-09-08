@@ -303,7 +303,7 @@ function table_header.band(deps: Deps): any
 		-- reserve for that glyph ("keeps the ▲/▼ clear"), so a sortable trailing
 		-- column spends it as the title's trailing inset instead of the cell
 		-- inset — measured, not by luck: at 8px the two were 1px apart under
-		-- Studio Neutral's 11px mark, which is a collision in any package whose
+		-- Facet Neutral's 11px mark, which is a collision in any package whose
 		-- mark is wider.
 		--[[ ...AND THE RESERVE IS SPENT FOR EVERY SORTABLE TITLE, NOT ONLY A
 			TRAILING ONE, AND IT IS TWO TERMS RATHER THAN ONE (2026-08-15). The

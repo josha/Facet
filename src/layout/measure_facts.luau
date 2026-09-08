@@ -152,6 +152,12 @@ end
 -- main axis to expand along).
 local SPACER_FILL: Dim = { type = "fill", weight = 1 }
 
+local function spacerMinimum(child: any, isH: boolean): number
+	return if child.kind == "spacer" and (if isH then child.width else child.height) == nil
+		then child.minLength or 0
+		else 0
+end
+
 local function mainDimOf(child: any, isH: boolean): Dim
 	local explicit = if isH then child.width else child.height
 	if explicit ~= nil then
@@ -574,5 +580,7 @@ measure_facts.memoPlan = memoPlan
 measure_facts.recordTextFacts = recordTextFacts
 measure_facts.sides = sides
 measure_facts.textTypography = textTypography
+
+measure_facts.spacerMinimum = spacerMinimum
 
 return measure_facts

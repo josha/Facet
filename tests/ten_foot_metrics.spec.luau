@@ -77,7 +77,7 @@ local function packageNamed(name: string?): any
 end
 
 local function configurations(): { { name: string, package: any } }
-	local out = { { name = "studio_neutral", package = snapshot.neutralPackage() } }
+	local out = { { name = "facet_neutral", package = snapshot.neutralPackage() } }
 	for _, name in PACKAGES do
 		table.insert(out, { name = name, package = packageNamed(name) })
 	end
@@ -339,7 +339,7 @@ describe("ten-foot metrics — proportion equality across the control set", func
 	end)
 
 	--[[ THE CAPSULE SENTINEL, decided rather than special-cased (`radii.pill =
-		999` in Studio Neutral and in five of the eight packages).
+		999` in Facet Neutral and in five of the eight packages).
 
 		THE DECISION: IT SCALES LIKE EVERY OTHER RADIUS. A sentinel scaled is still
 		a sentinel, and exempting it would mean a threshold constant — a second

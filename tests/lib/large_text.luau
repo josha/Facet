@@ -69,7 +69,7 @@ large_text.PREFERENCES = PREFERENCES
 large_text.LARGEST = 14
 
 -- ── the two reference theme packages ────────────────────────────────────────
--- Studio Neutral is `themeMetrics`' own default (no package installed); Fantasy
+-- Facet Neutral is `themeMetrics`' own default (no package installed); Fantasy
 -- Parchment is the second reference package — a wider face, a taller control
 -- rhythm and its own nine-slice chrome, which is exactly the axis the plan
 -- names ("a theme with wider fonts or larger controls must receive the same
@@ -80,7 +80,7 @@ local parchmentPackage = (require)("../../examples/themes/fantasy_parchment").bu
 export type Theme = { id: string, metrics: any }
 
 local THEMES: { Theme } = {
-	{ id = "studio-neutral", metrics = nil },
+	{ id = "facet-neutral", metrics = nil },
 	{ id = "fantasy-parchment", metrics = snapshot.resolve(parchmentPackage, nil, {}) },
 }
 large_text.THEMES = THEMES

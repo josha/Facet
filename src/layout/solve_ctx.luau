@@ -33,6 +33,7 @@ local solve_ctx = {}
 export type Rect = { x: number, y: number, w: number, h: number }
 
 export type Ctx = {
+	baselineCache: any?,
 	-- A FINDING'S `designed` FLAG (ruling 8) marks the ones that report the system
 	-- working as declared rather than a defect. Absent on every other finding, so
 	-- `d.designed == true` is the whole test; see the composition arrange branch
@@ -450,6 +451,7 @@ function solve_ctx.new(contentRect: Rect, opts: any, metrics: any): Ctx
 		textStates = {},
 		compact = {},
 		textFacts = {},
+		baselineCache = if opts ~= nil then (opts :: any).baselineCache else nil,
 		compositions = {},
 		regionForm = {},
 		regionExpandable = {},

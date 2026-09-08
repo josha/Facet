@@ -14,7 +14,7 @@
 
 	THE PROOF IS DIFFERENTIAL, NOT ANECDOTAL. A helper that claims to equal the
 	solver's answer cannot be trusted on three hand-picked cases: the whole defect
-	class is "right on Studio Neutral at the default preference, wrong everywhere
+	class is "right on Facet Neutral at the default preference, wrong everywhere
 	else". So §4 below generates a corpus — every shipped theme package x the four
 	measured accessibility offsets x sub-1 through 3x preferences x both display
 	classes x numeric and role-named sizes x 1..6 lines — MOUNTS each row through
@@ -208,7 +208,7 @@ describe("text.lineBox — the one implementation of the line-box arithmetic", f
 	it("a numeric size takes `body`'s line height — which is what the solver resolves it to", function()
 		--[[ `snapshot.effectiveTypeRole` gives a literal px size on a `UI.Text` the
 			class's INTRINSIC role, and that role is `body`. A helper that used the
-			library's global 1.2 for numeric sizes would be right on Studio Neutral (whose
+			library's global 1.2 for numeric sizes would be right on Facet Neutral (whose
 			body factor IS 1.2) and wrong under every package that authors its own.
 
 			MEASURED AGAINST A RAGGED-FACTOR THEME, and that is not decoration: every one
@@ -424,7 +424,7 @@ local PACKAGE_NAMES = {
 	"fantasy_parchment",
 }
 
-local THEMES: { { id: string, pkg: any, overrides: any? } } = { { id = "studio-neutral", pkg = NEUTRAL_PKG } }
+local THEMES: { { id: string, pkg: any, overrides: any? } } = { { id = "facet-neutral", pkg = NEUTRAL_PKG } }
 for _, name in PACKAGE_NAMES do
 	local built = (require)(`../examples/themes/{name}`)
 	local pkg = built.build(Facet.themes)

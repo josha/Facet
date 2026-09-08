@@ -25,7 +25,8 @@
 --               rejected at construction rather than frozen and ignored.
 --   dirty       dirty classes pushed when a reactive value changes. Required
 --               whenever `reactive` is true; a reactive prop with no dirty
---               class would schedule nothing.
+--               class would schedule nothing. Structural regions own when
+--               their declarations are sampled; ordinary nodes observe changes.
 --   required    construction fails when the key is absent.
 --   channel     which subsystem consumes it: "layout" (solver), "style"
 --               (paint/style authority), "binding" (adapter data prop),
@@ -320,6 +321,9 @@ function schema.checkPresentationOffset(v: any): (boolean, string?)
 end
 
 local TYPE_CHECKS: { [string]: (any) -> (boolean, string?) } = {
+	nonnegative = function(v)
+		return type(v) == "number" and v == v and v >= 0 and v < math.huge, "a finite nonnegative number"
+	end,
 	string = function(v)
 		return type(v) == "string"
 	end,
@@ -667,8 +671,12 @@ local TYPE_CHECKS: { [string]: (any) -> (boolean, string?) } = {
 		-- rather than a decorative nudge (a toast easing in from its edge).
 		-- Ignored by non-slide forms (nothing there reads it).
 		local distance = (v :: any).distance
-		if distance ~= nil and (type(distance) ~= "number" or distance ~= distance or distance <= 0) then
-			return false, "distance is a positive number of px (the slide forms' own full travel, no unit suffix)"
+		if
+			distance ~= nil
+			and (type(distance) ~= "number" or distance ~= distance or distance == math.huge or distance <= 0)
+		then
+			return false,
+				"distance is a finite positive number of px (the slide forms' own full travel, no unit suffix)"
 		end
 		return true
 	end,
@@ -831,7 +839,8 @@ local BOX: { [string]: PropSpec } = {
 	-- second job under its own name, legal on every box, and it OUTRANKS both
 	-- `child.align` and the container's `align`.
 	--
-	-- Same four values as `align`, `stretch` included: a child that wants to fill
+	-- Same values as `align`, including the two horizontal text-baseline guides.
+	-- `stretch` remains: a child that wants to fill
 	-- the line's cross extent should not have to reach for a `fill` dim, which would
 	-- also claim the main axis.
 	--
@@ -843,12 +852,13 @@ local BOX: { [string]: PropSpec } = {
 	lineAlign = p({
 		types = { "string" },
 		reactive = true,
+		-- Mount upgrades transitions involving text baselines to measure.
 		dirty = { "arrange" },
 		shared = true,
-		enum = { "start", "center", "end", "stretch" },
+		enum = { "start", "center", "end", "stretch", "firstTextBaseline", "lastTextBaseline" },
 		channel = "layout",
 		doc = "this child's own cross-axis alignment inside its stack parent's line "
-			.. "(start|center|end|stretch); outranks the container's `align`",
+			.. "(start|center|end|stretch|firstTextBaseline|lastTextBaseline); text baselines require a horizontal stack and affect measure; outranks the container's `align`",
 	}),
 	-- THE SHRINK PASS'S TWO INPUTS (parity round 2 §2.4). BOX props rather than
 	-- modifiers, and deliberately: they are placement facts a stack parent reads off
@@ -1244,9 +1254,9 @@ local ALIGN: PropSpec = p({
 	reactive = true,
 	dirty = { "measure" },
 	shared = true,
-	enum = { "start", "center", "end", "stretch" },
+	enum = { "start", "center", "end", "stretch", "firstTextBaseline", "lastTextBaseline" },
 	channel = "layout",
-	doc = "cross-axis alignment of THIS container's children (start|center|end|stretch); "
+	doc = "cross-axis alignment of THIS container's children (start|center|end|stretch|firstTextBaseline|lastTextBaseline); text baselines require a horizontal stack; "
 		.. "for one child's own alignment in its parent's line, see `lineAlign`",
 })
 
@@ -1550,18 +1560,21 @@ local SHAPE: PropSpec = p({
 -- RETIRES a departing subtree (it stays mounted, turns non-interactive, and
 -- disposes when the exit completes) instead of disposing it on the spot.
 --
--- Not reactive: it is a declaration about the region, read when a child arrives or
--- leaves, never a value that animates. `class` names a MOTION CLASS, never inline
+-- A readable declaration is sampled when a child arrives or leaves. Changing
+-- it alone does not restart an active transition. `class` names a MOTION CLASS, never inline
 -- spring params (motion/classes.luau owns that vocabulary).
 local TRANSITION: PropSpec = p({
 	types = { "transition" },
-	reactive = false,
+	reactive = true,
+	-- Structural ownership, sampled only on arrival/departure; not a subscription.
+	dirty = { "structure" },
 	channel = "structural",
 	doc = 'enter/exit transition for this region\'s children: { enter = "fade" | "slide-up" | "slide-down" | '
 		.. '"slide-left" | "slide-right" | "materialize" | "instant", exit? (default: the mirror of enter), '
 		.. 'class? (a motion class name, default "container"), fade? (pair a slide with a transparency fade), '
 		.. "distance? (px, slide forms only: overrides the themed default with the surface's own full travel — "
 		.. "a full-viewport push/pop wants its own width/height, not a decorative nudge) }. "
+		.. "A Readable is sampled on enter/exit; it does not retarget an active flight. "
 		.. "Fading forms need the child to be a declared canvasGroup node",
 })
 
@@ -2160,7 +2173,15 @@ class("Box", {
 class("Spacer", {
 	container = false,
 	structural = false,
-	props = merge(BOX),
+	props = merge(BOX, {
+		minLength = p({
+			types = { "nonnegative", "metric" },
+			reactive = true,
+			dirty = { "measure" },
+			channel = "layout",
+			doc = "minimum main-axis space in a stack (nonnegative px or theme metric); explicit main-axis dimensions win",
+		}),
+	}),
 })
 
 class("Text", {

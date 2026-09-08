@@ -365,7 +365,7 @@ describe("icon paint: the package emits, the adapter applies", function()
 		end
 		-- BOTH icons now have something to own: the untinted one earns a rule purely
 		-- for the pixel stamp — and every framework name this fixture does NOT
-		-- declare earns one too, because the framework's own icon set (compact-label stage) resolves BELOW a package's map, so a package that declares nothing still DRAWS pictures — and `ImageColor3` is sheet-owned, so each of those names needs its tint rule or the art paints pure white. Found live in the running showcase: Studio Neutral emitted 70 rules and ZERO icon rules while `resolveIcon` returned real art for the same names.
+		-- declare earns one too, because the framework's own icon set (compact-label stage) resolves BELOW a package's map, so a package that declares nothing still DRAWS pictures — and `ImageColor3` is sheet-owned, so each of those names needs its tint rule or the art paints pure white. Found live in the running showcase: Facet Neutral emitted 70 rules and ZERO icon rules while `resolveIcon` returned real art for the same names.
 		-- every name that RESOLVES to art earns exactly one rule, whether the art is
 		-- this package's or the framework's — the two it declares are framework
 		-- names it overrode, not extra rules on top

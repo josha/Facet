@@ -478,7 +478,7 @@ describe("theme_authoring scenario: live authoring and export degrade without th
 		local dump = world.built.steps.exportDump()
 		expect(dump.via).toBe("package-data")
 		expect(dump.controller).toBe("absent")
-		expect(dump.identity.id).toBe("studio-neutral")
+		expect(dump.identity.id).toBe("facet-neutral")
 		expect(dump.chrome.panel.kind).toBe("native")
 		teardown(world)
 	end)
@@ -551,7 +551,7 @@ describe("theme_authoring scenario: the failure fixtures", function()
 		local inspect = world.built.steps.inspect()
 		expect(string.find(inspect.lastError, "no theme package module", 1, true) ~= nil).toBe(true)
 		expect(string.find(inspect.lastError, "classic_desktop", 1, true) ~= nil).toBe(true)
-		expect(inspect.identity.packageId).toBe("studio-neutral") -- unchanged
+		expect(inspect.identity.packageId).toBe("facet-neutral") -- unchanged
 		teardown(world)
 	end)
 end)

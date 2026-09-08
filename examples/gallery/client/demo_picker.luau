@@ -39,7 +39,7 @@ demo_picker.ATTRIBUTE = "Facet_DemoPicker"
 --
 -- IT USED TO BE THE WHOLE ANSWER, and that was the bug. 62 = the strip's 8px top
 -- padding + the taller chip's measured 46px + 8px of slack — measured once, under
--- Studio Neutral, on one machine. A chip is a THEMED control: its height is its
+-- Facet Neutral, on one machine. A chip is a THEMED control: its height is its
 -- package's chrome plus its label at the player's own text size. Under Pixel
 -- Quest, on a physical phone, the chip came out taller than the strip meant to hold it
 -- and painted over the top of the demo's own page title (device report
@@ -412,8 +412,8 @@ demo_picker.DEMOS = {
 	-- a player can do. That is the same defect `lifecycle-hidden` above records.
 	{
 		id = "async-images",
-		title = "Async images",
-		blurb = "Three thumbnails over the real transport: placeholder, ready, and one that fails",
+		title = "Loading profile pictures",
+		blurb = "Two profile pictures load; an unavailable picture keeps a safe placeholder",
 		kind = "fixture",
 		module = "async_images",
 	},
@@ -551,7 +551,34 @@ demo_picker.DEMOS = {
 		kind = "example",
 		module = "07_match3",
 	},
+	{
+		id = "navigation-stack",
+		title = "Plan a journey",
+		blurb = "A shared path, adaptive pages, text baselines and flexible spacing",
+		kind = "fixture",
+		module = "navigation_stack",
+	},
 } :: { Demo }
+
+-- Curate the first visit around useful interactions. Focused comparisons remain
+-- available in the laboratory, with their stable IDs for tools and regression drives.
+local PRIMARY = {
+	["all-controls"] = true,
+	["navigation-stack"] = true,
+	["text-controls"] = true,
+	["selection-controls"] = true,
+	["action-controls"] = true,
+	["row-actions"] = true,
+	["with-animation"] = true,
+	ex02 = true,
+	ex03 = true,
+	ex05 = true,
+	ex06 = true,
+	ex07 = true,
+}
+function demo_picker.isPrimary(id: string): boolean
+	return PRIMARY[id] == true
+end
 
 -- clip(text, chars) -> text that fits one chip line, with an ellipsis when it
 -- had to give something up. Pure, so the spec asserts it.
@@ -754,11 +781,12 @@ function demo_picker.mount(opts: MountOpts): any
 			return use(selection) == demo.id
 		end))
 	end
+	local laboratoryOpen = scope:own(core:signal(false))
 	local function buildRows(): { any }
-		local rows = {}
+		local rows, laboratory = {}, {}
 		for _, demo in demo_picker.DEMOS do
 			table.insert(
-				rows,
+				if demo_picker.isPrimary(demo.id) then rows else laboratory,
 				UI.Button({
 					id = demo.id,
 					label = demo.title,
@@ -778,6 +806,15 @@ function demo_picker.mount(opts: MountOpts): any
 				})
 			)
 		end
+		local lab = scope:own(Facet.Controls.DisclosureGroup(core, {
+			id = "Laboratory",
+			label = "UI laboratory",
+			expanded = laboratoryOpen,
+			content = function()
+				return UI.VStack({ gap = "xs", children = laboratory })
+			end,
+		}))
+		table.insert(rows, lab.blueprint)
 		return rows
 	end
 

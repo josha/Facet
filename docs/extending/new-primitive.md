@@ -161,3 +161,12 @@ properties, its refusals and a short example; `check_registration` fails an
 undocumented public export. If the primitive introduces a concept (a new kind of
 box, a new layout behaviour), add a paragraph to the relevant `docs/guide/`
 page — the reference says what it does, the guide says when to reach for it.
+
+## Extending text guides
+
+Text baseline alignment uses `layout/baseline.luau` and the existing arrange pass
+to find nested text guides. A new layout must forward its real arranged children;
+do not duplicate its geometry to estimate a baseline. Cover first and last lines,
+wrapping, padding, no-text fallback, theme swaps and incremental/full equivalence.
+`Spacer.minLength` is a measure fact resolved by the same theme metric path as
+dimensions. Preserve its floor before distributing surplus.

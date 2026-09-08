@@ -33,7 +33,7 @@ anything below, because they decide how a call is written:
 ### `VERSION`
 
 `Facet.VERSION: string` — the semantic version (`MAJOR.MINOR.PATCH`),
-currently `0.10.0`. Governed by the versioning and deprecation policy in
+currently `0.11.0`. Governed by the versioning and deprecation policy in
 [`CONTRIBUTING.md` §6](../../CONTRIBUTING.md#6-versioning-and-deprecation):
 pre-1.0, a minor bump may change behavior with notice; a patch bump never does. The version lives only here; docs and tests read it from the source.
 
@@ -242,7 +242,7 @@ already have.
 
 | Property | Type | Meaning |
 |---|---|---|
-| `lineAlign` | `start \| center \| end \| stretch` | this child's own cross-axis alignment inside its **stack** parent's line; it outranks both the child's own `align` and the container's `align` |
+| `lineAlign` | `start \| center \| end \| stretch \| firstTextBaseline \| lastTextBaseline` | this child's own cross-axis alignment inside its **stack** parent's line; it outranks both the child's own `align` and the container's `align` |
 | `layoutPriority` | number (default 0) | shrink-order **tier** when a stack's main axis is short: the deficit is consumed tier by tier, LOWEST priority first, so a higher number is protected for longer |
 | `shrinkWeight` | number (default 0 = never) | how readily this child gives up main-axis pixels **within** its tier. Inside a tier the deficit is split proportionally to weight × the child's natural size, down to its floor (`minMax.min`, else a text node's longest word, else 0). The default matches Roblox's `UIFlexMode.None` |
 | `gridSpan` | number (default 1) | how many of its row's columns this cell covers inside a `UI.GridRow`. A spanning cell never widens a single column on its own; it is fitted to the columns it covers plus the gaps between them |
@@ -347,7 +347,7 @@ Three groups recur in the column below and are worth naming once:
 | `alignH`, `alignV` | children of a `ZStack` | per-child cross-alignment (`start`/`center`/`end`) |
 | `padding` | layout containers, `Button`, and the text-bearing leaves `Text`, `Toggle`, `TextField` | inner spacing; on a control it is the text inset the adapter must match, and on a `Text` the measure adds it. A number, a spacing-step name (`"xs"`, `"tight"`, `"s"`…`"xl"`), or per-side values of either |
 | `gap` | `Screen`, `VStack`, `HStack`, `AdaptiveStack`, `ScrollView`, `Grid`, `Button` | spacing between children along the stack axis; a number or a spacing-step name (`"xs"`, `"tight"`, `"s"`…`"xl"`). On a `Button` it spaces the button's own content |
-| `align` | `Screen`, `VStack`, `HStack`, `AdaptiveStack`, `Button` | cross-axis alignment of children (`start`/`center`/`end`/`stretch`) |
+| `align` | `Screen`, `VStack`, `HStack`, `AdaptiveStack`, `Button` | cross-axis alignment of children (`start`/`center`/`end`/`stretch`/`firstTextBaseline`/`lastTextBaseline`) |
 | `wrap` | `VStack`, `HStack` | let the children run onto more than one line when they do not fit the main axis (Roblox `UIListLayout.Wraps`). See `VStack` / `HStack` below — it adds no new alignment words, and `align = "stretch"` is refused beside it |
 | `overflow` | layout containers | declared overflow handling (`clip`/`scroll`/`visible`/`intentionalOverlap`). **`"clip"` makes the node a clip host** — it sets `clipChildren` at construction unless you authored that flag yourself, so the word does the thing it names. The other three values are declared intent, read by the solver's overflow diagnostic and by the layout dump, and drive no engine property |
 | `clipChildren` | layout containers | make this container an engine clip host; `ScrollView` defaults it to true |
@@ -603,7 +603,7 @@ A control *beside* tinted nodes is unaffected either way.
 
 **What the disabled state looks like, exactly.** It is themed, through the sheet,
 never a literal. A disabled control keeps the engine `:NonInteractable` rules it
-always had. Beyond that, **one rule ships**: every theme — Studio Neutral and
+always had. Beyond that, **one rule ships**: every theme — Facet Neutral and
 every package — emits `Disabled subtree text`, which selects a `TextLabel`
 carrying the `facet-state-disabled` tag and dims it to that theme's own
 `disabledContentOpacity`.
@@ -659,7 +659,7 @@ presented screen; fills the presenter-resolved content rect (safe-area aware).
 
 `UI.VStack{ id?, gap?, padding?, align?, distribute?, wrap?, width?, height?, offsetX?, offsetY?, surface?, children? }`
 — vertical / horizontal stacks. Children with `fill` dims share leftover
-main-axis space by weight; `align` = `start | center | end | stretch` on the
+main-axis space by weight; `align` = `start | center | end | stretch | firstTextBaseline | lastTextBaseline` on the
 cross axis. Stack children never overlap along the stack axis.
 
 **`wrap = true` lets the children run onto more than one line** — Roblox's
@@ -1519,7 +1519,7 @@ the alignment you asked for, which defaults to start.
 
 **A `badge` (on `Text`, `Image`, or a `Box`/`ZStack` wearing it) has an intrinsic
 minimum** when you declare neither `width` nor `height`: it floors to the theme's
-`controls.badge.minimum` (20px at Studio Neutral, ten-foot-scaling like every
+`controls.badge.minimum` (20px at Facet Neutral, ten-foot-scaling like every
 other `controls.*` metric) on both axes, so a one-digit count never draws as a
 bare glyph hugging its own pixels. Declare either dim yourself and it wins — the
 floor only reaches an undimensioned badge.
@@ -1808,10 +1808,131 @@ path — engine-initiated focus must deliver it so occlusion keep-visible works
 without a prior activate). The renderer supplies `onCaretRect` for multiline fields; adapters report the native caret's line rectangle relative to the field so the existing scroll authority can reveal it. Prefer the `Facet.newTextInput`
 composite over building on the raw primitive. `multiline = true` is construction-only and maps to public `TextBox.MultiLine` and `TextWrapped`; Enter inserts a newline. `keyboardType` is intent metadata with no native keyboard effect. `surface = "plain"` provides a transparent native editor when a containing control owns the frame, as in `TextInput`. The frame stays visible during native focus and editing.
 
+### `Controls.NavigationStack`
+
+`Facet.Controls.NavigationStack(core, spec)` builds a root-and-destination flow.
+Present its `blueprint` inside your screen; keep its `path` Signal in your model.
+
+| Field | Contract |
+|---|---|
+| `id` | Optional nonempty node ID, default `"NavigationStack"`. |
+| `path` | Required caller-owned `Signal<{ { id: string, value: any? } }>`; empty means root. Write a new array to restore or replace a path. |
+| `root` | `{ title?, content(scope, entry?) -> Blueprint }`; `entry` is nil at root. |
+| `destinations` | Map from route ID to the same `{ title?, content }` page specification. Each entry's `value` carries your domain data. |
+| `backLabel` | Required localized, nonempty Back label. |
+| `env` | Optional environment; live size class adapts chrome spacing/type through existing theme metrics. |
+| `transition` | Optional static structural transition specification. Omit for immediate replacement. Pure horizontal slide/mirror pairs use the navigation policy described below; other forms retain their authored behavior. Reduced motion follows the shared motion authority. |
+
+Titles accept strings or readable strings. An untitled root adds no chrome or
+page padding, so an existing full-screen shell can be its content. Destinations
+retain Back chrome even without a title. `Facet.NavigationStackSpec` and
+`Facet.NavigationEntry` are exported public types. The frozen result contains `blueprint`,
+`api`, `dump()` and `dispose()`. `api.push(entry)`, `api.pop()`, `api.back()` (pop),
+and `api.popToRoot()` return whether the operation changed the path; pop/back at
+root returns false. Multiple operations in one core transaction compose against
+the caller's current path. After disposal operations return false. `dump()` carries
+`schema = "facet-navigation-stack-dump/1"`, accepted path, depth, current route/key,
+`canGoBack`, live page count, disposal state and sticky `lastError`.
+
+Pages occupy one clipped viewport throughout replacement; an outgoing page never
+reserves a second layout slot. With `transition = { enter = "slide-left" }` (and
+an omitted or mirrored `exit`), push moves both pages left, and Back/pop-to-root
+moves them right. `slide-right` reverses that convention. Travel defaults to the
+stack's own solved width, including nested stacks; an explicit positive finite
+`distance` overrides it. The initial page appears in place. Depth orders the
+opaque pages so Back reveals the prior page underneath. Interrupted pure slides
+preserve their current painted position and velocity. Size changes re-solve the
+page box; travel distance is sampled for each navigation operation. Fades,
+slide-plus-fade, vertical slides and explicitly non-mirrored pairs keep their
+authored transition semantics.
+
+Only the current page accepts input. An outgoing page may remain painted until
+its declared exit transition finishes. Each content builder receives a real owned
+scope; use it for page-local controls, subscriptions and async work. Removing a
+page disposes that work after its exit. Returning after teardown rebuilds it;
+returning during its exit revives the existing page and scope. Both restore its last
+legal focus path, falling back to a legal entry when the old control is gone. Keep form values
+and any scroll offset that must survive in your model outside the page scope.
+Repeated route IDs are allowed: occurrences have distinct framework keys. Hot
+changes to viewport, input, theme and text preferences re-solve the same page.
+
+Nested controls receive Cancel before their enclosing stack; a stack at root
+returns Cancel to its containing stack or modal. The presenter remains the only
+hardware/input/focus owner. Construction rejects invalid specs and initial paths.
+An invalid external path write keeps the last accepted page and records an error;
+a later valid write recovers. A failing content builder is contained in its page,
+retaining Back chrome so the rest of the flow remains usable.
+
+```lua
+local path = scope:own(core:signal({}))
+local flow
+flow = scope:own(Facet.Controls.NavigationStack(core, {
+    path = path, backLabel = "Back", env = env,
+    root = { title = "Orders", content = function(pageScope)
+        return UI.Button({ label = "Order 42", onActivate = function()
+            flow.api.push({ id = "order", value = 42 })
+        end })
+    end },
+    destinations = { order = { title = "Order details", content = function(pageScope, entry)
+        return UI.Text({ text = "Order " .. tostring(entry.value) })
+    end } },
+}))
+presenter.present(UI.Screen({ children = { flow.blueprint } }))
+```
+
+Dismiss the screen before disposing the control's owning scope. The control owns
+its presentation state; it never disposes the caller's path or domain values.
+
+### Text baseline alignment
+
+Use `align = "firstTextBaseline"` or `"lastTextBaseline"` on a horizontal
+stack, or `lineAlign` on an individual child. First aligns the first line of
+text; last aligns the final line, including wrapped text. Each row reserves the
+largest distance above and below its guide before arranging children. Wrapped
+stacks do this separately for each line. A child override takes priority over
+the container alignment.
+
+Nested layouts forward their first or last arranged text guide, including
+padding, gaps, and text wrapping. Hidden text still occupies layout and contributes;
+unselected `ViewThatFits` candidates do not. A child without text uses its bottom
+edge. Vertical stacks fall back to start and report a diagnostic, since their
+cross axis cannot align horizontal text guides.
+
+These are **theme-defined semantic guides**, not measured font glyph baselines.
+`metrics.typography.<role>.baseline` is an optional fraction of the text size in
+`[0, 1]`, default `0.8`; half the line's extra leading is added. The same text size,
+line height, preferred text size and theme snapshot used by measurement determine
+the guide. Theme packages can calibrate the ratio to their font. A baseline
+alignment change invalidates measurement as well as arrangement. Existing
+alignment values retain their geometry and stay on the normal solver path.
+
+```lua
+UI.HStack({
+    align = "firstTextBaseline",
+    children = {
+        UI.Text({ text = "Score", textSize = "body" }),
+        UI.Text({ text = score, textSize = "title" }),
+    },
+})
+```
+
 ### `Box` / `Spacer`
 
 `UI.Box{ id?, width?, height?, surface?, tint?, canvasGroup?, opacity?, offsetX?, offsetY? }`
-— plain rect. `UI.Spacer{}` — takes space in a stack (pair with `fill` dims).
+— plain rect. `UI.Spacer{}` consumes available main-axis space in a stack.
+
+| Property | Type | Meaning |
+|---|---|---|
+| `minLength` | `Bound<number \| Metric>` | Optional nonnegative main-axis floor, default `0`. A number is pixels; a metric such as `"m"` follows the live theme. |
+
+The stack reserves spacer minima before sharing remaining space by fill weight.
+On a deficit the minima remain and ordinary overflow diagnostics report the
+shortage. An explicit main-axis width or height takes precedence and reports a
+conflict diagnostic; omit it to use `minLength`. Wrapping stacks reserve the
+minimum without stretching the spacer across a line. Outside a stack the minimum
+has no effect and is diagnosed. Changing the bound minimum or theme remeasures
+without replacing the mounted spacer. `UI.Spacer({ minLength = "m" })` is a themed
+minimum gap that can grow.
 
 **`tint`** paints the box's fill continuously (see
 [above](#continuous-colour-tint)); on a Box it claims both the colour and the
@@ -2126,6 +2247,13 @@ scope. One `elseView` sharing `thenView`'s scope would carry a resource the fals
 branch allocated into the true branch on the next flip — the hoisted-state leak
 in a different costume — and a *sibling* scope is what two `When`s already give
 you, for one more line and no new idiom.
+
+`When.transition` and `ForEach.transition` also accept a
+`Readable<TransitionSpec>`. The shared transition authority samples and validates
+it on each enter/exit; changing the value alone does not restart a flight.
+A motion record keeps the spring class chosen when it began; a newly created
+record reads the latest class. This lets a control choose travel from its state
+without owning another animation system.
 
 ### `ForEach`
 
@@ -6375,7 +6503,7 @@ dependencies, because both the sheet model and the theme-package compiler gate
 on the same answer — so a game overriding the destructive palette can ask what
 the contrast gate will actually run against.
 
-The built-in default style ("Studio Neutral",
+The built-in default style ("Facet Neutral",
 `src/tokens/default_style.luau`) is the neutral floor every app gets for
 free; games override via their own schema. Style-modifier normalization
 lives in `src/tokens/styling.luau`; the style lint (jagged corner+shadow
@@ -6401,7 +6529,7 @@ name → asset reference), `assets`
 (semantic name → `{content, sliceCenter?, sliceScale?, preload?, fallback?,
 tintRole?}`; `contentId` is a permanent alias for `content` and declaring both is
 an error), and `compatibility`. `base = <package>` derives: values you omit
-are inherited key-by-key, so "start from Studio Neutral and change the parts I
+are inherited key-by-key, so "start from Facet Neutral and change the parts I
 mean to" is one line. On success the package is deeply frozen and carries a
 deterministic content `stamp`; on failure it returns `nil` plus a report whose
 `errors` name the offending field, the problem, and the fix. Rejections cover
@@ -6605,7 +6733,7 @@ From then on `"app.cartwheel.tileMin"` and
 `"app.cartwheel.gallery.rowHeight.landscape"` are metric names like any other:
 `px = "app.cartwheel.tileMin"` passes the same construction check
 `px = "iconSizes.large"` passes, `themes.resolve` publishes them on **every**
-package (so a proof that must mount under Studio Neutral *and* Fantasy Parchment
+package (so a proof that must mount under Facet Neutral *and* Fantasy Parchment
 keeps its geometry either way), and `themes.resolve`'s `overrides` and a
 package's `metrics.tenFoot` both reach them.
 
@@ -6678,7 +6806,7 @@ grid and leaves the rest untouched. A package's authored `metrics.app` entries
 appear in the theme dump (`token_sync.records`) as `app.<path>` and round-trip
 back through `metricsFromRecords`.
 
-`themes.neutral()` is the Studio Neutral snapshot (the `themeMetrics` default;
+`themes.neutral()` is the Facet Neutral snapshot (the `themeMetrics` default;
 its values are the literals the framework shipped before packages existed).
 `themes.neutralPackage()` is the compiled package behind it — pass it as `base`.
 `themes.lintProperty(prop, scope?)` is the legal-property ruling: a theme rule
@@ -6756,14 +6884,14 @@ and `inspect().fallback` reports the degradation. Full walkthrough:
 [`../guide/09-custom-themes.md`](../guide/09-custom-themes.md); the
 rich-skinning surface is [`../guide/10-rich-skinning.md`](../guide/10-rich-skinning.md).
 
-**Before writing one, check the shelf.** Studio Neutral is built into the library
+**Before writing one, check the shelf.** Facet Neutral is built into the library
 and eight ready-made packages ship as separate artifacts — one `.rbxm` each under
 `build/themes/`, built by `tools/build_themes.sh` and installed through exactly
 the `install` call above.
 [`../guide/13-theme-catalog.md`](../guide/13-theme-catalog.md) is the catalog:
 what each one looks like, what it does to your metrics, and what it costs. The
 library itself names none of them — `build/Facet.rbxm` carries `src/` and the
-`studio-neutral` package alone, which `tools/check_library_purity.py` enforces.
+`facet-neutral` package alone, which `tools/check_library_purity.py` enforces.
 ### `Controls.Toggle`
 
 `Facet.Controls.Toggle(core, spec) -> { blueprint, dump, dispose }`
@@ -8706,7 +8834,7 @@ releases the tree.
 
 | Opt | Meaning |
 |---|---|
-| `style` | the compiled token style to paint from; default is Studio Neutral |
+| `style` | the compiled token style to paint from; default is Facet Neutral |
 | `isReducedMotion` | **deprecated** (0.9.0, removed no earlier than 0.10.0): `() -> boolean`, consulted for engine-side motion. Still accepted, and now OR-ed with the fact the renderer pushes from the environment through `adapter.setReducedMotion` — so it can force reduced motion ON, never off. `billboard_target.new(opts.isReducedMotion)` forwards it and retires with it. |
 | `parent` | host the root under this Instance instead of `PlayerGui` (the Edit-mode preview and any harness without a LocalPlayer) |
 | `rootFactory` | `(screenId) -> { gui }` — swap only the ROOT container; everything below is target-agnostic flat rendering (this is how `billboard_target` is built) |
@@ -9282,6 +9410,38 @@ toggling reduced motion changes the next re-target without a remount.
 - `clock:dispose()` / `clock:isDisposed()` — scope-owned (`scope:own(clock)`).
   Disposal releases every value the clock built, so core counters return to
   baseline across mount/reset churn.
+
+#### `clock:animate(source, classOrCurve, opts?) -> MotionValue`
+
+Bind motion to a caller-owned `Readable<number>` from the clock's core. The
+returned numeric MotionValue starts at the current source value, then retargets
+whenever that signal or memo changes. A spring preserves its current position
+and velocity when interrupted; a named curve preserves position and follows its
+registered duration. If a name is registered in both vocabularies, the curve wins,
+as it does for `presenter.withAnimation`.
+
+`opts` accepts `scope`, `kind`, `quantum`, `reducedMotion`, and `eps`. The motion
+options have the same meaning and defaults as `clock:spring` and `clock:tween`;
+`scope` owns the result and its subscription together. Disposing the result or the
+clock also removes the subscription, without disposing the source. The source
+must initially contain a finite number. An invalid later value retains the last
+valid target, records `clock:lastError()`, and recovers on the next valid change.
+Malformed options and a disposed scope are refused before allocating resources.
+
+```luau
+local animated = clock:animate(amount, "object", { scope = scope })
+local tint = scope:own(core:memo(function(use)
+    return { from = "control", role = "accent", blend = math.clamp(use(animated), 0, 1) }
+end))
+local swatch = UI.Box({ tint = tint, width = UI.fill(), height = 40 })
+```
+
+This theme-role tint remains live when the theme changes. Clamp a blend because
+an intentionally underdamped spring can overshoot. Decorative bindings snap under
+reduced motion; informational bindings retain the clock's quantized policy. This
+is an explicit numeric binding, not an automatic subtree animation modifier or
+an RGB interpolation API. Normal MotionValue verbs remain available; the next
+source change retargets after a manual `stop`, `snap`, or `setTarget`.
 
 #### `motion.registerClass(name, params)` and the class vocabulary
 

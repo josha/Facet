@@ -707,7 +707,7 @@ describe('RS-DIR9: Grid minColumnWidth = "intrinsic"', function()
 					{ id = "a", kind = "text", text = "Glossy Touch", textSize = size },
 					{ id = "b", kind = "text", text = "Pixel Quest", textSize = size },
 					{ id = "c", kind = "text", text = "Sci-Fi HUD", textSize = size },
-					{ id = "d", kind = "text", text = "Studio Neutral", textSize = size },
+					{ id = "d", kind = "text", text = "Facet Neutral", textSize = size },
 				},
 			}
 		end
@@ -918,9 +918,9 @@ end)
 
 describe("RS-DIR14: a Grid's ROW gap is its own axis", function()
 	-- DIRECTOR FINDING 14 (2026-07-26): "the picker grid needs more VERTICAL
-	-- space between rows, especially studio-neutral and compact-pointer".
+	-- space between rows, especially facet-neutral and compact-pointer".
 	--
-	-- Measured live at the reported stamp, studio-neutral, 1233x1067: ten 196x36
+	-- Measured live at the reported stamp, facet-neutral, 1233x1067: ten 196x36
 	-- chips in a 544px grid, rows **4 px** apart (`gap`) and columns **78 px**
 	-- apart — because the column pitch is `innerW / cols` while the row pitch is
 	-- the gap itself. One number was doing two jobs with wildly different

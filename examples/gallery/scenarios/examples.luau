@@ -147,13 +147,13 @@ return {
 			installed = nil
 		end
 
-		-- "neutral" is not a module and never was: Studio Neutral is the built-in
+		-- "neutral" is not a module and never was: Facet Neutral is the built-in
 		-- package the library ships with, so restoring it means installing
 		-- `themes.neutralPackage()` rather than looking for a file. Naming it here
 		-- is what makes a capture pair — ornate, then back — a single drive.
 		local function swapPackage(moduleName: string): any
 			local packages = ctx.themePackages or {}
-			if moduleName == "neutral" or moduleName == "studio-neutral" or moduleName == "studio_neutral" then
+			if moduleName == "neutral" or moduleName == "facet-neutral" or moduleName == "facet_neutral" then
 				local controllerModule = if type(ctx.themeController) == "function" then ctx.themeController() else nil
 				if controllerModule == nil then
 					return { ok = false, reason = "theme controller unavailable" }

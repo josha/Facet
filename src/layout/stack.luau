@@ -46,6 +46,8 @@
 	every fixture in the repository. ]]
 local num = require("../num")
 local shrinkLib = require("./shrink")
+local baseline = require("./baseline")
+local spacerMinimum = require("./measure_facts").spacerMinimum
 local placementLib = require("./placement")
 -- bound at module scope for the reason `grid.luau` records: a per-call lookup on
 -- the arrange hot loop is a bench regression this repository has already paid for
@@ -67,6 +69,7 @@ export type Deps = {
 	sides: (margin: any) -> (number, number, number, number),
 	-- the record `./shrink` takes, built by the solver and NOT rebuilt here
 	shrink: shrinkLib.Deps,
+	baseline: any,
 }
 
 -- the solver's recursive `arrange`, and its parent-side containment finding. See
@@ -99,7 +102,8 @@ export type Rect = { x: number, y: number, w: number, h: number }
 -- shrink pass, §2.4); `fill` children then share any surplus by weight
 -- (largest-remainder rounding); and `distribute` spreads what fill did not take
 -- (§2.6). Cross axis honours `child.lineAlign`, else `child.align`, else this
--- container's `align` (`stretch` fills the line).
+-- container's `align` (`stretch` fills the line). Text-baseline groups reserve
+-- their common ascent/descent and use the same nested geometry probe as measure.
 --[[ ── THE CANDIDATE INDICES, WITHOUT THE SIBLING SCAN (Plan D, D2c) ─────────────
 
 	The replay below walks EVERY sibling twice for a one-child payload —
@@ -218,6 +222,13 @@ function stack.arrange(
 )
 	local isH = node.kind == "hstack"
 	local children = node.children or {}
+	local hasBaseline = isH and baseline.has(node)
+	if not isH and baseline.has(node) and ctx.hiddenDepth == 0 then
+		table.insert(ctx.diagnostics, {
+			node = node.id,
+			issue = "text baseline alignment requires a horizontal stack; vertical stacks use start alignment",
+		})
+	end
 	--[[ ── THE STACK RE-PLACES ONLY THE CHILDREN THAT MOVED (Plan C, T14) ──────────
 		A one-leaf write on a 1,000-row list entered `arrangeBody` 1,109 times to run
 		FIVE bodies: the passes below measured every child, the placement loop built a
@@ -303,6 +314,7 @@ function stack.arrange(
 		and ctx.noSkipDepth == 0
 		and ctx.measureQuiet
 		and ctx.measureStamp ~= nil
+		and not hasBaseline
 		and cmemo.pRect ~= nil
 		-- the child LIST, not just the box: a `ForEach` splice changes the length while
 		-- the mount children table the carrier gate compares is untouched
@@ -602,6 +614,7 @@ function stack.arrange(
 		desired[idx] = { w = w, h = h }
 		if mainDim.type == "fill" then
 			fillWeightSum += mainDim.weight or 1
+			fixedMain += spacerMinimum(child, isH)
 		else
 			fixedMain += (if isH then w + ml + mr else h + mt + mb)
 		end
@@ -793,7 +806,7 @@ function stack.arrange(
 		end)
 		local leftover = remaining - acc
 		for rank, share in shares do
-			fillPx[share.i] = share.floor + (if rank <= leftover then 1 else 0)
+			fillPx[share.i] = share.floor + (if rank <= leftover then 1 else 0) + spacerMinimum(children[share.i], isH)
 		end
 	end
 	-- A FILL child's CROSS size was measured above against the whole inner extent,
@@ -815,6 +828,27 @@ function stack.arrange(
 				deps.measure(ctx, child, if isH then actualMain else innerW, if isH then innerH else actualMain)
 			desired[idx] = { w = w, h = h }
 		end
+	end
+	local baselineGroups = nil
+	if hasBaseline then
+		local sizes = {}
+		for i, child in children do
+			local m, d = margins[i], desired[i]
+			local h = math.min(d.h, math.max(0, innerH - m.t - m.b))
+			local align = baseline.alignment(node, child)
+			if deps.dim(child, "h").type == "fill" or align == "stretch" then
+				h = math.max(0, innerH - m.t - m.b)
+			end
+			sizes[i] = {
+				w = if deps.mainDimOf(child, isH).type == "fill"
+					then math.max(0, (fillPx[i] or 0) - m.l - m.r)
+					else d.w,
+				h = h,
+				mt = m.t,
+				mb = m.b,
+			}
+		end
+		baselineGroups = baseline.line(deps.baseline, ctx, node, sizes, 1, #children)
 	end
 	-- MAIN-AXIS DISTRIBUTION (§2.6). The cursor used to be hard-anchored here —
 	-- `local cursor = if isH then innerX else innerY` — so SpaceBetween/Around/
@@ -948,7 +982,15 @@ function stack.arrange(
 		end
 		local childRect: Rect
 		if isH then
-			local y = innerY + m.t + alignOffset(childAlign, crossAvail, crossSize)
+			local y = if baselineGroups and baseline.is(childAlign)
+				then innerY + baselineGroups[childAlign].above - deps.baseline(
+					ctx,
+					child,
+					paintedMain,
+					crossSize,
+					childAlign
+				)
+				else innerY + m.t + alignOffset(childAlign, crossAvail, crossSize)
 			childRect = { x = cursor + m.l, y = y, w = paintedMain, h = crossSize }
 			cursor += m.l + mainSize + m.r + gap
 		else

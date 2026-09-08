@@ -95,6 +95,29 @@ export type Entry = {
 
 local registry: { Entry } = {
 	{
+		name = "NavigationStack",
+		kind = "composite",
+		module = "src/controls/navigation_stack.luau",
+		export = "Controls.NavigationStack",
+		spec = "tests/navigation_stack.spec.luau",
+		conformance = "tests/navigation_stack.spec.luau",
+		docsAnchor = "Controls.NavigationStack",
+		dumpFunction = "function dump",
+		inputProofs = {
+			pointer = { "pointer Back has hover and touch Back has a minimum target through the shared navBar" },
+			touch = { "pointer Back has hover and touch Back has a minimum target through the shared navBar" },
+			keyboard = { "keyboard and ten-foot gamepad use shared focus Activate and Back controls" },
+			gamepad = { "keyboard and ten-foot gamepad use shared focus Activate and Back controls" },
+		},
+		affordanceProofs = {
+			pointer = { "pointer Back has hover and touch Back has a minimum target through the shared navBar" },
+			touch = { "pointer Back has hover and touch Back has a minimum target through the shared navBar" },
+			keyboard = { "keyboard and ten-foot gamepad use shared focus Activate and Back controls" },
+			gamepad = { "keyboard and ten-foot gamepad use shared focus Activate and Back controls" },
+			hotSwitch = { "viewport theme input and reduced-motion switches retain the mounted current page" },
+		},
+	},
+	{
 		name = "ToggleControl",
 		kind = "composite",
 		module = "src/controls/toggle.luau",

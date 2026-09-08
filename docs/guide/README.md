@@ -86,6 +86,7 @@ every approved exception, is [`the constitution`](../reference/constitution.md).
 | [`13-theme-catalog.md`](13-theme-catalog.md) | The shelf of ready-made looks: what each of the eight packages does to spacing, rows, and type, the two install routes, and an honest cost line. |
 | [`14-choosing-a-ui-library.md`](14-choosing-a-ui-library.md) | Optional: how Facet compares with React Luau, Fusion and Vide, and how to choose between them. |
 | [`15-adaptive-recipes.md`](15-adaptive-recipes.md) | Ten short recipes for problems a screen hits once it works on more than one device. Dip into these when a screen needs them. They are recipes, not required reading. |
+| [`16-controls.md`](16-controls.md) | Choose and configure every available control: actions, text entry, selection, progress, navigation and collections, with theme and lifetime guidance. |
 
 Two things worth knowing before you start, neither of which is a chapter:
 
@@ -112,7 +113,7 @@ Everything below lives on the single table returned by requiring the library:
 ```lua
 local Facet = require(ReplicatedStorage.Facet)
 
-Facet.VERSION -- "0.10.0"
+Facet.VERSION -- "0.11.0"
 local core = Facet.newCore()
 local list = Facet.Controls.VirtualList(core, { … })
 ```
@@ -173,9 +174,10 @@ replacement and their earliest removal version.
 | `Controls.TextInput` | Native plain, search, numeric and multiline editing with commit and cancel. | [api](../reference/api.md#newtextinput) |
 | `Controls.ProgressView` | A determinate or indeterminate bar or ring. | [api](../reference/api.md#newprogressview) |
 | `Controls.DisclosureGroup` | A header that expands and collapses its content. | [api](../reference/api.md#newdisclosuregroup) |
-| `Controls.LevelPicker` | A ranked level chooser with locked and cleared states. | [api](../reference/api.md#newlevelpicker) |
+| `Controls.LevelPicker` | A discrete numeric level strip with bar, glyph or image segments. | [api](../reference/api.md#newlevelpicker) |
 | `Controls.AsyncImage` | An image with placeholder, failure, and retry states. | [api](../reference/api.md#newasyncimage) |
 | `Controls.Callout` | A short attention surface, queued so two never collide. | [api](../reference/api.md#newcallout) |
+| `Controls.NavigationStack` | A caller-owned route path with page cleanup, Back and focus restoration. | [api](../reference/api.md#controlsnavigationstack) |
 | `Controls.TabView` | Tabs with a placement that adapts to the device. | [api](../reference/api.md#newtabview) |
 | `valueModel` | Formats, clamps, and steps a numeric value for those controls. | [api](../reference/api.md#valuemodel) |
 | `pathShapes` | Builds arc, ring, and needle point lists for `UI.Path`. | [api](../reference/api.md#pathshapes) |

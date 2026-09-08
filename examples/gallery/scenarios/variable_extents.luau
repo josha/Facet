@@ -103,7 +103,7 @@ end
 
 	The overflow sweep filed 372 lying-extent findings on this one node (2026-08-14)
 	because the first cut multiplied `(size + <the fixture's own chip offset>)` by a
-	literal 1.25 and stopped: right on Studio Neutral at the default preference and
+	literal 1.25 and stopped: right on Facet Neutral at the default preference and
 	wrong everywhere else — 8px short at `preferredTextOffset` 4, 54px at 14, and 15px
 	short at the DEFAULT preference on a ten-foot display, whose Large class multiplies
 	the whole type ladder by 1.5. Every one of those rows painted over its neighbour.

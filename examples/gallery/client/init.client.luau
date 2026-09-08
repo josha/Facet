@@ -281,7 +281,7 @@ if bootDecision.mode == "showcase" then
 	-- ...AND IT RESERVES WHAT THE CHIPS ACTUALLY MEASURE, NOT A LITERAL.
 	--
 	-- `demo_picker.BAR_HEIGHT` was the whole answer, and it was a number tuned once
-	-- against Studio Neutral ("the taller chip's measured 46px, plus padding"). A
+	-- against Facet Neutral ("the taller chip's measured 46px, plus padding"). A
 	-- chip is a THEMED control whose height is its theme's chrome plus its label at
 	-- the player's own text size, so the literal was only ever right for the theme
 	-- and the device it was measured on: under Pixel Quest, on a phone, the chip

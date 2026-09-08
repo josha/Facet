@@ -69,7 +69,7 @@ return {
 					id = "Row" .. i,
 					label = "Row " .. i,
 					--[[ A FLOOR, NOT A BOX (wave TEN-FOOT, 2026-08-20). This was a
-						literal `fixed 36`, which is Studio Neutral's compact rung spelled
+						literal `fixed 36`, which is Facet Neutral's compact rung spelled
 						as a number — so it neither followed a denser package down nor the
 						ten-foot ladder up, and at distance the scaled button padding
 						(12 -> 18, twice) filled the 36px row exactly and left the label

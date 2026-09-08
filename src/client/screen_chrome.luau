@@ -331,7 +331,7 @@ function screen_chrome.new(ctx: Context)
 	-- mode does exactly this through the package's `Skinned — <slot>` rules; on a
 	-- target with no StyleSheets the adapter writes the same three suppressions
 	-- itself, so a parchment button reads identically on both paths instead of
-	-- sitting inside a leftover Studio-Neutral slab.
+	-- sitting inside a leftover Facet-Neutral slab.
 	-- `handle` IS REQUIRED, NOT OPTIONAL (RED-TEAM T9, pre-seeded). All four call
 	-- sites already pass one, and the eraser below has to be able to clear the
 	-- chrome corner record on the node it is suppressing — an optional parameter
@@ -1471,7 +1471,7 @@ function screen_chrome.new(ctx: Context)
 		-- nine-slice rebuild path has always torn the lifted label down with the
 		-- decoration; the ladder did not, so a swap from a layered package to a
 		-- flat one left an orphan `FacetChromeText` still boxed by the OUTGOING
-		-- recipe's contentInsets. Measured live: after ornate -> studio-neutral the
+		-- recipe's contentInsets. Measured live: after ornate -> facet-neutral the
 		-- toolbar's three buttons each kept a lift at `{1, -28}` inside a 36px box,
 		-- i.e. -16 px wide. It draws nothing at that size, which is exactly why it
 		-- survived — the node's own engine text was doing the drawing. A stack that

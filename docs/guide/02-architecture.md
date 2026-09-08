@@ -20,7 +20,7 @@ All source lives under `src/`. Grouped by responsibility:
 | **input** | `input/actions.luau` | The engine-free action/binding/context model. |
 | **focus** | `focus/focus_graph.luau` | Logical focus identity and navigation (flat rings and navigation groups). |
 | **replication** | `replication/adapters.luau` | Receiving server-owned state (snapshots, collections) and sending validated mutations. |
-| **tokens** | `tokens/tokens.luau`, `tokens/default_style.luau`, `tokens/styling.luau`, `tokens/sheet_model.luau`, `tokens/chrome_slots.luau` | Design-token compilation, the built-in Studio Neutral look, shadow/corner normalization, the native StyleSheet rule model, and the decoration-slot vocabulary — including the layer ladder's pure geometry and the bar clip boxes, which are plain math a headless test can assert. |
+| **tokens** | `tokens/tokens.luau`, `tokens/default_style.luau`, `tokens/styling.luau`, `tokens/sheet_model.luau`, `tokens/chrome_slots.luau` | Design-token compilation, the built-in Facet Neutral look, shadow/corner normalization, the native StyleSheet rule model, and the decoration-slot vocabulary — including the layer ladder's pure geometry and the bar clip boxes, which are plain math a headless test can assert. |
 | **themes** | `themes/package.luau`, `themes/snapshot.luau`, `themes/token_sync.luau` | Theme **packages**: the pure compiler for the versioned `ThemePackage` schema, the frozen `ThemeSnapshot` that is the single metric authority (it rides the environment as `themeMetrics`), and the typed token codec the Style Editor sync round-trips through. The compiler also owns the rich-skinning vocabulary: layer stacks, the one per-state asset-variant normalizer both customization rungs share, the value-display and toggle slots, the semantic icon map with its ASCII fallback glyphs, and pixel mode. Engine-free, so it is safe in a shared require graph; the client-side controller that materializes sheets, runs the swap transaction and resolves `selectBy` lives in **client**. See [`05-styling.md §5.8`](05-styling.md), [`09-custom-themes.md`](09-custom-themes.md) and [`10-rich-skinning.md`](10-rich-skinning.md). |
 | **env** | `env/environment.luau` | Per-device facts (screen size, safe areas, input capabilities and preference, display class, accessibility preferences) as observable values, plus derived policy — notably `interactionClasses` (the live set of input idioms the device offers right now) and `distanceProfile` (`near` vs `ten-foot` for TV-class displays). |
 | **async** | `async/resources.luau` | Bounded, cancellable async loading with a cache and stale-response rejection. |
@@ -217,3 +217,11 @@ granularity via `presentCritical`. The guiding principle: one broken corner of
 the interface must not black out the player's screen.
 
 Next: [chapter 3](03-getting-started.md) builds the smallest working screen.
+
+## Navigation lifetime
+
+`controls/navigation_stack.luau` composes `UI.ForEach` for the current page and
+`present/nav_bar.luau` for its chrome. The caller owns the path; each mounted page
+owns a content scope. Input contributions reuse presenter Cancel routing and the
+existing focus graph. Theme and environment changes only re-solve the current
+page; they do not create another navigation or rendering system.

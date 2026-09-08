@@ -70,6 +70,31 @@ export type Fixture = {
 
 local FIXTURES: { Fixture } = {
 	{
+		id = "NavigationStack",
+		class = "NavigationStack",
+		build = function(core)
+			return Facet.Controls.NavigationStack(core, {
+				id = "Ctl",
+				path = core:signal({ { id = "detail" } }),
+				backLabel = lt.PSEUDO_ACTION,
+				root = {
+					title = PSEUDO,
+					content = function()
+						return UI.Text({ text = PSEUDO, width = UI.fill() })
+					end,
+				},
+				destinations = {
+					detail = {
+						title = PSEUDO,
+						content = function()
+							return UI.Text({ text = PSEUDO, width = UI.fill() })
+						end,
+					},
+				},
+			}).blueprint
+		end,
+	},
+	{
 		id = "ToggleControl",
 		class = "ToggleControl",
 		build = function(core)

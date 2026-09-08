@@ -23,6 +23,9 @@ require("./smoke.spec")
 require("./conformance/conformance.spec")
 require("./replication.spec")
 require("./layout.spec")
+require("./baseline_spacer.spec")
+require("./navigation_stack.spec")
+require("./navigation_showcase.spec")
 require("./transform_footprint.spec")
 require("./focus.spec")
 require("./mount.spec")
@@ -795,7 +798,7 @@ require("./button_complete.spec")
 	stream C). Both properties are declared on a layout container and resolved onto
 	its whole subtree by `src/mount.luau`'s cascade: precedence (nested, override,
 	re-enable refused), reactivity in both directions with no remount, every input
-	path blocked, focus restoration, the themed disabled rule on Studio Neutral and
+	path blocked, focus restoration, the themed disabled rule on Facet Neutral and
 	on a reference package, and teardown mid-disable. ]]
 require("./inherited_subtree.spec")
 --[[ NO SCRATCH EXPERIMENT SURVIVES IN `src/` (RED-TEAM C1, 2026-09-07): a
@@ -900,6 +903,7 @@ require("./motion_chase.spec")
 -- in production and by a pure twin — pinned to the engine by a differential
 -- oracle — under Lune
 require("./motion_tween.spec")
+require("./motion_animate.spec")
 require("./motion_timeline.spec")
 -- ...and the ACCESSIBILITY half of motion: the player's reduced-motion setting
 -- reaching the render target with no consumer wiring (C1, 2026-08-12)

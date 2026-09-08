@@ -1453,7 +1453,7 @@ describe("C4/C6: the disabled state is themed, through the sheet", function()
 
 	local SELECTOR = `TextLabel.{chrome_slots.TAGS.stateDisabled}`
 
-	it("Studio Neutral dims the tagged node's text from the theme's own number", function()
+	it("Facet Neutral dims the tagged node's text from the theme's own number", function()
 		local rule = ruleFor(NEUTRAL, SELECTOR)
 		expect(rule ~= nil).toBe(true)
 		expect(rule.props.TextTransparency.kind).toBe("number")

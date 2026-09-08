@@ -268,7 +268,7 @@ describe("sheet_model.build", function()
 	end)
 
 	it("builds a single-theme sheet from a custom game style (default-flip path)", function()
-		-- a game passing its own compiled style (NOT Studio Neutral) gets a
+		-- a game passing its own compiled style (NOT Facet Neutral) gets a
 		-- one-theme model whose tokens are that game's values
 		local tokens = require("../src/tokens/tokens")
 		local custom = {
@@ -320,7 +320,7 @@ end)
 -- ===== RS-A16-D4: THE BUILT-IN DEFAULT PAINTS ITS VALUE CONTROLS ============
 --
 -- Found live at stamp `1de8a15c-1722217` with native paint authority on and NO
--- package installed — the built-in studio-neutral default, which is five of the
+-- package installed — the built-in facet-neutral default, which is five of the
 -- nineteen matrix rows. The four `OWN_PAINT_SLOTS` surfaces were selected by no
 -- rule in the live sheet, so `Frame default` (BackgroundTransparency = 1) won and
 -- the Download bar was pixel-identical at 0% and 100% while the Brightness slider
@@ -747,7 +747,7 @@ describe("RS-DIR10: a phantom ::UIStroke strokes the TEXT unless the rule says B
 	-- TextLabel strokes the GLYPHS and not the border. The bespoke path sets
 	-- Border explicitly (`hairline()` in screen_target); every rule-owned stroke
 	-- inherited the engine default instead, so a chip's outline never drew and
-	-- its label grew a hairline-coloured halo. Under Studio Neutral the hairline
+	-- its label grew a hairline-coloured halo. Under Facet Neutral the hairline
 	-- is white on white text, which is why it hid for two whole stages.
 	local function strokeRules(model: any): { any }
 		local out = {}
@@ -860,7 +860,7 @@ describe("RS-DIR8: a selected surface pairs with a content colour that can be re
 	it("selectedContentColor prefers content and switches only when content fails the floor", function()
 		local dark = { colors = default_style.colors, extra = default_style.extra }
 		local picked = sheet_model.selectedContentColor(dark)
-		-- Studio Neutral's own selected surface reads content at 9.74:1 — the
+		-- Facet Neutral's own selected surface reads content at 9.74:1 — the
 		-- status quo, and the reason the flat baseline cannot move
 		expect(picked.r).toBe(default_style.colors.content.r)
 		expect(picked.g).toBe(default_style.colors.content.g)
@@ -960,7 +960,7 @@ describe("RS-DIR8 sweep: every reference package's selected state is readable", 
 		local checked = 0
 		local rescued = {}
 		local entries: { { id: string, pkg: any } } = {
-			{ id = "studio-neutral", pkg = snapshotLib.neutralPackage() },
+			{ id = "facet-neutral", pkg = snapshotLib.neutralPackage() },
 		}
 		for _, name in MODULES do
 			local module = require(`../examples/themes/{name}`) :: any
@@ -986,7 +986,7 @@ describe("RS-DIR8 sweep: every reference package's selected state is readable", 
 		expect(table.concat(rescued, ", ")).toBe("glossy-touch/Sky, pixel-quest/Quest")
 	end)
 
-	it("the flat default is untouched: Studio Neutral still reads $Content", function()
+	it("the flat default is untouched: Facet Neutral still reads $Content", function()
 		local neutral = snapshotLib.neutralPackage()
 		local report = sheet_model.selectedPairReport(neutral.style.themes[1])
 		expect(report.picked).toBe("content")
@@ -1130,7 +1130,7 @@ describe("stabilization B'1: the plated indicator's option label pairs with its 
 		Classic Desktop, which is what makes the second worth asserting. ]]
 	it("the pairing clears 4.5:1 on every package the audit named, where $Content did not", function()
 		local entries: { { id: string, pkg: any } } = {
-			{ id = "studio-neutral", pkg = snapshotLib.neutralPackage() },
+			{ id = "facet-neutral", pkg = snapshotLib.neutralPackage() },
 			{ id = "classic-desktop", pkg = classic_desktop.build(themesApi.themes) },
 			{ id = "pixel-quest", pkg = pixel_quest.build(themesApi.themes) },
 		}

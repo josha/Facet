@@ -148,6 +148,17 @@
       "moderation": "Approved",
       "sha256": "2c4837ba2f4b87026b9f302a57e252c96a2a424782c4e29b4c52450b400e6e8f",
       "assetType": "Image"
+    },
+    "facet_icon_search": {
+      "file": "facet_icon_search.png",
+      "contentId": "rbxassetid://85188541706347",
+      "size": "128x128",
+      "sliceBorder": 0,
+      "slot": "icons.facet:search",
+      "state": "default",
+      "sha256": "268723196812a6b93ec4518f0475d1f0618b37315d87b62b7cbee5055efeb85b",
+      "uploaded": "2026-09-08",
+      "method": "Roblox Studio MCP upload_image from localhost; asset id returned by upload. Runtime load checked separately."
     }
   },
   "uploadedBy": "compact-label stage (the standard icon set that makes compactLabel's image form usable)",
@@ -164,6 +175,7 @@
     "facet_icon_minus",
     "facet_icon_more",
     "facet_icon_plus",
+    "facet_icon_search",
     "facet_icon_trash"
   ]
 }

@@ -632,65 +632,52 @@ contract is covered in [chapter 6](06-client-server.md).
 **New concept over example 4: modals — a second screen stacked on the first, with
 focus trapping and cancel routing.**
 
-A "Delete Save" button that opens a confirmation dialog. This is the first example
-whose *action* uses `deps.presenter` at runtime, and the first to call
-`presenter.presentModal` instead of `present`.
+A **Delete Save** button opens a centered alert over a dimmed screen. A short
+title explains the action; a separate message explains that it cannot be undone.
+The actions share a horizontal row with centered labels. Their widths follow the
+content, so a longer action can use more space; spare space is distributed around
+them. When constrained, the row can shrink each action and the existing text
+fitting rules choose an authored compact label or truncate.
+**Delete** uses the destructive role. **Cancel** uses the theme's primary accent
+surface and receives initial focus, so Return or gamepad A keeps the save unless
+the player deliberately selects Delete.
 
-**The answer has to be visible.** Played in Studio, this example confirmed a
-destructive "Delete" and left the base screen *byte-identical*: the outcome
-went into a `result` signal that only a test could read. The slot now:
-
-- holds a save
-- empties when you confirm
-- says which happened
-- offers **Restore the save**
-- stops offering Delete on an empty slot
-
-So the round trip is readable and repeatable in place.
-
-**And the card really is centred now.** The dialog declared `alignH`/`alignV`
-on a `UI.Screen`. Those props are documented as *ZStack-child* alignment; a
-`Screen` accepts them but ignores them. The card rendered at `16,16`, the
-top-left corner, while every reader of the file believed it was centred. The
-scrim now holds one full-bleed `UI.ZStack`, and the card centres inside that,
-with a test asserting its centre sits within 2 px of the scrim's on both axes.
-
-The base screen is ordinary. Its button carries the open action on its node,
-so the base is presented with no options:
+The example uses the existing layout, theme and presenter APIs:
 
 ```lua
-UI.Button({ id = "Delete", label = "Delete Save", onActivate = openDialog })
+UI.HStack({
+    id = "Actions", width = UI.fill(), gap = "s",
+    distribute = "spaceAround", align = "center",
+    children = {
+        UI.Button({
+            id = "Confirm", label = "Delete Save", compactLabel = "Delete",
+            role = "destructive",
+            width = { type = "content" }, shrinkWeight = 1,
+            align = "center", onActivate = confirm,
+        }),
+        UI.Button({
+            id = "Cancel", label = "Cancel", surface = "accent",
+            width = { type = "content" }, shrinkWeight = 1,
+            align = "center", onActivate = cancel,
+        }),
+    },
+})
+-- Open the alert with the safe primary action focused:
+currentModal = presenter.presentModal(dialog, { initialFocus = { id = "Cancel" } })
 ```
 
-`openDialog` presents the dialog blueprint *on top* of the base screen. The
-dialog's two buttons each carry their own outcome on `onActivate`, so the modal
-is presented with no options either:
+Styling and focus are separate choices: an accent surface gives an action primary
+visual weight; `initialFocus` tells the presenter where focus starts. This example
+puts the safe default action at the trailing end of the row.
 
-```lua
-UI.Button({ id = "Confirm", label = "Delete", onActivate = function()
-    result:set("confirmed"); presenter.dismiss(currentModal)
-end }),
-UI.Button({ id = "Cancel", label = "Cancel", onActivate = function()
-    result:set("cancelled"); presenter.dismiss(currentModal)
-end }),
--- ...
-local function openDialog()
-    currentModal = presenter.presentModal(dialog)
-end
-```
+The presenter traps focus inside the modal, routes gamepad B to dismissal, and
+restores focus to the original **Delete Save** control afterward. Left/right moves
+between the alert actions. Roblox reserves Escape; the on-screen Cancel action
+remains available to keyboard users.
 
-Presenting a modal gives you three behaviors for free, all handled by the
-presenter (recall [chapter 1](01-concepts.md)):
-
-- **Focus trap** — while the dialog is open, keyboard/gamepad focus cannot leave
-  it; navigation wraps inside the two buttons.
-- **Cancel routing** — the gamepad B button dismisses the modal *without* reaching
-  the `onActivate` above; the presenter handles it. (There is no Escape-key path:
-  Roblox reserves Escape, so a keyboard user clicks the on-screen Cancel button.)
-- **Focus restoration** — dismissing the dialog returns focus to the Delete button
-  that was focused before it opened.
-
-None of that required either screen to know about the other.
+**The answer has to be visible.** Confirming empties the slot and offers
+**Restore the save**, while Cancel keeps it. Restoring the save lets the player
+try the flow again without leaving the example.
 
 ---
 

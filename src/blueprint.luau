@@ -330,7 +330,7 @@ export type BoxSpec = BoxProps & {
 	-- Declaring it IS declaring a fade group, so `canvasGroup` is implied
 	opacity: Bound<number>?,
 }
-export type SpacerSpec = BoxProps
+export type SpacerSpec = BoxProps & { minLength: Bound<number | Metric>? }
 
 export type TextSpec = BoxProps & {
 	text: Bound<string | number>,
@@ -485,6 +485,7 @@ export type TransitionSpec = {
 	exit: string?,
 	class: string?,
 	fade: boolean?,
+	distance: number?,
 }
 
 -- `thenView`'s `branchScope` is the BRANCH's ownership scope, disposed when the
@@ -499,7 +500,7 @@ export type WhenSpec = {
 	id: string?,
 	condition: Readable<boolean>,
 	thenView: (branchScope: any) -> Blueprint,
-	transition: TransitionSpec?,
+	transition: Bound<TransitionSpec>?,
 }
 
 export type ForEachSpec = {
@@ -507,7 +508,7 @@ export type ForEachSpec = {
 	items: Readable<{ any }>,
 	key: (item: any) -> string,
 	row: (item: any, itemScope: any) -> Blueprint,
-	transition: TransitionSpec?,
+	transition: Bound<TransitionSpec>?,
 }
 
 export type ErrorBoundarySpec = {
@@ -1899,7 +1900,7 @@ end
 -- that element; applied to a container they style the container's own
 -- rendered surface; UI.styleGroup applies the modifier set to EVERY element
 -- of a collection. Token names resolve against
--- the active style (optional third argument; default: Studio Neutral).
+-- the active style (optional third argument; default: Facet Neutral).
 -- `modifier` is the UI.* name the AUTHOR typed (F-7). Every caller below passes
 -- its own, so an unknown-prop or wrong-type refusal names the call site as well
 -- as the class it landed on.

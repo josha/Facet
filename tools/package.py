@@ -121,7 +121,7 @@ RECEIPT_SCHEMA = "facet-package-receipt/1"
 GATE_SCHEMA = "facet-release-gate/1"
 
 # The names that must never reach the distribution. `check_library_purity.py`
-# guards the THEME claim (studio-neutral); this guards the CONTENT claim. Kept
+# guards the THEME claim (facet-neutral); this guards the CONTENT claim. Kept
 # here rather than derived, because the point of the list is that a human decided
 # each entry — the Fusion adapter and the imperative core are rejected bake-off
 # artifacts (execution plan §0), and tests/examples/bench/vendor are development

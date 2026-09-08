@@ -26,7 +26,7 @@
 --     like "only some things are stale");
 --   * a Path's role resolved against the palette the TARGET WAS CONSTRUCTED
 --     WITH, so a stroked path had never worn any package's colours — the
---     circular ProgressView's accent arc was Studio-Neutral blue on a parchment
+--     circular ProgressView's accent arc was Facet-Neutral blue on a parchment
 --     screen, permanently.
 --
 -- WHICH LAYER. The framework's EMISSION is correct and always was: the control
@@ -252,7 +252,7 @@ describe("the live adapter carries the same commit (source contract)", function(
 	end)
 
 	it("a Path's stroke colour no longer comes from the construction-time palette", function()
-		-- the exact chain that made every stroked path Studio-Neutral blue
+		-- the exact chain that made every stroked path Facet-Neutral blue
 		expect(has('then COLOR.accent\n\t\t\t\t\telseif value == "secondary" then COLOR.contentSecondary')).toBe(false)
 		expect(has("path2d.Color3 = COLOR.content")).toBe(false)
 		expect(has("handle.pathRole = value")).toBe(true)

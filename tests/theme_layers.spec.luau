@@ -829,7 +829,7 @@ describe("buildPackage: the layer census makes ornate cost a number", function()
 		-- counted rather than hidden, exactly like every other census number.
 		expect(census.suppressionRules).toBe(3 * #chrome_slots.OWN_PAINT_SLOTS)
 		-- ART still costs zero. The image rules a flat package now carries are the
-		-- framework ICON TINTS: the framework's own icon set (compact-label stage) resolves BELOW a package's map, so a package that declares nothing still DRAWS pictures — and `ImageColor3` is sheet-owned, so each of those names needs its tint rule or the art paints pure white. Found live in the running showcase: Studio Neutral emitted 70 rules and ZERO icon rules while `resolveIcon` returned real art for the same names.
+		-- framework ICON TINTS: the framework's own icon set (compact-label stage) resolves BELOW a package's map, so a package that declares nothing still DRAWS pictures — and `ImageColor3` is sheet-owned, so each of those names needs its tint rule or the art paints pure white. Found live in the running showcase: Facet Neutral emitted 70 rules and ZERO icon rules while `resolveIcon` returned real art for the same names.
 		expect(census.imageRules > 0).toBe(true)
 		expect(next(census.layersPerKind)).toBeNil()
 		expect(next(census.overhang)).toBeNil()

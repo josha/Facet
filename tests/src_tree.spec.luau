@@ -139,7 +139,11 @@ describe("src_tree: the enumeration two seam specs were missing most of", functi
 		local solverSeen = srcTree.pathsMatching('require%("[^"]*measure_facts"%)')
 		expect(solverSeen).toEqual({
 			"src/layout/arrange_reports.luau",
+			"src/layout/baseline.luau",
+			"src/layout/flow.luau",
 			"src/layout/solver.luau",
+			"src/layout/stack.luau",
+			"src/layout/stack_measure.luau",
 			"src/render/translate_lane.luau",
 		})
 		-- a needle nothing carries answers empty rather than erroring

@@ -397,7 +397,7 @@ function fantasy_ornate.definition(themes: any): any
 		},
 		metrics = {
 			typography = typography(),
-			-- a rounder rhythm than Studio Neutral's: carved borders need room
+			-- a rounder rhythm than Facet Neutral's: carved borders need room
 			space = { xs = 4, s = 8, m = 16, l = 26, xl = 42 },
 			controlSizes = {
 				compact = { height = 38, paddingX = 14, iconSize = 18 },
@@ -419,7 +419,7 @@ function fantasy_ornate.definition(themes: any): any
 			strokes = { hairline = 1 },
 			targetSizes = { minimum = 44 },
 			motion = { fast = 0.14, normal = 0.24 },
-			-- THE ART'S OWN HEIGHTS. Both of these default to 6 in Studio Neutral,
+			-- THE ART'S OWN HEIGHTS. Both of these default to 6 in Facet Neutral,
 			-- which is thinner than this package's carved rail is even ALLOWED to
 			-- draw: the track PNG is 28px tall with a 12px slice border, so at 6 the
 			-- two borders have 6px between them and the engine squeezes the whole

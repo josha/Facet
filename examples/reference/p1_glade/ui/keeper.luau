@@ -176,61 +176,55 @@ function keeper.editForm(ctx: any, scope: any): any
 	scope:own(nameField)
 	scope:own(contactField)
 
-	-- `page()`, not a hand-rolled `Page` ScrollView (task POP): this form used
-	-- to build its own copy of `sheet()`'s plate-inside-the-fade-group shape,
-	-- which is the SAME defect newpop.mov showed on `shop.wisp` — sharing the
-	-- helper is the fix landing here too, not a second one.
-	return shopLib.sheet(ctx, "EditKeeperForm", {
-		shopLib.page(ctx, {
-			parts.heading(ctx, "Title", ctx.L("keeper.editTitle")),
-			UI.VStack({
-				id = "Fields",
-				gap = "m",
-				width = UI.fill(),
-				children = {
-					UI.VStack({
-						id = "NameRow",
-						gap = "xs",
-						width = UI.fill(),
-						children = {
-							parts.caption(ctx, "NameLabel", ctx.L("keeper.displayName")),
-							nameField.blueprint,
-						},
-					}),
-					UI.VStack({
-						id = "ContactRow",
-						gap = "xs",
-						width = UI.fill(),
-						children = {
-							parts.caption(ctx, "ContactLabel", ctx.L("keeper.contact")),
-							contactField.blueprint,
-						},
-					}),
-				},
-			}),
-			UI.HStack({
-				id = "Actions",
-				gap = "s",
-				width = UI.fill(),
-				children = {
-					UI.Button({
-						id = "SaveKeeper",
-						label = ctx.L("keeper.save"),
-						compactLabel = "OK",
-						onActivate = function()
-							ctx.nav.saveKeeper()
-						end,
-					}),
-					UI.Button({
-						id = "CancelKeeper",
-						label = ctx.L("keeper.cancel"),
-						role = "cancel",
-						onActivate = function()
-							ctx.nav.dismissTop()
-						end,
-					}),
-				},
-			}),
+	-- NavigationStack supplies the page title and Back chrome.
+	return shopLib.page(ctx, {
+		UI.VStack({
+			id = "Fields",
+			gap = "m",
+			width = UI.fill(),
+			children = {
+				UI.VStack({
+					id = "NameRow",
+					gap = "xs",
+					width = UI.fill(),
+					children = {
+						parts.caption(ctx, "NameLabel", ctx.L("keeper.displayName")),
+						nameField.blueprint,
+					},
+				}),
+				UI.VStack({
+					id = "ContactRow",
+					gap = "xs",
+					width = UI.fill(),
+					children = {
+						parts.caption(ctx, "ContactLabel", ctx.L("keeper.contact")),
+						contactField.blueprint,
+					},
+				}),
+			},
+		}),
+		UI.HStack({
+			id = "Actions",
+			gap = "s",
+			width = UI.fill(),
+			children = {
+				UI.Button({
+					id = "SaveKeeper",
+					label = ctx.L("keeper.save"),
+					compactLabel = "OK",
+					onActivate = function()
+						ctx.nav.saveKeeper()
+					end,
+				}),
+				UI.Button({
+					id = "CancelKeeper",
+					label = ctx.L("keeper.cancel"),
+					role = "cancel",
+					onActivate = function()
+						ctx.nav.dismissTop()
+					end,
+				}),
+			},
 		}),
 	})
 end

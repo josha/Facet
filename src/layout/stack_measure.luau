@@ -30,6 +30,8 @@
 	above; the behaviour half is the whole suite, which drives a vstack or an hstack on
 	very nearly every fixture in the repository. ]]
 local shrinkLib = require("./shrink")
+local baseline = require("./baseline")
+local spacerMinimum = require("./measure_facts").spacerMinimum
 
 local stack_measure = {}
 
@@ -65,6 +67,7 @@ export type Deps = {
 	sides: (margin: any) -> (number, number, number, number),
 	-- the record `./shrink` takes, built by the solver and NOT rebuilt here
 	shrink: shrinkLib.Deps,
+	baseline: any,
 }
 
 --[[ THE CONTENT SIZE OF A VSTACK/HSTACK, and the three passes that produce it: the
@@ -449,7 +452,7 @@ function stack_measure.contentSize(
 			ctx.childVisits += 1
 			local cutsBefore = ctx.fitCuts
 			local cw, ch = measure(ctx, child, innerMaxW, innerMaxH)
-			local mainOf = if isH then cw + ml + mr else ch + mt + mb
+			local mainOf = (if isH then cw + ml + mr else ch + mt + mb) + spacerMinimum(child, isH)
 			crossOf[idx] = if isH then ch + mt + mb else cw + ml + mr
 			-- OWED ROWS A6 AND A7, the only arithmetic in this task, and both are exact
 			-- because a served number IS the number the walk would have produced for
@@ -573,7 +576,7 @@ function stack_measure.contentSize(
 				ctx.childVisits += 1
 				local cutsBefore = ctx.fitCuts
 				local cw, ch = measure(ctx, child, innerMaxW, innerMaxH)
-				local mainOf = if isH then cw + ml + mr else ch + mt + mb
+				local mainOf = (if isH then cw + ml + mr else ch + mt + mb) + spacerMinimum(child, isH)
 				local crossOfIdx = if isH then ch + mt + mb else cw + ml + mr
 				mainSum += mainOf
 				crossOf[idx] = crossOfIdx
@@ -868,6 +871,7 @@ function stack_measure.contentSize(
 				for idx = 1, n do
 					local size = shrunk[idx]
 					if size ~= nil then
+						(shrinkBasis :: { [number]: number })[idx] = size
 						local child = children[idx]
 						local mt, mr, mb, ml = sides(child.margin)
 						local cw, ch =
@@ -991,6 +995,25 @@ function stack_measure.contentSize(
 	local crossMax = 0
 	for idx = 1, n do
 		crossMax = math.max(crossMax, crossOf[idx] or 0)
+	end
+	if isH and baseline.has(node) then
+		local sizes = {}
+		for i, child in children do
+			local mt, mr, mb, ml = sides(child.margin)
+			local offer = innerMaxW
+			if dim(child, "w").type == "fill" and remaining ~= math.huge and fillWeightSum > 0 then
+				offer = math.max(0, math.floor(remaining * (dim(child, "w").weight or 1) / fillWeightSum) - ml - mr)
+			elseif shrinkBasis ~= nil and shrinkBasis[i] ~= nil then
+				offer = shrinkBasis[i]
+			end
+			local w, h = measure(ctx, child, offer, innerMaxH)
+			if dim(child, "w").type == "fill" and offer ~= math.huge then
+				w = offer
+			end
+			sizes[i] = { w = w, h = h, mt = mt, mb = mb }
+		end
+		local _, cross = baseline.line(deps.baseline, ctx, node, sizes, 1, n)
+		crossMax = math.max(crossMax, cross)
 	end
 	local contentMain = mainSum + gaps + (if isH then pl + pr else pt + pb)
 	local contentCross = crossMax + (if isH then pt + pb else pl + pr)

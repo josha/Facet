@@ -44,7 +44,7 @@
 -- Roblox cannot blur UI behind UI. So the "dark glass" is a STATED translucent
 -- plate (the `p3_sipworks` idiom) and is never called a blur anywhere. It is
 -- also THEME-COLOURED rather than literally dark: the plate tints toward the
--- theme's own `surface`, so this HUD is smoked glass under Studio Neutral and
+-- theme's own `surface`, so this HUD is smoked glass under Facet Neutral and
 -- waxed paper under Parchment, which is what "themeable" has to mean.
 --
 -- AND THE PLATFORM'S OWN ROW (director 2026-08-14: *"we should be able
@@ -2527,7 +2527,7 @@ return {
 								the plank's right border under Pixel Quest).
 
 								10px is this body's own breathing room; `plateInsets` floors it
-								against the installed package's `panel` carve, so Studio Neutral and
+								against the installed package's `panel` carve, so Facet Neutral and
 								every other flat package are byte-identical (max(10, 0) = 10) and
 								Pixel Quest spends its 24. It read that memo inline until
 								2026-08-29, when the director reported the SAME defect on the plates

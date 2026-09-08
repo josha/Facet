@@ -76,7 +76,7 @@
 	word.
 
 	THOSE TWO NUMBERS ARE THE LOOSEST PACKAGE'S, AND THE BINDING ONE IS TIGHTER
-	(fix round 1, review MEDIUM-4b): `studio_neutral` clears by 9.2px, but
+	(fix round 1, review MEDIUM-4b): `facet_neutral` clears by 9.2px, but
 	`classic_desktop` (`space.m` 8, `compact.height` 22) clears the inequality by
 	**0.63px** and the distance by 0.31px, at both rungs. The rects a solve
 	produces are rounded to whole pixels, so quoting the default's headroom as the

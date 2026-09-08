@@ -323,7 +323,7 @@ end)
 	  1. every shipped package AUTHORS all three, in its own definition — the
 	     fallback stays for a third-party package that declares nothing, and stops
 	     being what the reference corpus ships;
-	  2. what it authored is its OWN, not a copy of Studio Neutral's — the
+	  2. what it authored is its OWN, not a copy of Facet Neutral's — the
 	     "themeable" claim is only worth making if the themes visibly differ.
 ]]
 describe("the two theme-sized shapes are AUTHORED by every shipped package", function()
@@ -345,7 +345,7 @@ describe("the two theme-sized shapes are AUTHORED by every shipped package", fun
 
 	-- the package's OWN definition table, before `define` merges the neutral base
 	-- into it. Read here rather than off the built package because the base IS
-	-- Studio Neutral: `pkg.metrics.controls.progress.trackHeight` answers 6 for a
+	-- Facet Neutral: `pkg.metrics.controls.progress.trackHeight` answers 6 for a
 	-- package that never mentioned a progress bar, so the built package cannot
 	-- tell "authored" from "inherited" and this is the only surface that can.
 	local function ownProgress(name: string): any
@@ -366,7 +366,7 @@ describe("the two theme-sized shapes are AUTHORED by every shipped package", fun
 		end)
 	end
 
-	it("every package's shapes are its OWN, not Studio Neutral's numbers", function()
+	it("every package's shapes are its OWN, not Facet Neutral's numbers", function()
 		local neutral = themes.resolve(themes.neutralPackage(), nil, {}).controls.progress
 		local same: { string } = {}
 		for _, name in SHIPPED do
@@ -384,8 +384,8 @@ describe("the two theme-sized shapes are AUTHORED by every shipped package", fun
 		-- a package free to author anything and choosing the default in all three
 		-- is a package that has not made a decision — which is the state this whole
 		-- block exists to end
-		expect(`packages identical to Studio Neutral: {table.concat(same, ", ")}`).toBe(
-			"packages identical to Studio Neutral: "
+		expect(`packages identical to Facet Neutral: {table.concat(same, ", ")}`).toBe(
+			"packages identical to Facet Neutral: "
 		)
 	end)
 
@@ -570,7 +570,7 @@ describe("ProgressView circular: it lays out in every shipped theme, at every sw
 		pixel and it simply painted past its own box. Measured on the shipped
 		`progress_ring` scenario at 320x640 at the DEFAULT preference: 40px past
 		under Glossy Mobile and Glossy Touch, 6px under Fantasy Ornate and
-		Parchment, and clean under Studio Neutral with 110px to spare — which is why
+		Parchment, and clean under Facet Neutral with 110px to spare — which is why
 		nothing in this repository saw it.
 
 		THE CASE ABOVE COULD NOT SEE IT and that is the interesting part: it asks

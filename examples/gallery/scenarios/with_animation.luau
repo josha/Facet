@@ -127,12 +127,13 @@ local CHARGE_SECONDS = 1.4
 	words this whole fixture argues about. Anyone tempted to shorten them to
 	"On"/"Off" has to walk past the header first. ]]
 local COPY = {
-	title = "withAnimation — one spring, five effects",
+	title = "withAnimation + state-driven color",
 	motionLabel = "Motion",
 	full = "Full",
 	reduced = "Reduced",
 	run = "Animate",
 	decorative = "Decorative — reduced motion removes the travel",
+	colorLabel = "The puck's color follows state and uses the current theme",
 	informational = "Informational — keeps running, in 250 ms steps",
 	-- the two indeterminate shapes (§3.1). Player-facing copy, so it has to
 	-- survive ~1.4x pseudo-localization without clipping like every other string
@@ -179,6 +180,16 @@ return {
 		local detailOpen = scope:own(core:signal(false)) -- (3) the thing that APPEARS
 		local chipOrder = scope:own(core:signal(CHIPS)) -- (4) the thing that RE-ORDERS
 		local runs = scope:own(core:signal(0))
+		-- State-driven paint composes with the existing two-role tint channel.
+		-- This scalar has its own scoped binding; withAnimation still owns the
+		-- shared layout flight, and no theme color is cached by this screen.
+		local colorTarget = scope:own(core:memo(function(use)
+			return if use(laneRight) then 1 else 0
+		end))
+		local color = clock:animate(colorTarget, "object", { scope = scope })
+		local colorTint = scope:own(core:memo(function(use)
+			return { from = "contentSecondary", role = "accent", blend = math.clamp(use(color), 0, 1) }
+		end))
 		-- (5) THE PAINT, shared by the badge and the wrapped row below it. ONE memo
 		-- rather than two identical ones, because the two rows arriving at the same
 		-- alpha on the same frame is the thing they are together to show: the badge
@@ -289,6 +300,7 @@ return {
 					textSize = "caption",
 					role = "secondary",
 				}),
+				UI.Text({ id = "ColorCaption", text = COPY.colorLabel, textSize = "caption", role = "secondary" }),
 				-- (1) THE MOVE. `anchor` is an arrange-only prop, so flipping it
 				-- re-arranges one node without re-measuring it; the rect changes,
 				-- which is exactly what `withAnimation` records.
@@ -307,6 +319,7 @@ return {
 						UI.Box({
 							id = "Puck",
 							surface = "accent",
+							tint = colorTint,
 							anchor = scope:own(core:memo(function(use)
 								return if use(laneRight) then "topRight" else "topLeft"
 							end)),
@@ -352,7 +365,7 @@ return {
 					-- two fixed px — so its inside is pinned by the same decision. MEASURED with
 					-- `padding = "s"` instead: the ten-foot ladder scales the step, the 20px pip no
 					-- longer clears it, and the card paints 4px past its own box on a 1920x1078
-					-- console at +0 under Studio Neutral. It waits on a height a box can declare in
+					-- console at +0 under Facet Neutral. It waits on a height a box can declare in
 					-- CONTENT terms (purity audit MOVE §3); until then the pinned box and the
 					-- pinned padding are one decision, not two.
 					padding = 8,
@@ -398,7 +411,7 @@ return {
 					at once: a `control`-chrome package (fantasy-ornate, glossy-touch,
 					pixel-quest) wants 28-32px of border on each axis, so a 28px plate
 					could not spend its own theme's insets and drew smaller than the
-					theme expects. Studio Neutral said nothing, which is the whole
+					theme expects. Facet Neutral said nothing, which is the whole
 					reason that sweep runs every shipped package. 40px is the size the
 					puck above already proves.
 
@@ -702,6 +715,7 @@ return {
 			detailOpen = detailOpen,
 			chipOrder = chipOrder,
 			charge = charge,
+			color = color,
 			animate = animate,
 
 			steps = {
@@ -712,6 +726,8 @@ return {
 						runs = runs:get(),
 						reduced = clock:isReduced(),
 						records = pres.animationRecordCount(),
+						color = color:get(),
+						colorTarget = colorTarget:get(),
 					}
 				end,
 				setMotion = function(_built: any, payload: string?)
@@ -727,7 +743,7 @@ return {
 					for _ = 1, math.clamp(math.floor(frames), 1, 600) do
 						pres.tick(1 / 60)
 					end
-					return { charge = charge:get(), records = pres.animationRecordCount() }
+					return { charge = charge:get(), color = color:get(), records = pres.animationRecordCount() }
 				end,
 			},
 
@@ -748,6 +764,8 @@ return {
 					badgeScale = if laneRight:get() then 0.6 else 1,
 					badgeRotation = if laneRight:get() then 45 else 0,
 					charge = charge:get(),
+					color = color:get(),
+					colorTarget = colorTarget:get(),
 					chargeTarget = chargeTarget,
 					busyPhase = busyBar.dump().phase,
 					spinnerPhase = busySpinner.dump().phase,

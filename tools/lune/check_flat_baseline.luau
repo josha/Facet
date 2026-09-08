@@ -9,7 +9,7 @@
 -- further than the artifact said, and the whole claim rested on a number nobody
 -- recomputed (phase-gate verifier F1/F2).
 --
--- WHAT IT DOES. Regenerates the neutral (unskinned Studio Neutral) render dump
+-- WHAT IT DOES. Regenerates the neutral (unskinned Facet Neutral) render dump
 -- to a temp path through the real mount -> renderer -> FakeTarget stack, and
 -- compares it node-by-node against the STORED baseline. Any difference outside
 -- the allow-list below fails, naming the path and both values.
@@ -250,9 +250,9 @@ local ALLOWED_RECT_DRIFT: { { fixture: string, viewport: string?, prefix: string
 			.. "it starts 8px later and is 8px narrower (director report 2026-07-28, defect 2). A semantic "
 			.. "icon is painted at the theme's `iconSizes` rung and centred on its node, and the node was "
 			.. "measured as the ASCII character the control draws underneath it — a `>` is 12px here and "
-			.. "Studio Neutral's `medium` rung is 20, so the picture overhung its own node by 4px on EVERY "
+			.. "Facet Neutral's `medium` rung is 20, so the picture overhung its own node by 4px on EVERY "
 			.. "side and painted into the frame on one side and the label on the other. Measured live under "
-			.. "all nine reference configurations, SEVEN overhang and Studio Neutral is one of them, which "
+			.. "all nine reference configurations, SEVEN overhang and Facet Neutral is one of them, which "
 			.. "is exactly why this is a FLAT-baseline delta and not a package one: the flat theme paints "
 			.. "the framework's own art too. THE MOVE IS THE FIX. What has NOT moved is any package that "
 			.. "declines the icon set (glossy-touch, compact-pointer): the reservation is conditional on "
@@ -632,6 +632,14 @@ end
 -- Nodes the current tree has and the 3.5 baseline does not. Additions are as
 -- much of a compatibility statement as changes, so they are enumerated too.
 local ALLOWED_NEW_NODES: { { path: string, why: string } } = {
+	{
+		path = "/Vocabulary/Name/ClearWhen/then/Clear/BeforeMark",
+		why = "Centers the clear glyph while retaining its natural theme-sized width.",
+	},
+	{
+		path = "/Vocabulary/Name/ClearWhen/then/Clear/AfterMark",
+		why = "Matches the leading flexible space around the clear glyph.",
+	},
 	{
 		path = "/Vocabulary/Name/ClearWhen/then/Clear/Mark",
 		why = "Control improvements: the native TextInput clear action keeps its semantic Clear label and paints the standard close icon in a themeable child; existing clear-button geometry is unchanged.",
@@ -1094,7 +1102,7 @@ local ALLOWED_ADDED_PROPS: { { prop: string, value: string?, class: string?, pat
 			.. "to reach only the MEASURE seam while the adapter drew a hardcoded 16, so a package that moved "
 			.. "`type.control.size` was reserved for at one size and drawn at another — compact-pointer's 13px "
 			.. 'control role wrapped a one-line "Play" into "Pla"/"y" inside a box the solver had sized '
-			.. "correctly for 13. Studio Neutral's own roles are body=16 / control=18, and the solver ALREADY "
+			.. "correctly for 13. Facet Neutral's own roles are body=16 / control=18, and the solver ALREADY "
 			.. "measured those, so every rect and hit rect below is unchanged: what moves is the size the engine "
 			.. "draws a Button/TextField label at (16 -> 18) and nothing else. SANCTIONED, this stage.",
 	},
@@ -1104,7 +1112,7 @@ local ALLOWED_ADDED_PROPS: { { prop: string, value: string?, class: string?, pat
 			.. "correction the `textSize` entry above describes, one property later. A role has always carried a "
 			.. "font DESCRIPTOR and the solver has always measured with it; the adapter drew whatever face it "
 			.. "hardcoded at creation, so a package that gave a role its own weight was reserved for one family "
-			.. "and drawn in another. THE INVARIANT THIS ENTRY PINS: under Studio Neutral every one of the six "
+			.. "and drawn in another. THE INVARIANT THIS ENTRY PINS: under Facet Neutral every one of the six "
 			.. "pre-existing roles resolves to `BuilderSans#Regular#Normal`, which is byte-identical to the face "
 			.. "the adapter hardcoded — so no glyph on any flat node moves, and every rect, hit rect and other "
 			.. "prop below still matches byte for byte. What the value records is WHICH role each node resolved "

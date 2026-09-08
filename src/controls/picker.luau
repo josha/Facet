@@ -833,7 +833,7 @@ function picker.build(Facet: any, core: any, spec: Spec)
 		not tell the option's own label what it is now sitting ON. It kept
 		`TextButton { TextColor3 = $Content }` — the colour chosen to read on
 		$Surface — while the chip filled with $Accent. Measured on Classic Desktop:
-		1.55:1 on Day, 1.95:1 on Night, against a 4.5 floor. Studio Neutral passed
+		1.55:1 on Day, 1.95:1 on Night, against a 4.5 floor. Facet Neutral passed
 		at 4.82:1 by coincidence of that one palette, which is why it shipped.
 
 		`role = "onIndicator"` is the label-only Button role (blueprint_schema, and

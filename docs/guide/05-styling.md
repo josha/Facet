@@ -49,7 +49,7 @@ assert(compiled ~= nil, "style failed its own contrast/completeness check")
 on the reading ladder — `caption`, `label`, `body`, `heading`, `title`,
 `control` — and two name a **weight**:
 
-| Role | What it means | Studio Neutral |
+| Role | What it means | Facet Neutral |
 |---|---|---|
 | `strong` | emphasis at reading size: a name in a list, a label that has to win | `body`'s size, the family's SemiBold face |
 | `numeral` | a figure read as a rank or a score, not as prose | `control`'s size, the family's Bold face |
@@ -76,10 +76,10 @@ only the weight. Every theme then answers all eight names, and a
 display-face theme gets *its* face in both weights. Author either one to
 override it — see `docs/extending/new-theme.md` §2.
 
-## 5.2 The Studio Neutral default
+## 5.2 The Facet Neutral default
 
 You do not have to write a token schema to get a good-looking interface. Facet
-ships one, **Studio Neutral** (`src/tokens/default_style.luau`), and the client
+ships one, **Facet Neutral** (`src/tokens/default_style.luau`), and the client
 render target uses it automatically when you do not pass your own. Its brief was
 "a game UI system that is minimal but polished, with affordances always clear,
 professional and neutral, and quick to render." Concretely:
@@ -199,7 +199,7 @@ never edits in place):
 ### `UI.shadow(blueprint, presetOrParams, style?)`
 
 Adds a drop shadow. The second argument is either the **name of a preset** defined
-in the active style, or an explicit parameter table. Studio Neutral ships two
+in the active style, or an explicit parameter table. Facet Neutral ships two
 presets:
 
 - `"raised"` — a tight, subtle drop for raised interactive surfaces;
@@ -445,7 +445,7 @@ their plates under Sci-Fi HUD.
 **Chapter 9, [Custom themes](09-custom-themes.md), is the walkthrough.** It
 covers:
 
-- deriving from Studio Neutral;
+- deriving from Facet Neutral;
 - editing tokens;
 - adding nine-slice panels and buttons;
 - insets and fallbacks;
@@ -496,3 +496,28 @@ Three claims are still open: the human Style-Editor walkthrough, the
 physical-phone pass over ornate chrome, and low-end-device cost. A Studio run
 closes none of them. [Chapter 11](11-device-verification.md) explains
 which instrument can close which class of claim.
+
+## Text guides and flexible spacing
+
+A horizontal stack can align unlike text sizes with `align = "firstTextBaseline"`
+or `"lastTextBaseline"`. A child's `lineAlign` overrides the row. Nested text and
+wrapped lines participate through their solved geometry. The guide is a theme
+metric (`typography.<role>.baseline`, default 0.8 of the text size), so it is a
+predictable layout convention rather than a measured glyph baseline.
+
+Use `UI.Spacer({ minLength = "m" })` for a flexible gap that keeps at least the
+theme's medium spacing. A numeric minimum stays fixed in pixels. Both text guides
+and minimum spacing update when the theme or preferred text size changes.
+
+## Color that follows state
+
+`clock:animate(amount, "object", { scope = scope })` gives a numeric signal or
+memo a smooth presentation value. Bind that value through a memo to a tint such
+as `{ from = "control", role = "accent", blend = math.clamp(use(animated), 0, 1) }`.
+The painter reads the current theme's colors, and the motion clock applies the
+player's reduced-motion preference. The scope removes both the animation and its
+subscription when the screen closes; your application keeps its own state.
+Use theme tags for ordinary selected/disabled states. Use this tint channel when
+the color itself varies continuously. The Showcase motion demo demonstrates it
+on the moving puck; the [API reference](../reference/api.md#clockanimatesource-classorcurve-opts---motionvalue)
+describes interruption, errors, and ownership.

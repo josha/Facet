@@ -158,6 +158,13 @@ silently substitutes, and both seams substitute identically — so nothing break
 but you get a face you did not choose. The derivation deliberately stops at
 SemiBold/Bold for that reason.
 
+A typography role may also set `baseline` to a fraction from 0 to 1. The solver
+uses it as the semantic baseline within the font's em, then adds half the line's
+extra leading. Omission uses 0.8. This guides `firstTextBaseline` and
+`lastTextBaseline` alignment, including nested and wrapped rows; it is not a
+measurement of native glyph ascent. Theme and preferred-text changes recompute
+the guides through the existing text-measurement path.
+
 **Adding a core role is a framework change, not a package change.** It means:
 extend the neutral package in `src/themes/snapshot.luau` (naming the literal it
 replaces), make the consuming control resolve the role instead of its literal,

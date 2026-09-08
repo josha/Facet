@@ -1202,9 +1202,9 @@ describe("Cartwheel — the solver's own verdict", function()
 
 	it("mounts under BOTH reference theme packages with no source edit", function()
 		local themes = Facet.themes
-		for _, packageName in { "studio-neutral", "fantasy_parchment" } do
+		for _, packageName in { "facet-neutral", "fantasy_parchment" } do
 			local world = makeWorld()
-			local snapshot = if packageName == "studio-neutral"
+			local snapshot = if packageName == "facet-neutral"
 				then themes.neutral()
 				else themes.resolve((require)("../../examples/themes/fantasy_parchment").build(themes), nil, {})
 			world.env:set("themeMetrics", snapshot)

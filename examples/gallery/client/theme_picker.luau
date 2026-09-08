@@ -4,7 +4,7 @@
 -- Director review 2026-07-25: "no idea how to swap themes". Every piece of the
 -- swap machinery shipped (no remount) and none of it was reachable without editing a workspace
 -- attribute before pressing Play. This is the missing handle: a compact
--- top-right overlay listing Studio Neutral plus every package the place
+-- top-right overlay listing Facet Neutral plus every package the place
 -- replicated, with that package's themes underneath.
 --
 -- WHY IT LIVES IN examples/, NOT src/. A theme picker is a piece of a
@@ -36,14 +36,14 @@ local theme_picker = {}
 -- set the workspace attribute Facet_ThemePicker = false to hide it
 theme_picker.ATTRIBUTE = "Facet_ThemePicker"
 
-theme_picker.NEUTRAL_ID = "studio-neutral"
+theme_picker.NEUTRAL_ID = "facet-neutral"
 
 -- The STANDALONE strip this picker lifts its own chip into, and it must match
 -- demo_picker.BAR_HEIGHT — which is now only the FLOOR of what the showcase
 -- reserves, not the whole answer. In the showcase both chips are composed into
 -- one surface whose real bottom edge is measured and reserved from
 -- (`demo_picker.barReservation`, wired in init.client): this literal was tuned
--- under Studio Neutral and every other reference package's chip outgrows it.
+-- under Facet Neutral and every other reference package's chip outgrows it.
 theme_picker.BAR_HEIGHT = 62
 -- THE LABEL IS CLIPPED, NOT THE BOX. Two chips share the reserved strip and
 -- neither can measure the other: they are separate presented surfaces, so no
@@ -60,7 +60,7 @@ theme_picker.CHIP_LABEL_CHARS = 14
 theme_picker.CHIP_OFFSET_X = 154
 
 export type Entry = {
-	-- the package's own identity slug ("studio-neutral", "fantasy-parchment")
+	-- the package's own identity slug ("facet-neutral", "fantasy-parchment")
 	id: string,
 	displayName: string,
 	-- the ModuleScript name under ReplicatedStorage.FacetThemes (nil for the
@@ -100,7 +100,7 @@ end
 -- listing(packages, neutralPackage) -> ordered entries.
 --
 -- `packages` is moduleName -> compiled package (the shape the runner already
--- builds from ReplicatedStorage.FacetThemes). Studio Neutral is ALWAYS first
+-- builds from ReplicatedStorage.FacetThemes). Facet Neutral is ALWAYS first
 -- and always present, because "put it back the way it was" has to be one click
 -- and can never depend on a module having replicated. The rest sort by display
 -- name so the list is stable between sessions — a picker whose rows move
@@ -167,7 +167,7 @@ function theme_picker.find(entries: { Entry }, packageId: string): Entry?
 	return nil
 end
 
--- the selection a freshly mounted picker starts on: Studio Neutral, its own
+-- the selection a freshly mounted picker starts on: Facet Neutral, its own
 -- default theme. Matches what an un-themed gallery is already showing, so the
 -- picker never lies about the state it found.
 function theme_picker.initialSelection(entries: { Entry }): Selection
@@ -246,7 +246,7 @@ end
 -- themes — and they were `xs` apart, which is the same order as the gap BETWEEN
 -- chips: the theme row read as one more row of the grid. `m` is the smallest
 -- step that is unambiguously bigger than the grid's own 4 px row gap under every
--- reference package (classic-desktop 8, sci-fi 14, studio-neutral 16, glossy 18
+-- reference package (classic-desktop 8, sci-fi 14, facet-neutral 16, glossy 18
 -- — 2x to 4.5x), so the break reads as a break at desktop density and still
 -- scales with a package that wants more air.
 theme_picker.SECTION_GAP = "m"
@@ -260,7 +260,7 @@ theme_picker.ROW_GAP = "xs"
 theme_picker.GRID_GAP = 4
 -- ...and between chip ROWS, which is a different question with a different
 -- answer (director finding 14, 2026-07-26: "more VERTICAL space between rows,
--- especially studio-neutral and compact-pointer").
+-- especially facet-neutral and compact-pointer").
 --
 -- A grid's COLUMN pitch is `innerWidth / columns`, so at 544 px and two columns
 -- the chips sat 78 px apart horizontally while the literal put their rows 4 px
@@ -270,7 +270,7 @@ theme_picker.GRID_GAP = 4
 --
 -- `s` is that step: the smallest one that is at least the old literal under
 -- every reference package, and one that grows with a denser target — 8 under
--- studio-neutral (2x the literal), 6 under compact-pointer (1.5x), 4 under
+-- facet-neutral (2x the literal), 6 under compact-pointer (1.5x), 4 under
 -- classic-desktop's tight desktop ladder, 8 under sci-fi, ornate, parchment and
 -- pixel-quest, 10 under both glossy packages. `xs` was measured and rejected: it
 -- is 2 under classic-desktop and compact-pointer, which would have made the two
@@ -300,7 +300,7 @@ theme_picker.CHIP_HEIGHT = table.freeze({ type = "minMax", min = "controlSizes.c
 --
 -- Vertical is now `xs` — the package's own smallest step — so the chip's height
 -- IS its package's compact control metric for a single line (22 / 32 / 36 / 44
--- under classic-desktop / sci-fi / studio-neutral / glossy-mobile) and a desktop
+-- under classic-desktop / sci-fi / facet-neutral / glossy-mobile) and a desktop
 -- package gets a desktop-density chip while a touch package keeps its 44 px
 -- target. Two lines still grow the box, because the floor is a floor.
 --
@@ -607,7 +607,7 @@ function theme_picker.mount(opts: MountOpts): any
 		-- FILL, and a GRID for the chips (live-found 2026-07-25, P5). With
 		-- the four rich-skinning-v2 reference packages the row became TEN
 		-- chips; an HStack ran them off both edges of a 1233px viewport and
-		-- put "Studio Neutral" — the one row that has to be reachable,
+		-- put "Facet Neutral" — the one row that has to be reachable,
 		-- because it is how you put it back — at x = -37. A picker that
 		-- grows with the corpus has to wrap, and on a 360px phone it has to
 		-- wrap several times.
@@ -639,7 +639,7 @@ function theme_picker.mount(opts: MountOpts): any
 	--
 	-- ...AND IT IS SIZED `hug`, ON BOTH AXES (director round 10, found live
 	-- 2026-07-26 on a phone). `fill` was the fourth wrong shape: it made the card
-	-- as big as the space rather than as big as the list, so under Studio Neutral
+	-- as big as the space rather than as big as the list, so under Facet Neutral
 	-- the ten themes ended less than halfway down a plate that ran to the bottom
 	-- of the screen, and the same card was the full width of the phone with the
 	-- rows inset inside it. Under Fantasy Ornate — taller rows, a 30px carved

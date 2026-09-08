@@ -142,13 +142,13 @@ function Foyer.build(Facet: any, core: any, deps: any): any
 
 	-- ── motion: tab underline springs (object class; reduced motion snaps) ──
 	local function underlineTint(tabId: string)
-		local s = clock:spring(if tab:get() == tabId then 1 else 0, "object")
-		scope:own(core:observe(tab, function(now: string)
-			s:setTarget(if now == tabId then 1 else 0)
+		local selected = scope:own(core:memo(function(use)
+			return if use(tab) == tabId then 1 else 0
 		end))
-		return core:memo(function(use)
-			return { role = "accent", blend = use(s) }
-		end)
+		local s = clock:animate(selected, "object", { scope = scope })
+		return scope:own(core:memo(function(use)
+			return { role = "accent", blend = math.clamp(use(s), 0, 1) }
+		end))
 	end
 
 	-- ── feedback → proof sound ids (spec §12; ids only, nothing plays) ─────

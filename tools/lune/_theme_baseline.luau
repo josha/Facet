@@ -2,7 +2,7 @@
 -- Theme-package COMPATIBILITY BASELINE dumper (stage theme-packages-and-skinning).
 --
 -- Why this exists: migrating the framework's hardcoded metric literals onto
--- semantic theme roles is only safe if the DEFAULT (Studio Neutral) result is
+-- semantic theme roles is only safe if the DEFAULT (Facet Neutral) result is
 -- byte-identical to what shipped. This walks a control-vocabulary fixture plus
 -- every gallery example through the real mount -> renderer -> FakeTarget stack at
 -- three viewports and writes every solved rect and every adapter prop write,

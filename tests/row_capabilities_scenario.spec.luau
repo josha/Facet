@@ -34,7 +34,7 @@
 
 	It was invisible to `tests/overflow_sweep.spec.luau` because that sweep
 	installed no theme package at all, the exact gap standing rule 4 names when it
-	says "Pixel Quest and Parchment have both broken layouts that Studio Neutral
+	says "Pixel Quest and Parchment have both broken layouts that Facet Neutral
 	survived". That sweep now has a theme axis (O-24) and finds this class itself.
 ]]
 

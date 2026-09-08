@@ -439,7 +439,7 @@ function detail.body(app: any, opts: any): any
 		table.insert(topBarTrailing, detail.favoriteSlot(app))
 	end
 
-	return UI.VStack({
+	local body = UI.VStack({
 		id = options.id or "Detail",
 		gap = "s",
 		width = dims.fill,
@@ -447,7 +447,7 @@ function detail.body(app: any, opts: any): any
 		children = {
 			app.Facet.navBar({
 				id = "TopBar",
-				padding = "m",
+				padding = if options.navigationHosted then 0 else "m",
 				onBack = if options.showBack
 					then function()
 						app.commands.closeDetail()
@@ -460,7 +460,7 @@ function detail.body(app: any, opts: any): any
 				id = "Page",
 				axis = "y",
 				gap = "m",
-				padding = "m",
+				padding = if options.navigationHosted then 0 else "m",
 				width = dims.fill,
 				height = dims.fill,
 				children = {
@@ -475,6 +475,26 @@ function detail.body(app: any, opts: any): any
 			ctaBand(app),
 		},
 	})
+	if options.navigationHosted then
+		-- The stack already spends one header. Keep the favorite, details and
+		-- order action in one scroller so a short window can reach every verb.
+		return UI.VStack({
+			id = options.id or "Detail",
+			width = dims.fill,
+			height = dims.fill,
+			children = {
+				UI.ScrollView({
+					id = "Page",
+					axis = "y",
+					gap = "m",
+					width = dims.fill,
+					height = dims.fill,
+					children = { body.children[1], body.children[2].children[1], body.children[3] },
+				}),
+			},
+		})
+	end
+	return body
 end
 
 -- the detail's favorite heart is the row's twin on the SAME signal: one keyed

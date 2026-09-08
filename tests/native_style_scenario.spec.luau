@@ -346,7 +346,7 @@ describe("screen_target: the focus treatment (source contract)", function()
 
 	it("the ring is no longer painted from a captured constant", function()
 		-- THE THEME-BLINDNESS BUG: `stroke.Color = COLOR.accent` was a value
-		-- captured at construction, so the ring stayed Studio-Neutral blue under
+		-- captured at construction, so the ring stayed Facet-Neutral blue under
 		-- every package. It is now the active theme's colour, in one place.
 		expect(string.find(source, "stroke.Color = COLOR.accent", 1, true)).toBeNil()
 		expect(string.find(source, "stroke.Color = focusColor()", 1, true) ~= nil).toBe(true)

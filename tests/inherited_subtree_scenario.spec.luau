@@ -34,7 +34,7 @@
 	not tell the difference.
 
 	THEMES. Beat 1 (nested inheritance) and beat 4 (the dynamic toggle) are
-	each re-run once flat (Studio Neutral) and once under `pixel_quest`
+	each re-run once flat (Facet Neutral) and once under `pixel_quest`
 	(the reference package `tests/inherited_subtree.spec.luau` §C4/C6 and
 	`tests/row_capabilities_scenario.spec.luau` already trust for this kind of
 	claim), because a themed package can retune spacing and chrome — nothing
@@ -310,7 +310,7 @@ end)
 	fallback has nowhere forward to shift into and lands on the PRECEDING stop
 	(`/S/Live`) instead. Confirmed once by direct measurement here, across both
 	shipped themes and both input arms this beat is asserted under (all four
-	combinations of {Studio Neutral, pixel_quest} x {keyboard, gamepad} land on
+	combinations of {Facet Neutral, pixel_quest} x {keyboard, gamepad} land on
 	`P.after` and nowhere else) — not a guess dressed as a claim, and not
 	merely "outside the panel", which would equally pass if a future regression
 	moved the landing to the wrong legal node (the ScrollView itself, or past
@@ -439,7 +439,7 @@ end)
 --[[ ── THE SHIPPED PACKAGES, AND THE LOCALIZATION PASS ───────────────────────
 
 	The same discipline `row_capabilities_scenario.spec.luau`'s closing section
-	names: Studio Neutral is not evidence on its own, and this fixture's own
+	names: Facet Neutral is not evidence on its own, and this fixture's own
 	copy has to survive a ~1.4x pseudo-localization without filing a finding of
 	its own — the SOLVER-level claim `controller.diagnostics()` makes, which
 	both loops below still collect unconditionally.

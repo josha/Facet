@@ -12,7 +12,7 @@
 --   * per-corner UICorner: a node emits EXACTLY ONE form — uniform alias
 --     ("uniform") or four explicit radii ("perCorner") — mixing the alias
 --     with individual corners misbehaves in the engine and is a build error.
--- Token names resolve against the ACTIVE style (default: Studio Neutral).
+-- Token names resolve against the ACTIVE style (default: Facet Neutral).
 -- Purely data: headless dumps carry these tables; the client adapter
 -- materializes UIShadow/UICorner instances behind capability detection.
 

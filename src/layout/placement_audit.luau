@@ -311,6 +311,21 @@ function placement_audit.auditPlacement(
 	end
 	local found: { { node: string, issue: string, filedBy: string } }? = nil
 	for _, child in children do
+		if child.minLength ~= nil then
+			local horizontal = parentKind == "hstack" or parentKind == "hwrap"
+			local vertical = parentKind == "vstack" or parentKind == "vwrap"
+			local explicit = if horizontal then child.width elseif vertical then child.height else nil
+			if explicit ~= nil or not (horizontal or vertical) then
+				found = found or {}
+				table.insert(found :: any, {
+					node = child.id,
+					filedBy = parentId,
+					issue = if explicit ~= nil
+						then "Spacer.minLength is ignored because its main-axis dimension is explicit; remove that dimension to use the minimum"
+						else "Spacer.minLength needs a stack main axis; wrap this spacer in HStack, VStack or AdaptiveStack",
+				})
+			end
+		end
 		-- ONE field test for the overwhelmingly common case. `placementProps` is
 		-- set by `renderer.toLayoutNode` on the same line that already reads all
 		-- seven values, so a node carrying none costs this comparison and nothing

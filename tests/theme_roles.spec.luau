@@ -3,7 +3,7 @@
 -- typography role, a spacing step or a theme metric; the renderer's layout-node
 -- builder and the solver's measure path turn those names into pixels through the
 -- CURRENT `themeMetrics` snapshot. The two properties that matter:
---   * under Studio Neutral every migrated control solves to the literal it
+--   * under Facet Neutral every migrated control solves to the literal it
 --     shipped with (the compatibility bar — nothing moved);
 --   * a themeMetrics commit RE-SOLVES a mounted screen with zero factory reruns,
 --     creates or removes (the swap is never a rebuild).
@@ -406,7 +406,7 @@ end)
 -- report the exact geometry it reported before it spoke roles. These assertions
 -- pin the effective value of each literal the migration replaced.
 
-describe("migrated controls: byte-parity under Studio Neutral", function()
+describe("migrated controls: byte-parity under Facet Neutral", function()
 	local function controlWorld(build: (core: any) -> any)
 		return world(function(core)
 			return UI.Screen({ id = "S", padding = 0, children = { build(core) } })

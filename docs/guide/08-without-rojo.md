@@ -74,7 +74,7 @@ back into an ordinary model and it stops being a package.
 Two answers, and they agree:
 
 ```lua
-print(Facet.VERSION) -- "0.10.0"
+print(Facet.VERSION) -- "0.11.0"
 ```
 
 ...and the `Distribution` folder inside the package, whose attributes name the
@@ -137,7 +137,7 @@ whenever `src/` or `Facet.VERSION` changes. The build ignores `**/*.spec.luau`,
 so a spec file colocated with source can never ship inside the model (the library
 keeps its tests in `tests/`, so today nothing is dropped).
 
-**The model is the library alone.** It carries `src/` and Studio Neutral, the
+**The model is the library alone.** It carries `src/` and Facet Neutral, the
 theme Facet wears out of the box; it does not carry any of the eight optional
 theme packages. Each of those is its own model file — `build/themes/<Name>.rbxm`,
 built by `tools/build_themes.sh` — and installs the same way: drag it into
@@ -278,7 +278,7 @@ devices — is in the model you dragged in. There is no Rojo-only code path.
 **What you do give up** is workflow, and only workflow:
 
 - **File-based version control of the library.** The tree lives in your `.rbxl`.
-  Pin a version by recording `Facet.VERSION` (currently `0.10.0`) somewhere you
+  Pin a version by recording `Facet.VERSION` (currently `0.11.0`) somewhere you
   will see it, and check `Facet.DEPRECATIONS` after an upgrade — see
   [`CONTRIBUTING.md` §6](../../CONTRIBUTING.md#6-versioning-and-deprecation). On
   the package route the

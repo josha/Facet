@@ -313,3 +313,32 @@ describe("themes.resolveIcon: three honest answers", function()
 		expect(themes.resolveIcon(nil, "not.an.icon")).toBeNil()
 	end)
 end)
+
+describe("search icon follows the existing theme resolver", function()
+	it("uses tinted standard art, honors package art, and keeps the explicit ASCII floor", function()
+		local neutral = snapshot.neutralPackage()
+		local search = themes.resolveIcon(neutral, "facet:search")
+		expect(search.source).toBe("asset")
+		expect(search.contentId).toBe("rbxassetid://85188541706347")
+		expect(search.tintRole).toBe("content")
+		local model = require("../src/tokens/sheet_model").buildPackage(neutral)
+		local searchRule = nil
+		for _, rule in model.rules do
+			if rule.name == "Icon — facet:search" then
+				searchRule = rule
+			end
+		end
+		expect(searchRule ~= nil).toBe(true)
+		expect(searchRule.props.ImageColor3).toBe("$Content")
+		local custom = themes.define(withIcons({ ["facet:search"] = "caret" }))
+		local override = themes.resolveIcon(custom, "facet:search")
+		expect(override.contentId).toBe("rbxassetid://31")
+		expect(override.tintRole).toBe("accent")
+		local d = def()
+		d.identity.standardIcons = false
+		local fallback = themes.resolveIcon(themes.define(d), "facet:search")
+		expect(fallback.source).toBe("glyph")
+		expect(fallback.glyph).toBe("o/")
+		expect(themes.isSafeGlyph(fallback.glyph)).toBe(true)
+	end)
+end)

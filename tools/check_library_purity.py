@@ -25,7 +25,7 @@ WHAT IT SCANS, AND THE ONE DISTINCTION THAT MATTERS
     were rewritten rather than allowlisted — see `--list`.
 
   * ...and THE PACKAGE STAMP. Every package identity the model's code declares
-    must be `studio-neutral`. That is the positive form of the same claim: not
+    must be `facet-neutral`. That is the positive form of the same claim: not
     merely "no reference package is mentioned" but "exactly one package is IN
     here", which is what a consumer inspecting the model can verify for
     themselves.
@@ -65,7 +65,7 @@ THEMES_DIR = os.path.join(REPO, "examples", "themes")
 BUILD_MODEL = os.path.join(HERE, "build_model.sh")
 
 # the one package a shipped model may stamp
-NEUTRAL_ID = "studio-neutral"
+NEUTRAL_ID = "facet-neutral"
 
 # A PACKAGE STAMP, NOT ANY SLUG. The first shape of this pattern was
 # `id = "<kebab>"` anywhere in the code, and it reported six false positives on
@@ -147,7 +147,7 @@ def scan_text(label, source, patterns, problems):
         for hit in pattern.finditer(code):
             line = code[: hit.start()].count("\n") + 1
             problems.append(
-                f"{label}:{line}: the shipped library names '{name}' in CODE. The library is studio-neutral "
+                f"{label}:{line}: the shipped library names '{name}' in CODE. The library is facet-neutral "
                 f"and '{module}' is an optional artifact a consumer may never have installed — say what the "
                 f"rule IS, or move the mention into a comment, where a measured story belongs"
             )
@@ -196,7 +196,7 @@ def scan_model(xml_path, patterns, problems):
         )
     for slug in extra:
         problems.append(
-            f"build/Facet.rbxm: the model stamps a second package, '{slug}'. Studio Neutral is the only theme "
+            f"build/Facet.rbxm: the model stamps a second package, '{slug}'. Facet Neutral is the only theme "
             f"the library ships; every other package is its own artifact under build/themes/"
         )
     return stamps
