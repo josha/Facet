@@ -1,6 +1,6 @@
 {
   "name": "Facet-Showcase",
-  "emitLegacyScripts": false,
+  "emitLegacyScripts": true,
   "globIgnorePaths": [
     "**/*.spec.luau"
   ],

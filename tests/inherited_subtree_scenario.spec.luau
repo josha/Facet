@@ -56,6 +56,7 @@ local describe, it, expect = t.describe, t.it, t.expect
 
 local Facet = require("../src") :: any
 local test_world = require("./lib/world")
+local fake_target = require("./lib/fake_target")
 local snapshot = require("../src/themes/snapshot") :: any
 local l10n = require("./fixtures/a11y_l10n_fixtures")
 local fs = require("@lune/fs")
@@ -90,6 +91,16 @@ local function world(
 		safeInsets = { top = 0, bottom = 0, left = 0, right = 0 },
 		capabilities = if opts ~= nil then opts.caps else nil,
 		preferredInput = if opts ~= nil then opts.preferredInput else nil,
+		-- THE LIVE RESERVE. `src/client/screen_target.luau` publishes
+		-- `SCROLL_BAR_RESERVE` at construction; the shared fake leaves it nil, so a
+		-- scrolling view here would lay fill-width rows out 8px into a window the
+		-- fake's own model narrows — a headless-only overflow no device shows. This
+		-- fixture says what the live adapter says, and runs the guard ON.
+		newAdapter = function()
+			local a = fake_target.new()
+			a.scrollBarThickness = fake_target.SCROLL_BAR_RESERVE
+			return a
+		end,
 		-- built through the PUBLIC facade and resolved through the snapshot
 		-- compiler — the same pair `tests/row_capabilities_scenario.spec.luau`
 		-- §9 and `tests/flow_wrap.spec.luau` §9 use
@@ -448,10 +459,6 @@ end)
 	container declared one width and filled with another" — precisely this
 	class). Framework-level (`src/`), out of this stream's scope; reported in
 	`.superpowers/sdd/facet-stabilization/D-report.md` for the maintainer. ]]
--- see the describe block's own header comment for what this is and why it is
--- NOT a suite-wide waiver
-local SCROLLBAR_GAP_GUARD_OFF =
-	"pre-existing framework interaction (src/controls/slider.luau's full-width row vs a scrolling ScrollView's window; D-report §unrelated-defects), not this fixture's own"
 
 describe("inherited_subtree showcase: it holds under every shipped package", function()
 	local PACKAGES = {
@@ -473,7 +480,6 @@ describe("inherited_subtree showcase: it holds under every shipped package", fun
 			for _, view in VIEWS do
 				local w, built = world(view, {
 					package = if package == false then nil else tostring(package),
-					overflowGuardOff = SCROLLBAR_GAP_GUARD_OFF,
 				})
 				for _, finding in built.handle.controller.diagnostics() do
 					table.insert(problems, `  {name} at {view.w}x{view.h}: {finding.node} — {finding.issue}`)
@@ -503,9 +509,8 @@ describe("inherited_subtree showcase: the copy survives a ~1.4x pseudo-localizat
 			local problems: { string } = {}
 			local VIEWS = { { w = 320, h = 640 }, { w = 640, h = 320 }, { w = 1232, h = 1067 } }
 			for _, view in VIEWS do
-				-- see "it holds under every shipped package"'s SCROLLBAR_GAP_GUARD_OFF
 				-- comment: the same pre-existing, framework-level, out-of-scope gap
-				local w, built = world(view, { overflowGuardOff = SCROLLBAR_GAP_GUARD_OFF })
+				local w, built = world(view)
 				for _, finding in built.handle.controller.diagnostics() do
 					table.insert(problems, `  {view.w}x{view.h}: {finding.node} — {finding.issue}`)
 				end

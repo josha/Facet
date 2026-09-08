@@ -1,6 +1,6 @@
 {
   "name": "Facet-Gallery",
-  "emitLegacyScripts": false,
+  "emitLegacyScripts": true,
   "globIgnorePaths": [
     "**/*.spec.luau"
   ],

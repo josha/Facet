@@ -808,7 +808,8 @@ local BOX: { [string]: PropSpec } = {
 		shared = true,
 		channel = "layout",
 		doc = "horizontal offset from the anchor point (arrange-only update); a number, a theme metric name, "
-			.. "or a fraction of the parent's inner width ({ scale = 0.5, offset? })",
+			.. "or a fraction of the parent's inner width ({ scale = 0.5, offset? }). Read by an Anchor parent, "
+			.. "and by a ScrollView as a scroll-time nudge; a stack, grid or wrap parent places by flow and ignores it",
 	}),
 	offsetY = p({
 		types = { "number", "scaleOffset", "metric" },
@@ -816,7 +817,7 @@ local BOX: { [string]: PropSpec } = {
 		dirty = { "arrange" },
 		shared = true,
 		channel = "layout",
-		doc = "vertical offset from the anchor point (arrange-only update); a number, a theme metric name, "
+		doc = "vertical offset from the anchor point (arrange-only update); a number, a theme metric name, . Read by an Anchor parent, and by a ScrollView as a scroll-time nudge; a stack, grid or wrap parent ignores it"
 			.. "or a fraction of the parent's inner height ({ scale = 0.5, offset? })",
 	}),
 	-- PER-CHILD CROSS-AXIS ALIGNMENT INSIDE A STACK'S LINE (parity round 2 §2.1) —
