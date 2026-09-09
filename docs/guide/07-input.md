@@ -834,3 +834,21 @@ a gamepad keeps compact chrome and arrangement while gaining directional focus,
 Button A activation and Button B Back. A ten-foot display uses the theme's larger
 text, targets and focus treatment. Changing preferred input does not reset the
 path or form data. The Showcase journey tests this mixed-input case explicitly.
+
+### Radial quick actions
+
+`Facet.Controls.RadialMenu` owns launcher tap/slide capture, geometric sector
+selection, spatial focus, and analog highlighting through the presenter and
+semantic action system. A tap latches open; slide and release selects once.
+Returning to the hole cancels a drag. Arrow keys and D-pad traverse spatially,
+Tab reaches every action, and Activate commits. Cancel goes back one level, then
+dismisses at root. Roblox reserves physical Escape for its own menu; opening that
+menu cancels active pointer capture. Visible Back and gamepad B remain available.
+Bind an optional semantic `holdAction` for held-trigger release selection.
+See the [API reference](../reference/api.md#controlsradialmenu) for compass gaps,
+completion policies, moving anchors, and center pass-through bounds.
+
+Choose radial menus for small contextual command sets and stable directional
+actions. Prefer a readable linear menu for long labels or large collections.
+[Choosing controls](14-choosing-controls.md) maps these tasks to presets, content
+fitting, image-only buttons, hierarchy, and per-action completion policies.

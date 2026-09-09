@@ -202,6 +202,9 @@ local ASSETS = {
 }
 
 function glossy_touch.definition(themes: any): any
+	local assets = table.clone(ASSETS)
+	-- Shared Facet magnifying-glass asset, explicitly retained with standardIcons off.
+	assets.search = { content = "rbxassetid://85188541706347", tintRole = "content" }
 	return {
 		base = themes.neutralPackage(),
 		identity = {
@@ -364,13 +367,9 @@ function glossy_touch.definition(themes: any): any
 			divider = { kind = "native" },
 			scrollbar = { kind = "native" },
 		},
-		-- NO `icons`, on purpose and in both halves of the pair. R4's framework
-		-- fallback table draws an ASCII-safe glyph through the theme's own font,
-		-- which is the right look for chrome this clean — and it makes the pair a
-		-- controlled comparison against Fantasy Ornate, where the same stepper
-		-- draws pictures. `identity.standardIcons = false` above is what KEEPS
-		-- that true now that the framework ships art of its own.
-		assets = ASSETS,
+		-- Search needs a recognizable picture; other chrome keeps this theme's glyphs.
+		icons = { ["facet:search"] = "search" },
+		assets = assets,
 		compatibility = { requiresSchema = themes.SCHEMA },
 	}
 end

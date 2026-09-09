@@ -71,6 +71,14 @@ local function at(needle: string): number
 end
 
 describe("screen_target.setFocusVisual: the float ring's geometry (device fix round)", function()
+	it("insets the ring beneath clipping ancestors beyond an intermediate layout host", function()
+		local startAt = at("local cropped = false")
+		local endAt = at("if handle.instanceHost ~= nil and cropped and handle.instanceHost.instance ~= nil then")
+		local scan = string.sub(FN, startAt, endAt)
+		expect(string.find(scan, "ancestor = ancestor.Parent", 1, true) ~= nil).toBe(true)
+		expect(string.find(scan, 'ancestor.ClipsDescendants or ancestor:IsA("CanvasGroup")', 1, true) ~= nil).toBe(true)
+		expect(string.find(scan, "cropped = true", 1, true) ~= nil).toBe(true)
+	end)
 	it("found the function body (the anchor still names a real member)", function()
 		expect(#FN > 0).toBe(true)
 	end)
@@ -89,7 +97,9 @@ describe("screen_target.setFocusVisual: the float ring's geometry (device fix ro
 	it("(a) the float's Position stays UNSCALED (the lift anchors top-left)", function()
 		-- the position line reads the plain rect, never `* liftScale` — a scaled
 		-- position would mean the anchor moved, which the lift never does
-		local posLineStart = at("f.Position = UDim2.fromOffset(rect.x - origin.x + thickness")
+		local originAt = at("local ox, oy = presentation.hostOriginOf(handle)")
+		local posLineStart = at("f.Position = UDim2.fromOffset(rect.x - ox + thickness")
+		expect(originAt < posLineStart).toBe(true)
 		local posLineEnd = string.find(FN, ")\n", posLineStart, true) or (posLineStart + 120)
 		local posLine = string.sub(FN, posLineStart, posLineEnd)
 		expect(string.find(posLine, "liftScale", 1, true)).toBe(nil)

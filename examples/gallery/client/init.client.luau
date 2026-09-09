@@ -299,6 +299,7 @@ if bootDecision.mode == "showcase" then
 	-- survives only as the first-frame value, for the one frame before any geometry
 	-- exists, and as the standalone (non-composed) pickers' own strip.
 	local chipsBottom = core:signal(nil :: number?)
+	local worldVisible = core:signal(false)
 	-- the live core-topbar height, published as a signal because the CHROME is
 	-- presented edge-to-edge (it owns the strip) and therefore has to place
 	-- itself below the Roblox buttons itself, reactively
@@ -369,6 +370,7 @@ if bootDecision.mode == "showcase" then
 	-- a tutorial example takes (Facet, core, opts) and may present itself; a
 	-- scenario fixture takes one ctx table and returns a screen for us to
 	-- present. The picker knows neither, which is what keeps it a picker.
+	local activeBuilt: any = nil
 	local function mountDemo(demo: any): any
 		local demoScope = core:scope(`showcase-demo-{demo.id}`)
 		local demoCore = scopedCore(demoScope)
@@ -401,6 +403,15 @@ if bootDecision.mode == "showcase" then
 				env = env,
 				actionSystem = system,
 				presenter = pres,
+				worldActions = function(triggered)
+					return require(script:WaitForChild("world_actions_demo")).mount(
+						{ core = demoCore, presenter = pres },
+						function(value)
+							worldVisible:set(value)
+						end,
+						triggered
+					)
+				end,
 				foreign = {
 					adopt = function(nodePath: string, content: any): string
 						if demoHandle == nil then
@@ -606,7 +617,11 @@ if bootDecision.mode == "showcase" then
 		-- the picker calls `dispose` before it drops a demo; chain the example's
 		-- own teardown (when it has one) ahead of the scope's
 		local ownDispose = built.dispose
+		activeBuilt = built
 		built.dispose = function()
+			if activeBuilt == built then
+				activeBuilt = nil
+			end
 			if ownDispose ~= nil then
 				pcall(ownDispose)
 			end
@@ -629,12 +644,15 @@ if bootDecision.mode == "showcase" then
 	pres.present(
 		UI.Screen({
 			id = "ShowcaseBackdrop",
-			surface = "base",
 			children = {
-				UI.Spacer({
-					id = "Fill",
-					width = UI.fill(),
-					height = UI.fill(),
+				UI.When({
+					id = "Backdrop",
+					condition = core:memo(function(use)
+						return not use(worldVisible)
+					end),
+					thenView = function()
+						return UI.Box({ id = "Fill", surface = "base", width = UI.fill(), height = UI.fill() })
+					end,
 				}),
 			},
 		}),
@@ -797,6 +815,19 @@ if bootDecision.mode == "showcase" then
 	showcaseApi.Name = "FacetShowcaseAPI"
 	for fnName, impl in
 		{
+			report = function(_arg: string?)
+				return HttpService:JSONEncode(
+					if activeBuilt and activeBuilt.report then activeBuilt.report() else { available = false }
+				)
+			end,
+			step = function(arg: string?)
+				local fn = activeBuilt and activeBuilt.steps and activeBuilt.steps[arg]
+				if type(fn) ~= "function" then
+					return HttpService:JSONEncode({ ok = false })
+				end
+				fn()
+				return HttpService:JSONEncode({ ok = true })
+			end,
 			list = function(_arg: string?)
 				return HttpService:JSONEncode(demo_picker.list())
 			end,

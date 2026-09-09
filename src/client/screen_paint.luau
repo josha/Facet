@@ -191,6 +191,15 @@ function screen_paint.new(ctx: any)
 				handle.tintPathRestore = handle.path2d.Color3
 			end
 			handle.path2d.Color3 = color
+			if hasAlpha or handle.pathAlpha then
+				if not handle.pathAlpha then
+					local gradient = Instance.new("UIGradient")
+					gradient.Name = "FacetPathAlpha"
+					gradient.Parent = handle.path2d
+					handle.pathAlpha = gradient
+				end
+				handle.pathAlpha.Transparency = NumberSequence.new(alpha)
+			end
 			return
 		end
 		if instance:IsA("ImageLabel") or instance:IsA("ViewportFrame") then
@@ -290,6 +299,9 @@ function screen_paint.new(ctx: any)
 		handle.tintFill = nil
 		syncTags(handle)
 		if handle.path2d ~= nil then
+			if handle.pathAlpha then
+				handle.pathAlpha.Transparency = NumberSequence.new(0)
+			end
 			if handle.tintPathRestore ~= nil then
 				handle.path2d.Color3 = handle.tintPathRestore
 				handle.tintPathRestore = nil

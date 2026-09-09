@@ -165,6 +165,9 @@ local ASSETS = {
 }
 
 function compact_pointer.definition(themes: any): any
+	local assets = table.clone(ASSETS)
+	-- Shared Facet magnifying-glass asset, explicitly retained with standardIcons off.
+	assets.search = { content = "rbxassetid://85188541706347", tintRole = "content" }
 	return {
 		base = themes.neutralPackage(),
 		identity = {
@@ -302,9 +305,9 @@ function compact_pointer.definition(themes: any): any
 			divider = { kind = "native" },
 			scrollbar = { kind = "native" },
 		},
-		-- NO `icons` (provenance note 6): R4's ASCII-safe fallback glyph through
-		-- this theme's font is exactly the right look for near-flat desktop chrome.
-		assets = ASSETS,
+		-- Search needs a recognizable picture; other chrome keeps this theme's glyphs.
+		icons = { ["facet:search"] = "search" },
+		assets = assets,
 		compatibility = { requiresSchema = themes.SCHEMA },
 	}
 end

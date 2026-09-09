@@ -1023,12 +1023,27 @@ local FIXTURES: { Fixture } = {
 		end,
 	},
 
+	{
+		id = "RadialMenu",
+		class = "RadialMenu",
+		-- STAMPED BY THE SCAFFOLD. Grow it with the control: a fixture that mounts
+		-- the stub proves the stub, and the sweep's whole question is whether THIS
+		-- control's text still fits its boxes at +14px in a wider theme.
+		build = function(core: any)
+			return Facet.Controls.RadialMenu(
+				core,
+				{ id = "Ctl", items = { { id = "wave", label = "Wave", onSelect = function() end } } }
+			).blueprint
+		end,
+	},
+
 	-- scaffold: new control fixtures are appended above this line
 }
 
 -- registry rows that CANNOT be a fixture, each with the reason. Silence here
 -- would be the same silent-zero the extension checker exists to prevent.
 local UNSWEEPABLE: { [string]: string } = {
+	RadialGeometry = "pure sector arithmetic; no blueprint or text. RadialMenu mounts its resulting geometry",
 	SelectionIndicator = "the DECORATION half of Picker's `indicator` property (navigation-and-menus D4): it returns "
 		.. "the layer Picker mounts, so it is swept through the `Picker-indicator` fixture — at every preference, in "
 		.. "both reference themes — rather than twice",

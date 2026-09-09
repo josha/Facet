@@ -20,6 +20,8 @@ properties shape everything else in this guide:
 This guide is written for a Roblox developer who has never seen this codebase.
 Read it in order.
 
+For control selection while designing a screen, use [Choosing controls](14-choosing-controls.md), including when radial actions fit and which options to choose.
+
 ## The principles, in plain words
 
 Everything in Facet follows a small set of ideas. If a rule ever seems strange,
@@ -179,6 +181,8 @@ replacement and their earliest removal version.
 | `Controls.Callout` | A short attention surface, queued so two never collide. | [api](../reference/api.md#newcallout) |
 | `Controls.NavigationStack` | A caller-owned route path with page cleanup, Back and focus restoration. | [api](../reference/api.md#controlsnavigationstack) |
 | `Controls.TabView` | Tabs with a placement that adapts to the device. | [api](../reference/api.md#newtabview) |
+| `client.world_anchor` | Measure a Part, Model, or avatar for a following screen anchor and radial opening with relative padding. | [api](../reference/api.md#clientworld_anchor) |
+| `Controls.RadialMenu` | Corner, circle and donut command menus with captured gestures, compact labels and mixed nested rings/pages. | [api](../reference/api.md#controlsradialmenu) |
 | `valueModel` | Formats, clamps, and steps a numeric value for those controls. | [api](../reference/api.md#valuemodel) |
 | `pathShapes` | Builds arc, ring, and needle point lists for `UI.Path`. | [api](../reference/api.md#pathshapes) |
 

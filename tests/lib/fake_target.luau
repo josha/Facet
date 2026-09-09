@@ -1072,7 +1072,7 @@ function fake_target.new(opts: Opts?)
 			-- child and GuiObject.Rotation)
 			handle.motionScaleInstance = if type(value) == "table"
 					and type(value.scale) == "number"
-					and value.scale ~= 1
+					and (value.scale ~= 1 or handle.motionScaleInstance ~= nil)
 				then { className = "UIScale", name = "FacetMotionScale", scale = value.scale }
 				else nil
 			handle.rotation = if type(value) == "table" and type(value.rotation) == "number" then value.rotation else 0
@@ -1778,6 +1778,19 @@ function fake_target.new(opts: Opts?)
 	-- filters `InputBegan` to `MouseButton2`; there is no input object to fake
 	-- here, so a spec drives the already-filtered outcome — which is why the
 	-- native arbitration stays a physical row (NM-X2).
+	function adapter.setPointerPreview(handle: any, fn: any): () -> ()
+		handle.pointerPreview = fn
+		return function()
+			handle.pointerPreview = nil
+		end
+	end
+	function adapter.pointerPreview(path: string, x: number, y: number)
+		local node = nodes[path]
+		if node and node.pointerPreview and pointerCapture == nil then
+			node.pointerPreview({ x = x, y = y, pointerType = "mouse" })
+		end
+	end
+
 	function adapter.setSecondaryActivate(handle: any, fn: () -> ()): () -> ()
 		handle.secondaryActivate = fn
 		return function()

@@ -315,6 +315,20 @@ describe("themes.resolveIcon: three honest answers", function()
 end)
 
 describe("search icon follows the existing theme resolver", function()
+	it("shipped glyph-oriented themes still draw a real magnifying glass", function()
+		for _, theme in
+			{
+				require("../examples/themes/pixel_quest"),
+				require("../examples/themes/compact_pointer"),
+				require("../examples/themes/glossy_touch"),
+			}
+		do
+			local search = themes.resolveIcon(theme.build(require("../src").themes), "facet:search")
+			expect(search.source).toBe("asset")
+			expect(search.contentId).toBe(themes.resolveIcon(nil, "facet:search").contentId)
+			expect(search.tintRole).toBe("content")
+		end
+	end)
 	it("uses tinted standard art, honors package art, and keeps the explicit ASCII floor", function()
 		local neutral = snapshot.neutralPackage()
 		local search = themes.resolveIcon(neutral, "facet:search")

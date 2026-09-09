@@ -1596,6 +1596,14 @@ local TINT: PropSpec = p({
 		.. "identity hue. A value from a CLOSED SET is a state — use surface/role/selected instead",
 })
 
+local FOCUS_VISUAL: PropSpec = p({
+	types = { "string" },
+	reactive = false,
+	channel = "semantic",
+	enum = { "default", "none" },
+	doc = '"default" (adapter paints the focused state) | "none" (this control paints its own)',
+})
+
 local FOCUSABLE_OPT_OUT: PropSpec = p({
 	types = { "boolean" },
 	reactive = true,
@@ -2448,6 +2456,7 @@ class("Button", {
 			doc = "app-state selection — rides a style tag, never a bespoke fill",
 		}),
 		focusable = FOCUSABLE_OPT_OUT,
+		focusVisual = FOCUS_VISUAL,
 		traversalPriority = TRAVERSAL_PRIORITY,
 		surface = CONTAINER_LAYOUT.surface,
 		padding = CONTAINER_LAYOUT.padding,
@@ -2655,13 +2664,7 @@ class("Grip", {
 		-- treatment say so, instead of the adapter and the control both drawing.
 		-- Construction-only: which thing draws the state is what the node IS, not a
 		-- question about state.
-		focusVisual = p({
-			types = { "string" },
-			reactive = false,
-			channel = "semantic",
-			enum = { "default", "none" },
-			doc = '"default" (adapter paints the focused state) | "none" (this control paints its own)',
-		}),
+		focusVisual = FOCUS_VISUAL,
 		onPointerDown = p({
 			types = { "function" },
 			reactive = false,

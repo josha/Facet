@@ -44,6 +44,7 @@
 
 	Strictly one-way: this never requires the presenter back. ]]
 
+local aperture = require("../render/input_aperture")
 local mountLib = require("../mount")
 local blueprintLib = require("../blueprint")
 local chrome_slots = require("../tokens/chrome_slots")
@@ -394,7 +395,13 @@ function catchers.new(ctx: any)
 		return lowest - 50
 	end
 
-	local function mountPopupCatcher(owner: any, contribPath: string, dismiss: () -> (), consume: boolean?): any
+	local function mountPopupCatcher(
+		owner: any,
+		contribPath: string,
+		dismiss: () -> (),
+		consume: boolean?,
+		hole: any?
+	): any
 		--[[ ALWAYS "plain" — this catcher never dims; it exists only to swallow one
 			outside tap. Until 2026-08-13 it declared no surface at all and built its
 			own Button inline rather than going through `catcherScreen`, and both
@@ -408,6 +415,60 @@ function catchers.new(ctx: any)
 			`outsideDismiss` owners. ]]
 		local bp = catcherScreen("__popupcatcher__", "plain")
 		local sc = core:scope("present-popup-catcher")
+		if hole then
+			local regions = sc:own(core:memo(function(use)
+				return aperture.rects(use(env:get("viewportRect")), use(hole))
+			end))
+			bp = blueprintLib.Screen({
+				id = "__popupcatcher__",
+				children = {
+					blueprintLib.Anchor({
+						id = "catcher",
+						width = { type = "fill" },
+						height = { type = "fill" },
+						children = {
+							blueprintLib.ForEach({
+								id = "Regions",
+								items = regions,
+								key = function(r)
+									return r.id
+								end,
+								row = function(r, rs)
+									local function value(key)
+										return rs:own(core:memo(function(use)
+											for _, v in use(regions) do
+												if v.id == r.id then
+													return v[key]
+												end
+											end
+											return 0
+										end))
+									end
+									local width, height = value("w"), value("h")
+									return chrome_slots.attachHint(
+										blueprintLib.Button({
+											id = "Hit",
+											label = "",
+											surface = "plain",
+											focusable = false,
+											width = rs:own(core:memo(function(use)
+												return { type = "fixed", px = use(width) }
+											end)),
+											height = rs:own(core:memo(function(use)
+												return { type = "fixed", px = use(height) }
+											end)),
+											offsetX = value("x"),
+											offsetY = value("y"),
+										}),
+										{ slot = chrome_slots.NO_SLOT }
+									)
+								end,
+							}),
+						},
+					}),
+				},
+			})
+		end
 		local root = mountLib.mount(core, bp, { scope = sc:child("mount") })
 		local controller = renderer.attach(core, root, env, adapter, {
 			rootPolicy = "edgeToEdge",
@@ -479,8 +540,13 @@ function catchers.new(ctx: any)
 			return
 		end
 		disposePopupCatcher()
-		popupCatcher =
-			mountPopupCatcher(owner, c.path, c.bundle.outsideDismiss.dismiss, c.bundle.outsideDismiss.consume)
+		popupCatcher = mountPopupCatcher(
+			owner,
+			c.path,
+			c.bundle.outsideDismiss.dismiss,
+			c.bundle.outsideDismiss.consume,
+			c.bundle.outsideDismiss.passThroughRect
+		)
 	end
 	local function topPopupCatcherPath(): string?
 		return if popupCatcher ~= nil then popupCatcher.path else nil

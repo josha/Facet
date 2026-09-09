@@ -295,6 +295,9 @@ local ORDER = {
 	-- toggle, the ring landing outside is a jump, and the reactive tint is a
 	-- drag. Also in `demo_picker.DEMOS`.
 	"inherited_subtree",
+	-- scaffolded showcase surface for `Facet.Controls.RadialMenu`. Also in
+	-- `demo_picker.DEMOS`. TODO: say what a player can only learn by DRIVING it.
+	"radial_menu",
 	-- scaffold: new control scenarios are appended above this line
 }
 

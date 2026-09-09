@@ -605,7 +605,7 @@ function scaffold.plan(kind: string, name: string): Plan
 			edits = {
 				{
 					path = "tests/run.luau",
-					before = "local ok = testkit.run()",
+					before = "local ok = testkit.run(",
 					insert = `require("./{name}.spec")`,
 				},
 			},
@@ -647,7 +647,7 @@ function scaffold.plan(kind: string, name: string): Plan
 		edits = {
 			{
 				path = "tests/run.luau",
-				before = "local ok = testkit.run()",
+				before = "local ok = testkit.run(",
 				insert = `require("./{name}.spec")`,
 			},
 			{

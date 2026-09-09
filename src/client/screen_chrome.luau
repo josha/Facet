@@ -2264,6 +2264,12 @@ function screen_chrome.new(ctx: Context)
 		end
 		local slot = chromeSlotOf(handle)
 		local override = chromeOverrideOf(handle)
+		-- Explicit image content still paints when a composite suppresses its
+		-- theme plate. Raw compact images use this same override path.
+		local imageOnly = slot == nil and override ~= nil
+		if imageOnly then
+			slot = "control"
+		end
 		local plan = if slot ~= nil then chromeState.planFor(slot, override) else nil
 		-- A LAYERED recipe (planFor returns nil for one, which is what keeps every
 		-- flat and nine-slice package byte-identical). A rung-2 override beats it:
@@ -2324,7 +2330,7 @@ function screen_chrome.new(ctx: Context)
 			-- native half: classifyTags decides which tag (if any) the slot earns
 			syncTags(handle)
 		end
-		if slot ~= nil then
+		if slot ~= nil and not imageOnly then
 			-- fallback half: the explicit fill/corner/hairline. Never behind the
 			-- decoration branch either, for exactly the same reason.
 			applySlotNativePaint(instance, slot, handle)
@@ -2519,7 +2525,7 @@ function screen_chrome.new(ctx: Context)
 		-- after the decoration already exists, and a re-suppression is idempotent
 		applySkinnedSuppression(instance, true, handle)
 		syncChromeText(handle, deco :: ImageLabel, plan, 1)
-		syncChromeShadow(handle, slot, deco, chromeState.shadowFor(slot :: string))
+		syncChromeShadow(handle, slot, deco, if imageOnly then nil else chromeState.shadowFor(slot :: string))
 		-- rung-2 PER-STATE ART. An overridden
 		-- decoration is deliberately untagged, so no rule can swap its picture:
 		-- the adapter watches the node's own states and writes the art itself.

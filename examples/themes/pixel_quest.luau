@@ -207,6 +207,9 @@ local QUEST = {
 }
 
 function pixel_quest.definition(themes: any): any
+	local assets = table.clone(ASSETS)
+	-- Shared Facet magnifying-glass asset, explicitly retained with standardIcons off.
+	assets.search = { content = "rbxassetid://85188541706347", tintRole = "content" }
 	local inset = { top = 16, right = 16, bottom = 16, left = 16 }
 	return {
 		base = themes.neutralPackage(),
@@ -439,6 +442,7 @@ function pixel_quest.definition(themes: any): any
 		-- SEMANTIC ICONS (R4). Names are the framework's own vocabulary, so a
 		-- control asks for a MEANING and this table answers with art.
 		icons = {
+			["facet:search"] = "search",
 			increment = "pixel_icon_plus",
 			decrement = "pixel_icon_minus",
 			["chevron.trailing"] = "pixel_icon_chevron_right",
@@ -446,7 +450,7 @@ function pixel_quest.definition(themes: any): any
 			checkmark = "pixel_icon_check",
 			close = "pixel_icon_cross",
 		},
-		assets = ASSETS,
+		assets = assets,
 		compatibility = { requiresSchema = themes.SCHEMA },
 	}
 end

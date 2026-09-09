@@ -1,6 +1,6 @@
 # Showcase curation
 
-The picker contains 41 addressable fixtures and examples. Twelve useful examples
+The picker contains 42 addressable fixtures and examples. Thirteen useful examples
 now lead the list; the other 29 are inside the collapsed **UI laboratory**. All
 stable IDs, scripted drives and regression fixtures remain available.
 
@@ -29,3 +29,5 @@ This change curates the picker and clarifies one unclear example. It does not
 claim that the remaining multi-demo consolidations have been implemented. Those
 need their own interaction designs and coverage migrations; deleting the small
 fixtures first would lose useful failure and lifecycle evidence.
+
+Quick actions (`radial-menu`) joins the curated set with three focused examples: corner commands, compass gestures, and a character donut with mixed navigation.

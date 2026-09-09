@@ -257,6 +257,7 @@ describe("the public SHAPE a breaking change moves", function()
 		["Grid.itemSizing"] = "natural",
 		["Grid.minColumnWidth"] = "prose: the widest child — the DEFAULT when neither this n",
 		["Grid.rowGap"] = "gap",
+		["Button.focusVisual"] = "prose:'default' (adapter paints th",
 		["Grip.focusVisual"] = "prose:'default' (adapter paints th",
 		["Grip.focusable"] = "prose:(Grips are unfocusable by default)",
 		["HStack.distribute"] = "`start`",

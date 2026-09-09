@@ -16,6 +16,7 @@ conversation history, or any repository other than this one.
 | the smallest working screen, headless and in Studio | [`docs/guide/03-getting-started.md`](docs/guide/03-getting-started.md) |
 | every public capability, one line each | the capability catalog in [`docs/guide/README.md`](docs/guide/README.md) |
 | a property, default, callback, or return value | [`docs/reference/api.md`](docs/reference/api.md) |
+| choosing a radial menu, linear menu, toolbar, or navigation flow | [`docs/guide/14-choosing-controls.md`](docs/guide/14-choosing-controls.md) |
 | worked examples, smallest first | [`docs/guide/04-tutorial-examples.md`](docs/guide/04-tutorial-examples.md) and `examples/` |
 | a runnable standalone project | [`examples/consumer/`](examples/consumer/) |
 | the module map and why each boundary exists | [`docs/guide/02-architecture.md`](docs/guide/02-architecture.md) |
@@ -36,6 +37,15 @@ conversation history, or any repository other than this one.
 | the maintainer's package interface | [`package/README.md`](package/README.md) |
 
 ## 2. How to build a screen
+
+Before selecting controls for a new screen, apply
+[`Choosing controls`](docs/guide/14-choosing-controls.md). Use its task and input
+criteria to decide whether contextual radial actions are appropriate, then choose
+the documented geometry, content-fit, navigation, and completion options. For
+proximity actions around world objects, use the public `client.world_anchor`
+binding and the chooser’s world-object guidance. Prefer a direct prompt for one
+primary action and a corner menu for global commands; do not duplicate projection
+in game UI.
 
 1. **Compose from the public surface.** Layout comes from `Facet.UI.*` — stacks,
    grids, `ZStack`, `Composition`, and the layout modifiers. Controls come from

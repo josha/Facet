@@ -205,9 +205,12 @@ function actions.newSystem(core: any)
 			-- process one axis sample; returns the value to deliver, or nil for
 			-- "no state change" (held past threshold, or inside the hysteresis
 			-- band). Mutates the latch (`armed`).
-			function binding._sample(x: number, y: number): number?
+			function binding._sample(x: number, y: number): any
 				if binding.removed or action.context.destroyed then
 					return nil
+				end
+				if actionType == "Direction2D" then
+					return { x = x, y = y }
 				end
 				local v = if binding.component == "x" then x else y
 				if binding.invert then

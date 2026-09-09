@@ -125,7 +125,7 @@ describe("presentation transform: composition onto the solved rect", function()
 		expect(#adapter.takeOps()).toBe(0)
 	end)
 
-	it("scale materializes a named transient UIScale and removes it at rest", function()
+	it("scale keeps its pivot at explicit rest and releases it when cleared", function()
 		local adapter, controller = render(screen())
 		controller.setPresentationTransform("/S/Panel", { x = 0, y = 0, scale = 0.96 })
 		local live = adapter.node("/S/Panel").motionScaleInstance
@@ -133,6 +133,8 @@ describe("presentation transform: composition onto the solved rect", function()
 		expect(live.name).toBe(authority.INSTANCE_NAMES.motionScale)
 		expect(live.scale).toBe(0.96)
 		controller.setPresentationTransform("/S/Panel", { x = 0, y = 0, scale = 1 })
+		expect(adapter.node("/S/Panel").motionScaleInstance.scale).toBe(1)
+		controller.setPresentationTransform("/S/Panel", nil)
 		expect(adapter.node("/S/Panel").motionScaleInstance).toBeNil()
 	end)
 
@@ -406,7 +408,8 @@ describe("screen_target: the presentation channel (source contract)", function()
 	it("the offset ACCUMULATES down the subtree, because the instance tree is flat", function()
 		local from = string.find(adapterSource, "local function recomputePresentationOffset(handle: any)", 1, true)
 		expect(from ~= nil).toBe(true)
-		local body = string.sub(adapterSource, from :: number, (from :: number) + 1200)
+		local untilTransform = string.find(adapterSource, "local function setTransform", from :: number, true)
+		local body = string.sub(adapterSource, from :: number, (untilTransform :: number) - 1)
 		-- ancestors contribute...
 		expect(string.find(body, "presentationTransforms[ancestor]", 1, true) ~= nil).toBe(true)
 		-- ...and a REAL PARENT stops the walk, since its own move carries its children
@@ -474,7 +477,8 @@ describe("screen_target: the presentation channel (source contract)", function()
 	it("the motion scale SHARES the press dip's UIScale (the engine honours one)", function()
 		local from = string.find(adapterSource, "local function applyPresentationPaint(handle: any, t: any)", 1, true)
 		expect(from ~= nil).toBe(true)
-		local body = string.sub(adapterSource, from :: number, (from :: number) + 1200)
+		local untilTransform = string.find(adapterSource, "local function setTransform", from :: number, true)
+		local body = string.sub(adapterSource, from :: number, (untilTransform :: number) - 1)
 		expect(string.find(body, "handle.motionScale or handle.uiScale", 1, true) ~= nil).toBe(true)
 		-- The naming used to live here. It now lives in `ensureScale`, which is the
 		-- SINGLE place either path creates a UIScale — the press dip creates one lazily

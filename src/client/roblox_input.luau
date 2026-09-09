@@ -334,6 +334,10 @@ function roblox_input.newSystem(core: any)
 				-- re-center below releaseThreshold before the next step re-arms
 				local latched = 0
 				local stateConn = axisAction.StateChanged:Connect(function(value)
+					if action.type == "Direction2D" and typeof(value) == "Vector2" then
+						action.state:set({ x = value.X, y = -value.Y })
+						return
+					end
 					local sample = if typeof(value) == "Vector2"
 						then (if component == "x" then value.X else value.Y)
 						else 0

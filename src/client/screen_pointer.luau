@@ -400,7 +400,9 @@ function screen_pointer.new(ctx: any)
 			endCapture("destroyed")
 		end
 		local connections = {}
-		activeCapture = { handle = handle, connections = connections }
+		local capture = { handle = handle, connections = connections }
+		activeCapture = capture
+		local lastPosition = inputObject.Position
 		captureHint = handle.cursorHint
 		applyCursor()
 		--[[ THE CAPTURE BELONGS TO THE FINGER THAT OPENED IT (2026-08-17).
@@ -416,9 +418,9 @@ function screen_pointer.new(ctx: any)
 			then inputObject
 			else nil
 		local function fromThisPointer(other: InputObject): boolean
-			return originatingTouch == nil
-				or other.UserInputType ~= Enum.UserInputType.Touch
-				or other == originatingTouch
+			return if originatingTouch
+				then other == originatingTouch
+				else other.UserInputType ~= Enum.UserInputType.Touch
 		end
 		table.insert(
 			connections,
@@ -430,6 +432,7 @@ function screen_pointer.new(ctx: any)
 					moveObject.UserInputType == Enum.UserInputType.MouseMovement
 					or moveObject.UserInputType == Enum.UserInputType.Touch
 				then
+					lastPosition = moveObject.Position
 					if handlers.move then
 						handlers.move(
 							toWindowSpace(
@@ -441,20 +444,41 @@ function screen_pointer.new(ctx: any)
 				end
 			end)
 		)
+		local function finish(endObject: InputObject, position: Vector3)
+			if activeCapture ~= capture or not fromThisPointer(endObject) then
+				return
+			end
+			if
+				endObject.UserInputType ~= Enum.UserInputType.MouseButton1
+				and endObject.UserInputType ~= Enum.UserInputType.Touch
+			then
+				return
+			end
+			-- Release before dispatch: the callback may dispose this surface or
+			-- start another capture. Multiple native end notifications are one up.
+			endCapture()
+			if handlers.up then
+				handlers.up(toWindowSpace(position, pointerTypeOf(endObject)))
+			end
+		end
 		table.insert(
 			connections,
 			UserInputService.InputEnded:Connect(function(endObject: InputObject)
-				if not fromThisPointer(endObject) then
-					return
-				end
-				if
-					endObject.UserInputType == Enum.UserInputType.MouseButton1
-					or endObject.UserInputType == Enum.UserInputType.Touch
-				then
-					if handlers.up then
-						handlers.up(toWindowSpace(endObject.Position, pointerTypeOf(endObject)))
+				finish(endObject, endObject.Position)
+			end)
+		)
+		-- Studio's device simulator can deliver the originating object's End
+		-- without a global UIS InputEnded. The native object is also a reliable
+		-- owner on physical touch; identity and the capture token prevent echoes.
+		table.insert(
+			connections,
+			inputObject.Changed:Connect(function(property: string)
+				if property == "UserInputState" then
+					if inputObject.UserInputState == Enum.UserInputState.End then
+						finish(inputObject, if originatingTouch then inputObject.Position else lastPosition)
+					elseif inputObject.UserInputState == Enum.UserInputState.Cancel then
+						endCapture("interrupted")
 					end
-					endCapture()
 				end
 			end)
 		)
@@ -530,6 +554,19 @@ function screen_pointer.new(ctx: any)
 		end
 	end
 
+	-- Hover uses the same window-space coordinates as capture, without claiming
+	-- a pointer. The returned lifetime belongs to the controller contribution.
+	function adapter.setPointerPreview(handle: any, fn: (any) -> ()): () -> ()
+		local connection = UserInputService.InputChanged:Connect(function(input)
+			if input.UserInputType == Enum.UserInputType.MouseMovement and activeCapture == nil then
+				fn(toWindowSpace(input.Position, "mouse"))
+			end
+		end)
+		return function()
+			connection:Disconnect()
+		end
+	end
+
 	-- wheel scrolling (Phase 4 touch-scroll design): hover-wheel input on a
 	-- scroll container routes to the renderer-wired handler
 	function adapter.setScrollHandler(handle: any, fn: (number) -> ())
@@ -588,6 +625,7 @@ function screen_pointer.new(ctx: any)
 	return {
 		setActivateHandler = adapter.setActivateHandler,
 		setPointerHandlers = adapter.setPointerHandlers,
+		setPointerPreview = adapter.setPointerPreview,
 		setScrollHandler = adapter.setScrollHandler,
 		connectionCensus = adapter.connectionCensus,
 		pointerActivateMeta = pointerActivateMeta,

@@ -2145,6 +2145,7 @@ function screen_target.new(opts: Opts?)
 	local pointer = screen_pointer.new({ handlesByPath = handlesByPath })
 	adapter.setActivateHandler = pointer.setActivateHandler
 	adapter.setPointerHandlers = pointer.setPointerHandlers
+	adapter.setPointerPreview = pointer.setPointerPreview
 	adapter.setScrollHandler = pointer.setScrollHandler
 	adapter.connectionCensus = pointer.connectionCensus
 	local pointerActivateMeta = pointer.pointerActivateMeta
@@ -3070,7 +3071,18 @@ function screen_target.new(opts: Opts?)
 				-- a plain move-boundary host cuts nothing, so a node inside one keeps
 				-- the ordinary outward ring rather than growing a second instance to
 				-- solve a problem it does not have.
-				if handle.instanceHost ~= nil and handle.instanceHost.crops and handle.instanceHost.instance ~= nil then
+				-- A layout/motion host can sit between the button and its clip.
+				-- Keep the ring inside the button under any cropping ancestor.
+				local cropped = false
+				local ancestor = host.Parent
+				while ancestor do
+					if ancestor:IsA("GuiObject") and (ancestor.ClipsDescendants or ancestor:IsA("CanvasGroup")) then
+						cropped = true
+						break
+					end
+					ancestor = ancestor.Parent
+				end
+				if handle.instanceHost ~= nil and cropped and handle.instanceHost.instance ~= nil then
 					local float = ringFloat
 					if float == nil then
 						float = Instance.new("Frame")
@@ -3174,13 +3186,13 @@ function screen_target.new(opts: Opts?)
 					end
 					local f = float :: Frame
 					local rect = handle.windowRect
-					local origin = handle.instanceHost.rect
-					if rect ~= nil and origin ~= nil then
+					local ox, oy = presentation.hostOriginOf(handle)
+					if rect ~= nil then
 						-- POSITION is unaffected: the lift's UIScale anchors at the
 						-- instance's own top-left, so that corner never moves. SIZE
 						-- grows by the same factor the lift applies, or the ring stays
 						-- sized for the rect the control no longer paints at.
-						f.Position = UDim2.fromOffset(rect.x - origin.x + thickness, rect.y - origin.y + thickness)
+						f.Position = UDim2.fromOffset(rect.x - ox + thickness, rect.y - oy + thickness)
 						f.Size =
 							UDim2.fromOffset(rect.w * liftScale - 2 * thickness, rect.h * liftScale - 2 * thickness)
 					end

@@ -384,6 +384,7 @@ export type ButtonSpec = BoxProps & PointerHandlers & {
 	enabled: Bound<boolean>?,
 	selected: Bound<boolean>?,
 	focusable: Bound<boolean>?,
+	focusVisual: string?,
 	traversalPriority: number?,
 	surface: Bound<string>?,
 	padding: Bound<Sides>?,

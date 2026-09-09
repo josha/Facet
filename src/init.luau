@@ -51,6 +51,7 @@ local textInput = require("@self/controls/text_input")
 local rowActions = require("@self/controls/row_actions")
 local levelPicker = require("@self/controls/level_picker")
 local navigationStack = require("@self/controls/navigation_stack")
+local radial_menu = require("@self/controls/radial_menu")
 local asyncResources = require("@self/async/resources")
 local themesPackage = require("@self/themes/package")
 local themesSnapshot = require("@self/themes/snapshot")
@@ -489,6 +490,9 @@ local Controls = table.freeze({
 	end,
 	-- DEFERRED (see the block header): this entry declares no spec type, so the
 	-- module is not needed until an AsyncImage is actually built.
+	RadialMenu = function(core: any, spec: radial_menu.Spec)
+		return radial_menu.build(library, core, spec)
+	end,
 	AsyncImage = function(core: any, spec: any)
 		return require("@self/controls/async_image").build(library, core, spec)
 	end,

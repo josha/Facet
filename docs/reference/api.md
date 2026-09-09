@@ -505,9 +505,15 @@ contrast-checkable, and an alpha does not.
 It rides the tint's existing claim on a `Box` (a tinted Box has always owned
 `BackgroundTransparency`); on `Text`, `Image` and `Stage` it claims one more
 property (`TextTransparency` / `ImageTransparency`) and only when it is declared,
-so a tint without it is byte-identical to before. A `Path` **refuses** it at the write
-site — `Path2D` carries a colour and a thickness and no transparency at all — and
-the error names the working idiom (fade the path's container).
+so a tint without it is byte-identical to before. A `Path` carries this alpha
+through a uniform child `UIGradient.Transparency`, which requires the upgraded-gradient
+engine feature (initially a Studio beta). Do not use that channel as evidence of
+an ordinary-client fade. Path2D itself has no publicly writable transparency
+property. A direct Path2D modifier is not a reliable CanvasGroup fade; RadialMenu
+places its Path host Frame inside a bounded compositor with its label, and does
+not depend on gradient alpha. The gradient is reused across updates and removed
+with the Path. Ordinary-client pixel verification remains separate from inspecting
+these numeric properties.
 
 **A value from a closed set is a state, not a tint.** Hover, selected, disabled,
 verdict, phase — those stay `surface`/`role`/`selected` + tags + native-sheet
@@ -1557,6 +1563,11 @@ colour.
 treatment composes with it rather than fighting it.
 
 ### `Button`
+
+`UI.Button.focusVisual` accepts `"default"` (the normal focus outline) or `"none"`
+when a composed control paints its own focus treatment, as RadialMenu does on
+its outer surfaces. It does not change focus order or activation.
+
 
 `UI.Button{ id?, label (required), compactLabel?, enabled?, selected?, role?,
 shape?, icon?, gap?, align?, help?, children?, onPointerDown?, onPointerMove?,
@@ -3044,7 +3055,9 @@ Two controller methods are the framework's entire **motion write surface**, on t
   rect write, so a re-solve can never drop a running motion and a motion never
   touches solver geometry (no `Size`, no re-solve per frame; layout-affecting
   animation is deliberately out of scope). `scale` materializes a transient
-  `FacetMotionScale` `UIScale`, removed at rest — and on a pressable control it
+  `FacetMotionScale` `UIScale`, released when the transform clears. An explicit
+  settled scale of `1` retains the same pivot to avoid engine pixel-rounding jumps.
+  On a pressable control it
   *shares* that control's own `UIScale`, because the engine honours one per object.
   `rotation` maps to `GuiObject.Rotation`, which is paint-only in Roblox. `nil`
   clears. Values are compared before writing, so a settled motion costs nothing.
@@ -4325,6 +4338,10 @@ optional): `focusGroups(rootNode)`, `handleActivate(path, meta)`,
   tap outside the contribution's subtree dismisses it (non-destructive) and the
   presenter synthesizes a transparent full-viewport catcher so a tap on empty
   space dismisses too (the two-zone model without making the control a modal).
+  Optional `passThroughRect: Readable<{x,y,w,h}?>` cuts a window-space native
+  rectangular aperture out of that catcher and excludes taps there from sibling
+  dismissal. The declaring control must leave the same aperture in its own input
+  geometry; RadialMenu does so. `consume` defaults true.
 - `transientScope = { active: Readable<boolean>, rootPath? }` — while `active`,
   focus is trapped within `rootPath` (default: the control root) and restored to
   the pre-activation path on deactivation. **It flattens navigation inside the
@@ -8761,7 +8778,7 @@ declaration's own premises.
 
 ## Client entry points
 
-Everything above hangs off the `Facet` table. These thirteen modules do not: they
+Everything above hangs off the `Facet` table. These fourteen modules do not: they
 are the code that touches Roblox `Instance`s, real input and real device facts,
 so exporting them would put engine requires in the shared/server graph. A client
 script requires each **directly**:
@@ -8770,7 +8787,7 @@ script requires each **directly**:
 local host = require(ReplicatedStorage.Facet.client.host)
 ```
 
-**This list is the contract** (constitution §12). These thirteen are
+**This list is the contract** (constitution §12). These fourteen are
 public surface with the same compatibility promise as anything above; everything
 else under `src/` is library-internal, and a consumer requiring one of those is
 outside the boundary rule. `tools/lune/check_boundary.luau` holds the same list
@@ -8781,6 +8798,71 @@ to it, never the other way round.
 bootstrap and drives the frame correctly; reach for `screen_target`,
 `roblox_env` and `roblox_input` individually only when you are building
 something the host does not shape.
+
+#### `client.world_anchor`
+
+`world_anchor.new(host, opts) -> { anchor, dispose }` measures a world object for a
+screen-overlay radial menu. Require `ReplicatedStorage.Facet.client.world_anchor`.
+`host` is the result of `client.host.new()`, or its `{ core, presenter }` pair.
+The binding samples once on construction and then on `presenter.onTick`; it creates
+no frame driver or GUI instances. Own the binding in the same scope as the menu.
+
+| Option | Meaning and default |
+|---|---|
+| `target` | Required BasePart, Model, or Player, or Readable of one. A Player resolves its current Character, including after respawn. A nil Readable value is temporarily unavailable. Pass a specific part or smaller model to exclude accessories or tools. |
+| `padding` | Finite fraction from 0 to 1 of the measured radius; default 0.15. Zero tightly encloses the bounds, 0.15 adds 15%, and 1 doubles the opening radius. |
+| `camera` | Optional Camera or Readable; defaults to the current Workspace camera and follows camera replacement. Intended for screen overlays, not ViewportFrames or billboard canvases. |
+
+`anchor` is a Readable `{ x, y, clearance, visible }` in Facet window coordinates.
+The center is the midpoint of the projected bounding rectangle; clearance encloses
+all eight projected bounding-box corners, multiplied by `1 + padding`. This conservatively measures
+part/model bounds, including transparent parts and model accessories, rather than
+visible mesh pixels. There is no occlusion raycast. A missing, empty, removed,
+behind-camera, near-plane-intersecting, or offscreen-center target publishes
+`visible = false`; RadialMenu dismisses and releases capture. Disposing the binding
+also invalidates the anchor and disconnects its frame hook. Respawn/reappearance
+updates the anchor but does not reopen a dismissed menu.
+
+Padding scales with the object’s apparent size as camera distance, field of view,
+viewport size, or model size changes. For a minimum opening, set the radial menu’s
+`clearance` to a theme metric. The larger of that minimum and the measured opening
+wins; theme and accessibility rules still determine button sizes. The anchor has
+no separate pixel-based minimum radius option.
+
+```lua
+local worldAnchor = require(ReplicatedStorage.Facet.client.world_anchor)
+local focus = scope:own(worldAnchor.new(host, {
+    target = itemModel,
+    padding = 0.15,
+}))
+local menu = scope:own(Facet.Controls.RadialMenu(host.core, {
+    items = actions,
+    anchor = focus.anchor,
+    clearance = "controlSizes.large.height", -- optional theme-based minimum opening
+    preset = "donut",
+    center = "empty",
+    launcher = false,
+    follow = "idle",
+}))
+-- Include menu.blueprint in a screen covering the object's projected position.
+local connection = prompt.Triggered:Connect(function()
+    menu.api.open()
+end)
+scope:own(function() connection:Disconnect() end)
+```
+
+The game owns the prompt, proximity/permission rules, and server validation of
+commands. Observe `menu.api.isVisible` to hide the prompt through the entire visual
+exit, then restore it. `isOpen` changes as soon as closing begins.
+
+```lua
+scope:own(host.core:observe(menu.api.isVisible, function(visible)
+    prompt.Enabled = not visible
+end))
+```
+The Showcase's **Quick actions → Item** demonstrates a native prompt, model
+rotation, resizing, and pickup. Its invisible local viewer supplies proximity in
+the avatar-free Showcase; production games use their existing character.
 
 #### `client.host`
 
@@ -8945,7 +9027,7 @@ environment untouched.
 | `facts` | explicit resolve facts; default is to read them from the environment |
 | `overrides` | dotted metric paths, recorded as deliberate theme-independence |
 | `rootGui` | the target's root, for an adapter that cannot report one |
-| `host` | explicit sheet host (else the default host policy) |
+| `host` | explicit sheet host; otherwise reuse a designer sheet in ReplicatedStorage or keep runtime sheets under `PlayerGui.FacetStyleHost`, a non-rendering ScreenGui with `ResetOnSpawn = false`. An explicit host must provide the required lifetime |
 | `sheetModel` | a prebuilt sheet model (else one is derived from the package) |
 | `nativeStyle` | the materializer seam (tests and tools inject it) |
 | `forceFallback` | exercise the fallback paint path deliberately |
@@ -9753,3 +9835,207 @@ The five rules it encodes are the contract:
 
 Ownership: nothing. `rest()` is a state reset, not a teardown — the animator and
 both flags belong to the caller.
+### `Controls.RadialMenu`
+
+`Facet.Controls.RadialMenu(core, spec) -> { blueprint, api, dump, dispose }`
+
+A command menu with a launcher, mathematically selected sectors, native readable
+labels, and one logical hierarchy across rings, fans and replacement pages. Mount
+`blueprint` in a bounded `UI.Anchor`/layout offer. Give it the space remaining after
+screen chrome; the presenter's safe-area offer is respected. It owns presentation
+state and subscriptions; the caller owns actions, check and radio signals.
+
+```lua
+local menu = Facet.Controls.RadialMenu(core, {
+    id = "QuickActions",
+    preset = "donut",
+    center = "empty",
+    items = {
+        { id = "wave", label = "Wave", icon = "flag", onSelect = wave },
+        { id = "gear", label = "Equipment", compactLabel = { icon = "menu" },
+          navigation = "replace", children = {
+            { id = "tools", label = "Tools", navigation = "expand", children = {
+                { id = "light", label = "Lantern", checked = lanternOn,
+                  onChange = setLantern },
+            } },
+        } },
+    },
+})
+```
+
+| Spec property | Meaning and default |
+|---|---|
+| `id`, `env`, `width`, `height` | Standard control identity/environment/layout; width and height fill the offered box. |
+| `items` | Nonempty item array or Readable of an array. |
+| `launcher` | Boolean, default true. False omits the built-in launcher for a caller-owned prompt or other trigger; open with `api.open()`. |
+| `label`, `icon` | Launcher's accessible name (`"Quick actions"`) and semantic icon (`"more"`). |
+| `preset` | `"donut"` (default), `"circle"`, `"top-left"`, `"top-right"`, `"bottom-left"`, `"bottom-right"`. Corners face inward. |
+| `appearance` | `"wedges"` (default) or separate `"buttons"`. |
+| `buttonSurface` | `"native"` (default) draws a translucent disc and contrasting border for separate buttons. `"none"` omits both, leaving the icon/image and its interaction/focus behavior. Items can override this property. Wedges and list fallback retain their own surfaces. |
+| `distribution` | `"even"` (default), or `"compass"` with explicit root item slots. |
+| `navigation`, `expansion` | Inherited defaults: `"replace"` / `"expand"`; `"fan"` / `"ring"`. Default replace, fan. Each parent may override them. |
+| `center` | `"back"` (default), `"root"`, `"close"`, `"content"`, `"empty"`. Back at root closes. |
+| `centerLabel`, `centerContent` | Optional Home/Close label; passive blueprint used by content center. Keep contextual content within the center clearance. |
+| `centerPassThrough` | Default false. With empty/content center, uncaptured scene input can pass through the **central square inscribed in the hole**. The curved corner crescents still consume taps. This native rectangular aperture prevents any painted sector from leaking scene input; it is not an alpha hit mask. A captured drag never passes through. |
+| `clearance` | Donut/corner minimum inner radius as number or metric. Default 1.5× minimum target, compacting to one target when space is scarce. An explicit clearance is preserved. Circle defaults to a smaller central dead zone. An explicit or measured anchor clearance also applies to circles. Fitting may enlarge this radius. |
+| `ringWidth` | Optional desired pixel or theme metric for a slimmer band. Adapts to available space while preserving minimum targets, enlarges for preferred text size, and falls back to a list when content cannot fit. |
+| `contentFit` | `"both"` (default) fits painted wedge thickness and arc length to the displayed content. `"radial"` fits one uniform band to the widest content at each level; `"angular"` fits arc length only; `"none"` paints the full logical sectors. Uses theme spacing around measured text/icons. Separate buttons keep their circular treatment. |
+| `anchor` | Window-space `{x, y, visible?, clearance?}` or Readable. Optional finite nonnegative pixel `clearance` supplies the measured minimum opening, combined with the larger explicit `clearance`. Use `client.world_anchor` for automatic Part/Model/avatar measurement. Missing/invisible targets dismiss. This is a 2D overlay. |
+| `gestureSelection` | `"bounded"` (default) requires a hit within the finite capture region. `"direction"` keeps a radial presentation even in a cramped offer and selects by direction after moving beyond 0.6× the minimum target from the center. Direct taps still use geometric hits. |
+| `follow` | `"idle"` (default), `"always"`, `"fixed"`. Idle freezes the resolved geometry during captured pointer or active analog selection. Position and measured radius follow smoothly while idle. Fixed preserves the opening center and measured clearance until reopening. During smooth following or frozen selection, geometry can temporarily lag a moving/resizing object. |
+| `enabled` | Boolean or Readable<boolean>, default true. Disabling closes and cancels input. |
+| `completion` | Default item-completion policy: `"stay"`, `"back"`, `"root"`, `"close"`. |
+| `holdAction` | Optional consumer-owned semantic Bool action. Press opens; release commits the active analog candidate. Neutral alone never commits. No game trigger key is reserved. |
+| `skin` | Optional image decorations: `item`, `launcher`, `center`, `background`. Each accepts an existing Roblox image URI or the standard image state-variant table. Explicit item `decoration` wins over `skin.item`, which wins over theme decoration. Use transparent annular artwork for a shared background if the center must remain visually open. |
+| `onOpen`, `onClose` | Optional synchronous notification callbacks. |
+
+An item has a unique nonempty `id` (no slash; `$navigation` is reserved) and a nonempty accessible `label`
+(string or Readable). It may also have `icon` (semantic icon name), `compactLabel`
+(the same short text/icon/image representation as Button), `labelStyle`
+(`"text"`, `"icon"`, or `"both"`), `description`, `role`, `decoration`, `buttonSurface`, `enabled`,
+and `hidden`. Enabled/hidden accept Readables. Icons do not replace the accessible
+name. `both` measures an icon + text row and uses its icon representation when the
+full row cannot fit. Both representations are centered in the reserved content box;
+compact navigation uses semantic close/back icons. Fitting reserves the displayed
+image rectangle for raw `compactLabel.image` content as well as semantic icon art;
+it does not use the accessible label as an image-size proxy. Image skins on
+separate buttons fill their measured disc. Selection highlights the
+painted circle or wedge; image-only buttons retain their content focus outline. Upright text is placed along the arc, **not bent glyph by
+glyph**. A measured safe rectangle stays inside both circular edges and the
+sector seams. Long labels compact or truncate through Button's established
+representation policy; focus/hover/drag previews show the full label outside the
+ring. If a readable target cannot fit, the control switches to a scrollable list unless `gestureSelection = "direction"`. That policy preserves learned directions and may leave the ring partly outside a small offer.
+
+A parent uses `children` (array or Readable), with optional `navigation` and
+`expansion`. An action uses `onSelect`. A check uses a caller-owned
+`checked: Signal<boolean>` and optional `onChange(boolean)`. A radio uses
+`selected: Signal`, `value`, and optional `onChange(value)`. These shapes are
+mutually exclusive, as in Menu. Dividers and cyclic/empty children are rejected.
+
+An item's `completion` wins over its legacy `dismiss` boolean; `dismiss` wins over
+the menu's `completion`; absent all three, actions close and check/radio items
+stay. Capture is released and the navigation/closed state is changed **before**
+the state signal and callback. Callbacks do not wait for animation. The outgoing
+menu remains visible while its content and surfaces fade together. Focal launchers
+fade back in on the same exit clock, without an empty interval. List fallback
+finishes fading its rows before that clock reveals the launcher, avoiding overlap.
+Radial opening and closing share one transform across the ring so adjacent
+sector seams remain aligned. Its pivot is the launcher or focal anchor, including
+all four corner presets; reversing the animation retains that same pivot. Callback errors are recorded in `dump().lastError`. A callback may dispose the control.
+
+The corner navigation disc stays visible during dismissal. Its glyph crossfades
+from Back/Close to the launcher icon while its diameter returns to the launcher
+size; activating it during retirement reopens the menu. This keeps one continuous
+corner affordance without bringing a central launcher over a retiring list.
+
+Compass root slots are `N`, `NE`, `E`, `SE`, `S`, `SW`, `W`, `NW`; empty slots stay
+empty for action selection. When the center cannot provide Back, the navigation control occupies an available slot (preferring SW, then S); a full compass ring uses the external navigation affordance. Conflicting assignments and slots outside a corner are errors. Corner
+compass slots must be strictly inside the quarter arc. Authored directions never
+rotate during fitting. Disabled/hidden items retain their positions while open.
+Children distribute evenly. Expansion retains only the selected branch; when an
+outer level cannot fit it replaces the visible level without losing the logical
+path. There is no semantic depth limit.
+
+Before choosing a list, fitting pulls the ring inward and reduces oversized
+buttons/bands to the largest radial arrangement that fits. Minimum touch sizes,
+readable wedge labels, authored directions, and explicit center clearance remain
+constraints. Compact icon/short-text representations are selected through the
+normal Button system; neither text nor the entire UI is scaled down. Truly
+insufficient space still uses the list, except for directional gesture menus.
+Preview space is reserved from the current theme's measured text and navigation
+size. If an explicit center clearance prevents proportional compaction, the band
+uses the remaining space before falling back. Launcher animation containers
+include the theme's stroke allowance so rounded borders remain intact.
+
+Pointer/touch press opens immediately. A stationary release latches; movement of
+8 window pixels starts selection. Release over an eligible sector commits once.
+Returning to the hole cancels; a gesture that opened the menu closes on cancel,
+while a gesture begun in a latched menu leaves it open. Gesture selection extends
+one minimum target beyond the outer painted edge in `"bounded"` mode; `"direction"` projects the pointer direction onto the deepest visible ring with no outer-distance limit. Direct selection does not use either extension.
+Boundary hysteresis is 3 degrees between assigned sectors and never bridges an
+empty compass slot. Hover previews only. Resizing during capture cancels safely.
+
+Arrow/D-pad traversal uses solved item positions, Tab follows deterministic
+logical order, Enter/Space/A commits, and semantic Cancel/B goes back then closes.
+Roblox reserves physical **Escape** for its CoreGui menu, so Facet cannot promise
+to intercept that key; the visible Back/Close control and semantic Cancel remain
+available. Analog input enters at magnitude 0.35, releases at 0.25, and selects
+within the deepest visible ring. Digital traversal reaches every ancestor and
+outer item. Existing presenter responder arbitration still applies.
+
+`api.open()`, `close()`, `toggle()`, `back()`, `root()`, `select(id)` perform the
+same state transitions as input. `open()` and `select()` return whether accepted.
+`api.isOpen`, `api.isVisible`, and `api.openPath` are Readables. `isVisible` includes the exit animation, so external launchers can wait until the menu has fully retired. `dump()` returns the resolved mode,
+local/window geometry, sectors, current path/candidate/capture, opacity, and last
+callback/validation error. `dispose()` is idempotent.
+
+Corner Back/Close replaces the launcher at the same center. Empty/content centers
+use a Back/Close target in the ring, with even layouts placing it at the lower
+left. Back centers use only the central control; list fallback keeps navigation
+above its scroll area. The held launcher's capture source remains mounted but
+visually hidden, so it cannot cover the list or center navigation.
+
+Each wedge uses two bounded native Path2D strokes: its surface and a closed
+contrasting perimeter covering the inner edge, outer edge, and both end caps. Separate buttons use translucent theme-colored discs; image skins cover
+the square disc bounds with labels centered over them. Each complete visual has
+one bounded CanvasGroup, with the Path2D inside a child Frame, and shares its
+opacity/scale. Path stroke thickness explicitly follows that scale because the
+engine keeps it in pixels even under UIScale. It does not rely on the
+upgraded-gradient Studio beta for fades.
+Owned motion values preserve interrupted animation. Replacement pages crossfade concurrently, with child wedges unfolding around
+the selected parent sector and separate buttons traveling from its region. There is no empty wait between pages. Expanding fans
+retain their ancestors. Each keyed row keeps its motion origin and spring through
+interruption, so reversing a transition does not reset its position.
+Closing preserves the displayed page until it has contracted and faded. Gameplay
+callbacks still run immediately. Retiring visuals reject pointer actions and leave
+focus order without dimming their content as disabled controls. Reduced motion
+snaps decorative movement. The Showcase's **Quick actions** demo (`radial-menu`;
+scenario `radial_menu`) teaches corner commands, five compass gestures (direction
+selection), and character gear.
+The implementation and evidence record is in
+`docs/plans/2026-09-08-radial-menu-implementation.md` (archived privately).
+
+
+The controller's `attachContextGestures(path, handlers)` additionally accepts
+`onHover(windowPosition)` through the optional target `setPointerPreview` seam.
+It previews mouse movement without taking capture and returns a detach function;
+a surface without that target capability still supports the other input paths.
+
+With `contentFit = "none"`, radial wedge separators use parallel caps with a constant pixel gap derived from
+`xs`, so their width does not taper across the band. The default content fit paints
+compact arc tiles, leaving larger spaces between items. Fitting changes paint,
+not learned directions or the full logical touch/gesture sectors; invisible
+space within an assigned sector remains selectable. The center hole and empty
+compass slots still reject selection. Native labels use the existing theme/text
+measurement service and keep the full candidate preview. `ringWidth` changes the band
+independently of `clearance`; a compact character ring can use `clearance = 82`,
+`ringWidth = "controlSizes.large.height"`, and icon-preferring `compactLabel`s.
+Labels remain upright in a mathematically fitted rectangle; the full candidate
+name appears outside the ring. `appearance = "buttons"` places separate circular
+icons around the same focal anchor, including expanding icon fans. Directions
+stay fixed during selection; this version does not rotate a carousel to bring
+its selected icon to a fixed compass position. Navigation draws a compact rounded
+32px x/< affordance with a full accessible name and the existing target expander.
+
+Compact launcher and navigation discs retain native theme paint without rectangular
+theme-art insets. Explicit `skin.launcher` and `skin.center` supply their artwork.
+Quick actions → More options → **Arc shape** cycles Hug content, Slim band,
+Short arcs, and Full arcs. These correspond to both, radial, angular, and none.
+
+All four corner placements use `preset`; for example `preset = "top-right"`
+places the launcher in that corner and opens inward. The Showcase's **Corner**
+option cycles the four presets. **Jewel buttons** opts into `buttonSurface = "none"`.
+For an image that is itself the entire button, use the existing compact image
+representation with no native plate:
+
+```lua
+{ id = "map", label = "Open map", buttonSurface = "none",
+  compactLabel = { image = mapImage, prefer = true }, onSelect = openMap }
+```
+
+This item belongs to an `appearance = "buttons"` radial menu. Keep the accessible
+label meaningful: the list fallback and selection preview still use it. Use
+`skin.item` or item `decoration` when the artwork is a background for an overlaid
+icon/text label. The circular hit region and minimum targets remain independent
+of image transparency. See [Choosing controls](../guide/14-choosing-controls.md)
+for when to use a radial menu and which presets to start with.

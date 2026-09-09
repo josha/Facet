@@ -49,7 +49,7 @@ specification:
 
 <!-- OPTIONAL-METHODS: derived from src/render/target_contract.luau OPTIONAL -->
   `setActivateHandler`, `setFocusVisual`, `enableHover`, `enableDisclosure`,
-  `setScrollIndicatorPolicy`, `setZOrder`, `setPointerHandlers`,
+  `setScrollIndicatorPolicy`, `setZOrder`, `setPointerHandlers`, `setPointerPreview`,
   `setTextInputHandlers`, `setScrollRegion`, `setScrollPosition`,
   `observeScroll`, `setEngineSelection`, `setVisible`, `setDragDetector`,
   `setTouchGestureHandlers`, `setSecondaryActivate`, `measureTextWidths`,

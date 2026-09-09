@@ -331,6 +331,19 @@ describe("registration checker (agentic maintainability)", function()
 end)
 
 describe("extension scaffold", function()
+	it("fresh control and adapter registrations accept the current runner signature", function()
+		local fs = require("@lune/fs")
+		for _, kind in { "control", "adapter" } do
+			for _, edit in scaffold.plan(kind, "unregistered_radial_probe").edits do
+				if edit.path == "tests/run.luau" then
+					local applied = scaffold.applyEdit(fs.readFile(edit.path), edit)
+					expect(string.find(applied, edit.insert, 1, true) ~= nil).toBeTruthy()
+					expect(scaffold.applyEdit(applied, edit)).toBe(applied)
+				end
+			end
+		end
+	end)
+
 	it("plans a complete control skeleton: source, spec, runner registration, registry entry, docs stub", function()
 		local plan = scaffold.plan("control", "popup_button")
 		local paths = {}

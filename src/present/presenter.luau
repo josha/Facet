@@ -256,6 +256,7 @@ local modalZones = require("./modal_zones")
 local focusMap = require("./focus_map")
 -- the two synthesized full-viewport tap swallowers (the modal/engaged scrim and
 -- the transient popup catcher) — see that module's header for why they left
+local inputAperture = require("../render/input_aperture")
 local catchersLib = require("./catchers")
 -- the auto-reveal marquee strip — see that module's header for the seam
 local textRevealLib = require("./text_reveal")
@@ -1755,6 +1756,11 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 							and od.active ~= nil
 							and od.active:get() == true
 							and not isPathPrefix(c.path, path)
+							and not inputAperture.contains(
+								od.passThroughRect and od.passThroughRect:get(),
+								meta and meta.x,
+								meta and meta.y
+							)
 						then
 							od.dismiss()
 							if od.consume ~= false then

@@ -1816,6 +1816,55 @@ local registry: { Entry } = {
 			hotSwitch = { "LevelPicker hot-switch: losing the pointer mid-scrub CANCELS back, it never commits" },
 		},
 	},
+	{
+		name = "RadialMenu",
+		kind = "composite",
+		module = "src/controls/radial_menu.luau",
+		export = "Controls.RadialMenu",
+		spec = "tests/radial_menu.spec.luau",
+		conformance = "tests/radial_menu.spec.luau",
+		docsAnchor = "Controls.RadialMenu",
+		-- cite the dump DEFINITION exactly (check_registration requires the text to
+		-- exist in the module); a module with no dump surface declares
+		-- `dump = false` with a `reason` instead
+		dumpFunction = "function dump",
+		-- Four-input proofs (ui_todo §0): each case name must exist VERBATIM in a
+		-- registered spec. These cite the four stamped cases in tests/radial_menu.spec.luau
+		-- (they FAIL until you implement them — that is the red step).
+		inputProofs = {
+			pointer = { "RadialMenu pointer: a tap activates through the presenter (device-true)" },
+			touch = { "RadialMenu touch: a touch tap/pan drives the control (device-true)" },
+			keyboard = { "RadialMenu keyboard: focus + Return drives the control" },
+			gamepad = { "RadialMenu gamepad: focus + ButtonA drives the control" },
+		},
+		-- Paradigm-axis proofs (UI-PARADIGM-001/002): the STRUCTURAL IDIOM per
+		-- live class (distinct from inputProofs' reachability) plus the hotSwitch
+		-- decision. These cite the four affordance cases + the hot-switch stub in
+		-- tests/radial_menu.spec.luau. If your control owns no in-flight state, set
+		-- hotSwitch = false and delete the stamped hot-switch spec case.
+		affordanceProofs = {
+			pointer = { "RadialMenu pointer affordance: drag previews and center return cancels" },
+			touch = { "RadialMenu touch affordance: launcher tap latches with 44px targets" },
+			keyboard = { "RadialMenu keyboard affordance: Tab traversal and semantic Cancel" },
+			gamepad = { "RadialMenu gamepad affordance: analog preview, neutral and B cancellation" },
+			hotSwitch = { "RadialMenu hot-switch: in-flight state resolves CARRY or CANCEL on a class flip" },
+		},
+	},
+	{
+		name = "RadialGeometry",
+		kind = "composite",
+		module = "src/controls/radial_geometry.luau",
+		export = "Controls.RadialMenu",
+		spec = "tests/radial_geometry.spec.luau",
+		conformance = "tests/radial_geometry.spec.luau",
+		docsAnchor = "Controls.RadialMenu",
+		dump = false,
+		reason = "pure shared sector math; RadialMenu.dump reports the solved sectors",
+		inputProofs = false,
+		inputReason = "pure geometry with no mounted input",
+		affordanceProofs = false,
+		affordanceReason = "pure geometry; RadialMenu owns the input paradigms",
+	},
 	-- scaffold: new control rows are appended above this line (anchor — keep)
 
 	-- ===== leaf primitives (src/class_contract.luau classes) =========

@@ -13,6 +13,33 @@ runtime as `Facet.VERSION`.
 
 ## [Unreleased]
 
+- Blend focal launchers back in on the radial exit clock, including interrupted closing; hand off lists without overlapping rows. Measure navigation arcs against the themed icon square so large Close artwork stays inside its plate. Fit custom compact images against their actual rendered rectangle, including responsive image fallback. Keep explicit image content visible when a composite suppresses its theme plate, without borrowing the plate’s shadow.
+- Give Pixel Quest, Compact Pointer, and Glossy Touch the actual tinted search image while preserving their other glyph choices. Expand world-anchor design guidance for proximity actions and choosing between object, corner, and single-action UI.
+
+- Change unpublished `client.world_anchor.padding` from pixel spacing (default 12) to a relative radius fraction from 0 to 1 (default 0.15). Remove its pixel `minimumRadius` option; use RadialMenu’s theme-based `clearance` for a minimum opening. Existing pixel padding callers must migrate to a fraction.
+
+- Preserve runtime native theme sheets across character respawns in a shared, non-rendering ScreenGui with `ResetOnSpawn = false`. This fixes lost styling after revisiting the Quick actions Item scene.
+
+- Add public `client.world_anchor` for Part, Model, and avatar bounds projected into radial anchor/clearance data on the host frame. Radial menus follow measured radius, freeze it during selection, and support `launcher = false` and `api.isVisible` for proximity prompts without overlapping launchers. Add the real-world Item example to Quick actions.
+
+- Preserve themed circular launcher borders outside their animation content bounds. Measure radial preview space and compact bands around fixed clearance so the Fantasy Ornate character ring fits small portrait offers.
+- Keep the corner navigation disc visible through dismissal, crossfading Back/Close into the launcher icon and smoothly returning to its size; support reopening during retirement.
+- Compact radial geometry before choosing a list on small landscape surfaces, preserving minimum touch targets, directions, and explicit focal clearance.
+- Keep radial opening/closing centered on its launcher or focal anchor through the presentation offset channel, including all four corners and interrupted animations.
+
+- Add `UI.Button.focusVisual` for composed controls that paint their own focus treatment; radial selection highlights the outer circle/wedge while image-only buttons retain the content outline.
+- Center radial compact representations and use semantic navigation icons. Animate opening/closing rings in one coordinate space; fade list fallback fully before restoring its launcher.
+
+- Allocate radial list rows at their themed button height so adjacent rows cannot cover the keyboard focus outline; use standard list navigation to scroll the focused row into view.
+- Inset focus rings beneath any clipping ancestor, including scroll containers beyond an intermediate layout or motion host.
+- Keep the native scaling pivot at an explicit settled scale of one, removing a final-frame pixel snap while preserving scale cleanup when the transform clears.
+- Refine radial menus with single list navigation, closed arc borders, image-only button surfaces, concurrent parent-origin submenu motion, and a four-corner Showcase selector. Add control-choice guidance for UI-building agents.
+- Correct radial-menu touch/list activation, shared surface/content retirement and replacement transitions, centered skins/icons, ring/corner navigation, uniform slim bands, and contrasting outlines. Add direction-based gesture selection for cramped layouts.
+
+- Add `Controls.RadialMenu`: native wedges and corner buttons, configurable content-fitted arcs (both axes by default), compact icon/text labels, mixed ring/page hierarchy, captured gestures and semantic keyboard/gamepad input. Add the curated Quick actions Showcase demo.
+- Add the Path tint alpha channel via a reused UIGradient; document that CanvasGroup does not fade Path2D.
+- Fix scaffold runner-signature drift and remove the type checker's stale hardcoded control count.
+
 ## [0.11.0] — not yet published
 
 - `Controls.NavigationStack` adds a caller-owned observable route path, root and

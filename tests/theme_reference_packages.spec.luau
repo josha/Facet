@@ -808,10 +808,16 @@ describe("RS-A14 the platform pair is two snapshots, not two palettes", function
 		expect(pointer.chrome.focus.kind).toBe("ring")
 	end)
 
-	it("neither half maps an icon, so both draw the framework's ASCII glyph", function()
+	it("both halves retain chrome glyphs and explicitly draw the search image", function()
 		local touch, pointer = pair()
 		for _, pkg in { touch, pointer } do
-			expect(pkg.icons).toBeNil()
+			local count = 0
+			for name in pkg.icons do
+				expect(name).toBe("facet:search")
+				count += 1
+			end
+			expect(count).toBe(1)
+			expect(themePackage.resolveIcon(pkg, "facet:search").source).toBe("asset")
 			for _, name in { "increment", "decrement", "chevron.trailing" } do
 				local resolved = themePackage.resolveIcon(pkg, name)
 				expect(resolved.source).toBe("glyph")

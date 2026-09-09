@@ -3405,6 +3405,9 @@ function renderer.attach(
 		if handlers.onSecondary ~= nil and adapter.setSecondaryActivate ~= nil then
 			table.insert(offs, adapter.setSecondaryActivate(handle, handlers.onSecondary))
 		end
+		if handlers.onHover ~= nil and adapter.setPointerPreview ~= nil then
+			table.insert(offs, adapter.setPointerPreview(handle, handlers.onHover))
+		end
 		if #offs == 0 then
 			return nil
 		end

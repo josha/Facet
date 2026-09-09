@@ -492,6 +492,14 @@ demo_picker.DEMOS = {
 		kind = "fixture",
 		module = "inherited_subtree",
 	},
+	-- scaffolded: the surface a person opens on a phone to drive RadialMenu.
+	{
+		id = "radial-menu",
+		title = "Quick actions",
+		blurb = "Tap or slide to greet friends, explore, and choose your gear",
+		kind = "fixture",
+		module = "radial_menu",
+	},
 	-- scaffold: new control demos are appended above this line. Fixtures lead the
 	-- tutorials, which follow in the order the guide teaches them, so a scaffolded
 	-- control lands at the end of the fixture run rather than in the middle of a
@@ -563,6 +571,7 @@ demo_picker.DEMOS = {
 -- Curate the first visit around useful interactions. Focused comparisons remain
 -- available in the laboratory, with their stable IDs for tools and regression drives.
 local PRIMARY = {
+	["radial-menu"] = true,
 	["all-controls"] = true,
 	["navigation-stack"] = true,
 	["text-controls"] = true,

@@ -378,7 +378,8 @@ function native_style.ensure(model: any, opts: EnsureOpts?): Handle
 	--     under ReplicatedStorage (Edit-seeded with the place, server-owned,
 	--     replicated to every client — the Style Editor workflow home).
 	--   * RUNTIME CREATION (no designer sheet found) goes CLIENT-LOCAL —
-	--     PlayerGui — never ReplicatedStorage: a client-created instance
+	--     a reset-persistent ScreenGui in PlayerGui — never ReplicatedStorage:
+	--     a client-created instance
 	--     there is client-local anyway (FilteringEnabled) and invites name
 	--     collisions with replicated content. In Edit (no LocalPlayer) the
 	--     seed goes to ReplicatedStorage so it persists with the place.
@@ -420,8 +421,27 @@ function native_style.ensure(model: any, opts: EnsureOpts?): Handle
 		if existing ~= nil then
 			host = ReplicatedStorage
 		elseif playerGui ~= nil then
-			host = playerGui
-			existing = lookup(playerGui)
+			-- Loose PlayerGui children are destroyed on character spawn, even
+			-- when the visible Facet roots survive. Keep shared sheets under a
+			-- non-rendering, persistent root independent of any one surface.
+			local persistent = playerGui:FindFirstChild("FacetStyleHost")
+			assert(persistent == nil or persistent:IsA("ScreenGui"), "FacetStyleHost must be a ScreenGui")
+			if persistent == nil then
+				persistent = Instance.new("ScreenGui")
+				persistent.Name = "FacetStyleHost"
+				persistent.ResetOnSpawn = false
+				persistent.Enabled = false
+				persistent.Parent = playerGui
+			end
+			host = persistent
+			existing = lookup(host)
+			if existing == nil then
+				existing = lookup(playerGui)
+				if existing ~= nil then
+					-- Preserve live links and designer edits from the old host.
+					existing.Parent = host
+				end
+			end
 		else
 			host = ReplicatedStorage
 		end

@@ -150,6 +150,7 @@ local BLESSED_CLIENT_MODULES: { [string]: boolean } = {
 		and three of the four shipped ones drove `refresh()` without `tick(dt)` —
 		a frozen motion clock that no dump can distinguish from a settled one. ]]
 	host = true,
+	world_anchor = true,
 	screen_target = true,
 	roblox_env = true,
 	roblox_input = true,

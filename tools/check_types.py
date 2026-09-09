@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Gate check: `Facet.Controls`'s typed signatures still carry their types.
 
-CURRENT SURFACE: 24 entries, 20 typed and four historic `any` exceptions. The
+The namespace is enumerated from source, with four historic `any` exceptions. The
 four new controls declare their specs at the public entry point, preserving
 types while their implementations remain deferred. The history below describes
 the original fifteen module-owned types and four deferred implementations.
@@ -173,8 +173,11 @@ def run():
 
     # ---- half 2: the typed/any split is what src/init.luau declares ---------
     entries = namespace_entries(open(INIT).read())
-    if len(entries) != 24:
-        problems.append(f"src/init.luau declares {len(entries)} Controls entries, expected 24")
+    source = open(INIT).read()
+    block = source.split("local Controls = table.freeze({", 1)[1].split("\n})", 1)[0]
+    names = set(re.findall(r"^\t(\w+) = function\(", block, re.MULTILINE))
+    if not names or set(entries) != names:
+        problems.append("every Controls entry must declare its core and spec parameters")
     declared_typed = {n for n, ann in entries.items() if ann.strip() != "any"}
     declared_any = set(entries) - declared_typed
 

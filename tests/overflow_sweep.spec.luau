@@ -481,6 +481,9 @@ local SCENARIOS = {
 	-- showcase — a seven-node panel, a status line and two controls, swept the
 	-- same as every other fixture here.
 	"inherited_subtree",
+	-- ...and the scaffolded `RadialMenu` surface, swept from its first commit so
+	-- the control cannot reach a device with an overflow nobody measured.
+	"radial_menu",
 	-- scaffold: new control scenarios are appended above this line
 }
 

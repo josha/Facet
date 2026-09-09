@@ -352,10 +352,13 @@ from your own `space` scale, so an existing package gains a correctly-sized
 ring without editing a line. Author them if you want a chunkier ring. The
 snapshot keeps the thickness it fills inside a fifth of the diameter, on
 purpose. A Path stroke is centred on its curve, so a thicker one would paint
-outside the box the layout measured. One thing a package cannot do is fade it:
-`Path2D` has no transparency at all. Fade the container instead. Put the
-control inside a `UI.ZStack({ canvasGroup = true })` of your own — the same
-idiom the framework's own refusal message points to.
+outside the box the layout measured. Path2D's direct Transparency property is restricted to Roblox scripts.
+Its child-gradient alpha requires the upgraded-gradient engine feature (initially
+a Studio beta); a successful property read does not prove a published client
+renders it. RadialMenu uses a bounded CanvasGroup containing a child Frame for
+its Path2D, surface, and labels, so the complete visual shares its fade.
+The recorded visual verification status is in the radial-menu implementation record.
+
 
 Measured live across the sweep 0 / 1 / 50 / 99 / 100 %, three things hold at
 every stop:

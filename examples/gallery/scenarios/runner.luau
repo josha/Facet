@@ -329,6 +329,13 @@ function Runner.start(deps: { [string]: any })
 			-- reason: a scenario that required `script.Parent` would be Roblox-only.
 			lab = deps.lab,
 			core = deps.core,
+			worldActions = function(triggered)
+				return require(game:GetService("ReplicatedStorage").Gallery.world_actions_demo).mount(
+					{ core = deps.core, presenter = deps.presenter },
+					function() end,
+					triggered
+				)
+			end,
 			env = deps.env,
 			adapter = deps.adapter,
 			presenter = deps.presenter,

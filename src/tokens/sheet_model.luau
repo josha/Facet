@@ -1575,22 +1575,13 @@ end
 -- (0 opaque, 1 invisible), defaulting to opaque so every tint authored before the
 -- channel existed writes exactly what it wrote before.
 --
--- A `Path` is REFUSED rather than silently ignored: the engine's Path2D carries a
--- colour and a thickness and no transparency at all, so an accepted-and-dropped
--- alpha would be precisely the failure class this framework keeps closing. The
--- message names the working idiom (fade the Path's own container).
+-- Path alpha is realized by its adapter-owned UIGradient (Studio proof 2026-09-08).
 function sheet_model.tintTransparency(tint: any, class: string): number
 	local alpha = if type(tint) == "table" then (tint :: any).transparency else nil
 	if alpha == nil then
 		return styling.TINT_TRANSPARENCY_DEFAULT
 	end
-	if class == "Path" then
-		error(
-			"Facet tint on a Path: `transparency` has no channel here — a Path2D stroke carries a colour "
-				.. "and a thickness only. Fade the path's container instead (a `canvasGroup` ZStack/Box).",
-			0
-		)
-	end
+
 	return alpha :: number
 end
 

@@ -536,7 +536,10 @@ function screen_presentation.new(ctx: any)
 		-- to 1, when nothing is scaling: `screen_paint.restingScale` reads it with
 		-- `or 1`, so an unscaled control never grows a field.
 		handle.restingScale = if scale ~= nil and scale ~= 1 then scale else nil
-		if scale ~= nil and scale ~= 1 then
+		-- Keep an explicit settled scale on the same engine pivot. Removing UIScale
+		-- at exactly 1 changes Roblox's pixel rounding and jumps a radial segment
+		-- by a pixel on its final frame. Clearing the transform still releases it.
+		if scale ~= nil and (scale ~= 1 or handle.motionAnchorCentered) then
 			local live = existing
 			if live == nil then
 				live = ensureScale(instance, handle)
@@ -664,6 +667,7 @@ function screen_presentation.new(ctx: any)
 		unregisterHost = unregisterHost,
 		hostAt = hostAt,
 		hostFor = hostFor,
+		hostOriginOf = hostOriginOf,
 		recomputePresentationOffset = recomputePresentationOffset,
 		applyHitExpander = applyHitExpander,
 		dropHitExpander = dropHitExpander,

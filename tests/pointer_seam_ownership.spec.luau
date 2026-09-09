@@ -208,18 +208,30 @@ describe("a touch capture belongs to the finger that opened it (PLAT-6)", functi
 		expect(predicate ~= nil).toBe(true)
 		local normalized = string.match(string.gsub(predicate :: string, "%s+", " "), "^%s*(.-)%s*$")
 		expect(normalized).toBe(
-			"return originatingTouch == nil or other.UserInputType ~= Enum.UserInputType.Touch "
-				.. "or other == originatingTouch"
+			"return if originatingTouch then other == originatingTouch else other.UserInputType ~= Enum.UserInputType.Touch"
 		)
 	end)
 
-	it("BOTH global connections apply it, and they are the first thing each does", function()
+	it("moves and the shared native release gate enforce ownership", function()
 		local moved = string.match(source, "InputChanged:Connect%(function%(moveObject: InputObject%)(.-)UserInputType")
-		local ended = string.match(source, "InputEnded:Connect%(function%(endObject: InputObject%)(.-)UserInputType")
+		local ended =
+			string.match(source, "local function finish%(endObject: InputObject, position: Vector3%)(.-)UserInputType")
 		expect(moved ~= nil).toBe(true)
 		expect(ended ~= nil).toBe(true)
 		expect(string.find(moved :: string, "not fromThisPointer(moveObject)", 1, true) ~= nil).toBe(true)
 		expect(string.find(ended :: string, "not fromThisPointer(endObject)", 1, true) ~= nil).toBe(true)
+		expect(string.find(ended :: string, "activeCapture ~= capture", 1, true) ~= nil).toBe(true)
+	end)
+	it("native originating release disconnects capture before callback dispatch", function()
+		local finish = string.match(
+			source,
+			"local function finish%(endObject: InputObject, position: Vector3%)(.-)table.insert"
+		) :: string
+		expect(string.find(finish, "endCapture()", 1, true) < string.find(finish, "handlers.up(toWindowSpace", 1, true)).toBe(
+			true
+		)
+		expect(string.find(source, "inputObject.Changed:Connect", 1, true) ~= nil).toBe(true)
+		expect(string.find(source, "UserInputState.End", 1, true) ~= nil).toBe(true)
 	end)
 end)
 

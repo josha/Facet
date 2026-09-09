@@ -1354,6 +1354,9 @@ require("./overflow_guard.spec")
 require("./bound_enum_seam.spec")
 require("./row_permutation.spec")
 
+require("./radial_menu.spec")
+require("./world_anchor.spec")
+require("./radial_geometry.spec")
 local ok = testkit.run({
 	jsonOut = process.env.FACET_SUITE_JSON,
 	tier = "full",

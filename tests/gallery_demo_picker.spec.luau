@@ -31,7 +31,7 @@ describe("showcase catalogue", function()
 		-- names as its showcase deliverable
 		-- 37 on 2026-09-07 (the stabilization pass, stream D): `inherited-subtree`,
 		-- the inherited `enabled`/`tint` showcase
-		expect(#demos).toBe(41)
+		expect(#demos).toBe(42)
 		-- the all-controls fixture leads: it is the one that answers "what does
 		-- this look like on my device"; the row-actions fixture follows it for
 		-- the same feel-first reason (hosted row-actions device pass)
@@ -135,7 +135,7 @@ describe("showcase catalogue", function()
 		-- compositing showcase
 		-- 30 on 2026-09-07: `inherited-subtree`, the stabilization pass's
 		-- inherited `enabled`/`tint` showcase
-		expect(fixtures).toBe(34)
+		expect(fixtures).toBe(35)
 	end)
 
 	-- A BLURB IS READ IN THE OPEN LIST ON THE NARROWEST PHONE, and the list is
@@ -642,7 +642,7 @@ describe("showcase host: the fixture branch delivers `present` opts", function()
 		-- again with `level-picker`, whose fixture reproduces the reference screenshot
 		-- 29 on 2026-08-16/17: `nested-tree`
 		-- 30 on 2026-09-07: `inherited-subtree`
-		expect(fixtures).toBe(34)
+		expect(fixtures).toBe(35)
 		-- and at least one of them actually declares opts, or this proves nothing
 		expect(withOpts >= 1).toBe(true)
 	end)
@@ -1119,6 +1119,7 @@ local DEMO_ROOT: { [string]: string } = {
 	["text-controls"] = "TextControls",
 	["selection-controls"] = "SelectionControls",
 	["action-controls"] = "ActionControls",
+	["radial-menu"] = "RadialMenu",
 	-- scaffold: new control roots are appended above this line. A scaffolded
 	-- scenario names its root screen after the control, so the stamped row is the
 	-- control's own display name and the author only revisits it if the fixture's
@@ -1298,7 +1299,7 @@ describe("showcase host: advancing the picker actually mounts the demo it names"
 end)
 
 describe("Showcase curation", function()
-	it("keeps twelve useful examples up front and all focused fixtures addressable", function()
+	it("keeps thirteen useful examples up front and all focused fixtures addressable", function()
 		local count = 0
 		for _, demo in demo_picker.list() do
 			if demo_picker.isPrimary(demo.id) then
@@ -1306,7 +1307,7 @@ describe("Showcase curation", function()
 			end
 			expect(demo_picker.find(demo.id)).toBe(demo)
 		end
-		expect(count).toBe(12)
+		expect(count).toBe(13)
 		expect(demo_picker.isPrimary("navigation-stack")).toBe(true)
 		expect(demo_picker.isPrimary("async-images")).toBe(false)
 		expect(demo_picker.find("async-images").title).toBe("Loading profile pictures")

@@ -322,16 +322,8 @@ describe("tint: emission and application", function()
 		expect(contains(adapterSource, '"TextTransparency",')).toBe(true)
 	end)
 
-	it("a Path REFUSES an alpha rather than accepting and dropping it", function()
-		-- Path2D carries a colour and a thickness and no transparency at all, so an
-		-- accepted-and-ignored value would be the exact failure class this framework
-		-- keeps closing (F3, the colour-emoji tint)
-		local err = fails(function()
-			sheet_model.tintTransparency({ direct = "#ffffff", transparency = 0.4 }, "Path")
-		end)
-		expect(contains(err, "Facet tint on a Path")).toBe(true)
-		expect(contains(err, "canvasGroup")).toBe(true)
-		-- a Path with NO alpha is untouched
+	it("a Path alpha reaches its gradient paint channel", function()
+		expect(sheet_model.tintTransparency({ direct = "#ffffff", transparency = 0.4 }, "Path")).toBe(0.4)
 		expect(sheet_model.tintTransparency({ direct = "#ffffff" }, "Path")).toBe(0)
 	end)
 
@@ -395,12 +387,12 @@ describe("tint: the native-sheet claim mechanism (source contract)", function()
 		expect(contains(block, "phantom ::UICorner radius")).toBe(true)
 		expect(contains(block, "::UIStroke hairline")).toBe(true)
 		-- ...and nothing in the tint path removes a tag
-		local tint = section(adapterSource, "local function applyTint(handle: any)", 2600)
+		local tint = adapterSource:match("local function applyTint%(handle: any%)(.-)local function releaseTint") or ""
 		expect(contains(tint, "RemoveTag")).toBe(false)
 	end)
 
 	it("every claimed write goes claim-then-assert, per class", function()
-		local tint = section(adapterSource, "local function applyTint(handle: any)", 2600)
+		local tint = adapterSource:match("local function applyTint%(handle: any%)(.-)local function releaseTint") or ""
 		expect(contains(tint, 'claimPaint(handle, "ImageColor3")')).toBe(true)
 		expect(contains(tint, 'claimPaint(handle, "TextColor3")')).toBe(true)
 		expect(contains(tint, 'claimPaint(handle, "BackgroundColor3")')).toBe(true)

@@ -277,7 +277,7 @@ export type Bundle = {
 	-- Longest-path-prefix wins, like handleActivate.
 	handleTraverse: ((path: string, direction: number) -> boolean)?,
 	handleCancel: ((focusedPath: string?) -> boolean)?,
-	outsideDismiss: { active: any, dismiss: () -> (), consume: boolean? }?, -- active: Readable<boolean>
+	outsideDismiss: { active: any, dismiss: () -> (), consume: boolean?, passThroughRect: any? }?, -- active: Readable<boolean>
 	transientScope: { active: any, rootPath: string? }?, -- active: Readable<boolean>
 }
 

@@ -430,6 +430,15 @@ describe("bounded waits and stranded sheets (PLAT-11, PLAT-9, PLAT-24)", functio
 		expect(string.find(stampBlock :: string, 'created.Name = "Theme "', 1, true)).toBe(nil)
 	end)
 
+	it("runtime theme sheets use a spawn-persistent host", function()
+		-- Structural companion to the native Character reset reproduction.
+		local source = fs.readFile("src/client/native_style.luau")
+		expect(string.find(source, 'persistent.Name = "FacetStyleHost"', 1, true) ~= nil).toBe(true)
+		expect(string.find(source, "persistent.ResetOnSpawn = false", 1, true) ~= nil).toBe(true)
+		expect(string.find(source, "persistent.Enabled = false", 1, true) ~= nil).toBe(true)
+		expect(string.find(source, "existing.Parent = host", 1, true) ~= nil).toBe(true)
+	end)
+
 	it("every wrong-schema sheet found is destroyed, in both lookup orders (PLAT-24)", function()
 		local source = fs.readFile("src/client/native_style.luau")
 		-- one collector, appended to by the lookup helper both call sites use...
