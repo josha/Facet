@@ -599,7 +599,7 @@ function radial.build(Facet: any, core: any, spec: Spec)
 					local compact = s.item.compactLabel
 						or (if s.item.icon then { icon = s.item.icon, prefer = s.item.labelStyle == "icon" } else nil)
 					local iconSize = snapshot.resolveNumber(metrics, "iconSizes.medium") or size
-					local imageContent = false
+					local imageContent = s.navigation
 					if s.navigation then
 						-- Navigation paints a themed image, not the narrow ASCII floor.
 						m.width, m.height = iconSize, iconSize
@@ -630,7 +630,7 @@ function radial.build(Facet: any, core: any, spec: Spec)
 						math.ceil(contentWidth + padding * 2 + (snapshot.resolveNumber(metrics, "xs") or 4) * 2)
 					)
 					if imageContent then
-						-- Raw compact images fill their node, unlike semantic icon art.
+						-- Images and navigation share the fitted content box with their renderer.
 						-- Give paint and fitting the same rectangle, independent of label text.
 						s.labelBox.w, s.labelBox.h = contentWidth, contentHeight
 					end
@@ -639,7 +639,8 @@ function radial.build(Facet: any, core: any, spec: Spec)
 					s,
 					contentWidth,
 					contentHeight,
-					snapshot.resolveNumber(metrics, "xs") or 4,
+					(snapshot.resolveNumber(metrics, "xs") or 4)
+						+ (snapshot.resolveNumber(metrics, "strokes.hairline") or 1) / 2,
 					contentFit
 				)
 				s.depth = depth
@@ -1047,7 +1048,7 @@ function radial.build(Facet: any, core: any, spec: Spec)
 								id = "Glyph",
 								text = themePackage.iconGlyph(name) or "?",
 								width = UI.fill(),
-								height = fixed("iconSizes.medium"),
+								height = UI.fill(),
 								textAlign = "center",
 							}),
 							{ icon = name }

@@ -720,22 +720,37 @@ t.describe("RadialMenu control", function()
 				require("../examples/themes/fantasy_ornate"),
 			}
 		do
-			local w, c = setup({ preset = "donut", center = "empty" })
-			local metrics = Facet.themes.resolve(theme.build(Facet.themes), nil, {})
-			w.env:set("themeMetrics", metrics)
-			tapOpen(w, c)
-			w.settle(60)
-			local d, s = c.dump(), sector(c, "$navigation")
-			local half = metrics.iconSizes.medium / 2
-			for _, dx in { -half, half } do
-				for _, dy in { -half, half } do
-					local x, y = s.x - d.centerX + dx, s.y - d.centerY + dy
-					local radius = math.sqrt(x * x + y * y)
-					expect(radius >= s.paintInner and radius <= s.paintOuter).toBe(true)
-					expect(math.abs(geometry.delta(math.deg(math.atan2(x, -y)), s.angle)) <= s.paintSpan / 2).toBe(true)
+			for _, ringWidth in { false, 61.6 } do
+				local w, c = setup({ preset = "donut", center = "empty", ringWidth = ringWidth or nil, clearance = 82 })
+				local metrics = Facet.themes.resolve(theme.build(Facet.themes), nil, {})
+				w.env:set("themeMetrics", metrics)
+				tapOpen(w, c)
+				w.settle(60)
+				local d, s = c.dump(), sector(c, "$navigation")
+				local glyph
+				for _, p in w.adapter.paths() do
+					if p:sub(1, #s.path) == s.path and p:match("/Glyph$") then
+						glyph = w.adapter.node(p).rect
+					end
 				end
+				expect(glyph ~= nil).toBe(true)
+				local half = math.min(metrics.iconSizes.medium, glyph.w, glyph.h) / 2
+				local margin = metrics.space.xs
+				local border = metrics.strokes.hairline / 2
+				for _, dx in { -half, half } do
+					for _, dy in { -half, half } do
+						local x, y = glyph.x + glyph.w / 2 - d.centerX + dx, glyph.y + glyph.h / 2 - d.centerY + dy
+						local radius = math.sqrt(x * x + y * y)
+						expect(radius >= s.paintInner + border + margin and radius <= s.paintOuter - border - margin).toBe(
+							true
+						)
+						local angle = math.abs(geometry.delta(math.deg(math.atan2(x, -y)), s.angle))
+						local seamDistance = radius * math.sin(math.rad(s.paintSpan / 2 - angle))
+						expect(seamDistance >= margin / 4 + border + margin).toBe(true)
+					end
+				end
+				c.dispose()
 			end
-			c.dispose()
 		end
 	end)
 	it("content fit defaults to both axes and preserves gesture targets", function()

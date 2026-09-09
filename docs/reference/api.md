@@ -9898,7 +9898,9 @@ name. `both` measures an icon + text row and uses its icon representation when t
 full row cannot fit. Both representations are centered in the reserved content box;
 compact navigation uses semantic close/back icons. Fitting reserves the displayed
 image rectangle for raw `compactLabel.image` content as well as semantic icon art;
-it does not use the accessible label as an image-size proxy. Image skins on
+it does not use the accessible label as an image-size proxy. Close/back artwork
+scales inside that same measured box on compact rings. Content-fit padding also
+reserves the border thickness, keeping artwork clear of the visible perimeter. Image skins on
 separate buttons fill their measured disc. Selection highlights the
 painted circle or wedge; image-only buttons retain their content focus outline. Upright text is placed along the arc, **not bent glyph by
 glyph**. A measured safe rectangle stays inside both circular edges and the
