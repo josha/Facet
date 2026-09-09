@@ -1063,6 +1063,10 @@ function radial.build(Facet: any, core: any, spec: Spec)
 	local openingScale = memo(function(use)
 		return if use(env:get("reducedMotion")) then 1 else 0.12 + 0.88 * math.clamp(use(alpha), 0, 1)
 	end)
+	local ringDiameter = memo(function(use)
+		local l = use(layout)
+		return math.ceil(l.outer + l.target) * 2
+	end)
 	local function row(s: any, rs: any)
 		rs = rs or scope
 		local item = s.item
@@ -1475,11 +1479,11 @@ function radial.build(Facet: any, core: any, spec: Spec)
 			end),
 			offsetX = rm(function(use)
 				local b = use(bounds)
-				return use(layout).cx + b.x - (b.x + b.w / 2) * (1 - use(contraction)) + use(travel).x
+				return use(ringDiameter) / 2 + b.x - (b.x + b.w / 2) * (1 - use(contraction)) + use(travel).x
 			end),
 			offsetY = rm(function(use)
 				local b = use(bounds)
-				return use(layout).cy + b.y - (b.y + b.h / 2) * (1 - use(contraction)) + use(travel).y
+				return use(ringDiameter) / 2 + b.y - (b.y + b.h / 2) * (1 - use(contraction)) + use(travel).y
 			end),
 			opacity = opacity,
 			scale = contraction,
@@ -1527,6 +1531,10 @@ function radial.build(Facet: any, core: any, spec: Spec)
 		return if not use(opened) and spec.launcher ~= false and not isCorner then math.clamp(a * 2 - 1, 0, 1) else a
 	end)
 	local launcherOpacity = memo(function(use)
+		-- A newly mounted scene has no solved origin yet.
+		if use(layout).outer == 0 then
+			return 0
+		end
 		if not use(visible) then
 			return 1
 		end
@@ -1622,7 +1630,14 @@ function radial.build(Facet: any, core: any, spec: Spec)
 								axis = "y",
 								width = UI.fill(),
 								height = memo(function(use)
-									return fixed(math.max(1, (rect and rect.h or 0) - use(layout).target * 2))
+									local metrics = use(env:get("themeMetrics")) or snapshot.neutral()
+									local gap = snapshot.resolveNumber(metrics, "s") or 8
+									local rowHeight = snapshot.resolveNumber(metrics, "controlSizes.large.height") or 56
+									local count = #use(content)
+									local natural = count * rowHeight + math.max(0, count - 1) * gap + gap * 2
+									return fixed(
+										math.max(1, math.min(natural, (rect and rect.h or 0) - use(layout).target * 2))
+									)
 								end),
 								offsetY = memo(function(use)
 									return use(layout).target
@@ -1654,10 +1669,10 @@ function radial.build(Facet: any, core: any, spec: Spec)
 								return fixed(use(layout).outer * 2)
 							end),
 							offsetX = memo(function(use)
-								return use(layout).cx - use(layout).outer
+								return use(ringDiameter) / 2 - use(layout).outer
 							end),
 							offsetY = memo(function(use)
-								return use(layout).cy - use(layout).outer
+								return use(ringDiameter) / 2 - use(layout).outer
 							end),
 						}),
 						spec.skin.background,
@@ -1665,22 +1680,40 @@ function radial.build(Facet: any, core: any, spec: Spec)
 					)
 				)
 			end
-			return UI.ZStack({
-				id = "Rings",
+			-- Place a stable, even-sized compositor around the focal point. Animating
+			-- a compensating offset on a viewport-sized group truncates to integer
+			-- UDim offsets and can move the entire ring one pixel at scale == 1.
+			return UI.Anchor({
+				id = "RingArea",
 				width = UI.fill(),
 				height = UI.fill(),
-				opacity = alpha,
-				scale = openingScale,
-				-- Move the scale pivot to the launcher/focal anchor through the paint
-				-- channel. Layout offsets are ignored by this structural flow parent.
-				offset = memo(function(use)
-					local l, scale = use(layout), use(openingScale)
-					return {
-						x = (l.cx - (rect and rect.w or 0) / 2) * (1 - scale),
-						y = (l.cy - (rect and rect.h or 0) / 2) * (1 - scale),
-					}
-				end),
-				children = { UI.Anchor({ id = "Content", width = UI.fill(), height = UI.fill(), children = children }) },
+				children = {
+					UI.ZStack({
+						id = "Rings",
+						width = memo(function(use)
+							return fixed(use(ringDiameter))
+						end),
+						height = memo(function(use)
+							return fixed(use(ringDiameter))
+						end),
+						opacity = alpha,
+						scale = openingScale,
+						offsetX = memo(function(use)
+							return use(layout).cx - use(ringDiameter) / 2
+						end),
+						offsetY = memo(function(use)
+							return use(layout).cy - use(ringDiameter) / 2
+						end),
+						children = {
+							UI.Anchor({
+								id = "Content",
+								width = UI.fill(),
+								height = UI.fill(),
+								children = children,
+							}),
+						},
+					}),
+				},
 			})
 		end
 	)

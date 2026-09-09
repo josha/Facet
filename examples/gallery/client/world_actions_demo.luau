@@ -109,6 +109,7 @@ function demo.mount(host: any, showWorld: (boolean) -> (), triggered: () -> ()):
 				return
 			end
 			disposed = true
+			showWorld(false)
 			stopCamera()
 			conn:Disconnect()
 			binding.dispose()
@@ -124,7 +125,6 @@ function demo.mount(host: any, showWorld: (boolean) -> (), triggered: () -> ()):
 				camera.CFrame, camera.CameraSubject, camera.CameraType =
 					savedCamera.cf, savedCamera.subject, savedCamera.kind
 			end
-			showWorld(false)
 		end,
 	}
 end

@@ -62,6 +62,42 @@ local function tapOpen(w, c)
 	expect(c.dump().open).toBe(true)
 end
 t.describe("RadialMenu control", function()
+	it("a new radial launcher waits for its solved position before painting", function()
+		local w = world.new()
+		local c = Facet.Controls.RadialMenu(w.core, {
+			id = "Ctl",
+			preset = "donut",
+			items = { { id = "look", label = "Look" } },
+		})
+		local shown = w.core:signal(false)
+		w.pres.present(Facet.UI.Screen({
+			id = "Initial",
+			children = {
+				Facet.UI.When({
+					condition = shown,
+					thenView = function()
+						return c.blueprint
+					end,
+				}),
+			},
+		}))
+		shown:set(true)
+		w.pres.refresh()
+		for _ = 1, 3 do
+			for _, p in w.adapter.paths() do
+				if p:match("/LauncherVisual$") then
+					local node = w.adapter.node(p)
+					if node.canvasGroupInstance.groupTransparency < 1 then
+						expect(node.rect.x >= 0 and node.rect.y >= 0).toBe(true)
+					end
+				end
+			end
+			w.pres.refresh()
+		end
+		expect(w.adapter.node(launcher(w)) ~= nil).toBe(true)
+		c.dispose()
+	end)
+
 	it("all focal presets blend the launcher into closing and can reopen mid-exit", function()
 		for _, preset in { "circle", "donut" } do
 			for _, appearance in { "buttons", "wedges" } do
@@ -343,8 +379,8 @@ t.describe("RadialMenu control", function()
 					expect(rings ~= nil).toBe(true)
 					local r, scale = rings.rect, rings.props.transform.scale
 					local painted = rings.presentedPosition
-					local x = painted.x + r.w / 2 + (d.centerX - r.w / 2) * scale
-					local y = painted.y + r.h / 2 + (d.centerY - r.h / 2) * scale
+					local x = painted.x + r.w / 2 + (d.windowRect.x + d.centerX - r.x - r.w / 2) * scale
+					local y = painted.y + r.h / 2 + (d.windowRect.y + d.centerY - r.y - r.h / 2) * scale
 					expect(math.abs(x - d.windowRect.x - d.centerX) < 0.001).toBe(true)
 					expect(math.abs(y - d.windowRect.y - d.centerY) < 0.001).toBe(true)
 				end
@@ -630,6 +666,58 @@ t.describe("RadialMenu control", function()
 			expect(math.abs((disc.x + disc.w / 2) - (label.x + label.w / 2)) <= 0.51).toBe(true)
 			expect(math.abs((disc.y + disc.h / 2) - (label.y + label.h / 2)) <= 0.51).toBe(true)
 		end
+	end)
+
+	it("list fallback hugs its rows when the viewport is taller than its contents", function()
+		local w, c = setup({
+			preset = "donut",
+			clearance = 200,
+			distribution = "even",
+			items = {
+				{ id = "inspect", label = "Inspect" },
+				{ id = "unpack", label = "Unpack" },
+				{ id = "take", label = "Pick up" },
+			},
+		})
+		w.env:set("viewportRect", { x = 0, y = 0, w = 240, h = 700 })
+		tapOpen(w, c)
+		w.settle(60)
+		expect(c.dump().presentation).toBe("list")
+		local list, bottom = nil, 0
+		for _, p in w.adapter.paths() do
+			local r = w.adapter.node(p).rect
+			if p:match("/List$") then
+				list = r
+			end
+			if p:find("/List/Items/", 1, true) and p:match("/Item$") then
+				bottom = math.max(bottom, r.y + r.h)
+			end
+		end
+		expect(math.abs(list.y + list.h - bottom - 8) < 1).toBe(true)
+		c.dispose()
+	end)
+	it("off-center rings do not cross an integer pivot on their final animation frame", function()
+		local w, c = setup({ preset = "donut", anchor = { x = 400, y = 200.25, visible = true }, contentFit = "none" })
+		c.api.open()
+		local minY, maxY = math.huge, -math.huge
+		for _ = 1, 90 do
+			w.settle(1)
+			local d = c.dump()
+			if d.opacity >= 0.999 then
+				for _, p in w.adapter.paths() do
+					if p:match("/Rings$") then
+						local n = w.adapter.node(p)
+						local r, scale = n.rect, n.props.transform.scale
+						-- Native UDim offsets truncate, including a near-integer animated pivot.
+						local pivot = math.floor(n.presentedPosition.y + r.h / 2)
+						local y = pivot + (d.windowRect.y + d.centerY - r.y - r.h / 2) * scale
+						minY, maxY = math.min(minY, y), math.max(maxY, y)
+					end
+				end
+			end
+		end
+		expect(maxY - minY < 0.15).toBe(true)
+		c.dispose()
 	end)
 
 	it("short viewport list reserves separate navigation and preview space", function()

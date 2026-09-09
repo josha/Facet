@@ -299,7 +299,7 @@ if bootDecision.mode == "showcase" then
 	-- survives only as the first-frame value, for the one frame before any geometry
 	-- exists, and as the standalone (non-composed) pickers' own strip.
 	local chipsBottom = core:signal(nil :: number?)
-	local worldVisible = core:signal(false)
+	local backdropHandle: any = nil
 	-- the live core-topbar height, published as a signal because the CHROME is
 	-- presented edge-to-edge (it owns the strip) and therefore has to place
 	-- itself below the Roblox buttons itself, reactively
@@ -407,7 +407,9 @@ if bootDecision.mode == "showcase" then
 					return require(script:WaitForChild("world_actions_demo")).mount(
 						{ core = demoCore, presenter = pres },
 						function(value)
-							worldVisible:set(value)
+							-- The world and its cover must switch in the same render frame.
+							-- Keep the backdrop solved and styled while the camera is exposed.
+							backdropHandle.controller.setRootVisible(not value)
 						end,
 						triggered
 					)
@@ -641,18 +643,15 @@ if bootDecision.mode == "showcase" then
 	-- Z-ORDER IS PRESENT ORDER (presenter §2.2), so presenting this ONCE, before
 	-- anything else, keeps it underneath every demo and the chrome without any
 	-- notion of "send to back". It is never raised, and that is the mechanism.
-	pres.present(
+	backdropHandle = pres.present(
 		UI.Screen({
 			id = "ShowcaseBackdrop",
 			children = {
-				UI.When({
-					id = "Backdrop",
-					condition = core:memo(function(use)
-						return not use(worldVisible)
-					end),
-					thenView = function()
-						return UI.Box({ id = "Fill", surface = "base", width = UI.fill(), height = UI.fill() })
-					end,
+				UI.Box({
+					id = "Fill",
+					surface = "base",
+					width = UI.fill(),
+					height = UI.fill(),
 				}),
 			},
 		}),
