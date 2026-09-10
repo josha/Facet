@@ -78,7 +78,11 @@ local function newHarness()
 		-- pass, which is the answer this spec is trying to earn and would have
 		-- passed the headline case while measuring nothing. Keeping the proxy empty
 		-- keeps the hook live.
-		local store: { [string]: any } = {}
+		local store: { [string]: any } = {
+			IsA = function(_, class: string)
+				return class == "GuiObject"
+			end,
+		}
 		local instance = setmetatable({}, {
 			__index = function(_, key)
 				return store[key]
@@ -129,6 +133,25 @@ local function shiftAll(host: any, kids: { any }, dy: number)
 end
 
 describe("a host that moves costs ONE engine write, not one per descendant", function()
+	it("a subpixel animation tail reaches the resting pixel before its transform clears", function()
+		local region, counts, node = newHarness()
+		local handle = node("/S/Puck", { x = 341, y = 40, w = 40, h = 76 })
+		for _, direction in { -1, 1 } do
+			region.setTransform(handle, { x = 1.6 * direction, y = 1.6 * direction, w = -1.6, h = -1.6 })
+			expect(handle.instance.Position.x).toBe(341 + 2 * direction)
+			expect(handle.instance.Size.y).toBe(74)
+			region.setTransform(handle, { x = 0.01 * direction, y = 0.01 * direction, w = -0.01, h = -0.01 })
+			expect(handle.instance.Position.x).toBe(341)
+			expect(handle.instance.Position.y).toBe(40)
+			expect(handle.instance.Size.x).toBe(40)
+			expect(handle.instance.Size.y).toBe(76)
+			counts.position, counts.size = 0, 0
+			region.setTransform(handle, nil)
+			expect(counts.position).toBe(0)
+			expect(counts.size).toBe(0)
+		end
+	end)
+
 	it("the control: placing the surface writes every node exactly once", function()
 		local region, counts, node = newHarness()
 		local host, kids = listInHost(region, node, 20)

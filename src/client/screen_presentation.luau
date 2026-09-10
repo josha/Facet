@@ -351,8 +351,12 @@ function screen_presentation.new(ctx: any)
 				i -= 1
 			end
 		end
-		handle.presentationOffsetX = ox
-		handle.presentationOffsetY = oy
+		-- UDim offsets truncate to whole pixels. A spring approaching from below
+		-- otherwise stays one pixel short until its transform clears, then pops.
+		-- Round the composed delta once so the node, hit expander and focus ring
+		-- reach their resting pixels together, without changing the solver's rect.
+		handle.presentationOffsetX = math.round(ox)
+		handle.presentationOffsetY = math.round(oy)
 		-- THE SIZE HALF, AND IT READS THIS NODE'S OWN TRANSFORM ONLY (withAnimation
 		-- size, 2026-08-14). The loop above accumulates because a container's MOVE
 		-- carries nothing inside it in a flat tree. A container's painted GROWTH
@@ -360,8 +364,8 @@ function screen_presentation.new(ctx: any)
 		-- opposite: every child holds an absolute rect, so it must keep its own solved
 		-- size while its parent's box travels. So: no ancestor walk, one lookup.
 		local ownT = presentationTransforms[handle.path]
-		handle.presentationSizeW = if ownT ~= nil and type(ownT.w) == "number" then ownT.w else 0
-		handle.presentationSizeH = if ownT ~= nil and type(ownT.h) == "number" then ownT.h else 0
+		handle.presentationSizeW = if ownT ~= nil and type(ownT.w) == "number" then math.round(ownT.w) else 0
+		handle.presentationSizeH = if ownT ~= nil and type(ownT.h) == "number" then math.round(ownT.h) else 0
 	end
 
 	--[[ THE ORIGIN A NODE'S ENGINE `Position` IS RELATIVE TO — its real instance

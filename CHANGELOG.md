@@ -13,6 +13,8 @@ runtime as `Facet.VERSION`.
 
 ## [Unreleased]
 
+- Round native presentation offsets and size deltas before writing pixel geometry, removing the final pixel snap when Showcase animations settle.
+
 - Blend focal launchers back in on the radial exit clock, including interrupted closing; hand off lists without overlapping rows. Measure navigation arcs against the themed icon square so large Close artwork stays inside its plate. Fit custom compact images against their actual rendered rectangle, including responsive image fallback. Keep explicit image content visible when a composite suppresses its theme plate, without borrowing the plate’s shadow.
 - Give Pixel Quest, Compact Pointer, and Glossy Touch the actual tinted search image while preserving their other glyph choices. Expand world-anchor design guidance for proximity actions and choosing between object, corner, and single-action UI.
 
