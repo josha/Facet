@@ -618,8 +618,8 @@ function radial.build(Facet: any, core: any, spec: Spec)
 							m.width, m.height = iconSize, iconSize
 							imageContent = true
 						else
-							m.width = math.max(size, iconSize)
-							m.height = math.max(m.height, iconSize)
+							m.width, m.height = iconSize, iconSize
+							imageContent = true
 						end
 					end
 					contentWidth, contentHeight = math.min(available, m.width), math.min(s.labelBox.h, m.height)
@@ -1216,7 +1216,7 @@ function radial.build(Facet: any, core: any, spec: Spec)
 			id = "Item",
 			label = label,
 			compactLabel = compact,
-			padding = if type(compact) == "table" and compact.image then 0 else nil,
+			padding = if type(compact) == "table" and (compact.image or compact.icon) then 0 else nil,
 			enabled = eligible,
 			focusable = enabled,
 			focusVisual = if appearance == "buttons" and (item.buttonSurface or buttonSurface) == "none"

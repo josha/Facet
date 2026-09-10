@@ -208,8 +208,10 @@ local QUEST = {
 
 function pixel_quest.definition(themes: any): any
 	local assets = table.clone(ASSETS)
-	-- Shared Facet magnifying-glass asset, explicitly retained with standardIcons off.
+	-- Shared Facet magnifying-glass asset.
 	assets.search = { content = "rbxassetid://85188541706347", tintRole = "content" }
+	assets.menu = { content = "rbxassetid://119066409501208", tintRole = "content" }
+	assets.flag = { content = "rbxassetid://109067109704366", tintRole = "content" }
 	local inset = { top = 16, right = 16, bottom = 16, left = 16 }
 	return {
 		base = themes.neutralPackage(),
@@ -221,14 +223,8 @@ function pixel_quest.definition(themes: any): any
 			-- THE TWO FIELDS THIS PACKAGE EXISTS FOR
 			rendering = "pixel",
 			pixelUnit = UNIT,
-			-- ...AND THE FIELD THAT FOLLOWS FROM THEM. The framework's own icon
-			-- set (compact-label stage) fills in below a package's art, which is
-			-- right for a smooth theme and wrong for this one: a 128px antialiased
-			-- silhouette in a 4px-unit pixel grid reads as a mistake, and
-			-- `ResamplerMode.Pixelated` only makes it a NEAREST-NEIGHBOUR mistake.
-			-- This package draws its own art for the six names it cares about and
-			-- the ASCII glyph for the rest, which is what it did before the set
-			-- existed and what it should keep doing.
+			-- Use the explicitly selected action artwork below. Other names retain
+			-- the package's deliberate glyph fallback.
 			standardIcons = false,
 		},
 		style = { defaultTheme = "Quest", themes = { { name = "Quest", colors = QUEST.colors, extra = QUEST.extra } } },
@@ -443,6 +439,8 @@ function pixel_quest.definition(themes: any): any
 		-- control asks for a MEANING and this table answers with art.
 		icons = {
 			["facet:search"] = "search",
+			menu = "menu",
+			flag = "flag",
 			increment = "pixel_icon_plus",
 			decrement = "pixel_icon_minus",
 			["chevron.trailing"] = "pixel_icon_chevron_right",
@@ -465,6 +463,7 @@ end
 function pixel_quest.buildWithoutIcons(themes: any): (any, any)
 	local def = pixel_quest.definition(themes)
 	def.identity.id = pixel_quest.id .. "-noicons"
+	def.identity.standardIcons = false
 	def.icons = nil
 	return themes.define(def)
 end

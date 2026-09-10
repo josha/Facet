@@ -314,6 +314,19 @@ describe("themes.resolveIcon: three honest answers", function()
 	end)
 end)
 
+describe("Pixel Quest action icon coverage", function()
+	it("fills missing action artwork while preserving its own pixel art and explicit glyph demo", function()
+		local theme = require("../examples/themes/pixel_quest")
+		local f = require("../src")
+		local package = theme.build(f.themes)
+		for _, name in { "menu", "flag", "facet:search", "close" } do
+			expect(themes.resolveIcon(package, name).source).toBe("asset")
+		end
+		expect(themes.resolveIcon(package, "close").contentId ~= themes.resolveIcon(nil, "close").contentId).toBe(true)
+		expect(themes.resolveIcon(theme.buildWithoutIcons(f.themes), "menu").source).toBe("glyph")
+	end)
+end)
+
 describe("search icon follows the existing theme resolver", function()
 	it("shipped glyph-oriented themes still draw a real magnifying glass", function()
 		for _, theme in

@@ -371,15 +371,13 @@ describe("themed containment: the four measurements, pinned", function()
 		local w, built = tabletHud()
 		local disc = w.adapter.node("/HudScreen/Hud/Rounds/RoundStrip/R1")
 		expect(disc ~= nil).toBe(true)
-		-- the disc keeps the diameter its theme asked for
-		expect(disc.rect.w).toBe(36)
-		expect(disc.rect.h).toBe(36)
-		--[[ ...and the package no longer asks for a frame it cannot fit inside that
-			diameter: `pixel_quest`'s `control` recipe reserves the TWO design pixels
-			its art actually carves rather than the four its nine-slice border needs for
-			the stretch rule, so 36 - 16 leaves 20 for a 16px glyph and the framework
-			has nothing to report. Before the correction the reservation was 32 and the
-			glyph was drawn into 4x4 — which nothing anywhere said a word about. ]]
+		-- Pixel Quest's menu now has a 32px image instead of the narrow "="
+		-- fallback. Its 16px carved padding raises the compact disc's floor to 48.
+		expect(disc.rect.w).toBe(48)
+		expect(disc.rect.h).toBe(48)
+		-- The control reserves the two design pixels its artwork carves,
+		-- independently of the four used by its nine-slice stretch rule. The
+		-- measured 48px disc therefore leaves 32px for its menu image.
 		for _, finding in built.handle.controller.diagnostics() do
 			if string.find(finding.node, "/RoundStrip/", 1, true) ~= nil then
 				error(`the HUD chip strip still files: {finding.issue}`, 0)

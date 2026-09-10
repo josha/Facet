@@ -2028,10 +2028,9 @@ describe("device bug round 2026-08-12 — a letter is not an icon (finding A4)",
 	end)
 
 	it("a tray plate under a package that declines framework art draws the mark, never a letter", function()
-		-- the end-to-end the rule above exists for: Pixel Quest is a SHIPPED
-		-- package with `identity.standardIcons = false`, so this is the path the
-		-- photograph was taken on, not a synthetic one.
-		local pkg = packageOf("pixel_quest")
+		-- Exercise the shipped glyph comparison explicitly: the normal Pixel
+		-- Quest package now supplies flag artwork.
+		local pkg = (require)("../examples/themes/pixel_quest").buildWithoutIcons(Facet.themes)
 		expect((pkg.identity :: any).standardIcons).toBe(false)
 		local w = themedWorld(themeSnapshot.resolve(pkg, nil, {}), function(_core, env)
 			return {

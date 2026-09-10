@@ -3386,8 +3386,14 @@ describe("overflow sweep: the HUD under the showcase's OWN chrome", function()
 			contribute a cell. TWELVE MORE boxes measure at a size this census counts,
 			and none of them is a route that LOST its floor: both pinned-EMPTY lists
 			above are still empty, which is the half a count cannot say. RE-READ RATHER
-			THAN BUMPED, as the three entries above were. ]]
-		expect(`routes swept: {routeCensus.swept}`).toBe("routes swept: 426")
+			THAN BUMPED, as the three entries above were.
+
+			426 -> 427 (2026-09-09, Pixel Quest action artwork). The menu image
+			raises the HUD compact disc from 36 to 48 to fit its content. Comparing
+			the census with the previous package adds exactly Health/Expand at
+			705x338, Pixel Quest, text offset 0, strip false; no routes are removed.
+			Both framework-cut and unexplained sub-floor lists remain empty. ]]
+		expect(`routes swept: {routeCensus.swept}`).toBe("routes swept: 427")
 		--[[ ...and the ATTRIBUTION BRANCH IS ENTERED. With no sub-floor route at all
 			the two lists above are empty for the wrong reason: the per-side oracle
 			would never run. This is the case's own positive control. ]]

@@ -800,6 +800,38 @@ t.describe("RadialMenu control", function()
 			c.dispose()
 		end
 	end)
+	it("semantic action icons receive the same painted size as ring navigation", function()
+		local icons = require("../src/tokens/chrome_slots")
+		for _, fit in { "none", "radial", "angular", "both" } do
+			local w, c = setup({
+				preset = "donut",
+				center = "empty",
+				distribution = "even",
+				contentFit = fit,
+				ringWidth = 61.6,
+				clearance = 82,
+				items = {
+					{ id = "menu", label = "Equipment", compactLabel = { icon = "menu", prefer = true } },
+					{ id = "flag", label = "Wave", icon = "flag", labelStyle = "icon" },
+					{ id = "search", label = "Inspect", icon = "facet:search", labelStyle = "icon" },
+				},
+			})
+			local metrics = Facet.themes.resolve(require("../examples/themes/pixel_quest").build(Facet.themes), nil, {})
+			w.env:set("themeMetrics", metrics)
+			tapOpen(w, c)
+			w.settle(60)
+			local function paintedSize(id)
+				local node = w.adapter.node(sector(c, id).path)
+				local pad = node.props.padding or 0
+				return icons.iconBoxPx(metrics.iconSizes.medium, node.rect.w, node.rect.h, pad * 2, pad * 2)
+			end
+			local navigation = paintedSize("$navigation")
+			for _, id in { "menu", "flag", "search" } do
+				expect(math.abs(paintedSize(id) - navigation) < 1).toBe(true)
+			end
+			c.dispose()
+		end
+	end)
 	it("content-fitted navigation arcs contain the themed icon square", function()
 		local geometry = require("../src/controls/radial_geometry")
 		for _, theme in

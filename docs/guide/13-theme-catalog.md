@@ -212,8 +212,10 @@ plates, heart-shaped bar caps, and not one soft pixel anywhere.
   hit floor resolves to 68 px rather than 66, because the package's own grid wins.
 - **Chrome.** 20 images, drawn with nearest-neighbour scaling so enlargement stays
   crisp instead of turning to mush.
-- **Take it when** the game is pixel art. Mixing a pixel skin with smooth art
-  reads as a mistake, not a contrast.
+- **Icons.** Authored pixel icons are joined by Facet's menu, flag, and search
+  artwork at the theme's icon size. Other names retain their text-glyph fallback;
+  the explicit `buildWithoutIcons` comparison remains available.
+- **Take it when** the game is pixel art.
 
 ### Glossy Touch — `GlossyTouch.rbxm`
 
