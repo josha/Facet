@@ -1330,6 +1330,53 @@ t.describe("RadialMenu teardown and compact navigation", function()
 			expect(after[key]).toBe(value)
 		end
 	end)
+	it("round navigation keeps themed image corners inside the disc throughout transitions", function()
+		for _, theme in { require("../examples/themes/pixel_quest"), require("../examples/themes/fantasy_ornate") } do
+			local metrics = Facet.themes.resolve(theme.build(Facet.themes), nil, {})
+			for _, preset in { "bottom-left", "bottom-right", "top-left", "top-right", "donut", "list" } do
+				local w, c = setup({
+					preset = if preset == "list" then "donut" else preset,
+					center = "back",
+					distribution = "even",
+				})
+				w.env:set("themeMetrics", metrics)
+				if preset == "list" then
+					w.env:set("viewportRect", { x = 0, y = 0, w = 420, h = 200 })
+				end
+				w.settle(3)
+				c.api.open()
+				local checked = 0
+				for frame = 1, 100 do
+					if frame == 60 then
+						c.api.close()
+					end
+					w.settle(1)
+					for _, p in w.adapter.paths() do
+						if p:match("/Back$") or p:match("/Center$") or p:match("/Launcher$") then
+							local disc = w.adapter.node(p).rect
+							for _, q in w.adapter.paths() do
+								if q:sub(1, #p + 1) == p .. "/" and q:match("/Glyph$") then
+									local r = w.adapter.node(q).rect
+									local half = math.min(metrics.iconSizes.medium, r.w, r.h) / 2
+									local margin = metrics.space.xs + metrics.strokes.hairline / 2
+									for _, dx in { -half, half } do
+										for _, dy in { -half, half } do
+											local x = r.x + r.w / 2 + dx - disc.x - disc.w / 2
+											local y = r.y + r.h / 2 + dy - disc.y - disc.h / 2
+											expect(math.sqrt(x * x + y * y) <= disc.w / 2 - margin + 0.01).toBe(true)
+										end
+									end
+									checked += 1
+								end
+							end
+						end
+					end
+				end
+				expect(checked > 0).toBe(true)
+				c.dispose()
+			end
+		end
+	end)
 	it("rounded navigation keeps its 32px visual and changes its glyph with depth", function()
 		local w, c = setup({
 			distribution = "even",

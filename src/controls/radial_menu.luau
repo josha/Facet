@@ -1557,7 +1557,29 @@ function radial.build(Facet: any, core: any, spec: Spec)
 	end)
 	local function roundButton(props: any): any
 		props.surface = nil
+		local diameter = props.width
 		props.padding = 0
+		local inset = memo(function(use)
+			local size = if UI.isReadable(diameter) then use(diameter) else diameter
+			local d = size.px
+			local metrics = use(env:get("themeMetrics")) or snapshot.neutral()
+			local margin = (snapshot.resolveNumber(metrics, "xs") or 4)
+				+ (snapshot.resolveNumber(metrics, "strokes.hairline") or 1) / 2
+			-- Fit the image's square corners inside the disc, clear of its border.
+			-- Bound custom glyph children; leaf icons retain the native icon renderer.
+			return math.ceil((d - math.max(0, d - margin * 2) / math.sqrt(2)) / 2)
+		end)
+		if props.children then
+			props.children = {
+				UI.ZStack({
+					id = "DiscContent",
+					width = UI.fill(),
+					height = UI.fill(),
+					padding = inset,
+					children = props.children,
+				}),
+			}
+		end
 		-- Compact native discs do not inherit rectangular panel-art insets.
 		-- Explicit skin.launcher/center is still applied by the caller below.
 		return chrome.attachHint(UI.Button(props), { slot = "none" })
