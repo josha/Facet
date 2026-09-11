@@ -78,82 +78,6 @@ function Foyer.build(Facet: any, core: any, deps: any): any
 
 	local scope = core:scope("ref-p4-foyer")
 	local conditions = Facet.adaptive.conditions(core, env, { scope = scope })
-
-	--[[ A DISC THAT CAN HOLD ITS OWN FRAME (the widest-viewport themed cell,
-		2026-09-11). Every circle button here used to take the control rung the
-		package named and nothing else; under an ornate package at the ten-foot
-		scale that rung is narrower than the package's own carved border, so the
-		renderer handed the inset back and the frame painted over the glyph. A
-		disc is the LARGER of the named rung and its frame plus one line of body
-		text — the same rule the gallery's HUD discs keep — and exactly the rung
-		on every flat package, whose frame is zero. One memo per rung, cached, so a
-		re-run closure mints none; a memo rather than a reactive px inside a dim
-		(read once) so a live theme swap re-derives it. ]]
-	local discBoxMemos: { [any]: any } = {}
-	local function discBox(rung: string | number): any
-		local cached = discBoxMemos[rung]
-		if cached ~= nil then
-			return cached
-		end
-		local memo = scope:own(core:memo(function(use)
-			local facts = Facet.text.facts({ env = env, use = use })
-			local metrics: any = facts.metrics
-			local rungs: any = if type(metrics) == "table" then (metrics :: any).controlSizes else nil
-			local entry: any = if type(rungs) == "table" and type(rung) == "string" then (rungs :: any)[rung] else nil
-			local named = if type(rung) == "number"
-				then rung
-				elseif type(entry) == "table" and type(entry.height) == "number" then entry.height
-				else 0
-			local insets: any = if type(metrics) == "table" then (metrics :: any).chromeInsets else nil
-			local carve: any = if type(insets) == "table" then (insets :: any).control else nil
-			local function side(name: string): number
-				local px = if type(carve) == "table" then (carve :: any)[name] else nil
-				return if type(px) == "number" then px else 0
-			end
-			local frame = math.max(side("left") + side("right"), side("top") + side("bottom"))
-			-- the disc holds an ICON: a fixed `iconSizes.medium` square (the box
-			-- an icon-only button centres its picture — or its fallback glyph —
-			-- in; see layout_node's icon note), which follows the display's
-			-- density and not the text preference, so a phone at the largest
-			-- preference keeps its four discs on one row
-			local iconSizes: any = if type(metrics) == "table" then (metrics :: any).iconSizes else nil
-			local icon = if type(iconSizes) == "table" and type(iconSizes.medium) == "number"
-				then iconSizes.medium
-				else 0
-			-- ...and the glyph that stands in where a package has no art for the
-			-- app's own icon names draws at the body line, which is taller than the
-			-- icon square at the largest preference; the disc PREFERS room for
-			-- either and may shrink to the icon square when its row cannot hold
-			-- that (a 320px phone at +14 under an ornate frame), which is the one
-			-- cell the theme ledger still records for it
-			local mark = math.max(icon, Facet.text.lineBox({ facts = facts, size = "body", lines = 1 }))
-			return {
-				type = "minMax",
-				min = frame + icon,
-				preferred = math.max(named, frame + mark),
-				max = math.max(named, frame + mark),
-			}
-		end))
-		discBoxMemos[rung] = memo
-		return memo
-	end
-	--[[ ...AND A BADGE THAT CAN HOLD ITS SEAL: the count bubble's floor is the
-		badge's own carved border plus the room two digits need, never a bare
-		20px an ornate seal cannot fit in. ]]
-	local badgeWidth = scope:own(core:memo(function(use)
-		local facts = Facet.text.facts({ env = env, use = use })
-		local metrics: any = facts.metrics
-		local insets: any = if type(metrics) == "table" then (metrics :: any).chromeInsets else nil
-		local carve: any = if type(insets) == "table" then (insets :: any).badge else nil
-		local function side(name: string): number
-			local px = if type(carve) == "table" then (carve :: any)[name] else nil
-			return if type(px) == "number" then px else 0
-		end
-		-- the whole dim, because a dim's `min` is a number or a metric name and a
-		-- memo inside it would be read once
-		local border = side("left") + side("right")
-		return { type = "minMax", min = BADGE_MIN + border, max = BADGE_MAX + border }
-	end))
 	local clock = presenter.motionClock
 
 	-- ── locale ─────────────────────────────────────────────────────────────
@@ -574,7 +498,6 @@ function Foyer.build(Facet: any, core: any, deps: any): any
 					id = "SeeAll",
 					label = Lnow("section.seeAll", Lnow(section.titleKey)),
 					shape = "circle",
-					height = discBox("regular"),
 					icon = "chevron.trailing",
 					onActivate = function()
 						local rows: { any } = {}
@@ -736,7 +659,7 @@ function Foyer.build(Facet: any, core: any, deps: any): any
 						textSize = "caption",
 						textAlign = "center",
 						lineLimit = 1,
-						width = badgeWidth,
+						width = { type = "minMax", min = BADGE_MIN, max = BADGE_MAX },
 						height = { type = "fixed", px = BADGE_MIN },
 						corners = UI.cornersData("pill"),
 					}),
@@ -755,7 +678,7 @@ function Foyer.build(Facet: any, core: any, deps: any): any
 					label = Lnow("invite.label"),
 					shape = "circle",
 					icon = "foyer:add",
-					width = discBox(PORTRAIT),
+					width = { type = "fixed", px = PORTRAIT },
 					onActivate = function()
 						presentInfoModal("InviteStub", "invite.label", {
 							UI.Text({ id = "StubBody", text = L("invite.stub"), role = "secondary" }),
@@ -1122,8 +1045,6 @@ function Foyer.build(Facet: any, core: any, deps: any): any
 				id = "Refresh",
 				label = Lnow("refresh.label"),
 				shape = "circle",
-				width = discBox("regular"), -- the row axis, so the disc can give up its preferred room down to the icon square
-				shrinkWeight = 1,
 				icon = "foyer:refresh",
 				enabled = core:memo(function(use)
 					return use(services.refreshStatus) ~= "pending"
@@ -1139,8 +1060,6 @@ function Foyer.build(Facet: any, core: any, deps: any): any
 				id = "Profile",
 				label = Lnow("profile.label"),
 				shape = "circle",
-				width = discBox("regular"), -- the row axis, so the disc can give up its preferred room down to the icon square
-				shrinkWeight = 1,
 				icon = "foyer:you",
 				onActivate = function()
 					presentInfoModal("ProfileModal", "profile.label", {
@@ -1150,18 +1069,11 @@ function Foyer.build(Facet: any, core: any, deps: any): any
 			}),
 			UI.ZStack({
 				id = "BellZ",
-				-- the bar's third disc: the ZStack is the row's child, so IT carries the
-				-- disc's box and the shrink weight, and the bell inside fills it (a
-				-- circle takes one axis) — a bare shrink weight on a content-free
-				-- ZStack would shrink it under its own bell
-				width = discBox("regular"),
-				shrinkWeight = 1,
 				children = {
 					UI.Button({
 						id = "Bell",
 						label = Lnow("bell.label"),
 						shape = "circle",
-						width = UI.fill(), -- follows BellZ's disc box
 						icon = "foyer:bell",
 						onActivate = presentNotices,
 					}),

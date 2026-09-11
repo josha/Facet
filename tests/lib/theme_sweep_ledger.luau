@@ -119,6 +119,38 @@ theme_ledger.ROWS = {
 		kind = "theme-inset-yield",
 	},
 	{
+		-- THE TOP BAR'S FOUR ICON BUTTONS, one row each and all the same story: a 44px
+		-- target wearing a frame its package sized for a labelled button.
+		surface = "p4_foyer",
+		variant = "-",
+		node = "/Foyer/Root/TopBar/BellZ/Bell",
+		sig = "the 'X' chrome contentInsets could not be",
+		px = 68, -- the ten-foot rung (2026-09-11): the same yield on the box the Large display names, recorded when the widest-viewport themed cell joined the sweep
+		since = 0,
+		packages = "fantasy-ornate,fantasy-parchment,glossy-touch,pixel-quest",
+		kind = "theme-inset-yield",
+	},
+	{
+		surface = "p4_foyer",
+		variant = "-",
+		node = "/Foyer/Root/TopBar/Profile",
+		sig = "the 'X' chrome contentInsets could not be",
+		px = 68, -- the ten-foot rung (2026-09-11): the same yield on the box the Large display names, recorded when the widest-viewport themed cell joined the sweep
+		since = 0,
+		packages = "fantasy-ornate,fantasy-parchment,glossy-touch,pixel-quest",
+		kind = "theme-inset-yield",
+	},
+	{
+		surface = "p4_foyer",
+		variant = "-",
+		node = "/Foyer/Root/TopBar/Refresh",
+		sig = "the 'X' chrome contentInsets could not be",
+		px = 68, -- the ten-foot rung (2026-09-11): the same yield on the box the Large display names, recorded when the widest-viewport themed cell joined the sweep
+		since = 0,
+		packages = "fantasy-ornate,fantasy-parchment,glossy-touch,pixel-quest",
+		kind = "theme-inset-yield",
+	},
+	{
 		surface = "p4_foyer",
 		variant = "-",
 		node = "/Foyer/Root/TopBar/SearchSlot/IconForm",
@@ -134,7 +166,7 @@ theme_ledger.ROWS = {
 		variant = "-",
 		node = "/Foyer/Root/TopBar/BellZ/BadgeWhen/then/BadgeBubble/Count",
 		sig = "the 'X' chrome contentInsets could not be",
-		px = 20,
+		px = 32, -- the ten-foot rung (2026-09-11): the same yield on the box the Large display names, recorded when the widest-viewport themed cell joined the sweep
 		since = 0,
 		packages = "fantasy-ornate,fantasy-parchment",
 		kind = "theme-inset-yield",
@@ -144,9 +176,31 @@ theme_ledger.ROWS = {
 		variant = "-",
 		node = "/Foyer/Root/Nav/Content/Tab-home/then/HomeBody/FeedPage/FriendsRow/AddTile/BadgeWhen/then/BadgeBubble/Count",
 		sig = "the 'X' chrome contentInsets could not be",
-		px = 20,
+		px = 32, -- the ten-foot rung (2026-09-11): the same yield on the box the Large display names, recorded when the widest-viewport themed cell joined the sweep
 		since = 0,
 		packages = "fantasy-ornate,fantasy-parchment",
+		kind = "theme-inset-yield",
+	},
+	{
+		surface = "p4_foyer",
+		variant = "-",
+		node = "/Foyer/Root/Nav/Content/Tab-home/then/HomeBody/FeedPage/FriendsRow/AddTile/B",
+		sig = "the 'X' chrome contentInsets could not be",
+		px = 56,
+		since = 14,
+		-- ...and Fantasy Parchment's 24px seal at the ten-foot cell (2026-09-11)
+		packages = "fantasy-ornate,fantasy-parchment,glossy-touch",
+		kind = "theme-inset-yield",
+	},
+	{
+		-- the section headers' `See all` link-buttons, one construction per section.
+		surface = "p4_foyer",
+		variant = "-",
+		node = "/Foyer/Root/Nav/Content/Tab-home/then/HomeBody/FeedPage/Sections/[*]/Body/Header/SeeAll",
+		sig = "the 'X' chrome contentInsets could not be",
+		px = 68, -- the ten-foot rung (2026-09-11): the same yield on the box the Large display names, recorded when the widest-viewport themed cell joined the sweep
+		since = 0,
+		packages = "fantasy-ornate,fantasy-parchment,glossy-touch,pixel-quest",
 		kind = "theme-inset-yield",
 	},
 	{
