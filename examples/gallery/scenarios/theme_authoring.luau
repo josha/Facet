@@ -1584,7 +1584,13 @@ return {
 				end,
 				-- the SAME package with its icon map removed: the stepper's glyphs
 				-- must fall back to the framework's ASCII characters rather than
-				-- becoming empty plates (RS-A7's fallback half)
+				-- becoming empty plates (RS-A7's fallback half).
+				--
+				-- DRIVER-ONLY, AND IT HAS TO STAY THAT WAY (2026-09-11). This is the
+				-- one place the ASCII floor is still demonstrated, and a shipped
+				-- package may no longer show it (tests/icon_coverage.spec.luau). The
+				-- probe exists so a check can OBSERVE the floor; nothing the gallery
+				-- presents on its own may install this build.
 				installPixelNoIcons = function()
 					return installNamed("pixel_quest", "buildWithoutIcons")
 				end,

@@ -203,7 +203,9 @@ local ASSETS = {
 
 function glossy_touch.definition(themes: any): any
 	local assets = table.clone(ASSETS)
-	-- Shared Facet magnifying-glass asset, explicitly retained with standardIcons off.
+	-- the magnifying glass is this package's OWN declaration of the framework's
+	-- art, kept so the search field's picture survives even if the rung below ever
+	-- moves; every other name resolves through the framework rung.
 	assets.search = { content = "rbxassetid://85188541706347", tintRole = "content" }
 	return {
 		base = themes.neutralPackage(),
@@ -212,14 +214,16 @@ function glossy_touch.definition(themes: any): any
 			displayName = glossy_touch.displayName,
 			schemaVersion = themes.SCHEMA,
 			version = "1.0.0",
-			-- DECLINES THE FRAMEWORK ICON SET (compact-label stage), which is the
-			-- case that opt-out exists for. This package ships no `icons` ON
-			-- PURPOSE, so that the same stepper draws ASCII glyphs here and
-			-- pictures under Fantasy Ornate — a controlled comparison, and the
-			-- only place the framework's ASCII floor is visible in a shipped
-			-- package. Letting the framework's own art fill in would quietly
-			-- delete the demonstration.
-			standardIcons = false,
+			-- NO `standardIcons = false` (2026-09-11). This package used to decline
+			-- the framework's art rung on purpose, as a controlled comparison against
+			-- Fantasy Ornate: the same stepper drew ASCII characters here and pictures
+			-- there. What that actually shipped was `^v` in a picker trigger and `v`
+			-- for a tick, on a real screen, in a package a game installs — a character
+			-- standing in for a picture, which is the finding-A4 class. A SHIPPED
+			-- package resolves every icon name a control asks for to art
+			-- (tests/icon_coverage.spec.luau); the ASCII floor stays an engine recovery
+			-- path, and the comparison lives on in `pixel_quest.buildWithoutIcons`,
+			-- which no player-facing surface installs.
 		},
 		style = { defaultTheme = "Sky", themes = { { name = "Sky", colors = SKY.colors, extra = SKY.extra } } },
 		metrics = {

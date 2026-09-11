@@ -129,21 +129,47 @@ describe("the icon's box: a picture is reserved for, not painted over", function
 	end)
 
 	it("a package that draws NO art reserves nothing extra — flat geometry is untouched", function()
-		-- glossy-touch and compact-pointer decline the framework rung on purpose
-		-- (a controlled ASCII comparison against the ornate packages). They drew
-		-- the caret correctly BEFORE this change and must draw it identically
-		-- after: an unconditional reservation would fix seven packages by
-		-- breaking the two that were already right.
-		local checked = 0
+		--[[ THE NEGATIVE CASE, and where it now comes from. A package that resolves a
+			name to the ASCII character drew the caret correctly BEFORE the reservation
+			existed and must draw it identically after: an unconditional reservation
+			would fix seven packages by breaking the geometry of the ones that were
+			already right.
+
+			It used to come from glossy-touch and compact-pointer, which declined the
+			framework art rung as a controlled ASCII comparison. That demonstration is
+			no longer shipped (2026-09-11): a shipped package answers every requested
+			name with art, so NO configuration in the list reaches the character any
+			more, and this sweep would have passed by finding nothing. The declining
+			build is `pixel_quest.buildWithoutIcons`, which exists for exactly this —
+			and the first loop below now also pins the SHIPPED half of that rule, so
+			the two halves cannot drift apart. ]]
+		local shipped = 0
 		for _, config in configurations() do
-			if not paintsArt(config.pkg, "chevron.trailing") then
-				local snap = snapshot.resolve(config.pkg, nil, {})
-				local rect = caretRect(config.pkg, "chevron.trailing")
-				-- the glyph is one narrow character; the icon rung is 20px+. If the
-				-- reservation had fired here, the box would BE the rung.
-				expect(rect.w < snap.iconSizes.medium).toBe(true)
-				checked += 1
-			end
+			expect(`{config.name} paints chevron.trailing`).toBe(
+				`{config.name} paints {if paintsArt(config.pkg, "chevron.trailing")
+					then "chevron.trailing"
+					else "NOTHING"}`
+			)
+			shipped += 1
+		end
+		expect(shipped).toBe(#PACKAGES + 1)
+
+		local checked = 0
+		for _, config in
+			{
+				{
+					name = "pixel-quest-noicons",
+					pkg = (require)("../examples/themes/pixel_quest").buildWithoutIcons(Facet.themes),
+				},
+			}
+		do
+			expect(paintsArt(config.pkg, "chevron.trailing")).toBe(false)
+			local snap = snapshot.resolve(config.pkg, nil, {})
+			local rect = caretRect(config.pkg, "chevron.trailing")
+			-- the glyph is one narrow character; the icon rung is 20px+. If the
+			-- reservation had fired here, the box would BE the rung.
+			expect(rect.w < snap.iconSizes.medium).toBe(true)
+			checked += 1
 		end
 		-- the sweep must actually have exercised the negative case, or this test
 		-- passes by finding nothing (the shape a package rename would produce)

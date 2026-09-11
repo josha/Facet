@@ -166,7 +166,9 @@ local ASSETS = {
 
 function compact_pointer.definition(themes: any): any
 	local assets = table.clone(ASSETS)
-	-- Shared Facet magnifying-glass asset, explicitly retained with standardIcons off.
+	-- the magnifying glass is this package's OWN declaration of the framework's
+	-- art, exactly as its touch half declares it; every other name resolves through
+	-- the framework rung.
 	assets.search = { content = "rbxassetid://85188541706347", tintRole = "content" }
 	return {
 		base = themes.neutralPackage(),
@@ -175,14 +177,11 @@ function compact_pointer.definition(themes: any): any
 			displayName = compact_pointer.displayName,
 			schemaVersion = themes.SCHEMA,
 			version = "1.0.0",
-			-- DECLINES THE FRAMEWORK ICON SET, for the same reason its touch half
-			-- does (compact-label stage). The pair exists to prove that ONE design
-			-- at two densities is two snapshots and not two palettes, so the two
-			-- halves have to answer identically about everything that is not
-			-- density — including what a stepper draws. Opting out on one side
-			-- only would have made the pair asymmetric in exactly the dimension it
-			-- is supposed to hold constant.
-			standardIcons = false,
+			-- NO `standardIcons = false` (2026-09-11), for the same reason its touch
+			-- half no longer declines the framework's art: a shipped package resolves
+			-- every icon name a control asks for to a picture. The pair still answers
+			-- identically about everything that is not density — which is what the
+			-- pair exists to prove — and now it answers identically with ART.
 		},
 		style = { defaultTheme = "Aqua", themes = { { name = "Aqua", colors = AQUA.colors, extra = AQUA.extra } } },
 		metrics = {

@@ -805,7 +805,17 @@ describe("RS-A14 the platform pair is two snapshots, not two palettes", function
 		expect(pointer.chrome.focus.kind).toBe("ring")
 	end)
 
-	it("both halves retain chrome glyphs and explicitly draw the search image", function()
+	it("both halves declare one icon and take the framework's art for the rest", function()
+		--[[ THIS PAIR USED TO DECLINE THE FRAMEWORK ART RUNG (2026-09-11). The
+			argument was a controlled comparison: the same stepper drew ASCII characters
+			here and pictures under Fantasy Ornate, which made the resolution ladder
+			visible in a running showcase. What it actually shipped to a player was `^v`
+			where a pop-up button's chevron pair belongs and `v` where a tick belongs —
+			a character standing in for a picture, the finding-A4 class, in a package a
+			game installs. The comparison now lives in `pixel_quest.buildWithoutIcons`,
+			which no player-facing surface installs, and the pair proves the thing that
+			is actually worth proving: ONE authored icon each, and everything else a
+			real picture without either half declaring it. ]]
 		local touch, pointer = pair()
 		for _, pkg in { touch, pointer } do
 			local count = 0
@@ -817,8 +827,9 @@ describe("RS-A14 the platform pair is two snapshots, not two palettes", function
 			expect(themePackage.resolveIcon(pkg, "facet:search").source).toBe("asset")
 			for _, name in { "increment", "decrement", "chevron.trailing" } do
 				local resolved = themePackage.resolveIcon(pkg, name)
-				expect(resolved.source).toBe("glyph")
-				expect(themePackage.isSafeGlyph(resolved.glyph)).toBe(true)
+				expect(`{name} -> {resolved.source}`).toBe(`{name} -> asset`)
+				-- the art it takes is the FRAMEWORK's, not a copy in the package
+				expect(pkg.assets[resolved.assetName]).toBeNil()
 			end
 		end
 	end)
