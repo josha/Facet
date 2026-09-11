@@ -455,6 +455,10 @@ function showcase_chrome.mount(opts: MountOpts): any
 	local sectionPicker = Facet.Controls.Picker(core, {
 		id = "Section",
 		label = COPY.section,
+		-- declared: two short labels are a pill at every width, and since the
+		-- picker round (2026-09-11) an undeclared style is a MENU on a nearby
+		-- pointer or touch surface — a section switch wants both words on screen
+		style = "segmented",
 		options = {
 			{ value = "demos", label = COPY.demos },
 			{ value = "settings", label = COPY.settings },

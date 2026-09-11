@@ -36,7 +36,7 @@ local transitionsLib = require("@self/render/transitions") -- item 41: EXIT_CAP_
 	current eight-module set. Facet.preload() force-loads all eight at a caller's
 	chosen loading-screen moment. ]]
 local tableControl = require("@self/controls/table")
-local popupButton = require("@self/controls/popup_button")
+local popupButton = require("@self/controls/picker_menu")
 local menuControl = require("@self/controls/menu")
 local calloutControl = require("@self/controls/callout")
 local stepperControl = require("@self/controls/stepper")
@@ -256,9 +256,25 @@ local DECLARED_DEPRECATIONS: { Deprecation } = {
 		surface = "newPopupButton",
 		since = "0.10.0",
 		removeNoEarlierThan = "0.12.0",
-		replacement = "Facet.Controls.PopupButton(core, spec)",
-		note = "same builder, same spec table; the namespace closes over the library "
-			.. "so the redundant first argument disappears",
+		replacement = 'Facet.Controls.Picker(core, { style = "menu" | "navigationLink", ... })',
+		note = "the popup button folded into the Picker's menu styles (2026-09-11); the old builder "
+			.. "still runs on the same engine (src/controls/picker_menu.luau)",
+	},
+	{
+		surface = "Controls.PopupButton",
+		since = "0.11.0",
+		removeNoEarlierThan = "0.12.0",
+		replacement = 'Facet.Controls.Picker(core, { style = "menu" | "navigationLink", ... })',
+		note = "one selection control: `{ value, label }` options and a `selected` signal; a checked "
+			.. "multi-select is `Controls.Menu` with `checked` items; a searchable list is "
+			.. '`style = "navigationLink"` with `query`',
+	},
+	{
+		surface = "Picker.presentation",
+		since = "0.11.0",
+		removeNoEarlierThan = "0.12.0",
+		replacement = "Picker.style (automatic | menu | segmented | inline | radioGroup | navigationLink)",
+		note = "same values, SwiftUI's spelling; `radio` reads as `radioGroup`",
 	},
 	{
 		surface = "newMenu",

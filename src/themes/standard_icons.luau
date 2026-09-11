@@ -73,6 +73,14 @@ standard_icons.ART = table.freeze({
 		contentId = "rbxassetid://90343755930598",
 		tintRole = "content",
 	}),
+	-- the pop-up button's stacked pair (Picker `style = "menu"`, 2026-09-11):
+	-- the same recipe as the four chevrons (generate_icons.py, Open Cloud
+	-- upload via tools/upload_icons.py)
+	["chevron.up.chevron.down"] = table.freeze({
+		assetName = "facet_icon_chevron_up_down",
+		contentId = "rbxassetid://133513168894379",
+		tintRole = "content",
+	}),
 	["checkmark"] = table.freeze({
 		assetName = "facet_icon_check",
 		contentId = "rbxassetid://108245103349446",

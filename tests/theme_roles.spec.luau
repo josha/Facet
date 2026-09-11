@@ -551,6 +551,7 @@ describe("migrated controls: byte-parity under Facet Neutral", function()
 				label = "Quality",
 				options = { { label = "Low", value = "low" }, { label = "High", value = "high" } },
 				selected = core:signal("low"),
+				style = "segmented",
 			}).blueprint
 		end)
 		-- ONE LEVEL DEEPER since navigation-and-menus D6: a two-option picker is

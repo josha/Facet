@@ -2,7 +2,7 @@
   "schema": "facet-theme-assets/1",
   "package": "facet-standard-icons",
   "stage": "compact-label",
-  "uploaded": "2026-07-27",
+  "uploaded": "2026-09-11",
   "method": "Roblox Open Cloud POST /assets/v1/assets with assetType=Image, polled to done via /assets/v1/operations/<id>, by tools/upload_icons.py. FULLY HEADLESS -- no Studio and no human step, unlike the eleven per-package assets that went up through the Studio MCP upload_image route. assetType=Image (not Decal) returns a real Image asset, AssetTypeId 1.",
   "note": "Framework-owned art, not a theme package: it resolves BELOW a package's own icons and ABOVE the ASCII fallback glyph (src/themes/package.luau resolveIcon). One near-white #F0F0F2 silhouette per name, no per-state variants -- tintRole owns the colour, and ImageColor3 multiplies, so white reaches every palette while black could only darken. Regenerate the PNGs with assets/icons/source/generate_icons.py.",
   "assets": {
@@ -60,6 +60,16 @@
       "moderation": "Approved",
       "sha256": "bfdb5b50442ce2a03a601df54c8e2682692e9c6756aa3e66d48466d91f267eeb",
       "assetType": "Image"
+    },
+    "facet_icon_chevron_up_down": {
+      "file": "facet_icon_chevron_up_down.png",
+      "contentId": "rbxassetid://133513168894379",
+      "size": "128x128",
+      "sliceBorder": 0,
+      "slot": "icons.chevron.up.chevron.down",
+      "state": "default",
+      "moderation": "Reviewing",
+      "sha256": "5c88123c74eba1c36e8bff344bbe144343a1394c38e414c28925900a12bb54f3"
     },
     "facet_icon_close": {
       "file": "facet_icon_close.png",
@@ -138,17 +148,6 @@
       "sha256": "ac3007a3c503fd1bb1218a5721986d0b7e532d0014c4ff8cacb3e1d5b0701d1c",
       "assetType": "Image"
     },
-    "facet_icon_trash": {
-      "file": "facet_icon_trash.png",
-      "contentId": "rbxassetid://84398508341623",
-      "size": "128x128",
-      "sliceBorder": 0,
-      "slot": "icons.trash",
-      "state": "default",
-      "moderation": "Approved",
-      "sha256": "2c4837ba2f4b87026b9f302a57e252c96a2a424782c4e29b4c52450b400e6e8f",
-      "assetType": "Image"
-    },
     "facet_icon_search": {
       "file": "facet_icon_search.png",
       "contentId": "rbxassetid://85188541706347",
@@ -159,6 +158,17 @@
       "sha256": "268723196812a6b93ec4518f0475d1f0618b37315d87b62b7cbee5055efeb85b",
       "uploaded": "2026-09-08",
       "method": "Roblox Studio MCP upload_image from localhost; asset id returned by upload. Runtime load checked separately."
+    },
+    "facet_icon_trash": {
+      "file": "facet_icon_trash.png",
+      "contentId": "rbxassetid://84398508341623",
+      "size": "128x128",
+      "sliceBorder": 0,
+      "slot": "icons.trash",
+      "state": "default",
+      "moderation": "Approved",
+      "sha256": "2c4837ba2f4b87026b9f302a57e252c96a2a424782c4e29b4c52450b400e6e8f",
+      "assetType": "Image"
     }
   },
   "uploadedBy": "compact-label stage (the standard icon set that makes compactLabel's image form usable)",
@@ -168,6 +178,7 @@
     "facet_icon_chevron_left",
     "facet_icon_chevron_right",
     "facet_icon_chevron_up",
+    "facet_icon_chevron_up_down",
     "facet_icon_close",
     "facet_icon_edit",
     "facet_icon_flag",

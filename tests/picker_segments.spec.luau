@@ -34,14 +34,22 @@ local selectionIndicatorLib = require("../src/controls/selection_indicator")
 local UI = Facet.UI
 
 -- ===== the harness ========================================================
--- One mounted picker on a real presenter. `viewportRect` is wide, so a picker
--- that does not declare its presentation resolves SEGMENTED — which is the
--- shape every case here is about.
+-- One mounted picker on a real presenter. Every case here is about the
+-- SEGMENTED strip, so the harness declares it — on a nearby pointer surface an
+-- undeclared style has been the MENU since the 2026-09-11 picker round
+-- (tests/picker_style.spec.luau owns that ladder). A case that wants the
+-- automatic style passes `automatic = true` and gets a nearby GAMEPAD surface,
+-- where two short options resolve segmented and the automatic root wraps the
+-- strip one level down (`/Strip/then/Body`).
 local function world(spec: any?)
 	local options = spec or {}
 	local core = Facet.newCore()
 	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = options.viewport or 480, h = 640 })
+	if options.automatic then
+		env:set("capabilities", { gamepad = true })
+		env:set("preferredInput", "Gamepad")
+	end
 	env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
 	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
@@ -60,6 +68,9 @@ local function world(spec: any?)
 		if (options :: any)[key] ~= nil then
 			built[key] = (options :: any)[key]
 		end
+	end
+	if built.presentation == nil and not options.automatic then
+		built.presentation = "segmented"
 	end
 	local p = Facet.Controls.Picker(core, built)
 	local handle = pres.present(UI.Screen({ id = "S", children = { p.blueprint } }))
@@ -98,11 +109,12 @@ describe("D6: the segmented presentation ADOPTS the sliding indicator", function
 	end)
 
 	it("...and so does an ADAPTIVE picker that resolves segmented", function()
-		-- `presentation = "automatic"` is what most callers write. The default has
-		-- to reach them or the flip changes almost nothing.
-		local w = world()
+		-- `style = "automatic"` is what most callers write. The default has to
+		-- reach them or the flip changes almost nothing. (A nearby gamepad keeps
+		-- a short strip; the automatic root wraps it one level down.)
+		local w = world({ automatic = true })
 		expect(w.picker.dump().presentation).toBe("segmented")
-		expect(w.adapter.node(BAR) ~= nil).toBe(true)
+		expect(w.adapter.node("/S/View/Strip/then/Body/Indicator/Layer/Bar") ~= nil).toBe(true)
 	end)
 
 	it("the default drops the `selected` style tag, because a tag AND a chip say it twice", function()
@@ -260,6 +272,7 @@ describe("D6: `icon` on Option — icon-only and icon+label", function()
 			id = "Y",
 			options = { { value = "a", label = "Alpha" }, { value = "b", label = "Beta" } },
 			selected = core:signal("a"),
+			style = "segmented",
 		})
 		expect(none.dump().iconCount).toBe(0)
 		none.dispose()
@@ -377,6 +390,11 @@ describe("D6: the VERTICAL pill is a rail, not the inline row list", function()
 		local env = Facet.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 480, h = 640 })
 		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
+		-- TEN-FOOT, with the overscan margin off so the offer stays 480: the
+		-- automatic style is a strip there at every width, which is what lets a
+		-- compact flip stack the rail instead of folding it into a menu
+		env:set("displaySize", "Large")
+		env:set("overscanInsets", "none")
 		local adapter = fake_target.new()
 		local pres = Facet.newPresenter(core, env, adapter, Facet.newActionSystem(core))
 		local sizeClass = core:signal("regular")
@@ -988,6 +1006,7 @@ describe("stabilization B'1: the option the pill covers takes the plate's conten
 	it("the Quality picker resolves segmented and gets the same treatment", function()
 		local w = world(QUALITY)
 		expect(w.picker.dump().presentation).toBe("segmented")
+		expect(w.picker.dump().requestedStyle).toBe("segmented")
 		expect(`Opt1 {wears(w, 1)} / Opt2 {wears(w, 2)} / Opt3 {wears(w, 3)}`).toBe(
 			"Opt1 true / Opt2 false / Opt3 false"
 		)

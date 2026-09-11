@@ -65,6 +65,9 @@ local function world(opts: any?)
 end
 
 local TRIGGER = "/S/Difficulty/Trigger"
+-- the trigger is a CONTENT button since the picker-menu round (2026-09-11):
+-- `label` stays the semantic name and the visible word is the `Value` child
+local VALUE = TRIGGER .. "/Value"
 local function optPath(id: string): string
 	return `/S/Difficulty/PopupWhen/then/Popup/Opt-{id}`
 end
@@ -80,7 +83,7 @@ describe("PopupButton: build + render", function()
 
 	it("the closed button shows the currently-selected option's label", function()
 		local w = world({ initial = "hard" })
-		expect(w.adapter.node(TRIGGER).props.label).toBe("Hard")
+		expect(w.adapter.node(VALUE).props.text).toBe("Hard")
 		-- and the popup is closed: no option rows mounted
 		expect(w.adapter.node(optPath("easy"))).toBe(nil)
 	end)
@@ -132,7 +135,7 @@ describe("PopupButton: pointer interaction (the real tap path)", function()
 		-- popup closed
 		expect(w.adapter.node(optPath("hard"))).toBe(nil)
 		-- label reflects the new selection
-		expect(w.adapter.node(TRIGGER).props.label).toBe("Hard")
+		expect(w.adapter.node(VALUE).props.text).toBe("Hard")
 	end)
 
 	it("re-tapping the trigger while open closes it WITHOUT changing the selection", function()
@@ -229,7 +232,7 @@ describe("PopupButton: reactive discipline", function()
 		w.value:set("hard")
 		w.pres.refresh()
 		expect(w.handle.root.counters().factoryRuns).toBe(before)
-		expect(w.adapter.node(TRIGGER).props.label).toBe("Hard")
+		expect(w.adapter.node(VALUE).props.text).toBe("Hard")
 		local _ = runsClosed
 	end)
 

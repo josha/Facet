@@ -372,6 +372,9 @@ return {
 		local idiomPicker = Facet.Controls.Picker(core, {
 			id = "Idiom",
 			label = COPY.idiomTitle,
+			-- a SEGMENTED strip, declared: this is a live switch the page wants
+			-- visible beside its readouts, not a value folded behind a menu
+			style = "segmented",
 			options = {
 				{ value = "auto", label = COPY.idiomAuto },
 				{ value = "panel", label = COPY.idiomPanel },

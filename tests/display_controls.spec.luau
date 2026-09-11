@@ -225,6 +225,9 @@ describe("B-DSP2: Picker presentation adapts from space, not device names", func
 			label = "Mode",
 			options = { { value = "a", label = "A" }, { value = "b", label = "B" }, { value = "c", label = "C" } },
 			selected = selected,
+			-- the STRIP is what these cases drive; an undeclared style on this
+			-- nearby pointer surface is the menu since 2026-09-11
+			style = "segmented",
 		}
 		for k, v in (overrides or {}) :: any do
 			spec[k] = v
@@ -247,14 +250,15 @@ describe("B-DSP2: Picker presentation adapts from space, not device names", func
 	end
 
 	it("segmented lays options along x; inline stacks them along y", function()
-		local _, _, segAdapter, _, _, _, seg = mountPicker({ presentation = "segmented" })
+		local _, _, segAdapter, _, _, _, seg = mountPicker({ style = "segmented" })
 		expect(segAdapter.node(optPath(seg, 1)).rect.y).toBe(segAdapter.node(optPath(seg, 2)).rect.y)
-		local _, _, inlineAdapter, _, _, _, inline = mountPicker({ presentation = "inline" })
+		local _, _, inlineAdapter, _, _, _, inline = mountPicker({ style = "inline" })
 		expect(inlineAdapter.node(optPath(inline, 1)).rect.x).toBe(inlineAdapter.node(optPath(inline, 2)).rect.x)
 	end)
 
 	it("a live size-class change flips the presentation WITHOUT remounting the options", function()
-		local core, _, adapter, _, pres = harness()
+		local core, env, adapter, _, pres = harness()
+		env:set("displaySize", "Large") -- ten-foot: the automatic style stays a strip
 		local selected = core:signal("a")
 		local sizeClass = core:signal("wide")
 		local control = Facet.Controls.Picker(core, {

@@ -305,9 +305,12 @@ describe("the Controls namespace", function()
 			expect(`{surface} removeNoEarlierThan: {entry.removeNoEarlierThan}`).toBe(
 				`{surface} removeNoEarlierThan: 0.12.0`
 			)
-			expect(`{surface} replacement: {entry.replacement}`).toBe(
-				`{surface} replacement: Facet.Controls.{name}(core, spec)`
-			)
+			-- the popup button's row points past the namespace, at the Picker
+			-- style that replaced it (2026-09-11)
+			local replacement = if name == "PopupButton"
+				then 'Facet.Controls.Picker(core, { style = "menu" | "navigationLink", ... })'
+				else `Facet.Controls.{name}(core, spec)`
+			expect(`{surface} replacement: {entry.replacement}`).toBe(`{surface} replacement: {replacement}`)
 		end
 	end)
 

@@ -953,6 +953,12 @@ package.ICON_FALLBACK_GLYPHS = table.freeze({
 	["chevron.trailing"] = ">",
 	["chevron.up"] = "^",
 	["chevron.down"] = "v",
+	-- the POP-UP BUTTON's stacked pair (Picker `style = "menu"`, 2026-09-11):
+	-- the up-and-down chevron every desktop pop-up and the menu picker on a
+	-- phone wear at their trailing edge. Two strokes side by side rather than
+	-- stacked, because a fallback is one line of text; a package that ships art
+	-- for the name paints the real stacked glyph over it.
+	["chevron.up.chevron.down"] = "^v",
 	-- a tick is a v-stroke; the same character reads correctly in a checkbox
 	["checkmark"] = "v",
 	["close"] = "x",

@@ -66,8 +66,10 @@ describe("semantic versioning and deprecation", function()
 			every upgrade check the versioning policy defines. The other NINETEEN are
 			the old-form composite builders (`newTable` … `newAsyncImage`), each naming
 			`Facet.Controls.<Name>(core, spec)`; their content is owned by
-			tests/controls_namespace.spec.luau. ]]
-		expect(#ledger).toBe(#generated + 24)
+			tests/controls_namespace.spec.luau. TWO MORE from the picker round
+			(2026-09-11): `Controls.PopupButton` folded into the Picker's menu
+			styles, and `Picker.presentation` renamed `style`. ]]
+		expect(#ledger).toBe(#generated + 26)
 		-- schema entries come first, in their own deterministic order
 		for i, entry in generated do
 			expect(ledger[i].surface).toBe(entry.surface)

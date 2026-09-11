@@ -1135,6 +1135,7 @@ require("./selection_indicator.spec")
 -- navigation-and-menus D6: the segmented Picker's upgrades — icons on `Option`,
 -- the vertical rail, and the indicator adopted as the segmented default
 require("./picker_segments.spec")
+require("./picker_style.spec")
 -- D2: the freestanding action menu — verbs not values, the shared row recipe,
 -- submenus that nest without a cap, and the five triggers that close the context-menu construct
 require("./menu.spec")

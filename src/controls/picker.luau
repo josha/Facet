@@ -1,15 +1,40 @@
 --!strict
--- Picker: single-selection from a small option set (docs/plans/parity-next.md
--- investment 7; acceptance row B-DSP2). Two presentations over ONE selection model:
+-- Picker: single-selection from an option set — the ONE selection control
+-- (2026-09-11: the popup button, the split trigger and the radio spelling fold
+-- into it, the way SwiftUI's `Picker` carries every `PickerStyle`). Six styles
+-- over ONE selection model:
 --
---   segmented — options side by side, always visible. Good for 2–4 short options.
---   inline    — options stacked as rows. Good for longer labels or more options.
+--   menu           ONE integrated trigger (value + up/down chevron inside one
+--                  button; beside its `label` in a form row) that presents the
+--                  options anchored to itself — the pop-up button on a desktop,
+--                  the menu picker on a phone. `src/controls/picker_menu.luau`.
+--   navigationLink a row that leads to a full list (a sheet) — the shape for a
+--                  long or searchable list (`query`).
+--   segmented      options side by side, always visible. 2–4 short options.
+--   inline         options stacked as rows. Longer labels, more options.
+--   radioGroup     the inline rows wearing a radio mark.
+--   automatic      the DEFAULT: `picker.resolveStyle` below, a pure function of
+--                  PUBLISHED FACTS — size class, viewing distance and the primary
+--                  interaction class — never a device name.
 --
--- The presentation is ADAPTIVE, not a platform branch: `presentation = "automatic"`
--- (the default) chooses from the option count and the available space class the
--- caller passes in, exactly as `Facet.adaptive` computes it. A device name never
--- appears. For a popup presentation use `newPopupButton`, which owns the transient
--- surface machinery.
+-- THE AUTOMATIC LADDER, stated once (and pinned by tests/picker_style.spec):
+--
+--     searchable (a `query`)              -> navigationLink
+--     ten-foot                            -> segmented (≤4 short) else inline
+--     nearby gamepad                      -> segmented when it fits; else inline
+--                                            with room, menu on a compact screen
+--     nearby touch or pointer             -> menu
+--
+-- WHY. A ten-foot player navigates by focus, so every option stays on screen and
+-- one press picks it (tvOS's own default). A nearby gamepad keeps a short strip
+-- for the same reason, but a long list on a handheld's small screen eats the
+-- page, so it folds into the menu (one panel, focus-navigable). A thumb or a
+-- mouse gets what a phone's form row and a desktop's pop-up button both are: a
+-- menu (iOS's and macOS's own default). A screen that must NOT adapt declares
+-- its style, exactly as before.
+--
+-- `presentation` is the DEPRECATED spelling of `style` (`Facet.DEPRECATIONS`):
+-- `radio` reads as `radioGroup`, the rest keep their names.
 --
 -- THREE AXES: every option is a focusable Button, so reachability and the 44px
 -- floor come from the primitive; the selected option carries `selected`, which is
@@ -184,7 +209,14 @@ export type Spec = {
 	label: string?,
 	options: { Option } | coreContract.Readable<{ Option }>,
 	selected: any, -- owner-held Signal
-	presentation: string?, -- "automatic" (default) | "segmented" | "inline" | "radio"
+	-- "automatic" (default) | "menu" | "segmented" | "inline" | "radioGroup" |
+	-- "navigationLink" — see the header for the ladder
+	style: string?,
+	presentation: string?, -- DEPRECATED alias of `style` ("radio" reads as "radioGroup")
+	-- a caller-owned Signal<string>: the search text of a navigationLink list.
+	-- Its presence makes the automatic style the navigation link.
+	query: any?,
+	placeholder: string?, -- the trigger's word when nothing is selected (menu styles)
 	-- "automatic" (default) | "none" | "underline" | "pill" — the D4 sliding
 	-- selection indicator. "automatic" is the PILL unless `presentation =
 	-- "inline"` was declared, in which case it is "none" (see the header).
@@ -221,6 +253,20 @@ export type Spec = {
 }
 
 local PRESENTATIONS: { [string]: boolean } = { automatic = true, segmented = true, inline = true, radio = true }
+-- the PUBLIC style names, and the strip builder's own vocabulary for the three
+-- that are strips (`radioGroup` is the row list wearing a radio mark)
+local STYLES: { [string]: boolean } = {
+	automatic = true,
+	menu = true,
+	segmented = true,
+	inline = true,
+	radioGroup = true,
+	navigationLink = true,
+}
+local STYLE_LIST = "automatic | menu | segmented | inline | radioGroup | navigationLink"
+local STRIP_NAME: { [string]: string } = { segmented = "segmented", inline = "inline", radioGroup = "radio" }
+local PUBLIC_NAME: { [string]: string } = { segmented = "segmented", inline = "inline", radio = "radioGroup" }
+local pickerMenu = require("./picker_menu")
 local INDICATORS: { [string]: boolean } = { automatic = true, none = true, underline = true, pill = true }
 local AXES: { [string]: boolean } = { x = true, y = true }
 local SIZINGS: { [string]: boolean } = { fill = true, hug = true }
@@ -273,9 +319,39 @@ function picker.resolvePresentation(optionCount: number, sizeClass: string?, lon
 	return "segmented"
 end
 
+--[[ THE AUTOMATIC STYLE, as a pure function of facts (see the header). Exported
+	so a screen can predict what it will get, and pinned by tests/picker_style. ]]
+export type StyleFacts = {
+	optionCount: number,
+	longestLabel: number,
+	sizeClass: string?,
+	distanceProfile: string?, -- "near" | "ten-foot"
+	primaryInput: string?, -- "touch" | "pointer" | "gamepad"
+	searchable: boolean?,
+}
+function picker.resolveStyle(facts: StyleFacts): string
+	if facts.searchable == true then
+		return "navigationLink"
+	end
+	local strip = picker.resolvePresentation(facts.optionCount, facts.sizeClass, facts.longestLabel)
+	if facts.distanceProfile == "ten-foot" then
+		return strip
+	end
+	if facts.primaryInput == "gamepad" then
+		if strip == "segmented" then
+			return "segmented"
+		end
+		return if facts.sizeClass == "compact" then "menu" else "inline"
+	end
+	return "menu"
+end
+
 -- CLOSED SPEC (constitution §4). Exactly the fields this control
 -- reads — an unknown one is an authoring mistake, never a silent no-op.
 local PICKER_KEYS = specGuard.keySet({
+	"style",
+	"query",
+	"placeholder",
 	"required",
 	"onChanging",
 	"axis",
@@ -351,7 +427,7 @@ end
 
 -- Live arrays use keyed rows: identity follows the supplied id, while selection
 -- follows value. Removing a row never reconciles the caller's selected signal.
-local function buildLive(Facet, core, spec)
+local function buildLive(Facet, core, spec, requested: string)
 	local UI = Facet.UI
 	local scope = core:scope("live-picker")
 	local id = spec.id or "Picker"
@@ -359,7 +435,6 @@ local function buildLive(Facet, core, spec)
 		type(spec.selected) == "table" and spec.selected.kind == "signal",
 		"Picker: selected must be a SETTABLE Signal"
 	)
-	local requested = spec.presentation or "automatic"
 	assert(PRESENTATIONS[requested], "Picker: presentation must be automatic | segmented | inline | radio")
 	assert(spec.indicator == nil or INDICATORS[spec.indicator], "Picker: invalid live indicator")
 	local slides = requested == "segmented" and (spec.indicator == "pill" or spec.indicator == "underline")
@@ -607,99 +682,14 @@ local function buildLive(Facet, core, spec)
 	}
 end
 
-function picker.build(Facet: any, core: any, spec: Spec)
-	specGuard.assertKnownKeys("newPicker", spec, PICKER_KEYS, "spec")
-	assert(spec.required == nil or type(spec.required) == "boolean", "Picker: required must be boolean")
-	for _, name in { "onChanging", "onChange" } do
-		assert(spec[name] == nil or type(spec[name]) == "function", `Picker: {name} must be a function`)
-	end
-	local enabled = readValue(spec.enabled)
-	assert(enabled == nil or type(enabled) == "boolean", "Picker: enabled must be boolean or readable boolean")
-	assert(spec.axis == nil or AXES[readValue(spec.axis)], "Picker: axis must be x | y")
-	assert(spec.sizing == nil or SIZINGS[readValue(spec.sizing)], "Picker: sizing must be fill | hug")
-	assert(spec.iconOnly == nil or type(spec.iconOnly) == "boolean", "Picker: iconOnly must be boolean")
-	assert(
-		spec.presentation ~= "radio" or not spec.iconOnly,
-		"Picker: radio presentation requires visible labels; iconOnly is incompatible"
-	)
-	if type(spec.options) == "table" and spec.options.kind ~= nil then
-		return buildLive(Facet, core, spec)
-	end
-	local UI = Facet.UI
-	local id = spec.id or "Picker"
-	local scope = core:scope("picker-" .. tostring(id))
-	local disposed = false
-	local mountedNode
-	scope:own(function()
-		disposed = true
-	end)
-	if type(spec.options) ~= "table" or #spec.options == 0 then
-		error(`Facet newPicker('{id}'): \`options\` must be a non-empty array of value/label pairs`, 0)
-	end
-	validateArray(spec.options)
-	local selected = spec.selected
-	if type(selected) ~= "table" or (selected :: any).kind ~= "signal" then
-		error(`Facet newPicker('{id}'): \`selected\` must be a SETTABLE Signal the caller owns`, 0)
-	end
-	local requested = spec.presentation or "automatic"
-	if not PRESENTATIONS[requested] then
-		error(
-			`Facet newPicker('{id}'): unknown presentation '{requested}'. One of automatic | segmented | inline | radio.`,
-			0
-		)
-	end
-	local indicatorRequest = spec.indicator or "automatic"
-	if not INDICATORS[indicatorRequest] then
-		error(
-			`Facet newPicker('{id}'): unknown indicator '{tostring(indicatorRequest)}'. `
-				.. "One of automatic | none | underline | pill. "
-				.. "The sliding indicator is a PROPERTY of this control, not a construct you build yourself.",
-			0
-		)
-	end
-	-- THE D6 DEFAULT (see the header). "automatic" is the pill everywhere except
-	-- a DECLARED row list, which never wore one. Resolved once, at build time:
-	-- the skin is what the decoration IS, not a state it passes through, and the
-	-- seam takes it as a build-time string for exactly that reason.
-	local indicator = if indicatorRequest ~= "automatic"
-		then indicatorRequest
-		elseif requested == "inline" or requested == "radio" then "none"
-		else "pill"
-	-- `axis` and `sizing` may each be a plain string or a Readable (see the Spec
-	-- comments). The CURRENT value of a Readable is validated here too, so a typo
-	-- is still an authoring error rather than a wrong edge — but a later unknown
-	-- value degrades to the default rather than throwing from inside a memo,
-	-- which is `selection_indicator.axisNow`'s own tolerance for a reactive enum.
-	local axisSource = if spec.axis == nil then "x" else spec.axis
-	local function axisNow(use: any?): string
-		local value = readValue(axisSource, use)
-		return if AXES[value] then value else "x"
-	end
-	if not AXES[readValue(axisSource)] then
-		error(
-			`Facet newPicker('{id}'): unknown axis '{tostring(readValue(axisSource))}'. One of x | y. `
-				.. '`axis = "y"` is the VERTICAL segmented pill; the stacked row list is `presentation = "inline"`.',
-			0
-		)
-	end
-	local sizingSource = if spec.sizing == nil then "fill" else spec.sizing
-	local function sizingNow(use: any?): string
-		local value = readValue(sizingSource, use)
-		return if SIZINGS[value] then value else "fill"
-	end
-	if not SIZINGS[readValue(sizingSource)] then
-		error(
-			`Facet newPicker('{id}'): unknown sizing '{tostring(readValue(sizingSource))}'. One of fill | hug. `
-				.. "`fill` divides the offer among the segments (and therefore can never overflow); `hug` gives "
-				.. "the band and every segment its natural width, which is what an overflowing tab strip is.",
-			0
-		)
-	end
-
-	-- ===== the option lint (D6) ===========================================
-	-- Three authoring rules, all enforced here rather than left to be noticed on
-	-- a screen: a segment always has a NAME, a group is all-iconned or none, and
-	-- `iconOnly` needs something to draw.
+-- ===== the option lint (D6), shared by every style =========================
+-- Three authoring rules, all enforced at BUILD rather than left to be noticed
+-- on a screen — and enforced before the style is chosen, so an automatic
+-- picker that resolves the menu family refuses the same half-iconned group the
+-- strip would: a segment always has a NAME, a group is all-iconned or none, and
+-- `iconOnly` needs something to draw. Returns the measured facts the strip
+-- builder spends.
+local function lintStaticOptions(spec: Spec, id: string): any
 	local longest = 0
 	local iconCount = 0
 	local badgeCount = 0
@@ -775,6 +765,83 @@ function picker.build(Facet: any, core: any, spec: Spec)
 			0
 		)
 	end
+	return {
+		longest = longest,
+		iconCount = iconCount,
+		badgeCount = badgeCount,
+		iconOnly = iconOnly,
+		labelNow = labelNow,
+	}
+end
+
+local function buildStrip(Facet: any, core: any, spec: Spec, requested: string)
+	local UI = Facet.UI
+	local id = spec.id or "Picker"
+	local scope = core:scope("picker-" .. tostring(id))
+	local disposed = false
+	local mountedNode
+	scope:own(function()
+		disposed = true
+	end)
+	if type(spec.options) ~= "table" or #spec.options == 0 then
+		error(`Facet newPicker('{id}'): \`options\` must be a non-empty array of value/label pairs`, 0)
+	end
+	validateArray(spec.options)
+	local selected = spec.selected
+	if type(selected) ~= "table" or (selected :: any).kind ~= "signal" then
+		error(`Facet newPicker('{id}'): \`selected\` must be a SETTABLE Signal the caller owns`, 0)
+	end
+	local indicatorRequest = spec.indicator or "automatic"
+	if not INDICATORS[indicatorRequest] then
+		error(
+			`Facet newPicker('{id}'): unknown indicator '{tostring(indicatorRequest)}'. `
+				.. "One of automatic | none | underline | pill. "
+				.. "The sliding indicator is a PROPERTY of this control, not a construct you build yourself.",
+			0
+		)
+	end
+	-- THE D6 DEFAULT (see the header). "automatic" is the pill everywhere except
+	-- a DECLARED row list, which never wore one. Resolved once, at build time:
+	-- the skin is what the decoration IS, not a state it passes through, and the
+	-- seam takes it as a build-time string for exactly that reason.
+	local indicator = if indicatorRequest ~= "automatic"
+		then indicatorRequest
+		elseif requested == "inline" or requested == "radio" then "none"
+		else "pill"
+	-- `axis` and `sizing` may each be a plain string or a Readable (see the Spec
+	-- comments). The CURRENT value of a Readable is validated here too, so a typo
+	-- is still an authoring error rather than a wrong edge — but a later unknown
+	-- value degrades to the default rather than throwing from inside a memo,
+	-- which is `selection_indicator.axisNow`'s own tolerance for a reactive enum.
+	local axisSource = if spec.axis == nil then "x" else spec.axis
+	local function axisNow(use: any?): string
+		local value = readValue(axisSource, use)
+		return if AXES[value] then value else "x"
+	end
+	if not AXES[readValue(axisSource)] then
+		error(
+			`Facet newPicker('{id}'): unknown axis '{tostring(readValue(axisSource))}'. One of x | y. `
+				.. '`axis = "y"` is the VERTICAL segmented pill; the stacked row list is `presentation = "inline"`.',
+			0
+		)
+	end
+	local sizingSource = if spec.sizing == nil then "fill" else spec.sizing
+	local function sizingNow(use: any?): string
+		local value = readValue(sizingSource, use)
+		return if SIZINGS[value] then value else "fill"
+	end
+	if not SIZINGS[readValue(sizingSource)] then
+		error(
+			`Facet newPicker('{id}'): unknown sizing '{tostring(readValue(sizingSource))}'. One of fill | hug. `
+				.. "`fill` divides the offer among the segments (and therefore can never overflow); `hug` gives "
+				.. "the band and every segment its natural width, which is what an overflowing tab strip is.",
+			0
+		)
+	end
+
+	local lint = lintStaticOptions(spec, id)
+	local longest, iconCount, badgeCount, iconOnly = lint.longest, lint.iconCount, lint.badgeCount, lint.iconOnly
+	local labelNow = lint.labelNow
 
 	--[[ THE SIZE CLASS ARRIVES BY ITSELF (2026-08-18).
 
@@ -1163,6 +1230,311 @@ function picker.build(Facet: any, core: any, spec: Spec)
 	end
 
 	return api
+end
+
+-- ===== THE STYLE ROUTER (2026-09-11) =======================================
+-- `build` validates what every style shares, normalizes the deprecated
+-- `presentation` spelling onto `style`, and hands the spec to the builder the
+-- style names: the popup engine for `menu` / `navigationLink`, the strip
+-- builders above for the rest, and — for `automatic` — a two-branch `UI.When`
+-- that swaps the FAMILY when the facts move (a distance or input-class flip is
+-- a structural change: a pop-up button and a row list share no node), while a
+-- flip WITHIN the strip family stays the re-solve it always was (A-AL2).
+
+local MENU_STYLES: { [string]: boolean } = { menu = true, navigationLink = true }
+
+-- the public style a spec asked for, with the deprecated alias folded in
+local function requestedStyle(spec: Spec, id: string): string
+	local style = spec.style
+	if spec.presentation ~= nil then
+		if style ~= nil then
+			error(
+				`Facet newPicker('{id}'): \`presentation\` is the deprecated spelling of \`style\`; pass one, not both.`,
+				0
+			)
+		end
+		local legacy = spec.presentation
+		if not PRESENTATIONS[legacy] then
+			error(
+				`Facet newPicker('{id}'): unknown presentation '{tostring(legacy)}'. \`presentation\` is deprecated — `
+					.. `write \`style\` ({STYLE_LIST}).`,
+				0
+			)
+		end
+		style = if legacy == "radio" then "radioGroup" else legacy
+	end
+	style = style or "automatic"
+	if not STYLES[style] then
+		error(
+			`Facet newPicker('{id}'): unknown style '{tostring(style)}'. One of {STYLE_LIST}. `
+				.. "There is no wheel or palette: a short list is `segmented`, a long one is `menu` or `navigationLink`.",
+			0
+		)
+	end
+	return style
+end
+
+-- the spec the popup engine reads: the picker's own keys, the style, and nothing
+-- the strip builders own (`indicator`, `axis`, `iconOnly` mean nothing to a menu)
+local function menuSpec(spec: Spec, style: string, id: string): any
+	return {
+		id = id,
+		style = style,
+		options = spec.options,
+		selected = spec.selected,
+		label = spec.label,
+		sizing = readValue(spec.sizing),
+		textSize = spec.textSize,
+		query = spec.query,
+		placeholder = spec.placeholder,
+		required = spec.required,
+		onChanging = spec.onChanging,
+		onChange = spec.onChange,
+		enabled = spec.enabled,
+		env = spec.env,
+		sizeClass = spec.sizeClass,
+	}
+end
+
+-- the spec a strip builder reads: everything but the popup-only keys and the
+-- style spellings (the builder takes the strip name as an argument)
+local function stripSpec(spec: Spec, id: string): any
+	local out = table.clone(spec :: any)
+	out.id = id
+	out.style, out.presentation, out.query, out.placeholder = nil, nil, nil, nil
+	return out
+end
+
+local function buildMenu(Facet: any, core: any, spec: Spec, style: string, id: string): any
+	local scope = core:scope("picker-menu-" .. id)
+	local inner = scope:own(pickerMenu.build(Facet, core, menuSpec(spec, style, id)))
+	local api: any = {
+		blueprint = inner.blueprint,
+		api = inner.api,
+		presentation = scope:own(core:memo(function()
+			return style
+		end)),
+		dispose = function()
+			scope:dispose()
+		end,
+	}
+	function api.dump()
+		local out = inner.dump()
+		out.schema = "facet-picker-dump/1"
+		out.requestedStyle = style
+		out.style = style
+		return out
+	end
+	return api
+end
+
+local function buildStripFamily(Facet: any, core: any, spec: Spec, style: string, id: string): any
+	local strip = if style == "automatic" then "automatic" else STRIP_NAME[style]
+	local live = type(spec.options) == "table" and (spec.options :: any).kind ~= nil
+	local scope = core:scope("picker-strip-" .. id)
+	local inner = scope:own(
+		if live
+			then buildLive(Facet, core, stripSpec(spec, id), strip)
+			else buildStrip(Facet, core, stripSpec(spec, id), strip)
+	)
+	local api: any = {
+		blueprint = inner.blueprint,
+		segments = inner.segments,
+		presentation = scope:own(core:memo(function(use)
+			return PUBLIC_NAME[use(inner.presentation)] or use(inner.presentation)
+		end)),
+		dispose = function()
+			scope:dispose()
+		end,
+	}
+	function api.dump()
+		local out = inner.dump()
+		out.requestedStyle = style
+		out.style = PUBLIC_NAME[out.presentation] or out.presentation
+		return out
+	end
+	return api
+end
+
+local function buildAutomatic(Facet: any, core: any, spec: Spec, id: string): any
+	local UI = Facet.UI
+	local scope = core:scope("picker-auto-" .. id)
+	local env = surfaceEnv.resolve(
+		"newPicker",
+		id,
+		core,
+		spec.env,
+		"an automatic style adapts to the size class, the viewing distance and the primary interaction class"
+	)
+	local sizeClassSource: any = spec.sizeClass or env:get("sizeClass")
+	local searchable = spec.query ~= nil
+	local style = scope:own(core:memo(function(use)
+		local list = readValue(spec.options, use)
+		local longest = 0
+		for _, option in list do
+			longest = math.max(longest, #tostring(readValue(option.label, use)))
+		end
+		local classes = use(env:get("interactionClasses"))
+		return picker.resolveStyle({
+			optionCount = #list,
+			longestLabel = longest,
+			sizeClass = readValue(sizeClassSource, use),
+			distanceProfile = use(env:get("distanceProfile")),
+			primaryInput = if type(classes) == "table" then classes.primary else "pointer",
+			searchable = searchable,
+		})
+	end))
+	local isMenu = scope:own(core:memo(function(use)
+		return MENU_STYLES[use(style)] == true
+	end))
+	local isStrip = scope:own(core:memo(function(use)
+		return not use(isMenu)
+	end))
+	--[[ THE ROOT'S OWN WIDTH follows the family on screen, so a caller placing
+		this beside content reads the same rect the declared control would give:
+		the menu family fills its row; a vertical pill is a content-sized RAIL; a
+		hugging band takes its natural width; everything else takes the offer —
+		the same three shapes `buildStrip` resolves, restated here because the
+		wrapper stands OUTSIDE the branch that knows them. ]]
+	local rootWidth = scope:own(core:memo(function(use)
+		local current = use(style)
+		if MENU_STYLES[current] then
+			return BAND_WIDTH
+		end
+		if current == "segmented" and readValue(spec.axis, use) == "y" then
+			return RAIL_WIDTH
+		end
+		return if readValue(spec.sizing, use) == "hug" then NATURAL_WIDTH else BAND_WIDTH
+	end))
+	local live: any = nil
+	local function branch(build: (any) -> any)
+		return function(branchScope: any)
+			local inner = build(branchScope)
+			branchScope:own(inner)
+			live = inner
+			branchScope:own(function()
+				if live == inner then
+					live = nil
+				end
+			end)
+			return inner.blueprint
+		end
+	end
+	local blueprint = UI.VStack({
+		id = id,
+		width = rootWidth,
+		children = {
+			UI.When({
+				id = "Menu",
+				condition = isMenu,
+				thenView = branch(function()
+					return buildMenu(Facet, core, spec, style:get(), "Body")
+				end),
+			}),
+			UI.When({
+				id = "Strip",
+				condition = isStrip,
+				thenView = branch(function()
+					return buildStripFamily(Facet, core, spec, "automatic", "Body")
+				end),
+			}),
+		},
+	})
+	local api: any = {
+		blueprint = blueprint,
+		presentation = style,
+		-- the popup verbs, live only while the menu family is on screen; a
+		-- strip has nothing to open, so they are a no-op there rather than an error
+		api = {
+			open = function()
+				if live ~= nil and live.api ~= nil then
+					live.api.open()
+				end
+			end,
+			close = function()
+				if live ~= nil and live.api ~= nil then
+					live.api.close()
+				end
+			end,
+			select = function(value: any)
+				if live ~= nil and live.api ~= nil then
+					live.api.select(value)
+				end
+			end,
+		},
+		dispose = function()
+			scope:dispose()
+		end,
+	}
+	function api.dump()
+		local out = if live ~= nil then live.dump() else {}
+		out.schema = "facet-picker-dump/1"
+		out.id = id
+		out.requestedStyle = "automatic"
+		out.style = style:get()
+		-- before a branch has mounted, the resolved style IS the presentation
+		if out.presentation == nil then
+			out.presentation = out.style
+		end
+		out.sizeClassFrom = if spec.sizeClass ~= nil then "spec" else "core"
+		out.selected = spec.selected:get()
+		return out
+	end
+	return api
+end
+
+function picker.build(Facet: any, core: any, spec: Spec)
+	specGuard.assertKnownKeys("newPicker", spec, PICKER_KEYS, "spec")
+	local id = spec.id or "Picker"
+	assert(spec.required == nil or type(spec.required) == "boolean", "Picker: required must be boolean")
+	for _, name in { "onChanging", "onChange" } do
+		assert(spec[name] == nil or type(spec[name]) == "function", `Picker: {name} must be a function`)
+	end
+	local enabled = readValue(spec.enabled)
+	assert(enabled == nil or type(enabled) == "boolean", "Picker: enabled must be boolean or readable boolean")
+	assert(spec.axis == nil or AXES[readValue(spec.axis)], "Picker: axis must be x | y")
+	assert(spec.sizing == nil or SIZINGS[readValue(spec.sizing)], "Picker: sizing must be fill | hug")
+	assert(spec.iconOnly == nil or type(spec.iconOnly) == "boolean", "Picker: iconOnly must be boolean")
+	assert(
+		spec.query == nil
+			or (type(spec.query) == "table" and spec.query.kind == "signal" and type(spec.query:get()) == "string"),
+		"Picker: query must be a caller-owned Signal<string>"
+	)
+	assert(spec.placeholder == nil or type(spec.placeholder) == "string", "Picker: placeholder must be a string")
+	local style = requestedStyle(spec, id)
+	assert(
+		style ~= "radioGroup" or not spec.iconOnly,
+		"Picker: the radioGroup style requires visible labels; iconOnly is incompatible"
+	)
+	local indicatorRequest = spec.indicator or "automatic"
+	if not INDICATORS[indicatorRequest] then
+		error(
+			`Facet newPicker('{id}'): unknown indicator '{tostring(indicatorRequest)}'. `
+				.. "One of automatic | none | underline | pill. "
+				.. "The sliding indicator is a PROPERTY of this control, not a construct you build yourself.",
+			0
+		)
+	end
+	if type(spec.options) ~= "table" then
+		error(`Facet newPicker('{id}'): \`options\` must be a non-empty array of value/label pairs`, 0)
+	end
+	if (spec.options :: any).kind == nil then
+		if #spec.options == 0 then
+			error(`Facet newPicker('{id}'): \`options\` must be a non-empty array of value/label pairs`, 0)
+		end
+		validateArray(spec.options)
+		lintStaticOptions(spec, id)
+	end
+	if spec.query ~= nil and style ~= "automatic" and style ~= "navigationLink" then
+		error(`Facet newPicker('{id}'): \`query\` (a searchable list) belongs to the navigationLink style.`, 0)
+	end
+	if MENU_STYLES[style] then
+		return buildMenu(Facet, core, spec, style, id)
+	end
+	if style ~= "automatic" then
+		return buildStripFamily(Facet, core, spec, style, id)
+	end
+	return buildAutomatic(Facet, core, spec, id)
 end
 
 return picker

@@ -1334,9 +1334,12 @@ describe("D2: long-press ownership, settled in code", function()
 			-- the ENGINE side (the recognizer, the two adapter channels, the contract),
 			-- the DISCLOSURE plate (which keeps the gesture), the MENU (which carves
 			-- itself out of it), and the contribution field that states the carve-out.
-			"src/client/screen_target.luau src/controls/menu.luau src/input/contribution.luau "
-				.. "src/input/touch_gestures.luau src/present/presenter.luau src/render/renderer.luau "
-				.. "src/render/target_contract.luau"
+			-- `split_button` is not a third construct: its touch form AUTHORS the
+			-- Menu's own `triggers` list (a tap runs the action, the long press
+			-- opens the menu), which is the one place a caller names the gesture.
+			"src/client/screen_target.luau src/controls/menu.luau src/controls/split_button.luau "
+				.. "src/input/contribution.luau src/input/touch_gestures.luau src/present/presenter.luau "
+				.. "src/render/renderer.luau src/render/target_contract.luau"
 		)
 	end)
 

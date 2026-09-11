@@ -148,6 +148,7 @@ describe("ADAPT-1: the environment is discoverable from the core it was built on
 		local function build()
 			local env = Facet.newEnvironment(core)
 			env:set("viewportRect", { x = 0, y = 0, w = 390, h = 844 })
+			env:set("displaySize", "Large") -- ten-foot, so the automatic style is a strip
 		end
 		build()
 		churnAndCanary()
@@ -215,6 +216,7 @@ describe("ADAPT-1: the environment is discoverable from the core it was built on
 		first:set("viewportRect", { x = 0, y = 0, w = 390, h = 844 })
 		local second = Facet.newEnvironment(core)
 		second:set("viewportRect", { x = 0, y = 0, w = 1400, h = 900 })
+		second:set("displaySize", "Large")
 		expect(select(2, surfaceEnv.find(core))).toBe("ambiguous")
 
 		expect(surfaceEnv.unpublish(core, first)).toBe(true)
@@ -240,8 +242,13 @@ end)
 
 describe("ADAPT-1: the six adaptive controls take their facts from the surface", function()
 	it("Picker: a compact surface collapses four long labels to the row list, unwired", function()
+		-- TEN-FOOT surfaces: on a nearby touch or pointer surface the automatic
+		-- style is the MENU (2026-09-11); the strip's width axis is what this
+		-- case is about, and a Large display is where an automatic picker is a strip
 		local phone = surface(390, 844)
+		phone.env:set("displaySize", "Large")
 		local wide = surface(1400, 900)
+		wide.env:set("displaySize", "Large")
 		local onPhone = Facet.Controls.Picker(phone.core, {
 			id = "P",
 			options = LONG_OPTIONS,
@@ -263,6 +270,7 @@ describe("ADAPT-1: the six adaptive controls take their facts from the surface",
 
 	it("Picker: an authored size class still wins over the surface's", function()
 		local wide = surface(1400, 900)
+		wide.env:set("displaySize", "Large")
 		local pinned = Facet.Controls.Picker(wide.core, {
 			id = "P",
 			options = LONG_OPTIONS,
@@ -680,7 +688,8 @@ describe("ADAPT-1: the client host is what makes this free on a real surface", f
 		for _, fn in frames do
 			fn(1 / 60)
 		end
-		expect(picker.dump().presentation).toBe("inline")
+		-- a nearby touch surface: the automatic picker is the MENU (2026-09-11)
+		expect(picker.dump().presentation).toBe("menu")
 		expect(picker.dump().sizeClassFrom).toBe("core")
 		expect(popup.presentation()).toBe("sheet")
 		picker.dispose()

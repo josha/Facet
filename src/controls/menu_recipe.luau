@@ -161,6 +161,32 @@ function menu_recipe.resolvePresentation(
 	return "menu"
 end
 
+--[[ THE PICKER MENU'S OWN LADDER (Picker `style = "menu"`, 2026-09-11). The
+	SwiftUI-shaped picker presents its options ANCHORED to the trigger — the
+	menu that pops from a form row on a phone and from a pop-up button on a
+	desktop — and only reaches for the bottom sheet when the list cannot be a
+	popover: a gamepad (one panel, focus-navigable, the same call `newMenu`
+	makes), or more rows than a thumb-sized panel holds on a compact or touch
+	surface. `inline` is deliberately absent: a picker that wanted rows in place
+	declares `style = "inline"`, which is a strip, not a popup. Pure, exported,
+	and separate from `resolvePresentation` above so the action menu's own
+	touch->sheet ruling is untouched. ]]
+menu_recipe.PICKER_POPOVER_LIMIT = 6
+function menu_recipe.resolvePickerPresentation(
+	optionCount: number,
+	sizeClass: string?,
+	touchLive: boolean?,
+	gamepadPrimary: boolean?
+): string
+	if gamepadPrimary == true then
+		return "sheet"
+	end
+	if (sizeClass == "compact" or touchLive == true) and optionCount > menu_recipe.PICKER_POPOVER_LIMIT then
+		return "sheet"
+	end
+	return "menu"
+end
+
 -- the themed row height for a resolved presentation. One place, so a menu and a
 -- popup at the same presentation can never disagree about how tall a row is.
 function menu_recipe.rowHeightFor(presentation: string): string
@@ -185,7 +211,7 @@ export type Row = {
 	value: any?,
 	description: any?,
 	markHidden: any?,
-	indicator: string?,
+	indicator: string?, -- "radio" | "check" | "mark" (the picker menu's check-only slot)
 	id: string, -- the path segment, already prefixed by the caller
 	label: any, -- string | number | Readable — the SEMANTIC name, always present
 	icon: any?, -- semantic icon NAME or Readable<string?>, never an asset id
@@ -215,27 +241,46 @@ function menu_recipe.row(UI: any, row: Row): any
 	if row.description ~= nil or row.indicator ~= nil or liveIcon or row.badge ~= nil then
 		local content = {}
 		if row.indicator ~= nil then
-			local ring = chrome_slots.attachHint(
-				UI.Text({
-					id = "Outline",
-					hidden = row.selected,
-					text = if row.indicator == "radio" then "o" else "[]",
-					textSize = "control",
-					textAlign = "center",
-					width = { type = "fill", weight = 1 },
-				}),
-				{ icon = if row.indicator == "radio" then "facet:selection.radio.off" else "facet:selection.check.off" }
-			)
-			local mark = chrome_slots.attachHint(
-				UI.Text({
-					id = "Mark",
-					hidden = row.markHidden,
-					text = if row.indicator == "radio" then "*" else themePackage.iconGlyph("checkmark"),
-					textSize = "control",
-					textAlign = "center",
-					width = { type = "fill", weight = 1 },
-				}),
-				{ icon = if row.indicator == "radio" then "facet:selection.radio.on" else "checkmark" }
+			--[[ `mark` is the PICKER MENU's indicator (2026-09-11): the check
+				alone, in a reserved slot, with NO resting outline — the row that is
+				not chosen shows an empty slot, exactly as a pop-up menu on every
+				desktop and the menu picker on a phone draw it. `radio` and `check`
+				keep their resting ring/box, which is what makes them read as a
+				toggle rather than a current value. ]]
+			local indicatorChildren = {}
+			if row.indicator ~= "mark" then
+				table.insert(
+					indicatorChildren,
+					chrome_slots.attachHint(
+						UI.Text({
+							id = "Outline",
+							hidden = row.selected,
+							text = if row.indicator == "radio" then "o" else "[]",
+							textSize = "control",
+							textAlign = "center",
+							width = { type = "fill", weight = 1 },
+						}),
+						{
+							icon = if row.indicator == "radio"
+								then "facet:selection.radio.off"
+								else "facet:selection.check.off",
+						}
+					)
+				)
+			end
+			table.insert(
+				indicatorChildren,
+				chrome_slots.attachHint(
+					UI.Text({
+						id = "Mark",
+						hidden = row.markHidden,
+						text = if row.indicator == "radio" then "*" else themePackage.iconGlyph("checkmark"),
+						textSize = "control",
+						textAlign = "center",
+						width = { type = "fill", weight = 1 },
+					}),
+					{ icon = if row.indicator == "radio" then "facet:selection.radio.on" else "checkmark" }
+				)
 			)
 			table.insert(
 				content,
@@ -243,7 +288,7 @@ function menu_recipe.row(UI: any, row: Row): any
 					id = "Indicator",
 					width = { type = "minMax", min = "l" },
 					height = { type = "minMax", min = "l" },
-					children = { ring, mark },
+					children = indicatorChildren,
 				})
 			)
 		end

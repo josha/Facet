@@ -94,6 +94,16 @@ def chevron(direction: str) -> Image.Image:
     return img
 
 
+def chevron_up_down() -> Image.Image:
+    """The pop-up button's stacked pair (Picker `style = "menu"`, 2026-09-11):
+    a small up chevron over a small down one, each arm 28px out so the pair
+    sits inside the same 96px content box at the set's stroke weight."""
+    img, d = _canvas()
+    _stroke(d, [(36, 52), (64, 26), (92, 52)])
+    _stroke(d, [(36, 76), (64, 102), (92, 76)])
+    return img
+
+
 def check() -> Image.Image:
     img, d = _canvas()
     # a tick is a chevron with unequal arms; the long arm rises to the same
@@ -199,6 +209,7 @@ ICONS = {
     "facet_icon_chevron_right": lambda: chevron("right"),
     "facet_icon_chevron_up": lambda: chevron("up"),
     "facet_icon_chevron_down": lambda: chevron("down"),
+    "facet_icon_chevron_up_down": chevron_up_down,
     "facet_icon_check": check,
     "facet_icon_close": close,
     "facet_icon_plus": plus,
