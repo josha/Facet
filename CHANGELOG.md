@@ -13,6 +13,13 @@ runtime as `Facet.VERSION`.
 
 ## [Unreleased]
 
+- A virtualized list or grid's full-bleed row hit target no longer takes a
+  control surface when it paints no selection. It carried no label, no icon and
+  no image, yet wore the installed theme package's control plate, corner,
+  gradient and shadow — and since rows sit back to back, that shadow painted as
+  far into the neighbouring rows as the package's `chromeBleed` reaches. A list
+  that paints selection keeps the surface its selected row is drawn with, so
+  selection treatment is unchanged.
 - Add Controls.Alert for content-sized confirmations, adaptive action rows,
   presentation/data/error bindings, safe cancel focus, icons, severity and an
   optional suppression choice. Showcase confirmations and Delete Save use it.

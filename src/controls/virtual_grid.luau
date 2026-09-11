@@ -981,6 +981,16 @@ function virtual_grid.build(Facet: any, core: any, spec: any)
 					local hit = UI.Button({
 						id = "Hit",
 						label = "",
+						-- ...AND IT PAINTS NOTHING (`surface = "plain"`, the sibling half
+						-- of the same fix `controls/virtual_list.luau`'s row hit carries
+						-- — its comment is the reasoning). A `UI.Button` with no declared
+						-- surface takes the class default `control`, so this cell-sized
+						-- transparent hit wore the package's whole control recipe: its
+						-- plate, its corner, its gloss and its shadow, the last of which
+						-- reaches `chromeBleed` px into the neighbouring cells. A grid
+						-- cell hit carries no `selected` prop at all, so unlike the
+						-- list's there is no case in which it is a paint surface.
+						surface = "plain",
 						focusable = true,
 						width = fill(),
 						height = fill(),

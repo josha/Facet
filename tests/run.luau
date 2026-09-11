@@ -678,6 +678,9 @@ require("./virtual_list_row_actions.spec")
 -- (paths, classes, solved rects) and over the whole engage/disengage lifecycle
 require("./virtual_list_row_actions_identity.spec")
 require("./virtual_list_hosted_seam.spec")
+-- ...and what a row's full-bleed hit target may PAINT: nothing, unless it is the
+-- surface the list's selection is drawn on (defect report 2026-09-11)
+require("./row_hit_paint.spec")
 require("./auto_input_screens.spec")
 -- device round 1 (RascalRally, 2026-07-31): contributions mounted by a keyed
 -- region AFTER present, and the focus-visible rule a finger must obey
