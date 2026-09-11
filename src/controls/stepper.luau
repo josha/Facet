@@ -224,6 +224,7 @@ function stepper.build(Facet: any, core: any, spec: Spec)
 		-- means the two stepper buttons. It used to be handed the screen root,
 		-- which made the same sentence mean every button on the screen (found
 		-- live 2026-08-02; the presenter now passes the contribution's own node).
+		adjustRepeat = true,
 		adjustTargets = function(rootNode: any): { [string]: boolean }
 			local out: { [string]: boolean } = {}
 			rootPath = rootNode.path

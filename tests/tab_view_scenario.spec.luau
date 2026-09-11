@@ -40,10 +40,9 @@ local DESKTOP = { w = 1200, h = 900 }
 
 local APP = "/TabViewDemo/Root/App"
 local BOTTOM = `{APP}/BottomHome/then/BottomBand/Strip/Indicator/Options`
--- the app tab's whole body IS the page-level TabView, so there is no wrapper
--- between the two levels; everything the fixture says about the pair lives one
--- level further down, inside the selected PAGE's own scroller
-local PAGE = `{APP}/Content/Tab-pages/then/Page`
+-- The nested page has a bounded viewport inside an outer scroll host, so both
+-- its tab bar and content remain reachable in a short app-content slot.
+local PAGE = `{APP}/Content/Tab-pages/then/PageScroll/PageViewport/Page`
 local PAGE_BAND = `{PAGE}/TopHome/then/TopBandCenter/TopBand`
 local PAGE_OPTS = `{PAGE_BAND}/Strip/Indicator/Options`
 local function pageBody(tab: string): string
@@ -102,10 +101,10 @@ describe("scenario 'tab_view': the surface D5 shipped without", function()
 		expect(w.core:lastError()).toBeNil()
 	end)
 
-	it("mounts BOTH skins of the sliding indicator — underline above, pill inside", function()
+	it("mounts pill selection in adaptable app navigation and nested page tabs", function()
 		local w = world(PHONE)
 		local r = w.built.report()
-		expect(r.app.strip.indicator.skin).toBe("underline")
+		expect(r.app.strip.indicator.skin).toBe("pill")
 		expect(r.page.strip.indicator.skin).toBe("pill")
 		-- and both are real mounted layers, not two names for one default
 		expect(w.adapter.node(`{APP}/BottomHome/then/BottomBand/Strip/Indicator/Layer/Bar`) ~= nil).toBe(true)
@@ -129,7 +128,7 @@ describe("scenario 'tab_view': two levels, and each one SAYS where it landed", f
 		expect(w.text(`{pageBody("avatars")}/Placements/Inner`)).toBe("Page bar: topBar (nested)")
 		expect(w.text(`{pageBody("avatars")}/Placements/Outer`)).toBe("App bar: bottomBar (policy)")
 		-- ...and the two bars really are in different homes
-		expect(w.adapter.node(`{BOTTOM}/Opt1`) ~= nil).toBe(true)
+		expect(w.adapter.node(`{BOTTOM}/Rows/[pages]/SectionRow/Option-pages`) ~= nil).toBe(true)
 		expect(w.adapter.node(`{PAGE_OPTS}/Opt1`) ~= nil).toBe(true)
 	end)
 
@@ -215,7 +214,7 @@ describe("scenario 'tab_view': the eviction, as a number a tester can watch move
 		having: the count belongs to a tab whose content does not exist. ]]
 	it("a badge climbs on an UNSELECTED tab while that tab's content is gone", function()
 		local w = world(PHONE)
-		expect(w.text(`{BOTTOM}/Opt2Cell/Badge/Count`)).toBe("3")
+		expect(w.text(`{BOTTOM}/Rows/[inbox]/SectionRow/Option-inbox/HStack#1/Badge`)).toBe("3")
 		expect(w.built.report().app.mountedTabs[1]).toBe("pages")
 		w.built.steps.select(w.built, "me")
 		w.built.steps.bumpUnread(w.built)
@@ -223,8 +222,8 @@ describe("scenario 'tab_view': the eviction, as a number a tester can watch move
 		w.settle()
 		-- inbox has never been mounted at all, and its seal has still moved twice
 		expect(w.built.report().builds.inbox).toBeNil()
-		expect(w.text(`{BOTTOM}/Opt2Cell/Badge/Count`)).toBe("5")
-		expect(w.adapter.node(`{BOTTOM}/Opt2Cell/Opt2`) ~= nil).toBe(true)
+		expect(w.text(`{BOTTOM}/Rows/[inbox]/SectionRow/Option-inbox/HStack#1/Badge`)).toBe("5")
+		expect(w.adapter.node(`{BOTTOM}/Rows/[inbox]/SectionRow/Option-inbox`) ~= nil).toBe(true)
 		-- ...and the badge empties rather than painting a zero, from the tab itself
 		w.built.steps.select(w.built, "inbox")
 		w.settle()
@@ -272,7 +271,7 @@ describe("scenario 'tab_view': everything on it is reachable, everywhere", funct
 		-- the page's own content for the same reason — so the ring walks the inner
 		-- level first and lands on the app bar at the end.
 		expect(#paths).toBe(14)
-		expect(paths[11]).toBe(`{BOTTOM}/Opt1`)
+		expect(paths[11]).toBe(`{BOTTOM}/Rows/[pages]/SectionRow/Option-pages`)
 		for _, path in paths do
 			local node = w.adapter.node(path)
 			expect(`{path}: {node.class}`).toBe(`{path}: Button`)
@@ -334,7 +333,7 @@ describe("scenario 'tab_view': everything on it is reachable, everywhere", funct
 			-- words), so the rule that covers both shapes is that every painted string
 			-- either IS a copy value or CONTAINS one — which a hard-coded literal on
 			-- this page would fail. The badge is a bare count and has no words in it.
-			local isBadge = string.find(path, "/Badge/Count$") ~= nil
+			local isBadge = string.find(path, "/HStack#1/Badge$") ~= nil
 			if
 				string.find(path, "^/TabViewDemo/") ~= nil
 				and not isBadge

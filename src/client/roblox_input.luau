@@ -16,29 +16,17 @@ local UserInputService = game:GetService("UserInputService")
 
 local roblox_input = {}
 
---[[ THE CONTAINER WAIT IS BOUNDED. This was a bare
-	`WaitForChild("PlayerScripts")` — unbounded, and unguarded — sitting on the
-	first line of the input adapter every client bootstrap calls. The identical
-	pattern in `gamepad_contention.luau:285` is already bounded, with the reason
-	written beside it: observed live 2026-07-21, a place that never inserts the
-	child yields the calling thread FOREVER (Roblox's infinite-yield warning is
-	the only symptom, and it is a warning nobody's boot sequence sees). A UI-only
-	place, a stripped test place, or a server-side require all reach it.
-
-	Bounded, and then LOUD: a `nil` host cannot build an InputContext, so
-	degrading silently would trade a hang for a system that accepts every bind
-	and drives nothing. The error names the container and the wait. ]]
-local PLAYER_SCRIPTS_WAIT_SECONDS = 5
-
+-- Client-created contexts use the stable storage recommended by Roblox's IAS
+-- guide. A Studio session lost PlayerScripts and its Facet bindings while the
+-- separately mounted UI continued painting. Each context remains owned by this
+-- input system and is destroyed by its existing teardown. Client-created
+-- instances under ReplicatedStorage do not replicate to other clients.
 function roblox_input.newSystem(core: any)
 	local contexts: { any } = {}
 	local disposed = false
-	local host = Players.LocalPlayer:WaitForChild("PlayerScripts", PLAYER_SCRIPTS_WAIT_SECONDS)
-	assert(
-		host ~= nil,
-		`Facet roblox_input: PlayerScripts did not appear within {PLAYER_SCRIPTS_WAIT_SECONDS}s — `
-			.. `newSystem() must be called from a client script on a live client (see docs/guide/07-input.md)`
-	)
+	assert(Players.LocalPlayer ~= nil, "Facet roblox_input.newSystem must run on a live client")
+	local host = game:GetService("ReplicatedStorage")
+
 	local system = {}
 
 	-- modifier state (Phase B parity with the headless system): read live from
@@ -466,7 +454,7 @@ function roblox_input.newSystem(core: any)
 		headless system this one mirrors 1:1 — gained `dispose` in 0.10.0 and this
 		one had nothing, so `client.host` could not release it and a consumer
 		tearing a surface down left every `InputContext`, `InputAction` and
-		`InputBinding` Instance parented under `PlayerScripts`, plus their
+		`InputBinding` Instance parented under its engine host, plus their
 		connections, for the life of the client.
 
 		Same contract as the headless twin: destroys every context it still holds

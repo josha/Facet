@@ -408,7 +408,7 @@ function surfaceLifecycle.new(ctx: any)
 		local derived: any
 		if handle.navigationGroupsFn ~= nil then
 			local groups = filterGroupsDisabled(
-				filterGroupsHidden(handle.navigationGroupsFn(handle.root.node), hidden),
+				filterGroupsHidden(handle.navigationGroupsFn(handle.root.node, ctrl.rectOf), hidden),
 				handle.root.node
 			)
 			derived = {

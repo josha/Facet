@@ -95,6 +95,44 @@ export type Entry = {
 
 local registry: { Entry } = {
 	{
+		name = "ScrollNavigation",
+		kind = "composite",
+		module = "src/controls/scroll_navigation.luau",
+		export = "UI.ScrollView",
+		spec = "tests/scroll_navigation.spec.luau",
+		conformance = "tests/scroll_navigation.spec.luau",
+		docsAnchor = "ScrollView.navigation",
+		dump = false,
+		reason = "Optional ScrollView behavior; native position and visibility are reported through the existing scroll controller and caller bindings",
+		inputProofs = {
+			pointer = { "requests and hands off named scroll focus through pointer" },
+			touch = { "requests and hands off named scroll focus through touch" },
+			keyboard = { "requests and hands off named scroll focus through keyboard" },
+			gamepad = { "requests and hands off named scroll focus through gamepad" },
+		},
+		affordanceProofs = {
+			pointer = { "requests and hands off named scroll focus through pointer" },
+			touch = { "requests and hands off named scroll focus through touch" },
+			keyboard = { "requests and hands off named scroll focus through keyboard" },
+			gamepad = { "requests and hands off named scroll focus through gamepad" },
+			hotSwitch = { "abandons arrival focus after the user moves focus during travel" },
+		},
+	},
+	{
+		name = "ScrollBookmarks",
+		kind = "composite",
+		module = "src/controls/scroll_bookmarks.luau",
+		export = "Controls.TabView",
+		spec = "tests/tab_scroll_bookmarks.spec.luau",
+		conformance = "tests/tab_scroll_bookmarks.spec.luau",
+		docsAnchor = "focusSection",
+		dump = false,
+		reason = "Destination-owned key/offset records with no visual or input identity; TabView and collections report resulting scroll/focus state",
+		inputProofs = false,
+		affordanceProofs = false,
+	},
+
+	{
 		name = "NavigationStack",
 		kind = "composite",
 		module = "src/controls/navigation_stack.luau",
@@ -784,6 +822,20 @@ local registry: { Entry } = {
 		-- its arguments. Nothing to dump, said explicitly.
 		dump = false,
 		reason = "stateless module: pure value arithmetic, no instance state to summarize",
+		inputProofs = false,
+		affordanceProofs = false,
+	},
+	{
+		-- Shared shortcut grammar used by Button and Alert; owns no UI or live state.
+		name = "ButtonShortcut",
+		kind = "composite",
+		module = "src/controls/button_shortcut.luau",
+		export = "Controls.Button",
+		spec = "tests/button_complete.spec.luau",
+		conformance = "tests/alert.spec.luau",
+		docsAnchor = "Controls.Button",
+		dump = false,
+		reason = "stateless module: validates shortcut strings and matches semantic key chords for the owning controls",
 		inputProofs = false,
 		affordanceProofs = false,
 	},
@@ -1864,6 +1916,40 @@ local registry: { Entry } = {
 		inputReason = "pure geometry with no mounted input",
 		affordanceProofs = false,
 		affordanceReason = "pure geometry; RadialMenu owns the input paradigms",
+	},
+	{
+		name = "Alert",
+		kind = "composite",
+		module = "src/controls/alert.luau",
+		export = "Controls.Alert",
+		spec = "tests/alert.spec.luau",
+		conformance = "tests/alert.spec.luau",
+		docsAnchor = "Controls.Alert",
+		-- cite the dump DEFINITION exactly (check_registration requires the text to
+		-- exist in the module); a module with no dump surface declares
+		-- `dump = false` with a `reason` instead
+		dumpFunction = "function dump",
+		-- Four-input proofs (ui_todo §0): each case name must exist VERBATIM in a
+		-- registered spec. These cite the four stamped cases in tests/alert.spec.luau
+		-- (they FAIL until you implement them — that is the red step).
+		inputProofs = {
+			pointer = { "Alert pointer: a tap activates through the presenter (device-true)" },
+			touch = { "Alert touch: a touch tap/pan drives the control (device-true)" },
+			keyboard = { "Alert keyboard: focus + Return drives the control" },
+			gamepad = { "Alert gamepad: focus + ButtonA drives the control" },
+		},
+		-- Paradigm-axis proofs (UI-PARADIGM-001/002): the STRUCTURAL IDIOM per
+		-- live class (distinct from inputProofs' reachability) plus the hotSwitch
+		-- decision. These cite the four affordance cases + the hot-switch stub in
+		-- tests/alert.spec.luau. If your control owns no in-flight state, set
+		-- hotSwitch = false and delete the stamped hot-switch spec case.
+		affordanceProofs = {
+			pointer = { "Alert pointer affordance: hover on actions and a compact modal" },
+			touch = { "Alert touch affordance: theme-sized targets and wrapping actions" },
+			keyboard = { "Alert keyboard affordance: safe initial focus and trapped navigation" },
+			gamepad = { "Alert gamepad affordance: safe focus, B cancellation and ten-foot ring" },
+			hotSwitch = { "Alert hot-switch: carries the open decision without remounting actions" },
+		},
 	},
 	-- scaffold: new control rows are appended above this line (anchor — keep)
 

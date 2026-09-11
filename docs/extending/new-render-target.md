@@ -49,7 +49,7 @@ specification:
 
 <!-- OPTIONAL-METHODS: derived from src/render/target_contract.luau OPTIONAL -->
   `setActivateHandler`, `setFocusVisual`, `enableHover`, `enableDisclosure`,
-  `setScrollIndicatorPolicy`, `setZOrder`, `setPointerHandlers`, `setPointerPreview`,
+  `setScrollIndicatorPolicy`, `setZOrder`, `setPointerHandlers`, `setPointerPreview`, `setHoverObserver`,
   `setTextInputHandlers`, `setScrollRegion`, `setScrollPosition`,
   `observeScroll`, `setEngineSelection`, `setVisible`, `setDragDetector`,
   `setTouchGestureHandlers`, `setSecondaryActivate`, `measureTextWidths`,
@@ -149,3 +149,7 @@ is `renderer.EMITTED_PROPS`; pin it yourself the way
 `tests/render_target_contract.spec.luau` does ("every prop the renderer can emit
 is handled"), because a target that silently ignores a written prop is green
 headless and dead on the device.
+
+`setHoverObserver(handle, onChanged)` optionally observes local pointer enter/leave
+and returns a disconnect function. Image Buttons use it for coordinated artwork
+feedback; controls gate the result on the live input and enabled state.

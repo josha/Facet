@@ -12,14 +12,43 @@ return {
 		local function own(v)
 			return scope:own(v)
 		end
+		local conditions = Facet.adaptive.conditions(core, ctx.env, { scope = scope })
 		local busy = signal(false)
 		local enabled = signal(true)
 		local count = signal(0)
 		local status = signal("Ready to race.")
 		local favorites = signal(false)
 		local weather = signal("any")
+		local scrollTarget = signal(nil)
+		local scrollProgress = signal(0)
+		local heroVisible = signal(true)
+		local rowVolume = signal(60)
+		local assist = signal(true)
+		local rowToggle = own(Facet.Controls.Toggle(core, {
+			id = "Assist",
+			label = "Driving assistance",
+			value = assist,
+			row = { description = "Keep the car stable on rough terrain", icon = "settings" },
+		}))
+		local rowSlider = own(Facet.Controls.Slider(core, {
+			id = "Music",
+			label = "Music volume",
+			value = rowVolume,
+			min = 0,
+			max = 100,
+			step = 5,
+			row = { description = "Balance music against race sounds", icon = "settings" },
+		}))
+		local rowAction = own(Facet.Controls.Button(core, {
+			id = "Equipment",
+			label = "Manage equipment",
+			row = { description = "Choose a driver for the next race", value = "2 drivers", icon = "search" },
+			onActivate = function()
+				scrollTarget:set(nil)
+				scrollTarget:set("Drivers")
+			end,
+		}))
 		local seconds = 0
-		local dialog
 		local save = own(Facet.Controls.Button(core, {
 			id = "Save",
 			label = "Prepare race",
@@ -113,53 +142,36 @@ return {
 				},
 			},
 		}))
-		local function dismiss()
-			if dialog and ctx.presenter then
-				ctx.presenter.dismiss(dialog)
-				dialog = nil
-			end
-		end
-		scope:own(dismiss)
-		local function openDialog()
-			if not ctx.presenter then
-				return
-			end
-			dismiss()
-			local dialogScope = scope:child("confirmation")
-			local accept = dialogScope:own(Facet.Controls.Button(core, {
-				id = "Accept",
-				label = "Start",
-				dialogAction = "default",
-				onActivate = function()
-					status:set("Race confirmed.")
-					dismiss()
-					dialogScope:dispose()
-				end,
-			}))
-			local cancel = dialogScope:own(Facet.Controls.Button(core, {
-				id = "Cancel",
-				label = "Cancel",
-				dialogAction = "cancel",
-				onActivate = function()
-					status:set("Race cancelled.")
-					dismiss()
-					dialogScope:dispose()
-				end,
-			}))
-
-			local panel = UI.Screen({
-				id = "RaceConfirmation",
-				padding = "l",
-				gap = "m",
-				surface = "raised",
-				children = {
-					UI.Text({ text = "Start this race?", textSize = "heading" }),
-					UI.Text({ text = "Press Enter to start or use Cancel.", width = UI.fill() }),
-					UI.VStack({ gap = "s", children = { accept.blueprint, cancel.blueprint } }),
+		local dialog = own(Facet.Controls.Alert(core, {
+			id = "RaceConfirmation",
+			title = "Start this race?",
+			message = "Your selected driver is ready.",
+			actions = {
+				{
+					id = "Cancel",
+					label = "Cancel",
+					role = "cancel",
+					onActivate = function()
+						status:set("Race cancelled.")
+					end,
 				},
-			})
-			dialog = ctx.presenter.presentModal(panel, { cancelPolicy = "none" })
+				{
+					id = "Accept",
+					label = "Start",
+					role = "default",
+					onActivate = function()
+						status:set("Race confirmed.")
+					end,
+				},
+			},
+		}))
+		local dismiss = dialog.dismiss
+		local function openDialog()
+			if ctx.presenter then
+				dialog.present(ctx.presenter)
+			end
 		end
+
 		local function reset()
 			busy:set(false)
 			enabled:set(true)
@@ -173,10 +185,139 @@ return {
 			return UI.Text({ text = text, textSize = "heading", width = UI.fill() })
 		end
 
-		local body = UI.VStack({
+		local drivers = {}
+		for i, name in { "Classic driver", "Trailblazer" } do
+			local card = own(Facet.Controls.Button(core, {
+				id = "Driver" .. i,
+				label = name,
+				subtitle = "Choose for the next race",
+				image = `rbxthumb://type=AvatarHeadShot&id={i}&w=420&h=420`,
+				imageAspectRatio = 1,
+				imageFraming = { width = 420, height = 420, focusY = 0.25 },
+				enabled = enabled,
+				onActivate = function()
+					status:set(name .. " selected.")
+				end,
+			}))
+			table.insert(drivers, card.blueprint)
+		end
+		local driverGrid = UI.focusSection(
+			UI.Grid({ id = "Drivers", minColumnWidth = 180, gap = "m", width = UI.fill(), children = drivers }),
+			{ entry = "restore", preferred = "Driver1" }
+		)
+
+		local previews = {}
+		for _, mode in { "crop", "none" } do
+			table.insert(
+				previews,
+				UI.VStack({
+					id = "Backdrop" .. mode,
+					width = UI.fill(),
+					gap = "s",
+					padding = "m",
+					surface = "raised",
+					children = {
+						UI.background(
+							UI.Box({ id = "Preview", width = UI.fill(), height = { type = "fixed", px = 180 } }),
+							UI.Image({
+								id = "Artwork",
+								image = "rbxthumb://type=AvatarHeadShot&id=1&w=420&h=420",
+								imageFraming = { width = 420, height = 420, mode = mode, focusX = 0.5, focusY = 0.25 },
+							})
+						),
+						UI.Text({
+							text = if mode == "crop"
+								then "Focal crop · keeps the face in view"
+								else "Natural pixels · crop as the view shrinks",
+							width = UI.fill(),
+						}),
+					},
+				})
+			)
+		end
+
+		local hero = UI.background(
+			UI.focusSection(
+				UI.VStack({
+					id = "Hero",
+					width = UI.fill(),
+					height = { type = "minMax", min = 240 },
+					padding = "m",
+					gap = "m",
+					children = {
+						UI.Text({
+							id = "HeroTitle",
+							text = "Your next race starts here",
+							textSize = "title",
+							width = UI.fill(),
+						}),
+						UI.Text({
+							text = "Choose your driver. Tune your ride. Find your next challenge.",
+							textSize = "body",
+							width = UI.fill(),
+						}),
+						UI.Button({
+							id = "ChooseDriver",
+							label = "Choose a driver",
+							onActivate = function()
+								scrollTarget:set(nil)
+								scrollTarget:set("Drivers")
+							end,
+						}),
+					},
+				}),
+				{ preferred = "ChooseDriver" }
+			),
+			UI.ZStack({
+				id = "HeroScene",
+				clipChildren = true,
+				children = {
+					UI.Image({
+						id = "HeroArt",
+						width = UI.fill(),
+						height = UI.fill(),
+						image = "rbxthumb://type=AvatarHeadShot&id=1&w=420&h=420",
+						imageFraming = own(core:memo(function(use)
+							local reduced = ctx.env and use(ctx.env:get("motionPolicy")) == "reduced"
+							return {
+								width = 420,
+								height = 420,
+								focusY = 0.25,
+								scale = if reduced then 1 else 1.04 - 0.04 * use(scrollProgress),
+							}
+						end)),
+					}),
+					UI.gradient(
+						UI.Box({ id = "Readability", surface = "base", width = UI.fill(), height = UI.fill() }),
+						{ colors = { "surface", "surfaceStrong" }, rotation = 90, transparency = { 0.55, 0.08 } }
+					),
+				},
+			})
+		)
+
+		local showroom = UI.VStack({
+			id = "Showroom",
 			width = UI.fill(),
 			gap = "m",
 			children = {
+				hero,
+				heading("Choose your driver"),
+				driverGrid,
+				heading("Image backgrounds"),
+				UI.Grid({ id = "Backgrounds", minColumnWidth = 240, width = UI.fill(), gap = "m", children = previews }),
+			},
+		})
+		local raceSetup = UI.VStack({
+			id = "RaceSetup",
+			width = UI.fill(),
+			gap = "m",
+			children = {
+				UI.focusSection(UI.VStack({
+					id = "SettingsRows",
+					width = UI.fill(),
+					gap = "m",
+					children = { rowAction.blueprint, rowToggle.blueprint, rowSlider.blueprint },
+				})),
 				heading("Prepare a race"),
 				save.blueprint,
 				UI.Text({ id = "Status", text = status, width = UI.fill() }),
@@ -205,6 +346,16 @@ return {
 				UI.Button({ id = "Confirm", label = "Confirm race…", enabled = enabled, onActivate = openDialog }),
 			},
 		})
+		local body = UI.AdaptiveStack({
+			id = "Sections",
+			width = UI.fill(),
+			gap = "l",
+			align = "start",
+			axis = own(core:memo(function(use)
+				return if use(conditions.isWide) then "x" else "y"
+			end)),
+			children = { showroom, raceSetup },
+		})
 		local page = UI.VStack({
 			width = UI.fill(),
 			gap = "m",
@@ -221,7 +372,23 @@ return {
 				body,
 			},
 		})
-		local scroller = UI.ScrollView({ id = "Content", width = UI.fill(), height = UI.fill(), children = { page } })
+		local scroller = UI.ScrollView({
+			id = "Content",
+			width = UI.fill(),
+			height = UI.fill(),
+			navigation = {
+				focus = "target",
+				targets = { "Hero", "SettingsRows", "Drivers" },
+				target = scrollTarget,
+				progress = scrollProgress,
+				onVisibilityChanged = function(id, visible)
+					if id == "Hero" then
+						heroVisible:set(visible)
+					end
+				end,
+			},
+			children = { page },
+		})
 		local screen = UI.Screen({ id = "ActionControls", surface = "base", padding = "m", children = { scroller } })
 		return {
 			screen = screen,
@@ -253,6 +420,18 @@ return {
 				}
 			end,
 			steps = {
+				showDrivers = function()
+					scrollTarget:set(nil)
+					scrollTarget:set("Drivers")
+				end,
+				showHero = function()
+					scrollTarget:set(nil)
+					scrollTarget:set("Hero")
+				end,
+				showSettings = function()
+					scrollTarget:set(nil)
+					scrollTarget:set("SettingsRows")
+				end,
 				reset = reset,
 				disable = function()
 					enabled:set(false)
@@ -265,6 +444,9 @@ return {
 			report = function()
 				return {
 					count = count:get(),
+					settings = { assistance = assist:get(), music = rowVolume:get() },
+					scrollProgress = scrollProgress:get(),
+					heroVisible = heroVisible:get(),
 					busy = busy:get(),
 					status = status:get(),
 					menu = menu.dump(),

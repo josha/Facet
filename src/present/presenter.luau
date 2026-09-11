@@ -1830,7 +1830,9 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		-- region mounts later. Keyed on the bundle table's identity, so a
 		-- surviving contribution is never bound twice and a control that
 		-- unmounts and remounts (same bundle, same closures) is not re-bound.
-		local boundBundles: { [any]: boolean } = {}
+		-- Remember binding without owning retired controls for the surface lifetime.
+		-- Live/reusable blueprints keep their bundles alive through a remount.
+		local boundBundles: { [any]: boolean } = setmetatable({}, { __mode = "k" })
 		local function bindContribution(c: Contribution)
 			if boundBundles[c.bundle] then
 				return
@@ -2095,7 +2097,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		local navigationGroupsFn: any = nil
 		if type(ngOpt) == "function" then
 			navigationGroupsFn = ngOpt
-			navigationGroups = navigationGroupsFn(root.node)
+			navigationGroups = navigationGroupsFn(root.node, controller.rectOf)
 		elseif type(ngOpt) == "table" then
 			navigationGroups = ngOpt -- static array
 		elseif ngOpt ~= false then
@@ -2108,12 +2110,12 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 			end
 			if hasFocusGroups then
 				navigationGroupsFn = autoGroups
-				navigationGroups = autoGroups(root.node)
+				navigationGroups = autoGroups(root.node, controller.rectOf)
 			elseif hasHorizontalStructure(root.node) then
 				-- no contributions, but the LAYOUT has a horizontal container /
 				-- grid: derive 2D navigation from tree structure (the automatic groups)
 				navigationGroupsFn = layoutGroups
-				navigationGroups = layoutGroups(root.node)
+				navigationGroups = layoutGroups(root.node, controller.rectOf)
 			end
 		end
 		-- RE-DISCOVER THE CONTRIBUTIONS FROM THE LIVE TREE (device round 1).
@@ -2461,6 +2463,15 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		-- suspended there (a flat screen has no horizontal navigation at all), so
 		-- there is nothing to yield to and its behaviour is byte-identical to before.
 		local function bindAdjustKeys(state: string): { any }
+			if state == "none" then
+				return {
+					adjust.bind({ keyCode = "ButtonL1", direction = -1 }),
+					adjust.bind({
+						keyCode = "ButtonR1",
+						direction = 1,
+					}),
+				}
+			end
 			local bound: { any } = {
 				adjust.bind({ keyCode = "Comma", direction = -1 }),
 				adjust.bind({ keyCode = "Period", direction = 1 }),
@@ -2991,7 +3002,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 			end
 			local state: string? = nil
 			if ownedPath ~= nil then
-				for _, c in contributions do
+				for _, c in contributionsForPath(contributions, ownedPath) do
 					if c.bundle.adjustTargets ~= nil then
 						-- ITS OWN NODE, NOT THE SCREEN ROOT (Studio 2026-08-02).
 						-- This used to hand every contribution the whole screen,
@@ -3266,12 +3277,14 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		-- step by less than a microsecond of drift — measured directly in
 		-- tests/dpad_repeat.spec.luau's cadence case, which is what pins this.
 		local DPAD_REPEAT_EPS = 1e-6
-		local function bindDpadRepeat(action: any, fire: (dir: number) -> ())
+		local function bindDpadRepeat(action: any, fire: (dir: number) -> (), eligible: (() -> any)?)
+			local owner = nil
 			local heldDir: number? = nil
 			local sinceLastFire = 0
 			local repeating = false
 			scope:own(core:observe(action.state, function(dir: any)
-				if (dir == 1 or dir == -1) and action.lastGamepad then
+				owner = if eligible then eligible() else true
+				if (dir == 1 or dir == -1) and action.lastGamepad and owner then
 					heldDir = dir :: number
 				else
 					heldDir = nil
@@ -3289,6 +3302,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 				-- for every reader of `action.state`, the moment that is true.
 				if
 					action.lastBinding == nil
+					or (eligible ~= nil and eligible() ~= owner)
 					or not actionSystem.wouldWinArbitration(action.context, action.lastBinding)
 				then
 					heldDir = nil
@@ -3297,7 +3311,10 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 					end
 					return
 				end
-				sinceLastFire += dt
+				-- Limit replay after a game-frame hitch; excess time is discarded.
+				local debtLimit = (if repeating then DPAD_REPEAT_INTERVAL_S else DPAD_REPEAT_DELAY_S)
+					+ 2 * DPAD_REPEAT_INTERVAL_S
+				sinceLastFire = math.min(sinceLastFire + dt, debtLimit)
 				local threshold = if repeating then DPAD_REPEAT_INTERVAL_S else DPAD_REPEAT_DELAY_S
 				while heldDir ~= nil and sinceLastFire >= threshold - DPAD_REPEAT_EPS do
 					sinceLastFire -= threshold
@@ -3330,7 +3347,16 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 			-- contribution dynamic path (matrix §B-Table): route to the
 			-- longest-prefix contribution's handleAdjust
 			for _, c in contributionsForPath(contributions, focused) do
-				if c.bundle.handleAdjust ~= nil and c.bundle.handleAdjust(focused, dir) then
+				if c.bundle.handleAdjust ~= nil then
+					if c.bundle.handleAdjust(focused, dir) then
+						return true
+					end
+					if c.bundle.adjustTargets and c.bundle.adjustTargets(c.node)[focused] then
+						return false
+					end
+				end
+				local transient = c.bundle.transientScope
+				if transient and transient.active:get() == true then
 					return true
 				end
 			end
@@ -3341,6 +3367,23 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 				dispatchAdjust(dir)
 			end
 		end))
+		local function repeatAdjustOwner()
+			local path = graph.focused:get()
+			if path == nil then
+				return nil
+			end
+			for _, c in contributionsForPath(contributions, path) do
+				if c.bundle.adjustTargets and c.bundle.adjustTargets(c.node)[path] then
+					return if c.bundle.adjustRepeat then path else nil
+				end
+			end
+			return nil
+		end
+		-- Repeated value steps clamp; only a fresh direction press may leave a
+		-- saturated control. Focus/scope/arbitration changes abandon the hold.
+		bindDpadRepeat(adjust, dispatchAdjust, repeatAdjustOwner)
+		bindDpadRepeat(adjustAxis, dispatchAdjust, repeatAdjustOwner)
+
 		--[[ THE ARROW GOES BACK TO NAVIGATION AT THE CONTROL'S LIMIT (ruling 9,
 			2026-08-14, director: "do a").
 

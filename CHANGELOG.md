@@ -13,6 +13,69 @@ runtime as `Facet.VERSION`.
 
 ## [Unreleased]
 
+- Add Controls.Alert for content-sized confirmations, adaptive action rows,
+  presentation/data/error bindings, safe cancel focus, icons, severity and an
+  optional suppression choice. Showcase confirmations and Delete Save use it.
+- Adaptable tabs retain a complete TV tab strip across destination changes and
+  use a shared sidebar/body gap. Distant viewing changes navigation placement
+  even with mouse input; Actions and menus reflows its content sections.
+- Measure capped hugging containers at their declared width limit so wrapped
+  text contributes its full height before actions are placed. Hugging scroll
+  containers also reserve the leading space their themed shadows require.
+- Match integer fill allocation during measurement and arrangement, preventing
+  aspect images from exceeding their measured columns by a pixel.
+- Let pointer zones inside native scrolling containers pass touch scrolling
+  through while retaining horizontal swipe gestures and their normal input capture.
+- Release completed press-only scale modifiers so native themed shadows return
+  after taps, including the first row after changing List and VList modes.
+- Release unread-marker bindings when Row Actions List and VList rows unmount.
+- Keep the virtualized table toolbar scrollable on narrow phones with large
+  text; remove its resolved themed-overflow waiver.
+- Remove the forced line break in the Journey details “Travel light” heading.
+
+- Framed image geometry commits no longer reread or rewrite unchanged native
+  paint. Origin-only moves preserve the crop, while source, theme and modifier
+  changes retain their existing synchronization. Performance Lab now includes
+  the same 24-image adaptive navigation inventory used by the headless bench.
+
+- Keep adaptable navigation controls and their ScrollView mounted across nearby
+  top/sidebar changes. ScrollView axis now accepts a readable value and updates
+  directional navigation and active named travel without restoring cancelled focus.
+  Scan presentation-path separators directly instead of visiting each character.
+
+- Navigation performance: rendering and input share a live path lookup that skips
+  unrelated subtrees. Buttons without a possible busy state omit progress regions
+  and their reactive state; declared busy buttons retain their spinner behavior.
+  The one-time input binding registry no longer strongly retains retired control
+  bundles, while reusable blueprints keep their once-only binding behavior.
+
+- Adaptive follow-up: explicit scroll-to-focus arrival and removed-target visibility exits;
+  opt-in content shoulder paging, bounded value hold-repeat, and layered Table edit Back.
+  Navigation flow now demonstrates adaptive search with query/focus restoration.
+  Theme navigation chrome keeps ornate capsules light. Completed partial feedback
+  no longer causes a redundant next-refresh layout pass. Agent guidance applies
+  the Facet-first implementation order to layouts and controls.
+
+- Narrow nonstructural geometry feedback to its changed subtree, preserving full-layout fallbacks. Cache selection-indicator geometry by structural/layout changes, pair reordered identities with their measured rectangles, and remove image-button focus polling from idle refreshes. Sidebar commands retain focus when the effective navigation placement does not change.
+
+- Fit radial label height as well as width inside thin rings; measure compact icons against their actual padding so ten-foot action and navigation artwork remains usable.
+
+- `UI.Image.imageFraming` adds source focal-point crop, fit, stretch, unscaled
+  pixels and an explicit scale multiplier through the existing image/background
+  path. Reactive framing is paint-only. Game-authoring guidance now calls for
+  game-specific themes, real icon artwork and deliberate background framing.
+
+- Add opt-in `TabView.style = "sidebarAdaptable"`: tablet toggle, pointer sidebar, distant-screen collapsed destination pill, and stable page identity when navigation moves.
+- Picker/TabView badges reuse measured, wrapping row content so image-backed counts do not cover labels; `onAccent` tint keeps custom selected labels paired with the theme palette.
+- Extend existing `Controls.Button` with image, aspect ratio, and subtitle content; reserve padded focus enlargement space, animate lift with the shared interruptible motion clock, and coordinate image highlight with persistent captions. Reduced motion retains the ring without lift.
+- Use single-panel automatic gamepad menu hierarchies. Update the Showcase, agent/control-selection guidance, ornate-theme checks, and the 24-card adaptive-navigation performance workload.
+
+- Navigate inferred nested layouts using resting geometry, including bound stack-axis changes; preserve declared grid, virtual collection, and radial topology.
+- Add `viewingDistance` (automatic/near/ten-foot) and `distanceProfileSource`, with a Showcase setting. Explicit distance applies across typography, metrics, density, focus, and safe areas independently of controller connection.
+- Restore valid tab focus paths on navigation entry without retaining tab content; `TabView.restoreFocus = false` allows a fresh task entry. Long automatic gamepad menus and popups use the existing sheet presentation.
+- Keep Pixel Quest selection ornaments inside their content reservation; wrap the existing Showcase action row when theme or text needs more room.
+- Bound held-navigation catch-up to three steps per frame. Expand controller and Pixel Quest theme verification to nearby handheld screens.
+
 - Round native presentation offsets and size deltas before writing pixel geometry, removing the final pixel snap when Showcase animations settle.
 
 - Blend focal launchers back in on the radial exit clock, including interrupted closing; hand off lists without overlapping rows. Measure navigation arcs against the themed icon square so large Close artwork stays inside its plate. Fit custom compact images against their actual rendered rectangle, including responsive image fallback. Keep explicit image content visible when a composite suppresses its theme plate, without borrowing the plate’s shadow.
@@ -517,3 +580,16 @@ its row here in the same commit.
 Versions 0.4.0 through 0.9.0 predate this file. Their public surfaces are
 documented in [`docs/reference/api.md`](docs/reference/api.md), and the retiring
 ones are listed with the version that may remove them in `Facet.DEPRECATIONS`.
+
+### Unreleased — game navigation continuity
+
+- Keep client input contexts in stable client-created storage; entering Table rows from a focus section works in normal and edit modes. Showcase unread markers use bounded vector paint so ornate panel decorations cannot spill across their rows.
+
+- Add semantic row presentations to Button, Toggle and Slider, declarative focus
+  sections, and named ScrollView targets with shared snap/motion and visibility/progress.
+- Restore TabView scroll positions by stable descendant/item key, including virtual
+  lists, grids and tables; preserve lazy page disposal.
+- Add optional tab sections and caller-owned order/visibility customization, with
+  animated selection indicators that follow changing keyed options.
+- Extend Showcase game-art/row/navigation examples, theme containment checks and the
+  adaptive navigation performance scene. Document when agents should choose each.

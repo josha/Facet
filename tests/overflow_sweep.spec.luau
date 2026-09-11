@@ -484,6 +484,9 @@ local SCENARIOS = {
 	-- ...and the scaffolded `RadialMenu` surface, swept from its first commit so
 	-- the control cannot reach a device with an overflow nobody measured.
 	"radial_menu",
+	-- ...and the scaffolded `Alert` surface, swept from its first commit so
+	-- the control cannot reach a device with an overflow nobody measured.
+	"alert",
 	-- scaffold: new control scenarios are appended above this line
 }
 
@@ -3393,7 +3396,9 @@ describe("overflow sweep: the HUD under the showcase's OWN chrome", function()
 			the census with the previous package adds exactly Health/Expand at
 			705x338, Pixel Quest, text offset 0, strip false; no routes are removed.
 			Both framework-cut and unexplained sub-floor lists remain empty. ]]
-		expect(`routes swept: {routeCensus.swept}`).toBe("routes swept: 427")
+		-- Adding the two near-controller views contributes 68 measured routes;
+		-- both framework-cut and unexplained sub-floor lists remain empty.
+		expect(`routes swept: {routeCensus.swept}`).toBe("routes swept: 495")
 		--[[ ...and the ATTRIBUTION BRANCH IS ENTERED. With no sub-floor route at all
 			the two lists above are empty for the wrong reason: the per-side oracle
 			would never run. This is the case's own positive control. ]]

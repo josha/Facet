@@ -322,50 +322,6 @@ theme_ledger.ROWS = {
 		kind = "lying-itemExtent",
 	},
 	{
-		--[[ THE PAGE'S OWN CHROME IS TALLER THAN A 200px BOX, which is what is left
-			of a 640x320 landscape phone under the showcase's 120px picker strip.
-			Measured 2026-08-14 with both of this fixture's real defects fixed (the
-			extents now derive from the live text facts and the window is the solved
-			pane, so neither the rows nor the list contribute a single finding): the
-			title, the WRAPPING control row and the two-line status alone measure 268px
-			there at +14 and 216px under Pixel Quest at the DEFAULT preference. The
-			control row is the bulk of it — `UI.Toggle` is a full-width ROW control, so
-			it takes a wrap line to itself and the four size chips take one or two more.
-
-			IT IS NOT REPAIRABLE BY GIVING THE LIST LESS ROOM, which is what the first
-			version did (`viewportHeight - 210`): the list is already at zero on every
-			cell this row covers. Repairing it means the fixture carrying less chrome on
-			a short screen — a compact control row, or the title dropping — which is a
-			design change to a demo whose chrome IS its subject, so it is recorded with
-			the measurement rather than tuned away. ]]
-		--[[ THE SAME CLASS AS `/VariableExtents` BELOW, one surface over, and it is
-			here for the same reason: a page that cannot delegate its scrolling has to
-			fit its own chrome above the list, and at the Largest preference on a
-			320x640 phone under a package that carves real chrome, it does not.
-
-			WHAT SEPARATES IT FROM ITS NEIGHBOUR IS THE `since`. `/VariableExtents` is
-			recorded from +0 — it overflows at the DEFAULT preference. This surface is
-			clean at +0, +4 and +10 on every package, and only fails at +14, because
-			four rounds of measured trimming went in before this row was written: the
-			auto Edit/Done toolbar row (owned `editing` took it back), the header
-			band's `minMax` floor (77 findings, all of them that band — the fixture is
-			headerless), a second row of buttons (five long labels made it 96px and put
-			the page 20px over at the DEFAULT preference) and the page title. Each is
-			recorded in the WAIVERS entry's `where`.
-
-			IT IS NOT REPAIRABLE BY GIVING THE LIST LESS ROOM: the list is already at
-			zero on every cell this row covers, and a floor on it would paint over the
-			neighbour instead — the mistake `/VariableExtents` records having made. ]]
-		surface = "table_virtualized",
-		variant = "-",
-		node = "/TableVirtualized",
-		sig = "content overflows this vstack by Npx on the",
-		px = 171,
-		since = 14,
-		packages = "classic-desktop,compact-pointer,fantasy-ornate,fantasy-parchment,glossy-mobile,glossy-touch,pixel-quest,scifi-hud",
-		kind = "page-not-scrollable",
-	},
-	{
 		surface = "variable_extents",
 		variant = "-",
 		node = "/VariableExtents",
@@ -418,26 +374,6 @@ theme_ledger.ROWS = {
 		px = 126,
 		since = 14,
 		packages = "classic-desktop,compact-pointer,fantasy-ornate,fantasy-parchment,glossy-mobile,glossy-touch,pixel-quest,scifi-hud",
-		kind = "row-cannot-shrink",
-	},
-	{
-		surface = "adaptive_controls",
-		variant = "-",
-		node = "/AdaptiveScreen/BodyScroll/Body/Hud/Toolbar",
-		sig = "content overflows this hstack by Npx on the",
-		px = 121,
-		since = 0,
-		packages = "compact-pointer,fantasy-ornate,fantasy-parchment,glossy-mobile,glossy-touch,pixel-quest,scifi-hud",
-		kind = "row-cannot-shrink",
-	},
-	{
-		surface = "theme_authoring",
-		variant = "-",
-		node = "/AdaptiveScreen/BodyScroll/Body/Hud/Toolbar",
-		sig = "content overflows this hstack by Npx on the",
-		px = 121,
-		since = 0,
-		packages = "compact-pointer,fantasy-ornate,fantasy-parchment,glossy-mobile,glossy-touch,pixel-quest,scifi-hud",
 		kind = "row-cannot-shrink",
 	},
 	{
@@ -1139,30 +1075,6 @@ theme_ledger.ROWS = {
 		kind = "theme-inset-yield",
 	},
 	{
-		surface = "row_actions",
-		variant = "list",
-		node = "/MailActions/ListWhen/then/List/Rows/RowsForEach/[*]/*/Content/Row/DotWhen/then/Dot",
-		sig = "the 'X' chrome contentInsets could not be",
-		px = 32,
-		since = 0,
-		packages = "compact-pointer,fantasy-ornate,fantasy-parchment,glossy-touch,pixel-quest",
-		kind = "theme-inset-yield",
-	},
-	{
-		surface = "row_actions",
-		variant = "vlist",
-		-- `Row/Content/...`: the row moved to `itemExtent = "measured"` on 2026-08-15,
-		-- and measured mode mounts ONE control-owned `Content` wrapper per row (the node
-		-- whose rect IS the measurement). The finding is the same one at the same place
-		-- in the cell; only the path gained a level.
-		node = "/MailActions/VListWhen/then/VListPane/VList/Canvas/W/[*]/Row/Content/RowBody/DotWhen/then/Dot",
-		sig = "the 'X' chrome contentInsets could not be",
-		px = 32,
-		since = 0,
-		packages = "compact-pointer,fantasy-ornate,fantasy-parchment,glossy-touch,pixel-quest",
-		kind = "theme-inset-yield",
-	},
-	{
 		surface = "sponsor_list",
 		variant = "-",
 		node = "/ListLab/Body/Rows/Canvas/DropLine",
@@ -1486,34 +1398,6 @@ theme_ledger.ROWS = {
 		`Facet.Controls.TabView` now, and the construct declares NO padding and NO gap
 		anywhere in its own scaffold (its header says why), so those steps came back to
 		the content. The sweep reports nothing at that cell any more, from any package. ]]
-	{
-		--[[ TWO TAB BARS DO NOT FIT ON A 320px-TALL LANDSCAPE AT THE LARGEST TEXT
-			PREFERENCE, and that is a fact about NESTING rather than about this fixture
-			— which is why it is recorded here rather than authored around. `r2`'s shape
-			is a page's top bar inside an app's bar, and each band is a themed control
-			row: under the five heaviest packages at +14 the pair needs 108px and 92px
-			each, and the landscape has one band's worth of room between them.
-
-			MEASURED, NOT ASSUMED, and the fixture already spent what it could: the
-			readouts moved off the screen and into the tabs (four lines of prose above
-			a TabView cost 114 findings), and the page padding came off (which took the
-			scifi-hud row at +0 with it — 2px, the one finding here that fired at the
-			DEFAULT preference). What is left is the two bands themselves.
-
-			The same class as `p3_sipworks` below it: a screen with genuinely no room,
-			not a control that cannot draw. Every tab is still reachable and the page's
-			own body is a scroller; what runs past the box is the band the construct
-			places. A framework answer would be a nested TabView that degrades its own
-			band on a short height, which no version of this control has. ]]
-		surface = "tab_view",
-		variant = "-",
-		node = "/TabViewDemo/Root/App/Content/Tab-pages/then/Page",
-		sig = "content overflows this vstack by Npx on the",
-		px = 42,
-		since = 14,
-		packages = "fantasy-ornate,fantasy-parchment,glossy-mobile,glossy-touch,scifi-hud",
-		kind = "page-not-scrollable",
-	},
 } :: { Row }
 
 return theme_ledger

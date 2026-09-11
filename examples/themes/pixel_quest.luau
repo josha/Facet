@@ -327,20 +327,8 @@ function pixel_quest.definition(themes: any): any
 				The frame is TWO design pixels, and 4 dp was reserving half the face.
 				`pixel_field` is the same shape (INK, WOOD_D/TAN, then the SHADE well).
 
-				`pixel_plate_selected` IS ONE DESIGN PIXEL FATTER AND THE VALUE STILL
-				HAS TO BE 8 (corrected 2026-08-28, review Minor 1 — an earlier reading
-				of this file described it as two, which is art that is not there). Its
-				centre row decodes as INK | CREAM | CREAM | TAN TAN TAN | WOOD | CREAM |
-				INK: a DOUBLE cream ring, so the gilt face starts at design pixel 3 on
-				the top/left and 2 on the bottom/right, and the ruby studs sit at design
-				pixel 2 — exactly on this 8px boundary. The per-state grammar forces both
-				selection states to declare ONE reservation ("a variant may change its
-				art, never its reservation" — the row must not move when it is chosen)
-				and the DEFAULT plate genuinely carves two, so 8 is the number both can
-				live with. What it costs is stated rather than hidden: selected content
-				sits on the studs by a design pixel. Reserving 12 instead would move
-				every unselected row's content in by a whole design pixel to pay for a
-				state it is not in, which is the worse trade.
+				The selected recipe separately reserves its corner ornaments. Selection
+				states share that reservation, so choosing a row does not move it.
 
 				WHAT IT COST WHILE IT WAS WRONG. `controlSizes.compact.height` is 36
 				and `regular` 44, so 4 dp per side left a 36px control FOUR pixels of
@@ -371,12 +359,11 @@ function pixel_quest.definition(themes: any): any
 			--            a baked ornament would smear (provenance note 3), and
 			--            their `default` is `pixel_blank` — 24x24 of nothing.
 			--
-			-- The chrome inset is 2 design pixels in BOTH states, which is what
-			-- makes the swap legal: a variant may change its art, never its
-			-- reservation. The row therefore does not move when it is chosen.
-			-- (It read 4 dp until 2026-08-27; see `control` above for why the slice
-			-- border is the wrong number to reserve. Both plates carve two: INK plus
-			-- a bevel on the default, INK plus the CREAM ring on the selected.)
+			-- Corner jewels stay inside the shared 8px frame. At 24px they covered
+			-- short labels such as "Quest". Growing the frame instead also grows
+			-- every control that shares this metric, collapsing compact value and
+			-- image hosts. Fit decorative art to the existing content reservation.
+
 			selection = {
 				kind = "layered",
 				fallback = "native",
@@ -389,7 +376,7 @@ function pixel_quest.definition(themes: any): any
 					{
 						kind = "corners",
 						asset = { default = "pixel_blank", selected = "pixel_plate_ornament" },
-						size = 24,
+						size = 8,
 					},
 				},
 			},

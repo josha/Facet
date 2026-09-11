@@ -104,16 +104,24 @@ end
 
 local BAR = "/S/Page/Tabs/Layer/Bar"
 
+local function paintedRect(node: any): any
+	if node == nil then
+		return nil
+	end
+	local pos, size = node.presentedPosition or node.rect, node.presentedSize or node.rect
+	return { x = pos.x, y = pos.y, w = size.w, h = size.h }
+end
+
 local function barRect(w: any): any
 	local node = w.adapter.node(BAR)
-	return if node == nil then nil else node.rect
+	return paintedRect(node)
 end
 
 -- how many times the adapter was told to move the bar since the last drain
 local function barWrites(w: any): number
 	local n = 0
 	for _, op in w.adapter.takeOps() do
-		if string.find(op, `rect {BAR} `, 1, true) == 1 then
+		if string.find(op, `rect {BAR} `, 1, true) == 1 or string.find(op, `prop {BAR}.transform=`, 1, true) == 1 then
 			n += 1
 		end
 	end
@@ -262,7 +270,7 @@ describe("D4 mounted: the bar tracks the SOLVED rect of the selected child", fun
 		expect(w.indicator.state().slides).toBe(1)
 	end)
 
-	it("REDUCED MOTION SNAPS: one rect write, then twenty ticks of silence", function()
+	it("REDUCED MOTION SNAPS: one paint write, then twenty ticks of silence", function()
 		-- The claim is about FRAMES, so it is counted in frames. Reading
 		-- `env:get("reducedMotion")` back would prove only that the fixture set it.
 		local w = world({ reducedMotion = true })
@@ -668,20 +676,20 @@ describe("D4 through the public property: newPicker's `indicator` and `axis`", f
 		local a = w.adapter.node(optPath(w, 1)).rect
 		local b = w.adapter.node(optPath(w, 2)).rect
 		expect(w.adapter.node(PBAR) ~= nil).toBe(true)
-		expect(w.adapter.node(PBAR).rect.x).toBe(a.x + 4)
+		expect(paintedRect(w.adapter.node(PBAR)).x).toBe(a.x + 4)
 		w.selected:set("list")
 		w.pres.refresh()
 		local moved = false
 		for _ = 1, 60 do
 			w.pres.tick(1 / 60)
 			w.pres.refresh()
-			local r = w.adapter.node(PBAR).rect
+			local r = paintedRect(w.adapter.node(PBAR))
 			if r.x > a.x + 4 and r.x < b.x + 4 then
 				moved = true
 			end
 		end
 		expect(moved).toBe(true)
-		expect(w.adapter.node(PBAR).rect.x).toBe(b.x + 4)
+		expect(paintedRect(w.adapter.node(PBAR)).x).toBe(b.x + 4)
 		expect(w.picker.dump().indicator.slides).toBe(1)
 	end)
 
@@ -700,14 +708,14 @@ describe("D4 through the public property: newPicker's `indicator` and `axis`", f
 		expect(b.y > a.y).toBe(true) -- the options stack downward...
 		expect(b.x).toBe(a.x) -- ...in one column
 		expect(w.picker.dump().axis).toBe("y")
-		expect(w.adapter.node(PBAR).rect.y).toBe(a.y + 4)
+		expect(paintedRect(w.adapter.node(PBAR)).y).toBe(a.y + 4)
 		w.selected:set("list")
 		w.pres.refresh()
 		for _ = 1, 60 do
 			w.pres.tick(1 / 60)
 			w.pres.refresh()
 		end
-		expect(w.adapter.node(PBAR).rect.y).toBe(b.y + 4)
+		expect(paintedRect(w.adapter.node(PBAR)).y).toBe(b.y + 4)
 		-- and `inline` still means the ROW LIST it always meant: a distinct shape
 		local core = Facet.newCore()
 		local inline = Facet.Controls.Picker(core, {
@@ -764,7 +772,7 @@ describe("D4 through the public property: newPicker's `indicator` and `axis`", f
 		local plainWidth = plain.adapter.node(optPath(plain, 1)).rect.w
 		expect(plainWidth > 0).toBe(true)
 		expect(lit.adapter.node(optPath(lit, 1)).rect.w).toBe(plainWidth)
-		expect(lit.adapter.node(PBAR).rect.w).toBe(plainWidth - 8)
+		expect(paintedRect(lit.adapter.node(PBAR)).w).toBe(plainWidth - 8)
 	end)
 
 	it("selection still works at the deeper path: a tap and a Return both choose", function()
@@ -793,7 +801,10 @@ describe("D4 through the public property: newPicker's `indicator` and `axis`", f
 		local function writes(): number
 			local n = 0
 			for _, op in w.adapter.takeOps() do
-				if string.find(op, `rect {PBAR} `, 1, true) == 1 then
+				if
+					string.find(op, `rect {PBAR} `, 1, true) == 1
+					or string.find(op, `prop {PBAR}.transform=`, 1, true) == 1
+				then
 					n += 1
 				end
 			end
@@ -803,7 +814,7 @@ describe("D4 through the public property: newPicker's `indicator` and `axis`", f
 		w.selected:set("list")
 		w.pres.refresh()
 		expect(writes()).toBe(1)
-		expect(w.adapter.node(PBAR).rect.x).toBe(b.x + 4)
+		expect(paintedRect(w.adapter.node(PBAR)).x).toBe(b.x + 4)
 		for _ = 1, 20 do
 			w.pres.tick(1 / 60)
 			w.pres.refresh()
@@ -933,7 +944,7 @@ describe("D5 found: the paths are RE-RESOLVED when the strip is re-homed", funct
 		local before = w.indicator.state()
 		expect(before.resolved).toBe(2)
 		expect(#before.unresolved).toBe(0)
-		local topRect = w.adapter.node("/S/Page/Top/then/Tabs/Layer/Bar").rect
+		local topRect = paintedRect(w.adapter.node("/S/Page/Top/then/Tabs/Layer/Bar"))
 		w.atTop:set(false)
 		w.pres.refresh()
 		-- the bar exists in its new home, still resolving both segments...
@@ -951,8 +962,8 @@ describe("D5 found: the paths are RE-RESOLVED when the strip is re-homed", funct
 		-- ...and it is over the FIRST segment in the new home, not frozen at the
 		-- rect it held in the old one
 		local segment = w.adapter.node("/S/Page/Bottom/then/Tabs/Strip/A").rect
-		expect(math.abs(moved.rect.x - (segment.x + 4)) < 0.001).toBe(true)
-		expect(moved.rect.y ~= topRect.y).toBe(true)
+		expect(math.abs(paintedRect(moved).x - (segment.x + 4)) < 0.001).toBe(true)
+		expect(paintedRect(moved).y ~= topRect.y).toBe(true)
 	end)
 
 	it("...and a selection change in the NEW home still moves the bar", function()
@@ -967,7 +978,9 @@ describe("D5 found: the paths are RE-RESOLVED when the strip is re-homed", funct
 			w.pres.tick(1 / 60)
 			w.pres.refresh()
 		end
-		expect(math.abs(w.adapter.node("/S/Page/Bottom/then/Tabs/Layer/Bar").rect.x - (b.x + 4)) < 0.001).toBe(true)
+		expect(math.abs(paintedRect(w.adapter.node("/S/Page/Bottom/then/Tabs/Layer/Bar")).x - (b.x + 4)) < 0.001).toBe(
+			true
+		)
 		w.indicator.dispose()
 	end)
 end)
@@ -975,7 +988,7 @@ end)
 --[[ stabilization B'2, 2026-09-07 — FIRST-PAINT VISIBILITY, WHICH THIS FILE
 	NEVER ASSERTED. FLIPPED BY THE RENDERER FIX (B4-R) THE SAME DAY.
 
-	Every mounted case above reads the bar's solved RECT. None of them read the
+	Every mounted case above reads the bar's painted RECT. None of them read the
 	PAINT BIT, and the two are independent: `shown` is a signal of this module's,
 	the `Bar`'s `hidden` prop is a memo over it, and what reaches the screen is
 	`adapter.setVisible`. A bar could be measured, placed and reported `placed =
@@ -1053,5 +1066,39 @@ describe("stabilization B'2: the bar is placed AND painted at first paint", func
 		local w = world()
 		expect(w.indicator.state().placed).toBe(true)
 		expect(w.adapter.visibleOf(BAR)).toBe(true)
+	end)
+end)
+
+describe("indicator and layout motion share timing", function()
+	it("keeps the pill aligned with its selected segment throughout an animated resize", function()
+		local w = require("./lib/world").new({ viewport = { x = 0, y = 0, w = 400, h = 400 } })
+		local width = w.core:signal({ type = "fixed", px = 120 })
+		local indicator = selection_indicator.build(Facet, w.core, {
+			id = "I",
+			selected = w.core:signal("b"),
+			skin = "pill",
+			env = w.env,
+			segments = { { value = "a", id = "A" }, { value = "b", id = "B" } },
+			content = UI.HStack({
+				id = "Strip",
+				children = {
+					UI.Button({ id = "A", label = "A", width = width }),
+					UI.Button({ id = "B", label = "B", width = { type = "fixed", px = 80 } }),
+				},
+			}),
+		})
+		w.present(UI.Screen({ id = "S", children = { indicator.blueprint } }))
+		w.pres.withAnimation("container", function()
+			width:set({ type = "fixed", px = 200 })
+		end)
+		for _ = 1, 100 do
+			local bar, button =
+				paintedRect(w.adapter.node("/S/I/Layer/Bar")), paintedRect(w.adapter.node("/S/I/Strip/B"))
+			expect(math.abs(bar.x - button.x - 4) < 0.001).toBe(true)
+			expect(math.abs(bar.w - button.w + 8) < 0.001).toBe(true)
+			w.settle(1)
+		end
+		w.pres.dismiss(w.handle)
+		indicator.dispose()
 	end)
 end)

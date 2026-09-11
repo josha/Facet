@@ -223,8 +223,9 @@ export type ZStackSpec = BoxProps & ContainerProps & {
 }
 export type AnchorSpec = BoxProps & ContainerProps
 export type ScrollViewSpec = BoxProps & ContainerProps & {
+	navigation: any?,
 	gap: Bound<number | Metric>?,
-	axis: string?,
+	axis: Bound<string>?,
 	onScrollWheel: ((path: string, delta: number, rectOf: (string) -> any) -> ())?,
 	autoscroll: (boolean | { [string]: any })?,
 	indicators: string?, -- "auto" (default) | "none" — carousel indicator opt-out
@@ -359,7 +360,17 @@ export type TextSpec = BoxProps & {
 	tint: Bound<any>?,
 }
 
+export type ImageFraming = {
+	width: number,
+	height: number,
+	mode: string?,
+	focusX: number?,
+	focusY: number?,
+	scale: number?,
+}
+
 export type ImageSpec = BoxProps & {
+	imageFraming: Bound<ImageFraming>?,
 	image: Bound<string>?,
 	surface: Bound<string>?,
 	tint: Bound<any>?,
@@ -878,7 +889,18 @@ function blueprint.ScrollView(spec: ScrollViewSpec?): Blueprint
 	if merged.clipChildren == nil then
 		merged.clipChildren = true
 	end
-	return make("ScrollView", merged)
+	local navigation = merged.navigation
+	merged.navigation = nil
+	local bp = make("ScrollView", merged)
+	if navigation then
+		require("./controls/scroll_navigation").validate(navigation)
+		local copy = table.clone(bp)
+		local config = table.clone(navigation)
+		config.targets = table.freeze(table.clone(config.targets))
+		copy.meta = table.freeze({ scrollNavigation = table.freeze(config) })
+		return table.freeze(copy)
+	end
+	return bp
 end
 function blueprint.Spacer(spec: SpacerSpec?): Blueprint
 	return make("Spacer", (spec :: any) or {})
@@ -2066,6 +2088,41 @@ end
 -- LEGALITY IS ALWAYS THE GAME'S. `accepts(payload) -> (legal, reason?)` is the
 -- only place a rule enters, and the reason code comes back out through the
 -- `reject` event so a refusal is never silent.
+export type FocusSectionSpec = { entry: string?, preferred: string? }
+function blueprint.focusSection(bp: Blueprint, spec: FocusSectionSpec?): Blueprint
+	local options = spec or {}
+	assert(type(bp) == "table" and ({
+		Box = true,
+		VStack = true,
+		HStack = true,
+		ZStack = true,
+		Grid = true,
+		ScrollView = true,
+		AdaptiveStack = true,
+		Anchor = true,
+	})[bp.class], "UI.focusSection requires a mounted layout container")
+	for key in options do
+		assert(key == "entry" or key == "preferred", `unknown focusSection field '{key}'`)
+	end
+	assert(
+		options.entry == nil or options.entry == "first" or options.entry == "restore" or options.entry == "nearest",
+		"focusSection.entry must be first | restore | nearest"
+	)
+	assert(
+		options.preferred == nil or (type(options.preferred) == "string" and options.preferred ~= ""),
+		"focusSection.preferred must be a non-empty descendant id or relative path"
+	)
+	local meta = table.clone(bp.meta or {})
+	meta.focusSection = table.freeze(table.clone(options))
+	return table.freeze({
+		class = bp.class,
+		id = bp.id,
+		props = bp.props,
+		children = bp.children,
+		meta = table.freeze(meta),
+	})
+end
+
 function blueprint.draggable(bp: Blueprint, spec: dragContract.SourceSpec): Blueprint
 	return dragContract.attach(bp, dragContract.SOURCE_PROP, dragContract.source(spec))
 end

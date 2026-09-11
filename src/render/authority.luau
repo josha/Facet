@@ -184,7 +184,7 @@ local MANIFEST: { [string]: { [string]: Authority } } = {
 	-- `scaleMode` is STYLE even though it decides geometry INSIDE the box, for the
 	-- same reason `shape` is: nothing about the node's solved rect moves, and the
 	-- single engine write is how the picture fills a box the solver already sized.
-	Image = { image = "binding", tint = "binding", scaleMode = "style" },
+	Image = { image = "binding", tint = "binding", scaleMode = "style", imageFraming = "style" },
 	Grip = { cursorHint = "binding" },
 	-- Path (the native substrate): reactive stroke geometry/config are
 	-- binding-authored; stroke color rides the style role hint — or, for a value a

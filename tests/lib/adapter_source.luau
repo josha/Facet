@@ -38,6 +38,7 @@ local PARTS = {
 	"src/client/screen_presentation.luau",
 	"src/client/screen_pointer.luau",
 	"src/client/screen_props.luau",
+	"src/client/screen_image.luau",
 }
 
 local adapter_source = {}

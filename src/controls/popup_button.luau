@@ -433,10 +433,16 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 			return requestedPresentation
 		end
 		-- PRIMARY, not merely present: the one predicate, in the recipe
-		local touchLive = menuRecipe.touchPrimary(readFact(classesSource))
+		local classes = readFact(classesSource)
+		local touchLive = menuRecipe.touchPrimary(classes)
 		-- the SELECTABLE count, not the array length: a divider is a rule between
 		-- groups, and a menu does not become "long" because it was grouped
-		return menuRecipe.resolvePresentation(#results:get(), readFact(sizeClassSource), touchLive)
+		return menuRecipe.resolvePresentation(
+			#results:get(),
+			readFact(sizeClassSource),
+			touchLive,
+			classes ~= nil and classes.primary == "gamepad"
+		)
 	end
 	api.presentation = presentationNow
 

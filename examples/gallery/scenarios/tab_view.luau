@@ -35,9 +35,9 @@
 	that needed the construct's own handling is a selection change that moved no
 	focus at all, which is what the two Jump chips do.
 
-	TWO SKINS, ONE MECHANISM: the app bar wears the `underline` every reference
-	tab strip draws, the page bar wears the `pill` a segmented control does. Both
-	are D4's sliding indicator and both slide.
+	ONE SELECTION MECHANISM: the adaptable app bar and nested page tabs both
+	use the shared pill indicator. The app offers a sidebar toggle where space
+	permits; changing that chrome leaves its page mounted.
 
 	TWO HOSTS MOUNT THIS FILE and only one runs steps: the scenario runner drives
 	`steps` by name, and the showcase demo picker mounts it with a minimal ctx
@@ -52,6 +52,11 @@
 	make that claim. Flat keys only. ]]
 local COPY = {
 	title = "Two bars, and neither one is the other's",
+	playSection = "Play",
+	personalSection = "Personal",
+	moveInbox = "Move Inbox first",
+	toggleNotes = "Show or hide Notes",
+	resetNavigation = "Reset navigation",
 	appBar = "App bar: ",
 	pageBar = "Page bar: ",
 	builds = "Builds: ",
@@ -102,6 +107,7 @@ return {
 		local UI = Facet.UI
 		local core = ctx.core
 		local scope = core:scope("tab-view-scenario")
+		local customization = scope:own(core:signal({ order = {}, hidden = {} }))
 		-- `adaptive.conditions`'s memos, owned, so a demo swap does not leave them behind
 		local conditions = Facet.adaptive.conditions(core, ctx.env, { scope = scope })
 
@@ -277,7 +283,10 @@ return {
 							axis = "y",
 							gap = "xs",
 							width = UI.fill(),
-							height = UI.fill(),
+							height = pageScope:own(core:memo(function(use)
+								return { type = "fixed", px = math.max(1, use(conditions.viewportHeight)) }
+							end)),
+							shrinkWeight = 1,
 							children = {
 								statusPanel("Status"),
 								UI.Text({ id = "Name", text = COPY[id], textSize = "heading" }),
@@ -338,6 +347,7 @@ return {
 				filling default would demonstrate nothing. A `topBar` already hugs; it is
 				written out here because this fixture's subject is what hugging costs. ]]
 			inner = Facet.Controls.TabView(core, {
+				shoulderNavigation = "content",
 				id = "Page",
 				selection = page,
 				indicator = "pill",
@@ -352,12 +362,27 @@ return {
 			tabScope:own(function()
 				inner = nil
 			end)
-			--[[ THE APP TAB'S WHOLE BODY IS THE PAGE-LEVEL TabView, with nothing
-				between the two bars. Everything this fixture has to SAY about the pair
-				lives one level down, inside the page's own scroller — see the note in
-				`pageTabs`. A band between them cost a 320px-tall landscape more height
-				than it had. ]]
-			return inner.blueprint
+			-- Both themed tab bars can exceed the available height at the largest
+			-- text preference. Let the nested page scroll as a whole so its bar and
+			-- content remain reachable even inside a very short app-content slot.
+			-- A viewport-sized page gives its inner scroller a definite bound; that
+			-- scroller can shrink below its basis to share the page with the tab bar.
+			return UI.ScrollView({
+				id = "PageScroll",
+				axis = "y",
+				width = UI.fill(),
+				height = UI.fill(),
+				children = {
+					UI.VStack({
+						id = "PageViewport",
+						width = UI.fill(),
+						height = tabScope:own(core:memo(function(use)
+							return { type = "fixed", px = math.max(1, use(conditions.viewportHeight)) }
+						end)),
+						children = { inner.blueprint },
+					}),
+				},
+			})
 		end
 
 		local function inboxBody(tabScope: any): any
@@ -455,6 +480,16 @@ return {
 					statusPanel("Status", tabScope:own(placementLine(COPY.appBar, outer))),
 					UI.Text({ id = "Title", text = COPY.meTitle, textSize = "heading" }),
 					UI.Text({ id = "Note", text = COPY.meNote, textSize = "caption", role = "secondary" }),
+					chip("MoveInboxFirst", COPY.moveInbox, function()
+						outer.moveTab("inbox", 1)
+					end),
+					chip("ToggleNotes", COPY.toggleNotes, function()
+						local hidden = table.find(customization:get().hidden, "notes") ~= nil
+						outer.setTabHidden("notes", not hidden)
+					end),
+					chip("ResetNavigation", COPY.resetNavigation, function()
+						customization:set({ order = {}, hidden = {} })
+					end),
 					chip("BumpUnreadMe", COPY.bumpUnread, function()
 						unread:set(unread:get() + 1)
 					end),
@@ -474,6 +509,8 @@ return {
 			table.insert(appTabs, {
 				id = id,
 				label = COPY[id],
+				required = id == "pages" or id == "me",
+				section = if id == "pages" or id == "inbox" then "play" else "personal",
 				-- the count seal rides the OPTION, so it is part of the strip and the
 				-- strip is what never gets torn down
 				badge = if id == "inbox"
@@ -494,10 +531,13 @@ return {
 			input, never a device name, and publishes its answer as a Readable so this
 			screen can print it rather than re-deriving the rule. ]]
 		outer = Facet.Controls.TabView(core, {
+			shoulderNavigation = "content",
 			id = "App",
+			style = "sidebarAdaptable",
+			customization = customization,
+			sections = { { id = "play", label = COPY.playSection }, { id = "personal", label = COPY.personalSection } },
 			selection = section,
 			placement = "automatic",
-			indicator = "underline",
 			conditions = conditions,
 			env = ctx.env,
 			tabs = appTabs,
@@ -580,6 +620,13 @@ return {
 					unread:set(unread:get() + 1)
 					readState()
 					return { unread = unread:get() }
+				end,
+				customize = function()
+					outer.moveTab("inbox", 1)
+					return outer.dump()
+				end,
+				resetNavigation = function()
+					customization:set({ order = {}, hidden = {} })
 				end,
 				reread = function()
 					readState()

@@ -6,7 +6,7 @@
 	`newVirtualList` is the ONE lazy-collection surface in this framework — no
 	`LazyVStack`/`LazyHStack` constructor ships — and until now it was
 	vertical-only. `axis = "y" | "x"` (default `"y"`, construction-only for the
-	reason `ScrollView.axis` is construction-only: constitution §16 E-6) gives it
+	axis-specific windowing/input configuration: constitution §16 E-6) gives it
 	the second axis.
 
 	THE ARITHMETIC IS NOT THE WORK. `index × pitch` is `index × pitch` whichever

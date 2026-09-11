@@ -594,10 +594,14 @@ function radial.build(Facet: any, core: any, spec: Spec)
 						return Facet.text.measure(text, role.fontKey, size, math.huge, role.lineHeight)
 					end
 					local m = table.clone(measure(if s.navigation then "x" else read(s.item.label)))
-					local padding = snapshot.buttonPadding(metrics, {})
-					local available = math.max(1, s.labelBox.w - padding * 2)
 					local compact = s.item.compactLabel
 						or (if s.item.icon then { icon = s.item.icon, prefer = s.item.labelStyle == "icon" } else nil)
+					-- Match the actual compact image Button's zero padding.
+					local padding = if s.navigation
+							or (type(compact) == "table" and (compact.image or compact.icon))
+						then 0
+						else snapshot.buttonPadding(metrics, {})
+					local available = math.max(1, s.labelBox.w - padding * 2)
 					local iconSize = snapshot.resolveNumber(metrics, "iconSizes.medium") or size
 					local imageContent = s.navigation
 					if s.navigation then
@@ -609,7 +613,14 @@ function radial.build(Facet: any, core: any, spec: Spec)
 						if m.width > available then
 							m.width = iconSize
 						end
-					elseif compact and (m.width > available or (type(compact) == "table" and compact.prefer)) then
+					elseif
+						compact
+						and (
+							m.width > available
+							or m.height > s.labelBox.h
+							or (type(compact) == "table" and compact.prefer)
+						)
+					then
 						if type(compact) == "string" then
 							m = measure(compact)
 						elseif compact.text then

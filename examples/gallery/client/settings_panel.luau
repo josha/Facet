@@ -55,6 +55,11 @@ settings_panel.MODES = table.freeze({ "full", "reduced" })
 	Everything here is `policy = "none"` text: it must fit, wrapping where it has to,
 	and never clip. ]]
 settings_panel.COPY = table.freeze({
+	viewingDistance = "Viewing distance",
+	automaticDistance = "Automatic",
+	nearDistance = "Nearby screen",
+	tvDistance = "Distant TV",
+	distanceNote = "Choose how far away you play. Controller input works with every screen size.",
 	motion = "Motion",
 	full = "Full",
 	reduced = "Reduced",
@@ -217,7 +222,47 @@ function settings_panel.mount(opts: MountOpts): any
 		},
 	})
 
-	local sections: { any } = { motionSection }
+	local distanceSetting = scope:own(core:signal(env:get("viewingDistance"):get()))
+	local function setDistance(value: string): boolean
+		if value ~= "automatic" and value ~= "near" and value ~= "ten-foot" then
+			return false
+		end
+		distanceSetting:set(value)
+		env:set("viewingDistance", value)
+		return true
+	end
+	local distancePicker = scope:own(Facet.Controls.Picker(core, {
+		id = "ViewingDistance",
+		label = COPY.viewingDistance,
+		env = env,
+		selected = distanceSetting,
+		options = {
+			{ value = "automatic", label = COPY.automaticDistance },
+			{ value = "near", label = COPY.nearDistance },
+			{ value = "ten-foot", label = COPY.tvDistance },
+		},
+		onChange = function(value)
+			setDistance(value)
+		end,
+	}))
+	local sections: { any } = {
+		UI.VStack({
+			id = "Distance",
+			width = UI.fill(),
+			gap = "xs",
+			children = {
+				distancePicker.blueprint,
+				UI.Text({
+					id = "Note",
+					text = COPY.distanceNote,
+					width = UI.fill(),
+					textSize = "caption",
+					role = "secondary",
+				}),
+			},
+		}),
+		motionSection,
+	}
 	if opts.buildStamp ~= nil and opts.buildStamp ~= "" then
 		table.insert(
 			sections,
@@ -257,6 +302,8 @@ function settings_panel.mount(opts: MountOpts): any
 
 	return {
 		sections = sections,
+		viewingDistance = distanceSetting,
+		setViewingDistance = setDistance,
 		-- the live fact's mirror (what the picker shows)
 		mode = mode,
 		-- the preference (only a press on this control writes it)
@@ -266,6 +313,7 @@ function settings_panel.mount(opts: MountOpts): any
 		-- a setting rather than a demo's side effect.
 		apply = function()
 			applyMode(setting:get())
+			env:set("viewingDistance", distanceSetting:get())
 		end,
 		-- the scriptable route a pointer-free drive takes, and the SAME call the
 		-- picker press makes rather than a parallel one that can rot on its own

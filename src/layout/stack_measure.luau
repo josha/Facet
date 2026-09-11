@@ -30,6 +30,7 @@
 	above; the behaviour half is the whole suite, which drives a vstack or an hstack on
 	very nearly every fixture in the repository. ]]
 local shrinkLib = require("./shrink")
+local fillSpace = require("./fill_space")
 local baseline = require("./baseline")
 local spacerMinimum = require("./measure_facts").spacerMinimum
 
@@ -924,17 +925,21 @@ function stack_measure.contentSize(
 		untouched, so a fill child is still measured on every single tick (T13's owed
 		row 5), which is why `lastChildVisits` cannot move. ]]
 	local fillList = if visit ~= nil then cmemo.mFill else fills
+	local fillPx = nil
+	if #fillList > 0 and remaining ~= math.huge and fillWeightSum > 0 then
+		local shares = {}
+		for _, idx in fillList do
+			table.insert(shares, { i = idx, weight = dim(children[idx], if isH then "w" else "h").weight or 1 })
+		end
+		fillPx = fillSpace.allocate(remaining, fillWeightSum, shares)
+	end
+
 	ctx.childIterations += #fillList
 	for _, idx in fillList do
 		local child = children[idx]
 		local mt, mr, mb, ml = sides(child.margin)
-		local childMainDim = dim(child, if isH then "w" else "h")
-		local share = if remaining == math.huge or fillWeightSum <= 0
-			then math.huge
-			else remaining * (childMainDim.weight or 1) / fillWeightSum
-		-- floor is the conservative direction: a slightly narrower measurement
-		-- over-reserves height rather than under-reserving it
-		local childMain = if share == math.huge then math.huge else math.max(0, math.floor(share) - marginMain[idx])
+		local share = if fillPx then fillPx[idx] + spacerMinimum(child, isH) else math.huge
+		local childMain = if share == math.huge then math.huge else math.max(0, share - marginMain[idx])
 		local cw, ch = measure(ctx, child, if isH then childMain else innerMaxW, if isH then innerMaxH else childMain)
 		crossOf[idx] = if isH then ch + mt + mb else cw + ml + mr
 	end
@@ -1016,7 +1021,7 @@ function stack_measure.contentSize(
 			local mt, mr, mb, ml = sides(child.margin)
 			local offer = innerMaxW
 			if dim(child, "w").type == "fill" and remaining ~= math.huge and fillWeightSum > 0 then
-				offer = math.max(0, math.floor(remaining * (dim(child, "w").weight or 1) / fillWeightSum) - ml - mr)
+				offer = math.max(0, fillPx[i] + spacerMinimum(child, isH) - ml - mr)
 			elseif shrinkBasis ~= nil and shrinkBasis[i] ~= nil then
 				offer = shrinkBasis[i]
 			end

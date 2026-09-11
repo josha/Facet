@@ -32,6 +32,7 @@ local rowsLib = require("../examples/performance/lab/rows")
 local captureLib = require("../examples/performance/lab/capture")
 local overlayLib = require("../examples/performance/lab/overlay")
 local leversLib = require("../examples/performance/lab/levers")
+local navigationInventory = require("../examples/performance/lab/navigation_inventory")
 local perf_lab = require("../examples/performance/lab/perf_lab")
 
 local function newHarness()
@@ -59,7 +60,14 @@ local function newHarness()
 				}
 			end,
 		},
-		lab = { dataset = dataset, rows = rowsLib, capture = captureLib, overlay = overlayLib, levers = leversLib },
+		lab = {
+			dataset = dataset,
+			rows = rowsLib,
+			capture = captureLib,
+			overlay = overlayLib,
+			levers = leversLib,
+			navigationInventory = navigationInventory,
+		},
 		telemetry = {
 			clock = function()
 				clock += 0.001

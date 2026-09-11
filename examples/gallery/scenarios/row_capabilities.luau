@@ -400,7 +400,7 @@ return {
 							},
 						}),
 						UI.Text({ id = "Selected", text = selectedName, textSize = "label" }),
-						tbl.blueprint,
+						UI.focusSection(tbl.blueprint),
 						UI.Text({ id = "Order", text = orderLine, textSize = "caption", role = "secondary" }),
 						-- THE LINE THIS WHOLE FIXTURE IS FOR. `role = "danger"` is not
 						-- used: a refusal is information, not an error, and painting it

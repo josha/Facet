@@ -311,7 +311,7 @@ describe("the stack-measure seam: what it READS of the solve, and that it writes
 		for target in string.gmatch(body, "table%.insert%(%s*([%a_][%w_%.]*)") do
 			inserts[target] = true
 		end
-		expect(sorted(inserts)).toEqual({ "always", "fills", "list", "ordered" })
+		expect(sorted(inserts)).toEqual({ "always", "fills", "list", "ordered", "shares" })
 	end)
 
 	it("NEGATIVE CONTROL: the write scans report an assignment and an insert target", function()
@@ -357,7 +357,7 @@ describe("the stack-measure seam: one-way, one consumer, and nothing stayed behi
 			table.insert(requires, path)
 		end
 		table.sort(requires)
-		expect(requires).toEqual({ "./baseline", "./measure_facts", "./row_permutation", "./shrink" })
+		expect(requires).toEqual({ "./baseline", "./fill_space", "./measure_facts", "./row_permutation", "./shrink" })
 	end)
 
 	it("it names no solver symbol and imports no solver type", function()
@@ -462,6 +462,7 @@ describe("the stack-measure seam: no module-level mutable state", function()
 		expect(sorted(declared)).toEqual({
 			"alwaysVisit",
 			"baseline",
+			"fillSpace",
 			"permutation",
 			"shrinkLib",
 			"spacerMinimum",

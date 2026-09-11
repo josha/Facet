@@ -298,6 +298,9 @@ local ORDER = {
 	-- scaffolded showcase surface for `Facet.Controls.RadialMenu`. Also in
 	-- `demo_picker.DEMOS`. TODO: say what a player can only learn by DRIVING it.
 	"radial_menu",
+	-- scaffolded showcase surface for `Facet.Controls.Alert`. Also in
+	-- `demo_picker.DEMOS`. TODO: say what a player can only learn by DRIVING it.
+	"alert",
 	-- scaffold: new control scenarios are appended above this line
 }
 

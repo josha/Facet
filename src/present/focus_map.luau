@@ -441,22 +441,8 @@ local function collectContributions(rootNode: any): { Contribution }
 	return out
 end
 
--- find the mounted node at an exact path (small trees; full DFS)
-local function nodeAt(rootNode: any, path: string?): any
-	if path == nil then
-		return nil
-	end
-	if rootNode.path == path then
-		return rootNode
-	end
-	for _, child in rootNode.children or {} do
-		local found = nodeAt(child, path)
-		if found ~= nil then
-			return found
-		end
-	end
-	return nil
-end
+-- Shared with paint: node lookup must not scale with unrelated subtrees.
+local nodeAt = paths.nodeAt
 
 -- is `path` inside a subtree that is playing its exit? (the tap half of the
 -- retiring rule above: a fading control must not still activate)
@@ -524,6 +510,9 @@ end
 -- does this subtree contain an input contribution that declares focus groups?
 -- (a layout container must never swallow one — its groups own its focusables)
 local function subtreeHasFocusGroups(node: any): boolean
+	if node.meta and node.meta.focusSection then
+		return true
+	end
 	local bundle = contribution.read(node)
 	if bundle ~= nil and bundle.focusGroups ~= nil then
 		return true
@@ -697,15 +686,8 @@ end
 	vertical ring is already the right answer for it, and many tests depend on
 	that ring being byte-identical.
 
-	ONE HONEST LIMIT, measured rather than assumed. The presenter caches the whole
-	derivation against the renderer's STRUCTURE EPOCH (`presenter.luau`'s
-	`focusDerivation`), so an axis flip with no other consequence does not
-	re-derive until the next structural change. Both shipped flips DO change
-	structure and were checked live: a Picker resolving `segmented -> inline`
-	re-derives (horizontal -> vertical), and a TabView re-homing from `bottomBar`
-	to `sidebar` re-derives (horizontal -> vertical), because both move mounted
-	nodes. A caller that binds `axis` to a bare signal and changes nothing else
-	keeps the previous group for one structural beat. ]]
+	Inferred groups receive a resting rect resolver. Directional search reads it
+	on each press, so a bound axis flip needs no structure epoch change. ]]
 local function isHorizontalRun(node: any): boolean
 	if node.class == "HStack" then
 		return true -- byte-identical to the rule that shipped
@@ -749,7 +731,7 @@ local function isHorizontalRun(node: any): boolean
 	return true
 end
 
-local function autoGroups(rootNode: any): { any }
+local function autoGroups(rootNode: any, rectOf: any?, scopedFlat: boolean?): { any }
 	local groups: { any } = {}
 	local pending: { string } = {}
 	local grips: { string } = {}
@@ -757,15 +739,40 @@ local function autoGroups(rootNode: any): { any }
 	local function flush()
 		if #pending > 0 then
 			flatCount += 1
-			table.insert(
-				groups,
-				{ name = `auto-flat-{flatCount}`, axis = "vertical", entry = "nearest", order = pending }
-			)
+			table.insert(groups, {
+				name = if scopedFlat then `auto-flat-{rootNode.path}-{flatCount}` else `auto-flat-{flatCount}`,
+				axis = "vertical",
+				entry = "nearest",
+				order = pending,
+				rectOf = rectOf,
+			})
 			pending = {}
 		end
 	end
 	local function walk(node: any)
 		if isRetiring(node) then
+			return
+		end
+		local section = node.meta and node.meta.focusSection
+		if section then
+			flush()
+			local plain = table.clone(node)
+			plain.meta = table.clone(node.meta)
+			plain.meta.focusSection = nil
+			local sectionGroups = autoGroups(plain, rectOf, true)
+			for _, original in sectionGroups do
+				local group = table.clone(original)
+				local region = {
+					name = node.path,
+					entry = section.entry or "restore",
+					preferred = section.preferred,
+					rectOf = rectOf,
+				}
+				group.sections = table.clone(group.sections or {})
+				table.insert(group.sections, 1, region)
+				group.section = group.section or region
+				table.insert(groups, group)
+			end
 			return
 		end
 		local bundle = contribution.read(node)
@@ -792,7 +799,10 @@ local function autoGroups(rootNode: any): { any }
 			flush()
 			local cells: { string } = {}
 			collectFocusables(node, cells)
-			table.insert(groups, { name = `auto-h-{node.path}`, axis = "horizontal", entry = "nearest", order = cells })
+			table.insert(
+				groups,
+				{ name = `auto-h-{node.path}`, axis = "horizontal", entry = "nearest", order = cells, rectOf = rectOf }
+			)
 			return
 		end
 		-- STRUCTURAL ONLY: the disabled test runs on the BUILT groups
@@ -833,7 +843,17 @@ end
 -- does the tree contain an HStack or Grid holding >=2 focusables? (the engage
 -- gate: only then do we derive groups; else the flat ring is preserved exactly)
 local function hasHorizontalStructure(node: any): boolean
-	if (isHorizontalRun(node) or node.class == "Grid") and focusableCount(node) >= 2 then
+	if node.meta and node.meta.focusSection then
+		return true
+	end
+	if
+		(
+			isHorizontalRun(node)
+			or node.class == "Grid"
+			or node.class == "AdaptiveStack"
+			or (node.class == "ScrollView" and node.dynamicProps and node.dynamicProps.axis ~= nil)
+		) and focusableCount(node) >= 2
+	then
 		return true
 	end
 	for _, child in node.children or {} do
@@ -849,7 +869,10 @@ end
 -- a single vertical group, an HStack to a horizontal group, a Grid to per-row
 -- horizontal groups with declared up/down exits (entry="nearest" preserves the
 -- column) contained so left/right cannot wrap across rows.
-local function layoutGroups(rootNode: any): { any }
+local function layoutGroups(rootNode: any, rectOf: any?): { any }
+	if subtreeHasFocusGroups(rootNode) then
+		return autoGroups(rootNode, rectOf)
+	end
 	local groups: { any } = {}
 	local pending: { string } = {}
 	local grips: { string } = {}
@@ -857,7 +880,10 @@ local function layoutGroups(rootNode: any): { any }
 	local function flushVertical()
 		if #pending > 0 then
 			vCount += 1
-			table.insert(groups, { name = `auto-v-{vCount}`, axis = "vertical", entry = "nearest", order = pending })
+			table.insert(
+				groups,
+				{ name = `auto-v-{vCount}`, axis = "vertical", entry = "nearest", order = pending, rectOf = rectOf }
+			)
 			pending = {}
 		end
 	end
@@ -883,7 +909,10 @@ local function layoutGroups(rootNode: any): { any }
 			-- no containment: up/down fall through to the adjacent stacked group
 			-- (stacked HStacks read as a loose 2D board — column-preserving via
 			-- entry="nearest"); horizontal moves stay within the row
-			table.insert(groups, { name = `auto-h-{node.path}`, axis = "horizontal", entry = "nearest", order = cells })
+			table.insert(
+				groups,
+				{ name = `auto-h-{node.path}`, axis = "horizontal", entry = "nearest", order = cells, rectOf = rectOf }
+			)
 			return
 		end
 		if FOCUSABLE[node.class] and not (node.props and node.props.focusable == false) then

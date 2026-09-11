@@ -16,13 +16,79 @@ and [API reference](../reference/api.md) define the available public surfaces.
 | Keep frequently used actions visible | Buttons in a toolbar/stack | Avoid making players open a menu for every repeated action. |
 | Choose a persistent value | Picker, Toggle, Slider, or RadioGroup as appropriate | Expose the current value and its alternatives. Use a radial check action only when it belongs in a contextual command set. |
 | Browse inventory, compare items, or search a large collection | Grid/list/table with filtering | Item discovery and comparison need more content than directional quick actions. |
+| Switch peer destinations such as Garage, Races, and Settings | `Controls.TabView` | Use `style = "sidebarAdaptable"` for automatic sidebar/top/bottom navigation. |
+| Choose a visually recognizable vehicle, character, map, or item | `Controls.Button` with `image`, `label`, and optional `subtitle` in a grid/rail | One focus target coordinates artwork highlight and persistent captions. |
 | Navigate destinations or complete a multi-step form | `Controls.NavigationStack` and explicit destinations | A command hierarchy is not a substitute for a page flow. |
-| Confirm a consequential action | The existing confirmation dialog flow | A fast gesture must not bypass the application's confirmation requirement. |
+| Confirm a consequential action | `Controls.Alert` | A fast gesture must not bypass the application's confirmation requirement. |
 
 A useful starting range for radial commands is three to eight familiar actions
 per level, with short labels or recognizable icons. This is design guidance, not
 an API limit. Prefer a shallow hierarchy. If a task is dominated by reading,
 comparison, or frequent traversal of deep branches, choose a linear surface.
+
+## Adapt the presentation to the task
+
+Use `TabView.style = "sidebarAdaptable"` for peer destinations in a lobby,
+collection browser, or management screen. Tablets start with tabs and a visible
+sidebar toggle as an optional preference; mouse windows start with a sidebar.
+Distant screens show top tab pills, independently of pointer or gamepad input.
+Switching destinations does not change the navigation home. Nearby compact
+screens retain bottom tabs. TabView owns the sidebar-to-page gap; pages own
+their internal padding.
+Nearby top/sidebar switches retain the navigation controls and scroll host.
+For custom responsive layouts, bind `AdaptiveStack.axis` and `ScrollView.axis`
+to the layout condition instead of rebuilding identical content in two branches.
+Use `When` for genuinely different content or interaction structure.
+Keep ordinary TabView styling for short in-game categories and nested tabs. Use
+NavigationStack for drill-down and Back; use adaptive stacks or Composition when selection
+and its detail should remain visible together. These layouts describe different
+tasks and should not be interchanged merely to copy a streaming-app screenshot.
+
+Use `Controls.Alert` for a brief confirmation or acknowledgement with one to three
+choices. Supply the title, message and semantic action roles, then call
+`alert.present(presenter)`. The shared component owns content-sized centering,
+wrapping actions, constrained scrolling, safe initial focus and cancellation.
+Use a game theme/StyleSheet to customize its appearance. A full-screen `Screen`
+with a vertical button stack is not a confirmation recipe. Reserve an authored
+`presentModal` surface for a substantial editor or multi-step task.
+
+Viewing distance changes layout policy as well as typography: top navigation and
+lower content density apply to Distant TV with mouse/keyboard too. It does not
+reinterpret every fixed VStack as a different composition. Author responsive
+relationships with AdaptiveStack, wrapping rows, grids or Composition: for example,
+put showroom and setup side by side when `conditions.isWide` is true and in sequence
+otherwise. Keep the same controls mounted. A nearby handheld controller retains
+compact layouts; changing input alone does not turn it into a television.
+
+Use image Buttons for choices recognized by their artwork. Always retain a full
+semantic `label`; use `subtitle` for short supporting information. Let the grid
+or rail offer the card's width, and supply the artwork's intended aspect ratio.
+The Button owns focus/hover treatment and clearance. Do not scale its parent
+cell, draw a separate focusable caption, hide the only label until hover, or
+position captions over an ornamental border. For stat comparison use structured
+list/table rows; for immediate gameplay commands prefer a direct button or radial
+menu. Long descriptions belong in detail content, not a tiny image card.
+
+Keep automatic control presentation unless the task requires an explicit form.
+Menus use one panel for compact widths, touch, and gamepad; mouse menus can
+cascade where space permits. Sliders expose one adjustable focus target, while
+pointer/touch retain direct manipulation. Do not replace these with a second
+controller-only UI. A connected controller does not imply a distant display:
+respect `viewingDistance` independently of current input.
+
+For every changed screen, check compact touch, roomy touch, mouse/keyboard,
+nearby gamepad, and ten-foot gamepad, including live input/size changes. Exercise
+Back, focus restoration, disabled/busy states, and radial menus where used.
+Include Pixel Quest and Fantasy Ornate with enlarged text: check both content
+containment and the painted borders/focus envelope in Studio. Never shrink text,
+remove decorative insets, or silence overflow diagnostics to force a screenshot.
+
+For performance, reuse the existing bench harness. The
+`adaptive-navigation-images` scene covers a 24-card inventory, idle frames,
+image focus, and sidebar changes. Focus must remain paint-only and moving
+navigation chrome must not rebuild its page. Compare equivalent workloads with
+FacetBench/Vide only when both adapters implement the same work; its generic
+inventory workload is not evidence of adaptive-control feature parity.
 
 ## Choose radial options deliberately
 
@@ -98,3 +164,47 @@ Use a specific part when a whole model includes irrelevant accessories or large
 invisible parts. Do not cap the measured opening just to force a ring onto a phone;
 allow the accessible list fallback, or explicitly choose directional gestures.
 The anchor does not test whether another world object obscures the target.
+
+Use `badge` for a tab or picker count: its row reserves label/count space and wraps on a narrow offer. Avoid positioning a count image over navigation text. Use the theme palette’s `onAccent` tint for custom text on an accent selection plate.
+
+### Rows, sections and returning to a destination
+
+Use the `row` presentation of Button, Toggle and Slider for game settings,
+equipment details and action lists that need descriptions or trailing values. Keep
+one semantic control per row; do not nest a second focusable button around a toggle
+or slider. Keep Table/VirtualList for actual collections, including editing,
+selection, row actions and reordering. A TV presentation should increase readability
+without flattening those editing semantics into a streaming catalog.
+
+Wrap a hero action group, a shelf, or a settings column in `UI.focusSection` when
+empty space between regions makes directional entry unclear. Give primary actions
+stable IDs and, where useful, a preferred section entry. Preserve the grid and
+collection's own navigation; do not author a second per-device neighbor map.
+
+Use ScrollView's `navigation` for named jump actions, deliberate shelf snapping,
+and visibility-driven artwork. Avoid snap for long prose, tall settings groups or
+editable collections that require free scrolling. A jump changes the scroll position;
+use `focus = "target"` only when arriving should transfer control to the target
+region. The default preserves focus. Use normalized progress for
+subtle paint-only artwork treatment and honor reduced motion. Prefer a themed
+readability gradient over moving text or expensive continuous background effects.
+
+Use TabView sections/customization only when a game has enough persistent
+destinations to benefit from organization. Mark essential play/exit/settings routes
+required as appropriate. Offer reorder and show/hide commands through normal buttons
+or menus so they remain usable on touch and gamepad. Store preferences in game-owned
+state. TabView restores scroll by key across lazy page eviction; keep editing,
+selection and domain values in owner-held signals as before.
+
+### Implementation order for game UI
+
+For layouts as well as controls, try existing Facet stacks, grids, Composition,
+scrolling, layout modifiers and adaptive conditions first. Then use its
+theme/StyleSheet, spacing, constraints, alignment, skin, background, presentation
+and content customization. If those cannot express
+a reusable need, attempt a Facet extension with the appropriate playbook and tests.
+Only after all three approaches fail should a game build custom UI; document the
+specific limitations and keep that fallback small and integrated through supported
+focus, input, theme and lifecycle seams. Starting with native Roblox behavior out
+of convenience skips the design contract. A supported Facet foreign-content host
+is still composition and should be considered before a custom system.

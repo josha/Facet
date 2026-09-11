@@ -278,11 +278,11 @@ return {
 			})
 		end
 
-		-- hug where there is room, a bounded scroller where there is not (see the
-		-- `Chrome` block below); `heightClass` is the Readable for it
+		-- Bound the toolbar on narrow as well as short views: larger text can
+		-- wrap its actions beyond the table viewport on a portrait phone.
 		local conditions = ctx.Facet.adaptive.conditions(core, ctx.env, { scope = scope })
 		local chromeHeight = scope:own(core:memo(function(use)
-			return if use(conditions.isShort) then UI.fill() else nil
+			return if use(conditions.isShort) or use(conditions.isCompact) then UI.fill() else nil
 		end))
 
 		local screen = UI.Screen({

@@ -42,6 +42,7 @@
 --     run: (state) -> { [phase]: seconds }?,  -- optional per-phase sub-timings;
 --                                          --   the phase named "inputToVisible" is
 --                                          --   lifted into metrics.inputToVisibleMs
+--     afterRun: ((state) -> ())?, -- untimed settling between events; separately recorded
 --     teardown: ((state) -> ())?,
 --     samples: number?, warmup: number?,   -- per-scene sampling override
 --     extras: ((state) -> any)?,           -- scene-specific counters (theme census…)
@@ -330,6 +331,9 @@ function perf_runner.runScene(scene: any, profile: any, opts: any?): any
 	-- settle JIT/allocation transients before measuring.
 	for _ = 1, warmup do
 		scene.run(state)
+		if scene.afterRun then
+			scene.afterRun(state)
+		end
 	end
 
 	-- per-phase sample buckets; "total" is always measured externally around
@@ -361,6 +365,13 @@ function perf_runner.runScene(scene: any, profile: any, opts: any?): any
 				end
 				table.insert(bucket, seconds * 1000)
 			end
+		end
+		if scene.afterRun then
+			local settleStart = os.clock()
+			scene.afterRun(state)
+			local bucket = phaseSamples.settle or {}
+			phaseSamples.settle = bucket
+			table.insert(bucket, (os.clock() - settleStart) * 1000)
 		end
 		heapSeries[i] = gcinfo()
 	end

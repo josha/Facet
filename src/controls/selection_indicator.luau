@@ -132,7 +132,7 @@ export type Segment = { value: any, id: string }
 export type Spec = {
 	id: string?,
 	content: any, -- the strip blueprint this indicator tracks (required)
-	segments: { Segment }, -- (selection value, child id) pairs (required)
+	segments: any, -- array or internal readable keyed segment array -- (selection value, child id) pairs (required)
 	selected: any, -- owner-held Readable; never written by this module
 	skin: string?, -- "underline" (default) | "pill"
 	-- "x" (default) | "y", or a Readable of either. REACTIVE, because the host's
@@ -326,7 +326,11 @@ function selection_indicator.build(Facet: any, core: any, spec: Spec)
 	if type(spec.content) ~= "table" or spec.content.class == nil then
 		error(`Facet selectionIndicator('{id}'): \`content\` must be the strip blueprint this indicator tracks`, 0)
 	end
-	if type(spec.segments) ~= "table" or #spec.segments == 0 then
+	local liveSegments = type(spec.segments) == "table" and spec.segments.kind ~= nil
+	local function segmentsNow(use)
+		return readValue(spec.segments, use)
+	end
+	if type(segmentsNow()) ~= "table" or (not liveSegments and #segmentsNow() == 0) then
 		error(
 			`Facet selectionIndicator('{id}'): \`segments\` must be a non-empty array of `
 				.. "{ value = <selection value>, id = <the child's id> } pairs",
@@ -364,7 +368,7 @@ function selection_indicator.build(Facet: any, core: any, spec: Spec)
 	local declaredIds: { [string]: boolean } = {}
 	local structural = { false }
 	findIds(spec.content, declaredIds, structural)
-	for i, segment in spec.segments do
+	for i, segment in segmentsNow() do
 		if type(segment) ~= "table" or type(segment.id) ~= "string" or segment.id == "" then
 			error(
 				`Facet selectionIndicator('{id}'): segments[{i}] needs an \`id\` naming the child this `
@@ -515,13 +519,18 @@ function selection_indicator.build(Facet: any, core: any, spec: Spec)
 	-- Comparing the ROOT's path is the cheap, exact test for "this is a different
 	-- mount", and it costs one string compare per solve on the unchanged path.
 	local mountedRootPath: string? = nil
+	local controller, learnedRoot, learnedSegments, learnedStructure, fedEpoch, fedReader
 	-- flat numeric table: 1..4 = the layer's rect, then 4 per segment in
 	-- declaration order. FLAT on purpose — `sameGeometry` refuses nested tables,
 	-- and a flat shape makes that refusal free rather than an obstacle.
 	local fed = scope:own(core:signal({}, sameGeometry))
 
+	-- Identity and geometry must describe the SAME solve. A live reorder cannot
+	-- interpret the previous rectangles using the new option indices.
+	local fedSegments = segmentsNow()
+	local orderVersion = 0
 	local function indexOfValue(value: any): number?
-		for i, segment in spec.segments do
+		for i, segment in fedSegments do
 			if segment.value == value then
 				return i
 			end
@@ -649,8 +658,23 @@ function selection_indicator.build(Facet: any, core: any, spec: Spec)
 		-- (the presenter feeds every contribution on every solve AND every
 		-- refresh, and states that every syncGeometry in the framework must be
 		-- both) — the `fed` signal's by-value equality is what makes it so.
+		bindController = function(c)
+			controller = c
+			fedEpoch = nil
+		end,
 		syncGeometry = function(rectOf: (string) -> any, rootNode: any?)
-			if rootNode ~= nil and rootNode.path ~= mountedRootPath then
+			local segments = segmentsNow()
+			local structure = if controller then controller.structureEpoch() else nil
+			local geometry = if controller then controller.geometryEpoch() else nil
+			local relearn = rootNode ~= learnedRoot
+				or segments ~= learnedSegments
+				or structure ~= learnedStructure
+				or (liveSegments and not controller)
+			if not relearn and geometry ~= nil and fedEpoch == geometry and fedReader == rectOf then
+				return
+			end
+			if rootNode ~= nil and (relearn or rootNode.path ~= mountedRootPath) then
+				learnedRoot, learnedSegments, learnedStructure = rootNode, segments, structure
 				-- a DIFFERENT mount: forget everything learned about the old one
 				-- rather than keeping half of it, which is how a re-home would
 				-- otherwise leave the layer resolved and the segments dangling
@@ -664,7 +688,7 @@ function selection_indicator.build(Facet: any, core: any, spec: Spec)
 				-- arithmetic: the mounted path depends on where the consumer placed
 				-- this wrapper, so guessing it is the assumption that breaks silently
 				local wanted: { [string]: number } = {}
-				for i, segment in spec.segments do
+				for i, segment in segmentsNow() do
 					wanted[segment.id] = i
 				end
 				local function walk(node: any)
@@ -690,7 +714,7 @@ function selection_indicator.build(Facet: any, core: any, spec: Spec)
 				return
 			end
 			local numbers: { number } = { host.x, host.y, host.w, host.h }
-			for i in spec.segments do
+			for i in segmentsNow() do
 				local path = segmentPaths[i]
 				local rect = if path ~= nil then rectOf(path) else nil
 				if rect ~= nil then
@@ -699,6 +723,12 @@ function selection_indicator.build(Facet: any, core: any, spec: Spec)
 					numbers[base + 2], numbers[base + 3] = rect.w, rect.h
 				end
 			end
+			if fedSegments ~= segments then
+				fedSegments = segments
+				orderVersion += 1
+			end
+			numbers[0] = orderVersion
+			fedEpoch, fedReader = geometry, rectOf
 			fed:set(numbers)
 		end,
 		-- the presenter's OWN motion clock, the one every surface transition and
@@ -722,7 +752,7 @@ function selection_indicator.build(Facet: any, core: any, spec: Spec)
 		report would have to be taught to look for. ]]
 	function api.state()
 		local unresolved: { string } = {}
-		for i, segment in spec.segments do
+		for i, segment in segmentsNow() do
 			if segmentPaths[i] == nil then
 				table.insert(unresolved, segment.id)
 			end
@@ -730,7 +760,7 @@ function selection_indicator.build(Facet: any, core: any, spec: Spec)
 		local rect = targetRect:get()
 		local current = readValue(spec.selected)
 		local label: string? = nil
-		for _, segment in spec.segments do
+		for _, segment in segmentsNow() do
 			if segment.value == current then
 				label = segment.id
 			end
@@ -739,7 +769,7 @@ function selection_indicator.build(Facet: any, core: any, spec: Spec)
 			id = id,
 			skin = skin,
 			axis = axisNow(),
-			segments = #spec.segments,
+			segments = #segmentsNow(),
 			resolved = resolvedCount,
 			unresolved = unresolved,
 			selectedId = label,
@@ -749,7 +779,7 @@ function selection_indicator.build(Facet: any, core: any, spec: Spec)
 			geometryUpdates = geometryUpdates,
 			animated = motionClock ~= nil,
 			rect = if rect == nil then nil else { x = rect.x, y = rect.y, w = rect.w, h = rect.h },
-			semanticText = `{skin} indicator on {label or "nothing"} ({resolvedCount}/{#spec.segments} segments resolved)`,
+			semanticText = `{skin} indicator on {label or "nothing"} ({resolvedCount}/{#segmentsNow()} segments resolved)`,
 		}
 	end
 

@@ -349,6 +349,9 @@ export type Ctx = {
 	-- the host's own programmatic scroll write, already clamped and already
 	-- routed through its bound controller
 	write: (offset: number) -> (),
+	resolve: ((request: any) -> number?)?,
+	onArrive: (() -> ())?,
+	onInterrupt: (() -> ())?,
 	quietS: number?,
 	flickPxPerS: number?,
 }
@@ -360,6 +363,7 @@ export type Snap = {
 	-- variable-extent anchor correction). It is a new resting place, not a travel:
 	-- announcing it stops the echo being read as a gesture the player never made.
 	rest: (offset: number) -> (),
+	travel: (from: number, to: number) -> (),
 	bindMotion: (clock: any) -> (),
 	dispose: () -> (),
 	-- for tests and `dump()`: never for behaviour
@@ -434,12 +438,18 @@ function scroll_snap.new(ctx: Ctx): Snap
 		ctx.write(value)
 		if arrived then
 			markRest(target)
+			if ctx.onArrive then
+				ctx.onArrive()
+			end
 		end
 	end
 
 	local function beginFlight(from: number, to: number)
 		if flight == nil or math.abs(to - from) < scroll_snap.MIN_TRAVEL_PX then
 			markRest(from)
+			if ctx.onArrive then
+				ctx.onArrive()
+			end
 			return
 		end
 		-- start from where the ENGINE actually is, never from the last terminus:
@@ -457,7 +467,7 @@ function scroll_snap.new(ctx: Ctx): Snap
 			return
 		end
 		local offset = lastOffset
-		local target = scroll_snap.resolve({
+		local target = (ctx.resolve or scroll_snap.resolve)({
 			index = ctx.index(),
 			viewport = ctx.viewport(),
 			offset = offset,
@@ -511,13 +521,6 @@ function scroll_snap.new(ctx: Ctx): Snap
 		if disposed or not isFinite(offset) then
 			return
 		end
-		if not enabled() then
-			-- keep the resting place current so a mode that flips ON later starts
-			-- its first travel from where the player actually left the scroller
-			cancelFlight()
-			markRest(offset)
-			return
-		end
 		if flightActive then
 			if lastWrite ~= nil and math.abs(offset - (lastWrite :: number)) <= scroll_snap.TAKEOVER_PX then
 				return -- the echo of our own write
@@ -525,7 +528,17 @@ function scroll_snap.new(ctx: Ctx): Snap
 			-- A HAND ON A MOVING RAIL WINS. The flight is abandoned where it stands
 			-- and this sample opens a fresh travel from the player's own position.
 			cancelFlight()
+			if ctx.onInterrupt then
+				ctx.onInterrupt()
+			end
 			markRest(offset)
+		end
+		if not enabled() then
+			-- keep the resting place current so a mode that flips ON later starts
+			-- its first travel from where the player actually left the scroller
+			cancelFlight()
+			markRest(offset)
+			return
 		end
 		if not ensureValues() then
 			return -- no clock: no frames, no settle detection, today's behaviour
@@ -559,6 +572,22 @@ function scroll_snap.new(ctx: Ctx): Snap
 		end
 		markRest(offset)
 		lastWrite = offset
+	end
+
+	function self.travel(from: number, to: number)
+		if disposed then
+			return
+		end
+		self.rest(from)
+		if ensureValues() then
+			beginFlight(from, to)
+		else
+			ctx.write(to)
+			markRest(to)
+			if ctx.onArrive then
+				ctx.onArrive()
+			end
+		end
 	end
 
 	function self.bindMotion(motionClock: any)

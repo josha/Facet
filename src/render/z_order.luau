@@ -261,7 +261,7 @@ function z_order.new(deps: Deps)
 		local z = 0
 		local visited = 0
 		local localNumbers = forced ~= nil and scope.localNumbers == true
-		local function walkZ(node: any)
+		local function walkZ(node: any): boolean
 			visited += 1
 			-- ONE READ OF THE PATH FOR THE WHOLE VISIT (Plan D, D4b): the body below
 			-- asked the node for it up to eleven times, on a walk that visits 7,323
@@ -271,7 +271,7 @@ function z_order.new(deps: Deps)
 				local was, span = zIn[path], zSpan[path]
 				if was ~= nil and span ~= nil and z <= was then
 					z = was + span
-					return
+					return true
 				end
 			end
 			local entered = z
@@ -298,6 +298,7 @@ function z_order.new(deps: Deps)
 			end
 			z += 1
 			local handle = handles[path]
+			local materialized = handle ~= nil
 			if handle ~= nil and lastZ[path] ~= z then
 				authority.assertWrite("common", "zIndex", "layout")
 				adapter.setZOrder(handle, z)
@@ -318,11 +319,13 @@ function z_order.new(deps: Deps)
 				scope.localNumbers = true
 				z = entered + zSpan[path]
 				zIn[path] = entered
-				return
+				return true
 			end
 			local kids = orderedChildren(node)
 			for _, child in kids do
-				walkZ(child)
+				if not walkZ(child) then
+					materialized = false
+				end
 			end
 			--[[ ...AND THE MEMO, FOR A PARENT ONLY. Skipping a childless node saves
 				nothing — the probe costs what the visit costs — so a leaf earns no entry,
@@ -354,7 +357,10 @@ function z_order.new(deps: Deps)
 			-- the read and the writes below can touch THIS path's entry: the recursion
 			-- above wrote only its children's, and a child cannot carry this path.
 			local wasIn = zIn[path]
-			if #kids > 0 then
+			-- Geometry/hit-lift can walk a newly resolved branch before native
+			-- handles exist. Such a range has not received its numbers and cannot
+			-- be skipped by the structural sync that materializes it afterward.
+			if #kids > 0 and materialized then
 				if wasIn == nil then
 					stats.zMemoEntries += 1
 				end
@@ -369,6 +375,7 @@ function z_order.new(deps: Deps)
 				zSpan[path] = nil
 				stats.zMemoEntries -= 1
 			end
+			return materialized
 		end
 		walkZ(root.node)
 		if forced == nil then

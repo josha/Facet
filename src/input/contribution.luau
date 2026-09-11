@@ -267,7 +267,8 @@ export type Bundle = {
 	-- screen where nothing else wants them). `newTable` omits it deliberately — its
 	-- resizable headers are navigation stops and adjust targets at once, and it
 	-- resolves the contention with a mode instead.
-	adjustAxis: string?, -- "horizontal" (default) | "vertical"
+	adjustRepeat: boolean?, -- opt-in bounded hold repeat for value adjustment
+	adjustAxis: string?, -- horizontal | vertical | none (shoulders only)
 	-- CONSUME Tab / Shift+Tab BEFORE the ring moves (roadmap Step 8). `direction`
 	-- is +1 (Tab) or -1 (Shift+Tab). Return true to keep focus where it is; false
 	-- or nil to let the presenter traverse. It exists for the one control that
@@ -294,9 +295,9 @@ function contribution.attach(rootBlueprint: any, bundle: Bundle): any
 	-- (constitution §4): silently defaulting to horizontal would leave a vertical
 	-- control's arrows navigating with nothing to say about it
 	local axis = (bundle :: any).adjustAxis
-	if axis ~= nil and axis ~= "horizontal" and axis ~= "vertical" then
+	if axis ~= nil and axis ~= "horizontal" and axis ~= "vertical" and axis ~= "none" then
 		error(
-			`Facet contribution.attach: adjustAxis '{tostring(axis)}' is not an axis. Valid: horizontal, vertical.`,
+			`Facet contribution.attach: adjustAxis '{tostring(axis)}' is not an axis. Valid: horizontal, vertical, none.`,
 			0
 		)
 	end

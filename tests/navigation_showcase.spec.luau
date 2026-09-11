@@ -152,3 +152,69 @@ describe("Showcase mobile controller and ten-foot distinction", function()
 		end
 	)
 end)
+
+describe("Showcase composed search restoration", function()
+	it("native search filtering survives adaptation and restores its result after returning", function()
+		local w = world.new({
+			viewport = { x = 0, y = 0, w = 390, h = 844 },
+			preferredInput = "KeyboardAndMouse",
+			reducedMotion = true,
+		})
+		local built = scenario.build({ Facet = Facet, core = w.core, env = w.env, presenter = w.pres })
+		w.present(built.screen)
+		local field = find(w, "/Field")
+		local fieldNode = w.adapter.node(field)
+		w.adapter.focusText(field)
+		w.adapter.typeText(field, "FoReSt")
+		w.adapter.commitText(field)
+		w.settle(3)
+		expect(built.report().query).toBe("FoReSt")
+		local result = find(w, "/Result-forest")
+		local count = 0
+		for _, path in w.adapter.paths() do
+			if string.find(path, "/Result-", 1, true) then
+				count += 1
+			end
+		end
+		expect(count).toBe(1)
+		w.env:set("viewportRect", { x = 0, y = 0, w = 1280, h = 800 })
+		w.settle(3)
+		expect(w.adapter.node(field)).toBe(fieldNode)
+		expect(built.report().axis).toBe("x")
+		w.pres.focus.focusOn(result)
+		w.press("Return")
+		w.settle(4)
+		expect(built.report().navigation.depth).toBe(1)
+		w.press("ButtonB")
+		w.settle(4)
+		expect(built.report().navigation.depth).toBe(0)
+		expect(built.report().query).toBe("FoReSt")
+		expect(w.pres.focus.focused:get()).toBe(result)
+		field = find(w, "/Field")
+		w.adapter.focusText(field)
+		w.adapter.typeText(field, "zzz")
+		w.adapter.commitText(field)
+		w.settle(3)
+		count = 0
+		for _, path in w.adapter.paths() do
+			if string.find(path, "/Result-", 1, true) then
+				count += 1
+			end
+		end
+		expect(count).toBe(0)
+		local clear = find(w, "/Clear")
+		w.adapter.tap(clear)
+		w.settle(3)
+		expect(built.report().query).toBe("")
+		count = 0
+		for _, path in w.adapter.paths() do
+			if string.find(path, "/Result-", 1, true) then
+				count += 1
+			end
+		end
+		expect(count).toBe(3)
+		w.pres.dismiss(w.handle)
+		built.dispose()
+		expect(built.report().visits).toBe(built.report().exits)
+	end)
+end)

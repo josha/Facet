@@ -486,6 +486,32 @@ describe("table_input: device-true gamepad/keyboard row-select and grab-reorder"
 		expect(w.tbl.api.grabbedKey:get()).toBeNil()
 	end)
 
+	for _, keys in { { "ButtonA", "DPadDown", "ButtonB" } } do
+		it(keys[3] .. " cancels a grabbed row before the next Cancel exits editing", function()
+			local w = reorderWorld({ editing = true })
+			local function press(key)
+				w.system.deviceKey(key, true)
+				w.system.deviceKey(key, false)
+			end
+			press(keys[1])
+			press(keys[2])
+			w.pres.refresh()
+			expect(w.tbl.api.grabbedKey:get()).toBe("r1")
+			local original = { "r1", "r2", "r3", "r4", "r5" }
+			press(keys[3])
+			w.pres.refresh()
+			expect(w.tbl.api.grabbedKey:get()).toBeNil()
+			expect(w.editing:get()).toBe(true)
+			expect(order(w.rows)).toEqual(original)
+			press(keys[3])
+			w.pres.refresh()
+			expect(w.editing:get()).toBe(false)
+			expect(order(w.rows)).toEqual(original)
+			w.pres.dismiss(w.handle)
+			w.tbl.dispose()
+		end)
+	end
+
 	it("keyboard edit-mode grab is input-agnostic: Return grabs, Down steps, Return drops", function()
 		local w = reorderWorld({ editing = true })
 		expect(w.pres.focus.focused:get()).toBe(hit("r1"))

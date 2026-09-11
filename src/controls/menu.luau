@@ -513,32 +513,20 @@ function menu.build(Facet: any, core: any, spec: Spec)
 			return requested
 		end
 		-- PRIMARY, not merely present: one predicate, in the recipe
-		local touchLive = menuRecipe.touchPrimary(useFact(use, classesSource))
+		local classes = useFact(use, classesSource)
+		local touchLive = menuRecipe.touchPrimary(classes)
 		local liveSizeClass = useFact(use, sizeClassSource)
-		local resolved =
-			menuRecipe.resolvePresentation(menuRecipe.actionableCount(spec.items), liveSizeClass, touchLive)
-		--[[ COMPACT IS THE SINGLE-PANEL BOUNDARY, NOT TOUCH (director item 14,
-			framework-gaps-phase2-followups; shouldHaveSinglePanel.png).
-			`resolvePresentation` (above) gates its own sheet branch on live TOUCH,
-			which answers a different question than the one this override asks: a
-			phone with a mouse attached, or Roblox Studio's own compact preset
-			(which cannot inject touch at all — it reports `primary = "pointer"`
-			unconditionally), still has a compact WIDTH, and a floating per-level
-			panel does not fit one no matter which pointer moved it —
-			`shouldHaveSinglePanel.png` is exactly this: a submenu overlapping its
-			still-open parent AND the page beneath it. The framework's own
-			compact/regular/wide boundary (`layout/adaptive.luau`'s `sizeClass`,
-			breakpoints 600/1000 — the same string `resolvePresentation` already
-			compares against) is a fact this control was already handed, so COMPACT
-			alone now forces the single-surface idiom, independent of which
-			pointer is live. This only ever WIDENS which environments choose
-			`sheet` — touch still forces it at any width (ADAPT-9 is the adaptation
-			audit row that fixed that), and an
-			author-forced `presentation` above this branch is untouched, so the
-			escape hatch stands. Medium/large (`regular`/`wide`) keep the
-			side-by-side expansion exactly as `resolvePresentation` already
-			decided it. ]]
-		if resolved ~= "sheet" and liveSizeClass == "compact" then
+		local resolved = menuRecipe.resolvePresentation(
+			menuRecipe.actionableCount(spec.items),
+			liveSizeClass,
+			touchLive,
+			classes ~= nil and classes.primary == "gamepad"
+		)
+		-- Cascades require both room and pointer precision. A short gamepad root
+		-- still needs one panel when entering a submenu; Back pops its history.
+		if
+			resolved ~= "sheet" and (liveSizeClass == "compact" or (classes ~= nil and classes.primary == "gamepad"))
+		then
 			resolved = "sheet"
 		end
 		return if resolved == "sheet" then "sheet" else "menu"

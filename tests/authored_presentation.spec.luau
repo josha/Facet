@@ -841,3 +841,27 @@ describe("authored presentation F — offset (gap 16)", function()
 		expect(wrote).toBe(false)
 	end)
 end)
+
+describe("press scale cleanup preserves native shadow painting", function()
+	it("both paint paths release only their own completed neutral press scale", function()
+		local source = require("@lune/fs").readFile("src/client/screen_paint.luau")
+		local body = string.match(source, "local function releasePressScale%(handle: any, scale: any%)(.-)\n\tend")
+		expect(body ~= nil).toBe(true)
+		for _, guard in
+			{
+				"handle.uiScale == scale",
+				"handle.motionScale ~= scale",
+				"not handle.motionAnchorCentered",
+				"scale.Scale == 1",
+				"handle.uiScale = nil",
+				"scale:Destroy()",
+			}
+		do
+			expect(string.find(body, guard, 1, true) ~= nil).toBe(true)
+		end
+		local _, completed = string.gsub(source, "tween.Completed:Once", "")
+		expect(completed >= 2).toBe(true)
+		local _, cleanup = string.gsub(source, "releasePressScale%(handle, scale%)", "")
+		expect(cleanup).toBe(4)
+	end)
+end)

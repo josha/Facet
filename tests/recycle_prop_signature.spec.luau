@@ -474,6 +474,9 @@ describe("W1b: the adapter tears a style modifier down instead of crashing on ni
 		-- statement with its indentation, trailing comment and inner whitespace
 		-- runs normalised away.
 		local CLASSIFIED: { [string]: string } = {
+			-- Framing mirrors a modifier onto a managed grandchild; it never owns
+			-- or replaces the host's chrome radius record.
+			['screen_image.luau|screen_image.syncModifiers|UICorner = { "CornerRadius", "TopLeftRadius", "TopRightRadius", "BottomLeftRadius", "BottomRightRadius" },'] = "not-own-child",
 			-- ===== screen_paint.luau =========================================
 			-- `corner()` is the ONE materialiser for every surface, the bare
 			-- circle and `wireInteractiveStates` — so it is the one recorder.

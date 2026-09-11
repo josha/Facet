@@ -112,6 +112,27 @@ describe("paths: the prefix test with two wrong copies in live routing", functio
 		expect(string.match("/S/Row-1/Cell", "^/S/" .. paths.escape("Row-1") .. "/")).toBe("/S/Row-1/")
 		expect(string.match("/S/RowX1/Cell", "^/S/" .. paths.escape("Row-1") .. "/")).toBeNil()
 	end)
+
+	it("node lookup follows live structural paths without visiting neighboring branches", function()
+		local leaf = { path = "/S/Cards/Rows/[a.b]/then/Label" }
+		local branch = { path = "/S/Cards/Rows/[a.b]", children = { leaf } }
+		local other = setmetatable({ path = "/S/Card" }, {
+			__index = function()
+				error("lookup entered an unrelated subtree")
+			end,
+		})
+		local root = { path = "/S", children = { other, { path = "/S/Cards", children = { branch } } } }
+		expect(paths.nodeAt(root, leaf.path)).toBe(leaf)
+		expect(paths.nodeAt(root, "/S")).toBe(root)
+		expect(paths.nodeAt(root, nil)).toBeNil()
+		expect(paths.nodeAt(root, "/Other/Label")).toBeNil()
+		expect(paths.nodeAt(root, "/S/Cards/Rows/[missing]/Label")).toBeNil()
+		local replacement = { path = leaf.path }
+		branch.children = { replacement }
+		expect(paths.nodeAt(root, leaf.path)).toBe(replacement)
+		branch.children = {}
+		expect(paths.nodeAt(root, leaf.path)).toBeNil()
+	end)
 end)
 
 describe("rect: fifteen bodies, four epsilons, two edge conventions", function()

@@ -1979,13 +1979,13 @@ describe("examples/gallery 05: confirmation dialog", function()
 		if confirmLabel ~= nil then
 			-- Expand one real action's copy without adding a demo configuration API.
 			library = table.clone(Facet)
-			library.UI = table.clone(Facet.UI)
-			library.UI.Button = function(spec)
-				if spec.id == "Confirm" then
-					spec = table.clone(spec)
-					spec.label = confirmLabel
-				end
-				return Facet.UI.Button(spec)
+			library.Controls = table.clone(Facet.Controls)
+			library.Controls.Alert = function(alertCore, spec)
+				spec = table.clone(spec)
+				spec.actions = table.clone(spec.actions)
+				spec.actions[1] = table.clone(spec.actions[1])
+				spec.actions[1].label = confirmLabel
+				return Facet.Controls.Alert(alertCore, spec)
 			end
 		end
 		local built = ex.build(library, core, deps)
@@ -2096,7 +2096,7 @@ describe("examples/gallery 05: confirmation dialog", function()
 			local screenRect = adapter.node("/ConfirmDialog").rect
 			local card = adapter.node(built.cardPath).rect
 			local confirm, cancel = adapter.node(built.confirmPath), adapter.node(built.cancelPath)
-			local prompt = adapter.node(built.cardPath .. "/Prompt")
+			local prompt = adapter.node(built.cardPath .. "/Header/Title")
 			local message = adapter.node(built.cardPath .. "/Message")
 			-- The card and action group are centered; each action sizes from its own label.
 			expect(math.abs((card.x + card.w / 2) - (screenRect.x + screenRect.w / 2)) <= 2).toBe(true)
@@ -2111,7 +2111,7 @@ describe("examples/gallery 05: confirmation dialog", function()
 				true
 			)
 			expect(confirm.props.role).toBe("destructive")
-			expect(cancel.props.surface).toBe("accent")
+			expect(cancel.props.surface).toBe(nil) -- Cancel uses ordinary chrome; safe focus is separate from action emphasis.
 			expect(prompt.props.text).toBe("Delete this save?")
 			expect(message.props.text).toBe("This cannot be undone.")
 			expect(prompt.props.textAlign).toBe("center")

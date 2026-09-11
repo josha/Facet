@@ -37,6 +37,28 @@ function paths.isPrefix(prefix: string, path: string): boolean
 	return path == prefix or string.sub(path, 1, #prefix + 1) == prefix .. "/"
 end
 
+-- Live mounted-node lookup for rendering and input. Follow the named branch;
+-- unrelated inventory subtrees cannot contain the target. No index can go stale
+-- when a When/ForEach remounts between propagation and structural sync.
+function paths.nodeAt(node: any, path: string?): any
+	if path == nil or node == nil then
+		return nil
+	end
+	if node.path == path then
+		return node
+	end
+	if not paths.isPrefix(node.path, path) then
+		return nil
+	end
+	for _, child in node.children or {} do
+		local found = paths.nodeAt(child, path)
+		if found ~= nil then
+			return found
+		end
+	end
+	return nil
+end
+
 --[[ Escape every non-word byte so an author-supplied id can be interpolated
 	into a Lua pattern. Ids reach patterns whenever a module asks "which nodes are
 	under this one" with `string.match`, and an id containing `-` or `(` is legal

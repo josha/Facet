@@ -17,6 +17,7 @@ local stage_content = require("../../src/render/stage_content")
 -- reason: the refusals a caller sees are one function, not one per adapter
 local foreign_content = require("../../src/render/foreign_content")
 
+local imageFraming = require("../../src/render/image_framing")
 local fake_target = {}
 
 -- EVERY PROP THIS ADAPTER HANDLES, declared (SF-M9's pin).
@@ -61,6 +62,7 @@ local HANDLED_PROPS: { string } = {
 	"stroke",
 	"textAlign",
 	"scaleMode",
+	"imageFraming",
 	"shape",
 	"icon",
 	"compactLabel",
@@ -765,6 +767,9 @@ function fake_target.new(opts: Opts?)
 	end
 
 	function adapter.setRect(handle: any, rect: any)
+		if handle.props.imageFraming then
+			handle.imagePlan = imageFraming.resolve(handle.props.imageFraming, rect.w, rect.h)
+		end
 		--[[ TWO RECTS, AND THE NAMES SAY WHICH IS WHICH (Plan C, C1).
 
 			`storedRect` is exactly what the renderer handed over. Beneath a
@@ -1060,6 +1065,10 @@ function fake_target.new(opts: Opts?)
 			-- it exactly the kind of paint a headless target must model, or "the ring
 			-- is the theme's accent" stays an assumption.
 			handle.pathRoleColor = pathRoleColor(value)
+		elseif prop == "imageFraming" then
+			handle.imagePlan = if value ~= nil
+				then imageFraming.resolve(value, (handle.rect or {}).w or 0, (handle.rect or {}).h or 0)
+				else nil
 		elseif prop == "scaleMode" then
 			handle.appliedScaleType = if value == nil then nil else SCALE_MODE_ENGINE_NAME[tostring(value)]
 			if value ~= nil then
@@ -1453,6 +1462,13 @@ function fake_target.new(opts: Opts?)
 	-- for interactive nodes when the pointer class is live, so a pure-touch tree
 	-- never marks a node hover-capable. hover/unhover then flip the recorded
 	-- hover state only where it was enabled (headless mirror of MouseEnter/Leave).
+	function adapter.setHoverObserver(handle: any, callback: any): () -> ()
+		handle.hoverObserver = callback
+		return function()
+			handle.hoverObserver = nil
+		end
+	end
+
 	function adapter.enableHover(handle: any)
 		handle.hoverEnabled = true
 	end
@@ -2449,6 +2465,9 @@ function fake_target.new(opts: Opts?)
 		-- (pointer class live); off pointer this is a no-op, matching production
 		if node and node.hoverEnabled then
 			node.hovered = true
+			if node.hoverObserver then
+				node.hoverObserver(true)
+			end
 		end
 	end
 
@@ -2457,6 +2476,9 @@ function fake_target.new(opts: Opts?)
 		local node = nodes[path]
 		if node and node.hoverEnabled then
 			node.hovered = false
+			if node.hoverObserver then
+				node.hoverObserver(false)
+			end
 		end
 	end
 
@@ -2800,6 +2822,7 @@ function fake_target.new(opts: Opts?)
 		"touchGestures",
 		"textHandlers",
 		"hoverEnabled",
+		"hoverObserver",
 	}
 	function adapter.handlerCount(): number
 		local n = 0

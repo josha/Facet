@@ -53,6 +53,7 @@ local textFitLib = require("./layout/text_fit")
 -- (styling.checkTint), read here for construction and by the adapter for a
 -- REACTIVE value at the write site, so the two can never diverge.
 local styling = require("./tokens/styling")
+local imageFraming = require("./render/image_framing")
 local textDistance = require("./text_distance")
 
 local schema = {}
@@ -740,6 +741,8 @@ local TYPE_CHECKS: { [string]: (any) -> (boolean, string?) } = {
 		return false
 	end,
 }
+
+TYPE_CHECKS.imageFraming = imageFraming.check
 
 -- check a STATIC value against a prop spec. Returns (ok, detail?).
 function schema.checkValue(spec: PropSpec, value: any): (boolean, string?)
@@ -1724,13 +1727,20 @@ class("ScrollView", {
 	container = true,
 	structural = false,
 	props = merge(BOX, CONTAINER_LAYOUT, {
+		navigation = p({
+			types = { "table" },
+			reactive = false,
+			channel = "structural",
+			doc = "named scroll targets, progress, visibility and optional gesture snap; immutable mounted configuration",
+		}),
 		gap = GAP,
 		axis = p({
 			types = { "string" },
-			reactive = false,
+			reactive = true,
+			dirty = { "measure", "navigation" },
 			enum = { "y", "x" },
 			channel = "layout",
-			doc = 'scroll axis: "y" (default) or "x"',
+			doc = 'reactive scroll axis: "y" (default) or "x"; retains the host and updates layout/navigation',
 		}),
 		onScrollWheel = p({
 			types = { "function" },
@@ -2314,6 +2324,13 @@ class("Image", {
 		-- NOT required: an Image may mount empty and receive content later (the
 		-- async-image control binds a Readable that starts as ""), and a
 		-- surface-only Image is a legitimate placeholder shape.
+		imageFraming = p({
+			types = { "imageFraming" },
+			reactive = true,
+			dirty = { "paint" },
+			channel = "style",
+			doc = "source pixel dimensions, crop/fit/stretch/none mode, normalized focusX/focusY and optional scale; overrides scaleMode",
+		}),
 		image = p({
 			types = { "string" },
 			reactive = true,

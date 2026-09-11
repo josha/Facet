@@ -118,7 +118,7 @@ Rules:
   own scope. A control REJECTS a read-only Memo where it must write.
 - A prop is reactive when it answers a question about **state**; it is
   construction-only when it answers what the node **is** (`shape = "circle"`,
-  `canvasGroup`, `ScrollView.axis`). The schema declares which; binding a
+  `canvasGroup`). The schema declares which; binding a
   construction-only prop is a construction error naming the rebuild idiom.
 
 ## 6. Result objects
@@ -325,7 +325,7 @@ Approved deviations. Each is deliberate; making it uniform would make the API wo
 | E-3 | `UI.styleGroup(spec, blueprints)` is spec-first | Group semantics: the collection is the subject being produced; `(bp, spec)` has no collection to be first |
 | E-4 | `Screen` duplicates `VStack`'s schema | a Screen *means* presenter-root (safe-area resolved, fill-defaulted); the meaning, not the prop set, is the API |
 | E-5 | `Region` takes no BOX props | a Region IS its ranked forms; a width on it would be a second source of truth against the composition's own resolution |
-| E-6 | `ScrollView.axis` is construction-only while `AdaptiveStack.axis`/`Divider.axis` are reactive | a reactive engine scroll axis would rebuild native scroll state mid-gesture; `AdaptiveStack` exists to be the reactive flip |
+| E-6 | `ScrollView.axis`, `AdaptiveStack.axis` and `Divider.axis` are reactive; virtual collection axes remain construction-only | ordinary scroll hosts retain identity and update geometry/navigation when their axis changes; active named travel retargets on the new axis without restoring cancelled focus. Virtual collections still construct an axis-specific windowing/input configuration |
 | E-7 | Colon methods vs dot functions split | colon = reactive-graph objects and pure stepped models (`core`, signals, scopes, `clock`, drag/velocity/autoscroll models); dot = services, controllers, namespaces. The line is "does the object's identity matter to every call". Written here; per-entry api.md notes the convention where confusion was recorded |
 | E-8 | `newAsyncImage` takes `spec.scope`, returns no `dump`/`dispose` | its resources must die with the owner's scope alongside the provider handle; a control-owned scope would be a second teardown path racing the first |
 | E-9 | `core:signal(initial, eq?)` / `core:memo(fn, eq?)` take a positional optional | the hottest constructors in the library, one option; an opts table would tax every call site for one rare argument |

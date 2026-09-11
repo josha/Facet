@@ -400,16 +400,11 @@ describe("bounded waits and stranded sheets (PLAT-11, PLAT-9, PLAT-24)", functio
 		`tests/lib/adapter_source.luau` establishes for the client adapter. ]]
 	it("the PlayerScripts wait is bounded and loud, like gamepad_contention's (PLAT-11)", function()
 		local source = fs.readFile("src/client/roblox_input.luau")
-		expect(string.find(source, 'WaitForChild("PlayerScripts", PLAYER_SCRIPTS_WAIT_SECONDS)', 1, true) ~= nil).toBe(
-			true
-		)
-		expect(string.find(source, "local PLAYER_SCRIPTS_WAIT_SECONDS = 5", 1, true) ~= nil).toBe(true)
-		-- ...and it does not degrade silently: a nil host would accept every bind
-		-- and drive nothing
-		expect(string.find(source, "host ~= nil", 1, true) ~= nil).toBe(true)
-		-- the pattern it is modelled on is still bounded too
+		expect(string.find(source, 'local host = game:GetService("ReplicatedStorage")', 1, true) ~= nil).toBe(true)
+		expect(string.find(source, 'WaitForChild("PlayerScripts"', 1, true) == nil).toBe(true)
+		expect(string.find(source, "Players.LocalPlayer ~= nil", 1, true) ~= nil).toBe(true)
 		local contention = fs.readFile("src/client/gamepad_contention.luau")
-		expect(string.find(contention, 'WaitForChild("PlayerModule", 5)', 1, true) ~= nil).toBe(true)
+		expect(string.find(contention, 'WaitForChild("PlayerScripts", 5)', 1, true) ~= nil).toBe(true)
 	end)
 
 	it("the theme-child ensure runs OUTSIDE the stamp-mismatch branch (PLAT-9)", function()

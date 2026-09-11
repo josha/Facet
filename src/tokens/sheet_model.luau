@@ -1413,6 +1413,7 @@ local TINT_ROLE_TOKEN: { [string]: string } = {
 	contentStrong = "$ContentStrong",
 	contentSecondary = "$ContentSecondary",
 	accent = "$Accent",
+	onAccent = "$OnAccent",
 	control = "$Control",
 	controlSelected = "$ControlSelected",
 	danger = "$Danger",

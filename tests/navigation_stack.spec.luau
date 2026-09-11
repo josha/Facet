@@ -840,3 +840,74 @@ describe("NavigationStack retained and not-yet-presented pages", function()
 		nav.dispose()
 	end)
 end)
+
+describe("adaptive search journey", function()
+	for _, view in
+		{
+			{ 390, 844, "Touch" },
+			{ 800, 450, "Gamepad" },
+			{ 1024, 768, "Touch" },
+			{ 1440, 900, "MouseKeyboard" },
+			{
+				1920,
+				1080,
+				"Gamepad",
+			},
+		}
+	do
+		it("filters, opens a result and restores query and focus at " .. view[1], function()
+			local w = world.new({
+				viewport = { x = 0, y = 0, w = view[1], h = view[2] },
+				preferredInput = view[3],
+				reducedMotion = true,
+			})
+			local demo = require("../examples/gallery/scenarios/navigation_stack").build({
+				Facet = Facet,
+				core = w.core,
+				env = w.env,
+			})
+			w.present(demo.screen)
+			local field = find(w, "/Search/Field")
+			w.adapter.tap(field)
+			w.adapter.focusText(field)
+			w.adapter.typeText(field, "forest")
+			w.press("Return")
+			w.settle(3)
+			expect(demo.report().query).toBe("forest")
+			expect(demo.report().matches).toBe(1)
+			local result = find(w, "/Result-forest")
+			w.pres.focus.focusOn(result)
+			w.press(if view[3] == "Gamepad" then "ButtonA" else "Return")
+			w.settle(4)
+			expect(demo.report().navigation.depth).toBe(1)
+			w.press("ButtonB")
+			w.settle(4)
+			expect(demo.report().navigation.depth).toBe(0)
+			expect(demo.report().query).toBe("forest")
+			expect(w.pres.focus.focused:get()).toBe(result)
+			w.pres.dismiss(w.handle)
+			demo.dispose()
+		end)
+	end
+end)
+
+describe("journey copy uses available width", function()
+	it("does not force Travel light onto two lines on a phone", function()
+		local w =
+			world.new({ viewport = { x = 0, y = 0, w = 390, h = 844 }, preferredInput = "Touch", reducedMotion = true })
+		local demo = require("../examples/gallery/scenarios/navigation_stack").build({
+			Facet = Facet,
+			core = w.core,
+			env = w.env,
+		})
+		w.present(demo.screen)
+		w.adapter.tap(find(w, "/Continue"))
+		w.settle(4)
+		local p = find(w, "/LastBaseline/Text#1")
+		expect(w.adapter.node(p).props.text).toBe("Travel light")
+		local r = w.adapter.node(p).rect
+		expect(r.w > r.h * 2).toBe(true)
+		w.pres.dismiss(w.handle)
+		demo.dispose()
+	end)
+end)

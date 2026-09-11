@@ -1037,12 +1037,30 @@ local FIXTURES: { Fixture } = {
 		end,
 	},
 
+	{
+		id = "Alert",
+		class = "Alert",
+		build = function(core: any)
+			return Facet.Controls.Alert(core, {
+				id = "Ctl",
+				title = PSEUDO,
+				message = GERMAN,
+				actions = {
+					{ id = "Cancel", label = lt.PSEUDO_ACTION, role = "cancel" },
+					{ id = "Accept", label = "Continue" },
+				},
+			}).blueprint
+		end,
+	},
+
 	-- scaffold: new control fixtures are appended above this line
 }
 
 -- registry rows that CANNOT be a fixture, each with the reason. Silence here
 -- would be the same silent-zero the extension checker exists to prevent.
 local UNSWEEPABLE: { [string]: string } = {
+	ScrollNavigation = "ScrollView target/position behavior only; no blueprint or text. ScrollView is swept directly.",
+	ScrollBookmarks = "destination-owned scroll key/offset records only; no blueprint or text. TabView is swept directly.",
 	RadialGeometry = "pure sector arithmetic; no blueprint or text. RadialMenu mounts its resulting geometry",
 	SelectionIndicator = "the DECORATION half of Picker's `indicator` property (navigation-and-menus D4): it returns "
 		.. "the layer Picker mounts, so it is swept through the `Picker-indicator` fixture — at every preference, in "
@@ -1051,6 +1069,7 @@ local UNSWEEPABLE: { [string]: string } = {
 		.. "and RowActions mount, so it is swept through the `Menu-panel` fixture — which mounts those very rows, "
 		.. "at every preference and in both reference themes — rather than three times",
 	Screen = "the sweep's own root: every fixture is mounted inside a UI.Screen, so the row is exercised by all of them",
+	ButtonShortcut = "stateless shortcut parsing and matching — no blueprint; Button and Alert own the measured labels",
 	ValueModel = "stateless value arithmetic — no blueprint, nothing to mount or measure",
 	-- the two halves of src/controls/row_actions.luau that were lifted out on
 	-- 2026-08-14 so that file could get back under the 200,000-char

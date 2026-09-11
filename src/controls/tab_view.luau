@@ -178,6 +178,7 @@
 local adaptive = require("../layout/adaptive")
 local contribution = require("../input/contribution")
 local picker = require("./picker")
+local chromeSlots = require("../tokens/chrome_slots")
 local specGuard = require("../spec_guard")
 local surfaceEnv = require("../env/surface_env")
 
@@ -190,6 +191,8 @@ export type Tab = {
 	id: string,
 	label: any?, -- string | Readable<string>; defaults to `id`
 	icon: string?, -- SEMANTIC icon name, never an asset id
+	required: boolean?,
+	section: string?,
 	badge: any?, -- string | number | Readable of either — the count seal
 	content: (tabScope: any) -> any,
 }
@@ -210,6 +213,8 @@ export type Spec = {
 	id: string?,
 	selection: any, -- owner-held Signal of a tab id (required)
 	tabs: { Tab },
+	sections: { { id: string, label: string } }?,
+	customization: any?, -- caller-owned {order: {string}, hidden: {string}} signal
 	-- chrome beside the tabs, homed by the placement (see the header). A slot no
 	-- reachable placement can host is an authoring mistake and refuses.
 	accessories: Accessories?,
@@ -226,6 +231,10 @@ export type Spec = {
 	-- "automatic" reads `adaptive.navPlacement` — unless this TabView is NESTED,
 	-- which never claims the app-level answer (see the header).
 	placement: string?,
+	style: string?, -- automatic | sidebarAdaptable
+	restoreScroll: boolean?,
+	shoulderNavigation: any?, -- strip (default) | content, or readable policy
+	restoreFocus: boolean?, -- default true; bounded path bookmarks for each tab
 	-- "automatic" (default, = "underline") | "underline" | "pill" | "none".
 	-- Underline is what every tab strip in the reference media draws; `"pill"` is
 	-- the segmented-control skin, and is what "a segmented control used as a tab
@@ -304,6 +313,8 @@ local BAND_CAPPED = table.freeze({ type = "hug" })
 local TABVIEW_KEYS = specGuard.keySet({
 	"accessories",
 	"conditions",
+	"customization",
+	"sections",
 	"enabled",
 	"env",
 	"iconOnly",
@@ -312,8 +323,12 @@ local TABVIEW_KEYS = specGuard.keySet({
 	"onChange",
 	"placement",
 	"railWidth",
+	"restoreFocus",
+	"shoulderNavigation",
+	"restoreScroll",
 	"selection",
 	"sizing",
+	"style",
 	"tabs",
 	"textSize",
 	"transition",
@@ -378,6 +393,7 @@ function tab_view.build(Facet: any, core: any, spec: Spec)
 	local UI = Facet.UI
 	local id = spec.id or "TabView"
 	local scope = core:scope("tab-view-" .. tostring(id))
+	local scrollBookmarks = if spec.restoreScroll ~= false then require("./scroll_bookmarks").new(scope) else nil
 	-- READ THE DEPTH BEFORE ANYTHING ELSE CAN CHANGE IT. This is the whole
 	-- nesting decision, and it is a fact about WHERE THIS CALL IS, so it is taken
 	-- at the top of the call and never re-read.
@@ -426,6 +442,127 @@ function tab_view.build(Facet: any, core: any, spec: Spec)
 		end
 	end
 
+	local sectionLabels = {}
+	for _, section in spec.sections or {} do
+		specGuard.assertKnownKeys("TabView.section", section, specGuard.keySet({ "id", "label" }), "section")
+		assert(
+			type(section.id) == "string"
+				and section.id ~= ""
+				and not sectionLabels[section.id]
+				and type(section.label) == "string",
+			"TabView.sections require unique IDs and labels"
+		)
+		sectionLabels[section.id] = section.label
+	end
+	for _, tab in spec.tabs do
+		assert(tab.required == nil or type(tab.required) == "boolean", "TabView.tab.required must be boolean")
+		assert(
+			tab.section == nil or sectionLabels[tab.section] ~= nil,
+			"TabView.tab.section must name a declared section"
+		)
+	end
+	assert(
+		spec.customization == nil or (type(spec.customization) == "table" and spec.customization.kind == "signal"),
+		"TabView.customization must be a caller-owned signal"
+	)
+	local liveStrip = spec.customization ~= nil or spec.sections ~= nil
+	local function customized(state)
+		state = state or {}
+		specGuard.assertKnownKeys(
+			"TabView.customization",
+			state,
+			specGuard.keySet({ "order", "hidden" }),
+			"customization"
+		)
+		local hidden, ordered, used = {}, {}, {}
+		for _, name in { "order", "hidden" } do
+			assert(state[name] == nil or type(state[name]) == "table", "TabView.customization arrays required")
+			for _, value in state[name] or {} do
+				assert(type(value) == "string", "TabView.customization IDs must be strings")
+			end
+		end
+		for _, id in state.hidden or {} do
+			hidden[id] = true
+		end
+		local function append(id)
+			if used[id] then
+				return
+			end
+			for _, tab in spec.tabs do
+				if tab.id == id then
+					used[id] = true
+					if tab.required or not hidden[id] then
+						table.insert(ordered, tab)
+					end
+					return
+				end
+			end
+		end
+		for _, id in state.order or {} do
+			append(id)
+		end
+		for _, tab in spec.tabs do
+			append(tab.id)
+		end
+		if #ordered == 0 then
+			table.insert(ordered, spec.tabs[1])
+		end
+		return ordered
+	end
+	local visibleTabs = scope:own(core:memo(function(use)
+		return customized(if spec.customization then use(spec.customization) else nil)
+	end))
+	local function reconcileTabs()
+		local current = selection:get()
+		for _, tab in visibleTabs:get() do
+			if tab.id == current then
+				return
+			end
+		end
+		if seen[current] then
+			selection:set(visibleTabs:get()[1].id)
+		end
+	end
+	if liveStrip then
+		scope:own(core:observe(visibleTabs, reconcileTabs))
+		reconcileTabs()
+	end
+	assert(spec.restoreScroll == nil or type(spec.restoreScroll) == "boolean", "TabView.restoreScroll must be boolean")
+
+	assert(spec.restoreFocus == nil or type(spec.restoreFocus) == "boolean", "TabView.restoreFocus must be a boolean")
+	local function contentShoulders()
+		local value = spec.shoulderNavigation
+		if type(value) == "table" and type(value.get) == "function" then
+			value = value:get()
+		end
+		assert(
+			value == nil or value == "strip" or value == "content",
+			"TabView.shoulderNavigation must be strip | content, or a readable policy"
+		)
+		return value == "content"
+	end
+	contentShoulders()
+
+	local adaptable = spec.style == "sidebarAdaptable" and not nested
+	assert(
+		spec.style == nil or spec.style == "automatic" or spec.style == "sidebarAdaptable",
+		"TabView.style must be automatic | sidebarAdaptable"
+	)
+	assert(
+		not adaptable or spec.placement == nil or spec.placement == "automatic",
+		"TabView.sidebarAdaptable requires automatic placement"
+	)
+	local navigationEnv = spec.env or surfaceEnv.find(core)
+	assert(not adaptable or navigationEnv ~= nil, "TabView.sidebarAdaptable requires the surface environment")
+	local sidebarPreference = if adaptable then scope:own(core:signal(nil)) else nil
+	local pendingNavigation: string? = nil
+	local pendingPlacement: string? = nil
+	local navigationAttempts = 0
+	local distantNavigation = if adaptable
+		then scope:own(core:memo(function(use)
+			return use(navigationEnv:get("distanceProfile")) == "ten-foot"
+		end))
+		else nil
 	local requestedPlacement = spec.placement or "automatic"
 	if not PLACEMENTS[requestedPlacement] then
 		error(
@@ -594,8 +731,32 @@ function tab_view.build(Facet: any, core: any, spec: Spec)
 	local placementSource = select(2, tab_view.resolvePlacement(requestedPlacement, nested, nil))
 	local placement = scope:own(core:memo(function(use)
 		local policy = if policySource ~= nil then use(policySource) else nil
-		return (tab_view.resolvePlacement(requestedPlacement, nested, policy))
+		local home = tab_view.resolvePlacement(requestedPlacement, nested, policy)
+		if not adaptable or nested or home == "bottomBar" or home == "bottomBarCompact" then
+			return home
+		end
+		local preference = use(sidebarPreference)
+		if preference == nil or preference.distant ~= use(distantNavigation) then
+			return home
+		end
+		return if preference.expanded then "sidebar" else "topBar"
 	end))
+	local function setSidebar(expanded: boolean)
+		local previous = placement:get()
+		local distant = distantNavigation:get()
+		local preference = sidebarPreference:get()
+		if preference and preference.expanded == expanded and preference.distant == distant then
+			return
+		end
+		sidebarPreference:set({ expanded = expanded, distant = distant })
+		-- Remember the preference for a later resize, but only hand off focus
+		-- when navigation actually relocates. Compact bottom tabs cannot expand.
+		if placement:get() ~= previous then
+			pendingNavigation = if expanded then "tabs" else "content"
+			pendingPlacement = placement:get()
+			navigationAttempts = 0
+		end
+	end
 	local function isPlacement(name: string): any
 		return scope:own(core:memo(function(use)
 			return use(placement) == name
@@ -616,31 +777,42 @@ function tab_view.build(Facet: any, core: any, spec: Spec)
 	end))
 
 	-- ===== the strip: a segmented picker, nothing more ========================
-	local options: { any } = {}
-	for _, tab in spec.tabs do
-		table.insert(options, {
-			value = tab.id,
-			-- the id IS a name when no label was given: `newPicker` requires a
-			-- non-empty label because it is the semantic name every non-visual
-			-- consumer reads, and an icon-only tab still has to carry one
-			label = tab.label or tab.id,
-			icon = tab.icon,
-			badge = tab.badge,
-		})
+	local function stripOptions(use)
+		local out = {}
+		local previousSection
+		for _, tab in (if use then use(visibleTabs) else visibleTabs:get()) do
+			table.insert(out, {
+				id = if liveStrip then tab.id else nil,
+				value = tab.id,
+				label = tab.label or tab.id,
+				icon = tab.icon,
+				badge = tab.badge,
+				sectionTitle = if liveStrip and tab.section ~= previousSection then sectionLabels[tab.section] else nil,
+			})
+			previousSection = tab.section
+		end
+		return out
 	end
+	local options = if liveStrip then scope:own(core:memo(stripOptions)) else stripOptions()
 	local strip = picker.build(Facet, core, {
 		id = "Strip",
 		options = options,
 		selected = selection,
 		presentation = "segmented",
-		indicator = if requestedIndicator == "automatic" then AUTOMATIC_INDICATOR else requestedIndicator,
+		indicator = if requestedIndicator == "automatic"
+			then (if adaptable then "pill" else AUTOMATIC_INDICATOR)
+			else requestedIndicator,
 		axis = stripAxis,
 		sizing = sizing,
 		iconOnly = spec.iconOnly,
 		textSize = spec.textSize,
 		env = spec.env,
 		enabled = spec.enabled,
-		onChange = spec.onChange,
+		onChange = function(value)
+			if spec.onChange then
+				spec.onChange(value)
+			end
+		end,
 	})
 	scope:own(strip)
 
@@ -746,12 +918,9 @@ function tab_view.build(Facet: any, core: any, spec: Spec)
 	-- ===== the three homes ===================================================
 	-- One strip blueprint, declared in each home under mutually-exclusive
 	-- conditions, so exactly one is mounted and the picker object is built once.
-	-- NO PADDING AND NO GAP ANYWHERE IN HERE, for the reason `check_theme_drift`
-	-- gives about a zero: "this container adds no spacing of its own" is a
-	-- STRUCTURAL statement, not a style value. A landscape phone offers ~320px of
-	-- height and the first app migrated onto this control lost 8 of them to a band
-	-- inset it never asked for; a host that wants breathing room around its bar
-	-- can pad the node it puts this in.
+	-- The sidebar/content boundary owns a theme-sized gap. Pages still own their
+	-- internal spacing; a top or bottom band takes no extra vertical gap.
+
 	-- The scrolling homes are ScrollViews because a hugging strip can be wider
 	-- than its offer; the thumb-zone band is not, because a `fill` strip divides
 	-- the offer and has nothing to overflow with.
@@ -812,45 +981,47 @@ function tab_view.build(Facet: any, core: any, spec: Spec)
 		return UI.VStack({ id = SLOT_ID[slot], align = "stretch", width = NATURAL, children = { built } })
 	end
 
-	local rail = UI.When({
-		id = "RailHome",
-		condition = sidebar,
-		thenView = function(branchScope: any)
-			local scroller = UI.ScrollView({
-				id = "Rail",
-				axis = "y",
-				width = railWidth,
-				height = FILL,
-				indicators = "none",
-				children = { strip.blueprint },
-			})
-			local head = accessory("head", "sidebar", branchScope)
-			local foot = accessory("foot", "sidebar", branchScope)
-			if head == nil and foot == nil then
-				return scroller
-			end
-			--[[ THE FOOT IS THE BOTTOM OF THE RAIL, and this is what makes it so:
+	local rail = if adaptable
+		then nil
+		else UI.When({
+			id = "RailHome",
+			condition = sidebar,
+			thenView = function(branchScope: any)
+				local scroller = UI.ScrollView({
+					id = "Rail",
+					axis = "y",
+					width = railWidth,
+					height = FILL,
+					indicators = "none",
+					children = { strip.blueprint },
+				})
+				local head = accessory("head", "sidebar", branchScope)
+				local foot = accessory("foot", "sidebar", branchScope)
+				if head == nil and foot == nil then
+					return scroller
+				end
+				--[[ THE FOOT IS THE BOTTOM OF THE RAIL, and this is what makes it so:
 				the scroller keeps `height = FILL`, so it spends every pixel of slack
 				between the head and the foot. Put the three in a hugging stack
 				instead and a three-tab strip leaves the foot parked under the last
 				tab — which reads identically in a dump and wrongly on screen. ]]
-			local children: { any } = {}
-			if head ~= nil then
-				table.insert(children, head)
-			end
-			table.insert(children, scroller)
-			if foot ~= nil then
-				table.insert(children, foot)
-			end
-			return UI.VStack({
-				id = "RailShell",
-				align = "stretch",
-				width = railWidth,
-				height = FILL,
-				children = children,
-			})
-		end,
-	})
+				local children: { any } = {}
+				if head ~= nil then
+					table.insert(children, head)
+				end
+				table.insert(children, scroller)
+				if foot ~= nil then
+					table.insert(children, foot)
+				end
+				return UI.VStack({
+					id = "RailShell",
+					align = "stretch",
+					width = railWidth,
+					height = FILL,
+					children = children,
+				})
+			end,
+		})
 	--[[ THE TWO CENTRED HOMES (audit 2026-08-18). `adaptive.luau` states
 		the contract twice — `bottomBarCompact` is "the SAME bottom bar in its
 		reduced, inline, CENTERED form" and `topBar` is "a CENTER-ALIGNED top tab
@@ -865,39 +1036,41 @@ function tab_view.build(Facet: any, core: any, spec: Spec)
 		2026-07-27 ruling records the same trap). The scroller keeps its id and its
 		job; the box around it is what decides where the slack goes. Proven by a
 		measured `leftGap == rightGap`, never by the property appearing in a dump. ]]
-	local topBand = UI.When({
-		id = "TopHome",
-		condition = isPlacement("topBar"),
-		thenView = function(branchScope: any)
-			local scroller = UI.ScrollView({
-				id = "TopBand",
-				axis = "x",
-				width = BAND_CAPPED,
-				alignH = "center",
-				indicators = "none",
-				children = { strip.blueprint },
-			})
-			-- declared AFTER the strip, so it is painted after it and — the same
-			-- fact read twice — reads after it in the focus ring
-			local trailing = accessory("trailing", "topBar", branchScope)
-			if trailing == nil then
-				return UI.ZStack({ id = "TopBandCenter", width = FILL, children = { scroller } })
-			end
-			--[[ A ROW, NOT A STACK, and only when there is something to reserve for.
+	local topBand = if adaptable
+		then nil
+		else UI.When({
+			id = "TopHome",
+			condition = isPlacement("topBar"),
+			thenView = function(branchScope: any)
+				local scroller = UI.ScrollView({
+					id = "TopBand",
+					axis = "x",
+					width = BAND_CAPPED,
+					alignH = "center",
+					indicators = "none",
+					children = { strip.blueprint },
+				})
+				-- declared AFTER the strip, so it is painted after it and — the same
+				-- fact read twice — reads after it in the focus ring
+				local trailing = accessory("trailing", "topBar", branchScope)
+				if trailing == nil then
+					return UI.ZStack({ id = "TopBandCenter", width = FILL, children = { scroller } })
+				end
+				--[[ A ROW, NOT A STACK, and only when there is something to reserve for.
 				The box the strip centres in is the one the accessory has not taken;
 				an author who declares nothing gets the shape that shipped, node for
 				node. ]]
-			return UI.HStack({
-				id = "TopBandCenter",
-				align = "center",
-				width = FILL,
-				children = {
-					UI.ZStack({ id = "TopBandBox", width = FILL, children = { scroller } }),
-					trailing,
-				},
-			})
-		end,
-	})
+				return UI.HStack({
+					id = "TopBandCenter",
+					align = "center",
+					width = FILL,
+					children = {
+						UI.ZStack({ id = "TopBandBox", width = FILL, children = { scroller } }),
+						trailing,
+					},
+				})
+			end,
+		})
 	--[[ THE DOCK. `aboveBar` is a band-relative slot rather than a screen-relative
 		one: it rides directly above the strip INSIDE the bottom home, so it moves
 		with the bar and disappears with it, and it is declared BEFORE the strip
@@ -975,26 +1148,176 @@ function tab_view.build(Facet: any, core: any, spec: Spec)
 		end,
 	})
 
+	-- One adaptive home keeps the navigation controls mounted when the rail
+	-- becomes a top capsule. Only placement-specific accessory factories retire.
+	local persistentHome
+	if adaptable then
+		persistentHome = UI.When({
+			id = "RailHome",
+			condition = scope:own(core:memo(function(use)
+				local p = use(placement)
+				return p == "topBar" or p == "sidebar"
+			end)),
+			thenView = function(branchScope)
+				local function choose(a, b)
+					return branchScope:own(core:memo(function(use)
+						return if use(sidebar) then a else b
+					end))
+				end
+				local stripWidth, stripHeight = choose(railWidth, BAND_CAPPED), choose(FILL, NATURAL)
+				local toggleLabel = choose("Use top tabs", "Use sidebar")
+				local bar = chromeSlots.attachHint(
+					UI.AdaptiveStack({
+						id = "AdaptableBar",
+						axis = stripAxis,
+						width = choose(railWidth, BAND_CAPPED),
+						height = choose(FILL, NATURAL),
+						align = "center",
+						alignH = "center",
+						surface = "raised",
+						corners = choose(UI.cornersData("panel"), UI.cornersData("pill")),
+						padding = "xs",
+						gap = choose("s", "xs"),
+						children = {
+							UI.When({
+								id = "SidebarChoice",
+								condition = branchScope:own(core:memo(function(use)
+									return not use(distantNavigation)
+								end)),
+								thenView = function()
+									return UI.Button({
+										id = "ToggleSidebar",
+										label = toggleLabel,
+										icon = "menu",
+										shape = "circle",
+										surface = "plain",
+										onActivate = function()
+											setSidebar(not sidebar:get())
+										end,
+									})
+								end,
+							}),
+							UI.ScrollView({
+								id = "StripScroll",
+								axis = stripAxis,
+								width = stripWidth,
+								height = stripHeight,
+								indicators = "none",
+								children = { strip.blueprint },
+							}),
+						},
+					}),
+					{ slot = "navigation" }
+				)
+				local children = {}
+				local function addAccessory(slot, home)
+					if accessories == nil or accessories[slot] == nil then
+						return
+					end
+					table.insert(
+						children,
+						UI.When({
+							id = slot .. "Home",
+							condition = if home == "sidebar"
+								then sidebar
+								else branchScope:own(core:memo(function(use)
+									return use(placement) == "topBar"
+								end)),
+							thenView = function(slotScope)
+								return accessory(slot, home, slotScope)
+							end,
+						})
+					)
+				end
+				addAccessory("head", "sidebar")
+				table.insert(
+					children,
+					UI.ZStack({
+						id = "NavigationCenter",
+						width = FILL,
+						height = choose(FILL, NATURAL),
+						children = { bar },
+					})
+				)
+				addAccessory("trailing", "topBar")
+				addAccessory("foot", "sidebar")
+				return UI.AdaptiveStack({
+					id = "NavigationHome",
+					axis = stripAxis,
+					align = choose("stretch", "center"),
+					width = choose(railWidth, FILL),
+					height = choose(FILL, NATURAL),
+					children = children,
+				})
+			end,
+		})
+	end
+
 	-- DECLARATION ORDER IS FOCUS ORDER, and the strip reads where it is PAINTED:
 	-- the leading rail and the top band before the content, the bottom bands
 	-- after it (`p1_glade/init.luau:953`, the shipped rule).
 	local root = UI.AdaptiveStack({
 		id = id,
 		axis = rootAxis,
+		gap = scope:own(core:memo(function(use)
+			return if use(sidebar) then "m" else 0
+		end)),
 		width = FILL,
 		height = FILL,
-		children = { rail, topBand, content, bottomBand, compactBand },
+		children = if persistentHome
+			then { persistentHome, content, bottomBand, compactBand }
+			else { rail, topBand, content, bottomBand, compactBand },
 	})
 
 	-- ===== reachability and keep-visible ====================================
 	local boundController: any = nil
 	local tabPaths: { [string]: string } = {}
 	local mountedRootPath: string? = nil
+	local learnedStructureEpoch = nil
+	local learnedPlacement: string? = nil
 	local revealed: any = nil
 	local reveals = 0
+	-- One stable path per authored tab, owned by this control, not by its evicted
+	-- content. Pointer entry chooses exactly what was clicked. Navigation entry
+	-- restores only a still-eligible mounted target; virtual collections retain
+	-- responsibility for revealing off-window keys. No instances or item models
+	-- are kept alive by a bookmark.
+	local bookmarks: { [string]: string } = {}
+	local graph: any = nil
+	local offFocus: any = nil
+	local enteredTab: string? = nil
+	scope:own(function()
+		if offFocus ~= nil then
+			offFocus()
+		end
+		table.clear(bookmarks)
+	end)
+	local function rememberFocus(path: string?)
+		if graph == nil or mountedRootPath == nil or spec.restoreFocus == false then
+			return
+		end
+		local tabId = selection:get()
+		local prefix = mountedRootPath .. "/Content/Tab-" .. tabId .. "/"
+		if path == nil or string.sub(path, 1, #prefix) ~= prefix then
+			enteredTab = nil
+			return
+		end
+		local entering = enteredTab ~= tabId
+		enteredTab = tabId -- set before focusOn: notification is synchronous
+		local saved = bookmarks[tabId]
+		if entering and saved ~= nil and saved ~= path and graph.focusOrigin() == "navigation" then
+			if graph.focusOn(saved) then
+				if boundController ~= nil and boundController.scrollToVisible ~= nil then
+					boundController.scrollToVisible(saved)
+				end
+				return
+			end
+		end
+		bookmarks[tabId] = path
+	end
 
 	local function indexOf(value: any): number?
-		for i, tab in spec.tabs do
+		for i, tab in visibleTabs:get() do
 			if tab.id == value then
 				return i
 			end
@@ -1007,12 +1330,20 @@ function tab_view.build(Facet: any, core: any, spec: Spec)
 		-- arithmetic: the strip's mounted path depends on which HOME is live, so
 		-- guessing it is the assumption that breaks on the first rotation
 		local wanted: { [string]: string } = {}
-		for i, segment in strip.segments do
+		for i, segment in strip.segments or {} do
 			wanted[segment.id] = spec.tabs[i].id
 		end
 		tabPaths = {}
 		local function walk(node: any)
 			local tabId = wanted[node.id]
+			if liveStrip and (node.id == "Option" or string.sub(node.id, 1, 7) == "Option-") then
+				for _, tab in visibleTabs:get() do
+					if string.find(node.path, "/Options/Rows/[" .. tab.id .. "]", 1, true) then
+						tabId = tab.id
+						break
+					end
+				end
+			end
 			if tabId ~= nil and tabPaths[tabId] == nil then
 				tabPaths[tabId] = node.path
 			end
@@ -1020,10 +1351,77 @@ function tab_view.build(Facet: any, core: any, spec: Spec)
 				walk(child)
 			end
 		end
-		walk(rootNode)
+		for _, child in rootNode.children or {} do
+			if child.id ~= "Content" then
+				walk(child)
+			end
+		end
 	end
 
 	local built = contribution.attach(root, {
+		handleCancel = function(path)
+			if
+				adaptable
+				and placement:get() == "sidebar"
+				and path
+				and mountedRootPath
+				and string.sub(path, 1, #mountedRootPath + 10) == mountedRootPath .. "/RailHome/"
+			then
+				setSidebar(false)
+				return true
+			end
+			return false
+		end,
+		bindInputScope = if adaptable or spec.shoulderNavigation ~= nil
+			then function(input)
+				scope:own(input.onTick(function()
+					if pendingNavigation and graph and mountedRootPath then
+						if placement:get() ~= pendingPlacement then
+							pendingNavigation = nil
+							return
+						end
+						local pending = pendingNavigation
+						navigationAttempts += 1
+						-- No eligible content (or compact fallback) must not poll forever.
+						if navigationAttempts >= 3 then
+							pendingNavigation = nil
+						end
+						if pending == "tabs" then
+							local dest = tabPaths[selection:get()]
+							-- Tick may precede refresh: never consume the handoff by
+							-- focusing a still-indexed option in the outgoing home.
+							if
+								dest
+								and string.sub(dest, 1, #mountedRootPath + 10) == mountedRootPath .. "/RailHome/"
+								and learnedPlacement == pendingPlacement
+								and graph.focusOn(dest)
+							then
+								pendingNavigation = nil
+							end
+						else
+							local prefix = mountedRootPath .. "/Content/Tab-" .. selection:get() .. "/"
+							local map = graph.focusMap()
+							for _, entry in (map and map.traversal) or {} do
+								if string.sub(entry.path, 1, #prefix) == prefix and graph.focusOn(entry.path) then
+									pendingNavigation = nil
+									break
+								end
+							end
+						end
+					end
+				end))
+			end
+			else nil,
+		bindFocusGraph = function(focusGraph: any)
+			if graph == focusGraph then
+				return
+			end
+			if offFocus ~= nil then
+				offFocus()
+			end
+			graph = focusGraph
+			offFocus = core:observe(graph.focused, rememberFocus)
+		end,
 		-- the renderer's controller, for the ONE programmatic scroll this control
 		-- issues. Absent is a supported degradation: a standalone strip with no
 		-- engine to scroll simply does not scroll.
@@ -1040,8 +1438,20 @@ function tab_view.build(Facet: any, core: any, spec: Spec)
 			`scrollToVisible` reads the LAST SOLVED rects, and this is the callback
 			that runs immediately after a solve. ]]
 		syncGeometry = function(_rectOf: (string) -> any, rootNode: any?)
-			if rootNode ~= nil and rootNode.path ~= mountedRootPath then
+			if scrollBookmarks then
+				scrollBookmarks.sync(boundController, rootNode)
+			end
+			if
+				rootNode ~= nil
+				and (
+					(learnedStructureEpoch ~= boundController.structureEpoch())
+					or rootNode.path ~= mountedRootPath
+					or learnedPlacement ~= placement:get()
+				)
+			then
 				mountedRootPath = rootNode.path
+				learnedStructureEpoch = boundController.structureEpoch()
+				learnedPlacement = placement:get()
 				relearn(rootNode)
 			end
 			local current = selection:get()
@@ -1061,25 +1471,35 @@ function tab_view.build(Facet: any, core: any, spec: Spec)
 				reveals += 1
 			end
 		end,
-		--[[ THE STRIP'S OWN TABS, and only those. `adjustTargets` binds the Adjust
-			keys — arrows, comma/period, DPad left/right and the gamepad SHOULDERS
-			(L1/R1) — DYNAMICALLY, only while the focused path is one of these, so
-			a screen carrying a TabView never shadows gameplay bumpers while focus
-			sits elsewhere (the hazard the dynamic binding exists for).
-
-			IT DELIBERATELY DOES NOT CLAIM THE CONTENT'S FOCUSABLES. Paging from
-			anywhere inside the page would read well, but a tab's content contains
-			Sliders and Tables that declare their OWN adjust targets, and claiming
-			a path another control owns is a contention this construct has no
-			business creating. ]]
+		-- Content paging is explicit and owns shoulders only. The nearest value
+		-- control keeps its adjustment; the surface owns gameplay arbitration.
+		adjustAxis = if spec.shoulderNavigation ~= nil then "none" else nil,
 		adjustTargets = function(rootNode: any?)
-			if rootNode ~= nil and rootNode.path ~= mountedRootPath then
+			if
+				rootNode ~= nil
+				and (
+					(learnedStructureEpoch ~= boundController.structureEpoch())
+					or rootNode.path ~= mountedRootPath
+					or learnedPlacement ~= placement:get()
+				)
+			then
 				mountedRootPath = rootNode.path
+				learnedStructureEpoch = boundController.structureEpoch()
+				learnedPlacement = placement:get()
 				relearn(rootNode)
 			end
 			local targets: { [string]: boolean } = {}
 			for _, path in tabPaths do
 				targets[path] = true
+			end
+			if contentShoulders() and graph and mountedRootPath then
+				local prefix = mountedRootPath .. "/Content/"
+				local map = graph.focusMap()
+				for _, entry in (map and map.traversal) or {} do
+					if string.sub(entry.path, 1, #prefix) == prefix then
+						targets[entry.path] = true
+					end
+				end
 			end
 			return targets
 		end,
@@ -1093,31 +1513,98 @@ function tab_view.build(Facet: any, core: any, spec: Spec)
 					hit = tabId
 				end
 			end
-			if hit == nil then
+			local fromContent = hit == nil
+				and contentShoulders()
+				and mountedRootPath ~= nil
+				and string.sub(path, 1, #mountedRootPath + 9) == mountedRootPath .. "/Content/"
+			if hit == nil and not fromContent then
 				return false
 			end
 			local index = indexOf(selection:get()) or indexOf(hit)
 			if index == nil then
 				return false
 			end
-			local next = math.clamp(index + (if direction < 0 then -1 else 1), 1, #spec.tabs)
+			local tabs = visibleTabs:get()
+			local next = math.clamp(index + (if direction < 0 then -1 else 1), 1, #tabs)
 			if next == index then
 				return true -- consumed: the clamp is the answer, not a fall-through
 			end
-			selection:set(spec.tabs[next].id)
+			selection:set(tabs[next].id)
+			if fromContent then
+				pendingNavigation, pendingPlacement, navigationAttempts = "content", placement:get(), 0
+			end
 			if spec.onChange ~= nil then
-				spec.onChange(spec.tabs[next].id)
+				spec.onChange(tabs[next].id)
 			end
 			return true
 		end,
 	})
 
 	local api = {}
+	function api.moveTab(tabId, position)
+		assert(spec.customization, "TabView.moveTab requires customization")
+		assert(
+			type(position) == "number" and position == math.floor(position),
+			"TabView.moveTab position must be an integer"
+		)
+		if not seen[tabId] then
+			return false
+		end
+		local order = {}
+		for _, tab in visibleTabs:get() do
+			if tab.id ~= tabId then
+				table.insert(order, tab.id)
+			end
+		end
+		table.insert(order, math.clamp(position, 1, #order + 1), tabId)
+		local state = spec.customization:get()
+		spec.customization:set({ order = order, hidden = table.clone(state.hidden or {}) })
+		return true
+	end
+	function api.setTabHidden(tabId, hidden)
+		assert(spec.customization, "TabView.setTabHidden requires customization")
+		assert(type(hidden) == "boolean", "TabView.setTabHidden requires boolean")
+		if not seen[tabId] then
+			return false
+		end
+		for _, tab in spec.tabs do
+			if tab.id == tabId and tab.required and hidden then
+				return false
+			end
+		end
+		local list = visibleTabs:get()
+		if hidden and #list == 1 and list[1].id == tabId then
+			return false
+		end
+		local state = spec.customization:get()
+		local out = {}
+		for _, id in state.hidden or {} do
+			if id ~= tabId then
+				table.insert(out, id)
+			end
+		end
+		if hidden then
+			table.insert(out, tabId)
+		end
+		spec.customization:set({ order = table.clone(state.order or {}), hidden = out })
+		return true
+	end
+
 	api.blueprint = built
 	-- the placement this TabView resolved, published so a screen that has its own
 	-- chrome to place (a search field that rides the bar, a wordmark that only
 	-- belongs in the rail) reads ONE answer rather than re-deriving the policy
 	api.placement = placement
+	api.expandSidebar = function()
+		if adaptable then
+			setSidebar(true)
+		end
+	end
+	api.collapseSidebar = function()
+		if adaptable then
+			setSidebar(false)
+		end
+	end
 
 	-- sorted, so the dump is deterministic (it is compared whole by the spec that
 	-- pins every field a bug report needs)
@@ -1151,6 +1638,13 @@ function tab_view.build(Facet: any, core: any, spec: Spec)
 			schema = "facet-tab_view-dump/1",
 			id = id,
 			tabCount = #spec.tabs,
+			visibleTabs = (function()
+				local out = {}
+				for _, tab in visibleTabs:get() do
+					table.insert(out, tab.id)
+				end
+				return out
+			end)(),
 			selectedId = current,
 			selectedLabel = label,
 			selectedIndex = index,

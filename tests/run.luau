@@ -28,6 +28,15 @@ require("./navigation_stack.spec")
 require("./navigation_showcase.spec")
 require("./transform_footprint.spec")
 require("./focus.spec")
+require("./distance_gamepad.spec")
+require("./focus_sections.spec")
+require("./semantic_rows.spec")
+require("./scroll_navigation.spec")
+require("./tab_scroll_bookmarks.spec")
+require("./tab_customization.spec")
+require("./navigation_visuals.spec")
+require("./adaptive_presentation.spec")
+require("./image_framing.spec")
 require("./mount.spec")
 require("./node_facts.spec")
 -- MicroProfiler phase scopes (roadmap Step 9, PL-8): the closed scope set, its
@@ -1357,6 +1366,7 @@ require("./row_permutation.spec")
 require("./radial_menu.spec")
 require("./world_anchor.spec")
 require("./radial_geometry.spec")
+require("./alert.spec")
 local ok = testkit.run({
 	jsonOut = process.env.FACET_SUITE_JSON,
 	tier = "full",

@@ -42,10 +42,31 @@ Before selecting controls for a new screen, apply
 [`Choosing controls`](docs/guide/14-choosing-controls.md). Use its task and input
 criteria to decide whether contextual radial actions are appropriate, then choose
 the documented geometry, content-fit, navigation, and completion options. For
+brief confirmations, use `Controls.Alert` and its `present(presenter)` method;
+the component owns responsive sizing, actions, focus and cancellation. Use
+`presentModal` directly for substantial custom modal tasks. For
 proximity actions around world objects, use the public `client.world_anchor`
 binding and the chooser’s world-object guidance. Prefer a direct prompt for one
 primary action and a corner menu for global commands; do not duplicate projection
 in game UI.
+
+Follow this order for every UI requirement, including whole-screen layouts and responsive composition:
+
+1. Attempt the needed UI with Facet's existing public controls and layouts: stacks, grids, Composition,
+   scrolling, layout modifiers and adaptive conditions.
+2. Use Facet's supported customization: game themes/StyleSheets, tokens, skins,
+   image backgrounds, control presentations, layout constraints/spacing/alignment,
+   adaptive composition, and public content/contribution seams.
+3. If a reusable behavior is missing, attempt to extend Facet through the relevant
+   playbook, including its tests and guidance. Fix a framework gap in Facet.
+4. Only when all three approaches fail may you build custom UI. Record the
+   concrete limitation and attempted approaches, keep the fallback as small as
+   possible, and preserve Facet's input, focus, lifecycle and theme integration
+   through supported seams. Convenience or unfamiliarity is not a failure.
+
+The ordinary implementation rules below apply unless that documented last-resort
+fallback is necessary. Do not start with native Roblox controls or a separate
+custom input/layout system and then attempt to wrap Facet around it.
 
 1. **Compose from the public surface.** Layout comes from `Facet.UI.*` — stacks,
    grids, `ZStack`, `Composition`, and the layout modifiers. Controls come from
@@ -56,7 +77,10 @@ in game UI.
    and repaints the property that changed. A plain value is fixed for the life of
    the node. Your data stays yours: a control reads and writes the signal you own
    and keeps nothing important of its own.
-3. **Style through the theme, not through literals.** Use semantic roles, spacing
+3. **Give the game its own theme.** Derive/customize a package to match its art
+   direction, including real image/vector icons rather than text substitutes.
+   See [Custom themes](docs/guide/09-custom-themes.md) for backgrounds, icon
+   coverage, contrast and border insets. Use semantic roles, spacing
    steps, and type roles. Paint reaches the engine through Roblox's own
    `StyleSheet` mechanism, and a theme package can replace the whole look without
    touching a screen. See [`docs/guide/05-styling.md`](docs/guide/05-styling.md)
@@ -150,7 +174,7 @@ change on its own merits.
 
 ## 6. Forbidden shortcuts
 
-Each of these looks like a shortcut and is a defect:
+Outside the documented last-resort fallback in §2, each of these is a defect:
 
 - **Requiring a Facet internal.** The public surface is the `Facet` table plus the
   blessed client modules listed in [api.md client entry

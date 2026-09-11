@@ -57,8 +57,8 @@ end
 -- sector. Test the inner edge as well as the corners: a rectangle must never
 -- bridge the transparent center. Padding leaves breathing room at the seams.
 function geometry.labelBounds(s: any, height: number): any
-	local function fits(width: number): boolean
-		local hx, hy = width / 2 + 3, height / 2 + 3
+	local function fits(width: number, h: number): boolean
+		local hx, hy = width / 2 + 3, h / 2 + 3
 		local nearX, nearY = math.max(0, math.abs(s.x) - hx), math.max(0, math.abs(s.y) - hy)
 		if nearX * nearX + nearY * nearY < s.inner * s.inner then
 			return false
@@ -76,10 +76,25 @@ function geometry.labelBounds(s: any, height: number): any
 		end
 		return true
 	end
+	-- A requested height can consume the whole annulus. Shorten it to a
+	-- usable square before maximizing width; a zero-width tall box is not a
+	-- viable compact-icon fallback (especially at diagonal compass slots).
+	if not fits(height, height) then
+		local low, high = 0, height
+		for _ = 1, 14 do
+			local mid = (low + high) / 2
+			if fits(mid, mid) then
+				low = mid
+			else
+				high = mid
+			end
+		end
+		height = low
+	end
 	local lo, hi = 0, math.min(160, s.outer * 2)
 	for _ = 1, 14 do
 		local mid = (lo + hi) / 2
-		if fits(mid) then
+		if fits(mid, height) then
 			lo = mid
 		else
 			hi = mid

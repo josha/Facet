@@ -33,26 +33,45 @@ t.describe("Searchable selection", function()
 		w.present(Facet.UI.Screen({ id = "S", children = { control.blueprint } }))
 		control.api.open()
 		w.pres.refresh()
-		local rowPath, descriptionPath
+		local rowPath
 		for _, path in w.adapter.paths() do
 			if string.sub(path, -6) == "/Opt-a" then
 				rowPath = path
 			end
-			if string.sub(path, -12) == "/Description" then
-				descriptionPath = path
+		end
+		assert(rowPath, "live option must mount its row")
+		local row = w.adapter.node(rowPath)
+		local initialHeight = row.rect.h
+		w.pres.focus.focusOn(rowPath)
+		local function descriptionNode()
+			for _, path in w.adapter.paths() do
+				if string.sub(path, 1, #rowPath + 1) == rowPath .. "/" and string.sub(path, -12) == "/Description" then
+					return w.adapter.node(path)
+				end
+			end
+			return nil
+		end
+		t.expect(descriptionNode()).toBeNil()
+		for _, description in { "Added", "", "Returned" } do
+			options:set({ { id = "a", label = "Alpine", description = description } })
+			w.pres.refresh()
+			t.expect(w.adapter.node(rowPath)).toBe(row)
+			t.expect(w.pres.focus.focused:get()).toBe(rowPath)
+			local node = descriptionNode()
+			if description == "" then
+				t.expect(node).toBeNil()
+				t.expect(row.rect.h).toBe(initialHeight)
+			else
+				assert(node, "nonempty live description must mount")
+				t.expect(node.props.text).toBe(description)
 			end
 		end
-		assert(rowPath and descriptionPath, "live option must mount its description slot")
-		local row = w.adapter.node(rowPath)
-		t.expect(w.adapter.node(descriptionPath).props.text).toBe("")
-		options:set({ { id = "a", label = "Alpine", description = "Added" } })
-		w.pres.refresh()
-		t.expect(w.adapter.node(rowPath)).toBe(row)
-		t.expect(w.adapter.node(descriptionPath).props.text).toBe("Added")
 		options:set({ { id = "a", label = "Alpine" } })
 		w.pres.refresh()
 		t.expect(w.adapter.node(rowPath)).toBe(row)
-		t.expect(w.adapter.node(descriptionPath).props.text).toBe("")
+		t.expect(w.pres.focus.focused:get()).toBe(rowPath)
+		t.expect(descriptionNode()).toBeNil()
+		t.expect(row.rect.h).toBe(initialHeight)
 		control.dispose()
 		w.pres.dismiss(w.handle)
 	end)

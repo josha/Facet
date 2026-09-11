@@ -358,6 +358,7 @@ local TINT_ROLES: { string } = {
 	"contentStrong",
 	"contentSecondary",
 	"accent",
+	"onAccent",
 	"control",
 	"controlSelected",
 	"danger",

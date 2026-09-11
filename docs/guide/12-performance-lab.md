@@ -117,10 +117,11 @@ step("run")                    -- the scenario's declared pass sequence
 print(HttpService:JSONEncode(step("export:1")))
 ```
 
-### The seventeen workloads
+### The eighteen workloads
 
 | id | question it answers |
 |---|---|
+| `adaptive-navigation` | sidebar reflow on the same 24-image inventory as the headless navigation benchmark |
 | `idle-baseline` | what the place costs before any Facet work |
 | `mount-ramp` | how mount, layout, Instances and memory scale with row count |
 | `dense-scroll` | is steady scrolling smooth, and is windowing bounded |
@@ -479,3 +480,53 @@ with Instances, signals, memos, scopes and connections byte-identical throughout
 A number that climbs across cycles is the finding. Start with the ownership
 shapes. A control that builds its own scope and returns a `dispose` leaks once
 per materialized row if the caller does not own it.
+
+The adaptive navigation benchmark includes image focus, sidebar relocation and
+live tab customization. Its `afterRun` phase advances pending decorative motion
+between samples; the runner records that multi-frame work as `settle`, separately
+from the event's `total`. Idle and focus assertions still reject layout work and
+page remounts. Headless timing is trend evidence, not a device frame-rate result.
+
+Navigation performance must distinguish a single focus move from a composite
+workload containing several ticks, refreshes and a sidebar round trip. Keep the
+composite total as well as the individual phases. Neither the `floorAndroid`
+profile name nor a headless time establishes physical low-end performance.
+Measure representative hardware; a 5× slowdown is a sensitivity estimate, not
+an observed conversion factor.
+
+Geometry feedback reuses a fresh dirty subtree when mounted history is complete
+and no structure or solve-wide input changed. It must match the full-layout
+oracle immediately and after settling. The normal refresh still drains its
+pending entries, so include that later partial solve in the settling measurement.
+Live selection indicators cache geometry until layout, translated-host geometry,
+structure, mount or option identity changes; image buttons consume focus updates
+through existing observers rather than polling focus on every geometry feed.
+
+Sidebar expand/collapse remembers the requested preference for later resizing,
+but hands off focus only when effective placement changes. Compact bottom tabs
+and repeated commands must not generate focus transitions for an unchanged layout.
+
+Navigation profiling should separate focus movement from sidebar relocation and
+animation settling. The adaptive navigation scene deliberately keeps all 24 image
+buttons and its sidebar round trip: passing its trend budget does not certify a
+low-end frame budget. Rendering/input now share a branch-bounded mounted-node
+lookup, and a Button only allocates progress machinery if its `busy` declaration
+can become true. Neither optimization changes layout or removes focus effects.
+Roomy sidebar changes still resize/reflow content and need separate attribution;
+measure real-device frame cost before accepting that remaining workload.
+
+### Adaptive inventory reflow
+
+Select `adaptive-navigation`, then run `pass:navigationReflow=60/120` (120
+expand/collapse pairs). The default is 24 pairs, yielding 48 times so a lap fits
+a 60-frame capture. The shared `lab/navigation_inventory.luau` builds the same
+24 image buttons, crop focus points, responsive grid and adaptable TabView as
+`bench/perf_scenes.luau`. Use desktop/tablet and distant-display profiles;
+compact touch navigation intentionally leaves the sidebar commands inert.
+
+The receipt reports synchronous command + refresh/tick/refresh CPU time per
+direction, content builds, solves and rectangle writes. Sixty simulation ticks
+settle each event outside timing; they are not sixty rendered frames. Native
+engine/GPU and physical-device frame costs still require the capture workflow
+above. Use the current theme and record native styling alongside viewport/input
+facts when comparing captures; avoid running other benchmark surfaces together.

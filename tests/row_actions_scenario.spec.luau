@@ -97,6 +97,22 @@ local function step(world: any, name: string, payload: string?): any
 end
 
 describe("row_actions scenario: it builds and mounts clean", function()
+	it("unread markers use bounded icon paint rather than themed panel chrome", function()
+		local world = makeWorld()
+		local markers = 0
+		local function visit(node)
+			if node.id == "Dot" then
+				markers += 1
+				expect(node.props.points ~= nil).toBe(true)
+			end
+			for _, child in node.children or {} do
+				visit(child)
+			end
+		end
+		visit(world.handle.root.node)
+		expect(markers > 0).toBe(true)
+		teardown(world)
+	end)
 	it("mounts headlessly with no core error and empty diagnostics", function()
 		local world = makeWorld()
 		expect(world.core:lastError()).toBeNil()
@@ -1012,4 +1028,39 @@ describe("row_actions scenario: a short landscape spends its height on the list 
 			w.presenter.dismiss(w.built.handle)
 		end)
 	end
+end)
+
+describe("Glossy Mobile row surface remounts", function()
+	it("keeps row geometry and reactive resources stable across List/VList round trips", function()
+		local package = require("../examples/themes/glossy_mobile").build(Facet.themes)
+		local w = makeWorld(function(env)
+			env:set("themeMetrics", Facet.themes.resolve(package, nil, {}))
+			env:set("preferredInput", "Touch")
+			env:set("viewportRect", { x = 0, y = 0, w = 390, h = 844 })
+			env:set("reducedMotion", true)
+		end)
+		local function round()
+			w.adapter.tap("/MailActions/ModeBar/ModeVList")
+			w.settle(4)
+			w.adapter.tap("/MailActions/ModeBar/ModeList")
+			w.settle(4)
+		end
+		round()
+		local baseline = w.core:counters()
+		local first = w.adapter.node("/MailActions/ListWhen/then/List/Rows/RowsForEach/[m1]/m1/Content").rect
+		for i = 1, 3 do
+			round()
+			expect(w.adapter.node("/MailActions/ListWhen/then/List/Rows/RowsForEach/[m1]/m1/Content").rect).toEqual(
+				first
+			)
+			expect(#w.built.report().listIds).toBe(6)
+			for key, value in baseline do
+				assert(
+					w.core:counters()[key] == value,
+					key .. ": " .. tostring(w.core:counters()[key]) .. " vs " .. tostring(value)
+				)
+			end
+		end
+		teardown(w)
+	end)
 end)

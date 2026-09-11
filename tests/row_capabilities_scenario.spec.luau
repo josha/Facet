@@ -49,6 +49,41 @@ local fs = require("@lune/fs")
 local demo_picker = require("../examples/gallery/client/demo_picker") :: any
 local module = require("../examples/gallery/scenarios/row_capabilities") :: any
 
+describe("row_capabilities: controller entry from Edit into sectioned table rows", function()
+	for _, editing in { false, true } do
+		it("enters the first row with editing=" .. tostring(editing), function()
+			local w = require("./lib/world").new({
+				viewport = { x = 0, y = 0, w = 1280, h = 719 },
+				preferredInput = "Gamepad",
+				themeMetrics = snapshot.resolve(require("../examples/themes/pixel_quest").build(Facet.themes), nil, {}),
+			})
+			local built = module.build({
+				Facet = Facet,
+				core = w.core,
+				env = w.env,
+				adapter = w.adapter,
+				presenter = w.pres,
+				actionSystem = w.system,
+			})
+			w.present(built.screen, built.present)
+			local edit = "/RowCapabilities/Page/RunSheet/Main/ToggleWhen/then/Toolbar/EditToggle"
+			w.pres.focus.focusOn(edit)
+			if editing then
+				w.press("ButtonA")
+			end
+			w.press("DPadDown")
+			local focused = w.pres.focus.focused:get()
+			expect(string.find(focused or "", "/Rows/[grid@0]/", 1, true) ~= nil).toBe(true)
+			if editing then
+				w.press("ButtonB")
+				expect(built.report().editing).toBe(false)
+			end
+			w.pres.dismiss(w.handle)
+			built.dispose()
+		end)
+	end
+end)
+
 local ROOT = "/RowCapabilities/Page/RunSheet/Main/Body/Rows"
 
 local function world(view: { w: number, h: number }, package: string?)

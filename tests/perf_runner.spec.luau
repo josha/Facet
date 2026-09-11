@@ -188,3 +188,25 @@ describe("perf runner — shape determinism (§15.2)", function()
 		expect(matrixKeys(rep1)).toEqual(matrixKeys(rep2))
 	end)
 end)
+
+describe("perf runner settle boundary", function()
+	it("settles after each warmup and sample before the next event", function()
+		local order = {}
+		local scene = {
+			name = "settle",
+			requirement = "UI-PERF-001",
+			dataset = "boundary",
+			setup = function()
+				return {}
+			end,
+			run = function()
+				table.insert(order, "event")
+			end,
+			afterRun = function()
+				table.insert(order, "settle")
+			end,
+		}
+		perf_runner.runScene(scene, perf_profiles.get("phone"), { warmup = 1, samples = 2 })
+		expect(order).toEqual({ "event", "settle", "event", "settle", "event", "settle" })
+	end)
+end)

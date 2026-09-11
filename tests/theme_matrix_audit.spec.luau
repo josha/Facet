@@ -72,6 +72,13 @@ local PACKAGES = {
 -- live.
 local VIEWS = {
 	{
+		id = "handheld-gamepad",
+		viewport = { x = 0, y = 0, w = 960, h = 540 },
+		displaySize = "Small",
+		preferredInput = "Gamepad",
+		capabilities = { gamepad = true, touch = true, mouse = false, keyboard = false },
+	},
+	{
 		id = "compact-phone-portrait",
 		viewport = { x = 0, y = 0, w = 359, h = 718 },
 		displaySize = "Small",
@@ -433,7 +440,7 @@ end
 -- RS-A16-D4: `screen_target` builds the BASE seed (`sheet_model.build`, Dark +
 -- Light) when no package is installed and `buildPackage` when one is. The
 -- value-control own-paint family existed in the second and not in the first, so
--- the five facet-neutral rows ran a sheet in which four surfaces were selected
+-- the facet-neutral rows ran a sheet in which four surfaces were selected
 -- by nothing at all and `Frame default` made them invisible. Every assertion
 -- below therefore reads the model for THAT row rather than a package model.
 local modelCache: { [string]: any } = {}
@@ -740,10 +747,10 @@ local function report(kinds: { string }): string
 	return table.concat(out, "\n")
 end
 
-describe("the headless matrix audit: nineteen canonical rows, solved and checked", function()
-	it("covers the five canonical views x three packages, plus the four pair rows", function()
-		expect(#rowSet).toBe(19)
-		expect(#audited).toBe(19)
+describe("the headless matrix audit: canonical and handheld rows, solved and checked", function()
+	it("covers canonical and handheld views x three packages, plus the four pair rows", function()
+		expect(#rowSet).toBe(#VIEWS * 3 + 4)
+		expect(#audited).toBe(#VIEWS * 3 + 4)
 		local ids: { [string]: boolean } = {}
 		for _, entry in audited do
 			expect(ids[entry.id]).toBeNil()
@@ -784,7 +791,7 @@ describe("the headless matrix audit: nineteen canonical rows, solved and checked
 		expect(report({ "NO rule in the live sheet" })).toBe("")
 	end)
 
-	it("(e) the five facet-neutral rows really do run the BASE seed", function()
+	it("(e) the facet-neutral rows really do run the BASE seed", function()
 		-- the guard above is only worth anything if the flat rows are checked
 		-- against `sheet_model.build` and not against a package model: the defect
 		-- was a family of rules the package builder had and the base seed did not
@@ -794,7 +801,7 @@ describe("the headless matrix audit: nineteen canonical rows, solved and checked
 				flat += 1
 			end
 		end
-		expect(flat).toBe(5)
+		expect(flat).toBe(#VIEWS)
 		local base = liveModel(nil)
 		expect(base.rules[1].group).toBeNil() -- the legacy shape, i.e. `build`
 		local selected = selectedTags(nil)

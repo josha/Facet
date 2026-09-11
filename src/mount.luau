@@ -919,6 +919,10 @@ function mountLib.mount(core: any, rootBlueprint: Blueprint, opts: MountOpts?)
 		-- ordinary node: factory runs ONCE here
 		counters.mounted += 1
 		counters.factoryRuns += 1
+		if bp.meta and bp.meta.scrollNavigation then
+			bp = require("./controls/scroll_navigation").attach(core, scope, bp)
+		end
+
 		local node: any = {
 			class = bp.class,
 			id = id,
@@ -1104,6 +1108,15 @@ function mountLib.mount(core: any, rootBlueprint: Blueprint, opts: MountOpts?)
 			local taken = dirtyQueue
 			dirtyQueue = {}
 			return taken
+		end,
+		-- Non-draining suffix for geometry feedback. A drained history cannot prove
+		-- a partial solve safe; nil asks the renderer to rebuild conservatively.
+		dirtySince = function(sequence: number)
+			local count = dirtySeq - sequence
+			if count < 0 or count > #dirtyQueue then
+				return nil
+			end
+			return table.move(dirtyQueue, #dirtyQueue - count + 1, #dirtyQueue, 1, {})
 		end,
 		-- see `dirtySeq` above: monotonic, survives `takeDirty`
 		dirtySeq = function(): number
