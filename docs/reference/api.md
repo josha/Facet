@@ -7670,7 +7670,7 @@ focused available choice. Disabling the control rejects every activation route.
 |---|---|
 | `menu` | One trigger button carrying the current value and the up/down chevron (`chevron.up.chevron.down`, a semantic icon a theme may paint). Activating it presents the options anchored to the trigger with a short materialize transition, the current value focused and check-marked, and no Cancel row: an outside tap, re-activating the trigger, or gamepad ButtonB closes it (Escape belongs to the engine). A gamepad, or more than six options on a compact or touch surface, presents a bottom sheet with a Cancel row instead. With a `label` the control is a form row: title leading, the trigger trailing — a plain value under touch and a bordered pop-up button under a pointer, never wider than about half the screen; at the two largest text preferences, and at the Large one on a compact screen, the row stacks vertically. The value is one line and may truncate with disclosure. The popover is the theme's panel width (never narrower than the trigger, never wider than the screen), and its rows scroll inside the height the screen allows. |
 | `navigationLink` | A row that leads to the full list: title, value and a trailing chevron in one row button (the value drops beneath the title at large text), presenting a full-width sheet with the rows scrolling inside the height the screen allows, the optional `query` search field and a Cancel row. |
-| `segmented` | Options side by side (or a vertical rail with `axis = "y"`), always visible, with the sliding `indicator`. |
+| `segmented` | One plated track (the `control` surface every package skins) holding equal segments side by side (or a vertical rail with `axis = "y"`), always visible, the selected segment raised by the sliding `indicator`. A segment is a label only: an option with a `description` is refused on a declared segmented picker. |
 | `inline` | Options stacked as full-width rows. |
 | `radioGroup` | The inline rows wearing a radio mark. |
 
@@ -7692,8 +7692,13 @@ its module for prediction; `tests/picker_style.spec.luau` pins it:
 | Nearby touch or pointer | `menu` |
 
 The segmented rule: more than four options, or a compact width with more than
-three options or a label longer than ten characters, is `inline`; otherwise
-`segmented`. A flip between the menu family and a strip is structural (the two
+three options or a label longer than ten characters, is `inline`; so is any
+option carrying a `description`, and a band that would not fit its row — the
+sum over the options of glyph count × the text size the preference and the
+ten-foot scale make × `Facet.text.AVG_GLYPH_FRACTION` plus the theme's control
+padding, against the control's own solved width (the viewport less its insets
+until it has one); otherwise `segmented`. A flip between the menu family and a
+strip is structural (the two
 share no node; focus lands on the new trigger); a flip within the strip family
 is a re-solve that keeps every option's identity, focus and state.
 

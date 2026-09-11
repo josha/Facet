@@ -94,7 +94,9 @@ leave `style` automatic: on a phone or a desktop that is a form-row menu (the
 value and an up/down chevron in one trigger, the options anchored to it, a
 sheet for a long list under a thumb) and on a television a focus-navigable
 strip. Declare a style only when the task needs it: `segmented` when every
-option must stay visible (a mode switch, a tab-like strip), `inline` or
+option must stay visible (a mode switch, a tab-like strip; labels only — a
+described option is a row, and a strip that cannot fit its row at the current
+text size falls to a row form on its own), `inline` or
 `radioGroup` for a short list that reads as a form section, `navigationLink`
 with a `query` signal for a long or searchable list, `menu` to force the pop-up
 on every surface. Never author a separate chevron button beside a value, never
