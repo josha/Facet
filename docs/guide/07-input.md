@@ -852,3 +852,40 @@ Choose radial menus for small contextual command sets and stable directional
 actions. Prefer a readable linear menu for long labels or large collections.
 [Choosing controls](14-choosing-controls.md) maps these tasks to presets, content
 fitting, image-only buttons, hierarchy, and per-action completion policies.
+
+## Viewing distance and game menus
+
+Set `env:set("viewingDistance", "near")` for a nearby controller display or
+`"ten-foot"` for a distant TV. `"automatic"` restores inference. Input choice
+and viewing distance are separate; a controller does not select distant type.
+
+Use ordinary stacks and existing controls for options and inventory comparison.
+Inferred directional movement follows solved rectangles, including wrapping and
+axis changes. Keep explicit group/collection topology for boards, radial actions,
+and virtual collections. Slider is one adjustable focus stop; Stepper retains
+its two direct command buttons and scoped adjustment shortcuts. A focus move is
+never an equip, purchase, or game-state commit by itself.
+
+TabView remembers a valid mounted focus path per tab, without retaining the tab's
+content. Set `restoreFocus = false` for task flows that require fresh entry.
+Keep long-list scroll/key state and drafts outside evicted content. NavigationStack
+continues to own route Back and page return focus. A conventional options menu
+uses directions, Activate, and Cancel; quick actions keep their radial or direct
+command behavior. Opening a Facet surface does not pause the game simulation.
+
+Held navigation replays at most three steps in one frame, discarding excess hitch
+time. The existing ownership guard stops background repeats after a modal or
+responder handoff. Adjust keys remain scoped to the focused control.
+
+Facet's client-created IAS contexts live under ReplicatedStorage and retain
+system-owned teardown. They do not depend on the engine keeping PlayerScripts
+alive. This follows [Roblox's IAS context guidance](https://create.roblox.com/docs/input/input-action-system).
+It does not change context priority, gameplay arbitration, or the game's own
+input bindings. The legacy-control helper uses bounded waits if player scripts
+are absent.
+
+Content-wide TabView shoulder paging is opt-in (`shoulderNavigation = "content"`);
+nearest value controls and modal responders keep their own input. Suspend the
+policy during caller-owned editing with a readable returning `"strip"`. Value
+controls support bounded controller hold-repeat; Table Back unwinds the active
+operation before exiting editing. See [ownership](../reference/api.md#controller-navigation-ownership).

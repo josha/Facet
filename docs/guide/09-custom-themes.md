@@ -30,6 +30,39 @@ lune run tools/lune/check_docs_cli      # read-only; exit 0 = the docs match the
 
 ---
 
+## Start with the game's art direction
+
+For a game UI, create or customize a theme package that belongs to the game.
+Derive from Neutral or a suitable existing package, then choose a deliberate
+palette, readable type family, spacing, border language, control states and icon
+set that match the game art. A stock theme is a starting point and a prototype;
+keep it unchanged only when it already matches the intended art direction.
+The package compiler produces the native StyleSheet; do not hand-style each
+screen or bypass the framework's geometry and focus ownership.
+
+Use image chrome/nine-slice recipes for illustrated borders and control plates,
+with declared content insets large enough for the actual border artwork. Use
+`UI.background(content, UI.Image{ image = ..., imageFraming = ... })` for scenic
+or textured view backgrounds. Choose a focal point that keeps the subject visible
+across portrait, landscape, handheld and television layouts. Background images
+are optional: dense settings, race telemetry and urgent in-game actions often
+benefit more from quiet surfaces. Preserve contrast with theme surfaces or
+scrims; do not put essential text directly over unpredictable artwork.
+
+Draw symbols as icons. Use semantic icon names with package-owned image assets,
+or `UI.Path`/`Facet.pathShapes` for appropriate vector artwork; keep full semantic
+labels. Do not type Unicode magnifying glasses, arrows or similar characters
+into labels to stand in for a finished icon. Map the semantic icons actually used
+by the game, including search and navigation; namespaced icons work for game
+commands. The framework's ASCII fallback is a missing-art recovery path, not the
+production art direction. See [rich skinning](10-rich-skinning.md)
+for the asset mapping (or search that chapter for `icons`).
+
+Verify the theme with large text and all input classes. Inspect image focus lift,
+caption wrapping, and decorative paint against both the content inset and the
+outer border. Include Pixel Quest and Fantasy Ornate in shared-control changes;
+then repeat with the game's own art, which may have different border thickness.
+
 ## 9.1 The shape of a theme package
 
 > **In plain words.** A theme package is one big settings table. You fill in
@@ -1152,3 +1185,8 @@ BE the interface — or the contributor-side playbook,
 the theme system itself. The rules it holds a package to, and the engine
 measurements each one stands on, are in
 [`../extending/new-theme.md`](../extending/new-theme.md).
+
+Use optional `chrome.navigation` for adaptable navigation bands/capsules. A small
+carved strip or quiet native treatment usually fits better than a panel's layered
+corners and nameplate. Declare content insets for the actual border. Fantasy Ornate
+shows this with its existing art; verify compact/distant and Largest text.

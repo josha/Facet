@@ -3,10 +3,12 @@ local guard = require("../spec_guard")
 local contract = require("../class_contract")
 local chrome = require("../tokens/chrome_slots")
 local themePackage = require("../themes/package")
+local menuRecipe = require("./menu_recipe")
 local toggle = {}
-local KEYS = guard.keySet({ "id", "label", "value", "mixed", "presentation", "enabled", "onChange", "children" })
+local KEYS = guard.keySet({ "id", "label", "value", "mixed", "presentation", "enabled", "onChange", "children", "row" })
 function toggle.build(Facet, core, spec)
 	guard.assertKnownKeys("Controls.Toggle", spec, KEYS, "spec")
+	assert(spec.row == nil or spec.children == nil, "Toggle.row cannot combine with children")
 	local presentation = spec.presentation or "switch"
 	assert(
 		presentation == "switch" or presentation == "checkbox" or presentation == "button",
@@ -63,7 +65,16 @@ function toggle.build(Facet, core, spec)
 		onActivate = activate,
 	}
 	local blueprint
-	if presentation == "switch" then
+	if spec.row then
+		assert(spec.row.value == nil, "Toggle.row: value is supplied by the toggle")
+		local valueText = scope:own(core:memo(function(use)
+			return if spec.mixed and use(spec.mixed) then "Mixed" elseif use(spec.value) then "On" else "Off"
+		end))
+		props.width = UI.fill()
+		props.selected = selected
+		props.children = menuRecipe.semantic(UI, core, scope, spec.label, spec.row, valueText)
+		blueprint = UI.Button(props)
+	elseif presentation == "switch" then
 		props.value = spec.value
 		blueprint = UI.Toggle(props)
 	else

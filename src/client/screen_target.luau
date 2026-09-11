@@ -49,6 +49,7 @@ local screen_presentation = require("./screen_presentation")
 -- the per-class PROPERTY-WRITE dispatch table (`adapter.setProp`'s chain),
 -- extracted for the same ceiling once it became one-way (source-cap-ledger):
 -- see that module's header for the parameter-object seam and its cost
+local screen_image = require("./screen_image")
 local screen_props = require("./screen_props")
 local screen_caret = require("./screen_caret")
 -- the pointer seam: the one activate meta, the global capture, the semantic
@@ -1513,8 +1514,8 @@ function screen_target.new(opts: Opts?)
 	-- because the renderer keys everything off this exact table.
 	--
 	-- Anything the node was told while it had no instance is replayed afterwards: its
-	-- rect and its visibility. Those are the only two an elided node can have been
-	-- given, because every other entry point materialises before it writes.
+	-- rect, visibility and paint order. Ordering must survive deferred creation:
+	-- the renderer caches the assigned z and may not write the same number again.
 	local function ensureInstance(handle: any): Instance?
 		if handle == nil then
 			return nil
@@ -1549,6 +1550,10 @@ function screen_target.new(opts: Opts?)
 		end
 		if pendingVisible ~= nil then
 			adapter.setVisible(handle, pendingVisible)
+		end
+		if handle.pendingZ ~= nil then
+			adapter.setZOrder(handle, handle.pendingZ)
+			handle.pendingZ = nil
 		end
 		return handle.instance
 	end
@@ -2107,6 +2112,9 @@ function screen_target.new(opts: Opts?)
 			end
 		end
 		applyRect(handle)
+		if handle.imageFraming ~= nil then
+			screen_image.syncRect(handle)
+		end
 	end
 
 	-- re-base the children of every host that moved this pass, once every rect has
@@ -2688,6 +2696,21 @@ function screen_target.new(opts: Opts?)
 	-- the pointer class is live — a pure-touch device never reaches here, so no
 	-- hover wiring is allocated. MouseLeave (resting fill + pressed-dip recovery)
 	-- is wired unconditionally in wireInteractiveStates and handles the exit.
+	-- Control-local hover observation; no global MouseMovement subscription per
+	-- image card and no polling. The control gates the result on live input facts.
+	function adapter.setHoverObserver(handle: any, callback: (boolean) -> ()): () -> ()
+		local enter = handle.instance.MouseEnter:Connect(function()
+			callback(true)
+		end)
+		local leave = handle.instance.MouseLeave:Connect(function()
+			callback(false)
+		end)
+		return function()
+			enter:Disconnect()
+			leave:Disconnect()
+		end
+	end
+
 	function adapter.enableHover(handle: any)
 		local instance = handle.instance
 		if nativeMode then
@@ -3321,9 +3344,10 @@ function screen_target.new(opts: Opts?)
 		end
 	end
 
-	-- an elided node has nothing on screen to order
+	-- An elided node still owns a position in the shared paint-order walk.
 	function adapter.setZOrder(handle: any, z: number)
 		if handle.elided == true then
+			handle.pendingZ = z
 			return
 		end
 		local instance = handle.instance
@@ -3715,6 +3739,7 @@ function screen_target.new(opts: Opts?)
 	end
 
 	function adapter.remove(handle: any)
+		screen_image.clear(handle)
 		if handle ~= nil and handle.elided == true then
 			-- never built anything, so there is nothing to unwind; the path-keyed
 			-- records below were never written for it either

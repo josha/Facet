@@ -640,3 +640,198 @@ describe("a measure→publish cycle whose publication is a PROP settles in the s
 		expect(string.find(tostring(err), "round cap") ~= nil).toBe(true)
 	end)
 end)
+
+describe("feedback closures preserve independent publications", function()
+	local world = require("./lib/world")
+	local UI = Facet.UI
+	local function px(n: number): any
+		return { type = "fixed", px = n }
+	end
+
+	local function runCase(incremental: boolean, mode: string): any
+		local w = world.new({
+			viewport = { x = 0, y = 0, w = 600, h = 500 },
+		})
+		local trigger = w.core:signal(px(10))
+		local width = w.core:signal(px(40))
+		local words = w.core:signal("Before")
+		local scale = w.core:signal(1)
+		local shown = w.core:signal(false)
+		local root = require("../src/mount").mount(
+			w.core,
+			UI.Screen({
+				id = "Feedback",
+				children = {
+					UI.VStack({
+						id = "Stack",
+						width = { type = "fill", weight = 1 },
+						children = {
+							UI.Box({ id = "Trigger", width = trigger, height = px(10) }),
+							UI.Box({ id = "Target", width = width, height = px(20) }),
+							UI.Text({ id = "Words", text = words, scale = scale }),
+							UI.Text({
+								id = "Clean",
+								text = "A clean sibling must retain correct measurement",
+							}),
+							UI.When({
+								id = "Branch",
+								condition = shown,
+								thenView = function()
+									return UI.Text({ id = "Added", text = "Mounted by feedback" })
+								end,
+							}),
+						},
+					}),
+				},
+			})
+		)
+		w.controller = require("../src/render/renderer").attach(w.core, root, w.env, w.adapter, {
+			incrementalLayout = incremental,
+			measureReuse = incremental,
+			layoutNodeReuse = incremental,
+		})
+		w.controller.initialRender()
+		w.controller.refresh()
+		local function settle(frames: number)
+			for _ = 1, frames do
+				w.controller.refresh()
+			end
+		end
+		local fired = false
+		w.controller.onSolved(function()
+			if fired then
+				return
+			end
+			fired = true
+			if mode == "paint" or mode == "reentrant" then
+				scale:set(0.85)
+				if mode == "reentrant" then
+					w.controller.refresh()
+				end
+			end
+			if mode == "text" or mode == "reentrant" then
+				words:set("Published text has a different intrinsic width")
+			end
+			if mode == "structure" then
+				shown:set(true)
+			elseif mode == "theme" then
+				w.env:set("themeMetrics", { density = 2 })
+			elseif mode == "typography" then
+				w.env:set("preferredTextOffset", 10)
+			elseif mode == "stamp" then
+				w.env:set("viewportRect", { x = 0, y = 0, w = 320, h = 500 })
+			end
+			width:set(px(90))
+		end)
+		trigger:set(px(11))
+		w.controller.refresh()
+		expect(fired).toBe(true)
+		expect(w.controller.rectOf("/Feedback/Stack/Target").w).toBe(90)
+		local function snapshot(): string
+			local rows = {}
+			for _, path in w.adapter.paths() do
+				local node = w.adapter.node(path)
+				table.insert(rows, {
+					path = path,
+					rect = w.controller.rectOf(path),
+					text = node.props.text,
+					scale = node.props.scale,
+					measured = w.controller.textAt(path),
+				})
+			end
+			return require("@lune/serde").encode("json", rows)
+		end
+		local immediate = snapshot()
+		settle(60)
+		local settled = snapshot()
+		local solves = w.controller.stats().solves
+		settle(3)
+		expect(w.controller.stats().solves).toBe(solves)
+		expect(w.core:lastError()).toBeNil()
+		w.controller.dispose()
+		root.dispose()
+		return { immediate = immediate, settled = settled }
+	end
+
+	for _, mode in { "paint", "text", "reentrant", "structure", "stamp", "theme", "typography" } do
+		it("matches a full solve immediately and after draining " .. mode .. " feedback", function()
+			local full = runCase(false, mode)
+			local incremental = runCase(true, mode)
+			expect(incremental.immediate).toBe(full.immediate)
+			expect(incremental.settled).toBe(full.settled)
+		end)
+	end
+end)
+
+describe("settled layout dirt retains newer work", function()
+	it("partial feedback drains without a repeated solve while paint, structure and later layout still land", function()
+		local w = require("./lib/world").new({ viewport = { x = 0, y = 0, w = 600, h = 400 } })
+		local width = w.core:signal({ type = "fixed", px = 200 })
+		local probe = w.core:signal({ type = "fixed", px = 20 })
+		local label = w.core:signal("Initial")
+		local shown = w.core:signal(false)
+		w.present(
+			Facet.UI.Screen({
+				id = "S",
+				children = {
+					Facet.UI.VStack({
+						id = "Source",
+						width = width,
+						height = { type = "fixed", px = 50 },
+						children = { Facet.UI.Text({ text = "Measure" }) },
+					}),
+					Facet.UI.VStack({
+						id = "Destination",
+						height = { type = "fixed", px = 200 },
+						children = {
+							Facet.UI.Box({ id = "Probe", height = probe }),
+							Facet.UI.Text({ id = "Label", text = label }),
+							Facet.UI.When({
+								id = "Gate",
+								condition = shown,
+								thenView = function()
+									return Facet.UI.Button({ id = "Added", label = "Added" })
+								end,
+							}),
+						},
+					}),
+				},
+			}),
+			{
+				onGeometry = function(rectOf)
+					local source = rectOf("/S/Source")
+					if source and probe:get().px ~= source.w / 10 then
+						probe:set({ type = "fixed", px = source.w / 10 })
+						label:set("Width " .. tostring(source.w))
+					end
+				end,
+			}
+		)
+		width:set({ type = "fixed", px = 300 })
+		w.pres.refresh()
+		local after = w.controller.stats()
+		expect(after.partialSolves > 0).toBe(true)
+		expect(after.feedbackSolves > 0).toBe(true)
+		expect(w.controller.rectOf("/S/Destination/Probe").h).toBe(30)
+		w.pres.refresh()
+		expect(w.controller.stats().solves).toBe(after.solves)
+		expect(w.adapter.node("/S/Destination/Label").props.text).toBe("Width 300")
+		shown:set(true)
+		w.pres.refresh()
+		expect(w.adapter.node("/S/Destination/Gate/then/Added") ~= nil).toBe(true)
+		width:set({ type = "fixed", px = 400 })
+		w.pres.refresh()
+		expect(w.controller.rectOf("/S/Destination/Probe").h).toBe(40)
+		local settled = w.controller.stats().solves
+		w.pres.refresh()
+		expect(w.controller.stats().solves).toBe(settled)
+		expect(w.adapter.node("/S/Destination/Label").props.text).toBe("Width 400")
+		shown:set(false)
+		label:set("Final")
+		w.pres.refresh()
+		expect(w.adapter.node("/S/Destination/Gate/then/Added")).toBeNil()
+		expect(w.adapter.node("/S/Destination/Label").props.text).toBe("Final")
+		expect(w.core:lastError()).toBeNil()
+		w.pres.dismiss(w.handle)
+	end)
+end)

@@ -73,7 +73,9 @@ export type NavigationGroup = {
 		what makes them navigation-only.
 
 		Anything that is not an integer >= 1 is ignored and the group stays 1-D. ]]
-	columns: number?,
+	columns: number?, -- Optional resting geometry: directional search replaces inferred ordinal movement.
+	rectOf: ((string) -> any)?,
+	section: any?, -- container entry region; supplied by UI.focusSection
 }
 
 export type FocusScope = {
@@ -276,11 +278,16 @@ function focus_graph.new(core: any)
 		correct — sharing is only a hazard where something writes. ]]
 	local function internalGroups(groups: { any }): { any }
 		local out: { any } = {}
+		local sections = false
+		for _, group in groups do
+			sections = sections or group.section ~= nil
+		end
 		for i, group in groups do
 			local sink: { [string]: () -> boolean } = {}
 			local copy: any = table.clone(group)
 			copy.order = normalizeOrder(group.order, sink)
 			copy._focusable = sink
+			copy._sections = sections
 			out[i] = copy
 		end
 		return out
@@ -595,6 +602,23 @@ function focus_graph.new(core: any)
 		return false
 	end
 
+	local function inSection(group, name)
+		for _, section in (group and group.sections) or {} do
+			if section.name == name then
+				return true
+			end
+		end
+		return group and group.section and group.section.name == name
+	end
+	local function entrySection(group, fromGroup)
+		for _, section in group.sections or {} do
+			if not inSection(fromGroup, section.name) then
+				return section
+			end
+		end
+		return if group.section and not inSection(fromGroup, group.section.name) then group.section else nil
+	end
+
 	-- remember the last focused id per group (entry = "restore")
 	local function recordFocus(scope: any, id: string?)
 		if scope == nil or id == nil or scope.groups == nil then
@@ -604,6 +628,9 @@ function focus_graph.new(core: any)
 		if group ~= nil then
 			scope._lastFocus = scope._lastFocus or {}
 			scope._lastFocus[group.name] = id
+			for _, section in group.sections or (if group.section then { group.section } else {}) do
+				scope._lastFocus[section.name] = id
+			end
 		end
 	end
 
@@ -633,6 +660,23 @@ function focus_graph.new(core: any)
 		-- screen's own members: entry never starts on adopted chrome
 		for _, id in (scope._entryOrder or allIds(scope)) do
 			if isFocusable(scope, id) then
+				local group = if scope.groups then groupOf(scope, id) else nil
+				for _, section in (group and group.sections) or {} do
+					if section.preferred then
+						for _, candidate in (scope._entryOrder or allIds(scope)) do
+							if
+								inSection(groupOf(scope, candidate), section.name)
+								and isFocusable(scope, candidate)
+								and (
+									candidate == section.name .. "/" .. section.preferred
+									or string.sub(candidate, -#section.preferred - 1) == "/" .. section.preferred
+								)
+							then
+								return candidate
+							end
+						end
+					end
+				end
 				return id
 			end
 		end
@@ -892,6 +936,114 @@ function focus_graph.new(core: any)
 		end
 	end
 
+	-- Score resting rectangles; the aligned directional beam wins over diagonals.
+	local function directionScore(origin, rect, direction)
+		if not origin or not rect or rect.w <= 0 or rect.h <= 0 then
+			return nil
+		end
+		local horizontal = direction == "left" or direction == "right"
+		local sign = if direction == "left" or direction == "up" then -1 else 1
+		local ox, oy = if horizontal then origin.x else origin.y, if horizontal then origin.y else origin.x
+		local ow, oh = if horizontal then origin.w else origin.h, if horizontal then origin.h else origin.w
+		local x, y = if horizontal then rect.x else rect.y, if horizontal then rect.y else rect.x
+		local w, h = if horizontal then rect.w else rect.h, if horizontal then rect.h else rect.w
+		local forward = sign * (x + w / 2 - ox - ow / 2)
+		if forward <= 0.5 then
+			return nil
+		end
+		return {
+			beam = math.min(oy + oh, y + h) > math.max(oy, y),
+			score = forward + 2 * math.abs(y + h / 2 - oy - oh / 2),
+		}
+	end
+	local function better(a, b)
+		return a ~= nil and (b == nil or (a.beam and not b.beam) or (a.beam == b.beam and a.score < b.score))
+	end
+	local function sectionExit(scope, fromGroup, direction): boolean
+		if not fromGroup._sections then
+			return false
+		end
+		local from = focused:get()
+		local resolver = fromGroup.rectOf or (fromGroup.section and fromGroup.section.rectOf)
+		if not resolver then
+			return false
+		end
+		local origin = resolver(from)
+		if not origin then
+			return false
+		end
+		local best, bestScore = nil, nil
+		for _, group in scope.groups do
+			if group ~= fromGroup and (group.section or fromGroup.section) then
+				local section = entrySection(group, fromGroup)
+				local readRect = group.rectOf or (group.section and group.section.rectOf)
+				if readRect then
+					for _, path in group.order do
+						if isFocusable(scope, path) then
+							local rect = if section and not inSection(fromGroup, section.name)
+								then readRect(section.name)
+								else readRect(path)
+							local score = directionScore(origin, rect, direction)
+							if better(score, bestScore) then
+								best, bestScore = { group = group, section = section, path = path }, score
+							end
+						end
+					end
+				end
+			end
+		end
+		if not best then
+			return fromGroup.section ~= nil
+		end
+		local section = best.section
+		local target = best.path
+		if section then
+			local candidates = {}
+			for _, group in scope.groups do
+				if inSection(group, section.name) then
+					for _, path in group.order do
+						if isFocusable(scope, path) then
+							table.insert(candidates, path)
+						end
+					end
+				end
+			end
+			local remembered = scope._lastFocus and scope._lastFocus[section.name]
+			if section.entry == "restore" and remembered and indexOf(candidates, remembered) then
+				target = remembered
+			else
+				local preferred = nil
+				for _, path in candidates do
+					if
+						section.preferred
+						and (
+							path == section.name .. "/" .. section.preferred
+							or string.sub(path, -#section.preferred - 1) == "/" .. section.preferred
+						)
+					then
+						preferred = path
+						break
+					end
+				end
+				if preferred then
+					target = preferred
+				elseif section.entry == "nearest" then
+					local score = nil
+					for _, path in candidates do
+						local nextScore = directionScore(origin, section.rectOf(path), direction)
+						if better(nextScore, score) then
+							target, score = path, nextScore
+						end
+					end
+				else
+					target = candidates[1] or target
+				end
+			end
+		end
+		setFocus(target)
+		return true
+	end
+
 	-- leave `group` in `direction`: declared exit first; containment blocks
 	-- implicit exits; otherwise fall through the group array in order
 	local function exitFrom(
@@ -912,6 +1064,9 @@ function focus_graph.new(core: any)
 		if group.containment == true then
 			return
 		end
+		if sectionExit(scope, group, direction) then
+			return
+		end
 		local delta = FALLTHROUGH_DELTA[direction]
 		if delta == nil then
 			return
@@ -926,6 +1081,54 @@ function focus_graph.new(core: any)
 			end
 			index += delta
 		end
+	end
+
+	-- Resting rectangles are read only on a navigation press, never from animated
+	-- focus paint. Search within this layout group; crossing its edge still uses
+	-- the shared declared/adjacent-group policy. A scan must not jump across a
+	-- contributed control or assume another surface uses the same coordinates.
+	local function spatialStep(scope: any, group: any, groupIndex: number, direction: string): boolean
+		if group.rectOf == nil or group.columns ~= nil or group.wrap == true or FALLTHROUGH_DELTA[direction] == nil then
+			return false
+		end
+		local current = focused:get()
+		local origin = group.rectOf(current)
+		if origin == nil or origin.w <= 0 or origin.h <= 0 then
+			return false
+		end
+		local horizontal = direction == "left" or direction == "right"
+		local sign = if direction == "left" or direction == "up" then -1 else 1
+		local ox = if horizontal then origin.x else origin.y
+		local oy = if horizontal then origin.y else origin.x
+		local ow = if horizontal then origin.w else origin.h
+		local oh = if horizontal then origin.h else origin.w
+		local best, bestBeam, bestScore = nil, false, math.huge
+		for _, id in group.order do
+			if id ~= current and isFocusable(scope, id) then
+				local rect = group.rectOf(id)
+				if rect ~= nil and rect.w > 0 and rect.h > 0 then
+					local x = if horizontal then rect.x else rect.y
+					local y = if horizontal then rect.y else rect.x
+					local w = if horizontal then rect.w else rect.h
+					local h = if horizontal then rect.h else rect.w
+					local forward = sign * (x + w / 2 - ox - ow / 2)
+					if forward > 0.5 then
+						local beam = math.min(oy + oh, y + h) > math.max(oy, y)
+						local cross = math.abs(y + h / 2 - oy - oh / 2)
+						local score = forward + cross * 2
+						if (beam and not bestBeam) or (beam == bestBeam and score < bestScore) then
+							best, bestBeam, bestScore = id, beam, score
+						end
+					end
+				end
+			end
+		end
+		if best ~= nil then
+			setFocus(best)
+		else
+			exitFrom(scope, group, groupIndex, direction, indexOf(group.order, current))
+		end
+		return true
 	end
 
 	-- direction-aware navigation ("up" | "down" | "left" | "right")
@@ -945,6 +1148,11 @@ function focus_graph.new(core: any)
 		local group, groupIndex = groupOf(scope, focused:get())
 		if group == nil then
 			setFocus(entryFocus(scope))
+			return
+		end
+		if
+			not (group.exit and group.exit[direction]) and spatialStep(scope, group, groupIndex :: number, direction)
+		then
 			return
 		end
 		local i = indexOf((group :: NavigationGroup).order, focused:get()) :: number
@@ -1148,7 +1356,16 @@ function focus_graph.new(core: any)
 				if scope._lastFocus ~= nil then
 					for groupName, remembered in scope._lastFocus do
 						local group = groupByName(scope, groupName)
-						if group == nil or indexOf((group :: NavigationGroup).order, remembered) == nil then
+						local survives = group ~= nil and indexOf(group.order, remembered) ~= nil
+						if not survives then
+							for _, candidate in scope.groups do
+								if inSection(candidate, groupName) and indexOf(candidate.order, remembered) then
+									survives = true
+									break
+								end
+							end
+						end
+						if not survives then
 							scope._lastFocus[groupName] = nil
 						end
 					end

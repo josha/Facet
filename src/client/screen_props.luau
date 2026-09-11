@@ -74,6 +74,7 @@ local SCALE_MODE_ENGINE = screen_vocabulary.SCALE_MODE_ENGINE
 local TINT_REPAINTING_PROPS = screen_vocabulary.TINT_REPAINTING_PROPS
 local fontFaceFor = screen_vocabulary.fontFaceFor
 
+local screen_image = require("./screen_image")
 local screen_props = {}
 
 export type Ctx = {
@@ -409,6 +410,9 @@ function screen_props.new(ctx: Ctx)
 				handle.tint = value
 				applyTint(handle)
 			end
+		elseif prop == "imageFraming" then
+			handle.imageFraming = value
+			screen_image.sync(handle)
 		elseif prop == "scaleMode" then
 			-- HOW THE PICTURE FILLS ITS BOX. `ScaleType` is sheet-owned in native mode
 			-- (a skinned slot's rule sets it), so an authored one CLAIMS it — the same
@@ -715,7 +719,8 @@ function screen_props.new(ctx: Ctx)
 			end
 		elseif prop == "image" then
 			if instance:IsA("ImageLabel") then
-				instance.Image = tostring(value)
+				handle.imageContent = if value == nil then "" else tostring(value)
+				instance.Image = handle.imageContent
 			end
 		elseif prop == "cursorHint" then
 			handle.cursorHint = tostring(value)
@@ -728,6 +733,15 @@ function screen_props.new(ctx: Ctx)
 		-- new repainting write cannot forget it.
 		if handle.tint ~= nil and TINT_REPAINTING_PROPS[prop] then
 			applyTint(handle)
+		end
+		if
+			handle.imageFraming ~= nil
+			and (prop == "image" or prop == "tint" or prop == "surface" or prop == "corners" or prop == "gradient")
+		then
+			screen_image.sync(handle)
+			if prop == "corners" or prop == "gradient" or prop == "surface" then
+				screen_image.syncModifiers(handle)
+			end
 		end
 	end
 

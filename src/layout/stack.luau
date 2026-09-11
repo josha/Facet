@@ -46,6 +46,7 @@
 	every fixture in the repository. ]]
 local num = require("../num")
 local shrinkLib = require("./shrink")
+local fillSpace = require("./fill_space")
 local baseline = require("./baseline")
 local spacerMinimum = require("./measure_facts").spacerMinimum
 local placementLib = require("./placement")
@@ -858,22 +859,16 @@ function stack.arrange(
 	local remaining = math.max(0, availMain)
 	local fillPx: { [number]: number } = {}
 	if fillWeightSum > 0 then
-		local acc = 0
 		local shares = {}
 		for idx, child in children do
 			local mainDim = deps.mainDimOf(child, isH)
 			if mainDim.type == "fill" then
-				local exact = remaining * (mainDim.weight or 1) / fillWeightSum
-				table.insert(shares, { i = idx, floor = math.floor(exact), rem = exact - math.floor(exact) })
-				acc += math.floor(exact)
+				table.insert(shares, { i = idx, weight = mainDim.weight or 1 })
 			end
 		end
-		table.sort(shares, function(a, b)
-			return if a.rem ~= b.rem then a.rem > b.rem else a.i < b.i
-		end)
-		local leftover = remaining - acc
-		for rank, share in shares do
-			fillPx[share.i] = share.floor + (if rank <= leftover then 1 else 0) + spacerMinimum(children[share.i], isH)
+		fillPx = fillSpace.allocate(remaining, fillWeightSum, shares)
+		for _, share in shares do
+			fillPx[share.i] += spacerMinimum(children[share.i], isH)
 		end
 	end
 	-- A FILL child's CROSS size was measured above against the whole inner extent,

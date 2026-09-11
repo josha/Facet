@@ -800,6 +800,34 @@ t.describe("RadialMenu control", function()
 			c.dispose()
 		end
 	end)
+	it("ten-foot compass icons retain usable squares in a thin ring", function()
+		for _, theme in { require("../examples/themes/pixel_quest"), require("../examples/themes/fantasy_ornate") } do
+			local items = {}
+			for _, slot in { "N", "NE", "E", "SE", "S", "SW", "W", "NW" } do
+				table.insert(items, { id = slot, slot = slot, label = "Wave", icon = "flag" })
+			end
+			local w, c = setup({
+				items = items,
+				gestureSelection = "direction",
+				appearance = "wedges",
+				contentFit = "both",
+				center = "back",
+			})
+			w.env:set("themeMetrics", Facet.themes.resolve(theme.build(Facet.themes), nil, {}))
+			w.env:set("viewportRect", { x = 0, y = 0, w = 1920, h = 1080 })
+			w.env:set("viewingDistance", "ten-foot")
+			tapOpen(w, c)
+			w.settle(60)
+			local minimum = w.env:get("themeMetrics"):get().iconSizes.medium
+			for _, sector in c.dump().sectors do
+				if not sector.navigation then
+					local n = w.adapter.node(sector.path)
+					expect(math.min(n.rect.w, n.rect.h) >= minimum - 1).toBe(true)
+				end
+			end
+			c.dispose()
+		end
+	end)
 	it("semantic action icons receive the same painted size as ring navigation", function()
 		local icons = require("../src/tokens/chrome_slots")
 		for _, fit in { "none", "radial", "angular", "both" } do

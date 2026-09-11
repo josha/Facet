@@ -583,7 +583,7 @@ describe("D5 seam: a badge is a count that lives on an UNSELECTED option", funct
 
 	it('a badged option wears a `surface = "badge"` plate; an unbadged one wears nothing', function()
 		local w = world({ presentation = "segmented", options = BADGED })
-		local plate = w.adapter.node(cellPath(w, 2) .. "/Badge/Count")
+		local plate = w.adapter.node(cellPath(w, 2) .. "/Opt2/HStack#1/Badge")
 		expect(plate ~= nil).toBe(true)
 		expect(plate.props.surface).toBe("badge")
 		expect(plate.props.text).toBe("3")
@@ -596,7 +596,7 @@ describe("D5 seam: a badge is a count that lives on an UNSELECTED option", funct
 	it("the badge is on the UNSELECTED option and stays live — that is the point of a badge", function()
 		local w = world({ presentation = "segmented", options = BADGED, initial = "grid" })
 		expect(w.selected:get()).toBe("grid")
-		expect(w.adapter.node(cellPath(w, 2) .. "/Badge/Count").props.text).toBe("3")
+		expect(w.adapter.node(cellPath(w, 2) .. "/Opt2/HStack#1/Badge").props.text).toBe("3")
 	end)
 
 	it("the seal is a DECORATION: no focus stop, no second activation site", function()
@@ -608,8 +608,8 @@ describe("D5 seam: a badge is a count that lives on an UNSELECTED option", funct
 		local badged = world({ presentation = "segmented", options = BADGED })
 		local plain = world({ presentation = "segmented" })
 		expect(badged.adapter.node(cellPath(badged, 2)).class).toBe("ZStack")
-		expect(badged.adapter.node(cellPath(badged, 2) .. "/Badge").class).toBe("ZStack")
-		expect(badged.adapter.node(cellPath(badged, 2) .. "/Badge/Count").class).toBe("Text")
+		expect(badged.adapter.node(cellPath(badged, 2) .. "/Opt2/HStack#1").class).toBe("HStack")
+		expect(badged.adapter.node(cellPath(badged, 2) .. "/Opt2/HStack#1/Badge").class).toBe("Text")
 		local badgedFocus: { string } = {}
 		local plainFocus: { string } = {}
 		focus_map.collectFocusables(badged.handle.root.node, badgedFocus)
@@ -635,11 +635,11 @@ describe("D5 seam: a badge is a count that lives on an UNSELECTED option", funct
 		})
 		pres.present(UI.Screen({ id = "S", children = { p.blueprint } }))
 		pres.refresh()
-		expect(adapter.visibleOf("/S/View/Indicator/Options/Opt2Cell/Badge/Count")).toBe(false)
+		expect(adapter.visibleOf("/S/View/Indicator/Options/Opt2Cell/Opt2/HStack#1/Badge")).toBe(false)
 		count:set("12")
 		pres.refresh()
-		expect(adapter.visibleOf("/S/View/Indicator/Options/Opt2Cell/Badge/Count")).toBe(true)
-		expect(adapter.node("/S/View/Indicator/Options/Opt2Cell/Badge/Count").props.text).toBe("12")
+		expect(adapter.visibleOf("/S/View/Indicator/Options/Opt2Cell/Opt2/HStack#1/Badge")).toBe(true)
+		expect(adapter.node("/S/View/Indicator/Options/Opt2Cell/Opt2/HStack#1/Badge").props.text).toBe("12")
 		p.dispose()
 	end)
 

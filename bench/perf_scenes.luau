@@ -59,6 +59,7 @@ local perf_profiles = require("../bench/perf_profiles")
 -- place does not run.
 local perf_dataset = require("../examples/performance/lab/dataset")
 local perf_rows = require("../examples/performance/lab/rows")
+local navigationInventory = require("../examples/performance/lab/navigation_inventory")
 local themeSnapshot = require("../src/themes/snapshot")
 local sheet_model = require("../src/tokens/sheet_model")
 
@@ -70,6 +71,7 @@ export type PerfScene = {
 	dataset: string,
 	setup: (profile: any) -> any,
 	run: (state: any) -> { [string]: number }?,
+	afterRun: ((state: any) -> ())?,
 	teardown: ((state: any) -> ())?,
 	samples: number?,
 	warmup: number?,
@@ -1495,4 +1497,87 @@ table.insert(scenes, {
 	end,
 })
 
+-- Shared controls in an inventory-shaped page. Geometry/identity assertions
+-- guard the work avoided, independently of noisy wall-clock trend budgets.
+table.insert(scenes, {
+	name = "adaptive-navigation-images",
+	requirement = "UI-PERF-001",
+	dataset = "24 framed image Buttons in a responsive inventory Grid; 3 TabView destinations; idle, focus and sidebar round-trip",
+	samples = 120,
+	warmup = 20,
+	setup = function(profile)
+		local core, env, system, adapter, pres = newStack(profile)
+		local state = navigationInventory.build(Facet, core, perf_dataset.IMAGE_KEYS)
+		local handle = pres.present(state.screen)
+		pres.refresh()
+		pres.tick(1 / 60)
+		pres.refresh()
+		state.core, state.env, state.adapter, state.pres, state.handle = core, env, adapter, pres, handle
+		state.n = 0
+		return state
+	end,
+	run = function(state)
+		local pres, c = state.pres, state.handle.controller
+		local phases = {}
+		local before = c.stats()
+		local t0 = os.clock()
+		pres.tick(1 / 60)
+		pres.refresh()
+		phases.idle = os.clock() - t0
+		assert(c.stats().solves == before.solves, "idle adaptive controls must not solve")
+		state.n += 1
+		t0 = os.clock()
+		pres.focus.focusOn("/S/Tabs/Content/Tab-garage/then/Inventory/Cars/Car" .. (state.n % 2 + 1))
+		pres.tick(1 / 60)
+		pres.refresh()
+		phases.focus = os.clock() - t0
+		assert(c.stats().solves == before.solves, "image focus must remain paint-only")
+		assert(c.stats().creates == before.creates, "image focus must not remount content")
+		t0 = os.clock()
+		state.tabs.expandSidebar()
+		pres.refresh()
+		pres.tick(1 / 60)
+		state.tabs.collapseSidebar()
+		pres.refresh()
+		pres.tick(1 / 60)
+		pres.refresh()
+		pres.tick(1 / 60)
+		pres.refresh()
+		phases.navigation = os.clock() - t0
+		assert(state.builds() == 1, "navigation chrome must preserve its selected page")
+		return phases
+	end,
+	afterRun = function(state)
+		-- Settling is measured separately from one player event. It still runs
+		-- on every iteration and must leave the next idle sample truly idle.
+		for _ = 1, 60 do
+			state.pres.tick(1 / 60)
+			state.pres.refresh()
+		end
+	end,
+	extras = function(state)
+		return { contentBuilds = state.builds(), render = state.handle.controller.stats() }
+	end,
+	teardown = function(state)
+		state.pres.dismiss(state.handle)
+		state.tabs.dispose()
+		state.selected:dispose()
+		state.customization:dispose()
+	end,
+})
+
+local customizationScene = table.clone(scenes[#scenes])
+customizationScene.name = "navigation-customization"
+customizationScene.dataset =
+	"Reorder three live destinations around a retained 24-card inventory; event cost and multi-frame settling reported separately"
+customizationScene.run = function(state)
+	state.n += 1
+	local before = state.builds()
+	local started = os.clock()
+	state.tabs.moveTab("garage", if state.n % 2 == 0 then 1 else 2)
+	state.pres.refresh()
+	assert(state.builds() == before, "customization must preserve the selected page")
+	return { customization = os.clock() - started }
+end
+table.insert(scenes, customizationScene)
 return scenes

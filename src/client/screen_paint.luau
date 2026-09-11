@@ -506,6 +506,21 @@ function screen_paint.new(ctx: any)
 		return handle.restingScale or 1
 	end
 
+	-- A neutral press-only UIScale suppresses UIShadow in the native engine.
+	-- Drop it after recovery; authored/motion scales keep their existing pivot
+	-- and lifetime, including the settled radial-menu rounding protection.
+	local function releasePressScale(handle: any, scale: any)
+		if
+			handle.uiScale == scale
+			and handle.motionScale ~= scale
+			and not handle.motionAnchorCentered
+			and scale.Scale == 1
+		then
+			handle.uiScale = nil
+			scale:Destroy()
+		end
+	end
+
 	-- pressed-dip presentation for native mode: the fills belong to the sheet
 	-- (:Press rules), but the quick UIScale dip is value-driven presentation
 	-- and stays bespoke (plan §6.5) — wired WITHOUT any fill writes.
@@ -518,9 +533,16 @@ function screen_paint.new(ctx: any)
 			end
 			local resting = restingScale(handle)
 			if not isReducedMotion() and not handle.suppressStates then
-				TweenService:Create(scale, motionInfo(style.motion.fast), { Scale = resting }):Play()
+				local tween = TweenService:Create(scale, motionInfo(style.motion.fast), { Scale = resting })
+				tween.Completed:Once(function(state)
+					if state == Enum.PlaybackState.Completed then
+						releasePressScale(handle, scale)
+					end
+				end)
+				tween:Play()
 			else
 				scale.Scale = resting
+				releasePressScale(handle, scale)
 			end
 		end
 		button.MouseButton1Down:Connect(function()
@@ -1104,9 +1126,16 @@ function screen_paint.new(ctx: any)
 			-- authored `scale` on the first release
 			local resting = restingScale(handle)
 			if not isReducedMotion() and not handle.suppressStates then
-				TweenService:Create(scale, motionInfo(style.motion.fast), { Scale = resting }):Play()
+				local tween = TweenService:Create(scale, motionInfo(style.motion.fast), { Scale = resting })
+				tween.Completed:Once(function(state)
+					if state == Enum.PlaybackState.Completed then
+						releasePressScale(handle, scale)
+					end
+				end)
+				tween:Play()
 			else
 				scale.Scale = resting
+				releasePressScale(handle, scale)
 			end
 		end
 		button.MouseLeave:Connect(function()

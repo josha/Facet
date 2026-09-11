@@ -136,6 +136,16 @@ describe("d-pad auto-repeat: presenter cadence and gating", function()
 		expect(w.pres.focus.focused:get()).toBe("/S/Row5")
 	end)
 
+	it("bounds catch-up after a long game frame and drops the excess debt", function()
+		local w = worldLib.new()
+		w.present(fiveRowScreen())
+		w.system.deviceKey("DPadDown", true)
+		w.tick(10)
+		expect(w.pres.focus.focused:get()).toBe("/S/Row5") -- at most three repeated steps
+		w.tick(0)
+		expect(w.pres.focus.focused:get()).toBe("/S/Row5") -- no queued burst next frame
+	end)
+
 	it("holding a keyboard arrow (Down) does NOT auto-repeat", function()
 		local w = worldLib.new()
 		w.present(fiveRowScreen())
@@ -358,4 +368,110 @@ describe("d-pad auto-repeat + RED-TEAM C1: ownership can be lost mid-hold withou
 			w.pres.dismiss(modalHandle)
 		end
 	)
+end)
+
+describe("controller value hold", function()
+	it("repeats a held slider adjustment and stops at focus transfer", function()
+		local w = worldLib.new({ viewport = { x = 0, y = 0, w = 600, h = 400 }, preferredInput = "Gamepad" })
+		local value = w.core:signal(0)
+		local slider = Facet.Controls.Slider(w.core, { id = "Value", value = value, min = 0, max = 100, step = 1 })
+		w.present(Facet.UI.Screen({
+			id = "S",
+			children = { slider.blueprint, Facet.UI.Button({ id = "Other", label = "Other" }) },
+		}))
+		local map = w.pres.focus.focusMap()
+		local path
+		for _, e in map.traversal do
+			if string.find(e.path, "/Value/", 1, true) then
+				path = e.path
+				break
+			end
+		end
+		w.pres.focus.focusOn(path)
+		w.system.deviceKey("DPadRight", true)
+		expect(value:get()).toBe(1)
+		w.tick(0.4)
+		expect(value:get()).toBe(2)
+		w.tick(0.1)
+		expect(value:get()).toBe(3)
+		w.pres.focus.focusOn("/S/Other")
+		w.tick(1)
+		expect(value:get()).toBe(3)
+		w.system.deviceKey("DPadRight", false)
+		w.pres.dismiss(w.handle)
+		slider.dispose()
+	end)
+end)
+
+describe("value repeat interruption ownership", function()
+	for _, kind in { "Slider", "Stepper", "Rating" } do
+		it(kind .. " abandons a held adjustment when a modal owns input, including after dismissal", function()
+			local w = worldLib.new({ viewport = { x = 0, y = 0, w = 600, h = 400 }, preferredInput = "Gamepad" })
+			local value = w.core:signal(1)
+			local spec = { id = "Value", value = value }
+			if kind ~= "Rating" then
+				spec.min = 0
+				spec.max = 10
+				spec.step = 1
+			end
+			local control = Facet.Controls[kind](w.core, spec)
+			w.present(Facet.UI.Screen({ id = "S", children = { control.blueprint } }))
+			local suffix = if kind == "Slider" then "/Track" elseif kind == "Rating" then "/Strip" else "/Dec"
+			for _, entry in w.pres.focus.focusMap().traversal do
+				if string.sub(entry.path, -#suffix) == suffix then
+					w.pres.focus.focusOn(entry.path)
+					break
+				end
+			end
+			w.system.deviceKey("ButtonR1", true)
+			expect(value:get()).toBe(2)
+			w.tick(0.4)
+			expect(value:get()).toBe(3)
+			local modal = w.pres.presentModal(
+				Facet.UI.Screen({ id = "Modal", children = { Facet.UI.Button({ id = "Close", label = "Close" }) } })
+			)
+			w.pres.refresh()
+			w.tick(0.6)
+			expect(value:get()).toBe(3)
+			expect(w.pres.focus.focused:get()).toBe("/Modal/Close")
+			w.system.deviceKey("ButtonR1", false)
+			w.pres.dismiss(modal)
+			w.tick(0.6)
+			expect(value:get()).toBe(3)
+			w.press("ButtonR1")
+			expect(value:get()).toBe(4)
+			w.pres.dismiss(w.handle)
+			control.dispose()
+		end)
+	end
+	it("a higher priority gameplay binding cancels value repeat and receives the next press", function()
+		local w = worldLib.new({ viewport = { x = 0, y = 0, w = 600, h = 400 }, preferredInput = "Gamepad" })
+		local value = w.core:signal(1)
+		local control = Facet.Controls.Slider(w.core, { id = "Value", value = value, min = 0, max = 10, step = 1 })
+		w.present(Facet.UI.Screen({ id = "S", children = { control.blueprint } }))
+		w.pres.focus.focusOn("/S/Value/Track")
+		w.system.deviceKey("ButtonR1", true)
+		w.tick(0.4)
+		expect(value:get()).toBe(3)
+		local context = w.system.createContext({ name = "Gameplay", priority = 100000, sink = true })
+		local action = context.createAction("Boost", "Bool")
+		action.bind({ keyCode = "ButtonR1" })
+		local presses = 0
+		action.onPressed(function()
+			presses += 1
+		end)
+		w.tick(0.6)
+		expect(value:get()).toBe(3)
+		w.system.deviceKey("ButtonR1", false)
+		w.press("ButtonR1")
+		expect(presses).toBe(1)
+		expect(value:get()).toBe(3)
+		context.destroy()
+		w.tick(0.6)
+		expect(value:get()).toBe(3)
+		w.press("ButtonR1")
+		expect(value:get()).toBe(4)
+		w.pres.dismiss(w.handle)
+		control.dispose()
+	end)
 end)

@@ -500,6 +500,14 @@ demo_picker.DEMOS = {
 		kind = "fixture",
 		module = "radial_menu",
 	},
+	-- Shared confirmation behavior, also used by Actions and menus and tutorial 04.
+	{
+		id = "alert",
+		title = "Alerts and confirmations",
+		blurb = "Compact decisions, responsive actions, safe focus and Back.",
+		kind = "fixture",
+		module = "alert",
+	},
 	-- scaffold: new control demos are appended above this line. Fixtures lead the
 	-- tutorials, which follow in the order the guide teaches them, so a scaffolded
 	-- control lands at the end of the fixture run rather than in the middle of a

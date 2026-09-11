@@ -143,17 +143,10 @@
 --                             reactive (a compact form is what a control HAS),
 --                             so the binding has to be the label itself.
 --
--- A BADGED OPTION GAINS ONE WRAPPER NODE, and only a badged one. The badge is a
--- decoration ON the segment, so it cannot be a Button CHILD: a Button with
--- children draws no text at all (`renderer.luau:913` — "a content button's label
--- is SEMANTICS, not paint"), which would take the word away from every segment
--- that carries a count and throw out the compactLabel degrade ladder with it. It
--- is therefore an overlay SIBLING inside a per-segment `ZStack` — the shape
--- `p4_foyer`'s `badgeBubble` already ships over its friend tiles — and the
--- Button keeps its own id, so activation (which dispatches on the LEAF id) and
--- the indicator (which resolves the SEGMENT by id) are both untouched. An
--- unbadged picker mounts no wrapper and no badge node, so every path that
--- shipped before D5 is byte-identical.
+-- Badged options use the shared row recipe: icon/name and count reserve separate
+-- space inside one Button. The semantic Button id and its optional cell remain
+-- stable, so focus and the selection indicator still track the same option.
+-- Unbadged options retain the primitive compact-label degrade ladder.
 
 local chrome_slots = require("../tokens/chrome_slots")
 local coreContract = require("../core/contract")
@@ -162,7 +155,6 @@ local contribution = require("../input/contribution")
 local selectionIndicator = require("./selection_indicator")
 local specGuard = require("../spec_guard")
 local surfaceEnv = require("../env/surface_env")
-local themeSnapshot = require("../themes/snapshot")
 
 local selectionModel = require("../selection_model")
 local menuRecipe = require("./menu_recipe")
@@ -174,8 +166,16 @@ local picker = {}
 -- and a terse localized name live). `badge` is the count seal — a string, a
 -- number, or a Readable of either; an empty one hides the plate rather than
 -- painting an empty bubble.
-export type Option =
-	{ id: string?, value: any, label: any, icon: string?, badge: any?, enabled: any?, description: any? }
+export type Option = {
+	id: string?,
+	value: any,
+	label: any,
+	icon: string?,
+	badge: any?,
+	enabled: any?,
+	description: any?,
+	sectionTitle: any?,
+}
 
 export type Spec = {
 	required: boolean?,
@@ -259,8 +259,6 @@ local OVERLAY_FILL = table.freeze({ type = "fill", weight = 1 })
 -- the count seal's own box. Both numbers are theme SPACING steps, so a package
 -- published before this existed answers them and a theme that retunes its
 -- spacing retunes the badge with it (the `selection_indicator` precedent).
-local BADGE_BOX = table.freeze({ type = "minMax", min = "l" })
-local BADGE_PAD = table.freeze({ left = "xs", right = "xs" })
 
 -- the adaptive rule, pure and exported so a caller can predict it
 function picker.resolvePresentation(optionCount: number, sizeClass: string?, longestLabel: number): string
@@ -308,7 +306,8 @@ local function readValue(source: any, use: any?): any
 	return source
 end
 
-local OPTION_KEYS = specGuard.keySet({ "id", "value", "label", "description", "icon", "badge", "enabled" })
+local OPTION_KEYS =
+	specGuard.keySet({ "id", "value", "label", "description", "icon", "badge", "enabled", "sectionTitle" })
 local function validateArray(list)
 	assert(type(list) == "table", "Picker: options must be an array")
 	local count = 0
@@ -362,10 +361,12 @@ local function buildLive(Facet, core, spec)
 	)
 	local requested = spec.presentation or "automatic"
 	assert(PRESENTATIONS[requested], "Picker: presentation must be automatic | segmented | inline | radio")
-	assert(
-		spec.indicator == nil or spec.indicator == "automatic" or spec.indicator == "none",
-		"Picker: live options use selected row chrome; indicator must be automatic or none"
-	)
+	assert(spec.indicator == nil or INDICATORS[spec.indicator], "Picker: invalid live indicator")
+	local slides = requested == "segmented" and (spec.indicator == "pill" or spec.indicator == "underline")
+	local sectioned = false
+	for _, option in readValue(spec.options) do
+		sectioned = sectioned or option.sectionTitle ~= nil
+	end
 	local disposed = false
 	local mountedNode
 	scope:own(function()
@@ -492,7 +493,14 @@ local function buildLive(Facet, core, spec)
 					and controlContract.enabledIn(use, use(current).enabled)
 			end))
 			local row = menuRecipe.row(UI, {
-				id = "Option",
+				id = if slides then "Option-" .. identity else "Option",
+				wrap = true,
+				surface = if slides then "plain" else nil,
+				labelTint = if slides and spec.indicator == "pill"
+					then rowScope:own(core:memo(function(use)
+						return { role = if use(selected) then "onAccent" else "content", blend = 1 }
+					end))
+					else nil,
 				label = prop("label"),
 				description = prop("description", ""),
 				icon = prop("icon"),
@@ -502,23 +510,72 @@ local function buildLive(Facet, core, spec)
 				width = segmentWidth,
 				textSize = spec.textSize,
 				iconOnly = spec.iconOnly,
-				selected = selected,
+				selected = if slides then nil else selected,
 				enabled = enabled,
 				indicator = if requested == "radio" then "radio" else nil,
 				markHidden = rowScope:own(core:memo(function(use)
 					return not use(selected)
 				end)),
 			})
-			return contribution.attach(row, {
+			row = contribution.attach(row, {
 				handleActivate = function()
 					choose(identity)
 					return true
 				end,
 			})
+			if not sectioned then
+				return row
+			end
+			local heading = prop("sectionTitle", "")
+			local showHeading = rowScope:own(core:memo(function(use)
+				return use(axis) == "y" and use(heading) ~= ""
+			end))
+			return UI.VStack({
+				id = "SectionRow",
+				width = segmentWidth,
+				gap = "xs",
+				children = {
+					UI.When({
+						id = "SectionHeading",
+						condition = showHeading,
+						thenView = function()
+							return UI.Text({
+								id = "SectionTitle",
+								text = heading,
+								textSize = "caption",
+								role = "secondary",
+								width = UI.fill(),
+							})
+						end,
+					}),
+					row,
+				},
+			})
 		end,
 	})
-	local children =
-		{ UI.AdaptiveStack({ id = "Options", axis = axis, gap = "xs", width = groupWidth, children = { rows } }) }
+	local group = UI.AdaptiveStack({ id = "Options", axis = axis, gap = "xs", width = groupWidth, children = { rows } })
+	local indicatorApi
+	if slides then
+		local segments = scope:own(core:memo(function(use)
+			local out = {}
+			for _, option in use(options) do
+				table.insert(out, { id = "Option-" .. key(option), value = option.value })
+			end
+			return out
+		end))
+		indicatorApi = scope:own(selectionIndicator.build(Facet, core, {
+			id = "Indicator",
+			content = group,
+			segments = segments,
+			selected = spec.selected,
+			skin = spec.indicator,
+			axis = axis,
+			env = spec.env,
+			width = groupWidth,
+		}))
+		group = indicatorApi.blueprint
+	end
+	local children = { group }
 	if spec.label then
 		table.insert(children, 1, UI.Text({ id = "Label", text = spec.label, textSize = "label", width = UI.fill() }))
 	end
@@ -537,6 +594,7 @@ local function buildLive(Facet, core, spec)
 			sizing = sizingNow(),
 			iconOnly = spec.iconOnly == true,
 			optionCount = #options:get(),
+			indicator = if indicatorApi then indicatorApi.state() else nil,
 		}
 	end
 	return {
@@ -851,31 +909,6 @@ function picker.build(Facet: any, core: any, spec: Spec)
 		platedRole = chrome_slots.ON_INDICATOR_ROLE
 	end
 
-	-- Static and pill segments retain the theme's corner clearance. The pill
-	-- uses palette paint, but its count seal must keep the same inset geometry.
-	local badgeClearSlot: string? = if indicator == "none" or indicator == "pill" then "control" else nil
-	local badgeCornerInset: any = nil
-	if badgeCount > 0 then
-		local metricsSig = scope:own(core:memo(function(use)
-			if spec.env == nil then
-				return themeSnapshot.neutral()
-			end
-			local raw = use((spec.env :: any):get("themeMetrics"))
-			return if type(raw) == "table" and type(raw.controls) == "table" then raw else themeSnapshot.neutral()
-		end))
-		badgeCornerInset = scope:own(core:memo(function(use)
-			-- PER AXIS (review finding T1): a corner offset pads two independent
-			-- sides, and `carvedBorder`'s shared four-sided max over-clears the
-			-- short axis of any package whose `control` chrome is not itself
-			-- symmetric (fantasy_ornate: top=10, right=14). `carvedSide` reads
-			-- each axis on its own.
-			local snap = use(metricsSig)
-			local top = if badgeClearSlot ~= nil then chrome_slots.carvedSide(snap, badgeClearSlot, "top") else 0
-			local right = if badgeClearSlot ~= nil then chrome_slots.carvedSide(snap, badgeClearSlot, "right") else 0
-			return { top = top, right = right }
-		end))
-	end
-
 	local rows: { any } = {}
 	local byId: { [string]: any } = {}
 	local segments: { any } = {}
@@ -947,57 +980,46 @@ function picker.build(Facet: any, core: any, spec: Spec)
 		if not badged then
 			table.insert(rows, button)
 		else
-			-- THE COUNT SEAL. A DECORATION, never a second activation site: a Text
-			-- and a ZStack are neither focusable (focus_map.FOCUSABLE is Button /
-			-- Toggle / TextField) nor interactive, so the engine still delivers the
-			-- press to the Button underneath — the `p4_foyer` badgeBubble shape,
-			-- and the reason it is a sibling rather than a Button child.
-			local badgeText = scope:own(core:memo(function(use)
-				local raw = readValue(option.badge, use)
-				return if raw == nil then "" else tostring(raw)
-			end))
-			local badgeEmpty = scope:own(core:memo(function(use)
-				return use(badgeText) == ""
-			end))
+			-- The shared row recipe measures label and badge in separate lanes.
+			-- Overlaying a count on a short tab obscures its label, especially
+			-- with distant metrics and an image-backed theme badge.
+			local row = menuRecipe.row(UI, {
+				id = optionId,
+				core = core,
+				scope = scope,
+				label = option.label,
+				labelTint = if platedRole == nil
+					then nil
+					else scope:own(core:memo(function(use)
+						return { role = if use(selected) == option.value then "onAccent" else "content", blend = 1 }
+					end)),
+				textSize = spec.textSize,
+				icon = option.icon,
+				iconOnly = iconOnly,
+				badge = option.badge,
+				wrap = true,
+				description = option.description,
+				indicator = if requested == "radio" then "radio" else nil,
+				selected = scope:own(core:memo(function(use)
+					return use(selected) == option.value
+				end)),
+				markHidden = scope:own(core:memo(function(use)
+					return use(selected) ~= option.value
+				end)),
+			})
+			local props = table.clone(button.props)
+			props.id = optionId
+			props.compactLabel = nil
+			props.height = SEGMENT_HEIGHT
+			props.children = row.children
+			button = UI.Button(props)
 			table.insert(
 				rows,
 				UI.ZStack({
 					id = optionId .. "Cell",
 					width = segmentWidth,
 					height = SEGMENT_HEIGHT,
-					children = {
-						button,
-						UI.ZStack({
-							id = "Badge",
-							alignH = "end",
-							alignV = "start",
-							width = OVERLAY_FILL,
-							height = OVERLAY_FILL,
-							-- clears the segment's own themed chrome border (see
-							-- `badgeCornerInset` above); `{top=0,right=0}` on every flat
-							-- package, so shipped geometry there is unchanged
-							padding = badgeCornerInset,
-							children = {
-								UI.Text({
-									id = "Count",
-									surface = "badge",
-									text = badgeText,
-									-- an EMPTY count hides the plate rather than
-									-- painting an empty bubble; `hidden` is a bound
-									-- prop, so a count that arrives later simply
-									-- appears without a structural change
-									hidden = badgeEmpty,
-									textSize = "caption",
-									textAlign = "center",
-									lineLimit = 1,
-									width = BADGE_BOX,
-									height = BADGE_BOX,
-									padding = BADGE_PAD,
-									corners = UI.cornersData("pill"),
-								}),
-							},
-						}),
-					},
+					children = { button },
 				})
 			)
 		end

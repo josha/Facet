@@ -145,6 +145,20 @@ describe("DB-4: a contribution mounted AFTER present is discovered and wired", f
 		expect(w.bound.actions).toBe(1)
 	end)
 
+	it("a reusable blueprint stays bound once across unmount and remount", function()
+		local w = gatedWorld()
+		for _ = 1, 3 do
+			w.open:set(true)
+			w.pres.refresh()
+			w.adapter.touchTap(GATED_ONE)
+			w.open:set(false)
+			w.pres.refresh()
+		end
+		expect(w.bound.controller).toBe(1)
+		expect(w.bound.actions).toBe(1)
+		expect(#w.hits).toBe(3)
+	end)
+
 	it("a LATE focusGroups upgrades the scope's navigation model (flat -> grouped)", function()
 		local w = gatedWorld()
 		w.open:set(true)

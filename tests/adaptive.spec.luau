@@ -2092,10 +2092,10 @@ describe("navPlacement: the tab/sidebar policy is shape and input facts, never a
 		)
 	end)
 
-	it("precedence: compact beats short beats ten-foot beats input class", function()
-		-- a compact-width canvas is a bottom bar even at ten-foot facts
+	it("precedence: ten-foot keeps top navigation while nearby compact beats short beats input class", function()
+		-- A constrained TV viewport still has top navigation, rather than thumb-zone tabs.
 		expect(adaptive.navPlacement({ sizeClass = "compact", heightClass = "short", distanceProfile = "ten-foot" })).toBe(
-			"bottomBar"
+			"topBar"
 		)
 		-- short height wins over the pointer sidebar (a short desktop pane tabs)
 		expect(adaptive.navPlacement({ sizeClass = "wide", heightClass = "short", primary = "pointer" })).toBe(
@@ -2288,5 +2288,69 @@ describe("director item 5: adaptive.effectiveDisplaySize", function()
 	it("passes nil/garbage through untouched — only a genuine Large+touch pair corrects", function()
 		expect(adaptive.effectiveDisplaySize(nil, true)).toBe(nil)
 		expect(adaptive.effectiveDisplaySize("Enormous", true)).toBe("Enormous")
+	end)
+end)
+
+-- Execute the native materialization seams: the fake renderer target already
+-- retains z, so it cannot expose an elided native handle losing its paint order.
+describe("native adaptive materialization paint order", function()
+	it("replays the latest assigned z before a deferred background or label is shown", function()
+		local luau = require("@lune/luau")
+		local source = adapter_source.live()
+		local materialize = adapter_source.bodyOf(source, "local function ensureInstance")
+		local order = adapter_source.bodyOf(source, "function adapter.setZOrder")
+		local adapter = {
+			setRect = function() end,
+			setVisible = function() end,
+		}
+		local builds = 0
+		local function buildHandle(_root, path, class)
+			builds += 1
+			return {
+				path = path,
+				class = class,
+				hitExpander = { ZIndex = 1 },
+				path2d = { ZIndex = 1 },
+				instance = {
+					ZIndex = 1,
+					IsA = function()
+						return true
+					end,
+				},
+			}
+		end
+		local load = luau.load(
+			"return function(adapter, buildHandle)\nlocal handlesByPath, instancesByPath = {}, {}\n"
+				.. materialize
+				.. "\n"
+				.. order
+				.. "\nreturn ensureInstance\nend"
+		)()
+		local ensure = load(adapter, buildHandle)
+		local background = { elided = true, path = "/Bar", class = "HStack" }
+		local label = { elided = true, path = "/Bar/Label", class = "Text" }
+		adapter.setZOrder(background, 20)
+		adapter.setZOrder(label, 21)
+		adapter.setZOrder(label, 24)
+		expect(builds).toBe(0)
+		-- Reverse creation order must not allow the background to cover its label.
+		ensure(label)
+		ensure(background)
+		expect(background.instance.ZIndex).toBe(20)
+		expect(label.instance.ZIndex).toBe(24)
+		expect(builds).toBe(2)
+		expect(label.hitExpander.ZIndex).toBe(23)
+		expect(label.path2d.ZIndex).toBe(24)
+		expect(label.pendingZ).toBeNil()
+		expect(background.pendingZ).toBeNil()
+		-- Once materialized, a later eager assignment must not be overwritten by
+		-- replaying the old deferred value on another property/materialize call.
+		adapter.setZOrder(label, 30)
+		local instance = ensure(label)
+		expect(instance).toBe(label.instance)
+		expect(instance.ZIndex).toBe(30)
+		expect(label.hitExpander.ZIndex).toBe(29)
+		expect(label.path2d.ZIndex).toBe(30)
+		expect(builds).toBe(2)
 	end)
 end)

@@ -103,6 +103,7 @@ target_contract.OPTIONAL = {
 	-- native touch gestures: engine-recognized events normalized into
 	-- src/input/touch_gestures value objects. Connection-level; firing needs
 	-- real touch (physical row the native substrate).
+	"setHoverObserver", -- (handle, onChanged(boolean)) -> disconnect; optional local hover observation
 	"setPointerPreview", -- (handle, onHover(windowPosition)) -> disconnect; optional mouse preview
 	"setTouchGestureHandlers", -- (handle, onGesture) -> disconnect
 	-- the pointer's SECONDARY button (navigation-and-menus D2): the trigger half

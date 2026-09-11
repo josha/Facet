@@ -10,6 +10,22 @@ return {
 		local scope = core:scope("journey")
 		local path = scope:own(core:signal({}))
 		local destination = scope:own(core:signal("coast"))
+		local query = scope:own(core:signal(""))
+		local journeys = {
+			{ id = "coast", label = "Coastal journey" },
+			{ id = "forest", label = "Forest journey" },
+			{ id = "mountain", label = "Mountain journey" },
+		}
+		local matches = scope:own(core:memo(function(use)
+			local needle = string.lower(use(query))
+			local result = {}
+			for _, item in journeys do
+				if string.find(string.lower(item.label), needle, 1, true) then
+					table.insert(result, item)
+				end
+			end
+			return result
+		end))
 		local notes = scope:own(core:signal("Meet at sunrise."))
 		local minimum = scope:own(core:signal("m"))
 		local alignment = scope:own(core:signal("firstTextBaseline"))
@@ -41,22 +57,87 @@ return {
 			root = {
 				title = "Plan a journey",
 				content = function(pageScope)
-					local picker = pageScope:own(Facet.Controls.Picker(core, {
-						id = "Destination",
-						selected = destination,
+					local search = pageScope:own(Facet.Controls.TextInput(core, {
+						id = "Search",
+						value = query,
+						presentation = "search",
+						placeholder = "Search journeys",
+						submitLabel = "search",
 						env = env,
-						options = {
-							{ value = "coast", label = "Coastal journey" },
-							{ value = "forest", label = "Forest journey" },
-							{ value = "mountain", label = "Mountain journey" },
-						},
 					}))
+					local searchLayout = UI.AdaptiveStack({
+						id = "SearchLayout",
+						axis = axis,
+						gap = "m",
+						width = UI.fill(),
+						children = {
+							UI.VStack({
+								id = "SearchEntry",
+								width = UI.fill(),
+								gap = "s",
+								children = {
+									UI.Text({ text = "Find a journey", textSize = "heading", width = UI.fill() }),
+									search.blueprint,
+								},
+							}),
+							UI.focusSection(
+								UI.VStack({
+									id = "Results",
+									width = UI.fill(),
+									gap = "s",
+									children = {
+										UI.Text({
+											id = "ResultsHeading",
+											text = pageScope:own(core:memo(function(use)
+												return if use(query) == ""
+													then "Suggested journeys"
+													else "Search results"
+											end)),
+											width = UI.fill(),
+											textSize = "heading",
+										}),
+										UI.ForEach({
+											id = "Matches",
+											items = matches,
+											key = function(item)
+												return item.id
+											end,
+											row = function(item)
+												return UI.Button({
+													id = "Result-" .. item.id,
+													label = item.label,
+													width = UI.fill(),
+													onActivate = function()
+														destination:set(item.id)
+														stack.api.push({ id = "details" })
+													end,
+												})
+											end,
+										}),
+										UI.When({
+											id = "Empty",
+											condition = pageScope:own(core:memo(function(use)
+												return #use(matches) == 0
+											end)),
+											thenView = function()
+												return UI.Text({
+													text = "No journeys found. Try another name or clear search.",
+													width = UI.fill(),
+												})
+											end,
+										}),
+									},
+								}),
+								{ entry = "restore" }
+							),
+						},
+					})
 					return page(pageScope, {
 						UI.Text({
 							text = "Choose a destination. Your choices stay with you when you go back.",
 							width = UI.fill(),
 						}),
-						picker.blueprint,
+						searchLayout,
 						UI.Button({
 							id = "Continue",
 							label = "Plan details",
@@ -100,10 +181,12 @@ return {
 											}),
 											UI.HStack({
 												id = "LastBaseline",
+												width = UI.fill(),
+												wrap = true,
 												align = "lastTextBaseline",
 												gap = "s",
 												children = {
-													UI.Text({ text = "Travel\nlight", textSize = "heading" }),
+													UI.Text({ text = "Travel light", textSize = "heading" }),
 													UI.Text({ text = "and enjoy the view", textSize = "caption" }),
 												},
 											}),
@@ -152,6 +235,15 @@ return {
 		return {
 			screen = UI.Screen({ id = "NavigationFlow", surface = "base", children = { stack.blueprint } }),
 			steps = {
+				search = function()
+					query:set("forest")
+				end,
+				noResults = function()
+					query:set("unknown")
+				end,
+				clearSearch = function()
+					query:set("")
+				end,
 				push = function()
 					stack.api.push({ id = "details" })
 				end,
@@ -200,6 +292,8 @@ return {
 					exits = exits,
 					notes = notes:get(),
 					destination = destination:get(),
+					query = query:get(),
+					matches = #matches:get(),
 					axis = axis:get(),
 				}
 			end,

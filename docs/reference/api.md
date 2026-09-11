@@ -219,7 +219,7 @@ error naming the control, the property, and the valid alternatives:
 | unknown property | `UI.Button: unknown property 'lable'. Did you mean 'label'? Valid properties: …` |
 | wrong value type | `UI.VStack.gap expects number, got string. (spacing between children along the stack axis)` |
 | a bare number where a dimension belongs | `UI.Box.width expects dim, got number — a dimension table such as { type = "fixed", px = 120 }` |
-| a Signal on a prop read once at mount | `UI.ScrollView.axis does not accept a Signal/Memo …` |
+| a Signal on a prop read once at mount | `UI.Box.canvasGroup does not accept a Signal/Memo …` |
 | a missing required property | `UI.Text.text is required (the displayed string)` |
 | children on a leaf | `UI.Text does not take children (it is a leaf). Containers: Anchor, Grid, HStack, …` |
 | a property that never reached the renderer | `UI.Text.color is not supported (deprecated 0.5.0 …). Use UI.Text{ role = … }.` |
@@ -491,7 +491,7 @@ selector cannot express. Two value forms:
 
 | Form | Meaning |
 |---|---|
-| `{ role = "accent", blend = 0..1, from? }` | **themable, preferred.** Blends from `from` to `role` — both names from the closed palette vocabulary (`surface`, `surfaceStrong`, `content`, `contentStrong`, `contentSecondary`, `accent`, `control`, `controlSelected`, `danger`, `hairline`), resolved against the **active theme**. `from` defaults to the class's identity paint: the page colour for a `Box`, `content` for `Text`/`Path`, white (the picture as authored) for an `Image` — and white for a `Stage` too, for the same reason: white multiplies to the scene the engine already drew. `blend = 0` is the base, `1` is the role. **A theme commit re-resolves it**, so a tint that nothing ever re-writes still follows a runtime package swap (fixed 2026-08-14). |
+| `{ role = "accent", blend = 0..1, from? }` | **themable, preferred.** Blends from `from` to `role` — both names from the closed palette vocabulary (`surface`, `surfaceStrong`, `content`, `contentStrong`, `contentSecondary`, `accent`, `onAccent`, `control`, `controlSelected`, `danger`, `hairline`), resolved against the **active theme**. `from` defaults to the class's identity paint: the page colour for a `Box`, `content` for `Text`/`Path`, white (the picture as authored) for an `Image` — and white for a `Stage` too, for the same reason: white multiplies to the scene the engine already drew. `blend = 0` is the base, `1` is the role. **A theme commit re-resolves it**, so a tint that nothing ever re-writes still follows a runtime package swap (fixed 2026-08-14). |
 | `{ direct = { r, g, b } \| "#rrggbb" }` | a **declared theming-exempt** identity hue — the loud word is in the value, so every use greps. Use it when the colour IS game data (a racer's hue), never for a state. |
 
 **`transparency` (0..1, either form, default `0` = opaque).** The tint's own
@@ -804,6 +804,12 @@ so read them before declaring one there):
 
 ### `ScrollView`
 
+`navigation` optionally names descendant targets and exposes target selection,
+normalized progress, threshold visibility callbacks, and gesture snap; see
+[Adaptive navigation continuity](#adaptive-navigation-continuity). Framework
+keep-visible and bookmark writes take precedence over gesture snapping.
+
+
 `UI.ScrollView{ id?, axis? ("y" default | "x"), padding?, gap?, autoscroll?, indicators? ("auto" default | "none" — a peeking carousel's affordance is the half-visible next tile, so it may declare its indicator off; layout is untouched), onScrollWheel?, children? }`
 — scrolling container. `onScrollWheel(path, delta, rectOf)` receives
 hover-wheel input routed by the adapter (the composite scrolling controls use
@@ -814,6 +820,12 @@ and the canvas extent (`contentSize` + padding), while the ENGINE owns live
 scrolling — wheel, touch momentum, elastic overscroll, and scroll bars. It is
 always a clip host (`clipChildren` defaults true), so the fallback path (an
 adapter without the scroll seam, e.g. billboards) still crops overflow.
+**The axis accepts a string or readable string.** Changing it retains the native
+host and child identities, updates directional navigation, and clamps the scroll
+position to the new canvas. In-flight named travel retargets on the new axis; a
+player-cancelled focus handoff stays cancelled. VirtualList and VirtualGrid axes
+remain construction-only.
+
 **Both axes work.** `axis = "x"` lays children out along x, accumulates the
 canvas extent along x, and stretches cross-axis `fill` children to the viewport
 height (before this the solver stacked horizontal children in a column and
@@ -1542,7 +1554,7 @@ painted bounds disagree. Both are style authority — use `role`.
 
 ### `Image`
 
-`UI.Image{ id?, image?, surface?, tint?, scaleMode?, width?, height? }` — image
+`UI.Image{ id?, image?, surface?, tint?, scaleMode?, imageFraming?, width?, height? }` — image
 node; `image` is an asset string (pair with `newResourceProvider` for async
 ready/pending/failed handling). `image` is optional so a node can mount empty and
 receive content later — that is exactly what `newAsyncImage` binds.
@@ -1557,6 +1569,40 @@ theme-owned chrome (a package's `sliceCenter`/`sliceScale`), and an authored sli
 would be a second authority over the same engine properties. `scaleMode` is style
 authority and it claims `ScaleType` in native mode, exactly as `tint` claims a
 colour.
+
+**`imageFraming`** optionally replaces `scaleMode` with explicit source framing:
+`{ width, height, mode?, focusX?, focusY?, scale? }`. `width` and `height` are
+positive finite **decoded source image pixels**, independent of the view's layout
+size. Use the served texture's dimensions, including any upload resizing.
+`mode` defaults to `"crop"`; `"fill"` is its synonym, `"fit"` contains the image,
+`"stretch"` fills both axes, and `"none"` preserves source pixel size.
+`scale` is a positive multiplier (default 1) applied after that sizing policy.
+`focusX`/`focusY` are normalized source coordinates in 0..1, default 0.5. The crop
+centers on that point and clamps to image edges. If the picture is smaller than
+the view, it is centered with space around it; it is never tiled. A whole framing
+record may be a Readable; updates are paint-only. Setting it to nil restores the
+ordinary image and its `scaleMode`. Unknown fields and invalid values are errors.
+
+Use the existing background modifier for any view:
+
+```lua
+UI.background(content, UI.Image({
+    id = "Landscape",
+    image = "rbxassetid://YOUR_GAME_ART",
+    imageFraming = { width = 1920, height = 1080, mode = "crop", focusX = 0.72, focusY = 0.4 },
+}))
+```
+
+The content needs an explicit id. The background fills its view and adds no
+activation target. Use `mode = "none"` for an unscaled crop, or `scale = 2` for an
+explicit 2x image. Foreground content still owns safe-area padding, contrast
+plates, and theme border insets. An opaque foreground surface hides its backing;
+put background art behind a plain content container when it should show through.
+The screen, billboard and surface targets share this rendering path. Framing
+uses one managed image child and four local property observers only when opted
+in; it does no per-frame polling or layout work. Authored gradient/corner
+modifiers are mirrored onto the picture; live native paint verification remains
+pending in the image-framing decision record.
 
 **`tint`** multiplies the picture (`ImageColor3`; see
 [above](#continuous-colour-tint)). It leaves `ImageTransparency` alone, so a dim
@@ -4473,20 +4519,18 @@ compact *pointer* theme package, and a phone took the Table's dense pointer row
 height and reflowed the whole page — canvas and scrollbar with it — on the
 player's first touch.
 
-**`displaySize` is a REPORT, `effectiveDisplaySize` is the ANSWER (director item
-5).** `GuiService.ViewportDisplaySize` is the engine's own attempt at
-physical screen size, and it is not reliable enough on its own to gate the
-ten-foot 1.5x swing: measured directly in Roblox Studio Play, an ordinary
-windowed desktop viewport reported `"Large"` — the same bucket a real console
-reports. A PC handheld (the director's example: a 7-inch 1080p device with a
-gamepad) can plausibly hit the same misclassification, and unlike a console it
-has a touchscreen. `effectiveDisplaySize` downgrades `"Large"` to `"Medium"`
-**only** when `capabilities.touch` is also true — a real ten-foot session never
-has one — and passes every other value through unchanged, so a genuine console
-(no touch) is byte-identical to before. **Read `effectiveDisplaySize`, not
-`displaySize`,** for anything that decides ten-foot TREATMENT; keep reading the
-raw fact for anything that wants the engine's literal report (a diagnostic, the
-device-matrix harness, an explicit preview override).
+**Viewing context and input are independent.** `viewingDistance` is an authored
+fact: `"automatic"` (default), `"near"`, or `"ten-foot"`. An explicit distant
+setting resolves `effectiveDisplaySize` to `"Large"`; explicit near changes a raw
+`"Large"` to `"Medium"` and preserves `"Small"`. Automatic retains the existing
+inference (raw Large plus touch capability resolves to Medium). This inference
+cannot determine where a player sits. `distanceProfileSource` reports `"authored"`
+or `"inferred"`; `distanceProfile` remains `"near"` or `"ten-foot"`.
+
+The resolved display drives typography, theme metrics, density, focus treatment,
+and default safe margins together. Raw `displaySize` remains the engine report.
+Input/capability changes cannot override an explicit viewing distance. Hosts may
+persist the player's setting; Facet does not create a preference store.
 
 ---
 
@@ -4737,7 +4781,7 @@ headlessly testable):
 | `adaptive.columnsFor(available, minColumnWidth, gap?, opts?)` | the column count a `UI.Grid` with that `minColumnWidth` will derive — **literally** the same arithmetic, since the solver's grid calls this function. `opts.distanceProfile = "ten-foot"` takes the count against `BREAKPOINTS.wide` rather than the raw extent, the same cap `sizeClass`/`heightClass` apply and for the same reason (ADAPT-23: uncapped, the documented adaptive-grid route gave a television ELEVEN columns against a desktop's nine). The lanes still divide the whole extent, so a TV gets fewer, larger cards. `UI.Grid` passes the fact itself, from the theme snapshot's `density` |
 | `adaptive.heightClass(height, opts?)` | `"short"` (< 600) / `"medium"` (< 1000) / `"tall"`. `opts.distanceProfile = "ten-foot"` caps at `"medium"`, for the same reason the width cap exists: `tall` is the densest vertical arrangement. Degrades to `"short"` on nil/NaN |
 | `adaptive.orientationFor(width, height)` | `"landscape"` / `"portrait"` / `"square"` — a **shape** fact, not a device fact: a windowed pane on a desktop is portrait and must be treated as one |
-| `adaptive.navPlacement(facts)` | `"bottomBar"` / `"bottomBarCompact"` / `"topBar"` / `"sidebar"` — THE app-level tab/sidebar placement policy (director rulings 2026-08-09, aligned to the platform tab-bar guidance): compact width → a full-width bottom tab bar in the thumb zone; short height → the same bar in its reduced INLINE form (CENTERED and hugging its tabs rather than dividing the width — a landscape phone. The band's HEIGHT is the same 46px and the labels are the same words: a terser thumb-zone name is the author's, through `Option.label` as a Readable — the reference shells carry a second localized string for exactly this — or the shrink ladder's own `compactLabel` when the words stop fitting. ADAPT-30: this line used to promise "short labels, tighter band", which never shipped); ten-foot → a center-aligned top tab bar that HUGS its content, never full width; pointer-primary → a sidebar (desktop shape); touch-primary with a roomy SHORT SIDE (both classes above their 600px breakpoint) → the same centered top bar (tablet shape, either orientation — ADAPT-2); touch-primary with a short side under it → bottom tabs (a phone, whichever way it is held); gamepad-primary with a `Medium`/`Large` DisplaySize → the top bar, with a `Small` or unknown display → bottom tabs (the near-distance handheld — when we cannot differentiate, bottom tabs). `facts = { sizeClass, heightClass, distanceProfile?, primary?, displaySize? }` — shape, input and display facts only, never a device idiom (touch ALONE is not the top-bar indicator: a touch phone and a touch tablet share the class, and the SHORT SIDE is what separates them — the engine's DisplaySize cannot, because it calls every tablet `Small`). Every placement must remain gamepad-traversable — enter, through, away, and ButtonA activation — which the reference proofs pin per home. Pure, so the `conditions` memo and tests share one implementation |
+| `adaptive.navPlacement(facts)` | `"bottomBar"` / `"bottomBarCompact"` / `"topBar"` / `"sidebar"` — THE app-level tab/sidebar placement policy: ten-foot → a centered top bar regardless of input or viewport shape; otherwise compact width → a full-width bottom tab bar in the thumb zone; short height → the same bar in its reduced INLINE form (CENTERED and hugging its tabs rather than dividing the width — a landscape phone. The band's HEIGHT is the same 46px and the labels are the same words: a terser thumb-zone name is the author's, through `Option.label` as a Readable — the reference shells carry a second localized string for exactly this — or the shrink ladder's own `compactLabel` when the words stop fitting. ADAPT-30: this line used to promise "short labels, tighter band", which never shipped); pointer-primary → a sidebar (desktop shape); touch-primary with a roomy SHORT SIDE (both classes above their 600px breakpoint) → the same centered top bar (tablet shape, either orientation — ADAPT-2); touch-primary with a short side under it → bottom tabs (a phone, whichever way it is held); gamepad-primary with a `Medium`/`Large` DisplaySize → the top bar, with a `Small` or unknown display → bottom tabs (the near-distance handheld — when we cannot differentiate, bottom tabs). `facts = { sizeClass, heightClass, distanceProfile?, primary?, displaySize? }` — shape, input and display facts only, never a device idiom (touch ALONE is not the top-bar indicator: a touch phone and a touch tablet share the class, and the SHORT SIDE is what separates them — the engine's DisplaySize cannot, because it calls every tablet `Small`). Every placement must remain gamepad-traversable — enter, through, away, and ButtonA activation — which the reference proofs pin per home. Pure, so the `conditions` memo and tests share one implementation |
 | `adaptive.cardsPerView(available, opts?)` | how many whole cards belong in view across `available` px. One rung is not arithmetic: `opts.touchPrimary` on a `compact` width answers **1** — the swipeable one-up carousel — even where two would fit; everything else is `columnsFor(available, opts.minWidth or CARD_MIN_WIDTH, opts.gap)`, so a rail and a `UI.Grid` at the same width with the same floor never disagree. `opts = { touchPrimary?, gap?, minWidth?, distanceProfile? }`. `Controls.VirtualList{ itemExtent = "cards" }` is the consumer, and `cards.perView` overrides it outright |
 | `adaptive.cardPeek(available, perView)` | the sliver of the NEXT card a one-up rail shows — the affordance that there *is* more. `0` for any `perView > 1` (a multi-up rail is already showing the next card), otherwise a tenth of `available` clamped into `CARD_PEEK` |
 | `adaptive.CARD_MIN_WIDTH` | `200` — the narrowest a card may be squeezed to before a rail drops a lane, as data |
@@ -5232,7 +5276,7 @@ modal scopes trap and restore the previous focus on pop.
   NavigationGroup declares `name`, `axis` ("vertical"/"horizontal"),
   `order`, `wrap?`, `containment?`, `entry?` ("first" | "restore" |
   "nearest"), `exit?` (`{ up/down/left/right = targetGroupName }`), and
-  `columns?` (below).
+  `columns?` (below), and optional `rectOf(path)` returning resting `{x,y,w,h}` geometry.
 - `graph.navigateDirection("up"|"down"|"left"|"right")` — axis-aware
   movement: within the active group along its axis; at edges wraps (if
   `wrap`), follows a declared `exit`, or (uncontained) falls through to the
@@ -5243,6 +5287,19 @@ modal scopes trap and restore the previous focus on pop.
   `graph.setGroupOrder(scopeName, groupName, order, columns?)`,
   `graph.remove(id)` — structural updates keep focus when it survives, else
   the nearest surviving neighbor (preferring the following item).
+
+**Geometry for automatically derived navigation.** Inferred layout groups receive
+`rectOf` from the renderer. For these groups, directions search visible eligible
+mounted candidates within that group in the requested half-plane. Overlapping perpendicular spans
+win over diagonals, then center distance along travel plus twice the perpendicular
+center distance; document order breaks ties. Geometry is read on each press, so
+resize and bound stack-axis changes do not need a new focus tree. Animation scale
+is excluded. At a group edge, the existing declared/adjacent-group policy takes
+over; a scan never skips a contributed control or crosses surface coordinate
+systems. Explicit groups without `rectOf`, grid `columns`, authored `wrap`,
+containment, and declared exits keep their topology;
+Tab traversal retains document order. This is one linear scan of mounted
+candidates per press, with no per-frame neighbor graph.
 
 **A group can be a RECTANGLE: `columns`**. An integer ≥ 1 declaring
 that this group's `order` is **LINES of `columns` LANES**, row-major, in document
@@ -5758,8 +5815,9 @@ implementation.
 
 **`axis` is the direction the list runs**, `"y"` (a vertical list of rows, the
 default) or `"x"` (a sideways strip of items), and it is **construction-only** for
-the reason `ScrollView.axis` is (constitution §16, E-6): a reactive scroll axis
-would rebuild the engine's native scroll state mid-gesture. Every other field is
+its axis-specific windowing and input configuration (constitution §16, E-6).
+Unlike an ordinary reactive `ScrollView`, changing this axis requires rebuilding
+the virtual collection. Every other field is
 written in the vertical vocabulary and reads on both axes — `itemExtent` is one
 item's size *along the list's own axis*, `viewportExtent` is the host's size along
 it, and the list's one navigation group takes that axis too. Two fields are
@@ -6271,9 +6329,9 @@ rule, the end-of-list rule and the reduced-motion placement are all shared; see
 adaptive card paradigm (`itemExtent = "cards"`) lives on the horizontal list,
 because a card rail is a list.
 
-**`axis` is `"y"` (default) or `"x"`, and it is construction-only** — the same
-rule `ScrollView.axis` follows, because a reactive scroll axis would rebuild the
-engine's native scroll state mid-gesture. On `"y"` the lanes divide the WIDTH and
+**`axis` is `"y"` (default) or `"x"`, and it is construction-only** because the
+virtual grid builds axis-specific windowing and input configuration. Ordinary
+`ScrollView.axis` can change without rebuilding its host. On `"y"` the lanes divide the WIDTH and
 the lines advance DOWN; on `"x"` the lanes divide the HEIGHT and the lines advance
 RIGHTWARD. `columns` is the lane count in both directions and needs no
 translation. Everything else in this entry is written in the vertical vocabulary
@@ -6935,6 +6993,34 @@ A button with required `onActivate(meta)` and optional `id`, `label`, custom
 booleans or readable booleans. Busy displays the existing themed progress spinner
 and rejects activation until the caller clears it.
 
+Set `image` (asset string or readable string) for an image button with a persistent
+caption from `label` and optional `subtitle` (string/readable). Optional
+`imageFraming` forwards the [Image framing](#image) record/readable to the artwork;
+it requires `image`. `imageAspectRatio`
+is a positive width/height ratio, default `16/9`. `image` and custom `children`
+are alternative forms. Supply a nonempty semantic label. The image form fills
+its offered width by default; use a responsive grid or a dimension in `width`.
+Captions wrap at the offered width instead of occupying the image's border.
+
+The entire card is one activation/focus target. Keyboard/gamepad focus and mouse
+hover highlight its image using the theme's accent focus ring. Only the image
+lifts by 5% through the shared interruptible object spring, inside space reserved
+during layout; captions and neighboring
+controls do not move. Reduced motion keeps the ring and removes lift. Touch has
+no hover dependency; busy/disabled, repeat, shortcut and dialog semantics remain
+the same as other Buttons. The plain outer surface avoids duplicating a theme's
+ornamental control border around the artwork and captions. This is a portable
+focus treatment. Native TV specular materials, pointer-driven perspective effects
+and background blur are not provided by this form.
+
+```lua
+local car = scope:own(Facet.Controls.Button(core, {
+    id = "TrailCar", label = "Trail car", subtitle = "Ready for mountain races",
+    image = carThumbnail, imageAspectRatio = 16 / 9,
+    onActivate = function() chooseCar("trail") end,
+}))
+```
+
 Repeat is opt-in by declaring a delay or interval. Defaults are 0.4 seconds before
 repeating and 0.1 seconds between repeats. Keyboard/gamepad activation occurs on
 press; a pointer tap activates on release, while a held pointer starts repeating
@@ -7004,6 +7090,10 @@ list; arrows/D-pad then navigate results, and Return/ButtonA selects. Empty
 results display “No matching options.” Search selects supplied values only.
 Outside dismissal and Cancel preserve selection; multiple selection remains open
 between changes. Popup presentation adapts from available space and input class.
+Automatic Menu and PopupButton presentation uses the existing sheet for more
+than six selectable choices when gamepad is primary, on nearby and distant
+screens alike. Smaller controller menus retain their existing inline/menu forms.
+An explicit presentation wins. RadialMenu quick-action geometry is unchanged.
 
 `api` exposes `open()`, `close()`, `select(id)`, `isOpen`, `presentation()`, and
 `handleActivate(path, meta?)`. The presenter wires input automatically. `dump()`
@@ -7116,11 +7206,10 @@ reports the depth as advice rather than refusing; it also
 reports a group of more than about five items and a destructive item that is not
 last. Under the `menu` presentation each level is its own panel anchored to its
 parent **row** (preferred edge trailing, flipping to leading at the screen edge).
-Under `sheet` — the touch idiom, and **the automatic idiom at any
-`sizeClass == "compact"` surface, regardless of which pointer is live** — a
-submenu **replaces** the sheet's contents and grows a Back row instead of
-floating a second panel over the first; medium/large keep the side-by-side
-`menu` expansion. Cancel / gamepad B closes **one** level, a tap outside
+Under `sheet` — the automatic touch/gamepad idiom, and the automatic idiom
+at any `sizeClass == "compact"` surface regardless of live input — a submenu
+replaces the sheet's contents and grows a Back row. Roomy pointer-primary
+surfaces keep side-by-side `menu` expansion. Cancel / gamepad B closes **one** level, a tap outside
 closes **all** of them, and Right/Left enter and leave a submenu in document
 order — and backing out of a level restores focus to the row that led into
 it, not the level's first row.
@@ -7627,7 +7716,7 @@ label?, icon?, badge?, content }[]), placement? ("automatic" | "bottomBar" |
 "bottomBarCompact" | "topBar" | "sidebar"), indicator? ("automatic" | "underline" |
 "pill" | "none"), sizing? ("automatic" | "fill" | "hug"), iconOnly?, accessories? ({
 head?, foot?, trailing?, aboveBar? }), railWidth? (dim), textSize?, transition?,
-conditions?, env?, enabled?, onChange? }`.
+conditions?, env?, enabled?, onChange?, style? ("automatic" | "sidebarAdaptable"), restoreFocus? }`.
 
 The two-argument spelling `Facet.newTabView(Facet, core, spec)` is **deprecated** since
 0.10.0 (removal no earlier than 0.12.0): it still builds the identical
@@ -7655,7 +7744,8 @@ the content subtree's lifecycle, the placement that restructures the screen, and
 nesting. `dump().strip` is the picker's own dump, nested rather than paraphrased.
 
 **Placement is a policy, not a device branch.** `"automatic"` reads
-`adaptive.navPlacement` — a compact width takes the thumb-zone `bottomBar`, a short
+`adaptive.navPlacement` — ten-foot takes `topBar` before size/input rules; nearby
+compact width takes the thumb-zone `bottomBar`, a short
 height its centered `bottomBarCompact`, a pointer-primary desktop the `sidebar`, a
 tablet or a ten-foot screen the `topBar`. **The facts arrive by themselves, and an
 automatic placement that cannot find them REFUSES to construct** (ADAPT-1): the
@@ -7671,6 +7761,24 @@ therefore never refuses, whatever the surface can or cannot answer. The resolved
 answer is published as `api.placement`, so a screen with its own chrome to place — a search field that rides the bar, a wordmark
 that only belongs in the rail — reads one answer instead of re-deriving the rule.
 
+**Adaptable app navigation.** `style = "sidebarAdaptable"` opts into a shared
+sidebar/tab presentation and requires automatic placement. The default style is
+`"automatic"`, preserving ordinary game tabs. On roomy touch screens the initial
+bar offers a visible sidebar toggle; pointer windows initially show the sidebar.
+Distant screens show directly accessible top tab pills with no sidebar toggle,
+including when mouse/keyboard is active. Selecting a tab keeps navigation in its
+current home, whether or not the destination contains nested tabs.
+`expandSidebar()` and `collapseSidebar()` remain explicit commands. ButtonB while
+focus is in an explicitly expanded distant sidebar collapses it; page Back remains
+page-owned. Nearby compact/short screens retain bottom tabs. A nearby sidebar
+preference returns when space permits, but does not override distant-view policy.
+Commands preserve focus when effective placement does not change. A sidebar adds
+`space.m` between its chrome and the page by default, including ordinary sidebar
+TabViews; page content owns its internal padding. Top/bottom homes add no vertical
+gap. Nested TabViews keep their own top bar. This style defaults to pill indicators
+and preserves the normal lazy-build/eviction contract; `indicator` may override it.
+No destination content or hero imagery is invented.
+
 **Nesting: an inner TabView never claims the app-level placement.** A page's own top
 tab bar can live inside a screen that is itself a tab of the app's bar. Because
 `content` is a factory this control invokes, a TabView built inside one *is* inner, and
@@ -7685,7 +7793,15 @@ Switching disposes the previous one for real — scopes disposed, effects stoppe
 Instances pooled — through `UI.When`'s own branch scope, which is the `tabScope` your
 factory receives. The accepted cost, so nobody reports it as a bug: **returning to a tab
 replays its entry cost.** A spinner comes back, a scroll position returns to the top, an
-in-progress text entry is lost.
+in-progress text entry is lost unless the caller owns its state outside the tab.
+
+`restoreFocus: boolean?` defaults to true. Each tab remembers one stable mounted
+focus path. Keyboard/gamepad entry restores it when still eligible and reveals
+it through the existing scroller. Pointer entry stays on the clicked control.
+Missing or disabled targets use the normal entry candidate. Set `restoreFocus =
+false` for flows that require a fresh task entry. Bookmarks are cleared on control
+disposal; they retain no instances. Off-window collection position and drafts
+still belong in caller-owned signals, using the collection’s key/reveal APIs.
 
 > **The escape hatch is ownership, not a flag.** Own it on `tabScope` and it dies with
 > the tab; own it on your screen's scope, in a Signal *outside* the TabView, and it
@@ -7693,8 +7809,8 @@ in-progress text entry is lost.
 > `retain` flag.
 
 **The strip is never evicted.** Only tab *content* is torn down; every tab's label, icon
-and `badge` stay live whether or not that tab is selected, because a badge on an
-unselected tab is the whole point of a badge.
+and `badge` stay live whether or not that tab is selected. Labelled badges reserve
+space beside their label and wrap when needed, inside the same focusable button.
 
 **Overflow scrolls.** A `fill` strip divides its offer among the tabs and therefore
 cannot overflow, so `sizing = "automatic"` fills only the thumb-zone band and hugs
@@ -10041,3 +10157,207 @@ label meaningful: the list fallback and selection preview still use it. Use
 icon/text label. The circular hit region and minimum targets remain independent
 of image transparency. See [Choosing controls](../guide/14-choosing-controls.md)
 for when to use a radial menu and which presets to start with.
+
+<a id="adaptive-navigation-continuity"></a>
+### Adaptive navigation continuity
+
+### `focusSection`
+
+`UI.focusSection(container, { entry = "restore", preferred = "Play" })` marks a
+mounted container as a directional entry region. `entry` is `restore` (default),
+`first`, or `nearest`; `preferred` is an eligible descendant ID or relative path.
+Use unique IDs, or a relative path when names repeat. On initial entry the preferred
+child wins; a valid remembered child takes precedence on subsequent restore entry.
+Section bounds bridge empty space between a hero, shelf, or settings column. Grid
+lanes, contributed collection navigation, explicit exits, and modal containment keep
+their existing authority. Sections do not add a focus stop or a frame loop. Supported
+containers: Box, VStack, HStack, ZStack, Grid, ScrollView, AdaptiveStack and Anchor.
+
+`Controls.Button`, `Controls.Toggle` and `Controls.Slider` accept
+`row = { description?, icon?, value? }`. Fields are strings or readable strings;
+`icon` names a semantic theme icon. Button's `value` is an inert trailing readout.
+Toggle and Slider derive their readout from their owner-held value and refuse
+`row.value`. A row retains one focus target and the existing action, toggle or
+adjustment behavior. Slider retains pointer/touch track dragging and highlights the
+whole row on keyboard/gamepad focus. The shared row recipe wraps copy, reserves
+accessory space, and uses theme padding and border insets. Button row content cannot
+be combined with `children` or `image`; Toggle row cannot be combined with `children`.
+
+`UI.ScrollView { navigation = { targets, target?, snap?, progress?, threshold?,
+onVisibilityChanged?, focus? }, ... }` opts into named scrolling:
+
+- `targets`: array of unique descendant IDs or paths relative to this ScrollView.
+  Nested scrollers own their own descendants. IDs should be unique in that scope.
+- `target`: readable name or nil. Changing it requests leading-edge alignment,
+  clamped to the native scroll range. Missing targets remain pending until mounted.
+  Set nil before repeating the same request. Focus is preserved by default.
+- `focus`: `"preserve"` (default) or `"target"`. Target travel may explicitly hand
+  focus to the first eligible stop in the named region after arrival. The handoff
+  is canceled by a newer request, user focus change, modal focus, scroll takeover,
+  or removal of that destination; gestures never implicitly request focus.
+- `snap`: boolean, default false. Native gestures settle to the nearest named target
+  or scroll-range endpoint after the shared quiet window. Oversized target regions
+  remain freely scrollable so their interiors stay reachable.
+- `progress`: caller-owned numeric Signal receiving normalized scroll progress
+  (0–1). Bind it to paint properties for subtle image/scrim effects; do not feed it
+  back into scroll-dependent layout dimensions.
+- `threshold`: visible fraction, default 0.5, in (0,1]. For oversized targets the
+  denominator is the viewport length. `onVisibilityChanged(id, visible)` fires on
+  initial observation and crossings, not every frame. A visible target removed from
+  the tree emits one `false` exit before its visibility record is discarded.
+
+Target travel and snapping share Facet's interruptible motion clock and reduced
+motion policy. Native touch/trackpad scrolling retains ownership. At rest no motion
+values remain active. Geometry is indexed after solves; native samples do not walk
+the view tree. These are declaration options, not renderer paint props.
+
+`Controls.TabView` now has `restoreScroll` (default true) in addition to
+`restoreFocus`. Returning to a destination restores a stable descendant and its
+intra-item offset after layout. VirtualList, VirtualGrid and virtualized Table use
+logical item keys without building offscreen rows. If an item disappeared, restore
+the surviving slot at the old index and clamp to the new range. Ordinary scrollers
+use descendant paths and a nearest surviving indexed anchor. Bookmarks retain data,
+not instances; tab/page scope disposal remains unchanged. Domain state, editing
+state, and persistence remain caller-owned. Explicit target scrolling can override
+a restored position.
+
+Optional TabView `sections = { { id, label }, ... }` supplies sidebar headings;
+a tab names its `section`. Headings appear at section changes in the visible order
+and stay out of the focus order. Compact/top/bottom navigation retains the same tabs
+without section headings. `customization` is a caller-owned Signal containing
+`{ order = {tabId, ...}, hidden = {tabId, ...} }`. Unknown/duplicate persisted IDs are
+ignored, newly authored tabs are appended, and `tab.required = true` protects a
+destination from hiding. At least one destination remains visible; hiding the
+selected tab selects the first visible destination. Reordering preserves the active
+page and its state. `api.moveTab(id, oneBasedPosition)` and
+`api.setTabHidden(id, boolean)` return whether the operation was accepted and require
+`customization`. Present these commands with ordinary controls, as the Showcase
+Profile page does. The host decides whether/how to persist the signal. `dump()`
+includes `visibleTabs` in display order.
+
+Live `Controls.Picker` options also support the shared `pill` and `underline`
+selection indicator. The same spring/geometry implementation tracks stable option
+IDs through reorder/removal. Optional `sectionTitle` on live options labels section
+starts in vertical presentation; declare the section structure in the initial array.
+
+The mounted controller's internal `observeScrollIntent(path, callback)` seam
+announces framework scroll writes before native echoes. Mounted scroll behavior
+uses its scoped unsubscribe to prevent snap from undoing focus visibility; game
+code should use `ScrollView.navigation` instead.
+
+`controller.geometryEpoch()` is the internal solved-geometry version used by
+mounted navigation behavior. Together with `structureEpoch()` it avoids polling
+unchanged geometry or depending on notification registration order.
+
+### Controller navigation ownership
+
+`Controls.TabView.shoulderNavigation` is `"strip"` by default. `"content"` also
+allows L1/R1 paging while focus is inside the current page; it owns only shoulder
+keys there. A readable policy may return either value. Nearest nested controls
+win: value controls retain adjustment even at their limits. Pages do not wrap.
+Content paging transfers focus into the incoming page after its map is ready.
+Use the normal surface responder contract so passive HUDs never take gameplay
+buttons. Disable content paging during a game-owned edit/confirmation flow with a
+readable returning `"strip"`; preserve caller-owned editing state across routes.
+
+Slider, Stepper and LevelPicker/Rating repeat controller adjustments after 0.4s,
+then every 0.1s, through the same value operation. Repeat clamps at the value limit;
+a fresh directional press retains the existing navigation-at-limit behavior.
+Focus transfer, release, modal ownership, resign and disposal end a hold. Keyboard
+keys retain their existing delivery. Contribution authors may opt in with
+`adjustRepeat = true`; `adjustAxis = "none"` requests shoulder keys without arrows.
+
+Table Cancel first closes a focused row action, releases a selected column or
+reverts an in-progress row grab, then a subsequent Cancel exits edit mode. Only
+then may Cancel propagate to the enclosing navigation/surface. Committed selection
+and rows are not cleared when editing ends.
+
+### Navigation theme chrome
+
+Optional `chrome.navigation` uses the existing native/nineSlice/layered recipe
+grammar and art insets. It paints TabView's adaptable top bar and distant top-tab capsule. An omitted recipe is native. Keep it lighter than `panel`:
+Fantasy Ornate uses one carved strip with 6px vertical and 12px horizontal content
+insets, without the panel's corners/nameplate. This changes art, not input or focus.
+### `Controls.Alert`
+
+`Facet.Controls.Alert(core, spec) -> { blueprint, present, dismiss, dump, dispose }`
+composes a brief modal decision from existing primitives. It centers a card sized
+to its content and capped by the theme, keeps actions side by side when they fit,
+and wraps them onto further rows when needed. The card scrolls when text/actions
+exceed the available height; theme border insets and safe areas remain in force.
+Resizing, input changes and text preferences update the same mounted actions.
+
+Spec: `id?`, `title` (string, Readable<string>, or data factory), optional
+`message` (same), and optional `actions` (records or a data factory; empty/omitted
+supplies OK). `title` may be omitted with `error`. `maxWidth?` is positive pixels
+or a metric name, default `"controls.alert.maxWidth"`; `padding?` is nonnegative
+pixels or a spacing name, default `"m"`; `surface?` defaults to `"raised"`.
+The icon shares a compact header with the title; its default size is one minimum target.
+The default width cap is `targetSizes.minimum * (560 / 44)`. Game themes own art,
+colors, type and border insets.
+
+| Presentation or content property | Behavior |
+|---|---|
+| `isPresented`, `presenter` | Optional caller-owned boolean Signal and presenter. True opens once; every dismissal writes false. |
+| `presenting` | Optional data/readable alongside `isPresented` or manual presentation. Nil prevents opening. Factories and action callbacks receive a shallow snapshot for that presentation. |
+| `item`, `presenter` | Alternative optional-item Signal. Nonnil opens; dismissal clears it. Cannot combine with `isPresented`, `presenting`, or `error`. |
+| `error` | Record/readable with `errorDescription`, optional `recoverySuggestion` and `failureReason`. Supplies default title/message. A Signal without `isPresented` is an automatic binding and requires `presenter`; dismissal clears it. |
+| `icon` | Optional image asset/readable, sized using `controls.alert.iconSize`. |
+| `severity` | `automatic` (default), `standard`, or `critical`. Automatic errors are critical; critical uses danger emphasis and a vector caution icon unless an image is supplied. |
+| `suppression` | `{isSuppressed: Signal<boolean>, label?}` adds the existing checkbox control. The game must consult this value when deciding whether to ask again. |
+| `content` | Optional `(scope, data) -> blueprint?` for brief extra content such as an existing TextInput. Use a full modal for an editor. Own resources in the supplied scope. |
+
+Use `present()` or a presentation binding for the interactive modal. `blueprint`
+is its layout template for inspection/static previews; directly mounting a custom-
+content template is refused, since it would bypass the owned content scope.
+
+Runtime data/content-factory errors leave the alert closed, reset its presentation binding,
+and report sticky `dump().lastError`; a later corrected request can open normally. Static
+spec errors fail at construction. Data changes while open do not replace the
+presentation snapshot; clearing its source dismisses it.
+
+Each action has a unique `id`, required `label`, optional `compactLabel`, `enabled`
+(boolean or Readable<boolean>), `role` (`"default" | "cancel" | "destructive"`),
+and `onActivate(data?)`. Labels may be Readable<string>. One action at most is `cancel`.
+An optional `shortcut` is `"defaultAction"` (Return), `"cancelAction"` (gamepad B),
+or the existing Button `{keyCode, modifiers?}` shortcut. It preserves label
+compaction and role styling. Only assign a default shortcut when immediate
+confirmation is appropriate; cancellation remains the initial focus preference.
+`default` emphasizes the button; it does not steal Return from the focused action.
+`destructive` uses destructive styling. Actions preserve author order and invoke
+their callback once, after dismissing. Cancel receives initial focus when enabled;
+otherwise the first enabled non-destructive action is preferred, then ordinary
+presenter focus fallback applies.
+
+`present(presenter)` opens one modal and returns its handle; repeated calls while
+open return that handle. The existing presenter traps focus, dims the background
+and restores focus on dismissal. Gamepad B invokes the cancel action if enabled,
+or simply dismisses if no enabled cancel action exists. Pointer/touch users have
+the same visible actions; keyboard users navigate and activate with Return. Escape
+stays reserved for Roblox. Outside taps are consumed without choosing or dismissing.
+`dismiss()` closes without invoking an action. `dispose()` closes and releases the
+control; it cannot be presented afterward. Own it in a screen/page scope.
+`dump()` returns `{schema="facet-alert-dump/1", id, presented, actionCount, severity, lastError?}`.
+
+```lua
+local confirmation = scope:own(Facet.Controls.Alert(core, {
+    title = "Leave this race?",
+    message = "Your current lap will not be saved.",
+    actions = {
+        { id = "stay", label = "Stay", role = "cancel" },
+        { id = "leave", label = "Leave race", role = "destructive", onActivate = leaveRace },
+    },
+}))
+-- A normal Button's onActivate:
+confirmation.present(presenter)
+```
+
+Use an Alert for a short acknowledgement/decision. Use Menu for many commands and
+an authored `presentModal` surface for an editor or multi-step flow. The Showcase
+**Alerts and confirmations**, **Actions and menus** and tutorial 04 use this control.
+
+Alert combines title/message, actions and roles, presentation/data bindings,
+error copy, icon, severity, suppression choice and shortcuts through Facet's game
+input and theme system. It does not implement operating-system alert scenes,
+app-termination prevention or secure text entry. Callbacks run after dismissal,
+so they can safely open a replacement game surface.

@@ -166,6 +166,9 @@ end
 -- THE app-level tab/sidebar placement policy (director ruling 2026-08-09,
 -- aligned to the platform tab-bar guidance the reference apps follow):
 --
+--   ten-foot distance         -> "topBar"            a center-aligned top tab
+--                                                    bar that HUGS its content
+--                                                    (never full width)
 --   compact width             -> "bottomBar"        a full-width tab bar in the
 --                                                    thumb zone (phone portrait)
 --   short height              -> "bottomBarCompact"  the SAME bottom bar in its
@@ -177,9 +180,6 @@ end
 --                                                    a terser name is the
 --                                                    author's or the shrink
 --                                                    ladder's
---   ten-foot distance         -> "topBar"            a center-aligned top tab
---                                                    bar that HUGS its content
---                                                    (never full width)
 --   pointer primary           -> "sidebar"           desktop shape
 --   touch + roomy SHORT SIDE  -> "topBar"            tablet shape: the same
 --                                                    centered top bar. Roomy on
@@ -210,14 +210,15 @@ export type NavPlacementFacts = {
 	displaySize: string?,
 }
 function adaptive.navPlacement(facts: NavPlacementFacts): string
+	-- Viewing distance determines the navigation home even in a small TV viewport.
+	if facts.distanceProfile == "ten-foot" then
+		return "topBar"
+	end
 	if facts.sizeClass == "compact" then
 		return "bottomBar"
 	end
 	if facts.heightClass == "short" then
 		return "bottomBarCompact"
-	end
-	if facts.distanceProfile == "ten-foot" then
-		return "topBar"
 	end
 	if facts.primary == "pointer" then
 		return "sidebar"

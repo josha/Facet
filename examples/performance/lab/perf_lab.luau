@@ -266,6 +266,12 @@ local WORKLOADS = {
 		question = "Do Instances, connections, memory or stale work trend upward?",
 		passes = { "soak" },
 	},
+	{
+		id = "adaptive-navigation",
+		implementation = "none",
+		question = "What does adaptive sidebar reflow cost on the shared 24-image inventory?",
+		passes = { "navigationReflow" },
+	},
 }
 
 local WORKLOAD_BY_ID: { [string]: any } = {}
@@ -317,8 +323,13 @@ return {
 		-- supplied by the lab client in Studio and by the test harness in Lune.
 		local lab = ctx.lab
 		assert(
-			type(lab) == "table" and lab.dataset ~= nil and lab.rows ~= nil and lab.capture ~= nil and lab.levers ~= nil,
-			"[perf lab] ctx.lab must carry { dataset, rows, capture, overlay, levers } — see examples/performance/client/init.client.luau"
+			type(lab) == "table"
+				and lab.dataset ~= nil
+				and lab.rows ~= nil
+				and lab.capture ~= nil
+				and lab.levers ~= nil
+				and lab.navigationInventory ~= nil,
+			"[perf lab] ctx.lab must carry { dataset, rows, capture, overlay, levers, navigationInventory } — see examples/performance/client/init.client.luau"
 		)
 		local dataset = lab.dataset
 		local rows = lab.rows
@@ -1826,6 +1837,18 @@ return {
 			scopeCount = scopeCount,
 			framesAndReps = framesAndReps,
 			viewportH = viewportH,
+			passes = passes,
+		})
+
+		lab.navigationInventory.install({
+			Facet = Facet,
+			core = core,
+			ctx = ctx,
+			dataset = dataset,
+			telemetry = telemetry,
+			timed = timed,
+			summarize = summarize,
+			framesAndReps = framesAndReps,
 			passes = passes,
 		})
 

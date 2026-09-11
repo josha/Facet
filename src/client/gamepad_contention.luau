@@ -383,7 +383,7 @@ function gamepad_contention.disableLegacyControls(playerModuleParent: any?, play
 		local parent = playerModuleParent
 		if parent == nil then
 			local Players = game:GetService("Players")
-			parent = Players.LocalPlayer:WaitForChild("PlayerScripts")
+			parent = assert(Players.LocalPlayer:WaitForChild("PlayerScripts", 5), "no PlayerScripts")
 		end
 		-- bounded wait: a place running the IAS player-script stack (or a
 		-- stripped test place) may never insert PlayerModule at all — an

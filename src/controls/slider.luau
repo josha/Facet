@@ -43,6 +43,7 @@ local value_model = require("./value_model")
 local specGuard = require("../spec_guard")
 local rectLib = require("../rect")
 
+local menuRecipe = require("./menu_recipe")
 local slider = {}
 
 -- THEME METRICS, not literals. The track is the effective-target
@@ -73,6 +74,7 @@ local LABEL_GAP = "m"
 local FOCUS_RING = "focusRing"
 
 export type Spec = {
+	row: any?,
 	id: string?,
 	label: string?,
 	value: any, -- owner-held Signal<number>
@@ -122,6 +124,7 @@ end
 -- CLOSED SPEC (constitution §4). Exactly the fields this control
 -- reads — an unknown one is an authoring mistake, never a silent no-op.
 local SLIDER_KEYS = specGuard.keySet({
+	"row",
 	"enabled",
 	"format",
 	"id",
@@ -439,7 +442,7 @@ function slider.build(Facet: any, core: any, spec: Spec)
 									-- and paint, and the ring reads against every one
 									-- of them because it uses the theme's focus role
 									-- rather than a literal colour.
-									stroke = focusStroke,
+									stroke = if spec.row then nil else focusStroke,
 								}),
 								thumbOverride
 							),
@@ -487,6 +490,24 @@ function slider.build(Facet: any, core: any, spec: Spec)
 			}),
 		},
 	})
+
+	if spec.row then
+		assert(spec.row.value == nil, "Slider.row: value is supplied by the slider")
+		local header = menuRecipe.semantic(UI, core, scope, spec.label, spec.row, readout)
+		table.insert(header, root.children[2])
+		root = UI.corners(
+			UI.VStack({
+				id = id,
+				width = UI.fill(),
+				gap = "s",
+				padding = "m",
+				surface = "control",
+				stroke = focusStroke,
+				children = header,
+			}),
+			"control"
+		)
+	end
 
 	local rootPath: string? = nil
 	local thumbPath: string? = nil
@@ -593,6 +614,7 @@ function slider.build(Facet: any, core: any, spec: Spec)
 		-- `focusGroups` gets). The track is still found by WALKING rather than by
 		-- assuming a path shape, because where the consumer placed this control
 		-- decides the mounted path and guessing it is what breaks silently.
+		adjustRepeat = true,
 		adjustTargets = function(ownRoot: any): { [string]: boolean }
 			if trackPath == nil then
 				local function walk(node: any)

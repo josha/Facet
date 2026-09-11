@@ -36,9 +36,6 @@ function example.build(Facet: any, core: any, deps: any)
 	-- does the slot still hold a save? Confirming deletes it; Restore puts it back.
 	local hasSave = core:signal(true)
 
-	-- Track the live modal handle so a button's own onActivate can dismiss it.
-	local currentModal: any = nil
-
 	local slotLabel = core:memo(function(use)
 		return if use(hasSave) then "Save Slot 1 — Rally Stage 3, 42%" else "Save Slot 1 — empty"
 	end)
@@ -52,101 +49,36 @@ function example.build(Facet: any, core: any, deps: any)
 		return "This slot holds a save. Deleting it cannot be undone."
 	end)
 
-	-- The modal blueprint: a prompt and two buttons. It is presented lazily, only
-	-- when the user asks to delete. Each button carries its APP SEMANTICS on its
-	-- node onActivate: the presenter dispatches Activate (tap, or Return/A on the
-	-- focused button) here with no consumer routing. The gamepad B
-	-- button / Cancel routing dismisses WITHOUT reaching these — the presenter
-	-- handles that and restores focus on its own.
-	--
-	-- Keep the alert brief and centered. Its actions size to content and share spare row space; Cancel
-	-- is the safe primary choice and receives initial focus through the presenter.
-	local dialog = UI.Screen({
+	-- The standard Alert owns responsive sizing, modal focus and cancellation.
+	-- The game supplies the decision and its effects, not another dialog layout.
+	local dialog = Facet.Controls.Alert(core, {
 		id = "ConfirmDialog",
-		surface = "scrim",
-		padding = "m",
-		children = {
-			UI.ZStack({
-				id = "Center",
-				width = UI.fill(),
-				height = UI.fill(),
-				children = {
-					UI.VStack({
-						id = "Card",
-						surface = "raised",
-						padding = "m",
-						gap = "s",
-						alignH = "center",
-						alignV = "center",
-						children = {
-							UI.Text({
-								id = "Prompt",
-								text = "Delete this save?",
-								textSize = "title",
-								textAlign = "center",
-								width = UI.fill(),
-							}),
-							UI.Text({
-								id = "Message",
-								text = "This cannot be undone.",
-								textSize = "body",
-								role = "secondary",
-								textAlign = "center",
-								width = UI.fill(),
-							}),
-							UI.HStack({
-								id = "Actions",
-								width = UI.fill(),
-								distribute = "spaceAround",
-								align = "center",
-								gap = "s",
-								children = {
-									UI.Button({
-										id = "Confirm",
-										label = "Delete Save",
-										compactLabel = "Delete",
-										role = "destructive",
-										width = { type = "content" },
-										shrinkWeight = 1,
-										align = "center",
-										onActivate = function()
-											result:set("confirmed")
-											hasSave:set(false)
-											presenter.dismiss(currentModal)
-											currentModal = nil
-										end,
-									}),
-									UI.Button({
-										id = "Cancel",
-										label = "Cancel",
-										surface = "accent",
-										width = { type = "content" },
-										shrinkWeight = 1,
-										align = "center",
-										onActivate = function()
-											result:set("cancelled")
-											presenter.dismiss(currentModal)
-											currentModal = nil
-										end,
-									}),
-								},
-							}),
-						},
-					}),
-				},
-			}),
+		title = "Delete this save?",
+		severity = "critical",
+		message = "This cannot be undone.",
+		actions = {
+			{
+				id = "Confirm",
+				label = "Delete Save",
+				compactLabel = "Delete",
+				role = "destructive",
+				onActivate = function()
+					result:set("confirmed")
+					hasSave:set(false)
+				end,
+			},
+			{
+				id = "Cancel",
+				label = "Cancel",
+				role = "cancel",
+				onActivate = function()
+					result:set("cancelled")
+				end,
+			},
 		},
 	})
-
 	local function openDialog()
-		if currentModal ~= nil then
-			return -- already open: one modal, not a stack of identical ones
-		end
-		currentModal = presenter.presentModal(dialog, { initialFocus = { id = "Cancel" } })
-		currentModal.scope:own(function()
-			-- Back dismisses without either button callback.
-			currentModal = nil
-		end)
+		dialog.present(presenter)
 	end
 
 	local function restore()
@@ -198,10 +130,7 @@ function example.build(Facet: any, core: any, deps: any)
 		cancelPath = "/ConfirmDialog/Center/Card/Actions/Cancel",
 		cardPath = "/ConfirmDialog/Center/Card",
 		dispose = function()
-			if currentModal ~= nil then
-				presenter.dismiss(currentModal)
-				currentModal = nil
-			end
+			dialog.dispose()
 			slotLabel:dispose()
 			outcomeLabel:dispose()
 			canDelete:dispose()

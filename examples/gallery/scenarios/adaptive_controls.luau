@@ -392,16 +392,10 @@ return {
 		end
 		local toolbar = UI.HStack({
 			id = "Toolbar",
-			-- THEME-OPT-OUT: this row is ALREADY a recorded, tolerated overflow
-			-- under seven non-neutral packages (tests/lib/theme_sweep_ledger.luau,
-			-- "row-cannot-shrink", 121px ceiling) -- a pre-existing defect this
-			-- scenario does not own fixing. A raw `6` is THEME-INDEPENDENT (always
-			-- 6px, every package); "tight" is DERIVED per package's own xs/s and
-			-- glossy-touch's is 8 (xs=6, s=10), which widened this 4-gap row by
-			-- 4*2=8px and pushed it past its ledger ceiling (121 -> 129px,
-			-- measured: task G-SPACE fix round, review finding). Kept raw rather
-			-- than migrated -- the day-2 lesson names exactly this shape.
-			gap = 6,
+			-- Keep the same actions when theme chrome or text needs more room.
+			-- Automatic spatial navigation follows the wrapped rows after solving.
+			wrap = true,
+			gap = "tight",
 			width = UI.fill(),
 			children = {
 				UI.Button({ id = "TbBack", label = "◀", height = { type = "minMax", min = "targetSizes.minimum" } }),

@@ -168,16 +168,15 @@ function presentation_channel.new(deps: {
 			dx += own.x or 0
 			dy += own.y or 0
 		end
-		local i = #path
-		while i > 1 do
-			if string.sub(path, i, i) == "/" then
-				local t = lastTransform[string.sub(path, 1, i - 1)]
-				if t ~= nil then
-					dx += t.x or 0
-					dy += t.y or 0
-				end
+		-- Scan separators in the string library, not one Luau call per character.
+		local i = string.find(path, "/", 2, true)
+		while i ~= nil do
+			local t = lastTransform[string.sub(path, 1, i - 1)]
+			if t ~= nil then
+				dx += t.x or 0
+				dy += t.y or 0
 			end
-			i -= 1
+			i = string.find(path, "/", i + 1, true)
 		end
 		return dx, dy
 	end

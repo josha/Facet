@@ -305,12 +305,12 @@ return {
 		local coordinator = Facet.newRowActionsCoordinator(core)
 		local listRows: { [string]: any } = {}
 
-		local function rowContent(model: any, item: any): any
+		local function rowContent(model: any, item: any, itemScope: any): any
 			local unreadDot = model.readFor[item.id]
 			local flagged = model.flaggedFor[item.id]
-			local showDot = core:memo(function(use)
+			local showDot = itemScope:own(core:memo(function(use)
 				return not use(unreadDot)
-			end)
+			end))
 			return UI.Button({
 				id = "Row",
 				label = `{item.subject} from {item.from}`,
@@ -327,11 +327,13 @@ return {
 						id = "DotWhen",
 						condition = showDot,
 						thenView = function()
-							return UI.Box({
+							return UI.Path({
 								id = "Dot",
 								width = { type = "fixed", px = 8 },
 								height = { type = "fixed", px = 8 },
-								surface = "accent",
+								points = Facet.pathShapes.ring({ radius = 0.5 }),
+								thickness = 3,
+								role = "accent",
 							})
 						end,
 					}),
@@ -377,7 +379,7 @@ return {
 					-- it sits inside a content-sized composite root (row_actions.
 					-- luau's own `width` field comment; table.luau's identical fix)
 					width = UI.fill(),
-					content = rowContent(listModel, item),
+					content = rowContent(listModel, item, itemScope),
 					leading = actions.leading,
 					trailing = actions.trailing,
 					fullSwipe = actions.fullSwipe,
@@ -510,12 +512,12 @@ return {
 		-- tap/Return/ButtonA activate, so unlike "list"'s `rowContent` this one
 		-- is not itself a `UI.Button`.
 		local vlModel = newMailModel(core, animateReflow)
-		local function vlRowContent(item: any): any
+		local function vlRowContent(item: any, itemScope: any): any
 			local unreadDot = vlModel.readFor[item.id]
 			local flagged = vlModel.flaggedFor[item.id]
-			local showDot = core:memo(function(use)
+			local showDot = itemScope:own(core:memo(function(use)
 				return not use(unreadDot)
-			end)
+			end))
 			return UI.HStack({
 				id = "RowBody",
 				gap = "s",
@@ -527,11 +529,13 @@ return {
 						id = "DotWhen",
 						condition = showDot,
 						thenView = function()
-							return UI.Box({
+							return UI.Path({
 								id = "Dot",
 								width = { type = "fixed", px = 8 },
 								height = { type = "fixed", px = 8 },
-								surface = "accent",
+								points = Facet.pathShapes.ring({ radius = 0.5 }),
+								thickness = 3,
+								role = "accent",
 							})
 						end,
 					}),
@@ -642,8 +646,8 @@ return {
 			-- over-fills rather than mounting three rows and popping.
 			viewportExtent = "auto",
 			overscan = 2,
-			cell = function(item: any)
-				return vlRowContent(item)
+			cell = function(item: any, cellContext: any)
+				return vlRowContent(item, cellContext.scope)
 			end,
 			onActivate = function(item: any)
 				vlModel.markRead(item.id)

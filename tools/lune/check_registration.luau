@@ -137,7 +137,8 @@ local INTERACTIVE_ACTION_EXCEPT: { [string]: boolean } = { ScrollView = true }
 	VERB_BEARING_FIELDS below), so a control that later grows a handler cannot
 	keep an exemption it has stopped deserving. ]]
 local CONTRIBUTION_INTAKE_ONLY: { [string]: string } = {
-	SelectionIndicator = "its bundle is syncGeometry + bindMotion only. It mounts an Anchor holding a Box, "
+
+	SelectionIndicator = "its bundle reads geometry epochs and accepts geometry/motion only. It mounts an Anchor holding a Box, "
 		.. "neither of which is in focus_map.FOCUSABLE, and it is declared FIRST inside its ZStack so it paints "
 		.. "BEHIND the strip it decorates and can never take a tap from it. What it owes instead of four input "
 		.. "proofs is a proof that it stays out of the way, which tests/selection_indicator.spec.luau carries: "
@@ -159,6 +160,7 @@ local VERB_BEARING_FIELDS = {
 	"adjustTargets",
 	"handleAdjust",
 	"adjustAxis",
+	"adjustRepeat",
 	"handleTraverse",
 	"handleCancel",
 	"outsideDismiss",
@@ -530,7 +532,10 @@ function check_registration.check(opts: Opts?)
 				if isInteractive and CONTRIBUTION_INTAKE_ONLY[entry.name] ~= nil then
 					local carriesVerb = false
 					for _, field in VERB_BEARING_FIELDS do
-						if string.find(source, field, 1, true) ~= nil then
+						-- These helpers receive a controller for scroll/geometry observations.
+						-- Every actual handler field remains guarded, including future additions.
+						local controllerObserver = (entry.name == "SelectionIndicator") and field == "bindController"
+						if not controllerObserver and string.find(source, field, 1, true) ~= nil then
 							carriesVerb = true
 							problem(
 								`control {entry.name} is listed in CONTRIBUTION_INTAKE_ONLY but its module mentions `

@@ -882,6 +882,16 @@ if bootDecision.mode == "showcase" then
 			end,
 			-- the reduced-motion axis of a device canary, reachable without a
 			-- pointer and WITHOUT the one demo that used to own it being on screen
+			distance = function(arg: string?)
+				if arg ~= nil then
+					settings.setViewingDistance(arg)
+				end
+				return HttpService:JSONEncode({
+					preference = env:get("viewingDistance"):get(),
+					resolved = env:get("distanceProfile"):get(),
+					source = env:get("distanceProfileSource"):get(),
+				})
+			end,
 			motion = function(arg: string?)
 				if arg == "full" or arg == "reduced" then
 					settings.setMode(arg)

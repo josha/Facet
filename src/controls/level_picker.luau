@@ -538,6 +538,7 @@ function level_picker.compose(Facet: any, core: any, cfg: Config)
 		-- on this control — and are UNBOUND otherwise. `rootNode` is THIS CONTROL's
 		-- mounted root: handed the screen root, "every Grip below here" claimed the
 		-- whole screen (found live 2026-08-02).
+		adjustRepeat = true,
 		adjustTargets = function(rootNode: any): { [string]: boolean }
 			rootPath = rootNode.path
 			local out: { [string]: boolean } = {}

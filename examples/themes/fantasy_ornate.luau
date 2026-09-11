@@ -454,6 +454,13 @@ function fantasy_ornate.definition(themes: any): any
 			},
 		},
 		chrome = {
+			-- One carved strip, without panel corners or an overhanging nameplate.
+			navigation = {
+				kind = "nineSlice",
+				asset = "ornate_selection_default",
+				contentInsets = { top = 6, right = 12, bottom = 6, left = 12 },
+				fallback = "native",
+			},
 			-- THE SIX-LAYER PANEL. `contentInsets` clears the frame's painted
 			-- border AND the rails inside it, so content never sits on the gilding.
 			panel = {

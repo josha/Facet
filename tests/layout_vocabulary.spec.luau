@@ -1291,3 +1291,103 @@ describe("shrink pass: the two edges the RED-TEAM named, pinned as they actually
 		expect(`scrolled={rowHeight(true)} plain={rowHeight(false)}`).toBe("scrolled=39 plain=39")
 	end)
 end)
+
+describe("capped content containers measure at their width cap", function()
+	for _, kind in { "vstack", "scroll" } do
+		for _, sizing in { "hug", "minMax", "preferred" } do
+			it(kind .. " with " .. sizing .. " includes wrapped text in its height", function()
+				local r = solve({
+					kind = "zstack",
+					id = "Root",
+					children = {
+						{
+							kind = kind,
+							id = "Card",
+							width = {
+								type = if sizing == "preferred" then "minMax" else sizing,
+								preferred = if sizing == "preferred" then 240 else nil,
+								max = 240,
+							},
+							height = { type = "hug" },
+							padding = 16,
+							gap = 8,
+							children = {
+								{
+									kind = "text",
+									id = "Message",
+									text = "Your current progress will replace the previous checkpoint.",
+									width = fill(),
+									textSize = 16,
+								},
+								{ kind = "box", id = "Action", width = fixed(100), height = fixed(44) },
+							},
+						},
+					},
+				}, 749, 400)
+				local card, action = r.rects.Card.rect, r.rects.Action.rect
+				expect(action.y + action.h <= card.y + card.h - 16).toBe(true)
+			end)
+		end
+	end
+end)
+
+describe("hugging scroll view includes leading decoration space", function()
+	for _, axis in { "x", "y" } do
+		it(axis .. " keeps its shifted child inside its natural extent", function()
+			local r = solve({
+				kind = "zstack",
+				id = "Root",
+				children = {
+					{
+						kind = "scroll",
+						axis = axis,
+						id = "Card",
+						leadingBleed = 17,
+						width = { type = "hug" },
+						height = { type = "hug" },
+						padding = 8,
+						children = { { kind = "box", id = "Action", width = fixed(100), height = fixed(44) } },
+					},
+				},
+			}, 400, 300)
+			local card, action = r.rects.Card.rect, r.rects.Action.rect
+			if axis == "y" then
+				expect(action.y + action.h <= card.y + card.h - 8).toBe(true)
+			else
+				expect(action.x + action.w <= card.x + card.w - 8).toBe(true)
+			end
+		end)
+	end
+end)
+
+describe("capped overlays preserve natural width before reflow", function()
+	it("fills its cap before wrapping a content-sized label", function()
+		local r = solve({
+			kind = "zstack",
+			id = "Pill",
+			width = { type = "minMax", min = 0, max = 240 },
+			height = { type = "hug", min = 30 },
+			children = {
+				{ kind = "box", id = "Plate", width = fill(), height = fill() },
+				{
+					kind = "hstack",
+					id = "Row",
+					width = fill(),
+					height = fill(),
+					padding = { left = 10, right = 10, top = 3, bottom = 3 },
+					children = {
+						{
+							kind = "text",
+							id = "Label",
+							text = "Travel across distant mountains and enjoy the view",
+							width = { type = "content" },
+						},
+					},
+				},
+			},
+		}, 800, 600)
+		expect(r.rects.Pill.rect.w).toBe(240)
+		local pill, label = r.rects.Pill.rect, r.rects.Label.rect
+		expect(label.y + label.h <= pill.y + pill.h).toBe(true)
+	end)
+end)

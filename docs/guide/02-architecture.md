@@ -27,6 +27,11 @@ All source lives under `src/`. Grouped by responsibility:
 | **controls** | `controls/table.luau`, `controls/virtual_list.luau`, `class_contract.luau` | Composite controls built *out of* the primitive blueprints. |
 | **client** | `client/host.luau`, `client/screen_target.luau`, `client/roblox_env.luau`, `client/roblox_input.luau`, `client/roblox_resources.luau`, `client/billboard_target.luau`, `client/theme_controller.luau`, `client/edit_preview.luau`, `client/motion_driver.luau`, `client/haptics.luau`, `client/gamepad_contention.luau`, `client/responder_effects.luau` | The **only** code that touches Roblox `Instance`s, real input, and real device facts. Client-only, and these are the blessed entry points a consumer may require directly — see [`../reference/api.md` §Client entry points](../reference/api.md#client-entry-points). The list in code is `tools/lune/check_boundary.luau`'s `BLESSED_CLIENT_MODULES`, and it is the authority; no document restates its size, because a restated count is a second list to keep. |
 
+Image framing follows the same boundary: `render/image_framing.luau` computes
+source crop and destination paint rectangles without changing layout;
+`client/screen_image.luau` owns the optional managed picture and its lifetime.
+Both ordinary `UI.Image` and the image form of `Controls.Button` use this path.
+
 Everything except the **client** group is engine-free and runs headless.
 
 This chapter explains the boundaries.

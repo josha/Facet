@@ -39,6 +39,8 @@ local VIEWS: { View } = {
 	{ id = "tablet-landscape", w = 1079, h = 809, displaySize = "Small", input = "Touch" },
 	{ id = "desktop-standard", w = 1232, h = 1067, displaySize = "Medium", input = "KeyboardAndMouse" },
 	{ id = "console-ten-foot", w = 1920, h = 1078, displaySize = "Large", input = "Gamepad" },
+	{ id = "handheld-gamepad", w = 960, h = 540, displaySize = "Small", input = "Gamepad" },
+	{ id = "compact-gamepad", w = 390, h = 844, displaySize = "Small", input = "Gamepad" },
 	{ id = "narrow-portrait", w = 320, h = 640, displaySize = "Small", input = "Touch" },
 	{ id = "narrow-landscape", w = 640, h = 320, displaySize = "Small", input = "Touch" },
 	-- the DESKTOP Studio client the director drove on 2026-08-12, at the size the

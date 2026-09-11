@@ -1818,6 +1818,20 @@ function snapshot.resolve(package: any, themeName: string?, facts: Facts?, overr
 	end
 
 	-- Additive resolved defaults preserve authored package stamps.
+	if type(out.controls.alert) ~= "table" then
+		out.controls.alert = {}
+	end
+	if type(out.controls.alert.iconSize) ~= "number" then
+		out.controls.alert.iconSize = out.targetSizes.minimum
+	end
+	if type(out.controls.alert.iconStroke) ~= "number" then
+		out.controls.alert.iconStroke = out.space.xs
+	end
+
+	if type(out.controls.alert.maxWidth) ~= "number" then
+		out.controls.alert.maxWidth = out.targetSizes.minimum * (560 / 44)
+	end
+
 	if type(out.controls.popup.panelWidth) ~= "number" then
 		out.controls.popup.panelWidth = out.targetSizes.minimum * (360 / 44)
 	end

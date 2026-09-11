@@ -1,0 +1,24 @@
+# Distance and gamepad implementation decisions
+
+This implements the shared mechanisms from the [audit](2026-09-09-distance-gamepad-audit.md), with the user's requirement to adapt existing controls before adding constructs. Physical usability gates remain distinct from deterministic and Studio evidence.
+
+## Decisions
+
+- Extend NavigationGroup with optional `rectOf(path)` resting geometry. Inferred layout groups receive the renderer's resolver. Search is a linear mounted-candidate pass within the layout group on each direction, with aligned spans before diagonals and deterministic document-order ties. Group boundaries retain existing transitions instead of scanning across contributed controls or surface coordinate systems. Explicit groups, wrap policy, grid lanes, virtual traversal, and radial interception remain authoritative. Tab order remains separate. This fixes nested panes and wrapped/axis-changing layouts without a second navigation engine or a frame-by-frame neighbor cache.
+- Add authored environment fact `viewingDistance = automatic | near | ten-foot` and derived `distanceProfileSource = inferred | authored`. Preserve raw engine facts. Resolve every distance-dependent metric through the existing effective-display authority. The host owns persistence. Existing automatic inference and type/safe-area defaults remain available; numerical distant typography calibration still needs physical displays.
+- Extend TabView with `restoreFocus` (default true). Keep one stable path per authored tab, release it on control disposal, and restore only a valid mounted target on navigation entry. Pointer entry remains exact. `false` supports deliberate fresh task entry. Keep item keys, virtual scroll position, and drafts in caller-owned state; do not retain evicted instances. Existing NavigationStack supplies route-level Back and focus return.
+- Adapt the existing Menu and PopupButton sheet for more than six selectable choices when gamepad is primary. Explicit presentation wins. Short menus and radial quick actions retain their existing behavior. Reuse the current chooser/back/input mechanisms.
+- Bound held navigation catch-up to three steps per frame; discard excess hitch time. Preserve cadence and the existing ownership/adjustment guards. Do not introduce gameplay remapping or automatic simulation pause.
+- Retain the existing Slider, Toggle, Picker, Stepper, Table, TabView, and NavigationStack roles. A Slider already provides a single adjustable focus target; Stepper's two direct commands remain useful. No new List or NavigationSplitView clone is justified by the repaired composition cases. A universal collapsing sidebar would take space and directional controls from comparison and game actions without demonstrated task benefit. Existing declared sidebar placement remains available.
+- Fix Pixel Quest's selected corner jewels to fit their 8px reserved frame. A live short "Quest" label was covered by 24px ornaments. Expanding the shared frame instead caused compact controls throughout the library to lose content space, so the decoration now fits its allocation. The same recipe serves every selected control and input mode. Add an own-content intersection regression, not only a neighbor-overlap check.
+- Wrap the existing Showcase action row using HStack's existing `wrap` and semantic gap. Remove the two overflow allowances this resolves. Add the viewing-distance preference to Showcase Settings and its scriptable verification API. All existing demos consume the shared changes, including nested tabs, navigation, long choosers, and quick actions.
+
+## Verification
+
+Regression-first evidence: nested-column direction, live axis change, missing distance preference, long controller choice presentation, tab focus return, hitch debt, and Pixel Quest own-content overlap each failed before its corresponding fix.
+
+The canonical shared layout/readout sweep now includes 960x540 and 390x844 near gamepad screens. The theme matrix also includes touch-capable handheld gamepad facts. These extend the existing theme, localization, accessibility, and input suites rather than creating a separate console-only suite.
+
+Run `tools/verify.sh full`, `tools/package.sh build`, and `tools/package.sh status` for the final repository state. Live checks use the synced Facet Showcase, native instances, simulated handheld/console viewports, input injection, and screenshots. Record source stamp and actual viewport rather than treating a simulator preset's nominal size as rendered size.
+
+Physical controller feel, eight-to-twelve-foot readability, TV overscan calibration, dock/undock behavior, actual console performance percentiles, and real multiplayer/server rejection sessions cannot be established by a desktop Studio emulator. Those remain the physical validation gates from the audit; no universal sidebar, new type minimum, or new game input scheme is being claimed to have won those comparisons.

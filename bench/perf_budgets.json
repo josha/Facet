@@ -39,6 +39,19 @@
   "note": "Headless trend budgets, floor-device (low-end Android) reference. observed_p95_ms is the WORST p95 over baselineRepeats runs, so the multiplier applies to a number that already contains the run-to-run jitter. total_p95_ms = max(worst_p95 × multiplier, floorMs). Trend-only; NOT a device SLA (§14.3).",
   "referenceProfile": "floorAndroid",
   "scenes": {
+    "adaptive-navigation-images": {
+      "baselineRepeats": 5,
+      "ceilingMs": 8.333333333333334,
+      "frameBudgetMs": 33.333333333333336,
+      "frameTargetHz": 30,
+      "hint": "scene 'adaptive-navigation-images' (UI-PERF-001) exceeded its headless trend budget — profile the reactive/layout path it exercises; re-baseline with 'lune run tools/lune/perf_baseline_scene adaptive-navigation-images' ONLY if the cost is intended",
+      "observed_p95_max_ms": 0.5954583175480366,
+      "observed_p95_min_ms": 0.4330417141318321,
+      "observed_p95_ms": 0.5954583175480366,
+      "requirement": "UI-PERF-001",
+      "scopedBaseline": true,
+      "total_p95_ms": 2.3818332701921463
+    },
     "animation-interruption": {
       "baselineRepeats": 5,
       "ceilingMs": 8.333333333333334,
@@ -130,7 +143,7 @@
       "frameTargetHz": 30,
       "hint": "scene 'lab-collection-churn' (UI-RUNTIME-002) exceeded its headless trend budget — profile the reactive/layout path it exercises; re-baseline with 'lune run tools/lune/perf_baseline_scene lab-collection-churn' ONLY if the cost is intended",
       "observed_p95_max_ms": 3.063541604205966,
-      "observed_p95_min_ms": 2.8109168633818626,
+      "observed_p95_min_ms": 2.810916863381862,
       "observed_p95_ms": 3.063541604205966,
       "requirement": "UI-RUNTIME-002",
       "scopedBaseline": true,
@@ -172,6 +185,19 @@
       "observed_p95_ms": 0.02208334626629949,
       "requirement": "UI-NATIVE-001",
       "total_p95_ms": 0.1
+    },
+    "navigation-customization": {
+      "baselineRepeats": 5,
+      "ceilingMs": 8.333333333333334,
+      "frameBudgetMs": 33.333333333333336,
+      "frameTargetHz": 30,
+      "hint": "scene 'navigation-customization' (UI-PERF-001) exceeded its headless trend budget — profile the reactive/layout path it exercises; re-baseline with 'lune run tools/lune/perf_baseline_scene navigation-customization' ONLY if the cost is intended",
+      "observed_p95_max_ms": 6.677416618913412,
+      "observed_p95_min_ms": 6.433958362322301,
+      "observed_p95_ms": 6.677416618913412,
+      "requirement": "UI-PERF-001",
+      "scopedBaseline": true,
+      "total_p95_ms": 26.70966647565365
     },
     "screen-lifecycle-churn": {
       "baselineRepeats": 5,

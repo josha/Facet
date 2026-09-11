@@ -2979,7 +2979,20 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 		measureWindow(rectOf, rootNode)
 	end
 
+	local bookmark = require("./scroll_bookmarks")
 	local bundle: any = {
+		captureScrollBookmark = function(controller, node)
+			local rows = spec.rows:get()
+			return bookmark.captureIndex(layoutNow(), function(i)
+				return spec.key(rows[i])
+			end, controller.scrollHostFor(node.path, true).offset)
+		end,
+		restoreScrollBookmark = function(controller, node, state)
+			local offset = bookmark.restoreIndex(layoutNow(), function(key)
+				return indexByKey:get()[key]
+			end, state, viewportNow())
+			writeScroll(controller, node.path, offset)
+		end,
 		focusGroups = buildFocusGroups,
 		handleActivate = handleActivate,
 		focusMoved = focusMoved,

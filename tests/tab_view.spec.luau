@@ -269,7 +269,7 @@ describe("D5: the strip IS a segmented picker, not a second option row", functio
 				{ id = "feed", label = "Feed", badge = "12", content = body("feed") },
 			},
 		})
-		local badge = stripPath(w) .. "/Indicator/Options/Opt2Cell/Badge/Count"
+		local badge = stripPath(w) .. "/Indicator/Options/Opt2Cell/Opt2/HStack#1/Badge"
 		expect(w.adapter.node(badge).props.text).toBe("12")
 		for _ = 1, 6 do
 			w.selection:set("feed")

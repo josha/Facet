@@ -156,10 +156,10 @@ replacement and their earliest removal version.
 | Capability | What it does | Reference |
 |---|---|---|
 | `UI.Text` | Draws a string, with fitting, wrapping, and reveal options. | [api](../reference/api.md#text) |
-| `UI.Image` | Draws one image asset. | [api](../reference/api.md#image) |
+| `UI.Image` | Draws an image, including focal-point crop, fit, stretch and unscaled framing; compose with `UI.background` for view backgrounds. | [api](../reference/api.md#image) |
 | `UI.Button` | The pressable primitive every input class can reach. | [api](../reference/api.md#button) |
 | `Controls.Toggle` | Switch, mixed checkbox, and persistent toggle button with caller-owned boolean state. | [api](../reference/api.md#controlstoggle) |
-| `Controls.Button` | Busy progress, cancellable hold repeat, scoped shortcuts and dialog actions. | [api](../reference/api.md#controlsbutton) |
+| `Controls.Button` | Image/caption focus presentation, busy progress, cancellable hold repeat, scoped shortcuts and dialog actions. | [api](../reference/api.md#controlsbutton) |
 | `Controls.SplitButton` | Independent primary action and anchored menu affordance. | [api](../reference/api.md#controlssplitbutton) |
 | `Controls.ComboBox` | Native draft editing, supplied suggestions and explicitly validated custom values. | [api](../reference/api.md#controlscombobox) |
 | `UI.Toggle` | A two-state switch primitive. Use Controls.Toggle for checkbox and toggle-button presentations. | [api](../reference/api.md#toggle) |
@@ -180,9 +180,10 @@ replacement and their earliest removal version.
 | `Controls.AsyncImage` | An image with placeholder, failure, and retry states. | [api](../reference/api.md#newasyncimage) |
 | `Controls.Callout` | A short attention surface, queued so two never collide. | [api](../reference/api.md#newcallout) |
 | `Controls.NavigationStack` | A caller-owned route path with page cleanup, Back and focus restoration. | [api](../reference/api.md#controlsnavigationstack) |
-| `Controls.TabView` | Tabs with a placement that adapts to the device. | [api](../reference/api.md#newtabview) |
+| `Controls.TabView` | Adaptive tabs, opt-in sidebar/capsule navigation, bounded focus bookmarks and evicted content. | [api](../reference/api.md#newtabview) |
 | `client.world_anchor` | Measure a Part, Model, or avatar for a following screen anchor and radial opening with relative padding. | [api](../reference/api.md#clientworld_anchor) |
 | `Controls.RadialMenu` | Corner, circle and donut command menus with captured gestures, compact labels and mixed nested rings/pages. | [api](../reference/api.md#controlsradialmenu) |
+| `Controls.Alert` | Brief modal decisions with content-sized cards, wrapping actions, safe focus and cancellation. | [api](../reference/api.md#controlsalert) |
 | `valueModel` | Formats, clamps, and steps a numeric value for those controls. | [api](../reference/api.md#valuemodel) |
 | `pathShapes` | Builds arc, ring, and needle point lists for `UI.Path`. | [api](../reference/api.md#pathshapes) |
 
@@ -217,7 +218,7 @@ replacement and their earliest removal version.
 | `newActionSystem` | The semantic input pipeline over Roblox's Input Action System. | [api](../reference/api.md#newactionsystem) |
 | `contribution` | The seam a composite uses to declare its whole input story. | [api](../reference/api.md#contribution) |
 | `inputHint` | A reactive affordance label that follows the active input class. | [api](../reference/api.md#inputhint) |
-| `newEnvironment` | The per-device facts: viewport, safe area, input class, text size. | [api](../reference/api.md#newenvironment) |
+| `newEnvironment` | Viewport, safe area, input class, text size, and an independent viewing-distance preference. | [api](../reference/api.md#newenvironment) |
 | `adaptive` | Size class, height class, orientation, columns, and card counts. | [api](../reference/api.md#adaptive) |
 | `composition` | The pure arrangement decision behind `UI.Composition`. | [api](../reference/api.md#composition-1) |
 | `layout` | Pure layout geometry not owned by a control — `transformFootprint(w, h, scale, deg)`, the reserved-box math for a scaled/rotated node; `anchorPlacement(request)`, the edge/flip/shift/tail placement solver shared by every surface that points at something. | [api](../reference/api.md#shared-properties) |
@@ -380,3 +381,12 @@ lune run tools/lune/time_specs artifacts/spec-timings.json > /dev/null
 
 It times every spec file, load plus cases, and the thirty slowest individual
 cases.
+
+| Capability | Public surface |
+|---|---|
+| Semantic action/settings rows, broad focus sections, named scrolling and visibility, keyed destination restoration, customizable tab sections | [Adaptive navigation continuity](../reference/api.md#adaptive-navigation-continuity): existing Button/Toggle/Slider row presentations; `UI.focusSection`; `UI.ScrollView.navigation`; TabView sections/customization/restoreScroll |
+
+Controller page ownership, value hold-repeat and edit Back behavior are covered in
+[Controller navigation ownership](../reference/api.md#controller-navigation-ownership).
+Adaptable bands have [navigation theme chrome](../reference/api.md#navigation-theme-chrome).
+For adaptive search composition and focus-restoring Back, run the Navigation flow Showcase.

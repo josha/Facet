@@ -689,3 +689,65 @@ describe("C5: what the bound does NOT survive — a reorder", function()
 		)
 	end)
 end)
+
+describe("paint order waits for materialized descendants before caching a subtree", function()
+	for _, containersPresent in { false, true } do
+		it(
+			"bounded sync assigns descendants seen before their handles existed, containers present "
+				.. tostring(containersPresent),
+			function()
+				local function node(path, class, children)
+					return { path = path, class = class, props = {}, children = children or {} }
+				end
+				local label = node("/S/TopHome/Center/Bar/Current", "Text")
+				local toggle = node("/S/TopHome/Center/Bar/Toggle", "Button")
+				local bar = node("/S/TopHome/Center/Bar", "HStack", { label, toggle })
+				local center = node("/S/TopHome/Center", "ZStack", { bar })
+				local home = node("/S/TopHome", "VStack", { center })
+				local root = node("/S", "Screen", { home })
+				local nodes = { root, home, center, bar, label, toggle }
+				local handles = { [root.path] = {}, [home.path] = {} }
+				if containersPresent then
+					handles[center.path] = {}
+					handles[bar.path] = {}
+				end
+				local metrics = themeSnapshot.neutral()
+				local order = require("../src/render/z_order").new({
+					adapter = {
+						setZOrder = function(handle, z)
+							handle.z = z
+						end,
+					},
+					root = { node = root },
+					handles = handles,
+					lastZ = {},
+					hitLift = { any = false },
+					metrics = function()
+						return metrics
+					end,
+					stats = { zMemoEntries = 0, zPasses = 0, zVisits = 0 },
+				})
+				-- Native geometry/hit-lift can see the mounted tree before ensureTree has
+				-- created all its handles. This walk must not make that branch skippable.
+				order.sync(nil)
+				expect(handles[label.path]).toBeNil()
+				for _, entry in nodes do
+					if not handles[entry.path] then
+						handles[entry.path] = {}
+					end
+				end
+				order.sync({ { path = home.path, node = home } })
+				local previous = 0
+				for _, entry in nodes do
+					local z = handles[entry.path].z
+					expect({ path = entry.path, assigned = type(z) == "number" }).toEqual({
+						path = entry.path,
+						assigned = true,
+					})
+					expect(z > previous).toBe(true)
+					previous = z
+				end
+			end
+		)
+	end
+end)

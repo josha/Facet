@@ -70,6 +70,7 @@ local FACT_DEFAULTS: { [string]: any } = {
 		chip row's bottom edge. ]]
 	appChromeRects = {},
 	keyboardOcclusionRect = nil,
+	viewingDistance = "automatic", -- automatic | near | ten-foot; authored viewing context
 	preferredInput = "KeyboardAndMouse", -- Touch | Gamepad | KeyboardAndMouse
 	capabilities = { keyboard = true, mouse = true, touch = false, gamepad = false },
 	reducedMotion = false,
@@ -211,6 +212,13 @@ function environment.new(core: any): Env
 		migrates by swapping the key name (the same shape `effectiveInput` already
 		is for `preferredInput`, below). ]]
 	derived.effectiveDisplaySize = core:memo(function(use)
+		local distance = use(signals.viewingDistance)
+		if distance == "ten-foot" then
+			return "Large"
+		elseif distance == "near" then
+			local raw = use(signals.displaySize)
+			return if raw == "Large" then "Medium" else raw
+		end
 		local caps = use(signals.capabilities)
 		local touch = type(caps) == "table" and caps.touch == true
 		return adaptive.effectiveDisplaySize(use(signals.displaySize), touch)
@@ -335,12 +343,12 @@ function environment.new(core: any): Env
 	-- ten-foot presentation keys off the display class, not the input class:
 	-- a console is Large + gamepad, and Large alone (any input) earns the
 	-- distance treatment (type floor, overscan margins, focus visibility) —
-	-- UNLESS touch is also live (director item 5): a real ten-foot
-	-- session never has a touchscreen, so "Large" AND "touch capable" is two
-	-- contradictory physical facts, and `effectiveDisplaySize` is the one seam
-	-- that resolves them (a PC handheld's engine-reported "Large" is corrected
-	-- to "Medium" there; every other combination passes through unchanged, a
-	-- real console included).
+	-- Automatic inference discounts a Large report on touch-capable devices.
+	-- Explicit viewing context wins: capability is not where a player sits.
+
+	derived.distanceProfileSource = core:memo(function(use)
+		return if use(signals.viewingDistance) == "automatic" then "inferred" else "authored"
+	end)
 	derived.distanceProfile = core:memo(function(use)
 		return if use(derived.effectiveDisplaySize) == "Large" then "ten-foot" else "near"
 	end)
@@ -703,6 +711,12 @@ function environment.new(core: any): Env
 	end
 
 	function env.set(_self, key: string, value: any)
+		if key == "viewingDistance" then
+			assert(
+				value == "automatic" or value == "near" or value == "ten-foot",
+				"viewingDistance must be automatic, near, or ten-foot"
+			)
+		end
 		local signal = signals[key]
 		assert(signal ~= nil, `cannot set unknown/derived environment key '{key}'`)
 		--[[ THE ENGINE'S PLACEHOLDER VIEWPORT IS NOT A FACT (director clip

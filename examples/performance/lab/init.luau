@@ -17,7 +17,7 @@
 
 local ORDER = { "perf_lab" }
 
-local MODULE_NAMES = { "perf_lab", "dataset", "rows", "capture", "overlay", "levers" }
+local MODULE_NAMES = { "perf_lab", "dataset", "rows", "capture", "overlay", "levers", "navigation_inventory" }
 
 local scenarios = {}
 for _, name in ORDER do
@@ -37,6 +37,7 @@ local lab = {
 	-- `edit-locality`. Its own file because perf_lab is close to the 200,000-char
 	-- live-sync cap; see levers.luau's header.
 	levers = require(script:WaitForChild("levers")) :: any,
+	navigationInventory = require(script:WaitForChild("navigation_inventory")) :: any,
 }
 
 return {

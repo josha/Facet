@@ -1228,7 +1228,21 @@ function virtual_grid.build(Facet: any, core: any, spec: any)
 		end
 	end)
 
+	local bookmark = require("./scroll_bookmarks")
 	local bundle: any = {
+		captureScrollBookmark = function(controller, node)
+			local items = spec.items:get()
+			return bookmark.captureIndex(layoutNow(), function(line)
+				return spec.key(items[(line - 1) * lanesNow() + 1])
+			end, controller.scrollHostFor(node.path, true).offset)
+		end,
+		restoreScrollBookmark = function(controller, node, state)
+			local offset = bookmark.restoreIndex(layoutNow(), function(key)
+				local i = indexByKey:get()[key]
+				return if i then lineOf(i) else nil
+			end, state, viewportNow())
+			writeScroll(controller, node.path, offset)
+		end,
 		focusGroups = buildFocusGroups,
 		handleActivate = handleActivate,
 		bindController = function(controller: any)

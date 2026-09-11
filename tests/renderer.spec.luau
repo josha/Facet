@@ -20,6 +20,47 @@ local adapter_source = require("./lib/adapter_source")
 -- (tests/lib/renderer_source names them and says why)
 local renderer_source = require("./lib/renderer_source")
 
+describe("renderer path lookup locality", function()
+	it("repaints a late sibling without visiting an unrelated subtree", function()
+		local core = customFactory.new()
+		local env = environment.new(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
+		local scale = core:signal(1)
+		local root = mountLib.mount(
+			core,
+			UI.Screen({
+				id = "S",
+				children = {
+					UI.VStack({ id = "Card", children = { UI.Text({ id = "Label", text = "Unchanged" }) } }),
+					UI.VStack({
+						id = "CardExtra",
+						children = { UI.Text({ id = "Label", text = "Animated", scale = scale }) },
+					}),
+				},
+			})
+		)
+		local adapter = fake_target.new()
+		local controller = renderer.attach(core, root, env, adapter)
+		controller.initialRender()
+		local unrelated = root.node.children[1]
+		local children = unrelated.children
+		local visits = 0
+		unrelated.children = setmetatable({}, {
+			__iter = function()
+				visits += 1
+				return next, children
+			end,
+		})
+		scale:set(1.05)
+		controller.refresh()
+		unrelated.children = children
+		expect(adapter.node("/S/CardExtra/Label").props.transform.scale).toBe(1.05)
+		expect(visits).toBe(0)
+		controller.dispose()
+		root.dispose()
+	end)
+end)
+
 local function makeSlice()
 	local core = customFactory.new()
 	local env = environment.new(core)

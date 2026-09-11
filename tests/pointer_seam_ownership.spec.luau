@@ -76,6 +76,9 @@ local function newFakeInstance(): any
 		MouseEnter = newSignal(),
 		MouseLeave = newSignal(),
 	}
+	function instance.FindFirstAncestorWhichIsA(self, className: string): any
+		return if className == "ScrollingFrame" then self.scrollAncestor else nil
+	end
 	function instance.IsA(_self, className: string): boolean
 		return className == "GuiObject"
 	end
@@ -328,3 +331,28 @@ describe(
 		end)
 	end
 )
+
+describe("native scrolling under pointer zones", function()
+	it(
+		"a nested grip and its hit expansion pass scrolling through, then restore sinking outside a scroll host",
+		function()
+			local fixture = newSeam()
+			local instance = newFakeInstance()
+			instance.Active = true
+			instance.scrollAncestor = {}
+			local expander = newFakeInstance()
+			expander.Active = true
+			local handle = { class = "Grip", instance = instance, path = "/List/Row/Hit", hitExpander = expander }
+			fixture.seam.setPointerHandlers(handle, {})
+			expect(instance.Active).toBe(false)
+			expect(expander.Active).toBe(false)
+			expect(instance.InputBegan:liveCount()).toBe(1)
+			instance.scrollAncestor = nil
+			handle.path = "/Slider/Thumb"
+			fixture.seam.setPointerHandlers(handle, {})
+			expect(instance.Active).toBe(true)
+			expect(expander.Active).toBe(true)
+			expect(instance.InputBegan:liveCount()).toBe(1)
+		end
+	)
+end)

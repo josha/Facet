@@ -438,7 +438,8 @@ describe("themed containment: the four measurements, pinned", function()
 		settle(w)
 		w.env:set("themeMetrics", PIXEL)
 		settle(w)
-		local root = "/TabViewDemo/Root/App/Content/Tab-pages/then/Page/TopHome/then/TopBandCenter/TopBand/Strip"
+		local root =
+			"/TabViewDemo/Root/App/Content/Tab-pages/then/PageScroll/PageViewport/Page/TopHome/then/TopBandCenter/TopBand/Strip"
 		local bar = w.adapter.node(`{root}/Indicator/Layer/Bar`)
 		local seg = w.adapter.node(`{root}/Indicator/Options/Opt1`)
 		expect(bar ~= nil and seg ~= nil).toBe(true)
@@ -883,6 +884,7 @@ describe("themed containment: the count seal clears its own segment's chrome (di
 		local picker = Facet.Controls.Picker(core, {
 			id = "Seg",
 			label = "Segments",
+			indicator = "none",
 			presentation = "segmented",
 			options = {
 				{ value = "a", label = "Alpha", badge = "7" },
@@ -920,10 +922,10 @@ describe("themed containment: the count seal clears its own segment's chrome (di
 		local rightCarved = carvedInsetSide(snapshot, "control", "right")
 		local out = {}
 		for _, path in w.adapter.paths() do
-			if #path < 12 or string.sub(path, -12) ~= "/Badge/Count" then
+			local cellPath = string.match(path, "^(.-)/HStack#1/Badge$")
+			if cellPath == nil then
 				continue
 			end
-			local cellPath = string.sub(path, 1, #path - 12)
 			local badge = w.adapter.node(path)
 			local cell = w.adapter.node(cellPath)
 			if badge == nil or cell == nil or badge.rect == nil or cell.rect == nil then
@@ -941,15 +943,14 @@ describe("themed containment: the count seal clears its own segment's chrome (di
 		return out
 	end
 
-	it("with no package installed, the badge sits flush at the corner — shipped geometry, unchanged", function()
+	it("with no package installed, the badge stays inside its button content area", function()
 		local w = world(VIEWS[1])
 		local hits = badgeHits(w, nil)
 		expect(#hits > 0).toBe(true) -- anti-vacuity: the fixture really has a badge
 		for _, hit in hits do
 			expect(hit.carved).toBe(0)
-			-- FLUSH means AT the corner (clearance ~0), not clear of it by a margin
-			expect(math.abs(hit.rightClear) <= 0.5).toBe(true)
-			expect(math.abs(hit.topClear) <= 0.5).toBe(true)
+			expect(hit.rightClear >= -0.5).toBe(true)
+			expect(hit.topClear >= -0.5).toBe(true)
 		end
 	end)
 
@@ -964,16 +965,8 @@ describe("themed containment: the count seal clears its own segment's chrome (di
 				expect(hit.carved > 0).toBe(true)
 				expect(hit.rightClear >= -0.5).toBe(true)
 				expect(hit.topClear >= -0.5).toBe(true)
-				-- THE T1 PIN. Over-clearing is a defect too: a badge that pads BOTH
-				-- axes by the SHARED max of all four sides (the pre-fix shape) clears
-				-- an asymmetric package's short axis by more than that axis carves.
-				-- fantasy_ornate's `control` is {top=10,right=14,...} — a shared-max
-				-- badge clears top by 14 (should be 10), 4px past its own carve, and
-				-- the `>= -0.5` checks above cannot see it (over-clear never goes
-				-- negative). An exact per-axis clearance is ~0; tolerate sub-pixel
-				-- slack only.
-				expect(hit.topClear <= 0.5).toBe(true)
-				expect(hit.rightClear <= 0.5).toBe(true)
+				-- The badge is an inline child now; extra clearance is label/row
+				-- layout, not a hard-coded corner displacement.
 			end
 		end)
 	end

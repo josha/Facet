@@ -92,6 +92,7 @@ local STYLE_PROPS: { [string]: boolean } = {
 	-- the solved rect does not move, and the single engine write is what makes the
 	-- picture fit the box the solver already sized.
 	scaleMode = true,
+	imageFraming = true,
 }
 
 -- Creation-time application order. This used to be a SECOND hardcoded list
@@ -122,6 +123,7 @@ local STYLE_PROP_ORDER: { string } = {
 	"stroke",
 	"textAlign",
 	"scaleMode",
+	"imageFraming",
 	"compactLabel",
 	"icon",
 }

@@ -2041,6 +2041,27 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 		})
 	)
 
+	if virtualized and spec.scrolls ~= false then
+		local bookmark = require("./scroll_bookmarks")
+		children[#children] = contribution.attach(children[#children], {
+			captureScrollBookmark = function(controller, node)
+				local layout = layoutNow()
+				return bookmark.captureIndex(layout.ix, function(i)
+					return layout.keys[i]
+				end, controller.scrollHostFor(node.path, true).offset)
+			end,
+			restoreScrollBookmark = function(controller, node, state)
+				local layout = layoutNow()
+				local host = controller.scrollHostFor(node.path, true)
+				local offset = bookmark.restoreIndex(layout.ix, function(key)
+					return layout.slotOf[key]
+				end, state, host.rect.h)
+				scrollTop:set(offset)
+				controller.scrollTo(node.path, { x = 0, y = offset })
+			end,
+		})
+	end
+
 	-- THE TOOLBAR GOES FIRST, IN THE FLOW (director round 12; see the block's own
 	-- note). `Main` is a VStack, so a row inserted at the front pushes the header
 	-- and the body down by exactly its height instead of covering them.
@@ -3183,6 +3204,18 @@ function table_control.build(Facet: any, core: any, spec: Spec)
 	function api.handleCancel(_focusedPath: string?): boolean
 		if selectedColumn:get() ~= nil then
 			selectedColumn:set(nil)
+			return true
+		end
+		if grabbedKey:get() ~= nil then
+			if grabOrigin ~= nil and spec.onReorder ~= nil then
+				spec.onReorder(grabOrigin.block, grabOrigin.slot)
+			end
+			grabOrigin = nil
+			grabbedKey:set(nil)
+			return true
+		end
+		if editingSignal:get() == true then
+			editingSignal:set(false)
 			return true
 		end
 		return false

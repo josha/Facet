@@ -394,6 +394,7 @@ function screen_chrome.new(ctx: Context)
 		contentStrong = toColor3(style.colors.contentStrong),
 		contentSecondary = toColor3(style.extra.contentSecondary),
 		accent = toColor3(style.colors.accent),
+		onAccent = toColor3(style.colors.onAccent),
 		control = toColor3(style.extra.control),
 		controlSelected = toColor3(style.extra.controlSelected),
 		danger = toColor3(style.colors.danger),

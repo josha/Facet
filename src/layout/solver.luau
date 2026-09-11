@@ -997,7 +997,7 @@ local function contentSize(ctx: Ctx, node: Node, maxW: number, maxH: number): (n
 	--
 	-- `fixed` and `percent` resolve without consulting content, so asking for
 	-- them here cannot recurse (the same argument the `fits` branch makes).
-	-- `fill`, `minMax`, `aspect` and `content` are left alone: none of them can
+	-- `fill`, `aspect` and uncapped content dimensions are left alone: none can
 	-- answer without the content this call is measuring.
 	if maxW ~= math.huge and node.kind ~= "text" and node.kind ~= "fits" then
 		local selfW = dim(node, "w")
@@ -1281,6 +1281,15 @@ local function contentSize(ctx: Ctx, node: Node, maxW: number, maxH: number): (n
 			`percent` cannot be computed against infinity; `fill` can. The four cases and
 			three negative controls are in `tests/container_relative_frame.spec.luau`. ]]
 		local mainDim = dim(node, if axis == "x" then "w" else "h")
+		-- A content-sized viewport must request the leading decoration space
+		-- that arrangement adds after measuring its children. Otherwise even a
+		-- short card scrolls its last action outside its own measured border.
+		if
+			node.leadingBleed ~= nil
+			and (mainDim.type == "hug" or mainDim.type == "content" or mainDim.type == "minMax")
+		then
+			mainSum += node.leadingBleed
+		end
 		--[[ A CONTENT-TERMS DIM IS DEFINITE TOO (framework-gaps-phase2 gap 3,
 			2026-08-23), found by this very diagnostic firing on `preferred_text`'s
 			`Form` — a `lines`/`rows` viewport nested inside another scroller's own
@@ -2077,6 +2086,20 @@ measureUncached = function(ctx: Ctx, node: Node, maxW: number, maxH: number): (n
 		end, ctx.containerW)
 		h = resolveAxis(ctx, node, hDim, maxH, function()
 			local _, c = content()
+			-- Resolve natural width before reflowing a capped container. Using
+			-- wrapped line widths to choose its width would shrink it below its
+			-- cap, then wrap again during arrangement (content-hugging toasts).
+			if
+				(wDim.type == "hug" or wDim.type == "minMax")
+				and wDim.max ~= nil
+				and cw ~= nil
+				and cw > w
+				and node.kind ~= "text"
+				and node.kind ~= "fits"
+			then
+				local _, reflowed = contentSize(ctx, node, w, maxH)
+				return reflowed
+			end
 			return c
 		end, ctx.containerH)
 	end

@@ -407,27 +407,9 @@ function renderer.attach(
 	local syncZOrder: (roots: { { path: string, node: any } }?) -> ()
 	local pathClipObservers: { [string]: () -> () } = {}
 	-- ONE mounted-node lookup for the whole surface (Step 5.5 cleanup ledger C-02).
-	-- `refresh` used to declare an identical depth-first walk as a closure INSIDE
-	-- its dirty loop — one allocation per changed prop per frame — while the
-	-- presentation channel had written the same walk once more of its own.
-	-- IT SITS HERE, above its old home next to `refresh`, because the presentation
-	-- channel is constructed immediately below and takes it as a dependency: a
-	-- `local function` declared later is not an upvalue of anything above it, it is
-	-- a nil global.
+	-- The same live, branch-bounded lookup as input routing; no per-frame DFS.
 	local function findNode(path: string): any
-		local function walk(node: any): any
-			if node.path == path then
-				return node
-			end
-			for _, child in node.children do
-				local found = walk(child)
-				if found then
-					return found
-				end
-			end
-			return nil
-		end
-		return walk(root.node)
+		return paths.nodeAt(root.node, path)
 	end
 
 	-- THE PRESENTATION CHANNEL MOVED (2026-08-14, the 200k `Source` write-cap
@@ -1718,27 +1700,11 @@ function renderer.attach(
 	local feedbackDepth = 0
 	local solvingFromSettle = false
 	local resolveForFeedback: () -> ()
-	--[[ `root.dirtySeq()` as it stood when the last FULL solve began, or -1 for
-		"no full solve has completed". Every dirty pushed at or below it was already
-		on the tree when that solve read the props, so a full solve has answered it;
-		anything above it is genuinely unsolved. This is what lets `refresh` tell a
-		queue entry a settle-phase solve already consumed from one it has not seen
-		(owed row O-20) — see THE STALE-LAYOUT-DIRT TEST in `refresh`.
-
-		FULL solves only. An incremental solve covered the subtree in
-		`dirtyContains` and nothing else, so it cannot speak for the queue.
-		Committed after the solve body rather than before it, so a solve that
-		throws leaves the mark where it was and `refresh` re-solves.
-
-		THE FULL-SOLVE GUARD IS A RECORDED NULL RESULT, kept deliberately. Deleting
-		`solvedEverything = false` at the reuse branch reddens NOTHING in the suite
-		(mutation M4, 2026-08-15) — and on today's code that is correct rather than
-		a coverage hole: `dirtyContains` is set only inside `refresh`, and that same
-		`refresh` has already drained the queue, so an incremental solve's mark can
-		never be the one a later skip consults. It stays because it is what makes
-		the name of this variable true, and because the day `dirtyContains` outlives
-		one refresh the alternative is a surface that silently stops laying out. ]]
-	local fullSolveSeq = -1
+	-- Highest dirty sequence covered by a completed layout. Refresh drains and
+	-- classifies the whole queue; geometry feedback classifies its undrained
+	-- suffix over that solved base. Missing history/unclassified inputs take
+	-- full layout. New dirt invalidates the mark; structure and paint still run.
+	local settledLayoutSeq = -1
 
 	--[[ THE SOLVE IS OVER: tell whoever measures this surface (L-31) — and the same
 		call from a translate-lane refresh that moved a host without one
@@ -1774,7 +1740,6 @@ function renderer.attach(
 		-- decided at the reuse branch below, which is the one place that knows
 		-- whether this turned out to be a full solve or an incremental one.
 		local seqAtSolveStart = root.dirtySeq()
-		local solvedEverything = true
 		local vp = env:get("viewportRect"):get()
 		local insets = env:get("coreSafeInsets"):get()
 		-- deviceSafeContent, from the native-substrate round: the notch/rounded-corner
@@ -1981,6 +1946,9 @@ function renderer.attach(
 		-- size, never the solve-wide inputs the forwarded entries were measured under.
 		-- `structural_scope`'s header owns that argument.
 		local structural = structuralPlan
+		if feedbackDepth > 0 and stampMoved then
+			dirtyContains, measureContains, nodeDirty, commitDirty = nil, nil, nil, nil
+		end
 		if structural ~= nil and (not incrementalEnabled or lastResult == nil or stampMoved) then
 			structural = nil
 			dirtyContains = nil
@@ -2048,9 +2016,6 @@ function renderer.attach(
 				dirtyContains = dirtyContains,
 				measureContains = measureContains,
 			}
-			-- this solve covered `dirtyContains` and skipped the rest, so it cannot
-			-- answer for the whole queue (see `fullSolveSeq`)
-			solvedEverything = false
 			structuralPartial = structural ~= nil
 		end
 		-- ...AND A CLOSURE THIS FUNCTION SET, THIS FUNCTION CLEARS (T18-A): a settle
@@ -2217,15 +2182,12 @@ function renderer.attach(
 			an inner solve that ran LATER read a higher sequence than this one —
 			overwriting it with the outer solve's older mark would re-open dirt the
 			inner solve has already answered. ]]
-		if solvedEverything then
-			fullSolveSeq = math.max(fullSolveSeq, seqAtSolveStart)
-		end
+		settledLayoutSeq = math.max(settledLayoutSeq, seqAtSolveStart)
 	end
 
-	--[[ The re-solve a published prop earns, bounded. `dirtyContains` is cleared
-		first and deliberately: the incremental set was closed over the dirt the
-		CURRENT refresh took, and the node a listener just published into is not in
-		it — reusing it would skip the very subtree this exists to fix. ]]
+	-- Geometry feedback needs its OWN dirty closure: the refresh's earlier one
+	-- cannot include a listener's new writes. Missing history, structural writes
+	-- and changed solve-wide inputs retain the conservative full solve.
 	resolveForFeedback = function()
 		feedbackArmed = false
 		if feedbackDepth >= SOLVE_FEEDBACK_ROUND_CAP then
@@ -2238,14 +2200,40 @@ function renderer.attach(
 		end
 		feedbackDepth += 1
 		stats.feedbackSolves += 1
-		-- BOTH HALVES OF THE REFRESH-SCOPED STATE: a feedback re-solve is not the
-		-- refresh that built them and takes a full solve, exactly as the re-entrant
-		-- text-measurement solve does. `refresh`'s own tail sets and clears the pair
-		-- together; `structural_scope` carries what clearing only one of them cost.
+		-- Never reuse the outer refresh's closure or structural plan.
 		dirtyContains = nil
 		measureContains = nil
 		structuralPlan = nil
+		local pending = if root.dirtySince then root.dirtySince(nodeDirtySeen) else nil
+		if pending ~= nil then
+			for _, entry in pending do
+				if
+					entry.path == nil
+					or entry.class == "structure"
+					or structural_scope.isNodeFact(entry.prop)
+					or entry.prop == "hidden"
+				then
+					pending = nil
+					break
+				end
+			end
+		end
+		if pending ~= nil then
+			-- Paint can also supply intrinsic content. Only placement proves that
+			-- a measure remains reusable; all other publications invalidate it.
+			local classified = {}
+			for _, entry in pending do
+				table.insert(
+					classified,
+					{ path = entry.path, class = if entry.class == "arrange" then "arrange" else "measure" }
+				)
+			end
+			dirtyContains, measureContains = dirty_closure.of(classified)
+			nodeDirty, commitDirty = dirtyContains, dirtyContains
+			nodeDirtySeen = root.dirtySeq()
+		end
 		local ok, err = pcall(solveAndApply)
+		dirtyContains, measureContains = nil, nil
 		feedbackDepth -= 1
 		if not ok then
 			error(err, 0)
@@ -2803,7 +2791,10 @@ function renderer.attach(
 			sequence number on the entries. It gates ONLY the layout classes —
 			`structure` still forces a solve, because a structural sync has not run
 			yet and last solve's rects were never materialised. ]]
-		local layoutDirtIsStale = fullSolveSeq >= 0 and root.dirtySeq() <= fullSolveSeq
+		-- Partial feedback also closes its classified suffix over a previously
+		-- solved layout. New dirt invalidates the whole mark; structure still
+		-- materializes below, and paint entries still commit.
+		local layoutDirtIsStale = settledLayoutSeq >= 0 and root.dirtySeq() <= settledLayoutSeq
 		-- paths whose authored `hidden` moved this frame. Collected rather than
 		-- resolved inline because the LIVE value has to be read off the tree, and the
 		-- tree read is worth doing once per path even when a signal fired twice.
@@ -2911,7 +2902,7 @@ function renderer.attach(
 			B4-R). `layoutDirtIsStale` above speaks for props the SOLVE read off the
 			tree — it cannot speak for this one, which reaches the adapter through
 			THIS cache and nothing else, refreshed here, strictly AFTER the solve that
-			stamped `fullSolveSeq`. A `hidden` written from inside a solve (every
+			stamped `settledLayoutSeq`. A `hidden` written from inside a solve (every
 			`syncGeometry` runs there) therefore got its entry declared answered by a
 			solve that painted the PRE-write value, and the verdict stuck forever.
 			Keyed on the re-read having MOVED, never on the entry existing: a write
@@ -3355,7 +3346,28 @@ function renderer.attach(
 	-- write — keep-visible and scroll-to-row compute a target and set it here;
 	-- the engine owns everything between offsets. Degrades to a no-op on a
 	-- scroll-less adapter (fallback path stays clip-only).
+	-- Internal mounted behavior seam: announce framework writes before their
+	-- native echoes, so gesture settling cannot undo keep-visible or bookmarks.
+	local scrollIntents = {}
+	attachScope:own(function()
+		table.clear(scrollIntents)
+	end)
+	function controller.observeScrollIntent(path, callback)
+		local listeners = scrollIntents[path] or {}
+		scrollIntents[path] = listeners
+		listeners[callback] = true
+		return function()
+			listeners[callback] = nil
+			if next(listeners) == nil then
+				scrollIntents[path] = nil
+			end
+		end
+	end
+
 	function controller.scrollTo(path: string, pos: { x: number, y: number })
+		for callback in scrollIntents[path] or {} do
+			callback(pos)
+		end
 		local handle = handles[path]
 		if handle ~= nil and adapter.setScrollPosition ~= nil then
 			adapter.setScrollPosition(handle, pos)
@@ -3365,6 +3377,10 @@ function renderer.attach(
 	-- hidden-subtree roots from the last solve (A-AL1). The presenter consults
 	-- this when rebuilding focus order; an empty table means nothing is hidden.
 	-- see `structureEpoch` above: the value a caller can cache a tree derivation on.
+	-- Geometry version without allocating a diagnostic stats snapshot.
+	function controller.geometryEpoch(): number
+		return stats.solves + stats.laneTranslates
+	end
 	function controller.structureEpoch(): number
 		return structureEpoch
 	end
@@ -3404,6 +3420,9 @@ function renderer.attach(
 		end
 		if handlers.onSecondary ~= nil and adapter.setSecondaryActivate ~= nil then
 			table.insert(offs, adapter.setSecondaryActivate(handle, handlers.onSecondary))
+		end
+		if handlers.onHoverChanged ~= nil and adapter.setHoverObserver ~= nil then
+			table.insert(offs, adapter.setHoverObserver(handle, handlers.onHoverChanged))
 		end
 		if handlers.onHover ~= nil and adapter.setPointerPreview ~= nil then
 			table.insert(offs, adapter.setPointerPreview(handle, handlers.onHover))

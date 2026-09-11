@@ -402,6 +402,7 @@ describe("the stack seam: one-way, one consumer, and nothing stayed behind", fun
 		expect(requires).toEqual({
 			"../num",
 			"./baseline",
+			"./fill_space",
 			"./measure_facts",
 			"./placement",
 			"./row_permutation",
@@ -507,6 +508,7 @@ describe("the stack seam: no module-level mutable state", function()
 			"alignOffset",
 			"baseline",
 			"distributionOf",
+			"fillSpace",
 			--[[ (Plan D, D2c) `local function candidateIndices` — the crude scan reads the
 				keyword, not the name, and that is the honest report: what it forbids is a
 				module-level `local` that is later WRITTEN, and a `local function` is a

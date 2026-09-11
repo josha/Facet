@@ -511,6 +511,16 @@ function screen_pointer.new(ctx: any)
 			return
 		end
 		handle.pointer = handlers
+		if handle.class == "Grip" then
+			-- Active frames intercept the native scroll recognizer. Pointer events
+			-- still arrive on passive frames, so nested grips can recognize their
+			-- own axis while the ScrollingFrame keeps touch scrolling and inertia.
+			-- Recompute on adoption; grips outside scrolling still sink world input.
+			instance.Active = instance:FindFirstAncestorWhichIsA("ScrollingFrame") == nil
+			if handle.hitExpander ~= nil then
+				handle.hitExpander.Active = instance.Active
+			end
+		end
 		-- DISCONNECT BEFORE RECONNECT (task CONN, Finding 1): this setter runs
 		-- once per (path, fresh-or-adopted handle), same cadence as
 		-- `setActivateHandler` above — an unconditional overwrite here left a

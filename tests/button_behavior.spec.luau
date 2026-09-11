@@ -3,6 +3,15 @@ local t = require("./lib/testkit")
 local Facet = require("../src") :: any
 local world = require("./lib/world")
 t.describe("Button behavior", function()
+	t.it("ordinary buttons allocate no inactive progress region", function()
+		local w = world.new()
+		local button = Facet.Controls.Button(w.core, { id = "B", label = "Race", onActivate = function() end })
+		w.present(Facet.UI.Screen({ id = "S", children = { button.blueprint } }))
+		t.expect(w.adapter.node("/S/B/Busy")).toBeNil()
+		t.expect(button.dump().busy).toBe(false)
+		w.pres.dismiss(w.handle)
+		button.dispose()
+	end)
 	for _, theme in { "neutral", "glossy_touch", "pixel_quest", "fantasy_ornate" } do
 		t.it(`busy label and all spinner dots stay inside the {theme} button plate`, function()
 			local metrics = if theme == "neutral"

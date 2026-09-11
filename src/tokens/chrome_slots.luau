@@ -234,6 +234,7 @@ function chrome_slots.liftGeometry(
 end
 
 chrome_slots.SLOTS = table.freeze({
+	"navigation", -- compact navigation chrome; optional, native by default
 	"panel",
 	"control",
 	"field",

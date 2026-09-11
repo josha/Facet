@@ -54,7 +54,28 @@
 local themePackage = require("../themes/package")
 local chrome_slots = require("../tokens/chrome_slots")
 
+local guard = require("../spec_guard")
+local selection = require("../selection_model")
 local menu_recipe = {}
+-- Shared content for semantic setting/action rows. Accessories are inert; the
+-- owning Button, Toggle or Slider retains the single input identity.
+function menu_recipe.semantic(UI, core, scope, label, spec, value)
+	guard.assertKnownKeys("control.row", spec, guard.keySet({ "description", "icon", "value" }), "row")
+	for _, key in { "description", "icon", "value" } do
+		local v = selection.read(spec[key])
+		assert(v == nil or type(v) == "string", "control.row: " .. key .. " must be string or readable string")
+	end
+	return table.clone(menu_recipe.row(UI, {
+		id = "RowContent",
+		wrap = true,
+		label = label or "",
+		description = spec.description or "",
+		icon = spec.icon,
+		value = value or spec.value,
+		core = core,
+		scope = scope,
+	}).children)
+end
 
 --[[ THEME METRICS, never bare pixels. The three row heights ARE
 	the three control sizes — compact for the pointer menu, regular for the inline
@@ -122,11 +143,16 @@ function menu_recipe.touchPrimary(classes: any): boolean
 	return (classes :: any).touch == true
 end
 
-function menu_recipe.resolvePresentation(optionCount: number, sizeClass: string?, touchLive: boolean?): string
+function menu_recipe.resolvePresentation(
+	optionCount: number,
+	sizeClass: string?,
+	touchLive: boolean?,
+	gamepadPrimary: boolean?
+): string
 	if touchLive == true then
 		return "sheet"
 	end
-	if sizeClass == "compact" and optionCount > 6 then
+	if (sizeClass == "compact" or gamepadPrimary == true) and optionCount > 6 then
 		return "sheet"
 	end
 	if optionCount <= 3 and sizeClass ~= "compact" then
@@ -147,12 +173,16 @@ function menu_recipe.rowHeightFor(presentation: string): string
 end
 
 export type Row = {
+	wrap: boolean?, -- wrap a labelled badge row when its offer is narrow
+	labelTint: any?, -- optional semantic label paint, e.g. a selection indicator
 	width: any?,
 	textSize: any?,
 	iconOnly: boolean?,
 	core: any?, -- required with scope for readable icon or badge
 	scope: any?,
 	badge: any?, -- string | number | Readable; empty removes the badge paint
+	surface: any?,
+	value: any?,
 	description: any?,
 	markHidden: any?,
 	indicator: string?,
@@ -221,6 +251,7 @@ function menu_recipe.row(UI: any, row: Row): any
 			return chrome_slots.attachHint(
 				UI.Text({
 					id = "Icon",
+					tint = row.labelTint,
 					text = themePackage.iconGlyph(icon) or "•",
 					textSize = row.textSize or "control",
 					width = { type = "minMax", min = "l" },
@@ -254,24 +285,48 @@ function menu_recipe.row(UI: any, row: Row): any
 			local labels = {
 				UI.Text({
 					id = "Label",
+					tint = row.labelTint,
 					text = row.label,
 					textSize = row.textSize or "control",
-					width = { type = "fill", weight = 1 },
+					width = if row.wrap then UI.hug() else { type = "fill", weight = 1 },
 				}),
 			}
-			if row.description ~= nil then
+			local function description()
+				return UI.Text({
+					id = "Description",
+					tint = row.labelTint,
+					text = row.description,
+					textSize = "caption",
+					role = "secondary",
+					width = { type = "fill", weight = 1 },
+				})
+			end
+			if readable(row.description) and row.core and row.scope then
 				table.insert(
 					labels,
-					UI.Text({
-						id = "Description",
-						text = row.description,
-						textSize = "caption",
-						role = "secondary",
-						width = { type = "fill", weight = 1 },
+					UI.When({
+						id = "DescriptionWhen",
+						condition = row.scope:own(row.core:memo(function(use)
+							local value = use(row.description)
+							return value ~= nil and value ~= ""
+						end)),
+						thenView = description,
 					})
 				)
+			elseif row.description ~= nil and row.description ~= "" then
+				table.insert(labels, description())
 			end
-			table.insert(content, UI.VStack({ gap = "xs", width = { type = "fill", weight = 1 }, children = labels }))
+			table.insert(
+				content,
+				UI.VStack({
+					gap = "xs",
+					width = if row.wrap then UI.hug() else { type = "fill", weight = 1 },
+					children = labels,
+				})
+			)
+		end
+		if row.value ~= nil then
+			table.insert(content, UI.Text({ id = "Value", text = row.value, textSize = "control", role = "secondary" }))
 		end
 		if row.badge ~= nil then
 			local badge = if readable(row.badge)
@@ -301,12 +356,20 @@ function menu_recipe.row(UI: any, row: Row): any
 		return UI.Button({
 			id = row.id,
 			label = row.label,
-			role = if row.role == "destructive" then "destructive" else "default",
+			role = row.role or "default",
+			surface = row.surface,
 			enabled = row.enabled,
 			selected = row.selected,
 			width = row.width or { type = "fill", weight = 1 },
 			height = { type = "minMax", min = row.height or "targetSizes.minimum" },
-			children = { UI.HStack({ gap = "s", width = { type = "fill", weight = 1 }, children = content }) },
+			children = {
+				UI.HStack({
+					wrap = row.wrap,
+					gap = "s",
+					width = if row.wrap then UI.hug() else { type = "fill", weight = 1 },
+					children = content,
+				}),
+			},
 		})
 	end
 	if row.submenu ~= true then
