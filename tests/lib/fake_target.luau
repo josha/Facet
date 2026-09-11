@@ -693,9 +693,20 @@ function fake_target.new(opts: Opts?)
 			local s = if type(own) == "table" and type(own.scale) == "number" then own.scale else nil
 			if s ~= nil and s ~= 1 then
 				local r = node.rect
+				-- about the named pivot (schema.TRANSITION_PIVOTS), the centre when none
+				-- is named — the same fractions the live adapter hands `AnchorPoint`
+				local pivot = if type(own.pivot) == "string" then own.pivot else "center"
+				local fx = if pivot == "topRight" or pivot == "bottomRight"
+					then 1
+					elseif pivot == "topLeft" or pivot == "bottomLeft" then 0
+					else 0.5
+				local fy = if pivot == "bottomLeft" or pivot == "bottomRight"
+					then 1
+					elseif pivot == "topLeft" or pivot == "topRight" then 0
+					else 0.5
 				node.presentedVisualRect = {
-					x = r.x + ox + r.w * (1 - s) / 2,
-					y = r.y + oy + r.h * (1 - s) / 2,
+					x = r.x + ox + r.w * (1 - s) * fx,
+					y = r.y + oy + r.h * (1 - s) * fy,
 					w = r.w * s,
 					h = r.h * s,
 				}

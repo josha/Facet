@@ -436,13 +436,14 @@ function screen_presentation.new(ctx: any)
 		local px = rect.x - ox + (handle.presentationOffsetX or 0)
 		local py = rect.y - oy + (handle.presentationOffsetY or 0)
 		if handle.motionAnchorCentered then
-			-- a live motion scale re-anchored this instance to its center so the
+			-- a live motion scale re-anchored this instance to its pivot so the
 			-- UIScale pivots there (director fix round: pops and the drag ghost grew
-			-- down-right from the top-left) — same rect, written as its center.
-			-- Half the PAINTED extent, so the two branches place the same box: a
+			-- down-right from the top-left; centred by default, a named corner for
+			-- an anchored popover) — same rect, written at its pivot.
+			-- The PAINTED extent's fraction, so the two branches place the same box: a
 			-- growing node extends down-right from its solved origin either way.
-			px += pw / 2
-			py += ph / 2
+			px += pw * (handle.motionPivotX or 0.5)
+			py += ph * (handle.motionPivotY or 0.5)
 		end
 		--[[ THE WRITE A HOST MAKES UNNECESSARY (the arrange half).
 
@@ -525,6 +526,23 @@ function screen_presentation.new(ctx: any)
 	-- object, so a second instance would make the winner unpredictable — a
 	-- pressable control's motion scale therefore writes the dip's own instance, and
 	-- the last writer wins by design rather than by accident.
+	-- the named pivot as AnchorPoint fractions (schema.TRANSITION_PIVOTS); the
+	-- centre when nothing is named, which is every motion before the picker round
+	local PIVOT_FRACTIONS: { [string]: { number } } = {
+		center = { 0.5, 0.5 },
+		topLeft = { 0, 0 },
+		topRight = { 1, 0 },
+		bottomLeft = { 0, 1 },
+		bottomRight = { 1, 1 },
+	}
+	local function pivotFractions(pivot: any): (number, number)
+		local pair = if type(pivot) == "string" then PIVOT_FRACTIONS[pivot] else nil
+		if pair == nil then
+			return 0.5, 0.5
+		end
+		return pair[1], pair[2]
+	end
+
 	local function applyPresentationPaint(handle: any, t: any)
 		local instance = handle.instance
 		if not instance:IsA("GuiObject") then
@@ -555,9 +573,11 @@ function screen_presentation.new(ctx: any)
 			-- the drag ghost's pickup grow crawled down-right. While a motion scale
 			-- is live the instance is re-anchored to its center; applyRect writes
 			-- the same rect as its center point, so nothing else moves.
-			if not handle.motionAnchorCentered then
+			local fx, fy = pivotFractions(if type(t) == "table" then t.pivot else nil)
+			if not handle.motionAnchorCentered or handle.motionPivotX ~= fx or handle.motionPivotY ~= fy then
 				handle.motionAnchorCentered = true
-				instance.AnchorPoint = Vector2.new(0.5, 0.5)
+				handle.motionPivotX, handle.motionPivotY = fx, fy
+				instance.AnchorPoint = Vector2.new(fx, fy)
 			end
 		elseif existing ~= nil then
 			existing.Scale = 1
@@ -598,6 +618,7 @@ function screen_presentation.new(ctx: any)
 			end
 			if handle.motionAnchorCentered then
 				handle.motionAnchorCentered = nil
+				handle.motionPivotX, handle.motionPivotY = nil, nil
 				instance.AnchorPoint = Vector2.new(0, 0)
 			end
 		end

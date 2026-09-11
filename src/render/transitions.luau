@@ -68,6 +68,8 @@ export type Spec = {
 	-- task-fix3 symptoms 2/3: opt-in override for `slideDistance` below, nil
 	-- meaning "use the themed default" (every caller before this fix, unchanged)
 	distance: number?,
+	-- the corner a scaling form grows from (schema.TRANSITION_PIVOTS); nil = centre
+	pivot: string?,
 }
 
 export type Opts = {
@@ -102,6 +104,7 @@ function transitions.resolve(declared: any): Spec
 		exit = exit,
 		class = declared.class or DEFAULT_CLASS,
 		fade = declared.fade == true,
+		pivot = declared.pivot,
 		distance = if type(declared.distance) == "number" then declared.distance else nil,
 	}
 end
@@ -359,6 +362,7 @@ function transitions.new(opts: Opts)
 		end
 		if form == "materialize" then
 			absent.scale = MATERIALIZE_SCALE
+			absent.pivot = spec.pivot
 		end
 		if fades(spec, form) then
 			absent.alpha = 1
@@ -405,6 +409,7 @@ function transitions.new(opts: Opts)
 			x = absent.x * k,
 			y = absent.y * k,
 			scale = if absent.scale ~= nil then 1 + (absent.scale - 1) * k else nil,
+			pivot = if absent.scale ~= nil then absent.pivot else nil,
 		})
 		if absent.alpha ~= nil then
 			controller.setPresentationTransparency(entry.alphaPath, absent.alpha * k)

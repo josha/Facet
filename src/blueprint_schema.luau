@@ -197,7 +197,14 @@ local TRANSITION_MIRROR: { [string]: string } = {
 -- only) — see render/transitions.luau's `slideDistance` header for why the
 -- themed default is right for a decorative nudge and wrong for a full-surface
 -- push/pop, and why this is an opt-in override rather than a changed default.
-local TRANSITION_KEYS: { [string]: boolean } = { enter = true, exit = true, class = true, fade = true, distance = true }
+local TRANSITION_KEYS: { [string]: boolean } =
+	{ enter = true, exit = true, class = true, fade = true, distance = true, pivot = true }
+-- where a scaling form (materialize) grows FROM: the node's centre unless the
+-- caller names the corner it is attached at (an anchored popover grows out of
+-- the control that opened it — picker round, 2026-09-11)
+local TRANSITION_PIVOTS: { [string]: boolean } =
+	{ center = true, topLeft = true, topRight = true, bottomLeft = true, bottomRight = true }
+schema.TRANSITION_PIVOTS = table.freeze(TRANSITION_PIVOTS)
 schema.TRANSITION_MIRROR = table.freeze(TRANSITION_MIRROR)
 -- forms that drive TRANSPARENCY, and therefore need a declared fade group
 -- (`canvasGroup = true`). The coordinator asserts it and names the fix.
@@ -644,7 +651,8 @@ local TYPE_CHECKS: { [string]: (any) -> (boolean, string?) } = {
 		end
 		for k in v :: any do
 			if type(k) ~= "string" or not TRANSITION_KEYS[k] then
-				return false, `unknown transition field '{tostring(k)}' (enter | exit | class | fade | distance)`
+				return false,
+					`unknown transition field '{tostring(k)}' (enter | exit | class | fade | distance | pivot)`
 			end
 		end
 		local enter = (v :: any).enter
@@ -665,6 +673,11 @@ local TYPE_CHECKS: { [string]: (any) -> (boolean, string?) } = {
 		local fade = (v :: any).fade
 		if fade ~= nil and type(fade) ~= "boolean" then
 			return false, "fade is a boolean: pair a slide with a transparency fade (needs a canvasGroup node)"
+		end
+		local pivot = (v :: any).pivot
+		if pivot ~= nil and not TRANSITION_PIVOTS[pivot] then
+			return false,
+				`pivot is where a scaling form grows from (center | topLeft | topRight | bottomLeft | bottomRight)`
 		end
 		-- task-fix3 symptoms 2/3: the slide-forms' travel, in px, overriding the
 		-- themed default (render/transitions.luau's `slideDistance`) — for a
