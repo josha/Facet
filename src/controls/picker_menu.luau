@@ -789,11 +789,12 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 			its rows and is floored at the TRIGGER's own width — the pop-up button
 			rule: the menu never comes out narrower than the control that opened
 			it. `triggerWidth` is the last solved rect, read at present time. ]]
+		--[[ ...and it is the THEMED PANEL WIDTH, never narrower than the trigger
+			(measured live under Glossy Touch, 2026-09-11: a popover that only
+			floored at the trigger hugged a 95px button and wrapped every option
+			label onto two lines — a content row has no natural width to hug). ]]
 		local floor = if pickerMode
-				and not describedOptions
-				and spec.query == nil
-			then { type = "minMax", min = math.max(triggerWidth, 0) }
-			elseif pickerMode then { type = "fixed", px = describedPanelWidth() }
+			then { type = "fixed", px = math.max(triggerWidth, describedPanelWidth()) }
 			else { type = "fixed", px = "controls.popup.panelWidth" }
 		local panel = UI.VStack({
 			id = if pickerMode and not isSheet then "Rows" else "Popup",
@@ -947,7 +948,12 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 	local navLink = spec.style == "navigationLink"
 	local chevronName = if navLink then "chevron.trailing" else "chevron.up.chevron.down"
 	local valueRole = scope:own(core:memo(function(use)
-		return if pickerMode and use(touchPrimary) then "secondary" else "content"
+		--[[ CONTENT on every class (measured live 2026-09-11: the secondary
+			role's gold on Fantasy Ornate and its grey on Glossy Touch both
+			vanished into their own focus glow on a plain touch trigger). The
+			plain surface is what makes the touch row read as a value rather than a
+			button; the word itself keeps the colour every other value has. ]]
+		return "content"
 	end))
 	local triggerSurface = scope:own(core:memo(function(use)
 		return if (rowForm or navLink) and use(touchPrimary) then "plain" else "control"
