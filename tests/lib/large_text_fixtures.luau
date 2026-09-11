@@ -464,12 +464,11 @@ local FIXTURES: { Fixture } = {
 				},
 			}).blueprint
 		end,
-		-- LT-G4, the SAME open gap the unindicated Picker fixture declares: an
-		-- option label has no `disclose` pass-through, so under Fantasy Parchment
-		-- at Larger it ellipsizes with no route to the whole string. The indicator
-		-- neither causes nor cures it — it decorates the box the label is in.
-		allowClipped = { "/S/Ctl/Indicator/Options" },
-		why = LT_GAPS.G4,
+		-- THE ALLOWLIST ENTRY IS GONE (LT-G4 closed 2026-09-11): every segment
+		-- of a sliding strip declares `disclose`, so an option label that
+		-- ellipsizes under Fantasy Parchment at Larger now has the large-text
+		-- plate as its route to the whole string, and LT8-ALIVE would refuse a
+		-- declaration that catches nothing.
 	},
 	{
 		--[[ THE TAB STRIP IS THE TIGHTEST TEXT BOX THE FRAMEWORK SHIPS
@@ -506,11 +505,13 @@ local FIXTURES: { Fixture } = {
 				},
 			}).blueprint
 		end,
-		-- LT-G4, inherited whole from the strip this control composes: a tab label
-		-- is a picker option label, which has no `disclose` pass-through, so at the
-		-- expansion locale and the largest preference it ellipsizes with no route
-		-- to the whole string. Composing the picker inherits its open gaps as well
-		-- as its floors, and saying so is the point of citing the same one.
+		-- A TAB LABEL IS DECLARED TO CLIP: the strip this control composes
+		-- declines the segment's disclose plate (`track = false`, 2026-09-11)
+		-- because a tab bar runs its own compact ladder (icon-only, then the
+		-- overflowing strip scrolls) and a plate's reservation is height a fixed
+		-- bar does not have — so at the expansion locale and the largest
+		-- preference a tab label ellipsizes with the bar's ladder, not a plate,
+		-- as its route. The picker's own segments no longer carry this gap.
 		allowClipped = { "/S/Ctl/BottomHome/then/BottomBand/Strip/Indicator/Options" },
 		why = LT_GAPS.G4,
 	},

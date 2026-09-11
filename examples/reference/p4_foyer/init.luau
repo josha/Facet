@@ -117,10 +117,22 @@ function Foyer.build(Facet: any, core: any, deps: any): any
 			-- density and not the text preference, so a phone at the largest
 			-- preference keeps its four discs on one row
 			local iconSizes: any = if type(metrics) == "table" then (metrics :: any).iconSizes else nil
-			local mark = if type(iconSizes) == "table" and type(iconSizes.medium) == "number"
+			local icon = if type(iconSizes) == "table" and type(iconSizes.medium) == "number"
 				then iconSizes.medium
-				else Facet.text.lineBox({ facts = facts, size = "body", lines = 1 })
-			return { type = "fixed", px = math.max(named, frame + mark) }
+				else 0
+			-- ...and the glyph that stands in where a package has no art for the
+			-- app's own icon names draws at the body line, which is taller than the
+			-- icon square at the largest preference; the disc PREFERS room for
+			-- either and may shrink to the icon square when its row cannot hold
+			-- that (a 320px phone at +14 under an ornate frame), which is the one
+			-- cell the theme ledger still records for it
+			local mark = math.max(icon, Facet.text.lineBox({ facts = facts, size = "body", lines = 1 }))
+			return {
+				type = "minMax",
+				min = frame + icon,
+				preferred = math.max(named, frame + mark),
+				max = math.max(named, frame + mark),
+			}
 		end))
 		discBoxMemos[rung] = memo
 		return memo
@@ -1110,7 +1122,8 @@ function Foyer.build(Facet: any, core: any, deps: any): any
 				id = "Refresh",
 				label = Lnow("refresh.label"),
 				shape = "circle",
-				height = discBox("regular"),
+				width = discBox("regular"), -- the row axis, so the disc can give up its preferred room down to the icon square
+				shrinkWeight = 1,
 				icon = "foyer:refresh",
 				enabled = core:memo(function(use)
 					return use(services.refreshStatus) ~= "pending"
@@ -1126,7 +1139,8 @@ function Foyer.build(Facet: any, core: any, deps: any): any
 				id = "Profile",
 				label = Lnow("profile.label"),
 				shape = "circle",
-				height = discBox("regular"),
+				width = discBox("regular"), -- the row axis, so the disc can give up its preferred room down to the icon square
+				shrinkWeight = 1,
 				icon = "foyer:you",
 				onActivate = function()
 					presentInfoModal("ProfileModal", "profile.label", {
@@ -1136,12 +1150,13 @@ function Foyer.build(Facet: any, core: any, deps: any): any
 			}),
 			UI.ZStack({
 				id = "BellZ",
+				shrinkWeight = 1, -- the bar's third disc gives up room like the other two (its ZStack is the row's child)
 				children = {
 					UI.Button({
 						id = "Bell",
 						label = Lnow("bell.label"),
 						shape = "circle",
-						height = discBox("regular"),
+						width = discBox("regular"),
 						icon = "foyer:bell",
 						onActivate = presentNotices,
 					}),

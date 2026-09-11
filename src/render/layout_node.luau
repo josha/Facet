@@ -1061,6 +1061,11 @@ local function toLayoutNode(
 		layoutNode.lineHeight = if role ~= nil then role.lineHeight else nil
 		layoutNode.textBaseline = if role ~= nil then role.baseline else nil
 	elseif class == "Button" then
+		-- FULL-VALUE DISCLOSURE for a button's one-line label (picker round,
+		-- 2026-09-11): `disclose` rides the same textFacts channel a Text's and a
+		-- Toggle's do, so a squeezed segment label is "truncate+disclose" to the
+		-- large-text audit and the plate — never a lost string
+		layoutNode.disclose = if props.disclose == true then true else nil
 		if #node.children == 0 then
 			layoutNode.text = drawnButtonText(props)
 			local size, role, fit = textOf(themeSnapshot.INTRINSIC_TEXT_ROLE.Button)
