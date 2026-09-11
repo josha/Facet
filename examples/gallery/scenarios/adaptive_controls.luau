@@ -654,7 +654,11 @@ return {
 					-- `"intrinsic"` sizes these to the widest `S12` glyph run, which re-columns the
 					-- field so short that the page stops overflowing its scroller at all — and this
 					-- fixture's §2.5 case is about what a scroller's viewport measures.
-					minColumnWidth = 48,
+					-- wide enough for "S12" at the largest text preference under the
+					-- ten-foot scale (the theme x text-size sweep of 2026-09-11 found
+					-- the caption 14px past a 48px cell); a tile that cannot hold its
+					-- own caption is not a smaller tile, it is a broken one
+					minColumnWidth = 72,
 					gap = "xs",
 					width = UI.fill(),
 					children = hudTiles,

@@ -263,8 +263,20 @@ local NARROWEST_W = math.huge
 for _, view in VIEWS do
 	NARROWEST_W = math.min(NARROWEST_W, math.min(view.w, view.h))
 end
+--[[ ...AND THE LARGEST PREFERENCE AT THE WIDEST VIEWPORT TOO (2026-09-11). The
+	narrow rows are where a package's type ladder collides with the room; the
+	widest row is where the TEN-FOOT scale (1.5x) compounds with the preference
+	and a two-column page hands each column half of a lot. The first themed
+	sweep of the console settings page under Fantasy Ornate at +14 reported
+	twelve badge captions past their tiles that no narrow row could build, and
+	the segmented strip whose band outgrew its column — both invisible to a
+	sweep that only ever enlarged text on a phone. ]]
+local WIDEST_W = 0
+for _, view in VIEWS do
+	WIDEST_W = math.max(WIDEST_W, view.w)
+end
 local function themedOffsets(view: any): { number }
-	if math.min(view.w, view.h) == NARROWEST_W then
+	if math.min(view.w, view.h) == NARROWEST_W or view.w == WIDEST_W then
 		return { 0, LARGEST }
 	end
 	return { 0 }
