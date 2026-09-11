@@ -1097,6 +1097,7 @@ require("./animation_precedence.spec")
 -- rotation as a second TERM in the presentation channel rather than a second
 -- writer, and withAnimation reaching all three
 require("./authored_presentation.spec")
+require("./presentation_transform_subtree.spec")
 -- owed row O-26: the player's Background Transparency preference,
 -- honoured by the one paint path that has a see-through background to honour it
 -- with — and the named refusals that keep it from becoming a blanket multiply

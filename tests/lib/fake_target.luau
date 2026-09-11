@@ -186,6 +186,7 @@ function fake_target.new(opts: Opts?)
 	-- cumulative engine Position/Size writes, mirroring `applyRect`'s own bill —
 	-- see `adapter.engineWrites` beside `hostCount`, and the mirror in `setRect`
 	local engineWriteCount = 0
+	local presentationRecomposeCount = 0
 	-- MIRRORS `screen_target`'s module-scope `lastRootHandle`: the root of the last
 	-- `create` on this target, whichever surface asked for it. `adopt` is the only
 	-- reader, because `adopt` is the only entry point that is not told its root.
@@ -937,6 +938,8 @@ function fake_target.new(opts: Opts?)
 				0
 			)
 		end
+		-- the transform branch below compares the OFFSET half against what stood
+		local previousTransform = if prop == "transform" then handle.props.transform else nil
 		handle.props[prop] = value
 		if prop == "role" and handle.focused then
 			adapter.setFocusVisual(handle, true, handle.focusProfile)
@@ -1109,11 +1112,34 @@ function fake_target.new(opts: Opts?)
 				then { className = "UIScale", name = "FacetMotionScale", scale = value.scale }
 				else nil
 			handle.rotation = if type(value) == "table" and type(value.rotation) == "number" then value.rotation else 0
-			local prefix = handle.path .. "/"
-			for path, node in nodes do
-				if path == handle.path or string.sub(path, 1, #prefix) == prefix then
-					adapter._composePresentation(node)
+			-- MIRRORS `screen_presentation.setTransform` (perf round 2026-09-11): the
+			-- subtree re-composes only when the OFFSET half (x/y/w/h) moved — a
+			-- descendant's composed position reads nothing else off an ancestor. A
+			-- scale-only frame re-composes the written node alone (its visual rect
+			-- and centred pivot are its own facts).
+			local previous = previousTransform
+			local function offsetOf(t: any): (number, number, number, number)
+				if type(t) ~= "table" then
+					return 0, 0, 0, 0
 				end
+				return t.x or 0,
+					t.y or 0,
+					if type(t.w) == "number" then t.w else 0,
+					if type(t.h) == "number" then t.h else 0
+			end
+			local px, py, pw, ph = offsetOf(previous)
+			local vx, vy, vw, vh = offsetOf(value)
+			if px ~= vx or py ~= vy or pw ~= vw or ph ~= vh then
+				local prefix = handle.path .. "/"
+				for path, node in nodes do
+					if path == handle.path or string.sub(path, 1, #prefix) == prefix then
+						presentationRecomposeCount += 1
+						adapter._composePresentation(node)
+					end
+				end
+			else
+				presentationRecomposeCount += 1
+				adapter._composePresentation(handle)
 			end
 		elseif prop == "transparency" then
 			-- ONE property, on a declared fade group, that no rule owns
@@ -1379,6 +1405,14 @@ function fake_target.new(opts: Opts?)
 	-- demonstrator can pin the collapse a real parent buys instead of inferring it.
 	function adapter.engineWrites(): number
 		return engineWriteCount
+	end
+
+	-- THE TRANSFORM-WRITE MIRROR (perf round 2026-09-11): how many nodes a
+	-- presentation-transform write re-composed. The live `setTransform` walks the
+	-- subtree only when the offset half moved; this counts the mirror's walk so a
+	-- headless pin can hold the same rule.
+	function adapter.presentationRecomposes(): number
+		return presentationRecomposeCount
 	end
 
 	function adapter.setZOrder(handle: any, z: number)
