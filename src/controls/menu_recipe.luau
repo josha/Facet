@@ -247,7 +247,21 @@ function menu_recipe.row(UI: any, row: Row): any
 				desktop and the menu picker on a phone draw it. `radio` and `check`
 				keep their resting ring/box, which is what makes them read as a
 				toggle rather than a current value. ]]
+			--[[ THE CHARACTER IS THE TABLE'S, NEVER A LITERAL (2026-09-11). Both
+				marks used to author their own text — `"o"`, `"[]"`, `"*"` — beside an
+				icon hint naming a rung that had no art, so what a player actually saw
+				in Studio was those three characters, in every theme, forever. Two
+				separate defects sat in one line: no art existed for the names (fixed
+				in `standard_icons`), and the floor beneath them was hand-written here
+				rather than in `ICON_FALLBACK_GLYPHS`, so it could never be resolved,
+				tinted, suppressed under art, or seen by a coverage check. Every glyph
+				now comes from the ONE table the resolution ladder reads, which is what
+				makes "the ASCII floor is a recovery path" a checkable claim. ]]
 			local indicatorChildren = {}
+			local offName = if row.indicator == "radio"
+				then "facet:selection.radio.off"
+				else "facet:selection.check.off"
+			local onName = if row.indicator == "radio" then "facet:selection.radio.on" else "checkmark"
 			if row.indicator ~= "mark" then
 				table.insert(
 					indicatorChildren,
@@ -255,16 +269,12 @@ function menu_recipe.row(UI: any, row: Row): any
 						UI.Text({
 							id = "Outline",
 							hidden = row.selected,
-							text = if row.indicator == "radio" then "o" else "[]",
+							text = themePackage.iconGlyph(offName),
 							textSize = "control",
 							textAlign = "center",
 							width = { type = "fill", weight = 1 },
 						}),
-						{
-							icon = if row.indicator == "radio"
-								then "facet:selection.radio.off"
-								else "facet:selection.check.off",
-						}
+						{ icon = offName }
 					)
 				)
 			end
@@ -274,12 +284,12 @@ function menu_recipe.row(UI: any, row: Row): any
 					UI.Text({
 						id = "Mark",
 						hidden = row.markHidden,
-						text = if row.indicator == "radio" then "*" else themePackage.iconGlyph("checkmark"),
+						text = themePackage.iconGlyph(onName),
 						textSize = "control",
 						textAlign = "center",
 						width = { type = "fill", weight = 1 },
 					}),
-					{ icon = if row.indicator == "radio" then "facet:selection.radio.on" else "checkmark" }
+					{ icon = onName }
 				)
 			)
 			table.insert(

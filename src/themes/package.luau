@@ -961,6 +961,21 @@ package.ICON_FALLBACK_GLYPHS = table.freeze({
 	["chevron.up.chevron.down"] = "^v",
 	-- a tick is a v-stroke; the same character reads correctly in a checkbox
 	["checkmark"] = "v",
+	-- THE SELECTION MARKS' FLOOR (2026-09-11). A menu row and a radio group draw
+	-- a RESTING shape and a CHOSEN shape into the same reserved slot, so both
+	-- states are icon names and both need a character beneath the art. These three
+	-- were sitting in `menu_recipe` as hand-authored literals — `o`, `*`, `[]` in
+	-- the control's own `text` — which meant the row drew a character no rung
+	-- could ever paint over and no check could ever see. They belong here, where
+	-- `resolveIcon` reaches them, the uppercase rule applies to them, and the
+	-- framework's own art (standard_icons) sits above them.
+	--
+	-- Without a row here the namespaced rung would derive `s` from
+	-- `facet:selection.*`, which is an INITIAL standing in for a word — exactly
+	-- the finding-A4 defect the uppercase rule exists to stop.
+	["facet:selection.radio.off"] = "o",
+	["facet:selection.radio.on"] = "*",
+	["facet:selection.check.off"] = "[]",
 	["close"] = "x",
 	["increment"] = "+",
 	["decrement"] = "-",
@@ -1059,8 +1074,10 @@ function package.resolveIcon(pkg: any, name: string, state: string?): any
 	-- it now means "draw the framework's own picture, and keep the character as
 	-- the floor beneath it". The package still wins outright above, so this can
 	-- only ever fill a gap. `identity.standardIcons = false` declines the rung,
-	-- which is how a pixel package (whose smooth-art problem is real) and the two
-	-- deliberate glyph demonstrations keep drawing characters.
+	-- which is how a pixel package (whose smooth-art problem is real) draws its OWN
+	-- glyphs instead. Since 2026-09-11 a package may only decline it while its own
+	-- map is COMPLETE: `tests/icon_coverage.spec.luau` fails a shipped package that
+	-- leaves any control-requested name on a character.
 	--
 	-- The framework's own art carries no per-state variants: it is one silhouette
 	-- the theme tints, so every state resolves to the same picture. A package that

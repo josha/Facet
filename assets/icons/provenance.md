@@ -42,18 +42,24 @@ drawn at. A 128 px preview would prove nothing.
 | facet_icon_chevron_right.png | 128×128 | `chevron.trailing` | `>` | content |
 | facet_icon_chevron_up.png | 128×128 | `chevron.up` | `^` | content |
 | facet_icon_chevron_down.png | 128×128 | `chevron.down` | `v` | content |
+| facet_icon_chevron_up_down.png | 128×128 | `chevron.up.chevron.down` | `^v` | content |
 | facet_icon_check.png | 128×128 | `checkmark` | `v` | content |
+| facet_icon_radio_off.png | 128×128 | `facet:selection.radio.off` | `o` | content |
+| facet_icon_radio_on.png | 128×128 | `facet:selection.radio.on` | `*` | content |
+| facet_icon_check_off.png | 128×128 | `facet:selection.check.off` | `[]` | content |
 | facet_icon_close.png | 128×128 | `close` | `x` | content |
 | facet_icon_plus.png | 128×128 | `increment` | `+` | content |
 | facet_icon_minus.png | 128×128 | `decrement` | `-` | content |
 | facet_icon_menu.png | 128×128 | `menu` | `=` | content |
 | facet_icon_more.png | 128×128 | `more` | `...` | content |
 | facet_icon_edit.png | 128×128 | `edit` | `/` | content |
-| facet_icon_trash.png | 128×128 | `trash` | `U` | content |
-| facet_icon_flag.png | 128×128 | `flag` | `P` | content |
+| facet_icon_trash.png | 128×128 | `trash` | `\_/` | content |
+| facet_icon_flag.png | 128×128 | `flag` | `|>` | content |
 | facet_icon_search.png | 128×128 | `facet:search` | `o/` | content |
 
-14 PNG files, including the search magnifying glass added 2026-09-08.
+18 PNG files: the original ten, `edit`, `trash` and `flag` (row-actions stage),
+the search magnifying glass (2026-09-08), the pop-up button's stacked chevron
+pair and the three selection marks (2026-09-11).
 
 ## Notes the consuming stage must know
 
@@ -61,13 +67,15 @@ drawn at. A 128 px preview would prove nothing.
    original ten chevron/checkmark/close/stepper/menu/more set. `edit`'s ASCII
    floor is `/` — the pencil reduced to its dominant stroke, the same move that
    made the checkmark a `v` and the menu an `=`. `trash` (row-actions stage,
-   2026-08-11) is `U`, a waste bin's own open-container silhouette; `flag` is
-   `P`, a pole with a pennant riding its top-right — the same "reduce to the
-   dominant silhouette" move, not a letter standing in for the word. None
+   2026-08-11) is `\_/`, a waste bin's own open, tapered container; `flag` is
+   `|>`, a pole flying a pennant — the same "reduce to the dominant silhouette"
+   move. Both shipped as `U` and `P` first, and a phone photographed them reading
+   as the LETTERS U and P sitting where an icon belongs, which is why no entry in
+   that table may contain an uppercase letter any more. None
    collides with anything already in `ICON_FALLBACK_GLYPHS`, and each is the
    mark its `compactLabel = { icon = … }` / row-actions tray button draws until
    its art resolves.
-2. **`tintRole` is `content` for all eleven, including the stepper's `+`/`-`.**
+2. **`tintRole` is `content` for every one of them, including the stepper's `+`/`-`.**
    The shipped packages tint their own stepper glyphs `accent`, which is right for
    art authored against a known palette. Framework art is painted under packages
    nobody checked it against, so it takes the one role measured legible on every
@@ -76,18 +84,20 @@ drawn at. A 128 px preview would prove nothing.
 3. **No per-state variants.** One silhouette per name; a package that wants a
    hover variant declares one and takes the rung above. `resolveIcon` therefore
    always reports `state = "default"` for framework art.
-4. **All fourteen are drawn inside a 96 px content area centred in the 128 px
+4. **All eighteen are drawn inside a 96 px content area centred in the 128 px
    box**, so the set shares one optical weight and one margin. That margin is
    what keeps a 20 px icon off a 20 px plate's edge; do not crop it out.
 5. **Stroke weight is 13 px in 128-space** with round caps and joins. PIL has no
    round cap, so the generator draws caps and joins as explicit circles — that is
    what stops a chevron's tip looking chipped at 16 px.
-6. **Three packages decline the set** and keep the ASCII glyph:
-   `pixel_quest` (a smooth silhouette in a 4 px pixel grid reads as a mistake, and
-   `ResamplerMode.Pixelated` only makes it a nearest-neighbour mistake) and the
-   `glossy_touch` / `compact_pointer` pair (whose controlled comparison against
-   Fantasy Ornate is the only place the ASCII floor is visible in a shipped
-   package).
+6. **One package declines the set** and draws its own: `pixel_quest`, because a
+   smooth silhouette in a 4 px pixel grid reads as a mistake and
+   `ResamplerMode.Pixelated` only makes it a nearest-neighbour mistake. It may
+   decline only because its own map is COMPLETE (2026-09-11). The
+   `glossy_touch` / `compact_pointer` pair used to decline it as well, as a
+   controlled comparison against Fantasy Ornate — which shipped `^v` and `v` to
+   real screens, so that demonstration moved to `pixel_quest.buildWithoutIcons`,
+   a build only a driver installs. `tests/icon_coverage.spec.luau` is the rule.
 7. **Fantasy Ornate deliberately does NOT decline it.** It maps six names to its
    own art, invents one (`ornate:settings`), and leaves `menu` / `more` to the
    library — every rung of the ladder visible in one shipped centrepiece.
@@ -143,3 +153,29 @@ does not assert an Open Cloud moderation result. Facet's existing `facet:search`
 slot resolves this standard art unless the theme supplies an override or opts
 out of standard icons. The ASCII floor remains available for that deliberate
 opt-out. Runtime load evidence is recorded in the navigation polish artifacts.
+
+## The pop-up chevron pair and the selection marks (2026-09-11)
+
+Four names joined the set on one day, for one reason: a player photographed
+Studio drawing **characters where pictures belong** — `^v` in a picker trigger,
+a bare `v` for a tick, and `*` / `o` for a radio's mark and ring.
+
+`chevron.up.chevron.down` is the pop-up button's stacked pair. The three
+selection marks are the resting and chosen states of the indicator a menu row and
+a radio group draw into a reserved slot: `facet:selection.radio.off` is a ring,
+`facet:selection.radio.on` is the same ring with its centre filled, and
+`facet:selection.check.off` is that ring squared off into a box. The chosen CHECK
+state is the existing `checkmark`, so the family is four shapes, not six. Ring and
+box share one 80 px outer box inside the standard 96 px content area, so a radio
+group and a checklist line up at the same optical size.
+
+Uploaded headlessly through `tools/upload_icons.py` on 2026-09-11, all three
+verified **Approved** / `Image` by `--recheck`:
+`facet_icon_radio_off` `rbxassetid://73716910467356`,
+`facet_icon_radio_on` `rbxassetid://113804826986290`,
+`facet_icon_check_off` `rbxassetid://121698536401041`.
+
+The other half of that defect was not an art gap at all: `menu_recipe` authored
+`"o"`, `"[]"` and `"*"` as its own node text rather than reading
+`ICON_FALLBACK_GLYPHS`, so those characters were not even part of the ladder the
+floor is the bottom of. Every glyph a control draws now comes from that one table.

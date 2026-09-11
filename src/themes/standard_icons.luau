@@ -12,9 +12,18 @@
 -- so "this package ships no icon for that name" now means "draw the framework's
 -- picture" instead of "draw the framework's character", and a package that
 -- declares the name still wins outright. A package opts out of this rung with
--- `identity.standardIcons = false` (see `package.resolveIcon`), which is how the
--- two deliberate glyph demonstrations keep their point: glossy-touch's
--- controlled comparison against fantasy-ornate, and `pixel_quest.buildWithoutIcons`.
+-- `identity.standardIcons = false` (see `package.resolveIcon`).
+--
+-- WHAT THE OPT-OUT IS FOR, AND WHAT IT IS NOT (2026-09-11). It is for a package
+-- whose own art is COMPLETE and whose look this art would break — pixel-quest,
+-- where a 128px anti-aliased silhouette under `ResampleMode = Pixelated` is mush
+-- on a 4px grid. It is NOT for shipping the ASCII floor as a demonstration: two
+-- reference packages used to decline the rung to make the floor visible beside
+-- fantasy-ornate's pictures, and what that shipped to a player was `^v` in a
+-- picker trigger and `v` for a tick. `tests/icon_coverage.spec.luau` now fails a
+-- shipped package that leaves any control-requested name on a character; the
+-- floor is demonstrated by `pixel_quest.buildWithoutIcons`, which nothing
+-- player-facing installs.
 --
 -- WHY ONE NEAR-WHITE SILHOUETTE AND NOT A LIGHT/DARK PAIR. `ImageColor3`
 -- MULTIPLIES, so a white source reaches any colour a theme names and a black one
@@ -84,6 +93,27 @@ standard_icons.ART = table.freeze({
 	["checkmark"] = table.freeze({
 		assetName = "facet_icon_check",
 		contentId = "rbxassetid://108245103349446",
+		tintRole = "content",
+	}),
+	-- THE SELECTION MARKS (2026-09-11). A menu row and a radio group draw their
+	-- indicator into a RESERVED slot: the resting shape is always painted and the
+	-- chosen state fills it. Both states therefore need art or the row that is NOT
+	-- chosen falls all the way through to a character -- which is exactly the `o`,
+	-- `*` and `[]` a player photographed in Studio. The chosen CHECK state is the
+	-- existing `checkmark` above, so only three names are new here.
+	["facet:selection.radio.off"] = table.freeze({
+		assetName = "facet_icon_radio_off",
+		contentId = "rbxassetid://73716910467356",
+		tintRole = "content",
+	}),
+	["facet:selection.radio.on"] = table.freeze({
+		assetName = "facet_icon_radio_on",
+		contentId = "rbxassetid://113804826986290",
+		tintRole = "content",
+	}),
+	["facet:selection.check.off"] = table.freeze({
+		assetName = "facet_icon_check_off",
+		contentId = "rbxassetid://121698536401041",
 		tintRole = "content",
 	}),
 	["close"] = table.freeze({

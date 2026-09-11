@@ -66,6 +66,20 @@ def _poly(draw: ImageDraw.ImageDraw, pts: list[tuple[float, float]]) -> None:
     draw.polygon([(x * SS, y * SS) for x, y in pts], fill=INK)
 
 
+def _ring(draw: ImageDraw.ImageDraw, cx: float, cy: float, r: float, w: float = STROKE) -> None:
+    """A circular outline in 128-space, at the set's stroke weight.
+
+    PIL draws an ellipse outline INWARD from the bounding box, so `r` is the
+    outer radius and the ink occupies `r - w` to `r`. That is what keeps a ring
+    the same optical size as the chevrons, which measure to their outer arms.
+    """
+    draw.ellipse(
+        [(cx - r) * SS, (cy - r) * SS, (cx + r) * SS, (cy + r) * SS],
+        outline=INK,
+        width=int(w * SS),
+    )
+
+
 def _save(img: Image.Image, name: str) -> pathlib.Path:
     out = img.resize((SIZE, SIZE), Image.LANCZOS)
     path = OUT / f"{name}.png"
@@ -196,6 +210,53 @@ def flag() -> Image.Image:
     return img
 
 
+# ---- the selection marks (2026-09-11) ----------------------------------------
+# A menu row and a radio group draw an indicator in a RESERVED slot: the resting
+# shape is always there and the chosen state fills it. Both states therefore need
+# art, or the row that is NOT chosen falls through to a character -- which is the
+# `o`/`*`/`[]` this set exists to stop being visible. The ring and the box share
+# one 80px outer box so a radio group and a checklist line up at the same optical
+# size, and the "on" mark is the ring PLUS its dot rather than a separate glyph,
+# so the two states are the same object in two conditions.
+
+
+def radio_off() -> Image.Image:
+    """A radio's resting ring."""
+    img, d = _canvas()
+    _ring(d, 64, 64, 40)
+    return img
+
+
+def radio_on() -> Image.Image:
+    """A radio's chosen state: the same ring with its centre filled.
+
+    The dot is r=15 against an inner edge at r=27, so twelve 128-space units of
+    clear ground separate them -- 1.5px at the 16px rung, which survives the
+    LANCZOS downsample instead of closing into a filled disc.
+    """
+    img, d = _canvas()
+    _ring(d, 64, 64, 40)
+    _dot(d, 64, 64, 15)
+    return img
+
+
+def check_off() -> Image.Image:
+    """A checkbox's resting box: the radio's ring, squared off.
+
+    Same 80px outer box and same stroke, with the set's corner softening, so a
+    checklist and a radio group read as one family. The chosen state is the
+    existing `check` tick, which the control draws over this slot.
+    """
+    img, d = _canvas()
+    d.rounded_rectangle(
+        [24 * SS, 24 * SS, 104 * SS, 104 * SS],
+        radius=22 * SS,
+        outline=INK,
+        width=STROKE * SS,
+    )
+    return img
+
+
 def search() -> Image.Image:
     """An open lens and a round handle, at the standard set's stroke weight."""
     img, d = _canvas()
@@ -220,6 +281,9 @@ ICONS = {
     "facet_icon_trash": trash,
     "facet_icon_flag": flag,
     "facet_icon_search": search,
+    "facet_icon_radio_off": radio_off,
+    "facet_icon_radio_on": radio_on,
+    "facet_icon_check_off": check_off,
 }
 
 

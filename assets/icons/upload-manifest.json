@@ -17,6 +17,17 @@
       "sha256": "15c125ba9f08e6e698fc2b699f9424b1f5b717b021789c5a51616faa7ca9ee47",
       "assetType": "Image"
     },
+    "facet_icon_check_off": {
+      "file": "facet_icon_check_off.png",
+      "contentId": "rbxassetid://121698536401041",
+      "size": "128x128",
+      "sliceBorder": 0,
+      "slot": "icons.facet:selection.check.off",
+      "state": "default",
+      "moderation": "Approved",
+      "sha256": "64d7fbc77ff4af9077db3f4ba91936d6f0f4943197f6a0c36d3b724b57c10e52",
+      "assetType": "Image"
+    },
     "facet_icon_chevron_down": {
       "file": "facet_icon_chevron_down.png",
       "contentId": "rbxassetid://90343755930598",
@@ -68,8 +79,9 @@
       "sliceBorder": 0,
       "slot": "icons.chevron.up.chevron.down",
       "state": "default",
-      "moderation": "Reviewing",
-      "sha256": "5c88123c74eba1c36e8bff344bbe144343a1394c38e414c28925900a12bb54f3"
+      "moderation": "Approved",
+      "sha256": "5c88123c74eba1c36e8bff344bbe144343a1394c38e414c28925900a12bb54f3",
+      "assetType": "Image"
     },
     "facet_icon_close": {
       "file": "facet_icon_close.png",
@@ -148,6 +160,28 @@
       "sha256": "ac3007a3c503fd1bb1218a5721986d0b7e532d0014c4ff8cacb3e1d5b0701d1c",
       "assetType": "Image"
     },
+    "facet_icon_radio_off": {
+      "file": "facet_icon_radio_off.png",
+      "contentId": "rbxassetid://73716910467356",
+      "size": "128x128",
+      "sliceBorder": 0,
+      "slot": "icons.facet:selection.radio.off",
+      "state": "default",
+      "moderation": "Approved",
+      "sha256": "a6cf93f7586673d4649046a4285d2aaecb497d378cfd227c3ddf3db67d7f9e3a",
+      "assetType": "Image"
+    },
+    "facet_icon_radio_on": {
+      "file": "facet_icon_radio_on.png",
+      "contentId": "rbxassetid://113804826986290",
+      "size": "128x128",
+      "sliceBorder": 0,
+      "slot": "icons.facet:selection.radio.on",
+      "state": "default",
+      "moderation": "Approved",
+      "sha256": "dc784fa8206c647622b426ae711ea7ede5fa831ef2dde1e36567617378cda736",
+      "assetType": "Image"
+    },
     "facet_icon_search": {
       "file": "facet_icon_search.png",
       "contentId": "rbxassetid://85188541706347",
@@ -157,7 +191,9 @@
       "state": "default",
       "sha256": "268723196812a6b93ec4518f0475d1f0618b37315d87b62b7cbee5055efeb85b",
       "uploaded": "2026-09-08",
-      "method": "Roblox Studio MCP upload_image from localhost; asset id returned by upload. Runtime load checked separately."
+      "method": "Roblox Studio MCP upload_image from localhost; asset id returned by upload. Runtime load checked separately.",
+      "moderation": "Approved",
+      "assetType": "Image"
     },
     "facet_icon_trash": {
       "file": "facet_icon_trash.png",
@@ -174,6 +210,7 @@
   "uploadedBy": "compact-label stage (the standard icon set that makes compactLabel's image form usable)",
   "uploadedFiles": [
     "facet_icon_check",
+    "facet_icon_check_off",
     "facet_icon_chevron_down",
     "facet_icon_chevron_left",
     "facet_icon_chevron_right",
@@ -186,6 +223,8 @@
     "facet_icon_minus",
     "facet_icon_more",
     "facet_icon_plus",
+    "facet_icon_radio_off",
+    "facet_icon_radio_on",
     "facet_icon_search",
     "facet_icon_trash"
   ]
