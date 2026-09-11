@@ -891,6 +891,20 @@ function fake_target.new(opts: Opts?)
 								else { x = sh.x + sx, y = sh.y + sy, w = sh.w, h = sh.h }
 						end
 						adapter._composePresentation(node)
+						--[[ ...AND A SCROLL HOST'S WINDOW MOVES WITH IT (task 2, 2026-09-11).
+							`windowRect` is derived from `node.rect` at the moment of the host's
+							own `setRect`, and under Plan C a descendant of a coordinate-space
+							host is written ONCE, host-relative, BEFORE the host is placed — so a
+							ScrollView inside an anchored popover kept answering with the window
+							of origin 0,0 while its rect had been recomposed to the popover's
+							true position. The engine has no such lag (AbsoluteWindowPosition is
+							read off the live frame), and the overflow guard judges a scroll
+							host's children against `windowRect` first, so every option row in a
+							picker popover read as escaping past the window's right edge by
+							exactly the popover's x. ]]
+						if node.scrollRegion ~= nil then
+							adapter._deriveWindowRect(node, node.scrollRegion)
+						end
 					end
 					recompose(path)
 				end
