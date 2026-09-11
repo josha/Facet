@@ -19523,7 +19523,7 @@
      "theme_reference_packages::RS-A14 the platform pair is two snapshots, not two palettes::hover art exists on the pointer half and NOT on the touch half",
      "theme_reference_packages::RS-A14 the platform pair is two snapshots, not two palettes::the STRIPE is a tile layer, and only the touch half has one",
      "theme_reference_packages::RS-A14 the platform pair is two snapshots, not two palettes::focus disagrees on purpose: a halo for the finger, a ring for the pointer",
-     "theme_reference_packages::RS-A14 the platform pair is two snapshots, not two palettes::both halves retain chrome glyphs and explicitly draw the search image",
+     "theme_reference_packages::RS-A14 the platform pair is two snapshots, not two palettes::both halves declare one icon and take the framework's art for the rest",
      "theme_reference_packages::rung 3: the OrnateGauge contributes namespaced roles and ships its own art::declares one need per contribution kind, all namespaced, all with fallbacks",
      "theme_reference_packages::rung 3: the OrnateGauge contributes namespaced roles and ships its own art::its `check` IS themes.checkCoverage — one gate, so the two cannot drift",
      "theme_reference_packages::rung 3: the OrnateGauge contributes namespaced roles and ships its own art::TWO covering packages give the gauge two different answers",
