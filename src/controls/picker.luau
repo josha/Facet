@@ -405,8 +405,9 @@ local PICKER_KEYS = specGuard.keySet({
 	"sizeClass",
 	"sizing",
 	"textSize",
-	-- `track = false` declines the segmented plate: a tab strip inside its own
-	-- band (TabView) draws no second track
+	-- `track = false` marks a TAB STRIP inside its own band (TabView): no
+	-- segmented plate, no carved inset, no disclose plate — the band's own
+	-- ladder owns all three
 	"track",
 })
 
@@ -1151,6 +1152,13 @@ local function buildStrip(Facet: any, core: any, spec: Spec, requested: string)
 			-- the focus ring follows the node's corners, so a segment wears the
 			-- same pill as the bar sliding under it: one shape, one height
 			corners = if slides then UI.cornersData("pill") else nil,
+			-- a segment's label has a full-value path (the large-text plate) the
+			-- way any one-line label does: a strip that truncates at the largest
+			-- preference under a roomy package is disclosed, never lost (closes the
+			-- LT-G4 gap the sweeps recorded, 2026-09-11). Not for a tab strip
+			-- (`track = false`): a tab bar runs its own compact ladder, and the
+			-- plate's reservation is height a fixed bar does not have.
+			disclose = if slides and (spec :: any).track ~= false then true else nil,
 		})
 		if requested == "radio" or option.description ~= nil then
 			button = menuRecipe.row(UI, {

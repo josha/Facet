@@ -37,13 +37,13 @@ local GERMAN = lt.GERMAN_COMPOUND
 	       `disclose = true` now stamps its value cells and header title
 	       (tests/table.spec "Table column disclosure").
 
-	LT-G4  (OPEN) a Picker's OPTION labels have no full-value path. `disclose` is
-	       a `UI.Text` prop and `newPicker` neither accepts nor forwards one, so an
-	       option label that ellipsizes has no way back to the whole string. Found
-	       2026-08-13 by the wrap rule (director ruling 5): before it, a wrapped
-	       phrase reported `truncated = false` no matter how squeezed, so this
-	       entire class was invisible to `clippedEssential`. Fix is a `disclose`
-	       pass-through on the option record; until then the sweep declares it.
+	LT-G4  (CLOSED 2026-09-11) a Picker's OPTION labels had no full-value path.
+	       `disclose` was a `UI.Text` prop and `newPicker` neither accepted nor
+	       forwarded one, so an option label that ellipsized had no way back to
+	       the whole string. Found 2026-08-13 by the wrap rule (director ruling
+	       5). Closed by `UI.Button{ disclose = true }` — a one-line button label
+	       declares the large-text plate the way a Text or a Toggle does — which
+	       every segment of a sliding strip now declares.
 
 	LT-G3  (AUTHORING RULE) a pinned px `rowHeight` is honored verbatim and is
 	       preference-blind by contract: pin only a height that clears

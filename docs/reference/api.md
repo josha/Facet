@@ -1616,9 +1616,14 @@ when a composed control paints its own focus treatment, as RadialMenu does on
 its outer surfaces. It does not change focus order or activation.
 
 
-`UI.Button{ id?, label (required), compactLabel?, enabled?, selected?, role?,
-shape?, icon?, gap?, align?, help?, children?, onPointerDown?, onPointerMove?,
-onPointerUp?, onPointerCancel? }` — activatable control.
+`UI.Button{ id?, label (required), compactLabel?, disclose?, enabled?, selected?,
+role?, shape?, icon?, gap?, align?, help?, children?, onPointerDown?,
+onPointerMove?, onPointerUp?, onPointerCancel? }` — activatable control.
+
+**`disclose`** (boolean, construction-only) gives a one-line label the same
+full-value path a `Text` carries: where the label truncates, hovering or
+long-pressing it presents the large-text plate with the whole string. A sliding
+picker strip declares it on every segment.
 
 **`help`** (string, construction-only) is the one sentence a pointer hover or a
 focus ring gets about what this button does; it shows **nothing on touch** by

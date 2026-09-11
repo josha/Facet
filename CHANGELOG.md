@@ -13,6 +13,14 @@ runtime as `Facet.VERSION`.
 
 ## [Unreleased]
 
+- `UI.Button` accepts `disclose` (construction-only), the same full-value
+  path a one-line `Text` or a Toggle label carries: a squeezed label reaches its
+  whole string through the large-text plate. Every segment of a sliding picker
+  strip declares it, which closes the LT-G4 gap the large-text sweeps recorded
+  (an option label with no route to the whole string); a TabView's tab strip
+  declines it (`track = false`) because the bar's own compact ladder owns
+  overflow there.
+
 - **Icons: no shipped theme paints a character where a picture belongs.** The
   radio and checkbox indicators, the pop-up button's chevron pair and the tick
   now resolve to real art in every shipped package. Facet's own icon set gained

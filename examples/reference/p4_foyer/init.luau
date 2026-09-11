@@ -111,7 +111,15 @@ function Foyer.build(Facet: any, core: any, deps: any): any
 				return if type(px) == "number" then px else 0
 			end
 			local frame = math.max(side("left") + side("right"), side("top") + side("bottom"))
-			local mark = Facet.text.lineBox({ facts = facts, size = "body", lines = 1 })
+			-- the disc holds an ICON: a fixed `iconSizes.medium` square (the box
+			-- an icon-only button centres its picture — or its fallback glyph —
+			-- in; see layout_node's icon note), which follows the display's
+			-- density and not the text preference, so a phone at the largest
+			-- preference keeps its four discs on one row
+			local iconSizes: any = if type(metrics) == "table" then (metrics :: any).iconSizes else nil
+			local mark = if type(iconSizes) == "table" and type(iconSizes.medium) == "number"
+				then iconSizes.medium
+				else Facet.text.lineBox({ facts = facts, size = "body", lines = 1 })
 			return { type = "fixed", px = math.max(named, frame + mark) }
 		end))
 		discBoxMemos[rung] = memo
@@ -131,7 +139,8 @@ function Foyer.build(Facet: any, core: any, deps: any): any
 		end
 		-- the whole dim, because a dim's `min` is a number or a metric name and a
 		-- memo inside it would be read once
-		return { type = "minMax", min = math.max(BADGE_MIN, side("left") + side("right") + BADGE_MIN), max = BADGE_MAX }
+		local border = side("left") + side("right")
+		return { type = "minMax", min = BADGE_MIN + border, max = BADGE_MAX + border }
 	end))
 	local clock = presenter.motionClock
 

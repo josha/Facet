@@ -2459,6 +2459,11 @@ class("Button", {
 				.. "the compact form ALWAYS (a default, not a degrade) — `label` stays the "
 				.. "semantic name",
 		}),
+		-- a one-line button label has the same full-value path a Text carries:
+		-- where a squeezed segment truncates it, the large-text plate discloses it
+		-- (picker round, 2026-09-11; the renderer already observed `disclose` on
+		-- any labelled node)
+		disclose = DISCLOSE,
 		enabled = p({
 			types = { "boolean" },
 			reactive = true,
