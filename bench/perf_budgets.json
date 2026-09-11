@@ -52,6 +52,19 @@
       "scopedBaseline": true,
       "total_p95_ms": 2.3818332701921463
     },
+    "alert-present-dismiss": {
+      "baselineRepeats": 5,
+      "ceilingMs": 8.333333333333334,
+      "frameBudgetMs": 33.333333333333336,
+      "frameTargetHz": 30,
+      "hint": "scene 'alert-present-dismiss' (UI-LIFE-002) exceeded its headless trend budget — profile the reactive/layout path it exercises; re-baseline with 'lune run tools/lune/perf_baseline_scene alert-present-dismiss' ONLY if the cost is intended",
+      "observed_p95_max_ms": 0.790541700553149,
+      "observed_p95_min_ms": 0.7105832919478416,
+      "observed_p95_ms": 0.790541700553149,
+      "requirement": "UI-LIFE-002",
+      "scopedBaseline": true,
+      "total_p95_ms": 3.162166802212596
+    },
     "animation-interruption": {
       "baselineRepeats": 5,
       "ceilingMs": 8.333333333333334,
@@ -198,6 +211,45 @@
       "requirement": "UI-PERF-001",
       "scopedBaseline": true,
       "total_p95_ms": 26.70966647565365
+    },
+    "picker-menu-open-close": {
+      "baselineRepeats": 5,
+      "ceilingMs": 8.333333333333334,
+      "frameBudgetMs": 33.333333333333336,
+      "frameTargetHz": 30,
+      "hint": "scene 'picker-menu-open-close' (UI-PERF-001) exceeded its headless trend budget — profile the reactive/layout path it exercises; re-baseline with 'lune run tools/lune/perf_baseline_scene picker-menu-open-close' ONLY if the cost is intended",
+      "observed_p95_max_ms": 5.047916667535901,
+      "observed_p95_min_ms": 4.668125009629875,
+      "observed_p95_ms": 5.047916667535901,
+      "requirement": "UI-PERF-001",
+      "scopedBaseline": true,
+      "total_p95_ms": 20.191666670143604
+    },
+    "picker-segmented-textsize": {
+      "baselineRepeats": 5,
+      "ceilingMs": 8.333333333333334,
+      "frameBudgetMs": 33.333333333333336,
+      "frameTargetHz": 30,
+      "hint": "scene 'picker-segmented-textsize' (UI-ENV-001) exceeded its headless trend budget — profile the reactive/layout path it exercises; re-baseline with 'lune run tools/lune/perf_baseline_scene picker-segmented-textsize' ONLY if the cost is intended",
+      "observed_p95_max_ms": 0.7923333323560655,
+      "observed_p95_min_ms": 0.2622083411552012,
+      "observed_p95_ms": 0.7923333323560655,
+      "requirement": "UI-ENV-001",
+      "scopedBaseline": true,
+      "total_p95_ms": 3.169333329424262
+    },
+    "radial-menu-open-close": {
+      "baselineRepeats": 5,
+      "ceilingMs": 8.333333333333334,
+      "frameBudgetMs": 33.333333333333336,
+      "frameTargetHz": 30,
+      "hint": "scene 'radial-menu-open-close' (UI-PERF-001) exceeded its headless trend budget — profile the reactive/layout path it exercises; re-baseline with 'lune run tools/lune/perf_baseline_scene radial-menu-open-close' ONLY if the cost is intended",
+      "observed_p95_max_ms": 4.977500007953495,
+      "observed_p95_min_ms": 4.4908333220519125,
+      "observed_p95_ms": 4.977500007953495,
+      "requirement": "UI-PERF-001",
+      "scopedBaseline": true,
+      "total_p95_ms": 19.91000003181398
     },
     "screen-lifecycle-churn": {
       "baselineRepeats": 5,
