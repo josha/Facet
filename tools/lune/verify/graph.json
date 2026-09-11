@@ -14870,7 +14870,7 @@
      "tag_sync::tag_sync: the pure ruling::a state change produces a REMOVAL, and the plan is deterministic",
      "tag_sync::tag_sync: the pure ruling::never removes a tag the game owns",
      "tag_sync::tag_sync: mounted, state changed, tag removed::a Button that stops being selected LOSES facet-selected",
-     "tag_sync::tag_sync: mounted, state changed, tag removed::a segment declared surface=plain ends up with NO tags — Bugs A and B",
+     "tag_sync::tag_sync: mounted, state changed, tag removed::a segment declared surface=plain LOSES its surface tag — Bugs A and B",
      "tag_sync::tag_sync: mounted, state changed, tag removed::a surface change swaps the surface tag rather than accumulating one",
      "tag_sync::tag_sync: mounted, state changed, tag removed::a destructive Button returning to the default role LOSES the role tag",
      "theme_package_enumeration::the theme-package directory has ONE enumerator (MAINT-8c)::every module on disk has a declared role, and every role names a module",

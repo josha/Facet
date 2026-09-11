@@ -52,6 +52,21 @@ runtime as `Facet.VERSION`.
 - Directional search inside inferred layout groups shares the section scorer
   (one beam/distance rule, not two copies).
 
+- A node that declares a surface is no longer given a theme package's control
+  decoration by its class. A `Button` or `Toggle` declaring `surface = "base"`
+  or `"scrim"` fell through to the class map and was skinned as a control —
+  plate, corner and, under a package with depth, the control slot's shadow,
+  which reaches outside the node and painted onto whatever sat next to it. Every
+  other declared surface already decided the slot; the class map now answers
+  only for a node that declared none. A node carrying a `selected` prop still
+  reaches the selection slot whatever surface it declared.
+- A virtualized list or grid's full-bleed row hit target no longer takes a
+  control surface when it paints no selection. It carried no label, no icon and
+  no image, yet wore the installed theme package's control plate, corner,
+  gradient and shadow — and since rows sit back to back, that shadow painted as
+  far into the neighbouring rows as the package's `chromeBleed` reaches. A list
+  that paints selection keeps the surface its selected row is drawn with, so
+  selection treatment is unchanged.
 - Add Controls.Alert for content-sized confirmations, adaptive action rows,
   presentation/data/error bindings, safe cancel focus, icons, severity and an
   optional suppression choice. Showcase confirmations and Delete Save use it.

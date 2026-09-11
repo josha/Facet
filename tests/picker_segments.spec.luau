@@ -1017,9 +1017,32 @@ describe("stabilization B'1: the option the pill covers takes the plate's conten
 		-- the two facts the D6 header rests on are untouched
 		expect(w.adapter.node(optPath(w, 1)).props.surface).toBe("plain")
 		expect(w.adapter.node(optPath(w, 1)).props.selected).toBeNil()
-		-- and the ONLY tag the chosen option gained is the label-only role
-		expect(table.concat(w.adapter.tagsOf(optPath(w, 1)), ",")).toBe(ROLE_TAG)
-		expect(table.concat(w.adapter.tagsOf(optPath(w, 2)), ",")).toBe("")
+		--[[ and the ONLY PAINT-BEARING tag the chosen option gained is the
+			label-only role: no `facet-surface-*` (the fill this case exists for) and
+			no `facet-selected` (the plate it drags in).
+
+			IT USED TO BE AN EXACT SET, AND THE SET WAS THE FAKE'S RATHER THAN THE
+			ADAPTER'S (narrowed 2026-09-11). A `plain` control keeps
+			`facet-interactive` on the live adapter — `applySurfaceNative` clears
+			interactivity for `scrim` alone, so `classifyTags` is handed
+			`surface = nil` and its `suppressed` branch never fires. Nothing paints
+			from it (the interactive rules name a colour, and `plain` is what removed
+			the fill they would tint), but an exact set written against a mirror that
+			was wrong is a pin on the instrument rather than on the library. The
+			agreement itself is pinned in `tests/tag_sync.spec.luau`. ]]
+		local function paintTags(n: number): string
+			local out: { string } = {}
+			for _, tag in w.adapter.tagsOf(optPath(w, n)) do
+				if string.find(tag, "facet-surface-", 1, true) == 1 or tag == "facet-selected" then
+					table.insert(out, tag)
+				end
+			end
+			table.sort(out)
+			return table.concat(out, ",")
+		end
+		expect(table.find(w.adapter.tagsOf(optPath(w, 1)), ROLE_TAG) ~= nil).toBe(true)
+		expect(table.find(w.adapter.tagsOf(optPath(w, 2)), ROLE_TAG) ~= nil).toBe(false)
+		expect(`chosen [{paintTags(1)}] / neighbour [{paintTags(2)}]`).toBe("chosen [] / neighbour []")
 		-- the chip is still there and still the selection paint
 		expect(w.adapter.node(BAR) ~= nil).toBe(true)
 	end)

@@ -1095,7 +1095,49 @@ function chrome_slots.classify(input: SlotInput): string?
 	if surface == "badge" and class ~= "Image" then
 		return "badge"
 	end
-	if CONTROL_SURFACES[surface or ""] or CONTROL_CLASSES[class or ""] then
+	if CONTROL_SURFACES[surface or ""] then
+		return "control"
+	end
+	--[[ THE CLASS MAP IS THE ANSWER FOR A NODE THAT DECLARED NOTHING (defect
+		report 2026-09-11, the sibling of the virtualized row hit's own fix).
+
+		This clause used to read `CONTROL_SURFACES[surface] or
+		CONTROL_CLASSES[class]`, so a `UI.Button` declaring `surface = "base"` was
+		handed the package's CONTROL recipe by its CLASS — over the top of the flat
+		app-background fill its author had asked for. Under Glossy Mobile that
+		recipe carries `shadow = "raised"`, reaching `chromeBleed` px outside the
+		node; the swipe-actions fixture's hand-wrapped list rows sit 1px apart, so
+		every row's glow painted 17px into its neighbours and the list read as
+		overlapping cards. `examples/gallery/scenarios/sponsor_celebration`'s
+		full-pane "Skip sequence" surface is the same shape and the only other one
+		in the shipped corpus: 323 surfaced Button/Toggle nodes were censused
+		across every scenario, example and reference proof, and those two are the
+		only ones that were not already `plain`.
+
+		IT IS THE RULE THE REST OF THIS FUNCTION ALREADY FOLLOWS, finished rather
+		than invented: `plain` returns nil above the class rules, `raised` returns
+		`panel`, `badge` returns `badge`. `base` and `scrim` were the only declared
+		surfaces still falling through to the class map, which is an omission. And
+		it is the `plain` clause's own argument one word over — `screen_paint`
+		paints `base` as the surface fill with no corner and no hairline while this
+		function handed the same node a plate with depth, so two subsystems
+		disagreed about what `base` means. `scrim` joins it because a third already
+		agrees: `sheet_model.classifyTags` suppresses it beside `plain`, and
+		`applySurfaceNative` clears its interactivity.
+
+		SELECTION IS DELIBERATELY ABOVE THIS. A node carrying a `selected` prop
+		still reaches the `selection` slot whatever surface it declared: selection
+		is a STATE the framework paints and the node opted into, and a
+		base-surfaced row that can be chosen still needs the treatment. `base`
+		means "paint me the app surface", never "paint me nothing" — that word is
+		`plain`. ]]
+	--[[ "DECLARED NOTHING" IS `type(surface) ~= "string"`, NOT `surface == nil`.
+		A caller may hand this a surface that is not a name — nil from a node that
+		declared none, and, from the solver's side, a reactive value the layout
+		snapshot has not resolved into one. Both took the class answer before this
+		change and both still do; only a node that declared a surface NAME is
+		judged by the name. ]]
+	if type(surface) ~= "string" and CONTROL_CLASSES[class or ""] then
 		return "control"
 	end
 	return nil

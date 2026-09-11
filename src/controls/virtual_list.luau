@@ -2505,12 +2505,58 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 				-- selection off — or with `selectionPaint = "none"`, which keeps the
 				-- state and drops only its paint — declares nothing here, and its
 				-- rows are byte-identical.
+				--[[ ...AND WITH NO SELECTION TO PAINT IT PAINTS NOTHING AT ALL
+					(`surface = "plain"`, defect report 2026-09-11: the swipe-actions
+					fixture under Glossy Mobile read as "a crowded list that's
+					overlapping").
+
+					A `UI.Button` that declares no surface takes the class default
+					`control` at create (`client/screen_target.luau`'s `class == "Button"`
+					branch sets `nativeSurface = "control"`), which is right for a button
+					and wrong for THIS node: the hit carries no label, no icon and no
+					image, it sits BEHIND the cell content, and it is the full width and
+					height of the row. Under a flat package that plate is a slab of
+					`control` nobody notices; under a package with depth it is the row.
+					Glossy Mobile paints it as an opaque rounded card, runs its control
+					gloss ramp — which steps hard at half the node's height, a highlight
+					on a 52px button and a two-tone band on an 81px row — and, because a
+					hit with no `selected` prop classifies into the `control` slot rather
+					than `selection`, gives it that slot's `raised` SHADOW. The shadow
+					reaches `chromeBleed` px outside the row's box and rows are laid back
+					to back, so every row's glow painted that far into its neighbours.
+					That is the overlap, and it is the same class `chrome_slots.classify`
+					already records for the playlist demo's star buttons.
+
+					`plain` IS THE FRAMEWORK'S OWN WORD FOR THIS and the rest of the
+					library already uses it: `controls/row_actions_root.luau` builds the
+					identical full-bleed hit as a `UI.Grip`, which classifies into
+					nothing; a picker's segments and an image button's face both declare
+					`plain` for the same reason. `tests/lib/overflow_guard.luau` has
+					asserted in as many words that "a `Hit` Button carries no surface and
+					no label and covers nothing a player can see" since 2026-08-21 — it
+					was true of every hit in the library except the two virtualized
+					collections that build theirs as a Button.
+
+					IT IS CONDITIONAL BECAUSE A SELECTED ROW IS PAINTED ON THIS PLATE,
+					and measured rather than reasoned: the `Selected row` rule a package
+					compiles is `TextButton.facet-selected { BackgroundColor3, TextColor3 }`
+					and it names no transparency, while the `Control fill` rule that
+					supplies `BackgroundTransparency = 0` is the one `plain` removes.
+					Driven live under Glossy Mobile, a plain hit's styled
+					`BackgroundTransparency` is 1 — so a plain selected row would set a
+					colour on a fully transparent box and show the player nothing. The
+					hit therefore stays a paint surface for exactly as long as it is the
+					surface selection is drawn on, and goes plain the moment it is not —
+					which is also the moment its slot falls through to `control` and the
+					shadow appears. A selectable list is byte-identical to what it was. ]]
+				local rowSelected = if selectionMode == "none" or selectionPaint == "none"
+					then nil
+					else selectedMemo(entry.key, itemScope)
 				local hitProps: any = {
 					id = "Hit",
 					label = "",
-					selected = if selectionMode == "none" or selectionPaint == "none"
-						then nil
-						else selectedMemo(entry.key, itemScope),
+					selected = rowSelected,
+					surface = if rowSelected == nil then "plain" else nil,
 					focusable = true,
 					width = { type = "fill", weight = 1 },
 					height = { type = "fill", weight = 1 },

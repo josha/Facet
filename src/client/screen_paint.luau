@@ -835,13 +835,30 @@ function screen_paint.new(ctx: any)
 	-- ::UIStroke rules CREATE the phantom chrome (spike m2: materializing a
 	-- real modifier instance here would silently defeat those rules).
 	--[[ `plain` AND `scrim` PART WAYS ON `suppressStates` (task PAINT fix round
-		1, RED-TEAM finding 1, 2026-08-28). Both stay chrome-less — `nativeSurface`
-		is nil either way, so neither ever earns a `facet-surface-*` tag and
-		`classifyTags`'s own `suppressed` check (`sheet_model.luau`) independently
-		refuses BOTH the `facet-interactive` and `facet-selected` tags for
-		either one, regardless of `nativeInteractive` below — that part of the
-		contract is unchanged and is exactly why `nativeInteractive` staying
-		`false` for `plain` costs nothing: no tag exists for it to gate.
+		1, RED-TEAM finding 1, 2026-08-28).
+
+		WHAT EACH ONE ACTUALLY EARNS, corrected 2026-09-11 against the live tags:
+		the paragraph that stood here said `nativeSurface` is nil for both and that
+		`classifyTags`'s `suppressed` check independently refuses `facet-interactive`
+		and `facet-selected` for either — and BOTH halves are false of `plain`.
+
+		  · `plain` clears `nativeSurface` (so no `facet-surface-*` tag, and none of
+		    the fill, corner or gradient rules that hang off one) and takes the
+		    `else` branch below, which leaves `nativeInteractive` TRUE for a
+		    Button/Toggle. `syncTags` therefore hands `classifyTags` `surface = nil`,
+		    its `suppressed` branch never fires, and the node wears
+		    `facet-interactive`. Nothing paints from it: the interactive rules are
+		    `:Hover`/`:Press` colours and name no transparency, so on a node whose
+		    fill rule `plain` removed there is nothing to tint.
+		  · `scrim` KEEPS its surface name, so it does earn `facet-surface-scrim` —
+		    and it is the one surface `classifyTags` suppresses, which is where its
+		    `facet-interactive`/`facet-selected` really do go.
+
+		That is why `nativeInteractive` is cleared in the `scrim` branch alone.
+		`tests/tag_sync.spec.luau` pins both rows of that table against this
+		function's own source, because the headless mirror in
+		`tests/lib/fake_target.luau` was written from the sentence that was wrong
+		and cleared `facet-interactive` for `plain` until it was driven live.
 
 		`suppressStates` is a DIFFERENT gate, read by exactly two consumers,
 		neither of them tag-based: `wireNativePressDip`'s press/release tween
