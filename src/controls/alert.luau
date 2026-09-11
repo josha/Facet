@@ -5,6 +5,7 @@ local guard = require("../spec_guard")
 local contract = require("../class_contract")
 local coreContract = require("../core/contract")
 local shortcut = require("./button_shortcut")
+local surfaceEnv = require("../env/surface_env")
 local alert = {}
 type Text = string | coreContract.Readable<string>
 export type Action = {
@@ -30,6 +31,7 @@ export type Spec = {
 	severity: ("automatic" | "standard" | "critical")?,
 	suppression: { isSuppressed: coreContract.Signal<boolean>, label: Text? }?,
 	content: ((any, any?) -> any)?,
+	env: any?,
 	maxWidth: (number | string)?,
 	padding: (number | string)?,
 	surface: string?,
@@ -48,6 +50,7 @@ local KEYS = guard.keySet({
 	"severity",
 	"suppression",
 	"content",
+	"env",
 	"maxWidth",
 	"padding",
 	"surface",
@@ -60,9 +63,53 @@ end
 local CAUTION = table.freeze({ point(0.5, 0.08), point(0.94, 0.9), point(0.06, 0.9) })
 local STEM = table.freeze({ point(0.5, 0.35), point(0.5, 0.6) })
 local DOT = table.freeze({ point(0.5, 0.73), point(0.5, 0.75) })
+--[[ ACTION PLACEMENT IS ROLE-DRIVEN, NOT AUTHORED (the platform alert convention).
+	A row puts the cancel action on the LEADING side; a stack puts it at the
+	BOTTOM, with the most likely action on top. Author order is preserved among
+	the remaining actions. The stack is used when there are more than two actions,
+	on a compact width, on a ten-foot display (a television stacks every alert), and at an
+	accessibility text preference (the engine's Larger/Largest steps, where phones
+	stacks its alert buttons too); otherwise the actions share one centered row.
+	Pure and exported so a caller can predict the form and an order without
+	mounting anything. ]]
+alert.ACCESSIBILITY_TEXT_OFFSET = 10 -- the "Larger" preferred-text reservation, px (api.md `preferredTextOffset`)
+function alert.resolveStacked(
+	actionCount: number,
+	sizeClass: any,
+	distanceProfile: any,
+	preferredTextOffset: number?
+): boolean
+	return actionCount > 2
+		or sizeClass == "compact"
+		or distanceProfile == "ten-foot"
+		or (preferredTextOffset or 0) >= alert.ACCESSIBILITY_TEXT_OFFSET
+end
+function alert.orderActions(actions: { Action }, stacked: boolean): { Action }
+	local rest, cancel = {}, nil
+	for _, a in actions do
+		if a.role == "cancel" and cancel == nil then
+			cancel = a
+		else
+			table.insert(rest, a)
+		end
+	end
+	if cancel ~= nil then
+		table.insert(rest, if stacked then #rest + 1 else 1, cancel)
+	end
+	return rest
+end
 function alert.build(Facet: any, core: any, spec: Spec)
 	guard.assertKnownKeys("Controls.Alert", spec, KEYS, "spec")
 	local UI = Facet.UI
+	local env = surfaceEnv.resolve(
+		"Controls.Alert",
+		spec.id or "Alert",
+		core,
+		spec.env,
+		"action placement adapts to the width class and viewing distance"
+	)
+	local sizeClass, distanceProfile, textOffset =
+		env:get("sizeClass"), env:get("distanceProfile"), env:get("preferredTextOffset")
 	local function read(v, use)
 		return if UI.isReadable(v) then (if use then use(v) else v:get()) else v
 	end
@@ -384,11 +431,10 @@ function alert.build(Facet: any, core: any, spec: Spec)
 			}))
 			table.insert(content, toggle.blueprint)
 		end
-		local buttons = {}
-		for _, action in def.actions do
+		local function actionButton(action, itemScope)
 			local bp
 			if action.shortcut ~= nil then
-				bp = branchScope:own(Facet.Controls.Button(core, {
+				bp = itemScope:own(Facet.Controls.Button(core, {
 					id = action.id,
 					label = action.label,
 					height = { type = "minMax", min = "targetSizes.minimum" },
@@ -409,29 +455,48 @@ function alert.build(Facet: any, core: any, spec: Spec)
 				props.id = bp.id
 				props.compactLabel = action.compactLabel
 				props.surface = if action.role == "default" then "accent" else nil
-				bp = Facet.contribution.attach(UI.Button(props), Facet.contribution.read(bp))
-			else
-				bp = UI.Button({
-					id = action.id,
-					label = action.label,
-					compactLabel = action.compactLabel,
-					enabled = action.enabled,
-					role = if action.role == "destructive" then "destructive" else nil,
-					surface = if action.role == "default" then "accent" else nil,
-					height = { type = "minMax", min = "targetSizes.minimum" },
-				})
+				return Facet.contribution.attach(UI.Button(props), Facet.contribution.read(bp))
 			end
-			table.insert(buttons, bp)
+			return UI.Button({
+				id = action.id,
+				label = action.label,
+				compactLabel = action.compactLabel,
+				enabled = action.enabled,
+				role = if action.role == "destructive" then "destructive" else nil,
+				surface = if action.role == "default" then "accent" else nil,
+				height = { type = "minMax", min = "targetSizes.minimum" },
+			})
+		end
+		-- One keyed region, two orders: a mode flip MOVES the mounted actions
+		-- (identity, focus and shortcuts survive) rather than remounting them.
+		local stacked = branchScope:own(core:memo(function(use)
+			return alert.resolveStacked(#def.actions, use(sizeClass), use(distanceProfile), use(textOffset))
+		end))
+		local rowOrder, stackOrder = alert.orderActions(def.actions, false), alert.orderActions(def.actions, true)
+		local function mode(row, stack)
+			return branchScope:own(core:memo(function(use)
+				return if use(stacked) then stack else row
+			end))
 		end
 		table.insert(
 			content,
-			UI.HStack({
+			UI.AdaptiveStack({
 				id = "Actions",
-				gap = "m",
-				wrap = true,
+				axis = mode("x", "y"),
+				align = mode("center", "stretch"),
+				gap = mode("m", "s"),
 				width = UI.fill(),
 				distribute = "center",
-				children = buttons,
+				children = {
+					UI.ForEach({
+						id = "Order",
+						items = mode(rowOrder, stackOrder),
+						key = function(action)
+							return action.id
+						end,
+						row = actionButton,
+					}),
+				},
 			})
 		)
 		return UI.ScrollView({
@@ -454,7 +519,7 @@ function alert.build(Facet: any, core: any, spec: Spec)
 		.. (spec.id or "Alert")
 		.. "/Center/"
 		.. (if dynamic then "Decision/then/" else "")
-		.. "Card/Actions/"
+		.. "Card/Actions/Order/["
 	local blueprint = Facet.contribution.attach(
 		UI.Screen({
 			id = spec.id or "Alert",
@@ -463,7 +528,9 @@ function alert.build(Facet: any, core: any, spec: Spec)
 		}),
 		{
 			handleActivate = function(path)
-				local key = if path:sub(1, #actionPrefix) == actionPrefix then path:sub(#actionPrefix + 1) else nil
+				local key = if path:sub(1, #actionPrefix) == actionPrefix
+					then path:match("^([^%]]+)%]/", #actionPrefix + 1)
+					else nil
 				local action = current and key and current.byId[key]
 				if not action then
 					return false

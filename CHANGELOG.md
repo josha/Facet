@@ -42,6 +42,15 @@ runtime as `Facet.VERSION`.
   checked `Menu` for filters; the section switch and the Actions and menus idiom
   switch declare `segmented`. The Cartwheel reference app's sort, axis and
   ingredient popups are Pickers.
+- Alert actions follow the platform alert rules instead of author order: the
+  cancel action leads a row and closes a stack; a stack (full-width buttons) is
+  used with more than two actions, on compact widths, on ten-foot displays and at
+  accessibility text sizes. The action region is one keyed `AdaptiveStack`, so a
+  live width/distance/text flip moves the mounted buttons rather than remounting
+  them. Alert accepts `env` like the other adaptive controls. Action paths are now
+  `…/Card/Actions/Order/[<id>]/<id>`.
+- Directional search inside inferred layout groups shares the section scorer
+  (one beam/distance rule, not two copies).
 
 - Add Controls.Alert for content-sized confirmations, adaptive action rows,
   presentation/data/error bindings, safe cancel focus, icons, severity and an

@@ -49,7 +49,9 @@ tasks and should not be interchanged merely to copy a streaming-app screenshot.
 Use `Controls.Alert` for a brief confirmation or acknowledgement with one to three
 choices. Supply the title, message and semantic action roles, then call
 `alert.present(presenter)`. The shared component owns content-sized centering,
-wrapping actions, constrained scrolling, safe initial focus and cancellation.
+role-placed actions (a centered row, or a full-width stack with cancel last on
+phones, televisions, three-action decisions and large text), constrained
+scrolling, safe initial focus and cancellation.
 Use a game theme/StyleSheet to customize its appearance. A full-screen `Screen`
 with a vertical button stack is not a confirmation recipe. Reserve an authored
 `presentModal` surface for a substantial editor or multi-step task.

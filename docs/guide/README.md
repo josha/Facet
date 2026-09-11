@@ -183,7 +183,7 @@ replacement and their earliest removal version.
 | `Controls.TabView` | Adaptive tabs, opt-in sidebar/capsule navigation, bounded focus bookmarks and evicted content. | [api](../reference/api.md#newtabview) |
 | `client.world_anchor` | Measure a Part, Model, or avatar for a following screen anchor and radial opening with relative padding. | [api](../reference/api.md#clientworld_anchor) |
 | `Controls.RadialMenu` | Corner, circle and donut command menus with captured gestures, compact labels and mixed nested rings/pages. | [api](../reference/api.md#controlsradialmenu) |
-| `Controls.Alert` | Brief modal decisions with content-sized cards, wrapping actions, safe focus and cancellation. | [api](../reference/api.md#controlsalert) |
+| `Controls.Alert` | Brief modal decisions with content-sized cards, role-placed row/stack actions, safe focus and cancellation. | [api](../reference/api.md#controlsalert) |
 | `valueModel` | Formats, clamps, and steps a numeric value for those controls. | [api](../reference/api.md#valuemodel) |
 | `pathShapes` | Builds arc, ring, and needle point lists for `UI.Path`. | [api](../reference/api.md#pathshapes) |
 
