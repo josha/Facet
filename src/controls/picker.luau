@@ -1,7 +1,7 @@
 --!strict
 -- Picker: single-selection from an option set — the ONE selection control
 -- (2026-09-11: the popup button, the split trigger and the radio spelling fold
--- into it, the way SwiftUI's `Picker` carries every `PickerStyle`). Six styles
+-- into it, the way the reference platform's picker carries every picker style). Six styles
 -- over ONE selection model:
 --
 --   menu           ONE integrated trigger (value + up/down chevron inside one
@@ -27,12 +27,12 @@
 --     nearby touch or pointer             -> menu
 --
 -- WHY. A ten-foot player navigates by focus, so a SHORT list stays on screen and
--- one press picks it (tvOS's own default is segmented); a long list would eat
+-- one press picks it (the television platform's own default is segmented); a long list would eat
 -- the page as rows, so it folds into the menu, which under a gamepad is one
 -- focus-navigable panel. A nearby gamepad keeps a short strip for the same
 -- reason and folds a long list, or any list on a handheld's compact screen,
 -- into the menu. A thumb or a mouse gets what a phone's form row and a
--- desktop's pop-up button both are: a menu (iOS's and macOS's own default). A
+-- desktop's pop-up button both are: a menu (the phone's and the desktop's own default). A
 -- screen that must NOT adapt declares its style, exactly as before.
 --
 -- `presentation` is the DEPRECATED spelling of `style` (`Facet.DEPRECATIONS`):
@@ -818,7 +818,10 @@ local function buildStrip(Facet: any, core: any, spec: Spec, requested: string)
 	-- is still an authoring error rather than a wrong edge — but a later unknown
 	-- value degrades to the default rather than throwing from inside a memo,
 	-- which is `selection_indicator.axisNow`'s own tolerance for a reactive enum.
-	local axisSource = if spec.axis == nil then "x" else spec.axis
+	-- the radio group stacks by default (api.md: "Radio defaults to y"), the
+	-- same answer the live-options builder gives it; a horizontal radio row is
+	-- an authored `axis = "x"`
+	local axisSource = if spec.axis == nil then (if requested == "radio" then "y" else "x") else spec.axis
 	local function axisNow(use: any?): string
 		local value = readValue(axisSource, use)
 		return if AXES[value] then value else "x"

@@ -561,6 +561,73 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 			height = "targetSizes.minimum",
 		})
 	end
+	--[[ THE LIST'S HEIGHT BUDGET (picker sweep, 2026-09-11: three described
+		rows at the Larger preference under a roomy package solved to 492px on a
+		390px landscape phone and the popover ran off the screen). A picker's
+		rows scroll inside the popover or sheet rather than growing past the
+		viewport: the budget is the viewport less two gutters for a popover,
+		and less the search field, the Cancel row and the padding for a sheet. ]]
+	--[[ ...MEASURED, NOT ONLY ESTIMATED. A theme's chrome (image insets, a
+		taller field) can outgrow the estimate below; the panel's own `syncGeometry`
+		reads its solved rect after each solve and, when it still runs past the
+		viewport, takes the excess off this signal — one refresh later the list is
+		exactly as tall as the screen allows. Reset on every open. ]]
+	local listShrink = scope:own(core:signal(0))
+	local function listMaxPx(presentation: string, use: any?): number
+		local shrink = if use ~= nil then use(listShrink) else listShrink:get()
+		local env = envForFacts or spec.env
+		local metrics = if env ~= nil then env:get("themeMetrics"):get() else nil
+		local minimum = if type(metrics) == "table"
+				and type(metrics.targetSizes) == "table"
+				and type(metrics.targetSizes.minimum) == "number"
+			then metrics.targetSizes.minimum
+			else themeSnapshot.neutral().targetSizes.minimum
+		local vp = if env ~= nil then env:get("viewportRect"):get() else nil
+		local h = if type(vp) == "table" and type(vp.h) == "number" then vp.h else 720
+		-- the sheet's own chrome, in the theme's metrics: the Cancel row at the
+		-- large control height, the search field at the regular one (a native
+		-- field grows past it under a roomy package, so it is counted half again),
+		-- the panel's `s` padding twice, and a gutter the surface keeps clear
+		local neutral = themeSnapshot.neutral()
+		local sizes = if type(metrics) == "table" and type(metrics.controlSizes) == "table"
+			then metrics.controlSizes
+			else neutral.controlSizes
+		local space = if type(metrics) == "table"
+				and type(metrics.space) == "table"
+				and type(metrics.space.s) == "number"
+			then metrics.space.s
+			else neutral.space.s
+		-- ...and every line of that chrome grows with the text preference
+		local offsetFact = if env ~= nil then env:get("preferredTextOffset"):get() else 0
+		local offset = if type(offsetFact) == "number" then offsetFact else 0
+		local chrome = if presentation == "sheet"
+			then sizes.large.height
+				+ (if spec.query ~= nil then sizes.regular.height * 1.5 else 0)
+				+ space * 2
+				+ minimum
+				+ offset * 4
+			else minimum * 2 + offset * 2
+		return math.max(minimum * 2, h - chrome - shrink)
+	end
+	-- the picker's static/dynamic row list height, reactive on the shrink
+	local listHeight = scope:own(core:memo(function(use)
+		return { type = "hug", max = listMaxPx(presentationNow(), use) }
+	end))
+
+	local function describedPanelWidth(): number
+		local env = envForFacts or spec.env
+		local metrics = if env ~= nil then env:get("themeMetrics"):get() else nil
+		local themed = if type(metrics) == "table"
+				and type(metrics.controls) == "table"
+				and type(metrics.controls.popup) == "table"
+				and type(metrics.controls.popup.panelWidth) == "number"
+			then metrics.controls.popup.panelWidth
+			else themeSnapshot.neutral().controls.popup.panelWidth
+		local vp = if env ~= nil then env:get("viewportRect"):get() else nil
+		local w = if type(vp) == "table" and type(vp.w) == "number" then vp.w else math.huge
+		return math.max(120, math.min(themed, w - 16))
+	end
+
 	local searchField, virtualList
 	if spec.query then
 		searchField = Facet.Controls.TextInput(
@@ -582,7 +649,8 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 			local env = envForFacts
 				or spec.env
 				or surfaceEnv.resolve("newPopupButton", id, core, nil, "search viewport")
-			return math.min(use(metrics).targetSizes.minimum * 5, use(env:get("viewportRect")).h * 0.4)
+			local budget = if pickerMode then listMaxPx("sheet", use) else use(env:get("viewportRect")).h * 0.4
+			return math.min(use(metrics).targetSizes.minimum * 5, budget)
 		end))
 		virtualList = Facet.Controls.VirtualList(core, {
 			id = "Results",
@@ -624,6 +692,12 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 			end
 		end
 	end
+	--[[ A DESCRIBED POPOVER'S WIDTH: the themed panel width, but never wider
+		than the screen it opens on. Measured on the compact phone row (2026-09-11):
+		a 360px panel on a 360px viewport was shifted to the safe box's left edge
+		and painted 8px past its right one — a fixed width the placement solver
+		can clamp the position of but not the size. The cap keeps one gutter on
+		each side; a plain (undescribed) popover hugs its rows and never needed it. ]]
 	local function popupPanel()
 		local presentation = presentationNow()
 		local rowHeight = menuRecipe.rowHeightFor(presentation)
@@ -632,27 +706,54 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 			table.insert(rows, searchField.blueprint)
 			table.insert(rows, virtualList.blueprint)
 			table.insert(rows, UI.Text({ id = "Empty", text = "No matching options", hidden = emptyHidden }))
-		elseif dynamicOptions or multiple then
-			table.insert(
-				rows,
-				UI.ForEach({
-					id = "Options",
-					items = results,
-					key = keyOf,
-					row = optionRow,
-				})
-			)
 		else
-			for _, row in staticRows do
-				if row.class == "Button" then
-					local props = table.clone(row.props)
-					props.id = row.id
-					props.height = if detached
-						then { type = "minMax", min = rowHeight }
-						else { type = "fixed", px = rowHeight }
-					props.children = row.children
-					table.insert(rows, UI.Button(props))
-				else
+			local listRows = {}
+			if dynamicOptions or multiple then
+				table.insert(
+					listRows,
+					UI.ForEach({
+						id = "Options",
+						items = results,
+						key = keyOf,
+						row = optionRow,
+					})
+				)
+			else
+				for _, row in staticRows do
+					if row.class == "Button" then
+						local props = table.clone(row.props)
+						props.id = row.id
+						props.height = if detached
+							then { type = "minMax", min = rowHeight }
+							else { type = "fixed", px = rowHeight }
+						props.children = row.children
+						table.insert(listRows, UI.Button(props))
+					else
+						table.insert(listRows, row)
+					end
+				end
+			end
+			if pickerMode then
+				-- the picker's rows SCROLL inside their budget (see `listMaxPx`)
+				table.insert(
+					rows,
+					UI.ScrollView({
+						id = "List",
+						axis = "y",
+						width = { type = "fill", weight = 1 },
+						height = listHeight,
+						children = {
+							UI.VStack({
+								id = "Rows",
+								width = { type = "fill", weight = 1 },
+								gap = menuRecipe.ROW_GAP,
+								children = listRows,
+							}),
+						},
+					})
+				)
+			else
+				for _, row in listRows do
 					table.insert(rows, row)
 				end
 			end
@@ -692,6 +793,7 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 				and not describedOptions
 				and spec.query == nil
 			then { type = "minMax", min = math.max(triggerWidth, 0) }
+			elseif pickerMode then { type = "fixed", px = describedPanelWidth() }
 			else { type = "fixed", px = "controls.popup.panelWidth" }
 		local panel = UI.VStack({
 			id = if pickerMode and not isSheet then "Rows" else "Popup",
@@ -753,12 +855,32 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 		if surfaceHandle or not rootPath or not presentAnchoredFn or not presentModalFn then
 			return
 		end
+		listShrink:set(0)
 		local panel = contribution.attach(popupPanel(), {
 			handleActivate = api.handleActivate,
 			handleCancel = function()
 				api.close()
 				return true
 			end,
+			-- the measured half of `listMaxPx`: a panel that still runs past the
+			-- viewport after a solve hands the excess to the list
+			syncGeometry = if pickerMode
+				then function(rectOf, node)
+					if node == nil then
+						return
+					end
+					local rect = rectOf(node.path)
+					local env = envForFacts or spec.env
+					local vp = if env ~= nil then env:get("viewportRect"):get() else nil
+					if type(rect) ~= "table" or type(vp) ~= "table" then
+						return
+					end
+					local over = math.max(-rect.y, rect.y + rect.h - vp.h)
+					if over > 0.5 then
+						listShrink:set(listShrink:get() + math.ceil(over))
+					end
+				end
+				else nil,
 		})
 		local surfaceId = `Popup-{id}`
 		local handle
@@ -835,15 +957,45 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 		whole row and the trigger sits beneath it, which is what the reference
 		platform's own labelled rows do at accessibility type sizes. Below that the
 		title fills and wraps beside a trigger that hugs its one-line value. ]]
+	--[[ ...and one step earlier on a COMPACT screen: at the Large preference a
+		localized title's longest word (~1.4x, 21px) no longer fits the room a
+		capped trigger leaves beside it on a 320px row (the picker sweep, glossy
+		phone, 2026-09-11), and a word that cannot wrap can only truncate. ]]
 	local rowAxis = scope:own(core:memo(function(use)
 		local offset = if envForFacts ~= nil then use(envForFacts:get("preferredTextOffset")) else 0
-		return if type(offset) == "number" and offset >= 10 then "y" else "x"
+		if type(offset) ~= "number" then
+			return "x"
+		end
+		local compact = readFact(sizeClassSource) == "compact"
+		if type(sizeClassSource) == "table" and (sizeClassSource :: any).get ~= nil then
+			compact = use(sizeClassSource) == "compact"
+		end
+		return if offset >= 10 or (offset >= 4 and compact) then "y" else "x"
 	end))
 	local requestedSizing = spec.sizing
 	assert(
 		requestedSizing == nil or requestedSizing == "hug" or requestedSizing == "fill",
 		"Picker menu: sizing must be hug | fill"
 	)
+	-- ...and it never takes more than a share of the screen's width, so the
+	-- title beside it always keeps room to wrap (a cap, not a size: a short
+	-- value still hugs). The viewport is the ruler because a form row's own
+	-- offer is what this cap exists to protect.
+	local VALUE_SHARE = 0.35
+	local TRIGGER_SHARE = 0.45
+	local function viewportWidth(use)
+		local vp = if envForFacts ~= nil then use(envForFacts:get("viewportRect")) else nil
+		return if type(vp) == "table" and type(vp.w) == "number" then vp.w else 1280
+	end
+	local valueWidth = scope:own(core:memo(function(use)
+		return { type = "hug", max = math.max(48, math.floor(viewportWidth(use) * VALUE_SHARE)) }
+	end))
+	-- ...and the TRIGGER itself, because a theme's own padding and chevron sit
+	-- outside the value: under a roomy package the plate around a capped value
+	-- still ate the title's room (the sweep's glossy phone row, 2026-09-11)
+	local triggerCap = scope:own(core:memo(function(use)
+		return { type = "hug", max = math.max(96, math.floor(viewportWidth(use) * TRIGGER_SHARE)) }
+	end))
 	local TRIGGER_FILL = table.freeze({ type = "fill", weight = 1 })
 	local TRIGGER_HUG = table.freeze({ type = "content" })
 	local triggerWidthDim = scope:own(core:memo(function(use)
@@ -852,7 +1004,7 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 			return TRIGGER_FILL
 		end
 		if rowForm then
-			return TRIGGER_HUG
+			return use(triggerCap)
 		end
 		local sizing = requestedSizing or (if use(touchPrimary) then "fill" else "hug")
 		return if sizing == "hug" then TRIGGER_HUG else TRIGGER_FILL
@@ -862,16 +1014,6 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 		away. A value that wrapped would grow the trigger past its row; a value
 		that could not shrink would push the title off the screen, which is what
 		the overflow sweep found on a 320px phone at the largest preference. ]]
-	-- ...and it never takes more than a share of the screen's width, so the
-	-- title beside it always keeps room to wrap (a cap, not a size: a short
-	-- value still hugs). The viewport is the ruler because a form row's own
-	-- offer is what this cap exists to protect.
-	local VALUE_SHARE = 0.45
-	local valueWidth = scope:own(core:memo(function(use)
-		local vp = if envForFacts ~= nil then use(envForFacts:get("viewportRect")) else nil
-		local w = if type(vp) == "table" and type(vp.w) == "number" then vp.w else 1280
-		return { type = "hug", max = math.max(48, math.floor(w * VALUE_SHARE)) }
-	end))
 	local triggerContent = {
 		UI.Text({
 			id = "Value",
@@ -895,17 +1037,26 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 	if navLink and spec.label ~= nil then
 		-- THE NAVIGATION LINK IS THE WHOLE ROW: title leading, value and chevron
 		-- trailing, one press anywhere on it — a row that leads somewhere is the
-		-- press target, exactly as every list row that pushes a screen is
-		table.insert(
-			triggerContent,
-			1,
-			UI.Text({
-				id = "Label",
-				text = spec.label,
-				textSize = spec.textSize or "control",
+		-- press target, exactly as every list row that pushes a screen is. The
+		-- same stacking rule as the form row: at large text the value drops
+		-- beneath the title instead of squeezing it.
+		triggerContent = {
+			UI.AdaptiveStack({
+				id = "Row",
+				axis = rowAxis,
 				width = { type = "fill", weight = 1 },
-			})
-		)
+				gap = "xs",
+				children = {
+					UI.Text({
+						id = "Label",
+						text = spec.label,
+						textSize = spec.textSize or "control",
+						width = { type = "fill", weight = 1 },
+					}),
+					UI.HStack({ id = "Trailing", gap = "xs", width = UI.hug(), children = triggerContent }),
+				},
+			}),
+		}
 	end
 	local trigger = UI.Button({
 		id = "Trigger",

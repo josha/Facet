@@ -6901,7 +6901,7 @@
      "table_input::table_input: touch column-resize through the grip pointer seam::a TOUCH drag on the grip previews and commits the new column width",
      "popup_button::PopupButton: pointer interaction (the real tap path)::a TOUCH-typed tap on the trigger opens the popup listing every option"
     ],
-    "shell": "test -f src/input/contribution.luau && grep -q \"contribution.attach\" src/controls/table.luau && grep -q \"contribution.attach\" src/controls/text_input.luau && grep -q \"contribution.attach\" src/controls/popup_button.luau && grep -q \"contribution.attach\" src/controls/virtual_list.luau"
+    "shell": "test -f src/input/contribution.luau && grep -q \"contribution.attach\" src/controls/table.luau && grep -q \"contribution.attach\" src/controls/text_input.luau && grep -q \"contribution.attach\" src/controls/picker_menu.luau && grep -q \"contribution.attach\" src/controls/virtual_list.luau"
    },
    "class": "result-ids",
    "evidence": null,
@@ -21360,8 +21360,8 @@
      "reference/cartwheel_spec::Cartwheel — scripted arrivals::the seeded intervals are inside the declared 3-8 s band",
      "reference/cartwheel_spec::Cartwheel — the dashboard reacts to an arrival::keys the newest brew into the hero slot and re-aims the tally",
      "reference/cartwheel_spec::Cartwheel — the tally's pulse is declared, not written per frame::drives no imperative transform for the footer, and still paints the nudge",
-     "reference/cartwheel_spec::Cartwheel — the unwired popup adapts to the surface (ADAPT-1)::a touch phone resolves the SHEET; a desktop pointer never does",
-     "reference/cartwheel_spec::Cartwheel — the unwired popup adapts to the surface (ADAPT-1)::the same device, one input class later: the idiom follows the thumb",
+     "reference/cartwheel_spec::Cartwheel — the unwired picker adapts to the surface (ADAPT-1)::a touch phone and a desktop pointer both resolve the menu family; a television gets a strip",
+     "reference/cartwheel_spec::Cartwheel — the unwired picker adapts to the surface (ADAPT-1)::the same device, one input class later: the family follows the pad",
      "reference/cartwheel_spec::Cartwheel — gallery and workbench::the composite sort re-derives the order per key",
      "reference/cartwheel_spec::Cartwheel — gallery and workbench::grid and table are two forms of ONE selection",
      "reference/cartwheel_spec::Cartwheel — gallery and workbench::a gallery cell opens the Workbench on that potion",
@@ -22412,7 +22412,7 @@
      "menu::D2 Menu: the dump says what is on screen::the dump carries the schema, the open chain and the whole item tree",
      "menu::D2 Menu: the dump says what is on screen::dispose closes every live surface rather than stranding one"
     ],
-    "shell": "test -f src/controls/menu.luau && test -f src/controls/menu_recipe.luau && grep -q \"resolvePresentation\" src/controls/popup_button.luau && ! grep -q \"function popup_button.resolvePresentation\" src/controls/popup_button.luau && grep -q \"setSecondaryActivate\" src/render/target_contract.luau && grep -q \"attachContextGestures\" src/render/renderer.luau && grep -q \"contextTriggerOwns\" src/present/presenter.luau && grep -q \"menuRecipe.row(UI\" src/controls/row_actions.luau && ! grep -q \"compactLabel = if\" src/controls/row_actions.luau && grep -q \"menuRecipe.row(UI\" src/controls/popup_button.luau && cd ../../../games/RascalRally/code && out=\"$(cat \"$FACET_VERIFY_RR_TRANSCRIPT\")\" && echo \"$out\" | grep -q \"✓.*newMenu is LIVE through this package.s own require path, closed spec and all\" && echo \"$out\" | grep -q \"✓.*both new sibling modules are REACHABLE on this package.s require path\" && echo \"$out\" | grep -q \"✓.*the extraction is an EXTRACTION: one presentation rule, shared by identity\" && echo \"$out\" | grep -q \"✓.*newRowActions. menu rows still carry the props this package.s lists were written against\" && echo \"$out\" | grep -q \"✓.*TRIPWIRE: no shipped Rascal Rally source opens a menu or claims a context gesture yet\" && echo \"$out\" | grep -q \"✓.*A11Y: the truncated-label plate KEEPS touch long-press, which is what this package relies on\""
+    "shell": "test -f src/controls/menu.luau && test -f src/controls/menu_recipe.luau && grep -q \"resolvePresentation\" src/controls/popup_button.luau && ! grep -q \"function popup_button.resolvePresentation\" src/controls/popup_button.luau && grep -q \"setSecondaryActivate\" src/render/target_contract.luau && grep -q \"attachContextGestures\" src/render/renderer.luau && grep -q \"contextTriggerOwns\" src/present/presenter.luau && grep -q \"menuRecipe.row(UI\" src/controls/row_actions.luau && ! grep -q \"compactLabel = if\" src/controls/row_actions.luau && grep -q \"menuRecipe.row(UI\" src/controls/picker_menu.luau && cd ../../../games/RascalRally/code && out=\"$(cat \"$FACET_VERIFY_RR_TRANSCRIPT\")\" && echo \"$out\" | grep -q \"✓.*newMenu is LIVE through this package.s own require path, closed spec and all\" && echo \"$out\" | grep -q \"✓.*both new sibling modules are REACHABLE on this package.s require path\" && echo \"$out\" | grep -q \"✓.*the extraction is an EXTRACTION: one presentation rule, shared by identity\" && echo \"$out\" | grep -q \"✓.*newRowActions. menu rows still carry the props this package.s lists were written against\" && echo \"$out\" | grep -q \"✓.*TRIPWIRE: no shipped Rascal Rally source opens a menu or claims a context gesture yet\" && echo \"$out\" | grep -q \"✓.*A11Y: the truncated-label plate KEEPS touch long-press, which is what this package relies on\""
    },
    "class": "result-ids",
    "evidence": null,

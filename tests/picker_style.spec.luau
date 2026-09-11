@@ -1,5 +1,5 @@
 --!strict
--- Picker `style` — the SwiftUI-shaped selection control (2026-09-11).
+-- Picker `style` — the reference-platform-shaped selection control (2026-09-11).
 --
 -- ONE control, six styles, and an `automatic` that resolves from PUBLISHED
 -- FACTS (size class, distance profile, primary interaction class), never a
@@ -155,7 +155,7 @@ describe("Picker style: the menu trigger is ONE integrated control", function()
 		expect(suffixNode(w, "/Trigger/Value").props.text).toBe("Normal")
 		local chevron = suffixNode(w, "/Trigger/Chevron")
 		expect(chevron ~= nil).toBe(true)
-		-- the label sits BESIDE the trigger in one row, the SwiftUI form-row shape
+		-- the label sits BESIDE the trigger in one row, the reference platform's form-row shape
 		expect(suffixNode(w, "/Row/Label").props.text).toBe("Difficulty")
 		-- the closed control is a single focusable: the trigger, never a chevron cell
 		expect(w.pres.focus.focused:get()).toBe(suffixPath(w, "/Trigger"))
@@ -237,6 +237,51 @@ describe("Picker style: the menu trigger is ONE integrated control", function()
 	end)
 end)
 
+describe("Picker style: a described popover never paints past the phone", function()
+	it("caps the themed panel width at the viewport less a gutter each side", function()
+		local w = world.new(FACTS.phone)
+		local picker = Facet.Controls.Picker(w.core, {
+			id = "P",
+			label = "Race group",
+			selected = w.core:signal("open"),
+			options = {
+				{ value = "open", label = "Open races" },
+				{ value = "club", label = "Club races", description = "Join a club to unlock." },
+			},
+		})
+		w.present(UI.Screen({ id = "S", children = { picker.blueprint } }))
+		w.pres.refresh()
+		picker.api.open()
+		w.pres.refresh()
+		local panel = w.adapter.node(suffixPath(w, "/Popup") :: string).rect
+		expect(panel.x >= 0).toBe(true)
+		expect(panel.x + panel.w <= 390).toBe(true)
+		expect(panel.w <= 390 - 16).toBe(true)
+		-- ...and a phone narrower than the themed panel gets the capped width
+		local n = world.new({
+			viewport = { x = 0, y = 0, w = 320, h = 640 },
+			capabilities = { touch = true },
+			preferredInput = "Touch",
+		})
+		local narrow = Facet.Controls.Picker(n.core, {
+			id = "P",
+			label = "Race group",
+			selected = n.core:signal("open"),
+			options = {
+				{ value = "open", label = "Open races" },
+				{ value = "club", label = "Club races", description = "Join a club to unlock." },
+			},
+		})
+		n.present(UI.Screen({ id = "S", children = { narrow.blueprint } }))
+		n.pres.refresh()
+		narrow.api.open()
+		n.pres.refresh()
+		local capped = n.adapter.node(suffixPath(n, "/Popup") :: string).rect
+		expect(capped.w).toBe(320 - 16)
+		expect(capped.x + capped.w <= 320).toBe(true)
+	end)
+end)
+
 describe("Picker style: the strip styles and the deprecated spellings", function()
 	it("on a TV the automatic picker is a segmented strip, inline past four options, a menu past six", function()
 		local _, picker = mount("tv", {})
@@ -295,7 +340,7 @@ describe("Picker style: the strip styles and the deprecated spellings", function
 		w.pres.refresh()
 		expect(picker.dump().style).toBe("navigationLink")
 		-- the title lives INSIDE the one row button, which fills its row
-		expect(suffixNode(w, "/Trigger/Label").props.text).toBe("Track")
+		expect(suffixNode(w, "/Trigger/Row/Label").props.text).toBe("Track")
 		w.overflowGuard()
 		w.adapter.tap(suffixPath(w, "/Trigger") :: string, { inputType = "Touch" })
 		w.pres.refresh()

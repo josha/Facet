@@ -474,6 +474,13 @@ local ALLOWED_CLASS_DRIFT: { { fixture: string, path: string, from: string, to: 
 -- their prop coverage. Omitted means every viewport, so no existing entry moves.
 local ALLOWED_PROP_DRIFT: { { path: string, viewport: string?, why: string } } = {
 	{
+		path = "/Vocabulary/Mode/Trigger",
+		why = "picker round (2026-09-11): the popup trigger is a CONTENT button — its visible word moved into "
+			.. "the `Value` child beside the up/down chevron, so the rendered `label` reads empty (the semantic "
+			.. "name stays on the blueprint) and the plate names `surface = control` explicitly, the same "
+			.. "surface it always wore by default. Padding and geometry are unchanged.",
+	},
+	{
 		path = "/Vocabulary/Quality/Options/Opt1",
 		why = "Control improvements: Picker rows now expose positive enabled and explicit control typography for live options and textSize. Existing labels, selection, padding and geometry are unchanged.",
 	},
@@ -632,6 +639,16 @@ end
 -- Nodes the current tree has and the 3.5 baseline does not. Additions are as
 -- much of a compatibility statement as changes, so they are enumerated too.
 local ALLOWED_NEW_NODES: { { path: string, why: string } } = {
+	{
+		path = "/Vocabulary/Mode/Trigger/Value",
+		why = "picker round (2026-09-11): the popup trigger's visible word, a one-line disclosed Text inside "
+			.. "the content button (the pop-up button every popup now draws)",
+	},
+	{
+		path = "/Vocabulary/Mode/Trigger/Chevron",
+		why = 'picker round (2026-09-11): the trigger\'s up/down chevron, carrying `icon = "chevron.up.chevron.down"` '
+			.. "so a theme paints its art over the ASCII pair",
+	},
 	{
 		path = "/Vocabulary/Name/ClearWhen/then/Clear/BeforeMark",
 		why = "Centers the clear glyph while retaining its natural theme-sized width.",

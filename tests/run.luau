@@ -1136,6 +1136,7 @@ require("./selection_indicator.spec")
 -- the vertical rail, and the indicator adopted as the segmented default
 require("./picker_segments.spec")
 require("./picker_style.spec")
+require("./picker_sweep.spec")
 -- D2: the freestanding action menu — verbs not values, the shared row recipe,
 -- submenus that nest without a cap, and the five triggers that close the context-menu construct
 require("./menu.spec")

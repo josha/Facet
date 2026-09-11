@@ -143,6 +143,10 @@ local function controlVocabulary(core: any, _deps: any): any
 		label = "Quality",
 		options = { { label = "Low", value = "low" }, { label = "High", value = "high" } },
 		selected = core:signal("low"),
+		-- `style = "segmented"` DECLARED (picker round, 2026-09-11): the frozen
+		-- render is the STRIP's nodes, and an undeclared style on this pointer
+		-- fixture has been the menu family since that round
+		style = "segmented",
 		-- `indicator = "none"` DELIBERATELY, and it is the one caller in the repo
 		-- that is right to pin it (navigation-and-menus D6, which flipped the
 		-- segmented default to the sliding pill). This fixture is not a screen: it

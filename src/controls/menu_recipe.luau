@@ -162,7 +162,7 @@ function menu_recipe.resolvePresentation(
 end
 
 --[[ THE PICKER MENU'S OWN LADDER (Picker `style = "menu"`, 2026-09-11). The
-	SwiftUI-shaped picker presents its options ANCHORED to the trigger — the
+	reference-platform-shaped picker presents its options ANCHORED to the trigger — the
 	menu that pops from a form row on a phone and from a pop-up button on a
 	desktop — and only reaches for the bottom sheet when the list cannot be a
 	popover: a gamepad (one panel, focus-navigable, the same call `newMenu`

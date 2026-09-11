@@ -274,7 +274,7 @@ local DECLARED_DEPRECATIONS: { Deprecation } = {
 		since = "0.11.0",
 		removeNoEarlierThan = "0.12.0",
 		replacement = "Picker.style (automatic | menu | segmented | inline | radioGroup | navigationLink)",
-		note = "same values, SwiftUI's spelling; `radio` reads as `radioGroup`",
+		note = "same values, the reference platform's spelling; `radio` reads as `radioGroup`",
 	},
 	{
 		surface = "newMenu",
