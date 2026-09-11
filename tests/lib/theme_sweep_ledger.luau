@@ -74,40 +74,6 @@ export type Row = {
 
 theme_ledger.ROWS = {
 	{
-		-- THE 2026-08-27 ROWS (task THEME). `chrome_slots.spendInset` used to
-		-- spend a package's carved border whenever ANY pixels remained; it now asks whether
-		-- the node's own LINE BOX still fits, which is what stopped a 16px glyph being drawn
-		-- into a 4x4 box (director item 6). Nothing below is a new defect — every one is a
-		-- control that was already too small for the frame its package asked it to wear, and
-		-- every one is REPAIRED (the reservation comes back and the content draws). What
-		-- changed is that the framework now says so, which is the whole point of the change,
-		-- and these rows are where it says it until the packages re-spec those rungs.
-		-- THE ROUND-BUTTON FAMILY, and the director's own item 6: a `shape = "circle"` HUD
-		-- chip is sized from `controlSizes.<rung>.height` and the smallest rung of every
-		-- ornate package is narrower than that package's own frame — 22px against 16 under
-		-- compact-pointer, 36 against 16 under pixel-quest. Three sibling discs, one
-		-- construction, one row.
-		surface = "hud",
-		variant = "-",
-		node = "/HudScreen/Hud/Rounds/RoundStrip/R*",
-		sig = "the 'X' chrome contentInsets could not be",
-		px = 52,
-		since = 0,
-		packages = "compact-pointer,fantasy-ornate,fantasy-parchment,glossy-touch,pixel-quest",
-		kind = "theme-inset-yield",
-	},
-	{
-		-- ...and the bottom-right cluster's disc, the same construction on the `regular` rung.
-		surface = "hud",
-		variant = "-",
-		node = "/HudScreen/Hud/Actions/A1r",
-		sig = "the 'X' chrome contentInsets could not be",
-		px = 46,
-		since = 0,
-		packages = "compact-pointer,fantasy-ornate,fantasy-parchment,glossy-touch,pixel-quest",
-		kind = "theme-inset-yield",
-	},
-	{
 		-- THE ON-SCREEN KEYBOARD, 28 keys and one construction. At +14 a key's line box
 		-- outgrows what its package's frame leaves; the frame comes back and the letter draws.
 		-- The same three rows already carry this fixture's `collapsed-box` findings.
@@ -310,16 +276,6 @@ theme_ledger.ROWS = {
 		since = 0,
 		packages = "compact-pointer,fantasy-ornate,fantasy-parchment,glossy-mobile,glossy-touch,pixel-quest,scifi-hud",
 		kind = "page-not-scrollable",
-	},
-	{
-		surface = "sponsor_list",
-		variant = "-",
-		node = "/ListLab/Body/Rows/Canvas/W/[*]/Row/Card",
-		sig = "newVirtualList 'X' declares itemExtent = N,",
-		px = 160,
-		since = 0,
-		packages = "fantasy-ornate,fantasy-parchment,glossy-touch,pixel-quest",
-		kind = "lying-itemExtent",
 	},
 	{
 		surface = "variable_extents",

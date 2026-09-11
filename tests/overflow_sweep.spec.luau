@@ -2467,9 +2467,11 @@ describe("overflow sweep: the theme ledger", function()
 				narrow += 1
 			end
 		end
-		expect(narrow).toBe(2)
+		-- the two narrowest views AND the widest one carry the largest preference
+		-- under every package (2026-09-11; see `themedOffsets`)
+		expect(narrow).toBe(3)
 		expect(#PACKAGES).toBe(8)
-		expect(swept).toBe(#VIEWS + 2)
+		expect(swept).toBe(#VIEWS + 3)
 
 		-- ...and the part nobody is allowed to forget, printed on every run rather
 		-- than left in a comment somebody stops reading (the round-3 brief's "an

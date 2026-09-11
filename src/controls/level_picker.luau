@@ -64,6 +64,7 @@ local controlContract = require("../class_contract")
 local contribution = require("../input/contribution")
 local specGuard = require("../spec_guard")
 local surfaceEnv = require("../env/surface_env")
+local themeSnapshot = require("../themes/snapshot")
 
 local level_picker = {}
 
@@ -304,6 +305,25 @@ function level_picker.compose(Facet: any, core: any, cfg: Config)
 	-- a theme METRIC name, resolved on every solve, so a package that resizes its
 	-- icon ladder resizes the picker with no rebuild
 	local markSize = `iconSizes.{cfg.sizeRole}`
+	--[[ THE GLYPH'S TEXT SIZE IS THE ICON RUNG BEFORE THE DISPLAY SCALED IT
+		(the playlist's stars at the ten-foot cell, 2026-09-11). `iconSizes` is a
+		density-scaled section — 16 becomes 24 on a Large display — and the text
+		paint multiplies a text size by the typography scale, which carries the
+		same 1.5x: a star drew at 36 inside a row sized for one scale, 10px past
+		its cell. Dividing the resolved rung by the display's metric scale hands
+		the paint the rung it will scale exactly once. Reactive on both facts. ]]
+	local markEnv = if cfg.env ~= nil then cfg.env else surfaceEnv.find(core)
+	local markTextSize: any = if markEnv ~= nil
+		then scope:own(core:memo(function(use)
+			local metrics = use(markEnv:get("themeMetrics"))
+			local px = themeSnapshot.resolveNumber(metrics, markSize)
+			if type(px) ~= "number" then
+				return markSize
+			end
+			local factor = themeSnapshot.metricScale(use(markEnv:get("displaySize")))
+			return if type(factor) == "number" and factor > 0 then px / factor else px
+		end))
+		else markSize
 
 	-- WIDER FOR A FINGER THAN FOR A CURSOR (director, 2026-07-27). The run is ONE
 	-- drag target, so the gap is what makes an individual segment reachable.
@@ -441,7 +461,7 @@ function level_picker.compose(Facet: any, core: any, cfg: Config)
 				-- mark is glyph-sized and the run groups; not enough room -> it shrinks
 				-- to the share it was offered, and the cap can never fall below the
 				-- glyph again.
-				textSize = markSize,
+				textSize = markTextSize,
 				textAlign = "center",
 				width = { type = "hug" },
 				tint = tint,

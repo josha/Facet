@@ -457,6 +457,37 @@ end
 
 -- Live arrays use keyed rows: identity follows the supplied id, while selection
 -- follows value. Removing a row never reconciles the caller's selected signal.
+--[[ THE TRACK'S CARVED BORDER IS THE SEGMENTS' INSET (themed containment,
+	item 8, 2026-09-11). A nine-slice `control` plate carves a border its
+	content must sit inside; the plate is a SIBLING of the segments (so no
+	segment path moves), so the segments take the same inset as padding —
+	reactively, because a theme swap re-carves it and a flip to a row form
+	takes the plate away. Nothing is read without an environment (a declared
+	strip with none stays flat, as the neutral package carves nothing). ]]
+local function trackPaddingFor(core: any, scope: any, spec: any, presentation: any): any
+	local env = spec.env or surfaceEnv.find(core)
+	if env == nil then
+		return nil
+	end
+	return scope:own(core:memo(function(use)
+		if use(presentation) ~= "segmented" then
+			return 0
+		end
+		local metrics = use(env:get("themeMetrics"))
+		local insets = if type(metrics) == "table" then (metrics :: any).chromeInsets else nil
+		local plate = if type(insets) == "table" then insets.control else nil
+		if type(plate) ~= "table" then
+			return 0
+		end
+		return {
+			top = tonumber(plate.top) or 0,
+			right = tonumber(plate.right) or 0,
+			bottom = tonumber(plate.bottom) or 0,
+			left = tonumber(plate.left) or 0,
+		}
+	end))
+end
+
 local function buildLive(Facet, core, spec, requested: string)
 	local UI = Facet.UI
 	local scope = core:scope("live-picker")
@@ -675,7 +706,14 @@ local function buildLive(Facet, core, spec, requested: string)
 			})
 		end,
 	})
-	local group = UI.AdaptiveStack({ id = "Options", axis = axis, gap = "xs", width = groupWidth, children = { rows } })
+	local group = UI.AdaptiveStack({
+		id = "Options",
+		axis = axis,
+		gap = "xs",
+		width = groupWidth,
+		padding = if slides then trackPaddingFor(core, scope, spec, presentation) else nil,
+		children = { rows },
+	})
 	local indicatorApi
 	if slides then
 		local segments = scope:own(core:memo(function(use)
@@ -1175,6 +1213,7 @@ local function buildStrip(Facet: any, core: any, spec: Spec, requested: string)
 		axis = axis,
 		gap = "xs",
 		width = groupWidth,
+		padding = if slides then trackPaddingFor(core, scope, spec, presentation) else nil,
 		children = rows,
 	})
 
