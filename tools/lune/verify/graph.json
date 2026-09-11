@@ -23183,7 +23183,7 @@
      "controls_namespace::the Controls namespace::every old-form builder carries its deprecation row",
      "controls_namespace::the Controls namespace::the eleven infrastructure constructors stay at the top level and stay out of Controls"
     ],
-    "shell": "grep -qF \"VERSION 0.11.0\" artifacts/verify/public-surface.txt && grep -qF \"Controls : table(frozen)\" artifacts/verify/public-surface.txt && test \"$(grep -c \"^  Controls[.]\" artifacts/verify/public-surface.txt)\" = \"$(grep -oE \"Controls[.][A-Za-z]+\" tests/conformance/controls_registry.luau | sort -u | grep -c .)\" && test \"$(grep -c \"since=0[.]10[.]0 | removeNoEarlierThan=0[.]12[.]0 | replacement=Facet[.]Controls[.]\" artifacts/verify/public-surface.txt)\" = \"19\""
+    "shell": "grep -qF \"VERSION 0.11.0\" artifacts/verify/public-surface.txt && grep -qF \"Controls : table(frozen)\" artifacts/verify/public-surface.txt && test \"$(grep -cE \"^  Controls[.][A-Za-z]+ : function\" artifacts/verify/public-surface.txt)\" = \"$(grep -oE \"Controls[.][A-Za-z]+\" tests/conformance/controls_registry.luau | sort -u | grep -c .)\" && test \"$(grep -c \"since=0[.]10[.]0 | removeNoEarlierThan=0[.]12[.]0 | replacement=Facet[.]Controls[.]\" artifacts/verify/public-surface.txt)\" = \"19\""
    },
    "class": "result-ids",
    "evidence": null,
