@@ -97,7 +97,7 @@ references (see [§13.5](#135-what-a-package-actually-costs)).
 | **Sci-Fi HUD** | `ScifiHud.rbxm` | Nightwatch | angular and cold: zero radii everywhere, 2 px strokes, Michroma display face | none | 5.4 KB |
 | **Fantasy Parchment** | `FantasyParchment.rbxm` | Daylight, Candlelight | nine-slice parchment and ink, Fondamento calligraphy, 46 px rows | 6 images | 8.7 KB |
 | **Fantasy Ornate** | `FantasyOrnate.rbxm` | Grand Hall, Crypt | the fully painted one: six-layer panels, per-state art, image bars, a focus *glow* | 33 images | 14.7 KB |
-| **Pixel Quest** | `PixelQuest.rbxm` | Quest | pixel-art mode: every metric snapped to a 4 px grid, 4 px strokes, nearest-neighbour scaling | 20 images | 10.1 KB |
+| **Pixel Quest** | `PixelQuest.rbxm` | Quest | pixel-art mode: every metric snapped to a 4 px grid, 4 px strokes, nearest-neighbour scaling | 28 images | 10.1 KB |
 | **Glossy Touch** | `GlossyTouch.rbxm` | Sky | the thumb-first skin: 44 px rows at every size class, 10/14 px radii, sliced plates | 14 images | 9.3 KB |
 | **Compact Pointer** | `CompactPointer.rbxm` | Aqua | the mouse-first partner to Glossy Touch: 24 px rows, 10 px spacing step, 13 px body | 12 images | 7.0 KB |
 
@@ -210,11 +210,15 @@ plates, heart-shaped bar caps, and not one soft pixel anywhere.
   up to a multiple of 4, so nothing ever lands on a half-pixel. Strokes are 4 px.
   This snapping applies to derived metrics too — at a ten-foot display class its
   hit floor resolves to 68 px rather than 66, because the package's own grid wins.
-- **Chrome.** 20 images, drawn with nearest-neighbour scaling so enlargement stays
+- **Chrome.** 28 images, drawn with nearest-neighbour scaling so enlargement stays
   crisp instead of turning to mush.
-- **Icons.** Authored pixel icons are joined by Facet's menu, flag, and search
-  artwork at the theme's icon size. Other names retain their text-glyph fallback;
-  the explicit `buildWithoutIcons` comparison remains available.
+- **Icons.** The only package that draws its own complete icon set. Fourteen
+  8×8 design-pixel glyphs cover every name the framework requests, joined by
+  Facet's menu, flag and search artwork at the theme's icon size. It is also the
+  only package that declines Facet's own icon set, because a smooth silhouette
+  rendered nearest-neighbour on a 4 px grid is mush — which is what having a
+  complete set of its own buys it. The ASCII-fallback comparison lives in
+  `buildWithoutIcons`, a build for tests rather than for players.
 - **Take it when** the game is pixel art.
 
 ### Glossy Touch — `GlossyTouch.rbxm`

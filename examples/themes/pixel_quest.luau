@@ -172,6 +172,21 @@ local ASSETS = {
 	pixel_icon_chevron_down = { content = "rbxassetid://135945017045204", preload = "lazy", fallback = "native" },
 	pixel_icon_check = { content = "rbxassetid://93821473650946", preload = "lazy", fallback = "native" },
 	pixel_icon_cross = { content = "rbxassetid://76283014616825", preload = "lazy", fallback = "native" },
+	-- THE REST OF THE FRAMEWORK'S ICON VOCABULARY (2026-09-11). This package
+	-- declines the framework's smooth art rung, which is only honest while it
+	-- answers for every name a control asks for: an undeclared name fell through
+	-- to an ASCII CHARACTER, and a character standing where a picture belongs is
+	-- the finding-A4 defect. Eight more 8x8 design-pixel glyphs from the same
+	-- generator close the set. All `lazy`: they belong to affordances a screen may
+	-- never show, unlike the stepper pair a settings row draws immediately.
+	pixel_icon_chevron_left = { content = "rbxassetid://124829299432358", preload = "lazy", fallback = "native" },
+	pixel_icon_chevron_up = { content = "rbxassetid://104690805635224", preload = "lazy", fallback = "native" },
+	pixel_icon_chevron_up_down = { content = "rbxassetid://70666797550533", preload = "lazy", fallback = "native" },
+	pixel_icon_more = { content = "rbxassetid://102030667154109", preload = "lazy", fallback = "native" },
+	pixel_icon_edit = { content = "rbxassetid://120712594727107", preload = "lazy", fallback = "native" },
+	pixel_icon_radio_off = { content = "rbxassetid://109254322652994", preload = "lazy", fallback = "native" },
+	pixel_icon_radio_on = { content = "rbxassetid://102134502378061", preload = "lazy", fallback = "native" },
+	pixel_icon_check_off = { content = "rbxassetid://111516067571262", preload = "lazy", fallback = "native" },
 }
 
 local QUEST = {
@@ -223,8 +238,13 @@ function pixel_quest.definition(themes: any): any
 			-- THE TWO FIELDS THIS PACKAGE EXISTS FOR
 			rendering = "pixel",
 			pixelUnit = UNIT,
-			-- Use the explicitly selected action artwork below. Other names retain
-			-- the package's deliberate glyph fallback.
+			-- DECLINES THE FRAMEWORK'S SMOOTH ART, and can, because the `icons` map
+			-- below is COMPLETE (2026-09-11). A 128px anti-aliased silhouette under
+			-- this package's `ResampleMode = Pixelated` is nearest-neighbour mush on
+			-- a 4px grid, so the opt-out is a real design decision — but it is only
+			-- honest while every name a control asks for resolves to art HERE.
+			-- Before, the uncovered names fell through to ASCII characters, which is
+			-- the "letter where a picture belongs" defect in a different costume.
 			standardIcons = false,
 		},
 		style = { defaultTheme = "Quest", themes = { { name = "Quest", colors = QUEST.colors, extra = QUEST.extra } } },
@@ -424,16 +444,30 @@ function pixel_quest.definition(themes: any): any
 		},
 		-- SEMANTIC ICONS (R4). Names are the framework's own vocabulary, so a
 		-- control asks for a MEANING and this table answers with art.
+		--
+		-- IT ANSWERS FOR EVERY NAME A CONTROL ASKS FOR (2026-09-11,
+		-- tests/icon_coverage.spec.luau). Declining the framework's smooth rung is
+		-- only a style decision while this table is COMPLETE; the moment it has a
+		-- hole, the opt-out is not "our own art" but an ASCII character standing
+		-- where a picture belongs, which is what a player photographed in Studio.
 		icons = {
 			["facet:search"] = "search",
 			menu = "menu",
 			flag = "flag",
 			increment = "pixel_icon_plus",
 			decrement = "pixel_icon_minus",
+			["chevron.leading"] = "pixel_icon_chevron_left",
 			["chevron.trailing"] = "pixel_icon_chevron_right",
+			["chevron.up"] = "pixel_icon_chevron_up",
 			["chevron.down"] = "pixel_icon_chevron_down",
+			["chevron.up.chevron.down"] = "pixel_icon_chevron_up_down",
 			checkmark = "pixel_icon_check",
 			close = "pixel_icon_cross",
+			more = "pixel_icon_more",
+			edit = "pixel_icon_edit",
+			["facet:selection.radio.off"] = "pixel_icon_radio_off",
+			["facet:selection.radio.on"] = "pixel_icon_radio_on",
+			["facet:selection.check.off"] = "pixel_icon_check_off",
 		},
 		assets = assets,
 		compatibility = { requiresSchema = themes.SCHEMA },

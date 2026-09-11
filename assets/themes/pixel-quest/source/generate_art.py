@@ -438,6 +438,98 @@ ICON_BITMAPS = {
         ".##..##.",
         "##....##",
     ],
+    # ── the rest of the framework's icon vocabulary, 2026-09-11 ──────────────
+    # This package DECLINES the framework's smooth icon rung (`standardIcons =
+    # false`) because a 128 px anti-aliased silhouette rendered under
+    # `ResampleMode = Pixelated` is nearest-neighbour mush on a 4 px grid. That
+    # opt-out is only honest while the package answers for every name a control
+    # asks for -- otherwise it is not "our own art", it is a text character
+    # standing where a picture belongs. These eight complete the set.
+    "chevron_left": [
+        ".....##.",
+        "....##..",
+        "...##...",
+        "..##....",
+        "..##....",
+        "...##...",
+        "....##..",
+        ".....##.",
+    ],
+    "chevron_up": [
+        "........",
+        "........",
+        "...##...",
+        "..####..",
+        ".##..##.",
+        "##....##",
+        "#......#",
+        "........",
+    ],
+    # the pop-up button's stacked pair: one chevron up, one down, two design
+    # pixels of clear ground between them so the pair never reads as a diamond
+    "chevron_up_down": [
+        "...##...",
+        "..####..",
+        ".##..##.",
+        "........",
+        "........",
+        ".##..##.",
+        "..####..",
+        "...##...",
+    ],
+    "more": [
+        "........",
+        "........",
+        "........",
+        "##.##.##",
+        "##.##.##",
+        "........",
+        "........",
+        "........",
+    ],
+    # a pencil on the grid's own diagonal, tapering to a one-pixel tip
+    "edit": [
+        "......##",
+        ".....###",
+        "....###.",
+        "...###..",
+        "..###...",
+        ".###....",
+        "##......",
+        "#.......",
+    ],
+    # the SELECTION MARKS. A radio group and a menu row paint a resting shape
+    # and a chosen shape into the same reserved slot, so both are icon names.
+    "radio_off": [
+        "..####..",
+        ".##..##.",
+        "##....##",
+        "#......#",
+        "#......#",
+        "##....##",
+        ".##..##.",
+        "..####..",
+    ],
+    "radio_on": [
+        "..####..",
+        ".##..##.",
+        "##....##",
+        "#..##..#",
+        "#..##..#",
+        "##....##",
+        ".##..##.",
+        "..####..",
+    ],
+    "check_off": [
+        "########",
+        "#......#",
+        "#......#",
+        "#......#",
+        "#......#",
+        "#......#",
+        "#......#",
+        "########",
+    ],
 }
 
 
@@ -470,7 +562,22 @@ def main() -> None:
     items.append(("pixel_toggle_knob.png", toggle_knob().image(), None, None))
     items.append(("pixel_stepper_plate_default.png", stepper_plate("default").image(), 3 * u, [(32, 32), (48, 32)]))
     items.append(("pixel_stepper_plate_pressed.png", stepper_plate("pressed").image(), 3 * u, [(32, 32), (48, 32)]))
-    for nm in ("chevron_right", "chevron_down", "plus", "minus", "check", "cross"):
+    for nm in (
+        "chevron_right",
+        "chevron_down",
+        "plus",
+        "minus",
+        "check",
+        "cross",
+        "chevron_left",
+        "chevron_up",
+        "chevron_up_down",
+        "more",
+        "edit",
+        "radio_off",
+        "radio_on",
+        "check_off",
+    ):
         items.append((f"pixel_icon_{nm}.png", icon(nm).image(), None, None))
 
     for name, img, border, _ in items:
@@ -525,9 +632,11 @@ def main() -> None:
         ["pixel_toggle_track_off.png", "pixel_toggle_track_on.png", "pixel_toggle_knob.png"])
     row("stepper plate default / pressed (28x28 b12)",
         ["pixel_stepper_plate_default.png", "pixel_stepper_plate_pressed.png"])
-    sheet.add("icons 32x32 near-white (chevron_right/down, plus, minus, check, cross)",
+    sheet.add("icons 32x32 near-white (the framework's whole icon vocabulary)",
               [by[f"pixel_icon_{n}.png"][0] for n in
-               ("chevron_right", "chevron_down", "plus", "minus", "check", "cross")])
+               ("chevron_right", "chevron_down", "plus", "minus", "check", "cross",
+                "chevron_left", "chevron_up", "chevron_up_down", "more", "edit",
+                "radio_off", "radio_on", "check_off")])
     # palette strip
     strip = Image.new("RGBA", (len(PALETTE) * 40, 40), (0, 0, 0, 255))
     dstrip = ImageDraw.Draw(strip)

@@ -8,33 +8,39 @@
   "method": "Studio MCP upload_image over a local http.server on 127.0.0.1:8643 serving this directory (build package P4, pixel mode; P5 added pixel_blank for the selected-only ornament layer)",
   "note": "Slice geometry: SliceCenter = Rect(border, border, W-border, H-border), SliceScale = 1 (integer, R5). EVERY image rule for this package must carry ResampleMode = Pixelated. Every sliced source is 2*border+1 design pixels on each sliced axis, so the stretched centre is one uniform design pixel.",
   "assets": {
-    "pixel_plate_default": {
-      "file": "pixel_plate_default.png",
-      "contentId": "rbxassetid://70509734376718",
-      "size": "36x36",
-      "designPx": "9x9",
-      "sliceBorder": 16,
-      "slot": "control|selection",
-      "state": "default"
-    },
-    "pixel_plate_selected": {
-      "file": "pixel_plate_selected.png",
-      "contentId": "rbxassetid://140498947277552",
-      "size": "36x36",
-      "designPx": "9x9",
-      "sliceBorder": 16,
-      "slot": "selection",
-      "state": "selected"
-    },
-    "pixel_plate_ornament": {
-      "file": "pixel_plate_ornament.png",
-      "contentId": "rbxassetid://112667248840646",
-      "size": "24x24",
-      "designPx": "6x6",
+    "pixel_bar_cap_heart": {
+      "file": "pixel_bar_cap_heart.png",
+      "contentId": "rbxassetid://100115790671157",
+      "size": "40x40",
+      "designPx": "10x10",
       "sliceBorder": 0,
-      "slot": "selection.layers[*]",
-      "layerKind": "corners",
-      "state": "selected"
+      "slot": "barCap.start",
+      "state": "default",
+      "moderation": "Approved",
+      "assetType": "Image"
+    },
+    "pixel_bar_fill": {
+      "file": "pixel_bar_fill.png",
+      "contentId": "rbxassetid://118968463549709",
+      "size": "12x16",
+      "designPx": "3x4",
+      "sliceBorder": 4,
+      "slot": "barFill",
+      "state": "default",
+      "direction": "ltr",
+      "moderation": "Approved",
+      "assetType": "Image"
+    },
+    "pixel_bar_track": {
+      "file": "pixel_bar_track.png",
+      "contentId": "rbxassetid://133548434345857",
+      "size": "20x32",
+      "designPx": "5x8",
+      "sliceBorder": 8,
+      "slot": "barTrack",
+      "state": "default",
+      "moderation": "Approved",
+      "assetType": "Image"
     },
     "pixel_blank": {
       "file": "pixel_blank.png",
@@ -45,16 +51,9 @@
       "slot": "selection.layers[*]",
       "layerKind": "corners",
       "state": "default",
-      "note": "Entirely transparent, on purpose: the per-state grammar requires a `default`, and this is how a layer says it paints NOTHING in the states it is not for."
-    },
-    "pixel_panel": {
-      "file": "pixel_panel.png",
-      "contentId": "rbxassetid://122249249524085",
-      "size": "52x52",
-      "designPx": "13x13",
-      "sliceBorder": 24,
-      "slot": "panel",
-      "state": "default"
+      "note": "Entirely transparent, on purpose: the per-state grammar requires a `default`, and this is how a layer says it paints NOTHING in the states it is not for.",
+      "moderation": "Approved",
+      "assetType": "Image"
     },
     "pixel_field": {
       "file": "pixel_field.png",
@@ -63,116 +62,9 @@
       "designPx": "9x9",
       "sliceBorder": 16,
       "slot": "field",
-      "state": "default"
-    },
-    "pixel_bar_track": {
-      "file": "pixel_bar_track.png",
-      "contentId": "rbxassetid://133548434345857",
-      "size": "20x32",
-      "designPx": "5x8",
-      "sliceBorder": 8,
-      "slot": "barTrack",
-      "state": "default"
-    },
-    "pixel_bar_fill": {
-      "file": "pixel_bar_fill.png",
-      "contentId": "rbxassetid://118968463549709",
-      "size": "12x16",
-      "designPx": "3x4",
-      "sliceBorder": 4,
-      "slot": "barFill",
       "state": "default",
-      "direction": "ltr"
-    },
-    "pixel_bar_cap_heart": {
-      "file": "pixel_bar_cap_heart.png",
-      "contentId": "rbxassetid://100115790671157",
-      "size": "40x40",
-      "designPx": "10x10",
-      "sliceBorder": 0,
-      "slot": "barCap.start",
-      "state": "default"
-    },
-    "pixel_toggle_track_off": {
-      "file": "pixel_toggle_track_off.png",
-      "contentId": "rbxassetid://82727713033159",
-      "size": "28x32",
-      "designPx": "7x8",
-      "sliceBorder": 12,
-      "slot": "toggleTrack",
-      "state": "default"
-    },
-    "pixel_toggle_track_on": {
-      "file": "pixel_toggle_track_on.png",
-      "contentId": "rbxassetid://94324416211669",
-      "size": "28x32",
-      "designPx": "7x8",
-      "sliceBorder": 12,
-      "slot": "toggleTrack",
-      "state": "selected"
-    },
-    "pixel_toggle_knob": {
-      "file": "pixel_toggle_knob.png",
-      "contentId": "rbxassetid://134826235649025",
-      "size": "24x24",
-      "designPx": "6x6",
-      "sliceBorder": 0,
-      "slot": "toggleKnob",
-      "state": "default"
-    },
-    "pixel_stepper_plate_default": {
-      "file": "pixel_stepper_plate_default.png",
-      "contentId": "rbxassetid://115416309466713",
-      "size": "28x28",
-      "designPx": "7x7",
-      "sliceBorder": 12,
-      "slot": "stepperPlate",
-      "state": "default"
-    },
-    "pixel_stepper_plate_pressed": {
-      "file": "pixel_stepper_plate_pressed.png",
-      "contentId": "rbxassetid://73383523712450",
-      "size": "28x28",
-      "designPx": "7x7",
-      "sliceBorder": 12,
-      "slot": "stepperPlate",
-      "state": "pressed"
-    },
-    "pixel_icon_chevron_right": {
-      "file": "pixel_icon_chevron_right.png",
-      "contentId": "rbxassetid://135535101730897",
-      "size": "32x32",
-      "designPx": "8x8",
-      "sliceBorder": 0,
-      "slot": "icons.chevron.trailing",
-      "state": "default"
-    },
-    "pixel_icon_chevron_down": {
-      "file": "pixel_icon_chevron_down.png",
-      "contentId": "rbxassetid://135945017045204",
-      "size": "32x32",
-      "designPx": "8x8",
-      "sliceBorder": 0,
-      "slot": "icons.chevron.down",
-      "state": "default"
-    },
-    "pixel_icon_plus": {
-      "file": "pixel_icon_plus.png",
-      "contentId": "rbxassetid://137937473154830",
-      "size": "32x32",
-      "designPx": "8x8",
-      "sliceBorder": 0,
-      "slot": "icons.stepper.increment",
-      "state": "default"
-    },
-    "pixel_icon_minus": {
-      "file": "pixel_icon_minus.png",
-      "contentId": "rbxassetid://139370520867356",
-      "size": "32x32",
-      "designPx": "8x8",
-      "sliceBorder": 0,
-      "slot": "icons.stepper.decrement",
-      "state": "default"
+      "moderation": "Approved",
+      "assetType": "Image"
     },
     "pixel_icon_check": {
       "file": "pixel_icon_check.png",
@@ -181,7 +73,79 @@
       "designPx": "8x8",
       "sliceBorder": 0,
       "slot": "icons.check",
-      "state": "default"
+      "state": "default",
+      "moderation": "Approved",
+      "assetType": "Image"
+    },
+    "pixel_icon_check_off": {
+      "file": "pixel_icon_check_off.png",
+      "contentId": "rbxassetid://111516067571262",
+      "size": "32x32",
+      "designPx": "8x8",
+      "sliceBorder": 0,
+      "slot": "icons.facet:selection.check.off",
+      "state": "default",
+      "moderation": "Approved",
+      "sha256": "2553b6ed3d21fa753e11fff58c966c9699e29523fa3be267dfe5922a08019de3",
+      "assetType": "Image"
+    },
+    "pixel_icon_chevron_down": {
+      "file": "pixel_icon_chevron_down.png",
+      "contentId": "rbxassetid://135945017045204",
+      "size": "32x32",
+      "designPx": "8x8",
+      "sliceBorder": 0,
+      "slot": "icons.chevron.down",
+      "state": "default",
+      "moderation": "Approved",
+      "assetType": "Image"
+    },
+    "pixel_icon_chevron_left": {
+      "file": "pixel_icon_chevron_left.png",
+      "contentId": "rbxassetid://124829299432358",
+      "size": "32x32",
+      "designPx": "8x8",
+      "sliceBorder": 0,
+      "slot": "icons.chevron.leading",
+      "state": "default",
+      "moderation": "Approved",
+      "sha256": "e1ed262bb493d429f63ccd0b637075a4930385de120759fc40c78dcc7c26bda4",
+      "assetType": "Image"
+    },
+    "pixel_icon_chevron_right": {
+      "file": "pixel_icon_chevron_right.png",
+      "contentId": "rbxassetid://135535101730897",
+      "size": "32x32",
+      "designPx": "8x8",
+      "sliceBorder": 0,
+      "slot": "icons.chevron.trailing",
+      "state": "default",
+      "moderation": "Approved",
+      "assetType": "Image"
+    },
+    "pixel_icon_chevron_up": {
+      "file": "pixel_icon_chevron_up.png",
+      "contentId": "rbxassetid://104690805635224",
+      "size": "32x32",
+      "designPx": "8x8",
+      "sliceBorder": 0,
+      "slot": "icons.chevron.up",
+      "state": "default",
+      "moderation": "Approved",
+      "sha256": "56f3d9754b4339860c921b140352bd4326a5ae7f65a7a393045b1fb26972034c",
+      "assetType": "Image"
+    },
+    "pixel_icon_chevron_up_down": {
+      "file": "pixel_icon_chevron_up_down.png",
+      "contentId": "rbxassetid://70666797550533",
+      "size": "32x32",
+      "designPx": "8x8",
+      "sliceBorder": 0,
+      "slot": "icons.chevron.up.chevron.down",
+      "state": "default",
+      "moderation": "Approved",
+      "sha256": "912c70e49b398638dddf5ddc9433cc95774e3f95ed141181efcbd044a05fd8bf",
+      "assetType": "Image"
     },
     "pixel_icon_cross": {
       "file": "pixel_icon_cross.png",
@@ -190,7 +154,179 @@
       "designPx": "8x8",
       "sliceBorder": 0,
       "slot": "icons.close",
-      "state": "default"
+      "state": "default",
+      "moderation": "Approved",
+      "assetType": "Image"
+    },
+    "pixel_icon_edit": {
+      "file": "pixel_icon_edit.png",
+      "contentId": "rbxassetid://120712594727107",
+      "size": "32x32",
+      "designPx": "8x8",
+      "sliceBorder": 0,
+      "slot": "icons.edit",
+      "state": "default",
+      "moderation": "Approved",
+      "sha256": "368d59276b2df78935022e4e58b1b86e8b4f6f47842c0db1f7a624304fe6b3c1",
+      "assetType": "Image"
+    },
+    "pixel_icon_minus": {
+      "file": "pixel_icon_minus.png",
+      "contentId": "rbxassetid://139370520867356",
+      "size": "32x32",
+      "designPx": "8x8",
+      "sliceBorder": 0,
+      "slot": "icons.stepper.decrement",
+      "state": "default",
+      "moderation": "Approved",
+      "assetType": "Image"
+    },
+    "pixel_icon_more": {
+      "file": "pixel_icon_more.png",
+      "contentId": "rbxassetid://102030667154109",
+      "size": "32x32",
+      "designPx": "8x8",
+      "sliceBorder": 0,
+      "slot": "icons.more",
+      "state": "default",
+      "moderation": "Approved",
+      "sha256": "bdc905ce468947aa1120a318ede451ff105c4ed58ac3803f1ead596fc8ddc1fe",
+      "assetType": "Image"
+    },
+    "pixel_icon_plus": {
+      "file": "pixel_icon_plus.png",
+      "contentId": "rbxassetid://137937473154830",
+      "size": "32x32",
+      "designPx": "8x8",
+      "sliceBorder": 0,
+      "slot": "icons.stepper.increment",
+      "state": "default",
+      "moderation": "Approved",
+      "assetType": "Image"
+    },
+    "pixel_icon_radio_off": {
+      "file": "pixel_icon_radio_off.png",
+      "contentId": "rbxassetid://109254322652994",
+      "size": "32x32",
+      "designPx": "8x8",
+      "sliceBorder": 0,
+      "slot": "icons.facet:selection.radio.off",
+      "state": "default",
+      "moderation": "Approved",
+      "sha256": "e427016f33e5f0dd0864e045495135a7b460a12ca2d0090427273fb51aa626a0",
+      "assetType": "Image"
+    },
+    "pixel_icon_radio_on": {
+      "file": "pixel_icon_radio_on.png",
+      "contentId": "rbxassetid://102134502378061",
+      "size": "32x32",
+      "designPx": "8x8",
+      "sliceBorder": 0,
+      "slot": "icons.facet:selection.radio.on",
+      "state": "default",
+      "moderation": "Approved",
+      "sha256": "7e9f2d5c4d73a702b2d7b34ee56394939325b81ee1471da0a29bc4fc42f6d693",
+      "assetType": "Image"
+    },
+    "pixel_panel": {
+      "file": "pixel_panel.png",
+      "contentId": "rbxassetid://122249249524085",
+      "size": "52x52",
+      "designPx": "13x13",
+      "sliceBorder": 24,
+      "slot": "panel",
+      "state": "default",
+      "moderation": "Approved",
+      "assetType": "Image"
+    },
+    "pixel_plate_default": {
+      "file": "pixel_plate_default.png",
+      "contentId": "rbxassetid://70509734376718",
+      "size": "36x36",
+      "designPx": "9x9",
+      "sliceBorder": 16,
+      "slot": "control|selection",
+      "state": "default",
+      "moderation": "Approved",
+      "assetType": "Image"
+    },
+    "pixel_plate_ornament": {
+      "file": "pixel_plate_ornament.png",
+      "contentId": "rbxassetid://112667248840646",
+      "size": "24x24",
+      "designPx": "6x6",
+      "sliceBorder": 0,
+      "slot": "selection.layers[*]",
+      "layerKind": "corners",
+      "state": "selected",
+      "moderation": "Approved",
+      "assetType": "Image"
+    },
+    "pixel_plate_selected": {
+      "file": "pixel_plate_selected.png",
+      "contentId": "rbxassetid://140498947277552",
+      "size": "36x36",
+      "designPx": "9x9",
+      "sliceBorder": 16,
+      "slot": "selection",
+      "state": "selected",
+      "moderation": "Approved",
+      "assetType": "Image"
+    },
+    "pixel_stepper_plate_default": {
+      "file": "pixel_stepper_plate_default.png",
+      "contentId": "rbxassetid://115416309466713",
+      "size": "28x28",
+      "designPx": "7x7",
+      "sliceBorder": 12,
+      "slot": "stepperPlate",
+      "state": "default",
+      "moderation": "Approved",
+      "assetType": "Image"
+    },
+    "pixel_stepper_plate_pressed": {
+      "file": "pixel_stepper_plate_pressed.png",
+      "contentId": "rbxassetid://73383523712450",
+      "size": "28x28",
+      "designPx": "7x7",
+      "sliceBorder": 12,
+      "slot": "stepperPlate",
+      "state": "pressed",
+      "moderation": "Approved",
+      "assetType": "Image"
+    },
+    "pixel_toggle_knob": {
+      "file": "pixel_toggle_knob.png",
+      "contentId": "rbxassetid://134826235649025",
+      "size": "24x24",
+      "designPx": "6x6",
+      "sliceBorder": 0,
+      "slot": "toggleKnob",
+      "state": "default",
+      "moderation": "Approved",
+      "assetType": "Image"
+    },
+    "pixel_toggle_track_off": {
+      "file": "pixel_toggle_track_off.png",
+      "contentId": "rbxassetid://82727713033159",
+      "size": "28x32",
+      "designPx": "7x8",
+      "sliceBorder": 12,
+      "slot": "toggleTrack",
+      "state": "default",
+      "moderation": "Approved",
+      "assetType": "Image"
+    },
+    "pixel_toggle_track_on": {
+      "file": "pixel_toggle_track_on.png",
+      "contentId": "rbxassetid://94324416211669",
+      "size": "28x32",
+      "designPx": "7x8",
+      "sliceBorder": 12,
+      "slot": "toggleTrack",
+      "state": "selected",
+      "moderation": "Approved",
+      "assetType": "Image"
     }
   }
 }
