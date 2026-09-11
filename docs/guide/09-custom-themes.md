@@ -54,9 +54,17 @@ or `UI.Path`/`Facet.pathShapes` for appropriate vector artwork; keep full semant
 labels. Do not type Unicode magnifying glasses, arrows or similar characters
 into labels to stand in for a finished icon. Map the semantic icons actually used
 by the game, including search and navigation; namespaced icons work for game
-commands. The framework's ASCII fallback is a missing-art recovery path, not the
-production art direction. See [rich skinning](10-rich-skinning.md)
-for the asset mapping (or search that chapter for `icons`).
+commands. See [rich skinning](10-rich-skinning.md) for the asset mapping (or
+search that chapter for `icons`).
+
+A shipped package resolves every icon name the framework requests to real art.
+The framework's own icon set fills in below a package's own art, so a package
+that declares nothing already meets that rule; a package that sets
+`identity.standardIcons = false` declines that set and must then map every name
+itself. The ASCII fallback beneath both is a recovery path for missing art, and
+it must never be what a player sees: a character standing where a picture belongs
+is a wrong result that nothing reports. `tests/icon_coverage.spec.luau` fails a
+package that leaves any requested name on a character.
 
 Verify the theme with large text and all input classes. Inspect image focus lift,
 caption wrapping, and decorative paint against both the content inset and the
