@@ -60,8 +60,9 @@ Do not create parallel mobile/console control implementations or equate gamepad
 with ten-foot viewing.
 
 Use `Controls.Alert` for a brief confirmation/acknowledgement; call its
-`present(presenter)` method. It owns card sizing, responsive actions, scrolling,
-safe focus and cancellation. Use `presentModal` for substantial custom tasks,
+`present(presenter)` method. It owns card sizing, action placement (roles decide
+the order and the row/stack form per width, distance and text size — do not
+author a button order), scrolling, safe focus and cancellation. Use `presentModal` for substantial custom tasks,
 not as a reason to rebuild a confirmation from a full-screen panel. See the
 [Alert contract](../../docs/reference/api.md#controlsalert) and tutorial 04.
 Use its title/message/actions and cancel/destructive roles, `isPresented` or `item`

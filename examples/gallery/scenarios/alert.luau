@@ -56,7 +56,7 @@ return {
 						children = {
 							UI.Text({ text = "Alerts and confirmations", textSize = "title" }),
 							UI.Text({
-								text = "A brief decision stays compact. Actions share a row when they fit and wrap on narrow views.",
+								text = "A brief decision stays compact. Cancel leads a desktop row; phones and televisions stack the actions with cancel last.",
 								width = UI.fill(),
 							}),
 							UI.Text({ id = "Status", text = status, width = UI.fill() }),

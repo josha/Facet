@@ -10282,14 +10282,25 @@ insets, without the panel's corners/nameplate. This changes art, not input or fo
 
 `Facet.Controls.Alert(core, spec) -> { blueprint, present, dismiss, dump, dispose }`
 composes a brief modal decision from existing primitives. It centers a card sized
-to its content and capped by the theme, keeps actions side by side when they fit,
-and wraps them onto further rows when needed. The card scrolls when text/actions
-exceed the available height; theme border insets and safe areas remain in force.
-Resizing, input changes and text preferences update the same mounted actions.
+to its content and capped by the theme. Actions take one of two forms, chosen
+from published facts the way SwiftUI's alert does: a **row** (hugging buttons,
+centered) or a **stack** (full-width buttons). The stack is used with more than
+two actions, on a compact width, on a ten-foot display, and at an accessibility
+text preference (`preferredTextOffset` ≥ 10, the engine's Larger step). Placement
+is role-driven, not authored: the cancel action leads the row and closes the
+stack; the remaining actions keep author order. The card scrolls when
+text/actions exceed the available height; theme border insets and safe areas
+remain in force. Resizing, input changes and text preferences move the same
+mounted actions (a keyed region, never a remount), so focus and shortcuts survive
+a live flip. Action nodes live at `<alert>/Center/Card/Actions/Order/[<id>]/<id>`
+(after `Decision/then/` for a data-bound alert).
 
 Spec: `id?`, `title` (string, Readable<string>, or data factory), optional
 `message` (same), and optional `actions` (records or a data factory; empty/omitted
-supplies OK). `title` may be omitted with `error`. `maxWidth?` is positive pixels
+supplies OK). `title` may be omitted with `error`. `env?` names the environment
+whose `sizeClass`, `distanceProfile` and `preferredTextOffset` choose the action
+form; omitted, the control reads the environment published on its core, exactly as
+Picker and TabView do. `maxWidth?` is positive pixels
 or a metric name, default `"controls.alert.maxWidth"`; `padding?` is nonnegative
 pixels or a spacing name, default `"m"`; `surface?` defaults to `"raised"`.
 The icon shares a compact header with the title; its default size is one minimum target.
@@ -10324,8 +10335,10 @@ or the existing Button `{keyCode, modifiers?}` shortcut. It preserves label
 compaction and role styling. Only assign a default shortcut when immediate
 confirmation is appropriate; cancellation remains the initial focus preference.
 `default` emphasizes the button; it does not steal Return from the focused action.
-`destructive` uses destructive styling. Actions preserve author order and invoke
-their callback once, after dismissing. Cancel receives initial focus when enabled;
+`destructive` uses destructive styling. Actions invoke their callback once, after
+dismissing. `require("…/controls/alert").resolveStacked(count, sizeClass,
+distanceProfile, preferredTextOffset)` and `orderActions(actions, stacked)` are the
+pure form and placement rules, for a caller that wants to predict them. Cancel receives initial focus when enabled;
 otherwise the first enabled non-destructive action is preferred, then ordinary
 presenter focus fallback applies.
 

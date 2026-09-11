@@ -1096,30 +1096,12 @@ function focus_graph.new(core: any)
 		if origin == nil or origin.w <= 0 or origin.h <= 0 then
 			return false
 		end
-		local horizontal = direction == "left" or direction == "right"
-		local sign = if direction == "left" or direction == "up" then -1 else 1
-		local ox = if horizontal then origin.x else origin.y
-		local oy = if horizontal then origin.y else origin.x
-		local ow = if horizontal then origin.w else origin.h
-		local oh = if horizontal then origin.h else origin.w
-		local best, bestBeam, bestScore = nil, false, math.huge
+		local best, bestScore = nil, nil
 		for _, id in group.order do
 			if id ~= current and isFocusable(scope, id) then
-				local rect = group.rectOf(id)
-				if rect ~= nil and rect.w > 0 and rect.h > 0 then
-					local x = if horizontal then rect.x else rect.y
-					local y = if horizontal then rect.y else rect.x
-					local w = if horizontal then rect.w else rect.h
-					local h = if horizontal then rect.h else rect.w
-					local forward = sign * (x + w / 2 - ox - ow / 2)
-					if forward > 0.5 then
-						local beam = math.min(oy + oh, y + h) > math.max(oy, y)
-						local cross = math.abs(y + h / 2 - oy - oh / 2)
-						local score = forward + cross * 2
-						if (beam and not bestBeam) or (beam == bestBeam and score < bestScore) then
-							best, bestBeam, bestScore = id, beam, score
-						end
-					end
+				local score = directionScore(origin, group.rectOf(id), direction)
+				if better(score, bestScore) then
+					best, bestScore = id, score
 				end
 			end
 		end

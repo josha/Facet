@@ -44,22 +44,26 @@ local function fixture(opts, spec)
 	w.settle(4)
 	return w, alert, events, handle
 end
-local CANCEL = "/Confirm/Center/Card/Actions/Cancel"
-local DELETE = "/Confirm/Center/Card/Actions/Delete"
+local function action(id, screen)
+	return `/{screen or "Confirm"}/Center/Card/Actions/Order/[{id}]/{id}`
+end
+local CANCEL = action("Cancel")
+local DELETE = action("Delete")
 local function clean(w, alert)
 	alert.dispose()
 	w.pres.dismiss(w.handle)
 end
 
 t.describe("Alert control", function()
-	t.it("centers a content-sized card and keeps desktop actions in one row", function()
+	t.it("centers a content-sized card and keeps desktop actions in one row, cancel leading", function()
 		local w, alert = fixture({ viewport = { x = 0, y = 0, w = 1280, h = 800 } })
 		local card = w.adapter.node("/Confirm/Center/Card").rect
 		local a, b = w.adapter.node(DELETE).rect, w.adapter.node(CANCEL).rect
 		t.expect(card.w < 800 and card.h < 400).toBe(true)
 		t.expect(math.abs(card.x + card.w / 2 - 640) < 1).toBe(true)
 		t.expect(math.abs(card.y + card.h / 2 - 400) < 1).toBe(true)
-		t.expect(a.y == b.y and a.x + a.w <= b.x).toBe(true)
+		-- the HIG row: cancel on the leading side whatever the author order
+		t.expect(a.y == b.y and b.x + b.w <= a.x).toBe(true)
 		t.expect(w.core:lastError()).toBe(nil)
 		clean(w, alert)
 	end)
@@ -117,7 +121,8 @@ t.describe("Alert control", function()
 	t.it("Alert keyboard affordance: safe initial focus and trapped navigation", function()
 		local w, alert = fixture({ preferredInput = "MouseKeyboard" })
 		t.expect(w.adapter.node(CANCEL).focused).toBe(true)
-		w.press("Left")
+		-- a compact phone stacks the actions, cancel at the bottom
+		w.press("Up")
 		t.expect(w.pres.focus.focused:get()).toBe(DELETE)
 		w.press("Tab")
 		t.expect(w.pres.focus.focused:get():sub(1, 9)).toBe("/Confirm/")
@@ -138,6 +143,60 @@ t.describe("Alert control", function()
 		w.press("ButtonB")
 		t.expect(events).toEqual({ "cancel" })
 		t.expect(alert.dump().presented).toBe(false)
+		clean(w, alert)
+	end)
+	t.it("stacks three actions on a desktop with cancel last and the likely action on top", function()
+		local w, alert = fixture({ viewport = { x = 0, y = 0, w = 1280, h = 800 } }, {
+			id = "Confirm",
+			title = "Leave the race?",
+			actions = {
+				{ id = "Cancel", label = "Stay", role = "cancel" },
+				{ id = "Save", label = "Save and leave" },
+				{ id = "Delete", label = "Leave without saving", role = "destructive" },
+			},
+		})
+		local save, delete, cancel =
+			w.adapter.node(action("Save")).rect, w.adapter.node(action("Delete")).rect, w.adapter.node(CANCEL).rect
+		t.expect(save.y + save.h <= delete.y and delete.y + delete.h <= cancel.y).toBe(true)
+		t.expect(save.x == cancel.x and save.w == cancel.w and delete.w == cancel.w).toBe(true)
+		t.expect(w.pres.focus.focused:get()).toBe(CANCEL)
+		w.press("Up")
+		t.expect(w.pres.focus.focused:get()).toBe(action("Delete"))
+		clean(w, alert)
+	end)
+	t.it("ten-foot stacks two actions full width like a television alert", function()
+		local w, alert = fixture({
+			preferredInput = "Gamepad",
+			env = { viewingDistance = "ten-foot" },
+			viewport = { x = 0, y = 0, w = 1920, h = 1080 },
+		})
+		local card = w.adapter.node("/Confirm/Center/Card")
+		local a, b = w.adapter.node(DELETE).rect, w.adapter.node(CANCEL).rect
+		t.expect(a.y + a.h <= b.y and a.x == b.x and a.w == b.w).toBe(true)
+		t.expect(a.w >= w.adapter.node("/Confirm/Center/Card/Message").rect.w).toBe(true)
+		t.expect(card.rect.w <= 1920 - 2 * 90).toBe(true)
+		local policy = require("../src/controls/alert")
+		t.expect(policy.resolveStacked(2, "regular", "ten-foot", 0)).toBe(true)
+		t.expect(policy.resolveStacked(2, "regular", "near", 0)).toBe(false)
+		t.expect(policy.resolveStacked(2, "regular", "near", 14)).toBe(true)
+		t.expect(policy.resolveStacked(3, "wide", "near", 0)).toBe(true)
+		t.expect(policy.resolveStacked(2, "compact", "near", 0)).toBe(true)
+		clean(w, alert)
+	end)
+	t.it("a live distance flip moves the same mounted actions and keeps focus", function()
+		local w, alert = fixture({ viewport = { x = 0, y = 0, w = 1280, h = 800 } })
+		local cancel, delete = w.adapter.node(CANCEL), w.adapter.node(DELETE)
+		t.expect(cancel.rect.x < delete.rect.x).toBe(true)
+		w.env:set("viewingDistance", "ten-foot")
+		w.settle(4)
+		t.expect(w.adapter.node(CANCEL)).toBe(cancel)
+		t.expect(w.adapter.node(DELETE)).toBe(delete)
+		t.expect(cancel.rect.y > delete.rect.y).toBe(true)
+		t.expect(w.pres.focus.focused:get()).toBe(CANCEL)
+		w.env:set("viewingDistance", "near")
+		w.settle(4)
+		t.expect(cancel.rect.x < delete.rect.x and cancel.rect.y == delete.rect.y).toBe(true)
+		t.expect(w.core:lastError()).toBe(nil)
 		clean(w, alert)
 	end)
 	t.it("Alert hot-switch: carries the open decision without remounting actions", function()
@@ -231,7 +290,7 @@ t.describe("Alert control", function()
 
 	t.it("supplies an OK action when no actions are authored", function()
 		local w, alert = fixture(nil, { id = "Confirm", title = "Checkpoint saved" })
-		w.adapter.tap("/Confirm/Center/Card/Actions/OK")
+		w.adapter.tap(action("OK"))
 		t.expect(alert.dump().presented).toBe(false)
 		clean(w, alert)
 	end)
@@ -299,7 +358,7 @@ t.describe("Alert control", function()
 		w.pres.refresh()
 		item:set({ name = "Beta" })
 		w.pres.refresh()
-		w.adapter.tap("/Data/Center/Decision/then/Card/Actions/delete")
+		w.adapter.tap("/Data/Center/Decision/then/Card/Actions/Order/[delete]/delete")
 		t.expect(chosen).toBe("Alpha")
 		t.expect(item:get()).toBe(nil)
 		alert.dispose()
@@ -362,7 +421,7 @@ t.describe("Alert custom content and shortcuts", function()
 				},
 			},
 		})
-		local p = w.adapter.node("/Confirm/Center/Card/Actions/Go").props
+		local p = w.adapter.node(action("Go")).props
 		t.expect(p.compactLabel).toBe("Go")
 		t.expect(p.surface).toBe("accent")
 		clean(w, a)
@@ -433,7 +492,7 @@ t.describe("Alert presentation features", function()
 		w.settle(3)
 		local offset = h.controller.scrollPosition("/Confirm/Center/Card")
 		t.expect(offset.y > 0).toBe(true)
-		local r = h.controller.screenRectOf("/Confirm/Center/Card/Actions/Go")
+		local r = h.controller.screenRectOf(action("Go"))
 		t.expect(r.y >= card.rect.y - 1 and r.y + r.h <= card.rect.y + card.rect.h + 1).toBe(true)
 		clean(w, a)
 	end)

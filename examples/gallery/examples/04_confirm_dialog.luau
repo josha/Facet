@@ -126,8 +126,8 @@ function example.build(Facet: any, core: any, deps: any)
 		restorePath = "/DangerScreen/Page/Restore",
 		outcomePath = "/DangerScreen/Page/Outcome",
 		titlePath = "/DangerScreen/Page/Title",
-		confirmPath = "/ConfirmDialog/Center/Card/Actions/Confirm",
-		cancelPath = "/ConfirmDialog/Center/Card/Actions/Cancel",
+		confirmPath = "/ConfirmDialog/Center/Card/Actions/Order/[Confirm]/Confirm",
+		cancelPath = "/ConfirmDialog/Center/Card/Actions/Order/[Cancel]/Cancel",
 		cardPath = "/ConfirmDialog/Center/Card",
 		dispose = function()
 			dialog.dispose()

@@ -1897,15 +1897,15 @@ describe("examples/gallery 05: confirmation dialog", function()
 		-- Pointer opens the modal; gamepad dismissal restores keyboard focus.
 		adapter.tap(built.deletePath)
 		expect(presenter.depth()).toBe(2)
-		expect(presenter.focus.focused:get()).toBe("/ConfirmDialog/Center/Card/Actions/Cancel")
+		expect(presenter.focus.focused:get()).toBe("/ConfirmDialog/Center/Card/Actions/Order/[Cancel]/Cancel")
 
-		-- The horizontal row follows directional input without leaving the modal.
-		system.deviceKey("DPadLeft", true)
-		system.deviceKey("DPadLeft", false)
-		expect(presenter.focus.focused:get()).toBe("/ConfirmDialog/Center/Card/Actions/Confirm")
+		-- The horizontal row (cancel leading) follows directional input without leaving the modal.
 		system.deviceKey("DPadRight", true)
 		system.deviceKey("DPadRight", false)
-		expect(presenter.focus.focused:get()).toBe("/ConfirmDialog/Center/Card/Actions/Cancel")
+		expect(presenter.focus.focused:get()).toBe("/ConfirmDialog/Center/Card/Actions/Order/[Confirm]/Confirm")
+		system.deviceKey("DPadLeft", true)
+		system.deviceKey("DPadLeft", false)
+		expect(presenter.focus.focused:get()).toBe("/ConfirmDialog/Center/Card/Actions/Order/[Cancel]/Cancel")
 
 		-- ButtonB (gamepad B) is Cancel routing: dismiss + restore focus
 		system.deviceKey("ButtonB", true)
@@ -1916,7 +1916,7 @@ describe("examples/gallery 05: confirmation dialog", function()
 		for _ = 1, 2 do
 			system.deviceKey("Return", true)
 			system.deviceKey("Return", false)
-			expect(presenter.focus.focused:get()).toBe("/ConfirmDialog/Center/Card/Actions/Cancel")
+			expect(presenter.focus.focused:get()).toBe("/ConfirmDialog/Center/Card/Actions/Order/[Cancel]/Cancel")
 			system.deviceKey("Return", true)
 			system.deviceKey("Return", false)
 			expect(built.result:get()).toBe("cancelled")
@@ -1937,13 +1937,13 @@ describe("examples/gallery 05: confirmation dialog", function()
 		system.deviceKey("ButtonA", false)
 		expect(presenter.depth()).toBe(2)
 
-		expect(presenter.focus.focused:get()).toBe("/ConfirmDialog/Center/Card/Actions/Cancel")
+		expect(presenter.focus.focused:get()).toBe("/ConfirmDialog/Center/Card/Actions/Order/[Cancel]/Cancel")
+		system.deviceKey("DPadRight", true) -- cancel leads the row
+		system.deviceKey("DPadRight", false)
+		expect(presenter.focus.focused:get()).toBe("/ConfirmDialog/Center/Card/Actions/Order/[Confirm]/Confirm")
 		system.deviceKey("DPadLeft", true)
 		system.deviceKey("DPadLeft", false)
-		expect(presenter.focus.focused:get()).toBe("/ConfirmDialog/Center/Card/Actions/Confirm")
-		system.deviceKey("DPadRight", true)
-		system.deviceKey("DPadRight", false)
-		expect(presenter.focus.focused:get()).toBe("/ConfirmDialog/Center/Card/Actions/Cancel")
+		expect(presenter.focus.focused:get()).toBe("/ConfirmDialog/Center/Card/Actions/Order/[Cancel]/Cancel")
 		system.deviceKey("ButtonA", true) -- activate Cancel
 		system.deviceKey("ButtonA", false)
 
@@ -1953,7 +1953,7 @@ describe("examples/gallery 05: confirmation dialog", function()
 		-- An immediate default activation on the next opening also cancels.
 		system.deviceKey("ButtonA", true)
 		system.deviceKey("ButtonA", false)
-		expect(presenter.focus.focused:get()).toBe("/ConfirmDialog/Center/Card/Actions/Cancel")
+		expect(presenter.focus.focused:get()).toBe("/ConfirmDialog/Center/Card/Actions/Order/[Cancel]/Cancel")
 		system.deviceKey("ButtonA", true)
 		system.deviceKey("ButtonA", false)
 		expect(built.result:get()).toBe("cancelled")
@@ -1997,8 +1997,8 @@ describe("examples/gallery 05: confirmation dialog", function()
 		local core, _, adapter, presenter, built, handle = ex04World()
 		adapter.tap("/DangerScreen/Page/Delete") -- mouse click opens the dialog
 		expect(presenter.depth()).toBe(2)
-		expect(presenter.focus.focused:get()).toBe("/ConfirmDialog/Center/Card/Actions/Cancel")
-		adapter.tap("/ConfirmDialog/Center/Card/Actions/Cancel") -- a tap INSIDE the modal routes normally
+		expect(presenter.focus.focused:get()).toBe("/ConfirmDialog/Center/Card/Actions/Order/[Cancel]/Cancel")
+		adapter.tap("/ConfirmDialog/Center/Card/Actions/Order/[Cancel]/Cancel") -- a tap INSIDE the modal routes normally
 		expect(built.result:get()).toBe("cancelled")
 		expect(presenter.depth()).toBe(1)
 		expect(presenter.focus.focused:get()).toBe("/DangerScreen/Page/Delete") -- restored
@@ -2010,7 +2010,7 @@ describe("examples/gallery 05: confirmation dialog", function()
 		local core, _, adapter, presenter, built, handle = ex04World()
 		adapter.tap("/DangerScreen/Page/Delete", { pointer = "touch" })
 		expect(presenter.depth()).toBe(2)
-		adapter.tap("/ConfirmDialog/Center/Card/Actions/Confirm", { pointer = "touch" })
+		adapter.tap("/ConfirmDialog/Center/Card/Actions/Order/[Confirm]/Confirm", { pointer = "touch" })
 		expect(built.result:get()).toBe("confirmed")
 		expect(presenter.depth()).toBe(1)
 		expect(core:lastError()).toBeNil()
@@ -2098,18 +2098,25 @@ describe("examples/gallery 05: confirmation dialog", function()
 			local confirm, cancel = adapter.node(built.confirmPath), adapter.node(built.cancelPath)
 			local prompt = adapter.node(built.cardPath .. "/Header/Title")
 			local message = adapter.node(built.cardPath .. "/Message")
-			-- The card and action group are centered; each action sizes from its own label.
+			-- The card and action group are centered. A phone and a television stack
+			-- the actions (cancel last, full width); the desktop keeps one row with
+			-- cancel leading, each action sized from its own label.
 			expect(math.abs((card.x + card.w / 2) - (screenRect.x + screenRect.w / 2)) <= 2).toBe(true)
 			expect(math.abs((card.y + card.h / 2) - (screenRect.y + screenRect.h / 2)) <= 2).toBe(true)
 			expect(card.w < screenRect.w and card.h < screenRect.h).toBe(true)
 			expect(confirm.rect.w > 0 and cancel.rect.w > 0).toBe(true)
-			expect(math.abs((confirm.rect.y + confirm.rect.h / 2) - (cancel.rect.y + cancel.rect.h / 2)) <= 1).toBe(
-				true
-			)
-			expect(confirm.rect.x + confirm.rect.w <= cancel.rect.x).toBe(true)
-			expect(math.abs((confirm.rect.x + cancel.rect.x + cancel.rect.w) / 2 - (card.x + card.w / 2)) <= 1).toBe(
-				true
-			)
+			if facts.displaySize == "Medium" then
+				expect(math.abs((confirm.rect.y + confirm.rect.h / 2) - (cancel.rect.y + cancel.rect.h / 2)) <= 1).toBe(
+					true
+				)
+				expect(cancel.rect.x + cancel.rect.w <= confirm.rect.x).toBe(true)
+				expect(math.abs((cancel.rect.x + confirm.rect.x + confirm.rect.w) / 2 - (card.x + card.w / 2)) <= 1).toBe(
+					true
+				)
+			else
+				expect(confirm.rect.y + confirm.rect.h <= cancel.rect.y).toBe(true)
+				expect(confirm.rect.x == cancel.rect.x and confirm.rect.w == cancel.rect.w).toBe(true)
+			end
 			expect(confirm.props.role).toBe("destructive")
 			expect(cancel.props.surface).toBe(nil) -- Cancel uses ordinary chrome; safe focus is separate from action emphasis.
 			expect(prompt.props.text).toBe("Delete this save?")
@@ -2144,8 +2151,9 @@ describe("examples/gallery 05: confirmation dialog", function()
 		expect(cancel.props.label).toBe("Cancel")
 		expect(confirm.rect.w < roomyWidth).toBe(true)
 		local card = adapter.node(built.cardPath).rect
+		-- a narrow phone stacks the same mounted actions, cancel at the bottom
 		expect(confirm.rect.x >= card.x).toBe(true)
-		expect(confirm.rect.x + confirm.rect.w <= cancel.rect.x).toBe(true)
+		expect(confirm.rect.y + confirm.rect.h <= cancel.rect.y).toBe(true)
 		expect(cancel.rect.x + cancel.rect.w <= card.x + card.w).toBe(true)
 		for _, path in { built.confirmPath, built.cancelPath } do
 			local hit = adapter.hitRectOf(path) or adapter.node(path).rect
