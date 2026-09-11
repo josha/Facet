@@ -7044,6 +7044,8 @@ produce one activation. Dismissing the surface releases its key contexts.
 
 ### `Controls.SplitButton`
 
+Construction refuses a missing or ambiguous environment when adaptation or native editing requires it; pass `env` explicitly when the core serves multiple surfaces. `client.host.new()` supplies an environment.
+
 `Facet.Controls.SplitButton(core, spec) -> { blueprint, dump, dispose }`
 
 A primary action with a menu of alternatives, in the form the surface's primary
@@ -7064,6 +7066,8 @@ reports `form` (`split` or `single`) beside the menu's own dump. Both forms use
 Menu's anchored surfaces, focus restoration, and dismissal policy.
 
 ### `newPopupButton`
+
+Construction refuses a missing or ambiguous environment when adaptation or native editing requires it; pass `env` explicitly when the core serves multiple surfaces. `client.host.new()` supplies an environment.
 
 **Deprecated** since 0.11.0 (removal no earlier than 0.12.0):
 `Controls.PopupButton` and `Facet.newPopupButton` are the popup half of what

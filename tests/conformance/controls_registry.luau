@@ -701,9 +701,14 @@ local registry: { Entry } = {
 		affordanceProofs = false,
 	},
 	{
+		-- THE PICKER MENU ENGINE (picker round, 2026-09-11): the body the
+		-- deprecated `Controls.PopupButton` always ran on, now also the `menu` and
+		-- `navigationLink` styles of `Controls.Picker`. Its four-input proofs are
+		-- the popup button's own spec (the legacy shape) plus tests/picker_style
+		-- (the picker shape); both drive this one module.
 		name = "PopupButton",
 		kind = "composite",
-		module = "src/controls/popup_button.luau",
+		module = "src/controls/picker_menu.luau",
 		export = "Controls.PopupButton",
 		spec = "tests/popup_button.spec.luau",
 		conformance = "tests/popup_button.spec.luau",
@@ -750,6 +755,23 @@ local registry: { Entry } = {
 			},
 			hotSwitch = false,
 		},
+	},
+	{
+		-- THE DEPRECATED NAME (since 0.11.0, removeNoEarlierThan 0.12.0): the
+		-- module the old callers `require`, re-exporting `picker_menu.build` and
+		-- `menu_recipe.resolvePresentation` and nothing else. No tree, no state,
+		-- no dump of its own.
+		name = "PopupButtonShim",
+		kind = "composite",
+		module = "src/controls/popup_button.luau",
+		export = "Controls.PopupButton",
+		spec = "tests/popup_button.spec.luau",
+		conformance = "tests/popup_button.spec.luau",
+		docsAnchor = "newPopupButton",
+		dump = false,
+		reason = "a deprecated re-export of picker_menu.build: every control it builds is the engine's own and reports through that dump()",
+		inputProofs = false,
+		affordanceProofs = false,
 	},
 	{
 		name = "TextInput",

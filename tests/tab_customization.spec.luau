@@ -14,9 +14,18 @@ t.describe("tab sections and customization", function()
 		local state = scene.setup(require("../bench/perf_profiles").get("desktop"))
 		local watched = setmetatable({}, { __mode = "k" })
 		local canary = setmetatable({}, { __mode = "k" })
+		--[[ THE PRECONDITION IS COUNTED STRONGLY. `watched` is weak so the release
+			proof below can watch the collector; but a bundle the collector has
+			ALREADY taken vanishes from a weak table, so "the flips retired
+			something" read as false the moment the framework released a retired
+			strip's rows before this loop ended (picker round, 2026-09-11 — a
+			green that turned red by getting better). Identity is kept strongly for
+			the count and released before the collection witness. ]]
+		local seen: { [any]: boolean } = {}
 		for _ = 1, 6 do
 			for _, c in state.handle.contributions do
 				watched[c.bundle] = true
+				seen[c.bundle] = true
 			end
 			state.env:set("viewportRect", { x = 0, y = 0, w = 360, h = 640 })
 			state.pres.refresh()
@@ -29,12 +38,13 @@ t.describe("tab sections and customization", function()
 		end
 		t.expect(state.builds()).toBe(1)
 		local retired = 0
-		for bundle in watched do
+		for bundle in seen do
 			if not live[bundle] then
 				retired += 1
 			end
 		end
 		t.expect(retired > 0).toBe(true)
+		seen = {} -- the strong hold ends here; only the weak watch remains
 		scene.teardown(state)
 		canary[{}] = true
 		-- Keep the dismissed handle alive while exercising the collector.

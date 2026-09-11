@@ -29,7 +29,9 @@ t.describe("Control family inputs", function()
 						}
 					elseif kind == "SplitButton" then
 						spec.items = { { id = "option", label = "Choose this", onSelect = function() end } }
-						path ..= "/Primary"
+						-- a pointer-primary world: the SPLIT form (picker round,
+						-- 2026-09-11), whose two segments sit under the Split branch
+						path ..= "/Split/then/Split/Primary"
 					elseif kind == "ComboBox" then
 						spec = {
 							id = "C",
@@ -63,7 +65,7 @@ t.describe("Control family inputs", function()
 						t.expect(calls).toBe(1)
 					end
 					if kind == "SplitButton" then
-						activate("/S/C/Menu")
+						activate("/S/C/Split/then/Split/Menu")
 						t.expect(c.dump().menu.open).toBe(true)
 						t.expect(calls).toBe(1)
 					end

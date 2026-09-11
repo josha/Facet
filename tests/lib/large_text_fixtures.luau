@@ -1065,6 +1065,9 @@ local UNSWEEPABLE: { [string]: string } = {
 	SelectionIndicator = "the DECORATION half of Picker's `indicator` property (navigation-and-menus D4): it returns "
 		.. "the layer Picker mounts, so it is swept through the `Picker-indicator` fixture — at every preference, in "
 		.. "both reference themes — rather than twice",
+	PopupButtonShim = "the DEPRECATED name of the picker menu engine (picker round 2026-09-11): src/controls/popup_button.luau "
+		.. "re-exports picker_menu.build and mounts nothing of its own; the engine is swept through the `Picker` "
+		.. "fixture (the automatic style is the menu family on the sweep's touch phone) at every preference",
 	MenuRecipe = "the ROW half of every menu (navigation-and-menus D2): it returns the blueprints Menu, PopupButton "
 		.. "and RowActions mount, so it is swept through the `Menu-panel` fixture — which mounts those very rows, "
 		.. "at every preference and in both reference themes — rather than three times",
