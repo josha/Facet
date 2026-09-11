@@ -1150,13 +1150,18 @@ function Foyer.build(Facet: any, core: any, deps: any): any
 			}),
 			UI.ZStack({
 				id = "BellZ",
-				shrinkWeight = 1, -- the bar's third disc gives up room like the other two (its ZStack is the row's child)
+				-- the bar's third disc: the ZStack is the row's child, so IT carries the
+				-- disc's box and the shrink weight, and the bell inside fills it (a
+				-- circle takes one axis) — a bare shrink weight on a content-free
+				-- ZStack would shrink it under its own bell
+				width = discBox("regular"),
+				shrinkWeight = 1,
 				children = {
 					UI.Button({
 						id = "Bell",
 						label = Lnow("bell.label"),
 						shape = "circle",
-						width = discBox("regular"),
+						width = UI.fill(), -- follows BellZ's disc box
 						icon = "foyer:bell",
 						onActivate = presentNotices,
 					}),
