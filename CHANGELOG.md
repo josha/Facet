@@ -13,6 +13,18 @@ runtime as `Facet.VERSION`.
 
 ## [Unreleased]
 
+- Performance: a scale-only presentation transform write (every frame of a
+  `materialize` transition, every animated scale) re-applies the written node
+  only; the subtree is walked only when the offset half moved. Headless, the
+  picker menu open/close scene halves (3.1 -> 1.4 ms) and the radial menu
+  open/close drops 14%. `tests/presentation_transform_subtree.spec.luau` pins
+  the rule in both adapters.
+- Performance lab: a nineteenth workload, `transient-surfaces` (alert present,
+  picker menu open, radial menu open), with fixtures shared by the headless
+  scenes `alert-present-dismiss`, `picker-menu-open-close`,
+  `picker-segmented-textsize` and `radial-menu-open-close`. Seven trend budgets
+  tightened after earlier improvements; none loosened. The round's numbers and
+  booked levers: `docs/plans/2026-09-11-perf-round.md`.
 - Picker gains `style` — `automatic` (default), `menu`, `segmented`, `inline`,
   `radioGroup`, `navigationLink` — the reference platform's picker styles over
   one selection model. The automatic style resolves from published facts: a
