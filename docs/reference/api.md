@@ -2368,7 +2368,7 @@ UI.ForEach({ items = rows, key = function(e) return e.key end, row = function(e)
 
 #### Structural transitions
 
-`transition = { enter, exit?, class?, fade?, distance? }` on `UI.When`,
+`transition = { enter, exit?, class?, fade?, distance?, pivot? }` on `UI.When`,
 `UI.ForEach`, a `presentToast` and `PresentOpts`.
 
 - **Forms:** `"fade"`, `"slide-up"`, `"slide-down"`, `"slide-left"`,
@@ -2381,6 +2381,10 @@ UI.ForEach({ items = rows, key = function(e) return e.key end, row = function(e)
   (`exit = "instant"` is the common one) — undeclared asymmetry does not exist.
   Because a mirror pair displaces the node to the *same* absent place, a
   re-entry mid-exit reverses through one continuous motion.
+- **`pivot`** is where a scaling form (`materialize`) grows from: `"center"`
+  (default) or `"topLeft"` | `"topRight"` | `"bottomLeft"` | `"bottomRight"`.
+  An anchored surface with a scaling enter and no pivot of its own grows from
+  the corner it hangs at, so a menu emerges from the control that opened it.
 - **`class`** names a motion class (default `"container"`); **`fade = true`**
   pairs a slide with a transparency fade.
 - **`distance`** (px, slide forms only; task-fix3, 2026-08-23) overrides the
@@ -3977,6 +3981,9 @@ opts = {
     edge?     = "bottom",  -- "top" | "bottom" | "leading" | "trailing"
     align?    = "center",  -- "start" | "center" | "end", along that edge
     gap?      = "s",       -- a theme metric name or a number
+    margin?   = nil,       -- a floor on the safe box's side and bottom insets (a metric
+                           -- name or px): a popover from a control passes "m" so it never
+                           -- sits closer to the edge than the content it came from
     tail?     = false,     -- true, or { size?, surface?, cornerInset? }
     overflow? = "clamp",   -- "clamp" | "keep" — see below
   },

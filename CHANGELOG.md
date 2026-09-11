@@ -13,6 +13,22 @@ runtime as `Facet.VERSION`.
 
 ## [Unreleased]
 
+- Picker visual round (2026-09-11). The segmented style is one plated track
+  (the `control` surface every package skins) holding equal pill segments with
+  the bar sliding beneath them; a segment carries a label only — a described
+  option is refused on a declared segmented picker and steers the automatic
+  ladder to a row form; the ladder also estimates the band from facts (glyph
+  count x the text size the preference and the ten-foot scale make, plus the
+  theme's padding) against the control's own measured offer and falls to
+  inline/menu when a pill would not fit. The menu popover hugs its widest row
+  between the trigger's width and the safe width, hangs from the visible
+  trailing edge (a plain touch trigger's chevron) with an `xs` gap, keeps the
+  screen's content inset, grows out of the corner it hangs at, and the trigger
+  stays selected while it is open. `presentAnchored` gains `anchor.margin`; a
+  transition gains `pivot`; Menu popovers take the same gap and margin. The
+  overflow sweep now runs the largest text preference at the widest viewport
+  under every shipped package as well as at the narrowest.
+
 - Picker gains `style` — `automatic` (default), `menu`, `segmented`, `inline`,
   `radioGroup`, `navigationLink` — the reference platform's picker styles over
   one selection model. The automatic style resolves from published facts: a
