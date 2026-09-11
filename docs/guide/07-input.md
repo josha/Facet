@@ -91,7 +91,7 @@ mouse, `Return` on keyboard, `ButtonA` on gamepad (PlayStation **Cross** maps to
 context or bind a key for a control.
 
 **Controls declare their input story; the presenter composes it.** Every
-composite control — Table, VirtualList, TextInput, PopupButton, and anything
+composite control — Table, VirtualList, TextInput, the Picker's menu, and anything
 you build with the [new-control playbook](../extending/new-control.md) —
 attaches an *input contribution* to the tree it mounts. An input contribution
 is its focus groups, its activate handling, and its gesture idioms. When you
@@ -391,9 +391,12 @@ way to express one idiom:
 - **`transientScope = { active, rootPath? }`** — while `active`, focus is trapped
   within the subtree and restored to the trigger on deactivation.
 
-The **PopupButton** is the worked example. It is an ordinary control on a plain
-screen. Yet outside-tap dismiss, gamepad ButtonB close, and focus
-trap-and-restore all work, because it declares these three seams. **Hover** is likewise an optional
+The **Picker's menu style** (`src/controls/picker_menu.luau`) is the worked
+example. It is an ordinary control on a plain screen. Yet outside-tap dismiss,
+gamepad ButtonB close, and focus trap-and-restore all work, because it declares
+these three seams. Escape is never one of them: the engine keeps that key for
+its own menu, so a keyboard closes a popup by re-activating the trigger or
+clicking outside it. **Hover** is likewise an optional
 adapter seam, allocated only when the pointer class is live (a pure-touch device
 never pays for it).
 
@@ -438,7 +441,8 @@ Native text editing stays with Roblox. `Controls.TextInput` uses one TextBox for
 plain, search, numeric, or multiline entry. During editing, arrows move the
 native caret; multiline Return inserts a newline. Use `api.submit()` for an
 explicit multiline submission. Numeric entry keeps a text draft separate from
-its committed number and validates on commit. A searchable PopupButton keeps
+its committed number and validates on commit. A searchable Picker (`style =
+"navigationLink"` with `query`) keeps
 query and selection separate: submit or leave the text field before navigating
 results with the focus graph. Filtering never clears the selected value.
 

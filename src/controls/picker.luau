@@ -20,18 +20,20 @@
 -- THE AUTOMATIC LADDER, stated once (and pinned by tests/picker_style.spec):
 --
 --     searchable (a `query`)              -> navigationLink
---     ten-foot                            -> segmented (≤4 short) else inline
+--     ten-foot                            -> segmented (≤4 short), inline up to
+--                                            the popover limit (6), else menu
 --     nearby gamepad                      -> segmented when it fits; else inline
---                                            with room, menu on a compact screen
+--                                            with room (up to 6), else menu
 --     nearby touch or pointer             -> menu
 --
--- WHY. A ten-foot player navigates by focus, so every option stays on screen and
--- one press picks it (tvOS's own default). A nearby gamepad keeps a short strip
--- for the same reason, but a long list on a handheld's small screen eats the
--- page, so it folds into the menu (one panel, focus-navigable). A thumb or a
--- mouse gets what a phone's form row and a desktop's pop-up button both are: a
--- menu (iOS's and macOS's own default). A screen that must NOT adapt declares
--- its style, exactly as before.
+-- WHY. A ten-foot player navigates by focus, so a SHORT list stays on screen and
+-- one press picks it (tvOS's own default is segmented); a long list would eat
+-- the page as rows, so it folds into the menu, which under a gamepad is one
+-- focus-navigable panel. A nearby gamepad keeps a short strip for the same
+-- reason and folds a long list, or any list on a handheld's compact screen,
+-- into the menu. A thumb or a mouse gets what a phone's form row and a
+-- desktop's pop-up button both are: a menu (iOS's and macOS's own default). A
+-- screen that must NOT adapt declares its style, exactly as before.
 --
 -- `presentation` is the DEPRECATED spelling of `style` (`Facet.DEPRECATIONS`):
 -- `radio` reads as `radioGroup`, the rest keep their names.
@@ -334,14 +336,17 @@ function picker.resolveStyle(facts: StyleFacts): string
 		return "navigationLink"
 	end
 	local strip = picker.resolvePresentation(facts.optionCount, facts.sizeClass, facts.longestLabel)
+	-- a row list is a strip only while it stays short; past the popover limit
+	-- the rows would be a page of their own, and a menu holds them instead
+	local rows = if facts.optionCount <= menuRecipe.PICKER_POPOVER_LIMIT then strip else "menu"
 	if facts.distanceProfile == "ten-foot" then
-		return strip
+		return rows
 	end
 	if facts.primaryInput == "gamepad" then
 		if strip == "segmented" then
 			return "segmented"
 		end
-		return if facts.sizeClass == "compact" then "menu" else "inline"
+		return if facts.sizeClass == "compact" then "menu" else rows
 	end
 	return "menu"
 end

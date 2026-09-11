@@ -160,7 +160,7 @@ replacement and their earliest removal version.
 | `UI.Button` | The pressable primitive every input class can reach. | [api](../reference/api.md#button) |
 | `Controls.Toggle` | Switch, mixed checkbox, and persistent toggle button with caller-owned boolean state. | [api](../reference/api.md#controlstoggle) |
 | `Controls.Button` | Image/caption focus presentation, busy progress, cancellable hold repeat, scoped shortcuts and dialog actions. | [api](../reference/api.md#controlsbutton) |
-| `Controls.SplitButton` | Independent primary action and anchored menu affordance. | [api](../reference/api.md#controlssplitbutton) |
+| `Controls.SplitButton` | A primary action with alternatives: a joined split under a pointer, one button with a long-press menu under touch. | [api](../reference/api.md#controlssplitbutton) |
 | `Controls.ComboBox` | Native draft editing, supplied suggestions and explicitly validated custom values. | [api](../reference/api.md#controlscombobox) |
 | `UI.Toggle` | A two-state switch primitive. Use Controls.Toggle for checkbox and toggle-button presentations. | [api](../reference/api.md#toggle) |
 | `UI.TextField` | Native single-line or multiline text-entry primitive. | [api](../reference/api.md#textfield) |
@@ -170,8 +170,8 @@ replacement and their earliest removal version.
 | `Controls.Slider` | A continuous value you drag, step, or adjust. | [api](../reference/api.md#newslider) |
 | `Controls.Stepper` | A value with minus and plus buttons. | [api](../reference/api.md#newstepper) |
 | `Controls.Rating` | A star-style rating input. | [api](../reference/api.md#newrating) |
-| `Controls.Picker` | Radio, segmented and inline single selection with live options. | [api](../reference/api.md#newpicker) |
-| `Controls.PopupButton` | Supplied-value selection, search and caller-owned multiple selection. | [api](../reference/api.md#newpopupbutton) |
+| `Controls.Picker` | The one selection control: an automatic style that is a menu on a phone or a desktop and a strip on a television, plus declared menu, segmented, inline, radioGroup and navigationLink styles, searchable lists and live options. | [api](../reference/api.md#newpicker) |
+| `Controls.PopupButton` | **Deprecated** (0.11.0): the popup half of `Controls.Picker`'s menu styles; still builds on the same engine. | [api](../reference/api.md#newpopupbutton) |
 | `Controls.Menu` | Anchored actions, checks, radio groups and nested submenus. | [api](../reference/api.md#newmenu) |
 | `Controls.TextInput` | Native plain, search, numeric and multiline editing with commit and cancel. | [api](../reference/api.md#newtextinput) |
 | `Controls.ProgressView` | A determinate or indeterminate bar or ring. | [api](../reference/api.md#newprogressview) |

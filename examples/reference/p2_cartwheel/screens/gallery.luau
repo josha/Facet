@@ -99,7 +99,9 @@ function gallery.new(app: any): any
 			{ value = "list", label = S.t("gallery.list") },
 		},
 		selected = layout,
-		sizeClass = app.state.sizeClass,
+		-- a view switch: both words stay on screen (the picker round's automatic
+		-- style would fold two options into a menu on a phone)
+		style = "segmented",
 	})
 
 	--[[ NO FACTS WIRED, AND THAT IS THE POINT (ADAPT-1, 2026-08-18). This wired
@@ -109,14 +111,14 @@ function gallery.new(app: any): any
 		facts now come from the surface's own environment, so a thumb gets the
 		bottom sheet with its larger rows and a mouse keeps the anchored plate. The
 		gallery's dump reports which one resolved, and the spec pins both. ]]
-	local sortMenu = Facet.Controls.PopupButton(core, {
+	local sortMenu = Facet.Controls.Picker(core, {
 		id = "Sort",
 		options = {
-			{ id = "popularity", label = S.t("gallery.sortPopularity") },
-			{ id = "name", label = S.t("gallery.sortName") },
-			{ id = "attribute", label = S.t("gallery.sortAttribute") },
+			{ value = "popularity", label = S.t("gallery.sortPopularity") },
+			{ value = "name", label = S.t("gallery.sortName") },
+			{ value = "attribute", label = S.t("gallery.sortAttribute") },
 		},
-		value = sortKey,
+		selected = sortKey,
 	})
 
 	local timeframePicker = Facet.Controls.Picker(core, {
@@ -133,13 +135,13 @@ function gallery.new(app: any): any
 
 	local axisOptions: { any } = {}
 	for index, name in data.ATTRIBUTES :: any do
-		table.insert(axisOptions, { id = name, label = parts.attributeName(app, index) })
+		table.insert(axisOptions, { value = name, label = parts.attributeName(app, index) })
 	end
 	-- the same, one screen over: the facts arrive with the surface (ADAPT-1)
-	local axisMenu = Facet.Controls.PopupButton(core, {
+	local axisMenu = Facet.Controls.Picker(core, {
 		id = "Axis",
 		options = axisOptions,
-		value = axisKey,
+		selected = axisKey,
 	})
 
 	local search = Facet.Controls.TextInput(core, {
@@ -488,10 +490,12 @@ function gallery.new(app: any): any
 			query = query:get(),
 			selected = selected:get(),
 			order = order,
-			-- WHICH IDIOM THE UNWIRED POPUP RESOLVED (ADAPT-1): "menu" on a
-			-- pointer, "sheet" under a thumb — decided by the environment this
-			-- screen never had to pass in
-			sortPresentation = sortMenu.presentation(),
+			-- WHICH STYLE AND POPUP THE UNWIRED PICKER RESOLVED (ADAPT-1, and the
+			-- picker round): the menu family on a thumb and on a pointer, its
+			-- popover or sheet by the list's length — decided by the environment
+			-- this screen never had to pass in
+			sortStyle = sortMenu.dump().style,
+			sortPresentation = sortMenu.dump().presentation,
 		}
 	end
 

@@ -185,7 +185,8 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 	local pickerMode = spec.style ~= nil
 	assert(not pickerMode or STYLES[spec.style], "Picker menu: style must be menu | navigationLink")
 	-- a labelled picker is a FORM ROW: title leading, value + chevron trailing
-	local rowForm = pickerMode and spec.label ~= nil
+	-- (the navigation link puts its title INSIDE its one row button instead)
+	local rowForm = pickerMode and spec.style == "menu" and spec.label ~= nil
 	local multiple = spec.selectedValues ~= nil
 	assert(
 		(spec.value ~= nil and 1 or 0) + (multiple and 1 or 0) + (spec.selected ~= nil and 1 or 0) == 1,
@@ -827,7 +828,16 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 		return if pickerMode and use(touchPrimary) then "secondary" else "content"
 	end))
 	local triggerSurface = scope:own(core:memo(function(use)
-		return if rowForm and use(touchPrimary) then "plain" else "control"
+		return if (rowForm or navLink) and use(touchPrimary) then "plain" else "control"
+	end))
+	--[[ THE FORM ROW GOES VERTICAL AT ACCESSIBILITY SIZES — a FACT, not a
+		measurement: at the two largest text preferences the title takes the
+		whole row and the trigger sits beneath it, which is what the reference
+		platform's own labelled rows do at accessibility type sizes. Below that the
+		title fills and wraps beside a trigger that hugs its one-line value. ]]
+	local rowAxis = scope:own(core:memo(function(use)
+		local offset = if envForFacts ~= nil then use(envForFacts:get("preferredTextOffset")) else 0
+		return if type(offset) == "number" and offset >= 10 then "y" else "x"
 	end))
 	local requestedSizing = spec.sizing
 	assert(
@@ -837,15 +847,66 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 	local TRIGGER_FILL = table.freeze({ type = "fill", weight = 1 })
 	local TRIGGER_HUG = table.freeze({ type = "content" })
 	local triggerWidthDim = scope:own(core:memo(function(use)
-		if not pickerMode then
+		if not pickerMode or navLink then
+			-- the legacy popup and the navigation link are ROWS: they fill
 			return TRIGGER_FILL
 		end
 		if rowForm then
-			return if navLink then TRIGGER_FILL else TRIGGER_HUG
+			return TRIGGER_HUG
 		end
 		local sizing = requestedSizing or (if use(touchPrimary) then "fill" else "hug")
 		return if sizing == "hug" then TRIGGER_HUG else TRIGGER_FILL
 	end))
+	--[[ THE VALUE IS ONE LINE AND MAY TRUNCATE, with the full string one engagement
+		away (`disclose`, the large-text plate) — and in the menu itself, a tap
+		away. A value that wrapped would grow the trigger past its row; a value
+		that could not shrink would push the title off the screen, which is what
+		the overflow sweep found on a 320px phone at the largest preference. ]]
+	-- ...and it never takes more than a share of the screen's width, so the
+	-- title beside it always keeps room to wrap (a cap, not a size: a short
+	-- value still hugs). The viewport is the ruler because a form row's own
+	-- offer is what this cap exists to protect.
+	local VALUE_SHARE = 0.45
+	local valueWidth = scope:own(core:memo(function(use)
+		local vp = if envForFacts ~= nil then use(envForFacts:get("viewportRect")) else nil
+		local w = if type(vp) == "table" and type(vp.w) == "number" then vp.w else 1280
+		return { type = "hug", max = math.max(48, math.floor(w * VALUE_SHARE)) }
+	end))
+	local triggerContent = {
+		UI.Text({
+			id = "Value",
+			text = selectedLabel,
+			textSize = spec.textSize or "control",
+			role = valueRole,
+			lineLimit = 1,
+			disclose = true,
+			width = if pickerMode then valueWidth else UI.hug(),
+		}),
+		chrome_slots.attachHint(
+			UI.Text({
+				id = "Chevron",
+				text = themePackage.iconGlyph(chevronName) or (if navLink then ">" else "^v"),
+				textSize = "caption",
+				role = valueRole,
+			}),
+			{ icon = chevronName, iconSize = "small" }
+		),
+	}
+	if navLink and spec.label ~= nil then
+		-- THE NAVIGATION LINK IS THE WHOLE ROW: title leading, value and chevron
+		-- trailing, one press anywhere on it — a row that leads somewhere is the
+		-- press target, exactly as every list row that pushes a screen is
+		table.insert(
+			triggerContent,
+			1,
+			UI.Text({
+				id = "Label",
+				text = spec.label,
+				textSize = spec.textSize or "control",
+				width = { type = "fill", weight = 1 },
+			})
+		)
+	end
 	local trigger = UI.Button({
 		id = "Trigger",
 		label = selectedLabel,
@@ -856,44 +917,21 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 			then { type = "minMax", min = TRIGGER_HEIGHT }
 			else { type = "fixed", px = TRIGGER_HEIGHT },
 		gap = "xs",
-		children = {
-			UI.Text({
-				id = "Value",
-				text = selectedLabel,
-				textSize = spec.textSize or "control",
-				role = valueRole,
-				width = UI.hug(),
-			}),
-			chrome_slots.attachHint(
-				UI.Text({
-					id = "Chevron",
-					text = themePackage.iconGlyph(chevronName) or (if navLink then ">" else "^v"),
-					textSize = "caption",
-					role = valueRole,
-				}),
-				{ icon = chevronName, iconSize = "small" }
-			),
-		},
+		children = triggerContent,
 	})
-	--[[ THE FORM ROW: title at the leading edge, trigger at the trailing one,
-		and a WRAPPING row rather than a fixed pair — under a large text
-		preference the trigger drops to its own line beneath the title instead of
-		squeezing it to an ellipsis, which is what the reference platform's own
-		labelled rows do at accessibility sizes. ]]
 	local head = if rowForm
-		then UI.HStack({
+		then UI.AdaptiveStack({
 			id = "Row",
 			anchor = "topLeft",
+			axis = rowAxis,
 			width = { type = "fill", weight = 1 },
 			gap = "s",
-			wrap = true,
-			distribute = "spaceBetween",
 			children = {
 				UI.Text({
 					id = "Label",
 					text = spec.label,
 					textSize = spec.textSize or "control",
-					width = UI.hug(),
+					width = { type = "fill", weight = 1 },
 				}),
 				trigger,
 			},

@@ -30,7 +30,7 @@ return {
 		})
 		local query = signal("")
 		local track = signal("track-1")
-		local tags = signal({ coastal = true })
+		local tagCoastal, tagForest, tagSnow = signal(true), signal(false), signal(false)
 		local comboValue = signal("road")
 		local comboText = signal("Road")
 		local tracks = {}
@@ -59,45 +59,63 @@ return {
 				{ id = "Boost", label = "Boost mode", value = boost, presentation = "button", enabled = enabled }
 			)
 		)
+		--[[ ONE SELECTION CONTROL, FOUR STYLES (picker round, 2026-09-11). The
+			same `selected` signal drives a radio group, a segmented strip and the
+			DEFAULT — `style = "automatic"`, which is the menu on this phone and on
+			a desktop (a form row: title leading, value and chevron trailing, the
+			options anchored to it) and a focus-navigable strip on a television. A
+			searchable list is the navigation link; a set of independent checks is
+			a `Menu` with `checked` items, because a picker holds ONE value. ]]
 		local radio = own(Facet.Controls.Picker(core, {
 			id = "Radio",
 			selected = selected,
 			options = choices,
-			presentation = "radio",
-			axis = "y",
+			style = "radioGroup",
 			enabled = enabled,
 		}))
 		local segmented = own(Facet.Controls.Picker(core, {
 			id = "Segments",
 			selected = selected,
 			options = { { value = "open", label = "Open" }, { value = "club", label = "Club", enabled = club } },
-			presentation = "segmented",
+			style = "segmented",
 			enabled = enabled,
 		}))
-		local popup = own(Facet.Controls.PopupButton(core, {
+		local popup = own(Facet.Controls.Picker(core, {
 			id = "Popup",
-			value = selected,
+			label = "Race group",
+			selected = selected,
 			options = {
-				{ id = "open", label = "Open races" },
-				{ id = "club", label = "Club races", description = "Join a club to unlock.", enabled = club },
+				{ value = "open", label = "Open races" },
+				{ value = "club", label = "Club races", description = "Join a club to unlock.", enabled = club },
 			},
 			enabled = enabled,
 		}))
-		local search = own(
-			Facet.Controls.PopupButton(
-				core,
-				{ id = "Tracks", value = track, options = tracks, query = query, enabled = enabled }
-			)
-		)
-		local multi = own(Facet.Controls.PopupButton(core, {
-			id = "Tags",
-			selectedValues = tags,
-			options = {
-				{ id = "coastal", label = "Coastal" },
-				{ id = "forest", label = "Forest" },
-				{ id = "snow", label = "Snow", enabled = false, description = "Winter routes are closed." },
-			},
+		local trackOptions = {}
+		for _, item in tracks do
+			table.insert(trackOptions, { value = item.id, label = item.label })
+		end
+		local search = own(Facet.Controls.Picker(core, {
+			id = "Tracks",
+			label = "Track",
+			selected = track,
+			options = trackOptions,
+			query = query,
 			enabled = enabled,
+		}))
+		local multi = own(Facet.Controls.Menu(core, {
+			id = "Tags",
+			trigger = UI.Button({ id = "Trigger", label = "Scenery filters", enabled = enabled }),
+			items = {
+				{ id = "coastal", label = "Coastal", checked = tagCoastal },
+				{ id = "forest", label = "Forest", checked = tagForest },
+				{
+					id = "snow",
+					label = "Snow",
+					checked = tagSnow,
+					enabled = false,
+					description = "Winter routes are closed.",
+				},
+			},
 		}))
 		local combo = own(Facet.Controls.ComboBox(core, {
 			id = "Vehicle",
@@ -118,19 +136,14 @@ return {
 			selected:set("open")
 			query:set("")
 			track:set("track-1")
-			tags:set({ coastal = true })
+			tagCoastal:set(true)
+			tagForest:set(false)
+			tagSnow:set(false)
 			comboValue:set("road")
 			comboText:set("Road")
 		end
 		local function heading(text)
 			return UI.Text({ text = text, textSize = "heading", width = UI.fill() })
-		end
-		local function popupSlot(control)
-			return UI.VStack({
-				height = { type = "minMax", min = "controls.popup.triggerHeight" },
-				width = UI.fill(),
-				children = { control.blueprint },
-			})
 		end
 
 		local body = UI.VStack({
@@ -146,7 +159,7 @@ return {
 				heading("Choose a race group"),
 				radio.blueprint,
 				segmented.blueprint,
-				popupSlot(popup),
+				popup.blueprint,
 				UI.Button({
 					id = "Join",
 					label = "Toggle club membership",
@@ -155,9 +168,9 @@ return {
 					end,
 				}),
 				heading("Search 250 tracks"),
-				popupSlot(search),
+				search.blueprint,
 				heading("Filter by scenery"),
-				popupSlot(multi),
+				multi.blueprint,
 				heading("Choose or name a vehicle class"),
 				combo.blueprint,
 			},
@@ -200,6 +213,14 @@ return {
 							return true
 						end,
 					},
+					{
+						id = "race-group",
+						kind = "popup",
+						open = function()
+							popup.api.open()
+							return true
+						end,
+					},
 				}
 			end,
 			steps = {
@@ -221,6 +242,7 @@ return {
 				return {
 					checkbox = checkbox.dump(),
 					radio = radio.dump(),
+					popup = popup.dump(),
 					search = search.dump(),
 					multiple = multi.dump(),
 					combo = combo.dump(),

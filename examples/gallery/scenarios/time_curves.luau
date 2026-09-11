@@ -418,7 +418,7 @@ return {
 			-- SEGMENTED and declared: "Full" and "Reduced" as peers is the teaching.
 			-- A control labelled "Off" would say the opposite of what the
 			-- informational bar on this same surface is doing.
-			presentation = "segmented",
+			style = "segmented",
 			options = {
 				{ value = "full", label = COPY.full },
 				{ value = "reduced", label = COPY.reduced },

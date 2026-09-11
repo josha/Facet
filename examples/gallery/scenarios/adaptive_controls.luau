@@ -174,7 +174,7 @@ return {
 			set, so a package that ships art for them paints it and one that declines
 			draws the ASCII-safe glyph.
 
-			`presentation = "segmented"` is DECLARED on both rather than left adaptive:
+			`style = "segmented"` is DECLARED on both rather than left adaptive:
 			`axis` is inert under the row list, so a strip that was allowed to flip to
 			`inline` on a compact phone would be a rail that is sometimes not a rail —
 			exactly the accepted-and-ignored shape this fixture is here to disprove. ]]
@@ -188,7 +188,7 @@ return {
 			id = "NavPill",
 			options = NAV_OPTIONS,
 			selected = navSection,
-			presentation = "segmented",
+			style = "segmented",
 			iconOnly = true,
 			env = ctx.env,
 		})
@@ -196,7 +196,7 @@ return {
 			id = "NavRail",
 			options = NAV_OPTIONS,
 			selected = navSection,
-			presentation = "segmented",
+			style = "segmented",
 			axis = "y",
 			iconOnly = true,
 			env = ctx.env,

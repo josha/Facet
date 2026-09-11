@@ -13,6 +13,36 @@ runtime as `Facet.VERSION`.
 
 ## [Unreleased]
 
+- Picker gains `style` — `automatic` (default), `menu`, `segmented`, `inline`,
+  `radioGroup`, `navigationLink` — the reference platform's picker styles over
+  one selection model. The automatic style resolves from published facts: a
+  nearby touch or pointer surface gets the menu family (one integrated trigger
+  carrying the value and an up/down chevron, the options anchored to it with a
+  materialize transition, the current value focused and check-marked, no Cancel
+  row; a titled picker is a form row that stacks at accessibility text sizes;
+  a gamepad or a long list on a compact or touch surface presents a sheet); a
+  ten-foot display gets a focus-navigable strip; a nearby gamepad keeps a short
+  strip and folds a long list, or any list on a compact screen, into the menu.
+  A searchable list (`query`) is the navigation link. `presentation` is the
+  deprecated spelling of `style` (`radio` reads as `radioGroup`), declared in
+  `DEPRECATIONS`; `Picker.resolveStyle(facts)` is the pure ladder.
+- `Controls.PopupButton` / `newPopupButton` are deprecated (removal no earlier
+  than 0.12.0): the popup engine moved to `src/controls/picker_menu.luau` and
+  both names build on it. Migrate a value to a `Picker` menu style, a searchable
+  list to `navigationLink` with `query`, and a `selectedValues` set to a `Menu`
+  with `checked` items.
+- SplitButton is one button with a long-press menu under touch and a joined
+  edge-to-edge split under a pointer or gamepad; the forms follow the live
+  interaction class. `dump().form` reports which is on screen.
+- New framework icon `chevron.up.chevron.down` (the pop-up button's stacked
+  pair), generated and uploaded with the standard set; the menu row recipe
+  gains the check-only `mark` indicator.
+- Showcase: Choices and filters is built on the Picker's styles (radio group,
+  segmented, the automatic form-row menu, a searchable navigation link) and a
+  checked `Menu` for filters; the section switch and the Actions and menus idiom
+  switch declare `segmented`. The Cartwheel reference app's sort, axis and
+  ingredient popups are Pickers.
+
 - Add Controls.Alert for content-sized confirmations, adaptive action rows,
   presentation/data/error bindings, safe cancel focus, icons, severity and an
   optional suppression choice. Showcase confirmations and Delete Save use it.

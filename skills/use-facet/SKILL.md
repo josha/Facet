@@ -83,6 +83,27 @@ page identity when navigation chrome changes. Use the existing
 `adaptive-navigation-images` performance scene and the bench guidance in the
 control chooser; compare with Vide only on an equivalent supported workload.
 
+### Choosing one value: the Picker
+
+`Controls.Picker` is the one selection control; there is no popup button, combo
+picker or radio control beside it (`Controls.PopupButton` is deprecated and
+`Controls.ComboBox` is for validated custom text). Give it `options`
+(`{ value, label }`), your `selected` signal and, in a form, a `label`, and
+leave `style` automatic: on a phone or a desktop that is a form-row menu (the
+value and an up/down chevron in one trigger, the options anchored to it, a
+sheet for a long list under a thumb) and on a television a focus-navigable
+strip. Declare a style only when the task needs it: `segmented` when every
+option must stay visible (a mode switch, a tab-like strip), `inline` or
+`radioGroup` for a short list that reads as a form section, `navigationLink`
+with a `query` signal for a long or searchable list, `menu` to force the pop-up
+on every surface. Never author a separate chevron button beside a value, never
+build a popup from `presentModal` and a list, and never branch on a device to
+choose the style — the environment decides. For a set of independent checks use
+`Controls.Menu` with `checked` items; for an action with alternatives use
+`Controls.Button` beside a Picker, or `Controls.SplitButton` (one long-press
+button under touch). The full contract and the automatic ladder are in
+[api.md `newPicker`](../../docs/reference/api.md#newpicker).
+
 ## Art, backgrounds and icons
 
 Use theme image/nine-slice recipes for control chrome and declare real border

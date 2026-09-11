@@ -290,7 +290,7 @@ Rules the reviewers will hold you to:
   carries the **paradigm seams** (item 2.3): `adjustTargets`/`handleAdjust` for
   the Adjust verb (focus-gated so a bare screen never shadows gameplay keys),
   and `handleCancel`/`outsideDismiss`/`transientScope` for a control that opens a
-  transient surface (the PopupButton is the worked example). Use these instead of
+  transient surface (the Picker's menu, `picker_menu.luau`, is the worked example). Use these instead of
   asking consumers for `present()` opts.
 - **Three load-bearing facts** (dry-run findings 2026-07-21 — previously only
   learnable from the exemplar sources):

@@ -7046,23 +7046,33 @@ produce one activation. Dismissing the surface releases its key contexts.
 
 `Facet.Controls.SplitButton(core, spec) -> { blueprint, dump, dispose }`
 
-A primary Button beside a separately focusable menu affordance. Required fields
-are `label`, `onActivate`, and Menu `items`. Optional fields are `id`, `enabled`,
-`busy`, `shortcut`, `env`, and `menuLabel` (default “More options”). Opening the
-menu never runs the primary action. Busy/disabled state prevents both parts.
-The separator and dropdown icon use the theme, and the menu uses Menu's anchored
-surfaces, focus restoration, and dismissal policy.
+A primary action with a menu of alternatives, in the form the surface's primary
+interaction class wants. Required fields are `label`, `onActivate`, and Menu
+`items`. Optional fields are `id`, `enabled`, `busy`, `shortcut`, `env`, and
+`menuLabel` (default “More options”).
+
+- **Pointer or gamepad:** one plate, two focus stops — the primary Button and a
+  chevron segment joined edge to edge across a hairline. Opening the menu never
+  runs the primary action. `busy` and `shortcut` ride the primary Button.
+- **Touch:** one button. A tap runs the primary action; a long press opens the
+  menu (the right-click, context-key and gamepad triggers stay live for a
+  hybrid). There is no chevron cell. A control whose alternatives must be
+  discoverable on a phone is a `Picker` beside a `Button`.
+
+The two forms are `UI.When` branches over the live interaction class; `dump()`
+reports `form` (`split` or `single`) beside the menu's own dump. Both forms use
+Menu's anchored surfaces, focus restoration, and dismissal policy.
 
 ### `newPopupButton`
 
-Construction refuses a missing or ambiguous environment when adaptation or native editing requires it; pass `env` explicitly when the core serves multiple surfaces. `client.host.new()` supplies an environment.
-
+**Deprecated** since 0.11.0 (removal no earlier than 0.12.0):
+`Controls.PopupButton` and `Facet.newPopupButton` are the popup half of what
+[`newPicker`](#newpicker) now owns as `style = "menu"` and
+`style = "navigationLink"`. Both spellings still build, on the same engine the
+Picker's menu styles run on, with the trigger every popup now draws: the value
+and the up/down chevron inside one button.
 
 `Facet.Controls.PopupButton(core, spec) -> { blueprint, api, presentation, dump, dispose }`
-
-A selection button that opens valid choices. Its label summarizes caller-owned
-selection. Use a `query` signal for searchable results, or `selectedValues` for
-independent multiple selection. Use ComboBox when arbitrary text may be committed.
 
 | Field | Contract and default |
 |---|---|
@@ -7074,46 +7084,17 @@ independent multiple selection. Use ComboBox when arbitrary text may be committe
 | `placeholder` | Summary when nothing is selected. |
 | `enabled` | Boolean/readable boolean, default true. Disabling closes the popup without changing selection. |
 | `required` | Single selection defaults to required: nil is accepted only when false. Multiple selection permits an empty set unless explicitly true. |
-| `onChanging(proposed, current)` | Optional veto before a write. False or an exception rejects the proposal. Caller normalization can be applied in `onChange`; rendering never reconciles selection. |
+| `onChanging(proposed, current)` | Optional veto before a write. False or an exception rejects the proposal. |
 | `onChange(selection)` | Runs once per actual accepted change, receiving an id or a fresh set according to the declared selection contract. |
-| `presentation` | `"automatic"`, `"menu"`, `"inline"`, or `"sheet"`. |
+| `presentation` | `"automatic"`, `"menu"`, `"inline"`, or `"sheet"`: the legacy ladder (touch presents the sheet; three options with room present inline). |
 | `sizeClass`, `interactionClasses`, `env` | Optional adaptive facts. Automatic presentation reads missing facts from the environment published by this core. |
 
-Reselecting the current single value dismisses without a callback. Disabled
-choices remain visible and cannot be selected. A selected option becoming
-disabled or disappearing retains the caller's selection; a missing id is shown
-literally until the caller reconciles it. Replacing a keyed row updates its label
-without replacing its selection. Filtering never clears a selection.
-
-While editing a query, native editing owns arrow keys. Tab moves to the result
-list; arrows/D-pad then navigate results, and Return/ButtonA selects. Empty
-results display “No matching options.” Search selects supplied values only.
-Outside dismissal and Cancel preserve selection; multiple selection remains open
-between changes. Popup presentation adapts from available space and input class.
-Automatic Menu and PopupButton presentation uses the existing sheet for more
-than six selectable choices when gamepad is primary, on nearby and distant
-screens alike. Smaller controller menus retain their existing inline/menu forms.
-An explicit presentation wins. RadialMenu quick-action geometry is unchanged.
-
-`api` exposes `open()`, `close()`, `select(id)`, `isOpen`, `presentation()`, and
-`handleActivate(path, meta?)`. The presenter wires input automatically. `dump()`
-reports the open state, selection, summary, query, resultCount, and options.
-`presentation()` returns the resolved idiom. Dispose releases owned bindings;
-retained selection methods cannot mutate state afterward.
-
-```lua
-local selected = core:signal({ coastal = true })
-local filters = Facet.Controls.PopupButton(core, {
-    id = "Scenery", selectedValues = selected,
-    options = {
-        { id = "coastal", label = "Coastal" },
-        { id = "forest", label = "Forest" },
-    },
-})
-```
-
-`Facet.newPopupButton(Facet, core, spec)` is deprecated since 0.10.0, with removal
-no earlier than 0.12.0. It calls the same builder.
+**Migrating.** A single `value` is `Controls.Picker` with `{ value, label }`
+options and a `selected` signal (`style = "menu"`, or leave it automatic). A
+searchable list is `style = "navigationLink"` with `query`. A `selectedValues`
+set is `Controls.Menu` with `checked` items, because a picker holds one value.
+`api` keeps `open()`, `close()`, `select(id)`, `isOpen`, `presentation()` and
+`handleActivate(path, meta?)`; `dump()` keeps its shape.
 
 ### `Controls.ComboBox`
 
@@ -7625,30 +7606,34 @@ content) when it must be pressable, which keeps one activation surface.
 Construction refuses a missing or ambiguous environment when adaptation or native editing requires it; pass `env` explicitly when the core serves multiple surfaces. `client.host.new()` supplies an environment.
 
 
-`Facet.Controls.Picker(core, spec) -> { blueprint, presentation, dump, dispose }`
+`Facet.Controls.Picker(core, spec) -> { blueprint, api, presentation, dump, dispose }`
 
-Single selection backed by one caller-owned signal. Choose `radio` for explicit
-exclusive choices, `segmented` for a compact band or rail, and `inline` for a
-full-width column. Use `Controls.PopupButton` for searchable or multiple
-selection, `Controls.ComboBox` for validated custom text, and `Controls.TabView`
-when choosing a different page rather than a value.
+The one selection control: a single value backed by one caller-owned signal,
+in the style the task and the surface want. `style` follows the reference
+platform's picker styles: `automatic` (the default), `menu`, `segmented`,
+`inline`, `radioGroup` and `navigationLink`. Use `Controls.ComboBox` for
+validated custom text, `Controls.Menu` for verbs or a set of independent
+checks, and `Controls.TabView` when choosing a page rather than a value.
 
 | Spec field | Contract / default |
 |---|---|
-| `id`, `label` | Optional stable control identity and group label. |
+| `id`, `label` | Optional stable control identity and title. A titled `menu` picker is a form row (title leading, value and chevron trailing); a titled `navigationLink` is one row button. |
 | `selected` | Required caller-owned settable signal of the option value. |
 | `options` | Static option array or readable array with stable values/identities. |
-| `presentation` | `automatic` (default), `segmented`, `inline`, or `radio`. |
+| `style` | `automatic` (default), `menu`, `segmented`, `inline`, `radioGroup`, or `navigationLink`. |
+| `presentation` | **Deprecated** since 0.11.0 (removal no earlier than 0.12.0): the former spelling of `style`. `radio` reads as `radioGroup`; pass one of the two, never both. |
+| `query` | Optional caller-owned `Signal<string>`: a searchable list. Its presence makes the automatic style the navigation link; an explicit style must be `navigationLink`. |
+| `placeholder` | The trigger's word when nothing is selected (menu styles). |
 | `required` | Defaults true. Selection requests cannot clear a required selection; rendering never repairs caller state. |
 | `onChanging(proposed,current)` | Optional synchronous veto; returning false rejects the request. |
 | `onChange(value)` | Accepted changes only; runs in the selection transaction and must not yield. |
 | `enabled` | Boolean/readable boolean, default true; applies to all choices. |
-| `axis` | Boolean-independent arrangement: `x` or `y`, optionally readable. Radio defaults to `y`; segmented defaults to `x`; inline is always vertical. |
-| `sizing` | `fill` (default) or `hug`, optionally readable. A hugging horizontal strip can live in a ScrollView. |
+| `axis` | Strip styles: `x` or `y`, optionally readable. Radio defaults to `y`; segmented defaults to `x`; inline is always vertical. |
+| `sizing` | `fill` or `hug`, optionally readable. A strip defaults to `fill`; a hugging horizontal strip can live in a ScrollView. A `menu` trigger without a title defaults to `hug` under a pointer (the pop-up button) and `fill` under touch. |
 | `textSize` | Optional type role, numeric size, or readable; defaults to the control type role. |
-| `iconOnly` | Defaults false; requires icons on every option. Radio retains visible labels. |
-| `indicator` | Static lists: `automatic`, `none`, `underline`, `pill`. Live lists: `automatic` or `none`, using selected row chrome. |
-| `sizeClass`, `env` | Optional environment overrides; automatic presentation otherwise reads the core's environment. |
+| `iconOnly` | Strip styles; defaults false; requires icons on every option. Radio retains visible labels. |
+| `indicator` | Static strips: `automatic`, `none`, `underline`, `pill`. Live lists: `automatic` or `none`, using selected row chrome. |
+| `sizeClass`, `env` | Optional environment overrides; the automatic style otherwise reads the core's environment. |
 
 An option has required `value` and nonempty `label`, and optional `id`,
 `description`, semantic `icon`, `badge`, and boolean/readable `enabled`.
@@ -7660,53 +7645,86 @@ available target. Labels, descriptions, icons and badges update with live record
 Provide icons for every option in a group, or none.
 
 Reselecting the current value is a no-op. A selected option becoming disabled,
-being removed, or being hidden by another presentation does not rewrite the
-signal. Callers reconcile unavailable selections explicitly and may set nil for
-an unselected state. `onChanging` runs before a write; `onChange` may normalize by
+being removed, or being hidden by another style does not rewrite the signal.
+Callers reconcile unavailable selections explicitly and may set nil for an
+unselected state. `onChanging` runs before a write; `onChange` may normalize by
 writing the signal within the same transaction. Neither callback may yield.
 Arrow and D-pad navigation use the mounted focus graph; Activate selects the
 focused available choice. Disabling the control rejects every activation route.
 
-Automatic presentation resolves from the live environment:
+**The styles.**
 
-| First matching condition | Presentation |
+| Style | What it is |
 |---|---|
-| More than four options | `inline` |
-| Compact width and either more than three options or a label longer than ten characters | `inline` |
-| Otherwise | `segmented` |
+| `menu` | One trigger button carrying the current value and the up/down chevron (`chevron.up.chevron.down`, a semantic icon a theme may paint). Activating it presents the options anchored to the trigger with a short materialize transition, the current value focused and check-marked, and no Cancel row: an outside tap, re-activating the trigger, or gamepad ButtonB closes it (Escape belongs to the engine). A gamepad, or more than six options on a compact or touch surface, presents a bottom sheet with a Cancel row instead. With a `label` the control is a form row: title leading, the trigger trailing, a plain secondary-coloured value under touch and a bordered pop-up button under a pointer; at the two largest text preferences the row stacks vertically. The value is one line and may truncate with disclosure. The popover is never narrower than the trigger. |
+| `navigationLink` | A row that leads to the full list: title, value and a trailing chevron in one row button, presenting a full-width sheet with the rows, the optional `query` search field and a Cancel row. |
+| `segmented` | Options side by side (or a vertical rail with `axis = "y"`), always visible, with the sliding `indicator`. |
+| `inline` | Options stacked as full-width rows. |
+| `radioGroup` | The inline rows wearing a radio mark. |
 
-The returned `presentation` is a readable value. Layout and theme changes keep
-option identity and caller state. An automatic picker requires an environment;
+**The automatic style** resolves from the live environment — size class,
+viewing distance and the primary interaction class — never from a device name.
+`Facet.Controls.Picker` exposes the rule as the pure `resolveStyle(facts)` on
+its module for prediction; `tests/picker_style.spec.luau` pins it:
+
+| First matching condition | Style |
+|---|---|
+| A `query` | `navigationLink` |
+| Ten-foot display: up to four short options | `segmented` |
+| Ten-foot display: up to six options | `inline` |
+| Ten-foot display: more | `menu` (one focus-navigable sheet) |
+| Nearby gamepad: a strip that fits (the segmented rule below) | `segmented` |
+| Nearby gamepad, compact width | `menu` |
+| Nearby gamepad, up to six options | `inline` |
+| Nearby gamepad, more | `menu` |
+| Nearby touch or pointer | `menu` |
+
+The segmented rule: more than four options, or a compact width with more than
+three options or a label longer than ten characters, is `inline`; otherwise
+`segmented`. A flip between the menu family and a strip is structural (the two
+share no node; focus lands on the new trigger); a flip within the strip family
+is a re-solve that keeps every option's identity, focus and state.
+
+The returned `presentation` is a readable of the resolved style. `api` carries
+`open()`, `close()` and `select(value)`, live while a menu style is on screen
+and inert on a strip. An automatic picker requires an environment;
 `client.host.new()` supplies it.
 
 For static segmented lists, `indicator="automatic"` uses a sliding pill.
-Explicit inline and radio presentations use selected row styling. `underline`
-draws a bar at the strip's far edge; `pill` fills the selected box with the
-theme's pill radius and spacing inset. The indicator follows solved rectangles,
-places immediately on first paint or layout changes, and snaps under reduced
-motion. It adds no focus target. A bare mount without a motion clock places it
+Explicit inline and radio styles use selected row styling. `underline` draws a
+bar at the strip's far edge; `pill` fills the selected box with the theme's pill
+radius and spacing inset. The indicator follows solved rectangles, places
+immediately on first paint or layout changes, and snaps under reduced motion.
+It adds no focus target. A bare mount without a motion clock places it
 immediately. `indicator="none"` uses ordinary selected chrome.
 
 The vertical pill is not the inline row list: `axis="y"` makes a segmented rail
-that hugs its contents, while `presentation="inline"` fills the available width.
+that hugs its contents, while `style="inline"` fills the available width.
 
 ```lua
 local mode = core:signal("open")
 local clubEnabled = core:signal(false)
+-- the default: a form-row menu on a phone or a desktop, a strip on a television
 local picker = Facet.Controls.Picker(core, {
-    id = "RaceGroup", selected = mode, presentation = "radio",
+    id = "RaceGroup", label = "Race group", selected = mode,
     options = {
         { value = "open", label = "Open races" },
         { value = "club", label = "Club races", enabled = clubEnabled,
           description = "Join a club to unlock these races." },
     },
 })
+-- declared: a strip whatever the surface
+local group = Facet.Controls.Picker(core, {
+    id = "Group", selected = mode, style = "segmented",
+    options = { { value = "open", label = "Open" }, { value = "club", label = "Club" } },
+})
 ```
 
-`dump()` reports the current selection, presentation and arrangement; static
-indicator diagnostics also describe its solved rectangle and motion. The
-compatibility spelling `Facet.newPicker(Facet, core, spec)` is deprecated since
-0.10.0, with removal no earlier than 0.12.0.
+`dump()` reports the requested and resolved style, the presentation (the strip
+form, or the menu's `menu`/`sheet` popup), the selection and, for a strip, its
+arrangement and indicator. The compatibility spelling
+`Facet.newPicker(Facet, core, spec)` is deprecated since 0.10.0, with removal no
+earlier than 0.12.0.
 
 ### `newTabView`
 

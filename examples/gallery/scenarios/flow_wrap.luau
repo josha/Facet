@@ -166,7 +166,7 @@ return {
 			label = COPY.alignLabel,
 			-- SEGMENTED, declared: three peers, and the whole point is that they are
 			-- the SAME three words `align` has always taken on a stack
-			presentation = "segmented",
+			style = "segmented",
 			options = {
 				{ value = "start", label = COPY.alignStart },
 				{ value = "center", label = COPY.alignCenter },

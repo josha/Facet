@@ -87,7 +87,7 @@ suggestions. Supply separate string signals `value` (committed choice) and
 `text` (draft), an `options` collection, and `acceptCustom(text)` to explicitly
 validate values outside that collection. `commitOnFocusLost` opts into blur
 commit. `placeholder`, `enabled`, `onChange`, and `env` configure the usual
-behavior. Use PopupButton when arbitrary typed values must never be accepted.
+behavior. Use a `Picker` when arbitrary typed values must never be accepted.
 
 ## Selecting values
 
@@ -95,8 +95,8 @@ behavior. Use PopupButton when arbitrary typed values must never be accepted.
 |---|---|---|
 | [`Controls.Slider`](../reference/api.md#newslider) | Numeric `value`. | Required `min`/`max`, optional `step` and `format`, `label`, `enabled`, `tapToPosition`, `onChange` and `onCommit`. Optional `thumbImage` and `trackImage` override just those art slots. Pointer/touch drag and keyboard/gamepad adjustment share one value model. |
 | [`Controls.Stepper`](../reference/api.md#newstepper) | Numeric `value`. | `min`, `max`, `step` (default 1), `format`, `label`, `enabled`, `onChange`. Useful for exact small increments. |
-| [`Controls.Picker`](../reference/api.md#newpicker) | Single `selected` signal. | `options`, `presentation = "automatic" | "segmented" | "inline" | "radio"`, `axis`, `enabled`, and selection callbacks. Options can carry labels, icons, badges, descriptions and availability. Live options use stable identities. Segmented controls support `iconOnly` and a pill/underline selection `indicator`; radio options retain visible labels. |
-| [`Controls.PopupButton`](../reference/api.md#newpopupbutton) | Either one `value` or a `selectedValues` set. | `options`, optional `query` for filtering, `required`, `onChanging`, `onChange`, `placeholder`, `enabled`, and `presentation = "automatic" | "menu" | "inline" | "sheet"`. Automatic presentation reads space and live interaction classes from the environment. |
+| [`Controls.Picker`](../reference/api.md#newpicker) | Single `selected` signal. | `options`, `style = "automatic" | "menu" | "segmented" | "inline" | "radioGroup" | "navigationLink"`, `label`, `query` (a searchable navigation link), `axis`, `enabled`, and selection callbacks. The automatic style is a form-row menu under touch or a pointer and a strip on a television, read from the environment. Options can carry labels, icons, badges, descriptions and availability. Live options use stable identities. Segmented strips support `iconOnly` and a pill/underline selection `indicator`; radio options retain visible labels. `presentation` is the deprecated spelling of `style`. |
+| [`Controls.PopupButton`](../reference/api.md#newpopupbutton) | One `value` or a `selectedValues` set. | **Deprecated** (0.11.0): a value is a `Picker` menu style, a searchable list is `style = "navigationLink"` with `query`, a set of checks is a `Menu` with `checked` items. |
 | [`Controls.Rating`](../reference/api.md#newrating) | Numeric `value`. | `count`, `allowZero`, `readOnly`, `enabled`, `glyphs`, `starSize`, `onChange`, and `env`. Read-only ratings show a value without offering interaction. |
 | [`Controls.LevelPicker`](../reference/api.md#newlevelpicker) | Numeric `value`. | A discrete level strip: `count`, `allowZero`, `segment = "bar" | "glyph" | "image"`, the matching `glyphs` or `images`, `segmentSize`, independent filled/empty `tint`, `readOnly`, `enabled`, and `onChange`. This is not a game-level browser. |
 
@@ -104,7 +104,7 @@ Menus execute actions; pickers choose values. [`Controls.Menu`](../reference/api
 takes a `trigger` blueprint and `items`, with normal actions, dividers, check or
 radio state, icons, and nested children. Configure its adaptive presentation and
 environment through the documented spec. Avoid inventing a second list of options
-for a menu-shaped selection control: PopupButton already supplies that behavior.
+for a menu-shaped selection control: the Picker's `menu` style already supplies that behavior.
 
 ## Showing content and progress
 

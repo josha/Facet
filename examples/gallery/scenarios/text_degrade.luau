@@ -168,7 +168,7 @@ return {
 			-- SEGMENTED, declared: four peers named for how much room there is,
 			-- never for the rung — a player is choosing a box, and the row's answer
 			-- to it is the thing being shown
-			presentation = "segmented",
+			style = "segmented",
 			options = {
 				{ value = "roomy", label = COPY.roomy },
 				{ value = "snug", label = COPY.snug },

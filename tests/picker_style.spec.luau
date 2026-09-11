@@ -108,10 +108,15 @@ describe("Picker style: the automatic ladder is a pure function of facts", funct
 		)
 		expect(pickerLib.resolveStyle(facts({ optionCount = 12, primaryInput = "pointer" }))).toBe("menu")
 	end)
-	it("ten-foot resolves a focus-navigable strip: segmented for a few short options, inline otherwise", function()
+	it("ten-foot resolves a focus-navigable strip: segmented for a few short options, inline up to six", function()
 		expect(pickerLib.resolveStyle(facts({ distanceProfile = "ten-foot", sizeClass = "regular" }))).toBe("segmented")
-		expect(pickerLib.resolveStyle(facts({ distanceProfile = "ten-foot", sizeClass = "regular", optionCount = 7 }))).toBe(
+		expect(pickerLib.resolveStyle(facts({ distanceProfile = "ten-foot", sizeClass = "regular", optionCount = 6 }))).toBe(
 			"inline"
+		)
+		-- past the popover limit the rows would be a page of their own: a menu
+		-- (one focus-navigable panel under a gamepad) holds them instead
+		expect(pickerLib.resolveStyle(facts({ distanceProfile = "ten-foot", sizeClass = "regular", optionCount = 7 }))).toBe(
+			"menu"
 		)
 		expect(
 			pickerLib.resolveStyle(
@@ -124,8 +129,11 @@ describe("Picker style: the automatic ladder is a pure function of facts", funct
 		expect(pickerLib.resolveStyle(facts({ primaryInput = "gamepad", sizeClass = "compact", optionCount = 7 }))).toBe(
 			"menu"
 		)
-		expect(pickerLib.resolveStyle(facts({ primaryInput = "gamepad", sizeClass = "regular", optionCount = 7 }))).toBe(
+		expect(pickerLib.resolveStyle(facts({ primaryInput = "gamepad", sizeClass = "regular", optionCount = 6 }))).toBe(
 			"inline"
+		)
+		expect(pickerLib.resolveStyle(facts({ primaryInput = "gamepad", sizeClass = "regular", optionCount = 7 }))).toBe(
+			"menu"
 		)
 	end)
 	it("a searchable picker is always the navigation link", function()
@@ -230,12 +238,20 @@ describe("Picker style: the menu trigger is ONE integrated control", function()
 end)
 
 describe("Picker style: the strip styles and the deprecated spellings", function()
-	it("on a TV the automatic picker is a segmented strip, and inline past four options", function()
+	it("on a TV the automatic picker is a segmented strip, inline past four options, a menu past six", function()
 		local _, picker = mount("tv", {})
 		expect(picker.dump().style).toBe("segmented")
 		expect(picker.dump().presentation).toBe("segmented")
-		local _, long = mount("tv", { options = SEVEN, selected = Facet.newCore():signal("v1") })
-		expect(long.dump().style).toBe("inline")
+		local six = table.clone(SEVEN)
+		table.remove(six)
+		local _, rows = mount("tv", { options = six, selected = Facet.newCore():signal("v1") })
+		expect(rows.dump().style).toBe("inline")
+		local w, long = mount("tv", { options = SEVEN, selected = Facet.newCore():signal("v1") })
+		expect(long.dump().style).toBe("menu")
+		-- ...and under a gamepad that menu is ONE panel, focus-navigable
+		long.api.open()
+		w.pres.refresh()
+		expect(long.dump().presentation).toBe("sheet")
 	end)
 	it("a handheld (compact + gamepad) keeps three short options segmented and sends seven to the menu", function()
 		local _, picker = mount("handheld", {})
@@ -278,9 +294,26 @@ describe("Picker style: the strip styles and the deprecated spellings", function
 		w.present(UI.Screen({ id = "S", children = { picker.blueprint } }))
 		w.pres.refresh()
 		expect(picker.dump().style).toBe("navigationLink")
+		-- the title lives INSIDE the one row button, which fills its row
+		expect(suffixNode(w, "/Trigger/Label").props.text).toBe("Track")
+		w.overflowGuard()
 		w.adapter.tap(suffixPath(w, "/Trigger") :: string, { inputType = "Touch" })
 		w.pres.refresh()
 		expect(picker.dump().presentation).toBe("sheet")
 		expect(suffixNode(w, "/Popup/Search") ~= nil).toBe(true)
+		-- ...and on a desktop the row still fills (a hugging row would give its
+		-- fill title nothing)
+		local d = world.new(FACTS.desktop)
+		local desk = Facet.Controls.Picker(d.core, {
+			id = "P",
+			label = "Track",
+			selected = d.core:signal("v1"),
+			options = SEVEN,
+			query = d.core:signal(""),
+		})
+		d.present(UI.Screen({ id = "S", children = { desk.blueprint } }))
+		d.pres.refresh()
+		expect(d.controller.rectOf(suffixPath(d, "/Trigger") :: string).w).toBe(1280)
+		d.overflowGuard()
 	end)
 end)

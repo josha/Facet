@@ -314,10 +314,10 @@ function workbench.new(app: any): any
 	local function ingredientOptions(list: { any }, withNone: boolean): { any }
 		local options: { any } = {}
 		if withNone then
-			table.insert(options, { id = NONE, label = S.t("bench.none") })
+			table.insert(options, { value = NONE, label = S.t("bench.none") })
 		end
 		for _, entry in list do
-			table.insert(options, { id = entry.id, label = entry.name })
+			table.insert(options, { value = entry.id, label = entry.name })
 		end
 		return options
 	end
@@ -326,26 +326,24 @@ function workbench.new(app: any): any
 		(ADAPT-1, 2026-08-18). All three wired `sizeClass` and none wired
 		`interactionClasses`, which is why every one of them presented a floating
 		plate on a phone — the audit's exact words — where the reference platform's
-		default is a bottom sheet. `presentation = "automatic"` stays because it is
-		the interesting declaration: this control ASKS to adapt, and the facts come
-		from the surface it is standing on. ]]
-	local basePicker = Facet.Controls.PopupButton(core, {
+		default is a bottom sheet. Since the picker round (2026-09-11) they are
+		`Controls.Picker`s in the automatic style: a form-row menu under a thumb or
+		a mouse, a focus-navigable strip on a television, and the facts still come
+		from the surface each one is standing on. ]]
+	local basePicker = Facet.Controls.Picker(core, {
 		id = "Base",
 		options = ingredientOptions(data.bases :: any, false),
-		value = baseValue,
-		presentation = "automatic",
+		selected = baseValue,
 	})
-	local essencePicker = Facet.Controls.PopupButton(core, {
+	local essencePicker = Facet.Controls.Picker(core, {
 		id = "Essence",
 		options = ingredientOptions(data.essences :: any, true),
-		value = essenceValue,
-		presentation = "automatic",
+		selected = essenceValue,
 	})
-	local garnishPicker = Facet.Controls.PopupButton(core, {
+	local garnishPicker = Facet.Controls.Picker(core, {
 		id = "Garnish",
 		options = ingredientOptions(data.garnishes :: any, true),
-		value = garnishValue,
-		presentation = "automatic",
+		selected = garnishValue,
 	})
 
 	-- the three pickers, reachable by name: `api.select(id)` is the control's own

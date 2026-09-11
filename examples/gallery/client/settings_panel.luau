@@ -187,7 +187,7 @@ function settings_panel.mount(opts: MountOpts): any
 		label = COPY.motion,
 		-- SEGMENTED, declared rather than adaptive: two short labels side by side
 		-- ARE the teaching — "Full" and "Reduced" as peers, neither an off switch.
-		presentation = "segmented",
+		style = "segmented",
 		options = {
 			{ value = "full", label = COPY.full },
 			{ value = "reduced", label = COPY.reduced },

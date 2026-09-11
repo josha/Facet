@@ -14,7 +14,9 @@ and [API reference](../reference/api.md) define the available public surfaces.
 | Keep a compact set of occasional commands at a screen edge | `Controls.RadialMenu` with a corner preset | A small launcher opens inward and returns to the same corner. |
 | Read many commands, unfamiliar names, or long descriptions | `Controls.Menu` or a labeled list | Reading and scanning need predictable linear space. A radial menu should not become a dense inventory. |
 | Keep frequently used actions visible | Buttons in a toolbar/stack | Avoid making players open a menu for every repeated action. |
-| Choose a persistent value | Picker, Toggle, Slider, or RadioGroup as appropriate | Expose the current value and its alternatives. Use a radial check action only when it belongs in a contextual command set. |
+| Choose one value from a list | `Controls.Picker` (leave `style` automatic) | One control, every surface: a form-row menu on a phone or a desktop, a focus-navigable strip on a television. Declare `segmented` only when every option must stay visible (a mode switch), `navigationLink` for a long or searchable list. |
+| Choose a persistent value | Picker, Toggle, or Slider as appropriate | Expose the current value and its alternatives. Use a radial check action only when it belongs in a contextual command set. |
+| Run one action with alternatives | `Controls.Button` beside a `Picker`, or `Controls.SplitButton` | The split joins a chevron segment to the button under a pointer and becomes one long-press button under touch; when the alternatives must be discoverable on a phone, a Picker beside the Button says them out loud. |
 | Browse inventory, compare items, or search a large collection | Grid/list/table with filtering | Item discovery and comparison need more content than directional quick actions. |
 | Switch peer destinations such as Garage, Races, and Settings | `Controls.TabView` | Use `style = "sidebarAdaptable"` for automatic sidebar/top/bottom navigation. |
 | Choose a visually recognizable vehicle, character, map, or item | `Controls.Button` with `image`, `label`, and optional `subtitle` in a grid/rail | One focus target coordinates artwork highlight and persistent captions. |
@@ -70,6 +72,13 @@ list/table rows; for immediate gameplay commands prefer a direct button or radia
 menu. Long descriptions belong in detail content, not a tiny image card.
 
 Keep automatic control presentation unless the task requires an explicit form.
+A Picker's automatic style is the menu family under touch and a pointer (one
+integrated trigger, the options anchored to it, a sheet for a long list) and a
+segmented or inline strip on a television or under a nearby gamepad with a
+short list; a handheld's compact screen folds a long list into the menu. A
+screen that must show every option declares `style = "segmented"`; nothing on
+a phone should show a separate chevron cell beside a value unless a screen
+declared it.
 Menus use one panel for compact widths, touch, and gamepad; mouse menus can
 cascade where space permits. Sliders expose one adjustable focus target, while
 pointer/touch retain direct manipulation. Do not replace these with a second

@@ -683,48 +683,60 @@ end)
 --[[ ADAPT-1 — THE RUNG THAT HAD NEVER FIRED, IN A SHIPPED APP.
 
 	The audit's census: all five `PopupButton` call sites in this repository wired
-	`sizeClass` and none wired `interactionClasses`, so `touchLive` was false
-	forever and `menu_recipe`'s first rule — touch means a bottom SHEET, the
-	reference platform's own default — never ran anywhere. This screen now wires
-	NEITHER fact, and gets both from the surface it is standing on.
+	`sizeClass` and none wired `interactionClasses`, so the interaction class never
+	reached a popup anywhere. This screen wires NEITHER fact, and gets both from
+	the surface it is standing on.
 
-	Both halves are asserted, because only the pair is evidence: a thumb gets the
-	sheet, and a mouse on the identical screen does not (ADAPT-9's rule — a hybrid
-	follows its PRIMARY class, so having touch is not enough).
-
-	WHAT THE POINTER ANSWER ACTUALLY IS, measured rather than assumed: three
-	options with room resolve `inline` — rows in place, no floating panel at all —
-	because `menu_recipe`'s own rule is "`optionCount <= 3` and not compact ->
-	inline". The first draft of this case asserted `menu` and failed for the right
-	reason. What matters to the finding is that the pointer answer is NOT the sheet
-	and that it changes when the primary class does. ]]
-describe("Cartwheel — the unwired popup adapts to the surface (ADAPT-1)", function()
-	it("a touch phone resolves the SHEET; a desktop pointer never does", function()
+	SINCE THE PICKER ROUND (2026-09-11) the sort control is a `Controls.Picker` in
+	the automatic style, and what the facts decide is the STYLE FAMILY and the
+	popup's shape: a nearby thumb and a nearby mouse both get the menu family
+	(the trigger differs — a plain form-row value under a thumb, a bordered pop-up
+	button under a mouse), whose three options present as an anchored popover on
+	both; the six-attribute axis picker on the same screen is where the phone's
+	answer diverges from the desktop's — still a popover here, because six rows
+	fit a thumb-sized panel — and a television gets a focus-navigable strip
+	instead of a menu at all. All of it decided by facts this screen never
+	passed in. ]]
+describe("Cartwheel — the unwired picker adapts to the surface (ADAPT-1)", function()
+	it("a touch phone and a desktop pointer both resolve the menu family; a television gets a strip", function()
 		local phone = makeWorld({ width = 390, height = 844 })
 		phone.env:set("capabilities", { touch = true, mouse = false, keyboard = false, gamepad = false })
 		phone.env:set("preferredInput", "Touch")
 		phone.presenter.refresh()
 		phone.built.steps.section(phone.built, "potions")
-		expect(phone.built.screens.gallery.dump().sortPresentation).toBe("sheet")
+		expect(phone.built.screens.gallery.dump().sortStyle).toBe("menu")
+		expect(phone.built.screens.gallery.dump().sortPresentation).toBe("menu")
 		closeWorld(phone)
 
 		local desktop = makeWorld({ width = 1440, height = 900 })
 		desktop.built.steps.section(desktop.built, "potions")
-		expect(desktop.built.screens.gallery.dump().sortPresentation).toBe("inline")
+		expect(desktop.built.screens.gallery.dump().sortStyle).toBe("menu")
+		expect(desktop.built.screens.gallery.dump().sortPresentation).toBe("menu")
 		closeWorld(desktop)
+
+		local tv = makeWorld({ width = 1920, height = 1080 })
+		tv.env:set("displaySize", "Large")
+		tv.env:set("capabilities", { touch = false, mouse = false, keyboard = false, gamepad = true })
+		tv.env:set("preferredInput", "Gamepad")
+		tv.presenter.refresh()
+		tv.built.steps.section(tv.built, "potions")
+		expect(tv.built.screens.gallery.dump().sortStyle).toBe("segmented")
+		closeWorld(tv)
 	end)
 
-	it("the same device, one input class later: the idiom follows the thumb", function()
+	it("the same device, one input class later: the family follows the pad", function()
 		local hybrid = makeWorld({ width = 1024, height = 768 })
-		hybrid.env:set("capabilities", { touch = true, mouse = true, keyboard = true, gamepad = false })
+		hybrid.env:set("capabilities", { touch = true, mouse = true, keyboard = true, gamepad = true })
 		hybrid.env:set("preferredInput", "KeyboardAndMouse")
 		hybrid.presenter.refresh()
 		hybrid.built.steps.section(hybrid.built, "potions")
 		-- a mouse still wins outright, touchscreen or not (ADAPT-9)
-		expect(hybrid.built.screens.gallery.dump().sortPresentation).toBe("inline")
-		hybrid.env:set("preferredInput", "Touch")
+		expect(hybrid.built.screens.gallery.dump().sortStyle).toBe("menu")
+		-- ...and picking up the pad on a nearby screen keeps three short options
+		-- on screen as a strip: no menu to open, one press to pick
+		hybrid.env:set("preferredInput", "Gamepad")
 		hybrid.presenter.refresh()
-		expect(hybrid.built.screens.gallery.dump().sortPresentation).toBe("sheet")
+		expect(hybrid.built.screens.gallery.dump().sortStyle).toBe("segmented")
 		closeWorld(hybrid)
 	end)
 end)
