@@ -1328,6 +1328,9 @@ local function buildMenu(Facet: any, core: any, spec: Spec, style: string, id: s
 		out.schema = "facet-picker-dump/1"
 		out.requestedStyle = style
 		out.style = style
+		-- a menu wears no sliding indicator; the field stays so a reader written
+		-- against a strip's dump finds an answer rather than a hole
+		out.indicator = "none"
 		return out
 	end
 	return api
@@ -1480,6 +1483,9 @@ local function buildAutomatic(Facet: any, core: any, spec: Spec, id: string): an
 		-- before a branch has mounted, the resolved style IS the presentation
 		if out.presentation == nil then
 			out.presentation = out.style
+		end
+		if out.indicator == nil then
+			out.indicator = "none"
 		end
 		out.sizeClassFrom = if spec.sizeClass ~= nil then "spec" else "core"
 		out.selected = spec.selected:get()
