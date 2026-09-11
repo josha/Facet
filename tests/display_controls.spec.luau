@@ -259,6 +259,10 @@ describe("B-DSP2: Picker presentation adapts from space, not device names", func
 	it("a live size-class change flips the presentation WITHOUT remounting the options", function()
 		local core, env, adapter, _, pres = harness()
 		env:set("displaySize", "Large") -- ten-foot: the automatic style stays a strip
+		-- ...on a row WIDE enough for three long labels at the ten-foot scale: the
+		-- ladder now refuses a pill whose band would not fit its offer (2026-09-11),
+		-- so the flip under test has to come from the SIZE CLASS, not from the room
+		env:set("viewportRect", { x = 0, y = 0, w = 1280, h = 600 })
 		local selected = core:signal("a")
 		local sizeClass = core:signal("wide")
 		local control = Facet.Controls.Picker(core, {

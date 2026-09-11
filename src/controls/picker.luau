@@ -185,6 +185,8 @@ local surfaceEnv = require("../env/surface_env")
 
 local selectionModel = require("../selection_model")
 local menuRecipe = require("./menu_recipe")
+local themeSnapshot = require("../themes/snapshot")
+local textMetrics = require("../layout/text_metrics")
 local picker = {}
 
 -- `icon` is a SEMANTIC NAME ("close", "chevron.trailing", a namespaced
@@ -309,7 +311,22 @@ local OVERLAY_FILL = table.freeze({ type = "fill", weight = 1 })
 -- spacing retunes the badge with it (the `selection_indicator` precedent).
 
 -- the adaptive rule, pure and exported so a caller can predict it
-function picker.resolvePresentation(optionCount: number, sizeClass: string?, longestLabel: number): string
+function picker.resolvePresentation(
+	optionCount: number,
+	sizeClass: string?,
+	longestLabel: number,
+	hasDescription: boolean?,
+	fits: boolean?
+): string
+	--[[ A SEGMENT CARRIES A LABEL AND NOTHING ELSE (visual review 2026-09-11): an
+		option with a `description` is a ROW, and a strip whose natural band no
+		longer fits its offer at the current text size is a row list too — never a
+		pill that grows uneven segments. `fits` is a fact the caller measured
+		(nil = unknown, read as "fits", which is what every caller before this
+		round asked). ]]
+	if hasDescription == true or fits == false then
+		return "inline"
+	end
 	-- stack when the options cannot sit side by side legibly: too many of them, or
 	-- long labels in a compact space. This is a SPACE decision, not a device one.
 	if optionCount > 4 then
@@ -330,12 +347,20 @@ export type StyleFacts = {
 	distanceProfile: string?, -- "near" | "ten-foot"
 	primaryInput: string?, -- "touch" | "pointer" | "gamepad"
 	searchable: boolean?,
+	hasDescription: boolean?, -- any option carries a description (a row, never a segment)
+	fits: boolean?, -- the estimated segmented band fits the offer at the current text size (nil = unknown)
 }
 function picker.resolveStyle(facts: StyleFacts): string
 	if facts.searchable == true then
 		return "navigationLink"
 	end
-	local strip = picker.resolvePresentation(facts.optionCount, facts.sizeClass, facts.longestLabel)
+	local strip = picker.resolvePresentation(
+		facts.optionCount,
+		facts.sizeClass,
+		facts.longestLabel,
+		facts.hasDescription,
+		facts.fits
+	)
 	-- a row list is a strip only while it stays short; past the popover limit
 	-- the rows would be a page of their own, and a menu holds them instead
 	local rows = if facts.optionCount <= menuRecipe.PICKER_POPOVER_LIMIT then strip else "menu"
@@ -495,7 +520,24 @@ local function buildLive(Facet, core, spec, requested: string)
 		for _, option in list do
 			longest = math.max(longest, #readValue(option.label, use))
 		end
-		return picker.resolvePresentation(#list, readValue(spec.sizeClass or env:get("sizeClass"), use), longest)
+		local described = false
+		for _, option in list do
+			if readValue(option.description, use) ~= nil then
+				described = true
+				break
+			end
+		end
+		local source: any = (spec :: any)._presentationSource
+		if source ~= nil then
+			local resolved = use(source)
+			return if resolved == "radioGroup" then "radio" else resolved
+		end
+		return picker.resolvePresentation(
+			#list,
+			readValue(spec.sizeClass or env:get("sizeClass"), use),
+			longest,
+			described
+		)
 	end))
 	local axis = scope:own(core:memo(function(use)
 		return if use(presentation) == "inline" or use(presentation) == "radio"
@@ -709,8 +751,12 @@ local function lintStaticOptions(spec: Spec, id: string): any
 		return readValue(option.label)
 	end
 	local optionIds, optionValues = {}, {}
+	local hasDescription = false
 	for index, option in spec.options do
 		validateOption(option)
+		if option.description ~= nil then
+			hasDescription = true
+		end
 		local optionId = option.id or "Opt" .. index
 		assert(not optionIds[optionId] and not optionValues[option.value], "Picker: duplicate option identity or value")
 		optionIds[optionId] = true
@@ -776,6 +822,7 @@ local function lintStaticOptions(spec: Spec, id: string): any
 		badgeCount = badgeCount,
 		iconOnly = iconOnly,
 		labelNow = labelNow,
+		hasDescription = hasDescription,
 	}
 end
 
@@ -885,11 +932,22 @@ local function buildStrip(Facet: any, core: any, spec: Spec, requested: string)
 		return sc :: string
 	end
 
+	--[[ ONE LADDER, NOT TWO. The automatic wrapper (`buildAutomatic`) already
+		resolved the style from the published facts, the option shapes and the
+		measured offer; the strip it mounts follows THAT answer through
+		`_presentationSource` rather than re-deriving a second one from fewer
+		facts, which is how a wrapper could say "inline" while its strip drew a
+		pill. A declared strip resolves for itself, as it always did. ]]
+	local presentationSource: any = (spec :: any)._presentationSource
 	local presentation = scope:own(core:memo(function(use)
 		if requested ~= "automatic" then
 			return requested
 		end
-		return picker.resolvePresentation(#spec.options, readSizeClass(use), longest)
+		if presentationSource ~= nil then
+			local resolved = use(presentationSource)
+			return if resolved == "radioGroup" then "radio" else resolved
+		end
+		return picker.resolvePresentation(#spec.options, readSizeClass(use), longest, lint.hasDescription)
 	end))
 
 	-- ONE class with a reactive axis, so a presentation flip is a re-solve and the
@@ -987,6 +1045,15 @@ local function buildStrip(Facet: any, core: any, spec: Spec, requested: string)
 	local rows: { any } = {}
 	local byId: { [string]: any } = {}
 	local segments: { any } = {}
+	if requested == "segmented" and lint.hasDescription then
+		error(
+			`Facet newPicker('{id}'): a segmented picker's options cannot carry \`description\`. `
+				.. "A segment is a label and nothing else (the reference platform draws the same); "
+				.. 'a described option is a row — use `style = "inline"`, `"radioGroup"` or `"menu"`, '
+				.. "or leave `style` automatic and the ladder picks a row form for you.",
+			0
+		)
+	end
 	for i, option in spec.options do
 		local optionId = option.id or "Opt" .. i
 		byId[optionId] = option.value
@@ -1031,6 +1098,9 @@ local function buildStrip(Facet: any, core: any, spec: Spec, requested: string)
 			-- decided and the two can never disagree
 			width = if badged then SEGMENT_FILL else segmentWidth,
 			height = if badged then OVERLAY_FILL else SEGMENT_HEIGHT,
+			-- the focus ring follows the node's corners, so a segment wears the
+			-- same pill as the bar sliding under it: one shape, one height
+			corners = if slides then UI.cornersData("pill") else nil,
 		})
 		if requested == "radio" or option.description ~= nil then
 			button = menuRecipe.row(UI, {
@@ -1130,6 +1200,23 @@ local function buildStrip(Facet: any, core: any, spec: Spec, requested: string)
 			-- width, so replacing it with the band's changes no solved rect. It is
 			-- kept because it is the true statement, not because a test caught it.
 			width = groupWidth,
+			--[[ THE TRACK (visual review 2026-09-11). A segmented control is ONE
+				plated track holding equal segments with the selected one raised; the
+				bar alone left every unselected segment as bare text floating beside
+				one pill. The plate is the `control` surface — the slot every shipped
+				package skins (an ornate frame, a nine-slice, a gel) — drawn BENEATH
+				the sliding bar, and only while the strip IS a segmented pill: the row
+				list and the radio group are rows on the page, not a track. ]]
+			plate = UI.Box({
+				id = "Track",
+				surface = "control",
+				corners = UI.cornersData("pill"),
+				width = { type = "fill", weight = 1 },
+				height = { type = "fill", weight = 1 },
+				hidden = scope:own(core:memo(function(use)
+					return use(presentation) ~= "segmented"
+				end)),
+			}),
 		})
 		scope:own(indicatorApi) -- the seam's whole lifetime is this control's
 		group = indicatorApi.blueprint
@@ -1379,13 +1466,55 @@ local function buildAutomatic(Facet: any, core: any, spec: Spec, id: string): an
 	)
 	local sizeClassSource: any = spec.sizeClass or env:get("sizeClass")
 	local searchable = spec.query ~= nil
+	--[[ THE OFFER, MEASURED (visual review 2026-09-11, the console settings page
+		under Fantasy Ornate at the largest preference). Whether a segmented band
+		FITS is a fact about this control's own row, which no published fact names
+		— a two-column page hands it half the viewport, a form row all of it. The
+		wrapper's solved width is that offer, fed back once per solve; both families
+		it can mount fill their row (`BAND_WIDTH`), so the measurement is the same
+		number whichever branch is up and the ladder cannot oscillate on its own
+		answer. A hugging strip (`sizing = "hug"`) reports its NATURAL width, which
+		is not an offer, so that shape keeps the viewport as its budget. ]]
+	local offerWidth = scope:own(core:signal(nil :: number?))
+	local function bandEstimate(use: any, list: { any }): number
+		local metrics = use(env:get("themeMetrics"))
+		local snap = if type(metrics) == "table" and type(metrics.controls) == "table"
+			then metrics
+			else themeSnapshot.neutral()
+		local base = themeSnapshot.resolveSize(snap, spec.textSize or "control") or 16
+		local scale = themeSnapshot.typographyScale(use(env:get("displaySize")), use(env:get("preferredTextSize")))
+		local textPx = base * scale + themeSnapshot.textOffset(use(env:get("preferredTextOffset")))
+		local sizes = (snap :: any).controlSizes
+		local padX = if type(sizes) == "table"
+				and type(sizes.regular) == "table"
+				and type(sizes.regular.paddingX) == "number"
+			then sizes.regular.paddingX
+			else 12
+		local gap = themeSnapshot.resolveNumber(snap, "space.xs") or 4
+		local total = 0
+		for _, option in list do
+			local label = tostring(readValue(option.label, use))
+			total += #label * textPx * textMetrics.AVG_GLYPH_FRACTION + 2 * padX
+		end
+		return total + gap * math.max(0, #list - 1)
+	end
 	local style = scope:own(core:memo(function(use)
 		local list = readValue(spec.options, use)
 		local longest = 0
+		local described = false
 		for _, option in list do
 			longest = math.max(longest, #tostring(readValue(option.label, use)))
+			if readValue(option.description, use) ~= nil then
+				described = true
+			end
 		end
 		local classes = use(env:get("interactionClasses"))
+		local offer = use(offerWidth)
+		local vertical = readValue(spec.axis, use) == "y"
+		if readValue(spec.sizing, use) == "hug" or type(offer) ~= "number" or offer <= 0 then
+			local vp = use(env:get("viewportRect"))
+			offer = if type(vp) == "table" and type(vp.w) == "number" then vp.w - 32 else 1280
+		end
 		return picker.resolveStyle({
 			optionCount = #list,
 			longestLabel = longest,
@@ -1393,6 +1522,10 @@ local function buildAutomatic(Facet: any, core: any, spec: Spec, id: string): an
 			distanceProfile = use(env:get("distanceProfile")),
 			primaryInput = if type(classes) == "table" then classes.primary else "pointer",
 			searchable = searchable,
+			hasDescription = described,
+			-- a vertical rail stacks its segments, so the band's LENGTH is not a
+			-- width and the row has nothing to refuse it on
+			fits = vertical or bandEstimate(use, list) <= offer,
 		})
 	end))
 	local isMenu = scope:own(core:memo(function(use)
@@ -1431,26 +1564,41 @@ local function buildAutomatic(Facet: any, core: any, spec: Spec, id: string): an
 			return inner.blueprint
 		end
 	end
-	local blueprint = UI.VStack({
-		id = id,
-		width = rootWidth,
-		children = {
-			UI.When({
-				id = "Menu",
-				condition = isMenu,
-				thenView = branch(function()
-					return buildMenu(Facet, core, spec, style:get(), "Body")
-				end),
-			}),
-			UI.When({
-				id = "Strip",
-				condition = isStrip,
-				thenView = branch(function()
-					return buildStripFamily(Facet, core, spec, "automatic", "Body")
-				end),
-			}),
-		},
-	})
+	local blueprint = contribution.attach(
+		UI.VStack({
+			id = id,
+			width = rootWidth,
+			children = {
+				UI.When({
+					id = "Menu",
+					condition = isMenu,
+					thenView = branch(function()
+						return buildMenu(Facet, core, spec, style:get(), "Body")
+					end),
+				}),
+				UI.When({
+					id = "Strip",
+					condition = isStrip,
+					thenView = branch(function()
+						local handed: any = table.clone(spec :: any)
+						handed._presentationSource = style
+						return buildStripFamily(Facet, core, handed, "automatic", "Body")
+					end),
+				}),
+			},
+		}),
+		{
+			syncGeometry = function(rectOf, node)
+				if node == nil then
+					return
+				end
+				local rect = rectOf(node.path)
+				if type(rect) == "table" and type(rect.w) == "number" and rect.w > 0 and offerWidth:get() ~= rect.w then
+					offerWidth:set(rect.w)
+				end
+			end,
+		}
+	)
 	local api: any = {
 		blueprint = blueprint,
 		presentation = style,

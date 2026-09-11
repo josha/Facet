@@ -179,6 +179,7 @@ local INDICATOR_KEYS = specGuard.keySet({
 	"env",
 	"id",
 	"inset",
+	"plate",
 	"motionClass",
 	"segments",
 	"selected",
@@ -498,11 +499,15 @@ function selection_indicator.build(Facet: any, core: any, spec: Spec)
 	-- The decoration therefore sits BEHIND the strip and can never intercept a
 	-- gesture meant for a segment (a GuiButton sinks input; the layer must never
 	-- be the thing above it).
+	--[[ `plate` is a blueprint drawn BENEATH the bar — the segmented control's
+		track (picker, 2026-09-11). It is the caller's node, so it lands at
+		`<id>/<plate id>` and no segment path moves; the bar's Layer keeps its own
+		host, so the geometry it is fed is unchanged. ]]
 	local root = UI.ZStack({
 		id = id,
 		width = spec.width,
 		height = spec.height,
-		children = { layer, spec.content },
+		children = if spec.plate ~= nil then { spec.plate, layer, spec.content } else { layer, spec.content },
 	})
 
 	-- ===== geometry intake ==================================================
