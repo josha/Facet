@@ -21,25 +21,22 @@ local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
 local Facet = require("../src") :: any
-local fake_target = require("./lib/fake_target")
+local world = require("./lib/world")
 local adapter_source = require("./lib/adapter_source")
 
 local ROWS = 12
 
-local function world()
-	local core = Facet.newCore()
-	local env = Facet.newEnvironment(core)
-	env:set("viewportRect", { x = 0, y = 0, w = 400, h = 600 })
-	env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
-	local system = Facet.newActionSystem(core)
-	local adapter = fake_target.new()
-	local pres = Facet.newPresenter(core, env, adapter, system)
+local function mount()
+	local w = world.new({
+		viewport = { x = 0, y = 0, w = 400, h = 600 },
+		safeInsets = { top = 0, bottom = 0, left = 0, right = 0 },
+	})
 	local UI = Facet.UI
 	local rows = {}
 	for i = 1, ROWS do
 		table.insert(rows, UI.Text({ id = `R{i}`, text = `Row {i}` }))
 	end
-	local screen = UI.Screen({
+	w.present(UI.Screen({
 		id = "S",
 		padding = 0,
 		gap = 0,
@@ -51,15 +48,14 @@ local function world()
 				children = { UI.VStack({ id = "Rows", gap = 2, children = rows }) },
 			}),
 		},
-	})
-	local handle = pres.present(screen)
-	pres.refresh()
-	return { adapter = adapter, pres = pres, handle = handle }
+	}))
+	w.pres.refresh()
+	return w
 end
 
 describe("presentation transform: a scale-only write re-applies one node, an offset write the subtree", function()
 	it("the headless mirror recomposes only the written node when the offset half is unchanged", function()
-		local w = world()
+		local w = mount()
 		local c = w.handle.controller
 		local subtree = ROWS + 2 -- Group, Rows, the rows
 		local before = w.adapter.presentationRecomposes()

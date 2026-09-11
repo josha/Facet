@@ -33,6 +33,7 @@ local captureLib = require("../examples/performance/lab/capture")
 local overlayLib = require("../examples/performance/lab/overlay")
 local leversLib = require("../examples/performance/lab/levers")
 local navigationInventory = require("../examples/performance/lab/navigation_inventory")
+local transientSurfaces = require("../examples/performance/lab/transient_surfaces")
 local perf_lab = require("../examples/performance/lab/perf_lab")
 
 local function newHarness()
@@ -67,6 +68,7 @@ local function newHarness()
 			overlay = overlayLib,
 			levers = leversLib,
 			navigationInventory = navigationInventory,
+			transientSurfaces = transientSurfaces,
 		},
 		telemetry = {
 			clock = function()
