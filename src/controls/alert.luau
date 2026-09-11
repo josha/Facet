@@ -63,12 +63,12 @@ end
 local CAUTION = table.freeze({ point(0.5, 0.08), point(0.94, 0.9), point(0.06, 0.9) })
 local STEM = table.freeze({ point(0.5, 0.35), point(0.5, 0.6) })
 local DOT = table.freeze({ point(0.5, 0.73), point(0.5, 0.75) })
---[[ ACTION PLACEMENT IS ROLE-DRIVEN, NOT AUTHORED (the SwiftUI/HIG rule).
+--[[ ACTION PLACEMENT IS ROLE-DRIVEN, NOT AUTHORED (the platform alert convention).
 	A row puts the cancel action on the LEADING side; a stack puts it at the
 	BOTTOM, with the most likely action on top. Author order is preserved among
 	the remaining actions. The stack is used when there are more than two actions,
-	on a compact width, on a ten-foot display (tvOS stacks every alert), and at an
-	accessibility text preference (the engine's Larger/Largest steps, where iOS
+	on a compact width, on a ten-foot display (a television stacks every alert), and at an
+	accessibility text preference (the engine's Larger/Largest steps, where phones
 	stacks its alert buttons too); otherwise the actions share one centered row.
 	Pure and exported so a caller can predict the form and an order without
 	mounting anything. ]]

@@ -10283,7 +10283,7 @@ insets, without the panel's corners/nameplate. This changes art, not input or fo
 `Facet.Controls.Alert(core, spec) -> { blueprint, present, dismiss, dump, dispose }`
 composes a brief modal decision from existing primitives. It centers a card sized
 to its content and capped by the theme. Actions take one of two forms, chosen
-from published facts the way SwiftUI's alert does: a **row** (hugging buttons,
+from published facts, the platform alert convention: a **row** (hugging buttons,
 centered) or a **stack** (full-width buttons). The stack is used with more than
 two actions, on a compact width, on a ten-foot display, and at an accessibility
 text preference (`preferredTextOffset` ≥ 10, the engine's Larger step). Placement

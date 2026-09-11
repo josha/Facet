@@ -62,7 +62,7 @@ t.describe("Alert control", function()
 		t.expect(card.w < 800 and card.h < 400).toBe(true)
 		t.expect(math.abs(card.x + card.w / 2 - 640) < 1).toBe(true)
 		t.expect(math.abs(card.y + card.h / 2 - 400) < 1).toBe(true)
-		-- the HIG row: cancel on the leading side whatever the author order
+		-- the platform row: cancel on the leading side whatever the author order
 		t.expect(a.y == b.y and b.x + b.w <= a.x).toBe(true)
 		t.expect(w.core:lastError()).toBe(nil)
 		clean(w, alert)
