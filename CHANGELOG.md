@@ -13,6 +13,14 @@ runtime as `Facet.VERSION`.
 
 ## [Unreleased]
 
+- A node that declares a surface is no longer given a theme package's control
+  decoration by its class. A `Button` or `Toggle` declaring `surface = "base"`
+  or `"scrim"` fell through to the class map and was skinned as a control —
+  plate, corner and, under a package with depth, the control slot's shadow,
+  which reaches outside the node and painted onto whatever sat next to it. Every
+  other declared surface already decided the slot; the class map now answers
+  only for a node that declared none. A node carrying a `selected` prop still
+  reaches the selection slot whatever surface it declared.
 - A virtualized list or grid's full-bleed row hit target no longer takes a
   control surface when it paints no selection. It carried no label, no icon and
   no image, yet wore the installed theme package's control plate, corner,

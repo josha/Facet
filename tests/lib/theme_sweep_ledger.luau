@@ -1296,16 +1296,16 @@ theme_ledger.ROWS = {
 		packages = "fantasy-ornate,glossy-mobile,glossy-touch,pixel-quest",
 		kind = "layer-overlap",
 	},
-	{
-		surface = "row_actions",
-		variant = "list",
-		node = "/MailActions/ListWhen/then/List/Rows/RowsForEach/[*]/*/Content/Row/Text/TopLine",
-		sig = "content overflows this hstack by Npx on the",
-		px = 14,
-		since = 0,
-		packages = "fantasy-ornate,fantasy-parchment,glossy-touch",
-		kind = "row-cannot-shrink",
-	},
+	-- CLOSED 2026-09-11 by the surface-precedence fix (`tokens/chrome_slots.classify`
+	-- no longer hands a node that DECLARED a surface the control slot by its class).
+	-- This row recorded the swipe-actions list row's `TopLine` overflowing its hstack
+	-- by up to 14px at +0 under Fantasy Ornate, Fantasy Parchment and Glossy Touch —
+	-- a `row-cannot-shrink`, and it was never about the line. The row is a
+	-- `UI.Button` declaring `surface = "base"`; the class fallback classified it as a
+	-- `control`, so `render/layout_node`'s decoration-content-insets block added
+	-- those three packages' `chromeInsets.control` to the row's padding and squeezed
+	-- the content that then had nowhere to go. With the slot gone the row spends only
+	-- the padding it authored, and the finding no longer fires in any themed pass.
 	{
 		surface = "scroll_host",
 		variant = "-",

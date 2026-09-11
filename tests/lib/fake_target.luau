@@ -941,9 +941,19 @@ function fake_target.new(opts: Opts?)
 			if prop == "surface" then
 				local name = if type(value) == "string" then value else nil
 				state.surface = if name == "plain" then nil else name
-				state.interactive = name ~= "plain"
-					and name ~= "scrim"
-					and (handle.class == "Button" or handle.class == "Toggle")
+				--[[ `scrim` IS THE ONLY SURFACE THAT STOPS ADVERTISING INTERACTION,
+					and this line used to clear it for `plain` too (fixed 2026-09-11).
+					`screen_paint.applySurfaceNative` clears `nativeInteractive` inside
+					its `scrim` branch and nowhere else; `plain` takes the other branch
+					and keeps it, so the live adapter hands `classifyTags` `surface =
+					nil` with `interactive = true` and the node wears
+					`facet-interactive`. Measured on a live plain row hit under Glossy
+					Mobile. The divergence painted nothing — the interactive rules name
+					a colour and no transparency, and `plain` is what removed the fill
+					they would have tinted — so it survived as a mirror that was simply
+					wrong, and two specs wrote down an exact tag SET the live adapter
+					has never produced. ]]
+				state.interactive = name ~= "scrim" and (handle.class == "Button" or handle.class == "Toggle")
 				touched = true
 			elseif prop == "role" then
 				state.buttonRole = if value == "default" or value == nil then nil else tostring(value)

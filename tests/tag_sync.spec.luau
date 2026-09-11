@@ -29,6 +29,7 @@ local tag_sync = require("../src/render/tag_sync")
 local sheet_model = require("../src/tokens/sheet_model")
 
 local UI = require("../src/blueprint")
+local adapter_source = require("./lib/adapter_source")
 local customFactory = require("../src/core/custom")
 local environment = require("../src/env/environment")
 local actionsLib = require("../src/input/actions")
@@ -114,13 +115,20 @@ describe("tag_sync: mounted, state changed, tag removed", function()
 		expect(table.find(after, "facet-interactive") ~= nil).toBe(true)
 	end)
 
-	it("a segment declared surface=plain ends up with NO tags — Bugs A and B", function()
+	it("a segment declared surface=plain LOSES its surface tag — Bugs A and B", function()
 		--[[ THE EXACT SHAPE OF THE SHIPPED REGRESSION. `picker.luau:552` declares
 			every segment `surface = "plain"` whenever an indicator slides, "so
 			nothing paints over the chip behind them". The adapter's handle went
 			right and the INSTANCE kept `facet-surface-control`, whose sheet rule
 			paints an opaque `$Control` fill — over the underline and the pill that
-			`selection_indicator.luau` deliberately draws BEHIND the strip. ]]
+			`selection_indicator.luau` deliberately draws BEHIND the strip.
+
+			THE ASSERTION USED TO BE "no tags at all", AND THAT WAS NEVER TRUE OF THE
+			LIVE ADAPTER (narrowed 2026-09-11). It passed only because the fake
+			cleared `interactive` for `plain`, which `applySurfaceNative` does not —
+			see the parity block at the foot of this file. The regression was about
+			the SURFACE tag and the fill it drags in; the exact-set form asserted a
+			second thing nobody had measured, and then held the mirror to it. ]]
 		local core = customFactory.new()
 		local surface = core:signal("control")
 		local _, pres, target = mountButton("TagSurf", { surface = surface })
@@ -128,7 +136,10 @@ describe("tag_sync: mounted, state changed, tag removed", function()
 
 		surface:set("plain")
 		pres.refresh()
-		expect(table.concat(target.tagsOf("/TagSurf/Btn"), ",")).toBe("")
+		for _, tag in target.tagsOf("/TagSurf/Btn") do
+			expect(string.find(tag, "facet-surface-", 1, true) == 1).toBe(false)
+		end
+		expect(table.find(target.tagsOf("/TagSurf/Btn"), "facet-selected") ~= nil).toBe(false)
 	end)
 
 	it("a surface change swaps the surface tag rather than accumulating one", function()
@@ -153,5 +164,69 @@ describe("tag_sync: mounted, state changed, tag removed", function()
 		role:set("default")
 		pres.refresh()
 		expect(table.find(target.tagsOf("/TagRole/Btn"), "facet-role-destructive") ~= nil).toBe(false)
+	end)
+end)
+
+--[[ THE MIRROR AGREES WITH WHAT IT MIRRORS (defect found 2026-09-11, driving the
+	live adapter in Studio).
+
+	This file's own header says the fake mirrors "the narrow bookkeeping around"
+	the shared ruling, and names `screen_paint.applySurfaceNative` as the thing it
+	is kept in lockstep with. It was not: for a `plain` surface the fake cleared
+	`interactive`, and the live adapter does not.
+
+	THE LIVE CHAIN, WHICH IS WHY. `applySurfaceNative` clears `nativeInteractive`
+	for `scrim` ONLY; for `plain` it sets `nativeSurface = nil` and leaves
+	`nativeInteractive` true for a Button/Toggle ("`plain` is chrome-less but
+	still every bit the control its class says it is"). `syncTags` then hands
+	`classifyTags` `surface = nil` rather than the string `"plain"`, so that
+	function's own `suppressed` branch never fires and `facet-interactive`
+	survives. Measured on a live plain row hit under Glossy Mobile: it wears
+	`facet-interactive` and `facet-pointer-live`, and no `facet-surface-*`.
+
+	NOTHING PAINTS FROM IT, which is why the divergence was invisible rather than
+	loud: the interactive rules are `TextButton.facet-interactive:Hover/:Press
+	{ BackgroundColor3 }` and they name no transparency, so on a node whose fill
+	rule `plain` removed there is nothing to tint. The tag is still the wrong
+	answer for a headless spec to give, because two specs then wrote down an exact
+	tag SET that the live adapter has never produced. ]]
+describe("tag_sync: the fake's surface bookkeeping is the live adapter's", function()
+	it("the live source clears interactivity for `scrim` and for nothing else", function()
+		local body = adapter_source.bodyOf(adapter_source.live(), "local function applySurfaceNative")
+		assert(body ~= "", "applySurfaceNative is no longer a one-tab local in the live adapter")
+		expect(string.find(body, 'handle.nativeSurface = if surface == "plain" then nil else surface', 1, true) ~= nil).toBe(
+			true
+		)
+		local _, clears = string.gsub(body, "handle%.nativeInteractive = false", "")
+		expect(clears).toBe(1)
+		local scrimAt = string.find(body, 'if surface == "scrim" then', 1, true)
+		local clearAt = string.find(body, "handle.nativeInteractive = false", 1, true)
+		local elseAt = string.find(body, "\n\t\telse\n", 1, true)
+		assert(scrimAt ~= nil and clearAt ~= nil and elseAt ~= nil, "applySurfaceNative no longer has its scrim branch")
+		expect(scrimAt < clearAt and clearAt < elseAt).toBe(true)
+		expect(
+			string.find(
+				body,
+				'handle.nativeInteractive = handle.class == "Button" or handle.class == "Toggle"',
+				1,
+				true
+			) ~= nil
+		).toBe(true)
+	end)
+
+	it("a `plain` Button KEEPS facet-interactive, exactly as the live adapter leaves it", function()
+		local _, _, target = mountButton("TagPlain", { surface = "plain" })
+		local tags = target.tagsOf("/TagPlain/Btn")
+		expect(table.find(tags, "facet-interactive") ~= nil).toBe(true)
+		for _, tag in tags do
+			expect(string.find(tag, "facet-surface-", 1, true) == 1).toBe(false)
+		end
+	end)
+
+	it("a `scrim` Button keeps its surface tag and loses interactivity — the branch that DOES clear it", function()
+		local _, _, target = mountButton("TagScrim", { surface = "scrim" })
+		local tags = target.tagsOf("/TagScrim/Btn")
+		expect(table.find(tags, "facet-surface-scrim") ~= nil).toBe(true)
+		expect(table.find(tags, "facet-interactive") ~= nil).toBe(false)
 	end)
 end)
