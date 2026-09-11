@@ -134,6 +134,7 @@ return {
 			--     this gap was the row's own layout decision, uncounted here) + the
 			--     capped two detail lines;
 			--   * the `Card` HStack's own vertical `padding = "s"`;
+			--   * the installed package's `chromeInsets.control` on this axis (below);
 			--   * the `Card`'s own vertical `margin = "xs"` (the hairline-ish inset
 			--     that keeps the list's focus ring visible around the card) — the
 			--     ZStack `Row` wrapper hands `Card` its box MINUS this margin, so it is
@@ -146,7 +147,48 @@ return {
 			local content = lineBox("body", 1) + labelGap + lineBox("caption", 2)
 			local padV = 2 * (metrics.space.s or 8)
 			local marginV = 2 * (metrics.space.xs or 4)
-			return math.max(metrics.targetSizes.minimum or 44, content + padV + marginV)
+			--[[ ...AND THE CARD'S CARVED BORDER, WHICH IS PADDING THE ROW NEVER
+				DECLARED (2026-09-11, the widest-viewport themed cell).
+
+				`Card` is a `surface = "control"` node, so the renderer classifies it into
+				the `control` decoration slot and ADDS that slot's `contentInsets` to
+				whatever padding the node already had (`src/render/layout_node.luau`,
+				"DECORATION CONTENT INSETS"). It is spent out of the same box `padding`
+				comes out of and the author never wrote it, which is exactly how it
+				escaped a memo that carefully counted every token the arrangement DOES
+				spell out — the `chromeInsets` half of the lesson `examples/performance/
+				lab/rows.themeInset` already records ("a themed `control` carries a carved
+				border the solver reserves as padding").
+
+				`chromeInsets` is documented theme-snapshot data — `docs/reference/api.md`
+				"Art geometry: `chromeInsets`, `chromeOutsets` and `chromeBleed`" and
+				`docs/guide/09-custom-themes.md`: `chromeInsets[slot] = {top, right,
+				bottom, left}`, "Every slot publishes an entry, zero included", "read
+				directly only when a caller must predict a decorated node's *content*
+				box". A declared `itemExtent` is precisely that caller.
+
+				MEASURED, on console-ten-foot 1920x1078 at +14 under Fantasy Ornate:
+				`Card` measures 189px of content inside a declared 181px slot and its
+				`Labels` column is squeezed by exactly the 20px this line was missing.
+				The residual 8px is the gap between the two terms — the guard measures
+				`Card` WITHOUT its margin while the slot has to carry it — so the row
+				needs BOTH terms and keeps `marginV` as its headroom.
+
+				ADDITIVE, never a `max()` against a themed control height, for the reason
+				`rows.themeInset` states: every flat package publishes all-zero insets, so
+				this term is exactly 0 on Facet Neutral and every flat package and no
+				unthemed row moves by a pixel.
+
+				An ineligible row paints `surface = "base"`, which classifies into no slot
+				at all and carves nothing — but a fixed-pitch list has ONE extent for
+				every row, so the slot is sized for the larger of the two states. ]]
+			local carved: any = if type(metrics.chromeInsets) == "table" then metrics.chromeInsets.control else nil
+			local function carvedSide(side: string): number
+				local px = if type(carved) == "table" then (carved :: any)[side] else nil
+				return if type(px) == "number" then px else 0
+			end
+			local chromeV = carvedSide("top") + carvedSide("bottom")
+			return math.max(metrics.targetSizes.minimum or 44, content + padV + chromeV + marginV)
 		end))
 
 		--[[ THE WINDOW IS A LIVE NUMBER (review R2-F7). `newVirtualList` takes a

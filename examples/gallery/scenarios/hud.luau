@@ -920,6 +920,38 @@ return {
 			)
 		end
 
+		--[[ HOW BIG A ROUND ICON BUTTON HAS TO BE UNDER THE INSTALLED PACKAGE, and
+			ONE MEMO PER CONTROL-SIZE RUNG for the reason `plateInsets` above is one per
+			(slot, gutter): a disc is built inside closures that re-run, and a dimension
+			minted per call would be owned by this scope and live until the whole
+			surface disposes. The rule it answers is written out at the call site
+			below. ]]
+		local roundBoxMemos: { [string]: any } = {}
+		local function roundBox(rung: string): any
+			local cached = roundBoxMemos[rung]
+			if cached ~= nil then
+				return cached
+			end
+			local memo = scope:own(core:memo(function(use)
+				local facts = Facet.text.facts({ env = env, use = use })
+				local metrics: any = facts.metrics
+				local rungs: any = if type(metrics) == "table" then (metrics :: any).controlSizes else nil
+				local entry: any = if type(rungs) == "table" then (rungs :: any)[rung] else nil
+				local named = if type(entry) == "table" and type(entry.height) == "number" then entry.height else 0
+				local insets: any = if type(metrics) == "table" then (metrics :: any).chromeInsets else nil
+				local carve: any = if type(insets) == "table" then (insets :: any).control else nil
+				local function side(name: string): number
+					local px = if type(carve) == "table" then (carve :: any)[name] else nil
+					return if type(px) == "number" then px else 0
+				end
+				local frame = math.max(side("left") + side("right"), side("top") + side("bottom"))
+				local mark = Facet.text.lineBox({ facts = facts, size = "body", lines = 1 })
+				return { type = "fixed", px = math.max(named, frame + mark) }
+			end))
+			roundBoxMemos[rung] = memo
+			return memo
+		end
+
 		-- THE ROUND ICON BUTTON, the face of both clusters. `shape = "circle"` +
 		-- `icon` is the only icon affordance in the library that takes a SEMANTIC
 		-- NAME rather than an asset (a package that ships art for that name paints
@@ -927,9 +959,11 @@ return {
 		-- this HUD invents no art at all. The `label` is the accessible name and is
 		-- deliberately not drawn on a circle.
 		--
-		-- `size` is a theme metric NAME, never a number: the bottom-right cluster is
-		-- the thumb-sized one and the top-left strip is the compact one, and both
-		-- follow whatever the installed package thinks those two sizes are.
+		-- `size` names a CONTROL-SIZE RUNG, never a number: the bottom-right cluster
+		-- is the thumb-sized one and the top-left strip is the compact one, and both
+		-- follow whatever the installed package thinks those two sizes are — see
+		-- `roundBox` above for what a disc does when the package's own frame does not
+		-- fit inside the rung it named.
 		local function roundButton(id: string, label: string, icon: string, size: string, onActivate: any?): any
 			return UI.Button({
 				id = id,
@@ -937,8 +971,61 @@ return {
 				icon = icon,
 				shape = "circle",
 				surface = "chip",
-				-- a circle takes at most ONE of width/height, and the other follows
-				height = { type = "fixed", px = size },
+				--[[ A DISC IS ITS PACKAGE'S FRAME PLUS ROOM FOR ITS OWN MARK, WHENEVER
+					THAT IS BIGGER THAN THE RUNG THE PACKAGE NAMED (2026-09-11, the
+					widest-viewport themed cell).
+
+					A circle takes at most ONE of width/height and the other follows. This axis
+					used to be the named control size alone, and a box whose extent is decided
+					FOR it cannot afford a frame bigger than itself: `surface = "chip"`
+					classifies into the `control` decoration slot, the renderer adds that slot's
+					`contentInsets` to this node's padding, and when what is left cannot hold one
+					line of the mark this node draws the framework hands the WHOLE inset back
+					and the solver says so ("this control is smaller than its theme expects").
+					What a player then sees is a carved border painted over the mark it was
+					supposed to frame, on the affordance that is also this HUD's overflow sink.
+
+					MEASURED on console-ten-foot 1920x1078 at +14, where the display class
+					multiplies the control ladder by 1.5 and the type ladder by 1.5 AND THEN adds
+					the player's preference, while a package's carved border — asset geometry —
+					does not scale at all: Fantasy Ornate's `controlSizes.compact.height`
+					resolves to 57px carrying 28px of frame, Fantasy Parchment 57px against 24,
+					Glossy Touch 66px against 28, and Compact Pointer's `large` action disc 45px
+					against 16. Every one of them handed its frame back.
+
+					THE SECOND TERM IS THE SMALLEST BOX THAT CAN SPEND THE FRAME — the frame
+					itself plus one line box of the mark inside it, which is
+					`chrome_slots.spendInset`'s own condition read forwards instead of
+					backwards. Both halves are facts and neither is a pixel count: the frame is
+					the larger of `chromeInsets.control`'s two spans (a disc is square, so one
+					number has to clear both axes), and the line box is `Facet.text.lineBox`
+					through the live typography scale and text preference.
+
+					A MAX, NOT A SUM, AND THAT IS THE WHOLE DESIGN. A sum — the named rung plus
+					the frame, which `resolveDim`'s own grammar would have expressed in one line
+					with no memo — grows every disc under every package whether or not that disc
+					had a problem. Measured: it took Fantasy Ornate's action discs from 58 to
+					86px on a 320px phone at the DEFAULT text preference and pushed the right
+					lane 5px past its 101px share, so a HUD that composed perfectly well fell
+					back to its declared arrangement; and it took Pixel Quest's tablet disc from
+					48 to 52 where the framework's own icon floor had already sized it correctly
+					(`tests/themed_containment.spec.luau` item 6 pins that 48). The max form
+					leaves both of those exactly where they were and moves only the discs that
+					were handing their frame back.
+
+					NOTHING MOVES ON A FLAT PACKAGE: `chromeInsets` is all zeros for Facet
+					Neutral, Classic Desktop, Glossy Mobile and Sci-Fi HUD, so the second term is
+					one line box, which every named rung already clears — the disc is the named
+					rung to the pixel and no unthemed disc, strip or lane changes.
+
+					IT IS A MEMO OVER THE WHOLE DIMENSION rather than a reactive `px` inside one,
+					because a Readable nested inside a dim table is read ONCE and the theme
+					picker swaps `themeMetrics` under a standing mount.
+
+					A GROWN DISC HAS SOMEWHERE TO GO on both clusters that use it: `RoundStrip`
+					is `wrap = true`, so a wider disc takes a second line rather than a
+					neighbour's pixels, and `ActionsCol` is a bottom-anchored VStack. ]]
+				height = roundBox(size),
 				-- THE SINK'S TRIGGER RIDES THIS (D7.3). Optional, so the two clusters
 				-- that are pure decoration stay exactly what they were.
 				onActivate = onActivate,
@@ -1183,9 +1270,9 @@ return {
 			gap = "s",
 			align = "end",
 			children = {
-				roundButton("A1", COPY.action1, "more", "controlSizes.large.height"),
-				roundButton("A2", COPY.action2, "menu", "controlSizes.large.height"),
-				roundButton("A3", COPY.action3, "checkmark", "controlSizes.large.height"),
+				roundButton("A1", COPY.action1, "more", "large"),
+				roundButton("A2", COPY.action2, "menu", "large"),
+				roundButton("A3", COPY.action3, "checkmark", "large"),
 			},
 		})
 		local feedLine = UI.Text({ id = "FeedLine", text = COPY.feed, textSize = "caption" })
@@ -2473,15 +2560,15 @@ return {
 							gap = "tight",
 							wrap = true,
 							children = {
-								roundButton("R1", COPY.round1, "menu", "controlSizes.compact.height"),
-								roundButton("R2", COPY.round2, "flag", "controlSizes.compact.height"),
+								roundButton("R1", COPY.round1, "menu", "compact"),
+								roundButton("R2", COPY.round2, "flag", "compact"),
 								-- THE SINK'S HOST. Rank 1, one form, never dropped, wrapped
 								-- rather than elided — the four things that make "a host always
 								-- exists" true in code instead of true in a comment. Its 36px
 								-- disc still delivers a 44px hit rect: `Button` carries a
 								-- `minHitSize` clamped up to `targetSizes.minimum`, which is the
 								-- three-axes floor this affordance owes on touch.
-								roundButton("R3", COPY.round3, "more", "controlSizes.compact.height", openOverflow),
+								roundButton("R3", COPY.round3, "more", "compact", openOverflow),
 							},
 						}),
 					},
@@ -2781,7 +2868,7 @@ return {
 					children = {
 						-- the RICH form, hoisted above and shared with the recovery panel
 						actionsCol,
-						roundButton("A1r", COPY.action1, "more", "controlSizes.regular.height"),
+						roundButton("A1r", COPY.action1, "more", "regular"),
 					},
 				}),
 				-- ...and the weapon name over them, which is where the screenshot puts
