@@ -392,6 +392,9 @@ export type ButtonSpec = BoxProps & PointerHandlers & {
 	-- here because api.md documents it as public — without it a `--!strict`
 	-- caller cannot write the very spelling the docs prescribe.
 	compactLabel: (string | { text: string?, icon: string?, image: string?, prefer: boolean? })?,
+	-- the one-line label's full-value path (the large-text plate), as a Text or
+	-- a Toggle label carries it; construction-only
+	disclose: boolean?,
 	enabled: Bound<boolean>?,
 	selected: Bound<boolean>?,
 	focusable: Bound<boolean>?,

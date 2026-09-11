@@ -354,13 +354,11 @@ function picker.resolveStyle(facts: StyleFacts): string
 	if facts.searchable == true then
 		return "navigationLink"
 	end
-	--[[ A STRIP THAT CANNOT FIT ITS ROW IS A MENU on every surface (2026-09-11):
-		squeezed segments truncate their labels, and a row list is a form section,
-		not a toolbar's control — the reference app's sort picker on a television
-		has a 312px slot for a 505px band at the ten-foot scale. ]]
-	if facts.fits == false then
-		return "menu"
-	end
+	--[[ A STRIP THAT CANNOT FIT ITS ROW never becomes a pill (2026-09-11):
+		`resolvePresentation` answers the row list for it, and the ladder below
+		keeps that answer where rows are the idiom (a ten-foot display, a nearby
+		pad on a roomy screen) and folds it into the menu everywhere else —
+		squeezed segments would truncate their labels. ]]
 	local strip = picker.resolvePresentation(
 		facts.optionCount,
 		facts.sizeClass,
@@ -1154,8 +1152,9 @@ local function buildStrip(Facet: any, core: any, spec: Spec, requested: string)
 			corners = if slides then UI.cornersData("pill") else nil,
 			-- a segment's label has a full-value path (the large-text plate) the
 			-- way any one-line label does: a strip that truncates at the largest
-			-- preference under a roomy package is disclosed, never lost (closes the
-			-- LT-G4 gap the sweeps recorded, 2026-09-11). Not for a tab strip
+			-- preference under a roomy package is disclosed, never lost (the gap
+			-- tests/lib/large_text_fixtures.luau recorded as closed on 2026-09-11,
+			-- an option label with no route to the whole string). Not for a tab strip
 			-- (`track = false`): a tab bar runs its own compact ladder, and the
 			-- plate's reservation is height a fixed bar does not have.
 			disclose = if slides and (spec :: any).track ~= false then true else nil,

@@ -721,9 +721,10 @@ describe("Cartwheel — the unwired picker adapts to the surface (ADAPT-1)", fun
 		tv.presenter.refresh()
 		tv.built.steps.section(tv.built, "potions")
 		-- the toolbar hands the sort picker a 312px slot and the three labels
-		-- need ~500px at the ten-foot scale: a strip that cannot fit its row is a
-		-- menu (one focus-navigable sheet), never three truncated segments
-		expect(tv.built.screens.gallery.dump().sortStyle).toBe("menu")
+		-- need ~500px at the ten-foot scale: a strip that cannot fit its row is
+		-- the focus-navigable row list on a television, never three truncated
+		-- segments (2026-09-11)
+		expect(tv.built.screens.gallery.dump().sortStyle).toBe("inline")
 		closeWorld(tv)
 	end)
 
