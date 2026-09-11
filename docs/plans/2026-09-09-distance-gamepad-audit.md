@@ -75,7 +75,7 @@ From A: expected Down → B; Right → C.
 Observed: Down → A; Right → B.
 ```
 
-Run `lune run docs/research/2026-09-09-gamepad-audit-probe` from the Facet root to reproduce the current behavior. This is a characterization probe, not a passing acceptance test for the desired behavior.
+The characterization probe for this audit is preserved in `Facet-private-archive/docs/research/2026-09-09-gamepad-audit-probe.luau` beside the repository. It records the audited revision’s behavior, not passing acceptance criteria for the desired behavior.
 
 The cause is visible in [focus_map.luau](../../src/present/focus_map.luau): horizontal-run derivation collects descendant focusables into one horizontal group. [focus_graph.luau](../../src/focus/focus_graph.luau), particularly `exitFrom` and `navigateDirection`, then steps ordinals or adjacent groups. `entry = "nearest"` is primarily an ordinal policy, not a comparison of solved rectangles. Explicit grid topology and exits work, but do not make arbitrary compositions spatially correct. [presenter.luau](../../src/present/presenter.luau) routes Navigate into this graph.
 
@@ -228,7 +228,7 @@ Eight existing spec files were run individually with `lune run tests/run_one <na
 | `paradigm_input_axis` | 15 |
 | `virtual_list_focus_policy` | 18 |
 
-The additional [audit probe](../research/2026-09-09-gamepad-audit-probe.luau) reproduced the nested-column failure and printed the distance, navigation-placement, and popup-policy outcomes described above. These passing existing tests establish substantial foundations; they do not establish the missing paradigm behavior. This was not a full-suite, package, Studio, or physical-device run. Follow the distinction between evidence classes in [Device verification](../guide/11-device-verification.md).
+The additional audit probe (preserved in the private archive at the path above) reproduced the nested-column failure and printed the distance, navigation-placement, and popup-policy outcomes described above. These passing existing tests establish substantial foundations; they do not establish the missing paradigm behavior. This was not a full-suite, package, Studio, or physical-device run. Follow the distinction between evidence classes in [Device verification](../guide/11-device-verification.md).
 
 The immediate next implementation should correct nested directional navigation and add the near-gamepad/hybrid fixtures that expose it. The first design prototype should then pair adaptive navigation with semantic settings rows, so the framework is evaluated on a complete controller task rather than individual reachable controls.
 
