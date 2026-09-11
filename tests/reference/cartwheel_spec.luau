@@ -720,12 +720,17 @@ describe("Cartwheel — the unwired picker adapts to the surface (ADAPT-1)", fun
 		tv.env:set("preferredInput", "Gamepad")
 		tv.presenter.refresh()
 		tv.built.steps.section(tv.built, "potions")
-		expect(tv.built.screens.gallery.dump().sortStyle).toBe("segmented")
+		-- the toolbar hands the sort picker a 312px slot and the three labels
+		-- need ~500px at the ten-foot scale: a strip that cannot fit its row is a
+		-- menu (one focus-navigable sheet), never three truncated segments
+		expect(tv.built.screens.gallery.dump().sortStyle).toBe("menu")
 		closeWorld(tv)
 	end)
 
 	it("the same device, one input class later: the family follows the pad", function()
-		local hybrid = makeWorld({ width = 1024, height = 768 })
+		-- wide enough that the toolbar's sort slot holds three short labels at the
+		-- near scale; the ladder now refuses a strip that would truncate (2026-09-11)
+		local hybrid = makeWorld({ width = 1280, height = 800 })
 		hybrid.env:set("capabilities", { touch = true, mouse = true, keyboard = true, gamepad = true })
 		hybrid.env:set("preferredInput", "KeyboardAndMouse")
 		hybrid.presenter.refresh()

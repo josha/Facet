@@ -354,6 +354,13 @@ function picker.resolveStyle(facts: StyleFacts): string
 	if facts.searchable == true then
 		return "navigationLink"
 	end
+	--[[ A STRIP THAT CANNOT FIT ITS ROW IS A MENU on every surface (2026-09-11):
+		squeezed segments truncate their labels, and a row list is a form section,
+		not a toolbar's control — the reference app's sort picker on a television
+		has a 312px slot for a 505px band at the ten-foot scale. ]]
+	if facts.fits == false then
+		return "menu"
+	end
 	local strip = picker.resolvePresentation(
 		facts.optionCount,
 		facts.sizeClass,
@@ -398,6 +405,9 @@ local PICKER_KEYS = specGuard.keySet({
 	"sizeClass",
 	"sizing",
 	"textSize",
+	-- `track = false` declines the segmented plate: a tab strip inside its own
+	-- band (TabView) draws no second track
+	"track",
 })
 
 -- read a Readable-or-plain value, subscribing when a `use` is in hand. BOTH
@@ -711,7 +721,9 @@ local function buildLive(Facet, core, spec, requested: string)
 		axis = axis,
 		gap = "xs",
 		width = groupWidth,
-		padding = if slides then trackPaddingFor(core, scope, spec, presentation) else nil,
+		padding = if slides and (spec :: any).track ~= false
+			then trackPaddingFor(core, scope, spec, presentation)
+			else nil,
 		children = { rows },
 	})
 	local indicatorApi
@@ -1213,7 +1225,9 @@ local function buildStrip(Facet: any, core: any, spec: Spec, requested: string)
 		axis = axis,
 		gap = "xs",
 		width = groupWidth,
-		padding = if slides then trackPaddingFor(core, scope, spec, presentation) else nil,
+		padding = if slides and (spec :: any).track ~= false
+			then trackPaddingFor(core, scope, spec, presentation)
+			else nil,
 		children = rows,
 	})
 
@@ -1246,16 +1260,18 @@ local function buildStrip(Facet: any, core: any, spec: Spec, requested: string)
 				package skins (an ornate frame, a nine-slice, a gel) — drawn BENEATH
 				the sliding bar, and only while the strip IS a segmented pill: the row
 				list and the radio group are rows on the page, not a track. ]]
-			plate = UI.Box({
-				id = "Track",
-				surface = "control",
-				corners = UI.cornersData("pill"),
-				width = { type = "fill", weight = 1 },
-				height = { type = "fill", weight = 1 },
-				hidden = scope:own(core:memo(function(use)
-					return use(presentation) ~= "segmented"
-				end)),
-			}),
+			plate = if (spec :: any).track == false
+				then nil
+				else UI.Box({
+					id = "Track",
+					surface = "control",
+					corners = UI.cornersData("pill"),
+					width = { type = "fill", weight = 1 },
+					height = { type = "fill", weight = 1 },
+					hidden = scope:own(core:memo(function(use)
+						return use(presentation) ~= "segmented"
+					end)),
+				}),
 		})
 		scope:own(indicatorApi) -- the seam's whole lifetime is this control's
 		group = indicatorApi.blueprint
@@ -1530,10 +1546,18 @@ local function buildAutomatic(Facet: any, core: any, spec: Spec, id: string): an
 			then sizes.regular.paddingX
 			else 12
 		local gap = themeSnapshot.resolveNumber(snap, "space.xs") or 4
+		-- the live adapter calibrates the theme's font (src/client/text_calibration);
+		-- a calibrated family tightens the estimate, an unknown one keeps the
+		-- conservative fraction every uncalibrated measurement uses
+		local role = themeSnapshot.roleOf(snap, spec.textSize or "control")
+		local family = if type(role) == "table" and type(role.font) == "table" then role.font.family else nil
+		local fraction = if type(family) == "string"
+			then textMetrics.calibrationTable()[family] or textMetrics.AVG_GLYPH_FRACTION
+			else textMetrics.AVG_GLYPH_FRACTION
 		local total = 0
 		for _, option in list do
 			local label = tostring(readValue(option.label, use))
-			total += #label * textPx * textMetrics.AVG_GLYPH_FRACTION + 2 * padX
+			total += #label * textPx * fraction + 2 * padX
 		end
 		return total + gap * math.max(0, #list - 1)
 	end

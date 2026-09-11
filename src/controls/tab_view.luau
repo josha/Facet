@@ -799,6 +799,9 @@ function tab_view.build(Facet: any, core: any, spec: Spec)
 		options = options,
 		selected = selection,
 		presentation = "segmented",
+		-- a tab strip sits in the band this control already draws; the picker's
+		-- own segmented track would be a second plate around it (2026-09-11)
+		track = false,
 		indicator = if requestedIndicator == "automatic"
 			then (if adaptable then "pill" else AUTOMATIC_INDICATOR)
 			else requestedIndicator,
