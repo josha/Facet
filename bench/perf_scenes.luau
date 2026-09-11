@@ -60,6 +60,7 @@ local perf_profiles = require("../bench/perf_profiles")
 local perf_dataset = require("../examples/performance/lab/dataset")
 local perf_rows = require("../examples/performance/lab/rows")
 local navigationInventory = require("../examples/performance/lab/navigation_inventory")
+local transientSurfaces = require("../examples/performance/lab/transient_surfaces")
 local themeSnapshot = require("../src/themes/snapshot")
 local sheet_model = require("../src/tokens/sheet_model")
 
@@ -1586,124 +1587,69 @@ table.insert(scenes, customizationScene)
 -- at it: Alert (role-ordered action row/stack), the Picker menu (anchored
 -- popover), the segmented strip's reactive fit rule, and the radial menu. A
 -- scene per landing keeps the trend gate honest about exactly the cost that
--- moved, instead of letting it hide inside `screen-lifecycle-churn`.
+-- moved, instead of letting it hide inside `screen-lifecycle-churn`. The three
+-- open/close fixtures are `examples/performance/lab/transient_surfaces.luau`,
+-- SHARED with the lab's `transient-surfaces` workload so the trend gate and the
+-- Studio capture price the same tree (the `adaptive-navigation` precedent).
+
+local function transientScene(spec: { name: string, requirement: string, dataset: string, kind: string })
+	return {
+		name = spec.name,
+		requirement = spec.requirement,
+		dataset = spec.dataset,
+		samples = 120,
+		warmup = 30,
+		setup = function(profile)
+			local core, _env, _sys, adapter, pres = newStack(profile)
+			local fixture = transientSurfaces.build(Facet, core, spec.kind)
+			fixture.present(pres)
+			return { core = core, adapter = adapter, pres = pres, fixture = fixture }
+		end,
+		run = function(state)
+			local t0 = os.clock()
+			state.fixture.open(state.pres)
+			local open = os.clock() - t0
+			local t1 = os.clock()
+			state.fixture.close(state.pres)
+			return { open = open, close = os.clock() - t1 }
+		end,
+		extras = function(state)
+			return state.fixture.proof(state.pres)
+		end,
+		teardown = function(state)
+			state.fixture.dispose()
+		end,
+	}
+end
 
 -- 23. Alert present/dismiss: a three-action alert (destructive + default +
 -- cancel) is presented over a base screen and dismissed every iteration. Prices
 -- the role-ordered AdaptiveStack + keyed ForEach the Alert now builds, and the
 -- presenter's modal mount/dispose churn around it.
-table.insert(scenes, {
-	name = "alert-present-dismiss",
-	requirement = "UI-LIFE-002",
-	dataset = "Base Screen(Button); Alert(title, message, 3 role-placed actions) presented + refreshed, dismissed + refreshed per iter",
-	samples = 120,
-	warmup = 30,
-	setup = function(profile)
-		local core, _env, _sys, adapter, pres = newStack(profile)
-		pres.present(UI.Screen({ id = "Base", children = { UI.Button({ id = "Open", label = "Open" }) } }))
-		pres.refresh()
-		pres.focus.focusOn("/Base/Open")
-		local alert = Facet.Controls.Alert(core, {
-			id = "Confirm",
-			title = "Delete this save?",
-			message = "The save slot is cleared and the run restarts from the last checkpoint.",
-			actions = {
-				{ id = "Delete", label = "Delete", role = "destructive" },
-				{ id = "Keep", label = "Keep a copy" },
-				{ id = "Cancel", label = "Cancel", role = "cancel" },
-			},
-		})
-		return { core = core, adapter = adapter, pres = pres, alert = alert, presents = 0 }
-	end,
-	run = function(state)
-		local pres = state.pres
-		local t0 = os.clock()
-		local handle = state.alert.present(pres)
-		pres.refresh()
-		local present = os.clock() - t0
-		assert(state.adapter.node("/Confirm/Center/Card") ~= nil, "the alert card must be mounted after present")
-		state.presents += 1
-		local t1 = os.clock()
-		pres.dismiss(handle)
-		pres.refresh()
-		return { present = present, dismiss = os.clock() - t1 }
-	end,
-	extras = function(state)
-		return { presents = state.presents, render = state.pres.stats and state.pres.stats() or nil }
-	end,
-	teardown = function(state)
-		state.alert.dispose()
-	end,
-})
+table.insert(
+	scenes,
+	transientScene({
+		name = "alert-present-dismiss",
+		requirement = "UI-LIFE-002",
+		dataset = "Base Screen(Button); Alert(title, message, 3 role-placed actions) presented + refreshed + ticked, dismissed + refreshed + ticked per iter",
+		kind = "alert",
+	})
+)
 
 -- 24. Picker menu open/close: the menu-style picker (the phone/desktop default)
 -- opens its anchored popover and closes it every iteration. Prices the popover
 -- host mount, the anchor solve, the materialize transition's first tick, and the
--- teardown — the path every settings row on a phone now takes.
-table.insert(scenes, {
-	name = "picker-menu-open-close",
-	requirement = "UI-PERF-001",
-	dataset = "Screen(Picker style=menu, 6 options) presented; api.open + refresh + tick, api.close + refresh + tick per iter",
-	samples = 120,
-	warmup = 30,
-	setup = function(profile)
-		local core, _env, _sys, adapter, pres = newStack(profile)
-		local options = {}
-		for i = 1, 6 do
-			table.insert(options, { value = `q{i}`, label = `Quality {i}` })
-		end
-		local selected = core:signal("q3")
-		local picker = Facet.Controls.Picker(core, {
-			id = "Quality",
-			label = "Quality",
-			style = "menu",
-			options = options,
-			selected = selected,
-		})
-		pres.present(UI.Screen({ id = "S", padding = 12, children = { picker.blueprint } }))
-		pres.refresh()
-		pres.tick(1 / 60)
-		pres.refresh()
-		return { core = core, adapter = adapter, pres = pres, picker = picker, opens = 0 }
-	end,
-	run = function(state)
-		local pres, picker = state.pres, state.picker
-		local t0 = os.clock()
-		picker.api.open()
-		pres.refresh()
-		pres.tick(1 / 60)
-		pres.refresh()
-		local open = os.clock() - t0
-		local dump = picker.dump()
-		assert(dump.open == true, "the picker menu must be open after api.open")
-		-- a nearby touch/pointer surface anchors a popover; a gamepad surface (and a
-		-- compact one past the popover limit) presents a sheet instead. Either is
-		-- one presented surface; which one is recorded beside the number.
-		state.presentation = dump.presentation
-		if dump.presentation == "menu" then
-			assert(pres.anchoredSurfaces().count == 1, "the menu must present exactly one anchored surface")
-		end
-		state.opens += 1
-		local t1 = os.clock()
-		picker.api.close()
-		pres.refresh()
-		pres.tick(1 / 60)
-		pres.refresh()
-		local close = os.clock() - t1
-		assert(picker.dump().open == false, "the picker menu must be closed after api.close")
-		return { open = open, close = close }
-	end,
-	extras = function(state)
-		return {
-			opens = state.opens,
-			presentation = state.presentation,
-			anchoredAfter = state.pres.anchoredSurfaces().count,
-		}
-	end,
-	teardown = function(state)
-		state.picker.dispose()
-	end,
-})
+-- teardown — the path every settings row on a phone now takes. A gamepad profile
+-- presents a sheet instead; the presentation is recorded beside the number.
+table.insert(
+	scenes,
+	transientScene({
+		name = "picker-menu-open-close",
+		requirement = "UI-PERF-001",
+		dataset = `Screen(Picker style=menu, {transientSurfaces.PICKER_OPTIONS} options) presented; api.open + refresh + tick, api.close + refresh + tick per iter`,
+		kind = "picker",
+	})
+)
 
 -- 25. Segmented strip text-size flip: a segmented picker under a preferred
 -- text-size change. The strip's fit rule is reactive on the preference, so
@@ -1764,60 +1710,14 @@ table.insert(scenes, {
 -- 26. Radial menu open/close: a six-item compass radial opens from its solved
 -- launcher and closes every iteration. Prices the sector geometry refresh, the
 -- opening scale/aim motion's first ticks and the close path.
-table.insert(scenes, {
-	name = "radial-menu-open-close",
-	requirement = "UI-PERF-001",
-	dataset = "Screen(RadialMenu donut/compass, 6 items) settled; api.open + refresh + 2 ticks, api.close + refresh + 2 ticks per iter",
-	samples = 120,
-	warmup = 30,
-	setup = function(profile)
-		local core, _env, _sys, adapter, pres = newStack(profile)
-		local items = {}
-		for i, slot in { "N", "NE", "E", "S", "SW", "W" } do
-			table.insert(items, { id = `act{i}`, label = `Action {i}`, slot = slot })
-		end
-		local menu = Facet.Controls.RadialMenu(core, {
-			id = "Radial",
-			preset = "donut",
-			distribution = "compass",
-			items = items,
-		})
-		pres.present(UI.Screen({ id = "S", children = { menu.blueprint } }))
-		for _ = 1, 3 do
-			pres.tick(1 / 60)
-			pres.refresh()
-		end
-		return { core = core, adapter = adapter, pres = pres, menu = menu, opens = 0 }
-	end,
-	run = function(state)
-		local pres, menu = state.pres, state.menu
-		local t0 = os.clock()
-		local opened = menu.api.open()
-		pres.refresh()
-		pres.tick(1 / 60)
-		pres.refresh()
-		pres.tick(1 / 60)
-		pres.refresh()
-		local open = os.clock() - t0
-		assert(opened == true and menu.dump().open == true, "the radial must open from its solved launcher")
-		state.opens += 1
-		local t1 = os.clock()
-		menu.api.close()
-		pres.refresh()
-		pres.tick(1 / 60)
-		pres.refresh()
-		pres.tick(1 / 60)
-		pres.refresh()
-		local close = os.clock() - t1
-		assert(menu.dump().open == false, "the radial must be closed after api.close")
-		return { open = open, close = close }
-	end,
-	extras = function(state)
-		return { opens = state.opens, sectors = #state.menu.dump().sectors }
-	end,
-	teardown = function(state)
-		state.menu.dispose()
-	end,
-})
+table.insert(
+	scenes,
+	transientScene({
+		name = "radial-menu-open-close",
+		requirement = "UI-PERF-001",
+		dataset = `Screen(RadialMenu donut/compass, {transientSurfaces.RADIAL_ITEMS} items) settled; api.open + refresh + 2 ticks, api.close + refresh + 2 ticks per iter`,
+		kind = "radial",
+	})
+)
 
 return scenes

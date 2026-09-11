@@ -272,6 +272,23 @@ local WORKLOADS = {
 		question = "What does adaptive sidebar reflow cost on the shared 24-image inventory?",
 		passes = { "navigationReflow" },
 	},
+	--[[ THE TRANSIENT SURFACES (2026-09-11), implemented in
+		`examples/performance/lab/transient_surfaces.luau` and shared with
+		`bench/perf_scenes`. Three landings shipped with no workload: the Alert,
+		the Picker's anchored menu (the settings-row default on phone and desktop)
+		and the radial menu. Each pass is `reps` open/close pairs, timed as two
+		player events. `implementation = "none"`: every fixture mounts its own base
+		surface. SAME RULING as the levers: adding a workload changes no existing
+		workload's steps, so `SCENARIO_VERSION` does not move. ]]
+	{
+		id = "transient-surfaces",
+		implementation = "none",
+		question = "What does one player event cost when it presents a whole surface — an alert, "
+			.. "a pop-up menu that materializes, a radial menu that animates through the solver — "
+			.. "and what does taking it down cost?",
+		passes = { "alertPresent", "pickerMenu", "radialOpen" },
+		profilePass = "pickerMenu",
+	},
 }
 
 local WORKLOAD_BY_ID: { [string]: any } = {}
@@ -328,8 +345,9 @@ return {
 				and lab.rows ~= nil
 				and lab.capture ~= nil
 				and lab.levers ~= nil
-				and lab.navigationInventory ~= nil,
-			"[perf lab] ctx.lab must carry { dataset, rows, capture, overlay, levers, navigationInventory } — see examples/performance/client/init.client.luau"
+				and lab.navigationInventory ~= nil
+				and lab.transientSurfaces ~= nil,
+			"[perf lab] ctx.lab must carry { dataset, rows, capture, overlay, levers, navigationInventory, transientSurfaces } — see examples/performance/lab/init.luau"
 		)
 		local dataset = lab.dataset
 		local rows = lab.rows
@@ -1845,6 +1863,17 @@ return {
 			core = core,
 			ctx = ctx,
 			dataset = dataset,
+			telemetry = telemetry,
+			timed = timed,
+			summarize = summarize,
+			framesAndReps = framesAndReps,
+			passes = passes,
+		})
+
+		lab.transientSurfaces.install({
+			Facet = Facet,
+			core = core,
+			ctx = ctx,
 			telemetry = telemetry,
 			timed = timed,
 			summarize = summarize,

@@ -58,12 +58,12 @@
       "frameBudgetMs": 33.333333333333336,
       "frameTargetHz": 30,
       "hint": "scene 'alert-present-dismiss' (UI-LIFE-002) exceeded its headless trend budget — profile the reactive/layout path it exercises; re-baseline with 'lune run tools/lune/perf_baseline_scene alert-present-dismiss' ONLY if the cost is intended",
-      "observed_p95_max_ms": 0.790541700553149,
-      "observed_p95_min_ms": 0.7105832919478416,
-      "observed_p95_ms": 0.790541700553149,
+      "observed_p95_max_ms": 1.0429166723042727,
+      "observed_p95_min_ms": 0.8088333415798843,
+      "observed_p95_ms": 1.0429166723042727,
       "requirement": "UI-LIFE-002",
       "scopedBaseline": true,
-      "total_p95_ms": 3.162166802212596
+      "total_p95_ms": 4.171666689217091
     },
     "animation-interruption": {
       "baselineRepeats": 5,
@@ -106,12 +106,13 @@
       "ceilingMs": 8.333333333333334,
       "frameBudgetMs": 33.333333333333336,
       "frameTargetHz": 30,
-      "hint": "scene 'collection-mutation' (UI-RUNTIME-002) exceeded its headless trend budget — profile the reactive/layout path it exercises; re-baseline with 'tools/perf.sh baseline' ONLY if the cost is intended",
-      "observed_p95_max_ms": 1.059875008650124,
-      "observed_p95_min_ms": 0.9800833358895034,
-      "observed_p95_ms": 1.059875008650124,
+      "hint": "scene 'collection-mutation' (UI-RUNTIME-002) exceeded its headless trend budget — profile the reactive/layout path it exercises; re-baseline with 'lune run tools/lune/perf_baseline_scene collection-mutation' ONLY if the cost is intended",
+      "observed_p95_max_ms": 0.8025416755117476,
+      "observed_p95_min_ms": 0.668874999973923,
+      "observed_p95_ms": 0.8025416755117476,
       "requirement": "UI-RUNTIME-002",
-      "total_p95_ms": 4.239500034600496
+      "scopedBaseline": true,
+      "total_p95_ms": 3.2101667020469904
     },
     "dense-hud": {
       "baselineRepeats": 5,
@@ -155,12 +156,12 @@
       "frameBudgetMs": 33.333333333333336,
       "frameTargetHz": 30,
       "hint": "scene 'lab-collection-churn' (UI-RUNTIME-002) exceeded its headless trend budget — profile the reactive/layout path it exercises; re-baseline with 'lune run tools/lune/perf_baseline_scene lab-collection-churn' ONLY if the cost is intended",
-      "observed_p95_max_ms": 3.063541604205966,
-      "observed_p95_min_ms": 2.810916863381862,
-      "observed_p95_ms": 3.063541604205966,
+      "observed_p95_max_ms": 0.2362916711717844,
+      "observed_p95_min_ms": 0.06829167250543833,
+      "observed_p95_ms": 0.2362916711717844,
       "requirement": "UI-RUNTIME-002",
       "scopedBaseline": true,
-      "total_p95_ms": 12.254166416823864
+      "total_p95_ms": 0.9451666846871376
     },
     "lab-dense-scroll": {
       "baselineRepeats": 5,
@@ -168,12 +169,12 @@
       "frameBudgetMs": 33.333333333333336,
       "frameTargetHz": 30,
       "hint": "scene 'lab-dense-scroll' (UI-PERF-001) exceeded its headless trend budget — profile the reactive/layout path it exercises; re-baseline with 'lune run tools/lune/perf_baseline_scene lab-dense-scroll' ONLY if the cost is intended",
-      "observed_p95_max_ms": 4.809750011190772,
-      "observed_p95_min_ms": 4.227416589856148,
-      "observed_p95_ms": 4.809750011190772,
+      "observed_p95_max_ms": 1.5602083294652402,
+      "observed_p95_min_ms": 1.2072083191014826,
+      "observed_p95_ms": 1.5602083294652402,
       "requirement": "UI-PERF-001",
       "scopedBaseline": true,
-      "total_p95_ms": 19.23900004476309
+      "total_p95_ms": 6.240833317860961
     },
     "locale-textsize-change": {
       "baselineRepeats": 5,
@@ -205,12 +206,12 @@
       "frameBudgetMs": 33.333333333333336,
       "frameTargetHz": 30,
       "hint": "scene 'navigation-customization' (UI-PERF-001) exceeded its headless trend budget — profile the reactive/layout path it exercises; re-baseline with 'lune run tools/lune/perf_baseline_scene navigation-customization' ONLY if the cost is intended",
-      "observed_p95_max_ms": 6.677416618913412,
-      "observed_p95_min_ms": 6.433958362322301,
-      "observed_p95_ms": 6.677416618913412,
+      "observed_p95_max_ms": 1.8867083708755672,
+      "observed_p95_min_ms": 1.3662083074450493,
+      "observed_p95_ms": 1.8867083708755672,
       "requirement": "UI-PERF-001",
       "scopedBaseline": true,
-      "total_p95_ms": 26.70966647565365
+      "total_p95_ms": 7.546833483502269
     },
     "picker-menu-open-close": {
       "baselineRepeats": 5,
@@ -218,12 +219,12 @@
       "frameBudgetMs": 33.333333333333336,
       "frameTargetHz": 30,
       "hint": "scene 'picker-menu-open-close' (UI-PERF-001) exceeded its headless trend budget — profile the reactive/layout path it exercises; re-baseline with 'lune run tools/lune/perf_baseline_scene picker-menu-open-close' ONLY if the cost is intended",
-      "observed_p95_max_ms": 5.047916667535901,
-      "observed_p95_min_ms": 4.668125009629875,
-      "observed_p95_ms": 5.047916667535901,
+      "observed_p95_max_ms": 2.439708332531154,
+      "observed_p95_min_ms": 2.1154166315682232,
+      "observed_p95_ms": 2.439708332531154,
       "requirement": "UI-PERF-001",
       "scopedBaseline": true,
-      "total_p95_ms": 20.191666670143604
+      "total_p95_ms": 9.758833330124617
     },
     "picker-segmented-textsize": {
       "baselineRepeats": 5,
@@ -244,12 +245,12 @@
       "frameBudgetMs": 33.333333333333336,
       "frameTargetHz": 30,
       "hint": "scene 'radial-menu-open-close' (UI-PERF-001) exceeded its headless trend budget — profile the reactive/layout path it exercises; re-baseline with 'lune run tools/lune/perf_baseline_scene radial-menu-open-close' ONLY if the cost is intended",
-      "observed_p95_max_ms": 4.977500007953495,
-      "observed_p95_min_ms": 4.4908333220519125,
-      "observed_p95_ms": 4.977500007953495,
+      "observed_p95_max_ms": 4.360041697509587,
+      "observed_p95_min_ms": 3.9544166647829115,
+      "observed_p95_ms": 4.360041697509587,
       "requirement": "UI-PERF-001",
       "scopedBaseline": true,
-      "total_p95_ms": 19.91000003181398
+      "total_p95_ms": 17.440166790038347
     },
     "screen-lifecycle-churn": {
       "baselineRepeats": 5,
@@ -352,12 +353,13 @@
       "ceilingMs": 8.333333333333334,
       "frameBudgetMs": 33.333333333333336,
       "frameTargetHz": 30,
-      "hint": "scene 'virtual-list-scroll' (UI-RUNTIME-002) exceeded its headless trend budget — profile the reactive/layout path it exercises; re-baseline with 'tools/perf.sh baseline' ONLY if the cost is intended",
-      "observed_p95_max_ms": 1.7041249957401303,
-      "observed_p95_min_ms": 1.518833334557712,
-      "observed_p95_ms": 1.7041249957401303,
+      "hint": "scene 'virtual-list-scroll' (UI-RUNTIME-002) exceeded its headless trend budget — profile the reactive/layout path it exercises; re-baseline with 'lune run tools/lune/perf_baseline_scene virtual-list-scroll' ONLY if the cost is intended",
+      "observed_p95_max_ms": 1.0332916863262651,
+      "observed_p95_min_ms": 0.9293750044889748,
+      "observed_p95_ms": 1.0332916863262651,
       "requirement": "UI-RUNTIME-002",
-      "total_p95_ms": 6.816499982960522
+      "scopedBaseline": true,
+      "total_p95_ms": 4.133166745305061
     }
   },
   "schema": "facet-perf-budgets/2"
