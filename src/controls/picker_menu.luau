@@ -159,6 +159,8 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 	local presentModalFn, presentAnchoredFn, dismissFn, surfaceHandle
 	local syncSurface
 	local triggerWidth = 0
+	local triggerRect: any = nil -- the trigger's last solved rect, read at present time
+	local anchorRect: any = nil -- the rect the popover hangs from (chevron or trigger), same cadence
 	local triggerPath: () -> string
 	local dynamicOptions = type(spec.options) == "table" and spec.options.kind ~= nil
 	local describedOptions = false
@@ -525,6 +527,14 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 		end
 		return menuRecipe.touchPrimary(classes)
 	end))
+	-- the node the popover hangs from: the chevron on a plain touch row (the
+	-- last thing the eye sees on a trigger with no visible box), the trigger's
+	-- own frame everywhere else. Declared AFTER `touchPrimary`: a closure only
+	-- sees the locals that exist when it is made (three memos in this file were
+	-- quarantined by that rule this round alone).
+	local function anchorSourcePath(): string
+		return if rowForm and touchPrimary:get() == true then triggerPath() .. "/Chevron" else triggerPath()
+	end
 
 	local function optionRow(option, rowScope)
 		local function property(name)
@@ -574,6 +584,7 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 		viewport, takes the excess off this signal — one refresh later the list is
 		exactly as tall as the screen allows. Reset on every open. ]]
 	local listShrink = scope:own(core:signal(0))
+	local lastFedHeight: number? = nil -- the panel height the last shrink was fed from (convergence guard)
 	local function listMaxPx(presentation: string, use: any?): number
 		local shrink = if use ~= nil then use(listShrink) else listShrink:get()
 		local env = envForFacts or spec.env
@@ -608,7 +619,44 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 				+ minimum
 				+ offset * 4
 			else minimum * 2 + offset * 2
-		return math.max(minimum * 2, h - chrome - shrink)
+		local budget = h - chrome
+		--[[ ...AND A POPOVER STAYS ATTACHED (visual review 2026-09-11): its rows
+			scroll inside the LARGER of the room below the trigger and the room above
+			it, so the placement never has to clamp the panel over the control that
+			opened it. The room is read off the trigger's last solved rect and the
+			screen's own insets — the same numbers the anchored placement will use —
+			and only bounds the popover; a sheet has the whole screen. ]]
+		if presentation ~= "sheet" and type(triggerRect) == "table" and type(triggerRect.y) == "number" then
+			local xs = if type(metrics) == "table"
+					and type(metrics.space) == "table"
+					and type(metrics.space.xs) == "number"
+				then metrics.space.xs
+				else neutral.space.xs
+			local m = if type(metrics) == "table"
+					and type(metrics.space) == "table"
+					and type(metrics.space.m) == "number"
+				then metrics.space.m
+				else neutral.space.m
+			local insets = if env ~= nil then env:get("coreSafeInsets"):get() else nil
+			local top = if type(insets) == "table" and type(insets.top) == "number" then insets.top else 0
+			--[[ the panel's own chrome — the `raised` slot's content insets a package
+				carves (Glossy Touch's 7px, measured at +4 on a landscape phone) plus
+				the rows' gap — comes out of the room too, or the rows fit and the
+				plate around them does not; the anchor is the source's visible edge,
+				which the trigger's box bounds on both sides ]]
+			local insetsBySlot = if type(metrics) == "table" then (metrics :: any).chromeInsets else nil
+			local plate = if type(insetsBySlot) == "table" then insetsBySlot.panel else nil
+			local plateV = if type(plate) == "table"
+				then (tonumber(plate.top) or 0) + (tonumber(plate.bottom) or 0)
+				else 0
+			local source = if type(anchorRect) == "table" and type(anchorRect.y) == "number"
+				then anchorRect
+				else triggerRect
+			local below = h - m - (source.y + source.h + xs)
+			local above = source.y - xs - top
+			budget = math.min(budget, math.max(below, above) - offset - plateV - space)
+		end
+		return math.max(minimum * 2, budget - shrink)
 	end
 	-- the picker's static/dynamic row list height, reactive on the shrink
 	local listHeight = scope:own(core:memo(function(use)
@@ -926,6 +974,7 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 			return
 		end
 		listShrink:set(0)
+		lastFedHeight = nil
 		local panel = contribution.attach(popupPanel(), {
 			handleActivate = api.handleActivate,
 			handleCancel = function()
@@ -946,7 +995,35 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 						return
 					end
 					local over = math.max(-rect.y, rect.y + rect.h - vp.h)
-					if over > 0.5 then
+					--[[ ...AND THE ATTACHMENT IS MEASURED TOO (visual review 2026-09-11):
+						the placement clamps a panel that fits on neither side of its source
+						OVER the control, so the panel must be no taller than the larger of
+						the room below the source and the room above it; whatever it is
+						taller by is handed back to the list's budget, one solve later,
+						exactly like the viewport overflow beside it. Themed panel chrome the
+						budget's own arithmetic cannot see (Fantasy Ornate's frame) is what
+						this catches. Measured against the ROOM, never the panel's position:
+						the anchored placement moves the panel on its own cadence, after this
+						loop, so a position-based reading would shrink the same 12px eight
+						times and trip the solver's feedback cap (seen on the landscape
+						phone under Fantasy Ornate). ONLY ONCE PLACED: a fresh surface's
+						first sync reports the panel at the origin. ]]
+					local source = if presentationNow() == "sheet" or rect.x <= 0.5 then nil else anchorRect
+					if type(source) == "table" and type(source.y) == "number" then
+						local metricsNow = if env ~= nil then env:get("themeMetrics"):get() else nil
+						local neutralNow = themeSnapshot.neutral()
+						local spaceNow = if type(metricsNow) == "table" and type(metricsNow.space) == "table"
+							then metricsNow.space
+							else neutralNow.space
+						local xs = if type(spaceNow.xs) == "number" then spaceNow.xs else neutralNow.space.xs
+						local m = if type(spaceNow.m) == "number" then spaceNow.m else neutralNow.space.m
+						local insets = env:get("coreSafeInsets"):get()
+						local top = if type(insets) == "table" and type(insets.top) == "number" then insets.top else 0
+						local room = math.max(vp.h - m - (source.y + source.h + xs), source.y - xs - top)
+						over = math.max(over, rect.h - room)
+					end
+					if over > 0.5 and (lastFedHeight == nil or rect.h < lastFedHeight - 0.5) then
+						lastFedHeight = rect.h
 						listShrink:set(listShrink:get() + math.ceil(over))
 					end
 				end
@@ -981,13 +1058,7 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 					pop-up button hangs from its own frame at the leading edge. Both keep
 					the screen's content inset (`margin`). Visual review 2026-09-11. ]]
 				anchor = {
-					source = {
-						-- (`touchPrimary` is the memo `triggerSurface` reads; that memo is
-						-- declared below this closure and a forward reference would be nil)
-						path = if rowForm and touchPrimary:get() == true
-							then triggerPath() .. "/Chevron"
-							else triggerPath(),
-					},
+					source = { path = anchorSourcePath() },
 					edge = "bottom",
 					align = if rowForm then "end" else "start",
 					gap = "xs",
@@ -1264,7 +1335,10 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 					local rect = rectOf(triggerPath())
 					if type(rect) == "table" and type(rect.w) == "number" then
 						triggerWidth = rect.w
+						triggerRect = rect
 					end
+					local sourceRect = rectOf(anchorSourcePath())
+					anchorRect = if type(sourceRect) == "table" then sourceRect else rect
 				end
 				syncSurface()
 				if not available() and not disposed then

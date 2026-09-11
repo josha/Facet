@@ -286,6 +286,7 @@ anything else.
 | `UI.schema.deprecations() -> { Deprecation }` | the schema-generated half of `Facet.DEPRECATIONS` (a fresh table per call) |
 | `UI.schema.TRANSITION_MIRROR` | each structural-transition form paired with its mirror |
 | `UI.schema.TRANSITION_FADES` | the forms that drive transparency (and therefore need a fade group) |
+| `UI.schema.TRANSITION_PIVOTS` | where a scaling form may grow from (`center`, `topLeft`, `topRight`, `bottomLeft`, `bottomRight`) |
 | `UI.schema.INHERITED_TINT_CLASSES` | the classes whose `tint` is INHERITED — declared on a container, painted by its subtree — as a frozen set derived from the class rows themselves |
 | `UI.schema.INHERITED_TINT_ALPHA_REFUSAL` | the ONE sentence both refusals of a `transparency` on an inherited `tint` raise: the construction-time one and the read-time one a reactive tint needs |
 

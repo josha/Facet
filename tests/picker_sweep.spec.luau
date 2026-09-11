@@ -142,6 +142,88 @@ local function rectWithin(rect: any, vp: any): boolean
 		and rect.y + rect.h <= vp.y + vp.h + 0.5
 end
 
+local function near(a: number, b: number, tolerance: number?): boolean
+	return math.abs(a - b) <= (tolerance or 1)
+end
+
+local function metric(theme: any, name: string, fallback: number): number
+	local snap = if theme ~= nil and theme.metrics ~= nil then theme.metrics else snapshot.neutral()
+	return snapshot.resolveNumber(snap, name) or fallback
+end
+
+--[[ THE ATTACHMENT (visual review 2026-09-11: "the menu isn't attached to the
+	thing that opens it"). Pinned per theme, preference and viewport: the popover's
+	trailing edge is flush with the trigger's VISIBLE trailing edge (the chevron on
+	a plain touch row, the bordered trigger elsewhere), its top sits one `xs` under
+	that edge (or its bottom one `xs` above it when the placement flipped), it is
+	never narrower than the trigger nor wider than the screen less its content
+	inset, and the trigger reads as pressed while the menu is up. ]]
+local function pinAttachment(label: string, w: any, theme: any, viewport: any, trigger: string, popupRoot: string)
+	local touch = viewport.input == "touch"
+	local sourcePath = if touch then trigger .. "/Chevron" else trigger
+	local source = w.adapter.node(sourcePath).rect
+	local panel = w.adapter.node(popupRoot).rect
+	local triggerRect = w.adapter.node(trigger).rect
+	local gap = metric(theme, "space.xs", 4)
+	local inset = metric(theme, "space.m", 16)
+	-- flush — or, when the rows want more room than the source leaves to its
+	-- left, pushed to the content inset and still covering the source's edge
+	-- (the placement's own shift; the reference platform's menu does the same)
+	local flush = near(panel.x + panel.w, source.x + source.w)
+		or (near(panel.x, inset) and panel.x + panel.w + 0.5 >= source.x + source.w)
+	expect(
+		`{label} trailing edges flush: {flush} (panel right {panel.x + panel.w}, source right {source.x + source.w})`
+	).toBe(`{label} trailing edges flush: true (panel right {panel.x + panel.w}, source right {source.x + source.w})`)
+	local below = near(panel.y, source.y + source.h + gap)
+	local above = near(panel.y + panel.h, source.y - gap)
+	expect(
+		`{label} hangs one xs off the source: {below or above} (panel {panel.x},{panel.y} {panel.w}x{panel.h}; source {source.x},{source.y} {source.w}x{source.h}; gap {gap})`
+	).toBe(
+		`{label} hangs one xs off the source: true (panel {panel.x},{panel.y} {panel.w}x{panel.h}; source {source.x},{source.y} {source.w}x{source.h}; gap {gap})`
+	)
+	expect(`{label} at least the trigger's width: {panel.w + 0.5 >= triggerRect.w}`).toBe(
+		`{label} at least the trigger's width: true`
+	)
+	expect(
+		`{label} inside the content inset: {panel.x + 0.5 >= inset and panel.x + panel.w <= viewport.rect.w - inset + 0.5}`
+	).toBe(`{label} inside the content inset: true`)
+	local pressed = w.adapter.node(trigger).props.selected
+	expect(`{label} trigger pressed while open: {pressed == true}`).toBe(`{label} trigger pressed while open: true`)
+end
+
+--[[ THE TRACK (visual review 2026-09-11): a segmented picker is ONE plated
+	track holding equal segments — every segment the same height and, on a filled
+	band, the same width — and the row forms carry no track at all. ]]
+local function pinTrack(label: string, w: any, picker: any)
+	local resolved = picker.dump().presentation
+	local track = suffixPath(w, "/Indicator/Track")
+	if resolved == "segmented" then
+		-- (the fake resolves `hidden` into `node.visible`, never a stored prop)
+		expect(`{label} track plated: {track ~= nil and w.adapter.node(track :: string).visible ~= false}`).toBe(
+			`{label} track plated: true`
+		)
+		local heights: { number } = {}
+		local widths: { number } = {}
+		for _, path in w.adapter.paths() do
+			if string.match(path, "/Indicator/Options/Opt%d+$") then
+				local rect = w.adapter.node(path).rect
+				table.insert(heights, rect.h)
+				table.insert(widths, rect.w)
+			end
+		end
+		local equal = #heights >= 2
+		for i = 2, #heights do
+			equal = equal and near(heights[i], heights[1]) and near(widths[i], widths[1])
+		end
+		expect(`{label} equal segments: {equal} ({table.concat(widths, ",")} x {table.concat(heights, ",")})`).toBe(
+			`{label} equal segments: true ({table.concat(widths, ",")} x {table.concat(heights, ",")})`
+		)
+	else
+		local plated = track ~= nil and w.adapter.node(track :: string).visible ~= false
+		expect(`{label} no track on a row form: {not plated}`).toBe(`{label} no track on a row form: true`)
+	end
+end
+
 local function judge(label: string, w: any, prefix: string?)
 	local found = lt.sweep(w, prefix)
 	if #found.overlaps > 0 then
@@ -185,6 +267,9 @@ describe("Picker sweep: style x theme x text preference x viewport", function()
 							)
 							local surfaceRoot = string.match(popupRoot :: string, "^(/[^/]+)")
 							judge(label .. " open", w, surfaceRoot)
+							if picker.dump().presentation ~= "sheet" then
+								pinAttachment(label, w, theme, viewport, trigger :: string, popupRoot :: string)
+							end
 							local focused = w.pres.focus.focused:get()
 							expect(
 								`{label} focus inside the popup: {focused ~= nil and string.find(
@@ -207,7 +292,19 @@ describe("Picker sweep: style x theme x text preference x viewport", function()
 							expect(`{label} closed, focus back on the trigger: {back == trigger}`).toBe(
 								`{label} closed, focus back on the trigger: true`
 							)
+							local released = w.adapter.node(trigger :: string).props.selected
+							expect(`{label} trigger released when closed: {released ~= true}`).toBe(
+								`{label} trigger released when closed: true`
+							)
 						else
+							-- a described option never becomes a segment (options(style) carries one
+							-- for every non-segmented style), so an automatic strip is a row form
+							if style == "automatic" then
+								expect(`{label} automatic never segments a described option: {resolved}`)
+									.never()
+									.toBe(`{label} automatic never segments a described option: segmented`)
+							end
+							pinTrack(label, w, picker)
 							local second = suffixPath(w, "/Opt2")
 								or suffixPath(w, "/[b]/Option")
 								or suffixPath(w, "/[b]/SectionRow/Option")

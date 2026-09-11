@@ -393,6 +393,9 @@ require("./nav_bar.spec")
 require("./controls_conformance.spec")
 require("./hint_no_remount.spec")
 require("./icon_box.spec")
+-- every shipped package answers every control-requested icon name with ART; the
+-- ASCII floor is an engine recovery path and never a shipping state
+require("./icon_coverage.spec")
 require("./chrome_inset_yield.spec")
 require("./slice_mutation.spec")
 require("./focus_structural.spec")

@@ -13,6 +13,15 @@ runtime as `Facet.VERSION`.
 
 ## [Unreleased]
 
+- **Icons: no shipped theme paints a character where a picture belongs.** The
+  radio and checkbox indicators, the pop-up button's chevron pair and the tick
+  now resolve to real art in every shipped package. Facet's own icon set gained
+  the three selection marks; Pixel Quest gained the eight names it was missing,
+  which is what licenses it to keep declining the framework set; Glossy Touch and
+  Compact Pointer no longer decline it. `tests/icon_coverage.spec.luau` fails a
+  package that leaves any control-requested name on the ASCII floor, which stays
+  an engine recovery path. `tools/upload_icons.py --theme` uploads a theme
+  package's own art headlessly.
 - Picker visual round (2026-09-11). The segmented style is one plated track
   (the `control` surface every package skins) holding equal pill segments with
   the bar sliding beneath them; a segment carries a label only — a described
