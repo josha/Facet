@@ -799,7 +799,10 @@ function menu.build(Facet: any, core: any, spec: Spec)
 			handle = (presentAnchoredFn :: any)(attached, {
 				id = surfaceId,
 				modal = true,
-				anchor = { source = { path = sourcePath }, edge = edge, align = "start" },
+				-- the same attachment every control-presented popover keeps (picker
+				-- round, 2026-09-11): a tight gap under the source and the screen's
+				-- content inset as the margin it will not cross
+				anchor = { source = { path = sourcePath }, edge = edge, align = "start", gap = "xs", margin = "m" },
 				-- "none" is fully transparent but STILL CATCHING: an outside tap
 				-- closes the menu and is consumed, never clicking through to whatever
 				-- was behind it, and the surface underneath is never dimmed. A menu is

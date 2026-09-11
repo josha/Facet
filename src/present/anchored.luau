@@ -132,7 +132,7 @@ local SEAM_OVERDRAW = 1
 
 local ROOT_TWO = math.sqrt(2)
 
-local ANCHOR_KEYS = specGuard.keySet({ "align", "edge", "gap", "overflow", "source", "tail" })
+local ANCHOR_KEYS = specGuard.keySet({ "align", "edge", "gap", "margin", "overflow", "source", "tail" })
 local SOURCE_KEYS = specGuard.keySet({ "path", "rect" })
 local TAIL_KEYS = specGuard.keySet({ "cornerInset", "size", "surface" })
 
@@ -143,6 +143,7 @@ export type Anchor = {
 	edge: string?,
 	align: string?,
 	gap: (string | number)?,
+	margin: (string | number)?, -- extra inset of the safe box on every side but the top (a metric name or px)
 	overflow: string?,
 	tail: (boolean | Tail)?,
 }
@@ -236,10 +237,28 @@ function anchored.new(ctx: any)
 		local tailPx = if record.wantsTail then resolveMetric(record.tailMetric, 0) else 0
 		-- a 45° square protrudes half its DIAGONAL past its centre
 		local protrusion = tailPx * ROOT_TWO / 2
+		--[[ `margin` (picker round, 2026-09-11): a popover presented FROM A CONTROL
+			keeps the screen's own content inset, not the presenter's 8px gutter —
+			the reference platform's menus never sit closer to the edge than the
+			content they came from. Every side but the top, which is the chrome
+			band's and is already reserved in full (see `safeBox`). ]]
+		local safe = safeBox()
+		local marginPx = resolveMetric(anchor.margin, 0)
+		if marginPx > 0 then
+			-- a FLOOR on each side's inset, not a second gutter stacked on the
+			-- presenter's own: the box is the viewport less max(inset, margin)
+			local vp = env:get("viewportRect"):get()
+			if type(vp) == "table" then
+				local left = math.max(safe.x, (tonumber(vp.x) or 0) + marginPx)
+				local right = math.min(safe.x + safe.w, (tonumber(vp.x) or 0) + (tonumber(vp.w) or 0) - marginPx)
+				local bottom = math.min(safe.y + safe.h, (tonumber(vp.y) or 0) + (tonumber(vp.h) or 0) - marginPx)
+				safe = { x = left, y = safe.y, w = math.max(0, right - left), h = math.max(0, bottom - safe.y) }
+			end
+		end
 		local placement = anchorPlacement.solve({
 			source = sourceRect,
 			size = { w = surfaceRect.w, h = surfaceRect.h },
-			safe = safeBox(),
+			safe = safe,
 			edge = anchor.edge,
 			align = anchor.align,
 			gap = gapPx + protrusion,
@@ -345,6 +364,7 @@ function anchored.new(ctx: any)
 			edge = raw.edge or "bottom",
 			align = raw.align or "center",
 			gap = raw.gap,
+			margin = raw.margin,
 			overflow = raw.overflow,
 			tail = tail,
 		}
@@ -529,6 +549,32 @@ function anchored.new(ctx: any)
 			end
 		end
 		passthrough.rootPolicy = "edgeToEdge"
+		--[[ A SCALING ENTER GROWS OUT OF ITS SOURCE. The popover's materialize
+			pivots at the corner it hangs from — bottom/end is its top-right, the
+			corner touching the control — unless the caller named a pivot itself.
+			The REQUESTED edge and alignment, because the enter begins before the
+			placement has solved (a later flip is the rare case, and a menu that
+			flipped still grows from the corner nearest the control). ]]
+		local transition = passthrough.transition
+		if type(transition) == "table" and transition.pivot == nil and transition.kind == nil then
+			local edge = anchor.edge
+			local align = anchor.align
+			local vertical = edge == "top" or edge == "bottom"
+			local pivot: string
+			if vertical then
+				local row = if edge == "bottom" then "top" else "bottom"
+				pivot = if align == "end" then row .. "Right" elseif align == "start" then row .. "Left" else "center"
+			else
+				local column = if edge == "trailing" or edge == "right" then "Left" else "Right"
+				pivot = if align == "end"
+					then "bottom" .. column
+					elseif align == "start" then "top" .. column
+					else "center"
+			end
+			local copy = table.clone(transition)
+			copy.pivot = pivot
+			passthrough.transition = copy
+		end
 
 		local chrome = opts ~= nil and opts.chrome == true
 		if chrome and opts ~= nil and opts.modal == true then

@@ -269,16 +269,23 @@ describe("Picker style: a described popover never paints past the phone", functi
 			selected = n.core:signal("open"),
 			options = {
 				{ value = "open", label = "Open races" },
-				{ value = "club", label = "Club races", description = "Join a club to unlock." },
+				{
+					value = "club",
+					label = "Club races",
+					-- long enough that the row it wants is wider than the screen can give
+					description = "Join a club to unlock these races and the club-only weekend events.",
+				},
 			},
 		})
 		n.present(UI.Screen({ id = "S", children = { narrow.blueprint } }))
 		n.pres.refresh()
 		narrow.api.open()
 		n.pres.refresh()
+		-- the popover HUGS its widest row (the described one wants more than the
+		-- row can have) and stops at the screen's content inset on both sides
 		local capped = n.adapter.node(suffixPath(n, "/Popup") :: string).rect
-		expect(capped.w).toBe(320 - 16)
-		expect(capped.x + capped.w <= 320).toBe(true)
+		expect(capped.w).toBe(320 - 2 * 16)
+		expect(capped.x >= 16 and capped.x + capped.w <= 320 - 16).toBe(true)
 	end)
 end)
 

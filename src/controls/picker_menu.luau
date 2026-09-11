@@ -33,6 +33,7 @@ local specGuard = require("../spec_guard")
 local surfaceEnv = require("../env/surface_env")
 local paths = require("../paths")
 local themeSnapshot = require("../themes/snapshot")
+local textMetrics = require("../layout/text_metrics")
 local themePackage = require("../themes/package")
 local chrome_slots = require("../tokens/chrome_slots")
 
@@ -614,6 +615,62 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 		return { type = "hug", max = listMaxPx(presentationNow(), use) }
 	end))
 
+	--[[ the widest a popover may grow: the viewport less the screen's content
+		inset on both sides (the same `m` the anchor's `margin` keeps it inside) ]]
+	local function safeWidthNow(): number
+		local env = envForFacts or spec.env
+		local vp = if env ~= nil then env:get("viewportRect"):get() else nil
+		local metrics = if env ~= nil then env:get("themeMetrics"):get() else nil
+		local snap = if type(metrics) == "table" and type(metrics.controls) == "table"
+			then metrics
+			else themeSnapshot.neutral()
+		local inset = themeSnapshot.resolveNumber(snap, "space.m") or 16
+		local w = if type(vp) == "table" and type(vp.w) == "number" then vp.w else 1280
+		return math.max(120, w - 2 * inset)
+	end
+	--[[ THE WIDEST ROW, ESTIMATED FROM FACTS: the popover hugs it. A fill row
+		reports no natural width of its own (fill is "take the offer"), so the
+		hug is computed the way the strip's fit is — glyph count x the text size
+		the preference and the ten-foot scale make, plus the row's own chrome
+		(indicator slot, gap, padding) — and handed to `minMax` as the PREFERRED
+		width between the trigger and the safe width. Byte length over-counts a
+		pseudo-localized label, which is the safe direction for a hug. ]]
+	local function widestRowEstimate(): number
+		local env = envForFacts or spec.env
+		local function fact(name: string): any
+			return if env ~= nil then env:get(name):get() else nil
+		end
+		local metrics = fact("themeMetrics")
+		local snap = if type(metrics) == "table" and type(metrics.controls) == "table"
+			then metrics
+			else themeSnapshot.neutral()
+		local scale = themeSnapshot.typographyScale(fact("displaySize"), fact("preferredTextSize"))
+		local offset = themeSnapshot.textOffset(fact("preferredTextOffset"))
+		local labelPx = (themeSnapshot.resolveSize(snap, spec.textSize or "control") or 16) * scale + offset
+		local captionPx = (themeSnapshot.resolveSize(snap, "caption") or 12) * scale + offset
+		local sizes = (snap :: any).controlSizes
+		local padX = if type(sizes) == "table"
+				and type(sizes.regular) == "table"
+				and type(sizes.regular.paddingX) == "number"
+			then sizes.regular.paddingX
+			else 12
+		local slot = themeSnapshot.resolveNumber(snap, "space.l") or 24
+		local gap = themeSnapshot.resolveNumber(snap, "space.s") or 8
+		local widest = 0
+		for _, option in results:get() do
+			if option.divider == true then
+				continue
+			end
+			local label = tostring(readFact(option.label) or "")
+			local w = #label * labelPx * textMetrics.AVG_GLYPH_FRACTION
+			local description = readFact(option.description)
+			if type(description) == "string" then
+				w = math.max(w, #description * captionPx * textMetrics.AVG_GLYPH_FRACTION)
+			end
+			widest = math.max(widest, w + slot + gap + 2 * padX)
+		end
+		return math.ceil(widest)
+	end
 	local function describedPanelWidth(): number
 		local env = envForFacts or spec.env
 		local metrics = if env ~= nil then env:get("themeMetrics"):get() else nil
@@ -793,8 +850,20 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 			(measured live under Glossy Touch, 2026-09-11: a popover that only
 			floored at the trigger hugged a 95px button and wrapped every option
 			label onto two lines — a content row has no natural width to hug). ]]
+		--[[ ...AND THE VISUAL REVIEW OF 2026-09-11 REVERSED THE PICKER HALF: a
+			popover that took the themed panel width (360px) beside a 120px value
+			read as "not attached to the thing that opened it". The reference
+			platform's menu HUGS its widest row, never narrower than the control it
+			hangs from and never wider than the safe area. `minMax` with no
+			preferred is exactly "content, then clamped". ]]
+		local safeW = math.max(triggerWidth, safeWidthNow())
 		local floor = if pickerMode
-			then { type = "fixed", px = math.max(triggerWidth, describedPanelWidth()) }
+			then {
+				type = "minMax",
+				min = triggerWidth,
+				preferred = math.clamp(widestRowEstimate(), triggerWidth, safeW),
+				max = safeW,
+			}
 			else { type = "fixed", px = "controls.popup.panelWidth" }
 		local panel = UI.VStack({
 			id = if pickerMode and not isSheet then "Rows" else "Popup",
@@ -906,10 +975,23 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 				modal = true,
 				-- a form row's value sits at the trailing edge, so its menu hangs
 				-- from that edge; a pop-up button's menu hangs from its leading one
+				--[[ A PLAIN TRIGGER HAS NO VISIBLE BOX (the touch form row), so the
+					menu hangs from the CHEVRON — the last thing the eye sees — with its
+					trailing edges flush and a tight gap beneath the glyphs; a bordered
+					pop-up button hangs from its own frame at the leading edge. Both keep
+					the screen's content inset (`margin`). Visual review 2026-09-11. ]]
 				anchor = {
-					source = { path = triggerPath() },
+					source = {
+						-- (`touchPrimary` is the memo `triggerSurface` reads; that memo is
+						-- declared below this closure and a forward reference would be nil)
+						path = if rowForm and touchPrimary:get() == true
+							then triggerPath() .. "/Chevron"
+							else triggerPath(),
+					},
 					edge = "bottom",
 					align = if rowForm then "end" else "start",
+					gap = "xs",
+					margin = "m",
 				},
 				scrim = "none",
 				outsideTapCancel = true,
@@ -1069,6 +1151,10 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 		label = selectedLabel,
 		anchor = if rowForm then nil else "topLeft",
 		surface = triggerSurface,
+		-- pressed while its menu is up, as the reference platform draws it
+		selected = scope:own(core:memo(function(use)
+			return use(open) == true
+		end)),
 		width = triggerWidthDim,
 		height = if detached
 			then { type = "minMax", min = TRIGGER_HEIGHT }
