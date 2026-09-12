@@ -8,10 +8,11 @@
 	                      runs the primary action.
 	  touch               ONE button. A tap runs the primary action; a LONG
 	                      PRESS opens the menu (the phone's own `Menu` with a
-	                      primary action). No chevron cell: a thumb-sized
+	                      primary action). No chevron CELL: a thumb-sized
 	                      secondary segment beside a full-width action is the
 	                      desktop control transplanted, and it read as one on
-	                      every phone screenshot that led here.
+	                      every phone screenshot that led here. It does carry a
+	                      chevron HINT — see `touchForm`.
 
 	The two forms are two `UI.When` branches over the surface's live interaction
 	class, so a hybrid that gains a mouse mid-session gets the split and loses it
@@ -103,6 +104,30 @@ function split.build(Facet, core, spec)
 			},
 		})
 	end
+	--[[ THE TOUCH FORM'S MENU HINT (user review, 2026-09-12: *"nothing shows a
+		menu exists"*). A long press is the whole way in on this form and a long
+		press is invisible: the control looked exactly like an ordinary button, so
+		the alternatives were discoverable only by a player who already knew they
+		were there. The affordance is a trailing `chevron.down` INSIDE the same
+		`UI.Button` — not a second cell, which is the desktop split this form exists
+		to refuse. It stays ONE hit target, ONE focus stop and ONE activation: the
+		chevron is a `UI.Text` child with no action, no `Active`, and nothing
+		focusable about it.
+
+		A Button with children draws no text of its own (B-BTN1), so the visible
+		label moves into a fill `UI.Text` and `label` stays the semantic name — the
+		same shape `menu_recipe`'s submenu row and `disclosure_group`'s header both
+		take for exactly this reason. The glyph is the framework's ASCII-safe floor
+		with the semantic icon NAME beside it, so an installed package paints its
+		art over the character; `chevron.down` is a name every shipped package
+		resolves (tests/icon_coverage.spec.luau), which is why it is this name and
+		not an invented one. It is the same glyph the pointer form's chevron segment
+		draws, so one control never points two different ways at the same menu.
+
+		THE LABEL WRAPS RATHER THAN CLIPS. A `UI.Text` at fill width is the
+		localization-safe form (~1.4x under pseudo-localization); the button's
+		minimum height is a floor, not a cap, so a two-line label grows the plate
+		instead of losing its second half. ]]
 	local function touchForm(branchScope: any): any
 		local menu = branchScope:own(Facet.Controls.Menu(core, {
 			id = "Menu",
@@ -110,8 +135,26 @@ function split.build(Facet, core, spec)
 				id = "Primary",
 				label = spec.label,
 				width = UI.fill(),
+				gap = "xs",
 				onActivate = spec.onActivate,
 				enabled = enabled,
+				children = {
+					UI.Text({
+						id = "Label",
+						text = spec.label,
+						textSize = "control",
+						textAlign = "center",
+						width = { type = "fill", weight = 1 },
+					}),
+					chrome.attachHint(
+						UI.Text({
+							id = "Hint",
+							text = themePackage.iconGlyph("chevron.down") or "v",
+							textSize = "control",
+						}),
+						{ icon = "chevron.down", iconSize = "small" }
+					),
+				},
 			}),
 			triggers = table.clone(TOUCH_TRIGGERS),
 			items = spec.items,
