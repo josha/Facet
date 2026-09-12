@@ -64,6 +64,16 @@ runtime as `Facet.VERSION`.
   control radius (Glossy Touch had it floating 31px inside the card), and
   two rows that fit no longer show a scrollbar (the region's content grew by
   two lanes while the host grew by one). Pinned in `picker_sweep`.
+- `radii.selection` (theme metrics): the highlight shape — the segmented
+  picker's sliding fill, now an inset rounded rect on all four corners floating
+  inside a track that keeps `radii.control` on its ends, and a menu card's
+  chosen-row shade plus the focus ring on that row, clipped to the row's place
+  (first row rounds its top, last its bottom, middle rows square, an only row
+  all four). It follows `radii.control` unless a package authors it; Pixel
+  Quest and Fantasy Ornate set `0` in their own metrics. Documented in
+  `docs/guide/09-custom-themes.md`, `05-styling.md` and `api.md` themes.
+- The picker card keeps no padding of its own (Glossy Touch stacked it on the
+  frame's insets); rows run to the card's content box.
 - `menu_recipe.row` accepts a Readable `indicatorEdge`; the picker popover
   passes one, so the check follows the live interaction class instead of the
   class at build time.

@@ -1157,6 +1157,9 @@ require("./picker_style.spec")
 -- silhouette, the theme's control radius instead of a hard pill, and the
 -- ten-foot row lift
 require("./selection_shape.spec")
+-- the highlight shape is a THEME TOKEN (`radii.selection`, 2026-09-12): a custom
+-- package flips the segmented fill and the card row shade with no code change
+require("./selection_radius.spec")
 require("./picker_sweep.spec")
 -- D2: the freestanding action menu — verbs not values, the shared row recipe,
 -- submenus that nest without a cap, and the five triggers that close the context-menu construct

@@ -86,7 +86,7 @@ A package has seven sections. Six you author; one (`base`) says where to start.
 | `base` | another compiled package to derive from — values you omit are inherited |
 | `identity` | `id` (a stable slug), `displayName`, `schemaVersion`, `version` (semver) |
 | `style` | the palette: `defaultTheme` plus an ordered list of named colour themes |
-| `metrics` | typography roles, space steps, control sizes, radii, strokes, target floor, per-slot insets, motion |
+| `metrics` | typography roles, space steps, control sizes, radii (`control`, `panel`, `pill`, and the optional `selection` — the highlight shape), strokes, target floor, per-slot insets, motion |
 | `chrome` | one recipe per decoration slot: flat native paint, or a nine-slice image |
 | `assets` | semantic name → content ID, slice geometry, preload policy, failure fallback |
 | `compatibility` | the Facet schema and capabilities the package requires |
@@ -205,13 +205,26 @@ metrics = {
         regular = { height = 46, paddingX = 18, iconSize = 22 },
         large = { height = 58, paddingX = 22, iconSize = 26 },
     },
-    radii = { control = 6, panel = 10, pill = 999 },
+    radii = { control = 6, panel = 10, pill = 999, selection = 0 }, -- square-art highlight
     strokes = { hairline = 1 },
     targetSizes = { minimum = 44 },
     motion = { fast = 0.14, normal = 0.24 },
     insets = { … },
 },
 ```
+
+**The highlight shape is a token, not a guess.** `radii.selection` is the
+radius of every *selection highlight*: the segmented picker's sliding fill (an
+inset rounded rect floating inside its track) and a menu card's chosen-row
+shade together with the focus ring that sits on that row. Leave it out and it
+**follows `radii.control`** — a package that rounds its controls gets a rounded
+highlight for free. Square art (pixel grids, carved frames) sets `selection = 0`
+in its own metrics, which is how Pixel Quest and Fantasy Ornate ship square
+highlights while their track ends and plates keep `radii.control`. The track
+and its end segments never read `selection`; the card's row shade caps it at the
+card's own inner corner (`radii.panel` less the panel's content inset) so a
+highlight never pokes past the plate. A per-theme `tenFoot` override applies to
+it like any other radius.
 
 The six typography roles are `caption`, `label`, `body`, `control`, `heading`,
 `title`. Each is `{ font = { family, weight?, style? }, size, lineHeight }`:

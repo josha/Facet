@@ -1755,13 +1755,15 @@ the library default fills in and the contrast gate runs on the effective pair.
   accent plate behind. It never applies to the `underline` indicator, which paints
   a thin tint rule on the segment's far edge rather than a plate under the label.
 
-- **The sliding fill takes the theme's `radii.control`, not a fixed capsule.** A
-  package that rounds its controls fully gets a pill here for the same reason it
-  gets one everywhere else, and a package that squares them gets a square
-  (`corner = "pill"` stays the caller's opt-in). A segmented strip rounds only
-  its two outer ends with that radius and leaves its inner segments square and
-  touching, with a hairline seam between each pair; the fill wears the
-  silhouette of whichever segment it is on (`selection_indicator.segmentCorners`).
+- **The sliding fill takes the theme's `radii.selection`, not a fixed capsule.**
+  That token follows `radii.control` unless the package authors it, so a
+  package that rounds its controls gets a rounded highlight and a square-art
+  package that sets `selection = 0` gets a square one (`corner = "pill"` stays
+  the caller's opt-in). The fill is an inset rounded rect on all four corners,
+  floating inside a track that rounds only its two outer ends with
+  `radii.control` and keeps its inner segments square and touching, with a
+  hairline seam between each pair. A menu card's chosen-row shade and the focus
+  ring on that row wear the same token, clipped to the row's place in the card.
   On a ten-foot row list every row keeps one silhouette, chosen or not, and the
   FOCUSED row lifts by a paint-only 1.05 on the presenter's spring — the solved
   box, the hit target and the focus order never move.
@@ -6619,7 +6621,9 @@ server require graph.
 `schemaVersion`, `version`), `style` (ordered per-theme colour variants, gated
 by the same 4.5:1 contrast/completeness rules `tokens.compile` applies),
 `metrics` (typography roles, spacing steps, control sizes, per-family control
-metrics, radii, strokes, `targetSizes.minimum`, per-slot content insets,
+metrics, radii — `control`, `panel`, `pill`, and the optional `selection`, the
+highlight shape every selection fill and its focus ring wear, which follows
+`control` unless authored (square art sets 0) — strokes, `targetSizes.minimum`, per-slot content insets,
 `iconSizes`, motion), `chrome` (a recipe per decoration slot: `{kind="native"}`,
 `{kind="nineSlice", asset, contentInsets, fallback="native"}` or
 `{kind="layered", layers, contentInsets, fallback="native"}`, any of which may

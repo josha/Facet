@@ -103,6 +103,13 @@ local function resolveRadius(value: any, style: any): number
 	end
 	if type(value) == "string" then
 		local resolved = style.radii and style.radii[value]
+		-- `selection` — the highlight shape (segmented indicator fill, menu-row
+		-- shade and its focus ring) — FOLLOWS `control` unless a package authors
+		-- it (square art sets 0), resolved here so no package's authored metrics
+		-- or content stamp moves for a token it never wrote (user ruling 2026-09-12)
+		if resolved == nil and value == "selection" and style.radii then
+			resolved = style.radii.control
+		end
 		assert(type(resolved) == "number", `unknown radius token '{value}' (style.radii)`)
 		return resolved
 	end
@@ -578,6 +585,12 @@ local function resolvedFrom(style: any, section: string, token: string): number?
 	local group = if type(style) == "table" then (style :: any)[section] else nil
 	local value = if type(group) == "table" then group[token] else nil
 	if type(value) ~= "number" then
+		-- `radii.selection` follows `radii.control` unless the package authors it
+		-- (the highlight-shape token; the same fallback `resolveRadius` and the
+		-- snapshot make, so the near number and the painted one agree)
+		if section == "radii" and token == "selection" and type(group) == "table" then
+			value = (group :: any).control
+		end
 		-- `"focusRing"` is the documented ALIAS onto `extra.focusRingThickness`
 		-- (see the note in `normalizeStroke`), so it resolves here too
 		if section == "strokes" and token == "focusRing" and type(style) == "table" then

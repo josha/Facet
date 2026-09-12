@@ -254,7 +254,8 @@ describe("ten-foot metrics — proportion equality across the control set", func
 				end
 			end
 		end
-		expect(`checked:{checked}`).toBe("checked:38")
+		-- 40 since 2026-09-12: Pixel Quest and Fantasy Ornate author `radii.selection = 0`
+		expect(`checked:{checked}`).toBe("checked:40")
 		-- …and the numbers the director actually looked at, said out loud
 		local nearNeutral, tvNeutral = pair(snapshot.neutralPackage())
 		expect(`{nearNeutral.radii.panel}/{nearNeutral.radii.control}/{nearNeutral.strokes.hairline}`).toBe("12/8/1")
@@ -318,7 +319,8 @@ describe("ten-foot metrics — proportion equality across the control set", func
 		end)
 		snapshot.metricScale = realScale
 		expect(if ok then "ok" else `threw: {tostring(err)}`).toBe("ok")
-		expect(`checked:{checked}`).toBe("checked:114")
+		-- 120 since 2026-09-12: the two square-art packages author `radii.selection`
+		expect(`checked:{checked}`).toBe("checked:120")
 		-- the stub is gone: the shipped factor is back
 		expect(snapshot.metricScale("Large")).toBe(1.5)
 	end)
@@ -396,7 +398,8 @@ describe("ten-foot metrics — proportion equality across the control set", func
 				end
 			end
 		end
-		expect(`checked:{checked}`).toBe("checked:76")
+		-- 80 since 2026-09-12: the two square-art packages author `radii.selection`
+		expect(`checked:{checked}`).toBe("checked:80")
 		--[[ …INCLUDING THE CASE NO SHIPPED PACKAGE PRODUCES. Every reference
 			package authors radii already on its own grid, so the resolver's snap
 			would be invisible here: this pixel package authors a radius BETWEEN two
@@ -1805,10 +1808,10 @@ describe("ten-foot metrics — the second door: an authored token", function()
 			local corners = (bar :: any).props.corners
 			-- the AUTHORING number is the near one at both distances — that is the
 			-- defect's own fingerprint, and it is why the token has to survive
-			expect(`{case.size}: authored {corners.topLeft}`).toBe(`{case.size}: authored 8`)
-			expect(`{case.size}: token {corners.tokens.topLeft}`).toBe(`{case.size}: token control`)
+			expect(`{case.size}: authored {corners.radius}`).toBe(`{case.size}: authored 8`)
+			expect(`{case.size}: token {corners.tokens.radius}`).toBe(`{case.size}: token selection`)
 			-- …and what the painter writes, through the style the target derives
-			local painted = styling.paintCorners(corners, styleAt(case.size :: string)).topLeft
+			local painted = styling.paintCorners(corners, styleAt(case.size :: string)).radius
 			expect(`{case.size}: painted {painted}`).toBe(`{case.size}: painted {case.want}`)
 		end
 	end)

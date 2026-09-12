@@ -1170,7 +1170,10 @@ function package.snapToPixelUnit(value: number, unit: number): number
 		isFiniteNumber(unit) and unit >= 1 and unit % 1 == 0,
 		`package.snapToPixelUnit: the pixel unit must be an integer >= 1 (got {tostring(unit)})`
 	)
-	return math.ceil(value / unit - 1e-9) * unit
+	local snapped = math.ceil(value / unit - 1e-9) * unit
+	-- 0 comes back as 0: `math.ceil(-1e-9)` is -0, and a -0 prints as "-0"
+	-- beside the 0 it equals (Pixel Quest's authored `radii.selection = 0`)
+	return if snapped == 0 then 0 else snapped
 end
 
 function package.define(def: any): (any, any)

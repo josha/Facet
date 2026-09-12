@@ -265,7 +265,7 @@ function pixel_quest.definition(themes: any): any
 			-- These ride the SNAPSHOT, which is what makes them a metric a package
 			-- can move rather than a constant a control holds.
 			iconSizes = { small = 16, medium = 32, large = 48 },
-			radii = { control = 4, panel = 4, pill = 12, ["gauge:ring"] = 4 },
+			radii = { control = 4, panel = 4, pill = 12, selection = 0, ["gauge:ring"] = 4 },
 			strokes = { hairline = 4 }, -- one design pixel; the thinnest line that exists here
 			targetSizes = { minimum = 44 },
 			motion = { fast = 0.08, normal = 0.14 },

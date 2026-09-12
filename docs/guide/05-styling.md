@@ -85,7 +85,11 @@ render target uses it automatically when you do not pass your own. Its brief was
 professional and neutral, and quick to render." Concretely:
 
 - one cool near-black surface ramp with a single restrained blue accent;
-- hairline strokes instead of heavy borders; generous corner radii;
+- hairline strokes instead of heavy borders; generous corner radii — and one
+  more radius, `radii.selection`, for every selection highlight (the segmented
+  picker's fill, a menu card's chosen row and its focus ring), which follows
+  `radii.control` unless a package authors it (square art sets 0; see
+  `09-custom-themes.md`);
 - every interactive state states itself *without relying on color alone*, so
   the interface stays legible to players who cannot distinguish certain
   colors:

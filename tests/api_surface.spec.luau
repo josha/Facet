@@ -271,6 +271,7 @@ describe("the public SHAPE a breaking change moves", function()
 		["Screen.distribute"] = "`start`",
 		["ScrollView.autoscroll"] = "on, inert unless a drag is in flight",
 		["ScrollView.axis"] = "y",
+		["ScrollView.chromeReserve"] = "prose:chrome reserve: 'auto' (default, keeps the package ",
 		["ScrollView.indicators"] = "prose:croll indicators: 'auto' (default, session policy) or",
 		["Text.role"] = "prose:or 'content' (the resting default, worth naming so a ",
 		["VStack.distribute"] = "`start`",

@@ -1143,7 +1143,10 @@ end
 	accessibility floor, and rounding a whole family up would fatten every corner
 	on the screen by up to a pixel for nothing. ]]
 local function wholePixel(scaled: number, unit: number?): number
-	return if unit ~= nil then pkg.snapToPixelUnit(scaled, unit :: number) else math.round(scaled)
+	local whole = if unit ~= nil then pkg.snapToPixelUnit(scaled, unit :: number) else math.round(scaled)
+	-- an authored 0 must come back as 0, not the -0 a signed snap can produce
+	-- (Pixel Quest's `radii.selection = 0` printed as "-0" beside its measure)
+	return if whole == 0 then 0 else whole
 end
 
 local function scaleInto(node: any, out: any, prefix: string, factor: number, unit: number?)
@@ -2431,6 +2434,15 @@ function snapshot.resolveNumber(snap: any, value: any): number?
 		result = (snap.space :: any)[value]
 	else
 		result = lookupPath(snap, value)
+	end
+	-- `radii.selection` — the highlight shape (segmented indicator fill, menu-row
+	-- shade and its focus ring) — FOLLOWS `radii.control` unless a package
+	-- authors it (square art sets 0). Resolved here, not stamped into the
+	-- snapshot, so no package's authored metrics or content stamp moves for a
+	-- token it never wrote (user ruling 2026-09-12; the painter's `styling`
+	-- token lookup makes the same fallback).
+	if result == nil and value == "radii.selection" then
+		result = lookupPath(snap, "radii.control")
 	end
 	memo[value] = if result == nil then false else result
 	return result
