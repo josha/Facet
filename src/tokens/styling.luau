@@ -361,6 +361,11 @@ local TINT_ROLES: { string } = {
 	"onAccent",
 	"control",
 	"controlSelected",
+	-- the label colour a theme itself chose to read on `controlSelected`
+	-- (`sheet_model.selectedContentColor`, gated at 4.5:1 at define time): the
+	-- only way a CHILD Text on a selected plate reaches that decision, because
+	-- no TextButton-scoped sheet rule can descend into it (2026-09-12)
+	"onSelected",
 	"danger",
 	"hairline",
 }

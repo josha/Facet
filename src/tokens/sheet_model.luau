@@ -1416,6 +1416,7 @@ local TINT_ROLE_TOKEN: { [string]: string } = {
 	onAccent = "$OnAccent",
 	control = "$Control",
 	controlSelected = "$ControlSelected",
+	onSelected = "$OnSelected",
 	danger = "$Danger",
 	hairline = "$Hairline",
 }
@@ -1542,6 +1543,13 @@ function sheet_model.paletteColor(theme: any, role: string): any
 	if role == "danger" then
 		local danger = dangerPair(if type(c) == "table" then c else {})
 		return { r = danger.r, g = danger.g, b = danger.b }
+	end
+	-- `onSelected` is the SAME decision `$OnSelected` carries (the theme's own
+	-- readable partner for its selected surface), reached as a tint so a child
+	-- Text on a selected plate can spend it
+	if role == "onSelected" and type(c) == "table" and type(c.content) == "table" then
+		local on = sheet_model.selectedContentColor(theme)
+		return { r = on.r, g = on.g, b = on.b }
 	end
 	error(`Facet tint: theme carries no colour for role '{role}'`, 0)
 end
