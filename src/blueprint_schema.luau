@@ -1776,6 +1776,25 @@ class("ScrollView", {
 			channel = "layout",
 			doc = 'scroll indicators: "auto" (default, session policy) or "none" (carousels whose affordance is the peeking tile)',
 		}),
+		chromeReserve = p({
+			--[[ THE CHROME LANE OPT-OUT (picker visual review, 2026-09-12). A
+				scroller keeps `chromeBleed` of padding on its cross axis (and the
+				leading edge's own reserve) so a child's shadow or glow is not cut by
+				the viewport — the package-wide MAXIMUM reach, reserved for every
+				scroller whose children are not all plain leaves. A menu card's list
+				is that case in name only: its rows are `plain`, its fill is a tint,
+				and the one hinted glyph (the check) draws inside its own box. Under
+				Glossy Touch the lane cost 17px a side, so the chosen row's fill
+				floated 31px inside the card, and the region's content grew by two
+				lanes while the host grew by one — a scrollbar on two rows that fit.
+				"none" declares that nothing inside reaches past its box, so no lane
+				is kept; "auto" keeps the conservative rule. ]]
+			types = { "string" },
+			reactive = false,
+			enum = { "auto", "none" },
+			channel = "layout",
+			doc = 'chrome reserve: "auto" (default, keeps the package bleed lane) or "none" (a scroller whose content carries no chrome that reaches past its box)',
+		}),
 		autoscroll = p({
 			-- DRAG-TO-EDGE AUTOSCROLL BELONGS TO THE SCROLLER, NOT TO ITS CONTENTS
 			-- (director, 2026-07-29). The first cut of this put the policy in Table,

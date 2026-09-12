@@ -1337,7 +1337,12 @@ local function toLayoutNode(
 	-- one reservation covers every slot at every depth — and it is 0 for any
 	-- package that declares no shadow, so a flat theme is untouched and the
 	-- neutral baseline cannot move.
-	if kind == "scroll" and insideClipper ~= true and not chrome_slots.hasOnlyPlainLeaves(node) then
+	if
+		kind == "scroll"
+		and insideClipper ~= true
+		and props.chromeReserve ~= "none"
+		and not chrome_slots.hasOnlyPlainLeaves(node)
+	then
 		local bleed = if type(metrics.chromeBleed) == "number" then metrics.chromeBleed else 0
 		if bleed > 0 then
 			local top, right, bottom, left = solver.sides(layoutNode.padding)

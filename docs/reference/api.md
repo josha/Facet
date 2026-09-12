@@ -811,7 +811,7 @@ normalized progress, threshold visibility callbacks, and gesture snap; see
 keep-visible and bookmark writes take precedence over gesture snapping.
 
 
-`UI.ScrollView{ id?, axis? ("y" default | "x"), padding?, gap?, autoscroll?, indicators? ("auto" default | "none" — a peeking carousel's affordance is the half-visible next tile, so it may declare its indicator off; layout is untouched), onScrollWheel?, children? }`
+`UI.ScrollView{ id?, axis? ("y" default | "x"), padding?, gap?, autoscroll?, indicators? ("auto" default | "none" — a peeking carousel's affordance is the half-visible next tile, so it may declare its indicator off; layout is untouched), chromeReserve? ("auto" default | "none" — the lane a scroller keeps for content chrome that reaches past its box, the package's `chromeBleed`; a scroller whose rows are plain and whose only art draws inside its box, such as a menu card's list, declares "none" and its content runs to its edges), onScrollWheel?, children? }`
 — scrolling container. `onScrollWheel(path, delta, rectOf)` receives
 hover-wheel input routed by the adapter (the composite scrolling controls use
 it; a plain `ScrollView` relies on the native host instead). the scroll axis measures children unbounded and reports

@@ -396,6 +396,69 @@ local function pinRowFit(label: string, w: any, theme: any, viewport: any, popup
 	expect(`{label} rows measured for fit: {rows > 0}`).toBe(`{label} rows measured for fit: true`)
 end
 
+--[[ THE ROW HIGHLIGHT SPANS THE CARD (capture review 2026-09-12, Glossy Touch):
+	the chosen row's fill ran 31px inside the card — the scroller's chrome lane
+	(17px a side) on top of the card's own frame insets — and read as a floating
+	box. The list now declares `chromeReserve = "none"`, so it is exactly as wide
+	as the card's content box (the card less the package's `panel` insets), and
+	the fill is the list less one `xs` a side, in every theme. ]]
+local function pinFillSpan(label: string, w: any, theme: any, popupRoot: string)
+	local list = suffixPath(w, "/List")
+	if list == nil then
+		return -- a sheet or an inline list has no card scroller
+	end
+	local card = w.adapter.node(popupRoot).rect
+	local listRect = w.adapter.node(list :: string).rect
+	local insets = if theme.metrics ~= nil and type(theme.metrics.chromeInsets) == "table"
+		then theme.metrics.chromeInsets.panel
+		else nil
+	local side = if type(insets) == "table" then (tonumber(insets.left) or 0) + (tonumber(insets.right) or 0) else 0
+	expect(
+		`{label} list spans the card's content box: {near(listRect.w, card.w - side)} (list {listRect.w}, card {card.w}, insets {side})`
+	).toBe(`{label} list spans the card's content box: true (list {listRect.w}, card {card.w}, insets {side})`)
+	local xs = metric(theme, "space.xs", 4)
+	local fills = 0
+	for _, path in w.adapter.paths() do
+		if string.match(path, "/Opt%-[^/]+%+background/Fill$") == nil then
+			continue
+		end
+		fills += 1
+		local fill = w.adapter.node(path).rect
+		expect(
+			`{label} fill spans the list less xs a side: {near(fill.w, listRect.w - 2 * xs) and near(
+				fill.x,
+				listRect.x + xs
+			)} (fill {fill.x}+{fill.w}, list {listRect.x}+{listRect.w}, xs {xs})`
+		).toBe(
+			`{label} fill spans the list less xs a side: true (fill {fill.x}+{fill.w}, list {listRect.x}+{listRect.w}, xs {xs})`
+		)
+	end
+	expect(`{label} fills measured: {fills > 0}`).toBe(`{label} fills measured: true`)
+end
+
+--[[ NO SCROLLBAR WHEN THE ROWS FIT (same review): two rows that fit their
+	budget scrolled under Glossy Touch because the region's content grew by two
+	chrome lanes while the host grew by one. When the rows' own height fits the
+	list, the scroll region must not overflow its host — no bar. ]]
+local function pinNoPhantomScroll(label: string, w: any)
+	local list = suffixPath(w, "/List")
+	if list == nil then
+		return
+	end
+	local node = w.adapter.node(list :: string)
+	local rows = w.adapter.node((list :: string) .. "/Rows")
+	if rows == nil or node.scrollRegion == nil then
+		return
+	end
+	if rows.rect.h > node.rect.h + 0.5 then
+		return -- the budget clamped the list: scrolling is the point
+	end
+	local region = node.scrollRegion
+	expect(
+		`{label} no phantom scroll: {(region.contentH or 0) <= (region.hostH or node.rect.h) + 1} (content {region.contentH}, host {region.hostH})`
+	).toBe(`{label} no phantom scroll: true (content {region.contentH}, host {region.hostH})`)
+end
+
 --[[ THE TRACK (visual review 2026-09-11): a segmented picker is ONE plated
 	track holding equal segments — every segment the same height and, on a filled
 	band, the same width — and the row forms carry no track at all. ]]
@@ -481,6 +544,8 @@ describe("Picker sweep: style x theme x text preference x viewport", function()
 								-- a SHEET fills the screen, so "as wide as its widest row" is only a
 								-- claim about the hugging popover
 								pinRowFit(label, w, theme, viewport, popupRoot :: string)
+								pinFillSpan(label, w, theme, popupRoot :: string)
+								pinNoPhantomScroll(label, w)
 							end
 							local focused = w.pres.focus.focused:get()
 							expect(

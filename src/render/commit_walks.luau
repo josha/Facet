@@ -1806,7 +1806,11 @@ function commit_walks.new(ctx: CommitCtx)
 					-- reachable.
 					-- Zero for every package that declares no shadow.
 					local bleed = if type(metrics.chromeBleed) == "number" then metrics.chromeBleed else 0
-					if bleed > 0 and chromeSlots.hasOnlyPlainLeaves(node) then
+					-- ...and zero for a scroller that declared its content keeps no
+					-- chrome lane (`chromeReserve = "none"`): the layout kept none, so
+					-- the canvas must not grow by one either, or two rows that fit
+					-- the host scroll by exactly the allowance (picker card, 2026-09-12)
+					if bleed > 0 and (chromeSlots.hasOnlyPlainLeaves(node) or props.chromeReserve == "none") then
 						bleed = 0
 					end
 					local region = {

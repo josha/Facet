@@ -229,6 +229,7 @@ export type ScrollViewSpec = BoxProps & ContainerProps & {
 	onScrollWheel: ((path: string, delta: number, rectOf: (string) -> any) -> ())?,
 	autoscroll: (boolean | { [string]: any })?,
 	indicators: string?, -- "auto" (default) | "none" — carousel indicator opt-out
+	chromeReserve: string?, -- "auto" (default) | "none" — the lane kept for content chrome that reaches past its box
 }
 export type GridSpec = BoxProps & ContainerProps & {
 	gap: Bound<number | Metric>?,
