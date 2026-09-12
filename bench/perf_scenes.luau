@@ -60,6 +60,7 @@ local perf_profiles = require("../bench/perf_profiles")
 local perf_dataset = require("../examples/performance/lab/dataset")
 local perf_rows = require("../examples/performance/lab/rows")
 local navigationInventory = require("../examples/performance/lab/navigation_inventory")
+local transientSurfaces = require("../examples/performance/lab/transient_surfaces")
 local themeSnapshot = require("../src/themes/snapshot")
 local sheet_model = require("../src/tokens/sheet_model")
 
@@ -1580,4 +1581,143 @@ customizationScene.run = function(state)
 	return { customization = os.clock() - started }
 end
 table.insert(scenes, customizationScene)
+
+-- ---- 2026-09-11: the four player-visible landings without a scene ---------
+-- Each landing below shipped after the last baseline with no headless row aimed
+-- at it: Alert (role-ordered action row/stack), the Picker menu (anchored
+-- popover), the segmented strip's reactive fit rule, and the radial menu. A
+-- scene per landing keeps the trend gate honest about exactly the cost that
+-- moved, instead of letting it hide inside `screen-lifecycle-churn`. The three
+-- open/close fixtures are `examples/performance/lab/transient_surfaces.luau`,
+-- SHARED with the lab's `transient-surfaces` workload so the trend gate and the
+-- Studio capture price the same tree (the `adaptive-navigation` precedent).
+
+local function transientScene(spec: { name: string, requirement: string, dataset: string, kind: string })
+	return {
+		name = spec.name,
+		requirement = spec.requirement,
+		dataset = spec.dataset,
+		samples = 120,
+		warmup = 30,
+		setup = function(profile)
+			local core, _env, _sys, adapter, pres = newStack(profile)
+			local fixture = transientSurfaces.build(Facet, core, spec.kind)
+			fixture.present(pres)
+			return { core = core, adapter = adapter, pres = pres, fixture = fixture }
+		end,
+		run = function(state)
+			local t0 = os.clock()
+			state.fixture.open(state.pres)
+			local open = os.clock() - t0
+			local t1 = os.clock()
+			state.fixture.close(state.pres)
+			return { open = open, close = os.clock() - t1 }
+		end,
+		extras = function(state)
+			return state.fixture.proof(state.pres)
+		end,
+		teardown = function(state)
+			state.fixture.dispose()
+		end,
+	}
+end
+
+-- 23. Alert present/dismiss: a three-action alert (destructive + default +
+-- cancel) is presented over a base screen and dismissed every iteration. Prices
+-- the role-ordered AdaptiveStack + keyed ForEach the Alert now builds, and the
+-- presenter's modal mount/dispose churn around it.
+table.insert(
+	scenes,
+	transientScene({
+		name = "alert-present-dismiss",
+		requirement = "UI-LIFE-002",
+		dataset = "Base Screen(Button); Alert(title, message, 3 role-placed actions) presented + refreshed + ticked, dismissed + refreshed + ticked per iter",
+		kind = "alert",
+	})
+)
+
+-- 24. Picker menu open/close: the menu-style picker (the phone/desktop default)
+-- opens its anchored popover and closes it every iteration. Prices the popover
+-- host mount, the anchor solve, the materialize transition's first tick, and the
+-- teardown — the path every settings row on a phone now takes. A gamepad profile
+-- presents a sheet instead; the presentation is recorded beside the number.
+table.insert(
+	scenes,
+	transientScene({
+		name = "picker-menu-open-close",
+		requirement = "UI-PERF-001",
+		dataset = `Screen(Picker style=menu, {transientSurfaces.PICKER_OPTIONS} options) presented; api.open + refresh + tick, api.close + refresh + tick per iter`,
+		kind = "picker",
+	})
+)
+
+-- 25. Segmented strip text-size flip: a segmented picker under a preferred
+-- text-size change. The strip's fit rule is reactive on the preference, so
+-- every flip re-measures and re-arranges the segments and moves the selection
+-- bar. Prices the reactive fit rule and the strip relayout, nothing else.
+table.insert(scenes, {
+	name = "picker-segmented-textsize",
+	requirement = "UI-ENV-001",
+	dataset = "Screen(Picker style=segmented, 3 options + 2 Text rows); preferredTextSize 1.0<->1.3 + refresh per iter",
+	samples = 120,
+	warmup = 30,
+	setup = function(profile)
+		local core, env, _sys, adapter, pres = newStack(profile)
+		local selected = core:signal("normal")
+		local picker = Facet.Controls.Picker(core, {
+			id = "Difficulty",
+			label = "Difficulty",
+			style = "segmented",
+			options = {
+				{ value = "easy", label = "Easy" },
+				{ value = "normal", label = "Normal" },
+				{ value = "hard", label = "Hard" },
+			},
+			selected = selected,
+		})
+		pres.present(UI.Screen({
+			id = "S",
+			padding = 12,
+			gap = 8,
+			children = {
+				UI.Text({ id = "Head", text = "Race setup", textSize = 18 }),
+				picker.blueprint,
+				UI.Text({ id = "Note", text = "Affects rival speed and damage.", textSize = 14 }),
+			},
+		}))
+		pres.refresh()
+		return { core = core, env = env, adapter = adapter, pres = pres, picker = picker, n = 0, flips = 0 }
+	end,
+	run = function(state)
+		state.n += 1
+		local t0 = os.clock()
+		state.env:set("preferredTextSize", if state.n % 2 == 0 then 1.0 else 1.3)
+		local envChange = os.clock() - t0
+		local t1 = os.clock()
+		state.pres.refresh()
+		local commit = os.clock() - t1
+		state.flips += 1
+		return { envChange = envChange, commit = commit }
+	end,
+	extras = function(state)
+		return { flips = state.flips, style = state.picker.dump().style }
+	end,
+	teardown = function(state)
+		state.picker.dispose()
+	end,
+})
+
+-- 26. Radial menu open/close: a six-item compass radial opens from its solved
+-- launcher and closes every iteration. Prices the sector geometry refresh, the
+-- opening scale/aim motion's first ticks and the close path.
+table.insert(
+	scenes,
+	transientScene({
+		name = "radial-menu-open-close",
+		requirement = "UI-PERF-001",
+		dataset = `Screen(RadialMenu donut/compass, {transientSurfaces.RADIAL_ITEMS} items) settled; api.open + refresh + 2 ticks, api.close + refresh + 2 ticks per iter`,
+		kind = "radial",
+	})
+)
+
 return scenes

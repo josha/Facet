@@ -117,7 +117,7 @@ step("run")                    -- the scenario's declared pass sequence
 print(HttpService:JSONEncode(step("export:1")))
 ```
 
-### The eighteen workloads
+### The nineteen workloads
 
 | id | question it answers |
 |---|---|
@@ -139,6 +139,7 @@ print(HttpService:JSONEncode(step("export:1")))
 | `edit-locality` | does an edit that changes nothing visible still re-solve, and does incremental layout bite on a collection edit |
 | `host-move` | do a container's engine writes collapse inside a real instance host, and is that a frame-time win |
 | `lifecycle-soak` | do Instances, connections, memory or stale work trend upward |
+| `transient-surfaces` | what one player event costs when it presents a whole surface (an alert, a materializing pop-up menu, a radial menu), and what taking it down costs |
 
 **The three before the soak are the NAMED LEVERS** (`levers.luau`), each aimed at
 a cost a device capture ranked and no workload reached: `arrange` itself was the top cost in all four device
@@ -163,7 +164,7 @@ everything a profiling session needs:
 DONE 17/17 — dump now: Ctrl/Cmd+F6, Ctrl+P to pause
 ```
 
-- **◀ / ▶** step through the seventeen workloads and wrap at both ends. Each step unmounts,
+- **◀ / ▶** step through the nineteen workloads and wrap at both ends. Each step unmounts,
   selects and remounts, so the label and what is running can never disagree. The chip
   list further down jumps straight to one.
 - **▶ Run all** runs every workload in order, back to back, in its own thread so the

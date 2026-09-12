@@ -40,6 +40,23 @@ PRODUCTION = {
     ),
     "async-image-grid": lambda x: None,  # proof lives in the async counters below
     "screen-lifecycle-churn": lambda x: None,
+    # the four 2026-09-11 landings: each proof says the surface really opened
+    # (a scene whose api.open stopped reaching the presenter would still emit a
+    # faster record)
+    "alert-present-dismiss": lambda x: (
+        None if x.get("presents", 0) > 0 and x.get("actions") == 3 else f"the alert never presented: {x!r}"
+    ),
+    "picker-menu-open-close": lambda x: (
+        None
+        if x.get("opens", 0) > 0 and x.get("presentation") in ("menu", "sheet") and x.get("anchoredAfter") == 0
+        else f"the picker menu did not open/close through a presented surface: {x!r}"
+    ),
+    "picker-segmented-textsize": lambda x: (
+        None if x.get("flips", 0) > 0 and x.get("style") == "segmented" else f"the strip did not flip: {x!r}"
+    ),
+    "radial-menu-open-close": lambda x: (
+        None if x.get("opens", 0) > 0 and x.get("sectors", 0) == 6 else f"the radial never opened: {x!r}"
+    ),
     # the dense-motion frame (row SF-M8): every axis has to be doing work, and the
     # one-transaction-per-stepped-frame contract has to still hold under all of it
     "dense-motion": lambda x: (

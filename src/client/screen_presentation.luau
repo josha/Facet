@@ -635,6 +635,22 @@ function screen_presentation.new(ctx: any)
 	-- reference. Offset composes onto the solver's rect for this node AND its
 	-- subtree (the tree is flat — see recomputePresentationOffset); scale and
 	-- rotation are paint on its own instance. `nil` clears.
+	--[[ THE OFFSET HALF OF A TRANSFORM, as a descendant sees it. A descendant's
+		composed Position/Size reads only x/y/w/h off its ancestors' transforms
+		(`recomputePresentationOffset` above); scale and rotation are paint on the
+		node's OWN instance — the UIScale child and `Rotation` in
+		`applyPresentationPaint`. A nil transform is the zero offset. ]]
+	local function offsetHalfMoved(previous: any, value: any): boolean
+		local px = if previous ~= nil then previous.x or 0 else 0
+		local py = if previous ~= nil then previous.y or 0 else 0
+		local pw = if previous ~= nil and type(previous.w) == "number" then previous.w else 0
+		local ph = if previous ~= nil and type(previous.h) == "number" then previous.h else 0
+		local vx = if value ~= nil then value.x or 0 else 0
+		local vy = if value ~= nil then value.y or 0 else 0
+		local vw = if value ~= nil and type(value.w) == "number" then value.w else 0
+		local vh = if value ~= nil and type(value.h) == "number" then value.h else 0
+		return px ~= vx or py ~= vy or pw ~= vw or ph ~= vh
+	end
 	local function setTransform(handle: any, value: any)
 		local previous = presentationTransforms[handle.path]
 		if value == nil then
@@ -649,9 +665,23 @@ function screen_presentation.new(ctx: any)
 			presentationTransforms[handle.path] = value
 		end
 		applyPresentationPaint(handle, value)
-		for _, other in subtreeOf(handle.path) do
-			recomputePresentationOffset(other)
-			applyRect(other)
+		--[[ A SCALE-ONLY WRITE IS ONE NODE'S PAINT (perf round 2026-09-11). Every
+			frame of a `materialize` transition — a pop-up menu's fade-and-grow, a
+			radial menu's rings — lands here with the offset half unchanged, and this
+			walked the whole subtree for it: `recomputePresentationOffset` plus
+			`applyRect` (its hit-expander and float-ring writes are unconditional) on
+			every descendant, per frame, to arrive at the numbers already there.
+			Attributed headless on a six-row popover at ~57 us per write, half the
+			open/close scene. The node itself is still re-applied: its anchor flips to
+			centred at the first non-1 scale, which moves its own Position. ]]
+		if offsetHalfMoved(previous, value) then
+			for _, other in subtreeOf(handle.path) do
+				recomputePresentationOffset(other)
+				applyRect(other)
+			end
+		else
+			recomputePresentationOffset(handle)
+			applyRect(handle)
 		end
 	end
 
