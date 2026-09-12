@@ -65,6 +65,12 @@ local contribution = require("../input/contribution")
 local specGuard = require("../spec_guard")
 local surfaceEnv = require("../env/surface_env")
 local themeSnapshot = require("../themes/snapshot")
+-- the SHAPE half of the selection family (user visual review 2026-09-12, items
+-- 6 and 10). Not the sliding seam — this control has no bar to slide — only its
+-- two pure answers: what a selection's corner radius is, and what shape one
+-- segment of a run wears. Asked rather than restated, so a bar picker and a
+-- segmented picker cannot end up drawing two different strips.
+local selectionShape = require("./selection_indicator")
 
 local level_picker = {}
 
@@ -427,6 +433,18 @@ function level_picker.compose(Facet: any, core: any, cfg: Config)
 				width = { type = "fill", weight = 1 },
 				height = { type = "fill", weight = 1 },
 				tint = tint,
+				--[[ ...AND THE RUN IS ONE STRIP, the same one the segmented picker
+					draws (item 10, 2026-09-12). The marks used to be four square
+					corners in a family whose every other box wears `radii.control`,
+					which read as a bar chart rather than as one value. Only the run's
+					two ENDS round now, with the theme's own control radius, so a
+					square package draws a square meter and a fully-rounded one draws a
+					capsule — `selection_indicator.segmentShape` is the one place that
+					rule lives.
+
+					The run is always horizontal (a `Grid` of `columns = count`), so
+					the axis is a constant here rather than a reactive fact. ]]
+				corners = selectionShape.segmentShape(UI, index, count, "x"),
 			})
 		elseif cfg.segment == "image" then
 			local images = cfg.images :: { filled: string, empty: string }
@@ -503,6 +521,78 @@ function level_picker.compose(Facet: any, core: any, cfg: Config)
 		children = marks,
 	})
 
+	--[[ THE TRACK, for the bar segment only (item 10, 2026-09-12). A run of bars
+		with nothing behind it is `count` floating rectangles: the empty half of a
+		capacity meter has to be a PLATE for the filled half to read as a fill of
+		something, which is the same finding the segmented picker's own track
+		round recorded ("the bar alone left every unselected segment as bare text
+		floating beside one pill").
+
+		ONE plate, not `count` of them — which is the distinction this file's
+		header draws and this respects: `chrome_slots.classify` sees exactly one
+		`control` here, behind the whole run, and the marks stay Boxes no theme
+		skins as a control.
+
+		DELIBERATELY NOT CARVE-PADDED, unlike the segmented picker's track. There,
+		the segments are CONTENT (labels) sitting inside a frame, so a nine-slice
+		package's border has to be reserved off them. Here the marks ARE the
+		track's fill — a meter's fill reaches the ends of its own track, which is
+		exactly why the end marks take the track's own corner — so an inset would
+		draw a gutter the design does not have. It would also narrow every segment,
+		and `HIGH_COUNT` above is a MEASURED threshold over those widths.
+
+		Only `bar`: a glyph or an image already carries its own state, and plating
+		a row of stars would put a control surface behind every shipped rating. ]]
+	local track = if cfg.segment == "bar"
+		then UI.Box({
+			id = "Track",
+			surface = "control",
+			corners = UI.cornersData(selectionShape.DEFAULT_CORNER),
+			width = { type = "fill", weight = 1 },
+			height = { type = "fill", weight = 1 },
+		})
+		else nil
+
+	local rootChildren: { any } = {}
+	if track ~= nil then
+		-- the plate FIRST: ZIndexBehavior is Sibling, so the track paints behind the
+		-- marks and can never take a gesture meant for the Grip above them. Appended
+		-- rather than written into the literal because a nil in the middle of a
+		-- children array is a HOLE, not an absence.
+		table.insert(rootChildren, track)
+	end
+	table.insert(rootChildren, run)
+	-- THE STRIP IS THE CONTROL. One Grip over the marks: one focus stop, one
+	-- effective target, one place pointer input lands. A read-only picker drops out
+	-- of the focus ring entirely rather than offering a ring that does nothing.
+	table.insert(
+		rootChildren,
+		UI.Grip({
+			id = "Strip",
+			focusable = not readOnly,
+			width = { type = "fill", weight = 1 },
+			height = { type = "fill", weight = 1 },
+			onPointerDown = function(path: string, pos: any, rectOf: (string) -> any)
+				scrubFrom = value:get()
+				setFromPoint(path, pos, rectOf)
+			end,
+			onPointerMove = function(path: string, pos: any, rectOf: (string) -> any)
+				setFromPoint(path, pos, rectOf)
+			end,
+			onPointerUp = function()
+				scrubFrom = nil
+			end,
+			onPointerCancel = function()
+				-- CANCEL, not commit (the hotSwitch decision above): put back what was
+				-- there before the scrub started
+				if scrubFrom ~= nil then
+					apply(scrubFrom)
+					scrubFrom = nil
+				end
+			end,
+		})
+	)
+
 	local root = UI.ZStack({
 		id = id,
 		-- the strip takes the box it is given: `fill` here is what lets the shares
@@ -517,37 +607,7 @@ function level_picker.compose(Facet: any, core: any, cfg: Config)
 		-- fingertip. A theme METRIC, so a package with a bigger minimum target gets
 		-- a bigger strip.
 		height = if cfg.targetFloor then { type = "minMax", min = "targetSizes.minimum" } else nil,
-		children = {
-			run,
-			-- THE STRIP IS THE CONTROL. One Grip over the marks: one focus stop, one
-			-- effective target, one place pointer input lands. A read-only picker
-			-- drops out of the focus ring entirely rather than offering a ring that
-			-- does nothing.
-			UI.Grip({
-				id = "Strip",
-				focusable = not readOnly,
-				width = { type = "fill", weight = 1 },
-				height = { type = "fill", weight = 1 },
-				onPointerDown = function(path: string, pos: any, rectOf: (string) -> any)
-					scrubFrom = value:get()
-					setFromPoint(path, pos, rectOf)
-				end,
-				onPointerMove = function(path: string, pos: any, rectOf: (string) -> any)
-					setFromPoint(path, pos, rectOf)
-				end,
-				onPointerUp = function()
-					scrubFrom = nil
-				end,
-				onPointerCancel = function()
-					-- CANCEL, not commit (the hotSwitch decision above): put back what
-					-- was there before the scrub started
-					if scrubFrom ~= nil then
-						apply(scrubFrom)
-						scrubFrom = nil
-					end
-				end,
-			}),
-		},
+		children = rootChildren,
 	})
 
 	local rootPath: string? = nil

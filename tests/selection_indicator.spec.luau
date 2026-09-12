@@ -767,12 +767,25 @@ describe("D4 through the public property: newPicker's `indicator` and `axis`", f
 		-- and solves to ZERO. The wrapper therefore inherits the option stack's own
 		-- dimension, and this compares the indicated control against the plain one
 		-- rather than against a number somebody chose.
+		--[[ THE PIN MOVED ON 2026-09-12, and the reason is the point of the case
+			rather than a tolerance. A TRACKED strip spends a HAIRLINE between its
+			segments where the plain one spends an `xs` gap (the strip is one strip
+			now — `tests/selection_shape.spec.luau`), so the two are no longer
+			byte-equal and never will be again. What the case exists to catch is
+			COLLAPSE: a `fill` option inside a content-sized wrapper solves to ZERO,
+			which is the Rascal Rally rider's defect. So it pins the plain width as
+			the FLOOR the indicated one may not fall below, plus the bar's own
+			relationship to whatever the segment solved to. ]]
 		local plain = pickerWorld({ indicator = "none" })
 		local lit = pickerWorld({ indicator = "pill" })
 		local plainWidth = plain.adapter.node(optPath(plain, 1)).rect.w
+		local litWidth = lit.adapter.node(optPath(lit, 1)).rect.w
 		expect(plainWidth > 0).toBe(true)
-		expect(lit.adapter.node(optPath(lit, 1)).rect.w).toBe(plainWidth)
-		expect(paintedRect(lit.adapter.node(PBAR)).w).toBe(plainWidth - 8)
+		expect(`indicated at least as wide as plain: {litWidth >= plainWidth} ({litWidth} vs {plainWidth})`).toBe(
+			`indicated at least as wide as plain: true ({litWidth} vs {plainWidth})`
+		)
+		-- ...and the chip is that segment inset by `space.xs` on both sides
+		expect(paintedRect(lit.adapter.node(PBAR)).w).toBe(litWidth - 8)
 	end)
 
 	it("selection still works at the deeper path: a tap and a Return both choose", function()

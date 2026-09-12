@@ -306,6 +306,51 @@ local SEGMENT_FILL = table.freeze({ type = "fill", weight = 1 })
 local SEGMENT_NATURAL = table.freeze({ type = "content" })
 local SEGMENT_HEIGHT = table.freeze({ type = "minMax", min = "targetSizes.minimum" })
 local OVERLAY_FILL = table.freeze({ type = "fill", weight = 1 })
+
+--[[ ===== THE STRIP IS ONE STRIP (user visual review 2026-09-12, item 2) =====
+
+	A segmented control used to be a fully-rounded track holding fully-rounded
+	segments held apart by an `xs` gap. Beside a page whose every other box wears
+	`radii.control` that reads as a row of DISCONNECTED CHIPS rather than one
+	control with one value, and it is the one shape a theme package could not
+	restyle (see `selection_indicator.DEFAULT_CORNER`).
+
+	It is one strip now, and the rule is the same three sentences on both axes:
+
+	  * only the OUTER ends round, with `radii.control` — so a package whose
+	    control radius is fully round still gets a capsule and a square package
+	    gets a square;
+	  * the inner segments are square and TOUCH, separated by a hairline seam
+	    rather than by air;
+	  * the selection fill wears the shape of the segment it is on, which is what
+	    `selection_indicator.segmentCorners` exists for.
+
+	The radius is spent as a TOKEN, never a number: `normalizeCorners` keeps the
+	name beside the authored pixel and the painter re-resolves it against the
+	style it paints with, so a ten-foot display's derived radius reaches the
+	strip and a build-time number never freezes the near one in (the paint-family
+	lockstep rule). ]]
+local SEGMENT_RADIUS = selectionIndicator.DEFAULT_CORNER
+-- the per-corner data for segment `index` of `count` along `axis`, ASKED rather
+-- than re-derived: the level picker's run of marks speaks the same three
+-- sentences, and one of the two copies would be the one that stopped being true
+local stripCorners = selectionIndicator.segmentShape
+
+--[[ THE SEAM'S OWN MAIN-AXIS SIZE, and it is what makes the gap unnecessary.
+	The `Options` stack of a tracked strip runs at `gap = 0` and the seam between
+	each pair of segments carries ALL the spacing: a hairline while the strip is
+	a segmented track (segments touch, with one rule between them), and the
+	ordinary `xs` step while the same stack is a row list (an adaptive picker
+	flips between the two as a RE-SOLVE, so the separators are mounted in both).
+	One reactive dimension instead of a `When` per seam, which would have made
+	the strip structural and put the indicator's own segment-id check to sleep. ]]
+local SEAM_HAIRLINE = table.freeze({ type = "fixed", px = "strokes.hairline" })
+local SEAM_ROW_GAP = table.freeze({ type = "fixed", px = "space.xs" })
+local SEAM_CROSS = table.freeze({ type = "fill", weight = 1 })
+-- ...and the seam is INSET off the segment's full extent, so it reads as a
+-- divider between two labels rather than a wall between two boxes
+local SEAM_MARGIN_X = table.freeze({ top = "xs", bottom = "xs" })
+local SEAM_MARGIN_Y = table.freeze({ left = "xs", right = "xs" })
 -- the count seal's own box. Both numbers are theme SPACING steps, so a package
 -- published before this existed answers them and a theme that retunes its
 -- spacing retunes the badge with it (the `selection_indicator` precedent).
@@ -1091,6 +1136,100 @@ local function buildStrip(Facet: any, core: any, spec: Spec, requested: string)
 		platedRole = chrome_slots.ON_INDICATOR_ROLE
 	end
 
+	--[[ A TRACKED STRIP is the one this round's shape language is about: a plated
+		track holding segments that touch. `track = false` is a TAB BAR inside its
+		own band (TabView), which keeps its own spacing and its own ladder — so it
+		takes the theme radius (item 6) and nothing else here. ]]
+	local tracked = slides and (spec :: any).track ~= false
+	local segmentCount = #spec.options
+	-- the row form's silhouette, and the ONE shape both its states wear (item 5):
+	-- the plate a theme paints under a chosen row is the row's own node, so an
+	-- authored corner makes chosen and unchosen the same outline by construction
+	local rowCorners = UI.cornersData(SEGMENT_RADIUS)
+	-- the three silhouettes a segment can wear, filled per index below: the
+	-- horizontal strip's, the vertical rail's, and the row list's
+	local cornersX: { any } = {}
+	local cornersY: { any } = {}
+	local cornersRow: { any } = {}
+
+	--[[ ===== THE TEN-FOOT ROW LIFT (user visual review 2026-09-12, item 5) =====
+
+		Across a room, the row a player is ON has to be readable as the row they
+		are on from the sofa — and a selection tag is a colour change at ten feet.
+		The focused row therefore LIFTS by a paint-only 1.05, the same envelope
+		and the same spring class `button.luau`'s image form already uses.
+
+		THE BOUNDARY IS THE WHOLE POINT: `scale` is in the presentation channel,
+		so the solver never sees it, the box does not move, the hit target does
+		not move and the focus order does not move. The rows are held apart by
+		their own `xs` gap, which is wider than the 2.5% a 1.05 lift adds to one
+		side of one row — `tests/selection_shape.spec.luau` pins that no row's
+		PRESENTED VISUAL RECT reaches its neighbour while one is lifted, rather
+		than leaving the arithmetic asserted.
+
+		Reduced motion needs no branch: a `clock:spring` is decorative, and the
+		motion authority places a decorative target at its terminus on the same
+		frame (motion I-4). The lift still happens; it simply does not fly. ]]
+	local ROW_LIFT = 1.05
+	local liftEnv = spec.env or surfaceEnv.find(core)
+	local tenFootRows = scope:own(core:memo(function(use)
+		if liftEnv == nil then
+			return false
+		end
+		local p = use(presentation)
+		return (p == "inline" or p == "radio") and use(liftEnv:get("distanceProfile")) == "ten-foot"
+	end))
+	local focusedLeaf = scope:own(core:signal(nil :: any))
+	local liftClock: any = nil
+
+	--[[ one row's lift, built the shape `button.luau` proved: a TARGET memo over
+		the two facts, a settled signal the prop reads, and a spring created lazily
+		the first time the target moves — so a row that is never focused costs a
+		memo and nothing else. The painted value is nil at rest rather than 1,
+		because a resting `scale = 1` is still an authored presentation transform
+		and would put one on every row of every row list at every distance. ]]
+	local function liftScaleFor(optionId: string): any
+		local target = scope:own(core:memo(function(use)
+			return if use(tenFootRows) and use(focusedLeaf) == optionId then ROW_LIFT else 1
+		end))
+		local settled = scope:own(core:signal(target:get()))
+		local spring: any = nil
+		scope:own(core:observe(target, function(next_: number)
+			if spring == nil and liftClock ~= nil then
+				spring = scope:own(liftClock:spring(settled:get(), "object", { eps = 0.00001 }))
+				scope:own(core:observe(spring, function()
+					settled:set(math.clamp(spring:get(), 1, ROW_LIFT))
+				end))
+			end
+			if spring ~= nil then
+				spring:setTarget(next_)
+			else
+				settled:set(next_)
+			end
+		end))
+		return scope:own(core:memo(function(use)
+			local v = use(settled)
+			return if v <= 1.0001 then nil else v
+		end))
+	end
+
+	--[[ THE ROW RECIPE'S BUTTON, PLUS THIS CONTROL'S OWN PAINT. `menu_recipe.row`
+		returns a `UI.Button` and takes no `corners`/`scale`, and widening a recipe
+		four controls share for one caller's silhouette is how a shared recipe
+		becomes a union of its callers. The button is re-emitted instead — exactly
+		the move the badged branch below already makes to put its own children
+		inside one — which is safe because every branch of that recipe returns a
+		bare Button with no metadata channel of its own. ]]
+	local function withRowPaint(bp: any, extra: { [string]: any }): any
+		local props = table.clone(bp.props)
+		props.id = bp.id
+		props.children = bp.children
+		for key, value in extra do
+			props[key] = value
+		end
+		return UI.Button(props)
+	end
+
 	local rows: { any } = {}
 	local byId: { [string]: any } = {}
 	local segments: { any } = {}
@@ -1108,6 +1247,26 @@ local function buildStrip(Facet: any, core: any, spec: Spec, requested: string)
 		byId[optionId] = option.value
 		table.insert(segments, { value = option.value, id = optionId })
 		local badged = option.badge ~= nil
+		--[[ THIS SEGMENT'S SHAPE, in one memo over the two facts that can move it.
+			Both answers are built here, once, so the memo picks between two stable
+			tables rather than allocating a corner set per re-solve. A strip that is
+			not a track (a tab bar, or a strip with no indicator) takes the plain
+			row shape, which is the same radius without the end rule. ]]
+		local cornerX = stripCorners(UI, i, segmentCount, "x")
+		local cornerY = stripCorners(UI, i, segmentCount, "y")
+		cornersX[i], cornersY[i], cornersRow[i] = cornerX, cornerY, rowCorners
+		local optionCorners: any = rowCorners
+		if tracked then
+			optionCorners = scope:own(core:memo(function(use)
+				if use(presentation) ~= "segmented" then
+					return rowCorners
+				end
+				return if axisNow(use) == "y" then cornerY else cornerX
+			end))
+		end
+		-- the lift is a ROW treatment, so a declared segmented strip never carries
+		-- the machinery at all
+		local liftScale = if requested ~= "segmented" then liftScaleFor(optionId) else nil
 		local button = UI.Button({
 			id = optionId,
 			-- ALWAYS the semantic name, whatever gets drawn (the row_actions
@@ -1148,8 +1307,12 @@ local function buildStrip(Facet: any, core: any, spec: Spec, requested: string)
 			width = if badged then SEGMENT_FILL else segmentWidth,
 			height = if badged then OVERLAY_FILL else SEGMENT_HEIGHT,
 			-- the focus ring follows the node's corners, so a segment wears the
-			-- same pill as the bar sliding under it: one shape, one height
-			corners = if slides then UI.cornersData("pill") else nil,
+			-- same shape as the bar sliding under it: one silhouette, one height.
+			-- It is authored on EVERY form, not only the sliding one, because a row
+			-- list's chosen row is a theme-painted plate on this same node — an
+			-- authored corner is what makes chosen and unchosen one outline.
+			corners = optionCorners,
+			scale = liftScale,
 			-- a segment's label has a full-value path (the large-text plate) the
 			-- way any one-line label does: a strip that truncates at the largest
 			-- preference under a roomy package is disclosed, never lost (the gap
@@ -1178,6 +1341,7 @@ local function buildStrip(Facet: any, core: any, spec: Spec, requested: string)
 						and controlContract.enabledIn(use, option.enabled)
 				end)),
 			})
+			button = withRowPaint(button, { corners = optionCorners, scale = liftScale })
 		end
 		if not badged then
 			table.insert(rows, button)
@@ -1225,12 +1389,71 @@ local function buildStrip(Facet: any, core: any, spec: Spec, requested: string)
 				})
 			)
 		end
+		--[[ THE SEAM BETWEEN THIS SEGMENT AND THE NEXT (item 2). A hairline, not a
+			gap: the two segments touch and one rule tells them apart, which is what
+			makes the strip read as one control rather than a row of chips.
+
+			HIDDEN BESIDE THE SELECTION, and that is not decoration. The indicator's
+			layer is declared FIRST inside its ZStack so the fill paints BEHIND the
+			strip (it must never take a tap meant for a segment) — so a seam adjacent
+			to the chip draws a hairline down the chip's own edge. `hidden` keeps the
+			layout box, so neither neighbour moves when the selection arrives.
+
+			MOUNTED IN BOTH FORMS, never `When`-gated: a `When` inside the strip
+			would make the tree structural and put the indicator's own segment-id
+			check to sleep for every picker. The seam's main-axis size carries the
+			row form's spacing instead (see SEAM_HAIRLINE). ]]
+		if tracked and i < segmentCount then
+			local nextValue = spec.options[i + 1].value
+			local seamMain = scope:own(core:memo(function(use)
+				return if use(presentation) == "segmented" then SEAM_HAIRLINE else SEAM_ROW_GAP
+			end))
+			local vertical = scope:own(core:memo(function(use)
+				return use(presentation) == "segmented" and axisNow(use) == "y"
+			end))
+			table.insert(
+				rows,
+				UI.Divider({
+					id = `Sep{i}`,
+					width = scope:own(core:memo(function(use)
+						return if use(vertical) then SEAM_CROSS else use(seamMain)
+					end)),
+					height = scope:own(core:memo(function(use)
+						return if use(vertical) then use(seamMain) else SEAM_CROSS
+					end)),
+					margin = scope:own(core:memo(function(use)
+						return if use(vertical) then SEAM_MARGIN_Y else SEAM_MARGIN_X
+					end)),
+					hidden = scope:own(core:memo(function(use)
+						if use(presentation) ~= "segmented" then
+							return true
+						end
+						local value = use(selected)
+						return value == option.value or value == nextValue
+					end)),
+				})
+			)
+		end
 	end
 
 	local group = UI.AdaptiveStack({
 		id = "Options",
 		axis = axis,
-		gap = "xs",
+		-- a TRACKED strip spends no gap: the seam between each pair carries the
+		-- spacing in both forms (see SEAM_HAIRLINE), so the segments touch while the
+		-- strip is a track and the rows keep their `xs` step when it is not
+		gap = if tracked then 0 else "xs",
+		--[[ EVERY SEGMENT THE SAME SIZE, BY CONSTRUCTION rather than by luck
+			(found by `tests/picker_sweep.spec.luau` on 2026-09-12, the
+			fantasy-ornate / Largest / phone-portrait cell). The sweep has always
+			required "every segment the same height"; it held only while the
+			segments' labels happened to agree about whether they truncated. They
+			are different words, so they do not have to: the longer one reserved its
+			disclosure plate and the shorter one did not, and the strip solved 108px
+			beside 66px. Cross-axis `stretch` makes the answer the STACK's, which is
+			what a segmented control is — one track of equal cells — and it also
+			gives the hairline seams their full run. ]]
+		align = if tracked then "stretch" else nil,
 		width = groupWidth,
 		padding = if slides and (spec :: any).track ~= false
 			then trackPaddingFor(core, scope, spec, presentation)
@@ -1260,19 +1483,36 @@ local function buildStrip(Facet: any, core: any, spec: Spec, requested: string)
 			-- width, so replacing it with the band's changes no solved rect. It is
 			-- kept because it is the true statement, not because a test caught it.
 			width = groupWidth,
+			--[[ THE FILL WEARS THE SEGMENT'S OWN SHAPE (item 2, 2026-09-12). Without
+				this the bar keeps one permanent silhouette while the segments have
+				three, so a pill in a square middle segment leaves four slivers of
+				track showing at its corners. The seam indexes this array by the
+				SELECTED segment, which is the one fact it already holds. ]]
+			segmentCorners = if not tracked
+				then nil
+				else scope:own(core:memo(function(use)
+					if use(presentation) ~= "segmented" then
+						return cornersRow
+					end
+					return if axisNow(use) == "y" then cornersY else cornersX
+				end)),
 			--[[ THE TRACK (visual review 2026-09-11). A segmented control is ONE
 				plated track holding equal segments with the selected one raised; the
 				bar alone left every unselected segment as bare text floating beside
 				one pill. The plate is the `control` surface — the slot every shipped
 				package skins (an ornate frame, a nine-slice, a gel) — drawn BENEATH
 				the sliding bar, and only while the strip IS a segmented pill: the row
-				list and the radio group are rows on the page, not a track. ]]
+				list and the radio group are rows on the page, not a track.
+
+				ITS CORNER IS THE STRIP'S OUTER CORNER (item 2): the same
+				`radii.control` the two end segments round with, so the track and the
+				ends are one outline rather than a capsule holding two squares. ]]
 			plate = if (spec :: any).track == false
 				then nil
 				else UI.Box({
 					id = "Track",
 					surface = "control",
-					corners = UI.cornersData("pill"),
+					corners = UI.cornersData(SEGMENT_RADIUS),
 					width = { type = "fill", weight = 1 },
 					height = { type = "fill", weight = 1 },
 					hidden = scope:own(core:memo(function(use)
@@ -1296,9 +1536,42 @@ local function buildStrip(Facet: any, core: any, spec: Spec, requested: string)
 		})
 		else UI.VStack({ id = id, width = groupWidth, children = { group } })
 
+	--[[ WHICH OPTION THE RING IS ON, and it is deliberately scoped to THIS mount.
+		The ten-foot lift keys on it, and a leaf match alone ("Opt2") would lift a
+		row of the second picker on the same screen — so the focused path must sit
+		under this control's own mounted root before its leaf counts. Degrades to
+		"nothing focused" whenever either fact is missing, which is what a control
+		with no presenter already gets. ]]
+	local focusBound = false
+	local function readFocused(path: any)
+		if type(path) ~= "string" or mountedNode == nil then
+			focusedLeaf:set(nil)
+			return
+		end
+		if string.find(path, mountedNode.path .. "/", 1, true) ~= 1 then
+			focusedLeaf:set(nil)
+			return
+		end
+		focusedLeaf:set(string.match(path, "([^/]+)$"))
+	end
+
 	local built = contribution.attach(root, {
 		syncGeometry = function(_, node)
 			mountedNode = node
+		end,
+		-- an ENHANCEMENT seam, in both cases: with no focus graph nothing lifts,
+		-- and with no clock the lift is an instant placement — the same supported
+		-- degradation `selection_indicator` takes for its own springs
+		bindFocusGraph = function(graph: any)
+			if focusBound or graph == nil or graph.focused == nil then
+				return
+			end
+			focusBound = true
+			scope:own(core:observe(graph.focused, readFocused))
+			readFocused(graph.focused:get())
+		end,
+		bindMotion = function(clock: any)
+			liftClock = clock
 		end,
 		handleActivate = function(path: string): boolean
 			local leaf = string.match(path, "([^/]+)$")

@@ -144,7 +144,14 @@ export type Spec = {
 	thickness: any?, -- underline bar extent: a metric name or a number
 	inset: any?, -- pill inset from the segment box: a metric name or a number
 	surface: string?, -- Box surface role painted by the bar (default "accent")
-	corner: any?, -- corner radius token/number ("pill" by default on the pill skin)
+	corner: any?, -- corner radius token/number (the theme's control radius by default on the pill skin)
+	--[[ PER-SEGMENT CORNER DATA, parallel to `segments` — an array of normalized
+		`UI.cornersData(…)` values (or a Readable of one). The bar wears the entry
+		of the segment it is currently on, so a strip whose ends are rounded and
+		whose middle is square hands its fill the SAME silhouette instead of a
+		permanent pill that leaves four slivers of track showing in the middle.
+		Absent, `corner` is spent uniformly and nothing about this changes. ]]
+	segmentCorners: any?,
 	motionClass: string?, -- registered motion class name (default "object")
 	env: any?, -- optional environment, for live theme metrics
 	-- the WRAPPER's own dimensions. Wrapping is not free: a `fill` strip inside a
@@ -166,9 +173,22 @@ local AXES: { [string]: boolean } = { x = true, y = true }
 -- skin.
 local DEFAULT_THICKNESS = "space.xs"
 local DEFAULT_INSET = "space.xs"
--- the chip's rounding. `radii.pill` is the theme's own "fully rounded" role, and
--- an underline stays square by default because that is what r2 and f1 draw.
-local DEFAULT_PILL_CORNER = "pill"
+--[[ THE CHIP'S ROUNDING, AND IT IS THE THEME'S (user visual review 2026-09-12,
+	item 6). It was `"pill"` — the theme's own "fully rounded" role — which made
+	the selection the ONE shape on the page a package could not restyle: Pixel
+	Quest and Fantasy Ornate draw square controls and got a capsule anyway,
+	because a fully-rounded role is still a role and a square theme still has to
+	publish one.
+
+	`radii.control` is the role every other control's corner already comes from,
+	so a package that rounds its controls fully gets a pill here for the reason
+	it gets one everywhere else, and a package that squares them gets a square.
+	A caller that genuinely wants a capsule whatever the theme says still writes
+	`corner = "pill"`, which is why that key stays authored.
+
+	An underline stays square by default because that is what a tint rule on one
+	edge of a segment is. ]]
+selection_indicator.DEFAULT_CORNER = "control"
 
 -- CLOSED SPEC (constitution §4). An unknown key is an authoring
 -- mistake, never a silent no-op.
@@ -181,6 +201,7 @@ local INDICATOR_KEYS = specGuard.keySet({
 	"inset",
 	"plate",
 	"motionClass",
+	"segmentCorners",
 	"segments",
 	"selected",
 	"height",
@@ -242,6 +263,37 @@ function selection_indicator.resolveIndicatorRect(child: Rect?, host: Rect?, opt
 		w = child.w,
 		h = math.min(thickness, child.h),
 	}
+end
+
+--[[ THE STRIP'S CORNER LANGUAGE, as one pure function (user visual review
+	2026-09-12, item 2). A run of segments that reads as ONE control rounds only
+	its two OUTER ends and leaves everything between them square:
+
+	    index 1        the leading end rounds       (left on x, top on y)
+	    index count    the trailing end rounds      (right on x, bottom on y)
+	    everything else                             square on all four
+	    count <= 1     one segment IS both ends, so it takes the plain shape
+
+	`radii.control` is spent as a TOKEN, never a resolved number: normalizeCorners
+	keeps the name beside the authored pixel and the painter re-resolves it
+	against the style it paints with, so a ten-foot display's derived radius
+	reaches the strip instead of a build-time near-distance number.
+
+	It lives here rather than in either consumer because BOTH speak it — the
+	segmented picker's strip and the level picker's run of marks — and a second
+	copy is how the two would drift apart the day the rule changes. `UI` is passed
+	in for the same reason every recipe in this framework takes it: this module
+	stays free of the init cycle. ]]
+function selection_indicator.segmentShape(UI: any, index: number, count: number, axis: string): any
+	if count <= 1 then
+		return UI.cornersData(selection_indicator.DEFAULT_CORNER)
+	end
+	local first = if index == 1 then selection_indicator.DEFAULT_CORNER else 0
+	local last = if index == count then selection_indicator.DEFAULT_CORNER else 0
+	if axis == "y" then
+		return UI.cornersData({ topLeft = first, topRight = first, bottomLeft = last, bottomRight = last })
+	end
+	return UI.cornersData({ topLeft = first, bottomLeft = first, topRight = last, bottomRight = last })
 end
 
 --[[ THE ONE MOTION DECISION. Pure, so the rule is a test over booleans rather
@@ -467,6 +519,36 @@ function selection_indicator.build(Facet: any, core: any, spec: Spec)
 	-- pill keeps the palette fill paired with its label, while an explicit surface
 	-- opts into that surface's ordinary chrome.
 	local UNDERLINE_TINT = table.freeze({ role = "accent", blend = 1 })
+	--[[ THE CORNER, AND WHICH SEGMENT DECIDES IT. `corner` is the uniform answer
+		and has always been; `segmentCorners` is the per-index one, and it is a
+		BOUND prop rather than a `UI.corners` wrap because the answer changes with
+		the selection: a strip that rounds only its two ends has three silhouettes
+		and the fill has to be wearing the right one on the frame it arrives. The
+		`corners` prop is reactive and `paint`-dirty, so following the selection
+		costs a paint write and never a re-solve.
+
+		The uniform data is the FALLBACK inside the memo too, so a selection the
+		array has no entry for (a live reorder mid-flight) draws the plain shape
+		rather than dropping the prop and painting a square corner nobody asked
+		for. ]]
+	local corner = spec.corner or (if skin == "pill" then selection_indicator.DEFAULT_CORNER else nil)
+	local uniformCorners = if corner ~= nil then UI.cornersData(corner) else nil
+	local barCorners: any = uniformCorners
+	if spec.segmentCorners ~= nil then
+		barCorners = scope:own(core:memo(function(use)
+			local list = readValue(spec.segmentCorners, use)
+			if type(list) ~= "table" then
+				return uniformCorners
+			end
+			local value = readValue(spec.selected, use)
+			for i, segment in segmentsNow(use) do
+				if segment.value == value then
+					return (list :: any)[i] or uniformCorners
+				end
+			end
+			return uniformCorners
+		end))
+	end
 	-- `barSurface` is declared above `skinOpts` (the carved-border rule reads its
 	-- slot); the decision it records is this paragraph's.
 	local bar = UI.Box({
@@ -479,13 +561,10 @@ function selection_indicator.build(Facet: any, core: any, spec: Spec)
 		width = widthDim,
 		height = heightDim,
 		hidden = hiddenMemo,
+		corners = barCorners,
 	})
-	local corner = spec.corner or (if skin == "pill" then DEFAULT_PILL_CORNER else nil)
 	if barHint ~= nil then
 		bar = chrome_slots.attachHint(bar, { slot = barHint })
-	end
-	if corner ~= nil then
-		bar = UI.corners(bar, corner)
 	end
 	-- the layer fills the wrapper so its own solved rect IS the space the offsets
 	-- are spent in; the bar is anchored `topLeft` inside it
