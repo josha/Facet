@@ -563,7 +563,9 @@ describe("migrated controls: byte-parity under Facet Neutral", function()
 		-- by one hairline seam: the strip is one strip, not two chips held apart by
 		-- an `xs` gap (tests/selection_shape.spec.luau)
 		local opt1 = picker.node("/S/Q/Indicator/Options/Opt1").rect
-		expect(picker.node("/S/Q/Indicator/Options/Opt2").rect.x - (opt1.x + opt1.w)).toBe(defaultStyle.strokes.hairline)
+		expect(picker.node("/S/Q/Indicator/Options/Opt2").rect.x - (opt1.x + opt1.w)).toBe(
+			defaultStyle.strokes.hairline
+		)
 		expect(picker.node("/S/Q/Label").props.textSize).toBe(14)
 	end)
 
