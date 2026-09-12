@@ -152,11 +152,11 @@ describe("Picker style: the menu trigger is ONE integrated control", function()
 		expect(trigger ~= nil).toBe(true)
 		-- a CONTENT button: the rendered label is its `Value` child, never a
 		-- second painted word
-		expect(suffixNode(w, "/Trigger/Value").props.text).toBe("Normal")
-		local chevron = suffixNode(w, "/Trigger/Chevron")
+		expect(suffixNode(w, "/Value").props.text).toBe("Normal")
+		local chevron = suffixNode(w, "/Chevron")
 		expect(chevron ~= nil).toBe(true)
 		-- the label sits BESIDE the trigger in one row, the reference platform's form-row shape
-		expect(suffixNode(w, "/Row/Label").props.text).toBe("Difficulty")
+		expect(suffixNode(w, "/Label").props.text).toBe("Difficulty")
 		-- the closed control is a single focusable: the trigger, never a chevron cell
 		expect(w.pres.focus.focused:get()).toBe(suffixPath(w, "/Trigger"))
 		w.overflowGuard()
@@ -197,7 +197,7 @@ describe("Picker style: the menu trigger is ONE integrated control", function()
 		w.pres.refresh()
 		expect(picker.dump().open).toBe(false)
 		expect(picker.dump().selected).toBe("hard")
-		expect(suffixNode(w, "/Trigger/Value").props.text).toBe("Hard")
+		expect(suffixNode(w, "/Value").props.text).toBe("Hard")
 		w.overflowGuard()
 	end)
 	it("re-activating the trigger and gamepad B close an open menu without changing the selection", function()

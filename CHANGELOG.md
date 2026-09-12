@@ -13,6 +13,17 @@ runtime as `Facet.VERSION`.
 
 ## [Unreleased]
 
+- Picker menu, third visual round (2026-09-12, user review of the side-by-side
+  against the reference platform). The popover is ONE card: the panel owns the
+  corner and the stroke, the rows are plain with a hairline between them, the
+  chosen row carries a subtle `controlSelected` fill, and the check sits at the
+  row's trailing edge on a touch surface (leading on a pointer or pad). The
+  touch form row is one row — title and value + chevron on one line, value and
+  chevron flush trailing, no box, the whole row the tap target; a pointer or a
+  pad keeps the boxed pop-up button beside the title, centred on its line. The
+  chevron is centred on the value's line everywhere, and the picker sweep pins
+  both centres to a pixel. `menu_recipe.row` gains `indicatorEdge`.
+
 - `UI.Button` accepts `disclose` (construction-only), the same full-value
   path a one-line `Text` or a Toggle label carries: a squeezed label reaches its
   whole string through the large-text plate. Every segment of a sliding picker

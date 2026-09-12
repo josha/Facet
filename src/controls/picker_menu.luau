@@ -174,6 +174,10 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 	-- the PICKER always presents a real surface (anchored popover or sheet); the
 	-- legacy popup keeps its in-tree `UI.When` panel for plain static options
 	local detached = spec.style ~= nil
+		or (
+			(spec.query ~= nil or spec.selectedValues ~= nil or dynamicOptions or describedOptions)
+			and spec.presentation ~= "inline"
+		)
 	--[[ THE SHEET IS THE FLOOR UNDER THE POPOVER (2026-09-11): a popover whose
 		list is already at its floor and whose frame still cannot fit beside the
 		trigger (Fantasy Ornate's 80px frame on a 390px-tall landscape phone at
@@ -185,10 +189,6 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 		`presentationNow`: a closure only sees the locals that exist when it is
 		made, and a later declaration would leave it reading a nil global. ]]
 	local sheetFallback = false
-		or (
-			(spec.query ~= nil or spec.selectedValues ~= nil or dynamicOptions or describedOptions)
-			and spec.presentation ~= "inline"
-		)
 	scope:own(function()
 		disposed = true
 	end)
@@ -423,7 +423,7 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 		if not available() then
 			return false
 		end
-		if string.match(path, if rowForm then `/{idPattern}/Row/Trigger$` else `/{idPattern}/Trigger$`) ~= nil then
+		if string.match(path, if rowForm then `/{idPattern}/Form/.*/Trigger$` else `/{idPattern}/Trigger$`) ~= nil then
 			open:set(not open:get())
 			return true
 		end
@@ -436,7 +436,10 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 		end
 		local rowKey = string.match(
 			path,
-			if detached then "/Popup/.-Opt%-(.+)$" else `/{idPattern}/PopupWhen/then/Popup/.-Opt%-(.+)$`
+			-- the key is the row's LAST segment: a card row sits inside its
+			-- `+background` wrapper (`.../Opt-x+background/Opt-x`), so a lazy
+			-- capture would swallow the wrapper's name into the key
+			if detached then "/Popup/.*Opt%-([^/]+)$" else `/{idPattern}/PopupWhen/then/Popup/.*Opt%-([^/]+)$`
 		)
 		local option = if rowKey ~= nil then byKey(rowKey) else nil
 		if option ~= nil then
@@ -547,8 +550,11 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 	-- sees the locals that exist when it is made (three memos in this file were
 	-- quarantined by that rule this round alone).
 	local function anchorSourcePath(): string
-		-- the trigger is a boxed control on every input class now (see
-		-- `triggerSurface`), so its own frame is the edge the menu hangs from
+		-- a plain touch row hangs its menu from the chevron (the last thing the
+		-- eye sees on a row with no box); a boxed trigger hangs it from its frame
+		if rowForm and touchPrimary:get() == true then
+			return triggerPath() .. "/Row/Trailing/Chevron"
+		end
 		return triggerPath()
 	end
 
@@ -584,6 +590,14 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 			-- the picker's rows wear the CHECK-ONLY slot (the current value, not a
 			-- toggle); the legacy popup keeps its check/radio/nothing exactly as shipped
 			indicator = if multiple then "check" elseif pickerMode then "mark" elseif spec.query then "radio" else nil,
+			--[[ ONE CARD, FLAT ROWS (user review of the side-by-side, 2026-09-11):
+				the picker's rows carry no plate of their own — the popover card owns
+				the corner and the stroke, a hairline separates the rows, and the
+				chosen row shows a subtle fill. The check sits at the row's trailing
+				edge on a touch surface (the reference platform's phone menus) and
+				leads on a pointer or pad surface (its desktop menus). ]]
+			surface = if pickerMode then "plain" else nil,
+			indicatorEdge = if pickerMode and touchPrimary:get() == true then "trailing" else "leading",
 			markHidden = hidden,
 			height = "targetSizes.minimum",
 		})
@@ -846,7 +860,7 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 					})
 				)
 			else
-				for _, row in staticRows do
+				for index, row in staticRows do
 					if row.class == "Button" then
 						local props = table.clone(row.props)
 						props.id = row.id
@@ -854,7 +868,31 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 							then { type = "minMax", min = rowHeight }
 							else { type = "fixed", px = rowHeight }
 						props.children = row.children
-						table.insert(listRows, UI.Button(props))
+						if pickerMode then
+							-- the card's rows: a hairline between neighbours, a subtle
+							-- `controlSelected` fill behind the chosen one (see optionRow)
+							if index > 1 then
+								table.insert(listRows, menuRecipe.divider(UI, `Div-{index}`))
+							end
+							local chosen = props.selected
+							table.insert(
+								listRows,
+								UI.background(
+									UI.Button(props),
+									UI.Box({
+										id = "Fill",
+										tint = { role = "controlSelected", blend = 1 },
+										hidden = if type(chosen) == "table"
+											then scope:own(core:memo(function(use)
+												return use(chosen) ~= true
+											end))
+											else true,
+									})
+								)
+							)
+						else
+							table.insert(listRows, UI.Button(props))
+						end
 					else
 						table.insert(listRows, row)
 					end
@@ -873,7 +911,7 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 							UI.VStack({
 								id = "Rows",
 								width = { type = "fill", weight = 1 },
-								gap = menuRecipe.ROW_GAP,
+								gap = 0, -- flat rows inside one card; the hairlines are the rhythm
 								children = listRows,
 							}),
 						},
@@ -950,7 +988,7 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 			-- An INLINE list is part of the trigger's own surface, so it takes the
 			-- control role rather than a floating-panel one.
 			surface = if presentation == "inline" then "control" else "raised",
-			padding = if isSheet then "s" else nil,
+			padding = if isSheet then "s" elseif pickerMode then { top = "xs", bottom = "xs" } else nil,
 			-- the hairline of surface showing between rows — the recipe's token, so
 			-- all three menus space their rows identically
 			gap = menuRecipe.ROW_GAP,
@@ -1044,6 +1082,17 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 						local top = if type(insets) == "table" and type(insets.top) == "number" then insets.top else 0
 						local room = math.max(vp.h - m - (source.y + source.h + xs), source.y - xs - top)
 						over = math.max(over, rect.h - room)
+						--[[ ...AND THE PLACED POSITION, because the presenter's safe box is
+							not this arithmetic's (its own gutters and insets differ from the
+							content margin by a few px under a themed package): a panel placed
+							ABOVE the edge it should hang from has been pushed by exactly what
+							it is too tall by. Converges because the shrink below is taken off
+							the list's measured height and the feed count is bounded. ]]
+						local below = rect.y + rect.h / 2 > source.y + source.h / 2
+						local pushed = if below
+							then (source.y + source.h + xs) - rect.y
+							else (rect.y + rect.h) - (source.y - xs)
+						over = math.max(over, pushed)
 					end
 					--[[ BOUNDED, NOT PROGRESS-GATED: a feed that shortened the LIST but not
 						the panel (Fantasy Ornate's frame at +10 on a landscape phone: 7px
@@ -1060,7 +1109,17 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 							return
 						end
 						feeds += 1
-						listShrink:set(listShrink:get() + math.ceil(over))
+						--[[ THE SHRINK IS TAKEN OFF THE LIST'S MEASURED HEIGHT, not off the
+							budget: a hugging list already below its budget (three rows under
+							an ornate frame that is the bigger half of the panel) does not move
+							when only its ceiling comes down, so the ceiling is set to what the
+							list IS less the overrun — one feed, one fit. ]]
+						local listRect = rectOf(node.path .. "/Rows/List")
+						local ceiling = listMaxPx(presentationNow())
+						local wanted = if type(listRect) == "table" and type(listRect.h) == "number"
+							then listRect.h - math.ceil(over)
+							else ceiling - math.ceil(over)
+						listShrink:set(listShrink:get() + math.max(1, math.ceil(ceiling - wanted)))
 					end
 				end
 				else nil,
@@ -1234,86 +1293,158 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 		away. A value that wrapped would grow the trigger past its row; a value
 		that could not shrink would push the title off the screen, which is what
 		the overflow sweep found on a 320px phone at the largest preference. ]]
-	local triggerContent = {
-		UI.Text({
-			id = "Value",
-			text = selectedLabel,
-			textSize = spec.textSize or "control",
-			role = valueRole,
-			lineLimit = 1,
-			disclose = true,
-			width = if pickerMode then valueWidth else UI.hug(),
-		}),
-		chrome_slots.attachHint(
+	local function valueViews(): { any }
+		return {
 			UI.Text({
-				id = "Chevron",
-				text = themePackage.iconGlyph(chevronName) or (if navLink then ">" else "^v"),
-				textSize = "caption",
+				id = "Value",
+				text = selectedLabel,
+				textSize = spec.textSize or "control",
 				role = valueRole,
+				lineLimit = 1,
+				disclose = true,
+				width = if pickerMode then valueWidth else UI.hug(),
 			}),
-			{ icon = chevronName, iconSize = "small" }
-		),
-	}
-	if navLink and spec.label ~= nil then
-		-- THE NAVIGATION LINK IS THE WHOLE ROW: title leading, value and chevron
-		-- trailing, one press anywhere on it — a row that leads somewhere is the
-		-- press target, exactly as every list row that pushes a screen is. The
-		-- same stacking rule as the form row: at large text the value drops
-		-- beneath the title instead of squeezing it.
-		triggerContent = {
-			UI.AdaptiveStack({
-				id = "Row",
-				axis = rowAxis,
-				width = { type = "fill", weight = 1 },
-				gap = "xs",
-				children = {
-					UI.Text({
-						id = "Label",
-						text = spec.label,
-						textSize = spec.textSize or "control",
-						width = { type = "fill", weight = 1 },
-					}),
-					UI.HStack({ id = "Trailing", gap = "xs", width = UI.hug(), children = triggerContent }),
-				},
-			}),
+			chrome_slots.attachHint(
+				UI.Text({
+					id = "Chevron",
+					text = themePackage.iconGlyph(chevronName) or (if navLink then ">" else "^v"),
+					textSize = "caption",
+					role = valueRole,
+				}),
+				{ icon = chevronName, iconSize = "small" }
+			),
 		}
 	end
-	local trigger = UI.Button({
-		id = "Trigger",
-		label = selectedLabel,
-		anchor = if rowForm then nil else "topLeft",
-		surface = triggerSurface,
-		-- pressed while its menu is up, as the reference platform draws it
-		selected = scope:own(core:memo(function(use)
-			return use(open) == true
-		end)),
-		width = triggerWidthDim,
-		height = if detached
-			then { type = "minMax", min = TRIGGER_HEIGHT }
-			else { type = "fixed", px = TRIGGER_HEIGHT },
-		gap = "xs",
-		children = triggerContent,
-	})
-	local head = if rowForm
-		then UI.AdaptiveStack({
-			id = "Row",
-			anchor = "topLeft",
-			axis = rowAxis,
-			width = { type = "fill", weight = 1 },
-			gap = "s",
-			children = {
-				UI.Text({
-					id = "Label",
-					text = spec.label,
-					textSize = spec.textSize or "control",
+	local function contentViews(): { any }
+		local views = valueViews()
+		if navLink and spec.label ~= nil then
+			return {
+				UI.AdaptiveStack({
+					id = "Row",
+					axis = rowAxis,
 					width = { type = "fill", weight = 1 },
+					gap = "xs",
+					align = "center",
+					children = {
+						UI.Text({
+							id = "Label",
+							text = spec.label,
+							textSize = spec.textSize or "control",
+							width = { type = "fill", weight = 1 },
+						}),
+						UI.HStack({ id = "Trailing", gap = "xs", width = UI.hug(), align = "center", children = views }),
+					},
 				}),
-				trigger,
+			}
+		end
+		return views
+	end
+	local openNow = scope:own(core:memo(function(use)
+		return use(open) == true
+	end))
+	local function labelView()
+		return UI.Text({
+			id = "Label",
+			text = spec.label,
+			textSize = spec.textSize or "control",
+			width = { type = "fill", weight = 1 },
+		})
+	end
+	--[[ THE TOUCH FORM ROW IS ONE ROW (user review of the side-by-side,
+		2026-09-11): the title and the value + chevron sit on one line, value and
+		chevron flush trailing, no box — the whole row is the tap target, exactly
+		as the reference platform's phone form rows are. A pointer or a pad keeps
+		the boxed pop-up button beside the title, centred on the title's line,
+		because those surfaces need a visible affordance. The two are structural
+		(a `UI.When` each) and follow the live primary input class. ]]
+	local function touchRowTrigger()
+		return UI.Button({
+			id = "Trigger",
+			label = selectedLabel,
+			surface = "plain",
+			selected = openNow,
+			width = { type = "fill", weight = 1 },
+			height = { type = "minMax", min = TRIGGER_HEIGHT },
+			gap = "xs",
+			align = "center",
+			children = {
+				UI.AdaptiveStack({
+					id = "Row",
+					axis = rowAxis,
+					width = { type = "fill", weight = 1 },
+					gap = "xs",
+					align = "center",
+					children = {
+						labelView(),
+						UI.HStack({
+							id = "Trailing",
+							gap = "xs",
+							width = UI.hug(),
+							align = "center",
+							children = contentViews(),
+						}),
+					},
+				}),
 			},
 		})
-		else trigger
+	end
+	local function boxedTrigger()
+		return UI.Button({
+			id = "Trigger",
+			label = selectedLabel,
+			anchor = if rowForm then nil else "topLeft",
+			surface = triggerSurface, -- control everywhere but a plain touch navigation link
+			-- lit while its menu is up; the legacy popup keeps its resting paint (a
+			-- `selection`-slotted 40px trigger cannot hold an ornate frame)
+			selected = if pickerMode then openNow else nil,
+			width = triggerWidthDim,
+			height = if detached
+				then { type = "minMax", min = TRIGGER_HEIGHT }
+				else { type = "fixed", px = TRIGGER_HEIGHT },
+			gap = "xs",
+			align = "center",
+			children = contentViews(),
+		})
+	end
+	local head
+	if rowForm then
+		head = UI.VStack({
+			id = "Form",
+			anchor = "topLeft",
+			width = { type = "fill", weight = 1 },
+			children = {
+				UI.When({ id = "TouchRow", condition = touchPrimary, thenView = touchRowTrigger }),
+				UI.When({
+					id = "PointerRow",
+					condition = scope:own(core:memo(function(use)
+						return not use(touchPrimary)
+					end)),
+					thenView = function()
+						return UI.AdaptiveStack({
+							id = "Row",
+							axis = rowAxis,
+							width = { type = "fill", weight = 1 },
+							gap = "s",
+							align = "center",
+							children = { labelView(), boxedTrigger() },
+						})
+					end,
+				}),
+			},
+		})
+	else
+		head = boxedTrigger()
+	end
 	triggerPath = function(): string
-		return (rootPath :: string) .. (if rowForm then "/Row/Trigger" else "/Trigger")
+		if not rowForm then
+			return (rootPath :: string) .. "/Trigger"
+		end
+		return (rootPath :: string)
+			.. (
+				if touchPrimary:get() == true
+					then "/Form/TouchRow/then/Trigger"
+					else "/Form/PointerRow/then/Row/Trigger"
+			)
 	end
 
 	local blueprint = UI.Anchor({
@@ -1395,8 +1526,15 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 					rootPath = node.path
 					local rect = rectOf(triggerPath())
 					if type(rect) == "table" and type(rect.w) == "number" then
-						triggerWidth = rect.w
 						triggerRect = rect
+						-- the popover's width floor is the CONTROL the eye sees: on the
+						-- touch form row that is the value + chevron, not the whole row
+						local visible = if rowForm and touchPrimary:get() == true
+							then rectOf(triggerPath() .. "/Row/Trailing")
+							else nil
+						triggerWidth = if type(visible) == "table" and type(visible.w) == "number"
+							then visible.w
+							else rect.w
 					end
 					local sourceRect = rectOf(anchorSourcePath())
 					anchorRect = if type(sourceRect) == "table" then sourceRect else rect

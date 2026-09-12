@@ -212,6 +212,7 @@ export type Row = {
 	description: any?,
 	markHidden: any?,
 	indicator: string?, -- "radio" | "check" | "mark" (the picker menu's check-only slot)
+	indicatorEdge: string?, -- "leading" (default) | "trailing": the picker menu's check sits at the row's trailing edge under touch
 	id: string, -- the path segment, already prefixed by the caller
 	label: any, -- string | number | Readable — the SEMANTIC name, always present
 	icon: any?, -- semantic icon NAME or Readable<string?>, never an asset id
@@ -240,6 +241,9 @@ function menu_recipe.row(UI: any, row: Row): any
 
 	if row.description ~= nil or row.indicator ~= nil or liveIcon or row.badge ~= nil then
 		local content = {}
+		-- the indicator slot, placed leading (a desktop menu) or trailing (a
+		-- phone menu marks the chosen row at its far edge — `indicatorEdge`)
+		local indicatorView: any = nil
 		if row.indicator ~= nil then
 			--[[ `mark` is the PICKER MENU's indicator (2026-09-11): the check
 				alone, in a reserved slot, with NO resting outline — the row that is
@@ -292,15 +296,15 @@ function menu_recipe.row(UI: any, row: Row): any
 					{ icon = onName }
 				)
 			)
-			table.insert(
-				content,
-				UI.ZStack({
-					id = "Indicator",
-					width = { type = "minMax", min = "l" },
-					height = { type = "minMax", min = "l" },
-					children = indicatorChildren,
-				})
-			)
+			indicatorView = UI.ZStack({
+				id = "Indicator",
+				width = { type = "minMax", min = "l" },
+				height = { type = "minMax", min = "l" },
+				children = indicatorChildren,
+			})
+			if row.indicatorEdge ~= "trailing" then
+				table.insert(content, indicatorView)
+			end
 		end
 		local function iconView(icon)
 			return chrome_slots.attachHint(
@@ -407,6 +411,9 @@ function menu_recipe.row(UI: any, row: Row): any
 					corners = UI.cornersData("pill"),
 				})
 			)
+		end
+		if row.indicatorEdge == "trailing" and indicatorView ~= nil then
+			table.insert(content, indicatorView)
 		end
 		return UI.Button({
 			id = row.id,

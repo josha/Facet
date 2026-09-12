@@ -159,11 +159,14 @@ end
 	never narrower than the trigger nor wider than the screen less its content
 	inset, and the trigger reads as pressed while the menu is up. ]]
 local function pinAttachment(label: string, w: any, theme: any, viewport: any, trigger: string, popupRoot: string)
-	-- the trigger is a boxed control on every input class, so its own frame
-	-- is the edge the menu hangs from (user review, 2026-09-11)
-	local source = w.adapter.node(trigger).rect
+	-- the touch form row is ONE row, so its menu hangs from the chevron — the
+	-- control the eye sees — and the popover's width floor is the value +
+	-- chevron; a boxed trigger hangs the menu from its own frame (2026-09-12)
+	local rowChevron = suffixPath(w, "/Trigger/Row/Trailing/Chevron")
+	local visible = suffixPath(w, "/Trigger/Row/Trailing")
+	local source = w.adapter.node(rowChevron or trigger).rect
 	local panel = w.adapter.node(popupRoot).rect
-	local triggerRect = w.adapter.node(trigger).rect
+	local triggerRect = w.adapter.node(visible or trigger).rect
 	local gap = metric(theme, "space.xs", 4)
 	local inset = metric(theme, "space.m", 16)
 	-- flush — or, when the rows want more room than the source leaves to its
@@ -189,6 +192,41 @@ local function pinAttachment(label: string, w: any, theme: any, viewport: any, t
 	).toBe(`{label} inside the content inset: true`)
 	local pressed = w.adapter.node(trigger).props.selected
 	expect(`{label} trigger pressed while open: {pressed == true}`).toBe(`{label} trigger pressed while open: true`)
+end
+
+--[[ THE TRIGGER'S OWN LINE (user review of the side-by-side, 2026-09-11): the
+	chevron is centred on the value's line, and on a row that has not stacked
+	the title shares that centre too — one baseline for label, value and
+	chevron, measured on the solved rects with a pixel of tolerance. ]]
+local function centreY(rect: any): number
+	return rect.y + rect.h / 2
+end
+
+local function pinTriggerLine(label: string, w: any, trigger: string)
+	local value = suffixPath(w, "/Value")
+	local chevron = suffixPath(w, "/Chevron")
+	expect(`{label} value and chevron mounted: {value ~= nil and chevron ~= nil}`).toBe(
+		`{label} value and chevron mounted: true`
+	)
+	local valueRect = w.adapter.node(value :: string).rect
+	local chevronRect = w.adapter.node(chevron :: string).rect
+	expect(
+		`{label} chevron centred on the value: {near(centreY(valueRect), centreY(chevronRect))} ({centreY(valueRect)} vs {centreY(
+			chevronRect
+		)})`
+	).toBe(`{label} chevron centred on the value: true ({centreY(valueRect)} vs {centreY(chevronRect)})`)
+	local labelPath = suffixPath(w, "/Label")
+	if labelPath ~= nil then
+		local labelRect = w.adapter.node(labelPath :: string).rect
+		-- stacked (the title above the value at a large preference) or one line
+		local stacked = labelRect.y + labelRect.h <= valueRect.y + 0.5
+		expect(
+			`{label} title on the value's line or above it: {stacked or near(centreY(labelRect), centreY(valueRect))} ({centreY(
+				labelRect
+			)} vs {centreY(valueRect)})`
+		).toBe(`{label} title on the value's line or above it: true ({centreY(labelRect)} vs {centreY(valueRect)})`)
+	end
+	local _ = trigger
 end
 
 --[[ THE TRACK (visual review 2026-09-11): a segmented picker is ONE plated
@@ -253,6 +291,9 @@ describe("Picker sweep: style x theme x text preference x viewport", function()
 						if MENU_FAMILY[resolved] then
 							local trigger = suffixPath(w, "/Trigger")
 							expect(`{label} has a trigger: {trigger ~= nil}`).toBe(`{label} has a trigger: true`)
+							if resolved ~= "navigationLink" then
+								pinTriggerLine(label, w, trigger :: string)
+							end
 							picker.api.open()
 							w.pres.refresh()
 							w.pres.refresh() -- the measured list budget lands one solve later
