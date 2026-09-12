@@ -88,6 +88,40 @@ menu_recipe.INLINE_ROW_HEIGHT = "controlSizes.regular.height"
 -- the hairline of surface showing between two rows
 menu_recipe.ROW_GAP = "strokes.hairline"
 
+--[[ THE CARD, AND THE PAINT A ROW INSIDE ONE TAKES (user review of the desktop
+	split button, 2026-09-12: *"the open menu still reads as stacked rounded
+	rects"*). The picker's popover settled the SHAPE of the answer one round
+	earlier and these four constants are that ruling, named once so the freestanding
+	menu and the picker menu cannot drift:
+
+	  * the PANEL is the plate. `surface = "raised"` already carries the corner and
+	    the stroke, so a row inside it owns neither — a row that keeps its own
+	    control radius is what makes a list read as a stack of separate buttons.
+	  * a row therefore rests at `plain` (paints nothing at all — `chrome_slots`:
+	    "AN EXPLICIT `plain` PAINTS NOTHING, including chrome") and the hairline
+	    between two rows is the only rhythm.
+	  * the SELECTED row's fill is the row's own `surface`, which is what makes
+	    "the fill fits the row exactly" true BY CONSTRUCTION rather than by two
+	    boxes agreeing about a rectangle. It is `accent`, with the label at
+	    `onAccent`, because that is the ONE pair every theme of every package
+	    guarantees (`gateTheme` refuses a package whose accent pair reads below
+	    4.5:1, and `tests/selection_contrast.spec.luau` re-asks it of every shipped
+	    theme). `controlSelected` is deliberately NOT the fill here: its readable
+	    partner is `$OnSelected`, a token only the STYLE SHEET can resolve — a
+	    child `UI.Text` (which is what a row with a check, an icon or a description
+	    draws its label into) has no route to it, so pairing a label with that fill
+	    from the decision layer means guessing, and the guess is wrong on two of the
+	    eleven shipped themes in each direction. See the spec for the measurements.
+	  * the ends of the card are the ends of the FIRST and LAST rows, so those two
+	    take the panel's radius on their outer corners and 0 everywhere else. A
+	    square row corner inside a rounded card paints over the card's arc; the
+	    engine does not clip a child to a parent's `UICorner`. ]]
+menu_recipe.CARD_CORNER = "panel"
+menu_recipe.SELECTED_SURFACE = "accent"
+menu_recipe.SELECTED_LABEL_ROLE = "onAccent"
+menu_recipe.RESTING_SURFACE = "plain"
+menu_recipe.RESTING_LABEL_ROLE = "content"
+
 -- Guidance: if a submenu contains more than about five items, consider creating a
 -- new menu". Advice, so it is a diagnostic rather than a refusal.
 menu_recipe.GROUP_SIZE_ADVICE = 5
@@ -211,6 +245,16 @@ export type Row = {
 	value: any?,
 	description: any?,
 	markHidden: any?,
+	--[[ THE CARD PAINTS THE SELECTION, so the Button must not also carry the
+		`facet-selected` style tag: the sheet's `Selected row` rule owns
+		BackgroundColor3 AND TextColor3 wherever that tag lands, which would repaint
+		the card row's own surface out from under it and leave the two forms of one
+		row (a leaf's drawn label, a content row's child `UI.Text`) sitting on two
+		different fills. `selected` stays the row's source of truth for the check
+		mark and for `cardRow`'s surface; it just stops being a paint channel.
+		Nothing else in the library sets this — every other caller keeps the sheet's
+		treatment byte for byte. ]]
+	platedSelection: boolean?,
 	indicator: string?, -- "radio" | "check" | "mark" (the picker menu's check-only slot)
 	indicatorEdge: string?, -- "leading" (default) | "trailing": the picker menu's check sits at the row's trailing edge under touch
 	id: string, -- the path segment, already prefixed by the caller
@@ -238,6 +282,9 @@ function menu_recipe.row(UI: any, row: Row): any
 	if liveIcon or readable(row.badge) then
 		assert(row.core and row.scope, "menu row: readable icon and badge require core and scope")
 	end
+	-- see `platedSelection`: the tag is the SHEET's selection paint, and a card row
+	-- has already painted its own
+	local buttonSelected = if row.platedSelection == true then nil else row.selected
 
 	if row.description ~= nil or row.indicator ~= nil or liveIcon or row.badge ~= nil then
 		local content = {}
@@ -272,6 +319,7 @@ function menu_recipe.row(UI: any, row: Row): any
 					chrome_slots.attachHint(
 						UI.Text({
 							id = "Outline",
+							tint = row.labelTint,
 							hidden = row.selected,
 							text = themePackage.iconGlyph(offName),
 							textSize = "control",
@@ -287,6 +335,7 @@ function menu_recipe.row(UI: any, row: Row): any
 				chrome_slots.attachHint(
 					UI.Text({
 						id = "Mark",
+						tint = row.labelTint,
 						hidden = row.markHidden,
 						text = themePackage.iconGlyph(onName),
 						textSize = "control",
@@ -385,7 +434,16 @@ function menu_recipe.row(UI: any, row: Row): any
 			)
 		end
 		if row.value ~= nil then
-			table.insert(content, UI.Text({ id = "Value", text = row.value, textSize = "control", role = "secondary" }))
+			table.insert(
+				content,
+				UI.Text({
+					id = "Value",
+					tint = row.labelTint,
+					text = row.value,
+					textSize = "control",
+					role = "secondary",
+				})
+			)
 		end
 		if row.badge ~= nil then
 			local badge = if readable(row.badge)
@@ -421,7 +479,7 @@ function menu_recipe.row(UI: any, row: Row): any
 			role = row.role or "default",
 			surface = row.surface,
 			enabled = row.enabled,
-			selected = row.selected,
+			selected = buttonSelected,
 			width = row.width or { type = "fill", weight = 1 },
 			height = { type = "minMax", min = row.height or "targetSizes.minimum" },
 			children = {
@@ -444,8 +502,11 @@ function menu_recipe.row(UI: any, row: Row): any
 			-- the ruling that forbids `prefer` here.
 			compactLabel = if row.icon ~= nil then { icon = row.icon } else nil,
 			role = if row.role == "destructive" then "destructive" else "default",
+			-- the card's rows go `plain` and the selected one takes the card's own
+			-- fill; every other caller leaves this nil and keeps the control plate
+			surface = row.surface,
 			enabled = row.enabled,
-			selected = row.selected,
+			selected = buttonSelected,
 			width = { type = "fill", weight = 1 },
 			height = height,
 		})
@@ -461,14 +522,19 @@ function menu_recipe.row(UI: any, row: Row): any
 		id = row.id,
 		label = row.label,
 		role = if row.role == "destructive" then "destructive" else "default",
+		surface = row.surface,
 		enabled = row.enabled,
-		selected = row.selected,
+		selected = buttonSelected,
 		gap = "xs",
 		width = { type = "fill", weight = 1 },
 		height = height,
 		children = {
 			UI.Text({
 				id = "Label",
+				-- the same pairing every other content row takes: a submenu row on a
+				-- card is selectable too, and its label is a CHILD, so the sheet's
+				-- own `TextButton` colour rules cannot reach it (see CARD_CORNER)
+				tint = row.labelTint,
 				text = row.label,
 				-- the SAME role the renderer gives a Button's own text, so moving the
 				-- label into content changes no geometry
@@ -476,11 +542,74 @@ function menu_recipe.row(UI: any, row: Row): any
 				width = { type = "fill", weight = 1 },
 			}),
 			chrome_slots.attachHint(
-				UI.Text({ id = "Chevron", text = glyph, textSize = "control" }),
+				UI.Text({ id = "Chevron", tint = row.labelTint, text = glyph, textSize = "control" }),
 				{ icon = "chevron.trailing" }
 			),
 		},
 	})
+end
+
+--[[ WHERE A ROW SITS IN THE CARD, as the four radii it therefore carries.
+	`only` is the one-row menu, which is the whole plate and takes all four. Pure
+	and exported so a test can ask the same question the panel does. ]]
+function menu_recipe.cardCorners(position: string): any
+	local top = position == "first" or position == "only"
+	local bottom = position == "last" or position == "only"
+	local corner = menu_recipe.CARD_CORNER
+	return {
+		topLeft = if top then corner else 0,
+		topRight = if top then corner else 0,
+		bottomLeft = if bottom then corner else 0,
+		bottomRight = if bottom then corner else 0,
+	}
+end
+
+--[[ ONE ROW OF THE CARD: `menu_recipe.row`, plus the three things a flat row
+	inside one plate owes (see CARD_CORNER above) — its resting/selected surface,
+	the label colour that pairs with the selected one, and its share of the card's
+	corner.
+
+	`slot = "none"` rides along because the selected row's surface classifies as a
+	`control` decoration slot: without it a skinned package paints a whole button
+	picture over the one row that is supposed to read as a fill inside the card,
+	and the paired label is then sitting on art rather than on `$Accent`. It is the
+	same declaration `selection_indicator` makes for its pill, for the same reason
+	it gives: *"arbitrary control artwork can replace that fill with dark pixels,
+	breaking the paired label"*. The hint is inert while the row rests at `plain`,
+	which classifies to no slot anyway.
+
+	The tint NAMES BOTH ENDS — `content` when the row is not selected, never nil —
+	which is `picker`'s own idiom for the same job one control over (its pill-plated
+	segment label). A bound paint that resolves to nil RELEASES its claim, and a
+	release restores whatever the property held when the claim was taken, which on a
+	recycled instance is the previous occupant's colour rather than this theme's.
+	Naming the resting end costs one property write and cannot be stale. It is also
+	free of the disabled state: that dims `TextTransparency` (`Disabled subtree
+	text`), never the colour, so a colour claim takes nothing away from it. ]]
+function menu_recipe.cardRow(UI: any, core: any, scope: any, row: Row, position: string): any
+	local spec: any = table.clone(row)
+	local selected = row.selected
+	if type(selected) == "table" and (selected.kind == "signal" or selected.kind == "memo") then
+		assert(core ~= nil and scope ~= nil, "menu card row: a reactive `selected` requires core and scope")
+		spec.surface = scope:own(core:memo(function(use)
+			return if use(selected) then menu_recipe.SELECTED_SURFACE else menu_recipe.RESTING_SURFACE
+		end))
+		spec.labelTint = scope:own(core:memo(function(use)
+			return {
+				role = if use(selected) then menu_recipe.SELECTED_LABEL_ROLE else menu_recipe.RESTING_LABEL_ROLE,
+				blend = 1,
+			}
+		end))
+	else
+		local on = selected == true
+		spec.surface = if on then menu_recipe.SELECTED_SURFACE else menu_recipe.RESTING_SURFACE
+		spec.labelTint =
+			{ role = if on then menu_recipe.SELECTED_LABEL_ROLE else menu_recipe.RESTING_LABEL_ROLE, blend = 1 }
+	end
+	return chrome_slots.attachHint(
+		UI.corners(menu_recipe.row(UI, spec), menu_recipe.cardCorners(position)),
+		{ slot = chrome_slots.NO_SLOT }
+	)
 end
 
 --[[ A DIVIDER ITEM. `UI.Divider` is the shipped axis-aware hairline (A-LV3): it

@@ -1405,3 +1405,152 @@ describe("D2 Menu: the dump says what is on screen", function()
 		expect(w.core:lastError()).toBeNil()
 	end)
 end)
+
+-- ===== the card ==========================================================
+
+--[[ ONE CARD, FLAT ROWS (user review of the desktop split button's menu,
+	2026-09-12: *"the open menu still reads as stacked rounded rects"*).
+
+	The anchored panel was a `raised` VStack of ordinary `control`-surfaced rows
+	separated by a hairline of surface showing through the gap — so every row wore
+	the theme's control radius and (under a skinned package) its whole button
+	picture, and the plate behind them was invisible between them. What a player
+	saw was a stack of buttons, not a menu.
+
+	Five things have to hold together for the card to read as one plate, and each
+	one fails in a way the other four hide:
+
+	  * ONE hairline between two neighbouring rows — never two, never a gap AND a
+	    rule (a 2px seam is what makes a highlight look under-filled at its edges);
+	  * no row carrying the control radius, or the stack of rounded rects is back;
+	  * the first and last rows carrying the CARD's radius on their OUTER corners,
+	    or a square corner paints over the plate's arc (the engine does not clip a
+	    child to its parent's `UICorner`);
+	  * the selection fill being the row's own surface, which is the only way
+	    "fits the row exactly" is true by construction rather than by two
+	    rectangles agreeing;
+	  * the selected row's LABEL pairing with that fill. A row with a check draws
+	    its label into a child `UI.Text`, and no `TextButton` colour rule in the
+	    sheet can reach a child — see `tests/selection_contrast.spec.luau` for the
+	    measurement that makes `accent`/`onAccent` the pair this uses. ]]
+describe("D2 Menu: the anchored panel is ONE card", function()
+	local CHECKED = {
+		{ id = "a", label = "Alpha", onSelect = function() end },
+		{ id = "b", label = "Beta", checked = nil :: any },
+		{ id = "c", label = "Gamma", onSelect = function() end },
+	}
+	local function cardWorld()
+		local core = Facet.newCore()
+		local checked = core:signal(true)
+		local items = table.clone(CHECKED)
+		items[2] = { id = "b", label = "Beta", checked = checked }
+		local w = world({ items = items, presentation = "menu" })
+		w.control.api.open()
+		w.pres.refresh()
+		return w, checked
+	end
+	local PANEL = "/Menu-M/Layer/Surface/Panel"
+
+	it("draws exactly one hairline between two rows — rows minus one, and no gap besides", function()
+		local w = cardWorld()
+		local rules = 0
+		for _, path in w.adapter.paths() do
+			-- plain find: the surface id carries a `-`, which is a Lua pattern
+			-- quantifier, and a pattern that silently matches nothing counts zero
+			-- rules and passes the day the card stops drawing them
+			if string.find(path, `{PANEL}/Rule-`, 1, true) == 1 then
+				rules += 1
+			end
+		end
+		expect(rules).toBe(2) -- three rows
+		-- ...and the rows TOUCH their rule: the panel's own gap is gone, so the
+		-- separator is the hairline and nothing else
+		local a = w.adapter.node(rowPath(0, "a")).rect
+		local rule = w.adapter.node(`{PANEL}/Rule-2`).rect
+		local b = w.adapter.node(rowPath(0, "b")).rect
+		expect(rule.y).toBe(a.y + a.h)
+		expect(b.y).toBe(rule.y + rule.h)
+	end)
+
+	it("no row carries a control radius, and the card's ends carry the PANEL's", function()
+		local w = cardWorld()
+		local function corners(id: string): any
+			return w.adapter.node(rowPath(0, id)).props.corners
+		end
+		-- the middle row is square on all four
+		local middle = corners("b")
+		expect(middle.form).toBe("perCorner")
+		expect(middle.topLeft).toBe(0)
+		expect(middle.bottomRight).toBe(0)
+		expect(middle.tokens).toBeNil()
+		-- the ends take the card's own radius OUTWARD and 0 into the card, named
+		-- by TOKEN so a theme that retunes `radii.panel` retunes the card with it
+		local first, last = corners("a"), corners("c")
+		expect(first.tokens.topLeft).toBe(menuRecipe.CARD_CORNER)
+		expect(first.tokens.topRight).toBe(menuRecipe.CARD_CORNER)
+		expect(first.bottomLeft).toBe(0)
+		expect(last.tokens.bottomLeft).toBe(menuRecipe.CARD_CORNER)
+		expect(last.tokens.bottomRight).toBe(menuRecipe.CARD_CORNER)
+		expect(last.topRight).toBe(0)
+		-- and the radius they take IS the panel's, read off the same node
+		expect(first.topLeft).toBe(last.bottomRight)
+	end)
+
+	it("the selection fill IS the row — same rect, no second box, clipped by the card's ends", function()
+		local w, checked = cardWorld()
+		local row = w.adapter.node(rowPath(0, "b"))
+		expect(row.props.surface).toBe(menuRecipe.SELECTED_SURFACE)
+		-- the unselected neighbours paint nothing at all, so the card is the plate
+		expect(w.adapter.node(rowPath(0, "a")).props.surface).toBe(menuRecipe.RESTING_SURFACE)
+		-- there is no separate fill node to drift from the row's rect
+		for _, path in w.adapter.paths() do
+			expect(string.find(path, "Fill", 1, true) == nil).toBe(true)
+		end
+		-- the fill spans the row, which spans the card
+		local panel = w.adapter.node(PANEL).rect
+		expect(row.rect.w).toBe(panel.w)
+		--[[ ...and it is a FILL, not a picture. `slot = "none"` is what keeps a
+			skinned package from painting its whole control plate over the one row
+			that is meant to read as a wash inside the card — the same declaration
+			`selection_indicator` makes for its pill, and without it the paired
+			label is sitting on art rather than on `$Accent`. ]]
+		expect(row.decorationHint.slot).toBe("none")
+		-- ...and it lets go when the item does
+		checked:set(false)
+		w.pres.refresh()
+		expect(w.adapter.node(rowPath(0, "b")).props.surface).toBe(menuRecipe.RESTING_SURFACE)
+	end)
+
+	it("the selected row's LABEL is painted for the fill it now sits on", function()
+		local w, checked = cardWorld()
+		local label = `{rowPath(0, "b")}/HStack#1/VStack#2/Label`
+		local tint = w.adapter.node(label).props.tint
+		expect(tint.role).toBe(menuRecipe.SELECTED_LABEL_ROLE)
+		expect(tint.blend).toBe(1)
+		-- ...and BOTH ends are named: a bound paint that resolves to nil releases
+		-- its claim, and a release restores what the property held when the claim
+		-- was taken — the previous occupant's colour on a recycled instance
+		checked:set(false)
+		w.pres.refresh()
+		expect(w.adapter.node(label).props.tint.role).toBe(menuRecipe.RESTING_LABEL_ROLE)
+	end)
+
+	it("the SHEET keeps the shape it had — the card is a presentation branch", function()
+		local core = Facet.newCore()
+		local checked = core:signal(true)
+		local w = world({
+			items = {
+				{ id = "a", label = "Alpha", onSelect = function() end },
+				{ id = "b", label = "Beta", checked = checked },
+			},
+			presentation = "sheet",
+		})
+		w.control.api.open()
+		w.pres.refresh()
+		local row = w.adapter.node("/Menu-M/Layer/Panel/Item:b")
+		expect(row ~= nil).toBe(true)
+		expect(row.props.surface).toBeNil()
+		expect(row.props.corners).toBeNil()
+		expect(row.props.selected).toBe(true)
+	end)
+end)

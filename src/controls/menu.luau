@@ -602,28 +602,69 @@ function menu.build(Facet: any, core: any, spec: Spec)
 			)
 			table.insert(rows, menuRecipe.divider(UI, "BackRule"))
 		end
+		--[[ ONE CARD, FLAT ROWS (user review of the desktop split button's menu,
+			2026-09-12: *"the open menu still reads as stacked rounded rects"*). The
+			anchored panel is the plate — `surface = "raised"` already carries the
+			corner and the stroke — so its rows carry neither: they go `plain`, a
+			hairline separates every adjacent pair, the selected row's fill IS its own
+			surface (so it fits the row exactly, by construction rather than by two
+			rectangles agreeing), and the first and last rows take the card's radius on
+			their outer corners so nothing paints over the plate's arc. The rules and
+			the four constants are `menu_recipe`'s, shared with the picker's popover.
+
+			The SHEET keeps the shape it had: it is a full-width surface anchored to
+			the bottom edge with its own padding, not a plate hugging a trigger, and
+			its rows have no card ends to round. So this is a presentation branch, like
+			every other difference between the two idioms in this file. ]]
+		local isCard = presentation ~= "sheet"
+		local total = 0
+		for _, item in list do
+			if item.divider ~= true then
+				total += 1
+			end
+		end
+		local emitted = 0
 		for index, item in list do
 			if item.divider == true then
-				table.insert(rows, menuRecipe.divider(UI, `Div-{index}`))
+				--[[ INSIDE THE CARD A DIVIDER IS THE HAIRLINE THE CARD ALREADY DRAWS
+					between these two rows, so it adds nothing rather than a second rule:
+					two touching hairlines read as a 2px seam, and the author's grouping
+					is already in the order the rows appear. The floating/inline idiom
+					keeps the explicit rule it has always drawn. ]]
+				if not isCard then
+					table.insert(rows, menuRecipe.divider(UI, `Div-{index}`))
+				end
 				continue
 			end
-			table.insert(
-				rows,
-				menuRecipe.row(UI, {
-					id = `Item:{item.id}`,
+			emitted += 1
+			if isCard and emitted > 1 then
+				table.insert(rows, menuRecipe.divider(UI, `Rule-{emitted}`))
+			end
+			local spec = {
+				id = `Item:{item.id}`,
 
-					label = item.label,
-					description = item.description,
-					indicator = if item.checked ~= nil then "check" elseif item.selected ~= nil then "radio" else nil,
-					markHidden = hiddenByItem[item],
-					selected = selectedByItem[item],
-					icon = item.icon,
-					role = item.role,
-					enabled = item.enabled,
-					submenu = item.children ~= nil,
-					height = rowHeight,
-				})
-			)
+				label = item.label,
+				description = item.description,
+				indicator = if item.checked ~= nil then "check" elseif item.selected ~= nil then "radio" else nil,
+				markHidden = hiddenByItem[item],
+				selected = selectedByItem[item],
+				icon = item.icon,
+				role = item.role,
+				enabled = item.enabled,
+				submenu = item.children ~= nil,
+				height = rowHeight,
+			}
+			if not isCard then
+				table.insert(rows, menuRecipe.row(UI, spec))
+				continue
+			end
+			(spec :: any).platedSelection = true
+			local position = if total == 1
+				then "only"
+				elseif emitted == 1 then "first"
+				elseif emitted == total then "last"
+				else "middle"
+			table.insert(rows, menuRecipe.cardRow(UI, core, scope, spec :: any, position))
 		end
 		local isSheet = presentation == "sheet"
 		local rich = false
@@ -644,7 +685,11 @@ function menu.build(Facet: any, core: any, spec: Spec)
 				else { type = "hug" },
 			surface = "raised",
 			padding = if isSheet then "s" else nil,
-			gap = menuRecipe.ROW_GAP,
+			-- the card's rhythm is the hairline BETWEEN two rows, drawn as a real
+			-- `UI.Divider`, so there is no gap of surface showing through as well:
+			-- a gap plus a rule is a 2px seam, and it is what made a highlight look
+			-- under-filled at the row's top and bottom edge
+			gap = if isCard then 0 else menuRecipe.ROW_GAP,
 			children = rows,
 		})
 		return panel
