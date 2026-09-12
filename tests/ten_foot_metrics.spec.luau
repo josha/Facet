@@ -1769,8 +1769,10 @@ describe("ten-foot metrics — the second door: an authored token", function()
 		The segmented picker's sliding indicator is the control whose three
 		`UICorner`s read `0, 999` on the console; this mounts THAT control at
 		`displaySize = "Large"` and follows its `corners` prop all the way to the
-		number the painter would write. ]]
-	it("the segmented picker's indicator paints the ten-foot capsule at Large", function()
+		number the painter would write. (Since the 2026-09-12 shape round the
+		bar wears the theme's control radius, so the live witness is 8 near and
+		12 at three metres rather than a capsule.) ]]
+	it("the segmented picker's indicator paints the ten-foot control radius at Large", function()
 		local function pickerWorld(displaySize: string): any
 			local core = customFactory.new()
 			local env = environment.new(core)
@@ -1792,17 +1794,21 @@ describe("ten-foot metrics — the second door: an authored token", function()
 			pres.refresh()
 			return adapter
 		end
-		for _, case in { { size = "Medium", want = 999 }, { size = "Large", want = 1499 } } do
+		-- since the 2026-09-12 shape round the bar authors per-corner `control`
+		-- tokens (8 near, 12 at three metres) rather than a uniform capsule; the
+		-- mechanism this case proves — the token survives to the painter — is
+		-- the same, only the witness's numbers moved
+		for _, case in { { size = "Medium", want = 8 }, { size = "Large", want = 12 } } do
 			local adapter = pickerWorld(case.size :: string)
 			local bar = adapter.node("/S/View/Indicator/Layer/Bar")
 			expect(`{case.size}: bar mounted {bar ~= nil}`).toBe(`{case.size}: bar mounted true`)
 			local corners = (bar :: any).props.corners
 			-- the AUTHORING number is the near one at both distances — that is the
 			-- defect's own fingerprint, and it is why the token has to survive
-			expect(`{case.size}: authored {corners.radius}`).toBe(`{case.size}: authored 999`)
-			expect(`{case.size}: token {corners.tokens.radius}`).toBe(`{case.size}: token pill`)
+			expect(`{case.size}: authored {corners.topLeft}`).toBe(`{case.size}: authored 8`)
+			expect(`{case.size}: token {corners.tokens.topLeft}`).toBe(`{case.size}: token control`)
 			-- …and what the painter writes, through the style the target derives
-			local painted = styling.paintCorners(corners, styleAt(case.size :: string)).radius
+			local painted = styling.paintCorners(corners, styleAt(case.size :: string)).topLeft
 			expect(`{case.size}: painted {painted}`).toBe(`{case.size}: painted {case.want}`)
 		end
 	end)

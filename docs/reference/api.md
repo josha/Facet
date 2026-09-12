@@ -1755,6 +1755,17 @@ the library default fills in and the contrast gate runs on the effective pair.
   accent plate behind. It never applies to the `underline` indicator, which paints
   a thin tint rule on the segment's far edge rather than a plate under the label.
 
+- **The sliding fill takes the theme's `radii.control`, not a fixed capsule.** A
+  package that rounds its controls fully gets a pill here for the same reason it
+  gets one everywhere else, and a package that squares them gets a square
+  (`corner = "pill"` stays the caller's opt-in). A segmented strip rounds only
+  its two outer ends with that radius and leaves its inner segments square and
+  touching, with a hairline seam between each pair; the fill wears the
+  silhouette of whichever segment it is on (`selection_indicator.segmentCorners`).
+  On a ten-foot row list every row keeps one silhouette, chosen or not, and the
+  FOCUSED row lifts by a paint-only 1.05 on the presenter's spring — the solved
+  box, the hit target and the focus order never move.
+
 **Circle buttons.** `shape = "circle"` turns the button into a true 1:1 disc — the
 floating round "…" action. It is **not reactive**: a shape is what the control *is*.
 

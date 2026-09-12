@@ -559,9 +559,11 @@ describe("migrated controls: byte-parity under Facet Neutral", function()
 		-- indicator by default, which shares a parent with the option stack. The
 		-- theme numbers this case is about are unchanged.
 		expect(picker.node("/S/Q/Indicator/Options/Opt1").rect.h).toBe(46)
-		-- ...and the `xs` step still separates the two segments across
+		-- ...and since the 2026-09-12 shape round the two segments TOUCH, separated
+		-- by one hairline seam: the strip is one strip, not two chips held apart by
+		-- an `xs` gap (tests/selection_shape.spec.luau)
 		local opt1 = picker.node("/S/Q/Indicator/Options/Opt1").rect
-		expect(picker.node("/S/Q/Indicator/Options/Opt2").rect.x - (opt1.x + opt1.w)).toBe(defaultStyle.space.xs)
+		expect(picker.node("/S/Q/Indicator/Options/Opt2").rect.x - (opt1.x + opt1.w)).toBe(defaultStyle.strokes.hairline)
 		expect(picker.node("/S/Q/Label").props.textSize).toBe(14)
 	end)
 

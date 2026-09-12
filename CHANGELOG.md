@@ -13,6 +13,31 @@ runtime as `Facet.VERSION`.
 
 ## [Unreleased]
 
+- Segmented picker, shape round (2026-09-12, user visual review). The strip is
+  ONE strip: only its outer ends round, with the theme's `radii.control` rather
+  than a hard-coded pill; the inner segments are square and touch, with a
+  hairline seam between each pair (hidden beside the selection, because the
+  sliding fill paints behind the strip); the fill wears the silhouette of the
+  segment it is on; and the track plate takes the same outer radius. The same
+  rule turned 90 degrees is the vertical rail's. `selection_indicator` gains
+  `segmentCorners`, and its default corner is now `radii.control` — Pixel Quest
+  draws a 4px selection and Fantasy Ornate a 6px one where both drew a capsule.
+  `corner = "pill"` remains the caller's opt-in. A `TabView` strip
+  (`track = false`) keeps its own spacing and gains only the theme radius.
+- A ten-foot row list gives every row one silhouette, chosen or not, and lifts
+  the FOCUSED row by a paint-only 1.05 on the presenter's spring (reduced motion
+  places it on the frame it arrives). The solver, the hit target and the focus
+  order do not move, and the rows' own gap is wider than the lift.
+- `newLevelPicker`'s `bar` segment plates a track and rounds only the run's two
+  ends, the same language the segmented picker speaks. `newRating` (glyph) is
+  unchanged.
+- Fixed: a segmented strip's segments were the same height only while their
+  labels agreed about truncating — at the Largest preference under Fantasy
+  Ornate one reserved its disclosure plate and the other did not, solving 108px
+  beside 66px. The option stack stretches its children on the cross axis now.
+- Gallery: the selection and action demos caption every control ("Picker ·
+  segmented", "Split button", …) so a capture names what it shows.
+
 - Picker menu, third visual round (2026-09-12, user review of the side-by-side
   against the reference platform). The popover is ONE card: the panel owns the
   corner and the stroke, the rows are plain with a hairline between them, the
