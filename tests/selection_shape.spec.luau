@@ -34,7 +34,7 @@ local describe, it, expect = t.describe, t.it, t.expect
 local fs = require("@lune/fs")
 
 local Facet = require("../src") :: any
-local fake_target = require("./lib/fake_target")
+local worldLib = require("./lib/world")
 local snapshot = require("../src/themes/snapshot")
 local styling = require("../src/tokens/styling")
 local selectionIndicator = require("../src/controls/selection_indicator")
@@ -54,33 +54,29 @@ local THREE = {
 	{ value = "c", label = "Tri" },
 }
 
---[[ ONE mounted picker on a real presenter. `tenFoot` switches the display to
-	the distance profile the row-list cases are about; `metrics` installs a theme
+--[[ ONE mounted picker on the SHARED headless substrate (`tests/lib/world.luau`,
+	ruling R12: the next spec file that would have added a hand-rolled presenter
+	builder migrates onto it instead). `tenFoot` switches the display to the
+	distance profile the row-list cases are about; `metrics` installs a theme
 	package the way a game does, through the environment. ]]
 local function world(options: any?)
 	local opts: any = options or {}
-	local core = Facet.newCore()
-	local env = Facet.newEnvironment(core)
-	env:set("viewportRect", { x = 0, y = 0, w = opts.viewport or 640, h = 720 })
-	env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
-	if opts.tenFoot then
-		env:set("displaySize", "Large")
-		env:set("overscanInsets", "none")
-		env:set("capabilities", { keyboard = false, mouse = false, touch = false, gamepad = true })
-		env:set("preferredInput", "Gamepad")
-	end
-	if opts.reducedMotion then
-		env:set("reducedMotion", true)
-	end
-	local system = Facet.newActionSystem(core)
-	local adapter = fake_target.new()
-	local pres = Facet.newPresenter(core, env, adapter, system)
-	local selected = core:signal(opts.initial or "a")
+	local w = worldLib.new({
+		viewport = { x = 0, y = 0, w = opts.viewport or 640, h = 720 },
+		safeInsets = { top = 0, bottom = 0, left = 0, right = 0 },
+		displaySize = if opts.tenFoot then "Large" else nil,
+		capabilities = if opts.tenFoot then { keyboard = false, mouse = false, touch = false, gamepad = true } else nil,
+		preferredInput = if opts.tenFoot then "Gamepad" else nil,
+		env = if opts.tenFoot then { overscanInsets = "none" } else nil,
+		reducedMotion = opts.reducedMotion,
+		themeMetrics = opts.metrics,
+	})
+	local selected = w.core:signal(opts.initial or "a")
 	local spec: any = {
 		id = "View",
 		selected = selected,
 		options = opts.options or THREE,
-		env = env,
+		env = w.env,
 		presentation = opts.presentation or "segmented",
 	}
 	for _, key in { "axis", "indicator", "track", "sizing" } do
@@ -88,32 +84,12 @@ local function world(options: any?)
 			spec[key] = opts[key]
 		end
 	end
-	local picker = Facet.Controls.Picker(core, spec)
-	local handle = pres.present(UI.Screen({ id = "S", children = { picker.blueprint } }))
-	pres.refresh()
-	if opts.metrics ~= nil then
-		env:set("themeMetrics", opts.metrics)
-		pres.refresh()
-	end
-	return {
-		core = core,
-		env = env,
-		adapter = adapter,
-		pres = pres,
-		picker = picker,
-		selected = selected,
-		handle = handle,
-	}
-end
-
--- one animation frame, then the write: the presenter steps motion on `tick` and
--- flushes the props it produced on the next `refresh`, so a spec that only
--- ticked would read the value one frame stale forever
-local function settle(w: any, frames: number)
-	for _ = 1, frames do
-		w.pres.tick(1 / 60)
-		w.pres.refresh()
-	end
+	local picker = Facet.Controls.Picker(w.core, spec)
+	w.present(UI.Screen({ id = "S", children = { picker.blueprint } }))
+	local out: any = w
+	out.picker = picker
+	out.selected = selected
+	return out
 end
 
 local function optPath(w: any, n: number): string
@@ -273,11 +249,8 @@ describe("item 6: a square theme gets a square selection", function()
 	end)
 
 	it("an explicitly authored corner still wins — `corner` stays the caller's", function()
-		local core = Facet.newCore()
-		local env = Facet.newEnvironment(core)
-		env:set("viewportRect", { x = 0, y = 0, w = 480, h = 640 })
-		local adapter = fake_target.new()
-		local pres = Facet.newPresenter(core, env, adapter, Facet.newActionSystem(core))
+		local w = worldLib.new({ viewport = { x = 0, y = 0, w = 480, h = 640 } })
+		local core = w.core
 		local selected = core:signal("a")
 		local strip = UI.HStack({
 			id = "Strip",
@@ -294,11 +267,10 @@ describe("item 6: a square theme gets a square selection", function()
 			selected = selected,
 			skin = "pill",
 			corner = "pill",
-			env = env,
+			env = w.env,
 		})
-		pres.present(UI.Screen({ id = "S", children = { ind.blueprint } }))
-		pres.refresh()
-		expect(cornerText(painted(adapter.node("/S/I/Layer/Bar")))).toBe(`uniform {radii().pill}`)
+		w.present(UI.Screen({ id = "S", children = { ind.blueprint } }))
+		expect(cornerText(painted(w.adapter.node("/S/I/Layer/Bar")))).toBe(`uniform {radii().pill}`)
 		ind.dispose()
 	end)
 end)
@@ -330,7 +302,7 @@ describe("item 5: the ten-foot row list", function()
 		local box = w.adapter.node(target).rect
 		w.pres.focus.focusOn(target)
 		w.pres.refresh()
-		settle(w, 240)
+		w.settle(240)
 		local node = w.adapter.node(target)
 		local scale = (node.props.transform or {}).scale or 1
 		expect(`scale {math.abs(scale - LIFT) < 0.005} ({scale})`).toBe(`scale true ({scale})`)
@@ -345,7 +317,7 @@ describe("item 5: the ten-foot row list", function()
 		local target = optPath(w, 2)
 		w.pres.focus.focusOn(target)
 		w.pres.refresh()
-		settle(w, 1)
+		w.settle(1)
 		local first = (w.adapter.node(target).props.transform or {}).scale or 1
 		expect(`one frame in, short of the lift: {first > 1 and first < LIFT}` .. ` ({first})`).toBe(
 			`one frame in, short of the lift: true ({first})`
@@ -357,7 +329,7 @@ describe("item 5: the ten-foot row list", function()
 		local target = optPath(w, 2)
 		w.pres.focus.focusOn(target)
 		w.pres.refresh()
-		settle(w, 1)
+		w.settle(1)
 		local now = (w.adapter.node(target).props.transform or {}).scale or 1
 		expect(`reduced lands at once: {math.abs(now - LIFT) < 0.001} ({now})`).toBe(
 			`reduced lands at once: true ({now})`
@@ -369,7 +341,7 @@ describe("item 5: the ten-foot row list", function()
 		local target = optPath(w, 2)
 		w.pres.focus.focusOn(target)
 		w.pres.refresh()
-		settle(w, 60)
+		w.settle(60)
 		local scale = (w.adapter.node(target).props.transform or {}).scale
 		expect(`near list scale: {scale == nil or scale == 1}`).toBe("near list scale: true")
 	end)
@@ -379,7 +351,7 @@ describe("item 5: the ten-foot row list", function()
 		local target = optPath(w, 2)
 		w.pres.focus.focusOn(target)
 		w.pres.refresh()
-		settle(w, 240)
+		w.settle(240)
 		local painted_: { any } = {}
 		for _, path in rows(w) do
 			local node = w.adapter.node(path)
@@ -397,19 +369,18 @@ end)
 -- ===========================================================================
 describe("item 10: the level picker speaks the same shape language", function()
 	local function lpWorld(spec: any)
-		local core = Facet.newCore()
-		local env = Facet.newEnvironment(core)
-		env:set("viewportRect", { x = 0, y = 0, w = 480, h = 640 })
-		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
-		local adapter = fake_target.new()
-		local pres = Facet.newPresenter(core, env, adapter, Facet.newActionSystem(core))
+		local w = worldLib.new({
+			viewport = { x = 0, y = 0, w = 480, h = 640 },
+			safeInsets = { top = 0, bottom = 0, left = 0, right = 0 },
+		})
 		local built: any = table.clone(spec)
-		built.env = env
-		built.value = core:signal(spec.value or 2)
-		local control = Facet.Controls.LevelPicker(core, built)
-		pres.present(UI.Screen({ id = "S", children = { control.blueprint } }))
-		pres.refresh()
-		return { core = core, env = env, adapter = adapter, pres = pres, control = control }
+		built.env = w.env
+		built.value = w.core:signal(spec.value or 2)
+		local control = Facet.Controls.LevelPicker(w.core, built)
+		w.present(UI.Screen({ id = "S", children = { control.blueprint } }))
+		local out: any = w
+		out.control = control
+		return out
 	end
 
 	it("`Controls.LevelPicker` is still here, and still listed in the gallery", function()
