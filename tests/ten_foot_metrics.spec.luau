@@ -254,8 +254,8 @@ describe("ten-foot metrics — proportion equality across the control set", func
 				end
 			end
 		end
-		-- 40 since 2026-09-12: Pixel Quest and Fantasy Ornate author `radii.selection = 0`
-		expect(`checked:{checked}`).toBe("checked:40")
+		-- 41 since 2026-09-12: Pixel Quest and Fantasy Ornate author `radii.selection = 0`, Glossy Touch 10
+		expect(`checked:{checked}`).toBe("checked:41")
 		-- …and the numbers the director actually looked at, said out loud
 		local nearNeutral, tvNeutral = pair(snapshot.neutralPackage())
 		expect(`{nearNeutral.radii.panel}/{nearNeutral.radii.control}/{nearNeutral.strokes.hairline}`).toBe("12/8/1")
@@ -319,8 +319,8 @@ describe("ten-foot metrics — proportion equality across the control set", func
 		end)
 		snapshot.metricScale = realScale
 		expect(if ok then "ok" else `threw: {tostring(err)}`).toBe("ok")
-		-- 120 since 2026-09-12: the two square-art packages author `radii.selection`
-		expect(`checked:{checked}`).toBe("checked:120")
+		-- 123 since 2026-09-12: the two square-art packages and Glossy Touch author `radii.selection`
+		expect(`checked:{checked}`).toBe("checked:123")
 		-- the stub is gone: the shipped factor is back
 		expect(snapshot.metricScale("Large")).toBe(1.5)
 	end)
@@ -398,8 +398,8 @@ describe("ten-foot metrics — proportion equality across the control set", func
 				end
 			end
 		end
-		-- 80 since 2026-09-12: the two square-art packages author `radii.selection`
-		expect(`checked:{checked}`).toBe("checked:80")
+		-- 82 since 2026-09-12: the two square-art packages and Glossy Touch author `radii.selection`
+		expect(`checked:{checked}`).toBe("checked:82")
 		--[[ …INCLUDING THE CASE NO SHIPPED PACKAGE PRODUCES. Every reference
 			package authors radii already on its own grid, so the resolver's snap
 			would be invisible here: this pixel package authors a radius BETWEEN two
