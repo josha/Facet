@@ -1009,6 +1009,16 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 		local inset = shadeInsetNow(use)
 		return if inset > 0 then { left = inset, right = inset } else nil
 	end))
+	--[[ NO HAIRLINE TOUCHES A FLOATING SHADE (user review 2026-09-12, Glossy
+		Touch): the card's row dividers are the theme's own hairline — Glossy's is
+		a dark navy at 0.8 — and one sat directly under the floating shade,
+		reading as a stray line. The floating form drops the hairlines entirely,
+		the way the reference platform's menus do beside a highlighted row; the
+		flush form keeps them. `hidden` keeps the divider's 1px box, so no row
+		moves when a package swap flips the form. ]]
+	local floatingForm = scope:own(core:memo(function(use)
+		return shadeInsetNow(use) > 0
+	end))
 	local function popupPanel()
 		local presentation = presentationNow()
 		local rowHeight = menuRecipe.rowHeightFor(presentation)
@@ -1054,7 +1064,7 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 							-- the card's rows: a hairline between neighbours, a subtle
 							-- `controlSelected` fill behind the chosen one (see optionRow)
 							if index > 1 then
-								table.insert(listRows, menuRecipe.divider(UI, `Div-{index}`))
+								table.insert(listRows, menuRecipe.divider(UI, `Div-{index}`, floatingForm))
 							end
 							local chosen = props.selected
 							-- the row and its shade wear ONE shape (see `rowCornersFor`)

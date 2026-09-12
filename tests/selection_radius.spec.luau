@@ -298,6 +298,46 @@ describe("radii.selection: a menu card's row wears the card's clipped corners, s
 		end
 	)
 
+	it("no hairline touches a floating shade, and a hairline that paints is the theme's hairline role", function()
+		local function dividers(w: any): { string }
+			local out = {}
+			for _, path in w.adapter.paths() do
+				if string.match(path, "/Div%-%d+$") and string.find(path, "/Popup", 1, true) then
+					table.insert(out, path)
+				end
+			end
+			return out
+		end
+		-- FLOATING (Glossy Touch): every divider between the card's rows is hidden
+		local w = menuWorld(metricsOf(packageOf("glossy_touch")), 3)
+		w.adapter.tap(suffixPath(w, "/Trigger") :: string)
+		w.pres.refresh()
+		local divs = dividers(w)
+		expect(`glossy dividers: {#divs}`).toBe("glossy dividers: 2")
+		for _, path in divs do
+			expect(`glossy {string.match(path, "Div%-%d+")} hidden: {w.adapter.visibleOf(path) == false}`).toBe(
+				`glossy {string.match(path, "Div%-%d+")} hidden: true`
+			)
+		end
+		-- FLUSH (neutral): the dividers paint, and paint the HAIRLINE role — a
+		-- Divider authors no tint, so the sheet's own hairline rule colours it
+		local w2 = menuWorld(nil, 3)
+		w2.adapter.tap(suffixPath(w2, "/Trigger") :: string)
+		w2.pres.refresh()
+		local divs2 = dividers(w2)
+		expect(`neutral dividers: {#divs2}`).toBe("neutral dividers: 2")
+		for _, path in divs2 do
+			local node = w2.adapter.node(path)
+			local tint = node.props.tint
+			expect(
+				`neutral {string.match(path, "Div%-%d+")} visible: {w2.adapter.visibleOf(path) ~= false} class {node.class} tint {if tint
+						== nil
+					then "hairline (sheet)"
+					else tostring(tint.role)}`
+			).toBe(`neutral {string.match(path, "Div%-%d+")} visible: true class Divider tint hairline (sheet)`)
+		end
+	end)
+
 	it("a pointer open shows the shade only; navigation focus paints the ring on the same clipped row", function()
 		local w, picker = menuWorld(nil, 3)
 		w.adapter.tap(suffixPath(w, "/Trigger") :: string)

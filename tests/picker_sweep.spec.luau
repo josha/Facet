@@ -463,6 +463,14 @@ local function pinFillSpan(label: string, w: any, theme: any, popupRoot: string)
 					fill.rect.x
 				)}`
 			).toBe(`{label} floating row wears the shade's corners: true`)
+			-- ...and no hairline touches it: the floating form drops the card's dividers
+			for _, divPath in w.adapter.paths() do
+				if string.match(divPath, "/Div%-%d+$") and string.find(divPath, list :: string, 1, true) == 1 then
+					expect(`{label} floating divider hidden: {w.adapter.visibleOf(divPath) == false}`).toBe(
+						`{label} floating divider hidden: true`
+					)
+				end
+			end
 			continue
 		end
 		expect(

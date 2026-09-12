@@ -653,8 +653,10 @@ end
 	a vertical menu panel and would be correct in a horizontal one. It is not
 	focusable and carries no action, which is the whole point — a divider groups,
 	it never responds. ]]
-function menu_recipe.divider(UI: any, id: string): any
-	return UI.Divider({ id = id, width = { type = "fill", weight = 1 } })
+function menu_recipe.divider(UI: any, id: string, hidden: any?): any
+	-- `hidden` (a boolean or a Readable) lets a card drop its hairlines in the
+	-- FLOATING shade form (picker_menu, 2026-09-12) without moving the rows
+	return UI.Divider({ id = id, width = { type = "fill", weight = 1 }, hidden = hidden })
 end
 
 --[[ THE ICON LINT: provide icons for all menu items in a group, or none of
