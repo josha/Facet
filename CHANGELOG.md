@@ -45,6 +45,22 @@ runtime as `Facet.VERSION`.
 - `Controls.SplitButton`'s touch form shows a trailing `chevron.down` hint, so
   the long-press menu is discoverable. Still one hit target, one focus stop,
   one activation.
+- A control's content line is centred: an icon beside a word in a `UI.Button` no
+  longer rides the top of the line under a package whose icon rung is taller
+  than its control type (Pixel Quest 6px, Fantasy Ornate 4.5, Glossy Touch and
+  Classic Desktop 2.5).
+- A closed picker trigger paints its package's `control` plate instead of the
+  row-selection wash. It declares `selected` so its open state can light up, and
+  the slot classifier read that declaration as a state.
+- A picker popover grows to fit its widest row's full label, measured through
+  `text_metrics` and counting the card's frame, the scroller's shadow reserve
+  and the row's real padding. Pixel Quest asked for 182px where 280 was needed,
+  leaving 78px for a 176px word.
+- The chosen row in a picker popover paints its label with the theme's
+  `onSelected` partner (Glossy Touch 2.37:1 → 7.03:1, Pixel Quest 2.46:1 →
+  6.04:1). `onSelected` is a new tint role: the decision `$OnSelected` already
+  carried, reachable by a child `UI.Text` that no `TextButton`-scoped sheet rule
+  can descend into.
 - Gallery: the selection and action demos caption every control ("Picker ·
   segmented", "Split button", …) so a capture names what it shows.
 

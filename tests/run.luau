@@ -833,6 +833,9 @@ require("./experiment_markers.spec")
 require("./inherited_subtree_scenario.spec")
 -- the circle Button (feature round 2026-07-26)
 require("./button_shape.spec")
+-- a control's content line is centred (feedback item 9, 2026-09-12): the
+-- framework's own icon reservation must not ride the author's text to the top
+require("./button_text_centre.spec")
 -- the circle shape generalized to ZStack (task PAINT, 2026-08-27, director item 12)
 require("./zstack_shape.spec")
 require("./compact_label.spec")

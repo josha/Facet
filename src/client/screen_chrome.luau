@@ -29,6 +29,7 @@ local chrome_slots = require("../tokens/chrome_slots")
 -- this file is its application site
 local themePackage = require("../themes/package")
 local styling = require("../tokens/styling")
+local sheet_model = require("../tokens/sheet_model")
 -- the recycle-safe reconnect helpers (task CONN, review-fix234 Finding 1): see
 -- handle_conn.luau for why a shared helper replaces a hand-repeated
 -- disconnect-if-present guard at every `handle.*Conn` reconnect site
@@ -397,6 +398,11 @@ function screen_chrome.new(ctx: Context)
 		onAccent = toColor3(style.colors.onAccent),
 		control = toColor3(style.extra.control),
 		controlSelected = toColor3(style.extra.controlSelected),
+		-- the theme's OWN readable partner for its selected surface, taken from
+		-- the pure decision the `$OnSelected` token spends rather than restated
+		-- here: a second copy of the 4.5 rule is exactly the "one word, two
+		-- subsystems" drift tests/theme_icons.spec exists to refuse
+		onSelected = toColor3(sheet_model.selectedContentColor(style)),
 		danger = toColor3(style.colors.danger),
 		hairline = toColor3(style.extra.hairline),
 	}
