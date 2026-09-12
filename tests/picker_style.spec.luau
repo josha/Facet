@@ -369,3 +369,121 @@ describe("Picker style: the strip styles and the deprecated spellings", function
 		d.overflowGuard()
 	end)
 end)
+
+--[[ THE CHOSEN ROW CAN BE READ (user feedback item 7, the popover half:
+	measured 2.37:1 on Glossy Touch and 2.46:1 on Pixel Quest against a 4.5:1
+	floor).
+
+	WHAT THE DEFECT WAS, because no palette was wrong. The picker's card marks its
+	current value with a `controlSelected` wash — a `Fill` Box behind a row that is
+	`surface = "plain"` by design. `plain` paints nothing, states included, so the
+	sheet's `Selected row` rule never fires; and a row with a check draws its label
+	into a CHILD `UI.Text`, which no `TextButton`-scoped colour rule can reach even
+	when it does. So the label kept `$Content` — the colour chosen to read on the
+	PAGE — and sat on the selection blue.
+
+	THE MEASUREMENT IS OF THE SHIPPED ROW, not of the constants. Both colours are
+	read off the nodes the picker actually mounted: the `Fill` Box's own `tint`
+	role, and the chosen row's `Label` tint role, each resolved through the theme
+	the package publishes. `onSelected` is resolved by
+	`sheet_model.selectedContentColor`, which is the framework's own decision for
+	that exact fill, so this asks the PAINT rather than restating a table.
+
+	Every theme of every shipped package, because a package may publish several. ]]
+local tokens = require("../src/tokens/tokens")
+local sheet_model = require("../src/tokens/sheet_model")
+local snapshot = require("../src/themes/snapshot")
+
+local CONTRAST_FLOOR = 4.5
+local SHIPPED = {
+	"classic_desktop",
+	"compact_pointer",
+	"fantasy_ornate",
+	"fantasy_parchment",
+	"glossy_mobile",
+	"glossy_touch",
+	"pixel_quest",
+	"scifi_hud",
+}
+
+local function readFact(value: any): any
+	if type(value) == "table" and (value.kind == "signal" or value.kind == "memo") then
+		return value:get()
+	end
+	return value
+end
+
+-- the palette colour a tint role names, for exactly the two roles this row
+-- paints with. An unknown role is an error rather than a default: a silent
+-- fallback here would measure the wrong pair and pass.
+local function roleColor(theme: any, role: string): any
+	if role == "controlSelected" then
+		return sheet_model.selectedSurfaceOf(theme)
+	elseif role == "onSelected" then
+		return sheet_model.selectedContentColor(theme)
+	elseif role == "content" then
+		return theme.colors.content
+	end
+	error(`picker_style: no palette colour for tint role '{tostring(role)}'`, 0)
+end
+
+describe("Picker menu: the chosen row is readable on its own selection fill", function()
+	it("every shipped theme clears 4.5:1 between the chosen row's label and its fill", function()
+		local measured = 0
+		for _, name in SHIPPED do
+			local pkg = (require)(`../examples/themes/{name}`).build(Facet.themes)
+			for _, theme in pkg.style.themes do
+				local w = world.new({
+					viewport = FACTS.phone.viewport,
+					capabilities = FACTS.phone.capabilities,
+					preferredInput = FACTS.phone.preferredInput,
+					themeMetrics = snapshot.resolve(pkg, theme.name, {}),
+				})
+				local picker = Facet.Controls.Picker(w.core, {
+					id = "P",
+					label = "Quality",
+					style = "menu",
+					selected = w.core:signal("normal"),
+					options = THREE,
+				})
+				w.present(UI.Screen({ id = "S", children = { picker.blueprint } }))
+				w.pres.refresh()
+				picker.api.open()
+				w.pres.refresh()
+				w.pres.refresh()
+				local fillNode, labelNode
+				for _, path in w.adapter.paths() do
+					if string.find(path, "Opt%-normal", 1) == nil then
+						continue
+					end
+					if string.sub(path, -5) == "/Fill" then
+						fillNode = w.adapter.node(path)
+					elseif string.sub(path, -6) == "/Label" then
+						labelNode = w.adapter.node(path)
+					end
+				end
+				local row = `[{name}/{theme.name}]`
+				expect(`{row} the chosen row has a fill and a label: {fillNode ~= nil and labelNode ~= nil}`).toBe(
+					`{row} the chosen row has a fill and a label: true`
+				)
+				local fillTint = readFact((fillNode :: any).props.tint)
+				local labelTint = readFact((labelNode :: any).props.tint)
+				expect(`{row} the fill is the selection wash: {type(fillTint) == "table" and fillTint.role}`).toBe(
+					`{row} the fill is the selection wash: controlSelected`
+				)
+				local labelRole = if type(labelTint) == "table" and labelTint.role ~= nil
+					then labelTint.role
+					else "content"
+				local ratio = tokens.contrastRatio(roleColor(theme, labelRole), roleColor(theme, fillTint.role))
+				local reported = math.floor(ratio * 100 + 0.5) / 100
+				expect(`{row} label '{labelRole}' on the fill: {ratio >= CONTRAST_FLOOR} ({reported}:1)`).toBe(
+					`{row} label '{labelRole}' on the fill: true ({reported}:1)`
+				)
+				measured += 1
+				picker.dispose()
+				w.pres.dismiss(w.handle)
+			end
+		end
+		expect(`themes measured: {measured >= #SHIPPED}`).toBe("themes measured: true")
+	end)
+end)
