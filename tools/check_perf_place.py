@@ -58,6 +58,7 @@ REQUIRED = [
     # failure this list exists to catch at the gate instead of at the phone.
     ("ReplicatedStorage/FacetScenarios/levers", "ModuleScript"),
     ("ReplicatedStorage/FacetScenarios/navigation_inventory", "ModuleScript"),
+    ("ReplicatedStorage/FacetScenarios/transient_surfaces", "ModuleScript"),
     # the ornate reference package the flat-vs-ornate comparison needs
     ("ReplicatedStorage/FacetThemes/fantasy_ornate", "ModuleScript"),
     # the bootstrap and the matched raw-Roblox reference

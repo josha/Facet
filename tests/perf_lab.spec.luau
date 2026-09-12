@@ -26,6 +26,7 @@ local captureLib = require("../examples/performance/lab/capture")
 local overlayLib = require("../examples/performance/lab/overlay")
 local leversLib = require("../examples/performance/lab/levers")
 local navigationInventory = require("../examples/performance/lab/navigation_inventory")
+local transientSurfaces = require("../examples/performance/lab/transient_surfaces")
 local hapticsLib = require("../src/client/haptics")
 local perf_lab = require("../examples/performance/lab/perf_lab")
 -- the pass-level round-trip readout is only populated while phase scopes are
@@ -88,6 +89,7 @@ local function newHarness(hostOverrides: any?, viewport: { w: number, h: number 
 			overlay = overlayLib,
 			levers = leversLib,
 			navigationInventory = navigationInventory,
+			transientSurfaces = transientSurfaces,
 			haptics = hapticsLib,
 		},
 		labOptions = labOpts,
@@ -560,7 +562,11 @@ describe("perf lab: selectors and workload identity (PL-2/PL-10)", function()
 		-- engine writes collapse from 241 to 1 when it moves inside a real instance
 		-- host; nothing pressed that at scale or asked whether it is a frame-time win
 		-- (the nested tree's own standing risk). Its arms also live in `levers.luau`.
-		expect(#declared.order).toBe(18)
+		-- NINETEEN since `transient-surfaces` joined (2026-09-11): the Alert, the
+		-- Picker's anchored menu and the radial menu each shipped as a player event
+		-- no list workload prices (a whole surface's mount, enter transition and
+		-- teardown). Its passes live in `transient_surfaces.luau`.
+		expect(#declared.order).toBe(19)
 		for _, w in declared.workloads do
 			for _, passName in w.passes do
 				-- `pass` refuses an unknown name, so an unimplemented pass in a

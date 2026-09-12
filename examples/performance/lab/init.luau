@@ -17,7 +17,8 @@
 
 local ORDER = { "perf_lab" }
 
-local MODULE_NAMES = { "perf_lab", "dataset", "rows", "capture", "overlay", "levers", "navigation_inventory" }
+local MODULE_NAMES =
+	{ "perf_lab", "dataset", "rows", "capture", "overlay", "levers", "navigation_inventory", "transient_surfaces" }
 
 local scenarios = {}
 for _, name in ORDER do
@@ -38,6 +39,7 @@ local lab = {
 	-- live-sync cap; see levers.luau's header.
 	levers = require(script:WaitForChild("levers")) :: any,
 	navigationInventory = require(script:WaitForChild("navigation_inventory")) :: any,
+	transientSurfaces = require(script:WaitForChild("transient_surfaces")) :: any,
 }
 
 return {
