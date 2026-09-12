@@ -1389,13 +1389,13 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 		})
 	end
 	local function boxedTrigger()
-		return UI.Button({
+		local button = UI.Button({
 			id = "Trigger",
 			label = selectedLabel,
 			anchor = if rowForm then nil else "topLeft",
 			surface = triggerSurface, -- control everywhere but a plain touch navigation link
-			-- lit while its menu is up; the legacy popup keeps its resting paint (a
-			-- `selection`-slotted 40px trigger cannot hold an ornate frame)
+			-- lit while its menu is up (the `selected` state of whichever slot this
+			-- trigger paints as — see the decoration hint below)
 			selected = if pickerMode then openNow else nil,
 			width = triggerWidthDim,
 			height = if detached
@@ -1405,6 +1405,38 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 			align = "center",
 			children = contentViews(),
 		})
+		if navLink then
+			--[[ THE NAVIGATION LINK IS THE ONE TRIGGER WHOSE SURFACE MOVES. It is
+				`plain` on a touch row and `control` elsewhere (`triggerSurface` above),
+				and a decoration hint is STATIC metadata on a blueprint — so hinting
+				`control` here would paint a plate on the very row whose whole point is
+				that it has none. It keeps the generic classification; see the report. ]]
+			return button
+		end
+		--[[ A CLOSED TRIGGER IS A CONTROL, AND IT HAS TO SAY SO (user feedback
+			item 8, 2026-09-12: "a closed trigger must paint its control surface in
+			every theme; the glow alone is wrong").
+
+			`chrome_slots.classify` routes a node to the `selection` slot on
+			`hasSelection` — which `render/layout_node` and `client/screen_chrome` both
+			derive from `props.selected ~= nil`, a DECLARATION and not a state. This
+			trigger declares `selected` precisely so its OPEN state can light up, so a
+			CLOSED pop-up button was taking the row-selection plate in every package:
+			measured through the same `classify` the solver and the adapter both call,
+			`{ class = "Button", surface = "control", hasSelection = true }` answered
+			`selection`. Under Glossy Touch that is `glossy_selection_default` — a flat
+			near-white wash — where `glossy_button_default`'s gel belongs, which is the
+			"no background, just a glow" in the capture; under Fantasy Ornate it is a
+			frameless plum plate beside every framed button on the same screen.
+
+			THE HINT IS `classify`'s FIRST CLAUSE ("THE HINT WINS"), so this is the
+			supported way for a control that knows its own slot to say so, and it
+			reaches BOTH consumers through the one meta channel — the insets
+			`layout_node` reserves and the art `screen_chrome` materializes cannot
+			split. The open state is unaffected: every skinned package compiles a
+			`.facet-selected > .facet-chrome-control` rule, so `selected = openNow`
+			still lights the trigger while its menu is up. ]]
+		return chrome_slots.attachHint(button, { slot = "control" })
 	end
 	local head
 	if rowForm then

@@ -22,20 +22,28 @@ local describe, it, expect = t.describe, t.it, t.expect
 local Facet = require("../src") :: any
 local lt = require("./lib/large_text")
 local snapshot = require("../src/themes/snapshot")
+local chrome_slots = require("../src/tokens/chrome_slots")
 
 local UI = Facet.UI
 
-local function packageMetrics(name: string): any
-	local pkg = (require)(`../examples/themes/{name}`).build(Facet.themes)
-	return snapshot.resolve(pkg, nil, {})
+-- the PACKAGE as well as its snapshot: the closed-surface pin below asks the
+-- package what it paints for a slot, which is a question only the package can
+-- answer (a ThemeSnapshot carries the reservations, not the art).
+local function packageOf(name: string): any
+	return (require)(`../examples/themes/{name}`).build(Facet.themes)
 end
 
 local THEMES = {
-	{ id = "facet-neutral", metrics = nil },
-	{ id = "glossy-touch", metrics = packageMetrics("glossy_touch") },
-	{ id = "pixel-quest", metrics = packageMetrics("pixel_quest") },
-	{ id = "fantasy-ornate", metrics = packageMetrics("fantasy_ornate") },
+	{ id = "facet-neutral", package = nil, metrics = nil },
+	{ id = "glossy-touch", package = packageOf("glossy_touch") },
+	{ id = "pixel-quest", package = packageOf("pixel_quest") },
+	{ id = "fantasy-ornate", package = packageOf("fantasy_ornate") },
 }
+for _, theme in THEMES do
+	if theme.package ~= nil then
+		theme.metrics = snapshot.resolve(theme.package, nil, {})
+	end
+end
 
 local VIEWPORTS = {
 	{ id = "phone-portrait", rect = { x = 0, y = 0, w = 390, h = 844 }, input = "touch" },
@@ -229,6 +237,89 @@ local function pinTriggerLine(label: string, w: any, trigger: string)
 	local _ = trigger
 end
 
+--[[ THE CLOSED TRIGGER'S OWN SURFACE (user feedback item 8, 2026-09-12: "a
+	closed trigger must paint its control surface in every theme; the glow alone is
+	wrong").
+
+	TWO FORMS, TWO CLAIMS, because the picker deliberately draws two triggers.
+
+	  * THE BOXED TRIGGER (pointer, gamepad, and every picker that is not a
+	    labelled form row) is the visible control, so the claim is that it RESOLVES
+	    A PAINTED SURFACE: it classifies into the `control` slot — through the same
+	    pure `chrome_slots.classify` the solver (`render/layout_node`) and the live
+	    adapter (`client/screen_chrome`) both call, fed from the node the fake
+	    target actually recorded — and, under an installed package, that package
+	    publishes a themed plate for that slot with a real content id.
+
+	    IT FAILS BEFORE THE FIX. `classify` routes on `hasSelection`, which both
+	    consumers derive from `props.selected ~= nil` — a DECLARATION, not a state
+	    — and a picker trigger always declares `selected` so its open state can
+	    light up. So a CLOSED trigger answered `selection` under every package, and
+	    took the row-selection wash where the pop-up button's plate belongs.
+
+	  * THE TOUCH FORM ROW is `surface = "plain"` BY DESIGN — one tappable row, the
+	    value and chevron flush trailing, no box (see `picker_menu`'s own comment).
+	    `plain` is a hard "no decoration" in `classify`, so there is no plate to
+	    claim and asserting one would be asserting against the design. What it owes
+	    instead is that the row still ANSWERS a finger: its focus visual paints, and
+	    it reads pressed while its menu is up (the latter is `pinAttachment`'s).
+
+	THE LIVE HALF IS OWED. The fake target records the decoration hint and the
+	props but materializes no ImageLabel, so "the nine-slice actually painted" is
+	not a headless proposition — this pins the decision, and a Studio capture under
+	each package still owes the pixels.
+
+	THE NAVIGATION LINK IS NOT SWEPT HERE, and the reason is structural rather than
+	an omission. It is the ONE trigger whose surface MOVES — `plain` on a touch row
+	and `control` on a pointer or pad, off one reactive memo rather than off the
+	`UI.When` pair the menu form splits itself with — and a decoration hint is
+	STATIC blueprint metadata. So the fix this pin guards cannot be expressed for
+	it without splitting its two forms structurally, which moves its mounted path.
+	Booked; its pointer form still takes the `selection` slot today. ]]
+local function pinClosedSurface(label: string, w: any, theme: any, trigger: string)
+	local node = w.adapter.node(trigger)
+	expect(`{label} trigger node recorded: {node ~= nil}`).toBe(`{label} trigger node recorded: true`)
+	local hint = if type(node.decorationHint) == "table" then node.decorationHint.slot else nil
+	local slot = chrome_slots.classify({
+		class = node.class,
+		surface = node.props.surface,
+		hasSelection = node.props.selected ~= nil,
+		hint = hint,
+	})
+	if node.props.surface == "plain" then
+		-- the plain row: no plate by design, so pin the affordance it does owe
+		expect(`{label} plain row carries no plate: {slot == nil}`).toBe(`{label} plain row carries no plate: true`)
+		w.pres.focus.focusOn(trigger)
+		w.pres.refresh()
+		local focused = w.adapter.node(trigger).focused
+		expect(`{label} plain row's focus visual paints: {focused == true}`).toBe(
+			`{label} plain row's focus visual paints: true`
+		)
+		return
+	end
+	local painted = chrome_slots.resolveSlot(theme.package, slot)
+	expect(`{label} closed trigger classifies as a control: {tostring(painted)}`).toBe(
+		`{label} closed trigger classifies as a control: control`
+	)
+	if theme.package == nil then
+		-- no package installed: the library's own sheet fills the surface role, so
+		-- the node declaring `control` IS the painted surface
+		expect(`{label} native control surface declared: {tostring(node.props.surface)}`).toBe(
+			`{label} native control surface declared: control`
+		)
+		return
+	end
+	local plan = chrome_slots.planFor(theme.package, painted :: string)
+	local stack = chrome_slots.layerPlanFor(theme.package, painted :: string)
+	local art = if plan ~= nil
+		then plan.contentId
+		elseif stack ~= nil and stack.layers[1] ~= nil then stack.layers[1].contentId
+		else nil
+	expect(`{label} the package paints that slot: {type(art) == "string" and art ~= ""}`).toBe(
+		`{label} the package paints that slot: true`
+	)
+end
+
 --[[ THE TRACK (visual review 2026-09-11): a segmented picker is ONE plated
 	track holding equal segments — every segment the same height and, on a filled
 	band, the same width — and the row forms carry no track at all. ]]
@@ -292,6 +383,7 @@ describe("Picker sweep: style x theme x text preference x viewport", function()
 							local trigger = suffixPath(w, "/Trigger")
 							expect(`{label} has a trigger: {trigger ~= nil}`).toBe(`{label} has a trigger: true`)
 							if resolved ~= "navigationLink" then
+								pinClosedSurface(label, w, theme, trigger :: string)
 								pinTriggerLine(label, w, trigger :: string)
 							end
 							picker.api.open()
