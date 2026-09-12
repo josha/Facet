@@ -981,11 +981,34 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 		end
 		return UI.cornersData(0)
 	end
+	--[[ TWO ROW-SHADE FORMS, chosen by the package's own metric and never by its
+		name (user ruling 2026-09-12): `controls.popup.shadeInset = 0` (the
+		default) is the FLUSH form above — the shade spans the card edge to edge
+		and takes the card's corners by position; a positive inset is the
+		FLOATING form — the shade (and the row, so the ring matches) sits that
+		many px inside the card's inner edge on both sides and wears
+		`radii.selection` on all four corners, the segmented indicator's shape.
+		Glossy Touch authors 4 for its rounded gel card. ]]
+	local function shadeInsetNow(use: any): number
+		local env = envForFacts or spec.env
+		local metrics = if env ~= nil then use(env:get("themeMetrics")) else nil
+		local snap = if type(metrics) == "table" and type(metrics.controls) == "table" then metrics else nil
+		local value = if snap ~= nil then themeSnapshot.resolveNumber(snap, "controls.popup.shadeInset") else nil
+		return if type(value) == "number" and value > 0 then value else 0
+	end
+	local FLOATING_CORNERS = UI.cornersData("selection")
 	local function rowCorners(position: string): any
 		return scope:own(core:memo(function(use)
+			if shadeInsetNow(use) > 0 then
+				return FLOATING_CORNERS
+			end
 			return rowCornersFor(position, cardCornerRadius(use))
 		end))
 	end
+	local rowMargin = scope:own(core:memo(function(use)
+		local inset = shadeInsetNow(use)
+		return if inset > 0 then { left = inset, right = inset } else nil
+	end))
 	local function popupPanel()
 		local presentation = presentationNow()
 		local rowHeight = menuRecipe.rowHeightFor(presentation)
@@ -1037,6 +1060,7 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 							-- the row and its shade wear ONE shape (see `rowCornersFor`)
 							local corners = rowCorners(position)
 							props.corners = corners
+							props.margin = rowMargin
 							table.insert(
 								listRows,
 								UI.background(
@@ -1048,6 +1072,7 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 											place in the list — never a bare rectangle floating inside the
 											plate, and never a box that pokes past a rounded corner. ]]
 										corners = corners,
+										margin = rowMargin,
 										tint = { role = "controlSelected", blend = 1 },
 										hidden = if type(chosen) == "table"
 											then scope:own(core:memo(function(use)

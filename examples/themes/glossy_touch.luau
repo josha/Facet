@@ -238,11 +238,15 @@ function glossy_touch.definition(themes: any): any
 				large = { height = 56, paddingX = 22, iconSize = 28 },
 			},
 			iconSizes = { small = 20, medium = 28, large = 40 },
-			radii = { control = 10, panel = 14, pill = 999 },
+			radii = { control = 10, panel = 14, pill = 999, selection = 10 },
 			strokes = { hairline = 1 },
 			targetSizes = { minimum = 44 },
 			motion = { fast = 0.16, normal = 0.28 },
 			controls = {
+				-- the menu card's row shade FLOATS here (user review 2026-09-12): a
+				-- rounded gel card wants an inset rounded highlight, the segmented
+				-- indicator's shape, not a hard rectangle to its inner edge
+				popup = { triggerHeight = 40, shadeInset = 4 },
 				-- the trough is authored 24px tall; rendering it at the library's
 				-- default 6 would squeeze a 10px slice border into a 6px box and
 				-- leave the gel's gloss step nowhere to land

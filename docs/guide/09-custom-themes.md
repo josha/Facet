@@ -226,6 +226,20 @@ card's own inner corner (`radii.panel` less the panel's content inset) so a
 highlight never pokes past the plate. A per-theme `tenFoot` override applies to
 it like any other radius.
 
+A menu card's row shade comes in **two forms, chosen by one metric**,
+`controls.popup.shadeInset`:
+
+- `0` (the default) is the **flush** form: the shade spans the card edge to
+  edge and takes the card's corners by position — the first row rounds its top,
+  the last its bottom, a middle row is a plain rectangle, an only row all four —
+  with `radii.selection` capped at the card's inner corner. Facet Neutral,
+  Pixel Quest and Fantasy Ornate use it.
+- a positive number is the **floating** form: the shade (and the row under it,
+  so the focus ring matches) sits that many px inside the card's inner edge on
+  both sides and wears `radii.selection` on all four corners, the same shape as
+  the segmented indicator. Glossy Touch authors `shadeInset = 4` beside
+  `selection = 10` for its rounded gel card.
+
 The six typography roles are `caption`, `label`, `body`, `control`, `heading`,
 `title`. Each is `{ font = { family, weight?, style? }, size, lineHeight }`:
 

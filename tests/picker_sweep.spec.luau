@@ -437,8 +437,34 @@ local function pinFillSpan(label: string, w: any, theme: any, popupRoot: string)
 	local panelR = snapshot.resolveNumber(snap, "radii.panel") or 0
 	local inset = if type(insets) == "table" then math.max(tonumber(insets.top) or 0, tonumber(insets.left) or 0) else 0
 	local r = math.max(0, math.min(selection, panelR - inset))
+	-- the FLOATING form (a package that authors `controls.popup.shadeInset`):
+	-- the shade sits inset on both sides and wears `radii.selection` uniformly
+	local shadeInset = snapshot.resolveNumber(snap, "controls.popup.shadeInset") or 0
 	for index, path in fills do
 		local fill = w.adapter.node(path)
+		if shadeInset > 0 then
+			expect(
+				`{label} floating fill sits {shadeInset} inside the list: {near(
+					fill.rect.w,
+					listRect.w - 2 * shadeInset
+				) and near(fill.rect.x, listRect.x + shadeInset)} (fill {fill.rect.x}+{fill.rect.w}, list {listRect.x}+{listRect.w})`
+			).toBe(
+				`{label} floating fill sits {shadeInset} inside the list: true (fill {fill.rect.x}+{fill.rect.w}, list {listRect.x}+{listRect.w})`
+			)
+			local c = fill.props.corners
+			expect(`{label} floating shade corners: {c and c.tokens and c.tokens.radius}`).toBe(
+				`{label} floating shade corners: selection`
+			)
+			local row =
+				w.adapter.node(string.gsub(path, "/Fill$", "/" .. string.match(path, "(Opt%-[^/]+)%+background/Fill$")))
+			expect(
+				`{label} floating row wears the shade's corners: {row ~= nil and row.props.corners == c and near(
+					row.rect.x,
+					fill.rect.x
+				)}`
+			).toBe(`{label} floating row wears the shade's corners: true`)
+			continue
+		end
 		expect(
 			`{label} fill spans the list: {near(fill.rect.w, listRect.w) and near(fill.rect.x, listRect.x)} (fill {fill.rect.x}+{fill.rect.w}, list {listRect.x}+{listRect.w})`
 		).toBe(`{label} fill spans the list: true (fill {fill.rect.x}+{fill.rect.w}, list {listRect.x}+{listRect.w})`)

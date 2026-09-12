@@ -1763,7 +1763,10 @@ the library default fills in and the contrast gate runs on the effective pair.
   floating inside a track that rounds only its two outer ends with
   `radii.control` and keeps its inner segments square and touching, with a
   hairline seam between each pair. A menu card's chosen-row shade and the focus
-  ring on that row wear the same token, clipped to the row's place in the card.
+  ring on that row wear the same token, in one of two forms the package picks
+  with `controls.popup.shadeInset`: `0` (default) is flush — edge to edge,
+  clipped to the row's place in the card; a positive inset floats the shade
+  that far inside the card's edges on all four rounded corners (Glossy Touch: 4).
   On a ten-foot row list every row keeps one silhouette, chosen or not, and the
   FOCUSED row lifts by a paint-only 1.05 on the presenter's spring — the solved
   box, the hit target and the focus order never move.

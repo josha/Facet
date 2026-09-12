@@ -72,6 +72,11 @@ runtime as `Facet.VERSION`.
   all four). It follows `radii.control` unless a package authors it; Pixel
   Quest and Fantasy Ornate set `0` in their own metrics. Documented in
   `docs/guide/09-custom-themes.md`, `05-styling.md` and `api.md` themes.
+- `controls.popup.shadeInset` (theme metrics, optional, default 0) picks the
+  menu card's row-shade form: flush (edge to edge, clipped to the row's place)
+  or, for a positive inset, floating (that far inside the card's edges, all four
+  corners on `radii.selection`, the row under it inset the same so the focus
+  ring matches). Glossy Touch authors `selection = 10` and `shadeInset = 4`.
 - The picker card keeps no padding of its own (Glossy Touch stacked it on the
   frame's insets); rows run to the card's content box.
 - `menu_recipe.row` accepts a Readable `indicatorEdge`; the picker popover

@@ -105,7 +105,7 @@ describe("radii.selection: the segmented fill follows the package's own token", 
 			{
 				{ name = "pixel_quest", want = 0 },
 				{ name = "fantasy_ornate", want = 0 },
-				{ name = "glossy_touch", want = nil },
+				{ name = "glossy_touch", want = 10 }, -- authored beside its floating shade inset
 				{ name = "classic_desktop", want = nil },
 			}
 		do
@@ -178,7 +178,6 @@ describe("radii.selection: a menu card's row wears the card's clipped corners, s
 
 	local THEMES = {
 		{ id = "facet-neutral", metrics = nil },
-		{ id = "glossy-touch", metrics = metricsOf(packageOf("glossy_touch")) },
 		{ id = "pixel-quest", metrics = metricsOf(packageOf("pixel_quest")) },
 	}
 
@@ -235,6 +234,67 @@ describe("radii.selection: a menu card's row wears the card's clipped corners, s
 			local fills2 = rows(w2)
 			expect(shapeOf(w2, fills2[1])).toBe(`{r},{r},0,0`)
 			expect(shapeOf(w2, fills2[2])).toBe(`0,0,{r},{r}`)
+		end
+	)
+
+	it(
+		"a package that authors `controls.popup.shadeInset` gets the FLOATING form: inset on both sides, radii.selection on all four corners",
+		function()
+			-- Glossy Touch ships it (4px); a custom package flips it with the metric alone
+			local customFloating = (function()
+				local pkg = Facet.themes.define({
+					base = snapshot.neutralPackage(),
+					identity = {
+						id = "custom-floating",
+						displayName = "Custom",
+						schemaVersion = Facet.themes.SCHEMA,
+						version = "1.0.0",
+					},
+					metrics = { controls = { popup = { triggerHeight = 40, shadeInset = 6 } } },
+				})
+				assert(pkg ~= nil, "custom floating package rejected")
+				return metricsOf(pkg)
+			end)()
+			for _, case in
+				{
+					{ id = "glossy-touch", metrics = metricsOf(packageOf("glossy_touch")), inset = 4 },
+					{ id = "custom-floating", metrics = customFloating, inset = 6 },
+				}
+			do
+				expect(`{case.id} shadeInset: {snapshot.resolveNumber(case.metrics, "controls.popup.shadeInset")}`).toBe(
+					`{case.id} shadeInset: {case.inset}`
+				)
+				local selection = snapshot.resolveNumber(case.metrics, "radii.selection")
+				local w, picker = menuWorld(case.metrics, 3)
+				w.adapter.tap(suffixPath(w, "/Trigger") :: string)
+				w.pres.refresh()
+				expect(`{case.id} open: {picker.dump().open}`).toBe(`{case.id} open: true`)
+				local list = w.adapter.node(suffixPath(w, "/List") :: string).rect
+				for _, fill in rows(w) do
+					local node = w.adapter.node(fill)
+					expect(`{case.id} inset: {node.rect.x - list.x},{list.x + list.w - (node.rect.x + node.rect.w)}`).toBe(
+						`{case.id} inset: {case.inset},{case.inset}`
+					)
+					local c = node.props.corners
+					expect(`{case.id} corners token: {c and c.tokens and c.tokens.radius}`).toBe(
+						`{case.id} corners token: selection`
+					)
+					expect(`{case.id} painted: {styling.paintCorners(c, case.metrics).radius}`).toBe(
+						`{case.id} painted: {selection}`
+					)
+					local rowPath = string.gsub(
+						fill,
+						"%+background/Fill$",
+						"+background/" .. string.match(fill, "(Opt%-[^/]+)%+background/Fill$")
+					)
+					local row = w.adapter.node(rowPath)
+					expect(
+						`{case.id} row matches: {row.props.corners == c and row.rect.x == node.rect.x and row.rect.w == node.rect.w}`
+					).toBe(`{case.id} row matches: true`)
+				end
+			end
+			-- the flush form is still the default: neutral authors no inset
+			expect(snapshot.resolveNumber(snapshot.neutral(), "controls.popup.shadeInset") or 0).toBe(0)
 		end
 	)
 

@@ -1838,6 +1838,13 @@ function snapshot.resolve(package: any, themeName: string?, facts: Facts?, overr
 	if type(out.controls.popup.panelWidth) ~= "number" then
 		out.controls.popup.panelWidth = out.targetSizes.minimum * (360 / 44)
 	end
+	-- the menu card's row-shade FORM (user ruling 2026-09-12): 0 (the default)
+	-- is the flush form — the shade spans the card edge to edge and takes the
+	-- card's corners by position; a positive inset is the floating form — an
+	-- inset rounded rect on `radii.selection`, the segmented indicator's shape
+	if type(out.controls.popup.shadeInset) ~= "number" then
+		out.controls.popup.shadeInset = 0
+	end
 	if type(out.controls.textInput.multilineHeight) ~= "number" then
 		out.controls.textInput.multilineHeight = out.targetSizes.minimum * 4
 	end
