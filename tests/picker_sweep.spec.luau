@@ -416,24 +416,61 @@ local function pinFillSpan(label: string, w: any, theme: any, popupRoot: string)
 	expect(
 		`{label} list spans the card's content box: {near(listRect.w, card.w - side)} (list {listRect.w}, card {card.w}, insets {side})`
 	).toBe(`{label} list spans the card's content box: true (list {listRect.w}, card {card.w}, insets {side})`)
-	local xs = metric(theme, "space.xs", 4)
-	local fills = 0
+	--[[ THE SHADE AND THE ROW WEAR ONE SHAPE (user ruling 2026-09-12): the fill
+		is the card's full inner width, and its corners follow the row's place —
+		the first row rounds its top, the last its bottom, a middle row is square,
+		an only row rounds all four — with `radii.selection` capped at the card's
+		inner corner. The row Button carries the SAME corners, so the focus ring
+		(the Button's stroke) is the same clipped shape. ]]
+	local fills = {}
 	for _, path in w.adapter.paths() do
-		if string.match(path, "/Opt%-[^/]+%+background/Fill$") == nil then
-			continue
+		if string.match(path, "/Opt%-[^/]+%+background/Fill$") ~= nil then
+			table.insert(fills, path)
 		end
-		fills += 1
-		local fill = w.adapter.node(path).rect
+	end
+	table.sort(fills, function(a, b)
+		return w.adapter.node(a).rect.y < w.adapter.node(b).rect.y
+	end)
+	expect(`{label} fills measured: {#fills > 0}`).toBe(`{label} fills measured: true`)
+	local snap = if theme.metrics ~= nil then theme.metrics else snapshot.neutral()
+	local selection = snapshot.resolveNumber(snap, "radii.selection") or 0
+	local panelR = snapshot.resolveNumber(snap, "radii.panel") or 0
+	local inset = if type(insets) == "table" then math.max(tonumber(insets.top) or 0, tonumber(insets.left) or 0) else 0
+	local r = math.max(0, math.min(selection, panelR - inset))
+	for index, path in fills do
+		local fill = w.adapter.node(path)
 		expect(
-			`{label} fill spans the list less xs a side: {near(fill.w, listRect.w - 2 * xs) and near(
-				fill.x,
-				listRect.x + xs
-			)} (fill {fill.x}+{fill.w}, list {listRect.x}+{listRect.w}, xs {xs})`
-		).toBe(
-			`{label} fill spans the list less xs a side: true (fill {fill.x}+{fill.w}, list {listRect.x}+{listRect.w}, xs {xs})`
+			`{label} fill spans the list: {near(fill.rect.w, listRect.w) and near(fill.rect.x, listRect.x)} (fill {fill.rect.x}+{fill.rect.w}, list {listRect.x}+{listRect.w})`
+		).toBe(`{label} fill spans the list: true (fill {fill.rect.x}+{fill.rect.w}, list {listRect.x}+{listRect.w})`)
+		local position = if #fills == 1
+			then "only"
+			elseif index == 1 then "first"
+			elseif index == #fills then "last"
+			else "middle"
+		local want = if position == "only"
+			then { r, r, r, r }
+			elseif position == "first" then { r, r, 0, 0 }
+			elseif position == "last" then { 0, 0, r, r }
+			else { 0, 0, 0, 0 }
+		local c = fill.props.corners
+		local got = if type(c) == "table" and c.radius ~= nil
+			then { c.radius, c.radius, c.radius, c.radius }
+			elseif type(c) == "table" then {
+				c.topLeft or 0,
+				c.topRight or 0,
+				c.bottomLeft or 0,
+				c.bottomRight or 0,
+			}
+			else { -1, -1, -1, -1 }
+		expect(`{label} {position} shade corners: {table.concat(got, ",")}`).toBe(
+			`{label} {position} shade corners: {table.concat(want, ",")}`
+		)
+		local row =
+			w.adapter.node(string.gsub(path, "/Fill$", "/" .. string.match(path, "(Opt%-[^/]+)%+background/Fill$")))
+		expect(`{label} {position} row wears the shade's corners: {row ~= nil and row.props.corners == c}`).toBe(
+			`{label} {position} row wears the shade's corners: true`
 		)
 	end
-	expect(`{label} fills measured: {fills > 0}`).toBe(`{label} fills measured: true`)
 end
 
 --[[ NO SCROLLBAR WHEN THE ROWS FIT (same review): two rows that fit their

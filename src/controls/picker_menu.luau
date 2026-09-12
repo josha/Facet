@@ -949,6 +949,43 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 		and painted 8px past its right one — a fixed width the placement solver
 		can clamp the position of but not the size. The cap keeps one gutter on
 		each side; a plain (undescribed) popover hugs its rows and never needed it. ]]
+	--[[ THE ROW'S CLIPPED CORNERS (user ruling 2026-09-12). A card row — its
+		shade and its focus ring alike — takes the shape of its place in the card:
+		the first row rounds its top corners, the last its bottom corners, a
+		middle row is a plain rectangle and the only row rounds all four. The
+		radius is the theme's `radii.selection` (which follows `radii.control`
+		unless the package authors it; square art sets 0), capped at the card's
+		own inner corner so nothing pokes past the plate. The ring is the row's
+		Button stroke, which follows the Button's corners, so both read ONE prop. ]]
+	local function cardCornerRadius(use: any): number
+		local env = envForFacts or spec.env
+		local metrics = if env ~= nil then use(env:get("themeMetrics")) else nil
+		local snap = if type(metrics) == "table" and type(metrics.radii) == "table"
+			then metrics
+			else themeSnapshot.neutral()
+		local selection = themeSnapshot.resolveNumber(snap, "radii.selection") or 0
+		local panel = themeSnapshot.resolveNumber(snap, "radii.panel") or 0
+		local insets = if type((snap :: any).chromeInsets) == "table" then (snap :: any).chromeInsets.panel else nil
+		local inset = if type(insets) == "table"
+			then math.max(tonumber(insets.top) or 0, tonumber(insets.left) or 0)
+			else 0
+		return math.max(0, math.min(selection, panel - inset))
+	end
+	local function rowCornersFor(position: string, r: number): any
+		if position == "only" then
+			return UI.cornersData(r)
+		elseif position == "first" then
+			return UI.cornersData({ topLeft = r, topRight = r, bottomLeft = 0, bottomRight = 0 })
+		elseif position == "last" then
+			return UI.cornersData({ topLeft = 0, topRight = 0, bottomLeft = r, bottomRight = r })
+		end
+		return UI.cornersData(0)
+	end
+	local function rowCorners(position: string): any
+		return scope:own(core:memo(function(use)
+			return rowCornersFor(position, cardCornerRadius(use))
+		end))
+	end
 	local function popupPanel()
 		local presentation = presentationNow()
 		local rowHeight = menuRecipe.rowHeightFor(presentation)
@@ -970,8 +1007,20 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 					})
 				)
 			else
+				local optionCount, optionIndex = 0, 0
+				for _, row in staticRows do
+					if row.class == "Button" then
+						optionCount += 1
+					end
+				end
 				for index, row in staticRows do
 					if row.class == "Button" then
+						optionIndex += 1
+						local position = if optionCount == 1
+							then "only"
+							elseif optionIndex == 1 then "first"
+							elseif optionIndex == optionCount then "last"
+							else "middle"
 						local props = table.clone(row.props)
 						props.id = row.id
 						props.height = if detached
@@ -985,20 +1034,20 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 								table.insert(listRows, menuRecipe.divider(UI, `Div-{index}`))
 							end
 							local chosen = props.selected
+							-- the row and its shade wear ONE shape (see `rowCornersFor`)
+							local corners = rowCorners(position)
+							props.corners = corners
 							table.insert(
 								listRows,
 								UI.background(
 									UI.Button(props),
 									UI.Box({
 										id = "Fill",
-										--[[ THE ROW HIGHLIGHT SPANS THE CARD (visual review 2026-09-12): it
-											runs the card's inner width less one `xs` a side, with the theme's
-											control radius, the way the reference platform's desktop menus
-											inset their highlight — never a bare rectangle floating inside the
-											plate. Its width is the row's (the card's content box), so the
-											pin is fill width vs card inner width, in every theme. ]]
-										margin = { left = "xs", right = "xs" },
-										corners = UI.cornersData("control"),
+										--[[ THE ROW HIGHLIGHT SPANS THE CARD (visual review 2026-09-12): the
+											card's full inner width, clipped to the card's corners by its
+											place in the list — never a bare rectangle floating inside the
+											plate, and never a box that pokes past a rounded corner. ]]
+										corners = corners,
 										tint = { role = "controlSelected", blend = 1 },
 										hidden = if type(chosen) == "table"
 											then scope:own(core:memo(function(use)
@@ -1111,7 +1160,10 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 			-- An INLINE list is part of the trigger's own surface, so it takes the
 			-- control role rather than a floating-panel one.
 			surface = if presentation == "inline" then "control" else "raised",
-			padding = if isSheet then "s" elseif pickerMode then { top = "xs", bottom = "xs" } else nil,
+			-- a picker card keeps NO padding of its own (capture review 2026-09-12:
+			-- Glossy Touch stacked it on the frame's insets): the rows run to the
+			-- card's content box and the end rows wear the card's corners
+			padding = if isSheet then "s" else nil,
 			-- the hairline of surface showing between rows — the recipe's token, so
 			-- all three menus space their rows identically
 			gap = menuRecipe.ROW_GAP,
