@@ -533,7 +533,9 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 	-- sees the locals that exist when it is made (three memos in this file were
 	-- quarantined by that rule this round alone).
 	local function anchorSourcePath(): string
-		return if rowForm and touchPrimary:get() == true then triggerPath() .. "/Chevron" else triggerPath()
+		-- the trigger is a boxed control on every input class now (see
+		-- `triggerSurface`), so its own frame is the edge the menu hangs from
+		return triggerPath()
 	end
 
 	local function optionRow(option, rowScope)
@@ -704,6 +706,12 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 			else 12
 		local slot = themeSnapshot.resolveNumber(snap, "space.l") or 24
 		local gap = themeSnapshot.resolveNumber(snap, "space.s") or 8
+		-- a themed row is a control with a carved frame of its own (Glossy Touch's
+		-- gel: 14px a side) that its label must clear too — without it the rows
+		-- hugged an estimate two frames short and truncated every label
+		local insetsBySlot = if type(snap) == "table" then (snap :: any).chromeInsets else nil
+		local plate = if type(insetsBySlot) == "table" then insetsBySlot.control else nil
+		local frame = if type(plate) == "table" then (tonumber(plate.left) or 0) + (tonumber(plate.right) or 0) else 0
 		local widest = 0
 		for _, option in results:get() do
 			if option.divider == true then
@@ -715,7 +723,7 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 			if type(description) == "string" then
 				w = math.max(w, #description * captionPx * textMetrics.AVG_GLYPH_FRACTION)
 			end
-			widest = math.max(widest, w + slot + gap + 2 * padX)
+			widest = math.max(widest, w + slot + gap + 2 * padX + frame)
 		end
 		return math.ceil(widest)
 	end
@@ -1108,8 +1116,17 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 			button; the word itself keeps the colour every other value has. ]]
 		return "content"
 	end))
+	--[[ THE TRIGGER ALWAYS HAS A BOX (user review of the Glossy Touch capture,
+		2026-09-11: "the menu doesn't have a background, just a glow"). A plain
+		value on a touch form row is the reference platform's look on a FLAT
+		package; under a skinned package a bare word beside a plated menu read as
+		a control with no background at all, and the moment the menu opened and
+		took the focus halo with it, nothing was left. The value is a `control`
+		surface on every input class — the same pop-up button the desktop draws,
+		which every package paints and whose `selected` state stays lit while the
+		menu is up. The navigation link keeps its plain row. ]]
 	local triggerSurface = scope:own(core:memo(function(use)
-		return if (rowForm or navLink) and use(touchPrimary) then "plain" else "control"
+		return if navLink and use(touchPrimary) then "plain" else "control"
 	end))
 	--[[ THE FORM ROW GOES VERTICAL AT ACCESSIBILITY SIZES — a FACT, not a
 		measurement: at the two largest text preferences the title takes the
@@ -1146,14 +1163,30 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 		local vp = if envForFacts ~= nil then use(envForFacts:get("viewportRect")) else nil
 		return if type(vp) == "table" and type(vp.w) == "number" then vp.w else 1280
 	end
+	--[[ THE STACKED ROW HAS THE WHOLE LINE (visual review 2026-09-11, Glossy
+		Touch at the largest preference): when the title sits above the trigger
+		(`rowAxis` y) the value's cap is the row less the chevron and the trigger's
+		own chrome, not a share of the viewport — a share measured for the
+		side-by-side form made the engine's wider glyphs shrink the value to its
+		compact rung inside a box reserved at the large one, and the chevron sat
+		60px away from the word it belongs to. ]]
+	local CHEVRON_ROOM = 64
 	local valueWidth = scope:own(core:memo(function(use)
-		return { type = "hug", max = math.max(48, math.floor(viewportWidth(use) * VALUE_SHARE)) }
+		local vp = viewportWidth(use)
+		if use(rowAxis) == "y" then
+			return { type = "hug", max = math.max(48, vp - 32 - CHEVRON_ROOM) }
+		end
+		return { type = "hug", max = math.max(48, math.floor(vp * VALUE_SHARE)) }
 	end))
 	-- ...and the TRIGGER itself, because a theme's own padding and chevron sit
 	-- outside the value: under a roomy package the plate around a capped value
 	-- still ate the title's room (the sweep's glossy phone row, 2026-09-11)
 	local triggerCap = scope:own(core:memo(function(use)
-		return { type = "hug", max = math.max(96, math.floor(viewportWidth(use) * TRIGGER_SHARE)) }
+		local vp = viewportWidth(use)
+		if use(rowAxis) == "y" then
+			return { type = "hug", max = math.max(96, vp - 32) }
+		end
+		return { type = "hug", max = math.max(96, math.floor(vp * TRIGGER_SHARE)) }
 	end))
 	local TRIGGER_FILL = table.freeze({ type = "fill", weight = 1 })
 	local TRIGGER_HUG = table.freeze({ type = "content" })

@@ -159,9 +159,9 @@ end
 	never narrower than the trigger nor wider than the screen less its content
 	inset, and the trigger reads as pressed while the menu is up. ]]
 local function pinAttachment(label: string, w: any, theme: any, viewport: any, trigger: string, popupRoot: string)
-	local touch = viewport.input == "touch"
-	local sourcePath = if touch then trigger .. "/Chevron" else trigger
-	local source = w.adapter.node(sourcePath).rect
+	-- the trigger is a boxed control on every input class, so its own frame
+	-- is the edge the menu hangs from (user review, 2026-09-11)
+	local source = w.adapter.node(trigger).rect
 	local panel = w.adapter.node(popupRoot).rect
 	local triggerRect = w.adapter.node(trigger).rect
 	local gap = metric(theme, "space.xs", 4)
