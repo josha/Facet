@@ -56,6 +56,17 @@ runtime as `Facet.VERSION`.
   `text_metrics` and counting the card's frame, the scroller's shadow reserve
   and the row's real padding. Pixel Quest asked for 182px where 280 was needed,
   leaving 78px for a 176px word.
+- `UI.ScrollView` accepts `chromeReserve` (`"auto"` default, `"none"`): the
+  lane a scroller keeps for content chrome that reaches past its box. The
+  picker popover's list declares `"none"` — its rows are plain and its check
+  draws inside its box — so the list runs to the card's content box and the
+  chosen row's fill spans the card less one `xs` a side with the theme's
+  control radius (Glossy Touch had it floating 31px inside the card), and
+  two rows that fit no longer show a scrollbar (the region's content grew by
+  two lanes while the host grew by one). Pinned in `picker_sweep`.
+- `menu_recipe.row` accepts a Readable `indicatorEdge`; the picker popover
+  passes one, so the check follows the live interaction class instead of the
+  class at build time.
 - The chosen row in a picker popover paints its label with the theme's
   `onSelected` partner (Glossy Touch 2.37:1 → 7.03:1, Pixel Quest 2.46:1 →
   6.04:1). `onSelected` is a new tint role: the decision `$OnSelected` already

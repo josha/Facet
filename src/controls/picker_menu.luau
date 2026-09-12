@@ -624,7 +624,13 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 				edge on a touch surface (the reference platform's phone menus) and
 				leads on a pointer or pad surface (its desktop menus). ]]
 			surface = if pickerMode then "plain" else nil,
-			indicatorEdge = if pickerMode and touchPrimary:get() == true then "trailing" else "leading",
+			-- READABLE, so the edge follows the live class rather than the class at
+			-- build time (capture review 2026-09-12: rows are built once, at mount)
+			indicatorEdge = if pickerMode
+				then rowScope:own(core:memo(function(use)
+					return if use(touchPrimary) == true then "trailing" else "leading"
+				end))
+				else "leading",
 			markHidden = hidden,
 			height = "targetSizes.minimum",
 		})
@@ -985,6 +991,14 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 									UI.Button(props),
 									UI.Box({
 										id = "Fill",
+										--[[ THE ROW HIGHLIGHT SPANS THE CARD (visual review 2026-09-12): it
+											runs the card's inner width less one `xs` a side, with the theme's
+											control radius, the way the reference platform's desktop menus
+											inset their highlight — never a bare rectangle floating inside the
+											plate. Its width is the row's (the card's content box), so the
+											pin is fill width vs card inner width, in every theme. ]]
+										margin = { left = "xs", right = "xs" },
+										corners = UI.cornersData("control"),
 										tint = { role = "controlSelected", blend = 1 },
 										hidden = if type(chosen) == "table"
 											then scope:own(core:memo(function(use)
@@ -1009,6 +1023,11 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 					UI.ScrollView({
 						id = "List",
 						axis = "y",
+						-- the card's list keeps NO chrome lane: its rows are plain, its
+						-- fill is a tint, and the check draws inside its box — under
+						-- Glossy Touch the lane floated the fill 31px inside the card
+						-- and put a scrollbar on two rows that fit (see the schema)
+						chromeReserve = "none",
 						width = { type = "fill", weight = 1 },
 						height = listHeight,
 						children = {

@@ -237,6 +237,61 @@ describe("Picker style: the menu trigger is ONE integrated control", function()
 	end)
 end)
 
+describe("Picker menu: the check's edge follows the LIVE interaction class", function()
+	--[[ Capture review 2026-09-12: the popover's rows were built once, at mount,
+		and read the touch class then — so a class that flipped after mount (the
+		device-profile route, a hybrid that gains a touch screen) kept the check
+		on the pointer edge. `menu_recipe.row` now takes a Readable edge and holds
+		the one indicator in two `When` slots, so the check MOVES. ]]
+	it("a pointer menu leads with the check, and the same open menu trails it once touch is primary", function()
+		local w, picker = mount("desktop", {})
+		w.adapter.tap(suffixPath(w, "/Trigger") :: string)
+		w.pres.refresh()
+		expect(picker.dump().open).toBe(true)
+		local function edgeOf(key: string): string
+			local lead, trail = false, false
+			for _, path in w.adapter.paths() do
+				if string.find(path, `/Opt-{key}/`, 1, true) ~= nil and string.sub(path, -5) == "/Mark" then
+					if string.find(path, "/IndicatorLead/", 1, true) then
+						lead = true
+					elseif string.find(path, "/IndicatorTrail/", 1, true) then
+						trail = true
+					end
+				end
+			end
+			return if lead and not trail then "leading" elseif trail and not lead then "trailing" else "neither"
+		end
+		local function markX(key: string): number
+			for _, path in w.adapter.paths() do
+				if string.find(path, `/Opt-{key}/`, 1, true) ~= nil and string.sub(path, -5) == "/Mark" then
+					return w.adapter.node(path).rect.x
+				end
+			end
+			error(`no mark under Opt-{key}`)
+		end
+		local function labelX(key: string): number
+			return w.adapter.node(suffixPath(w, `/Opt-{key}/HStack#1/VStack#2/Label`) :: string).rect.x
+		end
+		expect(edgeOf("normal")).toBe("leading")
+		expect(markX("normal") < labelX("normal")).toBe(true)
+		-- the class flips under the OPEN menu: touch becomes primary
+		w.env:set("preferredInput", "Touch")
+		w.env:set("capabilities", { touch = true })
+		w.pres.refresh()
+		w.pres.refresh()
+		expect(picker.dump().open).toBe(true)
+		expect(edgeOf("normal")).toBe("trailing")
+		expect(markX("normal") > labelX("normal")).toBe(true)
+		-- ...and back, the same rows, no remount of the row itself
+		w.env:set("preferredInput", "KeyboardAndMouse")
+		w.env:set("capabilities", { mouse = true, keyboard = true })
+		w.pres.refresh()
+		w.pres.refresh()
+		expect(edgeOf("normal")).toBe("leading")
+		w.overflowGuard()
+	end)
+end)
+
 describe("Picker style: a described popover never paints past the phone", function()
 	it("caps the themed panel width at the viewport less a gutter each side", function()
 		local w = world.new(FACTS.phone)

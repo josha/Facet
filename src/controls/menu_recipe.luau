@@ -256,7 +256,7 @@ export type Row = {
 		treatment byte for byte. ]]
 	platedSelection: boolean?,
 	indicator: string?, -- "radio" | "check" | "mark" (the picker menu's check-only slot)
-	indicatorEdge: string?, -- "leading" (default) | "trailing": the picker menu's check sits at the row's trailing edge under touch
+	indicatorEdge: (string | Readable<string>)?, -- "leading" (default) | "trailing": the picker menu's check sits at the row's trailing edge under touch; a Readable follows the live interaction class
 	id: string, -- the path segment, already prefixed by the caller
 	label: any, -- string | number | Readable — the SEMANTIC name, always present
 	icon: any?, -- semantic icon NAME or Readable<string?>, never an asset id
@@ -291,6 +291,7 @@ function menu_recipe.row(UI: any, row: Row): any
 		-- the indicator slot, placed leading (a desktop menu) or trailing (a
 		-- phone menu marks the chosen row at its far edge — `indicatorEdge`)
 		local indicatorView: any = nil
+		local trailingSlot = row.indicatorEdge == "trailing"
 		if row.indicator ~= nil then
 			--[[ `mark` is the PICKER MENU's indicator (2026-09-11): the check
 				alone, in a reserved slot, with NO resting outline — the row that is
@@ -351,7 +352,42 @@ function menu_recipe.row(UI: any, row: Row): any
 				height = { type = "minMax", min = "l" },
 				children = indicatorChildren,
 			})
-			if row.indicatorEdge ~= "trailing" then
+			--[[ A READABLE EDGE FOLLOWS THE LIVE CLASS (capture review 2026-09-12:
+				the picker built its rows once, read the touch class then, and a
+				class that flipped after mount left the check on the wrong edge). Two
+				`When`s hold the one indicator view — mounted at the leading slot
+				while the edge is leading, at the trailing slot while it is trailing
+				— so no phantom box is reserved on the other side; a plain string
+				keeps the static placement every other caller pins. ]]
+			if readable(row.indicatorEdge) then
+				assert(row.core and row.scope, "menu row: a readable indicatorEdge requires core and scope")
+				local edge = row.indicatorEdge
+				local trailing = row.scope:own(row.core:memo(function(use)
+					return use(edge) == "trailing"
+				end))
+				local leading = row.scope:own(row.core:memo(function(use)
+					return not use(trailing)
+				end))
+				local view = indicatorView
+				table.insert(
+					content,
+					UI.When({
+						id = "IndicatorLead",
+						condition = leading,
+						thenView = function()
+							return view
+						end,
+					})
+				)
+				indicatorView = UI.When({
+					id = "IndicatorTrail",
+					condition = trailing,
+					thenView = function()
+						return view
+					end,
+				})
+				trailingSlot = true
+			elseif row.indicatorEdge ~= "trailing" then
 				table.insert(content, indicatorView)
 			end
 		end
@@ -470,7 +506,7 @@ function menu_recipe.row(UI: any, row: Row): any
 				})
 			)
 		end
-		if row.indicatorEdge == "trailing" and indicatorView ~= nil then
+		if trailingSlot and indicatorView ~= nil then
 			table.insert(content, indicatorView)
 		end
 		return UI.Button({
