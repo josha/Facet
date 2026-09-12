@@ -330,7 +330,7 @@ local OVERLAY_FILL = table.freeze({ type = "fill", weight = 1 })
 	style it paints with, so a ten-foot display's derived radius reaches the
 	strip and a build-time number never freezes the near one in (the paint-family
 	lockstep rule). ]]
-local SEGMENT_RADIUS = selectionIndicator.DEFAULT_CORNER
+local SEGMENT_RADIUS = selectionIndicator.TRACK_CORNER
 -- the per-corner data for segment `index` of `count` along `axis`, ASKED rather
 -- than re-derived: the level picker's run of marks speaks the same three
 -- sentences, and one of the two copies would be the one that stopped being true
@@ -1488,14 +1488,12 @@ local function buildStrip(Facet: any, core: any, spec: Spec, requested: string)
 				three, so a pill in a square middle segment leaves four slivers of
 				track showing at its corners. The seam indexes this array by the
 				SELECTED segment, which is the one fact it already holds. ]]
-			segmentCorners = if not tracked
-				then nil
-				else scope:own(core:memo(function(use)
-					if use(presentation) ~= "segmented" then
-						return cornersRow
-					end
-					return if axisNow(use) == "y" then cornersY else cornersX
-				end)),
+			--[[ ...REVISED 2026-09-12 (user ruling): the fill is the reference
+				platform's INSET ROUNDED RECT, `radii.selection` on all four corners
+				(`selection_indicator.DEFAULT_CORNER`), floating inside a track whose
+				own ends keep `radii.control`. The per-segment silhouettes above are
+				still the SEGMENTS' (`optionCorners`); the bar no longer borrows them. ]]
+			segmentCorners = nil,
 			--[[ THE TRACK (visual review 2026-09-11). A segmented control is ONE
 				plated track holding equal segments with the selected one raised; the
 				bar alone left every unselected segment as bare text floating beside

@@ -192,39 +192,46 @@ describe("item 2: the segmented strip is ONE strip, not a row of pills", functio
 end)
 
 -- ===========================================================================
-describe("item 2b: the sliding fill takes the shape of the segment it is on", function()
-	it("on an end segment the bar rounds that end only", function()
+describe("item 2b: the sliding fill is the INSET ROUNDED RECT, whatever segment it is on", function()
+	--[[ User ruling 2026-09-12: the fill floats inside the track like the reference
+		platform's segmented control — `radii.selection` on ALL FOUR corners (a
+		token that follows `radii.control` unless a package authors it) — while
+		the track and its end segments keep their outer-rounded, inner-square
+		shape. The bar no longer borrows the segment's silhouette. ]]
+	local function selectionRadius(metrics: any?): number
+		local r = radii(metrics)
+		return if type(r.selection) == "number" then r.selection else r.control
+	end
+
+	it("on an end segment the bar is rounded on all four corners with the selection radius", function()
 		local w = world({ initial = "a" })
-		local control = radii().control
-		expect(cornerText(painted(w.adapter.node(BAR)))).toBe(`tl {control} tr 0 bl {control} br 0`)
+		expect(cornerText(painted(w.adapter.node(BAR)))).toBe(`uniform {selectionRadius()}`)
 	end)
 
-	it("...and in the middle it is square, reactively", function()
+	it("...and in the middle it is the SAME rounded rect, reactively", function()
 		local w = world({ initial = "a" })
 		w.selected:set("b")
 		w.pres.refresh()
-		expect(cornerText(painted(w.adapter.node(BAR)))).toBe("tl 0 tr 0 bl 0 br 0")
+		expect(cornerText(painted(w.adapter.node(BAR)))).toBe(`uniform {selectionRadius()}`)
 		w.selected:set("c")
 		w.pres.refresh()
-		local control = radii().control
-		expect(cornerText(painted(w.adapter.node(BAR)))).toBe(`tl 0 tr {control} bl 0 br {control}`)
+		expect(cornerText(painted(w.adapter.node(BAR)))).toBe(`uniform {selectionRadius()}`)
 	end)
 
-	it("a vertical rail's bar follows the same rule on the other axis", function()
+	it("a vertical rail's bar is the same rounded rect", function()
 		local w = world({ axis = "y", initial = "c" })
-		local control = radii().control
-		expect(cornerText(painted(w.adapter.node(BAR)))).toBe(`tl 0 tr 0 bl {control} br {control}`)
+		expect(cornerText(painted(w.adapter.node(BAR)))).toBe(`uniform {selectionRadius()}`)
 	end)
 
-	it("a single-segment strip is rounded on both ends, because it IS both ends", function()
-		local w = world({ options = { { value = "a", label = "One" } } })
-		local control = radii().control
-		expect(cornerText(painted(w.adapter.node(BAR)))).toBe(`uniform {control}`)
+	it("the selection radius follows the control radius until a package authors it", function()
+		expect(selectionRadius()).toBe(radii().control)
+		expect(selectionRadius(packageMetrics("pixel_quest"))).toBe(0)
+		expect(selectionRadius(packageMetrics("glossy_touch"))).toBe(radii(packageMetrics("glossy_touch")).control)
 	end)
 end)
 
 -- ===========================================================================
-describe("item 6: a square theme gets a square selection", function()
+describe("item 6: a square theme gets a square selection — from its own `radii.selection`", function()
 	local PACKAGES = { "pixel_quest", "fantasy_ornate", "glossy_touch" }
 
 	it("the selection's corner is the ACTIVE theme's control radius, in every package", function()
@@ -232,8 +239,9 @@ describe("item 6: a square theme gets a square selection", function()
 			local metrics = packageMetrics(name)
 			local w = world({ metrics = metrics, initial = "b" })
 			local control = radii(metrics).control
+			local selection = if type(radii(metrics).selection) == "number" then radii(metrics).selection else control
 			expect(`{name} bar: {cornerText(painted(w.adapter.node(BAR), metrics))}`).toBe(
-				`{name} bar: tl 0 tr 0 bl 0 br 0`
+				`{name} bar: uniform {selection}`
 			)
 			expect(`{name} track: {cornerText(painted(w.adapter.node(TRACK), metrics))}`).toBe(
 				`{name} track: uniform {control}`
@@ -244,8 +252,9 @@ describe("item 6: a square theme gets a square selection", function()
 		end
 	end)
 
-	it("the seam's own default is the control radius, not a pill", function()
-		expect(selectionIndicator.DEFAULT_CORNER).toBe("control")
+	it("the seam's own default is the selection token (which follows the control radius), not a pill", function()
+		expect(selectionIndicator.DEFAULT_CORNER).toBe("selection")
+		expect(selectionIndicator.TRACK_CORNER).toBe("control")
 	end)
 
 	it("an explicitly authored corner still wins — `corner` stays the caller's", function()

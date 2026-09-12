@@ -188,7 +188,13 @@ local DEFAULT_INSET = "space.xs"
 
 	An underline stays square by default because that is what a tint rule on one
 	edge of a segment is. ]]
-selection_indicator.DEFAULT_CORNER = "control"
+-- THE HIGHLIGHT'S SHAPE IS A THEME TOKEN (user ruling 2026-09-12): `radii.selection`,
+-- which follows `radii.control` unless a package authors it (square art sets 0).
+-- The bar wears it on all four corners — an inset rounded rect floating inside
+-- the track, the reference platform's segmented control — while the TRACK and
+-- its end segments keep `radii.control` (`TRACK_CORNER`, spent by `segmentShape`).
+selection_indicator.DEFAULT_CORNER = "selection"
+selection_indicator.TRACK_CORNER = "control"
 
 -- CLOSED SPEC (constitution §4). An unknown key is an authoring
 -- mistake, never a silent no-op.
@@ -286,10 +292,10 @@ end
 	stays free of the init cycle. ]]
 function selection_indicator.segmentShape(UI: any, index: number, count: number, axis: string): any
 	if count <= 1 then
-		return UI.cornersData(selection_indicator.DEFAULT_CORNER)
+		return UI.cornersData(selection_indicator.TRACK_CORNER)
 	end
-	local first = if index == 1 then selection_indicator.DEFAULT_CORNER else 0
-	local last = if index == count then selection_indicator.DEFAULT_CORNER else 0
+	local first = if index == 1 then selection_indicator.TRACK_CORNER else 0
+	local last = if index == count then selection_indicator.TRACK_CORNER else 0
 	if axis == "y" then
 		return UI.cornersData({ topLeft = first, topRight = first, bottomLeft = last, bottomRight = last })
 	end
