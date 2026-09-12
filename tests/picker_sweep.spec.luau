@@ -23,6 +23,7 @@ local Facet = require("../src") :: any
 local lt = require("./lib/large_text")
 local snapshot = require("../src/themes/snapshot")
 local chrome_slots = require("../src/tokens/chrome_slots")
+local textMetrics = require("../src/layout/text_metrics")
 
 local UI = Facet.UI
 
@@ -320,6 +321,81 @@ local function pinClosedSurface(label: string, w: any, theme: any, trigger: stri
 	)
 end
 
+--[[ THE POPOVER IS AS WIDE AS ITS WIDEST ROW (user feedback item 11,
+	`phone-portrait-menu-pixelquest-text0-open`: the popover is narrow while the
+	screen has room and "Performance" paints as "Perform…").
+
+	THE CLAIM IS A DISJUNCTION, and both arms are asserted on every row so neither
+	can be satisfied by accident:
+
+	  * the label is at least as wide as ONE LINE of its own text — measured
+	    through `text_metrics`, at the size the SOLVER reserved (the authored px
+	    the adapter was handed, through `reservedSize` with this cell's measure
+	    scale and text offset), with the font descriptor off the node itself; OR
+	  * the popover has already spent the WHOLE SAFE WIDTH, so the shortfall is
+	    the screen's rather than the estimate's.
+
+	THE CHROME IS READ OFF THE SOLVED TREE, never recomputed from the production
+	arithmetic: `panel.w - label.w` is everything the popover spends between its
+	own edge and that label — the card's carved frame, the scroller's shadow
+	reserve, the row's padding, the indicator column and the gap. A pin that
+	re-derived those terms would pass whatever `widestRowEstimate` did, which is
+	the shape of check this round exists to remove.
+
+	BOTH ARMS ARE COUNTED and both counts must be non-zero over the sweep, so a
+	corpus that happened to fit everywhere (or nowhere) reddens instead of
+	quietly proving one thing twice.
+
+	MEASURED BEFORE THE FIX, this reported every row of every cell: Classic
+	Desktop phone-portrait +0 handed "Performance" 87px against 143 needed and a
+	374px safe width; Pixel Quest 78 against 176 with 358 available. After: every
+	fitting row is exact to the pixel, and no non-fitting row is short of the safe
+	width by more than half a pixel. ]]
+local fitArms = { fitted = 0, clamped = 0 }
+local function pinRowFit(label: string, w: any, theme: any, viewport: any, popupRoot: string)
+	local panel = w.adapter.node(popupRoot).rect
+	local snap = if theme.metrics ~= nil then theme.metrics else snapshot.neutral()
+	local inset = metric(theme, "space.m", 16)
+	local safeW = math.max(120, viewport.rect.w - 2 * inset)
+	-- the same two facts `text_metrics.reservedSize` takes on the live path, read
+	-- off this cell's own environment rather than assumed
+	local scale = snapshot.measureScale(w.env:get("displaySize"):get(), w.env:get("preferredTextSize"):get())
+	local offset = snapshot.textOffset(w.env:get("preferredTextOffset"):get())
+	local _ = snap
+	local rows = 0
+	for _, path in w.adapter.paths() do
+		if string.find(path, "/Opt%-") == nil or string.sub(path, -6) ~= "/Label" then
+			continue
+		end
+		local node = w.adapter.node(path)
+		local font = if type(node.props.textFont) == "table" then node.props.textFont.fontKey else nil
+		if type(font) ~= "string" or type(node.props.textSize) ~= "number" or type(node.props.text) ~= "string" then
+			continue
+		end
+		rows += 1
+		local reserved = textMetrics.reservedSize(node.props.textSize, scale, offset)
+		local need = textMetrics.measure(node.props.text, font, reserved, math.huge).width
+		local chrome = panel.w - node.rect.w
+		local row = string.match(path, "Opt%-[%w%-]+") or path
+		if need + chrome <= safeW then
+			fitArms.fitted += 1
+			expect(
+				`{label} {row} fits its label: {node.rect.w + 0.5 >= need} (label {node.rect.w}, needs {need}, chrome {chrome}, safe {safeW})`
+			).toBe(
+				`{label} {row} fits its label: true (label {node.rect.w}, needs {need}, chrome {chrome}, safe {safeW})`
+			)
+		else
+			fitArms.clamped += 1
+			expect(
+				`{label} {row} truncates only at the safe width: {node.rect.w + chrome + 0.5 >= safeW} (label {node.rect.w}, chrome {chrome}, safe {safeW})`
+			).toBe(
+				`{label} {row} truncates only at the safe width: true (label {node.rect.w}, chrome {chrome}, safe {safeW})`
+			)
+		end
+	end
+	expect(`{label} rows measured for fit: {rows > 0}`).toBe(`{label} rows measured for fit: true`)
+end
+
 --[[ THE TRACK (visual review 2026-09-11): a segmented picker is ONE plated
 	track holding equal segments — every segment the same height and, on a filled
 	band, the same width — and the row forms carry no track at all. ]]
@@ -402,6 +478,9 @@ describe("Picker sweep: style x theme x text preference x viewport", function()
 							judge(label .. " open", w, surfaceRoot)
 							if picker.dump().presentation ~= "sheet" then
 								pinAttachment(label, w, theme, viewport, trigger :: string, popupRoot :: string)
+								-- a SHEET fills the screen, so "as wide as its widest row" is only a
+								-- claim about the hugging popover
+								pinRowFit(label, w, theme, viewport, popupRoot :: string)
 							end
 							local focused = w.pres.focus.focused:get()
 							expect(
@@ -457,4 +536,65 @@ describe("Picker sweep: style x theme x text preference x viewport", function()
 			expect(cells).toBe(#THEMES * #lt.PREFERENCES * #VIEWPORTS)
 		end)
 	end
+
+	--[[ THE REPORT'S OWN MENU (user feedback item 11,
+		`phone-portrait-menu-pixelquest-text0-open`). The sweep above dresses every
+		row in a pseudo-localized ~1.4x phrase, which is longer than any phone's safe
+		width at these type sizes — so every one of its rows lands on the CLAMPED arm
+		and the fitting arm was never reached. The defect is the other shape
+		entirely: three SHORT words with room to spare, and the popover hugging an
+		under-count anyway. Swept over the same themes, preferences and viewports. ]]
+	it("a short-label menu is as wide as its widest row on every theme, preference and viewport", function()
+		local cells = 0
+		for _, theme in THEMES do
+			for _, preference in lt.PREFERENCES do
+				for _, viewport in VIEWPORTS do
+					local label = `[quality @{preference.name}(+{preference.offset}) {theme.id} {viewport.id}]`
+					local w = world(viewport, preference.offset, theme)
+					local picker = Facet.Controls.Picker(w.core, {
+						id = "Q",
+						label = "Quality",
+						style = "menu",
+						selected = w.core:signal("balanced"),
+						options = {
+							{ value = "performance", label = "Performance" },
+							{ value = "balanced", label = "Balanced" },
+							{ value = "fidelity", label = "Fidelity" },
+						},
+					})
+					w.present(UI.Screen({
+						id = "S",
+						padding = "m",
+						children = { UI.VStack({ id = "Form", width = UI.fill(), children = { picker.blueprint } }) },
+					}))
+					w.pres.refresh()
+					cells += 1
+					picker.api.open()
+					w.pres.refresh()
+					w.pres.refresh()
+					local popupRoot = suffixPath(w, "/Popup")
+					expect(`{label} popup mounted: {popupRoot ~= nil}`).toBe(`{label} popup mounted: true`)
+					if picker.dump().presentation ~= "sheet" then
+						pinRowFit(label, w, theme, viewport, popupRoot :: string)
+					end
+					picker.dispose()
+					w.pres.dismiss(w.handle)
+				end
+			end
+		end
+		expect(cells).toBe(#THEMES * #lt.PREFERENCES * #VIEWPORTS)
+	end)
+
+	--[[ BOTH ARMS OF THE FIT RULE WERE EXERCISED. `pinRowFit` asserts a
+		disjunction, and a corpus that landed entirely on one side would prove one
+		thing twice and call it two. Counted across every menu-family cell above;
+		this case runs last, which is what makes the counters meaningful. ]]
+	it("the popover fit rule was measured on both sides of the safe width", function()
+		expect(`rows that fitted: {fitArms.fitted > 0} ({fitArms.fitted})`).toBe(
+			`rows that fitted: true ({fitArms.fitted})`
+		)
+		expect(`rows clamped by the safe width: {fitArms.clamped > 0} ({fitArms.clamped})`).toBe(
+			`rows clamped by the safe width: true ({fitArms.clamped})`
+		)
+	end)
 end)

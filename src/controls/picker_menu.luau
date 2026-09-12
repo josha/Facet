@@ -558,6 +558,28 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 		return triggerPath()
 	end
 
+	--[[ THE CHOSEN ROW'S LABEL IS PAINTED FOR THE FILL IT SITS ON (user feedback
+		item 7, the popover half; measured 2.37:1 on Glossy Touch and 2.46:1 on
+		Pixel Quest, against a 4.5:1 floor).
+
+		The picker's card marks its current value with a `controlSelected` wash
+		(`Fill`, below) behind a row that is `surface = "plain"` by design — and
+		`plain` paints nothing, states included, so the sheet's own `Selected row`
+		rule never fires; and a row with a check draws its label into a CHILD
+		`UI.Text`, which no `TextButton`-scoped colour rule can reach even when it
+		does. So the label kept `$Content`, the colour chosen to read on the PAGE,
+		and sat on the selection blue.
+
+		`onSelected` is the theme's own readable partner for that exact fill —
+		`sheet_model.selectedContentColor` picks `$Content` wherever it still clears
+		the floor and `$OnAccent` where it does not — so this takes the decision the
+		framework already publishes rather than inventing a colour. The wash itself
+		does not move: the fill is still `controlSelected`.
+
+		FROZEN, and nil when unselected: `labelTint` rides a memo the renderer
+		compares by value, so a fresh table per solve would churn the paint channel,
+		and a resting row wants no claim on `TextColor3` at all. ]]
+	local ON_SELECTED_TINT = table.freeze({ role = "onSelected", blend = 1 })
 	local function optionRow(option, rowScope)
 		local function property(name)
 			return rowScope:own(core:memo(function(use)
@@ -586,6 +608,11 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 			core = core,
 			scope = rowScope,
 			selected = selected,
+			labelTint = if pickerMode
+				then rowScope:own(core:memo(function(use)
+					return if use(selected) then ON_SELECTED_TINT else nil
+				end))
+				else nil,
 			textSize = spec.textSize,
 			-- the picker's rows wear the CHECK-ONLY slot (the current value, not a
 			-- toggle); the legacy popup keeps its check/radio/nothing exactly as shipped
@@ -706,13 +733,41 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 		local w = if type(vp) == "table" and type(vp.w) == "number" then vp.w else 1280
 		return math.max(120, w - 2 * inset)
 	end
-	--[[ THE WIDEST ROW, ESTIMATED FROM FACTS: the popover hugs it. A fill row
-		reports no natural width of its own (fill is "take the offer"), so the
-		hug is computed the way the strip's fit is — glyph count x the text size
-		the preference and the ten-foot scale make, plus the row's own chrome
-		(indicator slot, gap, padding) — and handed to `minMax` as the PREFERRED
-		width between the trigger and the safe width. Byte length over-counts a
-		pseudo-localized label, which is the safe direction for a hug. ]]
+	--[[ THE WIDEST ROW, MEASURED: the popover hugs it. A fill row reports no
+		natural width of its own (fill is "take the offer"), so the hug is computed
+		here from the row's text plus everything the card spends around it, and
+		handed to `minMax` as the PREFERRED width between the trigger and the safe
+		width.
+
+		IT USED TO BE A GLYPH-COUNT ESTIMATE, AND IT DISAGREED WITH THE SOLVER
+		(user feedback item 11, `phone-portrait-menu-pixelquest-text0-open`: the
+		popover is narrow while the screen has room and "Performance" paints as
+		"Perform…"). Two independent under-counts, both measured on that exact cell
+		— Pixel Quest, 390x844, preference 0:
+
+		  1. THE TEXT. This read `#label * px * AVG_GLYPH_FRACTION` while the solver
+		     measures through `text_metrics`, and the two do not agree for the font
+		     the shipped packages actually name: `text_metrics` keys on the
+		     canonical descriptor (`rbxasset://fonts/families/BuilderSans.json#
+		     Regular#Normal`), which is not one of its calibrated families, so it
+		     reserves at a fraction of 1.0 — 176px for "Performance" at 16px where
+		     0.62 said 109. The estimate now calls the MEASURER, with the same font
+		     descriptor and the same px the solver will use, so the two cannot
+		     disagree by construction.
+
+		  2. THE CARD, not the row. It added `chromeInsets.control`, which the
+		     picker's rows never spend — they are `surface = "plain"` by design, one
+		     flat card with hairlines — and omitted the thing they DO sit inside:
+		     the popover card is `surface = "raised"`, so the package's `panel`
+		     frame carves it on both sides before any row is offered a pixel. Pixel
+		     Quest spends 24 a side there, Fantasy Ornate 30, Glossy Touch 14.
+
+		Together: 109 + 24 + 8 + 24 + 16 = 182px asked for, against 176 + 24 + 8 +
+		24 + 48 = 280 needed and a 358px safe width. The label was handed 78.
+
+		A LABEL WIDER THAN THE SAFE WIDTH STILL TRUNCATES, and that is the contract:
+		`floor` clamps this to `safeW`, so the popover never leaves the screen to
+		chase a word no screen can hold. ]]
 	local function widestRowEstimate(): number
 		local env = envForFacts or spec.env
 		local function fact(name: string): any
@@ -726,34 +781,83 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 		local offset = themeSnapshot.textOffset(fact("preferredTextOffset"))
 		local labelPx = (themeSnapshot.resolveSize(snap, spec.textSize or "control") or 16) * scale + offset
 		local captionPx = (themeSnapshot.resolveSize(snap, "caption") or 12) * scale + offset
-		local sizes = (snap :: any).controlSizes
-		local padX = if type(sizes) == "table"
-				and type(sizes.regular) == "table"
-				and type(sizes.regular.paddingX) == "number"
-			then sizes.regular.paddingX
-			else 12
+		-- the FONT the solver will measure these two roles with, read off the same
+		-- snapshot entry `render/layout_node` reads (`role.fontKey`)
+		local _, labelRole = themeSnapshot.effectiveTypeRole(snap, "Text", spec.textSize or "control")
+		local _, captionRole = themeSnapshot.effectiveTypeRole(snap, "Text", "caption")
+		local function lineWidth(text: string, px: number, role: any): number
+			local font = if type(role) == "table" then role.fontKey else nil
+			if type(font) ~= "string" or text == "" then
+				-- no role, no font, no measurer: the old byte estimate is the floor
+				-- that has always stood here, and it over-counts, which is the safe
+				-- direction for a hug
+				return #text * px * textMetrics.AVG_GLYPH_FRACTION
+			end
+			return textMetrics.measure(text, font, px, math.huge).width
+		end
+		--[[ THE ROW'S OWN PADDING IS THE BUTTON'S, not a control-size metric. This
+			read `controlSizes.regular.paddingX`, which is the metric a control's
+			HEIGHT family publishes; a menu row is a content `UI.Button`, and what it
+			actually spends is `themeSnapshot.buttonPadding` — the one function
+			`render/layout_node:1162` calls for the same node. Measured on the same
+			cell: Glossy Touch publishes `paddingX = 18` and its rows spend 12. ]]
+		local padX = themeSnapshot.resolveSides(snap, themeSnapshot.buttonPadding(snap, {}))
+		local rowPad = if type(padX) == "table"
+			then (tonumber(padX.left) or 0) + (tonumber(padX.right) or 0)
+			elseif type(padX) == "number" then 2 * padX
+			else 24
+		--[[ THE INDICATOR COLUMN IS THE GLYPH OR THE SLOT, whichever is wider.
+			`menu_recipe` gives the indicator `minMax min = "l"` and fills it with a
+			mark that declares `width = fill` — so `render/layout_node`'s icon
+			reservation, which only touches an axis the author left nil, floors its
+			HEIGHT and never its width. The column is therefore `max(space.l, the
+			mark's own measured glyph)`, and reading only `space.l` under-counted
+			Classic Desktop's by a pixel: a 12px slot holding a 13px check. ]]
+		local indicatorKind = if multiple
+			then "check"
+			elseif pickerMode then "mark"
+			elseif spec.query ~= nil then "radio"
+			else nil
 		local slot = themeSnapshot.resolveNumber(snap, "space.l") or 24
+		if indicatorKind ~= nil then
+			local marks = { if indicatorKind == "radio" then "facet:selection.radio.on" else "checkmark" }
+			if indicatorKind ~= "mark" then
+				-- the resting ring/box a check or radio keeps; `mark` has none
+				table.insert(
+					marks,
+					if indicatorKind == "radio" then "facet:selection.radio.off" else "facet:selection.check.off"
+				)
+			end
+			for _, name in marks do
+				slot = math.max(slot, lineWidth(themePackage.iconGlyph(name) or "", labelPx, labelRole))
+			end
+		end
 		local gap = themeSnapshot.resolveNumber(snap, "space.s") or 8
-		-- a themed row is a control with a carved frame of its own (Glossy Touch's
-		-- gel: 14px a side) that its label must clear too — without it the rows
-		-- hugged an estimate two frames short and truncated every label
+		-- the CARD's own carved frame (`surface = "raised"` -> the `panel` slot).
+		-- The rows inside it are plain by design, so this is the only chrome
+		-- between the popover's edge and a label.
 		local insetsBySlot = if type(snap) == "table" then (snap :: any).chromeInsets else nil
-		local plate = if type(insetsBySlot) == "table" then insetsBySlot.control else nil
-		local frame = if type(plate) == "table" then (tonumber(plate.left) or 0) + (tonumber(plate.right) or 0) else 0
+		local plate = if type(insetsBySlot) == "table" then insetsBySlot.panel else nil
+		local card = if type(plate) == "table" then (tonumber(plate.left) or 0) + (tonumber(plate.right) or 0) else 0
+		--[[ ...AND THE SCROLLER'S SHADOW RESERVE. The rows live inside a `ScrollView`,
+			and `render/layout_node`'s bleed block gives a scroll container
+			`metrics.chromeBleed` of CROSS-axis padding so a child's glow is not clipped
+			at the gutter. It is 0 for every flat package and 17 under Glossy Touch and
+			Fantasy Ornate — 34px per popover, which is a whole word at these sizes. ]]
+		local bleed = if type((snap :: any).chromeBleed) == "number" then (snap :: any).chromeBleed else 0
 		local widest = 0
 		for _, option in results:get() do
 			if option.divider == true then
 				continue
 			end
-			local label = tostring(readFact(option.label) or "")
-			local w = #label * labelPx * textMetrics.AVG_GLYPH_FRACTION
+			local w = lineWidth(tostring(readFact(option.label) or ""), labelPx, labelRole)
 			local description = readFact(option.description)
 			if type(description) == "string" then
-				w = math.max(w, #description * captionPx * textMetrics.AVG_GLYPH_FRACTION)
+				w = math.max(w, lineWidth(description, captionPx, captionRole))
 			end
-			widest = math.max(widest, w + slot + gap + 2 * padX + frame)
+			widest = math.max(widest, w + slot + gap + rowPad)
 		end
-		return math.ceil(widest)
+		return math.ceil(if widest > 0 then widest + card + 2 * bleed else 0)
 	end
 	local function describedPanelWidth(): number
 		local env = envForFacts or spec.env
