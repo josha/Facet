@@ -342,6 +342,13 @@ return {
 					width = UI.fill(),
 				}),
 				heading("Start or choose a mode"),
+				UI.Text({
+					id = "CapSplit",
+					text = "Split button · one control: the action, and its menu (pointer: split; touch: long-press, with a chevron)",
+					textSize = "caption",
+					role = "secondary",
+					width = UI.fill(),
+				}),
 				split.blueprint,
 				UI.Button({ id = "Confirm", label = "Confirm race…", enabled = enabled, onActivate = openDialog }),
 			},

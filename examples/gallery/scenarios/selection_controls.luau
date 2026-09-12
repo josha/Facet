@@ -145,6 +145,13 @@ return {
 		local function heading(text)
 			return UI.Text({ text = text, textSize = "heading", width = UI.fill() })
 		end
+		--[[ THE DEMO SAYS WHAT EACH CONTROL IS (user review 2026-09-12): a
+			capture of this page could not be read without the source beside it.
+			One caption above every control — the control and the style it was
+			asked for — so a screenshot names its own subjects. ]]
+		local function caption(id: string, text: string)
+			return UI.Text({ id = id, text = text, textSize = "caption", role = "secondary", width = UI.fill() })
+		end
 
 		local body = UI.VStack({
 			width = UI.fill(),
@@ -152,13 +159,19 @@ return {
 			children = {
 				UI.Text({ text = "Choices and filters", textSize = "title", width = UI.fill() }),
 				UI.Button({ id = "Reset", label = "Reset", onActivate = reset }),
+				caption("CapSwitch", "Toggle · switch"),
 				switch.blueprint,
 				heading("Check and toggle"),
+				caption("CapCheck", "Checkbox · mixed state"),
 				checkbox.blueprint,
+				caption("CapToggle", "Toggle · button presentation"),
 				toggle.blueprint,
 				heading("Choose a race group"),
+				caption("CapRadio", "Picker · radioGroup"),
 				radio.blueprint,
+				caption("CapSegments", "Picker · segmented"),
 				segmented.blueprint,
+				caption("CapPopup", "Picker · automatic (menu on touch and pointer; rows on a television)"),
 				popup.blueprint,
 				UI.Button({
 					id = "Join",
@@ -168,10 +181,13 @@ return {
 					end,
 				}),
 				heading("Search 250 tracks"),
+				caption("CapSearch", "Picker · navigationLink (searchable sheet)"),
 				search.blueprint,
 				heading("Filter by scenery"),
+				caption("CapMenu", "Menu · checked items"),
 				multi.blueprint,
 				heading("Choose or name a vehicle class"),
+				caption("CapCombo", "ComboBox · suggestions with custom text"),
 				combo.blueprint,
 			},
 		})
