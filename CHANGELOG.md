@@ -35,6 +35,16 @@ runtime as `Facet.VERSION`.
   labels agreed about truncating — at the Largest preference under Fantasy
   Ornate one reserved its disclosure plate and the other did not, solving 108px
   beside 66px. The option stack stretches its children on the cross axis now.
+- `Controls.Menu`'s anchored panel is now one card: flat `plain` rows with no
+  radius of their own, one hairline between adjacent rows, and a selection fill
+  that is the row's own surface, clipped to the card's radius at its two ends.
+- A selected menu row's label is now painted for the fill it sits on
+  (`accent`/`onAccent`). It previously kept `$Content`, which read at 2.37:1 on
+  Glossy Touch and 2.46:1 on Pixel Quest. New gate:
+  `tests/selection_contrast.spec.luau`.
+- `Controls.SplitButton`'s touch form shows a trailing `chevron.down` hint, so
+  the long-press menu is discoverable. Still one hit target, one focus stop,
+  one activation.
 - Gallery: the selection and action demos caption every control ("Picker ·
   segmented", "Split button", …) so a capture names what it shows.
 

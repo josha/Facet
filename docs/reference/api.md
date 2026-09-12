@@ -7080,10 +7080,12 @@ interaction class wants. Required fields are `label`, `onActivate`, and Menu
 - **Pointer or gamepad:** one plate, two focus stops — the primary Button and a
   chevron segment joined edge to edge across a hairline. Opening the menu never
   runs the primary action. `busy` and `shortcut` ride the primary Button.
-- **Touch:** one button. A tap runs the primary action; a long press opens the
-  menu (the right-click, context-key and gamepad triggers stay live for a
-  hybrid). There is no chevron cell. A control whose alternatives must be
-  discoverable on a phone is a `Picker` beside a `Button`.
+- **Touch:** one button with a trailing `chevron.down` hint, so the long-press
+  menu is discoverable: one hit target and one focus stop, where a tap runs the
+  primary action and a long press opens the menu (the right-click, context-key
+  and gamepad triggers stay live for a hybrid). There is no second chevron
+  cell. A control whose alternatives must be chosen from on a phone is a
+  `Picker` beside a `Button`.
 
 The two forms are `UI.When` branches over the live interaction class; `dump()`
 reports `form` (`split` or `single`) beside the menu's own dump. Both forms use
@@ -7155,6 +7157,12 @@ The two-argument spelling `Facet.newMenu(Facet, core, spec)` is **deprecated** s
 0.10.0 (removal no earlier than 0.12.0): it still builds the identical
 control, and `Facet.Controls.Menu` is a closure over the library, not a second
 implementation.
+
+Under the anchored (`menu`) presentation the panel is one card: the `raised`
+panel owns the corner and the stroke, its rows are flat, a hairline separates
+every adjacent pair, and a selected row's fill is the row itself — the theme's
+`accent` under an `onAccent` label, the one pair every theme guarantees at
+4.5:1. Under `sheet` the rows are unchanged.
 
 It attaches to **any** blueprint. `spec.trigger` is a node you authored; the
 control returns that same node carrying an input contribution, so nothing is

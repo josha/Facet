@@ -1142,6 +1142,10 @@ require("./reference/wardrobe_spec")
 -- really runs, and the inner-loop runner has to keep announcing itself
 require("./tier.spec")
 require("./selection_indicator.spec")
+-- every shipped theme, asked whether its SELECTED text can be read: the three
+-- pairings a selected menu-card row spends, and a pinned census of what an
+-- unpaired label would read at (the 2026-09-12 Glossy Touch report)
+require("./selection_contrast.spec")
 -- navigation-and-menus D6: the segmented Picker's upgrades — icons on `Option`,
 -- the vertical rail, and the indicator adopted as the segmented default
 require("./picker_segments.spec")
