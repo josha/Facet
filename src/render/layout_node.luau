@@ -16,7 +16,7 @@
 	hit-rect pass spends as real geometry.
 
 	Public interface:
-	  layout_node.toLayoutNode(node, metrics, textScale, prefOffset, parentAxis?, insideClipper?) -> solver.Node
+	  layout_node.toLayoutNode(node, metrics, textScale, prefOffset, parentAxis?, insideClipper?, store?, insideControl?) -> solver.Node
 	  layout_node.compactForm(props) -> { kind, ... }?
 	  layout_node.drawnButtonText(props, compact?) -> string
 	  layout_node.effectiveHitFloor(class, metrics) -> number?
@@ -519,14 +519,25 @@ local function toLayoutNode(
 	-- THE CROSS-SOLVE NODE STORE (perf campaign P3), or nil for a one-shot build.
 	-- See `layout_node.build` at the bottom of this file for what it holds and the
 	-- four axes it is invalidated on; here it is two lookups and one write.
-	store: Store?
+	store: Store?,
+	--[[ true once ANY ancestor is a `Button` — "this node sits inside a control's
+		content". It rides the recursion exactly as `parentAxis` and `insideClipper`
+		do, and for the same reason: it is a fact about WHERE a node is, which a cache
+		hit must not have to walk up to rediscover. Spent by ONE rule, the centred
+		control line beside the `align` field below.
+
+		LAST, BEHIND `store`, because the parameter list is a PUBLIC signature:
+		`tests/build_children_reuse.spec.luau:320` calls this with seven positional
+		arguments, and inserting a term in the middle would silently hand it `store`
+		as this flag. ]]
+	insideControl: boolean?
 ): solver.Node
 	--[[ P3: THE SUBTREE THIS SOLVE DOES NOT HAVE TO BUILD. Every field below is a
 		pure function of FIVE mounted-node fields — `class`, `path`, `props`,
-		`children`, `meta` — plus `metrics`, `textScale`, `prefOffset`, `parentAxis`
-		and `insideClipper`; and NOTHING THE SOLVER WRITES ONTO A LAYOUT NODE IS ONE OF
-		THEM, so last solve's tree is still this solve's answer wherever none of the ten
-		moved.
+		`children`, `meta` — plus `metrics`, `textScale`, `prefOffset`, `parentAxis`,
+		`insideClipper` and `insideControl`; and NOTHING THE SOLVER WRITES ONTO A LAYOUT
+		NODE IS ONE OF THEM, so last solve's tree is still this solve's answer wherever
+		none of the eleven moved.
 
 		**THAT LICENCE USED TO READ "the solver never writes into a layout node
 		(`solver.luau` contains no `node.<field> =`)", AND SINCE C2 IT DOES WRITE**
@@ -571,9 +582,10 @@ local function toLayoutNode(
 		a remount, which is a different mounted node table — axis 1.
 
 		THE FIRST SIX ARE THE STORE'S OWN AXES and are checked once per build (`build`
-		below) or are constant for the node's life. The last two ride the recursion and
+		below) or are constant for the node's life. The last THREE ride the recursion and
 		can change WITHOUT any prop or child changing — a node re-parented from an
-		hstack to a vstack, or first appearing under a `scroll` — so they are checked
+		hstack to a vstack, first appearing under a `scroll`, or first appearing under a
+		`Button` whose content/label split flipped (`:560`) — so they are checked
 		here, per node, and stored rather than derived because a cache hit must not have
 		to walk up to find out where it is. ]]
 	--[[ THE SUBTREE'S OWN SIZE, ACCUMULATED (perf campaign P5). `store.nodes` counts
@@ -600,6 +612,7 @@ local function toLayoutNode(
 				and not store.dirty[node.path]
 				and hit.axis == parentAxis
 				and hit.clip == (insideClipper == true)
+				and hit.control == (insideControl == true)
 			then
 				store.nodes += hit.n
 				return hit.built
@@ -812,6 +825,48 @@ local function toLayoutNode(
 	else
 		kind = "box"
 	end
+	--[[ A CONTROL'S CONTENT LINE IS CENTRED (user review of the Pixel Quest
+		capture, 2026-09-12: "the text is not vertically centred in the Advanced
+		button, or in the three popup rows").
+
+		THE CAUSE IS THE FRAMEWORK'S OWN RESERVATION, not a theme's numbers — the
+		insets both packages declare for `control` are symmetric to the pixel, and
+		`chrome_slots.spendInset` gives a side back only in PAIRS. A stack aligns its
+		line to `start` unless its author says otherwise (api.md: "the alignment you
+		asked for, which defaults to start"), and THE ICON BLOCK BELOW grows an
+		icon-hinted Text node to the package's `iconSizes` square — a picture, not a
+		line of type. Measured on the eight shipped packages at
+		`preferredTextOffset = 0`: Pixel Quest reserves a 32px glyph beside a 20px
+		`control` line, Fantasy Ornate 32 beside 23, Glossy Touch 28 beside 23,
+		Classic Desktop 20 beside 15. The line is therefore as tall as the PICTURE
+		and the word sits at the top of it, `(icon - line) / 2` px above the box
+		centre: 6px on Pixel Quest's disclosure header and on its menu rows, 4.5 on
+		Fantasy Ornate, 2.5 on Glossy Touch and Classic Desktop. Nothing the author
+		wrote moved that text — this file's own reservation did.
+
+		SO THE RULE IS BOUNDED BY THE CONTROL, and that bound is the argument for it.
+		A Button's box is a control box: its content belongs in the middle of it,
+		which is what every package's plate art is drawn around and what the lifted
+		label (`screen_chrome.liftGeometry`) already assumes. It is also the one
+		place the framework may take its own default back, because the framework is
+		what inflated the line. Outside a Button nothing moves; `start` stays the
+		library-wide default, and `insideControl` is what keeps the two apart.
+
+		IT IS A DEFAULT, NOT A LAW. An authored `align` still wins outright, and the
+		rule is a NO-OP wherever the line's children already share a height — which
+		is every shipped row at the two largest text preferences, where the type has
+		caught the picture up.
+
+		ONE KIND ONLY, and both exclusions are load-bearing. A `vstack`'s cross axis
+		is horizontal, and moving an author's left-aligned label sideways is a
+		different claim from the one measured above. A WRAPPING row is excluded
+		because `align` there means two things at once — where the BLOCK of lines
+		sits AND where each child sits inside its line (api.md, `wrap`) — so a
+		default would be guessing at two decisions from one observation.
+		`examples/reference/p4_foyer`'s `MetaFits` row is the shipped instance, and
+		its own `distribute` comment is about that second job. An author of a
+		wrapping row still says `align` themselves. ]]
+	local centredControlLine = kind == "hstack" and (class == "Button" or insideControl == true)
 	local layoutNode: any = {
 		kind = kind,
 		singleLine = if buttonSingleLine then true else nil,
@@ -824,7 +879,7 @@ local function toLayoutNode(
 		-- `gap`; absent, the solver falls back to `gap` (director finding 14)
 		rowGap = themeSnapshot.resolveNumber(metrics, props.rowGap),
 		margin = themeSnapshot.resolveSides(metrics, props.margin),
-		align = props.align,
+		align = props.align or (if centredControlLine then "center" else nil),
 		-- the three round-2 stack-arrange inputs (parity round 2 §2.1/§2.4/§2.6).
 		-- `distribute` is read off the CONTAINER, `lineAlign`/`layoutPriority`/
 		-- `shrinkWeight` off each CHILD — all four are plain carried facts here and
@@ -1617,6 +1672,12 @@ local function toLayoutNode(
 		guarantee is that a flip re-solves and never remounts. So the pair a container
 		hands its children is a per-BUILD fact, not a per-node one. ]]
 	local childClip = insideClipper == true or kind == "scroll"
+	-- ...and whether they sit inside a control's content (the centred control line
+	-- beside the `align` field above). A per-BUILD fact for the same reason the
+	-- clip is: `Button`'s content/label split is one of the prop-decides-kind seams
+	-- named just above, so a Button that gains its first child starts imposing this
+	-- on a subtree that is not remounted.
+	local childControl = insideControl == true or class == "Button"
 	--[[ THE FOUR FACTS THE POST-CHILDREN FOLD USED TO RE-DERIVE BY WALKING THE ARRAY
 		(Plan D, D2a). Three are the ORs `subtreeHasScroll` / `subtreeHasComposition` /
 		`containerRelativeInside` are built from and the fourth is the placement audit's
@@ -1717,6 +1778,7 @@ local function toLayoutNode(
 				-- what the CHILDREN were built under, which is the correctness half
 				and prior.kidsAxis == childAxis
 				and prior.kidsClip == childClip
+				and prior.kidsControl == childControl
 				-- ...and where the CONTAINER sat, kept because this is the same gate
 				-- the `cmemo` carrier rides and one gate is easier to reason about
 				-- than two (see the block header for what each half is load-bearing for)
@@ -1817,7 +1879,8 @@ local function toLayoutNode(
 				local mountChild = mounts[idx]
 				store.nodes -= store.byNode[mountChild].n
 				store.childVisits += 1
-				local now = toLayoutNode(mountChild, metrics, textScale, prefOffset, childAxis, childClip, store)
+				local now =
+					toLayoutNode(mountChild, metrics, textScale, prefOffset, childAxis, childClip, store, childControl)
 				kept[idx] = now
 				local baselineAlign = now.lineAlign or now.align
 				if baselineAlign == "firstTextBaseline" or baselineAlign == "lastTextBaseline" then
@@ -1854,7 +1917,8 @@ local function toLayoutNode(
 					--[[ ...AND THE FOUR COUNTS ARE TAKEN HERE, on the one pass that
 						already touches every child, rather than in a second walk after
 						it (Plan D, D2a). ]]
-					local built = toLayoutNode(child, metrics, textScale, prefOffset, childAxis, childClip, store)
+					local built =
+						toLayoutNode(child, metrics, textScale, prefOffset, childAxis, childClip, store, childControl)
 					local baselineAlign = built.lineAlign or built.align
 					if baselineAlign == "firstTextBaseline" or baselineAlign == "lastTextBaseline" then
 						kidBaseline += 1
@@ -2063,13 +2127,14 @@ local function toLayoutNode(
 		cmemo.struct = store ~= nil and store.structural == true
 	end
 	if store ~= nil and store.reuse then
-		-- LAST, so a node that threw builds no entry. `axis`/`clip` are recorded
-		-- beside the tree because they are the two inputs the lookup above cannot
-		-- re-derive from the node it is holding.
+		-- LAST, so a node that threw builds no entry. `axis`/`clip`/`control` are
+		-- recorded beside the tree because they are the three inputs the lookup above
+		-- cannot re-derive from the node it is holding.
 		store.byNode[node] = {
 			built = layoutNode,
 			axis = parentAxis,
 			clip = insideClipper == true,
+			control = insideControl == true,
 			n = store.nodes - nodesAtEntry,
 			-- ruling A-8: the memo's durable home, and the mount children table its
 			-- index-keyed arrays are only valid against. Compared by IDENTITY, never
@@ -2084,6 +2149,7 @@ local function toLayoutNode(
 			childArray = layoutNode.children,
 			kidsAxis = childAxis,
 			kidsClip = childClip,
+			kidsControl = childControl,
 			--[[ ...and D2a's four counts plus the index that describes the array beside
 				them. The index is nil on the arm that BUILT a fresh array (the positions
 				it described belong to the array that was replaced) and is carried
@@ -2211,7 +2277,7 @@ export type Store = {
 	metrics: any,
 	textScale: number,
 	prefOffset: number,
-	-- mounted node -> { built, axis, clip }. WEAK IN ITS KEYS (see above).
+	-- mounted node -> { built, axis, clip, control }. WEAK IN ITS KEYS (see above).
 	byNode: any,
 	-- axis 2, the ancestor-closed dirty set for THIS build
 	dirty: { [string]: boolean },
@@ -2341,7 +2407,7 @@ function layout_node.build(
 	store.patchRefused = 0
 	store.patchProbes = 0
 	store.dirtySeen = 0
-	return toLayoutNode(node, metrics, textScale, prefOffset, nil, nil, store)
+	return toLayoutNode(node, metrics, textScale, prefOffset, nil, nil, store, nil)
 end
 
 layout_node.compactForm = compactForm
