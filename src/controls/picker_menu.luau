@@ -174,6 +174,17 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 	-- the PICKER always presents a real surface (anchored popover or sheet); the
 	-- legacy popup keeps its in-tree `UI.When` panel for plain static options
 	local detached = spec.style ~= nil
+	--[[ THE SHEET IS THE FLOOR UNDER THE POPOVER (2026-09-11): a popover whose
+		list is already at its floor and whose frame still cannot fit beside the
+		trigger (Fantasy Ornate's 80px frame on a 390px-tall landscape phone at
+		+10) would be clamped OVER the control that opened it. It becomes the
+		bottom sheet instead — title, rows, Cancel — which is what the reference
+		platform does when a menu has no room. Measured, not predicted: the
+		popover is tried first, and only its own geometry sync can say. Reset on
+		every close so a rotation gets the popover back. Declared HERE, above
+		`presentationNow`: a closure only sees the locals that exist when it is
+		made, and a later declaration would leave it reading a nil global. ]]
+	local sheetFallback = false
 		or (
 			(spec.query ~= nil or spec.selectedValues ~= nil or dynamicOptions or describedOptions)
 			and spec.presentation ~= "inline"
@@ -512,6 +523,9 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 		-- the SELECTABLE count, not the array length: a divider is a rule between
 		-- groups, and a menu does not become "long" because it was grouped
 		if pickerMode then
+			if sheetFallback then
+				return "sheet"
+			end
 			return menuRecipe.resolvePickerPresentation(#results:get(), readFact(sizeClassSource), touchLive, gamepad)
 		end
 		return menuRecipe.resolvePresentation(#results:get(), readFact(sizeClassSource), touchLive, gamepad)
@@ -586,7 +600,7 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 		viewport, takes the excess off this signal — one refresh later the list is
 		exactly as tall as the screen allows. Reset on every open. ]]
 	local listShrink = scope:own(core:signal(0))
-	local lastFedHeight: number? = nil -- the panel height the last shrink was fed from (convergence guard)
+	local feeds = 0 -- shrinks fed this open (convergence guard: the solver caps feedback at 8 rounds)
 	local function listMaxPx(presentation: string, use: any?): number
 		local shrink = if use ~= nil then use(listShrink) else listShrink:get()
 		local env = envForFacts or spec.env
@@ -658,7 +672,7 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 			local above = source.y - xs - top
 			budget = math.min(budget, math.max(below, above) - offset - plateV - space)
 		end
-		return math.max(minimum * 2, budget - shrink)
+		return math.max(minimum * 2, budget - shrink), budget - shrink <= minimum * 2
 	end
 	-- the picker's static/dynamic row list height, reactive on the shrink
 	local listHeight = scope:own(core:memo(function(use)
@@ -976,13 +990,14 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 		end
 		if not open:get() or disposed then
 			closeSurface()
+			sheetFallback = false
 			return
 		end
 		if surfaceHandle or not rootPath or not presentAnchoredFn or not presentModalFn then
 			return
 		end
 		listShrink:set(0)
-		lastFedHeight = nil
+		feeds = 0
 		local panel = contribution.attach(popupPanel(), {
 			handleActivate = api.handleActivate,
 			handleCancel = function()
@@ -1030,8 +1045,21 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 						local room = math.max(vp.h - m - (source.y + source.h + xs), source.y - xs - top)
 						over = math.max(over, rect.h - room)
 					end
-					if over > 0.5 and (lastFedHeight == nil or rect.h < lastFedHeight - 0.5) then
-						lastFedHeight = rect.h
+					--[[ BOUNDED, NOT PROGRESS-GATED: a feed that shortened the LIST but not
+						the panel (Fantasy Ornate's frame at +10 on a landscape phone: 7px
+						over the room) used to stop the loop after one round and leave the
+						menu clamped over its trigger. Six feeds is under the solver's cap
+						and more than any themed chrome has needed. ]]
+					if over > 0.5 and feeds < 6 then
+						local _, atFloor = listMaxPx(presentationNow())
+						if atFloor and not sheetFallback then
+							-- the list cannot give any more: re-present as the sheet
+							sheetFallback = true
+							closeSurface()
+							syncSurface()
+							return
+						end
+						feeds += 1
 						listShrink:set(listShrink:get() + math.ceil(over))
 					end
 				end
