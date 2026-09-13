@@ -539,10 +539,26 @@ function menu_recipe.row(UI: any, row: Row): any
 					padding = { left = "xs", right = "xs" },
 					corners = UI.cornersData("pill"),
 					children = {
+						--[[ THE PLATE CARRIES `hidden`, THE NUMBER DOES NOT, and that is a
+							cost decision as much as a tidiness one. `hidden` is not just a
+							paint flag: the renderer publishes every authored-hidden path as
+							an entry in `controller.hiddenRoots()`, and `focus_map.isHiddenPath`
+							answers "is this path inside a subtree that does not paint" by
+							SCANNING that set — once per node, in walks that run every frame
+							(`presenter.disclosureTargetIn`, `help_plate.helpTargetIn`,
+							`text_reveal`). A nested hidden node is never a root: `/…/Badge`
+							is already a path prefix of `/…/Badge/Count`, so the second entry
+							cannot change a single answer — it only makes every one of those
+							scans longer.
+
+							MEASURED (2026-09-13, `adaptive-navigation-images`): three unbadged
+							tab options put 3 entries in `hiddenRoots`; declaring it on the
+							glyph too put 6 there, and the per-frame disclosure walk went
+							7.8→10.6 us and the help walk 11.8→17.5 us — +25% on the whole
+							scene, for a duplicated declaration. One decision, one node. ]]
 						UI.Text({
 							id = "Count",
 							text = badge,
-							hidden = hidden,
 							textSize = "caption",
 							textAlign = "center",
 							alignH = "center",
