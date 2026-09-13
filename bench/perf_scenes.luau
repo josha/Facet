@@ -1399,6 +1399,11 @@ table.insert(scenes, {
 			flips = 0,
 			pulses = 0,
 			staggerHeld = 0,
+			-- the FRAMEWORK-ANSWERED halves of the flip and the pulse (below):
+			-- what the tree and the paint say, not what the driving code asked for
+			contentUp = adapter.node("/Motion/Adv/Content/then/Body") ~= nil,
+			flipsSeen = 0,
+			shakesSeen = 0,
 		}
 	end,
 	run = function(state)
@@ -1444,6 +1449,46 @@ table.insert(scenes, {
 	-- stagger that stopped holding rows (every row entering at once) leaves this
 	-- at zero and reddens `tools/check_perf_scenes.py`.
 	afterRun = function(state)
+		--[[ THE FLIP AND THE PULSE, ANSWERED BY THE FRAMEWORK (final review item 2).
+			`flips` and `pulses` are incremented by the code that SET the signal, so
+			they prove the scene drove its own mutation and nothing more: a
+			DisclosureGroup that stopped building its content, or a shake the control
+			stopped booking, leaves both counters climbing while the frame prices
+			nothing. These two read the answer back instead.
+
+			THE FLIP is the content node's EXISTENCE changing — the disclosure's whole
+			cost is mounting that subtree, so a flip that changes nothing about the
+			tree is not a flip. Measured, this reads 1 over the 200 iterations rather
+			than 10, and the reason is worth stating rather than tuning away: the
+			content RETIRES, and this scene flips every 20 frames while the exit is
+			still in flight, so after the first expand the subtree is continuously
+			mounted (re-entering mid-exit, which is itself the expensive path this
+			frame is meant to price). So the counter's contract is "the framework
+			built the disclosure's content AT ALL" — which is exactly the silent
+			absence that would make this scene faster while `flips` kept climbing.
+
+			THE SHAKE is the painted displacement of the input's ROOT, composed the
+			way the live adapter writes the engine Position (`presentedPosition`
+			less the solved rect — the shake moves paint and never the solver's
+			rect, which is the contract `tests/motion_paint_only.spec.luau` holds).
+			It counts every iteration the field is off its rest line, not only the
+			pulse frames: a shake lasts many frames, and 90 of 200 is the beat this
+			scene is actually paying for. ]]
+		local body = state.adapter.node("/Motion/Adv/Content/then/Body")
+		local up = body ~= nil
+		if up ~= state.contentUp then
+			state.contentUp = up
+			state.flipsSeen += 1
+		end
+		local field = state.adapter.node("/Motion/Name")
+		if
+			field ~= nil
+			and field.rect ~= nil
+			and field.presentedPosition ~= nil
+			and field.presentedPosition.x ~= field.rect.x
+		then
+			state.shakesSeen += 1
+		end
 		if state.n % 30 ~= 0 then
 			return
 		end
@@ -1465,6 +1510,8 @@ table.insert(scenes, {
 			pulses = state.pulses,
 			pops = state.popsRef(),
 			staggerHeld = state.staggerHeld,
+			flipsSeen = state.flipsSeen,
+			shakesSeen = state.shakesSeen,
 			rows = 30,
 			-- the contract this scene shares with dense-motion: one transaction
 			-- per stepped frame, however many control motions moved

@@ -80,9 +80,17 @@ PRODUCTION = {
     # is silent when it stops firing — a shake that never books, a pop gated off,
     # a stagger that stops holding rows — and each absence makes the scene FASTER,
     # so the counters are the only thing standing between this budget and a scene
-    # that prices nothing. `pops` is counted by the handler the ADAPTER's activate
-    # seam reached and `staggerHeld` is read back off the painted alphas, so those
-    # two answer for the framework rather than for the scene's own driving code.
+    # that prices nothing.
+    #
+    # HALF OF THEM ANSWER FOR THE FRAMEWORK, and only those half are proof.
+    # `rekeys`, `flips` and `pulses` are incremented by the code that SET the
+    # signal, so they say the scene drove its own mutation and nothing more.
+    # `pops` is counted by the handler the ADAPTER's activate seam reached;
+    # `staggerHeld` is read back off the painted alphas; `flipsSeen` off the
+    # existence of the disclosure's content node in the tree; and `shakesSeen`
+    # off the input root's painted displacement (`presentedPosition` away from
+    # its solved rect) — those four are the tree and the paint answering
+    # (final review item 2, 2026-09-13).
     # `motionSteps == motionTransactions` is the same one-transaction-per-stepped-
     # frame contract dense-motion keeps, asserted here over motion the CONTROLS
     # book rather than motion the scene drives.
@@ -93,6 +101,8 @@ PRODUCTION = {
         and x.get("pulses", 0) > 0
         and x.get("pops", 0) > 0
         and x.get("staggerHeld", 0) > 0
+        and x.get("flipsSeen", 0) > 0
+        and x.get("shakesSeen", 0) > 0
         and x.get("motionSteps", 0) > 0
         and x.get("motionSteps") == x.get("motionTransactions")
         else f"the control-motion frame did not do its work: {x!r}"
