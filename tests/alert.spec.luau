@@ -964,3 +964,81 @@ t.describe("Alert header: a mark is punctuation, and the title is centred", func
 		alert.dispose()
 	end)
 end)
+
+--[[ A4 (owner report 2026-09-13): "portrait with plenty of space — the alert
+	scrolls instead of growing". Under a carved package the card showed a scrollbar
+	on a phone with 800 px of room behind it. Two causes, both about a box that
+	cannot reproduce its own measurement:
+
+	  1. the card HUGGED its width, so its children were measured against the
+	     parent's inner width and then arranged in the narrower box the hug landed
+	     on — every string re-wrapped taller than the height that was hugged to;
+	  2. the scroll CANVAS carries a trailing chrome-bleed allowance
+	     (`render/commit_walks.luau`: a package's shadow paints outside the last
+	     child's rect, so the canvas grows by `chromeBleed` to make it reachable)
+	     and the content-sized measure counted only the LEADING one — so a hugging
+	     scroller under any package with a shadow overflowed its own box by exactly
+	     that allowance, forever.
+
+	The oracle is the canvas against the host: a card that fits has a canvas no
+	taller than the window it is drawn in. ]]
+t.describe("Alert card: it grows to fit, and scrolls only when it cannot", function()
+	local parchment = require("../examples/themes/fantasy_parchment") :: any
+	local snapshot = require("../src/themes/snapshot")
+
+	local function openWith(opts: any, spec: any)
+		local o = opts
+		o.newAdapter = function()
+			local a = fake.new()
+			a.scrollBarThickness = fake.SCROLL_BAR_THICKNESS
+			return a
+		end
+		local w = world.new(o)
+		local alert = Facet.Controls.Alert(w.core, spec)
+		alert.present(w.pres)
+		w.settle(5)
+		return w, alert
+	end
+
+	local CONFIRM = {
+		id = "Fit",
+		title = "Replace this save?",
+		severity = "critical",
+		message = "Your current progress will replace the previous checkpoint.",
+		actions = {
+			{ id = "Cancel", label = "Keep previous", role = "cancel" },
+			{ id = "Replace", label = "Replace save", role = "destructive" },
+		},
+	}
+
+	for _, pkg in { "fantasy_parchment", "fantasy_ornate", "scifi_hud", "glossy_touch" } do
+		t.it(`a phone with room does not scroll the card under {pkg}`, function()
+			local w, alert = openWith({
+				viewport = { x = 0, y = 0, w = 390, h = 844 },
+				themeMetrics = snapshot.resolve((require)(`../examples/themes/{pkg}`).build(Facet.themes), nil, {}),
+			}, CONFIRM)
+			local card = w.adapter.node("/Fit/Center/Card")
+			t.expect(`{pkg}: canvas {card.scrollRegion.contentH} <= host {card.rect.h}`)
+				.toBe(`{pkg}: canvas {math.min(card.scrollRegion.contentH, card.rect.h)} <= host {card.rect.h}`)
+			-- ...and the room really was there: the card is nowhere near the screen
+			t.expect(card.rect.h < 812).toBe(true)
+			alert.dispose()
+		end)
+	end
+
+	t.it("...and it still scrolls when the screen genuinely has no room", function()
+		local w, alert = openWith({
+			viewport = { x = 0, y = 0, w = 640, h = 320 },
+			themeMetrics = snapshot.resolve(parchment.build(Facet.themes), nil, {}),
+			overflowGuardOff = "a deliberately over-long message is the point",
+		}, {
+			id = "Fit",
+			title = "Review changes",
+			message = string.rep("Check your selected equipment before continuing. ", 40),
+			actions = { { id = "Cancel", label = "Cancel", role = "cancel" }, { id = "Go", label = "Continue" } },
+		})
+		local card = w.adapter.node("/Fit/Center/Card")
+		t.expect(card.scrollRegion.contentH > card.rect.h).toBe(true)
+		alert.dispose()
+	end)
+end)

@@ -13,6 +13,16 @@ runtime as `Facet.VERSION`.
 
 ## [Unreleased]
 
+- **A content-sized `ScrollView` reserves BOTH chrome-bleed edges, so the Alert
+  card grows instead of scrolling (2026-09-13).** The scroll canvas is
+  `contentSize + padding + chromeBleed` — the trailing allowance that makes the
+  last child's shadow reachable — while a hugging scroller's measure counted only
+  the leading one. Under every package that paints a shadow the Alert card
+  therefore overflowed its own box by exactly the bleed and showed a scrollbar
+  forever: 17 px under Fantasy Parchment, Fantasy Ornate and Glossy Touch, 24 px
+  under Sci-Fi HUD, on a 390×844 phone with 400 px of room behind the card. A
+  definite-extent scroller is untouched.
+
 - **The Alert's severity mark is punctuation, and its title is centred
   (2026-09-13).** The critical caution mark (and an authored `icon`) was
   `targetSizes.minimum` — 44 px, the *hit floor* — beside a 20 px heading, so it
