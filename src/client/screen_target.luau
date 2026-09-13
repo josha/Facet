@@ -283,6 +283,31 @@ function screen_target.new(opts: Opts?)
 	local function isReducedMotion(): boolean
 		return reducedMotionPushed or (isReducedMotionOpt ~= nil and isReducedMotionOpt() == true)
 	end
+	-- the ten-foot focus lift TRAVELS (transitions round 2026-09-12): a pad
+	-- moving focus across a row used to snap each control to 1.05 and the last
+	-- back to 1 on the same frame. One tween per focus change, cancelled by the
+	-- next; reduced motion keeps the instant write
+	local function aimFocusScale(handle: any, target: number)
+		local focusScale = handle.focusScale
+		if focusScale == nil then
+			return
+		end
+		if handle.focusScaleTween ~= nil then
+			handle.focusScaleTween:Cancel()
+			handle.focusScaleTween = nil
+		end
+		if isReducedMotion() or focusScale.Scale == target then
+			focusScale.Scale = target
+			return
+		end
+		local tween = TweenService:Create(
+			focusScale,
+			TweenInfo.new(style.motion.normal, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+			{ Scale = target }
+		)
+		handle.focusScaleTween = tween
+		tween:Play()
+	end
 	-- parent override (ws2 Edit-mode preview): Studio Edit has no LocalPlayer,
 	-- so the preview harness hands us an explicit host instead of PlayerGui
 	local playerGui = (opts and opts.parent) or Players.LocalPlayer:WaitForChild("PlayerGui")
@@ -3256,20 +3281,19 @@ function screen_target.new(opts: Opts?)
 			-- fresh focus (blur resets it below).
 			-- `lift`/`liftScale`: computed above now, beside the ring geometry.
 			if strong and lift then
-				local focusScale = handle.focusScale
-				if focusScale == nil then
-					focusScale = Instance.new("UIScale")
+				if handle.focusScale == nil then
+					local focusScale = Instance.new("UIScale")
 					focusScale.Name = "FocusScale"
 					focusScale.Parent = instance
 					handle.focusScale = focusScale
 				end
-				focusScale.Scale = style.extra.tenFootFocusScale
+				aimFocusScale(handle, style.extra.tenFootFocusScale)
 			elseif handle.focusScale ~= nil then
-				handle.focusScale.Scale = 1
+				aimFocusScale(handle, 1)
 			end
 		else
 			if handle.focusScale ~= nil then
-				handle.focusScale.Scale = 1
+				aimFocusScale(handle, 1)
 			end
 		end
 	end
@@ -3538,6 +3562,14 @@ function screen_target.new(opts: Opts?)
 		end
 		if capturedHandle() == handle then
 			return false
+		end
+		-- a park keeps the instance (and any FocusScale child on it) alive for a
+		-- LATER, unrelated adoption: a tween still in flight from the blur that
+		-- just made this node eligible would otherwise land on whatever control
+		-- gets this identity next
+		if handle.focusScaleTween ~= nil then
+			handle.focusScaleTween:Cancel()
+			handle.focusScaleTween = nil
 		end
 		local path = handle.path
 		-- release this node's membership of the host ABOVE it: a parked node left in
@@ -3827,6 +3859,10 @@ function screen_target.new(opts: Opts?)
 			handle.focusRingFloat:Destroy()
 			handle.focusRingFloat = nil
 		end
+		if handle.focusScaleTween ~= nil then
+			handle.focusScaleTween:Cancel()
+			handle.focusScaleTween = nil
+		end
 		handle.focusVisualHost = nil
 		focusedHandles[handle] = nil
 		dropHitExpander(handle)
@@ -3915,6 +3951,10 @@ function screen_target.new(opts: Opts?)
 					if handle.focusGlow ~= nil then
 						handle.focusGlow = nil
 						chromeState.noteFocusGlow(false)
+					end
+					if handle.focusScaleTween ~= nil then
+						handle.focusScaleTween:Cancel()
+						handle.focusScaleTween = nil
 					end
 					handle.focusVisualHost = nil
 					focusedHandles[handle] = nil
