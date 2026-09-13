@@ -283,10 +283,6 @@ function screen_target.new(opts: Opts?)
 	local function isReducedMotion(): boolean
 		return reducedMotionPushed or (isReducedMotionOpt ~= nil and isReducedMotionOpt() == true)
 	end
-	-- the ten-foot focus lift TRAVELS (transitions round 2026-09-12): a pad
-	-- moving focus across a row used to snap each control to 1.05 and the last
-	-- back to 1 on the same frame. One tween per focus change, cancelled by the
-	-- next; reduced motion keeps the instant write
 	--[[ ONE PLACE ENDS A LIFT. A travelling lift is TWO tweens on two instances
 		— the control's own `FocusScale`, and (when the ring had to be a float,
 		because an outward stroke under a clipping host gets cut) the float
@@ -294,7 +290,9 @@ function screen_target.new(opts: Opts?)
 		ends a lift without finishing it — a re-aim, `park`, `destroy`,
 		`destroyRoot` — has to end BOTH, or the half it forgot lands on whatever
 		node takes this identity next. Four hand-copied cancels is how one of them
-		eventually forgets. ]]
+		eventually forgets. (`park` also WRITES the scale back to 1 after calling
+		this; it needs no float reset, because `parkEligible` refuses a handle
+		that has a `focusRingFloat` at all.) ]]
 	local function stopFocusScaleTweens(handle: any)
 		if handle.focusScaleTween ~= nil then
 			handle.focusScaleTween:Cancel()
@@ -306,6 +304,10 @@ function screen_target.new(opts: Opts?)
 		end
 	end
 
+	-- the ten-foot focus lift TRAVELS (transitions round 2026-09-12): a pad
+	-- moving focus across a row used to snap each control to 1.05 and the last
+	-- back to 1 on the same frame. One tween per focus change, cancelled by the
+	-- next; reduced motion keeps the instant write
 	--[[ THE FLOAT RING TRAVELS WITH THE LIFT (task 7 item 7). The ordinary ring
 		is a UIStroke child of the very instance `FocusScale` scales, so the
 		engine carries it for free. The FLOAT is a sibling Frame positioned and
