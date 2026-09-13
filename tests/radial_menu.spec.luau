@@ -1528,3 +1528,182 @@ t.describe("Quick actions narrow focal movement", function()
 		end
 	end)
 end)
+
+--[[ THE BLOOM, THE LIFT AND THE POP (spec 2G radial). Three paint-only motions on
+	the wedge's own transform: the ring opens as a sequence rather than a slab, the
+	wedge under the pointer stands up, and the one you commit pops on the way out.
+	`appearance` decides which of them the SCALE can witness — a "wedges" ring paints
+	its bloom in the sector geometry and holds `contraction` at 1, so the stagger is
+	read on "buttons" and the lift/pop on the default ring, where scale IS the lift. ]]
+local function sixWay(extra: any?): any
+	local spec: any = {
+		distribution = "even",
+		items = {
+			{ id = "a", label = "A" },
+			{ id = "b", label = "B" },
+			{ id = "c", label = "C" },
+			{ id = "d", label = "D" },
+			{ id = "e", label = "E" },
+			{ id = "f", label = "F" },
+		},
+	}
+	for k, v in extra or {} do
+		spec[k] = v
+	end
+	return spec
+end
+-- resolved once, because a committed wedge is read while the menu is CLOSING and
+-- the dump stops naming its focus path the moment the ring lets go of it
+local function visualPath(c: any, id: string): string
+	local p = sector(c, id).path
+	local visual = if p then p:match("^(.-/Visual)") else nil
+	if visual == nil then
+		error("missing Visual for " .. id)
+	end
+	return visual
+end
+-- the wedge's own painted scale: the adapter drops the UIScale entirely at 1, which
+-- is the un-lifted, un-contracted rest state
+local function scaleAt(w: any, path: string): number
+	local node = w.adapter.node(path)
+	return if node and node.motionScaleInstance then node.motionScaleInstance.scale else 1
+end
+local function wedgeScale(w: any, c: any, id: string): number
+	return scaleAt(w, visualPath(c, id))
+end
+-- aim the stick at a sector's centre: the analog preview names it the candidate
+local function aimAt(w: any, c: any, id: string)
+	local d = c.dump()
+	local s = sector(c, id)
+	local dx, dy = s.x - d.centerX, s.y - d.centerY
+	local m = math.sqrt(dx * dx + dy * dy)
+	w.system.deviceAxis("Thumbstick1", dx / m, dy / m)
+end
+
+t.describe("RadialMenu bloom, lift and pop", function()
+	local FRAME = 1 / 60
+	it("wedges bloom in sequence, and every wedge has started inside 150 ms", function()
+		local w, c = setup(sixWay({ appearance = "buttons" }))
+		w.adapter.tap(launcher(w))
+		w.pres.tick(FRAME)
+		w.pres.refresh()
+		expect(c.dump().open).toBe(true)
+		-- one frame in, only the first wedge has been released
+		expect(wedgeScale(w, c, "a") > wedgeScale(w, c, "f")).toBe(true)
+		local order = { "a", "b", "c", "d", "e", "f" }
+		for _ = 1, 2 do
+			w.pres.tick(FRAME)
+			w.pres.refresh()
+		end
+		-- the sequence is monotone: no wedge is ever ahead of the one before it
+		for i = 2, #order do
+			expect(wedgeScale(w, c, order[i - 1]) >= wedgeScale(w, c, order[i])).toBe(true)
+		end
+		for _ = 1, 6 do
+			w.pres.tick(FRAME)
+			w.pres.refresh()
+		end
+		-- 150 ms: the last hold (100 ms) is spent and the sixth wedge is blooming
+		expect(wedgeScale(w, c, "f") > 0.85).toBe(true)
+	end)
+	it("reduced motion keeps the ring whole: no wedge waits for its turn", function()
+		local w, c = setup(sixWay({ appearance = "buttons" }))
+		w.env:set("reducedMotion", true)
+		w.settle(2)
+		w.adapter.tap(launcher(w))
+		w.pres.refresh()
+		expect(c.dump().open).toBe(true)
+		-- THE FRAME THE RING IS BORN ON, before any clock step: whole. A decorative
+		-- timer under this setting is already over but announces its settle on the
+		-- NEXT step, so a wedge that took a turn would be absent for exactly this
+		-- frame — which is the pop the setting exists to remove.
+		for _, id in { "a", "b", "c", "d", "e", "f" } do
+			expect(w.adapter.node(visualPath(c, id)).canvasGroupInstance.groupTransparency).toBe(0)
+			expect(wedgeScale(w, c, id)).toBe(1)
+		end
+	end)
+	it("the candidate wedge lifts and a neighbour stays flat", function()
+		local w, c = setup(sixWay())
+		tapOpen(w, c)
+		w.settle(60)
+		expect(wedgeScale(w, c, "b")).toBe(1)
+		aimAt(w, c, "b")
+		w.settle(30)
+		expect(c.dump().candidate).toBe(":b")
+		expect(wedgeScale(w, c, "b") > 1.02).toBe(true)
+		expect(wedgeScale(w, c, "d")).toBe(1)
+		aimAt(w, c, "d")
+		w.settle(30)
+		expect(wedgeScale(w, c, "d") > 1.02).toBe(true)
+		expect(wedgeScale(w, c, "b") < 1.001).toBe(true)
+	end)
+	it("the committed wedge pops past its lift on the way out", function()
+		local w, c = setup(sixWay())
+		tapOpen(w, c)
+		w.settle(60)
+		aimAt(w, c, "b")
+		w.settle(30)
+		local path = visualPath(c, "b")
+		local lifted = scaleAt(w, path)
+		c.api.select("b")
+		local peak = 0
+		for _ = 1, 20 do
+			w.pres.tick(FRAME)
+			w.pres.refresh()
+			peak = math.max(peak, scaleAt(w, path))
+		end
+		expect(peak > lifted).toBe(true)
+		expect(peak > 1.05).toBe(true)
+	end)
+	it("a wide ring still opens whole inside the stagger's cap", function()
+		local items = {}
+		for i = 1, 10 do
+			table.insert(items, { id = string.char(96 + i), label = string.char(64 + i) })
+		end
+		local w, c = setup({ distribution = "even", appearance = "buttons", items = items })
+		w.adapter.tap(launcher(w))
+		w.pres.refresh()
+		expect(c.dump().presentation).toBe("radial")
+		-- 150 ms. The tenth wedge's turn is CAPPED at 100 ms, not 180 ms: a ring you
+		-- cannot press for a fifth of a second is a ring that costs you the race.
+		for _ = 1, 9 do
+			w.pres.tick(FRAME)
+			w.pres.refresh()
+		end
+		expect(wedgeScale(w, c, "j") > 0.85).toBe(true)
+	end)
+	--[[ THE KICK ITSELF, isolated. A "stay" commit leaves the wedge the candidate,
+		so nothing re-aims the spring afterwards and the only thing that can lift it
+		above its resting lift is the pop. Under reduced motion `setVelocity` refuses
+		to seed a spring that is not animating, so the same commit is flat — and a
+		pop written as a TARGET instead of a kick would show up here as a placement. ]]
+	local function commitPeak(reduced: boolean): (number, number)
+		local w, c = setup(sixWay({ completion = "stay" }))
+		if reduced then
+			w.env:set("reducedMotion", true)
+			w.settle(2)
+		end
+		tapOpen(w, c)
+		w.settle(30)
+		aimAt(w, c, "b")
+		w.settle(30)
+		local path = visualPath(c, "b")
+		local rest = scaleAt(w, path)
+		c.api.select("b")
+		local peak = 0
+		for _ = 1, 20 do
+			w.pres.tick(FRAME)
+			w.pres.refresh()
+			peak = math.max(peak, scaleAt(w, path))
+		end
+		return peak, rest
+	end
+	it("a commit that stays open pops the wedge past its lift, and reduced motion does not", function()
+		local peak, rest = commitPeak(false)
+		expect(rest > 1.02).toBe(true)
+		expect(peak > rest + 0.01).toBe(true)
+		local reducedPeak, reducedRest = commitPeak(true)
+		expect(reducedRest > 1.02).toBe(true)
+		expect(reducedPeak).toBe(reducedRest)
+	end)
+end)

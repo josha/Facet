@@ -10242,8 +10242,15 @@ retain their ancestors. Each keyed row keeps its motion origin and spring throug
 interruption, so reversing a transition does not reset its position.
 Closing preserves the displayed page until it has contracted and faded. Gameplay
 callbacks still run immediately. Retiring visuals reject pointer actions and leave
-focus order without dimming their content as disabled controls. Reduced motion
-snaps decorative movement. The Showcase's **Quick actions** demo (`radial-menu`;
+focus order without dimming their content as disabled controls. An opening ring
+blooms as a sequence rather than a slab: each wedge waits 20 ms longer than the one
+before it, capped at 100 ms however many wedges the ring holds, so no arrangement
+delays the last press beyond that. The candidate wedge — the one under the pointer,
+the stick or a direct hover — lifts 4% out of the ring, and committing it seeds an
+overshoot into that same lift so the acknowledgement continues the motion instead of
+starting a new one. Both are paint; neither changes what the wedge measures or where
+it can be pressed. Reduced motion snaps decorative movement: the ring opens whole,
+the candidate still reads as lifted, and the commit does not overshoot. The Showcase's **Quick actions** demo (`radial-menu`;
 scenario `radial_menu`) teaches corner commands, five compass gestures (direction
 selection), and character gear.
 The implementation and evidence record is in

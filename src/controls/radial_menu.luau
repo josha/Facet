@@ -71,6 +71,19 @@ export type Spec = {
 	onOpen: (() -> ())?,
 	onClose: (() -> ())?,
 }
+--[[ THE WEDGE'S THREE PAINTED ACCENTS (spec 2G radial), all on one transform.
+	LIFT_SCALE: how far the candidate wedge stands out of the ring. 4% is the
+	smallest step that reads as depth at a glance without breaking the seam a
+	neighbouring wedge shares with it.
+	POP_KICK: the velocity seeded into that SAME spring on commit — an overshoot
+	the `reward` class is already shaped for, so the acknowledgement is a
+	continuation of the lift rather than a second animation competing with it.
+	STAGGER_STEP / STAGGER_CAP: the bloom's rhythm. The radial design forbids a
+	long stagger — the menu is a reflex surface, and a wedge you cannot press yet
+	is a wedge that costs you the race — so the wait is capped at
+	STAGGER_STEP * STAGGER_CAP = 100 ms no matter how many wedges the ring holds. ]]
+local LIFT_SCALE, POP_KICK = 1.04, 4
+local STAGGER_STEP, STAGGER_CAP = 0.02, 5
 local KEYS = guard.keySet({
 	"id",
 	"items",
@@ -310,6 +323,10 @@ function radial.build(Facet: any, core: any, spec: Spec)
 	local capture, focusPaths, pendingFocus = nil, {}, nil
 	local focusRects, axisUpdate = {}, nil
 	local controller, previewPath, detachPreview = nil, nil, nil
+	-- Each live row lends its LIFT spring here so `commit` can kick the one wedge
+	-- the player actually chose. The rows own the springs; this is a lookup, not a
+	-- second owner, and every row clears its entry when its scope goes.
+	local liftByKey: { [string]: any } = {}
 	local followX, followY, followRadius = nil, nil, nil
 	local fixedClearance = nil
 	local callbacksError = nil
@@ -842,6 +859,18 @@ function radial.build(Facet: any, core: any, spec: Spec)
 		capture = nil
 		gesture = false
 		analog = false
+		--[[ THE POP. A velocity kick on the wedge's own lift spring, not a second
+			animation: the wedge is already standing up as the candidate, so seeding
+			velocity into that same spring makes the lift and the pop ONE continuous
+			motion — the choice is acknowledged on the thing the player pushed, and
+			it reads whether the menu then closes, opens a submenu or stays. It
+			precedes the completion policy so the kick is in flight before the close
+			retires the row, and it is a no-op under reduced motion (`setVelocity`
+			refuses to seed a spring that is not animating). ]]
+		local popped = liftByKey[s.key]
+		if popped ~= nil then
+			popped:setVelocity(POP_KICK)
+		end
 		if item.children then
 			transitionOrigin = { x = s.x, y = s.y, angle = s.angle, inner = s.paint.inner, outer = s.paint.outer }
 			local chain = table.clone(s.chain)
@@ -1098,16 +1127,74 @@ function radial.build(Facet: any, core: any, spec: Spec)
 			return rs:own(core:memo(fn))
 		end
 		local progress = if clock then rs:own(clock:spring(0, "object")) else nil
+		--[[ THE LIFT. One spring per wedge, `reward` because it also carries the
+			commit pop (`commit`, above): a candidate raises the target, a commit
+			seeds velocity, and both resolve on the same value so the wedge never
+			animates against itself. It rests at exactly 1, where the renderer drops
+			the scale entirely — an unlifted ring pays nothing. ]]
+		local lift = if clock then rs:own(clock:spring(1, "reward", { eps = 0.00001 })) else nil
+		if lift then
+			liftByKey[s.key] = lift
+			rs:own(function()
+				if liftByKey[s.key] == lift then
+					liftByKey[s.key] = nil
+				end
+			end)
+			local function aimLift(key: any)
+				lift:setTarget(if key == s.key then LIFT_SCALE else 1)
+			end
+			aimLift(candidate:get())
+			rs:own(core:observe(candidate, aimLift))
+		end
+		--[[ THE BLOOM'S TURN. A flat decorative timer holds this wedge at its absent
+			place before its spring is aimed, so the ring opens as a sequence instead
+			of a slab. `from = to = 0` because only the settle EVENT is read: a ramp
+			would write a number nobody observes on every frame of the wait. Under
+			reduced motion there is no rhythm to delete — the wedge is placed
+			instantly and a hold would only postpone that landing by a frame — so
+			the delay collapses to zero and this wedge never waits. ]]
+		local waiting: any = nil
 		if progress then
+			rs:own(function()
+				if waiting then
+					waiting:dispose()
+					waiting = nil
+				end
+			end)
 			rs:own(core:effect(function(use)
-				local active = false
-				for _, v in use(layout).sectors do
+				local active, ordinal = false, 0
+				for i, v in use(layout).sectors do
 					if v.key == s.key then
-						active = true
+						active, ordinal = true, i
 						break
 					end
 				end
-				progress:setTarget(if active then 1 else 0)
+				if not active then
+					-- a wedge that has left the ring cancels its turn: the hold's only
+					-- job was to aim a spring this row no longer wants aimed
+					if waiting then
+						waiting:dispose()
+						waiting = nil
+					end
+					progress:setTarget(0)
+				elseif waiting == nil then
+					local delay = if clock:isReduced() then 0 else math.min(ordinal - 1, STAGGER_CAP) * STAGGER_STEP
+					if delay > 0 and progress:get() < 0.001 and progress:getTarget() == 0 then
+						local hold = clock:timer({ from = 0, to = 0, duration = delay, kind = "decorative" })
+						waiting = hold
+						hold:onSettle(function()
+							if waiting == hold then
+								waiting = nil
+							end
+							-- the hold is spent; drop it rather than leave a dead timer
+							-- owned by a row that may outlive several openings
+							hold:dispose()
+							progress:setTarget(1)
+						end)
+					else
+						progress:setTarget(1)
+					end
+				end
 				if not active and progress:get() < 0.015 then
 					local pending = {}
 					for _, v in retiring:get() do
@@ -1497,7 +1584,11 @@ function radial.build(Facet: any, core: any, spec: Spec)
 				return use(ringDiameter) / 2 + b.y - (b.y + b.h / 2) * (1 - use(contraction)) + use(travel).y
 			end),
 			opacity = opacity,
-			scale = contraction,
+			-- the bloom's contraction and the candidate's lift are the same transform:
+			-- one scale, so a wedge that is still blooming can still stand up
+			scale = rm(function(use)
+				return use(contraction) * (if lift then use(lift) else 1)
+			end),
 			children = { UI.Anchor({ id = "Content", width = UI.fill(), height = UI.fill(), children = painted }) },
 		})
 
