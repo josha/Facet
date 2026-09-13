@@ -2427,20 +2427,36 @@ on `UI.When`, `UI.ForEach`, a `presentToast` and `PresentOpts`.
   the corner it hangs at, so a menu emerges from the control that opened it.
 - **`class`** names a motion class (default `"container"`); **`fade = true`**
   pairs a slide with a transparency fade.
+- **`exitClass`** names the motion class the *exit* runs on (default
+  `"dismiss"`, the exit twin of `container`): closes read faster than opens by
+  default — `dismiss` is ζ1.0 at a 0.2s response against `container`'s 0.35s,
+  about 1.7x quicker, the transitions.dev 250/150ms pairing. Declare
+  `exitClass = class` for a symmetric open/close feel, or a third class for a
+  different one; the enter always spends `class` regardless.
 - **`distance`** (px, slide forms only; task-fix3, 2026-08-23) overrides the
   themed travel default (`space.l`, a decorative nudge — right for a toast
   easing in from its own edge) with the surface's own full extent, for a slide
   that IS the surface leaving/entering the screen (a full-viewport push/pop).
   Omitted, every caller keeps the themed default unchanged.
-- **`stagger`** (seconds, enter only) is the beat between one entering row and
-  the next, for a region whose children arrive together — a list that lands as
-  one slab reads as a redraw, the same rows a beat apart read as a list. The
-  batch is the rows of ONE region entering in ONE frame, in list order; the
-  accumulated wait stops growing after eight beats, so a 600-row list's last row
-  enters with its ninth rather than half a minute later.
+- **`stagger`** (a nonnegative number of **SECONDS**, enter only) is the beat
+  between one entering row and the next, for a region whose children arrive
+  together — a list that lands as one slab reads as a redraw, the same rows a
+  beat apart read as a list. It is **inert outside a keyed `UI.ForEach`**: a
+  `UI.When` branch is always alone in its own batch (there is nothing else
+  entering beside it to wait for), so declaring `stagger` there costs nothing
+  and does nothing. The batch is the rows of ONE `ForEach` entering in ONE
+  frame, in list order; the accumulated **wait** stops growing after eight
+  beats, so a 600-row list's last row enters with its ninth rather than half a
+  minute later — that cap bounds the WAIT, **not the timer count**: every row
+  past the eighth still books its own hold, the rows past the cap simply all
+  book the *same* duration, so the cost stays the one a 600-row enter already
+  pays in springs and nodes.
   **Exits never stagger** (a list leaving one row at a time is a stall), a
   re-entry mid-exit reverses immediately rather than waiting, and reduced motion
-  lands every row on the first frame.
+  lands every row on the first frame. **The unit is seconds, not milliseconds**
+  — a spec written as if it were ms, such as `stagger = 500`, does not clamp or
+  warn; it holds a row absent for minutes rather than the intended half-beat
+  rhythm.
 - **A fading form needs a fade group.** `fade`, `materialize` and
   `fade = true` drive transparency, so the region's child must EITHER be
   declared `UI.ZStack{ canvasGroup = true }` (or `UI.Box{ canvasGroup = true }`
@@ -7083,7 +7099,7 @@ and ButtonA follow the same semantic activation path.
 
 A button with required `onActivate(meta)` and optional `id`, `label`, custom
 `children`, `enabled`, `busy`, `role`, `width`, `height`, `shortcut`,
-`repeatDelay`, `repeatInterval`, and `dialogAction`. Enabled and busy accept
+`repeatDelay`, `repeatInterval`, `dialogAction`, and `pop`. Enabled and busy accept
 booleans or readable booleans. Busy displays the existing themed progress spinner
 and rejects activation until the caller clears it.
 
@@ -7121,6 +7137,20 @@ press; a pointer tap activates on release, while a held pointer starts repeating
 after the delay. Release after a repeat does not add an extra activation. A slow
 frame emits at most one current repeat. Release, pointer exit, cancellation,
 focus loss, lost input ownership, disabling, busy state, and disposal stop the hold.
+
+`pop = true` is an opt-in release overshoot: an activate seeds velocity into a
+`reward` spring resting on the button's paint-only `scale`, which kicks past 1
+and returns rather than easing to a target — the same acknowledgement
+`RadialMenu`'s commit uses, on the plain button surface. It changes nothing the
+solver sees and costs nothing at rest (the spring detaches once it settles).
+**It fires on the initial press only, never on a repeating button's later
+pulses**: a pointer held down on a `pop` + `repeatInterval` button pops once on
+the first activation and then holds still through every pulse that follows,
+because a repeat interval is typically well under the spring's settle time and
+an unconditional re-kick would stack, stranding the scale off 1 for as long as
+the button is held. Keyboard/gamepad activation still pops exactly once, on the
+press that starts the hold. Reduced motion leaves the scale at exactly 1:
+`setVelocity` refuses to seed a spring that is not already animating.
 
 `shortcut = { keyCode = "F6", modifiers = { shift = true } }` uses the existing
 semantic action system. Only documented modifier bindings are supported. Hidden,
@@ -7240,7 +7270,12 @@ wrapped and no layout moves. Opening presents the panel through
 `presenter.presentAnchored`, so the placement, the edge flip, the along-edge
 shift, the safe-area clamp and the follow-a-moving-source behaviour are the
 [anchored surface](#anchored-surfaces)'s, and the focus scope, focus trap, focus
-restore and tap-away catcher are the presenter's own.
+restore and tap-away catcher are the presenter's own. Every level materializes —
+scale 0.96 → 1 with a fade in, growing from the corner it hangs at
+([structural transitions](#structural-transitions)' `pivot` inference) and
+dipping out on `dismiss` — with `plate = "fades"` acknowledged for you, since
+the popover IS its panel. This is baked into the presentation call, not a
+`spec.transition` field: a menu has no caller-facing transition override.
 
 Spec: `{ id?, trigger: Blueprint, items: { Item }, triggers: { string }?,
 presentation: (("automatic" | "menu" | "sheet") | Readable<string>)?, sizeClass: (string | Readable)?,
@@ -7739,7 +7774,7 @@ checks, and `Controls.TabView` when choosing a page rather than a value.
 | `textSize` | Optional type role, numeric size, or readable; defaults to the control type role. |
 | `iconOnly` | Strip styles; defaults false; requires icons on every option. Radio retains visible labels. |
 | `indicator` | Static strips: `automatic`, `none`, `underline`, `pill`. Live lists: `automatic` or `none`, using selected row chrome. |
-| `stripCorner` | Optional container-radius name (or readable of one) naming what the strip *around* this picker actually wears, so the selected fill can wear the same silhouette (`radii.selection:<container>`). Must be a radius the LIVE style publishes — the base `control | panel | pill` plus any a package adds of its own (`radii.chip`), because `radii.selection:chip` resolves under such a package; anything else refuses at construction, naming the vocabulary it was actually checked against. On a swap AWAY from the package that publishes the container, the fill falls back to plain `radii.selection` rather than losing its corner, and the control records the fallback on `dump().indicator.cornerFallbacks`. Requires `track = false`: a tracked strip draws its own plate and already knows its container, so the pair refuses and the message says which of the two to drop. A readable that currently reads `nil` is legal and means "no container right now" (`Controls.TabView` passes one: its adaptable app bar's corner in the band form, nothing in the rail form). Absent, the fill keeps plain `radii.selection`. |
+| `stripCorner` | Optional container-radius name (or readable of one) naming what the strip *around* this picker actually wears, so the selected fill can wear the same silhouette (`radii.selection:<container>`). Must be a radius the LIVE style publishes — the base `control | panel | pill` plus any a package adds of its own (`radii.chip`), because `radii.selection:chip` resolves under such a package; anything else refuses at construction, naming the vocabulary it was actually checked against. A **`Readable` `stripCorner`** re-resolves on every read: on a swap AWAY from the package that publishes the container, the fill falls back to plain `radii.selection` rather than losing its corner, and a swap back re-derives the container answer on the next read. A **static `stripCorner`** is resolved once, at build, through that same fallback — so a later swap-away leaves it on the token it took, and neither the fallback nor the counter moves again for it. Requires `track = false`: a tracked strip draws its own plate and already knows its container, so the pair refuses and the message says which of the two to drop. A readable that currently reads `nil` is legal and means "no container right now" (`Controls.TabView` passes one: its adaptable app bar's corner in the band form, nothing in the rail form). Absent, the fill keeps plain `radii.selection`. A healed fallback says so once per token per control **while it is falling back**: a swap back to the package clears the note and a second departure warns again, and a reactive `stripCorner` alternating between two names neither of which resolves warns on every change — the cost of a count stated in the present tense. `dump().indicator.cornerFallbacks` is that present-tense count (0 or 1): 1 means the fill is painting a fallback corner right now, and it returns to 0 the instant any token resolves again. |
 | `sizeClass`, `env` | Optional environment overrides; the automatic style otherwise reads the core's environment. |
 
 An option has required `value` and nonempty `label`, and optional `id`,
@@ -8428,7 +8463,13 @@ ancestor, ends editing, preserves accepted text, and rejects late edits and comm
 Numeric entry keeps strings such as `"-"`, `"."`, and `"1e"` as editable drafts.
 Parsing, bounds, and formatting run on commit, rather than rewriting each
 keystroke. Rejected commits retain the draft, show an error, and shake the field
-on the same edge `invalid` shakes on; the message beneath the field holds still. Search uses the
+on the same paint-only `offset` `invalid` shakes on — but **on every rejected
+commit, not an edge**: a repeat of the same rejection shakes again, which is
+exactly when the nudge is worth the most (`invalid`, by contrast, only shakes on
+a false→true transition; setting it to `true` a second time in a row is not a
+new rejection). Reduced motion drops the shake on both paths; the message
+beneath the field holds still either way, and it is the only account of *why* —
+show the reason yourself. Search uses the
 same text pipeline with a themeable search mark and clear affordance; bind its
 `value` to a filtering memo for an ordinary list or to a PopupButton's `query`.
 
@@ -9799,8 +9840,11 @@ source change retargets after a manual `stop`, `snap`, or `setTarget`.
 A **motion class** is a named `{ dampingRatio, response }` pair — `dampingRatio`
 is overshoot (1.0 = critically damped), `response` is how quickly the value
 reaches its target in seconds (**not** a duration: settle time emerges from the
-physics). Four ship: `container` (1.0 / 0.35), `object` (1.0 / 0.28), `reward`
-(0.7 / 0.18), `decay` (1.0 / 0.5).
+physics). Five ship: `container` (1.0 / 0.35), `object` (1.0 / 0.28), `reward`
+(0.7 / 0.18), `decay` (1.0 / 0.5), `dismiss` (1.0 / 0.2), the exit twin of
+`container` — a structural transition's exit runs on it by default (see
+`exitClass` under **Structural transitions**), so a closing surface dips out
+about 1.7x faster than it opened.
 
 **Overshoot is earned**: `reward` is the only under-damped built-in, and it is
 non-gestural by definition — liveliness elsewhere comes from inherited gesture
@@ -10477,6 +10521,7 @@ colors, type and border insets.
 | `severity` | `automatic` (default), `standard`, or `critical`. Automatic errors are critical; critical uses danger emphasis and a vector caution icon unless an image is supplied. |
 | `suppression` | `{isSuppressed: Signal<boolean>, label?}` adds the existing checkbox control. The game must consult this value when deciding whether to ask again. |
 | `content` | Optional `(scope, data) -> blueprint?` for brief extra content such as an existing TextInput. Use a full modal for an editor. Own resources in the supplied scope. |
+| `transition` | Optional [structural transition](#structural-transitions) spec, or a `Readable` of one, for the modal's own enter/exit. Defaults to `{ enter = "materialize", plate = "fades" }` (scale 0.96 → 1 with a fade in, `dismiss` dipping out faster on the way out); pass `{ enter = "instant" }` to opt out. `nil` **and** `false` both fold to that same default — `false` is the framework's "no transition" spelling on `When`/`ForEach`, but Alert's card always materializes unless the enter form is named explicitly. A static value that fails `transitions.resolve` is refused at construction (`Controls.Alert: transition: …`); a `Readable` one is refused on its first read instead, recorded on `dump().lastError`, and the binding resets to the default rather than raising inside the observer that opened it. |
 
 Use `present()` or a presentation binding for the interactive modal. `blueprint`
 is its layout template for inspection/static previews; directly mounting a custom-

@@ -1,6 +1,6 @@
 # Facet transitions round — design (2026-09-12)
 
-Status: DRAFT for owner review. Nothing built yet.
+Status: EXECUTED 2026-09-13 on branch facet-transitions (see CHANGELOG).
 
 Source of the catalog: transitions.dev (32 free transitions + its `_root.css`
 tokens). Source of the inventory: an audit of `src/motion`, `src/present`,

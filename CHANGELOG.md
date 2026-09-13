@@ -13,6 +13,22 @@ runtime as `Facet.VERSION`.
 
 ## [Unreleased]
 
+- **Transitions round (2026-09-12, informed by a transitions.dev survey).**
+  Structural exits default to the new `dismiss` motion class (`exitClass` opts a
+  caller into its own); `Controls.Alert` and `Controls.Menu` materialize on open
+  (`AlertSpec.transition`, including `transition = false`); `transition.plate`
+  acknowledges a modal/popover's fading backdrop; a keyed `ForEach`'s rows can
+  arrive on a `stagger` beat; `Controls.TextInput` gains `invalid`, a caller-
+  driven shake; `Controls.Button` gains opt-in `pop`; `RadialMenu` wedges bloom,
+  the candidate lifts, and a commit pops; `Controls.DisclosureGroup`'s caret
+  turns and its content slides in behind an optional `presenter` glide (its old
+  `chevron.down` art slot is no longer requested); the `Toggle` knob settles
+  with a Back overshoot; the ten-foot focus lift tweens between controls instead
+  of snapping; and a `Picker`/`TabView` selection fill can wear its own strip's
+  `stripCorner`. `presenter.surfaceIdNotes()` diagnoses two live surfaces under
+  one id. New perf scene `control-motion` and gate `tests/motion_paint_only.spec.luau`
+  price and prove every motion above stays on the paint-only presentation
+  channel. Each is its own row below; this one just points at them.
 - `Controls.DisclosureGroup`'s caret is one `chevron.trailing` glyph now, not a
   mounted/unmounted `chevron.down`/`chevron.trailing` pair: its paint-only
   `rotation` springs 0 → 90 as `expanded` flips, turning to point down instead of
@@ -43,7 +59,7 @@ runtime as `Facet.VERSION`.
   still end on it. An ENTER keeps the default tolerance, because its settle is
   what fires the `arrive` feedback event.
 - `Controls.Alert` and `Controls.Menu` materialize. A modal card and a floating
-  menu popover scale 0.96 → 1 with a fade on the `object` class and dip out on
+  menu popover scale 0.96 → 1 with a fade on the `container` class and dip out on
   `dismiss`; `AlertSpec` gains `transition?` so a caller can override it or pass
   `{ enter = "instant" }` to opt out, and `transition = false` is accepted as the
   framework's own "no transition" spelling (it folds to the default, which is
@@ -75,6 +91,63 @@ runtime as `Facet.VERSION`.
   node path is rooted at the blueprint id, so the second surface silently takes
   over the first's paths in the adapter and the first can no longer be torn down
   by path. A diagnostic, not a refusal, once per id per session.
+- `When`/`ForEach` transitions gain `stagger` (a nonnegative number of
+  **seconds**, enter only): the beat between one entering row and the next, so
+  a list that lands as one slab reads as a redraw instead. It is inert outside
+  a keyed `ForEach` — a lone `When` branch is always the first (and only) row of
+  its own batch and waits for nothing. The accumulated wait caps at eight beats,
+  not the number of timers running: every row past the eighth still books its
+  own hold, the rows past the cap simply all book the same duration, so a
+  600-row list's last row enters with its ninth rather than half a minute
+  later. Exits never stagger, a re-entry mid-exit reverses immediately, and
+  reduced motion lands every row on the first frame. A ms/seconds mixup such as
+  `stagger = 500` is not clamped or warned about — it holds a row absent for
+  minutes.
+- `Controls.TextInput` gains `invalid`: an optional caller-owned readable
+  boolean whose false→true edge shakes the field once — four legs on the
+  paint-only `offset` (±8px at 0/80/140/200/240ms) that never move the solved
+  rect, hit target or focus order. A numeric-presentation rejection shares the
+  same shake but fires on every rejected commit rather than an edge, because a
+  repeat of the same rejection is exactly when the nudge is worth the most.
+  Reduced motion drops the shake on both paths; the validation message is the
+  only account of *why* and is unaffected.
+- `Controls.Button` gains opt-in `pop`: an activate seeds velocity into a
+  `reward` spring on the button's paint-only `scale`, kicking past 1 and
+  springing back rather than easing to a target — the same acknowledgement
+  `RadialMenu`'s commit uses, on a plain button. Fires on the initial press
+  only; a pointer-held repeating button's later repeat pulses do not re-kick
+  it, though keyboard/gamepad activation still pops once, on the press that
+  starts the hold. Reduced motion holds the scale at exactly 1.
+- `RadialMenu`: an opening ring blooms as a sequence rather than a slab (each
+  wedge waits 20ms longer than the one before it, capped at 100ms total
+  regardless of how many wedges the ring holds); the candidate wedge — under
+  the pointer, the stick, or a direct hover — lifts 4% out of the ring; and
+  committing it seeds an overshoot into that same lift so the acknowledgement
+  continues the motion instead of starting a new one. Both are paint-only.
+  Reduced motion opens the ring whole, keeps the candidate lifted, and drops
+  the commit overshoot.
+- The `Toggle` knob's settle tween switches from `Quad`/`Out` to `Back`/`Out`
+  (transitions.dev's `(.34,1.35,.64,1)` shape): it overshoots by about 10% and
+  returns, the way a physical switch thumb settles. The track's colour tween is
+  unaffected — a colour never overshoots. Both tweens are now held and
+  cancelled the same way (`handle.toggleKnobTween` beside `toggleTrackTween`),
+  so a flip-flip inside 0.2s can no longer leave a stale tween racing a fresh
+  one into a recycled control.
+- The ten-foot focus lift (the 1.05 paint-only scale a pad/keyboard focus
+  change applies) now tweens between controls instead of snapping: moving
+  focus across a row used to snap each control to 1.05 and the previous one
+  back to 1 on the same frame. One tween per focus change, cancelled by the
+  next; the floating focus ring travels along the same tween rather than
+  arriving at its destination size ahead of the lift. Reduced motion keeps the
+  instant write.
+- New perf scene `control-motion` (`UI-PERF-001`) prices a 30-row staggered
+  `ForEach` enter, a `DisclosureGroup`, `TextInput.invalid` and `Button.pop`
+  overlapping in one frame, off a scripted clock so the sample measures work
+  rather than wall-clock luck. New gate `tests/motion_paint_only.spec.luau`
+  proves every motion this round added — the shake, the pop, the caret turn,
+  the radial lift/commit and the stagger — writes only to the paint channel,
+  never the solver, and that idle after a motion settles costs nothing: zero
+  clock steps, writes, transactions and rect writes for sixty more frames.
 
 - Fixed: a count badge's number sat off-centre in its seal. Two rules make the
   plate bigger than the glyph — the intrinsic `controls.badge.minimum` on both
@@ -106,11 +179,15 @@ runtime as `Facet.VERSION`.
   the container — a theme swapped away from the package that declares it, or a
   READABLE `stripCorner` set to a name that never resolves — the fill falls back
   to plain `radii.selection` rather than losing its corner, says so once per
-  token (per control), and reports it on `dump().indicator.cornerFallbacks`,
-  which counts what is falling back RIGHT NOW: it returns to zero when the
-  package comes back, and stays at one for a name that never resolves. A STATIC
-  `stripCorner` is resolved once when the control is built and keeps the token it
-  took, so neither the fallback nor the counter applies to it.
+  token per control WHILE it is falling back — a swap back clears it, and a
+  second departure warns again; a reactive `stripCorner` alternating between two
+  unresolvable names warns on every change (the cost of a present-tense count) —
+  and reports it on `dump().indicator.cornerFallbacks`, which counts what is
+  falling back RIGHT NOW: it returns to zero when the package comes back, and
+  stays at one for a name that never resolves. A static `stripCorner` is
+  resolved once at build (through the same fallback, once) and never re-derives,
+  so a later swap-away leaves it on the token it took and neither the counter
+  nor the fallback moves again.
   The bar's own corner is unchanged, and so is what plain `radii.selection`
   means, so a menu card's chosen-row shade reads it exactly as before. New gate:
   `tests/selection_shape_container.spec.luau`.

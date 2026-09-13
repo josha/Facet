@@ -33,7 +33,7 @@ for display and derived properties.
 | Control | Use it for | Configuration that changes its behavior |
 |---|---|---|
 | [`UI.Button`](../reference/api.md#button) | A simple action. | `label`, `onActivate`, `enabled`, semantic `role`, shape and size properties. `children` replaces the painted label with composed content; keep `label` as the action's readable name. |
-| [`Controls.Button`](../reference/api.md#controlsbutton) | An action with busy state, repeat or a shortcut. | `busy`, `repeatDelay`, `repeatInterval`, `shortcut`, `dialogAction`, `enabled`, `role`, and `children`. Busy state gates activation. Shortcut ownership follows the active surface. `dialogAction = "default"` or `"cancel"` is an input behavior, not automatic dialog layout. |
+| [`Controls.Button`](../reference/api.md#controlsbutton) | An action with busy state, repeat, a shortcut, or a press acknowledgement. | `busy`, `repeatDelay`, `repeatInterval`, `shortcut`, `dialogAction`, `enabled`, `role`, `children`, and `pop`. Busy state gates activation. Shortcut ownership follows the active surface. `dialogAction = "default"` or `"cancel"` is an input behavior, not automatic dialog layout. `pop = true` kicks a paint-only release overshoot on the initial press only — a held repeat button pops once, not on every pulse. |
 | [`Controls.SplitButton`](../reference/api.md#controlssplitbutton) | A primary action beside a separate menu. | `label`, `onActivate`, `items`, `enabled`, `busy`, `shortcut`, `menuLabel`, and `env`. The primary action and menu remain separate focusable targets. |
 | [`Controls.Toggle`](../reference/api.md#controlstoggle) | An on/off setting. | Caller-owned `value`; `presentation = "switch"`, `"checkbox"`, or `"button"`; `label`, `enabled`, `onChange`. Checkbox accepts a separate `mixed` signal. Only the button presentation accepts composed `children`. |
 | [`UI.Toggle`](../reference/api.md#toggle) | The switch primitive underlying composite settings. | `value`, `label`, `enabled` and the primitive's activation callback. Prefer `Controls.Toggle` when you want the control to own the toggle interaction. |
@@ -77,6 +77,7 @@ text captured when editing began. Caller writes do not pretend to be user edits.
 | `maxLength`, `validate` | Length limiting and accepted-value normalization or rejection. `validate(text)` returns an accepted string or nil. It is not server validation. |
 | `clearButtonMode` | `"never"`, `"whileEditing"`, `"unlessEditing"`, or `"always"`; empty and disabled fields hide the affordance. |
 | `keyboardType`, `submitLabel` | Declared intent only. Roblox's public API does not currently let Facet choose the native keyboard or Return-key label. |
+| `invalid` | Optional caller-owned readable boolean; a false→true edge shakes the field once on the paint-only `offset` (the layout, hit target and focus order never move). Reduced motion drops the shake; show the reason yourself. A rejected numeric commit shakes on the same channel, but on every rejection rather than only an edge. |
 
 [`UI.TextField`](../reference/api.md#textfield) is the lower-level primitive.
 Use TextInput for the complete editing, validation, cancellation and input-context
@@ -122,7 +123,7 @@ for a menu-shaped selection control: the Picker's `menu` style already supplies 
 
 | Control | Use and configuration |
 |---|---|
-| [`Controls.DisclosureGroup`](../reference/api.md#newdisclosuregroup) | `label`, caller-owned `expanded`, a `content()` builder, `enabled`, `onToggle`. Content mounts only while expanded; collapsing restores focus to the header. |
+| [`Controls.DisclosureGroup`](../reference/api.md#newdisclosuregroup) | `label`, caller-owned `expanded`, a `content()` builder, `enabled`, `onToggle`, and optional `presenter`. Content mounts only while expanded, sliding in; collapsing restores focus to the header. The caret turns rather than swapping icons. Pass `presenter` to glide siblings whose position the flip moves (`presenter.withAnimation("container", …)`); without it, the flip is instant and only the caret/content animate their own paint. |
 | [`Controls.TabView`](../reference/api.md#newtabview) | Caller-owned `selection` and `tabs` pair labels/icons with content. `placement` accepts automatic, bottomBar, bottomBarCompact, topBar or sidebar; `indicator`, `sizing`, `iconOnly`, `textSize`, `accessories`, `railWidth`, `enabled` and `transition` configure the supported forms. Use it for peer sections. |
 | [`Controls.NavigationStack`](../reference/api.md#controlsnavigationstack) | Supply `root`, `destinations`, caller-owned `path`, and a localized `backLabel`; optional `env` and `transition` use existing policy. Destination `content(scope, entry)` builders receive their resource owner. `api.push`, `pop`, `back` and `popToRoot` change testable data-flow state. Use it for drill-down screens and wizards. |
 | [`Controls.Callout`](../reference/api.md#newcallout) | `anchor`, `content`, placement (`edge`, `align`, `tail`), `priority`, eligibility facts (`seen`, `sessions`, `afterSessions`, `featureUsed`), and required `onRetire`. Optional `onShow`/`onHide` report lifetime. The queue avoids competing attention surfaces. |
