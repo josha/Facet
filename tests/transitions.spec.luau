@@ -1223,6 +1223,45 @@ describe("presenter: a surface transition", function()
 		expect(adapter.rootCount()).toBe(rootsBefore)
 	end)
 
+	it("TWO surfaces exiting under one id are BOTH flushed by the next present (review N7)", function()
+		--[[ the pending teardowns were held one-per-id, so a second registration
+			under the same key overwrote the first: the overwritten one still ran
+			on its own settle or cap, but it was no longer reachable by the flush
+			— which is the whole point of the map. Nothing stops two surfaces
+			sharing a blueprint id while both are LIVE (the flush only runs when
+			one is already exiting), so dismissing both leaves two pending under
+			one key. The key holds a list now, and the flush drains it. ]]
+		local _, _, adapter, _, pres = presenterWorld()
+		local rootsBefore = adapter.rootCount()
+		local first = pres.present(surface("Modal"), { transition = { enter = "fade" } })
+		local second = pres.present(surface("Modal"), { transition = { enter = "fade" } })
+		for _ = 1, 90 do
+			pres.tick(FRAME)
+		end
+		expect(adapter.rootCount()).toBe(rootsBefore + 2)
+		pres.dismiss(first)
+		pres.dismiss(second)
+		for _ = 1, 5 do
+			pres.tick(FRAME)
+		end
+		-- both are still on screen, both still exiting under the same id
+		expect(adapter.rootCount()).toBe(rootsBefore + 2)
+
+		local third = pres.present(surface("Modal"), { transition = { enter = "fade" } })
+		-- ...and BOTH corpses go, not just the last one registered
+		expect(adapter.rootCount()).toBe(rootsBefore + 1)
+		for _ = 1, 60 do
+			pres.tick(FRAME)
+		end
+		expect(adapter.rootCount()).toBe(rootsBefore + 1)
+		expect(pres.depth()).toBe(1)
+		pres.dismiss(third)
+		for _ = 1, 60 do
+			pres.tick(FRAME)
+		end
+		expect(adapter.rootCount()).toBe(rootsBefore)
+	end)
+
 	it("ten present/dismiss cycles under one id leave one surface, not ten", function()
 		local _, _, adapter, _, pres = presenterWorld()
 		local rootsBefore = adapter.rootCount()

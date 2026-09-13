@@ -137,13 +137,33 @@ function surfaceLifecycle.new(ctx: any)
 		So the teardown is held here by `blueprint.id or ""` — the SAME key the
 		node paths are rooted on (`"/" .. (handle.blueprint.id or "")`), not the
 		handle's kind, because a path collision is exactly the condition this
-		guards and two nil-id surfaces collide too. `flushPendingExit` runs it
-		synchronously before anything new is built under that id. ]]
-	local pendingExits: { [string]: () -> () } = {}
+		guards and two nil-id surfaces collide too. `flushPendingExit` runs them
+		synchronously before anything new is built under that id.
+
+		A LIST PER KEY, NOT ONE (review N7). Nothing stops two surfaces sharing a
+		blueprint id while both are LIVE — the flush only runs when one is already
+		EXITING — so dismissing both leaves two pending under one key, and a
+		single slot silently dropped the first: it still ran on its own settle or
+		cap, but it was no longer reachable by the flush, which is the whole point
+		of holding it. The flush DRAINS. ]]
+	local pendingExits: { [string]: { () -> () } } = {}
 	local function exitKeyFor(handle: any): string
 		return if type(handle.blueprint) == "table" and type(handle.blueprint.id) == "string"
 			then handle.blueprint.id
 			else ""
+	end
+	local function forgetPendingExit(key: string, teardown: () -> ())
+		local list = pendingExits[key]
+		if list == nil then
+			return
+		end
+		local at = table.find(list, teardown)
+		if at ~= nil then
+			table.remove(list, at)
+		end
+		if #list == 0 then
+			pendingExits[key] = nil
+		end
 	end
 
 	-- one shared observer drives focus visuals across all presented handles
@@ -371,9 +391,7 @@ function surfaceLifecycle.new(ctx: any)
 				return
 			end
 			torn = true
-			if pendingExits[exitKey] == teardown then
-				pendingExits[exitKey] = nil
-			end
+			forgetPendingExit(exitKey, teardown)
 			handle.controller.dispose()
 			-- handle.scope owns the mount child scope; disposing it disposes the
 			-- mounted tree exactly once (a separate root.dispose() here double-
@@ -397,7 +415,12 @@ function surfaceLifecycle.new(ctx: any)
 			if spec.exit ~= "instant" then
 				-- registered BEFORE the aim: reduced motion completes the exit
 				-- (and so runs `teardown`, which de-registers) inside this call
-				pendingExits[exitKey] = teardown
+				local list = pendingExits[exitKey]
+				if list == nil then
+					list = {}
+					pendingExits[exitKey] = list
+				end
+				table.insert(list :: { () -> () }, teardown)
 				handle.coordinator.beginExit(handle.transitionNode.path, handle.transitionNode, spec, teardown)
 				refreshExclusive()
 				syncScrim()
@@ -669,15 +692,29 @@ function surfaceLifecycle.new(ctx: any)
 		helpPlate.revalidate()
 	end
 
-	--[[ Run the teardown a surface still leaving under `id` is waiting on, NOW.
+	--[[ Run every teardown a surface still leaving under `id` is waiting on, NOW.
 		`makeHandle` calls this before it builds anything, so a re-present under an
-		id that is mid-exit gets a clean tree instead of inheriting the corpse's
+		id that is mid-exit gets a clean tree instead of inheriting a corpse's
 		paths. No pending exit under that id is the overwhelmingly common case and
-		costs one hash lookup. ]]
+		costs one hash lookup.
+
+		DRAINS, because a key can hold more than one (see `pendingExits`). The
+		`list[1] == pending` check is what makes termination unconditional rather
+		than a consequence of every teardown de-registering itself: a teardown
+		that has already torn returns without touching the list, and a drain that
+		trusted it to would spin. ]]
 	local function flushPendingExit(id: any)
-		local pending = pendingExits[if type(id) == "string" then id else ""]
-		if pending ~= nil then
+		local key = if type(id) == "string" then id else ""
+		while true do
+			local list = pendingExits[key]
+			if list == nil or #list == 0 then
+				return
+			end
+			local pending = list[1]
 			pending() -- de-registers itself
+			if pendingExits[key] ~= nil and pendingExits[key][1] == pending then
+				table.remove(pendingExits[key], 1)
+			end
 		end
 	end
 
