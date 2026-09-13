@@ -63,6 +63,9 @@ local adapter_source = require("./lib/adapter_source")
 local pointerSrc = fs.readFile("src/client/screen_pointer.luau")
 local chromeSrc = fs.readFile("src/client/screen_chrome.luau")
 local targetSrc = fs.readFile("src/client/screen_target.luau")
+-- the focus ring/glow/lift left for `screen_focus_visual.luau` on the source-cap
+-- ledger row's own trigger (2026-09-12); the anchors below follow it
+local focusVisualSrc = fs.readFile("src/client/screen_focus_visual.luau")
 
 local function newFakeConn(): any
 	local live = true
@@ -337,7 +340,7 @@ end)
 describe(
 	"screen_target.setFocusVisual: the ten-foot lift also respects the nearest scroll/clip host's window (item 5)",
 	function()
-		local FN = adapter_source.bodyOf(targetSrc, "function adapter.setFocusVisual(")
+		local FN = adapter_source.bodyOf(focusVisualSrc, "local function setFocusVisual(")
 
 		it("found the function", function()
 			expect(#FN > 0).toBe(true)

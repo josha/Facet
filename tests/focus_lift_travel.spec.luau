@@ -39,6 +39,9 @@ local fs = require("@lune/fs")
 local adapter_source = require("./lib/adapter_source")
 
 local targetSrc = fs.readFile("src/client/screen_target.luau")
+-- the focus ring/glow/lift left for `screen_focus_visual.luau` on the source-cap
+-- ledger row's own trigger (2026-09-12); the anchors below follow it
+local focusVisualSrc = fs.readFile("src/client/screen_focus_visual.luau")
 local paintSrc = fs.readFile("src/client/screen_paint.luau")
 
 describe("screen_target.park: a cancelled lift is also RESET, not left where it stood (item 4)", function()
@@ -68,7 +71,7 @@ describe("screen_target.park: a cancelled lift is also RESET, not left where it 
 		-- the `setFocusVisual` comment this fix makes true again: it claimed
 		-- "FocusScale is 1 whenever this branch runs", which the recycling path
 		-- had quietly falsified
-		local VISUAL = adapter_source.bodyOf(targetSrc, "function adapter.setFocusVisual(")
+		local VISUAL = adapter_source.bodyOf(focusVisualSrc, "local function setFocusVisual(")
 		local at = string.find(VISUAL, "Measured pre-lift: FocusScale is 1", 1, true)
 		expect(at ~= nil).toBe(true)
 		local window = string.sub(VISUAL, at :: number, (at :: number) + 400)
@@ -78,7 +81,7 @@ end)
 
 describe("screen_target.aimFocusScale: the float ring travels with the lift (item 7)", function()
 	local FN = adapter_source.bodyOf(targetSrc, "local function aimFocusScale(")
-	local VISUAL = adapter_source.bodyOf(targetSrc, "function adapter.setFocusVisual(")
+	local VISUAL = adapter_source.bodyOf(focusVisualSrc, "local function setFocusVisual(")
 
 	it("found the function", function()
 		expect(#FN > 0).toBe(true)
@@ -300,18 +303,23 @@ describe("screen_target: the float ring's geometry dies with the float (review N
 			handle would travel from the rect of the one that died — the stale-fact
 			shape this adapter's own history is full of. The count is the claim:
 			as many geometry drops as float drops. ]]
+		-- ACROSS THE SEAM, because two of the three drops moved with
+		-- `setFocusVisual`: a census that still read only the host would have
+		-- gone from "three drops, all paired" to "one drop, paired" and passed
+		-- itself while seeing a third of the code.
+		local floatSrc = targetSrc .. "\n" .. focusVisualSrc
 		local unpaired: { number } = {}
 		local at = 1
 		local drops = 0
 		while true do
-			local found = string.find(targetSrc, "handle.focusRingFloat = nil", at, true)
+			local found = string.find(floatSrc, "handle.focusRingFloat = nil", at, true)
 			if found == nil then
 				break
 			end
 			drops += 1
 			-- the geometry drop rides the same block (a few lines, allowing for a
 			-- comment between them)
-			local window = string.sub(targetSrc, found, found + 500)
+			local window = string.sub(floatSrc, found, found + 500)
 			if string.find(window, "handle.focusFloatGeom = nil", 1, true) == nil then
 				table.insert(unpaired, drops)
 			end

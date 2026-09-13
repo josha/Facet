@@ -62,7 +62,10 @@ local fs = require("@lune/fs")
 local adapter_source = require("./lib/adapter_source")
 
 local source = fs.readFile("src/client/screen_target.luau")
-local FN = adapter_source.bodyOf(source, "function adapter.setFocusVisual(")
+-- the focus ring/glow/lift left for `screen_focus_visual.luau` on the source-cap
+-- ledger row's own trigger (2026-09-12); the anchors below follow it
+local focusVisualSrc = fs.readFile("src/client/screen_focus_visual.luau")
+local FN = adapter_source.bodyOf(focusVisualSrc, "local function setFocusVisual(")
 
 local function at(needle: string): number
 	local i = string.find(FN, needle, 1, true)
@@ -116,7 +119,9 @@ describe("screen_target.setFocusVisual: the float ring's geometry (device fix ro
 	it("(a) the float's Position stays UNSCALED (the lift anchors top-left)", function()
 		-- the position line reads the plain rect, never `* liftScale` — a scaled
 		-- position would mean the anchor moved, which the lift never does
-		local originAt = at("local ox, oy = presentation.hostOriginOf(handle)")
+		-- the presentation channel arrives as one ctx function since the seam,
+		-- so the call is bare; the ORDER it pins is what this case is about
+		local originAt = at("local ox, oy = hostOriginOf(handle)")
 		local posLineStart = at("f.Position = UDim2.fromOffset(rect.x - ox + thickness")
 		expect(originAt < posLineStart).toBe(true)
 		local posLineEnd = string.find(FN, ")\n", posLineStart, true) or (posLineStart + 120)

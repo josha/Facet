@@ -540,12 +540,13 @@ describe("W1b: the adapter tears a style modifier down instead of crashing on ni
 			-- ===== screen_target.luau ========================================
 			-- a per-corner-radii capability probe, destroyed on the next line
 			['screen_target.luau|hasPerCornerRadii|local probe = Instance.new("UICorner")'] = "probe",
+			-- ===== screen_focus_visual.luau ==================================
 			-- the focus ring's FLOAT: its own instance, mirroring the node's
-			['screen_target.luau|adapter.setFocusVisual|local realCorner = host:FindFirstChildOfClass("UICorner")'] = "not-own-child",
-			['screen_target.luau|adapter.setFocusVisual|local floatCorner = float:FindFirstChildOfClass("UICorner")'] = "not-own-child",
-			["screen_target.luau|adapter.setFocusVisual|(floatCorner :: UICorner).CornerRadius = realCorner.CornerRadius"] = "not-own-child",
-			['screen_target.luau|adapter.setFocusVisual|floatCorner = Instance.new("UICorner")'] = "not-own-child",
-			["screen_target.luau|adapter.setFocusVisual|(floatCorner :: UICorner).CornerRadius = radius"] = "not-own-child",
+			['screen_focus_visual.luau|setFocusVisual|local realCorner = host:FindFirstChildOfClass("UICorner")'] = "not-own-child",
+			['screen_focus_visual.luau|setFocusVisual|local floatCorner = float:FindFirstChildOfClass("UICorner")'] = "not-own-child",
+			["screen_focus_visual.luau|setFocusVisual|(floatCorner :: UICorner).CornerRadius = realCorner.CornerRadius"] = "not-own-child",
+			['screen_focus_visual.luau|setFocusVisual|floatCorner = Instance.new("UICorner")'] = "not-own-child",
+			["screen_focus_visual.luau|setFocusVisual|(floatCorner :: UICorner).CornerRadius = radius"] = "not-own-child",
 		}
 
 		local function stripComments(source: string): string
@@ -597,7 +598,7 @@ describe("W1b: the adapter tears a style modifier down instead of crashing on ni
 				end
 			end
 		end
-		-- the walk really reached the directory: `src/client/` holds 26 modules and
+		-- the walk really reached the directory: `src/client/` holds 27 modules and
 		-- every classified entry lives in four of them, so a path filter that
 		-- regressed to those four has to fail here rather than pass
 		expect(files >= 20).toBe(true)

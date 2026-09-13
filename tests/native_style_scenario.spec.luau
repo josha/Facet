@@ -378,7 +378,7 @@ describe("screen_target: the focus treatment (source contract)", function()
 	end)
 
 	it("the glow is a named UIShadow, capability-gated, and degrades to the ring", function()
-		local focus = section("function adapter.setFocusVisual", "\n\tend\n")
+		local focus = section("local function setFocusVisual", "\n\tend\n")
 		expect(string.find(focus, 'glow.Name = "FocusGlow"', 1, true) ~= nil).toBe(true)
 		expect(string.find(focus, 'Instance.new("UIShadow" :: any)', 1, true) ~= nil).toBe(true)
 		-- §8.4: focus is never optional, so an engine without UIShadow rings
@@ -395,7 +395,7 @@ describe("screen_target: the focus treatment (source contract)", function()
 	end)
 
 	it("blur removes the glow and forgets the handle, so nothing can stick", function()
-		local focus = section("function adapter.setFocusVisual", "\n\tend\n")
+		local focus = section("local function setFocusVisual", "\n\tend\n")
 		expect(string.find(focus, "focusedHandles[handle] = nil", 1, true) ~= nil).toBe(true)
 		local remove = section("function adapter.remove(handle: any)", "handle.instance:Destroy()")
 		expect(string.find(remove, "handle.focusGlow:Destroy()", 1, true) ~= nil).toBe(true)
