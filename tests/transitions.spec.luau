@@ -1428,3 +1428,234 @@ describe("transition coordinator: exits are faster than enters by default", func
 		clock:dispose()
 	end)
 end)
+
+--[[ STAGGER: A LIST'S ENTRANCE IS A RHYTHM (spec 2F). Rows arriving together
+	step in one after another instead of landing as one slab. Four properties are
+	pinned here, and they are the whole feature:
+
+	  1. the delay is REAL and ORDERED — a later row has not moved on a frame an
+	     earlier one has, and no row starts before its own delay;
+	  2. it is ENTER-ONLY — an exit is a dismissal, and a list that leaves one row
+	     at a time reads as a stall rather than a rhythm;
+	  3. reduced motion deletes the rhythm, not the information — every row lands
+	     on the first frame, with nothing left running;
+	  4. the WAIT is capped — past `STAGGER_CAP` rows the delay stops growing, so
+	     the last row of a 600-row list enters 400 ms in rather than half a minute
+	     later.
+
+	The delays themselves are read off `clock:timer` rather than off alpha
+	wherever the number is the claim: a painted alpha can only say "has moved",
+	which cannot tell 0.4 s from 0.55 s. ]]
+describe("transition coordinator: stagger", function()
+	local function rowsScreen(items: any, on: any, stagger: number?)
+		return UI.Screen({
+			id = "S",
+			children = {
+				UI.When({
+					id = "Gate",
+					condition = on,
+					thenView = function()
+						return UI.ForEach({
+							id = "List",
+							items = items,
+							key = function(item: any): string
+								return item.id
+							end,
+							transition = { enter = "fade", stagger = stagger },
+							row = function(item: any)
+								return UI.ZStack({
+									id = "Row",
+									canvasGroup = true,
+									children = { UI.Text({ id = "T", text = item.id }) },
+								})
+							end,
+						})
+					end,
+				}),
+			},
+		})
+	end
+	local function alphaOf(adapter: any, key: string): number
+		return adapter.node(`/S/Gate/then/List/[{key}]/Row`).canvasGroupInstance.groupTransparency
+	end
+	-- the booked delays, in the order the coordinator books them: the ONE
+	-- instrument that can say how long a row waited rather than merely that it
+	-- did. The exit cap is the only other timer this coordinator books, and it is
+	-- the one duration a hold can never take (eight beats of 0.05 is 0.4).
+	local function recordHolds(clock: any): { number }
+		local booked: { number } = {}
+		local realTimer = clock.timer
+		clock.timer = function(this: any, spec: any)
+			if spec.duration ~= transitionsLib.EXIT_CAP_SECONDS then
+				table.insert(booked, spec.duration)
+			end
+			return realTimer(this, spec)
+		end
+		return booked
+	end
+
+	it("later rows start later, and none starts before its delay", function()
+		local core, env, clock = world()
+		local items = core:signal({ { id = "a" }, { id = "b" }, { id = "c" } })
+		local on = core:signal(true)
+		local root, adapter, _, coordinator = attach(core, env, clock, rowsScreen(items, on, 0.05))
+		-- every row is painted ABSENT before the first frame — a held row waits at
+		-- the absent place, never at rest with a pop to follow
+		expect(alphaOf(adapter, "a")).toBe(1)
+		expect(alphaOf(adapter, "b")).toBe(1)
+		expect(alphaOf(adapter, "c")).toBe(1)
+		clock:step(FRAME)
+		expect(alphaOf(adapter, "a") < 1).toBe(true)
+		expect(alphaOf(adapter, "b")).toBe(1)
+		expect(alphaOf(adapter, "c")).toBe(1)
+		for _ = 1, 3 do
+			clock:step(FRAME)
+		end -- 4 frames ~ 67 ms > 50 ms: b has started, c (100 ms) has not
+		expect(alphaOf(adapter, "b") < 1).toBe(true)
+		expect(alphaOf(adapter, "c")).toBe(1)
+		for _ = 1, 120 do
+			clock:step(FRAME)
+		end
+		expect(alphaOf(adapter, "c")).toBe(0)
+		expect(clock:activeCount()).toBe(0)
+		root.dispose()
+		coordinator.dispose()
+		clock:dispose()
+	end)
+
+	it("exits never stagger", function()
+		local core, env, clock = world()
+		local items = core:signal({ { id = "a" }, { id = "b" }, { id = "c" } })
+		local on = core:signal(true)
+		local booked = recordHolds(clock)
+		local root, adapter, _, coordinator = attach(core, env, clock, rowsScreen(items, on, 0.05))
+		for _ = 1, 120 do
+			clock:step(FRAME)
+		end
+		expect(alphaOf(adapter, "c")).toBe(0)
+		expect(#booked).toBe(2) -- the enter's two held rows, and nothing since
+		items:set({})
+		clock:step(FRAME)
+		expect(alphaOf(adapter, "a") > 0).toBe(true)
+		expect(alphaOf(adapter, "b") > 0).toBe(true)
+		expect(alphaOf(adapter, "c") > 0).toBe(true)
+		expect(#booked).toBe(2) -- the exit booked no hold at all
+		root.dispose()
+		coordinator.dispose()
+		clock:dispose()
+	end)
+
+	it("reduced motion lands every row on the first frame", function()
+		local core, env, clock = world(true)
+		local items = core:signal({ { id = "a" }, { id = "b" }, { id = "c" } })
+		local on = core:signal(true)
+		local booked = recordHolds(clock)
+		local root, adapter, _, coordinator = attach(core, env, clock, rowsScreen(items, on, 0.05))
+		expect(alphaOf(adapter, "a")).toBe(0)
+		expect(alphaOf(adapter, "c")).toBe(0)
+		expect(#booked).toBe(0)
+		expect(clock:activeCount()).toBe(0)
+		root.dispose()
+		coordinator.dispose()
+		clock:dispose()
+	end)
+
+	it("the wait is capped, so a long list's last row is not half a minute late", function()
+		local core, env, clock = world()
+		local booked = recordHolds(clock)
+		local list: { any } = {}
+		for i = 1, 20 do
+			table.insert(list, { id = `r{i}` })
+		end
+		local items = core:signal(list)
+		local on = core:signal(true)
+		local root, _, _, coordinator = attach(core, env, clock, rowsScreen(items, on, 0.05))
+		expect(transitionsLib.STAGGER_CAP).toBe(8)
+		-- row 1 waits for nothing, so 20 rows book 19 holds
+		expect(#booked).toBe(19)
+		expect(booked[1]).toBeCloseTo(0.05)
+		expect(booked[8]).toBeCloseTo(8 * 0.05) -- row 9, the last distinct start
+		expect(booked[19]).toBeCloseTo(8 * 0.05) -- row 20 rides in with row 9
+		for _ = 1, 150 do
+			clock:step(FRAME)
+		end
+		expect(clock:activeCount()).toBe(0)
+		root.dispose()
+		coordinator.dispose()
+		clock:dispose()
+	end)
+
+	it("a batch is one clock step: rows added later start the rhythm over", function()
+		local core, env, clock = world()
+		local booked = recordHolds(clock)
+		local items = core:signal({ { id = "a" }, { id = "b" } })
+		local on = core:signal(true)
+		local root, _, _, coordinator = attach(core, env, clock, rowsScreen(items, on, 0.05))
+		expect(#booked).toBe(1)
+		expect(booked[1]).toBeCloseTo(0.05)
+		for _ = 1, 120 do
+			clock:step(FRAME)
+		end
+		items:set({ { id = "a" }, { id = "b" }, { id = "c" }, { id = "d" } })
+		-- c leads the NEW batch (no wait) and d follows it one beat later; if the
+		-- counter carried over they would be the third and fourth of one long queue
+		expect(#booked).toBe(2)
+		expect(booked[2]).toBeCloseTo(0.05)
+		for _ = 1, 120 do
+			clock:step(FRAME)
+		end
+		expect(clock:activeCount()).toBe(0)
+		root.dispose()
+		coordinator.dispose()
+		clock:dispose()
+	end)
+
+	it("a re-entry mid-exit reverses at once instead of waiting its turn", function()
+		local core, env, clock = world()
+		local booked = recordHolds(clock)
+		local items = core:signal({ { id = "a" }, { id = "b" }, { id = "c" } })
+		local on = core:signal(true)
+		local root, adapter, _, coordinator = attach(core, env, clock, rowsScreen(items, on, 0.05))
+		for _ = 1, 120 do
+			clock:step(FRAME)
+		end
+		expect(#booked).toBe(2)
+		items:set({})
+		for _ = 1, 5 do
+			clock:step(FRAME)
+		end
+		local midway = alphaOf(adapter, "c")
+		expect(midway > 0 and midway < 1).toBe(true)
+		items:set({ { id = "a" }, { id = "b" }, { id = "c" } })
+		-- all three are ON SCREEN already, so none of them books a hold: the row
+		-- that would have waited two beats is heading home on the very next frame
+		-- rather than freezing part-faded until its turn came round
+		expect(#booked).toBe(2)
+		clock:step(FRAME)
+		-- a HELD row paints the very same alpha on this frame and every frame
+		-- until its turn; a reversing one is already moving (still outward here,
+		-- on the momentum the exit carried in — which is the point of reversing
+		-- through one continuous spring rather than restarting)
+		expect(alphaOf(adapter, "c") ~= midway).toBe(true)
+		for _ = 1, 10 do
+			clock:step(FRAME)
+		end
+		expect(alphaOf(adapter, "c") < midway).toBe(true)
+		for _ = 1, 120 do
+			clock:step(FRAME)
+		end
+		expect(alphaOf(adapter, "c")).toBe(0)
+		expect(clock:activeCount()).toBe(0)
+		root.dispose()
+		coordinator.dispose()
+		clock:dispose()
+	end)
+
+	it("the schema refuses a negative stagger, and resolve defaults it to zero", function()
+		local ok, err = pcall(transitionsLib.resolve, { enter = "fade", stagger = -1 })
+		expect(ok).toBe(false)
+		expect(string.find(tostring(err), "stagger", 1, true) ~= nil).toBe(true)
+		expect(transitionsLib.resolve({ enter = "fade" }).stagger).toBe(0)
+		expect(transitionsLib.resolve({ enter = "fade", stagger = 0.05 }).stagger).toBe(0.05)
+	end)
+end)

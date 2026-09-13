@@ -111,6 +111,19 @@ local DEFAULT_SLIDE_DISTANCE = 24
 local MATERIALIZE_SCALE = 0.96
 local DEFAULT_CLASS = "container"
 local DEFAULT_EXIT_CLASS = "dismiss"
+--[[ A LIST'S ENTRANCE IS A RHYTHM, NOT A QUEUE (spec 2F). `spec.stagger` is the
+	beat between one row's enter and the next one's, and past this many rows the
+	WAIT STOPS GROWING: every further row starts with row nine. The cap is on the
+	number a player experiences — at a 50 ms beat, the last row of a 600-row list
+	enters 400 ms in rather than half a minute later — and an uncapped beat is
+	not a slower rhythm, it is a list that never finishes arriving.
+
+	IT IS NOT A CAP ON TIMERS, and saying so would be a lie: each held row still
+	books its own hold (the rows past the cap simply all book the SAME duration).
+	That is the same order as the springs and the nodes a 600-row enter already
+	costs, and it keeps the hold a property of the ENTRY — which is what lets
+	`stopCap` tear one down without asking whether some other row still needs it. ]]
+local STAGGER_CAP = 8
 local TRANSITION_SPEC = (schema.forClass("ForEach") :: any).props.transition
 
 -- travel vector per form, in screen space (+y is down)
@@ -135,6 +148,9 @@ export type Spec = {
 	-- the plate acknowledgement (schema.TRANSITION_PLATES); nil = unacknowledged,
 	-- which is every caller that has not said otherwise
 	plate: string?,
+	-- seconds between one entering row and the next (STAGGER_CAP above); 0 = the
+	-- whole batch enters together, which is every caller before this field
+	stagger: number,
 }
 
 export type Opts = {
@@ -173,6 +189,7 @@ function transitions.resolve(declared: any): Spec
 		pivot = declared.pivot,
 		plate = declared.plate,
 		distance = if type(declared.distance) == "number" then declared.distance else nil,
+		stagger = if type(declared.stagger) == "number" then declared.stagger else 0,
 	}
 end
 
@@ -452,6 +469,53 @@ function transitions.new(opts: Opts)
 				table.insert(foundBackdrops, finding)
 			end
 		end
+	end
+
+	--[[ WHO ENTERS TOGETHER (spec 2F). A stagger is a rhythm over the rows of ONE
+		list arriving in ONE frame, so the index a row's delay is multiplied by is
+		its place in THAT batch — not its place in the list, and not a global
+		counter that would make the tenth list of a session start ten beats late.
+
+		THE FRAME is `clock:stats().steps`, the count of steps that did work. Every
+		enter of one structural pass is booked before the clock can step again, so
+		they read the same count; the next pass reads a moved one and starts over.
+		The one shape this cannot separate is two batches with NO work-doing step
+		between them — which needs the first batch to have animated nothing, and an
+		enter always animates (a spring it aims, or a hold it books).
+
+		THE LIST is the path with the row's own segment AND the keyed segment above
+		it removed. `mount.luau` builds a ForEach row at `<list>/[key]/<rowId>`, so
+		stripping only the last segment would hand every row its own private batch
+		and no row would ever wait for another. A region that is not keyed (a `When`
+		branch) keeps its parent, which is the right answer for it: a lone branch is
+		the first of its batch and waits for nothing. ]]
+	local staggerStep, staggerCounts = -1, {} :: { [string]: number }
+	local function batchKey(path: string): string
+		local parent = string.match(path, "^(.*)/[^/]+$") or ""
+		return string.match(parent, "^(.*)/%[[^/]*%]$") or parent
+	end
+	local function staggerDelay(path: string, spec: Spec): number
+		if spec.stagger <= 0 then
+			return 0
+		end
+		-- REDUCED MOTION HAS NO RHYTHM TO DELETE. The authority already lands every
+		-- row on the spot, and a hold would only postpone that landing: a decorative
+		-- timer under reduced motion holds its VALUE immediately but defers its
+		-- settle EVENT to the next step (`motion.luau`'s autoStart branch, which
+		-- does that deliberately so a consumer subscribing on the next line cannot
+		-- miss it). One frame of every row absent is exactly the pop this whole
+		-- setting exists to remove, so the rhythm is asked for here instead.
+		if clock:isReduced() then
+			return 0
+		end
+		local step = clock:stats().steps
+		if step ~= staggerStep then
+			staggerStep, staggerCounts = step, {}
+		end
+		local key = batchKey(path)
+		local n = staggerCounts[key] or 0
+		staggerCounts[key] = n + 1
+		return math.min(n, STAGGER_CAP) * spec.stagger
 	end
 
 	-- task-fix3 symptoms 2/3 (director device round, 2026-08-23): "slides a few
@@ -775,6 +839,14 @@ function transitions.new(opts: Opts)
 			end
 			return
 		end
+		--[[ A REVERSAL IS NOT AN ENTRANCE. An entry that already exists is
+			mid-flight — exiting, or parked by `cancelExit` — and therefore ON
+			SCREEN right now. Holding one would freeze a visible row at whatever
+			alpha its exit had reached and then resume it, which reads as a
+			stutter rather than a rhythm; and counting it into the batch would
+			push the rows that really are arriving a beat further out. Only a row
+			travelling from the absent place waits, and only those are counted. ]]
+		local reversal = entries[path] ~= nil
 		local entry = entryFor(path, node, spec, 0, alphaPath, spec.class, nil)
 		retune(entry, spec.class, nil)
 		stopCap(entry)
@@ -782,7 +854,32 @@ function transitions.new(opts: Opts)
 		entry.phase = "enter"
 		setAbsent(entry, absentFor(spec, spec.enter, "enter"))
 		writeEntry(entry) -- seed the absent place before the first step
-		entry.progress:setTarget(1)
+		local delay = if reversal then 0 else staggerDelay(path, spec)
+		if delay <= 0 then
+			entry.progress:setTarget(1)
+			return
+		end
+		--[[ HOLD AT THE ABSENT PLACE, THEN AIM. The row is already painted absent
+			(the seed above), so the wait is invisible: a row that has not started
+			yet, never a row stalled part way. The hold rides `entry.cap`, the same
+			slot the exit cap uses, because the two can never be live at once — and
+			because every teardown path already clears that slot, so an exit,
+			a re-entry or a disposal arriving DURING the wait cancels the wait with
+			no code of its own (`stopCap`, which `beginExit`/`cancelExit`/
+			`disposeEntry` all call; `stopCap` above has just freed it for us). ]]
+		local hold = clock:timer({ from = 0, to = 1, duration = delay, kind = "decorative" })
+		entry.cap = hold
+		hold:onSettle(function()
+			if entry.cap == hold then
+				entry.cap = nil
+			end
+			if entry.phase == "enter" and not entry.disposed then
+				entry.progress:setTarget(1)
+			end
+			-- the hold is spent; drop it from the clock's owned set rather than
+			-- leave it there until the whole surface's clock is disposed
+			hold:dispose()
+		end)
 	end
 
 	-- nil = "dispose now" (no declared transition, or an `instant` exit): the mount
@@ -884,5 +981,8 @@ transitions.DEFAULT_EXIT_CLASS = DEFAULT_EXIT_CLASS
 -- same reason the classes are: `tests/transitions.spec.luau` reads it to say how
 -- much of its travel an exit may end with, rather than re-deriving the number
 transitions.EXIT_EPS = EXIT_EPS
+-- how far a list's stagger may accumulate before every further row rides in with
+-- the last delayed one (see STAGGER_CAP above)
+transitions.STAGGER_CAP = STAGGER_CAP
 
 return transitions

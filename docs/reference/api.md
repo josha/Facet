@@ -2408,7 +2408,7 @@ UI.ForEach({ items = rows, key = function(e) return e.key end, row = function(e)
 
 #### Structural transitions
 
-`transition = { enter, exit?, class?, exitClass?, fade?, distance?, pivot?, plate? }`
+`transition = { enter, exit?, class?, exitClass?, fade?, distance?, pivot?, plate?, stagger? }`
 on `UI.When`, `UI.ForEach`, a `presentToast` and `PresentOpts`.
 
 - **Forms:** `"fade"`, `"slide-up"`, `"slide-down"`, `"slide-left"`,
@@ -2432,6 +2432,15 @@ on `UI.When`, `UI.ForEach`, a `presentToast` and `PresentOpts`.
   easing in from its own edge) with the surface's own full extent, for a slide
   that IS the surface leaving/entering the screen (a full-viewport push/pop).
   Omitted, every caller keeps the themed default unchanged.
+- **`stagger`** (seconds, enter only) is the beat between one entering row and
+  the next, for a region whose children arrive together — a list that lands as
+  one slab reads as a redraw, the same rows a beat apart read as a list. The
+  batch is the rows of ONE region entering in ONE frame, in list order; the
+  accumulated wait stops growing after eight beats, so a 600-row list's last row
+  enters with its ninth rather than half a minute later.
+  **Exits never stagger** (a list leaving one row at a time is a stall), a
+  re-entry mid-exit reverses immediately rather than waiting, and reduced motion
+  lands every row on the first frame.
 - **A fading form needs a fade group.** `fade`, `materialize` and
   `fade = true` drive transparency, so the region's child must EITHER be
   declared `UI.ZStack{ canvasGroup = true }` (or `UI.Box{ canvasGroup = true }`

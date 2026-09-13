@@ -513,6 +513,12 @@ export type TransitionSpec = {
 	-- separately-fading content (`src/render/transitions.luau`'s gate reports
 	-- every shape but the sole-child plate exactly as before).
 	plate: string?,
+	-- seconds between one entering row and the next, for a region whose children
+	-- arrive together (default 0 — they enter as one). The accumulated wait is
+	-- capped at eight beats (`render/transitions.luau`'s `STAGGER_CAP`), so a long
+	-- list's last row is a beat behind the ninth rather than minutes behind the
+	-- first.
+	stagger: number?,
 }
 
 -- `thenView`'s `branchScope` is the BRANCH's ownership scope, disposed when the

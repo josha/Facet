@@ -219,6 +219,7 @@ local TRANSITION_KEYS: { [string]: boolean } = {
 	distance = true,
 	pivot = true,
 	plate = true,
+	stagger = true,
 }
 -- where a scaling form (materialize) grows FROM: the node's centre unless the
 -- caller names the corner it is attached at (an anchored popover grows out of
@@ -674,7 +675,7 @@ local TYPE_CHECKS: { [string]: (any) -> (boolean, string?) } = {
 			if type(k) ~= "string" or not TRANSITION_KEYS[k] then
 				return false,
 					`unknown transition field '{tostring(k)}' `
-						.. `(enter | exit | class | exitClass | fade | distance | pivot | plate)`
+						.. `(enter | exit | class | exitClass | fade | distance | pivot | plate | stagger)`
 			end
 		end
 		local enter = (v :: any).enter
@@ -718,6 +719,25 @@ local TYPE_CHECKS: { [string]: (any) -> (boolean, string?) } = {
 		then
 			return false,
 				"distance is a finite positive number of px (the slide forms' own full travel, no unit suffix)"
+		end
+		--[[ THE LIST RHYTHM (spec 2F): seconds between one row's enter and the
+			next one's, for a region whose children arrive TOGETHER. A list that
+			lands as one slab reads as a redraw; the same rows arriving a beat
+			apart read as a list. It is a DURATION, so 0 — the default, and every
+			caller that has not said otherwise — is the legal "no rhythm", while a
+			negative one is not a shorter wait but a nonsense one. Nothing here
+			caps how coarse a beat an author may ASK for (a languid list is a
+			taste decision); `render/transitions.luau`'s `STAGGER_CAP` caps how
+			far the accumulated wait may GROW down a long list, which is the half
+			that is not a matter of taste. ]]
+		local stagger = (v :: any).stagger
+		if
+			stagger ~= nil
+			and (type(stagger) ~= "number" or stagger ~= stagger or stagger < 0 or stagger == math.huge)
+		then
+			return false,
+				"stagger is a non-negative number of SECONDS between one row's enter and the next "
+					.. "(0, the default, enters them together)"
 		end
 		--[[ THE PLATE ACKNOWLEDGEMENT. `plate = "fades"` says: this surface's plate
 			is meant to fade with its content — the modal/popover shape whose
