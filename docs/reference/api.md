@@ -2491,8 +2491,12 @@ on `UI.When`, `UI.ForEach`, a `presentToast` and `PresentOpts`.
 - **`plate = "fades"`** is the one acknowledgement that rule takes: *this
   surface's plate is meant to fade with its content* — the modal/popover shape,
   whose backdrop is the **scrim behind the whole surface** rather than the
-  card's own face. `Controls.Alert`, `Controls.Menu`'s floating popover and the
-  menu-style `Picker` declare it; nothing else needs to. Do NOT write it to
+  card's own face. The rule in one line: **the plate IS the surface, and
+  whatever is behind it is a scrim or nothing at all (a toast) — never
+  separately-fading content.** `Controls.Alert`, `Controls.Menu`'s floating
+  popover, the menu-style `Picker` and the presenter's own **toast layer**
+  declare it (a toast body is its own plate with the live app behind it, which
+  it never claimed to hide); nothing else needs to. Do NOT write it to
   silence a backdrop finding on a plate that sits behind separately-fading
   content: it is honoured only for a fade group whose **sole** child is the
   plate, so a plate with a sibling still reports exactly as before, and the

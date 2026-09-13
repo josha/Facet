@@ -207,7 +207,14 @@ local TRANSITION_MIRROR: { [string]: string } = {
 	the invariant is about is the presenter's scrim BEHIND the whole surface, not
 	the card's own face. No tree read can tell the two apart (a full-bleed page
 	push whose plate is its sole child is byte-identical), so the difference is
-	DECLARED at the one place that knows it. ]]
+	DECLARED at the one place that knows it.
+
+	THE RULE IN ONE LINE: the plate IS the surface, and whatever is behind it is a
+	scrim or nothing at all (a toast) — never separately-fading content. An Alert
+	card and a Menu popover have a scrim behind them; a toast has the app, which
+	it never claimed to hide. What the key must NEVER say is "this plate sits
+	behind content that fades with it", which is the defect itself, and the
+	SOLE-CHILD restriction in the finder is what keeps it from being able to. ]]
 local TRANSITION_PLATES: { [string]: boolean } = { fades = true }
 schema.TRANSITION_PLATES = table.freeze(TRANSITION_PLATES)
 local TRANSITION_KEYS: { [string]: boolean } = {

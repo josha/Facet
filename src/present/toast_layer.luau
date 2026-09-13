@@ -138,6 +138,59 @@ function toast_layer.new(ctx: Ctx)
 	local toastSchedule: any = nil
 	local syncToastLayer: () -> ()
 
+	--[[ THE TOAST IS ITS OWN PLATE, and the layer says so (final review item 4).
+
+		`toastRowBlueprint` below wraps whatever the caller handed us as the SOLE
+		child of a `canvasGroup` `Toast` node and fades it — the same sole-child
+		plate shape `Controls.Alert`, `Controls.Menu`'s popover and the menu-style
+		`Picker` each acknowledged with `transition.plate = "fades"`, because a
+		real toast body IS a plate: a raised snack bar with a line of text on it.
+		Without the declaration the backdrop finder reports that shape as a defect,
+		and the shape it is really describing — a plate that is meant to hide
+		whatever is BEHIND the whole fading surface sitting inside it — does not
+		exist here. There is nothing behind a toast at all.
+
+		It stayed invisible because no reference-app sweep drives a toast, so the
+		finding this layer raises on every single toast was counted by nobody.
+		`tests/reference/foyer_spec.luau` now raises one.
+
+		MERGED, NEVER OVERWRITTEN, the Alert idiom exactly: a caller's own `plate`
+		is their call and passes through by identity, and a caller who bound their
+		transition to a Readable gets a memo that merges the same key at the read
+		— a `table.clone` of a signal would be a broken copy, which is why the
+		Readable has its own arm rather than falling into the table one. ]]
+	local function defaultToastTransition(position: string): any
+		return {
+			-- a toast comes from the edge it docks to, and fades with it
+			enter = if position == "bottom" then "slide-up" else "slide-down",
+			fade = true,
+			plate = "fades",
+		}
+	end
+	local function mergeToastPlate(value: any): any
+		if type(value) ~= "table" or value.plate ~= nil then
+			return value
+		end
+		local merged = table.clone(value)
+		merged.plate = "fades"
+		return merged
+	end
+	local function acknowledgeToastPlate(coreRef: any, scope: any, declared: any, position: string): any
+		if declared == nil or declared == false then
+			return defaultToastTransition(position)
+		end
+		if type(declared) == "table" and (declared.kind == "signal" or declared.kind == "memo") then
+			return scope:own(coreRef:memo(function(use)
+				local value = use(declared)
+				if value == nil or value == false then
+					return defaultToastTransition(position)
+				end
+				return mergeToastPlate(value)
+			end))
+		end
+		return mergeToastPlate(declared)
+	end
+
 	local function toastRowBlueprint(entry: any): any
 		-- the fade GROUP the transition needs, wrapped by the presenter so a caller
 		-- never has to know that a fade is a CanvasGroup fact
@@ -194,13 +247,8 @@ function toast_layer.new(ctx: Ctx)
 		-- one layer, one stacking direction, so a burst cannot make the strip hop
 		-- from one edge to the other mid-read
 		toastPosition = if options.position == "bottom" then "bottom" else "top"
-		toastTransition = options.transition
-			or {
-				-- a toast comes from the edge it docks to, and fades with it
-				enter = if toastPosition == "bottom" then "slide-up" else "slide-down",
-				fade = true,
-			}
 		local sc = core:scope("present-toast")
+		toastTransition = acknowledgeToastPlate(core, sc, options.transition, toastPosition)
 		-- scope-owned, so a layer that comes and goes twenty times leaves the core's
 		-- counters exactly where it found them
 		local items = sc:own(core:signal({}))
