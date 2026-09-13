@@ -28,10 +28,15 @@ runtime as `Facet.VERSION`.
   the pill rule, and anything else is the container's radius less one `space.xs`,
   the inset the fill floats by. A segmented picker's fill therefore sits
   concentric inside its own `radii.control` track, and a `TabView`'s adaptable
-  app bar — a `radii.pill` capsule that previously held a `radii.selection`
-  rounded rect (999 against 4 under Compact Pointer) — now holds a capsule. The
-  bar's own corner is unchanged, and so is what plain `radii.selection` means, so
-  a menu card's chosen-row shade reads it exactly as before. New gate:
+  app bar in its BAND form — a `radii.pill` capsule that previously held a
+  `radii.selection` rounded rect (999 against 4 under Compact Pointer) — now
+  holds a capsule. Its SIDEBAR RAIL names no container and its rows keep plain
+  `radii.selection`, because a selected row sits in the middle of a column rather
+  than concentric with the rail's outer corner. `newPicker` gains an optional
+  `stripCorner` for a caller that suppressed the picker's own track; it refuses a
+  name outside the container vocabulary and refuses to sit on a tracked strip.
+  The bar's own corner is unchanged, and so is what plain `radii.selection`
+  means, so a menu card's chosen-row shade reads it exactly as before. New gate:
   `tests/selection_shape_container.spec.luau`.
 - Fixed: a `TabView`'s strip touched its page at every placement but the sidebar.
   The root stack spent the theme's `m` step beside a rail and nothing at all
@@ -58,9 +63,11 @@ runtime as `Facet.VERSION`.
   stack that fills the band and holds the scroller), so one `panel` recipe frames
   the pane a player looks at and carries the shadow, and every row's own fill
   reads against it; the row's sender line fills and truncates, so the panel's
-  carved border comes out of the name rather than out of the box, and the card
-  gives way on a screen with no room for one. It cannot live on the ScrollView
-  itself — `chrome_slots.classify` answers for a ScrollView's own chrome (its
+  carved border comes out of the name rather than out of the box. The card gives
+  way only when the band MEASURES too small for the package's own carved frame
+  plus one tappable row — a package that carves nothing (Facet Neutral among
+  them) therefore never loses its plate at any size. It cannot live on the
+  ScrollView itself — `chrome_slots.classify` answers for a ScrollView's own chrome (its
   SCROLLBAR) before it reads the declared surface — so the gate pins the SLOT
   beside the surface name. New gate: `tests/row_plate_paint.spec.luau`.
 - Segmented picker, shape round (2026-09-12, user visual review). The strip is

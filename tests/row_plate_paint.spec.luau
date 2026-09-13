@@ -103,9 +103,10 @@ local PACKAGES: { { name: string, module: any } } = {
 	{ name = "scifi_hud", module = require("../examples/themes/scifi_hud") },
 }
 
-local function scenarioWorld(module: any, viewport: any?, textOffset: number?)
+local function scenarioWorld(module: any, viewport: any?, textOffset: number?, metrics: any?)
 	local w = worldLib.new({
 		viewport = viewport or { x = 0, y = 0, w = 1232, h = 1067 },
+		themeMetrics = metrics,
 		env = if textOffset ~= nil then { preferredTextOffset = textOffset } else nil,
 	})
 	local built = module.build({
@@ -250,20 +251,84 @@ describe("list row plate: the fixture declares the plate it paints", function()
 		expect(plate.rect.h > w.adapter.node(PLATE_PATH .. "/List/Rows").rect.h).toBe(true)
 	end)
 
-	--[[ ...AND IT GIVES WAY WHERE THERE IS NO ROOM FOR IT, which is the fixture's
-		own standing rule ("the chrome gives way, not the content") reaching one
-		more piece of chrome. A `panel` recipe carves `contentInsets` the solver
-		spends as padding — 18 a side under Fantasy Parchment — and on a 640x320
-		landscape at the largest preference the list's band is a few pixels tall
-		before any of that, so the frame left nothing inside it to draw. Pinned as a
-		DECISION, with the shape that forces it measured beside it. ]]
-	it("...and the card gives way on a screen too short to hold one", function()
-		local short = scenarioWorld(rowActions, { x = 0, y = 0, w = 640, h = 320 }, 14)
-		expect(short.adapter.node(PLATE_PATH).props.surface).toBeNil()
-		-- the rows are still there, still separated, still reading against the page
-		expect(short.adapter.node(ROW_PATH).props.surface).toBe("base")
-		local ornate = require("../examples/themes/fantasy_parchment").build(Facet.themes)
-		expect(Facet.themes.resolve(ornate, nil, {}).chromeInsets.panel.top >= 18).toBe(true)
+	--[[ ...AND IT GIVES WAY ONLY WHEN THE BAND CANNOT HOLD IT, which is a
+		MEASUREMENT and not a viewport class (controller ruling, round 3, from a live
+		capture of the rebuilt showcase under Pixel Quest).
+
+		The first gate was `conditions.isShort`, "the viewport is under 600px tall".
+		The showcase's emulated device is 677x338, so it fired on an ORDINARY PHONE
+		LANDSCAPE and the plate vanished in every theme — the owner's original report
+		reintroduced by its own fix, while only the two nine-slice packages ever
+		overflowed anything. The rule is arithmetic on two measured numbers now: the
+		band's solved height against the package's own carved frame
+		(`chromeInsets.panel`) plus one tappable row (`targetSizes.minimum`). A
+		package that carves nothing can squeeze nothing, so it never loses its plate
+		at any size. ]]
+	it("the showcase's own device keeps the plate, and the `panel` slot, in every package", function()
+		-- 677x338, default text: the shape the live capture was taken at
+		local view = { x = 0, y = 0, w = 677, h = 338 }
+		for _, entry in PACKAGES do
+			local package, report = entry.module.build(Facet.themes)
+			assert(package ~= nil, `{entry.name} failed its own package gate: {report and report.errors[1]}`)
+			local metrics = Facet.themes.resolve(package, nil, {})
+			local plate = scenarioWorld(rowActions, view, 0, metrics).adapter.node(PLATE_PATH)
+			assert(plate ~= nil, `{entry.name}: the list mounted no plate at 677x338`)
+			local carved = metrics.chromeInsets.panel.top + metrics.chromeInsets.panel.bottom
+			assert(
+				plate.props.surface == "raised",
+				`{entry.name}: the plate gave way at 677x338 — band {plate.rect.h}px, carved {carved}px, `
+					.. `floor {metrics.targetSizes.minimum}px`
+			)
+			expect(`{entry.name} {chrome_slots.classify({ class = plate.class, surface = plate.props.surface })}`).toBe(
+				`{entry.name} panel`
+			)
+		end
+	end)
+
+	--[[ THE CELL THE SWEEP ACTUALLY EXERCISES, reproduced here. The overflow
+		sweep's narrow-landscape row is 640x320 MINUS the showcase's own top
+		reservation (the CoreGui inset plus its two picker chips), which is what
+		leaves the band at single digits; in this bare harness the same band arrives
+		at 640x200. Measured at both, so the number is on the record rather than
+		implied: at 640x320 the band is 128px under Fantasy Parchment and 122 under
+		Glossy Touch and the card STAYS (36 + 44 and 28 + 44 both fit); at 640x200 it
+		is 8px and 2px and the card goes. ]]
+	it("a band too small for the carved frame drops the card, in the packages that carve one", function()
+		for _, name in { "fantasy_parchment", "glossy_touch" } do
+			local package = (require :: any)(`../examples/themes/{name}`).build(Facet.themes)
+			local metrics = Facet.themes.resolve(package, nil, {})
+			local carved = metrics.chromeInsets.panel.top + metrics.chromeInsets.panel.bottom
+			expect(`{name} carves {carved > 0}`).toBe(`{name} carves true`)
+
+			local roomy = scenarioWorld(rowActions, { x = 0, y = 0, w = 640, h = 320 }, 14, metrics)
+			local roomyPlate = roomy.adapter.node(PLATE_PATH)
+			assert(
+				roomyPlate.props.surface == "raised",
+				`{name}: the card went at 640x320 (+14), where the band is {roomyPlate.rect.h}px`
+			)
+
+			local tight = scenarioWorld(rowActions, { x = 0, y = 0, w = 640, h = 200 }, 14, metrics)
+			local tightPlate = tight.adapter.node(PLATE_PATH)
+			assert(
+				tightPlate.props.surface == nil,
+				`{name}: the card stayed on a {tightPlate.rect.h}px band against a {carved}px frame`
+			)
+			-- ...and the rows are still there, still separated, still on the page
+			expect(tight.adapter.node(ROW_PATH).props.surface).toBe("base")
+		end
+	end)
+
+	it("...and a package that carves nothing keeps its plate on the same bands", function()
+		-- Facet Neutral publishes no panel insets, so its card cannot squeeze
+		-- anything and the band's height never enters the question
+		for _, height in { 320, 200 } do
+			local w = scenarioWorld(rowActions, { x = 0, y = 0, w = 640, h = height }, 14)
+			local plate = w.adapter.node(PLATE_PATH)
+			assert(
+				plate.props.surface == "raised",
+				`Facet Neutral at 640x{height} +14: the card went on a {plate.rect.h}px band`
+			)
+		end
 	end)
 
 	it("...and the row still takes no decoration slot, so no package shadow reaches a neighbour", function()

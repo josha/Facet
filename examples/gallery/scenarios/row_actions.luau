@@ -448,18 +448,76 @@ return {
 			it frames the pane a player looks at, and it is a Frame, so it takes the
 			`panel` recipe. The spec pins the SLOT beside the surface name for exactly
 			that reason. ]]
-		--[[ ...AND THE CARD GIVES WAY ON A SCREEN WITH NO ROOM FOR ONE, which is
-			this file's own standing rule ("THE CHROME GIVES WAY, NOT THE CONTENT",
-			`showHeading` above) reaching one more piece of chrome. A `panel` recipe
-			carves `contentInsets` the solver spends as padding — 18 a side under
-			Fantasy Parchment, 14 under Glossy Touch — and on a 640x320 landscape at
-			the largest text preference this band is 2-8px tall before any of that,
-			so the frame left nothing inside it to draw at all
-			(`tests/overflow_sweep.spec.luau`, both packages). A screen that short
-			shows the rows instead: they keep their own fill and their separators, so
-			nothing becomes unreadable. ]]
+		--[[ ...AND THE CARD GIVES WAY ONLY WHEN THE BAND CANNOT HOLD IT, which is a
+			MEASUREMENT and not a viewport class (controller ruling, review round 3;
+			live capture of the rebuilt showcase under Pixel Quest).
+
+			The first gate was `conditions.isShort` — "the viewport is under 600px
+			tall". The showcase's emulated device is 677x338, so that fired on an
+			ORDINARY PHONE LANDSCAPE and the plate vanished in EVERY theme, which is
+			the owner's original report reintroduced by its own fix. The band there is
+			249-289px; a panel needs at most 60 of that.
+
+			WHAT ACTUALLY CANNOT FIT is a carved frame wider than the band it is
+			carved out of. `chromeInsets.panel` is the recipe's own border, spent by
+			the solver as this node's padding (`render/layout_node.luau`), so the
+			question is arithmetic on two measured numbers: the band's solved height
+			against the frame plus one tappable row. Measured at 640x200 with the
+			largest text preference — the shape the overflow sweep's narrow-landscape
+			cell produces once the showcase's own top chrome is reserved — the band is
+			8px under Fantasy Parchment and 2px under Glossy Touch against frames of
+			36 and 28, which is where the card has to go.
+
+			TWO CHOICES INSIDE THE RULE, both deliberate:
+
+			  * A PACKAGE THAT CARVES NOTHING NEVER LOSES ITS PLATE. Facet Neutral,
+			    Classic Desktop, Glossy Mobile and Sci-Fi HUD publish zero panel
+			    insets, so their card cannot squeeze anything and there is nothing to
+			    give way from. The band's height never enters it.
+			  * "ONE ROW" IS THE THEME'S TAP FLOOR (`targetSizes.minimum`, 44-48px),
+			    not this list's own row. At the largest preference a mail row measures
+			    156-250px, so demanding a whole one would hide the card on every
+			    phone landscape — the same over-reach as the viewport gate, one number
+			    over. The floor is the honest question: is there room for something a
+			    finger can hit? ]]
+		local LIST_PLATE = "/MailActions/ListWhen/then/ListPlate"
+		-- the band's solved height, fed back by the presenter after every solve.
+		-- `math.huge` until one lands: an unmeasured band is not a small one, and a
+		-- card that flickered off on the first frame would be its own defect.
+		local listBandHeight = scope:own(core:signal(math.huge))
+		--[[ ...AND IT IS MEASURED ONCE PER SHAPE, which is not tidiness but the
+			thing that makes this converge. Under Fantasy Ornate — the deepest frame
+			in the corpus at 30px a side — turning the card ON does not always leave
+			the band where it was: the plate's own minimum grows past its fill share,
+			the screen re-distributes, and at eight of the swept cells the band came
+			back SMALLER with the card than without it. A rule that re-read the band
+			after every solve then answered "drop" and "keep" alternately forever, and
+			the renderer said so ("a solve's geometry feedback did not converge in 8
+			rounds — a consumer publishing a layout prop derived from the rect that
+			prop moves?"). It is exactly that consumer.
+
+			So the band is read ONCE per (viewport height, text preference) — the two
+			facts that actually decide how much room the list gets — and held. A new
+			shape takes a fresh reading; a re-solve under the same shape reads the
+			number already taken. One flip per shape, and it settles. ]]
+		local listBandShape = scope:own(core:memo(function(use)
+			local offset = use(ctx.env:get("preferredTextOffset"))
+			return `{use(conditions.viewportHeight)}:{tostring(offset)}`
+		end))
+		local listBandMeasuredFor: string? = nil
 		local listPlateSurface = scope:own(core:memo(function(use)
-			return if use(conditions.isShort) then nil else "raised"
+			local metrics = use(ctx.env:get("themeMetrics"))
+			local insets = if type(metrics) == "table" then (metrics :: any).chromeInsets else nil
+			local panel = if type(insets) == "table" then (insets :: any).panel else nil
+			local carved = if type(panel) == "table"
+				then (tonumber(panel.top) or 0) + (tonumber(panel.bottom) or 0)
+				else 0
+			if carved <= 0 then
+				return "raised"
+			end
+			local targets = if type(metrics) == "table" then (metrics :: any).targetSizes else nil
+			local floor = if type(targets) == "table" then tonumber(targets.minimum) else nil
+			return if use(listBandHeight) < carved + (floor or 44) then nil else "raised"
 		end))
 		local listBody = UI.VStack({
 			id = "ListPlate",
@@ -893,6 +951,33 @@ return {
 		local result: any
 		result = {
 			screen = screen,
+			--[[ THE BAND'S OWN HEIGHT, fed back after every solve (the
+				`present.onGeometry` broadcast `measured_extents` and
+				`variable_extents` already use for their windows). It is what turns
+				"does the card fit" from a viewport class into arithmetic — see
+				`listPlateSurface` above.
+
+				IT CANNOT CHASE ITS OWN TAIL: `ListPlate` takes `fill` inside the
+				screen's stack, so its OUTER height is decided by the screen and never
+				by the surface it wears. Dropping the plate frees the frame INSIDE the
+				node and moves this number not at all. ]]
+			present = {
+				onGeometry = function(rectOf: (string) -> any)
+					local shape = listBandShape:get()
+					if listBandMeasuredFor == shape then
+						return -- this shape's band is already on the record
+					end
+					local band = rectOf(LIST_PLATE)
+					if band == nil or type(band.h) ~= "number" then
+						return
+					end
+					listBandMeasuredFor = shape
+					local measured = math.max(0, math.floor(band.h))
+					if measured ~= listBandHeight:get() then
+						listBandHeight:set(measured)
+					end
+				end,
+			},
 			steps = {
 				-- state drivers -----------------------------------------------------
 				mode = function(_built: any, payload: string?)
