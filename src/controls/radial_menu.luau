@@ -2366,6 +2366,38 @@ function radial.build(Facet: any, core: any, spec: Spec)
 			if not opened:get() or not graph or layout:get().mode == "list" then
 				return false
 			end
+			--[[ AN ANALOG AIM OWNS THE RING, AND A HELD STICK IS NOT A REPEAT.
+
+				The presenter's d-pad/analog auto-repeat glue (`presenter.luau`,
+				DPAD_REPEAT_DELAY_S = 0.4 then DPAD_REPEAT_INTERVAL_S = 0.1)
+				re-dispatches a HELD gamepad direction as a fresh
+				`navigateHorizontal`/`navigateVertical` every repeat interval, so
+				that a held d-pad steps a menu row by row. A list wants that. A ring
+				does not: the stick's ANGLE names the wedge absolutely, the
+				Direction2D binding in `bindActionSystem` below already re-aims from
+				that angle, and a second, INCREMENTAL opinion about "the next wedge
+				along" can only fight it.
+
+				MEASURED (tests/radial_hold_resolve.spec.luau, 2026-09-13). With the
+				stick parked due east and never touched again, the repeats walked
+				focus `:point` -> `:call` -> `:point` -> `:call` — an invisible ring
+				step every repeat interval, leaving the painted candidate on a wedge
+				the stick was not pointing at — and every step cost a full layout
+				solve: 7 solves across 60 otherwise idle frames, one at the 0.4 s
+				delay and one every 0.1 s after it.
+
+				CLAIMED (`true`), NOT DECLINED: declining hands the same repeat to
+				`graph.navigateDirection` instead, which is the identical defect one
+				layer down. Only the ANALOG case is claimed — a discrete d-pad press
+				with the stick centred still steps the ring geometrically below,
+				exactly as before, and so does the FIRST delivery of a stick push
+				(the presenter's context outranks this control's, so it is dispatched
+				before the aim sets `analog`). `analog` is cleared by the stick
+				re-centring (magnitude < 0.25) and by every close/back/root/commit/
+				cancel/dispose path, so it cannot strand the ring. ]]
+			if analog then
+				return true
+			end
 			local from = focusRects[graph.focused:get()]
 			if not from then
 				return false

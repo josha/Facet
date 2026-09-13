@@ -1421,6 +1421,9 @@ require("./bound_enum_seam.spec")
 require("./row_permutation.spec")
 
 require("./radial_menu.spec")
+-- ...and the one thing a held stick must NOT cost the ring: the presenter's
+-- gamepad auto-repeat re-dispatching a direction nobody moved (2026-09-13)
+require("./radial_hold_resolve.spec")
 require("./world_anchor.spec")
 require("./radial_geometry.spec")
 require("./alert.spec")
