@@ -188,11 +188,18 @@ local DEFAULT_INSET = "space.xs"
 
 	An underline stays square by default because that is what a tint rule on one
 	edge of a segment is. ]]
--- THE HIGHLIGHT'S SHAPE IS A THEME TOKEN (user ruling 2026-09-12): `radii.selection`,
--- which follows `radii.control` unless a package authors it (square art sets 0).
--- The bar wears it on all four corners — an inset rounded rect floating inside
--- the track, the reference platform's segmented control — while the TRACK and
--- its end segments keep `radii.control` (`TRACK_CORNER`, spent by `segmentShape`).
+--[[ THE HIGHLIGHT'S SHAPE IS A THEME TOKEN (user ruling 2026-09-12).
+	`DEFAULT_CORNER` is the FAMILY name, not a finished answer: on its own
+	`radii.selection` follows `radii.control` unless a package authors it (square
+	art sets 0), and that is what a fill with no container to match takes. A fill
+	whose caller NAMED its container takes `selection:<container>` instead — see
+	`fillCornerFor` immediately below, which is the rule a reader should meet
+	first, because it decides every shipped strip.
+
+	The bar wears one uniform radius on all four corners either way — an inset
+	rounded rect floating inside the plate, the reference platform's segmented
+	control — while the TRACK and its end segments keep `radii.control`
+	(`TRACK_CORNER`, spent by `segmentShape`). ]]
 selection_indicator.DEFAULT_CORNER = "selection"
 selection_indicator.TRACK_CORNER = "control"
 
