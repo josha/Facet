@@ -18,6 +18,7 @@ local target_contract = require("../src/render/target_contract")
 local renderer = require("../src/render/renderer")
 local fake_target = require("../tests/lib/fake_target")
 local adapter_source = require("./lib/adapter_source")
+local UI = (Facet :: any).UI
 
 describe("RenderTargetAdapter contract", function()
 	it("the FakeTarget satisfies every required and optional method", function()
@@ -378,6 +379,97 @@ end)
 	consequence is not cosmetic: the doc's whole job is to tell a target author
 	which absences are legal degrades, and five methods the renderer feature-
 	detects were simply not in the list they were reading. ]]
+--[[ `visibleOf` ANSWERS FOR THE PIXELS, AND IT ALREADY DOES (final review item
+	7 — REFUTED, and pinned so it stays refuted).
+
+	THE CLAIM: `adapter.visibleOf` reads one node's own flag, so after
+	`menu_recipe`'s badge stopped declaring `hidden` on the glyph as well as on
+	the plate (2026-09-13: a nested hidden node is a second `hiddenRoots` entry
+	that cannot change an answer and lengthens every hidden-path scan), the
+	`Count` glyph under a hidden `Badge` would read back as painting.
+
+	IT DOES NOT, and the reason is that the framework never leaves the inheritance
+	to the target. `render/commit_walks.luau`'s visibility walk carries
+	hiddenness DOWN (`local isHidden = hidden or nextHidden[node.path]`) and
+	writes `setVisible` on every node it reaches — so the live `screen_target`
+	gets a per-instance `Visible` write too, and the two adapters agree by
+	construction rather than by the engine's parenting. One declaration at the
+	plate is all the tree needs.
+
+	SO THIS IS A CHARACTERIZATION, not a fix: it is the pin that would have caught
+	the claimed defect, over the shape it was claimed about (a real empty badge on
+	a segmented option) and over a subtree mounted INSIDE an already-hidden one,
+	which is the case a per-node write could most plausibly miss. ]]
+describe("FakeTarget: `visibleOf` answers for the chain, because the walk writes it", function()
+	local world = require("./lib/world")
+
+	it("a glyph under a hidden plate reads hidden, though only the plate declared it", function()
+		local w = world.new({ viewport = { x = 0, y = 0, w = 640, h = 480 } })
+		local show = w.core:signal(false)
+		w.present(UI.Screen({
+			id = "S",
+			children = {
+				UI.ZStack({
+					id = "Badge",
+					hidden = true,
+					children = {
+						UI.Text({ id = "Count", text = "3" }),
+						UI.When({
+							id = "Gate",
+							condition = show,
+							thenView = function()
+								return UI.Text({ id = "Late", text = "x" })
+							end,
+						}),
+					},
+				}),
+				UI.Text({ id = "Loud", text = "seen" }),
+			},
+		}))
+		w.pres.refresh()
+		-- the plate declared it, and says so
+		expect(`plate: {tostring(w.adapter.visibleOf("/S/Badge"))}`).toBe("plate: false")
+		-- the glyph declared nothing, and neither target paints it
+		expect(`glyph: {tostring(w.adapter.visibleOf("/S/Badge/Count"))}`).toBe("glyph: false")
+		-- ...including one that mounts INSIDE the hidden subtree afterwards, which
+		-- is the case a per-node write could most plausibly miss
+		show:set(true)
+		w.pres.refresh()
+		expect(`late: {tostring(w.adapter.visibleOf("/S/Badge/Gate/then/Late"))}`).toBe("late: false")
+		-- and a sibling nobody hid is untouched by any of it
+		expect(`untouched: {tostring(w.adapter.visibleOf("/S/Loud"))}`).toBe("untouched: true")
+		w.pres.dismiss(w.handle)
+	end)
+
+	it("the real shape it was claimed about: an empty badge on a segmented option", function()
+		local w = world.new({ viewport = { x = 0, y = 0, w = 900, h = 720 } })
+		local picker = Facet.Controls.Picker(w.core, {
+			id = "View",
+			selected = w.core:signal("a"),
+			options = {
+				{ value = "a", label = "Pages" },
+				{ value = "b", label = "Inbox", badge = "" },
+				{ value = "c", label = "Notes" },
+			},
+			env = w.env,
+			presentation = "segmented",
+		})
+		w.present(UI.Screen({ id = "S", children = { picker.blueprint } }))
+		w.pres.refresh()
+		local plate: string? = nil
+		for _, path in w.adapter.paths() do
+			if string.sub(path, -6) == "/Badge" then
+				plate = path
+			end
+		end
+		expect(`the seal mounted: {plate ~= nil}`).toBe("the seal mounted: true")
+		expect(`seal: {tostring(w.adapter.visibleOf(plate :: string))}`).toBe("seal: false")
+		expect(`count: {tostring(w.adapter.visibleOf((plate :: string) .. "/Count"))}`).toBe("count: false")
+		picker.dispose()
+		w.pres.dismiss(w.handle)
+	end)
+end)
+
 describe("the render-target playbook's OPTIONAL roster (MAINT-8b)", function()
 	local MARKER_OPEN = "<!-- OPTIONAL-METHODS: derived from src/render/target_contract.luau OPTIONAL -->"
 	local MARKER_CLOSE = "<!-- /OPTIONAL-METHODS -->"
