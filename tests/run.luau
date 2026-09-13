@@ -687,6 +687,10 @@ require("./row_hit_paint.spec")
 -- ...and the seam one level under it: which decoration slot a node reaches, when
 -- the node DECLARED a surface and its class says something else
 require("./surface_slot_precedence.spec")
+-- ...and what that seam cost the one fixture whose rows were drawing a plate out
+-- of the class map: a list row reads against a plate, in every theme (owner
+-- report 2026-09-12)
+require("./row_plate_paint.spec")
 require("./auto_input_screens.spec")
 -- device round 1 (RascalRally, 2026-07-31): contributions mounted by a keyed
 -- region AFTER present, and the focus-visible rule a finger must obey

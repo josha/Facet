@@ -404,8 +404,33 @@ return {
 			width = UI.fill(),
 			height = UI.fill(),
 			children = {
+				--[[ THE PLATE IS THE LIST'S, NOT THE ROW'S (owner report 2026-09-12,
+					`tests/row_plate_paint.spec.luau`).
+
+					The rows lost their background. `6a65baef` made a DECLARED surface
+					outrank the class map, so the row's `surface = "base"` stopped being
+					handed the package's control recipe by its class — and `base` is the
+					APP BACKGROUND, which is the token the screen behind these rows also
+					declares. The row had been drawing its plate out of that accident,
+					and once `base` meant what it says there was nothing to see.
+
+					It does not go back on the row. `control` and `panel` are the only
+					decoration slots a plate surface reaches, and under both glossy
+					packages each declares `shadow = "raised"` — a 17px `chromeBleed`
+					that a back-to-back list paints straight into its neighbours. That is
+					the report `tests/row_hit_paint.spec.luau` carries, and a per-row
+					plate would trade this defect for that one.
+
+					So the list wears ONE panel: its shadow falls on the app background,
+					its hairline and `radii.panel` corner frame the whole list, the `xs`
+					padding is what lets that frame be seen, and the 1px `gap` the list
+					already had becomes the separator between rows — each of which still
+					paints its own `base` fill, now against a token that differs from it
+					in every shipped theme. ]]
 				UI.VStack({
 					id = "Rows",
+					surface = "raised",
+					padding = "xs",
 					gap = 1,
 					width = UI.fill(),
 					children = { rowsForEach },

@@ -13,6 +13,13 @@ runtime as `Facet.VERSION`.
 
 ## [Unreleased]
 
+- Fixed: the swipe-actions gallery example's List surface had lost the plate
+  behind its rows in every theme. `6a65baef` made a declared surface outrank the
+  class map, and these rows had been drawing their plate out of exactly that
+  accident while declaring `base` — the app background, which is also what the
+  screen behind them declares. The plate is the list's now (`Rows` declares
+  `raised`), so one panel carries the frame and the shadow and every row's own
+  fill reads against it. New gate: `tests/row_plate_paint.spec.luau`.
 - Segmented picker, shape round (2026-09-12, user visual review). The strip is
   ONE strip: only its outer ends round, with the theme's `radii.control` rather
   than a hard-coded pill; the inner segments are square and touch, with a
