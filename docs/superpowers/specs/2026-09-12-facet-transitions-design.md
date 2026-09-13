@@ -74,8 +74,13 @@ settle event, same frame.
 
 - **2F `stagger` on list transitions.** `transition.stagger?: number` (seconds
   per item, default 0) on `ForEach`/`When` groups. Item *i* starts its enter
-  after `min(i, 8) × stagger`. Cost is delayed starts, not more springs; the
-  cap keeps a 600-row list from queueing 600 timers. Exit never staggers.
+  after `min(i, 8) × stagger`. Cost is delayed starts, not more springs. The
+  cap bounds the WAIT, not the timer count: a 600-row enter still books 599
+  holds (the rows past the cap simply all book the same eight-beat duration,
+  and a hold with nothing to ramp is a flat, zero-write timer). What it buys is
+  that the last row arrives 400 ms in rather than half a minute later — see
+  `STAGGER_CAP`'s header in `src/render/transitions.luau`, which states the
+  same non-claim. Exit never staggers.
 - **2G Radial + button pops.** RadialMenu: wedges bloom on open (scale
   0.92→1 with `stagger = 0.02`, total ≤120ms — the radial design doc forbids
   long staggers), the wedge under the pointer lifts 1.04 (one spring, moves
