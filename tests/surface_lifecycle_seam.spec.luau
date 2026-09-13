@@ -284,8 +284,18 @@ describe("the surface-lifecycle seam: EXPORTED == BOUND, one consumer, one-way r
 		local bound = boundOf(presenter)
 		expect(#missingFrom(exported, bound)).toBe(0) -- an export nobody takes
 		expect(#missingFrom(bound, exported)).toBe(0) -- a binding that would be nil
-		-- "raise" joined 2026-08-23 (registry item 23; W3-D)
-		expect(sorted(exported)).toEqual({ "back", "dismiss", "raise", "refresh", "syncFocusVisuals" })
+		-- "raise" joined 2026-08-23 (registry item 23; W3-D); "flushPendingExit"
+		-- 2026-09-13 (task 7 item 2) — makeHandle's, like `syncFocusVisuals` it is
+		-- bound to a LOCAL rather than onto the presenter, because no consumer
+		-- outside this file has any business running another surface's teardown
+		expect(sorted(exported)).toEqual({
+			"back",
+			"dismiss",
+			"flushPendingExit",
+			"raise",
+			"refresh",
+			"syncFocusVisuals",
+		})
 	end)
 
 	it("four of the five are bound straight onto the presenter under their original names", function()

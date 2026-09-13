@@ -1391,6 +1391,9 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		syncScrim = syncScrim,
 	})
 	local syncFocusVisuals = surfaceLifecycle.syncFocusVisuals
+	-- makeHandle's, not a public verb: a re-present under an id whose surface is
+	-- still exiting must tear that one down first (task 7 item 2)
+	local flushPendingExit = surfaceLifecycle.flushPendingExit
 	-- THE TWO OBSERVERS REGISTER HERE rather than up beside the focus scalars,
 	-- where the function they call used to be declared, and that is order-neutral
 	-- for one measured reason: `presenter.new` mounts nothing, so these are still the
@@ -1605,6 +1608,10 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		-- the native half is a stricter test and needs no per-surface state. Named
 		-- here only for the renderer wiring below.
 		local selectionBridged = (opts and opts.engineSelectionBridge) == true and kind ~= "screen"
+		-- a surface still LEAVING under this id goes first: everything built below
+		-- claims the node paths it is still sitting on (surface_lifecycle's
+		-- `pendingExits` carries the reasoning; this file is near the source cap)
+		flushPendingExit(blueprint.id)
 		local scope = core:scope(`present-{kind}-{blueprint.id or "screen"}`)
 		--[[ RESPONDER STATE IS HOISTED HERE, above `bindContribution`, because a
 			control has to be handed the paint permission below at BIND time and

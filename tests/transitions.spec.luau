@@ -1112,6 +1112,85 @@ describe("presenter: a surface transition", function()
 		expect(adapter.node("/Slow/Content")).toBeNil()
 	end)
 
+	it("a same-id re-present during a deferred exit tears the first surface down first", function()
+		--[[ THE ORPHAN (task 7 item 2). A dismissed surface leaves the stack
+			SYNCHRONOUSLY and the screen up to 500 ms later, and a control that
+			owns its own handle (Alert's `dismiss()` clears `handle` on the spot,
+			Menu's `close()` likewise) is free to present again in the very next
+			frame. The second surface mounts under the SAME blueprint id, so it
+			takes over every node path the first one still occupies — and the
+			first one's deferred teardown then walks a tree whose paths belong to
+			somebody else and removes nothing. Measured before the fix: the
+			round's own `alert-present-dismiss` scene steady-stated at ~12
+			mounted alerts, and the fake adapter's root count climbed one per
+			cycle and never came down.
+
+			So a pending exit is now held by the id it is exiting under, and a
+			present under that id runs it FIRST — the old instances go, the new
+			ones mount clean. The 500 ms grace is for a surface nobody is
+			replacing. ]]
+		local _, _, adapter, _, pres = presenterWorld()
+		local rootsBefore = adapter.rootCount()
+		local first = pres.present(surface("Modal"), { transition = { enter = "fade" } })
+		for _ = 1, 90 do
+			pres.tick(FRAME)
+		end
+		local firstNode = adapter.node("/Modal/Content")
+		expect(firstNode.alive).toBe(true)
+		pres.dismiss(first)
+		-- well inside the exit: the first surface is still on screen, fading
+		for _ = 1, 5 do
+			pres.tick(FRAME)
+		end
+		expect(firstNode.alive).toBe(true)
+		expect(adapter.rootCount()).toBe(rootsBefore + 1)
+
+		local second = pres.present(surface("Modal"), { transition = { enter = "fade" } })
+		-- the corpse is gone on the spot, not 25 frames from now
+		expect(firstNode.alive).toBe(false)
+		local secondNode = adapter.node("/Modal/Content")
+		expect(secondNode ~= nil and secondNode ~= firstNode).toBe(true)
+		expect(adapter.rootCount()).toBe(rootsBefore + 1)
+		for _ = 1, 60 do
+			pres.tick(FRAME)
+		end
+		-- ...and the first surface's own deferred teardown, whenever it would
+		-- have run, takes nothing of the second one's with it
+		expect(adapter.node("/Modal/Content")).toBe(secondNode)
+		expect(secondNode.alive).toBe(true)
+		expect(adapter.rootCount()).toBe(rootsBefore + 1)
+		expect(pres.depth()).toBe(1)
+
+		pres.dismiss(second)
+		for _ = 1, 60 do
+			pres.tick(FRAME)
+		end
+		expect(adapter.rootCount()).toBe(rootsBefore)
+	end)
+
+	it("ten present/dismiss cycles under one id leave one surface, not ten", function()
+		local _, _, adapter, _, pres = presenterWorld()
+		local rootsBefore = adapter.rootCount()
+		local handle = nil
+		for _ = 1, 10 do
+			if handle ~= nil then
+				pres.dismiss(handle)
+			end
+			handle = pres.present(surface("Modal"), { transition = { enter = "fade" } })
+			-- three frames apart: a player double-tapping, and far inside the
+			-- 30-frame exit
+			for _ = 1, 3 do
+				pres.tick(FRAME)
+			end
+		end
+		expect(adapter.rootCount()).toBe(rootsBefore + 1)
+		pres.dismiss(handle)
+		for _ = 1, 60 do
+			pres.tick(FRAME)
+		end
+		expect(adapter.rootCount()).toBe(rootsBefore)
+	end)
+
 	it("surfaces without a transition tear down synchronously, exactly as before", function()
 		local _, _, adapter, _, pres = presenterWorld()
 		local handle = pres.present(surface("Plain"))

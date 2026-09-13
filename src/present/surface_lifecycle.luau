@@ -117,6 +117,35 @@ function surfaceLifecycle.new(ctx: any)
 	-- where it already was" from "arming moved focus here"
 	local prevFocusPath: string? = nil
 
+	--[[ THE DEFERRED TEARDOWNS, KEYED BY THE ID THEY ARE LEAVING UNDER (task 7
+		item 2). A dismissed surface leaves the stack SYNCHRONOUSLY and the screen
+		up to 500 ms later (see `dismiss` below), which is a grace period for a
+		surface nobody is replacing. A control that owns its own handle — Alert's
+		`dismiss()`, Menu's `close()` — clears it on the spot and is free to
+		present again on the very next frame, and now that Alert and Menu default
+		to a transition that is the ordinary case rather than a rare one.
+
+		The second surface mounts under the SAME blueprint id, so it takes over
+		every node path the first one still occupies. The first one's teardown
+		then walks a tree whose paths belong to somebody else: the live adapter
+		skips every step for a path surface #2 now owns, the instances are never
+		destroyed, and `focusedHandles` pins the corpse. Measured before the fix:
+		the round's own `alert-present-dismiss` bench scene steady-stated at ~12
+		mounted alerts, and ten present/dismiss cycles three frames apart left
+		seven live roots.
+
+		So the teardown is held here by `blueprint.id or ""` — the SAME key the
+		node paths are rooted on (`"/" .. (handle.blueprint.id or "")`), not the
+		handle's kind, because a path collision is exactly the condition this
+		guards and two nil-id surfaces collide too. `flushPendingExit` runs it
+		synchronously before anything new is built under that id. ]]
+	local pendingExits: { [string]: () -> () } = {}
+	local function exitKeyFor(handle: any): string
+		return if type(handle.blueprint) == "table" and type(handle.blueprint.id) == "string"
+			then handle.blueprint.id
+			else ""
+	end
+
 	-- one shared observer drives focus visuals across all presented handles
 	local function syncFocusVisuals(path: string?)
 		-- THE RING IS A NAVIGATION ANSWER, NOT A FOCUS ANSWER (the device round's
@@ -331,13 +360,29 @@ function surfaceLifecycle.new(ctx: any)
 		-- finish moving (the semantic feedback seam's causal frame)
 		-- Decision 7)
 		emitFeedback({ type = "dismiss", path = "/" .. (handle.blueprint.id or handle.kind), surface = handle })
+		local exitKey = exitKeyFor(handle)
+		local torn = false
 		local function teardown()
+			-- IDEMPOTENT, because there are now three callers, not one: the exit's
+			-- settle, its 500 ms cap, and `flushPendingExit` below. (The first two
+			-- were already exclusive — `finishExit` disposes the entry — but a
+			-- flush that beat them must not leave either able to run again.)
+			if torn then
+				return
+			end
+			torn = true
+			if pendingExits[exitKey] == teardown then
+				pendingExits[exitKey] = nil
+			end
 			handle.controller.dispose()
 			-- handle.scope owns the mount child scope; disposing it disposes the
 			-- mounted tree exactly once (a separate root.dispose() here double-
 			-- disposed the 'mount' child — phase-4 fault injection, input-switch)
 			handle.scope:dispose()
 			if handle.coordinator ~= nil then
+				-- ...and this is what makes a FLUSHED teardown final: the
+				-- coordinator clears every entry's `done` before disposing it, so
+				-- the exit that was still running can no longer call back
 				handle.coordinator.dispose()
 			end
 		end
@@ -350,6 +395,9 @@ function surfaceLifecycle.new(ctx: any)
 		if handle.transition ~= nil and handle.coordinator ~= nil and handle.transitionNode ~= nil then
 			local spec = transitionsLib.resolve(handle.transition)
 			if spec.exit ~= "instant" then
+				-- registered BEFORE the aim: reduced motion completes the exit
+				-- (and so runs `teardown`, which de-registers) inside this call
+				pendingExits[exitKey] = teardown
 				handle.coordinator.beginExit(handle.transitionNode.path, handle.transitionNode, spec, teardown)
 				refreshExclusive()
 				syncScrim()
@@ -621,12 +669,25 @@ function surfaceLifecycle.new(ctx: any)
 		helpPlate.revalidate()
 	end
 
+	--[[ Run the teardown a surface still leaving under `id` is waiting on, NOW.
+		`makeHandle` calls this before it builds anything, so a re-present under an
+		id that is mid-exit gets a clean tree instead of inheriting the corpse's
+		paths. No pending exit under that id is the overwhelmingly common case and
+		costs one hash lookup. ]]
+	local function flushPendingExit(id: any)
+		local pending = pendingExits[if type(id) == "string" then id else ""]
+		if pending ~= nil then
+			pending() -- de-registers itself
+		end
+	end
+
 	return {
 		syncFocusVisuals = syncFocusVisuals,
 		refresh = refresh,
 		dismiss = dismiss,
 		back = back,
 		raise = raise,
+		flushPendingExit = flushPendingExit,
 	}
 end
 
