@@ -26,8 +26,8 @@
 	("a crowded list that's overlapping", `tests/row_hit_paint.spec.luau`), and
 	re-declaring `control` on the row would simply swap this defect for that one.
 
-	WHAT THE FIXTURE DOES INSTEAD. The plate goes on the list — `Rows` declares
-	`surface = "raised"` — so there is ONE panel: its shadow falls on the app
+	WHAT THE FIXTURE DOES INSTEAD. The plate goes on the list's SCROLL HOST —
+	`List` declares `surface = "raised"` — so there is ONE panel: its shadow falls on the app
 	background rather than on a neighbouring row, its hairline and `radii.panel`
 	corner frame the list, and every row's own `base` fill now reads against a
 	token that differs from it in every shipped theme. The 1px `gap` the list
@@ -45,7 +45,10 @@
 	WHAT IS PINNED HERE:
 
 	  1. The two nodes declare the two surfaces, so the plate is a DECLARATION and
-	     never a class accident again.
+	     never a class accident again — and the plate is the scroll HOST rather
+	     than the row stack inside it, so a nine-slice package's carved frame
+	     wraps the pane a player looks at instead of hugging whatever the rows
+	     happen to measure and scrolling away with them.
 	  2. The row still takes no decoration slot — `6a65baef`'s rule, unmoved.
 	  3. THE PAINT, resolved the way the engine resolves it: each node's
 	     classification tags run through the compiled sheet's cascade and the
@@ -70,13 +73,13 @@ local default_style = require("../src/tokens/default_style")
 
 local rowActions = require("../examples/gallery/scenarios/row_actions") :: any
 
-local PLATE_PATH = "/MailActions/ListWhen/then/List/Rows"
+local PLATE_PATH = "/MailActions/ListWhen/then/List"
 local ROW_PATH = "/MailActions/ListWhen/then/List/Rows/RowsForEach/[m1]/m1/Content/Row"
 
 -- the engine instance each node class is materialized as, so a bare class
 -- selector in the sheet can be matched headlessly (`src/client/screen_vocabulary
 -- .luau`'s `CLASS_TO_INSTANCE`; only the two classes this spec reads)
-local ENGINE_CLASS: { [string]: string } = { Button = "TextButton", VStack = "Frame" }
+local ENGINE_CLASS: { [string]: string } = { Button = "TextButton", ScrollView = "ScrollingFrame" }
 local TOP_LINE = "/MailActions/ListWhen/then/List/Rows/RowsForEach/[m1]/m1/Content/Row/Text/TopLine"
 
 local PACKAGES: { { name: string, module: any } } = {
@@ -208,8 +211,13 @@ end
 describe("list row plate: the fixture declares the plate it paints", function()
 	it("the list declares the raised plate and the row declares the app surface", function()
 		local w = scenarioWorld(rowActions)
-		expect(w.adapter.node(PLATE_PATH).props.surface).toBe("raised")
+		local plate = w.adapter.node(PLATE_PATH)
+		expect(plate.props.surface).toBe("raised")
+		expect(plate.class).toBe("ScrollView")
 		expect(w.adapter.node(ROW_PATH).props.surface).toBe("base")
+		-- the plate frames the VISIBLE pane: the scroller fills its band, and the
+		-- row stack inside it is only as tall as the rows
+		expect(plate.rect.h > w.adapter.node(PLATE_PATH .. "/Rows").rect.h).toBe(true)
 	end)
 
 	it("...and the row still takes no decoration slot, so no package shadow reaches a neighbour", function()

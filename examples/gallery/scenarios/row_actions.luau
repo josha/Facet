@@ -420,33 +420,39 @@ return {
 			axis = "y",
 			width = UI.fill(),
 			height = UI.fill(),
+			--[[ THE PLATE IS THE LIST'S, NOT THE ROW'S (owner report 2026-09-12,
+				`tests/row_plate_paint.spec.luau`).
+
+				These rows lost their background. `6a65baef` made a declared surface
+				outrank the class map, so a `UI.Button` declaring `surface = "base"`
+				stopped being handed the package's CONTROL recipe by its class — and
+				`base` is the APP BACKGROUND, the very token the screen behind this
+				list also declares. The rows had been drawing their plate out of that
+				accident, and once `base` meant what it says the list vanished into
+				the page.
+
+				IT DOES NOT GO BACK ON THE ROW, and that is measured rather than
+				assumed. `control` and `panel` are the only decoration slots a plate
+				surface reaches; under both glossy packages each declares
+				`shadow = "raised"`, a 17px `chromeBleed` that a list laid back to
+				back paints straight into its neighbours — the report
+				`tests/row_hit_paint.spec.luau` carries. ONE panel around the whole
+				list spends that shadow on the app background instead, where it
+				belongs, and its hairline and `radii.panel` corner frame the list.
+
+				The rows keep their own `base` fill, which now reads against a token
+				that differs from it in every shipped theme, and the 1px `gap` this
+				list already had is the separator between them.
+
+				AND IT IS THE SCROLL HOST'S, not the row stack's inside it. A plate on
+				the stack hugs the CONTENT extent, so under a nine-slice package its
+				carved frame and its shadow wrap whatever the rows happen to measure
+				and then scroll away with them. The pane a player looks at is the
+				scroller's own box, so that is the node the card belongs on. ]]
+			surface = "raised",
 			children = {
-				--[[ THE PLATE IS THE LIST'S, NOT THE ROW'S (owner report 2026-09-12,
-					`tests/row_plate_paint.spec.luau`).
-
-					These rows lost their background. `6a65baef` made a declared surface
-					outrank the class map, so a `UI.Button` declaring `surface = "base"`
-					stopped being handed the package's CONTROL recipe by its class — and
-					`base` is the APP BACKGROUND, the very token the screen behind this
-					list also declares. The rows had been drawing their plate out of that
-					accident, and once `base` meant what it says the list vanished into
-					the page.
-
-					IT DOES NOT GO BACK ON THE ROW, and that is measured rather than
-					assumed. `control` and `panel` are the only decoration slots a plate
-					surface reaches; under both glossy packages each declares
-					`shadow = "raised"`, a 17px `chromeBleed` that a list laid back to
-					back paints straight into its neighbours — the report
-					`tests/row_hit_paint.spec.luau` carries. ONE panel around the whole
-					list spends that shadow on the app background instead, where it
-					belongs, and its hairline and `radii.panel` corner frame the list.
-
-					The rows keep their own `base` fill, which now reads against a token
-					that differs from it in every shipped theme, and the 1px `gap` this
-					list already had is the separator between them. ]]
 				UI.VStack({
 					id = "Rows",
-					surface = "raised",
 					gap = 1,
 					width = UI.fill(),
 					children = { rowsForEach },
