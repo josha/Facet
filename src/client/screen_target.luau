@@ -287,24 +287,60 @@ function screen_target.new(opts: Opts?)
 	-- moving focus across a row used to snap each control to 1.05 and the last
 	-- back to 1 on the same frame. One tween per focus change, cancelled by the
 	-- next; reduced motion keeps the instant write
-	local function aimFocusScale(handle: any, target: number)
-		local focusScale = handle.focusScale
-		if focusScale == nil then
-			return
-		end
+	--[[ ONE PLACE ENDS A LIFT. A travelling lift is TWO tweens on two instances
+		— the control's own `FocusScale`, and (when the ring had to be a float,
+		because an outward stroke under a clipping host gets cut) the float
+		Frame's hand-computed Size, which has no UIScale to ride. Every site that
+		ends a lift without finishing it — a re-aim, `park`, `destroy`,
+		`destroyRoot` — has to end BOTH, or the half it forgot lands on whatever
+		node takes this identity next. Four hand-copied cancels is how one of them
+		eventually forgets. ]]
+	local function stopFocusScaleTweens(handle: any)
 		if handle.focusScaleTween ~= nil then
 			handle.focusScaleTween:Cancel()
 			handle.focusScaleTween = nil
 		end
-		if isReducedMotion() or focusScale.Scale == target then
+		if handle.focusFloatTween ~= nil then
+			handle.focusFloatTween:Cancel()
+			handle.focusFloatTween = nil
+		end
+	end
+
+	--[[ THE FLOAT RING TRAVELS WITH THE LIFT (task 7 item 7). The ordinary ring
+		is a UIStroke child of the very instance `FocusScale` scales, so the
+		engine carries it for free. The FLOAT is a sibling Frame positioned and
+		sized by hand, and it was sized at the lift's DESTINATION
+		(`rect * liftScale`) on the frame the lift merely STARTED — correct while
+		the lift was an instant write, a 5 % gap around the control for the whole
+		0.2 s once the lift began to travel. It rides the same TweenInfo now, off
+		the geometry `setFocusVisual` records with the float (`focusFloatGeom`:
+		the unlifted rect and the ring's own thickness, so the target size is the
+		same expression the instant write used). Reduced motion places both. ]]
+	local function aimFocusScale(handle: any, target: number)
+		stopFocusScaleTweens(handle)
+		local info = TweenInfo.new(style.motion.normal, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+		local instant = isReducedMotion()
+		local float = handle.focusRingFloat
+		local geom = handle.focusFloatGeom
+		if float ~= nil and type(geom) == "table" then
+			local size = UDim2.fromOffset(geom.w * target - 2 * geom.t, geom.h * target - 2 * geom.t)
+			if instant or float.Size == size then
+				float.Size = size
+			else
+				local floatTween = TweenService:Create(float, info, { Size = size })
+				handle.focusFloatTween = floatTween
+				floatTween:Play()
+			end
+		end
+		local focusScale = handle.focusScale
+		if focusScale == nil then
+			return
+		end
+		if instant or focusScale.Scale == target then
 			focusScale.Scale = target
 			return
 		end
-		local tween = TweenService:Create(
-			focusScale,
-			TweenInfo.new(style.motion.normal, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-			{ Scale = target }
-		)
+		local tween = TweenService:Create(focusScale, info, { Scale = target })
 		handle.focusScaleTween = tween
 		tween:Play()
 	end
@@ -3246,8 +3282,15 @@ function screen_target.new(opts: Opts?)
 						-- grows by the same factor the lift applies, or the ring stays
 						-- sized for the rect the control no longer paints at.
 						f.Position = UDim2.fromOffset(rect.x - ox + thickness, rect.y - oy + thickness)
-						f.Size =
-							UDim2.fromOffset(rect.w * liftScale - 2 * thickness, rect.h * liftScale - 2 * thickness)
+						-- ...and it starts WHERE THE LIFT IS, not where it is going
+						-- (task 7 item 7): `aimFocusScale` below travels it to
+						-- `liftScale` on the lift's own TweenInfo, from the geometry
+						-- recorded here. A destination written on the frame the lift
+						-- merely STARTS is a ring hanging 5 % outside its control for
+						-- the whole 0.2 s.
+						handle.focusFloatGeom = { w = rect.w, h = rect.h, t = thickness }
+						local at = if handle.focusScale ~= nil then handle.focusScale.Scale else 1
+						f.Size = UDim2.fromOffset(rect.w * at - 2 * thickness, rect.h * at - 2 * thickness)
 					end
 					f.ZIndex = 9999
 					strokeParent = f
@@ -3281,17 +3324,21 @@ function screen_target.new(opts: Opts?)
 			-- fresh focus — the blur below aims it back to 1, and `adapter.park`
 			-- WRITES it back to 1 for the recycling path, where the blur's tween
 			-- is cancelled mid-travel rather than allowed to land.
-			-- `lift`/`liftScale`: computed above now, beside the ring geometry.
-			if strong and lift then
-				if handle.focusScale == nil then
-					local focusScale = Instance.new("UIScale")
-					focusScale.Name = "FocusScale"
-					focusScale.Parent = instance
-					handle.focusScale = focusScale
-				end
-				aimFocusScale(handle, style.extra.tenFootFocusScale)
-			elseif handle.focusScale ~= nil then
-				aimFocusScale(handle, 1)
+			-- `lift`/`liftScale`: computed above now, beside the ring geometry —
+			-- and AIMED with here, so the float ring's own travel (which reads
+			-- the same number through `aimFocusScale`) can never be computed from
+			-- a second expression that agrees today.
+			if strong and lift and handle.focusScale == nil then
+				local focusScale = Instance.new("UIScale")
+				focusScale.Name = "FocusScale"
+				focusScale.Parent = instance
+				handle.focusScale = focusScale
+			end
+			-- ONE aim, for both halves of the lift: the UIScale when there is one,
+			-- and the float ring's Size whether or not there is (a control whose
+			-- lift was REFUSED still has a float to size, at liftScale = 1)
+			if handle.focusScale ~= nil or handle.focusRingFloat ~= nil then
+				aimFocusScale(handle, liftScale)
 			end
 		else
 			if handle.focusScale ~= nil then
@@ -3576,10 +3623,7 @@ function screen_target.new(opts: Opts?)
 		-- oversized FOREVER, because `adopt` never touches `focusScale` and the
 		-- next focus only ever re-aims a tween from wherever it finds the scale.
 		-- One write, on the one path that ends a lift without finishing it.
-		if handle.focusScaleTween ~= nil then
-			handle.focusScaleTween:Cancel()
-			handle.focusScaleTween = nil
-		end
+		stopFocusScaleTweens(handle)
 		if handle.focusScale ~= nil then
 			handle.focusScale.Scale = 1
 		end
@@ -3871,10 +3915,7 @@ function screen_target.new(opts: Opts?)
 			handle.focusRingFloat:Destroy()
 			handle.focusRingFloat = nil
 		end
-		if handle.focusScaleTween ~= nil then
-			handle.focusScaleTween:Cancel()
-			handle.focusScaleTween = nil
-		end
+		stopFocusScaleTweens(handle)
 		handle.focusVisualHost = nil
 		focusedHandles[handle] = nil
 		dropHitExpander(handle)
@@ -3964,10 +4005,7 @@ function screen_target.new(opts: Opts?)
 						handle.focusGlow = nil
 						chromeState.noteFocusGlow(false)
 					end
-					if handle.focusScaleTween ~= nil then
-						handle.focusScaleTween:Cancel()
-						handle.focusScaleTween = nil
-					end
+					stopFocusScaleTweens(handle)
 					handle.focusVisualHost = nil
 					focusedHandles[handle] = nil
 				end

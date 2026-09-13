@@ -48,7 +48,9 @@ describe("screen_target.park: a cancelled lift is also RESET, not left where it 
 	end)
 
 	it("writes the scale back to 1, and does it AFTER the cancel", function()
-		local cancelAt = string.find(FN, "handle.focusScaleTween:Cancel()", 1, true)
+		-- the cancel is `stopFocusScaleTweens` since item 7 gave the lift a second
+		-- tween (the float ring's Size) — one helper, four call sites
+		local cancelAt = string.find(FN, "stopFocusScaleTweens(handle)", 1, true)
 		local resetAt = string.find(FN, "handle.focusScale.Scale = 1", 1, true)
 		expect(cancelAt ~= nil).toBe(true)
 		expect(resetAt ~= nil).toBe(true)
@@ -70,5 +72,71 @@ describe("screen_target.park: a cancelled lift is also RESET, not left where it 
 		expect(at ~= nil).toBe(true)
 		local window = string.sub(VISUAL, at :: number, (at :: number) + 400)
 		expect(string.find(window, "adapter.park", 1, true) ~= nil).toBe(true)
+	end)
+end)
+
+describe("screen_target.aimFocusScale: the float ring travels with the lift (item 7)", function()
+	local FN = adapter_source.bodyOf(targetSrc, "local function aimFocusScale(")
+	local VISUAL = adapter_source.bodyOf(targetSrc, "function adapter.setFocusVisual(")
+
+	it("found the function", function()
+		expect(#FN > 0).toBe(true)
+	end)
+
+	it("the float's Size is written at the CURRENT scale, not at the lift's destination", function()
+		local at = string.find(VISUAL, "handle.focusFloatGeom = {", 1, true)
+		expect(at ~= nil).toBe(true)
+		local window = string.sub(VISUAL, at :: number, (at :: number) + 400)
+		-- the starting scale is READ off the live UIScale...
+		expect(string.find(window, "handle.focusScale.Scale else 1", 1, true) ~= nil).toBe(true)
+		-- ...and the destination expression is gone from the instant write
+		expect(string.find(VISUAL, "rect.w * liftScale", 1, true)).toBe(nil)
+	end)
+
+	it("aims with `liftScale` itself, so the two halves cannot use two expressions", function()
+		expect(string.find(VISUAL, "aimFocusScale(handle, liftScale)", 1, true) ~= nil).toBe(true)
+		expect(string.find(VISUAL, "aimFocusScale(handle, style.extra.tenFootFocusScale)", 1, true)).toBe(nil)
+	end)
+
+	it("the float tween rides the SAME TweenInfo as the UIScale, built once", function()
+		local infoAt = string.find(FN, "local info = TweenInfo.new(style.motion.normal", 1, true)
+		expect(infoAt ~= nil).toBe(true)
+		-- one TweenInfo, two Create calls: a second `TweenInfo.new` here would be
+		-- two durations that agree until somebody changes one
+		local _, infos = string.gsub(FN, "TweenInfo%.new", "")
+		expect(infos).toBe(1)
+		expect(string.find(FN, "TweenService:Create(float, info, { Size = size })", 1, true) ~= nil).toBe(true)
+		expect(string.find(FN, "TweenService:Create(focusScale, info, { Scale = target })", 1, true) ~= nil).toBe(true)
+	end)
+
+	it("the target size is the same expression the instant write used", function()
+		expect(
+			string.find(FN, "UDim2.fromOffset(geom.w * target - 2 * geom.t, geom.h * target - 2 * geom.t)", 1, true)
+				~= nil
+		).toBe(true)
+	end)
+
+	it("reduced motion places both instead of tweening either", function()
+		expect(string.find(FN, "local instant = isReducedMotion()", 1, true) ~= nil).toBe(true)
+		-- the float's own branch reads the same flag, not a second call
+		expect(string.find(FN, "if instant or float.Size == size then", 1, true) ~= nil).toBe(true)
+		expect(string.find(FN, "if instant or focusScale.Scale == target then", 1, true) ~= nil).toBe(true)
+		local _, reads = string.gsub(FN, "isReducedMotion%(%)", "")
+		expect(reads).toBe(1)
+	end)
+
+	it("both tweens end through ONE cancel, and every lift-ending site calls it", function()
+		--[[ four sites end a lift without finishing it: a re-aim, `park`,
+			`destroy` and `destroyRoot`. Each used to carry its own hand-copied
+			two-line cancel of `focusScaleTween`; with a SECOND tween in flight
+			that shape is four chances to forget the other half. The count is the
+			claim: no bare `focusScaleTween:Cancel()` survives outside the one
+			helper. ]]
+		local _, helpers = string.gsub(targetSrc, "stopFocusScaleTweens%(handle%)", "")
+		expect(helpers >= 4).toBe(true)
+		local _, cancels = string.gsub(targetSrc, "handle%.focusScaleTween:Cancel%(%)", "")
+		expect(cancels).toBe(1) -- inside `stopFocusScaleTweens` and nowhere else
+		local HELPER = adapter_source.bodyOf(targetSrc, "local function stopFocusScaleTweens(")
+		expect(string.find(HELPER, "handle.focusFloatTween:Cancel()", 1, true) ~= nil).toBe(true)
 	end)
 end)
