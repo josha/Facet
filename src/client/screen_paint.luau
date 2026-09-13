@@ -1388,9 +1388,23 @@ function screen_paint.new(ctx: any)
 		local trackColor = if on then palette.trackOn else palette.trackOff
 		local knobColor = if on then palette.knobOn else palette.knobOff
 		local knobPos = if on then TOGGLE_KNOB_ON else TOGGLE_KNOB_OFF
+		--[[ BOTH TWEENS END HERE, which is the only place a flip ends. The track's
+			colour tween was already held; the KNOB's Position tween (Tier 1 item
+			1E's Back overshoot, over the same `motion.normal`) was created inline
+			and played, so a flip-flip inside 0.2 s left the first one running and
+			a recycled toggle took its leftover writes — a Toggle handle IS
+			park-eligible (`parkEligible` refuses motion scales, canvas groups,
+			hit expanders, focus floats, glows and focus itself, not a track/knob
+			pair). Cancelling above the branch rather than inside the tweened arm
+			is what makes a RETHEME or a reduced-motion flip mid-travel land where
+			it should instead of being overwritten by the tween it interrupted. ]]
 		if handle.toggleTrackTween ~= nil then
 			handle.toggleTrackTween:Cancel()
 			handle.toggleTrackTween = nil
+		end
+		if handle.toggleKnobTween ~= nil then
+			handle.toggleKnobTween:Cancel()
+			handle.toggleKnobTween = nil
 		end
 		if retheme == true or isReducedMotion() then
 			track.BackgroundColor3 = trackColor
@@ -1406,7 +1420,9 @@ function screen_paint.new(ctx: any)
 			-- knob colours are a contrast pair, and interpolating between them
 			-- passes through the middle, where it is readable against neither
 			knob.BackgroundColor3 = knobColor
-			TweenService:Create(knob, overshootInfo(style.motion.normal), { Position = knobPos }):Play()
+			local knobTween = TweenService:Create(knob, overshootInfo(style.motion.normal), { Position = knobPos })
+			handle.toggleKnobTween = knobTween
+			knobTween:Play()
 		end
 	end
 

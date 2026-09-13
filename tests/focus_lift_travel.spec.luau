@@ -39,6 +39,7 @@ local fs = require("@lune/fs")
 local adapter_source = require("./lib/adapter_source")
 
 local targetSrc = fs.readFile("src/client/screen_target.luau")
+local paintSrc = fs.readFile("src/client/screen_paint.luau")
 
 describe("screen_target.park: a cancelled lift is also RESET, not left where it stood (item 4)", function()
 	local FN = adapter_source.bodyOf(targetSrc, "function adapter.park(")
@@ -138,5 +139,52 @@ describe("screen_target.aimFocusScale: the float ring travels with the lift (ite
 		expect(cancels).toBe(1) -- inside `stopFocusScaleTweens` and nowhere else
 		local HELPER = adapter_source.bodyOf(targetSrc, "local function stopFocusScaleTweens(")
 		expect(string.find(HELPER, "handle.focusFloatTween:Cancel()", 1, true) ~= nil).toBe(true)
+	end)
+end)
+
+describe("screen_paint.applyToggleValue: the knob tween is HELD, like the track's (item 10)", function()
+	local FN = adapter_source.bodyOf(paintSrc, "local function applyToggleValue(")
+
+	it("found the function", function()
+		expect(#FN > 0).toBe(true)
+	end)
+
+	it("the knob's Position tween is stored on the handle, not fired and forgotten", function()
+		--[[ the track's colour tween was held in `handle.toggleTrackTween` and
+			cancelled on the next flip; the knob's Position tween — the one Tier 1
+			item 1E added, with a Back overshoot over `motion.normal` — was
+			created inline and played. A flip-flip inside 0.2 s therefore left the
+			first knob tween running, and a recycled toggle (a Toggle handle is
+			park-eligible: `parkEligible` refuses motion scales, canvas groups,
+			hit expanders, floats, glows and focus, not a track/knob pair) took
+			the leftover writes to its own knob. ]]
+		expect(string.find(FN, "handle.toggleKnobTween = knobTween", 1, true) ~= nil).toBe(true)
+		expect(string.find(FN, "TweenService:Create(knob, overshootInfo(style.motion.normal)", 1, true) ~= nil).toBe(
+			true
+		)
+	end)
+
+	it("it is cancelled beside the track's, in the one place that ends a flip", function()
+		local trackCancelAt = string.find(FN, "handle.toggleTrackTween:Cancel()", 1, true)
+		local knobCancelAt = string.find(FN, "handle.toggleKnobTween:Cancel()", 1, true)
+		expect(trackCancelAt ~= nil and knobCancelAt ~= nil).toBe(true)
+		-- both cancels come BEFORE either tween is re-created, or a flip would
+		-- cancel the tween it had just started
+		local createAt = string.find(FN, "TweenService:Create(track,", 1, true)
+		expect(createAt ~= nil).toBe(true)
+		expect((trackCancelAt :: number) < (createAt :: number)).toBe(true)
+		expect((knobCancelAt :: number) < (createAt :: number)).toBe(true)
+		-- ...and the field is cleared with the cancel, so a later flip does not
+		-- re-cancel a finished tween
+		expect(string.find(FN, "handle.toggleKnobTween = nil", 1, true) ~= nil).toBe(true)
+	end)
+
+	it("the instant paths (retheme, reduced motion) leave no tween behind either", function()
+		-- they still run the SAME cancel above before writing, which is what makes
+		-- a reduce-motion flip mid-travel land where it should
+		local cancelAt = string.find(FN, "handle.toggleKnobTween:Cancel()", 1, true)
+		local instantAt = string.find(FN, "if retheme == true or isReducedMotion() then", 1, true)
+		expect(instantAt ~= nil).toBe(true)
+		expect((cancelAt :: number) < (instantAt :: number)).toBe(true)
 	end)
 end)
