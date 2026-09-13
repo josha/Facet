@@ -178,6 +178,8 @@
 local adaptive = require("../layout/adaptive")
 local contribution = require("../input/contribution")
 local picker = require("./picker")
+-- the strip corner every plate in the framework spends (see `AdaptableBar`)
+local selectionIndicator = require("./selection_indicator")
 local chromeSlots = require("../tokens/chrome_slots")
 local specGuard = require("../spec_guard")
 local surfaceEnv = require("../env/surface_env")
@@ -1178,7 +1180,27 @@ function tab_view.build(Facet: any, core: any, spec: Spec)
 						align = "center",
 						alignH = "center",
 						surface = "raised",
-						corners = choose(UI.cornersData("panel"), UI.cornersData("pill")),
+						--[[ THE BAND FORM IS A STRIP, AND A STRIP'S CORNER IS
+							`radii.control` (owner report 2026-09-12). This read
+							`UI.cornersData("pill")` — `radii.pill`, a role no other
+							strip spends and one every shipped package sets to 999 —
+							while the selected fill inside it takes `radii.selection`,
+							which follows `radii.control`. Under Compact Pointer that
+							is a 999 capsule holding a 4px chip: two silhouettes in
+							one control, and the theme was asked for neither.
+
+							`selection_indicator.TRACK_CORNER` is the token the
+							picker's own track already spends, so the bar, the track
+							and the fill are ONE decision and a square package gets a
+							square bar, a round one a capsule. It is the same call
+							the segmented picker's shape round made one seam over
+							("only its outer ends round, with the theme's
+							`radii.control` rather than a hard-coded pill"); this
+							strip was the one it did not reach.
+
+							THE RAIL KEEPS `panel`: a sidebar is a panel down the
+							side of a screen, not a strip. ]]
+						corners = choose(UI.cornersData("panel"), UI.cornersData(selectionIndicator.TRACK_CORNER)),
 						padding = "xs",
 						gap = choose("s", "xs"),
 						children = {

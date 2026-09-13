@@ -1167,6 +1167,9 @@ require("./selection_shape.spec")
 -- the highlight shape is a THEME TOKEN (`radii.selection`, 2026-09-12): a custom
 -- package flips the segmented fill and the card row shade with no code change
 require("./selection_radius.spec")
+-- ...and the strip that holds it: a plate and the fill inside it are ONE corner
+-- decision, over a rect, a rounded and a pill theme (owner report 2026-09-12)
+require("./selection_shape_container.spec")
 require("./picker_sweep.spec")
 -- D2: the freestanding action menu — verbs not values, the shared row recipe,
 -- submenus that nest without a cap, and the five triggers that close the context-menu construct

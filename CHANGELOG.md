@@ -13,6 +13,14 @@ runtime as `Facet.VERSION`.
 
 ## [Unreleased]
 
+- Fixed: a `TabView`'s adaptable app bar drew a `radii.pill` capsule around a
+  `radii.selection` fill, so a pill strip held a rounded-rect highlight (999
+  against 4 under Compact Pointer). Its band form spends
+  `selection_indicator.TRACK_CORNER` now — the same `radii.control` the picker's
+  own track spends — so the bar, the track and the fill are one decision and a
+  square package gets a square strip holding a square fill while a round one
+  gets a capsule holding a capsule. The rail form keeps `radii.panel`. New gate:
+  `tests/selection_shape_container.spec.luau`.
 - Fixed: a `TabView`'s strip touched its page at every placement but the sidebar.
   The root stack spent the theme's `m` step beside a rail and nothing at all
   above or below a band, so a strip — a plate with its own fill and corner — ran
