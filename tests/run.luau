@@ -1170,6 +1170,9 @@ require("./selection_radius.spec")
 -- ...and the strip that holds it: a plate and the fill inside it are ONE corner
 -- decision, over a rect, a rounded and a pill theme (owner report 2026-09-12)
 require("./selection_shape_container.spec")
+-- ...and the count seal a badged option wears: its number is concentric with its
+-- plate, skinned or not (owner report 2026-09-12)
+require("./badge_centering.spec")
 require("./picker_sweep.spec")
 -- D2: the freestanding action menu — verbs not values, the shared row recipe,
 -- submenus that nest without a cap, and the five triggers that close the context-menu construct

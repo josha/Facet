@@ -13,6 +13,13 @@ runtime as `Facet.VERSION`.
 
 ## [Unreleased]
 
+- Fixed: a count badge's number sat off-centre in its seal. Two rules make the
+  plate bigger than the glyph — the intrinsic `controls.badge.minimum` on both
+  axes and the row recipe's `xs` a side — and the glyph took the text class's
+  `TextXAlignment.Left` default, 2.5px off centre on a 20px circle in Facet
+  Neutral. It declares `textAlign = "center"` now, which is the rule
+  `chrome_slots.CENTRED_LIFT_SLOTS` already states for the same node's SKINNED
+  half. New gate: `tests/badge_centering.spec.luau`.
 - Fixed: a `TabView`'s adaptable app bar drew a `radii.pill` capsule around a
   `radii.selection` fill, so a pill strip held a rounded-rect highlight (999
   against 4 under Compact Pointer). Its band form spends

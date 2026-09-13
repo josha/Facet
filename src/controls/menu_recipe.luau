@@ -495,12 +495,24 @@ function menu_recipe.row(UI: any, row: Row): any
 				else badge == ""
 			table.insert(
 				content,
+				--[[ THE NUMBER SITS IN THE MIDDLE OF THE SEAL (owner report
+					2026-09-12). Two rules make this plate bigger than its glyph —
+					`layout_node`'s intrinsic badge MINIMUM on both axes and the `xs`
+					a side below — and without `textAlign` the glyph took
+					`screen_target`'s create default, `TextXAlignment.Left`. Measured
+					in Facet Neutral: a 20x20 seal with an 8px glyph, 2.5px off
+					centre. `chrome_slots.CENTRED_LIFT_SLOTS` already says the rule
+					for the SKINNED half of the same node ("a badge's number belongs
+					in the middle of its seal"), so the two halves simply disagreed;
+					this is the unskinned one catching up. The vertical half was
+					already right: `TextYAlignment` is Center everywhere, on purpose. ]]
 				UI.Text({
 					id = "Badge",
 					text = badge,
 					hidden = hidden,
 					surface = "badge",
 					textSize = "caption",
+					textAlign = "center",
 					padding = { left = "xs", right = "xs" },
 					corners = UI.cornersData("pill"),
 				})
