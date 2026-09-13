@@ -955,8 +955,17 @@ function transitions.new(opts: Opts)
 		entry.progress:setTarget(0)
 	end
 
-	-- the exit is off: park the motion where it stands so the enter that follows
-	-- reverses from this value AND this velocity. `release` is the teardown twin.
+	--[[ the exit is off: park the motion where it stands so the enter that follows
+		reverses from this value AND this velocity. `release` is the teardown twin.
+
+		PARKED MEANS RE-AIMED, not merely unwatched. Stopping the cap and clearing
+		the completion leaves the SPRING still aimed at 0 — the exit's own target —
+		so a "parked" motion went right on travelling to absent. Both callers in
+		`mount.luau` follow this with `beginEnter` on the next line, whose aim
+		replaces that one, so no shipped path ever saw it; the seam is public on
+		the coordinator all the same, and the aim is what the sentence above claims.
+		Re-aiming at the current value keeps that value AND the velocity a retarget
+		carries, which is exactly what the reversal needs. ]]
 	function self.cancelExit(path: string)
 		local entry = entries[path]
 		if entry == nil then
@@ -965,6 +974,7 @@ function transitions.new(opts: Opts)
 		stopCap(entry)
 		entry.done = nil
 		entry.phase = "parked"
+		entry.progress:setTarget(entry.progress:get())
 	end
 
 	function self.release(path: string)

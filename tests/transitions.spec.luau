@@ -985,6 +985,37 @@ describe("transition coordinator: event-sampled slides", function()
 		clock:dispose()
 	end)
 
+	--[[ PARKED MEANS PARKED (final review item 8). `cancelExit` says it parks the
+		motion where it stands, and it stopped the cap, cleared the completion and
+		named the phase — but left the spring still AIMED at 0, the exit's own
+		target. Every caller in `mount.luau` follows it with `beginEnter` on the
+		next line, whose aim replaces that one, so no shipped path ever saw the
+		difference; the seam is public on the coordinator all the same, and a
+		comment that describes a behaviour the code does not have is the kind of
+		claim the next reader builds on. Aim it where it is: the value is unchanged
+		and the velocity survives a retarget, so the reversal below still reverses
+		from exactly this value AND this velocity. ]]
+	it("cancelExit alone parks the motion instead of letting the exit finish", function()
+		local _, clock, coordinator, read = slideWorld()
+		local node = { props = {} }
+		local outward = transitionsLib.resolve({ enter = "slide-left", exit = "slide-left", distance = 400 })
+		coordinator.beginExit("/Page", node, outward, function()
+			error("cancelled exit completed")
+		end)
+		for _ = 1, 5 do
+			clock:step(FRAME)
+		end
+		local parked = read().x
+		expect(`moving when cancelled: {parked ~= 0 and parked ~= -400}`).toBe("moving when cancelled: true")
+		coordinator.cancelExit("/Page")
+		for _ = 1, 120 do
+			clock:step(FRAME)
+		end
+		expect(`still where it stood: {math.abs(read().x - parked) < 1e-6}`).toBe("still where it stood: true")
+		coordinator.dispose()
+		clock:dispose()
+	end)
+
 	it("returning mid-exit samples a new width without jumping or restarting velocity", function()
 		local _, clock, coordinator, read = slideWorld()
 		local node = { props = {} }
