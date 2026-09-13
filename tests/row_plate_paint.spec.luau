@@ -20,30 +20,42 @@
 	WHY THE PLATE IS NOT BACK ON THE ROW. Measured, not assumed: `control` and
 	`panel` are the only two decoration slots a plate surface can reach, and under
 	Glossy Mobile and Glossy Touch BOTH declare `shadow = "raised"` — blur 14,
-	offset y+3, `zIndex = -1` — resolving to a `chromeBleed` of 17px. List rows are
-	laid back to back, so a per-row plate paints that far into its neighbours at
-	any gap a list would plausibly use. That is the owner's OWN earlier report
+	offset y+3, `zIndex = -1` — resolving to a `chromeBleed` of 17px. A list lays
+	its rows back to back, so a per-row plate paints that far into its neighbours
+	at any gap a list would plausibly use. That is the owner's OWN earlier report
 	("a crowded list that's overlapping", `tests/row_hit_paint.spec.luau`), and
 	re-declaring `control` on the row would simply swap this defect for that one.
 
 	WHAT THE FIXTURE DOES INSTEAD. The plate goes on the list — `Rows` declares
-	`surface = "raised"` — so there is ONE panel, its shadow falls on the app
-	background rather than on a neighbouring row, and every row's own `base` fill
-	now reads against a token that differs from it in every shipped theme. The 1px
-	`gap` the list already had becomes the separator between them.
+	`surface = "raised"` — so there is ONE panel: its shadow falls on the app
+	background rather than on a neighbouring row, its hairline and `radii.panel`
+	corner frame the list, and every row's own `base` fill now reads against a
+	token that differs from it in every shipped theme. The 1px `gap` the list
+	already had is the separator between them.
+
+	AND THE PLATE COST THE ROW SOMETHING, which is the second half of the change.
+	A slot's carved `chromeInsets` are added to the node's own padding
+	(`render/layout_node.luau`), and `panel` asks for 30px a side under Fantasy
+	Ornate and 18 under Fantasy Parchment. On a 320px portrait the row's `TopLine`
+	— a content-sized sender name beside a flag glyph, with nothing able to give —
+	then painted up to 35px past its own box, which is the OTHER finding
+	`6a65baef` closed, reappearing one node up. The sender fills and truncates now.
+	`tests/overflow_sweep.spec.luau` is what reported it, both times.
 
 	WHAT IS PINNED HERE:
 
 	  1. The two nodes declare the two surfaces, so the plate is a DECLARATION and
 	     never a class accident again.
 	  2. The row still takes no decoration slot — `6a65baef`'s rule, unmoved.
-	  3. THE PAINT, resolved the way the engine resolves it: the node's
+	  3. THE PAINT, resolved the way the engine resolves it: each node's
 	     classification tags run through the compiled sheet's cascade and the
 	     winning `BackgroundColor3` token is looked up in the theme. A raw property
 	     read would report the UNSTYLED value and a default-valued write claims
 	     nothing, so neither could see this defect at all. Run over Facet Neutral
 	     and every theme of every shipped example package: plate and row are both
 	     opaque, and their fills differ.
+	  4. The sender line can give, so the plate's carved border comes out of the
+	     name rather than out of the box.
 ]]
 
 local t = require("./lib/testkit")
@@ -62,9 +74,10 @@ local PLATE_PATH = "/MailActions/ListWhen/then/List/Rows"
 local ROW_PATH = "/MailActions/ListWhen/then/List/Rows/RowsForEach/[m1]/m1/Content/Row"
 
 -- the engine instance each node class is materialized as, so a bare class
--- selector in the sheet can be matched headlessly. `src/client/screen_vocabulary
--- .luau`'s `CLASS_TO_INSTANCE`; only the two classes this spec reads.
+-- selector in the sheet can be matched headlessly (`src/client/screen_vocabulary
+-- .luau`'s `CLASS_TO_INSTANCE`; only the two classes this spec reads)
 local ENGINE_CLASS: { [string]: string } = { Button = "TextButton", VStack = "Frame" }
+local TOP_LINE = "/MailActions/ListWhen/then/List/Rows/RowsForEach/[m1]/m1/Content/Row/Text/TopLine"
 
 local PACKAGES: { { name: string, module: any } } = {
 	{ name = "classic_desktop", module = require("../examples/themes/classic_desktop") },
@@ -130,9 +143,6 @@ local function selectorMatches(selector: string, engineClass: string, tags: { [s
 	return true
 end
 
--- the winning value of one property for a node wearing `tags`, or nil when no
--- rule claims it (which is itself the defect this spec exists for: an unclaimed
--- fill is an invisible node)
 local function styledProp(model: any, engineClass: string, tags: { [string]: boolean }, prop: string): any
 	local won: any = nil
 	for _, rule in model.rules do
@@ -164,14 +174,6 @@ local function restingFill(model: any, theme: any, engineClass: string, tags: { 
 	return `{colour.r},{colour.g},{colour.b}`
 end
 
-local function tagsOf(node: any): { [string]: boolean }
-	return sheet_model.classifyTags({
-		surface = node.props.surface,
-		interactive = node.class == "Button" or node.class == "Toggle",
-		selected = false,
-	})
-end
-
 -- every compiled model a shipped theme can install, plus the one a screen with
 -- no package installed runs on. Compiled once: eight packages is the expensive
 -- half of this file and every case wants the same list.
@@ -195,6 +197,14 @@ local function models(): { { label: string, model: any, theme: any } }
 	return out
 end
 
+local function tagsOf(node: any): { [string]: boolean }
+	return sheet_model.classifyTags({
+		surface = node.props.surface,
+		interactive = node.class == "Button" or node.class == "Toggle",
+		selected = false,
+	})
+end
+
 describe("list row plate: the fixture declares the plate it paints", function()
 	it("the list declares the raised plate and the row declares the app surface", function()
 		local w = scenarioWorld(rowActions)
@@ -215,6 +225,25 @@ describe("list row plate: the fixture declares the plate it paints", function()
 			expect(chrome_slots.shadowFor(package, "panel") ~= nil).toBe(true)
 			expect(Facet.themes.resolve(package, nil, {}).chromeBleed > 0).toBe(true)
 		end
+	end)
+
+	it("...and the SECOND premise: a panel recipe carves a border the solver spends as padding", function()
+		local ornate = require("../examples/themes/fantasy_ornate").build(Facet.themes)
+		local insets = Facet.themes.resolve(ornate, nil, {}).chromeInsets
+		expect(insets.panel.left > 16).toBe(true)
+		--[[ ...which is why the sender line has to be able to give, asserted as
+			the SOLVED consequence rather than as the declaration: a dim is consumed
+			by the solver and never reaches the target, so `props.width` is nil on a
+			mounted node and a pin on it would pass for anything. The line fills its
+			column, so a squeeze lands on the name; the name is one line tall, so it
+			truncates instead of wrapping the row taller. ]]
+		local w = scenarioWorld(rowActions)
+		local top = w.adapter.node(TOP_LINE)
+		local column = w.adapter.node("/MailActions/ListWhen/then/List/Rows/RowsForEach/[m1]/m1/Content/Row/Text")
+		local from = w.adapter.node(TOP_LINE .. "/From")
+		assert(top ~= nil and column ~= nil and from ~= nil, "the row did not mount its sender line")
+		expect(top.rect.w).toBe(column.rect.w)
+		expect(from.rect.h <= top.rect.h).toBe(true)
 	end)
 end)
 

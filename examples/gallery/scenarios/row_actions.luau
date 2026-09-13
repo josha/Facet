@@ -342,11 +342,28 @@ return {
 						gap = 2,
 						width = UI.fill(),
 						children = {
+							--[[ THE SENDER TRUNCATES; IT DOES NOT PUSH (overflow sweep,
+								2026-09-12). This row is the narrowest thing on a 320px
+								portrait and the only one carrying a name, and the name was
+								content-sized beside a flag glyph — so any squeeze came out
+								of nothing and `TopLine` simply painted past its own box. It
+								squeezed the moment the list took a plate (the ornate and
+								parchment panel recipes carve 30px and 18px a side out of
+								the node they skin), and it would squeeze again on a
+								narrower phone with no plate at all. A mail row's sender is
+								exactly the field a list truncates. ]]
 							UI.HStack({
 								id = "TopLine",
+								width = UI.fill(),
 								gap = "s",
 								children = {
-									UI.Text({ id = "From", text = item.from, textSize = 15 }),
+									UI.Text({
+										id = "From",
+										text = item.from,
+										textSize = 15,
+										width = UI.fill(),
+										lineLimit = 1,
+									}),
 									UI.When({
 										id = "FlagWhen",
 										condition = flagged,
@@ -407,30 +424,29 @@ return {
 				--[[ THE PLATE IS THE LIST'S, NOT THE ROW'S (owner report 2026-09-12,
 					`tests/row_plate_paint.spec.luau`).
 
-					The rows lost their background. `6a65baef` made a DECLARED surface
-					outrank the class map, so the row's `surface = "base"` stopped being
-					handed the package's control recipe by its class — and `base` is the
-					APP BACKGROUND, which is the token the screen behind these rows also
-					declares. The row had been drawing its plate out of that accident,
-					and once `base` meant what it says there was nothing to see.
+					These rows lost their background. `6a65baef` made a declared surface
+					outrank the class map, so a `UI.Button` declaring `surface = "base"`
+					stopped being handed the package's CONTROL recipe by its class — and
+					`base` is the APP BACKGROUND, the very token the screen behind this
+					list also declares. The rows had been drawing their plate out of that
+					accident, and once `base` meant what it says the list vanished into
+					the page.
 
-					It does not go back on the row. `control` and `panel` are the only
-					decoration slots a plate surface reaches, and under both glossy
-					packages each declares `shadow = "raised"` — a 17px `chromeBleed`
-					that a back-to-back list paints straight into its neighbours. That is
-					the report `tests/row_hit_paint.spec.luau` carries, and a per-row
-					plate would trade this defect for that one.
+					IT DOES NOT GO BACK ON THE ROW, and that is measured rather than
+					assumed. `control` and `panel` are the only decoration slots a plate
+					surface reaches; under both glossy packages each declares
+					`shadow = "raised"`, a 17px `chromeBleed` that a list laid back to
+					back paints straight into its neighbours — the report
+					`tests/row_hit_paint.spec.luau` carries. ONE panel around the whole
+					list spends that shadow on the app background instead, where it
+					belongs, and its hairline and `radii.panel` corner frame the list.
 
-					So the list wears ONE panel: its shadow falls on the app background,
-					its hairline and `radii.panel` corner frame the whole list, the `xs`
-					padding is what lets that frame be seen, and the 1px `gap` the list
-					already had becomes the separator between rows — each of which still
-					paints its own `base` fill, now against a token that differs from it
-					in every shipped theme. ]]
+					The rows keep their own `base` fill, which now reads against a token
+					that differs from it in every shipped theme, and the 1px `gap` this
+					list already had is the separator between them. ]]
 				UI.VStack({
 					id = "Rows",
 					surface = "raised",
-					padding = "xs",
 					gap = 1,
 					width = UI.fill(),
 					children = { rowsForEach },
