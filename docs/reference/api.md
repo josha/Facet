@@ -8392,6 +8392,7 @@ geometry, and theme styling.
 | `clearButtonMode` | `"never"`, `"whileEditing"`, `"unlessEditing"`, or `"always"`. Default is never; search defaults to always. Empty or disabled fields hide the affordance. |
 | `maxLength` | Maximum accepted Unicode scalar count. Invalid UTF-8 is rejected. |
 | `validate(text)` | Return an accepted, idempotently normalized string, or nil to reject. Applied after length limiting and on commit. Numeric formatting must also pass validation before committed values change. |
+| `invalid` | Optional caller-owned readable boolean. Each false-to-true edge shakes the field once on the paint-only `offset`: the solved rect, hit target, and focus order never move, and a second edge restarts the shake rather than racing it. The shake is decorative, so a reduced-motion session drops it entirely; show the reason yourself, as number presentation shows its own message. |
 | `numericValue` | Required caller-owned `Signal<number>` for number presentation; distinct from the editable string in `value`. |
 | `parse(text)` / `format(number)` | Numeric commit functions; default to `tonumber` and `tostring`. Parsing must return a finite number; formatting must return a string. |
 | `min` / `max` | Optional inclusive numeric bounds. Invalid input leaves `numericValue` unchanged and displays a validation message. |
@@ -8409,7 +8410,8 @@ ancestor, ends editing, preserves accepted text, and rejects late edits and comm
 
 Numeric entry keeps strings such as `"-"`, `"."`, and `"1e"` as editable drafts.
 Parsing, bounds, and formatting run on commit, rather than rewriting each
-keystroke. Rejected commits retain the draft and show an error. Search uses the
+keystroke. Rejected commits retain the draft, show an error, and shake the field
+on the same edge `invalid` shakes on; the message beneath the field holds still. Search uses the
 same text pipeline with a themeable search mark and clear affordance; bind its
 `value` to a filtering memo for an ordinary list or to a PopupButton's `query`.
 
