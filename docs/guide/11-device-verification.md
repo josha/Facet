@@ -247,15 +247,21 @@ surfaces, so no solver lays them out together and neither can measure the other.
 Floating them over the demo was the first answer and it was wrong: every demo
 puts content somewhere, so a fixed overlay always covers *something*. The
 showcase instead RESERVES a strip, through the same mechanism the CoreGui topbar
-uses. It writes `coreSafeInsets` = (the engine's `GetGuiInset().Y` + the bar
-height) on every frame, so the solver lays every demo out below both chips.
-Nothing overlaps because nothing floats. Two details are load-bearing and each
-cost a round to find:
+uses. It writes `appChromeInsets` — the HOST's own reservation, separate from the
+platform's since 2026-09-13 — as (the engine's `GetGuiInset().Y` + the bar height)
+less the platform row the solver adds back, on every frame, so the solver lays
+every demo out below both chips. Nothing overlaps because nothing floats. A MODAL
+is inset by the device safe area alone, which is why an alert raised over a demo
+centres on the whole screen rather than on the space under the strip. Two details
+are load-bearing and each cost a round to find:
 
-- compute the inset **from the engine**, not by adding to whatever
-  `coreSafeInsets` currently holds. The script runs before the adapter has
-  published the real topbar. So the additive form reserved 40px of a 58px topbar
-  and put the chips *underneath* the Roblox buttons;
+- compute the window-space reservation **from the engine**, not by adding to
+  whatever the fact currently holds. The script runs before the adapter has
+  published the real topbar. The additive form reserved 40px of a 58px topbar
+  and put the chips *underneath* the Roblox buttons; the subtraction that turns
+  the window-space number into the host's own band reads `coreSafeInsets` for
+  exactly the row the renderer will add back, so the sum is stable in both
+  states;
 - clip the chip **label**, not the chip **box**. A Button label wraps inside a
   narrower box, so `maxWidth` grew the chip a second line and pushed it back out
   of the strip and over the demo's title.

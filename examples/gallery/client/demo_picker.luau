@@ -66,9 +66,10 @@ demo_picker.BAR_HEIGHT = 62
 -- nil `chipsBottom` = no geometry yet: the floor stands.
 --
 --[[ `overscanTop` IS SUBTRACTED, AND THAT IS NOT A FUDGE (director round 4,
-	2026-08-21). This value is published as `coreSafeInsets.top`, and on a ten-foot
-	display `renderer.luau` ADDS `effectiveOverscanInsets.top` to the core insets
-	before it solves any content surface. The chip row now sits inside that same
+	2026-08-21). This value is what content must clear in WINDOW space — the host
+	publishes it as `appChromeInsets.top` less the platform's own row (2026-09-13)
+	— and on a ten-foot display `renderer.luau` ADDS `effectiveOverscanInsets.top`
+	to the insets before it solves any content surface. The chip row now sits inside that same
 	margin (`showcase_chrome`'s `barTop`), so its measured bottom edge already
 	contains the overscan — reserving the raw number would spend it twice and open
 	a sixty-pixel dead band between the chips and the demo. Measured at
@@ -992,7 +993,7 @@ function demo_picker.mount(opts: MountOpts): any
 
 	-- INSIDE THE RESERVED STRIP, at its left end (the theme chip takes the
 	-- right). The negative offset lifts this surface back INTO the strip that
-	-- `coreSafeInsets` reserved for it.
+	-- `appChromeInsets` reserved for it.
 	local screen = UI.Screen({
 		id = "ShowcaseDemos",
 		padding = "s",

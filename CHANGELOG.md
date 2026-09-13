@@ -13,6 +13,23 @@ runtime as `Facet.VERSION`.
 
 ## [Unreleased]
 
+- **A modal centres on the whole screen; content still yields the host's own
+  chrome (2026-09-13).** `coreSafeInsets` carried two meanings — the device safe
+  area AND any band the HOST app reserved for chrome of its own, because inflating
+  it was the only vocabulary a host had. The showcase folded its demo/settings chip
+  strip in there, so every alert it raised centred in the space UNDER the strip,
+  visibly high-shouldered against a backdrop covering the whole window. The fact is
+  split: `coreSafeInsets` means the device safe area again, and **`appChromeInsets`**
+  is the host's own four-edge reservation (zero by default, the sibling of
+  `appChromeRects` — that one says where the chrome IS, this one says how much
+  content must clear). The content root policies add the two; `presentModal` and
+  `presentCritical` reserve the device's edges alone (`renderer.attach`'s new
+  `reserveAppChrome`, default true), and `bandSafeContent` still consumes the app's
+  chrome per column through `platformChrome.rects`. Anchored popovers and disclosure
+  plates belong to their content surface and keep both. **Nothing moves for a
+  consumer that never sets the new fact** — Rascal Rally's `coreSafeInsets` was
+  always device-only, and its role-pick modal's centre is pinned unchanged.
+
 - **A modal's action label is never cut before the form changes (2026-09-13).**
   `Controls.Alert`'s row/stack decision was categorical only — a width class, a
   viewing distance, a text preference — and every rung was a proxy for the question

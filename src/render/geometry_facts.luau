@@ -2,14 +2,18 @@
 --[[ geometry_facts — WHICH ENVIRONMENT FACTS ARE GEOMETRY FOR A SURFACE, AND WHEN
 	TWO READINGS OF THEM ARE THE SAME.
 
-	Public interface, two pure functions and no state:
+	Public interface, three pure functions and no state:
 
-	  `geometry_facts.keysFor(rootPolicy) -> { key }`
+	  `geometry_facts.keysFor(rootPolicy, reserveAppChrome?) -> { key }`
 	      the environment keys a surface under that root policy must re-solve for,
 	      already narrowed for the policy. `rootPolicy` is fixed for a controller's
-	      life (read once at attach), so the list is safe to fix with it.
+	      life (read once at attach), so the list is safe to fix with it — and so is
+	      `reserveAppChrome`, the modal opt-out that narrows one more key out.
 	  `geometry_facts.same(keys, a, b) -> boolean`
 	      the comparator for two readings of that list, BY CONTENT.
+	  `geometry_facts.withAppChrome(insets, rootPolicy, appChrome) -> insets`
+	      the host band composed into what the policy already reserved — the one
+	      thing a CONTENT policy does with `appChromeInsets`, kept beside its key.
 
 	The renderer builds one memo over the list and hands the comparator to it; both
 	halves are here because a key added to the list and not taught to the comparator
@@ -129,6 +133,11 @@ local BASE_KEYS = {
 	"viewportRect",
 	"coreSafeInsets",
 	"deviceSafeInsets",
+	-- the HOST's own reserved band, composed on top of the platform's by every
+	-- content policy (`src/env/environment.luau`, `appChromeInsets`). Narrowed out
+	-- below for the two policies that do not consume it, and for a surface that
+	-- opted out of reserving it at all (a modal)
+	"appChromeInsets",
 	"overscanInsets",
 	"displaySize",
 	-- geometry-affecting (matrix D.1): a preferredTextSize or displaySize
@@ -170,11 +179,18 @@ local BASE_KEYS = {
 	It is the one NESTED fact in this list and it has a comparator of its own
 	(`sameChrome`); the refusal the block above documents stands for facts with
 	none. ]]
-function geometry_facts.keysFor(rootPolicy: string?): { string }
+--[[ ...AND THE THIRD NARROWING IS NOT A POLICY AT ALL: `reserveAppChrome` is the
+	per-surface opt-out a modal takes (the presenter sets it for
+	`presentModal`/`presentCritical`), so such a surface is not woken by a host band
+	it is defined not to reserve. Same argument `edgeToEdge`'s narrowing makes, on
+	the one fact it is about — and it is safe to fix with the list for the same
+	reason the policy is: both are read once, at attach, and never move after. ]]
+function geometry_facts.keysFor(rootPolicy: string?, reserveAppChrome: boolean?): { string }
+	local appChrome = reserveAppChrome ~= false
 	if rootPolicy == "edgeToEdge" then
 		local narrowed = {}
 		for _, key in BASE_KEYS do
-			if key ~= "coreSafeInsets" and key ~= "deviceSafeInsets" then
+			if key ~= "coreSafeInsets" and key ~= "deviceSafeInsets" and key ~= "appChromeInsets" then
 				table.insert(narrowed, key)
 			end
 		end
@@ -183,7 +199,12 @@ function geometry_facts.keysFor(rootPolicy: string?): { string }
 	if rootPolicy == "bandSafeContent" then
 		local swapped = { "platformChrome" }
 		for _, key in BASE_KEYS do
-			if key ~= "coreSafeInsets" and key ~= "deviceSafeInsets" and key ~= "overscanInsets" then
+			if
+				key ~= "coreSafeInsets"
+				and key ~= "deviceSafeInsets"
+				and key ~= "overscanInsets"
+				and key ~= "appChromeInsets"
+			then
 				table.insert(swapped, key)
 			end
 		end
@@ -192,7 +213,55 @@ function geometry_facts.keysFor(rootPolicy: string?): { string }
 	-- the two policies that consume both inset facts get the list unchanged, and a
 	-- COPY of it: the caller holds this list for the life of a surface and a shared
 	-- one would let a second surface's narrowing rewrite the first's dependencies
-	return table.clone(BASE_KEYS)
+	if appChrome then
+		return table.clone(BASE_KEYS)
+	end
+	local narrowed = {}
+	for _, key in BASE_KEYS do
+		if key ~= "appChromeInsets" then
+			table.insert(narrowed, key)
+		end
+	end
+	return narrowed
+end
+
+--[[ WHAT A CONTENT POLICY DOES WITH `appChromeInsets` — the third pure function,
+	here because the rule and the key are one decision exactly as the list and the
+	comparator are (owner ruling 2026-09-13; the fact's own header is in
+	src/env/environment.luau).
+
+	ADDED, NOT MAX'D. The host draws its chrome INSIDE the safe area, below the
+	platform's row: the showcase's 62px chip strip starts where the 58px CoreGui
+	topbar ends, and a per-edge max would reserve 62 for both and lay the demo over
+	the chips. This is the one composition in the resolver that is a sum, and that
+	is what "a band the host OCCUPIES" means.
+
+	LAST, after every floor the policy applied. A floor answers "may content touch
+	the glass"; an occupied band has to be cleared on top of whatever the answer
+	was, so a host band under an `edgeFloor` is still fully reserved.
+
+	THE TWO POLICIES IT SKIPS. `edgeToEdge` is defined to consume no inset at all
+	(L-31 above). `bandSafeContent` consumes the app's chrome per COLUMN, through
+	`platformChrome.rects` — a bounding box there would push a band-riding surface
+	off the very strip it asked for, which is the defect `appChromeRects` exists to
+	remove. Both are also narrowed out of `keysFor` above, which is the same
+	statement made where the surface's dependencies are decided.
+
+	GARBAGE IS ZERO, not an error: this is a policy resolver reading a fact an
+	adapter or a host wrote, and the safe direction for a reservation it cannot
+	read is the one that moves nothing. ]]
+function geometry_facts.withAppChrome(insets: any, rootPolicy: string?, appChrome: any): any
+	if rootPolicy == "edgeToEdge" or rootPolicy == "bandSafeContent" or type(appChrome) ~= "table" then
+		return insets
+	end
+	local out = { top = insets.top, bottom = insets.bottom, left = insets.left, right = insets.right }
+	for _, edge in { "top", "bottom", "left", "right" } do
+		local v = tonumber(appChrome[edge])
+		if v ~= nil and v == v and v > 0 then
+			out[edge] += v
+		end
+	end
+	return out
 end
 
 -- Two readings of `keysFor`'s list, compared BY CONTENT (above). `nil` on either

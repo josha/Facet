@@ -700,8 +700,13 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 					and type(metrics.space.m) == "number"
 				then metrics.space.m
 				else neutral.space.m
+			-- the top of the space this popover's own surface lives in: the platform's
+			-- reservation PLUS the host app's own band, which is what the content
+			-- policy that solved the trigger reserved (`appChromeInsets`, 2026-09-13)
 			local insets = if env ~= nil then env:get("coreSafeInsets"):get() else nil
+			local hostChrome = if env ~= nil then env:get("appChromeInsets"):get() else nil
 			local top = if type(insets) == "table" and type(insets.top) == "number" then insets.top else 0
+			top += if type(hostChrome) == "table" then math.max(0, tonumber(hostChrome.top) or 0) else 0
 			--[[ the panel's own chrome — the `raised` slot's content insets a package
 				carves (Glossy Touch's 7px, measured at +4 on a landscape phone) plus
 				the rows' gap — comes out of the room too, or the rows fit and the
@@ -1288,8 +1293,11 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 							else neutralNow.space
 						local xs = if type(spaceNow.xs) == "number" then spaceNow.xs else neutralNow.space.xs
 						local m = if type(spaceNow.m) == "number" then spaceNow.m else neutralNow.space.m
+						-- both reservations, exactly as the room arithmetic above reads them
 						local insets = env:get("coreSafeInsets"):get()
+						local hostChrome = env:get("appChromeInsets"):get()
 						local top = if type(insets) == "table" and type(insets.top) == "number" then insets.top else 0
+						top += if type(hostChrome) == "table" then math.max(0, tonumber(hostChrome.top) or 0) else 0
 						local room = math.max(vp.h - m - (source.y + source.h + xs), source.y - xs - top)
 						over = math.max(over, rect.h - room)
 						--[[ ...AND THE PLACED POSITION, because the presenter's safe box is

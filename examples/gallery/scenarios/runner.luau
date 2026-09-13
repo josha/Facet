@@ -39,6 +39,10 @@ local ENV_FACT_KEYS = {
 	"viewportRect",
 	"deviceSafeInsets",
 	"coreSafeInsets",
+	-- ...and the HOST's own band beside the platform's (2026-09-13): the showcase
+	-- reserves its chip strip through this fact, so a capture that recorded only
+	-- `coreSafeInsets` would show a 58px topbar and no trace of the strip at all
+	"appChromeInsets",
 	"topbarInset",
 	"preferredInput",
 	"capabilities",

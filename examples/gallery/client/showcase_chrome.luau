@@ -41,7 +41,7 @@
 
 	Present order is z-order AND focus-scope order, and the chrome needs opposite
 	answers for those two while it is closed: its strip must be visible (it never
-	overlaps a demo — `coreSafeInsets.top` is reserved from the chips' own
+	overlaps a demo — `appChromeInsets.top` is reserved from the chips' own
 	measured bottom edge, so the solver lays every demo out below it) while the
 	DEMO must own the focus scope. One surface cannot do both. Two can:
 

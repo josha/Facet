@@ -3064,9 +3064,10 @@ lifetime is the mount's, not the module's).
 | `renderer.compactForm(props) -> form?` | pure: the normalized compact representation of a `Button`'s `compactLabel` (`{ kind = "text" \| "icon" \| "image", … }`, `nil` when none). The one place the authored grammar becomes a shape, shared by the measure seam, the paint seam and the adapter |
 | `renderer.drawnButtonText(props, compact?) -> string` | pure: what a `Button`'s own engine text node actually shows (empty for a content button; the framework's ASCII-safe glyph for an icon button) |
 
-**`attach` options** — `{ rootPolicy?, edgeFloor?, onNodeTap?, engineSelectionBridge?,
-onDiscloseHover?, onDiscloseLongPress?, recycleInstances?, incrementalLayout?,
-measureReuse?, layoutNodeReuse?, commitScope?, structuralReuse?, translateHosts? }`
+**`attach` options** — `{ rootPolicy?, reserveAppChrome?, edgeFloor?, onNodeTap?,
+engineSelectionBridge?, onDiscloseHover?, onDiscloseLongPress?, recycleInstances?,
+incrementalLayout?, measureReuse?, layoutNodeReuse?, commitScope?, structuralReuse?,
+translateHosts? }`
 (`recycleInstances` and `incrementalLayout` are the two performance opts described
 under `present()`, both on by default; a presented surface forwards its own).
 
@@ -3106,9 +3107,15 @@ production code buys nothing but a slower frame.
   is the arm `tests/host_space_oracle.spec.luau` compares every public read against.
 `rootPolicy` is the surface's content-rect policy (`"coreSafeContent"` default,
 `"deviceSafeContent"`, `"bandSafeContent"`, `"edgeToEdge"`; an unknown value
-errors and lists the set). `edgeFloor` is the opt-in edge-padding knob (a
-number or a theme metric name) described under `present()`'s own `rootPolicy`
-section — illegal together with `rootPolicy = "edgeToEdge"`.
+errors and lists the set). `reserveAppChrome` (default **true**) is whether this
+surface sits inside the host app's own chrome: a content policy adds
+`appChromeInsets` to whatever it already reserved, and the presenter sets this
+false for `presentModal`/`presentCritical` — a modal takes the screen, so it
+honours the device safe area alone. It is meaningless under `edgeToEdge` (no
+insets at all) and under `bandSafeContent` (which consumes the app's chrome per
+column, through `platformChrome.rects`). `edgeFloor` is the opt-in edge-padding
+knob (a number or a theme metric name) described under `present()`'s own
+`rootPolicy` section — illegal together with `rootPolicy = "edgeToEdge"`.
 **`onNodeTap(path, meta)` takes two arguments** — `meta` carries the tap
 geometry (`x`/`y`) the outside-tap policy reads, and `via` for a
 detector-driven tap. **`engineSelectionBridge`** is the same opt-in mirror
@@ -4594,7 +4601,9 @@ as the core does.
 |---|---|
 | `viewportRect` | `{ x, y, w, h }` of the window |
 | `deviceSafeInsets` | per-edge `{ top, bottom, left, right }` device (notch) insets |
-| `coreSafeInsets` | per-edge CoreGui reservation |
+| `coreSafeInsets` | per-edge CoreGui reservation — the DEVICE safe area, the platform adapter's to write |
+| `appChromeInsets` | per-edge reservation for the HOST APP's own persistent chrome (a showcase's chip strip, a game's always-on top bar), zero by default. Device safe area vs host reservation; modals honour the device only — a content policy adds this to `coreSafeInsets`/`deviceSafeInsets`, and `presentModal`/`presentCritical` do not, so an alert centres on the whole screen instead of on the space under your chrome. The four-edge sibling of `appChromeRects` (which says WHERE that chrome is, for per-column reservation); `bandSafeContent` consumes the rects rather than this box |
+| `appChromeRects` | the host app's own chrome as a LIST of window-space rects, `{}` by default — merged into `platformChrome.rects` beside the engine's own cluster |
 | `topbarInset` | the platform's FREE topbar rect `{ x, y, w, h }`, in WINDOW space (`GuiService.TopbarInset`) |
 | `topbarSafeInsets` | per-edge topbar-safe area — the SAME band as `topbarInset`, stated as edges. Read `platformChrome` rather than either of these; it is the one place that knows what a zero means |
 | `keyboardOcclusionRect` | `{ x, y, w, h }` the soft keyboard covers, or `nil` |

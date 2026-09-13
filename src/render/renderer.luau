@@ -202,6 +202,10 @@ export type RendererAttachOpts = {
 	-- OPT-IN mirror of logical focus to the engine's own selection; the presenter
 	-- sets it for modal/exclusive surfaces only
 	engineSelectionBridge: boolean?,
+	-- INSIDE THE HOST'S OWN CHROME, or over the whole screen? Default true: a
+	-- content policy also reserves `appChromeInsets`. False for a modal, which
+	-- takes the screen (the fact's header is in src/env/environment.luau).
+	reserveAppChrome: boolean?,
 	-- FULL-VALUE DISCLOSURE engagement — the large-text round's cut-label seam:
 	-- pointer enter/leave
 	-- and touch long-press on a `disclose` Text, delivered as (path | nil). The
@@ -242,6 +246,7 @@ local ATTACH_OPTS_KEYS = specGuard.keySet({
 	"engineSelectionBridge",
 	"onNodeTap",
 	"rootPolicy",
+	"reserveAppChrome",
 	"edgeFloor",
 	"onDiscloseHover",
 	"onDiscloseLongPress",
@@ -307,6 +312,7 @@ function renderer.attach(
 		error(`Facet renderer: unknown rootPolicy '{tostring(rootPolicy)}'. Valid: {table.concat(names, ", ")}.`, 0)
 	end
 	local optEdgeFloor = opts and opts.edgeFloor
+	local reserveAppChrome = opts == nil or opts.reserveAppChrome ~= false
 	--[[ THE ONE COMBINATION THIS OPT REFUSES (director ruling):
 		explicit `edgeToEdge` means zero padding, guaranteed — a decoration
 		layer that asked to paint to the edge and a floor that pads it away
@@ -1901,6 +1907,12 @@ function renderer.attach(
 				}
 			end
 		end
+		-- ...AND THE HOST'S OWN BAND IS THE LAST TERM, an ADDITION and content-only.
+		-- The rule lives with the key (`geometry_facts.withAppChrome`); the modal's
+		-- opt-out narrows that key out of GEOMETRY_KEYS too.
+		if reserveAppChrome then
+			insets = geometry_facts.withAppChrome(insets, rootPolicy, env:get("appChromeInsets"):get())
+		end
 		--[[ THE TREE, PATCHED RATHER THAN REBUILT (P3). `nodeDirty` is the
 			ancestor-closed set `refresh` accumulated; `nil` is "rebuild everything".
 
@@ -2665,7 +2677,7 @@ function renderer.attach(
 		however many facts an adapter wrote (`tests/geometry_solve_coalescing.spec`),
 		and it carries the VALUES rather than a fresh table so a set-and-revert
 		transaction and an unchanged recompute both stay fire-free. ]]
-	local GEOMETRY_KEYS = geometry_facts.keysFor(rootPolicy)
+	local GEOMETRY_KEYS = geometry_facts.keysFor(rootPolicy, reserveAppChrome)
 	-- scope-owned like every other memo: an unowned one is a live registry node
 	-- after dispose, which the registry-neutrality suites catch as a leak
 	local geometryFacts = attachScope:own(core:memo(function(use)

@@ -257,26 +257,37 @@ if bootDecision.mode == "showcase" then
 	-- title and its stepper both ended up underneath a chip.
 	--
 	-- Facet already has the right mechanism, and it is the one the CoreGui
-	-- topbar itself uses: `coreSafeInsets` is read on every solve, so a top inset
-	-- of (core topbar + bar) makes the SOLVER lay every demo out below both.
-	-- Nothing overlaps because nothing floats.
+	-- topbar itself uses: an inset fact is read on every solve, so reserving the
+	-- bar makes the SOLVER lay every demo out below it. Nothing overlaps because
+	-- nothing floats.
 	--
-	-- THE TOP EDGE ONLY. `coreSafeInsets` is a FOUR-EDGE fact and the platform
-	-- adapter is its author: on a notched phone in landscape the left and right
-	-- edges are the notch and the home indicator, and on some devices `bottom` is
-	-- real too. Writing a whole table with three zeroes in it looks like
-	-- "reserving the top" and is actually "deleting every other edge" — content
-	-- would sit under CoreGui-reserved regions on exactly the landscape and
-	-- notched rows the device matrix drives. So the other three edges are carried
-	-- through from whatever the adapter last published.
+	-- IT IS THE HOST'S OWN FACT, NOT THE PLATFORM'S (owner ruling 2026-09-13).
+	-- This row is APP chrome — the showcase drew it, over its own content — and it
+	-- goes into `appChromeInsets`, the four-edge reservation a host declares beside
+	-- the rect it publishes through `appChromeRects` below. `coreSafeInsets` means
+	-- the device safe area and the platform adapter is its only author again.
 	--
-	-- THE TOP IS COMPUTED FROM THE ENGINE, NOT FROM THE FACT. Deriving it by
-	-- adding to whatever `coreSafeInsets` currently holds looks equivalent and is
-	-- not: this ran before the adapter had published the real 58px topbar, so it
-	-- reserved 0+40 and the demo's content started at y=40 — ABOVE the Roblox
-	-- buttons, with the chips underneath them. Reading GetGuiInset directly makes
-	-- the reservation absolute, and re-asserting it each frame makes it
-	-- idempotent and immune to the adapter rewriting the fact underneath us.
+	-- WHAT THAT BUYS, and why the fold into `coreSafeInsets` had to end: a MODAL
+	-- honours the device safe area alone. Folded into one fact, every alert the
+	-- showcase raised centred in the space UNDER this strip — high-shouldered
+	-- against a backdrop covering the whole window. Content still yields the band;
+	-- the alert now centres on the true screen.
+	--
+	-- AND THE FOUR-EDGE TRAP GOES WITH IT. The old write had to carry the adapter's
+	-- other three edges through by hand (on a notched phone in landscape they are
+	-- the notch and the home indicator), because writing a table with three zeroes
+	-- in it looks like "reserving the top" and is actually "deleting every other
+	-- edge". This fact is the host's alone, so three zeroes are the truth: the
+	-- showcase reserves a top strip and nothing else.
+	--
+	-- THE RESERVATION IS STILL ABSOLUTE, and the subtraction below is what keeps it
+	-- so. `barReservation` answers in WINDOW space (it is measured from the chip
+	-- row's own solved bottom edge), while this fact is what content must clear
+	-- BELOW the platform's row — so the platform's row comes off it, read from the
+	-- SAME fact the renderer will add back. Before the adapter has published it
+	-- that fact is zero and the whole reservation is spent here, which is exactly
+	-- the absolute number the engine-read version produced; when the adapter
+	-- publishes 58 the next frame re-asserts and the sum is unchanged.
 	local GuiService = game:GetService("GuiService")
 	-- ...AND IT RESERVES WHAT THE CHIPS ACTUALLY MEASURE, NOT A LITERAL.
 	--
@@ -334,17 +345,16 @@ if bootDecision.mode == "showcase" then
 			"top"
 		)
 		local want = demo_picker.barReservation(coreTop, chipsBottom:get(), slack, overscanTop)
-		local live = env:get("coreSafeInsets"):get()
-		local other = if type(live) == "table" then live else {}
-		if type(live) == "table" and live.top == want then
+		-- the platform's own row, as the SOLVER will read it — never GetGuiInset
+		-- here, or the two halves of the sum would come from two authorities
+		local platform = env:get("coreSafeInsets"):get()
+		local platformTop = if type(platform) == "table" then math.max(0, tonumber(platform.top) or 0) else 0
+		local band = math.max(0, want - platformTop)
+		local live = env:get("appChromeInsets"):get()
+		if type(live) == "table" and live.top == band then
 			return
 		end
-		env:set("coreSafeInsets", {
-			top = want,
-			bottom = other.bottom or 0,
-			left = other.left or 0,
-			right = other.right or 0,
-		})
+		env:set("appChromeInsets", { top = band, bottom = 0, left = 0, right = 0 })
 	end
 	reserveBar()
 	local examplesFolder = ReplicatedStorage:WaitForChild("FacetExamples", 10)
@@ -742,8 +752,10 @@ if bootDecision.mode == "showcase" then
 			end
 		end,
 		--[[ ...AND THE SAME ROW, DECLARED AS APP CHROME (director 2026-08-15, item 4).
-			`coreSafeInsets.top` above is a bounding box and stays exactly as it was —
-			every demo still starts below the chips, which is what a demo wants. This
+			`appChromeInsets.top` above is that row's BOUNDING BOX and stays exactly as
+			it was — every demo still starts below the chips, which is what a demo
+			wants; the two facts are one declaration read two ways (how much content
+			must clear, and where the chrome actually is). This
 			publishes the row's real RECT through `appChromeRects`, the env fact
 			`platformChrome` merges alongside the PLATFORM's own cluster, so a surface
 			that means to reserve per column (the screen-anchored HUD does) can sit
@@ -765,8 +777,9 @@ if bootDecision.mode == "showcase" then
 
 	local showcaseHeartbeat = RunService.Heartbeat:Connect(function()
 		-- re-assert the reservation before the solve: the platform adapter
-		-- rewrites coreSafeInsets on orientation and topbar changes, and the
-		-- write above is idempotent, so this simply keeps the strip reserved
+		-- rewrites coreSafeInsets on orientation and topbar changes — which this
+		-- band is stated relative to — and the write above is idempotent, so this
+		-- simply keeps the strip reserved
 		reserveBar()
 		pres.refresh()
 	end)

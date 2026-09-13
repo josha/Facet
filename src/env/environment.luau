@@ -69,6 +69,37 @@ local FACT_DEFAULTS: { [string]: any } = {
 		the presenter's `onGeometry` seam exactly as the showcase already feeds its
 		chip row's bottom edge. ]]
 	appChromeRects = {},
+	--[[ ...AND THE SAME CHROME AS A RESERVATION: HOW MUCH CONTENT MUST CLEAR,
+		where `appChromeRects` says WHERE the chrome is (owner ruling, 2026-09-13).
+
+		THE DEVICE SAFE AREA AND THE HOST'S OWN BAND ARE TWO FACTS, and until this
+		one existed a host had only `coreSafeInsets` to say either. The showcase
+		folded its demo/settings chip row into `coreSafeInsets.top`, so every
+		surface below it was laid out clear of both — correct for CONTENT, and
+		wrong for a MODAL. An alert is not part of the host's page; it takes the
+		screen, over a backdrop that covers the whole window. Folded into one
+		fact, the showcase's alerts centred in the space UNDER the chip row and sat
+		visibly high-shouldered against that backdrop.
+
+		So: `coreSafeInsets` means the PLATFORM's reservation again, and this is
+		the APP's. The content root policies (`coreSafeContent`,
+		`deviceSafeContent`) compose the two — ADDITIVELY, because a host draws its
+		chrome INSIDE the safe area rather than over it — and a modal reserves the
+		device's edges and nothing else (`renderer.attach`'s `reserveAppChrome`,
+		which the presenter sets false for `presentModal`/`presentCritical`).
+		`bandSafeContent` is deliberately not in that list: a surface that means to
+		ride the platform's strip consumes the app's chrome through
+		`platformChrome.rects` per column, which is the whole reason the rects fact
+		exists — a bounding box there would push it off the band it asked for.
+
+		FOUR EDGES, ZERO BY DEFAULT, so it is invisible to every consumer that
+		never sets it: a game whose chrome is all inside its own surfaces declares
+		nothing and every rect it has ever solved is byte-identical. It is the
+		app's DECLARATION, exactly like the rects beside it — this module never
+		measures it, and the declarer is the one surface that knows what it drew.
+		`platformChrome` stays PLATFORM-scoped and does not carry it (its `insets`
+		is "what `deviceSafeContent` applies" for a host that declares no band). ]]
+	appChromeInsets = { top = 0, bottom = 0, left = 0, right = 0 },
 	keyboardOcclusionRect = nil,
 	viewingDistance = "automatic", -- automatic | near | ten-foot; authored viewing context
 	preferredInput = "KeyboardAndMouse", -- Touch | Gamepad | KeyboardAndMouse

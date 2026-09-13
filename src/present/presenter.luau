@@ -779,18 +779,29 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		adding a decorative step on top of a reserved band pushes every plate down by
 		a gutter nobody asked for and buys nothing — there is no "flush against the
 		top" case, because the topbar inset is never zero. ]]
+	--[[ ...AND THE HOST'S OWN BAND IS IN THIS BOX TOO (owner ruling 2026-09-13).
+		An anchored popover and a disclosure plate belong to the CONTENT SURFACE
+		they point at — they are placed against a view's own screen rect and are
+		read as part of the page, not as something that took the screen over it. So
+		they keep both reservations, where a modal keeps only the device's: a
+		tooltip that hung over the host's chip row would cover the control the
+		reader is still looking at. `appChromeInsets` is ADDED for the same reason
+		the policy resolver adds it (`geometry_facts.withAppChrome`) — the host
+		draws its chrome inside the safe area, not over it. ]]
 	local function safeBox(): { x: number, y: number, w: number, h: number }
 		local vp = env:get("viewportRect"):get()
 		local core_ = env:get("coreSafeInsets"):get()
 		local device = env:get("deviceSafeInsets"):get()
+		local appChrome = env:get("appChromeInsets"):get()
 		-- the theme's own smallest gutter step, never a literal: a package that
 		-- retunes its spacing ladder retunes the screen's margin with it
 		local gutter = themeSnapshot.resolveNumber(metricsNow(), "s") or 0
 		local function edge(name: string): number
 			local a = if type(core_) == "table" then tonumber(core_[name]) or 0 else 0
 			local b = if type(device) == "table" then tonumber(device[name]) or 0 else 0
+			local host = if type(appChrome) == "table" then math.max(0, tonumber(appChrome[name]) or 0) else 0
 			local floor = if name == "top" then 0 else gutter
-			return math.max(a, b, floor)
+			return math.max(a, b, floor) + host
 		end
 		local x = (if type(vp) == "table" then tonumber(vp.x) or 0 else 0) + edge("left")
 		local y = (if type(vp) == "table" then tonumber(vp.y) or 0 else 0) + edge("top")
@@ -1504,7 +1515,13 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		hide = dragProxyHide,
 	}
 
-	local function makeHandle(blueprint: any, opts: any, kind: string)
+	--[[ `screenTakesScreen` is the fourth argument only `presentCritical` passes: a
+		surface whose KIND is "screen" but which stands in for a host that has already
+		failed, so it honours the device safe area alone exactly as a modal does (see
+		`reserveAppChrome` at the attach below). Internal — a caller cannot ask for it
+		through `PresentOpts`, because "am I the host's own page" is not a property a
+		screen declares about itself. ]]
+	local function makeHandle(blueprint: any, opts: any, kind: string, screenTakesScreen: boolean?)
 		-- an unknown cancelPolicy is refused LOUDLY, the same way an unknown
 		-- rootPolicy is (renderer.attach): a typo that silently kept the default
 		-- would read as "the framework ignored my mandatory modal".
@@ -1665,6 +1682,19 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		})
 		local controller = renderer.attach(core, root, env, adapter, {
 			rootPolicy = (opts and opts.rootPolicy) or "coreSafeContent",
+			--[[ A MODAL TAKES THE SCREEN (owner ruling 2026-09-13). `appChromeInsets`
+				is the band the HOST app reserves for chrome of its own — a showcase's
+				demo chips, a game's always-on top bar — and content is laid out clear
+				of it. A modal is not part of that page: it arrives over a backdrop
+				that covers the whole window, and centring it in the space UNDER the
+				host's chrome sits it visibly high-shouldered in that backdrop. So the
+				two content kinds keep both reservations and this one keeps the
+				device's alone. `presentCritical` takes the same exemption through
+				`screenTakesScreen` — its stand-in screen appears when the host has
+				already failed, which is the last moment to trust a band the host
+				declared. The DEVICE safe area still applies to every kind: a notch
+				is not negotiable for a modal either. ]]
+			reserveAppChrome = kind ~= "modal" and not screenTakesScreen,
 			edgeFloor = opts and opts.edgeFloor,
 			-- default ON; an explicit `false` opts out (see renderer for the measurement)
 			recycleInstances = opts == nil or opts.recycleInstances ~= false,
@@ -3750,7 +3780,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		)
 		local ok, blueprintOrError = pcall(blueprintFactory)
 		if ok then
-			local presented, handleOrError = pcall(makeHandle, blueprintOrError, opts, "screen")
+			local presented, handleOrError = pcall(makeHandle, blueprintOrError, opts, "screen", true)
 			if presented then
 				return handleOrError
 			end
@@ -3768,7 +3798,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		-- and its own errors stay hard.
 		local fallbackOpts: any = table.clone(opts :: any)
 		fallbackOpts.fallbackScreen = nil
-		return makeHandle(opts.fallbackScreen(blueprintOrError), fallbackOpts, "screen")
+		return makeHandle(opts.fallbackScreen(blueprintOrError), fallbackOpts, "screen", true)
 	end
 
 	-- `dismiss`, `back` and `raise` live in src/present/surface_lifecycle.luau

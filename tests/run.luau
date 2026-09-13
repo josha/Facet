@@ -1427,6 +1427,9 @@ require("./radial_hold_resolve.spec")
 require("./world_anchor.spec")
 require("./radial_geometry.spec")
 require("./alert.spec")
+-- ...and the reservation an alert is NOT inset by: the host app's own chrome
+-- band, split out of `coreSafeInsets` so a modal centres on the whole screen
+require("./app_chrome_insets.spec")
 require("./screen_focus_visual_seam.spec")
 require("./toast_layer_seam.spec")
 local ok = testkit.run({

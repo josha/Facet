@@ -690,7 +690,7 @@ function theme_picker.mount(opts: MountOpts): any
 	-- the pieces itself (`composed = true`) and therefore never builds this shell
 	-- at all — so the branch carried the showcase's geometry: docked top-LEFT and
 	-- lifted by `-BAR_HEIGHT` into a strip the showcase reserves through
-	-- `coreSafeInsets`. The tutorial-example host reserves no such strip, and the
+	-- `appChromeInsets`. The tutorial-example host reserves no such strip, and the
 	-- examples all lay their content out from the top-LEFT.
 	--
 	-- Measured why this matters: with the picker expanded (the example host's old

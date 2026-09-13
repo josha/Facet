@@ -898,7 +898,11 @@ function text_input.build(Facet: any, core: any, spec: Spec)
 			if use(editing) and type(occlusion) == "table" then
 				local viewport = use(env:get("viewportRect"))
 				local insets = use(env:get("coreSafeInsets"))
-				local room = occlusion.y - viewport.y - (insets.top or 0) - KEEP_VISIBLE_MARGIN
+				-- ...and the host's own reserved band, which is above this field for the
+				-- same reason the platform's row is (`appChromeInsets`, 2026-09-13)
+				local hostChrome = use(env:get("appChromeInsets"))
+				local hostTop = if type(hostChrome) == "table" then math.max(0, tonumber(hostChrome.top) or 0) else 0
+				local room = occlusion.y - viewport.y - (insets.top or 0) - hostTop - KEEP_VISIBLE_MARGIN
 				height = math.min(height, math.max(metrics.controls.textInput.fieldHeight, room))
 			end
 			return { type = "fixed", px = height }
