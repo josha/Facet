@@ -95,6 +95,18 @@ describe("backdrop-before-content: the pure structural finder", function()
 		expect(findings[1].surface).toBe("raised")
 	end)
 
+	it("the message formatter is safe on a non-finding, and decides nothing (review N10)", function()
+		--[[ `countsAsBackdropIssue` is the one DECIDER; `backdropIssue` formats.
+			`countsAsBackdropIssue(nil)` answers false — a non-table is not a
+			finding — so the formatter used to fall into the acknowledged branch
+			and index it. Nothing in `src/` hands it one, but it is public, over a
+			list its caller filters. ]]
+		expect(transitionsLib.countsAsBackdropIssue(nil :: any)).toBe(false)
+		local issue = transitionsLib.backdropIssue(nil :: any)
+		expect(string.find(issue, "expected a finding", 1, true) ~= nil).toBe(true)
+		expect(string.find(transitionsLib.backdropIssue({} :: any), "expected a finding", 1, true) ~= nil).toBe(true)
+	end)
+
 	it("names the fix in plain language", function()
 		local group = node("/S/Group", { canvasGroup = true }, {
 			node("/S/Group/Plate", { surface = "raised" }),

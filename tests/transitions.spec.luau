@@ -719,6 +719,61 @@ describe("transition coordinator: lifetime", function()
 		expect(disposeFrame).toBe(22)
 	end)
 
+	it("a long declared slide ends with under half a pixel of travel left (review N4)", function()
+		--[[ `EXIT_EPS` is a fraction of PROGRESS, which is the right unit for an
+			alpha and the wrong one for a slide a caller sized itself: 2 % of the
+			themed 24 px nudge is 0.48 px, and 2 % of a declared 1920 px push is
+			38 px of PERMITTED pop — on exactly the caller who reached for
+			`distance` because their slide IS the surface leaving the screen. The
+			shipped `dismiss` does better than the permission (1.872 px here
+			before this fix, measured, because it is velocity-bound rather than
+			value-bound), but a bound nobody can state in pixels is not a bound. A
+			travelling exit's tolerance is derived from `MAX_EXIT_PIXELS` over the
+			travel it will really make, so the guarantee is stated in pixels —
+			and this case reddens at 1.872 px if the clamp is removed. ]]
+		local core, env, clock = world()
+		local on = core:signal(true)
+		local PUSH = 1920
+		local root, adapter, _, coordinator =
+			attach(core, env, clock, whenScreen(on, { enter = "slide-left", distance = PUSH }))
+		local path = "/S/Gate/then/Panel"
+		for _ = 1, 200 do
+			clock:step(FRAME)
+		end
+		local gate = root.node.children[1]
+		on:set(false)
+		-- the LAST offset the node was painted at before its node went away is
+		-- how much travel it still owed when the exit ended
+		local lastX = 0
+		for _ = 1, 120 do
+			clock:step(FRAME)
+			if #gate.children == 0 then
+				break
+			end
+			local node = adapter.node(path)
+			if node ~= nil and node.props.transform ~= nil then
+				lastX = math.abs(node.props.transform.x)
+			end
+		end
+		expect(#gate.children).toBe(0)
+		local owed = PUSH - lastX
+		expect(`{string.format("%.3f", owed)} px of travel left`).toBe("0.085 px of travel left")
+		expect(owed <= transitionsLib.MAX_EXIT_PIXELS).toBe(true)
+		-- ...and the tolerance really was TIGHTENED, never loosened, against the
+		-- progress ceiling this file's other cases run at
+		expect(transitionsLib.MAX_EXIT_PIXELS / PUSH < transitionsLib.EXIT_EPS).toBe(true)
+		root.dispose()
+		coordinator.dispose()
+		clock:dispose()
+	end)
+
+	it("a form that travels no pixels keeps the progress tolerance (review N4)", function()
+		-- a fade has no `distance` to read and no pixels to owe, so the clamp
+		-- must not reach it: its dispose frame is the one the table above pins
+		local _, _, disposeFrame = fadeFrames(nil)
+		expect(disposeFrame).toBe(22)
+	end)
+
 	it("`container` as an exit is the class the cap still has to end", function()
 		local capFrame = math.ceil(transitionsLib.EXIT_CAP_SECONDS * 60)
 		local enterCross, exitCross, disposeFrame = fadeFrames("container")
