@@ -411,51 +411,81 @@ return {
 			end,
 		})
 
-		-- ScrollView > VStack: the VStack is what makes this the hand-wrapped,
-		-- non-Table shape (a ScrollView can stack children on its own axis, but
-		-- a caller building a plain reactive list of rows writes it the same way
-		-- as any other VStack list — the ScrollView only adds the scroll host).
-		local listBody = UI.ScrollView({
-			id = "List",
-			axis = "y",
+		--[[ THE PLATE IS THE LIST'S, NOT THE ROW'S (owner report 2026-09-12,
+			`tests/row_plate_paint.spec.luau`).
+
+			These rows lost their background. `6a65baef` made a declared surface
+			outrank the class map, so a `UI.Button` declaring `surface = "base"`
+			stopped being handed the package's CONTROL recipe by its class — and
+			`base` is the APP BACKGROUND, the very token the screen behind this list
+			also declares. The rows had been drawing their plate out of that
+			accident, and once `base` meant what it says the list vanished into the
+			page.
+
+			IT DOES NOT GO BACK ON THE ROW, and that is measured rather than assumed.
+			`control` and `panel` are the only decoration slots a plate surface
+			reaches; under both glossy packages each declares `shadow = "raised"`, a
+			17px `chromeBleed` that a list laid back to back paints straight into its
+			neighbours — the report `tests/row_hit_paint.spec.luau` carries. ONE
+			panel around the whole list spends that shadow on the app background
+			instead, where it belongs, and its carved frame, its hairline and its
+			`radii.panel` corner frame the list.
+
+			The rows keep their own `base` fill, which now reads against a token that
+			differs from it in every shipped theme, and the 1px `gap` this list
+			already had is the separator between them.
+
+			AND IT IS A NODE OF ITS OWN, which is the part that took three attempts.
+			On the row stack INSIDE the scroller the plate hugs the CONTENT extent,
+			so its frame wraps whatever the rows happen to measure and scrolls away
+			with them. On the ScrollView itself it reaches no panel at all:
+			`chrome_slots.classify` answers for three CLASSES — Divider, ScrollView,
+			TextField — BEFORE it reads `surface == "raised"`, because each of those
+			names its own chrome and a ScrollView's chrome is its SCROLLBAR. Every
+			shipped package declares `scrollbar = { kind = "native" }` with no insets
+			and no shadow, so the card silently became a flat fill wearing the name of
+			one. A plain stack wrapping the scroller is neither: it fills the band, so
+			it frames the pane a player looks at, and it is a Frame, so it takes the
+			`panel` recipe. The spec pins the SLOT beside the surface name for exactly
+			that reason. ]]
+		--[[ ...AND THE CARD GIVES WAY ON A SCREEN WITH NO ROOM FOR ONE, which is
+			this file's own standing rule ("THE CHROME GIVES WAY, NOT THE CONTENT",
+			`showHeading` above) reaching one more piece of chrome. A `panel` recipe
+			carves `contentInsets` the solver spends as padding — 18 a side under
+			Fantasy Parchment, 14 under Glossy Touch — and on a 640x320 landscape at
+			the largest text preference this band is 2-8px tall before any of that,
+			so the frame left nothing inside it to draw at all
+			(`tests/overflow_sweep.spec.luau`, both packages). A screen that short
+			shows the rows instead: they keep their own fill and their separators, so
+			nothing becomes unreadable. ]]
+		local listPlateSurface = scope:own(core:memo(function(use)
+			return if use(conditions.isShort) then nil else "raised"
+		end))
+		local listBody = UI.VStack({
+			id = "ListPlate",
+			surface = listPlateSurface,
+			align = "stretch",
 			width = UI.fill(),
 			height = UI.fill(),
-			--[[ THE PLATE IS THE LIST'S, NOT THE ROW'S (owner report 2026-09-12,
-				`tests/row_plate_paint.spec.luau`).
-
-				These rows lost their background. `6a65baef` made a declared surface
-				outrank the class map, so a `UI.Button` declaring `surface = "base"`
-				stopped being handed the package's CONTROL recipe by its class — and
-				`base` is the APP BACKGROUND, the very token the screen behind this
-				list also declares. The rows had been drawing their plate out of that
-				accident, and once `base` meant what it says the list vanished into
-				the page.
-
-				IT DOES NOT GO BACK ON THE ROW, and that is measured rather than
-				assumed. `control` and `panel` are the only decoration slots a plate
-				surface reaches; under both glossy packages each declares
-				`shadow = "raised"`, a 17px `chromeBleed` that a list laid back to
-				back paints straight into its neighbours — the report
-				`tests/row_hit_paint.spec.luau` carries. ONE panel around the whole
-				list spends that shadow on the app background instead, where it
-				belongs, and its hairline and `radii.panel` corner frame the list.
-
-				The rows keep their own `base` fill, which now reads against a token
-				that differs from it in every shipped theme, and the 1px `gap` this
-				list already had is the separator between them.
-
-				AND IT IS THE SCROLL HOST'S, not the row stack's inside it. A plate on
-				the stack hugs the CONTENT extent, so under a nine-slice package its
-				carved frame and its shadow wrap whatever the rows happen to measure
-				and then scroll away with them. The pane a player looks at is the
-				scroller's own box, so that is the node the card belongs on. ]]
-			surface = "raised",
 			children = {
-				UI.VStack({
-					id = "Rows",
-					gap = 1,
+				-- ScrollView > VStack: the VStack is what makes this the
+				-- hand-wrapped, non-Table shape (a ScrollView can stack children on
+				-- its own axis, but a caller building a plain reactive list of rows
+				-- writes it the same way as any other VStack list — the ScrollView
+				-- only adds the scroll host).
+				UI.ScrollView({
+					id = "List",
+					axis = "y",
 					width = UI.fill(),
-					children = { rowsForEach },
+					height = UI.fill(),
+					children = {
+						UI.VStack({
+							id = "Rows",
+							gap = 1,
+							width = UI.fill(),
+							children = { rowsForEach },
+						}),
+					},
 				}),
 			},
 		})
@@ -913,7 +943,7 @@ return {
 				-- focused list row's content — not a shortcut to _commitFirst
 				keyDeleteList = function(_built: any, payload: string?)
 					local id = tostring(payload)
-					local path = `/MailActions/ListWhen/then/List/Rows/RowsForEach/[{id}]/{id}/Content/Row`
+					local path = `/MailActions/ListWhen/then/ListPlate/List/Rows/RowsForEach/[{id}]/{id}/Content/Row`
 					ctx.presenter.focus.focusOn(path)
 					pressKey("Delete")
 					return { ok = true, remainingIds = listModel.ids() }
@@ -921,7 +951,7 @@ return {
 				-- REAL Shift+Return chord (Task 8b), focused on a list row
 				menuList = function(_built: any, payload: string?)
 					local id = tostring(payload)
-					local path = `/MailActions/ListWhen/then/List/Rows/RowsForEach/[{id}]/{id}/Content/Row`
+					local path = `/MailActions/ListWhen/then/ListPlate/List/Rows/RowsForEach/[{id}]/{id}/Content/Row`
 					ctx.presenter.focus.focusOn(path)
 					ctx.actionSystem.deviceKey("LeftShift", true)
 					ctx.actionSystem.deviceKey("Return", true)
@@ -934,7 +964,8 @@ return {
 					if built.handle == nil then
 						return { ok = false, reason = "not presented yet" }
 					end
-					local unbind = coordinator.bindScroll(built.handle.controller, "/MailActions/ListWhen/then/List")
+					local unbind =
+						coordinator.bindScroll(built.handle.controller, "/MailActions/ListWhen/then/ListPlate/List")
 					return { ok = true, unbind = unbind ~= nil }
 				end,
 				list = function()

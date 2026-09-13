@@ -54,11 +54,15 @@ runtime as `Facet.VERSION`.
   behind its rows in every theme. `6a65baef` made a declared surface outrank the
   class map, and these rows had been drawing their plate out of exactly that
   accident while declaring `base` — the app background, which is also what the
-  screen behind them declares. The plate is the list's SCROLL HOST now (`List`
-  declares `raised`), so one panel frames the pane a player looks at and carries
-  the shadow, and every row's own fill reads against it; the row's sender line
-  fills and truncates, so the panel's carved border comes out of the name rather
-  than out of the box. New gate: `tests/row_plate_paint.spec.luau`.
+  screen behind them declares. The plate is a node of its own now (`ListPlate`, a
+  stack that fills the band and holds the scroller), so one `panel` recipe frames
+  the pane a player looks at and carries the shadow, and every row's own fill
+  reads against it; the row's sender line fills and truncates, so the panel's
+  carved border comes out of the name rather than out of the box, and the card
+  gives way on a screen with no room for one. It cannot live on the ScrollView
+  itself — `chrome_slots.classify` answers for a ScrollView's own chrome (its
+  SCROLLBAR) before it reads the declared surface — so the gate pins the SLOT
+  beside the surface name. New gate: `tests/row_plate_paint.spec.luau`.
 - Segmented picker, shape round (2026-09-12, user visual review). The strip is
   ONE strip: only its outer ends round, with the theme's `radii.control` rather
   than a hard-coded pill; the inner segments are square and touch, with a

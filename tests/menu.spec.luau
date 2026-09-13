@@ -1561,12 +1561,28 @@ describe("menu: the floating panel materializes", function()
 		local w = world({})
 		w.adapter.tap(TRIGGER)
 		w.pres.refresh()
-		local popup = w.adapter.node(rowPath(0, "accessory"):gsub("/Popup/Panel/Item:accessory$", "/Popup"))
+		local popupPath = rowPath(0, "accessory"):gsub("/Popup/Panel/Item:accessory$", "/Popup")
+		local popup = w.adapter.node(popupPath)
 		expect(popup ~= nil and popup.canvasGroupInstance ~= nil).toBe(true)
 		expect(popup.canvasGroupInstance.groupTransparency).toBe(1)
-		for _ = 1, 90 do
+		local enterFrames = 0
+		while popup.canvasGroupInstance.groupTransparency > 0 and enterFrames < 600 do
 			w.pres.tick(FRAME)
+			enterFrames += 1
 		end
 		expect(popup.canvasGroupInstance.groupTransparency).toBe(0)
+		-- closing through the control's own verb (the file's other whole-menu
+		-- teardown case, :860, uses the same one): the popup now dips out on a
+		-- real exit transition rather than vanishing on this tick, so its node
+		-- survives `close()` until the coordinator's retire completes
+		w.control.api.close()
+		w.pres.refresh()
+		local exitFrames = 0
+		while w.adapter.node(popupPath) ~= nil and exitFrames < 600 do
+			w.pres.tick(FRAME)
+			exitFrames += 1
+		end
+		expect(w.adapter.node(popupPath)).toBeNil()
+		expect(exitFrames > 0 and exitFrames < enterFrames).toBe(true)
 	end)
 end)

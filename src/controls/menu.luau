@@ -877,7 +877,7 @@ function menu.build(Facet: any, core: any, spec: Spec)
 				-- the short fade-and-grow every pop-up menu materializes with; an
 				-- anchored surface with no pivot of its own grows from the corner it
 				-- hangs at (render/transitions `pivot` inference)
-				transition = if isSheet then nil else { enter = "materialize" },
+				transition = { enter = "materialize" },
 			})
 		end
 		table.insert(handles, handle)

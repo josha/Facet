@@ -26,12 +26,21 @@
 	("a crowded list that's overlapping", `tests/row_hit_paint.spec.luau`), and
 	re-declaring `control` on the row would simply swap this defect for that one.
 
-	WHAT THE FIXTURE DOES INSTEAD. The plate goes on the list's SCROLL HOST —
-	`List` declares `surface = "raised"` — so there is ONE panel: its shadow falls on the app
-	background rather than on a neighbouring row, its hairline and `radii.panel`
-	corner frame the list, and every row's own `base` fill now reads against a
-	token that differs from it in every shipped theme. The 1px `gap` the list
-	already had is the separator between them.
+	WHAT THE FIXTURE DOES INSTEAD. The plate is a node of its own — `ListPlate`, a
+	stack that fills the band and holds the scroller — so there is ONE panel: its
+	shadow falls on the app background rather than on a neighbouring row, its
+	carved frame, its hairline and its `radii.panel` corner frame the pane a player
+	looks at, and every row's own `base` fill now reads against a token that
+	differs from it in every shipped theme. The 1px `gap` the list already had is
+	the separator between them.
+
+	AND THE SLOT IS PINNED BESIDE THE SURFACE NAME, because a surface name alone
+	does not decide a recipe. `chrome_slots.classify` answers for three CLASSES —
+	Divider, ScrollView, TextField — BEFORE it reads `surface == "raised"`, since
+	each of those names its own chrome and a ScrollView's chrome is its SCROLLBAR.
+	Declared on the scroller this plate classified into `scrollbar`, which every
+	shipped package declares as `{ kind = "native" }` with no insets and no shadow:
+	a flat fill wearing the name of a card.
 
 	AND THE PLATE COST THE ROW SOMETHING, which is the second half of the change.
 	A slot's carved `chromeInsets` are added to the node's own padding
@@ -44,11 +53,12 @@
 
 	WHAT IS PINNED HERE:
 
-	  1. The two nodes declare the two surfaces, so the plate is a DECLARATION and
-	     never a class accident again — and the plate is the scroll HOST rather
-	     than the row stack inside it, so a nine-slice package's carved frame
-	     wraps the pane a player looks at instead of hugging whatever the rows
-	     happen to measure and scrolling away with them.
+	  1. The two nodes declare the two surfaces AND the plate reaches the `panel`
+	     slot, so the card is a DECLARATION and never a class accident again. It
+	     fills the band with the scroller inside it, so a nine-slice package's
+	     carved frame wraps the pane a player looks at instead of hugging whatever
+	     the rows happen to measure and scrolling away with them — and it gives way
+	     on a screen with no room for one.
 	  2. The row still takes no decoration slot — `6a65baef`'s rule, unmoved.
 	  3. THE PAINT, resolved the way the engine resolves it: each node's
 	     classification tags run through the compiled sheet's cascade and the
@@ -73,14 +83,14 @@ local default_style = require("../src/tokens/default_style")
 
 local rowActions = require("../examples/gallery/scenarios/row_actions") :: any
 
-local PLATE_PATH = "/MailActions/ListWhen/then/List"
-local ROW_PATH = "/MailActions/ListWhen/then/List/Rows/RowsForEach/[m1]/m1/Content/Row"
+local PLATE_PATH = "/MailActions/ListWhen/then/ListPlate"
+local ROW_PATH = "/MailActions/ListWhen/then/ListPlate/List/Rows/RowsForEach/[m1]/m1/Content/Row"
 
 -- the engine instance each node class is materialized as, so a bare class
 -- selector in the sheet can be matched headlessly (`src/client/screen_vocabulary
 -- .luau`'s `CLASS_TO_INSTANCE`; only the two classes this spec reads)
-local ENGINE_CLASS: { [string]: string } = { Button = "TextButton", ScrollView = "ScrollingFrame" }
-local TOP_LINE = "/MailActions/ListWhen/then/List/Rows/RowsForEach/[m1]/m1/Content/Row/Text/TopLine"
+local ENGINE_CLASS: { [string]: string } = { Button = "TextButton", VStack = "Frame" }
+local TOP_LINE = "/MailActions/ListWhen/then/ListPlate/List/Rows/RowsForEach/[m1]/m1/Content/Row/Text/TopLine"
 
 local PACKAGES: { { name: string, module: any } } = {
 	{ name = "classic_desktop", module = require("../examples/themes/classic_desktop") },
@@ -93,8 +103,11 @@ local PACKAGES: { { name: string, module: any } } = {
 	{ name = "scifi_hud", module = require("../examples/themes/scifi_hud") },
 }
 
-local function scenarioWorld(module: any)
-	local w = worldLib.new({ viewport = { x = 0, y = 0, w = 1232, h = 1067 } })
+local function scenarioWorld(module: any, viewport: any?, textOffset: number?)
+	local w = worldLib.new({
+		viewport = viewport or { x = 0, y = 0, w = 1232, h = 1067 },
+		env = if textOffset ~= nil then { preferredTextOffset = textOffset } else nil,
+	})
 	local built = module.build({
 		Facet = Facet,
 		core = w.core,
@@ -213,11 +226,44 @@ describe("list row plate: the fixture declares the plate it paints", function()
 		local w = scenarioWorld(rowActions)
 		local plate = w.adapter.node(PLATE_PATH)
 		expect(plate.props.surface).toBe("raised")
-		expect(plate.class).toBe("ScrollView")
+		expect(plate.class).toBe("VStack")
+		--[[ ...AND IT REACHES THE `panel` SLOT, which is the half a surface NAME
+			does not prove. `chrome_slots.classify` answers for three CLASSES —
+			Divider, ScrollView, TextField — BEFORE it reads `surface == "raised"`,
+			because each of those names its own chrome and a ScrollView's chrome is
+			its SCROLLBAR. Declared on the scroller itself this plate classified into
+			`scrollbar`, which every shipped package declares as
+			`{ kind = "native" }` with no insets and no shadow: a flat fill wearing
+			the name of a card, while the CHANGELOG and this header claimed a carved
+			frame. The same three inputs `render/layout_node.luau` and the live
+			adapter read off the node, exactly as `surface_slot_precedence.spec`
+			reads them. ]]
+		expect(chrome_slots.classify({
+			class = plate.class,
+			surface = plate.props.surface,
+			hasSelection = plate.props.selected ~= nil,
+		})).toBe("panel")
 		expect(w.adapter.node(ROW_PATH).props.surface).toBe("base")
-		-- the plate frames the VISIBLE pane: the scroller fills its band, and the
-		-- row stack inside it is only as tall as the rows
-		expect(plate.rect.h > w.adapter.node(PLATE_PATH .. "/Rows").rect.h).toBe(true)
+		-- the plate frames the VISIBLE pane: it fills its band with the scroller,
+		-- and the row stack inside that is only as tall as the rows
+		expect(plate.rect.h).toBe(w.adapter.node(PLATE_PATH .. "/List").rect.h)
+		expect(plate.rect.h > w.adapter.node(PLATE_PATH .. "/List/Rows").rect.h).toBe(true)
+	end)
+
+	--[[ ...AND IT GIVES WAY WHERE THERE IS NO ROOM FOR IT, which is the fixture's
+		own standing rule ("the chrome gives way, not the content") reaching one
+		more piece of chrome. A `panel` recipe carves `contentInsets` the solver
+		spends as padding — 18 a side under Fantasy Parchment — and on a 640x320
+		landscape at the largest preference the list's band is a few pixels tall
+		before any of that, so the frame left nothing inside it to draw. Pinned as a
+		DECISION, with the shape that forces it measured beside it. ]]
+	it("...and the card gives way on a screen too short to hold one", function()
+		local short = scenarioWorld(rowActions, { x = 0, y = 0, w = 640, h = 320 }, 14)
+		expect(short.adapter.node(PLATE_PATH).props.surface).toBeNil()
+		-- the rows are still there, still separated, still reading against the page
+		expect(short.adapter.node(ROW_PATH).props.surface).toBe("base")
+		local ornate = require("../examples/themes/fantasy_parchment").build(Facet.themes)
+		expect(Facet.themes.resolve(ornate, nil, {}).chromeInsets.panel.top >= 18).toBe(true)
 	end)
 
 	it("...and the row still takes no decoration slot, so no package shadow reaches a neighbour", function()
@@ -247,7 +293,8 @@ describe("list row plate: the fixture declares the plate it paints", function()
 			truncates instead of wrapping the row taller. ]]
 		local w = scenarioWorld(rowActions)
 		local top = w.adapter.node(TOP_LINE)
-		local column = w.adapter.node("/MailActions/ListWhen/then/List/Rows/RowsForEach/[m1]/m1/Content/Row/Text")
+		local column =
+			w.adapter.node("/MailActions/ListWhen/then/ListPlate/List/Rows/RowsForEach/[m1]/m1/Content/Row/Text")
 		local from = w.adapter.node(TOP_LINE .. "/From")
 		assert(top ~= nil and column ~= nil and from ~= nil, "the row did not mount its sender line")
 		expect(top.rect.w).toBe(column.rect.w)
