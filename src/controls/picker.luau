@@ -452,6 +452,13 @@ local PICKER_KEYS = specGuard.keySet({
 	-- segmented plate, no carved inset, no disclose plate — the band's own
 	-- ladder owns all three
 	"track",
+	--[[ ...and when the band owns the plate, the band also owns the SHAPE the
+		selected fill has to match (owner report 2026-09-12). A corner token name
+		(or a Readable of one) naming what the strip around this picker actually
+		wears; `selection_indicator.fillCornerFor` derives the fill's silhouette
+		from it. Only a `track = false` caller has anything to say here — a tracked
+		picker draws its own plate and this control already knows its corner. ]]
+	"stripCorner",
 })
 
 -- read a Readable-or-plain value, subscribing when a `use` is in hand. BOTH
@@ -788,6 +795,8 @@ local function buildLive(Facet, core, spec, requested: string)
 			axis = axis,
 			env = spec.env,
 			width = groupWidth,
+			-- the container the fill has to match; see the other build site below
+			trackCorner = if (spec :: any).track == false then (spec :: any).stripCorner else SEGMENT_RADIUS,
 		}))
 		group = indicatorApi.blueprint
 	end
@@ -1494,6 +1503,12 @@ local function buildStrip(Facet: any, core: any, spec: Spec, requested: string)
 				own ends keep `radii.control`. The per-segment silhouettes above are
 				still the SEGMENTS' (`optionCorners`); the bar no longer borrows them. ]]
 			segmentCorners = nil,
+			--[[ THE CONTAINER THE FILL HAS TO MATCH (owner report 2026-09-12,
+				controller ruling). A tracked strip's container is the `Track` plate
+				below and its corner is `SEGMENT_RADIUS`; an untracked one's is the
+				band its caller drew, which is the only thing `stripCorner` is for.
+				`selection_indicator.fillCornerFor` carries the three clauses. ]]
+			trackCorner = if (spec :: any).track == false then (spec :: any).stripCorner else SEGMENT_RADIUS,
 			--[[ THE TRACK (visual review 2026-09-11). A segmented control is ONE
 				plated track holding equal segments with the selected one raised; the
 				bar alone left every unselected segment as bare text floating beside

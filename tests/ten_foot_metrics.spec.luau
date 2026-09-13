@@ -1797,22 +1797,35 @@ describe("ten-foot metrics — the second door: an authored token", function()
 			pres.refresh()
 			return adapter
 		end
-		-- since the 2026-09-12 shape round the bar authors per-corner `control`
-		-- tokens (8 near, 12 at three metres) rather than a uniform capsule; the
-		-- mechanism this case proves — the token survives to the painter — is
-		-- the same, only the witness's numbers moved
-		for _, case in { { size = "Medium", want = 8 }, { size = "Large", want = 12 } } do
+		--[[ since the 2026-09-12 shape round the bar authors a `control`-derived
+			token (8 near, 12 at three metres) rather than a uniform capsule, and
+			since the container ruling later the same day it authors
+			`selection:control` — the highlight's radius INSIDE the strip's own
+			track, which is the track's radius less the `xs` the fill floats by
+			(`tests/selection_shape_container.spec.luau`). THE MECHANISM THIS CASE
+			PROVES IS UNCHANGED and is exactly why the derivation had to stay a
+			token: an arithmetic result computed where the control is authored would
+			freeze the NEAR numbers below into a strip a ten-foot screen then paints
+			with. Only the witness's numbers moved. ]]
+		-- 8 near / 12 at three metres, each less the `xs` the fill floats by (4 at
+		-- both classes): the PAINTED radius still grows with the display class,
+		-- which is the whole claim
+		local painted: { [string]: number } = {}
+		for _, case in { { size = "Medium", want = 4 }, { size = "Large", want = 8 } } do
 			local adapter = pickerWorld(case.size :: string)
 			local bar = adapter.node("/S/View/Indicator/Layer/Bar")
 			expect(`{case.size}: bar mounted {bar ~= nil}`).toBe(`{case.size}: bar mounted true`)
 			local corners = (bar :: any).props.corners
 			-- the AUTHORING number is the near one at both distances — that is the
 			-- defect's own fingerprint, and it is why the token has to survive
-			expect(`{case.size}: authored {corners.radius}`).toBe(`{case.size}: authored 8`)
-			expect(`{case.size}: token {corners.tokens.radius}`).toBe(`{case.size}: token selection`)
+			expect(`{case.size}: authored {corners.radius}`).toBe(`{case.size}: authored 4`)
+			expect(`{case.size}: token {corners.tokens.radius}`).toBe(`{case.size}: token selection:control`)
 			-- …and what the painter writes, through the style the target derives
-			local painted = styling.paintCorners(corners, styleAt(case.size :: string)).radius
-			expect(`{case.size}: painted {painted}`).toBe(`{case.size}: painted {case.want}`)
+			local value = styling.paintCorners(corners, styleAt(case.size :: string)).radius
+			painted[case.size :: string] = value
+			expect(`{case.size}: painted {value}`).toBe(`{case.size}: painted {case.want}`)
 		end
+		-- ...and it really is the DISTANCE that moved it, not two constants
+		expect(painted.Large > painted.Medium).toBe(true)
 	end)
 end)

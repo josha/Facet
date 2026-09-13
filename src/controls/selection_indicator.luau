@@ -196,6 +196,35 @@ local DEFAULT_INSET = "space.xs"
 selection_indicator.DEFAULT_CORNER = "selection"
 selection_indicator.TRACK_CORNER = "control"
 
+--[[ THE CONTAINER IS THE AUTHORITY ON THE FILL'S SILHOUETTE (owner report
+	2026-09-12, controller ruling).
+
+	A selected fill sits INSIDE a strip, and the strip's plate is the shape a
+	player sees it against: a pill strip holding a rounded-rect chip is two
+	silhouettes in one control, and the theme was asked for neither. `radii
+	.selection` cannot answer that on its own — it follows `radii.control`, which
+	is what a picker's own TRACK wears and NOT what every strip wears (a
+	`TabView`'s adaptable app bar is a `radii.pill` capsule).
+
+	So a fill whose caller named its container asks for that container's OWN
+	highlight token, `selection:<container>`. The three clauses — an authored
+	`radii.selection` wins, a pill container gives a pill by the pill rule, and
+	anything else is the container's radius less the inset — live in
+	`src/tokens/styling.luau`'s `resolveRadius` and its snapshot mirror, beside
+	every other radius rule.
+
+	IT RETURNS A TOKEN NAME and never a number, which is the whole point of doing
+	it here rather than computing a radius at the call site: a number authored
+	near freezes the NEAR display's radius into a strip a ten-foot screen then
+	paints with (`tests/ten_foot_metrics.spec.luau`). The name survives to the
+	painter and re-resolves against the style that paints with it. ]]
+function selection_indicator.fillCornerFor(trackCorner: any): any
+	if type(trackCorner) ~= "string" or trackCorner == "" then
+		return selection_indicator.DEFAULT_CORNER
+	end
+	return `{selection_indicator.DEFAULT_CORNER}:{trackCorner}`
+end
+
 -- CLOSED SPEC (constitution §4). An unknown key is an authoring
 -- mistake, never a silent no-op.
 local INDICATOR_KEYS = specGuard.keySet({
@@ -208,6 +237,10 @@ local INDICATOR_KEYS = specGuard.keySet({
 	"plate",
 	"motionClass",
 	"segmentCorners",
+	-- the corner the STRIP THAT HOLDS THE FILL actually wears (see
+	-- `fillCornerFor`). The container is the authority on the fill's silhouette;
+	-- absent, the fill keeps the `radii.selection` token it always took.
+	"trackCorner",
 	"segments",
 	"selected",
 	"height",
@@ -538,21 +571,42 @@ function selection_indicator.build(Facet: any, core: any, spec: Spec)
 		rather than dropping the prop and painting a square corner nobody asked
 		for. ]]
 	local corner = spec.corner or (if skin == "pill" then selection_indicator.DEFAULT_CORNER else nil)
-	local uniformCorners = if corner ~= nil then UI.cornersData(corner) else nil
+	--[[ ...AND THE CONTAINER IS WHAT DECIDES IT when the caller named no corner
+		(owner report 2026-09-12; `fillCornerFor` above carries the rule and the
+		reasons). It is a MEMO rather than a constant because two of the three
+		clauses read the live snapshot — whether the package authored
+		`radii.selection` at all, and the container's radius less the inset the fill
+		floats by — so a theme swap and a ten-foot display's scaled radii both
+		re-resolve it, exactly as the geometry memo beside it does. A caller that
+		named a corner, or a strip that declared no container corner, takes the same
+		static answer it always took. ]]
+	local derives = spec.corner == nil and skin == "pill" and spec.trackCorner ~= nil
+	local uniformCorners: any = if corner ~= nil then UI.cornersData(corner) else nil
+	if derives then
+		local reactive = type(spec.trackCorner) == "table"
+		if reactive then
+			uniformCorners = scope:own(core:memo(function(use)
+				return UI.cornersData(selection_indicator.fillCornerFor(readValue(spec.trackCorner, use)))
+			end))
+		else
+			uniformCorners = UI.cornersData(selection_indicator.fillCornerFor(spec.trackCorner))
+		end
+	end
 	local barCorners: any = uniformCorners
 	if spec.segmentCorners ~= nil then
 		barCorners = scope:own(core:memo(function(use)
+			local fallback = readValue(uniformCorners, use)
 			local list = readValue(spec.segmentCorners, use)
 			if type(list) ~= "table" then
-				return uniformCorners
+				return fallback
 			end
 			local value = readValue(spec.selected, use)
 			for i, segment in segmentsNow(use) do
 				if segment.value == value then
-					return (list :: any)[i] or uniformCorners
+					return (list :: any)[i] or fallback
 				end
 			end
-			return uniformCorners
+			return fallback
 		end))
 	end
 	-- `barSurface` is declared above `skinOpts` (the carved-border rule reads its

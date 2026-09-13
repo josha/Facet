@@ -92,8 +92,18 @@ describe("radii.selection: the segmented fill follows the package's own token", 
 		)
 		expect(snapshot.resolveNumber(square, "radii.selection")).toBe(0)
 		expect(snapshot.resolveNumber(wide, "radii.selection")).toBe(14)
+		--[[ THE SEGMENTED FILL ASKS ITS CONTAINER (owner report 2026-09-12,
+			controller ruling; `tests/selection_shape_container.spec.luau`). It
+			spends `selection:control` — the highlight's radius INSIDE the strip's
+			own `radii.control` track — so a package that AUTHORS `radii.selection`
+			still gets exactly that number, and one that omits it gets the track's
+			radius less the `xs` the fill floats by, which is what two concentric
+			rounded rects are. The token's own meaning, which the menu card's row
+			shade below reads, has not moved. ]]
 		local w1 = stripWorld(follows)
-		expect(cornerText(w1.adapter.node(BAR).props.corners, follows)).toBe(`uniform {follows.radii.control}`)
+		expect(cornerText(w1.adapter.node(BAR).props.corners, follows)).toBe(
+			`uniform {follows.radii.control - follows.space.xs}`
+		)
 		local w2 = stripWorld(square)
 		expect(cornerText(w2.adapter.node(BAR).props.corners, square)).toBe("uniform 0")
 		local w3 = stripWorld(wide)

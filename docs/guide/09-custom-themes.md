@@ -226,6 +226,18 @@ card's own inner corner (`radii.panel` less the panel's content inset) so a
 highlight never pokes past the plate. A per-theme `tenFoot` override applies to
 it like any other radius.
 
+**A fill inside a named container asks for `radii.selection:<container>`.** A
+selected fill floats inside a strip, and the strip's own plate is the shape a
+player sees it against — so a segmented picker's fill asks for
+`selection:control` (its track's radius, less the `space.xs` it floats by: two
+concentric rounded rects) and a `TabView`'s adaptable app bar, which is a
+capsule, gets a capsule fill from `selection:pill`. Your authored
+`radii.selection` still wins over every container, which is why Pixel Quest and
+Fantasy Ornate keep square highlights inside round strips. You never write these
+names — the controls do — but a package may author one (the colon is the same
+namespace `radii["gauge:ring"]` uses) if it wants a particular container's
+highlight to differ.
+
 A menu card's row shade comes in **two forms, chosen by one metric**,
 `controls.popup.shadeInset`:
 

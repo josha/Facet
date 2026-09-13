@@ -2451,6 +2451,29 @@ function snapshot.resolveNumber(snap: any, value: any): number?
 	if result == nil and value == "radii.selection" then
 		result = lookupPath(snap, "radii.control")
 	end
+	--[[ ...and `radii.selection:<container>` is the same shape one clause wider:
+		the highlight's radius INSIDE a named container (owner report 2026-09-12).
+		The three clauses and the reasons for them live beside the painter's own
+		copy in `src/tokens/styling.luau` (`resolveRadius`), which this mirrors —
+		one decision resolved twice because measurement and paint read the snapshot
+		independently, exactly as the `radii.selection` fallback above already is. ]]
+	if result == nil then
+		local container = string.match(value, "^radii%.selection:([%w_%-]+)$")
+		if container ~= nil then
+			local authored = lookupPath(snap, "radii.selection")
+			if type(authored) == "number" then
+				result = authored
+			elseif container == "pill" then
+				result = lookupPath(snap, "radii.pill")
+			else
+				local base = lookupPath(snap, `radii.{container}`)
+				local inset = lookupPath(snap, "space.xs")
+				if type(base) == "number" then
+					result = math.max(0, base - (if type(inset) == "number" then inset else 0))
+				end
+			end
+		end
+	end
 	memo[value] = if result == nil then false else result
 	return result
 end

@@ -22,13 +22,16 @@ runtime as `Facet.VERSION`.
   inside it now, centred on both axes by the control, which also makes the claim
   measurable: a mounted badge exposes `<row>/Badge/Count` beside `<row>/Badge`.
   New gate: `tests/badge_centering.spec.luau`.
-- Fixed: a `TabView`'s adaptable app bar drew a `radii.pill` capsule around a
-  `radii.selection` fill, so a pill strip held a rounded-rect highlight (999
-  against 4 under Compact Pointer). Its band form spends
-  `selection_indicator.TRACK_CORNER` now — the same `radii.control` the picker's
-  own track spends — so the bar, the track and the fill are one decision and a
-  square package gets a square strip holding a square fill while a round one
-  gets a capsule holding a capsule. The rail form keeps `radii.panel`. New gate:
+- A selection highlight wears the silhouette of the strip that holds it.
+  `radii.selection:<container>` is the new token form — an authored
+  `radii.selection` wins over every container, a `pill` container gives a pill by
+  the pill rule, and anything else is the container's radius less one `space.xs`,
+  the inset the fill floats by. A segmented picker's fill therefore sits
+  concentric inside its own `radii.control` track, and a `TabView`'s adaptable
+  app bar — a `radii.pill` capsule that previously held a `radii.selection`
+  rounded rect (999 against 4 under Compact Pointer) — now holds a capsule. The
+  bar's own corner is unchanged, and so is what plain `radii.selection` means, so
+  a menu card's chosen-row shade reads it exactly as before. New gate:
   `tests/selection_shape_container.spec.luau`.
 - Fixed: a `TabView`'s strip touched its page at every placement but the sidebar.
   The root stack spent the theme's `m` step beside a rail and nothing at all

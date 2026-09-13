@@ -96,6 +96,69 @@ function styling.normalizeShadow(spec: any, style: any?): any
 	})
 end
 
+--[[ THE HIGHLIGHT-SHAPE TOKENS, resolved in ONE place because three seams ask
+	for them — the authoring-time normalizer below, the painter's own re-resolve
+	(`resolvedFrom`), and the snapshot's metric lookup
+	(`src/themes/snapshot.luau`, which cannot require this module).
+
+	`selection` is the highlight's radius: the segmented indicator's sliding fill,
+	a menu card's chosen-row shade and the focus ring on that row. It FOLLOWS
+	`control` unless a package authors it (square art sets 0), so no package's
+	authored metrics or content stamp moves for a token it never wrote (user
+	ruling 2026-09-12).
+
+	`selection:<container>` is the same shape one clause wider: the highlight's
+	radius INSIDE A NAMED CONTAINER (owner report 2026-09-12; controller ruling —
+	the container is the authority on the fill's silhouette). A selected fill
+	floats inside a strip and the strip's own plate is the shape a player sees it
+	against, so a pill strip holding a rounded-rect chip is two silhouettes in one
+	control. `selection` alone cannot answer that: it follows `radii.control`,
+	which is what a picker's own TRACK wears and not what every strip wears — a
+	`TabView`'s adaptable app bar is a `radii.pill` capsule.
+
+	It is a TOKEN and not arithmetic at the call site, for the reason the whole
+	radius vocabulary is tokens: a number computed where the control is authored
+	freezes the NEAR display's radius into a strip a ten-foot screen then paints
+	with (`tests/ten_foot_metrics.spec.luau`). The colon is the namespace
+	`radii["gauge:ring"]` already uses, so a package may author one outright.
+
+	THREE CLAUSES, in this order:
+	  * an AUTHORED `radii.selection` wins over every container. A package may
+	    state its highlight's shape outright and three shipped ones do.
+	  * a PILL container gives a pill, by the pill RULE and not by
+	    `radii.pill - inset`: a package may spell "fully round" as any number past
+	    half the box, and subtracting from a sentinel is arithmetic on nothing.
+	  * otherwise the container's radius LESS one `space.xs` — the inset a
+	    selection indicator floats by — floored at 0. Two concentric rounded
+	    rects, which is what an inset fill inside a plate is. A caller that floats
+	    its fill by some OTHER inset authors `corner` itself. ]]
+local function selectionRadius(style: any, token: string): number?
+	local radii = if type(style) == "table" then (style :: any).radii else nil
+	if type(radii) ~= "table" then
+		return nil
+	end
+	local authored = (radii :: any).selection
+	if token == "selection" then
+		return if type(authored) == "number" then authored else (radii :: any).control
+	end
+	local container = string.match(token, "^selection:([%w_%-]+)$")
+	if container == nil then
+		return nil
+	end
+	if type(authored) == "number" then
+		return authored
+	end
+	if container == "pill" then
+		return (radii :: any).pill
+	end
+	local base = (radii :: any)[container]
+	if type(base) ~= "number" then
+		return nil
+	end
+	local space = if type((style :: any).space) == "table" then (style :: any).space.xs else nil
+	return math.max(0, base - (if type(space) == "number" then space else 0))
+end
+
 local function resolveRadius(value: any, style: any): number
 	if type(value) == "number" then
 		assert(value >= 0, "corner radius must be non-negative")
@@ -103,12 +166,8 @@ local function resolveRadius(value: any, style: any): number
 	end
 	if type(value) == "string" then
 		local resolved = style.radii and style.radii[value]
-		-- `selection` — the highlight shape (segmented indicator fill, menu-row
-		-- shade and its focus ring) — FOLLOWS `control` unless a package authors
-		-- it (square art sets 0), resolved here so no package's authored metrics
-		-- or content stamp moves for a token it never wrote (user ruling 2026-09-12)
-		if resolved == nil and value == "selection" and style.radii then
-			resolved = style.radii.control
+		if resolved == nil then
+			resolved = selectionRadius(style, value)
 		end
 		assert(type(resolved) == "number", `unknown radius token '{value}' (style.radii)`)
 		return resolved
@@ -585,11 +644,11 @@ local function resolvedFrom(style: any, section: string, token: string): number?
 	local group = if type(style) == "table" then (style :: any)[section] else nil
 	local value = if type(group) == "table" then group[token] else nil
 	if type(value) ~= "number" then
-		-- `radii.selection` follows `radii.control` unless the package authors it
-		-- (the highlight-shape token; the same fallback `resolveRadius` and the
-		-- snapshot make, so the near number and the painted one agree)
-		if section == "radii" and token == "selection" and type(group) == "table" then
-			value = (group :: any).control
+		-- the highlight-shape family (`selection`, `selection:<container>`) — the
+		-- SAME resolver `resolveRadius` and the snapshot spend, so the near number
+		-- and the painted one cannot disagree
+		if section == "radii" then
+			value = selectionRadius(style, token)
 		end
 		-- `"focusRing"` is the documented ALIAS onto `extra.focusRingThickness`
 		-- (see the note in `normalizeStroke`), so it resolves here too

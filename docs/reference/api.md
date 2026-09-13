@@ -1762,11 +1762,19 @@ the library default fills in and the contrast gate runs on the effective pair.
   accent plate behind. It never applies to the `underline` indicator, which paints
   a thin tint rule on the segment's far edge rather than a plate under the label.
 
-- **The sliding fill takes the theme's `radii.selection`, not a fixed capsule.**
-  That token follows `radii.control` unless the package authors it, so a
-  package that rounds its controls gets a rounded highlight and a square-art
-  package that sets `selection = 0` gets a square one (`corner = "pill"` stays
-  the caller's opt-in). The fill is an inset rounded rect on all four corners,
+- **The sliding fill wears the silhouette of the strip that holds it.** It asks
+  for `radii.selection:<container>` — the highlight's radius *inside* a named
+  container. An **authored `radii.selection` wins** over every container, so a
+  square-art package that sets `selection = 0` gets a square highlight
+  everywhere; a **pill** container gives a pill, by the pill rule rather than by
+  subtracting from a sentinel; anything else is the container's own radius less
+  one `space.xs`, the inset the fill floats by — two concentric rounded rects.
+  A segmented picker's container is its own track (`radii.control`); a
+  `TabView`'s adaptable app bar is a capsule, and the fill inside it is one too.
+  A strip with no plate at all names no container and the fill keeps plain
+  `radii.selection`. `corner = "pill"` stays the caller's opt-in, and the
+  resolution is a **token**, so a ten-foot display's scaled radii reach it.
+  The fill is an inset rounded rect on all four corners,
   floating inside a track that rounds only its two outer ends with
   `radii.control` and keeps its inner segments square and touching, with a
   hairline seam between each pair. A menu card's chosen-row shade and the focus
@@ -7683,6 +7691,7 @@ checks, and `Controls.TabView` when choosing a page rather than a value.
 | `textSize` | Optional type role, numeric size, or readable; defaults to the control type role. |
 | `iconOnly` | Strip styles; defaults false; requires icons on every option. Radio retains visible labels. |
 | `indicator` | Static strips: `automatic`, `none`, `underline`, `pill`. Live lists: `automatic` or `none`, using selected row chrome. |
+| `stripCorner` | Optional corner-token name (or readable of one) naming what the strip *around* this picker actually wears, so the selected fill can wear the same silhouette (`radii.selection:<container>`). Only a caller that suppressed the picker's own track has one to give — `Controls.TabView` passes its adaptable app bar's corner. Absent, the fill keeps plain `radii.selection`. |
 | `sizeClass`, `env` | Optional environment overrides; the automatic style otherwise reads the core's environment. |
 
 An option has required `value` and nonempty `label`, and optional `id`,

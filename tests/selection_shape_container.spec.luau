@@ -1,44 +1,49 @@
 --!strict
---[[ THE HIGHLIGHT WEARS THE SHAPE OF THE STRIP THAT HOLDS IT.
+--[[ THE CONTAINER IS THE AUTHORITY ON THE FILL'S SILHOUETTE.
 
 	WHAT WAS REPORTED (owner, 2026-09-12, Compact Pointer): a pill-shaped tab
 	strip holding a rounded-RECT selected fill. Two silhouettes in one control,
 	and the theme was asked for neither of them.
 
-	WHAT IT ACTUALLY WAS. Every strip plate in the framework takes its corner from
-	`selection_indicator.TRACK_CORNER` — the theme's `radii.control` — and the fill
-	inside it takes `radii.selection`, which FOLLOWS `radii.control` unless a
-	package authors it (user ruling 2026-09-12, `tests/selection_radius.spec.luau`).
-	So the plate and the fill are one decision, and they agree in every theme: a
-	square package gets a square strip holding a square fill, a round one a capsule
-	holding a capsule.
+	WHICH HALF IS WRONG. The strip is: the owner photographed that capsule and
+	asked to keep it. The FILL is the half that does not follow — it took
+	`radii.selection`, a token that follows `radii.control`, and `radii.control` is
+	what the picker's own TRACK wears rather than what every strip wears. A
+	`TabView`'s adaptable app bar is a `radii.pill` capsule, so under Compact
+	Pointer that is a 999 plate around a 4px chip.
 
-	`tab_view`'s adaptable app bar was the one strip that opted out. Its band form
-	hard-coded `UI.cornersData("pill")` — `radii.pill`, a role no other strip
-	spends and one every shipped package sets to 999 — while the fill inside it
-	still took `radii.selection`. Under Compact Pointer that is a 999 capsule
-	holding a 4px chip. The same commit round that removed the picker's own
-	hard-coded pill ("only its outer ends round, with the theme's `radii.control`
-	rather than a hard-coded pill") left this one behind.
+	THE RULE, at the fill site (`selection_indicator.fillCornerFor`):
 
-	THE FIX. The band form takes `selection_indicator.TRACK_CORNER`, exactly as
-	every other strip plate does, so the bar, the track and the fill are one
-	decision in every theme. The rail form keeps `radii.panel`: a sidebar is a
-	panel down the side of a screen, not a strip.
+	  * an AUTHORED `radii.selection` still wins — a package is allowed to state
+	    its highlight's shape outright, and Pixel Quest, Fantasy Ornate and Glossy
+	    Touch all do;
+	  * a PILL container gives a PILL fill, by the pill rule and not by
+	    `999 - inset`: a package may spell "fully round" as any number past half
+	    the box, and arithmetic on a sentinel is arithmetic on nothing;
+	  * otherwise the fill is the container's radius LESS the inset it floats by,
+	    floored at 0 — two concentric rounded rects, which is what an inset fill
+	    inside a plate is.
 
-	WHAT IS PINNED HERE, and the three strips the brief asks for are three THEMES
-	rather than three call sites, because the shape is the theme's:
+	NOTHING ABOUT `radii.selection` ITSELF MOVES. The token is shared with a menu
+	card's chosen-row shade, whose own contract is that the shade wears the CARD's
+	radius at its two ends (`tests/selection_radius.spec.luau`); this file is about
+	which shape the segmented fill asks for, never about what the token means.
 
-	  * rect    `radii.control = 0`   -> square strip, square fill
-	  * rounded `radii.control = 8`   -> 8px strip, 8px fill
-	  * pill    `radii.control = 999` -> a capsule holding a capsule (the radius
-	            exceeds half the bar's own cross extent, which is what the engine
-	            clamps into a capsule — so this is asserted as a RATIO, not as a
-	            number that would pass for a 999px square)
+	THE THREE STRIPS ARE THREE THEMES, because the shape is the theme's:
 
-	...and the exception is pinned with them: a package that AUTHORS
-	`radii.selection` still wins, because the fill's shape is the theme's decision
-	and this file is about which decision it is, not about overriding it.
+	    rect     `radii.control = 0`    plate 0     fill 0
+	    rounded  `radii.control = 8`    plate 8     fill 4    (8 less the `xs` inset)
+	    pill     `radii.control = 999`  plate 999   fill 995  (still a capsule)
+
+	The pill row reaches the ARITHMETIC clause, not the pill one, and deliberately:
+	its container is `radii.control` and a theme is free to make that number fully
+	round. 995 on a 32px chip is still past half the box, so the fill is still a
+	capsule — which is asserted as that ratio rather than as the number. The pill
+	ROLE clause is the adaptable app bar's, below, because that bar is the one
+	strip that names `radii.pill` outright.
+
+	...and the strip's own plate is asserted UNCHANGED in each, because a fix that
+	moved the container would be answering a different report.
 ]]
 
 local t = require("./lib/testkit")
@@ -55,6 +60,17 @@ local UI = Facet.UI
 
 local BAR = "/S/View/Indicator/Layer/Bar"
 local TRACK = "/S/View/Indicator/Track"
+
+local PACKAGES = {
+	"classic_desktop",
+	"compact_pointer",
+	"fantasy_ornate",
+	"fantasy_parchment",
+	"glossy_mobile",
+	"glossy_touch",
+	"pixel_quest",
+	"scifi_hud",
+}
 
 -- a package a theme author could really ship: Facet Neutral with its control
 -- radius moved, and nothing else
@@ -137,68 +153,82 @@ local function adaptableBarWorld(metrics: any)
 	w.present(UI.Screen({ id = "S", children = { tabs.blueprint } }))
 	tabs.collapseSidebar()
 	w.settle(4)
-	local barPath: string? = nil
+	local barPath: string?, fillPath: string? = nil, nil
 	for _, path in w.adapter.paths() do
 		if string.sub(path, -#"/AdaptableBar") == "/AdaptableBar" then
 			barPath = path
 		end
+		if string.sub(path, -#"/Strip/Indicator/Layer/Bar") == "/Strip/Indicator/Layer/Bar" then
+			fillPath = path
+		end
 	end
 	assert(barPath ~= nil, "the adaptable bar did not mount in its band form")
-	return w, w.adapter.node(barPath :: string), tabs
+	assert(fillPath ~= nil, "the adaptable strip mounted no selected fill")
+	return w, w.adapter.node(barPath :: string), w.adapter.node(fillPath :: string), tabs
 end
 
+local INSET = 4 -- the theme's `space.xs`, which is the fill's default inset
+
 local STRIPS = {
-	{ label = "rect", control = 0 },
-	{ label = "rounded", control = 8 },
-	{ label = "pill", control = 999 },
+	{ label = "rect", control = 0, fill = 0 },
+	{ label = "rounded", control = 8, fill = 8 - INSET },
+	{ label = "pill", control = 999, fill = 999 - INSET },
 }
 
-describe("selection shape: the strip's plate and the fill inside it are one decision", function()
-	it("a tracked segmented picker paints its track and its fill on the same radius", function()
+describe("selection shape: the fill wears the silhouette of the strip that holds it", function()
+	it("a tracked segmented picker keeps its track's corner and insets the fill inside it", function()
 		for _, case in STRIPS do
 			local metrics = packageWith(case.control)
 			local w = stripWorld(metrics)
-			local track = w.adapter.node(TRACK)
-			local bar = w.adapter.node(BAR)
+			local track, bar = w.adapter.node(TRACK), w.adapter.node(BAR)
 			assert(track ~= nil and bar ~= nil, `{case.label}: the strip did not mount its track and fill`)
+			-- the CONTAINER is untouched...
 			expect(`{case.label} track {paintedRadius(track, metrics)}`).toBe(`{case.label} track {case.control}`)
-			expect(`{case.label} fill {paintedRadius(bar, metrics)}`).toBe(`{case.label} fill {case.control}`)
+			-- ...and the FILL is what follows it
+			expect(`{case.label} fill {paintedRadius(bar, metrics)}`).toBe(`{case.label} fill {case.fill}`)
 		end
+		expect(snapshot.resolveNumber(packageWith(8), "space.xs")).toBe(INSET)
 	end)
 
-	it("...and the pill case really is a capsule, not a very large square", function()
+	it("a pill container gives a pill fill, by the pill RULE and not by 999 minus the inset", function()
 		local metrics = packageWith(999)
 		local w = stripWorld(metrics)
 		local bar = w.adapter.node(BAR)
 		-- the engine clamps a corner radius at half the shorter side; a radius past
 		-- that point is what makes a rounded rect a capsule
 		expect(paintedRadius(bar, metrics) > bar.rect.h / 2).toBe(true)
-		local rect = stripWorld(packageWith(0)).adapter.node(BAR)
-		expect(0 > rect.rect.h / 2).toBe(false)
+		-- ...and the rule itself, as the TOKEN it spends. A number computed at the
+		-- call site would freeze the near display's radius into a strip a ten-foot
+		-- screen then paints with, so what the control names is a token and the
+		-- style resolves it
+		expect(selectionIndicator.fillCornerFor("pill")).toBe("selection:pill")
+		expect(selectionIndicator.fillCornerFor("control")).toBe("selection:control")
+		expect(snapshot.resolveNumber(metrics, "radii.selection:pill")).toBe(metrics.radii.pill)
+		expect(snapshot.resolveNumber(metrics, "radii.selection:control")).toBe(999 - INSET)
 	end)
 end)
 
-describe("selection shape: the adaptable app bar is a strip like any other", function()
-	it("its band form takes the strip corner, so the bar and the fill agree in every theme", function()
+describe("selection shape: the adaptable app bar keeps its pill, and the fill follows it", function()
+	it("the bar is still a capsule and the fill inside it is one too", function()
 		for _, case in STRIPS do
 			local metrics = packageWith(case.control)
-			local w, bar, tabs = adaptableBarWorld(metrics)
-			local fill = stripWorld(metrics).adapter.node(BAR)
-			expect(`{case.label} bar {paintedRadius(bar, metrics)}`).toBe(
-				`{case.label} bar {paintedRadius(fill, metrics)}`
-			)
+			local w, bar, fill, tabs = adaptableBarWorld(metrics)
+			-- the container the owner photographed, unchanged in every theme
+			expect(`{case.label} bar {paintedRadius(bar, metrics)}`).toBe(`{case.label} bar {metrics.radii.pill}`)
+			-- the pill ROLE, not `radii.pill - inset`: the fill resolves the SAME
+			-- token its container declared
+			expect(`{case.label} fill {paintedRadius(fill, metrics)}`).toBe(`{case.label} fill {metrics.radii.pill}`)
 			tabs.dispose()
 			local _ = w
 		end
 	end)
 
-	it("the corner it spends is the strip token, named rather than copied", function()
-		expect(selectionIndicator.TRACK_CORNER).toBe("control")
-		local metrics = packageWith(4)
-		local _, bar = adaptableBarWorld(metrics)
-		expect(paintedRadius(bar, metrics)).toBe(4)
-		-- ...and it is NOT the pill role, which is what it used to spend
-		expect(metrics.radii.pill > 4).toBe(true)
+	it("...and a plain TabView, whose top band has no plate, passes no container at all", function()
+		-- nothing to match means nothing to derive from: the fill keeps the
+		-- `radii.selection` token it always took
+		local metrics = packageWith(8)
+		expect(selectionIndicator.fillCornerFor(nil)).toBe(selectionIndicator.DEFAULT_CORNER)
+		expect(snapshot.resolveNumber(metrics, "radii.selection")).toBe(metrics.radii.control)
 	end)
 end)
 
@@ -208,5 +238,41 @@ describe("selection shape: an authored `radii.selection` still wins", function()
 		local w = stripWorld(metrics)
 		expect(paintedRadius(w.adapter.node(TRACK), metrics)).toBe(999)
 		expect(paintedRadius(w.adapter.node(BAR), metrics)).toBe(0)
+		-- ...at the rule itself, through every container it could be asked about
+		expect(snapshot.resolveNumber(metrics, "radii.selection:pill")).toBe(0)
+		expect(snapshot.resolveNumber(metrics, "radii.selection:control")).toBe(0)
+	end)
+
+	--[[ THE SHIPPED CORPUS, and Fantasy Ornate is the case that makes it worth
+		running: it authors a `chrome.navigation` recipe, so its adaptable bar wears
+		ART rather than a painted plate, and it authors `radii.selection = 0` on top
+		of that. A fill that resolved to nothing under a package like that is
+		exactly the failure a derivation can introduce, so every shipped theme is
+		asked for a real number. ]]
+	it("every shipped theme resolves a fill radius, art-skinned navigation included", function()
+		local ornate = require("../examples/themes/fantasy_ornate").build(Facet.themes)
+		expect(type(ornate.chrome.navigation)).toBe("table")
+		local checked = 0
+		for _, name in PACKAGES do
+			local package = (require :: any)(`../examples/themes/{name}`).build(Facet.themes)
+			for _, theme in package.style.themes do
+				local metrics = Facet.themes.resolve(package, theme.name, {})
+				local w = stripWorld(metrics)
+				local radius = paintedRadius(w.adapter.node(BAR), metrics)
+				checked += 1
+				assert(
+					type(radius) == "number" and radius >= 0,
+					`{name}/{theme.name}: the fill resolved no radius ({tostring(radius)})`
+				)
+				local authored = metrics.radii.selection
+				if type(authored) == "number" then
+					assert(
+						radius == authored,
+						`{name}/{theme.name}: authored selection {authored} lost to a derived {radius}`
+					)
+				end
+			end
+		end
+		expect(checked > 8).toBe(true)
 	end)
 end)
