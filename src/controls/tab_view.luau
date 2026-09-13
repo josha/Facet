@@ -770,17 +770,32 @@ function tab_view.build(Facet: any, core: any, spec: Spec)
 	-- read twice, and both are bound, so a rotation is a re-solve.
 	local sidebar = isPlacement("sidebar")
 	--[[ THE ADAPTABLE APP BAR'S OWN CORNER, hoisted to control scope because TWO
-		nodes spend it: the bar itself (`AdaptableBar` below) and the strip inside
-		it, which hands it to `selection_indicator.fillCornerFor` so the selected
-		fill wears the silhouette of the plate it floats in. A rail is a panel down
-		the side of a screen; a band is a capsule. Nothing but this control declares
-		it, so a plain (non-adaptable) TabView passes no container corner at all and
-		its fill keeps the `radii.selection` token it always took. ]]
+		nodes spend it: the bar itself (`AdaptableBar` below) and — in its BAND form
+		only — the strip inside it, which hands the name to
+		`selection_indicator.fillCornerFor` so the selected fill wears the
+		silhouette of the plate it floats in. A rail is a panel down the side of a
+		screen; a band is a capsule.
+
+		THE RAIL DECLARES NO CONTAINER (controller ruling, review round 2). A fill
+		derives its shape from a container by insetting concentrically inside it,
+		and that is a true statement about a BAND: the chip and the capsule share a
+		centre, so a fill inset from the capsule's radius is the shape you would
+		draw by hand. It is not true of a rail. A selected row sits in the MIDDLE of
+		a column, nowhere near the rail's outer corner, so `radii.panel - space.xs`
+		is a number with nothing behind it. Rail rows keep the plain
+		`radii.selection` token, which is the theme's own answer for a highlight
+		that is not inside anything in particular — the same answer a plain
+		(non-adaptable) TabView's strip takes, because its top band has no plate at
+		all. ]]
 	local barCornerToken = scope:own(core:memo(function(use)
 		return if use(sidebar) then "panel" else "pill"
 	end))
 	local barCorners = scope:own(core:memo(function(use)
 		return UI.cornersData(use(barCornerToken))
+	end))
+	-- ...and this is the one the STRIP is handed: the band's capsule, or nothing
+	local stripContainer = scope:own(core:memo(function(use)
+		return if use(sidebar) then nil else "pill"
 	end))
 	local stripAxis = scope:own(core:memo(function(use)
 		return if use(sidebar) then "y" else "x"
@@ -816,9 +831,10 @@ function tab_view.build(Facet: any, core: any, spec: Spec)
 		-- own segmented track would be a second plate around it (2026-09-11)
 		track = false,
 		-- ...and THAT band is the container the selected fill has to match, so the
-		-- adaptable bar's corner travels with the strip. `nil` for every other
-		-- style: a plain top band is a bare scroller with no plate to match.
-		stripCorner = if adaptable then barCornerToken else nil,
+		-- adaptable bar's BAND corner travels with the strip. `nil` for the rail
+		-- form and for every other style: a rail row is not concentric with the
+		-- rail, and a plain top band is a bare scroller with no plate at all.
+		stripCorner = if adaptable then stripContainer else nil,
 		indicator = if requestedIndicator == "automatic"
 			then (if adaptable then "pill" else AUTOMATIC_INDICATOR)
 			else requestedIndicator,

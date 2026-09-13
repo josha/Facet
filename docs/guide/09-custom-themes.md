@@ -230,8 +230,10 @@ it like any other radius.
 selected fill floats inside a strip, and the strip's own plate is the shape a
 player sees it against — so a segmented picker's fill asks for
 `selection:control` (its track's radius, less the `space.xs` it floats by: two
-concentric rounded rects) and a `TabView`'s adaptable app bar, which is a
-capsule, gets a capsule fill from `selection:pill`. Your authored
+concentric rounded rects) and a `TabView`'s adaptable app bar in its band form,
+which is a capsule, gets a capsule fill from `selection:pill`. Its sidebar RAIL
+names no container — a selected row sits in the middle of a column rather than
+concentric with the rail's corner — so rail rows keep plain `radii.selection`. Your authored
 `radii.selection` still wins over every container, which is why Pixel Quest and
 Fantasy Ornate keep square highlights inside round strips. You never write these
 names — the controls do — but a package may author one (the colon is the same

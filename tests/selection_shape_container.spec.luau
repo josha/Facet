@@ -223,6 +223,59 @@ describe("selection shape: the adaptable app bar keeps its pill, and the fill fo
 		end
 	end)
 
+	--[[ THE RAIL FORM PASSES NOTHING (controller ruling, review round 2). Deriving
+		from a container means insetting CONCENTRICALLY inside it, which is a true
+		statement about a band — the chip and the capsule share a centre — and not
+		about a rail: a selected row sits in the middle of a column, nowhere near
+		the rail's outer corner, so `radii.panel - space.xs` would be a number with
+		nothing behind it. Rail rows keep the plain `selection` token. ]]
+	it("the sidebar rail declares no container, so its rows keep the plain selection token", function()
+		local metrics = packageWith(8)
+		local w = worldLib.new({
+			viewport = { x = 0, y = 0, w = 1440, h = 900 },
+			preferredInput = "KeyboardAndMouse",
+			capabilities = { mouse = true, keyboard = true },
+			themeMetrics = metrics,
+		})
+		local tabs = Facet.Controls.TabView(w.core, {
+			id = "Tabs",
+			env = w.env,
+			selection = w.core:signal("a"),
+			style = "sidebarAdaptable",
+			tabs = {
+				{
+					id = "a",
+					label = "Pages",
+					content = function()
+						return UI.Text({ id = "A", text = "A" })
+					end,
+				},
+				{
+					id = "b",
+					label = "Inbox",
+					content = function()
+						return UI.Text({ id = "B", text = "B" })
+					end,
+				},
+			},
+		})
+		w.present(UI.Screen({ id = "S", children = { tabs.blueprint } }))
+		w.settle(4)
+		expect(tabs.dump().placement).toBe("sidebar")
+		local fillPath: string? = nil
+		for _, path in w.adapter.paths() do
+			if string.sub(path, -#"/Strip/Indicator/Layer/Bar") == "/Strip/Indicator/Layer/Bar" then
+				fillPath = path
+			end
+		end
+		assert(fillPath ~= nil, "the rail mounted no selected fill")
+		local corners = w.adapter.node(fillPath :: string).props.corners
+		expect(corners.tokens.radius).toBe(selectionIndicator.DEFAULT_CORNER)
+		-- ...and that token is the theme's plain highlight radius, not a derivation
+		expect(paintedRadius(w.adapter.node(fillPath :: string), metrics)).toBe(metrics.radii.control)
+		tabs.dispose()
+	end)
+
 	it("...and a plain TabView, whose top band has no plate, passes no container at all", function()
 		-- nothing to match means nothing to derive from: the fill keeps the
 		-- `radii.selection` token it always took

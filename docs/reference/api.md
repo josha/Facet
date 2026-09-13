@@ -1770,9 +1770,11 @@ the library default fills in and the contrast gate runs on the effective pair.
   subtracting from a sentinel; anything else is the container's own radius less
   one `space.xs`, the inset the fill floats by — two concentric rounded rects.
   A segmented picker's container is its own track (`radii.control`); a
-  `TabView`'s adaptable app bar is a capsule, and the fill inside it is one too.
-  A strip with no plate at all names no container and the fill keeps plain
-  `radii.selection`. `corner = "pill"` stays the caller's opt-in, and the
+  `TabView`'s adaptable app bar in its BAND form is a capsule, and the fill
+  inside it is one too. A strip with no plate at all names no container and the
+  fill keeps plain `radii.selection` — and so does the same bar's SIDEBAR RAIL,
+  because a selected row sits in the middle of a column rather than concentric
+  with the rail's outer corner. `corner = "pill"` stays the caller's opt-in, and the
   resolution is a **token**, so a ten-foot display's scaled radii reach it.
   The fill is an inset rounded rect on all four corners,
   floating inside a track that rounds only its two outer ends with
@@ -7691,7 +7693,7 @@ checks, and `Controls.TabView` when choosing a page rather than a value.
 | `textSize` | Optional type role, numeric size, or readable; defaults to the control type role. |
 | `iconOnly` | Strip styles; defaults false; requires icons on every option. Radio retains visible labels. |
 | `indicator` | Static strips: `automatic`, `none`, `underline`, `pill`. Live lists: `automatic` or `none`, using selected row chrome. |
-| `stripCorner` | Optional container-radius name (or readable of one) naming what the strip *around* this picker actually wears, so the selected fill can wear the same silhouette (`radii.selection:<container>`). Must be a radius the base style publishes (`control`, `panel`, `pill`) — anything else refuses at construction, naming the vocabulary. Requires `track = false`: a tracked strip draws its own plate and already knows its container, so the pair refuses and the message says which of the two to drop. A readable that currently reads `nil` is legal and means "no container right now" (`Controls.TabView` passes one). Absent, the fill keeps plain `radii.selection`. |
+| `stripCorner` | Optional container-radius name (or readable of one) naming what the strip *around* this picker actually wears, so the selected fill can wear the same silhouette (`radii.selection:<container>`). Must be a radius the base style publishes (`control`, `panel`, `pill`) — anything else refuses at construction, naming the vocabulary. Requires `track = false`: a tracked strip draws its own plate and already knows its container, so the pair refuses and the message says which of the two to drop. A readable that currently reads `nil` is legal and means "no container right now" (`Controls.TabView` passes one: its adaptable app bar's corner in the band form, nothing in the rail form). Absent, the fill keeps plain `radii.selection`. |
 | `sizeClass`, `env` | Optional environment overrides; the automatic style otherwise reads the core's environment. |
 
 An option has required `value` and nonempty `label`, and optional `id`,
