@@ -494,6 +494,18 @@ function alert.build(Facet: any, core: any, spec: Spec)
 				role = if action.role == "destructive" then "destructive" else nil,
 				surface = if action.role == "default" then "accent" else nil,
 				height = { type = "minMax", min = "targetSizes.minimum" },
+				--[[ A CUT ACTION LABEL KEEPS A ROUTE TO ITS WHOLE STRING (task 7
+					item 6's consequence, closed the way LT-G4 was). A one-word
+					label cannot wrap, so when the card's own carved frame narrows
+					the stack — measured: `fantasy-parchment`'s panel contentInsets
+					take 19 px a side, so a 390 px phone at the Largest preference
+					gives "Continue" 288 px of Fondamento instead of 326 —
+					the engine must ellipsize it, and an ACTION is the least
+					optional text on the screen. `disclose` is the framework's
+					answer for exactly this shape (`UI.Button{ disclose = true }`,
+					which every segment of a sliding strip now declares); it
+					reserves nothing while the label fits. ]]
+				disclose = true,
 			})
 		end
 		-- One keyed region, two orders: a mode flip MOVES the mounted actions
