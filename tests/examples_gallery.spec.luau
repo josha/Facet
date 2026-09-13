@@ -2152,7 +2152,17 @@ describe("examples/gallery 05: confirmation dialog", function()
 		presenter.refresh()
 		local confirm, cancel = adapter.node(built.confirmPath), adapter.node(built.cancelPath)
 		expect(confirm.props.label).toBe(longLabel)
-		expect(confirm.rect.w > cancel.rect.w).toBe(true)
+		--[[ A ROW THAT CANNOT HOLD ITS LABELS IS NOT A ROW (A5, 2026-09-13). This
+			pin used to read `confirm.rect.w > cancel.rect.w` — the two actions side
+			by side on a 1280 desktop, the long one wider. Measured: they asked for
+			802 px of a 528 px card and simply ran out of it, so the long label ran
+			outside the card's own box. The form is now decided by the LABELS as well
+			as by the width class, so this case stacks: both actions full width, the
+			whole label inside the card, and nothing cut. ]]
+		expect(confirm.rect.w).toBe(cancel.rect.w)
+		expect(confirm.rect.y + confirm.rect.h <= cancel.rect.y).toBe(true)
+		local cardBox = adapter.node(built.cardPath).rect
+		expect(confirm.rect.x >= cardBox.x and confirm.rect.x + confirm.rect.w <= cardBox.x + cardBox.w).toBe(true)
 		local roomyWidth = confirm.rect.w
 		deps.env:set("viewportRect", { x = 0, y = 0, w = 320, h = 640 })
 		deps.env:set("displaySize", "Small")

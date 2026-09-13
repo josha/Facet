@@ -10564,8 +10564,34 @@ confirmation is appropriate; cancellation remains the initial focus preference.
 `default` emphasizes the button; it does not steal Return from the focused action.
 `destructive` uses destructive styling. Actions invoke their callback once, after
 dismissing. `require("…/controls/alert").resolveStacked(count, sizeClass,
-distanceProfile, preferredTextOffset)` and `orderActions(actions, stacked)` are the
-pure form and placement rules, for a caller that wants to predict them. Cancel receives initial focus when enabled;
+distanceProfile, preferredTextOffset)`, `rowFits(labelWidths, chromeX, gap, available)`
+and `orderActions(actions, stacked)` are the
+pure form and placement rules, for a caller that wants to predict them.
+
+**A modal's action label is never cut before the form changes** (A5, 2026-09-13).
+The categorical rungs above are all proxies for one question — do these labels fit
+the width this card has — so the labels themselves get a vote: the control measures
+each one at the size and face a Button will draw it (`text_metrics`, the solver's
+own measurer), adds the button's chrome and the row's gap, and stacks when the sum
+does not fit. Two things make that width worth having:
+
+- the card's `padding` **yields** to the panel slot's carved frame rather than
+  stacking with it — down to one `xs`, never to nothing, because a carved inset
+  is where the *art* ends and not where a line of type wants to start (the
+  carved frame *is* the modal's inner margin; paying for it twice took 35 px a
+  side out of a 390 px phone under Fantasy Parchment), and
+- the card declares `chromeReserve = "none"`, because that same carved frame is
+  the lane a scroller normally reserves for content chrome that reaches past its
+  box — a menu card's list makes the identical call.
+
+Together they turn 288 px of content on that phone into 322, which is what lets a
+one-word primary action ("Continue") draw whole at the Largest preference. A flat
+package carves nothing, reserves no bleed, and none of this moves a pixel.
+
+`disclose` stays on every action underneath all of it, as the last resort it was
+meant to be: a label that does not fit even a full-width stacked button at the
+largest preference still has a route to its whole string. It reserves nothing
+while the label fits. Cancel receives initial focus when enabled;
 otherwise the first enabled non-destructive action is preferred, then ordinary
 presenter focus fallback applies.
 

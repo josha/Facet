@@ -100,6 +100,9 @@ local function acknowledgePlate(core: any, scope: any, declared: any): any
 	return mergePlate(declared)
 end
 local chromeSlots = require("../tokens/chrome_slots")
+local themeSnapshot = require("../themes/snapshot")
+local textMetrics = require("../layout/text_metrics")
+local textFit = require("../layout/text_fit")
 local alert = {}
 type Text = string | coreContract.Readable<string>
 export type Action = {
@@ -182,6 +185,33 @@ function alert.resolveStacked(
 		or distanceProfile == "ten-foot"
 		or (preferredTextOffset or 0) >= alert.ACCESSIBILITY_TEXT_OFFSET
 end
+--[[ ...AND A ROW THAT CANNOT HOLD ITS OWN LABELS IS NOT A ROW (owner ruling A5,
+	2026-09-13: "a modal's action label must never be cut").
+
+	The rungs above are all CATEGORICAL — a width class, a viewing distance, a text
+	preference — and every one of them is a proxy for the question that actually
+	decides the form: does the widest arrangement of these labels fit the width
+	this card has. Measured on the LT-8 fixture, the proxies miss it in both
+	directions: on a 1280 desktop at the default preference, "Permanently delete
+	this saved progress" beside "Keep the previous checkpoint" asked for 802 px of
+	a 528 px card and simply ran out of it, while a phone's compact class stacks
+	alerts whose labels would have fitted a row twice over.
+
+	So the measured answer joins them, as an OR rather than a replacement: the
+	platform conventions still hold (a television stacks; a phone stacks; more than
+	two actions stack), and a row that does not fit now stacks as well. Pure, and
+	exported beside the rest, so a caller can predict the form from numbers it
+	already has. ]]
+function alert.rowFits(labelWidths: { number }, chromeX: number, gap: number, available: number): boolean
+	if #labelWidths == 0 then
+		return true
+	end
+	local need = gap * (#labelWidths - 1)
+	for _, w in labelWidths do
+		need += w + chromeX
+	end
+	return need <= available
+end
 function alert.orderActions(actions: { Action }, stacked: boolean): { Action }
 	local rest, cancel = {}, nil
 	for _, a in actions do
@@ -208,6 +238,92 @@ function alert.build(Facet: any, core: any, spec: Spec)
 	)
 	local sizeClass, distanceProfile, textOffset =
 		env:get("sizeClass"), env:get("distanceProfile"), env:get("preferredTextOffset")
+	local themeMetrics, viewportRect, platformChrome =
+		env:get("themeMetrics"), env:get("viewportRect"), env:get("platformChrome")
+	--[[ ═══ THE CARD'S OWN WIDTH, FROM THE FACTS IT IS BUILT OUT OF (A5) ═══
+		Two callers need it and they must not disagree: the card's PADDING (which
+		yields to the carved frame rather than stacking with it) and the action
+		row's BUDGET (which decides the form). Both are derived here, in one
+		function, from the published facts — never re-measured from a solved rect,
+		which does not exist when the form has to be chosen. ]]
+	local function cardSpend(metrics: any): any
+		--[[ THE CARD'S PADDING YIELDS TO THE PANEL'S CARVED FRAME, IT DOES NOT
+			STACK WITH IT (owner ruling A5.1). `render/layout_node.luau` ADDS a
+			slot's `chromeInsets` to whatever padding a node already carries, which
+			is right in general — a Button's theme padding and its skin's border are
+			two different reservations. On this card they are the SAME one: the
+			carved frame IS the modal's inner margin, and paying for it twice took
+			35 px a side out of a 390 px phone under Fantasy Parchment, leaving
+			"Continue" 288 px of Fondamento where 326 would have fitted it. So the
+			authored step is spent only where the art does not already cover it.
+			A flat package carves nothing and this is the identity. ]]
+		local art = if type(metrics) == "table" and type(metrics.chromeInsets) == "table"
+			then (metrics.chromeInsets :: any).panel
+			else nil
+		local authored = themeSnapshot.resolveNumber(metrics, spec.padding or "m") or 0
+		--[[ ...BUT NEVER TO NOTHING. A carved frame's inset is where its ART ends,
+			not where a line of type wants to start: spending exactly it put the
+			message flush against Fantasy Parchment's painted border (live capture,
+			2026-09-13). One `xs` is kept inside the frame whatever it carves — the
+			smallest step the package itself declares, so a denser theme keeps a
+			denser gap — and it costs 4 px a side of the 34 this yield gives back. ]]
+		local floor = math.min(authored, themeSnapshot.resolveNumber(metrics, "xs") or 0)
+		local function side(name: string): number
+			local carved = if type(art) == "table" and type((art :: any)[name]) == "number"
+				then (art :: any)[name]
+				else 0
+			return math.max(floor, authored - carved)
+		end
+		return { top = side("top"), right = side("right"), bottom = side("bottom"), left = side("left") }
+	end
+	--[[ the width the ACTIONS are laid out inside: the card's box less what both
+		halves of its frame spend on each side. The card is `hug` capped at
+		`maxWidth`, so its widest possible box is that cap or the screen it sits in,
+		whichever is smaller — the conservative side of the two, which is the side a
+		"does this fit" question must be answered on. ]]
+	local function actionsWidth(use: any): number
+		local metrics = use(themeMetrics)
+		local vp = use(viewportRect)
+		local chrome = use(platformChrome)
+		local insets = if type(chrome) == "table" then (chrome :: any).insets else nil
+		local screenW = (if type(vp) == "table" and type(vp.w) == "number" then vp.w else 0)
+			- (if type(insets) == "table" then (insets.left or 0) + (insets.right or 0) else 0)
+		-- the Screen this control mounts declares `padding = "m"` (see `blueprint`)
+		local screenPad = themeSnapshot.resolveNumber(metrics, "m") or 0
+		local cap = themeSnapshot.resolveNumber(metrics, spec.maxWidth or "controls.alert.maxWidth") or math.huge
+		local card = math.min(cap, math.max(0, screenW - 2 * screenPad))
+		local pad = cardSpend(metrics)
+		local art = if type(metrics) == "table" and type(metrics.chromeInsets) == "table"
+			then (metrics.chromeInsets :: any).panel
+			else nil
+		local artX = if type(art) == "table" then (art.left or 0) + (art.right or 0) else 0
+		return math.max(0, card - pad.left - pad.right - artX)
+	end
+	-- the natural width of one action label, at the size and face a Button will
+	-- actually draw it — `text_metrics` is the solver's own measurer, not a copy
+	local function labelWidth(metrics: any, facts: any, label: string): number
+		local _, role = themeSnapshot.effectiveTypeRole(metrics, "Button", nil)
+		local size = textMetrics.reservedSize(
+			if type(role) == "table" and type(role.size) == "number" then role.size else 16,
+			facts.scale,
+			facts.offset
+		)
+		local font = if type(role) == "table" then role.fontKey else nil
+		local lineHeight = if type(role) == "table" then role.lineHeight else nil
+		return textMetrics.measure(label, font, size, math.huge, lineHeight, 1).width
+	end
+	-- ...plus the chrome one Button spends around it, and the gap a row puts
+	-- between two of them
+	local function buttonChromeX(metrics: any): number
+		local sizes = if type(metrics) == "table" then (metrics :: any).controlSizes else nil
+		local regular = if type(sizes) == "table" then (sizes :: any).regular else nil
+		local padX = if type(regular) == "table" and type(regular.paddingX) == "number" then regular.paddingX else 0
+		local art = if type(metrics) == "table" and type(metrics.chromeInsets) == "table"
+			then (metrics.chromeInsets :: any).control
+			else nil
+		local artX = if type(art) == "table" then (art.left or 0) + (art.right or 0) else 0
+		return padX * 2 + artX
+	end
 	local function read(v, use)
 		return if UI.isReadable(v) then (if use then use(v) else v:get()) else v
 	end
@@ -626,6 +742,16 @@ function alert.build(Facet: any, core: any, spec: Spec)
 				props.id = bp.id
 				props.compactLabel = action.compactLabel
 				props.disclose = true
+				--[[ ...AND NOT THE CONTROL'S OWN CONTENT ALIGNMENT (A5, 2026-09-13).
+					`Controls.Button` declares `align = "center"` on its blueprint for
+					its own content stack; cloned onto the alert's action it became a
+					cross-axis intent of the action's OWN, and the stacked form's
+					`align = "stretch"` then passed it by — so the primary action, the
+					one every `defaultAction`/`cancelAction` takes this branch for,
+					was the ONE button in a full-width stack that hugged its label
+					(measured: 184 px beside 322). The plain branch below declares no
+					`align` at all, and these two must present identically. ]]
+				props.align = nil
 				props.surface = if action.role == "default" then "accent" else nil
 				return Facet.contribution.attach(UI.Button(props), Facet.contribution.read(bp))
 			end
@@ -660,8 +786,26 @@ function alert.build(Facet: any, core: any, spec: Spec)
 		end
 		-- One keyed region, two orders: a mode flip MOVES the mounted actions
 		-- (identity, focus and shortcuts survive) rather than remounting them.
+		--[[ THE FORM IS MEASURED, NOT ONLY CLASSIFIED (A5). The categorical rungs
+			still hold — a television stacks, a phone stacks, three actions stack, a
+			text preference stacks — and the labels themselves now get a vote, which
+			is the vote that decides whether one gets CUT. `disclose` stays on the
+			buttons underneath all of this as the last resort it was meant to be: a
+			label that does not fit even a full-width stacked button at the largest
+			preference. ]]
 		local stacked = branchScope:own(core:memo(function(use)
-			return alert.resolveStacked(#def.actions, use(sizeClass), use(distanceProfile), use(textOffset))
+			if alert.resolveStacked(#def.actions, use(sizeClass), use(distanceProfile), use(textOffset)) then
+				return true
+			end
+			local metrics = use(themeMetrics)
+			local facts = textFit.facts({ env = env, use = use })
+			local widths = {}
+			for _, action in def.actions do
+				local label = read(action.label, use)
+				table.insert(widths, labelWidth(metrics, facts, if type(label) == "string" then label else ""))
+			end
+			local gap = themeSnapshot.resolveNumber(metrics, "m") or 0
+			return not alert.rowFits(widths, buttonChromeX(metrics), gap, actionsWidth(use))
 		end))
 		local rowOrder, stackOrder = alert.orderActions(def.actions, false), alert.orderActions(def.actions, true)
 		local function mode(row, stack)
@@ -705,11 +849,16 @@ function alert.build(Facet: any, core: any, spec: Spec)
 			UI.ScrollView({
 				id = "Card",
 				axis = "y",
+				chromeReserve = "none",
 				width = { type = "hug", max = spec.maxWidth or "controls.alert.maxWidth" },
 				height = UI.hug(),
 				alignH = "center",
 				alignV = "center",
-				padding = spec.padding or "m",
+				-- the carved frame IS this card's inner margin, so the authored step
+				-- is spent only where the art does not already cover it (`cardSpend`)
+				padding = branchScope:own(core:memo(function(use)
+					return cardSpend(use(themeMetrics))
+				end)),
 				gap = "s",
 				surface = spec.surface or "raised",
 				children = content,

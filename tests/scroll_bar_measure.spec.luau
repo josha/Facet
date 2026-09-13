@@ -758,3 +758,70 @@ describe(
 		end)
 	end
 )
+
+--[[ …AND THE SAME FIXED POINT FOR THE OTHER THING ARRANGE ADDS: THE CHROME BLEED
+	(owner report A4, 2026-09-13).
+
+	The canvas a scroll host publishes is `contentSize + padding + chromeBleed` —
+	the trailing allowance that makes a last child's shadow reachable
+	(`render/commit_walks.luau`) — while the LEADING edge is spent as real padding
+	by `layout/scroll_arrange.luau`. A hugging scroller measured only the leading
+	one, so its own canvas could never fit inside the box it hugged to: under every
+	package that paints a shadow it overflowed by EXACTLY the bleed and showed a
+	scrollbar forever, on any screen, with any content. Same family as the bar
+	above — a box that cannot reproduce its own measurement. ]]
+describe("a hug ScrollView measures the chrome bleed its own canvas will add", function()
+	local snapshot = require("../src/themes/snapshot")
+
+	local function bleedWorld(packageName: string)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 390, h = 844 })
+		env:set(
+			"themeMetrics",
+			snapshot.resolve((require)(`../examples/themes/{packageName}`).build(Facet.themes), nil, {})
+		)
+		local system = Facet.newActionSystem(core)
+		local adapter = fake_target.new()
+		local presenter = Facet.newPresenter(core, env, adapter, system)
+		local UI = Facet.UI
+		presenter.present(
+			UI.Screen({
+				id = "S",
+				padding = 0,
+				children = {
+					UI.ScrollView({
+						id = "Card",
+						axis = "y",
+						surface = "raised",
+						padding = "m",
+						width = { type = "fill", weight = 1 },
+						height = { type = "hug" },
+						children = {
+							UI.Button({ id = "A", label = "One" }),
+							UI.Button({ id = "B", label = "Two" }),
+						},
+					}),
+				},
+			}),
+			{}
+		)
+		presenter.refresh()
+		return core, adapter
+	end
+
+	for _, packageName in { "fantasy_parchment", "scifi_hud", "glossy_touch" } do
+		it(`{packageName}: the canvas fits the box the hug landed on`, function()
+			local core, adapter = bleedWorld(packageName)
+			local node = (adapter :: any).node("/S/Card")
+			expect(node ~= nil and node.scrollRegion ~= nil).toBe(true)
+			local region = (node :: any).scrollRegion
+			-- two buttons and a gap cannot need a scrollbar on an 844px phone, and
+			-- the canvas is the number that decides whether one appears
+			expect(`{packageName}: canvas {region.contentH} <= host {(node :: any).rect.h}`).toBe(
+				`{packageName}: canvas {math.min(region.contentH, (node :: any).rect.h)} <= host {(node :: any).rect.h}`
+			)
+			expect(core:lastError()).toBeNil()
+		end)
+	end
+end)

@@ -13,6 +13,24 @@ runtime as `Facet.VERSION`.
 
 ## [Unreleased]
 
+- **A modal's action label is never cut before the form changes (2026-09-13).**
+  `Controls.Alert`'s row/stack decision was categorical only — a width class, a
+  viewing distance, a text preference — and every rung was a proxy for the question
+  that decides whether a label gets cut. The labels now get a vote: the control
+  measures each at the size and face a Button will draw it, adds the button's
+  chrome and the row's gap, and stacks when the sum does not fit the card
+  (`alert.rowFits` is the pure rung, exported beside `resolveStacked`). Measured, a
+  1280 desktop row asked for 802 px of a 528 px card and ran outside it. The card
+  also stops paying twice for its own frame: its `padding` yields to the panel
+  slot's carved inset (down to one `xs`, never to nothing) and it declares
+  `chromeReserve = "none"`, since that carved
+  frame is the lane a scroller reserves for content chrome — 288 px of content on a
+  390 px phone under Fantasy Parchment becomes 322, which is what lets "Continue"
+  draw whole at the Largest preference. The primary action also stretches in the
+  stacked form again: a `shortcut`-bearing action inherited `Controls.Button`'s own
+  `align = "center"`, and the stack's `align = "stretch"` passed it by. `disclose`
+  stays underneath all of it as the last resort it was meant to be.
+
 - **A content-sized `ScrollView` reserves BOTH chrome-bleed edges, so the Alert
   card grows instead of scrolling (2026-09-13).** The scroll canvas is
   `contentSize + padding + chromeBleed` — the trailing allowance that makes the

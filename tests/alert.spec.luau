@@ -1042,3 +1042,113 @@ t.describe("Alert card: it grows to fit, and scrolls only when it cannot", funct
 		alert.dispose()
 	end)
 end)
+
+--[[ A5 (owner ruling 2026-09-13): "a modal's action label must never be cut."
+	Under a carved theme at the Largest preference on a 390 px phone, an alert's
+	one-word primary action ellipsized and the only route to the whole string was
+	`disclose` — a long press that also fires the button on release, which is the
+	wrong affordance for a confirm. Three levers, in the order the ruling puts
+	them:
+
+	  1. the card YIELDS its own padding to the carved frame instead of stacking
+	     with it, and stops reserving a chrome-bleed lane its own frame already
+	     provides — 288 px of content on that phone becomes 322;
+	  2. the row/stack decision MEASURES the labels against the width the row
+	     actually has, so a pair that cannot share a line stacks full width;
+	  3. `disclose` stays underneath both as the last resort it was meant to be.
+]]
+t.describe("Alert actions: the label fits before anything is cut", function()
+	local lt = require("./lib/large_text")
+	local snapshot = require("../src/themes/snapshot")
+
+	local function packageOf(name: string): any
+		return snapshot.resolve((require)(`../examples/themes/{name}`).build(Facet.themes), nil, {})
+	end
+
+	-- the LT-8 Alert fixture's own shape (tests/lib/large_text_fixtures.luau):
+	-- a pseudo-localized cancel that CAN wrap, and a one-word primary that cannot
+	local function mount(themeName: string, offset: number, viewport: any, input: string?)
+		local w = lt.world({
+			offset = offset,
+			theme = { id = themeName, metrics = if themeName == "facet-neutral" then nil else packageOf(themeName) },
+			input = input or "touch",
+			viewport = viewport,
+		})
+		local alert = Facet.Controls.Alert(w.core, {
+			id = "Ctl",
+			title = lt.PSEUDO,
+			message = lt.GERMAN_COMPOUND,
+			actions = {
+				{ id = "Cancel", label = lt.PSEUDO_ACTION, role = "cancel" },
+				{ id = "Accept", label = "Continue", shortcut = "defaultAction" },
+			},
+		})
+		w.present(UI.Screen({ id = "S", children = { alert.blueprint } }))
+		return w, alert
+	end
+
+	local function truncatedActions(w: any): { string }
+		local out: { string } = {}
+		for path, entry in lt.sweep(w).rects do
+			local facts = if type(entry) == "table" then entry.textFacts else nil
+			if type(facts) == "table" and facts.truncated == true and string.find(path, "/Actions/", 1, true) then
+				table.insert(out, path)
+			end
+		end
+		table.sort(out)
+		return out
+	end
+
+	for _, themeName in { "fantasy_parchment", "glossy_touch" } do
+		t.it(`{themeName}: at the Largest preference on a 390 phone no action label is cut`, function()
+			local w, alert = mount(themeName, lt.LARGEST, lt.PHONE_PORTRAIT)
+			t.expect(`{themeName}: cut {table.concat(truncatedActions(w), ",")}`).toBe(`{themeName}: cut `)
+			-- ...and they are stacked, full width, which is what gave them the room
+			local a = w.adapter.node("/S/Ctl/Center/Card/Actions/Order/[Accept]/Accept").rect
+			local c = w.adapter.node("/S/Ctl/Center/Card/Actions/Order/[Cancel]/Cancel").rect
+			t.expect(a.y + a.h <= c.y).toBe(true)
+			t.expect(a.x).toBe(c.x)
+			t.expect(a.w).toBe(c.w)
+			alert.dispose()
+		end)
+	end
+
+	t.it("the card's padding yields to the carved frame instead of stacking with it", function()
+		local w, alert = mount("fantasy_parchment", lt.LARGEST, lt.PHONE_PORTRAIT)
+		local card = w.adapter.node("/S/Ctl/Center/Card").rect
+		local actions = w.adapter.node("/S/Ctl/Center/Card/Actions").rect
+		local metrics = w.metrics()
+		local carved = metrics.chromeInsets.panel
+		--[[ the frame the package carves, plus ONE `xs` and nothing else: the
+			authored "m" is spent only where the art does not already cover it, and
+			never all the way to nothing — a carved inset is where the ART ends, not
+			where a line of type wants to start (live capture, 2026-09-13: spending
+			exactly it put the message flush against Parchment's painted border). ]]
+		local floor = metrics.space.xs
+		t.expect(actions.x - card.x).toBe(carved.left + floor)
+		t.expect((card.x + card.w) - (actions.x + actions.w)).toBe(carved.right + floor)
+		-- ...and that really is a yield: the authored step is NOT added on top
+		t.expect(carved.left + floor < carved.left + metrics.space.m).toBe(true)
+		alert.dispose()
+	end)
+
+	t.it("at the default preference on a desktop the row form is unchanged", function()
+		local w, alert = mount("facet-neutral", 0, { x = 0, y = 0, w = 1280, h = 800 }, "desktop")
+		local a = w.adapter.node("/S/Ctl/Center/Card/Actions/Order/[Accept]/Accept").rect
+		local c = w.adapter.node("/S/Ctl/Center/Card/Actions/Order/[Cancel]/Cancel").rect
+		-- one row, cancel leading, nothing cut
+		t.expect(a.y).toBe(c.y)
+		t.expect(c.x + c.w <= a.x).toBe(true)
+		t.expect(truncatedActions(w)).toEqual({})
+		alert.dispose()
+	end)
+
+	--[[ the PURE half, so a caller can predict the form from numbers it already
+		holds — and so the rule is checkable without mounting anything ]]
+	t.it("rowFits is the measured rung, and it is exported", function()
+		local policy = require("../src/controls/alert")
+		t.expect(policy.rowFits({ 100, 100 }, 24, 16, 264)).toBe(true)
+		t.expect(policy.rowFits({ 100, 100 }, 24, 16, 263)).toBe(false)
+		t.expect(policy.rowFits({}, 24, 16, 0)).toBe(true)
+	end)
+end)
