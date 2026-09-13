@@ -692,7 +692,19 @@ function menu.build(Facet: any, core: any, spec: Spec)
 			gap = if isCard then 0 else menuRecipe.ROW_GAP,
 			children = rows,
 		})
-		return panel
+		if isSheet then
+			return panel
+		end
+		-- the FADE GROUP the materialize transition needs (picker_menu's exact
+		-- `Popup` shape, 2026-09-11): one CanvasGroup around the floating panel so
+		-- it grows in as one plate rather than row by row
+		return UI.ZStack({
+			id = "Popup",
+			canvasGroup = true,
+			width = { type = "hug" },
+			height = { type = "content" },
+			children = { panel },
+		})
 	end
 
 	-- ===== opening, entering, leaving, closing ============================
@@ -732,6 +744,9 @@ function menu.build(Facet: any, core: any, spec: Spec)
 		standing and anchors the child to the row it came from. ]]
 	function presentLevel(level: number, presentation: string, chain: { string })
 		local panel = buildPanel(presentation, chain)
+		-- `buildPanel`'s own `isSheet` is scoped to that function; recomputed here
+		-- once per open/level rather than threaded through as another return
+		local isSheet = presentation == "sheet"
 		local rowIds: { string } = {}
 		for _, item in itemsAt(chain) do
 			if item.divider ~= true then
@@ -751,8 +766,12 @@ function menu.build(Facet: any, core: any, spec: Spec)
 				if presentation == "sheet" and #chain > 0 then
 					table.insert(order, `{rootNode.path}/{BACK_ID}`)
 				end
+				-- a non-sheet root is the `Popup` fade group the materialize
+				-- transition wraps around `Panel`, one level above the rows it used
+				-- to sit on directly; a sheet's root IS `Panel`, unwrapped
+				local rowRoot = if isSheet then rootNode.path else `{rootNode.path}/{PANEL_ID}`
 				for _, rowId in rowIds do
-					table.insert(order, `{rootNode.path}/{rowId}`)
+					table.insert(order, `{rowRoot}/{rowId}`)
 				end
 				return { { name = `menu-{id}-{level}`, axis = "vertical", entry = "first", order = order } }
 			end,
@@ -838,7 +857,7 @@ function menu.build(Facet: any, core: any, spec: Spec)
 			else
 				local parentChain = table.clone(chain)
 				local last = table.remove(parentChain) :: string
-				sourcePath = `/{surfaceIdFor(level - 1)}/Layer/Surface/{PANEL_ID}/Item:{last}`
+				sourcePath = `/{surfaceIdFor(level - 1)}/Layer/Surface/Popup/{PANEL_ID}/Item:{last}`
 				edge = "trailing"
 			end
 			handle = (presentAnchoredFn :: any)(attached, {
@@ -855,6 +874,10 @@ function menu.build(Facet: any, core: any, spec: Spec)
 				scrim = "none",
 				outsideTapCancel = true,
 				cancelPolicy = "none",
+				-- the short fade-and-grow every pop-up menu materializes with; an
+				-- anchored surface with no pivot of its own grows from the corner it
+				-- hangs at (render/transitions `pivot` inference)
+				transition = if isSheet then nil else { enter = "materialize" },
 			})
 		end
 		table.insert(handles, handle)

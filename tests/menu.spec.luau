@@ -106,7 +106,7 @@ end
 local TRIGGER = "/S/Body/Trigger"
 local function rowPath(level: number, itemId: string): string
 	local surface = if level == 0 then "Menu-M" else `Menu-M-L{level}`
-	return `/{surface}/Layer/Surface/Panel/Item:{itemId}`
+	return `/{surface}/Layer/Surface/Popup/Panel/Item:{itemId}`
 end
 local function sheetRow(itemId: string): string
 	return `/Menu-M/Layer/Panel/Item:{itemId}`
@@ -351,7 +351,7 @@ describe("D2 Menu: every input class opens it, and the verbs are the same ones",
 		w.pres.refresh()
 		expect(w.control.api.isOpen:get()).toBe(true)
 		local trigger = w.adapter.node(TRIGGER).rect
-		local panel = w.adapter.node("/Menu-M/Layer/Surface/Panel").rect
+		local panel = w.adapter.node("/Menu-M/Layer/Surface/Popup/Panel").rect
 		-- D1 placed it: below the source, not at a parent corner
 		expect(panel.y >= trigger.y + trigger.h).toBe(true)
 		expect(w.pres.anchoredSurfaces().count).toBe(1)
@@ -1449,7 +1449,7 @@ describe("D2 Menu: the anchored panel is ONE card", function()
 		w.pres.refresh()
 		return w, checked
 	end
-	local PANEL = "/Menu-M/Layer/Surface/Panel"
+	local PANEL = "/Menu-M/Layer/Surface/Popup/Panel"
 
 	it("draws exactly one hairline between two rows — rows minus one, and no gap besides", function()
 		local w = cardWorld()
@@ -1552,5 +1552,21 @@ describe("D2 Menu: the anchored panel is ONE card", function()
 		expect(row.props.surface).toBeNil()
 		expect(row.props.corners).toBeNil()
 		expect(row.props.selected).toBe(true)
+	end)
+end)
+
+describe("menu: the floating panel materializes", function()
+	local FRAME = 1 / 60
+	it("fades and grows in, then leaves faster", function()
+		local w = world({})
+		w.adapter.tap(TRIGGER)
+		w.pres.refresh()
+		local popup = w.adapter.node(rowPath(0, "accessory"):gsub("/Popup/Panel/Item:accessory$", "/Popup"))
+		expect(popup ~= nil and popup.canvasGroupInstance ~= nil).toBe(true)
+		expect(popup.canvasGroupInstance.groupTransparency).toBe(1)
+		for _ = 1, 90 do
+			w.pres.tick(FRAME)
+		end
+		expect(popup.canvasGroupInstance.groupTransparency).toBe(0)
 	end)
 end)
