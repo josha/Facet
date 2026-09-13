@@ -378,6 +378,50 @@ describe("selection shape: naming a container that cannot answer is an authoring
 		expect(styling.isSelectionContainer("gauge:ring", { ["gauge:ring"] = 4 })).toBe(false)
 	end)
 
+	it("a container NO style publishes still errors through the public `UI.corners` (review N6)", function()
+		--[[ item 11's first shape made the AUTHORING corner resolve deferrable
+			for any `selection:<container>` token when no style was passed. That
+			is the form the public `UI.corners`/`UI.cornersData` take, and
+			`paintCorners` is total — a token the live style cannot answer keeps
+			the authored number silently — so `selection:panle` would have
+			resolved to the plain selection radius and painted it forever with
+			nothing ever saying a word. The refusal is global again; what moved
+			is WHICH STYLE is asked, at the one caller that has a better answer
+			than the base one. ]]
+		local ok, err = pcall(function()
+			return UI.cornersData("selection:panle")
+		end)
+		expect(ok).toBe(false)
+		expect(string.find(tostring(err), "unknown radius token 'selection:panle'", 1, true) ~= nil).toBe(true)
+		-- ...through the blueprint wrap as well as the data form
+		expect(pcall(function()
+			return UI.corners(UI.Box({ id = "B" }), "selection:panle")
+		end)).toBe(false)
+		-- ...and `chip` is refused by the BASE style too, which is exactly why the
+		-- indicator hands the normalizer the live snapshot instead
+		expect(pcall(function()
+			return UI.cornersData("selection:chip")
+		end)).toBe(false)
+		-- the same token, asked of a style that publishes the container, resolves
+		local pkg = Facet.themes.define({
+			base = snapshot.neutralPackage(),
+			identity = {
+				id = "n6-chip",
+				displayName = "N6 Chip",
+				schemaVersion = Facet.themes.SCHEMA,
+				version = "1.0.0",
+			},
+			metrics = { radii = { chip = 6 } },
+		})
+		local live = snapshot.resolve(pkg, nil, {})
+		expect(pcall(function()
+			return UI.cornersData("selection:chip", live)
+		end)).toBe(true)
+		expect(pcall(function()
+			return UI.cornersData("selection:panle", live)
+		end)).toBe(false)
+	end)
+
 	it("with NO theme in hand at all the message says the vocabulary is the base style's", function()
 		--[[ the picker built without an `env` (and outside any surface, so
 			`surfaceEnv.find` answers nothing) has no live radii to check against.

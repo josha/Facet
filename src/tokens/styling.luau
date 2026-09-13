@@ -225,18 +225,18 @@ local function selectionRadius(style: any, token: string): number?
 	return math.max(0, base - (if type(space) == "number" then space else 0))
 end
 
---[[ `deferrable` = "no style was passed, so this is the AUTHORING resolve and
-	the number it produces is a placeholder the painter re-resolves" (see
-	`normalizeCorners`'s header, which states exactly that contract). Under it, a
-	`selection:<container>` token naming a container the BASE style does not
-	publish is not a typo — it is a package's own radius, which only the live
-	style can answer, and `paintResolve` already answers it there. Refusing it
-	here made a package able to ship a radius no caller was allowed to point at
-	(task 7 item 11). The placeholder is the plain `selection` radius, which is
-	the same family and always resolvable; the token survives beside it, so the
-	painted number is the package's. A caller that DOES pass a style is asking
-	this style specifically, and still gets the hard refusal. ]]
-local function resolveRadius(value: any, style: any, deferrable: boolean?): number
+--[[ A RADIUS TOKEN THIS STYLE CANNOT ANSWER IS REFUSED, ALWAYS (review N6).
+	Task 7 item 11 briefly made a `selection:<container>` token DEFERRABLE here
+	when no style was passed, reasoning that the authoring number is a
+	placeholder the painter re-resolves. It is — but `normalizeCorners`'s no-style
+	form is what the PUBLIC `UI.corners`/`UI.cornersData` call, and `paintResolve`
+	is total (a token the live style cannot answer keeps the authored number
+	silently), so `selection:panle` would have resolved to the plain selection
+	radius and painted that forever, with nothing ever saying a word. The fix
+	belongs at the caller: hand this the style that will actually paint (the
+	live theme snapshot `selection_indicator` already holds), and the refusal is
+	asked of the vocabulary that can answer it. ]]
+local function resolveRadius(value: any, style: any): number
 	if type(value) == "number" then
 		assert(value >= 0, "corner radius must be non-negative")
 		return value
@@ -245,9 +245,6 @@ local function resolveRadius(value: any, style: any, deferrable: boolean?): numb
 		local resolved = style.radii and style.radii[value]
 		if resolved == nil then
 			resolved = selectionRadius(style, value)
-		end
-		if resolved == nil and deferrable == true and string.match(value, "^selection:[%w_%-]+$") ~= nil then
-			resolved = selectionRadius(style, "selection")
 		end
 		assert(type(resolved) == "number", `unknown radius token '{value}' (style.radii)`)
 		return resolved
@@ -282,14 +279,11 @@ end
 
 function styling.normalizeCorners(spec: any, style: any?): any
 	local activeStyle: any = style or default_style
-	-- no style in hand means this is the authoring resolve, whose number is a
-	-- placeholder by this function's own contract — see `resolveRadius`
-	local deferrable = style == nil
 	if type(spec) == "number" or type(spec) == "string" then
 		local token = tokenOf(spec)
 		return table.freeze({
 			form = "uniform",
-			radius = resolveRadius(spec, activeStyle, deferrable),
+			radius = resolveRadius(spec, activeStyle),
 			tokens = if token ~= nil then table.freeze({ radius = token }) else nil,
 		})
 	end
@@ -309,7 +303,7 @@ function styling.normalizeCorners(spec: any, style: any?): any
 		local token = tokenOf(spec.radius)
 		return table.freeze({
 			form = "uniform",
-			radius = resolveRadius(spec.radius, activeStyle, deferrable),
+			radius = resolveRadius(spec.radius, activeStyle),
 			tokens = if token ~= nil then table.freeze({ radius = token }) else nil,
 		})
 	end
@@ -317,7 +311,7 @@ function styling.normalizeCorners(spec: any, style: any?): any
 	local out: any = { form = "perCorner" }
 	local tokens: any = nil
 	for _, key in CORNER_KEYS do
-		out[key] = if spec[key] ~= nil then resolveRadius(spec[key], activeStyle, deferrable) else 0
+		out[key] = if spec[key] ~= nil then resolveRadius(spec[key], activeStyle) else 0
 		local token = tokenOf(spec[key])
 		if token ~= nil then
 			tokens = tokens or {}

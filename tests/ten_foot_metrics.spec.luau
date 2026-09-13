@@ -1811,14 +1811,23 @@ describe("ten-foot metrics — the second door: an authored token", function()
 		-- both classes): the PAINTED radius still grows with the display class,
 		-- which is the whole claim
 		local painted: { [string]: number } = {}
-		for _, case in { { size = "Medium", want = 4 }, { size = "Large", want = 8 } } do
+		for _, case in { { size = "Medium", want = 4, authored = 4 }, { size = "Large", want = 8, authored = 6 } } do
 			local adapter = pickerWorld(case.size :: string)
 			local bar = adapter.node("/S/View/Indicator/Layer/Bar")
 			expect(`{case.size}: bar mounted {bar ~= nil}`).toBe(`{case.size}: bar mounted true`)
 			local corners = (bar :: any).props.corners
-			-- the AUTHORING number is the near one at both distances — that is the
-			-- defect's own fingerprint, and it is why the token has to survive
-			expect(`{case.size}: authored {corners.radius}`).toBe(`{case.size}: authored 4`)
+			--[[ THE AUTHORING NUMBER IS STILL A PLACEHOLDER, and at Large it is
+				still the WRONG one — which is the defect's fingerprint and the
+				reason the token has to survive. It used to be the near number at
+				both distances, because the authoring resolve ran against
+				`default_style`; since review N6 the indicator hands the normalizer
+				the live snapshot it already holds (so a `selection:<container>`
+				for a radius only a PACKAGE publishes is refused by a style that
+				can answer it, rather than by the base vocabulary). That snapshot
+				is not the style the TARGET paints with either — 6 here against a
+				painted 8 — so the mechanism this case proves is unchanged and only
+				the witness's numbers moved. ]]
+			expect(`{case.size}: authored {corners.radius}`).toBe(`{case.size}: authored {case.authored}`)
 			expect(`{case.size}: token {corners.tokens.radius}`).toBe(`{case.size}: token selection:control`)
 			-- …and what the painter writes, through the style the target derives
 			local value = styling.paintCorners(corners, styleAt(case.size :: string)).radius
@@ -1827,5 +1836,9 @@ describe("ten-foot metrics — the second door: an authored token", function()
 		end
 		-- ...and it really is the DISTANCE that moved it, not two constants
 		expect(painted.Large > painted.Medium).toBe(true)
+		-- ...and the authored number at Large is NOT what reached the screen: the
+		-- claim in one assertion, independent of either number's exact value
+		local largeBar = pickerWorld("Large").node("/S/View/Indicator/Layer/Bar")
+		expect((largeBar :: any).props.corners.radius ~= painted.Large).toBe(true)
 	end)
 end)

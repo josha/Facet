@@ -587,16 +587,30 @@ function selection_indicator.build(Facet: any, core: any, spec: Spec)
 		re-resolve it, exactly as the geometry memo beside it does. A caller that
 		named a corner, or a strip that declared no container corner, takes the same
 		static answer it always took. ]]
+	--[[ ...AND THE TOKEN IS NORMALIZED AGAINST THE LIVE SNAPSHOT, not the base
+		style (review N6). `UI.cornersData` with no style resolves through
+		`default_style`, whose `radii` is the BASE vocabulary — so
+		`selection:<container>` for a container only a PACKAGE publishes
+		(`radii.chip`) was refused here even though `paintCorners` would have
+		answered it perfectly well one layer on. Handing it `metricsSig` asks the
+		refusal of the style that will actually paint, which is the whole point of
+		a refusal, and leaves the check as strict as it ever was for a container
+		nothing publishes (a `selection:panle` typo still errors). The reactive
+		branch reads it through `use`, so a theme swap re-resolves the token the
+		same way the memo beside it re-resolves the geometry. ]]
 	local derives = spec.corner == nil and skin == "pill" and spec.trackCorner ~= nil
-	local uniformCorners: any = if corner ~= nil then UI.cornersData(corner) else nil
+	local uniformCorners: any = if corner ~= nil then UI.cornersData(corner, metricsSig:get()) else nil
 	if derives then
 		local reactive = type(spec.trackCorner) == "table"
 		if reactive then
 			uniformCorners = scope:own(core:memo(function(use)
-				return UI.cornersData(selection_indicator.fillCornerFor(readValue(spec.trackCorner, use)))
+				return UI.cornersData(
+					selection_indicator.fillCornerFor(readValue(spec.trackCorner, use)),
+					use(metricsSig)
+				)
 			end))
 		else
-			uniformCorners = UI.cornersData(selection_indicator.fillCornerFor(spec.trackCorner))
+			uniformCorners = UI.cornersData(selection_indicator.fillCornerFor(spec.trackCorner), metricsSig:get())
 		end
 	end
 	local barCorners: any = uniformCorners
