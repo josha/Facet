@@ -1289,7 +1289,7 @@ function tab_view.build(Facet: any, core: any, spec: Spec)
 			theme's spacing and a band above or below one got none — in every theme,
 			at every text size. A strip is a plate with its own fill and its own
 			corner; a page starting on the pixel below it reads as part of the strip.
-			One decision for all four placements now, and both halves are METRIC
+			One decision for every placement now, and both halves are METRIC
 			NAMES: a package that retunes its spacing retunes this, and a ten-foot
 			display's scaled steps reach it with nothing to update. The rail keeps
 			the wider step because a vertical boundary down the middle of a screen is
