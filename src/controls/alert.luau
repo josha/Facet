@@ -10,22 +10,74 @@ local surfaceEnv = require("../env/surface_env")
 -- refusal rather than re-deriving the rule (task 7 item 5)
 local transitionsLib = require("../render/transitions")
 
+-- a Readable, by the SAME test `transitions.resolve` itself applies when it
+-- unwraps one (`render/transitions.luau`) — module-level here, where `Facet.UI`
+-- is not yet in hand, and deliberately the one authority's own shape rather
+-- than a second opinion about what counts as readable
+local function isReadableTransition(value: any): boolean
+	return type(value) == "table" and (value.kind == "signal" or value.kind == "memo")
+end
+
+-- the default the modal opens on: scale 0.96 -> 1 with a fade, the `dismiss`
+-- exit dipping out faster than it came, and the plate acknowledgement the shape
+-- needs (see `acknowledgePlate`)
+local DEFAULT_TRANSITION = table.freeze({ enter = "materialize", plate = "fades" })
+
+-- `resolve`'s own detail begins lower-case ("unknown enter form …"), so the
+-- address needs its colon or the two run together (review N5)
+local function transitionRefusal(err: any): string
+	local detail = string.gsub(tostring(err), "^Facet transition: ", "")
+	return `Controls.Alert: transition: {detail} — the modal materializes by default; `
+		.. 'pass `{ enter = "instant" }` to opt out.'
+end
+
 --[[ THE CARD IS THIS SURFACE'S PLATE, and the modal says so (task 7 item 3).
 	Merged, never overwritten: a caller's own `plate` is their call, and a
-	READABLE transition is left untouched because there is no table here to
-	merge into — such a caller declares the key themselves or takes the finding,
-	which is the honest pair of options. A form that never fades (`instant`,
-	a pure slide) records nothing either way, so the key costs it nothing. ]]
-local function acknowledgePlate(declared: any): any
-	if type(declared) ~= "table" or declared.kind == "signal" or declared.kind == "memo" then
-		return declared
+	declaration that already makes the claim is passed through by IDENTITY. A
+	form that never fades (`instant`, a pure slide) records nothing either way,
+	so the key costs it nothing. ]]
+local function mergePlate(value: any): any
+	if type(value) ~= "table" or value.plate ~= nil then
+		return value
 	end
-	if declared.plate ~= nil then
-		return declared
-	end
-	local merged = table.clone(declared)
+	local merged = table.clone(value)
 	merged.plate = "fades"
 	return merged
+end
+
+--[[ ...AND A READABLE TRANSITION IS NOT AN EXCEPTION (review N3). The first
+	shape of this returned a Readable untouched — "there is no table here to
+	merge into" — so a caller who bound their transition to a signal got no
+	acknowledgement, recorded `via = "surface"`, and the reference-app sweeps
+	counted their modal. A Readable has a VALUE, and a memo is the framework's
+	own way to derive one from it; owned on the alert's scope, so it dies with
+	the control.
+
+	THIS MEMO NEVER RAISES. A Facet memo QUARANTINES a body that errors — measured
+	while building this: the refusal was recorded as a warning, the memo then read
+	as nothing, and what reached the caller was `resolve`'s own unaddressed
+	message from one layer down. So validation lives at the READ (see
+	`validateTransition` below), where it can refuse cleanly; the memo does one
+	job, merging the acknowledgement.
+
+	`false` is the framework's own "no transition" spelling on `When`/`ForEach`,
+	and the present site's `or` already folded it to the default — only the
+	build check disagreed, refusing a value the next line ignored. It folds
+	here, in one place, on both paths. ]]
+local function acknowledgePlate(core: any, scope: any, declared: any): any
+	if declared == nil or declared == false then
+		return DEFAULT_TRANSITION
+	end
+	if isReadableTransition(declared) then
+		return scope:own(core:memo(function(use)
+			local value = use(declared)
+			if value == nil or value == false then
+				return DEFAULT_TRANSITION
+			end
+			return mergePlate(value)
+		end))
+	end
+	return mergePlate(declared)
 end
 local chromeSlots = require("../tokens/chrome_slots")
 local alert = {}
@@ -191,15 +243,15 @@ function alert.build(Facet: any, core: any, spec: Spec)
 		drifting copy of the rule; the re-raise only re-addresses the message.
 		A bare `"instant"` is the case worth naming in the text: the round's own
 		design note invited it, and the schema wants `{ enter = "instant" }`. ]]
-	if spec.transition ~= nil then
+	-- ...for a value that IS one here. `false` folds to the default (the
+	-- framework's own "no transition" spelling, which the present site already
+	-- ignored) and a Readable is judged on its first READ instead — a signal's
+	-- build-time value is not the one the alert will open on, so refusing on it
+	-- is a check about the wrong instant (review N5).
+	if spec.transition ~= nil and spec.transition ~= false and not isReadableTransition(spec.transition) then
 		local ok, err = pcall(transitionsLib.resolve, spec.transition)
 		if not ok then
-			local detail = string.gsub(tostring(err), "^Facet transition: ", "")
-			error(
-				`Controls.Alert: transition {detail} — the modal materializes by default; `
-					.. 'pass `{ enter = "instant" }` to opt out.',
-				0
-			)
+			error(transitionRefusal(err), 0)
 		end
 	end
 	assert(
@@ -347,6 +399,26 @@ function alert.build(Facet: any, core: any, spec: Spec)
 		or type(spec.actions) == "function"
 	local initialDefinition = if dynamic then nil else definition()
 	local scope = core:scope("alert-" .. (spec.id or "Alert"))
+	-- resolved ONCE, not per present: a Readable declaration becomes one memo on
+	-- this scope rather than a fresh one every time the modal opens
+	local declaredTransition = acknowledgePlate(core, scope, spec.transition)
+	--[[ A READABLE'S CHECK, ON THE READ (review N5). The static form was judged
+		at build above; a Readable cannot be, so it is judged here — the first
+		read is `present()`, and raising HERE rather than inside the memo is what
+		keeps the message addressed to Alert (a memo that errors is quarantined,
+		and `resolve`'s own message surfaces from one layer down instead). Cheap:
+		one `resolve` on a value the coordinator is about to resolve anyway. For a
+		BOUND alert this still fires inside the observer that opened it — a value
+		nobody can see until it is read leaves nowhere earlier to say so. ]]
+	local function validateTransition(): any
+		if isReadableTransition(spec.transition) then
+			local ok, err = pcall(transitionsLib.resolve, declaredTransition)
+			if not ok then
+				error(transitionRefusal(err), 0)
+			end
+		end
+		return declaredTransition
+	end
 	local handle, presenter, current = nil, spec.presenter, initialDefinition
 	local disposed, closing = false, false
 	local lastError = nil
@@ -715,7 +787,7 @@ function alert.build(Facet: any, core: any, spec: Spec)
 			-- backdrop-before-content gate is about is the presenter's scrim
 			-- behind the whole modal (`blueprint_schema`'s TRANSITION_PLATES
 			-- header). A caller who writes `plate` themselves keeps their value.
-			transition = acknowledgePlate(spec.transition or { enter = "materialize" }),
+			transition = validateTransition(),
 		})
 		local opened = handle
 		handle.scope:own(function()

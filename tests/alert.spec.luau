@@ -674,6 +674,66 @@ t.describe("alert: the modal materializes", function()
 		t.expect(string.find(tostring(err), 'enter = "instant"', 1, true) ~= nil).toBe(true)
 	end)
 
+	t.it("`transition = false` folds to the default instead of being refused (N5)", function()
+		--[[ `false` is the framework's own "no transition" spelling on `When`/
+			`ForEach`, and `spec.transition or { … }` already folded it to the
+			default at the present site — only the BUILD check disagreed, refusing
+			the value the very next line was about to ignore. ]]
+		local w = world.new()
+		local alert = Facet.Controls.Alert(w.core, {
+			id = "Falsey",
+			title = "Hi",
+			actions = { { id = "ok", label = "OK" } },
+			transition = false :: any,
+		})
+		local handle = alert.present(w.pres)
+		t.expect(handle.transition.enter).toBe("materialize")
+		t.expect(handle.transition.plate).toBe("fades")
+		alert.dispose()
+	end)
+
+	t.it("a READABLE transition is not judged at build — it is judged on first read (N5)", function()
+		--[[ a signal's value at build time is not the value it will carry when
+			the alert opens, so refusing on it is a check about the wrong instant.
+			The validation moved INTO the memo that merges the plate
+			acknowledgement, which is the first read either way — so a bad value
+			still names Alert rather than "Facet transition". ]]
+		local w = world.new()
+		local declared = w.core:signal({ enter = "swirl" } :: any)
+		local alert = Facet.Controls.Alert(w.core, {
+			id = "Late",
+			title = "Hi",
+			actions = { { id = "ok", label = "OK" } },
+			transition = declared :: any,
+		})
+		-- built clean...
+		local ok, err = pcall(function()
+			alert.present(w.pres)
+		end)
+		-- ...and refused on the read, by name
+		t.expect(ok).toBe(false)
+		t.expect(string.find(tostring(err), "Controls.Alert: transition:", 1, true) ~= nil).toBe(true)
+		t.expect(string.find(tostring(err), "swirl", 1, true) ~= nil).toBe(true)
+		alert.dispose()
+		declared:dispose()
+	end)
+
+	t.it("the refusal reads as one sentence, not a splice (N5)", function()
+		local w = world.new()
+		local _, err = pcall(function()
+			Facet.Controls.Alert(w.core, {
+				id = "Splice",
+				title = "Hi",
+				actions = { { id = "ok", label = "OK" } },
+				transition = { enter = "swirl" },
+			})
+		end)
+		-- `resolve`'s own detail begins lower-case ("unknown enter form …"), so
+		-- the address needs its colon or the two run together
+		t.expect(string.find(tostring(err), "Controls.Alert: transition: unknown enter form", 1, true) ~= nil)
+			.toBe(true)
+	end)
+
 	t.it("a VALID transition still builds, and the default (absent) one is untouched", function()
 		local w = world.new()
 		local a = Facet.Controls.Alert(w.core, {

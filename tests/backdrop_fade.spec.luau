@@ -554,6 +554,62 @@ describe("backdrop-before-content: the modal/popover surfaces acknowledge their 
 		alert.dispose()
 	end)
 
+	it("Controls.Alert — a READABLE transition is acknowledged too (review N3)", function()
+		--[[ the first shape of `acknowledgePlate` returned a Readable untouched —
+			"there is no table here to merge into" — which meant a caller who
+			bound their transition to a signal got no acknowledgement at all, and
+			the reference sweeps counted their modal. A Readable has a VALUE, and
+			a memo is the framework's own way to derive one; it is owned on the
+			alert's scope, so it dies with the control. ]]
+		local w: any
+		local alert: any
+		local declared: any
+		local counted, all = backdropSweep.capture(function()
+			w = worldLib.new({ viewport = { x = 0, y = 0, w = 390, h = 844 } })
+			declared = w.core:signal({ enter = "materialize", class = "object" })
+			alert = Facet.Controls.Alert(w.core, {
+				id = "Bound",
+				title = "Delete?",
+				actions = { { id = "ok", label = "OK" } },
+				transition = declared,
+			})
+			alert.present(w.pres)
+			w.pres.refresh()
+		end)
+		expect(#counted).toBe(0)
+		onlyAcknowledged(all, "/Bound/Center/Card")
+		alert.dispose()
+		declared:dispose()
+	end)
+
+	it("a caller's own `plate` wins over the merge, Readable or not (review N3)", function()
+		local w = worldLib.new({ viewport = { x = 0, y = 0, w = 390, h = 844 } })
+		local authored = { enter = "materialize", plate = "fades" }
+		local alert = Facet.Controls.Alert(w.core, {
+			id = "Own",
+			title = "Delete?",
+			actions = { { id = "ok", label = "OK" } },
+			transition = authored,
+		})
+		-- the caller's table reaches the presenter UNCLONED: nothing merged into
+		-- a declaration that had already made the claim
+		local handle = alert.present(w.pres)
+		expect(handle.transition).toBe(authored)
+		alert.dispose()
+
+		local declared = w.core:signal({ enter = "materialize", plate = "fades" })
+		local bound = Facet.Controls.Alert(w.core, {
+			id = "OwnBound",
+			title = "Delete?",
+			actions = { { id = "ok", label = "OK" } },
+			transition = declared,
+		})
+		local boundHandle = bound.present(w.pres)
+		expect(boundHandle.transition:get()).toBe(declared:get())
+		bound.dispose()
+		declared:dispose()
+	end)
+
 	it("Controls.Menu — Popup → Panel", function()
 		local w: any
 		local control: any
