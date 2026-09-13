@@ -13,6 +13,55 @@ runtime as `Facet.VERSION`.
 
 ## [Unreleased]
 
+- Structural exits are faster than the entrances they mirror. A new built-in
+  spring class `dismiss` (ζ1.0, 0.2 s) is what every exit runs on unless a
+  `transition` names its own `exitClass`, so a `When`, a `ForEach` row, a toast
+  and a dismissed surface all dip out at about 1.7x the pace they came in —
+  transitions.dev's 250/150 ms pairing, and the one deliberately visible change
+  of the round. The exit's settle tolerance is coarser than the enter's
+  (`EXIT_EPS`, 2% of the transition's own progress, which is 2% alpha or 0.48 px
+  of the themed 24 px slide): an exit that is visually absent should stop
+  existing, and at the enter's tolerance a `dismiss` exit disposed on the flat
+  500 ms cap — the same frame `container` did — rather than on its own spring.
+  The bound is now "at most 2% of the travel remains, or the 500 ms cap,
+  whichever comes first"; frames to dispose at 60 fps went `dismiss` 30 → 22 and
+  `object` 31 → 28, while `container` and `decay` genuinely outrun the cap and
+  still end on it. An ENTER keeps the default tolerance, because its settle is
+  what fires the `arrive` feedback event.
+- `Controls.Alert` and `Controls.Menu` materialize. A modal card and a floating
+  menu popover scale 0.96 → 1 with a fade on the `object` class and dip out on
+  `dismiss`; `AlertSpec` gains `transition?` so a caller can override it or pass
+  `{ enter = "instant" }` to opt out, and `transition = false` is accepted as the
+  framework's own "no transition" spelling (it folds to the default, which is
+  what the present site already did with it). An invalid transition is refused
+  where it can be seen: a static one at BUILD, named `Controls.Alert: transition:
+  …` rather than the coordinator's own message, and a Readable one on its first
+  read, where the refusal is recorded on `dump().lastError` and resets the
+  binding instead of raising inside the observer that opened it.
+- `transition.plate = "fades"` acknowledges the modal/popover shape. The
+  backdrop-before-content gate reports a fade group that composes its own opaque
+  plate, because `GroupTransparency` dims the backdrop and the content together
+  — and an Alert's card or a Menu's popover is structurally identical to that
+  defect while being exactly what a modal should look like, its backdrop being
+  the scrim behind the whole surface rather than the card's own face. No tree
+  read can separate the two, so the surface declares it. Honoured only for a
+  fade group whose SOLE child is the plate: a plate with a sibling still reports,
+  and an acknowledged shape is still recorded (under its own kind) so a reader
+  can see which surfaces made the claim. `Controls.Alert`, `Controls.Menu` and
+  the menu-style `Picker` declare it; nothing else needs to.
+- The modal card wears the `panel` decoration slot. `Alert`'s card is a
+  `UI.ScrollView` so a long message stays reachable, and `chrome_slots.classify`
+  answers by CLASS before it reads `surface` — so under every skinned package the
+  card classified as a scroll TRACK and got no carved frame, hairline, shadow or
+  contentInsets. An unhinted `ScrollView` is still a scrollbar, which is right
+  for every other one. An alert ACTION now declares `disclose` with it: a carved
+  frame spends contentInsets, and a one-word label that no longer fits has
+  nothing to wrap at, so it keeps a route to its whole string.
+- `presenter.surfaceIdNotes()` reports two surfaces presented under one id. Every
+  node path is rooted at the blueprint id, so the second surface silently takes
+  over the first's paths in the adapter and the first can no longer be torn down
+  by path. A diagnostic, not a refusal, once per id per session.
+
 - Fixed: a count badge's number sat off-centre in its seal. Two rules make the
   plate bigger than the glyph — the intrinsic `controls.badge.minimum` on both
   axes and the row recipe's `xs` a side — and while the plate and the number were
@@ -35,6 +84,11 @@ runtime as `Facet.VERSION`.
   than concentric with the rail's outer corner. `newPicker` gains an optional
   `stripCorner` for a caller that suppressed the picker's own track; it refuses a
   name outside the container vocabulary and refuses to sit on a tracked strip.
+  The vocabulary is the LIVE style's: a package that authors a radius of its own
+  (`radii.chip`) may be named, because `radii.selection:chip` resolves under it,
+  and a package may only ADD to the base names, never narrow them. An authored
+  `radii.selection` no longer makes every spelling resolvable — the container has
+  to exist before any clause answers for it.
   The bar's own corner is unchanged, and so is what plain `radii.selection`
   means, so a menu card's chosen-row shade reads it exactly as before. New gate:
   `tests/selection_shape_container.spec.luau`.

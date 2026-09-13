@@ -2464,6 +2464,11 @@ on `UI.When`, `UI.ForEach`, a `presentToast` and `PresentOpts`.
   re-nested by hand; nothing in the framework rewrites an existing tree for
   you. `tests/backdrop_fade.spec.luau` is the headless gate that catches
   either shape (self-case or not) the moment its push transition first runs.
+- **`presenter.surfaceIdNotes()`** returns the diagnostics for two surfaces
+  presented under ONE blueprint id — every node path is rooted at that id, so the
+  second surface takes over the first's paths in the adapter and the first can no
+  longer be torn down by path. A note, not a refusal, once per id per session; a
+  copy, like every other diagnostic read.
 - **`plate = "fades"`** is the one acknowledgement that rule takes: *this
   surface's plate is meant to fade with its content* — the modal/popover shape,
   whose backdrop is the **scrim behind the whole surface** rather than the
