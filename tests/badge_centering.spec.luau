@@ -1,40 +1,48 @@
 --!strict
---[[ A BADGE'S NUMBER SITS IN THE MIDDLE OF ITS SEAL.
+--[[ A BADGE'S NUMBER SITS IN THE MIDDLE OF ITS SEAL, AND THE PROOF IS TWO RECTS.
 
 	WHAT WAS REPORTED (owner, 2026-09-12, Compact Pointer): the "3" on the Inbox
 	tab sits off-centre in its white circle.
 
-	WHAT IT ACTUALLY WAS, and it is not a text-bounds boot-window read or a hug
-	that failed. A count seal is a `UI.Text` carrying `surface = "badge"`, and two
-	independent rules make its plate bigger than its glyph: `render/layout_node
-	.luau` gives a badge an intrinsic MINIMUM on both axes (`controls.badge
-	.minimum`, 20px in Facet Neutral) and the row recipe spends an `xs` of padding
-	a side. So the plate is 20px wide around an 8px glyph — and the glyph was
-	drawn LEFT, because `screen_target` defaults a text node to
-	`TextXAlignment.Left` and this one declared no `textAlign`. Measured in Facet
-	Neutral: a 20x20 seal whose text rect is centred at x+5 of its own 10, two
-	pixels off on a twenty-pixel circle.
+	THE PLATE IS BIGGER THAN THE GLYPH, by two rules that both mean to be:
+	`render/layout_node.luau` gives `surface = "badge"` an intrinsic MINIMUM on
+	both axes (`controls.badge.minimum`, 20px in Facet Neutral) and the row recipe
+	spends an `xs` a side. So something has to decide where the number sits in the
+	slack — and while the plate and the glyph were ONE `UI.Text`, nothing in Facet
+	did. The horizontal answer came from `src/client/screen_target.luau`'s create
+	default for a text node, `TextXAlignment.Left`; the vertical one from its
+	`TextYAlignment.Center`. One of those two is wrong, and neither of them is the
+	control's.
 
-	THE TWO HALVES DISAGREED, which is what makes it a defect rather than a taste
-	call. `chrome_slots.CENTRED_LIFT_SLOTS` is `{ badge = true }` and its comment
-	states the rule out loud — "A badge's number belongs in the middle of its
-	seal" — so a badge wearing a package's SKIN has its lifted label centred on
-	both axes. An unskinned badge, which is every badge under every flat theme
-	including Facet Neutral, kept the class default. One surface, two answers.
+	WHY THIS FILE IS A REWRITE. Its first version derived the glyph's rect by
+	arithmetic — the node's rect, less its padding, plus a measured text box,
+	placed by the declared alignment — and then asserted that the result was
+	centred. That is a tautology on the horizontal axis the moment `textAlign` is
+	`"center"`, and on the vertical axis it asserted nothing at all: both deltas
+	were zero by construction, for every theme, forever. It pinned a declaration.
 
-	`menu_recipe` is also the file that already writes `textAlign = "center"`
-	twice, on the two glyphs of a selection indicator ten lines up. The badge is
-	the odd one out in its own recipe.
+	SO THE SEAL IS A PLATE WITH A GLYPH INSIDE IT, and this file reads the two
+	SOLVED rects the layout actually produced. The numbers below are what the
+	stack does when it is left to place the child itself, measured before the fix:
 
-	WHAT IS PINNED HERE. The text rect a badge's glyph actually lands in, derived
-	the way the adapter derives it — the node's rect, less its own resolved
-	padding, with the glyph measured through `Facet.text.measure` and placed by
-	the declared `textAlign` horizontally and `TextYAlignment.Center` vertically
-	(adapter-owned, `screen_target`'s create branch) — is concentric with the
-	plate to within a pixel. Run over Facet Neutral and every theme of every
-	shipped example package, because the plate minimum, the padding step and the
-	type ramp are all the theme's and a badge that centres in one has to centre in
-	all of them.
+	    Facet Neutral    20x20 plate, 8x15 glyph at +6,+0   dy -2.5
+	    Compact Pointer  20x20 plate, 11x14 glyph at +2,+0  dx -2.5  dy -3
+	    Pixel Quest      20x20 plate, 12x15 glyph at +4,+0  dy -2.5
+	    Glossy Touch     25x20 plate, 13x17 glyph at +6,+0  dy -1.5
+
+	`alignH`/`alignV` are what put it in the middle, as the control's own decision
+	on both axes, in a form this target can see.
+
+	WHAT IS PINNED, over Facet Neutral and every theme of every shipped example
+	package, at the default text preference and at two raised ones (the preference
+	is what grows the glyph past the badge minimum and changes which term decides
+	the plate's size on each axis):
+
+	  1. The seal really does mount a glyph of its own, and the glyph really is
+	     smaller than the plate — otherwise "centred" is vacuous.
+	  2. Both centre deltas are within a pixel, measured rect against rect.
+	  3. The skinned half already agreed (`chrome_slots.CENTRED_LIFT_SLOTS`), which
+	     is the rule the unskinned half is now keeping too.
 ]]
 
 local t = require("./lib/testkit")
@@ -44,7 +52,6 @@ local worldLib = require("./lib/world")
 
 local Facet = require("../src") :: any
 local chrome_slots = require("../src/tokens/chrome_slots")
-local text_metrics = require("../src/layout/text_metrics")
 
 local UI = Facet.UI
 
@@ -59,13 +66,23 @@ local PACKAGES: { { name: string, module: any } } = {
 	{ name = "scifi_hud", module = require("../examples/themes/scifi_hud") },
 }
 
+-- the player's text preference, which is what decides whether the badge MINIMUM
+-- or the glyph's own line box sizes the plate — a different arithmetic on each
+-- axis, and therefore a different way to be off-centre
+local OFFSETS = { 0, 4, 14 }
+
 local BADGE_TEXT = "3"
 
-local function badgeWorld(metrics: any?)
+type Rect = { x: number, y: number, w: number, h: number }
+
+-- the plate and the glyph inside it, as the LAYOUT solved them. Nothing here is
+-- derived: both rects are read off the target.
+local function sealOf(metrics: any?, offset: number): (Rect, Rect)
 	local w = worldLib.new({
 		viewport = { x = 0, y = 0, w = 900, h = 720 },
 		safeInsets = { top = 0, bottom = 0, left = 0, right = 0 },
 		themeMetrics = metrics,
+		env = { preferredTextOffset = offset },
 	})
 	local picker = Facet.Controls.Picker(w.core, {
 		id = "View",
@@ -79,64 +96,28 @@ local function badgeWorld(metrics: any?)
 		presentation = "segmented",
 	})
 	w.present(UI.Screen({ id = "S", children = { picker.blueprint } }))
+	local platePath: string? = nil
 	for _, path in w.adapter.paths() do
 		if string.sub(path, -#"/Badge") == "/Badge" then
-			return w.adapter.node(path)
+			platePath = path
 		end
 	end
-	error("the badged option did not mount a seal")
+	assert(platePath ~= nil, "the badged option mounted no seal")
+	local plate = w.adapter.node(platePath :: string)
+	local glyph = w.adapter.node((platePath :: string) .. "/Count")
+	assert(glyph ~= nil, `the seal at {platePath} mounts no glyph node — nothing to measure it against`)
+	return plate.rect, glyph.rect
 end
 
-type Rect = { x: number, y: number, w: number, h: number }
-
---[[ WHERE THE GLYPH ACTUALLY LANDS, derived the way the live adapter derives it.
-	A `UIPadding` insets a TextLabel's text area, so the box is the node's rect
-	less its own resolved padding; the horizontal place is the declared
-	`textAlign` (`start` when none is declared — `screen_target` writes
-	`TextXAlignment.Left` at create); the vertical place is always Center, which
-	is adapter-owned and deliberately so (the headless measurer over-reserves and
-	centring splits that error evenly). ]]
-local function textRectOf(node: any): Rect
-	local pad: any = node.props.padding or {}
-	local function px(value: any): number
-		return if type(value) == "number" then value else 0
-	end
-	local left, right, top, bottom = px(pad.left), px(pad.right), px(pad.top), px(pad.bottom)
-	local box: Rect = {
-		x = node.rect.x + left,
-		y = node.rect.y + top,
-		w = node.rect.w - left - right,
-		h = node.rect.h - top - bottom,
-	}
-	local font = node.props.textFont
-	assert(type(font) == "table" and type(font.family) == "string", "the seal carries no resolved font")
-	assert(type(node.props.textSize) == "number", "the seal carries no resolved text size")
-	-- a generous width: a one-glyph count never wraps, and a width clamped to the
-	-- box would measure the box rather than the glyph
-	local measured =
-		text_metrics.measure({ text = node.props.text, font = font.family, size = node.props.textSize, width = 4096 })
-	local align = node.props.textAlign or "start"
-	local x = if align == "center"
-		then box.x + (box.w - measured.width) / 2
-		elseif align == "end" then box.x + box.w - measured.width
-		else box.x
-	return { x = x, y = box.y + (box.h - measured.height) / 2, w = measured.width, h = measured.height }
-end
-
-local function offCentre(node: any): (number, number)
-	local text = textRectOf(node)
-	local dx = (text.x + text.w / 2) - (node.rect.x + node.rect.w / 2)
-	local dy = (text.y + text.h / 2) - (node.rect.y + node.rect.h / 2)
-	return dx, dy
+local function deltas(plate: Rect, glyph: Rect): (number, number)
+	return (glyph.x + glyph.w / 2) - (plate.x + plate.w / 2), (glyph.y + glyph.h / 2) - (plate.y + plate.h / 2)
 end
 
 describe("badge centering: the seal is bigger than the glyph, on purpose", function()
 	it("the plate takes the theme's badge minimum, so there is slack to be off-centre in", function()
-		local node = badgeWorld()
-		local measured =
-			text_metrics.measure({ text = BADGE_TEXT, font = "BuilderSans", size = node.props.textSize, width = 4096 })
-		expect(node.rect.w > measured.width).toBe(true)
-		expect(node.rect.h > measured.height).toBe(true)
+		local plate, glyph = sealOf(nil, 0)
+		expect(`plate {plate.w}x{plate.h} glyph {glyph.w}x{glyph.h}`).toBe("plate 20x20 glyph 8x15")
+		expect(plate.w > glyph.w and plate.h > glyph.h).toBe(true)
 	end)
 
 	it("the skinned half already centres, which is the rule the unskinned half has to match", function()
@@ -146,10 +127,16 @@ describe("badge centering: the seal is bigger than the glyph, on purpose", funct
 	end)
 end)
 
-describe("badge centering: the glyph is concentric with its plate in every theme", function()
-	it("Facet Neutral", function()
-		local dx, dy = offCentre(badgeWorld())
-		expect(`dx {math.abs(dx) <= 1} dy {math.abs(dy) <= 1}`).toBe("dx true dy true")
+describe("badge centering: the glyph is concentric with its plate, measured", function()
+	it("Facet Neutral, at the default preference and at two raised ones", function()
+		for _, offset in OFFSETS do
+			local plate, glyph = sealOf(nil, offset)
+			local dx, dy = deltas(plate, glyph)
+			assert(
+				math.abs(dx) <= 1 and math.abs(dy) <= 1,
+				`Facet Neutral +{offset}: the glyph is off-centre by {dx}, {dy} in a {plate.w}x{plate.h} seal`
+			)
+		end
 	end)
 
 	it("...and every theme of every shipped example package", function()
@@ -159,16 +146,18 @@ describe("badge centering: the glyph is concentric with its plate in every theme
 			assert(package ~= nil, `{entry.name} failed its own package gate: {report and report.errors[1]}`)
 			for _, theme in package.style.themes do
 				local metrics = Facet.themes.resolve(package, theme.name, {})
-				local node = badgeWorld(metrics)
-				local dx, dy = offCentre(node)
-				checked += 1
-				assert(
-					math.abs(dx) <= 1 and math.abs(dy) <= 1,
-					`{entry.name}/{theme.name}: the glyph is off-centre by {dx}, {dy} in a `
-						.. `{node.rect.w}x{node.rect.h} seal`
-				)
+				for _, offset in OFFSETS do
+					local plate, glyph = sealOf(metrics, offset)
+					local dx, dy = deltas(plate, glyph)
+					checked += 1
+					assert(
+						math.abs(dx) <= 1 and math.abs(dy) <= 1,
+						`{entry.name}/{theme.name} +{offset}: the glyph is off-centre by {dx}, {dy} `
+							.. `in a {plate.w}x{plate.h} seal`
+					)
+				end
 			end
 		end
-		expect(checked > 8).toBe(true)
+		expect(checked > 24).toBe(true)
 	end)
 end)
