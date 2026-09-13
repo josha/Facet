@@ -1585,6 +1585,42 @@ describe("transition coordinator: stagger", function()
 		clock:dispose()
 	end)
 
+	it("a held row's wait costs no writes at all", function()
+		--[[ A MotionValue IS a core signal, so a hold that RAMPED 0 -> 1 would do a
+			real `value:set` and a `countWrite()` on every frame of a wait nobody
+			observes — only the settle event is ever read. The hold is flat
+			(`from = to = 0`) and the value's own write gate then suppresses every
+			write, so a staggered list and an unstaggered one spend the SAME
+			writes: the twenty springs' own, and nothing else. At twenty rows the
+			ramp would show up here as a few hundred; at the 600-row list the cap
+			exists for, ~14k. `clock:stats().writes` is a measured gate. ]]
+		local function writesFor(stagger: number?): number
+			local core, env, clock = world()
+			local list: { any } = {}
+			for i = 1, 20 do
+				table.insert(list, { id = `r{i}` })
+			end
+			local items = core:signal(list)
+			local on = core:signal(true)
+			local root, _, _, coordinator = attach(core, env, clock, rowsScreen(items, on, stagger))
+			local before = clock:stats().writes
+			for _ = 1, 200 do
+				clock:step(FRAME)
+			end
+			expect(clock:activeCount()).toBe(0)
+			local spent = clock:stats().writes - before
+			root.dispose()
+			coordinator.dispose()
+			clock:dispose()
+			return spent
+		end
+		-- the same twenty springs on the same twenty trajectories; the ONLY
+		-- difference between the two runs is when each one starts
+		local flat = writesFor(nil)
+		expect(flat > 0).toBe(true)
+		expect(writesFor(0.05)).toBe(flat)
+	end)
+
 	it("a batch is one clock step: rows added later start the rhythm over", function()
 		local core, env, clock = world()
 		local booked = recordHolds(clock)

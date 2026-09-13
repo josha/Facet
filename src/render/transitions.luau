@@ -651,6 +651,9 @@ function transitions.new(opts: Opts)
 		end
 	end
 
+	-- `entry.cap` is whichever alarm this entry is currently holding: the exit's
+	-- hard cap, or the enter's stagger hold. One slot, because an entry is in one
+	-- phase at a time and every phase change comes through here first.
 	local function stopCap(entry: any)
 		if entry.cap ~= nil then
 			entry.cap:dispose()
@@ -866,8 +869,18 @@ function transitions.new(opts: Opts)
 			because every teardown path already clears that slot, so an exit,
 			a re-entry or a disposal arriving DURING the wait cancels the wait with
 			no code of its own (`stopCap`, which `beginExit`/`cancelExit`/
-			`disposeEntry` all call; `stopCap` above has just freed it for us). ]]
-		local hold = clock:timer({ from = 0, to = 1, duration = delay, kind = "decorative" })
+			`disposeEntry` all call; `stopCap` above has just freed it for us).
+
+			`from = to = 0` BECAUSE THE RAMP IS NOT THE POINT (review, task 8). A
+			MotionValue IS a core signal, so a 0→1 ramp does a real `value:set` and
+			a `countWrite()` on every frame of a wait that nobody observes — the
+			only thing read here is the settle EVENT. `driver.settled()` is
+			elapsed-based (`motion/motion.luau`'s timer driver), so a flat timer
+			settles on exactly the same frame, while the value's write gate
+			("an unmoved motion writes nothing") suppresses every write in between:
+			a 600-row stagger stops spending ~14k writes on a number with no
+			reader. `clock:stats().writes` is a measured gate, not a curiosity. ]]
+		local hold = clock:timer({ from = 0, to = 0, duration = delay, kind = "decorative" })
 		entry.cap = hold
 		hold:onSettle(function()
 			if entry.cap == hold then
@@ -920,9 +933,12 @@ function transitions.new(opts: Opts)
 		setAbsent(entry, absentFor(spec, spec.exit, "exit"))
 		writeEntry(entry)
 		-- THE HARD CAP, armed before the aim so an instant form (reduced motion)
-		-- disposes it on the way out rather than leaving a timer behind
+		-- disposes it on the way out rather than leaving a timer behind. Flat
+		-- (`from = to = 0`) for the same reason the enter hold above is: only its
+		-- settle FRAME is read, and a ramp nobody observes is 30 signal writes per
+		-- exit charged to a gate that counts them.
 		stopCap(entry)
-		local cap = clock:timer({ from = 0, to = 1, duration = EXIT_CAP_SECONDS, kind = "decorative" })
+		local cap = clock:timer({ from = 0, to = 0, duration = EXIT_CAP_SECONDS, kind = "decorative" })
 		entry.cap = cap
 		cap:onSettle(function()
 			finishExit(entry)
