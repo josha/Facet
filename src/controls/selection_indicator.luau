@@ -203,6 +203,34 @@ local DEFAULT_INSET = "space.xs"
 selection_indicator.DEFAULT_CORNER = "selection"
 selection_indicator.TRACK_CORNER = "control"
 
+--[[ ...AND THE LAST RESORT IS A NUMBER (final review item 1).
+
+	`DEFAULT_CORNER` is a TOKEN, so asking a style for it is asking a question
+	that style may not answer: `radii.selection` follows `radii.control`, and a
+	metrics table carrying neither answers neither. That is fine where the answer
+	is allowed to fail — but the fallback arm of `derivedCorners` is precisely the
+	site that exists SO a corner nothing answers still paints something, and it
+	spent the token too. Under a style that cannot name it, the healer raised
+	inside a memo, was quarantined, and the bar painted square: the exact outcome
+	the fallback was written to prevent.
+
+	A NUMBER cannot raise (`resolveRadius` only asserts it is non-negative), and
+	the neutral snapshot is the framework's own default vocabulary — the same
+	value `metricsSig` degrades to when it is handed a table it cannot spend — so
+	the floor under every corner resolve in this control is one literal pixel
+	count, resolved once. It carries no token, deliberately: there is no name left
+	to re-resolve against the paint-time style, and inventing one would put the
+	unanswerable question back. ]]
+local lastResortRadius: number? = nil
+local function neutralSelectionRadius(): number
+	if lastResortRadius == nil then
+		local radii = (themeSnapshot.neutral() :: any).radii
+		local authored = if type(radii) == "table" then (radii.selection or radii.control) else nil
+		lastResortRadius = if type(authored) == "number" then authored else 0
+	end
+	return lastResortRadius :: number
+end
+
 --[[ THE CONTAINER IS THE AUTHORITY ON THE FILL'S SILHOUETTE (owner report
 	2026-09-12, controller ruling).
 
@@ -685,9 +713,18 @@ function selection_indicator.build(Facet: any, core: any, spec: Spec)
 				)
 			end
 		end
-		return UI.cornersData(selection_indicator.DEFAULT_CORNER, style)
+		local plain, plainData = pcall(UI.cornersData, selection_indicator.DEFAULT_CORNER, style)
+		if plain then
+			return plainData
+		end
+		return UI.cornersData(neutralSelectionRadius())
 	end
-	local uniformCorners: any = if corner ~= nil then UI.cornersData(corner, metricsSig:get()) else nil
+	--[[ ...INCLUDING THE STATIC ONE (final review item 1). This site resolved the
+		authored/default corner RAW, so the same unanswerable style raised out of
+		`Picker(...)` itself — an author's call erroring on a token the theme in
+		hand happens not to publish. It is the same question `derivedCorners` asks
+		and heals, asked one line earlier, so it goes through the same door. ]]
+	local uniformCorners: any = if corner ~= nil then derivedCorners(corner, metricsSig:get()) else nil
 	if derives then
 		local reactive = type(spec.trackCorner) == "table"
 		if reactive then

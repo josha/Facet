@@ -614,6 +614,86 @@ describe("selection shape: naming a container that cannot answer is an authoring
 		container:dispose()
 	end)
 
+	--[[ A METRICS TABLE THAT PASSES THE GUARD AND STILL CANNOT ANSWER `selection`
+		(final review item 1). `metricsSig` promises its consumers a snapshot they
+		can SPEND, and it checks two things to say so: `controls` is a table and
+		`radii` is a table. Neither check is a promise that `radii` holds the one
+		token this control's own default corner is spelled with — a hand-built
+		`radii = { panel = 8 }` clears the guard and answers `selection` with
+		nothing, and `radii.control`, the fallback the rule reaches for next, is
+		absent too.
+
+		There were two unguarded spends of it. The FIRST is the static corner,
+		resolved at build: it raised out of `Picker(...)` itself, so an author's
+		call errored on a theme's missing token. The SECOND is the fallback arm
+		INSIDE `derivedCorners` — the site that exists so a corner the live style
+		cannot answer still paints SOMETHING — which asked the same unanswerable
+		style for the same plain `selection` and raised inside a memo, where it is
+		quarantined and the bar paints square: precisely the outcome the fallback
+		was written to prevent. ]]
+	local PARTIAL_METRICS: any = { controls = { alert = { maxWidth = 400 } }, radii = { panel = 8 } }
+
+	it("a metrics table with `radii` but no `selection`/`control` still builds a strip with a corner", function()
+		local w = worldLib.new({
+			viewport = { x = 0, y = 0, w = 640, h = 720 },
+			themeMetrics = PARTIAL_METRICS,
+		})
+		local picker
+		local ok, err = pcall(function()
+			picker = Facet.Controls.Picker(w.core, {
+				id = "View",
+				selected = w.core:signal("a"),
+				options = { { value = "a", label = "One" }, { value = "b", label = "Two" } },
+				env = w.env,
+				presentation = "segmented",
+			})
+		end)
+		expect(`built: {ok} {if ok then "" else tostring(err)}`).toBe("built: true ")
+		w.present(UI.Screen({ id = "S", children = { (picker :: any).blueprint } }))
+		local bar = w.adapter.node(BAR)
+		expect(`bar mounted: {bar ~= nil}`).toBe("bar mounted: true")
+		expect(`quarantined: {tostring(w.core:lastError())}`).toBe("quarantined: nil")
+		-- and it paints a REAL corner, not a dropped prop that reads as square
+		local corners = (bar :: any).props.corners
+		expect(`corners: {type(corners)}`).toBe("corners: table")
+		expect(styling.paintCorners(corners, PARTIAL_METRICS).radius > 0).toBe(true);
+		(picker :: any).dispose()
+	end)
+
+	it("the fallback arm itself cannot raise: a bad container under those metrics still paints a corner", function()
+		--[[ the reactive container is the only way into the fallback arm (a
+			`stripCorner` the author wrote is refused at build), so the typo is set
+			after the strip is mounted. ]]
+		local w = worldLib.new({
+			viewport = { x = 0, y = 0, w = 640, h = 720 },
+			themeMetrics = PARTIAL_METRICS,
+		})
+		local container = w.core:signal("panel")
+		local picker = Facet.Controls.Picker(w.core, {
+			id = "View",
+			selected = w.core:signal("a"),
+			options = { { value = "a", label = "One" }, { value = "b", label = "Two" } },
+			env = w.env,
+			presentation = "segmented",
+			track = false,
+			stripCorner = container,
+		})
+		w.present(UI.Screen({ id = "S", children = { picker.blueprint } }))
+		expect(`quarantined at build: {tostring(w.core:lastError())}`).toBe("quarantined at build: nil")
+		container:set("panle")
+		w.pres.refresh()
+		local bar = w.adapter.node(BAR)
+		expect(`bar mounted: {bar ~= nil}`).toBe("bar mounted: true")
+		expect(`quarantined: {tostring(w.core:lastError())}`).toBe("quarantined: nil")
+		local corners = (bar :: any).props.corners
+		expect(`corners: {type(corners)}`).toBe("corners: table")
+		expect(styling.paintCorners(corners, PARTIAL_METRICS).radius > 0).toBe(true)
+		-- ...and it was SAID: healing quietly is the thing this control refuses
+		expect(picker.dump().indicator.cornerFallbacks).toBe(1)
+		picker.dispose()
+		container:dispose()
+	end)
+
 	it("with NO theme in hand at all the message says the vocabulary is the base style's", function()
 		--[[ the picker built without an `env` (and outside any surface, so
 			`surfaceEnv.find` answers nothing) has no live radii to check against.
