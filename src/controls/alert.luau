@@ -9,6 +9,7 @@ local surfaceEnv = require("../env/surface_env")
 -- the ONE authority on a transition's shape; `alert.build` re-addresses its
 -- refusal rather than re-deriving the rule (task 7 item 5)
 local transitionsLib = require("../render/transitions")
+local chromeSlots = require("../tokens/chrome_slots")
 local alert = {}
 type Text = string | coreContract.Readable<string>
 export type Action = {
@@ -527,18 +528,32 @@ function alert.build(Facet: any, core: any, spec: Spec)
 				},
 			})
 		)
-		return UI.ScrollView({
-			id = "Card",
-			axis = "y",
-			width = { type = "hug", max = spec.maxWidth or "controls.alert.maxWidth" },
-			height = UI.hug(),
-			alignH = "center",
-			alignV = "center",
-			padding = spec.padding or "m",
-			gap = "s",
-			surface = spec.surface or "raised",
-			children = content,
-		})
+		--[[ THE CARD IS A PLATE THAT HAPPENS TO SCROLL (task 7 item 6). It is a
+			`ScrollView` so a long message on a short screen stays reachable, and
+			`chrome_slots.classify` answers by CLASS before it reads `surface` —
+			so `raised` never got a look in and the modal card classified as a
+			scroll TRACK under every skinned package: no carved frame, no
+			hairline, no shadow, no contentInsets. The hint is the channel
+			classify's own header describes for exactly this ("a control that
+			declares its own slot knows something the generic surface/class map
+			cannot infer"), and it outranks both rules. The CLASS rule itself is
+			untouched: an unhinted `ScrollView` is still a scrollbar, which is
+			right for RadialMenu's list and every example. ]]
+		return chromeSlots.attachHint(
+			UI.ScrollView({
+				id = "Card",
+				axis = "y",
+				width = { type = "hug", max = spec.maxWidth or "controls.alert.maxWidth" },
+				height = UI.hug(),
+				alignH = "center",
+				alignV = "center",
+				padding = spec.padding or "m",
+				gap = "s",
+				surface = spec.surface or "raised",
+				children = content,
+			}),
+			{ slot = "panel" }
+		)
 	end
 	local content = if dynamic
 		then UI.When({ id = "Decision", condition = scope:own(core:signal(true)), thenView = card })

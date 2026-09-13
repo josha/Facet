@@ -691,6 +691,48 @@ t.describe("alert: the modal materializes", function()
 		b.dispose()
 	end)
 
+	--[[ THE CARD IS A PLATE THAT HAPPENS TO SCROLL (task 7 item 6, pre-existing).
+		The modal card is a `UI.ScrollView` — it has to be, so a long message on a
+		short screen is reachable — carrying `surface = "raised"`. But
+		`chrome_slots.classify` answers by CLASS before it reads the surface, and
+		`ScrollView` maps to `scrollbar`, so under every skinned package the card
+		classified as a scroll TRACK: no carved frame, no hairline, no shadow, no
+		contentInsets. A `decorationHint` of `panel` is the channel for exactly
+		this — "a control that declares its own slot knows something the generic
+		surface/class map cannot infer" (classify's own header), and the hint wins
+		over both rules.
+
+		Classified off the node the ADAPTER was handed, not off the blueprint
+		(`anchored_surface.spec`'s own oracle and its reason): a hint that never
+		left the tree would make this pass on nothing. ]]
+	t.it("the modal card classifies as a PANEL, not as a scroll track", function()
+		local chrome_slots = require("../src/tokens/chrome_slots")
+		local w = world.new()
+		local alert = Facet.Controls.Alert(w.core, {
+			id = "Slot",
+			title = "Delete?",
+			actions = { { id = "ok", label = "OK" } },
+		})
+		alert.present(w.pres)
+		w.pres.refresh()
+		local card = w.adapter.node("/Slot/Center/Card")
+		t.expect(card ~= nil).toBe(true)
+		t.expect(card.class).toBe("ScrollView") -- it really is the scrolling card
+		t.expect(card.props.surface).toBe("raised")
+		local hint = card.decorationHint
+		local slot = chrome_slots.classify({
+			class = card.class,
+			surface = card.props.surface,
+			hint = if type(hint) == "table" then hint.slot else nil,
+		})
+		t.expect(`the alert card classifies into slot {tostring(slot)}`)
+			.toBe("the alert card classifies into slot panel")
+		-- ...and the CLASS rule is unchanged for an unhinted ScrollView, which is
+		-- what keeps this a hint rather than a weakening of the map
+		t.expect(chrome_slots.classify({ class = "ScrollView", surface = "raised" })).toBe("scrollbar")
+		alert.dispose()
+	end)
+
 	t.it("transition = 'instant' opts out", function()
 		local w = world.new()
 		local alert = Facet.Controls.Alert(w.core, {
