@@ -7149,8 +7149,8 @@ the first activation and then holds still through every pulse that follows,
 because a repeat interval is typically well under the spring's settle time and
 an unconditional re-kick would stack, stranding the scale off 1 for as long as
 the button is held. Keyboard/gamepad activation still pops exactly once, on the
-press that starts the hold. Reduced motion leaves the scale at exactly 1:
-`setVelocity` refuses to seed a spring that is not already animating.
+press that starts the hold. Under reduced motion `setVelocity` is a no-op, so
+the scale stays exactly 1.
 
 `shortcut = { keyCode = "F6", modifiers = { shift = true } }` uses the existing
 semantic action system. Only documented modifier bindings are supported. Hidden,

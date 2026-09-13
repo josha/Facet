@@ -397,7 +397,9 @@ local rows = scope:own(core:memo(function(use)
 end))
 UI.ForEach({
     items = rows, key = function(r) return r.id end,
-    row = function(r) return UI.Text({ text = r.id }) end,
+    row = function(r)
+        return UI.ZStack({ canvasGroup = true, children = { UI.Text({ text = r.id }) } })
+    end,
     transition = { enter = "slide-up", fade = true, distance = 8 },
 })
 ```
@@ -405,7 +407,10 @@ UI.ForEach({
 **In plain terms:** each distinct string mounts and unmounts its own row. The
 old one exits on the mirrored form (`slide-down`, since only `enter` is
 declared), the new one rises 8px into place, and both fade — a status line
-reads as an event instead of a snap.
+reads as an event instead of a snap. `fade = true` needs a fade group, so the
+row's own top node is a `canvasGroup`, the same requirement §15.12's icons meet
+— a bare `UI.Text` refuses `canvasGroup` and a fading transition on one throws
+the moment the row mounts.
 
 ## 15.12 Icon swap: a `UI.When` pair
 
