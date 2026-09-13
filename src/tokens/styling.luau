@@ -132,6 +132,33 @@ end
 	    selection indicator floats by — floored at 0. Two concentric rounded
 	    rects, which is what an inset fill inside a plate is. A caller that floats
 	    its fill by some OTHER inset authors `corner` itself. ]]
+--[[ THE CONTAINER NAMES `selection:<container>` ACCEPTS, exported so a control
+	can REFUSE a bad one where the author wrote it rather than resolve it to
+	nothing three layers down. It is derived from the base style's own `radii`
+	rather than listed again here, so a radius added to the vocabulary is accepted
+	without a second edit — and the grammar excludes a colon, so a namespaced
+	radius (`radii["gauge:ring"]`) is deliberately not a container name. ]]
+local CONTAINER_NAMES: { [string]: boolean } = {}
+for name in default_style.radii do
+	if string.match(name, "^[%w_%-]+$") ~= nil then
+		CONTAINER_NAMES[name] = true
+	end
+end
+styling.SELECTION_CONTAINERS = table.freeze(table.clone(CONTAINER_NAMES))
+
+function styling.isSelectionContainer(name: any): boolean
+	return type(name) == "string" and CONTAINER_NAMES[name] == true
+end
+
+-- the vocabulary as a message fragment, ordered so an error reads the same way
+-- twice
+local CONTAINER_LIST: { string } = {}
+for name in CONTAINER_NAMES do
+	table.insert(CONTAINER_LIST, name)
+end
+table.sort(CONTAINER_LIST)
+styling.SELECTION_CONTAINER_LIST = table.concat(CONTAINER_LIST, " | ")
+
 local function selectionRadius(style: any, token: string): number?
 	local radii = if type(style) == "table" then (style :: any).radii else nil
 	if type(radii) ~= "table" then

@@ -232,6 +232,57 @@ describe("selection shape: the adaptable app bar keeps its pill, and the fill fo
 	end)
 end)
 
+--[[ `stripCorner` IS REFUSED RATHER THAN IGNORED, both ways (review round 2). It
+	was the one key in `newPicker`'s spec with no assert and it is spent by exactly
+	one branch, so a wrong value or a wrong combination resolved to nothing three
+	layers down with no word to the author — which is the accepted-and-ignored
+	class the closed spec exists to remove. ]]
+describe("selection shape: naming a container that cannot answer is an authoring mistake", function()
+	local function build(extra: any): (boolean, string)
+		local w = worldLib.new({ viewport = { x = 0, y = 0, w = 640, h = 720 } })
+		local spec: any = {
+			id = "View",
+			selected = w.core:signal("a"),
+			options = { { value = "a", label = "One" }, { value = "b", label = "Two" } },
+			env = w.env,
+			presentation = "segmented",
+		}
+		for key, value in extra do
+			spec[key] = value
+		end
+		local ok, err = pcall(function()
+			return Facet.Controls.Picker(w.core, spec)
+		end)
+		return ok, tostring(err)
+	end
+
+	it("a container name outside the radius vocabulary refuses, and the message names the vocabulary", function()
+		local ok, err = build({ track = false, stripCorner = "capsule" })
+		expect(ok).toBe(false)
+		expect(string.find(err, "stripCorner must name a container radius", 1, true) ~= nil).toBe(true)
+		expect(string.find(err, styling.SELECTION_CONTAINER_LIST, 1, true) ~= nil).toBe(true)
+		expect(string.find(err, "'capsule'", 1, true) ~= nil).toBe(true)
+		-- ...and the names that DO answer are accepted
+		expect(styling.isSelectionContainer("pill")).toBe(true)
+		expect(styling.isSelectionContainer("control")).toBe(true)
+		expect(styling.isSelectionContainer("panel")).toBe(true)
+		-- a namespaced radius is deliberately not a container: the token's own
+		-- grammar excludes the colon
+		expect(styling.isSelectionContainer("gauge:ring")).toBe(false)
+	end)
+
+	it("naming a container on a TRACKED strip refuses, and the message says which of the two to drop", function()
+		-- a tracked strip draws its own plate at `SEGMENT_RADIUS`, so the container
+		-- is already known and a caller naming another is stating a contradiction
+		local ok, err = build({ stripCorner = "pill" })
+		expect(ok).toBe(false)
+		expect(string.find(err, "a tracked strip draws its own plate", 1, true) ~= nil).toBe(true)
+		expect(string.find(err, "track = false", 1, true) ~= nil).toBe(true)
+		-- ...and the legitimate combination builds
+		expect((build({ track = false, stripCorner = "pill" }))).toBe(true)
+	end)
+end)
+
 describe("selection shape: an authored `radii.selection` still wins", function()
 	it("a package that authors a square highlight keeps one inside a capsule strip", function()
 		local metrics = packageWith(999, 0)

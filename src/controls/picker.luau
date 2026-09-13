@@ -181,6 +181,7 @@ local controlContract = require("../class_contract")
 local contribution = require("../input/contribution")
 local selectionIndicator = require("./selection_indicator")
 local specGuard = require("../spec_guard")
+local styling = require("../tokens/styling")
 local surfaceEnv = require("../env/surface_env")
 
 local selectionModel = require("../selection_model")
@@ -2013,6 +2014,45 @@ function picker.build(Facet: any, core: any, spec: Spec)
 	assert(spec.axis == nil or AXES[readValue(spec.axis)], "Picker: axis must be x | y")
 	assert(spec.sizing == nil or SIZINGS[readValue(spec.sizing)], "Picker: sizing must be fill | hug")
 	assert(spec.iconOnly == nil or type(spec.iconOnly) == "boolean", "Picker: iconOnly must be boolean")
+	--[[ `stripCorner` IS REFUSED RATHER THAN IGNORED, both ways (review round 2).
+		It was the one key in this spec with no assert, and it is spent by exactly
+		one branch, so a wrong value or a wrong combination resolved to nothing
+		three layers down with no word to the author.
+
+		THE VALUE is a CONTAINER NAME, the vocabulary `selection:<container>` takes
+		(`src/tokens/styling.luau`): a radius token the base style publishes, which
+		is what the fill resolver can look up. A colon-namespaced radius is
+		deliberately not one — the token's own grammar excludes it.
+
+		THE COMBINATION: a TRACKED strip draws its own plate, at `SEGMENT_RADIUS`,
+		so the container is already known and a caller naming a different one is
+		stating a contradiction rather than adding information. Only `track = false`
+		— a strip inside a band its caller drew — has a container to declare. The
+		message says which of the two to drop, because either could be the mistake. ]]
+	if spec.stripCorner ~= nil then
+		--[[ A READABLE THAT CURRENTLY READS `nil` IS LEGAL and means "no container
+			right now": `TabView` hands one in whose value is the band's capsule in
+			the band form and nothing in the rail form, because a rail row is not
+			concentric with the rail. Only a value that is present and is not a
+			container name is an authoring mistake. ]]
+		local declared = readValue(spec.stripCorner)
+		if declared ~= nil and not styling.isSelectionContainer(declared) then
+			error(
+				`Facet newPicker('{id}'): stripCorner must name a container radius `
+					.. `({styling.SELECTION_CONTAINER_LIST}) — the vocabulary the selected fill resolves `
+					.. `through \`radii.selection:<container>\`. Got '{tostring(declared)}'.`,
+				0
+			)
+		end
+		if (spec :: any).track ~= false then
+			error(
+				`Facet newPicker('{id}'): stripCorner names the plate AROUND this strip, and a tracked `
+					.. `strip draws its own plate. Either pass \`track = false\` (the band owns the plate) `
+					.. `or drop \`stripCorner\` (this picker's own track is the container).`,
+				0
+			)
+		end
+	end
 	assert(
 		spec.query == nil
 			or (type(spec.query) == "table" and spec.query.kind == "signal" and type(spec.query:get()) == "string"),
