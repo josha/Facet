@@ -661,6 +661,23 @@ local ALLOWED_NEW_NODES: { { path: string, why: string } } = {
 		path = "/Vocabulary/Name/ClearWhen/then/Clear/Mark",
 		why = "Control improvements: the native TextInput clear action keeps its semantic Clear label and paints the standard close icon in a themeable child; existing clear-button geometry is unchanged.",
 	},
+	{
+		path = "/Vocabulary/More/Header/Caret",
+		why = "ONE ROTATING GLYPH REPLACED THE TWO CARET REGIONS (task 12, transitions round, "
+			.. "2026-09-12). The three entries below — `CaretOpen`, `CaretOpen/then/Caret` and "
+			.. "`CaretShut` — are the F3 shape this supersedes: a `UI.When` PAIR carrying two "
+			.. "different icon hints (`chevron.down` / `chevron.trailing`), because a hint is static "
+			.. "blueprint metadata read at create time and one node could not carry two. That made "
+			.. "every open/close a MOUNT AND UNMOUNT of the caret for what is only an ANGLE. The "
+			.. "header now mounts a single `chevron.trailing` Text whose `rotation` springs 0 -> 90 "
+			.. "as `expanded` flips — paint-only, on the presentation channel, never seen by the "
+			.. "solver. THE THREE SUPERSEDED ENTRIES ARE LEFT STANDING rather than deleted: they are "
+			.. "`ALLOWED_NEW_NODES` entries against a 0.6.0 baseline that never had any of them, so "
+			.. "nothing in this file asks whether they are still produced, and removing them would "
+			.. "only delete the record of why the shape they describe existed. NO GEOMETRY MOVES: "
+			.. "the caret keeps the `control` role and its box, one node deeper or shallower in the "
+			.. "header's own stack, and every rect in the fixture is byte-identical.",
+	},
 	{ path = "/Vocabulary/More/Header/CaretOpen", why = "the expanded caret's structural region (F3)" },
 	{
 		path = "/Vocabulary/More/Header/CaretOpen/then/Caret",
@@ -1158,6 +1175,29 @@ local ALLOWED_ADDED_PROPS: { { prop: string, value: string?, class: string?, pat
 			.. "verdict, so the write only tells the engine what the box was reserved for. Asserted, not "
 			.. "assumed — the regeneration that added these 312 keys moved exactly ONE rect in the whole flat "
 			.. "render, and that one has its own entry and a different cause (the rack; see ALLOWED_RECT_DRIFT).",
+	},
+	{
+		prop = "transform",
+		value = "{x=-0,y=12}",
+		path = "/Vocabulary/More/Content/then/Body",
+		why = "THE DISCLOSURE'S CONTENT SLIDES NOW, AND THIS DUMP IS ITS FIRST FRAME (task 12, "
+			.. "transitions round, 2026-09-12). `controls/disclosure_group.luau`'s `Content` region "
+			.. 'declares `transition = { enter = "slide-up", distance = 12 }` — a PURE slide, no fade '
+			.. "and no canvasGroup, so it costs no host paint group. The fixture in "
+			.. "`tools/lune/_theme_baseline` builds this group already EXPANDED, so the branch enters "
+			.. "on its first structural pass, and the generator calls `presenter.refresh()` and never "
+			.. "`presenter.tick(dt)` — so the dump catches the enter at progress 0, parked at its "
+			.. "full 12px offset, and the same number every time it is regenerated. The value is "
+			.. "PINNED for exactly that reason: it is the declared `distance`, so a change to the "
+			.. "travel, the axis or the form fails here rather than being waived. "
+			.. "IT IS PAINT, NOT SOLVE: `transform` is the presentation channel — the solver never "
+			.. "sees it, no rect or hit rect in this fixture moves (asserted by this same run, which "
+			.. "reports no `rect changed` line for the subtree), and the compatibility claim this "
+			.. "file exists for is about the flat solve. "
+			.. "THE `textFont` IN THE SAME DIFF IS NOT NEW HERE: it is the 2026-08-02 F2 seam "
+			.. "correction, already forgiven by its own rule entry above, and it appears in this "
+			.. "node's message only because the checker prints the whole prop string when any one key "
+			.. "is uncharacterized.",
 	},
 	{
 		prop = "role",
