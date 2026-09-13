@@ -1004,6 +1004,34 @@ t.describe("Alert header: a mark is punctuation, and the title is centred", func
 		the width of its longest word and the card collapsed around a single 60 px
 		line. Hugging, it asks for the line it wants, the card grows to its cap, and
 		the line wraps inside it. ]]
+	--[[ A BLANK TITLE IS NO TITLE (NEW-5). A hugging Text asks for the width of what
+		it draws and whitespace draws nothing, so `" "` mounted a visible node 0 px
+		wide — which the containment guard reports, correctly. Folded with `""`: no
+		glyphs, no node. ]]
+	t.it("a whitespace-only title mounts no title node at all", function()
+		for _, blank in { " ", "", "   \t " } do
+			local w, alert = open({
+				id = "Blank",
+				title = blank,
+				message = "Your selected driver is ready.",
+				actions = { { id = "ok", label = "OK" } },
+			}, { viewport = { x = 0, y = 0, w = 390, h = 844 } })
+			t.expect(w.adapter.node("/Blank/Center/Card/Header/Title")).toBe(nil)
+			-- ...and the card is still a card: the message and the action are there
+			t.expect(w.adapter.node("/Blank/Center/Card/Message") ~= nil).toBe(true)
+			t.expect(w.core:lastError()).toBe(nil)
+			alert.dispose()
+		end
+		-- a title with any glyph at all still mounts
+		local w, alert = open({
+			id = "Kept",
+			title = " Start ",
+			actions = { { id = "ok", label = "OK" } },
+		}, { viewport = { x = 0, y = 0, w = 390, h = 844 } })
+		t.expect(w.adapter.node("/Kept/Center/Card/Header/Title") ~= nil).toBe(true)
+		alert.dispose()
+	end)
+
 	t.it("a long unmarked title wraps inside a full-width card instead of collapsing it", function()
 		local LONG = "Are you absolutely certain you want to replace this saved checkpoint now"
 		t.expect(#LONG >= 67).toBe(true)
@@ -1219,13 +1247,78 @@ t.describe("Alert actions: the label fits before anything is cut", function()
 				t.expect(`{case.name}: spent {spent}`).toBe(`{case.name}: spent {carved + metrics.space.xs}`)
 				t.expect(`{case.name}: under {spent < carved + metrics.space.m}`).toBe(`{case.name}: under true`)
 			else
-				-- nothing carved, so the glow has nowhere else to live: the lane the
-				-- package asked for is still there
+				--[[ nothing carved, so the glow has nowhere else to live: the lane the
+					package asked for is still there. The reserve is a `max` against the
+					authored step, so the number is `max(m, bleed)` — and THAT is what
+					decides whether this arm can catch a removed lane (NEW-3):
+
+					  scifi_hud      m  4, bleed 24 -> 24, and 4 with no lane: CATCHES
+					  glossy_mobile  m 18, bleed 17 -> 18, and 18 with no lane: CANNOT
+
+					Glossy Mobile's own padding is already wider than its glow reaches,
+					so no assertion about its spend can distinguish a kept lane from a
+					dropped one. It is swept anyway, as the negative control for the
+					GATE — it is the package whose carve is zero, and the point of its
+					arm is that the carve-gated branch does not fire on it. Sci-Fi HUD
+					is the arm that fails when the lane goes (verified: `spent 14 to be
+					spent 24`). ]]
+				local authored = metrics.space.m
+				t.expect(`{case.name}: spent {spent}`).toBe(`{case.name}: spent {math.max(authored, bleed)}`)
 				t.expect(`{case.name}: lane {spent >= bleed}`).toBe(`{case.name}: lane true`)
+				t.expect(`{case.name}: carve {carved}`).toBe(`{case.name}: carve 0`)
 			end
 			alert.dispose()
 		end)
 	end
+
+	--[[ …AND THE LANE IS DECIDED PER SOLVE, NOT AT CONSTRUCTION (NEW-1, 2026-09-13).
+		The first cut of the gate read the metrics once, in `card()`, which runs
+		ONCE on the static path — so an alert built under Facet Neutral and then
+		shown under Fantasy Parchment spent 35 px a side (the double-count A5
+		removed), and one built under Parchment and shown under Sci-Fi HUD cut the
+		24 px glow. The showcase reaches both by "open the Alert demo, then pick the
+		theme". The decision now lives at the layout-time reader
+		(`chrome_slots.bleedLane`, read by `render/layout_node.luau` on every solve
+		and by the canvas beside it), and the control declares nothing. ]]
+	t.it("a theme swapped under a LIVE alert moves its lane with it", function()
+		local snapshot = require("../src/themes/snapshot")
+		local w = world.new({ viewport = { x = 0, y = 0, w = 390, h = 844 } })
+		local alert = Facet.Controls.Alert(w.core, {
+			id = "Swap",
+			title = "Replace this save?",
+			message = "Your current progress will replace the previous checkpoint.",
+			actions = {
+				{ id = "Cancel", label = "Keep previous", role = "cancel" },
+				{ id = "Replace", label = "Replace save", role = "destructive" },
+			},
+		})
+		alert.present(w.pres)
+		w.settle(3)
+		local function spent(): number
+			local card = w.adapter.node("/Swap/Center/Card").rect
+			return w.adapter.node("/Swap/Center/Card/Actions").rect.x - card.x
+		end
+		local function swap(name: string): any
+			local metrics = snapshot.resolve((require)(`../examples/themes/{name}`).build(Facet.themes), nil, {})
+			w.env:set("themeMetrics", metrics)
+			w.settle(3)
+			return metrics
+		end
+		-- built under Neutral (no carve, no bleed) and then shown carved: the card
+		-- spends the carve plus its `xs` floor, and NOT the lane on top of it
+		local parchment = swap("fantasy_parchment")
+		t.expect(spent()).toBe(parchment.chromeInsets.panel.left + parchment.space.xs)
+		-- ...and swapped again to a package that glows WITHOUT carving, the lane is
+		-- there: nothing else is holding that glow off the clip edge
+		local scifi = swap("scifi_hud")
+		t.expect(`scifi spent {spent()} >= bleed {scifi.chromeBleed}`)
+			.toBe(`scifi spent {math.max(spent(), scifi.chromeBleed)} >= bleed {scifi.chromeBleed}`)
+		-- the canvas agrees with the box on both, which is what keeps a card that
+		-- fits from scrolling forever
+		local card = w.adapter.node("/Swap/Center/Card")
+		t.expect(card.scrollRegion.contentH <= card.rect.h).toBe(true)
+		alert.dispose()
+	end)
 
 	t.it("the card's padding yields to the carved frame instead of stacking with it", function()
 		local w, alert = mount("fantasy_parchment", lt.LARGEST, lt.PHONE_PORTRAIT)
@@ -1280,13 +1373,43 @@ t.describe("Alert actions: the label fits before anything is cut", function()
 		t.expect(alert.dump().presented).toBe(true)
 		t.expect(w.adapter.node("/Broken/Center/Card") ~= nil).toBe(true)
 		alert.dispose()
+
+		--[[ …AND IT DEGRADES TOWARD THE FORM THAT CANNOT CUT (NEW-2). Reporting a
+			label of NO width was the first fallback and it is the wrong direction: a
+			label that always fits picks the ROW, which is the one form of the two
+			that can put a button outside the card — measured here at 331 px of
+			overflow before the direction was corrected. An unmeasurable label is
+			charged as "does not fit", so the degraded answer is a STACK, which is
+			full width by construction and cannot overflow the box it stacks in. ]]
+		local wide = world.new({ viewport = { x = 0, y = 0, w = 1280, h = 800 }, themeMetrics = {} })
+		local long = Facet.Controls.Alert(wide.core, {
+			id = "Long",
+			title = "Start this race?",
+			actions = {
+				{ id = "Cancel", label = "Keep the previous checkpoint", role = "cancel" },
+				{ id = "Go", label = "Permanently delete this saved progress" },
+			},
+		})
+		long.present(wide.pres)
+		wide.settle(3)
+		local card = wide.adapter.node("/Long/Center/Card").rect
+		local a = wide.adapter.node("/Long/Center/Card/Actions/Order/[Go]/Go").rect
+		local c = wide.adapter.node("/Long/Center/Card/Actions/Order/[Cancel]/Cancel").rect
+		t.expect(`form {if a.y == c.y then "row" else "stack"}`).toBe("form stack")
+		local overflow = math.max(0, (a.x + a.w) - (card.x + card.w), card.x - a.x)
+		t.expect(`overflow {overflow}`).toBe("overflow 0")
+		t.expect(wide.core:lastError()).toBe(nil)
+		long.dispose()
 	end)
 
-	--[[ AN ACTION THAT CARRIES A COMPACT LABEL IS CHARGED FOR THE SHORTER ONE
-		(RED-TEAM F11). The solver's own compact ladder swaps it in when the full
-		string does not fit, so charging the row for the long form stacks a row the
-		ladder would have fitted — a reflow the caller already said they did not
-		need by supplying the shorter string. ]]
+	--[[ AN ACTION THAT CARRIES A COMPACT LABEL IS STILL CHARGED FOR THE ONE THE ROW
+		WILL DRAW (RED-TEAM F11, measured and declined — see the rung's own comment).
+		The compact ladder swaps the short string in when the offer is NARROWER than
+		the natural width, and an alert's row is a stack of HUGGING buttons that is
+		never offered less than it asks for. Charged the compact width, this very
+		case kept the row and then drew the full label 12 px outside the card. The
+		claim here is therefore containment, not the form: the card holds what it
+		lays out, with or without a compact form on the action. ]]
 	t.it("the rung charges the label the row will actually draw, and the card holds it", function()
 		local LONG = "Permanently delete this saved progress"
 		local function probe(compact: string?): (string, number)

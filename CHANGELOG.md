@@ -40,9 +40,10 @@ runtime as `Facet.VERSION`.
   1280 desktop row asked for 802 px of a 528 px card and ran outside it. The card
   also stops paying twice for its own frame: its `padding` yields to the panel
   slot's carved inset (down to one `xs`, never to nothing) and it declares
-  `chromeReserve = "none"` wherever a frame IS carved — gated on the carve, so a
-  package that glows without carving (Sci-Fi HUD, Glossy Mobile) keeps its lane —
-  since that carved
+  nothing about its chrome lane at all: the bleed a scroller keeps for content
+  that paints past its box is NETTED against the slot's carved frame at the layout
+  reader (`chrome_slots.bleedLane`, read per solve, so a theme swapped under a live
+  modal moves the lane with it), because that carved
   frame is the lane a scroller reserves for content chrome — 288 px of content on a
   390 px phone under Fantasy Parchment becomes 322, which is what lets "Continue"
   draw whole at the Largest preference. The primary action also stretches in the

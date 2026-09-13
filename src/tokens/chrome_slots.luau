@@ -718,6 +718,40 @@ end
 ---
 --- An unbounded extent affords everything: a node free to grow pays its chrome
 --- and grows by it, which is the overwhelmingly common path and must not move.
+--[[ bleedLane(metrics, slot) -> the clearance a scroller still owes its content's
+	chrome, AFTER whatever its own carved frame already gives (NEW-1, 2026-09-13).
+
+	`chromeBleed` is how far the furthest-reaching art in a package paints OUTSIDE
+	the box it belongs to, and an outermost clipper keeps that much padding so a
+	child's glow is not cut by the viewport. A CARVED slot already holds its content
+	that far from its own clip edge — the frame's `contentInsets` are exactly a
+	clearance — so the two are the same reservation asked for twice. Measured: under
+	Fantasy Parchment (bleed 17, `panel` carve 18) an alert card spent 35 px a side
+	of a 390 px phone for 18 px of clearance; under Sci-Fi HUD (bleed 24, carve 0)
+	every pixel of the lane is owed and dropping it cut the glow.
+
+	ONE DERIVATION, TWO READERS, and that is the point of publishing it here rather
+	than inlining the arithmetic: `render/layout_node.luau` spends it as padding and
+	`render/commit_walks.luau` adds it to the scroll CANVAS as the trailing
+	allowance. Those two disagreeing by so much as a pixel is a scroller that
+	overflows its own box forever, which is the defect the A4 fix (2026-09-13)
+	existed to remove.
+
+	The carve is read on ONE side. Every shipped package's `contentInsets` are
+	symmetric, and a lane is a single scalar in this framework — the day an
+	asymmetric carve ships, this is the function that learns about it, not its two
+	callers. ]]
+function chrome_slots.bleedLane(metrics: any, slot: string?): number
+	local bleed = if type(metrics) == "table" and type(metrics.chromeBleed) == "number" then metrics.chromeBleed else 0
+	if bleed <= 0 then
+		return 0
+	end
+	local insets = if type(metrics) == "table" then (metrics :: any).chromeInsets else nil
+	local carved = if type(insets) == "table" and slot ~= nil then (insets :: any)[slot] else nil
+	local left = if type(carved) == "table" and type(carved.left) == "number" then carved.left else 0
+	return math.max(0, bleed - left)
+end
+
 function chrome_slots.spendInset(extent: number, authored: number, inset: number, minContent: number?): number
 	if extent == math.huge then
 		return inset

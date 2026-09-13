@@ -2450,9 +2450,16 @@ on `UI.When`, `UI.ForEach`, a `presentToast` and `PresentOpts`.
   therefore declares a scale just **above** 1 and settles *down* into place:
   every value in `[1, 1 + 1/TextSize)` floors to the same pixel, so the text
   lands at its final size on the first painted frame and never moves.
-  `Controls.Alert` ships `1.015` for this reason (1/0.015 = 66 px, above every
-  size the framework can paint — swept per package, per display class, at the
-  largest text preference, in `tests/transitions.spec.luau`). `1` is refused — a
+  `Controls.Alert` ships `1.015` for this reason: 1/0.015 = 66.7 px, above every
+  size the framework paints **at the engine's four measured preferred-text steps
+  (0/4/10/14 px) with `preferredTextSize = 1`** — the domain every shipped path
+  takes, swept per package and per display class in `tests/transitions.spec.luau`,
+  where the widest rung in the library is Glossy Mobile's `title` at a ten-foot
+  display, 59 px. The FACTS are clamped wider than that (`preferredTextOffset` to
+  `[0, 32]`, `preferredTextSize` to `[0.5, 3]`), and a fixture or device profile
+  that drives either to its ceiling outgrows the fixed band; a surface in that
+  position derives its own from the largest rung it paints. The second sweep in
+  that file records the number such a derivation has to beat. `1` is refused — a
   form that starts at rest does not move. **It is the ENTER's band only**: an exit
   is the opposite instant — the plate is leaving and already fading — so the exit
   keeps the ratified `0.96` dip whatever the enter declared.
@@ -10592,12 +10599,14 @@ does not fit. Two things make that width worth having:
   is where the *art* ends and not where a line of type wants to start (the
   carved frame *is* the modal's inner margin; paying for it twice took 35 px a
   side out of a 390 px phone under Fantasy Parchment), and
-- the card declares `chromeReserve = "none"` **where the package carves a frame**,
-  because that carved frame is the lane a scroller normally reserves for content
-  chrome that reaches past its box — a menu card's list makes the identical call.
-  It is gated on the carve: a package that glows without carving (Sci-Fi HUD
-  reserves 24 px and carves nothing, Glossy Mobile 17 px and nothing) keeps its
-  lane, since dropping it there would cut the very glow the lane exists for.
+- the chrome-bleed lane a scroller keeps for content that paints past its box is
+  **netted against that carved frame** — the frame already holds content that far
+  from the clip edge, so the lane owes only the difference
+  (`chrome_slots.bleedLane`). Under Fantasy Parchment (bleed 17, carve 18) it owes
+  nothing; under Sci-Fi HUD (24, carve 0) it owes all of it, and a package that
+  glows without carving keeps its lane in full. The Alert declares no
+  `chromeReserve` of its own: the netting is done by the layout reader on every
+  solve, so a theme swapped under a live modal moves the lane with it.
 
 Together they turn 288 px of content on that phone into 322, which is what lets a
 one-word primary action ("Continue") draw whole at the Largest preference. A flat

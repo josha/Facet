@@ -318,13 +318,32 @@ function alert.build(Facet: any, core: any, spec: Spec)
 			- (if type(insets) == "table" then (insets.left or 0) + (insets.right or 0) else 0)
 		-- the Screen this control mounts declares `padding = "m"` (see `blueprint`)
 		local screenPad = themeSnapshot.resolveNumber(metrics, "m") or 0
-		local cap = themeSnapshot.resolveNumber(metrics, spec.maxWidth or "controls.alert.maxWidth") or math.huge
-		local card = math.min(cap, math.max(0, screenW - 2 * screenPad))
+		--[[ AN UNRESOLVABLE CAP IS NOT AN INFINITE ONE (NEW-2). `math.huge` was the
+			first fallback and it reads as "this card may be as wide as it likes",
+			which is the direction that keeps a row nothing can hold. A card can never
+			be wider than the screen it is centred in, so the screen is the honest
+			ceiling when the metric cannot be resolved — and under a healthy package
+			the `min` below takes the cap anyway, so nothing moves on the path every
+			real theme takes. ]]
+		local cap = themeSnapshot.resolveNumber(metrics, spec.maxWidth or "controls.alert.maxWidth")
+		local card = math.max(0, screenW - 2 * screenPad)
+		if type(cap) == "number" then
+			card = math.min(cap, card)
+		end
 		local pad = cardSpend(metrics)
 		local art = if type(metrics) == "table" and type(metrics.chromeInsets) == "table"
 			then (metrics.chromeInsets :: any).panel
 			else nil
 		local artX = if type(art) == "table" then (art.left or 0) + (art.right or 0) else 0
+		--[[ IT DOES NOT SUBTRACT THE BLEED LANE, and that is a known approximation
+			rather than an oversight (latent, noted 2026-09-13). Where a package
+			carves, the lane is netted to nothing and there is nothing to subtract;
+			where it does not, the lane is `max(m, bleed) - m` wider than this
+			estimate says — and `buttonChromeX` over-charges by about as much, since
+			a Button's own carved inset is counted in full while the solver may yield
+			part of it. The two err in opposite directions on the same packages. If
+			either is ever made exact, the other has to be, or the rung starts
+			answering a question about a card nobody is drawing. ]]
 		return math.max(0, card - pad.left - pad.right - artX)
 	end
 	-- the natural width of one action label, at the size and face a Button will
@@ -337,17 +356,24 @@ function alert.build(Facet: any, core: any, spec: Spec)
 			facts.offset
 		)
 		local font = if type(role) == "table" then role.fontKey else nil
-		--[[ A FONT THIS MEASURER CANNOT KEY ON IS NO MEASUREMENT AT ALL (RED-TEAM
-			F2). `text_metrics.measure` keys its caches on the font DESCRIPTOR, and a
-			`themeMetrics` fact is whatever an adapter or a fixture pushed — a
+		--[[ A FONT THIS MEASURER CANNOT KEY ON IS NO MEASUREMENT AT ALL, AND THE
+			SAFE ANSWER IS "IT DOES NOT FIT" (RED-TEAM F2; direction corrected by
+			NEW-2). `text_metrics.measure` keys its caches on the font DESCRIPTOR,
+			and a `themeMetrics` fact is whatever an adapter or a fixture pushed — a
 			partial table has no `type` section, so `effectiveTypeRole` answers no
 			role and the descriptor is nil. Raising here quarantines the memo that
-			asked and lands on `lastError` for a screen that used to render clean, so
-			an unmeasurable label reports NO width instead: the row then looks
-			narrower than it is, which over-stacks and never cuts — the same
-			direction every other fallback in this rung takes. ]]
+			asked and lands on `lastError` for a screen that used to render clean.
+
+			IT REPORTS `math.huge`, NOT ZERO. Zero was the first answer and it is the
+			WRONG direction: a label of no width always fits, so the degraded rung
+			picked the ROW — the one form of the two that can put a button outside
+			the card (measured on `themeMetrics = {}` with two long labels: 331 px
+			of overflow). A label nobody can measure is charged as "does not fit",
+			which stacks; a stack is full-width by construction and cannot overflow
+			the box it is stacked in. Every fallback in this rung errs the same way,
+			toward the form that cannot cut. ]]
 		if type(font) ~= "string" then
-			return 0
+			return math.huge
 		end
 		local lineHeight = if type(role) == "table" then role.lineHeight else nil
 		return textMetrics.measure(label, font, size, math.huge, lineHeight, 1).width
@@ -712,18 +738,29 @@ function alert.build(Facet: any, core: any, spec: Spec)
 			centres its own glyphs in the box it hugged to, which IS the card's
 			centre because the row centres it. ]]
 		local marked = #header > 0
-		table.insert(
-			header,
-			UI.Text({
-				id = "Title",
-				text = def.title,
-				disclose = true,
-				textSize = "heading",
-				textAlign = if marked then "start" else "center",
-				width = UI.hug(),
-				tint = if def.severity == "critical" then { role = "danger", blend = 1 } else nil,
-			})
-		)
+		--[[ A BLANK TITLE IS NO TITLE (NEW-5). A hugging Text asks for the width of
+			what it draws, and whitespace draws nothing: `" "` measured 0x24 and the
+			containment guard reported a visible node with zero width — correctly, it
+			IS one. `""` never reached here (the schema's own `textValue` takes a
+			string, and an empty one produced the same empty box), so the two spellings
+			are folded: a title with no glyphs in it mounts no node, exactly as a `nil`
+			message mounts none, and the card is its message and its actions. ]]
+		local titleText = if type(def.title) == "string" then def.title else nil
+		local blankTitle = titleText ~= nil and string.match(titleText, "%S") == nil
+		if not blankTitle then
+			table.insert(
+				header,
+				UI.Text({
+					id = "Title",
+					text = def.title,
+					disclose = true,
+					textSize = "heading",
+					textAlign = if marked then "start" else "center",
+					width = UI.hug(),
+					tint = if def.severity == "critical" then { role = "danger", blend = 1 } else nil,
+				})
+			)
+		end
 		table.insert(
 			content,
 			UI.HStack({
@@ -932,31 +969,6 @@ function alert.build(Facet: any, core: any, spec: Spec)
 			UI.ScrollView({
 				id = "Card",
 				axis = "y",
-				--[[ THE LANE IS DROPPED ONLY WHERE THE CARVED FRAME IS ALREADY ONE
-					(RED-TEAM F3). A scroller keeps `chromeBleed` on its cross axis so a
-					child's glow is not cut by the viewport, and on this card that lane
-					is redundant wherever the package carves a panel frame: the frame IS
-					the clearance, and paying for both took 35 px a side out of a 390 px
-					phone under Fantasy Parchment. It is NOT redundant where a package
-					glows without carving — Sci-Fi HUD reserves 24 and carves nothing,
-					Glossy Mobile 17 and nothing — and dropping it there cuts the very
-					glow the lane exists for. So the opt-out is GATED on the carve, and
-					every package gets the rule that is true for it.
-
-					Read ONCE, with `:get()`: `chromeReserve` is a non-reactive prop
-					(`blueprint_schema`), so there is no reactive form to bind and this
-					is the honest spelling of a one-shot read. A theme swapped WHILE a
-					modal is open keeps the lane it opened with until the next present;
-					every swap the examples and the sweeps drive happens between
-					presentations, where the card is rebuilt. ]]
-				chromeReserve = (function(): string?
-					local metrics = themeMetrics:get()
-					local art = if type(metrics) == "table" and type(metrics.chromeInsets) == "table"
-						then (metrics.chromeInsets :: any).panel
-						else nil
-					local carved = if type(art) == "table" and type(art.left) == "number" then art.left else 0
-					return if carved > 0 then "none" else nil
-				end)(),
 				width = { type = "hug", max = spec.maxWidth or "controls.alert.maxWidth" },
 				height = UI.hug(),
 				alignH = "center",

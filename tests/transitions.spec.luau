@@ -2065,6 +2065,16 @@ describe("the alert's materialize band has headroom over the whole type ladder",
 		"scifi_hud",
 	}
 
+	--[[ TWO SWEEPS, BECAUSE THE DOMAIN IS WIDER THAN THE STEPS (NEW-4). The engine
+		applies its preferred-text reservation as ONE OF FOUR measured steps
+		(0/4/10/14 px) and the live `preferredTextSize` fact is 1 on every shipped
+		path — that is the domain the Alert's band is claimed over, and api.md now
+		says so in those words. The FACTS, though, are clamped to [0, 32] and
+		[0.5, 3]: a fixture or a device profile may legally push either to its
+		ceiling, and there the band's headroom is gone (glossy_mobile's `title` at a
+		ten-foot display reaches 149 px at the extremes, against a 66.7 px ceiling).
+		Both are swept so the claim and its edge are each written down, and the
+		second case is the one that says what a caller at the extremes gets. ]]
 	it("no package paints a rung at or past 1/(band - 1) px, at either distance", function()
 		local ceiling = 1 / (ALERT_BAND - 1)
 		local worst, worstName = 0, "none"
@@ -2095,5 +2105,48 @@ describe("the alert's materialize band has headroom over the whole type ladder",
 		)
 		-- ...and the sweep really looked at something, rather than passing on zero
 		expect(worst > 40).toBe(true)
+	end)
+
+	--[[ …AND WHAT HAPPENS AT THE FACTS' OWN CEILINGS, written down rather than left
+		to be discovered. `snapshot.textOffset` clamps the additive offset to
+		[0, 32] and `typographyScale` clamps the multiplier to [0.5, 3]; nothing
+		shipped drives either past the four measured steps and 1, but the domain is
+		the domain. At the ceilings a text-safe band would have to be derived from
+		the largest rung the SURFACE paints rather than from the library's largest —
+		this case records the number that derivation would have to beat, so the day
+		a profile drives it there, the failure names the package and the rung
+		instead of arriving as a re-flow on a device. ]]
+	it("at the facts' clamped ceilings the fixed band has no headroom, and the sweep says so", function()
+		local ceiling = 1 / (ALERT_BAND - 1)
+		local worst, worstName = 0, "none"
+		local resolved: { any } = { { "facet-neutral", snapshot.resolve(Facet.themes.neutralPackage(), nil, {}) } }
+		for _, name in PACKAGES do
+			table.insert(
+				resolved,
+				{ name, snapshot.resolve((require)(`../examples/themes/{name}`).build(Facet.themes), nil, {}) }
+			)
+		end
+		for _, entry in resolved do
+			local name, base = entry[1], entry[2]
+			for _, displaySize in { "Medium", "Large" } do
+				local metrics = snapshot.forDisplay(base, displaySize)
+				-- the CLAMPED ceilings, taken through the same two seams the renderer
+				-- takes them through, not hand-multiplied
+				local scale = snapshot.measureScale(displaySize, 3)
+				local offset = snapshot.textOffset(32)
+				for role, spec in metrics.type do
+					local painted = textMetrics.reservedSize(spec.size, scale, offset)
+					if painted > worst then
+						worst, worstName = painted, `{name}.{role}@{displaySize}`
+					end
+				end
+			end
+		end
+		-- the clamps really are what this case says they are
+		expect(snapshot.textOffset(99)).toBe(32)
+		expect(snapshot.measureScale("Medium", 99)).toBe(3)
+		-- ...and at them the fixed band is exceeded, by the rung this names
+		expect(`worst {worstName} past ceiling: {worst > ceiling}`).toBe(`worst {worstName} past ceiling: true`)
+		expect(worst > 100).toBe(true)
 	end)
 end)

@@ -1337,13 +1337,54 @@ local function toLayoutNode(
 	-- one reservation covers every slot at every depth — and it is 0 for any
 	-- package that declares no shadow, so a flat theme is untouched and the
 	-- neutral baseline cannot move.
+	local chromeInsets = metrics.chromeInsets
+	local chromeOutsets = metrics.chromeOutsets
+	-- `hasChromeInsets`, not `next(chromeInsets)`: every slot now publishes an
+	-- inset (zero when its art reserves nothing) so a control can READ one as a
+	-- theme metric, which means the table's shape no longer tells you whether
+	-- there is anything to spend. The snapshot answers that directly.
+	local wantsInsets = chromeInsets ~= nil and metrics.hasChromeInsets == true
+	local wantsOutsets = chromeOutsets ~= nil and next(chromeOutsets) ~= nil
+	--[[ the HINT counts for the inset block below (a control that declared its own
+		slot — a Slider's rail — would otherwise reserve the slot the generic map
+		guessed instead of the one its art actually occupies), AND for the icon
+		reservation after it. Read ONCE, above both, because the icon box is owed
+		even by a package that reserves no chrome at all: Facet Neutral declares
+		no `contentInsets` and still paints the framework's own pictures.
+
+		…AND ABOVE THE BLEED LANE AS WELL (NEW-1, 2026-09-13), because the lane owes
+		only what the CARVE does not already give — see `chrome_slots.bleedLane`. ]]
+	local hint = chrome_slots.readHint(node)
+	local slot = if wantsInsets or wantsOutsets
+		then chrome_slots.classify({
+			class = class,
+			surface = props.surface,
+			hasSelection = props.selected ~= nil,
+			hint = if hint ~= nil then hint.slot else nil,
+		})
+		else nil
 	if
 		kind == "scroll"
 		and insideClipper ~= true
 		and props.chromeReserve ~= "none"
 		and not chrome_slots.hasOnlyPlainLeaves(node)
 	then
-		local bleed = if type(metrics.chromeBleed) == "number" then metrics.chromeBleed else 0
+		--[[ THE LANE OWES ONLY WHAT THE CARVE DOES NOT ALREADY GIVE (NEW-1). A
+			carved frame holds this scroller's content away from its own clip edge by
+			exactly its `contentInsets`, which is the same clearance the lane exists
+			to buy — so under Fantasy Parchment (bleed 17, panel carve 18) the lane
+			was pure double-count, 35 px a side out of a 390 px phone, and under
+			Sci-Fi HUD (bleed 24, carve 0) every pixel of it is owed.
+
+			RE-READ PER SOLVE, which is the whole reason it lives here rather than in
+			a control's props: the answer is a fact about the INSTALLED package, and a
+			control that decided it at construction was right until the player
+			swapped theme. `Controls.Alert` used to carry a build-time
+			`chromeReserve` for this and no longer does. A scroller that declares
+			`chromeReserve = "none"` outright (a menu card's list) still skips the
+			whole block — that is a claim about its CONTENT, not about the art
+			around it. ]]
+		local bleed = chrome_slots.bleedLane(metrics, slot)
 		if bleed > 0 then
 			local top, right, bottom, left = solver.sides(layoutNode.padding)
 			if (props.axis or "y") == "x" then
@@ -1372,28 +1413,7 @@ local function toLayoutNode(
 			floor-aware, against the rect it actually resolved. ]]
 		layoutNode.leadingBleed = bleed
 	end
-	local chromeInsets = metrics.chromeInsets
-	local chromeOutsets = metrics.chromeOutsets
-	-- `hasChromeInsets`, not `next(chromeInsets)`: every slot now publishes an
-	-- inset (zero when its art reserves nothing) so a control can READ one as a
-	-- theme metric, which means the table's shape no longer tells you whether
-	-- there is anything to spend. The snapshot answers that directly.
-	local wantsInsets = chromeInsets ~= nil and metrics.hasChromeInsets == true
-	local wantsOutsets = chromeOutsets ~= nil and next(chromeOutsets) ~= nil
-	-- the HINT counts for the inset block below (a control that declared its own
-	-- slot — a Slider's rail — would otherwise reserve the slot the generic map
-	-- guessed instead of the one its art actually occupies), AND for the icon
-	-- reservation after it. Read ONCE, above both, because the icon box is owed
-	-- even by a package that reserves no chrome at all: Facet Neutral declares
-	-- no `contentInsets` and still paints the framework's own pictures.
-	local hint = chrome_slots.readHint(node)
 	if wantsInsets or wantsOutsets then
-		local slot = chrome_slots.classify({
-			class = class,
-			surface = props.surface,
-			hasSelection = props.selected ~= nil,
-			hint = if hint ~= nil then hint.slot else nil,
-		})
 		local extra = if wantsInsets and slot ~= nil then chromeInsets[slot] else nil
 		if extra ~= nil then
 			local top, right, bottom, left = solver.sides(layoutNode.padding)
