@@ -1288,9 +1288,12 @@ local function contentSize(ctx: Ctx, node: Node, maxW: number, maxH: number): (n
 			AND THE TRAILING ALLOWANCE IS THE OTHER HALF OF THE SAME BOX (owner
 			report A4, 2026-09-13: "portrait with plenty of space — the alert scrolls
 			instead of growing"). The CANVAS this scroller publishes is
-			`contentSize + padding + chromeBleed` (`render/commit_walks.luau`: a
-			package's shadow paints past the last child's rect, so the canvas grows by
-			the bleed to make it reachable) while the leading edge is spent as real
+			`contentSize + padding + lane` — where `lane` is
+			`chrome_slots.bleedLane`, the package's `chromeBleed` netted against the
+			slot's own carve, published by `layout/scroll_arrange.luau` and read by
+			`render/commit_walks.luau` (a package's shadow paints past the last
+			child's rect, so the canvas grows by it to make it reachable) — while the
+			leading edge is spent as real
 			padding by `layout/scroll_arrange.luau`. A hugging scroller that counted
 			only the leading one therefore measured a box its own canvas could never
 			fit inside: under every package with a shadow the card overflowed by

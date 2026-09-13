@@ -358,7 +358,10 @@ runtime as `Facet.VERSION`.
   and the row's real padding. Pixel Quest asked for 182px where 280 was needed,
   leaving 78px for a 176px word.
 - `UI.ScrollView` accepts `chromeReserve` (`"auto"` default, `"none"`): the
-  lane a scroller keeps for content chrome that reaches past its box. The
+  lane a scroller keeps for content chrome that reaches past its box —
+  `max(0, chromeBleed − the slot's own carve)` since 2026-09-13
+  (`chrome_slots.bleedLane`), because a carved frame already holds content that
+  far from the clip edge. The
   picker popover's list declares `"none"` — its rows are plain and its check
   draws inside its box — so the list runs to the card's content box and the
   chosen row's fill spans the card less one `xs` a side with the theme's

@@ -1303,9 +1303,18 @@ describe("the commit's own skip (P4)", function()
 		end
 		--[[ THE COUNTS ARE PINNED, not merely the guard: a fifth child-side write is a
 			new way for this precondition to be broken, and it should fail HERE with the
-			reason rather than somewhere downstream with a stale pixel. ]]
+			reason rather than somewhere downstream with a stale pixel.
+
+			`ownWrites` 5 -> 6 (R1, 2026-09-13): `scroll_arrange` publishes the chrome
+			lane this solve actually spent beside the padding it spent, so the scroll
+			CANVAS can be built from that number instead of re-deriving one from the
+			package's raw `chromeBleed` — a re-derivation that could not see the
+			`insideClipper` gate and gave every NESTED scroller a canvas one lane
+			bigger than its box. It is an OWN-entry write, which is the safe side of
+			the distinction this scan exists to police: it writes the entry the
+			`arrange` building it owns, never a child's. ]]
 		expect(childWrites).toBe(4)
-		expect(ownWrites).toBe(5)
+		expect(ownWrites).toBe(6)
 		expect(table.concat(unguarded, "\n")).toBe("")
 		-- the scan really looked (a regex that matched nothing would pass forever)
 		expect(string.find(source, "out[child.id].hidden = true", 1, true) ~= nil).toBe(true)

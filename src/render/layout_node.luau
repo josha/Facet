@@ -936,7 +936,12 @@ local function toLayoutNode(
 			stores its whole subtree absolutely under a parent the adapter then
 			registers as a coordinate space. `createOptsFor` memoises its answer on the
 			mounted node, so whichever of the two asks first fixes it for both. ]]
-		hostSpace = hostSpaceOf(node, store.attachOpts),
+		-- `store` is OPTIONAL on this entry, and the export note at the foot of this
+		-- file says so in as many words: `toLayoutNode` is "the one-shot entry a
+		-- caller with no store wants", and the two reads above it already branch on
+		-- `store ~= nil`. This one did not, so that documented caller faulted on the
+		-- first node it built (R10)
+		hostSpace = hostSpaceOf(node, if store ~= nil then store.attachOpts else nil),
 		columns = props.columns,
 		minColumnWidth = props.minColumnWidth,
 		itemSizing = props.itemSizing,
@@ -1363,56 +1368,14 @@ local function toLayoutNode(
 			hint = if hint ~= nil then hint.slot else nil,
 		})
 		else nil
-	if
-		kind == "scroll"
-		and insideClipper ~= true
-		and props.chromeReserve ~= "none"
-		and not chrome_slots.hasOnlyPlainLeaves(node)
-	then
-		--[[ THE LANE OWES ONLY WHAT THE CARVE DOES NOT ALREADY GIVE (NEW-1). A
-			carved frame holds this scroller's content away from its own clip edge by
-			exactly its `contentInsets`, which is the same clearance the lane exists
-			to buy — so under Fantasy Parchment (bleed 17, panel carve 18) the lane
-			was pure double-count, 35 px a side out of a 390 px phone, and under
-			Sci-Fi HUD (bleed 24, carve 0) every pixel of it is owed.
-
-			RE-READ PER SOLVE, which is the whole reason it lives here rather than in
-			a control's props: the answer is a fact about the INSTALLED package, and a
-			control that decided it at construction was right until the player
-			swapped theme. `Controls.Alert` used to carry a build-time
-			`chromeReserve` for this and no longer does. A scroller that declares
-			`chromeReserve = "none"` outright (a menu card's list) still skips the
-			whole block — that is a claim about its CONTENT, not about the art
-			around it. ]]
-		local bleed = chrome_slots.bleedLane(metrics, slot)
-		if bleed > 0 then
-			local top, right, bottom, left = solver.sides(layoutNode.padding)
-			if (props.axis or "y") == "x" then
-				layoutNode.padding =
-					{ top = math.max(top, bleed), right = right, bottom = math.max(bottom, bleed), left = left }
-			else
-				layoutNode.padding =
-					{ top = top, right = math.max(right, bleed), bottom = bottom, left = math.max(left, bleed) }
-			end
-		end
-		--[[ ...AND THE LEADING EDGE'S OWN RESERVE, STAMPED RATHER THAN SPENT
-			HERE (task SHOWCASE3, 2026-08-29; supersedes 9eb095a, reverted).
-			The cross axis above is safe unconditional: "reachable by scrolling
-			to it" never applies to it either, but nothing has measured it
-			collapsing a real box. The leading edge (top for y, left for x) is
-			different — there is no canvas before scroll position 0 to grow
-			into, so showing a first child's own glow costs real padding, and
-			real padding taken from a box that cannot afford it is a blank
-			scroller. 9eb095a spent it right here, unconditionally, and that is
-			exactly what collapsed `overflow_sweep`'s `tab_view`/`p3_sipworks`
-			to a 0px content box under Sci-Fi HUD at narrow-landscape: this
-			pre-solve conversion sees only the node's own AUTHORED extent —
-			`math.huge` for the common fill/hug scroll container — never the
-			real offer a parent squeezing it actually has. So this only
-			STAMPS the fact; `src/layout/solver.luau`'s `arrange` spends it
-			floor-aware, against the rect it actually resolved. ]]
-		layoutNode.leadingBleed = bleed
-	end
+	--[[ WHAT THE CARVE ACTUALLY COST THIS NODE, per side (R3, 2026-09-13). The
+		inset block below may REFUSE a slot's frame outright — `spendInset` gives the
+		whole thing back rather than collapse a box that cannot afford it — and the
+		bleed lane is netted against the carve, so a lane netted against a carve that
+		was then refused leaves NEITHER. Measured on a fixed-56 `panel` scroller
+		under Fantasy Ornate: padding 30/0/30/0, no frame and no lane. So the lane is
+		decided AFTER this block, from the number it kept. ]]
+	local carveSpent: any = nil
 	if wantsInsets or wantsOutsets then
 		local extra = if wantsInsets and slot ~= nil then chromeInsets[slot] else nil
 		if extra ~= nil then
@@ -1535,6 +1498,12 @@ local function toLayoutNode(
 			-- content-box diagnostic can name the slot rather than only the node
 			-- (rich-skinning v2)
 			layoutNode.chromeSlot = slot
+			carveSpent = {
+				top = if keepY then extra.top else 0,
+				right = if keepX then extra.right else 0,
+				bottom = if keepY then extra.bottom else 0,
+				left = if keepX then extra.left else 0,
+			}
 			-- ...and WHETHER it had to be given back, so the repair is reported
 			-- rather than silent. Repaired is not the same as fine: a control too
 			-- small for its own theme is exactly what an author needs told.
@@ -1556,6 +1525,60 @@ local function toLayoutNode(
 				left = left + outset.left,
 			}
 		end
+	end
+	if
+		kind == "scroll"
+		and insideClipper ~= true
+		and props.chromeReserve ~= "none"
+		and not chrome_slots.hasOnlyPlainLeaves(node)
+	then
+		--[[ THE LANE OWES ONLY WHAT THE CARVE DOES NOT ALREADY GIVE (NEW-1). A
+			carved frame holds this scroller's content away from its own clip edge by
+			exactly its `contentInsets`, which is the same clearance the lane exists
+			to buy — so under Fantasy Parchment (bleed 17, panel carve 18) the lane
+			was pure double-count, 35 px a side out of a 390 px phone, and under
+			Sci-Fi HUD (bleed 24, carve 0) every pixel of it is owed.
+
+			DECIDED AFTER THE INSET BLOCK, from the carve that block actually KEPT
+			(R3): a frame `spendInset` refused is clearance this node never got, and
+			netting against it would leave neither the frame nor the lane.
+
+			RE-READ PER SOLVE, which is the whole reason it lives here rather than in
+			a control's props: the answer is a fact about the INSTALLED package, and a
+			control that decided it at construction was right until the player
+			swapped theme. `Controls.Alert` used to carry a build-time
+			`chromeReserve` for this and no longer does. A scroller that declares
+			`chromeReserve = "none"` outright (a menu card's list) still skips the
+			whole block — that is a claim about its CONTENT, not about the art
+			around it. ]]
+		local bleed = chrome_slots.bleedLane(metrics, slot, props.axis or "y", carveSpent)
+		if bleed > 0 then
+			local top, right, bottom, left = solver.sides(layoutNode.padding)
+			if (props.axis or "y") == "x" then
+				layoutNode.padding =
+					{ top = math.max(top, bleed), right = right, bottom = math.max(bottom, bleed), left = left }
+			else
+				layoutNode.padding =
+					{ top = top, right = math.max(right, bleed), bottom = bottom, left = math.max(left, bleed) }
+			end
+		end
+		--[[ ...AND THE LEADING EDGE'S OWN RESERVE, STAMPED RATHER THAN SPENT
+			HERE (task SHOWCASE3, 2026-08-29; supersedes 9eb095a, reverted).
+			The cross axis above is safe unconditional: "reachable by scrolling
+			to it" never applies to it either, but nothing has measured it
+			collapsing a real box. The leading edge (top for y, left for x) is
+			different — there is no canvas before scroll position 0 to grow
+			into, so showing a first child's own glow costs real padding, and
+			real padding taken from a box that cannot afford it is a blank
+			scroller. 9eb095a spent it right here, unconditionally, and that is
+			exactly what collapsed `overflow_sweep`'s `tab_view`/`p3_sipworks`
+			to a 0px content box under Sci-Fi HUD at narrow-landscape: this
+			pre-solve conversion sees only the node's own AUTHORED extent —
+			`math.huge` for the common fill/hug scroll container — never the
+			real offer a parent squeezing it actually has. So this only
+			STAMPS the fact; `src/layout/solver.luau`'s `arrange` spends it
+			floor-aware, against the rect it actually resolved. ]]
+		layoutNode.leadingBleed = bleed
 	end
 	-- THE ICON'S BOX IS A SOLVER FACT (director report 2026-07-28, defects 1+2).
 	--

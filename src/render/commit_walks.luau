@@ -1805,35 +1805,25 @@ function commit_walks.new(ctx: CommitCtx)
 					-- platform ships: the layout does not move, the paint becomes
 					-- reachable.
 					-- Zero for every package that declares no shadow.
-					--[[ THE LANE THE LAYOUT ACTUALLY KEPT, not the package's raw reach
-						(NEW-1, 2026-09-13). `chrome_slots.bleedLane` nets the package's
-						bleed against the slot's own carved frame, because a carved frame
-						already holds content that far from its clip edge — and this
-						canvas and `render/layout_node.luau`'s padding are the two
-						readers of that one number. They must not disagree: the canvas is
-						what decides whether a scrollbar appears, so a canvas built from
-						the raw bleed over a box that reserved the netted lane is a
-						scroller that overflows itself forever, which is exactly the
-						defect the A4 fix removed. ]]
-					local bleed = chromeSlots.bleedLane(
-						metrics,
-						chromeSlots.classify({
-							class = node.class,
-							surface = props.surface,
-							hasSelection = props.selected ~= nil,
-							hint = (function()
-								local hint = chromeSlots.readHint(node)
-								return if hint ~= nil then hint.slot else nil
-							end)(),
-						})
-					)
-					-- ...and zero for a scroller that declared its content keeps no
-					-- chrome lane (`chromeReserve = "none"`): the layout kept none, so
-					-- the canvas must not grow by one either, or two rows that fit
-					-- the host scroll by exactly the allowance (picker card, 2026-09-12)
-					if bleed > 0 and (chromeSlots.hasOnlyPlainLeaves(node) or props.chromeReserve == "none") then
-						bleed = 0
-					end
+					--[[ THE LANE THIS SOLVE ACTUALLY KEPT, read rather than re-derived
+						(R1, 2026-09-13). `layout/scroll_arrange.luau` publishes it beside
+						the padding above, from the number `render/layout_node.luau`
+						stamped when it spent it — so the canvas and the box are built
+						from ONE fact, which is the whole invariant: a canvas bigger than
+						the box by so much as a pixel is a scrollbar on content that fits,
+						forever.
+
+						RE-DERIVING IT HERE COULD NOT BE MADE CORRECT. The lane is gated
+						on `insideClipper` (outermost only), on the slot's carve, and on
+						whether that carve survived `spendInset` — none of which this walk
+						can see. It re-derived from the package's raw `chromeBleed` and a
+						nested scroller therefore reserved nothing while publishing a
+						canvas a full lane bigger (+24 Sci-Fi HUD, +17 Fantasy Parchment
+						and Glossy Mobile on `Screen > ScrollView > ScrollView`). The two
+						`chromeReserve = "none"` / plain-leaves tests that used to stand
+						here are upstream now, in the gate that stamps the lane, so a
+						scroller that opts out publishes a zero and this reads it. ]]
+					local bleed = if type(entry.bleedLane) == "number" then entry.bleedLane else 0
 					local region = {
 						axis = props.axis or "y",
 						contentW = entry.contentSize.w + pl + pr + bleed,

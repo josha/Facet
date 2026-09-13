@@ -718,8 +718,9 @@ end
 ---
 --- An unbounded extent affords everything: a node free to grow pays its chrome
 --- and grows by it, which is the overwhelmingly common path and must not move.
---[[ bleedLane(metrics, slot) -> the clearance a scroller still owes its content's
-	chrome, AFTER whatever its own carved frame already gives (NEW-1, 2026-09-13).
+--[[ bleedLane(metrics, slot, axis, spent?) -> the clearance a scroller still owes
+	its content's chrome, AFTER whatever its own carved frame already gives
+	(NEW-1, 2026-09-13; axis and spent added by R3/R4).
 
 	`chromeBleed` is how far the furthest-reaching art in a package paints OUTSIDE
 	the box it belongs to, and an outermost clipper keeps that much padding so a
@@ -730,26 +731,43 @@ end
 	of a 390 px phone for 18 px of clearance; under Sci-Fi HUD (bleed 24, carve 0)
 	every pixel of the lane is owed and dropping it cut the glow.
 
-	ONE DERIVATION, TWO READERS, and that is the point of publishing it here rather
-	than inlining the arithmetic: `render/layout_node.luau` spends it as padding and
-	`render/commit_walks.luau` adds it to the scroll CANVAS as the trailing
-	allowance. Those two disagreeing by so much as a pixel is a scroller that
-	overflows its own box forever, which is the defect the A4 fix (2026-09-13)
-	existed to remove.
+	THE LANE LIVES ON THE CROSS AXIS, so that is the side to read (R4). A y-axis
+	scroller keeps it left/right — nothing can be scrolled sideways into view, which
+	is the whole reason the reserve exists there — and an x-axis one keeps it
+	top/bottom. Reading `left` for both was right for the y case and charged an
+	x-axis shelf against a frame on the wrong pair of edges.
 
-	The carve is read on ONE side. Every shipped package's `contentInsets` are
-	symmetric, and a lane is a single scalar in this framework — the day an
-	asymmetric carve ships, this is the function that learns about it, not its two
-	callers. ]]
-function chrome_slots.bleedLane(metrics: any, slot: string?): number
+	AND CONTENT INSETS ARE NOT SYMMETRIC. The first version of this note claimed
+	they were; they are not, and the packages say so — `compact_pointer`'s `control`
+	is 2/8, `fantasy_ornate`'s 10/14. The caller passes `spent`, the per-side carve
+	its own solve actually KEPT (`render/layout_node.luau` builds it where
+	`spendInset`'s verdict is known), and this reads the one side the lane lands on.
+	With no `spent` the slot's DECLARED inset stands in — the right answer for a
+	caller asking what a slot owes before any box has been solved.
+
+	ONE DERIVATION, ONE PUBLICATION: the lane a solve spends is published beside its
+	padding (`layout/scroll_arrange.luau`) and the scroll CANVAS reads it from there
+	rather than re-deriving (`render/commit_walks.luau`). Two derivations of this
+	number disagreeing by a pixel is a scroller that overflows its own box forever,
+	which is the defect the A4 fix existed to remove — and R1 is that defect
+	arriving through the nested case, where only one of the two readers knew about
+	`insideClipper`. ]]
+function chrome_slots.bleedLane(metrics: any, slot: string?, axis: string?, spent: any?): number
 	local bleed = if type(metrics) == "table" and type(metrics.chromeBleed) == "number" then metrics.chromeBleed else 0
 	if bleed <= 0 then
 		return 0
 	end
-	local insets = if type(metrics) == "table" then (metrics :: any).chromeInsets else nil
-	local carved = if type(insets) == "table" and slot ~= nil then (insets :: any)[slot] else nil
-	local left = if type(carved) == "table" and type(carved.left) == "number" then carved.left else 0
-	return math.max(0, bleed - left)
+	-- the lane is the CROSS axis: left/right for a y scroller, top/bottom for an x
+	local side = if axis == "x" then "top" else "left"
+	local carved: any = spent
+	if carved == nil then
+		local insets = if type(metrics) == "table" then (metrics :: any).chromeInsets else nil
+		carved = if type(insets) == "table" and slot ~= nil then (insets :: any)[slot] else nil
+	end
+	local kept = if type(carved) == "table" and type((carved :: any)[side]) == "number"
+		then (carved :: any)[side]
+		else 0
+	return math.max(0, bleed - kept)
 end
 
 function chrome_slots.spendInset(extent: number, authored: number, inset: number, minContent: number?): number

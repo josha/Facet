@@ -238,7 +238,12 @@ function alert.rowFits(labelWidths: { number }, chromeX: number, gap: number, av
 	for _, w in labelWidths do
 		need += w + chromeX
 	end
-	return need <= available
+	--[[ `math.huge <= math.huge` IS TRUE, AND IT IS NOT A FIT (R9, 2026-09-13).
+		A label nobody can measure is charged `math.huge` precisely so it cannot fit;
+		an `available` of `math.huge` would then have answered YES to the row — the
+		one form that can cut — on the exact inputs the charge exists to refuse. An
+		infinite need never fits, whatever the offer. ]]
+	return need <= available and need < math.huge
 end
 function alert.orderActions(actions: { Action }, stacked: boolean): { Action }
 	local rest, cancel = {}, nil
@@ -738,16 +743,29 @@ function alert.build(Facet: any, core: any, spec: Spec)
 			centres its own glyphs in the box it hugged to, which IS the card's
 			centre because the row centres it. ]]
 		local marked = #header > 0
-		--[[ A BLANK TITLE IS NO TITLE (NEW-5). A hugging Text asks for the width of
-			what it draws, and whitespace draws nothing: `" "` measured 0x24 and the
-			containment guard reported a visible node with zero width — correctly, it
-			IS one. `""` never reached here (the schema's own `textValue` takes a
-			string, and an empty one produced the same empty box), so the two spellings
-			are folded: a title with no glyphs in it mounts no node, exactly as a `nil`
-			message mounts none, and the card is its message and its actions. ]]
-		local titleText = if type(def.title) == "string" then def.title else nil
-		local blankTitle = titleText ~= nil and string.match(titleText, "%S") == nil
-		if not blankTitle then
+		--[[ A BLANK TITLE IS NO TITLE (NEW-5; made reactive by R2). A hugging Text
+			asks for the width of what it DRAWS, and whitespace draws nothing: `" "`
+			measured 0x24 and the containment guard reported a visible node with zero
+			width — correctly, it IS one. `""` is the same box under a different
+			spelling, so the two are folded.
+
+			TWO RUNGS, BECAUSE ONE OF THEM CAN BE ANSWERED FOR FREE. A literal blank
+			is known here, so it mounts NOTHING — no node and (with no mark) no row
+			either, which is the whole of R7: an empty `Header` still cost a `gap`,
+			8 px of dead space above the message. A READABLE title cannot be judged
+			at build — it is blank now, or it goes blank three frames from now when
+			the caller's signal changes — so that one mounts and binds `hidden`,
+			which is the framework's own spelling for "this view is not to be drawn"
+			and the one the solver's hidden verdict, the hit walk and `hiddenRoots`
+			all already follow. It reserves its slot; a node that has to be able to
+			come BACK cannot give the slot up without a structural region, and a
+			structural region would move every alert's title path for the sake of a
+			degenerate case. ]]
+		local function blank(value: any): boolean
+			return type(value) ~= "string" or string.match(value, "%S") == nil
+		end
+		local staticBlank = type(def.title) == "string" and blank(def.title)
+		if not staticBlank then
 			table.insert(
 				header,
 				UI.Text({
@@ -757,21 +775,30 @@ function alert.build(Facet: any, core: any, spec: Spec)
 					textSize = "heading",
 					textAlign = if marked then "start" else "center",
 					width = UI.hug(),
+					hidden = if UI.isReadable(def.title)
+						then branchScope:own(core:memo(function(use)
+							return blank(use(def.title))
+						end))
+						else nil,
 					tint = if def.severity == "critical" then { role = "danger", blend = 1 } else nil,
 				})
 			)
 		end
-		table.insert(
-			content,
-			UI.HStack({
-				id = "Header",
-				width = UI.fill(),
-				gap = "s",
-				align = "center",
-				distribute = "center",
-				children = header,
-			})
-		)
+		-- an empty row is not a row: it would still spend the content stack's gap
+		-- (R7), which is 8 px of nothing above the message
+		if #header > 0 then
+			table.insert(
+				content,
+				UI.HStack({
+					id = "Header",
+					width = UI.fill(),
+					gap = "s",
+					align = "center",
+					distribute = "center",
+					children = header,
+				})
+			)
+		end
 		if def.message ~= nil then
 			table.insert(
 				content,
@@ -888,10 +915,13 @@ function alert.build(Facet: any, core: any, spec: Spec)
 			those facts moves. It is NOT re-decided from the solve: nothing here reads
 			an arranged rect, so a calibration pass, a text-measure epoch or a
 			settled font cannot flip the form under a player mid-read. The one
-			consequence worth naming is the direction of its error: every fallback
-			below it reports a label NARROWER than it is (an unmeasurable font
-			reports zero; the budget takes the conservative side of cap-vs-screen),
-			so a wrong answer OVER-STACKS. It never cuts.
+			consequence worth naming is the direction of its error, and it is the
+			direction of the FORM rather than of any one number: every fallback below
+			it errs toward "does not fit" — an unmeasurable label is charged
+			`math.huge`, an unresolvable width cap falls back to the screen the card
+			is centred in rather than to infinity — so a wrong answer OVER-STACKS. A
+			stack is full width by construction and cannot put a button outside the
+			card; a row can, and did, when these two erred the other way (NEW-2).
 
 			AND IT MEASURES WHAT THE BUTTON WILL ACTUALLY DRAW — WHICH IS THE FULL
 			LABEL, EVEN WHERE A `compactLabel` EXISTS (RED-TEAM F11, MEASURED AND

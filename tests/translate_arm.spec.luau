@@ -1163,8 +1163,15 @@ describe("O3: the refusal names every kind that stamps an entry field after the 
 			the only two `entryKey` above is allowed to ignore — they are in this set for
 			exactly that reason: the day a third one appears, the oracle's modulo and
 			this pin move together or this line fails. ]]
+		--[[ `bleedLane` joined the `scroll` branch's stamps (R1, 2026-09-13): the
+			chrome lane that solve actually spent, published beside the `padding` it
+			spent so the scroll CANVAS is built from the same number the box was.
+			`scroll` is a REFUSED kind (below) — it never becomes a translate root —
+			so a new field on it publishes no half entry; it is pinned here because
+			this list is what makes a new field visible at all. ]]
 		expect(sortedKeys(fields)).toEqual({
 			"barInset",
+			"bleedLane",
 			"composition",
 			"contentSize",
 			"innerDX",

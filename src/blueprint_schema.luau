@@ -1882,12 +1882,18 @@ class("ScrollView", {
 				floated 31px inside the card, and the region's content grew by two
 				lanes while the host grew by one — a scrollbar on two rows that fit.
 				"none" declares that nothing inside reaches past its box, so no lane
-				is kept; "auto" keeps the conservative rule. ]]
+				is kept; "auto" keeps the conservative rule.
+
+				AND "THE PACKAGE-WIDE MAXIMUM" IS NETTED AGAINST THE CARVE (2026-09-13):
+				a carved frame already holds this scroller's content that far from its
+				own clip edge, so the lane owes only the difference
+				(`chrome_slots.bleedLane`, re-derived per solve and published beside the
+				spent padding so the box and its canvas are built from one number). ]]
 			types = { "string" },
 			reactive = false,
 			enum = { "auto", "none" },
 			channel = "layout",
-			doc = 'chrome reserve: "auto" (default, keeps the package bleed lane) or "none" (a scroller whose content carries no chrome that reaches past its box)',
+			doc = 'chrome reserve: "auto" (default, keeps the lane — `max(0, chromeBleed - the slot\'s own carve)`, since a carved frame already holds content that far from the clip edge; see `chrome_slots.bleedLane`) or "none" (a scroller whose content carries no chrome that reaches past its box)',
 		}),
 		autoscroll = p({
 			-- DRAG-TO-EDGE AUTOSCROLL BELONGS TO THE SCROLLER, NOT TO ITS CONTENTS

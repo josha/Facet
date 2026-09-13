@@ -1032,6 +1032,74 @@ t.describe("Alert header: a mark is punctuation, and the title is centred", func
 		alert.dispose()
 	end)
 
+	--[[ …AND THE EMPTY ROW GOES WITH IT (R7). With no mark and no title the `Header`
+		still mounted, and an empty row in a gapped stack is not free: it spends the
+		content stack's `gap`, 8 px of nothing above the message. ]]
+	t.it("a card with no mark and no title mounts no header row", function()
+		local w, alert = open({
+			id = "NoRow",
+			title = " ",
+			message = "Your selected driver is ready.",
+			actions = { { id = "ok", label = "OK" } },
+		}, { viewport = { x = 0, y = 0, w = 390, h = 844 } })
+		t.expect(w.adapter.node("/NoRow/Center/Card/Header")).toBe(nil)
+		local card = w.adapter.node("/NoRow/Center/Card").rect
+		local message = w.adapter.node("/NoRow/Center/Card/Message").rect
+		-- the message is the card's first child now: the only thing above it is the
+		-- card's own top padding, with no row and no gap in between
+		local metrics = w.env:get("themeMetrics"):get()
+		t.expect(message.y - card.y).toBe(metrics.space.m)
+		alert.dispose()
+	end)
+
+	--[[ A READABLE TITLE CANNOT BE JUDGED AT BUILD (R2). It is blank now, or it goes
+		blank three frames from now when the caller's signal changes — and the
+		build-time fold could see neither. It mounts and binds `hidden`, so the
+		containment guard has nothing to report in either state and the title comes
+		back when the signal does. ]]
+	t.it("a READABLE title that is blank, or goes blank, draws nothing and comes back", function()
+		local w = world.new({ viewport = { x = 0, y = 0, w = 390, h = 844 } })
+		local title = w.core:signal("Replace this save?")
+		local alert = Facet.Controls.Alert(w.core, {
+			id = "Live",
+			title = title,
+			message = "Your current progress will replace the previous checkpoint.",
+			actions = { { id = "ok", label = "OK" } },
+		})
+		alert.present(w.pres)
+		w.settle(3)
+		local path = "/Live/Center/Card/Header/Title"
+		t.expect(w.adapter.visibleOf(path)).toBe(true)
+		-- …blank LATE: the guard would report a zero-width visible node
+		title:set("   ")
+		w.settle(3)
+		t.expect(w.adapter.visibleOf(path)).toBe(false)
+		w.overflowGuard()
+		-- …and back
+		title:set("Replace this save?")
+		w.settle(3)
+		t.expect(w.adapter.visibleOf(path)).toBe(true)
+		alert.dispose()
+		title:dispose()
+	end)
+
+	t.it("a READABLE title that starts blank never draws a zero-width box", function()
+		local w = world.new({ viewport = { x = 0, y = 0, w = 390, h = 844 } })
+		local title = w.core:signal(" ")
+		local alert = Facet.Controls.Alert(w.core, {
+			id = "Born",
+			title = title,
+			message = "Your selected driver is ready.",
+			actions = { { id = "ok", label = "OK" } },
+		})
+		alert.present(w.pres)
+		w.settle(3)
+		t.expect(w.adapter.visibleOf("/Born/Center/Card/Header/Title")).toBe(false)
+		t.expect(w.core:lastError()).toBe(nil)
+		alert.dispose()
+		title:dispose()
+	end)
+
 	t.it("a long unmarked title wraps inside a full-width card instead of collapsing it", function()
 		local LONG = "Are you absolutely certain you want to replace this saved checkpoint now"
 		t.expect(#LONG >= 67).toBe(true)
@@ -1451,5 +1519,10 @@ t.describe("Alert actions: the label fits before anything is cut", function()
 		t.expect(policy.rowFits({ 100, 100 }, 24, 16, 264)).toBe(true)
 		t.expect(policy.rowFits({ 100, 100 }, 24, 16, 263)).toBe(false)
 		t.expect(policy.rowFits({}, 24, 16, 0)).toBe(true)
+		-- an infinite need never fits, whatever the offer: `huge <= huge` is true
+		-- and is not a fit, and `huge` is exactly what an unmeasurable label is
+		-- charged so that it cannot take the row (R9)
+		t.expect(policy.rowFits({ math.huge }, 24, 16, math.huge)).toBe(false)
+		t.expect(policy.rowFits({ 100, math.huge }, 24, 16, math.huge)).toBe(false)
 	end)
 end)

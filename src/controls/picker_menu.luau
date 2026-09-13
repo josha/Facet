@@ -859,11 +859,30 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 		local insetsBySlot = if type(snap) == "table" then (snap :: any).chromeInsets else nil
 		local plate = if type(insetsBySlot) == "table" then insetsBySlot.panel else nil
 		local card = if type(plate) == "table" then (tonumber(plate.left) or 0) + (tonumber(plate.right) or 0) else 0
-		--[[ ...AND THE SCROLLER'S SHADOW RESERVE. The rows live inside a `ScrollView`,
-			and `render/layout_node`'s bleed block gives a scroll container
-			`metrics.chromeBleed` of CROSS-axis padding so a child's glow is not clipped
-			at the gutter. It is 0 for every flat package and 17 under Glossy Touch and
-			Fantasy Ornate — 34px per popover, which is a whole word at these sizes. ]]
+		--[[ ...AND AN ALLOWANCE FOR THE SCROLLER'S OWN CROSS-AXIS RESERVE, WHICH THIS
+			TERM IS NOT HONESTLY NAMED FOR (R8, measured 2026-09-13).
+
+			The comment that stood here said this covered the bleed lane
+			`render/layout_node`'s bleed block gives a scroll container. That claim was
+			FALSE: the list below declares `chromeReserve = "none"` — its rows are
+			plain, its fill is a tint, the check draws inside its own box — so the
+			block is skipped for it and no lane is ever reserved.
+
+			REMOVING THE TERM WAS TRIED AND IT BREAKS THREE SWEEP CASES, each by
+			exactly 8 px (`picker_sweep`: "Opt-c fits its label", label 468 against a
+			need of 476 under glossy-touch at phone-landscape). The 8 is the SCROLL
+			BAR's cross-axis reserve, which the solver takes off this list whenever it
+			overflows under a pointer session's `always` policy — a real number the
+			panel genuinely owes and a number a SHARED control cannot read: the
+			thickness lives in `src/client/screen_target.luau`, the policy reaches the
+			solver through `ctx.scrollBarReserve`, and neither is a theme metric.
+
+			So the term stays, as a conservative allowance rather than a derivation,
+			and this comment says what it is instead of naming the wrong mechanism.
+			The estimate is over by `2 * bleed - reserve` on a glowing package and
+			exact on a flat one. BOOKED for the picker's own round: the honest fix is
+			for the panel width to come from the solve rather than from an estimate
+			that has to predict a reserve it cannot see. ]]
 		local bleed = if type((snap :: any).chromeBleed) == "number" then (snap :: any).chromeBleed else 0
 		local widest = 0
 		for _, option in results:get() do
