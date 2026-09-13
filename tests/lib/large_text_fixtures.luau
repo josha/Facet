@@ -1048,7 +1048,13 @@ local FIXTURES: { Fixture } = {
 				message = GERMAN,
 				actions = {
 					{ id = "Cancel", label = lt.PSEUDO_ACTION, role = "cancel" },
-					{ id = "Accept", label = "Continue" },
+					-- A SHORTCUT ON THE PRIMARY ACTION (review N2). `newAlert`
+					-- builds a shortcut-bearing action through a DIFFERENT branch
+					-- that rebuilds its props from scratch, so every presentation
+					-- key — `disclose` among them — has to be restated there; it
+					-- was not, and this is the branch every `defaultAction` /
+					-- `cancelAction` takes. Declared here so the sweep walks it.
+					{ id = "Accept", label = "Continue", shortcut = "defaultAction" },
 				},
 			}).blueprint
 		end,

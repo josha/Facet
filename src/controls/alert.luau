@@ -497,10 +497,17 @@ function alert.build(Facet: any, core: any, spec: Spec)
 					end,
 				})).blueprint
 				-- Keep the existing Button shortcut/lifetime bundle on the same
-				-- plain label presentation as the other alert actions.
+				-- plain label presentation as the other alert actions — WHICH
+				-- INCLUDES THE FULL-VALUE ROUTE (review N2). This branch rebuilds
+				-- `props` from scratch, so every presentation key the plain branch
+				-- below declares has to be restated here or it is silently
+				-- dropped; `disclose` was, and this is the branch every
+				-- `defaultAction`/`cancelAction` takes — a confirm dialog's
+				-- PRIMARY action, the one most likely to be read.
 				local props = table.clone(bp.props)
 				props.id = bp.id
 				props.compactLabel = action.compactLabel
+				props.disclose = true
 				props.surface = if action.role == "default" then "accent" else nil
 				return Facet.contribution.attach(UI.Button(props), Facet.contribution.read(bp))
 			end
@@ -522,7 +529,10 @@ function alert.build(Facet: any, core: any, spec: Spec)
 					optional text on the screen. `disclose` is the framework's
 					answer for exactly this shape (`UI.Button{ disclose = true }`,
 					which every segment of a sliding strip now declares); it
-					reserves nothing while the label fits. ]]
+					reserves nothing while the label fits.
+
+					BOTH BRANCHES, or neither (review N2): the shortcut branch
+					above rebuilds its props and has to restate this one. ]]
 				disclose = true,
 			})
 		end
