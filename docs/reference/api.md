@@ -8034,7 +8034,8 @@ owns whatever that tab's factory put on it. `selection` is yours.
 
 `Facet.Controls.DisclosureGroup(core, spec) -> { blueprint, bindFocus, dump, dispose }`
 — a labelled header that expands and collapses its content. `spec = { id?, label
-(required), expanded (Signal<boolean>), content (() -> Blueprint), enabled?, onToggle? }`.
+(required), expanded (Signal<boolean>), content (() -> Blueprint), enabled?, onToggle?,
+presenter? }`.
 
 The two-argument spelling `Facet.newDisclosureGroup(Facet, core, spec)` is **deprecated** since
 0.10.0 (removal no earlier than 0.12.0): it still builds the identical
@@ -8042,7 +8043,23 @@ control, and `Facet.Controls.DisclosureGroup` is a closure over the library, not
 implementation.
 
 Content mounts through `UI.When`, so a collapsed group genuinely costs nothing (only
-structural regions may mount or unmount).
+structural regions may mount or unmount). It mounts with `{ enter = "slide-up",
+distance = 12 }`; the exit rides the structural default (`dismiss`) rather than
+declaring its own, so reopening mid-exit reverses through the same travel instead of
+jumping across it.
+
+**The caret is one `chevron.trailing` glyph, not two.** Its `rotation` — paint-only,
+never seen by the solver — springs 0 → 90 as `expanded` flips, turning to point down
+rather than swapping between a mounted `chevron.down`/`chevron.trailing` pair. A
+package's `chevron.down` art, if it declared any, is no longer requested by this
+control.
+
+**`presenter?` buys the sibling glide.** When given (a presenter — anything with
+`withAnimation`), the toggle runs inside `presenter.withAnimation("container", …)`, so
+every OTHER node whose solved position the flip moves — a section below this one
+sliding to make or close room — travels there instead of jumping. Absent (the common
+case), the flip is instant; the caret and the content still animate their own paint
+either way, off the ambient motion clock every mounted control receives for free.
 
 **Focus is the load-bearing detail.** Collapsing while focus sits inside the content
 would leave focus on a node that is about to be unmounted, so the control moves focus

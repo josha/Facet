@@ -13,6 +13,20 @@ runtime as `Facet.VERSION`.
 
 ## [Unreleased]
 
+- `Controls.DisclosureGroup`'s caret is one `chevron.trailing` glyph now, not a
+  mounted/unmounted `chevron.down`/`chevron.trailing` pair: its paint-only
+  `rotation` springs 0 → 90 as `expanded` flips, turning to point down instead of
+  swapping identity. A package's `chevron.down` art, if it declared any, is no
+  longer requested by this control. Content still mounts through `UI.When`, now
+  with `{ enter = "slide-up", distance = 12 }`; its exit rides the structural
+  default (`dismiss`) rather than declaring its own, so reopening mid-exit
+  reverses through the same travel instead of jumping across it. `DisclosureGroupSpec`
+  gains an optional `presenter`: when given, the toggle runs inside
+  `presenter.withAnimation("container", …)` so a sibling whose position the flip
+  moves — a section below sliding to make or close room — glides there instead of
+  jumping; absent (the common case), the flip is instant and only the caret/content
+  animate their own paint, off the ambient motion clock every mounted control
+  already receives.
 - Structural exits are faster than the entrances they mirror. A new built-in
   spring class `dismiss` (ζ1.0, 0.2 s) is what every exit runs on unless a
   `transition` names its own `exitClass`, so a `When`, a `ForEach` row, a toast

@@ -431,6 +431,14 @@ describe("B-DSP2: DisclosureGroup updates focus correctly", function()
 		adapter.tap("/S/Advanced/Header")
 		pres.refresh()
 		expect(expanded:get()).toBe(false)
+		-- the content's `enter = "slide-up"` (task 12) carries a mirrored EXIT
+		-- (structural default `dismiss`, 0.2 s / capped at 0.5 s): collapsing no
+		-- longer unmounts on the SAME frame — it stays mounted, travelling out,
+		-- until that settles. 40 frames (~0.67 s) clears the flat cap.
+		for _ = 1, 40 do
+			pres.tick(1 / 60)
+			pres.refresh()
+		end
 		expect(adapter.node("/S/Advanced/Content/then/Body/Inner")).toBe(nil)
 	end)
 

@@ -849,6 +849,9 @@ require("./compact_label.spec")
 require("./value_controls.spec")
 require("./rating.spec")
 require("./display_controls.spec")
+-- task 12 (transitions round, spec 2I): the caret's rotation spring, the
+-- content's slide-up entrance, and the presenter-bound sibling glide
+require("./disclosure_group.spec")
 -- parity round 3 D2: the circular progress indicator, both forms — the geometry,
 -- the paint-only contract, the zero off-path cost and the per-theme stroke fit
 require("./progress_circular.spec")

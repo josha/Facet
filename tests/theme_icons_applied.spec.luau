@@ -164,14 +164,20 @@ describe("the tofu defect, closed at its source", function()
 		-- exactly how the sci-fi follow-ups caret shipped as tofu
 		expect(string.find(disclosureSource, "\u{25BE}", 1, true)).toBeNil()
 		expect(string.find(disclosureSource, "\u{25B8}", 1, true)).toBeNil()
-		expect(string.find(disclosureSource, 'themePackage.iconGlyph("chevron.down")', 1, true) ~= nil).toBe(true)
 		expect(string.find(disclosureSource, 'themePackage.iconGlyph("chevron.trailing")', 1, true) ~= nil).toBe(true)
-		-- ...and the caret REQUESTS the icon, exactly as the stepper's glyphs do
-		-- (phase-gate verifier F3: the glyph half shipped, the request half did
-		-- not, so every reference package's caret art was a dead declaration)
-		expect(string.find(disclosureSource, 'caret("chevron.down", CARET_OPEN)', 1, true) ~= nil).toBe(true)
-		expect(string.find(disclosureSource, 'caret("chevron.trailing", CARET_SHUT)', 1, true) ~= nil).toBe(true)
+		-- task 12 (transitions round): the two-state mount is gone too — ONE
+		-- glyph, rotated 0 -> 90 — so `chevron.down` is no longer requested by
+		-- this control at all
+		expect(string.find(disclosureSource, 'themePackage.iconGlyph("chevron.down")', 1, true)).toBeNil()
+		-- ...and the caret still REQUESTS the icon, exactly as the stepper's
+		-- glyphs do (phase-gate verifier F3: the glyph half shipped, the request
+		-- half did not, so every reference package's caret art was a dead
+		-- declaration) — now through a static hint on the one node rather than a
+		-- pair of `caret(icon, glyph)` calls
+		expect(string.find(disclosureSource, 'icon = "chevron.trailing"', 1, true) ~= nil).toBe(true)
 		expect(string.find(disclosureSource, "chrome_slots.attachHint", 1, true) ~= nil).toBe(true)
+		-- the OPEN/SHUT state is now a paint-only rotation, never a second mount
+		expect(string.find(disclosureSource, "rotation = caretAngle", 1, true) ~= nil).toBe(true)
 	end)
 
 	it("the stepper's U+2212 minus sign is gone and both glyphs are icon requests", function()
@@ -201,19 +207,19 @@ describe("the tofu defect, closed at its source", function()
 		-- theme's picture cannot take the label with it
 		expect(header.props.label).toBe("Advanced")
 		expect(isAscii(header.props.label)).toBe(true)
-		local caretShut = header.children[2].props.thenView()
-		expect(caretShut.props.text).toBe(">")
-		expect(isAscii(caretShut.props.text)).toBe(true)
-		local caretOpen = header.children[1].props.thenView()
-		expect(caretOpen.props.text).toBe("v")
-		expect(isAscii(caretOpen.props.text)).toBe(true)
+		-- task 12: ONE caret node now (no `UI.When` pair to unwrap a `thenView` from)
+		local caret = header.children[1]
+		expect(caret.props.text).toBe(">")
+		expect(isAscii(caret.props.text)).toBe(true)
 		group.dispose()
 	end)
 
 	-- phase-gate verifier F3. THE HEADER PUBLISHES THE REQUEST: without this the
-	-- reference packages' `chevron.down` / `chevron.trailing` art could never
-	-- paint, and rs-a7 read "the glyph is still showing" as a success under a
-	-- chevron-DECLARING package.
+	-- reference packages' `chevron.trailing` art could never paint, and rs-a7
+	-- read "the glyph is still showing" as a success under a chevron-DECLARING
+	-- package. Task 12 replaced the mounted/unmounted PAIR with one glyph that
+	-- turns — this proves the request survives the flip, not the flight itself
+	-- (disclosure_group.spec.luau proves the rotation reaching 90).
 	it("the disclosure header PUBLISHES the chevron icon request, both ways", function()
 		local core = customFactory.new()
 		local env = environment.new(core)
@@ -233,23 +239,23 @@ describe("the tofu defect, closed at its source", function()
 		pres.present(UI.Screen({ id = "S", children = { group.blueprint } }))
 		pres.refresh()
 		-- collapsed: the trailing chevron, on a node that draws the ASCII glyph
-		local shut = adapter.node("/S/Adv/Header/CaretShut/then/Caret")
-		expect(shut ~= nil).toBe(true)
-		expect(shut.decorationHint.icon).toBe("chevron.trailing")
-		expect(shut.props.text).toBe(">")
-		expect(adapter.node("/S/Adv/Header/CaretOpen/then/Caret")).toBeNil()
+		local caret = adapter.node("/S/Adv/Header/Caret")
+		expect(caret ~= nil).toBe(true)
+		expect(caret.decorationHint.icon).toBe("chevron.trailing")
+		expect(caret.props.text).toBe(">")
+		expect(caret.rotation or 0).toBe(0)
 		-- ...and the LABEL is a separate node, so the icon's glyph suppression
 		-- (adapter TextTransparency / the `facet-icon-art` tag) cannot reach it
 		expect(adapter.node("/S/Adv/Header/Label").props.text).toBe("Advanced")
-		-- expanded: the down chevron, and exactly one caret is mounted at a time
+		-- expanded: the SAME node (never unmounted), the SAME glyph, the SAME
+		-- icon request — only the aim changed, which is what a rotation is
 		expanded:set(true)
 		pres.refresh()
-		local open = adapter.node("/S/Adv/Header/CaretOpen/then/Caret")
-		expect(open ~= nil).toBe(true)
-		expect(open.decorationHint.icon).toBe("chevron.down")
-		expect(open.props.text).toBe("v")
-		expect(adapter.node("/S/Adv/Header/CaretShut/then/Caret")).toBeNil()
-		-- both names are ones a package can actually declare art for
+		expect(adapter.node("/S/Adv/Header/Caret")).toBe(caret)
+		expect(caret.decorationHint.icon).toBe("chevron.trailing")
+		expect(caret.props.text).toBe(">")
+		-- both names are ones a package can actually declare art for, even
+		-- though only `chevron.trailing` is requested by this control now
 		expect(themes.ICON_FALLBACK_GLYPHS["chevron.down"] ~= nil).toBe(true)
 		expect(themes.ICON_FALLBACK_GLYPHS["chevron.trailing"] ~= nil).toBe(true)
 		group.dispose()
