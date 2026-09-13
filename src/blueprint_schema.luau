@@ -224,6 +224,7 @@ local TRANSITION_KEYS: { [string]: boolean } = {
 	exitClass = true,
 	fade = true,
 	distance = true,
+	scale = true,
 	pivot = true,
 	plate = true,
 	stagger = true,
@@ -682,7 +683,7 @@ local TYPE_CHECKS: { [string]: (any) -> (boolean, string?) } = {
 			if type(k) ~= "string" or not TRANSITION_KEYS[k] then
 				return false,
 					`unknown transition field '{tostring(k)}' `
-						.. `(enter | exit | class | exitClass | fade | distance | pivot | plate | stagger)`
+						.. `(enter | exit | class | exitClass | fade | distance | scale | pivot | plate | stagger)`
 			end
 		end
 		local enter = (v :: any).enter
@@ -726,6 +727,30 @@ local TYPE_CHECKS: { [string]: (any) -> (boolean, string?) } = {
 		then
 			return false,
 				"distance is a finite positive number of px (the slide forms' own full travel, no unit suffix)"
+		end
+		--[[ `scale` IS `distance`'S TWIN FOR THE SCALING FORM, and it exists because
+			of a measured ENGINE fact rather than a taste: Roblox rasterizes text at
+			`floor(TextSize x effectiveScale)`, so ANY `UIScale` below 1 paints every
+			string under it one whole pixel smaller — 20px text renders at 19 for the
+			WHOLE of a 0.96 -> 1 materialize and snaps back the instant the scale
+			reaches exactly 1 (measured live 2026-09-13: TextBounds 127.5x19 at every
+			scale in [0.96, 1), 133.5x20 at 1.0). On a text-heavy surface that snap is
+			a visible re-flow AFTER the motion has stopped.
+
+			A form that settles DOWN from just above 1 has no such step: the band
+			[1, 1 + 1/maxTextSize) floors to the same pixel throughout. So a surface
+			whose content is mostly type declares its own absent scale, exactly as a
+			full-viewport push declares its own `distance`; nil keeps the ratified
+			0.96 default (render/transitions.luau's `MATERIALIZE_SCALE`) for every
+			caller that has not said otherwise. Ignored by non-scaling forms. ]]
+		local scale = (v :: any).scale
+		if
+			scale ~= nil
+			and (type(scale) ~= "number" or scale ~= scale or scale == math.huge or scale <= 0 or scale == 1)
+		then
+			return false,
+				"scale is the finite positive scale a materialize starts from, and never 1 (a form that starts at "
+					.. "rest does not move); below 1 it grows in, above 1 it settles down"
 		end
 		--[[ THE LIST RHYTHM (spec 2F): seconds between one row's enter and the
 			next one's, for a region whose children arrive TOGETHER. A list that
@@ -1655,7 +1680,10 @@ local TRANSITION: PropSpec = p({
 		.. '"slide-left" | "slide-right" | "materialize" | "instant", exit? (default: the mirror of enter), '
 		.. 'class? (a motion class name, default "container"), fade? (pair a slide with a transparency fade), '
 		.. "distance? (px, slide forms only: overrides the themed default with the surface's own full travel — "
-		.. "a full-viewport push/pop wants its own width/height, not a decorative nudge) }. "
+		.. "a full-viewport push/pop wants its own width/height, not a decorative nudge), "
+		.. "scale? (materialize only: the scale the form starts from, default 0.96 — a text-heavy surface "
+		.. "settles DOWN from just above 1 instead, because any UIScale below 1 rasterizes every string one "
+		.. "pixel smaller and snaps back when the motion ends) }. "
 		.. "A Readable is sampled on enter/exit; it does not retarget an active flight. "
 		.. "Fading forms need the child to be a declared canvasGroup node",
 })

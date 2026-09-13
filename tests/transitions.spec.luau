@@ -1853,6 +1853,33 @@ describe("transition coordinator: stagger", function()
 		clock:dispose()
 	end)
 
+	--[[ `scale` IS `distance`'S TWIN FOR THE SCALING FORM (A1, 2026-09-13). The
+		engine rasterizes text at `floor(TextSize x effectiveScale)`, so a surface
+		that is mostly type has to settle DOWN from just above 1 rather than grow
+		from below it; the default stays the ratified 0.96 for everything else. ]]
+	it("the schema takes a materialize's own scale, and refuses the ones that mean nothing", function()
+		expect(transitionsLib.resolve({ enter = "materialize" }).scale).toBeNil()
+		expect(transitionsLib.resolve({ enter = "materialize", scale = 1.015 }).scale).toBe(1.015)
+		for _, bad in { 1, 0, -0.5, math.huge, "big" } do
+			local ok, err = pcall(transitionsLib.resolve, { enter = "materialize", scale = bad })
+			expect(ok).toBe(false)
+			expect(string.find(tostring(err), "scale", 1, true) ~= nil).toBe(true)
+		end
+	end)
+
+	it("an authored scale is the band the write actually travels", function()
+		local core, env, clock = world()
+		local on = core:signal(true)
+		local _, adapter = attach(core, env, clock, whenScreen(on, { enter = "materialize", scale = 1.015 }))
+		local panel = adapter.node("/S/Gate/then/Panel")
+		expect(panel.props.transform.scale).toBeCloseTo(1.015, 1e-6)
+		clock:step(FRAME)
+		-- it settles DOWN toward rest, and never crosses into the band where the
+		-- engine would rasterize the type a pixel small
+		expect(panel.props.transform.scale < 1.015).toBe(true)
+		expect(panel.props.transform.scale >= 1).toBe(true)
+	end)
+
 	it("the schema refuses a negative stagger, and resolve defaults it to zero", function()
 		local ok, err = pcall(transitionsLib.resolve, { enter = "fade", stagger = -1 })
 		expect(ok).toBe(false)

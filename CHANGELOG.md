@@ -13,6 +13,20 @@ runtime as `Facet.VERSION`.
 
 ## [Unreleased]
 
+- **A materialize may declare the scale it starts from, and `Controls.Alert`
+  settles DOWN into place (2026-09-13).** `transition.scale` joins `distance` as
+  the scaling form's own opt-in override. It exists because of a measured engine
+  fact: Roblox rasterizes text at `floor(TextSize × effectiveScale)`, so any
+  `UIScale` below 1 paints every string under it one whole pixel smaller for the
+  entire flight — 0.9999999 renders exactly as 0.96 does — and snaps ~5% larger
+  the moment the scale reaches 1, which is when the spring settles and the
+  channel finally drops the `UIScale`. On the Alert that read as the card's title
+  re-flowing a quarter of a second after the card had stopped moving. The modal's
+  default is now `{ enter = "materialize", plate = "fades", scale = 1.015 }`: the
+  band `[1, 1 + 1/66)` floors to the same pixel for every text size the framework
+  can paint, so the type lands at its final rect on the first painted frame.
+  Every other caller keeps the ratified `0.96`.
+
 - **Transitions round (2026-09-12, informed by a transitions.dev survey).**
   Structural exits default to the new `dismiss` motion class (`exitClass` opts a
   caller into its own); `Controls.Alert` and `Controls.Menu` materialize on open

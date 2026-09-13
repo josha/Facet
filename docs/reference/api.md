@@ -2408,7 +2408,7 @@ UI.ForEach({ items = rows, key = function(e) return e.key end, row = function(e)
 
 #### Structural transitions
 
-`transition = { enter, exit?, class?, exitClass?, fade?, distance?, pivot?, plate?, stagger? }`
+`transition = { enter, exit?, class?, exitClass?, fade?, distance?, scale?, pivot?, plate?, stagger? }`
 on `UI.When`, `UI.ForEach`, a `presentToast` and `PresentOpts`.
 
 - **Forms:** `"fade"`, `"slide-up"`, `"slide-down"`, `"slide-left"`,
@@ -2438,6 +2438,21 @@ on `UI.When`, `UI.ForEach`, a `presentToast` and `PresentOpts`.
   easing in from its own edge) with the surface's own full extent, for a slide
   that IS the surface leaving/entering the screen (a full-viewport push/pop).
   Omitted, every caller keeps the themed default unchanged.
+- **`scale`** (`materialize` only; A1, 2026-09-13) is `distance`'s twin for the
+  scaling form: the scale the node starts from, default `0.96`. It exists
+  because of a measured engine fact, not a taste — **Roblox rasterizes text at
+  `floor(TextSize × effectiveScale)`**, so *any* `UIScale` below 1 paints every
+  string under it one whole pixel smaller (20 px type renders at 19 for the
+  whole of a `0.96 → 1` flight, at 0.9999999 exactly as at 0.96) and snaps ~5%
+  larger the instant the scale reaches exactly 1 — a visible re-flow, and one
+  that lands *after* the motion has stopped, because the channel holds its
+  `UIScale` until the spring settles. A surface whose content is mostly type
+  therefore declares a scale just **above** 1 and settles *down* into place:
+  every value in `[1, 1 + 1/TextSize)` floors to the same pixel, so the text
+  lands at its final size on the first painted frame and never moves.
+  `Controls.Alert` ships `1.015` for this reason (1/0.015 = 66 px, above every
+  size the framework can paint). `1` is refused — a form that starts at rest
+  does not move.
 - **`stagger`** (a nonnegative number of **SECONDS**, enter only) is the beat
   between one entering row and the next, for a region whose children arrive
   together — a list that lands as one slab reads as a redraw, the same rows a
@@ -10528,7 +10543,7 @@ colors, type and border insets.
 | `severity` | `automatic` (default), `standard`, or `critical`. Automatic errors are critical; critical uses danger emphasis and a vector caution icon unless an image is supplied. |
 | `suppression` | `{isSuppressed: Signal<boolean>, label?}` adds the existing checkbox control. The game must consult this value when deciding whether to ask again. |
 | `content` | Optional `(scope, data) -> blueprint?` for brief extra content such as an existing TextInput. Use a full modal for an editor. Own resources in the supplied scope. |
-| `transition` | Optional [structural transition](#structural-transitions) spec, or a `Readable` of one, for the modal's own enter/exit. Defaults to `{ enter = "materialize", plate = "fades" }` (scale 0.96 → 1 with a fade in, `dismiss` dipping out faster on the way out); pass `{ enter = "instant" }` to opt out. `nil` **and** `false` both fold to that same default — `false` is the framework's "no transition" spelling on `When`/`ForEach`, but Alert's card always materializes unless the enter form is named explicitly. A static value that fails `transitions.resolve` is refused at construction (`Controls.Alert: transition: …`); a `Readable` one is refused on its first read instead, recorded on `dump().lastError`, and the binding resets to the default rather than raising inside the observer that opened it. |
+| `transition` | Optional [structural transition](#structural-transitions) spec, or a `Readable` of one, for the modal's own enter/exit. Defaults to `{ enter = "materialize", plate = "fades", scale = 1.015 }` — the card settles DOWN from 1.5% over with a fade in, `dismiss` dipping out faster on the way out; pass `{ enter = "instant" }` to opt out. It settles down rather than growing in because the engine rasterizes text at `floor(TextSize × effectiveScale)`, so a scale below 1 would paint every string on the card a pixel small for the whole flight and snap it back when the motion ended (see [`scale`](#structural-transitions)). `nil` **and** `false` both fold to that same default — `false` is the framework's "no transition" spelling on `When`/`ForEach`, but Alert's card always materializes unless the enter form is named explicitly. A static value that fails `transitions.resolve` is refused at construction (`Controls.Alert: transition: …`); a `Readable` one is refused on its first read instead, recorded on `dump().lastError`, and the binding resets to the default rather than raising inside the observer that opened it. |
 
 Use `present()` or a presentation binding for the interactive modal. `blueprint`
 is its layout template for inspection/static previews; directly mounting a custom-

@@ -834,6 +834,51 @@ t.describe("alert: the modal materializes", function()
 		alert.dispose()
 	end)
 
+	--[[ A1 (owner report 2026-09-13): "the alert's text pops after it opens".
+		MEASURED LIVE: Roblox rasterizes text at `floor(TextSize x effectiveScale)`,
+		so the ratified 0.96 materialize paints 20px type at 19 for the WHOLE flight
+		(TextBounds 127.5x19 at 0.96 AND at 0.9999999) and snaps to 133.5x20 when the
+		scale reaches exactly 1 — which the channel only reaches when the spring
+		settles, a quarter of a second after the card stopped moving.
+
+		So the modal settles DOWN from just above 1: the written scale never enters
+		(0, 1), the type floors to the same pixel on every frame of the enter, and
+		the text lands at its final rect on the first painted frame. The oracle is
+		the ENGINE-SIDE number — the scale instance the channel materializes — not
+		the spec, because the spec is what was wrong about this before. ]]
+	t.it("the modal's enter never rasterizes its text a pixel small", function()
+		local w = world.new()
+		local alert = Facet.Controls.Alert(w.core, {
+			id = "Settle",
+			title = "Replace this save?",
+			message = "Your current progress will replace the previous checkpoint.",
+			actions = { { id = "Cancel", label = "Keep previous", role = "cancel" }, { id = "Go", label = "Replace" } },
+		})
+		local handle = alert.present(w.pres)
+		w.pres.refresh()
+		local function scaleNow(): number
+			local node = w.adapter.node("/Settle/Center")
+			return if node ~= nil and node.motionScaleInstance ~= nil then node.motionScaleInstance.scale else 1
+		end
+		local lowest, moved = math.huge, false
+		for _ = 1, 120 do
+			local s = scaleNow()
+			lowest = math.min(lowest, s)
+			if s ~= 1 then
+				moved = true
+			end
+			w.settle(1)
+		end
+		-- it really is a materialize (something scaled), and it NEVER dipped below 1
+		t.expect(moved).toBe(true)
+		t.expect(lowest >= 1).toBe(true)
+		-- ...and it comes to rest exactly at 1, where the engine floors the type to
+		-- the size it was measured at
+		t.expect(scaleNow()).toBe(1)
+		w.pres.dismiss(handle)
+		alert.dispose()
+	end)
+
 	t.it("transition = 'instant' opts out", function()
 		local w = world.new()
 		local alert = Facet.Controls.Alert(w.core, {

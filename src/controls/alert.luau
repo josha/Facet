@@ -18,10 +18,30 @@ local function isReadableTransition(value: any): boolean
 	return type(value) == "table" and (value.kind == "signal" or value.kind == "memo")
 end
 
--- the default the modal opens on: scale 0.96 -> 1 with a fade, the `dismiss`
--- exit dipping out faster than it came, and the plate acknowledgement the shape
--- needs (see `acknowledgePlate`)
-local DEFAULT_TRANSITION = table.freeze({ enter = "materialize", plate = "fades" })
+--[[ THE MODAL SETTLES DOWN INTO PLACE, IT DOES NOT GROW INTO IT (owner report
+	A1, 2026-09-13: "the alert's text pops after it opens").
+
+	MEASURED, live: Roblox rasterizes text at `floor(TextSize x effectiveScale)`,
+	so the ratified 0.96 -> 1 materialize paints every string on this card ONE
+	WHOLE PIXEL SMALL for the entire flight — TextBounds 127.5x19 at 0.96 and at
+	0.9999999 alike — and snaps to 133.5x20 the instant the scale reaches exactly
+	1. The channel holds its `UIScale` until the spring settles, so on a live
+	frame-by-frame probe the card stopped moving at 0.50 s and the title jumped
+	5% wider at 0.78 s: a re-flow on a card that had been still for a quarter of
+	a second, which is precisely what was reported.
+
+	1.015 IS THE NUMBER AND IT IS DERIVED, not chosen: the band [1, 1 + 1/n)
+	floors to the same pixel for text of size n, and 1/0.015 = 66 px is above
+	every size this framework can paint (the neutral ladder's largest is `title`
+	24, x1.5 at a ten-foot display = 36, plus the engine's largest preferred-text
+	offset of 14 = 50, with headroom for a package that authors a taller ladder).
+	So the card eases DOWN from 1.5% over, the type never re-rasterizes, and the
+	text lands at its final rect on the first painted frame.
+
+	`plate = "fades"` is the acknowledgement the shape needs (see
+	`acknowledgePlate`); the `dismiss` exit still dips out faster than it came. ]]
+local ALERT_MATERIALIZE_SCALE = 1.015
+local DEFAULT_TRANSITION = table.freeze({ enter = "materialize", plate = "fades", scale = ALERT_MATERIALIZE_SCALE })
 
 -- `resolve`'s own detail begins lower-case ("unknown enter form …"), so the
 -- address needs its colon or the two run together (review N5)

@@ -107,7 +107,26 @@ local EXIT_EPS = 0.02
 -- the slide travel, as a THEME metric (`space.l` = 24 px in Facet Neutral): a
 -- roomier theme slides a little further, and no call site carries a magic number
 local DEFAULT_SLIDE_DISTANCE = 24
--- materialize (ratified: sponsor_motion §2/§8, range [0.94–0.98])
+--[[ materialize (ratified: sponsor_motion §2/§8, range [0.94–0.98]).
+
+	AND THE ENGINE FACT THAT BOUNDS IT, measured live 2026-09-13 (Studio, Play,
+	BuilderSans): Roblox rasterizes text at `floor(TextSize x effectiveScale)`.
+	A `UIScale` of 0.9999999 therefore paints 20px text at 19 — the SAME pixel it
+	paints at 0.96 — so a scale-in over live text renders every string one whole
+	pixel small for the entire flight and snaps 5% larger the instant the scale
+	reaches exactly 1 (TextBounds 127.5x19 throughout [0.96, 1), 133.5x20 at 1.0;
+	a CanvasGroup does not buffer it away — a UIScale above the group measures the
+	same). On a card that is mostly type that snap is a visible re-flow, and it
+	lands AFTER the motion has stopped because the channel holds the UIScale until
+	the spring's own settle disposes it.
+
+	The default keeps the ratified undershoot, because it is right for the plates
+	and tiles it was ratified on. A surface whose content is mostly TEXT declares
+	`transition.scale` instead and settles DOWN from just above 1: every scale in
+	[1, 1 + 1/TextSize) floors to the same pixel, so the text lands at its final
+	size on the first painted frame and never moves (`Controls.Alert`'s
+	`DEFAULT_TRANSITION` is the first caller; `blueprint_schema.luau`'s `scale`
+	note carries the same rule for authors). ]]
 local MATERIALIZE_SCALE = 0.96
 local DEFAULT_CLASS = "container"
 local DEFAULT_EXIT_CLASS = "dismiss"
@@ -143,6 +162,10 @@ export type Spec = {
 	-- task-fix3 symptoms 2/3: opt-in override for `slideDistance` below, nil
 	-- meaning "use the themed default" (every caller before this fix, unchanged)
 	distance: number?,
+	-- the scaling form's own absent scale, nil meaning `MATERIALIZE_SCALE` (see
+	-- its header for the engine fact that makes this an override rather than a
+	-- changed default)
+	scale: number?,
 	-- the corner a scaling form grows from (schema.TRANSITION_PIVOTS); nil = centre
 	pivot: string?,
 	-- the plate acknowledgement (schema.TRANSITION_PLATES); nil = unacknowledged,
@@ -189,6 +212,7 @@ function transitions.resolve(declared: any): Spec
 		pivot = declared.pivot,
 		plate = declared.plate,
 		distance = if type(declared.distance) == "number" then declared.distance else nil,
+		scale = if type(declared.scale) == "number" then declared.scale else nil,
 		stagger = if type(declared.stagger) == "number" then declared.stagger else 0,
 	}
 end
@@ -584,7 +608,10 @@ function transitions.new(opts: Opts)
 			absent.y = travel.y * d * sign
 		end
 		if form == "materialize" then
-			absent.scale = MATERIALIZE_SCALE
+			-- the caller's own band wins, exactly as `slideDistance` lets a caller
+			-- own its travel (see `MATERIALIZE_SCALE`'s header for why a text-heavy
+			-- surface has to)
+			absent.scale = if type(spec.scale) == "number" then spec.scale else MATERIALIZE_SCALE
 			absent.pivot = spec.pivot
 		end
 		if fades(spec, form) then
