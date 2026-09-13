@@ -20,6 +20,7 @@ local focus_graph = require("../focus/focus_graph")
 -- Each is engine-free and driven from here.
 local transitionsLib = require("../render/transitions")
 local toast_schedule = require("./toast_schedule")
+local toastLayerLib = require("./toast_layer")
 local feedbackLib = require("./feedback")
 local motionClockLib = require("../motion/clock")
 -- the motion-class registry, read by `withAnimation` so an unknown name and an
@@ -186,16 +187,12 @@ export type PresentOpts = {
 	fallbackScreen: ((err: any) -> any)?,
 }
 
--- presentToast options (ui-designer spec §3.1)
-export type ToastOpts = {
-	key: string?, -- same-key supersede ("subject" in the spec)
-	priority: number?, -- default 0; higher runs first in the queue
-	duration: number?, -- seconds visible, default 4
-	readFloor: number?, -- minimum dwell before anything may replace it, default 1.5
-	position: string?, -- "top" (default) | "bottom" — the edge it docks to
-	transition: any?, -- default: slide in from its own edge, with a fade
-	context: any?, -- carried on the toast's dismiss event, untouched
-}
+-- presentToast options (ui-designer spec §3.1). DECLARED BY THE MODULE THAT OWNS
+-- THE FEATURE since the toast driver left for the Source cap, and re-exported
+-- here under its original spelling — `presenter.ToastOpts` is what every
+-- consumer reads, and one declaration is what keeps the guard's key set and the
+-- type from drifting apart.
+export type ToastOpts = toastLayerLib.ToastOpts
 
 -- CLOSED OPTS (constitution §4, and the architecture review's first finding).
 -- This is the widest opts table in the
@@ -240,15 +237,6 @@ local PRESENT_OPTS_KEYS = specGuard.keySet({
 	-- INCREMENTAL LAYOUT (opt-in, default off — Stage 2)
 	"incrementalLayout",
 	"keyboardNavigation",
-})
-local TOAST_OPTS_KEYS = specGuard.keySet({
-	"context",
-	"duration",
-	"key",
-	"position",
-	"priority",
-	"readFloor",
-	"transition",
 })
 local PRESENTER_OPTS_KEYS = specGuard.keySet({ "clock", "keyboardNavigation", "now" })
 
@@ -3808,214 +3796,32 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 
 	-- ===== TOASTS =======================================
 	--
-	-- A toast surface is PRESENTER-PRIVATE, exactly like the scrim and the popup
-	-- catcher: it is not in `stack`, pushes no focus scope, creates no input
-	-- context and wires no tap handler. That is what "input-transparent" is —
-	-- not a property the layer politely observes, but a surface that has nothing
-	-- to observe it with. Nothing here can reach `SelectedObject`, the responder
-	-- chain, or the outside-tap policy, because none of that is built.
+	-- The toast SURFACE DRIVER moved into src/present/toast_layer.luau for the
+	-- 200,000-char Source WRITE cap (see that header, and the argument it carries
+	-- for why a toast layer is input-transparent BY CONSTRUCTION rather than by
+	-- politeness). It took all six of its scalars with it — `toastTime`,
+	-- `toastPosition`, `toastTransition`, `toastLayer`, `toastSchedule`,
+	-- `syncToastLayer` — because the one reader outside the region was `tickBody`'s
+	-- inline four-line frame slice, which is now `toasts.tick(step)` beside the
+	-- five siblings that already call into this tick that way. So the move cost
+	-- neither a record nor an accessor.
 	--
-	-- ONE layer holds every visible toast, as a keyed `UI.ForEach` carrying the
-	-- transition — so a toast's enter/exit is the SAME retire model a `UI.When`
-	-- gets, proven by the same tests, rather than a second animation path.
-	--
-	-- The scheduler (`toast_schedule`) owns priority, the queue cap, read floors
-	-- and supersede; this driver owns pixels. Under reduced motion the transition
-	-- places instantly and the schedule is untouched: every toast that would have
-	-- been shown is still shown, for the same time.
-	local toastTime = 0
-	local toastPosition = "top"
-	local toastTransition: any = nil
-	local toastLayer: any = nil
-	local toastSchedule: any = nil
-	local syncToastLayer: () -> ()
-
-	local function toastRowBlueprint(entry: any): any
-		-- the fade GROUP the transition needs, wrapped by the presenter so a caller
-		-- never has to know that a fade is a CanvasGroup fact
-		return blueprintLib.ZStack({
-			id = "Toast",
-			width = { type = "fill", weight = 1 },
-			height = { type = "content" },
-			canvasGroup = true,
-			children = { entry.data.blueprint },
-		})
-	end
-
-	local function disposeToastLayer()
-		if toastLayer == nil then
-			return
-		end
-		local layer = toastLayer
-		toastLayer = nil
-		layer.coordinator.dispose()
-		layer.controller.dispose()
-		layer.scope:dispose()
-	end
-
-	local function ensureToastSchedule()
-		if toastSchedule ~= nil then
-			return
-		end
-		toastSchedule = toast_schedule.new({
-			now = function()
-				return toastTime
-			end,
-			onDismiss = function(entry: any, reason: string)
-				-- every retirement is traceable, including the queued one dropped at
-				-- the cap (disposition F3) — nothing vanishes without a reason code.
-				-- REPLACEMENT IS ITS OWN VERB (ui-designer review R2-F1 ruling): a
-				-- superseded toast emits exactly one `supersede`; `dismiss` means the
-				-- surface actually retired on its own terms (timeout/capacity/manual/
-				-- preempt). One causal moment, one event.
-				emitFeedback({
-					type = if reason == "supersede" then "supersede" else "dismiss",
-					path = `/__toast__/Items/[{entry.id}]`,
-					reason = if reason == "supersede" then nil else reason,
-					context = { key = entry.key, priority = entry.priority, context = entry.data.context },
-				})
-			end,
-		})
-	end
-
-	local function ensureToastLayer(options: any)
-		if toastLayer ~= nil then
-			return
-		end
-		-- the first toast fixes the layer's edge and transition for its lifetime:
-		-- one layer, one stacking direction, so a burst cannot make the strip hop
-		-- from one edge to the other mid-read
-		toastPosition = if options.position == "bottom" then "bottom" else "top"
-		toastTransition = options.transition
-			or {
-				-- a toast comes from the edge it docks to, and fades with it
-				enter = if toastPosition == "bottom" then "slide-up" else "slide-down",
-				fade = true,
-			}
-		local sc = core:scope("present-toast")
-		-- scope-owned, so a layer that comes and goes twenty times leaves the core's
-		-- counters exactly where it found them
-		local items = sc:own(core:signal({}))
-		local rows = blueprintLib.ForEach({
-			id = "Items",
-			items = items,
-			key = function(entry: any): string
-				return tostring(entry.id)
-			end,
-			row = toastRowBlueprint,
-			transition = toastTransition,
-		})
-		local children: { any } = {}
-		if toastPosition == "bottom" then
-			-- the strip is pushed to the far edge; nothing else in the layer paints,
-			-- so the spacer costs one transparent frame
-			table.insert(children, blueprintLib.Spacer({ id = "Push", height = { type = "fill", weight = 1 } }))
-		end
-		table.insert(children, rows)
-		-- padding lifts the strip off the surface edges (director, sensory-feedback
-		-- round: rows
-		-- hugging the exact top edge collided with content pinned there, and
-		-- edge-to-edge rows read as a debug bar rather than a toast)
-		local bp = blueprintLib.Screen({
-			id = "__toast__",
-			align = "center",
-			gap = "s",
-			padding = "m",
-			children = children,
-		})
-		local surfaceRef: any = nil
-		local coordinator = transitionsLib.new({
-			core = core,
-			clock = motionClock,
-			metrics = metricsNow,
-			feedback = function(event: any)
-				event.surface = surfaceRef
-				emitFeedback(event)
-			end,
-		})
-		local root = mountLib.mount(core, bp, {
-			scope = sc:child("mount"),
-			transitions = coordinator,
-			-- the toast strip carries CONSUMER-authored rows, so a
-			-- `UI.sensoryFeedback` declared on one has the same seam a screen's does
-			feedback = function(event: any)
-				event.surface = surfaceRef
-				emitFeedback(event)
-			end,
-		})
-		local controller = renderer.attach(core, root, env, adapter, { rootPolicy = "coreSafeContent" })
-		controller.initialRender()
-		coordinator.bindController(controller)
-		if controller.setDisplayOrder ~= nil then
-			-- above every base screen, below every modal (ui-designer §6.3)
-			controller.setDisplayOrder(SURFACE_LAYER.toast)
-		end
-		toastLayer = {
-			scope = sc,
-			controller = controller,
-			root = root,
-			items = items,
-			coordinator = coordinator,
-			itemsNode = nodeAt(root.node, "/__toast__/Items"),
-		}
-		surfaceRef = toastLayer
-	end
-
-	syncToastLayer = function()
-		if toastLayer == nil then
-			return
-		end
-		toastLayer.items:set(toastSchedule.visible())
-		toastLayer.controller.refresh()
-		-- the refresh is what CREATED the new row's handles; re-assert the enter's
-		-- seeded values onto them so a toast never paints one frame at rest
-		toastLayer.coordinator.flush()
-		-- the layer retires when nothing is showing, nothing is waiting, and no row
-		-- is still playing its exit — a retiring row is still mounted, so the
-		-- mounted child count is the honest test
-		local itemsNode = toastLayer.itemsNode
-		local pending = if itemsNode ~= nil then #itemsNode.children else 0
-		if toastSchedule.isEmpty() and pending == 0 then
-			disposeToastLayer()
-		end
-	end
-
-	function self.presentToast(blueprint: any, opts: ToastOpts?)
-		assert(
-			type(blueprint) == "table" and type(blueprint.class) == "string",
-			"presenter.presentToast takes a blueprint (UI.*) and an options table"
-		)
-		specGuard.assertKnownKeys("presenter.presentToast", opts, TOAST_OPTS_KEYS, "opts")
-		local options: any = opts or {}
-		ensureToastSchedule()
-		ensureToastLayer(options)
-		local id = toastSchedule.push({
-			key = options.key,
-			priority = options.priority,
-			duration = options.duration,
-			readFloor = options.readFloor,
-			data = { blueprint = blueprint, context = options.context },
-		})
-		syncToastLayer()
-		return {
-			id = id,
-			dismiss = function()
-				if toastSchedule == nil then
-					return false
-				end
-				local removed = toastSchedule.dismiss(id, "manual")
-				syncToastLayer()
-				return removed
-			end,
-		}
-	end
-
-	function self.toastCounts()
-		if toastSchedule == nil then
-			return { visible = 0, queued = 0, sequence = 0 }
-		end
-		return toastSchedule.counts()
-	end
+	-- BUILT HERE rather than at the top, because this is the first line at which
+	-- every collaborator it reads is a FINAL value. REBOUND TO THEIR ORIGINAL
+	-- NAMES, so not one call site moved.
+	local toasts = toastLayerLib.new({
+		core = core,
+		env = env,
+		adapter = adapter,
+		motionClock = motionClock,
+		metricsNow = metricsNow,
+		emitFeedback = emitFeedback,
+		-- ONE NUMBER, not the band table: above every base screen, below every
+		-- modal (ui-designer §6.3)
+		toastDisplayOrder = SURFACE_LAYER.toast,
+	})
+	self.presentToast = toasts.presentToast
+	self.toastCounts = toasts.toastCounts
 
 	-- ONE FRAME OF PRESENTER TIME. Steps the motion clock (every surface and toast
 	-- transition rides it) and advances the toast schedule. The client binds this
@@ -4074,11 +3880,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		-- the auto reveal's whole cycle rides this one tick (2026-08-04): an
 		-- idle presenter pays a timer-gated rescan, a live strip one signal write
 		stepReveal(math.max(step :: number, 0))
-		if toastSchedule ~= nil then
-			toastTime += math.max(step, 0)
-			toastSchedule.update()
-			syncToastLayer()
-		end
+		toasts.tick(math.max(step :: number, 0))
 		-- ...and the callout queue's own clock, so a read floor can elapse and a
 		-- more urgent coach mark take its turn (D3b). Costs nothing while empty.
 		calloutQueue.update(math.max(step, 0))

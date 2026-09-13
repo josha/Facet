@@ -1425,6 +1425,7 @@ require("./world_anchor.spec")
 require("./radial_geometry.spec")
 require("./alert.spec")
 require("./screen_focus_visual_seam.spec")
+require("./toast_layer_seam.spec")
 local ok = testkit.run({
 	jsonOut = process.env.FACET_SUITE_JSON,
 	tier = "full",
