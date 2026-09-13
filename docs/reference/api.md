@@ -3239,6 +3239,27 @@ slider inside a scrolled container or under a live enter/exit slide therefore st
 scrubs against layout space (ESC-2 residual, tracked in
 `artifacts/sponsor-framework-gaps/responsibility-ledger.md`).
 
+**A DECORATION WHOSE PRESENCE DEPENDS ON ITS OWN SOLVED SIZE CANNOT CONVERGE.**
+`onGeometry` hands back a rect the next solve can move, so a consumer that feeds
+it into a layout-affecting prop — a `surface`, a dim, a padding — is a loop, and
+the renderer says so: *"a solve's geometry feedback did not converge in N rounds
+(a consumer publishing a layout prop derived from the rect that prop moves?)"*.
+It is not enough for the rule to look self-consistent. A skin's `contentInsets`
+are spent as the node's padding, so turning a plate ON can push that node's own
+minimum past its fill share and leave it with a **smaller** box than it had
+without the plate — measured under Fantasy Ornate at eight of the swept cells in
+`examples/gallery/scenarios/row_actions.luau`, whose list card is exactly this
+shape.
+
+The way out is to **cache the reading and key it only on facts the decoration's
+own presence cannot move** — the viewport, the player's text preference, the
+distance profile, and the installed theme. A fresh shape takes one fresh reading
+and the answer settles after a single flip. Leaving any of those four out is its
+own defect rather than a smaller version of the same one: the theme decides the
+carved frame, and a package swapped in place (which the showcase's own theme
+picker does, on a persistent scope with no remount) would otherwise answer with a
+band measured under the package before it.
+
 ### `newPresenter`
 
 `Facet.newPresenter(core, env, adapter, actionSystem, opts?) -> Presenter` —

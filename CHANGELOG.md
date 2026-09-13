@@ -66,7 +66,8 @@ runtime as `Facet.VERSION`.
   carved border comes out of the name rather than out of the box. The card gives
   way only when the band MEASURES too small for the package's own carved frame
   plus one tappable row — a package that carves nothing (Facet Neutral among
-  them) therefore never loses its plate at any size. It cannot live on the
+  them) therefore never loses its plate at any size, and a theme swapped in place
+  re-measures rather than answering with the previous package's band. It cannot live on the
   ScrollView itself — `chrome_slots.classify` answers for a ScrollView's own chrome (its
   SCROLLBAR) before it reads the declared surface — so the gate pins the SLOT
   beside the surface name. New gate: `tests/row_plate_paint.spec.luau`.

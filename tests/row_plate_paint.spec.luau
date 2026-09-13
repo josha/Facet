@@ -318,6 +318,65 @@ describe("list row plate: the fixture declares the plate it paints", function()
 		end
 	end)
 
+	--[[ A THEME SWAP IS A NEW SHAPE, and it arrives WITHOUT a remount. The
+		showcase's theme picker writes `themeMetrics` in place on a persistent demo
+		scope (`examples/gallery/client/init.client.luau`), so nothing about the
+		viewport or the preference changes — and the band cached under the previous
+		package would otherwise answer for the new one. Measured under a thin-chrome
+		package and switched to Fantasy Ornate's 30px frame, that is the card
+		staying on a band the frame cannot hold: the 0px-content collapse this whole
+		rule exists to prevent, reached from the one direction no fresh-world case
+		can see.
+
+		The oracle is a FRESH world built at the same viewport under the same
+		package, so the assertion is "the swapped screen decides what a screen that
+		started there decides", not a number this file chose. ]]
+	it("a theme swapped IN PLACE re-measures the band, and decides as a fresh world would", function()
+		local ornate = Facet.themes.resolve(require("../examples/themes/fantasy_ornate").build(Facet.themes), nil, {})
+		--[[ 640x260 at the largest preference is where the two packages DISAGREE,
+			which is what makes this case able to fail: the band is 177px under Facet
+			Neutral (which carves nothing, so it keeps its card at any size) and 60px
+			under Ornate against a 60px frame plus a 44px floor, so Ornate drops it.
+			At the showcase's own 677x338 both keep the card, so a stale band there
+			is invisible to a decision-shaped assertion — the swap is asserted at
+			both, and the disagreeing viewport is the one that bites. ]]
+		for _, view in { { x = 0, y = 0, w = 640, h = 260 }, { x = 0, y = 0, w = 677, h = 338 } } do
+			local freshNeutral = scenarioWorld(rowActions, view, 14).adapter.node(PLATE_PATH).props.surface
+			local freshOrnate = scenarioWorld(rowActions, view, 14, ornate).adapter.node(PLATE_PATH).props.surface
+
+			-- ONE world, no remount: the picker's own gesture
+			local w = scenarioWorld(rowActions, view, 14)
+			local label = `{view.w}x{view.h}`
+			expect(`{label} start {w.adapter.node(PLATE_PATH).props.surface}`).toBe(`{label} start {freshNeutral}`)
+
+			--[[ `pres.refresh`, not `world.settle`, and for the same reason
+				`scenarioWorld` above presents the way it does: `settle` also runs the
+				containment guard, and this fixture already trips that at these narrow
+				cells for a reason with nothing to do with the plate — a row measures
+				8px wider than its scroller at the moment the guard looks, under Facet
+				Neutral, before any swap. Driving the swap the same way every other
+				case in this file drives its mount keeps this one about the band. ]]
+			w.env:set("themeMetrics", ornate)
+			for _ = 1, 4 do
+				w.pres.refresh()
+			end
+			expect(`{label} swapped {w.adapter.node(PLATE_PATH).props.surface}`).toBe(`{label} swapped {freshOrnate}`)
+
+			w.env:set("themeMetrics", nil)
+			for _ = 1, 4 do
+				w.pres.refresh()
+			end
+			expect(`{label} back {w.adapter.node(PLATE_PATH).props.surface}`).toBe(`{label} back {freshNeutral}`)
+		end
+	end)
+
+	it("...and the two packages really do disagree at that viewport, or the swap proves nothing", function()
+		local view = { x = 0, y = 0, w = 640, h = 260 }
+		local ornate = Facet.themes.resolve(require("../examples/themes/fantasy_ornate").build(Facet.themes), nil, {})
+		expect(scenarioWorld(rowActions, view, 14).adapter.node(PLATE_PATH).props.surface).toBe("raised")
+		expect(scenarioWorld(rowActions, view, 14, ornate).adapter.node(PLATE_PATH).props.surface).toBeNil()
+	end)
+
 	it("...and a package that carves nothing keeps its plate on the same bands", function()
 		-- Facet Neutral publishes no panel insets, so its card cannot squeeze
 		-- anything and the band's height never enters the question

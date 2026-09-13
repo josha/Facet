@@ -177,6 +177,32 @@ And **the fallback is never removed** — the first frame is always painted from
 the conservative bound, so exactness is layered on top of safety and never
 substituted for it.
 
+#### Feeding a solved rect back
+
+The presenter's `onGeometry` broadcast hands a screen the rects the solve just
+produced, which is how a list windows itself against the box it was actually
+given. It is also the one place a screen can write a loop: a consumer that feeds
+a rect into a prop that *moves that rect* never settles, and the renderer says so
+— *"a solve's geometry feedback did not converge in N rounds (a consumer
+publishing a layout prop derived from the rect that prop moves?)"*.
+
+**A decoration whose presence depends on its own solved size is exactly that
+shape.** A skin's `contentInsets` are spent as the node's padding, so turning a
+plate on can push that node's own minimum past its fill share and hand it back a
+*smaller* box than it had without the plate — which is not a rounding wobble but
+a genuine two-state flip. It is measured: `examples/gallery/scenarios/
+row_actions.luau`'s list card behaves that way under Fantasy Ornate (a 30px frame
+a side) at eight of the swept viewport/preference cells.
+
+The way out is not a cleverer comparison; it is to **cache the reading and key it
+only on facts the decoration's own presence cannot move** — the viewport, the
+player's text preference, the distance profile, and the installed theme. A new
+shape takes one fresh reading and the answer settles after a single flip. All
+four matter: the theme decides the carved frame, and a package swapped *in place*
+(which the showcase's own theme picker does, on a persistent scope with no
+remount) would otherwise be judged against a band measured under the package
+before it.
+
 ### One property authority
 
 Every engine render property (a node's size, its background color, its text, its

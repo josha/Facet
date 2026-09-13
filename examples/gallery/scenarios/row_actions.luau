@@ -481,6 +481,23 @@ return {
 			    over. The floor is the honest question: is there room for something a
 			    finger can hit? ]]
 		local LIST_PLATE = "/MailActions/ListWhen/then/ListPlate"
+		--[[ THE TWO NUMBERS THE DECISION SPENDS, from the live theme snapshot: the
+			`panel` recipe's own carved frame (top + bottom, which the solver adds to
+			this node's padding) and the tap floor that stands in for one row. Read in
+			ONE place because both the decision and the shape key below spend them,
+			and a second copy is how the two would stop agreeing about which theme
+			they were looking at. Zero carved means the package carves nothing, and a
+			card that carves nothing can squeeze nothing. ]]
+		local function listPlateFrame(metrics: any): (number, number)
+			local insets = if type(metrics) == "table" then (metrics :: any).chromeInsets else nil
+			local panel = if type(insets) == "table" then (insets :: any).panel else nil
+			local carved = if type(panel) == "table"
+				then (tonumber(panel.top) or 0) + (tonumber(panel.bottom) or 0)
+				else 0
+			local targets = if type(metrics) == "table" then (metrics :: any).targetSizes else nil
+			local floor = if type(targets) == "table" then tonumber(targets.minimum) else nil
+			return carved, floor or 44
+		end
 		-- the band's solved height, fed back by the presenter after every solve.
 		-- `math.huge` until one lands: an unmeasured band is not a small one, and a
 		-- card that flickered off on the first frame would be its own defect.
@@ -496,28 +513,46 @@ return {
 			rounds — a consumer publishing a layout prop derived from the rect that
 			prop moves?"). It is exactly that consumer.
 
-			So the band is read ONCE per (viewport height, text preference) — the two
-			facts that actually decide how much room the list gets — and held. A new
-			shape takes a fresh reading; a re-solve under the same shape reads the
-			number already taken. One flip per shape, and it settles. ]]
+			So the band is read ONCE PER SHAPE and held: a new shape takes a fresh
+			reading, a re-solve under the same shape reads the number already taken,
+			one flip per shape, and it settles.
+
+			WHAT COUNTS AS A SHAPE IS THE WHOLE CORRECTNESS ARGUMENT. The key may
+			hold anything the card's own presence cannot move, and must hold
+			everything that moves the band or the frame. The viewport height and the
+			text preference decide how much room this screen has; the DISTANCE
+			PROFILE rescales every metric in it; and the THEME decides the carved
+			frame itself, which is the other side of the comparison.
+
+			THE THEME IS NOT OPTIONAL HERE, and leaving it out was a real defect
+			(review round 4). The showcase's theme picker swaps `themeMetrics` IN
+			PLACE on a persistent scope — no remount, no viewport change — so a band
+			measured under a thin-chrome package survived into Fantasy Ornate's 30px
+			frame and the card stayed on a band that frame cannot hold, which is the
+			0px-content collapse this rule exists to prevent. The inverse is the same
+			bug facing the other way. Both halves of the comparison are keyed now:
+			the package's identity AND the two numbers the decision actually spends,
+			so a metrics table with no identity at all still re-arms. ]]
 		local listBandShape = scope:own(core:memo(function(use)
 			local offset = use(ctx.env:get("preferredTextOffset"))
-			return `{use(conditions.viewportHeight)}:{tostring(offset)}`
+			local distance = use(ctx.env:get("distanceProfile"))
+			local metrics = use(ctx.env:get("themeMetrics"))
+			local identity = if type(metrics) == "table" then (metrics :: any).identity else nil
+			local theme = if type(identity) == "table"
+				then `{tostring(identity.packageId)}/{tostring(identity.themeName)}/{tostring(identity.version)}/{tostring(
+					identity.stamp
+				)}`
+				else "neutral"
+			local carved, floor = listPlateFrame(metrics)
+			return `{use(conditions.viewportHeight)}:{tostring(offset)}:{tostring(distance)}:{theme}:{carved}:{floor}`
 		end))
 		local listBandMeasuredFor: string? = nil
 		local listPlateSurface = scope:own(core:memo(function(use)
-			local metrics = use(ctx.env:get("themeMetrics"))
-			local insets = if type(metrics) == "table" then (metrics :: any).chromeInsets else nil
-			local panel = if type(insets) == "table" then (insets :: any).panel else nil
-			local carved = if type(panel) == "table"
-				then (tonumber(panel.top) or 0) + (tonumber(panel.bottom) or 0)
-				else 0
+			local carved, floor = listPlateFrame(use(ctx.env:get("themeMetrics")))
 			if carved <= 0 then
 				return "raised"
 			end
-			local targets = if type(metrics) == "table" then (metrics :: any).targetSizes else nil
-			local floor = if type(targets) == "table" then tonumber(targets.minimum) else nil
-			return if use(listBandHeight) < carved + (floor or 44) then nil else "raised"
+			return if use(listBandHeight) < carved + floor then nil else "raised"
 		end))
 		local listBody = UI.VStack({
 			id = "ListPlate",
