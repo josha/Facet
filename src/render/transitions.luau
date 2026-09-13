@@ -105,6 +105,9 @@ export type Spec = {
 	distance: number?,
 	-- the corner a scaling form grows from (schema.TRANSITION_PIVOTS); nil = centre
 	pivot: string?,
+	-- the plate acknowledgement (schema.TRANSITION_PLATES); nil = unacknowledged,
+	-- which is every caller that has not said otherwise
+	plate: string?,
 }
 
 export type Opts = {
@@ -141,6 +144,7 @@ function transitions.resolve(declared: any): Spec
 		exitClass = declared.exitClass or DEFAULT_EXIT_CLASS,
 		fade = declared.fade == true,
 		pivot = declared.pivot,
+		plate = declared.plate,
 		distance = if type(declared.distance) == "number" then declared.distance else nil,
 	}
 end
@@ -267,8 +271,32 @@ export type BackdropFinding = {
 	-- populated for a `surface`-painted finding; nil for a `tint`-painted one
 	-- (task POP fix round 1) — `via` always names which channel tripped it
 	surface: string?,
-	via: string, -- "surface" | "tint"
+	via: string, -- "surface" | "tint" | "acknowledged-plate"
 }
+
+--[[ THE ACKNOWLEDGED SHAPE IS STILL SEEN, IT IS JUST NOT A DEFECT (task 7 item
+	3). A modal card or a menu popover IS its own plate, and the backdrop the
+	invariant is about is the presenter's scrim BEHIND the whole surface — so
+	`GroupTransparency` dimming the card's face with the card's text is the shape
+	working, not failing. Nothing in the TREE says so: `tests/backdrop_fade.spec
+	.luau`'s `buggyScreen` (a full-bleed page whose plate is its sole child, the
+	measured `shop.wisp` root cause) is byte-identical. So the surface DECLARES
+	it, `transition.plate = "fades"`, and the finder records the shape under its
+	own `via` instead of going blind to it: `self.findings()` still carries it, so
+	a reader can see which surfaces made the claim, and the two consumers that
+	decide whether something is a DEFECT — `backdropIssue` and the reference-app
+	sweep — ask this one predicate.
+
+	SOLE-CHILD ONLY. A group with a sibling beside the plate has content the
+	plate is genuinely a backdrop FOR, and no declaration reaches that: the
+	acknowledgement is about a surface that IS its plate, which is a claim only
+	the one-child shape can make. That is what keeps the gate's teeth. ]]
+local ACKNOWLEDGED_PLATE = "acknowledged-plate"
+transitions.ACKNOWLEDGED_PLATE = ACKNOWLEDGED_PLATE
+
+function transitions.countsAsBackdropIssue(finding: BackdropFinding): boolean
+	return type(finding) == "table" and finding.via ~= ACKNOWLEDGED_PLATE
+end
 
 -- the STRUCTURAL half of the same finding, usable with no coordinator at all:
 -- does the node that will actually fade (post `resolveAlphaTarget`) itself
@@ -288,11 +316,13 @@ export type BackdropFinding = {
 -- second backdrop. `tests/backdrop_fade.spec.luau` pins both directions: the
 -- unfixed shape reddens this, and legitimate nested content (a card two levels
 -- into a fixed page) never does.
-local function collectBackdrops(node: any, out: { { node: any, via: string } })
-	for _, child in node.children or {} do
+local function collectBackdrops(node: any, out: { { node: any, via: string, sole: boolean } })
+	local children = node.children or {}
+	local sole = #children == 1
+	for _, child in children do
 		local paints, via = paintsBackdrop(child)
 		if paints then
-			table.insert(out, { node = child, via = via :: string })
+			table.insert(out, { node = child, via = via :: string, sole = sole })
 		end
 	end
 end
@@ -300,25 +330,45 @@ end
 -- `alphaNode` is what `resolveAlphaTarget` returns for a DECLARED fade — pass
 -- the node as declared (self or a resolved content group) plus the resolved
 -- path, so a finding names the same path the coordinator would actually fade.
-function transitions.findBackdropFindings(alphaPath: string, alphaNode: any): { BackdropFinding }
+-- `acknowledged` is `spec.plate == "fades"` — the surface's own declaration that
+-- its plate is meant to fade with its content. It re-kinds the SOLE-CHILD shape
+-- and nothing else (see ACKNOWLEDGED_PLATE above); omitted, this answers exactly
+-- as it always did.
+function transitions.findBackdropFindings(
+	alphaPath: string,
+	alphaNode: any,
+	acknowledged: boolean?
+): { BackdropFinding }
 	local out: { BackdropFinding } = {}
 	if alphaNode == nil then
 		return out
 	end
-	local backdrops: { { node: any, via: string } } = {}
+	local backdrops: { { node: any, via: string, sole: boolean } } = {}
 	collectBackdrops(alphaNode, backdrops)
 	for _, b in backdrops do
+		local via = if acknowledged == true and b.sole then ACKNOWLEDGED_PLATE else b.via
 		table.insert(out, {
 			path = alphaPath,
 			backdropPath = b.node.path,
 			surface = if b.via == "surface" then b.node.props.surface else nil,
-			via = b.via,
+			via = via,
 		})
 	end
 	return out
 end
 
 function transitions.backdropIssue(finding: BackdropFinding): string
+	if not transitions.countsAsBackdropIssue(finding) then
+		-- an acknowledged plate is not a defect and must never be rendered as
+		-- one; it is still reported, so a reader can see the claim was made
+		return string.format(
+			'%s declares `transition.plate = "fades"`: %s is the surface\'s own plate, meant to fade with its '
+				.. "content (the modal/popover shape, whose backdrop is the scrim behind the whole surface). "
+				.. "Not a finding.",
+			finding.path,
+			finding.backdropPath
+		)
+	end
 	local paint = if finding.via == "tint"
 		then "opaque `tint`"
 		else string.format("opaque `surface = %q`", finding.surface)
@@ -351,8 +401,8 @@ function transitions.new(opts: Opts)
 	-- everyone but `self.findings()`; nothing here costs off that read.
 	local foundBackdrops: { BackdropFinding } = {}
 	local seenBackdropKeys: { [string]: boolean } = {}
-	local function recordBackdropFindings(alphaPath: string, alphaNode: any)
-		for _, finding in transitions.findBackdropFindings(alphaPath, alphaNode) do
+	local function recordBackdropFindings(alphaPath: string, alphaNode: any, acknowledged: boolean?)
+		for _, finding in transitions.findBackdropFindings(alphaPath, alphaNode, acknowledged) do
 			local key = finding.path .. "\0" .. finding.backdropPath
 			if not seenBackdropKeys[key] then
 				seenBackdropKeys[key] = true
@@ -667,7 +717,7 @@ function transitions.new(opts: Opts)
 			`spec.enter` actually fading, matching what this transition will
 			really do to the node. ]]
 		if fades(spec, spec.enter) then
-			recordBackdropFindings(alphaPath, alphaNode)
+			recordBackdropFindings(alphaPath, alphaNode, spec.plate == "fades")
 		end
 		if spec.enter == "instant" then
 			-- a hard place: nothing to animate, but the arrival is still a fact the
@@ -712,7 +762,7 @@ function transitions.new(opts: Opts)
 		-- never writes GroupTransparency, so a backdrop check against it is
 		-- checking a property nothing here ever animates
 		if fades(spec, spec.exit) then
-			recordBackdropFindings(alphaPath, alphaNode)
+			recordBackdropFindings(alphaPath, alphaNode, spec.plate == "fades")
 		end
 		return spec
 	end

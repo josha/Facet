@@ -287,6 +287,7 @@ anything else.
 | `UI.schema.TRANSITION_MIRROR` | each structural-transition form paired with its mirror |
 | `UI.schema.TRANSITION_FADES` | the forms that drive transparency (and therefore need a fade group) |
 | `UI.schema.TRANSITION_PIVOTS` | where a scaling form may grow from (`center`, `topLeft`, `topRight`, `bottomLeft`, `bottomRight`) |
+| `UI.schema.TRANSITION_PLATES` | the values `transition.plate` takes (`fades` — this surface's plate fades with its content) |
 | `UI.schema.INHERITED_TINT_CLASSES` | the classes whose `tint` is INHERITED — declared on a container, painted by its subtree — as a frozen set derived from the class rows themselves |
 | `UI.schema.INHERITED_TINT_ALPHA_REFUSAL` | the ONE sentence both refusals of a `transparency` on an inherited `tint` raise: the construction-time one and the read-time one a reactive tint needs |
 
@@ -2407,8 +2408,8 @@ UI.ForEach({ items = rows, key = function(e) return e.key end, row = function(e)
 
 #### Structural transitions
 
-`transition = { enter, exit?, class?, fade?, distance?, pivot? }` on `UI.When`,
-`UI.ForEach`, a `presentToast` and `PresentOpts`.
+`transition = { enter, exit?, class?, exitClass?, fade?, distance?, pivot?, plate? }`
+on `UI.When`, `UI.ForEach`, a `presentToast` and `PresentOpts`.
 
 - **Forms:** `"fade"`, `"slide-up"`, `"slide-down"`, `"slide-left"`,
   `"slide-right"`, `"materialize"` (scale 0.96 → 1 with a fade), `"instant"`.
@@ -2454,6 +2455,16 @@ UI.ForEach({ items = rows, key = function(e) return e.key end, row = function(e)
   re-nested by hand; nothing in the framework rewrites an existing tree for
   you. `tests/backdrop_fade.spec.luau` is the headless gate that catches
   either shape (self-case or not) the moment its push transition first runs.
+- **`plate = "fades"`** is the one acknowledgement that rule takes: *this
+  surface's plate is meant to fade with its content* — the modal/popover shape,
+  whose backdrop is the **scrim behind the whole surface** rather than the
+  card's own face. `Controls.Alert`, `Controls.Menu`'s floating popover and the
+  menu-style `Picker` declare it; nothing else needs to. Do NOT write it to
+  silence a backdrop finding on a plate that sits behind separately-fading
+  content: it is honoured only for a fade group whose **sole** child is the
+  plate, so a plate with a sibling still reports exactly as before, and the
+  acknowledged shape is still *recorded* (under its own kind) so a reader can
+  see which surfaces made the claim.
 - **A departing subtree RETIRES, it does not vanish.** It stays mounted in its
   slot (a `ForEach` row exits in place, clamped to its old index), turns
   **non-interactive** — focus order and tap routing both skip it and everything

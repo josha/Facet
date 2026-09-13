@@ -507,6 +507,12 @@ export type TransitionSpec = {
 	fade: boolean?,
 	distance: number?,
 	pivot: string?,
+	-- `"fades"`: this surface's plate is meant to fade with its content — the
+	-- modal/popover shape whose backdrop is the scrim behind it, not the plate.
+	-- Do not write it to silence a backdrop finding on a plate that sits behind
+	-- separately-fading content (`src/render/transitions.luau`'s gate reports
+	-- every shape but the sole-child plate exactly as before).
+	plate: string?,
 }
 
 -- `thenView`'s `branchScope` is the BRANCH's ownership scope, disposed when the

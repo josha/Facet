@@ -197,8 +197,29 @@ local TRANSITION_MIRROR: { [string]: string } = {
 -- only) — see render/transitions.luau's `slideDistance` header for why the
 -- themed default is right for a decorative nudge and wrong for a full-surface
 -- push/pop, and why this is an opt-in override rather than a changed default.
-local TRANSITION_KEYS: { [string]: boolean } =
-	{ enter = true, exit = true, class = true, exitClass = true, fade = true, distance = true, pivot = true }
+--[[ `plate` is the ACKNOWLEDGEMENT, not a switch (task 7 item 3). The
+	backdrop-before-content gate (`render/transitions.luau`'s own header) reports
+	a fade group that composes its own opaque plate, because
+	`GroupTransparency` then dims the backdrop and the content together and "the
+	backdrop is legible no later than the content" becomes impossible by
+	construction. The modal/popover shape is the one case where that is
+	deliberate — an Alert card or a Menu popover IS its plate, and the backdrop
+	the invariant is about is the presenter's scrim BEHIND the whole surface, not
+	the card's own face. No tree read can tell the two apart (a full-bleed page
+	push whose plate is its sole child is byte-identical), so the difference is
+	DECLARED at the one place that knows it. ]]
+local TRANSITION_PLATES: { [string]: boolean } = { fades = true }
+schema.TRANSITION_PLATES = table.freeze(TRANSITION_PLATES)
+local TRANSITION_KEYS: { [string]: boolean } = {
+	enter = true,
+	exit = true,
+	class = true,
+	exitClass = true,
+	fade = true,
+	distance = true,
+	pivot = true,
+	plate = true,
+}
 -- where a scaling form (materialize) grows FROM: the node's centre unless the
 -- caller names the corner it is attached at (an anchored popover grows out of
 -- the control that opened it — picker round, 2026-09-11)
@@ -652,7 +673,8 @@ local TYPE_CHECKS: { [string]: (any) -> (boolean, string?) } = {
 		for k in v :: any do
 			if type(k) ~= "string" or not TRANSITION_KEYS[k] then
 				return false,
-					`unknown transition field '{tostring(k)}' (enter | exit | class | exitClass | fade | distance | pivot)`
+					`unknown transition field '{tostring(k)}' `
+						.. `(enter | exit | class | exitClass | fade | distance | pivot | plate)`
 			end
 		end
 		local enter = (v :: any).enter
@@ -696,6 +718,18 @@ local TYPE_CHECKS: { [string]: (any) -> (boolean, string?) } = {
 		then
 			return false,
 				"distance is a finite positive number of px (the slide forms' own full travel, no unit suffix)"
+		end
+		--[[ THE PLATE ACKNOWLEDGEMENT. `plate = "fades"` says: this surface's plate
+			is meant to fade with its content — the modal/popover shape whose
+			backdrop is the scrim behind it, not the plate. Do not write it to
+			silence a backdrop finding on a plate that sits behind separately-fading
+			content; the coordinator only honours it for a fade group whose SOLE
+			child is the plate, and reports every other shape exactly as before. ]]
+		local plate = (v :: any).plate
+		if plate ~= nil and not TRANSITION_PLATES[plate] then
+			return false,
+				`plate acknowledges that this surface's own plate fades with its content — the modal/popover `
+					.. `shape whose backdrop is the SCRIM behind it (one of: fades). Got '{tostring(plate)}'.`
 		end
 		return true
 	end,

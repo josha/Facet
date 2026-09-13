@@ -9,6 +9,24 @@ local surfaceEnv = require("../env/surface_env")
 -- the ONE authority on a transition's shape; `alert.build` re-addresses its
 -- refusal rather than re-deriving the rule (task 7 item 5)
 local transitionsLib = require("../render/transitions")
+
+--[[ THE CARD IS THIS SURFACE'S PLATE, and the modal says so (task 7 item 3).
+	Merged, never overwritten: a caller's own `plate` is their call, and a
+	READABLE transition is left untouched because there is no table here to
+	merge into — such a caller declares the key themselves or takes the finding,
+	which is the honest pair of options. A form that never fades (`instant`,
+	a pure slide) records nothing either way, so the key costs it nothing. ]]
+local function acknowledgePlate(declared: any): any
+	if type(declared) ~= "table" or declared.kind == "signal" or declared.kind == "memo" then
+		return declared
+	end
+	if declared.plate ~= nil then
+		return declared
+	end
+	local merged = table.clone(declared)
+	merged.plate = "fades"
+	return merged
+end
 local chromeSlots = require("../tokens/chrome_slots")
 local alert = {}
 type Text = string | coreContract.Readable<string>
@@ -680,8 +698,14 @@ function alert.build(Facet: any, core: any, spec: Spec)
 			initialFocus = if initial then { id = initial } else nil,
 			outsideTapCancel = false,
 			-- the modal open (transitions round 2026-09-12): scale 0.96 → 1 with a
-			-- fade, and the default `dismiss` exit dips out faster than it came
-			transition = spec.transition or { enter = "materialize" },
+			-- fade, and the default `dismiss` exit dips out faster than it came.
+			-- `plate = "fades"` is MERGED IN rather than defaulted, so a caller
+			-- who overrides the form still gets the acknowledgement the shape
+			-- needs — the Card IS this surface's plate, and the backdrop the
+			-- backdrop-before-content gate is about is the presenter's scrim
+			-- behind the whole modal (`blueprint_schema`'s TRANSITION_PLATES
+			-- header). A caller who writes `plate` themselves keeps their value.
+			transition = acknowledgePlate(spec.transition or { enter = "materialize" }),
 		})
 		local opened = handle
 		handle.scope:own(function()

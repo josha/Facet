@@ -1373,7 +1373,10 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 				outsideTapCancel = true,
 				cancelPolicy = "none",
 				-- the short fade-and-grow every pop-up menu materializes with
-				transition = if pickerMode then { enter = "materialize" } else nil,
+				-- `plate = "fades"`: the Popup IS its Panel — the popover shape whose
+				-- backdrop is the scrim behind the whole surface, not the panel's
+				-- own face (blueprint_schema's TRANSITION_PLATES header)
+				transition = if pickerMode then { enter = "materialize", plate = "fades" } else nil,
 				-- ...opening on the CURRENT value, the pop-up button rule: the row
 				-- under the focus ring is the one the player already has
 				initialFocus = if pickerMode then currentRowId() else nil,

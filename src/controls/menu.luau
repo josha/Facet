@@ -877,7 +877,10 @@ function menu.build(Facet: any, core: any, spec: Spec)
 				-- the short fade-and-grow every pop-up menu materializes with; an
 				-- anchored surface with no pivot of its own grows from the corner it
 				-- hangs at (render/transitions `pivot` inference)
-				transition = { enter = "materialize" },
+				-- `plate = "fades"`: the Popup IS its Panel — the popover shape whose
+				-- backdrop is the scrim behind the whole surface, not the panel's
+				-- own face (blueprint_schema's TRANSITION_PLATES header)
+				transition = { enter = "materialize", plate = "fades" },
 			})
 		end
 		table.insert(handles, handle)

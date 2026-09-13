@@ -192,6 +192,80 @@ describe("backdrop-before-content: the pure structural finder", function()
 		end
 	)
 
+	--[[ THE ACKNOWLEDGEMENT (task 7 item 3). Alert's `Center → Card` and Menu's
+		`Popup → Panel` are byte-identical in shape to `buggyScreen` below — one
+		canvasGroup, one child, and that child is the opaque plate — and no tree
+		read can tell them apart, because there is nothing in the tree that
+		differs. What differs is OFF the tree: a modal's backdrop is the
+		presenter's scrim, painted at full opacity outside the fade group, so the
+		invariant is satisfied by something this finder cannot see; a full-bleed
+		page push has no scrim and its plate IS the only backdrop.
+
+		So the difference is DECLARED, at the one place that knows it, and the
+		finder reports the acknowledged shape under its own kind rather than
+		stopping seeing it. An UNACKNOWLEDGED sole-child plate is a finding
+		exactly as before — which is what keeps `buggyScreen` and the MUTATION
+		PROOF below meaning what they meant. ]]
+	it("an ACKNOWLEDGED sole-child plate reports its own kind, and is not counted", function()
+		local group = node("/S/Center", { canvasGroup = true }, {
+			node("/S/Center/Card", { surface = "raised" }, {
+				node("/S/Center/Card/Title", {}),
+			}),
+		})
+		local findings = transitionsLib.findBackdropFindings(group.path, group, true)
+		expect(#findings).toBe(1)
+		expect(findings[1].via).toBe("acknowledged-plate")
+		expect(findings[1].backdropPath).toBe("/S/Center/Card")
+		expect(transitionsLib.countsAsBackdropIssue(findings[1])).toBe(false)
+		-- ...and the SAME shape unacknowledged is the ordinary finding
+		local unacknowledged = transitionsLib.findBackdropFindings(group.path, group)
+		expect(unacknowledged[1].via).toBe("surface")
+		expect(transitionsLib.countsAsBackdropIssue(unacknowledged[1])).toBe(true)
+	end)
+
+	it("the acknowledgement covers ONLY the sole-child shape — a plate beside content still reports", function()
+		--[[ the doc line's own refusal: "do not write it to silence a backdrop
+			finding on a plate that sits behind separately-fading content". A group
+			with a sibling has something the plate is genuinely a backdrop FOR, so
+			the acknowledgement does not reach it however it is declared. ]]
+		local group = node("/S/HostRibbon", { canvasGroup = true }, {
+			node("/S/HostRibbon/RibbonPlate", { surface = "raised" }),
+			node("/S/HostRibbon/RibbonBody", {}),
+		})
+		local findings = transitionsLib.findBackdropFindings(group.path, group, true)
+		expect(#findings).toBe(1)
+		expect(findings[1].via).toBe("surface")
+		expect(transitionsLib.countsAsBackdropIssue(findings[1])).toBe(true)
+	end)
+
+	it("a TINT-painted sole-child plate acknowledges the same way", function()
+		local group = node("/S/Popup", { canvasGroup = true }, {
+			box("/S/Popup/Panel", { tint = { direct = "#101010" } }, { node("/S/Popup/Panel/Row", {}) }),
+		})
+		local findings = transitionsLib.findBackdropFindings(group.path, group, true)
+		expect(#findings).toBe(1)
+		expect(findings[1].via).toBe("acknowledged-plate")
+	end)
+
+	it("the schema refuses a plate value it cannot honour, and takes the one it can", function()
+		local UIlocal = UI
+		local ok, err = pcall(function()
+			return UIlocal.When({
+				id = "Gate",
+				condition = customFactory.new():signal(true),
+				transition = { enter = "materialize", plate = "hides" },
+				thenView = function()
+					return UIlocal.Box({ id = "Leaf" })
+				end,
+			})
+		end)
+		expect(ok).toBe(false)
+		expect(string.find(tostring(err), "plate", 1, true) ~= nil).toBe(true)
+		expect(string.find(tostring(err), "SCRIM", 1, true) ~= nil).toBe(true)
+		expect(transitionsLib.resolve({ enter = "materialize", plate = "fades" }).plate).toBe("fades")
+		expect(transitionsLib.resolve({ enter = "materialize" }).plate).toBeNil()
+	end)
+
 	it("MUTATION PROOF: the fixed shape is clean, and re-nesting the plate reddens it", function()
 		-- THE FIXED SHAPE (what `shop.wisp` looks like after this task): the
 		-- plate is a SIBLING one level out, the fade group wraps content only.
@@ -418,4 +492,126 @@ describe("backdrop-before-content: the real Glade modals (newpop.mov's family)",
 			w.built.dispose()
 		end
 	)
+end)
+
+-- ============================================================================
+-- D. THE THREE SHIPPED MODAL/POPOVER SURFACES, LIVE — the shape the gate
+--    reports is the shape a modal is SUPPOSED to have, so each one declares it
+--    (task 7 item 3). The claim is read off a real mount, not off the source:
+--    every coordinator the drive creates is captured, and the UNFILTERED list
+--    is what says the acknowledgement actually reached the coordinator.
+-- ============================================================================
+
+local backdropSweep = require("./lib/backdrop_sweep")
+
+local function onlyAcknowledged(all: { any }, expectedBackdrop: string)
+	expect(#all).toBe(1)
+	expect(all[1].via).toBe(transitionsLib.ACKNOWLEDGED_PLATE)
+	expect(all[1].backdropPath).toBe(expectedBackdrop)
+	expect(transitionsLib.countsAsBackdropIssue(all[1])).toBe(false)
+end
+
+describe("backdrop-before-content: the modal/popover surfaces acknowledge their own plate", function()
+	it("Controls.Alert — Center → Card", function()
+		local w: any
+		local alert: any
+		local counted, all = backdropSweep.capture(function()
+			w = worldLib.new({ viewport = { x = 0, y = 0, w = 390, h = 844 } })
+			alert = Facet.Controls.Alert(w.core, {
+				id = "Ack",
+				title = "Delete?",
+				actions = { { id = "ok", label = "OK" } },
+			})
+			alert.present(w.pres)
+			w.pres.refresh()
+		end)
+		expect(#counted).toBe(0)
+		onlyAcknowledged(all, "/Ack/Center/Card")
+		alert.dispose()
+	end)
+
+	it("Controls.Alert — a caller override is MERGED, not overwritten", function()
+		--[[ the acknowledgement is about the SHAPE, which a caller changing the
+			form does not change; so it rides an overriding `transition` too. A
+			caller who writes `plate` themselves keeps their value — there is no
+			second value to keep here, so what this pins is that the merge happens
+			at all. ]]
+		local w: any
+		local alert: any
+		local counted, all = backdropSweep.capture(function()
+			w = worldLib.new({ viewport = { x = 0, y = 0, w = 390, h = 844 } })
+			alert = Facet.Controls.Alert(w.core, {
+				id = "Over",
+				title = "Delete?",
+				actions = { { id = "ok", label = "OK" } },
+				transition = { enter = "fade", class = "object" },
+			})
+			alert.present(w.pres)
+			w.pres.refresh()
+		end)
+		expect(#counted).toBe(0)
+		onlyAcknowledged(all, "/Over/Center/Card")
+		alert.dispose()
+	end)
+
+	it("Controls.Menu — Popup → Panel", function()
+		local w: any
+		local control: any
+		local counted, all = backdropSweep.capture(function()
+			w = worldLib.new({ viewport = { x = 0, y = 0, w = 800, h = 600 } })
+			control = Facet.Controls.Menu(w.core, {
+				id = "M",
+				trigger = UI.Button({
+					id = "Trigger",
+					label = "More",
+					width = { type = "fixed", px = 120 },
+					height = { type = "fixed", px = 44 },
+				}),
+				items = {
+					{ id = "a", label = "Accessory", onSelect = function() end },
+					{ id = "b", label = "Body", onSelect = function() end },
+				},
+			})
+			w.present(UI.Screen({
+				id = "S",
+				children = {
+					UI.Anchor({
+						id = "Body",
+						width = { type = "fill", weight = 1 },
+						height = { type = "fill", weight = 1 },
+						children = { control.blueprint },
+					}),
+				},
+			}))
+			w.adapter.tap("/S/Body/Trigger")
+			w.pres.refresh()
+		end)
+		expect(#counted).toBe(0)
+		onlyAcknowledged(all, "/Menu-M/Layer/Surface/Popup/Panel")
+		control.dispose()
+	end)
+
+	it("picker_menu's Popup — the menu-style Picker", function()
+		local w: any
+		local picker: any
+		local counted, all = backdropSweep.capture(function()
+			w = worldLib.new({ viewport = { x = 0, y = 0, w = 800, h = 600 } })
+			picker = Facet.Controls.Picker(w.core, {
+				id = "Quality",
+				label = "Quality",
+				style = "menu",
+				env = w.env,
+				selected = w.core:signal("a"),
+				options = { { value = "a", label = "One" }, { value = "b", label = "Two" } },
+			})
+			w.present(UI.Screen({ id = "S", children = { picker.blueprint } }))
+			picker.api.open()
+			w.pres.refresh()
+		end)
+		expect(#counted).toBe(0)
+		expect(#all).toBe(1)
+		expect(all[1].via).toBe(transitionsLib.ACKNOWLEDGED_PLATE)
+		expect(transitionsLib.countsAsBackdropIssue(all[1])).toBe(false)
+		picker.dispose()
+	end)
 end)
