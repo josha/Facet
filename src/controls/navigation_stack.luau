@@ -141,10 +141,21 @@ function navigation.build(Facet: any, core: any, spec: Spec)
 	local stackWidth = nil
 	local transition = authored
 	local pageTransition = nil
+	-- both pages travel together (line above): the retiring and entering pages
+	-- must share one MOTION CLASS or the two-page slide desyncs, so this pins
+	-- exitClass to the SAME resolved class rather than to `authored.exitClass or
+	-- authored.class` alone — with neither declared, that pair is nil/nil and
+	-- `transitions.resolve` would then hand them DIFFERENT defaults ("container"
+	-- for class, the faster "dismiss" for exitClass — transitions round
+	-- 2026-09-12), the exact desync this exists to prevent. "container" here
+	-- names the same default `transitions.resolve` would already have chosen.
+	local pageClass = authored and (authored.class or "container")
 	if horizontal then
 		local initial = table.clone(authored)
 		initial.enter = "instant"
 		initial.exit = forward
+		initial.class = pageClass
+		initial.exitClass = authored.exitClass or pageClass
 		pageTransition = scope:own(core:signal(initial))
 		transition = pageTransition
 	end
@@ -244,7 +255,10 @@ function navigation.build(Facet: any, core: any, spec: Spec)
 				pageTransition:set({
 					enter = if stackWidth == nil then "instant" else travel,
 					exit = travel,
-					class = authored.class,
+					-- see the `pageClass` note above `initial` for why exitClass is
+					-- pinned to the SAME resolved class rather than left to default
+					class = pageClass,
+					exitClass = authored.exitClass or pageClass,
 					distance = authored.distance or stackWidth,
 				})
 			end

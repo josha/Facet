@@ -50,6 +50,7 @@ local DEFAULT_SLIDE_DISTANCE = 24
 -- materialize (ratified: sponsor_motion §2/§8, range [0.94–0.98])
 local MATERIALIZE_SCALE = 0.96
 local DEFAULT_CLASS = "container"
+local DEFAULT_EXIT_CLASS = "dismiss"
 local TRANSITION_SPEC = (schema.forClass("ForEach") :: any).props.transition
 
 -- travel vector per form, in screen space (+y is down)
@@ -64,6 +65,7 @@ export type Spec = {
 	enter: string,
 	exit: string,
 	class: string,
+	exitClass: string,
 	fade: boolean,
 	-- task-fix3 symptoms 2/3: opt-in override for `slideDistance` below, nil
 	-- meaning "use the themed default" (every caller before this fix, unchanged)
@@ -103,6 +105,7 @@ function transitions.resolve(declared: any): Spec
 		enter = enter,
 		exit = exit,
 		class = declared.class or DEFAULT_CLASS,
+		exitClass = declared.exitClass or DEFAULT_EXIT_CLASS,
 		fade = declared.fade == true,
 		pivot = declared.pivot,
 		distance = if type(declared.distance) == "number" then declared.distance else nil,
@@ -505,6 +508,42 @@ function transitions.new(opts: Opts)
 		end
 	end
 
+	-- the progress spring's two listeners, wired once per spring (entryFor builds
+	-- the first; retune builds a replacement when the phase's class differs)
+	local function listen(entry: any)
+		entry.unobserve = core:observe(entry.progress, function()
+			writeEntry(entry)
+		end)
+		entry.progress:onSettle(function()
+			if entry.phase == "enter" then
+				finishEnter(entry)
+			elseif entry.phase == "exit" then
+				finishExit(entry)
+			end
+		end)
+	end
+
+	-- ONE SPRING PER TRANSITION still holds; what changes between phases is its
+	-- CLASS. A MotionValue's class is fixed at construction, so a phase that
+	-- wants a different one gets a fresh spring seeded with the old value AND
+	-- velocity — the reversal keeps its momentum exactly as before.
+	local function retune(entry: any, class: string)
+		if entry.class == class then
+			return
+		end
+		local old = entry.progress
+		local fresh = clock:spring(old:get(), class)
+		fresh:setVelocity(old:getVelocity())
+		if entry.unobserve ~= nil then
+			entry.unobserve()
+			entry.unobserve = nil
+		end
+		old:dispose()
+		entry.progress = fresh
+		entry.class = class
+		listen(entry)
+	end
+
 	local function entryFor(path: string, node: any, spec: Spec, initial: number, alphaPath: string): any
 		local existing = entries[path]
 		if existing ~= nil then
@@ -521,22 +560,14 @@ function transitions.new(opts: Opts)
 			phase = "idle",
 			absent = { x = 0, y = 0 },
 			progress = clock:spring(initial, spec.class),
+			class = spec.class,
 			disposed = false,
 		}
 		entries[path] = entry
 		-- the write rides the VALUE, not the clock step, so an instant placement
 		-- (reduced motion) lands exactly like a stepped one — and inside the clock's
 		-- single per-frame transaction when it is stepped
-		entry.unobserve = core:observe(entry.progress, function()
-			writeEntry(entry)
-		end)
-		entry.progress:onSettle(function()
-			if entry.phase == "enter" then
-				finishEnter(entry)
-			elseif entry.phase == "exit" then
-				finishExit(entry)
-			end
-		end)
+		listen(entry)
 		return entry
 	end
 
@@ -604,6 +635,7 @@ function transitions.new(opts: Opts)
 			return
 		end
 		local entry = entryFor(path, node, spec, 0, alphaPath)
+		retune(entry, spec.class)
 		stopCap(entry)
 		entry.done = nil
 		entry.phase = "enter"
@@ -644,6 +676,7 @@ function transitions.new(opts: Opts)
 		end
 		local alphaPath = resolveAlphaTarget(path, node)
 		local entry = entryFor(path, node, spec, 1, alphaPath)
+		retune(entry, spec.exitClass)
 		entry.phase = "exit"
 		entry.done = done
 		setAbsent(entry, absentFor(spec, spec.exit, "exit"))

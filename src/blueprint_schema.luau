@@ -198,7 +198,7 @@ local TRANSITION_MIRROR: { [string]: string } = {
 -- themed default is right for a decorative nudge and wrong for a full-surface
 -- push/pop, and why this is an opt-in override rather than a changed default.
 local TRANSITION_KEYS: { [string]: boolean } =
-	{ enter = true, exit = true, class = true, fade = true, distance = true, pivot = true }
+	{ enter = true, exit = true, class = true, exitClass = true, fade = true, distance = true, pivot = true }
 -- where a scaling form (materialize) grows FROM: the node's centre unless the
 -- caller names the corner it is attached at (an anchored popover grows out of
 -- the control that opened it — picker round, 2026-09-11)
@@ -652,7 +652,7 @@ local TYPE_CHECKS: { [string]: (any) -> (boolean, string?) } = {
 		for k in v :: any do
 			if type(k) ~= "string" or not TRANSITION_KEYS[k] then
 				return false,
-					`unknown transition field '{tostring(k)}' (enter | exit | class | fade | distance | pivot)`
+					`unknown transition field '{tostring(k)}' (enter | exit | class | exitClass | fade | distance | pivot)`
 			end
 		end
 		local enter = (v :: any).enter
@@ -669,6 +669,11 @@ local TYPE_CHECKS: { [string]: (any) -> (boolean, string?) } = {
 		local class = (v :: any).class
 		if class ~= nil and (type(class) ~= "string" or class == "") then
 			return false, 'class names a MOTION CLASS (a string such as "container"), never inline spring params'
+		end
+		local exitClass = (v :: any).exitClass
+		if exitClass ~= nil and (type(exitClass) ~= "string" or exitClass == "") then
+			return false,
+				'exitClass names the MOTION CLASS the exit runs on (default "dismiss", the faster twin of "container")'
 		end
 		local fade = (v :: any).fade
 		if fade ~= nil and type(fade) ~= "boolean" then

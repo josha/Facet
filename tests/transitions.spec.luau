@@ -622,8 +622,10 @@ describe("transition coordinator: lifetime", function()
 		local core, env, clock = world()
 		local on = core:signal(true)
 		-- `decay` is the slowest shipped class (response 0.5 s), so its settle
-		-- epsilon lands well past the flat cap
-		local root = attach(core, env, clock, whenScreen(on, { enter = "fade", class = "decay" }))
+		-- epsilon lands well past the flat cap. `exitClass` is pinned to it too —
+		-- the exit otherwise defaults to the faster `dismiss` and would settle
+		-- (and dispose) on its own well before the cap, proving nothing about it.
+		local root = attach(core, env, clock, whenScreen(on, { enter = "fade", class = "decay", exitClass = "decay" }))
 		for _ = 1, 200 do
 			clock:step(FRAME)
 		end
@@ -656,7 +658,15 @@ describe("transition coordinator: lifetime", function()
 		end
 		local group = adapter.node("/S/Gate/then/Panel")
 		on:set(false)
-		for _ = 1, 6 do
+		-- the exit now defaults to `dismiss` (transitions round 2026-09-12) and the
+		-- re-entry retunes it back to `container` (the enter class) — a much
+		-- softer spring inheriting a much stiffer one's velocity. 4 frames into
+		-- the exit is where that handoff lands mid-flight with room on every
+		-- assertion below (measured); at 6 (the old frame count, right for a
+		-- symmetric `container`/`container` exit) the softer re-entry spring is
+		-- already outrun by the inherited velocity within its first step, which
+		-- is a property of the class swap, not a broken invariant.
+		for _ = 1, 4 do
 			clock:step(FRAME)
 		end
 		local mid = group.canvasGroupInstance.groupTransparency
@@ -999,7 +1009,10 @@ describe("presenter: a surface transition", function()
 
 	it("the deferred teardown is bounded by the same flat cap", function()
 		local _, _, adapter, _, pres = presenterWorld()
-		local handle = pres.present(surface("Slow"), { transition = { enter = "fade", class = "decay" } })
+		-- exitClass pinned to `decay` too: the exit otherwise defaults to the
+		-- faster `dismiss` and would settle well before the cap, proving nothing
+		local handle =
+			pres.present(surface("Slow"), { transition = { enter = "fade", class = "decay", exitClass = "decay" } })
 		for _ = 1, 200 do
 			pres.tick(FRAME)
 		end
@@ -1019,5 +1032,88 @@ describe("presenter: a surface transition", function()
 		local handle = pres.present(surface("Plain"))
 		pres.dismiss(handle)
 		expect(adapter.node("/Plain/Content")).toBeNil()
+	end)
+end)
+
+describe("transition coordinator: exits are faster than enters by default", function()
+	local function framesUntilIdle(clock: any): number
+		local n = 0
+		while clock:activeCount() > 0 and n < 600 do
+			clock:step(FRAME)
+			n += 1
+		end
+		return n
+	end
+
+	it("a default fade exits in fewer frames than it entered", function()
+		local core, env, clock = world()
+		local on = core:signal(true)
+		local root, _, controller, coordinator = attach(core, env, clock, whenScreen(on, { enter = "fade" }))
+		local enterFrames = framesUntilIdle(clock)
+		on:set(false)
+		local exitFrames = framesUntilIdle(clock)
+		controller.refresh()
+		expect(enterFrames > 0).toBe(true)
+		expect(exitFrames < enterFrames).toBe(true)
+		root.dispose()
+		coordinator.dispose()
+		clock:dispose()
+	end)
+
+	it("exitClass restores symmetry when declared", function()
+		local core, env, clock = world()
+		local on = core:signal(true)
+		-- `reward` (not `container`): the flat, non-overridable 500 ms exit cap
+		-- (EXIT_CAP_SECONDS) already truncates a fresh `container` spring's own
+		-- natural settle (~0.78 s, measured), so pairing class/exitClass on it
+		-- would prove the CAP fired identically on both sides, not that exitClass
+		-- restored the SPRING's own symmetric timing. `reward` settles in ~0.35 s
+		-- (measured, both directions), comfortably inside the cap either way.
+		local root, _, controller, coordinator =
+			attach(core, env, clock, whenScreen(on, { enter = "fade", class = "reward", exitClass = "reward" }))
+		local enterFrames = framesUntilIdle(clock)
+		on:set(false)
+		local exitFrames = framesUntilIdle(clock)
+		controller.refresh()
+		expect(exitFrames).toBe(enterFrames)
+		root.dispose()
+		coordinator.dispose()
+		clock:dispose()
+	end)
+
+	it("a re-entry mid-exit keeps its velocity across the retune", function()
+		local core, env, clock = world()
+		local on = core:signal(true)
+		local root, adapter, _, coordinator = attach(core, env, clock, whenScreen(on, { enter = "fade" }))
+		for _ = 1, 90 do
+			clock:step(FRAME)
+		end
+		on:set(false)
+		for _ = 1, 4 do
+			clock:step(FRAME)
+		end
+		local panel = adapter.node("/S/Gate/then/Panel")
+		local midway = panel.canvasGroupInstance.groupTransparency
+		expect(midway > 0 and midway < 1).toBe(true)
+		on:set(true)
+		-- the value is continuous across the class swap: no jump on the reversal frame
+		expect(panel.canvasGroupInstance.groupTransparency).toBe(midway)
+		for _ = 1, 90 do
+			clock:step(FRAME)
+		end
+		expect(panel.canvasGroupInstance.groupTransparency).toBe(0)
+		expect(clock:activeCount()).toBe(0)
+		root.dispose()
+		coordinator.dispose()
+		clock:dispose()
+	end)
+
+	it("resolve fills exitClass with dismiss and refuses a non-string", function()
+		local spec = transitionsLib.resolve({ enter = "fade" })
+		expect(spec.class).toBe("container")
+		expect(spec.exitClass).toBe("dismiss")
+		local ok, err = pcall(transitionsLib.resolve, { enter = "fade", exitClass = 3 })
+		expect(ok).toBe(false)
+		expect(string.find(tostring(err), "exitClass", 1, true) ~= nil).toBe(true)
 	end)
 end)
