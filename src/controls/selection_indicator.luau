@@ -597,20 +597,43 @@ function selection_indicator.build(Facet: any, core: any, spec: Spec)
 		a refusal, and leaves the check as strict as it ever was for a container
 		nothing publishes (a `selection:panle` typo still errors). The reactive
 		branch reads it through `use`, so a theme swap re-resolves the token the
-		same way the memo beside it re-resolves the geometry. ]]
+		same way the memo beside it re-resolves the geometry.
+
+		...AND A MEMO MUST NOT RAISE (review D6). Asking the live style makes the
+		answer depend on the live style, so a SWAP AWAY from the package that
+		published the container — Pixel Quest's `radii.chip` uninstalled while a
+		strip is mounted — turns a token that resolved a frame ago into one this
+		style cannot answer. Inside a memo that is quarantined: the bar loses its
+		corner data entirely and paints SQUARE, which is a worse answer than the
+		one the token was reaching for. So the derived token is resolved
+		DEFENSIVELY here and falls back to the plain `selection` radius, the same
+		family, which every style can answer. The authoring refusal is unaffected
+		— `newPicker` still refuses a container its live radii cannot name, where
+		the author wrote it, which is the check that catches a typo. ]]
 	local derives = spec.corner == nil and skin == "pill" and spec.trackCorner ~= nil
+	--[[ the derived token, or the plain `selection` fallback when this style
+		cannot answer it. `UI.cornersData` keeps the TOKEN beside the number, so
+		the painter re-resolves whichever one survives against the style it paints
+		with — a swap BACK re-derives the container answer on the next read. ]]
+	local function derivedCorners(token: any, style: any): any
+		local ok, data = pcall(UI.cornersData, token, style)
+		if ok then
+			return data
+		end
+		return UI.cornersData(selection_indicator.DEFAULT_CORNER, style)
+	end
 	local uniformCorners: any = if corner ~= nil then UI.cornersData(corner, metricsSig:get()) else nil
 	if derives then
 		local reactive = type(spec.trackCorner) == "table"
 		if reactive then
 			uniformCorners = scope:own(core:memo(function(use)
-				return UI.cornersData(
+				return derivedCorners(
 					selection_indicator.fillCornerFor(readValue(spec.trackCorner, use)),
 					use(metricsSig)
 				)
 			end))
 		else
-			uniformCorners = UI.cornersData(selection_indicator.fillCornerFor(spec.trackCorner), metricsSig:get())
+			uniformCorners = derivedCorners(selection_indicator.fillCornerFor(spec.trackCorner), metricsSig:get())
 		end
 	end
 	local barCorners: any = uniformCorners

@@ -2459,7 +2459,14 @@ function snapshot.resolveNumber(snap: any, value: any): number?
 		independently, exactly as the `radii.selection` fallback above already is. ]]
 	if result == nil then
 		local container = string.match(value, "^radii%.selection:([%w_%-]+)$")
-		if container ~= nil then
+		-- ...AND THE CONTAINER HAS TO EXIST FIRST (review D5, the same fix as the
+		-- painter's copy). The authored-`radii.selection` shortcut below answered
+		-- before the name was checked, so a package authoring a square highlight
+		-- made EVERY spelling resolvable — `selection:totally_made_up` included —
+		-- and a typo took the authored highlight instead of being refused. `pill`
+		-- is named because its clause answers by the pill RULE rather than by
+		-- arithmetic, but it is a published radius either way.
+		if container ~= nil and (container == "pill" or type(lookupPath(snap, `radii.{container}`)) == "number") then
 			local authored = lookupPath(snap, "radii.selection")
 			if type(authored) == "number" then
 				result = authored

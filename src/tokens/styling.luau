@@ -211,6 +211,17 @@ local function selectionRadius(style: any, token: string): number?
 	if container == nil then
 		return nil
 	end
+	--[[ THE CONTAINER HAS TO EXIST BEFORE ANY CLAUSE ANSWERS FOR IT (review D5).
+		The authored-`radii.selection` shortcut below used to answer FIRST, so a
+		package that authors a square highlight made every container spelling
+		resolvable — `selection:totally_made_up` included — and a typo painted the
+		authored highlight forever instead of being refused. The name is checked
+		against the style's own `radii` first; `pill` is named explicitly because
+		its clause below answers by the pill RULE rather than by arithmetic on
+		`radii.pill`, but it is a published radius either way. ]]
+	if container ~= "pill" and type((radii :: any)[container]) ~= "number" then
+		return nil
+	end
 	if type(authored) == "number" then
 		return authored
 	end

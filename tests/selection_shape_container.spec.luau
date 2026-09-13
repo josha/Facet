@@ -422,6 +422,93 @@ describe("selection shape: naming a container that cannot answer is an authoring
 		end)).toBe(false)
 	end)
 
+	it("an authored `radii.selection` does not make every spelling resolvable (review D5)", function()
+		--[[ the authored-selection shortcut answered BEFORE the container was
+			checked, so a package with a square highlight made
+			`selection:totally_made_up` resolve to 0 — a typo painting the
+			authored highlight forever rather than being refused. Three shipped
+			packages author `radii.selection`, so this was the common case, not
+			the exotic one. ]]
+		local metrics = packageWith(8, 7) -- authors radii.selection = 7
+		expect((metrics :: any).radii.selection).toBe(7)
+		-- the containers this style DOES publish still take the shortcut
+		expect(snapshot.resolveNumber(metrics, "radii.selection:control")).toBe(7)
+		expect(snapshot.resolveNumber(metrics, "radii.selection:pill")).toBe(7)
+		expect(snapshot.resolveNumber(metrics, "radii.selection:panel")).toBe(7)
+		-- ...and one it does not publish is refused, authored highlight or not
+		expect(snapshot.resolveNumber(metrics, "radii.selection:totally_made_up")).toBeNil()
+		expect(pcall(function()
+			return UI.cornersData("selection:totally_made_up", metrics)
+		end)).toBe(false)
+		-- the plain token is untouched: it names no container to check
+		expect(snapshot.resolveNumber(metrics, "radii.selection")).toBe(7)
+	end)
+
+	it("a swap AWAY from the package that published the container keeps a corner (review D6)", function()
+		--[[ asking the live style makes the answer depend on the live style, so a
+			swap away from the package that published `radii.chip` turns a token
+			that resolved a frame ago into one this style cannot answer. Inside a
+			memo that is QUARANTINED: the bar would lose its corner data entirely
+			and paint square — a worse answer than the one the token was reaching
+			for. The derived token falls back to the plain `selection` radius, the
+			same family, which every style can answer. ]]
+		local pkg = Facet.themes.define({
+			base = snapshot.neutralPackage(),
+			identity = {
+				id = "d6-chip",
+				displayName = "D6 Chip",
+				schemaVersion = Facet.themes.SCHEMA,
+				version = "1.0.0",
+			},
+			metrics = { radii = { chip = 6 } },
+		})
+		local chipMetrics = snapshot.resolve(pkg, nil, {})
+		local w = worldLib.new({ viewport = { x = 0, y = 0, w = 640, h = 720 }, themeMetrics = chipMetrics })
+		-- a REACTIVE `stripCorner`, which is the shape `TabView` hands in and the
+		-- only one whose corner is re-derived on a swap: a static one resolved
+		-- once at build and keeps the token it took, which `paintCorners` then
+		-- answers for or leaves at the authored number — no memo, nothing to
+		-- quarantine
+		local container = w.core:signal("chip")
+		local picker = Facet.Controls.Picker(w.core, {
+			id = "View",
+			selected = w.core:signal("a"),
+			options = { { value = "a", label = "One" }, { value = "b", label = "Two" } },
+			env = w.env,
+			presentation = "segmented",
+			track = false,
+			stripCorner = container,
+		})
+		w.present(UI.Screen({ id = "S", children = { picker.blueprint } }))
+		local bar = w.adapter.node(BAR)
+		expect(bar ~= nil).toBe(true)
+		expect((bar :: any).props.corners.tokens.radius).toBe("selection:chip")
+
+		-- the swap away: the container this token names no longer exists
+		w.env:set("themeMetrics", snapshot.neutral())
+		w.pres.refresh()
+		local after = w.adapter.node(BAR)
+		expect(after ~= nil).toBe(true)
+		local corners = (after :: any).props.corners
+		expect(`corners present: {corners ~= nil}`).toBe("corners present: true")
+		-- THE DIRECT EVIDENCE FIRST: nothing was quarantined. Without the
+		-- defensive resolve the memo raises here, `core:lastError()` records it,
+		-- and the bar keeps whatever corner data it happened to hold — a stale
+		-- token under a style that cannot answer it.
+		expect(`quarantined: {tostring(w.core:lastError())}`).toBe("quarantined: nil")
+		-- ...and it re-derived to the plain `selection` token, which every style
+		-- answers
+		expect(corners.tokens.radius).toBe("selection")
+		expect(type(corners.radius) == "number").toBe(true)
+		-- ...and a swap BACK re-derives the container answer, because the token
+		-- was never the thing that broke
+		w.env:set("themeMetrics", chipMetrics)
+		w.pres.refresh()
+		expect((w.adapter.node(BAR) :: any).props.corners.tokens.radius).toBe("selection:chip")
+		picker.dispose()
+		container:dispose()
+	end)
+
 	it("with NO theme in hand at all the message says the vocabulary is the base style's", function()
 		--[[ the picker built without an `env` (and outside any surface, so
 			`surfaceEnv.find` answers nothing) has no live radii to check against.
