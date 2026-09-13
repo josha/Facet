@@ -2394,7 +2394,16 @@ function radial.build(Facet: any, core: any, spec: Spec)
 				(the presenter's context outranks this control's, so it is dispatched
 				before the aim sets `analog`). `analog` is cleared by the stick
 				re-centring (magnitude < 0.25) and by every close/back/root/commit/
-				cancel/dispose path, so it cannot strand the ring. ]]
+				cancel/dispose path, so it cannot strand the ring — a released stick
+				puts the ring straight back on the geometric branch below.
+
+				THE AIM IS MODAL TO THE RING (ruling, 2026-09-13). This claims EVERY
+				direction while the stick is aiming, not only the ones a wedge lies
+				along — so a held stick can never yank focus out of an open radial and
+				into whatever control happens to sit beside it. That is the same
+				ownership the `best == nil` case below states for the d-pad: while
+				focus is inside an open ring, the ring owns the directional verbs, and
+				Cancel/B is how you leave. ]]
 			if analog then
 				return true
 			end
@@ -2420,10 +2429,63 @@ function radial.build(Facet: any, core: any, spec: Spec)
 				end
 			end
 			if best then
-				graph.focusOn(best)
+				--[[ ONE WRITER MOVES FOCUS AND THE HIGHLIGHT TOGETHER.
+
+					This branch used to move focus with a bare `graph.focusOn` and
+					never touch `candidate`, and the presenter does NOT report a move
+					an intercept claimed back through `focusMoved` — so a d-pad or
+					keyboard step left the two disagreeing. Measured 2026-09-13: one
+					`DPadRight` on a fresh compass ring focused `:point` with
+					`candidate` still nil, and a later step sat on `:point` with
+					`candidate` reading `:call`. `candidate` is not decoration — it is
+					what a hold-action release commits (`commit(candidateSector())`)
+					and what the lift/tint paint from, so the pad user could commit a
+					wedge that was never the one lit up.
+
+					`setCandidate` is the analog path's writer and it does both halves
+					in one call, so the two routes into the ring now agree by
+					construction. It declines a disabled/hidden item; `focusRects`'s
+					census above already applies that SAME predicate (the wedge
+					Button's `enabled` IS the item's `eligible`), so a censused path
+					cannot be one it refuses. The fallback is for a focusable that is
+					not a wedge at all — the Launcher. ]]
+				local picked = nil
+				for _, s in layout:get().sectors do
+					if focusPaths[s.key] == best then
+						picked = s
+						break
+					end
+				end
+				if picked then
+					setCandidate(picked)
+				else
+					graph.focusOn(best)
+				end
 				return true
 			end
-			return false
+			--[[ NOTHING LIES THAT WAY, SO THE RING HOLDS — IT DOES NOT FALL THROUGH.
+
+				This `return false` used to hand the direction to the presenter's
+				`graph.navigateDirection`, which walks the focus RING in declaration
+				order and therefore WRAPS. That wrap is what made a held direction
+				unstable, and it is the real root of the auto-repeat flip-flop:
+				measured 2026-09-13 on a compass ring, a held `DPadRight` went
+				`:point` -(no wedge to the right, fall through, wrap)-> `:call`
+				-(the search above: `:point` IS to the right of `:call`)-> `:point`,
+				for SEVEN focus changes and eight solves across a 60-tick hold, for
+				a player holding one key.
+
+				Holding makes the repeat provably terminating instead of patching the
+				cadence: every step this intercept takes requires `along > 1`, i.e. a
+				STRICT advance along the pressed direction, so over a finite ring the
+				walk is monotone and must stop. Only the wrap could re-enter a wedge
+				it had already left. A held direction now steps as far as the ring
+				goes that way and then rests — no state, no last-direction memo, and
+				a multi-wedge ring still repeat-steps the whole way across.
+
+				The ring only claims while focus is INSIDE it: `from` is nil for any
+				path this control did not census, and that returns false above. ]]
+			return true
 		end,
 		handleCancel = function()
 			if opened:get() then
