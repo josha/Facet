@@ -294,9 +294,16 @@ describe("ten-foot focus lift is capped to bounds that fit the screen (director 
 end)
 
 describe("ten-foot default overscan margins (director live find: edge-flush UI on a TV-class display)", function()
+	--[[ …AND THE PROFILE IS A PROPORTION (owner report A2, 2026-09-13). The
+		console numbers below are the profile AT ITS REFERENCE RESOLUTION, which is
+		why this case now states the viewport it is asking about: an overscan is the
+		band a panel may not be trusted to show, so it is a fraction of the display,
+		and spent as literals it took 31% of the height of an 801x392 window. The
+		reference answer is unchanged to the pixel. ]]
 	it("effectiveOverscanInsets defaults to the ten-foot 60/90 under Large when none are authored", function()
 		local core = customFactory.new()
 		local env = environment.new(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 1920, h = 1080 })
 		expect(env:get("effectiveOverscanInsets"):get().left).toBe(0) -- near: no margins
 		env:set("displaySize", "Large")
 		local insets = env:get("effectiveOverscanInsets"):get()
@@ -304,6 +311,10 @@ describe("ten-foot default overscan margins (director live find: edge-flush UI o
 		expect(insets.bottom).toBe(60)
 		expect(insets.left).toBe(90)
 		expect(insets.right).toBe(90)
+		-- the same profile, on a display that is not the reference one
+		env:set("viewportRect", { x = 0, y = 0, w = 1280, h = 720 })
+		local small = env:get("effectiveOverscanInsets"):get()
+		expect(`{small.top}/{small.left}`).toBe("40/60")
 		-- authored values win
 		env:set("overscanInsets", { top = 10, bottom = 10, left = 20, right = 20 })
 		expect(env:get("effectiveOverscanInsets"):get().left).toBe(20)
@@ -326,8 +337,9 @@ describe("ten-foot default overscan margins (director live find: edge-flush UI o
 		expect(adapter.node("/S/Panel").rect.x).toBe(0)
 		env:set("displaySize", "Large")
 		local rect = adapter.node("/S/Panel").rect
-		expect(rect.x).toBe(90)
-		expect(rect.w).toBe(1280 - 180)
+		-- 1280 of glass, so the console profile's 90/1920 of it is 60 (A2, 2026-09-13)
+		expect(rect.x).toBe(60)
+		expect(rect.w).toBe(1280 - 120)
 	end)
 end)
 

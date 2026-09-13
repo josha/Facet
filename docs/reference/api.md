@@ -4618,7 +4618,7 @@ Derived policy (memoized, read-only):
 | `sizeClass` | `"compact" \| "regular" \| "wide"` from `viewportRect.w`, capped at `regular` at ten-foot (`effectiveDisplaySize == "Large"`) |
 | `motionPolicy` | `"reduced"` when `reducedMotion` is true, else `"full"` |
 | `distanceProfile` | `"ten-foot"` when `effectiveDisplaySize == "Large"`, else `"near"` |
-| `effectiveOverscanInsets` | authored `overscanInsets` when any edge is non-zero; `"none"` means all zero; otherwise the console defaults (60 top/bottom, 90 left/right) at ten-foot and zeros elsewhere |
+| `effectiveOverscanInsets` | authored `overscanInsets` when any edge is non-zero; `"none"` means all zero; otherwise, at ten-foot, the console profile as a **fraction of the viewport** — `60/1080` of its height and `90/1920` of its width, rounded to whole pixels, so a 1920×1080 display reserves exactly 60/60/90/90 and a smaller window reserves the same *proportion* rather than the same pixels. Zeros on a near display. |
 | `platformChrome` | WHERE THE PLATFORM'S OWN CONTROLS ARE: `{ band, rects, insets, bandInsets }`. `band` is the free topbar strip in window space or `nil`; `rects` is what the engine's own controls occupy (a list — the top band minus a free strip is an L); `insets` clears everything (what `deviceSafeContent` applies); `bandInsets` clears everything except the free band |
 | `presentationProfile` | `{ space, flat, world }`; an unrecognised `presentationSpace` resolves to `"screen"` |
 | `interactionClasses` | the LIVE set of input idioms plus `primary`: capabilities and preference together, never the preference alone |

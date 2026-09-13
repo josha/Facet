@@ -372,7 +372,44 @@ function environment.new(core: any): Env
 			end
 		end
 		if use(derived.effectiveDisplaySize) == "Large" then
-			return { top = 60, bottom = 60, left = 90, right = 90 }
+			--[[ AS A FRACTION OF THE DISPLAY, NOT AS 1080p PIXELS (owner report A2,
+				2026-09-13: "ten-foot profile: padding is huge, content gets almost no
+				screen").
+
+				An overscan is a property of a television's EDGE — the band the panel
+				may not be trusted to show — so it is a proportion of the screen, and
+				the console-profile numbers above are that proportion AT 1080p:
+				60/1080 and 90/1920. Spent as literals they reserved the same absolute
+				band from any viewport, which is 5.6%/4.7% of a television and
+				31%/22% of the 801x392 Studio window the report was taken in — there,
+				the alert's card resolved to 577x73 around 269px of content, and a
+				third of the height it never got was this reserve.
+
+				At 1920x1080 the arithmetic returns exactly 60/60/90/90, so nothing a
+				television or a 1080p capture has ever shown moves by a pixel; the
+				fraction only starts answering differently on a display that is not
+				the reference one. Whole pixels, because a reserve is a rect the root
+				policy insets by and `UDim.Offset` is an int.
+
+				A broken or absent viewport fact falls back to the reference numbers:
+				an over-reserve on a display nobody can measure is the safe direction
+				(the edge may really be cropping), and it is what shipped. ]]
+			local vp = use(signals.viewportRect)
+			local w = if type(vp) == "table"
+					and type(vp.w) == "number"
+					and vp.w == vp.w
+					and vp.w > 0
+				then vp.w
+				else 1920
+			local h = if type(vp) == "table"
+					and type(vp.h) == "number"
+					and vp.h == vp.h
+					and vp.h > 0
+				then vp.h
+				else 1080
+			local top = math.round(h * (60 / 1080))
+			local left = math.round(w * (90 / 1920))
+			return { top = top, bottom = top, left = left, right = left }
 		end
 		return { top = 0, bottom = 0, left = 0, right = 0 }
 	end)

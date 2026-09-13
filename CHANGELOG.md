@@ -13,6 +13,16 @@ runtime as `Facet.VERSION`.
 
 ## [Unreleased]
 
+- **The ten-foot overscan is a fraction of the display, not 1080p pixels
+  (2026-09-13).** `effectiveOverscanInsets` derived the console profile's
+  60/60/90/90 as literals, so it reserved the same absolute band from any
+  viewport — 5.6%/4.7% of a television and 31%/22% of an 801×392 Studio window,
+  where an alert's card resolved to 577×73 around 269 px of content. It is now
+  that same profile expressed as the proportion it is (`60/1080` of the height,
+  `90/1920` of the width, whole pixels). At 1920×1080 the answer is byte-identical
+  to what shipped; an authored `overscanInsets` and the `"none"` opt-out are
+  unchanged.
+
 - **A materialize may declare the scale it starts from, and `Controls.Alert`
   settles DOWN into place (2026-09-13).** `transition.scale` joins `distance` as
   the scaling form's own opt-in override. It exists because of a measured engine
