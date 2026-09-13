@@ -405,4 +405,84 @@ t.describe("Button behavior", function()
 			)
 		end
 	end
+
+	t.describe("button: pop", function()
+		local FRAME = 1 / 60
+		-- the button's own painted scale: the adapter drops the UIScale entirely
+		-- at 1, which is the un-popped rest state (radial_menu's `scaleAt`).
+		local function scaleOf(w: any, path: string): number
+			local node = w.adapter.node(path)
+			return if node and node.motionScaleInstance then node.motionScaleInstance.scale else 1
+		end
+
+		t.it("an activate kicks the root scale and it returns to 1 for free", function()
+			local w = world.new()
+			local hits = 0
+			local button = Facet.Controls.Button(w.core, {
+				id = "Go",
+				label = "Go",
+				pop = true,
+				onActivate = function()
+					hits += 1
+				end,
+			})
+			w.present(Facet.UI.Screen({ id = "S", children = { button.blueprint } }))
+			local idleActive = w.pres.motionClock:activeCount()
+			w.adapter.tap("/S/Go")
+			local peak = 1
+			for _ = 1, 30 do
+				w.pres.tick(FRAME)
+				w.pres.refresh()
+				peak = math.max(peak, scaleOf(w, "/S/Go"))
+			end
+			t.expect(hits).toBe(1)
+			t.expect(peak > 1.03).toBe(true)
+			for _ = 1, 60 do
+				w.pres.tick(FRAME)
+				w.pres.refresh()
+			end
+			t.expect(math.abs(scaleOf(w, "/S/Go") - 1) < 0.001).toBe(true)
+			t.expect(w.pres.motionClock:activeCount()).toBe(idleActive)
+			w.pres.dismiss(w.handle)
+			button.dispose()
+		end)
+
+		t.it("reduced motion keeps the root scale exactly at 1", function()
+			local w = world.new({ reducedMotion = true })
+			local hits = 0
+			local button = Facet.Controls.Button(w.core, {
+				id = "Go",
+				label = "Go",
+				pop = true,
+				onActivate = function()
+					hits += 1
+				end,
+			})
+			w.present(Facet.UI.Screen({ id = "S", children = { button.blueprint } }))
+			w.adapter.tap("/S/Go")
+			for _ = 1, 10 do
+				w.pres.tick(FRAME)
+				w.pres.refresh()
+				t.expect(scaleOf(w, "/S/Go")).toBe(1)
+			end
+			t.expect(hits).toBe(1)
+			t.expect(w.pres.motionClock:activeCount()).toBe(0)
+			w.pres.dismiss(w.handle)
+			button.dispose()
+		end)
+
+		t.it("without pop, the root never authors a transform", function()
+			local w = world.new()
+			local button = Facet.Controls.Button(w.core, { id = "Go", label = "Go", onActivate = function() end })
+			w.present(Facet.UI.Screen({ id = "S", children = { button.blueprint } }))
+			w.adapter.tap("/S/Go")
+			for _ = 1, 10 do
+				w.pres.tick(FRAME)
+				w.pres.refresh()
+			end
+			t.expect(w.adapter.node("/S/Go").props.transform).toBeNil()
+			w.pres.dismiss(w.handle)
+			button.dispose()
+		end)
+	end)
 end)

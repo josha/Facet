@@ -26,6 +26,7 @@ local KEYS = guard.keySet({
 	"imageFraming",
 	"subtitle",
 	"row",
+	"pop",
 })
 function button.build(Facet, core, spec)
 	guard.assertKnownKeys("Controls.Button", spec, KEYS, "spec")
@@ -75,6 +76,21 @@ function button.build(Facet, core, spec)
 	local disposed = false
 	local rootNode, inputScope, system, clock
 	local graph, paintAllowed, controller, hoverOff, bindImageMotion
+	-- THE POP (transitions round 2026-09-12): a release overshoot for reward-shaped
+	-- buttons, opt-in. One `reward` spring at rest on 1; activate kicks its
+	-- velocity, the spring overshoots and returns. Paint-only `scale`.
+	local popScale = if spec.pop then scope:own(core:signal(1)) else nil
+	local popMotion: any = nil
+	local POP_KICK = 4
+	local function bindPopMotion()
+		if popScale == nil or popMotion ~= nil or clock == nil then
+			return
+		end
+		popMotion = scope:own(clock:spring(1, "reward", { eps = 0.00001 }))
+		scope:own(core:observe(popMotion, function()
+			popScale:set(popMotion:get())
+		end))
+	end
 	local env = if imageForm then surfaceEnv.find(core) else nil
 	local focused = if imageForm then scope:own(core:signal(false)) else nil
 	local hovered = if imageForm then scope:own(core:signal(false)) else nil
@@ -139,6 +155,9 @@ function button.build(Facet, core, spec)
 		if suppressTap and (meta == nil or meta.source == "pointer") then
 			suppressTap = false
 			return
+		end
+		if popMotion ~= nil then
+			popMotion:setVelocity(POP_KICK)
 		end
 		spec.onActivate(meta)
 	end
@@ -393,6 +412,7 @@ function button.build(Facet, core, spec)
 		children = content,
 		gap = "s",
 		align = "center",
+		scale = popScale,
 		onActivate = activate,
 		onPointerDown = if repeating
 			then function()
@@ -482,6 +502,7 @@ function button.build(Facet, core, spec)
 		end,
 		bindMotion = function(c)
 			clock = c
+			bindPopMotion()
 			if bindImageMotion then
 				bindImageMotion()
 			end
