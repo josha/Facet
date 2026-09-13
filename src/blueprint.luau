@@ -494,14 +494,19 @@ export type PathSpec = BoxProps & {
 
 -- A structural region's enter/exit declaration. `exit`
 -- defaults to the mirror of `enter`; `class` names a motion class (default
--- "container"); `fade` pairs a slide with a transparency fade, which — like the
--- fading forms themselves — needs the child to be a declared `canvasGroup` node.
+-- "container"); `exitClass` names the motion class the exit runs on (default
+-- "dismiss", the faster twin of "container" — transitions round 2026-09-12);
+-- `fade` pairs a slide with a transparency fade, which — like the
+-- fading forms themselves — needs the child to be a declared `canvasGroup` node;
+-- `pivot` is where a scaling form (`materialize`) grows from (default centre).
 export type TransitionSpec = {
 	enter: string,
 	exit: string?,
 	class: string?,
+	exitClass: string?,
 	fade: boolean?,
 	distance: number?,
+	pivot: string?,
 }
 
 -- `thenView`'s `branchScope` is the BRANCH's ownership scope, disposed when the

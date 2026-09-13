@@ -7,6 +7,7 @@ local contribution = require("../input/contribution")
 local coreContract = require("../core/contract")
 local blueprintLib = require("../blueprint")
 local environment = require("../env/environment")
+local transitionsLib = require("../render/transitions")
 local navigation = {}
 export type Entry = { id: string, value: any? }
 export type Destination = {
@@ -145,11 +146,12 @@ function navigation.build(Facet: any, core: any, spec: Spec)
 	-- must share one MOTION CLASS or the two-page slide desyncs, so this pins
 	-- exitClass to the SAME resolved class rather than to `authored.exitClass or
 	-- authored.class` alone — with neither declared, that pair is nil/nil and
-	-- `transitions.resolve` would then hand them DIFFERENT defaults ("container"
-	-- for class, the faster "dismiss" for exitClass — transitions round
-	-- 2026-09-12), the exact desync this exists to prevent. "container" here
-	-- names the same default `transitions.resolve` would already have chosen.
-	local pageClass = authored and (authored.class or "container")
+	-- `transitions.resolve` would then hand them DIFFERENT defaults
+	-- (`transitions.DEFAULT_CLASS` for class, the faster "dismiss" for
+	-- exitClass — transitions round 2026-09-12), the exact desync this exists
+	-- to prevent. Reading `transitions.DEFAULT_CLASS` here (rather than
+	-- restating "container") keeps this in lockstep with that default too.
+	local pageClass = authored and (authored.class or transitionsLib.DEFAULT_CLASS)
 	if horizontal then
 		local initial = table.clone(authored)
 		initial.enter = "instant"

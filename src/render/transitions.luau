@@ -734,5 +734,9 @@ function transitions.new(opts: Opts)
 end
 
 transitions.EXIT_CAP_SECONDS = EXIT_CAP_SECONDS
+-- so a consumer that must mirror the default (navigation_stack.luau's two-page
+-- lockstep, which pins exitClass to the SAME class rather than let it drift
+-- onto DEFAULT_EXIT_CLASS) reads this instead of copying the string by hand.
+transitions.DEFAULT_CLASS = DEFAULT_CLASS
 
 return transitions
