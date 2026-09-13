@@ -23,7 +23,9 @@ runtime as `Facet.VERSION`.
   1280 desktop row asked for 802 px of a 528 px card and ran outside it. The card
   also stops paying twice for its own frame: its `padding` yields to the panel
   slot's carved inset (down to one `xs`, never to nothing) and it declares
-  `chromeReserve = "none"`, since that carved
+  `chromeReserve = "none"` wherever a frame IS carved — gated on the carve, so a
+  package that glows without carving (Sci-Fi HUD, Glossy Mobile) keeps its lane —
+  since that carved
   frame is the lane a scroller reserves for content chrome — 288 px of content on a
   390 px phone under Fantasy Parchment becomes 322, which is what lets "Continue"
   draw whole at the Largest preference. The primary action also stretches in the
@@ -45,8 +47,10 @@ runtime as `Facet.VERSION`.
   (2026-09-13).** The critical caution mark (and an authored `icon`) was
   `targetSizes.minimum` — 44 px, the *hit floor* — beside a 20 px heading, so it
   was more than twice the height of the line it qualifies. Its default is now
-  `iconSizes.medium`, the type-height rung the rest of the library already spends,
-  and `controls.alert.iconStroke` follows the mark (a tenth of the box, floored at
+  `iconSizes.medium` capped at the heading it leads — the type-height rung the rest
+  of the library already spends, with the cap because a package may pitch its
+  picture ladder above its type (Fantasy Ornate's `medium` is 32 against a 22 px
+  heading) — and `controls.alert.iconStroke` follows the mark (a tenth of the box, floored at
   the package's hairline) instead of a spacing step. With no mark the title's text
   is centred in the card, as the message under it always was; with a mark the pair
   is centred **as a unit** and the title reads from the mark, instead of a `fill`
@@ -74,8 +78,9 @@ runtime as `Facet.VERSION`.
   re-flowing a quarter of a second after the card had stopped moving. The modal's
   default is now `{ enter = "materialize", plate = "fades", scale = 1.015 }`: the
   band `[1, 1 + 1/66)` floors to the same pixel for every text size the framework
-  can paint, so the type lands at its final rect on the first painted frame.
-  Every other caller keeps the ratified `0.96`.
+  can paint, so the type lands at its final rect on the first painted frame. It is
+  the **enter's** band only — an exit is the opposite instant, so it still dips out
+  to the ratified `0.96` — and every other caller keeps that `0.96` both ways.
 
 - **Transitions round (2026-09-12, informed by a transitions.dev survey).**
   Structural exits default to the new `dismiss` motion class (`exitClass` opts a

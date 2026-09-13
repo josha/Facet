@@ -162,9 +162,9 @@ export type Spec = {
 	-- task-fix3 symptoms 2/3: opt-in override for `slideDistance` below, nil
 	-- meaning "use the themed default" (every caller before this fix, unchanged)
 	distance: number?,
-	-- the scaling form's own absent scale, nil meaning `MATERIALIZE_SCALE` (see
-	-- its header for the engine fact that makes this an override rather than a
-	-- changed default)
+	-- the scaling form's ENTER band, nil meaning `MATERIALIZE_SCALE` (see its
+	-- header for the engine fact that makes this an override rather than a changed
+	-- default, and `absentFor` for why the exit keeps the ratified dip)
 	scale: number?,
 	-- the corner a scaling form grows from (schema.TRANSITION_PIVOTS); nil = centre
 	pivot: string?,
@@ -608,10 +608,24 @@ function transitions.new(opts: Opts)
 			absent.y = travel.y * d * sign
 		end
 		if form == "materialize" then
-			-- the caller's own band wins, exactly as `slideDistance` lets a caller
-			-- own its travel (see `MATERIALIZE_SCALE`'s header for why a text-heavy
-			-- surface has to)
-			absent.scale = if type(spec.scale) == "number" then spec.scale else MATERIALIZE_SCALE
+			--[[ THE CALLER'S OWN BAND WINS ON THE WAY IN, AND ONLY ON THE WAY IN
+				(RED-TEAM F1). `spec.scale` exists for one reason — a surface that is
+				mostly TYPE cannot cross the `floor(TextSize x scale)` boundary while
+				it is being read (see `MATERIALIZE_SCALE`'s header) — and that is a
+				fact about the ENTER, where the text arrives and stays. An exit is the
+				opposite instant: the plate is leaving, it is already fading, and the
+				shape the owner asked for is a DIP OUT, not a swell. Spending the
+				enter's band in both phases made the alert grow 1.5% while it faded,
+				which is neither what was asked for nor what the band is for.
+
+				So the exit keeps the ratified `MATERIALIZE_SCALE` — the same dip
+				every other caller has always had — and a caller who declares a band
+				changes only how their surface ARRIVES. `slideDistance` is the twin:
+				it too is one number spent from both ends, but a slide's travel is
+				symmetric by construction (`TRAVEL` above flips the SIGN) while a
+				scale's is not: 0.96 and 1.015 are opposite directions, not opposite
+				signs of one direction. ]]
+			absent.scale = if phase == "enter" and type(spec.scale) == "number" then spec.scale else MATERIALIZE_SCALE
 			absent.pivot = spec.pivot
 		end
 		if fades(spec, form) then

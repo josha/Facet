@@ -594,22 +594,51 @@ describe("backdrop-before-content: the modal/popover surfaces acknowledge their 
 		declared:dispose()
 	end)
 
-	it("a caller's own `plate` wins over the merge, Readable or not (review N3)", function()
-		local w = worldLib.new({ viewport = { x = 0, y = 0, w = 390, h = 844 } })
-		local authored = { enter = "materialize", plate = "fades" }
-		local alert = Facet.Controls.Alert(w.core, {
-			id = "Own",
-			title = "Delete?",
-			actions = { { id = "ok", label = "OK" } },
-			transition = authored,
-		})
-		-- the caller's table reaches the presenter UNCLONED: nothing merged into
-		-- a declaration that had already made the claim
-		local handle = alert.present(w.pres)
-		expect(handle.transition).toBe(authored)
-		alert.dispose()
+	--[[ A CALLER'S OWN VALUES WIN, AND IDENTITY SURVIVES WHEN NOTHING IS OWED
+		(review N3; widened by RED-TEAM F8, 2026-09-13). The merge acquired a second
+		key: a `materialize` with no `scale` is owed the text-safe band, because that
+		band answers an ENGINE fact about the type on this card rather than a taste
+		the control holds — a caller naming the form to change its motion class was
+		not asking for their title to re-flow a beat after it settled.
 
-		local declared = w.core:signal({ enter = "materialize", plate = "fades" })
+		So the passthrough is now conditional on there being nothing to add, which is
+		the honest statement of the rule the identity check was always standing in
+		for. A declaration that makes BOTH claims still reaches the presenter
+		uncloned; so does a form that drives no scale at all. One that is owed the
+		band is cloned, and every key the caller wrote survives the clone. ]]
+	it("a caller's own values win, and an untouched declaration is passed through uncloned", function()
+		local w = worldLib.new({ viewport = { x = 0, y = 0, w = 390, h = 844 } })
+		local function presented(id: string, declared: any): any
+			local alert = Facet.Controls.Alert(w.core, {
+				id = id,
+				title = "Delete?",
+				actions = { { id = "ok", label = "OK" } },
+				transition = declared,
+			})
+			local handle = alert.present(w.pres)
+			local reached = handle.transition
+			alert.dispose()
+			return reached
+		end
+
+		-- nothing owed: both claims already made, so the caller's table IS the one
+		-- the presenter is handed
+		local complete = { enter = "materialize", plate = "fades", scale = 0.9 }
+		expect(presented("Own", complete)).toBe(complete)
+		-- ...and a form that drives no scale is owed no band
+		local slide = { enter = "slide-up", plate = "fades" }
+		expect(presented("Slide", slide)).toBe(slide)
+
+		-- owed the band: cloned, and every key the caller wrote survives
+		local partial = { enter = "materialize", plate = "fades", class = "decay" }
+		local merged = presented("Partial", partial)
+		expect(merged).never().toBe(partial)
+		expect(merged.plate).toBe("fades")
+		expect(merged.class).toBe("decay")
+		expect(merged.scale).toBe(1.015)
+		expect(partial.scale).toBeNil() -- the caller's own table is not written to
+
+		local declared = w.core:signal({ enter = "materialize", plate = "fades", scale = 0.9 })
 		local bound = Facet.Controls.Alert(w.core, {
 			id = "OwnBound",
 			title = "Delete?",

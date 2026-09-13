@@ -35,11 +35,18 @@ end
 	every size this framework can paint (the neutral ladder's largest is `title`
 	24, x1.5 at a ten-foot display = 36, plus the engine's largest preferred-text
 	offset of 14 = 50, with headroom for a package that authors a taller ladder).
-	So the card eases DOWN from 1.5% over, the type never re-rasterizes, and the
-	text lands at its final rect on the first painted frame.
+	So the card SETTLES DOWN ON THE WAY IN, from 1.5% over: the type never
+	re-rasterizes and the text lands at its final rect on the first painted frame.
+
+	IT STILL DIPS OUT. The band answers a question about the instant the text
+	ARRIVES and is read, and an exit is the opposite instant — the plate is leaving,
+	it is already fading, and a swell there is neither what the shape asks for nor
+	what the band is for. `render/transitions.luau`'s `absentFor` spends `scale` on
+	the ENTER alone, so the exit keeps the ratified dip to `MATERIALIZE_SCALE`, on
+	the faster `dismiss` class it always had.
 
 	`plate = "fades"` is the acknowledgement the shape needs (see
-	`acknowledgePlate`); the `dismiss` exit still dips out faster than it came. ]]
+	`acknowledgePlate`). ]]
 local ALERT_MATERIALIZE_SCALE = 1.015
 local DEFAULT_TRANSITION = table.freeze({ enter = "materialize", plate = "fades", scale = ALERT_MATERIALIZE_SCALE })
 
@@ -55,13 +62,34 @@ end
 	Merged, never overwritten: a caller's own `plate` is their call, and a
 	declaration that already makes the claim is passed through by IDENTITY. A
 	form that never fades (`instant`, a pure slide) records nothing either way,
-	so the key costs it nothing. ]]
+	so the key costs it nothing.
+
+	…AND THE TEXT-SAFE BAND IS MERGED THE SAME WAY (RED-TEAM F8). `scale` is not a
+	taste this control happens to hold — it is the answer to an ENGINE fact about
+	the type on this card (see `ALERT_MATERIALIZE_SCALE`), and it is true of every
+	alert, not only of the ones that took the default. A caller who writes
+	`transition = { enter = "materialize" }` to change the motion CLASS was not
+	asking for their title to re-flow a beat after it settled, so they get the band
+	too; a caller who writes a `scale` of their own has said something about it and
+	keeps it, exactly as they keep their own `plate`. Only the scaling form is
+	touched: nothing else reads the key, and writing it onto a slide would be a
+	claim about a channel that form does not drive. ]]
 local function mergePlate(value: any): any
-	if type(value) ~= "table" or value.plate ~= nil then
+	if type(value) ~= "table" then
+		return value
+	end
+	local wantsPlate = value.plate == nil
+	local wantsScale = value.enter == "materialize" and value.scale == nil
+	if not wantsPlate and not wantsScale then
 		return value
 	end
 	local merged = table.clone(value)
-	merged.plate = "fades"
+	if wantsPlate then
+		merged.plate = "fades"
+	end
+	if wantsScale then
+		merged.scale = ALERT_MATERIALIZE_SCALE
+	end
 	return merged
 end
 
@@ -309,6 +337,18 @@ function alert.build(Facet: any, core: any, spec: Spec)
 			facts.offset
 		)
 		local font = if type(role) == "table" then role.fontKey else nil
+		--[[ A FONT THIS MEASURER CANNOT KEY ON IS NO MEASUREMENT AT ALL (RED-TEAM
+			F2). `text_metrics.measure` keys its caches on the font DESCRIPTOR, and a
+			`themeMetrics` fact is whatever an adapter or a fixture pushed — a
+			partial table has no `type` section, so `effectiveTypeRole` answers no
+			role and the descriptor is nil. Raising here quarantines the memo that
+			asked and lands on `lastError` for a screen that used to render clean, so
+			an unmeasurable label reports NO width instead: the row then looks
+			narrower than it is, which over-stacks and never cuts — the same
+			direction every other fallback in this rung takes. ]]
+		if type(font) ~= "string" then
+			return 0
+		end
 		local lineHeight = if type(role) == "table" then role.lineHeight else nil
 		return textMetrics.measure(label, font, size, math.huge, lineHeight, 1).width
 	end
@@ -660,6 +700,17 @@ function alert.build(Facet: any, core: any, spec: Spec)
 				})
 			)
 		end
+		--[[ THE TITLE HUGS ON BOTH PATHS (RED-TEAM F12). The marked path had to hug
+			— that is what lets the mark and the line centre as one unit — and the
+			unmarked one was left on `fill`, which is the declaration that made this
+			card's WIDTH follow its content. A hugging ScrollView asks its children
+			what they want; a `fill` child answers "whatever I am given", so a lone
+			67-character title reported the width of its longest WORD and the card
+			collapsed to 92 px around a one-line 60 px title. Hugging, the title asks
+			for the line it wants, the card grows to the cap, and the line wraps
+			inside it. `textAlign` still differs, and only that: an unmarked title
+			centres its own glyphs in the box it hugged to, which IS the card's
+			centre because the row centres it. ]]
 		local marked = #header > 0
 		table.insert(
 			header,
@@ -669,7 +720,7 @@ function alert.build(Facet: any, core: any, spec: Spec)
 				disclose = true,
 				textSize = "heading",
 				textAlign = if marked then "start" else "center",
-				width = if marked then UI.hug() else UI.fill(),
+				width = UI.hug(),
 				tint = if def.severity == "critical" then { role = "danger", blend = 1 } else nil,
 			})
 		)
@@ -680,7 +731,7 @@ function alert.build(Facet: any, core: any, spec: Spec)
 				width = UI.fill(),
 				gap = "s",
 				align = "center",
-				distribute = if marked then "center" else nil,
+				distribute = "center",
 				children = header,
 			})
 		)
@@ -792,7 +843,39 @@ function alert.build(Facet: any, core: any, spec: Spec)
 			is the vote that decides whether one gets CUT. `disclose` stays on the
 			buttons underneath all of this as the last resort it was meant to be: a
 			label that does not fit even a full-width stacked button at the largest
-			preference. ]]
+			preference.
+
+			WHAT THIS MEMO IS, AND IS NOT (RED-TEAM F9). It is decided from the
+			WIDTHS AT OPEN — the labels, the theme, the viewport and the text
+			preference as they are when the card is built, re-derived whenever any of
+			those facts moves. It is NOT re-decided from the solve: nothing here reads
+			an arranged rect, so a calibration pass, a text-measure epoch or a
+			settled font cannot flip the form under a player mid-read. The one
+			consequence worth naming is the direction of its error: every fallback
+			below it reports a label NARROWER than it is (an unmeasurable font
+			reports zero; the budget takes the conservative side of cap-vs-screen),
+			so a wrong answer OVER-STACKS. It never cuts.
+
+			AND IT MEASURES WHAT THE BUTTON WILL ACTUALLY DRAW — WHICH IS THE FULL
+			LABEL, EVEN WHERE A `compactLabel` EXISTS (RED-TEAM F11, MEASURED AND
+			DECLINED). The review's rule was `math.min(label, compactLabel)`: an
+			action carrying a short form has already said the short form is
+			acceptable, so charge the row for that. It is true of a box the solver
+			NARROWS — the compact ladder swaps the string in when the offer is
+			narrower than the natural width — and false of this one. An alert's row is
+			an `AdaptiveStack` of HUGGING buttons: nothing ever offers them less than
+			they ask for, so the ladder never engages and the full string is what gets
+			drawn.
+
+			MEASURED on the gallery's own `04_confirm_dialog` at 1280 with
+			`compactLabel = "Delete"`: charging the compact width kept the row, and the
+			button then drew "Permanently delete this saved progress" at 449 px inside
+			a 528 px content box beside a 91 px Cancel — 12 px of button OUTSIDE the
+			card's right edge, with nothing truncated to show for it. The stack it
+			replaced overflowed by nothing at all. So the compact form is not spent
+			here, and a caller who supplies one still gets the reflow that keeps their
+			label inside the card. If the row is ever taught to narrow its buttons,
+			this is the line that changes with it. ]]
 		local stacked = branchScope:own(core:memo(function(use)
 			if alert.resolveStacked(#def.actions, use(sizeClass), use(distanceProfile), use(textOffset)) then
 				return true
@@ -849,7 +932,31 @@ function alert.build(Facet: any, core: any, spec: Spec)
 			UI.ScrollView({
 				id = "Card",
 				axis = "y",
-				chromeReserve = "none",
+				--[[ THE LANE IS DROPPED ONLY WHERE THE CARVED FRAME IS ALREADY ONE
+					(RED-TEAM F3). A scroller keeps `chromeBleed` on its cross axis so a
+					child's glow is not cut by the viewport, and on this card that lane
+					is redundant wherever the package carves a panel frame: the frame IS
+					the clearance, and paying for both took 35 px a side out of a 390 px
+					phone under Fantasy Parchment. It is NOT redundant where a package
+					glows without carving — Sci-Fi HUD reserves 24 and carves nothing,
+					Glossy Mobile 17 and nothing — and dropping it there cuts the very
+					glow the lane exists for. So the opt-out is GATED on the carve, and
+					every package gets the rule that is true for it.
+
+					Read ONCE, with `:get()`: `chromeReserve` is a non-reactive prop
+					(`blueprint_schema`), so there is no reactive form to bind and this
+					is the honest spelling of a one-shot read. A theme swapped WHILE a
+					modal is open keeps the lane it opened with until the next present;
+					every swap the examples and the sweeps drive happens between
+					presentations, where the card is rebuilt. ]]
+				chromeReserve = (function(): string?
+					local metrics = themeMetrics:get()
+					local art = if type(metrics) == "table" and type(metrics.chromeInsets) == "table"
+						then (metrics.chromeInsets :: any).panel
+						else nil
+					local carved = if type(art) == "table" and type(art.left) == "number" then art.left else 0
+					return if carved > 0 then "none" else nil
+				end)(),
 				width = { type = "hug", max = spec.maxWidth or "controls.alert.maxWidth" },
 				height = UI.hug(),
 				alignH = "center",
@@ -1001,8 +1108,10 @@ function alert.build(Facet: any, core: any, spec: Spec)
 		handle = presenter.presentModal(blueprint, {
 			initialFocus = if initial then { id = initial } else nil,
 			outsideTapCancel = false,
-			-- the modal open (transitions round 2026-09-12): scale 0.96 → 1 with a
-			-- fade, and the default `dismiss` exit dips out faster than it came.
+			-- the modal open (transitions round 2026-09-12; band 2026-09-13): it
+			-- SETTLES DOWN from 1.015 with a fade on the way in — the text-safe
+			-- direction, see `ALERT_MATERIALIZE_SCALE` — and DIPS OUT to the ratified
+			-- 0.96 on the way back, faster than it came, on the `dismiss` class.
 			-- `plate = "fades"` is MERGED IN rather than defaulted, so a caller
 			-- who overrides the form still gets the acknowledgement the shape
 			-- needs — the Card IS this surface's plate, and the backdrop the

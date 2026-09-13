@@ -506,6 +506,13 @@ export type TransitionSpec = {
 	exitClass: string?,
 	fade: boolean?,
 	distance: number?,
+	-- the ENTER band a `materialize` starts from (default 0.96). A surface that is
+	-- mostly TYPE settles DOWN from just above 1 instead: the engine rasterizes
+	-- text at `floor(TextSize x effectiveScale)`, so any scale below 1 paints every
+	-- string under it one pixel smaller for the whole flight and snaps back when
+	-- the motion ends (`src/render/transitions.luau`'s `MATERIALIZE_SCALE`). The
+	-- exit keeps the ratified dip whatever this says.
+	scale: number?,
 	pivot: string?,
 	-- `"fades"`: this surface's plate is meant to fade with its content — the
 	-- modal/popover shape whose backdrop is the scrim behind it, not the plate.

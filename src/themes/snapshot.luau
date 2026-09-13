@@ -1836,7 +1836,20 @@ function snapshot.resolve(package: any, themeName: string?, facts: Facts?, overr
 		display exactly as the heading beside it does. A package that authored its
 		own `controls.alert.iconSize` still wins. ]]
 	if type(out.controls.alert.iconSize) ~= "number" then
-		out.controls.alert.iconSize = out.iconSizes.medium
+		--[[ ...AND NEVER TALLER THAN THE LINE IT LEADS (RED-TEAM F4). `iconSizes` is
+			a ladder of PICTURE sizes and a package may pitch it wherever it likes:
+			Fantasy Ornate's `medium` is 32 against a 22 px heading and Pixel Quest's
+			is 32 against 20, so the "type-height glyph" this default is named for
+			came back 1.5x the title under two shipped packages. The heading is the
+			thing it qualifies, so the heading is the ceiling; a package whose ladder
+			is finer than its type (Compact Pointer, 16 against 17) keeps its own
+			number, which is the point of taking the smaller of the two. ]]
+		local heading = if type(out.type) == "table" and type((out.type :: any).heading) == "table"
+			then ((out.type :: any).heading :: any).size
+			else nil
+		out.controls.alert.iconSize = if type(heading) == "number"
+			then math.min(out.iconSizes.medium, heading)
+			else out.iconSizes.medium
 	end
 	--[[ …and the stroke is a proportion of the mark it draws, not a spacing step.
 		`space.xs` was 4 px, which on a 44 px triangle was a line and on a 20 px one
@@ -2455,7 +2468,15 @@ function snapshot.resolveNumber(snap: any, value: any): number?
 		local magnitude = snapshot.resolveNumber(snap, string.sub(value, 2))
 		result = if magnitude ~= nil then -magnitude else nil
 	elseif snapshot.isSpaceStep(value) then
-		result = (snap.space :: any)[value]
+		--[[ TYPE-GUARDED, because `isSpaceStep` is a fact about the NAME and this is
+			a read of the SNAPSHOT (RED-TEAM F2). `forDisplay`'s own header records
+			that a `themeMetrics` fact is whatever an adapter or a fixture pushed —
+			a hand-built table, `{}` included — and a broken fact must never leak
+			past the seam that read it. A partial snapshot indexed `nil.m` here and
+			raised inside whatever memo happened to be asking, which quarantines the
+			caller rather than degrading it. Nil is the honest answer: every caller
+			already handles an unresolvable name. ]]
+		result = if type(snap.space) == "table" then (snap.space :: any)[value] else nil
 	else
 		result = lookupPath(snap, value)
 	end

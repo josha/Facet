@@ -2451,8 +2451,11 @@ on `UI.When`, `UI.ForEach`, a `presentToast` and `PresentOpts`.
   every value in `[1, 1 + 1/TextSize)` floors to the same pixel, so the text
   lands at its final size on the first painted frame and never moves.
   `Controls.Alert` ships `1.015` for this reason (1/0.015 = 66 px, above every
-  size the framework can paint). `1` is refused — a form that starts at rest
-  does not move.
+  size the framework can paint — swept per package, per display class, at the
+  largest text preference, in `tests/transitions.spec.luau`). `1` is refused — a
+  form that starts at rest does not move. **It is the ENTER's band only**: an exit
+  is the opposite instant — the plate is leaving and already fading — so the exit
+  keeps the ratified `0.96` dip whatever the enter declared.
 - **`stagger`** (a nonnegative number of **SECONDS**, enter only) is the beat
   between one entering row and the next, for a region whose children arrive
   together — a list that lands as one slab reads as a redraw, the same rows a
@@ -10540,10 +10543,10 @@ colors, type and border insets.
 | `item`, `presenter` | Alternative optional-item Signal. Nonnil opens; dismissal clears it. Cannot combine with `isPresented`, `presenting`, or `error`. |
 | `error` | Record/readable with `errorDescription`, optional `recoverySuggestion` and `failureReason`. Supplies default title/message. A Signal without `isPresented` is an automatic binding and requires `presenter`; dismissal clears it. |
 | `icon` | Optional image asset/readable, sized using `controls.alert.iconSize`. |
-| `severity` | `automatic` (default), `standard`, or `critical`. Automatic errors are critical; critical uses danger emphasis and a small inline vector caution mark (one `iconSizes.medium` square, leading the title) unless an image is supplied. |
+| `severity` | `automatic` (default), `standard`, or `critical`. Automatic errors are critical; critical uses danger emphasis and a small inline vector caution mark — `iconSizes.medium`, capped at the heading it leads, because a package may pitch its picture ladder above its type (Fantasy Ornate's is 32 against a 22 px heading) — unless an image is supplied. |
 | `suppression` | `{isSuppressed: Signal<boolean>, label?}` adds the existing checkbox control. The game must consult this value when deciding whether to ask again. |
 | `content` | Optional `(scope, data) -> blueprint?` for brief extra content such as an existing TextInput. Use a full modal for an editor. Own resources in the supplied scope. |
-| `transition` | Optional [structural transition](#structural-transitions) spec, or a `Readable` of one, for the modal's own enter/exit. Defaults to `{ enter = "materialize", plate = "fades", scale = 1.015 }` — the card settles DOWN from 1.5% over with a fade in, `dismiss` dipping out faster on the way out; pass `{ enter = "instant" }` to opt out. It settles down rather than growing in because the engine rasterizes text at `floor(TextSize × effectiveScale)`, so a scale below 1 would paint every string on the card a pixel small for the whole flight and snap it back when the motion ended (see [`scale`](#structural-transitions)). `nil` **and** `false` both fold to that same default — `false` is the framework's "no transition" spelling on `When`/`ForEach`, but Alert's card always materializes unless the enter form is named explicitly. A static value that fails `transitions.resolve` is refused at construction (`Controls.Alert: transition: …`); a `Readable` one is refused on its first read instead, recorded on `dump().lastError`, and the binding resets to the default rather than raising inside the observer that opened it. |
+| `transition` | Optional [structural transition](#structural-transitions) spec, or a `Readable` of one, for the modal's own enter/exit. Defaults to `{ enter = "materialize", plate = "fades", scale = 1.015 }` — the card **settles down on the way in** from 1.5% over with a fade, and **dips out** to the ratified 0.96 on the faster `dismiss` class on the way back; pass `{ enter = "instant" }` to opt out. An authored `transition` is MERGED with both keys rather than replacing them: a caller who names `enter = "materialize"` to change its motion class still gets `plate = "fades"` and the text-safe band, because the band answers an engine fact about the type on this card rather than a taste this control holds — declare your own `plate` or `scale` and yours wins, and no other form is given a band it does not drive. It settles down rather than growing in because the engine rasterizes text at `floor(TextSize × effectiveScale)`, so a scale below 1 would paint every string on the card a pixel small for the whole flight and snap it back when the motion ended (see [`scale`](#structural-transitions)). `nil` **and** `false` both fold to that same default — `false` is the framework's "no transition" spelling on `When`/`ForEach`, but Alert's card always materializes unless the enter form is named explicitly. A static value that fails `transitions.resolve` is refused at construction (`Controls.Alert: transition: …`); a `Readable` one is refused on its first read instead, recorded on `dump().lastError`, and the binding resets to the default rather than raising inside the observer that opened it. |
 
 Use `present()` or a presentation binding for the interactive modal. `blueprint`
 is its layout template for inspection/static previews; directly mounting a custom-
@@ -10580,9 +10583,12 @@ does not fit. Two things make that width worth having:
   is where the *art* ends and not where a line of type wants to start (the
   carved frame *is* the modal's inner margin; paying for it twice took 35 px a
   side out of a 390 px phone under Fantasy Parchment), and
-- the card declares `chromeReserve = "none"`, because that same carved frame is
-  the lane a scroller normally reserves for content chrome that reaches past its
-  box — a menu card's list makes the identical call.
+- the card declares `chromeReserve = "none"` **where the package carves a frame**,
+  because that carved frame is the lane a scroller normally reserves for content
+  chrome that reaches past its box — a menu card's list makes the identical call.
+  It is gated on the carve: a package that glows without carving (Sci-Fi HUD
+  reserves 24 px and carves nothing, Glossy Mobile 17 px and nothing) keeps its
+  lane, since dropping it there would cut the very glow the lane exists for.
 
 Together they turn 288 px of content on that phone into 322, which is what lets a
 one-word primary action ("Continue") draw whole at the Largest preference. A flat

@@ -879,6 +879,37 @@ t.describe("alert: the modal materializes", function()
 		alert.dispose()
 	end)
 
+	--[[ AN AUTHORED MATERIALIZE GETS THE TEXT-SAFE BAND TOO (RED-TEAM F8). `scale`
+		answers an ENGINE fact about the type on this card, not a taste this control
+		holds, so it is true of every alert — a caller who names the form to change
+		its motion class was not asking for their title to re-flow. A caller who
+		names a band of their own keeps it, exactly as they keep their own `plate`. ]]
+	t.it("an authored materialize is merged with the band, and an authored band wins", function()
+		-- the ENGINE-side number, as A1's own case reads it: the scale the channel
+		-- materializes on the first frame of the enter IS the band that was resolved
+		local function bandOf(declared: any): number
+			local w = world.new()
+			local alert = Facet.Controls.Alert(w.core, {
+				id = "Band",
+				title = "Hi",
+				actions = { { id = "ok", label = "OK" } },
+				transition = declared,
+			})
+			local handle = alert.present(w.pres)
+			w.pres.refresh()
+			local node = w.adapter.node("/Band/Center")
+			local scale = if node ~= nil and node.motionScaleInstance ~= nil then node.motionScaleInstance.scale else 1
+			w.pres.dismiss(handle)
+			alert.dispose()
+			return scale
+		end
+		t.expect(bandOf({ enter = "materialize", class = "decay" })).toBeCloseTo(1.015, 1e-6)
+		-- their own number survives
+		t.expect(bandOf({ enter = "materialize", scale = 0.9 })).toBeCloseTo(0.9, 1e-6)
+		-- ...and a form that does not scale writes no scale at all
+		t.expect(bandOf({ enter = "slide-up" })).toBe(1)
+	end)
+
 	t.it("transition = 'instant' opts out", function()
 		local w = world.new()
 		local alert = Facet.Controls.Alert(w.core, {
@@ -907,6 +938,32 @@ t.describe("Alert header: a mark is punctuation, and the title is centred", func
 		alert.present(w.pres)
 		w.settle(4)
 		return w, alert
+	end
+
+	--[[ …AND "TYPE-HEIGHT" HAS TO MEAN IT UNDER A PACKAGE THAT PITCHES ITS PICTURE
+		LADDER HIGH (RED-TEAM F4). `iconSizes.medium` is 32 against a 22 px heading
+		under Fantasy Ornate and 32 against 20 under Pixel Quest, so the default this
+		round is named for came back 1.5x the title it qualifies. The heading is the
+		ceiling; a package finer than its own type keeps its number. ]]
+	for _, pkgName in { "fantasy_ornate", "pixel_quest", "glossy_touch", "compact_pointer" } do
+		t.it(`{pkgName}: the mark never stands taller than the heading it leads`, function()
+			local snapshot = require("../src/themes/snapshot")
+			local metrics = snapshot.resolve((require)(`../examples/themes/{pkgName}`).build(Facet.themes), nil, {})
+			local w, alert = open({
+				id = "Mark",
+				title = "Replace this save?",
+				severity = "critical",
+				actions = { { id = "ok", label = "OK" } },
+			}, { viewport = { x = 0, y = 0, w = 1280, h = 800 }, themeMetrics = metrics })
+			local caution = w.adapter.node("/Mark/Center/Card/Header/Caution").rect
+			t.expect(`{pkgName}: mark {caution.h} <= heading {metrics.type.heading.size}`)
+				.toBe(
+					`{pkgName}: mark {math.min(caution.h, metrics.type.heading.size)} <= heading {metrics.type.heading.size}`
+				)
+			-- ...and it is still the ladder's own number wherever that fits
+			t.expect(caution.h).toBe(math.min(metrics.iconSizes.medium, metrics.type.heading.size))
+			alert.dispose()
+		end)
 	end
 
 	t.it("the critical mark is one type-height glyph, not a whole hit target", function()
@@ -939,6 +996,28 @@ t.describe("Alert header: a mark is punctuation, and the title is centred", func
 		t.expect(math.abs((message.x + message.w / 2) - (card.x + card.w / 2)) <= 1).toBe(true)
 		-- a lone title centres its own glyphs inside that box
 		t.expect(w.adapter.node("/Plain/Center/Card/Header/Title").props.textAlign).toBe("center")
+		alert.dispose()
+	end)
+
+	--[[ AN UNMARKED TITLE HAS TO HUG TOO (RED-TEAM F12). `fill` answers "whatever I
+		am given", and the card's own width is a HUG — so a lone long title reported
+		the width of its longest word and the card collapsed around a single 60 px
+		line. Hugging, it asks for the line it wants, the card grows to its cap, and
+		the line wraps inside it. ]]
+	t.it("a long unmarked title wraps inside a full-width card instead of collapsing it", function()
+		local LONG = "Are you absolutely certain you want to replace this saved checkpoint now"
+		t.expect(#LONG >= 67).toBe(true)
+		local w, alert = open({
+			id = "Long",
+			title = LONG,
+			actions = { { id = "ok", label = "OK" } },
+		}, { viewport = { x = 0, y = 0, w = 390, h = 844 } })
+		local card = w.adapter.node("/Long/Center/Card").rect
+		local title = w.adapter.node("/Long/Center/Card/Header/Title").rect
+		t.expect(`card {card.w} >= 300`).toBe(`card {math.max(card.w, 300)} >= 300`)
+		-- ...and the title really did WRAP: two heading lines or more
+		local heading = w.env:get("themeMetrics"):get().type.heading
+		t.expect(`title lines {title.h >= heading.size * 2}`).toBe("title lines true")
 		alert.dispose()
 	end)
 
@@ -1113,6 +1192,41 @@ t.describe("Alert actions: the label fits before anything is cut", function()
 		end)
 	end
 
+	--[[ …AND THE LANE IS ONLY REDUNDANT WHERE A FRAME IS CARVED (RED-TEAM F3).
+		Sci-Fi HUD reserves a 24 px glow and carves nothing; Glossy Mobile reserves
+		17 and carves nothing. Dropping the chrome lane on those cuts the very glow
+		it exists for, so the opt-out is gated on the carve and they keep theirs. ]]
+	for _, case in
+		{
+			{ name = "scifi_hud", carved = false },
+			{ name = "glossy_mobile", carved = false },
+			{ name = "fantasy_parchment", carved = true },
+			{ name = "glossy_touch", carved = true },
+		}
+	do
+		t.it(`{case.name}: the bleed lane is kept exactly when the frame is not carved`, function()
+			local w, alert = mount(case.name, 0, lt.PHONE_PORTRAIT)
+			local metrics = w.metrics()
+			local carved = metrics.chromeInsets.panel.left
+			local bleed = metrics.chromeBleed
+			t.expect(`{case.name}: carved>0 {carved > 0}`).toBe(`{case.name}: carved>0 {case.carved}`)
+			local card = w.adapter.node("/S/Ctl/Center/Card").rect
+			local actions = w.adapter.node("/S/Ctl/Center/Card/Actions").rect
+			local spent = actions.x - card.x
+			if case.carved then
+				-- the carve plus the `xs` floor, and nothing more: the double-count
+				-- AND the redundant lane are both gone
+				t.expect(`{case.name}: spent {spent}`).toBe(`{case.name}: spent {carved + metrics.space.xs}`)
+				t.expect(`{case.name}: under {spent < carved + metrics.space.m}`).toBe(`{case.name}: under true`)
+			else
+				-- nothing carved, so the glow has nowhere else to live: the lane the
+				-- package asked for is still there
+				t.expect(`{case.name}: lane {spent >= bleed}`).toBe(`{case.name}: lane true`)
+			end
+			alert.dispose()
+		end)
+	end
+
 	t.it("the card's padding yields to the carved frame instead of stacking with it", function()
 		local w, alert = mount("fantasy_parchment", lt.LARGEST, lt.PHONE_PORTRAIT)
 		local card = w.adapter.node("/S/Ctl/Center/Card").rect
@@ -1141,6 +1255,70 @@ t.describe("Alert actions: the label fits before anything is cut", function()
 		t.expect(c.x + c.w <= a.x).toBe(true)
 		t.expect(truncatedActions(w)).toEqual({})
 		alert.dispose()
+	end)
+
+	--[[ A BROKEN `themeMetrics` FACT MUST NOT QUARANTINE THE CONTROL (RED-TEAM F2).
+		The fact is whatever an adapter or a fixture pushed — §8.2's rule is that a
+		broken one never leaks past the seam that read it — and the measured rung
+		reads it twice: for the label's own font descriptor and for the row's gap.
+		Both used to raise on a partial table, which quarantines the memo, records
+		`lastError`, and leaves a screen that rendered clean before this round
+		showing nothing. Only reachable on a regular-width NEAR display, because
+		every other rung short-circuits the measurement. ]]
+	t.it("a partial themeMetrics fact degrades the rung instead of quarantining it", function()
+		local w = world.new({ viewport = { x = 0, y = 0, w = 1280, h = 800 }, themeMetrics = {} })
+		local alert = Facet.Controls.Alert(w.core, {
+			id = "Broken",
+			title = "Start this race?",
+			message = "Your selected driver is ready.",
+			actions = { { id = "Cancel", label = "Cancel", role = "cancel" }, { id = "Go", label = "Start" } },
+		})
+		alert.present(w.pres)
+		w.settle(3)
+		t.expect(w.core:lastError()).toBe(nil)
+		t.expect(alert.dump().lastError).toBe(nil)
+		t.expect(alert.dump().presented).toBe(true)
+		t.expect(w.adapter.node("/Broken/Center/Card") ~= nil).toBe(true)
+		alert.dispose()
+	end)
+
+	--[[ AN ACTION THAT CARRIES A COMPACT LABEL IS CHARGED FOR THE SHORTER ONE
+		(RED-TEAM F11). The solver's own compact ladder swaps it in when the full
+		string does not fit, so charging the row for the long form stacks a row the
+		ladder would have fitted — a reflow the caller already said they did not
+		need by supplying the shorter string. ]]
+	t.it("the rung charges the label the row will actually draw, and the card holds it", function()
+		local LONG = "Permanently delete this saved progress"
+		local function probe(compact: string?): (string, number)
+			local w = lt.world({
+				offset = 0,
+				theme = { id = "facet-neutral" },
+				input = "desktop",
+				viewport = { x = 0, y = 0, w = 1280, h = 800 },
+			})
+			local alert = Facet.Controls.Alert(w.core, {
+				id = "Ctl",
+				title = "Delete this save?",
+				actions = {
+					{ id = "Cancel", label = "Cancel", role = "cancel" },
+					{ id = "Go", label = LONG, compactLabel = compact },
+				},
+			})
+			w.present(UI.Screen({ id = "S", children = { alert.blueprint } }))
+			local card = w.adapter.node("/S/Ctl/Center/Card").rect
+			local a = w.adapter.node("/S/Ctl/Center/Card/Actions/Order/[Go]/Go").rect
+			local c = w.adapter.node("/S/Ctl/Center/Card/Actions/Order/[Cancel]/Cancel").rect
+			local overflow = math.max(0, (a.x + a.w) - (card.x + card.w), card.x - a.x)
+			alert.dispose()
+			return (if a.y == c.y then "row" else "stack"), overflow
+		end
+		local plainForm, plainOverflow = probe(nil)
+		local compactForm, compactOverflow = probe("Delete")
+		-- the long label cannot share a row either way, and neither arrangement puts
+		-- a button outside the card that holds it
+		t.expect(plainForm).toBe("stack")
+		t.expect(compactForm).toBe("stack")
+		t.expect(`plain {plainOverflow} compact {compactOverflow}`).toBe("plain 0 compact 0")
 	end)
 
 	--[[ the PURE half, so a caller can predict the form from numbers it already

@@ -1867,7 +1867,7 @@ describe("transition coordinator: stagger", function()
 		end
 	end)
 
-	it("an authored scale is the band the write actually travels", function()
+	it("an authored scale is the band the ENTER travels, and it starts there", function()
 		local core, env, clock = world()
 		local on = core:signal(true)
 		local _, adapter = attach(core, env, clock, whenScreen(on, { enter = "materialize", scale = 1.015 }))
@@ -1878,6 +1878,40 @@ describe("transition coordinator: stagger", function()
 		-- engine would rasterize the type a pixel small
 		expect(panel.props.transform.scale < 1.015).toBe(true)
 		expect(panel.props.transform.scale >= 1).toBe(true)
+		for _ = 1, 120 do
+			clock:step(FRAME)
+		end
+		expect(panel.props.transform).toBeNil() -- cleared at rest
+	end)
+
+	--[[ …AND THE EXIT STILL DIPS (RED-TEAM F1). `scale` is an answer about the
+		instant the text ARRIVES and is read; an exit is the opposite instant, the
+		plate is already fading, and the shape the owner asked for is a dip out.
+		Spent in both phases the alert SWELLED 1.5% on the way out. ]]
+	it("...and the exit dips to the ratified band, whatever the enter declared", function()
+		local core, env, clock = world()
+		local on = core:signal(true)
+		local _, adapter = attach(core, env, clock, whenScreen(on, { enter = "materialize", scale = 1.015 }))
+		for _ = 1, 120 do
+			clock:step(FRAME)
+		end
+		local panel = adapter.node("/S/Gate/then/Panel")
+		expect(panel.props.transform).toBeNil()
+		on:set(false)
+		local lowest, highest = math.huge, -math.huge
+		for _ = 1, 90 do
+			clock:step(FRAME)
+			local t = adapter.node("/S/Gate/then/Panel")
+			local scale = if t ~= nil and t.props.transform ~= nil then t.props.transform.scale else nil
+			if type(scale) == "number" then
+				lowest = math.min(lowest, scale)
+				highest = math.max(highest, scale)
+			end
+		end
+		-- it went DOWN, toward the ratified dip, and never swelled past rest
+		expect(lowest < 1).toBe(true)
+		expect(lowest >= 0.96 - 1e-6).toBe(true)
+		expect(highest <= 1 + 1e-6).toBe(true)
 	end)
 
 	it("the schema refuses a negative stagger, and resolve defaults it to zero", function()
@@ -2001,5 +2035,65 @@ describe("presenter: a transition on a surface whose fade group is nested", func
 		)
 		expect(handle.transitionNode.path).toBe("/Two")
 		pres.dismiss(handle)
+	end)
+end)
+
+--[[ THE 1.015 HEADROOM, PINNED AGAINST EVERY SIZE THIS FRAMEWORK CAN PAINT
+	(RED-TEAM F10).
+
+	`Controls.Alert`'s band is derived, not chosen: the engine rasterizes text at
+	`floor(TextSize x effectiveScale)`, so a scale in `[1, 1 + 1/n)` floors to the
+	same pixel for text of size `n` — and `1/0.015` is 66.7 px. api.md says that is
+	above every size the framework can paint. This is the sweep that makes the
+	sentence checkable instead of asserted: every shipped package's whole type
+	ladder, at both display classes, at the largest preferred-text offset, through
+	`text_metrics.reservedSize` — the same call the renderer's own measure seam
+	makes. A package that ever authors a 67 px rung fails HERE, at the commit that
+	introduces it, instead of on a television. ]]
+describe("the alert's materialize band has headroom over the whole type ladder", function()
+	local snapshot = require("../src/themes/snapshot")
+	local textMetrics = require("../src/layout/text_metrics")
+	local ALERT_BAND = 1.015
+	local PACKAGES = {
+		"classic_desktop",
+		"compact_pointer",
+		"fantasy_ornate",
+		"fantasy_parchment",
+		"glossy_mobile",
+		"glossy_touch",
+		"pixel_quest",
+		"scifi_hud",
+	}
+
+	it("no package paints a rung at or past 1/(band - 1) px, at either distance", function()
+		local ceiling = 1 / (ALERT_BAND - 1)
+		local worst, worstName = 0, "none"
+		local resolved: { any } = { { "facet-neutral", snapshot.resolve(Facet.themes.neutralPackage(), nil, {}) } }
+		for _, name in PACKAGES do
+			table.insert(
+				resolved,
+				{ name, snapshot.resolve((require)(`../examples/themes/{name}`).build(Facet.themes), nil, {}) }
+			)
+		end
+		for _, entry in resolved do
+			local name, base = entry[1], entry[2]
+			for _, displaySize in { "Medium", "Large" } do
+				local metrics = snapshot.forDisplay(base, displaySize)
+				local scale = snapshot.measureScale(displaySize, 1)
+				for role, spec in metrics.type do
+					-- the LARGEST preferred-text step the engine applies (api.md's
+					-- measured 0/4/10/14 table), added the way the renderer adds it
+					local painted = textMetrics.reservedSize(spec.size, scale, 14)
+					if painted > worst then
+						worst, worstName = painted, `{name}.{role}@{displaySize}`
+					end
+				end
+			end
+		end
+		expect(`worst {worstName} {worst} < ceiling {ceiling}`).toBe(
+			`worst {worstName} {math.min(worst, ceiling - 1e-9)} < ceiling {ceiling}`
+		)
+		-- ...and the sweep really looked at something, rather than passing on zero
+		expect(worst > 40).toBe(true)
 	end)
 end)
