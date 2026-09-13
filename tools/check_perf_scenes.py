@@ -9,6 +9,15 @@ work actually happened.
 
   python3 tools/check_perf_scenes.py            # the six production shapes
   python3 tools/check_perf_scenes.py --themes   # the three theme-swap shapes
+
+TIGHTENING A PREDICATE OBLIGES A RE-RECORD (R4). Everything below reads
+`artifacts/phase-4/perf.json`, which is a RUN-PRODUCED artifact: `verify.sh full`
+does not regenerate it, because the `perf` producer is RELEASE-tier. So a change
+that adds a scene or narrows an existing PRODUCTION/THEMES predicate is checking
+the new rule against a record written under the old one, and it fails in exactly
+the shape a genuinely broken scene fails in. Run `tools/perf.sh` to re-record
+BEFORE `verify.sh full`, in the same change that tightened the predicate — the
+failure text below says so too, but by then the gate is already red.
 """
 import json
 import os
@@ -232,6 +241,16 @@ def main() -> int:
     if errors:
         for e in errors:
             print(f"FAIL {e}")
+        # A TIGHTENED PREDICATE FAILS IN THE SHAPE OF A BROKEN SCENE (R4). This
+        # record is run-produced and `verify.sh full` does not regenerate it
+        # (`perf` is release-tier), so say which record was read and how old it
+        # is rather than leaving "did not do its work" to carry both meanings.
+        stamp = (report.get("environment") or {}).get("timestamp") or "unknown"
+        print(
+            f"note: read {PERF}, recorded {stamp}. `verify.sh full` does not regenerate it "
+            "(`perf` is release-tier) — if a check above was tightened in this change, "
+            "re-record with `tools/perf.sh` before reading these as live failures."
+        )
         return 1
     label = "theme-swap" if themes_mode else "production"
     print(f"perf scenes ok: {len(wanted)} {label} scenes alive at {REFERENCE}")

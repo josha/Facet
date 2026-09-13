@@ -371,14 +371,6 @@ describe("adapter prop parity: the fake and the live target handle the same prop
 	end)
 end)
 
---[[ THE PLAYBOOK'S OPTIONAL-METHOD ROSTER IS THE CONTRACT'S (MAINT-8b).
-
-	`docs/extending/new-render-target.md` transcribed the OPTIONAL list by hand —
-	23 names against the contract's 28 — and nothing cross-checked the doc against
-	the table it copies, so the drift was already three days old at freeze. The
-	consequence is not cosmetic: the doc's whole job is to tell a target author
-	which absences are legal degrades, and five methods the renderer feature-
-	detects were simply not in the list they were reading. ]]
 --[[ `visibleOf` ANSWERS FOR THE PIXELS, AND IT ALREADY DOES (final review item
 	7 — REFUTED, and pinned so it stays refuted).
 
@@ -470,6 +462,14 @@ describe("FakeTarget: `visibleOf` answers for the chain, because the walk writes
 	end)
 end)
 
+--[[ THE PLAYBOOK'S OPTIONAL-METHOD ROSTER IS THE CONTRACT'S (MAINT-8b).
+
+	`docs/extending/new-render-target.md` transcribed the OPTIONAL list by hand —
+	23 names against the contract's 28 — and nothing cross-checked the doc against
+	the table it copies, so the drift was already three days old at freeze. The
+	consequence is not cosmetic: the doc's whole job is to tell a target author
+	which absences are legal degrades, and five methods the renderer feature-
+	detects were simply not in the list they were reading. ]]
 describe("the render-target playbook's OPTIONAL roster (MAINT-8b)", function()
 	local MARKER_OPEN = "<!-- OPTIONAL-METHODS: derived from src/render/target_contract.luau OPTIONAL -->"
 	local MARKER_CLOSE = "<!-- /OPTIONAL-METHODS -->"

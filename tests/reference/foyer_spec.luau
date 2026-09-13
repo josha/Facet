@@ -890,17 +890,6 @@ describe("Foyer — backdrop-finding sweep (task POP)", function()
 		teardown(w)
 	end)
 
-	--[[ AN ALERT IN A REFERENCE APP (task 7 item 3). `Controls.Alert` defaults to
-		a materialize, and its `Center → Card` is a fade group whose sole child is
-		an opaque plate — the exact shape the gate reports, and the exact shape a
-		modal is SUPPOSED to have, because the backdrop the invariant is about is
-		the presenter's scrim behind the whole surface rather than the card's own
-		face. The card declares that (`transition.plate = "fades"`), so the sweep
-		counts nothing; before the acknowledgement existed, the first reference
-		app to open an Alert reddened this assertion. The finding is still
-		RECORDED — `coordinator.findings()` carries it — which is why this case
-		reads the sweep's counted list rather than asserting the coordinator saw
-		nothing. ]]
 	--[[ A TOAST IN A REFERENCE APP (final review item 4). The toast layer wraps
 		whatever a caller hands it as the SOLE child of a `canvasGroup` `Toast` node
 		and fades it — the same sole-child-plate shape `Controls.Alert`,
@@ -948,6 +937,17 @@ describe("Foyer — backdrop-finding sweep (task POP)", function()
 		teardown(w)
 	end)
 
+	--[[ AN ALERT IN A REFERENCE APP (task 7 item 3). `Controls.Alert` defaults to
+		a materialize, and its `Center → Card` is a fade group whose sole child is
+		an opaque plate — the exact shape the gate reports, and the exact shape a
+		modal is SUPPOSED to have, because the backdrop the invariant is about is
+		the presenter's scrim behind the whole surface rather than the card's own
+		face. The card declares that (`transition.plate = "fades"`), so the sweep
+		counts nothing; before the acknowledgement existed, the first reference
+		app to open an Alert reddened this assertion. The finding is still
+		RECORDED — `coordinator.findings()` carries it — which is why this case
+		reads the sweep's counted list rather than asserting the coordinator saw
+		nothing. ]]
 	it("an Alert opened in this app counts zero findings — its card acknowledges its own plate", function()
 		local backdropSweep = require("../lib/backdrop_sweep")
 		local w: any

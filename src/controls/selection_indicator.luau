@@ -704,9 +704,19 @@ function selection_indicator.build(Facet: any, core: any, spec: Spec)
 			notedCornerTokens[key] = true
 			cornerFallbacks = 1
 			if type(warn) == "function" then
+				--[[ THE FALLBACK NAMES ITSELF, AND THE FALLBACK IS NOT ALWAYS THE
+					SAME ONE (R3). Below this the resolve tries `DEFAULT_CORNER` and
+					then, if THAT fails too, the neutral theme's own number. When the
+					token that just failed IS `DEFAULT_CORNER`, the first branch is
+					already spent: the message promised "paints plain 'selection'
+					instead" while naming 'selection' as the thing that failed, which
+					reads as a contradiction to the one person who ever sees it. ]]
+				local fallback = if key == selection_indicator.DEFAULT_CORNER
+					then `the neutral theme's own selection radius ({neutralSelectionRadius()}px)`
+					else `plain '{selection_indicator.DEFAULT_CORNER}'`
 				warn(
 					`Facet selection indicator: no live style answers the corner token '{key}', so the fill `
-						.. `paints plain '{selection_indicator.DEFAULT_CORNER}' instead. A theme swapped away from `
+						.. `paints {fallback} instead. A theme swapped away from `
 						.. `the package that publishes that container is expected; a container name that never `
 						.. `resolves is an authoring mistake (\`stripCorner\` refuses one it can see at build, `
 						.. `and cannot see a value set later).`
@@ -724,7 +734,14 @@ function selection_indicator.build(Facet: any, core: any, spec: Spec)
 		`Picker(...)` itself — an author's call erroring on a token the theme in
 		hand happens not to publish. It is the same question `derivedCorners` asks
 		and heals, asked one line earlier, so it goes through the same door. ]]
-	local uniformCorners: any = if corner ~= nil then derivedCorners(corner, metricsSig:get()) else nil
+	--[[ ...AND NOT WHEN THE STRIP DERIVES (R3). `derives` means the caller named
+		no corner, so `corner` is `DEFAULT_CORNER` by the line above and this
+		resolve's answer is overwritten two lines down by the derived one. It was
+		never dead in the harmless sense: a style that cannot answer 'selection'
+		fires the warn and sets `cornerFallbacks = 1` for a corner that is then
+		thrown away and never painted, so the diagnostic reported a fallback that
+		did not happen. ]]
+	local uniformCorners: any = if corner ~= nil and not derives then derivedCorners(corner, metricsSig:get()) else nil
 	if derives then
 		local reactive = type(spec.trackCorner) == "table"
 		if reactive then

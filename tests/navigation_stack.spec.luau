@@ -829,7 +829,12 @@ describe("NavigationStack retained and not-yet-presented pages", function()
 		those five names, which quietly dropped every other key the author wrote:
 		`stagger` and `plate` (and `fade`, which cannot reach here — an authored
 		`fade = true` disqualifies the stack from the horizontal policy in the
-		first place — and `pivot`, which the schema refuses beside a slide).
+		first place — and `pivot`, which the schema ACCEPTS beside a slide: it
+		validates the corner NAME and nothing else, `blueprint_schema.luau:712-716`.
+		`pivot` is simply INERT for every form but `materialize`, because
+		`absentFor` is the only reader and it reads the key inside that one branch,
+		`render/transitions.luau:586-589` — which makes it a dropped key nobody
+		would have noticed, not a key that could not have been written).
 
 		The first page did not show it, because `initial` is a `table.clone` of the
 		authored spec and keeps everything. So the stack's transition CHANGED SHAPE
