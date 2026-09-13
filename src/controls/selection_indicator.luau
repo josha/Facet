@@ -496,7 +496,16 @@ function selection_indicator.build(Facet: any, core: any, spec: Spec)
 			return themeSnapshot.neutral()
 		end
 		local raw = use(env:get("themeMetrics"))
-		return if type(raw) == "table" and type(raw.controls) == "table" then raw else themeSnapshot.neutral()
+		-- `radii` is checked as well as `controls` because the corner resolve
+		-- below spends it: a hand-built metrics table carrying `controls` and no
+		-- `radii` would otherwise reach `UI.cornersData` inside a memo and raise
+		-- there, where it is quarantined. The guard's whole job is that this memo
+		-- yields a snapshot every consumer of it can spend.
+		return if type(raw) == "table"
+				and type(raw.controls) == "table"
+				and type(raw.radii) == "table"
+			then raw
+			else themeSnapshot.neutral()
 	end))
 	--[[ WHICH PLATE THE BAR IS, hoisted above `skinOpts` because the inset rule
 		below has to know what the bar's surface CARVES. The declaration and the
@@ -623,20 +632,49 @@ function selection_indicator.build(Facet: any, core: any, spec: Spec)
 		container — but it catches an illegitimate one just as quietly: a REACTIVE
 		`stripCorner` whose value becomes a typo. `newPicker`'s authoring check
 		refuses a typo it can see at build, and by construction cannot see a value
-		set later. So the healed case is noted, ONCE PER TOKEN so a strip that
-		re-renders every frame says it once, naming both the token and what was
-		painted instead. ]]
+		set later. So the healed case is noted, naming both the token and what was
+		painted instead.
+
+		ONCE PER TOKEN WHILE IT IS FALLING BACK, and the "while" is the whole
+		point: the moment this site resolves ANY token the set is cleared, so
+		`cornerFallbacks` reads as "is the fill painting a fallback RIGHT NOW"
+		rather than "did it ever". That is what makes the count answer the
+		question a reader has — a legitimate swap away from the package clears
+		when the package comes back, a typo never does — and it means a second
+		departure warns again, which is correct for a fact stated in the present
+		tense. The set is REPLACED rather than added to, because only one token is
+		in use at a time: the two ways a fallback ends are the style coming back
+		(same token) and the caller changing the value (different token), and
+		"what is failing here now" covers both. So it is at most 1 — a fill has
+		one corner — and it is a count rather than a boolean so a second derived
+		corner, if this control ever grows one, needs no new vocabulary.
+
+		ONCE PER TOKEN PER CONTROL, not per session: three strips naming the same
+		container warn three times on one theme swap. A per-CORE set would silence
+		the other two, and it would have to be REFCOUNTED to stay honest under the
+		"currently" rule above — one strip resolving again must not clear a note
+		another strip is still earning — which is more machinery than the noise it
+		saves, and it would leave this control's own count disagreeing with the
+		dedup. Stated rather than solved, here and in `docs/reference/api.md`. ]]
 	local notedCornerTokens: { [string]: boolean } = {}
 	local cornerFallbacks = 0
 	local function derivedCorners(token: any, style: any): any
 		local ok, data = pcall(UI.cornersData, token, style)
 		if ok then
+			-- this site resolves again, so nothing here is falling back — whether
+			-- the style came back or the caller corrected the token
+			if cornerFallbacks > 0 then
+				table.clear(notedCornerTokens)
+				cornerFallbacks = 0
+			end
 			return data
 		end
 		local key = tostring(token)
 		if not notedCornerTokens[key] then
+			-- a DIFFERENT token is failing now; the previous one is not in use
+			table.clear(notedCornerTokens)
 			notedCornerTokens[key] = true
-			cornerFallbacks += 1
+			cornerFallbacks = 1
 			if type(warn) == "function" then
 				warn(
 					`Facet selection indicator: no live style answers the corner token '{key}', so the fill `
@@ -993,11 +1031,13 @@ function selection_indicator.build(Facet: any, core: any, spec: Spec)
 			slides = slides,
 			geometryUpdates = geometryUpdates,
 			animated = motionClock ~= nil,
-			-- how many DISTINCT corner tokens no live style could answer, so the
-			-- fill fell back to plain `selection` (`derivedCorners`). Zero is the
-			-- ordinary reading; one after a theme swap away from the package that
-			-- publishes the container is expected; one that never clears on a
-			-- REACTIVE `stripCorner` is a typo `newPicker` could not see at build.
+			-- is the fill painting a fallback corner RIGHT NOW, because no live
+			-- style answers the token it derived (`derivedCorners`)? Present
+			-- tense, and at most 1 (a fill has one corner). A theme swapped away
+			-- from the package that publishes the container reads 1 while it is
+			-- away and 0 when the package returns; a typo on a REACTIVE
+			-- `stripCorner` — the one `newPicker` cannot see at build — stays at
+			-- 1 until the value is corrected. Zero is the ordinary reading.
 			cornerFallbacks = cornerFallbacks,
 			rect = if rect == nil then nil else { x = rect.x, y = rect.y, w = rect.w, h = rect.h },
 			semanticText = `{skin} indicator on {label or "nothing"} ({resolvedCount}/{#segmentsNow()} segments resolved)`,

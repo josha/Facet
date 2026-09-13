@@ -500,11 +500,22 @@ describe("selection shape: naming a container that cannot answer is an authoring
 		-- answers
 		expect(corners.tokens.radius).toBe("selection")
 		expect(type(corners.radius) == "number").toBe(true)
+		-- the count says so in the PRESENT tense: falling back right now
+		expect(picker.dump().indicator.cornerFallbacks).toBe(1)
 		-- ...and a swap BACK re-derives the container answer, because the token
 		-- was never the thing that broke
 		w.env:set("themeMetrics", chipMetrics)
 		w.pres.refresh()
 		expect((w.adapter.node(BAR) :: any).props.corners.tokens.radius).toBe("selection:chip")
+		-- ...and the count clears with it, which is what "currently" means: a
+		-- legitimate swap reads 1 while it is away and 0 when the package returns,
+		-- where a typo stays at 1 forever
+		expect(picker.dump().indicator.cornerFallbacks).toBe(0)
+		-- a SECOND departure warns again and counts again — correct for a fact
+		-- stated in the present tense
+		w.env:set("themeMetrics", snapshot.neutral())
+		w.pres.refresh()
+		expect(picker.dump().indicator.cornerFallbacks).toBe(1)
 		picker.dispose()
 		container:dispose()
 	end)
@@ -544,22 +555,61 @@ describe("selection shape: naming a container that cannot answer is an authoring
 		-- ...and it was SAID, exactly once
 		expect(picker.dump().indicator.cornerFallbacks).toBe(1)
 
-		-- the same bad token again says nothing more, however many re-renders
+		-- ...and the count is PRESENT TENSE: a token that resolves again is no
+		-- longer falling back, so it clears
 		container:set("panel")
 		w.pres.refresh()
+		expect(picker.dump().indicator.cornerFallbacks).toBe(0)
 		container:set("panle")
 		w.pres.refresh()
 		expect(picker.dump().indicator.cornerFallbacks).toBe(1)
 
-		-- a DIFFERENT bad token is its own note
+		-- a DIFFERENT bad token is its own note, and REPLACES the first: only one
+		-- token is in use at a time, so the count is what is failing NOW
 		container:set("panl")
 		w.pres.refresh()
-		expect(picker.dump().indicator.cornerFallbacks).toBe(2)
+		expect(picker.dump().indicator.cornerFallbacks).toBe(1)
 
 		-- and a good one still resolves, so the fallback is not a latch
 		container:set("pill")
 		w.pres.refresh()
 		expect((w.adapter.node(BAR) :: any).props.corners.tokens.radius).toBe("selection:pill")
+		expect(picker.dump().indicator.cornerFallbacks).toBe(0)
+		picker.dispose()
+		container:dispose()
+	end)
+
+	it("a hand-built metrics table without `radii` degrades to neutral, it does not raise", function()
+		--[[ `metricsSig` guarded on `controls` alone, which was enough for the
+			arithmetic it was written for and not for the corner resolve that
+			later started spending it: a table carrying `controls` and no `radii`
+			would reach `UI.cornersData` INSIDE the memo and raise there, where it
+			is quarantined and the bar loses its corner. The guard's whole job is
+			to yield a snapshot every consumer of it can spend, so it checks both.
+			(`env:set("themeMetrics", …)` takes any table — the environment does
+			not police the shape, which is exactly why the reader must.) ]]
+		local w = worldLib.new({
+			viewport = { x = 0, y = 0, w = 640, h = 720 },
+			themeMetrics = { controls = { alert = { maxWidth = 400 } } } :: any,
+		})
+		local container = w.core:signal("panel")
+		local picker = Facet.Controls.Picker(w.core, {
+			id = "View",
+			selected = w.core:signal("a"),
+			options = { { value = "a", label = "One" }, { value = "b", label = "Two" } },
+			env = w.env,
+			presentation = "segmented",
+			track = false,
+			stripCorner = container,
+		})
+		w.present(UI.Screen({ id = "S", children = { picker.blueprint } }))
+		local bar = w.adapter.node(BAR)
+		expect(`bar mounted: {bar ~= nil}`).toBe("bar mounted: true")
+		expect(`quarantined: {tostring(w.core:lastError())}`).toBe("quarantined: nil")
+		-- the neutral snapshot answers the container, so this is not even a
+		-- fallback — the memo simply never saw the unusable table
+		expect((bar :: any).props.corners.tokens.radius).toBe("selection:panel")
+		expect(picker.dump().indicator.cornerFallbacks).toBe(0)
 		picker.dispose()
 		container:dispose()
 	end)

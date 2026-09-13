@@ -273,19 +273,23 @@ describe("screen_paint.applyToggleValue: the knob tween is HELD, like the track'
 		for _, anchor in { "function adapter.park(", "function adapter.destroyRoot(" } do
 			local BODY = adapter_source.bodyOf(targetSrc, anchor)
 			expect(#BODY > 0).toBe(true)
-			-- ...and each ASKS for the placement, because there is nobody left to
-			-- correct the knob after them
-			expect(string.find(BODY, "stopToggleTweens(handle, true)", 1, true) ~= nil).toBe(true)
+			expect(string.find(BODY, "stopToggleTweens(handle", 1, true) ~= nil).toBe(true)
 		end
 		-- the per-node removal path is the third; it is where the float ring and
 		-- the focus-scale tween are already ended
 		local removeAt = string.find(targetSrc, "handle.focusRingFloat:Destroy()", 1, true)
 		expect(removeAt ~= nil).toBe(true)
 		local window = string.sub(targetSrc, removeAt :: number, (removeAt :: number) + 700)
-		expect(string.find(window, "stopToggleTweens(handle, true)", 1, true) ~= nil).toBe(true)
-		-- exactly three placements, and every one of them is a teardown
+		expect(string.find(window, "stopToggleTweens(handle)", 1, true) ~= nil).toBe(true)
+		--[[ ...and EXACTLY ONE of the three asks for the knob placement: `park`,
+			the only teardown that keeps the instance. The other two destroy it
+			within a few lines, so a placement there is a write onto an object
+			that is about to stop existing — dead, and the kind of dead write a
+			count like this one is for. ]]
 		local _, placements = string.gsub(targetSrc, "stopToggleTweens%(handle, true%)", "")
-		expect(placements).toBe(3)
+		expect(placements).toBe(1)
+		local PARK = adapter_source.bodyOf(targetSrc, "function adapter.park(")
+		expect(string.find(PARK, "stopToggleTweens(handle, true)", 1, true) ~= nil).toBe(true)
 	end)
 end)
 

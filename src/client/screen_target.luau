@@ -3640,7 +3640,9 @@ function screen_target.new(opts: Opts?)
 		-- knob afterwards — the instance survives a park, and a valueless
 		-- `UI.Toggle` adopter never writes a value. (This comment used to claim
 		-- the adopter re-asserts the knob, which is exactly the case that does
-		-- not.)
+		-- not.) THE OTHER TWO teardown paths pass nothing: they DESTROY the
+		-- instance within a few lines, so a placement there is a write onto an
+		-- object that is about to stop existing.
 		stopToggleTweens(handle, true)
 		local path = handle.path
 		-- release this node's membership of the host ABOVE it: a parked node left in
@@ -3935,7 +3937,7 @@ function screen_target.new(opts: Opts?)
 			handle.focusFloatGeom = nil
 		end
 		stopFocusScaleTweens(handle)
-		stopToggleTweens(handle, true)
+		stopToggleTweens(handle)
 		handle.focusVisualHost = nil
 		focusedHandles[handle] = nil
 		dropHitExpander(handle)
@@ -4026,7 +4028,7 @@ function screen_target.new(opts: Opts?)
 						chromeState.noteFocusGlow(false)
 					end
 					stopFocusScaleTweens(handle)
-					stopToggleTweens(handle, true)
+					stopToggleTweens(handle)
 					handle.focusVisualHost = nil
 					handle.focusFloatGeom = nil
 					focusedHandles[handle] = nil

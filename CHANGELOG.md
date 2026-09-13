@@ -88,7 +88,15 @@ runtime as `Facet.VERSION`.
   (`radii.chip`) may be named, because `radii.selection:chip` resolves under it,
   and a package may only ADD to the base names, never narrow them. An authored
   `radii.selection` no longer makes every spelling resolvable — the container has
-  to exist before any clause answers for it.
+  to exist before any clause answers for it. If the live style stops publishing
+  the container — a theme swapped away from the package that declares it, or a
+  READABLE `stripCorner` set to a name that never resolves — the fill falls back
+  to plain `radii.selection` rather than losing its corner, says so once per
+  token (per control), and reports it on `dump().indicator.cornerFallbacks`,
+  which counts what is falling back RIGHT NOW: it returns to zero when the
+  package comes back, and stays at one for a name that never resolves. A STATIC
+  `stripCorner` is resolved once when the control is built and keeps the token it
+  took, so neither the fallback nor the counter applies to it.
   The bar's own corner is unchanged, and so is what plain `radii.selection`
   means, so a menu card's chosen-row shade reads it exactly as before. New gate:
   `tests/selection_shape_container.spec.luau`.

@@ -1373,7 +1373,10 @@ function screen_paint.new(ctx: any)
 		would write onto whatever control takes that identity next). Exported for
 		those three, so the cancel is one decision rather than a copy per site.
 
-		`place` IS THE CALLER'S DECISION, NOT A FLAG'S. A review wanted the knob
+		`place` IS THE CALLER'S DECISION, NOT A FLAG'S — and the only caller that
+		wants it is `park`, the one teardown that KEEPS the instance. The other
+		two destroy it within a few lines, so a placement there writes onto an
+		object that is about to stop existing. A review wanted the knob
 		put where its value says after an interrupted tween, and
 		the first shape inferred that from "was a tween running?" — which is true
 		on the FLIP path too, where `applyToggleValue` has already written the new
