@@ -906,6 +906,9 @@ function screen_target.new(opts: Opts?)
 	local applyToggleLabelBox = paint.applyToggleLabelBox
 	local buildToggleVisual = paint.buildToggleVisual
 	local applyToggleValue = paint.applyToggleValue
+	-- the toggle's track+knob tweens, ended together — the three teardown paths
+	-- below call it for the same reason they cancel the focus lift's (review N1)
+	local stopToggleTweens = paint.stopToggleTweens
 	-- forward-declared above `setActiveTheme`, which calls it; assigned here, which
 	-- is exactly where it was assigned when this code was inline
 	refreshToggleVisuals = paint.refreshToggleVisuals
@@ -2994,6 +2997,7 @@ function screen_target.new(opts: Opts?)
 		local ringFloat: Frame? = handle.focusRingFloat
 		if ringFloat ~= nil and ringFloat.Parent == nil then
 			handle.focusRingFloat = nil
+			handle.focusFloatGeom = nil -- review N8: the geometry dies with the float
 			ringFloat = nil
 		end
 		local ring = host:FindFirstChild("FocusRing")
@@ -3056,6 +3060,7 @@ function screen_target.new(opts: Opts?)
 		if ringFloat ~= nil and (not on or wantGlow) then
 			ringFloat:Destroy()
 			handle.focusRingFloat = nil
+			handle.focusFloatGeom = nil -- review N8: the geometry dies with the float
 			ringFloat = nil
 		end
 		if glow ~= nil and (not on or not wantGlow) then
@@ -3629,6 +3634,11 @@ function screen_target.new(opts: Opts?)
 		if handle.focusScale ~= nil then
 			handle.focusScale.Scale = 1
 		end
+		-- ...and the toggle's pair, for the identical reason: a Position tween
+		-- still running would write onto the control that takes this identity
+		-- next (review N1). The knob's place is re-asserted by `applyToggleValue`
+		-- when the adopter writes its own value.
+		stopToggleTweens(handle)
 		local path = handle.path
 		-- release this node's membership of the host ABOVE it: a parked node left in
 		-- that array is a corpse the host goes on re-placing every solve
@@ -3916,8 +3926,13 @@ function screen_target.new(opts: Opts?)
 		if handle.focusRingFloat ~= nil then
 			handle.focusRingFloat:Destroy()
 			handle.focusRingFloat = nil
+			-- the geometry the float's own travel is computed from goes with it
+			-- (review N8), or a LATER float on this handle is sized from a rect
+			-- that belonged to a destroyed one
+			handle.focusFloatGeom = nil
 		end
 		stopFocusScaleTweens(handle)
+		stopToggleTweens(handle)
 		handle.focusVisualHost = nil
 		focusedHandles[handle] = nil
 		dropHitExpander(handle)
@@ -4008,7 +4023,9 @@ function screen_target.new(opts: Opts?)
 						chromeState.noteFocusGlow(false)
 					end
 					stopFocusScaleTweens(handle)
+					stopToggleTweens(handle)
 					handle.focusVisualHost = nil
+					handle.focusFloatGeom = nil
 					focusedHandles[handle] = nil
 				end
 				handlesByPath[path] = nil

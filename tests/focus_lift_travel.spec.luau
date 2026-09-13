@@ -164,27 +164,102 @@ describe("screen_paint.applyToggleValue: the knob tween is HELD, like the track'
 		)
 	end)
 
-	it("it is cancelled beside the track's, in the one place that ends a flip", function()
-		local trackCancelAt = string.find(FN, "handle.toggleTrackTween:Cancel()", 1, true)
-		local knobCancelAt = string.find(FN, "handle.toggleKnobTween:Cancel()", 1, true)
-		expect(trackCancelAt ~= nil and knobCancelAt ~= nil).toBe(true)
-		-- both cancels come BEFORE either tween is re-created, or a flip would
-		-- cancel the tween it had just started
-		local createAt = string.find(FN, "TweenService:Create(track,", 1, true)
-		expect(createAt ~= nil).toBe(true)
-		expect((trackCancelAt :: number) < (createAt :: number)).toBe(true)
-		expect((knobCancelAt :: number) < (createAt :: number)).toBe(true)
-		-- ...and the field is cleared with the cancel, so a later flip does not
+	it("it is cancelled beside the track's, through the one helper that ends a flip", function()
+		local HELPER = adapter_source.bodyOf(paintSrc, "local function stopToggleTweens(")
+		expect(string.find(HELPER, "handle.toggleTrackTween:Cancel()", 1, true) ~= nil).toBe(true)
+		expect(string.find(HELPER, "handle.toggleKnobTween:Cancel()", 1, true) ~= nil).toBe(true)
+		-- ...and each field is cleared with its cancel, so a later flip does not
 		-- re-cancel a finished tween
-		expect(string.find(FN, "handle.toggleKnobTween = nil", 1, true) ~= nil).toBe(true)
+		expect(string.find(HELPER, "handle.toggleKnobTween = nil", 1, true) ~= nil).toBe(true)
+		-- the cancel comes BEFORE either tween is re-created, or a flip would
+		-- cancel the tween it had just started
+		local cancelAt = string.find(FN, "stopToggleTweens(handle)", 1, true)
+		local createAt = string.find(FN, "TweenService:Create(track,", 1, true)
+		expect(cancelAt ~= nil and createAt ~= nil).toBe(true)
+		expect((cancelAt :: number) < (createAt :: number)).toBe(true)
+		-- no bare cancel survives outside the helper
+		local _, bare = string.gsub(paintSrc, "handle%.toggleKnobTween:Cancel%(%)", "")
+		expect(bare).toBe(1)
 	end)
 
-	it("the instant paths (retheme, reduced motion) leave no tween behind either", function()
-		-- they still run the SAME cancel above before writing, which is what makes
-		-- a reduce-motion flip mid-travel land where it should
-		local cancelAt = string.find(FN, "handle.toggleKnobTween:Cancel()", 1, true)
+	it("the instant arm PLACES the knob, because the cancel above it can strand one", function()
+		--[[ REVIEW N1. The retheme arm deliberately skipped `knob.Position` — a
+			retheme is not a state change, so moving the knob was a no-op. Once
+			the cancel moved above the branch that stopped being true: `Cancel`
+			stops a tween where it STANDS, and the Back overshoot means "where it
+			stands" can be PAST the end of the track, so a theme swap landing
+			inside the 0.2 s travel stranded the knob mid-track until the next
+			flip — and the knob IS the value readout. Under `retheme` the caller
+			passes `handle.toggleOn`, so `knobPos` is the CURRENT state's place:
+			the write is the same no-op it always was on every path except the one
+			that was broken. ]]
+		local cancelAt = string.find(FN, "stopToggleTweens(handle)", 1, true)
 		local instantAt = string.find(FN, "if retheme == true or isReducedMotion() then", 1, true)
 		expect(instantAt ~= nil).toBe(true)
 		expect((cancelAt :: number) < (instantAt :: number)).toBe(true)
+		-- the placement is UNCONDITIONAL inside that arm: no `retheme` guard left
+		local arm = string.sub(FN, instantAt :: number, string.find(FN, "\n\t\telse\n", instantAt :: number, true))
+		expect(string.find(arm, "knob.Position = knobPos", 1, true) ~= nil).toBe(true)
+		expect(string.find(arm, "if retheme ~= true then", 1, true)).toBe(nil)
+		-- ...and the refresh a theme swap drives really does pass `retheme = true`
+		-- with the CURRENT value, which is what makes the write a placement
+		-- rather than a state change
+		local REFRESH = adapter_source.bodyOf(paintSrc, "local function refreshToggleVisuals(")
+		expect(string.find(REFRESH, "applyToggleValue(handle, handle.toggleOn == true, true)", 1, true) ~= nil).toBe(
+			true
+		)
+	end)
+
+	it("the adapter's three teardown paths end the toggle's tweens too (item 10's root cause)", function()
+		--[[ item 10 named a recycled toggle as the risk and then fixed only the
+			flip-to-flip case; a Toggle handle IS park-eligible, so the tween
+			outliving the identity was never closed. `park`, `destroy` and
+			`destroyRoot` all call the same helper now — the same three that end
+			the focus lift's pair. ]]
+		for _, anchor in { "function adapter.park(", "function adapter.destroyRoot(" } do
+			local BODY = adapter_source.bodyOf(targetSrc, anchor)
+			expect(#BODY > 0).toBe(true)
+			expect(string.find(BODY, "stopToggleTweens(handle)", 1, true) ~= nil).toBe(true)
+		end
+		-- the per-node removal path is the third; it is where the float ring and
+		-- the focus-scale tween are already ended
+		local removeAt = string.find(targetSrc, "handle.focusRingFloat:Destroy()", 1, true)
+		expect(removeAt ~= nil).toBe(true)
+		local window = string.sub(targetSrc, removeAt :: number, (removeAt :: number) + 700)
+		expect(string.find(window, "stopToggleTweens(handle)", 1, true) ~= nil).toBe(true)
+	end)
+end)
+
+describe("screen_target: the float ring's geometry dies with the float (review N8)", function()
+	it("every site that drops `focusRingFloat` drops `focusFloatGeom` with it", function()
+		--[[ `focusFloatGeom` is what `aimFocusScale` computes the float's travel
+			from. Left behind when a float is destroyed, a LATER float on the same
+			handle would travel from the rect of the one that died — the stale-fact
+			shape this adapter's own history is full of. The count is the claim:
+			as many geometry drops as float drops. ]]
+		local unpaired: { number } = {}
+		local at = 1
+		local drops = 0
+		while true do
+			local found = string.find(targetSrc, "handle.focusRingFloat = nil", at, true)
+			if found == nil then
+				break
+			end
+			drops += 1
+			-- the geometry drop rides the same block (a few lines, allowing for a
+			-- comment between them)
+			local window = string.sub(targetSrc, found, found + 500)
+			if string.find(window, "handle.focusFloatGeom = nil", 1, true) == nil then
+				table.insert(unpaired, drops)
+			end
+			at = found + 1
+		end
+		expect(drops).toBe(3) -- setFocusVisual's reparented-away check, its teardown, and `destroy`
+		expect(`unpaired float drops: {table.concat(unpaired, ", ")}`).toBe("unpaired float drops: ")
+		-- `destroyRoot` is the fourth site: it never drops an individual float
+		-- (the whole ScreenGui goes), so it clears the geometry beside the rest of
+		-- the handle's motion state instead
+		local ROOT = adapter_source.bodyOf(targetSrc, "function adapter.destroyRoot(")
+		expect(string.find(ROOT, "handle.focusFloatGeom = nil", 1, true) ~= nil).toBe(true)
 	end)
 end)

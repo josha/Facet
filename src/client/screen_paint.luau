@@ -1364,6 +1364,25 @@ function screen_paint.new(ctx: any)
 	-- (`retheme = true`) SNAPS rather than animating: the value did not change,
 	-- so there is nothing to animate — a theme swap that visibly slides its
 	-- colours reads as a state change that never happened.
+	--[[ A TOGGLE'S TWO TWEENS, ENDED TOGETHER. Both are held on the handle so a
+		flip can cancel the previous one, and the live adapter's `park`/`destroy`/
+		`destroyRoot` end them too (review N1 — item 10's own stated root cause:
+		a Toggle handle IS park-eligible, since `parkEligible` refuses motion
+		scales, canvas groups, hit expanders, focus floats, glows and focus
+		itself, not a track/knob pair, so a tween still running through a recycle
+		would write onto whatever control takes that identity next). Exported for
+		those three, so the cancel is one decision rather than a copy per site. ]]
+	local function stopToggleTweens(handle: any)
+		if handle.toggleTrackTween ~= nil then
+			handle.toggleTrackTween:Cancel()
+			handle.toggleTrackTween = nil
+		end
+		if handle.toggleKnobTween ~= nil then
+			handle.toggleKnobTween:Cancel()
+			handle.toggleKnobTween = nil
+		end
+	end
+
 	local function applyToggleValue(handle: any, on: boolean, retheme: boolean?)
 		local track: Frame? = handle.track
 		local knob: Frame? = handle.knob
@@ -1391,27 +1410,28 @@ function screen_paint.new(ctx: any)
 		--[[ BOTH TWEENS END HERE, which is the only place a flip ends. The track's
 			colour tween was already held; the KNOB's Position tween (Tier 1 item
 			1E's Back overshoot, over the same `motion.normal`) was created inline
-			and played, so a flip-flip inside 0.2 s left the first one running and
-			a recycled toggle took its leftover writes — a Toggle handle IS
-			park-eligible (`parkEligible` refuses motion scales, canvas groups,
-			hit expanders, focus floats, glows and focus itself, not a track/knob
-			pair). Cancelling above the branch rather than inside the tweened arm
-			is what makes a RETHEME or a reduced-motion flip mid-travel land where
-			it should instead of being overwritten by the tween it interrupted. ]]
-		if handle.toggleTrackTween ~= nil then
-			handle.toggleTrackTween:Cancel()
-			handle.toggleTrackTween = nil
-		end
-		if handle.toggleKnobTween ~= nil then
-			handle.toggleKnobTween:Cancel()
-			handle.toggleKnobTween = nil
-		end
+			and played, so a flip-flip inside 0.2 s left the first one running
+			against the second. Cancelling above the branch rather than inside the
+			tweened arm is what makes a RETHEME or a reduced-motion flip
+			mid-travel land where it should instead of being overwritten by the
+			tween it interrupted.
+
+			...WHICH IS EXACTLY WHY THE RETHEME ARM NOW PLACES THE KNOB (review
+			N1). `Cancel` stops a tween where it STANDS, and the Back overshoot
+			means "where it stands" can be PAST the end of the track. The retheme
+			arm used to skip `knob.Position` deliberately — a retheme is not a
+			state change, so moving the knob would have been a no-op — but with
+			the cancel above it, a theme swap landing inside the 0.2 s travel left
+			the knob stranded mid-track until the next flip, and the knob IS the
+			value readout. Under `retheme` the caller passes `handle.toggleOn`, so
+			`knobPos` is the CURRENT state's place, not a new one: writing it is
+			the same no-op it always was on every path except the one that was
+			broken. ]]
+		stopToggleTweens(handle)
 		if retheme == true or isReducedMotion() then
 			track.BackgroundColor3 = trackColor
 			knob.BackgroundColor3 = knobColor
-			if retheme ~= true then
-				knob.Position = knobPos
-			end
+			knob.Position = knobPos
 		else
 			local tween = TweenService:Create(track, motionInfo(style.motion.normal), { BackgroundColor3 = trackColor })
 			handle.toggleTrackTween = tween
@@ -1455,6 +1475,7 @@ function screen_paint.new(ctx: any)
 		refreshBackdropPaint = refreshBackdropPaint,
 		refreshThemedPaint = refreshThemedPaint,
 		refreshToggleVisuals = refreshToggleVisuals,
+		stopToggleTweens = stopToggleTweens,
 		releaseTint = releaseTint,
 		wireInteractiveStates = wireInteractiveStates,
 		wireNativePressDip = wireNativePressDip,
