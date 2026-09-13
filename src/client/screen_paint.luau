@@ -1373,6 +1373,7 @@ function screen_paint.new(ctx: any)
 		would write onto whatever control takes that identity next). Exported for
 		those three, so the cancel is one decision rather than a copy per site. ]]
 	local function stopToggleTweens(handle: any)
+		local knobWasTweening = handle.toggleKnobTween ~= nil
 		if handle.toggleTrackTween ~= nil then
 			handle.toggleTrackTween:Cancel()
 			handle.toggleTrackTween = nil
@@ -1380,6 +1381,19 @@ function screen_paint.new(ctx: any)
 		if handle.toggleKnobTween ~= nil then
 			handle.toggleKnobTween:Cancel()
 			handle.toggleKnobTween = nil
+		end
+		--[[ ...AND THE KNOB GOES WHERE ITS VALUE SAYS (review D7), for the same
+			reason `applyToggleValue`'s instant arm places it: `Cancel` stops a
+			tween where it STANDS, and the Back overshoot means that can be past
+			the end of the track. `applyToggleValue` places it itself right after
+			calling this, so this only matters on the TEARDOWN paths — and there
+			it matters most on `park`, where the instance survives: a valueless
+			`UI.Toggle` adopter never writes a value, so nothing would re-assert
+			the position and the recycled node would paint its knob wherever the
+			previous identity's blur happened to leave it. Costs one write, only
+			on the path where a tween was actually interrupted. ]]
+		if knobWasTweening and handle.knob ~= nil then
+			handle.knob.Position = if handle.toggleOn == true then TOGGLE_KNOB_ON else TOGGLE_KNOB_OFF
 		end
 	end
 

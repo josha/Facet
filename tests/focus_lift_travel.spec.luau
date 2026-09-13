@@ -210,6 +210,27 @@ describe("screen_paint.applyToggleValue: the knob tween is HELD, like the track'
 		)
 	end)
 
+	it("the cancel also PLACES the knob, so a parked instance carries no mid-travel pose (D7)", function()
+		--[[ `park` keeps the instance for a later, unrelated adoption, and a
+			valueless `UI.Toggle` adopter never writes a value — so nothing would
+			re-assert the knob and the recycled node would paint it wherever the
+			previous identity's blur left it, which the Back overshoot can put
+			past the end of the track. `applyToggleValue` places the knob itself
+			straight after calling this, so the write only bites on the teardown
+			paths, and only when a tween was actually interrupted. ]]
+		local HELPER = adapter_source.bodyOf(paintSrc, "local function stopToggleTweens(")
+		expect(string.find(HELPER, "local knobWasTweening = handle.toggleKnobTween ~= nil", 1, true) ~= nil).toBe(true)
+		expect(string.find(HELPER, "if knobWasTweening and handle.knob ~= nil then", 1, true) ~= nil).toBe(true)
+		-- the position comes from the VALUE, not from wherever the tween stopped
+		expect(
+			string.find(HELPER, "if handle.toggleOn == true then TOGGLE_KNOB_ON else TOGGLE_KNOB_OFF", 1, true) ~= nil
+		).toBe(true)
+		-- ...and it is read BEFORE the cancel clears the field
+		local readAt = string.find(HELPER, "local knobWasTweening", 1, true)
+		local cancelAt = string.find(HELPER, "handle.toggleKnobTween:Cancel()", 1, true)
+		expect((readAt :: number) < (cancelAt :: number)).toBe(true)
+	end)
+
 	it("the adapter's three teardown paths end the toggle's tweens too (item 10's root cause)", function()
 		--[[ item 10 named a recycled toggle as the risk and then fixed only the
 			flip-to-flip case; a Toggle handle IS park-eligible, so the tween
