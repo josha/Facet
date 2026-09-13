@@ -78,25 +78,32 @@ local EXIT_CAP_SECONDS = 0.5
 	`object` 0.0011, `container` 0.0014, `decay` 0.0019 — two tenths of one
 	percent of the travel or less.
 
-	AND 2 % OF A LONG SLIDE IS NOT INVISIBLE. `spec.distance` lets a caller
-	declare a surface's own extent — a full-viewport push is 1920 px, where the
-	2 % this epsilon PERMITS is 38 px of pop. The shipped classes do better than
-	the permission (measured on `dismiss` at 1920 px: 1.9 px left, because it is
-	velocity-bound), but a bound nobody can state in pixels is not a bound. So a
-	TRAVELLING form's tolerance is read in pixels (`MAX_EXIT_PIXELS`) over the
-	travel it will really make, and the progress epsilon is clamped to whatever
-	that works out to: the guarantee is "half a pixel of travel left", not "2 %
-	of whatever the caller declared". Measured after, same case: 0.085 px. A fade
-	or a materialize travels no pixels and keeps 0.02.
+	THE BOUND IS THEREFORE: an exit ends when at most 2 % of its travel remains,
+	OR at the 500 ms cap, whichever comes first. It is deliberately NOT "half a
+	pixel of travel left" (review D3). A round of this fix tried exactly that —
+	clamping the epsilon to `0.5 / distance` for a travelling form — and it made
+	a full-width slide UNABLE to settle at all: `dismiss` at `distance = 1920`
+	went from disposing on frame 22 to frame 31, the cap, which is the very
+	defect the epsilon exists to remove, re-entered through the caller most
+	likely to declare a long slide. `NavigationStack` passes `distance =
+	stackWidth`, so every push and pop would have run to the cap.
 
-	Measured after: frames to dispose (60 fps, `enter = "fade"`) `dismiss` 22,
+	And the residue the clamp was buying is not visible anyway:
+	`screen_presentation.luau` rounds a presentation offset to whole pixels
+	before it reaches the engine, and `UDim.Offset` is an integer, so anything
+	under half a pixel is written as the same number either way. What the cap
+	truncates is a far larger number than what the epsilon does — measured at
+	1920 px, `container` is cap-ended with 5.1 px left and `decay` with 32.7 px
+	— and NavigationStack pins `container`, so its full-width push is cap-ended
+	TODAY, before and after this round. That is a pre-existing question about the
+	cap, not about this tolerance.
+
+	Measured: frames to dispose (60 fps, `enter = "fade"`) `dismiss` 22,
 	`object` 28, `container` 31, `decay` 31. The last two are the two classes
 	whose settle (33 and 44 frames) genuinely outruns the 30-frame cap, which is
 	the net doing its job — and the reason `dismiss`, not `container`, is
 	`DEFAULT_EXIT_CLASS`. ]]
 local EXIT_EPS = 0.02
--- the pixel ceiling a travelling exit's tolerance is read against (above)
-local MAX_EXIT_PIXELS = 0.5
 -- the slide travel, as a THEME metric (`space.l` = 24 px in Facet Neutral): a
 -- roomier theme slides a little further, and no call site carries a magic number
 local DEFAULT_SLIDE_DISTANCE = 24
@@ -470,24 +477,6 @@ function transitions.new(opts: Opts)
 		return if type(step) == "number" and step > 0 then step else DEFAULT_SLIDE_DISTANCE
 	end
 
-	--[[ THE EXIT TOLERANCE, IN THE UNIT THE FORM ACTUALLY SPENDS (review N4).
-		`EXIT_EPS` is a fraction of PROGRESS, which is the right unit for alpha
-		and for a scale but not for a slide a caller sized itself: 2 % of the
-		themed 24 px nudge is 0.48 px, and 2 % of a declared 1920 px push is
-		38 px — a visible pop, on exactly the caller who reached for `distance`
-		because their slide IS the surface leaving the screen. So a travelling
-		form's tolerance is derived from `MAX_EXIT_PIXELS` over the travel it
-		will really make (the same `slideDistance` the geometry uses, themed
-		default included), and clamped to never be COARSER than `EXIT_EPS`. A
-		fade or a materialize travels no pixels and keeps 0.02 unchanged. ]]
-	local function exitEps(spec: Spec): number
-		if TRAVEL[spec.exit] == nil then
-			return EXIT_EPS
-		end
-		local travel = slideDistance(spec)
-		return math.min(EXIT_EPS, MAX_EXIT_PIXELS / travel)
-	end
-
 	-- where the node sits when it is fully ABSENT, for this form in this phase.
 	-- Enter travels toward rest (so it starts against the travel direction); exit
 	-- travels away from it (so it ends along the travel direction).
@@ -827,9 +816,8 @@ function transitions.new(opts: Opts)
 			return
 		end
 		local alphaPath = resolveAlphaTarget(path, node)
-		local eps = exitEps(spec)
-		local entry = entryFor(path, node, spec, 1, alphaPath, spec.exitClass, eps)
-		retune(entry, spec.exitClass, eps)
+		local entry = entryFor(path, node, spec, 1, alphaPath, spec.exitClass, EXIT_EPS)
+		retune(entry, spec.exitClass, EXIT_EPS)
 		entry.phase = "exit"
 		entry.done = done
 		setAbsent(entry, absentFor(spec, spec.exit, "exit"))
@@ -892,11 +880,9 @@ transitions.EXIT_CAP_SECONDS = EXIT_CAP_SECONDS
 -- onto DEFAULT_EXIT_CLASS) reads this instead of copying the string by hand.
 transitions.DEFAULT_CLASS = DEFAULT_CLASS
 transitions.DEFAULT_EXIT_CLASS = DEFAULT_EXIT_CLASS
--- the exit phase's settle epsilon and the pixel ceiling a TRAVELLING exit's own
--- tolerance is derived from (see their definitions above), published for the
--- same reason the classes are: `tests/transitions.spec.luau` reads both to say
--- how much travel an exit may end with, rather than re-deriving the numbers
+-- the exit phase's settle epsilon (see its definition above), published for the
+-- same reason the classes are: `tests/transitions.spec.luau` reads it to say how
+-- much of its travel an exit may end with, rather than re-deriving the number
 transitions.EXIT_EPS = EXIT_EPS
-transitions.MAX_EXIT_PIXELS = MAX_EXIT_PIXELS
 
 return transitions

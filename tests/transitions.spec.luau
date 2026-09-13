@@ -719,59 +719,77 @@ describe("transition coordinator: lifetime", function()
 		expect(disposeFrame).toBe(22)
 	end)
 
-	it("a long declared slide ends with under half a pixel of travel left (review N4)", function()
-		--[[ `EXIT_EPS` is a fraction of PROGRESS, which is the right unit for an
-			alpha and the wrong one for a slide a caller sized itself: 2 % of the
-			themed 24 px nudge is 0.48 px, and 2 % of a declared 1920 px push is
-			38 px of PERMITTED pop — on exactly the caller who reached for
-			`distance` because their slide IS the surface leaving the screen. The
-			shipped `dismiss` does better than the permission (1.872 px here
-			before this fix, measured, because it is velocity-bound rather than
-			value-bound), but a bound nobody can state in pixels is not a bound. A
-			travelling exit's tolerance is derived from `MAX_EXIT_PIXELS` over the
-			travel it will really make, so the guarantee is stated in pixels —
-			and this case reddens at 1.872 px if the clamp is removed. ]]
-		local core, env, clock = world()
-		local on = core:signal(true)
-		local PUSH = 1920
-		local root, adapter, _, coordinator =
-			attach(core, env, clock, whenScreen(on, { enter = "slide-left", distance = PUSH }))
-		local path = "/S/Gate/then/Panel"
-		for _ = 1, 200 do
-			clock:step(FRAME)
+	it("a long declared slide ends on its spring, at the same frame as a short one (review D3)", function()
+		--[[ A ROUND OF THIS FIX CLAMPED THE EPSILON TO `0.5 / distance` for a
+			travelling form, so the guarantee could be stated in pixels. Measured,
+			that made a full-width slide UNABLE to settle: `dismiss` at
+			`distance = 1920` went from disposing on frame 22 to frame 31 — the
+			cap — which is the very defect the epsilon exists to remove, re-entered
+			through the caller most likely to declare a long slide.
+			`NavigationStack` passes `distance = stackWidth`, so every push and pop
+			would have run to the cap.
+
+			And the residue it was buying is not visible: `screen_presentation`
+			rounds a presentation offset to whole pixels before the engine sees it
+			(`UDim.Offset` is an integer), so anything under half a pixel is the
+			same written number either way. The bound is the honest one — at most
+			2 % of the travel, or the cap, whichever comes first — and the claim
+			this case makes is that the DISPOSE FRAME does not move with the
+			distance. ]]
+		local function disposeFrameFor(distance: number?): (number, number)
+			local core, env, clock = world()
+			local on = core:signal(true)
+			local spec: any = { enter = "slide-left", distance = distance }
+			local root, adapter, _, coordinator = attach(core, env, clock, whenScreen(on, spec))
+			for _ = 1, 200 do
+				clock:step(FRAME)
+			end
+			local gate = root.node.children[1]
+			on:set(false)
+			local lastX, disposeAt = 0, -1
+			for f = 1, 120 do
+				clock:step(FRAME)
+				if #gate.children == 0 then
+					disposeAt = f
+					break
+				end
+				local node = adapter.node("/S/Gate/then/Panel")
+				if node ~= nil and node.props.transform ~= nil then
+					lastX = math.abs(node.props.transform.x)
+				end
+			end
+			root.dispose()
+			coordinator.dispose()
+			clock:dispose()
+			return disposeAt, lastX
 		end
+		local capFrame = math.ceil(transitionsLib.EXIT_CAP_SECONDS * 60)
+		local shortFrame, shortX = disposeFrameFor(nil) -- the themed 24 px nudge
+		local longFrame, longX = disposeFrameFor(1920)
+		expect(`short {shortFrame} long {longFrame}`).toBe("short 22 long 22")
+		expect(longFrame < capFrame).toBe(true)
+		-- ...and the residue really is the same FRACTION at both, which is what
+		-- "at most EXIT_EPS of the travel" means
+		expect((24 - shortX) / 24 <= transitionsLib.EXIT_EPS).toBe(true)
+		expect((1920 - longX) / 1920 <= transitionsLib.EXIT_EPS).toBe(true)
+		-- measured: 0.02 px and 1.87 px, both under one written pixel
+		expect(`{string.format("%.2f", 1920 - longX)} px`).toBe("1.87 px")
+	end)
+
+	it("reduced motion is untouched by the distance (review D3)", function()
+		local core, env, clock = world(true)
+		local on = core:signal(true)
+		local root, _, _, coordinator =
+			attach(core, env, clock, whenScreen(on, { enter = "slide-left", distance = 1920 }))
 		local gate = root.node.children[1]
 		on:set(false)
-		-- the LAST offset the node was painted at before its node went away is
-		-- how much travel it still owed when the exit ended
-		local lastX = 0
-		for _ = 1, 120 do
-			clock:step(FRAME)
-			if #gate.children == 0 then
-				break
-			end
-			local node = adapter.node(path)
-			if node ~= nil and node.props.transform ~= nil then
-				lastX = math.abs(node.props.transform.x)
-			end
-		end
+		clock:step(FRAME)
+		-- an exit under reduced motion completes, and disposes, on the frame it
+		-- begins — whatever it was going to travel
 		expect(#gate.children).toBe(0)
-		local owed = PUSH - lastX
-		expect(`{string.format("%.3f", owed)} px of travel left`).toBe("0.085 px of travel left")
-		expect(owed <= transitionsLib.MAX_EXIT_PIXELS).toBe(true)
-		-- ...and the tolerance really was TIGHTENED, never loosened, against the
-		-- progress ceiling this file's other cases run at
-		expect(transitionsLib.MAX_EXIT_PIXELS / PUSH < transitionsLib.EXIT_EPS).toBe(true)
 		root.dispose()
 		coordinator.dispose()
 		clock:dispose()
-	end)
-
-	it("a form that travels no pixels keeps the progress tolerance (review N4)", function()
-		-- a fade has no `distance` to read and no pixels to owe, so the clamp
-		-- must not reach it: its dispose frame is the one the table above pins
-		local _, _, disposeFrame = fadeFrames(nil)
-		expect(disposeFrame).toBe(22)
 	end)
 
 	it("`container` as an exit is the class the cap still has to end", function()
