@@ -7849,9 +7849,10 @@ Commands preserve focus when effective placement does not change. A sidebar adds
 `space.m` between its chrome and the page by default, including ordinary sidebar
 TabViews; page content owns its internal padding. A top or bottom home adds
 `space.s` for the same reason — the strip is a plate and the page is not part of
-it — so a strip never touches its content at any placement, in any theme. Both are
-metric names, so a package's own spacing moves them. Nested TabViews keep their own
-top bar. This style defaults to pill indicators
+it. Both are metric names, so a package's own spacing moves them. The one
+placement that adds nothing is `bottomBarCompact`: the policy picks it when the
+screen is too short for an ordinary band, and there the chrome gives way before
+the content does. Nested TabViews keep their own top bar. This style defaults to pill indicators
 and preserves the normal lazy-build/eviction contract; `indicator` may override it.
 No destination content or hero imagery is invented.
 

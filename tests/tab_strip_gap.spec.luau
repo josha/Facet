@@ -17,19 +17,29 @@
 	a band above one got zero, in every theme, at every text size. That is not a
 	per-theme accident: Facet Neutral butts them together too. It is one branch.
 
-	THE FIX. The gap is one decision for all four placements — the theme's `m`
-	step beside a rail, its `s` step above or below a band — spent as a METRIC
-	NAME, so a package that retunes its spacing retunes the tab gap with it and a
-	ten-foot display's scaled steps reach it with nothing to update.
+	THE FIX. The gap is one decision for the placements that have room for one —
+	the theme's `m` step beside a rail, its `s` step above or below a band — spent
+	as a METRIC NAME, so a package that retunes its spacing retunes the tab gap
+	with it and a ten-foot display's scaled steps reach it with nothing to update.
+
+	...AND `bottomBarCompact` SPENDS NONE, which is not an exception so much as
+	the placement's own reason for existing. The policy picks it when the screen
+	is too short for the ordinary thumb-zone band, and the chrome gives way before
+	the content does. Measured: a uniform `s` cost `examples/reference/p4_foyer`
+	8px it did not have — at 640x320 and the largest text preference its page
+	already overflows by 19px, and the gap made it 27, with the construct's own
+	`Nav` overflowing by 4-6 under three packages beside it
+	(`tests/overflow_sweep.spec.luau`).
 
 	WHAT IS PINNED HERE:
 
-	  1. Every placement leaves a gap, measured between the strip's own home band
-	     and the content pane, on that placement's own axis.
-	  2. It is the THEME's number and not a literal: the same four placements
-	     measured under a package that doubles its spacing scale come out doubled.
-	  3. The sidebar's own gap is unchanged, so the fix adds a case rather than
+	  1. Every placement with room for a gap leaves one, measured between the
+	     strip's own home band and the content pane, on that placement's own axis.
+	  2. It is the THEME's number and not a literal: the same placements measured
+	     under a package that doubles its spacing scale come out doubled.
+	  3. The sidebar's own gap is unchanged, so the fix adds cases rather than
 	     re-deciding the one that already worked.
+	  4. The compact band's zero is pinned as a decision, beside the reason.
 ]]
 
 local t = require("./lib/testkit")
@@ -108,9 +118,16 @@ describe("tab strip gap: the strip never touches the page", function()
 		expect(gapFor("topBar")).toBe(default_style.space.s)
 	end)
 
-	it("...and so does a thumb-zone band, in both of its shapes", function()
+	it("...and so does a thumb-zone band", function()
 		expect(gapFor("bottomBar")).toBe(default_style.space.s)
-		expect(gapFor("bottomBarCompact")).toBe(default_style.space.s)
+	end)
+
+	--[[ THE SHORT SCREEN'S BAND IS THE ONE THAT SPENDS NOTHING, and it is pinned
+		rather than merely allowed: a future round that "finishes" the rule by
+		making this uniform would take 8px off a 320px-tall landscape, which is
+		what `p4_foyer` measured and what this zero exists to prevent. ]]
+	it("the compact band spends none, because a screen that short has none to spend", function()
+		expect(gapFor("bottomBarCompact")).toBe(0)
 	end)
 
 	it("the sidebar rail keeps the wider `m` step it already had", function()
@@ -143,7 +160,8 @@ describe("tab strip gap: it is the theme's number, not a literal", function()
 		local package = doubledSpacing()
 		expect(gapFor("topBar", package)).toBe(16)
 		expect(gapFor("bottomBar", package)).toBe(16)
-		expect(gapFor("bottomBarCompact", package)).toBe(16)
 		expect(gapFor("sidebar", package)).toBe(32)
+		-- ...and the one that spends nothing spends nothing under any package
+		expect(gapFor("bottomBarCompact", package)).toBe(0)
 	end)
 end)

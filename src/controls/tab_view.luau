@@ -1293,9 +1293,22 @@ function tab_view.build(Facet: any, core: any, spec: Spec)
 			NAMES: a package that retunes its spacing retunes this, and a ten-foot
 			display's scaled steps reach it with nothing to update. The rail keeps
 			the wider step because a vertical boundary down the middle of a screen is
-			a bigger seam than a horizontal one at its edge. ]]
+			a bigger seam than a horizontal one at its edge.
+
+			...AND THE COMPACT BAND SPENDS NONE, because that is what it is FOR. A
+			`bottomBarCompact` is the placement the policy picks when the screen is
+			too short for the ordinary thumb-zone band, and the chrome gives way
+			before the content does (the rule `examples/gallery/scenarios/
+			row_actions.luau` states and `examples/reference/p4_foyer` measures). A
+			uniform `s` here cost that proof 8px it did not have: at 640x320 and the
+			largest text preference its page already overflows by 19px, and the gap
+			made it 27. A gap that only exists where there is room for one is the
+			same decision `resolveSizing` makes one field over. ]]
 		gap = scope:own(core:memo(function(use)
-			return if use(sidebar) then "m" else "s"
+			if use(sidebar) then
+				return "m"
+			end
+			return if use(placement) == "bottomBarCompact" then 0 else "s"
 		end)),
 		width = FILL,
 		height = FILL,
