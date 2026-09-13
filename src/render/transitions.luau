@@ -270,6 +270,22 @@ local function collectCanvasGroups(node: any, out: { any })
 	end
 end
 
+--[[ THE ONE FADE GROUP UNDER A NODE — nil when there is not exactly one.
+
+	The single definition of "which node does a transition over this subtree
+	really act on". `resolveAlphaTarget` below routes `GroupTransparency` here,
+	and the presenter routes a SURFACE's whole transition node here (task A2)
+	rather than re-deriving it: two derivations of the same question is how the
+	scale half ended up writing to a node the alpha half had already left. ]]
+function transitions.soleFadeGroup(node: any): any?
+	if node == nil then
+		return nil
+	end
+	local candidates: { any } = {}
+	collectCanvasGroups(node, candidates)
+	return if #candidates == 1 then candidates[1] else nil
+end
+
 --[[ THE FIX SPLITS THE WRITE, NOT THE TRANSITION. Position/scale still target
 	the node the caller declared — a plain `UIScale`/offset moves a background
 	plate and its content as one rigid unit, canvasGroup or not, so a
@@ -300,10 +316,8 @@ local function resolveAlphaTarget(path: string, node: any): (string, any)
 	if node == nil or node.props == nil or node.props.canvasGroup == true then
 		return path, node
 	end
-	local candidates: { any } = {}
-	collectCanvasGroups(node, candidates)
-	if #candidates == 1 then
-		local only = candidates[1]
+	local only = transitions.soleFadeGroup(node)
+	if only ~= nil then
 		return only.path, only
 	end
 	return path, node

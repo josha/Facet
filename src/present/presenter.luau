@@ -2733,11 +2733,31 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		end
 		surfaceRef = handle
 
-		-- ONE SURFACE, ONE TRANSITION TARGET. A fading form needs a fade GROUP and a
-		-- `Screen` is not one, so the transition targets the root's single declared
-		-- `canvasGroup` child when it has one — `UI.ZStack{ canvasGroup = true }`
-		-- around the screen's content is the documented shape — and the root itself
-		-- otherwise (a slide needs no group).
+		--[[ ONE SURFACE, ONE TRANSITION TARGET. A fading form needs a fade GROUP and
+			a `Screen` is not one, so the transition targets the root's single declared
+			`canvasGroup` child when it has one — `UI.ZStack{ canvasGroup = true }`
+			around the screen's content is the documented shape — and the root itself
+			otherwise (a slide needs no group).
+
+			...AND IT IS NOT ALWAYS A DIRECT CHILD (task A2, live Studio 2026-09-12).
+			`presentAnchored` SYNTHESIZES `Screen -> Anchor(Layer) -> VStack(Surface)
+			-> <the caller's panel>`, so a pop-up menu's `canvasGroup` panel sits three
+			levels down and NOTHING here qualified: the target fell back to the Screen
+			root. The coordinator's alpha half then descended to the panel anyway
+			(`transitions.resolveAlphaTarget`), which is why the fade looked right —
+			but its TRANSFORM half writes `scale`/`pivot` to the declared node, and the
+			root's live instance is a ScreenGui. `screen_presentation
+			.applyPresentationPaint` returns on `not instance:IsA("GuiObject")`, so the
+			UIScale was never materialized and a `materialize` faded without ever
+			growing, with no error anywhere. Measured on `Controls.Menu` and the
+			pop-up picker: `/…/Layer/Surface/Popup` 1 -> 0.02 in GroupTransparency, no
+			UIScale on any node.
+
+			So when no direct child qualifies, descend the SAME way the alpha half
+			does — `transitions.soleFadeGroup`, one shared definition — and both
+			halves land on the one node. A qualifying direct child still wins
+			unchanged, and two candidates at either depth stay ambiguous, so the
+			surface itself remains the target. ]]
 		handle.transitionNode = (function()
 			local rootNode = root.node
 			if rootNode.props ~= nil and rootNode.props.canvasGroup == true then
@@ -2752,7 +2772,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 					only = child
 				end
 			end
-			return only or rootNode
+			return only or transitionsLib.soleFadeGroup(rootNode) or rootNode
 		end)()
 		if handle.transition ~= nil then
 			-- RESOLVED ONCE, HERE (review D1): `dismiss` must never re-read a

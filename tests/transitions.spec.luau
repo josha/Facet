@@ -1754,3 +1754,118 @@ describe("transition coordinator: stagger", function()
 		expect(transitionsLib.resolve({ enter = "fade", stagger = 0.05 }).stagger).toBe(0.05)
 	end)
 end)
+
+--[[ THE SYNTHESIZED SURFACE'S FADE GROUP IS NOT A DIRECT CHILD (task A2,
+	live Studio 2026-09-12). `presenter.presentAnchored` synthesizes
+	`Screen -> Anchor(Layer) -> VStack(Surface) -> <the caller's panel>`, so a
+	pop-up menu's `canvasGroup` panel sits THREE levels under the root. The
+	coordinator's alpha half already descends to it (`resolveAlphaTarget`), and
+	the transition's TRANSFORM half did not: it wrote `scale`/`pivot` to the
+	Screen root, whose live instance is a ScreenGui — not a `GuiObject`, so
+	`screen_presentation.applyPresentationPaint` returns before it can
+	materialize a UIScale, and the write vanished with no error. Measured on a
+	live picker: the Popup faded 1 -> 0.02 and NOTHING ever scaled. ]]
+describe("presenter: a transition on a surface whose fade group is nested", function()
+	local function popupSurface(id: string)
+		return UI.Screen({
+			id = id,
+			children = {
+				UI.Anchor({
+					id = "Layer",
+					width = { type = "fill", weight = 1 },
+					height = { type = "fill", weight = 1 },
+					children = {
+						UI.VStack({
+							id = "Surface",
+							anchor = "topLeft",
+							width = { type = "hug" },
+							height = { type = "hug" },
+							children = {
+								UI.ZStack({
+									id = "Popup",
+									canvasGroup = true,
+									surface = "raised",
+									children = { UI.Button({ id = "Ok", label = "Ok" }) },
+								}),
+							},
+						}),
+					},
+				}),
+			},
+		})
+	end
+
+	local POPUP = "/Pop/Layer/Surface/Popup"
+
+	-- released (no transform at all) IS scale 1: the channel clears the UIScale
+	-- at rest rather than leaving a settled 1 behind
+	local function scaleOf(adapter: any, path: string): number
+		local node = adapter.node(path)
+		return if node ~= nil and node.motionScaleInstance ~= nil then node.motionScaleInstance.scale else 1
+	end
+
+	it("materialize scales AND fades the sole nested fade group, and never the root", function()
+		local _, _, adapter, _, pres = presenterWorld()
+		local handle = pres.present(popupSurface("Pop"), { transition = { enter = "materialize", pivot = "topRight" } })
+		expect(handle.transitionNode.path).toBe(POPUP)
+		pres.tick(FRAME)
+		expect(scaleOf(adapter, POPUP) < 1).toBe(true)
+		expect(adapter.node(POPUP).canvasGroupInstance.groupTransparency > 0).toBe(true)
+		-- THE PIVOT REACHES THE NODE THAT SCALES. `topRight` is the corner an
+		-- anchored popover hangs from, so the body grows out of it: the visual
+		-- rect's top-right corner sits on the solved rect's while it is small.
+		local mid = adapter.node(POPUP)
+		expect(mid.presentedVisualRect ~= nil).toBe(true)
+		expect(mid.presentedVisualRect.w < mid.rect.w).toBe(true)
+		expect(mid.presentedVisualRect.x + mid.presentedVisualRect.w).toBeCloseTo(mid.rect.x + mid.rect.w, 1e-6)
+		expect(mid.presentedVisualRect.y).toBeCloseTo(mid.rect.y, 1e-6)
+		-- ...and the ScreenGui root, which cannot carry a UIScale at all, is untouched
+		expect(scaleOf(adapter, "/Pop")).toBe(1)
+		for _ = 1, 90 do
+			pres.tick(FRAME)
+		end
+		expect(scaleOf(adapter, POPUP)).toBe(1)
+		expect(adapter.node(POPUP).canvasGroupInstance.groupTransparency).toBe(0)
+	end)
+
+	it("a plain fade on the same shape still fades the nested group (alpha half unchanged)", function()
+		local _, _, adapter, _, pres = presenterWorld()
+		local handle = pres.present(popupSurface("Pop"), { transition = { enter = "fade" } })
+		expect(handle.transitionNode.path).toBe(POPUP)
+		expect(adapter.node(POPUP).canvasGroupInstance.groupTransparency).toBe(1)
+		for _ = 1, 90 do
+			pres.tick(FRAME)
+		end
+		expect(adapter.node(POPUP).canvasGroupInstance.groupTransparency).toBe(0)
+		expect(scaleOf(adapter, POPUP)).toBe(1)
+	end)
+
+	it("two nested fade groups are ambiguous: the root stays the target", function()
+		local _, _, _, _, pres = presenterWorld()
+		local handle = pres.present(
+			UI.Screen({
+				id = "Two",
+				children = {
+					UI.Anchor({
+						id = "Layer",
+						children = {
+							UI.ZStack({
+								id = "A",
+								canvasGroup = true,
+								children = { UI.Text({ id = "T", text = "a" }) },
+							}),
+							UI.ZStack({
+								id = "B",
+								canvasGroup = true,
+								children = { UI.Text({ id = "U", text = "b" }) },
+							}),
+						},
+					}),
+				},
+			}),
+			{ transition = { enter = "slide-up" } }
+		)
+		expect(handle.transitionNode.path).toBe("/Two")
+		pres.dismiss(handle)
+	end)
+end)
