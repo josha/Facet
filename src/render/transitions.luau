@@ -504,16 +504,25 @@ function transitions.new(opts: Opts)
 		branch) keeps its parent, which is the right answer for it: a lone branch is
 		the first of its batch and waits for nothing.
 
-		THE KEYED SEGMENT IS MATCHED AS A BALANCED BRACKET GROUP, not as "brackets
-		around anything but a slash". A key is the author's own string and a `/` in it
-		is ordinary — a route, an asset id, `world/moss` — and under the slash-free
-		form every such row failed the match, kept its own parent, and became the
-		first of its own private batch. The rows still entered; they just all entered
-		at once, with nothing said. ]]
+		THE KEYED SEGMENT IS "A `[`, ANYTHING AT ALL, A `]`", TAKEN AT THE RIGHTMOST
+		SLASH THAT CAN START ONE. A key is the author's own string, so neither a `/`
+		NOR a bracket in it is unusual — a route, an asset id, `world/moss`, `a]b`.
+		Two narrower forms have each failed here in turn, and both failed the same
+		way: the match missed, the row kept its own parent, it became the first of
+		its own private batch, and the rows still entered — all at once, with nothing
+		said. `/%[[^/]*%]$` (brackets around anything but a slash) lost every
+		path-shaped key. `%b[]` (a BALANCED group) fixed those and lost every
+		UNBALANCED one instead: `"a]b"` builds `<list>/[a]b]`, where `%b[]` matches
+		`[a]` and then fails the anchor, and `"a[b"` builds `<list>/[a[b]`, which
+		never balances at all. `%[.*%]` has nothing left to be unbalanced about, and
+		the GREEDY `(.*)` before it is what keeps a nested keyed list honest: it
+		takes the rightmost slash whose remainder is still a bracket group, so
+		`<list>/[A]/Row/Inner/[two]` resolves to the INNER list and each outer row
+		keeps its own rhythm. ]]
 	local staggerStep, staggerCounts = -1, {} :: { [string]: number }
 	local function batchKey(path: string): string
 		local parent = string.match(path, "^(.*)/[^/]+$") or ""
-		return string.match(parent, "^(.*)/%b[]$") or parent
+		return string.match(parent, "^(.*)/%[.*%]$") or parent
 	end
 	local function staggerDelay(path: string, spec: Spec): number
 		if spec.stagger <= 0 then

@@ -1506,6 +1506,51 @@ describe("transition coordinator: stagger", function()
 			},
 		})
 	end
+	-- the same shape with a SECOND keyed list inside each row. Only the inner
+	-- list staggers, so the outer rows all enter on frame one and the only
+	-- rhythm under test is the one the inner batches keep.
+	local function nestedScreen(rows: any, cells: any, on: any, stagger: number)
+		return UI.Screen({
+			id = "S",
+			children = {
+				UI.When({
+					id = "Gate",
+					condition = on,
+					thenView = function()
+						return UI.ForEach({
+							id = "List",
+							items = rows,
+							key = function(item: any): string
+								return item.id
+							end,
+							row = function()
+								return UI.ZStack({
+									id = "Row",
+									children = {
+										UI.ForEach({
+											id = "Inner",
+											items = cells,
+											key = function(cell: any): string
+												return cell.id
+											end,
+											transition = { enter = "fade", stagger = stagger },
+											row = function(cell: any)
+												return UI.ZStack({
+													id = "Cell",
+													canvasGroup = true,
+													children = { UI.Text({ id = "T", text = cell.id }) },
+												})
+											end,
+										}),
+									},
+								})
+							end,
+						})
+					end,
+				}),
+			},
+		})
+	end
 	local function alphaOf(adapter: any, key: string): number
 		return adapter.node(`/S/Gate/then/List/[{key}]/Row`).canvasGroupInstance.groupTransparency
 	end
@@ -1576,6 +1621,68 @@ describe("transition coordinator: stagger", function()
 			clock:step(FRAME)
 		end
 		expect(alphaOf(adapter, "world/fen")).toBe(0)
+		expect(clock:activeCount()).toBe(0)
+		root.dispose()
+		coordinator.dispose()
+		clock:dispose()
+	end)
+
+	--[[ ...AND SO IS A BRACKET (R1, final re-review). The slash fix matched the
+		keyed segment as `%b[]` — a BALANCED bracket group — which is right for
+		every key that contains no bracket of its own and wrong for every key that
+		does. `"a]b"` builds `<list>/[a]b]`, where `%b[]` matches `[a]` and then
+		fails the anchor; `"a[b"` builds `<list>/[a[b]`, which never balances at
+		all. Both fall back to the row's own parent, which is the exact silent
+		no-stagger the slash fix existed to remove. A key is the author's string:
+		the segment is "a `[`, anything at all, a `]`", taken at the RIGHTMOST
+		slash that can start one. ]]
+	it("a key containing a bracket still shares one batch", function()
+		local core, env, clock = world()
+		local items = core:signal({ { id = "a]b" }, { id = "a[b" } })
+		local on = core:signal(true)
+		local root, adapter, _, coordinator = attach(core, env, clock, rowsScreen(items, on, 0.05))
+		expect(alphaOf(adapter, "a]b")).toBe(1)
+		expect(alphaOf(adapter, "a[b")).toBe(1)
+		clock:step(FRAME)
+		expect(`first moving: {alphaOf(adapter, "a]b") < 1}`).toBe("first moving: true")
+		expect(`second held: {alphaOf(adapter, "a[b") == 1}`).toBe("second held: true")
+		for _ = 1, 120 do
+			clock:step(FRAME)
+		end
+		expect(alphaOf(adapter, "a[b")).toBe(0)
+		expect(clock:activeCount()).toBe(0)
+		root.dispose()
+		coordinator.dispose()
+		clock:dispose()
+	end)
+
+	--[[ A NESTED KEYED LIST BATCHES AT THE INNER LIST (R1's other half). The
+		capture is greedy, so it takes the RIGHTMOST slash whose remainder is a
+		bracket group: `<list>/[A]/Row/Inner/[two]` resolves to
+		`<list>/[A]/Row/Inner`, and each outer row's inner list keeps its own
+		rhythm. Resolved at the OUTER list instead, the second row's FIRST cell
+		would inherit the first row's count and wait a beat it never asked for. ]]
+	it("a nested keyed list batches at the inner list, one rhythm per outer row", function()
+		local core, env, clock = world()
+		local rows = core:signal({ { id = "A" }, { id = "B" } })
+		local cells = core:signal({ { id = "one" }, { id = "two" } })
+		local on = core:signal(true)
+		local root, adapter, _, coordinator = attach(core, env, clock, nestedScreen(rows, cells, on, 0.05))
+		local function cellAlpha(row: string, cell: string): number
+			local path = `/S/Gate/then/List/[{row}]/Row/Inner/[{cell}]/Cell`
+			return adapter.node(path).canvasGroupInstance.groupTransparency
+		end
+		expect(cellAlpha("A", "one")).toBe(1)
+		clock:step(FRAME)
+		-- the FIRST cell of EACH row moves; the second of each waits its own beat
+		expect(`A/one moving: {cellAlpha("A", "one") < 1}`).toBe("A/one moving: true")
+		expect(`B/one moving: {cellAlpha("B", "one") < 1}`).toBe("B/one moving: true")
+		expect(`A/two held: {cellAlpha("A", "two") == 1}`).toBe("A/two held: true")
+		expect(`B/two held: {cellAlpha("B", "two") == 1}`).toBe("B/two held: true")
+		for _ = 1, 120 do
+			clock:step(FRAME)
+		end
+		expect(cellAlpha("B", "two")).toBe(0)
 		expect(clock:activeCount()).toBe(0)
 		root.dispose()
 		coordinator.dispose()
