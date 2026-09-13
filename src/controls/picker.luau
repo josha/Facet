@@ -2036,11 +2036,34 @@ function picker.build(Facet: any, core: any, spec: Spec)
 			concentric with the rail. Only a value that is present and is not a
 			container name is an authoring mistake. ]]
 		local declared = readValue(spec.stripCorner)
-		if declared ~= nil and not styling.isSelectionContainer(declared) then
+		--[[ AGAINST THE RADII THE FILL WILL ACTUALLY RESOLVE THROUGH (task 7 item
+			11). The vocabulary is derived from the BASE style, which is right for
+			every caller under Facet Neutral and wrong for a package that authors a
+			radius of its own: `radii.selection:chip` resolves perfectly well under
+			one, and this check refused the name before it could get there. So the
+			live metrics are read when a surface env is in hand — a package may ADD
+			to the vocabulary, never narrow it — and when none is, the message says
+			as much rather than pretending the base set is the whole world. ]]
+		local liveRadii: any = nil
+		do
+			local themeEnv: any = spec.env or surfaceEnv.find(core)
+			if type(themeEnv) == "table" and type(themeEnv.get) == "function" then
+				local metrics: any = themeEnv:get("themeMetrics")
+				local snap: any = if type(metrics) == "table" and type(metrics.get) == "function"
+					then metrics:get()
+					else nil
+				liveRadii = if type(snap) == "table" and type(snap.radii) == "table" then snap.radii else nil
+			end
+		end
+		if declared ~= nil and not styling.isSelectionContainer(declared, liveRadii) then
+			local source = if liveRadii ~= nil
+				then ""
+				else " No theme is in hand at this call, so that vocabulary is the BASE style's: "
+					.. "a radius a package adds of its own can be named from a themed surface."
 			error(
 				`Facet newPicker('{id}'): stripCorner must name a container radius `
-					.. `({styling.SELECTION_CONTAINER_LIST}) — the vocabulary the selected fill resolves `
-					.. `through \`radii.selection:<container>\`. Got '{tostring(declared)}'.`,
+					.. `({styling.selectionContainerList(liveRadii)}) — the vocabulary the selected fill resolves `
+					.. `through \`radii.selection:<container>\`. Got '{tostring(declared)}'.{source}`,
 				0
 			)
 		end

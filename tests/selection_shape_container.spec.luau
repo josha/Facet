@@ -324,6 +324,83 @@ describe("selection shape: naming a container that cannot answer is an authoring
 		expect(styling.isSelectionContainer("gauge:ring")).toBe(false)
 	end)
 
+	--[[ THE VOCABULARY IS THE LIVE STYLE'S WHEN THERE IS ONE (task 7 item 11).
+		`SELECTION_CONTAINERS` is derived from the BASE style's `radii`, which is
+		the right default and the wrong answer for a package that adds a radius of
+		its own: `radii.selection:chip` RESOLVES perfectly well under such a
+		package (`snapshot.resolveNumber` reads the live table), and the authoring
+		check refused the name before it ever got there. The refusal is a service
+		— it names the mistake where it was written — so it has to be checked
+		against the radii the fill will actually resolve through, not against a
+		vocabulary that predates the package. ]]
+	it("a package that authors `radii.chip` may name it, and the base names still work", function()
+		local pkg, report = Facet.themes.define({
+			base = snapshot.neutralPackage(),
+			identity = {
+				id = "shape-container-chip",
+				displayName = "Shape Container Chip",
+				schemaVersion = Facet.themes.SCHEMA,
+				version = "1.0.0",
+			},
+			metrics = { radii = { chip = 6 } },
+		})
+		assert(pkg ~= nil, `package rejected: {tostring(report and report.errors and report.errors[1])}`)
+		local metrics = snapshot.resolve(pkg, nil, {})
+		expect((metrics :: any).radii.chip).toBe(6)
+		local w = worldLib.new({ viewport = { x = 0, y = 0, w = 640, h = 720 }, themeMetrics = metrics })
+		local function buildIn(corner: string): (boolean, string)
+			local ok, err = pcall(function()
+				return Facet.Controls.Picker(w.core, {
+					id = "View",
+					selected = w.core:signal("a"),
+					options = { { value = "a", label = "One" }, { value = "b", label = "Two" } },
+					env = w.env,
+					presentation = "segmented",
+					track = false,
+					stripCorner = corner,
+				})
+			end)
+			return ok, tostring(err)
+		end
+		expect(buildIn("chip")).toBe(true)
+		expect(buildIn("pill")).toBe(true) -- the base vocabulary is never NARROWED by a package
+		-- ...and the name the fill resolver would actually answer for it
+		expect(snapshot.resolveNumber(metrics, "radii.selection:chip") ~= nil).toBe(true)
+		-- a name NO radii table has is still refused, and the message lists the
+		-- live vocabulary — `chip` included — rather than the base one
+		local ok, err = buildIn("capsule")
+		expect(ok).toBe(false)
+		expect(string.find(err, "chip", 1, true) ~= nil).toBe(true)
+		expect(styling.isSelectionContainer("chip", (metrics :: any).radii)).toBe(true)
+		expect(styling.isSelectionContainer("chip")).toBe(false)
+		-- the colon grammar is unchanged: a namespaced radius a package authors is
+		-- still not a container name
+		expect(styling.isSelectionContainer("gauge:ring", { ["gauge:ring"] = 4 })).toBe(false)
+	end)
+
+	it("with NO theme in hand at all the message says the vocabulary is the base style's", function()
+		--[[ the picker built without an `env` (and outside any surface, so
+			`surfaceEnv.find` answers nothing) has no live radii to check against.
+			The refusal is then the base style's vocabulary — which is the honest
+			answer, and the message says so rather than implying the framework
+			knows every radius that exists. ]]
+		-- a BARE core: no presenter, no surface, so `surfaceEnv.find` answers
+		-- nothing and there is no live radii table to check against
+		local core = Facet.newCore()
+		local ok, err = pcall(function()
+			return Facet.Controls.Picker(core, {
+				id = "View",
+				selected = core:signal("a"),
+				options = { { value = "a", label = "One" }, { value = "b", label = "Two" } },
+				presentation = "segmented",
+				track = false,
+				stripCorner = "chip",
+			})
+		end)
+		expect(ok).toBe(false)
+		expect(string.find(tostring(err), "BASE style's", 1, true) ~= nil).toBe(true)
+	end)
+
 	it("naming a container on a TRACKED strip refuses, and the message says which of the two to drop", function()
 		-- a tracked strip draws its own plate at `SEGMENT_RADIUS`, so the container
 		-- is already known and a caller naming another is stating a contradiction

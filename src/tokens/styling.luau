@@ -134,30 +134,69 @@ end
 	    its fill by some OTHER inset authors `corner` itself. ]]
 --[[ THE CONTAINER NAMES `selection:<container>` ACCEPTS, exported so a control
 	can REFUSE a bad one where the author wrote it rather than resolve it to
-	nothing three layers down. It is derived from the base style's own `radii`
-	rather than listed again here, so a radius added to the vocabulary is accepted
-	without a second edit — and the grammar excludes a colon, so a namespaced
-	radius (`radii["gauge:ring"]`) is deliberately not a container name. ]]
+	nothing three layers down. The base set is derived from the base style's own
+	`radii` rather than listed again here, so a radius added to the vocabulary is
+	accepted without a second edit — and the grammar excludes a colon, so a
+	namespaced radius (`radii["gauge:ring"]`) is deliberately not a container
+	name.
+
+	A LIVE STYLE WIDENS IT (task 7 item 11). `radii.selection:chip` RESOLVES
+	perfectly well under a package that authors `radii.chip` — the resolver reads
+	the live table (`src/themes/snapshot.luau`) — and the authoring check refused
+	the name before it could ever get there, so a package could ship a radius no
+	caller was allowed to point at. Both functions below take the live `radii`
+	when the caller has one and answer from the UNION: a package may add to the
+	vocabulary, never narrow it, because the base names are what every control
+	that ships with the framework already spends. Without one they answer exactly
+	as they did, and the caller's message says so. ]]
+local function containerShaped(name: any): boolean
+	return type(name) == "string" and string.match(name, "^[%w_%-]+$") ~= nil
+end
+
 local CONTAINER_NAMES: { [string]: boolean } = {}
 for name in default_style.radii do
-	if string.match(name, "^[%w_%-]+$") ~= nil then
+	if containerShaped(name) then
 		CONTAINER_NAMES[name] = true
 	end
 end
 styling.SELECTION_CONTAINERS = table.freeze(table.clone(CONTAINER_NAMES))
 
-function styling.isSelectionContainer(name: any): boolean
-	return type(name) == "string" and CONTAINER_NAMES[name] == true
+function styling.isSelectionContainer(name: any, radii: any?): boolean
+	if not containerShaped(name) then
+		return false
+	end
+	if CONTAINER_NAMES[name] == true then
+		return true
+	end
+	return type(radii) == "table" and type((radii :: any)[name]) == "number"
 end
 
 -- the vocabulary as a message fragment, ordered so an error reads the same way
 -- twice
-local CONTAINER_LIST: { string } = {}
-for name in CONTAINER_NAMES do
-	table.insert(CONTAINER_LIST, name)
+local function listOf(set: { [string]: boolean }): string
+	local names: { string } = {}
+	for name in set do
+		table.insert(names, name)
+	end
+	table.sort(names)
+	return table.concat(names, " | ")
 end
-table.sort(CONTAINER_LIST)
-styling.SELECTION_CONTAINER_LIST = table.concat(CONTAINER_LIST, " | ")
+styling.SELECTION_CONTAINER_LIST = listOf(CONTAINER_NAMES)
+
+-- the same fragment for the vocabulary a caller is ACTUALLY validating against,
+-- so a refusal never lists a set the check did not use
+function styling.selectionContainerList(radii: any?): string
+	if type(radii) ~= "table" then
+		return styling.SELECTION_CONTAINER_LIST
+	end
+	local set = table.clone(CONTAINER_NAMES)
+	for name, value in radii :: any do
+		if type(value) == "number" and containerShaped(name) then
+			set[name] = true
+		end
+	end
+	return listOf(set)
+end
 
 local function selectionRadius(style: any, token: string): number?
 	local radii = if type(style) == "table" then (style :: any).radii else nil
@@ -186,7 +225,18 @@ local function selectionRadius(style: any, token: string): number?
 	return math.max(0, base - (if type(space) == "number" then space else 0))
 end
 
-local function resolveRadius(value: any, style: any): number
+--[[ `deferrable` = "no style was passed, so this is the AUTHORING resolve and
+	the number it produces is a placeholder the painter re-resolves" (see
+	`normalizeCorners`'s header, which states exactly that contract). Under it, a
+	`selection:<container>` token naming a container the BASE style does not
+	publish is not a typo — it is a package's own radius, which only the live
+	style can answer, and `paintResolve` already answers it there. Refusing it
+	here made a package able to ship a radius no caller was allowed to point at
+	(task 7 item 11). The placeholder is the plain `selection` radius, which is
+	the same family and always resolvable; the token survives beside it, so the
+	painted number is the package's. A caller that DOES pass a style is asking
+	this style specifically, and still gets the hard refusal. ]]
+local function resolveRadius(value: any, style: any, deferrable: boolean?): number
 	if type(value) == "number" then
 		assert(value >= 0, "corner radius must be non-negative")
 		return value
@@ -195,6 +245,9 @@ local function resolveRadius(value: any, style: any): number
 		local resolved = style.radii and style.radii[value]
 		if resolved == nil then
 			resolved = selectionRadius(style, value)
+		end
+		if resolved == nil and deferrable == true and string.match(value, "^selection:[%w_%-]+$") ~= nil then
+			resolved = selectionRadius(style, "selection")
 		end
 		assert(type(resolved) == "number", `unknown radius token '{value}' (style.radii)`)
 		return resolved
@@ -229,11 +282,14 @@ end
 
 function styling.normalizeCorners(spec: any, style: any?): any
 	local activeStyle: any = style or default_style
+	-- no style in hand means this is the authoring resolve, whose number is a
+	-- placeholder by this function's own contract — see `resolveRadius`
+	local deferrable = style == nil
 	if type(spec) == "number" or type(spec) == "string" then
 		local token = tokenOf(spec)
 		return table.freeze({
 			form = "uniform",
-			radius = resolveRadius(spec, activeStyle),
+			radius = resolveRadius(spec, activeStyle, deferrable),
 			tokens = if token ~= nil then table.freeze({ radius = token }) else nil,
 		})
 	end
@@ -253,7 +309,7 @@ function styling.normalizeCorners(spec: any, style: any?): any
 		local token = tokenOf(spec.radius)
 		return table.freeze({
 			form = "uniform",
-			radius = resolveRadius(spec.radius, activeStyle),
+			radius = resolveRadius(spec.radius, activeStyle, deferrable),
 			tokens = if token ~= nil then table.freeze({ radius = token }) else nil,
 		})
 	end
@@ -261,7 +317,7 @@ function styling.normalizeCorners(spec: any, style: any?): any
 	local out: any = { form = "perCorner" }
 	local tokens: any = nil
 	for _, key in CORNER_KEYS do
-		out[key] = if spec[key] ~= nil then resolveRadius(spec[key], activeStyle) else 0
+		out[key] = if spec[key] ~= nil then resolveRadius(spec[key], activeStyle, deferrable) else 0
 		local token = tokenOf(spec[key])
 		if token ~= nil then
 			tokens = tokens or {}
