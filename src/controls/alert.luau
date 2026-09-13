@@ -233,16 +233,25 @@ function alert.build(Facet: any, core: any, spec: Spec)
 		"Controls.Alert: padding must be nonnegative finite pixels or a metric name"
 	)
 	assert(spec.surface == nil or type(spec.surface) == "string", "Controls.Alert: surface must be a string")
-	--[[ VALIDATED WHERE IT IS AUTHORED, not on the first `present()`. An invalid
-		`transition` used to reach `transitions.resolve` inside `presentModal`,
-		which raises a message naming "Facet transition" and nothing that points
-		back at this spec — and for a BOUND alert (`isPresented`/`item`) that
-		call runs inside an observer, outside every pcall this control has, so
-		the whole failure read as "the dialog never opened". `resolve` is the one
-		authority on the shape, so this calls IT rather than growing a second,
-		drifting copy of the rule; the re-raise only re-addresses the message.
-		A bare `"instant"` is the case worth naming in the text: the round's own
-		design note invited it, and the schema wants `{ enter = "instant" }`. ]]
+	--[[ VALIDATED AS EARLY AS THE VALUE ALLOWS (review D8 — this used to claim
+		"not on the first `present()`", which stopped being true for half the
+		shapes). An invalid `transition` used to reach `transitions.resolve`
+		inside `presentModal`, which raises a message naming "Facet transition"
+		and nothing that points back at this spec — and for a BOUND alert
+		(`isPresented`/`item`) that call runs inside an observer, outside every
+		pcall this control has, so the whole failure read as "the dialog never
+		opened".
+
+		A STATIC declaration is judged HERE, where it was authored. A READABLE one
+		cannot be — its build-time value is not the value the alert will open on
+		— so it is judged on its first read, in `present()`, and a refusal there
+		takes the same recorded-and-reset exit as the content and dynamic-data
+		failures beside it rather than raising into an observer. Either way
+		`resolve` is the one authority on the shape: this calls IT rather than
+		growing a second, drifting copy of the rule, and only re-addresses the
+		message. A bare `"instant"` is the case worth naming in the text: the
+		round's own design note invited it, and the schema wants
+		`{ enter = "instant" }`. ]]
 	-- ...for a value that IS one here. `false` folds to the default (the
 	-- framework's own "no transition" spelling, which the present site already
 	-- ignored) and a Readable is judged on its first READ instead — a signal's
@@ -776,6 +785,29 @@ function alert.build(Facet: any, core: any, spec: Spec)
 				end
 			end
 		end
+		--[[ THE TRANSITION'S OWN REFUSAL TAKES THE SAME EXIT AS EVERY OTHER
+			PRESENT-TIME FAILURE (review D2). A Readable transition can only be
+			judged when it is read (review N5), and for a BOUND alert
+			(`isPresented`/`item`) that read happens inside the observer that
+			opened it — where a raise is quarantined: `isPresented` stayed true
+			while `dump().presented` said false and `lastError` said nothing, so
+			the dialog "silently never opened" all over again, which is the exact
+			failure task 7 item 5 existed to remove. It now lands where the
+			content and dynamic-data failures above already land: recorded on
+			`lastError`, warned, binding reset, `nil` returned. ]]
+		local specOk, resolvedTransition = pcall(validateTransition)
+		if not specOk then
+			lastError = tostring(resolvedTransition)
+			if type(warn) == "function" then
+				warn("Facet Alert: " .. lastError)
+			end
+			if current ~= nil and current.contentScope ~= nil then
+				current.contentScope:dispose()
+				current.content, current.contentScope = nil, nil
+			end
+			resetBinding()
+			return nil
+		end
 		handle = presenter.presentModal(blueprint, {
 			initialFocus = if initial then { id = initial } else nil,
 			outsideTapCancel = false,
@@ -787,7 +819,7 @@ function alert.build(Facet: any, core: any, spec: Spec)
 			-- backdrop-before-content gate is about is the presenter's scrim
 			-- behind the whole modal (`blueprint_schema`'s TRANSITION_PLATES
 			-- header). A caller who writes `plate` themselves keeps their value.
-			transition = validateTransition(),
+			transition = resolvedTransition,
 		})
 		local opened = handle
 		handle.scope:own(function()

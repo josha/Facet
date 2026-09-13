@@ -692,12 +692,13 @@ t.describe("alert: the modal materializes", function()
 		alert.dispose()
 	end)
 
-	t.it("a READABLE transition is not judged at build — it is judged on first read (N5)", function()
+	t.it("a READABLE transition is not judged at build — it is judged on first read (N5, D2)", function()
 		--[[ a signal's value at build time is not the value it will carry when
-			the alert opens, so refusing on it is a check about the wrong instant.
-			The validation moved INTO the memo that merges the plate
-			acknowledgement, which is the first read either way — so a bad value
-			still names Alert rather than "Facet transition". ]]
+			the alert opens, so refusing on it is a check about the wrong instant;
+			it is judged on the first read instead. THE REFUSAL DOES NOT RAISE
+			(review D2): it takes the same recorded-and-reset exit as the content
+			and dynamic-data failures beside it, because for a BOUND alert this
+			read happens inside an observer, where a raise is quarantined. ]]
 		local w = world.new()
 		local declared = w.core:signal({ enter = "swirl" } :: any)
 		local alert = Facet.Controls.Alert(w.core, {
@@ -706,15 +707,55 @@ t.describe("alert: the modal materializes", function()
 			actions = { { id = "ok", label = "OK" } },
 			transition = declared :: any,
 		})
-		-- built clean...
-		local ok, err = pcall(function()
-			alert.present(w.pres)
+		-- built clean, and the present RETURNS rather than throwing...
+		local ok, opened = pcall(function()
+			return alert.present(w.pres)
 		end)
-		-- ...and refused on the read, by name
-		t.expect(ok).toBe(false)
-		t.expect(string.find(tostring(err), "Controls.Alert: transition:", 1, true) ~= nil).toBe(true)
-		t.expect(string.find(tostring(err), "swirl", 1, true) ~= nil).toBe(true)
+		t.expect(ok).toBe(true)
+		t.expect(opened).toBeNil()
+		-- ...with the reason recorded, by name
+		t.expect(alert.dump().presented).toBe(false)
+		local recorded = tostring(alert.dump().lastError)
+		t.expect(string.find(recorded, "Controls.Alert: transition:", 1, true) ~= nil).toBe(true)
+		t.expect(string.find(recorded, "swirl", 1, true) ~= nil).toBe(true)
+		-- ...and a corrected value opens it, so the control is not wedged
+		declared:set({ enter = "fade" } :: any)
+		t.expect(alert.present(w.pres) ~= nil).toBe(true)
+		t.expect(alert.dump().presented).toBe(true)
 		alert.dispose()
+		declared:dispose()
+	end)
+
+	t.it("a BOUND alert records the refusal and resets its binding (D2)", function()
+		--[[ the shape that made this more than tidiness: `isPresented` drives the
+			present from inside an OBSERVER, outside every pcall this control has,
+			so a raise there is quarantined — `isPresented` stayed true while
+			`dump().presented` said false and `lastError` said nothing. The dialog
+			"silently never opened", which is the exact failure task 7 item 5
+			existed to remove. ]]
+		local w = world.new()
+		local declared = w.core:signal({ enter = "swirl" } :: any)
+		local isPresented = w.core:signal(false)
+		local alert = Facet.Controls.Alert(w.core, {
+			id = "BoundBad",
+			title = "Hi",
+			actions = { { id = "ok", label = "OK" } },
+			presenter = w.pres,
+			isPresented = isPresented,
+			transition = declared :: any,
+		})
+		isPresented:set(true)
+		t.expect(alert.dump().presented).toBe(false)
+		-- the binding is RESET, so the flag and the screen agree again
+		t.expect(isPresented:get()).toBe(false)
+		local recorded = tostring(alert.dump().lastError)
+		t.expect(string.find(recorded, "Controls.Alert: transition:", 1, true) ~= nil).toBe(true)
+		-- ...and the same binding opens once the value is valid
+		declared:set({ enter = "fade" } :: any)
+		isPresented:set(true)
+		t.expect(alert.dump().presented).toBe(true)
+		alert.dispose()
+		isPresented:dispose()
 		declared:dispose()
 	end)
 
