@@ -76,6 +76,27 @@ PRODUCTION = {
         and x.get("motionSteps") == x.get("motionTransactions")
         else f"the dense-motion frame did not do its work: {x!r}"
     ),
+    # the transitions round's CONTROL motions (2026-09-12). Every one of the four
+    # is silent when it stops firing — a shake that never books, a pop gated off,
+    # a stagger that stops holding rows — and each absence makes the scene FASTER,
+    # so the counters are the only thing standing between this budget and a scene
+    # that prices nothing. `pops` is counted by the handler the ADAPTER's activate
+    # seam reached and `staggerHeld` is read back off the painted alphas, so those
+    # two answer for the framework rather than for the scene's own driving code.
+    # `motionSteps == motionTransactions` is the same one-transaction-per-stepped-
+    # frame contract dense-motion keeps, asserted here over motion the CONTROLS
+    # book rather than motion the scene drives.
+    "control-motion": lambda x: (
+        None
+        if x.get("rekeys", 0) > 0
+        and x.get("flips", 0) > 0
+        and x.get("pulses", 0) > 0
+        and x.get("pops", 0) > 0
+        and x.get("staggerHeld", 0) > 0
+        and x.get("motionSteps", 0) > 0
+        and x.get("motionSteps") == x.get("motionTransactions")
+        else f"the control-motion frame did not do its work: {x!r}"
+    ),
 }
 
 THEMES = {
