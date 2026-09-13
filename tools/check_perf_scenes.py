@@ -43,8 +43,16 @@ PRODUCTION = {
     # the four 2026-09-11 landings: each proof says the surface really opened
     # (a scene whose api.open stopped reaching the presenter would still emit a
     # faster record)
+    # `represents == presents` is the part `presents > 0` alone could not
+    # prove (task-2 review, 2026-09-12): `presents` incremented unconditionally
+    # even while a stale `pres.dismiss(handle)` in transient_surfaces.luau kept
+    # every open() past the first returning the SAME handle, silently pricing
+    # nothing for cycles 2+. `represents` only counts a cycle whose open()
+    # handed back a genuinely different handle.
     "alert-present-dismiss": lambda x: (
-        None if x.get("presents", 0) > 0 and x.get("actions") == 3 else f"the alert never presented: {x!r}"
+        None
+        if x.get("presents", 0) > 0 and x.get("actions") == 3 and x.get("represents", 0) == x.get("presents", 0)
+        else f"the alert never presented: {x!r}"
     ),
     "picker-menu-open-close": lambda x: (
         None
