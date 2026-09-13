@@ -223,13 +223,30 @@ function anchored.new(ctx: any)
 		first and moved second — through the anchor offsets, which are `dirty =
 		arrange` and therefore a re-solve, never a remount. The signals no-op on an
 		unchanged value, so a settled surface costs reads and no writes. ]]
-	-- whose box this surface belongs in: its SOURCE's. `nil` owner (a rect-anchored
-	-- surface, or a source whose surface has gone) reserves the band, which is the
-	-- answer every content screen gives and the one this module gave before.
-	local function ownerReservesAppChrome(record: any): boolean
-		local path = record.anchor.source.path
+	--[[ WHOSE ANSWER THIS SURFACE INHERITS: its SOURCE'S (review NEW-1).
+
+		An anchored surface is presented as a MODAL whenever `opts.modal` is set —
+		that is how a picker's panel, a Menu and an expanded region all reach the
+		stack — and "modal" is exactly the wrong thing to read the host-chrome
+		question off: a popover over a content page is part of that page, and so is
+		everything raised inside it (a submenu, a plate off a menu item, the keyboard
+		room a field in an expand plate measures). So the source surface's own answer
+		travels with it, both into the box this module clamps into (`safeBox`) and
+		into the surface it presents (`presenter.present`/`presentModal`'s internal
+		third argument). The two must be the same number or the popover would be
+		placed in one box and solved in another.
+
+		`nil` owner — a rect-anchored surface, or a source whose surface has gone —
+		reserves the band, which is the answer every content screen gives and the one
+		this module gave before any of this. ]]
+	local function reservesAppChromeFor(anchor: any): boolean
+		local path = if type(anchor) == "table" and type(anchor.source) == "table" then anchor.source.path else nil
 		local owner = if path ~= nil then handleByPath(path :: string) else nil
 		return owner == nil or owner.reserveAppChrome ~= false
+	end
+
+	local function ownerReservesAppChrome(record: any): boolean
+		return reservesAppChromeFor(record.anchor)
 	end
 
 	local function place(record: any)
@@ -639,9 +656,10 @@ function anchored.new(ctx: any)
 				controller = controller,
 			}
 		else
+			local inherited = reservesAppChromeFor(anchor)
 			handle = if opts ~= nil and opts.modal == true
-				then presenter.presentModal(screen, passthrough)
-				else presenter.present(screen, passthrough)
+				then presenter.presentModal(screen, passthrough, inherited)
+				else presenter.present(screen, passthrough, inherited)
 		end
 
 		local record = {

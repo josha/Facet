@@ -1505,7 +1505,13 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		hide = dragProxyHide,
 	}
 
-	local function makeHandle(blueprint: any, opts: any, kind: string, screenTakesScreen: boolean?)
+	local function makeHandle(
+		blueprint: any,
+		opts: any,
+		kind: string,
+		screenTakesScreen: boolean?,
+		inheritAppChrome: boolean?
+	)
 		-- an unknown cancelPolicy is refused LOUDLY, the same way an unknown
 		-- rootPolicy is (renderer.attach): a typo that silently kept the default
 		-- would read as "the framework ignored my mandatory modal".
@@ -1529,9 +1535,19 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		if scrimOpt ~= nil and scrimOpt ~= "scrim" and scrimOpt ~= "none" then
 			error(`Facet presenter: unknown scrim '{tostring(scrimOpt)}'. Valid: scrim, none.`, 0)
 		end
-		-- inside the host's own chrome, or taking the screen? Spent four ways from
-		-- here; argued at `appChromeInsets` (src/env/environment.luau)
-		local reservesAppChrome = kind ~= "modal" and not screenTakesScreen
+		--[[ inside the host's own chrome, or taking the screen? Spent four ways from
+			here; argued at `appChromeInsets` (src/env/environment.luau).
+
+			AN ANCHORED SURFACE INHERITS ITS SOURCE'S ANSWER rather than deriving one
+			(review NEW-1). `presentAnchored{ modal = true }` is how a POPOVER is
+			presented — a picker's panel, a Menu, an expanded region — so its `kind`
+			is "modal" while its meaning is "part of the page that raised it". Read
+			from `kind` alone, a popover over a content screen ignored the host's band,
+			and so did everything raised inside it. `src/present/anchored.luau` passes
+			the owner's own answer here; nobody else passes anything. ]]
+		local reservesAppChrome = if inheritAppChrome ~= nil
+			then inheritAppChrome
+			else (kind ~= "modal" and not screenTakesScreen)
 		-- Tab/Shift+Tab wrap policy for this surface's scope (roadmap Step 8),
 		-- declared once here rather than per control. Same enum discipline as the
 		-- three above: only a boolean, and only this surface's own scope.
@@ -3635,9 +3651,12 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		return nil
 	end
 
-	function self.present(blueprint: any, opts: PresentOpts?)
+	-- `inheritAppChrome` is INTERNAL and `anchored.luau`'s alone (see makeHandle):
+	-- it is not a `PresentOpts` key, because it is not a property a caller declares
+	-- about a surface — it is one surface's answer, handed to the surface it raised
+	function self.present(blueprint: any, opts: PresentOpts?, inheritAppChrome: boolean?)
 		specGuard.assertKnownKeys("presenter.present", opts, PRESENT_OPTS_KEYS, "opts")
-		return makeHandle(blueprint, opts, "screen")
+		return makeHandle(blueprint, opts, "screen", nil, inheritAppChrome)
 	end
 
 	--[[ AN ANCHORED SURFACE (D1). `panel` is a PANEL blueprint — any node, not a
@@ -3713,11 +3732,11 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		return calloutQueue.dump()
 	end
 
-	function self.presentModal(blueprint: any, opts: PresentOpts?)
+	function self.presentModal(blueprint: any, opts: PresentOpts?, inheritAppChrome: boolean?)
 		specGuard.assertKnownKeys("presenter.presentModal", opts, PRESENT_OPTS_KEYS, "opts")
 		-- the base screen's context stays enabled for non-sunk actions, but
 		-- navigation keys are sunk by the modal context's priority+sink
-		local handle = makeHandle(blueprint, opts, "modal")
+		local handle = makeHandle(blueprint, opts, "modal", nil, inheritAppChrome)
 		-- A MODAL CANCELS A LIVE DRAG (ui-designer spec §5.4/§6.3; disposition F7).
 		-- A focus trap and a drag proxy cannot coexist: the proxy tracks a pointer
 		-- the trap has just taken away, and the drop it would resolve against is

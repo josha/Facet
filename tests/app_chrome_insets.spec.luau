@@ -188,12 +188,35 @@ describe("appChromeInsets: the host's band is content's, never a modal's", funct
 	it("a band-riding surface takes the app's chrome as RECTS, never as this box", function()
 		--[[ `bandSafeContent` exists so a surface can sit LEVEL with the platform's
 			own controls; a bounding box would push it off the strip it asked for,
-			which is the defect `appChromeRects` was added to remove. It is exempt
-			here and consumes the same declaration through `platformChrome.rects`. ]]
-		local w = world.new({ viewport = VIEWPORT, safeInsets = CORE, env = { appChromeInsets = HOST } })
+			which is the defect `appChromeRects` was added to remove. So a host that
+			declares its row BOTH ways — the rect (where it is) and the box (how much
+			content must clear) — must reach this policy through the rect alone.
+
+			BOTH HALVES ARE ASSERTED (review NEW-4): the surface is not inset by the
+			box, AND the declaration is still there in `platformChrome.rects`, which
+			is the route by which a band-riding composition reserves around it per
+			column (`tests/hud_chrome_rotation.spec.luau` drives that arithmetic). A
+			case that pinned only the first would read as "the app's chrome does not
+			reach this policy", which is the opposite of true. ]]
+		local chips = { x = 8, y = 36, w = 259, h = 80 }
+		local w = world.new({
+			viewport = VIEWPORT,
+			safeInsets = CORE,
+			env = { appChromeInsets = HOST, appChromeRects = { chips } },
+		})
 		local handle = w.pres.present(page("Hud"), { rootPolicy = "bandSafeContent" })
 		w.settle(2)
+		-- the theme's gutter floor on three edges, the platform's row on the top,
+		-- and NOT the 80px box
 		expect(rectStr(w.adapter.node("/Hud").rect)).toBe(`8,36 {390 - 16}x{844 - 36 - 8}`)
+		local declared = (w.env:get("platformChrome"):get() :: any).rects
+		local found = false
+		for _, r in declared do
+			if r.x == chips.x and r.y == chips.y and r.w == chips.w and r.h == chips.h then
+				found = true
+			end
+		end
+		expect(found).toBe(true)
 		w.pres.dismiss(handle)
 	end)
 
@@ -281,6 +304,113 @@ describe("appChromeInsets: a plate takes its OWNER surface's answer", function()
 		-- points at and the box it is clamped into move with it
 		expect(plateY(false, true)).toBe(372)
 		expect(plateY(false, false)).toBe(772)
+	end)
+end)
+
+--[[ AN ANCHORED SURFACE IS A POPOVER WEARING A MODAL'S KIND (review NEW-1).
+
+	`presentAnchored{ modal = true }` is how a picker's panel, a Menu and an
+	expanded region all reach the stack, so reading the host-chrome question off
+	`kind` alone made every one of them — and everything raised INSIDE one: a
+	submenu, a plate off a menu item, a field measuring its keyboard room — ignore
+	a band its own page yields to. A popover belongs to the page that raised it.
+
+	THE NUMBER THAT SHOWS IT is the nested popover's placement. Measured with the
+	inheritance removed, `Pop2` lands at y=232 on a content page under a 200px band
+	whose reservation runs 36..236 — drawn OVER the host's own chrome — because its
+	box still started at 36 and "above the source" therefore fit. Inheriting, above
+	does not fit, it flips below, and the band is respected. The modal arm is the
+	control: the same two popovers over a true modal must NOT move. ]]
+describe("appChromeInsets: an anchored popover inherits its source's answer", function()
+	local BAND = { top = 200, bottom = 0, left = 0, right = 0 }
+
+	local function opener(id: string): any
+		return UI.Screen({
+			id = id,
+			children = {
+				UI.Button({
+					id = "Open",
+					label = "Open",
+					width = { type = "fixed", px = 80 },
+					height = { type = "fixed", px = 44 },
+				}),
+			},
+		})
+	end
+
+	local function panel(id: string, button: string): any
+		return UI.VStack({
+			id = id,
+			surface = "raised",
+			padding = "s",
+			width = { type = "fixed", px = 180 },
+			children = {
+				UI.Button({
+					id = button,
+					label = "more",
+					width = { type = "fixed", px = 100 },
+					height = { type = "fixed", px = 40 },
+				}),
+			},
+		})
+	end
+
+	-- a popover on the opener, and a second popover on a control INSIDE it
+	local function nested(fromModal: boolean, band: boolean): (number, number, number)
+		local w = world.new({
+			viewport = VIEWPORT,
+			safeInsets = CORE,
+			env = if band then { appChromeInsets = BAND } else nil,
+			-- the fixture deliberately pushes a popover against the reservation, which
+			-- is the containment question this case is ABOUT rather than a regression
+			overflowGuardOff = true,
+		})
+		w.present(opener("Page"))
+		local source = "/Page/Open"
+		if fromModal then
+			w.pres.presentModal(opener("Sheet"))
+			source = "/Sheet/Open"
+		end
+		w.settle(2)
+		w.pres.presentAnchored(panel("P1", "More"), {
+			id = "Pop1",
+			modal = true,
+			initialFocus = "none",
+			anchor = { source = { path = source }, edge = "bottom", align = "start" },
+		})
+		w.settle(2)
+		w.pres.presentAnchored(panel("P2", "Deep"), {
+			id = "Pop2",
+			modal = true,
+			initialFocus = "none",
+			anchor = { source = { path = "/Pop1/Layer/Surface/P1/More" }, edge = "top", align = "start" },
+		})
+		w.settle(2)
+		return w.adapter.node(source).rect.y,
+			w.adapter.node("/Pop1/Layer/Surface").rect.y,
+			w.adapter.node("/Pop2/Layer/Surface").rect.y
+	end
+
+	it("a popover raised from a CONTENT page keeps the band, and so does one inside it", function()
+		local source, pop1, pop2 = nested(false, true)
+		-- the page itself yields 36 + 200...
+		expect(source).toBe(236)
+		-- ...and neither popover is placed back inside the band it yielded
+		expect(pop1).toBe(288)
+		expect(pop2).toBe(344)
+		expect(pop2 >= 236).toBe(true)
+	end)
+
+	it("...and the same pair raised from a MODAL does not", function()
+		local source, pop1, pop2 = nested(true, true)
+		expect(`{source}|{pop1}|{pop2}`).toBe("36|88|144")
+	end)
+
+	it("CONTROL: with no band declared, both arms are the same three numbers", function()
+		local a, b, c = nested(false, false)
+		expect(`{a}|{b}|{c}`).toBe("36|88|144")
+		local d, e, f = nested(true, false)
+		expect(`{d}|{e}|{f}`).toBe("36|88|144")
 	end)
 end)
 

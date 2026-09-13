@@ -707,7 +707,11 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 			-- the top of the space this popover's own surface lives in: the platform's
 			-- reservation, plus the host app's band when the OWNER surface reserves
 			-- it — a popover inside a modal is in the modal's screen, and the modal
-			-- does not yield to that band (`appChromeInsets`, 2026-09-13)
+			-- does not yield to that band (`appChromeInsets`, 2026-09-13). Reading the
+			-- fact conditionally is safe because the flag is not reactive and cannot
+			-- be: it is one surface's answer, decided once in `makeHandle` (inherited
+			-- there from the source, for an anchored surface) before any contribution
+			-- is bound, and constant while this control is mounted
 			local insets = if env ~= nil then env:get("coreSafeInsets"):get() else nil
 			local hostChrome = if env ~= nil and ownerReservesAppChrome then env:get("appChromeInsets"):get() else nil
 			local top = if type(insets) == "table" and type(insets.top) == "number" then insets.top else 0

@@ -903,9 +903,18 @@ function text_input.build(Facet: any, core: any, spec: Spec)
 			if use(editing) and type(occlusion) == "table" then
 				local viewport = use(env:get("viewportRect"))
 				local insets = use(env:get("coreSafeInsets"))
-				-- ...and the host's own reserved band when the OWNER surface reserves it:
-				-- above this field for the same reason the platform's row is, and absent
-				-- inside a modal, which takes the screen (`appChromeInsets`, 2026-09-13)
+				--[[ ...and the host's own reserved band when the OWNER surface reserves it:
+					above this field for the same reason the platform's row is, and absent
+					inside a modal, which takes the screen (`appChromeInsets`, 2026-09-13).
+
+					THE CONDITIONAL `use()` IS SAFE, and that is a claim about the flag
+					rather than about this memo. `ownerReservesAppChrome` is not reactive
+					and cannot become so: it is one surface's answer, decided once in
+					`makeHandle` before a single contribution is bound (and, for an
+					anchored surface, INHERITED there from its source), so it is constant
+					for as long as this field is mounted. A dependency that appears or
+					disappears with a value that can change would be the trap — this one
+					changes only by re-presenting the surface, which rebuilds the memo. ]]
 				local hostChrome = if ownerReservesAppChrome then use(env:get("appChromeInsets")) else nil
 				local hostTop = if type(hostChrome) == "table" then math.max(0, tonumber(hostChrome.top) or 0) else 0
 				local room = occlusion.y - viewport.y - (insets.top or 0) - hostTop - KEEP_VISIBLE_MARGIN

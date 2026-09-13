@@ -25,8 +25,11 @@ runtime as `Facet.VERSION`.
   content must clear). The content root policies add the two; `presentModal` and
   `presentCritical` reserve the device's edges alone (`renderer.attach`'s new
   `reserveAppChrome`, default true), and `bandSafeContent` still consumes the app's
-  chrome per column through `platformChrome.rects`. Anchored popovers and disclosure
-  plates belong to their content surface and keep both. **Nothing moves for a
+  chrome per column through `platformChrome.rects`. Anything a surface RAISES —
+  an anchored popover (a picker panel, a Menu, an expanded region), a disclosure
+  or help plate, the room a field measures for the soft keyboard — belongs to the
+  surface that raised it and takes ITS answer, so a popover over a content page
+  keeps the band and one inside a modal does not. **Nothing moves for a
   consumer that never sets the new fact** — Rascal Rally's `coreSafeInsets` was
   always device-only, and its role-pick modal's centre is pinned unchanged.
 
