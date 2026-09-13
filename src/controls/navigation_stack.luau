@@ -254,15 +254,21 @@ function navigation.build(Facet: any, core: any, spec: Spec)
 				local travel = if backward
 					then (if forward == "slide-left" then "slide-right" else "slide-left")
 					else forward
-				pageTransition:set({
-					enter = if stackWidth == nil then "instant" else travel,
-					exit = travel,
-					-- see the `pageClass` note above `initial` for why exitClass is
-					-- pinned to the SAME resolved class rather than left to default
-					class = pageClass,
-					exitClass = authored.exitClass or pageClass,
-					distance = authored.distance or stackWidth,
-				})
+				--[[ A CLONE, then the five keys this policy OWNS — never a spec
+					rebuilt from those five names alone. Rebuilt, it dropped every
+					other key the author wrote (`stagger`, `plate`) on the first
+					push, while `initial` above — a `table.clone` — kept them: the
+					stack told the framework two different things about one
+					authored spec depending on how deep it was. ]]
+				local page = table.clone(authored)
+				page.enter = if stackWidth == nil then "instant" else travel
+				page.exit = travel
+				-- see the `pageClass` note above `initial` for why exitClass is
+				-- pinned to the SAME resolved class rather than left to default
+				page.class = pageClass
+				page.exitClass = authored.exitClass or pageClass
+				page.distance = authored.distance or stackWidth
+				pageTransition:set(page)
 			end
 			items:set({ current })
 		end
