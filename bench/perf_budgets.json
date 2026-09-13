@@ -232,12 +232,12 @@
       "frameBudgetMs": 33.333333333333336,
       "frameTargetHz": 30,
       "hint": "scene 'picker-menu-open-close' (UI-PERF-001) exceeded its headless trend budget — profile the reactive/layout path it exercises; re-baseline with 'lune run tools/lune/perf_baseline_scene picker-menu-open-close' ONLY if the cost is intended",
-      "observed_p95_max_ms": 4.325999994762242,
-      "observed_p95_min_ms": 3.6120000295341015,
-      "observed_p95_ms": 4.325999994762242,
+      "observed_p95_max_ms": 2.439708332531154,
+      "observed_p95_min_ms": 2.1154166315682232,
+      "observed_p95_ms": 2.439708332531154,
       "requirement": "UI-PERF-001",
       "scopedBaseline": true,
-      "total_p95_ms": 17.303999979048967
+      "total_p95_ms": 9.758833330124617
     },
     "picker-segmented-textsize": {
       "baselineRepeats": 5,
@@ -258,12 +258,12 @@
       "frameBudgetMs": 33.333333333333336,
       "frameTargetHz": 30,
       "hint": "scene 'radial-menu-open-close' (UI-PERF-001) exceeded its headless trend budget — profile the reactive/layout path it exercises; re-baseline with 'lune run tools/lune/perf_baseline_scene radial-menu-open-close' ONLY if the cost is intended",
-      "observed_p95_max_ms": 5.029499996453524,
-      "observed_p95_min_ms": 4.631208255887032,
-      "observed_p95_ms": 5.029499996453524,
+      "observed_p95_max_ms": 4.360041697509587,
+      "observed_p95_min_ms": 3.9544166647829115,
+      "observed_p95_ms": 4.360041697509587,
       "requirement": "UI-PERF-001",
       "scopedBaseline": true,
-      "total_p95_ms": 20.117999985814095
+      "total_p95_ms": 17.440166790038347
     },
     "screen-lifecycle-churn": {
       "baselineRepeats": 5,
