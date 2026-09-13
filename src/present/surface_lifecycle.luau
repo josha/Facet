@@ -160,6 +160,13 @@ function surfaceLifecycle.new(ctx: any)
 		path maps hold one owner per path and the second surface silently takes
 		them over.
 
+		WHAT IT SEES IS THE STACK, and only the stack: a surface that is PRESENTED
+		under this id right now. It is not a general "is this path taken" check —
+		a `present()` that RAISED half way leaves an orphaned root behind that no
+		handle points at, and nothing here can see that one. That orphan is the
+		ledgered follow-up of its own; this note is about two surfaces both
+		properly on the stack.
+
 		A DIAGNOSTIC, NOT A REFUSAL (controller ruling): refusing would break
 		whatever ships today doing this by accident, and the framework does not
 		know yet how much of that there is. Once per id per session — a session

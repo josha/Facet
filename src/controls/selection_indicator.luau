@@ -614,11 +614,38 @@ function selection_indicator.build(Facet: any, core: any, spec: Spec)
 	--[[ the derived token, or the plain `selection` fallback when this style
 		cannot answer it. `UI.cornersData` keeps the TOKEN beside the number, so
 		the painter re-resolves whichever one survives against the style it paints
-		with — a swap BACK re-derives the container answer on the next read. ]]
+		with — a swap BACK re-derives the container answer on the next read.
+
+		AND IT SAYS SO. A `pcall` that heals and tells nobody is the silent
+		quarantine this codebase's own `fail()` header refuses ("a silent
+		quarantine heals the STATE and tells nobody"). The fallback exists for a
+		LEGITIMATE case — a theme swapped away from the package that published the
+		container — but it catches an illegitimate one just as quietly: a REACTIVE
+		`stripCorner` whose value becomes a typo. `newPicker`'s authoring check
+		refuses a typo it can see at build, and by construction cannot see a value
+		set later. So the healed case is noted, ONCE PER TOKEN so a strip that
+		re-renders every frame says it once, naming both the token and what was
+		painted instead. ]]
+	local notedCornerTokens: { [string]: boolean } = {}
+	local cornerFallbacks = 0
 	local function derivedCorners(token: any, style: any): any
 		local ok, data = pcall(UI.cornersData, token, style)
 		if ok then
 			return data
+		end
+		local key = tostring(token)
+		if not notedCornerTokens[key] then
+			notedCornerTokens[key] = true
+			cornerFallbacks += 1
+			if type(warn) == "function" then
+				warn(
+					`Facet selection indicator: no live style answers the corner token '{key}', so the fill `
+						.. `paints plain '{selection_indicator.DEFAULT_CORNER}' instead. A theme swapped away from `
+						.. `the package that publishes that container is expected; a container name that never `
+						.. `resolves is an authoring mistake (\`stripCorner\` refuses one it can see at build, `
+						.. `and cannot see a value set later).`
+				)
+			end
 		end
 		return UI.cornersData(selection_indicator.DEFAULT_CORNER, style)
 	end
@@ -966,6 +993,12 @@ function selection_indicator.build(Facet: any, core: any, spec: Spec)
 			slides = slides,
 			geometryUpdates = geometryUpdates,
 			animated = motionClock ~= nil,
+			-- how many DISTINCT corner tokens no live style could answer, so the
+			-- fill fell back to plain `selection` (`derivedCorners`). Zero is the
+			-- ordinary reading; one after a theme swap away from the package that
+			-- publishes the container is expected; one that never clears on a
+			-- REACTIVE `stripCorner` is a typo `newPicker` could not see at build.
+			cornerFallbacks = cornerFallbacks,
 			rect = if rect == nil then nil else { x = rect.x, y = rect.y, w = rect.w, h = rect.h },
 			semanticText = `{skin} indicator on {label or "nothing"} ({resolvedCount}/{#segmentsNow()} segments resolved)`,
 		}

@@ -509,6 +509,61 @@ describe("selection shape: naming a container that cannot answer is an authoring
 		container:dispose()
 	end)
 
+	it("a REACTIVE stripCorner typo is healed, but SAID — once per token", function()
+		--[[ the defensive resolve exists for a legitimate case (a theme swapped
+			away from the package that publishes the container) and catches an
+			illegitimate one just as quietly: a REACTIVE `stripCorner` whose value
+			becomes a typo. `newPicker` refuses a typo it can SEE at build and by
+			construction cannot see a value set later, so before this the typo
+			path was more silent than the pre-fix behaviour, which at least left a
+			recorded quarantine. It is noted now — once per token, so a strip that
+			re-renders every frame says it once — and `dump().indicator
+			.cornerFallbacks` is how that "once" is asserted rather than watched
+			for in a log. ]]
+		local w = worldLib.new({ viewport = { x = 0, y = 0, w = 640, h = 720 } })
+		local container = w.core:signal("panel")
+		local picker = Facet.Controls.Picker(w.core, {
+			id = "View",
+			selected = w.core:signal("a"),
+			options = { { value = "a", label = "One" }, { value = "b", label = "Two" } },
+			env = w.env,
+			presentation = "segmented",
+			track = false,
+			stripCorner = container,
+		})
+		w.present(UI.Screen({ id = "S", children = { picker.blueprint } }))
+		expect((w.adapter.node(BAR) :: any).props.corners.tokens.radius).toBe("selection:panel")
+		expect(picker.dump().indicator.cornerFallbacks).toBe(0)
+
+		container:set("panle")
+		w.pres.refresh()
+		-- healed: the bar still has a corner, the plain one every style answers
+		expect((w.adapter.node(BAR) :: any).props.corners.tokens.radius).toBe("selection")
+		-- ...and nothing was quarantined, which is what the fallback bought
+		expect(`quarantined: {tostring(w.core:lastError())}`).toBe("quarantined: nil")
+		-- ...and it was SAID, exactly once
+		expect(picker.dump().indicator.cornerFallbacks).toBe(1)
+
+		-- the same bad token again says nothing more, however many re-renders
+		container:set("panel")
+		w.pres.refresh()
+		container:set("panle")
+		w.pres.refresh()
+		expect(picker.dump().indicator.cornerFallbacks).toBe(1)
+
+		-- a DIFFERENT bad token is its own note
+		container:set("panl")
+		w.pres.refresh()
+		expect(picker.dump().indicator.cornerFallbacks).toBe(2)
+
+		-- and a good one still resolves, so the fallback is not a latch
+		container:set("pill")
+		w.pres.refresh()
+		expect((w.adapter.node(BAR) :: any).props.corners.tokens.radius).toBe("selection:pill")
+		picker.dispose()
+		container:dispose()
+	end)
+
 	it("with NO theme in hand at all the message says the vocabulary is the base style's", function()
 		--[[ the picker built without an `env` (and outside any surface, so
 			`surfaceEnv.find` answers nothing) has no live radii to check against.
