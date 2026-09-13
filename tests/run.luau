@@ -894,6 +894,10 @@ require("./theme_layer_application.spec")
 -- the float focus ring's geometry (device fix round, director 2026-08-23): the
 -- ten-foot lift ordering and the native-mode phantom-corner fallback
 require("./focus_ring_float_geometry.spec")
+-- ...and what had to follow the ten-foot lift once it TRAVELS (transitions
+-- round fix wave): park's scale reset, the float ring's own tween, the toggle
+-- knob's held tween
+require("./focus_lift_travel.spec")
 -- the activate-handler connection leak on a recycled instance (device fix
 -- round, director 2026-08-23): nested-tabs hit targets shifting after a round
 -- trip through a sibling app tab

@@ -3278,7 +3278,9 @@ function screen_target.new(opts: Opts?)
 			-- or it overflows the viewport. UIScale grows about the anchor
 			-- (top-left in this stack), so the check is right/bottom edges.
 			-- Measured pre-lift: FocusScale is 1 whenever this branch runs on a
-			-- fresh focus (blur resets it below).
+			-- fresh focus — the blur below aims it back to 1, and `adapter.park`
+			-- WRITES it back to 1 for the recycling path, where the blur's tween
+			-- is cancelled mid-travel rather than allowed to land.
 			-- `lift`/`liftScale`: computed above now, beside the ring geometry.
 			if strong and lift then
 				if handle.focusScale == nil then
@@ -3566,10 +3568,20 @@ function screen_target.new(opts: Opts?)
 		-- a park keeps the instance (and any FocusScale child on it) alive for a
 		-- LATER, unrelated adoption: a tween still in flight from the blur that
 		-- just made this node eligible would otherwise land on whatever control
-		-- gets this identity next
+		-- gets this identity next.
+		-- ...AND THE SCALE GOES BACK TO 1 WITH IT. `Cancel` stops a tween where it
+		-- STANDS, it does not undo it, and the blur that made this node eligible
+		-- is what started the 1.05 → 1 travel — so a row recycled inside those
+		-- 0.2 s carried a UIScale of 1.01-1.05 into its next identity and painted
+		-- oversized FOREVER, because `adopt` never touches `focusScale` and the
+		-- next focus only ever re-aims a tween from wherever it finds the scale.
+		-- One write, on the one path that ends a lift without finishing it.
 		if handle.focusScaleTween ~= nil then
 			handle.focusScaleTween:Cancel()
 			handle.focusScaleTween = nil
+		end
+		if handle.focusScale ~= nil then
+			handle.focusScale.Scale = 1
 		end
 		local path = handle.path
 		-- release this node's membership of the host ABOVE it: a parked node left in
