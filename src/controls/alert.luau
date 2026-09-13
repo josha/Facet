@@ -35,6 +35,9 @@ export type Spec = {
 	maxWidth: (number | string)?,
 	padding: (number | string)?,
 	surface: string?,
+	-- the modal's own enter/exit (transitions round 2026-09-12); default is the
+	-- materialize fade-and-grow, and `{ enter = "instant" }` opts out
+	transition: any?,
 }
 local KEYS = guard.keySet({
 	"id",
@@ -54,6 +57,7 @@ local KEYS = guard.keySet({
 	"maxWidth",
 	"padding",
 	"surface",
+	"transition",
 })
 local ACTION_KEYS = guard.keySet({ "id", "label", "compactLabel", "role", "enabled", "shortcut", "onActivate" })
 local DEFAULT_ACTIONS = table.freeze({ table.freeze({ id = "OK", label = "OK", role = "default" }) })
@@ -524,7 +528,18 @@ function alert.build(Facet: any, core: any, spec: Spec)
 		UI.Screen({
 			id = spec.id or "Alert",
 			padding = "m",
-			children = { UI.ZStack({ id = "Center", width = UI.fill(), height = UI.fill(), children = { content } }) },
+			children = {
+				-- the FADE GROUP the materialize transition needs (picker_menu's own
+				-- popover shape): the whole modal fades/scales in as one plate
+				-- rather than piece by piece
+				UI.ZStack({
+					id = "Center",
+					canvasGroup = true,
+					width = UI.fill(),
+					height = UI.fill(),
+					children = { content },
+				}),
+			},
 		}),
 		{
 			handleActivate = function(path)
@@ -610,10 +625,13 @@ function alert.build(Facet: any, core: any, spec: Spec)
 				end
 			end
 		end
-		handle = presenter.presentModal(
-			blueprint,
-			{ initialFocus = if initial then { id = initial } else nil, outsideTapCancel = false }
-		)
+		handle = presenter.presentModal(blueprint, {
+			initialFocus = if initial then { id = initial } else nil,
+			outsideTapCancel = false,
+			-- the modal open (transitions round 2026-09-12): scale 0.96 → 1 with a
+			-- fade, and the default `dismiss` exit dips out faster than it came
+			transition = spec.transition or { enter = "materialize" },
+		})
 		local opened = handle
 		handle.scope:own(function()
 			if handle == opened then

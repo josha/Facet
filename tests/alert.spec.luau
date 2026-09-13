@@ -519,6 +519,13 @@ t.describe("Alert content lifetime", function()
 		bad = false
 		t.expect(a.present(w.pres) ~= nil).toBe(true)
 		a.dismiss()
+		-- the modal now dips out on a real (if brief) exit transition, so its
+		-- surface scope survives past the `dismiss()` call until the coordinator's
+		-- retire completes; past the 500ms hard exit cap, not just past this
+		-- transition's own duration, is what proves teardown rather than timing
+		for _ = 1, 40 do
+			w.pres.tick(1 / 60)
+		end
 		t.expect(w.core:counters()).toEqual(before)
 		a.dispose()
 	end)
@@ -545,5 +552,56 @@ t.describe("Brief critical phone alert", function()
 			t.expect(r.y >= card.y and r.y + r.h <= card.y + card.h).toBe(true)
 		end
 		clean(w, a)
+	end)
+end)
+
+t.describe("alert: the modal materializes", function()
+	--[[ NOT `fixture`: it presents AND settles 4 frames before handing control
+		back (needed by every other `it` in this file, which reads settled
+		state), so by the time these two tests could observe it the materialize
+		spring is already 4 frames in — measured 0.616 transparency, not the
+		freshly-seeded 1 these assertions need. `world.new()` + a direct
+		`alert.present(w.pres)`, exactly what "Alert content lifetime" above
+		already does, gives the untouched first-frame state instead. ]]
+	local FRAME = 1 / 60
+	t.it("enters through a fade group and leaves faster than it came", function()
+		local w = world.new()
+		local alert = Facet.Controls.Alert(w.core, {
+			id = "Confirm",
+			title = "Delete?",
+			actions = { { id = "ok", label = "OK" } },
+		})
+		local handle = alert.present(w.pres)
+		local center = w.adapter.node("/Confirm/Center")
+		t.expect(center.canvasGroupInstance ~= nil).toBe(true)
+		t.expect(center.canvasGroupInstance.groupTransparency).toBe(1)
+		local enterFrames = 0
+		while center.canvasGroupInstance.groupTransparency > 0 and enterFrames < 600 do
+			w.pres.tick(FRAME)
+			enterFrames += 1
+		end
+		t.expect(enterFrames > 0).toBe(true)
+		w.pres.dismiss(handle)
+		local exitFrames = 0
+		while w.adapter.node("/Confirm/Center") ~= nil and exitFrames < 600 do
+			w.pres.tick(FRAME)
+			exitFrames += 1
+		end
+		t.expect(exitFrames < enterFrames).toBe(true)
+		alert.dispose()
+	end)
+
+	t.it("transition = 'instant' opts out", function()
+		local w = world.new()
+		local alert = Facet.Controls.Alert(w.core, {
+			id = "Quick",
+			title = "Hi",
+			actions = { { id = "ok", label = "OK" } },
+			transition = { enter = "instant" },
+		})
+		local handle = alert.present(w.pres)
+		t.expect(w.adapter.node("/Quick/Center").canvasGroupInstance.groupTransparency).toBe(0)
+		w.pres.dismiss(handle)
+		alert.dispose()
 	end)
 end)
