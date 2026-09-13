@@ -410,8 +410,25 @@ function surfaceLifecycle.new(ctx: any)
 		-- mounted tree and the instances live on until the exit completes, or until
 		-- the coordinator's flat 500 ms cap fires. `dismiss` is idempotent through
 		-- the stack check, so a second call during the exit does nothing.
-		if handle.transition ~= nil and handle.coordinator ~= nil and handle.transitionNode ~= nil then
-			local spec = transitionsLib.resolve(handle.transition)
+		--[[ THE SPEC IS THE SNAPSHOT THE PRESENT TOOK, NOT A RE-READ (review D1).
+			This used to call `transitionsLib.resolve(handle.transition)` right
+			here — after the surface had left the stack, its context was destroyed
+			and its focus scope popped, and BEFORE the teardown below is
+			registered, inside no pcall. A Readable holding an invalid value at
+			that moment raised straight out of `presenter.dismiss` with the
+			surface half-dismantled: its instances stayed mounted forever, no
+			pending teardown was registered so nothing could flush it, and the id
+			could never be presented again.
+
+			`transitions.resolve`'s own header already stated the rule — "Read
+			once at the structural event boundary… an active entry retains this
+			validated value snapshot" — and a SURFACE's spec now obeys it too:
+			`makeHandle` resolves at present and keeps it on `transitionSpec`. A
+			Readable that changes mid-surface therefore applies to the NEXT
+			present, which is the only instant at which honouring it would not
+			make the exit disagree with the enter it mirrors. ]]
+		local spec = handle.transitionSpec
+		if handle.transition ~= nil and spec ~= nil and handle.coordinator ~= nil and handle.transitionNode ~= nil then
 			if spec.exit ~= "instant" then
 				-- registered BEFORE the aim: reduced motion completes the exit
 				-- (and so runs `teardown`, which de-registers) inside this call

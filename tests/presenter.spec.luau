@@ -332,3 +332,137 @@ describe("presenter: raise re-bands a live surface without dismiss+re-present", 
 		expect(pres.focus.focused:get()).toBe("/Settings/Sfx")
 	end)
 end)
+
+--[[ THE TRANSITION SPEC IS A SNAPSHOT OF THE PRESENT, NOT A RE-READ AT DISMISS
+	(review D1). `dismiss` re-resolved `handle.transition` to decide whether the
+	exit was `instant` — AFTER the surface had left the stack, its context was
+	destroyed and its focus scope popped, and BEFORE the teardown was registered,
+	inside no pcall. A Readable holding an invalid value at that moment therefore
+	raised out of `presenter.dismiss` with the surface half-dismantled: its
+	instances stayed mounted forever, the pending teardown was never registered
+	so nothing could flush it, and the id could never be presented again.
+
+	`transitions.resolve`'s own header already said what the fix is — "Read once
+	at the structural event boundary. The mounted node retains the source; an
+	active entry retains this validated value snapshot." A surface's own spec now
+	obeys the same rule: resolved once at PRESENT, kept on the handle, read from
+	there at dismiss. A Readable that changes mid-surface therefore applies to the
+	NEXT present, which is the only instant at which changing it can be honoured
+	without the exit disagreeing with the enter it is mirroring. ]]
+describe("presenter: a surface's transition is resolved at present, never again (D1)", function()
+	local function boundWorld(value: any)
+		local w = worldLib.new({ viewport = { x = 0, y = 0, w = 390, h = 844 } })
+		local declared = w.core:signal(value)
+		local screen = UI.Screen({
+			id = "Bound",
+			children = {
+				UI.ZStack({
+					id = "Content",
+					canvasGroup = true,
+					children = { UI.Button({ id = "Ok", label = "Ok" }) },
+				}),
+			},
+		})
+		return w, declared, screen
+	end
+
+	it("a Readable that goes invalid mid-surface still dismisses cleanly", function()
+		local w, declared, screen = boundWorld({ enter = "fade" })
+		local rootsBefore = w.adapter.rootCount()
+		local handle = w.pres.present(screen, { transition = declared })
+		for _ = 1, 90 do
+			w.pres.tick(1 / 60)
+		end
+		expect(w.adapter.rootCount()).toBe(rootsBefore + 1)
+
+		-- the value goes bad while the surface is up
+		declared:set({ enter = "swirl" })
+		local ok, err = pcall(function()
+			w.pres.dismiss(handle)
+		end)
+		expect(`dismissed {ok} {if ok then "" else tostring(err)}`).toBe("dismissed true ")
+		expect(w.pres.depth()).toBe(0)
+
+		-- ...and the exit really runs and really finishes, so nothing is stranded
+		for _ = 1, 60 do
+			w.pres.tick(1 / 60)
+			w.pres.refresh()
+		end
+		expect(w.adapter.rootCount()).toBe(rootsBefore)
+		declared:dispose()
+	end)
+
+	it("...and the id can be presented again afterwards", function()
+		local w, declared, screen = boundWorld({ enter = "fade" })
+		local rootsBefore = w.adapter.rootCount()
+		local handle = w.pres.present(screen, { transition = declared })
+		for _ = 1, 90 do
+			w.pres.tick(1 / 60)
+		end
+		declared:set({ enter = "swirl" })
+		pcall(function()
+			w.pres.dismiss(handle)
+		end)
+		for _ = 1, 60 do
+			w.pres.tick(1 / 60)
+			w.pres.refresh()
+		end
+		expect(w.adapter.rootCount()).toBe(rootsBefore)
+		-- a NEW present reads the Readable again, so the bad value is refused HERE
+		-- — at the boundary that can still say so — rather than half way through a
+		-- dismissal that has already destroyed the context
+		local refused = pcall(function()
+			w.pres.present(screen, { transition = declared })
+		end)
+		expect(refused).toBe(false)
+		--[[ a `present()` that RAISES leaves the root it had already built — a
+			pre-existing shape of every mid-present failure (a bad blueprint does
+			the same) and not this item's, so the count below is taken from here
+			rather than pretending the refusal was free. Ledgered in the report. ]]
+		local afterRefusal = w.adapter.rootCount()
+		declared:set({ enter = "fade" })
+		local again = w.pres.present(screen, { transition = declared })
+		expect(again ~= nil).toBe(true)
+		expect(w.adapter.rootCount()).toBe(afterRefusal + 1)
+		-- ...and it is a LIVE surface, not a husk: it dismisses the ordinary way
+		w.pres.dismiss(again)
+		for _ = 1, 60 do
+			w.pres.tick(1 / 60)
+			w.pres.refresh()
+		end
+		expect(w.adapter.rootCount()).toBe(afterRefusal)
+		declared:dispose()
+	end)
+
+	it("a Readable that changes mid-surface applies to the NEXT present, not this exit", function()
+		--[[ the documented consequence of snapshotting: an exit mirrors the enter
+			it was presented with. Swapping the declaration to `exit = "instant"`
+			while the surface is up does NOT make this dismissal instant. ]]
+		local w, declared, screen = boundWorld({ enter = "fade" })
+		local rootsBefore = w.adapter.rootCount()
+		local handle = w.pres.present(screen, { transition = declared })
+		for _ = 1, 90 do
+			w.pres.tick(1 / 60)
+		end
+		declared:set({ enter = "fade", exit = "instant" })
+		w.pres.dismiss(handle)
+		w.pres.refresh()
+		-- still on screen, still fading on the spec it was PRESENTED with
+		expect(w.adapter.rootCount()).toBe(rootsBefore + 1)
+		for _ = 1, 60 do
+			w.pres.tick(1 / 60)
+			w.pres.refresh()
+		end
+		expect(w.adapter.rootCount()).toBe(rootsBefore)
+
+		-- ...and the NEXT present takes the new value: an instant exit now
+		local second = w.pres.present(screen, { transition = declared })
+		for _ = 1, 90 do
+			w.pres.tick(1 / 60)
+		end
+		w.pres.dismiss(second)
+		w.pres.refresh()
+		expect(w.adapter.rootCount()).toBe(rootsBefore)
+		declared:dispose()
+	end)
+end)

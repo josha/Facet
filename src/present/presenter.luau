@@ -2762,6 +2762,9 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 			return only or rootNode
 		end)()
 		if handle.transition ~= nil then
+			-- RESOLVED ONCE, HERE (review D1): `dismiss` must never re-read a
+			-- Readable declaration — see surface_lifecycle's use of this field
+			handle.transitionSpec = transitionsLib.resolve(handle.transition)
 			coordinator.beginEnter(handle.transitionNode.path, handle.transitionNode, handle.transition)
 		end
 
