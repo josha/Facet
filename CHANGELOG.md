@@ -13,6 +13,14 @@ runtime as `Facet.VERSION`.
 
 ## [Unreleased]
 
+- Fixed: a `UI.Divider` painted the theme's hairline COLOUR at full opacity while
+  every stroke in the sheet painted the same token at `hairlineOpacity` — so a
+  segmented picker's seam, a menu's row rule and any list separator were a solid
+  bar of a colour meant to be washed (Facet Neutral's hairline is pure white).
+  Both paint paths spend the theme's own `hairlineOpacity` now, so every package
+  inherits a subtle seam and one authored number still moves strokes and dividers
+  together. The background-transparency preference does not patch it — a divider
+  is a border. New gate: `tests/divider_hairline.spec.luau`.
 - Fixed: the swipe-actions gallery example's List surface had lost the plate
   behind its rows in every theme. `6a65baef` made a declared surface outrank the
   class map, and these rows had been drawing their plate out of exactly that

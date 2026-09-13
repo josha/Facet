@@ -617,6 +617,9 @@ require("./error_boundary.spec")
 require("./sorted_entries.spec")
 require("./styling.spec")
 require("./sheet_model.spec")
+-- ...and the one token two subsystems disagreed about: a divider spends the
+-- theme's hairline OPACITY, not just its colour (owner report 2026-09-12)
+require("./divider_hairline.spec")
 require("./native_style_scenario.spec")
 -- the DEFAULT paint path (director ruling 2026-08-21): sheet
 -- paint is what a target with no `nativeStyle` opt takes, the explicit `false`

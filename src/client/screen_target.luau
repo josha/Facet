@@ -1248,8 +1248,13 @@ function screen_target.new(opts: Opts?)
 			if nativeMode then
 				syncTags(handle)
 			else
+				-- ...at the theme's own hairline opacity, the same number every
+				-- stroke spends: a divider drawn at full opacity is a bright bar
+				-- in any theme whose hairline colour is meant to be washed
+				-- (Facet Neutral's is pure white). Owner report 2026-09-12; the
+				-- sheet's `Divider` rule is the native half of this decision.
 				assertBespokePaint("BackgroundTransparency")
-				instance.BackgroundTransparency = 0
+				instance.BackgroundTransparency = style.extra.hairlineOpacity
 				assertBespokePaint("BackgroundColor3")
 				instance.BackgroundColor3 = COLOR.hairline
 			end

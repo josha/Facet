@@ -1327,6 +1327,13 @@ separator in the place from one rule. On the fallback path the adapter writes th
 hairline colour directly. It is never an unpainted `Frame` — an invisible divider is
 exactly the accepted-and-ignored failure the strict-authoring work removed.
 
+Both paths paint it **at the theme's `hairlineOpacity`**, the same wash every
+`UIStroke` hairline in the sheet spends — so a divider reads as a rule over the
+surface it sits on rather than as a bar of the raw hairline colour, and a package
+that wants a bolder separator authors one number for its strokes and its dividers
+together. The player's background-transparency preference does not move it: a
+divider is a border, and borders are outside that preference's scope.
+
 ### `Grid`
 
 `UI.Grid{ id?, flow?, columns? | minColumnWidth?, itemSizing?, gap?, rowGap?, padding?, surface?, children? }`
