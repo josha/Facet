@@ -613,6 +613,84 @@ t.describe("alert: the modal materializes", function()
 		alert.dispose()
 	end)
 
+	--[[ THE TRANSITION IS VALIDATED WHERE IT IS AUTHORED (task 7 item 5). `spec
+		.transition` was `any?` with no assert, so an invalid one first met
+		`transitions.resolve` inside `presentModal` — and by then the message
+		named "Facet transition", never Alert, so nothing pointed at the line
+		that was actually wrong. Worse for a BOUND alert (`isPresented`/`item`):
+		that `present()` runs inside an observer, outside every pcall the
+		control has, so the error surfaced as "the dialog silently never
+		opened".
+
+		A bare `"instant"` is the case that makes this more than hygiene — the
+		design spec's own §1A sentence invited it ("a caller can override or
+		pass `\"instant\"`"), and the schema wants `{ enter = "instant" }`. That
+		sentence is fixed too. ]]
+	t.it("an invalid transition is refused AT BUILD, by name", function()
+		local w = world.new()
+		for _, bad in { "instant", 7, { enter = "swirl" }, { enter = "fade", class = 3 } } do
+			local ok, err = pcall(function()
+				Facet.Controls.Alert(w.core, {
+					id = "Bad",
+					title = "Hi",
+					actions = { { id = "ok", label = "OK" } },
+					transition = bad,
+				})
+			end)
+			t.expect(ok).toBe(false)
+			t.expect(string.find(tostring(err), "Controls.Alert", 1, true) ~= nil).toBe(true)
+			t.expect(string.find(tostring(err), "transition", 1, true) ~= nil).toBe(true)
+		end
+	end)
+
+	t.it("a BOUND alert refuses it at build too, not silently inside its observer", function()
+		local w = world.new()
+		local isPresented = w.core:signal(false)
+		local ok, err = pcall(function()
+			Facet.Controls.Alert(w.core, {
+				id = "Bound",
+				title = "Hi",
+				actions = { { id = "ok", label = "OK" } },
+				presenter = w.pres,
+				isPresented = isPresented,
+				transition = "instant",
+			})
+		end)
+		t.expect(ok).toBe(false)
+		t.expect(string.find(tostring(err), "Controls.Alert", 1, true) ~= nil).toBe(true)
+		isPresented:dispose()
+	end)
+
+	t.it("the message names the shape that WAS meant, so `instant` is one edit away", function()
+		local w = world.new()
+		local _, err = pcall(function()
+			Facet.Controls.Alert(w.core, {
+				id = "Bad",
+				title = "Hi",
+				actions = { { id = "ok", label = "OK" } },
+				transition = "instant",
+			})
+		end)
+		t.expect(string.find(tostring(err), 'enter = "instant"', 1, true) ~= nil).toBe(true)
+	end)
+
+	t.it("a VALID transition still builds, and the default (absent) one is untouched", function()
+		local w = world.new()
+		local a = Facet.Controls.Alert(w.core, {
+			id = "Ok1",
+			title = "Hi",
+			actions = { { id = "ok", label = "OK" } },
+			transition = { enter = "instant" },
+		})
+		a.dispose()
+		local b = Facet.Controls.Alert(w.core, {
+			id = "Ok2",
+			title = "Hi",
+			actions = { { id = "ok", label = "OK" } },
+		})
+		b.dispose()
+	end)
+
 	t.it("transition = 'instant' opts out", function()
 		local w = world.new()
 		local alert = Facet.Controls.Alert(w.core, {

@@ -6,6 +6,9 @@ local contract = require("../class_contract")
 local coreContract = require("../core/contract")
 local shortcut = require("./button_shortcut")
 local surfaceEnv = require("../env/surface_env")
+-- the ONE authority on a transition's shape; `alert.build` re-addresses its
+-- refusal rather than re-deriving the rule (task 7 item 5)
+local transitionsLib = require("../render/transitions")
 local alert = {}
 type Text = string | coreContract.Readable<string>
 export type Action = {
@@ -159,6 +162,27 @@ function alert.build(Facet: any, core: any, spec: Spec)
 		"Controls.Alert: padding must be nonnegative finite pixels or a metric name"
 	)
 	assert(spec.surface == nil or type(spec.surface) == "string", "Controls.Alert: surface must be a string")
+	--[[ VALIDATED WHERE IT IS AUTHORED, not on the first `present()`. An invalid
+		`transition` used to reach `transitions.resolve` inside `presentModal`,
+		which raises a message naming "Facet transition" and nothing that points
+		back at this spec — and for a BOUND alert (`isPresented`/`item`) that
+		call runs inside an observer, outside every pcall this control has, so
+		the whole failure read as "the dialog never opened". `resolve` is the one
+		authority on the shape, so this calls IT rather than growing a second,
+		drifting copy of the rule; the re-raise only re-addresses the message.
+		A bare `"instant"` is the case worth naming in the text: the round's own
+		design note invited it, and the schema wants `{ enter = "instant" }`. ]]
+	if spec.transition ~= nil then
+		local ok, err = pcall(transitionsLib.resolve, spec.transition)
+		if not ok then
+			local detail = string.gsub(tostring(err), "^Facet transition: ", "")
+			error(
+				`Controls.Alert: transition {detail} — the modal materializes by default; `
+					.. 'pass `{ enter = "instant" }` to opt out.',
+				0
+			)
+		end
+	end
 	assert(
 		spec.id == nil or (type(spec.id) == "string" and spec.id ~= ""),
 		"Controls.Alert: id must be a nonempty string"

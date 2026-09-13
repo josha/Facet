@@ -51,7 +51,9 @@ settle event, same frame.
 - **1A Alert entrance/exit.** `presentModal` opts gain
   `transition = { enter = "materialize", exit = "materialize", class = "object", exitClass = "dismiss" }`.
   Scale 0.96→1 + fade in; faster dip out. Spec field `transition?` added to
-  `AlertSpec` so a caller can override or pass `"instant"`.
+  `AlertSpec` so a caller can override, or pass `{ enter = "instant" }` to opt
+  out. (A bare `"instant"` is not a transition declaration; `Alert.build`
+  refuses it by name — task 7 item 5.)
 - **1B Menu dropdown.** `presentAnchored` in `controls/menu.luau` passes
   `materialize` with `pivot` set from the resolved anchor side (top-left for a
   menu that opens downward, etc.). Same asymmetric exit.
