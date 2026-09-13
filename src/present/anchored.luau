@@ -157,8 +157,12 @@ export type Anchor = {
 	  presenter        so `present`/`presentModal`/`dismiss` are the ONLY way a
 	                   surface is created — this module never mounts a surface
 	  metricsNow()     the LIVE metric authority, read per use
-	  safeBox()        the presenter's own safe box (viewport less the per-edge
-	                   MAX of the two inset facts). Reused, never re-derived.
+	  safeBox(hostBand?)  the presenter's own safe box (viewport less the per-edge
+	                   MAX of the two inset facts). Reused, never re-derived. The
+	                   argument is the SOURCE surface's own host-chrome answer: a
+	                   popover raised from a control inside a modal is in the
+	                   modal's screen, and the host's band is not the modal's to
+	                   yield to (src/env/environment.luau, `appChromeInsets`).
 	  handleByPath(p)  which presented surface owns a path, so a source path is
 	                   resolved through ITS controller's `screenRectOf`
 	  presentOptsKeys  the presenter's own closed key set, so the anchored opts
@@ -219,6 +223,15 @@ function anchored.new(ctx: any)
 		first and moved second — through the anchor offsets, which are `dirty =
 		arrange` and therefore a re-solve, never a remount. The signals no-op on an
 		unchanged value, so a settled surface costs reads and no writes. ]]
+	-- whose box this surface belongs in: its SOURCE's. `nil` owner (a rect-anchored
+	-- surface, or a source whose surface has gone) reserves the band, which is the
+	-- answer every content screen gives and the one this module gave before.
+	local function ownerReservesAppChrome(record: any): boolean
+		local path = record.anchor.source.path
+		local owner = if path ~= nil then handleByPath(path :: string) else nil
+		return owner == nil or owner.reserveAppChrome ~= false
+	end
+
 	local function place(record: any)
 		local sourceRect = sourceRectOf(record)
 		local surfaceRect = record.handle.controller.rectOf(record.surfacePath)
@@ -242,7 +255,7 @@ function anchored.new(ctx: any)
 			the reference platform's menus never sit closer to the edge than the
 			content they came from. Every side but the top, which is the chrome
 			band's and is already reserved in full (see `safeBox`). ]]
-		local safe = safeBox()
+		local safe = safeBox(ownerReservesAppChrome(record))
 		local marginPx = resolveMetric(anchor.margin, 0)
 		if marginPx > 0 then
 			-- a FLOOR on each side's inset, not a second gutter stacked on the

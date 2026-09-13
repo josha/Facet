@@ -89,7 +89,10 @@ local isPathPrefix = paths.isPrefix
 	  discloseTargetIn   the disclosure plate's own resolver, asked FIRST so the
 	                     full value outranks the convenience (see the header)
 	  metricsNow()       the LIVE metric authority, read per presentation
-	  safeBox()          the presenter's safe box, reused and never re-derived
+	  safeBox(hostBand?) the presenter's safe box, reused and never re-derived; the
+	                     argument is the OWNER surface's host-chrome answer, so a
+	                     plate raised inside a modal is not clamped by a band the
+	                     modal does not yield to
 ]]
 function help_plate.new(ctx: any)
 	local env = ctx.env
@@ -165,7 +168,7 @@ function help_plate.new(ctx: any)
 
 	local function present(owner: any, sourcePath: string, text: string, source: string)
 		dispose()
-		local box = safeBox()
+		local box = safeBox(owner.reserveAppChrome)
 		local inset = themeSnapshot.resolveNumber(metricsNow(), EDGE_INSET_METRIC) or 0
 		local panel = blueprintLib.VStack({
 			id = PLATE_ID,

@@ -249,19 +249,36 @@ end
 
 	GARBAGE IS ZERO, not an error: this is a policy resolver reading a fact an
 	adapter or a host wrote, and the safe direction for a reservation it cannot
-	read is the one that moves nothing. ]]
+	read is the one that moves nothing.
+
+	A HOST THAT DECLARES NOTHING GETS ITS OWN TABLE BACK, not a copy of it. The
+	fact's DEFAULT is a table of four zeroes, so a first cut that allocated
+	unconditionally allocated on every content solve of every surface in every
+	session that never had a host band — which is nearly all of them. Summing the
+	four edges first costs four reads and returns the identity, which is also what
+	makes "nothing moved" observable: the insets the caller passed in are the very
+	table it gets back, and `tests/app_chrome_insets.spec.luau` pins that. ]]
 function geometry_facts.withAppChrome(insets: any, rootPolicy: string?, appChrome: any): any
 	if rootPolicy == "edgeToEdge" or rootPolicy == "bandSafeContent" or type(appChrome) ~= "table" then
 		return insets
 	end
-	local out = { top = insets.top, bottom = insets.bottom, left = insets.left, right = insets.right }
-	for _, edge in { "top", "bottom", "left", "right" } do
-		local v = tonumber(appChrome[edge])
-		if v ~= nil and v == v and v > 0 then
-			out[edge] += v
-		end
+	-- `v > 0` is false for nil, for a NaN and for a negative, so each of those
+	-- reserves nothing — never `math.max`, which would carry a NaN through
+	local function band(v: any): number
+		local n = tonumber(v)
+		return if n ~= nil and n > 0 then n else 0
 	end
-	return out
+	local top, bottom = band(appChrome.top), band(appChrome.bottom)
+	local left, right = band(appChrome.left), band(appChrome.right)
+	if top + bottom + left + right <= 0 then
+		return insets
+	end
+	return {
+		top = insets.top + top,
+		bottom = insets.bottom + bottom,
+		left = insets.left + left,
+		right = insets.right + right,
+	}
 end
 
 -- Two readings of `keysFor`'s list, compared BY CONTENT (above). `nil` on either

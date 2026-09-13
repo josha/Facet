@@ -157,6 +157,10 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 	local mountedNode: any = nil
 	local rootPath: string? = nil
 	local presentModalFn, presentAnchoredFn, dismissFn, surfaceHandle
+	-- does the surface this trigger lives on reserve the host app's own chrome
+	-- band? Bound by the presenter (`bindController`'s additive second argument);
+	-- true until then, which is what this control's room arithmetic always assumed
+	local ownerReservesAppChrome = true
 	local syncSurface
 	local triggerWidth = 0
 	local triggerRect: any = nil -- the trigger's last solved rect, read at present time
@@ -701,10 +705,11 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 				then metrics.space.m
 				else neutral.space.m
 			-- the top of the space this popover's own surface lives in: the platform's
-			-- reservation PLUS the host app's own band, which is what the content
-			-- policy that solved the trigger reserved (`appChromeInsets`, 2026-09-13)
+			-- reservation, plus the host app's band when the OWNER surface reserves
+			-- it — a popover inside a modal is in the modal's screen, and the modal
+			-- does not yield to that band (`appChromeInsets`, 2026-09-13)
 			local insets = if env ~= nil then env:get("coreSafeInsets"):get() else nil
-			local hostChrome = if env ~= nil then env:get("appChromeInsets"):get() else nil
+			local hostChrome = if env ~= nil and ownerReservesAppChrome then env:get("appChromeInsets"):get() else nil
 			local top = if type(insets) == "table" and type(insets.top) == "number" then insets.top else 0
 			top += if type(hostChrome) == "table" then math.max(0, tonumber(hostChrome.top) or 0) else 0
 			--[[ the panel's own chrome — the `raised` slot's content insets a package
@@ -1295,7 +1300,7 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 						local m = if type(spaceNow.m) == "number" then spaceNow.m else neutralNow.space.m
 						-- both reservations, exactly as the room arithmetic above reads them
 						local insets = env:get("coreSafeInsets"):get()
-						local hostChrome = env:get("appChromeInsets"):get()
+						local hostChrome = if ownerReservesAppChrome then env:get("appChromeInsets"):get() else nil
 						local top = if type(insets) == "table" and type(insets.top) == "number" then insets.top else 0
 						top += if type(hostChrome) == "table" then math.max(0, tonumber(hostChrome.top) or 0) else 0
 						local room = math.max(vp.h - m - (source.y + source.h + xs), source.y - xs - top)
@@ -1768,6 +1773,9 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 					rootPath, mountedNode = nil, nil
 					presentModalFn, presentAnchoredFn, dismissFn = nil, nil, nil
 				end)
+			end,
+			bindController = function(_controller, reserveAppChrome)
+				ownerReservesAppChrome = reserveAppChrome ~= false
 			end,
 			bindPresent = function(presentModal, dismiss, presentAnchored)
 				presentModalFn, dismissFn, presentAnchoredFn = presentModal, dismiss, presentAnchored

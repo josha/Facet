@@ -344,11 +344,22 @@ if bootDecision.mode == "showcase" then
 			env:get("effectiveOverscanInsets"):get(),
 			"top"
 		)
-		local want = demo_picker.barReservation(coreTop, chipsBottom:get(), slack, overscanTop)
-		-- the platform's own row, as the SOLVER will read it — never GetGuiInset
-		-- here, or the two halves of the sum would come from two authorities
+		--[[ ONE AUTHORITY FOR THE PLATFORM'S ROW, ON BOTH SIDES OF THE SUBTRACTION
+			(review 2026-09-13). `barReservation`'s floor is `platformTop + BAR_HEIGHT`
+			and the band published below is `want - platformTop`, so if the two came
+			from different places — `GetGuiInset()` for the floor and the fact for the
+			subtrahend — a frame in which they disagreed would publish a band that is
+			wrong by the difference. They cannot disagree if there is one of them.
+
+			The fact is also the RIGHT one: it is what the renderer will add back, and
+			before the adapter has published it reads zero, so the whole window-space
+			number is spent here — exactly the absolute reservation the engine read
+			produced, which is what the "compute it from the engine" rule above was
+			protecting. `coreTopSignal` keeps reading the engine directly, because
+			that one is not part of this sum: it PLACES the chip row. ]]
 		local platform = env:get("coreSafeInsets"):get()
 		local platformTop = if type(platform) == "table" then math.max(0, tonumber(platform.top) or 0) else 0
+		local want = demo_picker.barReservation(platformTop, chipsBottom:get(), slack, overscanTop)
 		local band = math.max(0, want - platformTop)
 		local live = env:get("appChromeInsets"):get()
 		if type(live) == "table" and live.top == band then

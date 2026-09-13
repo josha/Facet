@@ -35,13 +35,14 @@
 	fixture that demonstrates trays is `scenarios/row_actions.luau`, on the
 	vertical axis where the two gestures are perpendicular.
 
-	NOTHING HERE IS FIXED AGAINST AN UNFIXED VIEWPORT. `viewportExtent` is a live
-	memo over the real screen — the same shape and the same reasoning as
-	`virtual_list_native.luau`'s live window, which exists because a constant
-	painted a rail past a 320px phone. It reads the facts the renderer reads
-	(`viewportRect`, `coreSafeInsets`) rather than approximating their sum, and
-	over-reserves on purpose: a shorter rail can never overflow, a longer one
-	silently paints off the right edge where no main-axis diagnostic looks.
+	NOTHING HERE IS FIXED AGAINST AN UNFIXED VIEWPORT. `viewportExtent = "auto"`
+	takes the box the SOLVER gave this rail and measures it, which is why the memo
+	that used to stand here is gone (see the block at the rail itself). The memo
+	read the facts the renderer reads — and that list has since grown a term
+	(`appChromeInsets`, the host's own chrome band, 2026-09-13), which is exactly
+	the drift "auto" removes: a fixture that reproduces a policy's arithmetic owes
+	that policy every input it ever gains, and `virtual_list_native.luau`, which
+	still reproduces it, had to learn the new one by hand.
 
 	TWO HOSTS MOUNT THIS FILE, AND ONLY ONE OF THEM RUNS STEPS.
 

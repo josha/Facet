@@ -774,25 +774,15 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		(`anchored.luau`), the disclosure plate and its clamp all take this box — so
 		they are fixed together rather than three times.
 
-		TOP IS DELIBERATELY EXEMPT, matching `hud.luau`'s own `top = 0`. The top
-		edge is the chrome band's, already reserved in full by `coreSafeInsets.top`;
-		adding a decorative step on top of a reserved band pushes every plate down by
-		a gutter nobody asked for and buys nothing — there is no "flush against the
-		top" case, because the topbar inset is never zero. ]]
-	--[[ ...AND THE HOST'S OWN BAND IS IN THIS BOX TOO (owner ruling 2026-09-13).
-		An anchored popover and a disclosure plate belong to the CONTENT SURFACE
-		they point at — they are placed against a view's own screen rect and are
-		read as part of the page, not as something that took the screen over it. So
-		they keep both reservations, where a modal keeps only the device's: a
-		tooltip that hung over the host's chip row would cover the control the
-		reader is still looking at. `appChromeInsets` is ADDED for the same reason
-		the policy resolver adds it (`geometry_facts.withAppChrome`) — the host
-		draws its chrome inside the safe area, not over it. ]]
-	local function safeBox(): { x: number, y: number, w: number, h: number }
+		TOP IS DELIBERATELY EXEMPT, matching `hud.luau`'s own `top = 0`: that edge is
+		already reserved in full — the platform's row, plus the host's band when the
+		owner surface reserves it — and a decorative step on a reserved band pushes
+		every plate down for nothing. ]]
+	local function safeBox(reserveAppChrome: boolean?): { x: number, y: number, w: number, h: number }
 		local vp = env:get("viewportRect"):get()
 		local core_ = env:get("coreSafeInsets"):get()
 		local device = env:get("deviceSafeInsets"):get()
-		local appChrome = env:get("appChromeInsets"):get()
+		local appChrome = if reserveAppChrome == false then nil else env:get("appChromeInsets"):get()
 		-- the theme's own smallest gutter step, never a literal: a package that
 		-- retunes its spacing ladder retunes the screen's margin with it
 		local gutter = themeSnapshot.resolveNumber(metricsNow(), "s") or 0
@@ -972,7 +962,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		local placement = anchorPlacement.solve({
 			source = srcRect,
 			size = { w = plateRect.w, h = plateRect.h },
-			safe = safeBox(),
+			safe = safeBox(plate.owner.reserveAppChrome),
 			edge = "bottom",
 			-- leading-aligned on the label, which is where a reader's eye already is
 			align = "start",
@@ -998,7 +988,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		if type(srcRect) ~= "table" then
 			return
 		end
-		local box = safeBox()
+		local box = safeBox(owner.reserveAppChrome)
 		local metrics = metricsNow()
 		local gap = themeSnapshot.resolveNumber(metrics, "xs") or 4
 		local sc = core:scope("present-disclose")
@@ -1515,12 +1505,6 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		hide = dragProxyHide,
 	}
 
-	--[[ `screenTakesScreen` is the fourth argument only `presentCritical` passes: a
-		surface whose KIND is "screen" but which stands in for a host that has already
-		failed, so it honours the device safe area alone exactly as a modal does (see
-		`reserveAppChrome` at the attach below). Internal — a caller cannot ask for it
-		through `PresentOpts`, because "am I the host's own page" is not a property a
-		screen declares about itself. ]]
 	local function makeHandle(blueprint: any, opts: any, kind: string, screenTakesScreen: boolean?)
 		-- an unknown cancelPolicy is refused LOUDLY, the same way an unknown
 		-- rootPolicy is (renderer.attach): a typo that silently kept the default
@@ -1545,6 +1529,9 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		if scrimOpt ~= nil and scrimOpt ~= "scrim" and scrimOpt ~= "none" then
 			error(`Facet presenter: unknown scrim '{tostring(scrimOpt)}'. Valid: scrim, none.`, 0)
 		end
+		-- inside the host's own chrome, or taking the screen? Spent four ways from
+		-- here; argued at `appChromeInsets` (src/env/environment.luau)
+		local reservesAppChrome = kind ~= "modal" and not screenTakesScreen
 		-- Tab/Shift+Tab wrap policy for this surface's scope (roadmap Step 8),
 		-- declared once here rather than per control. Same enum discipline as the
 		-- three above: only a boolean, and only this surface's own scope.
@@ -1682,19 +1669,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		})
 		local controller = renderer.attach(core, root, env, adapter, {
 			rootPolicy = (opts and opts.rootPolicy) or "coreSafeContent",
-			--[[ A MODAL TAKES THE SCREEN (owner ruling 2026-09-13). `appChromeInsets`
-				is the band the HOST app reserves for chrome of its own — a showcase's
-				demo chips, a game's always-on top bar — and content is laid out clear
-				of it. A modal is not part of that page: it arrives over a backdrop
-				that covers the whole window, and centring it in the space UNDER the
-				host's chrome sits it visibly high-shouldered in that backdrop. So the
-				two content kinds keep both reservations and this one keeps the
-				device's alone. `presentCritical` takes the same exemption through
-				`screenTakesScreen` — its stand-in screen appears when the host has
-				already failed, which is the last moment to trust a band the host
-				declared. The DEVICE safe area still applies to every kind: a notch
-				is not negotiable for a modal either. ]]
-			reserveAppChrome = kind ~= "modal" and not screenTakesScreen,
+			reserveAppChrome = reservesAppChrome,
 			edgeFloor = opts and opts.edgeFloor,
 			-- default ON; an explicit `false` opts out (see renderer for the measurement)
 			recycleInstances = opts == nil or opts.recycleInstances ~= false,
@@ -1969,7 +1944,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 			-- native adapter capability (UIDragDetector) reaches it through the
 			-- controller, never by fabricating an adapter handle of its own
 			if c.bundle.bindController ~= nil then
-				c.bundle.bindController(controller)
+				c.bundle.bindController(controller, reservesAppChrome)
 			end
 			-- and the FOCUS GRAPH, for the controls that must MOVE focus rather
 			-- than merely follow it (VirtualList's index focus policy: the data
@@ -2733,6 +2708,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 			-- `refresh` calls it before it re-derives the focus map, so a region
 			-- that opened this frame is wired BEFORE its nodes join the ring
 			syncContributions = syncContributions,
+			reserveAppChrome = reservesAppChrome,
 			-- responder mode: passive surfaces engage/resign; every
 			-- other surface reports "engaged" (a plain screen is engaged-open,
 			-- non-sinking; a modal is engaged-exclusive). Readable for consumers.

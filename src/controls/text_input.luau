@@ -373,6 +373,10 @@ function text_input.build(Facet: any, core: any, spec: Spec)
 	local viewportHeight = if spec.multiline then scope:own(core:signal(0)) else nil
 	local latestRectOf: ((string) -> any)? = nil
 	local renderController: any = nil
+	-- does the surface this field lives on reserve the host app's own chrome band?
+	-- Bound by the presenter (`bindController`'s additive second argument); true
+	-- until then, which is what the keep-visible arithmetic always assumed
+	local ownerReservesAppChrome = true
 	-- hot-switch (UI-PARADIGM-002): was touch (the on-screen-keyboard entry
 	-- surface) live when this edit began? Used to detect the dock CANCEL — touch
 	-- leaving mid-edit with no hardware keyboard to supersede it.
@@ -719,8 +723,9 @@ function text_input.build(Facet: any, core: any, spec: Spec)
 	end
 	api.cancel = cancelEdit
 	api.keepVisibleOffset = keepVisibleOffset
-	function api.bindController(controller)
+	function api.bindController(controller, reserveAppChrome)
 		renderController = controller
+		ownerReservesAppChrome = reserveAppChrome ~= false
 	end
 
 	-- presenter auto-wiring seam: bind the action system that raises
@@ -898,9 +903,10 @@ function text_input.build(Facet: any, core: any, spec: Spec)
 			if use(editing) and type(occlusion) == "table" then
 				local viewport = use(env:get("viewportRect"))
 				local insets = use(env:get("coreSafeInsets"))
-				-- ...and the host's own reserved band, which is above this field for the
-				-- same reason the platform's row is (`appChromeInsets`, 2026-09-13)
-				local hostChrome = use(env:get("appChromeInsets"))
+				-- ...and the host's own reserved band when the OWNER surface reserves it:
+				-- above this field for the same reason the platform's row is, and absent
+				-- inside a modal, which takes the screen (`appChromeInsets`, 2026-09-13)
+				local hostChrome = if ownerReservesAppChrome then use(env:get("appChromeInsets")) else nil
 				local hostTop = if type(hostChrome) == "table" then math.max(0, tonumber(hostChrome.top) or 0) else 0
 				local room = occlusion.y - viewport.y - (insets.top or 0) - hostTop - KEEP_VISIBLE_MARGIN
 				height = math.min(height, math.max(metrics.controls.textInput.fieldHeight, room))

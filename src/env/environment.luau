@@ -92,6 +92,35 @@ local FACT_DEFAULTS: { [string]: any } = {
 		`platformChrome.rects` per column, which is the whole reason the rects fact
 		exists — a bounding box there would push it off the band it asked for.
 
+		WHY `presentCritical` TAKES THE MODAL'S EXEMPTION although its kind is
+		"screen": its stand-in appears when the host has ALREADY failed, which is
+		the last moment to trust a band that host declared. The presenter passes it
+		as `screenTakesScreen`, internal on purpose — a caller cannot ask for it
+		through `PresentOpts`, because "am I the host's own page" is not a property
+		a screen declares about itself.
+
+		AND THE SAME ANSWER TRAVELS WITH THE SURFACE, because four things need it
+		and they must not disagree. The root policy is one; the other three are
+		anything a surface RAISES that is placed in window space rather than inside
+		the surface's own box:
+
+		  · the presenter's `safeBox(reserveAppChrome)` — the box an anchored
+		    popover, a disclosure plate and a help plate are clamped into. A plate
+		    belongs to the surface it POINTS AT: raised from a content screen it
+		    keeps the host's band (a tooltip hanging over the host's chip row would
+		    cover the control the reader is still looking at); raised from inside a
+		    modal, which owns the whole screen, it does not. The owner's answer
+		    rides on its handle (`handle.reserveAppChrome`) and the placement sites
+		    pass it rather than re-deriving it;
+		  · `bindController(controller, reserveAppChrome)` — the second, additive
+		    argument, for a control that measures its own room instead of asking
+		    `safeBox`: `picker_menu`'s flip room above a trigger and `text_input`'s
+		    keyboard-avoidance room. Absent (a bare mount with no presenter) means
+		    "reserve it", which is what those controls did before the split.
+
+		THE DEVICE SAFE AREA STILL APPLIES TO EVERY ONE OF THEM. A notch is not
+		negotiable for a modal either; this fact is the only thing a modal drops.
+
 		FOUR EDGES, ZERO BY DEFAULT, so it is invisible to every consumer that
 		never sets it: a game whose chrome is all inside its own surfaces declares
 		nothing and every rect it has ever solved is byte-identical. It is the
