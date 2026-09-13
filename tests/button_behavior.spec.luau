@@ -484,5 +484,42 @@ t.describe("Button behavior", function()
 			w.pres.dismiss(w.handle)
 			button.dispose()
 		end)
+
+		t.it("a held repeat pulses activate without re-kicking the pop", function()
+			local w = world.new()
+			local hits = 0
+			local button = Facet.Controls.Button(w.core, {
+				id = "Go",
+				label = "Go",
+				pop = true,
+				repeatInterval = 0.05,
+				onActivate = function()
+					hits += 1
+				end,
+			})
+			w.present(Facet.UI.Screen({ id = "S", children = { button.blueprint } }))
+			local idleActive = w.pres.motionClock:activeCount()
+			w.tick(0)
+			w.system.deviceKey("Return", true)
+			local peak = 1
+			for _ = 1, 30 do
+				w.pres.tick(FRAME)
+				w.pres.refresh()
+				peak = math.max(peak, scaleOf(w, "/S/Go"))
+			end
+			w.system.deviceKey("Return", false)
+			-- the default 0.4s delay plus a 0.05s interval pulse several times inside
+			-- 30 frames (0.5s): every pulse beyond the first reaches `activate` with
+			-- `meta.source == "repeat"`, and an ungated kick on each one would stack
+			-- faster than the `reward` spring settles, holding the scale away from 1
+			-- and the clock active — exactly what the gate at button.luau's `activate`
+			-- exists to prevent.
+			t.expect(hits > 1).toBe(true)
+			t.expect(peak > 1.03).toBe(true)
+			t.expect(math.abs(scaleOf(w, "/S/Go") - 1) < 0.001).toBe(true)
+			t.expect(w.pres.motionClock:activeCount()).toBe(idleActive)
+			w.pres.dismiss(w.handle)
+			button.dispose()
+		end)
 	end)
 end)

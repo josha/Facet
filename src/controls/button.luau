@@ -156,7 +156,11 @@ function button.build(Facet, core, spec)
 			suppressTap = false
 			return
 		end
-		if popMotion ~= nil then
+		-- THE INITIAL PRESS ONLY (controller ruling): a repeat pulse reaches this
+		-- same closure every `repeatInterval` (default 0.1s), well under the
+		-- `reward` spring's settle time, so an ungated kick would stack on every
+		-- pulse of a held repeating button and never return to rest.
+		if popMotion ~= nil and (meta == nil or meta.source ~= "repeat") then
 			popMotion:setVelocity(POP_KICK)
 		end
 		spec.onActivate(meta)
