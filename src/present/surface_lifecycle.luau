@@ -152,6 +152,43 @@ function surfaceLifecycle.new(ctx: any)
 			then handle.blueprint.id
 			else ""
 	end
+	--[[ TWO LIVE SURFACES UNDER ONE ID IS A COLLISION THE FLUSH CANNOT HELP WITH
+		(review D4). `pendingExits` fixes the case where one surface is LEAVING
+		under an id another is taking; it is keyed BY that id, so it has nothing
+		to say about two surfaces that are both up. They collide anyway — every
+		node path is rooted at `"/" .. (blueprint.id or "")`, so the adapter's
+		path maps hold one owner per path and the second surface silently takes
+		them over.
+
+		A DIAGNOSTIC, NOT A REFUSAL (controller ruling): refusing would break
+		whatever ships today doing this by accident, and the framework does not
+		know yet how much of that there is. Once per id per session — a session
+		that opens the same duplicate a hundred times says it once — recorded here
+		and read back through `presenter.surfaceIdNotes()`, which is how a test
+		asserts the "once" rather than watching a log. The refusal is ledgered as
+		a follow-up. ]]
+	local surfaceIdNotes: { string } = {}
+	local notedSurfaceIds: { [string]: boolean } = {}
+	local function noteDuplicateSurfaceId(id: any)
+		local key = if type(id) == "string" then id else ""
+		if notedSurfaceIds[key] then
+			return
+		end
+		for _, existing in stack do
+			if exitKeyFor(existing) == key then
+				notedSurfaceIds[key] = true
+				local note = `Facet presenter: a surface is already presented under the id '{key}' — both mount `
+					.. `their nodes at '/{key}', so the second takes over the first's paths in the adapter and the `
+					.. `first can no longer be torn down by path. Give one of them its own \`id\`.`
+				table.insert(surfaceIdNotes, note)
+				if type(warn) == "function" then
+					warn(note)
+				end
+				return
+			end
+		end
+	end
+
 	local function forgetPendingExit(key: string, teardown: () -> ())
 		local list = pendingExits[key]
 		if list == nil then
@@ -735,7 +772,15 @@ function surfaceLifecycle.new(ctx: any)
 		end
 	end
 
+	-- every duplicate-surface-id note this presenter has made, newest last. A
+	-- copy, like `controller.stats()` (F-30).
+	local function readSurfaceIdNotes(): { string }
+		return table.clone(surfaceIdNotes)
+	end
+
 	return {
+		noteDuplicateSurfaceId = noteDuplicateSurfaceId,
+		surfaceIdNotes = readSurfaceIdNotes,
 		syncFocusVisuals = syncFocusVisuals,
 		refresh = refresh,
 		dismiss = dismiss,

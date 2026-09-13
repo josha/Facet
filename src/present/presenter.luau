@@ -1394,6 +1394,10 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 	-- makeHandle's, not a public verb: a re-present under an id whose surface is
 	-- still exiting must tear that one down first (task 7 item 2)
 	local flushPendingExit = surfaceLifecycle.flushPendingExit
+	-- ...and the diagnostic for the collision the flush CANNOT help with: two
+	-- surfaces LIVE under one id (review D4)
+	local noteDuplicateSurfaceId = surfaceLifecycle.noteDuplicateSurfaceId
+	self.surfaceIdNotes = surfaceLifecycle.surfaceIdNotes
 	-- THE TWO OBSERVERS REGISTER HERE rather than up beside the focus scalars,
 	-- where the function they call used to be declared, and that is order-neutral
 	-- for one measured reason: `presenter.new` mounts nothing, so these are still the
@@ -1612,6 +1616,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		-- claims the node paths it is still sitting on (surface_lifecycle's
 		-- `pendingExits` carries the reasoning; this file is near the source cap)
 		flushPendingExit(blueprint.id)
+		noteDuplicateSurfaceId(blueprint.id)
 		local scope = core:scope(`present-{kind}-{blueprint.id or "screen"}`)
 		--[[ RESPONDER STATE IS HOISTED HERE, above `bindContribution`, because a
 			control has to be handed the paint permission below at BIND time and

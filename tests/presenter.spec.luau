@@ -466,3 +466,64 @@ describe("presenter: a surface's transition is resolved at present, never again 
 		declared:dispose()
 	end)
 end)
+
+describe("presenter: two LIVE surfaces under one id are noted, once (D4)", function()
+	--[[ `pendingExits` fixes the case where one surface is LEAVING under an id
+		another is taking. It is keyed BY that id, so it has nothing to say about
+		two surfaces that are both UP — and they collide anyway: every node path
+		is rooted at `"/" .. (blueprint.id or "")`, so the adapter's path maps hold
+		one owner per path and the second surface silently takes them over.
+
+		A DIAGNOSTIC, NOT A REFUSAL (controller ruling): refusing would break
+		whatever ships today doing this by accident. The refusal is ledgered as a
+		follow-up. ]]
+	local function twin(id: string)
+		return UI.Screen({ id = id, children = { UI.Button({ id = "Ok", label = "Ok" }) } })
+	end
+
+	it("the second present under a live id notes it, and the third does not repeat it", function()
+		local _, _, _, _, pres = makeWorld()
+		expect(#pres.surfaceIdNotes()).toBe(0)
+		pres.present(twin("Twin"))
+		-- one surface is not a collision
+		expect(#pres.surfaceIdNotes()).toBe(0)
+		pres.present(twin("Twin"))
+		local notes = pres.surfaceIdNotes()
+		expect(#notes).toBe(1)
+		expect(string.find(notes[1], "already presented under the id 'Twin'", 1, true) ~= nil).toBe(true)
+		expect(string.find(notes[1], "/Twin", 1, true) ~= nil).toBe(true)
+		-- ...and it is ONCE PER ID, not once per collision: a session that opens
+		-- the same duplicate repeatedly says it once
+		pres.present(twin("Twin"))
+		pres.present(twin("Twin"))
+		expect(#pres.surfaceIdNotes()).toBe(1)
+	end)
+
+	it("a DIFFERENT duplicated id gets its own note", function()
+		local _, _, _, _, pres = makeWorld()
+		pres.present(twin("A"))
+		pres.present(twin("A"))
+		pres.present(twin("B"))
+		pres.present(twin("B"))
+		expect(#pres.surfaceIdNotes()).toBe(2)
+	end)
+
+	it("presenting under an id whose surface has been DISMISSED is not a collision", function()
+		-- the ordinary re-present, which is the shape `flushPendingExit` exists
+		-- for: the first surface is gone from the stack, so nothing is noted
+		local _, _, _, _, pres = makeWorld()
+		local first = pres.present(twin("Solo"))
+		pres.dismiss(first)
+		pres.present(twin("Solo"))
+		expect(#pres.surfaceIdNotes()).toBe(0)
+	end)
+
+	it("the read is a COPY, like every other diagnostic read", function()
+		local _, _, _, _, pres = makeWorld()
+		pres.present(twin("C"))
+		pres.present(twin("C"))
+		local notes = pres.surfaceIdNotes()
+		table.clear(notes)
+		expect(#pres.surfaceIdNotes()).toBe(1)
+	end)
+end)

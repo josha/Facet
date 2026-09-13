@@ -288,12 +288,19 @@ describe("the surface-lifecycle seam: EXPORTED == BOUND, one consumer, one-way r
 		-- 2026-09-13 (task 7 item 2) — makeHandle's, like `syncFocusVisuals` it is
 		-- bound to a LOCAL rather than onto the presenter, because no consumer
 		-- outside this file has any business running another surface's teardown
+		-- "noteDuplicateSurfaceId"/"surfaceIdNotes" joined 2026-09-13 (review D4):
+		-- the note `makeHandle` makes when two surfaces are LIVE under one id, and
+		-- the read a consumer (or a test) gets it back through. The note is bound
+		-- to a LOCAL like `flushPendingExit`; the READ is bound onto the presenter,
+		-- because a diagnostic nobody outside can ask for is not a diagnostic.
 		expect(sorted(exported)).toEqual({
 			"back",
 			"dismiss",
 			"flushPendingExit",
+			"noteDuplicateSurfaceId",
 			"raise",
 			"refresh",
+			"surfaceIdNotes",
 			"syncFocusVisuals",
 		})
 	end)
