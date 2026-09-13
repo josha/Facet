@@ -947,6 +947,12 @@ require("./reduced_motion_seam.spec")
 -- model, the coordinator over the presentation channel, and the presenter's own
 -- surface enter/exit — row SF-M6)
 require("./transitions.spec")
+-- ...and the LAW every motion in the 2026-09-12 transitions round has to obey
+-- (spec §3.1/§3.3): a motion frame writes the presentation channel and never the
+-- solver — zero rect writes, zero moved rects, zero engine Position/Size pairs,
+-- zero stretched Sizes — and a settled motion detaches, so sixty idle frames
+-- cost no clock step, write or transaction at all
+require("./motion_paint_only.spec")
 -- BACKDROP-BEFORE-CONTENT (framework-gaps-phase2-followups task POP, director
 -- item 10 + mandate b): the structural gate for the pop class newpop.mov
 -- demonstrated — a canvasGroup fade whose OWN direct child paints an opaque
