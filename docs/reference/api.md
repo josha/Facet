@@ -10529,7 +10529,7 @@ form; omitted, the control reads the environment published on its core, exactly 
 Picker and TabView do. `maxWidth?` is positive pixels
 or a metric name, default `"controls.alert.maxWidth"`; `padding?` is nonnegative
 pixels or a spacing name, default `"m"`; `surface?` defaults to `"raised"`.
-The icon shares a compact header with the title; its default size is one minimum target.
+The header is the title alone unless art is called for, and it is CENTRED in the card. A critical severity leads it with a small caution mark and an authored `icon` with that picture — either one is one `iconSizes.medium` square, the height of the heading beside it (A3, 2026-09-13: the mark used to be a whole minimum target, 44 px against a 20 px title, and it read as artwork rather than as punctuation). With a mark present the pair is centred AS A UNIT and the title reads from the mark; with no mark the title's own text is centred in the card, as the message under it always is.
 The default width cap is `targetSizes.minimum * (560 / 44)`. Game themes own art,
 colors, type and border insets.
 
@@ -10540,7 +10540,7 @@ colors, type and border insets.
 | `item`, `presenter` | Alternative optional-item Signal. Nonnil opens; dismissal clears it. Cannot combine with `isPresented`, `presenting`, or `error`. |
 | `error` | Record/readable with `errorDescription`, optional `recoverySuggestion` and `failureReason`. Supplies default title/message. A Signal without `isPresented` is an automatic binding and requires `presenter`; dismissal clears it. |
 | `icon` | Optional image asset/readable, sized using `controls.alert.iconSize`. |
-| `severity` | `automatic` (default), `standard`, or `critical`. Automatic errors are critical; critical uses danger emphasis and a vector caution icon unless an image is supplied. |
+| `severity` | `automatic` (default), `standard`, or `critical`. Automatic errors are critical; critical uses danger emphasis and a small inline vector caution mark (one `iconSizes.medium` square, leading the title) unless an image is supplied. |
 | `suppression` | `{isSuppressed: Signal<boolean>, label?}` adds the existing checkbox control. The game must consult this value when deciding whether to ask again. |
 | `content` | Optional `(scope, data) -> blueprint?` for brief extra content such as an existing TextInput. Use a full modal for an editor. Own resources in the supplied scope. |
 | `transition` | Optional [structural transition](#structural-transitions) spec, or a `Readable` of one, for the modal's own enter/exit. Defaults to `{ enter = "materialize", plate = "fades", scale = 1.015 }` — the card settles DOWN from 1.5% over with a fade in, `dismiss` dipping out faster on the way out; pass `{ enter = "instant" }` to opt out. It settles down rather than growing in because the engine rasterizes text at `floor(TextSize × effectiveScale)`, so a scale below 1 would paint every string on the card a pixel small for the whole flight and snap it back when the motion ended (see [`scale`](#structural-transitions)). `nil` **and** `false` both fold to that same default — `false` is the framework's "no transition" spelling on `When`/`ForEach`, but Alert's card always materializes unless the enter form is named explicitly. A static value that fails `transitions.resolve` is refused at construction (`Controls.Alert: transition: …`); a `Readable` one is refused on its first read instead, recorded on `dump().lastError`, and the binding resets to the default rather than raising inside the observer that opened it. |

@@ -2121,8 +2121,21 @@ describe("examples/gallery 05: confirmation dialog", function()
 			expect(cancel.props.surface).toBe(nil) -- Cancel uses ordinary chrome; safe focus is separate from action emphasis.
 			expect(prompt.props.text).toBe("Delete this save?")
 			expect(message.props.text).toBe("This cannot be undone.")
-			expect(prompt.props.textAlign).toBe("center")
+			--[[ THE TITLE READS FROM ITS MARK (A3 addendum, 2026-09-13). This dialog
+				is `severity = "critical"`, so a caution mark leads the title and the
+				PAIR is what the header centres — the title's own glyphs start at the
+				mark rather than in the middle of the width the mark left over, which
+				is what a `fill` + `center` title did and why the line sat visibly
+				right of the card's centre. The message, which has no mark, is still
+				one centred full-width line. ]]
+			expect(prompt.props.textAlign).toBe("start")
 			expect(message.props.textAlign).toBe("center")
+			local mark = adapter.node(`{built.cardPath}/Header/Caution`)
+			expect(mark ~= nil).toBe(true)
+			local header = adapter.node(`{built.cardPath}/Header`).rect
+			local lead = (mark :: any).rect.x - header.x
+			local trail = (header.x + header.w) - (prompt.rect.x + prompt.rect.w)
+			expect(math.abs(lead - trail) <= 1).toBe(true)
 			expect(prompt.props.textSize > message.props.textSize).toBe(true)
 			expect(presenter.focus.focused:get()).toBe(built.cancelPath)
 			expect(core:lastError()).toBeNil()

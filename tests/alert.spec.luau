@@ -893,3 +893,74 @@ t.describe("alert: the modal materializes", function()
 		alert.dispose()
 	end)
 end)
+
+--[[ A3 (owner report 2026-09-13): "the red alert icon is overblown — I don't
+	think we need the giant alert icon", and its addendum: with the giant icon
+	gone, CENTRE the title. The mark used to be `targetSizes.minimum` — 44 px,
+	the HIT floor — beside a 20 px heading, so it was more than twice the height
+	of the line it qualifies and read as the card's subject rather than as its
+	punctuation. ]]
+t.describe("Alert header: a mark is punctuation, and the title is centred", function()
+	local function open(spec: any, opts: any?)
+		local w = world.new(opts or { viewport = { x = 0, y = 0, w = 1280, h = 800 } })
+		local alert = Facet.Controls.Alert(w.core, spec)
+		alert.present(w.pres)
+		w.settle(4)
+		return w, alert
+	end
+
+	t.it("the critical mark is one type-height glyph, not a whole hit target", function()
+		local w, alert = open({
+			id = "Mark",
+			title = "Replace this save?",
+			severity = "critical",
+			actions = { { id = "ok", label = "OK" } },
+		})
+		local metrics = w.env:get("themeMetrics"):get()
+		local caution = w.adapter.node("/Mark/Center/Card/Header/Caution").rect
+		t.expect(`{caution.w}x{caution.h}`).toBe(`{metrics.iconSizes.medium}x{metrics.iconSizes.medium}`)
+		-- ...and that really is the height of the heading it leads, not a hit floor
+		t.expect(caution.h).toBe(metrics.type.heading.size)
+		t.expect(caution.h < metrics.targetSizes.minimum).toBe(true)
+		alert.dispose()
+	end)
+
+	t.it("with no mark, the title's box is centred in the card", function()
+		local w, alert = open({
+			id = "Plain",
+			title = "Start this race?",
+			message = "Your selected driver is ready.",
+			actions = { { id = "ok", label = "OK" } },
+		})
+		local card = w.adapter.node("/Plain/Center/Card").rect
+		local title = w.adapter.node("/Plain/Center/Card/Header/Title").rect
+		local message = w.adapter.node("/Plain/Center/Card/Message").rect
+		t.expect(math.abs((title.x + title.w / 2) - (card.x + card.w / 2)) <= 1).toBe(true)
+		t.expect(math.abs((message.x + message.w / 2) - (card.x + card.w / 2)) <= 1).toBe(true)
+		-- a lone title centres its own glyphs inside that box
+		t.expect(w.adapter.node("/Plain/Center/Card/Header/Title").props.textAlign).toBe("center")
+		alert.dispose()
+	end)
+
+	t.it("with a mark, the pair is centred as a unit and the title reads from the mark", function()
+		local w, alert = open({
+			id = "Pair",
+			title = "Replace this save?",
+			severity = "critical",
+			actions = { { id = "ok", label = "OK" } },
+		})
+		local header = w.adapter.node("/Pair/Center/Card/Header").rect
+		local mark = w.adapter.node("/Pair/Center/Card/Header/Caution").rect
+		local title = w.adapter.node("/Pair/Center/Card/Header/Title").rect
+		-- the mark LEADS: it sits before the title, and they touch across one gap
+		t.expect(mark.x + mark.w <= title.x).toBe(true)
+		-- ...and the pair, not the title, is what the row centres
+		local lead = mark.x - header.x
+		local trail = (header.x + header.w) - (title.x + title.w)
+		t.expect(math.abs(lead - trail) <= 1).toBe(true)
+		local card = w.adapter.node("/Pair/Center/Card").rect
+		local pairMid = (mark.x + (title.x + title.w)) / 2
+		t.expect(math.abs(pairMid - (card.x + card.w / 2)) <= 1).toBe(true)
+		alert.dispose()
+	end)
+end)

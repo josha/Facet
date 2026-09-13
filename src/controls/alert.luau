@@ -496,6 +496,15 @@ function alert.build(Facet: any, core: any, spec: Spec)
 		end
 		current = def
 		local content = {}
+		--[[ THE HEADER IS THE TITLE, AND A MARK ONLY WHEN ONE IS CALLED FOR (owner
+			report A3 and its addendum, 2026-09-13). With no mark the title's own
+			text is CENTRED IN THE CARD — one full-width centred line, the way the
+			message under it always has been. With a mark, the mark LEADS the title
+			and the pair is centred AS A UNIT: both hug and the row distributes them
+			to the centre, so the line reads from the mark rather than from the middle
+			of whatever width was left over. (A `fill` title beside an icon centred
+			its text in the REMAINDER, which put the line visibly right of the card's
+			centre by half the mark.) ]]
 		local header = {}
 		if spec.icon ~= nil then
 			table.insert(
@@ -535,6 +544,7 @@ function alert.build(Facet: any, core: any, spec: Spec)
 				})
 			)
 		end
+		local marked = #header > 0
 		table.insert(
 			header,
 			UI.Text({
@@ -542,14 +552,21 @@ function alert.build(Facet: any, core: any, spec: Spec)
 				text = def.title,
 				disclose = true,
 				textSize = "heading",
-				textAlign = "center",
-				width = UI.fill(),
+				textAlign = if marked then "start" else "center",
+				width = if marked then UI.hug() else UI.fill(),
 				tint = if def.severity == "critical" then { role = "danger", blend = 1 } else nil,
 			})
 		)
 		table.insert(
 			content,
-			UI.HStack({ id = "Header", width = UI.fill(), gap = "s", align = "center", children = header })
+			UI.HStack({
+				id = "Header",
+				width = UI.fill(),
+				gap = "s",
+				align = "center",
+				distribute = if marked then "center" else nil,
+				children = header,
+			})
 		)
 		if def.message ~= nil then
 			table.insert(

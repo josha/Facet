@@ -1824,11 +1824,28 @@ function snapshot.resolve(package: any, themeName: string?, facts: Facts?, overr
 	if type(out.controls.alert) ~= "table" then
 		out.controls.alert = {}
 	end
+	--[[ THE ALERT'S MARK IS PUNCTUATION, NOT ARTWORK (owner report A3, 2026-09-13:
+		"I don't think we need the giant alert icon").
+
+		This was `targetSizes.minimum` — 44 px, the HIT floor — beside a 20 px
+		heading, so the caution triangle was more than twice the height of the title
+		it qualifies and read as the card's subject. It is a glyph that leads a line
+		of type, so it takes the type-height rung of the icon ladder the rest of the
+		library already spends (`iconSizes.medium` is 20 in the neutral ladder, the
+		same number as `type.heading`), and it scales with the ladder at a ten-foot
+		display exactly as the heading beside it does. A package that authored its
+		own `controls.alert.iconSize` still wins. ]]
 	if type(out.controls.alert.iconSize) ~= "number" then
-		out.controls.alert.iconSize = out.targetSizes.minimum
+		out.controls.alert.iconSize = out.iconSizes.medium
 	end
+	--[[ …and the stroke is a proportion of the mark it draws, not a spacing step.
+		`space.xs` was 4 px, which on a 44 px triangle was a line and on a 20 px one
+		is very nearly a solid shape. A tenth of the box keeps the drawing reading as
+		a drawing at every rung, floored at the package's own hairline so it can
+		never round away. ]]
 	if type(out.controls.alert.iconStroke) ~= "number" then
-		out.controls.alert.iconStroke = out.space.xs
+		out.controls.alert.iconStroke =
+			math.max(out.strokes.hairline or 1, math.round(out.controls.alert.iconSize / 10))
 	end
 
 	if type(out.controls.alert.maxWidth) ~= "number" then

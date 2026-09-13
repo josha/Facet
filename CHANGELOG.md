@@ -13,6 +13,18 @@ runtime as `Facet.VERSION`.
 
 ## [Unreleased]
 
+- **The Alert's severity mark is punctuation, and its title is centred
+  (2026-09-13).** The critical caution mark (and an authored `icon`) was
+  `targetSizes.minimum` — 44 px, the *hit floor* — beside a 20 px heading, so it
+  was more than twice the height of the line it qualifies. Its default is now
+  `iconSizes.medium`, the type-height rung the rest of the library already spends,
+  and `controls.alert.iconStroke` follows the mark (a tenth of the box, floored at
+  the package's hairline) instead of a spacing step. With no mark the title's text
+  is centred in the card, as the message under it always was; with a mark the pair
+  is centred **as a unit** and the title reads from the mark, instead of a `fill`
+  title centring its line in whatever width the icon left over. A package that
+  authors `controls.alert.iconSize` still wins.
+
 - **The ten-foot overscan is a fraction of the display, not 1080p pixels
   (2026-09-13).** `effectiveOverscanInsets` derived the console profile's
   60/60/90/90 as literals, so it reserved the same absolute band from any
