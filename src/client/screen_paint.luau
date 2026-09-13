@@ -459,6 +459,12 @@ function screen_paint.new(ctx: any)
 	local function motionInfo(duration: number): TweenInfo
 		return TweenInfo.new(duration, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 	end
+	-- the toggle knob's two-step settle (transitions.dev's `(.34,1.35,.64,1)`):
+	-- Back/Out overshoots ~10% and returns, which is what a switch thumb wants and
+	-- a colour never does — colour stays on `motionInfo`
+	local function overshootInfo(duration: number): TweenInfo
+		return TweenInfo.new(duration, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+	end
 
 	-- THE PRESS DIP'S UIScale, CREATED ON FIRST PRESS AND NOT BEFORE.
 	--
@@ -1400,7 +1406,7 @@ function screen_paint.new(ctx: any)
 			-- knob colours are a contrast pair, and interpolating between them
 			-- passes through the middle, where it is readable against neither
 			knob.BackgroundColor3 = knobColor
-			TweenService:Create(knob, motionInfo(style.motion.normal), { Position = knobPos }):Play()
+			TweenService:Create(knob, overshootInfo(style.motion.normal), { Position = knobPos }):Play()
 		end
 	end
 
