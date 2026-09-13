@@ -406,6 +406,45 @@ local function attach(core: any, env: any, clock: any, screen: any, feedback: an
 	return root, adapter, controller, coordinator
 end
 
+--[[ THE VISIBLE CLOCK of one fade transition, in frames at 60 fps: when the
+	enter is 95% opaque, when the exit is 95% faded, and when the branch is
+	actually gone. Every number is read off the SAME painted `groupTransparency`
+	the player sees, so none of them moves with a settle tolerance — which is
+	exactly the property the frame-count pins below need (task 7 item 1). ]]
+local function fadeFrames(exitClass: string?, class: string?): (number, number, number)
+	local core, env, clock = world()
+	local on = core:signal(true)
+	local spec: any = { enter = "fade", class = class, exitClass = exitClass }
+	local root, adapter, _, coordinator = attach(core, env, clock, whenScreen(on, spec))
+	local path = "/S/Gate/then/Panel"
+	local function alpha(): number
+		return adapter.node(path).canvasGroupInstance.groupTransparency
+	end
+	local enterCross = -1
+	for f = 1, 120 do
+		clock:step(FRAME)
+		if enterCross < 0 and alpha() <= 0.05 then
+			enterCross = f
+		end
+	end
+	local gate = root.node.children[1]
+	on:set(false)
+	local exitCross, disposeFrame = -1, -1
+	for f = 1, 120 do
+		clock:step(FRAME)
+		if exitCross < 0 and #gate.children > 0 and alpha() >= 0.95 then
+			exitCross = f
+		end
+		if disposeFrame < 0 and #gate.children == 0 then
+			disposeFrame = f
+		end
+	end
+	root.dispose()
+	coordinator.dispose()
+	clock:dispose()
+	return enterCross, exitCross, disposeFrame
+end
+
 describe("transition coordinator: the forms", function()
 	it("a slide exit clears the interrupted fade before moving and disposing", function()
 		local core, env, clock = world()
@@ -621,10 +660,11 @@ describe("transition coordinator: lifetime", function()
 	it("the exit cap disposes a motion that has not landed by 500 ms", function()
 		local core, env, clock = world()
 		local on = core:signal(true)
-		-- `decay` is the slowest shipped class (response 0.5 s), so its settle
-		-- epsilon lands well past the flat cap. `exitClass` is pinned to it too —
-		-- the exit otherwise defaults to the faster `dismiss` and would settle
-		-- (and dispose) on its own well before the cap, proving nothing about it.
+		-- `decay` is the slowest shipped class (response 0.5 s), so even at the
+		-- coarse exit epsilon it settles at ~0.82 s — well past the flat cap.
+		-- `exitClass` is pinned to it too: the exit otherwise defaults to the
+		-- faster `dismiss`, which disposes at frame 21 of 30 (the case below),
+		-- and would prove nothing about the cap.
 		local root = attach(core, env, clock, whenScreen(on, { enter = "fade", class = "decay", exitClass = "decay" }))
 		for _ = 1, 200 do
 			clock:step(FRAME)
@@ -647,6 +687,51 @@ describe("transition coordinator: lifetime", function()
 		-- number, published at the root so a consumer stops copying `0.5` by
 		-- hand from this file's own doc comment
 		expect(Facet.EXIT_CAP_SECONDS).toBe(transitionsLib.EXIT_CAP_SECONDS)
+	end)
+
+	--[[ THE EXIT ENDS ON ITS SPRING, NOT ON THE CAP (task 7 item 1). Measured
+		before the fix: `dismiss` disposed at frame 30 = 0.500 s — the flat cap to
+		the frame — and `container` at 31. So the two classes were
+		indistinguishable at the ONE place a player can see the difference (when
+		the instances go), and a `dismiss` exit sat fully faded yet mounted for
+		~200 ms. The cause was the settle epsilon: a spring settles on `|x| <= eps
+		AND |v| <= eps`, and the VELOCITY half binds long after a critically
+		damped 0.2 s spring's value is visually zero. The exit phase now builds
+		its spring at `transitions.EXIT_EPS`; the ENTER keeps the default,
+		because its settle is what fires `arrive`.
+
+		Both halves are pinned below: the exit is 95%-faded SOONER than the enter
+		is 95%-opaque (the pace the owner ruled), and it disposes INSIDE the cap
+		(the lifetime the cap was never meant to decide). Discriminating — with
+		`exitClass = "container"` the exit cross is 17, not < the enter cross 17,
+		and disposal is 31, not < 30; the second case pins exactly that. ]]
+	it("a `dismiss` exit is ended by its own spring, well inside the flat cap", function()
+		local capFrame = math.ceil(transitionsLib.EXIT_CAP_SECONDS * 60)
+		expect(capFrame).toBe(30)
+		local enterCross, exitCross, disposeFrame = fadeFrames(nil) -- the default: `dismiss`
+		-- the pace: 95% faded out sooner than it was 95% faded in
+		expect(exitCross > 0 and exitCross < enterCross).toBe(true)
+		-- the lifetime: the SPRING ends it, not the cap
+		expect(disposeFrame > 0 and disposeFrame < capFrame).toBe(true)
+		-- the measured numbers, so a drift in either direction is visible here
+		expect(enterCross).toBe(17)
+		expect(exitCross).toBe(10)
+		expect(disposeFrame).toBe(22)
+	end)
+
+	it("`container` as an exit is the class the cap still has to end", function()
+		local capFrame = math.ceil(transitionsLib.EXIT_CAP_SECONDS * 60)
+		local enterCross, exitCross, disposeFrame = fadeFrames("container")
+		-- the SYMMETRIC pair: identical pace in and out, which is the shape the
+		-- round moved away from. Its exit spring needs 33 frames even at
+		-- EXIT_EPS, so the cap — not the spring — is what ends it, and it is
+		-- unchanged by this fix. This is the case that makes the assertions above
+		-- discriminating rather than decorative, and the reason `dismiss` rather
+		-- than `container` is `DEFAULT_EXIT_CLASS`.
+		expect(enterCross).toBe(17)
+		expect(exitCross).toBe(17)
+		expect(exitCross < enterCross).toBe(false)
+		expect(disposeFrame).toBe(capFrame + 1)
 	end)
 
 	it("a re-entry mid-exit reverses from the value it had, without a jump", function()
@@ -1061,24 +1146,22 @@ describe("transition coordinator: exits are faster than enters by default", func
 	end)
 
 	it("exitClass restores symmetry when declared", function()
-		local core, env, clock = world()
-		local on = core:signal(true)
-		-- `reward` (not `container`): the flat, non-overridable 500 ms exit cap
-		-- (EXIT_CAP_SECONDS) already truncates a fresh `container` spring's own
-		-- natural settle (~0.78 s, measured), so pairing class/exitClass on it
-		-- would prove the CAP fired identically on both sides, not that exitClass
-		-- restored the SPRING's own symmetric timing. `reward` settles in ~0.35 s
-		-- (measured, both directions), comfortably inside the cap either way.
-		local root, _, controller, coordinator =
-			attach(core, env, clock, whenScreen(on, { enter = "fade", class = "reward", exitClass = "reward" }))
-		local enterFrames = framesUntilIdle(clock)
-		on:set(false)
-		local exitFrames = framesUntilIdle(clock)
-		controller.refresh()
-		expect(exitFrames).toBe(enterFrames)
-		root.dispose()
-		coordinator.dispose()
-		clock:dispose()
+		--[[ SYMMETRY IS A PACE, READ OFF THE PAINT. This used to count frames
+			until the clock went idle, which stopped being the right instrument
+			once the exit phase got its own settle epsilon (task 7 item 1): the
+			two directions then idle 6 frames apart on `reward` while painting
+			the SAME trajectory — the difference is entirely in the invisible
+			tail (reward's progress is 0.0003 at the earlier of the two). The
+			claim `exitClass` actually makes is about the motion a player sees,
+			so the pin is the frame the fade CROSSES 95% in each direction.
+
+			`reward` (not `container`): the flat 500 ms exit cap already
+			truncates a `container` exit, so pairing class/exitClass on it would
+			prove the CAP fired identically on both sides rather than that
+			exitClass restored the spring's own symmetric timing. ]]
+		local enterCross, exitCross = fadeFrames("reward", "reward")
+		expect(enterCross).toBe(5)
+		expect(exitCross).toBe(enterCross)
 	end)
 
 	it("a re-entry mid-exit keeps its velocity across the retune", function()
@@ -1112,8 +1195,45 @@ describe("transition coordinator: exits are faster than enters by default", func
 		local spec = transitionsLib.resolve({ enter = "fade" })
 		expect(spec.class).toBe("container")
 		expect(spec.exitClass).toBe("dismiss")
+		-- both defaults are PUBLISHED, for the same reason `DEFAULT_CLASS` is: a
+		-- consumer that must mirror one (navigation_stack pins exitClass to the
+		-- page class rather than let it drift) reads it instead of copying the
+		-- string (review finding 13)
+		expect(transitionsLib.DEFAULT_CLASS).toBe(spec.class)
+		expect(transitionsLib.DEFAULT_EXIT_CLASS).toBe(spec.exitClass)
 		local ok, err = pcall(transitionsLib.resolve, { enter = "fade", exitClass = 3 })
 		expect(ok).toBe(false)
 		expect(string.find(tostring(err), "exitClass", 1, true) ~= nil).toBe(true)
+	end)
+
+	it("a fresh transition builds ONE spring, not one it throws away", function()
+		--[[ review finding 9: `entryFor` used to construct `spec.class`
+			unconditionally and the `retune` on the very next line replaced it —
+			one MotionValue built, observed and disposed per transition for
+			nothing, which on a 600-row retire is 600 of them. The entry is now
+			built with the phase's own class AND epsilon, so the retune no-ops on
+			the fresh path and only a REVERSAL (enter↔exit, which really does
+			change both) pays for a replacement. ]]
+		local core, env, clock = world()
+		local built = 0
+		local realSpring = clock.spring
+		clock.spring = function(...)
+			built += 1
+			return realSpring(...)
+		end
+		local on = core:signal(true)
+		local root, _, _, coordinator = attach(core, env, clock, whenScreen(on, FADE))
+		expect(built).toBe(1) -- the mount-time enter
+		for _ = 1, 60 do
+			clock:step(FRAME)
+		end
+		on:set(false)
+		expect(built).toBe(2) -- the exit: a fresh entry at `dismiss`, no retune
+		for _ = 1, 60 do
+			clock:step(FRAME)
+		end
+		root.dispose()
+		coordinator.dispose()
+		clock:dispose()
 	end)
 end)

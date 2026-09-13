@@ -1558,6 +1558,14 @@ end)
 describe("menu: the floating panel materializes", function()
 	local FRAME = 1 / 60
 	it("fades and grows in, then leaves faster", function()
+		--[[ MEASURED ON THE PAINT (task 7 item 1), for the reason alert.spec's
+			twin states at length: "frames until the node is gone" was decided by
+			the flat 500 ms exit cap, not by the exit class, so the old
+			comparison passed under `exitClass = "container"` exactly as it did
+			under `dismiss` and proved nothing about the asymmetry the round
+			introduced. The pin is now the frame the popup's fade crosses 95% in
+			each direction, plus the fact that its own spring — not the cap —
+			ends the exit. ]]
 		local w = world({})
 		w.adapter.tap(TRIGGER)
 		w.pres.refresh()
@@ -1565,10 +1573,12 @@ describe("menu: the floating panel materializes", function()
 		local popup = w.adapter.node(popupPath)
 		expect(popup ~= nil and popup.canvasGroupInstance ~= nil).toBe(true)
 		expect(popup.canvasGroupInstance.groupTransparency).toBe(1)
-		local enterFrames = 0
-		while popup.canvasGroupInstance.groupTransparency > 0 and enterFrames < 600 do
+		local enterCross = -1
+		for f = 1, 120 do
 			w.pres.tick(FRAME)
-			enterFrames += 1
+			if enterCross < 0 and popup.canvasGroupInstance.groupTransparency <= 0.05 then
+				enterCross = f
+			end
 		end
 		expect(popup.canvasGroupInstance.groupTransparency).toBe(0)
 		-- closing through the control's own verb (the file's other whole-menu
@@ -1577,12 +1587,21 @@ describe("menu: the floating panel materializes", function()
 		-- survives `close()` until the coordinator's retire completes
 		w.control.api.close()
 		w.pres.refresh()
-		local exitFrames = 0
-		while w.adapter.node(popupPath) ~= nil and exitFrames < 600 do
+		local exitCross, goneAt = -1, -1
+		for f = 1, 120 do
 			w.pres.tick(FRAME)
-			exitFrames += 1
+			local node = w.adapter.node(popupPath)
+			if node == nil then
+				if goneAt < 0 then
+					goneAt = f
+				end
+			elseif exitCross < 0 and node.canvasGroupInstance.groupTransparency >= 0.95 then
+				exitCross = f
+			end
 		end
 		expect(w.adapter.node(popupPath)).toBeNil()
-		expect(exitFrames > 0 and exitFrames < enterFrames).toBe(true)
+		-- the PACE, and then the LIFETIME
+		expect(exitCross > 0 and exitCross < enterCross).toBe(true)
+		expect(goneAt > 0 and goneAt < math.ceil(Facet.EXIT_CAP_SECONDS * 60)).toBe(true)
 	end)
 end)

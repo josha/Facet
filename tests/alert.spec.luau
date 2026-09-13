@@ -565,6 +565,16 @@ t.describe("alert: the modal materializes", function()
 		already does, gives the untouched first-frame state instead. ]]
 	local FRAME = 1 / 60
 	t.it("enters through a fade group and leaves faster than it came", function()
+		--[[ MEASURED ON THE PAINT, NOT ON THE CLOCK GOING QUIET (task 7 item 1).
+			The first shape of this test compared "frames until transparency
+			reached 0" against "frames until the node was gone", and BOTH sides
+			were dominated by a settle tolerance rather than by the motion: the
+			exit ended on the flat 500 ms cap, so it read as faster no matter
+			which exit class was in force — `exitClass = "container"` passed it
+			just as happily as `dismiss`. What the round actually claims is that
+			the modal DIPS OUT faster than it grows in, so the pin is the frame
+			the fade crosses 95% in each direction, plus the fact that the exit
+			is ended by its own spring rather than by the cap. ]]
 		local w = world.new()
 		local alert = Facet.Controls.Alert(w.core, {
 			id = "Confirm",
@@ -575,19 +585,31 @@ t.describe("alert: the modal materializes", function()
 		local center = w.adapter.node("/Confirm/Center")
 		t.expect(center.canvasGroupInstance ~= nil).toBe(true)
 		t.expect(center.canvasGroupInstance.groupTransparency).toBe(1)
-		local enterFrames = 0
-		while center.canvasGroupInstance.groupTransparency > 0 and enterFrames < 600 do
+		local enterCross = -1
+		for f = 1, 120 do
 			w.pres.tick(FRAME)
-			enterFrames += 1
+			if enterCross < 0 and center.canvasGroupInstance.groupTransparency <= 0.05 then
+				enterCross = f
+			end
 		end
-		t.expect(enterFrames > 0).toBe(true)
+		t.expect(enterCross > 0).toBe(true)
 		w.pres.dismiss(handle)
-		local exitFrames = 0
-		while w.adapter.node("/Confirm/Center") ~= nil and exitFrames < 600 do
+		local exitCross, goneAt = -1, -1
+		for f = 1, 120 do
 			w.pres.tick(FRAME)
-			exitFrames += 1
+			local node = w.adapter.node("/Confirm/Center")
+			if node == nil then
+				if goneAt < 0 then
+					goneAt = f
+				end
+			elseif exitCross < 0 and node.canvasGroupInstance.groupTransparency >= 0.95 then
+				exitCross = f
+			end
 		end
-		t.expect(exitFrames < enterFrames).toBe(true)
+		-- the PACE: 95% dipped out sooner than it was 95% grown in
+		t.expect(exitCross > 0 and exitCross < enterCross).toBe(true)
+		-- the LIFETIME: the `dismiss` spring ends it, not the flat cap
+		t.expect(goneAt > 0 and goneAt < math.ceil(Facet.EXIT_CAP_SECONDS * 60)).toBe(true)
 		alert.dispose()
 	end)
 

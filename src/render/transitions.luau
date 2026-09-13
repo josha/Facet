@@ -44,6 +44,39 @@ local transitions = {}
 
 -- ui-designer spec §2.1 / disposition F8: flat and non-overridable
 local EXIT_CAP_SECONDS = 0.5
+--[[ THE EXIT ENDS WHEN IT IS VISUALLY ABSENT, NOT WHEN THE SOLVER IS BORED
+	(task 7 item 1). A spring settles on `|x - target| <= eps AND |v| <= eps`,
+	and for a critically damped spring it is the VELOCITY half that decides by a
+	wide margin: `dismiss` (ζ1.0 / 0.2 s) is numerically zero — 0.27% of its
+	travel — at frame 18 and still carries 0.061 progress/s, so at the default
+	1e-3 it "settles" at frame 30. Measured, that put disposal at 0.500 s: the
+	flat cap to the frame, with `container` one frame behind it. The cap is a
+	SAFETY NET for a motion that cannot land (a stalled clock, a class whose
+	response genuinely exceeds it); when it is also the ordinary end of every
+	exit, the exit classes are indistinguishable at the one moment a player can
+	see — when the instances go — and a faster class buys only a faster fade.
+
+	So the EXIT phase builds its spring at a coarser epsilon while the ENTER
+	keeps the default: an enter's settle fires `arrive`, a semantic event whose
+	frame is a fact rather than a tolerance, and an exit's settle only decides
+	when something already invisible stops existing.
+
+	WHY 0.02 IS INVISIBLE, stated over the quantity it actually bounds. This
+	epsilon is in PROGRESS, and every form is derived from that one number, so
+	the worst case it can ever truncate is 2% of a transition's travel: 2% alpha,
+	0.48 px of the themed 24 px slide, 0.08% of the 0.96→1 materialize. That
+	worst case needs a spring whose VALUE is the binding half — ζ2.0 / 2 s, the
+	far corner of the authored range (classes.luau), which lands at x = 0.0199.
+	Every shipped class is velocity-bound instead and settles far finer than
+	that: `dismiss` at x = 0.0007, `object` 0.0011, `container` 0.0014, `decay`
+	0.0019 — two tenths of one percent of the travel or less.
+
+	Measured after: frames to dispose (60 fps, `enter = "fade"`) `dismiss` 22,
+	`object` 28, `container` 31, `decay` 31. The last two are the two classes
+	whose settle (33 and 44 frames) genuinely outruns the 30-frame cap, which is
+	the net doing its job — and the reason `dismiss`, not `container`, is
+	`DEFAULT_EXIT_CLASS`. ]]
+local EXIT_EPS = 0.02
 -- the slide travel, as a THEME metric (`space.l` = 24 px in Facet Neutral): a
 -- roomier theme slides a little further, and no call site carries a magic number
 local DEFAULT_SLIDE_DISTANCE = 24
@@ -527,12 +560,12 @@ function transitions.new(opts: Opts)
 	-- CLASS. A MotionValue's class is fixed at construction, so a phase that
 	-- wants a different one gets a fresh spring seeded with the old value AND
 	-- velocity — the reversal keeps its momentum exactly as before.
-	local function retune(entry: any, class: string)
-		if entry.class == class then
+	local function retune(entry: any, class: string, eps: number?)
+		if entry.class == class and entry.eps == eps then
 			return
 		end
 		local old = entry.progress
-		local fresh = clock:spring(old:get(), class)
+		local fresh = clock:spring(old:get(), class, { eps = eps })
 		fresh:setVelocity(old:getVelocity())
 		if entry.unobserve ~= nil then
 			entry.unobserve()
@@ -541,10 +574,24 @@ function transitions.new(opts: Opts)
 		old:dispose()
 		entry.progress = fresh
 		entry.class = class
+		entry.eps = eps
 		listen(entry)
 	end
 
-	local function entryFor(path: string, node: any, spec: Spec, initial: number, alphaPath: string): any
+	-- `class`/`eps` are the phase's, not the spec's: a FRESH entry is built with
+	-- the spring the caller is about to aim, so the `retune` that follows no-ops
+	-- (review finding 9 — the old shape constructed `spec.class` unconditionally
+	-- and threw it away one line later, which on a 600-row retire is 600
+	-- MotionValues built, observed and disposed for nothing).
+	local function entryFor(
+		path: string,
+		node: any,
+		spec: Spec,
+		initial: number,
+		alphaPath: string,
+		class: string,
+		eps: number?
+	): any
 		local existing = entries[path]
 		if existing ~= nil then
 			existing.node = node
@@ -559,8 +606,9 @@ function transitions.new(opts: Opts)
 			alphaPath = alphaPath,
 			phase = "idle",
 			absent = { x = 0, y = 0 },
-			progress = clock:spring(initial, spec.class),
-			class = spec.class,
+			progress = clock:spring(initial, class, { eps = eps }),
+			class = class,
+			eps = eps,
 			disposed = false,
 		}
 		entries[path] = entry
@@ -634,8 +682,8 @@ function transitions.new(opts: Opts)
 			end
 			return
 		end
-		local entry = entryFor(path, node, spec, 0, alphaPath)
-		retune(entry, spec.class)
+		local entry = entryFor(path, node, spec, 0, alphaPath, spec.class, nil)
+		retune(entry, spec.class, nil)
 		stopCap(entry)
 		entry.done = nil
 		entry.phase = "enter"
@@ -675,8 +723,8 @@ function transitions.new(opts: Opts)
 			return
 		end
 		local alphaPath = resolveAlphaTarget(path, node)
-		local entry = entryFor(path, node, spec, 1, alphaPath)
-		retune(entry, spec.exitClass)
+		local entry = entryFor(path, node, spec, 1, alphaPath, spec.exitClass, EXIT_EPS)
+		retune(entry, spec.exitClass, EXIT_EPS)
 		entry.phase = "exit"
 		entry.done = done
 		setAbsent(entry, absentFor(spec, spec.exit, "exit"))
@@ -738,5 +786,10 @@ transitions.EXIT_CAP_SECONDS = EXIT_CAP_SECONDS
 -- lockstep, which pins exitClass to the SAME class rather than let it drift
 -- onto DEFAULT_EXIT_CLASS) reads this instead of copying the string by hand.
 transitions.DEFAULT_CLASS = DEFAULT_CLASS
+transitions.DEFAULT_EXIT_CLASS = DEFAULT_EXIT_CLASS
+-- the exit phase's settle epsilon (see its definition above), published for the
+-- same reason: a test that wants to know when an exit ENDS reads the tolerance
+-- rather than re-deriving it
+transitions.EXIT_EPS = EXIT_EPS
 
 return transitions
