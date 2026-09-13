@@ -7847,8 +7847,11 @@ page-owned. Nearby compact/short screens retain bottom tabs. A nearby sidebar
 preference returns when space permits, but does not override distant-view policy.
 Commands preserve focus when effective placement does not change. A sidebar adds
 `space.m` between its chrome and the page by default, including ordinary sidebar
-TabViews; page content owns its internal padding. Top/bottom homes add no vertical
-gap. Nested TabViews keep their own top bar. This style defaults to pill indicators
+TabViews; page content owns its internal padding. A top or bottom home adds
+`space.s` for the same reason — the strip is a plate and the page is not part of
+it — so a strip never touches its content at any placement, in any theme. Both are
+metric names, so a package's own spacing moves them. Nested TabViews keep their own
+top bar. This style defaults to pill indicators
 and preserves the normal lazy-build/eviction contract; `indicator` may override it.
 No destination content or hero imagery is invented.
 

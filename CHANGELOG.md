@@ -13,6 +13,13 @@ runtime as `Facet.VERSION`.
 
 ## [Unreleased]
 
+- Fixed: a `TabView`'s strip touched its page at every placement but the sidebar.
+  The root stack spent the theme's `m` step beside a rail and nothing at all
+  above or below a band, so a strip — a plate with its own fill and corner — ran
+  straight into the content under it in every theme. All four placements own a
+  theme-sized gap now (`m` beside a rail, `s` above or below a band), spent as a
+  metric name so a package's spacing and a ten-foot display's scale both reach
+  it. New gate: `tests/tab_strip_gap.spec.luau`.
 - Fixed: a `UI.Divider` painted the theme's hairline COLOUR at full opacity while
   every stroke in the sheet painted the same token at `hairlineOpacity` — so a
   segmented picker's seam, a menu's row rule and any list separator were a solid

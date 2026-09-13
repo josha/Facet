@@ -1212,6 +1212,9 @@ require("./hit_expander_z_band.spec")
 	control case is that an ORDINARY sub-floor control keeps its whole floor ]]
 require("./hit_floor_region_clamp.spec")
 require("./tab_view.spec")
+-- ...and the boundary between the strip and the page it names: a theme-sized
+-- gap at every placement, not only beside a rail (owner report 2026-09-12)
+require("./tab_strip_gap.spec")
 require("./tab_view_accessories.spec")
 require("./level_picker.spec")
 --[[ `Facet.Controls.<Name>(core, spec)` — every one of the nineteen

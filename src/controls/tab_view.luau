@@ -921,8 +921,8 @@ function tab_view.build(Facet: any, core: any, spec: Spec)
 	-- ===== the three homes ===================================================
 	-- One strip blueprint, declared in each home under mutually-exclusive
 	-- conditions, so exactly one is mounted and the picker object is built once.
-	-- The sidebar/content boundary owns a theme-sized gap. Pages still own their
-	-- internal spacing; a top or bottom band takes no extra vertical gap.
+	-- Every strip/content boundary owns a theme-sized gap (see the root stack's
+	-- own `gap`); pages still own their internal spacing.
 
 	-- The scrolling homes are ScrollViews because a hugging strip can be wider
 	-- than its offer; the thumb-zone band is not, because a `fill` strip divides
@@ -1262,8 +1262,18 @@ function tab_view.build(Facet: any, core: any, spec: Spec)
 	local root = UI.AdaptiveStack({
 		id = id,
 		axis = rootAxis,
+		--[[ THE STRIP NEVER TOUCHES THE PAGE (owner report 2026-09-12). This read
+			`if use(sidebar) then "m" else 0`, so a rail beside a page got the
+			theme's spacing and a band above or below one got none — in every theme,
+			at every text size. A strip is a plate with its own fill and its own
+			corner; a page starting on the pixel below it reads as part of the strip.
+			One decision for all four placements now, and both halves are METRIC
+			NAMES: a package that retunes its spacing retunes this, and a ten-foot
+			display's scaled steps reach it with nothing to update. The rail keeps
+			the wider step because a vertical boundary down the middle of a screen is
+			a bigger seam than a horizontal one at its edge. ]]
 		gap = scope:own(core:memo(function(use)
-			return if use(sidebar) then "m" else 0
+			return if use(sidebar) then "m" else "s"
 		end)),
 		width = FILL,
 		height = FILL,
