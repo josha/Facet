@@ -3636,9 +3636,12 @@ function screen_target.new(opts: Opts?)
 		end
 		-- ...and the toggle's pair, for the identical reason: a Position tween
 		-- still running would write onto the control that takes this identity
-		-- next (review N1). The knob's place is re-asserted by `applyToggleValue`
-		-- when the adopter writes its own value.
-		stopToggleTweens(handle)
+		-- next (review N1). `place = true` because NOTHING here will correct the
+		-- knob afterwards — the instance survives a park, and a valueless
+		-- `UI.Toggle` adopter never writes a value. (This comment used to claim
+		-- the adopter re-asserts the knob, which is exactly the case that does
+		-- not.)
+		stopToggleTweens(handle, true)
 		local path = handle.path
 		-- release this node's membership of the host ABOVE it: a parked node left in
 		-- that array is a corpse the host goes on re-placing every solve
@@ -3932,7 +3935,7 @@ function screen_target.new(opts: Opts?)
 			handle.focusFloatGeom = nil
 		end
 		stopFocusScaleTweens(handle)
-		stopToggleTweens(handle)
+		stopToggleTweens(handle, true)
 		handle.focusVisualHost = nil
 		focusedHandles[handle] = nil
 		dropHitExpander(handle)
@@ -4023,7 +4026,7 @@ function screen_target.new(opts: Opts?)
 						chromeState.noteFocusGlow(false)
 					end
 					stopFocusScaleTweens(handle)
-					stopToggleTweens(handle)
+					stopToggleTweens(handle, true)
 					handle.focusVisualHost = nil
 					handle.focusFloatGeom = nil
 					focusedHandles[handle] = nil

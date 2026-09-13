@@ -601,7 +601,11 @@ function alert.build(Facet: any, core: any, spec: Spec)
 				surface = if action.role == "default" then "accent" else nil,
 				height = { type = "minMax", min = "targetSizes.minimum" },
 				--[[ A CUT ACTION LABEL KEEPS A ROUTE TO ITS WHOLE STRING (task 7
-					item 6's consequence, closed the way LT-G4 was). A one-word
+					item 6's consequence, closed the way the large-text sweep's
+					last open gap was — a one-line button label declaring the
+					accessibility plate, which is what every segment of a sliding
+					strip now does; the ledger of those gaps and their closures
+					lives in `tests/lib/large_text_fixtures.luau`). A one-word
 					label cannot wrap, so when the card's own carved frame narrows
 					the stack — measured: `fantasy-parchment`'s panel contentInsets
 					take 19 px a side, so a 390 px phone at the Largest preference

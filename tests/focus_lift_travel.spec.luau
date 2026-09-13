@@ -210,25 +210,58 @@ describe("screen_paint.applyToggleValue: the knob tween is HELD, like the track'
 		)
 	end)
 
-	it("the cancel also PLACES the knob, so a parked instance carries no mid-travel pose (D7)", function()
-		--[[ `park` keeps the instance for a later, unrelated adoption, and a
-			valueless `UI.Toggle` adopter never writes a value — so nothing would
-			re-assert the knob and the recycled node would paint it wherever the
-			previous identity's blur left it, which the Back overshoot can put
-			past the end of the track. `applyToggleValue` places the knob itself
-			straight after calling this, so the write only bites on the teardown
-			paths, and only when a tween was actually interrupted. ]]
+	it("the placement is the TEARDOWN'S to ask for, never inferred from a flag", function()
+		--[[ THE REGRESSION THIS PINS. Review D7 wanted the knob put where its
+			value says after an interrupted tween, and the first shape inferred
+			that from "was a tween running?". That is true on the FLIP path too —
+			`applyToggleValue` writes the new `handle.toggleOn` BEFORE it calls
+			the helper — so the knob was placed at the DESTINATION and the tween
+			that followed ran from there to the same place: zero visible motion,
+			on every flip. Only the three TEARDOWN sites want a placement, and
+			they are the ones that ask for it. ]]
 		local HELPER = adapter_source.bodyOf(paintSrc, "local function stopToggleTweens(")
-		expect(string.find(HELPER, "local knobWasTweening = handle.toggleKnobTween ~= nil", 1, true) ~= nil).toBe(true)
-		expect(string.find(HELPER, "if knobWasTweening and handle.knob ~= nil then", 1, true) ~= nil).toBe(true)
-		-- the position comes from the VALUE, not from wherever the tween stopped
+		expect(string.find(HELPER, "stopToggleTweens(handle: any, place: boolean?)", 1, true) ~= nil).toBe(true)
+		-- the placement is gated on the ARGUMENT, not on a "was it tweening" read
+		expect(string.find(HELPER, "if place == true and handle.knob ~= nil then", 1, true) ~= nil).toBe(true)
+		expect(string.find(HELPER, "knobWasTweening", 1, true)).toBeNil()
+		-- the position still comes from the VALUE
 		expect(
 			string.find(HELPER, "if handle.toggleOn == true then TOGGLE_KNOB_ON else TOGGLE_KNOB_OFF", 1, true) ~= nil
 		).toBe(true)
-		-- ...and it is read BEFORE the cancel clears the field
-		local readAt = string.find(HELPER, "local knobWasTweening", 1, true)
-		local cancelAt = string.find(HELPER, "handle.toggleKnobTween:Cancel()", 1, true)
-		expect((readAt :: number) < (cancelAt :: number)).toBe(true)
+		-- ...and the FLIP path asks for no placement, so its tween has somewhere
+		-- to travel from
+		local FN2 = adapter_source.bodyOf(paintSrc, "local function applyToggleValue(")
+		expect(string.find(FN2, "stopToggleTweens(handle)", 1, true) ~= nil).toBe(true)
+		expect(string.find(FN2, "stopToggleTweens(handle, true)", 1, true)).toBeNil()
+	end)
+
+	it("each tween field means IN FLIGHT — cleared when the tween lands, not only when cancelled", function()
+		--[[ both fields were assigned at creation and cleared only by
+			`stopToggleTweens`, so from the SECOND flip on they read as "running"
+			forever. With the placement inferred from that flag, every flip
+			teleported; on its own it still means a genuine mid-flight reversal is
+			treated as one more stale-field case. `Completed:Once` is the idiom the
+			press-dip tween beside them already uses. ]]
+		local FN2 = adapter_source.bodyOf(paintSrc, "local function applyToggleValue(")
+		-- each of the two tweens this function creates is followed by its own
+		-- completion hook, within its own block
+		for _, pair in
+			{
+				{ create = "TweenService:Create(track,", field = "handle.toggleTrackTween == tween" },
+				{ create = "TweenService:Create(knob, overshootInfo", field = "handle.toggleKnobTween == knobTween" },
+			}
+		do
+			local at = string.find(FN2, pair.create, 1, true)
+			expect(`{pair.create} found: {at ~= nil}`).toBe(`{pair.create} found: true`)
+			local block = string.sub(FN2, at :: number, (at :: number) + 420)
+			expect(string.find(block, "Completed:Once", 1, true) ~= nil).toBe(true)
+			-- `Completed` fires for a CANCELLED tween too, so the state is
+			-- checked...
+			expect(string.find(block, "state == Enum.PlaybackState.Completed", 1, true) ~= nil).toBe(true)
+			-- ...and so is identity, or a late callback would clear the tween that
+			-- REPLACED the one it belongs to
+			expect(string.find(block, pair.field, 1, true) ~= nil).toBe(true)
+		end
 	end)
 
 	it("the adapter's three teardown paths end the toggle's tweens too (item 10's root cause)", function()
@@ -240,14 +273,19 @@ describe("screen_paint.applyToggleValue: the knob tween is HELD, like the track'
 		for _, anchor in { "function adapter.park(", "function adapter.destroyRoot(" } do
 			local BODY = adapter_source.bodyOf(targetSrc, anchor)
 			expect(#BODY > 0).toBe(true)
-			expect(string.find(BODY, "stopToggleTweens(handle)", 1, true) ~= nil).toBe(true)
+			-- ...and each ASKS for the placement, because there is nobody left to
+			-- correct the knob after them
+			expect(string.find(BODY, "stopToggleTweens(handle, true)", 1, true) ~= nil).toBe(true)
 		end
 		-- the per-node removal path is the third; it is where the float ring and
 		-- the focus-scale tween are already ended
 		local removeAt = string.find(targetSrc, "handle.focusRingFloat:Destroy()", 1, true)
 		expect(removeAt ~= nil).toBe(true)
 		local window = string.sub(targetSrc, removeAt :: number, (removeAt :: number) + 700)
-		expect(string.find(window, "stopToggleTweens(handle)", 1, true) ~= nil).toBe(true)
+		expect(string.find(window, "stopToggleTweens(handle, true)", 1, true) ~= nil).toBe(true)
+		-- exactly three placements, and every one of them is a teardown
+		local _, placements = string.gsub(targetSrc, "stopToggleTweens%(handle, true%)", "")
+		expect(placements).toBe(3)
 	end)
 end)
 
