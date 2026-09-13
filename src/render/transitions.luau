@@ -488,11 +488,18 @@ function transitions.new(opts: Opts)
 		stripping only the last segment would hand every row its own private batch
 		and no row would ever wait for another. A region that is not keyed (a `When`
 		branch) keeps its parent, which is the right answer for it: a lone branch is
-		the first of its batch and waits for nothing. ]]
+		the first of its batch and waits for nothing.
+
+		THE KEYED SEGMENT IS MATCHED AS A BALANCED BRACKET GROUP, not as "brackets
+		around anything but a slash". A key is the author's own string and a `/` in it
+		is ordinary — a route, an asset id, `world/moss` — and under the slash-free
+		form every such row failed the match, kept its own parent, and became the
+		first of its own private batch. The rows still entered; they just all entered
+		at once, with nothing said. ]]
 	local staggerStep, staggerCounts = -1, {} :: { [string]: number }
 	local function batchKey(path: string): string
 		local parent = string.match(path, "^(.*)/[^/]+$") or ""
-		return string.match(parent, "^(.*)/%[[^/]*%]$") or parent
+		return string.match(parent, "^(.*)/%b[]$") or parent
 	end
 	local function staggerDelay(path: string, spec: Spec): number
 		if spec.stagger <= 0 then

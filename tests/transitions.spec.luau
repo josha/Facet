@@ -1523,6 +1523,34 @@ describe("transition coordinator: stagger", function()
 		clock:dispose()
 	end)
 
+	--[[ A KEY IS THE AUTHOR'S STRING, AND A `/` IN IT IS ORDINARY (final review
+		item 6). The batch is "the path with the row's own segment and the keyed
+		segment above it removed", and the keyed segment was matched as
+		`/%[[^/]*%]$` — a bracket group that may not contain a slash. A ForEach
+		keyed by anything path-shaped (`world/moss`, a route, an asset id) failed
+		that match, so every row kept its own parent, every row was the first of
+		its own batch, and the stagger silently did nothing. Silently is the whole
+		problem: the rows still enter, all at once, and nothing says a word. ]]
+	it("a key containing a slash still shares one batch, so the rhythm survives it", function()
+		local core, env, clock = world()
+		local items = core:signal({ { id = "world/moss" }, { id = "world/fen" } })
+		local on = core:signal(true)
+		local root, adapter, _, coordinator = attach(core, env, clock, rowsScreen(items, on, 0.05))
+		expect(alphaOf(adapter, "world/moss")).toBe(1)
+		expect(alphaOf(adapter, "world/fen")).toBe(1)
+		clock:step(FRAME)
+		expect(`first moving: {alphaOf(adapter, "world/moss") < 1}`).toBe("first moving: true")
+		expect(`second held: {alphaOf(adapter, "world/fen") == 1}`).toBe("second held: true")
+		for _ = 1, 120 do
+			clock:step(FRAME)
+		end
+		expect(alphaOf(adapter, "world/fen")).toBe(0)
+		expect(clock:activeCount()).toBe(0)
+		root.dispose()
+		coordinator.dispose()
+		clock:dispose()
+	end)
+
 	it("exits never stagger", function()
 		local core, env, clock = world()
 		local items = core:signal({ { id = "a" }, { id = "b" }, { id = "c" } })
