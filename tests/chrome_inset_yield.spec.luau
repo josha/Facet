@@ -339,3 +339,126 @@ describe("the lifted label is never smaller than the text it stands in for", fun
 		expect(string.find(propsSource, "refitFullBleed(handle)", 1, true) ~= nil).toBe(true)
 	end)
 end)
+
+--[[ THE CARVE AND THE LANE ARE ONE CLEARANCE, AND THE CROSS AXIS OWES THE WHOLE
+	OF IT (fix wave 4, 2026-09-13).
+
+	The lane exists because a y-axis scroller cannot be scrolled sideways: a glow
+	that paints past the content's own box on THAT axis is simply cut by
+	`ClipsDescendants`, so the clearance has to be real padding. A carved frame
+	already holds content that far from the clip edge, which is why the lane is
+	netted against the carve — but the netted lane and the carve then have to be
+	ADDED to be the same reservation, and a `math.max` against a padding that
+	already contains the carve adds nothing. Total cross clearance became
+	`max(carve, bleed - carve)` instead of `bleed`: measured on ONE Glossy Touch
+	`panel` scroller (bleed 17, carve 14), 17 px of top clearance against 14 px of
+	left — three pixels apart on the same node, on the axis that cannot recover
+	them by scrolling.
+
+	So the cross-axis floor is the package's RAW reach. The stamp that feeds the
+	leading spend and the scroll canvas stays netted — those two are additive on
+	top of the padding, and double-counting there is the defect the netting landed
+	to remove. Both halves are pinned below, on two packages that sit either side
+	of the carve (Glossy Touch carves 14 under a 17 px reach; Sci-Fi HUD carves
+	nothing under a 24 px one) and on both scroll axes, because the lane's side is
+	chosen from the axis. ]]
+describe("a carved scroller keeps the package's whole reach on its cross axis", function()
+	-- one hinted `panel` scroller, big enough that nothing is refused, with no
+	-- authored padding of its own: whatever clearance the children get is exactly
+	-- what the carve and the lane put there.
+	local function solveHintedScroller(name: string, axis: string): any
+		local core = customFactory.new()
+		local env = environment.new(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
+		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
+		local metrics = snapshot.resolve(packageOf(name), nil, {})
+		env:set("themeMetrics", metrics)
+		local adapter = fake_target.new()
+		local root = mountLib.mount(
+			core,
+			UI.Screen({
+				id = "S",
+				padding = 0,
+				children = {
+					-- the HINT is what makes this a `panel`: `classify` answers by
+					-- class first, so a bare ScrollView is a scroll track and carves
+					-- nothing at all
+					chrome_slots.attachHint(
+						UI.ScrollView({
+							id = "Card",
+							axis = axis,
+							surface = "raised",
+							width = { type = "fixed", px = 300 },
+							height = { type = "fixed", px = 300 },
+							children = {
+								UI.Button({ id = "A", label = "One" }),
+								UI.Button({ id = "B", label = "Two" }),
+							},
+						}),
+						{ slot = "panel" }
+					),
+				},
+			})
+		)
+		local controller = rendererLib.attach(core, root, env, adapter, {})
+		controller.initialRender()
+		local card = (adapter :: any).node("/S/Card")
+		local child = (adapter :: any).node("/S/Card/A")
+		local isX = axis == "x"
+		local out = {
+			-- the axis nothing can be scrolled along is the one the lane is for
+			cross = if isX then child.rect.y - card.rect.y else child.rect.x - card.rect.x,
+			leading = if isX then child.rect.x - card.rect.x else child.rect.y - card.rect.y,
+			bleed = metrics.chromeBleed,
+			carve = metrics.chromeInsets.panel.left,
+			canvas = if isX then card.scrollRegion.contentW else card.scrollRegion.contentH,
+			error = core:lastError(),
+		}
+		controller.dispose()
+		root.dispose()
+		return out
+	end
+
+	for _, axis in { "y", "x" } do
+		it(`glossy_touch, axis {axis}: the cross clearance is the whole 17px reach`, function()
+			--[[ BITES: floor the cross-axis padding on the NETTED lane instead of
+				`metrics.chromeBleed` and this reads 14 — the carve alone, with the
+				three pixels the netting took off never put back by anything. ]]
+			local out = solveHintedScroller("glossy_touch", axis)
+			expect(`carve {out.carve} bleed {out.bleed}`).toBe("carve 14 bleed 17")
+			expect(`cross {out.cross}`).toBe(`cross {out.bleed}`)
+			expect(out.error).toBeNil()
+		end)
+
+		it(`scifi_hud, axis {axis}: an uncarved package's lane does not move`, function()
+			-- the negative control. Sci-Fi HUD carves nothing, so the netted lane
+			-- and the raw reach are the same number and this cell must be
+			-- byte-identical either way.
+			local out = solveHintedScroller("scifi_hud", axis)
+			expect(`carve {out.carve} bleed {out.bleed}`).toBe("carve 0 bleed 24")
+			expect(`cross {out.cross}`).toBe("cross 24")
+			expect(out.error).toBeNil()
+		end)
+	end
+
+	it("the two axes of ONE node agree — the defect was that they did not", function()
+		-- the leading edge composes `carve + netted lane`; the cross edge floors on
+		-- the raw reach. Both land on the package's reach, which is the point: one
+		-- node cannot owe 17px of clearance at the top and 14px at the left.
+		local out = solveHintedScroller("glossy_touch", "y")
+		expect(`top {out.leading} left {out.cross}`).toBe(`top {out.bleed} left {out.bleed}`)
+	end)
+
+	it("...and the number the CANVAS and the leading spend are built from stays netted", function()
+		-- the cross-axis floor is a `math.max` against a padding that already
+		-- contains the carve, so it takes the raw reach. The stamp is ADDED to that
+		-- padding by `layout/scroll_arrange.luau` (leading edge) and by
+		-- `render/commit_walks.luau` (canvas), so it must stay `bleed - carve` or
+		-- the double-count the netting removed comes straight back.
+		local metrics = snapshot.resolve(packageOf("glossy_touch"), nil, {})
+		expect(chrome_slots.bleedLane(metrics, "panel", "y")).toBe(3)
+		expect(chrome_slots.bleedLane(metrics, "panel", "x")).toBe(3)
+		local scifi = snapshot.resolve(packageOf("scifi_hud"), nil, {})
+		expect(chrome_slots.bleedLane(scifi, "panel", "y")).toBe(24)
+	end)
+end)

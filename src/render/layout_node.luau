@@ -1357,7 +1357,7 @@ local function toLayoutNode(
 		even by a package that reserves no chrome at all: Facet Neutral declares
 		no `contentInsets` and still paints the framework's own pictures.
 
-		…AND ABOVE THE BLEED LANE AS WELL (NEW-1, 2026-09-13), because the lane owes
+		…AND ABOVE THE BLEED LANE AS WELL (2026-09-13), because the lane owes
 		only what the CARVE does not already give — see `chrome_slots.bleedLane`. ]]
 	local hint = chrome_slots.readHint(node)
 	local slot = if wantsInsets or wantsOutsets
@@ -1532,16 +1532,16 @@ local function toLayoutNode(
 		and props.chromeReserve ~= "none"
 		and not chrome_slots.hasOnlyPlainLeaves(node)
 	then
-		--[[ THE LANE OWES ONLY WHAT THE CARVE DOES NOT ALREADY GIVE (NEW-1). A
+		--[[ THE LANE OWES ONLY WHAT THE CARVE DOES NOT ALREADY GIVE. A
 			carved frame holds this scroller's content away from its own clip edge by
 			exactly its `contentInsets`, which is the same clearance the lane exists
 			to buy — so under Fantasy Parchment (bleed 17, panel carve 18) the lane
 			was pure double-count, 35 px a side out of a 390 px phone, and under
 			Sci-Fi HUD (bleed 24, carve 0) every pixel of it is owed.
 
-			DECIDED AFTER THE INSET BLOCK, from the carve that block actually KEPT
-			(R3): a frame `spendInset` refused is clearance this node never got, and
-			netting against it would leave neither the frame nor the lane.
+			DECIDED AFTER THE INSET BLOCK, from the carve that block actually KEPT: a
+			frame `spendInset` refused is clearance this node never got, and netting
+			against it would leave neither the frame nor the lane.
 
 			RE-READ PER SOLVE, which is the whole reason it lives here rather than in
 			a control's props: the answer is a fact about the INSTALLED package, and a
@@ -1552,14 +1552,32 @@ local function toLayoutNode(
 			whole block — that is a claim about its CONTENT, not about the art
 			around it. ]]
 		local bleed = chrome_slots.bleedLane(metrics, slot, props.axis or "y", carveSpent)
-		if bleed > 0 then
+		--[[ ...AND THE CROSS-AXIS FLOOR TAKES THE RAW REACH, NOT THAT NETTED LANE
+			(fix wave 4, 2026-09-13). Deciding the lane after the inset block is right,
+			but it means the padding this floors against ALREADY CONTAINS the carve —
+			so netting a second time here buys `math.max(carve, bleed - carve)` of
+			clearance where the package asks for `bleed`. Measured on ONE Glossy Touch
+			`panel` scroller (bleed 17, carve 14): 17 px of clearance at the top and 14
+			at the left, three pixels apart on the same node, on the axis that cannot
+			recover them by scrolling. Flooring on `chromeBleed` restores the sum the
+			netting was always meant to produce — Fantasy Parchment `max(18, 17) = 18`,
+			Sci-Fi HUD `max(0, 24) = 24`, Glossy Touch `max(14, 17) = 17` — and it is
+			right for EITHER side of an asymmetric carve, which the one-side lane read
+			is not.
+
+			The netted lane is still exactly what the two ADDITIVE spends want: the
+			leading edge below and the scroll canvas both stack on top of this padding
+			rather than max against it, and netting is the only thing keeping them from
+			charging the carve twice. Same number, two different arithmetics. ]]
+		local rawBleed = if type(metrics.chromeBleed) == "number" then metrics.chromeBleed else 0
+		if rawBleed > 0 then
 			local top, right, bottom, left = solver.sides(layoutNode.padding)
 			if (props.axis or "y") == "x" then
 				layoutNode.padding =
-					{ top = math.max(top, bleed), right = right, bottom = math.max(bottom, bleed), left = left }
+					{ top = math.max(top, rawBleed), right = right, bottom = math.max(bottom, rawBleed), left = left }
 			else
 				layoutNode.padding =
-					{ top = top, right = math.max(right, bleed), bottom = bottom, left = math.max(left, bleed) }
+					{ top = top, right = math.max(right, rawBleed), bottom = bottom, left = math.max(left, rawBleed) }
 			end
 		end
 		--[[ ...AND THE LEADING EDGE'S OWN RESERVE, STAMPED RATHER THAN SPENT
