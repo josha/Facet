@@ -223,7 +223,7 @@ function anchored.new(ctx: any)
 		first and moved second — through the anchor offsets, which are `dirty =
 		arrange` and therefore a re-solve, never a remount. The signals no-op on an
 		unchanged value, so a settled surface costs reads and no writes. ]]
-	--[[ WHOSE ANSWER THIS SURFACE INHERITS: its SOURCE'S (review NEW-1).
+	--[[ WHOSE ANSWER THIS SURFACE INHERITS: its SOURCE'S.
 
 		An anchored surface is presented as a MODAL whenever `opts.modal` is set —
 		that is how a picker's panel, a Menu and an expanded region all reach the

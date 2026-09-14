@@ -818,7 +818,8 @@ hover-wheel input routed by the adapter (the composite scrolling controls use
 it; a plain `ScrollView` relies on the native host instead). the scroll axis measures children unbounded and reports
 `contentSize` to the renderer. On the Roblox adapter it mounts as a native
 `ScrollingFrame` (native-substrate NS-A2): the solver owns every content rect
-and the canvas extent (`contentSize` + padding), while the ENGINE owns live
+and the canvas extent (`contentSize` + the padding the solve actually spent + the
+chrome lane it kept, published together by `layout/scroll_arrange.luau`), while the ENGINE owns live
 scrolling — wheel, touch momentum, elastic overscroll, and scroll bars. It is
 always a clip host (`clipChildren` defaults true), so the fallback path (an
 adapter without the scroll seam, e.g. billboards) still crops overflow.
@@ -6848,7 +6849,7 @@ consumer that needs to reason about the real box has to be told by how much.
 |---|---|---|
 | `chromeInsets[slot]` | per chrome slot (`panel`, `control`, `selection`, …): `{top, right, bottom, left}` px the slot's art reserves **inside** the node, before anything in it is measured — a nine-slice border, a plate's carved edge. Every slot publishes an entry, zero included | the renderer, added to the node's padding (`render/layout_node.luau`); read directly only when a caller must predict a decorated node's *content* box |
 | `chromeOutsets[slot]` | per slot: px the art **bleeds past** the node, realized as a margin, so the node itself is that much smaller inside the box it was given. Fantasy Ornate declares one (20px off the top of `panel`); most packages declare none | the renderer, as the margin; and by anything sizing a box that must sit around the bleed |
-| `chromeBleed` | a whole-package **number**, not a map: the deepest any slot's shadow reaches outside its box. It reserves nothing — it is the paint seam's clip allowance | the paint seam |
+| `chromeBleed` | a whole-package **number**, not a map: the deepest any slot's shadow reaches outside its box. It is the paint seam's clip allowance, and the reach an outermost `ScrollView` keeps clear so a child's glow is not cut by the viewport | the paint seam; and the outermost scroll host, as its chrome lane — `chrome_slots.bleedLane`, netted against that node's own carved inset, because a carved frame already holds content that far from the clip edge |
 
 **`hasChromeInsets` is the guard to read first.** Because every slot publishes an
 entry, `next(chromeInsets) ~= nil` answers "yes" on every package and tells you

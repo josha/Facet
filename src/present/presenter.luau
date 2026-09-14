@@ -1538,8 +1538,8 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		--[[ inside the host's own chrome, or taking the screen? Spent four ways from
 			here; argued at `appChromeInsets` (src/env/environment.luau).
 
-			AN ANCHORED SURFACE INHERITS ITS SOURCE'S ANSWER rather than deriving one
-			(review NEW-1). `presentAnchored{ modal = true }` is how a POPOVER is
+			AN ANCHORED SURFACE INHERITS ITS SOURCE'S ANSWER rather than deriving one.
+			`presentAnchored{ modal = true }` is how a POPOVER is
 			presented — a picker's panel, a Menu, an expanded region — so its `kind`
 			is "modal" while its meaning is "part of the page that raised it". Read
 			from `kind` alone, a popover over a content screen ignored the host's band,

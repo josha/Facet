@@ -13,9 +13,9 @@
 	      innerH, gap, pt, pr, pb, pl, out)`
 	      places a `scroll` node's children along its axis, having re-measured
 	      them at the viewport (twice, when the bar reservation narrows it), and
-	      publishes the four facts a scroll host owes the commit: `contentSize`,
-	      the `padding` it actually SPENT, the `barInset` it reserved, and the
-	      resolved `overflow`.
+	      publishes the five facts a scroll host owes the commit: `contentSize`,
+	      the `padding` it actually SPENT, the `bleedLane` it kept, the `barInset`
+	      it reserved, and the resolved `overflow`.
 
 	`scroll_arrange.Deps` is what it needs from the solver: the two recursive
 	passes and four pure readers. It requires `../tokens/chrome_slots` for the
@@ -28,7 +28,7 @@
 	asks the solver to, so the memo-key arming rule stays in the one file that
 	owns it. Everything else it reads off `ctx` is a plain per-solve field
 	(`scrollBarReserve`, `hiddenDepth` is not read here at all), and the only
-	things it writes are `out[node.id]`'s four published facts — the same table
+	things it writes are `out[node.id]`'s five published facts — the same table
 	the caller already wrote. No solver local is captured, no state lives at
 	module level, and nothing here requires the solver back.
 

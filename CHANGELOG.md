@@ -56,13 +56,18 @@ runtime as `Facet.VERSION`.
 
 - **A content-sized `ScrollView` reserves BOTH chrome-bleed edges, so the Alert
   card grows instead of scrolling (2026-09-13).** The scroll canvas is
-  `contentSize + padding + chromeBleed` — the trailing allowance that makes the
-  last child's shadow reachable — while a hugging scroller's measure counted only
-  the leading one. Under every package that paints a shadow the Alert card
-  therefore overflowed its own box by exactly the bleed and showed a scrollbar
-  forever: 17 px under Fantasy Parchment, Fantasy Ornate and Glossy Touch, 24 px
-  under Sci-Fi HUD, on a 390×844 phone with 400 px of room behind the card. A
-  definite-extent scroller is untouched.
+  `contentSize + padding + lane`, where the lane is the trailing allowance that
+  makes the last child's shadow reachable — the package's `chromeBleed` netted
+  against the slot's own carved frame, per the entry above — while a hugging
+  scroller's measure counted only the leading edge of that two-edge reservation.
+  A box measured one edge short of the canvas it then publishes can never fit
+  inside itself, so the Alert card overflowed by exactly the lane and showed a
+  scrollbar forever: measured before the netting landed in this same release, 17 px
+  under Fantasy Parchment, Fantasy Ornate and Glossy Touch and 24 px under Sci-Fi
+  HUD, on a 390×844 phone with 400 px of room behind the card. A card wearing a
+  carved panel frame now nets that lane away entirely (Fantasy Parchment carves 18
+  under a 17 px reach), so what the reservation is still worth is the uncarved
+  packages. A definite-extent scroller is untouched.
 
 - **The Alert's severity mark is punctuation, and its title is centred
   (2026-09-13).** The critical caution mark (and an authored `icon`) was

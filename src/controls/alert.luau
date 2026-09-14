@@ -219,8 +219,8 @@ end
 	The rungs above are all CATEGORICAL — a width class, a viewing distance, a text
 	preference — and every one of them is a proxy for the question that actually
 	decides the form: does the widest arrangement of these labels fit the width
-	this card has. Measured on the LT-8 fixture, the proxies miss it in both
-	directions: on a 1280 desktop at the default preference, "Permanently delete
+	this card has. Measured, the proxies miss it in both directions: on a 1280
+	desktop at the default preference, "Permanently delete
 	this saved progress" beside "Keep the previous checkpoint" asked for 802 px of
 	a 528 px card and simply ran out of it, while a phone's compact class stacks
 	alerts whose labels would have fitted a row twice over.
@@ -323,7 +323,7 @@ function alert.build(Facet: any, core: any, spec: Spec)
 			- (if type(insets) == "table" then (insets.left or 0) + (insets.right or 0) else 0)
 		-- the Screen this control mounts declares `padding = "m"` (see `blueprint`)
 		local screenPad = themeSnapshot.resolveNumber(metrics, "m") or 0
-		--[[ AN UNRESOLVABLE CAP IS NOT AN INFINITE ONE (NEW-2). `math.huge` was the
+		--[[ AN UNRESOLVABLE CAP IS NOT AN INFINITE ONE. `math.huge` was the
 			first fallback and it reads as "this card may be as wide as it likes",
 			which is the direction that keeps a row nothing can hold. A card can never
 			be wider than the screen it is centred in, so the screen is the honest
@@ -362,9 +362,9 @@ function alert.build(Facet: any, core: any, spec: Spec)
 		)
 		local font = if type(role) == "table" then role.fontKey else nil
 		--[[ A FONT THIS MEASURER CANNOT KEY ON IS NO MEASUREMENT AT ALL, AND THE
-			SAFE ANSWER IS "IT DOES NOT FIT" (RED-TEAM F2; direction corrected by
-			NEW-2). `text_metrics.measure` keys its caches on the font DESCRIPTOR,
-			and a `themeMetrics` fact is whatever an adapter or a fixture pushed — a
+			SAFE ANSWER IS "IT DOES NOT FIT" (RED-TEAM F2; the direction below was
+			corrected in review). `text_metrics.measure` keys its caches on the font
+			DESCRIPTOR, and a `themeMetrics` fact is whatever an adapter or a fixture pushed — a
 			partial table has no `type` section, so `effectiveTypeRole` answers no
 			role and the descriptor is nil. Raising here quarantines the memo that
 			asked and lands on `lastError` for a screen that used to render clean.
@@ -743,24 +743,27 @@ function alert.build(Facet: any, core: any, spec: Spec)
 			centres its own glyphs in the box it hugged to, which IS the card's
 			centre because the row centres it. ]]
 		local marked = #header > 0
-		--[[ A BLANK TITLE IS NO TITLE (NEW-5; made reactive by R2). A hugging Text
-			asks for the width of what it DRAWS, and whitespace draws nothing: `" "`
-			measured 0x24 and the containment guard reported a visible node with zero
-			width — correctly, it IS one. `""` is the same box under a different
-			spelling, so the two are folded.
+		--[[ A BLANK TITLE IS NO TITLE. A hugging Text asks for the width of what it
+			DRAWS, and whitespace draws nothing: `" "` measured 0x24 and the containment
+			guard reported a visible node with zero width — correctly, it IS one. `""`
+			is the same box under a different spelling, so the two are folded.
 
-			TWO RUNGS, BECAUSE ONE OF THEM CAN BE ANSWERED FOR FREE. A literal blank
-			is known here, so it mounts NOTHING — no node and (with no mark) no row
-			either, which is the whole of R7: an empty `Header` still cost a `gap`,
-			8 px of dead space above the message. A READABLE title cannot be judged
-			at build — it is blank now, or it goes blank three frames from now when
-			the caller's signal changes — so that one mounts and binds `hidden`,
-			which is the framework's own spelling for "this view is not to be drawn"
-			and the one the solver's hidden verdict, the hit walk and `hiddenRoots`
-			all already follow. It reserves its slot; a node that has to be able to
-			come BACK cannot give the slot up without a structural region, and a
-			structural region would move every alert's title path for the sake of a
-			degenerate case. ]]
+			TWO RUNGS, BECAUSE ONE OF THEM CAN BE ANSWERED FOR FREE, AND THEY LEAVE
+			DIFFERENT AMOUNTS OF NOTHING BEHIND. A literal blank is known here, so it
+			mounts NOTHING — no node and (with no mark) no `Header` row either — and
+			the message then sits at the card's own padding: measured at 390x844, top
+			= 16. A READABLE title cannot be judged at build — it is blank now, or it
+			goes blank three frames from now when the caller's signal changes — so
+			that one mounts and binds `hidden`, which is the framework's own spelling
+			for "this view is not to be drawn" and the one the solver's hidden
+			verdict, the hit walk and `hiddenRoots` all already follow. It reserves
+			its slot, and reserving the slot is what the empty space costs: the
+			`Header` row still solves 298x24 and the message starts at 48, so that
+			rung leaves 32 px — the 24 px row plus the stack's 8 px gap — where the
+			literal rung leaves none. That is the intended trade: a node that has to
+			be able to come BACK cannot give the slot up without a structural region,
+			and a structural region would move every alert's title path for the sake
+			of a degenerate case. ]]
 		local function blank(value: any): boolean
 			return type(value) ~= "string" or string.match(value, "%S") == nil
 		end
@@ -784,8 +787,8 @@ function alert.build(Facet: any, core: any, spec: Spec)
 				})
 			)
 		end
-		-- an empty row is not a row: it would still spend the content stack's gap
-		-- (R7), which is 8 px of nothing above the message
+		-- an empty row is not a row: with no children it would hug to nothing and
+		-- still spend the content stack's gap, 8 px of nothing above the message
 		if #header > 0 then
 			table.insert(
 				content,
@@ -921,7 +924,8 @@ function alert.build(Facet: any, core: any, spec: Spec)
 			`math.huge`, an unresolvable width cap falls back to the screen the card
 			is centred in rather than to infinity — so a wrong answer OVER-STACKS. A
 			stack is full width by construction and cannot put a button outside the
-			card; a row can, and did, when these two erred the other way (NEW-2).
+			card; a row can, and did, when these two erred the other way — an
+			unmeasurable label charged zero, an unresolvable cap charged infinity.
 
 			AND IT MEASURES WHAT THE BUTTON WILL ACTUALLY DRAW — WHICH IS THE FULL
 			LABEL, EVEN WHERE A `compactLabel` EXISTS (RED-TEAM F11, MEASURED AND
