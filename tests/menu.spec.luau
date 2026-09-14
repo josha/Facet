@@ -859,6 +859,9 @@ describe("D2 Menu: item 14 — COMPACT forces the single-panel idiom, not touch"
 		end
 		w.control.api.close()
 		w.pres.refresh()
+		for _ = 1, 60 do
+			w.pres.tick(1 / 60)
+		end
 		local stillAlive: { string } = {}
 		for path in everCreated do
 			if w.adapter.node(path) ~= nil then
@@ -1604,4 +1607,37 @@ describe("menu: the floating panel materializes", function()
 		expect(exitCross > 0 and exitCross < enterCross).toBe(true)
 		expect(goneAt > 0 and goneAt < math.ceil(Facet.EXIT_CAP_SECONDS * 60)).toBe(true)
 	end)
+end)
+
+describe("sheet submenu motion", function()
+	for _, reduced in { false, true } do
+		it("slides in opposite directions on enter and Back; reduced=" .. tostring(reduced), function()
+			local w = world({ presentation = "sheet", items = NESTED })
+			w.env:set("reducedMotion", reduced)
+			w.adapter.tap(TRIGGER)
+			for _ = 1, 60 do
+				w.pres.tick(1 / 60)
+			end
+			w.adapter.tap(sheetRow("adjust"))
+			w.pres.refresh()
+			local panel = w.adapter.node("/Menu-M/Layer/Panel")
+			local forward = panel.presentationOffset and panel.presentationOffset.x or 0
+			expect(if reduced then forward == 0 else forward > 0).toBe(true)
+			for _ = 1, 60 do
+				w.pres.tick(1 / 60)
+			end
+			w.adapter.tap("/Menu-M/Layer/Panel/Back")
+			w.pres.refresh()
+			panel = w.adapter.node("/Menu-M/Layer/Panel")
+			local backward = panel.presentationOffset and panel.presentationOffset.x or 0
+			expect(if reduced then backward == 0 else backward < 0).toBe(true)
+			for _ = 1, 60 do
+				w.pres.tick(1 / 60)
+			end
+			expect(w.control.dump().depth).toBe(0)
+			expect(w.control.dump().surfaces).toBe(1)
+			w.control.dispose()
+			w.pres.dismiss(w.handle)
+		end)
+	end
 end)

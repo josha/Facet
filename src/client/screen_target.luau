@@ -3259,6 +3259,7 @@ function screen_target.new(opts: Opts?)
 		-- instance within a few lines, so a placement there is a write onto an
 		-- object that is about to stop existing.
 		stopToggleTweens(handle, true)
+		handle.toggleValueInitialized = nil
 		local path = handle.path
 		-- release this node's membership of the host ABOVE it: a parked node left in
 		-- that array is a corpse the host goes on re-placing every solve

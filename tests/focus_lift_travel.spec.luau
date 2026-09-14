@@ -162,9 +162,7 @@ describe("screen_paint.applyToggleValue: the knob tween is HELD, like the track'
 			hit expanders, floats, glows and focus, not a track/knob pair) took
 			the leftover writes to its own knob. ]]
 		expect(string.find(FN, "handle.toggleKnobTween = knobTween", 1, true) ~= nil).toBe(true)
-		expect(string.find(FN, "TweenService:Create(knob, overshootInfo(style.motion.normal)", 1, true) ~= nil).toBe(
-			true
-		)
+		expect(string.find(FN, "TweenService:Create(knob, motionInfo(style.motion.normal)", 1, true) ~= nil).toBe(true)
 	end)
 
 	it("it is cancelled beside the track's, through the one helper that ends a flip", function()
@@ -197,7 +195,7 @@ describe("screen_paint.applyToggleValue: the knob tween is HELD, like the track'
 			the write is the same no-op it always was on every path except the one
 			that was broken. ]]
 		local cancelAt = string.find(FN, "stopToggleTweens(handle)", 1, true)
-		local instantAt = string.find(FN, "if retheme == true or isReducedMotion() then", 1, true)
+		local instantAt = string.find(FN, "if initialValue or retheme == true or isReducedMotion() then", 1, true)
 		expect(instantAt ~= nil).toBe(true)
 		expect((cancelAt :: number) < (instantAt :: number)).toBe(true)
 		-- the placement is UNCONDITIONAL inside that arm: no `retheme` guard left
@@ -251,7 +249,7 @@ describe("screen_paint.applyToggleValue: the knob tween is HELD, like the track'
 		for _, pair in
 			{
 				{ create = "TweenService:Create(track,", field = "handle.toggleTrackTween == tween" },
-				{ create = "TweenService:Create(knob, overshootInfo", field = "handle.toggleKnobTween == knobTween" },
+				{ create = "TweenService:Create(knob, motionInfo", field = "handle.toggleKnobTween == knobTween" },
 			}
 		do
 			local at = string.find(FN2, pair.create, 1, true)
