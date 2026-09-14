@@ -15,10 +15,20 @@
 	to be see-through rather than sweeping the tree.
 
 	SO THE SCOPE IS A MEASUREMENT, NOT A TASTE CALL. Case 3 walks the whole
-	generated sheet and asserts what the audit found: `Scrim backdrop` is the ONLY
-	rule in Facet's painted output whose `BackgroundTransparency` is strictly
-	between 0 and 1. Every other framework background is already opaque or already
+	generated sheet, asserts exactly which rules paint a `BackgroundTransparency`
+	strictly between 0 and 1, and asserts which of those the preference is allowed
+	to move. Every other framework background is already opaque or already
 	invisible, and the preference is a **Background** Transparency setting.
+
+	THERE ARE TWO TRANSLUCENT BACKGROUNDS AND ONLY ONE IS PATCHED (2026-09-12).
+	`Divider` joined `Scrim backdrop` when the divider stopped painting the
+	theme's hairline colour at full opacity and started spending the hairline's own
+	`hairlineOpacity`, which is what every stroke in the sheet already spends. It
+	is NOT in the patch scope, and that is case 6's refusal reaching its second
+	instance rather than a new decision: a divider is a border drawn as a Frame
+	because Facet has no standalone stroke primitive, and `base x preference` would
+	drive it to 0 — a solid bar of the theme's raw hairline colour, which in Facet
+	Neutral is pure white. That is the exact defect the opacity was added to fix.
 
 	THE REFUSALS ARE PINNED TOO (cases 5-7), because a refusal nobody asserts is an
 	oversight waiting to be "fixed": the disabled dim is SEMANTIC (the alpha is the
@@ -113,17 +123,19 @@ describe("the scope is a measurement: one partial background in the whole sheet"
 		return found
 	end
 
-	it("the ONLY rule painting a see-through background is the backdrop", function()
-		expect(table.concat(partialBackgrounds(build()), ", ")).toBe("Scrim backdrop=0.45")
+	it("the rules painting a see-through background are the backdrop and the hairline rule", function()
+		expect(table.concat(partialBackgrounds(build()), ", ")).toBe("Divider=0.92, Scrim backdrop=0.45")
 	end)
 
 	--[[ ...and the same holds for a compiled THEME PACKAGE, which is the shipped
-		path. A package may dim harder or softer; it may not invent a second
-		translucent background without this reddening. ]]
+		path. A package may dim harder or softer, and may wash its hairline harder or
+		softer; it may not invent a THIRD translucent background without this
+		reddening. ]]
 	it("...and in a compiled theme package too, whatever its own dim is", function()
 		local found = partialBackgrounds(sheet_model.buildPackage(neutralPackage()))
-		expect(#found).toBe(1)
-		expect(string.match(found[1], "^Scrim backdrop=") ~= nil).toBe(true)
+		expect(#found).toBe(2)
+		expect(string.match(found[1], "^Divider=") ~= nil).toBe(true)
+		expect(string.match(found[2], "^Scrim backdrop=") ~= nil).toBe(true)
 	end)
 
 	--[[ THE DECLARED SCOPE, ASSERTED AGAINST THE MEASURED ONE. `PREFERENCE_RULE_PROPS`
@@ -131,8 +143,9 @@ describe("the scope is a measurement: one partial background in the whole sheet"
 		actually paints. Comparing the two is what makes "multiply everything" unable
 		to arrive by the back door in EITHER direction — a new translucent background
 		with no decision reddens, and a new patch entry with nothing translucent to
-		patch reddens too. ]]
-	it("the declared patch scope is exactly the measured set of translucent backgrounds", function()
+		patch reddens too. The ONE rule the two lists are allowed to differ by is
+		named here, so the exemption is a decision on the record rather than a gap. ]]
+	it("the declared patch scope is the measured set, less the hairline rule", function()
 		local declared: { string } = {}
 		for _, entry in sheet_model.PREFERENCE_RULE_PROPS do
 			expect(entry.prop).toBe("BackgroundTransparency")
@@ -149,9 +162,9 @@ describe("the scope is a measurement: one partial background in the whole sheet"
 		end
 		table.sort(measured)
 
-		expect(table.concat(declared, ", ")).toBe(table.concat(measured, ", "))
+		expect(table.concat(measured, ", ")).toBe("Divider, Scrim backdrop")
+		expect(table.concat(declared, ", ")).toBe(sheet_model.SCRIM_RULE)
 		expect(#declared).toBe(1)
-		expect(declared[1]).toBe(sheet_model.SCRIM_RULE)
 	end)
 
 	it("...and the same rule name is the one BOTH builders emit, so a package is covered too", function()
@@ -245,6 +258,34 @@ describe("the refusals: what the preference deliberately does not touch", functi
 		for _, entry in sheet_model.PREFERENCE_RULE_PROPS do
 			expect(entry.prop).never().toBe("Transparency")
 		end
+	end)
+
+	--[[ ...AND SO IS THE ONE HAIRLINE THAT IS A BACKGROUND (2026-09-12). A
+		`UI.Divider` is a border too — the engine has no standalone stroke, so Facet
+		draws the rule as a Frame and washes its fill with the very same
+		`hairlineOpacity` the strokes above spend. The property it lands on is
+		`BackgroundTransparency`, so only a NAMED refusal keeps it out of the patch
+		scope; without one `base x preference` drives it to 0 and the seam between two
+		segments becomes a solid bar of the theme's raw hairline colour, which in
+		Facet Neutral is pure white. Same colour, same opacity, same ruling as the
+		stroke: the preference does not move either. ]]
+	it("...and the DIVIDER is that hairline drawn as a background, so it is out of scope too", function()
+		local divider = nil
+		for _, rule in build().rules do
+			if rule.name == "Divider" then
+				divider = rule
+			end
+		end
+		assert(divider ~= nil, "the sheet emits no Divider rule")
+		local washed = (divider :: any).props.BackgroundTransparency
+		-- it really is a wash, and it really is the stroke's own number
+		expect(washed.value > 0 and washed.value < 1).toBe(true)
+		expect(washed.value).toBe(default_style.extra.hairlineOpacity)
+		for _, entry in sheet_model.PREFERENCE_RULE_PROPS do
+			expect(entry.rule).never().toBe("Divider")
+		end
+		-- ...and what the patch would do to it if it ever were in scope
+		expect(sheet_model.backdropTransparency(washed.value, 0)).toBe(0)
 	end)
 end)
 

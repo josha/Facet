@@ -123,7 +123,7 @@ describe("row_actions scenario: it builds and mounts clean", function()
 
 	it("opens on the list surface; the table pane is not mounted at all (lazy UI.When)", function()
 		local world = makeWorld()
-		expect(world.adapter.node("/MailActions/ListWhen/then/List") ~= nil).toBe(true)
+		expect(world.adapter.node("/MailActions/ListWhen/then/ListPlate/List") ~= nil).toBe(true)
 		expect(world.adapter.node("/MailActions/TableWhen/then/TablePane")).toBe(nil)
 		teardown(world)
 	end)
@@ -131,7 +131,9 @@ describe("row_actions scenario: it builds and mounts clean", function()
 	it("every seed row mounts as a wrapped RowActions node with a unique id", function()
 		local world = makeWorld()
 		for _, id in { "m1", "m2", "m3", "m4", "m5", "m6" } do
-			expect(world.adapter.node(`/MailActions/ListWhen/then/List/Rows/RowsForEach/[{id}]/{id}`) ~= nil).toBe(true)
+			expect(world.adapter.node(`/MailActions/ListWhen/then/ListPlate/List/Rows/RowsForEach/[{id}]/{id}`) ~= nil).toBe(
+				true
+			)
 		end
 		teardown(world)
 	end)
@@ -370,7 +372,7 @@ describe("row_actions scenario: list surface (hand-wrapped ScrollView>VStack)", 
 		need building — it was already shipping, broken. ]]
 	it("RULING 6: the mail row's content is a Button, and the row still swipes AND still taps", function()
 		local world = makeWorld()
-		local row = "/MailActions/ListWhen/then/List/Rows/RowsForEach/[m1]/m1"
+		local row = "/MailActions/ListWhen/then/ListPlate/List/Rows/RowsForEach/[m1]/m1"
 		local grip = `{row}/Content/Hit`
 		local content = `{row}/Content/Row`
 		expect(`content is a Button: {world.adapter.node(content) ~= nil}`).toBe("content is a Button: true")
@@ -414,7 +416,7 @@ describe("row_actions scenario: list surface (hand-wrapped ScrollView>VStack)", 
 		local result = step(world, "bindScroll")
 		expect(result.ok).toBe(true)
 		step(world, "open", "m1:trailing")
-		world.adapter.driveScroll("/MailActions/ListWhen/then/List", { x = 0, y = 20 })
+		world.adapter.driveScroll("/MailActions/ListWhen/then/ListPlate/List", { x = 0, y = 20 })
 		local report = world.built.report()
 		expect(report.listRowDumps.m1.phase).toBe("closed")
 		teardown(world)
@@ -431,7 +433,7 @@ describe("row_actions scenario: table surface (reorderable, editable, rowActions
 	it("switching to table mode mounts the Table and unmounts the list", function()
 		local world = tableWorld()
 		expect(world.adapter.node("/MailActions/TableWhen/then/TablePane/MailTable") ~= nil).toBe(true)
-		expect(world.adapter.node("/MailActions/ListWhen/then/List")).toBe(nil)
+		expect(world.adapter.node("/MailActions/ListWhen/then/ListPlate/List")).toBe(nil)
 		expect(world.core:lastError()).toBeNil()
 		teardown(world)
 	end)
@@ -733,7 +735,7 @@ describe("row_actions scenario: virtual list surface (hosted newVirtualList.rowA
 	it("switching to vlist mode mounts the VirtualList and unmounts the other two surfaces", function()
 		local world = vlistWorld()
 		expect(world.adapter.node("/MailActions/VListWhen/then/VListPane/VList") ~= nil).toBe(true)
-		expect(world.adapter.node("/MailActions/ListWhen/then/List")).toBe(nil)
+		expect(world.adapter.node("/MailActions/ListWhen/then/ListPlate/List")).toBe(nil)
 		expect(world.adapter.node("/MailActions/TableWhen/then/TablePane")).toBe(nil)
 		expect(world.core:lastError()).toBeNil()
 		teardown(world)
@@ -893,7 +895,7 @@ describe("row_actions scenario: the showcase picker's fixture ctx (demo catalogu
 		for _ = 1, 5 do
 			presenter.refresh()
 		end
-		expect(adapter.node("/MailActions/ListWhen/then/List") ~= nil).toBe(true)
+		expect(adapter.node("/MailActions/ListWhen/then/ListPlate/List") ~= nil).toBe(true)
 		expect(core:lastError()).toBeNil()
 		-- the picker's own teardown order (init.client.luau mountDemo): the
 		-- fixture's dispose first, then the presented surface goes down
@@ -976,8 +978,8 @@ describe("row_actions scenario: a short landscape spends its height on the list 
 	local SURFACES = {
 		{
 			mode = "list",
-			body = "/MailActions/ListWhen/then/List",
-			row = "/MailActions/ListWhen/then/List/Rows/RowsForEach/[m1]/m1",
+			body = "/MailActions/ListWhen/then/ListPlate/List",
+			row = "/MailActions/ListWhen/then/ListPlate/List/Rows/RowsForEach/[m1]/m1",
 		},
 		{
 			mode = "table",
@@ -1047,10 +1049,10 @@ describe("Glossy Mobile row surface remounts", function()
 		end
 		round()
 		local baseline = w.core:counters()
-		local first = w.adapter.node("/MailActions/ListWhen/then/List/Rows/RowsForEach/[m1]/m1/Content").rect
+		local first = w.adapter.node("/MailActions/ListWhen/then/ListPlate/List/Rows/RowsForEach/[m1]/m1/Content").rect
 		for i = 1, 3 do
 			round()
-			expect(w.adapter.node("/MailActions/ListWhen/then/List/Rows/RowsForEach/[m1]/m1/Content").rect).toEqual(
+			expect(w.adapter.node("/MailActions/ListWhen/then/ListPlate/List/Rows/RowsForEach/[m1]/m1/Content").rect).toEqual(
 				first
 			)
 			expect(#w.built.report().listIds).toBe(6)

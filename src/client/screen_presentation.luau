@@ -442,8 +442,18 @@ function screen_presentation.new(ctx: any)
 			-- an anchored popover) — same rect, written at its pivot.
 			-- The PAINTED extent's fraction, so the two branches place the same box: a
 			-- growing node extends down-right from its solved origin either way.
-			px += pw * (handle.motionPivotX or 0.5)
-			py += ph * (handle.motionPivotY or 0.5)
+			-- UDim offsets are integer pixels. Quantize the pivot distance
+			-- and AnchorPoint together; an odd extent otherwise shifts half
+			-- a pixel when the scale's pivot is released at rest.
+			local dx = math.round(pw * (handle.motionPivotX or 0.5))
+			local dy = math.round(ph * (handle.motionPivotY or 0.5))
+			local ax, ay = if pw > 0 then dx / pw else 0, if ph > 0 then dy / ph else 0
+			local anchor = handle.instance.AnchorPoint
+			if math.abs(anchor.X - ax) > 1e-7 or math.abs(anchor.Y - ay) > 1e-7 then
+				handle.instance.AnchorPoint = Vector2.new(ax, ay)
+			end
+			px += dx
+			py += dy
 		end
 		--[[ THE WRITE A HOST MAKES UNNECESSARY (the arrange half).
 
@@ -503,7 +513,16 @@ function screen_presentation.new(ctx: any)
 			)
 			-- the ring traces the PAINTED box: a ring left at the solved size while its
 			-- node's box travels would visibly detach from the control it marks
-			handle.focusRingFloat.Size = UDim2.fromOffset(pw - 2 * thickness, ph - 2 * thickness)
+			local geom = handle.focusFloatGeom
+			if geom == nil or geom.w ~= pw or geom.h ~= ph or geom.t ~= thickness then
+				if handle.focusFloatTween ~= nil then
+					handle.focusFloatTween:Cancel()
+					handle.focusFloatTween = nil
+				end
+				handle.focusFloatGeom = { w = pw, h = ph, t = thickness }
+			end
+			local lift = if handle.focusScale ~= nil then handle.focusScale.Scale else 1
+			handle.focusRingFloat.Size = UDim2.fromOffset(pw * lift - 2 * thickness, ph * lift - 2 * thickness)
 		end
 		-- a semantic icon is clamped to the box this node actually has, so a rect
 		-- that lands after the picture did has to re-fit it (director report
@@ -549,6 +568,12 @@ function screen_presentation.new(ctx: any)
 			return
 		end
 		local scale = if type(t) == "table" and type(t.scale) == "number" then t.scale else nil
+		-- End the subpixel tail with the visible geometry. Roblox floors scaled
+		-- text sizes, so a scale infinitesimally below 1 keeps text a pixel small.
+		local r = handle.windowRect
+		if scale ~= nil and r ~= nil and math.abs(scale - 1) * math.max(r.w, r.h, 1) < 1 then
+			scale = 1
+		end
 		local existing = handle.motionScale or handle.uiScale
 		-- THE PRESS DIP'S RESTING TARGET (fixed 2026-08-14).
 		-- The composed scale this authority is writing IS what a dip must come back

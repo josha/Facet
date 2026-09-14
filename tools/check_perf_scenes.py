@@ -9,6 +9,15 @@ work actually happened.
 
   python3 tools/check_perf_scenes.py            # the six production shapes
   python3 tools/check_perf_scenes.py --themes   # the three theme-swap shapes
+
+TIGHTENING A PREDICATE OBLIGES A RE-RECORD (R4). Everything below reads
+`artifacts/phase-4/perf.json`, which is a RUN-PRODUCED artifact: `verify.sh full`
+does not regenerate it, because the `perf` producer is RELEASE-tier. So a change
+that adds a scene or narrows an existing PRODUCTION/THEMES predicate is checking
+the new rule against a record written under the old one, and it fails in exactly
+the shape a genuinely broken scene fails in. Run `tools/perf.sh` to re-record
+BEFORE `verify.sh full`, in the same change that tightened the predicate — the
+failure text below says so too, but by then the gate is already red.
 """
 import json
 import os
@@ -43,8 +52,16 @@ PRODUCTION = {
     # the four 2026-09-11 landings: each proof says the surface really opened
     # (a scene whose api.open stopped reaching the presenter would still emit a
     # faster record)
+    # `represents == presents` is the part `presents > 0` alone could not
+    # prove (task-2 review, 2026-09-12): `presents` incremented unconditionally
+    # even while a stale `pres.dismiss(handle)` in transient_surfaces.luau kept
+    # every open() past the first returning the SAME handle, silently pricing
+    # nothing for cycles 2+. `represents` only counts a cycle whose open()
+    # handed back a genuinely different handle.
     "alert-present-dismiss": lambda x: (
-        None if x.get("presents", 0) > 0 and x.get("actions") == 3 else f"the alert never presented: {x!r}"
+        None
+        if x.get("presents", 0) > 0 and x.get("actions") == 3 and x.get("represents", 0) == x.get("presents", 0)
+        else f"the alert never presented: {x!r}"
     ),
     "picker-menu-open-close": lambda x: (
         None
@@ -67,6 +84,37 @@ PRODUCTION = {
         and x.get("motionSteps", 0) > 0
         and x.get("motionSteps") == x.get("motionTransactions")
         else f"the dense-motion frame did not do its work: {x!r}"
+    ),
+    # the transitions round's CONTROL motions (2026-09-12). Every one of the four
+    # is silent when it stops firing — a shake that never books, a pop gated off,
+    # a stagger that stops holding rows — and each absence makes the scene FASTER,
+    # so the counters are the only thing standing between this budget and a scene
+    # that prices nothing.
+    #
+    # HALF OF THEM ANSWER FOR THE FRAMEWORK, and only those half are proof.
+    # `rekeys`, `flips` and `pulses` are incremented by the code that SET the
+    # signal, so they say the scene drove its own mutation and nothing more.
+    # `pops` is counted by the handler the ADAPTER's activate seam reached;
+    # `staggerHeld` is read back off the painted alphas; `flipsSeen` off the
+    # existence of the disclosure's content node in the tree; and `shakesSeen`
+    # off the input root's painted displacement (`presentedPosition` away from
+    # its solved rect) — those four are the tree and the paint answering
+    # (final review item 2, 2026-09-13).
+    # `motionSteps == motionTransactions` is the same one-transaction-per-stepped-
+    # frame contract dense-motion keeps, asserted here over motion the CONTROLS
+    # book rather than motion the scene drives.
+    "control-motion": lambda x: (
+        None
+        if x.get("rekeys", 0) > 0
+        and x.get("flips", 0) > 0
+        and x.get("pulses", 0) > 0
+        and x.get("pops", 0) > 0
+        and x.get("staggerHeld", 0) > 0
+        and x.get("flipsSeen", 0) > 0
+        and x.get("shakesSeen", 0) > 0
+        and x.get("motionSteps", 0) > 0
+        and x.get("motionSteps") == x.get("motionTransactions")
+        else f"the control-motion frame did not do its work: {x!r}"
     ),
 }
 
@@ -193,6 +241,16 @@ def main() -> int:
     if errors:
         for e in errors:
             print(f"FAIL {e}")
+        # A TIGHTENED PREDICATE FAILS IN THE SHAPE OF A BROKEN SCENE (R4). This
+        # record is run-produced and `verify.sh full` does not regenerate it
+        # (`perf` is release-tier), so say which record was read and how old it
+        # is rather than leaving "did not do its work" to carry both meanings.
+        stamp = (report.get("environment") or {}).get("timestamp") or "unknown"
+        print(
+            f"note: read {PERF}, recorded {stamp}. `verify.sh full` does not regenerate it "
+            "(`perf` is release-tier) — if a check above was tightened in this change, "
+            "re-record with `tools/perf.sh` before reading these as live failures."
+        )
         return 1
     label = "theme-swap" if themes_mode else "production"
     print(f"perf scenes ok: {len(wanted)} {label} scenes alive at {REFERENCE}")

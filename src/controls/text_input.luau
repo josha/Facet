@@ -89,6 +89,11 @@ export type Spec = {
 	clearButtonMode: ("never" | "whileEditing" | "unlessEditing" | "always")?,
 	maxLength: number?, -- accepted text clamped at the value-model boundary
 	validate: ((proposed: string) -> string?)?, -- accept(normalized) | nil=reject
+	-- CALLER-OWNED VALIDITY. A false->true edge shakes the field once (see the
+	-- shake block in `build`); the LEVEL is never painted, so the caller still owns
+	-- whatever the player reads — the number presentation's own danger-tinted
+	-- message is the model. Decorative by construction: reduced motion drops it.
+	invalid: coreContract.Readable<boolean>?,
 	env: any?, -- Environment: enables keyboard-occlusion keep-visible
 	actionSystem: any?, -- injected: enables the text-entry sinking context
 }
@@ -159,6 +164,7 @@ local TEXT_INPUT_KEYS = specGuard.keySet({
 	"maxLength",
 	"multiline",
 	"height",
+	"invalid",
 	"onCancel",
 	"onChange",
 	"onCommit",
@@ -184,6 +190,10 @@ function text_input.build(Facet: any, core: any, spec: Spec)
 		assert(value == nil or type(value) == "boolean", `TextInput: {name} must be boolean or readable boolean`)
 	end
 	assert(spec.clearButton == nil or type(spec.clearButton) == "boolean", "TextInput: clearButton must be boolean")
+	assert(
+		spec.invalid == nil or (isReadable(spec.invalid) and type(spec.invalid:get()) == "boolean"),
+		"TextInput: invalid must be a caller-owned Signal<boolean> (a readable boolean; a memo over the value is fine)"
+	)
 
 	local presentation = spec.presentation or "plain"
 	assert(
@@ -279,6 +289,82 @@ function text_input.build(Facet: any, core: any, spec: Spec)
 
 	-- control-owned state (selection/value lives in the owner's signal)
 	local validationError = scope:own(core:signal(""))
+	--[[ THE SHAKE (transitions round 2026-09-12). Four legs on the paint-only
+		`offset`, +/-8 px, at 0/80/140/200/240 ms. It is a NUDGE, not a move: the
+		solver never sees `offset`, so the rect the hit test, the focus order and
+		every sibling's layout read stays exactly where it was for the whole
+		sequence.
+
+		The shake is DECORATIVE — the information is the danger-tinted message
+		(number presentation) or whatever the caller shows beside the field — so a
+		reduced-motion session drops it whole. That is the timeline's own policy and
+		not a second branch here: under `reduced` it fast-forwards every beat and
+		every terminal on the frame it starts, which lands on 0 with nothing painted
+		in between.
+
+		Every beat declares `terminal = leg(0)`, so an `interrupt()` — a second
+		invalid edge arriving mid-shake — puts the field back at rest on the
+		interrupt frame instead of stranding it 8 px off centre. ]]
+	local shakeOffset = scope:own(core:signal(0))
+	local motionClock: any = nil
+	local shaking: any = nil
+	local SHAKE_PX = 8
+	local function shake()
+		if motionClock == nil then
+			-- no presenter, no clock, no motion (the same degradation
+			-- `bindActionSystem`/`bindController` already declare)
+			return
+		end
+		if shaking ~= nil then
+			shaking:interrupt()
+			shaking = nil
+		end
+		local function leg(x: number)
+			return function()
+				shakeOffset:set(x)
+			end
+		end
+		local rest = leg(0)
+		local playing = motionClock:timeline({
+			beats = {
+				{ at = 0, run = leg(-SHAKE_PX), terminal = rest },
+				{ at = 0.08, run = leg(SHAKE_PX), terminal = rest },
+				{ at = 0.14, run = leg(-SHAKE_PX * 0.5), terminal = rest },
+				{ at = 0.2, run = leg(SHAKE_PX * 0.25), terminal = rest },
+				{ at = 0.24, run = rest, terminal = rest },
+			},
+			onDone = function()
+				shaking = nil
+				shakeOffset:set(0)
+			end,
+		})
+		-- a reduced-motion (or already-complete) timeline ran inside the call
+		-- above, so `onDone` fired BEFORE this assignment: only a still-running
+		-- one is worth holding on to for the next `interrupt()`
+		if not playing:isDone() then
+			shaking = playing
+		end
+	end
+	-- the number presentation's own invalid edge. Every rejected commit shakes,
+	-- including a repeat of the same rejection — that retry is exactly when the
+	-- nudge is worth the most.
+	local function rejectWith(message: string)
+		validationError:set(message)
+		shake()
+	end
+	if spec.invalid ~= nil then
+		-- the EDGE, not the level: a field that is already invalid when it mounts
+		-- has nothing to announce, and a caller re-setting `true` over `true` is
+		-- not a new rejection. `core:observe` baselines on the current value and
+		-- de-duplicates, so this only ever sees a real change.
+		local was = spec.invalid:get()
+		scope:own(core:observe(spec.invalid, function(now)
+			if now == true and was ~= true then
+				shake()
+			end
+			was = now
+		end))
+	end
 	local disposed = false
 	local editing = scope:own(core:signal(false))
 	local fieldRect = scope:own(core:signal(nil :: any)) -- solved rect (occlusion)
@@ -287,6 +373,10 @@ function text_input.build(Facet: any, core: any, spec: Spec)
 	local viewportHeight = if spec.multiline then scope:own(core:signal(0)) else nil
 	local latestRectOf: ((string) -> any)? = nil
 	local renderController: any = nil
+	-- does the surface this field lives on reserve the host app's own chrome band?
+	-- Bound by the presenter (`bindController`'s additive second argument); true
+	-- until then, which is what the keep-visible arithmetic always assumed
+	local ownerReservesAppChrome = true
 	-- hot-switch (UI-PARADIGM-002): was touch (the on-screen-keyboard entry
 	-- surface) live when this edit began? Used to detect the dock CANCEL — touch
 	-- leaving mid-edit with no hardware keyboard to supersede it.
@@ -502,7 +592,7 @@ function text_input.build(Facet: any, core: any, spec: Spec)
 				message = "Enter a value of at most " .. tostring(spec.max) .. "."
 			end
 			if message ~= "" then
-				validationError:set(message)
+				rejectWith(message)
 				endEditing()
 				return
 			end
@@ -511,7 +601,7 @@ function text_input.build(Facet: any, core: any, spec: Spec)
 				return
 			end
 			if not formattedOk or type(formatted) ~= "string" then
-				validationError:set("The number could not be formatted.")
+				rejectWith("The number could not be formatted.")
 				endEditing()
 				return
 			end
@@ -521,14 +611,14 @@ function text_input.build(Facet: any, core: any, spec: Spec)
 					return
 				end
 				if not valid or type(normalized) ~= "string" or utf8.len(normalized) == nil then
-					validationError:set("The formatted number is not accepted.")
+					rejectWith("The formatted number is not accepted.")
 					endEditing()
 					return
 				end
 				formatted = normalized
 			end
 			if utf8.len(formatted) == nil or (spec.maxLength and utf8.len(formatted) > spec.maxLength) then
-				validationError:set("The formatted number exceeds the text limit.")
+				rejectWith("The formatted number exceeds the text limit.")
 				endEditing()
 				return
 			end
@@ -633,8 +723,9 @@ function text_input.build(Facet: any, core: any, spec: Spec)
 	end
 	api.cancel = cancelEdit
 	api.keepVisibleOffset = keepVisibleOffset
-	function api.bindController(controller)
+	function api.bindController(controller, reserveAppChrome)
 		renderController = controller
+		ownerReservesAppChrome = reserveAppChrome ~= false
 	end
 
 	-- presenter auto-wiring seam: bind the action system that raises
@@ -812,7 +903,21 @@ function text_input.build(Facet: any, core: any, spec: Spec)
 			if use(editing) and type(occlusion) == "table" then
 				local viewport = use(env:get("viewportRect"))
 				local insets = use(env:get("coreSafeInsets"))
-				local room = occlusion.y - viewport.y - (insets.top or 0) - KEEP_VISIBLE_MARGIN
+				--[[ ...and the host's own reserved band when the OWNER surface reserves it:
+					above this field for the same reason the platform's row is, and absent
+					inside a modal, which takes the screen (`appChromeInsets`, 2026-09-13).
+
+					THE CONDITIONAL `use()` IS SAFE, and that is a claim about the flag
+					rather than about this memo. `ownerReservesAppChrome` is not reactive
+					and cannot become so: it is one surface's answer, decided once in
+					`makeHandle` before a single contribution is bound (and, for an
+					anchored surface, INHERITED there from its source), so it is constant
+					for as long as this field is mounted. A dependency that appears or
+					disappears with a value that can change would be the trap — this one
+					changes only by re-presenting the surface, which rebuilds the memo. ]]
+				local hostChrome = if ownerReservesAppChrome then use(env:get("appChromeInsets")) else nil
+				local hostTop = if type(hostChrome) == "table" then math.max(0, tonumber(hostChrome.top) or 0) else 0
+				local room = occlusion.y - viewport.y - (insets.top or 0) - hostTop - KEEP_VISIBLE_MARGIN
 				height = math.min(height, math.max(metrics.controls.textInput.fieldHeight, room))
 			end
 			return { type = "fixed", px = height }
@@ -823,6 +928,14 @@ function text_input.build(Facet: any, core: any, spec: Spec)
 		id = if presentation == "number" then "Input" else id,
 		width = { type = "fill", weight = 1 },
 		height = spec.height or defaultHeight,
+		-- the shake, on the FIELD (never the number presentation's outer stack):
+		-- the message beneath it is the information and must hold still while the
+		-- field it describes moves. `nil` at rest keeps every resting field off the
+		-- presentation channel's composition path entirely.
+		offset = scope:own(core:memo(function(use)
+			local x = use(shakeOffset)
+			return if x == 0 then nil else { x = x, y = 0 }
+		end)),
 		children = {
 			UI.TextField({
 				id = "Field",
@@ -953,6 +1066,12 @@ function text_input.build(Facet: any, core: any, spec: Spec)
 			bindActionSystem = api.bindActionSystem,
 			bindController = api.bindController,
 			handleTraverse = api.handleTraverse,
+			-- the presenter's own motion clock (contribution.luau bindMotion): the
+			-- shake's only time source, so it is headlessly deterministic and a
+			-- control mounted WITHOUT a presenter simply never shakes
+			bindMotion = function(clock: any)
+				motionClock = clock
+			end,
 		}),
 		api = api,
 		dump = dump,
@@ -965,6 +1084,14 @@ function text_input.build(Facet: any, core: any, spec: Spec)
 			-- (offset is already 0).
 			endEditing()
 			disposed = true
+			-- ...and stop any shake before the scope goes: the timeline is attached to
+			-- the PRESENTER's clock, which outlives this control, so a beat left armed
+			-- would keep firing for a node that is no longer in the tree and write a
+			-- signal this line is about to dispose
+			if shaking ~= nil then
+				shaking:interrupt()
+				shaking = nil
+			end
 			scope:dispose()
 		end,
 	}

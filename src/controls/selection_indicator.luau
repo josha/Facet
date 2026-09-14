@@ -188,13 +188,77 @@ local DEFAULT_INSET = "space.xs"
 
 	An underline stays square by default because that is what a tint rule on one
 	edge of a segment is. ]]
--- THE HIGHLIGHT'S SHAPE IS A THEME TOKEN (user ruling 2026-09-12): `radii.selection`,
--- which follows `radii.control` unless a package authors it (square art sets 0).
--- The bar wears it on all four corners — an inset rounded rect floating inside
--- the track, the reference platform's segmented control — while the TRACK and
--- its end segments keep `radii.control` (`TRACK_CORNER`, spent by `segmentShape`).
+--[[ THE HIGHLIGHT'S SHAPE IS A THEME TOKEN (user ruling 2026-09-12).
+	`DEFAULT_CORNER` is the FAMILY name, not a finished answer: on its own
+	`radii.selection` follows `radii.control` unless a package authors it (square
+	art sets 0), and that is what a fill with no container to match takes. A fill
+	whose caller NAMED its container takes `selection:<container>` instead — see
+	`fillCornerFor` immediately below, which is the rule a reader should meet
+	first, because it decides every shipped strip.
+
+	The bar wears one uniform radius on all four corners either way — an inset
+	rounded rect floating inside the plate, the reference platform's segmented
+	control — while the TRACK and its end segments keep `radii.control`
+	(`TRACK_CORNER`, spent by `segmentShape`). ]]
 selection_indicator.DEFAULT_CORNER = "selection"
 selection_indicator.TRACK_CORNER = "control"
+
+--[[ ...AND THE LAST RESORT IS A NUMBER (final review item 1).
+
+	`DEFAULT_CORNER` is a TOKEN, so asking a style for it is asking a question
+	that style may not answer: `radii.selection` follows `radii.control`, and a
+	metrics table carrying neither answers neither. That is fine where the answer
+	is allowed to fail — but the fallback arm of `derivedCorners` is precisely the
+	site that exists SO a corner nothing answers still paints something, and it
+	spent the token too. Under a style that cannot name it, the healer raised
+	inside a memo, was quarantined, and the bar painted square: the exact outcome
+	the fallback was written to prevent.
+
+	A NUMBER cannot raise (`resolveRadius` only asserts it is non-negative), and
+	the neutral snapshot is the framework's own default vocabulary — the same
+	value `metricsSig` degrades to when it is handed a table it cannot spend — so
+	the floor under every corner resolve in this control is one literal pixel
+	count, resolved once. It carries no token, deliberately: there is no name left
+	to re-resolve against the paint-time style, and inventing one would put the
+	unanswerable question back. ]]
+local lastResortRadius: number? = nil
+local function neutralSelectionRadius(): number
+	if lastResortRadius == nil then
+		local radii = (themeSnapshot.neutral() :: any).radii
+		local authored = if type(radii) == "table" then (radii.selection or radii.control) else nil
+		lastResortRadius = if type(authored) == "number" then authored else 0
+	end
+	return lastResortRadius :: number
+end
+
+--[[ THE CONTAINER IS THE AUTHORITY ON THE FILL'S SILHOUETTE (owner report
+	2026-09-12, controller ruling).
+
+	A selected fill sits INSIDE a strip, and the strip's plate is the shape a
+	player sees it against: a pill strip holding a rounded-rect chip is two
+	silhouettes in one control, and the theme was asked for neither. `radii
+	.selection` cannot answer that on its own — it follows `radii.control`, which
+	is what a picker's own TRACK wears and NOT what every strip wears (a
+	`TabView`'s adaptable app bar is a `radii.pill` capsule).
+
+	So a fill whose caller named its container asks for that container's OWN
+	highlight token, `selection:<container>`. The three clauses — an authored
+	`radii.selection` wins, a pill container gives a pill by the pill rule, and
+	anything else is the container's radius less the inset — live in
+	`src/tokens/styling.luau`'s `resolveRadius` and its snapshot mirror, beside
+	every other radius rule.
+
+	IT RETURNS A TOKEN NAME and never a number, which is the whole point of doing
+	it here rather than computing a radius at the call site: a number authored
+	near freezes the NEAR display's radius into a strip a ten-foot screen then
+	paints with (`tests/ten_foot_metrics.spec.luau`). The name survives to the
+	painter and re-resolves against the style that paints with it. ]]
+function selection_indicator.fillCornerFor(trackCorner: any): any
+	if type(trackCorner) ~= "string" or trackCorner == "" then
+		return selection_indicator.DEFAULT_CORNER
+	end
+	return `{selection_indicator.DEFAULT_CORNER}:{trackCorner}`
+end
 
 -- CLOSED SPEC (constitution §4). An unknown key is an authoring
 -- mistake, never a silent no-op.
@@ -208,6 +272,10 @@ local INDICATOR_KEYS = specGuard.keySet({
 	"plate",
 	"motionClass",
 	"segmentCorners",
+	-- the corner the STRIP THAT HOLDS THE FILL actually wears (see
+	-- `fillCornerFor`). The container is the authority on the fill's silhouette;
+	-- absent, the fill keeps the `radii.selection` token it always took.
+	"trackCorner",
 	"segments",
 	"selected",
 	"height",
@@ -456,7 +524,16 @@ function selection_indicator.build(Facet: any, core: any, spec: Spec)
 			return themeSnapshot.neutral()
 		end
 		local raw = use(env:get("themeMetrics"))
-		return if type(raw) == "table" and type(raw.controls) == "table" then raw else themeSnapshot.neutral()
+		-- `radii` is checked as well as `controls` because the corner resolve
+		-- below spends it: a hand-built metrics table carrying `controls` and no
+		-- `radii` would otherwise reach `UI.cornersData` inside a memo and raise
+		-- there, where it is quarantined. The guard's whole job is that this memo
+		-- yields a snapshot every consumer of it can spend.
+		return if type(raw) == "table"
+				and type(raw.controls) == "table"
+				and type(raw.radii) == "table"
+			then raw
+			else themeSnapshot.neutral()
 	end))
 	--[[ WHICH PLATE THE BAR IS, hoisted above `skinOpts` because the inset rule
 		below has to know what the bar's surface CARVES. The declaration and the
@@ -538,21 +615,161 @@ function selection_indicator.build(Facet: any, core: any, spec: Spec)
 		rather than dropping the prop and painting a square corner nobody asked
 		for. ]]
 	local corner = spec.corner or (if skin == "pill" then selection_indicator.DEFAULT_CORNER else nil)
-	local uniformCorners = if corner ~= nil then UI.cornersData(corner) else nil
+	--[[ ...AND THE CONTAINER IS WHAT DECIDES IT when the caller named no corner
+		(owner report 2026-09-12; `fillCornerFor` above carries the rule and the
+		reasons). It is a MEMO rather than a constant because two of the three
+		clauses read the live snapshot — whether the package authored
+		`radii.selection` at all, and the container's radius less the inset the fill
+		floats by — so a theme swap and a ten-foot display's scaled radii both
+		re-resolve it, exactly as the geometry memo beside it does. A caller that
+		named a corner, or a strip that declared no container corner, takes the same
+		static answer it always took. ]]
+	--[[ ...AND THE TOKEN IS NORMALIZED AGAINST THE LIVE SNAPSHOT, not the base
+		style (review N6). `UI.cornersData` with no style resolves through
+		`default_style`, whose `radii` is the BASE vocabulary — so
+		`selection:<container>` for a container only a PACKAGE publishes
+		(`radii.chip`) was refused here even though `paintCorners` would have
+		answered it perfectly well one layer on. Handing it `metricsSig` asks the
+		refusal of the style that will actually paint, which is the whole point of
+		a refusal, and leaves the check as strict as it ever was for a container
+		nothing publishes (a `selection:panle` typo still errors). The reactive
+		branch reads it through `use`, so a theme swap re-resolves the token the
+		same way the memo beside it re-resolves the geometry.
+
+		...AND A MEMO MUST NOT RAISE (review D6). Asking the live style makes the
+		answer depend on the live style, so a SWAP AWAY from the package that
+		published the container — Pixel Quest's `radii.chip` uninstalled while a
+		strip is mounted — turns a token that resolved a frame ago into one this
+		style cannot answer. Inside a memo that is quarantined: the bar loses its
+		corner data entirely and paints SQUARE, which is a worse answer than the
+		one the token was reaching for. So the derived token is resolved
+		DEFENSIVELY here and falls back to the plain `selection` radius, the same
+		family, which every style can answer. The authoring refusal is unaffected
+		— `newPicker` still refuses a container its live radii cannot name, where
+		the author wrote it, which is the check that catches a typo. ]]
+	local derives = spec.corner == nil and skin == "pill" and spec.trackCorner ~= nil
+	--[[ the derived token, or the plain `selection` fallback when this style
+		cannot answer it. `UI.cornersData` keeps the TOKEN beside the number, so
+		the painter re-resolves whichever one survives against the style it paints
+		with — a swap BACK re-derives the container answer on the next read.
+
+		AND IT SAYS SO. A `pcall` that heals and tells nobody is the silent
+		quarantine this codebase's own `fail()` header refuses ("a silent
+		quarantine heals the STATE and tells nobody"). The fallback exists for a
+		LEGITIMATE case — a theme swapped away from the package that published the
+		container — but it catches an illegitimate one just as quietly: a REACTIVE
+		`stripCorner` whose value becomes a typo. `newPicker`'s authoring check
+		refuses a typo it can see at build, and by construction cannot see a value
+		set later. So the healed case is noted, naming both the token and what was
+		painted instead.
+
+		ONCE PER TOKEN WHILE IT IS FALLING BACK, and the "while" is the whole
+		point: the moment this site resolves ANY token the set is cleared, so
+		`cornerFallbacks` reads as "is the fill painting a fallback RIGHT NOW"
+		rather than "did it ever". That is what makes the count answer the
+		question a reader has — a legitimate swap away from the package clears
+		when the package comes back, a typo never does — and it means a second
+		departure warns again, which is correct for a fact stated in the present
+		tense. The set is REPLACED rather than added to, because only one token is
+		in use at a time: the two ways a fallback ends are the style coming back
+		(same token) and the caller changing the value (different token), and
+		"what is failing here now" covers both. So it is at most 1 — a fill has
+		one corner — and it is a count rather than a boolean so a second derived
+		corner, if this control ever grows one, needs no new vocabulary.
+
+		ONCE PER TOKEN PER CONTROL, not per session: three strips naming the same
+		container warn three times on one theme swap. A per-CORE set would silence
+		the other two, and it would have to be REFCOUNTED to stay honest under the
+		"currently" rule above — one strip resolving again must not clear a note
+		another strip is still earning — which is more machinery than the noise it
+		saves, and it would leave this control's own count disagreeing with the
+		dedup. Stated rather than solved, here and in `docs/reference/api.md`. ]]
+	local notedCornerTokens: { [string]: boolean } = {}
+	local cornerFallbacks = 0
+	local function derivedCorners(token: any, style: any): any
+		local ok, data = pcall(UI.cornersData, token, style)
+		if ok then
+			-- this site resolves again, so nothing here is falling back — whether
+			-- the style came back or the caller corrected the token
+			if cornerFallbacks > 0 then
+				table.clear(notedCornerTokens)
+				cornerFallbacks = 0
+			end
+			return data
+		end
+		local key = tostring(token)
+		if not notedCornerTokens[key] then
+			-- a DIFFERENT token is failing now; the previous one is not in use
+			table.clear(notedCornerTokens)
+			notedCornerTokens[key] = true
+			cornerFallbacks = 1
+			if type(warn) == "function" then
+				--[[ THE FALLBACK NAMES ITSELF, AND THE FALLBACK IS NOT ALWAYS THE
+					SAME ONE (R3). Below this the resolve tries `DEFAULT_CORNER` and
+					then, if THAT fails too, the neutral theme's own number. When the
+					token that just failed IS `DEFAULT_CORNER`, the first branch is
+					already spent: the message promised "paints plain 'selection'
+					instead" while naming 'selection' as the thing that failed, which
+					reads as a contradiction to the one person who ever sees it. ]]
+				local fallback = if key == selection_indicator.DEFAULT_CORNER
+					then `the neutral theme's own selection radius ({neutralSelectionRadius()}px)`
+					else `plain '{selection_indicator.DEFAULT_CORNER}'`
+				warn(
+					`Facet selection indicator: no live style answers the corner token '{key}', so the fill `
+						.. `paints {fallback} instead. A theme swapped away from `
+						.. `the package that publishes that container is expected; a container name that never `
+						.. `resolves is an authoring mistake (\`stripCorner\` refuses one it can see at build, `
+						.. `and cannot see a value set later).`
+				)
+			end
+		end
+		local plain, plainData = pcall(UI.cornersData, selection_indicator.DEFAULT_CORNER, style)
+		if plain then
+			return plainData
+		end
+		return UI.cornersData(neutralSelectionRadius())
+	end
+	--[[ ...INCLUDING THE STATIC ONE (final review item 1). This site resolved the
+		authored/default corner RAW, so the same unanswerable style raised out of
+		`Picker(...)` itself — an author's call erroring on a token the theme in
+		hand happens not to publish. It is the same question `derivedCorners` asks
+		and heals, asked one line earlier, so it goes through the same door. ]]
+	--[[ ...AND NOT WHEN THE STRIP DERIVES (R3). `derives` means the caller named
+		no corner, so `corner` is `DEFAULT_CORNER` by the line above and this
+		resolve's answer is overwritten two lines down by the derived one. It was
+		never dead in the harmless sense: a style that cannot answer 'selection'
+		fires the warn and sets `cornerFallbacks = 1` for a corner that is then
+		thrown away and never painted, so the diagnostic reported a fallback that
+		did not happen. ]]
+	local uniformCorners: any = if corner ~= nil and not derives then derivedCorners(corner, metricsSig:get()) else nil
+	if derives then
+		local reactive = type(spec.trackCorner) == "table"
+		if reactive then
+			uniformCorners = scope:own(core:memo(function(use)
+				return derivedCorners(
+					selection_indicator.fillCornerFor(readValue(spec.trackCorner, use)),
+					use(metricsSig)
+				)
+			end))
+		else
+			uniformCorners = derivedCorners(selection_indicator.fillCornerFor(spec.trackCorner), metricsSig:get())
+		end
+	end
 	local barCorners: any = uniformCorners
 	if spec.segmentCorners ~= nil then
 		barCorners = scope:own(core:memo(function(use)
+			local fallback = readValue(uniformCorners, use)
 			local list = readValue(spec.segmentCorners, use)
 			if type(list) ~= "table" then
-				return uniformCorners
+				return fallback
 			end
 			local value = readValue(spec.selected, use)
 			for i, segment in segmentsNow(use) do
 				if segment.value == value then
-					return (list :: any)[i] or uniformCorners
+					return (list :: any)[i] or fallback
 				end
 			end
-			return uniformCorners
+			return fallback
 		end))
 	end
 	-- `barSurface` is declared above `skinOpts` (the carved-border rule reads its
@@ -868,6 +1085,14 @@ function selection_indicator.build(Facet: any, core: any, spec: Spec)
 			slides = slides,
 			geometryUpdates = geometryUpdates,
 			animated = motionClock ~= nil,
+			-- is the fill painting a fallback corner RIGHT NOW, because no live
+			-- style answers the token it derived (`derivedCorners`)? Present
+			-- tense, and at most 1 (a fill has one corner). A theme swapped away
+			-- from the package that publishes the container reads 1 while it is
+			-- away and 0 when the package returns; a typo on a REACTIVE
+			-- `stripCorner` — the one `newPicker` cannot see at build — stays at
+			-- 1 until the value is corrected. Zero is the ordinary reading.
+			cornerFallbacks = cornerFallbacks,
 			rect = if rect == nil then nil else { x = rect.x, y = rect.y, w = rect.w, h = rect.h },
 			semanticText = `{skin} indicator on {label or "nothing"} ({resolvedCount}/{#segmentsNow()} segments resolved)`,
 		}

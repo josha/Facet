@@ -214,7 +214,9 @@ describe("scenario 'tab_view': the eviction, as a number a tester can watch move
 		having: the count belongs to a tab whose content does not exist. ]]
 	it("a badge climbs on an UNSELECTED tab while that tab's content is gone", function()
 		local w = world(PHONE)
-		expect(w.text(`{BOTTOM}/Rows/[inbox]/SectionRow/Option-inbox/HStack#1/Badge`)).toBe("3")
+		-- the count is a node INSIDE the seal (2026-09-12) — see
+		-- tests/badge_centering.spec.luau for why the seal and its number are two
+		expect(w.text(`{BOTTOM}/Rows/[inbox]/SectionRow/Option-inbox/HStack#1/Badge/Count`)).toBe("3")
 		expect(w.built.report().app.mountedTabs[1]).toBe("pages")
 		w.built.steps.select(w.built, "me")
 		w.built.steps.bumpUnread(w.built)
@@ -222,7 +224,7 @@ describe("scenario 'tab_view': the eviction, as a number a tester can watch move
 		w.settle()
 		-- inbox has never been mounted at all, and its seal has still moved twice
 		expect(w.built.report().builds.inbox).toBeNil()
-		expect(w.text(`{BOTTOM}/Rows/[inbox]/SectionRow/Option-inbox/HStack#1/Badge`)).toBe("5")
+		expect(w.text(`{BOTTOM}/Rows/[inbox]/SectionRow/Option-inbox/HStack#1/Badge/Count`)).toBe("5")
 		expect(w.adapter.node(`{BOTTOM}/Rows/[inbox]/SectionRow/Option-inbox`) ~= nil).toBe(true)
 		-- ...and the badge empties rather than painting a zero, from the tab itself
 		w.built.steps.select(w.built, "inbox")
@@ -333,7 +335,10 @@ describe("scenario 'tab_view': everything on it is reachable, everywhere", funct
 			-- words), so the rule that covers both shapes is that every painted string
 			-- either IS a copy value or CONTAINS one — which a hard-coded literal on
 			-- this page would fail. The badge is a bare count and has no words in it.
-			local isBadge = string.find(path, "/HStack#1/Badge$") ~= nil
+			-- a count is a NUMBER, not copy: it has no localized string and never
+			-- had one. It draws inside the seal now rather than on it, so the skip
+			-- follows it down one node (2026-09-12).
+			local isBadge = string.find(path, "/HStack#1/Badge/Count$") ~= nil
 			if
 				string.find(path, "^/TabViewDemo/") ~= nil
 				and not isBadge

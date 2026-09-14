@@ -29,6 +29,14 @@ export type Spec = {
 	content: () -> any, -- () -> Blueprint, mounted only while expanded
 	enabled: any?,
 	onToggle: ((expanded: boolean) -> ())?,
+	-- OPTIONAL (task 12, transitions round). When given, the toggle runs inside
+	-- `presenter.withAnimation("dismiss", …)` so every sibling whose position
+	-- the flip moves — a section below this one sliding to make or close room —
+	-- GLIDES to its new place instead of jumping there. Absent (the common case:
+	-- a bare mount with no presenter, or a screen that has not opted in) degrades
+	-- to an ordinary instant flip; the caret and the content still animate their
+	-- OWN paint either way, off the ambient motion clock `bindMotion` hands over.
+	presenter: any?,
 }
 
 -- CLOSED SPEC (constitution §4). Exactly the fields this control
@@ -40,6 +48,7 @@ local DISCLOSURE_GROUP_KEYS = specGuard.keySet({
 	"id",
 	"label",
 	"onToggle",
+	"presenter",
 })
 
 function disclosure_group.build(Facet: any, core: any, spec: Spec)
@@ -60,6 +69,9 @@ function disclosure_group.build(Facet: any, core: any, spec: Spec)
 	end
 	if type(spec.content) ~= "function" then
 		error(`Facet newDisclosureGroup('{id}'): \`content\` must be a function returning a Blueprint`, 0)
+	end
+	if spec.presenter ~= nil and type((spec.presenter :: any).withAnimation) ~= "function" then
+		error(`Facet newDisclosureGroup('{id}'): \`presenter\` must be a presenter (something with withAnimation)`, 0)
 	end
 
 	local headerPath: string? = nil
@@ -85,9 +97,22 @@ function disclosure_group.build(Facet: any, core: any, spec: Spec)
 				end
 			end
 		end
-		expanded:set(next_)
-		if spec.onToggle ~= nil then
-			spec.onToggle(next_)
+		-- THE FLIP ITSELF, optionally inside `withAnimation` (task 12). The focus
+		-- hand-back above already ran, so it is never inside the presenter's own
+		-- armed transaction — `withAnimation` refuses re-entrancy and a call from
+		-- inside an already-open core transaction, and the hand-back's `focusOn`
+		-- write must land BEFORE the content unmounts regardless of which branch
+		-- runs below.
+		local function flip()
+			expanded:set(next_)
+			if spec.onToggle ~= nil then
+				spec.onToggle(next_)
+			end
+		end
+		if spec.presenter ~= nil then
+			spec.presenter.withAnimation("dismiss", flip)
+		else
+			flip()
 		end
 		return true
 	end
@@ -112,24 +137,40 @@ function disclosure_group.build(Facet: any, core: any, spec: Spec)
 	-- and the adapter paints the theme's picture over the character when the
 	-- installed package declares one. A control never names an asset.
 	--
-	-- WHY TWO REGIONS. The hint is static blueprint metadata (it has to be — it
-	-- is read at create time, before any signal exists on the node), and open and
-	-- shut are two DIFFERENT semantic names, not two states of one. Only a
-	-- structural region may mount or unmount (UI-RUNTIME-002), so each name gets
-	-- one, and exactly one is mounted at a time.
+	-- ONE GLYPH, NOT TWO REGIONS (task 12, transitions round). The header used
+	-- to mount `CaretOpen`/`CaretShut` as a `UI.When` pair — two DIFFERENT
+	-- semantic names for the same idea, because a hint is static blueprint
+	-- metadata (it has to be — it is read at create time, before any signal
+	-- exists on the node) and the ladder had no way to carry one icon name
+	-- through two states. That made every flip a MOUNT/UNMOUNT of the whole
+	-- caret for what is really just an ANGLE, so the caret is now a single
+	-- `chevron.trailing` glyph whose `rotation` (paint-only, presentation
+	-- channel — never seen by the solver) springs 0 -> 90 as `expanded` flips,
+	-- turning to point down rather than swapping identity. A package's
+	-- `chevron.down` art, if it declared any, is no longer requested here.
 	--
 	-- The header becomes a CONTENT button (B-BTN1): its `label` stays the
 	-- semantic label the contract and every assistive reader want, and the
 	-- visible text moves into a child so suppressing the CARET's glyph under a
 	-- picture cannot take the label with it.
-	local CARET_OPEN = themePackage.iconGlyph("chevron.down") or "v"
-	local CARET_SHUT = themePackage.iconGlyph("chevron.trailing") or ">"
-	local collapsed = scope:own(core:memo(function(use)
-		return not use(expanded)
-	end))
-	local function caret(icon: string, glyph: string): any
-		return chrome_slots.attachHint(UI.Text({ id = "Caret", text = glyph, textSize = "control" }), { icon = icon })
+	local CARET = themePackage.iconGlyph("chevron.trailing") or ">"
+	-- the caret's aim, in degrees; `bindMotion` below seeds a spring from it the
+	-- first time a presenter hands one over, so a control built already-expanded
+	-- (or mounted with no presenter at all) starts pointed the right way with no
+	-- flight
+	local caretAngle = scope:own(core:signal(if expanded:get() then 90 else 0))
+	local clock: any, caretMotion: any = nil, nil
+	local function aimCaret()
+		local target = if expanded:get() then 90 else 0
+		if caretMotion ~= nil then
+			caretMotion:setTarget(target)
+		else
+			-- no clock bound yet (a bare mount, or reduced motion's own instant
+			-- placement already did the work through the spring) — write directly
+			caretAngle:set(target)
+		end
 	end
+	scope:own(core:observe(expanded, aimCaret))
 
 	local root = UI.VStack({
 		id = id,
@@ -145,20 +186,10 @@ function disclosure_group.build(Facet: any, core: any, spec: Spec)
 				width = { type = "fill", weight = 1 },
 				height = { type = "minMax", min = "targetSizes.minimum" },
 				children = {
-					UI.When({
-						id = "CaretOpen",
-						condition = expanded,
-						thenView = function()
-							return caret("chevron.down", CARET_OPEN)
-						end,
-					}),
-					UI.When({
-						id = "CaretShut",
-						condition = collapsed,
-						thenView = function()
-							return caret("chevron.trailing", CARET_SHUT)
-						end,
-					}),
+					chrome_slots.attachHint(
+						UI.Text({ id = "Caret", text = CARET, textSize = "control", rotation = caretAngle }),
+						{ icon = "chevron.trailing" }
+					),
 					UI.Text({
 						id = "Label",
 						text = spec.label,
@@ -169,9 +200,21 @@ function disclosure_group.build(Facet: any, core: any, spec: Spec)
 					}),
 				},
 			}),
-			-- only a structural region may mount/unmount (UI-RUNTIME-002), so a
-			-- collapsed group genuinely costs nothing
-			UI.When({ id = "Content", condition = expanded, thenView = spec.content }),
+			-- Fade the content during the caret's close, so removal never reveals
+			-- the last fully opaque frame. The region still owns exit and reversal.
+			UI.When({
+				id = "Content",
+				condition = expanded,
+				thenView = function()
+					return UI.ZStack({
+						id = "Fade",
+						canvasGroup = true,
+						width = { type = "fill", weight = 1 },
+						children = { spec.content() },
+					})
+				end,
+				transition = { enter = "fade", class = "dismiss", exitClass = "dismiss" },
+			}),
 		},
 	})
 
@@ -197,6 +240,18 @@ function disclosure_group.build(Facet: any, core: any, spec: Spec)
 		bindController = function(controller: any)
 			if controller ~= nil and controller.focusGraph ~= nil then
 				focusGraph = controller.focusGraph
+			end
+		end,
+		-- the caret's spring, seeded from whatever `caretAngle` already reads (the
+		-- construction-time value, or the last instant write if `expanded` flipped
+		-- before a presenter ever bound one) — so binding late never jumps
+		bindMotion = function(c)
+			clock = c
+			if caretMotion == nil then
+				caretMotion = scope:own(clock:spring(caretAngle:get(), "dismiss", { eps = 0.01 }))
+				scope:own(core:observe(caretMotion, function()
+					caretAngle:set(caretMotion:get())
+				end))
 			end
 		end,
 	})

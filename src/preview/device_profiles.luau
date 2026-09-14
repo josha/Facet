@@ -140,6 +140,14 @@ function device_profiles.apply(env: any, name: string): Profile
 	-- device-safe insets are zero unless the profile declares them (facts loop
 	-- below overrides); prevents a previously-applied notched profile leaking
 	env:set("deviceSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
+	--[[ `appChromeInsets` IS DELIBERATELY NOT TOUCHED (ruling 2026-09-13). A
+		profile describes a DEVICE — its viewport, its notch, its input classes —
+		and the host app's own chrome band is not the device's: the showcase's chip
+		strip is still there when you preview a phone from a desktop, and a profile
+		that zeroed it would preview a screen the host never shows. Nothing above
+		leaks between profiles either, because nothing here writes it; a host that
+		wants its band re-measured for a new viewport re-publishes it itself, which
+		is what the showcase's own per-frame re-assertion already does. ]]
 	for key, value in profile.facts do
 		env:set(key, if type(value) == "table" then table.clone(value) else value)
 	end

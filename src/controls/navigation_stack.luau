@@ -7,6 +7,7 @@ local contribution = require("../input/contribution")
 local coreContract = require("../core/contract")
 local blueprintLib = require("../blueprint")
 local environment = require("../env/environment")
+local transitionsLib = require("../render/transitions")
 local navigation = {}
 export type Entry = { id: string, value: any? }
 export type Destination = {
@@ -141,10 +142,22 @@ function navigation.build(Facet: any, core: any, spec: Spec)
 	local stackWidth = nil
 	local transition = authored
 	local pageTransition = nil
+	-- both pages travel together (line above): the retiring and entering pages
+	-- must share one MOTION CLASS or the two-page slide desyncs, so this pins
+	-- exitClass to the SAME resolved class rather than to `authored.exitClass or
+	-- authored.class` alone — with neither declared, that pair is nil/nil and
+	-- `transitions.resolve` would then hand them DIFFERENT defaults
+	-- (`transitions.DEFAULT_CLASS` for class, the faster "dismiss" for
+	-- exitClass — transitions round 2026-09-12), the exact desync this exists
+	-- to prevent. Reading `transitions.DEFAULT_CLASS` here (rather than
+	-- restating "container") keeps this in lockstep with that default too.
+	local pageClass = authored and (authored.class or transitionsLib.DEFAULT_CLASS)
 	if horizontal then
 		local initial = table.clone(authored)
 		initial.enter = "instant"
 		initial.exit = forward
+		initial.class = pageClass
+		initial.exitClass = authored.exitClass or pageClass
 		pageTransition = scope:own(core:signal(initial))
 		transition = pageTransition
 	end
@@ -241,12 +254,21 @@ function navigation.build(Facet: any, core: any, spec: Spec)
 				local travel = if backward
 					then (if forward == "slide-left" then "slide-right" else "slide-left")
 					else forward
-				pageTransition:set({
-					enter = if stackWidth == nil then "instant" else travel,
-					exit = travel,
-					class = authored.class,
-					distance = authored.distance or stackWidth,
-				})
+				--[[ A CLONE, then the five keys this policy OWNS — never a spec
+					rebuilt from those five names alone. Rebuilt, it dropped every
+					other key the author wrote (`stagger`, `plate`) on the first
+					push, while `initial` above — a `table.clone` — kept them: the
+					stack told the framework two different things about one
+					authored spec depending on how deep it was. ]]
+				local page = table.clone(authored)
+				page.enter = if stackWidth == nil then "instant" else travel
+				page.exit = travel
+				-- see the `pageClass` note above `initial` for why exitClass is
+				-- pinned to the SAME resolved class rather than left to default
+				page.class = pageClass
+				page.exitClass = authored.exitClass or pageClass
+				page.distance = authored.distance or stackWidth
+				pageTransition:set(page)
 			end
 			items:set({ current })
 		end

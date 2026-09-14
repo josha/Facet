@@ -25,9 +25,8 @@ export type ActionType = "Bool" | "Direction1D" | "Direction2D" | "ViewportPosit
 -- knows which BINDING delivered a value — so it is also the one place that
 -- can answer "was this a gamepad press" without the presenter re-deriving it
 -- from a live platform fact that updates on its own schedule.
-local function isGamepadKeyCode(keyCode: string): boolean
-	return keyCode:match("^Button") ~= nil or keyCode:match("^DPad") ~= nil or keyCode:match("^Thumbstick") ~= nil
-end
+local bindingOwner = require("./binding_owner")
+local isGamepadKeyCode = bindingOwner.isGamepadKeyCode
 
 function actions.newSystem(core: any)
 	local system = {}
@@ -545,41 +544,7 @@ function actions.newSystem(core: any)
 		— see `modifierMatch`'s own header. A future caller driving this from
 		a modifier-bearing keyCode binding would need that added here first. ]]
 	function system.wouldWinArbitration(context: any, binding: any): boolean
-		if context == nil or binding == nil or context.destroyed or not context.enabled then
-			return false
-		end
-		local candidates: { any } = {}
-		for _, candidateContext in contexts do
-			if candidateContext.enabled and not candidateContext.destroyed then
-				for _, action in candidateContext.actions do
-					for _, candidateBinding in action.bindings do
-						local matches = if binding.isAxis == true
-							then candidateBinding.isAxis == true and candidateBinding.axis == binding.axis
-							else binding.keyCode ~= nil and candidateBinding.keyCode == binding.keyCode
-						if matches then
-							table.insert(candidates, candidateContext)
-							break
-						end
-					end
-				end
-			end
-		end
-		table.sort(candidates, function(a, b)
-			return a.priority > b.priority
-		end)
-		local consumedPriority: number? = nil
-		for _, candidateContext in candidates do
-			if consumedPriority ~= nil and candidateContext.priority < consumedPriority then
-				break -- sunk by a higher-priority context before reaching ours
-			end
-			if candidateContext == context then
-				return true
-			end
-			if candidateContext.sink then
-				consumedPriority = candidateContext.priority
-			end
-		end
-		return false
+		return bindingOwner.wouldWin(contexts, context, binding)
 	end
 
 	--[[ HOW MANY CONTEXTS THIS SYSTEM IS HOLDING. The honest read behind the

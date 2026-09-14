@@ -769,6 +769,34 @@ function tab_view.build(Facet: any, core: any, spec: Spec)
 	-- a band across it. The strip's axis and the root's axis are the same fact
 	-- read twice, and both are bound, so a rotation is a re-solve.
 	local sidebar = isPlacement("sidebar")
+	--[[ THE ADAPTABLE APP BAR'S OWN CORNER, hoisted to control scope because TWO
+		nodes spend it: the bar itself (`AdaptableBar` below) and — in its BAND form
+		only — the strip inside it, which hands the name to
+		`selection_indicator.fillCornerFor` so the selected fill wears the
+		silhouette of the plate it floats in. A rail is a panel down the side of a
+		screen; a band is a capsule.
+
+		THE RAIL DECLARES NO CONTAINER (controller ruling, review round 2). A fill
+		derives its shape from a container by insetting concentrically inside it,
+		and that is a true statement about a BAND: the chip and the capsule share a
+		centre, so a fill inset from the capsule's radius is the shape you would
+		draw by hand. It is not true of a rail. A selected row sits in the MIDDLE of
+		a column, nowhere near the rail's outer corner, so `radii.panel - space.xs`
+		is a number with nothing behind it. Rail rows keep the plain
+		`radii.selection` token, which is the theme's own answer for a highlight
+		that is not inside anything in particular — the same answer a plain
+		(non-adaptable) TabView's strip takes, because its top band has no plate at
+		all. ]]
+	local barCornerToken = scope:own(core:memo(function(use)
+		return if use(sidebar) then "panel" else "pill"
+	end))
+	local barCorners = scope:own(core:memo(function(use)
+		return UI.cornersData(use(barCornerToken))
+	end))
+	-- ...and this is the one the STRIP is handed: the band's capsule, or nothing
+	local stripContainer = scope:own(core:memo(function(use)
+		return if use(sidebar) then nil else "pill"
+	end))
 	local stripAxis = scope:own(core:memo(function(use)
 		return if use(sidebar) then "y" else "x"
 	end))
@@ -802,6 +830,11 @@ function tab_view.build(Facet: any, core: any, spec: Spec)
 		-- a tab strip sits in the band this control already draws; the picker's
 		-- own segmented track would be a second plate around it (2026-09-11)
 		track = false,
+		-- ...and THAT band is the container the selected fill has to match, so the
+		-- adaptable bar's BAND corner travels with the strip. `nil` for the rail
+		-- form and for every other style: a rail row is not concentric with the
+		-- rail, and a plain top band is a bare scroller with no plate at all.
+		stripCorner = if adaptable then stripContainer else nil,
 		indicator = if requestedIndicator == "automatic"
 			then (if adaptable then "pill" else AUTOMATIC_INDICATOR)
 			else requestedIndicator,
@@ -921,8 +954,8 @@ function tab_view.build(Facet: any, core: any, spec: Spec)
 	-- ===== the three homes ===================================================
 	-- One strip blueprint, declared in each home under mutually-exclusive
 	-- conditions, so exactly one is mounted and the picker object is built once.
-	-- The sidebar/content boundary owns a theme-sized gap. Pages still own their
-	-- internal spacing; a top or bottom band takes no extra vertical gap.
+	-- Every strip/content boundary owns a theme-sized gap (see the root stack's
+	-- own `gap`); pages still own their internal spacing.
 
 	-- The scrolling homes are ScrollViews because a hugging strip can be wider
 	-- than its offer; the thumb-zone band is not, because a `fill` strip divides
@@ -1178,9 +1211,20 @@ function tab_view.build(Facet: any, core: any, spec: Spec)
 						align = "center",
 						alignH = "center",
 						surface = "raised",
-						corners = choose(UI.cornersData("panel"), UI.cornersData("pill")),
+						--[[ THE BAR KEEPS ITS PILL, AND THE FILL FOLLOWS IT (owner
+							report 2026-09-12; controller ruling: the CONTAINER is the
+							authority, not the fill). A pill strip holding a
+							rounded-rect chip is two silhouettes in one control — under
+							Compact Pointer a 999 capsule around a 4px fill — and the
+							half that was wrong is the FILL, which took `radii.selection`
+							(a token that follows `radii.control`, which is what the
+							picker's own TRACK wears and not what this bar wears). The
+							corner declared here is therefore also handed to the strip as
+							`stripCorner`, and `selection_indicator.fillCornerFor` derives
+							the fill's silhouette from it. ]]
+						corners = barCorners,
 						padding = "xs",
-						gap = choose("s", "xs"),
+						gap = "m",
 						children = {
 							UI.When({
 								id = "SidebarChoice",
@@ -1262,8 +1306,31 @@ function tab_view.build(Facet: any, core: any, spec: Spec)
 	local root = UI.AdaptiveStack({
 		id = id,
 		axis = rootAxis,
+		--[[ THE STRIP NEVER TOUCHES THE PAGE (owner report 2026-09-12). This read
+			`if use(sidebar) then "m" else 0`, so a rail beside a page got the
+			theme's spacing and a band above or below one got none — in every theme,
+			at every text size. A strip is a plate with its own fill and its own
+			corner; a page starting on the pixel below it reads as part of the strip.
+			One decision for every placement now, and both halves are METRIC
+			NAMES: a package that retunes its spacing retunes this, and a ten-foot
+			display's scaled steps reach it with nothing to update. The rail keeps
+			the wider step because a vertical boundary down the middle of a screen is
+			a bigger seam than a horizontal one at its edge.
+
+			...AND THE COMPACT BAND SPENDS NONE, because that is what it is FOR. A
+			`bottomBarCompact` is the placement the policy picks when the screen is
+			too short for the ordinary thumb-zone band, and the chrome gives way
+			before the content does (the rule `examples/gallery/scenarios/
+			row_actions.luau` states and `examples/reference/p4_foyer` measures). A
+			uniform `s` here cost that proof 8px it did not have: at 640x320 and the
+			largest text preference its page already overflows by 19px, and the gap
+			made it 27. A gap that only exists where there is room for one is the
+			same decision `resolveSizing` makes one field over. ]]
 		gap = scope:own(core:memo(function(use)
-			return if use(sidebar) then "m" else 0
+			if use(sidebar) then
+				return "m"
+			end
+			return if use(placement) == "bottomBarCompact" then 0 else "s"
 		end)),
 		width = FILL,
 		height = FILL,

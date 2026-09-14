@@ -936,7 +936,12 @@ local function toLayoutNode(
 			stores its whole subtree absolutely under a parent the adapter then
 			registers as a coordinate space. `createOptsFor` memoises its answer on the
 			mounted node, so whichever of the two asks first fixes it for both. ]]
-		hostSpace = hostSpaceOf(node, store.attachOpts),
+		-- `store` is OPTIONAL on this entry, and the export note at the foot of this
+		-- file says so in as many words: `toLayoutNode` is "the one-shot entry a
+		-- caller with no store wants", and the two reads above it already branch on
+		-- `store ~= nil`. This one did not, so that documented caller faulted on the
+		-- first node it built (R10)
+		hostSpace = hostSpaceOf(node, if store ~= nil then store.attachOpts else nil),
 		columns = props.columns,
 		minColumnWidth = props.minColumnWidth,
 		itemSizing = props.itemSizing,
@@ -1337,41 +1342,6 @@ local function toLayoutNode(
 	-- one reservation covers every slot at every depth — and it is 0 for any
 	-- package that declares no shadow, so a flat theme is untouched and the
 	-- neutral baseline cannot move.
-	if
-		kind == "scroll"
-		and insideClipper ~= true
-		and props.chromeReserve ~= "none"
-		and not chrome_slots.hasOnlyPlainLeaves(node)
-	then
-		local bleed = if type(metrics.chromeBleed) == "number" then metrics.chromeBleed else 0
-		if bleed > 0 then
-			local top, right, bottom, left = solver.sides(layoutNode.padding)
-			if (props.axis or "y") == "x" then
-				layoutNode.padding =
-					{ top = math.max(top, bleed), right = right, bottom = math.max(bottom, bleed), left = left }
-			else
-				layoutNode.padding =
-					{ top = top, right = math.max(right, bleed), bottom = bottom, left = math.max(left, bleed) }
-			end
-		end
-		--[[ ...AND THE LEADING EDGE'S OWN RESERVE, STAMPED RATHER THAN SPENT
-			HERE (task SHOWCASE3, 2026-08-29; supersedes 9eb095a, reverted).
-			The cross axis above is safe unconditional: "reachable by scrolling
-			to it" never applies to it either, but nothing has measured it
-			collapsing a real box. The leading edge (top for y, left for x) is
-			different — there is no canvas before scroll position 0 to grow
-			into, so showing a first child's own glow costs real padding, and
-			real padding taken from a box that cannot afford it is a blank
-			scroller. 9eb095a spent it right here, unconditionally, and that is
-			exactly what collapsed `overflow_sweep`'s `tab_view`/`p3_sipworks`
-			to a 0px content box under Sci-Fi HUD at narrow-landscape: this
-			pre-solve conversion sees only the node's own AUTHORED extent —
-			`math.huge` for the common fill/hug scroll container — never the
-			real offer a parent squeezing it actually has. So this only
-			STAMPS the fact; `src/layout/solver.luau`'s `arrange` spends it
-			floor-aware, against the rect it actually resolved. ]]
-		layoutNode.leadingBleed = bleed
-	end
 	local chromeInsets = metrics.chromeInsets
 	local chromeOutsets = metrics.chromeOutsets
 	-- `hasChromeInsets`, not `next(chromeInsets)`: every slot now publishes an
@@ -1380,20 +1350,33 @@ local function toLayoutNode(
 	-- there is anything to spend. The snapshot answers that directly.
 	local wantsInsets = chromeInsets ~= nil and metrics.hasChromeInsets == true
 	local wantsOutsets = chromeOutsets ~= nil and next(chromeOutsets) ~= nil
-	-- the HINT counts for the inset block below (a control that declared its own
-	-- slot — a Slider's rail — would otherwise reserve the slot the generic map
-	-- guessed instead of the one its art actually occupies), AND for the icon
-	-- reservation after it. Read ONCE, above both, because the icon box is owed
-	-- even by a package that reserves no chrome at all: Facet Neutral declares
-	-- no `contentInsets` and still paints the framework's own pictures.
+	--[[ the HINT counts for the inset block below (a control that declared its own
+		slot — a Slider's rail — would otherwise reserve the slot the generic map
+		guessed instead of the one its art actually occupies), AND for the icon
+		reservation after it. Read ONCE, above both, because the icon box is owed
+		even by a package that reserves no chrome at all: Facet Neutral declares
+		no `contentInsets` and still paints the framework's own pictures.
+
+		…AND ABOVE THE BLEED LANE AS WELL (2026-09-13), because the lane owes
+		only what the CARVE does not already give — see `chrome_slots.bleedLane`. ]]
 	local hint = chrome_slots.readHint(node)
-	if wantsInsets or wantsOutsets then
-		local slot = chrome_slots.classify({
+	local slot = if wantsInsets or wantsOutsets
+		then chrome_slots.classify({
 			class = class,
 			surface = props.surface,
 			hasSelection = props.selected ~= nil,
 			hint = if hint ~= nil then hint.slot else nil,
 		})
+		else nil
+	--[[ WHAT THE CARVE ACTUALLY COST THIS NODE, per side (R3, 2026-09-13). The
+		inset block below may REFUSE a slot's frame outright — `spendInset` gives the
+		whole thing back rather than collapse a box that cannot afford it — and the
+		bleed lane is netted against the carve, so a lane netted against a carve that
+		was then refused leaves NEITHER. Measured on a fixed-56 `panel` scroller
+		under Fantasy Ornate: padding 30/0/30/0, no frame and no lane. So the lane is
+		decided AFTER this block, from the number it kept. ]]
+	local carveSpent: any = nil
+	if wantsInsets or wantsOutsets then
 		local extra = if wantsInsets and slot ~= nil then chromeInsets[slot] else nil
 		if extra ~= nil then
 			local top, right, bottom, left = solver.sides(layoutNode.padding)
@@ -1515,6 +1498,12 @@ local function toLayoutNode(
 			-- content-box diagnostic can name the slot rather than only the node
 			-- (rich-skinning v2)
 			layoutNode.chromeSlot = slot
+			carveSpent = {
+				top = if keepY then extra.top else 0,
+				right = if keepX then extra.right else 0,
+				bottom = if keepY then extra.bottom else 0,
+				left = if keepX then extra.left else 0,
+			}
 			-- ...and WHETHER it had to be given back, so the repair is reported
 			-- rather than silent. Repaired is not the same as fine: a control too
 			-- small for its own theme is exactly what an author needs told.
@@ -1536,6 +1525,78 @@ local function toLayoutNode(
 				left = left + outset.left,
 			}
 		end
+	end
+	if
+		kind == "scroll"
+		and insideClipper ~= true
+		and props.chromeReserve ~= "none"
+		and not chrome_slots.hasOnlyPlainLeaves(node)
+	then
+		--[[ THE LANE OWES ONLY WHAT THE CARVE DOES NOT ALREADY GIVE. A
+			carved frame holds this scroller's content away from its own clip edge by
+			exactly its `contentInsets`, which is the same clearance the lane exists
+			to buy — so under Fantasy Parchment (bleed 17, panel carve 18) the lane
+			was pure double-count, 35 px a side out of a 390 px phone, and under
+			Sci-Fi HUD (bleed 24, carve 0) every pixel of it is owed.
+
+			DECIDED AFTER THE INSET BLOCK, from the carve that block actually KEPT: a
+			frame `spendInset` refused is clearance this node never got, and netting
+			against it would leave neither the frame nor the lane.
+
+			RE-READ PER SOLVE, which is the whole reason it lives here rather than in
+			a control's props: the answer is a fact about the INSTALLED package, and a
+			control that decided it at construction was right until the player
+			swapped theme. `Controls.Alert` used to carry a build-time
+			`chromeReserve` for this and no longer does. A scroller that declares
+			`chromeReserve = "none"` outright (a menu card's list) still skips the
+			whole block — that is a claim about its CONTENT, not about the art
+			around it. ]]
+		local bleed = chrome_slots.bleedLane(metrics, slot, props.axis or "y", carveSpent)
+		--[[ ...AND THE CROSS-AXIS FLOOR TAKES THE RAW REACH, NOT THAT NETTED LANE
+			(fix wave 4, 2026-09-13). Deciding the lane after the inset block is right,
+			but it means the padding this floors against ALREADY CONTAINS the carve —
+			so netting a second time here buys `math.max(carve, bleed - carve)` of
+			clearance where the package asks for `bleed`. Measured on ONE Glossy Touch
+			`panel` scroller (bleed 17, carve 14): 17 px of clearance at the top and 14
+			at the left, three pixels apart on the same node, on the axis that cannot
+			recover them by scrolling. Flooring on `chromeBleed` restores the sum the
+			netting was always meant to produce — Fantasy Parchment `max(18, 17) = 18`,
+			Sci-Fi HUD `max(0, 24) = 24`, Glossy Touch `max(14, 17) = 17` — and it is
+			right for EITHER side of an asymmetric carve, which the one-side lane read
+			is not.
+
+			The netted lane is still exactly what the two ADDITIVE spends want: the
+			leading edge below and the scroll canvas both stack on top of this padding
+			rather than max against it, and netting is the only thing keeping them from
+			charging the carve twice. Same number, two different arithmetics. ]]
+		local rawBleed = if type(metrics.chromeBleed) == "number" then metrics.chromeBleed else 0
+		if rawBleed > 0 then
+			local top, right, bottom, left = solver.sides(layoutNode.padding)
+			if (props.axis or "y") == "x" then
+				layoutNode.padding =
+					{ top = math.max(top, rawBleed), right = right, bottom = math.max(bottom, rawBleed), left = left }
+			else
+				layoutNode.padding =
+					{ top = top, right = math.max(right, rawBleed), bottom = bottom, left = math.max(left, rawBleed) }
+			end
+		end
+		--[[ ...AND THE LEADING EDGE'S OWN RESERVE, STAMPED RATHER THAN SPENT
+			HERE (task SHOWCASE3, 2026-08-29; supersedes 9eb095a, reverted).
+			The cross axis above is safe unconditional: "reachable by scrolling
+			to it" never applies to it either, but nothing has measured it
+			collapsing a real box. The leading edge (top for y, left for x) is
+			different — there is no canvas before scroll position 0 to grow
+			into, so showing a first child's own glow costs real padding, and
+			real padding taken from a box that cannot afford it is a blank
+			scroller. 9eb095a spent it right here, unconditionally, and that is
+			exactly what collapsed `overflow_sweep`'s `tab_view`/`p3_sipworks`
+			to a 0px content box under Sci-Fi HUD at narrow-landscape: this
+			pre-solve conversion sees only the node's own AUTHORED extent —
+			`math.huge` for the common fill/hug scroll container — never the
+			real offer a parent squeezing it actually has. So this only
+			STAMPS the fact; `src/layout/solver.luau`'s `arrange` spends it
+			floor-aware, against the rect it actually resolved. ]]
+		layoutNode.leadingBleed = bleed
 	end
 	-- THE ICON'S BOX IS A SOLVER FACT (director report 2026-07-28, defects 1+2).
 	--

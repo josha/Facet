@@ -197,8 +197,38 @@ local TRANSITION_MIRROR: { [string]: string } = {
 -- only) — see render/transitions.luau's `slideDistance` header for why the
 -- themed default is right for a decorative nudge and wrong for a full-surface
 -- push/pop, and why this is an opt-in override rather than a changed default.
-local TRANSITION_KEYS: { [string]: boolean } =
-	{ enter = true, exit = true, class = true, fade = true, distance = true, pivot = true }
+--[[ `plate` is the ACKNOWLEDGEMENT, not a switch (task 7 item 3). The
+	backdrop-before-content gate (`render/transitions.luau`'s own header) reports
+	a fade group that composes its own opaque plate, because
+	`GroupTransparency` then dims the backdrop and the content together and "the
+	backdrop is legible no later than the content" becomes impossible by
+	construction. The modal/popover shape is the one case where that is
+	deliberate — an Alert card or a Menu popover IS its plate, and the backdrop
+	the invariant is about is the presenter's scrim BEHIND the whole surface, not
+	the card's own face. No tree read can tell the two apart (a full-bleed page
+	push whose plate is its sole child is byte-identical), so the difference is
+	DECLARED at the one place that knows it.
+
+	THE RULE IN ONE LINE: the plate IS the surface, and whatever is behind it is a
+	scrim or nothing at all (a toast) — never separately-fading content. An Alert
+	card and a Menu popover have a scrim behind them; a toast has the app, which
+	it never claimed to hide. What the key must NEVER say is "this plate sits
+	behind content that fades with it", which is the defect itself, and the
+	SOLE-CHILD restriction in the finder is what keeps it from being able to. ]]
+local TRANSITION_PLATES: { [string]: boolean } = { fades = true }
+schema.TRANSITION_PLATES = table.freeze(TRANSITION_PLATES)
+local TRANSITION_KEYS: { [string]: boolean } = {
+	enter = true,
+	exit = true,
+	class = true,
+	exitClass = true,
+	fade = true,
+	distance = true,
+	scale = true,
+	pivot = true,
+	plate = true,
+	stagger = true,
+}
 -- where a scaling form (materialize) grows FROM: the node's centre unless the
 -- caller names the corner it is attached at (an anchored popover grows out of
 -- the control that opened it — picker round, 2026-09-11)
@@ -652,7 +682,8 @@ local TYPE_CHECKS: { [string]: (any) -> (boolean, string?) } = {
 		for k in v :: any do
 			if type(k) ~= "string" or not TRANSITION_KEYS[k] then
 				return false,
-					`unknown transition field '{tostring(k)}' (enter | exit | class | fade | distance | pivot)`
+					`unknown transition field '{tostring(k)}' `
+						.. `(enter | exit | class | exitClass | fade | distance | scale | pivot | plate | stagger)`
 			end
 		end
 		local enter = (v :: any).enter
@@ -669,6 +700,11 @@ local TYPE_CHECKS: { [string]: (any) -> (boolean, string?) } = {
 		local class = (v :: any).class
 		if class ~= nil and (type(class) ~= "string" or class == "") then
 			return false, 'class names a MOTION CLASS (a string such as "container"), never inline spring params'
+		end
+		local exitClass = (v :: any).exitClass
+		if exitClass ~= nil and (type(exitClass) ~= "string" or exitClass == "") then
+			return false,
+				'exitClass names the MOTION CLASS the exit runs on (default "dismiss", the faster twin of "container")'
 		end
 		local fade = (v :: any).fade
 		if fade ~= nil and type(fade) ~= "boolean" then
@@ -691,6 +727,61 @@ local TYPE_CHECKS: { [string]: (any) -> (boolean, string?) } = {
 		then
 			return false,
 				"distance is a finite positive number of px (the slide forms' own full travel, no unit suffix)"
+		end
+		--[[ `scale` IS `distance`'S TWIN FOR THE SCALING FORM, and it exists because
+			of a measured ENGINE fact rather than a taste: Roblox rasterizes text at
+			`floor(TextSize x effectiveScale)`, so ANY `UIScale` below 1 paints every
+			string under it one whole pixel smaller — 20px text renders at 19 for the
+			WHOLE of a 0.96 -> 1 materialize and snaps back the instant the scale
+			reaches exactly 1 (measured live 2026-09-13: TextBounds 127.5x19 at every
+			scale in [0.96, 1), 133.5x20 at 1.0). On a text-heavy surface that snap is
+			a visible re-flow AFTER the motion has stopped.
+
+			A form that settles DOWN from just above 1 has no such step: the band
+			[1, 1 + 1/maxTextSize) floors to the same pixel throughout. So a surface
+			whose content is mostly type declares its own absent scale, exactly as a
+			full-viewport push declares its own `distance`; nil keeps the ratified
+			0.96 default (render/transitions.luau's `MATERIALIZE_SCALE`) for every
+			caller that has not said otherwise. Ignored by non-scaling forms. ]]
+		local scale = (v :: any).scale
+		if
+			scale ~= nil
+			and (type(scale) ~= "number" or scale ~= scale or scale == math.huge or scale <= 0 or scale == 1)
+		then
+			return false,
+				"scale is the finite positive scale a materialize starts from, and never 1 (a form that starts at "
+					.. "rest does not move); below 1 it grows in, above 1 it settles down"
+		end
+		--[[ THE LIST RHYTHM (spec 2F): seconds between one row's enter and the
+			next one's, for a region whose children arrive TOGETHER. A list that
+			lands as one slab reads as a redraw; the same rows arriving a beat
+			apart read as a list. It is a DURATION, so 0 — the default, and every
+			caller that has not said otherwise — is the legal "no rhythm", while a
+			negative one is not a shorter wait but a nonsense one. Nothing here
+			caps how coarse a beat an author may ASK for (a languid list is a
+			taste decision); `render/transitions.luau`'s `STAGGER_CAP` caps how
+			far the accumulated wait may GROW down a long list, which is the half
+			that is not a matter of taste. ]]
+		local stagger = (v :: any).stagger
+		if
+			stagger ~= nil
+			and (type(stagger) ~= "number" or stagger ~= stagger or stagger < 0 or stagger == math.huge)
+		then
+			return false,
+				"stagger is a non-negative number of SECONDS between one row's enter and the next "
+					.. "(0, the default, enters them together)"
+		end
+		--[[ THE PLATE ACKNOWLEDGEMENT. `plate = "fades"` says: this surface's plate
+			is meant to fade with its content — the modal/popover shape whose
+			backdrop is the scrim behind it, not the plate. Do not write it to
+			silence a backdrop finding on a plate that sits behind separately-fading
+			content; the coordinator only honours it for a fade group whose SOLE
+			child is the plate, and reports every other shape exactly as before. ]]
+		local plate = (v :: any).plate
+		if plate ~= nil and not TRANSITION_PLATES[plate] then
+			return false,
+				`plate acknowledges that this surface's own plate fades with its content — the modal/popover `
+					.. `shape whose backdrop is the SCRIM behind it (one of: fades). Got '{tostring(plate)}'.`
 		end
 		return true
 	end,
@@ -1589,7 +1680,10 @@ local TRANSITION: PropSpec = p({
 		.. '"slide-left" | "slide-right" | "materialize" | "instant", exit? (default: the mirror of enter), '
 		.. 'class? (a motion class name, default "container"), fade? (pair a slide with a transparency fade), '
 		.. "distance? (px, slide forms only: overrides the themed default with the surface's own full travel — "
-		.. "a full-viewport push/pop wants its own width/height, not a decorative nudge) }. "
+		.. "a full-viewport push/pop wants its own width/height, not a decorative nudge), "
+		.. "scale? (materialize only: the scale the form starts from, default 0.96 — a text-heavy surface "
+		.. "settles DOWN from just above 1 instead, because any UIScale below 1 rasterizes every string one "
+		.. "pixel smaller and snaps back when the motion ends) }. "
 		.. "A Readable is sampled on enter/exit; it does not retarget an active flight. "
 		.. "Fading forms need the child to be a declared canvasGroup node",
 })
@@ -1788,12 +1882,18 @@ class("ScrollView", {
 				floated 31px inside the card, and the region's content grew by two
 				lanes while the host grew by one — a scrollbar on two rows that fit.
 				"none" declares that nothing inside reaches past its box, so no lane
-				is kept; "auto" keeps the conservative rule. ]]
+				is kept; "auto" keeps the conservative rule.
+
+				AND "THE PACKAGE-WIDE MAXIMUM" IS NETTED AGAINST THE CARVE (2026-09-13):
+				a carved frame already holds this scroller's content that far from its
+				own clip edge, so the lane owes only the difference
+				(`chrome_slots.bleedLane`, re-derived per solve and published beside the
+				spent padding so the box and its canvas are built from one number). ]]
 			types = { "string" },
 			reactive = false,
 			enum = { "auto", "none" },
 			channel = "layout",
-			doc = 'chrome reserve: "auto" (default, keeps the package bleed lane) or "none" (a scroller whose content carries no chrome that reaches past its box)',
+			doc = 'chrome reserve: "auto" (default, keeps the lane — `max(0, chromeBleed - the slot\'s own carve)`, since a carved frame already holds content that far from the clip edge; see `chrome_slots.bleedLane`) or "none" (a scroller whose content carries no chrome that reaches past its box)',
 		}),
 		autoscroll = p({
 			-- DRAG-TO-EDGE AUTOSCROLL BELONGS TO THE SCROLLER, NOT TO ITS CONTENTS

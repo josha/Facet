@@ -445,7 +445,7 @@ function screen_paint.new(ctx: any)
 			handle.strokeInstance = live
 		end
 		-- …and the same door for an authored stroke's thickness
-		local painted = styling.paintStroke(stroke, style)
+		local painted = styling.paintStroke(stroke, snapshot() or style)
 		live.Color = toColor3(painted.color)
 		live.Transparency = painted.transparency
 		live.Thickness = painted.thickness
@@ -458,6 +458,12 @@ function screen_paint.new(ctx: any)
 
 	local function motionInfo(duration: number): TweenInfo
 		return TweenInfo.new(duration, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+	end
+	-- the toggle knob's two-step settle (transitions.dev's `(.34,1.35,.64,1)`):
+	-- Back/Out overshoots ~10% and returns, which is what a switch thumb wants and
+	-- a colour never does — colour stays on `motionInfo`
+	local function overshootInfo(duration: number): TweenInfo
+		return TweenInfo.new(duration, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
 	end
 
 	-- THE PRESS DIP'S UIScale, CREATED ON FIRST PRESS AND NOT BEFORE.
@@ -775,7 +781,7 @@ function screen_paint.new(ctx: any)
 		-- NOTHING IS RECORDED BELOW, deliberately: this radius is the PROP's, not
 		-- the chrome's, and recording it would make the next nil write restore the
 		-- value it is supposed to be releasing.
-		local corners = styling.paintCorners(cornersData, style)
+		local corners = styling.paintCorners(cornersData, snapshot() or style)
 		local uiCorner = instance:FindFirstChildOfClass("UICorner") or Instance.new("UICorner")
 		if corners.form == "uniform" then
 			uiCorner.CornerRadius = UDim.new(0, corners.radius)
@@ -1358,6 +1364,48 @@ function screen_paint.new(ctx: any)
 	-- (`retheme = true`) SNAPS rather than animating: the value did not change,
 	-- so there is nothing to animate — a theme swap that visibly slides its
 	-- colours reads as a state change that never happened.
+	--[[ A TOGGLE'S TWO TWEENS, ENDED TOGETHER. Both are held on the handle so a
+		flip can cancel the previous one, and the live adapter's `park`/`destroy`/
+		`destroyRoot` end them too (review N1 — item 10's own stated root cause:
+		a Toggle handle IS park-eligible, since `parkEligible` refuses motion
+		scales, canvas groups, hit expanders, focus floats, glows and focus
+		itself, not a track/knob pair, so a tween still running through a recycle
+		would write onto whatever control takes that identity next). Exported for
+		those three, so the cancel is one decision rather than a copy per site.
+
+		`place` IS THE CALLER'S DECISION, NOT A FLAG'S — and the only caller that
+		wants it is `park`, the one teardown that KEEPS the instance. The other
+		two destroy it within a few lines, so a placement there writes onto an
+		object that is about to stop existing. A review wanted the knob
+		put where its value says after an interrupted tween, and
+		the first shape inferred that from "was a tween running?" — which is true
+		on the FLIP path too, where `applyToggleValue` has already written the new
+		`handle.toggleOn` before calling this. So the knob was placed at the
+		DESTINATION and the tween that followed ran from there to the same place:
+		zero visible motion, on every flip. Only the three TEARDOWN sites want a
+		placement — they are the ones with nobody left to write the position —
+		and they are the ones that ask for it. ]]
+	local function stopToggleTweens(handle: any, place: boolean?)
+		if handle.toggleTrackTween ~= nil then
+			handle.toggleTrackTween:Cancel()
+			handle.toggleTrackTween = nil
+		end
+		if handle.toggleKnobTween ~= nil then
+			handle.toggleKnobTween:Cancel()
+			handle.toggleKnobTween = nil
+		end
+		--[[ THE KNOB GOES WHERE ITS VALUE SAYS, for the reason
+			`applyToggleValue`'s instant arm places it too: `Cancel` stops a tween
+			where it STANDS, and the Back overshoot means that can be past the end
+			of the track. On the teardown paths there is nobody left to correct it
+			— `park` keeps the instance for a later adoption and a valueless
+			`UI.Toggle` adopter never writes a value, so the recycled node would
+			paint its knob wherever the previous identity's blur left it. ]]
+		if place == true and handle.knob ~= nil then
+			handle.knob.Position = if handle.toggleOn == true then TOGGLE_KNOB_ON else TOGGLE_KNOB_OFF
+		end
+	end
+
 	local function applyToggleValue(handle: any, on: boolean, retheme: boolean?)
 		local track: Frame? = handle.track
 		local knob: Frame? = handle.knob
@@ -1382,25 +1430,60 @@ function screen_paint.new(ctx: any)
 		local trackColor = if on then palette.trackOn else palette.trackOff
 		local knobColor = if on then palette.knobOn else palette.knobOff
 		local knobPos = if on then TOGGLE_KNOB_ON else TOGGLE_KNOB_OFF
-		if handle.toggleTrackTween ~= nil then
-			handle.toggleTrackTween:Cancel()
-			handle.toggleTrackTween = nil
-		end
+		--[[ BOTH TWEENS END HERE, which is the only place a flip ends. The track's
+			colour tween was already held; the KNOB's Position tween (Tier 1 item
+			1E's Back overshoot, over the same `motion.normal`) was created inline
+			and played, so a flip-flip inside 0.2 s left the first one running
+			against the second. Cancelling above the branch rather than inside the
+			tweened arm is what makes a RETHEME or a reduced-motion flip
+			mid-travel land where it should instead of being overwritten by the
+			tween it interrupted.
+
+			...WHICH IS EXACTLY WHY THE RETHEME ARM NOW PLACES THE KNOB (review
+			N1). `Cancel` stops a tween where it STANDS, and the Back overshoot
+			means "where it stands" can be PAST the end of the track. The retheme
+			arm used to skip `knob.Position` deliberately — a retheme is not a
+			state change, so moving the knob would have been a no-op — but with
+			the cancel above it, a theme swap landing inside the 0.2 s travel left
+			the knob stranded mid-track until the next flip, and the knob IS the
+			value readout. Under `retheme` the caller passes `handle.toggleOn`, so
+			`knobPos` is the CURRENT state's place, not a new one: writing it is
+			the same no-op it always was on every path except the one that was
+			broken. ]]
+		stopToggleTweens(handle)
 		if retheme == true or isReducedMotion() then
 			track.BackgroundColor3 = trackColor
 			knob.BackgroundColor3 = knobColor
-			if retheme ~= true then
-				knob.Position = knobPos
-			end
+			knob.Position = knobPos
 		else
+			--[[ EACH FIELD MEANS "IN FLIGHT", which it only does if something
+				clears it when the tween lands. Neither did: they were
+				assigned here and cleared only by `stopToggleTweens`, so from
+				the second flip on both read as running forever. The press-dip
+				tween's own `Completed:Once` idiom above (`releasePressScale`) is
+				the shape; `Completed` fires for a CANCELLED tween too, hence the
+				state check and the identity check — a cancel has already replaced
+				the field, and a late callback must not clear its successor. ]]
 			local tween = TweenService:Create(track, motionInfo(style.motion.normal), { BackgroundColor3 = trackColor })
 			handle.toggleTrackTween = tween
+			tween.Completed:Once(function(state)
+				if state == Enum.PlaybackState.Completed and handle.toggleTrackTween == tween then
+					handle.toggleTrackTween = nil
+				end
+			end)
 			tween:Play()
 			-- the KNOB's colour snaps while its position slides: the two states'
 			-- knob colours are a contrast pair, and interpolating between them
 			-- passes through the middle, where it is readable against neither
 			knob.BackgroundColor3 = knobColor
-			TweenService:Create(knob, motionInfo(style.motion.normal), { Position = knobPos }):Play()
+			local knobTween = TweenService:Create(knob, overshootInfo(style.motion.normal), { Position = knobPos })
+			handle.toggleKnobTween = knobTween
+			knobTween.Completed:Once(function(state)
+				if state == Enum.PlaybackState.Completed and handle.toggleKnobTween == knobTween then
+					handle.toggleKnobTween = nil
+				end
+			end)
+			knobTween:Play()
 		end
 	end
 
@@ -1433,6 +1516,7 @@ function screen_paint.new(ctx: any)
 		refreshBackdropPaint = refreshBackdropPaint,
 		refreshThemedPaint = refreshThemedPaint,
 		refreshToggleVisuals = refreshToggleVisuals,
+		stopToggleTweens = stopToggleTweens,
 		releaseTint = releaseTint,
 		wireInteractiveStates = wireInteractiveStates,
 		wireNativePressDip = wireNativePressDip,

@@ -378,7 +378,7 @@ describe("screen_target: the focus treatment (source contract)", function()
 	end)
 
 	it("the glow is a named UIShadow, capability-gated, and degrades to the ring", function()
-		local focus = section("function adapter.setFocusVisual", "\n\tend\n")
+		local focus = section("local function setFocusVisual", "\n\tend\n")
 		expect(string.find(focus, 'glow.Name = "FocusGlow"', 1, true) ~= nil).toBe(true)
 		expect(string.find(focus, 'Instance.new("UIShadow" :: any)', 1, true) ~= nil).toBe(true)
 		-- §8.4: focus is never optional, so an engine without UIShadow rings
@@ -395,7 +395,7 @@ describe("screen_target: the focus treatment (source contract)", function()
 	end)
 
 	it("blur removes the glow and forgets the handle, so nothing can stick", function()
-		local focus = section("function adapter.setFocusVisual", "\n\tend\n")
+		local focus = section("local function setFocusVisual", "\n\tend\n")
 		expect(string.find(focus, "focusedHandles[handle] = nil", 1, true) ~= nil).toBe(true)
 		local remove = section("function adapter.remove(handle: any)", "handle.instance:Destroy()")
 		expect(string.find(remove, "handle.focusGlow:Destroy()", 1, true) ~= nil).toBe(true)
@@ -561,12 +561,29 @@ describe("screen_target: the toggle reads the live palette (source contract)", f
 	it("a recolour cancels the in-flight tween and snaps, so no stale target lands", function()
 		local apply = section("local function applyToggleValue(handle: any", "\n\tend")
 		-- a Tween keeps writing its own target until it completes, so a colour set
-		-- underneath a running one is overwritten a frame later
-		expect(string.find(apply, "handle.toggleTrackTween:Cancel()", 1, true) ~= nil).toBe(true)
+		-- underneath a running one is overwritten a frame later. Both of the
+		-- toggle's tweens end through one helper since the transitions round gave
+		-- the knob a held Position tween of its own.
+		expect(string.find(apply, "stopToggleTweens(handle)", 1, true) ~= nil).toBe(true)
+		local stop = section("local function stopToggleTweens(handle: any", "\n\tend")
+		expect(string.find(stop, "handle.toggleTrackTween:Cancel()", 1, true) ~= nil).toBe(true)
 		expect(string.find(apply, "handle.toggleTrackTween = tween", 1, true) ~= nil).toBe(true)
 		-- a retheme snaps: the VALUE did not change, so there is nothing to animate
 		expect(string.find(apply, "if retheme == true or isReducedMotion() then", 1, true) ~= nil).toBe(true)
-		-- ...and a retheme must not re-run the knob's slide either
-		expect(string.find(apply, "if retheme ~= true then", 1, true) ~= nil).toBe(true)
+		--[[ ...AND A RETHEME MUST NOT RE-RUN THE KNOB'S SLIDE — which is a claim
+			about the TWEEN, not about the write. It used to be spelled
+			`if retheme ~= true then knob.Position = knobPos end`, i.e. "skip the
+			placement too", which was harmless while the cancel lived inside the
+			tweened arm and became a stranded knob once the cancel moved above the
+			branch (review N1): `Cancel` stops a tween where it stands, and the
+			Back overshoot means that can be past the end of the track. The instant
+			arm PLACES the knob now and still animates nothing; the tween lives in
+			the `else`, which is the half this case is about. ]]
+		local instantAt = string.find(apply, "if retheme == true or isReducedMotion() then", 1, true)
+		local elseAt = string.find(apply, "\n\t\telse\n", instantAt :: number, true)
+		local instantArm = string.sub(apply, instantAt :: number, elseAt :: number)
+		expect(string.find(instantArm, "knob.Position = knobPos", 1, true) ~= nil).toBe(true)
+		expect(string.find(instantArm, "TweenService:Create", 1, true)).toBe(nil)
+		expect(string.find(string.sub(apply, elseAt :: number), "TweenService:Create(knob,", 1, true) ~= nil).toBe(true)
 	end)
 end)

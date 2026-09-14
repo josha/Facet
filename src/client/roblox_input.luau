@@ -15,6 +15,7 @@ local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 
 local roblox_input = {}
+local bindingOwner = require("../input/binding_owner")
 
 -- Client-created contexts use the stable storage recommended by Roblox's IAS
 -- guide. A Studio session lost PlayerScripts and its Facet bindings while the
@@ -99,6 +100,32 @@ function roblox_input.newSystem(core: any)
 			table.insert(
 				action.connections,
 				actionInstance.StateChanged:Connect(function(value)
+					-- IAS owns delivery. Inspect only the held binding that produced
+					-- this value, before observers decide whether it may repeat.
+					if value ~= 0 and value ~= false and value ~= action.state:get() then
+						action.lastBinding, action.lastGamepad = nil, false
+						for _, binding in action.bindings do
+							if
+								not binding.removed
+								and binding.keyCode
+								and (binding.direction == nil or binding.direction == value)
+							then
+								local key = (Enum.KeyCode :: any)[binding.keyCode]
+								local down = false
+								if binding.isGamepad then
+									for _, pad in UserInputService:GetConnectedGamepads() do
+										down = down or UserInputService:IsGamepadButtonDown(pad, key)
+									end
+								else
+									down = UserInputService:IsKeyDown(key)
+								end
+								if down then
+									action.lastBinding, action.lastGamepad = binding, binding.isGamepad
+									break
+								end
+							end
+						end
+					end
 					action.state:set(value)
 				end)
 			)
@@ -186,6 +213,7 @@ function roblox_input.newSystem(core: any)
 					local binding = {
 						action = action,
 						keyCode = spec2.keyCode,
+						isGamepad = spec2.keyCode ~= nil and bindingOwner.isGamepadKeyCode(spec2.keyCode),
 						scriptable = false,
 						uiButton = nil,
 						displayName = spec2.displayName,
@@ -254,6 +282,7 @@ function roblox_input.newSystem(core: any)
 				local binding = {
 					action = action,
 					keyCode = spec2.keyCode,
+					isGamepad = spec2.keyCode ~= nil and bindingOwner.isGamepadKeyCode(spec2.keyCode),
 					scriptable = spec2.scriptable == true,
 					uiButton = spec2.uiButton,
 					displayName = spec2.displayName,
@@ -321,6 +350,7 @@ function roblox_input.newSystem(core: any)
 				-- latch: one discrete step per threshold crossing; the stick must
 				-- re-center below releaseThreshold before the next step re-arms
 				local latched = 0
+				local binding: any
 				local stateConn = axisAction.StateChanged:Connect(function(value)
 					if action.type == "Direction2D" and typeof(value) == "Vector2" then
 						action.state:set({ x = value.X, y = -value.Y })
@@ -338,23 +368,25 @@ function roblox_input.newSystem(core: any)
 					local dir = if sample >= threshold then 1 elseif sample <= -threshold then -1 else 0
 					if dir ~= 0 and latched == 0 then
 						latched = dir
+						action.lastBinding, action.lastGamepad = binding, true
 						action.state:set(dir)
 						for _, fn in table.clone(action.pressedHandlers) do
 							fn(true)
 						end
+					elseif latched ~= 0 and math.abs(sample) <= releaseThreshold then
+						latched = 0
 						action.state:set(0)
 						for _, fn in table.clone(action.releasedHandlers) do
 							fn(false)
 						end
-					elseif latched ~= 0 and math.abs(sample) <= releaseThreshold then
-						latched = 0
 					end
 				end)
 				table.insert(action.connections, stateConn)
 
-				local binding = {
+				binding = {
 					action = action,
 					axis = spec2.axis,
+					isGamepad = true,
 					component = component,
 					threshold = threshold,
 					releaseThreshold = releaseThreshold,
@@ -461,6 +493,10 @@ function roblox_input.newSystem(core: any)
 		(each one Destroys its own `InputContext`, which takes its action and
 		binding children with it), idempotent, and safe after a context was
 		destroyed by hand — `context.destroy` removes itself from the list. ]]
+	function system.wouldWinArbitration(context: any, binding: any): boolean
+		return bindingOwner.wouldWin(contexts, context, binding)
+	end
+
 	function system.contextCount(): number
 		return #contexts
 	end

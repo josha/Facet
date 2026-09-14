@@ -889,6 +889,87 @@ describe("Foyer — backdrop-finding sweep (task POP)", function()
 		expect(`{#findings} finding(s):\n{backdropSweep.describe(findings)}`).toBe("0 finding(s):\n")
 		teardown(w)
 	end)
+
+	--[[ A TOAST IN A REFERENCE APP (final review item 4). The toast layer wraps
+		whatever a caller hands it as the SOLE child of a `canvasGroup` `Toast` node
+		and fades it — the same sole-child-plate shape `Controls.Alert`,
+		`Controls.Menu`'s popover and the menu-style `Picker` all acknowledged, and
+		a real toast body IS a plate (a raised snack bar with a line of text on it).
+		Nothing swept a toast, so the finding this raises was counted by nobody: no
+		reference app drives one, and `tests/backdrop_fade.spec.luau` builds its
+		trees by hand. This one does, through the presenter's own `presentToast`. ]]
+	it("a toast raised in this app counts zero findings — the layer acknowledges its own plate", function()
+		local backdropSweep = require("../lib/backdrop_sweep")
+		local UI = Facet.UI
+		local w: any
+		local findings, all = backdropSweep.capture(function()
+			w = makeWorld()
+			w.presenter.presentToast(
+				UI.VStack({
+					id = "Snack",
+					surface = "raised",
+					padding = 10,
+					children = { UI.Text({ id = "Line", text = "Saved to your shelf" }) },
+				}),
+				{ duration = 20, readFloor = 0 }
+			)
+			w.presenter.refresh()
+			w.presenter.tick(1 / 60)
+		end)
+		-- it really mounted, and through the fade group the gate reads
+		local toastPath: string? = nil
+		for _, path in w.adapter.paths() do
+			if string.sub(path, -6) == "/Toast" and string.find(path, "/__toast__/", 1, true) ~= nil then
+				toastPath = path
+			end
+		end
+		expect(`the toast mounted: {toastPath ~= nil}`).toBe("the toast mounted: true")
+		expect(w.adapter.node(toastPath :: string).canvasGroupInstance ~= nil).toBe(true)
+		expect(`{#findings} finding(s):\n{backdropSweep.describe(findings)}`).toBe("0 finding(s):\n")
+		-- ...and it is RECORDED under the acknowledgement, never gone blind to
+		local acknowledged = 0
+		for _, finding in all do
+			if string.find(finding.path, "/__toast__/", 1, true) ~= nil and finding.via == "acknowledged-plate" then
+				acknowledged += 1
+			end
+		end
+		expect(`acknowledged toast plates: {acknowledged}`).toBe("acknowledged toast plates: 1")
+		teardown(w)
+	end)
+
+	--[[ AN ALERT IN A REFERENCE APP (task 7 item 3). `Controls.Alert` defaults to
+		a materialize, and its `Center → Card` is a fade group whose sole child is
+		an opaque plate — the exact shape the gate reports, and the exact shape a
+		modal is SUPPOSED to have, because the backdrop the invariant is about is
+		the presenter's scrim behind the whole surface rather than the card's own
+		face. The card declares that (`transition.plate = "fades"`), so the sweep
+		counts nothing; before the acknowledgement existed, the first reference
+		app to open an Alert reddened this assertion. The finding is still
+		RECORDED — `coordinator.findings()` carries it — which is why this case
+		reads the sweep's counted list rather than asserting the coordinator saw
+		nothing. ]]
+	it("an Alert opened in this app counts zero findings — its card acknowledges its own plate", function()
+		local backdropSweep = require("../lib/backdrop_sweep")
+		local w: any
+		local alert: any
+		local findings = backdropSweep.capture(function()
+			w = makeWorld()
+			alert = Facet.Controls.Alert(w.core, {
+				id = "FoyerConfirm",
+				title = "Leave the foyer?",
+				message = "Your place in the queue is kept for two minutes.",
+				actions = { { id = "Leave", label = "Leave", role = "destructive" }, { id = "Stay", label = "Stay" } },
+			})
+			alert.present(w.presenter)
+			w.presenter.refresh()
+			-- it really did mount, and through the fade group the gate reads
+			expect(w.adapter.node("/FoyerConfirm/Center").canvasGroupInstance ~= nil).toBe(true)
+			expect(w.adapter.node("/FoyerConfirm/Center/Card").props.surface).toBe("raised")
+		end)
+		expect(`{#findings} finding(s):\n{backdropSweep.describe(findings)}`).toBe("0 finding(s):\n")
+		alert.dispose()
+		teardown(w)
+	end)
 end)
 
 --[[ THE BADGE CORNER, THIRD CONSUMER (task FOYER; director order "fix foyer").

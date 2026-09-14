@@ -83,6 +83,15 @@ local function keysAt(block: string, indent: string): { [string]: boolean }
 	return out
 end
 
+-- ...and the facts the arrange PUBLISHES: every `out[node.id].<name> =` it writes
+local function publishedKeys(source: string): { [string]: boolean }
+	local out: { [string]: boolean } = {}
+	for name in string.gmatch(stripComments(source), "out%[node%.id%]%.([A-Za-z_][A-Za-z0-9_]*)%s*=") do
+		out[name] = true
+	end
+	return out
+end
+
 local function between(source: string, from: string, to: string): string
 	local i = string.find(source, from, 1, true)
 	assert(i ~= nil, `seam spec: '{from}' not found`)
@@ -174,6 +183,24 @@ describe("the scroll-arrange seam: one-way, one entry point, no state", function
 		expect(`undeclared={table.concat(undeclared, " ")}`).toBe("undeclared=")
 	end)
 
+	it("THE PUBLISHED FACTS ARE A SET, AND THE HEADER COUNTS THEM", function()
+		--[[ The header names what a scroll host owes the commit, and it is the only
+			place that enumeration is written down. `bleedLane` joined the four on
+			2026-09-13 and the header went on saying four for a whole round — a module
+			whose own prose undercounts its output is exactly what the next reader
+			trusts. Pinned as a SET, so an addition has to come here and say what it
+			published, and tied to the count the header prints, so the two cannot drift
+			apart again. ]]
+		local published = sorted(publishedKeys(moduleSrc))
+		expect(published).toEqual({ "barInset", "bleedLane", "contentSize", "overflow", "padding" })
+		local WORDS = { "one", "two", "three", "four", "five", "six", "seven", "eight", "nine" }
+		local word = WORDS[#published] or tostring(#published)
+		local entryPoint = string.find(moduleSrc, `the {word} facts a scroll host owes`, 1, true) ~= nil
+		local oneWayNote = string.find(moduleSrc, "'s " .. word .. " published facts", 1, true) ~= nil
+		expect(`entry point counts {word}: {entryPoint}`).toBe(`entry point counts {word}: true`)
+		expect(`one-way note counts {word}: {oneWayNote}`).toBe(`one-way note counts {word}: true`)
+	end)
+
 	it("the solver keeps ONE `scroll` arrange branch, and it is the call", function()
 		--[[ WHAT A HALF-DONE EXTRACTION LOOKS LIKE: the old body left behind under a
 			second `if node.kind == "scroll"`, or the call added and the branch not
@@ -196,6 +223,8 @@ describe("the scroll-arrange seam: one-way, one entry point, no state", function
 		expect(sorted(requiresIn('-- require("./commented")'))).toEqual({})
 		expect(sorted(fieldsAt("\tmeasure: number,\n\t\tdeeper: number,", "\t"))).toEqual({ "measure" })
 		expect(sorted(keysAt("\tmeasure = f,\n\t\tdeeper = g,", "\t"))).toEqual({ "measure" })
+		expect(sorted(publishedKeys("out[node.id].fact = 1\nout[other.id].nope = 2"))).toEqual({ "fact" })
+		expect(sorted(publishedKeys("-- out[node.id].commented = 1"))).toEqual({})
 		expect(string.find(stripComments("--[[ solver ]]\nlocal x = 1"), "solver", 1, true) == nil).toBe(true)
 	end)
 end)

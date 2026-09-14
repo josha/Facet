@@ -39,7 +39,12 @@ describe("motion classes (the vocabulary)", function()
 		expect(classes.resolve("reward").response).toBe(0.18)
 		expect(classes.resolve("decay").dampingRatio).toBe(1.0)
 		expect(classes.resolve("decay").response).toBe(0.5)
-		expect(classes.names()).toEqual({ "container", "decay", "object", "reward" })
+		expect(classes.names()).toEqual({ "container", "decay", "dismiss", "object", "reward" })
+	end)
+
+	it("ships dismiss as the faster exit twin of container", function()
+		expect(classes.resolve("dismiss").dampingRatio).toBe(1.0)
+		expect(classes.resolve("dismiss").response).toBe(0.2)
 	end)
 
 	it("overshoot is earned: reward is the ONLY under-damped built-in", function()
@@ -68,7 +73,7 @@ describe("motion classes (the vocabulary)", function()
 		expect(ok).toBe(false)
 		expect(string.find(tostring(err), "Did you mean 'object'?", 1, true) ~= nil).toBeTruthy()
 		-- and the message always carries the full registered set
-		expect(string.find(tostring(err), "container, decay, object, reward", 1, true) ~= nil).toBeTruthy()
+		expect(string.find(tostring(err), "container, decay, dismiss, object, reward", 1, true) ~= nil).toBeTruthy()
 	end)
 
 	it("registers a game class, validates its range, and resets back to the built-ins", function()

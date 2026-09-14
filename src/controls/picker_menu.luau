@@ -157,6 +157,10 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 	local mountedNode: any = nil
 	local rootPath: string? = nil
 	local presentModalFn, presentAnchoredFn, dismissFn, surfaceHandle
+	-- does the surface this trigger lives on reserve the host app's own chrome
+	-- band? Bound by the presenter (`bindController`'s additive second argument);
+	-- true until then, which is what this control's room arithmetic always assumed
+	local ownerReservesAppChrome = true
 	local syncSurface
 	local triggerWidth = 0
 	local triggerRect: any = nil -- the trigger's last solved rect, read at present time
@@ -700,8 +704,18 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 					and type(metrics.space.m) == "number"
 				then metrics.space.m
 				else neutral.space.m
+			-- the top of the space this popover's own surface lives in: the platform's
+			-- reservation, plus the host app's band when the OWNER surface reserves
+			-- it — a popover inside a modal is in the modal's screen, and the modal
+			-- does not yield to that band (`appChromeInsets`, 2026-09-13). Reading the
+			-- fact conditionally is safe because the flag is not reactive and cannot
+			-- be: it is one surface's answer, decided once in `makeHandle` (inherited
+			-- there from the source, for an anchored surface) before any contribution
+			-- is bound, and constant while this control is mounted
 			local insets = if env ~= nil then env:get("coreSafeInsets"):get() else nil
+			local hostChrome = if env ~= nil and ownerReservesAppChrome then env:get("appChromeInsets"):get() else nil
 			local top = if type(insets) == "table" and type(insets.top) == "number" then insets.top else 0
+			top += if type(hostChrome) == "table" then math.max(0, tonumber(hostChrome.top) or 0) else 0
 			--[[ the panel's own chrome — the `raised` slot's content insets a package
 				carves (Glossy Touch's 7px, measured at +4 on a landscape phone) plus
 				the rows' gap — comes out of the room too, or the rows fit and the
@@ -738,6 +752,27 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 		local inset = themeSnapshot.resolveNumber(snap, "space.m") or 16
 		local w = if type(vp) == "table" and type(vp.w) == "number" then vp.w else 1280
 		return math.max(120, w - 2 * inset)
+	end
+	--[[ TWO ROW-SHADE FORMS, chosen by the package's own metric and never by its
+		name (user ruling 2026-09-12): `controls.popup.shadeInset = 0` (the
+		default) is the FLUSH form — the shade spans the card edge to edge
+		and takes the card's corners by position; a positive inset is the
+		FLOATING form — the shade (and the row, so the ring matches) sits that
+		many px inside the card's inner edge on both sides and wears
+		`radii.selection` on all four corners, the segmented indicator's shape.
+		Glossy Touch authors 4 for its rounded gel card.
+
+		IT LIVES UP HERE because the width estimate below has to spend it too: the
+		floating shade's margin is real horizontal room a label does not get, and a
+		second reader of the same metric is exactly the disagreement this control
+		has already been bitten by. The row forms that consume it are ~200 lines
+		down (`rowCorners`, `rowMargin`, `floatingForm`). ]]
+	local function shadeInsetNow(use: any): number
+		local env = envForFacts or spec.env
+		local metrics = if env ~= nil then use(env:get("themeMetrics")) else nil
+		local snap = if type(metrics) == "table" and type(metrics.controls) == "table" then metrics else nil
+		local value = if snap ~= nil then themeSnapshot.resolveNumber(snap, "controls.popup.shadeInset") else nil
+		return if type(value) == "number" and value > 0 then value else 0
 	end
 	--[[ THE WIDEST ROW, MEASURED: the popover hugs it. A fill row reports no
 		natural width of its own (fill is "take the offer"), so the hug is computed
@@ -845,12 +880,31 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 		local insetsBySlot = if type(snap) == "table" then (snap :: any).chromeInsets else nil
 		local plate = if type(insetsBySlot) == "table" then insetsBySlot.panel else nil
 		local card = if type(plate) == "table" then (tonumber(plate.left) or 0) + (tonumber(plate.right) or 0) else 0
-		--[[ ...AND THE SCROLLER'S SHADOW RESERVE. The rows live inside a `ScrollView`,
-			and `render/layout_node`'s bleed block gives a scroll container
-			`metrics.chromeBleed` of CROSS-axis padding so a child's glow is not clipped
-			at the gutter. It is 0 for every flat package and 17 under Glossy Touch and
-			Fantasy Ornate — 34px per popover, which is a whole word at these sizes. ]]
-		local bleed = if type((snap :: any).chromeBleed) == "number" then (snap :: any).chromeBleed else 0
+		--[[ ...AND THE FLOATING ROW SHADE'S OWN MARGIN, which is horizontal room no
+			label ever gets (measured 2026-09-13).
+
+			Two wrong explanations stood here before this one. The first said the term
+			covered the bleed lane `render/layout_node` gives a scroll container: false,
+			because the list below declares `chromeReserve = "none"` and the block is
+			skipped for it. The second said it covered the scroll bar's cross-axis
+			reserve: also false, and measurably so — `ctx.scrollBarReserve` is 0 in
+			EVERY cell of the sweep that measured the missing 8 px (nothing there sets
+			`adapter.scrollBarThickness`, so no bar is reserved off this list anywhere
+			in it).
+
+			The 8 px is `2 * controls.popup.shadeInset`, the metric this same file
+			applies as the rows' `rowMargin` — Glossy Touch authors 4 a side. The
+			decomposition of the solved popover is exact: panel 600 = card 28 + shade 8
+			+ rowPad 24 + gap 10 + indicator 28 + label 502, and the label is the need
+			plus exactly that shade. So this reads the one accessor the row forms read
+			(`shadeInsetNow`, above) rather than standing in for it with a package-wide
+			reach that happens to be twice as big.
+
+			A flat package authors no shade, so the term is 0 there and the estimate
+			stays exact on the packages it was already exact on. ]]
+		local shade = shadeInsetNow(function(readable: any): any
+			return readable:get()
+		end)
 		local widest = 0
 		for _, option in results:get() do
 			if option.divider == true then
@@ -863,7 +917,7 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 			end
 			widest = math.max(widest, w + slot + gap + rowPad)
 		end
-		return math.ceil(if widest > 0 then widest + card + 2 * bleed else 0)
+		return math.ceil(if widest > 0 then widest + card + 2 * shade else 0)
 	end
 	local function describedPanelWidth(): number
 		local env = envForFacts or spec.env
@@ -980,21 +1034,6 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 			return UI.cornersData({ topLeft = 0, topRight = 0, bottomLeft = r, bottomRight = r })
 		end
 		return UI.cornersData(0)
-	end
-	--[[ TWO ROW-SHADE FORMS, chosen by the package's own metric and never by its
-		name (user ruling 2026-09-12): `controls.popup.shadeInset = 0` (the
-		default) is the FLUSH form above — the shade spans the card edge to edge
-		and takes the card's corners by position; a positive inset is the
-		FLOATING form — the shade (and the row, so the ring matches) sits that
-		many px inside the card's inner edge on both sides and wears
-		`radii.selection` on all four corners, the segmented indicator's shape.
-		Glossy Touch authors 4 for its rounded gel card. ]]
-	local function shadeInsetNow(use: any): number
-		local env = envForFacts or spec.env
-		local metrics = if env ~= nil then use(env:get("themeMetrics")) else nil
-		local snap = if type(metrics) == "table" and type(metrics.controls) == "table" then metrics else nil
-		local value = if snap ~= nil then themeSnapshot.resolveNumber(snap, "controls.popup.shadeInset") else nil
-		return if type(value) == "number" and value > 0 then value else 0
 	end
 	local FLOATING_CORNERS = UI.cornersData("selection")
 	local function rowCorners(position: string): any
@@ -1288,8 +1327,11 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 							else neutralNow.space
 						local xs = if type(spaceNow.xs) == "number" then spaceNow.xs else neutralNow.space.xs
 						local m = if type(spaceNow.m) == "number" then spaceNow.m else neutralNow.space.m
+						-- both reservations, exactly as the room arithmetic above reads them
 						local insets = env:get("coreSafeInsets"):get()
+						local hostChrome = if ownerReservesAppChrome then env:get("appChromeInsets"):get() else nil
 						local top = if type(insets) == "table" and type(insets.top) == "number" then insets.top else 0
+						top += if type(hostChrome) == "table" then math.max(0, tonumber(hostChrome.top) or 0) else 0
 						local room = math.max(vp.h - m - (source.y + source.h + xs), source.y - xs - top)
 						over = math.max(over, rect.h - room)
 						--[[ ...AND THE PLACED POSITION, because the presenter's safe box is
@@ -1373,7 +1415,10 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 				outsideTapCancel = true,
 				cancelPolicy = "none",
 				-- the short fade-and-grow every pop-up menu materializes with
-				transition = if pickerMode then { enter = "materialize" } else nil,
+				-- `plate = "fades"`: the Popup IS its Panel — the popover shape whose
+				-- backdrop is the scrim behind the whole surface, not the panel's
+				-- own face (blueprint_schema's TRANSITION_PLATES header)
+				transition = if pickerMode then { enter = "materialize", plate = "fades", scale = 1.015 } else nil,
 				-- ...opening on the CURRENT value, the pop-up button rule: the row
 				-- under the focus ring is the one the player already has
 				initialFocus = if pickerMode then currentRowId() else nil,
@@ -1757,6 +1802,9 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 					rootPath, mountedNode = nil, nil
 					presentModalFn, presentAnchoredFn, dismissFn = nil, nil, nil
 				end)
+			end,
+			bindController = function(_controller, reserveAppChrome)
+				ownerReservesAppChrome = reserveAppChrome ~= false
 			end,
 			bindPresent = function(presentModal, dismiss, presentAnchored)
 				presentModalFn, dismissFn, presentAnchoredFn = presentModal, dismiss, presentAnchored

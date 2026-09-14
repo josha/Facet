@@ -26,7 +26,9 @@
 	ADD A PART HERE WHENEVER MORE OF THE ADAPTER MOVES OUT — otherwise the pins
 	quietly stop seeing the code they name, which is the failure this file exists
 	to prevent. `screen_props` (the per-class `setProp` chain) joined 2026-08-28,
-	the source-cap-ledger extraction this document's own header predicted.
+	the source-cap-ledger extraction this document's own header predicted, and
+	`screen_focus_visual` (the focus ring/glow/lift) joined 2026-09-12 on the same
+	row's next trigger.
 ]]
 local fs = require("@lune/fs")
 
@@ -38,6 +40,7 @@ local PARTS = {
 	"src/client/screen_presentation.luau",
 	"src/client/screen_pointer.luau",
 	"src/client/screen_props.luau",
+	"src/client/screen_focus_visual.luau",
 	"src/client/screen_image.luau",
 }
 

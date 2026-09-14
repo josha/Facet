@@ -1088,7 +1088,7 @@ describe("focus hugs the art, not the padded rect", function()
 	end)
 
 	it("the adapter parents the ring and the glow to the ART host, not the node", function()
-		local focus = section("function adapter.setFocusVisual(handle: any, on: boolean, profile: string?)", "\n\tend")
+		local focus = section("local function setFocusVisual(handle: any, on: boolean, profile: string?)", "\n\tend")
 		-- the host is chosen from the art, falling back to the node
 		expect(string.find(focus, "focusArtHost(handle) or instance", 1, true) ~= nil).toBe(true)
 		-- BOTH treatments land on it — a glow left on the node would reproduce
@@ -1138,7 +1138,7 @@ describe("focus hugs the art, not the padded rect", function()
 	it("hit geometry is NOT the ring's instance, so the 47px floor is untouched", function()
 		-- the expander is a SIBLING sized from the solver's hit rect; nothing in
 		-- the focus path reads or writes it
-		local focus = section("function adapter.setFocusVisual(handle: any, on: boolean, profile: string?)", "\n\tend")
+		local focus = section("local function setFocusVisual(handle: any, on: boolean, profile: string?)", "\n\tend")
 		expect(string.find(focus, "hitExpander", 1, true)).toBeNil()
 		-- the sizing moved into the shared placement helper with RS-A16-D1b (the
 		-- expander is now re-based by the same function that re-bases the control),

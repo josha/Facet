@@ -287,6 +287,7 @@ anything else.
 | `UI.schema.TRANSITION_MIRROR` | each structural-transition form paired with its mirror |
 | `UI.schema.TRANSITION_FADES` | the forms that drive transparency (and therefore need a fade group) |
 | `UI.schema.TRANSITION_PIVOTS` | where a scaling form may grow from (`center`, `topLeft`, `topRight`, `bottomLeft`, `bottomRight`) |
+| `UI.schema.TRANSITION_PLATES` | the values `transition.plate` takes (`fades` — this surface's plate fades with its content) |
 | `UI.schema.INHERITED_TINT_CLASSES` | the classes whose `tint` is INHERITED — declared on a container, painted by its subtree — as a frozen set derived from the class rows themselves |
 | `UI.schema.INHERITED_TINT_ALPHA_REFUSAL` | the ONE sentence both refusals of a `transparency` on an inherited `tint` raise: the construction-time one and the read-time one a reactive tint needs |
 
@@ -811,13 +812,14 @@ normalized progress, threshold visibility callbacks, and gesture snap; see
 keep-visible and bookmark writes take precedence over gesture snapping.
 
 
-`UI.ScrollView{ id?, axis? ("y" default | "x"), padding?, gap?, autoscroll?, indicators? ("auto" default | "none" — a peeking carousel's affordance is the half-visible next tile, so it may declare its indicator off; layout is untouched), chromeReserve? ("auto" default | "none" — the lane a scroller keeps for content chrome that reaches past its box, the package's `chromeBleed`; a scroller whose rows are plain and whose only art draws inside its box, such as a menu card's list, declares "none" and its content runs to its edges), onScrollWheel?, children? }`
+`UI.ScrollView{ id?, axis? ("y" default | "x"), padding?, gap?, autoscroll?, indicators? ("auto" default | "none" — a peeking carousel's affordance is the half-visible next tile, so it may declare its indicator off; layout is untouched), chromeReserve? ("auto" default | "none" — the lane a scroller keeps for content chrome that reaches past its box: `max(0, chromeBleed − the slot's own carve)`, because a carved frame already holds content that far from the clip edge (`chrome_slots.bleedLane`, netted per solve). A scroller whose rows are plain and whose only art draws inside its box, such as a menu card's list, declares "none" and its content runs to its edges), onScrollWheel?, children? }`
 — scrolling container. `onScrollWheel(path, delta, rectOf)` receives
 hover-wheel input routed by the adapter (the composite scrolling controls use
 it; a plain `ScrollView` relies on the native host instead). the scroll axis measures children unbounded and reports
 `contentSize` to the renderer. On the Roblox adapter it mounts as a native
 `ScrollingFrame` (native-substrate NS-A2): the solver owns every content rect
-and the canvas extent (`contentSize` + padding), while the ENGINE owns live
+and the canvas extent (`contentSize` + the padding the solve actually spent + the
+chrome lane it kept, published together by `layout/scroll_arrange.luau`), while the ENGINE owns live
 scrolling — wheel, touch momentum, elastic overscroll, and scroll bars. It is
 always a clip host (`clipChildren` defaults true), so the fallback path (an
 adapter without the scroll seam, e.g. billboards) still crops overflow.
@@ -1327,6 +1329,13 @@ separator in the place from one rule. On the fallback path the adapter writes th
 hairline colour directly. It is never an unpainted `Frame` — an invisible divider is
 exactly the accepted-and-ignored failure the strict-authoring work removed.
 
+Both paths paint it **at the theme's `hairlineOpacity`**, the same wash every
+`UIStroke` hairline in the sheet spends — so a divider reads as a rule over the
+surface it sits on rather than as a bar of the raw hairline colour, and a package
+that wants a bolder separator authors one number for its strokes and its dividers
+together. The player's background-transparency preference does not move it: a
+divider is a border, and borders are outside that preference's scope.
+
 ### `Grid`
 
 `UI.Grid{ id?, flow?, columns? | minColumnWidth?, itemSizing?, gap?, rowGap?, padding?, surface?, children? }`
@@ -1755,11 +1764,21 @@ the library default fills in and the contrast gate runs on the effective pair.
   accent plate behind. It never applies to the `underline` indicator, which paints
   a thin tint rule on the segment's far edge rather than a plate under the label.
 
-- **The sliding fill takes the theme's `radii.selection`, not a fixed capsule.**
-  That token follows `radii.control` unless the package authors it, so a
-  package that rounds its controls gets a rounded highlight and a square-art
-  package that sets `selection = 0` gets a square one (`corner = "pill"` stays
-  the caller's opt-in). The fill is an inset rounded rect on all four corners,
+- **The sliding fill wears the silhouette of the strip that holds it.** It asks
+  for `radii.selection:<container>` — the highlight's radius *inside* a named
+  container. An **authored `radii.selection` wins** over every container, so a
+  square-art package that sets `selection = 0` gets a square highlight
+  everywhere; a **pill** container gives a pill, by the pill rule rather than by
+  subtracting from a sentinel; anything else is the container's own radius less
+  one `space.xs`, the inset the fill floats by — two concentric rounded rects.
+  A segmented picker's container is its own track (`radii.control`); a
+  `TabView`'s adaptable app bar in its BAND form is a capsule, and the fill
+  inside it is one too. A strip with no plate at all names no container and the
+  fill keeps plain `radii.selection` — and so does the same bar's SIDEBAR RAIL,
+  because a selected row sits in the middle of a column rather than concentric
+  with the rail's outer corner. `corner = "pill"` stays the caller's opt-in, and the
+  resolution is a **token**, so a ten-foot display's scaled radii reach it.
+  The fill is an inset rounded rect on all four corners,
   floating inside a track that rounds only its two outer ends with
   `radii.control` and keeps its inner segments square and touching, with a
   hairline seam between each pair. A menu card's chosen-row shade and the focus
@@ -2390,8 +2409,8 @@ UI.ForEach({ items = rows, key = function(e) return e.key end, row = function(e)
 
 #### Structural transitions
 
-`transition = { enter, exit?, class?, fade?, distance?, pivot? }` on `UI.When`,
-`UI.ForEach`, a `presentToast` and `PresentOpts`.
+`transition = { enter, exit?, class?, exitClass?, fade?, distance?, scale?, pivot?, plate?, stagger? }`
+on `UI.When`, `UI.ForEach`, a `presentToast` and `PresentOpts`.
 
 - **Forms:** `"fade"`, `"slide-up"`, `"slide-down"`, `"slide-left"`,
   `"slide-right"`, `"materialize"` (scale 0.96 → 1 with a fade), `"instant"`.
@@ -2409,11 +2428,61 @@ UI.ForEach({ items = rows, key = function(e) return e.key end, row = function(e)
   the corner it hangs at, so a menu emerges from the control that opened it.
 - **`class`** names a motion class (default `"container"`); **`fade = true`**
   pairs a slide with a transparency fade.
+- **`exitClass`** names the motion class the *exit* runs on (default
+  `"dismiss"`, the exit twin of `container`): closes read faster than opens by
+  default — `dismiss` is ζ1.0 at a 0.2s response against `container`'s 0.35s,
+  about 1.7x quicker, the transitions.dev 250/150ms pairing. Declare
+  `exitClass = class` for a symmetric open/close feel, or a third class for a
+  different one; the enter always spends `class` regardless.
 - **`distance`** (px, slide forms only; task-fix3, 2026-08-23) overrides the
   themed travel default (`space.l`, a decorative nudge — right for a toast
   easing in from its own edge) with the surface's own full extent, for a slide
   that IS the surface leaving/entering the screen (a full-viewport push/pop).
   Omitted, every caller keeps the themed default unchanged.
+- **`scale`** (`materialize` only; A1, 2026-09-13) is `distance`'s twin for the
+  scaling form: the scale the node starts from, default `0.96`. It exists
+  because of a measured engine fact, not a taste — **Roblox rasterizes text at
+  `floor(TextSize × effectiveScale)`**, so *any* `UIScale` below 1 paints every
+  string under it one whole pixel smaller (20 px type renders at 19 for the
+  whole of a `0.96 → 1` flight, at 0.9999999 exactly as at 0.96) and snaps ~5%
+  larger the instant the scale reaches exactly 1 — a visible re-flow, and one
+  that lands *after* the motion has stopped, because the channel holds its
+  `UIScale` until the spring settles. A surface whose content is mostly type
+  therefore declares a scale just **above** 1 and settles *down* into place:
+  every value in `[1, 1 + 1/TextSize)` floors to the same pixel, so the text
+  lands at its final size on the first painted frame and never moves.
+  `Controls.Alert` ships `1.015` for this reason: 1/0.015 = 66.7 px, above every
+  size the framework paints **at the engine's four measured preferred-text steps
+  (0/4/10/14 px) with `preferredTextSize = 1`** — the domain every shipped path
+  takes, swept per package and per display class in `tests/transitions.spec.luau`,
+  where the widest rung in the library is Glossy Mobile's `title` at a ten-foot
+  display, 59 px. The FACTS are clamped wider than that (`preferredTextOffset` to
+  `[0, 32]`, `preferredTextSize` to `[0.5, 3]`), and a fixture or device profile
+  that drives either to its ceiling outgrows the fixed band; a surface in that
+  position derives its own from the largest rung it paints. The second sweep in
+  that file records the number such a derivation has to beat. `1` is refused — a
+  form that starts at rest does not move. **It is the ENTER's band only**: an exit
+  is the opposite instant — the plate is leaving and already fading — so the exit
+  keeps the ratified `0.96` dip whatever the enter declared.
+- **`stagger`** (a nonnegative number of **SECONDS**, enter only) is the beat
+  between one entering row and the next, for a region whose children arrive
+  together — a list that lands as one slab reads as a redraw, the same rows a
+  beat apart read as a list. It is **inert outside a keyed `UI.ForEach`**: a
+  `UI.When` branch is always alone in its own batch (there is nothing else
+  entering beside it to wait for), so declaring `stagger` there costs nothing
+  and does nothing. The batch is the rows of ONE `ForEach` entering in ONE
+  frame, in list order; the accumulated **wait** stops growing after eight
+  beats, so a 600-row list's last row enters with its ninth rather than half a
+  minute later — that cap bounds the WAIT, **not the timer count**: every row
+  past the eighth still books its own hold, the rows past the cap simply all
+  book the *same* duration, so the cost stays the one a 600-row enter already
+  pays in springs and nodes.
+  **Exits never stagger** (a list leaving one row at a time is a stall), a
+  re-entry mid-exit reverses immediately rather than waiting, and reduced motion
+  lands every row on the first frame. **The unit is seconds, not milliseconds**
+  — a spec written as if it were ms, such as `stagger = 500`, does not clamp or
+  warn; it holds a row absent for minutes rather than the intended half-beat
+  rhythm.
 - **A fading form needs a fade group.** `fade`, `materialize` and
   `fade = true` drive transparency, so the region's child must EITHER be
   declared `UI.ZStack{ canvasGroup = true }` (or `UI.Box{ canvasGroup = true }`
@@ -2437,6 +2506,28 @@ UI.ForEach({ items = rows, key = function(e) return e.key end, row = function(e)
   re-nested by hand; nothing in the framework rewrites an existing tree for
   you. `tests/backdrop_fade.spec.luau` is the headless gate that catches
   either shape (self-case or not) the moment its push transition first runs.
+- **`presenter.surfaceIdNotes()`** returns the diagnostics for two surfaces that
+  are **both up at once** under ONE blueprint id — every node path is rooted at
+  that id, so the second surface takes over the first's paths in the adapter and
+  the first can no longer be torn down by path. It is the COLLISION that is
+  noted, never a repeat: dismiss a surface and present another under the same id
+  and nothing is said, because only one of them is ever on the stack. A note,
+  not a refusal, once per id per session; a copy, like every other diagnostic
+  read.
+- **`plate = "fades"`** is the one acknowledgement that rule takes: *this
+  surface's plate is meant to fade with its content* — the modal/popover shape,
+  whose backdrop is the **scrim behind the whole surface** rather than the
+  card's own face. The rule in one line: **the plate IS the surface, and
+  whatever is behind it is a scrim or nothing at all (a toast) — never
+  separately-fading content.** `Controls.Alert`, `Controls.Menu`'s floating
+  popover, the menu-style `Picker` and the presenter's own **toast layer**
+  declare it (a toast body is its own plate with the live app behind it, which
+  it never claimed to hide); nothing else needs to. Do NOT write it to
+  silence a backdrop finding on a plate that sits behind separately-fading
+  content: it is honoured only for a fade group whose **sole** child is the
+  plate, so a plate with a sibling still reports exactly as before, and the
+  acknowledged shape is still *recorded* (under its own kind) so a reader can
+  see which surfaces made the claim.
 - **A departing subtree RETIRES, it does not vanish.** It stays mounted in its
   slot (a `ForEach` row exits in place, clamped to its old index), turns
   **non-interactive** — focus order and tap routing both skip it and everything
@@ -2981,9 +3072,10 @@ lifetime is the mount's, not the module's).
 | `renderer.compactForm(props) -> form?` | pure: the normalized compact representation of a `Button`'s `compactLabel` (`{ kind = "text" \| "icon" \| "image", … }`, `nil` when none). The one place the authored grammar becomes a shape, shared by the measure seam, the paint seam and the adapter |
 | `renderer.drawnButtonText(props, compact?) -> string` | pure: what a `Button`'s own engine text node actually shows (empty for a content button; the framework's ASCII-safe glyph for an icon button) |
 
-**`attach` options** — `{ rootPolicy?, edgeFloor?, onNodeTap?, engineSelectionBridge?,
-onDiscloseHover?, onDiscloseLongPress?, recycleInstances?, incrementalLayout?,
-measureReuse?, layoutNodeReuse?, commitScope?, structuralReuse?, translateHosts? }`
+**`attach` options** — `{ rootPolicy?, reserveAppChrome?, edgeFloor?, onNodeTap?,
+engineSelectionBridge?, onDiscloseHover?, onDiscloseLongPress?, recycleInstances?,
+incrementalLayout?, measureReuse?, layoutNodeReuse?, commitScope?, structuralReuse?,
+translateHosts? }`
 (`recycleInstances` and `incrementalLayout` are the two performance opts described
 under `present()`, both on by default; a presented surface forwards its own).
 
@@ -3023,9 +3115,15 @@ production code buys nothing but a slower frame.
   is the arm `tests/host_space_oracle.spec.luau` compares every public read against.
 `rootPolicy` is the surface's content-rect policy (`"coreSafeContent"` default,
 `"deviceSafeContent"`, `"bandSafeContent"`, `"edgeToEdge"`; an unknown value
-errors and lists the set). `edgeFloor` is the opt-in edge-padding knob (a
-number or a theme metric name) described under `present()`'s own `rootPolicy`
-section — illegal together with `rootPolicy = "edgeToEdge"`.
+errors and lists the set). `reserveAppChrome` (default **true**) is whether this
+surface sits inside the host app's own chrome: a content policy adds
+`appChromeInsets` to whatever it already reserved, and the presenter sets this
+false for `presentModal`/`presentCritical` — a modal takes the screen, so it
+honours the device safe area alone. It is meaningless under `edgeToEdge` (no
+insets at all) and under `bandSafeContent` (which consumes the app's chrome per
+column, through `platformChrome.rects`). `edgeFloor` is the opt-in edge-padding
+knob (a number or a theme metric name) described under `present()`'s own
+`rootPolicy` section — illegal together with `rootPolicy = "edgeToEdge"`.
 **`onNodeTap(path, meta)` takes two arguments** — `meta` carries the tap
 geometry (`x`/`y`) the outside-tap policy reads, and `via` for a
 detector-driven tap. **`engineSelectionBridge`** is the same opt-in mirror
@@ -3210,6 +3308,27 @@ feed, which Slider's track math and the presenter's zone-A outside-tap test use.
 slider inside a scrolled container or under a live enter/exit slide therefore still
 scrubs against layout space (ESC-2 residual, tracked in
 `artifacts/sponsor-framework-gaps/responsibility-ledger.md`).
+
+**A DECORATION WHOSE PRESENCE DEPENDS ON ITS OWN SOLVED SIZE CANNOT CONVERGE.**
+`onGeometry` hands back a rect the next solve can move, so a consumer that feeds
+it into a layout-affecting prop — a `surface`, a dim, a padding — is a loop, and
+the renderer says so: *"a solve's geometry feedback did not converge in N rounds
+(a consumer publishing a layout prop derived from the rect that prop moves?)"*.
+It is not enough for the rule to look self-consistent. A skin's `contentInsets`
+are spent as the node's padding, so turning a plate ON can push that node's own
+minimum past its fill share and leave it with a **smaller** box than it had
+without the plate — measured under Fantasy Ornate at eight of the swept cells in
+`examples/gallery/scenarios/row_actions.luau`, whose list card is exactly this
+shape.
+
+The way out is to **cache the reading and key it only on facts the decoration's
+own presence cannot move** — the viewport, the player's text preference, the
+distance profile, and the installed theme. A fresh shape takes one fresh reading
+and the answer settles after a single flip. Leaving any of those four out is its
+own defect rather than a smaller version of the same one: the theme decides the
+carved frame, and a package swapped in place (which the showcase's own theme
+picker does, on a persistent scope with no remount) would otherwise answer with a
+band measured under the package before it.
 
 ### `newPresenter`
 
@@ -4490,7 +4609,9 @@ as the core does.
 |---|---|
 | `viewportRect` | `{ x, y, w, h }` of the window |
 | `deviceSafeInsets` | per-edge `{ top, bottom, left, right }` device (notch) insets |
-| `coreSafeInsets` | per-edge CoreGui reservation |
+| `coreSafeInsets` | per-edge CoreGui reservation — the DEVICE safe area, the platform adapter's to write |
+| `appChromeInsets` | per-edge reservation for the HOST APP's own persistent chrome (a showcase's chip strip, a game's always-on top bar), zero by default. Device safe area vs host reservation; modals honour the device only — a content policy adds this to `coreSafeInsets`/`deviceSafeInsets`, and `presentModal`/`presentCritical` do not, so an alert centres on the whole screen instead of on the space under your chrome. The four-edge sibling of `appChromeRects` (which says WHERE that chrome is, for per-column reservation); `bandSafeContent` consumes the rects rather than this box |
+| `appChromeRects` | the host app's own chrome as a LIST of window-space rects, `{}` by default — merged into `platformChrome.rects` beside the engine's own cluster |
 | `topbarInset` | the platform's FREE topbar rect `{ x, y, w, h }`, in WINDOW space (`GuiService.TopbarInset`) |
 | `topbarSafeInsets` | per-edge topbar-safe area — the SAME band as `topbarInset`, stated as edges. Read `platformChrome` rather than either of these; it is the one place that knows what a zero means |
 | `keyboardOcclusionRect` | `{ x, y, w, h }` the soft keyboard covers, or `nil` |
@@ -4517,7 +4638,7 @@ Derived policy (memoized, read-only):
 | `sizeClass` | `"compact" \| "regular" \| "wide"` from `viewportRect.w`, capped at `regular` at ten-foot (`effectiveDisplaySize == "Large"`) |
 | `motionPolicy` | `"reduced"` when `reducedMotion` is true, else `"full"` |
 | `distanceProfile` | `"ten-foot"` when `effectiveDisplaySize == "Large"`, else `"near"` |
-| `effectiveOverscanInsets` | authored `overscanInsets` when any edge is non-zero; `"none"` means all zero; otherwise the console defaults (60 top/bottom, 90 left/right) at ten-foot and zeros elsewhere |
+| `effectiveOverscanInsets` | authored `overscanInsets` when any edge is non-zero; `"none"` means all zero; otherwise, at ten-foot, the console profile as a **fraction of the viewport** — `60/1080` of its height and `90/1920` of its width, rounded to whole pixels, so a 1920×1080 display reserves exactly 60/60/90/90 and a smaller window reserves the same *proportion* rather than the same pixels. Zeros on a near display. |
 | `platformChrome` | WHERE THE PLATFORM'S OWN CONTROLS ARE: `{ band, rects, insets, bandInsets }`. `band` is the free topbar strip in window space or `nil`; `rects` is what the engine's own controls occupy (a list — the top band minus a free strip is an L); `insets` clears everything (what `deviceSafeContent` applies); `bandInsets` clears everything except the free band |
 | `presentationProfile` | `{ space, flat, world }`; an unrecognised `presentationSpace` resolves to `"screen"` |
 | `interactionClasses` | the LIVE set of input idioms plus `primary`: capabilities and preference together, never the preference alone |
@@ -5883,7 +6004,8 @@ paradigm in place when the space does.
 `cards` is that paradigm's options table and is **refused without it** (a field
 that drives nothing is not accepted and ignored): `perView` pins the count,
 `minWidth` moves the floor at which a lane is dropped, `peek` overrides the peek
-(`0` removes it). An authored `perView` — or an authored `snap` — always wins.
+(`0` removes it). An explicit peek also applies to multi-card shelves, exposing
+part of the following card as a continuation cue. An authored `perView` — or an authored `snap` — always wins.
 
 A rail that leaves `perView` to the facts is adapting, so it needs an environment,
 and it **refuses to construct** without one rather than silently taking the
@@ -6728,7 +6850,7 @@ consumer that needs to reason about the real box has to be told by how much.
 |---|---|---|
 | `chromeInsets[slot]` | per chrome slot (`panel`, `control`, `selection`, …): `{top, right, bottom, left}` px the slot's art reserves **inside** the node, before anything in it is measured — a nine-slice border, a plate's carved edge. Every slot publishes an entry, zero included | the renderer, added to the node's padding (`render/layout_node.luau`); read directly only when a caller must predict a decorated node's *content* box |
 | `chromeOutsets[slot]` | per slot: px the art **bleeds past** the node, realized as a margin, so the node itself is that much smaller inside the box it was given. Fantasy Ornate declares one (20px off the top of `panel`); most packages declare none | the renderer, as the margin; and by anything sizing a box that must sit around the bleed |
-| `chromeBleed` | a whole-package **number**, not a map: the deepest any slot's shadow reaches outside its box. It reserves nothing — it is the paint seam's clip allowance | the paint seam |
+| `chromeBleed` | a whole-package **number**, not a map: the deepest any slot's shadow reaches outside its box. It is the paint seam's clip allowance, and the reach an outermost `ScrollView` keeps clear so a child's glow is not cut by the viewport | the paint seam; and the outermost scroll host, as its chrome lane — `chrome_slots.bleedLane`, netted against that node's own carved inset, because a carved frame already holds content that far from the clip edge |
 
 **`hasChromeInsets` is the guard to read first.** Because every slot publishes an
 entry, `next(chromeInsets) ~= nil` answers "yes" on every package and tells you
@@ -7020,7 +7142,7 @@ and ButtonA follow the same semantic activation path.
 
 A button with required `onActivate(meta)` and optional `id`, `label`, custom
 `children`, `enabled`, `busy`, `role`, `width`, `height`, `shortcut`,
-`repeatDelay`, `repeatInterval`, and `dialogAction`. Enabled and busy accept
+`repeatDelay`, `repeatInterval`, `dialogAction`, and `pop`. Enabled and busy accept
 booleans or readable booleans. Busy displays the existing themed progress spinner
 and rejects activation until the caller clears it.
 
@@ -7058,6 +7180,20 @@ press; a pointer tap activates on release, while a held pointer starts repeating
 after the delay. Release after a repeat does not add an extra activation. A slow
 frame emits at most one current repeat. Release, pointer exit, cancellation,
 focus loss, lost input ownership, disabling, busy state, and disposal stop the hold.
+
+`pop = true` is an opt-in release overshoot: an activate seeds velocity into a
+`reward` spring resting on the button's paint-only `scale`, which kicks past 1
+and returns rather than easing to a target — the same acknowledgement
+`RadialMenu`'s commit uses, on the plain button surface. It changes nothing the
+solver sees and costs nothing at rest (the spring detaches once it settles).
+**It fires on the initial press only, never on a repeating button's later
+pulses**: a pointer held down on a `pop` + `repeatInterval` button pops once on
+the first activation and then holds still through every pulse that follows,
+because a repeat interval is typically well under the spring's settle time and
+an unconditional re-kick would stack, stranding the scale off 1 for as long as
+the button is held. Keyboard/gamepad activation still pops exactly once, on the
+press that starts the hold. Under reduced motion `setVelocity` is a no-op, so
+the scale stays exactly 1.
 
 `shortcut = { keyCode = "F6", modifiers = { shift = true } }` uses the existing
 semantic action system. Only documented modifier bindings are supported. Hidden,
@@ -7177,7 +7313,12 @@ wrapped and no layout moves. Opening presents the panel through
 `presenter.presentAnchored`, so the placement, the edge flip, the along-edge
 shift, the safe-area clamp and the follow-a-moving-source behaviour are the
 [anchored surface](#anchored-surfaces)'s, and the focus scope, focus trap, focus
-restore and tap-away catcher are the presenter's own.
+restore and tap-away catcher are the presenter's own. Every level materializes —
+scale 0.96 → 1 with a fade in, growing from the corner it hangs at
+([structural transitions](#structural-transitions)' `pivot` inference) and
+dipping out on `dismiss` — with `plate = "fades"` acknowledged for you, since
+the popover IS its panel. This is baked into the presentation call, not a
+`spec.transition` field: a menu has no caller-facing transition override.
 
 Spec: `{ id?, trigger: Blueprint, items: { Item }, triggers: { string }?,
 presentation: (("automatic" | "menu" | "sheet") | Readable<string>)?, sizeClass: (string | Readable)?,
@@ -7676,6 +7817,7 @@ checks, and `Controls.TabView` when choosing a page rather than a value.
 | `textSize` | Optional type role, numeric size, or readable; defaults to the control type role. |
 | `iconOnly` | Strip styles; defaults false; requires icons on every option. Radio retains visible labels. |
 | `indicator` | Static strips: `automatic`, `none`, `underline`, `pill`. Live lists: `automatic` or `none`, using selected row chrome. |
+| `stripCorner` | Optional container-radius name (or readable of one) naming what the strip *around* this picker actually wears, so the selected fill can wear the same silhouette (`radii.selection:<container>`). Must be a radius the LIVE style publishes — the base `control | panel | pill` plus any a package adds of its own (`radii.chip`), because `radii.selection:chip` resolves under such a package; anything else refuses at construction, naming the vocabulary it was actually checked against. A **`Readable` `stripCorner`** re-resolves on every read: on a swap AWAY from the package that publishes the container, the fill falls back to plain `radii.selection` rather than losing its corner, and a swap back re-derives the container answer on the next read. A **static `stripCorner`** is resolved once, at build, through that same fallback — so a later swap-away leaves it on the token it took, and neither the fallback nor the counter moves again for it. Requires `track = false`: a tracked strip draws its own plate and already knows its container, so the pair refuses and the message says which of the two to drop. A readable that currently reads `nil` is legal and means "no container right now" (`Controls.TabView` passes one: its adaptable app bar's corner in the band form, nothing in the rail form). Absent, the fill keeps plain `radii.selection`. A healed fallback says so once per token per control **while it is falling back**: a swap back to the package clears the note and a second departure warns again, and a reactive `stripCorner` alternating between two names neither of which resolves warns on every change — the cost of a count stated in the present tense. `dump().indicator.cornerFallbacks` is that present-tense count (0 or 1): 1 means the fill is painting a fallback corner right now, and it returns to 0 the instant any token resolves again. |
 | `sizeClass`, `env` | Optional environment overrides; the automatic style otherwise reads the core's environment. |
 
 An option has required `value` and nonempty `label`, and optional `id`,
@@ -7840,8 +7982,12 @@ page-owned. Nearby compact/short screens retain bottom tabs. A nearby sidebar
 preference returns when space permits, but does not override distant-view policy.
 Commands preserve focus when effective placement does not change. A sidebar adds
 `space.m` between its chrome and the page by default, including ordinary sidebar
-TabViews; page content owns its internal padding. Top/bottom homes add no vertical
-gap. Nested TabViews keep their own top bar. This style defaults to pill indicators
+TabViews; page content owns its internal padding. A top or bottom home adds
+`space.s` for the same reason — the strip is a plate and the page is not part of
+it. Both are metric names, so a package's own spacing moves them. The one
+placement that adds nothing is `bottomBarCompact`: the policy picks it when the
+screen is too short for an ordinary band, and there the chrome gives way before
+the content does. Nested TabViews keep their own top bar. This style defaults to pill indicators
 and preserves the normal lazy-build/eviction contract; `indicator` may override it.
 No destination content or hero imagery is invented.
 
@@ -7966,7 +8112,8 @@ owns whatever that tab's factory put on it. `selection` is yours.
 
 `Facet.Controls.DisclosureGroup(core, spec) -> { blueprint, bindFocus, dump, dispose }`
 — a labelled header that expands and collapses its content. `spec = { id?, label
-(required), expanded (Signal<boolean>), content (() -> Blueprint), enabled?, onToggle? }`.
+(required), expanded (Signal<boolean>), content (() -> Blueprint), enabled?, onToggle?,
+presenter? }`.
 
 The two-argument spelling `Facet.newDisclosureGroup(Facet, core, spec)` is **deprecated** since
 0.10.0 (removal no earlier than 0.12.0): it still builds the identical
@@ -7974,7 +8121,23 @@ control, and `Facet.Controls.DisclosureGroup` is a closure over the library, not
 implementation.
 
 Content mounts through `UI.When`, so a collapsed group genuinely costs nothing (only
-structural regions may mount or unmount).
+structural regions may mount or unmount). Content fades in place through a canvas
+group on the non-overshooting `dismiss` motion class for both opening and closing.
+The caret uses the same class, so it does not bounce beyond its final angle.
+Reopening mid-exit reverses the existing transition.
+
+**The caret is one `chevron.trailing` glyph, not two.** Its `rotation` — paint-only,
+never seen by the solver — springs 0 → 90 as `expanded` flips, turning to point down
+rather than swapping between a mounted `chevron.down`/`chevron.trailing` pair. A
+package's `chevron.down` art, if it declared any, is no longer requested by this
+control.
+
+**`presenter?` buys the sibling glide.** When given (a presenter — anything with
+`withAnimation`), the toggle runs inside `presenter.withAnimation("dismiss", …)`, so
+every OTHER node whose solved position the flip moves — a section below this one
+sliding to make or close room — travels there instead of jumping. Absent (the common
+case), the flip is instant; the caret and the content still animate their own paint
+either way, off the ambient motion clock every mounted control receives for free.
 
 **Focus is the load-bearing detail.** Collapsing while focus sits inside the content
 would leave focus on a node that is about to be unmounted, so the control moves focus
@@ -8324,6 +8487,7 @@ geometry, and theme styling.
 | `clearButtonMode` | `"never"`, `"whileEditing"`, `"unlessEditing"`, or `"always"`. Default is never; search defaults to always. Empty or disabled fields hide the affordance. |
 | `maxLength` | Maximum accepted Unicode scalar count. Invalid UTF-8 is rejected. |
 | `validate(text)` | Return an accepted, idempotently normalized string, or nil to reject. Applied after length limiting and on commit. Numeric formatting must also pass validation before committed values change. |
+| `invalid` | Optional caller-owned readable boolean. Each false-to-true edge shakes the field once on the paint-only `offset`: the solved rect, hit target, and focus order never move, and a second edge restarts the shake rather than racing it. The shake is decorative, so a reduced-motion session drops it entirely; show the reason yourself, as number presentation shows its own message. |
 | `numericValue` | Required caller-owned `Signal<number>` for number presentation; distinct from the editable string in `value`. |
 | `parse(text)` / `format(number)` | Numeric commit functions; default to `tonumber` and `tostring`. Parsing must return a finite number; formatting must return a string. |
 | `min` / `max` | Optional inclusive numeric bounds. Invalid input leaves `numericValue` unchanged and displays a validation message. |
@@ -8341,7 +8505,14 @@ ancestor, ends editing, preserves accepted text, and rejects late edits and comm
 
 Numeric entry keeps strings such as `"-"`, `"."`, and `"1e"` as editable drafts.
 Parsing, bounds, and formatting run on commit, rather than rewriting each
-keystroke. Rejected commits retain the draft and show an error. Search uses the
+keystroke. Rejected commits retain the draft, show an error, and shake the field
+on the same paint-only `offset` `invalid` shakes on — but **on every rejected
+commit, not an edge**: a repeat of the same rejection shakes again, which is
+exactly when the nudge is worth the most (`invalid`, by contrast, only shakes on
+a false→true transition; setting it to `true` a second time in a row is not a
+new rejection). Reduced motion drops the shake on both paths; the message
+beneath the field holds still either way, and it is the only account of *why* —
+show the reason yourself. Search uses the
 same text pipeline with a themeable search mark and clear affordance; bind its
 `value` to a filtering memo for an ordinary list or to a PopupButton's `query`.
 
@@ -9712,8 +9883,11 @@ source change retargets after a manual `stop`, `snap`, or `setTarget`.
 A **motion class** is a named `{ dampingRatio, response }` pair — `dampingRatio`
 is overshoot (1.0 = critically damped), `response` is how quickly the value
 reaches its target in seconds (**not** a duration: settle time emerges from the
-physics). Four ship: `container` (1.0 / 0.35), `object` (1.0 / 0.28), `reward`
-(0.7 / 0.18), `decay` (1.0 / 0.5).
+physics). Five ship: `container` (1.0 / 0.35), `object` (1.0 / 0.28), `reward`
+(0.7 / 0.18), `decay` (1.0 / 0.5), `dismiss` (1.0 / 0.2), the exit twin of
+`container` — a structural transition's exit runs on it by default (see
+`exitClass` under **Structural transitions**), so a closing surface dips out
+about 1.7x faster than it opened.
 
 **Overshoot is earned**: `reward` is the only under-damped built-in, and it is
 non-gestural by definition — liveliness elsewhere comes from inherited gesture
@@ -10172,8 +10346,15 @@ retain their ancestors. Each keyed row keeps its motion origin and spring throug
 interruption, so reversing a transition does not reset its position.
 Closing preserves the displayed page until it has contracted and faded. Gameplay
 callbacks still run immediately. Retiring visuals reject pointer actions and leave
-focus order without dimming their content as disabled controls. Reduced motion
-snaps decorative movement. The Showcase's **Quick actions** demo (`radial-menu`;
+focus order without dimming their content as disabled controls. An opening ring
+blooms as a sequence rather than a slab: each wedge waits 20 ms longer than the one
+before it, capped at 100 ms however many wedges the ring holds, so no arrangement
+delays the last press beyond that. The candidate wedge — the one under the pointer,
+the stick or a direct hover — lifts 4% out of the ring, and committing it seeds an
+overshoot into that same lift so the acknowledgement continues the motion instead of
+starting a new one. Both are paint; neither changes what the wedge measures or where
+it can be pressed. Reduced motion snaps decorative movement: the ring opens whole,
+the candidate still reads as lifted, and the commit does not overshoot. The Showcase's **Quick actions** demo (`radial-menu`;
 scenario `radial_menu`) teaches corner commands, five compass gestures (direction
 selection), and character gear.
 The implementation and evidence record is in
@@ -10369,7 +10550,7 @@ form; omitted, the control reads the environment published on its core, exactly 
 Picker and TabView do. `maxWidth?` is positive pixels
 or a metric name, default `"controls.alert.maxWidth"`; `padding?` is nonnegative
 pixels or a spacing name, default `"m"`; `surface?` defaults to `"raised"`.
-The icon shares a compact header with the title; its default size is one minimum target.
+The header is the title alone unless art is called for, and it is CENTRED in the card. A critical severity leads it with a small caution mark and an authored `icon` with that picture — either one is one `iconSizes.medium` square, the height of the heading beside it (A3, 2026-09-13: the mark used to be a whole minimum target, 44 px against a 20 px title, and it read as artwork rather than as punctuation). With a mark present the pair is centred AS A UNIT and the title reads from the mark; with no mark the title's own text is centred in the card, as the message under it always is.
 The default width cap is `targetSizes.minimum * (560 / 44)`. Game themes own art,
 colors, type and border insets.
 
@@ -10380,9 +10561,10 @@ colors, type and border insets.
 | `item`, `presenter` | Alternative optional-item Signal. Nonnil opens; dismissal clears it. Cannot combine with `isPresented`, `presenting`, or `error`. |
 | `error` | Record/readable with `errorDescription`, optional `recoverySuggestion` and `failureReason`. Supplies default title/message. A Signal without `isPresented` is an automatic binding and requires `presenter`; dismissal clears it. |
 | `icon` | Optional image asset/readable, sized using `controls.alert.iconSize`. |
-| `severity` | `automatic` (default), `standard`, or `critical`. Automatic errors are critical; critical uses danger emphasis and a vector caution icon unless an image is supplied. |
+| `severity` | `automatic` (default), `standard`, or `critical`. Automatic errors are critical; critical uses danger emphasis and a small inline vector caution mark — `iconSizes.medium`, capped at the heading it leads, because a package may pitch its picture ladder above its type (Fantasy Ornate's is 32 against a 22 px heading) — unless an image is supplied. |
 | `suppression` | `{isSuppressed: Signal<boolean>, label?}` adds the existing checkbox control. The game must consult this value when deciding whether to ask again. |
 | `content` | Optional `(scope, data) -> blueprint?` for brief extra content such as an existing TextInput. Use a full modal for an editor. Own resources in the supplied scope. |
+| `transition` | Optional [structural transition](#structural-transitions) spec, or a `Readable` of one, for the modal's own enter/exit. Defaults to `{ enter = "materialize", plate = "fades", scale = 1.015 }` — the card **settles down on the way in** from 1.5% over with a fade, and **dips out** to the ratified 0.96 on the faster `dismiss` class on the way back; pass `{ enter = "instant" }` to opt out. An authored `transition` is MERGED with both keys rather than replacing them: a caller who names `enter = "materialize"` to change its motion class still gets `plate = "fades"` and the text-safe band, because the band answers an engine fact about the type on this card rather than a taste this control holds — declare your own `plate` or `scale` and yours wins, and no other form is given a band it does not drive. It settles down rather than growing in because the engine rasterizes text at `floor(TextSize × effectiveScale)`, so a scale below 1 would paint every string on the card a pixel small for the whole flight and snap it back when the motion ended (see [`scale`](#structural-transitions)). `nil` **and** `false` both fold to that same default — `false` is the framework's "no transition" spelling on `When`/`ForEach`, but Alert's card always materializes unless the enter form is named explicitly. A static value that fails `transitions.resolve` is refused at construction (`Controls.Alert: transition: …`); a `Readable` one is refused on its first read instead, recorded on `dump().lastError`, and the binding resets to the default rather than raising inside the observer that opened it. |
 
 Use `present()` or a presentation binding for the interactive modal. `blueprint`
 is its layout template for inspection/static previews; directly mounting a custom-
@@ -10403,8 +10585,39 @@ confirmation is appropriate; cancellation remains the initial focus preference.
 `default` emphasizes the button; it does not steal Return from the focused action.
 `destructive` uses destructive styling. Actions invoke their callback once, after
 dismissing. `require("…/controls/alert").resolveStacked(count, sizeClass,
-distanceProfile, preferredTextOffset)` and `orderActions(actions, stacked)` are the
-pure form and placement rules, for a caller that wants to predict them. Cancel receives initial focus when enabled;
+distanceProfile, preferredTextOffset)`, `rowFits(labelWidths, chromeX, gap, available)`
+and `orderActions(actions, stacked)` are the
+pure form and placement rules, for a caller that wants to predict them.
+
+**A modal's action label is never cut before the form changes** (A5, 2026-09-13).
+The categorical rungs above are all proxies for one question — do these labels fit
+the width this card has — so the labels themselves get a vote: the control measures
+each one at the size and face a Button will draw it (`text_metrics`, the solver's
+own measurer), adds the button's chrome and the row's gap, and stacks when the sum
+does not fit. Two things make that width worth having:
+
+- the card's `padding` **yields** to the panel slot's carved frame rather than
+  stacking with it — down to one `xs`, never to nothing, because a carved inset
+  is where the *art* ends and not where a line of type wants to start (the
+  carved frame *is* the modal's inner margin; paying for it twice took 35 px a
+  side out of a 390 px phone under Fantasy Parchment), and
+- the chrome-bleed lane a scroller keeps for content that paints past its box is
+  **netted against that carved frame** — the frame already holds content that far
+  from the clip edge, so the lane owes only the difference
+  (`chrome_slots.bleedLane`). Under Fantasy Parchment (bleed 17, carve 18) it owes
+  nothing; under Sci-Fi HUD (24, carve 0) it owes all of it, and a package that
+  glows without carving keeps its lane in full. The Alert declares no
+  `chromeReserve` of its own: the netting is done by the layout reader on every
+  solve, so a theme swapped under a live modal moves the lane with it.
+
+Together they turn 288 px of content on that phone into 322, which is what lets a
+one-word primary action ("Continue") draw whole at the Largest preference. A flat
+package carves nothing, reserves no bleed, and none of this moves a pixel.
+
+`disclose` stays on every action underneath all of it, as the last resort it was
+meant to be: a label that does not fit even a full-width stacked button at the
+largest preference still has a route to its whole string. It reserves nothing
+while the label fits. Cancel receives initial focus when enabled;
 otherwise the first enabled non-destructive action is preferred, then ordinary
 presenter focus fallback applies.
 

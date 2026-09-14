@@ -162,8 +162,8 @@ describe("surface slot precedence: the premise, and the two surfaces that carrie
 
 	it("the swipe-actions list rows sit a hairline apart, so a control shadow would land on the next row", function()
 		local w, built = scenarioWorld(rowActions)
-		local first = w.adapter.node("/MailActions/ListWhen/then/List/Rows/RowsForEach/[m1]/m1")
-		local second = w.adapter.node("/MailActions/ListWhen/then/List/Rows/RowsForEach/[m2]/m2")
+		local first = w.adapter.node("/MailActions/ListWhen/then/ListPlate/List/Rows/RowsForEach/[m1]/m1")
+		local second = w.adapter.node("/MailActions/ListWhen/then/ListPlate/List/Rows/RowsForEach/[m2]/m2")
 		assert(first ~= nil and second ~= nil, "the list surface did not mount its rows")
 		local gap = second.rect.y - (first.rect.y + first.rect.h)
 		expect(gap < 4).toBe(true)
@@ -173,7 +173,7 @@ describe("surface slot precedence: the premise, and the two surfaces that carrie
 	it("...and each of those rows declares `base`, so it takes no slot", function()
 		local w = scenarioWorld(rowActions)
 		for _, key in { "m1", "m2", "m3", "m4", "m5", "m6" } do
-			local path = `/MailActions/ListWhen/then/List/Rows/RowsForEach/[{key}]/{key}/Content/Row`
+			local path = `/MailActions/ListWhen/then/ListPlate/List/Rows/RowsForEach/[{key}]/{key}/Content/Row`
 			expect(w.adapter.node(path).props.surface).toBe("base")
 			expect(slotOfMounted(w.adapter, path)).toBe(nil)
 		end

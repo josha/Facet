@@ -494,14 +494,38 @@ export type PathSpec = BoxProps & {
 
 -- A structural region's enter/exit declaration. `exit`
 -- defaults to the mirror of `enter`; `class` names a motion class (default
--- "container"); `fade` pairs a slide with a transparency fade, which — like the
--- fading forms themselves — needs the child to be a declared `canvasGroup` node.
+-- "container"); `exitClass` names the motion class the exit runs on (default
+-- "dismiss", the faster twin of "container" — transitions round 2026-09-12);
+-- `fade` pairs a slide with a transparency fade, which — like the
+-- fading forms themselves — needs the child to be a declared `canvasGroup` node;
+-- `pivot` is where a scaling form (`materialize`) grows from (default centre).
 export type TransitionSpec = {
 	enter: string,
 	exit: string?,
 	class: string?,
+	exitClass: string?,
 	fade: boolean?,
 	distance: number?,
+	-- the ENTER band a `materialize` starts from (default 0.96). A surface that is
+	-- mostly TYPE settles DOWN from just above 1 instead: the engine rasterizes
+	-- text at `floor(TextSize x effectiveScale)`, so any scale below 1 paints every
+	-- string under it one pixel smaller for the whole flight and snaps back when
+	-- the motion ends (`src/render/transitions.luau`'s `MATERIALIZE_SCALE`). The
+	-- exit keeps the ratified dip whatever this says.
+	scale: number?,
+	pivot: string?,
+	-- `"fades"`: this surface's plate is meant to fade with its content — the
+	-- modal/popover shape whose backdrop is the scrim behind it, not the plate.
+	-- Do not write it to silence a backdrop finding on a plate that sits behind
+	-- separately-fading content (`src/render/transitions.luau`'s gate reports
+	-- every shape but the sole-child plate exactly as before).
+	plate: string?,
+	-- seconds between one entering row and the next, for a region whose children
+	-- arrive together (default 0 — they enter as one). The accumulated wait is
+	-- capped at eight beats (`render/transitions.luau`'s `STAGGER_CAP`), so a long
+	-- list's last row is a beat behind the ninth rather than minutes behind the
+	-- first.
+	stagger: number?,
 }
 
 -- `thenView`'s `branchScope` is the BRANCH's ownership scope, disposed when the

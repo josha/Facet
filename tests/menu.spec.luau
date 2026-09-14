@@ -106,7 +106,7 @@ end
 local TRIGGER = "/S/Body/Trigger"
 local function rowPath(level: number, itemId: string): string
 	local surface = if level == 0 then "Menu-M" else `Menu-M-L{level}`
-	return `/{surface}/Layer/Surface/Panel/Item:{itemId}`
+	return `/{surface}/Layer/Surface/Popup/Panel/Item:{itemId}`
 end
 local function sheetRow(itemId: string): string
 	return `/Menu-M/Layer/Panel/Item:{itemId}`
@@ -351,7 +351,7 @@ describe("D2 Menu: every input class opens it, and the verbs are the same ones",
 		w.pres.refresh()
 		expect(w.control.api.isOpen:get()).toBe(true)
 		local trigger = w.adapter.node(TRIGGER).rect
-		local panel = w.adapter.node("/Menu-M/Layer/Surface/Panel").rect
+		local panel = w.adapter.node("/Menu-M/Layer/Surface/Popup/Panel").rect
 		-- D1 placed it: below the source, not at a parent corner
 		expect(panel.y >= trigger.y + trigger.h).toBe(true)
 		expect(w.pres.anchoredSurfaces().count).toBe(1)
@@ -1449,7 +1449,7 @@ describe("D2 Menu: the anchored panel is ONE card", function()
 		w.pres.refresh()
 		return w, checked
 	end
-	local PANEL = "/Menu-M/Layer/Surface/Panel"
+	local PANEL = "/Menu-M/Layer/Surface/Popup/Panel"
 
 	it("draws exactly one hairline between two rows — rows minus one, and no gap besides", function()
 		local w = cardWorld()
@@ -1552,5 +1552,56 @@ describe("D2 Menu: the anchored panel is ONE card", function()
 		expect(row.props.surface).toBeNil()
 		expect(row.props.corners).toBeNil()
 		expect(row.props.selected).toBe(true)
+	end)
+end)
+
+describe("menu: the floating panel materializes", function()
+	local FRAME = 1 / 60
+	it("fades and grows in, then leaves faster", function()
+		--[[ MEASURED ON THE PAINT (task 7 item 1), for the reason alert.spec's
+			twin states at length: "frames until the node is gone" was decided by
+			the flat 500 ms exit cap, not by the exit class, so the old
+			comparison passed under `exitClass = "container"` exactly as it did
+			under `dismiss` and proved nothing about the asymmetry the round
+			introduced. The pin is now the frame the popup's fade crosses 95% in
+			each direction, plus the fact that its own spring — not the cap —
+			ends the exit. ]]
+		local w = world({})
+		w.adapter.tap(TRIGGER)
+		w.pres.refresh()
+		local popupPath = rowPath(0, "accessory"):gsub("/Popup/Panel/Item:accessory$", "/Popup")
+		local popup = w.adapter.node(popupPath)
+		expect(popup ~= nil and popup.canvasGroupInstance ~= nil).toBe(true)
+		expect(popup.canvasGroupInstance.groupTransparency).toBe(1)
+		local enterCross = -1
+		for f = 1, 120 do
+			w.pres.tick(FRAME)
+			if enterCross < 0 and popup.canvasGroupInstance.groupTransparency <= 0.05 then
+				enterCross = f
+			end
+		end
+		expect(popup.canvasGroupInstance.groupTransparency).toBe(0)
+		-- closing through the control's own verb (the file's other whole-menu
+		-- teardown case, :860, uses the same one): the popup now dips out on a
+		-- real exit transition rather than vanishing on this tick, so its node
+		-- survives `close()` until the coordinator's retire completes
+		w.control.api.close()
+		w.pres.refresh()
+		local exitCross, goneAt = -1, -1
+		for f = 1, 120 do
+			w.pres.tick(FRAME)
+			local node = w.adapter.node(popupPath)
+			if node == nil then
+				if goneAt < 0 then
+					goneAt = f
+				end
+			elseif exitCross < 0 and node.canvasGroupInstance.groupTransparency >= 0.95 then
+				exitCross = f
+			end
+		end
+		expect(w.adapter.node(popupPath)).toBeNil()
+		-- the PACE, and then the LIFETIME
+		expect(exitCross > 0 and exitCross < enterCross).toBe(true)
+		expect(goneAt > 0 and goneAt < math.ceil(Facet.EXIT_CAP_SECONDS * 60)).toBe(true)
 	end)
 end)

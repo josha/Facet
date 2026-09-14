@@ -20,6 +20,7 @@ local focus_graph = require("../focus/focus_graph")
 -- Each is engine-free and driven from here.
 local transitionsLib = require("../render/transitions")
 local toast_schedule = require("./toast_schedule")
+local toastLayerLib = require("./toast_layer")
 local feedbackLib = require("./feedback")
 local motionClockLib = require("../motion/clock")
 -- the motion-class registry, read by `withAnimation` so an unknown name and an
@@ -186,16 +187,12 @@ export type PresentOpts = {
 	fallbackScreen: ((err: any) -> any)?,
 }
 
--- presentToast options (ui-designer spec §3.1)
-export type ToastOpts = {
-	key: string?, -- same-key supersede ("subject" in the spec)
-	priority: number?, -- default 0; higher runs first in the queue
-	duration: number?, -- seconds visible, default 4
-	readFloor: number?, -- minimum dwell before anything may replace it, default 1.5
-	position: string?, -- "top" (default) | "bottom" — the edge it docks to
-	transition: any?, -- default: slide in from its own edge, with a fade
-	context: any?, -- carried on the toast's dismiss event, untouched
-}
+-- presentToast options (ui-designer spec §3.1). DECLARED BY THE MODULE THAT OWNS
+-- THE FEATURE since the toast driver left for the Source cap, and re-exported
+-- here under its original spelling — `presenter.ToastOpts` is what every
+-- consumer reads, and one declaration is what keeps the guard's key set and the
+-- type from drifting apart.
+export type ToastOpts = toastLayerLib.ToastOpts
 
 -- CLOSED OPTS (constitution §4, and the architecture review's first finding).
 -- This is the widest opts table in the
@@ -240,15 +237,6 @@ local PRESENT_OPTS_KEYS = specGuard.keySet({
 	-- INCREMENTAL LAYOUT (opt-in, default off — Stage 2)
 	"incrementalLayout",
 	"keyboardNavigation",
-})
-local TOAST_OPTS_KEYS = specGuard.keySet({
-	"context",
-	"duration",
-	"key",
-	"position",
-	"priority",
-	"readFloor",
-	"transition",
 })
 local PRESENTER_OPTS_KEYS = specGuard.keySet({ "clock", "keyboardNavigation", "now" })
 
@@ -786,23 +774,24 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		(`anchored.luau`), the disclosure plate and its clamp all take this box — so
 		they are fixed together rather than three times.
 
-		TOP IS DELIBERATELY EXEMPT, matching `hud.luau`'s own `top = 0`. The top
-		edge is the chrome band's, already reserved in full by `coreSafeInsets.top`;
-		adding a decorative step on top of a reserved band pushes every plate down by
-		a gutter nobody asked for and buys nothing — there is no "flush against the
-		top" case, because the topbar inset is never zero. ]]
-	local function safeBox(): { x: number, y: number, w: number, h: number }
+		TOP IS DELIBERATELY EXEMPT, matching `hud.luau`'s own `top = 0`: that edge is
+		already reserved in full — the platform's row, plus the host's band when the
+		owner surface reserves it — and a decorative step on a reserved band pushes
+		every plate down for nothing. ]]
+	local function safeBox(reserveAppChrome: boolean?): { x: number, y: number, w: number, h: number }
 		local vp = env:get("viewportRect"):get()
 		local core_ = env:get("coreSafeInsets"):get()
 		local device = env:get("deviceSafeInsets"):get()
+		local appChrome = if reserveAppChrome == false then nil else env:get("appChromeInsets"):get()
 		-- the theme's own smallest gutter step, never a literal: a package that
 		-- retunes its spacing ladder retunes the screen's margin with it
 		local gutter = themeSnapshot.resolveNumber(metricsNow(), "s") or 0
 		local function edge(name: string): number
 			local a = if type(core_) == "table" then tonumber(core_[name]) or 0 else 0
 			local b = if type(device) == "table" then tonumber(device[name]) or 0 else 0
+			local host = if type(appChrome) == "table" then math.max(0, tonumber(appChrome[name]) or 0) else 0
 			local floor = if name == "top" then 0 else gutter
-			return math.max(a, b, floor)
+			return math.max(a, b, floor) + host
 		end
 		local x = (if type(vp) == "table" then tonumber(vp.x) or 0 else 0) + edge("left")
 		local y = (if type(vp) == "table" then tonumber(vp.y) or 0 else 0) + edge("top")
@@ -973,7 +962,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		local placement = anchorPlacement.solve({
 			source = srcRect,
 			size = { w = plateRect.w, h = plateRect.h },
-			safe = safeBox(),
+			safe = safeBox(plate.owner.reserveAppChrome),
 			edge = "bottom",
 			-- leading-aligned on the label, which is where a reader's eye already is
 			align = "start",
@@ -999,7 +988,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		if type(srcRect) ~= "table" then
 			return
 		end
-		local box = safeBox()
+		local box = safeBox(owner.reserveAppChrome)
 		local metrics = metricsNow()
 		local gap = themeSnapshot.resolveNumber(metrics, "xs") or 4
 		local sc = core:scope("present-disclose")
@@ -1391,6 +1380,13 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		syncScrim = syncScrim,
 	})
 	local syncFocusVisuals = surfaceLifecycle.syncFocusVisuals
+	-- makeHandle's, not a public verb: a re-present under an id whose surface is
+	-- still exiting must tear that one down first (task 7 item 2)
+	local flushPendingExit = surfaceLifecycle.flushPendingExit
+	-- ...and the diagnostic for the collision the flush CANNOT help with: two
+	-- surfaces LIVE under one id (review D4)
+	local noteDuplicateSurfaceId = surfaceLifecycle.noteDuplicateSurfaceId
+	self.surfaceIdNotes = surfaceLifecycle.surfaceIdNotes
 	-- THE TWO OBSERVERS REGISTER HERE rather than up beside the focus scalars,
 	-- where the function they call used to be declared, and that is order-neutral
 	-- for one measured reason: `presenter.new` mounts nothing, so these are still the
@@ -1509,7 +1505,13 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		hide = dragProxyHide,
 	}
 
-	local function makeHandle(blueprint: any, opts: any, kind: string)
+	local function makeHandle(
+		blueprint: any,
+		opts: any,
+		kind: string,
+		screenTakesScreen: boolean?,
+		inheritAppChrome: boolean?
+	)
 		-- an unknown cancelPolicy is refused LOUDLY, the same way an unknown
 		-- rootPolicy is (renderer.attach): a typo that silently kept the default
 		-- would read as "the framework ignored my mandatory modal".
@@ -1533,6 +1535,19 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		if scrimOpt ~= nil and scrimOpt ~= "scrim" and scrimOpt ~= "none" then
 			error(`Facet presenter: unknown scrim '{tostring(scrimOpt)}'. Valid: scrim, none.`, 0)
 		end
+		--[[ inside the host's own chrome, or taking the screen? Spent four ways from
+			here; argued at `appChromeInsets` (src/env/environment.luau).
+
+			AN ANCHORED SURFACE INHERITS ITS SOURCE'S ANSWER rather than deriving one.
+			`presentAnchored{ modal = true }` is how a POPOVER is
+			presented — a picker's panel, a Menu, an expanded region — so its `kind`
+			is "modal" while its meaning is "part of the page that raised it". Read
+			from `kind` alone, a popover over a content screen ignored the host's band,
+			and so did everything raised inside it. `src/present/anchored.luau` passes
+			the owner's own answer here; nobody else passes anything. ]]
+		local reservesAppChrome = if inheritAppChrome ~= nil
+			then inheritAppChrome
+			else (kind ~= "modal" and not screenTakesScreen)
 		-- Tab/Shift+Tab wrap policy for this surface's scope (roadmap Step 8),
 		-- declared once here rather than per control. Same enum discipline as the
 		-- three above: only a boolean, and only this surface's own scope.
@@ -1605,6 +1620,11 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		-- the native half is a stricter test and needs no per-surface state. Named
 		-- here only for the renderer wiring below.
 		local selectionBridged = (opts and opts.engineSelectionBridge) == true and kind ~= "screen"
+		-- a surface still LEAVING under this id goes first: everything built below
+		-- claims the node paths it is still sitting on (surface_lifecycle's
+		-- `pendingExits` carries the reasoning; this file is near the source cap)
+		flushPendingExit(blueprint.id)
+		noteDuplicateSurfaceId(blueprint.id)
 		local scope = core:scope(`present-{kind}-{blueprint.id or "screen"}`)
 		--[[ RESPONDER STATE IS HOISTED HERE, above `bindContribution`, because a
 			control has to be handed the paint permission below at BIND time and
@@ -1665,6 +1685,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		})
 		local controller = renderer.attach(core, root, env, adapter, {
 			rootPolicy = (opts and opts.rootPolicy) or "coreSafeContent",
+			reserveAppChrome = reservesAppChrome,
 			edgeFloor = opts and opts.edgeFloor,
 			-- default ON; an explicit `false` opts out (see renderer for the measurement)
 			recycleInstances = opts == nil or opts.recycleInstances ~= false,
@@ -1939,7 +1960,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 			-- native adapter capability (UIDragDetector) reaches it through the
 			-- controller, never by fabricating an adapter handle of its own
 			if c.bundle.bindController ~= nil then
-				c.bundle.bindController(controller)
+				c.bundle.bindController(controller, reservesAppChrome)
 			end
 			-- and the FOCUS GRAPH, for the controls that must MOVE focus rather
 			-- than merely follow it (VirtualList's index focus policy: the data
@@ -2703,6 +2724,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 			-- `refresh` calls it before it re-derives the focus map, so a region
 			-- that opened this frame is wired BEFORE its nodes join the ring
 			syncContributions = syncContributions,
+			reserveAppChrome = reservesAppChrome,
 			-- responder mode: passive surfaces engage/resign; every
 			-- other surface reports "engaged" (a plain screen is engaged-open,
 			-- non-sinking; a modal is engaged-exclusive). Readable for consumers.
@@ -2733,11 +2755,31 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		end
 		surfaceRef = handle
 
-		-- ONE SURFACE, ONE TRANSITION TARGET. A fading form needs a fade GROUP and a
-		-- `Screen` is not one, so the transition targets the root's single declared
-		-- `canvasGroup` child when it has one — `UI.ZStack{ canvasGroup = true }`
-		-- around the screen's content is the documented shape — and the root itself
-		-- otherwise (a slide needs no group).
+		--[[ ONE SURFACE, ONE TRANSITION TARGET. A fading form needs a fade GROUP and
+			a `Screen` is not one, so the transition targets the root's single declared
+			`canvasGroup` child when it has one — `UI.ZStack{ canvasGroup = true }`
+			around the screen's content is the documented shape — and the root itself
+			otherwise (a slide needs no group).
+
+			...AND IT IS NOT ALWAYS A DIRECT CHILD (task A2, live Studio 2026-09-12).
+			`presentAnchored` SYNTHESIZES `Screen -> Anchor(Layer) -> VStack(Surface)
+			-> <the caller's panel>`, so a pop-up menu's `canvasGroup` panel sits three
+			levels down and NOTHING here qualified: the target fell back to the Screen
+			root. The coordinator's alpha half then descended to the panel anyway
+			(`transitions.resolveAlphaTarget`), which is why the fade looked right —
+			but its TRANSFORM half writes `scale`/`pivot` to the declared node, and the
+			root's live instance is a ScreenGui. `screen_presentation
+			.applyPresentationPaint` returns on `not instance:IsA("GuiObject")`, so the
+			UIScale was never materialized and a `materialize` faded without ever
+			growing, with no error anywhere. Measured on `Controls.Menu` and the
+			pop-up picker: `/…/Layer/Surface/Popup` 1 -> 0.02 in GroupTransparency, no
+			UIScale on any node.
+
+			So when no direct child qualifies, descend the SAME way the alpha half
+			does — `transitions.soleFadeGroup`, one shared definition — and both
+			halves land on the one node. A qualifying direct child still wins
+			unchanged, and two candidates at either depth stay ambiguous, so the
+			surface itself remains the target. ]]
 		handle.transitionNode = (function()
 			local rootNode = root.node
 			if rootNode.props ~= nil and rootNode.props.canvasGroup == true then
@@ -2752,9 +2794,12 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 					only = child
 				end
 			end
-			return only or rootNode
+			return only or transitionsLib.soleFadeGroup(rootNode) or rootNode
 		end)()
 		if handle.transition ~= nil then
+			-- RESOLVED ONCE, HERE (review D1): `dismiss` must never re-read a
+			-- Readable declaration — see surface_lifecycle's use of this field
+			handle.transitionSpec = transitionsLib.resolve(handle.transition)
 			coordinator.beginEnter(handle.transitionNode.path, handle.transitionNode, handle.transition)
 		end
 
@@ -3606,9 +3651,12 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		return nil
 	end
 
-	function self.present(blueprint: any, opts: PresentOpts?)
+	-- `inheritAppChrome` is INTERNAL and `anchored.luau`'s alone (see makeHandle):
+	-- it is not a `PresentOpts` key, because it is not a property a caller declares
+	-- about a surface — it is one surface's answer, handed to the surface it raised
+	function self.present(blueprint: any, opts: PresentOpts?, inheritAppChrome: boolean?)
 		specGuard.assertKnownKeys("presenter.present", opts, PRESENT_OPTS_KEYS, "opts")
-		return makeHandle(blueprint, opts, "screen")
+		return makeHandle(blueprint, opts, "screen", nil, inheritAppChrome)
 	end
 
 	--[[ AN ANCHORED SURFACE (D1). `panel` is a PANEL blueprint — any node, not a
@@ -3684,11 +3732,11 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		return calloutQueue.dump()
 	end
 
-	function self.presentModal(blueprint: any, opts: PresentOpts?)
+	function self.presentModal(blueprint: any, opts: PresentOpts?, inheritAppChrome: boolean?)
 		specGuard.assertKnownKeys("presenter.presentModal", opts, PRESENT_OPTS_KEYS, "opts")
 		-- the base screen's context stays enabled for non-sunk actions, but
 		-- navigation keys are sunk by the modal context's priority+sink
-		local handle = makeHandle(blueprint, opts, "modal")
+		local handle = makeHandle(blueprint, opts, "modal", nil, inheritAppChrome)
 		-- A MODAL CANCELS A LIVE DRAG (ui-designer spec §5.4/§6.3; disposition F7).
 		-- A focus trap and a drag proxy cannot coexist: the proxy tracks a pointer
 		-- the trap has just taken away, and the drop it would resolve against is
@@ -3727,7 +3775,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		)
 		local ok, blueprintOrError = pcall(blueprintFactory)
 		if ok then
-			local presented, handleOrError = pcall(makeHandle, blueprintOrError, opts, "screen")
+			local presented, handleOrError = pcall(makeHandle, blueprintOrError, opts, "screen", true)
 			if presented then
 				return handleOrError
 			end
@@ -3745,7 +3793,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		-- and its own errors stay hard.
 		local fallbackOpts: any = table.clone(opts :: any)
 		fallbackOpts.fallbackScreen = nil
-		return makeHandle(opts.fallbackScreen(blueprintOrError), fallbackOpts, "screen")
+		return makeHandle(opts.fallbackScreen(blueprintOrError), fallbackOpts, "screen", true)
 	end
 
 	-- `dismiss`, `back` and `raise` live in src/present/surface_lifecycle.luau
@@ -3793,214 +3841,32 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 
 	-- ===== TOASTS =======================================
 	--
-	-- A toast surface is PRESENTER-PRIVATE, exactly like the scrim and the popup
-	-- catcher: it is not in `stack`, pushes no focus scope, creates no input
-	-- context and wires no tap handler. That is what "input-transparent" is —
-	-- not a property the layer politely observes, but a surface that has nothing
-	-- to observe it with. Nothing here can reach `SelectedObject`, the responder
-	-- chain, or the outside-tap policy, because none of that is built.
+	-- The toast SURFACE DRIVER moved into src/present/toast_layer.luau for the
+	-- 200,000-char Source WRITE cap (see that header, and the argument it carries
+	-- for why a toast layer is input-transparent BY CONSTRUCTION rather than by
+	-- politeness). It took all six of its scalars with it — `toastTime`,
+	-- `toastPosition`, `toastTransition`, `toastLayer`, `toastSchedule`,
+	-- `syncToastLayer` — because the one reader outside the region was `tickBody`'s
+	-- inline four-line frame slice, which is now `toasts.tick(step)` beside the
+	-- five siblings that already call into this tick that way. So the move cost
+	-- neither a record nor an accessor.
 	--
-	-- ONE layer holds every visible toast, as a keyed `UI.ForEach` carrying the
-	-- transition — so a toast's enter/exit is the SAME retire model a `UI.When`
-	-- gets, proven by the same tests, rather than a second animation path.
-	--
-	-- The scheduler (`toast_schedule`) owns priority, the queue cap, read floors
-	-- and supersede; this driver owns pixels. Under reduced motion the transition
-	-- places instantly and the schedule is untouched: every toast that would have
-	-- been shown is still shown, for the same time.
-	local toastTime = 0
-	local toastPosition = "top"
-	local toastTransition: any = nil
-	local toastLayer: any = nil
-	local toastSchedule: any = nil
-	local syncToastLayer: () -> ()
-
-	local function toastRowBlueprint(entry: any): any
-		-- the fade GROUP the transition needs, wrapped by the presenter so a caller
-		-- never has to know that a fade is a CanvasGroup fact
-		return blueprintLib.ZStack({
-			id = "Toast",
-			width = { type = "fill", weight = 1 },
-			height = { type = "content" },
-			canvasGroup = true,
-			children = { entry.data.blueprint },
-		})
-	end
-
-	local function disposeToastLayer()
-		if toastLayer == nil then
-			return
-		end
-		local layer = toastLayer
-		toastLayer = nil
-		layer.coordinator.dispose()
-		layer.controller.dispose()
-		layer.scope:dispose()
-	end
-
-	local function ensureToastSchedule()
-		if toastSchedule ~= nil then
-			return
-		end
-		toastSchedule = toast_schedule.new({
-			now = function()
-				return toastTime
-			end,
-			onDismiss = function(entry: any, reason: string)
-				-- every retirement is traceable, including the queued one dropped at
-				-- the cap (disposition F3) — nothing vanishes without a reason code.
-				-- REPLACEMENT IS ITS OWN VERB (ui-designer review R2-F1 ruling): a
-				-- superseded toast emits exactly one `supersede`; `dismiss` means the
-				-- surface actually retired on its own terms (timeout/capacity/manual/
-				-- preempt). One causal moment, one event.
-				emitFeedback({
-					type = if reason == "supersede" then "supersede" else "dismiss",
-					path = `/__toast__/Items/[{entry.id}]`,
-					reason = if reason == "supersede" then nil else reason,
-					context = { key = entry.key, priority = entry.priority, context = entry.data.context },
-				})
-			end,
-		})
-	end
-
-	local function ensureToastLayer(options: any)
-		if toastLayer ~= nil then
-			return
-		end
-		-- the first toast fixes the layer's edge and transition for its lifetime:
-		-- one layer, one stacking direction, so a burst cannot make the strip hop
-		-- from one edge to the other mid-read
-		toastPosition = if options.position == "bottom" then "bottom" else "top"
-		toastTransition = options.transition
-			or {
-				-- a toast comes from the edge it docks to, and fades with it
-				enter = if toastPosition == "bottom" then "slide-up" else "slide-down",
-				fade = true,
-			}
-		local sc = core:scope("present-toast")
-		-- scope-owned, so a layer that comes and goes twenty times leaves the core's
-		-- counters exactly where it found them
-		local items = sc:own(core:signal({}))
-		local rows = blueprintLib.ForEach({
-			id = "Items",
-			items = items,
-			key = function(entry: any): string
-				return tostring(entry.id)
-			end,
-			row = toastRowBlueprint,
-			transition = toastTransition,
-		})
-		local children: { any } = {}
-		if toastPosition == "bottom" then
-			-- the strip is pushed to the far edge; nothing else in the layer paints,
-			-- so the spacer costs one transparent frame
-			table.insert(children, blueprintLib.Spacer({ id = "Push", height = { type = "fill", weight = 1 } }))
-		end
-		table.insert(children, rows)
-		-- padding lifts the strip off the surface edges (director, sensory-feedback
-		-- round: rows
-		-- hugging the exact top edge collided with content pinned there, and
-		-- edge-to-edge rows read as a debug bar rather than a toast)
-		local bp = blueprintLib.Screen({
-			id = "__toast__",
-			align = "center",
-			gap = "s",
-			padding = "m",
-			children = children,
-		})
-		local surfaceRef: any = nil
-		local coordinator = transitionsLib.new({
-			core = core,
-			clock = motionClock,
-			metrics = metricsNow,
-			feedback = function(event: any)
-				event.surface = surfaceRef
-				emitFeedback(event)
-			end,
-		})
-		local root = mountLib.mount(core, bp, {
-			scope = sc:child("mount"),
-			transitions = coordinator,
-			-- the toast strip carries CONSUMER-authored rows, so a
-			-- `UI.sensoryFeedback` declared on one has the same seam a screen's does
-			feedback = function(event: any)
-				event.surface = surfaceRef
-				emitFeedback(event)
-			end,
-		})
-		local controller = renderer.attach(core, root, env, adapter, { rootPolicy = "coreSafeContent" })
-		controller.initialRender()
-		coordinator.bindController(controller)
-		if controller.setDisplayOrder ~= nil then
-			-- above every base screen, below every modal (ui-designer §6.3)
-			controller.setDisplayOrder(SURFACE_LAYER.toast)
-		end
-		toastLayer = {
-			scope = sc,
-			controller = controller,
-			root = root,
-			items = items,
-			coordinator = coordinator,
-			itemsNode = nodeAt(root.node, "/__toast__/Items"),
-		}
-		surfaceRef = toastLayer
-	end
-
-	syncToastLayer = function()
-		if toastLayer == nil then
-			return
-		end
-		toastLayer.items:set(toastSchedule.visible())
-		toastLayer.controller.refresh()
-		-- the refresh is what CREATED the new row's handles; re-assert the enter's
-		-- seeded values onto them so a toast never paints one frame at rest
-		toastLayer.coordinator.flush()
-		-- the layer retires when nothing is showing, nothing is waiting, and no row
-		-- is still playing its exit — a retiring row is still mounted, so the
-		-- mounted child count is the honest test
-		local itemsNode = toastLayer.itemsNode
-		local pending = if itemsNode ~= nil then #itemsNode.children else 0
-		if toastSchedule.isEmpty() and pending == 0 then
-			disposeToastLayer()
-		end
-	end
-
-	function self.presentToast(blueprint: any, opts: ToastOpts?)
-		assert(
-			type(blueprint) == "table" and type(blueprint.class) == "string",
-			"presenter.presentToast takes a blueprint (UI.*) and an options table"
-		)
-		specGuard.assertKnownKeys("presenter.presentToast", opts, TOAST_OPTS_KEYS, "opts")
-		local options: any = opts or {}
-		ensureToastSchedule()
-		ensureToastLayer(options)
-		local id = toastSchedule.push({
-			key = options.key,
-			priority = options.priority,
-			duration = options.duration,
-			readFloor = options.readFloor,
-			data = { blueprint = blueprint, context = options.context },
-		})
-		syncToastLayer()
-		return {
-			id = id,
-			dismiss = function()
-				if toastSchedule == nil then
-					return false
-				end
-				local removed = toastSchedule.dismiss(id, "manual")
-				syncToastLayer()
-				return removed
-			end,
-		}
-	end
-
-	function self.toastCounts()
-		if toastSchedule == nil then
-			return { visible = 0, queued = 0, sequence = 0 }
-		end
-		return toastSchedule.counts()
-	end
+	-- BUILT HERE rather than at the top, because this is the first line at which
+	-- every collaborator it reads is a FINAL value. REBOUND TO THEIR ORIGINAL
+	-- NAMES, so not one call site moved.
+	local toasts = toastLayerLib.new({
+		core = core,
+		env = env,
+		adapter = adapter,
+		motionClock = motionClock,
+		metricsNow = metricsNow,
+		emitFeedback = emitFeedback,
+		-- ONE NUMBER, not the band table: above every base screen, below every
+		-- modal (ui-designer §6.3)
+		toastDisplayOrder = SURFACE_LAYER.toast,
+	})
+	self.presentToast = toasts.presentToast
+	self.toastCounts = toasts.toastCounts
 
 	-- ONE FRAME OF PRESENTER TIME. Steps the motion clock (every surface and toast
 	-- transition rides it) and advances the toast schedule. The client binds this
@@ -4059,11 +3925,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		-- the auto reveal's whole cycle rides this one tick (2026-08-04): an
 		-- idle presenter pays a timer-gated rescan, a live strip one signal write
 		stepReveal(math.max(step :: number, 0))
-		if toastSchedule ~= nil then
-			toastTime += math.max(step, 0)
-			toastSchedule.update()
-			syncToastLayer()
-		end
+		toasts.tick(math.max(step :: number, 0))
 		-- ...and the callout queue's own clock, so a read floor can elapse and a
 		-- more urgent coach mark take its turn (D3b). Costs nothing while empty.
 		calloutQueue.update(math.max(step, 0))

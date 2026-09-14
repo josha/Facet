@@ -44,12 +44,105 @@ local transitions = {}
 
 -- ui-designer spec §2.1 / disposition F8: flat and non-overridable
 local EXIT_CAP_SECONDS = 0.5
+--[[ THE EXIT ENDS WHEN IT IS VISUALLY ABSENT, NOT WHEN THE SOLVER IS BORED
+	(task 7 item 1). A spring settles on `|x - target| <= eps AND |v| <= eps`,
+	and for a critically damped spring it is the VELOCITY half that decides by a
+	wide margin: `dismiss` (ζ1.0 / 0.2 s) is numerically zero — 0.27% of its
+	travel — at frame 18 and still carries 0.061 progress/s, so at the default
+	1e-3 it "settles" at frame 30. Measured, that put disposal at 0.500 s: the
+	flat cap to the frame, with `container` one frame behind it. The cap is a
+	SAFETY NET for a motion that cannot land (a stalled clock, a class whose
+	response genuinely exceeds it); when it is also the ordinary end of every
+	exit, the exit classes are indistinguishable at the one moment a player can
+	see — when the instances go — and a faster class buys only a faster fade.
+
+	So the EXIT phase builds its spring at a coarser epsilon while the ENTER
+	keeps the default: an enter's settle fires `arrive`, a semantic event whose
+	frame is a fact rather than a tolerance, and an exit's settle only decides
+	when something already invisible stops existing.
+
+	WHY 0.02 IS INVISIBLE, stated over the quantity it actually bounds and over
+	the cases that can actually REACH it. This epsilon is in PROGRESS, and every
+	form is derived from that one number, so the most it can truncate is 2 % of a
+	transition's travel: 2 % alpha, 0.48 px of the themed 24 px slide, 0.08 % of
+	the 0.96→1 materialize.
+
+	Reaching that 2 % needs a spring whose VALUE, not its velocity, is the
+	binding half — AND one that settles before the cap ends it anyway, which is
+	the half the first draft of this comment got wrong (review N4). It named
+	ζ2.0 / 2 s, the far corner of the authored range; that class settles at frame
+	285 and is ended by the 30-frame cap every time, so its settle tolerance is
+	never consulted. The reachable worst case is a FAST, mildly overdamped class:
+	measured, ζ1.2 / 0.08 s settles at frame 7 with x = 0.0199. Every shipped
+	class is velocity-bound instead and lands far finer: `dismiss` at x = 0.0007,
+	`object` 0.0011, `container` 0.0014, `decay` 0.0019 — two tenths of one
+	percent of the travel or less.
+
+	THE BOUND IS THEREFORE: an exit ends when at most 2 % of its travel remains,
+	OR at the 500 ms cap, whichever comes first. It is deliberately NOT "half a
+	pixel of travel left" (review D3). A round of this fix tried exactly that —
+	clamping the epsilon to `0.5 / distance` for a travelling form — and it made
+	a full-width slide UNABLE to settle at all: `dismiss` at `distance = 1920`
+	went from disposing on frame 22 to frame 31, the cap, which is the very
+	defect the epsilon exists to remove, re-entered through the caller most
+	likely to declare a long slide. `NavigationStack` passes `distance =
+	stackWidth`, so every push and pop would have run to the cap.
+
+	And the residue the clamp was buying is not visible anyway:
+	`screen_presentation.luau` rounds a presentation offset to whole pixels
+	before it reaches the engine, and `UDim.Offset` is an integer, so anything
+	under half a pixel is written as the same number either way. What the cap
+	truncates is a far larger number than what the epsilon does — measured at
+	1920 px, `container` is cap-ended with 5.1 px left and `decay` with 32.7 px
+	— and NavigationStack pins `container`, so its full-width push is cap-ended
+	TODAY, before and after this round. That is a pre-existing question about the
+	cap, not about this tolerance.
+
+	Measured: frames to dispose (60 fps, `enter = "fade"`) `dismiss` 22,
+	`object` 28, `container` 31, `decay` 31. The last two are the two classes
+	whose settle (33 and 44 frames) genuinely outruns the 30-frame cap, which is
+	the net doing its job — and the reason `dismiss`, not `container`, is
+	`DEFAULT_EXIT_CLASS`. ]]
+local EXIT_EPS = 0.02
 -- the slide travel, as a THEME metric (`space.l` = 24 px in Facet Neutral): a
 -- roomier theme slides a little further, and no call site carries a magic number
 local DEFAULT_SLIDE_DISTANCE = 24
--- materialize (ratified: sponsor_motion §2/§8, range [0.94–0.98])
+--[[ materialize (ratified: sponsor_motion §2/§8, range [0.94–0.98]).
+
+	AND THE ENGINE FACT THAT BOUNDS IT, measured live 2026-09-13 (Studio, Play,
+	BuilderSans): Roblox rasterizes text at `floor(TextSize x effectiveScale)`.
+	A `UIScale` of 0.9999999 therefore paints 20px text at 19 — the SAME pixel it
+	paints at 0.96 — so a scale-in over live text renders every string one whole
+	pixel small for the entire flight and snaps 5% larger the instant the scale
+	reaches exactly 1 (TextBounds 127.5x19 throughout [0.96, 1), 133.5x20 at 1.0;
+	a CanvasGroup does not buffer it away — a UIScale above the group measures the
+	same). On a card that is mostly type that snap is a visible re-flow, and it
+	lands AFTER the motion has stopped because the channel holds the UIScale until
+	the spring's own settle disposes it.
+
+	The default keeps the ratified undershoot, because it is right for the plates
+	and tiles it was ratified on. A surface whose content is mostly TEXT declares
+	`transition.scale` instead and settles DOWN from just above 1: every scale in
+	[1, 1 + 1/TextSize) floors to the same pixel, so the text lands at its final
+	size on the first painted frame and never moves (`Controls.Alert`'s
+	`DEFAULT_TRANSITION` is the first caller; `blueprint_schema.luau`'s `scale`
+	note carries the same rule for authors). ]]
 local MATERIALIZE_SCALE = 0.96
 local DEFAULT_CLASS = "container"
+local DEFAULT_EXIT_CLASS = "dismiss"
+--[[ A LIST'S ENTRANCE IS A RHYTHM, NOT A QUEUE (spec 2F). `spec.stagger` is the
+	beat between one row's enter and the next one's, and past this many rows the
+	WAIT STOPS GROWING: every further row starts with row nine. The cap is on the
+	number a player experiences — at a 50 ms beat, the last row of a 600-row list
+	enters 400 ms in rather than half a minute later — and an uncapped beat is
+	not a slower rhythm, it is a list that never finishes arriving.
+
+	IT IS NOT A CAP ON TIMERS, and saying so would be a lie: each held row still
+	books its own hold (the rows past the cap simply all book the SAME duration).
+	That is the same order as the springs and the nodes a 600-row enter already
+	costs, and it keeps the hold a property of the ENTRY — which is what lets
+	`stopCap` tear one down without asking whether some other row still needs it. ]]
+local STAGGER_CAP = 8
 local TRANSITION_SPEC = (schema.forClass("ForEach") :: any).props.transition
 
 -- travel vector per form, in screen space (+y is down)
@@ -64,12 +157,23 @@ export type Spec = {
 	enter: string,
 	exit: string,
 	class: string,
+	exitClass: string,
 	fade: boolean,
 	-- task-fix3 symptoms 2/3: opt-in override for `slideDistance` below, nil
 	-- meaning "use the themed default" (every caller before this fix, unchanged)
 	distance: number?,
+	-- the scaling form's ENTER band, nil meaning `MATERIALIZE_SCALE` (see its
+	-- header for the engine fact that makes this an override rather than a changed
+	-- default, and `absentFor` for why the exit keeps the ratified dip)
+	scale: number?,
 	-- the corner a scaling form grows from (schema.TRANSITION_PIVOTS); nil = centre
 	pivot: string?,
+	-- the plate acknowledgement (schema.TRANSITION_PLATES); nil = unacknowledged,
+	-- which is every caller that has not said otherwise
+	plate: string?,
+	-- seconds between one entering row and the next (STAGGER_CAP above); 0 = the
+	-- whole batch enters together, which is every caller before this field
+	stagger: number,
 }
 
 export type Opts = {
@@ -103,9 +207,13 @@ function transitions.resolve(declared: any): Spec
 		enter = enter,
 		exit = exit,
 		class = declared.class or DEFAULT_CLASS,
+		exitClass = declared.exitClass or DEFAULT_EXIT_CLASS,
 		fade = declared.fade == true,
 		pivot = declared.pivot,
+		plate = declared.plate,
 		distance = if type(declared.distance) == "number" then declared.distance else nil,
+		scale = if type(declared.scale) == "number" then declared.scale else nil,
+		stagger = if type(declared.stagger) == "number" then declared.stagger else 0,
 	}
 end
 
@@ -186,6 +294,22 @@ local function collectCanvasGroups(node: any, out: { any })
 	end
 end
 
+--[[ THE ONE FADE GROUP UNDER A NODE — nil when there is not exactly one.
+
+	The single definition of "which node does a transition over this subtree
+	really act on". `resolveAlphaTarget` below routes `GroupTransparency` here,
+	and the presenter routes a SURFACE's whole transition node here (task A2)
+	rather than re-deriving it: two derivations of the same question is how the
+	scale half ended up writing to a node the alpha half had already left. ]]
+function transitions.soleFadeGroup(node: any): any?
+	if node == nil then
+		return nil
+	end
+	local candidates: { any } = {}
+	collectCanvasGroups(node, candidates)
+	return if #candidates == 1 then candidates[1] else nil
+end
+
 --[[ THE FIX SPLITS THE WRITE, NOT THE TRANSITION. Position/scale still target
 	the node the caller declared — a plain `UIScale`/offset moves a background
 	plate and its content as one rigid unit, canvasGroup or not, so a
@@ -216,10 +340,8 @@ local function resolveAlphaTarget(path: string, node: any): (string, any)
 	if node == nil or node.props == nil or node.props.canvasGroup == true then
 		return path, node
 	end
-	local candidates: { any } = {}
-	collectCanvasGroups(node, candidates)
-	if #candidates == 1 then
-		local only = candidates[1]
+	local only = transitions.soleFadeGroup(node)
+	if only ~= nil then
 		return only.path, only
 	end
 	return path, node
@@ -231,8 +353,43 @@ export type BackdropFinding = {
 	-- populated for a `surface`-painted finding; nil for a `tint`-painted one
 	-- (task POP fix round 1) — `via` always names which channel tripped it
 	surface: string?,
-	via: string, -- "surface" | "tint"
+	via: string, -- "surface" | "tint" | "acknowledged-plate"
 }
+
+--[[ THE ACKNOWLEDGED SHAPE IS STILL SEEN, IT IS JUST NOT A DEFECT (task 7 item
+	3). A modal card or a menu popover IS its own plate, and the backdrop the
+	invariant is about is the presenter's scrim BEHIND the whole surface — so
+	`GroupTransparency` dimming the card's face with the card's text is the shape
+	working, not failing. Nothing in the TREE says so: `tests/backdrop_fade.spec
+	.luau`'s `buggyScreen` (a full-bleed page whose plate is its sole child, the
+	measured `shop.wisp` root cause) is byte-identical. So the surface DECLARES
+	it, `transition.plate = "fades"`, and the finder records the shape under its
+	own `via` instead of going blind to it: `self.findings()` still carries it, so
+	a reader can see which surfaces made the claim. `countsAsBackdropIssue` is
+	the ONE place that decides whether a finding is a defect; the reference-app
+	sweep asks it, and `backdropIssue` — a message FORMATTER, which decides
+	nothing — reads it only so it can never render an acknowledged shape as a
+	complaint.
+
+	SOLE-CHILD ONLY. A group with a sibling beside the plate has content the
+	plate is genuinely a backdrop FOR, and no declaration reaches that: the
+	acknowledgement is about a surface that IS its plate, which is a claim only
+	the one-child shape can make. That is what keeps the gate's teeth. ]]
+local ACKNOWLEDGED_PLATE = "acknowledged-plate"
+transitions.ACKNOWLEDGED_PLATE = ACKNOWLEDGED_PLATE
+
+function transitions.countsAsBackdropIssue(finding: BackdropFinding): boolean
+	return type(finding) == "table" and finding.via ~= ACKNOWLEDGED_PLATE
+end
+
+--[[ THE FORMATTER'S OWN GUARD (review N10). `countsAsBackdropIssue(nil)`
+	answers false — a non-table is not a finding — so `backdropIssue(nil)` used
+	to fall into the acknowledged branch and index it. Nothing in `src/` hands
+	it one, but it is a PUBLIC formatter over a list a caller filters, and
+	"formats whatever you filtered down to" should not have a nil trap in it. ]]
+local function isFinding(finding: any): boolean
+	return type(finding) == "table" and type(finding.path) == "string" and type(finding.backdropPath) == "string"
+end
 
 -- the STRUCTURAL half of the same finding, usable with no coordinator at all:
 -- does the node that will actually fade (post `resolveAlphaTarget`) itself
@@ -252,11 +409,13 @@ export type BackdropFinding = {
 -- second backdrop. `tests/backdrop_fade.spec.luau` pins both directions: the
 -- unfixed shape reddens this, and legitimate nested content (a card two levels
 -- into a fixed page) never does.
-local function collectBackdrops(node: any, out: { { node: any, via: string } })
-	for _, child in node.children or {} do
+local function collectBackdrops(node: any, out: { { node: any, via: string, sole: boolean } })
+	local children = node.children or {}
+	local sole = #children == 1
+	for _, child in children do
 		local paints, via = paintsBackdrop(child)
 		if paints then
-			table.insert(out, { node = child, via = via :: string })
+			table.insert(out, { node = child, via = via :: string, sole = sole })
 		end
 	end
 end
@@ -264,25 +423,50 @@ end
 -- `alphaNode` is what `resolveAlphaTarget` returns for a DECLARED fade — pass
 -- the node as declared (self or a resolved content group) plus the resolved
 -- path, so a finding names the same path the coordinator would actually fade.
-function transitions.findBackdropFindings(alphaPath: string, alphaNode: any): { BackdropFinding }
+-- `acknowledged` is `spec.plate == "fades"` — the surface's own declaration that
+-- its plate is meant to fade with its content. It re-kinds the SOLE-CHILD shape
+-- and nothing else (see ACKNOWLEDGED_PLATE above); omitted, this answers exactly
+-- as it always did.
+function transitions.findBackdropFindings(
+	alphaPath: string,
+	alphaNode: any,
+	acknowledged: boolean?
+): { BackdropFinding }
 	local out: { BackdropFinding } = {}
 	if alphaNode == nil then
 		return out
 	end
-	local backdrops: { { node: any, via: string } } = {}
+	local backdrops: { { node: any, via: string, sole: boolean } } = {}
 	collectBackdrops(alphaNode, backdrops)
 	for _, b in backdrops do
+		local via = if acknowledged == true and b.sole then ACKNOWLEDGED_PLATE else b.via
 		table.insert(out, {
 			path = alphaPath,
 			backdropPath = b.node.path,
 			surface = if b.via == "surface" then b.node.props.surface else nil,
-			via = b.via,
+			via = via,
 		})
 	end
 	return out
 end
 
 function transitions.backdropIssue(finding: BackdropFinding): string
+	if not isFinding(finding) then
+		return `Facet transition: backdropIssue expected a finding (transitions.findBackdropFindings returns them), got {typeof(
+			finding
+		)}`
+	end
+	if not transitions.countsAsBackdropIssue(finding) then
+		-- an acknowledged plate is not a defect and must never be rendered as
+		-- one; it is still reported, so a reader can see the claim was made
+		return string.format(
+			'%s declares `transition.plate = "fades"`: %s is the surface\'s own plate, meant to fade with its '
+				.. "content (the modal/popover shape, whose backdrop is the scrim behind the whole surface). "
+				.. "Not a finding.",
+			finding.path,
+			finding.backdropPath
+		)
+	end
 	local paint = if finding.via == "tint"
 		then "opaque `tint`"
 		else string.format("opaque `surface = %q`", finding.surface)
@@ -315,14 +499,77 @@ function transitions.new(opts: Opts)
 	-- everyone but `self.findings()`; nothing here costs off that read.
 	local foundBackdrops: { BackdropFinding } = {}
 	local seenBackdropKeys: { [string]: boolean } = {}
-	local function recordBackdropFindings(alphaPath: string, alphaNode: any)
-		for _, finding in transitions.findBackdropFindings(alphaPath, alphaNode) do
+	local function recordBackdropFindings(alphaPath: string, alphaNode: any, acknowledged: boolean?)
+		for _, finding in transitions.findBackdropFindings(alphaPath, alphaNode, acknowledged) do
 			local key = finding.path .. "\0" .. finding.backdropPath
 			if not seenBackdropKeys[key] then
 				seenBackdropKeys[key] = true
 				table.insert(foundBackdrops, finding)
 			end
 		end
+	end
+
+	--[[ WHO ENTERS TOGETHER (spec 2F). A stagger is a rhythm over the rows of ONE
+		list arriving in ONE frame, so the index a row's delay is multiplied by is
+		its place in THAT batch — not its place in the list, and not a global
+		counter that would make the tenth list of a session start ten beats late.
+
+		THE FRAME is `clock:stats().steps`, the count of steps that did work. Every
+		enter of one structural pass is booked before the clock can step again, so
+		they read the same count; the next pass reads a moved one and starts over.
+		The one shape this cannot separate is two batches with NO work-doing step
+		between them — which needs the first batch to have animated nothing, and an
+		enter always animates (a spring it aims, or a hold it books).
+
+		THE LIST is the path with the row's own segment AND the keyed segment above
+		it removed. `mount.luau` builds a ForEach row at `<list>/[key]/<rowId>`, so
+		stripping only the last segment would hand every row its own private batch
+		and no row would ever wait for another. A region that is not keyed (a `When`
+		branch) keeps its parent, which is the right answer for it: a lone branch is
+		the first of its batch and waits for nothing.
+
+		THE KEYED SEGMENT IS "A `[`, ANYTHING AT ALL, A `]`", TAKEN AT THE RIGHTMOST
+		SLASH THAT CAN START ONE. A key is the author's own string, so neither a `/`
+		NOR a bracket in it is unusual — a route, an asset id, `world/moss`, `a]b`.
+		Two narrower forms have each failed here in turn, and both failed the same
+		way: the match missed, the row kept its own parent, it became the first of
+		its own private batch, and the rows still entered — all at once, with nothing
+		said. `/%[[^/]*%]$` (brackets around anything but a slash) lost every
+		path-shaped key. `%b[]` (a BALANCED group) fixed those and lost every
+		UNBALANCED one instead: `"a]b"` builds `<list>/[a]b]`, where `%b[]` matches
+		`[a]` and then fails the anchor, and `"a[b"` builds `<list>/[a[b]`, which
+		never balances at all. `%[.*%]` has nothing left to be unbalanced about, and
+		the GREEDY `(.*)` before it is what keeps a nested keyed list honest: it
+		takes the rightmost slash whose remainder is still a bracket group, so
+		`<list>/[A]/Row/Inner/[two]` resolves to the INNER list and each outer row
+		keeps its own rhythm. ]]
+	local staggerStep, staggerCounts = -1, {} :: { [string]: number }
+	local function batchKey(path: string): string
+		local parent = string.match(path, "^(.*)/[^/]+$") or ""
+		return string.match(parent, "^(.*)/%[.*%]$") or parent
+	end
+	local function staggerDelay(path: string, spec: Spec): number
+		if spec.stagger <= 0 then
+			return 0
+		end
+		-- REDUCED MOTION HAS NO RHYTHM TO DELETE. The authority already lands every
+		-- row on the spot, and a hold would only postpone that landing: a decorative
+		-- timer under reduced motion holds its VALUE immediately but defers its
+		-- settle EVENT to the next step (`motion.luau`'s autoStart branch, which
+		-- does that deliberately so a consumer subscribing on the next line cannot
+		-- miss it). One frame of every row absent is exactly the pop this whole
+		-- setting exists to remove, so the rhythm is asked for here instead.
+		if clock:isReduced() then
+			return 0
+		end
+		local step = clock:stats().steps
+		if step ~= staggerStep then
+			staggerStep, staggerCounts = step, {}
+		end
+		local key = batchKey(path)
+		local n = staggerCounts[key] or 0
+		staggerCounts[key] = n + 1
+		return math.min(n, STAGGER_CAP) * spec.stagger
 	end
 
 	-- task-fix3 symptoms 2/3 (director device round, 2026-08-23): "slides a few
@@ -361,7 +608,24 @@ function transitions.new(opts: Opts)
 			absent.y = travel.y * d * sign
 		end
 		if form == "materialize" then
-			absent.scale = MATERIALIZE_SCALE
+			--[[ THE CALLER'S OWN BAND WINS ON THE WAY IN, AND ONLY ON THE WAY IN
+				(RED-TEAM F1). `spec.scale` exists for one reason — a surface that is
+				mostly TYPE cannot cross the `floor(TextSize x scale)` boundary while
+				it is being read (see `MATERIALIZE_SCALE`'s header) — and that is a
+				fact about the ENTER, where the text arrives and stays. An exit is the
+				opposite instant: the plate is leaving, it is already fading, and the
+				shape the owner asked for is a DIP OUT, not a swell. Spending the
+				enter's band in both phases made the alert grow 1.5% while it faded,
+				which is neither what was asked for nor what the band is for.
+
+				So the exit keeps the ratified `MATERIALIZE_SCALE` — the same dip
+				every other caller has always had — and a caller who declares a band
+				changes only how their surface ARRIVES. `slideDistance` is the twin:
+				it too is one number spent from both ends, but a slide's travel is
+				symmetric by construction (`TRAVEL` above flips the SIGN) while a
+				scale's is not: 0.96 and 1.015 are opposite directions, not opposite
+				signs of one direction. ]]
+			absent.scale = if phase == "enter" and type(spec.scale) == "number" then spec.scale else MATERIALIZE_SCALE
 			absent.pivot = spec.pivot
 		end
 		if fades(spec, form) then
@@ -458,6 +722,9 @@ function transitions.new(opts: Opts)
 		end
 	end
 
+	-- `entry.cap` is whichever alarm this entry is currently holding: the exit's
+	-- hard cap, or the enter's stagger hold. One slot, because an entry is in one
+	-- phase at a time and every phase change comes through here first.
 	local function stopCap(entry: any)
 		if entry.cap ~= nil then
 			entry.cap:dispose()
@@ -505,7 +772,57 @@ function transitions.new(opts: Opts)
 		end
 	end
 
-	local function entryFor(path: string, node: any, spec: Spec, initial: number, alphaPath: string): any
+	-- the progress spring's two listeners, wired once per spring (entryFor builds
+	-- the first; retune builds a replacement when the phase's class differs)
+	local function listen(entry: any)
+		entry.unobserve = core:observe(entry.progress, function()
+			writeEntry(entry)
+		end)
+		entry.progress:onSettle(function()
+			if entry.phase == "enter" then
+				finishEnter(entry)
+			elseif entry.phase == "exit" then
+				finishExit(entry)
+			end
+		end)
+	end
+
+	-- ONE SPRING PER TRANSITION still holds; what changes between phases is its
+	-- CLASS. A MotionValue's class is fixed at construction, so a phase that
+	-- wants a different one gets a fresh spring seeded with the old value AND
+	-- velocity — the reversal keeps its momentum exactly as before.
+	local function retune(entry: any, class: string, eps: number?)
+		if entry.class == class and entry.eps == eps then
+			return
+		end
+		local old = entry.progress
+		local fresh = clock:spring(old:get(), class, { eps = eps })
+		fresh:setVelocity(old:getVelocity())
+		if entry.unobserve ~= nil then
+			entry.unobserve()
+			entry.unobserve = nil
+		end
+		old:dispose()
+		entry.progress = fresh
+		entry.class = class
+		entry.eps = eps
+		listen(entry)
+	end
+
+	-- `class`/`eps` are the phase's, not the spec's: a FRESH entry is built with
+	-- the spring the caller is about to aim, so the `retune` that follows no-ops
+	-- (review finding 9 — the old shape constructed `spec.class` unconditionally
+	-- and threw it away one line later, which on a 600-row retire is 600
+	-- MotionValues built, observed and disposed for nothing).
+	local function entryFor(
+		path: string,
+		node: any,
+		spec: Spec,
+		initial: number,
+		alphaPath: string,
+		class: string,
+		eps: number?
+	): any
 		local existing = entries[path]
 		if existing ~= nil then
 			existing.node = node
@@ -520,23 +837,16 @@ function transitions.new(opts: Opts)
 			alphaPath = alphaPath,
 			phase = "idle",
 			absent = { x = 0, y = 0 },
-			progress = clock:spring(initial, spec.class),
+			progress = clock:spring(initial, class, { eps = eps }),
+			class = class,
+			eps = eps,
 			disposed = false,
 		}
 		entries[path] = entry
 		-- the write rides the VALUE, not the clock step, so an instant placement
 		-- (reduced motion) lands exactly like a stepped one — and inside the clock's
 		-- single per-frame transaction when it is stepped
-		entry.unobserve = core:observe(entry.progress, function()
-			writeEntry(entry)
-		end)
-		entry.progress:onSettle(function()
-			if entry.phase == "enter" then
-				finishEnter(entry)
-			elseif entry.phase == "exit" then
-				finishExit(entry)
-			end
-		end)
+		listen(entry)
 		return entry
 	end
 
@@ -588,7 +898,7 @@ function transitions.new(opts: Opts)
 			`spec.enter` actually fading, matching what this transition will
 			really do to the node. ]]
 		if fades(spec, spec.enter) then
-			recordBackdropFindings(alphaPath, alphaNode)
+			recordBackdropFindings(alphaPath, alphaNode, spec.plate == "fades")
 		end
 		if spec.enter == "instant" then
 			-- a hard place: nothing to animate, but the arrival is still a fact the
@@ -603,13 +913,57 @@ function transitions.new(opts: Opts)
 			end
 			return
 		end
-		local entry = entryFor(path, node, spec, 0, alphaPath)
+		--[[ A REVERSAL IS NOT AN ENTRANCE. An entry that already exists is
+			mid-flight — exiting, or parked by `cancelExit` — and therefore ON
+			SCREEN right now. Holding one would freeze a visible row at whatever
+			alpha its exit had reached and then resume it, which reads as a
+			stutter rather than a rhythm; and counting it into the batch would
+			push the rows that really are arriving a beat further out. Only a row
+			travelling from the absent place waits, and only those are counted. ]]
+		local reversal = entries[path] ~= nil
+		local entry = entryFor(path, node, spec, 0, alphaPath, spec.class, nil)
+		retune(entry, spec.class, nil)
 		stopCap(entry)
 		entry.done = nil
 		entry.phase = "enter"
 		setAbsent(entry, absentFor(spec, spec.enter, "enter"))
 		writeEntry(entry) -- seed the absent place before the first step
-		entry.progress:setTarget(1)
+		local delay = if reversal then 0 else staggerDelay(path, spec)
+		if delay <= 0 then
+			entry.progress:setTarget(1)
+			return
+		end
+		--[[ HOLD AT THE ABSENT PLACE, THEN AIM. The row is already painted absent
+			(the seed above), so the wait is invisible: a row that has not started
+			yet, never a row stalled part way. The hold rides `entry.cap`, the same
+			slot the exit cap uses, because the two can never be live at once — and
+			because every teardown path already clears that slot, so an exit,
+			a re-entry or a disposal arriving DURING the wait cancels the wait with
+			no code of its own (`stopCap`, which `beginExit`/`cancelExit`/
+			`disposeEntry` all call; `stopCap` above has just freed it for us).
+
+			`from = to = 0` BECAUSE THE RAMP IS NOT THE POINT (review, task 8). A
+			MotionValue IS a core signal, so a 0→1 ramp does a real `value:set` and
+			a `countWrite()` on every frame of a wait that nobody observes — the
+			only thing read here is the settle EVENT. `driver.settled()` is
+			elapsed-based (`motion/motion.luau`'s timer driver), so a flat timer
+			settles on exactly the same frame, while the value's write gate
+			("an unmoved motion writes nothing") suppresses every write in between:
+			a 600-row stagger stops spending ~14k writes on a number with no
+			reader. `clock:stats().writes` is a measured gate, not a curiosity. ]]
+		local hold = clock:timer({ from = 0, to = 0, duration = delay, kind = "decorative" })
+		entry.cap = hold
+		hold:onSettle(function()
+			if entry.cap == hold then
+				entry.cap = nil
+			end
+			if entry.phase == "enter" and not entry.disposed then
+				entry.progress:setTarget(1)
+			end
+			-- the hold is spent; drop it from the clock's owned set rather than
+			-- leave it there until the whole surface's clock is disposed
+			hold:dispose()
+		end)
 	end
 
 	-- nil = "dispose now" (no declared transition, or an `instant` exit): the mount
@@ -632,7 +986,7 @@ function transitions.new(opts: Opts)
 		-- never writes GroupTransparency, so a backdrop check against it is
 		-- checking a property nothing here ever animates
 		if fades(spec, spec.exit) then
-			recordBackdropFindings(alphaPath, alphaNode)
+			recordBackdropFindings(alphaPath, alphaNode, spec.plate == "fades")
 		end
 		return spec
 	end
@@ -643,15 +997,19 @@ function transitions.new(opts: Opts)
 			return
 		end
 		local alphaPath = resolveAlphaTarget(path, node)
-		local entry = entryFor(path, node, spec, 1, alphaPath)
+		local entry = entryFor(path, node, spec, 1, alphaPath, spec.exitClass, EXIT_EPS)
+		retune(entry, spec.exitClass, EXIT_EPS)
 		entry.phase = "exit"
 		entry.done = done
 		setAbsent(entry, absentFor(spec, spec.exit, "exit"))
 		writeEntry(entry)
 		-- THE HARD CAP, armed before the aim so an instant form (reduced motion)
-		-- disposes it on the way out rather than leaving a timer behind
+		-- disposes it on the way out rather than leaving a timer behind. Flat
+		-- (`from = to = 0`) for the same reason the enter hold above is: only its
+		-- settle FRAME is read, and a ramp nobody observes is 30 signal writes per
+		-- exit charged to a gate that counts them.
 		stopCap(entry)
-		local cap = clock:timer({ from = 0, to = 1, duration = EXIT_CAP_SECONDS, kind = "decorative" })
+		local cap = clock:timer({ from = 0, to = 0, duration = EXIT_CAP_SECONDS, kind = "decorative" })
 		entry.cap = cap
 		cap:onSettle(function()
 			finishExit(entry)
@@ -661,8 +1019,17 @@ function transitions.new(opts: Opts)
 		entry.progress:setTarget(0)
 	end
 
-	-- the exit is off: park the motion where it stands so the enter that follows
-	-- reverses from this value AND this velocity. `release` is the teardown twin.
+	--[[ the exit is off: park the motion where it stands so the enter that follows
+		reverses from this value AND this velocity. `release` is the teardown twin.
+
+		PARKED MEANS RE-AIMED, not merely unwatched. Stopping the cap and clearing
+		the completion leaves the SPRING still aimed at 0 — the exit's own target —
+		so a "parked" motion went right on travelling to absent. Both callers in
+		`mount.luau` follow this with `beginEnter` on the next line, whose aim
+		replaces that one, so no shipped path ever saw it; the seam is public on
+		the coordinator all the same, and the aim is what the sentence above claims.
+		Re-aiming at the current value keeps that value AND the velocity a retarget
+		carries, which is exactly what the reversal needs. ]]
 	function self.cancelExit(path: string)
 		local entry = entries[path]
 		if entry == nil then
@@ -671,6 +1038,7 @@ function transitions.new(opts: Opts)
 		stopCap(entry)
 		entry.done = nil
 		entry.phase = "parked"
+		entry.progress:setTarget(entry.progress:get())
 	end
 
 	function self.release(path: string)
@@ -701,5 +1069,17 @@ function transitions.new(opts: Opts)
 end
 
 transitions.EXIT_CAP_SECONDS = EXIT_CAP_SECONDS
+-- so a consumer that must mirror the default (navigation_stack.luau's two-page
+-- lockstep, which pins exitClass to the SAME class rather than let it drift
+-- onto DEFAULT_EXIT_CLASS) reads this instead of copying the string by hand.
+transitions.DEFAULT_CLASS = DEFAULT_CLASS
+transitions.DEFAULT_EXIT_CLASS = DEFAULT_EXIT_CLASS
+-- the exit phase's settle epsilon (see its definition above), published for the
+-- same reason the classes are: `tests/transitions.spec.luau` reads it to say how
+-- much of its travel an exit may end with, rather than re-deriving the number
+transitions.EXIT_EPS = EXIT_EPS
+-- how far a list's stagger may accumulate before every further row rides in with
+-- the last delayed one (see STAGGER_CAP above)
+transitions.STAGGER_CAP = STAGGER_CAP
 
 return transitions

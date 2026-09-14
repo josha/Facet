@@ -35,7 +35,11 @@ export type Finding = { path: string, backdropPath: string, surface: string?, vi
 -- runs `drive()` with every coordinator it creates captured; returns the
 -- UNION of their `.findings()`. Re-entrant-safe (nested `capture` calls are
 -- not supported — `drive` should not itself call `sweep.capture`).
-function sweep.capture(drive: () -> ()): { Finding }
+--
+-- SECOND RETURN: the same union UNFILTERED — acknowledged plates included — so
+-- a test that wants to prove a surface made the claim reads it here instead of
+-- re-implementing the module-patching wrap. Every existing caller ignores it.
+function sweep.capture(drive: () -> ()): ({ Finding }, { Finding })
 	local coordinators: { any } = {}
 	local original = transitionsLib.new
 	transitionsLib.new = function(opts: any): any
@@ -48,13 +52,25 @@ function sweep.capture(drive: () -> ()): { Finding }
 	if not ok then
 		error(err, 0)
 	end
+	--[[ COUNTED findings only (task 7 item 3). A coordinator records every
+		backdrop-inside-fade-group shape it has ever been DECLARED, including the
+		modal/popover shape a surface acknowledged with `transition.plate =
+		"fades"` — that is a diagnostic, not a defect, and the one predicate that
+		decides which is which lives with the finder
+		(`transitions.countsAsBackdropIssue`). Filtered here rather than in each
+		of the four sweeps, so a second copy of the decision cannot drift from
+		it. ]]
 	local out: { Finding } = {}
+	local all: { Finding } = {}
 	for _, coord in coordinators do
 		for _, finding in coord.findings() do
-			table.insert(out, finding)
+			table.insert(all, finding)
+			if transitionsLib.countsAsBackdropIssue(finding :: any) then
+				table.insert(out, finding)
+			end
 		end
 	end
-	return out
+	return out, all
 end
 
 -- a one-line failure message naming every finding, for a single `expect`

@@ -117,6 +117,99 @@ function surfaceLifecycle.new(ctx: any)
 	-- where it already was" from "arming moved focus here"
 	local prevFocusPath: string? = nil
 
+	--[[ THE DEFERRED TEARDOWNS, KEYED BY THE ID THEY ARE LEAVING UNDER (task 7
+		item 2). A dismissed surface leaves the stack SYNCHRONOUSLY and the screen
+		up to 500 ms later (see `dismiss` below), which is a grace period for a
+		surface nobody is replacing. A control that owns its own handle — Alert's
+		`dismiss()`, Menu's `close()` — clears it on the spot and is free to
+		present again on the very next frame, and now that Alert and Menu default
+		to a transition that is the ordinary case rather than a rare one.
+
+		The second surface mounts under the SAME blueprint id, so it takes over
+		every node path the first one still occupies. The first one's teardown
+		then walks a tree whose paths belong to somebody else: the live adapter
+		skips every step for a path surface #2 now owns, the instances are never
+		destroyed, and `focusedHandles` pins the corpse. Measured before the fix:
+		the round's own `alert-present-dismiss` bench scene steady-stated at ~12
+		mounted alerts, and ten present/dismiss cycles three frames apart left
+		seven live roots.
+
+		So the teardown is held here by `blueprint.id or ""` — the SAME key the
+		node paths are rooted on (`"/" .. (handle.blueprint.id or "")`), not the
+		handle's kind, because a path collision is exactly the condition this
+		guards and two nil-id surfaces collide too. `flushPendingExit` runs them
+		synchronously before anything new is built under that id.
+
+		A LIST PER KEY, NOT ONE (review N7). Nothing stops two surfaces sharing a
+		blueprint id while both are LIVE — the flush only runs when one is already
+		EXITING — so dismissing both leaves two pending under one key, and a
+		single slot silently dropped the first: it still ran on its own settle or
+		cap, but it was no longer reachable by the flush, which is the whole point
+		of holding it. The flush DRAINS. ]]
+	local pendingExits: { [string]: { () -> () } } = {}
+	local function exitKeyFor(handle: any): string
+		return if type(handle.blueprint) == "table" and type(handle.blueprint.id) == "string"
+			then handle.blueprint.id
+			else ""
+	end
+	--[[ TWO LIVE SURFACES UNDER ONE ID IS A COLLISION THE FLUSH CANNOT HELP WITH
+		(review D4). `pendingExits` fixes the case where one surface is LEAVING
+		under an id another is taking; it is keyed BY that id, so it has nothing
+		to say about two surfaces that are both up. They collide anyway — every
+		node path is rooted at `"/" .. (blueprint.id or "")`, so the adapter's
+		path maps hold one owner per path and the second surface silently takes
+		them over.
+
+		WHAT IT SEES IS THE STACK, and only the stack: a surface that is PRESENTED
+		under this id right now. It is not a general "is this path taken" check —
+		a `present()` that RAISED half way leaves an orphaned root behind that no
+		handle points at, and nothing here can see that one. That orphan is the
+		ledgered follow-up of its own; this note is about two surfaces both
+		properly on the stack.
+
+		A DIAGNOSTIC, NOT A REFUSAL (controller ruling): refusing would break
+		whatever ships today doing this by accident, and the framework does not
+		know yet how much of that there is. Once per id per session — a session
+		that opens the same duplicate a hundred times says it once — recorded here
+		and read back through `presenter.surfaceIdNotes()`, which is how a test
+		asserts the "once" rather than watching a log. The refusal is ledgered as
+		a follow-up. ]]
+	local surfaceIdNotes: { string } = {}
+	local notedSurfaceIds: { [string]: boolean } = {}
+	local function noteDuplicateSurfaceId(id: any)
+		local key = if type(id) == "string" then id else ""
+		if notedSurfaceIds[key] then
+			return
+		end
+		for _, existing in stack do
+			if exitKeyFor(existing) == key then
+				notedSurfaceIds[key] = true
+				local note = `Facet presenter: a surface is already presented under the id '{key}' — both mount `
+					.. `their nodes at '/{key}', so the second takes over the first's paths in the adapter and the `
+					.. `first can no longer be torn down by path. Give one of them its own \`id\`.`
+				table.insert(surfaceIdNotes, note)
+				if type(warn) == "function" then
+					warn(note)
+				end
+				return
+			end
+		end
+	end
+
+	local function forgetPendingExit(key: string, teardown: () -> ())
+		local list = pendingExits[key]
+		if list == nil then
+			return
+		end
+		local at = table.find(list, teardown)
+		if at ~= nil then
+			table.remove(list, at)
+		end
+		if #list == 0 then
+			pendingExits[key] = nil
+		end
+	end
+
 	-- one shared observer drives focus visuals across all presented handles
 	local function syncFocusVisuals(path: string?)
 		-- THE RING IS A NAVIGATION ANSWER, NOT A FOCUS ANSWER (the device round's
@@ -331,13 +424,27 @@ function surfaceLifecycle.new(ctx: any)
 		-- finish moving (the semantic feedback seam's causal frame)
 		-- Decision 7)
 		emitFeedback({ type = "dismiss", path = "/" .. (handle.blueprint.id or handle.kind), surface = handle })
+		local exitKey = exitKeyFor(handle)
+		local torn = false
 		local function teardown()
+			-- IDEMPOTENT, because there are now three callers, not one: the exit's
+			-- settle, its 500 ms cap, and `flushPendingExit` below. (The first two
+			-- were already exclusive — `finishExit` disposes the entry — but a
+			-- flush that beat them must not leave either able to run again.)
+			if torn then
+				return
+			end
+			torn = true
+			forgetPendingExit(exitKey, teardown)
 			handle.controller.dispose()
 			-- handle.scope owns the mount child scope; disposing it disposes the
 			-- mounted tree exactly once (a separate root.dispose() here double-
 			-- disposed the 'mount' child — phase-4 fault injection, input-switch)
 			handle.scope:dispose()
 			if handle.coordinator ~= nil then
+				-- ...and this is what makes a FLUSHED teardown final: the
+				-- coordinator clears every entry's `done` before disposing it, so
+				-- the exit that was still running can no longer call back
 				handle.coordinator.dispose()
 			end
 		end
@@ -347,9 +454,34 @@ function surfaceLifecycle.new(ctx: any)
 		-- mounted tree and the instances live on until the exit completes, or until
 		-- the coordinator's flat 500 ms cap fires. `dismiss` is idempotent through
 		-- the stack check, so a second call during the exit does nothing.
-		if handle.transition ~= nil and handle.coordinator ~= nil and handle.transitionNode ~= nil then
-			local spec = transitionsLib.resolve(handle.transition)
+		--[[ THE SPEC IS THE SNAPSHOT THE PRESENT TOOK, NOT A RE-READ (review D1).
+			This used to call `transitionsLib.resolve(handle.transition)` right
+			here — after the surface had left the stack, its context was destroyed
+			and its focus scope popped, and BEFORE the teardown below is
+			registered, inside no pcall. A Readable holding an invalid value at
+			that moment raised straight out of `presenter.dismiss` with the
+			surface half-dismantled: its instances stayed mounted forever, no
+			pending teardown was registered so nothing could flush it, and the id
+			could never be presented again.
+
+			`transitions.resolve`'s own header already stated the rule — "Read
+			once at the structural event boundary… an active entry retains this
+			validated value snapshot" — and a SURFACE's spec now obeys it too:
+			`makeHandle` resolves at present and keeps it on `transitionSpec`. A
+			Readable that changes mid-surface therefore applies to the NEXT
+			present, which is the only instant at which honouring it would not
+			make the exit disagree with the enter it mirrors. ]]
+		local spec = handle.transitionSpec
+		if handle.transition ~= nil and spec ~= nil and handle.coordinator ~= nil and handle.transitionNode ~= nil then
 			if spec.exit ~= "instant" then
+				-- registered BEFORE the aim: reduced motion completes the exit
+				-- (and so runs `teardown`, which de-registers) inside this call
+				local list = pendingExits[exitKey]
+				if list == nil then
+					list = {}
+					pendingExits[exitKey] = list
+				end
+				table.insert(list :: { () -> () }, teardown)
 				handle.coordinator.beginExit(handle.transitionNode.path, handle.transitionNode, spec, teardown)
 				refreshExclusive()
 				syncScrim()
@@ -621,12 +753,47 @@ function surfaceLifecycle.new(ctx: any)
 		helpPlate.revalidate()
 	end
 
+	--[[ Run every teardown a surface still leaving under `id` is waiting on, NOW.
+		`makeHandle` calls this before it builds anything, so a re-present under an
+		id that is mid-exit gets a clean tree instead of inheriting a corpse's
+		paths. No pending exit under that id is the overwhelmingly common case and
+		costs one hash lookup.
+
+		DRAINS, because a key can hold more than one (see `pendingExits`). The
+		`list[1] == pending` check is what makes termination unconditional rather
+		than a consequence of every teardown de-registering itself: a teardown
+		that has already torn returns without touching the list, and a drain that
+		trusted it to would spin. ]]
+	local function flushPendingExit(id: any)
+		local key = if type(id) == "string" then id else ""
+		while true do
+			local list = pendingExits[key]
+			if list == nil or #list == 0 then
+				return
+			end
+			local pending = list[1]
+			pending() -- de-registers itself
+			if pendingExits[key] ~= nil and pendingExits[key][1] == pending then
+				table.remove(pendingExits[key], 1)
+			end
+		end
+	end
+
+	-- every duplicate-surface-id note this presenter has made, newest last. A
+	-- copy, like `controller.stats()` (F-30).
+	local function readSurfaceIdNotes(): { string }
+		return table.clone(surfaceIdNotes)
+	end
+
 	return {
+		noteDuplicateSurfaceId = noteDuplicateSurfaceId,
+		surfaceIdNotes = readSurfaceIdNotes,
 		syncFocusVisuals = syncFocusVisuals,
 		refresh = refresh,
 		dismiss = dismiss,
 		back = back,
 		raise = raise,
+		flushPendingExit = flushPendingExit,
 	}
 end
 

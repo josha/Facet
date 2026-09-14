@@ -34,6 +34,11 @@ local function world(opts: any?)
 	local core = options.core or Facet.newCore()
 	local env = Facet.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
+	if options.reducedMotion == true then
+		-- the FACT, never the derived key: `motionPolicy` is a memo over this and
+		-- setting it directly is refused (tests/example_match3_motion.spec.luau)
+		env:set("reducedMotion", true)
+	end
 	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new({ ops = true })
 	local pres = Facet.newPresenter(core, env, adapter, system)
@@ -60,6 +65,10 @@ local function world(opts: any?)
 		clearButtonMode = options.clearButtonMode,
 		maxLength = options.maxLength,
 		validate = options.validate,
+		invalid = options.invalid,
+		numericValue = options.numericValue,
+		min = options.min,
+		max = options.max,
 		env = if options.env == false then nil else env,
 		actionSystem = system,
 	}
@@ -958,5 +967,174 @@ describe("TextInput: themed search art", function()
 		w.pres.dismiss(w.handle)
 		w.control.dispose()
 		w.value:dispose()
+	end)
+end)
+
+--[[ THE INVALID SHAKE (transitions round 2026-09-12).
+
+	`invalid` is a caller-owned readable boolean whose false->true edge nudges the
+	field sideways and back, and the number presentation shakes on the same edge of
+	its OWN validation message. It rides the paint-only `offset` prop, so the claim
+	that has to hold is the PAIR: the painted position moved, and the solved rect —
+	what the solver, hit-testing and the focus order all read — did not. The shake
+	is decorative, so a reduced-motion session drops it whole (the timeline's own
+	policy), which is the second test here. ]]
+describe("TextInput: the invalid shake", function()
+	local FRAME = 1 / 60
+
+	-- the PAINTED displacement: the fake target composes `rect + transform` into
+	-- `presentedPosition` exactly as the live adapter writes the engine Position
+	-- (tests/with_animation.spec.luau reads the same accessor)
+	local function paintedShift(w: any, path: string): number
+		local node = w.adapter.node(path)
+		return node.presentedPosition.x - node.rect.x
+	end
+
+	-- one presenter frame: step the motion clock, then commit what it dirtied
+	local function frame(w: any)
+		w.pres.tick(FRAME)
+		w.pres.refresh()
+	end
+
+	it("a false->true edge nudges the root sideways and returns to rest", function()
+		local core = Facet.newCore()
+		local invalid = core:signal(false)
+		local w = world({ core = core, invalid = invalid })
+		local restX = w.adapter.node("/S/Name").rect.x
+		local restY = w.adapter.node("/S/Name").rect.y
+		expect(paintedShift(w, "/S/Name")).toBe(0)
+
+		invalid:set(true)
+		frame(w)
+		expect(paintedShift(w, "/S/Name") ~= 0).toBe(true)
+		-- the solver never moved: the rect the hit test and focus order read is
+		-- exactly where it was before the shake began
+		expect(w.adapter.node("/S/Name").rect.x).toBe(restX)
+		expect(w.adapter.node("/S/Name").rect.y).toBe(restY)
+
+		-- it crosses the rest line rather than leaning to one side
+		local sawNegative, sawPositive = false, false
+		for _ = 1, 40 do
+			local shift = paintedShift(w, "/S/Name")
+			sawNegative = sawNegative or shift < 0
+			sawPositive = sawPositive or shift > 0
+			frame(w)
+		end
+		expect(sawNegative).toBe(true)
+		expect(sawPositive).toBe(true)
+		expect(paintedShift(w, "/S/Name")).toBe(0)
+		expect(w.adapter.node("/S/Name").rect.x).toBe(restX)
+		expect(w.core:lastError()).toBeNil()
+		w.control.dispose()
+	end)
+
+	--[[ A SECOND EDGE MID-SHAKE RESTARTS IT — and the proof is not "it ends at
+		rest" (two racing timelines end at rest too), it is that the restarted shake
+		holds its OWN first leg. That leg lasts 80 ms — five frames at 60 Hz — so the
+		displacement must not change across them; a shake left running underneath
+		would have reached its own next beat inside that window and shown through
+		(measured: `-8 -8 2 2` instead of `-8 -8 -8 -8`). ]]
+	it("a second edge mid-shake restarts it rather than racing the one already running", function()
+		local core = Facet.newCore()
+		local invalid = core:signal(false)
+		local w = world({ core = core, invalid = invalid })
+		invalid:set(true)
+		for _ = 1, 10 do
+			frame(w)
+		end
+		invalid:set(false)
+		invalid:set(true)
+		frame(w)
+		local firstLeg = paintedShift(w, "/S/Name")
+		expect(firstLeg ~= 0).toBe(true)
+		for _ = 1, 3 do
+			frame(w)
+			expect(paintedShift(w, "/S/Name")).toBe(firstLeg)
+		end
+		for _ = 1, 40 do
+			frame(w)
+		end
+		expect(paintedShift(w, "/S/Name")).toBe(0)
+		expect(w.core:lastError()).toBeNil()
+		w.control.dispose()
+	end)
+
+	it("reduced motion keeps the message and drops the shake", function()
+		local core = Facet.newCore()
+		local invalid = core:signal(false)
+		local w = world({ core = core, invalid = invalid, reducedMotion = true })
+		expect(w.env:get("motionPolicy"):get()).toBe("reduced")
+		invalid:set(true)
+		w.pres.refresh()
+		-- not "settles at rest" but "never leaves it", on EVERY frame the shake
+		-- would have been playing across
+		expect(paintedShift(w, "/S/Name")).toBe(0)
+		for _ = 1, 20 do
+			frame(w)
+			expect(paintedShift(w, "/S/Name")).toBe(0)
+		end
+		expect(w.core:lastError()).toBeNil()
+		w.control.dispose()
+	end)
+
+	it("a rejected numeric commit shakes the field and leaves the message beneath it still", function()
+		local core = Facet.newCore()
+		local number = core:signal(2)
+		local w = world({ core = core, presentation = "number", numericValue = number, min = 0, max = 10 })
+		local messageX = w.adapter.node("/S/Name/Validation").rect.x
+		expect(paintedShift(w, "/S/Name/Input")).toBe(0)
+
+		w.adapter.tap("/S/Name/Input/Field")
+		w.adapter.pasteText("/S/Name/Input/Field", "-")
+		w.adapter.commitText("/S/Name/Input/Field")
+		expect(w.control.dump().validationError ~= "").toBe(true)
+		frame(w)
+		-- the FIELD moved; the danger-tinted message is the information and holds
+		-- its place
+		expect(paintedShift(w, "/S/Name/Input") ~= 0).toBe(true)
+		expect(paintedShift(w, "/S/Name/Validation")).toBe(0)
+		expect(w.adapter.node("/S/Name/Validation").rect.x).toBe(messageX)
+		for _ = 1, 40 do
+			frame(w)
+		end
+		expect(paintedShift(w, "/S/Name/Input")).toBe(0)
+		expect(w.core:lastError()).toBeNil()
+		w.control.dispose()
+	end)
+
+	--[[ THE TIMELINE OUTLIVES THE CONTROL IF NOBODY STOPS IT: it is attached to
+		the PRESENTER's clock, which the control does not own. Disposing mid-shake
+		must leave nothing armed — no beat firing for a node that has left the tree,
+		no write to a signal the same teardown just disposed. ]]
+	it("disposing mid-shake leaves nothing armed on the presenter's clock", function()
+		local core = Facet.newCore()
+		local invalid = core:signal(false)
+		local w = world({ core = core, invalid = invalid })
+		local atRest = w.pres.motionClock:activeCount()
+		invalid:set(true)
+		frame(w)
+		expect(paintedShift(w, "/S/Name") ~= 0).toBe(true)
+		expect(w.pres.motionClock:activeCount() > atRest).toBe(true)
+		w.control.dispose()
+		-- the count, not just "no error": the timeline is attached to a clock the
+		-- control does not own, so only a detach can end it
+		expect(w.pres.motionClock:activeCount()).toBe(atRest)
+		w.pres.dismiss(w.handle)
+		for _ = 1, 40 do
+			w.pres.tick(FRAME)
+		end
+		expect(core:lastError()).toBeNil()
+		expect(w.pres.motionClock:lastError()).toBeNil()
+	end)
+
+	it("invalid refuses anything but a readable boolean", function()
+		local core = Facet.newCore()
+		Facet.newEnvironment(core)
+		for _, bad in { true, "yes", 1, core:signal("no") } do
+			local ok, err =
+				pcall(Facet.Controls.TextInput, core, { id = "Name", value = core:signal(""), invalid = bad })
+			expect(ok).toBe(false)
+			expect(string.find(tostring(err), "invalid", 1, true) ~= nil).toBe(true)
+		end
 	end)
 end)

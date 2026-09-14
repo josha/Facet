@@ -95,6 +95,18 @@ describe("backdrop-before-content: the pure structural finder", function()
 		expect(findings[1].surface).toBe("raised")
 	end)
 
+	it("the message formatter is safe on a non-finding, and decides nothing (review N10)", function()
+		--[[ `countsAsBackdropIssue` is the one DECIDER; `backdropIssue` formats.
+			`countsAsBackdropIssue(nil)` answers false — a non-table is not a
+			finding — so the formatter used to fall into the acknowledged branch
+			and index it. Nothing in `src/` hands it one, but it is public, over a
+			list its caller filters. ]]
+		expect(transitionsLib.countsAsBackdropIssue(nil :: any)).toBe(false)
+		local issue = transitionsLib.backdropIssue(nil :: any)
+		expect(string.find(issue, "expected a finding", 1, true) ~= nil).toBe(true)
+		expect(string.find(transitionsLib.backdropIssue({} :: any), "expected a finding", 1, true) ~= nil).toBe(true)
+	end)
+
 	it("names the fix in plain language", function()
 		local group = node("/S/Group", { canvasGroup = true }, {
 			node("/S/Group/Plate", { surface = "raised" }),
@@ -191,6 +203,80 @@ describe("backdrop-before-content: the pure structural finder", function()
 			expect(findings[1].backdropPath).toBe("/S/HostRibbon/RibbonPlate")
 		end
 	)
+
+	--[[ THE ACKNOWLEDGEMENT (task 7 item 3). Alert's `Center → Card` and Menu's
+		`Popup → Panel` are byte-identical in shape to `buggyScreen` below — one
+		canvasGroup, one child, and that child is the opaque plate — and no tree
+		read can tell them apart, because there is nothing in the tree that
+		differs. What differs is OFF the tree: a modal's backdrop is the
+		presenter's scrim, painted at full opacity outside the fade group, so the
+		invariant is satisfied by something this finder cannot see; a full-bleed
+		page push has no scrim and its plate IS the only backdrop.
+
+		So the difference is DECLARED, at the one place that knows it, and the
+		finder reports the acknowledged shape under its own kind rather than
+		stopping seeing it. An UNACKNOWLEDGED sole-child plate is a finding
+		exactly as before — which is what keeps `buggyScreen` and the MUTATION
+		PROOF below meaning what they meant. ]]
+	it("an ACKNOWLEDGED sole-child plate reports its own kind, and is not counted", function()
+		local group = node("/S/Center", { canvasGroup = true }, {
+			node("/S/Center/Card", { surface = "raised" }, {
+				node("/S/Center/Card/Title", {}),
+			}),
+		})
+		local findings = transitionsLib.findBackdropFindings(group.path, group, true)
+		expect(#findings).toBe(1)
+		expect(findings[1].via).toBe("acknowledged-plate")
+		expect(findings[1].backdropPath).toBe("/S/Center/Card")
+		expect(transitionsLib.countsAsBackdropIssue(findings[1])).toBe(false)
+		-- ...and the SAME shape unacknowledged is the ordinary finding
+		local unacknowledged = transitionsLib.findBackdropFindings(group.path, group)
+		expect(unacknowledged[1].via).toBe("surface")
+		expect(transitionsLib.countsAsBackdropIssue(unacknowledged[1])).toBe(true)
+	end)
+
+	it("the acknowledgement covers ONLY the sole-child shape — a plate beside content still reports", function()
+		--[[ the doc line's own refusal: "do not write it to silence a backdrop
+			finding on a plate that sits behind separately-fading content". A group
+			with a sibling has something the plate is genuinely a backdrop FOR, so
+			the acknowledgement does not reach it however it is declared. ]]
+		local group = node("/S/HostRibbon", { canvasGroup = true }, {
+			node("/S/HostRibbon/RibbonPlate", { surface = "raised" }),
+			node("/S/HostRibbon/RibbonBody", {}),
+		})
+		local findings = transitionsLib.findBackdropFindings(group.path, group, true)
+		expect(#findings).toBe(1)
+		expect(findings[1].via).toBe("surface")
+		expect(transitionsLib.countsAsBackdropIssue(findings[1])).toBe(true)
+	end)
+
+	it("a TINT-painted sole-child plate acknowledges the same way", function()
+		local group = node("/S/Popup", { canvasGroup = true }, {
+			box("/S/Popup/Panel", { tint = { direct = "#101010" } }, { node("/S/Popup/Panel/Row", {}) }),
+		})
+		local findings = transitionsLib.findBackdropFindings(group.path, group, true)
+		expect(#findings).toBe(1)
+		expect(findings[1].via).toBe("acknowledged-plate")
+	end)
+
+	it("the schema refuses a plate value it cannot honour, and takes the one it can", function()
+		local UIlocal = UI
+		local ok, err = pcall(function()
+			return UIlocal.When({
+				id = "Gate",
+				condition = customFactory.new():signal(true),
+				transition = { enter = "materialize", plate = "hides" },
+				thenView = function()
+					return UIlocal.Box({ id = "Leaf" })
+				end,
+			})
+		end)
+		expect(ok).toBe(false)
+		expect(string.find(tostring(err), "plate", 1, true) ~= nil).toBe(true)
+		expect(string.find(tostring(err), "SCRIM", 1, true) ~= nil).toBe(true)
+		expect(transitionsLib.resolve({ enter = "materialize", plate = "fades" }).plate).toBe("fades")
+		expect(transitionsLib.resolve({ enter = "materialize" }).plate).toBeNil()
+	end)
 
 	it("MUTATION PROOF: the fixed shape is clean, and re-nesting the plate reddens it", function()
 		-- THE FIXED SHAPE (what `shop.wisp` looks like after this task): the
@@ -418,4 +504,211 @@ describe("backdrop-before-content: the real Glade modals (newpop.mov's family)",
 			w.built.dispose()
 		end
 	)
+end)
+
+-- ============================================================================
+-- D. THE THREE SHIPPED MODAL/POPOVER SURFACES, LIVE — the shape the gate
+--    reports is the shape a modal is SUPPOSED to have, so each one declares it
+--    (task 7 item 3). The claim is read off a real mount, not off the source:
+--    every coordinator the drive creates is captured, and the UNFILTERED list
+--    is what says the acknowledgement actually reached the coordinator.
+-- ============================================================================
+
+local backdropSweep = require("./lib/backdrop_sweep")
+
+local function onlyAcknowledged(all: { any }, expectedBackdrop: string)
+	expect(#all).toBe(1)
+	expect(all[1].via).toBe(transitionsLib.ACKNOWLEDGED_PLATE)
+	expect(all[1].backdropPath).toBe(expectedBackdrop)
+	expect(transitionsLib.countsAsBackdropIssue(all[1])).toBe(false)
+end
+
+describe("backdrop-before-content: the modal/popover surfaces acknowledge their own plate", function()
+	it("Controls.Alert — Center → Card", function()
+		local w: any
+		local alert: any
+		local counted, all = backdropSweep.capture(function()
+			w = worldLib.new({ viewport = { x = 0, y = 0, w = 390, h = 844 } })
+			alert = Facet.Controls.Alert(w.core, {
+				id = "Ack",
+				title = "Delete?",
+				actions = { { id = "ok", label = "OK" } },
+			})
+			alert.present(w.pres)
+			w.pres.refresh()
+		end)
+		expect(#counted).toBe(0)
+		onlyAcknowledged(all, "/Ack/Center/Card")
+		alert.dispose()
+	end)
+
+	it("Controls.Alert — a caller override is MERGED, not overwritten", function()
+		--[[ the acknowledgement is about the SHAPE, which a caller changing the
+			form does not change; so it rides an overriding `transition` too. A
+			caller who writes `plate` themselves keeps their value — there is no
+			second value to keep here, so what this pins is that the merge happens
+			at all. ]]
+		local w: any
+		local alert: any
+		local counted, all = backdropSweep.capture(function()
+			w = worldLib.new({ viewport = { x = 0, y = 0, w = 390, h = 844 } })
+			alert = Facet.Controls.Alert(w.core, {
+				id = "Over",
+				title = "Delete?",
+				actions = { { id = "ok", label = "OK" } },
+				transition = { enter = "fade", class = "object" },
+			})
+			alert.present(w.pres)
+			w.pres.refresh()
+		end)
+		expect(#counted).toBe(0)
+		onlyAcknowledged(all, "/Over/Center/Card")
+		alert.dispose()
+	end)
+
+	it("Controls.Alert — a READABLE transition is acknowledged too (review N3)", function()
+		--[[ the first shape of `acknowledgePlate` returned a Readable untouched —
+			"there is no table here to merge into" — which meant a caller who
+			bound their transition to a signal got no acknowledgement at all, and
+			the reference sweeps counted their modal. A Readable has a VALUE, and
+			a memo is the framework's own way to derive one; it is owned on the
+			alert's scope, so it dies with the control. ]]
+		local w: any
+		local alert: any
+		local declared: any
+		local counted, all = backdropSweep.capture(function()
+			w = worldLib.new({ viewport = { x = 0, y = 0, w = 390, h = 844 } })
+			declared = w.core:signal({ enter = "materialize", class = "object" })
+			alert = Facet.Controls.Alert(w.core, {
+				id = "Bound",
+				title = "Delete?",
+				actions = { { id = "ok", label = "OK" } },
+				transition = declared,
+			})
+			alert.present(w.pres)
+			w.pres.refresh()
+		end)
+		expect(#counted).toBe(0)
+		onlyAcknowledged(all, "/Bound/Center/Card")
+		alert.dispose()
+		declared:dispose()
+	end)
+
+	--[[ A CALLER'S OWN VALUES WIN, AND IDENTITY SURVIVES WHEN NOTHING IS OWED
+		(review N3; widened by RED-TEAM F8, 2026-09-13). The merge acquired a second
+		key: a `materialize` with no `scale` is owed the text-safe band, because that
+		band answers an ENGINE fact about the type on this card rather than a taste
+		the control holds — a caller naming the form to change its motion class was
+		not asking for their title to re-flow a beat after it settled.
+
+		So the passthrough is now conditional on there being nothing to add, which is
+		the honest statement of the rule the identity check was always standing in
+		for. A declaration that makes BOTH claims still reaches the presenter
+		uncloned; so does a form that drives no scale at all. One that is owed the
+		band is cloned, and every key the caller wrote survives the clone. ]]
+	it("a caller's own values win, and an untouched declaration is passed through uncloned", function()
+		local w = worldLib.new({ viewport = { x = 0, y = 0, w = 390, h = 844 } })
+		local function presented(id: string, declared: any): any
+			local alert = Facet.Controls.Alert(w.core, {
+				id = id,
+				title = "Delete?",
+				actions = { { id = "ok", label = "OK" } },
+				transition = declared,
+			})
+			local handle = alert.present(w.pres)
+			local reached = handle.transition
+			alert.dispose()
+			return reached
+		end
+
+		-- nothing owed: both claims already made, so the caller's table IS the one
+		-- the presenter is handed
+		local complete = { enter = "materialize", plate = "fades", scale = 0.9 }
+		expect(presented("Own", complete)).toBe(complete)
+		-- ...and a form that drives no scale is owed no band
+		local slide = { enter = "slide-up", plate = "fades" }
+		expect(presented("Slide", slide)).toBe(slide)
+
+		-- owed the band: cloned, and every key the caller wrote survives
+		local partial = { enter = "materialize", plate = "fades", class = "decay" }
+		local merged = presented("Partial", partial)
+		expect(merged).never().toBe(partial)
+		expect(merged.plate).toBe("fades")
+		expect(merged.class).toBe("decay")
+		expect(merged.scale).toBe(1.015)
+		expect(partial.scale).toBeNil() -- the caller's own table is not written to
+
+		local declared = w.core:signal({ enter = "materialize", plate = "fades", scale = 0.9 })
+		local bound = Facet.Controls.Alert(w.core, {
+			id = "OwnBound",
+			title = "Delete?",
+			actions = { { id = "ok", label = "OK" } },
+			transition = declared,
+		})
+		local boundHandle = bound.present(w.pres)
+		expect(boundHandle.transition:get()).toBe(declared:get())
+		bound.dispose()
+		declared:dispose()
+	end)
+
+	it("Controls.Menu — Popup → Panel", function()
+		local w: any
+		local control: any
+		local counted, all = backdropSweep.capture(function()
+			w = worldLib.new({ viewport = { x = 0, y = 0, w = 800, h = 600 } })
+			control = Facet.Controls.Menu(w.core, {
+				id = "M",
+				trigger = UI.Button({
+					id = "Trigger",
+					label = "More",
+					width = { type = "fixed", px = 120 },
+					height = { type = "fixed", px = 44 },
+				}),
+				items = {
+					{ id = "a", label = "Accessory", onSelect = function() end },
+					{ id = "b", label = "Body", onSelect = function() end },
+				},
+			})
+			w.present(UI.Screen({
+				id = "S",
+				children = {
+					UI.Anchor({
+						id = "Body",
+						width = { type = "fill", weight = 1 },
+						height = { type = "fill", weight = 1 },
+						children = { control.blueprint },
+					}),
+				},
+			}))
+			w.adapter.tap("/S/Body/Trigger")
+			w.pres.refresh()
+		end)
+		expect(#counted).toBe(0)
+		onlyAcknowledged(all, "/Menu-M/Layer/Surface/Popup/Panel")
+		control.dispose()
+	end)
+
+	it("picker_menu's Popup — the menu-style Picker", function()
+		local w: any
+		local picker: any
+		local counted, all = backdropSweep.capture(function()
+			w = worldLib.new({ viewport = { x = 0, y = 0, w = 800, h = 600 } })
+			picker = Facet.Controls.Picker(w.core, {
+				id = "Quality",
+				label = "Quality",
+				style = "menu",
+				env = w.env,
+				selected = w.core:signal("a"),
+				options = { { value = "a", label = "One" }, { value = "b", label = "Two" } },
+			})
+			w.present(UI.Screen({ id = "S", children = { picker.blueprint } }))
+			picker.api.open()
+			w.pres.refresh()
+		end)
+		expect(#counted).toBe(0)
+		expect(#all).toBe(1)
+		expect(all[1].via).toBe(transitionsLib.ACKNOWLEDGED_PLATE)
+		expect(transitionsLib.countsAsBackdropIssue(all[1])).toBe(false)
+		picker.dispose()
+	end)
 end)

@@ -999,7 +999,9 @@ local function contentSize(ctx: Ctx, node: Node, maxW: number, maxH: number): (n
 	-- them here cannot recurse (the same argument the `fits` branch makes).
 	-- `fill`, `aspect` and uncapped content dimensions are left alone: none can
 	-- answer without the content this call is measuring.
-	if maxW ~= math.huge and node.kind ~= "text" and node.kind ~= "fits" then
+	-- A fixed-width item still bounds its children inside an unbounded horizontal
+	-- scroller. Otherwise aspect-ratio media measures at zero and grows at arrange.
+	if (maxW ~= math.huge or dim(node, "w").type == "fixed") and node.kind ~= "text" and node.kind ~= "fits" then
 		local selfW = dim(node, "w")
 		-- `containerRelative` joins the two that could already answer without the
 		-- content (§2.5): it reads the container, so asking for it here cannot recurse
@@ -1281,14 +1283,35 @@ local function contentSize(ctx: Ctx, node: Node, maxW: number, maxH: number): (n
 			`percent` cannot be computed against infinity; `fill` can. The four cases and
 			three negative controls are in `tests/container_relative_frame.spec.luau`. ]]
 		local mainDim = dim(node, if axis == "x" then "w" else "h")
-		-- A content-sized viewport must request the leading decoration space
-		-- that arrangement adds after measuring its children. Otherwise even a
-		-- short card scrolls its last action outside its own measured border.
+		--[[ A content-sized viewport must request the leading decoration space
+			that arrangement adds after measuring its children. Otherwise even a
+			short card scrolls its last action outside its own measured border.
+
+			AND THE TRAILING ALLOWANCE IS THE OTHER HALF OF THE SAME BOX (owner
+			report A4, 2026-09-13: "portrait with plenty of space — the alert scrolls
+			instead of growing"). The CANVAS this scroller publishes is
+			`contentSize + padding + lane` — where `lane` is
+			`chrome_slots.bleedLane`, the package's `chromeBleed` netted against the
+			slot's own carve, published by `layout/scroll_arrange.luau` and read by
+			`render/commit_walks.luau` (a package's shadow paints past the last
+			child's rect, so the canvas grows by it to make it reachable) — while the
+			leading edge is spent as real
+			padding by `layout/scroll_arrange.luau`. A hugging scroller that counted
+			only the leading one therefore measured a box its own canvas could never
+			fit inside: under every package with a shadow the card overflowed by
+			EXACTLY the bleed and showed a scrollbar forever — 17 px under Fantasy
+			Parchment, Fantasy Ornate and Glossy Touch, 24 px under Sci-Fi HUD, on a
+			390x844 phone with 400 px of room behind the card.
+
+			A definite-extent scroller is untouched: its box was decided for it, the
+			allowance is what makes the last glow reachable inside that box, and that
+			is the whole point of a canvas allowance. Only a box that is asking to BE
+			its content has to ask for all of it. ]]
 		if
 			node.leadingBleed ~= nil
 			and (mainDim.type == "hug" or mainDim.type == "content" or mainDim.type == "minMax")
 		then
-			mainSum += node.leadingBleed
+			mainSum += node.leadingBleed * 2
 		end
 		--[[ A CONTENT-TERMS DIM IS DEFINITE TOO (framework-gaps-phase2 gap 3,
 			2026-08-23), found by this very diagnostic firing on `preferred_text`'s
@@ -1318,7 +1341,8 @@ local function contentSize(ctx: Ctx, node: Node, maxW: number, maxH: number): (n
 		local reserve = 0
 		if ctx.scrollBarReserve > 0 then
 			local mainOffer = if axis == "x" then innerMaxW else innerMaxH
-			if mainOffer ~= math.huge and mainSum + gaps > mainOffer then
+			local latched = ctx.scrollBarLatches and ctx.scrollBarLatches[node.id] ~= nil
+			if mainOffer ~= math.huge and (mainSum + gaps > mainOffer or latched) then
 				reserve = ctx.scrollBarReserve
 			end
 		end
@@ -3373,6 +3397,7 @@ function solver.solve(
 		safeInsets: SafeInsets?,
 		rootPolicy: string?,
 		scrollBarReserve: number?,
+		scrollBarLatches: { [string]: any }?,
 		metrics: any?,
 		-- §9: the platform's free topbar strip in window space, and the window y the
 		-- platform's whole top reservation ends at. Both `nil` off `bandSafeContent`.

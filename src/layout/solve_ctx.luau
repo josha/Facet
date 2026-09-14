@@ -61,6 +61,7 @@ export type Ctx = {
 	-- scrollbar thickness to reserve off a scrolling region's cross axis; the
 	-- adapter owns the number (it is engine-specific), the solver only spends it
 	scrollBarReserve: number,
+	scrollBarLatches: { [string]: any }?,
 	-- depth counter for subtrees that are arranged but never painted (the
 	-- unchosen ViewThatFits candidates, which get a deliberate 0x0 rect). A
 	-- subtree that does not paint cannot overflow anything, so layout
@@ -558,6 +559,7 @@ function solve_ctx.new(contentRect: Rect, opts: any, metrics: any): Ctx
 		-- armed the first time a scroll node is measured; a tree without one never
 		-- pays for the cache
 		hasScroll = false,
+		scrollBarLatches = opts and opts.scrollBarLatches,
 		scrollBarReserve = if type(reserve) == "number" and reserve == reserve then math.max(0, reserve) else 0,
 		-- the caller's reading, resolved once in `solver.solve` beside the content
 		-- rect so the two are one reading

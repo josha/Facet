@@ -342,11 +342,28 @@ return {
 						gap = 2,
 						width = UI.fill(),
 						children = {
+							--[[ THE SENDER TRUNCATES; IT DOES NOT PUSH (overflow sweep,
+								2026-09-12). This row is the narrowest thing on a 320px
+								portrait and the only one carrying a name, and the name was
+								content-sized beside a flag glyph — so any squeeze came out
+								of nothing and `TopLine` simply painted past its own box. It
+								squeezed the moment the list took a plate (the ornate and
+								parchment panel recipes carve 30px and 18px a side out of
+								the node they skin), and it would squeeze again on a
+								narrower phone with no plate at all. A mail row's sender is
+								exactly the field a list truncates. ]]
 							UI.HStack({
 								id = "TopLine",
+								width = UI.fill(),
 								gap = "s",
 								children = {
-									UI.Text({ id = "From", text = item.from, textSize = 15 }),
+									UI.Text({
+										id = "From",
+										text = item.from,
+										textSize = 15,
+										width = UI.fill(),
+										lineLimit = 1,
+									}),
 									UI.When({
 										id = "FlagWhen",
 										condition = flagged,
@@ -394,21 +411,177 @@ return {
 			end,
 		})
 
-		-- ScrollView > VStack: the VStack is what makes this the hand-wrapped,
-		-- non-Table shape (a ScrollView can stack children on its own axis, but
-		-- a caller building a plain reactive list of rows writes it the same way
-		-- as any other VStack list — the ScrollView only adds the scroll host).
-		local listBody = UI.ScrollView({
-			id = "List",
-			axis = "y",
+		--[[ THE PLATE IS THE LIST'S, NOT THE ROW'S (owner report 2026-09-12,
+			`tests/row_plate_paint.spec.luau`).
+
+			These rows lost their background. `6a65baef` made a declared surface
+			outrank the class map, so a `UI.Button` declaring `surface = "base"`
+			stopped being handed the package's CONTROL recipe by its class — and
+			`base` is the APP BACKGROUND, the very token the screen behind this list
+			also declares. The rows had been drawing their plate out of that
+			accident, and once `base` meant what it says the list vanished into the
+			page.
+
+			IT DOES NOT GO BACK ON THE ROW, and that is measured rather than assumed.
+			`control` and `panel` are the only decoration slots a plate surface
+			reaches; under both glossy packages each declares `shadow = "raised"`, a
+			17px `chromeBleed` that a list laid back to back paints straight into its
+			neighbours — the report `tests/row_hit_paint.spec.luau` carries. ONE
+			panel around the whole list spends that shadow on the app background
+			instead, where it belongs, and its carved frame, its hairline and its
+			`radii.panel` corner frame the list.
+
+			The rows keep their own `base` fill, which now reads against a token that
+			differs from it in every shipped theme, and the 1px `gap` this list
+			already had is the separator between them.
+
+			AND IT IS A NODE OF ITS OWN, which is the part that took three attempts.
+			On the row stack INSIDE the scroller the plate hugs the CONTENT extent,
+			so its frame wraps whatever the rows happen to measure and scrolls away
+			with them. On the ScrollView itself it reaches no panel at all:
+			`chrome_slots.classify` answers for three CLASSES — Divider, ScrollView,
+			TextField — BEFORE it reads `surface == "raised"`, because each of those
+			names its own chrome and a ScrollView's chrome is its SCROLLBAR. Every
+			shipped package declares `scrollbar = { kind = "native" }` with no insets
+			and no shadow, so the card silently became a flat fill wearing the name of
+			one. A plain stack wrapping the scroller is neither: it fills the band, so
+			it frames the pane a player looks at, and it is a Frame, so it takes the
+			`panel` recipe. The spec pins the SLOT beside the surface name for exactly
+			that reason. ]]
+		--[[ ...AND THE CARD GIVES WAY ONLY WHEN THE BAND CANNOT HOLD IT, which is a
+			MEASUREMENT and not a viewport class (controller ruling, review round 3;
+			live capture of the rebuilt showcase under Pixel Quest).
+
+			The first gate was `conditions.isShort` — "the viewport is under 600px
+			tall". The showcase's emulated device is 677x338, so that fired on an
+			ORDINARY PHONE LANDSCAPE and the plate vanished in EVERY theme, which is
+			the owner's original report reintroduced by its own fix. The band there is
+			249-289px; a panel needs at most 60 of that.
+
+			WHAT ACTUALLY CANNOT FIT is a carved frame wider than the band it is
+			carved out of. `chromeInsets.panel` is the recipe's own border, spent by
+			the solver as this node's padding (`render/layout_node.luau`), so the
+			question is arithmetic on two measured numbers: the band's solved height
+			against the frame plus one tappable row. Measured at 640x200 with the
+			largest text preference — the shape the overflow sweep's narrow-landscape
+			cell produces once the showcase's own top chrome is reserved — the band is
+			8px under Fantasy Parchment and 2px under Glossy Touch against frames of
+			36 and 28, which is where the card has to go.
+
+			TWO CHOICES INSIDE THE RULE, both deliberate:
+
+			  * A PACKAGE THAT CARVES NOTHING NEVER LOSES ITS PLATE. Facet Neutral,
+			    Classic Desktop, Glossy Mobile and Sci-Fi HUD publish zero panel
+			    insets, so their card cannot squeeze anything and there is nothing to
+			    give way from. The band's height never enters it.
+			  * "ONE ROW" IS THE THEME'S TAP FLOOR (`targetSizes.minimum`, 44-48px),
+			    not this list's own row. At the largest preference a mail row measures
+			    156-250px, so demanding a whole one would hide the card on every
+			    phone landscape — the same over-reach as the viewport gate, one number
+			    over. The floor is the honest question: is there room for something a
+			    finger can hit? ]]
+		local LIST_PLATE = "/MailActions/ListWhen/then/ListPlate"
+		--[[ THE TWO NUMBERS THE DECISION SPENDS, from the live theme snapshot: the
+			`panel` recipe's own carved frame (top + bottom, which the solver adds to
+			this node's padding) and the tap floor that stands in for one row. Read in
+			ONE place because both the decision and the shape key below spend them,
+			and a second copy is how the two would stop agreeing about which theme
+			they were looking at. Zero carved means the package carves nothing, and a
+			card that carves nothing can squeeze nothing. ]]
+		local function listPlateFrame(metrics: any): (number, number)
+			local insets = if type(metrics) == "table" then (metrics :: any).chromeInsets else nil
+			local panel = if type(insets) == "table" then (insets :: any).panel else nil
+			local carved = if type(panel) == "table"
+				then (tonumber(panel.top) or 0) + (tonumber(panel.bottom) or 0)
+				else 0
+			local targets = if type(metrics) == "table" then (metrics :: any).targetSizes else nil
+			local floor = if type(targets) == "table" then tonumber(targets.minimum) else nil
+			return carved, floor or 44
+		end
+		-- the band's solved height, fed back by the presenter after every solve.
+		-- `math.huge` until one lands: an unmeasured band is not a small one, and a
+		-- card that flickered off on the first frame would be its own defect.
+		local listBandHeight = scope:own(core:signal(math.huge))
+		--[[ ...AND IT IS MEASURED ONCE PER SHAPE, which is not tidiness but the
+			thing that makes this converge. Under Fantasy Ornate — the deepest frame
+			in the corpus at 30px a side — turning the card ON does not always leave
+			the band where it was: the plate's own minimum grows past its fill share,
+			the screen re-distributes, and at eight of the swept cells the band came
+			back SMALLER with the card than without it. A rule that re-read the band
+			after every solve then answered "drop" and "keep" alternately forever, and
+			the renderer said so ("a solve's geometry feedback did not converge in 8
+			rounds — a consumer publishing a layout prop derived from the rect that
+			prop moves?"). It is exactly that consumer.
+
+			So the band is read ONCE PER SHAPE and held: a new shape takes a fresh
+			reading, a re-solve under the same shape reads the number already taken,
+			one flip per shape, and it settles.
+
+			WHAT COUNTS AS A SHAPE IS THE WHOLE CORRECTNESS ARGUMENT. The key may
+			hold anything the card's own presence cannot move, and must hold
+			everything that moves the band or the frame. The viewport height and the
+			text preference decide how much room this screen has; the DISTANCE
+			PROFILE rescales every metric in it; and the THEME decides the carved
+			frame itself, which is the other side of the comparison.
+
+			THE THEME IS NOT OPTIONAL HERE, and leaving it out was a real defect
+			(review round 4). The showcase's theme picker swaps `themeMetrics` IN
+			PLACE on a persistent scope — no remount, no viewport change — so a band
+			measured under a thin-chrome package survived into Fantasy Ornate's 30px
+			frame and the card stayed on a band that frame cannot hold, which is the
+			0px-content collapse this rule exists to prevent. The inverse is the same
+			bug facing the other way. Both halves of the comparison are keyed now:
+			the package's identity AND the two numbers the decision actually spends,
+			so a metrics table with no identity at all still re-arms. ]]
+		local listBandShape = scope:own(core:memo(function(use)
+			local offset = use(ctx.env:get("preferredTextOffset"))
+			local distance = use(ctx.env:get("distanceProfile"))
+			local metrics = use(ctx.env:get("themeMetrics"))
+			local identity = if type(metrics) == "table" then (metrics :: any).identity else nil
+			local theme = if type(identity) == "table"
+				then `{tostring(identity.packageId)}/{tostring(identity.themeName)}/{tostring(identity.version)}/{tostring(
+					identity.stamp
+				)}`
+				else "neutral"
+			local carved, floor = listPlateFrame(metrics)
+			return `{use(conditions.viewportHeight)}:{tostring(offset)}:{tostring(distance)}:{theme}:{carved}:{floor}`
+		end))
+		local listBandMeasuredFor: string? = nil
+		local listPlateSurface = scope:own(core:memo(function(use)
+			local carved, floor = listPlateFrame(use(ctx.env:get("themeMetrics")))
+			if carved <= 0 then
+				return "raised"
+			end
+			return if use(listBandHeight) < carved + floor then nil else "raised"
+		end))
+		local listBody = UI.VStack({
+			id = "ListPlate",
+			surface = listPlateSurface,
+			padding = scope:own(core:memo(function(use)
+				return if use(listPlateSurface) ~= nil then "xs" else 0
+			end)),
+			align = "stretch",
 			width = UI.fill(),
 			height = UI.fill(),
 			children = {
-				UI.VStack({
-					id = "Rows",
-					gap = 1,
+				-- ScrollView > VStack: the VStack is what makes this the
+				-- hand-wrapped, non-Table shape (a ScrollView can stack children on
+				-- its own axis, but a caller building a plain reactive list of rows
+				-- writes it the same way as any other VStack list — the ScrollView
+				-- only adds the scroll host).
+				UI.ScrollView({
+					id = "List",
+					axis = "y",
 					width = UI.fill(),
-					children = { rowsForEach },
+					height = UI.fill(),
+					children = {
+						UI.VStack({
+							id = "Rows",
+							gap = 1,
+							width = UI.fill(),
+							children = { rowsForEach },
+						}),
+					},
 				}),
 			},
 		})
@@ -518,7 +691,7 @@ return {
 			local showDot = itemScope:own(core:memo(function(use)
 				return not use(unreadDot)
 			end))
-			return UI.HStack({
+			local body = UI.HStack({
 				id = "RowBody",
 				gap = "s",
 				align = "center",
@@ -564,6 +737,15 @@ return {
 					}),
 				},
 			})
+			return UI.background(
+				body,
+				UI.Box({
+					id = "RowFill",
+					width = UI.fill(),
+					height = UI.fill(),
+					tint = { role = "surfaceStrong", blend = 1 },
+				})
+			)
 		end
 
 		--[[ THE MAIL ROW MEASURES ITSELF (adopted 2026-08-15,
@@ -816,6 +998,33 @@ return {
 		local result: any
 		result = {
 			screen = screen,
+			--[[ THE BAND'S OWN HEIGHT, fed back after every solve (the
+				`present.onGeometry` broadcast `measured_extents` and
+				`variable_extents` already use for their windows). It is what turns
+				"does the card fit" from a viewport class into arithmetic — see
+				`listPlateSurface` above.
+
+				IT CANNOT CHASE ITS OWN TAIL: `ListPlate` takes `fill` inside the
+				screen's stack, so its OUTER height is decided by the screen and never
+				by the surface it wears. Dropping the plate frees the frame INSIDE the
+				node and moves this number not at all. ]]
+			present = {
+				onGeometry = function(rectOf: (string) -> any)
+					local shape = listBandShape:get()
+					if listBandMeasuredFor == shape then
+						return -- this shape's band is already on the record
+					end
+					local band = rectOf(LIST_PLATE)
+					if band == nil or type(band.h) ~= "number" then
+						return
+					end
+					listBandMeasuredFor = shape
+					local measured = math.max(0, math.floor(band.h))
+					if measured ~= listBandHeight:get() then
+						listBandHeight:set(measured)
+					end
+				end,
+			},
 			steps = {
 				-- state drivers -----------------------------------------------------
 				mode = function(_built: any, payload: string?)
@@ -866,7 +1075,7 @@ return {
 				-- focused list row's content — not a shortcut to _commitFirst
 				keyDeleteList = function(_built: any, payload: string?)
 					local id = tostring(payload)
-					local path = `/MailActions/ListWhen/then/List/Rows/RowsForEach/[{id}]/{id}/Content/Row`
+					local path = `/MailActions/ListWhen/then/ListPlate/List/Rows/RowsForEach/[{id}]/{id}/Content/Row`
 					ctx.presenter.focus.focusOn(path)
 					pressKey("Delete")
 					return { ok = true, remainingIds = listModel.ids() }
@@ -874,7 +1083,7 @@ return {
 				-- REAL Shift+Return chord (Task 8b), focused on a list row
 				menuList = function(_built: any, payload: string?)
 					local id = tostring(payload)
-					local path = `/MailActions/ListWhen/then/List/Rows/RowsForEach/[{id}]/{id}/Content/Row`
+					local path = `/MailActions/ListWhen/then/ListPlate/List/Rows/RowsForEach/[{id}]/{id}/Content/Row`
 					ctx.presenter.focus.focusOn(path)
 					ctx.actionSystem.deviceKey("LeftShift", true)
 					ctx.actionSystem.deviceKey("Return", true)
@@ -887,7 +1096,8 @@ return {
 					if built.handle == nil then
 						return { ok = false, reason = "not presented yet" }
 					end
-					local unbind = coordinator.bindScroll(built.handle.controller, "/MailActions/ListWhen/then/List")
+					local unbind =
+						coordinator.bindScroll(built.handle.controller, "/MailActions/ListWhen/then/ListPlate/List")
 					return { ok = true, unbind = unbind ~= nil }
 				end,
 				list = function()

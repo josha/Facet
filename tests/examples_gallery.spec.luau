@@ -2121,8 +2121,21 @@ describe("examples/gallery 05: confirmation dialog", function()
 			expect(cancel.props.surface).toBe(nil) -- Cancel uses ordinary chrome; safe focus is separate from action emphasis.
 			expect(prompt.props.text).toBe("Delete this save?")
 			expect(message.props.text).toBe("This cannot be undone.")
-			expect(prompt.props.textAlign).toBe("center")
+			--[[ THE TITLE READS FROM ITS MARK (A3 addendum, 2026-09-13). This dialog
+				is `severity = "critical"`, so a caution mark leads the title and the
+				PAIR is what the header centres — the title's own glyphs start at the
+				mark rather than in the middle of the width the mark left over, which
+				is what a `fill` + `center` title did and why the line sat visibly
+				right of the card's centre. The message, which has no mark, is still
+				one centred full-width line. ]]
+			expect(prompt.props.textAlign).toBe("start")
 			expect(message.props.textAlign).toBe("center")
+			local mark = adapter.node(`{built.cardPath}/Header/Caution`)
+			expect(mark ~= nil).toBe(true)
+			local header = adapter.node(`{built.cardPath}/Header`).rect
+			local lead = (mark :: any).rect.x - header.x
+			local trail = (header.x + header.w) - (prompt.rect.x + prompt.rect.w)
+			expect(math.abs(lead - trail) <= 1).toBe(true)
 			expect(prompt.props.textSize > message.props.textSize).toBe(true)
 			expect(presenter.focus.focused:get()).toBe(built.cancelPath)
 			expect(core:lastError()).toBeNil()
@@ -2139,7 +2152,17 @@ describe("examples/gallery 05: confirmation dialog", function()
 		presenter.refresh()
 		local confirm, cancel = adapter.node(built.confirmPath), adapter.node(built.cancelPath)
 		expect(confirm.props.label).toBe(longLabel)
-		expect(confirm.rect.w > cancel.rect.w).toBe(true)
+		--[[ A ROW THAT CANNOT HOLD ITS LABELS IS NOT A ROW (A5, 2026-09-13). This
+			pin used to read `confirm.rect.w > cancel.rect.w` — the two actions side
+			by side on a 1280 desktop, the long one wider. Measured: they asked for
+			802 px of a 528 px card and simply ran out of it, so the long label ran
+			outside the card's own box. The form is now decided by the LABELS as well
+			as by the width class, so this case stacks: both actions full width, the
+			whole label inside the card, and nothing cut. ]]
+		expect(confirm.rect.w).toBe(cancel.rect.w)
+		expect(confirm.rect.y + confirm.rect.h <= cancel.rect.y).toBe(true)
+		local cardBox = adapter.node(built.cardPath).rect
+		expect(confirm.rect.x >= cardBox.x and confirm.rect.x + confirm.rect.w <= cardBox.x + cardBox.w).toBe(true)
 		local roomyWidth = confirm.rect.w
 		deps.env:set("viewportRect", { x = 0, y = 0, w = 320, h = 640 })
 		deps.env:set("displaySize", "Small")

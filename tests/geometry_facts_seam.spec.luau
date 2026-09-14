@@ -296,8 +296,18 @@ describe("the geometry-facts seam: what stayed behind still reads it", function(
 			copy of the list, or that compared with `==` after the split, would pass
 			every case above while the surface it renders went deaf to a fact. ]]
 		local body = stripComments(rendererSrc)
-		expect(string.find(body, "local GEOMETRY_KEYS = geometry_facts.keysFor(rootPolicy)", 1, true) ~= nil).toBe(true)
+		-- BOTH narrowing inputs travel to the module: the policy, and the
+		-- per-surface `reserveAppChrome` (2026-09-13). A renderer that passed only
+		-- the first would hand a modal a list carrying `appChromeInsets`, which is
+		-- the same going-deaf-in-reverse this case exists to catch — an extra solve
+		-- for a fact the surface is defined not to reserve.
+		expect(
+			string.find(body, "local GEOMETRY_KEYS = geometry_facts.keysFor(rootPolicy, reserveAppChrome)", 1, true)
+				~= nil
+		).toBe(true)
 		expect(string.find(body, "return geometry_facts.same(GEOMETRY_KEYS, a, b)", 1, true) ~= nil).toBe(true)
+		-- ...and the composition is the module's too, never a second copy here
+		expect(string.find(body, "geometry_facts.withAppChrome(insets, rootPolicy,", 1, true) ~= nil).toBe(true)
 		--[[ ...AND IT KEEPS NO SECOND COPY. The renderer still READS several of these
 			facts directly (`solveAndApply` pulls the insets, the chrome and the
 			typography scale to build its own offer), which is not a list — what may

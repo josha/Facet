@@ -1824,11 +1824,41 @@ function snapshot.resolve(package: any, themeName: string?, facts: Facts?, overr
 	if type(out.controls.alert) ~= "table" then
 		out.controls.alert = {}
 	end
+	--[[ THE ALERT'S MARK IS PUNCTUATION, NOT ARTWORK (owner report A3, 2026-09-13:
+		"I don't think we need the giant alert icon").
+
+		This was `targetSizes.minimum` — 44 px, the HIT floor — beside a 20 px
+		heading, so the caution triangle was more than twice the height of the title
+		it qualifies and read as the card's subject. It is a glyph that leads a line
+		of type, so it takes the type-height rung of the icon ladder the rest of the
+		library already spends (`iconSizes.medium` is 20 in the neutral ladder, the
+		same number as `type.heading`), and it scales with the ladder at a ten-foot
+		display exactly as the heading beside it does. A package that authored its
+		own `controls.alert.iconSize` still wins. ]]
 	if type(out.controls.alert.iconSize) ~= "number" then
-		out.controls.alert.iconSize = out.targetSizes.minimum
+		--[[ ...AND NEVER TALLER THAN THE LINE IT LEADS (RED-TEAM F4). `iconSizes` is
+			a ladder of PICTURE sizes and a package may pitch it wherever it likes:
+			Fantasy Ornate's `medium` is 32 against a 22 px heading and Pixel Quest's
+			is 32 against 20, so the "type-height glyph" this default is named for
+			came back 1.5x the title under two shipped packages. The heading is the
+			thing it qualifies, so the heading is the ceiling; a package whose ladder
+			is finer than its type (Compact Pointer, 16 against 17) keeps its own
+			number, which is the point of taking the smaller of the two. ]]
+		local heading = if type(out.type) == "table" and type((out.type :: any).heading) == "table"
+			then ((out.type :: any).heading :: any).size
+			else nil
+		out.controls.alert.iconSize = if type(heading) == "number"
+			then math.min(out.iconSizes.medium, heading)
+			else out.iconSizes.medium
 	end
+	--[[ …and the stroke is a proportion of the mark it draws, not a spacing step.
+		`space.xs` was 4 px, which on a 44 px triangle was a line and on a 20 px one
+		is very nearly a solid shape. A tenth of the box keeps the drawing reading as
+		a drawing at every rung, floored at the package's own hairline so it can
+		never round away. ]]
 	if type(out.controls.alert.iconStroke) ~= "number" then
-		out.controls.alert.iconStroke = out.space.xs
+		out.controls.alert.iconStroke =
+			math.max(out.strokes.hairline or 1, math.round(out.controls.alert.iconSize / 10))
 	end
 
 	if type(out.controls.alert.maxWidth) ~= "number" then
@@ -2438,7 +2468,15 @@ function snapshot.resolveNumber(snap: any, value: any): number?
 		local magnitude = snapshot.resolveNumber(snap, string.sub(value, 2))
 		result = if magnitude ~= nil then -magnitude else nil
 	elseif snapshot.isSpaceStep(value) then
-		result = (snap.space :: any)[value]
+		--[[ TYPE-GUARDED, because `isSpaceStep` is a fact about the NAME and this is
+			a read of the SNAPSHOT (RED-TEAM F2). `forDisplay`'s own header records
+			that a `themeMetrics` fact is whatever an adapter or a fixture pushed —
+			a hand-built table, `{}` included — and a broken fact must never leak
+			past the seam that read it. A partial snapshot indexed `nil.m` here and
+			raised inside whatever memo happened to be asking, which quarantines the
+			caller rather than degrading it. Nil is the honest answer: every caller
+			already handles an unresolvable name. ]]
+		result = if type(snap.space) == "table" then (snap.space :: any)[value] else nil
 	else
 		result = lookupPath(snap, value)
 	end
@@ -2450,6 +2488,36 @@ function snapshot.resolveNumber(snap: any, value: any): number?
 	-- token lookup makes the same fallback).
 	if result == nil and value == "radii.selection" then
 		result = lookupPath(snap, "radii.control")
+	end
+	--[[ ...and `radii.selection:<container>` is the same shape one clause wider:
+		the highlight's radius INSIDE a named container (owner report 2026-09-12).
+		The three clauses and the reasons for them live beside the painter's own
+		copy in `src/tokens/styling.luau` (`resolveRadius`), which this mirrors —
+		one decision resolved twice because measurement and paint read the snapshot
+		independently, exactly as the `radii.selection` fallback above already is. ]]
+	if result == nil then
+		local container = string.match(value, "^radii%.selection:([%w_%-]+)$")
+		-- ...AND THE CONTAINER HAS TO EXIST FIRST (review D5, the same fix as the
+		-- painter's copy). The authored-`radii.selection` shortcut below answered
+		-- before the name was checked, so a package authoring a square highlight
+		-- made EVERY spelling resolvable — `selection:totally_made_up` included —
+		-- and a typo took the authored highlight instead of being refused. `pill`
+		-- is named because its clause answers by the pill RULE rather than by
+		-- arithmetic, but it is a published radius either way.
+		if container ~= nil and (container == "pill" or type(lookupPath(snap, `radii.{container}`)) == "number") then
+			local authored = lookupPath(snap, "radii.selection")
+			if type(authored) == "number" then
+				result = authored
+			elseif container == "pill" then
+				result = lookupPath(snap, "radii.pill")
+			else
+				local base = lookupPath(snap, `radii.{container}`)
+				local inset = lookupPath(snap, "space.xs")
+				if type(base) == "number" then
+					result = math.max(0, base - (if type(inset) == "number" then inset else 0))
+				end
+			end
+		end
 	end
 	memo[value] = if result == nil then false else result
 	return result

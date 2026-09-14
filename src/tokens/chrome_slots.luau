@@ -718,6 +718,78 @@ end
 ---
 --- An unbounded extent affords everything: a node free to grow pays its chrome
 --- and grows by it, which is the overwhelmingly common path and must not move.
+--[[ bleedLane(metrics, slot, axis, spent?) -> the clearance a scroller still owes
+	its content's chrome, AFTER whatever its own carved frame already gives
+	(2026-09-13).
+
+	`chromeBleed` is how far the furthest-reaching art in a package paints OUTSIDE
+	the box it belongs to, and an outermost clipper keeps that much padding so a
+	child's glow is not cut by the viewport. A CARVED slot already holds its content
+	that far from its own clip edge — the frame's `contentInsets` are exactly a
+	clearance — so the two are the same reservation asked for twice. Measured: under
+	Fantasy Parchment (bleed 17, `panel` carve 18) an alert card spent 35 px a side
+	of a 390 px phone for 18 px of clearance; under Sci-Fi HUD (bleed 24, carve 0)
+	every pixel of the lane is owed and dropping it cut the glow.
+
+	THE LANE LIVES ON THE CROSS AXIS, so that is the side to read. A y-axis
+	scroller keeps it left/right — nothing can be scrolled sideways into view, which
+	is the whole reason the reserve exists there — and an x-axis one keeps it
+	top/bottom. Reading `left` for both was right for the y case and charged an
+	x-axis shelf against a frame on the wrong pair of edges.
+
+	AND CONTENT INSETS ARE NOT SYMMETRIC. The first version of this note claimed
+	they were; they are not, and the packages say so — `compact_pointer`'s `control`
+	is 2/8, `fantasy_ornate`'s 10/14. The caller passes `spent`, the per-side carve
+	its own solve actually KEPT (`render/layout_node.luau` builds it where
+	`spendInset`'s verdict is known).
+
+	WHICH MAKES THE ONE-SIDE READ THE STANDING SIMPLIFICATION, said out loud here
+	rather than left for the next reader to infer. One side, one number, for a whole
+	axis. It is exact on every shipped package because the asymmetry in the corpus
+	is all ACROSS axes and none WITHIN one — Glossy Touch's `control` is 8 top and
+	bottom against 14 left and right, Fantasy Ornate's 10/14, `compact_pointer`'s
+	2/8 — which is precisely why the AXIS is chosen and why either side of it
+	answers the same.
+
+	TWO THINGS WOULD HAVE TO CHANGE THE DAY THAT STOPS BEING TRUE. It would have to
+	answer per SIDE rather than per axis; and each caller would have to ask about
+	the side it is about to spend on — which is not always the side read here, now
+	that the cross-axis padding is floored on the raw reach instead
+	(`render/layout_node.luau`: the padding it floors against already contains the
+	carve). What is left taking this number is the pair of spends that ADD to the
+	padding, the leading edge and the scroll canvas, and those live on the MAIN
+	axis while the netting reads the cross one. Same number on every slot a
+	scroller can wear today; a genuinely per-axis carve under a scroller would make
+	them differ, and this is the function that learns about it.
+
+	With no `spent` the slot's DECLARED inset stands in — the right answer for a
+	caller asking what a slot owes before any box has been solved.
+
+	ONE DERIVATION, ONE PUBLICATION: the lane a solve spends is published beside its
+	padding (`layout/scroll_arrange.luau`) and the scroll CANVAS reads it from there
+	rather than re-deriving (`render/commit_walks.luau`). Two derivations of this
+	number disagreeing by a pixel is a scroller that overflows its own box forever,
+	which is the defect the A4 fix existed to remove — and the nested case is that
+	same defect one level down, where only one of the two readers knew about
+	`insideClipper`. ]]
+function chrome_slots.bleedLane(metrics: any, slot: string?, axis: string?, spent: any?): number
+	local bleed = if type(metrics) == "table" and type(metrics.chromeBleed) == "number" then metrics.chromeBleed else 0
+	if bleed <= 0 then
+		return 0
+	end
+	-- the lane is the CROSS axis: left/right for a y scroller, top/bottom for an x
+	local side = if axis == "x" then "top" else "left"
+	local carved: any = spent
+	if carved == nil then
+		local insets = if type(metrics) == "table" then (metrics :: any).chromeInsets else nil
+		carved = if type(insets) == "table" and slot ~= nil then (insets :: any)[slot] else nil
+	end
+	local kept = if type(carved) == "table" and type((carved :: any)[side]) == "number"
+		then (carved :: any)[side]
+		else 0
+	return math.max(0, bleed - kept)
+end
+
 function chrome_slots.spendInset(extent: number, authored: number, inset: number, minContent: number?): number
 	if extent == math.huge then
 		return inset

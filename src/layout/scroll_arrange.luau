@@ -13,9 +13,9 @@
 	      innerH, gap, pt, pr, pb, pl, out)`
 	      places a `scroll` node's children along its axis, having re-measured
 	      them at the viewport (twice, when the bar reservation narrows it), and
-	      publishes the four facts a scroll host owes the commit: `contentSize`,
-	      the `padding` it actually SPENT, the `barInset` it reserved, and the
-	      resolved `overflow`.
+	      publishes the five facts a scroll host owes the commit: `contentSize`,
+	      the `padding` it actually SPENT, the `bleedLane` it kept, the `barInset`
+	      it reserved, and the resolved `overflow`.
 
 	`scroll_arrange.Deps` is what it needs from the solver: the two recursive
 	passes and four pure readers. It requires `../tokens/chrome_slots` for the
@@ -28,7 +28,7 @@
 	asks the solver to, so the memo-key arming rule stays in the one file that
 	owns it. Everything else it reads off `ctx` is a plain per-solve field
 	(`scrollBarReserve`, `hiddenDepth` is not read here at all), and the only
-	things it writes are `out[node.id]`'s four published facts — the same table
+	things it writes are `out[node.id]`'s five published facts — the same table
 	the caller already wrote. No solver local is captured, no state lives at
 	module level, and nothing here requires the solver back.
 
@@ -89,9 +89,9 @@ function scroll_arrange.arrange(
 	-- in the fixture sat underneath the bar. Reserve the bar's thickness off
 	-- the CROSS axis whenever the content actually overflows — which is exactly
 	-- when the engine shows it. Measuring twice is the cost of not guessing.
-	-- The threshold is stable: reserving makes the cross axis narrower, which
-	-- can only make the scroll axis longer, so a region that overflowed at the
-	-- full width still overflows at the reserved width.
+	-- Wrapped text grows at a narrower width, but aspect-sized media shrinks.
+	-- Geometry feedback therefore retains a gutter already discovered in its
+	-- current solve chain; the next ordinary layout change reconsiders it.
 	local function measureAll(crossLimitW: number, crossLimitH: number)
 		local cw, ch = 0, 0
 		local sizes = {}
@@ -131,7 +131,8 @@ function scroll_arrange.arrange(
 	childSizes, contentW, contentH = measureAll(innerW, innerH)
 	if reserve > 0 then
 		local overflows = if isX then contentW > innerW else contentH > innerH
-		if overflows then
+		local previous = ctx.scrollBarLatches and ctx.scrollBarLatches[node.id]
+		if overflows or previous ~= nil then
 			if isX then
 				innerH = math.max(0, innerH - reserve)
 			else
@@ -209,6 +210,26 @@ function scroll_arrange.arrange(
 		bottom = pb,
 		left = pl + (if isX then leadingSpend else 0),
 	}
+	--[[ ...AND THE CHROME LANE THIS SOLVE ACTUALLY KEPT (R1, 2026-09-13), published
+		for exactly the reason the padding above it is: the scroll CANVAS has to be
+		built from the number this box was measured inside, and a canvas reader that
+		re-derives one from the package's raw `chromeBleed` answers a different
+		question from the one the layout answered.
+
+		The terms it would have to re-derive are not all reachable from where it
+		reads. `render/layout_node.luau` gates the lane on `insideClipper` — only the
+		OUTERMOST clipper keeps one, because an inner viewport is already inset by
+		everything above it — and on the slot's carve, and on whether that carve
+		survived `spendInset`. The canvas reader knew about none of those, so a
+		NESTED scroller reserved nothing and published a canvas one whole lane
+		bigger: measured on `Screen > ScrollView > ScrollView`, +24 under Sci-Fi HUD
+		and +17 under Fantasy Parchment and Glossy Mobile — a scrollbar on content
+		that fits, which is the A4 class arriving one level down.
+
+		`node.leadingBleed` IS that number: stamped by the same block that spends the
+		lane, and absent for every node the gate excluded. Zero when there is none,
+		never nil, so the reader needs no branch. ]]
+	out[node.id].bleedLane = if type(node.leadingBleed) == "number" then node.leadingBleed else 0
 	--[[ ...AND THE BAR GUTTER THIS HOST ACTUALLY SPENT (director report
 		2026-08-14: "the scroll bar always overlaps content", and its follow-up
 		"it should apply to both horizontal and vertical ones").

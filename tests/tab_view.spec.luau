@@ -269,7 +269,9 @@ describe("D5: the strip IS a segmented picker, not a second option row", functio
 				{ id = "feed", label = "Feed", badge = "12", content = body("feed") },
 			},
 		})
-		local badge = stripPath(w) .. "/Indicator/Options/Opt2Cell/Opt2/HStack#1/Badge"
+		-- the count is a node INSIDE the seal (2026-09-12), so the seal and the
+		-- number it holds are two rects — see tests/badge_centering.spec.luau
+		local badge = stripPath(w) .. "/Indicator/Options/Opt2Cell/Opt2/HStack#1/Badge/Count"
 		expect(w.adapter.node(badge).props.text).toBe("12")
 		for _ = 1, 6 do
 			w.selection:set("feed")

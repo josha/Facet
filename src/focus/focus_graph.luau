@@ -953,7 +953,7 @@ function focus_graph.new(core: any)
 		end
 		return {
 			beam = math.min(oy + oh, y + h) > math.max(oy, y),
-			score = forward + 2 * math.abs(y + h / 2 - oy - oh / 2),
+			score = forward + 2 * math.max(0, y - oy - oh, oy - y - h),
 		}
 	end
 	local function better(a, b)

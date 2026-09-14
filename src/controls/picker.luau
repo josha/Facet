@@ -181,6 +181,7 @@ local controlContract = require("../class_contract")
 local contribution = require("../input/contribution")
 local selectionIndicator = require("./selection_indicator")
 local specGuard = require("../spec_guard")
+local styling = require("../tokens/styling")
 local surfaceEnv = require("../env/surface_env")
 
 local selectionModel = require("../selection_model")
@@ -452,6 +453,13 @@ local PICKER_KEYS = specGuard.keySet({
 	-- segmented plate, no carved inset, no disclose plate — the band's own
 	-- ladder owns all three
 	"track",
+	--[[ ...and when the band owns the plate, the band also owns the SHAPE the
+		selected fill has to match (owner report 2026-09-12). A corner token name
+		(or a Readable of one) naming what the strip around this picker actually
+		wears; `selection_indicator.fillCornerFor` derives the fill's silhouette
+		from it. Only a `track = false` caller has anything to say here — a tracked
+		picker draws its own plate and this control already knows its corner. ]]
+	"stripCorner",
 })
 
 -- read a Readable-or-plain value, subscribing when a `use` is in hand. BOTH
@@ -788,6 +796,8 @@ local function buildLive(Facet, core, spec, requested: string)
 			axis = axis,
 			env = spec.env,
 			width = groupWidth,
+			-- the container the fill has to match; see the other build site below
+			trackCorner = if (spec :: any).track == false then (spec :: any).stripCorner else SEGMENT_RADIUS,
 		}))
 		group = indicatorApi.blueprint
 	end
@@ -1494,6 +1504,12 @@ local function buildStrip(Facet: any, core: any, spec: Spec, requested: string)
 				own ends keep `radii.control`. The per-segment silhouettes above are
 				still the SEGMENTS' (`optionCorners`); the bar no longer borrows them. ]]
 			segmentCorners = nil,
+			--[[ THE CONTAINER THE FILL HAS TO MATCH (owner report 2026-09-12,
+				controller ruling). A tracked strip's container is the `Track` plate
+				below and its corner is `SEGMENT_RADIUS`; an untracked one's is the
+				band its caller drew, which is the only thing `stripCorner` is for.
+				`selection_indicator.fillCornerFor` carries the three clauses. ]]
+			trackCorner = if (spec :: any).track == false then (spec :: any).stripCorner else SEGMENT_RADIUS,
 			--[[ THE TRACK (visual review 2026-09-11). A segmented control is ONE
 				plated track holding equal segments with the selected one raised; the
 				bar alone left every unselected segment as bare text floating beside
@@ -1998,6 +2014,68 @@ function picker.build(Facet: any, core: any, spec: Spec)
 	assert(spec.axis == nil or AXES[readValue(spec.axis)], "Picker: axis must be x | y")
 	assert(spec.sizing == nil or SIZINGS[readValue(spec.sizing)], "Picker: sizing must be fill | hug")
 	assert(spec.iconOnly == nil or type(spec.iconOnly) == "boolean", "Picker: iconOnly must be boolean")
+	--[[ `stripCorner` IS REFUSED RATHER THAN IGNORED, both ways (review round 2).
+		It was the one key in this spec with no assert, and it is spent by exactly
+		one branch, so a wrong value or a wrong combination resolved to nothing
+		three layers down with no word to the author.
+
+		THE VALUE is a CONTAINER NAME, the vocabulary `selection:<container>` takes
+		(`src/tokens/styling.luau`): a radius token the base style publishes, which
+		is what the fill resolver can look up. A colon-namespaced radius is
+		deliberately not one — the token's own grammar excludes it.
+
+		THE COMBINATION: a TRACKED strip draws its own plate, at `SEGMENT_RADIUS`,
+		so the container is already known and a caller naming a different one is
+		stating a contradiction rather than adding information. Only `track = false`
+		— a strip inside a band its caller drew — has a container to declare. The
+		message says which of the two to drop, because either could be the mistake. ]]
+	if spec.stripCorner ~= nil then
+		--[[ A READABLE THAT CURRENTLY READS `nil` IS LEGAL and means "no container
+			right now": `TabView` hands one in whose value is the band's capsule in
+			the band form and nothing in the rail form, because a rail row is not
+			concentric with the rail. Only a value that is present and is not a
+			container name is an authoring mistake. ]]
+		local declared = readValue(spec.stripCorner)
+		--[[ AGAINST THE RADII THE FILL WILL ACTUALLY RESOLVE THROUGH (task 7 item
+			11). The vocabulary is derived from the BASE style, which is right for
+			every caller under Facet Neutral and wrong for a package that authors a
+			radius of its own: `radii.selection:chip` resolves perfectly well under
+			one, and this check refused the name before it could get there. So the
+			live metrics are read when a surface env is in hand — a package may ADD
+			to the vocabulary, never narrow it — and when none is, the message says
+			as much rather than pretending the base set is the whole world. ]]
+		local liveRadii: any = nil
+		do
+			local themeEnv: any = spec.env or surfaceEnv.find(core)
+			if type(themeEnv) == "table" and type(themeEnv.get) == "function" then
+				local metrics: any = themeEnv:get("themeMetrics")
+				local snap: any = if type(metrics) == "table" and type(metrics.get) == "function"
+					then metrics:get()
+					else nil
+				liveRadii = if type(snap) == "table" and type(snap.radii) == "table" then snap.radii else nil
+			end
+		end
+		if declared ~= nil and not styling.isSelectionContainer(declared, liveRadii) then
+			local source = if liveRadii ~= nil
+				then ""
+				else " No theme is in hand at this call, so that vocabulary is the BASE style's: "
+					.. "a radius a package adds of its own can be named from a themed surface."
+			error(
+				`Facet newPicker('{id}'): stripCorner must name a container radius `
+					.. `({styling.selectionContainerList(liveRadii)}) — the vocabulary the selected fill resolves `
+					.. `through \`radii.selection:<container>\`. Got '{tostring(declared)}'.{source}`,
+				0
+			)
+		end
+		if (spec :: any).track ~= false then
+			error(
+				`Facet newPicker('{id}'): stripCorner names the plate AROUND this strip, and a tracked `
+					.. `strip draws its own plate. Either pass \`track = false\` (the band owns the plate) `
+					.. `or drop \`stripCorner\` (this picker's own track is the container).`,
+				0
+			)
+		end
+	end
 	assert(
 		spec.query == nil
 			or (type(spec.query) == "table" and spec.query.kind == "signal" and type(spec.query:get()) == "string"),

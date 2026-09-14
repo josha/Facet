@@ -122,8 +122,17 @@ end
 	background is already opaque (a surface) or already invisible (a class default),
 	and multiplying either is respectively a no-op or a defect that REVEALS hidden
 	plates. `tests/preferred_transparency.spec.luau` re-derives that set from a
-	built sheet and asserts it equals this declaration, so a second translucent
+	built sheet and asserts this declaration against it, so a translucent
 	background cannot appear on either side without a decision.
+
+	THE SECOND TRANSLUCENT BACKGROUND IS DELIBERATELY NOT HERE (2026-09-12). The
+	`Divider` rule washes the theme's hairline colour with `hairlineOpacity`, the
+	same number every `UIStroke` in this sheet spends — a divider is a BORDER that
+	the engine gives no standalone stroke for, so Facet draws it as a Frame. The
+	preference's own refusal list already excludes strokes ("a border is not a
+	background"), and this is that refusal's second instance rather than a new
+	call: `base x preference` would drive the seam to 0 and paint a solid bar of
+	the raw hairline colour, which in Facet Neutral is pure white.
 
 	NO BASE HERE, DELIBERATELY. The number the preference composes against is the
 	AUTHORED value of the sheet that is actually linked, which after a theme swap is
@@ -882,10 +891,17 @@ function sheet_model.build(opts: BuildOpts): Model
 			selector = "TextBox",
 			props = { TextColor3 = "$Content", PlaceholderColor3 = "$ContentSecondary", FontFace = BUILDER_SANS },
 		},
+		--[[ A HAIRLINE IS A HAIRLINE WHEREVER IT IS DRAWN (owner report 2026-09-12).
+			This rule spent `$Hairline` at FULL opacity while every stroke in the
+			sheet spends the same token at `hairlineOpacity` — and Facet Neutral's
+			hairline is `rgb(255, 255, 255)`, whose own comment in `default_style`
+			says "used at 8% opacity". So a segmented picker's seam painted a pure
+			white bar louder than the labels beside it. One number, authored by the
+			theme, decides both. ]]
 		{
 			name = "Divider",
 			selector = ".facet-divider",
-			props = { BackgroundColor3 = "$Hairline", BackgroundTransparency = num(0) },
+			props = { BackgroundColor3 = "$Hairline", BackgroundTransparency = num(numbers.HairlineTransparency) },
 		},
 		{ name = "Secondary text", selector = ".facet-role-secondary", props = { TextColor3 = "$ContentSecondary" } },
 		{ name = "Strong text", selector = ".facet-role-strong", props = { TextColor3 = "$ContentStrong" } },
@@ -2167,10 +2183,11 @@ function sheet_model.buildPackage(package: any, opts: BuildPackageOpts?): Model
 	})
 
 	-- roles
+	-- the same one-opacity rule the base seed carries, and for the same reason
 	emit("roles", {
 		name = "Divider",
 		selector = ".facet-divider",
-		props = { BackgroundColor3 = "$Hairline", BackgroundTransparency = num(0) },
+		props = { BackgroundColor3 = "$Hairline", BackgroundTransparency = hairlineT },
 	})
 	emit(
 		"roles",

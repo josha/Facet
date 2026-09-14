@@ -45,7 +45,7 @@ end
 
 local function panelRow(card: string, level: number, itemId: string): string
 	local surface = if level == 0 then `Menu-{card}` else `Menu-{card}-L{level}`
-	return `/{surface}/Layer/Surface/Panel/Item:{itemId}`
+	return `/{surface}/Layer/Surface/Popup/Panel/Item:{itemId}`
 end
 local function sheetRow(card: string, itemId: string): string
 	return `/Menu-{card}/Layer/Panel/Item:{itemId}`
@@ -364,7 +364,13 @@ describe("scenario 'menu': both idioms, from one control, on one machine", funct
 		expect(w.adapter.node(panelRow("Tap", 1, "clothing")) ~= nil).toBe(true)
 		expect(w.adapter.node(sheetRow("Tap", "clothing"))).toBeNil()
 		w.built.steps.close(w.built)
-		w.settle()
+		-- the panel now dips out on a real (if brief) exit transition, so its
+		-- level-1 surface survives past `close()` until the coordinator's retire
+		-- completes; settle PAST the 500ms hard exit cap (alert.spec's own
+		-- `40` margin) rather than racing this transition's own duration, or the
+		-- next assertion (line below, and the sheet-idiom one after it) catches
+		-- the level-1 panel mid-exit and misreads it as still open
+		w.settle(40)
 
 		w.built.steps.idiom(w.built, "sheet")
 		w.built.steps.open(w.built, "Tap")

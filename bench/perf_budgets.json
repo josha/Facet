@@ -58,12 +58,12 @@
       "frameBudgetMs": 33.333333333333336,
       "frameTargetHz": 30,
       "hint": "scene 'alert-present-dismiss' (UI-LIFE-002) exceeded its headless trend budget — profile the reactive/layout path it exercises; re-baseline with 'lune run tools/lune/perf_baseline_scene alert-present-dismiss' ONLY if the cost is intended",
-      "observed_p95_max_ms": 1.0429166723042727,
-      "observed_p95_min_ms": 0.8088333415798843,
-      "observed_p95_ms": 1.0429166723042727,
+      "observed_p95_max_ms": 1.111916732043028,
+      "observed_p95_min_ms": 0.9603750659152864,
+      "observed_p95_ms": 1.111916732043028,
       "requirement": "UI-LIFE-002",
       "scopedBaseline": true,
-      "total_p95_ms": 4.171666689217091
+      "total_p95_ms": 4.4476669281721115
     },
     "animation-interruption": {
       "baselineRepeats": 5,
@@ -113,6 +113,19 @@
       "requirement": "UI-RUNTIME-002",
       "scopedBaseline": true,
       "total_p95_ms": 3.2101667020469904
+    },
+    "control-motion": {
+      "baselineRepeats": 5,
+      "ceilingMs": 8.333333333333334,
+      "frameBudgetMs": 33.333333333333336,
+      "frameTargetHz": 30,
+      "hint": "scene 'control-motion' (UI-PERF-001) exceeded its headless trend budget — profile the reactive/layout path it exercises; re-baseline with 'lune run tools/lune/perf_baseline_scene control-motion' ONLY if the cost is intended",
+      "observed_p95_max_ms": 0.8174167014658451,
+      "observed_p95_min_ms": 0.7285000756382942,
+      "observed_p95_ms": 0.8174167014658451,
+      "requirement": "UI-PERF-001",
+      "scopedBaseline": true,
+      "total_p95_ms": 3.2696668058633804
     },
     "dense-hud": {
       "baselineRepeats": 5,

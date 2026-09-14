@@ -36,10 +36,12 @@ return {
 		-- Readable<number>, so this memo re-derives the window from the actual
 		-- screen every solve — a rotation re-derives in place, no reset.
 		--
-		-- It reads the SAME facts the renderer reads (`viewportRect` and
-		-- `coreSafeInsets`) rather than approximating their sum (lesson: "if you
-		-- must reproduce a framework's arithmetic, reproduce its inputs, not its
-		-- result"). `chrome` reserves the Screen's own 16px top/bottom padding, the
+		-- It reads the SAME facts the renderer reads (`viewportRect`,
+		-- `coreSafeInsets` and — since the host reservation became a fact of its
+		-- own, 2026-09-13 — `appChromeInsets`) rather than approximating their sum
+		-- (lesson: "if you must reproduce a framework's arithmetic, reproduce its
+		-- inputs, not its result"). Dropping the host's band here would give this
+		-- list the showcase's whole chip strip as extra room it does not have. `chrome` reserves the Screen's own 16px top/bottom padding, the
 		-- 8px gap before the list, and a generous budget for the Title row at
 		-- textSize 22 — generous on purpose, because over-reserving only shortens
 		-- the list (which can never overflow), while under-reserving would squeeze
@@ -47,9 +49,15 @@ return {
 		local viewportExtent = scope:own(core:memo(function(use)
 			local vp: any = use(ctx.env:get("viewportRect"))
 			local insets: any = use(ctx.env:get("coreSafeInsets"))
+			local host: any = use(ctx.env:get("appChromeInsets"))
+			local function edge(name: string): number
+				local a = if type(insets) == "table" and type(insets[name]) == "number" then insets[name] else 0
+				local b = if type(host) == "table" and type(host[name]) == "number" then math.max(0, host[name]) else 0
+				return a + b
+			end
 			local h = if type(vp) == "table" and type(vp.h) == "number" then vp.h else 640
-			local top = if type(insets) == "table" and type(insets.top) == "number" then insets.top else 0
-			local bottom = if type(insets) == "table" and type(insets.bottom) == "number" then insets.bottom else 0
+			local top = edge("top")
+			local bottom = edge("bottom")
 			local chrome = 100
 			return math.clamp(math.floor(h - top - bottom - chrome), 72, 600)
 		end))

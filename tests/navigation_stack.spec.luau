@@ -4,6 +4,7 @@ local describe, it, expect = t.describe, t.it, t.expect
 local world = require("./lib/world")
 local Facet = require("../src") :: any
 local UI = Facet.UI
+local transitionsLib = require("../src/render/transitions")
 local function fixture(opts: any?, transition: any?): any
 	local w = world.new(opts)
 	local path = w.core:signal({})
@@ -819,6 +820,48 @@ describe("NavigationStack retained and not-yet-presented pages", function()
 		w.pres.dismiss(w.handle)
 		w.nav.dispose()
 	end)
+	--[[ THE SECOND PAGE WEARS THE SAME AUTHORED TRANSITION AS THE FIRST (final
+		review item 5).
+
+		A pure horizontal stack takes ownership of five keys — `enter`, `exit`,
+		`class`, `exitClass`, `distance` — because both pages travel together and
+		Back has to reverse that travel. It owned them by REBUILDING the spec from
+		those five names, which quietly dropped every other key the author wrote:
+		`stagger` and `plate` (and `fade`, which cannot reach here — an authored
+		`fade = true` disqualifies the stack from the horizontal policy in the
+		first place — and `pivot`, which the schema ACCEPTS beside a slide: it
+		validates the corner NAME and nothing else, `blueprint_schema.luau:712-716`.
+		`pivot` is simply INERT for every form but `materialize`, because
+		`absentFor` is the only reader and it reads the key inside that one branch,
+		`render/transitions.luau:586-589` — which makes it a dropped key nobody
+		would have noticed, not a key that could not have been written).
+
+		The first page did not show it, because `initial` is a `table.clone` of the
+		authored spec and keeps everything. So the stack's transition CHANGED SHAPE
+		on the first push, which is the bug however inert the dropped keys happen
+		to be for a slide today: the control tells the framework two different
+		things about the same authored spec. Asserted where the control hands it
+		over — the `Pages` region's `transition`, read through the same
+		`transitions.resolve` the renderer reads it with. ]]
+	it("a horizontal stack keeps every authored key on the SECOND page, not only the first", function()
+		local authored = { enter = "slide-left", exit = "slide-right", stagger = 0.05, plate = "fades" }
+		local w = fixture({ reducedMotion = true }, authored)
+		local pages = (w.nav.blueprint :: any).children[1]
+		expect(`region: {pages.class}/{pages.id}`).toBe("region: ForEach/Pages")
+		local first = transitionsLib.resolve(pages.props.transition)
+		expect(`first stagger {first.stagger} plate {tostring(first.plate)}`).toBe("first stagger 0.05 plate fades")
+		w.nav.api.push({ id = "step" })
+		w.pres.refresh()
+		local second = transitionsLib.resolve(pages.props.transition)
+		expect(`second stagger {second.stagger}`).toBe(`second stagger {first.stagger}`)
+		expect(`second plate {tostring(second.plate)}`).toBe(`second plate {tostring(first.plate)}`)
+		-- ...and the five keys the policy DOES own still say what the policy says
+		expect(`second exit {second.exit}`).toBe("second exit slide-left")
+		expect(`second class {second.class}/{second.exitClass}`).toBe("second class container/container")
+		w.pres.dismiss(w.handle)
+		w.nav.dispose()
+	end)
+
 	it("navigation before the first presentation appears in place without a guessed slide width", function()
 		local w = world.new({ reducedMotion = false })
 		local function content()

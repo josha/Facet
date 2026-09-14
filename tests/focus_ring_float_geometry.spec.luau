@@ -62,7 +62,10 @@ local fs = require("@lune/fs")
 local adapter_source = require("./lib/adapter_source")
 
 local source = fs.readFile("src/client/screen_target.luau")
-local FN = adapter_source.bodyOf(source, "function adapter.setFocusVisual(")
+-- the focus ring/glow/lift left for `screen_focus_visual.luau` on the source-cap
+-- ledger row's own trigger (2026-09-12); the anchors below follow it
+local focusVisualSrc = fs.readFile("src/client/screen_focus_visual.luau")
+local FN = adapter_source.bodyOf(focusVisualSrc, "local function setFocusVisual(")
 
 local function at(needle: string): number
 	local i = string.find(FN, needle, 1, true)
@@ -83,21 +86,42 @@ describe("screen_target.setFocusVisual: the float ring's geometry (device fix ro
 		expect(#FN > 0).toBe(true)
 	end)
 
-	it("(a) computes the lift scale before the float is sized, not after", function()
+	--[[ (a) SURVIVES THE LIFT LEARNING TO TRAVEL (task 7 item 7). The invariant
+		is unchanged — the float is sized by the LIFT FACTOR, never by the pre-lift
+		rect — but the write moved: `setFocusVisual` now records the unlifted
+		geometry and places the float where the lift currently IS, and
+		`aimFocusScale` travels it to `liftScale` on the lift's own TweenInfo. A
+		destination written on the frame the lift merely starts is a ring hanging
+		5 % outside its control for 0.2 s, which is the defect that moved it. Both
+		halves of the original claim are still pinned, one file over in
+		`tests/focus_lift_travel.spec.luau` for the travel itself. ]]
+	it("(a) computes the lift scale before the float is aimed, not after", function()
 		local liftScaleAt = at("local liftScale = if strong and lift then")
-		local floatSizeAt = at("rect.w * liftScale - 2 * thickness")
-		expect(liftScaleAt < floatSizeAt).toBe(true)
+		local geomAt = at("handle.focusFloatGeom = {")
+		local aimAt = at("aimFocusScale(handle, liftScale)")
+		expect(liftScaleAt < geomAt).toBe(true)
+		expect(geomAt < aimAt).toBe(true)
 	end)
 
 	it("(a) the float's Size is the rect scaled by the lift factor on both axes", function()
-		expect(string.find(FN, "rect.w * liftScale - 2 * thickness", 1, true) ~= nil).toBe(true)
-		expect(string.find(FN, "rect.h * liftScale - 2 * thickness", 1, true) ~= nil).toBe(true)
+		-- the rect goes in unlifted...
+		expect(string.find(FN, "handle.focusFloatGeom = { w = rect.w, h = rect.h, t = thickness }", 1, true) ~= nil).toBe(
+			true
+		)
+		-- ...and `liftScale` is the factor it is aimed at, on both axes, in the
+		-- one place the float's Size is now computed
+		expect(string.find(FN, "aimFocusScale(handle, liftScale)", 1, true) ~= nil).toBe(true)
+		local AIM = adapter_source.bodyOf(source, "local function aimFocusScale(")
+		expect(string.find(AIM, "geom.w * target - 2 * geom.t", 1, true) ~= nil).toBe(true)
+		expect(string.find(AIM, "geom.h * target - 2 * geom.t", 1, true) ~= nil).toBe(true)
 	end)
 
 	it("(a) the float's Position stays UNSCALED (the lift anchors top-left)", function()
 		-- the position line reads the plain rect, never `* liftScale` — a scaled
 		-- position would mean the anchor moved, which the lift never does
-		local originAt = at("local ox, oy = presentation.hostOriginOf(handle)")
+		-- the presentation channel arrives as one ctx function since the seam,
+		-- so the call is bare; the ORDER it pins is what this case is about
+		local originAt = at("local ox, oy = hostOriginOf(handle)")
 		local posLineStart = at("f.Position = UDim2.fromOffset(rect.x - ox + thickness")
 		expect(originAt < posLineStart).toBe(true)
 		local posLineEnd = string.find(FN, ")\n", posLineStart, true) or (posLineStart + 120)

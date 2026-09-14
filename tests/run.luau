@@ -617,6 +617,9 @@ require("./error_boundary.spec")
 require("./sorted_entries.spec")
 require("./styling.spec")
 require("./sheet_model.spec")
+-- ...and the one token two subsystems disagreed about: a divider spends the
+-- theme's hairline OPACITY, not just its colour (owner report 2026-09-12)
+require("./divider_hairline.spec")
 require("./native_style_scenario.spec")
 -- the DEFAULT paint path (director ruling 2026-08-21): sheet
 -- paint is what a target with no `nativeStyle` opt takes, the explicit `false`
@@ -687,6 +690,10 @@ require("./row_hit_paint.spec")
 -- ...and the seam one level under it: which decoration slot a node reaches, when
 -- the node DECLARED a surface and its class says something else
 require("./surface_slot_precedence.spec")
+-- ...and what that seam cost the one fixture whose rows were drawing a plate out
+-- of the class map: a list row reads against a plate, in every theme (owner
+-- report 2026-09-12)
+require("./row_plate_paint.spec")
 require("./auto_input_screens.spec")
 -- device round 1 (RascalRally, 2026-07-31): contributions mounted by a keyed
 -- region AFTER present, and the focus-visible rule a finger must obey
@@ -701,6 +708,12 @@ require("./paradigm_input_axis.spec")
 -- advances focus repeatedly after the initial delay, gamepad-only, through
 -- the same navigate/navigateH functions a fresh press uses
 require("./dpad_repeat.spec")
+require("./review_navigation.spec")
+require("./review_native_input.spec")
+require("./review_motion_pixels.spec")
+require("./review_theme_corners.spec")
+require("./review_radial.spec")
+require("./review_cards.spec")
 require("./paradigm_table.spec")
 require("./paradigm_hover.spec")
 require("./paradigm_tenfoot.spec")
@@ -842,6 +855,9 @@ require("./compact_label.spec")
 require("./value_controls.spec")
 require("./rating.spec")
 require("./display_controls.spec")
+-- task 12 (transitions round, spec 2I): the caret's rotation spring, the
+-- content's slide-up entrance, and the presenter-bound sibling glide
+require("./disclosure_group.spec")
 -- parity round 3 D2: the circular progress indicator, both forms — the geometry,
 -- the paint-only contract, the zero off-path cost and the per-theme stroke fit
 require("./progress_circular.spec")
@@ -887,6 +903,10 @@ require("./theme_layer_application.spec")
 -- the float focus ring's geometry (device fix round, director 2026-08-23): the
 -- ten-foot lift ordering and the native-mode phantom-corner fallback
 require("./focus_ring_float_geometry.spec")
+-- ...and what had to follow the ten-foot lift once it TRAVELS (transitions
+-- round fix wave): park's scale reset, the float ring's own tween, the toggle
+-- knob's held tween
+require("./focus_lift_travel.spec")
 -- the activate-handler connection leak on a recycled instance (device fix
 -- round, director 2026-08-23): nested-tabs hit targets shifting after a round
 -- trip through a sibling app tab
@@ -933,6 +953,14 @@ require("./reduced_motion_seam.spec")
 -- model, the coordinator over the presentation channel, and the presenter's own
 -- surface enter/exit — row SF-M6)
 require("./transitions.spec")
+-- ...and the LAW every motion in the 2026-09-12 transitions round has to obey
+-- (spec §3.1/§3.3): a motion frame writes the presentation channel and NEVER runs
+-- the solver. `controller.stats().solves` is the counter that carries it — every
+-- other geometry counter in the framework is diff-gated, so a re-solve that nets
+-- unchanged reads zero on all of them — with rect writes, moved rects, engine
+-- Position/Size pairs and stretched Sizes beside it. And a settled motion
+-- detaches, so sixty idle frames cost no clock step, write or transaction at all
+require("./motion_paint_only.spec")
 -- BACKDROP-BEFORE-CONTENT (framework-gaps-phase2-followups task POP, director
 -- item 10 + mandate b): the structural gate for the pop class newpop.mov
 -- demonstrated — a canvasGroup fade whose OWN direct child paints an opaque
@@ -1160,6 +1188,12 @@ require("./selection_shape.spec")
 -- the highlight shape is a THEME TOKEN (`radii.selection`, 2026-09-12): a custom
 -- package flips the segmented fill and the card row shade with no code change
 require("./selection_radius.spec")
+-- ...and the strip that holds it: a plate and the fill inside it are ONE corner
+-- decision, over a rect, a rounded and a pill theme (owner report 2026-09-12)
+require("./selection_shape_container.spec")
+-- ...and the count seal a badged option wears: its number is concentric with its
+-- plate, skinned or not (owner report 2026-09-12)
+require("./badge_centering.spec")
 require("./picker_sweep.spec")
 -- D2: the freestanding action menu — verbs not values, the shared row recipe,
 -- submenus that nest without a cap, and the five triggers that close the context-menu construct
@@ -1205,6 +1239,9 @@ require("./hit_expander_z_band.spec")
 	control case is that an ORDINARY sub-floor control keeps its whole floor ]]
 require("./hit_floor_region_clamp.spec")
 require("./tab_view.spec")
+-- ...and the boundary between the strip and the page it names: a theme-sized
+-- gap at every placement, not only beside a rail (owner report 2026-09-12)
+require("./tab_strip_gap.spec")
 require("./tab_view_accessories.spec")
 require("./level_picker.spec")
 --[[ `Facet.Controls.<Name>(core, spec)` — every one of the nineteen
@@ -1390,9 +1427,17 @@ require("./bound_enum_seam.spec")
 require("./row_permutation.spec")
 
 require("./radial_menu.spec")
+-- ...and the one thing a held stick must NOT cost the ring: the presenter's
+-- gamepad auto-repeat re-dispatching a direction nobody moved (2026-09-13)
+require("./radial_hold_resolve.spec")
 require("./world_anchor.spec")
 require("./radial_geometry.spec")
 require("./alert.spec")
+-- ...and the reservation an alert is NOT inset by: the host app's own chrome
+-- band, split out of `coreSafeInsets` so a modal centres on the whole screen
+require("./app_chrome_insets.spec")
+require("./screen_focus_visual_seam.spec")
+require("./toast_layer_seam.spec")
 local ok = testkit.run({
 	jsonOut = process.env.FACET_SUITE_JSON,
 	tier = "full",

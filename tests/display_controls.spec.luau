@@ -423,15 +423,23 @@ describe("B-DSP2: DisclosureGroup updates focus correctly", function()
 
 	it("expanding mounts the content; collapsing unmounts it", function()
 		local _, adapter, _, pres, expanded = mountDisclosure(false)
-		expect(adapter.node("/S/Advanced/Content/then/Body/Inner")).toBe(nil)
+		expect(adapter.node("/S/Advanced/Content/then/Fade/Body/Inner")).toBe(nil)
 		adapter.tap("/S/Advanced/Header")
 		pres.refresh()
 		expect(expanded:get()).toBe(true)
-		expect(adapter.node("/S/Advanced/Content/then/Body/Inner") ~= nil).toBe(true)
+		expect(adapter.node("/S/Advanced/Content/then/Fade/Body/Inner") ~= nil).toBe(true)
 		adapter.tap("/S/Advanced/Header")
 		pres.refresh()
 		expect(expanded:get()).toBe(false)
-		expect(adapter.node("/S/Advanced/Content/then/Body/Inner")).toBe(nil)
+		-- the content's `enter = "slide-up"` (task 12) carries a mirrored EXIT
+		-- (structural default `dismiss`, 0.2 s / capped at 0.5 s): collapsing no
+		-- longer unmounts on the SAME frame — it stays mounted, travelling out,
+		-- until that settles. 40 frames (~0.67 s) clears the flat cap.
+		for _ = 1, 40 do
+			pres.tick(1 / 60)
+			pres.refresh()
+		end
+		expect(adapter.node("/S/Advanced/Content/then/Fade/Body/Inner")).toBe(nil)
 	end)
 
 	it("collapsing with focus INSIDE the content moves focus back to the header first", function()

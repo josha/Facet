@@ -396,8 +396,10 @@ function screen_props.new(ctx: Ctx)
 		elseif prop == "gradient" then
 			applyGradient(instance, value, handle)
 		elseif prop == "corners" then
+			handle.authoredCorners = value
 			applyCorners(instance, value, handle)
 		elseif prop == "stroke" then
+			handle.authoredStroke = value
 			applyStroke(instance, value, handle)
 		elseif prop == "tint" then
 			-- THE CONTINUOUS-COLOUR CHANNEL. The renderer applies this LAST at

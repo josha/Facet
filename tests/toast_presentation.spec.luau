@@ -376,4 +376,90 @@ describe("toast presentation: reduced motion keeps the whole information surface
 		pres.presentToast(toastBody("Lap 2"), { position = "bottom" })
 		expect(adapter.node("/__toast__/Items/[1]/Toast").props.transform.y).toBe(24)
 	end)
+
+	--[[ THE PLATE ACKNOWLEDGEMENT, ALL THREE ARMS (final review item 4). The layer
+		wraps the caller's blueprint as the SOLE child of a `canvasGroup` `Toast`
+		node and fades it — the modal/popover shape, whose "backdrop" is the live
+		app a toast never claimed to hide. So the layer declares
+		`transition.plate = "fades"` the way `Controls.Alert` does: merged into a
+		caller's table, never over a caller's own value, and merged at the READ for
+		a Readable (a `table.clone` of a signal is a broken copy, which is the one
+		way this could go wrong silently).
+
+		THE OBSERVABLE IS THE FINDING, not the spec: the coordinator's own
+		`.findings()`, read through the same union-capturing wrap the reference-app
+		sweeps use, with `countsAsBackdropIssue` deciding which are defects. A real
+		toast body is a PLATE — a raised snack bar with a line of text on it — so an
+		unacknowledged layer counts one finding per toast.
+		`tests/reference/foyer_spec.luau` drives the same shape through a whole
+		reference app. ]]
+	local backdropSweep = require("./lib/backdrop_sweep")
+
+	local function snack(text: string)
+		return UI.VStack({
+			id = "Snack",
+			surface = "raised",
+			padding = 10,
+			children = { UI.Text({ id = "Line", text = text }) },
+		})
+	end
+
+	-- (counted findings, acknowledged findings on the toast layer)
+	local function sweepToasts(drive: (any) -> ()): (number, number)
+		local counted, all = backdropSweep.capture(function()
+			local _, _, _, _, pres = world(false)
+			pres.present(baseScreen())
+			drive(pres)
+		end)
+		local acknowledged = 0
+		for _, finding in all do
+			if string.find(finding.path, "/__toast__/", 1, true) ~= nil and finding.via == "acknowledged-plate" then
+				acknowledged += 1
+			end
+		end
+		return #counted, acknowledged
+	end
+
+	it("the DEFAULT transition acknowledges the toast's own plate", function()
+		local counted, acknowledged = sweepToasts(function(pres)
+			pres.presentToast(snack("Lap 2"))
+			pres.tick(FRAME)
+		end)
+		expect(`counted {counted}, acknowledged {acknowledged}`).toBe("counted 0, acknowledged 1")
+	end)
+
+	it("a caller's own table is MERGED into, and a caller's own plate passes through", function()
+		local counted, acknowledged = sweepToasts(function(pres)
+			-- no plate of their own: the layer merges one in
+			pres.presentToast(snack("Lap 2"), { transition = { enter = "fade" }, key = "a" })
+			pres.tick(FRAME)
+		end)
+		expect(`merged: counted {counted}, acknowledged {acknowledged}`).toBe("merged: counted 0, acknowledged 1")
+		-- ...and a caller who already made the claim is passed through untouched
+		local ownCounted, ownAcknowledged = sweepToasts(function(pres)
+			pres.presentToast(snack("Lap 3"), { transition = { enter = "fade", plate = "fades" } })
+			pres.tick(FRAME)
+		end)
+		expect(`own: counted {ownCounted}, acknowledged {ownAcknowledged}`).toBe("own: counted 0, acknowledged 1")
+	end)
+
+	it("a READABLE transition is merged at the read, and still tracks its signal", function()
+		local w = worldLib.new({ viewport = { x = 0, y = 0, w = 390, h = 844 } })
+		local declared = w.core:signal({ enter = "fade" })
+		local counted = backdropSweep.capture(function()
+			w.present(baseScreen())
+			w.pres.presentToast(snack("Lap 2"), { transition = declared, duration = 20, readFloor = 0 })
+			w.pres.tick(FRAME)
+			-- a fade has no travel, so the first toast sits exactly on its rect
+			local first = w.adapter.node("/__toast__/Items/[1]/Toast")
+			expect(`fade travel: {tostring((first :: any).props.transform.y)}`).toBe("fade travel: 0")
+			-- the memo re-reads at the next structural event, which a clone could not
+			declared:set({ enter = "slide-up", distance = 9 })
+			w.pres.presentToast(snack("Lap 3"), { duration = 20, readFloor = 0 })
+			w.pres.refresh()
+			local second = w.adapter.node("/__toast__/Items/[2]/Toast")
+			expect(`slide travel: {tostring((second :: any).props.transform.y)}`).toBe("slide travel: 9")
+		end)
+		expect(`counted {#counted}`).toBe("counted 0")
+	end)
 end)

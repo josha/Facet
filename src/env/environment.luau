@@ -69,6 +69,66 @@ local FACT_DEFAULTS: { [string]: any } = {
 		the presenter's `onGeometry` seam exactly as the showcase already feeds its
 		chip row's bottom edge. ]]
 	appChromeRects = {},
+	--[[ ...AND THE SAME CHROME AS A RESERVATION: HOW MUCH CONTENT MUST CLEAR,
+		where `appChromeRects` says WHERE the chrome is (owner ruling, 2026-09-13).
+
+		THE DEVICE SAFE AREA AND THE HOST'S OWN BAND ARE TWO FACTS, and until this
+		one existed a host had only `coreSafeInsets` to say either. The showcase
+		folded its demo/settings chip row into `coreSafeInsets.top`, so every
+		surface below it was laid out clear of both — correct for CONTENT, and
+		wrong for a MODAL. An alert is not part of the host's page; it takes the
+		screen, over a backdrop that covers the whole window. Folded into one
+		fact, the showcase's alerts centred in the space UNDER the chip row and sat
+		visibly high-shouldered against that backdrop.
+
+		So: `coreSafeInsets` means the PLATFORM's reservation again, and this is
+		the APP's. The content root policies (`coreSafeContent`,
+		`deviceSafeContent`) compose the two — ADDITIVELY, because a host draws its
+		chrome INSIDE the safe area rather than over it — and a modal reserves the
+		device's edges and nothing else (`renderer.attach`'s `reserveAppChrome`,
+		which the presenter sets false for `presentModal`/`presentCritical`).
+		`bandSafeContent` is deliberately not in that list: a surface that means to
+		ride the platform's strip consumes the app's chrome through
+		`platformChrome.rects` per column, which is the whole reason the rects fact
+		exists — a bounding box there would push it off the band it asked for.
+
+		WHY `presentCritical` TAKES THE MODAL'S EXEMPTION although its kind is
+		"screen": its stand-in appears when the host has ALREADY failed, which is
+		the last moment to trust a band that host declared. The presenter passes it
+		as `screenTakesScreen`, internal on purpose — a caller cannot ask for it
+		through `PresentOpts`, because "am I the host's own page" is not a property
+		a screen declares about itself.
+
+		AND THE SAME ANSWER TRAVELS WITH THE SURFACE, because four things need it
+		and they must not disagree. The root policy is one; the other three are
+		anything a surface RAISES that is placed in window space rather than inside
+		the surface's own box:
+
+		  · the presenter's `safeBox(reserveAppChrome)` — the box an anchored
+		    popover, a disclosure plate and a help plate are clamped into. A plate
+		    belongs to the surface it POINTS AT: raised from a content screen it
+		    keeps the host's band (a tooltip hanging over the host's chip row would
+		    cover the control the reader is still looking at); raised from inside a
+		    modal, which owns the whole screen, it does not. The owner's answer
+		    rides on its handle (`handle.reserveAppChrome`) and the placement sites
+		    pass it rather than re-deriving it;
+		  · `bindController(controller, reserveAppChrome)` — the second, additive
+		    argument, for a control that measures its own room instead of asking
+		    `safeBox`: `picker_menu`'s flip room above a trigger and `text_input`'s
+		    keyboard-avoidance room. Absent (a bare mount with no presenter) means
+		    "reserve it", which is what those controls did before the split.
+
+		THE DEVICE SAFE AREA STILL APPLIES TO EVERY ONE OF THEM. A notch is not
+		negotiable for a modal either; this fact is the only thing a modal drops.
+
+		FOUR EDGES, ZERO BY DEFAULT, so it is invisible to every consumer that
+		never sets it: a game whose chrome is all inside its own surfaces declares
+		nothing and every rect it has ever solved is byte-identical. It is the
+		app's DECLARATION, exactly like the rects beside it — this module never
+		measures it, and the declarer is the one surface that knows what it drew.
+		`platformChrome` stays PLATFORM-scoped and does not carry it (its `insets`
+		is "what `deviceSafeContent` applies" for a host that declares no band). ]]
+	appChromeInsets = { top = 0, bottom = 0, left = 0, right = 0 },
 	keyboardOcclusionRect = nil,
 	viewingDistance = "automatic", -- automatic | near | ten-foot; authored viewing context
 	preferredInput = "KeyboardAndMouse", -- Touch | Gamepad | KeyboardAndMouse
@@ -372,7 +432,44 @@ function environment.new(core: any): Env
 			end
 		end
 		if use(derived.effectiveDisplaySize) == "Large" then
-			return { top = 60, bottom = 60, left = 90, right = 90 }
+			--[[ AS A FRACTION OF THE DISPLAY, NOT AS 1080p PIXELS (owner report A2,
+				2026-09-13: "ten-foot profile: padding is huge, content gets almost no
+				screen").
+
+				An overscan is a property of a television's EDGE — the band the panel
+				may not be trusted to show — so it is a proportion of the screen, and
+				the console-profile numbers above are that proportion AT 1080p:
+				60/1080 and 90/1920. Spent as literals they reserved the same absolute
+				band from any viewport, which is 5.6%/4.7% of a television and
+				31%/22% of the 801x392 Studio window the report was taken in — there,
+				the alert's card resolved to 577x73 around 269px of content, and a
+				third of the height it never got was this reserve.
+
+				At 1920x1080 the arithmetic returns exactly 60/60/90/90, so nothing a
+				television or a 1080p capture has ever shown moves by a pixel; the
+				fraction only starts answering differently on a display that is not
+				the reference one. Whole pixels, because a reserve is a rect the root
+				policy insets by and `UDim.Offset` is an int.
+
+				A broken or absent viewport fact falls back to the reference numbers:
+				an over-reserve on a display nobody can measure is the safe direction
+				(the edge may really be cropping), and it is what shipped. ]]
+			local vp = use(signals.viewportRect)
+			local w = if type(vp) == "table"
+					and type(vp.w) == "number"
+					and vp.w == vp.w
+					and vp.w > 0
+				then vp.w
+				else 1920
+			local h = if type(vp) == "table"
+					and type(vp.h) == "number"
+					and vp.h == vp.h
+					and vp.h > 0
+				then vp.h
+				else 1080
+			local top = math.round(h * (60 / 1080))
+			local left = math.round(w * (90 / 1920))
+			return { top = top, bottom = top, left = left, right = left }
 		end
 		return { top = 0, bottom = 0, left = 0, right = 0 }
 	end)

@@ -10,8 +10,9 @@
 -- instead of accepting either shape: a silent inline-params path is how a
 -- library ends up with forty slightly different feels.
 --
--- The four built-ins are the shapes the Sponsor motion spec ratified, renamed
--- game-agnostically:
+-- The first four built-ins are the shapes the Sponsor motion spec ratified,
+-- renamed game-agnostically; `dismiss` joined them in the transitions round
+-- (2026-09-12) as the exit twin of `container`:
 --
 --   | class       | ζ   | response | owns (the shape, not the game meaning)   |
 --   |-------------|-----|----------|------------------------------------------|
@@ -19,6 +20,7 @@
 --   | object      | 1.0 | 0.28 s   | small manipulable things, flights, chips |
 --   | reward      | 0.7 | 0.18 s   | arrival pops, celebration accents        |
 --   | decay       | 1.0 | 0.5 s    | scalar feedback dying out on its own     |
+--   | dismiss     | 1.0 | 0.2 s    | a structural transition's default exit   |
 --
 -- OVERSHOOT IS EARNED: `reward` is the only under-damped class that ships, and
 -- it is non-gestural by definition. Liveliness everywhere else comes from
@@ -26,7 +28,7 @@
 -- a new class that under-damps is a design decision someone has to make on
 -- purpose, in one place, with a name.
 --
--- All four are tunable ±30 % without re-gating, and re-registering a built-in
+-- All five are tunable ±30 % without re-gating, and re-registering a built-in
 -- name is the sanctioned way to tune one: the registry is the only dial.
 
 -- WHO OWNS THE REGISTRY (stated 0.10.0). It is module-level and
@@ -69,6 +71,10 @@ local BUILT_IN: { [string]: Class } = {
 	object = { dampingRatio = 1.0, response = 0.28 },
 	reward = { dampingRatio = 0.7, response = 0.18 },
 	decay = { dampingRatio = 1.0, response = 0.5 },
+	-- the EXIT twin of `container` (transitions round 2026-09-12): closes read
+	-- best ~1.7x faster than opens (transitions.dev's 250/150 ms pairing), and a
+	-- structural exit defaults to it — see render/transitions.luau `exitClass`
+	dismiss = { dampingRatio = 1.0, response = 0.2 },
 }
 
 local registry: { [string]: Class } = {}

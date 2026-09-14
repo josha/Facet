@@ -758,3 +758,210 @@ describe(
 		end)
 	end
 )
+
+--[[ …AND THE SAME FIXED POINT FOR THE OTHER THING ARRANGE ADDS: THE CHROME BLEED
+	(owner report A4, 2026-09-13).
+
+	The canvas a scroll host publishes is `contentSize + padding + lane`, where the
+	lane is `chrome_slots.bleedLane` — the package's `chromeBleed` netted against the
+	slot's own carve —
+	the trailing allowance that makes a last child's shadow reachable
+	(`render/commit_walks.luau`) — while the LEADING edge is spent as real padding
+	by `layout/scroll_arrange.luau`. A hugging scroller measured only the leading
+	one, so its own canvas could never fit inside the box it hugged to: under every
+	package that paints a shadow it overflowed by EXACTLY the bleed and showed a
+	scrollbar forever, on any screen, with any content. Same family as the bar
+	above — a box that cannot reproduce its own measurement. ]]
+describe("a hug ScrollView measures the chrome bleed its own canvas will add", function()
+	local snapshot = require("../src/themes/snapshot")
+
+	local function bleedWorld(packageName: string)
+		local core = Facet.newCore()
+		local env = Facet.newEnvironment(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 390, h = 844 })
+		env:set(
+			"themeMetrics",
+			snapshot.resolve((require)(`../examples/themes/{packageName}`).build(Facet.themes), nil, {})
+		)
+		local system = Facet.newActionSystem(core)
+		local adapter = fake_target.new()
+		local presenter = Facet.newPresenter(core, env, adapter, system)
+		local UI = Facet.UI
+		presenter.present(
+			UI.Screen({
+				id = "S",
+				padding = 0,
+				children = {
+					UI.ScrollView({
+						id = "Card",
+						axis = "y",
+						surface = "raised",
+						padding = "m",
+						width = { type = "fill", weight = 1 },
+						height = { type = "hug" },
+						children = {
+							UI.Button({ id = "A", label = "One" }),
+							UI.Button({ id = "B", label = "Two" }),
+						},
+					}),
+				},
+			}),
+			{}
+		)
+		presenter.refresh()
+		return core, adapter
+	end
+
+	--[[ …AND A NESTED SCROLLER PUBLISHES THE LANE IT ACTUALLY KEPT, WHICH IS NONE
+		(R1, 2026-09-13). The lane is the OUTERMOST clipper's — an inner viewport is
+		already inset by everything above it — so `render/layout_node.luau` gates it
+		on `insideClipper` and an inner scroller reserves nothing. The CANVAS reader
+		re-derived its own number from the package's raw `chromeBleed` and knew
+		nothing of that gate, so the inner host published a canvas one whole lane
+		bigger than the box it was measured in: a scrollbar on content that fits,
+		which is the A4 class one level down. The lane a solve spends is published
+		beside its padding now, and the canvas reads it. ]]
+	--[[ …AND A CARVE THE SOLVER REFUSED LEAVES THE LANE STANDING (R3, 2026-09-13).
+		`chrome_slots.spendInset` gives a slot's whole frame back rather than collapse
+		a box that cannot afford it, and the lane is netted against the carve — so a
+		lane netted against a carve that was then refused leaves NEITHER: measured on
+		a fixed-56 `panel` scroller under Fantasy Ornate, padding 30/0/30/0, no frame
+		and no clearance at all. The lane is decided after the inset block now, from
+		the number it kept. ]]
+	describe("a refused carve hands the lane back", function()
+		local snapshot = require("../src/themes/snapshot")
+		local chrome_slots = require("../src/tokens/chrome_slots")
+
+		local function tightPanel(px: number)
+			local core = Facet.newCore()
+			local env = Facet.newEnvironment(core)
+			env:set("viewportRect", { x = 0, y = 0, w = 390, h = 844 })
+			local metrics =
+				snapshot.resolve((require)("../examples/themes/fantasy_ornate").build(Facet.themes), nil, {})
+			env:set("themeMetrics", metrics)
+			local system = Facet.newActionSystem(core)
+			local adapter = fake_target.new()
+			local presenter = Facet.newPresenter(core, env, adapter, system)
+			local UI = Facet.UI
+			-- the HINT is what makes this a `panel` at all: `classify` answers by
+			-- CLASS first, so a bare ScrollView is a scroll TRACK and carves nothing
+			-- (the same fact `Controls.Alert`'s own card hint exists for)
+			presenter.present(
+				UI.Screen({
+					id = "S",
+					padding = 0,
+					children = {
+						chrome_slots.attachHint(
+							UI.ScrollView({
+								id = "Card",
+								axis = "y",
+								surface = "raised",
+								width = { type = "fixed", px = px },
+								height = { type = "fixed", px = px },
+								children = { UI.Button({ id = "A", label = "One" }) },
+							}),
+							{ slot = "panel" }
+						),
+					},
+				}),
+				{}
+			)
+			presenter.refresh()
+			return metrics, (adapter :: any).node("/S/Card"), (adapter :: any).node("/S/Card/A")
+		end
+
+		it("a panel too small for its own frame still keeps the glow lane", function()
+			local metrics, card, child = tightPanel(56)
+			local carve = metrics.chromeInsets.panel.left
+			local bleed = metrics.chromeBleed
+			-- the frame really was refused: it does not fit twice over in 56px
+			expect(`carve {carve} x2 > box 56: {carve * 2 > 56}`).toBe(`carve {carve} x2 > box 56: true`)
+			local spent = child.rect.x - card.rect.x
+			expect(`refused-carve lane {spent >= bleed}`).toBe("refused-carve lane true")
+			expect(bleed > 0).toBe(true)
+		end)
+
+		it("...and a panel that CAN afford its frame nets the lane against it", function()
+			local metrics, card, child = tightPanel(300)
+			local carve = metrics.chromeInsets.panel.left
+			-- the frame fits, so it IS the clearance and the lane owes nothing on top
+			expect(child.rect.x - card.rect.x).toBe(carve)
+			expect(metrics.chromeBleed <= carve).toBe(true)
+		end)
+	end)
+
+	describe("a NESTED scroller's canvas carries the lane it kept, not the package's reach", function()
+		local snapshot = require("../src/themes/snapshot")
+
+		local function nestedWorld(packageName: string)
+			local core = Facet.newCore()
+			local env = Facet.newEnvironment(core)
+			env:set("viewportRect", { x = 0, y = 0, w = 390, h = 844 })
+			env:set(
+				"themeMetrics",
+				snapshot.resolve((require)(`../examples/themes/{packageName}`).build(Facet.themes), nil, {})
+			)
+			local system = Facet.newActionSystem(core)
+			local adapter = fake_target.new()
+			local presenter = Facet.newPresenter(core, env, adapter, system)
+			local UI = Facet.UI
+			presenter.present(
+				UI.Screen({
+					id = "S",
+					padding = 0,
+					children = {
+						UI.ScrollView({
+							id = "Outer",
+							axis = "y",
+							width = { type = "fill", weight = 1 },
+							height = { type = "fill", weight = 1 },
+							children = {
+								UI.ScrollView({
+									id = "Inner",
+									axis = "y",
+									surface = "raised",
+									padding = "m",
+									width = { type = "fill", weight = 1 },
+									height = { type = "hug" },
+									children = {
+										UI.Button({ id = "A", label = "One" }),
+										UI.Button({ id = "B", label = "Two" }),
+									},
+								}),
+							},
+						}),
+					},
+				}),
+				{}
+			)
+			presenter.refresh()
+			return core, adapter
+		end
+
+		for _, packageName in { "scifi_hud", "fantasy_parchment", "glossy_mobile" } do
+			it(`{packageName}: the inner host's canvas is its own box, to the pixel`, function()
+				local core, adapter = nestedWorld(packageName)
+				local inner = (adapter :: any).node("/S/Outer/Inner")
+				expect(inner ~= nil and inner.scrollRegion ~= nil).toBe(true)
+				local dH = (inner :: any).scrollRegion.contentH - (inner :: any).rect.h
+				expect(`{packageName}: dH {dH}`).toBe(`{packageName}: dH 0`)
+				expect(core:lastError()).toBeNil()
+			end)
+		end
+	end)
+
+	for _, packageName in { "fantasy_parchment", "scifi_hud", "glossy_touch" } do
+		it(`{packageName}: the canvas fits the box the hug landed on`, function()
+			local core, adapter = bleedWorld(packageName)
+			local node = (adapter :: any).node("/S/Card")
+			expect(node ~= nil and node.scrollRegion ~= nil).toBe(true)
+			local region = (node :: any).scrollRegion
+			-- two buttons and a gap cannot need a scrollbar on an 844px phone, and
+			-- the canvas is the number that decides whether one appears
+			expect(`{packageName}: canvas {region.contentH} <= host {(node :: any).rect.h}`).toBe(
+				`{packageName}: canvas {math.min(region.contentH, (node :: any).rect.h)} <= host {(node :: any).rect.h}`
+			)
+			expect(core:lastError()).toBeNil()
+		end)
+	end
+end)

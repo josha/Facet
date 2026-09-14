@@ -71,6 +71,19 @@ export type Spec = {
 	onOpen: (() -> ())?,
 	onClose: (() -> ())?,
 }
+--[[ THE WEDGE'S THREE PAINTED ACCENTS (spec 2G radial), all on one transform.
+	LIFT_SCALE: how far the candidate wedge stands out of the ring. 4% is the
+	smallest step that reads as depth at a glance without breaking the seam a
+	neighbouring wedge shares with it.
+	POP_KICK: the velocity seeded into that SAME spring on commit — an overshoot
+	the `reward` class is already shaped for, so the acknowledgement is a
+	continuation of the lift rather than a second animation competing with it.
+	STAGGER_STEP / STAGGER_CAP: the bloom's rhythm. The radial design forbids a
+	long stagger — the menu is a reflex surface, and a wedge you cannot press yet
+	is a wedge that costs you the race — so the wait is capped at
+	STAGGER_STEP * STAGGER_CAP = 100 ms no matter how many wedges the ring holds. ]]
+local LIFT_SCALE, POP_KICK = 1.04, 4
+local STAGGER_STEP, STAGGER_CAP = 0.02, 5
 local KEYS = guard.keySet({
 	"id",
 	"items",
@@ -310,6 +323,10 @@ function radial.build(Facet: any, core: any, spec: Spec)
 	local capture, focusPaths, pendingFocus = nil, {}, nil
 	local focusRects, axisUpdate = {}, nil
 	local controller, previewPath, detachPreview = nil, nil, nil
+	-- Each live row lends its LIFT spring here so `commit` can kick the one wedge
+	-- the player actually chose. The rows own the springs; this is a lookup, not a
+	-- second owner, and every row clears its entry when its scope goes.
+	local liftByKey: { [string]: any } = {}
 	local followX, followY, followRadius = nil, nil, nil
 	local fixedClearance = nil
 	local callbacksError = nil
@@ -576,13 +593,9 @@ function radial.build(Facet: any, core: any, spec: Spec)
 				s.navigation = s.id == "$navigation"
 				s.labelBox = geometry.labelBounds(s, labelHeight)
 				s.gap = math.max(1, (snapshot.resolveNumber(metrics, "xs") or 4) / 2)
-				if
-					gestureSelection ~= "direction"
-					and (
-						(appearance == "wedges" and s.labelBox.w < target)
-						or (appearance == "buttons" and s.size < target)
-					)
-				then
+				-- The sector owns the hit target; its inset label is allowed to be
+				-- smaller and use the existing compact icon representation.
+				if gestureSelection ~= "direction" and s.size < target then
 					mode = "list"
 				end
 				local contentWidth, contentHeight = s.labelBox.w, s.labelBox.h
@@ -842,6 +855,18 @@ function radial.build(Facet: any, core: any, spec: Spec)
 		capture = nil
 		gesture = false
 		analog = false
+		--[[ THE POP. A velocity kick on the wedge's own lift spring, not a second
+			animation: the wedge is already standing up as the candidate, so seeding
+			velocity into that same spring makes the lift and the pop ONE continuous
+			motion — the choice is acknowledged on the thing the player pushed, and
+			it reads whether the menu then closes, opens a submenu or stays. It
+			precedes the completion policy so the kick is in flight before the close
+			retires the row, and it is a no-op under reduced motion (`setVelocity`
+			refuses to seed a spring that is not animating). ]]
+		local popped = liftByKey[s.key]
+		if popped ~= nil then
+			popped:setVelocity(POP_KICK)
+		end
 		if item.children then
 			transitionOrigin = { x = s.x, y = s.y, angle = s.angle, inner = s.paint.inner, outer = s.paint.outer }
 			local chain = table.clone(s.chain)
@@ -1098,16 +1123,74 @@ function radial.build(Facet: any, core: any, spec: Spec)
 			return rs:own(core:memo(fn))
 		end
 		local progress = if clock then rs:own(clock:spring(0, "object")) else nil
+		--[[ THE LIFT. One spring per wedge, `reward` because it also carries the
+			commit pop (`commit`, above): a candidate raises the target, a commit
+			seeds velocity, and both resolve on the same value so the wedge never
+			animates against itself. It rests at exactly 1, where the renderer drops
+			the scale entirely — an unlifted ring pays nothing. ]]
+		local lift = if clock then rs:own(clock:spring(1, "reward", { eps = 0.00001 })) else nil
+		if lift then
+			liftByKey[s.key] = lift
+			rs:own(function()
+				if liftByKey[s.key] == lift then
+					liftByKey[s.key] = nil
+				end
+			end)
+			local function aimLift(key: any)
+				lift:setTarget(if key == s.key then LIFT_SCALE else 1)
+			end
+			aimLift(candidate:get())
+			rs:own(core:observe(candidate, aimLift))
+		end
+		--[[ THE BLOOM'S TURN. A flat decorative timer holds this wedge at its absent
+			place before its spring is aimed, so the ring opens as a sequence instead
+			of a slab. `from = to = 0` because only the settle EVENT is read: a ramp
+			would write a number nobody observes on every frame of the wait. Under
+			reduced motion there is no rhythm to delete — the wedge is placed
+			instantly and a hold would only postpone that landing by a frame — so
+			the delay collapses to zero and this wedge never waits. ]]
+		local waiting: any = nil
 		if progress then
+			rs:own(function()
+				if waiting then
+					waiting:dispose()
+					waiting = nil
+				end
+			end)
 			rs:own(core:effect(function(use)
-				local active = false
-				for _, v in use(layout).sectors do
+				local active, ordinal = false, 0
+				for i, v in use(layout).sectors do
 					if v.key == s.key then
-						active = true
+						active, ordinal = true, i
 						break
 					end
 				end
-				progress:setTarget(if active then 1 else 0)
+				if not active then
+					-- a wedge that has left the ring cancels its turn: the hold's only
+					-- job was to aim a spring this row no longer wants aimed
+					if waiting then
+						waiting:dispose()
+						waiting = nil
+					end
+					progress:setTarget(0)
+				elseif waiting == nil then
+					local delay = if clock:isReduced() then 0 else math.min(ordinal - 1, STAGGER_CAP) * STAGGER_STEP
+					if delay > 0 and progress:get() < 0.001 and progress:getTarget() == 0 then
+						local hold = clock:timer({ from = 0, to = 0, duration = delay, kind = "decorative" })
+						waiting = hold
+						hold:onSettle(function()
+							if waiting == hold then
+								waiting = nil
+							end
+							-- the hold is spent; drop it rather than leave a dead timer
+							-- owned by a row that may outlive several openings
+							hold:dispose()
+							progress:setTarget(1)
+						end)
+					else
+						progress:setTarget(1)
+					end
+				end
 				if not active and progress:get() < 0.015 then
 					local pending = {}
 					for _, v in retiring:get() do
@@ -1497,7 +1580,11 @@ function radial.build(Facet: any, core: any, spec: Spec)
 				return use(ringDiameter) / 2 + b.y - (b.y + b.h / 2) * (1 - use(contraction)) + use(travel).y
 			end),
 			opacity = opacity,
-			scale = contraction,
+			-- the bloom's contraction and the candidate's lift are the same transform:
+			-- one scale, so a wedge that is still blooming can still stand up
+			scale = rm(function(use)
+				return use(contraction) * (if lift then use(lift) else 1)
+			end),
 			children = { UI.Anchor({ id = "Content", width = UI.fill(), height = UI.fill(), children = painted }) },
 		})
 
@@ -2275,6 +2362,47 @@ function radial.build(Facet: any, core: any, spec: Spec)
 			if not opened:get() or not graph or layout:get().mode == "list" then
 				return false
 			end
+			--[[ AN ANALOG AIM OWNS THE RING, AND A HELD STICK IS NOT A REPEAT.
+
+				The presenter's d-pad/analog auto-repeat glue (`presenter.luau`,
+				DPAD_REPEAT_DELAY_S = 0.4 then DPAD_REPEAT_INTERVAL_S = 0.1)
+				re-dispatches a HELD gamepad direction as a fresh
+				`navigateHorizontal`/`navigateVertical` every repeat interval, so
+				that a held d-pad steps a menu row by row. A list wants that. A ring
+				does not: the stick's ANGLE names the wedge absolutely, the
+				Direction2D binding in `bindActionSystem` below already re-aims from
+				that angle, and a second, INCREMENTAL opinion about "the next wedge
+				along" can only fight it.
+
+				MEASURED (tests/radial_hold_resolve.spec.luau, 2026-09-13). With the
+				stick parked due east and never touched again, the repeats walked
+				focus `:point` -> `:call` -> `:point` -> `:call` — an invisible ring
+				step every repeat interval, leaving the painted candidate on a wedge
+				the stick was not pointing at — and every step cost a full layout
+				solve: 7 solves across 60 otherwise idle frames, one at the 0.4 s
+				delay and one every 0.1 s after it.
+
+				CLAIMED (`true`), NOT DECLINED: declining hands the same repeat to
+				`graph.navigateDirection` instead, which is the identical defect one
+				layer down. Only the ANALOG case is claimed — a discrete d-pad press
+				with the stick centred still steps the ring geometrically below,
+				exactly as before, and so does the FIRST delivery of a stick push
+				(the presenter's context outranks this control's, so it is dispatched
+				before the aim sets `analog`). `analog` is cleared by the stick
+				re-centring (magnitude < 0.25) and by every close/back/root/commit/
+				cancel/dispose path, so it cannot strand the ring — a released stick
+				puts the ring straight back on the geometric branch below.
+
+				THE AIM IS MODAL TO THE RING (ruling, 2026-09-13). This claims EVERY
+				direction while the stick is aiming, not only the ones a wedge lies
+				along — so a held stick can never yank focus out of an open radial and
+				into whatever control happens to sit beside it. That is the same
+				ownership the `best == nil` case below states for the d-pad: while
+				focus is inside an open ring, the ring owns the directional verbs, and
+				Cancel/B is how you leave. ]]
+			if analog then
+				return true
+			end
 			local from = focusRects[graph.focused:get()]
 			if not from then
 				return false
@@ -2297,10 +2425,63 @@ function radial.build(Facet: any, core: any, spec: Spec)
 				end
 			end
 			if best then
-				graph.focusOn(best)
+				--[[ ONE WRITER MOVES FOCUS AND THE HIGHLIGHT TOGETHER.
+
+					This branch used to move focus with a bare `graph.focusOn` and
+					never touch `candidate`, and the presenter does NOT report a move
+					an intercept claimed back through `focusMoved` — so a d-pad or
+					keyboard step left the two disagreeing. Measured 2026-09-13: one
+					`DPadRight` on a fresh compass ring focused `:point` with
+					`candidate` still nil, and a later step sat on `:point` with
+					`candidate` reading `:call`. `candidate` is not decoration — it is
+					what a hold-action release commits (`commit(candidateSector())`)
+					and what the lift/tint paint from, so the pad user could commit a
+					wedge that was never the one lit up.
+
+					`setCandidate` is the analog path's writer and it does both halves
+					in one call, so the two routes into the ring now agree by
+					construction. It declines a disabled/hidden item; `focusRects`'s
+					census above already applies that SAME predicate (the wedge
+					Button's `enabled` IS the item's `eligible`), so a censused path
+					cannot be one it refuses. The fallback is for a focusable that is
+					not a wedge at all — the Launcher. ]]
+				local picked = nil
+				for _, s in layout:get().sectors do
+					if focusPaths[s.key] == best then
+						picked = s
+						break
+					end
+				end
+				if picked then
+					setCandidate(picked)
+				else
+					graph.focusOn(best)
+				end
 				return true
 			end
-			return false
+			--[[ NOTHING LIES THAT WAY, SO THE RING HOLDS — IT DOES NOT FALL THROUGH.
+
+				This `return false` used to hand the direction to the presenter's
+				`graph.navigateDirection`, which walks the focus RING in declaration
+				order and therefore WRAPS. That wrap is what made a held direction
+				unstable, and it is the real root of the auto-repeat flip-flop:
+				measured 2026-09-13 on a compass ring, a held `DPadRight` went
+				`:point` -(no wedge to the right, fall through, wrap)-> `:call`
+				-(the search above: `:point` IS to the right of `:call`)-> `:point`,
+				for SEVEN focus changes and eight solves across a 60-tick hold, for
+				a player holding one key.
+
+				Holding makes the repeat provably terminating instead of patching the
+				cadence: every step this intercept takes requires `along > 1`, i.e. a
+				STRICT advance along the pressed direction, so over a finite ring the
+				walk is monotone and must stop. Only the wrap could re-enter a wedge
+				it had already left. A held direction now steps as far as the ring
+				goes that way and then rests — no state, no last-direction memo, and
+				a multi-wedge ring still repeat-steps the whole way across.
+
+				The ring only claims while focus is INSIDE it: `from` is nil for any
+				path this control did not census, and that returns false above. ]]
+			return true
 		end,
 		handleCancel = function()
 			if opened:get() then

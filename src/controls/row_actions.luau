@@ -2857,7 +2857,9 @@ local function buildEngine(Facet: any, core: any, spec: any, hosted: HostedOpts?
 	local editAffordanceView: any = if hasEditAffordance
 		then rowActionsRoot.buildEditAffordance({
 			UI = UI,
-			editAffordanceShown = editAffordanceShown,
+			editAffordanceShown = scope:own(core:memo(function(use)
+				return use(editAffordanceShown) and not use(committingSig)
+			end)),
 			destructiveEntry = firstDestructiveEntry(),
 		})
 		else nil

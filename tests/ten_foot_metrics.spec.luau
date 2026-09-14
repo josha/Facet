@@ -1026,12 +1026,21 @@ describe("ten-foot metrics — interplay: the table's collapse at distance", fun
 			columns IN ORDER and never the first one, exactly as it does at near — the
 			collapse rule reads declared floors and priorities, which this wave does
 			not move, so the paradigm is unchanged and only the box it runs in grew. ]]
+		--[[ 420 px of console glass USED to lose two columns here, and the second
+			one was the overscan's doing rather than the ladder's: the flat 90 px
+			reserve took 43% of that width (owner report A2 — the reserve is now the
+			console profile's PROPORTION, 20 px at 420). The ladder itself is
+			untouched, which is what the pair below proves: at 420 it removes the
+			lowest-priority column and at 360 the next one, IN ORDER and never the
+			first. ]]
 		local narrow = tableWorld("Large", 420, 1080)
-		expect(narrow.tbl.dump().hiddenColumns).toEqual({ "artist", "rating" })
+		expect(narrow.tbl.dump().hiddenColumns).toEqual({ "rating" })
+		local narrower = tableWorld("Large", 360, 1080)
+		expect(narrower.tbl.dump().hiddenColumns).toEqual({ "artist", "rating" })
 		expect(narrow.tbl.dump().hiddenColumns[1]).never().toBe("name")
 		-- the collapsed columns are HIDDEN, not merely narrow — no dead band
 		expect(narrow.adapter.node("/S/T/Main/Header/Head-rating").rect.w).toBe(0)
-		expect(narrow.adapter.node("/S/T/Main/Header/Head-artist").rect.w).toBe(0)
+		expect(narrower.adapter.node("/S/T/Main/Header/Head-artist").rect.w).toBe(0)
 		-- ...and the disclosure exists, so nothing is unreachable
 		expect(narrow.adapter.node("/S/T/Main/MoreWhen/then/MoreBar/MoreChip")).never().toBeNil()
 	end)
@@ -1797,22 +1806,91 @@ describe("ten-foot metrics — the second door: an authored token", function()
 			pres.refresh()
 			return adapter
 		end
-		-- since the 2026-09-12 shape round the bar authors per-corner `control`
-		-- tokens (8 near, 12 at three metres) rather than a uniform capsule; the
-		-- mechanism this case proves — the token survives to the painter — is
-		-- the same, only the witness's numbers moved
-		for _, case in { { size = "Medium", want = 8 }, { size = "Large", want = 12 } } do
+		--[[ since the 2026-09-12 shape round the bar authors a `control`-derived
+			token (8 near, 12 at three metres) rather than a uniform capsule, and
+			since the container ruling later the same day it authors
+			`selection:control` — the highlight's radius INSIDE the strip's own
+			track, which is the track's radius less the `xs` the fill floats by
+			(`tests/selection_shape_container.spec.luau`). THE MECHANISM THIS CASE
+			PROVES IS UNCHANGED and is exactly why the derivation had to stay a
+			token: an arithmetic result computed where the control is authored would
+			freeze the NEAR numbers below into a strip a ten-foot screen then paints
+			with. Only the witness's numbers moved. ]]
+		-- 8 near / 12 at three metres, each less the `xs` the fill floats by (4 at
+		-- both classes): the PAINTED radius still grows with the display class,
+		-- which is the whole claim
+		local painted: { [string]: number } = {}
+		for _, case in { { size = "Medium", want = 4, authored = 4 }, { size = "Large", want = 8, authored = 6 } } do
 			local adapter = pickerWorld(case.size :: string)
 			local bar = adapter.node("/S/View/Indicator/Layer/Bar")
 			expect(`{case.size}: bar mounted {bar ~= nil}`).toBe(`{case.size}: bar mounted true`)
 			local corners = (bar :: any).props.corners
-			-- the AUTHORING number is the near one at both distances — that is the
-			-- defect's own fingerprint, and it is why the token has to survive
-			expect(`{case.size}: authored {corners.radius}`).toBe(`{case.size}: authored 8`)
-			expect(`{case.size}: token {corners.tokens.radius}`).toBe(`{case.size}: token selection`)
+			--[[ THE AUTHORING NUMBER IS STILL A PLACEHOLDER, and at Large it is
+				still the WRONG one — which is the defect's fingerprint and the
+				reason the token has to survive. It used to be the near number at
+				both distances, because the authoring resolve ran against
+				`default_style`; since review N6 the indicator hands the normalizer
+				the live snapshot it already holds (so a `selection:<container>`
+				for a radius only a PACKAGE publishes is refused by a style that
+				can answer it, rather than by the base vocabulary). That snapshot
+				is not the style the TARGET paints with either — 6 here against a
+				painted 8 — so the mechanism this case proves is unchanged and only
+				the witness's numbers moved. ]]
+			expect(`{case.size}: authored {corners.radius}`).toBe(`{case.size}: authored {case.authored}`)
+			expect(`{case.size}: token {corners.tokens.radius}`).toBe(`{case.size}: token selection:control`)
 			-- …and what the painter writes, through the style the target derives
-			local painted = styling.paintCorners(corners, styleAt(case.size :: string)).radius
-			expect(`{case.size}: painted {painted}`).toBe(`{case.size}: painted {case.want}`)
+			local value = styling.paintCorners(corners, styleAt(case.size :: string)).radius
+			painted[case.size :: string] = value
+			expect(`{case.size}: painted {value}`).toBe(`{case.size}: painted {case.want}`)
 		end
+		-- ...and it really is the DISTANCE that moved it, not two constants
+		expect(painted.Large > painted.Medium).toBe(true)
+		-- ...and the authored number at Large is NOT what reached the screen: the
+		-- claim in one assertion, independent of either number's exact value
+		local largeBar = pickerWorld("Large").node("/S/View/Indicator/Layer/Bar")
+		expect((largeBar :: any).props.corners.radius ~= painted.Large).toBe(true)
+	end)
+end)
+
+--[[ ═══ THE OVERSCAN RESERVE IS A FRACTION OF THE DISPLAY, NOT 1080p PIXELS ═══
+	(owner report A2, 2026-09-13: "ten-foot profile: padding is huge, content gets
+	almost no screen".)
+
+	MEASURED LIVE in the showcase place (Studio, Play, an 801x392 window, viewing
+	distance "ten-foot"): the alert's card resolved to 577x73 around 269 px of
+	content. Two of the three numbers that squeezed it are the platform's and the
+	app's — the 58 px topbar inset and the showcase's own 69 px dock — but the
+	third was this framework's: a flat 60/60/90/90 overscan, which is 5.6%/4.7%
+	of a 1080p television and 31%/22% of that window. An overscan is a property of
+	the DISPLAY'S EDGE — the band a panel may not be trusted to show — so it is a
+	PROPORTION, and the console-profile numbers are that proportion at 1080p.
+	At 1920x1080 the arithmetic is byte-identical to what shipped, which is what
+	keeps the composition case above (and every 1080p capture) unmoved. ]]
+describe("ten-foot overscan — proportional to the viewport it reserves from", function()
+	local function overscanAt(w: number, h: number): any
+		local _, env = bareSurface(w, h, "Large")
+		return env:get("effectiveOverscanInsets"):get()
+	end
+
+	it("is exactly the console profile at 1080p, and the same fraction everywhere else", function()
+		local tv = overscanAt(1920, 1080)
+		expect(`{tv.top}/{tv.bottom}/{tv.left}/{tv.right}`).toBe("60/60/90/90")
+		-- the window the report was taken in: a third of its height was reserved
+		local window = overscanAt(801, 392)
+		expect(`{window.top}/{window.left}`).toBe("22/38")
+		-- ...and it grows with a display that really is bigger
+		local uhd = overscanAt(3840, 2160)
+		expect(`{uhd.top}/{uhd.left}`).toBe("120/180")
+	end)
+
+	it("a near display still reserves nothing, and an authored margin still wins", function()
+		local _, near = bareSurface(801, 392, "Medium")
+		local none = near:get("effectiveOverscanInsets"):get()
+		expect(`{none.top}/{none.left}`).toBe("0/0")
+		local _, env = bareSurface(801, 392, "Large")
+		env:set("overscanInsets", { top = 10, bottom = 10, left = 10, right = 10 })
+		expect(env:get("effectiveOverscanInsets"):get().top).toBe(10)
+		env:set("overscanInsets", "none")
+		expect(env:get("effectiveOverscanInsets"):get().top).toBe(0)
 	end)
 end)

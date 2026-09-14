@@ -157,8 +157,12 @@ export type Anchor = {
 	  presenter        so `present`/`presentModal`/`dismiss` are the ONLY way a
 	                   surface is created — this module never mounts a surface
 	  metricsNow()     the LIVE metric authority, read per use
-	  safeBox()        the presenter's own safe box (viewport less the per-edge
-	                   MAX of the two inset facts). Reused, never re-derived.
+	  safeBox(hostBand?)  the presenter's own safe box (viewport less the per-edge
+	                   MAX of the two inset facts). Reused, never re-derived. The
+	                   argument is the SOURCE surface's own host-chrome answer: a
+	                   popover raised from a control inside a modal is in the
+	                   modal's screen, and the host's band is not the modal's to
+	                   yield to (src/env/environment.luau, `appChromeInsets`).
 	  handleByPath(p)  which presented surface owns a path, so a source path is
 	                   resolved through ITS controller's `screenRectOf`
 	  presentOptsKeys  the presenter's own closed key set, so the anchored opts
@@ -219,6 +223,32 @@ function anchored.new(ctx: any)
 		first and moved second — through the anchor offsets, which are `dirty =
 		arrange` and therefore a re-solve, never a remount. The signals no-op on an
 		unchanged value, so a settled surface costs reads and no writes. ]]
+	--[[ WHOSE ANSWER THIS SURFACE INHERITS: its SOURCE'S.
+
+		An anchored surface is presented as a MODAL whenever `opts.modal` is set —
+		that is how a picker's panel, a Menu and an expanded region all reach the
+		stack — and "modal" is exactly the wrong thing to read the host-chrome
+		question off: a popover over a content page is part of that page, and so is
+		everything raised inside it (a submenu, a plate off a menu item, the keyboard
+		room a field in an expand plate measures). So the source surface's own answer
+		travels with it, both into the box this module clamps into (`safeBox`) and
+		into the surface it presents (`presenter.present`/`presentModal`'s internal
+		third argument). The two must be the same number or the popover would be
+		placed in one box and solved in another.
+
+		`nil` owner — a rect-anchored surface, or a source whose surface has gone —
+		reserves the band, which is the answer every content screen gives and the one
+		this module gave before any of this. ]]
+	local function reservesAppChromeFor(anchor: any): boolean
+		local path = if type(anchor) == "table" and type(anchor.source) == "table" then anchor.source.path else nil
+		local owner = if path ~= nil then handleByPath(path :: string) else nil
+		return owner == nil or owner.reserveAppChrome ~= false
+	end
+
+	local function ownerReservesAppChrome(record: any): boolean
+		return reservesAppChromeFor(record.anchor)
+	end
+
 	local function place(record: any)
 		local sourceRect = sourceRectOf(record)
 		local surfaceRect = record.handle.controller.rectOf(record.surfacePath)
@@ -242,7 +272,7 @@ function anchored.new(ctx: any)
 			the reference platform's menus never sit closer to the edge than the
 			content they came from. Every side but the top, which is the chrome
 			band's and is already reserved in full (see `safeBox`). ]]
-		local safe = safeBox()
+		local safe = safeBox(ownerReservesAppChrome(record))
 		local marginPx = resolveMetric(anchor.margin, 0)
 		if marginPx > 0 then
 			-- a FLOOR on each side's inset, not a second gutter stacked on the
@@ -626,9 +656,10 @@ function anchored.new(ctx: any)
 				controller = controller,
 			}
 		else
+			local inherited = reservesAppChromeFor(anchor)
 			handle = if opts ~= nil and opts.modal == true
-				then presenter.presentModal(screen, passthrough)
-				else presenter.present(screen, passthrough)
+				then presenter.presentModal(screen, passthrough, inherited)
+				else presenter.present(screen, passthrough, inherited)
 		end
 
 		local record = {

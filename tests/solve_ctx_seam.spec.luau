@@ -220,7 +220,7 @@ describe("the solve-context seam: one require, no state, one export", function()
 		-- on the set's size this solve has established, which is what turns the second
 		-- container's probe budget into a comparison instead of a walk.
 		-- 69 -> 70: opt-in nested baseline probes share one solve-local cache.
-		expect(`declared={#sorted(declared)} written={#sorted(written)}`).toBe("declared=70 written=70")
+		expect(`declared={#sorted(declared)} written={#sorted(written)}`).toBe("declared=71 written=71")
 		expect(`never built={table.concat(missing, " ")}`).toBe("never built=")
 		expect(`undeclared={table.concat(undeclared, " ")}`).toBe("undeclared=")
 		-- NEGATIVE CONTROL: both scans really do read a field and a key

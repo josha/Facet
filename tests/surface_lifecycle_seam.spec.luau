@@ -284,17 +284,43 @@ describe("the surface-lifecycle seam: EXPORTED == BOUND, one consumer, one-way r
 		local bound = boundOf(presenter)
 		expect(#missingFrom(exported, bound)).toBe(0) -- an export nobody takes
 		expect(#missingFrom(bound, exported)).toBe(0) -- a binding that would be nil
-		-- "raise" joined 2026-08-23 (registry item 23; W3-D)
-		expect(sorted(exported)).toEqual({ "back", "dismiss", "raise", "refresh", "syncFocusVisuals" })
+		-- "raise" joined 2026-08-23 (registry item 23; W3-D); "flushPendingExit"
+		-- 2026-09-13 (task 7 item 2) — makeHandle's, like `syncFocusVisuals` it is
+		-- bound to a LOCAL rather than onto the presenter, because no consumer
+		-- outside this file has any business running another surface's teardown
+		-- "noteDuplicateSurfaceId"/"surfaceIdNotes" joined 2026-09-13 (review D4):
+		-- the note `makeHandle` makes when two surfaces are LIVE under one id, and
+		-- the read a consumer (or a test) gets it back through. The note is bound
+		-- to a LOCAL like `flushPendingExit`; the READ is bound onto the presenter,
+		-- because a diagnostic nobody outside can ask for is not a diagnostic.
+		expect(sorted(exported)).toEqual({
+			"back",
+			"dismiss",
+			"flushPendingExit",
+			"noteDuplicateSurfaceId",
+			"raise",
+			"refresh",
+			"surfaceIdNotes",
+			"syncFocusVisuals",
+		})
 	end)
 
-	it("four of the five are bound straight onto the presenter under their original names", function()
+	it("the public verbs are bound straight onto the presenter under their original names", function()
 		--[[ THE CLAIM THE MOVE RESTS ON: not one call site changed. `self.dismiss`,
 			`self.back`, `self.raise` and `self.refresh` are public verbs with
 			consumers in RR and in every example, so the binding form is asserted
-			literally rather than inferred from a set. `syncFocusVisuals` is the
-			fifth and is bound to a LOCAL, because the presenter wraps it
-			(`self.syncFocusVisuals()` reads the graph's current focus first). ]]
+			literally rather than inferred from a set. `self.surfaceIdNotes` is the
+			fifth public one (a diagnostic read, added 2026-09-13) and is asserted
+			by the set comparison above rather than here, because it has no call
+			sites to be unchanged for.
+
+			THREE ARE BOUND TO LOCALS, not onto the presenter, because no consumer
+			outside this file has any business calling them: `syncFocusVisuals`
+			(the presenter wraps it — `self.syncFocusVisuals()` reads the graph's
+			current focus first), `flushPendingExit` and `noteDuplicateSurfaceId`
+			(both `makeHandle`'s, either side of building a surface). This case
+			used to be titled "four of the five", which stopped describing the
+			module two exports ago. ]]
 		for _, name in { "dismiss", "back", "refresh", "raise" } do
 			expect(string.find(presenter, `\n\tself.{name} = surfaceLifecycle.{name}\n`) ~= nil).toBe(true)
 			-- ...and the presenter no longer DECLARES it, which is the half a set
@@ -302,7 +328,13 @@ describe("the surface-lifecycle seam: EXPORTED == BOUND, one consumer, one-way r
 			-- down the file would silently win
 			expect(string.find(presenter, `function self.{name}(`, 1, true)).toBe(nil)
 		end
-		expect(string.find(presenter, "local syncFocusVisuals = surfaceLifecycle.syncFocusVisuals", 1, true) ~= nil).toBe(
+		for _, name in { "syncFocusVisuals", "flushPendingExit", "noteDuplicateSurfaceId" } do
+			expect(
+				`{name} bound to a local: {string.find(presenter, `local {name} = surfaceLifecycle.{name}`, 1, true) ~= nil}`
+			).toBe(`{name} bound to a local: true`)
+			expect(string.find(presenter, `self.{name} = surfaceLifecycle.{name}`, 1, true)).toBe(nil)
+		end
+		expect(string.find(presenter, "self.surfaceIdNotes = surfaceLifecycle.surfaceIdNotes", 1, true) ~= nil).toBe(
 			true
 		)
 	end)

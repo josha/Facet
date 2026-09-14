@@ -124,9 +124,9 @@ function card_rail.assertOptions(control: string, options: any, declared: boolea
 	)
 	assert(
 		options.peek == nil or (type(options.peek) == "number" and options.peek >= 0),
-		`{control}.cards.peek must be a number >= 0 px: how much of the NEXT card shows past the edge of a one-up `
-			.. "rail (0 removes the peek). It is not spent when more than one card is in view — there the next card "
-			.. "is already the affordance."
+		`{control}.cards.peek must be a number >= 0 px: how much of the NEXT card shows past the edge of a `
+			.. "rail (0 removes the peek). An authored peek also applies when multiple cards are in view; it "
+			.. "signals that the shelf continues."
 	)
 end
 
@@ -193,10 +193,7 @@ function card_rail.new(ctx: Ctx): Arrangement
 	function self.peek(use: any?): number
 		local perView = self.perView(use)
 		if options.peek ~= nil then
-			-- an authored peek is still not spent above one card per view: there the
-			-- next card is already the affordance, and narrowing every card to make
-			-- room for a sliver of one more buys nothing
-			return if perView > 1 then 0 else options.peek
+			return options.peek
 		end
 		return adaptive.cardPeek(width(use), perView)
 	end

@@ -699,9 +699,15 @@ describe("showcase host: the delivered opts CHANGE the surface (row_actions)", f
 			actionSystem = w.system,
 			presenter = w.presenter,
 		})
-		-- no opts table to deliver any more: the list measures its own box, so the
-		-- host has nothing it could drop
-		expect(built.present).toBeNil()
+		--[[ THE HOSTED LIST NEEDS NOTHING DELIVERED, which is the claim, and it is
+			no longer the same as "there is no opts table". The fixture publishes one
+			again since 2026-09-13 — a `present.onGeometry` that measures the LIST
+			surface's plate band, a different consumer entirely — so this asserts the
+			narrow fact instead: whatever the opts carry, the hosted list's window is
+			its own solved pane. A host that dropped them would still leave this
+			surface exactly where the rest of the case measures it. ]]
+		expect(type(built.present)).toBe("table")
+		expect(built.present.onGeometry ~= nil).toBe(true)
 		built.handle = w.presenter.present(built.screen, built.present)
 		w.presenter.refresh()
 		-- the hosted-list surface is the one the window belongs to

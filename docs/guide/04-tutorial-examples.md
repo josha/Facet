@@ -5,6 +5,13 @@ The library ships seven small example programs under
 stages, so the table below has eight numbered stages. Work through the files in
 order and you will have used every major feature of Facet.
 
+The Showcase also includes **UI Lab → Card rail**
+([source](../../examples/gallery/scenarios/card_rail.luau)). Its three horizontal
+shelves use the same adaptive card layout across displays: one card and a preview
+of the next on mobile, more cards on desktop, and fewer, larger cards for distant
+viewing. Each shelf scrolls independently; Up/Down moves focus between shelves.
+The explicit next-card preview remains visible in the multi-card layouts too.
+
 ## How the examples are structured
 
 Every example file returns the same shape:

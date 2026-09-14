@@ -198,9 +198,20 @@ describe("item 2b: the sliding fill is the INSET ROUNDED RECT, whatever segment 
 		token that follows `radii.control` unless a package authors it) — while
 		the track and its end segments keep their outer-rounded, inner-square
 		shape. The bar no longer borrows the segment's silhouette. ]]
+	--[[ ...and since the container ruling one round later (owner report
+		2026-09-12, `tests/selection_shape_container.spec.luau`) the fill asks the
+		strip it floats in: it spends `selection:control` — the highlight's radius
+		inside the track's own `radii.control` — so an AUTHORED `radii.selection`
+		still wins outright and a package that omits it gets the track's radius
+		less the `xs` inset, which is what two concentric rounded rects are. ]]
 	local function selectionRadius(metrics: any?): number
 		local r = radii(metrics)
-		return if type(r.selection) == "number" then r.selection else r.control
+		if type(r.selection) == "number" then
+			return r.selection
+		end
+		local snap = metrics or snapshot.neutral()
+		local inset = snapshot.resolveNumber(snap, "space.xs") or 0
+		return math.max(0, r.control - inset)
 	end
 
 	it("on an end segment the bar is rounded on all four corners with the selection radius", function()
@@ -223,10 +234,13 @@ describe("item 2b: the sliding fill is the INSET ROUNDED RECT, whatever segment 
 		expect(cornerText(painted(w.adapter.node(BAR)))).toBe(`uniform {selectionRadius()}`)
 	end)
 
-	it("the selection radius follows the control radius until a package authors it", function()
-		expect(selectionRadius()).toBe(radii().control)
+	it("the fill's radius is the track's, inset, until a package authors one outright", function()
+		local neutral = snapshot.neutral()
+		expect(selectionRadius()).toBe(radii().control - (snapshot.resolveNumber(neutral, "space.xs") or 0))
+		-- ...and an AUTHORED `radii.selection` is taken exactly, container or not
 		expect(selectionRadius(packageMetrics("pixel_quest"))).toBe(0)
-		expect(selectionRadius(packageMetrics("glossy_touch"))).toBe(radii(packageMetrics("glossy_touch")).control)
+		expect(selectionRadius(packageMetrics("glossy_touch"))).toBe(radii(packageMetrics("glossy_touch")).selection)
+		expect(radii(packageMetrics("glossy_touch")).selection).toBe(10)
 	end)
 end)
 

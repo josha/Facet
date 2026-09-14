@@ -1,67 +1,7 @@
 --!strict
---[[ Scenario 'card_rail' — THE SIDEWAYS VIRTUALIZER, as a surface you can hold.
-
-	`newVirtualList` gained `axis = "x"` in parity round 2
-	(docs/plans/parity-round2.md §2.3; game-director decision
-	2026-08-12). The standing obligation is that every new public API appears in
-	a gallery scenario the headless suite executes, and this is that scenario for
-	the horizontal axis — 400 cards on ONE row, ~4 mounted, stepped Left/Right by
-	a keyboard or a D-pad and flung sideways by a thumb.
-
-	WHAT A VERTICAL LIST CANNOT SHOW, and therefore what this fixture is FOR:
-
-	  · the scroll axis and the FOCUS axis agree. The list declares its own axis
-	    to the focus graph, so Left/Right (and DPadLeft/DPadRight) step the rail
-	    and Up/Down do nothing at all here — one focus map read one way
-	    (constitution §9), never a second order;
-	  · the canvas is full-WIDTH and the window is read off `CanvasPosition.X`.
-	    `scrollTop` keeps its name and mirrors X (the name predates the field);
-	  · the extents are named for the AXIS, not for "down": `itemExtent` is a
-	    card's WIDTH here and `viewportExtent` is the rail's WIDTH. The
-	    deprecated `rowHeight`/`viewportHeight` aliases would be lying names on
-	    this list, so this fixture uses the canonical pair exclusively — a
-	    vertical caller passing the old names is the case
-	    `scenarios/virtual_list_native.luau` still covers, deliberately;
-	  · and the CARD PARADIGM (ADAPT-17): `itemExtent = "cards"` makes this the
-	    surface where "a swipeable one-up carousel on a phone, a multi-up rail on
-	    a desktop" is a DECLARATION rather than a screen-level branch. Pick this
-	    demo on a phone and one card fills the rail with the next one peeking;
-	    pick it on a desktop and five sit side by side. Nothing in this file
-	    knows which of those is happening.
-
-	NO ROW ACTIONS HERE, AND THAT IS NOT AN OVERSIGHT. `rowActions` is REFUSED at
-	construction on a horizontal list: a tray is opened by a sideways swipe, and
-	on a sideways list a sideways swipe is already how the player scrolls. The
-	fixture that demonstrates trays is `scenarios/row_actions.luau`, on the
-	vertical axis where the two gestures are perpendicular.
-
-	NOTHING HERE IS FIXED AGAINST AN UNFIXED VIEWPORT. `viewportExtent` is a live
-	memo over the real screen — the same shape and the same reasoning as
-	`virtual_list_native.luau`'s live window, which exists because a constant
-	painted a rail past a 320px phone. It reads the facts the renderer reads
-	(`viewportRect`, `coreSafeInsets`) rather than approximating their sum, and
-	over-reserves on purpose: a shorter rail can never overflow, a longer one
-	silently paints off the right edge where no main-axis diagnostic looks.
-
-	TWO HOSTS MOUNT THIS FILE, AND ONLY ONE OF THEM RUNS STEPS.
-
-	  1. THE SCENARIO RUNNER (`scenarios/runner.luau`, selected by the workspace
-	     attribute `Facet_Scenario`): full ctx, `_G.FacetScenario` drives the
-	     steps below by name, and the bootstrap ticks and refreshes every frame.
-	  2. THE SHOWCASE DEMO PICKER (`examples/gallery/client/init.client.luau`,
-	     `mountDemo`, `kind == "fixture"`): the MINIMAL ctx
-	     `{Facet, core, env, actionSystem, presenter}` — no adapter, and NO step
-	     ever runs. A player reaches this rail by picking "Card rail" from the
-	     chip, and everything they can do to it must therefore work with no
-	     scripted help at all.
-
-	Path 2 is why the native-scroll mirror is bound off `presenter.onTick` below
-	rather than from a `bind` step: the showcase's generic auto-bind loop runs
-	only on the tutorial-EXAMPLE branch, so a fixture that waited to be bound
-	would never mirror `CanvasPosition` and keep-visible would never scroll a
-	focused card into view — for the one host where a real thumb is doing the
-	scrolling. (`scenarios/row_actions.luau` learned this the same way.)
-]]
+-- Three horizontal shelves share Facet's adaptive card arrangement: one card
+-- and a peek on mobile, multiple cards on desktop, fewer larger cards at a distance.
+-- The outer page scrolls vertically; each shelf owns horizontal scroll and focus.
 
 local CARD_COUNT = 400
 --[[ A CARD'S WIDTH IS NOT A CONSTANT ANY MORE (ADAPT-17, 2026-08-18). It used to
@@ -103,10 +43,12 @@ local BADGES = { "Rally", "Drift", "Circuit", "Sprint", "Endurance" }
 	row-actions tray reached for its icon-first actions. A fixed-width plate that
 	reflowed instead would push the rail past its own cross-axis box. ]]
 local COPY = {
-	title = "Card rail — 400 cards, one row",
-	hint = "Swipe sideways · Left/Right or D-pad steps · Return or A picks",
+	title = "Card rail — your racing collection",
+	hint = "Browse each shelf sideways · Up/Down changes shelves · A or Return picks",
 	selectedNone = "Selected: none yet — activate a card",
 	selectedPrefix = "Selected: ",
+	weekendTitle = "Weekend races",
+	recommendedTitle = "Recommended for you",
 }
 
 return {
@@ -139,24 +81,26 @@ return {
 			still re-derives the window in place with no reset and no remount, for the
 			same reason it always did — the number is live. ]]
 
-		local rail = Facet.Controls.VirtualList(core, {
-			id = "Rail",
-			-- THE ONE FIELD THIS WHOLE FIXTURE EXISTS FOR
-			axis = "x",
-			rows = rows,
-			key = function(item: any)
-				return item.id
-			end,
-			--[[ THE CARD PARADIGM (ADAPT-17). `"cards"` is the axis-neutral extent
+		local function makeRail(id)
+			return Facet.Controls.VirtualList(core, {
+				id = id,
+				-- THE ONE FIELD THIS WHOLE FIXTURE EXISTS FOR
+				axis = "x",
+				rows = rows,
+				key = function(item: any)
+					return item.id
+				end,
+				--[[ THE CARD PARADIGM (ADAPT-17). `"cards"` is the axis-neutral extent
 				form that answers "how big is one item" with an ARRANGEMENT instead of a
 				number: the rail asks the space it actually got and the live interaction
 				class, resolves one card per view (plus a peek) on a compact touch
 				surface and a multi-up rail everywhere else, and turns `snap` on for
 				the one-up case because a one-card view is a page. Nothing here
 				declares a width, a breakpoint or a device. ]]
-			itemExtent = "cards",
-			viewportExtent = "auto",
-			--[[ ...AND THE CROSS AXIS COMES FROM THE CARD, NOT FROM THE PAGE (§4's
+				itemExtent = "cards",
+				cards = { peek = 40 },
+				viewportExtent = "auto",
+				--[[ ...AND THE CROSS AXIS COMES FROM THE CARD, NOT FROM THE PAGE (§4's
 				other half). This rail used to be given a height this file summed by
 				hand — the plate's padding, two live line boxes, the theme's chrome
 				INSET off the panel slot, its chrome OUTSET, and a slack constant for
@@ -166,44 +110,79 @@ return {
 				already knows about the card it is about to lay out, so `"hug"` asks it
 				instead: the rail is exactly as tall as its card, and the page takes
 				the deficit. ]]
-			crossExtent = "hug",
-			-- a gap is a gap on either axis: here it is the horizontal gutter
-			-- between card slots, and the paradigm above spends it when it decides
-			-- how wide one card is
-			rowGap = CARD_GAP,
-			overscan = 2,
-			selection = "single",
-			cell = function(item: any)
-				return UI.VStack({
-					id = "Card",
-					surface = "raised",
-					padding = CARD_PADDING,
-					gap = CARD_ROW_GAP,
-					width = UI.fill(),
-					height = UI.fill(),
-					children = {
-						-- ONE LINE EACH, DECLARED (§15.3 `policy = "truncate"`; see the
-						-- COPY note above, which is why neither of these strings is in
-						-- that table). Every card in a rail is the same width, so
-						-- a long name has nowhere to grow sideways and its only other
-						-- option is to reflow — and a plate that grows a line taller
-						-- than its neighbours is not a rail. Ellipsis is the contract
-						-- here, exactly as it is for the row-actions tray's labels.
-						UI.Text({ id = "Name", text = item.name, textSize = NAME_SIZE, lineLimit = 1 }),
-						UI.Text({
-							id = "Badge",
-							text = item.badge,
-							textSize = BADGE_SIZE,
-							role = "secondary",
-							lineLimit = 1,
-						}),
-					},
-				})
-			end,
-		})
+				crossExtent = "hug",
+				-- a gap is a gap on either axis: here it is the horizontal gutter
+				-- between card slots, and the paradigm above spends it when it decides
+				-- how wide one card is
+				rowGap = CARD_GAP,
+				overscan = 2,
+				selection = "single",
+				cell = function(item: any)
+					return UI.VStack({
+						id = "Card",
+						surface = "raised",
+						padding = CARD_PADDING,
+						gap = CARD_ROW_GAP,
+						width = UI.fill(),
+						height = { type = "content" },
+						children = {
+							UI.ZStack({
+								id = "Preview",
+								width = UI.fill(),
+								height = { type = "aspect", ratio = 16 / 9 },
+								padding = "m",
+								alignH = "center",
+								alignV = "center",
+								children = {
+									UI.Box({
+										id = "Backdrop",
+										width = UI.fill(),
+										height = UI.fill(),
+										tint = { role = "accent", blend = 0.18 },
+									}),
+									UI.Path({
+										id = "Track",
+										width = UI.fill(),
+										height = UI.fill(),
+										points = Facet.pathShapes.ring({ radius = 0.36 }),
+										thickness = 5,
+										role = "accent",
+									}),
+								},
+							}),
+							-- ONE LINE EACH, DECLARED (§15.3 `policy = "truncate"`; see the
+							-- COPY note above, which is why neither of these strings is in
+							-- that table). Every card in a rail is the same width, so
+							-- a long name has nowhere to grow sideways and its only other
+							-- option is to reflow — and a plate that grows a line taller
+							-- than its neighbours is not a rail. Ellipsis is the contract
+							-- here, exactly as it is for the row-actions tray's labels.
+							UI.Text({ id = "Name", text = item.name, textSize = NAME_SIZE, lineLimit = 1 }),
+							UI.Text({
+								id = "Badge",
+								text = item.badge,
+								textSize = BADGE_SIZE,
+								role = "secondary",
+								lineLimit = 1,
+							}),
+						},
+					})
+				end,
+			})
+		end
+		local rail = makeRail("Rail")
+		local weekendRail = makeRail("WeekendRail")
+		local recommendedRail = makeRail("RecommendedRail")
+		local rails = { rail, weekendRail, recommendedRail }
 
+		local lastSelected = scope:own(core:signal(nil))
+		for _, shelf in rails do
+			scope:own(core:observe(shelf.selectedKey, function()
+				lastSelected:set(shelf.selectedKey:get())
+			end))
+		end
 		local selectedLabel = scope:own(core:memo(function(use)
-			local key = use(rail.selectedKey)
+			local key = use(lastSelected)
 			if key == nil then
 				return COPY.selectedNone
 			end
@@ -260,6 +239,10 @@ return {
 							children = { rail.blueprint },
 						}),
 						UI.Text({ id = "Selected", text = selectedLabel, textSize = 13 }),
+						UI.Text({ id = "WeekendTitle", text = COPY.weekendTitle, textSize = "title" }),
+						weekendRail.blueprint,
+						UI.Text({ id = "RecommendedTitle", text = COPY.recommendedTitle, textSize = "title" }),
+						recommendedRail.blueprint,
 					},
 				}),
 			},
@@ -275,6 +258,7 @@ return {
 			-- so a test asserts against the control's own window rather than
 			-- re-deriving the arithmetic it already publishes
 			rail = rail,
+			rails = rails,
 			cardCount = CARD_COUNT,
 			-- THE CONTROL'S OWN NUMBER, for the same reason `report()` reads
 			-- `viewportExtent` off the list rather than off this file's memo: the
@@ -319,6 +303,7 @@ return {
 				end)
 				return {
 					axis = "x",
+					shelves = #rails,
 					mounted = #keys,
 					total = CARD_COUNT,
 					firstKeys = { keys[1], keys[2], keys[3] },
@@ -346,7 +331,9 @@ return {
 					unbindScroll()
 					unbindScroll = nil
 				end
-				rail.dispose()
+				for _, shelf in rails do
+					shelf.dispose()
+				end
 				scope:dispose()
 			end,
 		}
@@ -361,7 +348,15 @@ return {
 			if rail.scrollPath() == nil then
 				return
 			end
-			unbindScroll = rail.bindNativeScroll(result.handle.controller)
+			local unbinds = {}
+			for _, shelf in rails do
+				table.insert(unbinds, shelf.bindNativeScroll(result.handle.controller))
+			end
+			unbindScroll = function()
+				for _, unbind in unbinds do
+					unbind()
+				end
+			end
 		end)
 
 		return result

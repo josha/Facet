@@ -67,7 +67,18 @@ local function buildAlert(Facet: any, core: any): Fixture
 	})
 	local baseHandle: any = nil
 	local handle: any = nil
+	local lastHandle: any = nil
 	local presents = 0
+	-- represents ONLY the transitions round bug (task-2 review, 2026-09-12):
+	-- `pres.dismiss(handle)` here used to bypass the alert's OWN `dismiss()`,
+	-- so its internal `handle` local (alert.luau's `if handle then return
+	-- handle end`) never cleared while a real exit transition kept the old
+	-- surface's scope alive — `open()` then returned the SAME handle forever,
+	-- `presents` kept counting, and the scene silently measured nothing from
+	-- cycle 2 on. `represents` only counts a cycle whose `open()` handed back
+	-- a DIFFERENT handle than the one before it, so a stuck handle reddens
+	-- `tools/check_perf_scenes.py` instead of quietly halving the number.
+	local represents = 0
 	return {
 		present = function(pres)
 			if baseHandle == nil then
@@ -80,14 +91,23 @@ local function buildAlert(Facet: any, core: any): Fixture
 			handle = alert.present(pres)
 			tickAndRefresh(pres, 1)
 			presents += 1
+			if handle ~= lastHandle then
+				represents += 1
+				lastHandle = handle
+			end
 		end,
 		close = function(pres)
-			pres.dismiss(handle)
+			-- THE ALERT'S OWN `dismiss()`, not a raw `pres.dismiss(handle)`: it
+			-- resets alert.luau's internal `handle` local SYNCHRONOUSLY (the same
+			-- decoupled-flag pattern `buildPicker`'s `picker.api.close()` already
+			-- uses), so the next `open()` re-presents for real instead of waiting
+			-- out the exit transition's up-to-500ms hard cap.
+			alert.dismiss()
 			handle = nil
 			tickAndRefresh(pres, 1)
 		end,
 		proof = function(_pres)
-			return { presents = presents, actions = 3 }
+			return { presents = presents, represents = represents, actions = 3 }
 		end,
 		dispose = function()
 			alert.dispose()

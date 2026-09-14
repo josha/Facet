@@ -1292,6 +1292,240 @@ table.insert(scenes, {
 	end,
 })
 
+-- 2026-09-12 transitions round: the four new Luau-side motions on ONE screen —
+-- a 30-row staggered ForEach re-keyed every 30 iterations, a DisclosureGroup
+-- flipped every 20, a TextInput invalid shake every 15, and a popped Button
+-- tapped every 10, with one scripted clock step and one refresh per iteration.
+--
+-- WHY IT IS ITS OWN SCENE. `dense-motion` prices the motion AUTHORITY (springs
+-- and timelines driven straight off a clock the scene owns); this one prices
+-- what the CONTROLS ask that authority to do on a frame where all four kinds of
+-- motion overlap. Every motion here is booked by the control itself through the
+-- presenter's own clock — the scene never touches a spring — so a control that
+-- starts booking a timeline per frame, or a stagger that stops sharing one
+-- transaction, shows up as cost instead of hiding inside a control spec.
+--
+-- THE CLOCK IS SCRIPTED: `pres.tick(1/60)` steps a fixed dt, so the same
+-- iteration always advances the same beats and the sample measures WORK rather
+-- than wall-clock luck. The proof is the one `dense-motion` keeps — one
+-- transaction per stepped frame, however many values moved — plus a counter per
+-- motion kind, because a shake or a pop that quietly stopped firing would only
+-- make this scene faster.
+table.insert(scenes, {
+	name = "control-motion",
+	requirement = "UI-PERF-001",
+	dataset = "30-row staggered ForEach (enter fade, 0.02s) + DisclosureGroup + TextInput.invalid shake + Button.pop; "
+		.. "1 scripted clock step + 1 refresh per iter, re-key/20 flip/15 pulse/10 pop",
+	samples = 160,
+	warmup = 40,
+	setup = function(profile)
+		local core, _env, _sys, adapter, pres = newStack(profile)
+		local gen = 0
+		local function batch()
+			gen += 1
+			local out = table.create(30)
+			for i = 1, 30 do
+				out[i] = { id = `g{gen}-{i}` }
+			end
+			return out
+		end
+		local items = core:signal(batch())
+		local invalid = core:signal(false)
+		local expanded = core:signal(false)
+		local pops = 0
+		local input = Facet.Controls.TextInput(core, { id = "Name", value = core:signal(""), invalid = invalid })
+		local button = Facet.Controls.Button(core, {
+			id = "Go",
+			label = "Go",
+			pop = true,
+			onActivate = function()
+				pops += 1
+			end,
+		})
+		local group = Facet.Controls.DisclosureGroup(core, {
+			id = "Adv",
+			label = "Advanced",
+			expanded = expanded,
+			content = function()
+				return UI.Text({ id = "Body", text = "body", textSize = 14 })
+			end,
+		})
+		pres.present(UI.Screen({
+			id = "Motion",
+			padding = 6,
+			gap = 4,
+			children = {
+				input.blueprint,
+				button.blueprint,
+				group.blueprint,
+				UI.ForEach({
+					id = "List",
+					items = items,
+					key = function(item)
+						return item.id
+					end,
+					transition = { enter = "fade", stagger = 0.02 },
+					row = function(item)
+						return UI.ZStack({
+							id = "Row",
+							canvasGroup = true,
+							height = { type = "fixed", px = 20 },
+							children = { UI.Text({ id = "T", text = item.id, textSize = 14 }) },
+						})
+					end,
+				}),
+			},
+		}))
+		pres.refresh()
+		return {
+			core = core,
+			adapter = adapter,
+			pres = pres,
+			items = items,
+			batch = batch,
+			invalid = invalid,
+			expanded = expanded,
+			input = input,
+			button = button,
+			group = group,
+			popsRef = function()
+				return pops
+			end,
+			genRef = function()
+				return gen
+			end,
+			n = 0,
+			rekeys = 0,
+			flips = 0,
+			pulses = 0,
+			staggerHeld = 0,
+			-- the FRAMEWORK-ANSWERED halves of the flip and the pulse (below):
+			-- what the tree and the paint say, not what the driving code asked for
+			contentUp = adapter.node("/Motion/Adv/Content/then/Body") ~= nil,
+			flipsSeen = 0,
+			shakesSeen = 0,
+		}
+	end,
+	run = function(state)
+		state.n += 1
+		local t0 = os.clock()
+		if state.n % 30 == 0 then
+			state.items:set(state.batch())
+			state.rekeys += 1
+		end
+		if state.n % 20 == 0 then
+			state.expanded:set(not state.expanded:get())
+			state.flips += 1
+		end
+		if state.n % 15 == 0 then
+			-- the EDGE is what shakes, so this alternates true/false rather than
+			-- re-asserting true (which the control de-duplicates away)
+			state.invalid:set(state.n % 30 ~= 0)
+			state.pulses += 1
+		end
+		if state.n % 10 == 0 then
+			-- the same activate seam a pointer/touch/gamepad press reaches, not
+			-- the handler: the pop kick is booked inside the control's `activate`
+			state.adapter.tap("/Motion/Go")
+		end
+		local mutate = os.clock() - t0
+		-- ONE clock step: every active control motion advances inside one core
+		-- transaction, which is what `motionSteps == motionTransactions` asserts
+		local t1 = os.clock()
+		state.pres.tick(1 / 60)
+		local motion = os.clock() - t1
+		local t2 = os.clock()
+		state.pres.refresh()
+		return { mutate = mutate, motion = motion, commit = os.clock() - t2 }
+	end,
+	-- THE STAGGER WITNESS, and the reason it is in `afterRun` rather than `run`:
+	-- the runner times `run` externally and books `afterRun` as its own `settle`
+	-- phase, so reading the painted alphas costs the budget nothing. Every other
+	-- counter this scene reports is incremented by the code that DROVE the
+	-- mutation, which proves the scene ran but not that the framework answered;
+	-- this one is read back off the adapter. On the re-key frame the first row
+	-- has already begun its enter while the last one is still painted absent —
+	-- exactly the rhythm `tests/transitions.spec.luau` proves per row — so a
+	-- stagger that stopped holding rows (every row entering at once) leaves this
+	-- at zero and reddens `tools/check_perf_scenes.py`.
+	afterRun = function(state)
+		--[[ THE FLIP AND THE PULSE, ANSWERED BY THE FRAMEWORK (final review item 2).
+			`flips` and `pulses` are incremented by the code that SET the signal, so
+			they prove the scene drove its own mutation and nothing more: a
+			DisclosureGroup that stopped building its content, or a shake the control
+			stopped booking, leaves both counters climbing while the frame prices
+			nothing. These two read the answer back instead.
+
+			THE FLIP is the content node's EXISTENCE changing — the disclosure's whole
+			cost is mounting that subtree, so a flip that changes nothing about the
+			tree is not a flip. Measured, this reads 1 over the 200 iterations rather
+			than 10, and the reason is worth stating rather than tuning away: the
+			content RETIRES, and this scene flips every 20 frames while the exit is
+			still in flight, so after the first expand the subtree is continuously
+			mounted (re-entering mid-exit, which is itself the expensive path this
+			frame is meant to price). So the counter's contract is "the framework
+			built the disclosure's content AT ALL" — which is exactly the silent
+			absence that would make this scene faster while `flips` kept climbing.
+
+			THE SHAKE is the painted displacement of the input's ROOT, composed the
+			way the live adapter writes the engine Position (`presentedPosition`
+			less the solved rect — the shake moves paint and never the solver's
+			rect, which is the contract `tests/motion_paint_only.spec.luau` holds).
+			It counts every iteration the field is off its rest line, not only the
+			pulse frames: a shake lasts many frames, and 90 of 200 is the beat this
+			scene is actually paying for. ]]
+		local body = state.adapter.node("/Motion/Adv/Content/then/Body")
+		local up = body ~= nil
+		if up ~= state.contentUp then
+			state.contentUp = up
+			state.flipsSeen += 1
+		end
+		local field = state.adapter.node("/Motion/Name")
+		if
+			field ~= nil
+			and field.rect ~= nil
+			and field.presentedPosition ~= nil
+			and field.presentedPosition.x ~= field.rect.x
+		then
+			state.shakesSeen += 1
+		end
+		if state.n % 30 ~= 0 then
+			return
+		end
+		local g = state.genRef()
+		local first = state.adapter.node(`/Motion/List/[g{g}-1]/Row`)
+		local last = state.adapter.node(`/Motion/List/[g{g}-30]/Row`)
+		if first == nil or last == nil or first.canvasGroupInstance == nil or last.canvasGroupInstance == nil then
+			return
+		end
+		if first.canvasGroupInstance.groupTransparency < last.canvasGroupInstance.groupTransparency then
+			state.staggerHeld += 1
+		end
+	end,
+	extras = function(state)
+		local stats = state.pres.motionClock:stats()
+		return {
+			rekeys = state.rekeys,
+			flips = state.flips,
+			pulses = state.pulses,
+			pops = state.popsRef(),
+			staggerHeld = state.staggerHeld,
+			flipsSeen = state.flipsSeen,
+			shakesSeen = state.shakesSeen,
+			rows = 30,
+			-- the contract this scene shares with dense-motion: one transaction
+			-- per stepped frame, however many control motions moved
+			motionSteps = stats.steps,
+			motionTransactions = stats.transactions,
+		}
+	end,
+	teardown = function(state)
+		state.input.dispose()
+		state.button.dispose()
+		state.group.dispose()
+	end,
+})
+
 table.insert(
 	scenes,
 	themeSwapScene({

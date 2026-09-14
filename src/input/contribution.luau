@@ -101,7 +101,16 @@ export type Bundle = {
 	-- structural sync, so a control that re-attaches stays wired. A control MUST
 	-- still work when the capability is absent (the corrections require a
 	-- fallback), so this is an enhancement seam, not a dependency.
-	bindController: ((controller: any) -> ())?,
+	-- SECOND ARGUMENT (the host-reservation split, 2026-09-13), ADDITIVE exactly
+	-- as bindMotion's and bindFocusGraph's second arguments are: whether the
+	-- surface this contribution was discovered on RESERVES the host app's own
+	-- chrome band (`appChromeInsets`; false for a modal, which takes the screen).
+	-- It is for the control that measures its own window-space room instead of
+	-- asking the presenter's `safeBox` — `picker_menu`'s flip room above a
+	-- trigger, `text_input`'s keyboard-avoidance room. A control written before it
+	-- ignores the parameter and is unchanged; absent (a bare mount with no
+	-- presenter) means "reserve it", which is what those controls always did.
+	bindController: ((controller: any, reserveAppChrome: boolean?) -> ())?,
 	-- bindFocusGraph: hands the control the screen's FOCUS GRAPH, for the one
 	-- case a control has to MOVE focus rather than merely follow it — the data
 	-- under a focused row changed and the control's own policy says the ring

@@ -408,7 +408,10 @@ t.describe("shared adaptive presentation", function()
 				if path:match("/Label$") then
 					label = w.adapter.node(path).rect
 				end
-				if path:match("/Badge$") and w.adapter.node(path).class == "Text" then
+				-- the seal is a ZStack holding a `Count` Text (2026-09-12): this
+				-- case is about the space the SEAL reserves beside the label, so it
+				-- measures the plate and ignores the glyph inside it
+				if path:match("/Badge$") and w.adapter.node(path).class == "ZStack" then
 					badge = w.adapter.node(path).rect
 				end
 			end

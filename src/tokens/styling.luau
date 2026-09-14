@@ -96,6 +96,157 @@ function styling.normalizeShadow(spec: any, style: any?): any
 	})
 end
 
+--[[ THE HIGHLIGHT-SHAPE TOKENS, resolved in ONE place because three seams ask
+	for them — the authoring-time normalizer below, the painter's own re-resolve
+	(`resolvedFrom`), and the snapshot's metric lookup
+	(`src/themes/snapshot.luau`, which cannot require this module).
+
+	`selection` is the highlight's radius: the segmented indicator's sliding fill,
+	a menu card's chosen-row shade and the focus ring on that row. It FOLLOWS
+	`control` unless a package authors it (square art sets 0), so no package's
+	authored metrics or content stamp moves for a token it never wrote (user
+	ruling 2026-09-12).
+
+	`selection:<container>` is the same shape one clause wider: the highlight's
+	radius INSIDE A NAMED CONTAINER (owner report 2026-09-12; controller ruling —
+	the container is the authority on the fill's silhouette). A selected fill
+	floats inside a strip and the strip's own plate is the shape a player sees it
+	against, so a pill strip holding a rounded-rect chip is two silhouettes in one
+	control. `selection` alone cannot answer that: it follows `radii.control`,
+	which is what a picker's own TRACK wears and not what every strip wears — a
+	`TabView`'s adaptable app bar is a `radii.pill` capsule.
+
+	It is a TOKEN and not arithmetic at the call site, for the reason the whole
+	radius vocabulary is tokens: a number computed where the control is authored
+	freezes the NEAR display's radius into a strip a ten-foot screen then paints
+	with (`tests/ten_foot_metrics.spec.luau`). The colon is the namespace
+	`radii["gauge:ring"]` already uses, so a package may author one outright.
+
+	THREE CLAUSES, in this order:
+	  * an AUTHORED `radii.selection` wins over every container. A package may
+	    state its highlight's shape outright and three shipped ones do.
+	  * a PILL container gives a pill, by the pill RULE and not by
+	    `radii.pill - inset`: a package may spell "fully round" as any number past
+	    half the box, and subtracting from a sentinel is arithmetic on nothing.
+	  * otherwise the container's radius LESS one `space.xs` — the inset a
+	    selection indicator floats by — floored at 0. Two concentric rounded
+	    rects, which is what an inset fill inside a plate is. A caller that floats
+	    its fill by some OTHER inset authors `corner` itself. ]]
+--[[ THE CONTAINER NAMES `selection:<container>` ACCEPTS, exported so a control
+	can REFUSE a bad one where the author wrote it rather than resolve it to
+	nothing three layers down. The base set is derived from the base style's own
+	`radii` rather than listed again here, so a radius added to the vocabulary is
+	accepted without a second edit — and the grammar excludes a colon, so a
+	namespaced radius (`radii["gauge:ring"]`) is deliberately not a container
+	name.
+
+	A LIVE STYLE WIDENS IT (task 7 item 11). `radii.selection:chip` RESOLVES
+	perfectly well under a package that authors `radii.chip` — the resolver reads
+	the live table (`src/themes/snapshot.luau`) — and the authoring check refused
+	the name before it could ever get there, so a package could ship a radius no
+	caller was allowed to point at. Both functions below take the live `radii`
+	when the caller has one and answer from the UNION: a package may add to the
+	vocabulary, never narrow it, because the base names are what every control
+	that ships with the framework already spends. Without one they answer exactly
+	as they did, and the caller's message says so. ]]
+local function containerShaped(name: any): boolean
+	return type(name) == "string" and string.match(name, "^[%w_%-]+$") ~= nil
+end
+
+local CONTAINER_NAMES: { [string]: boolean } = {}
+for name in default_style.radii do
+	if containerShaped(name) then
+		CONTAINER_NAMES[name] = true
+	end
+end
+styling.SELECTION_CONTAINERS = table.freeze(table.clone(CONTAINER_NAMES))
+
+function styling.isSelectionContainer(name: any, radii: any?): boolean
+	if not containerShaped(name) then
+		return false
+	end
+	if CONTAINER_NAMES[name] == true then
+		return true
+	end
+	return type(radii) == "table" and type((radii :: any)[name]) == "number"
+end
+
+-- the vocabulary as a message fragment, ordered so an error reads the same way
+-- twice
+local function listOf(set: { [string]: boolean }): string
+	local names: { string } = {}
+	for name in set do
+		table.insert(names, name)
+	end
+	table.sort(names)
+	return table.concat(names, " | ")
+end
+styling.SELECTION_CONTAINER_LIST = listOf(CONTAINER_NAMES)
+
+-- the same fragment for the vocabulary a caller is ACTUALLY validating against,
+-- so a refusal never lists a set the check did not use
+function styling.selectionContainerList(radii: any?): string
+	if type(radii) ~= "table" then
+		return styling.SELECTION_CONTAINER_LIST
+	end
+	local set = table.clone(CONTAINER_NAMES)
+	for name, value in radii :: any do
+		if type(value) == "number" and containerShaped(name) then
+			set[name] = true
+		end
+	end
+	return listOf(set)
+end
+
+local function selectionRadius(style: any, token: string): number?
+	local radii = if type(style) == "table" then (style :: any).radii else nil
+	if type(radii) ~= "table" then
+		return nil
+	end
+	local authored = (radii :: any).selection
+	if token == "selection" then
+		return if type(authored) == "number" then authored else (radii :: any).control
+	end
+	local container = string.match(token, "^selection:([%w_%-]+)$")
+	if container == nil then
+		return nil
+	end
+	--[[ THE CONTAINER HAS TO EXIST BEFORE ANY CLAUSE ANSWERS FOR IT (review D5).
+		The authored-`radii.selection` shortcut below used to answer FIRST, so a
+		package that authors a square highlight made every container spelling
+		resolvable — `selection:totally_made_up` included — and a typo painted the
+		authored highlight forever instead of being refused. The name is checked
+		against the style's own `radii` first; `pill` is named explicitly because
+		its clause below answers by the pill RULE rather than by arithmetic on
+		`radii.pill`, but it is a published radius either way. ]]
+	if container ~= "pill" and type((radii :: any)[container]) ~= "number" then
+		return nil
+	end
+	if type(authored) == "number" then
+		return authored
+	end
+	if container == "pill" then
+		return (radii :: any).pill
+	end
+	local base = (radii :: any)[container]
+	if type(base) ~= "number" then
+		return nil
+	end
+	local space = if type((style :: any).space) == "table" then (style :: any).space.xs else nil
+	return math.max(0, base - (if type(space) == "number" then space else 0))
+end
+
+--[[ A RADIUS TOKEN THIS STYLE CANNOT ANSWER IS REFUSED, ALWAYS (review N6).
+	Task 7 item 11 briefly made a `selection:<container>` token DEFERRABLE here
+	when no style was passed, reasoning that the authoring number is a
+	placeholder the painter re-resolves. It is — but `normalizeCorners`'s no-style
+	form is what the PUBLIC `UI.corners`/`UI.cornersData` call, and `paintResolve`
+	is total (a token the live style cannot answer keeps the authored number
+	silently), so `selection:panle` would have resolved to the plain selection
+	radius and painted that forever, with nothing ever saying a word. The fix
+	belongs at the caller: hand this the style that will actually paint (the
+	live theme snapshot `selection_indicator` already holds), and the refusal is
+	asked of the vocabulary that can answer it. ]]
 local function resolveRadius(value: any, style: any): number
 	if type(value) == "number" then
 		assert(value >= 0, "corner radius must be non-negative")
@@ -103,12 +254,8 @@ local function resolveRadius(value: any, style: any): number
 	end
 	if type(value) == "string" then
 		local resolved = style.radii and style.radii[value]
-		-- `selection` — the highlight shape (segmented indicator fill, menu-row
-		-- shade and its focus ring) — FOLLOWS `control` unless a package authors
-		-- it (square art sets 0), resolved here so no package's authored metrics
-		-- or content stamp moves for a token it never wrote (user ruling 2026-09-12)
-		if resolved == nil and value == "selection" and style.radii then
-			resolved = style.radii.control
+		if resolved == nil then
+			resolved = selectionRadius(style, value)
 		end
 		assert(type(resolved) == "number", `unknown radius token '{value}' (style.radii)`)
 		return resolved
@@ -585,11 +732,11 @@ local function resolvedFrom(style: any, section: string, token: string): number?
 	local group = if type(style) == "table" then (style :: any)[section] else nil
 	local value = if type(group) == "table" then group[token] else nil
 	if type(value) ~= "number" then
-		-- `radii.selection` follows `radii.control` unless the package authors it
-		-- (the highlight-shape token; the same fallback `resolveRadius` and the
-		-- snapshot make, so the near number and the painted one agree)
-		if section == "radii" and token == "selection" and type(group) == "table" then
-			value = (group :: any).control
+		-- the highlight-shape family (`selection`, `selection:<container>`) — the
+		-- SAME resolver `resolveRadius` and the snapshot spend, so the near number
+		-- and the painted one cannot disagree
+		if section == "radii" then
+			value = selectionRadius(style, token)
 		end
 		-- `"focusRing"` is the documented ALIAS onto `extra.focusRingThickness`
 		-- (see the note in `normalizeStroke`), so it resolves here too

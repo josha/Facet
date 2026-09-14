@@ -1,6 +1,6 @@
 # 15. Adaptive layout recipes
 
-Ten small problems that come up once a screen has to work on more than one
+Thirteen small problems that come up once a screen has to work on more than one
 device, each with the Facet answer and a snippet you can paste.
 
 This chapter is a reference, not a lesson. Read
@@ -20,6 +20,9 @@ reach for. Come here when you have a specific problem from the list below.
 | one card per swipe on a phone, a row on a desktop | [§15.8](#158-cards-and-rails-one-card-per-swipe-on-a-phone-a-row-of-them-on-a-desktop) |
 | something should disappear without moving its neighbours | [§15.9](#159-hiding-something-without-moving-everything-else-hidden) |
 | code should run when a node arrives or leaves | [§15.10](#1510-knowing-when-something-arrives-and-leaves-onappear--ondisappear) |
+| swapping text should read as an event, not a snap | [§15.11](#1511-swapping-text-without-a-jump-cut-keyed-uiforeach) |
+| one icon should hand off to another | [§15.12](#1512-icon-swap-a-uiwhen-pair) |
+| a card growing should not shove its neighbours instantly | [§15.13](#1513-growing-a-card-without-its-neighbours-jumping-presenterwithanimation) |
 
 ## 15.1 Deciding who gives way when a row is too tight: `layoutPriority`, `shrinkWeight`
 
@@ -380,6 +383,76 @@ Three details worth knowing, because they are what make the pair safe to rely on
 
 `hidden` and these two are unrelated on purpose. Hiding a node fires nothing —
 it never left. If you want an event, use `UI.When`, which really does remove it.
+
+## 15.11 Swapping text without a jump-cut: keyed `UI.ForEach`
+
+An ordinary reactive `UI.Text` overwrites its string on the frame the signal
+changes — no transition, because nothing structural happened. Wrap the value in
+a one-row `ForEach` keyed by the text itself, and a *different string* becomes a
+different row instead:
+
+```lua
+local rows = scope:own(core:memo(function(use)
+    return { { id = use(status) } }  -- one row; its key IS the text
+end))
+UI.ForEach({
+    items = rows, key = function(r) return r.id end,
+    row = function(r)
+        return UI.ZStack({ canvasGroup = true, children = { UI.Text({ text = r.id }) } })
+    end,
+    transition = { enter = "slide-up", fade = true, distance = 8 },
+})
+```
+
+**In plain terms:** each distinct string mounts and unmounts its own row. The
+old one exits on the mirrored form (`slide-down`, since only `enter` is
+declared), the new one rises 8px into place, and both fade — a status line
+reads as an event instead of a snap. `fade = true` needs a fade group, so the
+row's own top node is a `canvasGroup`, the same requirement §15.12's icons meet
+— a bare `UI.Text` refuses `canvasGroup` and a fading transition on one throws
+the moment the row mounts.
+
+## 15.12 Icon swap: a `UI.When` pair
+
+Two `UI.When` branches on the same boolean, each fading in, briefly overlap
+while retiring — the round's one sanctioned *extra instance*:
+
+```lua
+local function icon(image)
+    return UI.ZStack({ canvasGroup = true, children = { UI.Image({ image = image }) } })
+end
+local unmuted = scope:own(core:memo(function(use) return not use(muted) end))
+UI.ZStack({
+    children = {
+        UI.When({ condition = muted, transition = { enter = "fade" },
+            thenView = function() return icon(mutedIcon) end }),
+        UI.When({ condition = unmuted, transition = { enter = "fade" },
+            thenView = function() return icon(speakerIcon) end }),
+    },
+})
+```
+
+**In plain terms:** `fade` needs a fade group, so each branch's icon is wrapped
+in its own `canvasGroup`. Flipping `muted` opens one branch and closes the
+other; the closing one keeps painting through its structural default exit
+(`dismiss`) instead of vanishing, so the two icons overlap for one `dismiss`
+beat rather than popping straight across.
+
+## 15.13 Growing a card without its neighbours jumping: `presenter.withAnimation`
+
+Expanding a card's content grows its measured height, and by default every
+sibling below it snaps to its new position on that frame. Wrap the write that
+causes the resize (see [§15.4](#154-animating-a-state-change-presenterwithanimation)):
+
+```lua
+presenter.withAnimation("container", function()
+    expanded:set(true)
+end)
+```
+
+**In plain terms:** the card and everything the resize pushes travel to their
+new solved positions under the `container` spring, instead of teleporting there
+the instant `expanded` flips.
 
 Next: [chapter 2](02-architecture.md) shows how the modules fit together, and
 [chapter 3](03-getting-started.md) builds a working screen.
