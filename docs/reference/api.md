@@ -7144,6 +7144,10 @@ One boolean selection control with `presentation = "switch"` (default),
 Optional fields are `id`, `label`, `enabled`, `onChange(value)`, and `children`
 (custom button content only). `UI.Toggle` remains the compatible switch primitive.
 
+Switches paint their initial value immediately. Later value changes slide the knob
+without overshoot; pressing a switch keeps its label size unchanged. Reduced
+motion places the knob immediately.
+
 Checkboxes additionally accept `mixed: Signal<boolean>`. Mixed activation sets
 `value` to true and clears mixed in one transaction. There is no automatic
 three-state cycle. Clicking the label uses the same activation as the indicator.
@@ -7349,7 +7353,8 @@ fallback rather than clipping.
 
 **`presentation`** accepts a string or readable `automatic`, `menu`, or `sheet`.
 Changing it or the adaptive environment re-presents the menu at its current
-open depth. Invalid static values fail construction; invalid reactive values
+open depth. Sheet submenus slide forward on entry and backward on Back, through
+the shared motion authority; reduced motion removes the travel. Invalid static values fail construction; invalid reactive values
 report through `core:lastError()` and retain the last valid presentation.
 
 An **`Item`** is one of these shapes:

@@ -569,7 +569,9 @@ describe("screen_target: the toggle reads the live palette (source contract)", f
 		expect(string.find(stop, "handle.toggleTrackTween:Cancel()", 1, true) ~= nil).toBe(true)
 		expect(string.find(apply, "handle.toggleTrackTween = tween", 1, true) ~= nil).toBe(true)
 		-- a retheme snaps: the VALUE did not change, so there is nothing to animate
-		expect(string.find(apply, "if retheme == true or isReducedMotion() then", 1, true) ~= nil).toBe(true)
+		expect(string.find(apply, "if initialValue or retheme == true or isReducedMotion() then", 1, true) ~= nil).toBe(
+			true
+		)
 		--[[ ...AND A RETHEME MUST NOT RE-RUN THE KNOB'S SLIDE — which is a claim
 			about the TWEEN, not about the write. It used to be spelled
 			`if retheme ~= true then knob.Position = knobPos end`, i.e. "skip the
@@ -579,7 +581,7 @@ describe("screen_target: the toggle reads the live palette (source contract)", f
 			Back overshoot means that can be past the end of the track. The instant
 			arm PLACES the knob now and still animates nothing; the tween lives in
 			the `else`, which is the half this case is about. ]]
-		local instantAt = string.find(apply, "if retheme == true or isReducedMotion() then", 1, true)
+		local instantAt = string.find(apply, "if initialValue or retheme == true or isReducedMotion() then", 1, true)
 		local elseAt = string.find(apply, "\n\t\telse\n", instantAt :: number, true)
 		local instantArm = string.sub(apply, instantAt :: number, elseAt :: number)
 		expect(string.find(instantArm, "knob.Position = knobPos", 1, true) ~= nil).toBe(true)

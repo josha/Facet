@@ -459,12 +459,6 @@ function screen_paint.new(ctx: any)
 	local function motionInfo(duration: number): TweenInfo
 		return TweenInfo.new(duration, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 	end
-	-- the toggle knob's two-step settle (transitions.dev's `(.34,1.35,.64,1)`):
-	-- Back/Out overshoots ~10% and returns, which is what a switch thumb wants and
-	-- a colour never does — colour stays on `motionInfo`
-	local function overshootInfo(duration: number): TweenInfo
-		return TweenInfo.new(duration, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
-	end
 
 	-- THE PRESS DIP'S UIScale, CREATED ON FIRST PRESS AND NOT BEFORE.
 	--
@@ -531,6 +525,9 @@ function screen_paint.new(ctx: any)
 	-- (:Press rules), but the quick UIScale dip is value-driven presentation
 	-- and stays bespoke (plan §6.5) — wired WITHOUT any fill writes.
 	local function wireNativePressDip(button: TextButton, handle: any)
+		if handle.class == "Toggle" then
+			return
+		end
 		local function recover()
 			-- nothing to recover if no dip ever happened, and nothing to create either
 			local scale = handle.motionScale or handle.uiScale
@@ -1128,6 +1125,9 @@ function screen_paint.new(ctx: any)
 		-- Two copies of one rule is how the second copy went stale, so there is one
 		-- here now and both connections use it.
 		local function recoverPressDip()
+			if handle.class == "Toggle" then
+				return
+			end
 			-- `uiScale` ONLY, never `motionScale` (architecture review M-3).
 			-- `handle.motionScale` belongs to the PRESENTATION authority — it is
 			-- created by `applyPresentationPaint` for `setPresentationTransform`, and
@@ -1171,7 +1171,7 @@ function screen_paint.new(ctx: any)
 		end)
 		button.MouseButton1Down:Connect(function()
 			setFill(pressedFill(), true, "pressed")
-			if not isReducedMotion() and not handle.suppressStates then
+			if handle.class ~= "Toggle" and not isReducedMotion() and not handle.suppressStates then
 				TweenService:Create(
 					ensureScale(button, handle),
 					motionInfo(style.motion.fast),
@@ -1414,6 +1414,10 @@ function screen_paint.new(ctx: any)
 		end
 		-- remembered so a live retheme can repaint the CURRENT state without the
 		-- caller having to know it (and without touching the value)
+		local initialValue = not handle.toggleValueInitialized
+		if retheme ~= true then
+			handle.toggleValueInitialized = true
+		end
 		handle.toggleOn = on
 		-- ON/OFF IS A VALUE, AND ART READS IT AS A TAG. No
 		-- engine GuiState reports a value — which is exactly why `togglePalette`
@@ -1451,7 +1455,7 @@ function screen_paint.new(ctx: any)
 			the same no-op it always was on every path except the one that was
 			broken. ]]
 		stopToggleTweens(handle)
-		if retheme == true or isReducedMotion() then
+		if initialValue or retheme == true or isReducedMotion() then
 			track.BackgroundColor3 = trackColor
 			knob.BackgroundColor3 = knobColor
 			knob.Position = knobPos
@@ -1476,7 +1480,7 @@ function screen_paint.new(ctx: any)
 			-- knob colours are a contrast pair, and interpolating between them
 			-- passes through the middle, where it is readable against neither
 			knob.BackgroundColor3 = knobColor
-			local knobTween = TweenService:Create(knob, overshootInfo(style.motion.normal), { Position = knobPos })
+			local knobTween = TweenService:Create(knob, motionInfo(style.motion.normal), { Position = knobPos })
 			handle.toggleKnobTween = knobTween
 			knobTween.Completed:Once(function(state)
 				if state == Enum.PlaybackState.Completed and handle.toggleKnobTween == knobTween then
