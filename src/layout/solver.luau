@@ -999,7 +999,9 @@ local function contentSize(ctx: Ctx, node: Node, maxW: number, maxH: number): (n
 	-- them here cannot recurse (the same argument the `fits` branch makes).
 	-- `fill`, `aspect` and uncapped content dimensions are left alone: none can
 	-- answer without the content this call is measuring.
-	if maxW ~= math.huge and node.kind ~= "text" and node.kind ~= "fits" then
+	-- A fixed-width item still bounds its children inside an unbounded horizontal
+	-- scroller. Otherwise aspect-ratio media measures at zero and grows at arrange.
+	if (maxW ~= math.huge or dim(node, "w").type == "fixed") and node.kind ~= "text" and node.kind ~= "fits" then
 		local selfW = dim(node, "w")
 		-- `containerRelative` joins the two that could already answer without the
 		-- content (§2.5): it reads the container, so asking for it here cannot recurse
@@ -1339,7 +1341,8 @@ local function contentSize(ctx: Ctx, node: Node, maxW: number, maxH: number): (n
 		local reserve = 0
 		if ctx.scrollBarReserve > 0 then
 			local mainOffer = if axis == "x" then innerMaxW else innerMaxH
-			if mainOffer ~= math.huge and mainSum + gaps > mainOffer then
+			local latched = ctx.scrollBarLatches and ctx.scrollBarLatches[node.id] ~= nil
+			if mainOffer ~= math.huge and (mainSum + gaps > mainOffer or latched) then
 				reserve = ctx.scrollBarReserve
 			end
 		end
@@ -3394,6 +3397,7 @@ function solver.solve(
 		safeInsets: SafeInsets?,
 		rootPolicy: string?,
 		scrollBarReserve: number?,
+		scrollBarLatches: { [string]: any }?,
 		metrics: any?,
 		-- §9: the platform's free topbar strip in window space, and the window y the
 		-- platform's whole top reservation ends at. Both `nil` off `bandSafeContent`.

@@ -10819,7 +10819,7 @@
      "suite"
     ],
     "resultIds": [
-     "traversal_order::a Grip-bearing control BETWEEN ordinary controls (TD-1, TD-2)::...and the ARROWS still defer it to the end, exactly as before",
+     "traversal_order::a Grip-bearing control BETWEEN ordinary controls (TD-1, TD-2)::arrows also reach the Slider in document position",
      "traversal_order::a Grip-bearing control BETWEEN ordinary controls (TD-1, TD-2)::the two readings cover the SAME SET — traversal reorders, never adds or drops",
      "traversal_order::traversalPriority is a sort TIER, not an index (TD-5, TD-6)::the tier does NOT reach the arrows",
      "traversal_order::graph.traverse sorts by rank without changing membership (TDN-2)::the arrows never read the rank",
@@ -15131,7 +15131,7 @@
      "keyboard_navigation::traversal wrap is declarable per presented surface (DK-3)::present({ traversalWrap = false }) stops Tab at the last control",
      "keyboard_navigation::traversal wrap is declarable per presented surface (DK-3)::an unknown present() opt is still refused by name",
      "traversal_order::a Grip-bearing control BETWEEN ordinary controls (TD-1, TD-2)::Tab visits the Slider's track in DOCUMENT position, not last",
-     "traversal_order::a Grip-bearing control BETWEEN ordinary controls (TD-1, TD-2)::...and the ARROWS still defer it to the end, exactly as before",
+     "traversal_order::a Grip-bearing control BETWEEN ordinary controls (TD-1, TD-2)::arrows also reach the Slider in document position",
      "traversal_order::a Grip-bearing control BETWEEN ordinary controls (TD-1, TD-2)::the two readings cover the SAME SET — traversal reorders, never adds or drops",
      "traversal_order::a Grip-bearing control BETWEEN ordinary controls (TD-1, TD-2)::pressing Tab really moves focus in that order (onFocusNav, not the dump)",
      "traversal_order::every focusable Grip traverses in document position — no exceptions (TD-4)::a bare focusable Grip declared between buttons traverses between them",

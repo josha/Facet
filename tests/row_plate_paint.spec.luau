@@ -247,7 +247,9 @@ describe("list row plate: the fixture declares the plate it paints", function()
 		expect(w.adapter.node(ROW_PATH).props.surface).toBe("base")
 		-- the plate frames the VISIBLE pane: it fills its band with the scroller,
 		-- and the row stack inside that is only as tall as the rows
-		expect(plate.rect.h).toBe(w.adapter.node(PLATE_PATH .. "/List").rect.h)
+		local list = w.adapter.node(PLATE_PATH .. "/List")
+		expect(list.rect.y > plate.rect.y).toBe(true)
+		expect(list.rect.y + list.rect.h < plate.rect.y + plate.rect.h).toBe(true)
 		expect(plate.rect.h > w.adapter.node(PLATE_PATH .. "/List/Rows").rect.h).toBe(true)
 	end)
 

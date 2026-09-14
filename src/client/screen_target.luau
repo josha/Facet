@@ -325,7 +325,7 @@ function screen_target.new(opts: Opts?)
 		local instant = isReducedMotion()
 		local float = handle.focusRingFloat
 		local geom = handle.focusFloatGeom
-		if float ~= nil and type(geom) == "table" then
+		if float ~= nil and type(geom) == "table" and handle.focusScale == nil then
 			local size = UDim2.fromOffset(geom.w * target - 2 * geom.t, geom.h * target - 2 * geom.t)
 			if instant or float.Size == size then
 				float.Size = size
@@ -2002,6 +2002,17 @@ function screen_target.new(opts: Opts?)
 				syncChrome(handle)
 			end
 		end
+		-- Authored paint tokens belong to the committed theme as well as its
+		-- native sheet. Repaint mounted nodes even when their props did not change.
+		for _, handle in handlesByPath do
+			if handle.authoredCorners ~= nil then
+				applyCorners(handle.instance, handle.authoredCorners, handle)
+			end
+			if handle.authoredStroke ~= nil then
+				applyStroke(handle.instance, handle.authoredStroke, handle)
+			end
+		end
+
 		return changed
 	end
 

@@ -6004,7 +6004,8 @@ paradigm in place when the space does.
 `cards` is that paradigm's options table and is **refused without it** (a field
 that drives nothing is not accepted and ignored): `perView` pins the count,
 `minWidth` moves the floor at which a lane is dropped, `peek` overrides the peek
-(`0` removes it). An authored `perView` — or an authored `snap` — always wins.
+(`0` removes it). An explicit peek also applies to multi-card shelves, exposing
+part of the following card as a continuation cue. An authored `perView` — or an authored `snap` — always wins.
 
 A rail that leaves `perView` to the facts is adapting, so it needs an environment,
 and it **refuses to construct** without one rather than silently taking the
@@ -8120,10 +8121,10 @@ control, and `Facet.Controls.DisclosureGroup` is a closure over the library, not
 implementation.
 
 Content mounts through `UI.When`, so a collapsed group genuinely costs nothing (only
-structural regions may mount or unmount). It mounts with `{ enter = "slide-up",
-distance = 12 }`; the exit rides the structural default (`dismiss`) rather than
-declaring its own, so reopening mid-exit reverses through the same travel instead of
-jumping across it.
+structural regions may mount or unmount). Content fades in place through a canvas
+group on the non-overshooting `dismiss` motion class for both opening and closing.
+The caret uses the same class, so it does not bounce beyond its final angle.
+Reopening mid-exit reverses the existing transition.
 
 **The caret is one `chevron.trailing` glyph, not two.** Its `rotation` — paint-only,
 never seen by the solver — springs 0 → 90 as `expanded` flips, turning to point down
@@ -8132,7 +8133,7 @@ package's `chevron.down` art, if it declared any, is no longer requested by this
 control.
 
 **`presenter?` buys the sibling glide.** When given (a presenter — anything with
-`withAnimation`), the toggle runs inside `presenter.withAnimation("container", …)`, so
+`withAnimation`), the toggle runs inside `presenter.withAnimation("dismiss", …)`, so
 every OTHER node whose solved position the flip moves — a section below this one
 sliding to make or close room — travels there instead of jumping. Absent (the common
 case), the flip is instant; the caret and the content still animate their own paint

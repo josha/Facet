@@ -89,9 +89,9 @@ function scroll_arrange.arrange(
 	-- in the fixture sat underneath the bar. Reserve the bar's thickness off
 	-- the CROSS axis whenever the content actually overflows — which is exactly
 	-- when the engine shows it. Measuring twice is the cost of not guessing.
-	-- The threshold is stable: reserving makes the cross axis narrower, which
-	-- can only make the scroll axis longer, so a region that overflowed at the
-	-- full width still overflows at the reserved width.
+	-- Wrapped text grows at a narrower width, but aspect-sized media shrinks.
+	-- Geometry feedback therefore retains a gutter already discovered in its
+	-- current solve chain; the next ordinary layout change reconsiders it.
 	local function measureAll(crossLimitW: number, crossLimitH: number)
 		local cw, ch = 0, 0
 		local sizes = {}
@@ -131,7 +131,8 @@ function scroll_arrange.arrange(
 	childSizes, contentW, contentH = measureAll(innerW, innerH)
 	if reserve > 0 then
 		local overflows = if isX then contentW > innerW else contentH > innerH
-		if overflows then
+		local previous = ctx.scrollBarLatches and ctx.scrollBarLatches[node.id]
+		if overflows or previous ~= nil then
 			if isX then
 				innerH = math.max(0, innerH - reserve)
 			else

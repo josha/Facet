@@ -372,7 +372,8 @@ describe("W1b: the adapter tears a style modifier down instead of crashing on ni
 			)
 			assert(body ~= nil, "applyCorners's body was not found to read")
 			local nilAt = string.find(body :: string, "if cornersData == nil then", 1, true)
-			local paintAt = string.find(body :: string, "styling.paintCorners(cornersData, style)", 1, true)
+			local paintAt =
+				string.find(body :: string, "styling.paintCorners(cornersData, snapshot() or style)", 1, true)
 			expect(nilAt ~= nil).toBe(true)
 			expect((nilAt :: number) < (paintAt :: number)).toBe(true)
 			-- the nil branch reads the RECORD the owners wrote (it re-derives

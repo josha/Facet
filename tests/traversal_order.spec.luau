@@ -158,11 +158,11 @@ describe("a Grip-bearing control BETWEEN ordinary controls (TD-1, TD-2)", functi
 		)
 	end)
 
-	it("...and the ARROWS still defer it to the end, exactly as before", function()
+	it("arrows also reach the Slider in document position", function()
 		local core, _, _, pres = harness()
 		local handle = pres.present(screenWithSliderInTheMiddle(core))
 		expect(table.concat(navigationOf(handle), " ")).toBe(
-			"/S/Reset /S/Row1 /S/Row2 /S/Row3 /S/Volume/TrackHost/Track"
+			"/S/Reset /S/Volume/TrackHost/Track /S/Row1 /S/Row2 /S/Row3"
 		)
 	end)
 
@@ -224,7 +224,7 @@ describe("every focusable Grip traverses in document position — no exceptions 
 		local core, _, _, pres = harness()
 		local handle = pres.present(gripBetweenButtons(core))
 		expect(table.concat(traversalOf(handle), " ")).toBe("/S/Before /S/Resize /S/After")
-		expect(table.concat(navigationOf(handle), " ")).toBe("/S/Before /S/After /S/Resize")
+		expect(table.concat(navigationOf(handle), " ")).toBe("/S/Before /S/Resize /S/After")
 	end)
 
 	it("...and pressing Tab really lands on it there", function()
@@ -243,7 +243,7 @@ describe("every focusable Grip traverses in document position — no exceptions 
 			children = { button("Before"), rating.blueprint, button("After") },
 		}))
 		expect(traversalOf(handle)[2]).toBe("/S/Stars/Strip")
-		expect(navigationOf(handle)[3]).toBe("/S/Stars/Strip") -- arrows: still last
+		expect(navigationOf(handle)[2]).toBe("/S/Stars/Strip")
 	end)
 end)
 

@@ -45,8 +45,9 @@ function gui_value_shim.install()
 	end
 	if env.Vector2 == nil then
 		env.Vector2 = {
-			new = function(x: number, y: number): Offset
-				return { x = x, y = y }
+			new = function(x: number, y: number)
+				-- Match the engine's component names; retain the older test aliases.
+				return { X = x, Y = y, x = x, y = y }
 			end,
 		}
 	end

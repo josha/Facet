@@ -2001,6 +2001,11 @@ function renderer.attach(
 			safeInsets = insets,
 			rootPolicy = rootPolicy,
 			scrollBarReserve = barReserve,
+			-- Keep a discovered gutter through this geometry-feedback chain. An
+			-- aspect-sized shelf can get SHORTER when the gutter narrows it;
+			-- releasing the gutter then makes it overflow again indefinitely.
+			-- Ordinary layout changes reconsider the decision from scratch.
+			scrollBarLatches = if feedbackDepth > 0 then lastBarInsets else nil,
 			metrics = metrics,
 			-- §9: the platform's free strip in WINDOW space, and the whole row above
 			-- the content rect. `nil` on every other policy, so the solver's own band

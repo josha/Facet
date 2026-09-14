@@ -668,10 +668,12 @@ describe("a scale that went back to 1 must come back — the UIScale corpse", fu
 
 	it("settling to explicit scale one retains the same native pivot and scale instance", function()
 		local region, handle, made = harness()
+		region.setTransform(handle, { scale = 0.95 })
 		region.setTransform(handle, { scale = 0.999 })
 		local anchor = handle.instance.AnchorPoint
 		region.setTransform(handle, { scale = 1 })
-		expect(handle.instance.AnchorPoint).toBe(anchor)
+		expect(handle.instance.AnchorPoint.X).toBe(anchor.X)
+		expect(handle.instance.AnchorPoint.Y).toBe(anchor.Y)
 		expect(made[1].dead).toBe(false)
 		expect(handle.motionScale.Scale).toBe(1)
 		region.setTransform(handle, { scale = 0.9 })

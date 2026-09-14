@@ -522,6 +522,17 @@ function screen_focus_visual.new(ctx: Ctx)
 				focusScale.Name = "FocusScale"
 				focusScale.Parent = instance
 				handle.focusScale = focusScale
+				-- The ring follows the actual lift, including geometry changes
+				-- mid-flight. A second size tween can retain an obsolete rect.
+				focusScale:GetPropertyChangedSignal("Scale"):Connect(function()
+					local float, geom = handle.focusRingFloat, handle.focusFloatGeom
+					if float ~= nil and float.Parent ~= nil and geom ~= nil then
+						float.Size = UDim2.fromOffset(
+							geom.w * focusScale.Scale - 2 * geom.t,
+							geom.h * focusScale.Scale - 2 * geom.t
+						)
+					end
+				end)
 			end
 			-- ONE aim, for both halves of the lift: the UIScale when there is one,
 			-- and the float ring's Size whether or not there is (a control whose

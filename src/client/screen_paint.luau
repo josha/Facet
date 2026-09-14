@@ -445,7 +445,7 @@ function screen_paint.new(ctx: any)
 			handle.strokeInstance = live
 		end
 		-- …and the same door for an authored stroke's thickness
-		local painted = styling.paintStroke(stroke, style)
+		local painted = styling.paintStroke(stroke, snapshot() or style)
 		live.Color = toColor3(painted.color)
 		live.Transparency = painted.transparency
 		live.Thickness = painted.thickness
@@ -781,7 +781,7 @@ function screen_paint.new(ctx: any)
 		-- NOTHING IS RECORDED BELOW, deliberately: this radius is the PROP's, not
 		-- the chrome's, and recording it would make the next nil write restore the
 		-- value it is supposed to be releasing.
-		local corners = styling.paintCorners(cornersData, style)
+		local corners = styling.paintCorners(cornersData, snapshot() or style)
 		local uiCorner = instance:FindFirstChildOfClass("UICorner") or Instance.new("UICorner")
 		if corners.form == "uniform" then
 			uiCorner.CornerRadius = UDim.new(0, corners.radius)

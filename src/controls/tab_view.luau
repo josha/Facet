@@ -1224,7 +1224,7 @@ function tab_view.build(Facet: any, core: any, spec: Spec)
 							the fill's silhouette from it. ]]
 						corners = barCorners,
 						padding = "xs",
-						gap = choose("s", "xs"),
+						gap = "m",
 						children = {
 							UI.When({
 								id = "SidebarChoice",

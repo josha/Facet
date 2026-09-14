@@ -1058,6 +1058,7 @@ describe("RowActions control", function()
 
 		w.adapter.tap(EDIT_AFFORDANCE_PATH)
 		w.pres.refresh()
+		expect(w.adapter.node(EDIT_AFFORDANCE_PATH)).toBeNil()
 		settle(w.pres)
 		-- the action fires, exactly once...
 		expect(fired).toEqual({ "delete" })

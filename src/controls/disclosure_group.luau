@@ -30,7 +30,7 @@ export type Spec = {
 	enabled: any?,
 	onToggle: ((expanded: boolean) -> ())?,
 	-- OPTIONAL (task 12, transitions round). When given, the toggle runs inside
-	-- `presenter.withAnimation("container", …)` so every sibling whose position
+	-- `presenter.withAnimation("dismiss", …)` so every sibling whose position
 	-- the flip moves — a section below this one sliding to make or close room —
 	-- GLIDES to its new place instead of jumping there. Absent (the common case:
 	-- a bare mount with no presenter, or a screen that has not opted in) degrades
@@ -110,7 +110,7 @@ function disclosure_group.build(Facet: any, core: any, spec: Spec)
 			end
 		end
 		if spec.presenter ~= nil then
-			spec.presenter.withAnimation("container", flip)
+			spec.presenter.withAnimation("dismiss", flip)
 		else
 			flip()
 		end
@@ -200,17 +200,20 @@ function disclosure_group.build(Facet: any, core: any, spec: Spec)
 					}),
 				},
 			}),
-			-- only a structural region may mount/unmount (UI-RUNTIME-002), so a
-			-- collapsed group genuinely costs nothing. `enter = "slide-up"` (12px)
-			-- is a pure slide (no fade, no canvasGroup) so it costs no host paint
-			-- group; the exit rides the structural default (`dismiss`) rather than
-			-- declaring its own — reopening mid-exit reverses through the SAME
-			-- travel instead of jumping across it (transitions.luau's mirror rule).
+			-- Fade the content during the caret's close, so removal never reveals
+			-- the last fully opaque frame. The region still owns exit and reversal.
 			UI.When({
 				id = "Content",
 				condition = expanded,
-				thenView = spec.content,
-				transition = { enter = "slide-up", distance = 12 },
+				thenView = function()
+					return UI.ZStack({
+						id = "Fade",
+						canvasGroup = true,
+						width = { type = "fill", weight = 1 },
+						children = { spec.content() },
+					})
+				end,
+				transition = { enter = "fade", class = "dismiss", exitClass = "dismiss" },
 			}),
 		},
 	})
@@ -245,7 +248,7 @@ function disclosure_group.build(Facet: any, core: any, spec: Spec)
 		bindMotion = function(c)
 			clock = c
 			if caretMotion == nil then
-				caretMotion = scope:own(clock:spring(caretAngle:get(), "object", { eps = 0.01 }))
+				caretMotion = scope:own(clock:spring(caretAngle:get(), "dismiss", { eps = 0.01 }))
 				scope:own(core:observe(caretMotion, function()
 					caretAngle:set(caretMotion:get())
 				end))

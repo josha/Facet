@@ -1,5 +1,5 @@
 --!strict
--- DisclosureGroup: the caret turns, the content slides, and — with a presenter
+-- DisclosureGroup: the caret turns, the content fades, and — with a presenter
 -- — the siblings it displaces glide (task 12, transitions round, spec 2I).
 --
 -- The two-region CaretOpen/CaretShut mount/unmount (display_controls.spec.luau,
@@ -24,7 +24,7 @@ local function makeWorld(opts: any?)
 	return worldLib.new(merged)
 end
 
-describe("disclosure: caret turns, content slides", function()
+describe("disclosure: caret turns, content fades", function()
 	it("the caret rotates toward 90 on expand and back on collapse", function()
 		local w = makeWorld()
 		local expanded = w.core:signal(false)
@@ -51,7 +51,7 @@ describe("disclosure: caret turns, content slides", function()
 			w.pres.refresh()
 		end
 		expect(math.abs((caret.rotation or 0) - 90) < 0.5).toBe(true)
-		expect(w.adapter.node("/S/Adv/Content/then/Body") ~= nil).toBe(true)
+		expect(w.adapter.node("/S/Adv/Content/then/Fade/Body") ~= nil).toBe(true)
 		expanded:set(false)
 		for _ = 1, 60 do
 			w.pres.tick(FRAME)
@@ -107,7 +107,7 @@ describe("disclosure: a presenter glides the sibling it displaces", function()
 		-- ...but the PAINT is still seeded at the old place — it has not jumped
 		expect(moved.presentedPosition.y).toBe(before)
 
-		for _ = 1, 30 do
+		for _ = 1, 6 do
 			w.pres.tick(FRAME)
 		end
 		local mid = w.adapter.node("/S/Sibling").presentedPosition.y
@@ -174,5 +174,56 @@ describe("disclosure: reduced motion snaps the caret instead of turning it", fun
 		w.pres.tick(FRAME)
 		w.pres.refresh()
 		expect(math.abs((caret.rotation or 0) - 90) < 0.5).toBe(true)
+	end)
+end)
+
+describe("disclosure content exit", function()
+	it("starts fading while the caret closes instead of disappearing after it", function()
+		local w = makeWorld()
+		local expanded = w.core:signal(true)
+		local group = Facet.Controls.DisclosureGroup(w.core, {
+			id = "Adv",
+			label = "Advanced",
+			expanded = expanded,
+			content = function()
+				return Facet.UI.Text({ id = "Body", text = "Additional settings" })
+			end,
+		})
+		w.present(Facet.UI.Screen({ id = "S", children = { group.blueprint } }))
+		w.settle(120)
+		expanded:set(false)
+		w.settle(5)
+		local content = w.adapter.node("/S/Adv/Content/then/Fade") or w.adapter.node("/S/Adv/Content/then/Fade/Body")
+		expect(content ~= nil).toBe(true)
+		expect((content.canvasGroupInstance and content.canvasGroupInstance.groupTransparency or 0) > 0.05).toBe(true)
+		w.settle(60)
+		expect(w.adapter.node("/S/Adv/Content/then/Fade")).toBeNil()
+		w.pres.dismiss(w.handle)
+	end)
+end)
+
+describe("disclosure opening stays within its endpoints", function()
+	it("never overshoots the caret or slides content past its resting position", function()
+		local w = makeWorld()
+		local expanded = w.core:signal(false)
+		local group = Facet.Controls.DisclosureGroup(w.core, {
+			id = "Adv",
+			label = "Advanced",
+			expanded = expanded,
+			content = function()
+				return Facet.UI.Text({ id = "Body", text = "Additional settings" })
+			end,
+		})
+		w.present(Facet.UI.Screen({ id = "S", children = { group.blueprint } }))
+		expanded:set(true)
+		for _ = 1, 90 do
+			w.pres.tick(FRAME)
+			w.pres.refresh()
+			local angle = w.adapter.node("/S/Adv/Header/Caret").rotation or 0
+			expect(angle >= 0 and angle <= 90).toBe(true)
+			local content = w.adapter.node("/S/Adv/Content/then/Fade")
+			expect(content.presentedPosition.y).toBe(content.rect.y)
+		end
+		w.pres.dismiss(w.handle)
 	end)
 end)

@@ -593,13 +593,9 @@ function radial.build(Facet: any, core: any, spec: Spec)
 				s.navigation = s.id == "$navigation"
 				s.labelBox = geometry.labelBounds(s, labelHeight)
 				s.gap = math.max(1, (snapshot.resolveNumber(metrics, "xs") or 4) / 2)
-				if
-					gestureSelection ~= "direction"
-					and (
-						(appearance == "wedges" and s.labelBox.w < target)
-						or (appearance == "buttons" and s.size < target)
-					)
-				then
+				-- The sector owns the hit target; its inset label is allowed to be
+				-- smaller and use the existing compact icon representation.
+				if gestureSelection ~= "direction" and s.size < target then
 					mode = "list"
 				end
 				local contentWidth, contentHeight = s.labelBox.w, s.labelBox.h

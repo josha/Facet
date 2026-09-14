@@ -708,6 +708,12 @@ require("./paradigm_input_axis.spec")
 -- advances focus repeatedly after the initial delay, gamepad-only, through
 -- the same navigate/navigateH functions a fresh press uses
 require("./dpad_repeat.spec")
+require("./review_navigation.spec")
+require("./review_native_input.spec")
+require("./review_motion_pixels.spec")
+require("./review_theme_corners.spec")
+require("./review_radial.spec")
+require("./review_cards.spec")
 require("./paradigm_table.spec")
 require("./paradigm_hover.spec")
 require("./paradigm_tenfoot.spec")

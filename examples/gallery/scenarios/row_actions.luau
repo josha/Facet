@@ -557,6 +557,9 @@ return {
 		local listBody = UI.VStack({
 			id = "ListPlate",
 			surface = listPlateSurface,
+			padding = scope:own(core:memo(function(use)
+				return if use(listPlateSurface) ~= nil then "xs" else 0
+			end)),
 			align = "stretch",
 			width = UI.fill(),
 			height = UI.fill(),
@@ -688,7 +691,7 @@ return {
 			local showDot = itemScope:own(core:memo(function(use)
 				return not use(unreadDot)
 			end))
-			return UI.HStack({
+			local body = UI.HStack({
 				id = "RowBody",
 				gap = "s",
 				align = "center",
@@ -734,6 +737,15 @@ return {
 					}),
 				},
 			})
+			return UI.background(
+				body,
+				UI.Box({
+					id = "RowFill",
+					width = UI.fill(),
+					height = UI.fill(),
+					tint = { role = "surfaceStrong", blend = 1 },
+				})
+			)
 		end
 
 		--[[ THE MAIL ROW MEASURES ITSELF (adopted 2026-08-15,

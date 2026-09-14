@@ -40,9 +40,7 @@ local FOCUSABLE: { [string]: boolean } = { Button = true, Toggle = true, TextFie
 -- here and in `presenter.luau` already asks the question this way.
 local isDisabled = classContract.isDisabled
 
--- grips (opt-in focusable pointer zones) sort AFTER the ordinary walk so list
--- navigation lands on content first; they stay reachable past the end
--- (gamepad resize affordance — the virtual cursor ignores MouseIcon)
+-- Focusable grips take their place beside ordinary controls in document order.
 -- A RETIRING SUBTREE IS NOT INTERACTIVE. A node whose
 -- structural region declared an exit transition stays MOUNTED while it plays that
 -- exit — its layout slot holds, its instances stay put — and that is exactly the
@@ -53,7 +51,7 @@ local function isRetiring(node: any): boolean
 	return node ~= nil and node.retiring == true
 end
 
-local function focusWalk(node: any, out: { string }, deferred: { string })
+local function focusWalk(node: any, out: { string })
 	if isRetiring(node) then
 		return
 	end
@@ -65,13 +63,13 @@ local function focusWalk(node: any, out: { string }, deferred: { string })
 		-- Slider's track and a Rating's strip stayed in the ring inside a panel that
 		-- was switched off.
 		if node.props and node.props.focusable == true and not isDisabled(node) then
-			table.insert(deferred, node.path)
+			table.insert(out, node.path)
 		end
 	elseif FOCUSABLE[node.class] and not (node.props and node.props.focusable == false) and not isDisabled(node) then
 		table.insert(out, node.path)
 	end
 	for _, child in node.children do
-		focusWalk(child, out, deferred)
+		focusWalk(child, out)
 	end
 end
 
@@ -205,21 +203,13 @@ local function filterGroupsDisabled(groups: { any }, rootNode: any): { any }
 end
 
 local function focusOrder(node: any, out: { string })
-	local deferred: { string } = {}
-	focusWalk(node, out, deferred)
-	for _, path in deferred do
-		table.insert(out, path)
-	end
+	focusWalk(node, out)
 end
 
 -- ===== the LINEAR reading of the focus map (roadmap Step 8 follow-up) ========
 --
--- Everything above derives the order the ARROWS walk, and defers focusable Grips
--- to the end of it so directional navigation lands on content before it lands on
--- a value control's grab zone. Tab inherited that deferral and should not have: a Slider
--- between a button row and a list traversed AFTER the whole list, because a
--- Slider's focus stop is a Grip (director playtest 2026-08-03; the measurement is
--- in artifacts/traversal-document-order/acceptance.md).
+-- Both directional and linear navigation include value-control grips in place.
+-- Linear traversal additionally supports an authored rank.
 --
 -- So the presenter hands the graph a RANK — a sort key over the members the scope
 -- already has, never a second list of members. Two rules,
@@ -477,9 +467,9 @@ end
 
 -- auto NavigationGroups: contributions contribute their groups at their tree
 -- position; standalone focusables outside any contribution subtree form flat
--- vertical groups between them (preserving focusOrder order); focusable grips
--- defer last. Re-derived on every refresh (function form).
---[[ collect focusable paths (excluding grips) under `node`, in document order
+-- vertical groups between them, including focusable grips in document order.
+-- Re-derived on every refresh (function form).
+--[[ collect focusable paths (including opted-in grips) under `node`, in document order
 	(hoisted above autoGroups — both derivations share the layout helpers)
 
 	IT ASKS A STRUCTURAL QUESTION ONLY, deliberately. It briefly
@@ -490,10 +480,13 @@ end
 	whole navigation model. The disabled test belongs to `filterGroupsDisabled`,
 	which runs on the built groups — see its note. ]]
 local function collectFocusables(node: any, out: { string })
-	if node.class == "Grip" or isRetiring(node) then
+	if isRetiring(node) then
 		return
 	end
-	if FOCUSABLE[node.class] and not (node.props and node.props.focusable == false) then
+	if
+		(FOCUSABLE[node.class] and not (node.props and node.props.focusable == false))
+		or (node.class == "Grip" and node.props and node.props.focusable == true)
+	then
 		table.insert(out, node.path)
 	end
 	for _, child in node.children or {} do
@@ -734,7 +727,6 @@ end
 local function autoGroups(rootNode: any, rectOf: any?, scopedFlat: boolean?): { any }
 	local groups: { any } = {}
 	local pending: { string } = {}
-	local grips: { string } = {}
 	local flatCount = 0
 	local function flush()
 		if #pending > 0 then
@@ -810,7 +802,7 @@ local function autoGroups(rootNode: any, rectOf: any?, scopedFlat: boolean?): { 
 		-- group and a consumer-declared map
 		if node.class == "Grip" then
 			if node.props and node.props.focusable == true then
-				table.insert(grips, node.path)
+				table.insert(pending, node.path)
 			end
 		elseif FOCUSABLE[node.class] and not (node.props and node.props.focusable == false) then
 			table.insert(pending, node.path)
@@ -821,13 +813,7 @@ local function autoGroups(rootNode: any, rectOf: any?, scopedFlat: boolean?): { 
 	end
 	walk(rootNode)
 	flush()
-	-- BEFORE the grips group is appended: grips are deferred to the end of the
-	-- ring regardless of where they sit in the document, so a grid's down-exit
-	-- must not be pointed at them by mere array adjacency
 	linkGridBoundaries(groups)
-	if #grips > 0 then
-		table.insert(groups, { name = "auto-grips", axis = "vertical", order = grips })
-	end
 	return groups
 end
 
@@ -838,7 +824,7 @@ end
 -- nav, column-preserving); everything else is the vertical document order. This
 -- only ENGAGES when the tree actually contains a horizontal container or a Grid
 -- with >=2 focusables — otherwise the flat ring stays byte-identical (many tests
--- depend on the flat ring's wrap behavior). Grips keep their deferred-last spot.
+-- depend on the flat ring's wrap behavior). Grips retain their document position.
 
 -- does the tree contain an HStack or Grid holding >=2 focusables? (the engage
 -- gate: only then do we derive groups; else the flat ring is preserved exactly)
@@ -875,7 +861,6 @@ local function layoutGroups(rootNode: any, rectOf: any?): { any }
 	end
 	local groups: { any } = {}
 	local pending: { string } = {}
-	local grips: { string } = {}
 	local vCount = 0
 	local function flushVertical()
 		if #pending > 0 then
@@ -893,7 +878,7 @@ local function layoutGroups(rootNode: any, rectOf: any?): { any }
 		end
 		if node.class == "Grip" then
 			if node.props and node.props.focusable == true then
-				table.insert(grips, node.path)
+				table.insert(pending, node.path)
 			end
 			return
 		end
@@ -926,9 +911,6 @@ local function layoutGroups(rootNode: any, rectOf: any?): { any }
 	flushVertical()
 	-- same rule, same reason, as the contribution-aware derivation above
 	linkGridBoundaries(groups)
-	if #grips > 0 then
-		table.insert(groups, { name = "auto-grips", axis = "vertical", order = grips })
-	end
 	return groups
 end
 

@@ -640,6 +640,10 @@ end
 -- much of a compatibility statement as changes, so they are enumerated too.
 local ALLOWED_NEW_NODES: { { path: string, why: string } } = {
 	{
+		path = "/Vocabulary/More/Content/then/Fade",
+		why = "Disclosure animation repair: a canvas group fades the existing content during opening and closing. Its Body keeps the same geometry and properties, compared below through an exact path migration.",
+	},
+	{
 		path = "/Vocabulary/Mode/Trigger/Value",
 		why = "picker round (2026-09-11): the popup trigger's visible word, a one-line disclosed Text inside "
 			.. "the content button (the pop-up button every popup now draws)",
@@ -1526,6 +1530,15 @@ end
 -- 2. COMPARE against the 0.6.0 baseline, allow-list in hand.
 local base = index(BASELINE_3_5)
 local now = index(temp)
+-- Disclosure content gained one opacity host. Compare the original Body at its
+-- new path rather than waiving its geometry, props, or disappearance.
+for key, node in table.clone(base) do
+	if node.path == "/Vocabulary/More/Content/then/Body" then
+		local moved = string.gsub(key, "/Content/then/Body$", "/Content/then/Fade/Body")
+		base[moved] = node
+		base[key] = nil
+	end
+end
 local checked = 0
 -- Every y-translation an ALLOWED_Y_SHIFT entry forgave, bucketed per entry and per
 -- (fixture, viewport). The waiver is only granted once the whole bucket agrees on
