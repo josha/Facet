@@ -301,6 +301,15 @@ local ORDER = {
 	-- scaffolded showcase surface for `Facet.Controls.Alert`. Also in
 	-- `demo_picker.DEMOS`. TODO: say what a player can only learn by DRIVING it.
 	"alert",
+	-- scaffolded showcase surface for `Facet.Controls.Sheet`. Also in
+	-- `demo_picker.DEMOS`. TODO: say what a player can only learn by DRIVING it.
+	"sheet",
+	-- scaffolded showcase surface for `Facet.Controls.PageView`. Also in
+	-- `demo_picker.DEMOS`. TODO: say what a player can only learn by DRIVING it.
+	"page_view",
+	-- scaffolded showcase surface for `Facet.Controls.CollapsibleView`. Also in
+	-- `demo_picker.DEMOS`. TODO: say what a player can only learn by DRIVING it.
+	"collapsible_view",
 	-- scaffold: new control scenarios are appended above this line
 }
 

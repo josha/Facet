@@ -1282,16 +1282,6 @@ function screen_target.new(opts: Opts?)
 			-- it by exactly the instance-host machinery, whose entry is the adapter's
 			-- general "this node is a real instance parent" record
 			registerHost(path, instance, handle.windowRect, true)
-			-- NO CLASS-DEFAULT RULE TARGETS CanvasGroup: the sheet's transparency
-			-- defaults select Frame/TextLabel/TextButton/ImageLabel/TextBox/
-			-- ScrollingFrame, so a group would wear the engine's own opaque grey plate.
-			-- A DECLARED CLAIM makes the write legal and puts it in the dump, instead of
-			-- either a silent defeat or a widened sheet nobody asked for.
-			if nativeMode then
-				claimPaint(handle, "BackgroundTransparency")
-			end
-			assertBespokePaint("BackgroundTransparency", handle)
-			instance.BackgroundTransparency = 1
 		end
 		if createOpts ~= nil and createOpts.instanceHost == true and instance:IsA("GuiObject") then
 			-- A DECLARED MOVE/COMPOSITE BOUNDARY: a real
@@ -2272,7 +2262,12 @@ function screen_target.new(opts: Opts?)
 		forceScrollFallback = forceScrollFallbackMode,
 	})
 	adapter.setScrollIndicatorPolicy = scrollIndicators.setScrollIndicatorPolicy
-	adapter.setScrollRegion = scrollIndicators.setScrollRegion
+	adapter.setScrollRegion = function(handle, region)
+		scrollIndicators.setScrollRegion(handle, region)
+		if region and region.axis == "x" and not forceScrollFallbackMode then
+			pointer.enableMouseScroll()
+		end
+	end
 	adapter.setScrollPosition = scrollIndicators.setScrollPosition
 
 	-- readable offset (A-SV1): the ENGINE co-authors CanvasPosition, so the
@@ -2404,7 +2399,7 @@ function screen_target.new(opts: Opts?)
 					-- ...and never activate a control the player cannot see
 					and handle.instance.Visible
 				then
-					handle.activate(pointerActivateMeta(inputObject))
+					pointer.activate(handle, inputObject)
 				end
 			end)
 			handle.hitExpander = expander
@@ -2480,11 +2475,15 @@ function screen_target.new(opts: Opts?)
 		if instance == nil or not instance:IsA("ScrollingFrame") then
 			return function() end
 		end
-		local conn = instance:GetPropertyChangedSignal("CanvasPosition"):Connect(function()
+		local function notify()
 			local p = instance.CanvasPosition
-			fn({ x = p.X, y = p.Y })
-		end)
+			fn({ x = p.X, y = p.Y, dragging = handle.mouseScrolling == true })
+		end
+		handle.scrollObservers = handle.scrollObservers or {}
+		handle.scrollObservers[notify] = true
+		local conn = instance:GetPropertyChangedSignal("CanvasPosition"):Connect(notify)
 		return function()
+			handle.scrollObservers[notify] = nil
 			conn:Disconnect()
 		end
 	end

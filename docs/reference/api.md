@@ -806,6 +806,11 @@ so read them before declaring one there):
 
 ### `ScrollView`
 
+Horizontal scroll views support mouse click-drag scrolling automatically, including
+card rails and pages. Child controls get first refusal: text selection, sliders,
+and declared drag gestures keep their input. A drag must cross a horizontal
+movement threshold before it scrolls or suppresses the originating click.
+
 `navigation` optionally names descendant targets and exposes target selection,
 normalized progress, threshold visibility callbacks, and gesture snap; see
 [Adaptive navigation continuity](#adaptive-navigation-continuity). Framework
@@ -2409,11 +2414,11 @@ UI.ForEach({ items = rows, key = function(e) return e.key end, row = function(e)
 
 #### Structural transitions
 
-`transition = { enter, exit?, class?, exitClass?, fade?, distance?, scale?, pivot?, plate?, stagger? }`
+`transition = { enter, exit?, class?, exitClass?, fade?, distance?, scale?, pivot?, plate?, stagger?, fromRect?, content? }`
 on `UI.When`, `UI.ForEach`, a `presentToast` and `PresentOpts`.
 
 - **Forms:** `"fade"`, `"slide-up"`, `"slide-down"`, `"slide-left"`,
-  `"slide-right"`, `"materialize"` (scale 0.96 → 1 with a fade), `"instant"`.
+  `"slide-right"`, `"materialize"` (scale 0.96 → 1 with a fade), `"transform"`, `"instant"`.
   A form names the direction of **travel** — an enter travels toward rest, an
   exit away from it.
 - **`exit` defaults to the mirror of `enter`** (`slide-up` ⇄ `slide-down`,
@@ -2422,6 +2427,12 @@ on `UI.When`, `UI.ForEach`, a `presentToast` and `PresentOpts`.
   (`exit = "instant"` is the common one) — undeclared asymmetry does not exist.
   Because a mirror pair displaces the node to the *same* absent place, a
   re-entry mid-exit reverses through one continuous motion.
+- **`transform`** grows a clipping plate from `fromRect = { x, y, w, h }`
+  in window coordinates and shrinks back to that rectangle on exit. Use a
+  `canvasGroup` with `clipChildren = true`; text keeps its final layout and size.
+  Optional `content` names a relative descendant CanvasGroup path to crossfade
+  the contents separately from the plate. Motion is clamped to avoid overshoot.
+  `Controls.CollapsibleView` supplies source geometry, safe placement and focus.
 - **`pivot`** is where a scaling form (`materialize`) grows from: `"center"`
   (default) or `"topLeft"` | `"topRight"` | `"bottomLeft"` | `"bottomRight"`.
   An anchored surface with a scaling enter and no pivot of its own grows from
@@ -4119,7 +4130,7 @@ opts = {
   anchor = {
     source = { path = "/Screen/Row/More" }  -- a MOUNTED node, followed as it moves
            | { rect = { x, y, w, h } },     -- or a fixed window-space box
-    edge?     = "bottom",  -- "top" | "bottom" | "leading" | "trailing"
+    edge?     = "bottom",  -- "top" | "bottom" | "leading" | "trailing" | "overlap"
     align?    = "center",  -- "start" | "center" | "end", along that edge
     gap?      = "s",       -- a theme metric name or a number
     margin?   = nil,       -- a floor on the safe box's side and bottom insets (a metric
@@ -5147,7 +5158,7 @@ shape as `adaptive`/`composition` above.
 | Call | Result |
 |---|---|
 | `layout.transformFootprint(w, h, scale, deg)` | the axis-aligned bounding box of a `w x h` rectangle scaled uniformly by `scale` and rotated `deg` degrees about its own centre, ROUNDED UP: `width, height` (two numbers). `scale`/`rotation` are paint-only (see the `scale` row above), so the solver reserves a node's UNSCALED box and the engine draws the transformed one — a scaled/rotated container's PARENT has to reserve the painted footprint itself, as a plain sibling box outside the node that scales. This is that formula, published (framework-gaps-phase2 gap 33, audit-marked "teaches-wrong 12") so a consumer computes the reservation instead of hand-transcribing the trigonometry the `scale` row documents in prose. Reproduces the exact device measurement recorded there: `transformFootprint(100, 70, 1.5, 30)` returns `183, 166` |
-| `layout.anchorPlacement(request)` | the pure placement decision behind every Facet surface that points at something — the SAME edge/flip/shift/tail rules `presenter.presentAnchored`, the disclosure plate and `newRowActions`' floating menu already share (§"The placement rules" under `presentAnchored` above). `request = { source, size, safe, edge?, align?, gap?, tail?, tailInset?, overflow? }` (window-space rects; `edge` `"top"`\|`"bottom"`\|`"leading"`\|`"trailing"`, default `"bottom"`; `align` `"start"`\|`"center"`\|`"end"`, default `"center"`; `overflow` `"clamp"`\|`"keep"`, default `"clamp"`) returns `{ x, y, w, h, edge, flipped, shift, fits, tailX?, tailY?, tailSuppressed }`. Published (framework-gaps-phase2 gap 39: `armStaging` "as a declaration rather than a coordinate") so a consumer DECLARES a placement — "above the source, centred, gapped by N" — instead of hand-computing the point. RascalRally's `HandDock` staging spot (`FacetSponsor/init.luau`'s `slotStagingPoint`, read by both the framework's `armStaging` seam and `PlayFlow:heldOrigin`) now calls this instead of the hand-rolled `source.x + source.w/2 - slot/2` / `source.y - slot - gap` arithmetic it used to reimplement |
+| `layout.anchorPlacement(request)` | the pure placement decision behind every Facet surface that points at something — the SAME edge/flip/shift/tail rules `presenter.presentAnchored`, the disclosure plate and `newRowActions`' floating menu already share (§"The placement rules" under `presentAnchored` above). `request = { source, size, safe, edge?, align?, gap?, tail?, tailInset?, overflow? }` (window-space rects; `edge` `"top"`\|`"bottom"`\|`"leading"`\|`"trailing"`\|`"overlap"`, default `"bottom"`; `align` `"start"`\|`"center"`\|`"end"`, default `"center"`; `overflow` `"clamp"`\|`"keep"`, default `"clamp"`) returns `{ x, y, w, h, edge, flipped, shift, fits, tailX?, tailY?, tailSuppressed }`. Published (framework-gaps-phase2 gap 39: `armStaging` "as a declaration rather than a coordinate") so a consumer DECLARES a placement — "above the source, centred, gapped by N" — instead of hand-computing the point. RascalRally's `HandDock` staging spot (`FacetSponsor/init.luau`'s `slotStagingPoint`, read by both the framework's `armStaging` seam and `PlayFlow:heldOrigin`) now calls this instead of the hand-rolled `source.x + source.w/2 - slot/2` / `source.y - slot - gap` arithmetic it used to reimplement |
 
 ### `contribution`
 
@@ -7924,7 +7935,7 @@ label?, icon?, badge?, content }[]), placement? ("automatic" | "bottomBar" |
 "bottomBarCompact" | "topBar" | "sidebar"), indicator? ("automatic" | "underline" |
 "pill" | "none"), sizing? ("automatic" | "fill" | "hug"), iconOnly?, accessories? ({
 head?, foot?, trailing?, aboveBar? }), railWidth? (dim), textSize?, transition?,
-conditions?, env?, enabled?, onChange?, style? ("automatic" | "sidebarAdaptable"), restoreFocus? }`.
+conditions?, env?, enabled?, onChange?, style? ("automatic" | "sidebarAdaptable" | "collapsible"), restoreFocus? }`.
 
 The two-argument spelling `Facet.newTabView(Facet, core, spec)` is **deprecated** since
 0.10.0 (removal no earlier than 0.12.0): it still builds the identical
@@ -10653,3 +10664,148 @@ error copy, icon, severity, suppression choice and shortcuts through Facet's gam
 input and theme system. It does not implement operating-system alert scenes,
 app-termination prevention or secure text entry. Callbacks run after dismissal,
 so they can safely open a replacement game surface.
+
+### `Controls.Sheet`
+
+`Facet.Controls.Sheet(core, spec) -> { blueprint, present, dismiss, dump, dispose }`
+
+A modal whose height settles at declared detents. It enters from the bottom of
+the screen and exits downward without scaling its text. Nearby screens place the
+panel at the bottom; distant screens center it. Width, text, focus treatment and
+safe-area reservation follow the active surface and theme.
+
+| Field | Contract |
+|---|---|
+| `id` | Stable name; defaults to `"Sheet"` |
+| `title` | Required text or readable text |
+| `content` | Required blueprint; the sheet supplies scrolling |
+| `detent` | Required owner-held Signal containing a declared detent ID |
+| `detents` | Nonempty array; defaults to `{ "medium", "large" }`. Medium requests half the safe height; large requests all of it. Custom entries are `{ id, fraction }` with fraction in `(0, 1]`, or `{ id, height }` with positive finite pixels. IDs are unique |
+| `env` | Optional explicit environment; normally discovered from the surface core |
+| `presenter` | Optional presenter retained for `present()` and bound presentation |
+| `isPresented` | Optional owner-held boolean Signal; requires `presenter` |
+| `interactiveDismissDisabled` | Defaults to false. When true, Back, outside taps and downward dragging cannot dismiss; the explicit Close button and `dismiss()` still work |
+| `dragIndicator` | `"automatic"` (default), `"visible"`, or `"hidden"`. Automatic shows the header grip while pointer or touch is available |
+
+Call `present(presenter)` to open and `dismiss()` to close. Repeated `present()`
+calls while open return the current presentation. `blueprint` is the modal Screen;
+it can also be inspected or mounted in a test. Dispose the control with its owner.
+A bound sheet writes false to `isPresented` when it closes.
+
+Drag the header to resize; release selects the nearest detent. Dragging well
+below the smallest detent dismisses when interactive dismissal is enabled.
+Content pans and wheel input scroll. A change to controller-only input cancels
+an unfinished drag. Resize motion uses the shared non-overshooting motion class
+and honors reduced motion.
+
+The Size button remains available without dragging. Activate it to cycle sizes;
+Left/Right adjusts while it holds focus, yielding to navigation at either end.
+Up/Down moves through the content. Gamepad Back closes and restores focus to the
+presenting surface. The Close button has a downward chevron and works on every
+input class. Distant-screen placement does not change these semantics.
+
+Requested heights are capped by the available safe area and raised to a themed
+minimum that leaves room for controls and content. The panel itself scrolls when
+its contents exceed that height, including on very short screens. There is no
+background interaction through the modal and no gesture handoff that converts a
+content pan into resizing; the visible header owns resizing.
+
+```lua
+local detent = core:signal("medium")
+local sheet = Facet.Controls.Sheet(core, {
+    title = "Race briefing",
+    detent = detent,
+    content = UI.Text({ text = "Three laps around the coast." }),
+})
+sheet.present(presenter)
+```
+
+`dump()` reports `schema = "facet-sheet-dump/1"`, `id`, `detent`, requested settled
+`height` after clamping, `presented`, `dragging`, and `placement` (`"bottom"` or
+`"center"`).
+
+### `Controls.PageView`
+
+`Facet.Controls.PageView(core, spec) -> { blueprint, dump, dispose }`
+
+A finite sequence of content pages with native horizontal scrolling, snapping,
+page dots, and Previous/Next buttons. Each page occupies the scrolling viewport's
+width and provides vertical scrolling for longer content. Use it for short tours,
+course previews or a small set of related pages; use VirtualList for large catalogs.
+
+| Field | Contract |
+|---|---|
+| `id` | Stable name; defaults to `"PageView"` |
+| `pages` | Required nonempty array of `{ id, title, content }`. IDs are unique nonempty names without `/`; titles are nonempty text and content is a blueprint |
+| `selection` | Required owner-held Signal containing a declared page ID; programmatic changes navigate to that page |
+| `height` | Optional dimension or readable dimension; defaults to fill. Supply a definite height inside an outer vertical scroller |
+| `indicators` | Defaults to true. The horizontal scrollbar is hidden while dots are shown. False hides the dots and restores the usual scrollbar policy; the page summary and Previous/Next remain |
+
+Dots have full-sized hit regions and semantic page labels. The visible summary
+names the current page and its position in the sequence. Activate a dot with
+pointer, touch, Return or gamepad A; Left/Right adjusts pages while a dot holds
+focus. At the ends those directions return to navigation. Selection also follows
+native scrolling and snapping. Page-content focus brings that page into view;
+a completed page change moves focus out of content that is no longer visible,
+while preserving focus on navigation controls or outside the pager.
+
+Desktop mouse dragging scrolls pages after a horizontal movement threshold. Clicks
+still activate child buttons; pointer-owning controls and text selection take
+priority. Snapping waits until release, including a pause while held.
+
+All page blueprints remain mounted. Resizing and input changes retain selection
+and page state. The existing scroll motion and gesture system owns interruption
+and reduced motion. There is no automatic advancement or wraparound.
+
+```lua
+local selection = core:signal("coast")
+local pages = Facet.Controls.PageView(core, {
+    selection = selection,
+    pages = {
+        { id = "coast", title = "Coast", content = coastBlueprint },
+        { id = "summit", title = "Summit", content = summitBlueprint },
+    },
+})
+```
+
+`dump()` reports `schema = "facet-page-view-dump/1"`, `id`, `selection`, the
+one-based `index`, and `count`. Dispose the control with its owner.
+### `Controls.CollapsibleView`
+
+`Facet.Controls.CollapsibleView(core, spec) -> { blueprint, collapse, dump, dispose }`
+transforms a summary button into an expanded view at the same position. The plate
+grows while its contents fade in at their final text size; collapsing reverses the
+motion. Focus moves into the expanded view and returns to the button on collapse.
+The shared presenter clamps the overlapping surface to the available safe area;
+a vertical ScrollView makes tall content reachable with touch, pointer, keyboard,
+and gamepad. Reduced motion follows the environment.
+
+| Property | Meaning |
+|---|---|
+| `content` | Required blueprint for the expanded view. |
+| `expanded` | Required owner-held boolean Signal; set false to collapse after a choice. |
+| `label` | Required static text or Readable text, including a selection-derived summary. |
+| `icon` | Optional static or Readable semantic icon name. |
+| `image` | Optional static or Readable asset string, instead of `icon`. |
+| `id` | Stable ID, default `CollapsibleView`. |
+| `width` | Optional button width dimension. |
+| `enabled` | Optional boolean or Readable for the trigger. |
+| `initialFocus` | Optional node ID or Readable ID within expanded content. Defaults to first focusable. |
+| `env` | Optional environment; otherwise discovered from the core. |
+
+A/Return or a tap opens the view. B, outside tap, or the explicit Collapse button
+closes it. Content retains its owner-held state. A bound label or icon changes
+without replacing the trigger or losing focus. `collapse()` sets `expanded` false;
+`dump()` reports `expanded` and whether a surface is presented. Dispose the control
+with its owner. It does not collapse automatically on arbitrary content changes:
+the caller decides which choice completes the task.
+
+`Controls.TabView` supports `style = "collapsible"` to set this up for navigation.
+It uses a top button with the selected tab label and icon, opens a scrollable
+selector, and collapses after a choice. Use this explicit style when content should
+have priority, especially on distant screens. Other tab styles retain their
+existing behavior. This style accepts automatic or topBar placement.
+
+NavigationStack keeps its existing Back hierarchy. It does not add a collapsed
+style: use a CollapsibleView for an app destination chooser alongside the stack
+when the product actually has sibling destinations.

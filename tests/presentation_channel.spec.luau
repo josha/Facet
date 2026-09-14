@@ -531,9 +531,9 @@ describe("screen_target: the presentation channel (source contract)", function()
 		local body = string.sub(adapterSource, from :: number, (from :: number) + 1400)
 		-- the real-parent record (which is what re-bases the subtree into it)
 		expect(string.find(body, "registerHost(path, instance, handle.windowRect, true)", 1, true) ~= nil).toBe(true)
-		-- ...and the DECLARED CLAIM that keeps its own plate invisible in native mode,
-		-- where no class-default rule selects a CanvasGroup
-		expect(string.find(body, 'claimPaint(handle, "BackgroundTransparency")', 1, true) ~= nil).toBe(true)
+		-- Transparency belongs to the class-default sheet rule, so a surface can
+		-- override it and paint the transforming plate.
+		expect(string.find(body, 'claimPaint(handle, "BackgroundTransparency")', 1, true)).toBe(nil)
 	end)
 
 	it("teardown drops the transform record, the real-parent entry and both instances", function()

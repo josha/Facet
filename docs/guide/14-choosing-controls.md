@@ -101,6 +101,54 @@ navigation chrome must not rebuild its page. Compare equivalent workloads with
 FacetBench/Vide only when both adapters implement the same work; its generic
 inventory workload is not evidence of adaptive-control feature parity.
 
+## Collection size and lifetime
+
+Decide from the expected collection size, visible fraction and row lifetime when
+building the screen. A short fixture must not hide a production inventory that
+can grow to thousands of items. There is no universal item-count threshold:
+row complexity, update frequency and available space all affect the cost.
+
+| Collection | Starting choice |
+|---|---|
+| Large scrolling inventory, leaderboard or comparison table | `Controls.Table` with `virtualized = true`, when its supported row features fit. |
+| Long feed or custom rows | `Controls.VirtualList`; use known extents when available, or `itemExtent = "measured"` with `estimatedItemExtent` for content-sized rows. |
+| Large catalog arranged in lanes | `Controls.VirtualGrid` when its extent and interaction contracts fit; see the API's explicit limitations. |
+| Horizontal card shelf | `Controls.VirtualList` with `axis = "x"`, `itemExtent = "cards"` and adaptive card options. |
+| Small settings group, short menu, or content-sized section inside a scrolling page | Ordinary stacks/`UI.ForEach`, or a nonvirtual Table with `scrolls = false`. Keeping every row mounted is appropriate here. |
+
+Virtualization mounts only the visible window plus overscan. **It changes
+lifetime**: off-screen cells unmount, their scopes dispose, and their local state
+and scoped async work end. Keep selection, drafts and other durable values in
+owner-held state keyed by stable item IDs. Do not use appearance hooks to own
+gameplay state. If a row must stay mounted during an interaction, address that
+lifetime requirement before windowing it.
+
+Give the collection a definite extent along its scrolling axis. Prefer
+`viewportExtent = "auto"` inside a bounded pane over calculating screen-space
+subtractions in game code. An unbounded same-axis parent scroller can make the
+inner viewport cover the entire collection, defeating virtualization. Check
+`dump().diagnostics` and the mounted window after layout. A virtual Table owns
+its scrolling viewport; `scrolls = false` and `rowActions` cannot be combined
+with `virtualized = true`. Use VirtualList's supported row actions where needed,
+and respect its documented combinations.
+
+Use the collection's focus/reveal APIs for off-screen items. Do not build an
+input map from only the mounted rows. Verify gamepad traversal past both window
+edges, scroll away/back with an edited row, deletion/reordering, and resized or
+enlarged-text layouts. Measure realistic data sizes and scroll/update patterns;
+for framework comparisons, keep virtualization identical on both sides or
+report it as a separate workload.
+
+**The framework automates the mechanism after the author chooses the lifetime.**
+VirtualList and VirtualGrid already window automatically, and Table does so when
+`virtualized = true`. Do not silently switch an ordinary ForEach or Table at an
+item-count threshold: adding one item must not unexpectedly destroy off-screen
+editing state or change supported interactions. Prefer the virtual form from the
+start for collections expected to grow; it also handles a small initial dataset.
+See the [VirtualList API](../reference/api.md#newvirtuallist),
+[VirtualGrid API](../reference/api.md#newvirtualgrid), and
+[performance guide](12-performance-lab.md).
+
 ## Choose radial options deliberately
 
 | Context | Starting options |
@@ -219,3 +267,25 @@ specific limitations and keep that fallback small and integrated through support
 focus, input, theme and lifecycle seams. Starting with native Roblox behavior out
 of convenience skips the design contract. A supported Facet foreign-content host
 is still composition and should be considered before a custom system.
+
+Use `Controls.Sheet` for a substantial briefing or editor that benefits from
+several heights. The header supports dragging; its Size button provides the same
+choices through focus and activation. Content gestures scroll. Distant screens
+center the sheet, while nearby gamepads retain bottom placement. Use Alert for a
+brief decision with a few actions.
+
+Use `Controls.PageView` for a short finite sequence of previews or guided pages.
+Dots show position and offer direct selection; the summary and Previous/Next
+remain readable on every input class. Supply a definite height inside a vertical
+scrolling page. Keep card rails for catalogs that benefit from seeing adjacent
+choices at once.
+
+Use `Controls.CollapsibleView` when a compact summary should expand into arbitrary
+content. Its plate grows from the compact position while content fades in at its
+final size; collapsing reverses that motion. It supplies one collapse affordance
+and gamepad Back, so avoid adding a second Done button unless it commits a draft.
+Bind its label and icon to the selected value, or keep them static. Bind
+`expanded` to close on the choice that completes the task. For sibling destinations,
+`Controls.TabView` with `style = "collapsible"` supplies that wiring; the demo
+**Collapsible views** shows both forms. A NavigationStack still represents drill-down
+and Back, so keep that hierarchy visible alongside a destination chooser.

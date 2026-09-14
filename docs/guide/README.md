@@ -184,6 +184,9 @@ replacement and their earliest removal version.
 | `client.world_anchor` | Measure a Part, Model, or avatar for a following screen anchor and radial opening with relative padding. | [api](../reference/api.md#clientworld_anchor) |
 | `Controls.RadialMenu` | Corner, circle and donut command menus with captured gestures, compact labels and mixed nested rings/pages. | [api](../reference/api.md#controlsradialmenu) |
 | `Controls.Alert` | Brief modal decisions with content-sized cards, role-placed row/stack actions, safe focus and cancellation. | [api](../reference/api.md#controlsalert) |
+| `Controls.Sheet` | Modal detents with header dragging, controller sizing and distant-screen placement. | [api](../reference/api.md#controlssheet) |
+| `Controls.PageView` | Finite content pages with snapping, dots and focus-aware navigation. | [api](../reference/api.md#controlspageview) |
+| `Controls.CollapsibleView` | Collapse arbitrary content into a bound summary button with focus-safe expansion. | [api](../reference/api.md#controlscollapsibleview) |
 | `valueModel` | Formats, clamps, and steps a numeric value for those controls. | [api](../reference/api.md#valuemodel) |
 | `pathShapes` | Builds arc, ring, and needle point lists for `UI.Path`. | [api](../reference/api.md#pathshapes) |
 

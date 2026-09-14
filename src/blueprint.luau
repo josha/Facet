@@ -500,6 +500,8 @@ export type PathSpec = BoxProps & {
 -- fading forms themselves — needs the child to be a declared `canvasGroup` node;
 -- `pivot` is where a scaling form (`materialize`) grows from (default centre).
 export type TransitionSpec = {
+	fromRect: { x: number, y: number, w: number, h: number }?,
+	content: string?,
 	enter: string,
 	exit: string?,
 	class: string?,

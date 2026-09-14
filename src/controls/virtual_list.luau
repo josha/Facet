@@ -2332,7 +2332,7 @@ function virtual_list.build(Facet: any, core: any, spec: any)
 			-- ...and the SNAP machine's one input: every offset the engine
 			-- reports, including the ones this control's own writes echo back — the
 			-- machine tells those apart, this seam does not have to.
-			snapEngine.sample(offset)
+			snapEngine.sample(offset, pos.dragging)
 		end)
 		hostedDelivery.controller = controller
 		boundScrollPath = path

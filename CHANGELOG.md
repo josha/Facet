@@ -13,6 +13,25 @@ runtime as `Facet.VERSION`.
 
 ## [Unreleased]
 
+- Horizontal scroll hosts support desktop mouse dragging after child controls get first refusal. Ordinary clicks remain clicks, text editing and claimed drags keep ownership, and snapping waits until mouse release. PageView hides its horizontal scrollbar when page dots are shown.
+- CollapsibleView transforms its plate from the compact button's current screen rectangle, with separate content fading and no text scaling or overshoot. Race settings now has one collapse action. CanvasGroup surface paint follows the stylesheet instead of forcing a transparent backdrop.
+
+- Reuse reactive propagation work lists between completed rounds, reducing allocation
+  during repeated signal updates while preserving observer order, transaction reads,
+  feedback handling and isolation between cores.
+
+- Gallery fallback cleanup releases parent controls before child scopes, preventing duplicate-disposal errors when switching demos.
+
+- Added `Controls.CollapsibleView`: arbitrary content expands from a static or bound summary button, with modal focus, safe-area placement, scrolling and grow/shrink motion. `TabView.style = "collapsible"` supplies the selected-destination version. NavigationStack retains its Back hierarchy.
+
+- Add `Controls.Sheet`: owner-held detents, bottom entry and dismissal, a header
+  grip, focus-based sizing, and centered distant-screen presentation. Content pans
+  remain scrolling; the header owns resizing. Add `Controls.PageView`: finite
+  pages, dots, native snapping, and focus that follows the visible page. These
+  controls reuse the shared presentation, input, scrolling and motion systems.
+- A fixed-height container now bounds descendant measurement inside an outer
+  vertical scroller, so nested page viewports receive their actual height.
+
 - **A modal centres on the whole screen; content still yields the host's own
   chrome (2026-09-13).** `coreSafeInsets` carried two meanings — the device safe
   area AND any band the HOST app reserved for chrome of its own, because inflating

@@ -1122,3 +1122,9 @@ identical: the same board, score and tiles, painted in place.
 That is the whole feature surface. From here, [chapter 5](05-styling.md) covers
 how any of these screens is styled, and [chapter 6](06-client-server.md) goes
 deeper on the replication used in example 4.
+
+The Showcase also includes **Detent sheets** and **Pages and dots**. Open the race
+briefing to resize it with its header or focused Size button; change viewing
+distance to see centered placement. The course pager demonstrates horizontal
+swiping, page indicators, and controller navigation while long descriptions
+remain vertically scrollable.

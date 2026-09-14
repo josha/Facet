@@ -550,7 +550,7 @@ local function trackPaddingFor(core: any, scope: any, spec: any, presentation: a
 	end))
 end
 
-local function buildLive(Facet, core, spec, requested: string)
+local function buildLive(Facet, core, spec, requested: string, onReselect)
 	local UI = Facet.UI
 	local scope = core:scope("live-picker")
 	local id = spec.id or "Picker"
@@ -708,7 +708,7 @@ local function buildLive(Facet, core, spec, requested: string)
 					and controlContract.enabledIn(use, use(current).enabled)
 			end))
 			local row = menuRecipe.row(UI, {
-				id = if slides then "Option-" .. identity else "Option",
+				id = if slides or onReselect then "Option-" .. identity else "Option",
 				wrap = true,
 				surface = if slides then "plain" else nil,
 				labelTint = if slides and spec.indicator == "pill"
@@ -734,7 +734,11 @@ local function buildLive(Facet, core, spec, requested: string)
 			})
 			row = contribution.attach(row, {
 				handleActivate = function()
-					choose(identity)
+					if onReselect and spec.selected:get() == current:get().value and enabled:get() then
+						onReselect()
+					else
+						choose(identity)
+					end
 					return true
 				end,
 			})
@@ -930,7 +934,7 @@ local function lintStaticOptions(spec: Spec, id: string): any
 	}
 end
 
-local function buildStrip(Facet: any, core: any, spec: Spec, requested: string)
+local function buildStrip(Facet: any, core: any, spec: Spec, requested: string, onReselect)
 	local UI = Facet.UI
 	local id = spec.id or "Picker"
 	local scope = core:scope("picker-" .. tostring(id))
@@ -1590,7 +1594,11 @@ local function buildStrip(Facet: any, core: any, spec: Spec, requested: string)
 		handleActivate = function(path: string): boolean
 			local leaf = string.match(path, "([^/]+)$")
 			if leaf ~= nil and byId[leaf] ~= nil then
-				choose(byId[leaf])
+				if onReselect and byId[leaf] == selected:get() and isEnabled() then
+					onReselect()
+				else
+					choose(byId[leaf])
+				end
 				return true
 			end
 			return false
@@ -1775,14 +1783,14 @@ local function buildMenu(Facet: any, core: any, spec: Spec, style: string, id: s
 	return api
 end
 
-local function buildStripFamily(Facet: any, core: any, spec: Spec, style: string, id: string): any
+local function buildStripFamily(Facet: any, core: any, spec: Spec, style: string, id: string, onReselect): any
 	local strip = if style == "automatic" then "automatic" else STRIP_NAME[style]
 	local live = type(spec.options) == "table" and (spec.options :: any).kind ~= nil
 	local scope = core:scope("picker-strip-" .. id)
 	local inner = scope:own(
 		if live
-			then buildLive(Facet, core, stripSpec(spec, id), strip)
-			else buildStrip(Facet, core, stripSpec(spec, id), strip)
+			then buildLive(Facet, core, stripSpec(spec, id), strip, onReselect)
+			else buildStrip(Facet, core, stripSpec(spec, id), strip, onReselect)
 	)
 	local api: any = {
 		blueprint = inner.blueprint,
@@ -2002,7 +2010,8 @@ local function buildAutomatic(Facet: any, core: any, spec: Spec, id: string): an
 	return api
 end
 
-function picker.build(Facet: any, core: any, spec: Spec)
+-- Internal tab-host hook: accepting the current destination completes its chooser without a change event.
+function picker.build(Facet: any, core: any, spec: Spec, onReselect: (() -> ())?)
 	specGuard.assertKnownKeys("newPicker", spec, PICKER_KEYS, "spec")
 	local id = spec.id or "Picker"
 	assert(spec.required == nil or type(spec.required) == "boolean", "Picker: required must be boolean")
@@ -2113,7 +2122,7 @@ function picker.build(Facet: any, core: any, spec: Spec)
 		return buildMenu(Facet, core, spec, style, id)
 	end
 	if style ~= "automatic" then
-		return buildStripFamily(Facet, core, spec, style, id)
+		return buildStripFamily(Facet, core, spec, style, id, onReselect)
 	end
 	return buildAutomatic(Facet, core, spec, id)
 end

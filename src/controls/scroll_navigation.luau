@@ -239,7 +239,7 @@ function navigation.new(core, scope, spec)
 						engine.rest(offset)
 					else
 						frameworkOffset = nil
-						engine.sample(offset)
+						engine.sample(offset, pos.dragging)
 					end
 					publish()
 				end)

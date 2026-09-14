@@ -1013,6 +1013,16 @@ local function contentSize(ctx: Ctx, node: Node, maxW: number, maxH: number): (n
 		end
 	end
 
+	-- A fixed-height container also bounds nested scrolling during measurement,
+	-- even when its own parent offers an unbounded vertical scroll axis.
+	local selfH = dim(node, "h")
+	if selfH.type == "fixed" and node.kind ~= "text" and node.kind ~= "fits" then
+		local resolved = resolveAxis(ctx, node, selfH, maxH, function()
+			return innerMaxH
+		end, ctx.containerH)
+		innerMaxH = math.max(0, math.min(innerMaxH, resolved - pt - pb))
+	end
+
 	if node.kind == "text" then
 		local widthDim = dim(node, "w")
 		-- the width this node will OCCUPY: its own when it declares a fixed one,

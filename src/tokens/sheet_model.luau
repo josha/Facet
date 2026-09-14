@@ -869,6 +869,7 @@ function sheet_model.build(opts: BuildOpts): Model
 	-- so "invisible until a surface says otherwise" is itself sheet-owned.
 	local rules: { Rule } = {
 		{ name = "Frame default", selector = "Frame", props = { BackgroundTransparency = num(1) } },
+		{ name = "Canvas default", selector = "CanvasGroup", props = { BackgroundTransparency = num(1) } },
 		{ name = "Label default", selector = "TextLabel", props = { BackgroundTransparency = num(1) } },
 		{ name = "Button default", selector = "TextButton", props = { BackgroundTransparency = num(1) } },
 		{ name = "Image default", selector = "ImageLabel", props = { BackgroundTransparency = num(1) } },

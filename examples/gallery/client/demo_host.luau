@@ -47,6 +47,26 @@ local demo_host = {}
 	nothing here republishes, because a second registration would be a second owner.
 ]]
 function demo_host.scopedCore(core: any, scope: any): any
+	-- Release the usual parent-first construction order. The fallback may also
+	-- encounter an API that adopted an earlier scope; those duplicate releases
+	-- are harmless after unmount, while ordinary double disposal remains an error.
+	local children = {}
+	local cleaning = false
+	scope:own(function()
+		cleaning = true
+		local ok, err = pcall(function()
+			for _, child in children do
+				if not child:isDisposed() then
+					child:dispose()
+				end
+			end
+		end)
+		cleaning = false
+		table.clear(children)
+		if not ok then
+			error(err, 0)
+		end
+	end)
 	return setmetatable({}, {
 		__index = function(_, key: string)
 			local value = (core :: any)[key]
@@ -56,7 +76,18 @@ function demo_host.scopedCore(core: any, scope: any): any
 			-- the allocating surface: what these return is what leaks
 			if key == "signal" or key == "memo" or key == "observe" or key == "effect" or key == "scope" then
 				return function(_self, ...)
-					return scope:own(value(core, ...))
+					local resource = value(core, ...)
+					if key == "scope" then
+						local dispose = resource.dispose
+						resource.dispose = function(self)
+							if not cleaning or not self:isDisposed() then
+								dispose(self)
+							end
+						end
+						table.insert(children, resource)
+						return resource
+					end
+					return scope:own(resource)
 				end
 			end
 			return function(_self, ...)
@@ -64,6 +95,46 @@ function demo_host.scopedCore(core: any, scope: any): any
 			end
 		end,
 	})
+end
+
+-- Retire the rendered tree before releasing the state and controls it reads.
+-- The presenter keeps that tree alive through its exit transition.
+function demo_host.ownLifetime(built: any, presenter: any, scope: any)
+	local ownDispose = built.dispose
+	local released = false
+	local function release()
+		if released then
+			return
+		end
+		released = true
+		if ownDispose then
+			pcall(ownDispose)
+		end
+		scope:dispose()
+	end
+	local handle = built.handle
+	local unwatch
+	local function releaseWhenUnmounted()
+		if handle == nil or handle.scope:isDisposed() then
+			if unwatch then
+				unwatch()
+				unwatch = nil
+			end
+			release()
+		end
+	end
+	built.dispose = function()
+		if released then
+			return
+		end
+		if handle and not handle.scope:isDisposed() then
+			if unwatch == nil then
+				unwatch = presenter.onTick(releaseWhenUnmounted)
+			end
+			presenter.dismiss(handle)
+		end
+		releaseWhenUnmounted()
+	end
 end
 
 return demo_host

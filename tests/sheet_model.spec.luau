@@ -33,6 +33,22 @@ local function ruleIndex(model: any, name: string): number
 end
 
 describe("sheet_model.build", function()
+	it("canvas groups default transparent without overriding authored surfaces", function()
+		local model = build()
+		local index = ruleIndex(model, "Canvas default")
+		local rule = model.rules[index]
+		expect(rule.selector).toBe("CanvasGroup")
+		expect(rule.props.BackgroundTransparency.value).toBe(1)
+		local found = false
+		for i, candidate in model.rules do
+			if candidate.selector == "." .. sheet_model.TAGS.surfacePrefix .. "raised" then
+				expect(i > index).toBe(true)
+				found = true
+			end
+		end
+		expect(found).toBe(true)
+	end)
+
 	it("is deterministic (same stamp for same inputs)", function()
 		expect(build().stamp).toBe(build().stamp)
 		expect(#build().stamp > 0).toBe(true)

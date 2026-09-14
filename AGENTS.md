@@ -28,6 +28,7 @@ conversation history, or any repository other than this one.
 | art-driven controls | [`docs/guide/10-rich-skinning.md`](docs/guide/10-rich-skinning.md) |
 | what the evidence covers, and what it does not | [`docs/guide/11-device-verification.md`](docs/guide/11-device-verification.md) |
 | performance work | [`docs/guide/12-performance-lab.md`](docs/guide/12-performance-lab.md) |
+| choosing virtualized versus fully mounted collections | [Collection size and lifetime](docs/guide/14-choosing-controls.md#collection-size-and-lifetime) |
 | the ready-made looks | [`docs/guide/13-theme-catalog.md`](docs/guide/13-theme-catalog.md) |
 | where a change goes and what proves it | [`docs/MAINTAINERS.md`](docs/MAINTAINERS.md) |
 | how to add a control, primitive, theme, target, or mode | [`docs/extending/`](docs/extending/) |
@@ -100,6 +101,12 @@ custom input/layout system and then attempt to wrap Facet around it.
    environment, render target, input system, and presenter, and drives both halves
    of the frame. See [api.md client entry
    points](docs/reference/api.md#client-entry-points).
+7. **Choose collection lifetime deliberately.** Apply the chooser's
+   [virtualization guidance](docs/guide/14-choosing-controls.md#collection-size-and-lifetime)
+   to inventories, catalogs and feeds. Use the existing virtual controls for
+   large scrolling collections; document a reason when keeping them fully
+   mounted. Keep durable row state in the model and let the control own
+   windowing, scrolling and focus.
 
 ## 3. Choosing where the interface lives
 
