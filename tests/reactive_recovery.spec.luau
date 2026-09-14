@@ -37,6 +37,48 @@ local describe, it, expect = t.describe, t.it, t.expect
 
 local Facet = require("../src") :: any
 
+describe("successive propagation rounds release their work lists", function()
+	it("keeps transaction reads fresh and does not replay effects on unrelated writes", function()
+		local core, other = Facet.newCore(), Facet.newCore()
+		local left, right = core:signal(1), core:signal(10)
+		local chooseLeft, unrelated = core:signal(true), core:signal(0)
+		local forwarded = other:signal(0)
+		local selected = core:memo(function(use)
+			return if use(chooseLeft) then use(left) else use(right)
+		end)
+		local effects, received = {}, {}
+		core:effect(function(use)
+			table.insert(effects, use(selected))
+		end)
+		other:observe(forwarded, function(value)
+			table.insert(received, value)
+		end)
+		core:observe(selected, function(value)
+			forwarded:set(value)
+		end)
+		core:transaction(function()
+			left:set(2)
+			expect(selected:get()).toBe(2)
+			left:set(3)
+			expect(selected:get()).toBe(3)
+			chooseLeft:set(false)
+			expect(selected:get()).toBe(10)
+			right:set(11)
+			expect(selected:get()).toBe(11)
+		end)
+		unrelated:set(1)
+		left:set(99)
+		expect(effects).toEqual({ 1, 11 })
+		expect(received).toEqual({ 11 })
+		right:set(12)
+		unrelated:set(2)
+		expect(effects).toEqual({ 1, 11, 12 })
+		expect(received).toEqual({ 11, 12 })
+		expect(core:lastError()).toBe(nil)
+		expect(other:lastError()).toBe(nil)
+	end)
+end)
+
 -- the number of subscription records a signal is carrying. Reaching into the
 -- node is deliberate: the leak RR-2 describes is invisible from every public
 -- counter — that is what made it survive.

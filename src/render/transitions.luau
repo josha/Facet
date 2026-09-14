@@ -154,6 +154,8 @@ local TRAVEL: { [string]: { x: number, y: number } } = {
 }
 
 export type Spec = {
+	fromRect: any?,
+	content: string?,
 	enter: string,
 	exit: string,
 	class: string,
@@ -204,6 +206,8 @@ function transitions.resolve(declared: any): Spec
 	local enter = declared.enter
 	local exit = declared.exit or (schema.TRANSITION_MIRROR :: any)[enter]
 	return {
+		fromRect = declared.fromRect,
+		content = declared.content,
 		enter = enter,
 		exit = exit,
 		class = declared.class or DEFAULT_CLASS,
@@ -607,6 +611,9 @@ function transitions.new(opts: Opts)
 			absent.x = travel.x * d * sign
 			absent.y = travel.y * d * sign
 		end
+		if form == "transform" then
+			absent.fromRect = spec.fromRect
+		end
 		if form == "materialize" then
 			--[[ THE CALLER'S OWN BAND WINS ON THE WAY IN, AND ONLY ON THE WAY IN
 				(RED-TEAM F1). `spec.scale` exists for one reason — a surface that is
@@ -660,6 +667,11 @@ function transitions.new(opts: Opts)
 			return
 		end
 		local p = entry.progress:get()
+		-- Transform changes the clipping plate, never UIScale or text metrics.
+		-- Clamp the decorative spring so a rectangle cannot overshoot either form.
+		if entry.absent.fromRect then
+			p = math.clamp(p, 0, 1)
+		end
 		local k = 1 - p
 		local absent = entry.absent
 		-- A newly sampled form may stop fading (or resolve a different group).
@@ -668,6 +680,27 @@ function transitions.new(opts: Opts)
 		if entry.writtenAlphaPath ~= nil and (absent.alpha == nil or entry.writtenAlphaPath ~= entry.alphaPath) then
 			controller.setPresentationTransparency(entry.writtenAlphaPath, nil)
 			entry.writtenAlphaPath = nil
+		end
+		if absent.fromRect then
+			local rect = controller.rectOf(entry.path)
+			if rect then
+				local from = absent.fromRect
+				controller.setPresentationTransform(entry.path, {
+					x = (from.x - rect.x) * k,
+					y = (from.y - rect.y) * k,
+					w = (from.w - rect.w) * k,
+					h = (from.h - rect.h) * k,
+				})
+			end
+			controller.setPresentationTransparency(entry.alphaPath, 1 - math.clamp(p * 5, 0, 1))
+			entry.writtenAlphaPath = entry.alphaPath
+			if entry.spec.content then
+				controller.setPresentationTransparency(
+					entry.path .. "/" .. entry.spec.content,
+					1 - math.clamp((p - 0.2) / 0.8, 0, 1)
+				)
+			end
+			return
 		end
 		controller.setPresentationTransform(entry.path, {
 			x = absent.x * k,
@@ -716,6 +749,9 @@ function transitions.new(opts: Opts)
 			return
 		end
 		controller.setPresentationTransform(entry.path, nil)
+		if entry.spec.content then
+			controller.setPresentationTransparency(entry.path .. "/" .. entry.spec.content, nil)
+		end
 		if entry.writtenAlphaPath ~= nil then
 			controller.setPresentationTransparency(entry.writtenAlphaPath, nil)
 			entry.writtenAlphaPath = nil

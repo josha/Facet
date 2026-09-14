@@ -1060,6 +1060,56 @@ local FIXTURES: { Fixture } = {
 		end,
 	},
 
+	{
+		id = "Sheet",
+		class = "Sheet",
+		-- STAMPED BY THE SCAFFOLD. Grow it with the control: a fixture that mounts
+		-- the stub proves the stub, and the sweep's whole question is whether THIS
+		-- control's text still fits its boxes at +14px in a wider theme.
+		build = function(core: any)
+			return Facet.Controls.Sheet(core, {
+				id = "Ctl",
+				title = "Race briefing",
+				detent = core:signal("medium"),
+				content = UI.Text({ text = "Choose your starting setup." }),
+			}).blueprint
+		end,
+	},
+
+	{
+		id = "PageView",
+		class = "PageView",
+		-- STAMPED BY THE SCAFFOLD. Grow it with the control: a fixture that mounts
+		-- the stub proves the stub, and the sweep's whole question is whether THIS
+		-- control's text still fits its boxes at +14px in a wider theme.
+		build = function(core: any)
+			return Facet.Controls.PageView(core, {
+				id = "Ctl",
+				selection = core:signal("one"),
+				pages = {
+					{ id = "one", title = "First course", content = UI.Text({ text = "Race along the coast." }) },
+					{ id = "two", title = "Second course", content = UI.Text({ text = "Climb to the summit." }) },
+				},
+			}).blueprint
+		end,
+	},
+
+	{
+		id = "CollapsibleView",
+		class = "CollapsibleView",
+		-- STAMPED BY THE SCAFFOLD. Grow it with the control: a fixture that mounts
+		-- the stub proves the stub, and the sweep's whole question is whether THIS
+		-- control's text still fits its boxes at +14px in a wider theme.
+		build = function(core: any)
+			return Facet.Controls.CollapsibleView(core, {
+				id = "Ctl",
+				label = "Choose destination",
+				expanded = core:signal(false),
+				content = UI.Text({ text = "Destination details", width = UI.fill() }),
+			}).blueprint
+		end,
+	},
+
 	-- scaffold: new control fixtures are appended above this line
 }
 

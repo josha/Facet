@@ -177,6 +177,7 @@ local TRANSITION_FORMS: { string } = table.freeze({
 	"slide-left",
 	"slide-right",
 	"materialize",
+	"transform",
 	"instant",
 })
 local TRANSITION_FORM_SET: { [string]: boolean } = {}
@@ -187,6 +188,7 @@ local TRANSITION_FORM_LIST = table.concat(TRANSITION_FORMS, " | ")
 local TRANSITION_MIRROR: { [string]: string } = {
 	fade = "fade",
 	materialize = "materialize",
+	transform = "transform",
 	instant = "instant",
 	["slide-up"] = "slide-down",
 	["slide-down"] = "slide-up",
@@ -228,6 +230,8 @@ local TRANSITION_KEYS: { [string]: boolean } = {
 	pivot = true,
 	plate = true,
 	stagger = true,
+	fromRect = true,
+	content = true,
 }
 -- where a scaling form (materialize) grows FROM: the node's centre unless the
 -- caller names the corner it is attached at (an anchored popover grows out of
@@ -238,7 +242,7 @@ schema.TRANSITION_PIVOTS = table.freeze(TRANSITION_PIVOTS)
 schema.TRANSITION_MIRROR = table.freeze(TRANSITION_MIRROR)
 -- forms that drive TRANSPARENCY, and therefore need a declared fade group
 -- (`canvasGroup = true`). The coordinator asserts it and names the fix.
-schema.TRANSITION_FADES = table.freeze({ fade = true, materialize = true })
+schema.TRANSITION_FADES = table.freeze({ fade = true, materialize = true, transform = true })
 
 -- DERIVED from the theme package's own vocabulary, never restated — for the same
 -- reason the role list below is, and it was a literal until the DIR wave added
@@ -683,7 +687,7 @@ local TYPE_CHECKS: { [string]: (any) -> (boolean, string?) } = {
 			if type(k) ~= "string" or not TRANSITION_KEYS[k] then
 				return false,
 					`unknown transition field '{tostring(k)}' `
-						.. `(enter | exit | class | exitClass | fade | distance | scale | pivot | plate | stagger)`
+						.. `(enter | exit | class | exitClass | fade | distance | scale | pivot | plate | stagger | fromRect | content)`
 			end
 		end
 		local enter = (v :: any).enter
@@ -696,6 +700,26 @@ local TYPE_CHECKS: { [string]: (any) -> (boolean, string?) } = {
 		local exit = (v :: any).exit
 		if exit ~= nil and not TRANSITION_FORM_SET[exit] then
 			return false, `unknown exit form '{tostring(exit)}' (one of {TRANSITION_FORM_LIST})`
+		end
+		if (v :: any).content ~= nil and (type((v :: any).content) ~= "string" or (v :: any).content == "") then
+			return false, "content names a relative descendant fade-group path"
+		end
+		local from = (v :: any).fromRect
+		if enter == "transform" or exit == "transform" or from ~= nil then
+			if type(from) ~= "table" then
+				return false, "transform requires fromRect = { x, y, w, h } in window coordinates"
+			end
+			for _, key in { "x", "y", "w", "h" } do
+				local n = from[key]
+				if
+					type(n) ~= "number"
+					or n ~= n
+					or math.abs(n) == math.huge
+					or ((key == "w" or key == "h") and n <= 0)
+				then
+					return false, "fromRect must contain finite x/y and positive w/h"
+				end
+			end
 		end
 		local class = (v :: any).class
 		if class ~= nil and (type(class) ~= "string" or class == "") then

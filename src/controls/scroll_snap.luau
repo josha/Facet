@@ -358,7 +358,7 @@ export type Ctx = {
 
 export type Snap = {
 	-- a `CanvasPosition` sample, straight from the mirror
-	sample: (offset: number) -> (),
+	sample: (offset: number, held: boolean?) -> (),
 	-- the FRAMEWORK moved the scroll (keep-visible, a programmatic scrollTo, the
 	-- variable-extent anchor correction). It is a new resting place, not a travel:
 	-- announcing it stops the echo being read as a gesture the player never made.
@@ -393,6 +393,7 @@ function scroll_snap.new(ctx: Ctx): Snap
 	-- two samples, and the first one after a rest has no predecessor)
 	local hasPrevious = false
 	local disposed = false
+	local pointerHeld = false
 
 	local function enabled(): boolean
 		return ctx.mode() == "item"
@@ -462,7 +463,7 @@ function scroll_snap.new(ctx: Ctx): Snap
 	end
 
 	local function attemptSnap()
-		if disposed or flightActive or not enabled() then
+		if disposed or pointerHeld or flightActive or not enabled() then
 			peak = 0
 			return
 		end
@@ -517,8 +518,16 @@ function scroll_snap.new(ctx: Ctx): Snap
 
 	local self: Snap = {} :: any
 
-	function self.sample(offset: number)
+	function self.sample(offset: number, held: boolean?)
+		pointerHeld = held == true
 		if disposed or not isFinite(offset) then
+			return
+		end
+		if held then
+			if flightActive and ctx.onInterrupt then
+				ctx.onInterrupt()
+			end
+			self.rest(offset)
 			return
 		end
 		if flightActive then

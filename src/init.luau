@@ -53,6 +53,9 @@ local levelPicker = require("@self/controls/level_picker")
 local navigationStack = require("@self/controls/navigation_stack")
 local radial_menu = require("@self/controls/radial_menu")
 local alert = require("@self/controls/alert")
+local sheet = require("@self/controls/sheet")
+local page_view = require("@self/controls/page_view")
+local collapsible_view = require("@self/controls/collapsible_view")
 local asyncResources = require("@self/async/resources")
 local themesPackage = require("@self/themes/package")
 local themesSnapshot = require("@self/themes/snapshot")
@@ -512,6 +515,15 @@ local Controls = table.freeze({
 	end,
 	Alert = function(core: any, spec: alert.Spec)
 		return alert.build(library, core, spec)
+	end,
+	Sheet = function(core: any, spec: sheet.Spec)
+		return sheet.build(library, core, spec)
+	end,
+	PageView = function(core: any, spec: page_view.Spec)
+		return page_view.build(library, core, spec)
+	end,
+	CollapsibleView = function(core: any, spec: collapsible_view.Spec)
+		return collapsible_view.build(library, core, spec)
 	end,
 	AsyncImage = function(core: any, spec: any)
 		return require("@self/controls/async_image").build(library, core, spec)

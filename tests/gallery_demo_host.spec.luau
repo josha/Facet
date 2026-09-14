@@ -104,13 +104,7 @@ local function mountDemo(host: any, demo: any): any
 		end
 	end
 	host.pres.refresh()
-	local ownDispose = built.dispose
-	built.dispose = function()
-		if ownDispose ~= nil then
-			pcall(ownDispose)
-		end
-		demoScope:dispose()
-	end
+	demo_host.ownLifetime(built, host.pres, demoScope)
 	return built
 end
 
@@ -162,20 +156,21 @@ describe("the showcase host path: a demo core is the core it delegates to", func
 			local ok, err = pcall(function()
 				built = mountDemo(host, demo)
 			end)
-			--[[ THE VERDICT IS TAKEN AT MOUNT, BEFORE DISPOSAL, and deliberately.
-				Two demos raise a core error when the demo scope tears down what the
-				demo already tore down (`with-animation`, `tab-view`: "double disposal
-				of scope"), which is a real finding on this path and is reported as one
-				— but it is a DISPOSAL defect, and folding it in here would make "does
-				the showcase mount" unanswerable until somebody fixed something else. ]]
 			local mountError = host.core:lastError()
 			if built ~= nil then
 				pcall(built.dispose)
+				for _ = 1, 120 do
+					host.pres.tick(1 / 60)
+					host.pres.refresh()
+				end
 			end
+			local teardownError = host.core:lastError()
 			if not ok then
 				table.insert(broken, `{demo.id} ({demo.kind}/{demo.module}): {tostring(err)}`)
 			elseif mountError ~= nil then
 				table.insert(broken, `{demo.id}: core error at mount {tostring(mountError)}`)
+			elseif teardownError ~= nil then
+				table.insert(broken, `{demo.id}: core error after teardown {tostring(teardownError)}`)
 			end
 		end
 		if #broken > 0 then
@@ -241,5 +236,60 @@ describe("the showcase host path: a demo core is the core it delegates to", func
 		local source = fs.readFile("examples/gallery/client/init.client.luau")
 		expect(string.find(source, "demo_host.scopedCore", 1, true) ~= nil).toBe(true)
 		expect(string.find(source, "setmetatable({}, {", 1, true)).toBeNil()
+	end)
+end)
+
+describe("showcase cleanup ordering", function()
+	it("keeps demo resources alive until the presented tree has unmounted", function()
+		local host = showcaseHost()
+		local built = mountDemo(host, demoById("all-controls"))
+		built.dispose()
+		host.pres.dismiss(built.handle)
+		for _ = 1, 120 do
+			host.pres.tick(1 / 60)
+			host.pres.refresh()
+		end
+		expect(host.core:lastError()).toBe(nil)
+	end)
+
+	it("fallback cleanup tolerates controls adopting a previously created child", function()
+		local core = Facet.newCore()
+		local owner = core:scope("demo")
+		local proxy = demo_host.scopedCore(core, owner)
+		local child = proxy:scope("child")
+		local parent = proxy:scope("parent")
+		parent:own({
+			dispose = function()
+				child:dispose()
+			end,
+		})
+		owner:dispose()
+		expect(core:lastError()).toBe(nil)
+	end)
+
+	it("ordinary double disposal still reports an error through the proxy", function()
+		local core = Facet.newCore()
+		local owner = core:scope("demo")
+		local proxy = demo_host.scopedCore(core, owner)
+		local child = proxy:scope("child")
+		child:dispose()
+		child:dispose()
+		expect(string.find(tostring(core:lastError()), "double disposal", 1, true) ~= nil).toBe(true)
+		owner:dispose()
+	end)
+
+	it("releases parent-owned controls before its fallback child-scope cleanup", function()
+		local core = Facet.newCore()
+		local owner = core:scope("demo")
+		local proxy = demo_host.scopedCore(core, owner)
+		local parent = proxy:scope("parent")
+		local child = proxy:scope("child")
+		parent:own({
+			dispose = function()
+				child:dispose()
+			end,
+		})
+		owner:dispose()
+		expect(core:lastError()).toBe(nil)
 	end)
 end)

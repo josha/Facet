@@ -637,18 +637,14 @@ if bootDecision.mode == "showcase" then
 			end))
 		end
 
-		-- the picker calls `dispose` before it drops a demo; chain the example's
-		-- own teardown (when it has one) ahead of the scope's
-		local ownDispose = built.dispose
+		demo_host.ownLifetime(built, pres, demoScope)
+		local dispose = built.dispose
 		activeBuilt = built
 		built.dispose = function()
 			if activeBuilt == built then
 				activeBuilt = nil
 			end
-			if ownDispose ~= nil then
-				pcall(ownDispose)
-			end
-			demoScope:dispose()
+			dispose()
 		end
 		return built
 	end

@@ -1266,16 +1266,19 @@ describe("RS-A16-D1: a hidden ViewThatFits candidate requests no hit geometry", 
 		local atHandler = string.find(source, "function adapter.setActivateHandler", 1, true)
 		expect(atHandler ~= nil).toBe(true)
 		local handlerBody = adapter_source.bodyOf(source, "function adapter.setActivateHandler")
-		expect(string.find(handlerBody, "fn(pointerActivateMeta(inputObject))", 1, true) ~= nil).toBe(true)
+		expect(string.find(handlerBody, "activate(handle, inputObject)", 1, true) ~= nil).toBe(true)
+		local activateBody = adapter_source.bodyOf(source, "local function activate(handle, inputObject)")
+		expect(string.find(activateBody, "not suppressedInputs[inputObject]", 1, true) ~= nil).toBe(true)
+		expect(string.find(activateBody, "handle.activate(pointerActivateMeta(inputObject))", 1, true) ~= nil).toBe(
+			true
+		)
 
 		-- producer 2: the minimum-target hit expander, from ITS OWN InputObject
 		local atExpander = string.find(source, "expander.Activated:Connect", 1, true)
 		expect(atExpander ~= nil).toBe(true)
 		local expanderBody = adapter_source.bodyOf(source, "expander.Activated:Connect")
 		expect(string.find(expanderBody, "function(inputObject: InputObject)", 1, true) ~= nil).toBe(true)
-		expect(string.find(expanderBody, "handle.activate(pointerActivateMeta(inputObject))", 1, true) ~= nil).toBe(
-			true
-		)
+		expect(string.find(expanderBody, "pointer.activate(handle, inputObject)", 1, true) ~= nil).toBe(true)
 
 		-- and the partial meta is GONE, not merely unused. The CALL is what is
 		-- asserted absent, not the words: the builder's own comment above names

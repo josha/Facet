@@ -479,3 +479,43 @@ describe("ADAPT-17 (c): the same substrate on a VirtualGrid's scroll axis", func
 		expect(grid.scrollTop:get()).toBe(77)
 	end)
 end)
+
+describe("mouse hold during snap travel", function()
+	it("an unchanged offset still takes over a pending flight and waits for release", function()
+		local w = worldLib.new({ reducedMotion = false })
+		local scope = w.core:scope("held-snap")
+		local writes = {}
+		local snap = scroll_snap.new({
+			core = w.core,
+			scope = scope,
+			index = function()
+				return nil
+			end,
+			viewport = function()
+				return 100
+			end,
+			mode = function()
+				return "item"
+			end,
+			resolve = function()
+				return 200
+			end,
+			write = function(value)
+				table.insert(writes, value)
+			end,
+		})
+		snap.bindMotion(w.pres.motionClock)
+		snap.travel(0, 200)
+		snap.sample(0, true)
+		w.settle(60)
+		expect(#writes).toBe(0)
+		snap.sample(120, true)
+		w.settle(60)
+		expect(#writes).toBe(0)
+		snap.sample(120, false)
+		w.settle(120)
+		expect(writes[#writes]).toBe(200)
+		snap.dispose()
+		scope:dispose()
+	end)
+end)

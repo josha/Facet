@@ -326,6 +326,9 @@ function Custom.new(opts: CustomOpts?)
 		end
 	end
 
+	-- Invalidation never calls user code, so successive writes can share its
+	-- visited set. Clear it after each walk to retain no reactive nodes.
+	local staleSeen: { [any]: boolean } = {}
 	local function write(node: Node, value: any)
 		if evaluatingMemo then
 			error("Facet: writing state during memo evaluation is an error", 0)
@@ -335,10 +338,10 @@ function Custom.new(opts: CustomOpts?)
 		end
 		node.value = value
 		writeSet[node] = true
-		local seen: { [any]: boolean } = {}
 		for sub in node.subs do
-			markMemosStale(sub, seen)
+			markMemosStale(sub, staleSeen)
 		end
+		table.clear(staleSeen)
 		if not flushing and txDepth == 0 and not inEffectRun then
 			flush()
 		end
@@ -507,12 +510,14 @@ function Custom.new(opts: CustomOpts?)
 	-- Hoisted out of `flushBody` (2026-08-14) only so the settle phase below can
 	-- drain propagation from two places without duplicating it; the body is
 	-- unchanged.
+	-- A core drains one round at a time, including writes from its callbacks.
+	-- Reuse the work lists between rounds without retaining their subscribers.
+	local observerQueue: { any } = {}
+	local effectQueue: { any } = {}
+	local seen: { [any]: boolean } = {}
 	local function propagateRound()
 		local written = writeSet
 		writeSet = {}
-		local observerQueue: { any } = {}
-		local effectQueue: { any } = {}
-		local seen: { [any]: boolean } = {}
 		for signal in written do
 			if next(signal.observers) ~= nil then
 				table.insert(observerQueue, signal)
@@ -544,6 +549,9 @@ function Custom.new(opts: CustomOpts?)
 		for _, effect in effectQueue do
 			runEffect(effect)
 		end
+		table.clear(observerQueue)
+		table.clear(effectQueue)
+		table.clear(seen)
 	end
 
 	local function compactSettles()

@@ -78,6 +78,9 @@ local POST_ADR_NAMES: { string } = {
 	"NavigationStack",
 	"RadialMenu",
 	"Alert",
+	"Sheet",
+	"PageView",
+	"CollapsibleView",
 	-- scaffold: new control names are appended above this line
 }
 

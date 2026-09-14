@@ -1973,6 +1973,108 @@ local registry: { Entry } = {
 			hotSwitch = { "Alert hot-switch: carries the open decision without remounting actions" },
 		},
 	},
+	{
+		name = "Sheet",
+		kind = "composite",
+		module = "src/controls/sheet.luau",
+		export = "Controls.Sheet",
+		spec = "tests/sheet.spec.luau",
+		conformance = "tests/sheet.spec.luau",
+		docsAnchor = "Controls.Sheet",
+		-- cite the dump DEFINITION exactly (check_registration requires the text to
+		-- exist in the module); a module with no dump surface declares
+		-- `dump = false` with a `reason` instead
+		dumpFunction = "function dump",
+		-- Four-input proofs (ui_todo §0): each case name must exist VERBATIM in a
+		-- registered spec. These cite the four stamped cases in tests/sheet.spec.luau
+		-- (they FAIL until you implement them — that is the red step).
+		inputProofs = {
+			pointer = { "Sheet pointer: a tap activates through the presenter (device-true)" },
+			touch = { "Sheet touch: a touch tap/pan drives the control (device-true)" },
+			keyboard = { "Sheet keyboard: focus + Return drives the control" },
+			gamepad = { "Sheet gamepad: focus + ButtonA drives the control" },
+		},
+		-- Paradigm-axis proofs (UI-PARADIGM-001/002): the STRUCTURAL IDIOM per
+		-- live class (distinct from inputProofs' reachability) plus the hotSwitch
+		-- decision. These cite the four affordance cases + the hot-switch stub in
+		-- tests/sheet.spec.luau. If your control owns no in-flight state, set
+		-- hotSwitch = false and delete the stamped hot-switch spec case.
+		affordanceProofs = {
+			pointer = { "Sheet pointer affordance: hover, direct drag, wheel channel" },
+			touch = { "Sheet touch affordance: 44px floor, naked-pan scroll, edit grip" },
+			keyboard = { "Sheet keyboard affordance: focus ring, Navigate, Activate, Adjust" },
+			gamepad = { "Sheet gamepad affordance: focus, grab mode, A and B, ten-foot ring" },
+			hotSwitch = { "Sheet hot-switch: in-flight state resolves CARRY or CANCEL on a class flip" },
+		},
+	},
+	{
+		name = "PageView",
+		kind = "composite",
+		module = "src/controls/page_view.luau",
+		export = "Controls.PageView",
+		spec = "tests/page_view.spec.luau",
+		conformance = "tests/page_view.spec.luau",
+		docsAnchor = "Controls.PageView",
+		-- cite the dump DEFINITION exactly (check_registration requires the text to
+		-- exist in the module); a module with no dump surface declares
+		-- `dump = false` with a `reason` instead
+		dumpFunction = "function dump",
+		-- Four-input proofs (ui_todo §0): each case name must exist VERBATIM in a
+		-- registered spec. These cite the four stamped cases in tests/page_view.spec.luau
+		-- (they FAIL until you implement them — that is the red step).
+		inputProofs = {
+			pointer = { "PageView pointer: a tap activates through the presenter (device-true)" },
+			touch = { "PageView touch: a touch tap/pan drives the control (device-true)" },
+			keyboard = { "PageView keyboard: focus + Return drives the control" },
+			gamepad = { "PageView gamepad: focus + ButtonA drives the control" },
+		},
+		-- Paradigm-axis proofs (UI-PARADIGM-001/002): the STRUCTURAL IDIOM per
+		-- live class (distinct from inputProofs' reachability) plus the hotSwitch
+		-- decision. These cite the four affordance cases + the hot-switch stub in
+		-- tests/page_view.spec.luau. If your control owns no in-flight state, set
+		-- hotSwitch = false and delete the stamped hot-switch spec case.
+		affordanceProofs = {
+			pointer = { "PageView pointer affordance: hover, direct drag, wheel channel" },
+			touch = { "PageView touch affordance: 44px floor, naked-pan scroll, edit grip" },
+			keyboard = { "PageView keyboard affordance: focus ring, Navigate, Activate, Adjust" },
+			gamepad = { "PageView gamepad affordance: focus, grab mode, A and B, ten-foot ring" },
+			hotSwitch = { "PageView hot-switch: in-flight state resolves CARRY or CANCEL on a class flip" },
+		},
+	},
+	{
+		name = "CollapsibleView",
+		kind = "composite",
+		module = "src/controls/collapsible_view.luau",
+		export = "Controls.CollapsibleView",
+		spec = "tests/collapsible_view.spec.luau",
+		conformance = "tests/collapsible_view.spec.luau",
+		docsAnchor = "Controls.CollapsibleView",
+		-- cite the dump DEFINITION exactly (check_registration requires the text to
+		-- exist in the module); a module with no dump surface declares
+		-- `dump = false` with a `reason` instead
+		dumpFunction = "function dump",
+		-- Four-input proofs (ui_todo §0): each case name must exist VERBATIM in a
+		-- registered spec. These cite the four stamped cases in tests/collapsible_view.spec.luau
+		-- (they FAIL until you implement them — that is the red step).
+		inputProofs = {
+			pointer = { "CollapsibleView pointer: a tap activates through the presenter (device-true)" },
+			touch = { "CollapsibleView touch: a touch tap/pan drives the control (device-true)" },
+			keyboard = { "CollapsibleView keyboard: focus + Return drives the control" },
+			gamepad = { "CollapsibleView gamepad: focus + ButtonA drives the control" },
+		},
+		-- Paradigm-axis proofs (UI-PARADIGM-001/002): the STRUCTURAL IDIOM per
+		-- live class (distinct from inputProofs' reachability) plus the hotSwitch
+		-- decision. These cite the four affordance cases + the hot-switch stub in
+		-- tests/collapsible_view.spec.luau. If your control owns no in-flight state, set
+		-- hotSwitch = false and delete the stamped hot-switch spec case.
+		affordanceProofs = {
+			pointer = { "CollapsibleView pointer affordance: hover, direct drag, wheel channel" },
+			touch = { "CollapsibleView touch affordance: 44px floor, naked-pan scroll, edit grip" },
+			keyboard = { "CollapsibleView keyboard affordance: focus ring, Navigate, Activate, Adjust" },
+			gamepad = { "CollapsibleView gamepad affordance: focus, grab mode, A and B, ten-foot ring" },
+			hotSwitch = { "CollapsibleView hot-switch: in-flight state resolves CARRY or CANCEL on a class flip" },
+		},
+	},
 	-- scaffold: new control rows are appended above this line (anchor — keep)
 
 	-- ===== leaf primitives (src/class_contract.luau classes) =========

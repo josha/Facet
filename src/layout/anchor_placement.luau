@@ -97,7 +97,8 @@ export type Placement = {
 	tailSuppressed: boolean,
 }
 
-local EDGES: { [string]: boolean } = table.freeze({ top = true, bottom = true, leading = true, trailing = true })
+local EDGES: { [string]: boolean } =
+	table.freeze({ top = true, bottom = true, leading = true, trailing = true, overlap = true })
 local ALIGNS: { [string]: boolean } = table.freeze({ start = true, center = true, ["end"] = true })
 local OVERFLOWS: { [string]: boolean } = table.freeze({ clamp = true, keep = true })
 local OPPOSITE: { [string]: string } = table.freeze({ top = "bottom", bottom = "top", left = "right", right = "left" })
@@ -165,6 +166,21 @@ function anchor_placement.solve(req: Request): Placement
 	local align = req.align or "center"
 	local overflow = req.overflow or "clamp"
 	local preferred = anchor_placement.resolveEdge(req.edge or "bottom")
+	if preferred == "overlap" then
+		local x = math.clamp(source.x, safe.x, math.max(safe.x, safe.x + safe.w - size.w))
+		local y = math.clamp(source.y, safe.y, math.max(safe.y, safe.y + safe.h - size.h))
+		return {
+			x = x,
+			y = y,
+			w = size.w,
+			h = size.h,
+			edge = preferred,
+			flipped = false,
+			shift = x - source.x,
+			fits = size.w <= safe.w and size.h <= safe.h,
+			tailSuppressed = true,
+		}
+	end
 
 	-- ---- 1. the two candidate placements on the placement axis --------------
 	local function mainFor(edge: string): number

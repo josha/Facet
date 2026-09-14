@@ -60,6 +60,7 @@ local handle_conn = require("./handle_conn")
 local reconnect = handle_conn.reconnect
 local reconnectOnChange = handle_conn.reconnectOnChange
 
+local mouseScroll = require("../input/mouse_scroll")
 local screen_pointer = {}
 
 function screen_pointer.new(ctx: any)
@@ -68,6 +69,8 @@ function screen_pointer.new(ctx: any)
 	local UserInputService = services.userInput
 	local GuiService = services.gui
 	local adapter = {}
+	local suppressedInputs = setmetatable({}, { __mode = "k" })
+	local mouseScrollConn
 
 	-- semantic cursor requests: the framework names an intent
 	-- ("colResize"); this table maps it to uploaded cursor art. No first-party
@@ -170,6 +173,11 @@ function screen_pointer.new(ctx: any)
 		}
 	end
 
+	local function activate(handle, inputObject)
+		if not suppressedInputs[inputObject] and handle.activate then
+			handle.activate(pointerActivateMeta(inputObject))
+		end
+	end
 	function adapter.setActivateHandler(handle: any, fn: (meta: any?) -> ())
 		local instance = handle.instance
 		-- kept on the handle so the effective-target hit expander (B-BTN3) can
@@ -197,7 +205,7 @@ function screen_pointer.new(ctx: any)
 		reconnect(handle, "activatedConn", function(): RBXScriptConnection?
 			if instance:IsA("GuiButton") then
 				return instance.Activated:Connect(function(inputObject: InputObject)
-					fn(pointerActivateMeta(inputObject))
+					activate(handle, inputObject)
 				end)
 			end
 			return nil
@@ -212,8 +220,8 @@ function screen_pointer.new(ctx: any)
 			return
 		end
 		local captured = activeCapture
-		if cancelReason ~= nil and captured.handle.pointer and captured.handle.pointer.cancel then
-			local keep = captured.handle.pointer.cancel(cancelReason)
+		if cancelReason ~= nil and captured.handlers and captured.handlers.cancel then
+			local keep = captured.handlers.cancel(cancelReason)
 			if keep == true and cancelReason == "removed" then
 				-- a drag-owned LIFT unmounted its own origin row: the capture
 				-- (global UIS connections + closured handlers) stays alive so
@@ -313,7 +321,8 @@ function screen_pointer.new(ctx: any)
 		end
 		-- the adapter's own always-on connection, counted by LIVENESS rather
 		-- than as a constant 1
-		local global = if menuConn ~= nil and menuConn.Connected then 1 else 0
+		local global = (if menuConn ~= nil and menuConn.Connected then 1 else 0)
+			+ (if mouseScrollConn ~= nil and mouseScrollConn.Connected then 1 else 0)
 		local captureHeld = 0
 		if activeCapture ~= nil and activeCapture.connections ~= nil then
 			captureHeld = #activeCapture.connections
@@ -400,7 +409,7 @@ function screen_pointer.new(ctx: any)
 			endCapture("destroyed")
 		end
 		local connections = {}
-		local capture = { handle = handle, connections = connections }
+		local capture = { handle = handle, handlers = handlers, connections = connections }
 		activeCapture = capture
 		local lastPosition = inputObject.Position
 		captureHint = handle.cursorHint
@@ -496,6 +505,99 @@ function screen_pointer.new(ctx: any)
 				applyCursor()
 			end
 		end
+	end
+
+	-- One listener for the adapter, installed only when a horizontal host exists.
+	-- Defer acquisition until native child handlers have had their first refusal.
+	function adapter.enableMouseScroll()
+		if mouseScrollConn then
+			return
+		end
+		mouseScrollConn = UserInputService.InputBegan:Connect(function(input)
+			if input.UserInputType ~= Enum.UserInputType.MouseButton1 then
+				return
+			end
+			-- Roblox reuses a mouse InputObject across successive presses.
+			-- Suppression belongs to this press, never the next ordinary click.
+			suppressedInputs[input] = nil
+			task.defer(function()
+				if not mouseScrollConn or activeCapture or input.UserInputState == Enum.UserInputState.End then
+					return
+				end
+				local playerGui = game:GetService("Players").LocalPlayer:FindFirstChildOfClass("PlayerGui")
+				if not playerGui then
+					return
+				end
+				local pos = toWindowSpace(input.Position, "mouse")
+				-- GetGuiObjectsAtPosition takes the same GUI coordinates as InputObject;
+				-- our capture arithmetic uses inset-adjusted window coordinates.
+				local hits = playerGui:GetGuiObjectsAtPosition(input.Position.X, input.Position.Y)
+				local hit = hits[1]
+				if hit and hit.Name == "FocusRingFloat" then
+					hit = hits[2]
+				end
+				local byInstance = {}
+				for _, handle in handlesByPath do
+					if handle.instance then
+						byInstance[handle.instance] = handle
+					end
+				end
+				while hit and hit ~= playerGui do
+					-- Native text selection and drag detectors own their gestures.
+					if hit:IsA("TextBox") or hit:FindFirstChildWhichIsA("UIDragDetector") then
+						return
+					end
+					local handle = byInstance[hit]
+					if
+						handle
+						and hit:IsA("ScrollingFrame")
+						and hit.ScrollingEnabled
+						and hit.ScrollingDirection == Enum.ScrollingDirection.X
+						and hit.AbsoluteCanvasSize.X > hit.AbsoluteWindowSize.X
+					then
+						-- The native scrollbar keeps its own acquisition.
+						if
+							hit.ScrollBarThickness > 0
+							and input.Position.Y
+								>= hit.AbsolutePosition.Y + hit.AbsoluteSize.Y - hit.ScrollBarThickness
+						then
+							return
+						end
+						local instance = hit
+						local drag = mouseScroll.new(pos, instance.CanvasPosition.X)
+						local function release()
+							if handle.mouseScrolling then
+								handle.mouseScrolling = nil
+								for notify in handle.scrollObservers or {} do
+									notify()
+								end
+							end
+						end
+						local handlers = {
+							move = function(point)
+								local x =
+									drag.move(point, instance.AbsoluteCanvasSize.X - instance.AbsoluteWindowSize.X)
+								if x ~= nil then
+									suppressedInputs[input] = true
+									if not handle.mouseScrolling then
+										handle.mouseScrolling = true
+										for notify in handle.scrollObservers or {} do
+											notify()
+										end
+									end
+									instance.CanvasPosition = Vector2.new(x, instance.CanvasPosition.Y)
+								end
+							end,
+							up = release,
+							cancel = release,
+						}
+						beginPointerCapture(handle, handlers, input)
+						return
+					end
+					hit = hit.Parent
+				end
+			end)
+		end)
 	end
 
 	-- one wiring, used for the control's own instance and for its hit expander
@@ -627,12 +729,18 @@ function screen_pointer.new(ctx: any)
 		applyCursor()
 	end
 	local function disposeGlobals()
+		if mouseScrollConn then
+			mouseScrollConn:Disconnect()
+			mouseScrollConn = nil
+		end
 		menuConn:Disconnect()
 		captureHint = nil
 		releaseCursorHint()
 	end
 
 	return {
+		activate = activate,
+		enableMouseScroll = adapter.enableMouseScroll,
 		setActivateHandler = adapter.setActivateHandler,
 		setPointerHandlers = adapter.setPointerHandlers,
 		setPointerPreview = adapter.setPointerPreview,

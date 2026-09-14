@@ -178,6 +178,7 @@
 local adaptive = require("../layout/adaptive")
 local contribution = require("../input/contribution")
 local picker = require("./picker")
+local collapsibleView = require("./collapsible_view")
 local chromeSlots = require("../tokens/chrome_slots")
 local specGuard = require("../spec_guard")
 local surfaceEnv = require("../env/surface_env")
@@ -231,7 +232,7 @@ export type Spec = {
 	-- "automatic" reads `adaptive.navPlacement` — unless this TabView is NESTED,
 	-- which never claims the app-level answer (see the header).
 	placement: string?,
-	style: string?, -- automatic | sidebarAdaptable
+	style: string?, -- automatic | sidebarAdaptable | collapsible
 	restoreScroll: boolean?,
 	shoulderNavigation: any?, -- strip (default) | content, or readable policy
 	restoreFocus: boolean?, -- default true; bounded path bookmarks for each tab
@@ -543,10 +544,12 @@ function tab_view.build(Facet: any, core: any, spec: Spec)
 	end
 	contentShoulders()
 
+	local collapsed = spec.style == "collapsible"
+	local collapsedOpen = if collapsed then scope:own(core:signal(false)) else nil
 	local adaptable = spec.style == "sidebarAdaptable" and not nested
 	assert(
-		spec.style == nil or spec.style == "automatic" or spec.style == "sidebarAdaptable",
-		"TabView.style must be automatic | sidebarAdaptable"
+		spec.style == nil or spec.style == "automatic" or spec.style == "sidebarAdaptable" or collapsed,
+		"TabView.style must be automatic | sidebarAdaptable | collapsible"
 	)
 	assert(
 		not adaptable or spec.placement == nil or spec.placement == "automatic",
@@ -563,7 +566,11 @@ function tab_view.build(Facet: any, core: any, spec: Spec)
 			return use(navigationEnv:get("distanceProfile")) == "ten-foot"
 		end))
 		else nil
-	local requestedPlacement = spec.placement or "automatic"
+	assert(
+		not collapsed or spec.placement == nil or spec.placement == "automatic" or spec.placement == "topBar",
+		"TabView.collapsible uses topBar placement"
+	)
+	local requestedPlacement = if collapsed then "topBar" else spec.placement or "automatic"
 	if not PLACEMENTS[requestedPlacement] then
 		error(
 			`Facet newTabView('{id}'): unknown placement '{tostring(requestedPlacement)}'. One of automatic | `
@@ -798,7 +805,7 @@ function tab_view.build(Facet: any, core: any, spec: Spec)
 		return if use(sidebar) then nil else "pill"
 	end))
 	local stripAxis = scope:own(core:memo(function(use)
-		return if use(sidebar) then "y" else "x"
+		return if collapsed or use(sidebar) then "y" else "x"
 	end))
 	local rootAxis = scope:own(core:memo(function(use)
 		return if use(sidebar) then "x" else "y"
@@ -822,35 +829,83 @@ function tab_view.build(Facet: any, core: any, spec: Spec)
 		return out
 	end
 	local options = if liveStrip then scope:own(core:memo(stripOptions)) else stripOptions()
-	local strip = picker.build(Facet, core, {
-		id = "Strip",
-		options = options,
-		selected = selection,
-		presentation = "segmented",
-		-- a tab strip sits in the band this control already draws; the picker's
-		-- own segmented track would be a second plate around it (2026-09-11)
-		track = false,
-		-- ...and THAT band is the container the selected fill has to match, so the
-		-- adaptable bar's BAND corner travels with the strip. `nil` for the rail
-		-- form and for every other style: a rail row is not concentric with the
-		-- rail, and a plain top band is a bare scroller with no plate at all.
-		stripCorner = if adaptable then stripContainer else nil,
-		indicator = if requestedIndicator == "automatic"
-			then (if adaptable then "pill" else AUTOMATIC_INDICATOR)
-			else requestedIndicator,
-		axis = stripAxis,
-		sizing = sizing,
-		iconOnly = spec.iconOnly,
-		textSize = spec.textSize,
-		env = spec.env,
-		enabled = spec.enabled,
-		onChange = function(value)
-			if spec.onChange then
-				spec.onChange(value)
+	local strip = picker.build(
+		Facet,
+		core,
+		{
+			id = "Strip",
+			options = options,
+			selected = selection,
+			presentation = "segmented",
+			-- a tab strip sits in the band this control already draws; the picker's
+			-- own segmented track would be a second plate around it (2026-09-11)
+			track = false,
+			-- ...and THAT band is the container the selected fill has to match, so the
+			-- adaptable bar's BAND corner travels with the strip. `nil` for the rail
+			-- form and for every other style: a rail row is not concentric with the
+			-- rail, and a plain top band is a bare scroller with no plate at all.
+			stripCorner = if adaptable then stripContainer else nil,
+			indicator = if requestedIndicator == "automatic"
+				then (if adaptable then "pill" else AUTOMATIC_INDICATOR)
+				else requestedIndicator,
+			axis = stripAxis,
+			sizing = if collapsed then "fill" else sizing,
+			iconOnly = spec.iconOnly,
+			textSize = spec.textSize,
+			env = spec.env,
+			enabled = spec.enabled,
+			onChange = function(value)
+				if collapsedOpen then
+					collapsedOpen:set(false)
+				end
+				if spec.onChange then
+					spec.onChange(value)
+				end
+			end,
+		},
+		if collapsed
+			then function()
+				collapsedOpen:set(false)
 			end
-		end,
-	})
+			else nil
+	)
 	scope:own(strip)
+
+	local collapsedControl
+	if collapsed then
+		local function selectedProperty(property, fallback)
+			return scope:own(core:memo(function(use)
+				local current = use(selection)
+				for _, tab in use(visibleTabs) do
+					if tab.id == current then
+						local value = tab[property]
+						return if type(value) == "table" and value.get then use(value) else value or fallback
+					end
+				end
+				return fallback
+			end))
+		end
+		collapsedControl = scope:own(collapsibleView.build(Facet, core, {
+			id = "Navigation",
+			label = selectedProperty("label", "Navigation"),
+			icon = selectedProperty("icon", nil),
+			initialFocus = scope:own(core:memo(function(use)
+				local current = use(selection)
+				for index, tab in use(visibleTabs) do
+					if tab.id == current then
+						return if strip.segments and strip.segments[index]
+							then strip.segments[index].id
+							else "Option-" .. tab.id
+					end
+				end
+				return "first"
+			end)),
+			expanded = collapsedOpen,
+			content = strip.blueprint,
+			env = spec.env,
+			enabled = spec.enabled,
+		}))
+	end
 
 	--[[ THE CONTENT TRANSITION'S EXIT IS ALWAYS `instant` (task-fix3 symptoms 4/5;
 		director device round, 2026-08-23; "mid-screen then pops to the top" /
@@ -1078,14 +1133,16 @@ function tab_view.build(Facet: any, core: any, spec: Spec)
 			id = "TopHome",
 			condition = isPlacement("topBar"),
 			thenView = function(branchScope: any)
-				local scroller = UI.ScrollView({
-					id = "TopBand",
-					axis = "x",
-					width = BAND_CAPPED,
-					alignH = "center",
-					indicators = "none",
-					children = { strip.blueprint },
-				})
+				local scroller = if collapsedControl
+					then UI.ZStack({ id = "TopBand", alignH = "center", children = { collapsedControl.blueprint } })
+					else UI.ScrollView({
+						id = "TopBand",
+						axis = "x",
+						width = BAND_CAPPED,
+						alignH = "center",
+						indicators = "none",
+						children = { strip.blueprint },
+					})
 				-- declared AFTER the strip, so it is painted after it and — the same
 				-- fact read twice — reads after it in the focus ring
 				local trailing = accessory("trailing", "topBar", branchScope)

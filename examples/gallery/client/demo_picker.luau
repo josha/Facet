@@ -509,6 +509,30 @@ demo_picker.DEMOS = {
 		kind = "fixture",
 		module = "alert",
 	},
+	-- scaffolded: the surface a person opens on a phone to drive Sheet.
+	{
+		id = "sheet",
+		title = "Detent sheets",
+		blurb = "Resize a modal briefing by dragging or with a focused size control",
+		kind = "fixture",
+		module = "sheet",
+	},
+	-- scaffolded: the surface a person opens on a phone to drive PageView.
+	{
+		id = "page-view",
+		title = "Pages and dots",
+		blurb = "Swipe content pages or choose them with dots and gamepad controls",
+		kind = "fixture",
+		module = "page_view",
+	},
+	-- scaffolded: the surface a person opens on a phone to drive CollapsibleView.
+	{
+		id = "collapsible-view",
+		title = "Collapsible views",
+		blurb = "Custom views and tab navigation collapse into a focused summary button",
+		kind = "fixture",
+		module = "collapsible_view",
+	},
 	-- scaffold: new control demos are appended above this line. Fixtures lead the
 	-- tutorials, which follow in the order the guide teaches them, so a scaffolded
 	-- control lands at the end of the fixture run rather than in the middle of a

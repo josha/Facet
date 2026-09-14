@@ -1438,6 +1438,10 @@ require("./alert.spec")
 require("./app_chrome_insets.spec")
 require("./screen_focus_visual_seam.spec")
 require("./toast_layer_seam.spec")
+require("./sheet.spec")
+require("./page_view.spec")
+require("./mouse_scroll.spec")
+require("./collapsible_view.spec")
 local ok = testkit.run({
 	jsonOut = process.env.FACET_SUITE_JSON,
 	tier = "full",

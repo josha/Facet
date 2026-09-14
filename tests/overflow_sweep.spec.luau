@@ -499,6 +499,15 @@ local SCENARIOS = {
 	-- ...and the scaffolded `Alert` surface, swept from its first commit so
 	-- the control cannot reach a device with an overflow nobody measured.
 	"alert",
+	-- ...and the scaffolded `Sheet` surface, swept from its first commit so
+	-- the control cannot reach a device with an overflow nobody measured.
+	"sheet",
+	-- ...and the scaffolded `PageView` surface, swept from its first commit so
+	-- the control cannot reach a device with an overflow nobody measured.
+	"page_view",
+	-- ...and the scaffolded `CollapsibleView` surface, swept from its first commit so
+	-- the control cannot reach a device with an overflow nobody measured.
+	"collapsible_view",
 	-- scaffold: new control scenarios are appended above this line
 }
 
