@@ -9526,7 +9526,7 @@
   {
    "check": {
     "receipt": "tools/lune/verify/evidence/cross-platform-proof--showcase-place.json",
-    "shell": "test -f examples/gallery/client/demo_picker.luau && test -f examples/places/Facet-Showcase.rbxl && grep -q 'Facet-Showcase' tools/build_places.sh && grep -q 'FacetShowcaseAPI' examples/gallery/client/init.client.luau && grep -q 'other.bottom' examples/gallery/client/init.client.luau && grep -q 'The hands-on place' docs/guide/11-device-verification.md && grep -q 'scopedCore' examples/gallery/client/init.client.luau"
+    "shell": "test -f examples/gallery/client/demo_picker.luau && test -f examples/places/Facet-Showcase.rbxl && grep -q 'Facet-Showcase' tools/build_places.sh && grep -q 'FacetShowcaseAPI' examples/gallery/client/init.client.luau && grep -q 'local platform = env:get(\"coreSafeInsets\"):get()' examples/gallery/client/init.client.luau && grep -q 'env:set(\"appChromeInsets\", { top = band, bottom = 0, left = 0, right = 0 })' examples/gallery/client/init.client.luau && grep -q 'The hands-on place' docs/guide/11-device-verification.md && grep -q 'scopedCore' examples/gallery/client/init.client.luau"
    },
    "class": "evidence-pin",
    "evidence": "examples/places/Facet-Showcase.rbxl",
