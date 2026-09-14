@@ -178,6 +178,7 @@ local TRANSITION_FORMS: { string } = table.freeze({
 	"slide-right",
 	"materialize",
 	"transform",
+	"reveal",
 	"instant",
 })
 local TRANSITION_FORM_SET: { [string]: boolean } = {}
@@ -189,6 +190,7 @@ local TRANSITION_MIRROR: { [string]: string } = {
 	fade = "fade",
 	materialize = "materialize",
 	transform = "transform",
+	reveal = "reveal",
 	instant = "instant",
 	["slide-up"] = "slide-down",
 	["slide-down"] = "slide-up",

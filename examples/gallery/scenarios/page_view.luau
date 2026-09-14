@@ -1,7 +1,7 @@
 --!strict
 local COPY = {
 	title = "Pages and dots",
-	intro = "Swipe between courses, choose a dot, or focus the dots and use Left / Right.",
+	intro = "Swipe one course at a time, choose any dot, or focus the dots and use Left / Right.",
 	coast = "Coastal circuit",
 	forest = "Forest sprint",
 	summit = "Summit climb",

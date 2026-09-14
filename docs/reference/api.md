@@ -2418,7 +2418,7 @@ UI.ForEach({ items = rows, key = function(e) return e.key end, row = function(e)
 on `UI.When`, `UI.ForEach`, a `presentToast` and `PresentOpts`.
 
 - **Forms:** `"fade"`, `"slide-up"`, `"slide-down"`, `"slide-left"`,
-  `"slide-right"`, `"materialize"` (scale 0.96 → 1 with a fade), `"transform"`, `"instant"`.
+  `"slide-right"`, `"materialize"` (scale 0.96 → 1 with a fade), `"transform"`, `"reveal"`, `"instant"`.
   A form names the direction of **travel** — an enter travels toward rest, an
   exit away from it.
 - **`exit` defaults to the mirror of `enter`** (`slide-up` ⇄ `slide-down`,
@@ -2427,6 +2427,10 @@ on `UI.When`, `UI.ForEach`, a `presentToast` and `PresentOpts`.
   (`exit = "instant"` is the common one) — undeclared asymmetry does not exist.
   Because a mirror pair displaces the node to the *same* absent place, a
   re-entry mid-exit reverses through one continuous motion.
+- **`reveal`** opens a vertical clip from zero height to its solved height and
+  closes it in reverse. Requires `clipChildren = true` on the transition root.
+  Children keep their layout and native text rendering; no CanvasGroup is needed.
+  The clip stays within its endpoints, including when the motion class overshoots.
 - **`transform`** grows a clipping plate from `fromRect = { x, y, w, h }`
   in window coordinates and shrinks back to that rectangle on exit. Use a
   `canvasGroup` with `clipChildren = true`; text keeps its final layout and size.
@@ -8132,8 +8136,10 @@ control, and `Facet.Controls.DisclosureGroup` is a closure over the library, not
 implementation.
 
 Content mounts through `UI.When`, so a collapsed group genuinely costs nothing (only
-structural regions may mount or unmount). Content fades in place through a canvas
-group on the non-overshooting `dismiss` motion class for both opening and closing.
+structural regions may mount or unmount). Content reveals in place through a vertical clip on the non-overshooting
+`dismiss` motion class for both opening and closing. It does not rasterize the
+expanded subtree into a CanvasGroup, so long lists retain native text resolution
+on lower graphics settings.
 The caret uses the same class, so it does not bounce beyond its final angle.
 Reopening mid-exit reverses the existing transition.
 
@@ -10453,9 +10459,12 @@ onVisibilityChanged?, focus? }, ... }` opts into named scrolling:
   focus to the first eligible stop in the named region after arrival. The handoff
   is canceled by a newer request, user focus change, modal focus, scroll takeover,
   or removal of that destination; gestures never implicitly request focus.
-- `snap`: boolean, default false. Native gestures settle to the nearest named target
-  or scroll-range endpoint after the shared quiet window. Oversized target regions
-  remain freely scrollable so their interiors stay reachable.
+- `snap`: boolean or `"page"`, default false. True settles native gestures to the
+  nearest named target or scroll-range endpoint after the shared quiet window;
+  oversized regions remain freely scrollable. `"page"` is for horizontal,
+  viewport-wide pages: one mouse/touch swipe advances at most one target in
+  declaration order and settles on release. Small nudges return to the starting
+  page. Explicit target requests can still jump directly to any page.
 - `progress`: caller-owned numeric Signal receiving normalized scroll progress
   (0–1). Bind it to paint properties for subtle image/scrim effects; do not feed it
   back into scroll-dependent layout dimensions.
@@ -10465,7 +10474,7 @@ onVisibilityChanged?, focus? }, ... }` opts into named scrolling:
   the tree emits one `false` exit before its visibility record is discarded.
 
 Target travel and snapping share Facet's interruptible motion clock and reduced
-motion policy. Native touch/trackpad scrolling retains ownership. At rest no motion
+motion policy. Ordinary touch/trackpad scrolling retains native ownership. At rest no motion
 values remain active. Geometry is indexed after solves; native samples do not walk
 the view tree. These are declaration options, not renderer paint props.
 
@@ -10749,9 +10758,11 @@ native scrolling and snapping. Page-content focus brings that page into view;
 a completed page change moves focus out of content that is no longer visible,
 while preserving focus on navigation controls or outside the pager.
 
-Desktop mouse dragging scrolls pages after a horizontal movement threshold. Clicks
-still activate child buttons; pointer-owning controls and text selection take
-priority. Snapping waits until release, including a pause while held.
+Mouse drags and touch swipes advance one page at a time, with no inertial travel
+past the adjacent page. A small nudge returns to the current page. Snapping starts
+on release, including after a pause while held; dots may jump directly to any
+page. Clicks still activate child buttons; pointer-owning controls and text
+selection take priority. Vertical gestures scroll the content within a page.
 
 All page blueprints remain mounted. Resizing and input changes retain selection
 and page state. The existing scroll motion and gesture system owns interruption

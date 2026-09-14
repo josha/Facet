@@ -200,20 +200,20 @@ function disclosure_group.build(Facet: any, core: any, spec: Spec)
 					}),
 				},
 			}),
-			-- Fade the content during the caret's close, so removal never reveals
-			-- the last fully opaque frame. The region still owns exit and reversal.
+			-- Reveal native children through a shrinking clip. Rasterizing a long
+			-- disclosure in a CanvasGroup reduces text resolution on mobile.
 			UI.When({
 				id = "Content",
 				condition = expanded,
 				thenView = function()
 					return UI.ZStack({
-						id = "Fade",
-						canvasGroup = true,
+						id = "Reveal",
+						clipChildren = true,
 						width = { type = "fill", weight = 1 },
 						children = { spec.content() },
 					})
 				end,
-				transition = { enter = "fade", class = "dismiss", exitClass = "dismiss" },
+				transition = { enter = "reveal", class = "dismiss", exitClass = "dismiss" },
 			}),
 		},
 	})

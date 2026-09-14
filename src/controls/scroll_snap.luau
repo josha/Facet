@@ -17,24 +17,11 @@
 	control writes, through the same `controller.scrollTo` seam its keep-visible
 	already uses (native §4, "the framework's ONE programmatic scroll write").
 
-	THE ENGINE HAS NO SNAP AND NO RELEASE EVENT, which is what shapes everything
-	below. A Roblox `ScrollingFrame` owns the pan and the momentum; the framework
-	sees only `CanvasPosition` changes arriving through `observeScroll`. So:
-
-	  · "the gesture released" is not observable — what IS observable is that the
-	    offset STOPPED CHANGING. The settle detector is therefore a quiet window
-	    (`QUIET_S`) re-armed by every sample, and its expiry is the release;
-	  · "release velocity" is not observable either. The peak SPEED across the
-	    travel is, from the samples themselves, and it separates a flick (which
-	    must advance) from a nudge (which must fall back) exactly as well. It is
-	    timed by the QUIET RAMP ITSELF — a linear 0->1 glide over `QUIET_S`, so
-	    the seconds between two samples are `ramp * QUIET_S` — rather than by a
-	    second time source. One clock drives the detector, the timing and the
-	    travel, which is why a scripted `pres.tick(dt)` replays a flick exactly;
-	  · nothing here listens to raw input. There is no second scroll driver and no
-	    pointer listener — the input inventory's authority rules
-	    (`artifacts/release-candidate-review/input/ias-authority.md`) leave the
-	    gesture with the engine and this module downstream of the mirror.
+	The native engine owns ordinary scrolling and inertia. Mouse drags and
+	paged touch drags also report their held/released state through the same
+	mirror. Pages settle on release; native wheel/momentum samples use a quiet
+	window. The ramp measures sample speed without another clock. A held
+	pointer never settles and retains the gesture's starting position.
 
 	ONE EXTENT SOURCE, NEVER A SECOND ARITHMETIC. The boundaries a settle may land
 	on are `index.offsetOf(i)` — the SAME `src/virtual_extents.luau` index the
@@ -358,7 +345,7 @@ export type Ctx = {
 
 export type Snap = {
 	-- a `CanvasPosition` sample, straight from the mirror
-	sample: (offset: number, held: boolean?) -> (),
+	sample: (offset: number, held: boolean?, gestureOrigin: number?) -> (),
 	-- the FRAMEWORK moved the scroll (keep-visible, a programmatic scrollTo, the
 	-- variable-extent anchor correction). It is a new resting place, not a travel:
 	-- announcing it stops the echo being read as a gesture the player never made.
@@ -396,7 +383,7 @@ function scroll_snap.new(ctx: Ctx): Snap
 	local pointerHeld = false
 
 	local function enabled(): boolean
-		return ctx.mode() == "item"
+		return ctx.mode() == "item" or ctx.mode() == "page"
 	end
 
 	local function markRest(at: number)
@@ -464,7 +451,6 @@ function scroll_snap.new(ctx: Ctx): Snap
 
 	local function attemptSnap()
 		if disposed or pointerHeld or flightActive or not enabled() then
-			peak = 0
 			return
 		end
 		local offset = lastOffset
@@ -518,17 +504,17 @@ function scroll_snap.new(ctx: Ctx): Snap
 
 	local self: Snap = {} :: any
 
-	function self.sample(offset: number, held: boolean?)
+	function self.sample(offset: number, held: boolean?, gestureOrigin: number?)
+		local wasHeld = pointerHeld
 		pointerHeld = held == true
 		if disposed or not isFinite(offset) then
 			return
 		end
-		if held then
+		if held and not wasHeld then
 			if flightActive and ctx.onInterrupt then
 				ctx.onInterrupt()
 			end
-			self.rest(offset)
-			return
+			self.rest(if isFinite(gestureOrigin) then gestureOrigin :: number else offset)
 		end
 		if flightActive then
 			if lastWrite ~= nil and math.abs(offset - (lastWrite :: number)) <= scroll_snap.TAKEOVER_PX then
@@ -569,6 +555,9 @@ function scroll_snap.new(ctx: Ctx): Snap
 		-- rule `progress_view`'s indeterminate cycle relies on for the same reason)
 		quiet:snap(0)
 		quiet:setTarget(1)
+		if wasHeld and not pointerHeld and ctx.mode() == "page" then
+			attemptSnap()
+		end
 	end
 
 	function self.rest(offset: number)

@@ -86,7 +86,7 @@ target_contract.OPTIONAL = {
 	-- keep-visible write. An adapter without these degrades to the clip-only
 	-- fallback (content geometry still correct; no user scrolling) — the
 	-- renderer feature-detects and never crashes.
-	"setScrollRegion", -- (handle, { axis, contentW, contentH } | nil)
+	"setScrollRegion", -- (handle, { axis, contentW, contentH, paging? } | nil)
 	"setScrollPosition", -- (handle, { x, y })
 	"observeScroll", -- (handle, fn({x,y})) -> unsubscribe
 	-- engine-selection bridge (the native substrate): the renderer calls
