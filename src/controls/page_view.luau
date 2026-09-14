@@ -158,7 +158,7 @@ function pageView.build(Facet, core, spec: Spec)
 					navigation = {
 						targets = ids,
 						target = target,
-						snap = true,
+						snap = "page",
 					},
 					children = cards,
 				}),

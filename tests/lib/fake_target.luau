@@ -2500,6 +2500,8 @@ function fake_target.new(opts: Opts?)
 		local node = nodes[path]
 		assert(node ~= nil, `driveScroll: no node {path}`)
 		node.scrollPosition = clampScroll(node, pos)
+		node.scrollPosition.dragging = (pos :: any).dragging
+		node.scrollPosition.origin = (pos :: any).origin
 		fireScrollObservers(node)
 	end
 

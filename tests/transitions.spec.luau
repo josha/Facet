@@ -613,6 +613,79 @@ describe("transition coordinator: the forms", function()
 		expect(panel.props.transform.y > 0).toBe(true)
 	end)
 
+	it("reveal resolves immediately with reduced motion and clears alpha from a preceding fade", function()
+		for _, reduced in { false, true } do
+			local w = worldLib.new({ reducedMotion = reduced })
+			local on = w.core:signal(false)
+			w.present(UI.Screen({
+				id = "S",
+				children = {
+					UI.When({
+						id = "Gate",
+						condition = on,
+						transition = { enter = if reduced then "reveal" else "fade", exit = "reveal" },
+						thenView = function()
+							return UI.ZStack({
+								id = "Panel",
+								clipChildren = true,
+								canvasGroup = not reduced,
+								height = { type = "fixed", px = 200 },
+								children = { UI.Text({ text = "Content" }) },
+							})
+						end,
+					}),
+				},
+			}))
+			on:set(true)
+			w.pres.refresh()
+			local path = "/S/Gate/then/Panel"
+			local panel = w.adapter.node(path)
+			if reduced then
+				expect(panel.presentedSize.h).toBe(200)
+			else
+				w.settle(3)
+				expect(panel.canvasGroupInstance.groupTransparency > 0).toBe(true)
+			end
+			on:set(false)
+			w.pres.refresh()
+			if reduced then
+				expect(w.adapter.node(path)).toBeNil()
+			else
+				expect(panel.canvasGroupInstance.groupTransparency or 0).toBe(0)
+				w.settle(90)
+				expect(w.adapter.node(path)).toBeNil()
+			end
+			w.pres.dismiss(w.handle)
+		end
+	end)
+
+	it("reveal refuses an unclipped root instead of showing its children outside the reveal", function()
+		local core, env, clock = world()
+		local on = core:signal(true)
+		local ok, err = pcall(function()
+			attach(
+				core,
+				env,
+				clock,
+				UI.Screen({
+					id = "S",
+					children = {
+						UI.When({
+							id = "Gate",
+							condition = on,
+							transition = { enter = "reveal" },
+							thenView = function()
+								return UI.VStack({ id = "Plain", children = { UI.Text({ text = "Content" }) } })
+							end,
+						}),
+					},
+				})
+			)
+		end)
+		expect(ok).toBe(false)
+		expect(string.find(tostring(err), "clipChildren = true", 1, true) ~= nil).toBe(true)
+	end)
+
 	it("a fading form on a node that is not a fade group is an authoring error that names the fix", function()
 		local core, env, clock = world()
 		local on = core:signal(true)

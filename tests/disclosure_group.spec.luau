@@ -1,5 +1,5 @@
 --!strict
--- DisclosureGroup: the caret turns, the content fades, and — with a presenter
+-- DisclosureGroup: the caret turns, the content reveals, and — with a presenter
 -- — the siblings it displaces glide (task 12, transitions round, spec 2I).
 --
 -- The two-region CaretOpen/CaretShut mount/unmount (display_controls.spec.luau,
@@ -24,7 +24,7 @@ local function makeWorld(opts: any?)
 	return worldLib.new(merged)
 end
 
-describe("disclosure: caret turns, content fades", function()
+describe("disclosure: caret turns, content reveals", function()
 	it("the caret rotates toward 90 on expand and back on collapse", function()
 		local w = makeWorld()
 		local expanded = w.core:signal(false)
@@ -51,7 +51,7 @@ describe("disclosure: caret turns, content fades", function()
 			w.pres.refresh()
 		end
 		expect(math.abs((caret.rotation or 0) - 90) < 0.5).toBe(true)
-		expect(w.adapter.node("/S/Adv/Content/then/Fade/Body") ~= nil).toBe(true)
+		expect(w.adapter.node("/S/Adv/Content/then/Reveal/Body") ~= nil).toBe(true)
 		expanded:set(false)
 		for _ = 1, 60 do
 			w.pres.tick(FRAME)
@@ -178,7 +178,53 @@ describe("disclosure: reduced motion snaps the caret instead of turning it", fun
 end)
 
 describe("disclosure content exit", function()
-	it("starts fading while the caret closes instead of disappearing after it", function()
+	it("keeps a long expanded list out of rasterized fade groups", function()
+		local w = makeWorld()
+		local expanded = w.core:signal(false)
+		local group = Facet.Controls.DisclosureGroup(w.core, {
+			id = "Adv",
+			label = "UI laboratory",
+			expanded = expanded,
+			content = function()
+				local rows = {}
+				for i = 1, 80 do
+					table.insert(rows, Facet.UI.Button({ id = "Row" .. i, label = "Laboratory entry " .. i }))
+				end
+				return Facet.UI.VStack({ id = "Rows", children = rows })
+			end,
+		})
+		w.present(Facet.UI.Screen({ id = "S", children = { group.blueprint } }))
+		expanded:set(true)
+		w.pres.refresh()
+		local path = "/S/Adv/Content/then/Reveal"
+		local content = w.adapter.node(path)
+		expect(content.canvasGroupInstance).toBeNil()
+		expect(content.presentedSize.h < 1).toBe(true)
+		local previous = 0
+		for _ = 1, 90 do
+			w.tick()
+			content = w.adapter.node(path)
+			expect(content.canvasGroupInstance).toBeNil()
+			expect(content.presentedSize.h >= previous - 0.01).toBe(true)
+			expect(content.presentedSize.h <= content.rect.h + 0.01).toBe(true)
+			expect(content.props.transform == nil or content.props.transform.scale == nil).toBe(true)
+			previous = content.presentedSize.h
+		end
+		expect(content.presentedSize.h).toBe(content.rect.h)
+		expanded:set(false)
+		w.settle(4)
+		local closingHeight = content.presentedSize.h
+		expanded:set(true)
+		w.pres.refresh()
+		expect(w.adapter.node(path)).toBe(content)
+		expect(content.presentedSize.h).toBe(closingHeight)
+		w.settle(90)
+		expect(content.presentedSize.h).toBe(content.rect.h)
+		w.pres.dismiss(w.handle)
+		group.dispose()
+	end)
+
+	it("starts clipping while the caret closes instead of disappearing after it", function()
 		local w = makeWorld()
 		local expanded = w.core:signal(true)
 		local group = Facet.Controls.DisclosureGroup(w.core, {
@@ -193,11 +239,13 @@ describe("disclosure content exit", function()
 		w.settle(120)
 		expanded:set(false)
 		w.settle(5)
-		local content = w.adapter.node("/S/Adv/Content/then/Fade") or w.adapter.node("/S/Adv/Content/then/Fade/Body")
+		local content = w.adapter.node("/S/Adv/Content/then/Reveal")
+			or w.adapter.node("/S/Adv/Content/then/Reveal/Body")
 		expect(content ~= nil).toBe(true)
-		expect((content.canvasGroupInstance and content.canvasGroupInstance.groupTransparency or 0) > 0.05).toBe(true)
+		expect(content.canvasGroupInstance).toBeNil()
+		expect(content.presentedSize.h < content.rect.h * 0.95).toBe(true)
 		w.settle(60)
-		expect(w.adapter.node("/S/Adv/Content/then/Fade")).toBeNil()
+		expect(w.adapter.node("/S/Adv/Content/then/Reveal")).toBeNil()
 		w.pres.dismiss(w.handle)
 	end)
 end)
@@ -221,7 +269,7 @@ describe("disclosure opening stays within its endpoints", function()
 			w.pres.refresh()
 			local angle = w.adapter.node("/S/Adv/Header/Caret").rotation or 0
 			expect(angle >= 0 and angle <= 90).toBe(true)
-			local content = w.adapter.node("/S/Adv/Content/then/Fade")
+			local content = w.adapter.node("/S/Adv/Content/then/Reveal")
 			expect(content.presentedPosition.y).toBe(content.rect.y)
 		end
 		w.pres.dismiss(w.handle)

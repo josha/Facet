@@ -27,7 +27,10 @@ function navigation.validate(spec)
 		)
 		seen[id] = true
 	end
-	assert(spec.snap == nil or type(spec.snap) == "boolean", "ScrollView.navigation.snap must be boolean")
+	assert(
+		spec.snap == nil or type(spec.snap) == "boolean" or spec.snap == "page",
+		"ScrollView.navigation.snap must be boolean | page"
+	)
 	assert(
 		spec.focus == nil or spec.focus == "preserve" or spec.focus == "target",
 		"ScrollView.navigation.focus must be preserve | target"
@@ -83,7 +86,7 @@ function navigation.new(core, scope, spec)
 			return band
 		end,
 		mode = function()
-			return if spec.snap then "item" else "none"
+			return if spec.snap == "page" then "page" elseif spec.snap then "item" else "none"
 		end,
 		write = write,
 		onArrive = function()
@@ -95,6 +98,18 @@ function navigation.new(core, scope, spec)
 			cancelFocus()
 		end,
 		resolve = function(request)
+			if spec.snap == "page" and #entries > 0 then
+				local origin = 1
+				for i, entry in entries do
+					if math.abs(entry.start - request.origin) < math.abs(entries[origin].start - request.origin) then
+						origin = i
+					end
+				end
+				local delta = request.offset - entries[origin].start
+				local advance = math.abs(delta) >= math.min(48, band * 0.2)
+				local index = math.clamp(origin + (if advance then math.sign(delta) else 0), 1, #entries)
+				return math.clamp(entries[index].start, 0, maxScroll)
+			end
 			local best = if request.offset > maxScroll / 2 then maxScroll else 0
 			for _, entry in entries do
 				-- Keep oversized sections freely scrollable so all their content remains reachable.
@@ -235,11 +250,15 @@ function navigation.new(core, scope, spec)
 				end)
 				off = controller.observeScroll(node.path, function(pos)
 					offset = if isX then pos.x else pos.y
-					if frameworkOffset ~= nil and math.abs(offset - frameworkOffset) <= 0.5 then
+					if
+						pos.dragging ~= true
+						and frameworkOffset ~= nil
+						and math.abs(offset - frameworkOffset) <= 0.5
+					then
 						engine.rest(offset)
 					else
 						frameworkOffset = nil
-						engine.sample(offset, pos.dragging)
+						engine.sample(offset, pos.dragging, pos.origin)
 					end
 					publish()
 				end)

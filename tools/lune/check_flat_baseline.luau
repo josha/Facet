@@ -640,8 +640,8 @@ end
 -- much of a compatibility statement as changes, so they are enumerated too.
 local ALLOWED_NEW_NODES: { { path: string, why: string } } = {
 	{
-		path = "/Vocabulary/More/Content/then/Fade",
-		why = "Disclosure animation repair: a canvas group fades the existing content during opening and closing. Its Body keeps the same geometry and properties, compared below through an exact path migration.",
+		path = "/Vocabulary/More/Content/then/Reveal",
+		why = "Disclosure text rendering repair: a clipping Frame reveals native children without rasterizing the entire list. Its Body keeps the same geometry and properties, compared below through an exact path migration.",
 	},
 	{
 		path = "/Vocabulary/Mode/Trigger/Value",
@@ -1530,11 +1530,11 @@ end
 -- 2. COMPARE against the 0.6.0 baseline, allow-list in hand.
 local base = index(BASELINE_3_5)
 local now = index(temp)
--- Disclosure content gained one opacity host. Compare the original Body at its
+-- Disclosure content gained one clipping host. Compare the original Body at its
 -- new path rather than waiving its geometry, props, or disappearance.
 for key, node in table.clone(base) do
 	if node.path == "/Vocabulary/More/Content/then/Body" then
-		local moved = string.gsub(key, "/Content/then/Body$", "/Content/then/Fade/Body")
+		local moved = string.gsub(key, "/Content/then/Body$", "/Content/then/Reveal/Body")
 		base[moved] = node
 		base[key] = nil
 	end

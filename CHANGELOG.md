@@ -13,6 +13,9 @@ runtime as `Facet.VERSION`.
 
 ## [Unreleased]
 
+- PageView now advances at most one page per mouse/touch swipe, settles on release, and preserves direct dot jumps and child input priority.
+- Fix pixelated text in expanded disclosure groups, including the UI laboratory menu. The shared `reveal` transition animates a native clipping frame instead of rasterizing the entire list in a CanvasGroup; caret timing, focus restoration and reversal remain intact.
+
 - Horizontal scroll hosts support desktop mouse dragging after child controls get first refusal. Ordinary clicks remain clicks, text editing and claimed drags keep ownership, and snapping waits until mouse release. PageView hides its horizontal scrollbar when page dots are shown.
 - CollapsibleView transforms its plate from the compact button's current screen rectangle, with separate content fading and no text scaling or overshoot. Race settings now has one collapse action. CanvasGroup surface paint follows the stylesheet instead of forcing a transparent backdrop.
 

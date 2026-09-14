@@ -26,6 +26,51 @@ t.describe("PageView control", function()
 	t.it("uses dots instead of a horizontal scrollbar", function()
 		local w, c = mount()
 		t.expect(w.adapter.node(root .. "/Pages").indicatorsOff).toBe(true)
+		t.expect(w.adapter.scrollRegionOf(root .. "/Pages").paging).toBe(true)
+		clean(w, c)
+	end)
+	for _, reduced in { false, true } do
+		t.it("one swipe advances only one page, reduced " .. tostring(reduced), function()
+			local w, c, selection = mount()
+			w.env:set("reducedMotion", reduced)
+			local path = root .. "/Pages"
+			local function swipe(from, to)
+				w.adapter.driveScroll(path, { x = from, y = 0, dragging = true })
+				w.settle(2)
+				w.adapter.driveScroll(path, { x = to, y = 0, dragging = true })
+				w.settle(30) -- holding still must neither settle nor forget the starting page
+				w.adapter.driveScroll(path, { x = to, y = 0, dragging = false })
+				w.settle(120)
+			end
+			swipe(0, 1190)
+			t.expect(w.controller.scrollPosition(path).x).toBe(600)
+			t.expect(selection:get()).toBe("two")
+			w.controller.scrollTo(path, { x = 600, y = 0 }) -- unchanged framework echo must not swallow pointer-down
+			swipe(600, 1000) -- crosses midpoint after an unchanged framework write
+			t.expect(w.controller.scrollPosition(path).x).toBe(1200)
+			swipe(1200, 10)
+			t.expect(w.controller.scrollPosition(path).x).toBe(600)
+			swipe(600, 610) -- incidental movement returns to the current page
+			t.expect(w.controller.scrollPosition(path).x).toBe(600)
+			swipe(600, 670) -- a short decisive swipe still advances
+			t.expect(w.controller.scrollPosition(path).x).toBe(1200)
+			w.adapter.tap(dot1)
+			w.settle(120)
+			w.adapter.tap(root .. "/Indicators/Dot3")
+			w.settle(120)
+			t.expect(w.controller.scrollPosition(path).x).toBe(1200)
+			clean(w, c)
+		end)
+	end
+	t.it("keeps pointer-down origin when native touch moves before the first held sample", function()
+		local w, c, selection = mount()
+		local path = root .. "/Pages"
+		w.adapter.driveScroll(path, { x = 400, y = 0, dragging = true, origin = 0 })
+		w.settle(30)
+		w.adapter.driveScroll(path, { x = 400, y = 0, dragging = false })
+		w.settle(120)
+		t.expect(w.controller.scrollPosition(path).x).toBe(600)
+		t.expect(selection:get()).toBe("two")
 		clean(w, c)
 	end)
 	t.it("sizes each page to its viewport and preserves owner-held selection", function()

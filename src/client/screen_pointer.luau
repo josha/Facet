@@ -507,14 +507,18 @@ function screen_pointer.new(ctx: any)
 		end
 	end
 
-	-- One listener for the adapter, installed only when a horizontal host exists.
+	-- One listener for horizontal mouse drags and paged touch swipes. Ordinary
+	-- touch scrollers retain native pan/inertia.
 	-- Defer acquisition until native child handlers have had their first refusal.
 	function adapter.enableMouseScroll()
 		if mouseScrollConn then
 			return
 		end
 		mouseScrollConn = UserInputService.InputBegan:Connect(function(input)
-			if input.UserInputType ~= Enum.UserInputType.MouseButton1 then
+			if
+				input.UserInputType ~= Enum.UserInputType.MouseButton1
+				and input.UserInputType ~= Enum.UserInputType.Touch
+			then
 				return
 			end
 			-- Roblox reuses a mouse InputObject across successive presses.
@@ -528,7 +532,7 @@ function screen_pointer.new(ctx: any)
 				if not playerGui then
 					return
 				end
-				local pos = toWindowSpace(input.Position, "mouse")
+				local pos = toWindowSpace(input.Position, pointerTypeOf(input))
 				-- GetGuiObjectsAtPosition takes the same GUI coordinates as InputObject;
 				-- our capture arithmetic uses inset-adjusted window coordinates.
 				local hits = playerGui:GetGuiObjectsAtPosition(input.Position.X, input.Position.Y)
@@ -548,10 +552,22 @@ function screen_pointer.new(ctx: any)
 						return
 					end
 					local handle = byInstance[hit]
+					-- An inner native horizontal scroller owns its touch pan.
+					if
+						input.UserInputType == Enum.UserInputType.Touch
+						and hit:IsA("ScrollingFrame")
+						and hit.ScrollingEnabled
+						and hit.ScrollingDirection ~= Enum.ScrollingDirection.Y
+						and hit.AbsoluteCanvasSize.X > hit.AbsoluteWindowSize.X
+						and not (handle and handle.paging)
+					then
+						return
+					end
 					if
 						handle
 						and hit:IsA("ScrollingFrame")
 						and hit.ScrollingEnabled
+						and (input.UserInputType ~= Enum.UserInputType.Touch or handle.paging)
 						and hit.ScrollingDirection == Enum.ScrollingDirection.X
 						and hit.AbsoluteCanvasSize.X > hit.AbsoluteWindowSize.X
 					then
@@ -564,10 +580,16 @@ function screen_pointer.new(ctx: any)
 							return
 						end
 						local instance = hit
-						local drag = mouseScroll.new(pos, instance.CanvasPosition.X)
+						local pageExtent = if handle.paging then instance.AbsoluteWindowSize.X else nil
+						local gestureOrigin = instance.CanvasPosition.X
+						local drag = mouseScroll.new(pos, gestureOrigin, pageExtent)
 						local function release()
 							if handle.mouseScrolling then
 								handle.mouseScrolling = nil
+								if handle.paging then
+									instance:ResetScrollVelocity()
+									instance.ScrollingEnabled = true
+								end
 								for notify in handle.scrollObservers or {} do
 									notify()
 								end
@@ -575,15 +597,25 @@ function screen_pointer.new(ctx: any)
 						end
 						local handlers = {
 							move = function(point)
+								if pageExtent and instance.AbsoluteWindowSize.X ~= pageExtent then
+									endCapture("interrupted")
+									return
+								end
 								local x =
 									drag.move(point, instance.AbsoluteCanvasSize.X - instance.AbsoluteWindowSize.X)
 								if x ~= nil then
 									suppressedInputs[input] = true
 									if not handle.mouseScrolling then
 										handle.mouseScrolling = true
+										handle.scrollGestureOrigin = gestureOrigin
+										if handle.paging then
+											instance:ResetScrollVelocity()
+											instance.ScrollingEnabled = false
+										end
 										for notify in handle.scrollObservers or {} do
 											notify()
 										end
+										handle.scrollGestureOrigin = nil
 									end
 									instance.CanvasPosition = Vector2.new(x, instance.CanvasPosition.Y)
 								end

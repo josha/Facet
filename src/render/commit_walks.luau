@@ -1826,6 +1826,9 @@ function commit_walks.new(ctx: CommitCtx)
 					local bleed = if type(entry.bleedLane) == "number" then entry.bleedLane else 0
 					local region = {
 						axis = props.axis or "y",
+						paging = node.meta ~= nil
+							and node.meta.scrollNavigation ~= nil
+							and node.meta.scrollNavigation.snap == "page",
 						contentW = entry.contentSize.w + pl + pr + bleed,
 						contentH = entry.contentSize.h + pt + pb + bleed,
 						-- the host's ARRANGED box, so the adapter's cross-axis
@@ -1865,6 +1868,7 @@ function commit_walks.new(ctx: CommitCtx)
 						or last.contentW ~= region.contentW
 						or last.contentH ~= region.contentH
 						or last.indicators ~= region.indicators
+						or last.paging ~= region.paging
 						or last.hostW ~= region.hostW
 						or last.hostH ~= region.hostH
 					then

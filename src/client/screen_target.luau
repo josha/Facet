@@ -2263,6 +2263,7 @@ function screen_target.new(opts: Opts?)
 	})
 	adapter.setScrollIndicatorPolicy = scrollIndicators.setScrollIndicatorPolicy
 	adapter.setScrollRegion = function(handle, region)
+		handle.paging = region ~= nil and region.paging == true
 		scrollIndicators.setScrollRegion(handle, region)
 		if region and region.axis == "x" and not forceScrollFallbackMode then
 			pointer.enableMouseScroll()
@@ -2477,7 +2478,7 @@ function screen_target.new(opts: Opts?)
 		end
 		local function notify()
 			local p = instance.CanvasPosition
-			fn({ x = p.X, y = p.Y, dragging = handle.mouseScrolling == true })
+			fn({ x = p.X, y = p.Y, dragging = handle.mouseScrolling == true, origin = handle.scrollGestureOrigin })
 		end
 		handle.scrollObservers = handle.scrollObservers or {}
 		handle.scrollObservers[notify] = true

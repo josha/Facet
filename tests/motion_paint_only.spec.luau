@@ -81,12 +81,17 @@ local FRAME = 1 / 60
 
 -- nodes the engine would be handed a Size for that is not their solved size —
 -- the presentation transform's `w`/`h` half (see the header)
-local function stretchedCount(w: any): number
+local function stretchedCount(w: any, revealPath: string?): number
 	local n = 0
 	for _, path in w.adapter.paths() do
 		local node = w.adapter.node(path)
 		local size, rect = node.presentedSize, node.rect
-		if size ~= nil and rect ~= nil and (size.w ~= rect.w or size.h ~= rect.h) then
+		if path == revealPath and size ~= nil and rect ~= nil then
+			-- Only the disclosure's clip may shrink; its children, width and solved
+			-- geometry remain subject to the original paint-only checks.
+			expect(size.w).toBe(rect.w)
+			expect(size.h >= 0 and size.h <= rect.h).toBe(true)
+		elseif size ~= nil and rect ~= nil and (size.w ~= rect.w or size.h ~= rect.h) then
 			n += 1
 		end
 	end
@@ -100,11 +105,12 @@ type Window = {
 	engineWrites: number,
 	rects: rectCensus.Census,
 	stretched: number,
+	revealPath: string?,
 }
 
 -- `label` names the control, so a red counter reads "TextInput shake solves=30"
 -- rather than "solves=30"
-local function openWindow(w: any, label: string): Window
+local function openWindow(w: any, label: string, revealPath: string?): Window
 	local stats = w.controller.stats()
 	return {
 		label = label,
@@ -112,7 +118,8 @@ local function openWindow(w: any, label: string): Window
 		rectWrites = stats.rectWrites,
 		engineWrites = w.adapter.engineWrites(),
 		rects = rectCensus.of(w.adapter),
-		stretched = stretchedCount(w),
+		stretched = stretchedCount(w, revealPath),
+		revealPath = revealPath,
 	}
 end
 
@@ -124,7 +131,7 @@ local function frame(w: any, window: Window?)
 	w.pres.tick(FRAME)
 	w.pres.refresh()
 	if window ~= nil then
-		window.stretched = math.max(window.stretched, stretchedCount(w))
+		window.stretched = math.max(window.stretched, stretchedCount(w, window.revealPath))
 	end
 end
 
@@ -139,7 +146,7 @@ local function expectPaintOnly(w: any, opened: Window)
 		stats.rectWrites - opened.rectWrites,
 		rectCensus.movedCount(opened.rects, rectCensus.of(w.adapter)),
 		w.adapter.engineWrites() - opened.engineWrites,
-		math.max(opened.stretched, stretchedCount(w)),
+		math.max(opened.stretched, stretchedCount(w, opened.revealPath)),
 	}
 	for i, name in COUNTERS do
 		expect(`{opened.label} {name}={measured[i]}`).toBe(`{opened.label} {name}=0`)
@@ -249,13 +256,17 @@ describe("motion is paint-only and idle is free", function()
 		w.pres.refresh()
 		local before = w.adapter.node("/S/Adv/Header/Caret").rotation or 0
 
-		local opened = openWindow(w, "DisclosureGroup caret")
+		local revealPath = "/S/Adv/Content/then/Reveal"
+		local clip = w.adapter.node(revealPath)
+		expect(clip.presentedSize.h < clip.rect.h).toBe(true)
+		local opened = openWindow(w, "DisclosureGroup caret", revealPath)
 		for _ = 1, 30 do
 			frame(w, opened)
 		end
 		expectPaintOnly(w, opened)
 		local after = w.adapter.node("/S/Adv/Header/Caret").rotation or 0
 		expect(`DisclosureGroup caretTurned={after - before > 45}`).toBe("DisclosureGroup caretTurned=true")
+		expect(clip.presentedSize.h).toBe(clip.rect.h)
 		expect(w.core:lastError()).toBeNil()
 		w.overflowGuard()
 		f.dispose()

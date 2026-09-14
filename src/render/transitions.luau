@@ -614,6 +614,7 @@ function transitions.new(opts: Opts)
 		if form == "transform" then
 			absent.fromRect = spec.fromRect
 		end
+		absent.reveal = form == "reveal"
 		if form == "materialize" then
 			--[[ THE CALLER'S OWN BAND WINS ON THE WAY IN, AND ONLY ON THE WAY IN
 				(RED-TEAM F1). `spec.scale` exists for one reason — a surface that is
@@ -669,7 +670,7 @@ function transitions.new(opts: Opts)
 		local p = entry.progress:get()
 		-- Transform changes the clipping plate, never UIScale or text metrics.
 		-- Clamp the decorative spring so a rectangle cannot overshoot either form.
-		if entry.absent.fromRect then
+		if entry.absent.fromRect or entry.absent.reveal then
 			p = math.clamp(p, 0, 1)
 		end
 		local k = 1 - p
@@ -705,6 +706,7 @@ function transitions.new(opts: Opts)
 		controller.setPresentationTransform(entry.path, {
 			x = absent.x * k,
 			y = absent.y * k,
+			h = if absent.reveal then -(controller.rectOf(entry.path) or { h = 0 }).h * k else nil,
 			scale = if absent.scale ~= nil then 1 + (absent.scale - 1) * k else nil,
 			pivot = if absent.scale ~= nil then absent.pivot else nil,
 		})
@@ -914,11 +916,21 @@ function transitions.new(opts: Opts)
 		return table.clone(foundBackdrops)
 	end
 
+	local function assertRevealCapable(path: string, node: any, spec: Spec)
+		if spec.enter == "reveal" or spec.exit == "reveal" then
+			assert(
+				node and node.props and node.props.clipChildren == true,
+				`Facet transition: {path} declares reveal, which requires clipChildren = true`
+			)
+		end
+	end
+
 	function self.beginEnter(path: string, node: any, declared: any)
 		if disposed then
 			return
 		end
 		local spec = transitions.resolve(declared)
+		assertRevealCapable(path, node, spec)
 		local alphaPath, alphaNode = resolveAlphaTarget(path, node)
 		assertFadeCapable(alphaPath, alphaNode, spec, spec.enter)
 		assertFadeCapable(alphaPath, alphaNode, spec, spec.exit)
@@ -1016,6 +1028,7 @@ function transitions.new(opts: Opts)
 		if spec.exit == "instant" then
 			return nil
 		end
+		assertRevealCapable(path, node, spec)
 		local alphaPath, alphaNode = resolveAlphaTarget(path, node)
 		assertFadeCapable(alphaPath, alphaNode, spec, spec.exit)
 		-- the enter-side twin's own reasoning: an exit that does not fade
