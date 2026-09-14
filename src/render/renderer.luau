@@ -495,6 +495,9 @@ function renderer.attach(
 	-- eligible again the same frame with no rewiring. Roots are collected once
 	-- per structural sync; the registry consults the predicate per resolution.
 	local retiringRoots: { string } = {}
+	-- Only drag resolution reads this census. Ordinary structural updates need
+	-- no retirement walk until the first reader; that reader scans the live tree.
+	local retiringRootsKnown = false
 	local function collectRetiringRoots(roots: { { path: string, node: any } }?)
 		--[[ BOUNDED (C5): a retire begin or cancel pushes STRUCTURE AT THE NODE, so only
 			a root's subtree can have gained an entry. With an exit already in flight it
@@ -521,6 +524,10 @@ function renderer.attach(
 		end
 	end
 	local function isPathLive(path: string): boolean
+		if not retiringRootsKnown then
+			collectRetiringRoots(nil)
+			retiringRootsKnown = true
+		end
 		for _, retired in retiringRoots do
 			-- SEGMENT boundary, not a bare prefix (verifier P2-2): a retiring
 			-- "/S/Slot" must not exclude its live sibling "/S/SlotA"
@@ -2580,7 +2587,9 @@ function renderer.attach(
 			end
 		end
 		local _t1 = os.clock()
-		collectRetiringRoots(roots)
+		if retiringRootsKnown then
+			collectRetiringRoots(roots)
+		end
 		-- mounted identity may have changed under any path (a When branch, a ForEach
 		-- row, a re-created ViewThatFits candidate), so the presentation channel's
 		-- node memo is dropped wholesale rather than patched per path
