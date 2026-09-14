@@ -735,14 +735,14 @@ function menu.build(Facet: any, core: any, spec: Spec)
 		end
 	end
 
-	local presentLevel: (level: number, presentation: string, chain: { string }) -> ()
+	local presentLevel: (level: number, presentation: string, chain: { string }, direction: string?) -> ()
 
 	--[[ ONE SURFACE PER LEVEL UNDER `menu`, ONE SURFACE TOTAL UNDER `sheet`.
 		The difference is entirely here, and it is a presentation branch rather than
 		a device branch: `sheet` tears the current panel down before building the
 		next one, so a submenu REPLACES the contents; `menu` leaves the parent
 		standing and anchors the child to the row it came from. ]]
-	function presentLevel(level: number, presentation: string, chain: { string })
+	function presentLevel(level: number, presentation: string, chain: { string }, direction: string?)
 		local panel = buildPanel(presentation, chain)
 		-- `buildPanel`'s own `isSheet` is scoped to that function; recomputed here
 		-- once per open/level rather than threaded through as another return
@@ -839,6 +839,7 @@ function menu.build(Facet: any, core: any, spec: Spec)
 					scrim = "scrim",
 					outsideTapCancel = true,
 					cancelPolicy = "none",
+					transition = { enter = direction or "slide-up", exit = "slide-down" },
 				}
 			)
 		else
@@ -939,7 +940,7 @@ function menu.build(Facet: any, core: any, spec: Spec)
 			-- REPLACE, never stack (brief §2 D2): the sheet's contents become the
 			-- submenu's, and the Back row `buildPanel` grows is the way out.
 			dismissDeepest()
-			presentLevel(0, presentation, chain)
+			presentLevel(0, presentation, chain, "slide-left")
 		else
 			presentLevel(#chain, presentation, chain)
 		end
@@ -956,7 +957,7 @@ function menu.build(Facet: any, core: any, spec: Spec)
 		local presentation = presentationNow()
 		dismissDeepest()
 		if presentation == "sheet" then
-			presentLevel(0, presentation, chain)
+			presentLevel(0, presentation, chain, "slide-right")
 			--[[ FOCUS RETURNS TO THE ROW THAT LED HERE, not the level's own
 				`entry = "first"` default (director item 14: "state preserved —
 				scroll/focus position on back"). `sheet` REPLACES its one surface on

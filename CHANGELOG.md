@@ -13,6 +13,8 @@ runtime as `Facet.VERSION`.
 
 ## [Unreleased]
 
+- Compact menu submenus slide forward and back through the shared navigation motion. Switches paint their initial value immediately, slide without overshoot on changes, and keep label size steady when pressed.
+
 - PageView now advances at most one page per mouse/touch swipe, settles on release, and preserves direct dot jumps and child input priority.
 - Fix pixelated text in expanded disclosure groups, including the UI laboratory menu. The shared `reveal` transition animates a native clipping frame instead of rasterizing the entire list in a CanvasGroup; caret timing, focus restoration and reversal remain intact.
 
