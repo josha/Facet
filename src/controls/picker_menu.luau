@@ -753,6 +753,27 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 		local w = if type(vp) == "table" and type(vp.w) == "number" then vp.w else 1280
 		return math.max(120, w - 2 * inset)
 	end
+	--[[ TWO ROW-SHADE FORMS, chosen by the package's own metric and never by its
+		name (user ruling 2026-09-12): `controls.popup.shadeInset = 0` (the
+		default) is the FLUSH form — the shade spans the card edge to edge
+		and takes the card's corners by position; a positive inset is the
+		FLOATING form — the shade (and the row, so the ring matches) sits that
+		many px inside the card's inner edge on both sides and wears
+		`radii.selection` on all four corners, the segmented indicator's shape.
+		Glossy Touch authors 4 for its rounded gel card.
+
+		IT LIVES UP HERE because the width estimate below has to spend it too: the
+		floating shade's margin is real horizontal room a label does not get, and a
+		second reader of the same metric is exactly the disagreement this control
+		has already been bitten by. The row forms that consume it are ~200 lines
+		down (`rowCorners`, `rowMargin`, `floatingForm`). ]]
+	local function shadeInsetNow(use: any): number
+		local env = envForFacts or spec.env
+		local metrics = if env ~= nil then use(env:get("themeMetrics")) else nil
+		local snap = if type(metrics) == "table" and type(metrics.controls) == "table" then metrics else nil
+		local value = if snap ~= nil then themeSnapshot.resolveNumber(snap, "controls.popup.shadeInset") else nil
+		return if type(value) == "number" and value > 0 then value else 0
+	end
 	--[[ THE WIDEST ROW, MEASURED: the popover hugs it. A fill row reports no
 		natural width of its own (fill is "take the offer"), so the hug is computed
 		here from the row's text plus everything the card spends around it, and
@@ -859,31 +880,31 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 		local insetsBySlot = if type(snap) == "table" then (snap :: any).chromeInsets else nil
 		local plate = if type(insetsBySlot) == "table" then insetsBySlot.panel else nil
 		local card = if type(plate) == "table" then (tonumber(plate.left) or 0) + (tonumber(plate.right) or 0) else 0
-		--[[ ...AND AN ALLOWANCE FOR THE SCROLLER'S OWN CROSS-AXIS RESERVE, WHICH THIS
-			TERM IS NOT HONESTLY NAMED FOR (R8, measured 2026-09-13).
+		--[[ ...AND THE FLOATING ROW SHADE'S OWN MARGIN, which is horizontal room no
+			label ever gets (measured 2026-09-13).
 
-			The comment that stood here said this covered the bleed lane
-			`render/layout_node`'s bleed block gives a scroll container. That claim was
-			FALSE: the list below declares `chromeReserve = "none"` — its rows are
-			plain, its fill is a tint, the check draws inside its own box — so the
-			block is skipped for it and no lane is ever reserved.
+			Two wrong explanations stood here before this one. The first said the term
+			covered the bleed lane `render/layout_node` gives a scroll container: false,
+			because the list below declares `chromeReserve = "none"` and the block is
+			skipped for it. The second said it covered the scroll bar's cross-axis
+			reserve: also false, and measurably so — `ctx.scrollBarReserve` is 0 in
+			EVERY cell of the sweep that measured the missing 8 px (nothing there sets
+			`adapter.scrollBarThickness`, so no bar is reserved off this list anywhere
+			in it).
 
-			REMOVING THE TERM WAS TRIED AND IT BREAKS THREE SWEEP CASES, each by
-			exactly 8 px (`picker_sweep`: "Opt-c fits its label", label 468 against a
-			need of 476 under glossy-touch at phone-landscape). The 8 is the SCROLL
-			BAR's cross-axis reserve, which the solver takes off this list whenever it
-			overflows under a pointer session's `always` policy — a real number the
-			panel genuinely owes and a number a SHARED control cannot read: the
-			thickness lives in `src/client/screen_target.luau`, the policy reaches the
-			solver through `ctx.scrollBarReserve`, and neither is a theme metric.
+			The 8 px is `2 * controls.popup.shadeInset`, the metric this same file
+			applies as the rows' `rowMargin` — Glossy Touch authors 4 a side. The
+			decomposition of the solved popover is exact: panel 600 = card 28 + shade 8
+			+ rowPad 24 + gap 10 + indicator 28 + label 502, and the label is the need
+			plus exactly that shade. So this reads the one accessor the row forms read
+			(`shadeInsetNow`, above) rather than standing in for it with a package-wide
+			reach that happens to be twice as big.
 
-			So the term stays, as a conservative allowance rather than a derivation,
-			and this comment says what it is instead of naming the wrong mechanism.
-			The estimate is over by `2 * bleed - reserve` on a glowing package and
-			exact on a flat one. BOOKED for the picker's own round: the honest fix is
-			for the panel width to come from the solve rather than from an estimate
-			that has to predict a reserve it cannot see. ]]
-		local bleed = if type((snap :: any).chromeBleed) == "number" then (snap :: any).chromeBleed else 0
+			A flat package authors no shade, so the term is 0 there and the estimate
+			stays exact on the packages it was already exact on. ]]
+		local shade = shadeInsetNow(function(readable: any): any
+			return readable:get()
+		end)
 		local widest = 0
 		for _, option in results:get() do
 			if option.divider == true then
@@ -896,7 +917,7 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 			end
 			widest = math.max(widest, w + slot + gap + rowPad)
 		end
-		return math.ceil(if widest > 0 then widest + card + 2 * bleed else 0)
+		return math.ceil(if widest > 0 then widest + card + 2 * shade else 0)
 	end
 	local function describedPanelWidth(): number
 		local env = envForFacts or spec.env
@@ -1013,21 +1034,6 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 			return UI.cornersData({ topLeft = 0, topRight = 0, bottomLeft = r, bottomRight = r })
 		end
 		return UI.cornersData(0)
-	end
-	--[[ TWO ROW-SHADE FORMS, chosen by the package's own metric and never by its
-		name (user ruling 2026-09-12): `controls.popup.shadeInset = 0` (the
-		default) is the FLUSH form above — the shade spans the card edge to edge
-		and takes the card's corners by position; a positive inset is the
-		FLOATING form — the shade (and the row, so the ring matches) sits that
-		many px inside the card's inner edge on both sides and wears
-		`radii.selection` on all four corners, the segmented indicator's shape.
-		Glossy Touch authors 4 for its rounded gel card. ]]
-	local function shadeInsetNow(use: any): number
-		local env = envForFacts or spec.env
-		local metrics = if env ~= nil then use(env:get("themeMetrics")) else nil
-		local snap = if type(metrics) == "table" and type(metrics.controls) == "table" then metrics else nil
-		local value = if snap ~= nil then themeSnapshot.resolveNumber(snap, "controls.popup.shadeInset") else nil
-		return if type(value) == "number" and value > 0 then value else 0
 	end
 	local FLOATING_CORNERS = UI.cornersData("selection")
 	local function rowCorners(position: string): any
