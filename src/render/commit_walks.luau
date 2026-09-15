@@ -177,6 +177,8 @@ end
 export type CommitCtx = {
 	adapter: any, -- the render target
 	handles: any, -- path -> adapter handle
+	parentNodeOf: any?,
+	childNodesOf: any?,
 	stats: any, -- the renderer's counters
 	rectsEqual: any, -- the pure rect comparison
 	paintedRectIn: any, -- a solve's rect for a path, as painted
@@ -617,9 +619,72 @@ function commit_walks.new(ctx: CommitCtx)
 		which is the cost this whole paragraph exists to avoid) or a table of state
 		(three table writes per child in place of three local ones) — on the loop the
 		commit span is made of. ]]
+	-- Sparse candidates include both mounted input changes and solver outputs.
+	-- Index only wide child arrays, lazily; replaced arrays release their indexes.
+	local childIndices: any = setmetatable({}, { __mode = "k" })
+	local sparseChildren: any = nil
+	local function selectSparse(dirty: any, outputs: any, work: any): any
+		if outputs == nil or ctx.parentNodeOf == nil or ctx.childNodesOf == nil then
+			return nil
+		end
+		if work == nil or work.arranged + work.translated > 64 then
+			return nil
+		end
+		local selected, seen = {}, {}
+		local count = 0
+		for group, paths in { dirty, outputs, work.translatedRoots, work.translatedPaths } do
+			for key, value in paths do
+				local path = if group == 4 then value else key
+				local at = path
+				while not seen[at] do
+					seen[at] = true
+					count += 1
+					if count > 64 then
+						return nil
+					end
+					local parent = ctx.parentNodeOf[at]
+					if parent == nil then
+						break
+					end
+					if #parent.children > 64 then
+						local children = ctx.childNodesOf[parent.path]
+						local child = if children ~= nil then children[at] else nil
+						if child == nil then
+							return nil
+						end
+						local list = selected[parent.path]
+						if list == nil then
+							list = {}
+							selected[parent.path] = list
+						end
+						table.insert(list, child)
+					end
+					at = parent.path
+				end
+			end
+		end
+		return selected
+	end
+
 	local function buildDescend(node: any)
 		local kids = node.children
 		local path = node.path
+		if sparseChildren ~= nil and #kids > 64 then
+			local selected = sparseChildren[path] or {}
+			local index = childIndices[kids]
+			if index == nil then
+				index = {}
+				for i, child in kids do
+					scanCount += 1
+					index[child.path] = i
+				end
+				childIndices[kids] = index
+			end
+			table.sort(selected, function(a, b)
+				return index[a.path] < index[b.path]
+			end)
+			kids = selected
+		end
 		--[[ THE COMMIT-SIDE SIFT IS NOT ALWAYS ASKED FOR (review Minor 5). `descendOf`
 			can only ever hand back `descendCommitKids` through its
 			`arrangeBlind == true and commitDirty ~= nil` arm, so on a commit handed no
@@ -931,7 +996,9 @@ function commit_walks.new(ctx: CommitCtx)
 		prefOffset: number,
 		-- the commit-side half of `dirty` (T5b). Optional: absent means every walk is
 		-- answered against `dirty`, which is what this file did before T5b.
-		commitDirtySet: { [string]: boolean }?
+		commitDirtySet: { [string]: boolean }?,
+		outputPaths: { [string]: boolean }?,
+		work: any?
 	): boolean
 		local stampSame = stampScale == scale and stampMetrics == metrics and stampOffset == prefOffset
 		stampScale, stampMetrics, stampOffset = scale, metrics, prefOffset
@@ -940,6 +1007,7 @@ function commit_walks.new(ctx: CommitCtx)
 		commitRects = rects
 		recording = enabled
 		pruning = enabled and dirty ~= nil and stampSame
+		sparseChildren = if pruning then selectSparse(dirty, outputPaths, work) else nil
 		table.clear(hiddenFlips)
 		-- ...and the descend lists, which are a function of THIS commit's dirty sets
 		-- and THIS commit's entries and are therefore worth nothing to the next one

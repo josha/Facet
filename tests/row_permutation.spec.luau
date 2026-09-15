@@ -40,10 +40,23 @@ local function world(full: boolean, opts: any?)
 							return item.key
 						end,
 						row = function(item)
+							if item.directText then
+								return Facet.UI.Text({
+									id = "Label",
+									text = item.label,
+									width = { type = "fixed", px = 40 },
+									height = opts.textHeight,
+									textSize = 12,
+								})
+							end
 							return Facet.UI.ZStack({
 								id = "Row",
-								width = if opts.horizontalKnown then item.height else { type = "fill" },
-								height = if opts.horizontalKnown then { type = "fixed", px = 22 } else item.height,
+								width = if opts.contentRows
+									then { type = "content" }
+									else if opts.horizontalKnown then item.height else { type = "fill" },
+								height = if opts.contentRows
+									then { type = "content" }
+									else if opts.horizontalKnown then { type = "fixed", px = 22 } else item.height,
 								margin = opts.margin,
 								children = {
 									Facet.UI.Box({
@@ -139,6 +152,23 @@ local function world(full: boolean, opts: any?)
 	return {
 		reverse = reverse,
 		adapter = adapter,
+		append = function(changed, position)
+			if changed then
+				items[1].height:set({ type = "fixed", px = 47 })
+				items[1].label:set("changed content that wraps over the narrow row")
+			end
+			added += 1
+			local out = table.clone(items)
+			table.insert(out, position or #out + 1, {
+				directText = opts.insertText,
+				key = "tail" .. added,
+				height = core:signal(opts.appendDim or { type = "fixed", px = 23 }),
+				label = core:signal(opts.newLabel or "new"),
+			})
+			items = out
+			rows:set(out)
+			controller.refresh()
+		end,
 		splice = function(remove)
 			local out = table.clone(items)
 			if remove then
@@ -149,6 +179,14 @@ local function world(full: boolean, opts: any?)
 			end
 			items = out
 			rows:set(out)
+			controller.refresh()
+		end,
+		editInsertedText = function()
+			items[3].label:set("a changed label with considerably more words to wrap")
+			controller.refresh()
+		end,
+		resize = function()
+			env:set("viewportRect", { x = 0, y = 0, w = 420, h = 800 })
 			controller.refresh()
 		end,
 		snapshot = snapshot,
@@ -376,4 +414,216 @@ t.describe("host-local ordering after an interrupted adapter write", function()
 		t.expect(lastZ["/S/A/a"] < lastZ["/S/B/a"]).toBe(true)
 		t.expect(zScope.of(lastZ).localNumbers).toBe(false)
 	end)
+end)
+
+t.describe("clean append prefix reuse", function()
+	t.it("measures the added row while preserving geometry, findings and text outputs", function()
+		local opts = { fixedList = true, withText = true }
+		local a, b = world(false, opts), world(true, opts)
+		for _, changed in { false, false, true, false } do
+			a.append(changed)
+			b.append(changed)
+			t.expect(a.snapshot()).toBe(b.snapshot())
+			for _, path in a.adapter.paths() do
+				for _, key in { "text", "textWrapped", "compactLabel" } do
+					t.expect(a.adapter.node(path).props[key]).toBe(b.adapter.node(path).props[key])
+				end
+			end
+			if not changed then
+				print(
+					"APPEND CALLS/ENTRIES",
+					a.controller.stats().lastMeasureCalls,
+					a.controller.stats().lastArrangeEntries
+				)
+				t.expect(a.controller.stats().lastMeasureCalls < 30).toBe(true)
+				t.expect(a.controller.stats().lastArrangeEntries < 30).toBe(true)
+			end
+		end
+		a.reverse(false)
+		b.reverse(false)
+		a.splice(true)
+		b.splice(true)
+		t.expect(a.snapshot()).toBe(b.snapshot())
+		a.dispose()
+		b.dispose()
+	end)
+end)
+
+t.describe("append reuse refusals", function()
+	t.it("rejects moved, dirty and duplicate survivors without changing a cached index", function()
+		local permutation = require("../src/layout/row_permutation")
+		local ids = { "a", "b" }
+		local index = { a = 1, b = 2 }
+		local function order(names, dirty, append)
+			local children = {}
+			for _, id in names do
+				table.insert(children, { id = id })
+			end
+			return permutation.order(children, ids, 2, dirty or {}, index, true, append)
+		end
+		local answer = order({ "a", "b", "c" }, { c = true }, true)
+		t.expect(table.concat(answer, ",")).toBe("1,2,0")
+		t.expect(table.concat(order({ "a", "c", "b" }, nil, true), ",")).toBe("1,0,2")
+		for _, names in { { "b", "a", "c" }, { "a", "c", "d" }, { "a", "b", "a" }, { "a", "b", "c", "c" } } do
+			t.expect(order(names, nil, true)).toBeNil()
+		end
+		t.expect(order({ "a", "b", "c" }, { a = true }, true)).toBeNil()
+		t.expect(order({ "a", "b", "c" }, nil, false)).toBeNil()
+		t.expect(index.a).toBe(1)
+		t.expect(index.b).toBe(2)
+		t.expect(index.c).toBeNil()
+	end)
+
+	for _, opts in
+		{
+			{ name = "growing content box", withText = true },
+			{ name = "content rows", contentRows = true, withText = true, fixedList = true },
+			{ name = "horizontal", horizontal = true, horizontalKnown = true, fixedList = true },
+			{ name = "margins", margin = 3, fixedList = true },
+			{ name = "fractional spacing", gap = 1.5, padding = 0.5, fixedList = true },
+			{ name = "distribution", distribute = "center", fixedList = true },
+			{ name = "flexible tail", appendDim = { type = "fill" }, fixedList = true },
+			{ name = "fractional tail", appendDim = { type = "fixed", px = 23.5 }, fixedList = true },
+		}
+	do
+		t.it(opts.name .. " agrees with forced-full layout across appends and edits", function()
+			local a, b = world(false, opts), world(true, opts)
+			for _, changed in { false, true, false } do
+				a.append(changed)
+				b.append(changed)
+				t.expect(a.snapshot()).toBe(b.snapshot())
+			end
+			a.dispose()
+			b.dispose()
+		end)
+	end
+end)
+
+t.describe("append memo publication", function()
+	t.it("invalidates the prefix before a new row's measure or placement can throw", function()
+		local prefix = require("../src/layout/row_prefix")
+		for _, config in { { "measure", 3 }, { "place", 3 }, { "measure", 2 }, { "place", 2 } } do
+			local stage, position = config[1], config[2]
+			local memo = {
+				pN = 2,
+				pInnerX = 0,
+				pInnerY = 0,
+				pInnerW = 100,
+				pInnerH = 100,
+				pGap = 0,
+				pRect = {},
+				pMain = { 10, 10 },
+				pMarg = { false, false },
+				pFlag = { 2, 2 },
+				pCuts = { 1, 2 },
+				pCross = { 100, 100 },
+				pIds = { "1", "2" },
+				pAl = {},
+			}
+			local children, previous = {}, {}
+			for i = 1, 2 do
+				local id = tostring(i)
+				local rect = { x = 0, y = (i - 1) * 10, w = 100, h = 10 }
+				children[i], previous[id], memo.pRect[i] = { id = id, hostSpace = true }, { rect = rect }, rect
+			end
+			table.insert(children, position, { id = "new" })
+			local ctx = {
+				reuse = { previous = { rects = previous }, dirtyContains = {} },
+				offers = {},
+				fitCuts = 0,
+				placeSkipped = 0,
+			}
+			local node = { kind = "vstack", children = children, cmemo = memo }
+			local function fail()
+				error("append " .. stage)
+			end
+			local deps = {
+				mainDimOf = function()
+					return { type = "fixed", px = 10 }
+				end,
+				dim = function()
+					return { type = "fill" }
+				end,
+				sides = function()
+					return 0, 0, 0, 0
+				end,
+				measure = function()
+					if stage == "measure" then
+						fail()
+					end
+					ctx.fitCuts += 3
+					return 100, 10
+				end,
+			}
+			local order = if position == 3 then { 1, 2, 0 } else { 1, 0, 2 }
+			local ok, err = pcall(prefix.try, ctx, node, 0, 0, 0, order, fail, {}, true, deps)
+			t.expect(ok).toBe(false)
+			t.expect(string.find(tostring(err), "append " .. stage, 1, true) ~= nil).toBe(true)
+			t.expect(memo.pCuts).toBeNil()
+			t.expect(memo.pN).toBe(2)
+		end
+	end)
+end)
+
+t.describe("middle insertion prefix reuse", function()
+	for _, opts in
+		{
+			{ name = "hosted rows", fixedList = true, withText = true },
+			{
+				name = "direct text",
+				fixedList = true,
+				insertText = true,
+				newLabel = "a long label that wraps across several lines",
+			},
+			{ name = "fixed text", fixedList = true, insertText = true, textHeight = { type = "fixed", px = 16 } },
+			{ name = "horizontal", fixedList = true, horizontal = true, horizontalKnown = true },
+			{ name = "fractional inserted row", fixedList = true, appendDim = { type = "fixed", px = 23.5 } },
+			{ name = "flexible inserted row", fixedList = true, appendDim = { type = "fill" } },
+			{ name = "content parent" },
+			{ name = "margins", fixedList = true, margin = 3 },
+			{ name = "distribution", fixedList = true, distribute = "center" },
+		}
+	do
+		t.it(opts.name .. " matches full layout through insertion, removal, edits and resize", function()
+			local a, b = world(false, opts), world(true, opts)
+			for step, changed in { false, false, true, false } do
+				a.append(changed, 3)
+				b.append(changed, 3)
+				t.expect(a.snapshot()).toBe(b.snapshot())
+				for _, path in a.adapter.paths() do
+					for _, key in { "text", "textWrapped", "compactLabel" } do
+						t.expect(a.adapter.node(path).props[key]).toBe(b.adapter.node(path).props[key])
+					end
+				end
+				if not changed and (opts.name == "hosted rows" or opts.insertText) then
+					print(
+						"INSERT",
+						opts.name,
+						step,
+						a.controller.stats().lastMeasureCalls,
+						a.controller.stats().lastArrangeEntries
+					)
+					t.expect(a.controller.stats().lastMeasureCalls < 30).toBe(true)
+					t.expect(a.controller.stats().lastArrangeEntries < 30).toBe(true)
+				end
+			end
+			if opts.insertText then
+				a.editInsertedText()
+				b.editInsertedText()
+				t.expect(a.snapshot()).toBe(b.snapshot())
+			end
+			for _ = 1, 3 do
+				a.splice(true)
+				b.splice(true)
+				t.expect(a.snapshot()).toBe(b.snapshot())
+			end
+			a.resize()
+			b.resize()
+			a.append(false, 3)
+			b.append(false, 3)
+			t.expect(a.snapshot()).toBe(b.snapshot())
+			a.dispose()
+			b.dispose()
+		end)
+	end
 end)

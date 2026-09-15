@@ -1510,6 +1510,8 @@ function renderer.attach(
 	-- reads and writes BY REFERENCE. Declared here rather than beside the rect
 	-- pass because five of those records do not exist until this line.
 	local commitWalks = commit_walks.new({
+		parentNodeOf = parentNodeOf,
+		childNodesOf = childNodesOf,
 		adapter = adapter,
 		handles = handles,
 		stats = stats,
@@ -1579,6 +1581,7 @@ function renderer.attach(
 	-- returning geometry without them).
 	local incrementalEnabled = opts == nil or (opts :: any).incrementalLayout ~= false
 	local lastResult: any = nil
+	local commitComplete = false
 	local dirtyContains: { [string]: boolean }? = nil
 	-- ...AND THE MEASURE HALF OF THE SAME SET (wicked-fast O2): the same closure
 	-- over `measure` dirt alone, which is the only question the adopt gate asks. A
@@ -2059,6 +2062,8 @@ function renderer.attach(
 			end
 			solveOpts.measures = measureStore
 		end
+		local previousCommitComplete = commitComplete
+		commitComplete = false
 		local result = solver.solve(layoutRoot, { w = vp.w, h = vp.h }, solveOpts)
 		-- WHAT THIS SOLVE ANSWERED FOR, published into the counters — including the
 		-- `work.skipped` repair, which is a write back into the record `rect_pass.apply`
@@ -2112,7 +2117,9 @@ function renderer.attach(
 					metrics,
 					prefOffset,
 					-- ...and the T5b arrange-blind set
-					if solveOpts.reuse ~= nil then builtCommitDirty else nil
+					if solveOpts.reuse ~= nil then builtCommitDirty else nil,
+					if previousCommitComplete and not structuralPartial then result.commitPaths else nil,
+					result.work
 				)
 			then
 				structureEpoch += 1
@@ -2194,6 +2201,7 @@ function renderer.attach(
 			-- (Unaffected by running after `scrollRegions` above: neither reads
 			-- anything the other writes to the engine.)
 			rectPass.apply(root.node, result.rects, result.work)
+			commitComplete = true
 
 			-- ...and only now, with this frame fully painted from the conservative
 			-- estimate, ask the engine for the words it could not size. Ordering is the

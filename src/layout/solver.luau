@@ -3522,6 +3522,8 @@ function solver.solve(
 	end
 	return {
 		rects = out,
+		-- Reuse the arranged-node set; translated roots and paths are in work.
+		commitPaths = if ctx.reuse ~= nil and ctx.arranged + ctx.translated <= 64 then ctx.walkedIds else nil,
 		diagnostics = ctx.diagnostics,
 		contentRect = contentRect,
 		work = {

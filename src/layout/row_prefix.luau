@@ -3,6 +3,7 @@
 -- retain their complete entry and move only their origin; descendants stay local.
 -- All refusal checks precede writes. The ordinary stack remains the oracle.
 local permutation = require("./row_permutation")
+local alignOffset = require("./placement").alignOffset
 local prefix = {}
 local ENABLED = true -- counter-only arm validates then takes the ordinary stack
 
@@ -33,7 +34,8 @@ function prefix.try(
 	order: any,
 	place: any,
 	out: any,
-	enabled: boolean?
+	enabled: boolean?,
+	deps: any?
 ): boolean
 	local memo = node.cmemo
 	if
@@ -50,11 +52,33 @@ function prefix.try(
 		return false
 	end
 	local children = node.children
+	local isH = node.kind == "hstack"
+	local inserted = memo.pN < #children
+	local appended = inserted and (memo.pN == 0 or order[memo.pN] == memo.pN)
 	local previous = ctx.reuse.previous.rects
 	local contains = ctx.reuse.dirtyContains
 	local hosts = 0
 	for i, child in children do
 		local old = order[i]
+		if old == 0 then
+			-- New rows use normal measurement; flexible main/aspect dimensions
+			-- need the full pass.
+			local main = deps.mainDimOf(child, isH)
+			local cross = deps.dim(child, if isH then "h" else "w")
+			local mt, mr, mb, ml = deps.sides(child.margin)
+			if
+				previous[child.id] ~= nil
+				or (main.type ~= "fixed" and main.type ~= "content")
+				or (cross.type ~= "fill" and cross.type ~= "fixed" and cross.type ~= "content")
+				or mt ~= 0
+				or mr ~= 0
+				or mb ~= 0
+				or ml ~= 0
+			then
+				return false
+			end
+			continue
+		end
 		local rect = memo.pRect[old]
 		local entry = previous[child.id]
 		local flag = memo.pFlag[old]
@@ -79,19 +103,67 @@ function prefix.try(
 	if not ENABLED or enabled == false or hosts < 2 then
 		return false
 	end
-	local isH = node.kind == "hstack"
+	local savedCuts = memo.pCuts
+	-- Invalidate before measurement/placement can throw; publish the key last.
+	memo.pCuts = nil
+	if inserted and not appended then
+		-- Order-preserving insertion only shifts old slots to the right. Walking
+		-- backwards keeps every unread answer intact without copying seven arrays.
+		for _, field in { "pMain", "pCross", "pIds", "pMarg", "pAl", "pFlag", "pCuts" } do
+			local values = if field == "pCuts" then savedCuts else memo[field]
+			for i = #children, 1, -1 do
+				values[i] = values[order[i]]
+			end
+		end
+	end
 	local cursor = if isH then x else y
 	local rects, index = {}, {}
 	local cuts = 0
 	for i, child in children do
 		local old = order[i]
+		if old == 0 then
+			local before = ctx.fitCuts
+			local w, h = deps.measure(ctx, child, memo.pInnerW, memo.pInnerH)
+			savedCuts[i] = ctx.fitCuts - before
+			local main = if isH then w else h
+			local crossAvail = math.max(0, if isH then memo.pInnerH else memo.pInnerW)
+			local crossFill = deps.dim(child, if isH then "h" else "w").type == "fill"
+			local align = child.lineAlign or child.align or node.align
+			local cross = if crossFill or align == "stretch"
+				then crossAvail
+				else math.min(if isH then h else w, crossAvail)
+			local offset = alignOffset(align, crossAvail, cross)
+			local rect = {
+				x = if isH then cursor else x + offset,
+				y = if isH then y + offset else cursor,
+				w = if isH then main else cross,
+				h = if isH then cross else main,
+			}
+			place(ctx, child, rect, out)
+			rects[i], index[child.id] = rect, i
+			memo.pMain[i], memo.pCross[i] = main, if isH then h else w
+			memo.pIds[i], memo.pMarg[i] = child.id, false
+			memo.pAl[i], memo.pFlag[i] = align, if crossFill then 2 else 0
+			cursor += main + gap
+			continue
+		end
 		local was = memo.pRect[old]
-		local rect = { x = if isH then cursor else was.x, y = if isH then was.y else cursor, w = was.w, h = was.h }
-		cursor += memo.pMain[old] + gap
-		cuts += memo.pCuts[old] or 0
+		local slot = if inserted then i else old
+		local rect = if appended or cursor == (if isH then was.x else was.y)
+			then was
+			else { x = if isH then cursor else was.x, y = if isH then was.y else cursor, w = was.w, h = was.h }
+		cursor += memo.pMain[slot] + gap
+		if child.kind == "text" then
+			-- Republish text fit/wrap verdicts at the unchanged offer.
+			local before = ctx.fitCuts
+			deps.measure(ctx, child, memo.pInnerW, memo.pInnerH)
+			savedCuts[slot] = ctx.fitCuts - before
+		else
+			cuts += savedCuts[slot] or 0
+		end
 		ctx.offers[child.wKey or (child.id .. "|w")] = memo.pInnerW
 		ctx.offers[child.hKey or (child.id .. "|h")] = memo.pInnerH
-		if rect.x == was.x and rect.y == was.y then
+		if rect.x == was.x and rect.y == was.y and child.kind ~= "text" then
 			rects[i] = was
 			ctx.placeSkipped += 1
 		elseif child.hostSpace == true then
@@ -126,14 +198,18 @@ function prefix.try(
 	for _, finding in memo.pIssues or {} do
 		table.insert(ctx.diagnostics, finding)
 	end
-	for _, field in { "pMain", "pCross", "pIds", "pMarg", "pAl", "pFlag", "pCuts" } do
-		memo[field] = permutation.remap(memo[field], order)
+	if not inserted then
+		for _, field in { "pMain", "pCross", "pIds", "pMarg", "pAl", "pFlag" } do
+			memo[field] = permutation.remap(memo[field], order)
+		end
+		savedCuts = permutation.remap(savedCuts, order)
 	end
 	memo.pN = #children
 	memo.pRect = rects
 	memo.pToken = node.kidToken
 	memo.pIdx = index
 	memo.pIdxToken = node.kidToken
+	memo.pCuts = savedCuts
 	return true
 end
 

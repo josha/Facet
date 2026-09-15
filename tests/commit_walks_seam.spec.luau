@@ -210,7 +210,8 @@ describe("the commit-walk seam: READ == DECLARED == PASSED", function()
 		-- `applyProp`/`applyStyleProp` use, instead of a second copy. 28 (Plan C, C1):
 		-- `originOf` joined it, because `authorPressableRects` compares a chrome node's
 		-- floor against sinks that may sit in a different COORDINATE SPACE.
-		expect(#sorted(reads)).toBe(28)
+		-- Sparse selection reads the existing mounted parent and child indexes.
+		expect(#sorted(reads)).toBe(30)
 	end)
 
 	it("every field `CommitCtx` declares is one the module actually reads", function()
