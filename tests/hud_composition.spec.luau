@@ -933,10 +933,18 @@ describe("nothing the HUD paints lands on the platform's own controls", function
 		expect(`the round clock moved: {sweepOf() ~= before}`).toBe("the round clock moved: true")
 		expect(`...and reports its own fraction: {type(step.fraction)}`).toBe("...and reports its own fraction: number")
 		-- the health bar is a real ProgressView, and its FILL follows the signal
-		local fillPath = "/HudScreen/Hud/Health/HealthPod/HealthRow/HealthBarBox/HealthBar/Bar/Fill"
+		local fillPath = "/HudScreen/Hud/Health/HealthPod/HealthRow/HealthBarBox/HealthBar/Bar/Segments/Segment4/Fill"
 		local fillBefore = (w.adapter.node(fillPath) :: any).rect.w
 		w.built.steps.takeDamage()
 		w.refresh()
+		for _, path in
+			{
+				"/HudScreen/Hud/Health/HealthPod/HealthRow/HealthNum",
+				"/HudScreen/Hud/Health/HealthOnly/HealthOnlyRow/HealthOnlyT",
+			}
+		do
+			expect((w.adapter.node(path) :: any).props.text).toBe("59")
+		end
 		expect(`the health fill shrank: {(w.adapter.node(fillPath) :: any).rect.w < fillBefore}`).toBe(
 			"the health fill shrank: true"
 		)

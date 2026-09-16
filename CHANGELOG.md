@@ -13,6 +13,15 @@ runtime as `Facet.VERSION`.
 
 ## [Unreleased]
 
+- Add segmented ProgressView bars, delayed damage trails, and sized circular HUD
+  gauges with readouts that adapt to preferred text size. Share transient HUD
+  reservations through the presenter and add pure HUD inset/marker layout helpers.
+  World anchors can retain offscreen direction and test center occlusion.
+- Expose Toasts in the Showcase's Indicators pages and World markers in its Layout
+  pages. Screen-anchored HUD actions demonstrate damage, healing, and notifications
+  that displace nearby HUD content without taking focus.
+
+
 - Expand adaptive region disclosures over their compact source. Region and
   CollapsibleView share an optional automatic dismissal affordance; the HUD
   task disclosure uses outside taps for pointer/touch and reveals Collapse for

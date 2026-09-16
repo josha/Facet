@@ -56,6 +56,7 @@ local ORDER = {
 	"sponsor_list",
 	"sponsor_drop",
 	"sponsor_toast",
+	"world_markers",
 	"sponsor_avatars",
 	"sponsor_markers",
 	"sponsor_billboard",

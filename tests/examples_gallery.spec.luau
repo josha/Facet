@@ -3046,7 +3046,7 @@ end)
 describe("examples/gallery fixture: circular progress, both forms", function()
 	local module = require("../examples/gallery/scenarios/progress_ring") :: any
 	local PAGE = "/ProgressRing/Page"
-	local RING = PAGE .. "/Ring/Ring"
+	local RING = PAGE .. "/Ring/Gauge/Ring"
 	local BUSY = PAGE .. "/Busy/Ring"
 
 	local function ringWorld(view: any?)

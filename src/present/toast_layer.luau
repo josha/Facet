@@ -96,6 +96,7 @@ local TOAST_OPTS_KEYS = specGuard.keySet({
 })
 
 export type Ctx = {
+	reserveHud: ((any) -> any)?,
 	core: any,
 	env: any,
 	adapter: any,
@@ -135,6 +136,7 @@ function toast_layer.new(ctx: Ctx)
 	local toastPosition = "top"
 	local toastTransition: any = nil
 	local toastLayer: any = nil
+	local reservation: any = nil
 	local toastSchedule: any = nil
 	local syncToastLayer: () -> ()
 
@@ -208,6 +210,10 @@ function toast_layer.new(ctx: Ctx)
 			return
 		end
 		local layer = toastLayer
+		if reservation then
+			reservation.dispose()
+			reservation = nil
+		end
 		toastLayer = nil
 		layer.coordinator.dispose()
 		layer.controller.dispose()
@@ -302,6 +308,9 @@ function toast_layer.new(ctx: Ctx)
 		local controller = renderer.attach(core, root, env, adapter, { rootPolicy = "coreSafeContent" })
 		controller.initialRender()
 		coordinator.bindController(controller)
+		if ctx.reserveHud then
+			reservation = ctx.reserveHud({ id = "__facet_toasts", edge = toastPosition })
+		end
 		if controller.setDisplayOrder ~= nil then
 			-- above every base screen, below every modal (ui-designer §6.3)
 			controller.setDisplayOrder(toastDisplayOrder)
@@ -323,6 +332,26 @@ function toast_layer.new(ctx: Ctx)
 		end
 		toastLayer.items:set(toastSchedule.visible())
 		toastLayer.controller.refresh()
+		if reservation then
+			local bounds: any = nil
+			for _, row in toastLayer.itemsNode.children do
+				local r = toastLayer.controller.rectOf(row.path)
+				if r and r.w > 0 and r.h > 0 then
+					if bounds then
+						local x, y = math.min(bounds.x, r.x), math.min(bounds.y, r.y)
+						bounds = {
+							x = x,
+							y = y,
+							w = math.max(bounds.x + bounds.w, r.x + r.w) - x,
+							h = math.max(bounds.y + bounds.h, r.y + r.h) - y,
+						}
+					else
+						bounds = table.clone(r)
+					end
+				end
+			end
+			reservation.update(bounds)
+		end
 		-- the refresh is what CREATED the new row's handles; re-assert the enter's
 		-- seeded values onto them so a toast never paints one frame at rest
 		toastLayer.coordinator.flush()

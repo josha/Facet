@@ -68,6 +68,12 @@ return {
 			id = "Bar",
 			value = progress,
 			showValue = true,
+			format = function(v)
+				return string.format("%d%%", math.floor(v * 100 + 0.5))
+			end,
+			segments = 5,
+			trail = { delay = 0.3, duration = 0.35 },
+			motionClock = clock,
 		}))
 		local adjust = scope:own(Facet.Controls.Slider(core, {
 			id = "AdjustProgress",
@@ -81,15 +87,12 @@ return {
 			label = COPY.determinate,
 			value = progress,
 			presentation = "circular",
+			diameter = 120,
+			showValue = true,
+			format = function(v)
+				return string.format("%d%%", math.floor(v * 100 + 0.5))
+			end,
 		})
-		-- NO `showValue` HERE, and it would be refused if it were asked for: the
-		-- readout usually centred inside a ring belongs to a gauge, not a progress view, and
-		-- this indicator is theme-sized and small. The percentage lives beside it
-		-- as its own `UI.Text`, which is exactly what the refusal tells an author
-		-- to do.
-		local readout = scope:own(core:memo(function(use)
-			return string.format("%d%%", use(progress) * 100 + 0.5)
-		end))
 
 		local busy = Facet.Controls.ProgressView(core, {
 			id = "Busy",
@@ -124,7 +127,6 @@ return {
 						UI.Text({ text = COPY.bar, width = UI.fill() }),
 						bar.blueprint,
 						ring.blueprint,
-						UI.Text({ id = "Readout", text = readout, textSize = "label" }),
 						busy.blueprint,
 						dots.blueprint,
 					},

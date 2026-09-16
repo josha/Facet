@@ -369,3 +369,25 @@ Bind its label and icon to the selected value, or keep them static. Bind
 `Controls.TabView` with `style = "collapsible"` supplies that wiring; the demo
 **All controls → Navigation → Disclosure** shows both forms. A NavigationStack still represents drill-down
 and Back, so keep that hierarchy visible alongside a destination chooser.
+
+## Game HUD feedback and world labels
+
+Use ProgressView for health, shields, cooldowns and resource readouts: segments
+show discrete capacity and an optional trail preserves recent damage. Sized
+circular gauges keep their value at the preferred text size and move it below
+the ring when necessary. Keep meters informational; put actions in the existing
+HUD menu or toolbar so ordinary focus and activation paths remain available.
+
+Use presenter toasts for brief, noninteractive feedback. They automatically
+publish their measured HUD reservation without claiming focus. Screens can feed
+those rectangles into Composition top-lane exclusions; use layout.hudInsets for
+other edges. The Screen-anchored HUD's action menu demonstrates this coordination.
+
+Use client.world_anchor with offscreen retention to project objectives, and
+layout.worldMarkers to place themed labels around HUD exclusions. Game code owns
+which objectives matter and how to describe unavailable targets. Marker layout
+owns priority, overlap avoidance and edge direction; it adds no focus targets.
+
+For a single nearby world interaction, Roblox's native ProximityPrompt supports
+hold-to-confirm through a positive HoldDuration. Use that platform mechanism;
+Facet's Menu/RadialMenu remains appropriate when the target offers several actions.

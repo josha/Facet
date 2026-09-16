@@ -42,7 +42,18 @@ jobs:
           echo "$HOME/.rokit/bin" >> "$GITHUB_PATH"
 
       - name: Install the pinned toolchain
-        run: rokit install --no-trust-check
+        run: |
+          # Release-asset downloads can return transient GitHub server errors.
+          for attempt in 1 2 3; do
+            if rokit install --no-trust-check; then
+              exit 0
+            fi
+            if [ "$attempt" -lt 3 ]; then
+              echo "Toolchain download failed; retrying in 10 seconds ($attempt/3)."
+              sleep 10
+            fi
+          done
+          exit 1
 
       - name: Report the toolchain
         run: |

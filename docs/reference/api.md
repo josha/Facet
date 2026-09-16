@@ -3644,6 +3644,16 @@ Methods:
 - `presenter.motionClock` — the clock itself. `Facet.newPresenter(core, env,
   adapter, actionSystem, opts?)` takes `opts.clock` to share one with the rest
   of the application, and `opts.now` to inject time.
+- `presenter.reserveHud({ id, edge, scope? }) -> { update(rect?), dispose() }` —
+  reserve measured window-space HUD content on `top`, `bottom`, `left`, or `right`.
+  IDs must be unique for this presenter. `update(nil)` clears the rectangle;
+  disposal releases the reservation and is idempotent. Own the handle in a scope.
+  `presenter.hudReservations` is a read-only reactive array of `{ id, edge, rect }`,
+  sorted by ID; entries appear only after an update. Toasts automatically reserve
+  their occupied strip until the last exit completes. Reservations do not move
+  anything by themselves: feed their rects into `Composition.exclusions` for top
+  lanes, `layout.hudInsets` for other edges, or `layout.worldMarkers` exclusions.
+  Do not reserve a region against the layout that positions that same region.
 - `presenter.presentToast(blueprint, opts?) -> { id, dismiss() }` — see
   **Toasts** below.
 - `presenter.onFeedback(fn) -> unsubscribe`, `presenter.emitFeedback(event)`,
@@ -4266,7 +4276,7 @@ opts = {
   key?,        -- same-subject supersede
   priority?,   -- default 0; higher runs first in the queue
   duration?,   -- seconds visible, default 4
-  readFloor?,  -- minimum dwell before anything may replace it, default 1.5
+  readFloor?,  -- minimum dwell before anything may replace it, default 2.5
   position?,   -- "top" (default) | "bottom" — the edge it docks to
   transition?, -- default: in from its own edge, with a fade
   context?,    -- carried untouched on the toast's dismiss event
@@ -5171,6 +5181,37 @@ shape as `adaptive`/`composition` above.
 |---|---|
 | `layout.transformFootprint(w, h, scale, deg)` | the axis-aligned bounding box of a `w x h` rectangle scaled uniformly by `scale` and rotated `deg` degrees about its own centre, ROUNDED UP: `width, height` (two numbers). `scale`/`rotation` are paint-only (see the `scale` row above), so the solver reserves a node's UNSCALED box and the engine draws the transformed one — a scaled/rotated container's PARENT has to reserve the painted footprint itself, as a plain sibling box outside the node that scales. This is that formula, published (framework-gaps-phase2 gap 33, audit-marked "teaches-wrong 12") so a consumer computes the reservation instead of hand-transcribing the trigonometry the `scale` row documents in prose. Reproduces the exact device measurement recorded there: `transformFootprint(100, 70, 1.5, 30)` returns `183, 166` |
 | `layout.anchorPlacement(request)` | the pure placement decision behind every Facet surface that points at something — the SAME edge/flip/shift/tail rules `presenter.presentAnchored`, the disclosure plate and `newRowActions`' floating menu already share (§"The placement rules" under `presentAnchored` above). `request = { source, size, safe, edge?, align?, gap?, tail?, tailInset?, overflow? }` (window-space rects; `edge` `"top"`\|`"bottom"`\|`"leading"`\|`"trailing"`\|`"overlap"`, default `"bottom"`; `align` `"start"`\|`"center"`\|`"end"`, default `"center"`; `overflow` `"clamp"`\|`"keep"`, default `"clamp"`) returns `{ x, y, w, h, edge, flipped, shift, fits, tailX?, tailY?, tailSuppressed }`. Published (framework-gaps-phase2 gap 39: `armStaging` "as a declaration rather than a coordinate") so a consumer DECLARES a placement — "above the source, centred, gapped by N" — instead of hand-computing the point. RascalRally's `HandDock` staging spot (`FacetSponsor/init.luau`'s `slotStagingPoint`, read by both the framework's `armStaging` seam and `PlayFlow:heldOrigin`) now calls this instead of the hand-rolled `source.x + source.w/2 - slot/2` / `source.y - slot - gap` arithmetic it used to reimplement |
+
+#### HUD insets and world markers
+
+`layout.hudInsets({ bounds, reservations }) -> { top, bottom, left, right }`
+converts `{ edge, rect }` reservations into nonnegative edge depths inside
+`bounds`. Rectangles use `{ x, y, w, h }` in one shared coordinate space. Outside
+rectangles are ignored; each edge takes the greatest overlapping depth, not a
+sum. Opposing edges never consume more than the available axis (top/left win).
+
+`layout.worldMarkers({ bounds, markers, exclusions?, gap? = 8 }) -> rows`
+places screen labels from projected targets. Each marker has a unique `id`,
+finite `x/y`, positive pixel `width/height`, optional finite `priority` (default
+0), and `visible` (default true). Invisible inputs may omit coordinates. Supply
+sizes and gap resolved from your theme and preferred text facts. Exclusions are
+plain rectangles in the same coordinate space as bounds and target points.
+
+Rows are sorted by decreasing priority, ties preserving input order. Each has
+`id`, `visible`, and, when placed, `rect`, `edge` (boolean) and `angle` (clockwise
+from up, degrees). Offscreen targets clamp to an edge; labels try nine bounded
+positions, avoiding exclusions and previously placed labels by `gap`. A label
+that cannot fit reports `reason = "crowded" | "tooLarge" | "unavailable"` and
+has no rect. This deliberately bounded layout can hide a low-priority label
+rather than search every free pixel. Key rendering by ID, and show unavailable
+objectives through an appropriate existing list if the game requires them.
+
+Use `client.world_anchor` with `offscreen = "retain"` for projected directions;
+copy `anchor.x/y/visible` into marker inputs. The solver creates no UI, focus,
+input routes, scene objects, or motion. Render rows with themed public UI nodes;
+use the usual Button/Menu controls if markers need actions. The Showcase's
+Motion and layout → Layout → World markers page uses synthetic target positions
+to exercise placement, crowding, resizing, and visibility deterministically.
 
 ### `contribution`
 
@@ -7596,7 +7637,7 @@ class, including Adjust.
 `Facet.Controls.ProgressView(core, spec) -> { blueprint, model, semanticText, phase, dump, dispose }`
 — progress, determinate or indeterminate, linear or circular. `spec = { id?,
 label?, value? (number | Readable), min? = 0, max? = 1, format?, showValue?,
-height?, presentation? ("bar" | "circular" | "spinner"), motionClock?, scope? }`.
+height?, segments?, trail?, diameter?, presentation? ("bar" | "circular" | "spinner"), motionClock?, scope? }`.
 
 The two-argument spelling `Facet.newProgressView(Facet, core, spec)` is **deprecated** since
 0.10.0 (removal no earlier than 0.12.0): it still builds the identical
@@ -7620,7 +7661,7 @@ from it rather than hand-written per shape, so a new shape joins by adding a row
 | `presentation` | indeterminate | determinate | `height` | `showValue` |
 |---|---|---|---|---|
 | `"bar"` (default) | ✅ | ✅ | ✅ the track's thickness | ✅ beside the track |
-| `"circular"` | ✅ | ✅ | ❌ refused | ❌ refused |
+| `"circular"` | ✅ | ✅ | ❌ refused | ✅ with an explicit `diameter` |
 | `"spinner"` | ✅ | ❌ refused | ❌ refused | ❌ refused |
 
 `"bar"` is the track; indeterminate it grows a segment that sweeps to the far end
@@ -7640,9 +7681,7 @@ a frame of rotation are each **one prop write and zero re-solves**. It adds **no
 blueprint prop and no decoration slot**: the arc's paint identity is the Path's
 own `role` (`accent`, over a `secondary` capacity ring), and its size is the pair
 of optional theme metrics `controls.progress.circularSize` /
-`circularThickness` — small by default off the theme's own `space` scale, with no
-per-call diameter, because the ring exists for the case where space is
-constrained. Two consequences worth knowing before you
+`circularThickness` — compact by default, with `diameter` available for larger HUD gauges. Two consequences worth knowing before you
 reach for one: **it cannot fade** (`Path2D` has no `Transparency` — wrap it in
 your own `UI.ZStack({ canvasGroup = true })` if you need to), and a `UI.Path` that
 is not *fully* inside every clip host above it **does not paint at all** rather
@@ -7714,17 +7753,27 @@ every spinner should agree on belongs. This is the same rule as the `min` / `max
 `format` / `showValue` refusals above: a field whose meaning does not survive the
 mode is an authoring error, never a silent reinterpretation.
 
-**`showValue` is refused on `"circular"` for the same reason**, and it is the one
-place this control deliberately breaks with the usual gauge design. A gauge
-centres its value inside the ring, but that assumes a dial you can size. This
-indicator is theme-sized and small, with no per-call diameter to grow it, so a
-centred readout has no size it is guaranteed to fit inside — and putting the
-readout *beside* the ring, where the bar puts it, would ship a different design
-under the same name. Both alternatives are named in the refusal: compose your own
-`UI.Text` next to the control (what the gallery fixture does), or use the bar.
+**HUD meter options** reuse this control's theme roles and value model:
 
-`motionClock` is the surface's motion clock (`presenter.motionClock`), and only
-the indeterminate cycle reads it — a determinate bar never touches it. With no
+- `segments`: integer 1–100, determinate bars only. Equal capacity cells with
+  fractional fills and theme `space.xs` gaps, inside one `barTrack` skin.
+- `trail = { delay? = 0.3, duration? = 0.35 }`: determinate bars only; requires
+  `motionClock`. Damage leaves a `contentSecondary` trail before it drains;
+  healing cancels the delay and snaps. Delay is nonnegative, duration positive,
+  both finite seconds. Reduced motion snaps; a live environment policy change
+  cancels pending motion. Dispose the control or its owning scope to stop it.
+- `diameter`: positive pixels or a theme metric path, circular only. With an
+  explicit diameter, the label sits above the gauge. `showValue = true` centers the formatted value when it fits
+  at the player's preferred text size, otherwise places the full readout below
+  the ring. Small default rings still reject `showValue`. The offered container
+  must hold the chosen diameter; use an adaptive parent for larger gauges.
+
+All meters are informational and create no focus targets. `dump()` includes
+`segments`, `trailFraction`, and `diameter`. The theme owns fill/track art, color,
+spacing, typography and ring stroke weight; `format` owns game-specific units.
+
+`motionClock` is the surface's clock (`presenter.motionClock`), used by
+indeterminate indicators and optional damage trails. With no
 clock the indeterminate view holds its rest pose and reports
 `dump().animating = false`: honest, rather than a spinner that silently is not
 spinning.
@@ -9215,13 +9264,15 @@ no frame driver or GUI instances. Own the binding in the same scope as the menu.
 |---|---|
 | `target` | Required BasePart, Model, or Player, or Readable of one. A Player resolves its current Character, including after respawn. A nil Readable value is temporarily unavailable. Pass a specific part or smaller model to exclude accessories or tools. |
 | `padding` | Finite fraction from 0 to 1 of the measured radius; default 0.15. Zero tightly encloses the bounds, 0.15 adds 15%, and 1 doubles the opening radius. |
+| `offscreen` | `"hide"` (default) retains the radial-menu bounds behavior; `"retain"` projects the target center for marker placement, including a direction beyond the viewport for targets behind the camera. Retained anchors include `onscreen` and use `clearance = 0`. |
+| `occlusion` | Boolean, default false. When true, one default-filter Workspace raycast from camera to target center hides a target behind another queryable object. This is center visibility, not partial mesh visibility; the local character and decorative parts are not automatically filtered. |
 | `camera` | Optional Camera or Readable; defaults to the current Workspace camera and follows camera replacement. Intended for screen overlays, not ViewportFrames or billboard canvases. |
 
 `anchor` is a Readable `{ x, y, clearance, visible }` in Facet window coordinates.
 The center is the midpoint of the projected bounding rectangle; clearance encloses
 all eight projected bounding-box corners, multiplied by `1 + padding`. This conservatively measures
 part/model bounds, including transparent parts and model accessories, rather than
-visible mesh pixels. There is no occlusion raycast. A missing, empty, removed,
+visible mesh pixels. With default options, a missing, empty, removed,
 behind-camera, near-plane-intersecting, or offscreen-center target publishes
 `visible = false`; RadialMenu dismisses and releases capture. Disposing the binding
 also invalidates the anchor and disconnects its frame hook. Respawn/reappearance

@@ -6,6 +6,9 @@ local process = require("@lune/process")
 local testkit = require("./lib/testkit")
 
 -- Register all specs. Add new spec files here.
+require("./hud_meters.spec")
+require("./hud_reservations.spec")
+require("./world_markers.spec")
 require("./control_family_inputs.spec")
 require("./split_button.spec")
 require("./button_behavior.spec")
