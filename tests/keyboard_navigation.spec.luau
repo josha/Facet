@@ -305,6 +305,45 @@ local function formScreen(acts: { [string]: number })
 end
 
 describe("Tab traverses a presented screen with zero consumer wiring (DK-1/DK-16)", function()
+	it("keeps entry focus without painting a startup ring for mouse or touch", function()
+		for _, input in { "KeyboardAndMouse", "Touch" } do
+			local w = worldLib.new({
+				preferredInput = input,
+				capabilities = { mouse = true, keyboard = true, touch = true, gamepad = true },
+				presenterOpts = { keyboardNavigation = true },
+			})
+			w.present(formScreen({}))
+			expect(w.pres.focus.focused:get()).toBe("/F/one")
+			expect(w.pres.focus.focusVisible:get()).toBe(false)
+			expect(w.adapter.node("/F/one").focused == true).toBe(false)
+			w.press("Tab")
+			expect(w.pres.focus.focusVisible:get()).toBe(true)
+			expect(w.adapter.node("/F/two").focused).toBe(true)
+			w.adapter.tap("/F/three")
+			expect(w.pres.focus.focusVisible:get()).toBe(false)
+			w.press("DPadUp")
+			expect(w.pres.focus.focusVisible:get()).toBe(true)
+			w.pres.dismiss(w.handle)
+		end
+	end)
+
+	it("shows controller entry focus and does not reset its origin when input facts change", function()
+		local w = worldLib.new({
+			preferredInput = "Gamepad",
+			capabilities = { mouse = true, keyboard = true, touch = false, gamepad = true },
+		})
+		w.present(formScreen({}))
+		expect(w.pres.focus.focusVisible:get()).toBe(true)
+		expect(w.adapter.node("/F/one").focused).toBe(true)
+		w.adapter.tap("/F/two")
+		w.env:set("preferredInput", "KeyboardAndMouse")
+		w.env:set("preferredInput", "Gamepad")
+		expect(w.pres.focus.focusVisible:get()).toBe(false)
+		w.press("DPadDown")
+		expect(w.pres.focus.focusVisible:get()).toBe(true)
+		w.pres.dismiss(w.handle)
+	end)
+
 	it("Tab and Shift+Tab move the focus ring through a plain form", function()
 		local _, _, _, system, pres = harness()
 		local acts: { [string]: number } = {}
@@ -723,7 +762,8 @@ describe("a focused Slider draws its own treatment, on the thumb (DK-20)", funct
 		expect(pres.focus.focused:get()).toBe("/S/before")
 		expect(thumbStroke()).toBeNil()
 
-		-- focus the track (the focus stop is unchanged — only the PAINT moved)
+		-- Navigate to the track before testing its focus paint.
+		tab(system)
 		local moved = pres.focus.focusOn("/S/Vol/TrackHost/Track")
 		expect(moved).toBe(true)
 		pres.refresh()
@@ -1043,14 +1083,13 @@ describe("keyboard bindings follow capability and responder ownership (DK-13/DK-
 		expect(pres.focus.focused:get()).toBe("/F/one") -- identity survives; only the paint went
 	end)
 
-	it("an ordinary (engaged-open) screen still paints its ring exactly as before", function()
-		local _, _, adapter, _, pres = harness()
+	it("an ordinary engaged screen paints its ring after keyboard navigation", function()
+		local _, _, adapter, system, pres = harness()
 		local acts: { [string]: number } = {}
 		pres.present(formScreen(acts), {})
 		pres.refresh()
-		-- the gate on the ring is RESPONDER ownership, and a plain screen owns input
-		-- from mount — so this path must be byte-identical to pre-fix behavior
-		expect(adapter.node("/F/one").focused).toBe(true)
+		tab(system)
+		expect(adapter.node("/F/two").focused).toBe(true)
 	end)
 
 	--[[ WHERE FOCUS FIRST APPEARS IS THE SURFACE'S CHOICE (director playtest
@@ -1174,7 +1213,7 @@ describe("keyboard bindings follow capability and responder ownership (DK-13/DK-
 		transition the tree stays mounted for the whole animation, so the ring sat
 		on a surface that had already stopped taking input. ]]
 	it("a dismissed surface gives up its focus ring immediately, mid-exit-transition", function()
-		local _, _, adapter, _, pres = harness()
+		local _, _, adapter, system, pres = harness()
 		local screen = UI.Screen({
 			id = "D",
 			children = {
@@ -1187,6 +1226,7 @@ describe("keyboard bindings follow capability and responder ownership (DK-13/DK-
 		})
 		local h = pres.present(screen, { transition = { enter = "fade", exit = "fade" } })
 		pres.refresh()
+		tab(system)
 		expect(adapter.node("/D/G/Save").focused).toBe(true)
 
 		pres.dismiss(h)

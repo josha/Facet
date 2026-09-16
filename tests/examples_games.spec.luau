@@ -24,7 +24,7 @@ local standard_icons = require("../src/themes/standard_icons")
 -- presenter). Baseline the core counters AFTER the presenter exists but BEFORE
 -- the example builds, so a later example.dispose() can prove registry-neutral
 -- teardown of everything the example itself created.
-local function makeWorld(viewport: any?)
+local function makeWorld(viewport: any?, now: any?)
 	local core = Facet.newCore()
 	local env = Facet.newEnvironment(core)
 	if viewport ~= nil then
@@ -32,7 +32,7 @@ local function makeWorld(viewport: any?)
 	end
 	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
-	local pres = Facet.newPresenter(core, env, adapter, system)
+	local pres = Facet.newPresenter(core, env, adapter, system, { now = now })
 	local deps = { env = env, actionSystem = system, presenter = pres, adapter = adapter }
 	return core, deps, adapter
 end
@@ -715,12 +715,16 @@ describe("examples/08 match-3", function()
 	end)
 
 	it("tapping the selected tile again puts it down", function()
-		local core, deps, adapter = makeWorld()
+		local now = 0
+		local core, deps, adapter = makeWorld(nil, function()
+			return now
+		end)
 		local game = match3.build(Facet, core, deps)
 		deps.presenter.refresh()
 		adapter.tap(game.cellPath(2, 2))
 		deps.presenter.refresh()
 		expect(adapter.node(game.cellPath(2, 2)).props.selected).toBe(true)
+		now += 0.1 -- separate pointer presses, beyond native echo suppression
 		adapter.tap(game.cellPath(2, 2))
 		deps.presenter.refresh()
 		expect(adapter.node(game.cellPath(2, 2)).props.selected).toBe(false)

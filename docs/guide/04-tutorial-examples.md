@@ -5,7 +5,33 @@ The library ships seven small example programs under
 stages, so the table below has eight numbered stages. Work through the files in
 order and you will have used every major feature of Facet.
 
-The Showcase also includes **UI Lab → Card rail**
+The Showcase picker has ten entries. **All controls** groups inputs, actions,
+indicators and navigation in nested tabs. Its Indicators tab includes progress
+rings and level indicators; Navigation includes the journey stack, pages and
+collapsible content. **Collections** and **Motion and layout** group the larger
+comparisons. **Screen-anchored HUD** owns a full screen for its adaptive zones.
+**Quick actions**, **Playlist table**, **Settings sync**, **Word game**,
+**Crossword** and **Match 3** show complete interactions and playable examples.
+
+The three grouped demos use adaptable navigation for their outer categories:
+a sidebar in roomy pointer windows, top pills for distant viewing, and bottom
+tabs on compact nearby screens. Navigation corners follow the theme. Their inner example tabs stay at the top.
+See [two-level navigation](14-choosing-controls.md#two-level-navigation) for the
+composition and control-selection rule.
+
+Hold keyboard arrows or the D-pad to continue moving focus. Use A to activate,
+and B to dismiss a modal or go back in a
+navigation stack. Shoulders page the nearest tab strip; focus can move between
+both strips and their content. Returning to a category keeps its selected subtab.
+Quick actions starts on Corner commands with Slim band fitting. Settings sync
+pauses replies in a local server simulation: change a setting, compare the pending
+screen value with the saved value, then deliver a reply. The invalid-volume
+button demonstrates rejection and rollback. Match 3 supports dragging onto a
+neighbor as well as selecting two tiles.
+Each control comparison starts fresh when reopened. Individual diagnostic scenarios
+remain selectable through `Facet_Scenario` for framework verification.
+
+The Showcase includes **Collections → Grids → Card rail**
 ([source](../../examples/gallery/scenarios/card_rail.luau)). Its three horizontal
 shelves use the same adaptive card layout across displays: one card and a preview
 of the next on mobile, more cards on desktop, and fewer, larger cards for distant
@@ -1123,8 +1149,30 @@ That is the whole feature surface. From here, [chapter 5](05-styling.md) covers
 how any of these screens is styled, and [chapter 6](06-client-server.md) goes
 deeper on the replication used in example 4.
 
-The Showcase also includes **Detent sheets** and **Pages and dots**. Open the race
+The Showcase includes **All controls → Actions → Sheets** and
+**All controls → Navigation → Pages**. Open the race
 briefing to resize it with its header or focused Size button; change viewing
 distance to see centered placement. The course pager demonstrates horizontal
 swiping, page indicators, and controller navigation while long descriptions
 remain vertically scrollable.
+
+### Previewing layouts in Showcase
+
+Open Settings and choose **Preview as**: Automatic, Desktop, Phone, Tablet, or
+TV / 10-foot. Phone and Tablet also offer Portrait and Landscape. The independent
+Input choice lets you inspect combinations such as Phone with Gamepad or TV with
+Mouse & keyboard. Automatic input follows the preview device; with Automatic
+preview it follows the real device.
+
+Phone and tablet previews use bounded layout space at normal pixel size, limited
+by the current window. Desktop and TV use the current window. Enlarge the window
+when checking roomy layouts. Switching preserves the active demo and its state.
+These previews exercise Facet's layout and input policies; use Studio emulation
+and real hardware for platform keyboard, touch and controller checks.
+
+Display settings use Picker's `valueAlignment = "start"` to keep values beside
+their labels. Large-text layouts still stack when needed; other picker styles
+retain their normal adaptive layouts.
+The navigation-layout button in the combined demos is showcase-owned: it updates
+TabView's `sidebarPreference` through the public API. Ordinary TabViews render no
+layout-toggle button.

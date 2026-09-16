@@ -5,13 +5,14 @@ local Facet = require("../src") :: any
 local UI = Facet.UI
 local trigger = "/S/View"
 local body = "/Expanded-2F532F56696577/Layer/Surface/Panel/Content/Body"
-local function mount(options)
+local function mount(options, dismissButton)
 	local w = world.new(options or { viewport = { x = 0, y = 0, w = 600, h = 400 }, reducedMotion = true })
 	local expanded = w.core:signal(false)
 	local label = w.core:signal("Select course")
 	local chosen = w.core:signal(false)
 	local c = Facet.Controls.CollapsibleView(w.core, {
 		id = "View",
+		dismissButton = dismissButton,
 		label = label,
 		expanded = expanded,
 		content = UI.VStack({
@@ -120,6 +121,25 @@ t.describe("CollapsibleView control", function()
 		opened(w, c)
 		local panel = w.adapter.node(body).rect
 		t.expect(math.abs(panel.y - before.y) < 1).toBe(true)
+		cleanup(w, c)
+	end)
+	t.it("paints the expanded body through one compositing buffer", function()
+		local w, c = mount()
+		w.adapter.tap(trigger)
+		w.settle(120)
+		local buffers = 0
+		for _, path in w.adapter.paths() do
+			if path:find("/Expanded-", 1, true) then
+				local node = w.adapter.node(path)
+				if node.canvasGroupInstance then
+					buffers += 1
+					t.expect(node.canvasGroupInstance.groupTransparency).toBe(0)
+				end
+			end
+		end
+		t.expect(buffers).toBe(1)
+		local content = w.adapter.node(body .. "/Options/One").rect
+		t.expect(content.w > 0 and content.h > 0).toBe(true)
 		cleanup(w, c)
 	end)
 	t.it("arbitrary content collapses into a bound summary button", function()
@@ -457,6 +477,23 @@ t.describe("CollapsibleView custom image", function()
 		w.settle(3)
 		t.expect(w.adapter.node(trigger .. "/Summary/CustomImage/then/Image").props.image).toBe("rbxassetid://456")
 		t.expect(w.pres.focus.focused:get()).toBe(trigger)
+		cleanup(w, c)
+	end)
+end)
+
+t.describe("CollapsibleView dismissal preference", function()
+	t.it("can omit its collapse button for pointer use and restore it during navigation", function()
+		local w, c = mount({
+			viewport = { x = 0, y = 0, w = 600, h = 400 },
+			reducedMotion = true,
+			presenterOpts = { keyboardNavigation = true },
+		}, "automatic")
+		w.adapter.tap(trigger)
+		w.settle(3)
+		t.expect(w.adapter.node(body .. "/CollapseWhen/then/Collapse")).toBeNil()
+		w.press("Tab")
+		w.settle(3)
+		t.expect(w.adapter.node(body .. "/CollapseWhen/then/Collapse")).never().toBeNil()
 		cleanup(w, c)
 	end)
 end)

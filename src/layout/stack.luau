@@ -1010,7 +1010,11 @@ function stack.arrange(
 		-- `Spacer`/`Image`, which is why Facet had no leaf-level route to Roblox's
 		-- `ItemLineAlignment` at all until this.
 		local childAlign = child.lineAlign or child.align or node.align
-		local crossSize = if crossDim.type == "fill" or childAlign == "stretch"
+		-- Preserve a measured aspect pair when its driving dimension is natural
+		-- or fixed. Stretching it here would grow the main extent after its parent
+		-- reserved the measured size, so a hugging stack overlaps its next sibling.
+		-- An explicit fill still takes the offered extent before deriving the pair.
+		local crossSize = if crossDim.type == "fill" or (childAlign == "stretch" and mainDim.type ~= "aspect")
 			then crossAvail
 			else math.min(if isH then desired[idx].h else desired[idx].w, crossAvail)
 		-- ASPECT against a FILL sibling (found live: a 16:9 media box resolved to

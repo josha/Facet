@@ -162,6 +162,7 @@ local BLESSED_CLIENT_MODULES: { [string]: boolean } = {
 	surface_target = true,
 	theme_controller = true,
 	edit_preview = true,
+	environment_preview = true,
 	motion_driver = true,
 	-- the opt-in, default-off haptics adapter (round 2 §3.3). Blessed because a
 	-- game switching haptics on requires it directly, exactly as it requires

@@ -127,7 +127,7 @@ end
 -- tests/gallery_demo_picker.spec.luau's own "standing rule 4" header).
 -- ===========================================================================
 describe("nested_compositing showcase: registered everywhere a player or a sweep would look", function()
-	it("is in scenarios/init.luau ORDER, in demo_picker.DEMOS, and in the overflow sweep's SCENARIOS", function()
+	it("keeps the diagnostic in the scenario registry and overflow sweep", function()
 		local orderSource = fs.readFile("examples/gallery/scenarios/init.luau")
 		local orderBlock = string.match(orderSource, "local ORDER = (%b{})")
 		assert(orderBlock ~= nil, "scenarios/init.luau no longer has a `local ORDER = { ... }` block to read")
@@ -143,17 +143,11 @@ describe("nested_compositing showcase: registered everywhere a player or a sweep
 		local sweepBlock = string.match(sweepSource, "local SCENARIOS = (%b{})")
 		assert(sweepBlock ~= nil, "overflow_sweep.spec.luau no longer has a `local SCENARIOS = { ... }` block")
 
-		local demo = demo_picker.find("nested-tree")
-
 		local missing: { string } = {}
 		if registered["nested_compositing"] ~= true then
 			table.insert(missing, "scenarios/init.luau ORDER is missing 'nested_compositing'")
 		end
-		if demo == nil then
-			table.insert(missing, "demo_picker.DEMOS is missing 'nested-tree'")
-		elseif (demo :: any).module ~= "nested_compositing" then
-			table.insert(missing, `demo 'nested-tree' names module '{(demo :: any).module}', not 'nested_compositing'`)
-		end
+
 		if string.find(sweepBlock :: string, '"nested_compositing"', 1, true) == nil then
 			table.insert(missing, "overflow_sweep.spec.luau's SCENARIOS does not name 'nested_compositing'")
 		end

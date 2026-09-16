@@ -320,6 +320,8 @@ export type MountOpts = {
 	-- edge-to-edge (it OWNS the strip) and so places itself below the Roblox
 	-- buttons reactively
 	coreTop: any,
+	-- Active demo navigation preference; the toolbar owns its optional action.
+	navigationLayout: any?,
 	-- called with the chip row's solved bottom edge after every refresh, so the
 	-- host can reserve exactly what the chips measure instead of a literal
 	onChipsBottom: ((number) -> ())?,
@@ -523,6 +525,42 @@ function showcase_chrome.mount(opts: MountOpts): any
 		dedicated shortcut for. `SECTION_GAMEPAD`/`SECTION_GLYPH` are UNCHANGED:
 		`ButtonR1` still opens straight to Settings, and its shoulder hint still
 		draws beside the one chip that remains — a pad player loses nothing. ]]
+	local function layoutChoice()
+		if opts.navigationLayout == nil then
+			return nil
+		end
+		return UI.When({
+			id = "NavigationChoice",
+			condition = scope:own(core:memo(function(use)
+				local navigation = use(opts.navigationLayout)
+				if navigation == nil or use(opts.env:get("distanceProfile")) == "ten-foot" then
+					return false
+				end
+				local placement = use(navigation.placement)
+				return placement == "sidebar" or placement == "topBar"
+			end)),
+			thenView = function(buttonScope)
+				local button = Facet.Controls.Button(core, {
+					id = "ToggleSidebar",
+					label = buttonScope:own(core:memo(function(use)
+						local navigation = use(opts.navigationLayout)
+						return if navigation and use(navigation.placement) == "sidebar"
+							then "Use top tabs"
+							else "Use sidebar"
+					end)),
+					onActivate = function()
+						local navigation = opts.navigationLayout:get()
+						if navigation then
+							navigation.toggle()
+						end
+						self.barHandle().resign()
+					end,
+				})
+				buttonScope:own(button)
+				return button.blueprint
+			end,
+		})
+	end
 	local chipRow = UI.ViewThatFits({
 		id = "Chips",
 		width = UI.fill(),
@@ -535,6 +573,7 @@ function showcase_chrome.mount(opts: MountOpts): any
 					shoulderHint("demos"),
 					opts.demos.chip,
 					shoulderHint("settings"),
+					layoutChoice(),
 				},
 			}),
 			UI.HStack({
@@ -545,6 +584,7 @@ function showcase_chrome.mount(opts: MountOpts): any
 					shoulderHint("demos"),
 					opts.demos.iconChip,
 					shoulderHint("settings"),
+					layoutChoice(),
 				},
 			}),
 		},

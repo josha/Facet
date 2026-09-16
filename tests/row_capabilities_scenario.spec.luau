@@ -284,21 +284,18 @@ describe("row_capabilities showcase: standing rule 4 — registered in BOTH plac
 		return names
 	end
 
-	it("both round-3 fixtures are in ORDER and in DEMOS — the direction O-15 fell through", function()
+	it("keeps both diagnostics registered and exposes row permissions in Collections", function()
 		local order = orderNames()
 		local missing: { string } = {}
-		for id, scenario in { ["row-capabilities"] = "row_capabilities", ["lifecycle-hidden"] = "lifecycle_hidden" } do
-			local demo = demo_picker.find(id)
+		for _, scenario in { "row_capabilities", "lifecycle_hidden" } do
 			if order[scenario] ~= true then
 				table.insert(missing, `scenarios/init.luau ORDER is missing '{scenario}'`)
 			end
-			if demo == nil then
-				table.insert(missing, `demo_picker.DEMOS is missing '{id}'`)
-			elseif (demo :: any).module ~= scenario then
-				table.insert(missing, `demo '{id}' names module '{(demo :: any).module}', not '{scenario}'`)
-			end
 		end
 		expect(table.concat(missing, "; ")).toBe("")
+		local catalog = require("../examples/gallery/scenarios/collections")
+		expect(demo_picker.find("collections") ~= nil).toBe(true)
+		expect(catalog.groups[1].tabs[2].scenario).toBe(require("../examples/gallery/scenarios/row_capabilities"))
 	end)
 
 	it("...and the always-on sweep names it, so dropping it is a failure and not a smaller green run", function()

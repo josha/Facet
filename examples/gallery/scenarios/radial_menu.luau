@@ -7,7 +7,7 @@ return {
 		local Facet, core, env = ctx.Facet, ctx.core, ctx.env
 		local UI = Facet.UI
 		local scope = core:scope("quick-actions")
-		local selected = scope:own(core:signal("gestures"))
+		local selected = scope:own(core:signal("corner"))
 		local status = scope:own(core:signal("Ready for a little adventure"))
 		local glow = scope:own(core:signal(false))
 		local moving = scope:own(core:signal(false))
@@ -15,7 +15,7 @@ return {
 		local separate = scope:own(core:signal(false))
 		local corner = scope:own(core:signal("bottom-left"))
 		local corners = { "bottom-left", "bottom-right", "top-right", "top-left" }
-		local fitting = scope:own(core:signal("both"))
+		local fitting = scope:own(core:signal("radial"))
 		local fitModes = { "both", "radial", "angular", "none" }
 		local fitNames = { both = "Hug content", radial = "Slim band", angular = "Short arcs", none = "Full arcs" }
 		local advanced = scope:own(core:signal(false))

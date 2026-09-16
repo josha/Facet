@@ -308,6 +308,7 @@ export type RegionSpec = {
 	-- "auto" (default), "none", or a handler function — how a stepped-down region
 	-- discloses its richest form (wave REVEAL). Refused with one form
 	expand: (string | (() -> ()))?,
+	dismissButton: string?, -- always (default) | automatic, region disclosure chrome
 	children: { Blueprint },
 }
 export type DividerSpec = BoxProps & {
@@ -1229,6 +1230,9 @@ function blueprint.Region(spec: RegionSpec): Blueprint
 			anyReducedFormCarriesMeaning = true
 		end
 	end
+	if spec.dismissButton ~= nil and (expandMode == "none" or declaredForms < 2) then
+		error("UI.Region.dismissButton requires an expandable region", 0)
+	end
 	local built: any = table.clone(spec :: any)
 	local engine: any = nil
 	if expandMode ~= "none" and declaredForms > 1 then
@@ -1290,25 +1294,32 @@ function blueprint.Region(spec: RegionSpec): Blueprint
 			halve one; the inset half stays a live token name, so a ladder change
 			moves the disc and the plate's corner together. ]]
 		local CLOSE_INSET = expandPlate.CLOSE_INSET
-		local function closeAffordance(): Blueprint
-			return blueprint.Button({
-				id = "ExpandClose",
-				label = "Close",
-				-- the standard chip idiom, which is what every other dismissing
-				-- affordance in this repository's own fixtures wears
-				surface = "chip",
-				shape = "circle",
-				icon = "close",
-				height = { type = "fixed", px = CLOSE_DISC },
-				-- the panel is a ZStack, so placement is `alignH`/`alignV`: a zstack
-				-- layers its children over its whole box and reads exactly these two
-				alignH = "end",
-				alignV = "start",
-				-- inset from the panel's own corner, which is the room the focus ring
-				-- draws in. The plate's margin is this PLUS half the disc, so the disc's
-				-- centre and the plate's corner are one point
-				margin = { top = CLOSE_INSET, right = CLOSE_INSET, bottom = 0, left = 0 },
-				--[[ FRAMEWORK CHROME, DECLARED AS SUCH (plate-B fix round 1, its
+		local function closeAffordance(focusVisible: any): Blueprint
+			if spec.dismissButton == "automatic" then
+				return regionExpand.collapseButton(blueprint, "ExpandClose", function()
+					engine.close()
+				end, spec.dismissButton, focusVisible)
+			end
+			return regionExpand.dismissAffordance(
+				blueprint,
+				blueprint.Button({
+					id = "ExpandClose",
+					label = "Close",
+					-- the standard chip idiom, which is what every other dismissing
+					-- affordance in this repository's own fixtures wears
+					surface = "chip",
+					shape = "circle",
+					icon = "close",
+					height = { type = "fixed", px = CLOSE_DISC },
+					-- the panel is a ZStack, so placement is `alignH`/`alignV`: a zstack
+					-- layers its children over its whole box and reads exactly these two
+					alignH = "end",
+					alignV = "start",
+					-- inset from the panel's own corner, which is the room the focus ring
+					-- draws in. The plate's margin is this PLUS half the disc, so the disc's
+					-- centre and the plate's corner are one point
+					margin = { top = CLOSE_INSET, right = CLOSE_INSET, bottom = 0, left = 0 },
+					--[[ FRAMEWORK CHROME, DECLARED AS SUCH (plate-B fix round 1, its
 					review's MEDIUM-2). The role is not read by the solver's region
 					branch — that branch finds the affordance as a REGION's last child,
 					and this button is a child of the plate's panel — it is read by the
@@ -1317,11 +1328,14 @@ function blueprint.Region(spec: RegionSpec): Blueprint
 					Without it the close's 44px band reached 6px (near) / 9px
 					(ten-foot) into the plate's content box and outranked an author
 					control sitting in that corner. ]]
-				expandTarget = { role = "close" },
-				onActivate = function()
-					engine.close()
-				end,
-			})
+					expandTarget = { role = "close" },
+					onActivate = function()
+						engine.close()
+					end,
+				}),
+				spec.dismissButton,
+				focusVisible
+			)
 		end
 		engine = regionExpand.new({
 			id = spec.id :: string,
@@ -1382,7 +1396,7 @@ function blueprint.Region(spec: RegionSpec): Blueprint
 				reach `layout/composition.luau` beside `expandGutter`, which is resolved
 				in `layout/solver.luau` (extraction-locked). Contested there; the fix
 				above removes the overflow at every width below that band. ]]
-			panelOf = function(plate: any): Blueprint
+			panelOf = function(plate: any, focusVisible: any): Blueprint
 				local declaredW = (forms[1].props or {}).width
 				local fills = type(declaredW) == "table" and (declaredW :: any).type == "fill"
 				local capped = type(plate.max) == "number"
@@ -1407,6 +1421,21 @@ function blueprint.Region(spec: RegionSpec): Blueprint
 					then { type = "fixed", px = plate.max }
 					elseif capped then { type = "minMax", max = plate.max }
 					else { type = "hug" }
+				if spec.dismissButton == "automatic" then
+					return blueprint.ZStack({
+						id = "ExpandPanel",
+						children = {
+							blueprint.VStack({
+								id = "ExpandPlate",
+								surface = "raised",
+								padding = expandPlate.PADDING,
+								gap = "xs",
+								width = width,
+								children = { forms[1], closeAffordance(focusVisible) },
+							}),
+						},
+					})
+				end
 				--[[ HALF THE DISC, resolved by the solver against the live snapshot and
 					carried here on the record. Absent — a pure test that hands the
 					composition a bare `measure` — it is 0 and the disc sits inside the
@@ -1449,14 +1478,23 @@ function blueprint.Region(spec: RegionSpec): Blueprint
 							width = width,
 							children = { forms[1] },
 						}),
-						closeAffordance(),
+						closeAffordance(focusVisible),
 					},
 				})
 			end,
 			--[[ ...AND THE SAME CONTENT AS A FULL-WIDTH SHEET for the offer where a
 				plate cannot meet its floor. One content, two presentations, chosen by
 				the composition rather than by a device name. ]]
-			sheetOf = function(): Blueprint
+			sheetOf = function(focusVisible: any): Blueprint
+				local automatic = spec.dismissButton == "automatic"
+				local content = blueprint.VStack({
+					id = "ExpandSheetPlate",
+					surface = "raised",
+					padding = if automatic then expandPlate.PADDING else expandPlate.SHEET_PADDING,
+					gap = "xs",
+					width = { type = "fill", weight = 1 },
+					children = if automatic then { forms[1], closeAffordance(focusVisible) } else { forms[1] },
+				})
 				return blueprint.Screen({
 					id = `ExpandSheet:{spec.id}`,
 					children = {
@@ -1465,36 +1503,20 @@ function blueprint.Region(spec: RegionSpec): Blueprint
 							width = { type = "fill", weight = 1 },
 							height = { type = "fill", weight = 1 },
 							children = {
-								--[[ THE SAME CORNER CLOSE, AND NO STRADDLE. A sheet is
-									edge-to-edge by construction, so there is no corner to
-									overlap — half of the disc would hang off the screen. It
-									sits INSIDE the sheet's own top-right, and the right
-									padding is the disc's metric for the same reason the
-									plate's is: the content box ends where the disc begins. ]]
 								blueprint.ZStack({
 									id = "ExpandSheet",
 									anchor = "bottom",
 									width = { type = "fill", weight = 1 },
-									children = {
-										blueprint.VStack({
-											id = "ExpandSheetPlate",
-											surface = "raised",
-											padding = expandPlate.SHEET_PADDING,
-											gap = "xs",
-											width = { type = "fill", weight = 1 },
-											-- the sheet is the same content in a
-											-- different presentation, so it carries
-											-- the same way out
-											children = { forms[1] },
-										}),
-										closeAffordance(),
-									},
+									children = if automatic
+										then { content }
+										else { content, closeAffordance(focusVisible) },
 								}),
 							},
 						}),
 					},
 				})
 			end,
+
 			handler = expandHandler,
 		})
 		local role = if anyReducedFormCarriesMeaning then "chevron" else "cover"

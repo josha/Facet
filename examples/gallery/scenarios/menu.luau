@@ -10,24 +10,9 @@
 	cannot be synthesized in Studio at all — so this is the surface a person with
 	a phone, a mouse and a pad in their hands drives by hand.
 
-	THE FIVE ROUTES ARE FIVE SEPARATE CARDS, and the split is the framework's own
-	authoring rule made visible rather than a layout choice. `newMenu` refuses a
-	`triggers` set that drops `activate` unless it declares BOTH `keyboard` and
-	`gamepad` — "a menu that only opens on right-click is a defect" — so the
-	smallest set that isolates a gesture is not always one gesture:
-
-	  · TAP        `{ activate }`             — the only route every input class has
-	  · CHORD      `{ keyboard, gamepad }`    — the one card a tap does NOT open, on
-	                                            purpose. That refusal is the test:
-	                                            press it and nothing happens, then
-	                                            press the context key
-	  · RIGHT-CLICK `{ activate, secondary }` — a right-click is not an activate, so
-	                                            a right-click that opens this proves
-	                                            the secondary channel is wired
-	  · HOLD       `{ activate, longPress }`  — it opens UNDER YOUR FINGER, at the
-	                                            press rather than the release. If it
-	                                            only appears when you let go, that
-	                                            was the tap and long-press is dead
+	The five cards demonstrate activation, focused context commands, secondary
+	click, long press and unavailable verbs. The secondary card omits activate;
+	keyboard and gamepad context commands remain available when it has focus.
 
 	WHAT THE READOUT CAN AND CANNOT SAY, stated on the screen as well as here,
 	because a fixture that overstates its instrument is worse than no fixture:
@@ -82,7 +67,7 @@ local COPY = {
 	chord = "Context key",
 	chordRoutes = "keyboard, gamepad — a tap does nothing here, on purpose",
 	secondary = "Right-click",
-	secondaryRoutes = "activate, secondary — a right-click is not an activate",
+	secondaryRoutes = "Right click here; focus here for Menu / Shift+F10 / Y",
 	hold = "Press and hold",
 	holdRoutes = "activate, longPress — it opens before you lift your finger",
 	disabled = "Nothing available",
@@ -300,15 +285,10 @@ return {
 		end
 
 		local avatar = card("Tap", COPY.tap, COPY.tapRoutes, { "activate" }, verbs())
-		--[[ THE ONLY CARD WITHOUT `activate`, and the only one that may be: the
-			control refuses that set unless BOTH chords are declared, so this is
-			simultaneously the keyboard route, the gamepad route, and a demonstration
-			of the three-axes rule that forced them to travel together. It is also the
-			only card that owns the global chord context — two cards declaring
-			`keyboard` would both open on one press, since equal-priority contexts do
-			not sink each other. ]]
+		-- Context commands act only on the focused card.
+
 		card("Chord", COPY.chord, COPY.chordRoutes, { "keyboard", "gamepad" }, verbs())
-		card("Secondary", COPY.secondary, COPY.secondaryRoutes, { "activate", "secondary" }, verbs())
+		card("Secondary", COPY.secondary, COPY.secondaryRoutes, { "secondary", "keyboard", "gamepad" }, verbs())
 		card("Hold", COPY.hold, COPY.holdRoutes, { "activate", "longPress" }, verbs())
 		local blocked = card("Blocked", COPY.disabled, COPY.disabledRoutes, { "activate" }, unavailable())
 

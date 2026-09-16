@@ -212,6 +212,7 @@ export type Spec = {
 	onChanging: ((any, any) -> boolean)?,
 	id: string?,
 	label: string?,
+	valueAlignment: any?, -- start | end (default), or Readable; labeled menu rows
 	options: { Option } | coreContract.Readable<{ Option }>,
 	selected: any, -- owner-held Signal
 	-- "automatic" (default) | "menu" | "segmented" | "inline" | "radioGroup" |
@@ -442,6 +443,7 @@ local PICKER_KEYS = specGuard.keySet({
 	"iconOnly",
 	"indicator",
 	"label",
+	"valueAlignment",
 	"onChange",
 	"options",
 	"presentation",
@@ -1423,7 +1425,7 @@ local function buildStrip(Facet: any, core: any, spec: Spec, requested: string, 
 				return if use(presentation) == "segmented" then SEAM_HAIRLINE else SEAM_ROW_GAP
 			end))
 			local vertical = scope:own(core:memo(function(use)
-				return use(presentation) == "segmented" and axisNow(use) == "y"
+				return use(axis) == "y"
 			end))
 			table.insert(
 				rows,
@@ -1735,6 +1737,7 @@ local function menuSpec(spec: Spec, style: string, id: string): any
 		options = spec.options,
 		selected = spec.selected,
 		label = spec.label,
+		valueAlignment = spec.valueAlignment,
 		sizing = readValue(spec.sizing),
 		textSize = spec.textSize,
 		query = spec.query,
@@ -2022,6 +2025,11 @@ function picker.build(Facet: any, core: any, spec: Spec, onReselect: (() -> ())?
 	assert(enabled == nil or type(enabled) == "boolean", "Picker: enabled must be boolean or readable boolean")
 	assert(spec.axis == nil or AXES[readValue(spec.axis)], "Picker: axis must be x | y")
 	assert(spec.sizing == nil or SIZINGS[readValue(spec.sizing)], "Picker: sizing must be fill | hug")
+	local valueAlignment = readValue(spec.valueAlignment)
+	assert(
+		valueAlignment == nil or valueAlignment == "start" or valueAlignment == "end",
+		"Picker: valueAlignment must be start | end"
+	)
 	assert(spec.iconOnly == nil or type(spec.iconOnly) == "boolean", "Picker: iconOnly must be boolean")
 	--[[ `stripCorner` IS REFUSED RATHER THAN IGNORED, both ways (review round 2).
 		It was the one key in this spec with no assert, and it is spent by exactly

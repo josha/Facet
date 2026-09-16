@@ -172,6 +172,7 @@ end)
 describe("D3a help: keyboard and gamepad get it on focus, immediately", function()
 	it("focus entering a helped view presents the plate with no dwell", function()
 		local _, _, adapter, _, pres = makeWorld(POINTER)
+		pres.focus.setFocusOrigin("navigation") -- synthetic keyboard focus for this paint contract
 		pres.present(helpedScreen(HELP))
 		local h = pres.help()
 		expect(h.present).toBe(true)
@@ -182,6 +183,7 @@ describe("D3a help: keyboard and gamepad get it on focus, immediately", function
 
 	it("focus moving off takes it away", function()
 		local _, _, _, system, pres = makeWorld(POINTER)
+		pres.focus.setFocusOrigin("navigation") -- synthetic keyboard focus for this paint contract
 		pres.present(helpedScreen(HELP))
 		expect(pres.help().present).toBe(true)
 		system.deviceKey("Down", true)
@@ -278,6 +280,7 @@ describe("D3a help: the plate is chrome, and the value outranks it", function()
 
 	it("the plate takes no focus and adds no focus stop", function()
 		local _, _, adapter, _, pres = makeWorld(POINTER)
+		pres.focus.setFocusOrigin("navigation") -- synthetic keyboard focus for this paint contract
 		local handle = pres.present(helpedScreen(HELP))
 		expect(pres.help().present).toBe(true)
 		for _, entry in handle.focusOrder().traversal do
@@ -294,6 +297,7 @@ describe("D3a help: the plate is chrome, and the value outranks it", function()
 
 	it("dismissing the surface takes its help with it", function()
 		local _, _, adapter, _, pres = makeWorld(POINTER)
+		pres.focus.setFocusOrigin("navigation") -- synthetic keyboard focus for this paint contract
 		local handle = pres.present(helpedScreen(HELP))
 		expect(pres.help().present).toBe(true)
 		pres.dismiss(handle)
@@ -303,6 +307,7 @@ describe("D3a help: the plate is chrome, and the value outranks it", function()
 
 	it("a help string wraps rather than clips at 1.4x expansion", function()
 		local _, _, adapter, _, pres = makeWorld(POINTER)
+		pres.focus.setFocusOrigin("navigation") -- synthetic keyboard focus for this paint contract
 		local long = string.rep(HELP .. " ", 3)
 		pres.present(helpedScreen(long))
 		expect(pres.help().present).toBe(true)
@@ -313,6 +318,7 @@ describe("D3a help: the plate is chrome, and the value outranks it", function()
 
 	it("the dump carries the schema, the source and every live declaration", function()
 		local _, _, _, _, pres = makeWorld(POINTER)
+		pres.focus.setFocusOrigin("navigation") -- synthetic keyboard focus for this paint contract
 		pres.present(helpedScreen(HELP))
 		local dump = pres.help()
 		expect(dump.schema).toBe("facet-help-dump/1")

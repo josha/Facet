@@ -481,6 +481,9 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 	specGuard.assertKnownKeys("newPresenter", opts, PRESENTER_OPTS_KEYS, "opts")
 	local self = {}
 	local graph = focus_graph.new(core)
+	-- Entry focus is still tracked, but a pointer/touch session has not asked
+	-- for a navigation ring. Seed once; subsequent input verbs own visibility.
+	graph.setFocusOrigin(if env:get("effectiveInput"):get() == "Gamepad" then "navigation" else "pointer")
 	local stack: { any } = {} -- presented handles, base first
 	self.focus = graph
 	local presenterOpts: PresenterOpts = opts or {}
@@ -3255,63 +3258,10 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 			end
 		end))
 
-		--[[ D-PAD AUTO-REPEAT (director item 4). `Navigate`/`NavigateH`
-			only ever DELIVER on a value CHANGE — a press, then back to 0 on release —
-			so a HELD direction moved focus exactly once. Neither Roblox's Input
-			Action System (Pressed/Released/StateChanged only, no repeat property) nor
-			GuiService's own native selection navigator documents any repeat timing,
-			so there is nothing to defer to:
-			the framework owns this, here, so every presented surface gets it free.
-
-			GAMEPAD-ONLY (`action.lastGamepad`, stamped by actions.luau from the
-			binding that actually delivered the held value — see isGamepadKeyCode
-			there): a keyboard arrow held down keeps today's exact single-step
-			behavior, matching the director's wording ("Gamepad: holding d-pad...").
-			The Thumbstick1-as-d-pad axis binding (matrix §D.5 tolerance) is ALSO
-			gamepad-classed, so a fully-deflected stick repeats through this SAME
-			glue — there is no second repeat path to double-fire against
-			(tests/dpad_repeat.spec.luau measures the cadence is not doubled).
-
-			SCOPE-OWNED, the same idiom the drag-to-edge autoscroll stepper above
-			uses: the tick hook is `scope:own`'d with everything else this SURFACE
-			owns, so it tears down the instant the surface dismisses — no timer
-			outlives its screen. It also stops the moment the held direction
-			releases (state returns to 0) or an axis suspension (see
-			`suspendAxisKeys` below) zeroes the action out from under it — repeat
-			never outlives the binding that is driving it.
-
-			OWNERSHIP IS RE-CHECKED EVERY TICK, NOT JUST AT THE START OF THE HOLD
-			(director item 4 review, finding C1). `action.state` can go stale with
-			no future delivery ever correcting it, in at least two ways a
-			one-time check at press time cannot see: `handle.resign()` disables
-			this surface's context mid-hold (a passive HUD's Cancel/`ButtonB`),
-			and `context.setEnabled(false)` used to reset only `Bool` actions —
-			fixed at the source in `actions.luau` now, but a context can ALSO be
-			outranked by a brand-new higher-priority SINKING context (a modal
-			opening on top) while staying enabled the whole time, which no
-			one-shot check and no lifecycle callback can see, because nothing
-			ever fires ON this context again to say so — the eventual key-up
-			routes to the WINNER instead. Left alone, the poll below would keep
-			calling `navigateVertical`/`navigateHorizontal` against a value
-			nothing will ever zero, against the SHARED presenter-wide focus graph
-			— driving whatever surface currently has it, typically the modal that
-			just covered this one, with the player doing nothing at all.
-			`system.wouldWinArbitration` replays the same arbitration a real key
-			event would, over the CURRENT set of contexts, for the exact binding
-			that produced the held value (`action.lastBinding`); the moment it
-			says no, the state is corrected HERE — not just this glue's own
-			`heldDir` — so any other reader of `action.state` also sees the
-			honest zero, the same guarantee `suspendAxisKeys` already gives its
-			own callers.
-
-			Repeats through the EXACT SAME `navigateVertical`/`navigateHorizontal`
-			functions a fresh press uses, so every focus-boundary/wrap rule, every
-			`navigateIntercept`, and the armed-aim sync apply to a repeated step
-			exactly as they do to a single press — nothing here reimplements the
-			ring. Scope deliberately excludes Adjust/AdjustAxis: a slider/stepper
-			held-repeat is a separate, un-asked-for UX call (director item 4 says
-			"advance selection", not "adjust a value"); it never polls, so it
-			never turns the SAME staleness class into a periodic side effect. ]]
+		-- Held keyboard arrows, D-pad and thumbstick navigation share one cadence.
+		-- Recheck binding ownership each tick: a modal, resign or axis-owning
+		-- control must stop the old hold even when it absorbs the release.
+		-- Value adjustment remains an explicit gamepad-only control opt-in.
 		local DPAD_REPEAT_DELAY_S = 0.4 -- initial hold-before-repeat (console
 		-- convention; matches this file's own DISCLOSE_LONG_PRESS_S precedent
 		-- in screen_target.luau)
@@ -3322,14 +3272,19 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		-- step by less than a microsecond of drift — measured directly in
 		-- tests/dpad_repeat.spec.luau's cadence case, which is what pins this.
 		local DPAD_REPEAT_EPS = 1e-6
-		local function bindDpadRepeat(action: any, fire: (dir: number) -> (), eligible: (() -> any)?)
+		local function bindHeldRepeat(
+			action: any,
+			fire: (dir: number) -> (),
+			eligible: (() -> any)?,
+			keyboard: boolean?
+		)
 			local owner = nil
 			local heldDir: number? = nil
 			local sinceLastFire = 0
 			local repeating = false
 			scope:own(core:observe(action.state, function(dir: any)
 				owner = if eligible then eligible() else true
-				if (dir == 1 or dir == -1) and action.lastGamepad and owner then
+				if (dir == 1 or dir == -1) and (keyboard or action.lastGamepad) and owner then
 					heldDir = dir :: number
 				else
 					heldDir = nil
@@ -3369,9 +3324,9 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 				end
 			end))
 		end
-		bindDpadRepeat(navigate, navigateVertical)
+		bindHeldRepeat(navigate, navigateVertical, nil, true)
 		if navigateH ~= nil then
-			bindDpadRepeat(navigateH, navigateHorizontal)
+			bindHeldRepeat(navigateH, navigateHorizontal, nil, true)
 		end
 
 		-- ADJUST DISPATCH, shared by both adjust actions. Returns whether anything
@@ -3426,8 +3381,8 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		end
 		-- Repeated value steps clamp; only a fresh direction press may leave a
 		-- saturated control. Focus/scope/arbitration changes abandon the hold.
-		bindDpadRepeat(adjust, dispatchAdjust, repeatAdjustOwner)
-		bindDpadRepeat(adjustAxis, dispatchAdjust, repeatAdjustOwner)
+		bindHeldRepeat(adjust, dispatchAdjust, repeatAdjustOwner)
+		bindHeldRepeat(adjustAxis, dispatchAdjust, repeatAdjustOwner)
 
 		--[[ THE ARROW GOES BACK TO NAVIGATION AT THE CONTROL'S LIMIT (ruling 9,
 			2026-08-14, director: "do a").

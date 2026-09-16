@@ -455,6 +455,7 @@ local function build(Facet: any, core: any, deps: any)
 
 	-- ---- the tile blueprint -------------------------------------------------
 	local activateTile: (tile: Tile) -> () -- forward-declared (below)
+	local beginSwap: (number, number, number, number) -> ()
 	local tilesById: { [number]: Tile } = {}
 
 	local function tileRow(item: { id: number }, itemScope: any): any
@@ -551,18 +552,47 @@ local function build(Facet: any, core: any, deps: any)
 				-- IT IS A REAL CONTROL, not a marker: a marker layer is
 				-- display-only by contract and sits below the effective-target
 				-- floor, and these have to be pressable.
-				UI.Button({
-					id = "hit",
-					label = fallbackLabel,
-					surface = "plain",
-					selected = picked,
-					textSize = "control",
-					width = UI.fill(),
-					height = UI.fill(),
-					onActivate = function()
-						activateTile(tile)
-					end,
-				}),
+				UI.dropTarget(
+					UI.draggable(
+						UI.Button({
+							id = "hit",
+							label = fallbackLabel,
+							surface = "plain",
+							selected = picked,
+							textSize = "control",
+							width = UI.fill(),
+							height = UI.fill(),
+							onActivate = function()
+								activateTile(tile)
+							end,
+						}),
+						{
+							payload = { kind = "match3", tile = tile },
+							enabled = itemScope:own(core:memo(function(use)
+								return not use(resolving)
+							end)),
+							proxy = function()
+								return UI.Image({ image = image, tint = tint, width = UI.fill(), height = UI.fill() })
+							end,
+						}
+					),
+					{
+						accepts = function(payload)
+							local source = type(payload) == "table" and payload.kind == "match3" and payload.tile
+							return source ~= nil
+								and source ~= false
+								and not resolving:get()
+								and board[source.row][source.col] == source
+								and math.abs(source.row - tile.row) + math.abs(source.col - tile.col) == 1,
+								"Tiles must be neighbors"
+						end,
+						onDrop = function(payload)
+							selected:set(nil)
+							message:set("")
+							beginSwap(payload.tile.row, payload.tile.col, tile.row, tile.col)
+						end,
+					}
+				),
 			},
 		})
 	end
@@ -828,7 +858,7 @@ local function build(Facet: any, core: any, deps: any)
 		end
 	end
 
-	local function beginSwap(r1: number, c1: number, r2: number, c2: number)
+	beginSwap = function(r1: number, c1: number, r2: number, c2: number)
 		pendingSwap = { r1, c1, r2, c2 }
 		clearedThisRun = 0
 		swapScored = false
@@ -901,7 +931,7 @@ local function build(Facet: any, core: any, deps: any)
 			return "The board is settling — tiles are clearing, dropping and refilling."
 		end
 		if use(selected) == nil then
-			return "Tap a tile, then tap a tile next to it to swap them. Three in a row clears."
+			return "Drag a tile onto a neighbor, or select two neighboring tiles. Three in a row clears."
 		end
 		return "Now tap a tile next to it — or tap the same tile again to put it down."
 	end))

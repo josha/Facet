@@ -254,6 +254,7 @@ describe("NavigationStack public contract and input", function()
 				preferredInput = if input == "gamepad" then "Gamepad" else "KeyboardAndMouse",
 			})
 			local nextPath = find(w, "/Next")
+			w.press(if input == "keyboard" then "Down" else "DPadDown")
 			w.pres.focus.focusOn(nextPath)
 			w.tick(0)
 			expect(w.adapter.node(nextPath).focused).toBe(true)

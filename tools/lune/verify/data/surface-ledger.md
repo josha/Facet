@@ -133,6 +133,7 @@ namespaces' members and the blessed client entry points) has a row here; the
 | `client/billboard_target` | engine adapter | root-swap decorator (elegant reuse) | DOC-7 | seams |
 | `client/roblox_env` · `client/roblox_input` · `client/roblox_resources` | engine adapters | bind/unbind (+ `newSystem` factory) | DOC-7 | seams |
 | `client/theme_controller` | engine adapter | capability-checked install; best lifecycle story | DOC-23 | seams |
+| `client/environment_preview` | dev tooling | live display/input override and restoration | DOC-7 | seams |
 | `client/edit_preview` | dev tooling | E-11 | DOC-7 | seams |
 | `client/motion_driver` | engine adapter | bind → unbind (documented footgun stays documented) | DOC-7 | services |
 | `client/haptics` | engine adapter | opts factory; opt-in, DEFAULT OFF; bind → unbind + attachButtons → detach | five-state capability lattice (no platform capability API); total verb map with explicit silences; pooled effects; unreachable from `src/` outside `src/client` | seams |

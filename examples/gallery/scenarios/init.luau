@@ -15,6 +15,9 @@
 -- runner rather than silently mounting nothing.
 
 local ORDER = {
+	"all_controls",
+	"collections",
+	"motion_layout",
 	"probe",
 	"safe_area",
 	"scroll_host",

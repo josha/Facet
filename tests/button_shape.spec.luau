@@ -274,6 +274,38 @@ end)
 -- ===========================================================================
 
 describe("circle Button geometry: a true 1:1 box from the control metric", function()
+	it("keeps its default diameter inside a stretching conditional accessory", function()
+		local adapter = render(UI.Screen({
+			id = "S",
+			children = {
+				UI.VStack({
+					id = "Rail",
+					width = { type = "fixed", px = 180 },
+					align = "stretch",
+					children = {
+						UI.When({
+							id = "Choice",
+							condition = customFactory.new():signal(true),
+							thenView = function()
+								return UI.Button({
+									id = "More",
+									label = "More actions",
+									icon = "menu",
+									shape = "circle",
+								})
+							end,
+						}),
+						UI.Box({ id = "Following", height = { type = "fixed", px = 200 } }),
+					},
+				}),
+			},
+		}))
+		local disc = rectOf(adapter, "/S/Rail/Choice/then/More")
+		expect(disc.w).toBe(44)
+		expect(disc.h).toBe(44)
+		expect(disc.y + disc.h <= rectOf(adapter, "/S/Rail/Following").y).toBe(true)
+	end)
+
 	it("with neither axis authored, both come from controls.button.height", function()
 		local adapter = render(UI.Screen({
 			id = "S",

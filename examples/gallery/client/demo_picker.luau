@@ -135,491 +135,84 @@ export type Demo = {
 	module: string,
 }
 
--- THE CATALOGUE. Order is deliberate: the all-controls fixture is first because
--- it is the one that answers "what does this framework look like on my device",
--- and the tutorials follow in the order the guide teaches them.
+-- Keep the picker short. Focused comparisons live inside the three tabbed
+-- collections; standalone scenarios remain available to verification tools.
 demo_picker.DEMOS = {
 	{
 		id = "all-controls",
 		title = "All controls",
-		blurb = "One semantic tree, every control, adapting from space and input — not device names",
+		blurb = "Inputs, actions, indicators and navigation in nested tabs",
 		kind = "fixture",
-		module = "adaptive_controls",
+		module = "all_controls",
 	},
 	{
-		id = "text-controls",
-		title = "Writing and search",
-		blurb = "Native notes, track search and validated numbers",
+		id = "collections",
+		title = "Collections",
+		blurb = "Lists, tables, grids and row actions with large data sets",
 		kind = "fixture",
-		module = "text_controls",
+		module = "collections",
 	},
 	{
-		id = "selection-controls",
-		title = "Choices and filters",
-		blurb = "Checkboxes, radio groups, search, tags and editable choices",
+		id = "motion-layout",
+		title = "Motion and layout",
+		blurb = "Compare animation, wrapping, transparency and adaptive layouts",
 		kind = "fixture",
-		module = "selection_controls",
+		module = "motion_layout",
 	},
-	{
-		id = "action-controls",
-		title = "Actions and menus",
-		blurb = "Busy actions, hold to repeat, shortcuts and stateful menus",
-		kind = "fixture",
-		module = "action_controls",
-	},
-	-- the second fixture, for the same reason the first one leads: swipe row
-	-- actions are a FEEL feature, and this is the surface a device pass drives
-	-- (its ModeBar switches the same mail model between the hand-wrapped list,
-	-- the Table integration, and the VirtualList-hosted mode)
-	{
-		id = "row-actions",
-		title = "Swipe row actions",
-		blurb = "Mail-style swipe actions: hand-wrapped list, Table, and hosted VirtualList",
-		kind = "fixture",
-		module = "row_actions",
-	},
-	-- the third and fourth fixtures, and they lead the tutorials for the same
-	-- reason the first two do: each is the ONLY hands-on surface for a piece of
-	-- public API that a still screenshot cannot show. A sideways virtualizer has
-	-- to be flung, and a motion policy has to be watched.
-	{
-		id = "card-rail",
-		title = "Card rail",
-		blurb = "400 cards sideways: swipe, or step with Left/Right",
-		kind = "fixture",
-		module = "card_rail",
-	},
-	{
-		id = "with-animation",
-		title = "Animation",
-		blurb = "One spring moves, reveals and re-orders — Full vs Reduced",
-		kind = "fixture",
-		module = "with_animation",
-	},
-	-- ...and the accessibility preference that had to wait for a paint path. It sits here, beside the motion demo, because the two are the
-	-- same kind of thing: a still screenshot of a backdrop is a dim rectangle, and
-	-- the capability is the DIFFERENCE between two settings.
-	{
-		id = "preferred-transparency",
-		title = "Background transparency",
-		blurb = "The player's opacity setting, answered by the framework's own backdrop",
-		kind = "fixture",
-		module = "preferred_transparency",
-	},
-	-- the fifth fixture, for the same reason as the two above it: a rotating arc
-	-- cannot be shown by a still screenshot, and the determinate ring beside it is
-	-- what makes "one function of one scalar" legible rather than a claim
-	{
-		id = "progress-ring",
-		title = "Circular progress",
-		blurb = "A ring that fills, a ring that spins — one arc on UI.Path",
-		kind = "fixture",
-		module = "progress_ring",
-	},
-	-- the sixth fixture, for the same reason as the four above it: what `wrap`
-	-- does is only legible NEXT TO what happens without it, and that comparison is
-	-- a toggle, not a screenshot
-	{
-		id = "flow-wrap",
-		title = "Flow wrap",
-		blurb = "Fourteen tags in one row: turn wrapping off and watch them leave the box",
-		kind = "fixture",
-		module = "flow_wrap",
-	},
-	-- the seventh and eighth fixtures, and both are here for the reason the five
-	-- above them are: what they demonstrate is a DIFFERENCE between two states of
-	-- the same content, which a still screenshot flattens into one picture. The
-	-- lifecycle pair is one switch driving two badges (only one caption moves);
-	-- the opt-out family is five identical rows of which three refuse something,
-	-- and a refusal is an absence until something says who refused.
-	--
-	-- `lifecycle-hidden` closes round 3's O-15: `lifecycle_hidden` shipped into
-	-- `scenarios/init.luau` ORDER on 2026-08-13 and was left out of this list
-	-- because this file belonged to a concurrent agent that day, which made it
-	-- selectable by workspace attribute and unreachable in-experience.
-	{
-		id = "lifecycle-hidden",
-		title = "Lifecycle & hidden",
-		blurb = "One switch, two badges: the slot that stays and the events you cannot see",
-		kind = "fixture",
-		module = "lifecycle_hidden",
-	},
-	{
-		id = "row-capabilities",
-		title = "Rows that say no",
-		blurb = "Five rows, one table: pinned, protected and locked — and who refused",
-		kind = "fixture",
-		module = "row_capabilities",
-	},
-	-- ...and the ninth, for the reason every fixture above it is here: what it
-	-- shows is a SEQUENCE, and a still screenshot flattens a sequence into one
-	-- picture. Four stops, one row, and a label that gives things up in order.
-	{
-		id = "text-degrade",
-		title = "What a label gives up",
-		blurb = "Narrow one row four times: it says it shorter before anything is cut",
-		kind = "fixture",
-		module = "text_degrade",
-	},
-	-- the ninth fixture, and it is here for the reason the others are: what it
-	-- demonstrates is a DIFFERENCE between two states of the same list. One toggle
-	-- makes every row declare the same height, and the taller posts immediately
-	-- paint over their neighbours — the defect the overflow sweep measured, beside
-	-- the feature that ends it, in one surface.
-	{
-		id = "variable-extents",
-		title = "Rows of different heights",
-		blurb = "400 posts, none the same height: declare one number for all of them and watch",
-		kind = "fixture",
-		module = "variable_extents",
-	},
-	-- ...and its Stage 2 sibling, listed separately because the difference between
-	-- the two FIXTURES is the demonstration. The one above declares each post's
-	-- height correctly and shows what that costs to author; this one declares
-	-- nothing, wraps its bodies with no `lineLimit`, and its status line reports how
-	-- much of the canvas is measurement and how much is still the estimate.
-	{
-		id = "measured-extents",
-		title = "Rows that measure themselves",
-		blurb = "400 posts and no height arithmetic anywhere: the list learns what it painted",
-		kind = "fixture",
-		module = "measured_extents",
-	},
-	-- ...and the one after it, for the reason every fixture here is listed: the
-	-- difference it demonstrates is a NUMBER, not a picture. A table windowing two
-	-- thousand rows and a table that mounted all two thousand look identical; the
-	-- status line is the only place the windowing exists, and the three buttons all
-	-- act on a row the window has never held.
-	{
-		id = "table-virtualized",
-		title = "Two thousand rows, seventeen real",
-		blurb = "One table windowing 2 000 rows: every verb reaches a row that is not there",
-		kind = "fixture",
-		module = "table_virtualized",
-	},
-	-- ...its sibling `table-columns` was RETIRED 2026-08-16 (navigation-and-menus
-	-- D8). It was listed for the reason every fixture here is: what it showed was a
-	-- CHANGE — a table whose first column is 218px wide and one whose first column
-	-- was always 218px are the same screenshot. That argument did not go away; it
-	-- moved onto the playlist tutorial (`ex02` below), which now carries the
-	-- resizable header, the live width readout and the selected-column hint.
-	-- ...and the lazy grid, for the reason every fixture here is listed: a
-	-- a vertical grid over five thousand cells and an eager grid over five thousand
-	-- cells paint the same first screen, so the only place the feature exists is
-	-- the count of cells that were ever built — and the lane chips move every item
-	-- to a different line without moving the one under your eye.
-	{
-		id = "virtual-grid",
-		title = "Lazy grid",
-		blurb = "5 000 cells, a few dozen ever built — change the lanes and keep your place",
-		kind = "fixture",
-		module = "virtual_grid",
-	},
-	-- ...and the same control turned a quarter turn onto the x axis (sideways grid). The
-	-- picker carries both because the difference is not a value you can read off a
-	-- status line: the lanes run DOWN, the lines advance RIGHTWARD, and the
-	-- keyboard ring steps a cell with Down and a whole line with Right.
-	{
-		id = "virtual-hgrid",
-		title = "Lazy rail",
-		blurb = "The same 5 000 cells sideways — lanes run down, Right steps a whole line",
-		kind = "fixture",
-		module = "virtual_hgrid",
-	},
-	-- the tenth fixture, and the reason is the one every fixture above it gives:
-	-- what it demonstrates is INVISIBLE in a picture. Four labelled rows ask for
-	-- four different sensations — press, release, a changed choice, and one
-	-- waveform the example supplies itself — and the only way to see which is the
-	-- history beside them. The switch that decides whether any of it reaches this
-	-- device is the first panel on the page, and it opens ON.
-	{
-		id = "sensory-feedback",
-		title = "Sensory feedback",
-		blurb = "Press, release, selection, custom — four comparisons, and the switch is on",
-		kind = "fixture",
-		module = "sensory_feedback",
-	},
-	-- ...and the eleventh, for the reason every fixture above it is here: what it
-	-- shows is a COMPARISON between two states of one screen. The commissioning
-	-- screenshots are a HUD before and after a browser URL bar opens; the switch
-	-- in this fixture is that URL bar, and the HUD degrades by rank instead of
-	-- landing on itself.
 	{
 		id = "hud",
 		title = "Screen-anchored HUD",
-		blurb = "A game HUD: open the URL bar and watch it give way by rank instead of overlap",
+		blurb = "Game HUD zones adapt to the screen and recover hidden commands",
 		kind = "fixture",
 		module = "hud",
 	},
-	-- ...and the twelfth, for the same reason: what it shows is the difference
-	-- between four states that paint IDENTICAL pixels. Only the declaration
-	-- changes, and only the framework's own sentence tells them apart.
-	{
-		id = "surface-overlap",
-		title = "Cross-surface overlap",
-		blurb = "One probe over one screen: same pixels, four declarations, one alarm",
-		kind = "fixture",
-		module = "surface_overlap",
-	},
-	-- ...and two more of the same kind, both landed 2026-08-15. Each shows a
-	-- defect that IS NOT IN A FRAME: a leak paints nothing at all, and a
-	-- dictionary's iteration order is only wrong compared with the frame before
-	-- it. Neither is reachable from a screenshot, which is exactly the test this
-	-- catalogue exists to apply.
-	{
-		id = "branch-scope",
-		title = "When branch scope",
-		blurb = "Two identical panels. One releases what it opened; the other keeps it",
-		kind = "fixture",
-		module = "branch_scope",
-	},
-	{
-		id = "sorted-entries",
-		title = "Deterministic dictionaries",
-		blurb = "The same twelve scores built three ways: one column reshuffles, one holds",
-		kind = "fixture",
-		module = "sorted_entries",
-	},
-	-- ...and the time-curve fixture, here for the reason every fixture
-	-- above it is: the difference between a duration and a spring's asymptote is
-	-- not in any single frame. It is a stopwatch reading 0.52 against 1.05, four
-	-- pucks that land together by different routes, and a reduced-motion pass
-	-- where the decorative halves place instantly while the cooldown keeps
-	-- stepping — none of which a screenshot can hold.
-	{
-		id = "time-curves",
-		title = "Time curves",
-		blurb = "A cooldown that lands on time, four curves, one 400 ms trip",
-		kind = "fixture",
-		module = "time_curves",
-	},
-	-- ...and the one demo whose content Facet does not draw at all:
-	-- RichText spans, an engine-measured list, and a 2x-oversize frame the box
-	-- crops — three capabilities the framework declines by design, plus a button
-	-- that adopts a `Part` and shows the refusal verbatim.
-	{
-		id = "foreign-content",
-		title = "Foreign instances",
-		blurb = "A box for an instance Facet does not own: RichText, an engine list, and the clip",
-		kind = "fixture",
-		module = "foreign_content",
-	},
-	-- ...and the two the round-3 owed ledger's O-30 named: a piece of public API is
-	-- not shipped because a fixture somewhere calls it, it is shipped when a player
-	-- can reach it. `newAsyncImage` was exercised by the `async_images` scenario
-	-- and five reference/sponsor surfaces and `canvasGroup` by six `sponsor_*`
-	-- fixtures and `p2_cartwheel` — and NO entry in this list reached either, so in
-	-- the shipped place both were selectable by workspace attribute and by nothing
-	-- a player can do. That is the same defect `lifecycle-hidden` above records.
-	{
-		id = "async-images",
-		title = "Loading profile pictures",
-		blurb = "Two profile pictures load; an unavailable picture keeps a safe placeholder",
-		kind = "fixture",
-		module = "async_images",
-	},
-	{
-		id = "canvas-group",
-		title = "One fade, or three",
-		blurb = "Three plates, one opacity: faded as a single picture, then one plate at a time",
-		kind = "fixture",
-		module = "canvas_group",
-	},
-	-- ...and the level picker, which a still frame CAN hold — the reference
-	-- screenshot is one — but which nobody can believe from a screenshot: that
-	-- the ± beside the bars is a separate control sharing one Signal is only
-	-- visible when you press it and watch the strip move. All three segment
-	-- modes and both tint halves are on the one surface.
-	{
-		id = "level-picker",
-		title = "Level pickers",
-		blurb = "Ten bars, three blocks, and a stepper that is not part of either",
-		kind = "fixture",
-		module = "level_picker",
-	},
-	-- ...and the two plates a still frame cannot tell apart (D3): one the player
-	-- pulls and one the app pushes. The press counter under the coach mark is the
-	-- non-blocking claim, and the save readout is the persistence boundary — the
-	-- framework reports, this fixture writes.
-	{
-		id = "callout",
-		title = "Coach marks and help",
-		blurb = "One plate the player pulls, one the app pushes — and the + still counts",
-		kind = "fixture",
-		module = "callout",
-	},
-	-- ...and the round's other two constructs, which shipped with spec fixtures
-	-- and nothing a person holding a phone could open (2026-08-16). Both are
-	-- gesture-and-lifecycle features: four of the menu's five triggers cannot be
-	-- synthesized in Studio at all, and a tab eviction and a hidden subtree paint
-	-- the same picture — so the hands-on surface is the only proof there is.
-	{
-		id = "menu",
-		title = "Menus and their five triggers",
-		blurb = "One list of verbs, five ways in — and a submenu that replaces the sheet",
-		kind = "fixture",
-		module = "menu",
-	},
-	{
-		id = "tab-view",
-		title = "Tabs, nested",
-		blurb = "A page's tab bar inside the app's, and every tab counts its own rebuilds",
-		kind = "fixture",
-		module = "tab_view",
-	},
-	-- ...and the nested-instance-tree showcase. Every fixture above it
-	-- reaches PUBLIC API; this one reaches an ENGINE FACT nothing else in the
-	-- catalogue demonstrates — a registered host lets the engine compose a
-	-- presentation term for its whole subtree, which a still frame CAN hold (the
-	-- same reason `canvas-group` is here) but which a player has to drive to
-	-- believe, because the resting state of both comparisons is intentionally
-	-- identical.
-	{
-		id = "nested-tree",
-		title = "A container that carries",
-		blurb = "A shared fade doesn't double-darken, and a turning frame carries its marker",
-		kind = "fixture",
-		module = "nested_compositing",
-	},
-	-- ...and the Facet stabilization pass's inherited `enabled`/`tint`
-	-- showcase (stream D): a container's own colour and power reaching two
-	-- levels down with nothing named there, both override forms, the control
-	-- boundary, a dynamic toggle that dims and unreaches the whole panel, the
-	-- focus ring jumping to a legal stop outside it, and a reactive tint drag.
-	{
-		id = "inherited-subtree",
-		title = "Inherited power and tint",
-		blurb = "One panel hands its subtree a colour and a power switch it never asked for",
-		kind = "fixture",
-		module = "inherited_subtree",
-	},
-	-- scaffolded: the surface a person opens on a phone to drive RadialMenu.
 	{
 		id = "radial-menu",
 		title = "Quick actions",
-		blurb = "Tap or slide to greet friends, explore, and choose your gear",
+		blurb = "Contextual commands around a launcher or a world object",
 		kind = "fixture",
 		module = "radial_menu",
-	},
-	-- Shared confirmation behavior, also used by Actions and menus and tutorial 04.
-	{
-		id = "alert",
-		title = "Alerts and confirmations",
-		blurb = "Compact decisions, responsive actions, safe focus and Back.",
-		kind = "fixture",
-		module = "alert",
-	},
-	-- scaffolded: the surface a person opens on a phone to drive Sheet.
-	{
-		id = "sheet",
-		title = "Detent sheets",
-		blurb = "Resize a modal briefing by dragging or with a focused size control",
-		kind = "fixture",
-		module = "sheet",
-	},
-	-- scaffolded: the surface a person opens on a phone to drive PageView.
-	{
-		id = "page-view",
-		title = "Pages and dots",
-		blurb = "Swipe content pages or choose them with dots and gamepad controls",
-		kind = "fixture",
-		module = "page_view",
-	},
-	-- scaffolded: the surface a person opens on a phone to drive CollapsibleView.
-	{
-		id = "collapsible-view",
-		title = "Collapsible views",
-		blurb = "Custom views and tab navigation collapse into a focused summary button",
-		kind = "fixture",
-		module = "collapsible_view",
-	},
-	-- scaffold: new control demos are appended above this line. Fixtures lead the
-	-- tutorials, which follow in the order the guide teaches them, so a scaffolded
-	-- control lands at the end of the fixture run rather than in the middle of a
-	-- reading order.
-	{
-		id = "ex01",
-		title = "Temperature converter",
-		blurb = "Text entry: live preview versus committed value",
-		kind = "example",
-		module = "01_temperature_converter",
 	},
 	{
 		id = "ex02",
 		title = "Playlist table",
-		-- THIS BLURB WAS A LIE UNTIL 2026-08-16, and it was the most public of the
-		-- three stale claims D8 closed: it read "Sortable, reorderable, filterable
-		-- table" and the example had no `sortOrder` at all, so every device pass and
-		-- every human reviewer was told about a capability that was not there. It is
-		-- true now, and it names the resize the retired `table-columns` card used to
-		-- carry.
-		blurb = "Sort, filter, reorder — and drag a divider to resize a column",
+		blurb = "Organize a playlist: sort, edit, reorder and resize columns",
 		kind = "example",
 		module = "02_playlist_table",
 	},
 	{
 		id = "ex03",
 		title = "Settings sync",
-		blurb = "Optimistic apply, accept, reject and rollback",
+		blurb = "Try instant changes, delayed saves and rejected changes that roll back",
 		kind = "example",
 		module = "03_settings_sync",
 	},
 	{
-		id = "ex04",
-		title = "Confirm dialog",
-		blurb = "Modal presentation, focus trapping and cancel",
-		kind = "example",
-		module = "04_confirm_dialog",
-	},
-	{
 		id = "ex05",
 		title = "Word game",
-		blurb = "A full keyboard game — try it with a touch keyboard",
+		blurb = "Play a word puzzle with keyboard, touch or gamepad",
 		kind = "example",
 		module = "05_word_game",
 	},
 	{
 		id = "ex06",
 		title = "Crossword",
-		blurb = "Crossword rules, nine named refusals, four inputs",
+		blurb = "Build crossing words on an interactive board",
 		kind = "example",
 		module = "06_tile_game",
 	},
 	{
 		id = "ex07",
 		title = "Match 3",
-		blurb = "Dense animated grid",
+		blurb = "Swap tiles, make matches and follow the score",
 		kind = "example",
 		module = "07_match3",
 	},
-	{
-		id = "navigation-stack",
-		title = "Plan a journey",
-		blurb = "A shared path, adaptive pages, text baselines and flexible spacing",
-		kind = "fixture",
-		module = "navigation_stack",
-	},
+	-- scaffold: new control demos are appended above this line.
 } :: { Demo }
 
--- Curate the first visit around useful interactions. Focused comparisons remain
--- available in the laboratory, with their stable IDs for tools and regression drives.
-local PRIMARY = {
-	["radial-menu"] = true,
-	["all-controls"] = true,
-	["navigation-stack"] = true,
-	["text-controls"] = true,
-	["selection-controls"] = true,
-	["action-controls"] = true,
-	["row-actions"] = true,
-	["with-animation"] = true,
-	ex02 = true,
-	ex03 = true,
-	ex05 = true,
-	ex06 = true,
-	ex07 = true,
-}
 function demo_picker.isPrimary(id: string): boolean
-	return PRIMARY[id] == true
+	return demo_picker.find(id) ~= nil
 end
 
 -- clip(text, chars) -> text that fits one chip line, with an ellipsis when it
@@ -823,12 +416,11 @@ function demo_picker.mount(opts: MountOpts): any
 			return use(selection) == demo.id
 		end))
 	end
-	local laboratoryOpen = scope:own(core:signal(false))
 	local function buildRows(): { any }
-		local rows, laboratory = {}, {}
+		local rows = {}
 		for _, demo in demo_picker.DEMOS do
 			table.insert(
-				if demo_picker.isPrimary(demo.id) then rows else laboratory,
+				rows,
 				UI.Button({
 					id = demo.id,
 					label = demo.title,
@@ -848,15 +440,7 @@ function demo_picker.mount(opts: MountOpts): any
 				})
 			)
 		end
-		local lab = scope:own(Facet.Controls.DisclosureGroup(core, {
-			id = "Laboratory",
-			label = "UI laboratory",
-			expanded = laboratoryOpen,
-			content = function()
-				return UI.VStack({ gap = "xs", children = laboratory })
-			end,
-		}))
-		table.insert(rows, lab.blueprint)
+
 		return rows
 	end
 

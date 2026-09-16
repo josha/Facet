@@ -931,7 +931,7 @@ describe("D5: four inputs, one story", function()
 		expect(paths[1]).toBe(tabPath(w, 1))
 		expect(paths[3]).toBe(tabPath(w, 3))
 		expect(w.pres.focus.focused:get()).toBe(tabPath(w, 1))
-		expect(w.adapter.node(tabPath(w, 1)).focused).toBe(true)
+		expect(w.adapter.node(tabPath(w, 1)).focused == true).toBe(false) -- no navigation yet
 		-- Adjust on a focused tab PAGES, and it clamps rather than wrapping
 		w.system.deviceKey("Period", true)
 		w.system.deviceKey("Period", false)

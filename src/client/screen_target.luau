@@ -3037,6 +3037,8 @@ function screen_target.new(opts: Opts?)
 		props.setProp(handle, prop, value, authority)
 		if prop == "role" and handle.class == "Button" then
 			handle.buttonRole = value
+		end
+		if prop == "role" or prop == "corners" or prop == "surface" or prop == "shape" then
 			local profile = focusedHandles[handle]
 			if profile ~= nil then
 				adapter.setFocusVisual(handle, true, profile)

@@ -919,3 +919,25 @@ describe("match-3 motion: thirty-six tiles that are actually painted, in every s
 		end
 	end)
 end)
+
+describe("match-3 pointer drag", function()
+	for _, target in { { 2, 3, true }, { 2, 4, false }, { 4, 3, false } } do
+		it(`drops onto ({target[1]}, {target[2]}) only when adjacent`, function()
+			local core, deps, adapter = makeWorld()
+			local game = newGame(core, deps)
+			local source = game.cellPath(1, 3)
+			local a = game.handle.controller.screenRectOf(source)
+			local b = game.handle.controller.screenRectOf(game.cellPath(target[1], target[2]))
+			local from = { x = a.x + a.w / 2, y = a.y + a.h / 2, pointerType = "mouse" }
+			local to = { x = b.x + b.w / 2, y = b.y + b.h / 2, pointerType = "mouse" }
+			adapter.driveDragStart(source, from)
+			adapter.driveDragContinue(source, to, { x = 0, y = 0 })
+			adapter.driveDragEnd(source, to)
+			settleBoard(deps)
+			expect(game.moves()).toBe(if target[3] then 1 else 0)
+			expect(game.score() > 0).toBe(target[3])
+			expect(core:lastError()).toBeNil()
+			game.dispose()
+		end)
+	end
+end)

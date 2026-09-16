@@ -1187,6 +1187,7 @@ function menu.build(Facet: any, core: any, spec: Spec)
 		end
 	end
 
+	local triggerGraph: any = nil
 	local actionSystemRef: any = nil
 	local function ensureKeys()
 		if actionSystemRef == nil or keysContext ~= nil then
@@ -1212,7 +1213,11 @@ function menu.build(Facet: any, core: any, spec: Spec)
 			end
 		end
 		action.onPressed(function()
-			api.toggle()
+			-- Context commands belong to the focused trigger. Multiple menus may
+			-- share the chord without opening all their panels at once.
+			if triggerGraph and rootPath and triggerGraph.focused:get() == rootPath then
+				api.toggle()
+			end
 		end)
 		keysContext = ctx
 		scope:own(function()
@@ -1224,6 +1229,9 @@ function menu.build(Facet: any, core: any, spec: Spec)
 	end
 
 	local blueprint = contribution.attach(spec.trigger, {
+		bindFocusGraph = function(graph)
+			triggerGraph = graph
+		end,
 		handleActivate = api.handleActivate,
 		syncGeometry = function(_rectOf: (string) -> any, rootNode: any?)
 			mountedNode = rootNode

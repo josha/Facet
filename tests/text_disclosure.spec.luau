@@ -38,6 +38,8 @@ local PLATE_LABEL = "/__disclose__/Layer/Plate/Full"
 	called `adapter` and said nothing. ]]
 local function makeWorld()
 	local w = worldLib.new({ viewport = { x = 0, y = 0, w = 390, h = 844 } })
+	-- This fixture exercises synthetic keyboard focus; pointer cases supply their own engagement.
+	w.pres.focus.setFocusOrigin("navigation")
 	return w.core, w.env, w.adapter, w.system, w.pres
 end
 
@@ -62,8 +64,8 @@ local function roster(children: { any }): any
 	return UI.Screen({ id = "Roster", children = children })
 end
 
--- the shipped default lands focus on the first focusable, which is itself one of
--- the three engagements; the pointer and touch cases need it out of the way
+-- This fixture starts with keyboard focus on the first focusable; pointer and
+-- touch cases opt out of that synthetic entry engagement
 local NO_FOCUS = { initialFocus = "none" }
 
 describe("LTN-4 disclosure: engagement by input class", function()

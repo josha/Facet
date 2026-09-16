@@ -56,6 +56,39 @@
 
 local region_expand = {}
 
+-- Both explicit CollapsibleViews and automatic region disclosures retain a
+-- keyboard exit while allowing pointer/touch users to dismiss outside the plate.
+function region_expand.dismissAffordance(UI: any, button: any, policy: string?, focusVisible: any): any
+	assert(policy == nil or policy == "always" or policy == "automatic", "dismissButton must be always | automatic")
+	if policy ~= "automatic" or focusVisible == nil then
+		return button
+	end
+	return UI.When({
+		id = button.id .. "When",
+		condition = focusVisible,
+		thenView = function()
+			return button
+		end,
+	})
+end
+
+function region_expand.collapseButton(UI: any, id: string, collapse: () -> (), policy: string?, focusVisible: any): any
+	return region_expand.dismissAffordance(
+		UI,
+		UI.Button({
+			id = id,
+			label = "Collapse",
+			compactLabel = { icon = "chevron.up", prefer = true },
+			disclose = true,
+			width = { type = "fill", weight = 1 },
+			height = { type = "minMax", min = "targetSizes.minimum" },
+			onActivate = collapse,
+		}),
+		policy,
+		focusVisible
+	)
+end
+
 --[[ The plate box the composition sized, and the two numbers the DECLARATION
 	needs that it cannot spell for itself: `max`, the widest the box may be
 	declared (the panel's allowance minus its straddle), and `discHalf`, half the
@@ -73,10 +106,10 @@ export type Config = {
 	-- whole `plate` record — the width AND the cap it was measured against — because
 	-- the caller has one correction to make that the pure pass cannot (see its own
 	-- note in `blueprint.luau`)
-	panelOf: (any) -> any,
+	panelOf: (any, any?) -> any,
 	-- the same content as a full-width sheet SCREEN, for the offer where the plate
 	-- cannot meet its floor
-	sheetOf: () -> any,
+	sheetOf: (any?) -> any,
 	-- an authored handler REPLACES both presentations (`expand = function`)
 	handler: (() -> ())?,
 	--[[ WHERE THE FACTS COME FROM, when they are not the composition's (wave
@@ -116,6 +149,7 @@ end
 function region_expand.new(config: Config)
 	local self = {} :: any
 	local regionPath: string? = nil
+	local focusVisible: any = nil
 	local controller: any = nil
 	local presentAnchoredFn: any = nil
 	local presentModalFn: any = nil
@@ -222,9 +256,8 @@ function region_expand.new(config: Config)
 			outsideTapCancel = true,
 			anchor = {
 				source = { path = regionPath },
-				edge = "bottom",
+				edge = "overlap",
 				align = "start",
-				gap = "s",
 				--[[ NO TAIL (director device round, 2026-08-21: "the plate alone on a
 					blank background"). The wedge and its seam are the only nodes this
 					overlay contributes that paint OPAQUELY by design — the seam is a
@@ -271,7 +304,7 @@ function region_expand.new(config: Config)
 			if presentModalFn == nil then
 				return nil
 			end
-			handle = (presentModalFn :: any)(config.sheetOf(), {
+			handle = (presentModalFn :: any)(config.sheetOf(focusVisible), {
 				scrim = "scrim",
 				outsideTapCancel = true,
 			})
@@ -280,7 +313,7 @@ function region_expand.new(config: Config)
 			if presentAnchoredFn == nil or regionPath == nil then
 				return nil
 			end
-			handle = (presentAnchoredFn :: any)(config.panelOf(plate), anchoredOpts())
+			handle = (presentAnchoredFn :: any)(config.panelOf(plate, focusVisible), anchoredOpts())
 			mode = "anchored"
 		end
 		if handle ~= nil then
@@ -359,6 +392,9 @@ function region_expand.new(config: Config)
 		them the shipped seam: the presenter hands over what a blueprint cannot
 		construct, and this file holds no reference back to the presenter object. ]]
 	self.contribution = {
+		bindFocusGraph = function(graph: any)
+			focusVisible = graph.focusVisible
+		end,
 		syncGeometry = function(rectOf: any, rootNode: any?)
 			self.sync(rectOf, rootNode)
 		end,

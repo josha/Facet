@@ -631,6 +631,7 @@ require("./examples_gallery.spec")
 require("./gallery_theme_picker.spec")
 -- the showcase demo picker: one published place, switchable in-game
 require("./gallery_demo_picker.spec")
+require("./showcase_tabs.spec")
 -- ...and the showcase HOST PATH the picker feeds (2026-08-20): every demo mounted
 -- through the shipped per-demo core proxy, which is where two adaptive controls
 -- died live under a green suite because every other spec builds a bare core

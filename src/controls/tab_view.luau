@@ -233,6 +233,7 @@ export type Spec = {
 	-- which never claims the app-level answer (see the header).
 	placement: string?,
 	style: string?, -- automatic | sidebarAdaptable | collapsible
+	sidebarPreference: any?, -- automatic | sidebar | topBar, or Readable; nearby adaptable home
 	restoreScroll: boolean?,
 	shoulderNavigation: any?, -- strip (default) | content, or readable policy
 	restoreFocus: boolean?, -- default true; bounded path bookmarks for each tab
@@ -326,6 +327,7 @@ local TABVIEW_KEYS = specGuard.keySet({
 	"railWidth",
 	"restoreFocus",
 	"shoulderNavigation",
+	"sidebarPreference",
 	"restoreScroll",
 	"selection",
 	"sizing",
@@ -557,6 +559,22 @@ function tab_view.build(Facet: any, core: any, spec: Spec)
 	)
 	local navigationEnv = spec.env or surfaceEnv.find(core)
 	assert(not adaptable or navigationEnv ~= nil, "TabView.sidebarAdaptable requires the surface environment")
+	assert(
+		spec.sidebarPreference == nil or adaptable or nested,
+		"TabView.sidebarPreference requires sidebarAdaptable style"
+	)
+	local declaredSidebarPreference = scope:own(core:memo(function(use)
+		local value = if spec.sidebarPreference == nil then "automatic" else spec.sidebarPreference
+		if type(value) == "table" and type(value.get) == "function" then
+			value = use(value)
+		end
+		assert(
+			value == "automatic" or value == "sidebar" or value == "topBar",
+			"TabView.sidebarPreference must be automatic | sidebar | topBar"
+		)
+		return value
+	end))
+	declaredSidebarPreference:get()
 	local sidebarPreference = if adaptable then scope:own(core:signal(nil)) else nil
 	local pendingNavigation: string? = nil
 	local pendingPlacement: string? = nil
@@ -735,6 +753,15 @@ function tab_view.build(Facet: any, core: any, spec: Spec)
 		end
 	end
 
+	local function preferredHome(home, distant, declared, command)
+		if home == "bottomBar" or home == "bottomBarCompact" then
+			return home
+		end
+		if command ~= nil and command.distant == distant then
+			return if command.expanded then "sidebar" else "topBar"
+		end
+		return if not distant and declared ~= "automatic" then declared else home
+	end
 	local placementSource = select(2, tab_view.resolvePlacement(requestedPlacement, nested, nil))
 	local placement = scope:own(core:memo(function(use)
 		local policy = if policySource ~= nil then use(policySource) else nil
@@ -742,11 +769,7 @@ function tab_view.build(Facet: any, core: any, spec: Spec)
 		if not adaptable or nested or home == "bottomBar" or home == "bottomBarCompact" then
 			return home
 		end
-		local preference = use(sidebarPreference)
-		if preference == nil or preference.distant ~= use(distantNavigation) then
-			return home
-		end
-		return if preference.expanded then "sidebar" else "topBar"
+		return preferredHome(home, use(distantNavigation), use(declaredSidebarPreference), use(sidebarPreference))
 	end))
 	local function setSidebar(expanded: boolean)
 		local previous = placement:get()
@@ -763,6 +786,23 @@ function tab_view.build(Facet: any, core: any, spec: Spec)
 			pendingPlacement = placement:get()
 			navigationAttempts = 0
 		end
+	end
+	if adaptable then
+		local previousDeclaration = declaredSidebarPreference:get()
+		scope:own(core:observe(declaredSidebarPreference, function(value)
+			if value == previousDeclaration then
+				return
+			end
+			local home = tab_view.resolvePlacement(requestedPlacement, nested, policySource:get())
+			local previous = preferredHome(home, distantNavigation:get(), previousDeclaration, sidebarPreference:get())
+			previousDeclaration = value
+			sidebarPreference:set(nil)
+			if placement:get() ~= previous then
+				pendingNavigation = if placement:get() == "sidebar" then "tabs" else "content"
+				pendingPlacement = placement:get()
+				navigationAttempts = 0
+			end
+		end))
 	end
 	local function isPlacement(name: string): any
 		return scope:own(core:memo(function(use)
@@ -781,11 +821,11 @@ function tab_view.build(Facet: any, core: any, spec: Spec)
 		only — the strip inside it, which hands the name to
 		`selection_indicator.fillCornerFor` so the selected fill wears the
 		silhouette of the plate it floats in. A rail is a panel down the side of a
-		screen; a band is a capsule.
+		screen; a band follows the theme’s control shape.
 
 		THE RAIL DECLARES NO CONTAINER (controller ruling, review round 2). A fill
 		derives its shape from a container by insetting concentrically inside it,
-		and that is a true statement about a BAND: the chip and the capsule share a
+		and that is a true statement about a BAND: the chip and the bar share a
 		centre, so a fill inset from the capsule's radius is the shape you would
 		draw by hand. It is not true of a rail. A selected row sits in the MIDDLE of
 		a column, nowhere near the rail's outer corner, so `radii.panel - space.xs`
@@ -795,14 +835,14 @@ function tab_view.build(Facet: any, core: any, spec: Spec)
 		(non-adaptable) TabView's strip takes, because its top band has no plate at
 		all. ]]
 	local barCornerToken = scope:own(core:memo(function(use)
-		return if use(sidebar) then "panel" else "pill"
+		return if use(sidebar) then "panel" else "control"
 	end))
 	local barCorners = scope:own(core:memo(function(use)
 		return UI.cornersData(use(barCornerToken))
 	end))
-	-- ...and this is the one the STRIP is handed: the band's capsule, or nothing
+	-- ...and this is the one the STRIP is handed: the band's control shape, or nothing
 	local stripContainer = scope:own(core:memo(function(use)
-		return if use(sidebar) then nil else "pill"
+		return if use(sidebar) then nil else "control"
 	end))
 	local stripAxis = scope:own(core:memo(function(use)
 		return if collapsed or use(sidebar) then "y" else "x"
@@ -1258,7 +1298,6 @@ function tab_view.build(Facet: any, core: any, spec: Spec)
 					end))
 				end
 				local stripWidth, stripHeight = choose(railWidth, BAND_CAPPED), choose(FILL, NATURAL)
-				local toggleLabel = choose("Use top tabs", "Use sidebar")
 				local bar = chromeSlots.attachHint(
 					UI.AdaptiveStack({
 						id = "AdaptableBar",
@@ -1283,24 +1322,6 @@ function tab_view.build(Facet: any, core: any, spec: Spec)
 						padding = "xs",
 						gap = "m",
 						children = {
-							UI.When({
-								id = "SidebarChoice",
-								condition = branchScope:own(core:memo(function(use)
-									return not use(distantNavigation)
-								end)),
-								thenView = function()
-									return UI.Button({
-										id = "ToggleSidebar",
-										label = toggleLabel,
-										icon = "menu",
-										shape = "circle",
-										surface = "plain",
-										onActivate = function()
-											setSidebar(not sidebar:get())
-										end,
-									})
-								end,
-							}),
 							UI.ScrollView({
 								id = "StripScroll",
 								axis = stripAxis,

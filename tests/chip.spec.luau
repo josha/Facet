@@ -176,12 +176,12 @@ describe("Chip control", function()
 		-- reachability (single pre-focused chip) does not exercise.
 		local w = presenterWorld({ sibling = true })
 		expect(w.pres.focus.focused:get()).toBe(CHIP)
-		expect(w.adapter.node(CHIP).focused).toBe(true) -- the ring is on chip 1
+		expect(w.adapter.node(CHIP).focused == true).toBe(false) -- no navigation yet
 		w.system.deviceKey("Down", true)
 		w.system.deviceKey("Down", false)
 		expect(w.pres.focus.focused:get()).toBe(CHIP2) -- Navigate moved the ring
 		expect(w.adapter.node(CHIP2).focused).toBe(true)
-		expect(w.adapter.node(CHIP).focused).toBe(false)
+		expect(w.adapter.node(CHIP).focused == true).toBe(false)
 		w.system.deviceKey("Return", true)
 		w.system.deviceKey("Return", false)
 		expect(w.selected2:get()).toBe(true) -- Activate hit the focused chip only

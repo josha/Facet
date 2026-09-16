@@ -13,6 +13,52 @@ runtime as `Facet.VERSION`.
 
 ## [Unreleased]
 
+- Expand adaptive region disclosures over their compact source. Region and
+  CollapsibleView share an optional automatic dismissal affordance; the HUD
+  task disclosure uses outside taps for pointer/touch and reveals Collapse for
+  keyboard/gamepad navigation. The always-visible corner close remains available.
+
+- Repair Showcase interaction routes: focused context-menu chords and a true
+  right-click example, Match 3 neighbor dragging through public drag/drop,
+  a standalone HUD, Corner commands with Slim band defaults, and clearer
+  pending-save/rollback instructions in Settings sync.
+- Keep adaptive Picker row separators on the live axis so TV selections cannot
+  overlap the next setting. Theme adaptable TabView bands with control corners;
+  preserve per-corner focus shapes and square skin highlights.
+- Use one compositing buffer for expanded CollapsibleView content. Keyboard
+  arrows now share held-navigation repeat with D-pad and thumbstick input.
+
+- Hide the initial focus ring in mouse/touch sessions while retaining entry
+  focus. Controller sessions show it immediately; navigation restores it after
+  a pointer interaction.
+
+- Keep aspect-sized children at their measured size in stretching stacks, fixing
+  the oversized circular action that overlapped the Showcase sidebar. Move the
+  demo layout action into the existing Showcase toolbar as a labeled Button.
+
+- Add Picker `valueAlignment` (`start` or `end`) for labeled menu rows. Showcase
+  display settings use start alignment to keep values close to their labels;
+  trailing alignment remains the default for other forms.
+- Remove TabView's built-in sidebar toggle. Add the bindable `sidebarPreference`
+  API for nearby layouts; the Showcase supplies its demo toggle in its toolbar.
+
+- Add Showcase display previews for Automatic, Desktop, Phone, Tablet and TV,
+  with orientation and independent input selection. The reusable
+  `client.environment_preview` binding retains live platform facts for restoration
+  and updates mounted screens through the existing layout and focus system.
+
+- Use adaptable outer navigation in All controls, Collections, and Motion and
+  layout, with ordinary nested page tabs. Clarify that navigation role, rather
+  than the screen being a game or demo, determines the TabView style.
+- Reflow scrollable content when switching input changes scrollbar reservation,
+  including pages whose content and viewport have not changed.
+- Bound Alert's animated CanvasGroup to the card and its margin instead of the
+  full viewport, reducing desktop text rasterization blur while preserving motion.
+- Consolidate the Showcase picker from 46 entries to nine. All controls uses nested
+  tabs for inputs, actions, indicators and navigation; Collections and Motion and
+  layout combine focused comparisons. Playlist, settings and three games remain
+  standalone. Individual regression scenarios remain available by workspace attribute.
+
 - Compact menu submenus slide forward and back through the shared navigation motion. Switches paint their initial value immediately, slide without overshoot on changes, and keep label size steady when pressed.
 
 - PageView now advances at most one page per mouse/touch swipe, settles on release, and preserves direct dot jumps and child input priority.
