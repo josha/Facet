@@ -95,6 +95,31 @@ local function make(scenario, viewport, options)
 end
 
 t.describe("Consolidated showcase", function()
+	t.it("offers toasts in Indicators and retires them when leaving the page", function()
+		local w, built = make(catalog, { x = 0, y = 0, w = 1280, h = 800 })
+		activate(w, "Indicators")
+		activate(w, "Toasts")
+		activate(w, "Show toast")
+		t.expect(w.pres.toastCounts().visible).toBe(1)
+		activate(w, "Test input: 0")
+		local probe = button(w, "Test input: 1")
+		t.expect(w.pres.focus.focused:get()).toBe(probe)
+		local rect = w.adapter.node(probe).rect
+		w.adapter.tap(
+			probe,
+			{ source = "pointer", pointer = "mouse", x = rect.x + rect.w / 2, y = rect.y + rect.h / 2 }
+		)
+		w.settle(4)
+		t.expect(button(w, "Test input: 2")).toBe(probe)
+		t.expect(w.pres.toastCounts().visible).toBe(1)
+		activate(w, "Progress")
+		w.settle(8)
+		t.expect(w.pres.toastCounts().visible).toBe(0)
+		t.expect(w.pres.toastCounts().queued).toBe(0)
+		w.pres.dismiss(w.handle)
+		built.dispose()
+	end)
+
 	t.it("hides the toolbar action for compact, distant, and unrelated demos", function()
 		local w, built = make(catalog, { x = 0, y = 0, w = 1280, h = 800 }, {
 			toolbar = true,

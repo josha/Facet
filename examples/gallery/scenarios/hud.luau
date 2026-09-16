@@ -143,7 +143,6 @@ local COPY = {
 	ammo3 = "--",
 	weaponName = "Ranger rifle",
 	readout = "60 FPS · 42 ms",
-	health = "84",
 	healthLabel = "Health",
 	-- the round buttons' semantic names. A circle Button does NOT draw a
 	-- multi-character label — the icon is the face and the label is the
@@ -151,7 +150,7 @@ local COPY = {
 	action1 = "Shop",
 	action2 = "Squad",
 	action3 = "Menu",
-	round1 = "Menu",
+	round1 = "HUD actions",
 	round2 = "Report",
 	-- THE OVERFLOW SINK'S OWN NAME (D7.3). It is the third disc in the round
 	-- strip, and it is what "dropping stops meaning deleting" is made of.
@@ -629,6 +628,17 @@ return {
 			a declared rect — which is exactly what the latch was converging towards
 			and what the framework can now answer without converging at all. ]]
 		local appChromeFact = env:get("appChromeRects")
+		local coordinatedExclusions = scope:own(core:memo(function(use)
+			local out = table.clone(use(appChromeFact) or {})
+			if ctx.presenter and ctx.presenter.hudReservations then
+				for _, entry in use(ctx.presenter.hudReservations) do
+					if entry.edge == "top" then
+						table.insert(out, entry.rect)
+					end
+				end
+			end
+			return out
+		end))
 		--[[ ...AND THE FLOOR THE SIMULATED BAR MAY NEVER EAT THROUGH — WHICH THE
 			APP'S OWN CHROME IS A TERM OF (measured 2026-08-15).
 
@@ -1140,7 +1150,64 @@ return {
 		})
 
 		local health = scope:own(core:signal(0.84))
-		local healthBar = Facet.Controls.ProgressView(core, { id = "HealthBar", value = health })
+		local healthBar = Facet.Controls.ProgressView(core, {
+			id = "HealthBar",
+			value = health,
+			segments = 4,
+			trail = if ctx.presenter then { delay = 0.3, duration = 0.35 } else nil,
+			motionClock = if ctx.presenter then ctx.presenter.motionClock else nil,
+		})
+		local healthText = scope:own(core:memo(function(use)
+			return tostring(math.floor(use(health) * 100 + 0.5))
+		end))
+		local notices = {}
+		local function notify()
+			if not ctx.presenter then
+				return
+			end
+			table.insert(
+				notices,
+				ctx.presenter.presentToast(
+					UI.VStack({
+						id = "SupplyNotice",
+						surface = "raised",
+						padding = "m",
+						width = UI.fill(),
+						children = { UI.Text({ text = "Supplies delivered", textSize = "label" }) },
+					}),
+					{ key = "hud-supplies", duration = 4 }
+				)
+			)
+		end
+		scope:own(function()
+			for _, notice in notices do
+				notice.dismiss()
+			end
+		end)
+		local hudActions = scope:own(Facet.Controls.Menu(core, {
+			id = "HudActions",
+			trigger = roundButton("R1", COPY.round1, "menu", "compact"),
+			sizeClass = env:get("sizeClass"),
+			interactionClasses = env:get("interactionClasses"),
+			items = {
+				{
+					id = "damage",
+					label = "Take damage",
+					onSelect = function()
+						health:set(math.max(0, health:get() - 0.25))
+					end,
+				},
+				{
+					id = "heal",
+					label = "Restore health",
+					onSelect = function()
+						health:set(1)
+					end,
+				},
+				{ id = "notice", label = "Show notification", onSelect = notify },
+				{ id = "close", label = "Close", onSelect = function() end },
+			},
+		}))
 
 		-- ---- the weapon rail -------------------------------------------------
 		local function weaponChip(id: string, name: string, ammo: string): any
@@ -1230,7 +1297,7 @@ return {
 				gap = "s",
 				align = "center",
 				children = {
-					UI.Text({ id = "HealthNum", text = COPY.health, textSize = "numeral" }),
+					UI.Text({ id = "HealthNum", text = healthText, textSize = "numeral" }),
 					--[[ THE BAR NEEDS A BOX, and this pod HUGS.
 						`newProgressView`'s row is `fill` by construction — a bar spans
 						whatever it is given — so inside a hugging pod it measures as
@@ -2456,7 +2523,7 @@ return {
 				in WINDOW space, which is the space the framework states its own chrome
 				and its own solved rects in — so this fixture converts nothing and needs
 				to know nothing about where its composition landed. ]]
-			exclusions = appChromeFact,
+			exclusions = coordinatedExclusions,
 			children = {
 				-- THE PLATFORM'S OWN ROW. A `span = "above"` group, so it
 				-- is one full-width row above every lane in every arrangement — which
@@ -2560,7 +2627,7 @@ return {
 							gap = "tight",
 							wrap = true,
 							children = {
-								roundButton("R1", COPY.round1, "menu", "compact"),
+								hudActions.blueprint,
 								roundButton("R2", COPY.round2, "flag", "compact"),
 								-- THE SINK'S HOST. Rank 1, one form, never dropped, wrapped
 								-- rather than elided — the four things that make "a host always
@@ -2731,7 +2798,7 @@ return {
 						-- the bar ALONE is the compact form: the figure is what a player
 						-- reads in a glance and the bar is what they read in a fight, so
 						-- when the pod cannot have both the FIGURE is what survives
-						pill("HealthOnly", COPY.health, "numeral"),
+						pill("HealthOnly", healthText, "numeral"),
 					},
 				}),
 				-- LOWER LEFT — the kill feed, droppable: the first thing a real HUD
@@ -3147,6 +3214,14 @@ return {
 				return out
 			end,
 			steps = {
+				showNotification = function()
+					notify()
+					return { shown = true }
+				end,
+				heal = function()
+					health:set(1)
+					return healthBar.dump()
+				end,
 				openUrlBar = function()
 					urlBar:set(true)
 					-- the EFFECTIVE loss, not the constant: on a screen shorter than
@@ -3271,6 +3346,8 @@ return {
 					-- bar are reading their signals rather than sitting at a constant
 					roundLeft = timerRing.dump().fraction,
 					health = healthBar.dump().fraction,
+					healthMeter = healthBar.dump(),
+					reservations = if ctx.presenter then ctx.presenter.hudReservations:get() else {},
 					--[[ AND THE PAINT PROBE'S OWN ANSWER (NM-H4a), so a scripted device
 						sweep reads the same disagreement the plate is showing rather than
 						re-deriving it. `held` is the latch; `latches` counts how many times

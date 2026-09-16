@@ -831,6 +831,8 @@ local Facet = {
 		of hand-computing the point, the way RascalRally's `HandDock` staging
 		spot used to. ]]
 	layout = {
+		worldMarkers = require("@self/layout/world_markers").solve,
+		hudInsets = require("@self/layout/hud_insets").solve,
 		transformFootprint = require("@self/layout/transform_footprint").transformFootprint,
 		anchorPlacement = require("@self/layout/anchor_placement").solve,
 	},

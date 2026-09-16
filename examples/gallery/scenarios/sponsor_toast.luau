@@ -17,7 +17,7 @@
 -- VirtualInput run compare against the same block.
 
 return {
-	title = "Toast lab (SF-T1/T2/T3/M6)",
+	title = "Toasts",
 	ledgerRows = { "SF-T1", "SF-T2", "SF-T3", "SF-M6", "SF-F1", "SF-C1", "SF-C2", "SF-C3" },
 	build = function(ctx: any)
 		local Facet = ctx.Facet
@@ -51,8 +51,8 @@ return {
 		end))
 
 		local beneathPresses = scope:own(core:signal(0))
-		local statusLine = scope:own(core:memo(function(use)
-			return `presses beneath: {use(beneathPresses)}`
+		local inputLabel = scope:own(core:memo(function(use)
+			return `Test input: {use(beneathPresses)}`
 		end))
 
 		-- the schedule trace: every change in what the layer is showing/queuing,
@@ -217,7 +217,7 @@ return {
 					children = {
 						UI.Button({
 							id = "Beneath",
-							label = "Press me",
+							label = inputLabel,
 							alignH = "center",
 							alignV = "center",
 							height = { type = "minMax", min = "targetSizes.minimum" },
@@ -246,8 +246,14 @@ return {
 					width = UI.fill(),
 					height = UI.fill(),
 					children = {
-						UI.Text({ id = "Title", text = "Toast lab", textSize = "heading" }),
-						UI.Text({ id = "Status", text = statusLine, textSize = "caption", role = "secondary" }),
+						UI.Text({ id = "Title", text = "Toasts", textSize = "heading" }),
+						UI.Text({
+							id = "Status",
+							text = "Show a toast, then try Test input. Its count increases while the toast stays visible; notifications leave your controls usable.",
+							textSize = "body",
+							role = "secondary",
+							width = UI.fill(),
+						}),
 						UI.Grid({
 							id = "Controls",
 							-- A PACKING FLOOR, NOT A FONT GUESS, and it was measured on 2026-08-21 before
@@ -261,7 +267,7 @@ return {
 							rowGap = "s",
 							width = UI.fill(),
 							children = {
-								control("BtnOne", "One", function()
+								control("BtnOne", "Show toast", function()
 									show("Notice", "A single transient message")
 								end),
 								control("BtnBurst", "Burst", function()
@@ -501,6 +507,9 @@ return {
 			}
 		end
 		result.dispose = function()
+			for _, entry in handles do
+				entry.handle.dismiss()
+			end
 			scope:dispose()
 		end
 		return result

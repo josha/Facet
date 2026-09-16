@@ -1130,6 +1130,7 @@ local UNSWEEPABLE: { [string]: string } = {
 		.. "at every preference and in both reference themes — rather than three times",
 	Screen = "the sweep's own root: every fixture is mounted inside a UI.Screen, so the row is exercised by all of them",
 	ButtonShortcut = "stateless shortcut parsing and matching — no blueprint; Button and Alert own the measured labels",
+	ProgressTrail = "internal motion value, no blueprint or text; ProgressView owns the measured meter",
 	ValueModel = "stateless value arithmetic — no blueprint, nothing to mount or measure",
 	-- the two halves of src/controls/row_actions.luau that were lifted out on
 	-- 2026-08-14 so that file could get back under the 200,000-char

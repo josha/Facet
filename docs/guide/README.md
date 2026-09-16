@@ -174,14 +174,14 @@ replacement and their earliest removal version.
 | `Controls.PopupButton` | **Deprecated** (0.11.0): the popup half of `Controls.Picker`'s menu styles; still builds on the same engine. | [api](../reference/api.md#newpopupbutton) |
 | `Controls.Menu` | Anchored actions, checks, radio groups and nested submenus. | [api](../reference/api.md#newmenu) |
 | `Controls.TextInput` | Native plain, search, numeric and multiline editing with commit and cancel. | [api](../reference/api.md#newtextinput) |
-| `Controls.ProgressView` | A determinate or indeterminate bar or ring. | [api](../reference/api.md#newprogressview) |
+| `Controls.ProgressView` | A determinate or indeterminate bar or ring, segmented HUD meters, damage trails, and sized gauges with adaptive readouts. | [api](../reference/api.md#newprogressview) |
 | `Controls.DisclosureGroup` | A header that expands and collapses its content. | [api](../reference/api.md#newdisclosuregroup) |
 | `Controls.LevelPicker` | A discrete numeric level strip with bar, glyph or image segments. | [api](../reference/api.md#newlevelpicker) |
 | `Controls.AsyncImage` | An image with placeholder, failure, and retry states. | [api](../reference/api.md#newasyncimage) |
 | `Controls.Callout` | A short attention surface, queued so two never collide. | [api](../reference/api.md#newcallout) |
 | `Controls.NavigationStack` | A caller-owned route path with page cleanup, Back and focus restoration. | [api](../reference/api.md#controlsnavigationstack) |
 | `Controls.TabView` | Adaptive tabs, opt-in sidebar/capsule navigation, bounded focus bookmarks and evicted content. | [api](../reference/api.md#newtabview) |
-| `client.world_anchor` | Measure a Part, Model, or avatar for a following screen anchor and radial opening with relative padding. | [api](../reference/api.md#clientworld_anchor) |
+| `client.world_anchor` | Measure a Part, Model, or avatar for a radial opening or retained offscreen marker direction, with optional center occlusion. | [api](../reference/api.md#clientworld_anchor) |
 | `Controls.RadialMenu` | Corner, circle and donut command menus with captured gestures, compact labels and mixed nested rings/pages. | [api](../reference/api.md#controlsradialmenu) |
 | `Controls.Alert` | Brief modal decisions with content-sized cards, role-placed row/stack actions, safe focus and cancellation. | [api](../reference/api.md#controlsalert) |
 | `Controls.Sheet` | Modal detents with header dragging, controller sizing and distant-screen placement. | [api](../reference/api.md#controlssheet) |
@@ -215,7 +215,7 @@ replacement and their earliest removal version.
 
 | Capability | What it does | Reference |
 |---|---|---|
-| `newPresenter` | Owns which screens and modals are on screen, and their motion. | [api](../reference/api.md#newpresenter) |
+| `newPresenter` | Owns screens, modals, toasts and their motion; its reserveHud/hudReservations share measured space between independent HUD surfaces. | [api](../reference/api.md#newpresenter) |
 | `navBar` | The back+title+trailing chrome bar a presented surface draws at its own top. | [api](../reference/api.md#navbar) |
 | `newFocusGraph` | Derives keyboard and gamepad navigation from the solved layout. | [api](../reference/api.md#newfocusgraph) |
 | `newActionSystem` | The semantic input pipeline over Roblox's Input Action System. | [api](../reference/api.md#newactionsystem) |
@@ -225,6 +225,8 @@ replacement and their earliest removal version.
 | `newEnvironment` | Viewport, safe area, input class, text size, and an independent viewing-distance preference. | [api](../reference/api.md#newenvironment) |
 | `adaptive` | Size class, height class, orientation, columns, and card counts. | [api](../reference/api.md#adaptive) |
 | `composition` | The pure arrangement decision behind `UI.Composition`. | [api](../reference/api.md#composition-1) |
+| `layout.hudInsets` | Turn edge reservations into bounded insets. | [api](../reference/api.md#hud-insets-and-world-markers) |
+| `layout.worldMarkers` | Place prioritized world labels with edge arrows, collision avoidance, and explicit hidden reasons. | [api](../reference/api.md#hud-insets-and-world-markers) |
 | `layout` | Pure layout geometry not owned by a control — `transformFootprint(w, h, scale, deg)`, the reserved-box math for a scaled/rotated node; `anchorPlacement(request)`, the edge/flip/shift/tail placement solver shared by every surface that points at something. | [api](../reference/api.md#shared-properties) |
 | `text` | Measures strings, fits them, and reports line boxes. | [api](../reference/api.md#text-1) |
 | `spatial` | The contract for spatial pointer data. A seam, with no adapter today. | [api](../reference/api.md#spatial) |

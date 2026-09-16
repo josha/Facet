@@ -84,13 +84,7 @@
 -- which is exactly the idiom the refusal already names and costs nothing to
 -- anyone else.
 --
--- `showValue` IS REFUSED ON `circular` rather than rendered beside the ring.
--- The centred-readout ring belongs to a sizeable gauge, not
--- `ProgressView`, and it is a complication-sized dial; this indicator is SMALL by
--- construction (a theme metric off the `space` scale, with no per-call diameter
--- to grow it), so a centred readout has no size it is guaranteed to fit inside
--- and the bar's beside-the-track placement would silently be a different design
--- from the one the name implies. Refused with both alternatives named.
+-- Circular readouts require an explicit diameter; small activity rings stay compact.
 --
 -- `height` IS THE BAR'S TRACK, AND ONLY THE BAR'S. A spinner has no track, and
 -- reinterpreting the number as the dot's size was the silent-reinterpretation
@@ -166,6 +160,10 @@ local chrome_slots = require("../tokens/chrome_slots")
 local path_shapes = require("./path_shapes")
 local value_model = require("./value_model")
 local specGuard = require("../spec_guard")
+local surface_env = require("../env/surface_env")
+local theme_snapshot = require("../themes/snapshot")
+local text_fit = require("../layout/text_fit")
+local progress_trail = require("./progress_trail")
 
 local progress_view = {}
 
@@ -229,6 +227,9 @@ local function dotFraction(index: number, phase: number): number
 end
 
 export type Spec = {
+	segments: number?,
+	trail: { delay: number?, duration: number? }?,
+	diameter: (number | string)?,
 	id: string?,
 	-- nil (the whole key absent) = INDETERMINATE; a number or Readable<number> =
 	-- determinate. Construction-fixed: the two modes are
@@ -254,6 +255,9 @@ export type Spec = {
 -- CLOSED SPEC (constitution §4). Exactly the fields this control
 -- reads — an unknown one is an authoring mistake, never a silent no-op.
 local PROGRESS_VIEW_KEYS = specGuard.keySet({
+	"segments",
+	"trail",
+	"diameter",
 	"format",
 	"height",
 	"id",
@@ -347,6 +351,44 @@ function progress_view.build(Facet: any, core: any, spec: Spec)
 		)
 	end
 	local indeterminate = spec.value == nil
+	local function nonnegative(v: any): boolean
+		return type(v) == "number" and v == v and v >= 0 and v < math.huge
+	end
+	if spec.segments ~= nil then
+		assert(not indeterminate and presentation == "bar", "ProgressView.segments requires a determinate bar")
+		assert(
+			nonnegative(spec.segments) and spec.segments >= 1 and spec.segments <= 100 and spec.segments % 1 == 0,
+			"ProgressView.segments must be an integer from 1 to 100"
+		)
+	end
+	if spec.diameter ~= nil then
+		assert(presentation == "circular", "ProgressView.diameter requires circular presentation")
+		assert(
+			(nonnegative(spec.diameter) and (spec.diameter :: any) > 0)
+				or (type(spec.diameter) == "string" and #spec.diameter > 0),
+			"ProgressView.diameter must be a positive number or theme metric"
+		)
+	end
+	if spec.trail ~= nil then
+		assert(not indeterminate and presentation == "bar", "ProgressView.trail requires a determinate bar")
+		specGuard.assertKnownKeys("ProgressView.trail", spec.trail, specGuard.keySet({ "delay", "duration" }), "spec")
+		assert(type(spec.trail) == "table", "ProgressView.trail must be a table")
+		assert(
+			spec.trail.delay == nil or nonnegative(spec.trail.delay),
+			"ProgressView.trail.delay must be nonnegative seconds"
+		)
+		assert(
+			spec.trail.duration == nil or (nonnegative(spec.trail.duration) and spec.trail.duration > 0),
+			"ProgressView.trail.duration must be positive seconds"
+		)
+		assert(
+			type(spec.motionClock) == "table"
+				and type(spec.motionClock.glide) == "function"
+				and type(spec.motionClock.timer) == "function"
+				and type(spec.motionClock.isReduced) == "function",
+			"ProgressView.trail requires motionClock"
+		)
+	end
 	-- ===== EVERY REFUSAL BELOW IS GENERATED FROM THE ROW, NOT WRITTEN PER SHAPE =
 	if not (if indeterminate then caps.indeterminate else caps.determinate) then
 		local mode = if indeterminate then "indeterminate" else "determinate"
@@ -368,7 +410,7 @@ function progress_view.build(Facet: any, core: any, spec: Spec)
 			0
 		)
 	end
-	if not indeterminate and spec.showValue ~= nil and not caps.valueLabel then
+	if not indeterminate and spec.showValue ~= nil and not caps.valueLabel and spec.diameter == nil then
 		error(
 			`Facet newProgressView: \`showValue\` has nowhere to go on a "{presentation}" — `
 				.. `{tostring(caps.valueLabelAlt)}.`,
@@ -489,6 +531,23 @@ function progress_view.build(Facet: any, core: any, spec: Spec)
 
 	local children: { any } = {}
 	local api = {}
+	local fraction = if indeterminate or (spec.segments == nil and spec.trail == nil)
+		then nil
+		else scope:own(core:memo(function(use)
+			return model.fraction(read(use))
+		end))
+	local env = if spec.trail or (spec.showValue and spec.diameter) then surface_env.find(core) else nil
+	local trailValue = if spec.trail
+		then progress_trail.new(
+			core,
+			scope,
+			fraction,
+			spec.motionClock,
+			spec.trail,
+			if env then env:get("motionPolicy") else nil
+		)
+		else nil
+	local circularSize = spec.diameter or CIRCULAR_SIZE
 
 	if spec.label ~= nil then
 		-- THE LABEL IS THE ROW'S FLEXIBLE HALF, AND THE INDICATOR IS NOT (O-23,
@@ -604,8 +663,8 @@ function progress_view.build(Facet: any, core: any, spec: Spec)
 					closed = true,
 					thickness = CIRCULAR_THICKNESS,
 					role = "secondary",
-					width = { type = "fixed", px = CIRCULAR_SIZE },
-					height = { type = "fixed", px = CIRCULAR_SIZE },
+					width = { type = "fixed", px = circularSize },
+					height = { type = "fixed", px = circularSize },
 				})
 			)
 		end
@@ -627,8 +686,8 @@ function progress_view.build(Facet: any, core: any, spec: Spec)
 				points = arcPoints,
 				thickness = CIRCULAR_THICKNESS,
 				role = "accent",
-				width = { type = "fixed", px = CIRCULAR_SIZE },
-				height = { type = "fixed", px = CIRCULAR_SIZE },
+				width = { type = "fixed", px = circularSize },
+				height = { type = "fixed", px = circularSize },
 			})
 		)
 		-- NO DECORATION SLOT AND NO NEW PROP (§3.1). The arc's paint identity is
@@ -639,15 +698,139 @@ function progress_view.build(Facet: any, core: any, spec: Spec)
 		-- ...AND NO `canvasGroup`: see the header. A Path2D cannot fade, and the
 		-- container that could fade it is the caller's to declare, not a cost this
 		-- control imposes on everyone who mounts a ring.
-		return UI.ZStack({
-			id = "Ring",
-			width = { type = "fixed", px = CIRCULAR_SIZE },
-			height = { type = "fixed", px = CIRCULAR_SIZE },
-			children = ringChildren,
+		local function ring(id, nodes)
+			return UI.ZStack({
+				id = id,
+				width = { type = "fixed", px = circularSize },
+				height = { type = "fixed", px = circularSize },
+				children = nodes,
+			})
+		end
+		if not spec.showValue then
+			return ring("Ring", ringChildren)
+		end
+		local readout = scope:own(core:memo(function(use)
+			return model.format(read(use))
+		end))
+		local centered = scope:own(core:memo(function(use)
+			local facts = if env
+				then text_fit.facts({ env = env, use = use })
+				else text_fit.facts({ metrics = theme_snapshot.neutral() })
+			local diameter = theme_snapshot.resolveNumber(facts.metrics, circularSize)
+			assert(diameter and diameter > 0, "ProgressView.diameter must resolve to positive pixels")
+			local role = facts.metrics.type.label
+			local size = role.size * facts.scale
+			return text_fit.fit({
+				text = use(readout),
+				font = role.fontKey or theme_snapshot.fontKey(role.font),
+				cap = size,
+				floor = size,
+				offset = facts.offset,
+				width = diameter * 0.6,
+				height = diameter * 0.6,
+				lines = 1,
+				lineHeight = role.lineHeight,
+			}).fits
+		end))
+		table.insert(
+			ringChildren,
+			UI.When({
+				id = "Readout",
+				condition = centered,
+				thenView = function()
+					return UI.Text({
+						id = "Value",
+						text = readout,
+						textSize = "label",
+						lineLimit = 1,
+						textAlign = "center",
+						alignH = "center",
+						alignV = "center",
+						width = { type = "percent", fraction = 0.6 },
+					})
+				end,
+			})
+		)
+		local below = scope:own(core:memo(function(use)
+			return not use(centered)
+		end))
+		return UI.VStack({
+			id = "Gauge",
+			width = UI.fill(),
+			gap = "xs",
+			align = "center",
+			children = {
+				ring("Ring", ringChildren),
+				UI.When({
+					id = "Below",
+					condition = below,
+					thenView = function()
+						return UI.Text({
+							id = "Value",
+							text = readout,
+							textSize = "label",
+							width = UI.fill(),
+							textAlign = "center",
+							alignH = "center",
+						})
+					end,
+				}),
+			},
 		})
 	end
 
 	local function buildBar(): any
+		if not indeterminate and (spec.segments ~= nil or trailValue ~= nil) then
+			local cells = {}
+			local count = spec.segments or 1
+			for index = 1, count do
+				local function fill(id: string, source: any, trailing: boolean): any
+					return chrome_slots.attachHint(
+						UI.Box({
+							id = id,
+							alignH = "start",
+							height = UI.fill(),
+							width = scope:own(core:memo(function(use)
+								return { type = "percent", fraction = math.clamp(use(source) * count - index + 1, 0, 1) }
+							end)),
+							tint = if trailing then { role = "contentSecondary", blend = 1 } else nil,
+						}),
+						{ slot = "barFill" }
+					)
+				end
+				local layers = {}
+				if trailValue then
+					table.insert(layers, fill("Trail", trailValue, true))
+				end
+				table.insert(layers, fill("Fill", fraction, false))
+				table.insert(
+					cells,
+					UI.ZStack({
+						id = `Segment{index}`,
+						width = UI.fill(),
+						height = UI.fill(),
+						children = layers,
+					})
+				)
+			end
+			return chrome_slots.attachHint(
+				UI.ZStack({
+					id = "Bar",
+					width = UI.fill(),
+					height = { type = "fixed", px = spec.height or TRACK_HEIGHT },
+					children = {
+						UI.HStack({
+							id = "Segments",
+							width = UI.fill(),
+							height = UI.fill(),
+							gap = if count > 1 then "xs" else 0,
+							children = cells,
+						}),
+					},
+				}),
+				{ slot = "barTrack" }
+			)
+		end
 		-- ===== THE BAR =========================================================
 		local barChildren: { any }
 		if indeterminate then
@@ -726,7 +909,7 @@ function progress_view.build(Facet: any, core: any, spec: Spec)
 		semantic = scope:own(core:memo(function(use)
 			return model.semanticText(read(use))
 		end))
-		if spec.showValue == true then
+		if spec.showValue == true and presentation == "bar" then
 			table.insert(children, UI.Text({ id = "Value", text = readout, textSize = "label" }))
 		end
 	else
@@ -745,7 +928,8 @@ function progress_view.build(Facet: any, core: any, spec: Spec)
 	-- bar sat half a logical pixel high, which is a full pixel on a 2x display and
 	-- the director saw it twice. Flooring an even row instead removes the parity
 	-- mismatch by construction rather than moving the error to the other side.
-	api.blueprint = UI.HStack({
+	local layout = if presentation == "circular" and spec.diameter ~= nil then UI.VStack else UI.HStack
+	api.blueprint = layout({
 		id = id,
 		gap = "s",
 		align = "center",
@@ -783,6 +967,9 @@ function progress_view.build(Facet: any, core: any, spec: Spec)
 			presentation = presentation,
 			value = v,
 			fraction = model.fraction(v),
+			trailFraction = if trailValue then trailValue:get() else nil,
+			segments = spec.segments,
+			diameter = spec.diameter,
 			formatted = model.format(v),
 			semanticText = model.semanticText(v),
 			min = model.min,

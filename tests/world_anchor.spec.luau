@@ -42,6 +42,38 @@ local function fixture()
 		end
 end
 t.describe("world anchor", function()
+	t.it("retains offscreen directions for markers and can suppress occluded targets", function()
+		local host, scene, part, tick = fixture()
+		local hit = nil
+		scene.CurrentCamera.CFrame = rbx.CFrame.new()
+		function scene:Raycast(_origin, _direction)
+			return hit
+		end
+		part.CFrame = rbx.CFrame.new(100, 0, -10)
+		local binding = worldAnchor.new(
+			host,
+			{ target = part, offscreen = "retain", occlusion = true },
+			{ workspace = scene }
+		)
+		t.expect(binding.anchor:get().visible).toBe(true)
+		t.expect(binding.anchor:get().onscreen).toBe(false)
+		t.expect(binding.anchor:get().x > 800).toBe(true)
+		part.CFrame = rbx.CFrame.new(100, 0, 10)
+		tick()
+		t.expect(binding.anchor:get().x > 400).toBe(true)
+		hit = { Instance = {
+			IsDescendantOf = function()
+				return false
+			end,
+		} }
+		tick()
+		t.expect(binding.anchor:get().visible).toBe(false)
+		t.expect(binding.anchor:get().occluded).toBe(true)
+		hit = { Instance = part }
+		tick()
+		t.expect(binding.anchor:get().visible).toBe(true)
+		binding.dispose()
+	end)
 	t.it("encloses projected corners with padding and updates on the host frame", function()
 		local host, scene, part, tick = fixture()
 		local binding = worldAnchor.new(host, { target = part, padding = 0.15 }, { workspace = scene })

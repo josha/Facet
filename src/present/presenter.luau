@@ -21,6 +21,7 @@ local focus_graph = require("../focus/focus_graph")
 local transitionsLib = require("../render/transitions")
 local toast_schedule = require("./toast_schedule")
 local toastLayerLib = require("./toast_layer")
+local hudReservationsLib = require("./hud_reservations")
 local feedbackLib = require("./feedback")
 local motionClockLib = require("../motion/clock")
 -- the motion-class registry, read by `withAnimation` so an unknown name and an
@@ -3809,7 +3810,11 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 	-- BUILT HERE rather than at the top, because this is the first line at which
 	-- every collaborator it reads is a FINAL value. REBOUND TO THEIR ORIGINAL
 	-- NAMES, so not one call site moved.
+	local hudReservations = hudReservationsLib.new(core)
+	self.reserveHud = hudReservations.reserve
+	self.hudReservations = hudReservations.reservations
 	local toasts = toastLayerLib.new({
+		reserveHud = hudReservations.reserve,
 		core = core,
 		env = env,
 		adapter = adapter,

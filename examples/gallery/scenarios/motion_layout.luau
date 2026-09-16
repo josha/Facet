@@ -19,6 +19,7 @@ local groups = {
 			{ id = "wrap", label = "Wrapping", scenario = require("./flow_wrap") },
 			{ id = "labels", label = "Labels", scenario = require("./text_degrade") },
 			{ id = "inheritance", label = "Inheritance", scenario = require("./inherited_subtree") },
+			{ id = "markers", label = "World markers", scenario = require("./world_markers") },
 		},
 	},
 }

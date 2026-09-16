@@ -2,7 +2,7 @@
 -- Screen-overlay projection only; no Instances, input, or frame driver created.
 local guard = require("../spec_guard")
 local worldAnchor = {}
-local KEYS = guard.keySet({ "target", "padding", "camera" })
+local KEYS = guard.keySet({ "target", "padding", "camera", "offscreen", "occlusion" })
 local function read(value: any): any
 	return if type(value) == "table" and type(value.get) == "function" then value:get() else value
 end
@@ -15,6 +15,11 @@ function worldAnchor.new(host: any, opts: any, services: any?): any
 	guard.assertKnownKeys("world_anchor.new", opts, KEYS, "opts")
 	assert(type(opts) == "table" and opts.target ~= nil, "world_anchor.new: target is required")
 	local padding = if opts.padding == nil then 0.15 else opts.padding
+	assert(
+		opts.offscreen == nil or opts.offscreen == "hide" or opts.offscreen == "retain",
+		"world_anchor.new: offscreen must be hide or retain"
+	)
+	assert(opts.occlusion == nil or type(opts.occlusion) == "boolean", "world_anchor.new: occlusion must be boolean")
 	assert(
 		finite(padding) and padding >= 0 and padding <= 1,
 		"world_anchor.new: padding must be a fraction from 0 to 1"
@@ -43,6 +48,32 @@ function worldAnchor.new(host: any, opts: any, services: any?): any
 			cf, size = target:GetBoundingBox()
 		else
 			cf, size = target.CFrame, target.Size
+		end
+		if opts.occlusion then
+			local origin = camera.CFrame.Position
+			local hit = scene:Raycast(origin, cf.Position - origin)
+			if hit and hit.Instance ~= target and not hit.Instance:IsDescendantOf(target) then
+				return { visible = false, occluded = true }
+			end
+		end
+		if opts.offscreen == "retain" then
+			local point, view = camera:WorldToViewportPoint(cf.Position), camera.ViewportSize
+			if not finite(point.X) or not finite(point.Y) or not finite(point.Z) then
+				return { visible = false }
+			end
+			local x, y = point.X, point.Y
+			local onscreen = point.Z > math.abs(camera.NearPlaneZ) and x >= 0 and y >= 0 and x <= view.X and y <= view.Y
+			if point.Z <= 0 then
+				-- Perspective projection reverses directions behind the camera.
+				local dx, dy = view.X / 2 - x, view.Y / 2 - y
+				local length = math.sqrt(dx * dx + dy * dy)
+				if length < 0.001 then
+					dx, dy, length = 0, 1, 1
+				end
+				local reach = math.max(view.X, view.Y) * 2
+				x, y = view.X / 2 + dx / length * reach, view.Y / 2 + dy / length * reach
+			end
+			return { x = x, y = y, visible = true, onscreen = onscreen, clearance = 0 }
 		end
 		local points = {}
 		local minX, minY, maxX, maxY = math.huge, math.huge, -math.huge, -math.huge
@@ -93,6 +124,8 @@ function worldAnchor.new(host: any, opts: any, services: any?): any
 			or old.x ~= nextValue.x
 			or old.y ~= nextValue.y
 			or old.clearance ~= nextValue.clearance
+			or old.onscreen ~= nextValue.onscreen
+			or old.occluded ~= nextValue.occluded
 		then
 			anchor:set(nextValue)
 		end
