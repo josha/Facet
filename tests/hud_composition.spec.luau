@@ -752,6 +752,25 @@ describe("nothing the HUD paints lands on the platform's own controls", function
 		}
 	end
 
+	it("landscape URL-bar task disclosure overlaps its compact form and omits pointer close chrome", function()
+		local w = drive(PROFILES[3])
+		w.built.steps.openUrlBar()
+		w.refresh()
+		local source = w.adapter.node("/HudScreen/Hud/Tasks").rect
+		w.adapter.tap("/HudScreen/Hud/Tasks/Expand")
+		w.refresh()
+		local panel = w.adapter.node("/Expand:Tasks/Layer/Surface/ExpandPanel/ExpandPlate")
+		expect(panel).never().toBeNil()
+		expect(panel.rect.y <= source.y + 1).toBe(true)
+		expect(panel.rect.y + panel.rect.h > source.y).toBe(true)
+		for _, path in w.adapter.paths() do
+			if path:sub(-12) == "/ExpandClose" then
+				error("pointer disclosure should dismiss outside, without an explicit close")
+			end
+		end
+		w.dispose()
+	end)
+
 	--[[ WHAT COUNTS AS "PAINTS". A container may legitimately SPAN the platform's
 		band — the topbar row is full-width by definition, and so is the surface it
 		is in; what must never happen is something DRAWN there. So a node is checked

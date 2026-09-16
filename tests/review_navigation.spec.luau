@@ -61,7 +61,7 @@ t.describe("review navigation", function()
 		t.expect(string.find(w.pres.focus.focused:get(), "Brightness", 1, true) ~= nil).toBe(true)
 		w.pres.dismiss(w.handle)
 	end)
-	t.it("enters Card rail after opening the real demo menu's UI laboratory", function()
+	t.it("reaches Collections directly in the simplified demo menu", function()
 		local w = world.new({ preferredInput = "Gamepad", viewport = { x = 0, y = 0, w = 960, h = 540 } })
 		local picker = require("../examples/gallery/client/demo_picker").mount({
 			Facet = Facet,
@@ -86,18 +86,19 @@ t.describe("review navigation", function()
 				}),
 			},
 		}))
-		local header
-		for _, p in w.adapter.paths() do
-			if p:match("/Laboratory/Header$") then
-				header = p
+		local allControls, collections
+		for _, path in w.adapter.paths() do
+			if path:match("/all%-controls$") then
+				allControls = path
+			end
+			if path:match("/collections$") then
+				collections = path
 			end
 		end
-		t.expect(header ~= nil).toBe(true)
-		w.pres.focus.focusOn(header)
-		w.press("ButtonA")
-		w.settle(40)
+		assert(allControls and collections)
+		w.pres.focus.focusOn(allControls)
 		w.press("DPadDown")
-		t.expect(w.pres.focus.focused:get():find("/card-rail", 1, true) ~= nil).toBe(true)
+		t.expect(w.pres.focus.focused:get()).toBe(collections)
 		w.pres.dismiss(w.handle)
 		picker.dispose()
 	end)

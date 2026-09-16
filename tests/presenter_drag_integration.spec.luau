@@ -504,93 +504,102 @@ describe("mid-flight teardown and retiring surfaces (ARCH-F1 / ARCH-F2)", functi
 		end
 	end)
 
-	it("a RETIRING drop target leaves resolution and returns on re-entry (ARCH-F2)", function()
-		local core = Facet.newCore()
-		local env = Facet.newEnvironment(core)
-		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
-		local adapter = fake_target.new()
-		local pres = Facet.newPresenter(core, env, adapter, Facet.newActionSystem(core))
-		local slotOn = core:signal(true)
-		local dropped = 0
-		local screen = UI.Screen({
-			id = "S",
-			children = {
-				UI.Anchor({
-					id = "Board",
-					width = { type = "fill", weight = 1 },
-					height = { type = "fill", weight = 1 },
+	for _, warm in { false, true } do
+		it(
+			if warm
+				then "a RETIRING drop target leaves resolution and returns on re-entry (ARCH-F2)"
+				else "a first drag query excludes an already RETIRING target and accepts its re-entry",
+			function()
+				local core = Facet.newCore()
+				local env = Facet.newEnvironment(core)
+				env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
+				local adapter = fake_target.new()
+				local pres = Facet.newPresenter(core, env, adapter, Facet.newActionSystem(core))
+				local slotOn = core:signal(true)
+				local dropped = 0
+				local screen = UI.Screen({
+					id = "S",
 					children = {
-						UI.draggable(
-							UI.Button({
-								id = "Card",
-								label = "Card",
-								anchor = "topLeft",
-								offsetX = 0,
-								offsetY = 0,
-								width = { type = "fixed", px = 100 },
-								height = { type = "fixed", px = 60 },
-								onActivate = function() end,
-							}),
-							{ payload = "card" }
-						),
-						UI.When({
-							id = "SlotRegion",
-							condition = slotOn,
-							transition = { enter = "fade", exit = "fade" },
-							thenView = function()
-								return UI.dropTarget(
-									UI.ZStack({
-										id = "Slot",
-										canvasGroup = true,
+						UI.Anchor({
+							id = "Board",
+							width = { type = "fill", weight = 1 },
+							height = { type = "fill", weight = 1 },
+							children = {
+								UI.draggable(
+									UI.Button({
+										id = "Card",
+										label = "Card",
 										anchor = "topLeft",
 										offsetX = 0,
-										offsetY = 300,
-										width = { type = "fixed", px = 200 },
-										height = { type = "fixed", px = 100 },
-										children = {
-											UI.Box({
-												id = "Plate",
-												surface = "control",
-												width = { type = "fill", weight = 1 },
-												height = { type = "fill", weight = 1 },
-											}),
-										},
+										offsetY = 0,
+										width = { type = "fixed", px = 100 },
+										height = { type = "fixed", px = 60 },
+										onActivate = function() end,
 									}),
-									{
-										onDrop = function()
-											dropped += 1
-										end,
-									}
-								)
-							end,
+									{ payload = "card" }
+								),
+								UI.When({
+									id = "SlotRegion",
+									condition = slotOn,
+									transition = { enter = "fade", exit = "fade" },
+									thenView = function()
+										return UI.dropTarget(
+											UI.ZStack({
+												id = "Slot",
+												canvasGroup = true,
+												anchor = "topLeft",
+												offsetX = 0,
+												offsetY = 300,
+												width = { type = "fixed", px = 200 },
+												height = { type = "fixed", px = 100 },
+												children = {
+													UI.Box({
+														id = "Plate",
+														surface = "control",
+														width = { type = "fill", weight = 1 },
+														height = { type = "fill", weight = 1 },
+													}),
+												},
+											}),
+											{
+												onDrop = function()
+													dropped += 1
+												end,
+											}
+										)
+									end,
+								}),
+							},
 						}),
 					},
-				}),
-			},
-		})
-		local handle = pres.present(screen)
-		pres.refresh()
-		local registry = handle.controller.dragRegistry()
-		local slotPath = "/S/Board/SlotRegion/then/Slot"
-		expect(registry.arm("/S/Board/Card")).toBe(true)
-		expect(registry.armTo(slotPath)).toBe(true)
-		registry.cancel("setup")
-		-- retire the slot: it keeps painting its exit but is NOT a drop surface
-		slotOn:set(false)
-		pres.refresh()
-		expect(registry.arm("/S/Board/Card")).toBe(true)
-		expect(registry.armTo(slotPath)).toBe(false)
-		registry.commit()
-		expect(dropped).toBe(0)
-		registry.cancel("cleanup")
-		-- re-entry mid-exit: eligible again the same frame, no rewiring
-		slotOn:set(true)
-		pres.refresh()
-		expect(registry.arm("/S/Board/Card")).toBe(true)
-		expect(registry.armTo(slotPath)).toBe(true)
-		registry.commit()
-		expect(dropped).toBe(1)
-	end)
+				})
+				local handle = pres.present(screen)
+				pres.refresh()
+				local registry = handle.controller.dragRegistry()
+				local slotPath = "/S/Board/SlotRegion/then/Slot"
+				if warm then
+					expect(registry.arm("/S/Board/Card")).toBe(true)
+					expect(registry.armTo(slotPath)).toBe(true)
+					registry.cancel("setup")
+				end
+				-- retire the slot: it keeps painting its exit but is NOT a drop surface
+				slotOn:set(false)
+				pres.refresh()
+				expect(registry.arm("/S/Board/Card")).toBe(true)
+				expect(registry.armTo(slotPath)).toBe(false)
+				registry.commit()
+				expect(dropped).toBe(0)
+				registry.cancel("cleanup")
+				-- re-entry mid-exit: eligible again the same frame, no rewiring
+				slotOn:set(true)
+				pres.refresh()
+				expect(registry.arm("/S/Board/Card")).toBe(true)
+				expect(registry.armTo(slotPath)).toBe(true)
+				registry.commit()
+				expect(dropped).toBe(1)
+			end
+		)
+	end
 
 	it("a retiring '/S/Slot' never excludes its live SIBLING '/S/SlotA' (P2-2)", function()
 		-- the segment-boundary rule: exclusion is by subtree, not by string prefix

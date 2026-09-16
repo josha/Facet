@@ -636,6 +636,47 @@ for row = 1, 6 do
 	end
 end
 
+-- Showcase review (2026-09-15): explain the delayed-save exercise and the
+-- Match-3 drag gesture. Only the changed copy may resize; unchanged siblings
+-- retain their x/width/height and may move by one uniform vertical offset.
+for _, path in { "Title", "Lesson", "Hint", "State/DraftHeading" } do
+	table.insert(ALLOWED_RECT_DRIFT, {
+		fixture = "03_settings_sync",
+		path = "/Settings/Page/" .. path,
+		why = "Settings sync now names the simulation, its two states, and the accept/reject exercise. These text boxes resize with their new copy; no control geometry is waived.",
+	})
+end
+for _, path in { "Title", "Lesson", "Hint", "State/DraftHeading", "State/ServerHeading" } do
+	table.insert(ALLOWED_PROP_DRIFT, {
+		path = "/Settings/Page/" .. path,
+		why = "The Settings sync explanation was rewritten to distinguish immediate draft changes from delayed simulated server replies. Typography and roles are unchanged.",
+	})
+end
+for _, path in { "State", "Status", "Music", "VolumeRow", "AskInvalid", "Deliver", "Reset", "History" } do
+	table.insert(ALLOWED_Y_SHIFT, {
+		fixture = "03_settings_sync",
+		prefix = "/Settings/Page/" .. path,
+		why = "Wrapping the new explanation shifts State/Status by 43px on phone and 14px on tablet; the additional hint shifts subsequent controls by 72px and 28px respectively. Desktop controls do not move. Each unchanged subtree must retain x, width and height.",
+	})
+end
+for _, viewport in { "tablet", "desktop" } do
+	table.insert(ALLOWED_RECT_DRIFT, {
+		fixture = "07_match3",
+		viewport = viewport,
+		path = "/Match3/Page/Hint",
+		why = "The Match-3 hint describes drag-to-neighbor and click selection. Its width grows from 744px to 834px on desktop; at tablet width it wraps to 39px high. Phone geometry is unchanged.",
+	})
+end
+table.insert(ALLOWED_PROP_DRIFT, {
+	path = "/Match3/Page/Hint",
+	why = "The Match-3 hint now explains its public Facet drag/drop gesture alongside selecting two neighbors; other text properties are unchanged.",
+})
+table.insert(ALLOWED_Y_SHIFT, {
+	fixture = "07_match3",
+	prefix = "/Match3/Page/Stats",
+	why = "The new drag hint wraps to a second line on tablet, moving the unchanged stats subtree down 19px. Phone and desktop stats stay in place.",
+})
+
 -- Nodes the current tree has and the 3.5 baseline does not. Additions are as
 -- much of a compatibility statement as changes, so they are enumerated too.
 local ALLOWED_NEW_NODES: { { path: string, why: string } } = {

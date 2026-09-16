@@ -2577,6 +2577,7 @@ return {
 				-- the panel that landed on the round buttons in the screenshot.
 				UI.Region({
 					id = "Tasks",
+					dismissButton = "automatic",
 					group = "left",
 					-- RE-RANKED 8 -> 7 (D7.4): the fps readout below used to survive
 					-- longer than three tasks and their rewards, which is a developer's

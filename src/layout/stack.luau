@@ -591,6 +591,7 @@ function stack.arrange(
 	-- Arrange's offer differs from measure's (inventory: 598 vs 1280 pixels).
 	-- Reuse only this pass's own saved answers and republish its cuts and offers.
 	local permuted = nil
+	local permutationHasText = false
 	if
 		cmemo ~= nil
 		and reuse ~= nil
@@ -613,15 +614,16 @@ function stack.arrange(
 			cmemo.pN,
 			reuse.measureContains,
 			if cmemo.pToken ~= nil and cmemo.pIdxToken == cmemo.pToken then cmemo.pIdx else nil,
+			true,
 			true
 		)
 		if permuted ~= nil then
 			for _, child in children do
+				permutationHasText = permutationHasText or child.kind == "text"
 				local mainType = deps.mainDimOf(child, isH).type
 				if
 					mainType == "hug"
 					or mainType == "fill"
-					or child.kind == "text"
 					or child.kind == "composition"
 					or child.shrinkWeight ~= nil
 					or child.subtreeHasScroll
@@ -634,11 +636,11 @@ function stack.arrange(
 			end
 		end
 	end
-	local allow = permuted == nil or cmemo.pN == #children or ARRANGE_REMOVAL
-	if rowPrefix.try(ctx, node, innerX, innerY, gap, permuted, place, out, allow) then
+	local allow = permuted == nil or cmemo.pN <= #children or ARRANGE_REMOVAL
+	if rowPrefix.try(ctx, node, innerX, innerY, gap, permuted, place, out, allow, deps) then
 		return
 	end
-	if not allow then
+	if not allow or permutationHasText or (permuted ~= nil and cmemo.pN < #children) then
 		permuted = nil
 	end
 	local previousCuts = if cmemo ~= nil then cmemo.pCuts else nil
@@ -1008,7 +1010,11 @@ function stack.arrange(
 		-- `Spacer`/`Image`, which is why Facet had no leaf-level route to Roblox's
 		-- `ItemLineAlignment` at all until this.
 		local childAlign = child.lineAlign or child.align or node.align
-		local crossSize = if crossDim.type == "fill" or childAlign == "stretch"
+		-- Preserve a measured aspect pair when its driving dimension is natural
+		-- or fixed. Stretching it here would grow the main extent after its parent
+		-- reserved the measured size, so a hugging stack overlaps its next sibling.
+		-- An explicit fill still takes the offered extent before deriving the pair.
+		local crossSize = if crossDim.type == "fill" or (childAlign == "stretch" and mainDim.type ~= "aspect")
 			then crossAvail
 			else math.min(if isH then desired[idx].h else desired[idx].w, crossAvail)
 		-- ASPECT against a FILL sibling (found live: a 16:9 media box resolved to

@@ -88,6 +88,7 @@ export type Spec = {
 	selected: any?,
 	style: string?,
 	label: any?,
+	valueAlignment: any?, -- labeled Picker menu rows: start | end (default), or Readable
 	sizing: any?,
 	textSize: any?,
 	-- Single selection supplies an id (nil for optional clearing); multiple
@@ -130,6 +131,7 @@ local POPUP_BUTTON_KEYS = specGuard.keySet({
 	"selected",
 	"style",
 	"label",
+	"valueAlignment",
 	"sizing",
 	"textSize",
 	"query",
@@ -1597,12 +1599,21 @@ function popup_button.build(Facet: any, core: any, spec: Spec)
 	local openNow = scope:own(core:memo(function(use)
 		return use(open) == true
 	end))
+	local labelWidth = scope:own(core:memo(function(use)
+		local alignment = spec.valueAlignment or "end"
+		if type(alignment) == "table" and type(alignment.get) == "function" then
+			alignment = use(alignment)
+		end
+		assert(alignment == "start" or alignment == "end", "Picker: valueAlignment must be start | end")
+		-- Stacked accessibility rows keep the full line for wrapping the title.
+		return if alignment == "start" and use(rowAxis) == "x" then UI.hug() else UI.fill()
+	end))
 	local function labelView()
 		return UI.Text({
 			id = "Label",
 			text = spec.label,
 			textSize = spec.textSize or "control",
-			width = { type = "fill", weight = 1 },
+			width = labelWidth,
 		})
 	end
 	--[[ THE TOUCH FORM ROW IS ONE ROW (user review of the side-by-side,

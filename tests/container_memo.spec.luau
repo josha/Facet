@@ -734,7 +734,7 @@ describe("T13: the index is not the identity", function()
 		return a, scene.new(c)
 	end
 
-	it("a ForEach sibling insert shifts every later index and the memo refuses", function()
+	it("a ForEach sibling insert remaps answers by identity before serving", function()
 		--[[ THE FIXTURE THE ID KEY EXISTS FOR. The region is `List`'s FIRST child, so an
 			insert into it shifts every row's index in the layout node's spliced flat list
 			— while `List`'s own MOUNT children table, the one the carrier gate compares by
@@ -742,9 +742,9 @@ describe("T13: the index is not the identity", function()
 			is the point: an index-keyed memo would pass its own gate and serve a number
 			belonging to a different node.
 
-			The insert still refuses (1,004 visits). Plan E removal reuse maps the
-			clean surviving subset by id (one remaining visit); the independent full
-			snapshot still governs both operations. ]]
+			Middle insertion now remaps clean survivors by id (two visits for the
+			new row and its container). Removal maps the clean surviving subset
+			(one visit). The independent full snapshot still governs both operations. ]]
 		local a, c = pair({ rows = ROWS, foreach = true })
 		local function agree(step: string)
 			if a.snapshot() ~= c.snapshot() then
@@ -761,7 +761,7 @@ describe("T13: the index is not the identity", function()
 		a.insertItem("i0")
 		c.insertItem("i0")
 		agree("insert")
-		expect(`visits={a.stats().lastChildVisits}`).toBe("visits=1004")
+		expect(`visits={a.stats().lastChildVisits}`).toBe("visits=2")
 		a.text(500, "y")
 		c.text(500, "y")
 		agree("text after insert")

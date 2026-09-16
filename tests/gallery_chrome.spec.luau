@@ -99,6 +99,7 @@ local function showcase(opts: any?): any
 	if o.theme ~= nil then
 		env:set("themeMetrics", themes.resolve((require)(`../examples/themes/{o.theme}`).build(themes), nil, {}))
 	end
+	local preview = require("../src/client/environment_preview").new(env)
 	local system = Facet.newActionSystem(core)
 	local adapter = fake_target.new()
 	local pres = Facet.newPresenter(core, env, adapter, system, { keyboardNavigation = true })
@@ -213,6 +214,7 @@ local function showcase(opts: any?): any
 	})
 
 	settings = settings_panel.mount({
+		preview = preview,
 		Facet = Facet,
 		core = core,
 		env = env,
@@ -959,7 +961,7 @@ describe("showcase chrome (5): two targets forever, stepping down to icon-only",
 		-- NOT a phone width any more (B3 moved the crossover well below any real
 		-- device) — this exists to prove the RUNG and the ladder's own mechanics
 		-- survive the one-chip strip, not to name a device.
-		local w = showcase({ w = 140, h = 640 })
+		local w = showcase({ w = 100, h = 640 })
 		selectWidest(w)
 		expect(rung(w)).toBe("icons")
 	end)
@@ -1155,25 +1157,25 @@ end)
 -- (9) THE SHOWCASE RULE IN FULL: swept at every viewport, under every shipped
 --     theme, on BOTH axes, and never overlapping the demo below.
 -- ===========================================================================
-describe("showcase chrome (9): the sweep", function()
-	local function overflowsOf(w: any): { string }
-		local out: { string } = {}
-		for _, handle in { w.chrome.barHandle(), w.chrome.panelHandle() } do
-			if handle == nil then
-				continue
-			end
-			for _, finding in handle.controller.diagnostics() do
-				if
-					string.find(finding.issue, "on the main axis", 1, true) ~= nil
-					or string.find(finding.issue, "on the cross axis", 1, true) ~= nil
-				then
-					table.insert(out, `{finding.node}: {finding.issue}`)
-				end
+local function overflowsOf(w: any): { string }
+	local out: { string } = {}
+	for _, handle in { w.chrome.barHandle(), w.chrome.panelHandle() } do
+		if handle == nil then
+			continue
+		end
+		for _, finding in handle.controller.diagnostics() do
+			if
+				string.find(finding.issue, "on the main axis", 1, true) ~= nil
+				or string.find(finding.issue, "on the cross axis", 1, true) ~= nil
+			then
+				table.insert(out, `{finding.node}: {finding.issue}`)
 			end
 		end
-		return out
 	end
+	return out
+end
 
+describe("showcase chrome (9): the sweep", function()
 	it("no overflow on either axis, at any swept viewport, under any shipped theme", function()
 		local problems: { string } = {}
 		for _, theme in SHIPPED_THEMES do
@@ -1903,6 +1905,7 @@ describe("showcase chrome (16): ButtonY belongs to the menu verb, not the chrome
 			return n
 		end
 		expect(openCount()).toBe(0)
+		w.pres.focus.focusOn("/MenuDemo/Page/Cards/CardChord/ChordTrigger")
 		press(w.system, "ButtonY")
 		w.settle()
 		expect(`ButtonY opened {openCount()} menu(s); chrome open {w.chrome.isOpen()}`).toBe(
@@ -2020,5 +2023,82 @@ describe("showcase chrome (18): a broken raise listener is reported, not swallow
 		-- ...and the chrome's OWN listener, registered first, still ran
 		expect(`the panel is still up and on top: {w.chrome.isOpen()}`).toBe("the panel is still up and on top: true")
 		expect(`no error reached the core: {tostring(w.core:lastError())}`).toBe("no error reached the core: nil")
+	end)
+end)
+
+describe("Showcase display settings", function()
+	it("keeps desktop values beside their labels and preserves small-screen wrapping", function()
+		local w = showcase({ w = 1280, h = 800 })
+		w.chrome.request("settings")
+		w.settle()
+		for _, id in { "Preview", "Orientation", "Input" } do
+			local label, trigger
+			for _, path in w.adapter.paths() do
+				if path:find("/Display/" .. id .. "/", 1, true) then
+					if path:match("/Row/Label$") then
+						label = w.adapter.node(path).rect
+					end
+					if path:match("/Row/Trigger$") then
+						trigger = w.adapter.node(path).rect
+					end
+				end
+			end
+			assert(label and trigger, "labeled menu must render")
+			expect(trigger.x - (label.x + label.w) < 32).toBe(true)
+		end
+		w.env:set("viewportRect", { x = 0, y = 0, w = 320, h = 640 })
+		w.settle()
+		expect(#overflowsOf(w)).toBe(0)
+	end)
+	it("keeps the demo mounted while preview pickers change layout and input", function()
+		local w = showcase()
+		local demo = w.demos.current()
+		local count = #w.demoHandles
+		w.chrome.request("settings")
+		for _, profile in { "phone", "tablet", "desktop", "tv", "automatic" } do
+			expect(w.settings.setPreview(profile)).toBe(true)
+			w.settings.setInput("gamepad")
+			w.settings.setOrientation("landscape")
+			w.settle()
+			expect(w.demos.current()).toBe(demo)
+			expect(#w.demoHandles).toBe(count)
+			expect(w.settings.previewProfile:get()).toBe(profile)
+			expect(w.env:get("interactionClasses"):get().primary).toBe("gamepad")
+			expect(w.core:lastError()).toBe(nil)
+			expect(#overflowsOf(w)).toBe(0)
+		end
+		w.settings.setViewingDistance("ten-foot")
+		w.settings.apply()
+		expect(w.env:get("distanceProfile"):get()).toBe("ten-foot")
+	end)
+end)
+
+describe("Pixel Quest display picker containment", function()
+	it("keeps the TV option and its highlight above the next setting after live adaptation", function()
+		local w = showcase({ w = 1280, h = 800, theme = "pixel_quest" })
+		w.chrome.request("settings")
+		for _, profile in { "tv", "desktop", "tv" } do
+			w.settings.setPreview(profile)
+			w.settle(120)
+			local preview, orientation
+			for _, path in w.adapter.paths() do
+				if path:match("/Display/Preview$") then
+					preview = w.adapter.node(path).rect
+				end
+				if path:match("/Display/Orientation$") then
+					orientation = w.adapter.node(path).rect
+				end
+			end
+			assert(preview and orientation)
+			for _, path in w.adapter.paths() do
+				if path:find("/Display/Preview/", 1, true) then
+					local n = w.adapter.node(path)
+					if n.rect and (n.class == "Button" or path:match("/Layer/Bar$")) then
+						expect(n.rect.y + n.rect.h <= preview.y + preview.h + 1).toBe(true)
+						expect(n.rect.y + n.rect.h <= orientation.y).toBe(true)
+					end
+				end
+			end
+		end
 	end)
 end)

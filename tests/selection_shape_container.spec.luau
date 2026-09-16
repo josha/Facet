@@ -208,16 +208,18 @@ describe("selection shape: the fill wears the silhouette of the strip that holds
 	end)
 end)
 
-describe("selection shape: the adaptable app bar keeps its pill, and the fill follows it", function()
-	it("the bar is still a capsule and the fill inside it is one too", function()
+describe("selection shape: the adaptable app bar follows the control shape of its theme", function()
+	it("the bar and inset fill respect square, rounded and capsule themes", function()
 		for _, case in STRIPS do
 			local metrics = packageWith(case.control)
 			local w, bar, fill, tabs = adaptableBarWorld(metrics)
 			-- the container the owner photographed, unchanged in every theme
-			expect(`{case.label} bar {paintedRadius(bar, metrics)}`).toBe(`{case.label} bar {metrics.radii.pill}`)
+			expect(`{case.label} bar {paintedRadius(bar, metrics)}`).toBe(`{case.label} bar {case.control}`)
 			-- the pill ROLE, not `radii.pill - inset`: the fill resolves the SAME
 			-- token its container declared
-			expect(`{case.label} fill {paintedRadius(fill, metrics)}`).toBe(`{case.label} fill {metrics.radii.pill}`)
+			expect(`{case.label} fill {paintedRadius(fill, metrics)}`).toBe(
+				`{case.label} fill {snapshot.resolveNumber(metrics, "radii.selection:control")}`
+			)
 			tabs.dispose()
 			local _ = w
 		end

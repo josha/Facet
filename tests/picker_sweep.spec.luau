@@ -290,6 +290,7 @@ local function pinClosedSurface(label: string, w: any, theme: any, trigger: stri
 	if node.props.surface == "plain" then
 		-- the plain row: no plate by design, so pin the affordance it does owe
 		expect(`{label} plain row carries no plate: {slot == nil}`).toBe(`{label} plain row carries no plate: true`)
+		w.pres.focus.setFocusOrigin("navigation") -- probe keyboard focus on the same hybrid surface
 		w.pres.focus.focusOn(trigger)
 		w.pres.refresh()
 		local focused = w.adapter.node(trigger).focused

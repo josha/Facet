@@ -41,15 +41,17 @@
 -- case in tests/examples_gallery.spec.luau can expand all of them ~1.4x. All of
 -- it is `policy = "none"` copy: it must fit and wrap, never clip.
 local COPY = {
-	title = "Circular progress — both forms",
-	caption = "One arc on UI.Path: the value moves the sweep, the phase moves the head.",
+	title = "Progress and activity",
+	caption = "Adjust progress to compare the bar and ring. Activity indicators keep moving while work is running.",
 	determinate = "Downloading",
 	indeterminate = "Working",
 	spinner = "Spinner (dots)",
+	bar = "Download progress",
+	adjust = "Adjust progress",
 }
 
 return {
-	title = "Circular progress indicator (round 3 D2)",
+	title = "Progress and activity",
 	ledgerRows = {},
 	copy = COPY,
 	build = function(ctx: any)
@@ -62,6 +64,18 @@ return {
 
 		local progress = scope:own(core:signal(0.25))
 
+		local bar = scope:own(Facet.Controls.ProgressView(core, {
+			id = "Bar",
+			value = progress,
+			showValue = true,
+		}))
+		local adjust = scope:own(Facet.Controls.Slider(core, {
+			id = "AdjustProgress",
+			value = progress,
+			min = 0,
+			max = 1,
+			step = 0.05,
+		}))
 		local ring = Facet.Controls.ProgressView(core, {
 			id = "Ring",
 			label = COPY.determinate,
@@ -105,6 +119,10 @@ return {
 					children = {
 						UI.Text({ id = "Title", text = COPY.title, textSize = "heading" }),
 						UI.Text({ id = "Caption", text = COPY.caption, textSize = "caption", role = "secondary" }),
+						UI.Text({ text = COPY.adjust, width = UI.fill() }),
+						adjust.blueprint,
+						UI.Text({ text = COPY.bar, width = UI.fill() }),
+						bar.blueprint,
 						ring.blueprint,
 						UI.Text({ id = "Readout", text = readout, textSize = "label" }),
 						busy.blueprint,

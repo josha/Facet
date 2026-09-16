@@ -221,6 +221,7 @@ replacement and their earliest removal version.
 | `newActionSystem` | The semantic input pipeline over Roblox's Input Action System. | [api](../reference/api.md#newactionsystem) |
 | `contribution` | The seam a composite uses to declare its whole input story. | [api](../reference/api.md#contribution) |
 | `inputHint` | A reactive affordance label that follows the active input class. | [api](../reference/api.md#inputhint) |
+| `client.environment_preview` | Reversible live display and input previews, bounded by the host window. | [api](../reference/api.md#clientenvironment_preview) |
 | `newEnvironment` | Viewport, safe area, input class, text size, and an independent viewing-distance preference. | [api](../reference/api.md#newenvironment) |
 | `adaptive` | Size class, height class, orientation, columns, and card counts. | [api](../reference/api.md#adaptive) |
 | `composition` | The pure arrangement decision behind `UI.Composition`. | [api](../reference/api.md#composition-1) |

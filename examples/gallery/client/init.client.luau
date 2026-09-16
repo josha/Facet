@@ -22,10 +22,25 @@ local roblox_input = require(ReplicatedStorage.Facet.client.roblox_input) :: any
 local gamepad_contention = require(ReplicatedStorage.Facet.client.gamepad_contention) :: any
 local responder_effects = require(ReplicatedStorage.Facet.client.responder_effects) :: any
 
+local boot_mode = require(script:WaitForChild("boot_mode")) :: any
+local bootDecision = boot_mode.decide({
+	showcase = workspace:GetAttribute("Facet_Showcase"),
+	scenario = workspace:GetAttribute("Facet_Scenario"),
+	example = workspace:GetAttribute("Facet_Example"),
+})
+
 local UI = Facet.UI
 local core = Facet.newCore()
 local env = Facet.newEnvironment(core)
-local unbindEnv = roblox_env.bind(env)
+local environment_preview = require(ReplicatedStorage.Facet.client.environment_preview) :: any
+local displayPreview = if bootDecision.mode == "showcase" then environment_preview.new(env) else nil
+local unbindPlatform = roblox_env.bind(if displayPreview ~= nil then displayPreview.source else env)
+local function unbindEnv()
+	unbindPlatform()
+	if displayPreview ~= nil then
+		displayPreview.dispose()
+	end
+end
 -- NS-I2 fallback A/B driver: set workspace attribute Facet_ForceScrollFallback
 -- BEFORE running to exercise the clip-only ScrollView fallback in Studio
 -- Native-stylesheets A/B driver (ledger NSS-A2/NSS-A10). The PRECEDENCE — forced
@@ -221,12 +236,6 @@ end)
 -- verification selector OUTRANKS the demo shell, and a selector that was set and
 -- cannot be honoured WARNS with the reason instead of quietly booting something
 -- that would look like a passing run.
-local boot_mode = require(script:WaitForChild("boot_mode")) :: any
-local bootDecision = boot_mode.decide({
-	showcase = workspace:GetAttribute("Facet_Showcase"),
-	scenario = workspace:GetAttribute("Facet_Scenario"),
-	example = workspace:GetAttribute("Facet_Example"),
-})
 for _, refusal in bootDecision.refusals do
 	warn(refusal)
 end
@@ -392,6 +401,7 @@ if bootDecision.mode == "showcase" then
 	-- scenario fixture takes one ctx table and returns a screen for us to
 	-- present. The picker knows neither, which is what keeps it a picker.
 	local activeBuilt: any = nil
+	local activeNavigation = core:signal(nil :: any)
 	local function mountDemo(demo: any): any
 		local demoScope = core:scope(`showcase-demo-{demo.id}`)
 		local demoCore = scopedCore(demoScope)
@@ -640,9 +650,11 @@ if bootDecision.mode == "showcase" then
 		demo_host.ownLifetime(built, pres, demoScope)
 		local dispose = built.dispose
 		activeBuilt = built
+		activeNavigation:set(built.navigationLayout)
 		built.dispose = function()
 			if activeBuilt == built then
 				activeBuilt = nil
+				activeNavigation:set(nil)
 			end
 			dispose()
 		end
@@ -728,6 +740,7 @@ if bootDecision.mode == "showcase" then
 	})
 	showcasePicker = mountThemePicker(true, true)
 	settings = settings_panel.mount({
+		preview = displayPreview,
 		Facet = Facet,
 		core = core,
 		env = env,
@@ -749,6 +762,7 @@ if bootDecision.mode == "showcase" then
 		demos = demos,
 		settings = settings,
 		coreTop = coreTopSignal,
+		navigationLayout = activeNavigation,
 		-- THE MEASUREMENT THAT REPLACED THE LITERAL (see reserveBar). Fed after the
 		-- first solve and after every refresh, so a theme swap, an orientation
 		-- change or a raised text preference re-reports the chip row's real bottom
@@ -900,8 +914,27 @@ if bootDecision.mode == "showcase" then
 					engaged = chrome.panelHandle() ~= nil and chrome.panelHandle().responder:get() or "none",
 				})
 			end,
-			-- the reduced-motion axis of a device canary, reachable without a
-			-- pointer and WITHOUT the one demo that used to own it being on screen
+			-- Display and input settings use the same routes as their Pickers.
+			preview = function(arg: string?)
+				local ok = if arg ~= nil then settings.setPreview(arg) else true
+				return HttpService:JSONEncode({
+					ok = ok,
+					profile = settings.previewProfile:get(),
+					viewport = env:get("viewportRect"):get(),
+				})
+			end,
+			orientation = function(arg: string?)
+				local ok = if arg ~= nil then settings.setOrientation(arg) else true
+				return HttpService:JSONEncode({ ok = ok, orientation = settings.previewOrientation:get() })
+			end,
+			input = function(arg: string?)
+				local ok = if arg ~= nil then settings.setInput(arg) else true
+				return HttpService:JSONEncode({
+					ok = ok,
+					input = settings.previewInput:get(),
+					resolved = env:get("interactionClasses"):get().primary,
+				})
+			end,
 			distance = function(arg: string?)
 				if arg ~= nil then
 					settings.setViewingDistance(arg)

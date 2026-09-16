@@ -2273,6 +2273,14 @@ class("Region", {
 				.. 'presents it in a transient plate at the region\'s anchor), "none" (the authored escape), '
 				.. "or a handler function that replaces the presentation. Refused on a one-form region",
 		}),
+		dismissButton = p({
+			types = { "string" },
+			enum = { "always", "automatic" },
+			reactive = false,
+			channel = "structural",
+			doc = "region disclosure close affordance: always (default), or automatic (shown during keyboard/gamepad navigation; outside taps still dismiss)",
+		}),
+
 		-- THE ONE REACTIVE PROP ON A REGION, and it is reactive for a reason the
 		-- rest of the declaration is not. Every other field answers "what is this
 		-- region" — a fact about the screen, which is why re-deriving it from state

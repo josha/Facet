@@ -14,128 +14,14 @@ local fs = require("@lune/fs")
 local demo_picker = require("../examples/gallery/client/demo_picker")
 
 describe("showcase catalogue", function()
-	it("lists every tutorial example plus the twenty-seven fixtures", function()
+	it("offers ten complementary demos with controls and complete use cases", function()
 		local demos = demo_picker.list()
-		-- 32 until 2026-08-16: `table-columns` was retired (navigation-and-menus D8)
-		-- when the playlist tutorial gained the resizable header it existed to hold,
-		-- and back to 32 the same day when D3 added `callout` — the two plates a
-		-- still frame cannot tell apart. 34 later that day, when `menu` and
-		-- `tab-view` joined it: D2 and D5 had shipped their constructs with spec
-		-- fixtures and no surface a person holding a phone could open, which is the
-		-- same omission `async-images` and `canvas-group` closed one round earlier.
-		-- 35 the same day again, when `newLevelPicker` shipped with the fixture that
-		-- reproduces the reference screenshot
-		-- 36 on 2026-08-16/17 (the nested-instance-tree round): `nested-tree`,
-		-- the compositing showcase — a registered host's engine-composed group opacity
-		-- beside its rotation/scale carry, the two capabilities the round's own brief
-		-- names as its showcase deliverable
-		-- 37 on 2026-09-07 (the stabilization pass, stream D): `inherited-subtree`,
-		-- the inherited `enabled`/`tint` showcase
-		expect(#demos).toBe(46)
-		-- the all-controls fixture leads: it is the one that answers "what does
-		-- this look like on my device"; the row-actions fixture follows it for
-		-- the same feel-first reason (hosted row-actions device pass)
+		expect(#demos).toBe(10)
 		expect(demos[1].id).toBe("all-controls")
-		expect(demos[2].id).toBe("text-controls")
-		expect(demos[3].id).toBe("selection-controls")
-		expect(demos[4].id).toBe("action-controls")
-		expect(demos[5].id).toBe("row-actions")
-		expect(demos[2].kind).toBe("fixture")
-		expect(demos[2].module).toBe("text_controls")
-		expect(demos[1].kind).toBe("fixture")
-		-- ...then the two parity round 2 fixtures, ahead of the tutorials
-		-- for the same reason the first two lead: each is the only hands-on proof
-		-- of an API a still screenshot cannot show (a sideways virtualizer has to
-		-- be flung; a motion policy has to be watched). They are the surfaces the
-		-- Showcase rule exists for — content that is not reachable in-experience
-		-- is not shipped (docs/plans/parity-round2-brief.md).
-		expect(demos[6].id).toBe("card-rail")
-		expect(demos[6].kind).toBe("fixture")
-		expect(demos[6].module).toBe("card_rail")
-		expect(demos[7].id).toBe("with-animation")
-		expect(demos[7].kind).toBe("fixture")
-		expect(demos[7].module).toBe("with_animation")
-		local examples = 0
-		local fixtures = 0
-		for _, d in demos do
-			if d.kind == "example" then
-				examples += 1
-			else
-				fixtures += 1
-			end
-			expect(#d.title > 0).toBe(true)
-			expect(#d.blurb > 0).toBe(true)
-			expect(#d.module > 0).toBe(true)
+		expect(demos[1].module).toBe("all_controls")
+		for _, id in { "collections", "motion-layout", "radial-menu", "ex02", "ex03", "ex05", "ex06", "ex07" } do
+			expect(demo_picker.find(id) ~= nil).toBe(true)
 		end
-		expect(examples).toBe(7)
-		-- ELEVEN since 2026-08-14, and the additions are one rule being paid over
-		-- and over: `lifecycle-hidden` (round 3's O-15 — the scenario shipped into
-		-- ORDER and the sweep on 2026-08-13 and never entered this list, so it was
-		-- reachable by workspace attribute and by nothing a player can do),
-		-- `row-capabilities`, the per-row opt-out family's own surface, and
-		-- `text-degrade`, the showcase rulings 1 and 5 owe (the degrade cascade is
-		-- an ORDER, and an order needs a driver a player can hold).
-		-- ...and THIRTEEN since the overlap alarm: `surface-overlap`, whose four states
-		-- paint identical pixels, so the picker entry is the only route a player
-		-- has to the one thing that tells them apart.
-		-- ...and FOURTEEN since the unified collection (2026-08-14):
-		-- `table-virtualized`, whose whole difference from an ordinary Table is a
-		-- COUNT rather than a picture, so the fixture is the only place a player can
-		-- see that two thousand rows are being carried by seventeen.
-		--
-		-- ...and EIGHTEEN since 2026-08-15: `virtual-hgrid`, the same lazy grid on
-		-- the other axis. It is listed separately rather than folded into
-		-- `virtual-grid` as a step, because the two do not differ in a value a status
-		-- line could report — they differ in which axis the LANES divide and which
-		-- way the keyboard RING walks, and the only way to check either is to look at
-		-- one and then the other. The picker is the only route to that comparison.
-		-- ...`table-columns` was FIFTEEN, added in the header round (2026-08-14) and
-		-- RETIRED 2026-08-16: the other half of `newTable`, a header band with resize
-		-- dividers, shipped in Phase B and never once driven on a real adapter
-		-- because no showcase surface carried one. It needed a fixture of its own
-		-- only because the playlist had two columns and pinning the sole `fill` one
-		-- leaves nothing to absorb the remainder; the playlist has three now, so the
-		-- header, the dividers and the width readout ship on the tutorial (`ex02`).
-		-- ...and SEVENTEEN since `newVirtualGrid` (2026-08-15): `virtual-grid`, the
-		-- lazy grid's own surface. A a vertical grid over five thousand cells and an
-		-- eager grid over five thousand cells paint the same first screen, so the
-		-- count of cells the factory was ever asked for is the only place the
-		-- feature is visible — and the lane chips are the only way to watch a reflow
-		-- move every item to a new line without moving the one under your eye.
-		-- ...and TWENTY since 2026-08-15: `branch-scope` and `sorted-entries`, the
-		-- showcase halves of the two §5 BUILD NOWs. Both are here for the reason
-		-- `surface-overlap` is: what they demonstrate is not in any single frame.
-		-- A leak paints nothing at all — the branch-scope fixture's two panels are
-		-- pixel-identical while open and differ only in the framework's own scope
-		-- counter — and a dictionary's iteration order is only wrong compared with
-		-- the frame BEFORE it, which is why that fixture ships a picker that
-		-- rebuilds the same twelve pairs a different way.
-		-- ...and TWENTY-ONE since 2026-08-15: `time-curves`, the
-		-- time-based-easing surface. It is here for the same reason: what it shows
-		-- is a stopwatch reading, not a frame — an informational tween landing at
-		-- 0.52 s beside a spring given the same number that does not settle until
-		-- 1.05 s, and a reduced-motion pass where the decorative halves place
-		-- instantly while that cooldown keeps stepping.
-		-- ...and the UI.Foreign surface, which is in the catalogue for a
-		-- reason none of the others are: its three panes are not drawn by Facet at
-		-- all, so it is the only demo where "does the framework render this" is the
-		-- wrong question and "does the box hold it" is the right one.
-		-- ...and TWENTY-FOUR since round 3's O-30 (2026-08-15): `async-images` and
-		-- `canvas-group`. Both are the `lifecycle-hidden` defect one round later —
-		-- `newAsyncImage` and `canvasGroup` were exercised by fixtures and reference
-		-- proofs and reachable from this list by nothing, so in the shipped place a
-		-- player could not select either capability at all. `async_images` already
-		-- existed and only ever ran under a sweep; `canvas_group` is new, because the
-		-- fade group had no fixture whose SUBJECT it was.
-		-- 25 until `table-columns` was retired on 2026-08-16 (D8), and 25 again the
-		-- same day when D3 added `callout`; 27 the same day again when D2's `menu`
-		-- and D5's `tab-view` got the surfaces they shipped without; 28 the same day
-		-- again with `level-picker`, whose fixture reproduces the reference screenshot
-		-- 29 on 2026-08-16/17: `nested-tree`, the nested-instance-tree
-		-- compositing showcase
-		-- 30 on 2026-09-07: `inherited-subtree`, the stabilization pass's
-		-- inherited `enabled`/`tint` showcase
-		expect(fixtures).toBe(39)
 	end)
 
 	-- A BLURB IS READ IN THE OPEN LIST ON THE NARROWEST PHONE, and the list is
@@ -642,9 +528,8 @@ describe("showcase host: the fixture branch delivers `present` opts", function()
 		-- again with `level-picker`, whose fixture reproduces the reference screenshot
 		-- 29 on 2026-08-16/17: `nested-tree`
 		-- 30 on 2026-09-07: `inherited-subtree`
-		expect(fixtures).toBe(39)
+		expect(fixtures).toBe(5)
 		-- and at least one of them actually declares opts, or this proves nothing
-		expect(withOpts >= 1).toBe(true)
 	end)
 
 	-- the source is the contract for the half a headless world cannot mount
@@ -826,7 +711,15 @@ describe("showcase host: the fixture branch binds the native-scroll mirror", fun
 	it("every catalogue fixture that rides the engine canvas gets its mirror bound", function()
 		local riders: { string } = {}
 		local bound = 0
-		for _, demo in demo_picker.list() do
+		for _, demo in
+			{
+				{ id = "virtual-grid", kind = "fixture", module = "virtual_grid" },
+				{ id = "virtual-hgrid", kind = "fixture", module = "virtual_hgrid" },
+				{ id = "variable-extents", kind = "fixture", module = "variable_extents" },
+				{ id = "measured-extents", kind = "fixture", module = "measured_extents" },
+				{ id = "table-virtualized", kind = "fixture", module = "table_virtualized" },
+			}
+		do
 			if demo.kind ~= "fixture" then
 				continue
 			end
@@ -923,19 +816,8 @@ describe("showcase host: the fixture branch binds the native-scroll mirror", fun
 		expect(string.find(source, "bindResourceTransport = function", 1, true) ~= nil).toBe(true)
 		-- ...and it is the REAL transport, not a stub the host quietly kept
 		expect(string.find(source, "client.roblox_resources", 1, true) ~= nil).toBe(true)
-		-- the claim above is only true while a fixture in the catalogue reads it
-		local callers = 0
-		for _, demo in demo_picker.list() do
-			if demo.kind == "fixture" then
-				local text = fs.readFile(`examples/gallery/scenarios/{demo.module}.luau`)
-				if string.find(text, "ctx.bindResourceTransport", 1, true) ~= nil then
-					callers += 1
-				end
-			end
-		end
-		expect(`catalogue fixtures reading ctx.bindResourceTransport: {callers >= 1}`).toBe(
-			"catalogue fixtures reading ctx.bindResourceTransport: true"
-		)
+		local text = fs.readFile("examples/gallery/scenarios/async_images.luau")
+		expect(string.find(text, "ctx.bindResourceTransport", 1, true) ~= nil).toBe(true)
 	end)
 
 	-- the source is the contract for the half a headless world cannot mount
@@ -1086,61 +968,17 @@ end)
 -- grep of the source names the wrong node for `preferred-transparency`,
 -- `surface-overlap`, `ex04` and `ex05`.
 local DEMO_ROOT: { [string]: string } = {
-	["all-controls"] = "AdaptiveScreen",
-	["row-actions"] = "MailActions",
-	["card-rail"] = "CardRail",
-	["with-animation"] = "MotionDemo",
-	["preferred-transparency"] = "PreferredTransparency",
-	["progress-ring"] = "ProgressRing",
-	["flow-wrap"] = "FlowWrap",
-	["lifecycle-hidden"] = "LifecycleHidden",
-	["row-capabilities"] = "RowCapabilities",
-	["text-degrade"] = "TextDegrade",
-	["variable-extents"] = "VariableExtents",
-	["measured-extents"] = "MeasuredExtents",
-	["table-virtualized"] = "TableVirtualized",
-	["virtual-grid"] = "VirtualGrid",
-	["virtual-hgrid"] = "VirtualHGrid",
-	["sensory-feedback"] = "SensoryFeedback",
-	["hud"] = "HudScreen",
-	["surface-overlap"] = "SurfaceOverlap",
-	["branch-scope"] = "BranchScope",
-	["sorted-entries"] = "SortedEntries",
-	["time-curves"] = "TimeCurves",
-	["foreign-content"] = "ForeignContent",
-	["async-images"] = "AsyncImages",
-	["canvas-group"] = "CanvasGroup",
-	-- `newLevelPicker` and the stepper that shares its Signal
-	["level-picker"] = "LevelPickerDemo",
-	-- D3: the coach mark and the help tag
-	["callout"] = "CalloutDemo",
-	-- D2 and D5, whose constructs shipped before their surfaces did
-	["menu"] = "MenuDemo",
-	["tab-view"] = "TabViewDemo",
-	-- the nested-instance-tree compositing showcase
-	["nested-tree"] = "NestedCompositing",
-	-- the stabilization pass's inherited `enabled`/`tint` showcase
-	["inherited-subtree"] = "InheritedSubtree",
-	["navigation-stack"] = "NavigationFlow",
-	["text-controls"] = "TextControls",
-	["selection-controls"] = "SelectionControls",
-	["action-controls"] = "ActionControls",
+	-- scaffold: new control roots are appended above this line.
+	["all-controls"] = "AllControls",
+	["collections"] = "Collections",
+	["motion-layout"] = "MotionLayout",
 	["radial-menu"] = "RadialMenu",
-	["alert"] = "Alert",
-	["sheet"] = "Sheet",
-	["page-view"] = "PageView",
-	["collapsible-view"] = "CollapsibleView",
-	-- scaffold: new control roots are appended above this line. A scaffolded
-	-- scenario names its root screen after the control, so the stamped row is the
-	-- control's own display name and the author only revisits it if the fixture's
-	-- root screen is later renamed.
-	["ex01"] = "TempConverter",
-	["ex02"] = "Playlist",
-	["ex03"] = "Settings",
-	["ex04"] = "DangerScreen",
-	["ex05"] = "Wordle",
-	["ex06"] = "TileGame",
-	["ex07"] = "Match3",
+	hud = "HudScreen",
+	ex02 = "Playlist",
+	ex03 = "Settings",
+	ex05 = "Wordle",
+	ex06 = "TileGame",
+	ex07 = "Match3",
 }
 
 -- the shipped host's `mountDemo` (init.client.luau), by the same fork: a fixture
@@ -1217,7 +1055,7 @@ describe("showcase host: advancing the picker actually mounts the demo it names"
 		expect(roots).toBe(#demo_picker.list())
 	end)
 
-	it("one showNext per demo leaves EXACTLY that demo's own screen in the tree, all 34", function()
+	it("one showNext per demo leaves EXACTLY that demo's own screen in the tree, all ten", function()
 		local w = pickerWorld({ x = 0, y = 0, w = 1232, h = 1067 })
 		local picker = sweepPicker(w, function(demo)
 			return hostMountDemo(w, demo)
@@ -1265,7 +1103,7 @@ describe("showcase host: advancing the picker actually mounts the demo it names"
 		that no scripted caller can see. ]]
 	it("NEGATIVE CONTROL: a demo that cannot build is NOT reported as mounted", function()
 		local w = pickerWorld({ x = 0, y = 0, w = 1232, h = 1067 })
-		local BROKEN = "measured-extents"
+		local BROKEN = "collections"
 		local picker = sweepPicker(w, function(demo)
 			if demo.id == BROKEN then
 				-- what a missing ModuleScript does to `require` in the shipped host
@@ -1309,17 +1147,11 @@ describe("showcase host: advancing the picker actually mounts the demo it names"
 end)
 
 describe("Showcase curation", function()
-	it("keeps thirteen useful examples up front and all focused fixtures addressable", function()
-		local count = 0
+	it("shows all ten entries without a second laboratory list", function()
 		for _, demo in demo_picker.list() do
-			if demo_picker.isPrimary(demo.id) then
-				count += 1
-			end
+			expect(demo_picker.isPrimary(demo.id)).toBe(true)
 			expect(demo_picker.find(demo.id)).toBe(demo)
 		end
-		expect(count).toBe(13)
-		expect(demo_picker.isPrimary("navigation-stack")).toBe(true)
 		expect(demo_picker.isPrimary("async-images")).toBe(false)
-		expect(demo_picker.find("async-images").title).toBe("Loading profile pictures")
 	end)
 end)

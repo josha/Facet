@@ -108,15 +108,6 @@ local function mountDemo(host: any, demo: any): any
 	return built
 end
 
-local function demoById(id: string): any
-	for _, demo in demo_picker.list() do
-		if demo.id == id then
-			return demo
-		end
-	end
-	error(`no demo '{id}' in the catalogue`, 0)
-end
-
 describe("the showcase host path: a demo core is the core it delegates to", function()
 	--[[ THE TWO THE LIVE SESSION REPORTED, named individually and ahead of the
 		sweep, because a sweep that goes red says "something" and these two say what.
@@ -125,7 +116,7 @@ describe("the showcase host path: a demo core is the core it delegates to", func
 		one root cause rather than one defect counted twice. ]]
 	it("card-rail mounts through the host path, and arranges itself from the host's facts", function()
 		local host = showcaseHost()
-		local built = mountDemo(host, demoById("card-rail"))
+		local built = mountDemo(host, { id = "card-rail", kind = "fixture", module = "card_rail" })
 		local d = built.rail.dump()
 		-- the compact touch rung, resolved from an environment nobody handed it
 		expect(d.cardsPerView).toBe(1)
@@ -136,7 +127,7 @@ describe("the showcase host path: a demo core is the core it delegates to", func
 
 	it("sorted-entries mounts through the host path, and its picker chooses a presentation", function()
 		local host = showcaseHost()
-		local built = mountDemo(host, demoById("sorted-entries"))
+		local built = mountDemo(host, { id = "sorted-entries", kind = "fixture", module = "sorted_entries" })
 		expect(built.screen).never().toBeNil()
 		expect(host.core:lastError()).toBeNil()
 		built.dispose()
@@ -242,7 +233,7 @@ end)
 describe("showcase cleanup ordering", function()
 	it("keeps demo resources alive until the presented tree has unmounted", function()
 		local host = showcaseHost()
-		local built = mountDemo(host, demoById("all-controls"))
+		local built = mountDemo(host, demo_picker.find("all-controls"))
 		built.dispose()
 		host.pres.dismiss(built.handle)
 		for _ = 1, 120 do

@@ -55,6 +55,25 @@ local function clean(w, alert)
 end
 
 t.describe("Alert control", function()
+	t.it("bounds the fade buffer to the card on a desktop", function()
+		local w = world.new({ viewport = { x = 0, y = 0, w = 1920, h = 1080 } })
+		local a = Facet.Controls.Alert(w.core, {
+			id = "Crisp",
+			title = "Replace save?",
+			message = "Keep a readable confirmation on desktop.",
+			actions = { { id = "ok", label = "OK" } },
+		})
+		a.present(w.pres)
+		w.settle(120)
+		local group = w.adapter.node("/Crisp/Center").rect
+		local card = w.adapter.node("/Crisp/Center/Card").rect
+		t.expect(group.w < 800 and group.h < 500).toBe(true)
+		t.expect(math.abs(group.x + group.w / 2 - 960) < 1).toBe(true)
+		t.expect(math.abs(group.y + group.h / 2 - 540) < 1).toBe(true)
+		t.expect(group.w >= card.w and group.h >= card.h).toBe(true)
+		a.dispose()
+	end)
+
 	t.it("centers a content-sized card and keeps desktop actions in one row, cancel leading", function()
 		local w, alert = fixture({ viewport = { x = 0, y = 0, w = 1280, h = 800 } })
 		local card = w.adapter.node("/Confirm/Center/Card").rect
@@ -120,7 +139,8 @@ t.describe("Alert control", function()
 	end)
 	t.it("Alert keyboard affordance: safe initial focus and trapped navigation", function()
 		local w, alert = fixture({ preferredInput = "MouseKeyboard" })
-		t.expect(w.adapter.node(CANCEL).focused).toBe(true)
+		t.expect(w.pres.focus.focused:get()).toBe(CANCEL)
+		t.expect(w.adapter.node(CANCEL).focused == true).toBe(false) -- no navigation yet
 		-- a compact phone stacks the actions, cancel at the bottom
 		w.press("Up")
 		t.expect(w.pres.focus.focused:get()).toBe(DELETE)
@@ -1307,6 +1327,9 @@ t.describe("Alert actions: the label fits before anything is cut", function()
 			local bleed = metrics.chromeBleed
 			t.expect(`{case.name}: carved>0 {carved > 0}`).toBe(`{case.name}: carved>0 {case.carved}`)
 			local card = w.adapter.node("/S/Ctl/Center/Card").rect
+			local group = w.adapter.node("/S/Ctl/Center").rect
+			t.expect(card.x - group.x >= bleed).toBe(true)
+			t.expect(group.x + group.w - card.x - card.w >= bleed).toBe(true)
 			local actions = w.adapter.node("/S/Ctl/Center/Card/Actions").rect
 			local spent = actions.x - card.x
 			if case.carved then

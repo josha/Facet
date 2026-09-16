@@ -12,31 +12,60 @@ function permutation.order(
 	n: number?,
 	dirty: any,
 	cachedIndex: any?,
-	allowRemoval: boolean?
+	allowRemoval: boolean?,
+	allowInsert: boolean?,
+	allowUnrecorded: boolean?
 ): any
-	if ids == nil or dirty == nil or n == nil or (n ~= #children and not (allowRemoval and n > #children)) then
+	local inserted = allowInsert == true and n ~= nil and n < #children
+	if
+		ids == nil
+		or dirty == nil
+		or n == nil
+		or (n ~= #children and not (allowRemoval and n > #children) and not inserted)
+	then
 		return nil
 	end
 	local index, order = if cachedIndex ~= nil then table.clone(cachedIndex) else {}, {}
+	local recorded = n
 	if cachedIndex == nil then
+		recorded = 0
 		for i = 1, n :: number do
 			local id = ids[i]
+			if id == nil and allowUnrecorded then
+				continue
+			end
 			if id == nil or index[id] ~= nil then
 				return nil
 			end
 			index[id] = i
+			recorded += 1
 		end
 	end
-	local removed = n ~= #children
-	local moved = removed
+	local removed = n > #children
+	local moved = removed or inserted
+	local survivors, last = 0, 0
 	for i, child in children do
 		local old = index[child.id]
-		if old == nil or dirty[child.id] == true then
-			return nil
+		if old == nil then
+			-- Zero means measure a new row normally; survivors must keep their order.
+			if not inserted then
+				return nil
+			end
+			old = 0
+		else
+			survivors += 1
+			if old == 0 or dirty[child.id] == true or (inserted and old <= last) then
+				return nil
+			end
 		end
-		index[child.id] = nil
+		last = if old > 0 then old else last
+		-- Keep a consumed marker so duplicate ids cannot masquerade as new rows.
+		index[child.id] = 0
 		order[i] = old
 		moved = moved or old ~= i
+	end
+	if inserted and survivors ~= recorded then
+		return nil
 	end
 	return if ENABLED and moved and (not removed or REMOVAL) then order else nil
 end

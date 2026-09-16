@@ -283,6 +283,7 @@ describe("appChromeInsets: a plate takes its OWNER surface's answer", function()
 			safeInsets = CORE,
 			env = if band then { appChromeInsets = BOTTOM_BAND } else nil,
 		})
+		w.pres.focus.setFocusOrigin("navigation") -- measure the keyboard disclosure route
 		if modal then
 			w.present(UI.Screen({ id = "Base", children = { UI.Button({ id = "B", label = "b" }) } }))
 			w.pres.presentModal(labelAtBottom("Sheet"))

@@ -51,7 +51,19 @@ binding and the chooser’s world-object guidance. Prefer a direct prompt for on
 primary action and a corner menu for global commands; do not duplicate projection
 in game UI.
 
+For peer destinations organizing a screen, including a demo browser's top-level
+categories, use the chooser's [two-level navigation recipe](docs/guide/14-choosing-controls.md#two-level-navigation):
+adaptable outer TabView, ordinary nested page tabs. Choose by navigation role;
+calling a screen a game or demo does not make its outer navigation a local tab strip.
+
 Follow this order for every UI requirement, including whole-screen layouts and responsive composition:
+
+First inspect the host screen as well as the control catalog. Reuse its existing
+toolbar, settings, and navigation composition: a new action usually needs a
+`Controls.Button` in that surface, not another piece of chrome. Before adding a
+control, wrapper, or alternative presentation, identify the concrete requirement
+the closest existing control and host composition cannot express. Follow the
+[composition guidance](docs/guide/14-choosing-controls.md#compose-in-the-existing-screen).
 
 1. Attempt the needed UI with Facet's existing public controls and layouts: stacks, grids, Composition,
    scrolling, layout modifiers and adaptive conditions.

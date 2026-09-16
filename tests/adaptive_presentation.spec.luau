@@ -2,17 +2,19 @@
 local t = require("./lib/testkit")
 local F = require("../src") :: any
 local world = require("./lib/world")
-local function tabFixture(view, input, distance)
+local function tabFixture(view, input, distance, initialPreference)
 	local w = world.new({
 		viewport = { x = 0, y = 0, w = view[1], h = view[2] },
 		preferredInput = input,
 		env = { viewingDistance = distance or "near" },
 	})
 	local selection = w.core:signal("garage")
+	local preference = if initialPreference then w.core:signal(initialPreference) else nil
 	local builds = 0
 	local tabs = F.Controls.TabView(w.core, {
 		id = "Tabs",
 		style = "sidebarAdaptable",
+		sidebarPreference = preference,
 		selection = selection,
 		tabs = {
 			{
@@ -37,10 +39,46 @@ local function tabFixture(view, input, distance)
 	w.settle(2)
 	return w, tabs, selection, function()
 		return builds
-	end
+	end, preference
 end
 
 t.describe("shared adaptive presentation", function()
+	t.it("binds a nearby sidebar preference without rebuilding content or overriding compact and TV layouts", function()
+		local w, tabs, selection, builds, preference = tabFixture({ 1200, 800 }, "KeyboardAndMouse", "near", "topBar")
+		t.expect(tabs.placement:get()).toBe("topBar")
+		preference:set("sidebar")
+		w.settle(3)
+		t.expect(tabs.placement:get()).toBe("sidebar")
+		w.env:set("viewportRect", { x = 0, y = 0, w = 390, h = 844 })
+		w.settle(3)
+		t.expect(tabs.placement:get()).toBe("bottomBar")
+		local contentPath = "/S/Tabs/Content/Tab-garage/then/Tune"
+		w.pres.focus.focusOn(contentPath)
+		preference:set("topBar")
+		w.settle(3)
+		t.expect(w.pres.focus.focused:get()).toBe(contentPath)
+		preference:set("sidebar")
+		w.settle(3)
+		t.expect(w.pres.focus.focused:get()).toBe(contentPath)
+		w.env:set("viewportRect", { x = 0, y = 0, w = 1200, h = 800 })
+		w.env:set("viewingDistance", "ten-foot")
+		w.settle(3)
+		t.expect(tabs.placement:get()).toBe("topBar")
+		w.env:set("viewingDistance", "near")
+		w.settle(3)
+		t.expect(tabs.placement:get()).toBe("sidebar")
+		tabs.collapseSidebar()
+		w.settle(3)
+		t.expect(tabs.placement:get()).toBe("topBar")
+		preference:set("automatic")
+		w.settle(3)
+		t.expect(tabs.placement:get()).toBe("sidebar")
+		t.expect(builds()).toBe(1)
+		t.expect(selection:get()).toBe("garage")
+		w.pres.dismiss(w.handle)
+		tabs.dispose()
+	end)
+
 	t.it("viewing distance resets the navigation home and keeps TV tabs visible with a mouse", function()
 		local w, tabs, selection = tabFixture({ 1280, 800 }, "KeyboardAndMouse")
 		tabs.expandSidebar()
@@ -189,7 +227,7 @@ t.describe("shared adaptive presentation", function()
 		t.expect(w.pres.focus.focused:get()).toBe(target)
 		t.expect(w.core:lastError()).toBeNil()
 	end)
-	t.it("defaults to persistent navigation with mouse and offers a visible toggle", function()
+	t.it("defaults to persistent navigation with mouse without adding a toggle", function()
 		local w, tabs = tabFixture({ 1200, 800 }, "KeyboardAndMouse")
 		t.expect(tabs.placement:get()).toBe("sidebar")
 		local found = false
@@ -198,7 +236,7 @@ t.describe("shared adaptive presentation", function()
 				found = true
 			end
 		end
-		t.expect(found).toBe(true)
+		t.expect(found).toBe(false)
 		tabs.collapseSidebar()
 		w.settle(2)
 		t.expect(tabs.placement:get()).toBe("topBar")

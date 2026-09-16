@@ -934,3 +934,50 @@ describe("O6: what the bound does not re-derive still has to be true", function(
 		plain.dispose()
 	end)
 end)
+
+describe("unused drag retirement census", function()
+	it("does not inspect retirement on a surface that never queries drag eligibility", function()
+		local core = customFactory.new()
+		local env = environment.new(core)
+		local items = core:signal({ "a", "b" })
+		local root = mountLib.mount(
+			core,
+			UI.Screen({
+				id = "S",
+				children = {
+					UI.ForEach({
+						id = "Rows",
+						items = items,
+						key = function(v)
+							return v
+						end,
+						row = function(v)
+							return UI.Box({
+								id = v,
+								width = { type = "fixed", px = 20 },
+								height = { type = "fixed", px = 20 },
+							})
+						end,
+					}),
+				},
+			})
+		)
+		local reads = 0
+		local leaf = root.node.children[1].children[1]
+		setmetatable(leaf, {
+			__index = function(_, key)
+				if key == "retiring" then
+					reads += 1
+				end
+				return nil
+			end,
+		})
+		local controller = renderer.attach(core, root, env, fake_target.new())
+		controller.initialRender()
+		items:set({ "b", "a" })
+		controller.refresh()
+		expect(reads).toBe(0)
+		controller.dispose()
+		root.dispose()
+	end)
+end)

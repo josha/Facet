@@ -921,7 +921,7 @@ describe("RowActions control", function()
 		local flagPath = TRAILING_TRAY .. "/Action:flag"
 		local deletePath = TRAILING_TRAY .. "/Action:delete"
 		expect(pres.focus.focused:get()).toBe(flagPath) -- Navigate order: leftmost tray button first
-		expect(adapter.node(flagPath).focused).toBe(true)
+		expect(adapter.node(flagPath).focused == true).toBe(false) -- no navigation yet
 		system.deviceKey("Right", true)
 		system.deviceKey("Right", false)
 		expect(pres.focus.focused:get()).toBe(deletePath) -- Navigate moved the ring

@@ -1613,7 +1613,9 @@ describe("examples/gallery 04: settings sync", function()
 
 	it("the status line names the next action at every step", function()
 		local _, _, adapter, presenter, _, handle = ex03World()
-		expect(shown(adapter, presenter, HINT)).toBe("Change a setting to send a request.")
+		expect(shown(adapter, presenter, HINT)).toBe(
+			"1. Change Music or volume. 2. Compare the two states. 3. Deliver the reply. Then try volume 99: only 0–10 is allowed."
+		)
 		adapter.tap(MUSIC)
 		expect(shown(adapter, presenter, HINT)).toBe('Your screen already shows it. Press "Deliver server reply".')
 		adapter.tap(DELIVER)
@@ -3116,6 +3118,7 @@ describe("examples/gallery fixture: circular progress, both forms", function()
 	end)
 
 	it("its copy survives a 1.4x pseudo-localization without clipping", function()
+		local originalTitle = module.copy.title
 		underPseudoLocalization(module, function()
 			for _, view in { NARROW_PORTRAIT, NARROW_LANDSCAPE } do
 				local w, built = ringWorld(view)
@@ -3130,7 +3133,7 @@ describe("examples/gallery fixture: circular progress, both forms", function()
 				built.dispose()
 			end
 		end)
-		expect(string.find(module.copy.title, "Circular", 1, true) ~= nil).toBe(true)
+		expect(module.copy.title).toBe(originalTitle)
 	end)
 end)
 

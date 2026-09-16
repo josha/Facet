@@ -391,6 +391,7 @@ t.describe("RadialMenu control", function()
 		for _, appearance in { "buttons", "wedges" } do
 			for _, surface in { "native", "none" } do
 				local w, c = setup({ appearance = appearance, buttonSurface = surface })
+				w.press("Down")
 				w.pres.focus.focusOn(launcher(w))
 				w.press("Return")
 				w.settle(60)

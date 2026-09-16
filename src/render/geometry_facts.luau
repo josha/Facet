@@ -144,6 +144,9 @@ local BASE_KEYS = {
 	-- change re-scales text at measure AND paint
 	"typographyScale",
 	"preferredTextOffset",
+	-- Persistent bars reserve space; automatic bars overlay it. Even an
+	-- otherwise unchanged page must reflow when input changes this policy.
+	"scrollIndicatorPolicy",
 	-- a theme commit is geometry: new type sizes, spacing,
 	-- control metrics and content insets all reach the solver, so the
 	-- surface RE-SOLVES — it is never rebuilt, so mount identity, focus,

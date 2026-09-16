@@ -293,6 +293,9 @@ local SHOWCASE_TOP = demo_picker.barReservation(device_views.CORE_TOP, nil, 8)
 -- through a replicated folder, so this file mounts those modules DIRECTLY below
 -- (the same thing the delegation would have built, minus an engine).
 local SCENARIOS = {
+	"all_controls",
+	"collections",
+	"motion_layout",
 	"probe",
 	"safe_area",
 	"scroll_host",
@@ -1617,11 +1620,25 @@ local function sweep(kind: string, name: string, mount: (any) -> any, localeMoun
 						continue
 					end
 					local node = normalizePath(finding.node)
+					-- The tab shell reuses these fixtures unchanged. Match their existing
+					-- findings against the same ceilings at the same text/theme settings;
+					-- shell findings and any larger/new finding still fail normally.
+					local embedded = {
+						all_controls = { surface = "adaptive_controls", root = "/AdaptiveScreen" },
+						collections = { surface = "row_actions", root = "/MailActions" },
+						motion_layout = { surface = "with_animation", root = "/MotionDemo" },
+					}
+					local source = embedded[name]
+					local surface = name
+					local at = if source then string.find(node, source.root .. "/", 1, true) else nil
+					if at then
+						surface, node = source.surface, string.sub(node, at)
+					end
 					local sig = signature(finding.issue)
-					local key = waiverKey(name, variantValue, node, sig)
+					local key = waiverKey(surface, variantValue, node, sig)
 					if package ~= nil then
 						-- ── THE THEMED PASS ─────────────────────────────────────────
-						local index = themeRowFor(name, variantValue, node, sig)
+						local index = themeRowFor(surface, variantValue, node, sig)
 						local row = if index ~= nil then theme_ledger.ROWS[index] else nil
 						if row ~= nil and offset == 0 and row.since > 0 then
 							row = nil

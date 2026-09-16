@@ -1591,6 +1591,7 @@ function fake_target.new(opts: Opts?)
 	-- first call, because the presenter applies the boot policy during
 	-- construction.
 	function adapter.setScrollIndicatorPolicy(policy: string, reduced: boolean?)
+		local previousPolicy = adapter.scrollIndicatorPolicy
 		if adapter._configuredBarThickness == nil then
 			adapter._configuredBarThickness = adapter.scrollBarThickness or 0
 		end
@@ -1604,6 +1605,15 @@ function fake_target.new(opts: Opts?)
 		adapter.scrollBarThickness = if adapter.scrollIndicatorPolicy == "auto"
 			then 0
 			else adapter._configuredBarThickness
+		-- The native target updates every live window when its policy changes,
+		-- even when neither the host rect nor its content extent changed.
+		if previousPolicy ~= adapter.scrollIndicatorPolicy then
+			for _, handle in nodes do
+				if handle.scrollRegion ~= nil then
+					adapter.setScrollRegion(handle, handle.scrollRegion)
+				end
+			end
+		end
 		if recordOps then
 			note(`indicatorPolicy {adapter.scrollIndicatorPolicy} reduced={tostring(reduced == true)}`)
 		end

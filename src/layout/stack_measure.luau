@@ -181,7 +181,13 @@ function stack_measure.contentSize(
 	-- remapping any answer; deletion may keep a clean subset. A changed survivor
 	-- makes this a normal full pass.
 	if hit and cmemo.struct == true and not ctx.memoAudit and not ctx.aggregateAudit then
-		local order = permutation.order(children, cmemo.mIds, cmemo.mN, dirty, nil, true)
+		-- A pure append already retains every old index. Only middle growth needs
+		-- remapping; new slots stay empty and take the normal per-child path.
+		local middle = cmemo.mN ~= nil
+			and cmemo.mN > 0
+			and cmemo.mN < n
+			and children[cmemo.mN].id ~= cmemo.mIds[cmemo.mN]
+		local order = permutation.order(children, cmemo.mIds, cmemo.mN, dirty, nil, true, middle, middle)
 		if order ~= nil then
 			cmemo.mMain = permutation.remap(cmemo.mMain, order)
 			cmemo.mCross = permutation.remap(cmemo.mCross, order)

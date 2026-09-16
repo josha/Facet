@@ -5,7 +5,7 @@
   "phases": "phases.json",
   "suiteResults": "suite_real.json"
  },
- "maintainedAt": "2026-09-13T00:00:00Z",
+ "maintainedAt": "2026-09-15T00:00:00Z",
  "phases": [
   {
    "artifactDir": "artifacts/phase-0-foundation",
@@ -10941,7 +10941,7 @@
     "receipt": "tools/lune/verify/evidence/traversal-document-order--ring-follows-ownership.json",
     "resultIds": [
      "keyboard_navigation::keyboard bindings follow capability and responder ownership (DK-13/DK-15)::a PASSIVE surface paints no focus ring: the ring never claims input it lacks",
-     "keyboard_navigation::keyboard bindings follow capability and responder ownership (DK-13/DK-15)::an ordinary (engaged-open) screen still paints its ring exactly as before"
+     "keyboard_navigation::keyboard bindings follow capability and responder ownership (DK-13/DK-15)::an ordinary engaged screen paints its ring after keyboard navigation"
     ]
    },
    "class": "result-ids",
@@ -13823,7 +13823,7 @@
     ],
     "resultIds": [
      "gallery_demo_picker::showcase host: advancing the picker actually mounts the demo it names::every catalogue demo names a root screen this sweep knows to look for",
-     "gallery_demo_picker::showcase host: advancing the picker actually mounts the demo it names::one showNext per demo leaves EXACTLY that demo's own screen in the tree, all 34",
+     "gallery_demo_picker::showcase host: advancing the picker actually mounts the demo it names::one showNext per demo leaves EXACTLY that demo's own screen in the tree, all ten",
      "gallery_demo_picker::showcase host: advancing the picker actually mounts the demo it names::NEGATIVE CONTROL: a demo that cannot build is NOT reported as mounted",
      "gallery_demo_picker::showcase host: advancing the picker actually mounts the demo it names::the shipped scriptable API answers with what it DELIVERED, not what it was asked for"
     ],
@@ -15102,7 +15102,7 @@
      "keyboard_navigation::keyboard bindings follow capability and responder ownership (DK-13/DK-15)::engage() binds them and resign() gives them back, with no residue",
      "keyboard_navigation::keyboard bindings follow capability and responder ownership (DK-13/DK-15)::a tap on the UI takes the keyboard, and a tap OUTSIDE gives it back",
      "keyboard_navigation::keyboard bindings follow capability and responder ownership (DK-13/DK-15)::a PASSIVE surface paints no focus ring: the ring never claims input it lacks",
-     "keyboard_navigation::keyboard bindings follow capability and responder ownership (DK-13/DK-15)::an ordinary (engaged-open) screen still paints its ring exactly as before",
+     "keyboard_navigation::keyboard bindings follow capability and responder ownership (DK-13/DK-15)::an ordinary engaged screen paints its ring after keyboard navigation",
      "keyboard_navigation::keyboard bindings follow capability and responder ownership (DK-13/DK-15)::initialFocus defaults to the first focusable — every existing caller unmoved",
      "keyboard_navigation::keyboard bindings follow capability and responder ownership (DK-13/DK-15)::a PASSIVE surface defaults to NO initial focus",
      "keyboard_navigation::keyboard bindings follow capability and responder ownership (DK-13/DK-15)::...while an engaged-open screen still defaults to its first focusable",
@@ -16122,7 +16122,7 @@
      "nested_tree_pins::a layout-only frame does not open a commit scope that commits nothing::NEGATIVE CONTROL: a PAINT change still opens the prop pass",
      "nested_tree_pins::a scale that went back to 1 must come back — the UIScale corpse::turn on, off, and on again: the scale is live and carries its value",
      "nested_tree_pins::a scale that went back to 1 must come back — the UIScale corpse::...and the fields do not keep a destroyed instance after the scale clears",
-     "nested_compositing_scenario::nested_compositing showcase: registered everywhere a player or a sweep would look::is in scenarios/init.luau ORDER, in demo_picker.DEMOS, and in the overflow sweep's SCENARIOS",
+     "nested_compositing_scenario::nested_compositing showcase: registered everywhere a player or a sweep would look::keeps the diagnostic in the scenario registry and overflow sweep",
      "nested_compositing_scenario::nested_compositing showcase: registered everywhere a player or a sweep would look::names a module that actually exists on disk",
      "nested_compositing_scenario::nested_compositing showcase: builds and paints with ZERO solver diagnostics::at the narrow/wide swept viewports, at rest",
      "nested_compositing_scenario::nested_compositing showcase: builds and paints with ZERO solver diagnostics::...and still zero after the fade is driven and the carry pair is turned",
@@ -16945,7 +16945,7 @@
      "gallery_theme_picker::theme picker: the standalone collapsed shell stays out of the example's way::opening the panel is a `When`, not a rebuild of the shell",
      "gallery_theme_picker::theme picker: the standalone collapsed shell stays out of the example's way::exposes the same scriptable seams the composed handle has, so a capture can be driven",
      "gallery_theme_picker::theme picker: the standalone collapsed shell stays out of the example's way::on a compact phone the collapsed chip still fits inside the viewport",
-     "gallery_demo_picker::showcase catalogue::lists every tutorial example plus the twenty-seven fixtures",
+     "gallery_demo_picker::showcase catalogue::offers ten complementary demos with controls and complete use cases",
      "gallery_demo_picker::showcase catalogue::no blurb is longer than the longest one a device pass has already read",
      "gallery_demo_picker::showcase catalogue::names modules that actually exist",
      "gallery_demo_picker::showcase catalogue::every fixture the picker offers is registered in the scenario registry's ORDER",
@@ -16983,7 +16983,7 @@
      "gallery_demo_picker::showcase fixture: one fade group, or three (canvas_group)::the transition panel declares the group and writes no opacity of its own",
      "gallery_demo_picker::showcase fixture: one fade group, or three (canvas_group)::the refusal on screen is the framework's own sentence, captured at build",
      "gallery_demo_picker::showcase host: advancing the picker actually mounts the demo it names::every catalogue demo names a root screen this sweep knows to look for",
-     "gallery_demo_picker::showcase host: advancing the picker actually mounts the demo it names::one showNext per demo leaves EXACTLY that demo's own screen in the tree, all 34",
+     "gallery_demo_picker::showcase host: advancing the picker actually mounts the demo it names::one showNext per demo leaves EXACTLY that demo's own screen in the tree, all ten",
      "gallery_demo_picker::showcase host: advancing the picker actually mounts the demo it names::NEGATIVE CONTROL: a demo that cannot build is NOT reported as mounted",
      "gallery_demo_picker::showcase host: advancing the picker actually mounts the demo it names::the shipped scriptable API answers with what it DELIVERED, not what it was asked for",
      "gallery_demo_host::the showcase host path: a demo core is the core it delegates to::card-rail mounts through the host path, and arranges itself from the host's facts",
@@ -17695,7 +17695,7 @@
      "dpad_repeat::actions: gamepad-source classification (director item 4 plumbing)::dedup: a same-value re-fire from a DIFFERENT source class never overwrites lastGamepad",
      "dpad_repeat::d-pad auto-repeat: presenter cadence and gating::holding DPadDown steps once immediately, then repeats after 0.4s, then every 0.1s",
      "dpad_repeat::d-pad auto-repeat: presenter cadence and gating::a slow first frame catches up: a dt spanning several intervals fires every owed step in one tick",
-     "dpad_repeat::d-pad auto-repeat: presenter cadence and gating::holding a keyboard arrow (Down) does NOT auto-repeat",
+     "dpad_repeat::d-pad auto-repeat: presenter cadence and gating::holding a keyboard arrow repeats at the navigation cadence and stops on release",
      "dpad_repeat::d-pad auto-repeat: presenter cadence and gating::releasing before the initial delay elapses cancels the repeat entirely",
      "dpad_repeat::d-pad auto-repeat: presenter cadence and gating::repeat honors the ring's OWN wrap policy exactly like a single press would",
      "dpad_repeat::d-pad auto-repeat: presenter cadence and gating::a held Thumbstick1 push repeats through the SAME glue, at the SAME cadence — no double-fire",
@@ -20359,7 +20359,7 @@
      "row_capabilities_scenario::row_capabilities showcase: the refusal is legible, and the PREDICATE is what wrote it::it names the row the FRAMEWORK asked about, not the row the player pressed",
      "row_capabilities_scenario::row_capabilities showcase: the refusal is legible, and the PREDICATE is what wrote it::each of the three refusals writes its OWN question, so the line says which capability said no",
      "row_capabilities_scenario::row_capabilities showcase: the refusal is legible, and the PREDICATE is what wrote it::NEGATIVE CONTROL: nothing a permitted row does ever writes a line or moves the counter",
-     "row_capabilities_scenario::row_capabilities showcase: standing rule 4 — registered in BOTH places::both round-3 fixtures are in ORDER and in DEMOS — the direction O-15 fell through",
+     "row_capabilities_scenario::row_capabilities showcase: standing rule 4 — registered in BOTH places::keeps both diagnostics registered and exposes row permissions in Collections",
      "row_capabilities_scenario::row_capabilities showcase: standing rule 4 — registered in BOTH places::...and the always-on sweep names it, so dropping it is a failure and not a smaller green run",
      "row_capabilities_scenario::row_capabilities showcase: it holds under every shipped package::no finding of its OWN in any package at any of the three viewports",
      "row_capabilities_scenario::row_capabilities showcase: the copy survives a ~1.4x pseudo-localization::every player-visible string expands, and nothing this fixture owns overflows",
@@ -21701,8 +21701,8 @@
      "menu::D2: long-press ownership, settled in code::a Menu declared WITHOUT a touch trigger takes nothing away from the plate",
      "menu::D2 Menu: the dump says what is on screen::the dump carries the schema, the open chain and the whole item tree",
      "menu::D2 Menu: the dump says what is on screen::dispose closes every live surface rather than stranding one",
-     "menu_scenario::scenario 'menu': the surface D2 shipped without::is registered in BOTH places a player reaches it through, and names a root screen",
-     "menu_scenario::scenario 'menu': the surface D2 shipped without::the five routes are partitioned across five cards, with exactly ONE owner of the chords",
+     "menu_scenario::scenario 'menu': the surface D2 shipped without::is reachable inside All controls and keeps its standalone diagnostic screen",
+     "menu_scenario::scenario 'menu': the surface D2 shipped without::the five routes are partitioned across five cards, with focused chord routes for context and secondary cards",
      "menu_scenario::scenario 'menu': the surface D2 shipped without::every card's trigger is a focusable Button at the 44px floor, in document order",
      "menu_scenario::scenario 'menu': the surface D2 shipped without::every card's trigger fills the card's row — the press is the ROW, not the word",
      "menu_scenario::scenario 'menu': each route opens ITS OWN card, through the real seam::primary activate — a tap, and Return on the focused trigger",
@@ -21718,7 +21718,7 @@
      "menu_scenario::scenario 'menu': both idioms, from one control, on one machine::on a COMPACT viewport, forcing `panel` still resolves `sheet` — the screenshot's own defect, closed",
      "menu_scenario::scenario 'menu': it holds together where a phone squeezes it::the solver reports NOTHING at any swept viewport, closed or open",
      "menu_scenario::scenario 'menu': it holds together where a phone squeezes it::every player-visible string is in the exported `copy`, so the localization sweep can reach it",
-     "tab_view_scenario::scenario 'tab_view': the surface D5 shipped without::is registered in BOTH places a player reaches it through, and names a root screen",
+     "tab_view_scenario::scenario 'tab_view': the surface D5 shipped without::keeps a standalone diagnostic while All controls demonstrates nested tabs",
      "tab_view_scenario::scenario 'tab_view': the surface D5 shipped without::mounts pill selection in adaptable app navigation and nested page tabs",
      "tab_view_scenario::scenario 'tab_view': two levels, and each one SAYS where it landed::on a phone the app takes the thumb zone and the page takes the top — both printed",
      "tab_view_scenario::scenario 'tab_view': two levels, and each one SAYS where it landed::on a pointer desktop the app becomes a rail and the page is STILL a top band",
@@ -22524,7 +22524,7 @@
      "callout::D3b Callout: the dump, and the teardown::NO DEVICE BRANCH: the construct names no platform",
      "callout::D3b Callout: the dump, and the teardown::the standing warning ships with the documentation",
      "overflow_sweep::overflow sweep: gallery scenarios::scenario 'callout': the solver reports NOTHING at any swept viewport, at any text size",
-     "gallery_demo_picker::showcase host: advancing the picker actually mounts the demo it names::one showNext per demo leaves EXACTLY that demo's own screen in the tree, all 34"
+     "gallery_demo_picker::showcase host: advancing the picker actually mounts the demo it names::one showNext per demo leaves EXACTLY that demo's own screen in the tree, all ten"
     ],
     "shell": "test -f src/controls/callout.luau && test -f src/present/callout_queue.luau && test -f examples/gallery/scenarios/callout.luau && grep -q \"newCallout\" src/init.luau && grep -q \"maxVisible = 1,\" src/present/callout_queue.luau && grep -q \"toast_schedule\" src/present/callout_queue.luau && grep -qF \"Use tips sparingly\" docs/reference/api.md && grep -q \"function callout.plate\" src/controls/callout.luau && ! grep -qiE \"android|xbox|playstation|nintendo|switch_|windows\" src/controls/callout.luau && ! python3 -c \"import sys, importlib.util; s = importlib.util.spec_from_file_location('g', 'tools/check_brand_drift.py'); m = importlib.util.module_from_spec(s); s.loader.exec_module(m); sys.exit(0 if any(m.VENDOR.search(l) and 'artifacts/' not in l for l in open('src/controls/callout.luau')) else 1)\" && cd ../../../games/RascalRally/code && out=\"$(cat \"$FACET_VERIFY_RR_TRANSCRIPT\")\" && echo \"$out\" | grep -q \"✓.*newCallout and the .help. prop are LIVE in the framework this package requires\" && echo \"$out\" | grep -q \"✓.*both new sibling modules are REACHABLE on this package.s require path\" && echo \"$out\" | grep -q \"✓.*PERSISTENCE IS THIS PACKAGE.S: the framework reads player state and writes none of it\" && echo \"$out\" | grep -q \"✓.*TRIPWIRE: no shipped Rascal Rally source builds a callout, and every .help =. is the CARD FAMILY\""
    },
@@ -22664,7 +22664,7 @@
      "adaptive_presentation::shared adaptive presentation::Back collapses only sidebar navigation and leaves page Back unclaimed",
      "adaptive_presentation::shared adaptive presentation::distance changes release collapsed-caption observers"
     ],
-    "shell": "test -f src/controls/tab_view.luau && grep -q \"THE APP-LEVEL PLACEMENT BELONGS TO THE OUTERMOST TABVIEW\" src/controls/tab_view.luau && grep -qF \"local tabView = require(\" src/init.luau && grep -qF \"@self/controls/tab_view\" src/init.luau && grep -qF \"newTabView = tabView.build\" src/init.luau && grep -qF \"TabView = function(core: any, spec: tabView.Spec)\" src/init.luau && grep -q \"tab_view.spec\" tests/run.luau && grep -q \"adaptive.conditions\" src/controls/tab_view.luau && ! grep -q \"preferredInput\" src/controls/tab_view.luau && ! grep -q \"displaySize\" src/controls/tab_view.luau && grep -q \"picker.build\" src/controls/tab_view.luau && test \"$(grep -Fc 'UI.Button({' src/controls/tab_view.luau)\" -eq 1 && grep -q 'id = \"ToggleSidebar\"' src/controls/tab_view.luau && ! grep -q \"transientScope = \" src/controls/tab_view.luau && grep -q 'placement:get() == \"sidebar\"' src/controls/tab_view.luau && ! grep -q \"outsideDismiss\" src/controls/tab_view.luau && grep -q \"Facet.newTabView\" examples/reference/p4_foyer/init.luau && ! grep -q \"navItems(\" examples/reference/p4_foyer/init.luau && ! grep -q \"NavTopWhen\" examples/reference/p4_foyer/init.luau && ! grep -q \"BottomFullWhen\" examples/reference/p4_foyer/init.luau && grep -q \"^### .newTabView.\" docs/reference/api.md && grep -qF \"newTabView\" docs/reference/api.md && test -f tests/tab_view.spec.luau && grep -q \"facet_tab_view_contract.spec\" ../../../games/RascalRally/code/tests/run.luau && cd ../../../games/RascalRally/code && rr=\"$(cat \"$FACET_VERIFY_RR_TRANSCRIPT\")\" && echo \"$rr\" | grep -q \"✓.*it exists, takes the documented shape, and refuses an unknown key\" && echo \"$rr\" | grep -q \"✓.*two levels nest: the inner strip never claims the app-level placement\" && echo \"$rr\" | grep -q \"✓.*switching a tab is a REAL disposal, counted on this package.s core\" && echo \"$rr\" | grep -q \"✓.*this game mounts no .newTabView. — the tripwire that says a caller edit is owed\" && echo \"$rr\" | grep -q \"✓.*the shipped sponsor table.s .Split. contributes no group, on the axis that flips\" && echo \"$rr\" | grep -q \"✓.*the BOUND itself: a Split-shaped stack is not a run, however its axis reads\" && echo \"$rr\" | grep -q \"✓.*POSITIVE CONTROL: a real x-axis run DOES become one horizontal group\""
+    "shell": "test -f src/controls/tab_view.luau && grep -q \"THE APP-LEVEL PLACEMENT BELONGS TO THE OUTERMOST TABVIEW\" src/controls/tab_view.luau && grep -qF \"local tabView = require(\" src/init.luau && grep -qF \"@self/controls/tab_view\" src/init.luau && grep -qF \"newTabView = tabView.build\" src/init.luau && grep -qF \"TabView = function(core: any, spec: tabView.Spec)\" src/init.luau && grep -q \"tab_view.spec\" tests/run.luau && grep -q \"adaptive.conditions\" src/controls/tab_view.luau && ! grep -q \"preferredInput\" src/controls/tab_view.luau && ! grep -q \"displaySize\" src/controls/tab_view.luau && grep -q \"picker.build\" src/controls/tab_view.luau && test \"$(grep -Fc 'UI.Button({' src/controls/tab_view.luau)\" -eq 0 && ! grep -q 'id = \"ToggleSidebar\"' src/controls/tab_view.luau && grep -q 'id = \"ToggleSidebar\"' examples/gallery/client/showcase_chrome.luau && ! grep -q \"transientScope = \" src/controls/tab_view.luau && grep -q 'placement:get() == \"sidebar\"' src/controls/tab_view.luau && ! grep -q \"outsideDismiss\" src/controls/tab_view.luau && grep -q \"Facet.newTabView\" examples/reference/p4_foyer/init.luau && ! grep -q \"navItems(\" examples/reference/p4_foyer/init.luau && ! grep -q \"NavTopWhen\" examples/reference/p4_foyer/init.luau && ! grep -q \"BottomFullWhen\" examples/reference/p4_foyer/init.luau && grep -q \"^### .newTabView.\" docs/reference/api.md && grep -qF \"newTabView\" docs/reference/api.md && test -f tests/tab_view.spec.luau && grep -q \"facet_tab_view_contract.spec\" ../../../games/RascalRally/code/tests/run.luau && cd ../../../games/RascalRally/code && rr=\"$(cat \"$FACET_VERIFY_RR_TRANSCRIPT\")\" && echo \"$rr\" | grep -q \"✓.*it exists, takes the documented shape, and refuses an unknown key\" && echo \"$rr\" | grep -q \"✓.*two levels nest: the inner strip never claims the app-level placement\" && echo \"$rr\" | grep -q \"✓.*switching a tab is a REAL disposal, counted on this package.s core\" && echo \"$rr\" | grep -q \"✓.*this game mounts no .newTabView. — the tripwire that says a caller edit is owed\" && echo \"$rr\" | grep -q \"✓.*the shipped sponsor table.s .Split. contributes no group, on the axis that flips\" && echo \"$rr\" | grep -q \"✓.*the BOUND itself: a Split-shaped stack is not a run, however its axis reads\" && echo \"$rr\" | grep -q \"✓.*POSITIVE CONTROL: a real x-axis run DOES become one horizontal group\""
    },
    "class": "result-ids",
    "evidence": null,
@@ -22808,7 +22808,7 @@
      "playlist_columns::playlist columns: how big the divider actually is::the grip is the theme's small spacing step in every paradigm, touch included",
      "playlist_columns::playlist columns: the divider forwards a press it did not turn into a drag::a press and release with no travel sorts the column and commits NO width",
      "hit_expander_overhang::hit-expander overhang: the table divider's floor is reachable::the divider outranks the NEIGHBOUR column its 44px floor reaches into",
-     "gallery_demo_picker::showcase catalogue::lists every tutorial example plus the twenty-seven fixtures",
+     "gallery_demo_picker::showcase catalogue::offers ten complementary demos with controls and complete use cases",
      "example_readouts::readout sweep: every tutorial example renders the content it declares::example '01_temperature_converter': every declared readout has a real rect at every swept viewport, at every text size",
      "example_readouts::readout sweep: every tutorial example renders the content it declares::example '02_playlist_table': every declared readout has a real rect at every swept viewport, at every text size",
      "example_readouts::readout sweep: every tutorial example renders the content it declares::example '03_settings_sync': every declared readout has a real rect at every swept viewport, at every text size",
@@ -22817,7 +22817,7 @@
      "example_readouts::readout sweep: every tutorial example renders the content it declares::example '06_tile_game': every declared readout has a real rect at every swept viewport, at every text size",
      "example_readouts::readout sweep: every tutorial example renders the content it declares::example '07_match3': every declared readout has a real rect at every swept viewport, at every text size"
     ],
-    "shell": "test ! -f examples/gallery/scenarios/table_columns.luau && test ! -f tests/table_columns.spec.luau && grep -q playlist_columns.spec tests/run.luau && ! grep -q \".table_columns.,\" examples/gallery/scenarios/init.luau && ! grep -q \"module = .table_columns.\" examples/gallery/client/demo_picker.luau && grep -q \"drag a divider to resize a column\" examples/gallery/client/demo_picker.luau && grep -q \"sortOrder = sortOrder\" examples/gallery/examples/02_playlist_table.luau && (cd ../../../games/RascalRally/code && cat \"$FACET_VERIFY_RR_TRANSCRIPT\" >/dev/null)"
+    "shell": "test ! -f examples/gallery/scenarios/table_columns.luau && test ! -f tests/table_columns.spec.luau && grep -q playlist_columns.spec tests/run.luau && ! grep -q \".table_columns.,\" examples/gallery/scenarios/init.luau && ! grep -q \"module = .table_columns.\" examples/gallery/client/demo_picker.luau && grep -q \"sort, edit, reorder and resize columns\" examples/gallery/client/demo_picker.luau && grep -q \"sortOrder = sortOrder\" examples/gallery/examples/02_playlist_table.luau && (cd ../../../games/RascalRally/code && cat \"$FACET_VERIFY_RR_TRANSCRIPT\" >/dev/null)"
    },
    "class": "result-ids",
    "evidence": null,

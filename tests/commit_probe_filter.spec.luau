@@ -175,7 +175,7 @@ local function fillScene(commitScope: boolean)
 end
 
 describe("C14: the probe is asked only where the solve could have replaced an entry", function()
-	it("one leaf's text on a 1,000-row list SCANS the same and PROBES almost nothing", function()
+	it("one leaf's text keeps the probe filter after sparse selection", function()
 		--[[ RED AT BASE. THE PAIR IS THE POINT. `scans` is C4's number and must not move by one:
 			the filter sets three flags where the probe used to run and lets every child
 			reach the fork logic with the same `i`. `probes` is C14's, read off the run
@@ -190,7 +190,8 @@ describe("C14: the probe is asked only where the solve could have replaced an en
 			(`tests/hit_rect_refusal.spec.luau`) — and it was the walk whose ROOT guard
 			asked the extra question. Numbers re-read off the run; the shape the pin
 			carries is unchanged. ]]
-		expect(`scans={st.lastCommitScans}`).toBe("scans=1010")
+		-- The output union now removes the wide sibling sift; probes and writes stay fixed.
+		expect(`scans={st.lastCommitScans}`).toBe("scans=11")
 		expect(`probes={st.lastCommitProbes} visits={st.lastCommitVisits}`).toBe("probes=1 visits=29")
 		-- ...AND NOT ONE VISIT OR WRITE MOVED, which is the whole safety claim. These
 		-- are `commit_descend_cache.spec`'s own numbers, re-asserted here because a
@@ -209,7 +210,7 @@ describe("C14: the probe is asked only where the solve could have replaced an en
 		expect(
 			`cells={st.lastCommitListCells} elided={st.elided} creates={st.creates} `
 				.. `removes={st.removes} parked={st.parked} recycled={st.recycled}`
-		).toBe("cells=3 elided=1001 creates=3002 removes=0 parked=0 recycled=0")
+		).toBe("cells=2 elided=1001 creates=3002 removes=0 parked=0 recycled=0")
 		s.dispose()
 	end)
 
@@ -225,7 +226,7 @@ describe("C14: the probe is asked only where the solve could have replaced an en
 			asked the extra question. Numbers re-read off the run; the shape the pin
 			carries is unchanged. ]]
 		expect(`scans={st.lastCommitScans} probes={st.lastCommitProbes} visits={st.lastCommitVisits}`).toBe(
-			"scans=1010 probes=0 visits=21"
+			"scans=11 probes=0 visits=21"
 		)
 		s.dispose()
 	end)

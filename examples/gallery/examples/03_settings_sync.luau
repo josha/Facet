@@ -221,7 +221,7 @@ function example.build(Facet: any, core: any, _deps: any)
 		elseif status == "rejected" then
 			return "The server refused it, so the draft rolled back."
 		end
-		return "Change a setting to send a request."
+		return "1. Change Music or volume. 2. Compare the two states. 3. Deliver the reply. Then try volume 99: only 0–10 is allowed."
 	end)
 	-- STATE COLOUR IS SEMANTIC, never a literal: `danger` for a refusal, `accent`
 	-- for an agreement, the resting content role otherwise.
@@ -264,10 +264,10 @@ function example.build(Facet: any, core: any, _deps: any)
 					-- succeed here (the engine would break the word) and the line
 					-- ellipsizes instead. `disclose` is what the framework owes a reader
 					-- when that happens; the compact-phone sweep re-proves it every run.
-					UI.Text({ id = "Title", text = "Audio Settings", textSize = "title", disclose = true }),
+					UI.Text({ id = "Title", text = "Settings sync", textSize = "title", disclose = true }),
 					UI.Text({
 						id = "Lesson",
-						text = `The server accepts volume {VOLUME_MIN}..{VOLUME_MAX} only.`,
+						text = "See an instant change while a save is pending, then accept or reject it. Replies are paused in this local simulation so you can compare both states.",
 						textSize = "caption",
 						role = "secondary",
 					}),
@@ -282,7 +282,7 @@ function example.build(Facet: any, core: any, _deps: any)
 						children = {
 							UI.Text({
 								id = "DraftHeading",
-								text = "What you see now (your optimistic draft)",
+								text = "On your screen — changes immediately",
 								textSize = "caption",
 								role = "secondary",
 								disclose = true,
@@ -291,7 +291,7 @@ function example.build(Facet: any, core: any, _deps: any)
 							UI.Divider({ id = "StateRule" }),
 							UI.Text({
 								id = "ServerHeading",
-								text = "What the server has confirmed",
+								text = "Saved on the simulated server",
 								textSize = "caption",
 								role = "secondary",
 								disclose = true,

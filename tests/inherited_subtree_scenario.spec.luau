@@ -424,8 +424,9 @@ describe("inherited_subtree showcase: standing rule 4 — registered in all thre
 		assert(orderBlock ~= nil, "scenarios/init.luau no longer has a `local ORDER = { ... }` block")
 		local inOrder = string.find(orderBlock :: string, '"inherited_subtree"', 1, true) ~= nil
 
-		local demo = demo_picker.find("inherited-subtree")
-		local inDemos = demo ~= nil and (demo :: any).module == "inherited_subtree"
+		local catalog = require("../examples/gallery/scenarios/motion_layout")
+		local inDemos = demo_picker.find("motion-layout") ~= nil
+			and catalog.groups[2].tabs[3].scenario == require("../examples/gallery/scenarios/inherited_subtree")
 
 		local sweepSource = fs.readFile("tests/overflow_sweep.spec.luau")
 		local sweepBlock = string.match(sweepSource, "local SCENARIOS = (%b{})")

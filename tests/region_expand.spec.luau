@@ -864,6 +864,7 @@ describe("EXPAND 8 — the plate, and every way out of it", function()
 		expect(presented[1].kind).toBe("anchored")
 		expect(presented[1].panel.plateWidth).toBe(200)
 		expect(presented[1].opts.anchor.source.path).toBe("/S/C/Clock")
+		expect(presented[1].opts.anchor.edge).toBe("overlap")
 	end)
 
 	it("falls back to the full-width SHEET where the richest form cannot meet its floor", function()
@@ -1020,7 +1021,7 @@ local adapter_source = require("./lib/adapter_source")
 local sheet_model = require("../src/tokens/sheet_model")
 local default_style = require("../src/tokens/default_style")
 
-local function hudScreen(): any
+local function hudScreen(dismissButton: string?): any
 	return UI.Screen({
 		id = "S",
 		width = { type = "fill", weight = 1 },
@@ -1035,6 +1036,7 @@ local function hudScreen(): any
 				children = {
 					UI.Region({
 						id = "Clock",
+						dismissButton = dismissButton,
 						group = "body",
 						rank = 1,
 						recover = "overflow",
@@ -3042,5 +3044,38 @@ describe("EXPAND 18 — a plate does not truncate what it was opened to show", f
 		expect(table.concat(outside, " ; ")).toBe("")
 		-- the sweep walked something
 		expect(#w.adapter.paths() > 10).toBe(true)
+	end)
+end)
+
+describe("automatic region dismissal chrome", function()
+	it("outside taps dismiss and keyboard navigation restores a reachable close", function()
+		local w = worldLib.new({
+			viewport = { x = 0, y = 0, w = 600, h = 30 },
+			presenterOpts = { keyboardNavigation = true },
+		})
+		w.present(hudScreen("automatic"), { initialFocus = "none" })
+		local trigger = "/S/C/Clock/Expand"
+		local close = "/Expand:Clock/Layer/Surface/ExpandPanel/ExpandPlate/ExpandCloseWhen/then/ExpandClose"
+		w.adapter.tap(trigger)
+		w.settle(3)
+		expect(w.adapter.node(close)).toBeNil()
+		w.press("Tab")
+		w.settle(3)
+		expect(w.adapter.node(close)).never().toBeNil()
+		expect(w.pres.focus.focused:get()).toBe(close)
+		w.press("Return")
+		w.settle(3)
+		expect(w.pres.depth()).toBe(1)
+		w.adapter.tap(trigger)
+		w.settle(3)
+		for _, path in w.adapter.paths() do
+			if path:find("/__scrim__/catcher", 1, true) then
+				w.adapter.tap(path, { x = 590, y = 25 })
+				break
+			end
+		end
+		w.settle(3)
+		expect(w.pres.depth()).toBe(1)
+		w.pres.dismiss(w.handle)
 	end)
 end)

@@ -211,7 +211,7 @@ describe("DB-3(b): the focus RING answers navigation, never a finger", function(
 
 	it("a touch tap MOVES focus and paints NO ring", function()
 		local w = ringWorld()
-		expect(ringOn(w, BTN_A)).toBe(true) -- the entry ring, before any finger
+		expect(ringOn(w, BTN_A)).toBe(false) -- entry focus has no navigation origin yet
 		w.adapter.touchTap(BTN_B)
 		expect(w.pres.focus.focused:get()).toBe(BTN_B) -- identity still tracked
 		expect(ringOn(w, BTN_B)).toBe(false)
@@ -241,7 +241,7 @@ describe("DB-3(b): the focus RING answers navigation, never a finger", function(
 
 	it("keyboard/gamepad-only sessions are untouched: the ring paints from the first move", function()
 		local w = ringWorld()
-		expect(w.pres.focus.focusVisible:get()).toBe(true)
+		expect(w.pres.focus.focusVisible:get()).toBe(false)
 		w.system.deviceKey("Down", true)
 		w.system.deviceKey("Down", false)
 		expect(w.pres.focus.focusVisible:get()).toBe(true)

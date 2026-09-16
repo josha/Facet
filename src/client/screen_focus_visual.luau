@@ -393,7 +393,18 @@ function screen_focus_visual.new(ctx: Ctx)
 								floatCorner = realCorner:Clone()
 								floatCorner.Parent = float
 							else
-								(floatCorner :: UICorner).CornerRadius = realCorner.CornerRadius
+								-- CornerRadius is only the uniform alias. Copying it over a
+								-- per-corner segment resets square inner corners to a capsule.
+								local copied = pcall(function()
+									for _, key in
+										{ "TopLeftRadius", "TopRightRadius", "BottomLeftRadius", "BottomRightRadius" }
+									do
+										(floatCorner :: any)[key] = (realCorner :: any)[key]
+									end
+								end)
+								if not copied then
+									(floatCorner :: UICorner).CornerRadius = realCorner.CornerRadius
+								end
 							end
 						else
 							--[[ NATIVE MODE'S CORNER IS A PHANTOM (device bug fix, director
@@ -441,6 +452,8 @@ function screen_focus_visual.new(ctx: Ctx)
 							local radius: UDim? = nil
 							if handle.shape == "circle" then
 								radius = UDim.new(0.5, 0)
+							elseif host ~= instance then
+								radius = UDim.new(0, liveRadii.selection or liveRadii.control)
 							elseif surfaceRole == "raised" then
 								radius = UDim.new(0, liveRadii.panel)
 							elseif surfaceRole == "control" or surfaceRole == "chip" then

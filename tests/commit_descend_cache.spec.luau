@@ -96,13 +96,13 @@ end
 	the claim is about ONE parent-child pair and a 20-row list makes the numbers
 	readable. `commitScope` is the arm switch, so the same builder produces the
 	pruned build and the pre-P4 control the oracle compares against. ]]
-local function fillScene(commitScope: boolean)
+local function fillScene(commitScope: boolean, rowCount: number?)
 	local core = customFactory.new()
 	local env = environment.new(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 1280, h = 720 })
 	local width = core:signal(300)
 	local rows: { any } = {}
-	for i = 1, 20 do
+	for i = 1, rowCount or 20 do
 		rows[i] = UI.HStack({
 			id = `R{i}`,
 			padding = 0,
@@ -163,7 +163,21 @@ local function fillScene(commitScope: boolean)
 end
 
 describe("C4: the commit's sibling scan is paid once, not once per walk", function()
-	it("one leaf's text on a 1,000-row list asks 1,011 questions, not 8,032", function()
+	it("a sparse edit does not scan clean siblings as the list grows", function()
+		local scans = {}
+		for _, rows in { 128, 1024 } do
+			local s = deep.new({ rows = rows })
+			s.text(rows, "warm")
+			s.text(rows, "changed")
+			s.text(rows, "changed again")
+			table.insert(scans, s.stats().lastCommitScans)
+			s.dispose()
+		end
+		expect(scans[2] < 64).toBe(true)
+		expect(scans[2]).toBe(scans[1])
+	end)
+
+	it("one leaf's text on a 1,000-row list asks eleven questions", function()
 		--[[ READ OFF THE RUN at `e74b17fd` + this file's counter, with the cache
 			disabled (`descendOf` returning `node.children`): 8,032. With it: 1,011 —
 			the 1,000 rows classified ONCE at `/S/List`, plus each visited node's own
@@ -179,7 +193,8 @@ describe("C4: the commit's sibling scan is paid once, not once per walk", functi
 			(`tests/hit_rect_refusal.spec.luau`) — and it was the walk whose ROOT guard
 			asked the extra question. Numbers re-read off the run; the shape the pin
 			carries is unchanged. ]]
-		expect(`scans={st.lastCommitScans}`).toBe("scans=1010")
+		-- The sparse output union now bypasses the historical 1,000-child sift.
+		expect(`scans={st.lastCommitScans}`).toBe("scans=11")
 		--[[ ...AND WHAT THE ANSWERS WERE STORED IN (fix round 1, review Important 2).
 			The questions falling 8x did not make the milliseconds follow on a commit
 			that prunes NOTHING, and this is why: the first shape of `buildDescend`
@@ -194,7 +209,7 @@ describe("C4: the commit's sibling scan is paid once, not once per walk", functi
 			`solves` is CUMULATIVE and is pinned beside the cells so the reader knows
 			which commit the number is off: 3 = `initialRender` plus the two drives,
 			and the cells are the LAST one's. ]]
-		expect(`cells={st.lastCommitListCells} solves={st.solves}`).toBe("cells=3 solves=3")
+		expect(`cells={st.lastCommitListCells} solves={st.solves}`).toBe("cells=2 solves=3")
 		-- ...AND NOT ONE VISIT MOVED. This is the whole safety claim, pinned rather
 		-- than argued: the cache decides which children are CONSIDERED and never
 		-- which are descended.
@@ -207,7 +222,7 @@ describe("C4: the commit's sibling scan is paid once, not once per walk", functi
 		s.dispose()
 	end)
 
-	it("...and a width write on the ROW itself asks 1,011 too", function()
+	it("...and a width write on the ROW itself asks eleven too", function()
 		local s = deep.new({})
 		s.width(500, 280)
 		s.width(500, 260)
@@ -217,8 +232,8 @@ describe("C4: the commit's sibling scan is paid once, not once per walk", functi
 			(`tests/hit_rect_refusal.spec.luau`) — and it was the walk whose ROOT guard
 			asked the extra question. Numbers re-read off the run; the shape the pin
 			carries is unchanged. ]]
-		expect(`scans={st.lastCommitScans} visits={st.lastCommitVisits}`).toBe("scans=1010 visits=21")
-		expect(`cells={st.lastCommitListCells}`).toBe("cells=2")
+		expect(`scans={st.lastCommitScans} visits={st.lastCommitVisits}`).toBe("scans=11 visits=21")
+		expect(`cells={st.lastCommitListCells}`).toBe("cells=1")
 		s.dispose()
 	end)
 
@@ -245,6 +260,69 @@ describe("C4: the commit's sibling scan is paid once, not once per walk", functi
 end)
 
 describe("C4: A CLEAN CHILD OF A DIRTY PARENT is still descended", function()
+	it("a sparse width edit commits a clean moved sibling in a wide row", function()
+		local core = customFactory.new()
+		local env = environment.new(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 1280, h = 720 })
+		local width = core:signal(5)
+		local children = {}
+		for i = 1, 128 do
+			children[i] = UI.Box({
+				id = `B{i}`,
+				width = if i == 127
+					then core:memo(function(use: any)
+						return { type = "fixed", px = use(width) }
+					end)
+					else { type = "fixed", px = 5 },
+				height = { type = "fixed", px = 10 },
+			})
+		end
+		local root = mountLib.mount(
+			core,
+			UI.Screen({
+				id = "S",
+				children = {
+					UI.HStack({
+						id = "Row",
+						width = { type = "fixed", px = 1000 },
+						height = { type = "fixed", px = 20 },
+						padding = 0,
+						gap = 0,
+						children = children,
+					}),
+				},
+			})
+		)
+		local adapter = fake_target.new()
+		local controller = renderer.attach(core, root, env, adapter, { rootPolicy = "edgeToEdge" })
+		controller.initialRender()
+		for _, value in { 8, 12, 17 } do
+			width:set(value)
+			controller.refresh()
+			expect(adapter.liveNodes()["/S/Row/B128"].storedRect.x).toBe(126 * 5 + value)
+		end
+		expect(controller.stats().lastCommitScans < 64).toBe(true)
+		controller.dispose()
+		root.dispose()
+	end)
+
+	it("a failed commit forces full classification on the next sparse update", function()
+		local s = fillScene(true, 128)
+		s.setWidth(280)
+		s.setWidth(260)
+		local setRect = s.adapter.setRect
+		s.adapter.setRect = function()
+			error("injected commit failure")
+		end
+		local ok = pcall(s.setWidth, 240)
+		expect(ok).toBe(false)
+		s.adapter.setRect = setRect
+		s.setWidth(220)
+		expect(s.controller.stats().lastCommitScans >= 128).toBe(true)
+		expect(s.adapter.liveNodes()["/S/List/R5/Fill"].storedRect.w).toBe(220)
+		s.dispose()
+	end)
+
 	it("a `fill` child re-lays out when its row's width moves, and is in no dirty set", function()
 		--[[ THE CASE THAT REFUSES THE DIRTY-CHILD INDEX (see this file's header). The
 			signal is bound to `/S/List/R5`'s `width`, so `markDirtyIn` marks

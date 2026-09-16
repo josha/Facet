@@ -848,6 +848,10 @@ mounts — so a page that continues below never reads as cut off — shows while
 scrolling, and fades when idle). Reduced motion never fades: `auto` degrades
 to visible-whenever-scrollable.
 
+Changing input also reflows the content for the new scrollbar reservation,
+even when the page content and viewport are unchanged. Screens do not need to
+remount or manually refresh their scroll layouts.
+
 **Persistent holds space; auto does not — and neither clips.** `"always"`
 reserves the bar's thickness *plus one pixel* off the scrolling region's cross
 axis (director report 2026-08-30: reserving the bar exactly is correct and still
@@ -1190,7 +1194,7 @@ where a region id is simply whatever the caller passed.
 
 ### `Region`
 
-`UI.Region{ id (required), group (required), rank (required), recover (required with 2+ forms), expand?, floor?, sizing?, weight?, mayScroll?, mayDrop?, reserved?, children (required) }`
+`UI.Region{ id (required), group (required), rank (required), recover (required with 2+ forms), expand?, dismissButton?, floor?, sizing?, weight?, mayScroll?, mayDrop?, reserved?, children (required) }`
 — one ranked thing a `Composition` has to say. **Its children are its forms**,
 richest first; the last is its minimum-viable form. Exactly one is shown.
 
@@ -1206,6 +1210,13 @@ richest first; the last is its minimum-viable form. Exactly one is shown.
 | `recover` | **where the content a reduced form stops showing went.** `"none"` (every form below the richest still shows everything — a poorer *layout*, not less content) \| `"self"` (the reduced form **is** the route: the player taps what is left to get the rest) \| `"overflow"` (the screen's overflow surface is the route, and it reads `resolution.unshown`). **Required** with more than one form and **refused** with one: a one-form region can only stop showing content by being *dropped*, and a dropped region has no form left to be its own route, so the sink is the only possible answer — `mayDrop` is already that declaration. `"none"` together with `mayDrop` is refused for the same reason: dropping shows nothing |
 | `expand` | **how a stepped-down region discloses its richest form.** `"auto"` (default) — the framework presents form 1 in a transient plate at this region's own anchor, opened by the **whole compact form** when that form carries no control of its own, or by a **chevron beside it** when it does (see the note below) \| `"none"` — the authored escape (nothing to disclose, or you are disclosing it yourself) \| a **function**, which replaces the presentation entirely. **Refused on a one-form region**: a region with one form never simplifies, and that is also the answer to "how do I stop this region collapsing" — give it one form. Silence means `"auto"` except under `recover = "none"`, which has already stated that nothing is missing |
 | `reserved` | hold its box while its content rests **between pieces**, so a finishing transient never moves its neighbours. `true` reserves for the surface's whole life; **a `Readable<boolean>`** — the only reactive prop on a `Region` — reserves only while it reads true ("this schedule can still produce a piece") and releases the box, and with it the lane (rule 9), when it reads false. Mutually exclusive with `mayDrop` |
+
+`dismissButton = "always"` (default) retains the corner Close button.
+`"automatic"` uses the same inline Collapse affordance as CollapsibleView, shown
+only during keyboard/gamepad navigation. Pointer/touch users dismiss outside;
+switching to navigation reveals a reachable exit. This preference requires an
+expandable region. Region disclosures overlap the compact region and clamp to
+the safe area instead of opening below it.
 
 **The expand, in one paragraph.** A region standing on a form below its richest is
 showing less than it has, and `expand` is how the player asks for the rest without
@@ -1777,8 +1788,8 @@ the library default fills in and the contrast gate runs on the effective pair.
   subtracting from a sentinel; anything else is the container's own radius less
   one `space.xs`, the inset the fill floats by — two concentric rounded rects.
   A segmented picker's container is its own track (`radii.control`); a
-  `TabView`'s adaptable app bar in its BAND form is a capsule, and the fill
-  inside it is one too. A strip with no plate at all names no container and the
+  `TabView`'s adaptable app bar in its BAND form also uses `radii.control`,
+  so square themes keep square navigation and rounded themes keep rounded navigation. A strip with no plate at all names no container and the
   fill keeps plain `radii.selection` — and so does the same bar's SIDEBAR RAIL,
   because a selected row sits in the middle of a column rather than concentric
   with the rail's outer corner. `corner = "pill"` stays the caller's opt-in, and the
@@ -1804,6 +1815,9 @@ floating round "…" action. It is **not reactive**: a shape is what the control
   onto its grid. Author one axis (`width` *or* `height`) and the other follows 1:1;
   author neither and both are the metric. Authoring **both** is refused at
   construction — that is the author doing the math the solver already does.
+  A stretching stack preserves the measured aspect pair unless its driving
+  dimension explicitly fills the available space; the disc cannot grow after
+  its parent has reserved its height.
 - **Content is one mark.** Either a semantic `icon` or a short `label` of at most
   **3 characters with no spaces**. A longer or multi-word drawn label is refused at
   construction, naming the field, the rule and the fix. The default padding is `0`
@@ -3497,22 +3511,12 @@ Until the property is on, a place that keeps the default camera should not rely 
 Left/Right for UI; `client.gamepad_contention.cameraKeysContended()` answers
 whether any CAS binding is holding an arrow on this client right now.
 
-**Holding a gamepad direction repeats.** `Navigate`/`NavigateH` used
-to deliver exactly one focus move per press, however long the direction was
-held — the engine's own Input Action System documents no repeat behavior
-(`Pressed`/`Released`/`StateChanged` state transitions only) and there is no
-scripted way to detect what the native `GuiService` selection navigator does
-internally, so nothing above this layer could have inherited a repeat for
-free. The presenter now supplies one itself: after an initial **0.4s** hold it
-repeats every **0.1s** — the console-standard shape, since neither platform
-surface documents its own timing — through the exact same navigation call a
-fresh press makes, so every wrap rule, `navigateIntercept`, and focus-boundary
-behavior applies to a repeated step exactly as it does to a single one. It is
-**gamepad-only**: a keyboard arrow held down keeps its original single-step
-behavior, and a `Thumbstick1` push held past the D-pad-tolerance threshold
-(above) repeats through the identical mechanism, at the identical cadence — one
-repeat path, not two. There is no opt-out and no new option; every presented
-surface gets it.
+**Holding a navigation direction repeats.** Keyboard arrows, the D-pad and a
+held thumbstick move once immediately, then repeat after **0.4s**, every **0.1s**.
+Each step uses the same navigation path as a fresh press, including wrapping,
+intercepts and focus boundaries. Release, dismissal, an input-owning control,
+or a higher-priority modal stops the hold. Value adjustment remains a separate,
+explicit gamepad-repeat capability of the control.
 
 **Session lifetime, stated.** A presenter is built **once per client session**
 and has **no `dispose()`**. It owns a feedback bus, a focus graph, a motion clock
@@ -3597,7 +3601,11 @@ Methods:
   headless rig hid it by mounting the region before presenting.)
 - `presenter.depth() -> number`, `presenter.focus` (the focus graph).
 - **Focus identity vs the focus RING** (`presenter.focus.focusVisible`,
-  `presenter.focus.setFocusOrigin(kind)`). Focus always moves — a tap moves it
+  `presenter.focus.setFocusOrigin(kind)`). At presenter creation, entry focus is
+  visible for effective Gamepad input and hidden for mouse/keyboard or touch
+  until a navigation verb occurs. This is a one-time initialization; subsequent
+  environment changes do not overwrite the last interaction's origin.
+  Focus always moves — a tap moves it
   wherever it lands, and every consumer that follows focus (a drag's aim,
   keep-visible, the engine-selection bridge) keeps working on touch. The RING is
   a different question — "where does the next Navigate go" — and a finger never
@@ -3606,8 +3614,8 @@ Methods:
   `"navigation"` (a key, a d-pad, an explicit call) shows it, and the first
   navigation verb after a tap brings it straight back onto the node the finger
   left it on. `focusVisible` is the Readable the presenter feeds to
-  `controller.setFocusPath(path, visible)`; hybrid devices need no branch and no
-  env fact. Consumers only call `setFocusOrigin` when they synthesize input.
+  `controller.setFocusPath(path, visible)`; hybrid input switches need no
+  consumer branching. Consumers only call `setFocusOrigin` when they synthesize input.
 - `presenter.tick(dt?)` — **one frame of presenter time**: steps the motion
   clock every surface and toast transition rides, then advances the toast
   schedule. The client binds it to `RunService.PreRender`; the headless suite
@@ -7384,7 +7392,10 @@ cannot be told apart from a dead button.
 `"longPress"` (touch, read off the normalized gesture layer), `"keyboard"` (the
 context key, or Shift+F10) and `"gamepad"` (ButtonY). Dropping `"activate"`
 without declaring both `"keyboard"` and `"gamepad"` is refused: it would leave
-the menu unreachable on two input classes.
+the menu unreachable on two input classes. Keyboard/gamepad context commands
+apply only while that menu’s trigger has focus, so several menus can share the
+same chord. For right-click-only pointer activation with accessible context
+commands, use `{ "secondary", "keyboard", "gamepad" }`.
 
 **Submenus** nest with no structural cap. Past one level `api.diagnostics()`
 reports the depth as advice rather than refusing; it also
@@ -7833,6 +7844,7 @@ checks, and `Controls.TabView` when choosing a page rather than a value.
 | `onChange(value)` | Accepted changes only; runs in the selection transaction and must not yield. |
 | `enabled` | Boolean/readable boolean, default true; applies to all choices. |
 | `axis` | Strip styles: `x` or `y`, optionally readable. Radio defaults to `y`; segmented defaults to `x`; inline is always vertical. |
+| `valueAlignment` | `start` or `end` (default), optionally readable. In labeled `menu` rows, `start` places the value immediately after a content-sized label; `end` fills the label lane and keeps the value trailing. Large-text stacked rows keep their full-width label. Other styles and unlabeled pickers are unaffected. |
 | `sizing` | `fill` or `hug`, optionally readable. A strip defaults to `fill`; a hugging horizontal strip can live in a ScrollView. A `menu` trigger without a title defaults to `hug` under a pointer (the pop-up button) and `fill` under touch. |
 | `textSize` | Optional type role, numeric size, or readable; defaults to the control type role. |
 | `iconOnly` | Strip styles; defaults false; requires icons on every option. Radio retains visible labels. |
@@ -7944,7 +7956,7 @@ label?, icon?, badge?, content }[]), placement? ("automatic" | "bottomBar" |
 "bottomBarCompact" | "topBar" | "sidebar"), indicator? ("automatic" | "underline" |
 "pill" | "none"), sizing? ("automatic" | "fill" | "hug"), iconOnly?, accessories? ({
 head?, foot?, trailing?, aboveBar? }), railWidth? (dim), textSize?, transition?,
-conditions?, env?, enabled?, onChange?, style? ("automatic" | "sidebarAdaptable" | "collapsible"), restoreFocus? }`.
+conditions?, env?, enabled?, onChange?, style? ("automatic" | "sidebarAdaptable" | "collapsible"), sidebarPreference?, restoreFocus? }`.
 
 The two-argument spelling `Facet.newTabView(Facet, core, spec)` is **deprecated** since
 0.10.0 (removal no earlier than 0.12.0): it still builds the identical
@@ -7991,12 +8003,25 @@ that only belongs in the rail — reads one answer instead of re-deriving the ru
 
 **Adaptable app navigation.** `style = "sidebarAdaptable"` opts into a shared
 sidebar/tab presentation and requires automatic placement. The default style is
-`"automatic"`, preserving ordinary game tabs. On roomy touch screens the initial
-bar offers a visible sidebar toggle; pointer windows initially show the sidebar.
-Distant screens show directly accessible top tab pills with no sidebar toggle,
-including when mouse/keyboard is active. Selecting a tab keeps navigation in its
+`"automatic"`, preserving ordinary game tabs. Roomy touch screens initially show
+top tabs; pointer windows initially show the sidebar. The control does not add a
+layout toggle button. `sidebarPreference = "automatic" | "sidebar" | "topBar"`
+(default `"automatic"`) selects the nearby roomy home. Pass a plain value or a
+Readable to bind an application-owned preference. Compact/short screens keep
+bottom navigation, distant screens keep top pills, and nested tabs keep their
+local top bar. Returning to a nearby roomy viewport reapplies the preference.
+Use this field only with `style = "sidebarAdaptable"`.
+
+An application that needs a visible switch adds a `Controls.Button` to its
+existing toolbar or settings surface and updates its preference signal. The
+Showcase toolbar demonstrates this for the active demo. Navigation accessories
+remain available for content that belongs beside the navigation itself; they are
+not required to expose this preference.
+Distant screens show directly accessible top tab pills, including with mouse input. Selecting a tab keeps navigation in its
 current home, whether or not the destination contains nested tabs.
-`expandSidebar()` and `collapseSidebar()` remain explicit commands. ButtonB while
+`expandSidebar()` and `collapseSidebar()` remain explicit commands, scoped to the
+current viewing distance. Changing a bound `sidebarPreference` clears an earlier
+command override. ButtonB while
 focus is in an explicitly expanded distant sidebar collapses it; page Back remains
 page-owned. Nearby compact/short screens retain bottom tabs. A nearby sidebar
 preference returns when space permits, but does not override distant-view policy.
@@ -8010,6 +8035,10 @@ screen is too short for an ordinary band, and there the chrome gives way before
 the content does. Nested TabViews keep their own top bar. This style defaults to pill indicators
 and preserves the normal lazy-build/eviction contract; `indicator` may override it.
 No destination content or hero imagery is invented.
+
+Use this style for peer destinations organizing a game, app, or demo browser;
+ordinary nested tabs switch pages inside one destination. See the
+[two-level navigation recipe](../guide/14-choosing-controls.md#two-level-navigation).
 
 **Nesting: an inner TabView never claims the app-level placement.** A page's own top
 tab bar can live inside a screen that is itself a tab of the app's bar. Because
@@ -9412,6 +9441,38 @@ environment untouched.
 | `fontFiles` | family → engine font file, for a package shipping its own faces |
 | `warn` | where a one-off warning goes |
 
+#### `client.environment_preview`
+
+`environment_preview.new(env) -> handle` adds reversible display and input
+previews to an existing environment. Bind the platform through
+`roblox_env.bind(handle.source)` so live facts continue updating behind overrides.
+The source is a write sink exposing `set(key, value)` and `batch(body)`.
+
+- `setProfile(value)`: `automatic`, `desktop`, `phone`, `tablet`, or `tv`.
+- `setOrientation(value)`: `portrait` or `landscape`; affects phone and tablet.
+- `setInput(value)`: `automatic`, `pointer`, `touch`, or `gamepad`.
+- Setters return false for an unknown value. Defaults are automatic profile,
+  portrait orientation, and automatic input.
+- `apply()` reapplies the chosen preview after a demo changes environment facts.
+- `dispose()` restores the latest platform facts. Disconnect the platform binding
+  first when tearing down the host.
+
+Phone and tablet bound the viewport to the existing device-profile dimensions,
+limited by the host window. Desktop and TV use the host window's dimensions.
+Rendering stays at 1:1 pixels with the normal native hit testing; a small window
+can therefore keep a tablet or desktop preview compact. Enlarge the window to
+inspect wider layouts. TV applies distant viewing, overscan and gamepad defaults;
+phone and tablet default to nearby touch, desktop to nearby mouse and keyboard.
+Automatic input uses the selected profile's defaults, or live input when the
+profile is also automatic. An explicit input choice persists across platform
+input events and profile changes. Input simulation changes capabilities and
+presentation; it does not synthesize physical input or a mobile software keyboard.
+Accessibility and application chrome remain owned by the host.
+
+The Showcase Settings display section uses this binding with standard Pickers.
+Changing previews re-solves the mounted demo through the existing environment,
+presenter and focus system. Previewing is a layout check, not physical-device evidence.
+
 #### `client.edit_preview`
 
 `edit_preview.start(Facet, opts) -> handle` — Studio Edit-mode preview: builds
@@ -10553,7 +10614,9 @@ insets, without the panel's corners/nameplate. This changes art, not input or fo
 ### `Controls.Alert`
 
 `Facet.Controls.Alert(core, spec) -> { blueprint, present, dismiss, dump, dispose }`
-composes a brief modal decision from existing primitives. It centers a card sized
+composes a brief modal decision from existing primitives. Its fade buffer hugs the
+card and reserves the theme’s shadow margin, keeping desktop text out of a full-screen
+composited texture. It centers a card sized
 to its content and capped by the theme. Actions take one of two forms, chosen
 from published facts, the platform alert convention: a **row** (hugging buttons,
 centered) or a **stack** (full-width buttons). The stack is used with more than
@@ -10799,6 +10862,7 @@ and gamepad. Reduced motion follows the environment.
 | Property | Meaning |
 |---|---|
 | `content` | Required blueprint for the expanded view. |
+| `dismissButton` | `"always"` (default) shows Collapse; `"automatic"` shows it during keyboard/gamepad navigation and lets pointer/touch users dismiss outside. |
 | `expanded` | Required owner-held boolean Signal; set false to collapse after a choice. |
 | `label` | Required static text or Readable text, including a selection-derived summary. |
 | `icon` | Optional static or Readable semantic icon name. |

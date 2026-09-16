@@ -2565,6 +2565,7 @@ describe("Table column disclosure (Step 8.5 LT-G2)", function()
 			plate that is already answering for the same label. Both facts are asserted
 			rather than one of them being arranged away. ]]
 		local _, adapter, pres, _tbl, _rows, _handle, _system = discloseWorld(true)
+		pres.focus.setFocusOrigin("navigation")
 		local CELL = "/S/Racers/Main/Body/Rows/[razz@0]/Row/Cells/Cell-name/Value"
 		-- FOCUS already answered for it, which is ADAPT-20 and is what makes the
 		-- ten-foot combination reachable at all

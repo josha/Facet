@@ -5,6 +5,7 @@ local surfaceEnv = require("../env/surface_env")
 local chromeSlots = require("../tokens/chrome_slots")
 local themePackage = require("../themes/package")
 local themeSnapshot = require("../themes/snapshot")
+local regionExpand = require("../region_expand")
 local collapsible = {}
 export type Spec = {
 	id: string?,
@@ -16,12 +17,28 @@ export type Spec = {
 	env: any?,
 	width: any?,
 	initialFocus: any?,
+	dismissButton: string?,
 	enabled: any?,
 }
-local KEYS =
-	guard.keySet({ "id", "label", "icon", "image", "content", "expanded", "env", "width", "initialFocus", "enabled" })
+local KEYS = guard.keySet({
+	"id",
+	"label",
+	"icon",
+	"image",
+	"content",
+	"expanded",
+	"env",
+	"width",
+	"initialFocus",
+	"enabled",
+	"dismissButton",
+})
 function collapsible.build(Facet, core, spec: Spec)
 	guard.assertKnownKeys("Controls.CollapsibleView", spec, KEYS, "spec")
+	assert(
+		spec.dismissButton == nil or spec.dismissButton == "always" or spec.dismissButton == "automatic",
+		"CollapsibleView.dismissButton must be always | automatic"
+	)
 	local UI = Facet.UI
 	local id = spec.id or "CollapsibleView"
 	assert(
@@ -60,6 +77,7 @@ function collapsible.build(Facet, core, spec: Spec)
 	local disposed = false
 	local triggerRect
 	local controller
+	local focusVisible
 	local function collapse()
 		spec.expanded:set(false)
 	end
@@ -98,52 +116,52 @@ function collapsible.build(Facet, core, spec: Spec)
 			max = maximum,
 		}
 	end))
-	local panel = Facet.contribution.attach(
-		UI.ZStack({
-			id = "Panel",
-			canvasGroup = true,
-			clipChildren = true,
-			surface = "raised",
-			width = panelWidth,
-			height = maxHeight,
-			children = {
-				UI.ZStack({
-					id = "Content",
-					canvasGroup = true,
-					width = UI.fill(),
-					height = maxHeight,
-					children = {
-						UI.ScrollView({
-							id = "Body",
-							axis = "y",
-							width = UI.fill(),
-							height = maxHeight,
-							padding = "m",
-							gap = "s",
-							children = {
-								spec.content,
-								UI.Button({
-									id = "Collapse",
-									label = "Collapse",
-									compactLabel = { icon = "chevron.up", prefer = true },
-									disclose = true,
-									width = UI.fill(),
-									height = { type = "minMax", min = "targetSizes.minimum" },
-									onActivate = collapse,
-								}),
-							},
-						}),
-					},
-				}),
-			},
-		}),
-		{
-			handleCancel = function()
-				collapse()
-				return true
-			end,
-		}
-	)
+	local function panel()
+		return Facet.contribution.attach(
+			UI.ZStack({
+				id = "Panel",
+				canvasGroup = true,
+				clipChildren = true,
+				surface = "raised",
+				width = panelWidth,
+				height = maxHeight,
+				children = {
+					UI.ZStack({
+						id = "Content",
+						-- The panel owns the single compositing buffer for expansion.
+						width = UI.fill(),
+						height = maxHeight,
+						children = {
+							UI.ScrollView({
+								id = "Body",
+								axis = "y",
+								width = UI.fill(),
+								height = maxHeight,
+								padding = "m",
+								gap = "s",
+								children = {
+									spec.content,
+									regionExpand.collapseButton(
+										UI,
+										"Collapse",
+										collapse,
+										spec.dismissButton,
+										focusVisible
+									),
+								},
+							}),
+						},
+					}),
+				},
+			}),
+			{
+				handleCancel = function()
+					collapse()
+					return true
+				end,
+			}
+		)
+	end
 	local function sync()
 		if not spec.expanded:get() then
 			closeSurface()
@@ -156,7 +174,7 @@ function collapsible.build(Facet, core, spec: Spec)
 		if source then
 			triggerRect = table.clone(source)
 		end
-		local nextHandle = presentAnchored(panel, {
+		local nextHandle = presentAnchored(panel(), {
 			id = "Expanded-" .. rootPath:gsub(".", function(c)
 				return string.format("%02X", string.byte(c))
 			end),
@@ -170,7 +188,6 @@ function collapsible.build(Facet, core, spec: Spec)
 				enter = "transform",
 				exit = "transform",
 				fromRect = triggerRect,
-				content = "Content",
 				plate = "fades",
 				class = "dismiss",
 				exitClass = "dismiss",
@@ -270,6 +287,9 @@ function collapsible.build(Facet, core, spec: Spec)
 			"pill"
 		),
 		{
+			bindFocusGraph = function(graph)
+				focusVisible = graph.focusVisible
+			end,
 			bindController = function(c)
 				controller = c
 			end,

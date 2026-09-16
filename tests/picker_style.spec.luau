@@ -542,3 +542,41 @@ describe("Picker menu: the chosen row is readable on its own selection fill", fu
 		expect(`themes measured: {measured >= #SHIPPED}`).toBe("themes measured: true")
 	end)
 end)
+
+describe("Picker value alignment", function()
+	it("moves a labeled menu value next to its label without remounting the picker", function()
+		local w = world.new({ viewport = { x = 0, y = 0, w = 1000, h = 700 }, preferredInput = "KeyboardAndMouse" })
+		local alignment = w.core:signal("end")
+		local p = Facet.Controls.Picker(w.core, {
+			id = "P",
+			label = "Difficulty",
+			style = "menu",
+			valueAlignment = alignment,
+			options = THREE,
+			selected = w.core:signal("normal"),
+		})
+		w.present(UI.Screen({ id = "S", children = { p.blueprint } }))
+		w.settle(3)
+		local label = suffixNode(w, "/Row/Label")
+		local trigger = suffixNode(w, "/Row/Trigger")
+		local trailingX = trigger.rect.x
+		alignment:set("start")
+		w.settle(3)
+		expect(suffixNode(w, "/Row/Trigger")).toBe(trigger)
+		expect(trigger.rect.x < trailingX).toBe(true)
+		expect(trigger.rect.x - (label.rect.x + label.rect.w) < 32).toBe(true)
+		alignment:set("end")
+		w.settle(3)
+		expect(trigger.rect.x).toBe(trailingX)
+		alignment:set("start")
+		w.env:batch(function()
+			w.env:set("viewportRect", { x = 0, y = 0, w = 320, h = 640 })
+			w.env:set("preferredTextOffset", 10)
+		end)
+		w.settle(3)
+		expect(trigger.rect.y >= label.rect.y + label.rect.h).toBe(true)
+		expect(w.core:lastError()).toBe(nil)
+		w.pres.dismiss(w.handle)
+		p.dispose()
+	end)
+end)

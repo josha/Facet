@@ -86,16 +86,10 @@ local function world(view: { w: number, h: number }, opts: any?)
 end
 
 describe("scenario 'tab_view': the surface D5 shipped without", function()
-	it("is registered in BOTH places a player reaches it through, and names a root screen", function()
-		local listed: any = nil
-		for _, demo in demo_picker.list() do
-			if demo.id == "tab-view" then
-				listed = demo
-			end
-		end
-		expect(listed ~= nil).toBe(true)
-		expect(listed.kind).toBe("fixture")
-		expect(listed.module).toBe("tab_view")
+	it("keeps a standalone diagnostic while All controls demonstrates nested tabs", function()
+		local catalog = require("../examples/gallery/scenarios/all_controls")
+		expect(demo_picker.find("all-controls").module).toBe("all_controls")
+		expect(#catalog.groups > 1 and #catalog.groups[1].tabs > 1).toBe(true)
 		local w = world(PHONE)
 		expect(w.adapter.node("/TabViewDemo") ~= nil).toBe(true)
 		expect(w.core:lastError()).toBeNil()

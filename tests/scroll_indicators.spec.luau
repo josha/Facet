@@ -75,6 +75,31 @@ describe("scroll indicator policy: derivation is input facts, never a device", f
 end)
 
 describe("scroll indicator policy: the presenter drives the adapter seam", function()
+	it("reflows an unchanged page when the input policy changes its scrollbar reserve", function()
+		local _, env, adapter, presenter = world()
+		local UI = Facet.UI
+		local handle = presenter.present(UI.Screen({
+			id = "PolicyPage",
+			children = {
+				UI.ScrollView({
+					id = "Scroll",
+					width = UI.fill(),
+					height = UI.fill(),
+					children = { UI.Box({ id = "Content", width = UI.fill(), height = { type = "fixed", px = 2000 } }) },
+				}),
+			},
+		}))
+		for _, input in { "Touch", "MouseKeyboard", "Gamepad", "MouseKeyboard" } do
+			env:set("capabilities", { touch = true, mouse = true, keyboard = true, gamepad = true })
+			env:set("preferredInput", input)
+			presenter.refresh()
+			local content = adapter.node("/PolicyPage/Scroll/Content").rect
+			local window = adapter.windowRectOf("/PolicyPage/Scroll")
+			expect(content.w).toBe(window.w)
+		end
+		presenter.dismiss(handle)
+	end)
+
 	it("boot applies the session's policy before anything mounts", function()
 		local _, _, adapter = world({ touch = true, mouse = false, keyboard = false, gamepad = false }, "Touch")
 		expect((adapter :: any).scrollIndicatorPolicy).toBe("auto")

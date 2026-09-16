@@ -23,16 +23,43 @@ and [API reference](../reference/api.md) define the available public surfaces.
 | Navigate destinations or complete a multi-step form | `Controls.NavigationStack` and explicit destinations | A command hierarchy is not a substitute for a page flow. |
 | Confirm a consequential action | `Controls.Alert` | A fast gesture must not bypass the application's confirmation requirement. |
 
+For a labeled Picker in a settings form, `valueAlignment = "start"` places its
+menu value close to the label. The default `"end"` keeps values trailing. This
+changes form alignment without replacing Picker's adaptive presentation.
+
 A useful starting range for radial commands is three to eight familiar actions
 per level, with short labels or recognizable icons. This is design guidance, not
 an API limit. Prefer a shallow hierarchy. If a task is dominated by reading,
 comparison, or frequent traversal of deep branches, choose a linear surface.
 
+## Compose in the existing screen
+
+Inspect the host's toolbar, settings, navigation, and shared builders before
+adding UI. Choose both the existing Facet control and where the action belongs:
+use `Controls.Button` in the existing toolbar for a command, Picker for a value,
+and a documented API preference for presentation policy. A supported accessory
+slot is a composition option, not a reason to create another piece of chrome.
+
+For example, the Showcase's layout button belongs in `showcase_chrome` beside
+the demo selector. It updates the active demo's `TabView.sidebarPreference`;
+TabView itself adds no demo button. Other demos contribute no layout action.
+
+Before introducing a control, wrapper, or alternative presentation, state the
+specific requirement the closest existing control and host composition cannot
+express. Follow the framework extension path only for that missing capability.
+Verify first-load visibility and non-overlap, native pointer hit testing, and
+directional focus both into and out of moved actions. A successful direct call
+to an activation handler does not prove a player can reach the button.
+
 ## Adapt the presentation to the task
 
 Use `TabView.style = "sidebarAdaptable"` for peer destinations in a lobby,
-collection browser, or management screen. Tablets start with tabs and a visible
-sidebar toggle as an optional preference; mouse windows start with a sidebar.
+collection browser, or management screen. Roomy touch screens start with top tabs;
+mouse windows start with a sidebar. Bind `sidebarPreference` (`automatic`,
+`sidebar`, or `topBar`) when the application has a nearby layout preference.
+TabView adds no toggle button. The Showcase places a `Controls.Button` in its
+existing toolbar and binds it to the active demo's preference. Use that host
+composition for demo actions; do not create extra navigation chrome for them.
 Distant screens show top tab pills, independently of pointer or gamepad input.
 Switching destinations does not change the navigation home. Nearby compact
 screens retain bottom tabs. TabView owns the sidebar-to-page gap; pages own
@@ -41,10 +68,57 @@ Nearby top/sidebar switches retain the navigation controls and scroll host.
 For custom responsive layouts, bind `AdaptiveStack.axis` and `ScrollView.axis`
 to the layout condition instead of rebuilding identical content in two branches.
 Use `When` for genuinely different content or interaction structure.
-Keep ordinary TabView styling for short in-game categories and nested tabs. Use
+Keep ordinary TabView styling for local page tabs and compact mode/category
+strips within one task. Top-level destinations in a game or demo browser still
+use adaptable navigation. Use
 NavigationStack for drill-down and Back; use adaptive stacks or Composition when selection
 and its detail should remain visible together. These layouts describe different
 tasks and should not be interchanged merely to copy a streaming-app screenshot.
+
+### Two-level navigation
+
+Choose by role, not by labels such as "app", "game", or "demo". In the Showcase,
+All controls' Inputs, Actions, Indicators and Navigation are peer destinations
+organizing the whole screen. They use `Controls.TabView` with
+`style = "sidebarAdaptable"` and automatic placement. The example choices inside
+each destination are ordinary nested TabViews. Collections and Motion and layout
+use the same structure.
+
+```lua
+local categories = Facet.Controls.TabView(core, {
+    env = env,
+    style = "sidebarAdaptable",
+    tabs = {
+        { id = "inputs", label = "Inputs", content = function(tabScope)
+            local pages = Facet.Controls.TabView(core, {
+                env = env,
+                tabs = inputPages,
+            })
+            tabScope:own(pages)
+            return pages.blueprint
+        end },
+        -- Other peer destinations use the same content factory pattern.
+    },
+})
+screenScope:own(categories)
+```
+
+Leave placement automatic at both levels. Building the inner control inside the
+outer content factory lets Facet resolve it to `topBar` through its nesting rule.
+The outer navigation can use a sidebar, top pills or compact bottom tabs according
+to space, input and viewing distance. Forcing both levels to `topBar` discards
+that adaptation. A segmented Picker is appropriate for a value or mode inside a
+page; TabView owns destination pages and their lifetime.
+
+Verify the actual placement and page continuity across pointer, roomy touch,
+compact touch, nearby gamepad and distant viewing. Check D-pad reachability
+between levels, the nearest eligible shoulder handler, Back, and focus restoration.
+Changing the navigation home must preserve the active page; changing destinations
+still follows TabView's lazy eviction rules. See the
+[TabView contract](../reference/api.md#newtabview) and
+[shared demo composition](../../examples/gallery/scenarios/demo_tabs.luau).
+
+### Decisions and page composition
 
 Use `Controls.Alert` for a brief confirmation or acknowledgement with one to three
 choices. Supply the title, message and semantic action roles, then call
@@ -284,8 +358,14 @@ Use `Controls.CollapsibleView` when a compact summary should expand into arbitra
 content. Its plate grows from the compact position while content fades in at its
 final size; collapsing reverses that motion. It supplies one collapse affordance
 and gamepad Back, so avoid adding a second Done button unless it commits a draft.
+Set `dismissButton = "automatic"` to omit the explicit dismissal button during
+pointer/touch use while preserving a keyboard/gamepad exit; `"always"` keeps it
+visible. An adaptive `UI.Region` already owns disclosure of its richest form: keep
+that automatic recovery instead of replacing its compact form with another control.
+It shares overlap placement and automatic dismissal behavior with CollapsibleView;
+its `"always"` preference retains the offset corner Close.
 Bind its label and icon to the selected value, or keep them static. Bind
 `expanded` to close on the choice that completes the task. For sibling destinations,
 `Controls.TabView` with `style = "collapsible"` supplies that wiring; the demo
-**Collapsible views** shows both forms. A NavigationStack still represents drill-down
+**All controls → Navigation → Disclosure** shows both forms. A NavigationStack still represents drill-down
 and Back, so keep that hierarchy visible alongside a destination chooser.

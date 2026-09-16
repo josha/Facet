@@ -309,6 +309,11 @@ function alert.build(Facet: any, core: any, spec: Spec)
 		end
 		return { top = side("top"), right = side("right"), bottom = side("bottom"), left = side("left") }
 	end
+	local function outerMargin(metrics: any): number
+		local margin = themeSnapshot.resolveNumber(metrics, "m") or 0
+		local bleed = if type(metrics) == "table" then metrics.chromeBleed or 0 else 0
+		return math.max(margin, bleed)
+	end
 	--[[ the width the ACTIONS are laid out inside: the card's box less what both
 		halves of its frame spend on each side. The card is `hug` capped at
 		`maxWidth`, so its widest possible box is that cap or the screen it sits in,
@@ -321,8 +326,8 @@ function alert.build(Facet: any, core: any, spec: Spec)
 		local insets = if type(chrome) == "table" then (chrome :: any).insets else nil
 		local screenW = (if type(vp) == "table" and type(vp.w) == "number" then vp.w else 0)
 			- (if type(insets) == "table" then (insets.left or 0) + (insets.right or 0) else 0)
-		-- the Screen this control mounts declares `padding = "m"` (see `blueprint`)
-		local screenPad = themeSnapshot.resolveNumber(metrics, "m") or 0
+		-- The fade group keeps the same themed outer margin as the card had.
+		local screenPad = outerMargin(metrics)
 		--[[ AN UNRESOLVABLE CAP IS NOT AN INFINITE ONE. `math.huge` was the
 			first fallback and it reads as "this card may be as wide as it likes",
 			which is the direction that keeps a row nothing can hold. A card can never
@@ -1030,16 +1035,22 @@ function alert.build(Facet: any, core: any, spec: Spec)
 	local blueprint = Facet.contribution.attach(
 		UI.Screen({
 			id = spec.id or "Alert",
-			padding = "m",
+			align = "center",
+			distribute = "center",
 			children = {
-				-- the FADE GROUP the materialize transition needs (picker_menu's own
-				-- popover shape): the whole modal fades/scales in as one plate
-				-- rather than piece by piece
+				-- Bound the composited texture to the card. A full-screen CanvasGroup
+				-- downsamples small desktop text along with the entire viewport.
+				-- Keep a themed bleed margin so the card's shadow is not clipped.
 				UI.ZStack({
 					id = "Center",
 					canvasGroup = true,
-					width = UI.fill(),
-					height = UI.fill(),
+					width = UI.hug(),
+					height = UI.hug(),
+					alignH = "center",
+					alignV = "center",
+					padding = scope:own(core:memo(function(use)
+						return outerMargin(use(themeMetrics))
+					end)),
 					children = { content },
 				}),
 			},

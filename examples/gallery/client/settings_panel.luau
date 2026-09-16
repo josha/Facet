@@ -55,6 +55,20 @@ settings_panel.MODES = table.freeze({ "full", "reduced" })
 	Everything here is `policy = "none"` text: it must fit, wrapping where it has to,
 	and never clip. ]]
 settings_panel.COPY = table.freeze({
+	preview = "Preview as",
+	automatic = "Automatic",
+	desktop = "Desktop",
+	phone = "Phone",
+	tablet = "Tablet",
+	tv = "TV / 10-foot",
+	orientation = "Orientation",
+	portrait = "Portrait",
+	landscape = "Landscape",
+	input = "Input",
+	pointer = "Mouse & keyboard",
+	touch = "Touch",
+	gamepad = "Gamepad",
+	previewNote = "Phone and tablet layouts fit within this window. Automatic input follows the preview device, or your current device in Automatic preview.",
 	viewingDistance = "Viewing distance",
 	automaticDistance = "Automatic",
 	nearDistance = "Nearby screen",
@@ -107,6 +121,7 @@ export type MountOpts = {
 	-- or nil when no packages replicated. Settings composes them rather than
 	-- rebuilding them: one card, one scroller, one place a setting lives.
 	themeSections: { any }?,
+	preview: any?, -- client.environment_preview handle, supplied by the live host
 	-- WHICH BUILD IS THIS. Passed in rather than read here, so this module stays
 	-- engine-free like every other example surface; `init.client.luau` reads the
 	-- Workspace attribute the place builder stamped.
@@ -222,13 +237,22 @@ function settings_panel.mount(opts: MountOpts): any
 		},
 	})
 
+	local previewProfile = scope:own(core:signal("automatic"))
+	local previewOrientation = scope:own(core:signal("portrait"))
+	local previewInput = scope:own(core:signal("automatic"))
 	local distanceSetting = scope:own(core:signal(env:get("viewingDistance"):get()))
 	local function setDistance(value: string): boolean
 		if value ~= "automatic" and value ~= "near" and value ~= "ten-foot" then
 			return false
 		end
 		distanceSetting:set(value)
-		env:set("viewingDistance", value)
+		if opts.preview ~= nil then
+			opts.preview.setProfile("automatic")
+			previewProfile:set("automatic")
+			opts.preview.source:set("viewingDistance", value)
+		else
+			env:set("viewingDistance", value)
+		end
 		return true
 	end
 	local distancePicker = scope:own(Facet.Controls.Picker(core, {
@@ -263,6 +287,89 @@ function settings_panel.mount(opts: MountOpts): any
 		}),
 		motionSection,
 	}
+	local function setPreview(value: string): boolean
+		if opts.preview == nil or not opts.preview.setProfile(value) then
+			return false
+		end
+		previewProfile:set(value)
+		-- The profile owns distance; clear the independent legacy override.
+		distanceSetting:set("automatic")
+		return true
+	end
+	local function setOrientation(value: string): boolean
+		if opts.preview == nil or not opts.preview.setOrientation(value) then
+			return false
+		end
+		previewOrientation:set(value)
+		return true
+	end
+	local function setInput(value: string): boolean
+		if opts.preview == nil or not opts.preview.setInput(value) then
+			return false
+		end
+		previewInput:set(value)
+		return true
+	end
+	if opts.preview ~= nil then
+		local function picker(id, label, selected, values, onChange, enabled)
+			local options = {}
+			for _, value in values do
+				table.insert(options, { value = value, label = COPY[value] })
+			end
+			return scope:own(Facet.Controls.Picker(core, {
+				id = id,
+				label = label,
+				valueAlignment = "start",
+				env = env,
+				selected = selected,
+				options = options,
+				onChange = onChange,
+				enabled = enabled,
+			})).blueprint
+		end
+		-- Display presets replace the distance-only surface in the showcase.
+		sections[1] = UI.VStack({
+			id = "Display",
+			width = UI.fill(),
+			gap = "s",
+			children = {
+				picker(
+					"Preview",
+					COPY.preview,
+					previewProfile,
+					{ "automatic", "desktop", "phone", "tablet", "tv" },
+					setPreview,
+					true
+				),
+				picker(
+					"Orientation",
+					COPY.orientation,
+					previewOrientation,
+					{ "portrait", "landscape" },
+					setOrientation,
+					scope:own(core:memo(function(use)
+						local value = use(previewProfile)
+						return value == "phone" or value == "tablet"
+					end))
+				),
+				picker(
+					"Input",
+					COPY.input,
+					previewInput,
+					{ "automatic", "pointer", "touch", "gamepad" },
+					setInput,
+					true
+				),
+				UI.Text({
+					id = "Note",
+					text = COPY.previewNote,
+					width = UI.fill(),
+					textSize = "caption",
+					role = "secondary",
+				}),
+			},
+		})
+	end
 	if opts.buildStamp ~= nil and opts.buildStamp ~= "" then
 		table.insert(
 			sections,
@@ -302,6 +409,12 @@ function settings_panel.mount(opts: MountOpts): any
 
 	return {
 		sections = sections,
+		previewProfile = previewProfile,
+		previewOrientation = previewOrientation,
+		previewInput = previewInput,
+		setPreview = setPreview,
+		setOrientation = setOrientation,
+		setInput = setInput,
 		viewingDistance = distanceSetting,
 		setViewingDistance = setDistance,
 		-- the live fact's mirror (what the picker shows)
@@ -313,7 +426,12 @@ function settings_panel.mount(opts: MountOpts): any
 		-- a setting rather than a demo's side effect.
 		apply = function()
 			applyMode(setting:get())
-			env:set("viewingDistance", distanceSetting:get())
+			if opts.preview ~= nil then
+				opts.preview.apply()
+			end
+			if opts.preview == nil or distanceSetting:get() ~= "automatic" then
+				env:set("viewingDistance", distanceSetting:get())
+			end
 		end,
 		-- the scriptable route a pointer-free drive takes, and the SAME call the
 		-- picker press makes rather than a parallel one that can rot on its own

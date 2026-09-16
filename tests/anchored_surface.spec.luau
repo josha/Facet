@@ -1028,6 +1028,7 @@ describe("D1: the hand-rolled precedents now share one solver", function()
 			the space above went above anyway — the "worse place" row_actions'
 			ruling 4 exists to forbid. It now asks the shared solver. ]]
 		local _, env, adapter, _, pres = makeWorld(390, 844)
+		pres.focus.setFocusOrigin("navigation")
 		env:set("coreSafeInsets", { top = 40, bottom = 34, left = 0, right = 0 })
 		pres.present(UI.Screen({
 			id = "Roster",

@@ -264,6 +264,7 @@ describe("the public SHAPE a breaking change moves", function()
 		["Grip.focusable"] = "prose:(Grips are unfocusable by default)",
 		["HStack.distribute"] = "`start`",
 		["Image.scaleMode"] = "prose: aspect ratio, the engine default)",
+		["Region.dismissButton"] = "always",
 		["Region.expand"] = "— the framework presents it in a transient plate at the region's anchor",
 		["Region.mayDrop"] = "false",
 		["Region.sizing"] = "hug",

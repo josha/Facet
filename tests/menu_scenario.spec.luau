@@ -8,14 +8,8 @@
 	presentation idioms are reachable in ONE session on ONE machine; and that the
 	card whose every item is unavailable still opens.
 
-	WHY THE SPLIT ACROSS FIVE CARDS IS THE LOAD-BEARING CASE. `newMenu` refuses a
-	`triggers` set that drops `activate` unless it declares BOTH chords, so a
-	fixture that put all five routes on one trigger could not tell a tester which
-	one worked — and one that put the chords on two cards would open two menus on
-	one press, because equal-priority contexts do not sink each other. The five
-	sets below are the smallest partition that isolates every route and leaves
-	exactly one owner for the global chord, and that is asserted rather than
-	described: the union is the five, and the chord count is one.
+	The secondary card rejects ordinary clicks. Context chords are shared but
+	apply only to the focused trigger, so one chord opens one card.
 
 	AND ONE THING THIS FILE DOES NOT CLAIM. It cannot prove that the readout names
 	the trigger that fired, because the framework does not report one — `onOpen`
@@ -93,16 +87,10 @@ local function world(view: { w: number, h: number })
 end
 
 describe("scenario 'menu': the surface D2 shipped without", function()
-	it("is registered in BOTH places a player reaches it through, and names a root screen", function()
-		local listed: any = nil
-		for _, demo in demo_picker.list() do
-			if demo.id == "menu" then
-				listed = demo
-			end
-		end
-		expect(listed ~= nil).toBe(true)
-		expect(listed.kind).toBe("fixture")
-		expect(listed.module).toBe("menu")
+	it("is reachable inside All controls and keeps its standalone diagnostic screen", function()
+		local catalog = require("../examples/gallery/scenarios/all_controls")
+		expect(demo_picker.find("all-controls").module).toBe("all_controls")
+		expect(catalog.groups[2].tabs[2].scenario).toBe(module)
 		local w = world(PHONE)
 		-- the id the catalogue sweep looks for, read off the MOUNTED tree rather
 		-- than off the blueprint: a demo whose root never materializes is exactly
@@ -111,39 +99,37 @@ describe("scenario 'menu': the surface D2 shipped without", function()
 		expect(w.core:lastError()).toBeNil()
 	end)
 
-	--[[ THE PARTITION, and it is the fixture's whole shape rather than a layout
-		choice. `activate` may only be dropped by a card that declares BOTH chords,
-		so the five routes cannot be five one-trigger cards — and two cards owning
-		the chord would both open on one press, since `deviceKey` only breaks on a
-		STRICTLY lower priority (`src/input/actions.luau`). ]]
-	it("the five routes are partitioned across five cards, with exactly ONE owner of the chords", function()
-		local w = world(PHONE)
-		local seen: { [string]: number } = {}
-		local chordOwners = 0
-		local dumps = w.built.report().cards
-		expect(#dumps).toBe(5)
-		for _, d in dumps do
-			local keyboard, gamepad = false, false
-			for _, name in d.triggers do
-				seen[name] = (seen[name] or 0) + 1
-				keyboard = keyboard or name == "keyboard"
-				gamepad = gamepad or name == "gamepad"
+	it(
+		"the five routes are partitioned across five cards, with focused chord routes for context and secondary cards",
+		function()
+			local w = world(PHONE)
+			local seen: { [string]: number } = {}
+			local chordOwners = 0
+			local dumps = w.built.report().cards
+			expect(#dumps).toBe(5)
+			for _, d in dumps do
+				local keyboard, gamepad = false, false
+				for _, name in d.triggers do
+					seen[name] = (seen[name] or 0) + 1
+					keyboard = keyboard or name == "keyboard"
+					gamepad = gamepad or name == "gamepad"
+				end
+				if keyboard or gamepad then
+					chordOwners += 1
+					-- the authoring rule itself: a chord card carries both, never one
+					expect(`{d.id}: keyboard {keyboard} gamepad {gamepad}`).toBe(`{d.id}: keyboard true gamepad true`)
+				end
 			end
-			if keyboard or gamepad then
-				chordOwners += 1
-				-- the authoring rule itself: a chord card carries both, never one
-				expect(`{d.id}: keyboard {keyboard} gamepad {gamepad}`).toBe(`{d.id}: keyboard true gamepad true`)
+			local missing: { string } = {}
+			for _, name in { "activate", "secondary", "longPress", "keyboard", "gamepad" } do
+				if (seen[name] or 0) < 1 then
+					table.insert(missing, name)
+				end
 			end
+			expect(`routes no card offers: {table.concat(missing, ",")}`).toBe("routes no card offers: ")
+			expect(chordOwners).toBe(2)
 		end
-		local missing: { string } = {}
-		for _, name in { "activate", "secondary", "longPress", "keyboard", "gamepad" } do
-			if (seen[name] or 0) < 1 then
-				table.insert(missing, name)
-			end
-		end
-		expect(`routes no card offers: {table.concat(missing, ",")}`).toBe("routes no card offers: ")
-		expect(chordOwners).toBe(1)
-	end)
+	)
 
 	it("every card's trigger is a focusable Button at the 44px floor, in document order", function()
 		local w = world(PHONE)
@@ -226,11 +212,14 @@ describe("scenario 'menu': each route opens ITS OWN card, through the real seam"
 
 	it("pointer secondary — a right-click, through the adapter's own MouseButton2 seam", function()
 		local w = world(DESKTOP)
+		w.adapter.tap(TRIGGER.Secondary)
+		w.settle()
+		expect(w.openCount()).toBe(0)
 		w.adapter.driveSecondaryActivate(TRIGGER.Secondary)
 		w.settle()
 		expect(w.openCount()).toBe(1)
 		expect(w.built.report().cards[3].open).toBe(true)
-		expect(string.find(w.built.report().lastOpen, "secondary") ~= nil).toBe(true)
+		expect(string.find(w.built.report().lastOpen, "Right click") ~= nil).toBe(true)
 	end)
 
 	it("touch long-press — the NORMALIZED gesture, at `began`, not at the release", function()
